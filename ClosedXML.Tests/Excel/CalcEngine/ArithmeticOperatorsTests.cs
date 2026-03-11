@@ -125,7 +125,11 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("A1^4", 0.0)]
         public void Exponentiation_CanWorkWithScalars(string formula, object expectedValue)
         {
-            Assert.That(Evaluate(formula), Is.EqualTo(expectedValue).Within(XLHelper.Epsilon));
+            var result = Evaluate(formula);
+            if (expectedValue is double or int)
+                Assert.That((double)result, Is.EqualTo(Convert.ToDouble(expectedValue)).Within(XLHelper.Epsilon));
+            else
+                Assert.That(result, Is.EqualTo(expectedValue));
         }
 
         #endregion
@@ -148,7 +152,11 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("A1*10", 0.0)]
         public void Multiplication_CanWorkWithScalars(string formula, object expectedValue)
         {
-            Assert.That(Evaluate(formula), Is.EqualTo(expectedValue).Within(XLHelper.Epsilon));
+            var result = Evaluate(formula);
+            if (expectedValue is double or int)
+                Assert.That((double)result, Is.EqualTo(Convert.ToDouble(expectedValue)).Within(XLHelper.Epsilon));
+            else
+                Assert.That(result, Is.EqualTo(expectedValue));
         }
 
         #endregion

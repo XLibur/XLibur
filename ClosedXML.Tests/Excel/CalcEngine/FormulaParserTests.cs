@@ -184,7 +184,11 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("=PMT(0,1,1000,,1)", -1000)]
         public void Empty_arguments_are_passed_to_function(string formula, object expectedValue)
         {
-            Assert.That(XLWorkbook.EvaluateExpr(formula), Is.EqualTo(expectedValue).Within(XLHelper.Epsilon));
+            var result = XLWorkbook.EvaluateExpr(formula);
+            if (expectedValue is double or int)
+                Assert.That((double)result, Is.EqualTo(Convert.ToDouble(expectedValue)).Within(XLHelper.Epsilon));
+            else
+                Assert.That(result, Is.EqualTo(expectedValue));
         }
 
         #endregion
@@ -380,7 +384,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         {
             var calcEngine = new XLCalcEngine(CultureInfo.InvariantCulture);
             var ex = Assert.Throws<ExpressionParseException>(() => calcEngine.Parse("{1;2,3}"))!;
-            StringAssert.Contains("Rows of an array don't have same size.", ex.Message);
+            Assert.That(ex.Message, Does.Contain("Rows of an array don't have same size."));
         }
 
         [Test]
@@ -389,7 +393,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             // XLParser allows @ for number through 'PrefixOp + Number'
             var calcEngine = new XLCalcEngine(CultureInfo.InvariantCulture);
             var ex = Assert.Throws<ExpressionParseException>(() => calcEngine.Parse("{@1}"))!;
-            StringAssert.Contains("Unexpected token INTERSECT.", ex.Message);
+            Assert.That(ex.Message, Does.Contain("Unexpected token INTERSECT."));
         }
 
         [TestCaseSource(nameof(ArrayCases))]
