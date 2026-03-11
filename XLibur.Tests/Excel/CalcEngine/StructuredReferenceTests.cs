@@ -182,7 +182,7 @@ internal class StructuredReferenceTests
             dt.Rows.Add(row);
         }
 
-        var table = ws.Cell(origin).InsertTable(dt, "TableName");
+        var table = ws.Cell(origin).InsertTable(dt, "TableName")!;
         table.SetShowTotalsRow(true);
         return table;
     }
