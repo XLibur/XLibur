@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using XLibur.Utils;
+﻿using ClosedXML.Utils;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml;
@@ -184,8 +182,7 @@ internal class PivotTableCacheDefinitionPartWriter
             // So if there are any entries, it would be from previous pivot tables
             // with an identical source range.
             // When pivot sources get its refactoring, this will not be necessary
-            var cacheField = pivotCacheDefinition
-                .CacheFields
+            var cacheField = cacheFields
                 .Elements<CacheField>()
                 .FirstOrDefault(f => f.Name == cacheFieldName);
 
@@ -198,6 +195,7 @@ internal class PivotTableCacheDefinitionPartWriter
                 };
                 cacheFields.AppendChild(cacheField);
             }
+            cacheField.SharedItems ??= new SharedItems();
             var sharedItems = cacheField.SharedItems;
 
             var ptfi = new PivotTableFieldInfo

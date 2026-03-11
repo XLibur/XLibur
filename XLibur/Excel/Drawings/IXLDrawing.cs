@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace ClosedXML.Excel;
 
 public enum XLDrawingAnchor { MoveAndSizeWithCells, MoveWithCells, Absolute }

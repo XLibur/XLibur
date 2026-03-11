@@ -1,6 +1,4 @@
-#nullable disable
-
-namespace XLibur.Excel.Drawings;
+namespace ClosedXML.Excel.Drawings;
 
 public enum XLMarkerPosition
 {

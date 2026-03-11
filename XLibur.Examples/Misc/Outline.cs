@@ -5,40 +5,6 @@ namespace XLibur.Examples.Misc;
 
 public class Outline : IXLExample
 {
-    #region Variables
-
-    // Public
-
-    // Private
-
-
-    #endregion
-
-    #region Properties
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Events
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var wb = new XLWorkbook();
@@ -57,7 +23,7 @@ public class Outline : IXLExample
         ws.Rows(1, 2).Ungroup(); // Ungroup rows 1-2 from their last outline
 
         // You can also Collapse/Expand specific outline levels
-        // 
+        //
         // ws.CollapseRows(Int32 outlineLevel)
         // ws.CollapseColumns(Int32 outlineLevel)
         //
@@ -65,7 +31,7 @@ public class Outline : IXLExample
         // ws.ExpandColumns(Int32 outlineLevel)
 
         // And you can also Collapse/Expand ALL outline levels in one shot
-        // 
+        //
         // ws.CollapseRows()
         // ws.CollapseColumns()
         //
@@ -74,11 +40,4 @@ public class Outline : IXLExample
 
         wb.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

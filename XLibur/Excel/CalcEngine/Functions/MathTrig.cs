@@ -561,7 +561,7 @@ internal static class MathTrig
         if (value.TryPickSingleOrMultiValue(out var scalar, out var array, ctx))
             array = new ScalarArray(scalar, 1, 1);
 
-        var rows = array.Height;
+        var rows = array!.Height;
         var cols = array.Width;
         var arr = new double[rows, cols];
 

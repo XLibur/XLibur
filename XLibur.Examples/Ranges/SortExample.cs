@@ -13,7 +13,7 @@ public class SortExample : IXLExample
         var wsTable = wb.Worksheets.Add("Table");
         AddTestTable(wsTable);
         var header = wsTable.Row(1).InsertRowsAbove(1).First();
-        for (int co = 1; co <= wsTable.LastColumnUsed().ColumnNumber(); co++)
+        for (var co = 1; co <= wsTable.LastColumnUsed().ColumnNumber(); co++)
         {
             header.Cell(co).Value = "Column" + co.ToString();
         }
@@ -62,7 +62,7 @@ public class SortExample : IXLExample
             .SetValue(".Sort() = Sort range using the parameters defined in SortColumns").Style.Font.SetBold();
         #endregion
 
-        #region Sort a range 
+        #region Sort a range
         var wsComplex1 = wb.Worksheets.Add("Complex 1");
         AddTestTable(wsComplex1);
         var rangeComplex1 = wsComplex1.RangeUsed();

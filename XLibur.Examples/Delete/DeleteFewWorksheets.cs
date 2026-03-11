@@ -7,10 +7,10 @@ public class DeleteFewWorksheets : IXLExample
 {
     public void Create(string filePath)
     {
-        string tempFile = ExampleHelper.GetTempFilePath(filePath);
+        var tempFile = ExampleHelper.GetTempFilePath(filePath);
         try
         {
-            //Note: Prepare
+            // Prepare
             {
                 var workbook = new XLWorkbook();
                 workbook.Worksheets.Add("1");
@@ -20,7 +20,7 @@ public class DeleteFewWorksheets : IXLExample
                 workbook.SaveAs(tempFile);
             }
 
-            //Note: Delate few worksheet
+            // Delete few worksheet
             {
                 var workbook = new XLWorkbook(tempFile);
                 workbook.Worksheets.Delete("1");
@@ -35,6 +35,5 @@ public class DeleteFewWorksheets : IXLExample
                 File.Delete(tempFile);
             }
         }
-
     }
 }

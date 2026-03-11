@@ -6,9 +6,6 @@ namespace XLibur.Examples.PageSetup;
 
 public class TwoPages : IXLExample
 {
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var wb = new XLWorkbook();
@@ -20,15 +17,9 @@ public class TwoPages : IXLExample
                 ws.Cell(ro, co).Value = ws.Cell(ro, co).Address.ToString();
             }
         }
+
         ws.PageSetup.PagesWide = 1;
 
         wb.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

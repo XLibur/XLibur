@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using XLibur.Utils;
 using DocumentFormat.OpenXml;
@@ -93,12 +91,12 @@ internal class WorkbookPartWriter
         workbook.Sheets ??= new Sheets();
 
         var worksheets = xlWorkbook.WorksheetsInternal;
-        workbook.Sheets.Elements<Sheet>().Where(s => worksheets.Deleted.Contains(s.Id)).ToList().ForEach(
+        workbook.Sheets.Elements<Sheet>().Where(s => worksheets.Deleted.Contains(s.Id!)).ToList().ForEach(
             s => s.Remove());
 
         foreach (var sheet in workbook.Sheets.Elements<Sheet>())
         {
-            var sheetId = (int)sheet.SheetId.Value;
+            var sheetId = (int)sheet.SheetId!.Value;
 
             if (xlWorkbook.WorksheetsInternal.All<XLWorksheet>(w => w.SheetId != sheetId)) continue;
 
@@ -135,7 +133,7 @@ internal class WorkbookPartWriter
         }
 
         var sheetElements = from sheet in workbook.Sheets.Elements<Sheet>()
-                            join worksheet in ((IEnumerable<XLWorksheet>)xlWorkbook.WorksheetsInternal) on sheet.Id.Value
+                            join worksheet in ((IEnumerable<XLWorksheet>)xlWorkbook.WorksheetsInternal) on sheet.Id!.Value
                                 equals worksheet.RelId
                             orderby worksheet.Position
                             select sheet;
@@ -168,8 +166,8 @@ internal class WorkbookPartWriter
             }
             else
             {
-                var sheetId = xlWorkbook.UnsupportedSheets.First(us => us.Position == p).SheetId;
-                var sheet = workbook.Sheets.Elements<Sheet>().First(s => s.SheetId == sheetId);
+                var unsupportedSheetId = xlWorkbook.UnsupportedSheets.First(us => us.Position == p).SheetId;
+                var sheet = workbook.Sheets.Elements<Sheet>().First(s => s.SheetId! == unsupportedSheetId);
                 workbook.Sheets.RemoveChild(sheet);
                 workbook.Sheets.AppendChild(sheet);
             }
@@ -216,7 +214,7 @@ internal class WorkbookPartWriter
         {
             var wsSheetId = worksheet.SheetId;
             uint sheetId = 0;
-            foreach (var s in workbook.Sheets.Elements<Sheet>().TakeWhile(s => s.SheetId != wsSheetId))
+            foreach (var s in workbook.Sheets.Elements<Sheet>().TakeWhile(s => s.SheetId! != wsSheetId))
             {
                 sheetId++;
             }

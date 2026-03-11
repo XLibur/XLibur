@@ -1,44 +1,9 @@
 using ClosedXML.Excel;
 
-
-namespace XLibur.Examples.Misc;
+namespace ClosedXML.Examples.Misc;
 
 public class CopyingRowsAndColumns : IXLExample
 {
-    #region Variables
-
-    // Public
-
-    // Private
-
-
-    #endregion
-
-    #region Properties
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Events
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var workbook = new XLWorkbook();
@@ -89,24 +54,19 @@ public class CopyingRowsAndColumns : IXLExample
         workbook.SaveAs(filePath);
     }
 
-    private static void CopyRowAsRange(IXLWorksheet originalSheet, int originalRowNumber, IXLWorksheet destSheet, int destRowNumber)
+    private static void CopyRowAsRange(IXLWorksheet originalSheet, int originalRowNumber, IXLWorksheet destSheet,
+        int destRowNumber)
     {
         {
             var destinationRow = destSheet.Row(destRowNumber);
             destinationRow.Clear();
 
             var originalRow = originalSheet.Row(originalRowNumber);
-            int columnNumber = originalRow.LastCellUsed(XLCellsUsedOptions.All).Address.ColumnNumber;
+            var columnNumber = originalRow.LastCellUsed(XLCellsUsedOptions.All).Address.ColumnNumber;
 
             var originalRange = originalSheet.Range(originalRowNumber, 1, originalRowNumber, columnNumber);
             var destRange = destSheet.Range(destRowNumber, 1, destRowNumber, columnNumber);
             originalRange.CopyTo(destRange);
         }
     }
-    // Private
-
-    // Override
-
-
-    #endregion
 }

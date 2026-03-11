@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace XLibur.Tests;
+namespace ClosedXML.Tests.Utils;
 
 /// <summary>
 ///     Help methods for work with streams

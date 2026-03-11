@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 
@@ -25,7 +23,7 @@ internal class FunctionRegistry
 {
     private readonly Dictionary<string, FunctionDefinition> _func = new(StringComparer.InvariantCultureIgnoreCase);
 
-    public bool TryGetFunc(string name, out FunctionDefinition func)
+    public bool TryGetFunc(string name, out FunctionDefinition? func)
     {
         return _func.TryGetValue(name, out func);
     }

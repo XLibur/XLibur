@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.Diagnostics;
 
 namespace XLibur.Graphics;
@@ -36,23 +34,23 @@ public readonly struct GlyphBox
 
     /// <summary>
     /// Size of Em square in pixels. If em is not a square, vertical dimension of
-    /// em square. Value should be whole number.
+    /// em square. Value should be the whole number.
     /// </summary>
     public float EmSize { get; }
 
     /// <summary>
-    /// Distance in px from baseline to the bottom of the box.
+    /// Distance in px from the baseline to the bottom of the box.
     /// </summary>
     /// <remarks>
     /// Descent/height is determined by font, not by codepoints
-    /// of the glyph. Value should be whole number.
+    /// of the glyph. Value should be the whole number.
     /// </remarks>
     public float Descent { get; }
 
     internal bool IsLineBreak => AdvanceWidth == 0 && EmSize == 0 && Descent == 0;
 
     /// <summary>
-    /// Get line width of the glyph box. It is calculated as central band with a text and
+    /// Get line width of the glyph box. It is calculated as a central band with a text and
     /// a lower and an upper bands. Central band (text) has height is <c>em-square - descent</c>
     /// and the bands are <c>descent</c>.
     /// </summary>

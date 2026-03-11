@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -16,7 +13,7 @@ internal class SimpleTypeReader : IInsertDataReader
     public SimpleTypeReader(IEnumerable data)
     {
         _data = data?.Cast<object>() ?? throw new ArgumentNullException(nameof(data));
-        _itemType = data.GetItemType();
+        _itemType = data.GetItemType()!;
     }
 
     public IEnumerable<IEnumerable<XLCellValue>> GetRecords()

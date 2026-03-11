@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -21,7 +19,7 @@ namespace XLibur.Excel;
 internal partial class Slice<TElement> : ISlice
 {
     private static readonly Lut<TElement> Dummy = new();
-    private readonly TElement _defaultValue = default;
+    private readonly TElement _defaultValue = default!;
 
     /// <summary>
     /// The content of the slice. Note that LUT uses index that starts from 0,
@@ -249,7 +247,7 @@ internal partial class Slice<TElement> : ISlice
             }
 
             if (rowLut.IsEmpty)
-                _data.Set(row - 1, null);
+                _data.Set(row - 1, null!);
         }
 
         if (!wasUsed && isUsed)

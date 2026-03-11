@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace ClosedXML.Excel;
 
 internal class XLDrawingFont : IXLDrawingFont

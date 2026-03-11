@@ -89,7 +89,7 @@ internal class XLColumn : XLRangeBase, IXLColumn
     {
         return usedCellsOnly
             ? Cells(true, XLCellsUsedOptions.AllContents)
-            : Cells(FirstCellUsed().Address.RowNumber, LastCellUsed().Address.RowNumber);
+            : Cells(FirstCellUsed()!.Address.RowNumber, LastCellUsed()!.Address.RowNumber);
     }
 
     public XLCells Cells(int firstRow, int lastRow)
@@ -198,12 +198,12 @@ internal class XLColumn : XLRangeBase, IXLColumn
     {
         var autoFilterRows = new List<int>();
         if (Worksheet.AutoFilter is { Range: not null })
-            autoFilterRows.Add(Worksheet.AutoFilter.Range.FirstRow().RowNumber());
+            autoFilterRows.Add(Worksheet.AutoFilter.Range.FirstRow()!.RowNumber());
 
         autoFilterRows.AddRange(Worksheet.Tables.Where<XLTable>(t =>
                 t.AutoFilter is { Range: not null }
-                && !autoFilterRows.Contains(t.AutoFilter.Range.FirstRow().RowNumber()))
-            .Select(t => t.AutoFilter.Range.FirstRow().RowNumber()));
+                && !autoFilterRows.Contains(t.AutoFilter.Range.FirstRow()!.RowNumber()))
+            .Select(t => t.AutoFilter.Range.FirstRow()!.RowNumber()));
 
         // Reusable buffer
         var glyphs = new List<GlyphBox>();
@@ -444,8 +444,8 @@ internal class XLColumn : XLRangeBase, IXLColumn
 
     public IXLRangeColumn ColumnUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
     {
-        return Column((this as IXLRangeBase).FirstCellUsed(options),
-            (this as IXLRangeBase).LastCellUsed(options));
+        return Column((this as IXLRangeBase).FirstCellUsed(options)!,
+            (this as IXLRangeBase).LastCellUsed(options)!);
     }
 
     #endregion IXLColumn Members

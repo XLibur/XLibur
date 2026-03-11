@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Linq;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
@@ -147,7 +145,7 @@ internal static class Information
             var isArray = collection.TryPickT0(out _, out var reference);
             if (isArray)
                 return 64;
-            if (reference.Areas.Count > 1)
+            if (reference!.Areas.Count > 1)
                 return 16;
             if (!reference.TryGetSingleCellValue(out scalar, ctx))
                 return 64;

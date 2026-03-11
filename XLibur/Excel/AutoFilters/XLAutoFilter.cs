@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using System;
 using System.Linq;
 
@@ -23,7 +20,7 @@ internal class XLAutoFilter : IXLAutoFilter
 
     public bool IsEnabled { get; set; }
 
-    public IXLRange Range { get; set; }
+    public IXLRange Range { get; set; } = null!;
 
     public int SortColumn { get; set; }
 
@@ -90,7 +87,7 @@ internal class XLAutoFilter : IXLAutoFilter
         if (columnNumber < 1 || columnNumber > XLHelper.MaxColumnNumber)
             throw new ArgumentOutOfRangeException(nameof(columnNumber), "Column " + columnNumber + " is outside the allowed column range.");
 
-        if (!_columns.TryGetValue(columnNumber, out XLFilterColumn filterColumn))
+        if (!_columns.TryGetValue(columnNumber, out var filterColumn))
         {
             filterColumn = new XLFilterColumn(this, columnNumber);
             _columns.Add(columnNumber, filterColumn);
@@ -114,7 +111,7 @@ internal class XLAutoFilter : IXLAutoFilter
 
     internal XLAutoFilter Set(IXLRangeBase range)
     {
-        var firstOverlappingTable = range.Worksheet.Tables.FirstOrDefault(t => t.RangeUsed().Intersects(range));
+        var firstOverlappingTable = range.Worksheet.Tables.FirstOrDefault(t => t.RangeUsed()!.Intersects(range));
         if (firstOverlappingTable != null)
             throw new InvalidOperationException($"The range {range.RangeAddress.ToStringRelative(includeSheet: true)} is already part of table '{firstOverlappingTable.Name}'");
 

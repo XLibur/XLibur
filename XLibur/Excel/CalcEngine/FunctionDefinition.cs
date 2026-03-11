@@ -69,7 +69,7 @@ internal class FunctionDefinition
             {
                 arg = argIsSingle
                     ? new ScalarArray(single, totalColumns, totalRows)
-                    : multi.Broadcast(totalRows, totalColumns);
+                    : multi!.Broadcast(totalRows, totalColumns);
             }
             else
             {
@@ -80,7 +80,7 @@ internal class FunctionDefinition
                 // Ergo: for ranges, we don't immediately return error, just because range parameter contains an error
                 arg = argIsSingle
                     ? new ScalarArray(single, 1, 1)
-                    : multi;
+                    : multi!;
             }
         }
 
@@ -105,7 +105,7 @@ internal class FunctionDefinition
                 // as a result for the item, per tests with FILTERXML.
                 result[row, column] = itemResult.TryPickSingleOrMultiValue(out var scalarResult, out var arrayResult, ctx)
                     ? scalarResult
-                    : arrayResult[0, 0];
+                    : arrayResult![0, 0];
             }
         }
 

@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Linq;
 
@@ -9,7 +7,7 @@ internal class XLCustomProperty : IXLCustomProperty
 {
     private readonly XLWorkbook _workbook;
 
-    private string name;
+    private string name = string.Empty;
 
     public XLCustomProperty(XLWorkbook workbook)
     {
@@ -50,7 +48,7 @@ internal class XLCustomProperty : IXLCustomProperty
         }
     }
 
-    public object Value { get; set; }
+    public object Value { get; set; } = null!;
 
     public T GetValue<T>()
     {

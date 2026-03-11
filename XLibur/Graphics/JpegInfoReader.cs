@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Drawing;
 using System.IO;
@@ -89,10 +87,7 @@ internal class JpegInfoReader : ImageInfoReader
         if (!stream.TryReadU16BE(out marker))
             return false;
 
-        if (marker >> 8 != 0xFF)
-            return false;
-
-        return true;
+        return marker >> 8 == 0xFF;
     }
 
     private bool TryGetLength(Stream stream, out ushort length)

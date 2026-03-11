@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace ClosedXML.Excel;
 
 internal class XLCFColorScaleMin : IXLCFColorScaleMin
@@ -24,7 +22,7 @@ internal class XLCFColorScaleMin : IXLCFColorScaleMin
 
     public IXLCFColorScaleMid LowestValue(XLColor color)
     {
-        _conditionalFormat.Values.Initialize(null);
+        _conditionalFormat.Values.Initialize(null!);
         _conditionalFormat.Colors.Initialize(color);
         _conditionalFormat.ContentTypes.Initialize(XLCFContentType.Minimum);
         return new XLCFColorScaleMid(_conditionalFormat);

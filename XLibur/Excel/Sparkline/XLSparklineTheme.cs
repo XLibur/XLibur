@@ -1,6 +1,3 @@
-#nullable disable
-
-
 namespace ClosedXML.Excel;
 
 public static class XLSparklineTheme

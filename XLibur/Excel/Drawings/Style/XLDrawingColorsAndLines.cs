@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace ClosedXML.Excel;
 
 internal class XLDrawingColorsAndLines : IXLDrawingColorsAndLines
@@ -9,6 +7,8 @@ internal class XLDrawingColorsAndLines : IXLDrawingColorsAndLines
     public XLDrawingColorsAndLines(IXLDrawingStyle style)
     {
         _style = style;
+        FillColor = XLColor.NoColor;
+        LineColor = XLColor.NoColor;
     }
     public XLColor FillColor { get; set; }
     public IXLDrawingStyle SetFillColor(XLColor value) { FillColor = value; return _style; }

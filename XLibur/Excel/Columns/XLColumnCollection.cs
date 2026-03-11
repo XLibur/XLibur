@@ -1,7 +1,6 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace XLibur.Excel;
@@ -39,7 +38,7 @@ internal class XLColumnsCollection : IDictionary<int, XLColumn>
         return _dictionary.Remove(key);
     }
 
-    public bool TryGetValue(int key, out XLColumn value)
+    public bool TryGetValue(int key, [MaybeNullWhen(false)] out XLColumn value)
     {
         return _dictionary.TryGetValue(key, out value);
     }

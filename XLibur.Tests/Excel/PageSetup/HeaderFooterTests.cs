@@ -1,9 +1,9 @@
-using XLibur.Excel;
-using NUnit.Framework;
 using System.IO;
 using System.Linq;
+using ClosedXML.Excel;
+using NUnit.Framework;
 
-namespace XLibur.Tests.Excel;
+namespace ClosedXML.Tests.Excel.PageSetup;
 
 [TestFixture]
 public class HeaderFooterTests
@@ -12,7 +12,7 @@ public class HeaderFooterTests
     public void CanChangeWorksheetHeader()
     {
         var wb = new XLWorkbook();
-        IXLWorksheet ws = wb.AddWorksheet("Sheet1");
+        var ws = wb.AddWorksheet("Sheet1");
 
         ws.PageSetup.Header.Center.AddText("Initial page header", XLHFOccurrence.EvenPages);
 

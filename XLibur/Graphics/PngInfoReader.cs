@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.IO;
 using XLibur.Excel.Drawings;

@@ -1,5 +1,3 @@
-using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -8,10 +6,13 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using ClosedXML.Excel;
+using NUnit.Framework;
 
-namespace XLibur.Tests;
+namespace ClosedXML.Tests.Excel.Cells;
 
 [TestFixture]
+// ReSharper disable once InconsistentNaming
 public class XLCellTests
 {
     [SuppressMessage("ReSharper", "RedundantCast")]

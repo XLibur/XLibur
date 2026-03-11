@@ -8,13 +8,14 @@ namespace XLibur.Attributes;
 public class XLColumnAttribute : Attribute
 {
     public string? Header { get; set; }
+
     public bool Ignore { get; set; }
+
     public int Order { get; set; }
 
     private static XLColumnAttribute? GetXLColumnAttribute(MemberInfo mi)
     {
-        if (!mi.HasAttribute<XLColumnAttribute>()) return null;
-        return mi.GetAttributes<XLColumnAttribute>().First();
+        return !mi.HasAttribute<XLColumnAttribute>() ? null : mi.GetAttributes<XLColumnAttribute>().First();
     }
 
     internal static string? GetHeader(MemberInfo mi)
@@ -27,14 +28,12 @@ public class XLColumnAttribute : Attribute
     internal static int GetOrder(MemberInfo mi)
     {
         var attribute = GetXLColumnAttribute(mi);
-        if (attribute == null) return int.MaxValue;
-        return attribute.Order;
+        return attribute?.Order ?? int.MaxValue;
     }
 
     internal static bool IgnoreMember(MemberInfo mi)
     {
         var attribute = GetXLColumnAttribute(mi);
-        if (attribute == null) return false;
-        return attribute.Ignore;
+        return attribute is { Ignore: true };
     }
 }

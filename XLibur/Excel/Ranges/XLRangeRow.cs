@@ -166,7 +166,7 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
                 lastColumn = trimmedPair;
             }
 
-            retVal.Add(Range(firstColumn, lastColumn).FirstRow());
+            retVal.Add(Range(firstColumn, lastColumn).FirstRow()!);
         }
 
         return retVal;
@@ -296,7 +296,7 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
             rowNum,
             RangeAddress.LastAddress.ColumnNumber);
 
-        return range.FirstRow();
+        return range.FirstRow()!;
     }
 
     #region XLRangeRow Above
@@ -356,7 +356,7 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
 
     public IXLRangeRow RowUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
     {
-        return Row((this as IXLRangeBase).FirstCellUsed(options),
-            (this as IXLRangeBase).LastCellUsed(options));
+        return Row((this as IXLRangeBase).FirstCellUsed(options)!,
+            (this as IXLRangeBase).LastCellUsed(options)!);
     }
 }

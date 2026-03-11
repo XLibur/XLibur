@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -122,7 +119,7 @@ public interface IXLCell
     /// An indication that value of this cell is calculated by a array formula
     /// that calculates values for cells in the referenced address. Null if not part of such formula.
     /// </summary>
-    IXLRangeAddress FormulaReference { get; set; }
+    IXLRangeAddress? FormulaReference { get; set; }
 
     bool HasArrayFormula { get; }
 
@@ -152,7 +149,7 @@ public interface IXLCell
     /// </value>
     bool ShareString { get; set; }
 
-    IXLSparkline Sparkline { get; }
+    IXLSparkline? Sparkline { get; }
 
     /// <summary>
     /// Gets or sets the cell's style.
@@ -375,7 +372,7 @@ public interface IXLCell
     /// Gets the cell's value formatted depending on the cell's data type and style.
     /// </summary>
     /// <param name="culture">Culture used to format the string. If <c>null</c> (default value), use current culture.</param>
-    string GetFormattedString(CultureInfo culture = null);
+    string GetFormattedString(CultureInfo? culture = null);
 
     /// <summary>
     /// Returns a hyperlink for the cell, if any, or creates a new instance is there is no hyperlink.
@@ -399,21 +396,21 @@ public interface IXLCell
     /// Inserts the IEnumerable data elements and returns the range it occupies.
     /// </summary>
     /// <param name="data">The IEnumerable data.</param>
-    IXLRange InsertData(IEnumerable data);
+    IXLRange? InsertData(IEnumerable data);
 
     /// <summary>
     /// Inserts the IEnumerable data elements and returns the range it occupies.
     /// </summary>
     /// <param name="data">The IEnumerable data.</param>
     /// <param name="transpose">if set to <c>true</c> the data will be transposed before inserting.</param>
-    IXLRange InsertData(IEnumerable data, bool transpose);
+    IXLRange? InsertData(IEnumerable data, bool transpose);
 
     /// <summary>
     /// Inserts the data of a data table.
     /// </summary>
     /// <param name="dataTable">The data table.</param>
     /// <returns>The range occupied by the inserted data</returns>
-    IXLRange InsertData(DataTable dataTable);
+    IXLRange? InsertData(DataTable dataTable);
 
     /// <summary>
     /// Inserts the IEnumerable data elements as a table and returns it.
@@ -456,7 +453,7 @@ public interface IXLCell
     /// <para>The new table will receive a generic name: Table#</para>
     /// </summary>
     /// <param name="data">The table data.</param>
-    IXLTable InsertTable(DataTable data);
+    IXLTable? InsertTable(DataTable data);
 
     /// <summary>
     /// Inserts the DataTable data elements as a table and returns it.
@@ -467,14 +464,14 @@ public interface IXLCell
     /// if set to <c>true</c> it will create an Excel table.
     /// <para>if set to <c>false</c> the table will be created in memory.</para>
     /// </param>
-    IXLTable InsertTable(DataTable data, bool createTable);
+    IXLTable? InsertTable(DataTable data, bool createTable);
 
     /// <summary>
     /// Creates an Excel table from the given DataTable data elements.
     /// </summary>
     /// <param name="data">The table data.</param>
     /// <param name="tableName">Name of the table.</param>
-    IXLTable InsertTable(DataTable data, string tableName);
+    IXLTable? InsertTable(DataTable data, string tableName);
 
     /// <summary>
     /// Inserts the DataTable data elements as a table and returns it.
@@ -485,7 +482,7 @@ public interface IXLCell
     /// if set to <c>true</c> it will create an Excel table.
     /// <para>if set to <c>false</c> the table will be created in memory.</para>
     /// </param>
-    IXLTable InsertTable(DataTable data, string tableName, bool createTable);
+    IXLTable? InsertTable(DataTable data, string? tableName, bool createTable);
 
     /// <summary>
     /// Invalidate <see cref="CachedValue"/> so the formula will be re-evaluated next time <see cref="Value"/> is accessed.
@@ -499,7 +496,7 @@ public interface IXLCell
 
     bool IsMerged();
 
-    IXLRange MergedRange();
+    IXLRange? MergedRange();
 
     void Select();
 
@@ -512,7 +509,6 @@ public interface IXLCell
 
     IXLCell SetFormulaR1C1(string formula);
 
-#nullable enable
     /// <summary>
     /// Set hyperlink of a cell. When user clicks on a cell with hyperlink,
     /// the Excel opens the target or moves cursor to the target cells in a
@@ -527,8 +523,6 @@ public interface IXLCell
     /// <param name="hyperlink">The new cell hyperlink. Use <c>null</c> to
     ///   remove the hyperlink.</param>
     void SetHyperlink(XLHyperlink? hyperlink);
-#nullable disable
-
     /// <inheritdoc cref="Value"/>
     /// <returns>This cell.</returns>
     IXLCell SetValue(XLCellValue value);

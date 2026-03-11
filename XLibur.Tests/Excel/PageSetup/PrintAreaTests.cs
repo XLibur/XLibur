@@ -1,7 +1,7 @@
-﻿using NUnit.Framework;
-using System.Linq;
+﻿using System.Linq;
+using NUnit.Framework;
 
-namespace XLibur.Tests.Excel;
+namespace ClosedXML.Tests.Excel.PageSetup;
 
 [TestFixture]
 public class PrintAreaTests

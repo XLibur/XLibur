@@ -1,22 +1,22 @@
-﻿using XLibur.Attributes;
-using XLibur.Excel;
-using XLibur.Excel.Exceptions;
-using NUnit.Framework;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using ClosedXML.Attributes;
+using ClosedXML.Excel;
+using ClosedXML.Excel.Exceptions;
+using NUnit.Framework;
 
-namespace XLibur.Tests.Excel;
+namespace ClosedXML.Tests.Excel.Tables;
 
 [TestFixture]
 public class TablesTests
 {
     public class TestObjectWithoutAttributes
     {
-        public String Column1 { get; set; }
-        public String Column2 { get; set; }
+        public string Column1 { get; set; }
+        public string Column2 { get; set; }
     }
 
     public class TestObjectWithAttributes
@@ -24,10 +24,10 @@ public class TablesTests
         public int UnOrderedColumn { get; set; }
 
         [XLColumn(Header = "SecondColumn", Order = 1)]
-        public String Column1 { get; set; }
+        public string Column1 { get; set; }
 
         [XLColumn(Header = "FirstColumn", Order = 0)]
-        public String Column2 { get; set; }
+        public string Column2 { get; set; }
 
         [XLColumn(Header = "SomeFieldNotProperty", Order = 2)]
         public int MyField;
@@ -178,7 +178,7 @@ public class TablesTests
     [Test]
     public void TableCreatedFromEmptyListOfInt()
     {
-        var l = new List<Int32>();
+        var l = new List<int>();
 
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -409,7 +409,7 @@ public class TablesTests
         Assert.AreEqual("LastNameChanged", nameAfter);
 
         tbl.SetShowHeaderRow(true);
-        nameAfter = (String)tbl.Cell("B1").Value;
+        nameAfter = (string)tbl.Cell("B1").Value;
         Assert.AreEqual("LastNameChanged", nameAfter);
 
         var field = tbl.Field("LastNameChanged");
@@ -657,7 +657,7 @@ public class TablesTests
                 {
                     Index = i,
                     Character = Convert.ToChar(64 + i),
-                    String = new String('a', i)
+                    String = new string('a', i)
                 });
 
         var table = ws.FirstCell().InsertTable(data1, true)
@@ -671,7 +671,7 @@ public class TablesTests
                 {
                     Index = i,
                     Character = Convert.ToChar(64 + i),
-                    String = new String('b', i),
+                    String = new string('b', i),
                     Int = 64 + i
                 });
 
@@ -717,7 +717,7 @@ public class TablesTests
         Assert.Throws<ArgumentException>(() => table1.Name = "c");
 
         Assert.Throws<ArgumentException>(() => table1.Name = "123");
-        Assert.Throws<ArgumentException>(() => table1.Name = new String('A', 256));
+        Assert.Throws<ArgumentException>(() => table1.Name = new string('A', 256));
 
         Assert.Throws<ArgumentException>(() => table1.Name = "Table2");
         Assert.Throws<ArgumentException>(() => table1.Name = "TABLE2");
@@ -735,7 +735,7 @@ public class TablesTests
                 {
                     Index = i,
                     Character = Convert.ToChar(64 + i),
-                    String = new String('a', i)
+                    String = new string('a', i)
                 });
 
         var table = ws.FirstCell().InsertTable(data1, true)
@@ -749,7 +749,7 @@ public class TablesTests
                 {
                     Index = i,
                     Character = Convert.ToChar(64 + i),
-                    String = new String('b', i),
+                    String = new string('b', i),
                     Integer = 64 + i
                 });
 
@@ -813,10 +813,10 @@ public class TablesTests
         Assert.AreEqual("SomeFieldNotProperty", table.Columns[2].ColumnName);
         Assert.AreEqual("UnOrderedColumn", table.Columns[3].ColumnName);
 
-        Assert.AreEqual(typeof(String), table.Columns[0].DataType);
-        Assert.AreEqual(typeof(String), table.Columns[1].DataType);
-        Assert.AreEqual(typeof(Double), table.Columns[2].DataType);
-        Assert.AreEqual(typeof(Double), table.Columns[3].DataType);
+        Assert.AreEqual(typeof(string), table.Columns[0].DataType);
+        Assert.AreEqual(typeof(string), table.Columns[1].DataType);
+        Assert.AreEqual(typeof(double), table.Columns[2].DataType);
+        Assert.AreEqual(typeof(double), table.Columns[3].DataType);
 
         var dr = table.Rows[0];
         Assert.AreEqual("b", dr["FirstColumn"]);
@@ -843,7 +843,7 @@ public class TablesTests
                 {
                     Index = i,
                     Character = Convert.ToChar(64 + i),
-                    String = new String('a', i)
+                    String = new string('a', i)
                 });
 
         var table = ws.FirstCell().InsertTable(data1, true)
@@ -1101,7 +1101,7 @@ public class TablesTests
             .Select(i => new
             {
                 Number = i,
-                NumberString = String.Concat("Number", i.ToString())
+                NumberString = string.Concat("Number", i.ToString())
             });
 
         var table = ws.FirstCell()

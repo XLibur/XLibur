@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Diagnostics;
 using System.Globalization;
@@ -22,7 +20,7 @@ namespace XLibur.Excel;
 public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>, IEquatable<bool>, IEquatable<double>, IEquatable<string>, IEquatable<XLError>, IEquatable<DateTime>, IEquatable<TimeSpan>, IEquatable<int>
 {
     private readonly double _value;
-    private readonly string _text;
+    private readonly string? _text;
 
     private XLCellValue(Blank _) : this()
     {
@@ -132,7 +130,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
 
     public static implicit operator XLCellValue(Blank blank) => new(blank);
     public static implicit operator XLCellValue(bool logical) => new(logical);
-    public static implicit operator XLCellValue(string text) => text is not null ? new(text) : new(Blank.Value);
+    public static implicit operator XLCellValue(string? text) => text is not null ? new(text) : new(Blank.Value);
     public static implicit operator XLCellValue(XLError error) => new(error);
     public static implicit operator XLCellValue(DateTime dateTime) => new(dateTime);
     public static implicit operator XLCellValue(TimeSpan timeSpan) => new(timeSpan);
@@ -192,7 +190,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
     /// <param name="obj">The object to convert.</param>
     /// <param name="provider">An object that supplies culture-specific formatting information.</param>
     /// <returns>An <see cref="XLCellValue"/> representation of the object.</returns>
-    public static XLCellValue FromObject(object obj, IFormatProvider provider = null)
+    public static XLCellValue FromObject(object? obj, IFormatProvider? provider = null)
     {
         return obj switch
         {
@@ -214,14 +212,14 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
             float number => number,
             double number => number,
             decimal number => number,
-            _ => Convert.ToString(obj, provider)
+            _ => Convert.ToString(obj, provider) ?? string.Empty
         };
     }
 
     /// <summary>
     /// A function used during data insertion to convert an <c>object</c> to <c>XLCellValue</c>.
     /// </summary>
-    internal static XLCellValue FromInsertedObject(object value)
+    internal static XLCellValue FromInsertedObject(object? value)
     {
         XLCellValue convertedValue = value switch
         {
@@ -244,7 +242,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
             DateTime date => date,
             DateTimeOffset dateOfs => dateOfs.DateTime,
             TimeSpan timeSpan => timeSpan,
-            _ => value.ToString() // Other things, like chars ect are just turned to string
+            _ => value!.ToString() ?? string.Empty // Other things, like chars ect are just turned to string
         };
         return convertedValue;
     }
@@ -256,7 +254,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
     /// <param name="text">Text to parse into a value.</param>
     /// <param name="culture">Culture used to parse numbers.</param>
     /// <returns>Parsed value.</returns>
-    internal static XLCellValue FromText(string text, CultureInfo culture)
+    internal static XLCellValue FromText(string? text, CultureInfo culture)
     {
         // AutoFilter custom filter operand can be stored as `1 1/2` and Excel correctly
         // interprets it as a `1.5`. Same for 2015-01-01, therefore use `TextToNumber` that
@@ -320,7 +318,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
     /// If the value is of type <see cref="XLDataType.Text"/>,
     /// return text, otherwise throw <see cref="InvalidCastException"/>.
     /// </summary>
-    public string GetText() => IsText ? _text : throw new InvalidCastException();
+    public string GetText() => IsText ? _text! : throw new InvalidCastException();
 
     /// <summary>
     /// If the value is of type <see cref="XLDataType.Error"/>,
@@ -358,7 +356,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
         throw new InvalidCastException("Value is not a number.");
     }
 
-    internal object ToObject()
+    internal object? ToObject()
     {
         return Type switch
         {
@@ -387,7 +385,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
             XLDataType.Blank => string.Empty,
             XLDataType.Boolean => GetBoolean() ? "TRUE" : "FALSE",
             XLDataType.Number => _value.ToString(culture),
-            XLDataType.Text => _text,
+            XLDataType.Text => _text!,
             XLDataType.Error => GetError().ToDisplayString(),
             XLDataType.DateTime => GetDateTime().ToString(culture),
             XLDataType.TimeSpan => GetTimeSpan().ToExcelString(culture),
@@ -399,7 +397,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
         return Type == other.Type && _value.Equals(other._value) && _text == other._text;
     }
 
-    public bool Equals(Blank other)
+    public bool Equals(Blank? other)
     {
         return IsBlank;
     }
@@ -418,7 +416,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
     /// Is the cell value text and is equal to the <paramref name="other"/>?
     /// Text comparison is case sensitive.
     /// </summary>
-    public bool Equals(string other)
+    public bool Equals(string? other)
     {
         return IsText && _text == other;
     }
@@ -443,7 +441,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
         return Equals((double)other);
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         return obj is XLCellValue other && Equals(other);
     }
@@ -463,11 +461,11 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
     /// Get a value, if it is a <see cref="XLDataType.Text"/>.
     /// </summary>
     /// <returns>True if value was retrieved, false otherwise.</returns>
-    public bool TryGetText(out string value)
+    public bool TryGetText(out string? value)
     {
         if (IsText)
         {
-            value = _text;
+            value = _text!;
             return true;
         }
 
@@ -492,7 +490,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
             return true;
         }
 
-        value = default;
+        value = default!;
         return false;
     }
 

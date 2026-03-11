@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Diagnostics;
 
@@ -17,7 +15,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         return Create(null, cellAddressString);
     }
 
-    public static XLAddress Create(XLWorksheet worksheet, string cellAddressString)
+    public static XLAddress Create(XLWorksheet? worksheet, string cellAddressString)
     {
         var fixedColumn = cellAddressString[0] == '$';
         int startPos;
@@ -84,7 +82,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private readonly int _columnNumber;
 
-    private string _trimmedAddress;
+    private string? _trimmedAddress;
 
     #endregion Private fields
 
@@ -110,7 +108,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     /// <param name = "columnLetter">The column letter of the cell address.</param>
     /// <param name = "fixedRow"></param>
     /// <param name = "fixedColumn"></param>
-    public XLAddress(XLWorksheet worksheet, int rowNumber, string columnLetter, bool fixedRow, bool fixedColumn)
+    public XLAddress(XLWorksheet? worksheet, int rowNumber, string columnLetter, bool fixedRow, bool fixedColumn)
         : this(worksheet, rowNumber, XLHelper.GetColumnNumberFromLetter(columnLetter), fixedRow, fixedColumn)
     {
     }
@@ -135,7 +133,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     /// <param name = "columnNumber">The column number of the cell address.</param>
     /// <param name = "fixedRow"></param>
     /// <param name = "fixedColumn"></param>
-    public XLAddress(XLWorksheet worksheet, int rowNumber, int columnNumber, bool fixedRow, bool fixedColumn) : this()
+    public XLAddress(XLWorksheet? worksheet, int rowNumber, int columnNumber, bool fixedRow, bool fixedColumn) : this()
 
     {
         Worksheet = worksheet;
@@ -150,9 +148,9 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
 
     #region Properties
 
-    public XLWorksheet Worksheet { get; internal set; }
+    public XLWorksheet? Worksheet { get; internal set; }
 
-    IXLWorksheet IXLAddress.Worksheet
+    IXLWorksheet? IXLAddress.Worksheet
     {
         [DebuggerStepThrough]
         get { return Worksheet; }
@@ -233,14 +231,14 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         else if (referenceStyle == XLReferenceStyle.A1)
             address = GetTrimmedAddress();
         else if (referenceStyle == XLReferenceStyle.R1C1
-                 || HasWorksheet && Worksheet.Workbook.ReferenceStyle == XLReferenceStyle.R1C1)
+                 || HasWorksheet && Worksheet!.Workbook.ReferenceStyle == XLReferenceStyle.R1C1)
             address = "R" + _rowNumber.ToInvariantString() + "C" + ColumnNumber.ToInvariantString();
         else
             address = GetTrimmedAddress();
 
         if (includeSheet)
             return string.Concat(
-                WorksheetIsDeleted ? "#REF" : Worksheet.Name.EscapeSheetName(),
+                WorksheetIsDeleted ? "#REF" : Worksheet!.Name.EscapeSheetName(),
                 '!',
                 address);
 
@@ -312,12 +310,12 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
 
     #region IEqualityComparer<XLCellAddress> Members
 
-    public bool Equals(IXLAddress x, IXLAddress y)
+    public bool Equals(IXLAddress? x, IXLAddress? y)
     {
         return x == y;
     }
 
-    public new bool Equals(object x, object y)
+    public new bool Equals(object? x, object? y)
     {
         return x == y;
     }
@@ -326,7 +324,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
 
     #region IEquatable<XLCellAddress> Members
 
-    public bool Equals(IXLAddress other)
+    public bool Equals(IXLAddress? other)
     {
         if (other == null)
             return false;
@@ -345,7 +343,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
                _fixedColumn == other._fixedColumn;
     }
 
-    public override bool Equals(object other)
+    public override bool Equals(object? other)
     {
         return Equals(other as IXLAddress);
     }
@@ -385,7 +383,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
 
         if (includeSheet)
             return string.Concat(
-                WorksheetIsDeleted ? "#REF" : Worksheet.Name.EscapeSheetName(),
+                WorksheetIsDeleted ? "#REF" : Worksheet!.Name.EscapeSheetName(),
                 '!',
                 address
             );
@@ -413,7 +411,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         string address;
 
         if (referenceStyle == XLReferenceStyle.Default && HasWorksheet)
-            referenceStyle = Worksheet.Workbook.ReferenceStyle;
+            referenceStyle = Worksheet!.Workbook.ReferenceStyle;
 
         if (referenceStyle == XLReferenceStyle.Default)
             referenceStyle = XLReferenceStyle.A1;
@@ -443,7 +441,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
 
         if (includeSheet)
             return string.Concat(
-                WorksheetIsDeleted ? "#REF" : Worksheet.Name.EscapeSheetName(),
+                WorksheetIsDeleted ? "#REF" : Worksheet!.Name.EscapeSheetName(),
                 '!',
                 address);
 

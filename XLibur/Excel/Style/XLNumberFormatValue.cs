@@ -1,6 +1,4 @@
-#nullable disable
-
-using XLibur.Excel.Caching;
+using ClosedXML.Excel.Caching;
 
 namespace XLibur.Excel;
 
@@ -41,7 +39,7 @@ internal sealed class XLNumberFormatValue
         Key = key;
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         var cached = obj as XLNumberFormatValue;
         return cached != null &&

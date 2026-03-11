@@ -5,9 +5,6 @@ namespace XLibur.Examples.Ranges;
 
 public class WalkingRanges : IXLExample
 {
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var wb = new XLWorkbook();
@@ -55,11 +52,4 @@ public class WalkingRanges : IXLExample
 
         wb.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

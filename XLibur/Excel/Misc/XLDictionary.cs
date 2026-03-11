@@ -1,10 +1,9 @@
-#nullable disable
-
 using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
 public class XLDictionary<T> : Dictionary<int, T>
+    where T : notnull
 {
     public XLDictionary()
     {

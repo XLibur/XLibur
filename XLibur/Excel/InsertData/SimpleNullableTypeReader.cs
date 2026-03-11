@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -16,7 +13,7 @@ internal class SimpleNullableTypeReader : IInsertDataReader
     public SimpleNullableTypeReader(IEnumerable data)
     {
         _data = data?.Cast<object>() ?? throw new ArgumentNullException(nameof(data));
-        _itemType = data.GetItemType().GetUnderlyingType();
+        _itemType = data.GetItemType()!.GetUnderlyingType();
     }
 
     public IEnumerable<IEnumerable<XLCellValue>> GetRecords()

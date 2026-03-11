@@ -1,14 +1,14 @@
-using XLibur.Excel;
-using XLibur.Excel.Drawings;
-using NUnit.Framework;
 using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using ClosedXML.Excel;
+using ClosedXML.Excel.Drawings;
+using NUnit.Framework;
 
-namespace XLibur.Tests;
+namespace ClosedXML.Tests.Excel.ImageHandling;
 
 [TestFixture]
 public class PictureTests

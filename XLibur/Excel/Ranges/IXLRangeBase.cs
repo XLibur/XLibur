@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Globalization;
 
@@ -113,22 +111,22 @@ public interface IXLRangeBase : IXLAddressable
     ///   Returns the first non-empty cell with a value of this range. Formats are ignored.
     ///   <para>The cell's address is going to be ([First Row with a value], [First Column with a value])</para>
     /// </summary>
-    IXLCell FirstCellUsed();
+    IXLCell? FirstCellUsed();
 
     /// <summary>
     /// Returns the first non-empty cell with a value of this range.
     /// </summary>
     /// <param name="options">The options to determine whether a cell is used.</param>
-    IXLCell FirstCellUsed(XLCellsUsedOptions options);
+    IXLCell? FirstCellUsed(XLCellsUsedOptions options);
 
-    IXLCell FirstCellUsed(Func<IXLCell, bool> predicate);
+    IXLCell? FirstCellUsed(Func<IXLCell, bool> predicate);
 
     /// <summary>
     /// Returns the first non-empty cell with a value of this range.
     /// </summary>
     /// <param name="options">The options to determine whether a cell is used.</param>
     /// <param name="predicate">The predicate used to choose cells</param>
-    IXLCell FirstCellUsed(XLCellsUsedOptions options, Func<IXLCell, bool> predicate);
+    IXLCell? FirstCellUsed(XLCellsUsedOptions options, Func<IXLCell, bool> predicate);
 
     /// <summary>
     ///   Returns the last cell of this range.
@@ -139,17 +137,17 @@ public interface IXLRangeBase : IXLAddressable
     ///   Returns the last non-empty cell with a value of this range. Formats are ignored.
     ///   <para>The cell's address is going to be ([Last Row with a value], [Last Column with a value])</para>
     /// </summary>
-    IXLCell LastCellUsed();
+    IXLCell? LastCellUsed();
 
     /// <summary>
     /// Returns the last non-empty cell with a value of this range.
     /// </summary>
     /// <param name="options">The options to determine whether a cell is used.</param>
-    IXLCell LastCellUsed(XLCellsUsedOptions options);
+    IXLCell? LastCellUsed(XLCellsUsedOptions options);
 
-    IXLCell LastCellUsed(Func<IXLCell, bool> predicate);
+    IXLCell? LastCellUsed(Func<IXLCell, bool> predicate);
 
-    IXLCell LastCellUsed(XLCellsUsedOptions options, Func<IXLCell, bool> predicate);
+    IXLCell? LastCellUsed(XLCellsUsedOptions options, Func<IXLCell, bool> predicate);
 
     /// <summary>
     ///   Determines whether this range contains the specified range (completely).
@@ -227,7 +225,7 @@ public interface IXLRangeBase : IXLAddressable
     /// <param name = "scope">The scope for the named range.</param>
     /// <param name = "comment">The comments for the named range.</param>
     /// </summary>
-    IXLRange AddToNamed(string name, XLScope scope, string comment);
+    IXLRange AddToNamed(string name, XLScope scope, string? comment);
 
     /// <summary>
     /// Clears the contents of this range.
@@ -292,7 +290,7 @@ public interface IXLRangeBase : IXLAddressable
     /// <summary>
     /// Returns a data validation rule assigned to the range, if any, or creates a new instance of data validation rule if no rule exists.
     /// </summary>
-    IXLDataValidation GetDataValidation();
+    IXLDataValidation? GetDataValidation();
 
     /// <summary>
     /// Creates a new data validation rule for the range, replacing the existing one.
@@ -320,13 +318,13 @@ public interface IXLRangeBase : IXLAddressable
     /// <summary>
     /// Shrinks this current range by one cell.
     /// </summary>
-    IXLRangeBase Shrink();
+    IXLRangeBase? Shrink();
 
     /// <summary>
     /// Shrinks the current range by the specified number of cells from each side.
     /// </summary>
     /// <param name="shrinkCount">The shrink count.</param>
-    IXLRangeBase Shrink(int shrinkCount);
+    IXLRangeBase? Shrink(int shrinkCount);
 
     /// <summary>
     /// Returns the intersection of this range with another range on the same worksheet.
@@ -335,13 +333,13 @@ public interface IXLRangeBase : IXLAddressable
     /// <param name="thisRangePredicate">Predicate applied to this range's cells.</param>
     /// <param name="otherRangePredicate">Predicate applied to the other range's cells.</param>
     /// <returns>The range address of the intersection</returns>
-    IXLRangeAddress Intersection(IXLRangeBase otherRange, Func<IXLCell, bool> thisRangePredicate = null, Func<IXLCell, bool> otherRangePredicate = null);
+    IXLRangeAddress? Intersection(IXLRangeBase otherRange, Func<IXLCell, bool>? thisRangePredicate = null, Func<IXLCell, bool>? otherRangePredicate = null);
 
     /// <summary>
     /// Returns the set of cells surrounding the current range.
     /// </summary>
     /// <param name="predicate">The predicate to apply on the resulting set of cells.</param>
-    IXLCells SurroundingCells(Func<IXLCell, bool> predicate = null);
+    IXLCells SurroundingCells(Func<IXLCell, bool>? predicate = null);
 
     /// <summary>
     /// Calculates the union of two ranges on the same worksheet.
@@ -352,7 +350,7 @@ public interface IXLRangeBase : IXLAddressable
     /// <returns>
     /// The union
     /// </returns>
-    IXLCells Union(IXLRangeBase otherRange, Func<IXLCell, bool> thisRangePredicate = null, Func<IXLCell, bool> otherRangePredicate = null);
+    IXLCells Union(IXLRangeBase otherRange, Func<IXLCell, bool>? thisRangePredicate = null, Func<IXLCell, bool>? otherRangePredicate = null);
 
     /// <summary>
     /// Returns all cells in the current range that are not in the other range.
@@ -360,7 +358,7 @@ public interface IXLRangeBase : IXLAddressable
     /// <param name="otherRange">The other range.</param>
     /// <param name="thisRangePredicate">Predicate applied to this range's cells.</param>
     /// <param name="otherRangePredicate">Predicate applied to the other range's cells.</param>
-    IXLCells Difference(IXLRangeBase otherRange, Func<IXLCell, bool> thisRangePredicate = null, Func<IXLCell, bool> otherRangePredicate = null);
+    IXLCells Difference(IXLRangeBase otherRange, Func<IXLCell, bool>? thisRangePredicate = null, Func<IXLCell, bool>? otherRangePredicate = null);
 
     /// <summary>
     /// Returns a range so that its offset from the target base range is equal to the offset of the current range to the source base range.

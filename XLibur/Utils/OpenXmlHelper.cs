@@ -76,19 +76,17 @@ internal static class OpenXmlHelper
         return ConvertToXLiburColor(new X14ColorTypeAdapter(openXMLColor));
     }
 
-#nullable disable
-
-    internal static void LoadNumberFormat(NumberingFormat nfSource, IXLNumberFormat nf)
+    internal static void LoadNumberFormat(NumberingFormat? nfSource, IXLNumberFormat nf)
     {
         if (nfSource == null) return;
 
         if (nfSource.NumberFormatId != null && nfSource.NumberFormatId.Value < XLConstants.NumberOfBuiltInStyles)
             nf.NumberFormatId = (int)nfSource.NumberFormatId.Value;
         else if (nfSource.FormatCode != null)
-            nf.Format = nfSource.FormatCode.Value;
+            nf.Format = nfSource.FormatCode.Value!;
     }
 
-    internal static void LoadBorder(Border borderSource, IXLBorder border)
+    internal static void LoadBorder(Border? borderSource, IXLBorder border)
     {
         if (borderSource == null) return;
 
@@ -105,7 +103,7 @@ internal static class OpenXmlHelper
         LoadBorderValues(borderSource.BottomBorder, border.SetBottomBorder, border.SetBottomBorderColor);
     }
 
-    private static void LoadBorderValues(BorderPropertiesType source, Func<XLBorderStyleValues, IXLStyle> setBorder, Func<XLColor, IXLStyle> setColor)
+    private static void LoadBorderValues(BorderPropertiesType? source, Func<XLBorderStyleValues, IXLStyle> setBorder, Func<XLColor, IXLStyle> setColor)
     {
         if (source != null)
         {
@@ -116,10 +114,10 @@ internal static class OpenXmlHelper
         }
     }
 
-    // Differential fills store the patterns differently than other fills
-    // Actually differential fills make more sense. bg is bg and fg is fg
-    // 'Other' fills store the bg color in the fg field when pattern type is solid
-    internal static void LoadFill(Fill openXMLFill, IXLFill closedXMLFill, bool differentialFillFormat)
+    // Differential fills store the patterns differently than other fills. Actually,
+    //  differential fills make more sense. bg is bg, and fg is fg
+    // 'Other' fills store the bg color in the fg field when the pattern type is solid
+    internal static void LoadFill(Fill? openXMLFill, IXLFill closedXMLFill, bool differentialFillFormat)
     {
         if (openXMLFill?.PatternFill == null) return;
 
@@ -163,7 +161,7 @@ internal static class OpenXmlHelper
         }
     }
 
-    internal static void LoadFont(OpenXmlElement fontSource, IXLFontBase fontBase)
+    internal static void LoadFont(OpenXmlElement? fontSource, IXLFontBase fontBase)
     {
         if (fontSource == null) return;
 
@@ -176,12 +174,12 @@ internal static class OpenXmlHelper
             fontSource.Elements<FontFamily>().FirstOrDefault();
         if (fontFamilyNumbering != null && fontFamilyNumbering.Val != null)
             fontBase.FontFamilyNumbering =
-                (XLFontFamilyNumberingValues)int.Parse(fontFamilyNumbering.Val.ToString());
+                (XLFontFamilyNumberingValues)int.Parse(fontFamilyNumbering.Val.ToString()!);
         var runFont = fontSource.Elements<RunFont>().FirstOrDefault();
         if (runFont != null)
         {
             if (runFont.Val != null)
-                fontBase.FontName = runFont.Val;
+                fontBase.FontName = runFont.Val!;
         }
         var fontSize = fontSource.Elements<FontSize>().FirstOrDefault();
         if (fontSize != null)
@@ -213,7 +211,7 @@ internal static class OpenXmlHelper
         }
     }
 
-    internal static bool GetBoolean(BooleanPropertyType property)
+    internal static bool GetBoolean(BooleanPropertyType? property)
     {
         if (property != null)
         {
@@ -224,8 +222,6 @@ internal static class OpenXmlHelper
 
         return false;
     }
-
-#nullable enable
 
     public static XLAlignmentKey AlignmentToClosedXml(Alignment alignment, XLAlignmentKey defaultAlignment)
     {
@@ -290,13 +286,11 @@ internal static class OpenXmlHelper
         }
 
         var bottomBorder = b.BottomBorder;
-        if (bottomBorder is not null)
-        {
-            if (bottomBorder.Style is not null)
-                nb = nb with { BottomBorder = bottomBorder.Style.Value.ToClosedXml() };
-            if (bottomBorder.Color is not null)
-                nb = nb with { BottomBorderColor = bottomBorder.Color.ToXLiburColor().Key };
-        }
+        if (bottomBorder is null) return nb;
+        if (bottomBorder.Style is not null)
+            nb = nb with { BottomBorder = bottomBorder.Style.Value.ToClosedXml() };
+        if (bottomBorder.Color is not null)
+            nb = nb with { BottomBorderColor = bottomBorder.Color.ToClosedXMLColor().Key };
 
         return nb;
     }

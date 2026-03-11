@@ -1,12 +1,11 @@
-#nullable disable
-
-using XLibur.Excel.InsertData;
-using XLibur.Extensions;
+using ClosedXML.Excel.InsertData;
+using ClosedXML.Extensions;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -98,7 +97,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     internal int MemorySstId => _cellsCollection.ValueSlice.GetShareStringId(SheetPoint);
 
-    internal XLImmutableRichText RichText => SliceRichText;
+    internal XLImmutableRichText? RichText => SliceRichText;
 
     private XLCellValue SliceCellValue
     {
@@ -110,13 +109,13 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
         }
     }
 
-    private XLImmutableRichText SliceRichText
+    private XLImmutableRichText? SliceRichText
     {
         get => _cellsCollection.ValueSlice.GetRichText(SheetPoint);
-        set => _cellsCollection.ValueSlice.SetRichText(SheetPoint, value);
+        set => _cellsCollection.ValueSlice.SetRichText(SheetPoint, value!);
     }
 
-    private XLComment SliceComment
+    private XLComment? SliceComment
     {
         get => _cellsCollection.MiscSlice[_rowNumber, _columnNumber].Comment;
         set
@@ -164,7 +163,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
     /// <summary>
     /// A formula in the cell. Null, if cell doesn't contain formula.
     /// </summary>
-    internal XLCellFormula Formula
+    internal XLCellFormula? Formula
     {
         get => _cellsCollection.FormulaSlice.Get(SheetPoint);
         set
@@ -237,7 +236,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
         SetValueAndStyle(value);
 
-        FormulaA1 = null;
+        FormulaA1 = string.Empty;
 
         if (setTableHeader)
         {
@@ -294,7 +293,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
         catch
         {
             // May fail for formula evaluation
-            value = default;
+            value = default!;
             return false;
         }
 
@@ -302,7 +301,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
         var isNullable = targetType.IsNullableType();
         if (isNullable && currentValue.TryConvert(out Blank _))
         {
-            value = default;
+            value = default!;
             return true;
         }
 
@@ -350,7 +349,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
                 value = (T)Enum.Parse(underlyingType, strValue, ignoreCase: false);
                 return true;
             }
-            value = default;
+            value = default!;
             return false;
         }
 
@@ -450,7 +449,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
             value = (T)Convert.ChangeType(sb.ToString(), typeof(T));
             return true;
         }
-        value = default;
+        value = default!;
         return false;
     }
 
@@ -464,7 +463,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     public string GetString() => Value.ToString(CultureInfo.CurrentCulture);
 
-    public string GetFormattedString(CultureInfo culture = null)
+    public string GetFormattedString(CultureInfo? culture = null)
     {
         XLCellValue value;
         try
@@ -481,7 +480,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return GetFormattedString(value, culture);
     }
 
-    internal string GetFormattedString(XLCellValue value, CultureInfo culture = null)
+    internal string GetFormattedString(XLCellValue value, CultureInfo? culture = null)
     {
         culture ??= CultureInfo.CurrentCulture;
         var format = GetFormat();
@@ -584,38 +583,38 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return InsertTable(data, tableName, true);
     }
 
-    public IXLTable InsertTable<T>(IEnumerable<T> data, string tableName, bool createTable)
+    public IXLTable InsertTable<T>(IEnumerable<T> data, string? tableName, bool createTable)
     {
         return InsertTable(data, tableName, createTable, addHeadings: true, transpose: false);
     }
 
-    public IXLTable InsertTable<T>(IEnumerable<T> data, string tableName, bool createTable, bool addHeadings, bool transpose)
+    public IXLTable InsertTable<T>(IEnumerable<T> data, string? tableName, bool createTable, bool addHeadings, bool transpose)
     {
         var reader = InsertDataReaderFactory.Instance.CreateReader(data);
         return Worksheet.InsertTable(SheetPoint, reader, tableName, createTable, addHeadings, transpose);
     }
 
-    public IXLTable InsertTable(DataTable data)
+    public IXLTable? InsertTable(DataTable data)
     {
         return InsertTable(data, null, true);
     }
 
-    public IXLTable InsertTable(DataTable data, bool createTable)
+    public IXLTable? InsertTable(DataTable data, bool createTable)
     {
         return InsertTable(data, null, createTable);
     }
 
-    public IXLTable InsertTable(DataTable data, string tableName)
+    public IXLTable? InsertTable(DataTable data, string tableName)
     {
         return InsertTable(data, tableName, true);
     }
 
-    public IXLTable InsertTable(DataTable data, string tableName, bool createTable)
+    public IXLTable? InsertTable(DataTable data, string? tableName, bool createTable)
     {
         if (data == null || data.Columns.Count == 0)
             return null;
 
-        if (XLHelper.IsValidA1Address(tableName) || XLHelper.IsValidRCAddress(tableName))
+        if (tableName is not null && (XLHelper.IsValidA1Address(tableName) || XLHelper.IsValidRCAddress(tableName)))
             throw new InvalidOperationException($"Table name cannot be a valid Cell Address '{tableName}'.");
 
         if (createTable && Worksheet.Tables.Any<XLTable>(t => t.Contains(this)))
@@ -630,13 +629,13 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
         var table = Worksheet.Tables.FirstOrDefault<XLTable>(t => t.AsRange().Contains(this));
         if (table == null) return XLTableCellType.None;
 
-        if (table.ShowHeaderRow && table.HeadersRow().RowNumber().Equals(_rowNumber)) return XLTableCellType.Header;
-        if (table.ShowTotalsRow && table.TotalsRow().RowNumber().Equals(_rowNumber)) return XLTableCellType.Total;
+        if (table.ShowHeaderRow && table.HeadersRow()!.RowNumber().Equals(_rowNumber)) return XLTableCellType.Header;
+        if (table.ShowTotalsRow && table.TotalsRow()!.RowNumber().Equals(_rowNumber)) return XLTableCellType.Total;
 
         return XLTableCellType.Data;
     }
 
-    public IXLRange InsertData(IEnumerable data)
+    public IXLRange? InsertData(IEnumerable data)
     {
         if (data == null || data is string)
             return null;
@@ -644,7 +643,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return InsertData(data, transpose: false);
     }
 
-    public IXLRange InsertData(IEnumerable data, bool transpose)
+    public IXLRange? InsertData(IEnumerable data, bool transpose)
     {
         if (data == null || data is string)
             return null;
@@ -653,7 +652,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return Worksheet.InsertData(SheetPoint, reader, addHeadings: false, transpose: transpose);
     }
 
-    public IXLRange InsertData(DataTable dataTable)
+    public IXLRange? InsertData(DataTable dataTable)
     {
         if (dataTable == null)
             return null;
@@ -781,7 +780,6 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return CreateHyperlink();
     }
 
-#nullable enable
     /// <inheritdoc />
     public void SetHyperlink(XLHyperlink? hyperlink)
     {
@@ -805,8 +803,6 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
         Worksheet.Hyperlinks.Clear(SheetPoint);
         Worksheet.Hyperlinks.Add(SheetPoint, hyperlink);
     }
-#nullable disable
-
     public XLHyperlink CreateHyperlink()
     {
         SetHyperlink(new XLHyperlink());
@@ -881,7 +877,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return Worksheet.Internals.MergedRanges.Contains(this);
     }
 
-    public IXLRange MergedRange()
+    public IXLRange? MergedRange()
     {
         return Worksheet
             .Internals
@@ -956,7 +952,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     public IXLCell CopyTo(IXLCell target)
     {
-        (target as XLCell).CopyFrom(this, XLCellCopyOptions.All);
+        ((XLCell)target).CopyFrom(this, XLCellCopyOptions.All);
         return target;
     }
 
@@ -967,7 +963,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     public IXLCell CopyFrom(IXLCell otherCell)
     {
-        return CopyFrom(otherCell as XLCell, XLCellCopyOptions.All);
+        return CopyFrom((XLCell)otherCell, XLCellCopyOptions.All);
     }
 
     public IXLCell CopyFrom(string otherCell)
@@ -990,7 +986,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
     public bool HasSparkline => Sparkline != null;
 
     /// <summary> The sparkline assigned to the cell </summary>
-    public IXLSparkline Sparkline => Worksheet.SparklineGroups.GetSparkline(this);
+    public IXLSparkline? Sparkline => Worksheet.SparklineGroups.GetSparkline(this);
 
     public IXLDataValidation GetDataValidation()
     {
@@ -1006,7 +1002,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
     /// Get the data validation rule containing current cell.
     /// </summary>
     /// <returns>The data validation rule applying to the current cell or null if there is no such rule.</returns>
-    private IXLDataValidation FindDataValidation()
+    private IXLDataValidation? FindDataValidation()
     {
         Worksheet.DataValidations.TryGet(new XLRangeAddress(Address, Address), out var dataValidation);
         return dataValidation;
@@ -1185,7 +1181,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
             Worksheet.Cell(
                 _rowNumber + sourceCell.Address.RowNumber - minRow,
                 _columnNumber + sourceCell.Address.ColumnNumber - minColumn
-            ).CopyFromInternal(sourceCell as XLCell,
+            ).CopyFromInternal((XLCell)sourceCell,
                 XLCellCopyOptions.All
                 & ~XLCellCopyOptions.ConditionalFormats
                 & ~XLCellCopyOptions.DataValidations); //Conditional formats and data validation are copied separately
@@ -1215,14 +1211,14 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
         foreach (var dataValidation in dataValidations)
         {
-            XLDataValidation newDataValidation = null;
+            XLDataValidation? newDataValidation = null;
             foreach (var dvRange in dataValidation.Ranges.Where(r => r.Intersects(asRange)))
             {
                 var dvTargetAddress = dvRange.RangeAddress.Relative(asRange.RangeAddress, targetRange.RangeAddress);
                 var dvTargetRange = Worksheet.Range(dvTargetAddress);
                 if (newDataValidation == null)
                 {
-                    newDataValidation = dvTargetRange.CreateDataValidation() as XLDataValidation;
+                    newDataValidation = (XLDataValidation)dvTargetRange.CreateDataValidation();
                     newDataValidation.CopyFrom(dataValidation);
                 }
                 else
@@ -1283,7 +1279,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
         {
             var fmtRanges = cf.Ranges
                 .GetIntersectedRanges(fromRange.RangeAddress)
-                .Select(r => r.RangeAddress.Intersection(fromRange.RangeAddress).Relative(fromRange.RangeAddress, toRange.RangeAddress).AsRange() as XLRange)
+                .Select(r => (XLRange)r.RangeAddress.Intersection(fromRange.RangeAddress).Relative(fromRange.RangeAddress, toRange.RangeAddress).AsRange()!)
                 .ToList();
 
             var c = new XLConditionalFormat(fmtRanges, true);
@@ -1333,12 +1329,12 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
     {
         var pair = target.Split('!');
         if (pair.Length == 1)
-            return defaultWorksheet.Cell(target);
+            return defaultWorksheet.Cell(target)!;
 
         var wsName = pair[0];
         if (wsName.StartsWith("'"))
             wsName = wsName.Substring(1, wsName.Length - 2);
-        return defaultWorksheet.Workbook.Worksheet(wsName).Cell(pair[1]);
+        return defaultWorksheet.Workbook.Worksheet(wsName)!.Cell(pair[1]);
     }
 
     internal IXLCell CopyFromInternal(XLCell otherCell, XLCellCopyOptions options)
@@ -1365,30 +1361,31 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
     {
         if (!otherCell.HasSparkline) return;
 
-        var sourceDataAddress = otherCell.Sparkline.SourceData.RangeAddress.ToString();
+        var sparkline = otherCell.Sparkline!;
+        var sourceDataAddress = sparkline.SourceData.RangeAddress.ToString()!;
         var shiftedRangeAddress = GetFormulaA1(otherCell.GetFormulaR1C1(sourceDataAddress));
-        var sourceDataWorksheet = otherCell.Worksheet == otherCell.Sparkline.SourceData.Worksheet
+        var sourceDataWorksheet = otherCell.Worksheet == sparkline.SourceData.Worksheet
             ? Worksheet
-            : (XLWorksheet)otherCell.Sparkline.SourceData.Worksheet;
-        var sourceData = sourceDataWorksheet.Range(shiftedRangeAddress);
+            : (XLWorksheet)sparkline.SourceData.Worksheet;
+        var sourceData = sourceDataWorksheet.Range(shiftedRangeAddress)!;
 
         IXLSparklineGroup group;
         if (otherCell.Worksheet == Worksheet)
         {
-            group = otherCell.Sparkline.SparklineGroup;
+            group = sparkline.SparklineGroup;
         }
         else
         {
-            group = Worksheet.SparklineGroups.Add(new XLSparklineGroup(Worksheet, otherCell.Sparkline.SparklineGroup));
-            if (otherCell.Sparkline.SparklineGroup.DateRange != null)
+            group = Worksheet.SparklineGroups.Add(new XLSparklineGroup(Worksheet, sparkline.SparklineGroup));
+            if (sparkline.SparklineGroup.DateRange != null)
             {
                 var dateRangeWorksheet =
-                    otherCell.Worksheet == otherCell.Sparkline.SparklineGroup.DateRange.Worksheet
+                    otherCell.Worksheet == sparkline.SparklineGroup.DateRange.Worksheet
                         ? Worksheet
-                        : otherCell.Sparkline.SparklineGroup.DateRange.Worksheet;
-                var dateRangeAddress = otherCell.Sparkline.SparklineGroup.DateRange.RangeAddress.ToString();
+                        : sparkline.SparklineGroup.DateRange.Worksheet;
+                var dateRangeAddress = sparkline.SparklineGroup.DateRange.RangeAddress.ToString()!;
                 var shiftedDateRangeAddress = GetFormulaA1(otherCell.GetFormulaR1C1(dateRangeAddress));
-                group.SetDateRange(dateRangeWorksheet.Range(shiftedDateRangeAddress));
+                group.SetDateRange(dateRangeWorksheet.Range(shiftedDateRangeAddress)!);
             }
         }
 
@@ -1397,7 +1394,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     public IXLCell CopyFrom(IXLCell otherCell, XLCellCopyOptions options)
     {
-        var source = otherCell as XLCell; // To expose GetFormulaR1C1, etc
+        var source = (XLCell)otherCell; // To expose GetFormulaR1C1, etc
 
         CopyFromInternal(source, options);
         return this;
@@ -1415,7 +1412,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     internal void CopyDataValidation(XLCell otherCell, IXLDataValidation otherDv)
     {
-        var thisDv = GetDataValidation() as XLDataValidation;
+        var thisDv = (XLDataValidation)GetDataValidation();
         thisDv.CopyFrom(otherDv);
         thisDv.Value = GetFormulaA1(otherCell.GetFormulaR1C1(otherDv.Value));
         thisDv.MinValue = GetFormulaA1(otherCell.GetFormulaR1C1(otherDv.MinValue));
@@ -1839,7 +1836,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     public bool HasArrayFormula => Formula?.Type == FormulaType.Array;
 
-    public IXLRangeAddress FormulaReference
+    public IXLRangeAddress? FormulaReference
     {
         get
         {
@@ -1956,12 +1953,12 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     internal bool IsInferiorMergedCell()
     {
-        return IsMerged() && !Address.Equals(MergedRange().RangeAddress.FirstAddress);
+        return IsMerged() && !Address.Equals(MergedRange()!.RangeAddress.FirstAddress);
     }
 
     internal bool IsSuperiorMergedCell()
     {
-        return IsMerged() && Address.Equals(MergedRange().RangeAddress.FirstAddress);
+        return IsMerged() && Address.Equals(MergedRange()!.RangeAddress.FirstAddress);
     }
 
     /// <summary>
@@ -2042,7 +2039,7 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
         }
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         return obj is XLCell cell && cell.Worksheet == Worksheet && cell.SheetPoint == SheetPoint;
     }

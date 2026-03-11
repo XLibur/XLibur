@@ -5,9 +5,6 @@ namespace XLibur.Examples.PageSetup;
 
 public class SheetTab : IXLExample
 {
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var workbook = new XLWorkbook();
@@ -46,11 +43,4 @@ public class SheetTab : IXLExample
 
         workbook.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

@@ -197,7 +197,7 @@ internal static class DateAndTime
         if (!value.TryPickText(out var text, out var error))
             return error;
 
-        if (!ScalarValue.ToSerialDateTime(text, ctx.Culture, out var serialDateTime))
+        if (!ScalarValue.ToSerialDateTime(text!, ctx.Culture, out var serialDateTime))
             return XLError.IncompatibleValue;
 
         return Math.Truncate(serialDateTime);
@@ -417,7 +417,7 @@ internal static class DateAndTime
         if (!value.TryPickText(out var text, out var error))
             return error;
 
-        if (!ScalarValue.ToSerialDateTime(text, ctx.Culture, out var serialDateTime))
+        if (!ScalarValue.ToSerialDateTime(text!, ctx.Culture, out var serialDateTime))
             return XLError.IncompatibleValue;
 
         return serialDateTime % 1.0;

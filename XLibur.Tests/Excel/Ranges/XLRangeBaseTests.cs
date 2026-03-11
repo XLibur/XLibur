@@ -1,9 +1,9 @@
-using XLibur.Excel;
-using NUnit.Framework;
 using System.Collections.Generic;
 using System.Linq;
+using ClosedXML.Excel;
+using NUnit.Framework;
 
-namespace XLibur.Tests;
+namespace ClosedXML.Tests.Excel.Ranges;
 
 [TestFixture]
 public class XLRangeBaseTests

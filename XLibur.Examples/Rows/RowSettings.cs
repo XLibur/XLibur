@@ -1,54 +1,9 @@
 using ClosedXML.Excel;
 
-
-namespace XLibur.Examples.Rows;
+namespace ClosedXML.Examples.Rows;
 
 public class RowSettings : IXLExample
 {
-    #region Variables
-
-    // Public
-
-    // Private
-
-
-    #endregion
-
-    #region Properties
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Constructors
-
-    // Public
-
-
-    // Private
-
-
-    #endregion
-
-    #region Events
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var workbook = new XLWorkbook();
@@ -64,11 +19,4 @@ public class RowSettings : IXLExample
 
         workbook.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

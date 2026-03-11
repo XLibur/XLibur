@@ -1,6 +1,4 @@
-#nullable disable
-
-namespace XLibur.Excel;
+namespace ClosedXML.Excel;
 
 /// <summary>
 /// A very lightweight interface for entities that have an address as

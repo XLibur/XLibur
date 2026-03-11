@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 
 namespace XLibur.Excel;
@@ -29,7 +27,7 @@ public partial class XLHyperlink
         }
         else
         {
-            if (Uri.TryCreate(address, UriKind.Absolute, out Uri uri))
+            if (Uri.TryCreate(address, UriKind.Absolute, out Uri? uri))
             {
                 _externalAddress = uri;
                 IsExternal = true;
@@ -63,5 +61,5 @@ public partial class XLHyperlink
         IsExternal = false;
     }
 
-    internal XLHyperlinks Container { get; set; }
+    internal XLHyperlinks? Container { get; set; }
 }

@@ -88,9 +88,10 @@ public class ConditionalFormatCopyTests
         format.WhenEquals("=" + format.Ranges.First().FirstCell().CellRight(4).Address.ToStringRelative()).Fill
             .SetBackgroundColor(XLColor.Blue);
 
-        TestDelegate action = () => format.CopyTo(ws1);
+        Assert.Throws(typeof(InvalidOperationException), Action);
+        return;
 
-        Assert.Throws(typeof(InvalidOperationException), action);
+        void Action() => format.CopyTo(ws1);
     }
 
     [Test]

@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.Collections.Generic;
 
 namespace XLibur.Excel;
@@ -19,7 +17,7 @@ internal class XLCustomProperties : IXLCustomProperties
     }
     public void Add<T>(string name, T value)
     {
-        var cp = new XLCustomProperty(workbook) { Name = name, Value = value };
+        var cp = new XLCustomProperty(workbook) { Name = name, Value = value! };
         Add(cp);
     }
 

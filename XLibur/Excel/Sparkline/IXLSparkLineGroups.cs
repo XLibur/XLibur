@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using System.Collections.Generic;
 
 namespace XLibur.Excel;
@@ -22,7 +19,7 @@ public interface IXLSparklineGroups : IEnumerable<IXLSparklineGroup>
 
     void CopyTo(IXLWorksheet targetSheet);
 
-    IXLSparkline GetSparkline(IXLCell cell);
+    IXLSparkline? GetSparkline(IXLCell cell);
     IEnumerable<IXLSparkline> GetSparklines(IXLRangeBase rangeBase);
 
     void Remove(IXLCell cell);

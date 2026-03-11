@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,7 +11,7 @@ internal class XLPageSetup : IXLPageSetup
 
         if (defaultPageOptions != null)
         {
-            PrintAreas = new XLPrintAreas(defaultPageOptions.PrintAreas as XLPrintAreas, worksheet);
+            PrintAreas = new XLPrintAreas((XLPrintAreas)defaultPageOptions.PrintAreas, worksheet);
             CenterHorizontally = defaultPageOptions.CenterHorizontally;
             CenterVertically = defaultPageOptions.CenterVertically;
             FirstPageNumber = defaultPageOptions.FirstPageNumber;
@@ -33,18 +31,15 @@ internal class XLPageSetup : IXLPageSetup
             _scale = defaultPageOptions.Scale;
 
 
-            if (defaultPageOptions.Margins != null)
+            Margins = new XLMargins
             {
-                Margins = new XLMargins
-                {
-                    Top = defaultPageOptions.Margins.Top,
-                    Bottom = defaultPageOptions.Margins.Bottom,
-                    Left = defaultPageOptions.Margins.Left,
-                    Right = defaultPageOptions.Margins.Right,
-                    Header = defaultPageOptions.Margins.Header,
-                    Footer = defaultPageOptions.Margins.Footer
-                };
-            }
+                Top = defaultPageOptions.Margins.Top,
+                Bottom = defaultPageOptions.Margins.Bottom,
+                Left = defaultPageOptions.Margins.Left,
+                Right = defaultPageOptions.Margins.Right,
+                Header = defaultPageOptions.Margins.Header,
+                Footer = defaultPageOptions.Margins.Footer
+            };
             AlignHFWithMargins = defaultPageOptions.AlignHFWithMargins;
             ScaleHFWithDocument = defaultPageOptions.ScaleHFWithDocument;
             ShowGridlines = defaultPageOptions.ShowGridlines;
@@ -55,13 +50,14 @@ internal class XLPageSetup : IXLPageSetup
 
             ColumnBreaks = defaultPageOptions.ColumnBreaks.ToList();
             RowBreaks = defaultPageOptions.RowBreaks.ToList();
-            Header = new XLHeaderFooter(defaultPageOptions.Header as XLHeaderFooter, worksheet);
-            Footer = new XLHeaderFooter(defaultPageOptions.Footer as XLHeaderFooter, worksheet);
+            Header = new XLHeaderFooter((XLHeaderFooter)defaultPageOptions.Header, worksheet);
+            Footer = new XLHeaderFooter((XLHeaderFooter)defaultPageOptions.Footer, worksheet);
             PrintErrorValue = defaultPageOptions.PrintErrorValue;
         }
         else
         {
             PrintAreas = new XLPrintAreas(worksheet);
+            Margins = new XLMargins();
             Header = new XLHeaderFooter(worksheet);
             Footer = new XLHeaderFooter(worksheet);
             ColumnBreaks = new List<int>();

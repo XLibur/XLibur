@@ -1,13 +1,12 @@
-﻿
-using XLibur.Excel;
-using NUnit.Framework;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using static XLibur.Excel.XLProtectionAlgorithm;
+using ClosedXML.Excel;
+using NUnit.Framework;
+using static ClosedXML.Excel.XLProtectionAlgorithm;
 
-namespace XLibur.Tests;
+namespace ClosedXML.Tests.Excel.Protection;
 
 public class XLWorkbookProtectionTests
 {

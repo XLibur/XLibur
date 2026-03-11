@@ -3,6 +3,7 @@ using XLibur.Excel;
 
 namespace XLibur.Tests.Excel.Cells;
 
+// ReSharper disable once InconsistentNaming
 [TestFixture]
 public class XLCellFormulaTests
 {

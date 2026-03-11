@@ -1,5 +1,3 @@
-#nullable disable
-
 
 using DocumentFormat.OpenXml;
 using System;

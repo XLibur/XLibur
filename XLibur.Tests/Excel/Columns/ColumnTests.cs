@@ -1,9 +1,8 @@
-using XLibur.Excel;
-using NUnit.Framework;
-using System;
 using System.Linq;
+using ClosedXML.Excel;
+using NUnit.Framework;
 
-namespace XLibur.Tests.Excel;
+namespace ClosedXML.Tests.Excel.Columns;
 
 [TestFixture]
 public class ColumnTests
@@ -12,14 +11,14 @@ public class ColumnTests
     public void ColumnUsed()
     {
         var wb = new XLWorkbook();
-        IXLWorksheet ws = wb.Worksheets.Add("Sheet1");
+        var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell(2, 1).SetValue("Test");
         ws.Cell(3, 1).SetValue("Test");
 
-        IXLRangeColumn fromColumn = ws.Column(1).ColumnUsed();
+        var fromColumn = ws.Column(1).ColumnUsed();
         Assert.AreEqual("A2:A3", fromColumn.RangeAddress.ToStringRelative());
 
-        IXLRangeColumn fromRange = ws.Range("A1:A5").FirstColumn().ColumnUsed();
+        var fromRange = ws.Range("A1:A5").FirstColumn().ColumnUsed();
         Assert.AreEqual("A2:A3", fromRange.RangeAddress.ToStringRelative());
     }
 
@@ -37,7 +36,7 @@ public class ColumnTests
     public void CopyColumn()
     {
         var wb = new XLWorkbook();
-        IXLWorksheet ws = wb.AddWorksheet("Sheet1");
+        var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue("Test").Style.Font.SetBold();
         ws.FirstColumn().CopyTo(ws.Column(2));
 
@@ -48,17 +47,17 @@ public class ColumnTests
     public void InsertingColumnsBefore1()
     {
         var wb = new XLWorkbook();
-        IXLWorksheet ws = wb.Worksheets.Add("Sheet1");
+        var ws = wb.Worksheets.Add("Sheet1");
 
         ws.Columns("1,3").Style.Fill.SetBackgroundColor(XLColor.Red);
         ws.Column(2).Style.Fill.SetBackgroundColor(XLColor.Yellow);
         ws.Cell(2, 2).SetValue("X").Style.Fill.SetBackgroundColor(XLColor.Green);
 
-        IXLColumn column1 = ws.Column(1);
-        IXLColumn column2 = ws.Column(2);
-        IXLColumn column3 = ws.Column(3);
+        var column1 = ws.Column(1);
+        var column2 = ws.Column(2);
+        var column3 = ws.Column(3);
 
-        IXLColumn columnIns = ws.Column(1).InsertColumnsBefore(1).First();
+        var columnIns = ws.Column(1).InsertColumnsBefore(1).First();
 
         Assert.AreEqual(ws.Style.Fill.BackgroundColor, ws.Column(1).Cell(1).Style.Fill.BackgroundColor);
         Assert.AreEqual(ws.Style.Fill.BackgroundColor, ws.Column(1).Cell(2).Style.Fill.BackgroundColor);
@@ -101,17 +100,17 @@ public class ColumnTests
     public void InsertingColumnsBefore2()
     {
         var wb = new XLWorkbook();
-        IXLWorksheet ws = wb.Worksheets.Add("Sheet1");
+        var ws = wb.Worksheets.Add("Sheet1");
 
         ws.Columns("1,3").Style.Fill.SetBackgroundColor(XLColor.Red);
         ws.Column(2).Style.Fill.SetBackgroundColor(XLColor.Yellow);
         ws.Cell(2, 2).SetValue("X").Style.Fill.SetBackgroundColor(XLColor.Green);
 
-        IXLColumn column1 = ws.Column(1);
-        IXLColumn column2 = ws.Column(2);
-        IXLColumn column3 = ws.Column(3);
+        var column1 = ws.Column(1);
+        var column2 = ws.Column(2);
+        var column3 = ws.Column(3);
 
-        IXLColumn columnIns = ws.Column(2).InsertColumnsBefore(1).First();
+        var columnIns = ws.Column(2).InsertColumnsBefore(1).First();
 
         Assert.AreEqual(XLColor.Red, ws.Column(1).Cell(1).Style.Fill.BackgroundColor);
         Assert.AreEqual(XLColor.Red, ws.Column(1).Cell(2).Style.Fill.BackgroundColor);
@@ -154,17 +153,17 @@ public class ColumnTests
     public void InsertingColumnsBefore3()
     {
         var wb = new XLWorkbook();
-        IXLWorksheet ws = wb.Worksheets.Add("Sheet1");
+        var ws = wb.Worksheets.Add("Sheet1");
 
         ws.Columns("1,3").Style.Fill.SetBackgroundColor(XLColor.Red);
         ws.Column(2).Style.Fill.SetBackgroundColor(XLColor.Yellow);
         ws.Cell(2, 2).SetValue("X").Style.Fill.SetBackgroundColor(XLColor.Green);
 
-        IXLColumn column1 = ws.Column(1);
-        IXLColumn column2 = ws.Column(2);
-        IXLColumn column3 = ws.Column(3);
+        var column1 = ws.Column(1);
+        var column2 = ws.Column(2);
+        var column3 = ws.Column(3);
 
-        IXLColumn columnIns = ws.Column(3).InsertColumnsBefore(1).First();
+        var columnIns = ws.Column(3).InsertColumnsBefore(1).First();
 
         Assert.AreEqual(XLColor.Red, ws.Column(1).Cell(1).Style.Fill.BackgroundColor);
         Assert.AreEqual(XLColor.Red, ws.Column(1).Cell(2).Style.Fill.BackgroundColor);
@@ -207,13 +206,13 @@ public class ColumnTests
     public void NoColumnsUsed()
     {
         var wb = new XLWorkbook();
-        IXLWorksheet ws = wb.Worksheets.Add("Sheet1");
-        Int32 count = 0;
+        var ws = wb.Worksheets.Add("Sheet1");
+        var count = 0;
 
-        foreach (IXLColumn row in ws.ColumnsUsed())
+        foreach (var row in ws.ColumnsUsed())
             count++;
 
-        foreach (IXLRangeColumn row in ws.Range("A1:C3").ColumnsUsed())
+        foreach (var row in ws.Range("A1:C3").ColumnsUsed())
             count++;
 
         Assert.AreEqual(0, count);
@@ -222,7 +221,7 @@ public class ColumnTests
     [Test]
     public void UngroupFromAll()
     {
-        IXLWorksheet ws = new XLWorkbook().AddWorksheet("Sheet1");
+        var ws = new XLWorkbook().AddWorksheet("Sheet1");
         ws.Columns(1, 2).Group();
         ws.Columns(1, 2).Ungroup(true);
     }
@@ -230,7 +229,7 @@ public class ColumnTests
     [Test]
     public void LastColumnUsed()
     {
-        IXLWorksheet ws = new XLWorkbook().AddWorksheet("Sheet1");
+        var ws = new XLWorkbook().AddWorksheet("Sheet1");
         ws.Cell("A1").Value = "A1";
         ws.Cell("B1").Value = "B1";
         ws.Cell("A2").Value = "A2";

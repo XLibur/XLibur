@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using DocumentFormat.OpenXml.ExtendedProperties;
+﻿using DocumentFormat.OpenXml.ExtendedProperties;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.VariantTypes;
 using DocumentFormat.OpenXml;
@@ -115,7 +113,7 @@ internal class ExtendedFilePropertiesPartWriter
         {
             if (e.Elements<VTLPSTR>().Any(e2 => e2.Text == property))
             {
-                vTVector.ElementAt(targetIndex + 1).GetFirstChild<VTInt32>().Text = text;
+                vTVector.ElementAt(targetIndex + 1).GetFirstChild<VTInt32>()!.Text = text;
                 break;
             }
             targetIndex++;

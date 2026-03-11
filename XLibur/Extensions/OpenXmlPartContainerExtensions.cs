@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using DocumentFormat.OpenXml.Packaging;
 using System.Linq;
 

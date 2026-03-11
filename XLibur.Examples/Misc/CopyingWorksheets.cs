@@ -8,8 +8,8 @@ public class CopyingWorksheets : IXLExample
 {
     public void Create(string filePath)
     {
-        string tempFile1 = ExampleHelper.GetTempFilePath(filePath);
-        string tempFile2 = ExampleHelper.GetTempFilePath(filePath);
+        var tempFile1 = ExampleHelper.GetTempFilePath(filePath);
+        var tempFile2 = ExampleHelper.GetTempFilePath(filePath);
         try
         {
             new UsingTables().Create(tempFile1);

@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using System;
 using static ClosedXML.Excel.XLProtectionAlgorithm;
 
@@ -27,8 +24,8 @@ internal class XLWorkbookProtection : IXLWorkbookProtection
     public bool IsPasswordProtected => IsProtected && !string.IsNullOrEmpty(PasswordHash);
     public bool IsProtected { get; internal set; }
 
-    internal string Base64EncodedSalt { get; set; }
-    internal string PasswordHash { get; set; }
+    internal string Base64EncodedSalt { get; set; } = string.Empty;
+    internal string PasswordHash { get; set; } = string.Empty;
     internal uint SpinCount { get; set; } = 100000;
 
     public IXLWorkbookProtection AllowElement(XLWorkbookProtectionElements element, bool allowed = true)

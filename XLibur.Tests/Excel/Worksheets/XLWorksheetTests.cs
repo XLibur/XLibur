@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using ClosedXML.Excel;
 using ClosedXML.Excel.Drawings;
+using ClosedXML.Tests.Utils;
 using NUnit.Framework;
 
 namespace ClosedXML.Tests.Excel.Worksheets;

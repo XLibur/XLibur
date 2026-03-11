@@ -9,16 +9,13 @@ class EditingComments : IXLExample
 
     public void Create(string filePath)
     {
-
         // Exercise(@"path/to/test/resources/comments");
-
     }
 
     public void Exercise(string basePath)
     {
 
         // INCOMPLETE
-
         var book = new XLWorkbook(Path.Combine(basePath, "EditingComments.xlsx"));
         var sheet = book.Worksheet(1);
 

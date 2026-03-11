@@ -62,7 +62,7 @@ internal class FormulaReferences
         foreach (var (tableName, column, _) in StructuredReferences)
         {
             if (workbook.TryGetTable(tableName, out var table))
-                list.Add(table.DataRange.Column(column));
+                list.Add(table.DataRange!.Column(column));
         }
 
         return list;

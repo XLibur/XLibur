@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 
 namespace XLibur.Excel;
@@ -49,7 +47,7 @@ internal struct XLColorKey : IEquatable<XLColorKey>
         return false;
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         if (obj is XLColorKey key)
             return Equals(key);
@@ -63,7 +61,7 @@ internal struct XLColorKey : IEquatable<XLColorKey>
             XLColorType.Color => Color.ToString(),
             XLColorType.Theme => $"{ThemeColor} ({ThemeTint})",
             XLColorType.Indexed => $"Indexed: {Indexed}",
-            _ => base.ToString()
+            _ => base.ToString()!
         };
     }
 

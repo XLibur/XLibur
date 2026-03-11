@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Text;
 
@@ -11,7 +9,7 @@ internal class XLStyle : IXLStyle
 
     public static XLStyle Default => new(XLStyleValue.Default);
 
-    internal static XLStyleKey GenerateKey(IXLStyle initialStyle)
+    internal static XLStyleKey GenerateKey(IXLStyle? initialStyle)
     {
         if (initialStyle == null)
             return Default.Key;
@@ -39,7 +37,7 @@ internal class XLStyle : IXLStyle
 
     #region properties
 
-    private readonly IXLStylized _container;
+    private readonly IXLStylized? _container;
 
     internal XLStyleValue Value { get; private set; }
 
@@ -56,7 +54,7 @@ internal class XLStyle : IXLStyle
 
     #region constructors
 
-    public XLStyle(IXLStylized container, IXLStyle initialStyle = null, bool useDefaultModify = true) : this(container, GenerateKey(initialStyle))
+    public XLStyle(IXLStylized container, IXLStyle? initialStyle = null, bool useDefaultModify = true) : this(container, GenerateKey(initialStyle))
     {
     }
 
@@ -75,7 +73,6 @@ internal class XLStyle : IXLStyle
     /// </summary>
     private XLStyle(XLStyleValue value)
     {
-        _container = null;
         Value = value;
     }
 
@@ -113,7 +110,7 @@ internal class XLStyle : IXLStyle
 
     public IXLBorder Border
     {
-        get { return new XLBorder(_container, this, Value.Border); }
+        get { return new XLBorder(_container!, this, Value.Border); }
         set
         {
             Modify(k => k with { Border = XLBorder.GenerateKey(value) });
@@ -189,7 +186,7 @@ internal class XLStyle : IXLStyle
         return sb.ToString();
     }
 
-    public bool Equals(IXLStyle other)
+    public bool Equals(IXLStyle? other)
     {
         var otherS = other as XLStyle;
 
@@ -199,7 +196,7 @@ internal class XLStyle : IXLStyle
         return Key == otherS.Key;
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         return Equals(obj as XLStyle);
     }

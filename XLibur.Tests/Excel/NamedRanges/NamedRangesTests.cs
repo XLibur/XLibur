@@ -1,13 +1,12 @@
-
-using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using ClosedXML.Excel;
 using ClosedXML.Parser;
+using NUnit.Framework;
 
-namespace XLibur.Tests.Excel;
+namespace ClosedXML.Tests.Excel.NamedRanges;
 
 [TestFixture]
 public class NamedRangesTests

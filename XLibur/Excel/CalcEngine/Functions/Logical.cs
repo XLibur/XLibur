@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using XLibur.Excel.CalcEngine.Functions;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;

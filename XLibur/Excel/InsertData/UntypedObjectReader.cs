@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -22,7 +20,7 @@ internal class UntypedObjectReader : IInsertDataReader
                 yield break;
 
             List<object> itemsOfSameType = new List<object>();
-            Type previousType = null;
+            Type? previousType = null;
 
             foreach (var item in data1)
             {
@@ -33,7 +31,7 @@ internal class UntypedObjectReader : IInsertDataReader
                     yield return CreateReader(itemsOfSameType, previousType);
                     itemsOfSameType.Clear();
                 }
-                itemsOfSameType.Add(item);
+                itemsOfSameType.Add(item!);
                 previousType = currentType;
             }
 
@@ -43,7 +41,7 @@ internal class UntypedObjectReader : IInsertDataReader
             }
         }
 
-        IInsertDataReader CreateReader(List<object> itemsOfSameType, Type itemType)
+        IInsertDataReader CreateReader(List<object> itemsOfSameType, Type? itemType)
         {
             if (itemType == null)
                 return new NullDataReader(itemsOfSameType);
@@ -71,13 +69,13 @@ internal class UntypedObjectReader : IInsertDataReader
         return GetFirstNonNullReader()?.GetPropertiesCount() ?? 0;
     }
 
-    public string GetPropertyName(int propertyIndex)
+    public string? GetPropertyName(int propertyIndex)
     {
         return GetFirstNonNullReader()?.GetPropertyName(propertyIndex);
     }
 
-    private IInsertDataReader GetFirstNonNullReader()
+    private IInsertDataReader? GetFirstNonNullReader()
     {
-        return _readers.FirstOrDefault(r => !(r is NullDataReader));
+        return _readers.FirstOrDefault(r => r is not NullDataReader);
     }
 }

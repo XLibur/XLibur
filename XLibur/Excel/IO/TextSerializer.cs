@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.Xml;
 using XLibur.Extensions;
 using static XLibur.Excel.XLWorkbook;

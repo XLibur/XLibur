@@ -1,6 +1,4 @@
-#nullable disable
-
-namespace XLibur.Graphics;
+namespace ClosedXML.Graphics;
 
 /// <summary>
 /// A DPI resolution.

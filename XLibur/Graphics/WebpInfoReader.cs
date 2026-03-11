@@ -1,6 +1,4 @@
-#nullable disable
-
-using XLibur.Utils;
+using ClosedXML.Utils;
 using System;
 using System.Drawing;
 using System.IO;
@@ -123,7 +121,7 @@ internal class WebpInfoReader : ImageInfoReader
                 throw new ArgumentException("Unexpected end of file.");
             }
 
-            // Width is 14 bits and height is 14 bit, packed into 4 bytes
+            // Width is 14 bits, and height is 14 bit, packed into 4 bytes
             var width = header[0] + ((header[1] & 0x3F) << 8) + 1;
             var height = ((header[1] & 0xC0) >> 6) + (header[2] << 2) + ((header[3] & 0xF) << 10) + 1;
 

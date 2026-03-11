@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Text.RegularExpressions;
 
@@ -7,12 +5,12 @@ namespace XLibur.Excel.CalcEngine.Functions;
 
 internal class XLMatrix
 {
-    public XLMatrix L;
-    public XLMatrix U;
+    public XLMatrix? L;
+    public XLMatrix? U;
     public int cols;
     private double detOfP = 1;
     public double[,] mat;
-    private int[] pi;
+    private int[]? pi;
     public int rows;
 
     public XLMatrix(int iRows, int iCols) // XLMatrix Class constructor
@@ -137,10 +135,10 @@ internal class XLMatrix
         if (L == null) MakeLU();
 
         var b = new XLMatrix(rows, 1);
-        for (var i = 0; i < rows; i++) b[i, 0] = v[pi[i], 0]; // switch two items in "v" due to permutation matrix
+        for (var i = 0; i < rows; i++) b[i, 0] = v[pi![i], 0]; // switch two items in "v" due to permutation matrix
 
-        var z = SubsForth(L, b);
-        var x = SubsBack(U, z);
+        var z = SubsForth(L!, b);
+        var x = SubsBack(U!, z);
 
         return x;
     }
@@ -165,7 +163,7 @@ internal class XLMatrix
     {
         if (L == null) MakeLU();
         var det = detOfP;
-        for (var i = 0; i < rows; i++) det *= U[i, i];
+        for (var i = 0; i < rows; i++) det *= U![i, i];
         return det;
     }
 
@@ -174,7 +172,7 @@ internal class XLMatrix
         if (L == null) MakeLU();
 
         var matrix = ZeroMatrix(rows, cols);
-        for (var i = 0; i < rows; i++) matrix[pi[i], i] = 1;
+        for (var i = 0; i < rows; i++) matrix[pi![i], i] = 1;
         return matrix;
     }
 

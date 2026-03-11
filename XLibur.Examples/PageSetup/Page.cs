@@ -5,9 +5,6 @@ namespace XLibur.Examples.PageSetup;
 
 public class Page : IXLExample
 {
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var workbook = new XLWorkbook();
@@ -20,9 +17,7 @@ public class Page : IXLExample
 
         var ws2 = workbook.Worksheets.Add("Page Setup - Page2");
         ws2.PageSetup.PageOrientation = XLPageOrientation.Portrait;
-        ws2.PageSetup.FitToPages(2, 2);     // Alternatively you can use 
-        // ws2.PageSetup.PagesTall = #
-        // and/or ws2.PageSetup.PagesWide = #
+        ws2.PageSetup.FitToPages(2, 2); // Alternatively, you can use
 
         ws2.PageSetup.PaperSize = XLPaperSize.LetterPaper;
         ws2.PageSetup.VerticalDpi = 600;
@@ -31,11 +26,4 @@ public class Page : IXLExample
 
         workbook.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

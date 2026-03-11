@@ -7,12 +7,12 @@ internal static class ColorStringParser
 {
     internal static Color ParseFromHtml(string argbColor)
     {
-        // Half working incorrect parser:
+        // Half-working incorrect parser:
         // * accepts #aarrggbb, but HTML would expect #rrggbbaa
         // * doesn't accept color names
-        ReadOnlySpan<char> argb = argbColor.AsSpan();
+        var argb = argbColor.AsSpan();
         if (argb[0] == '#')
-            argb = argb.Slice(1);
+            argb = argb[1..];
 
         if (argb.Length == 8)
         {
@@ -51,12 +51,12 @@ internal static class ColorStringParser
     internal static Color ParseFromArgb(ReadOnlySpan<char> argb)
     {
         // This algorithm mimics how Excel parses <c>ST_UnsignedIntHex</c> to color.
-        // ST_UnsignedIntHex should be exactly 8 digits and Excel uses black for longer texts.
+        // ST_UnsignedIntHex should be exactly 8 digits, and Excel uses black for longer texts.
         if (argb.Length > 8)
             return Color.Black;
 
         // Excel tries to parse hex numbers as long as possible and shifts them,
-        // e.g. 'ABC+' is turned into 'FF000ABC'. Signed shift keeps highest bit,
+        // e.g. 'ABC+' is turned into 'FF000ABC'. Signed shift keeps the highest bit,
         // so keep color in uint.
         uint color = 0x00000000;
         var index = 0;

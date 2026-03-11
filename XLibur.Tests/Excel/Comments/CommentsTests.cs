@@ -34,7 +34,7 @@ public class CommentsTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
-        string strExcelComment = "1) ABCDEFGHIJKLMNOPQRSTUVWXYZ ABC ABC ABC ABC ABC" + Environment.NewLine;
+        var strExcelComment = "1) ABCDEFGHIJKLMNOPQRSTUVWXYZ ABC ABC ABC ABC ABC" + Environment.NewLine;
         strExcelComment = strExcelComment + "1) ABCDEFGHIJKLMNOPQRSTUVWXYZ ABC ABC ABC ABC ABC" + Environment.NewLine;
         strExcelComment = strExcelComment + "2) ABCDEFGHIJKLMNOPQRSTUVWXYZ ABC ABC ABC ABC ABC" + Environment.NewLine;
         strExcelComment = strExcelComment + "3) ABCDEFGHIJKLMNOPQRSTUVWXYZ ABC ABC ABC ABC ABC" + Environment.NewLine;
@@ -63,25 +63,25 @@ public class CommentsTests
 
         ws.Row(1).InsertRowsAbove(1);
 
-        Action<IXLCell> validate = c =>
+        void Validate(IXLCell c)
         {
             Assert.IsTrue(c.GetComment().Style.Alignment.AutomaticSize);
             Assert.AreEqual(XLColor.Red, c.GetComment().Style.ColorsAndLines.FillColor);
-        };
+        }
 
-        validate(ws.Cell("B3"));
+        Validate(ws.Cell("B3"));
 
         ws.Column(1).InsertColumnsBefore(2);
 
-        validate(ws.Cell("D3"));
+        Validate(ws.Cell("D3"));
 
         ws.Column(1).Delete();
 
-        validate(ws.Cell("C3"));
+        Validate(ws.Cell("C3"));
 
         ws.Row(1).Delete();
 
-        validate(ws.Cell("C2"));
+        Validate(ws.Cell("C2"));
     }
 
     [Test]

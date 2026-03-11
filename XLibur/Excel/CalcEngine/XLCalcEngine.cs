@@ -313,7 +313,7 @@ internal class XLCalcEngine : ISheetListener, IWorkbookListener
         if (result.TryPickSingleOrMultiValue(out var single, out var multi, ctx))
             return new ScalarArray(single, 1, 1);
 
-        return multi;
+        return multi!;
     }
 
     internal AnyValue EvaluateName(string nameFormula, XLWorksheet ws)

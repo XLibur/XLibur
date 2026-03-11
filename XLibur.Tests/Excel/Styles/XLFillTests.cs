@@ -1,8 +1,8 @@
-using XLibur.Excel;
-using NUnit.Framework;
 using System.IO;
+using ClosedXML.Excel;
+using NUnit.Framework;
 
-namespace XLibur.Tests.Excel;
+namespace ClosedXML.Tests.Excel.Styles;
 
 [TestFixture]
 public class XLFillTests

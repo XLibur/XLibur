@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace ClosedXML.Excel;
 
 internal class XLCFColorScaleMax : IXLCFColorScaleMax
@@ -22,7 +20,7 @@ internal class XLCFColorScaleMax : IXLCFColorScaleMax
     }
     public void HighestValue(XLColor color)
     {
-        _conditionalFormat.Values.Add(null);
+        _conditionalFormat.Values.Add(null!);
         _conditionalFormat.Colors.Add(color);
         _conditionalFormat.ContentTypes.Add(XLCFContentType.Maximum);
     }

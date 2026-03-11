@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace ClosedXML.Excel;
 
 public enum XLCFContentType { Number, Percent, Formula, Percentile, Minimum, Maximum }

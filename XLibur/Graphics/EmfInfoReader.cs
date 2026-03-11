@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.Drawing;
 using System.IO;
 using XLibur.Excel.Drawings;
@@ -22,9 +20,7 @@ internal class EmfInfoReader : ImageInfoReader
         if (!stream.TryReadU32LE(out var signature) || signature != EmfSignature)
             return false;
         stream.Position += 14;
-        if (!stream.TryReadU16LE(out var reserved) || reserved != 0x0)
-            return false;
-        return true;
+        return stream.TryReadU16LE(out var reserved) && reserved == 0x0;
     }
 
     protected override XLPictureInfo ReadInfo(Stream stream)

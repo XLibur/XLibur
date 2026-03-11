@@ -1,13 +1,13 @@
 using System.IO;
 using XLibur.Excel;
 
-namespace XLibur.Examples.Loading;
+namespace ClosedXML.Examples;
 
 public class ChangingBasicTable : IXLExample
 {
     public void Create(string filePath)
     {
-        string tempFile = ExampleHelper.GetTempFilePath(filePath);
+        var tempFile = ExampleHelper.GetTempFilePath(filePath);
         try
         {
             new BasicTable().Create(tempFile);

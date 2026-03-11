@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Linq;
 
@@ -13,7 +11,7 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
     /// The direct constructor should only be used in <see cref="XLWorksheet.RangeFactory"/>.
     /// </summary>
     public XLRangeColumn(XLRangeParameters rangeParameters)
-        : base(rangeParameters.RangeAddress, (rangeParameters.DefaultStyle as XLStyle).Value)
+        : base(rangeParameters.RangeAddress, ((XLStyle)rangeParameters.DefaultStyle).Value)
     {
     }
 
@@ -51,11 +49,11 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
     {
         if (deleteTableField && IsTableColumn())
         {
-            var table = Table as XLTable;
+            var table = (XLTable)Table!;
             if (!Cell(1).Value.TryGetText(out var firstCellValue))
                 throw new InvalidOperationException("Top cell doesn't contain a text.");
 
-            if (!table.FieldNames.ContainsKey(firstCellValue))
+            if (!table.FieldNames.ContainsKey(firstCellValue!))
                 throw new InvalidOperationException($"Field {firstCellValue} not found.");
 
             var field = table.Fields.Cast<XLTableField>().Single(f => f.Name == firstCellValue);
@@ -136,7 +134,7 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
 
     public IXLRangeColumn Column(int start, int end)
     {
-        return Range(start, end).FirstColumn();
+        return Range(start, end).FirstColumn()!;
     }
 
     public IXLRangeColumn Column(IXLCell start, IXLCell end)
@@ -165,7 +163,7 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
                 lastRow = trimmedPair;
             }
 
-            retVal.Add(Range(firstRow, lastRow).FirstColumn());
+            retVal.Add(Range(firstRow, lastRow).FirstColumn()!);
         }
 
         return retVal;
@@ -283,7 +281,7 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
             RangeAddress.FirstAddress.RowNumber,
             columnNumber,
             RangeAddress.LastAddress.RowNumber,
-            columnNumber).FirstColumn();
+            columnNumber).FirstColumn()!;
     }
 
     #region XLRangeColumn Left
@@ -375,11 +373,11 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
 
     public IXLRangeColumn ColumnUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
     {
-        return Column((this as IXLRangeBase).FirstCellUsed(options),
-            (this as IXLRangeBase).LastCellUsed(options));
+        return Column((this as IXLRangeBase).FirstCellUsed(options)!,
+            (this as IXLRangeBase).LastCellUsed(options)!);
     }
 
-    internal IXLTable Table { get; set; }
+    internal IXLTable? Table { get; set; }
 
     public bool IsTableColumn()
     {

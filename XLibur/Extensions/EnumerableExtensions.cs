@@ -55,14 +55,7 @@ internal static class EnumerableExtensions
         public bool HasDuplicates()
         {
             HashSet<T> distinctItems = [];
-            foreach (var item in source)
-            {
-                if (!distinctItems.Add(item))
-                {
-                    return true;
-                }
-            }
-            return false;
+            return source.Any(item => !distinctItems.Add(item));
         }
 
         /// <summary>

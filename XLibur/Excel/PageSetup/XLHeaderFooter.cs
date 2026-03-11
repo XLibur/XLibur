@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 
@@ -114,7 +112,7 @@ internal class XLHeaderFooter : IXLHeaderFooter
         return parsedElements;
     }
 
-    private Dictionary<XLHFOccurrence, string> _initialTexts;
+    private Dictionary<XLHFOccurrence, string> _initialTexts = new();
 
     internal bool Changed
     {

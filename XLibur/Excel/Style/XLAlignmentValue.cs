@@ -1,6 +1,4 @@
-#nullable disable
-
-using XLibur.Excel.Caching;
+using ClosedXML.Excel.Caching;
 
 namespace XLibur.Excel;
 
@@ -53,7 +51,7 @@ public class XLAlignmentValue
         Key = key;
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         return obj is XLAlignmentValue cached && Key.Equals(cached.Key);
     }

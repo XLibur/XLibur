@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using System;
 using System.Globalization;
 using XLibur.Excel.CalcEngine;
@@ -29,14 +26,14 @@ internal class XLFilter
     /// </summary>
     public XLCellValue CustomValue { get; init; }
 
-    public Func<IXLCell, XLFilterColumn, bool> Condition { get; init; }
+    public Func<IXLCell, XLFilterColumn, bool> Condition { get; init; } = null!;
 
     public XLFilterOperator Operator { get; init; } = XLFilterOperator.Equal;
 
     /// <summary>
     /// Value for <see cref="XLFilterType.Regular"/> filter.
     /// </summary>
-    public object Value { get; set; }
+    public object? Value { get; set; }
 
     internal static XLFilter CreateCustomFilter(XLCellValue value, XLFilterOperator op, XLConnector connector)
     {

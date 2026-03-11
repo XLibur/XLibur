@@ -124,9 +124,6 @@ internal static class OpenXmlPartReaderExtensions
             return true;
 
         var isFalse = input == "0" || string.Equals("false", input, StringComparison.OrdinalIgnoreCase);
-        if (isFalse)
-            return false;
-
-        throw new FormatException($"Unable to parse '{input}' to bool.");
+        return isFalse ? false : throw new FormatException($"Unable to parse '{input}' to bool.");
     }
 }

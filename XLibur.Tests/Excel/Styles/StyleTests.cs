@@ -1,11 +1,11 @@
-﻿using XLibur.Excel;
-using NUnit.Framework;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using ClosedXML.Excel;
+using NUnit.Framework;
 
-namespace XLibur.Tests.Excel;
+namespace ClosedXML.Tests.Excel.Styles;
 
 [TestFixture]
 public class StyleTests

@@ -81,7 +81,8 @@ public class SortTests
     [TestCase(true, "a", "A")]
     [TestCase(false, "A", "a")]
     [Culture("en-US")]
-    public void MatchCase_flag_determines_if_texts_are_compared_case_sensitive(bool matchCase, string expectedFirst, string expectedSecond)
+    public void MatchCase_flag_determines_if_texts_are_compared_case_sensitive(bool matchCase, string expectedFirst,
+        string expectedSecond)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -103,9 +104,9 @@ public class SortTests
         var ws = wb.AddWorksheet();
         ws.FirstCell().InsertData(new object[]
         {
-            new [] { 1, 2 },
-            new [] { 2, 2 },
-            new [] { 1, 1 },
+            new[] { 1, 2 },
+            new[] { 2, 2 },
+            new[] { 1, 1 },
         });
 
         ws.Range("A1:B4").Sort("2 ASC, 1 DESC");
@@ -118,6 +119,9 @@ public class SortTests
         Assert.AreEqual(2, ws.Cell("B3").Value);
     }
 
+    private static readonly int[] Data = [2, 2, 1];
+    private static readonly int[] DataArray = [1, 2, 1];
+
     [Test]
     public void Sort_columns_in_range_by_rows()
     {
@@ -125,8 +129,8 @@ public class SortTests
         var ws = wb.AddWorksheet();
         ws.FirstCell().InsertData(new object[]
         {
-            new [] { 2, 2, 1 },
-            new [] { 1, 2, 1 },
+            Data,
+            DataArray,
         });
 
         // Doesn't have parameters, so it is first rows ASC, second row ASC.

@@ -40,7 +40,7 @@ internal class TablePartWriter
         foreach (var xlTable in tables.Cast<XLTable>())
         {
             var relId = xlTable.RelId;
-            var tableDefinitionPart = (TableDefinitionPart)worksheetPart.GetPartById(relId);
+            var tableDefinitionPart = (TableDefinitionPart)worksheetPart.GetPartById(relId!);
             GenerateTableDefinitionPartContent(tableDefinitionPart, xlTable, context);
         }
     }

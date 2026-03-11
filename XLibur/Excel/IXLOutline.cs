@@ -1,7 +1,4 @@
-#nullable disable
-
-
-namespace XLibur.Excel;
+namespace ClosedXML.Excel;
 
 public enum XLOutlineSummaryVLocation { Top, Bottom };
 public enum XLOutlineSummaryHLocation { Left, Right };

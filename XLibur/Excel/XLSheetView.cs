@@ -43,7 +43,7 @@ internal class XLSheetView : IXLSheetView
         get;
         set
         {
-            if (value.HasWorksheet && !value.Worksheet.Equals(Worksheet))
+            if (value.HasWorksheet && !value.Worksheet!.Equals(Worksheet))
                 throw new ArgumentException("The value should be on the same worksheet as the sheet view.");
 
             field = value;

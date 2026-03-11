@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 
-namespace XLibur.Tests;
+namespace ClosedXML.Tests.Utils;
 
 /// <summary>
 /// Summary description for ResourceFileExtractor.
@@ -15,7 +15,8 @@ public sealed class ResourceFileExtractor
 
     #region Private fields
 
-    private static readonly IDictionary<string, ResourceFileExtractor> extractors = new ConcurrentDictionary<string, ResourceFileExtractor>();
+    private static readonly IDictionary<string, ResourceFileExtractor> extractors =
+        new ConcurrentDictionary<string, ResourceFileExtractor>();
 
     #endregion Private fields
 
@@ -26,14 +27,12 @@ public sealed class ResourceFileExtractor
     {
         get
         {
-            var _assembly = Assembly.GetCallingAssembly();
-            var _key = _assembly.GetName().FullName;
-            if (!extractors.TryGetValue(_key, out var extractor)
-                && !extractors.TryGetValue(_key, out extractor))
-            {
-                extractor = new ResourceFileExtractor(_assembly, true, null);
-                extractors.Add(_key, extractor);
-            }
+            var assembly = Assembly.GetCallingAssembly();
+            var key = assembly.GetName().FullName;
+            if (extractors.TryGetValue(key, out var extractor)
+                || extractors.TryGetValue(key, out extractor)) return extractor;
+            extractor = new ResourceFileExtractor(assembly, true, null);
+            extractors.Add(key, extractor);
 
             return extractor;
         }
@@ -45,8 +44,7 @@ public sealed class ResourceFileExtractor
 
     #region Private fields
 
-    private readonly ResourceFileExtractor m_baseExtractor;
-    //private string ResourceFilePath { get; }
+    private readonly ResourceFileExtractor _mBaseExtractor;
 
     #endregion Private fields
 
@@ -129,7 +127,7 @@ public sealed class ResourceFileExtractor
     private ResourceFileExtractor(Assembly assembly, bool isStatic, ResourceFileExtractor baseExtractor)
     {
         Assembly = assembly ?? throw new ArgumentNullException(nameof(assembly));
-        m_baseExtractor = baseExtractor;
+        _mBaseExtractor = baseExtractor;
         AssemblyName = Assembly.GetName().Name;
         IsStatic = isStatic;
         ResourceFilePath = ".Resources.";
@@ -183,6 +181,7 @@ public sealed class ResourceFileExtractor
         {
             sr.Close();
         }
+
         return result;
     }
 
@@ -192,18 +191,18 @@ public sealed class ResourceFileExtractor
     }
 
     /// <summary>
-    /// Read file in current assembly by specific path
+    /// Read file in the current assembly by a specific path
     /// </summary>
     /// <param name="specificPath">Specific path</param>
-    /// <param name="fileName">Read file name</param>
+    /// <param name="fileName">Read the file name</param>
     public string ReadSpecificFileFromResource(string specificPath, string fileName)
     {
-        var _ext = new ResourceFileExtractor(Assembly, specificPath);
-        return _ext.ReadFileFromResource(fileName);
+        var ext = new ResourceFileExtractor(Assembly, specificPath);
+        return ext.ReadFileFromResource(fileName);
     }
 
     /// <summary>
-    /// Read file in current assembly by specific file name
+    /// Read a file in the current assembly by a specific file name
     /// </summary>
     /// <param name="fileName"></param>
     /// <exception cref="ApplicationException"><c>ApplicationException</c>.</exception>
@@ -218,14 +217,11 @@ public sealed class ResourceFileExtractor
         {
             #region Get from base extractor
 
-            if (m_baseExtractor is not null)
-            {
-                return m_baseExtractor.ReadFileFromResourceToStream(fileName);
-            }
+            return _mBaseExtractor is not null
+                ? _mBaseExtractor.ReadFileFromResourceToStream(fileName)
+                : throw new ArgumentException("Can't find resource file " + nameResFile, nameof(fileName));
 
             #endregion Get from base extractor
-
-            throw new ArgumentException("Can't find resource file " + nameResFile, nameof(fileName));
         }
 
         #endregion Not found

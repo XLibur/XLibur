@@ -1,4 +1,3 @@
-#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,7 +34,7 @@ internal class XLPivotTableAxisField : IXLPivotField
 
     public string CustomName
     {
-        get => GetFieldValue(f => f.Name, _pivotTable.DataCaption);
+        get => GetFieldValue(f => f.Name!, _pivotTable.DataCaption);
         set
         {
             if (_index.IsDataField)

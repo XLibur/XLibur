@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using System;
 using System.Linq;
 using System.Text;
@@ -57,7 +54,7 @@ internal static partial class StringExtensions
         {
             0 => value,
             1 => value.ToLower(),
-            _ => value.Substring(0, 1).ToLower() + value.Substring(1)
+            _ => string.Concat(value[..1].ToLower(), value.AsSpan(1))
         };
     }
 
@@ -67,7 +64,7 @@ internal static partial class StringExtensions
         {
             0 => value,
             1 => value.ToUpper(),
-            _ => value.Substring(0, 1).ToUpper() + value.Substring(1)
+            _ => value[..1].ToUpper() + value[1..]
         };
     }
 
@@ -80,7 +77,7 @@ internal static partial class StringExtensions
 
     internal static string WithoutLast(this string value, int length)
     {
-        return length < value.Length ? value.Substring(0, value.Length - length) : string.Empty;
+        return length < value.Length ? value[..^length] : string.Empty;
     }
 
     /// <summary>
@@ -114,28 +111,27 @@ internal static partial class StringExtensions
     /// </summary>
     /// <param name="text">Input text to check for EOL at the beginning.</param>
     /// <param name="length">Length of EOL chars.</param>
-    /// <returns>True, if text has EOL at the beginning.</returns>
+    /// <returns>True, if the text has EOL at the beginning.</returns>
     internal static bool TrySliceNewLine(this ReadOnlySpan<char> text, out int length)
     {
-        if (text.Length >= 2 && text[0] == '\r' && text[1] == '\n')
+        switch (text.Length)
         {
-            length = 2;
-            return true;
+            case >= 2 when text[0] == '\r' && text[1] == '\n':
+                length = 2;
+                return true;
+            case >= 1 when (text[0] == '\n' || text[0] == '\r'):
+                length = 1;
+                return true;
+            default:
+                length = 0;
+                return false;
         }
-
-        if (text.Length >= 1 && (text[0] == '\n' || text[0] == '\r'))
-        {
-            length = 1;
-            return true;
-        }
-
-        length = default;
-        return false;
     }
 
     /// <summary>
     /// Convert a magic text to a number, where the first letter is in the highest byte of the number.
     /// </summary>
+    /// <exception cref="ArgumentException"></exception>
     internal static uint ToMagicNumber(this string magic)
     {
         if (magic.Length > 4)

@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 
@@ -364,7 +362,7 @@ internal static class SignatureAdapter
                 if (arg.TryPickSingleOrMultiValue(out var scalar, out var array, ctx))
                     array = new ScalarArray(scalar, 1, 1);
 
-                arrays.Add(array);
+                arrays.Add(array!);
             }
 
             return f(ctx, arrays).ToAnyValue();
@@ -687,7 +685,7 @@ internal static class SignatureAdapter
                 arg3 = new ScalarArray(number, 1, 1);
             }
 
-            return f(ctx, arg0, arg1, arg2, arg3).ToAnyValue();
+            return f(ctx, arg0, arg1, arg2, arg3!).ToAnyValue();
         };
     }
 
@@ -800,7 +798,7 @@ internal static class SignatureAdapter
             {
                 areas[i] = args[i].TryPickSingleOrMultiValue(out var scalar, out var array, ctx)
                     ? new ScalarArray(scalar, 1, 1)
-                    : array;
+                    : array!;
             }
 
             return f(ctx, areas);

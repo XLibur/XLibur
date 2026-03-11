@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using DocumentFormat.OpenXml.Packaging;
+﻿using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Vml.Office;
 using DocumentFormat.OpenXml.Vml.Spreadsheet;
 using DocumentFormat.OpenXml;
@@ -60,9 +58,9 @@ internal class VmlDrawingPartWriter
         if (ms.Length > 0)
         {
             ms.Position = 0;
-            var xdoc = XDocumentExtensions.Load(ms);
-            xdoc.Root.Elements().ForEach(e => writer.WriteRaw(e.ToString()));
-            hasAnyVmlElements |= xdoc.Root.HasElements;
+            var xdoc = XDocumentExtensions.Load(ms)!;
+            xdoc.Root!.Elements().ForEach(e => writer.WriteRaw(e.ToString()));
+            hasAnyVmlElements |= xdoc.Root!.HasElements;
         }
 
         writer.WriteEndElement();
@@ -117,8 +115,8 @@ internal class VmlDrawingPartWriter
             Id = shapeId,
             Type = "#" + XLConstants.Comment.ShapeTypeId,
             Style = GetCommentStyle(c),
-            FillColor = "#" + comment.Style.ColorsAndLines.FillColor.Color.ToHex().Substring(2),
-            StrokeColor = "#" + comment.Style.ColorsAndLines.LineColor.Color.ToHex().Substring(2),
+            FillColor = string.Concat("#", comment.Style.ColorsAndLines.FillColor.Color.ToHex().AsSpan(2)),
+            StrokeColor = string.Concat("#", comment.Style.ColorsAndLines.LineColor.Color.ToHex().AsSpan(2)),
             StrokeWeight = string.Concat(comment.Style.ColorsAndLines.LineWeight.ToInvariantString(), "pt"),
             InsetMode = comment.Style.Margins.Automatic ? InsetMarginValues.Auto : InsetMarginValues.Custom
         };

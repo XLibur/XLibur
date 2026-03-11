@@ -1,13 +1,13 @@
-using XLibur.Excel;
-using XLibur.Utils;
-using DocumentFormat.OpenXml.Spreadsheet;
-using NUnit.Framework;
 using System.Globalization;
 using System.Threading;
+using ClosedXML.Excel;
+using ClosedXML.Utils;
+using DocumentFormat.OpenXml.Spreadsheet;
+using NUnit.Framework;
 using Color = System.Drawing.Color;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
-namespace XLibur.Tests.Excel;
+namespace ClosedXML.Tests.Excel.Styles;
 
 [TestFixture]
 public class ColorTests

@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 
@@ -21,7 +19,7 @@ public interface IXLAddress : IEqualityComparer<IXLAddress>, IEquatable<IXLAddre
     /// <summary>
     /// Worksheet of the reference. Value is null for address without a worksheet.
     /// </summary>
-    IXLWorksheet Worksheet { get; }
+    IXLWorksheet? Worksheet { get; }
 
     string ToString(XLReferenceStyle referenceStyle);
 

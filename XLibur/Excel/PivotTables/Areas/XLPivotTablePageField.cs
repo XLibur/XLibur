@@ -1,4 +1,3 @@
-#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,7 +23,7 @@ internal class XLPivotTablePageField : IXLPivotField
 
     public string CustomName
     {
-        get => GetField().Name;
+        get => GetField().Name!;
         set => GetField().Name = value;
     }
 

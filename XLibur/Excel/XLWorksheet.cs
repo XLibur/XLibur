@@ -1614,7 +1614,7 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
     private void CheckRangeNotOverlappingOtherEntities(XLRange range)
     {
         // Check that the range doesn't overlap with any existing tables
-        var firstOverlappingTable = Tables.FirstOrDefault<XLTable>(t => t.RangeUsed().Intersects(range));
+        var firstOverlappingTable = Tables.FirstOrDefault<XLTable>(t => t.RangeUsed()!.Intersects(range));
         if (firstOverlappingTable != null)
             throw new InvalidOperationException($"The range {range.RangeAddress.ToStringRelative(includeSheet: true)} is already part of table '{firstOverlappingTable.Name}'");
 
@@ -1625,7 +1625,7 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
 
     private IXLRange GetRangeForSort()
     {
-        var range = RangeUsed();
+        var range = RangeUsed()!;
         SortColumns.ForEach(e => range.SortColumns.Add(e.ElementNumber, e.SortOrder, e.IgnoreBlanks, e.MatchCase));
         SortRows.ForEach(e => range.SortRows.Add(e.ElementNumber, e.SortOrder, e.IgnoreBlanks, e.MatchCase));
         return range;
@@ -1645,8 +1645,8 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
     {
         if (usedCellsOnly)
             return Cells(true, XLCellsUsedOptions.AllContents);
-        return Range((this as IXLRangeBase).FirstCellUsed(XLCellsUsedOptions.All),
-                (this as IXLRangeBase).LastCellUsed(XLCellsUsedOptions.All))
+        return Range((this as IXLRangeBase).FirstCellUsed(XLCellsUsedOptions.All)!,
+                (this as IXLRangeBase).LastCellUsed(XLCellsUsedOptions.All)!)
             .Cells(false, XLCellsUsedOptions.All);
     }
 
@@ -1794,7 +1794,7 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
         return true;
     }
 
-    internal IXLTable InsertTable(XLSheetPoint origin, IInsertDataReader reader, string tableName, bool createTable, bool addHeadings, bool transpose)
+    internal IXLTable InsertTable(XLSheetPoint origin, IInsertDataReader reader, string? tableName, bool createTable, bool addHeadings, bool transpose)
     {
         if (createTable && Tables.Any<XLTable>(t => t.Area.Contains(origin)))
             throw new InvalidOperationException($"This cell '{origin}' is already part of a table.");

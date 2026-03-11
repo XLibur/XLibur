@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using static ClosedXML.Excel.XLProtectionAlgorithm;
 
 using static XLibur.Excel.XLProtectionAlgorithm;

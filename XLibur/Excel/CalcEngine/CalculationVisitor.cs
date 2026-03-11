@@ -81,8 +81,8 @@ internal class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue>
                 args[i] = parameters[i].Accept(context, this);
 
             return !context.IsArrayCalculation
-                ? fn.CallFunction(context, args)
-                : fn.CallAsArray(context, args);
+                ? fn!.CallFunction(context, args)
+                : fn!.CallAsArray(context, args);
         }
         finally
         {

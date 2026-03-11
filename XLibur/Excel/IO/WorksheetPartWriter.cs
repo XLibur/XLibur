@@ -1,9 +1,7 @@
-#nullable disable
-
-using XLibur.Excel.ContentManagers;
-using XLibur.Excel.Exceptions;
-using XLibur.Extensions;
-using XLibur.Utils;
+using ClosedXML.Excel.ContentManagers;
+using ClosedXML.Excel.Exceptions;
+using ClosedXML.Extensions;
+using ClosedXML.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Packaging;
@@ -68,21 +66,21 @@ internal class WorksheetPartWriter
                 throw new ArgumentException("Worksheet part should contain worksheet xml, but is empty.");
             }
 
-            worksheet = (Worksheet)reader.LoadCurrentElement();
+            worksheet = (Worksheet)reader.LoadCurrentElement()!;
         }
         else
         {
             worksheet = new Worksheet();
         }
 
-        if (worksheet.NamespaceDeclarations.All(ns => ns.Value != RelationshipsNs))
+        if (worksheet.NamespaceDeclarations.All(ns => ns.Value! != RelationshipsNs))
             worksheet.AddNamespaceDeclaration("r", RelationshipsNs);
 
         // We store the x14ac:dyDescent attribute (if set by a xlRow) in a row element. It's an optional attribute and it
         // needs a declared namespace. To avoid writing namespace to each <x:row> element during streaming, write it to
         // every sheet part ahead of time. The namespace has to be marked as ignorable, because OpenXML SDK validator will
         // refuse to validate it because it's an optional extension (see ISO29500 part 3).
-        if (worksheet.NamespaceDeclarations.All(ns => ns.Value != X14Ac2009SsNs))
+        if (worksheet.NamespaceDeclarations.All(ns => ns.Value! != X14Ac2009SsNs))
         {
             worksheet.AddNamespaceDeclaration("x14ac", X14Ac2009SsNs);
             worksheet.SetAttribute(new OpenXmlAttribute("mc", "Ignorable", MarkupCompatibilityNs, "x14ac"));
@@ -137,7 +135,7 @@ internal class WorksheetPartWriter
 
         cm.SetElement(XLWorksheetContents.SheetViews, worksheet.SheetViews);
 
-        var sheetView = (SheetView)worksheet.SheetViews.FirstOrDefault();
+        var sheetView = (SheetView?)worksheet.SheetViews.FirstOrDefault();
         if (sheetView == null)
         {
             sheetView = new SheetView { WorkbookViewId = 0U };
@@ -262,7 +260,7 @@ internal class WorksheetPartWriter
                 else if (firstSelection != null)
                     selection.ActiveCell = firstSelection.RangeAddress.FirstAddress.ToStringRelative(false);
 
-                var seqRef = new List<string> { selection.ActiveCell.Value };
+                var seqRef = new List<string> { selection.ActiveCell!.Value! };
                 seqRef.AddRange(xlWorksheet.SelectedRanges.Select(range =>
                 {
                     return range.RangeAddress.FirstAddress.Equals(range.RangeAddress.LastAddress)
@@ -373,7 +371,7 @@ internal class WorksheetPartWriter
             var columns = worksheet.Elements<Columns>().First();
             cm.SetElement(XLWorksheetContents.Columns, columns);
 
-            var sheetColumnsByMin = columns.Elements<Column>().ToDictionary(c => c.Min.Value, c => c);
+            var sheetColumnsByMin = columns.Elements<Column>().ToDictionary(c => c.Min!.Value, c => c);
             //Dictionary<UInt32, Column> sheetColumnsByMax = columns.Elements<Column>().ToDictionary(c => c.Max.Value, c => c);
 
             int minInColumnsCollection;
@@ -452,13 +450,13 @@ internal class WorksheetPartWriter
             var collection = maxInColumnsCollection;
             foreach (
                 var col in
-                columns.Elements<Column>().Where(c => c.Min > (uint)(collection)).OrderBy(c => c.Min.Value))
+                columns.Elements<Column>().Where(c => c.Min! > (uint)(collection)).OrderBy(c => c.Min!.Value))
             {
                 col.Style = worksheetStyleId;
                 col.Width = worksheetColumnWidth;
                 col.CustomWidth = true;
 
-                if ((int)col.Max.Value > maxInColumnsCollection)
+                if ((int)col.Max!.Value > maxInColumnsCollection)
                     maxInColumnsCollection = (int)col.Max.Value;
             }
 
@@ -865,7 +863,7 @@ internal class WorksheetPartWriter
                 sparklineGroup.DateAxis = xlSparklineGroup.HorizontalAxis.DateAxis;
                 if (xlSparklineGroup.HorizontalAxis.DateAxis)
                     sparklineGroup.Formula = new OfficeExcel.Formula(
-                        xlSparklineGroup.DateRange.RangeAddress.ToString(XLReferenceStyle.A1, true));
+                        xlSparklineGroup.DateRange!.RangeAddress.ToString(XLReferenceStyle.A1, true));
 
                 sparklineGroup.MinAxisType = xlSparklineGroup.VerticalAxis.MinAxisType.ToOpenXml();
                 if (xlSparklineGroup.VerticalAxis.MinAxisType == XLSparklineAxisMinMax.Custom)
@@ -881,7 +879,7 @@ internal class WorksheetPartWriter
                         Formula = new OfficeExcel.Formula(
                             xlSparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)),
                         ReferenceSequence =
-                            new OfficeExcel.ReferenceSequence(xlSparkline.Location.Address.ToString())
+                            new OfficeExcel.ReferenceSequence(xlSparkline.Location.Address.ToString()!)
                     })
                 );
 
@@ -930,7 +928,7 @@ internal class WorksheetPartWriter
                 if (XLHelper.SheetComparer.Equals(sheet.Name, sheetName))
                 {
                     // The spec wants us to include references to ranges on the same worksheet without the sheet name
-                    return (false, value.Substring(separatorIndex + 1));
+                    return (false, value[(separatorIndex + 1)..]);
                 }
 
                 return (true, value);
@@ -1104,14 +1102,14 @@ internal class WorksheetPartWriter
                 if (hl.IsExternal)
                 {
                     var rId = context.RelIdGenerator.GetNext(RelType.Workbook);
-                    hyperlink = new Hyperlink { Reference = hl.Cell.Address.ToString(), Id = rId };
-                    worksheetPart.AddHyperlinkRelationship(hl.ExternalAddress, true, rId);
+                    hyperlink = new Hyperlink { Reference = hl.Cell!.Address.ToString(), Id = rId };
+                    worksheetPart.AddHyperlinkRelationship(hl.ExternalAddress!, true, rId);
                 }
                 else
                 {
                     hyperlink = new Hyperlink
                     {
-                        Reference = hl.Cell.Address.ToString(),
+                        Reference = hl.Cell!.Address.ToString(),
                         Location = hl.InternalAddress,
                         Display = hl.Cell.GetFormattedString()
                     };
@@ -1223,7 +1221,7 @@ internal class WorksheetPartWriter
         // For some reason some Excel files already contains pageSetup.Copies = 0
         // The validation fails for this
         // Let's remove the attribute of that's the case.
-        if ((pageSetup?.Copies ?? 0) <= 0)
+        if ((pageSetup.Copies ?? 0) <= 0)
             pageSetup.Copies = null;
 
         #endregion PageSetup
@@ -1284,8 +1282,8 @@ internal class WorksheetPartWriter
 
             var existingBreaks = rowBreaks.ChildElements.OfType<Break>().ToArray();
             var rowBreaksToDelete = existingBreaks
-                .Where(rb => !rb.Id.HasValue ||
-                             !xlWorksheet.PageSetup.RowBreaks.Contains((int)rb.Id.Value))
+                .Where(rb => !rb.Id?.HasValue ?? true ||
+                             !xlWorksheet.PageSetup.RowBreaks.Contains((int)rb.Id!.Value))
                 .ToList();
 
             foreach (var rb in rowBreaksToDelete)
@@ -1294,7 +1292,7 @@ internal class WorksheetPartWriter
             }
 
             var rowBreaksToAdd = xlWorksheet.PageSetup.RowBreaks
-                .Where(xlRb => !existingBreaks.Any(rb => rb.Id.HasValue && rb.Id.Value == xlRb));
+                .Where(xlRb => !existingBreaks.Any(rb => rb.Id?.HasValue == true && rb.Id.Value == xlRb));
 
             rowBreaks.Count = (uint)rowBreakCount;
             rowBreaks.ManualBreakCount = (uint)rowBreakCount;
@@ -1331,8 +1329,8 @@ internal class WorksheetPartWriter
 
             var existingBreaks = columnBreaks.ChildElements.OfType<Break>().ToArray();
             var columnBreaksToDelete = existingBreaks
-                .Where(cb => !cb.Id.HasValue ||
-                             !xlWorksheet.PageSetup.ColumnBreaks.Contains((int)cb.Id.Value))
+                .Where(cb => !cb.Id?.HasValue ?? true ||
+                             !xlWorksheet.PageSetup.ColumnBreaks.Contains((int)cb.Id!.Value))
                 .ToList();
 
             foreach (var rb in columnBreaksToDelete)
@@ -1341,7 +1339,7 @@ internal class WorksheetPartWriter
             }
 
             var columnBreaksToAdd = xlWorksheet.PageSetup.ColumnBreaks
-                .Where(xlCb => !existingBreaks.Any(cb => cb.Id.HasValue && cb.Id.Value == xlCb));
+                .Where(xlCb => !existingBreaks.Any(cb => cb.Id?.HasValue == true && cb.Id.Value == xlCb));
 
             columnBreaks.Count = (uint)columnBreakCount;
             columnBreaks.ManualBreakCount = (uint)columnBreakCount;
@@ -1373,7 +1371,7 @@ internal class WorksheetPartWriter
 
         if (worksheetPart.DrawingsPart != null)
         {
-            var xlPictures = xlWorksheet.Pictures as Drawings.XLPictures;
+            var xlPictures = (Drawings.XLPictures)xlWorksheet.Pictures;
             foreach (var removedPicture in xlPictures.Deleted)
             {
                 worksheetPart.DrawingsPart.DeletePart(removedPicture);
@@ -1393,7 +1391,7 @@ internal class WorksheetPartWriter
         var tableParts = worksheet.Elements<TableParts>().First();
         if (xlWorksheet.Pictures.Any() && !worksheet.OfType<Drawing>().Any())
         {
-            var worksheetDrawing = new Drawing { Id = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart) };
+            var worksheetDrawing = new Drawing { Id = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart!) };
             worksheetDrawing.AddNamespaceDeclaration("r",
                 "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
             worksheet.InsertBefore(worksheetDrawing, tableParts);
@@ -1640,10 +1638,10 @@ internal class WorksheetPartWriter
             string reference;
 
             if (filterRange.FirstCell().Address.RowNumber < filterRange.LastCell().Address.RowNumber)
-                reference = filterRange.Range(filterRange.FirstCell().CellBelow(), filterRange.LastCell()).RangeAddress
-                    .ToString();
+                reference = filterRange.Range(filterRange.FirstCell().CellBelow(), filterRange.LastCell())!.RangeAddress
+                    .ToString()!;
             else
-                reference = filterRange.RangeAddress.ToString();
+                reference = filterRange.RangeAddress.ToString()!;
 
             var sortState = new SortState
             {
@@ -1681,9 +1679,9 @@ internal class WorksheetPartWriter
 
             var newColumn = (Column)kp.Value.CloneNode(true);
             newColumn.Min = lastMin;
-            var newColumnMax = newColumn.Max.Value;
+            var newColumnMax = newColumn.Max!.Value;
             var columnsToRemove =
-                columns.Elements<Column>().Where(co => co.Min >= lastMin && co.Max <= newColumnMax).Select(co => co)
+                columns.Elements<Column>().Where(co => co.Min! >= lastMin && co.Max! <= newColumnMax).Select(co => co)
                     .ToList();
             columnsToRemove.ForEach(c => columns.RemoveChild(c));
 
@@ -1700,7 +1698,7 @@ internal class WorksheetPartWriter
 
     private static void UpdateColumn(Column column, Columns columns, Dictionary<uint, Column> sheetColumnsByMin)
     {
-        if (!sheetColumnsByMin.TryGetValue(column.Min.Value, out var newColumn))
+        if (!sheetColumnsByMin.TryGetValue(column.Min!.Value, out var newColumn))
         {
             newColumn = (Column)column.CloneNode(true);
             columns.AppendChild(newColumn);
@@ -1713,7 +1711,7 @@ internal class WorksheetPartWriter
             newColumn.Min = column.Min;
             newColumn.Max = column.Max;
             newColumn.Style = column.Style;
-            newColumn.Width = column.Width.SaveRound();
+            newColumn.Width = column.Width!.SaveRound();
             newColumn.CustomWidth = column.CustomWidth;
 
             if (column.Hidden != null)
@@ -1731,8 +1729,8 @@ internal class WorksheetPartWriter
             else
                 newColumn.OutlineLevel = null;
 
-            sheetColumnsByMin.Remove(column.Min.Value);
-            if (existingColumn.Min + 1 > existingColumn.Max)
+            sheetColumnsByMin.Remove(column.Min!.Value);
+            if (existingColumn.Min! + 1 > existingColumn.Max!)
             {
                 //existingColumn.Min = existingColumn.Min + 1;
                 //columns.InsertBefore(existingColumn, newColumn);
@@ -1745,9 +1743,9 @@ internal class WorksheetPartWriter
             {
                 //columns.InsertBefore(existingColumn, newColumn);
                 columns.AppendChild(newColumn);
-                sheetColumnsByMin.Add(newColumn.Min.Value, newColumn);
-                existingColumn.Min = existingColumn.Min + 1;
-                sheetColumnsByMin.Add(existingColumn.Min.Value, existingColumn);
+                sheetColumnsByMin.Add(newColumn.Min!.Value, newColumn);
+                existingColumn.Min = existingColumn.Min! + 1;
+                sheetColumnsByMin.Add(existingColumn.Min!.Value, existingColumn);
             }
         }
     }
@@ -1781,7 +1779,7 @@ internal class WorksheetPartWriter
 
     private static void AddPictureAnchor(WorksheetPart worksheetPart, Drawings.IXLPicture picture, SaveContext context)
     {
-        var pic = picture as Drawings.XLPicture;
+        var pic = (Drawings.XLPicture)picture;
         var drawingsPart = worksheetPart.DrawingsPart ??
                            worksheetPart.AddNewPart<DrawingsPart>(context.RelIdGenerator.GetNext(RelType.Workbook));
 
@@ -1804,7 +1802,7 @@ internal class WorksheetPartWriter
         // Overwrite actual image binary data
         ImagePart imagePart;
         if (drawingsPart.HasPartWithId(pic.RelId))
-            imagePart = drawingsPart.GetPartById(pic.RelId) as ImagePart;
+            imagePart = (ImagePart)drawingsPart.GetPartById(pic.RelId);
         else
         {
             pic.RelId = context.RelIdGenerator.GetNext(RelType.Workbook);
@@ -1821,7 +1819,7 @@ internal class WorksheetPartWriter
         /////////
 
         // Clear current anchors
-        var existingAnchor = GetAnchorFromImageId(drawingsPart, pic.RelId);
+        OpenXmlElement? existingAnchor = GetAnchorFromImageId(drawingsPart, pic.RelId);
 
         var wb = pic.Worksheet.Workbook;
         var extentsCx = ConvertToEnglishMetricUnits(pic.Width, wb.DpiX);
@@ -1829,7 +1827,7 @@ internal class WorksheetPartWriter
 
         var nvps = worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>();
         var nvpId = nvps.Any()
-            ? (UInt32Value)worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>().Max(p => p.Id.Value) + 1
+            ? (UInt32Value)worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>().Max(p => p.Id!.Value) + 1
             : 1U;
 
         Xdr.FromMarker fMark;
@@ -1982,7 +1980,7 @@ internal class WorksheetPartWriter
                 break;
         }
 
-        void AttachAnchor(OpenXmlElement pictureAnchor, OpenXmlElement existingAnchor)
+        void AttachAnchor(OpenXmlElement pictureAnchor, OpenXmlElement? existingAnchor)
         {
             if (existingAnchor is not null)
             {
@@ -1997,9 +1995,9 @@ internal class WorksheetPartWriter
 
     private static void RebaseNonVisualDrawingPropertiesIds(WorksheetPart worksheetPart)
     {
-        var worksheetDrawing = worksheetPart.DrawingsPart.WorksheetDrawing;
+        var worksheetDrawing = worksheetPart.DrawingsPart!.WorksheetDrawing;
 
-        var toRebase = worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>()
+        var toRebase = worksheetDrawing!.Descendants<Xdr.NonVisualDrawingProperties>()
             .ToList();
 
         toRebase.ForEach(nvdpr => nvdpr.Id = Convert.ToUInt32(toRebase.IndexOf(nvdpr) + 1));
@@ -2089,7 +2087,7 @@ internal class WorksheetPartWriter
         var xmlWriterFieldInfo =
             typeof(OpenXmlPartWriter).GetField("_xmlWriter", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var untypedXmlWriter = xmlWriterFieldInfo.GetValue(writer);
-        var xml = (XmlWriter)untypedXmlWriter;
+        var xml = (XmlWriter)untypedXmlWriter!;
 
         var maxColumn = GetMaxColumn(xlWorksheet);
 
@@ -2099,7 +2097,7 @@ internal class WorksheetPartWriter
             xlWorksheet.Tables
                 .Where<XLTable>(table => table.ShowTotalsRow)
                 .SelectMany(table =>
-                    table.TotalsRow().CellsUsed())
+                    table.TotalsRow()!.CellsUsed())
                 .Select(cell => cell.Address));
 
         // A rather complicated state machine, so rows and cells can be written in a single loop
@@ -2200,7 +2198,7 @@ internal class WorksheetPartWriter
                    xlRow.OutlineLevel > 0;
         }
 
-        static void WriteStartRow(XmlWriter w, XLRow xlRow, int rowNumber, int maxColumn, SaveContext context)
+        static void WriteStartRow(XmlWriter w, XLRow? xlRow, int rowNumber, int maxColumn, SaveContext context)
         {
             w.WriteStartElement("row", Main2006SsNs);
 
@@ -2268,7 +2266,7 @@ internal class WorksheetPartWriter
             // the thickBot/thickBot attributes.
         }
 
-        static void WriteStartCell(XmlWriter w, XLCell xlCell, char[] reference, int referenceLength, string dataType,
+        static void WriteStartCell(XmlWriter w, XLCell xlCell, char[] reference, int referenceLength, string? dataType,
             uint styleId)
         {
             w.WriteStartElement("c", Main2006SsNs);
@@ -2303,7 +2301,7 @@ internal class WorksheetPartWriter
 
             if (xlCell.HasFormula)
             {
-                string dataType = null;
+                string? dataType = null;
                 if (options.EvaluateFormulasBeforeSaving)
                 {
                     try
@@ -2319,7 +2317,7 @@ internal class WorksheetPartWriter
 
                 WriteStartCell(xml, xlCell, cellRef, cellRefLen, dataType, styleId);
 
-                var xlFormula = xlCell.Formula;
+                var xlFormula = xlCell.Formula!;
                 if (xlFormula.Type == FormulaType.DataTable)
                 {
                     // Data table doesn't write actual text of formula, that is referenced by context
@@ -2357,12 +2355,12 @@ internal class WorksheetPartWriter
                 }
                 else if (xlCell.HasArrayFormula)
                 {
-                    var isMasterCell = xlCell.Formula.Range.FirstPoint == xlCell.SheetPoint;
+                    var isMasterCell = xlCell.Formula!.Range.FirstPoint == xlCell.SheetPoint;
                     if (isMasterCell)
                     {
                         xml.WriteStartElement("f", Main2006SsNs);
                         xml.WriteAttributeString("t", "array");
-                        xml.WriteAttributeString("ref", xlCell.FormulaReference.ToStringRelative());
+                        xml.WriteAttributeString("ref", xlCell.FormulaReference!.ToStringRelative());
                         xml.WriteString(xlCell.FormulaA1);
                         xml.WriteEndElement(); // f
                     }
@@ -2427,7 +2425,7 @@ internal class WorksheetPartWriter
     /// An array to convert data type for a formula cell. Key is <see cref="XLDataType"/>.
     /// It saves some performance through direct indexation instead of switch.
     /// </summary>
-    private static readonly string[] FormulaDataType =
+    private static readonly string?[] FormulaDataType =
     [
         null, // blank
         "b", // boolean
@@ -2442,7 +2440,7 @@ internal class WorksheetPartWriter
     /// An array to convert data type for a cell that only contains a value. Key is <see cref="XLDataType"/>.
     /// It saves some performance through direct indexation instead of switch.
     /// </summary>
-    private static readonly string[] ValueDataType =
+    private static readonly string?[] ValueDataType =
     [
         null, // blank
         "b", // boolean
@@ -2453,7 +2451,7 @@ internal class WorksheetPartWriter
         null // timespan, saved as serialized date-time
     ];
 
-    private static string GetCellValueType(XLCell xlCell)
+    private static string? GetCellValueType(XLCell xlCell)
     {
         var dataType = xlCell.DataType;
         if (dataType == XLDataType.Text && !xlCell.ShareString)

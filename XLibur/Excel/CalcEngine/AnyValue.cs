@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Globalization;
 using System.Linq;
@@ -24,12 +22,12 @@ internal readonly struct AnyValue
     private readonly byte _index;
     private readonly bool _logical;
     private readonly double _number;
-    private readonly string _text;
+    private readonly string? _text;
     private readonly XLError _error;
-    private readonly Array _array;
-    private readonly Reference _reference;
+    private readonly Array? _array;
+    private readonly Reference? _reference;
 
-    private AnyValue(byte index, bool logical, double number, string text, XLError error, Array array, Reference reference)
+    private AnyValue(byte index, bool logical, double number, string? text, XLError error, Array? array, Reference? reference)
     {
         _index = index;
         _logical = logical;
@@ -113,14 +111,14 @@ internal readonly struct AnyValue
             BlankValue => ScalarValue.Blank,
             LogicalValue => _logical,
             NumberValue => _number,
-            TextValue => _text,
+            TextValue => _text!,
             ErrorValue => _error,
             _ => default
         };
         collection = _index switch
         {
-            ArrayValue => _array,
-            ReferenceValue => _reference,
+            ArrayValue => _array!,
+            ReferenceValue => _reference!,
             _ => default
         };
         return _index <= ErrorValue;
@@ -138,7 +136,7 @@ internal readonly struct AnyValue
         return false;
     }
 
-    public bool TryPickArray(out Array array)
+    public bool TryPickArray(out Array? array)
     {
         if (_index == ArrayValue)
         {
@@ -150,7 +148,7 @@ internal readonly struct AnyValue
         return false;
     }
 
-    public bool TryPickReference(out Reference reference, out XLError error)
+    public bool TryPickReference(out Reference? reference, out XLError error)
     {
         if (_index == ReferenceValue)
         {
@@ -179,14 +177,14 @@ internal readonly struct AnyValue
             return false;
         }
 
-        if (_reference.Areas.Count > 1)
+        if (_reference!.Areas.Count > 1)
         {
             area = default;
             error = XLError.CellReference;
             return false;
         }
 
-        area = _reference.Areas[0];
+        area = _reference!.Areas[0];
         error = default;
         return true;
     }
@@ -194,7 +192,7 @@ internal readonly struct AnyValue
     /// <summary>
     /// Return array from a single area reference or array. If value is scalar, return false.
     /// </summary>
-    public bool TryPickCollectionArray(out Array array, CalcContext ctx)
+    public bool TryPickCollectionArray(out Array? array, CalcContext ctx)
     {
         if (TryPickArea(out var areaAddress, out _))
         {
@@ -223,7 +221,7 @@ internal readonly struct AnyValue
     /// <remarks>
     /// Note the difference in nomenclature: <em>single/multi value</em> vs <em>scalar/collection type</em>.
     /// </remarks>
-    internal bool TryPickSingleOrMultiValue(out ScalarValue scalar, out Array array, CalcContext ctx)
+    internal bool TryPickSingleOrMultiValue(out ScalarValue scalar, out Array? array, CalcContext ctx)
     {
         if (TryPickScalar(out scalar, out var collection))
         {
@@ -239,7 +237,7 @@ internal readonly struct AnyValue
             return false;
         }
 
-        if (reference.TryGetSingleCellValue(out scalar, ctx))
+        if (reference!.TryGetSingleCellValue(out scalar, ctx))
         {
             return true;
         }
@@ -261,10 +259,10 @@ internal readonly struct AnyValue
             BlankValue => transformBlank(),
             LogicalValue => transformLogical(_logical),
             NumberValue => transformNumber(_number),
-            TextValue => transformText(_text),
+            TextValue => transformText(_text!),
             ErrorValue => transformError(_error),
-            ArrayValue => transformArray(_array),
-            ReferenceValue => transformReference(_reference),
+            ArrayValue => transformArray(_array!),
+            ReferenceValue => transformReference(_reference!),
             _ => throw new InvalidOperationException()
         };
     }
@@ -289,9 +287,9 @@ internal readonly struct AnyValue
                 if (reference.IsSingleCell())
                     return reference;
 
-                return reference
+                return reference!
                     .ImplicitIntersection(context.FormulaAddress).Match<AnyValue>(
-                        singleCellReference => singleCellReference,
+                        singleCellReference => singleCellReference!,
                         error => error);
             });
     }
@@ -309,8 +307,8 @@ internal readonly struct AnyValue
         if (!rightConversionResult.TryPickT0(out var rightReference, out var rightError))
             return rightError;
 
-        return Reference.RangeOp(leftReference, rightReference, ctx.Worksheet).Match<AnyValue>(
-            reference => reference,
+        return Reference.RangeOp(leftReference!, rightReference!, ctx.Worksheet).Match<AnyValue>(
+            reference => reference!,
             error => error);
     }
 
@@ -328,14 +326,14 @@ internal readonly struct AnyValue
         if (!rightConversionResult.TryPickT0(out var rightReference, out var rightError))
             return rightError;
 
-        return Reference.UnionOp(leftReference, rightReference);
+        return Reference.UnionOp(leftReference!, rightReference!);
     }
 
     private static OneOf<Reference, XLError> ConvertToReference(in AnyValue value)
     {
         return value._index switch
         {
-            ReferenceValue => value._reference,
+            ReferenceValue => value._reference!,
             ErrorValue => value._error,
             _ => XLError.IncompatibleValue
         };
@@ -363,7 +361,7 @@ internal readonly struct AnyValue
         if (isSingle)
             return UnaryArithmeticOp(single, operatorFn, context).ToAnyValue();
 
-        return array.Apply(arrayConst => UnaryArithmeticOp(arrayConst, operatorFn, context));
+        return array!.Apply(arrayConst => UnaryArithmeticOp(arrayConst, operatorFn, context));
     }
 
     private static ScalarValue UnaryArithmeticOp(ScalarValue value, Func<double, double> op, CalcContext ctx)
@@ -511,17 +509,17 @@ internal readonly struct AnyValue
 
         if (isLeftSingle)
         {
-            var broadcastedLeftArray = new ScalarArray(leftSingle, rightArray.Width, rightArray.Height);
+            var broadcastedLeftArray = new ScalarArray(leftSingle, rightArray!.Width, rightArray.Height);
             return broadcastedLeftArray.Apply(rightArray, func, context);
         }
 
         if (isRightSingle)
         {
-            var broadcastedRightArray = new ScalarArray(rightSingle, leftArray.Width, leftArray.Height);
+            var broadcastedRightArray = new ScalarArray(rightSingle, leftArray!.Width, leftArray.Height);
             return leftArray.Apply(broadcastedRightArray, func, context);
         }
 
-        var unifiedRows = Math.Max(leftArray.Height, rightArray.Height);
+        var unifiedRows = Math.Max(leftArray!.Height, rightArray!.Height);
         var unifiedColumns = Math.Max(leftArray.Width, rightArray.Width);
 
         var leftBroadcastedArray = leftArray.Broadcast(unifiedRows, unifiedColumns);
@@ -611,8 +609,8 @@ internal readonly struct AnyValue
             NumberValue => $"Number: {_number}",
             TextValue => $"Text: {_text}",
             ErrorValue => $"Error: {_error.ToDisplayString()}",
-            ArrayValue => $"Array{_array.Height}x{_array.Width}",
-            ReferenceValue => $"Reference: {string.Join(",", _reference.Areas.Select(a => $"{a.FirstAddress}:{a.LastAddress}"))}",
+            ArrayValue => $"Array{_array!.Height}x{_array.Width}",
+            ReferenceValue => $"Reference: {string.Join(",", _reference!.Areas.Select(a => $"{a.FirstAddress}:{a.LastAddress}"))}",
             _ => throw new InvalidOperationException()
         };
     }
@@ -627,7 +625,7 @@ internal readonly struct AnyValue
             return (1, 1);
 
         if (TryPickArray(out var array))
-            return (array.Height, array.Width);
+            return (array!.Height, array.Width);
 
         if (TryPickArea(out var area, out _))
             return (area.RowSpan, area.ColumnSpan);
@@ -640,7 +638,7 @@ internal readonly struct AnyValue
     /// Return the array value.
     /// </summary>
     /// <exception cref="InvalidCastException" />
-    public Array GetArray() => _index == ArrayValue ? _array : throw new InvalidCastException();
+    public Array GetArray() => _index == ArrayValue ? _array! : throw new InvalidCastException();
 
     private delegate OneOf<double, XLError> BinaryNumberFunc(double lhs, double rhs);
 }

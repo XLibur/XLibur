@@ -82,7 +82,7 @@ internal class XLTableField : IXLTableField
             if (name == value) return;
 
             if (table.ShowHeaderRow)
-                ((XLCell)table.HeadersRow(false).Cell(Index + 1)).SetValue(value, setTableHeader: false, checkMergedRanges: true);
+                ((XLCell)table.HeadersRow(false)!.Cell(Index + 1)).SetValue(value, setTableHeader: false, checkMergedRanges: true);
 
             table.RenameField(name, value);
             name = value;
@@ -104,21 +104,21 @@ internal class XLTableField : IXLTableField
 
     public string TotalsRowFormulaA1
     {
-        get { return table.TotalsRow().Cell(Index + 1).FormulaA1; }
+        get { return table.TotalsRow()!.Cell(Index + 1).FormulaA1; }
         set
         {
             totalsRowFunction = XLTotalsRowFunction.Custom;
-            table.TotalsRow().Cell(Index + 1).FormulaA1 = value;
+            table.TotalsRow()!.Cell(Index + 1).FormulaA1 = value;
         }
     }
 
     public string TotalsRowFormulaR1C1
     {
-        get { return table.TotalsRow().Cell(Index + 1).FormulaR1C1; }
+        get { return table.TotalsRow()!.Cell(Index + 1).FormulaR1C1; }
         set
         {
             totalsRowFunction = XLTotalsRowFunction.Custom;
-            table.TotalsRow().Cell(Index + 1).FormulaR1C1 = value;
+            table.TotalsRow()!.Cell(Index + 1).FormulaR1C1 = value;
         }
     }
 
@@ -138,7 +138,7 @@ internal class XLTableField : IXLTableField
         set
         {
             totalsRowFunction = XLTotalsRowFunction.None;
-            ((XLCell)table.TotalsRow().Cell(Index + 1)).SetValue(value, setTableHeader: false, checkMergedRanges: true);
+            ((XLCell)table.TotalsRow()!.Cell(Index + 1)).SetValue(value, setTableHeader: false, checkMergedRanges: true);
             totalsRowLabel = value;
         }
     }
@@ -218,7 +218,7 @@ internal class XLTableField : IXLTableField
     {
         if (TotalsRowFunction != XLTotalsRowFunction.None && TotalsRowFunction != XLTotalsRowFunction.Custom)
         {
-            var cell = table.TotalsRow().Cell(Index + 1);
+            var cell = table.TotalsRow()!.Cell(Index + 1);
             var formulaCode = string.Empty;
             switch (TotalsRowFunction)
             {
@@ -243,7 +243,7 @@ internal class XLTableField : IXLTableField
             var prependTableName = modifiedName.Contains(" ");
 
             cell.FormulaA1 = $"SUBTOTAL({formulaCode},{(prependTableName ? table.Name : string.Empty)}[{modifiedName}])";
-            var lastCell = table.LastRow().Cell(Index + 1);
+            var lastCell = table.LastRow()!.Cell(Index + 1);
             if (lastCell.DataType != XLDataType.Text)
             {
                 cell.Style.NumberFormat = lastCell.Style.NumberFormat;

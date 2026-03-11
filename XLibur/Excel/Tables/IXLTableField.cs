@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace ClosedXML.Excel;
 
 public enum XLTotalsRowFunction
@@ -43,7 +41,7 @@ public interface IXLTableField
     /// The footer cell. <c>null</c>, if the table
     /// doesn't have set <see cref="IXLTable.ShowTotalsRow"/>.
     /// </value>
-    IXLCell TotalsCell { get; }
+    IXLCell? TotalsCell { get; }
 
     /// <summary>
     /// Gets the header cell for the table field.
@@ -52,7 +50,7 @@ public interface IXLTableField
     /// The header cell.<c>null</c>, if the table
     /// doesn't have set <see cref="IXLTable.ShowHeaderRow"/>.
     /// </value>
-    IXLCell HeaderCell { get; }
+    IXLCell? HeaderCell { get; }
 
     /// <summary>
     /// Gets the index of the column (0-based).
@@ -107,7 +105,7 @@ public interface IXLTableField
     /// The totals row label.
     /// </value>
     /// <exception>If the totals row is not displayed for the table.</exception>
-    string TotalsRowLabel { get; set; }
+    string? TotalsRowLabel { get; set; }
 
     /// <summary>
     /// Deletes this table field from the table.

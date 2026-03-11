@@ -224,7 +224,7 @@ public class AutoFilterTests
             // Set thread culture to French, which should format numbers using a space as thousands separator
             var culture = CultureInfo.CreateSpecificCulture("fr-FR");
 
-            // The value in sheet that will be compared with autofilter value is a number
+            // The value in the sheet that will be compared with autofilter value is a number
             // `10000`. That number will be formatted using culture to `10 000.00` thanks to
             // modified properties of culture - period instead of a comma for decimal separator
             // and space as group separator. The formatted number will thus match with the

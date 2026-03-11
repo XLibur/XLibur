@@ -223,7 +223,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     {
         return usedCellsOnly
             ? Cells(true, XLCellsUsedOptions.AllContents)
-            : Cells(FirstCellUsed().Address.ColumnNumber, LastCellUsed().Address.ColumnNumber);
+            : Cells(FirstCellUsed()!.Address.ColumnNumber, LastCellUsed()!.Address.ColumnNumber);
     }
 
     public override XLCells Cells(string cellsInRow)
@@ -529,8 +529,8 @@ internal sealed class XLRow : XLRangeBase, IXLRow
 
     public IXLRangeRow RowUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
     {
-        return Row((this as IXLRangeBase).FirstCellUsed(options),
-            (this as IXLRangeBase).LastCellUsed(options));
+        return Row((this as IXLRangeBase).FirstCellUsed(options)!,
+            (this as IXLRangeBase).LastCellUsed(options)!);
     }
 
     #endregion IXLRow Members

@@ -1,7 +1,6 @@
 using ClosedXML.Excel;
 
-
-namespace XLibur.Examples.Styles;
+namespace ClosedXML.Examples.Styles;
 
 public class PurpleWorksheet : IXLExample
 {

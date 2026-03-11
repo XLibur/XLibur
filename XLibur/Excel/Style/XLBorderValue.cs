@@ -1,6 +1,4 @@
-#nullable disable
-
-using XLibur.Excel.Caching;
+using ClosedXML.Excel.Caching;
 
 namespace XLibur.Excel;
 
@@ -72,7 +70,7 @@ internal class XLBorderValue
         DiagonalBorderColor = XLColor.FromKey(ref diagonalBorderColor);
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         var cached = obj as XLBorderValue;
         return cached != null &&

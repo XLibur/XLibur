@@ -150,7 +150,7 @@ internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 
     internal IEnumerable<IXLRange> GetIntersectedRanges(in XLAddress address)
     {
-        return GetRangeIndex(address.Worksheet)
+        return GetRangeIndex(address.Worksheet!)
             .GetIntersectedRanges(address);
     }
 
@@ -161,7 +161,7 @@ internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 
     public IEnumerable<IXLDataValidation> DataValidation
     {
-        get { return Ranges.Select(range => range.GetDataValidation()).Where(dv => dv != null); }
+        get { return Ranges.Select(range => range.GetDataValidation()).Where(dv => dv != null)!; }
     }
 
     public IXLRanges AddToNamed(string rangeName)

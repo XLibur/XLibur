@@ -1,6 +1,4 @@
-#nullable disable
-
-namespace XLibur.Excel;
+namespace ClosedXML.Excel;
 
 /// <summary>
 /// An interface for fluent configuration of how to show <see cref="IXLPivotValue"/>,

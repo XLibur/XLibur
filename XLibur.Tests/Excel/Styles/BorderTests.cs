@@ -15,7 +15,7 @@ public class BorderTests
             .Border.SetOutsideBorder(XLBorderStyleValues.Thin)
             .Border.SetOutsideBorderColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.5));
 
-        //Check pre-conditions
+        // Check pre-conditions
         Assert.AreEqual(XLBorderStyleValues.Thin, ws.Cell("B2").Style.Border.LeftBorder);
         Assert.AreEqual(XLBorderStyleValues.Thin, ws.Cell("B2").Style.Border.RightBorder);
         Assert.AreEqual(XLThemeColor.Accent1, ws.Cell("B2").Style.Border.LeftBorderColor.ThemeColor);

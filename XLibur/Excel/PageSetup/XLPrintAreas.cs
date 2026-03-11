@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.Collections.Generic;
 using System.Linq;
 
@@ -32,7 +30,7 @@ internal class XLPrintAreas : IXLPrintAreas
 
     public void Add(string rangeAddress)
     {
-        ranges.Add(worksheet.Range(rangeAddress));
+        ranges.Add(worksheet.Range(rangeAddress)!);
     }
 
     public void Add(string firstCellAddress, string lastCellAddress)

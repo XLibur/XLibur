@@ -73,7 +73,7 @@ internal class XLConditionalFormats : IXLConditionalFormats
                     item.Ranges.Select(r => r.RangeAddress.FirstAddress.RowNumber).Min(),
                     item.Ranges.Select(r => r.RangeAddress.FirstAddress.ColumnNumber).Min(),
                     false, false);
-                var baseCell = firstRange.Worksheet.Cell(baseAddress) as XLCell;
+                var baseCell = (XLCell)firstRange.Worksheet.Cell(baseAddress);
 
                 int i = 1;
                 bool stop;
@@ -114,7 +114,7 @@ internal class XLConditionalFormats : IXLConditionalFormats
                 item.Ranges.RemoveAll();
                 consRanges.ForEach(r => item.Ranges.Add(r));
 
-                var targetCell = item.Ranges.First().FirstCell() as XLCell;
+                var targetCell = (XLCell)item.Ranges.First().FirstCell();
                 ((XLConditionalFormat)item).AdjustFormulas(baseCell, targetCell);
 
                 similarFormats.ForEach(cf => formats.Remove(cf));

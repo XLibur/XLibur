@@ -1,5 +1,3 @@
-#nullable disable
-
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Collections.Generic;

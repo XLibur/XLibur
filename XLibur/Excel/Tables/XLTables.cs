@@ -1,7 +1,6 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace XLibur.Excel;
@@ -22,7 +21,7 @@ internal class XLTables : IXLTables, IEnumerable<XLTable>
 
     #region IXLTables Members
 
-    bool IXLTables.TryGetTable(string tableName, out IXLTable table)
+    bool IXLTables.TryGetTable(string tableName, out IXLTable? table)
     {
         if (TryGetTable(tableName, out var foundTable))
         {
@@ -86,13 +85,13 @@ internal class XLTables : IXLTables, IEnumerable<XLTable>
 
     public IXLTable Table(string name)
     {
-        if (TryGetTable(name, out XLTable table))
+        if (TryGetTable(name, out var table))
             return table;
 
         throw new ArgumentOutOfRangeException(nameof(name), $"Table {name} was not found.");
     }
 
-    internal bool TryGetTable(string tableName, out XLTable table)
+    internal bool TryGetTable(string tableName, [MaybeNullWhen(false)] out XLTable table)
     {
         return _tables.TryGetValue(tableName, out table);
     }

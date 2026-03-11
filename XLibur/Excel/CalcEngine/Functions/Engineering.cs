@@ -1,6 +1,4 @@
-#nullable disable
-
-namespace XLibur.Excel.CalcEngine;
+namespace ClosedXML.Excel.CalcEngine;
 
 internal static class Engineering
 {

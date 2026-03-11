@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -22,7 +20,7 @@ internal class XLHFItem : IXLHFItem
     public string GetText(XLHFOccurrence occurrence)
     {
         var sb = new StringBuilder();
-        if (texts.TryGetValue(occurrence, out List<XLHFText> hfTexts))
+        if (texts.TryGetValue(occurrence, out var hfTexts))
         {
             foreach (var hfText in hfTexts)
                 sb.Append(hfText.GetHFText(sb.ToString()));
@@ -71,7 +69,7 @@ internal class XLHFItem : IXLHFItem
 
     private void AddTextToOccurrence(XLHFText hfText, XLHFOccurrence occurrence)
     {
-        if (texts.TryGetValue(occurrence, out List<XLHFText> hfTexts))
+        if (texts.TryGetValue(occurrence, out var hfTexts))
             hfTexts.Add(hfText);
         else
             texts.Add(occurrence, [hfText]);

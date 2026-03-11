@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -14,8 +12,8 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
     /// </summary>
     private readonly IXLFontBase _defaultFont;
     private List<XLRichString> _richTexts = new();
-    private XLPhonetics _phonetics;
-    protected T Container;
+    private XLPhonetics? _phonetics;
+    protected T Container = default!;
 
     protected XLFormattedText(IXLFormattedText<T> defaultRichText, IXLFontBase defaultFont)
         : this(defaultFont)
@@ -193,7 +191,7 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
     public IXLFormattedText<T> SetFontName(string value) { FontName = value; return this; }
     public IXLFormattedText<T> SetFontFamilyNumbering(XLFontFamilyNumberingValues value) { FontFamilyNumbering = value; return this; }
 
-    public bool Equals(IXLFormattedText<T> other)
+    public bool Equals(IXLFormattedText<T>? other)
     {
         if (other is null)
             return false;

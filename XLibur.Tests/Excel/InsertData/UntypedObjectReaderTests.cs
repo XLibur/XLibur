@@ -2,7 +2,8 @@
 using NUnit.Framework;
 using System.Collections;
 using System.Linq;
-using XLibur.Excel;
+using ClosedXML.Excel;
+using ClosedXML.Tests.Excel.Tables;
 
 namespace XLibur.Tests.Excel.InsertData;
 

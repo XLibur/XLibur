@@ -217,7 +217,7 @@ internal class XLPivotDataField : IXLPivotValue
         set => _subtotal = value;
     }
 
-    public IXLPivotValue SetBaseFieldName(string value)
+    public IXLPivotValue SetBaseFieldName(string? value)
     {
         BaseFieldName = value;
         return this;
@@ -247,7 +247,7 @@ internal class XLPivotDataField : IXLPivotValue
         return this;
     }
 
-    public IXLPivotValueCombination ShowAsDifferenceFrom(string fieldSourceName)
+    public IXLPivotValueCombination ShowAsDifferenceFrom(string? fieldSourceName)
     {
         BaseFieldName = fieldSourceName;
         SetCalculation(XLPivotCalculation.DifferenceFrom);
@@ -264,14 +264,14 @@ internal class XLPivotDataField : IXLPivotValue
         return SetCalculation(XLPivotCalculation.Normal);
     }
 
-    public IXLPivotValueCombination ShowAsPercentageDifferenceFrom(string fieldSourceName)
+    public IXLPivotValueCombination ShowAsPercentageDifferenceFrom(string? fieldSourceName)
     {
         BaseFieldName = fieldSourceName;
         SetCalculation(XLPivotCalculation.PercentageDifferenceFrom);
         return new XLPivotValueCombination(this);
     }
 
-    public IXLPivotValueCombination ShowAsPercentageFrom(string fieldSourceName)
+    public IXLPivotValueCombination ShowAsPercentageFrom(string? fieldSourceName)
     {
         BaseFieldName = fieldSourceName;
         SetCalculation(XLPivotCalculation.PercentageOf);
@@ -293,7 +293,7 @@ internal class XLPivotDataField : IXLPivotValue
         return SetCalculation(XLPivotCalculation.PercentageOfTotal);
     }
 
-    public IXLPivotValue ShowAsRunningTotalIn(string fieldSourceName)
+    public IXLPivotValue ShowAsRunningTotalIn(string? fieldSourceName)
     {
         BaseFieldName = fieldSourceName;
         return SetCalculation(XLPivotCalculation.RunningTotal);

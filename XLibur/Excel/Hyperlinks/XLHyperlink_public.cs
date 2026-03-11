@@ -1,13 +1,11 @@
-#nullable disable
-
 using System;
 
 namespace XLibur.Excel;
 
 public partial class XLHyperlink
 {
-    private Uri _externalAddress;
-    private string _internalAddress;
+    private Uri? _externalAddress;
+    private string? _internalAddress;
 
     public XLHyperlink(string address)
     {
@@ -51,7 +49,7 @@ public partial class XLHyperlink
 
     public bool IsExternal { get; set; }
 
-    public Uri ExternalAddress
+    public Uri? ExternalAddress
     {
         get
         {
@@ -64,7 +62,6 @@ public partial class XLHyperlink
         }
     }
 
-#nullable enable
     /// <summary>
     /// Gets top left cell of a hyperlink range. Return <c>null</c>,
     /// if the hyperlink isn't in a worksheet.
@@ -79,15 +76,14 @@ public partial class XLHyperlink
             return Container.GetCell(this);
         }
     }
-#nullable disable
 
-    public string InternalAddress
+    public string? InternalAddress
     {
         get
         {
             if (IsExternal)
                 return null;
-            if (_internalAddress.Contains('!'))
+            if (_internalAddress!.Contains('!'))
             {
                 return _internalAddress[0] != '\''
                     ? string.Concat(
@@ -119,7 +115,7 @@ public partial class XLHyperlink
     /// Tooltip displayed when user hovers over the hyperlink range. If not specified,
     /// the link target is displayed in the tooltip.
     /// </summary>
-    public string Tooltip { get; set; }
+    public string Tooltip { get; set; } = string.Empty;
 
     /// <inheritdoc cref="IXLHyperlinks.Delete(XLHyperlink)"/>
     public void Delete()

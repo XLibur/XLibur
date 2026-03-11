@@ -1,6 +1,4 @@
-#nullable disable
-
-namespace XLibur.Excel;
+namespace ClosedXML.Excel;
 
 internal class XLDrawingSize : IXLDrawingSize
 {

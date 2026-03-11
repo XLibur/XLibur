@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -28,7 +26,7 @@ internal partial class Slice<TElement>
         /// <summary>
         /// The default value lut ref returns for elements not defined in the lut.
         /// </summary>
-        private static readonly T DefaultValue = default;
+        private static readonly T DefaultValue = default!;
 
         /// <summary>
         /// A sparse array of values in the lut. The top level always allocated at least one element.
@@ -59,7 +57,7 @@ internal partial class Slice<TElement>
             if (!IsUsed(topIdx, bottomIdx))
                 return ref DefaultValue;
 
-            var nodes = _buckets[topIdx].Nodes;
+            var nodes = _buckets[topIdx].Nodes!;
             return ref nodes[bottomIdx];
         }
 
@@ -123,7 +121,7 @@ internal partial class Slice<TElement>
             else
             {
                 // Bottom exists, but might not be large enough
-                var bottomSize = bucket.Nodes.Length;
+                var bottomSize = bucket.Nodes!.Length;
                 if (bottomIdx >= bottomSize)
                 {
                     do
@@ -137,7 +135,7 @@ internal partial class Slice<TElement>
                 }
             }
 
-            bucket.Nodes[bottomIdx] = value;
+            bucket.Nodes![bottomIdx] = value;
         }
 
         private static (int TopLevelIndex, int BottomLevelIndex) SplitIndex(int index)
@@ -182,7 +180,7 @@ internal partial class Slice<TElement>
         [StructLayout(LayoutKind.Sequential, Pack = 4)]
         private readonly struct LutBucket
         {
-            public readonly T[] Nodes;
+            public readonly T[]? Nodes;
 
             /// <summary>
             /// <para>
@@ -204,7 +202,7 @@ internal partial class Slice<TElement>
             /// </summary>
             public readonly uint Bitmap;
 
-            internal LutBucket(T[] nodes, uint bitmap)
+            internal LutBucket(T[]? nodes, uint bitmap)
             {
                 Nodes = nodes;
                 Bitmap = bitmap;
@@ -234,7 +232,7 @@ internal partial class Slice<TElement>
                 _endIdx = endIdx;
             }
 
-            public ref T Current => ref _lut._buckets[_idx >> BottomLutBits].Nodes[_idx & BottomLutMask];
+            public ref T Current => ref _lut._buckets[_idx >> BottomLutBits].Nodes![_idx & BottomLutMask];
 
             /// <summary>
             /// Index of current element in the LUT. Only valid, if enumerator is valid.
@@ -288,7 +286,7 @@ internal partial class Slice<TElement>
                 _startIdx = startIdx;
             }
 
-            public ref T Current => ref _lut._buckets[_idx >> BottomLutBits].Nodes[_idx & BottomLutMask];
+            public ref T Current => ref _lut._buckets[_idx >> BottomLutBits].Nodes![_idx & BottomLutMask];
 
             public int Index => _idx;
 

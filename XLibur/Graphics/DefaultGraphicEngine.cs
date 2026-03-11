@@ -1,8 +1,7 @@
-#nullable disable
-
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
@@ -20,7 +19,9 @@ public class DefaultGraphicEngine : IXLGraphicEngine
     /// font through strip-fonts.sh scripts.
     /// </summary>
     private const string EmbeddedFontName = "CarlitoBare";
+
     private const float FontMetricSize = 16f;
+
     private readonly ImageInfoReader[] _imageReaders =
     [
         new PngInfoReader(),
@@ -41,12 +42,14 @@ public class DefaultGraphicEngine : IXLGraphicEngine
     /// A font loaded font in the size <see cref="FontMetricSize"/>. There is no benefit in having multiple allocated instances, everything is just scaled at the moment.
     /// </summary>
     private readonly ConcurrentDictionary<MetricId, Font> _fonts = new();
+
     private readonly Func<MetricId, Font> _loadFont;
 
     /// <summary>
     /// Max digit width as a fraction of Em square. Multiply by font size to get pt size.
     /// </summary>
     private readonly ConcurrentDictionary<MetricId, double> _maxDigitWidths = new();
+
     private readonly Func<MetricId, double> _calculateMaxDigitWidth;
 
     /// <summary>
@@ -81,11 +84,8 @@ public class DefaultGraphicEngine : IXLGraphicEngine
     /// <param name="fontStreams">Extra fonts that should be loaded to the engine.</param>
     private DefaultGraphicEngine(Stream fallbackFontStream, bool useSystemFonts, Stream[] fontStreams)
     {
-        if (fallbackFontStream is null)
-            throw new ArgumentNullException(nameof(fallbackFontStream));
-
-        if (fontStreams is null)
-            throw new ArgumentNullException(nameof(fontStreams));
+        ArgumentNullException.ThrowIfNull(fallbackFontStream);
+        ArgumentNullException.ThrowIfNull(fontStreams);
 
         var fontCollection = new FontCollection();
         AddEmbeddedFont(fontCollection);
@@ -171,7 +171,9 @@ public class DefaultGraphicEngine : IXLGraphicEngine
     public double GetTextHeight(IXLFontBase font, double dpiY)
     {
         var metrics = GetMetrics(font);
-        return PointsToPixels((metrics.VerticalMetrics.Ascender - 2 * metrics.VerticalMetrics.Descender) * font.FontSize / metrics.UnitsPerEm, dpiY);
+        return PointsToPixels(
+            (metrics.VerticalMetrics.Ascender - 2 * metrics.VerticalMetrics.Descender) * font.FontSize /
+            metrics.UnitsPerEm, dpiY);
     }
 
     public double GetTextWidth(string text, IXLFontBase fontBase, double dpiX)
@@ -207,8 +209,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine
             if (!containsMetrics)
                 continue;
 
-            foreach (var glyph in glyphs)
-                advanceFu += glyph.AdvanceWidth;
+            advanceFu = glyphs!.Aggregate(advanceFu, (current, glyph) => current + glyph.AdvanceWidth);
         }
 
         var emInPx = font.FontSize / 72d * dpi.X;
@@ -284,12 +285,11 @@ public class DefaultGraphicEngine : IXLGraphicEngine
             if (!containsMetrics)
                 continue;
 
-            var glyphAdvance = 0;
-            foreach (var glyphMetric in glyphMetrics)
-                glyphAdvance += glyphMetric.AdvanceWidth;
+            var glyphAdvance = glyphMetrics!.Aggregate(0, (current, glyphMetric) => current + glyphMetric.AdvanceWidth);
 
             maxWidth = Math.Max(maxWidth, glyphAdvance);
         }
+
         return maxWidth / (double)metrics.UnitsPerEm;
     }
 
@@ -309,7 +309,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine
 
         public bool Equals(MetricId other) => Name == other.Name && _style == other._style;
 
-        public override bool Equals(object obj) => obj is MetricId other && Equals(other);
+        public override bool Equals(object? obj) => obj is MetricId other && Equals(other);
 
         public override int GetHashCode() => (Name.GetHashCode() * 397) ^ (int)_style;
 

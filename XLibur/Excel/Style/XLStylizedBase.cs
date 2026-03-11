@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,7 +15,7 @@ internal abstract class XLStylizedBase : IXLStylized
     /// <summary>
     /// Read-only style property.
     /// </summary>
-    internal virtual XLStyleValue StyleValue { get; private protected set; }
+    internal virtual XLStyleValue StyleValue { get; private protected set; } = null!;
 
     /// <inheritdoc cref="IXLStylized.StyleValue"/>
     XLStyleValue IXLStylized.StyleValue => StyleValue;
@@ -45,14 +43,19 @@ internal abstract class XLStylizedBase : IXLStylized
 
     #endregion Properties
 
-    protected XLStylizedBase(XLStyleValue styleValue)
+    protected XLStylizedBase(XLStyleValue? styleValue)
     {
         StyleValue = styleValue ?? XLWorkbook.DefaultStyleValue;
     }
 
+    /// <summary>
+    /// Ctor only for XLCell that stores <see cref="StyleValue"/> in a slice.
+    /// Do not set StyleValue here — XLCell overrides the property with a virtual
+    /// setter that requires fields not yet initialized by the derived constructor.
+    /// The backing field is initialized to <c>null!</c> via the property initializer.
+    /// </summary>
     protected XLStylizedBase()
     {
-        // Ctor only for XLCell that stores `StyleValue` in a slice.
     }
 
     #region Private methods
@@ -123,9 +126,9 @@ internal abstract class XLStylizedBase : IXLStylized
 
     public sealed class ReferenceEqualityComparer<T> : IEqualityComparer<T> where T : class
     {
-        public bool Equals(T x, T y) => ReferenceEquals(x, y);
+        public bool Equals(T? x, T? y) => ReferenceEquals(x, y);
 
-        public int GetHashCode(T obj) => RuntimeHelpers.GetHashCode(obj);
+        public int GetHashCode(T obj) => RuntimeHelpers.GetHashCode(obj!);
     }
 
     #endregion Nested classes

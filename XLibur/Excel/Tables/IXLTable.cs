@@ -8,7 +8,7 @@ namespace XLibur.Excel;
 public interface IXLTable : IXLRange
 {
     IXLAutoFilter AutoFilter { get; }
-    IXLTableRange DataRange { get; }
+    IXLTableRange? DataRange { get; }
     bool EmphasizeFirstColumn { get; set; }
     bool EmphasizeLastColumn { get; set; }
     IEnumerable<IXLTableField> Fields { get; }
@@ -41,7 +41,7 @@ public interface IXLTable : IXLRange
 
     IXLTableField Field(int fieldIndex);
 
-    IXLRangeRow HeadersRow();
+    IXLRangeRow? HeadersRow();
 
     /// <summary>
     /// Appends the IEnumerable data elements and returns the range of the new rows.
@@ -51,7 +51,7 @@ public interface IXLTable : IXLRange
     /// <returns>
     /// The range of the new rows.
     /// </returns>
-    IXLRange AppendData(IEnumerable data, bool propagateExtraColumns = false);
+    IXLRange? AppendData(IEnumerable data, bool propagateExtraColumns = false);
 
     /// <summary>
     /// Appends the IEnumerable data elements and returns the range of the new rows.
@@ -62,7 +62,7 @@ public interface IXLTable : IXLRange
     /// <returns>
     /// The range of the new rows.
     /// </returns>
-    IXLRange AppendData(IEnumerable data, bool transpose, bool propagateExtraColumns = false);
+    IXLRange? AppendData(IEnumerable data, bool transpose, bool propagateExtraColumns = false);
 
     /// <summary>
     /// Appends the data of a data table and returns the range of the new rows.
@@ -72,7 +72,7 @@ public interface IXLTable : IXLRange
     /// <returns>
     /// The range of the new rows.
     /// </returns>
-    IXLRange AppendData(DataTable dataTable, bool propagateExtraColumns = false);
+    IXLRange? AppendData(DataTable dataTable, bool propagateExtraColumns = false);
 
     /// <summary>
     /// Appends the IEnumerable data elements and returns the range of the new rows.
@@ -83,7 +83,7 @@ public interface IXLTable : IXLRange
     /// <returns>
     /// The range of the new rows.
     /// </returns>
-    IXLRange AppendData<T>(IEnumerable<T> data, bool propagateExtraColumns = false);
+    IXLRange? AppendData<T>(IEnumerable<T> data, bool propagateExtraColumns = false);
 
     /// <summary>
     /// Replaces the IEnumerable data elements and returns the table's data range.
@@ -205,7 +205,7 @@ public interface IXLTable : IXLRange
 
     IXLTable SetShowTotalsRow(bool value);
 
-    IXLRangeRow TotalsRow();
+    IXLRangeRow? TotalsRow();
 
     /// <summary>
     /// Converts the table to an enumerable of dynamic objects

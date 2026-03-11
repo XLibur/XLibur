@@ -12,7 +12,7 @@ public class AddingDataSet : IXLExample
 
         var dataSet = GetDataSet();
 
-        // Add all DataTables in the DataSet as a worksheets
+        // Add all DataTables in the DataSet as a worksheet
         wb.Worksheets.Add(dataSet);
 
         foreach (var ws in wb.Worksheets)

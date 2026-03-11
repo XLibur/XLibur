@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace ClosedXML.Excel;
 
 internal class XLTableRow : XLRangeRow, IXLTableRow
@@ -40,7 +38,7 @@ internal class XLTableRow : XLRangeRow, IXLTableRow
 
     private XLTableRow RowShift(int rowsToShift)
     {
-        return _tableRange.Row(RowNumber() - _tableRange.FirstRow().RowNumber() + 1 + rowsToShift);
+        return _tableRange.Row(RowNumber() - _tableRange.FirstRow()!.RowNumber() + 1 + rowsToShift);
     }
 
     #region XLTableRow Above

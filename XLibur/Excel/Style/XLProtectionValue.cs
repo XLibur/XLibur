@@ -1,6 +1,4 @@
-#nullable disable
-
-using XLibur.Excel.Caching;
+using ClosedXML.Excel.Caching;
 
 namespace XLibur.Excel;
 
@@ -32,7 +30,7 @@ internal sealed class XLProtectionValue
         Key = key;
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         var cached = obj as XLProtectionValue;
         return cached != null &&

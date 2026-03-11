@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,7 +10,7 @@ internal class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat, IXLSt
     {
         private readonly bool _compareRange;
         private readonly DictionaryComparer<int, XLColor> _colorsComparer = new DictionaryComparer<int, XLColor>();
-        private readonly EnumerableComparer<string> _listComparer = new EnumerableComparer<string>();
+        private readonly EnumerableComparer<string?> _listComparer = new EnumerableComparer<string?>();
         private readonly DictionaryComparer<int, XLCFContentType> _contentsTypeComparer = new DictionaryComparer<int, XLCFContentType>();
         private readonly DictionaryComparer<int, XLCFIconSetOperator> _iconSetTypeComparer = new DictionaryComparer<int, XLCFIconSetOperator>();
 
@@ -21,13 +19,11 @@ internal class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat, IXLSt
             _compareRange = compareRange;
         }
 
-        public bool Equals(IXLConditionalFormat x, IXLConditionalFormat y)
+        public bool Equals(IXLConditionalFormat? x, IXLConditionalFormat? y)
         {
-            var xx = (XLConditionalFormat)x;
-            var yy = (XLConditionalFormat)y;
+            if (x is not XLConditionalFormat xx) return y is null;
+            if (y is not XLConditionalFormat yy) return false;
             if (ReferenceEquals(xx, yy)) return true;
-            if (ReferenceEquals(xx, null)) return false;
-            if (ReferenceEquals(yy, null)) return false;
             if (xx.GetType() != yy.GetType()) return false;
 
             var xxValues = xx.Values.Values.Where(v => v is not { IsFormula: true }).Select(v => v?.Value);
@@ -191,7 +187,7 @@ internal class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat, IXLSt
 
     public IXLRange Range
     {
-        get { return Ranges.FirstOrDefault(); }
+        get { return Ranges.FirstOrDefault()!; }
         set
         {
             Ranges.RemoveAll();
@@ -264,7 +260,7 @@ internal class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat, IXLSt
         CopyDictionary(IconSetOperators, other.IconSetOperators);
     }
 
-    private void CopyDictionary<T>(XLDictionary<T> target, XLDictionary<T> source)
+    private void CopyDictionary<T>(XLDictionary<T> target, XLDictionary<T> source) where T : notnull
     {
         target.Clear();
         source.ForEach(kp => target.Add(kp.Key, kp.Value));
@@ -541,16 +537,19 @@ internal class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat, IXLSt
 
 internal class DictionaryComparer<TKey, TValue> :
     IEqualityComparer<Dictionary<TKey, TValue>>
+    where TKey : notnull
 {
     private readonly IEqualityComparer<TValue> _valueComparer;
 
-    public DictionaryComparer(IEqualityComparer<TValue> valueComparer = null)
+    public DictionaryComparer(IEqualityComparer<TValue>? valueComparer = null)
     {
         _valueComparer = valueComparer ?? EqualityComparer<TValue>.Default;
     }
 
-    public bool Equals(Dictionary<TKey, TValue> x, Dictionary<TKey, TValue> y)
+    public bool Equals(Dictionary<TKey, TValue>? x, Dictionary<TKey, TValue>? y)
     {
+        if (x is null) return y is null;
+        if (y is null) return false;
         if (x.Count != y.Count)
             return false;
         if (x.Keys.Except(y.Keys).Any())
@@ -563,7 +562,7 @@ internal class DictionaryComparer<TKey, TValue> :
         return true;
     }
 
-    public int GetHashCode(Dictionary<TKey, TValue> obj)
+    public int GetHashCode(Dictionary<TKey, TValue>? obj)
     {
         throw new NotImplementedException();
     }
@@ -573,23 +572,25 @@ internal class EnumerableComparer<T> : IEqualityComparer<IEnumerable<T>>
 {
     private readonly IEqualityComparer<T> _valueComparer;
 
-    public EnumerableComparer(IEqualityComparer<T> valueComparer = null)
+    public EnumerableComparer(IEqualityComparer<T>? valueComparer = null)
     {
         _valueComparer = valueComparer ?? EqualityComparer<T>.Default;
     }
 
-    public bool Equals(IEnumerable<T> x, IEnumerable<T> y)
+    public bool Equals(IEnumerable<T>? x, IEnumerable<T>? y)
     {
+        if (x is null) return y is null;
+        if (y is null) return false;
         return SetEquals(x, y, _valueComparer);
     }
 
-    public int GetHashCode(IEnumerable<T> obj)
+    public int GetHashCode(IEnumerable<T>? obj)
     {
         throw new NotImplementedException();
     }
 
     public static bool SetEquals(IEnumerable<T> first, IEnumerable<T> second,
-        IEqualityComparer<T> comparer)
+        IEqualityComparer<T>? comparer)
     {
         return new HashSet<T>(second, comparer ?? EqualityComparer<T>.Default)
             .SetEquals(first);

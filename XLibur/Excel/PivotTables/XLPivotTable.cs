@@ -1,6 +1,4 @@
-#nullable disable
-
-using XLibur.Excel.CalcEngine;
+using ClosedXML.Excel.CalcEngine;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -226,7 +224,7 @@ internal class XLPivotTable : IXLPivotTable
 
     public string Name
     {
-        get { return field; }
+        get { return field!; }
         set
         {
             if (field == value) return;
@@ -241,7 +239,7 @@ internal class XLPivotTable : IXLPivotTable
             if (!string.IsNullOrWhiteSpace(oldname) && !string.Equals(oldname, field, StringComparison.OrdinalIgnoreCase))
             {
                 Worksheet.PivotTables.Delete(oldname);
-                (Worksheet.PivotTables as XLPivotTables).Add(field, this);
+                ((XLPivotTables)Worksheet.PivotTables).Add(field, this);
             }
         }
     }
@@ -251,27 +249,27 @@ internal class XLPivotTable : IXLPivotTable
         Name = value; return this;
     }
 
-    public string Title { get; set; }
+    public string Title { get; set; } = string.Empty;
 
     public IXLPivotTable SetTitle(string value)
     {
         Title = value; return this;
     }
 
-    public string Description { get; set; }
+    public string Description { get; set; } = string.Empty;
 
     public IXLPivotTable SetDescription(string value)
     {
         Description = value; return this;
     }
 
-    public IXLPivotTable SetColumnHeaderCaption(string value)
+    public IXLPivotTable SetColumnHeaderCaption(string? value)
     {
         ColumnHeaderCaption = value;
         return this;
     }
 
-    public IXLPivotTable SetRowHeaderCaption(string value)
+    public IXLPivotTable SetRowHeaderCaption(string? value)
     {
         RowHeaderCaption = value;
         return this;
@@ -302,7 +300,7 @@ internal class XLPivotTable : IXLPivotTable
         FilterFieldsPageWrap = value; return this;
     }
 
-    public IXLPivotTable SetErrorValueReplacement(string value)
+    public IXLPivotTable SetErrorValueReplacement(string? value)
     {
         ErrorValueReplacement = value; return this;
     }
@@ -669,8 +667,8 @@ internal class XLPivotTable : IXLPivotTable
         InsertBlankLines = value; return this;
     }
 
-    internal string RelId { get; set; }
-    internal string CacheDefinitionRelId { get; set; }
+    internal string? RelId { get; set; }
+    internal string? CacheDefinitionRelId { get; set; }
 
     private void SetExcelDefaults()
     {
@@ -729,7 +727,7 @@ internal class XLPivotTable : IXLPivotTable
             //}
         }
     }
-#nullable enable
+
     internal void AddField(XLPivotTableField field)
     {
         _fields.Add(field);
@@ -856,7 +854,7 @@ internal class XLPivotTable : IXLPivotTable
     /// <summary>
     /// Test to display for missing items, when <see cref="ShowMissing"/> is <c>true</c>.
     /// </summary>
-    internal string MissingCaption { get; set; }
+    internal string MissingCaption { get; set; } = string.Empty;
 
     /// <summary>
     /// Flag indicating if <see cref="MissingCaption"/> should be shown when cell has no value.

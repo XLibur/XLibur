@@ -509,7 +509,7 @@ internal static class Text
         {
             return value
                 .ToText(ctx.Culture)
-                .Match<ScalarValue>(static x => x, static x => x);
+                .Match<ScalarValue>(static x => x!, static x => x);
         }
 
         // Library doesn't format whitespace formats
@@ -610,7 +610,7 @@ internal static class Text
             return error;
 
         const string percentSign = "%";
-        var isPercent = text.IndexOf(percentSign, StringComparison.Ordinal) >= 0;
+        var isPercent = text!.IndexOf(percentSign, StringComparison.Ordinal) >= 0;
         var textWithoutPercent = isPercent ? text.Replace(percentSign, string.Empty) : text;
         if (double.TryParse(textWithoutPercent, NumberStyles.Any, ctx.Culture, out var parsedNumber))
             return isPercent ? parsedNumber / 100d : parsedNumber;

@@ -20,7 +20,6 @@ Solution uses `.slnx` format (modern MSBuild Solution Extension).
 ## Build
 
 - **Target Frameworks:** net8.0, net10.0
-- **C# Version:** 9.0 (via Directory.Build.props)
 - **Nullable Reference Types:** Enabled
 - **Warnings as Errors:** Enabled (TreatWarningsAsErrors=true)
 - **CI:** GitHub Actions with .NET 8.0.x and 10.0.x SDKs

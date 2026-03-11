@@ -1,10 +1,10 @@
-﻿using XLibur.Excel;
-using XLibur.Tests.Excel;
+﻿using ClosedXML.Excel;
 using NUnit.Framework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using ClosedXML.Tests.Excel.Tables;
 
 namespace XLibur.Tests.Extensions;
 

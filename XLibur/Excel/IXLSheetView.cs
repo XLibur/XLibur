@@ -1,6 +1,3 @@
-#nullable disable
-
-
 namespace ClosedXML.Excel;
 
 public enum XLSheetViewOptions { Normal, PageBreakPreview, PageLayout }

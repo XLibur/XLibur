@@ -1,5 +1,4 @@
-﻿#nullable disable
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Utils;
@@ -13,14 +12,15 @@ internal class PivotTableDefinitionPartReader
 {
     /// <summary>
     /// A field displayed as <c>∑Values</c> in a pivot table that contains names of all aggregation
-    /// function in value fields collection. Also commonly called 'data' field.
+    /// functions in a value fields collection. Also, commonly called 'data' field.
     /// </summary>
     private const int ValuesFieldIndex = -2;
 
-    internal static void Load(WorkbookPart workbookPart, Dictionary<int, DifferentialFormat> differentialFormats, PivotTablePart pivotTablePart, WorksheetPart worksheetPart, XLWorksheet ws, LoadContext context)
+    internal static void Load(WorkbookPart workbookPart, Dictionary<int, DifferentialFormat> differentialFormats,
+        PivotTablePart pivotTablePart, WorksheetPart worksheetPart, XLWorksheet ws, LoadContext context)
     {
         var workbook = ws.Workbook;
-        var cache = pivotTablePart.PivotTableCacheDefinitionPart;
+        var cache = pivotTablePart.PivotTableCacheDefinitionPart!;
         var cacheDefinitionRelId = workbookPart.GetIdOfPart(cache);
 
         var pivotSource = workbook.PivotCachesInternal
@@ -31,7 +31,8 @@ internal class PivotTableDefinitionPartReader
             // If it's missing, find a 'similar' pivot cache, i.e. one that's based on the same source range/table
             pivotSource = workbook.PivotCachesInternal
                 .FirstOrDefault<XLPivotCache>(ps => cache.PivotCacheDefinition?.CacheSource is { } cacheSource &&
-                    ps.Source.Equals(PivotTableCacheDefinitionPartReader.ParsePivotSourceReference(cacheSource)));
+                                                    ps.Source.Equals(PivotTableCacheDefinitionPartReader
+                                                        .ParsePivotSourceReference(cacheSource)));
         }
 
         var pivotTableDefinition = pivotTablePart.PivotTableDefinition;
@@ -39,13 +40,13 @@ internal class PivotTableDefinitionPartReader
         var target = ws.FirstCell();
         if (pivotTableDefinition?.Location?.Reference?.HasValue ?? false)
         {
-            ws.Range(pivotTableDefinition.Location.Reference.Value).Clear(XLClearOptions.All);
-            target = ws.Range(pivotTableDefinition.Location.Reference.Value).FirstCell();
+            ws.Range(pivotTableDefinition!.Location!.Reference!.Value!)!.Clear();
+            target = ws.Range(pivotTableDefinition.Location.Reference.Value!)!.FirstCell();
         }
 
         if (target != null && pivotSource != null)
         {
-            var pt = LoadPivotTableDefinition(pivotTableDefinition, ws, pivotSource, differentialFormats, context);
+            var pt = LoadPivotTableDefinition(pivotTableDefinition!, ws, pivotSource, differentialFormats, context);
             ws.PivotTables.Add(pt);
 
             pt.RelId = worksheetPart.GetIdOfPart(pivotTablePart);
@@ -53,8 +54,8 @@ internal class PivotTableDefinitionPartReader
         }
     }
 
-#nullable enable
-    private static XLPivotTable LoadPivotTableDefinition(PivotTableDefinition pivotTable, XLWorksheet sheet, XLPivotCache cache, Dictionary<int, DifferentialFormat> differentialFormats, LoadContext context)
+    private static XLPivotTable LoadPivotTableDefinition(PivotTableDefinition pivotTable, XLWorksheet sheet,
+        XLPivotCache cache, Dictionary<int, DifferentialFormat> differentialFormats, LoadContext context)
     {
         // Load base attributes
         var xlPivotTable = LoadPivotTableAttributes(pivotTable, sheet, cache);
@@ -88,7 +89,7 @@ internal class PivotTableDefinitionPartReader
         LoadAxisFields(pivotTable.ColumnFields, xlPivotTable.ColumnAxis, xlPivotTable);
         LoadAxisItems(pivotTable.ColumnItems, xlPivotTable.ColumnAxis);
 
-        // Load page fields, i.e. the filters region.
+        // Load page fields, i.e., the filters' region.
         var pageFields = pivotTable.PageFields;
         if (pageFields is not null)
         {
@@ -207,15 +208,16 @@ internal class PivotTableDefinitionPartReader
         return xlPivotTable;
     }
 
-    private static XLPivotTable LoadPivotTableAttributes(PivotTableDefinition pivotTable, XLWorksheet sheet, XLPivotCache cache)
+    private static XLPivotTable LoadPivotTableAttributes(PivotTableDefinition pivotTable, XLWorksheet sheet,
+        XLPivotCache cache)
     {
         var name = pivotTable.Name?.Value ?? throw PartStructureException.MissingAttribute();
         var cacheId = pivotTable.CacheId?.Value ?? throw PartStructureException.MissingAttribute();
         var dataOnRows = pivotTable.DataOnRows?.Value ?? false;
 
-        // DataPosition attribute is skipped, because it basically represents a field on one of axis.
-        // Excel requires that dataPosition and field with index -2 must be in list of respective axis
-        // at correct place, otherwise it crashes. To make things simple, we set the value when it is
+        // DataPosition attribute is skipped because it basically represents a field on one of axes.
+        // Excel requires that dataPosition and field with index -2 must be in the list of respective axis at the
+        // correct place; otherwise it crashes. To make things simple, we set the value when it is
         // encountered on the correct axis (plus there is a check that field is not used on multiple axes
         // that would cause exception).
         var autoFormatId = pivotTable.AutoFormatId?.Value;
@@ -356,7 +358,8 @@ internal class PivotTableDefinitionPartReader
         return xlPivotTable;
     }
 
-    private static XLPivotTableField LoadPivotField(PivotField pivotField, XLPivotTable xlPivotTable, LoadContext context)
+    private static XLPivotTableField LoadPivotField(PivotField pivotField, XLPivotTable xlPivotTable,
+        LoadContext context)
     {
         var customName = pivotField.Name?.Value;
         var axis = pivotField.Axis?.Value.ToClosedXml();
@@ -532,7 +535,8 @@ internal class PivotTableDefinitionPartReader
         return xlField;
     }
 
-    private static void LoadAxisFields(OpenXmlCompositeElement? fields, XLPivotTableAxis axis, XLPivotTable xlPivotTable)
+    private static void LoadAxisFields(OpenXmlCompositeElement? fields, XLPivotTableAxis axis,
+        XLPivotTable xlPivotTable)
     {
         if (fields is not null)
         {
@@ -580,7 +584,9 @@ internal class PivotTableDefinitionPartReader
         var grandCol = pivotArea.GrandColumn?.Value ?? false;
         var cacheIndex = pivotArea.CacheIndex?.Value ?? false;
         var outline = pivotArea.Outline?.Value ?? true;
-        var offset = pivotArea.Offset?.Value is { } offsetRefText ? XLSheetRange.Parse(offsetRefText) : (XLSheetRange?)null;
+        var offset = pivotArea.Offset?.Value is { } offsetRefText
+            ? XLSheetRange.Parse(offsetRefText)
+            : (XLSheetRange?)null;
         var collapsedLevelsAreSubtotals = pivotArea.CollapsedLevelsAreSubtotals?.Value ?? false;
         var axis = pivotArea.Axis?.Value.ToClosedXml();
         var fieldPosition = pivotArea.FieldPosition?.Value;
@@ -690,7 +696,8 @@ internal class PivotTableDefinitionPartReader
     {
         if (pivotTableStyle is not null)
         {
-            xlPivotTable.Theme = pivotTableStyle.Name is not null && Enum.TryParse<XLPivotTableTheme>(pivotTableStyle.Name, out var xlPivotTableTheme)
+            xlPivotTable.Theme = pivotTableStyle.Name is not null &&
+                                 Enum.TryParse<XLPivotTableTheme>(pivotTableStyle.Name, out var xlPivotTableTheme)
                 ? xlPivotTableTheme
                 : XLPivotTableTheme.None;
             xlPivotTable.ShowRowHeaders = pivotTableStyle.ShowRowHeaders?.Value ?? false;
