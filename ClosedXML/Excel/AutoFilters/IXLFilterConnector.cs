@@ -1,8 +1,7 @@
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+public interface IXLFilterConnector
 {
-    public interface IXLFilterConnector
-    {
-        IXLCustomFilteredColumn And { get; }
-        IXLCustomFilteredColumn Or { get; }
-    }
+    IXLCustomFilteredColumn And { get; }
+    IXLCustomFilteredColumn Or { get; }
 }

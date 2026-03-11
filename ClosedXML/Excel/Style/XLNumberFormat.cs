@@ -62,7 +62,7 @@ internal class XLNumberFormat : IXLNumberFormat
 
     #region IXLNumberFormat Members
 
-    public Int32 NumberFormatId
+    public int NumberFormatId
     {
         get => Key.NumberFormatId;
         set
@@ -75,7 +75,7 @@ internal class XLNumberFormat : IXLNumberFormat
         }
     }
 
-    public String Format
+    public string Format
     {
         get => Key.Format;
         set
@@ -90,13 +90,13 @@ internal class XLNumberFormat : IXLNumberFormat
         }
     }
 
-    public IXLStyle SetNumberFormatId(Int32 value)
+    public IXLStyle SetNumberFormatId(int value)
     {
         NumberFormatId = value;
         return _style;
     }
 
-    public IXLStyle SetFormat(String value)
+    public IXLStyle SetFormat(string value)
     {
         Format = value;
         return _style;

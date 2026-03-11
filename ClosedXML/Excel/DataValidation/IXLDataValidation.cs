@@ -1,103 +1,101 @@
 #nullable disable
 
-// Keep this file CodeMaid organised and cleaned
-using System;
+
 using System.Collections.Generic;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+public enum XLAllowedValues { AnyValue, WholeNumber, Decimal, Date, Time, TextLength, List, Custom }
+
+public enum XLErrorStyle { Stop, Warning, Information }
+
+public enum XLOperator { EqualTo, NotEqualTo, GreaterThan, LessThan, EqualOrGreaterThan, EqualOrLessThan, Between, NotBetween }
+
+public interface IXLDataValidation
 {
-    public enum XLAllowedValues { AnyValue, WholeNumber, Decimal, Date, Time, TextLength, List, Custom }
+    XLAllowedValues AllowedValues { get; set; }
 
-    public enum XLErrorStyle { Stop, Warning, Information }
+    XLDateCriteria Date { get; }
 
-    public enum XLOperator { EqualTo, NotEqualTo, GreaterThan, LessThan, EqualOrGreaterThan, EqualOrLessThan, Between, NotBetween }
+    XLDecimalCriteria Decimal { get; }
 
-    public interface IXLDataValidation
-    {
-        XLAllowedValues AllowedValues { get; set; }
+    string ErrorMessage { get; set; }
 
-        XLDateCriteria Date { get; }
+    XLErrorStyle ErrorStyle { get; set; }
 
-        XLDecimalCriteria Decimal { get; }
+    string ErrorTitle { get; set; }
 
-        String ErrorMessage { get; set; }
+    bool IgnoreBlanks { get; set; }
 
-        XLErrorStyle ErrorStyle { get; set; }
+    bool InCellDropdown { get; set; }
 
-        String ErrorTitle { get; set; }
+    string InputMessage { get; set; }
 
-        Boolean IgnoreBlanks { get; set; }
+    string InputTitle { get; set; }
 
-        Boolean InCellDropdown { get; set; }
+    string MaxValue { get; set; }
 
-        String InputMessage { get; set; }
+    string MinValue { get; set; }
 
-        String InputTitle { get; set; }
+    XLOperator Operator { get; set; }
 
-        String MaxValue { get; set; }
+    /// <summary>
+    /// A collection of ranges the data validation rule applies too.
+    /// </summary>
+    IEnumerable<IXLRange> Ranges { get; }
 
-        String MinValue { get; set; }
+    bool ShowErrorMessage { get; set; }
 
-        XLOperator Operator { get; set; }
+    //void Delete();
+    //void CopyFrom(IXLDataValidation dataValidation);
+    bool ShowInputMessage { get; set; }
 
-        /// <summary>
-        /// A collection of ranges the data validation rule applies too.
-        /// </summary>
-        IEnumerable<IXLRange> Ranges { get; }
+    XLTextLengthCriteria TextLength { get; }
 
-        Boolean ShowErrorMessage { get; set; }
+    XLTimeCriteria Time { get; }
 
-        //void Delete();
-        //void CopyFrom(IXLDataValidation dataValidation);
-        Boolean ShowInputMessage { get; set; }
+    string Value { get; set; }
 
-        XLTextLengthCriteria TextLength { get; }
+    XLWholeNumberCriteria WholeNumber { get; }
 
-        XLTimeCriteria Time { get; }
+    /// <summary>
+    /// Add a range to the collection of ranges this rule applies to.
+    /// If the specified range does not belong to the worksheet of the data validation
+    /// rule it is transferred to the target worksheet.
+    /// </summary>
+    /// <param name="range">A range to add.</param>
+    void AddRange(IXLRange range);
 
-        String Value { get; set; }
+    /// <summary>
+    /// Add a collection of ranges to the collection of ranges this rule applies to.
+    /// Ranges that do not belong to the worksheet of the data validation
+    /// rule are transferred to the target worksheet.
+    /// </summary>
+    /// <param name="ranges">Ranges to add.</param>
+    void AddRanges(IEnumerable<IXLRange> ranges);
 
-        XLWholeNumberCriteria WholeNumber { get; }
+    void Clear();
 
-        /// <summary>
-        /// Add a range to the collection of ranges this rule applies to.
-        /// If the specified range does not belong to the worksheet of the data validation
-        /// rule it is transferred to the target worksheet.
-        /// </summary>
-        /// <param name="range">A range to add.</param>
-        void AddRange(IXLRange range);
+    /// <summary>
+    /// Detach data validation rule of all ranges it applies to.
+    /// </summary>
+    void ClearRanges();
 
-        /// <summary>
-        /// Add a collection of ranges to the collection of ranges this rule applies to.
-        /// Ranges that do not belong to the worksheet of the data validation
-        /// rule are transferred to the target worksheet.
-        /// </summary>
-        /// <param name="ranges">Ranges to add.</param>
-        void AddRanges(IEnumerable<IXLRange> ranges);
+    void Custom(string customValidation);
 
-        void Clear();
+    bool IsDirty();
 
-        /// <summary>
-        /// Detach data validation rule of all ranges it applies to.
-        /// </summary>
-        void ClearRanges();
+    void List(string list);
 
-        void Custom(String customValidation);
+    void List(string list, bool inCellDropdown);
 
-        Boolean IsDirty();
+    void List(IXLRange range);
 
-        void List(String list);
+    void List(IXLRange range, bool inCellDropdown);
 
-        void List(String list, Boolean inCellDropdown);
-
-        void List(IXLRange range);
-
-        void List(IXLRange range, Boolean inCellDropdown);
-
-        /// <summary>
-        /// Remove the specified range from the collection of range this rule applies to.
-        /// </summary>
-        /// <param name="range">A range to remove.</param>
-        bool RemoveRange(IXLRange range);
-    }
+    /// <summary>
+    /// Remove the specified range from the collection of range this rule applies to.
+    /// </summary>
+    /// <param name="range">A range to remove.</param>
+    bool RemoveRange(IXLRange range);
 }

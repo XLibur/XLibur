@@ -1,16 +1,10 @@
 #nullable disable
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+namespace ClosedXML.Excel;
 
-namespace ClosedXML.Excel
+public interface IXLCFDataBarMin
 {
-    public interface IXLCFDataBarMin
-    {
-        IXLCFDataBarMax Minimum(XLCFContentType type, String value);
-        IXLCFDataBarMax Minimum(XLCFContentType type, Double value);
-        IXLCFDataBarMax LowestValue();
-    }
+    IXLCFDataBarMax Minimum(XLCFContentType type, string value);
+    IXLCFDataBarMax Minimum(XLCFContentType type, double value);
+    IXLCFDataBarMax LowestValue();
 }

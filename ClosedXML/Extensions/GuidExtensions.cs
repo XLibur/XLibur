@@ -1,15 +1,14 @@
 #nullable disable
 
-// Keep this file CodeMaid organised and cleaned
+
 using System;
 
-namespace ClosedXML.Extensions
+namespace ClosedXML.Extensions;
+
+internal static class GuidExtensions
 {
-    internal static class GuidExtensions
+    internal static string WrapInBraces(this Guid guid)
     {
-        internal static String WrapInBraces(this Guid guid)
-        {
-            return string.Concat('{', guid.ToString(), '}');
-        }
+        return string.Concat('{', guid.ToString(), '}');
     }
 }

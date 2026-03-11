@@ -1,20 +1,19 @@
 using System;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+public class XLWorkbookProperties
 {
-    public class XLWorkbookProperties
-    {
-        public String? Author { get; set; }
-        public String? Title { get; set; }
-        public String? Subject { get; set; }
-        public String? Category { get; set; }
-        public String? Keywords { get; set; }
-        public String? Comments { get; set; }
-        public String? Status { get; set; }
-        public DateTime Created { get; set; }
-        public DateTime Modified { get; set; }
-        public String? LastModifiedBy { get; set; }
-        public String? Company { get; set; }
-        public String? Manager { get; set; }
-    }
+    public string? Author { get; set; }
+    public string? Title { get; set; }
+    public string? Subject { get; set; }
+    public string? Category { get; set; }
+    public string? Keywords { get; set; }
+    public string? Comments { get; set; }
+    public string? Status { get; set; }
+    public DateTime Created { get; set; }
+    public DateTime Modified { get; set; }
+    public string? LastModifiedBy { get; set; }
+    public string? Company { get; set; }
+    public string? Manager { get; set; }
 }

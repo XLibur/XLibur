@@ -1,10 +1,7 @@
-using System;
+namespace ClosedXML.Excel;
 
-namespace ClosedXML.Excel
-{
-    internal record XLSortElement(
-        Int32 ElementNumber,
-        XLSortOrder SortOrder,
-        Boolean IgnoreBlanks,
-        Boolean MatchCase) : IXLSortElement;
-}
+internal record XLSortElement(
+    int ElementNumber,
+    XLSortOrder SortOrder,
+    bool IgnoreBlanks,
+    bool MatchCase) : IXLSortElement;

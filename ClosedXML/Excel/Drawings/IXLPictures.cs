@@ -1,36 +1,33 @@
 #nullable disable
 
-using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 
-namespace ClosedXML.Excel.Drawings
+namespace ClosedXML.Excel.Drawings;
+
+public interface IXLPictures : IEnumerable<IXLPicture>
 {
-    public interface IXLPictures : IEnumerable<IXLPicture>
-    {
-        int Count { get; }
+    int Count { get; }
 
-        IXLPicture Add(Stream stream);
+    IXLPicture Add(Stream stream);
 
-        IXLPicture Add(Stream stream, String name);
+    IXLPicture Add(Stream stream, string name);
 
-        IXLPicture Add(Stream stream, XLPictureFormat format);
+    IXLPicture Add(Stream stream, XLPictureFormat format);
 
-        IXLPicture Add(Stream stream, XLPictureFormat format, String name);
+    IXLPicture Add(Stream stream, XLPictureFormat format, string name);
 
-        IXLPicture Add(String imageFile);
+    IXLPicture Add(string imageFile);
 
-        IXLPicture Add(String imageFile, String name);
+    IXLPicture Add(string imageFile, string name);
 
-        bool Contains(String pictureName);
+    bool Contains(string pictureName);
 
-        void Delete(String pictureName);
+    void Delete(string pictureName);
 
-        void Delete(IXLPicture picture);
+    void Delete(IXLPicture picture);
 
-        IXLPicture Picture(String pictureName);
+    IXLPicture Picture(string pictureName);
 
-        bool TryGetPicture(String pictureName, out IXLPicture picture);
-    }
+    bool TryGetPicture(string pictureName, out IXLPicture picture);
 }

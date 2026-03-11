@@ -3,144 +3,143 @@
 using System;
 using System.Collections.Generic;
 
-namespace ClosedXML.Excel
-{
-    public enum XLSubtotalFunction
-    {
-        Automatic,
-        Sum,
-        Count,
-        Average,
-        Maximum,
-        Minimum,
-        Product,
-        CountNumbers,
-        StandardDeviation,
-        PopulationStandardDeviation,
-        Variance,
-        PopulationVariance,
-    }
+namespace ClosedXML.Excel;
 
-    public enum XLPivotLayout { Outline, Tabular, Compact }
+public enum XLSubtotalFunction
+{
+    Automatic,
+    Sum,
+    Count,
+    Average,
+    Maximum,
+    Minimum,
+    Product,
+    CountNumbers,
+    StandardDeviation,
+    PopulationStandardDeviation,
+    Variance,
+    PopulationVariance,
+}
+
+public enum XLPivotLayout { Outline, Tabular, Compact }
+
+/// <summary>
+/// A fluent API representation of a field on an <see cref="IXLPivotTable.RowLabels">row</see>,
+/// <see cref="IXLPivotTable.ColumnLabels">column</see> or <see cref="IXLPivotTable.ReportFilters">
+/// filter</see> axis of a <see cref="IXLPivotTable"/>.
+/// </summary>
+/// <remarks>
+/// If the field is a 'data' field, a lot of properties don't make sense and can't be set. In
+/// such case, the setter will throw <exception cref="InvalidOperationException"/> and getter
+/// will return default value for the field.
+/// </remarks>
+public interface IXLPivotField
+{
+    /// <summary>
+    /// <para>
+    /// Name of the field in a pivot table <see cref="IXLPivotTable.PivotCache"/>. If the field
+    /// is 'data' field, return <see cref="XLConstants.PivotTable.ValuesSentinalLabel"/>.
+    /// </para>
+    /// <para>
+    /// Note that field name in pivot cache is generally same as in the source data range, but
+    /// not always. Field names are unique in the cache and if the source data range contains
+    /// duplicate column names, the cache will rename them to keep all names unique.
+    /// </para>
+    /// </summary>
+    string SourceName { get; }
 
     /// <summary>
-    /// A fluent API representation of a field on an <see cref="IXLPivotTable.RowLabels">row</see>,
-    /// <see cref="IXLPivotTable.ColumnLabels">column</see> or <see cref="IXLPivotTable.ReportFilters">
-    /// filter</see> axis of a <see cref="IXLPivotTable"/>.
+    /// <see cref="CustomName"/> of the field in the pivot table. Custom name is a unique
+    /// across all fields used in the pivot table (e.g. if same field is added to values area
+    /// multiple times, it must have custom name, e.g. <c>Sum1 of Field</c>,
+    /// <c>Sum2 of Field</c>).
+    /// </summary>
+    /// <exception cref="ArgumentException">When setting name to a name that is already used by
+    ///     another field.</exception>
+    string CustomName { get; set; }
+
+    string SubtotalCaption { get; set; }
+
+    /// <summary>
+    /// Get subtotals of the field. The content of the collection depends on the type of subtotal:
+    /// <list type="bullet">
+    ///   <item>None - the collection is empty.</item>
+    ///   <item>Automatic - the collection contains one element with function <see cref="XLSubtotalFunction.Automatic"/>.</item>
+    ///   <item>Custom - the collection contains a set of functions (at least one) except the <see cref="XLSubtotalFunction.Automatic"/>.</item>
+    /// </list>
+    /// </summary>
+    IReadOnlyCollection<XLSubtotalFunction> Subtotals { get; }
+    bool IncludeNewItemsInFilter { get; set; }
+    bool Outline { get; set; }
+    bool Compact { get; set; }
+    bool? SubtotalsAtTop { get; set; }
+    bool RepeatItemLabels { get; set; }
+    bool InsertBlankLines { get; set; }
+    bool ShowBlankItems { get; set; }
+    bool InsertPageBreaks { get; set; }
+
+    /// <summary>
+    /// Are all items of the field collapsed?
     /// </summary>
     /// <remarks>
-    /// If the field is a 'data' field, a lot of properties don't make sense and can't be set. In
-    /// such case, the setter will throw <exception cref="InvalidOperationException"/> and getter
-    /// will return default value for the field.
+    /// If only a subset of items is collapsed, getter returns <c>false</c>.
     /// </remarks>
-    public interface IXLPivotField
-    {
-        /// <summary>
-        /// <para>
-        /// Name of the field in a pivot table <see cref="IXLPivotTable.PivotCache"/>. If the field
-        /// is 'data' field, return <see cref="XLConstants.PivotTable.ValuesSentinalLabel"/>.
-        /// </para>
-        /// <para>
-        /// Note that field name in pivot cache is generally same as in the source data range, but
-        /// not always. Field names are unique in the cache and if the source data range contains
-        /// duplicate column names, the cache will rename them to keep all names unique.
-        /// </para>
-        /// </summary>
-        String SourceName { get; }
+    bool Collapsed { get; set; }
 
-        /// <summary>
-        /// <see cref="CustomName"/> of the field in the pivot table. Custom name is a unique
-        /// across all fields used in the pivot table (e.g. if same field is added to values area
-        /// multiple times, it must have custom name, e.g. <c>Sum1 of Field</c>,
-        /// <c>Sum2 of Field</c>).
-        /// </summary>
-        /// <exception cref="ArgumentException">When setting name to a name that is already used by
-        ///     another field.</exception>
-        String CustomName { get; set; }
+    XLPivotSortType SortType { get; set; }
 
-        String SubtotalCaption { get; set; }
+    /// <inheritdoc cref="CustomName"/>
+    IXLPivotField SetCustomName(string value);
 
-        /// <summary>
-        /// Get subtotals of the field. The content of the collection depends on the type of subtotal:
-        /// <list type="bullet">
-        ///   <item>None - the collection is empty.</item>
-        ///   <item>Automatic - the collection contains one element with function <see cref="XLSubtotalFunction.Automatic"/>.</item>
-        ///   <item>Custom - the collection contains a set of functions (at least one) except the <see cref="XLSubtotalFunction.Automatic"/>.</item>
-        /// </list>
-        /// </summary>
-        IReadOnlyCollection<XLSubtotalFunction> Subtotals { get; }
-        Boolean IncludeNewItemsInFilter { get; set; }
-        Boolean Outline { get; set; }
-        Boolean Compact { get; set; }
-        Boolean? SubtotalsAtTop { get; set; }
-        Boolean RepeatItemLabels { get; set; }
-        Boolean InsertBlankLines { get; set; }
-        Boolean ShowBlankItems { get; set; }
-        Boolean InsertPageBreaks { get; set; }
+    IXLPivotField SetSubtotalCaption(string value);
 
-        /// <summary>
-        /// Are all items of the field collapsed?
-        /// </summary>
-        /// <remarks>
-        /// If only a subset of items is collapsed, getter returns <c>false</c>.
-        /// </remarks>
-        Boolean Collapsed { get; set; }
+    IXLPivotField AddSubtotal(XLSubtotalFunction value);
 
-        XLPivotSortType SortType { get; set; }
+    IXLPivotField SetIncludeNewItemsInFilter(bool value = true);
 
-        /// <inheritdoc cref="CustomName"/>
-        IXLPivotField SetCustomName(String value);
+    IXLPivotField SetLayout(XLPivotLayout value);
 
-        IXLPivotField SetSubtotalCaption(String value);
+    IXLPivotField SetSubtotalsAtTop(bool value = true);
 
-        IXLPivotField AddSubtotal(XLSubtotalFunction value);
+    IXLPivotField SetRepeatItemLabels(bool value = true);
 
-        IXLPivotField SetIncludeNewItemsInFilter(Boolean value = true);
+    IXLPivotField SetInsertBlankLines(bool value = true);
 
-        IXLPivotField SetLayout(XLPivotLayout value);
+    IXLPivotField SetShowBlankItems(bool value = true);
 
-        IXLPivotField SetSubtotalsAtTop(Boolean value = true);
+    IXLPivotField SetInsertPageBreaks(bool value = true);
 
-        IXLPivotField SetRepeatItemLabels(Boolean value = true);
+    IXLPivotField SetCollapsed(bool value = true);
 
-        IXLPivotField SetInsertBlankLines(Boolean value = true);
+    IXLPivotField SetSort(XLPivotSortType value);
 
-        IXLPivotField SetShowBlankItems(Boolean value = true);
+    /// <summary>
+    /// Selected values for <see cref="IXLPivotTable.ReportFilters"/> filter of the pivot
+    /// table. Empty for non-filter fields.
+    /// </summary>
+    IReadOnlyList<XLCellValue> SelectedValues { get; }
 
-        IXLPivotField SetInsertPageBreaks(Boolean value = true);
+    /// <summary>
+    /// Add a value to selected values of a filter field (<see cref="IXLPivotTable.ReportFilters"/>).
+    /// Doesn't do anything, if this field is not a filter fields.
+    /// </summary>
+    IXLPivotField AddSelectedValue(XLCellValue value);
 
-        IXLPivotField SetCollapsed(Boolean value = true);
+    /// <summary>
+    /// Add a values to a selected values of a filter field. Doesn't do anything if this field
+    /// is not a filter fields.
+    /// </summary>
+    IXLPivotField AddSelectedValues(IEnumerable<XLCellValue> values);
 
-        IXLPivotField SetSort(XLPivotSortType value);
+    IXLPivotFieldStyleFormats StyleFormats { get; }
 
-        /// <summary>
-        /// Selected values for <see cref="IXLPivotTable.ReportFilters"/> filter of the pivot
-        /// table. Empty for non-filter fields.
-        /// </summary>
-        IReadOnlyList<XLCellValue> SelectedValues { get; }
+    bool IsOnRowAxis { get; }
+    bool IsOnColumnAxis { get; }
+    bool IsInFilterList { get; }
 
-        /// <summary>
-        /// Add a value to selected values of a filter field (<see cref="IXLPivotTable.ReportFilters"/>).
-        /// Doesn't do anything, if this field is not a filter fields.
-        /// </summary>
-        IXLPivotField AddSelectedValue(XLCellValue value);
-
-        /// <summary>
-        /// Add a values to a selected values of a filter field. Doesn't do anything if this field
-        /// is not a filter fields.
-        /// </summary>
-        IXLPivotField AddSelectedValues(IEnumerable<XLCellValue> values);
-
-        IXLPivotFieldStyleFormats StyleFormats { get; }
-
-        Boolean IsOnRowAxis { get; }
-        Boolean IsOnColumnAxis { get; }
-        Boolean IsInFilterList { get; }
-
-        /// <summary>
-        /// Index of a field in <see cref="XLPivotTable.PivotFields">all pivot fields</see> or -2
-        /// for data field.
-        /// </summary>
-        Int32 Offset { get; }
-    }
+    /// <summary>
+    /// Index of a field in <see cref="XLPivotTable.PivotFields">all pivot fields</see> or -2
+    /// for data field.
+    /// </summary>
+    int Offset { get; }
 }

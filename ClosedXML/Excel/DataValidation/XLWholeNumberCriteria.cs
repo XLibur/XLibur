@@ -1,13 +1,12 @@
 #nullable disable
 
-// Keep this file CodeMaid organised and cleaned
-namespace ClosedXML.Excel
+
+namespace ClosedXML.Excel;
+
+public class XLWholeNumberCriteria : XLWholeNumberCriteriaBase
 {
-    public class XLWholeNumberCriteria : XLWholeNumberCriteriaBase
+    public XLWholeNumberCriteria(IXLDataValidation dataValidation)
+        : base(dataValidation)
     {
-        public XLWholeNumberCriteria(IXLDataValidation dataValidation)
-            : base(dataValidation)
-        {
-        }
     }
 }

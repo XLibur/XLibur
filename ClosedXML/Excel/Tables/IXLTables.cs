@@ -1,31 +1,29 @@
 #nullable disable
 
-// Keep this file CodeMaid organised and cleaned
-using System;
+
 using System.Collections.Generic;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+public interface IXLTables : IEnumerable<IXLTable>
 {
-    public interface IXLTables : IEnumerable<IXLTable>
-    {
-        void Add(IXLTable table);
+    void Add(IXLTable table);
 
-        /// <summary>
-        /// Clears the contents of these tables.
-        /// </summary>
-        /// <param name="clearOptions">Specify what you want to clear.</param>
-        IXLTables Clear(XLClearOptions clearOptions = XLClearOptions.All);
+    /// <summary>
+    /// Clears the contents of these tables.
+    /// </summary>
+    /// <param name="clearOptions">Specify what you want to clear.</param>
+    IXLTables Clear(XLClearOptions clearOptions = XLClearOptions.All);
 
-        Boolean Contains(String name);
+    bool Contains(string name);
 
-        void Remove(Int32 index);
+    void Remove(int index);
 
-        void Remove(String name);
+    void Remove(string name);
 
-        IXLTable Table(Int32 index);
+    IXLTable Table(int index);
 
-        IXLTable Table(String name);
+    IXLTable Table(string name);
 
-        Boolean TryGetTable(String tableName, out IXLTable table);
-    }
+    bool TryGetTable(string tableName, out IXLTable table);
 }

@@ -30,3 +30,4 @@ _ReSharper*/
 [Tt]est[Rr]esult*
 /packages
 .idea/
+.claude/settings.local.json

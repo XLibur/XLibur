@@ -2,142 +2,141 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+/// <summary>
+/// A container for conditional formatting of a <see cref="XLWorksheet"/>. It contains
+/// a collection of <see cref="XLConditionalFormat"/>. Doesn't contain pivot table formats,
+/// they are in pivot table <see cref="XLPivotTable.ConditionalFormats"/>,
+/// </summary>
+internal class XLConditionalFormats : IXLConditionalFormats
 {
-    /// <summary>
-    /// A container for conditional formatting of a <see cref="XLWorksheet"/>. It contains
-    /// a collection of <see cref="XLConditionalFormat"/>. Doesn't contain pivot table formats,
-    /// they are in pivot table <see cref="XLPivotTable.ConditionalFormats"/>,
-    /// </summary>
-    internal class XLConditionalFormats : IXLConditionalFormats
+    private readonly List<IXLConditionalFormat> _conditionalFormats = [];
+
+    private static readonly List<XLConditionalFormatType> CFTypesExcludedFromConsolidation =
+    [
+        XLConditionalFormatType.DataBar,
+        XLConditionalFormatType.ColorScale,
+        XLConditionalFormatType.IconSet,
+        XLConditionalFormatType.Top10,
+        XLConditionalFormatType.AboveAverage,
+        XLConditionalFormatType.IsDuplicate,
+        XLConditionalFormatType.IsUnique
+    ];
+
+    public void Add(IXLConditionalFormat conditionalFormat)
     {
-        private readonly List<IXLConditionalFormat> _conditionalFormats = new();
+        _conditionalFormats.Add(conditionalFormat);
+    }
 
-        private static readonly List<XLConditionalFormatType> CFTypesExcludedFromConsolidation = new()
+    public IEnumerator<IXLConditionalFormat> GetEnumerator()
+    {
+        return _conditionalFormats.GetEnumerator();
+    }
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
+    }
+
+    public void Remove(Predicate<IXLConditionalFormat> predicate)
+    {
+        _conditionalFormats.RemoveAll(predicate);
+    }
+
+    /// <summary>
+    /// The method consolidate the same conditional formats, which are located in adjacent ranges.
+    /// </summary>
+    internal void Consolidate()
+    {
+        var formats = _conditionalFormats
+            .Where(cf => cf.Ranges.Any())
+            .ToList();
+        _conditionalFormats.Clear();
+
+        while (formats.Count > 0)
         {
-            XLConditionalFormatType.DataBar,
-            XLConditionalFormatType.ColorScale,
-            XLConditionalFormatType.IconSet,
-            XLConditionalFormatType.Top10,
-            XLConditionalFormatType.AboveAverage,
-            XLConditionalFormatType.IsDuplicate,
-            XLConditionalFormatType.IsUnique
-        };
+            var item = formats.First();
 
-        public void Add(IXLConditionalFormat conditionalFormat)
-        {
-            _conditionalFormats.Add(conditionalFormat);
-        }
-
-        public IEnumerator<IXLConditionalFormat> GetEnumerator()
-        {
-            return _conditionalFormats.GetEnumerator();
-        }
-
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-
-        public void Remove(Predicate<IXLConditionalFormat> predicate)
-        {
-            _conditionalFormats.RemoveAll(predicate);
-        }
-
-        /// <summary>
-        /// The method consolidate the same conditional formats, which are located in adjacent ranges.
-        /// </summary>
-        internal void Consolidate()
-        {
-            var formats = _conditionalFormats
-                .Where(cf => cf.Ranges.Any())
-                .ToList();
-            _conditionalFormats.Clear();
-
-            while (formats.Count > 0)
+            if (!CFTypesExcludedFromConsolidation.Contains(item.ConditionalFormatType))
             {
-                var item = formats.First();
+                var rangesToJoin = new XLRanges();
+                item.Ranges.ForEach(rangesToJoin.Add);
+                var firstRange = item.Ranges.First();
+                var skippedRanges = new XLRanges();
+                Func<IXLConditionalFormat, bool> IsSameFormat = f =>
+                    f != item && f.Ranges.First().Worksheet.Position == firstRange.Worksheet.Position &&
+                    XLConditionalFormat.NoRangeComparer.Equals(f, item);
 
-                if (!CFTypesExcludedFromConsolidation.Contains(item.ConditionalFormatType))
+                //Get the top left corner of the rectangle covering all the ranges
+                var baseAddress = new XLAddress(
+                    item.Ranges.Select(r => r.RangeAddress.FirstAddress.RowNumber).Min(),
+                    item.Ranges.Select(r => r.RangeAddress.FirstAddress.ColumnNumber).Min(),
+                    false, false);
+                var baseCell = firstRange.Worksheet.Cell(baseAddress) as XLCell;
+
+                int i = 1;
+                bool stop;
+                List<IXLConditionalFormat> similarFormats = [];
+                do
                 {
-                    var rangesToJoin = new XLRanges();
-                    item.Ranges.ForEach(r => rangesToJoin.Add(r));
-                    var firstRange = item.Ranges.First();
-                    var skippedRanges = new XLRanges();
-                    Func<IXLConditionalFormat, bool> IsSameFormat = f =>
-                        f != item && f.Ranges.First().Worksheet.Position == firstRange.Worksheet.Position &&
-                        XLConditionalFormat.NoRangeComparer.Equals(f, item);
+                    stop = (i >= formats.Count);
 
-                    //Get the top left corner of the rectangle covering all the ranges
-                    var baseAddress = new XLAddress(
-                        item.Ranges.Select(r => r.RangeAddress.FirstAddress.RowNumber).Min(),
-                        item.Ranges.Select(r => r.RangeAddress.FirstAddress.ColumnNumber).Min(),
-                        false, false);
-                    var baseCell = firstRange.Worksheet.Cell(baseAddress) as XLCell;
-
-                    int i = 1;
-                    bool stop = false;
-                    List<IXLConditionalFormat> similarFormats = new List<IXLConditionalFormat>();
-                    do
+                    if (!stop)
                     {
-                        stop = (i >= formats.Count);
+                        var nextFormat = formats[i];
 
-                        if (!stop)
+                        var intersectsSkipped =
+                            skippedRanges.Any(left => nextFormat.Ranges.GetIntersectedRanges(left.RangeAddress).Any());
+
+                        var isSameFormat = IsSameFormat(nextFormat);
+
+                        if (isSameFormat && !intersectsSkipped)
                         {
-                            var nextFormat = formats[i];
-
-                            var intersectsSkipped =
-                                skippedRanges.Any(left => nextFormat.Ranges.GetIntersectedRanges(left.RangeAddress).Any());
-
-                            var isSameFormat = IsSameFormat(nextFormat);
-
-                            if (isSameFormat && !intersectsSkipped)
-                            {
-                                similarFormats.Add(nextFormat);
-                                nextFormat.Ranges.ForEach(r => rangesToJoin.Add(r));
-                            }
-                            else if (rangesToJoin.Any(left => nextFormat.Ranges.GetIntersectedRanges(left.RangeAddress).Any()) ||
-                                     intersectsSkipped)
-                            {
-                                // if we reached the rule intersecting any of captured ranges stop for not breaking the priorities
-                                stop = true;
-                            }
-
-                            if (!isSameFormat)
-                                nextFormat.Ranges.ForEach(r => skippedRanges.Add(r));
+                            similarFormats.Add(nextFormat);
+                            nextFormat.Ranges.ForEach(rangesToJoin.Add);
+                        }
+                        else if (rangesToJoin.Any(left => nextFormat.Ranges.GetIntersectedRanges(left.RangeAddress).Any()) ||
+                                 intersectsSkipped)
+                        {
+                            // if we reached the rule intersecting any of captured ranges stop for not breaking the priorities
+                            stop = true;
                         }
 
-                        i++;
-                    } while (!stop);
+                        if (!isSameFormat)
+                            nextFormat.Ranges.ForEach(skippedRanges.Add);
+                    }
 
-                    var consRanges = rangesToJoin.Consolidate();
-                    item.Ranges.RemoveAll();
-                    consRanges.ForEach(r => item.Ranges.Add(r));
+                    i++;
+                } while (!stop);
 
-                    var targetCell = item.Ranges.First().FirstCell() as XLCell;
-                    ((XLConditionalFormat)item).AdjustFormulas(baseCell, targetCell);
+                var consRanges = rangesToJoin.Consolidate();
+                item.Ranges.RemoveAll();
+                consRanges.ForEach(r => item.Ranges.Add(r));
 
-                    similarFormats.ForEach(cf => formats.Remove(cf));
-                }
+                var targetCell = item.Ranges.First().FirstCell() as XLCell;
+                ((XLConditionalFormat)item).AdjustFormulas(baseCell, targetCell);
 
-                _conditionalFormats.Add(item);
-                formats.Remove(item);
+                similarFormats.ForEach(cf => formats.Remove(cf));
             }
-        }
 
-        public void RemoveAll()
-        {
-            _conditionalFormats.Clear();
+            _conditionalFormats.Add(item);
+            formats.Remove(item);
         }
+    }
 
-        /// <summary>
-        /// Reorders the according to original priority. Done during load process
-        /// </summary>
-        public void ReorderAccordingToOriginalPriority()
-        {
-            var reorderedFormats = _conditionalFormats.OrderBy(cf => ((XLConditionalFormat)cf).Priority).ToList();
-            _conditionalFormats.Clear();
-            _conditionalFormats.AddRange(reorderedFormats);
-        }
+    public void RemoveAll()
+    {
+        _conditionalFormats.Clear();
+    }
+
+    /// <summary>
+    /// Reorders the according to original priority. Done during load process
+    /// </summary>
+    public void ReorderAccordingToOriginalPriority()
+    {
+        var reorderedFormats = _conditionalFormats.OrderBy(cf => ((XLConditionalFormat)cf).Priority).ToList();
+        _conditionalFormats.Clear();
+        _conditionalFormats.AddRange(reorderedFormats);
     }
 }

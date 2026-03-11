@@ -1,28 +1,27 @@
 #nullable disable
 
-// Keep this file CodeMaid organised and cleaned
-namespace ClosedXML.Excel
+
+namespace ClosedXML.Excel;
+
+public interface IXLSparkline
 {
-    public interface IXLSparkline
-    {
-        #region Public Properties
+    #region Public Properties
 
-        bool IsValid { get; }
+    bool IsValid { get; }
 
-        IXLCell Location { get; set; }
+    IXLCell Location { get; set; }
 
-        IXLRange SourceData { get; set; }
+    IXLRange SourceData { get; set; }
 
-        IXLSparklineGroup SparklineGroup { get; }
+    IXLSparklineGroup SparklineGroup { get; }
 
-        #endregion Public Properties
+    #endregion Public Properties
 
-        #region Public Methods
+    #region Public Methods
 
-        IXLSparkline SetLocation(IXLCell value);
+    IXLSparkline SetLocation(IXLCell value);
 
-        IXLSparkline SetSourceData(IXLRange value);
+    IXLSparkline SetSourceData(IXLRange value);
 
-        #endregion Public Methods
-    }
+    #endregion Public Methods
 }

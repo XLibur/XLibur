@@ -1,22 +1,21 @@
 using System.Collections.Generic;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+internal class XLStylizedEmpty : XLStylizedBase, IXLStylized
 {
-    internal class XLStylizedEmpty : XLStylizedBase, IXLStylized
+    public XLStylizedEmpty(IXLStyle? defaultStyle)
+        : base((defaultStyle as XLStyle)?.Value)
     {
-        public XLStylizedEmpty(IXLStyle? defaultStyle)
-            : base((defaultStyle as XLStyle)?.Value)
-        {
-        }
+    }
 
-        public override IXLRanges RangesUsed
-        {
-            get { return new XLRanges(); }
-        }
+    public override IXLRanges RangesUsed
+    {
+        get { return new XLRanges(); }
+    }
 
-        protected override IEnumerable<XLStylizedBase> Children
-        {
-            get { yield break; }
-        }
+    protected override IEnumerable<XLStylizedBase> Children
+    {
+        get { yield break; }
     }
 }

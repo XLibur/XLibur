@@ -1,33 +1,27 @@
 #nullable disable
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+namespace ClosedXML.Excel;
 
-namespace ClosedXML.Excel
+internal class XLCFDataBarMax : IXLCFDataBarMax
 {
-    internal class XLCFDataBarMax : IXLCFDataBarMax
+    private readonly XLConditionalFormat _conditionalFormat;
+    public XLCFDataBarMax(XLConditionalFormat conditionalFormat)
     {
-        private readonly XLConditionalFormat _conditionalFormat;
-        public XLCFDataBarMax(XLConditionalFormat conditionalFormat)
-        {
-            _conditionalFormat = conditionalFormat;
-        }
+        _conditionalFormat = conditionalFormat;
+    }
 
-        public void Maximum(XLCFContentType type, String value)
-        {
-            _conditionalFormat.ContentTypes.Add(type);
-            _conditionalFormat.Values.Add(new XLFormula { Value = value });
-        }
-        public void Maximum(XLCFContentType type, Double value)
-        {
-            Maximum(type, value.ToInvariantString());
-        }
+    public void Maximum(XLCFContentType type, string value)
+    {
+        _conditionalFormat.ContentTypes.Add(type);
+        _conditionalFormat.Values.Add(new XLFormula { Value = value });
+    }
+    public void Maximum(XLCFContentType type, double value)
+    {
+        Maximum(type, value.ToInvariantString());
+    }
 
-        public void HighestValue()
-        {
-            Maximum(XLCFContentType.Maximum, "0");
-        }
+    public void HighestValue()
+    {
+        Maximum(XLCFContentType.Maximum, "0");
     }
 }

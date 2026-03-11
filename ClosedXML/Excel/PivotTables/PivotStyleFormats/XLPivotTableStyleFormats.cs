@@ -1,4 +1,4 @@
-// Keep this file CodeMaid organised and cleaned
+
 namespace ClosedXML.Excel;
 
 internal class XLPivotTableStyleFormats : IXLPivotTableStyleFormats

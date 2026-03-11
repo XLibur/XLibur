@@ -1,4 +1,4 @@
-// Keep this file CodeMaid organised and cleaned
+
 using System;
 using System.Collections.Generic;
 
@@ -14,7 +14,7 @@ namespace ClosedXML.Excel;
 /// </summary>
 public interface IXLPivotFields : IEnumerable<IXLPivotField>
 {
-    IXLPivotField Add(String sourceName);
+    IXLPivotField Add(string sourceName);
 
     /// <summary>
     /// Add a field to the axis labels/report filters.
@@ -27,7 +27,7 @@ public interface IXLPivotFields : IEnumerable<IXLPivotField>
     /// <returns>The added field.</returns>
     /// <exception cref="ArgumentException">Field can't be added (e.g. it is already used or can't
     ///     be added to specific collection).</exception>
-    IXLPivotField Add(String sourceName, String customName);
+    IXLPivotField Add(string sourceName, string customName);
 
     /// <summary>
     /// Remove all fields from the axis. It also removes data of removed fields, like custom names and items.
@@ -40,14 +40,14 @@ public interface IXLPivotFields : IEnumerable<IXLPivotField>
     /// <param name="sourceName">Name of the field in <see cref="IXLPivotCache"/>. Use
     ///     <see cref="XLConstants.PivotTable.ValuesSentinalLabel"/> for data field.</param>
     /// <returns><c>true</c> if the axis contains the field, <c>false</c> otherwise.</returns>
-    Boolean Contains(String sourceName);
+    bool Contains(string sourceName);
 
     /// <summary>
     /// Does this axis contain a field?
     /// </summary>
     /// <param name="pivotField">Checked pivot field.</param>
     /// <returns><c>true</c> if the axis contains the field, <c>false</c> otherwise.</returns>
-    Boolean Contains(IXLPivotField pivotField);
+    bool Contains(IXLPivotField pivotField);
 
     /// <summary>
     /// Get a field in the axis.
@@ -56,7 +56,7 @@ public interface IXLPivotFields : IEnumerable<IXLPivotField>
     ///     for in the axis.</param>
     /// <returns>Found field.</returns>
     /// <exception cref="KeyNotFoundException">Axis doesn't contain field with specified name.</exception>
-    IXLPivotField Get(String sourceName);
+    IXLPivotField Get(string sourceName);
 
     /// <summary>
     /// Get field by index in the collection.
@@ -64,25 +64,25 @@ public interface IXLPivotFields : IEnumerable<IXLPivotField>
     /// <param name="index">Index of the field in this collection.</param>
     /// <returns>Found field.</returns>
     /// <exception cref="IndexOutOfRangeException"/>
-    IXLPivotField Get(Int32 index);
+    IXLPivotField Get(int index);
 
     /// <summary>
     /// Get index of a field in the collection. Use the index in the <see cref="Get(Int32)"/> method.
     /// </summary>
     /// <param name="sourceName"><see cref="IXLPivotField.SourceName"/> of the field in the pivot cache.</param>
     /// <returns>Index of the field or -1 if not found.</returns>
-    Int32 IndexOf(String sourceName);
+    int IndexOf(string sourceName);
 
     /// <summary>
     /// Get index of a field in the collection. Use the index in the <see cref="Get(Int32)"/> method.
     /// </summary>
     /// <param name="pf">Field to find. Uses <see cref="IXLPivotField.CustomName"/>.</param>
     /// <returns>Index of the field or -1 if not a member of this collection.</returns>
-    Int32 IndexOf(IXLPivotField pf);
+    int IndexOf(IXLPivotField pf);
 
     /// <summary>
     /// Remove a field from axis. Doesn't throw, if field is not present.
     /// </summary>
     /// <param name="sourceName"><see cref="IXLPivotField.SourceName"/> of a field to remove.</param>
-    void Remove(String sourceName);
+    void Remove(string sourceName);
 }

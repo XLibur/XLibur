@@ -1,7 +1,6 @@
-namespace ClosedXML.Examples
+namespace ClosedXML.Examples;
+
+public interface IXLExample
 {
-    public interface IXLExample
-    {
-        void Create(string filePath);
-    }
+    void Create(string filePath);
 }

@@ -1,143 +1,142 @@
 #nullable disable
 
-// Keep this file CodeMaid organised and cleaned
+
 using System;
 using System.Linq;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+using System.Collections.Generic;
+
+internal class XLAutoFilter : IXLAutoFilter
 {
-    using System.Collections.Generic;
+    /// <summary>
+    /// Key is column number.
+    /// </summary>
+    private readonly Dictionary<int, XLFilterColumn> _columns = new();
 
-    internal class XLAutoFilter : IXLAutoFilter
+    internal IReadOnlyDictionary<int, XLFilterColumn> Columns => _columns;
+
+    #region IXLAutoFilter Members
+
+    public IEnumerable<IXLRangeRow> HiddenRows => Range.Rows(r => r.WorksheetRow().IsHidden);
+
+    public bool IsEnabled { get; set; }
+
+    public IXLRange Range { get; set; }
+
+    public int SortColumn { get; set; }
+
+    public bool Sorted { get; set; }
+
+    public XLSortOrder SortOrder { get; set; }
+
+    public IEnumerable<IXLRangeRow> VisibleRows => Range.Rows(r => !r.WorksheetRow().IsHidden);
+
+    IXLAutoFilter IXLAutoFilter.Clear() => Clear();
+
+    IXLFilterColumn IXLAutoFilter.Column(string columnLetter) => Column(columnLetter);
+
+    IXLFilterColumn IXLAutoFilter.Column(int columnNumber) => Column(columnNumber);
+
+    IXLAutoFilter IXLAutoFilter.Sort(int columnToSortBy, XLSortOrder sortOrder, bool matchCase, bool ignoreBlanks)
     {
-        /// <summary>
-        /// Key is column number.
-        /// </summary>
-        private readonly Dictionary<Int32, XLFilterColumn> _columns = new();
+        return Sort(columnToSortBy, sortOrder, matchCase, ignoreBlanks);
+    }
 
-        internal IReadOnlyDictionary<Int32, XLFilterColumn> Columns => _columns;
+    public IXLAutoFilter Reapply()
+    {
+        // Recalculate shown / hidden rows
+        var rows = Range.Rows(2, Range.RowCount());
+        rows.ForEach(row =>
+            row.WorksheetRow().Unhide()
+        );
 
-        #region IXLAutoFilter Members
+        foreach (var filterColumn in _columns.Values)
+            filterColumn.Refresh();
 
-        public IEnumerable<IXLRangeRow> HiddenRows => Range.Rows(r => r.WorksheetRow().IsHidden);
-
-        public Boolean IsEnabled { get; set; }
-
-        public IXLRange Range { get; set; }
-
-        public Int32 SortColumn { get; set; }
-
-        public Boolean Sorted { get; set; }
-
-        public XLSortOrder SortOrder { get; set; }
-
-        public IEnumerable<IXLRangeRow> VisibleRows => Range.Rows(r => !r.WorksheetRow().IsHidden);
-
-        IXLAutoFilter IXLAutoFilter.Clear() => Clear();
-
-        IXLFilterColumn IXLAutoFilter.Column(String columnLetter) => Column(columnLetter);
-
-        IXLFilterColumn IXLAutoFilter.Column(Int32 columnNumber) => Column(columnNumber);
-
-        IXLAutoFilter IXLAutoFilter.Sort(Int32 columnToSortBy, XLSortOrder sortOrder, Boolean matchCase, Boolean ignoreBlanks)
+        foreach (IXLRangeRow row in rows)
         {
-            return Sort(columnToSortBy, sortOrder, matchCase, ignoreBlanks);
-        }
+            var rowMatch = true;
 
-        public IXLAutoFilter Reapply()
-        {
-            // Recalculate shown / hidden rows
-            var rows = Range.Rows(2, Range.RowCount());
-            rows.ForEach(row =>
-                row.WorksheetRow().Unhide()
-            );
-
-            foreach (var filterColumn in _columns.Values)
-                filterColumn.Refresh();
-
-            foreach (IXLRangeRow row in rows)
+            foreach (var (columnIndex, column) in _columns)
             {
-                var rowMatch = true;
+                var cell = row.Cell(columnIndex);
+                var columnFilterMatch = column.Check(cell);
+                rowMatch &= columnFilterMatch;
 
-                foreach (var (columnIndex, column) in _columns)
-                {
-                    var cell = row.Cell(columnIndex);
-                    var columnFilterMatch = column.Check(cell);
-                    rowMatch &= columnFilterMatch;
-
-                    if (!rowMatch) break;
-                }
-
-                if (!rowMatch) row.WorksheetRow().Hide();
+                if (!rowMatch) break;
             }
 
-            return this;
+            if (!rowMatch) row.WorksheetRow().Hide();
         }
 
-        #endregion IXLAutoFilter Members
+        return this;
+    }
 
-        internal XLFilterColumn Column(String columnLetter)
+    #endregion IXLAutoFilter Members
+
+    internal XLFilterColumn Column(string columnLetter)
+    {
+        var columnNumber = XLHelper.GetColumnNumberFromLetter(columnLetter);
+        if (columnNumber < 1 || columnNumber > XLHelper.MaxColumnNumber)
+            throw new ArgumentOutOfRangeException(nameof(columnLetter), "Column '" + columnLetter + "' is outside the allowed column range.");
+
+        return Column(columnNumber);
+    }
+
+    internal XLFilterColumn Column(int columnNumber)
+    {
+        if (columnNumber < 1 || columnNumber > XLHelper.MaxColumnNumber)
+            throw new ArgumentOutOfRangeException(nameof(columnNumber), "Column " + columnNumber + " is outside the allowed column range.");
+
+        if (!_columns.TryGetValue(columnNumber, out XLFilterColumn filterColumn))
         {
-            var columnNumber = XLHelper.GetColumnNumberFromLetter(columnLetter);
-            if (columnNumber < 1 || columnNumber > XLHelper.MaxColumnNumber)
-                throw new ArgumentOutOfRangeException(nameof(columnLetter), "Column '" + columnLetter + "' is outside the allowed column range.");
-
-            return Column(columnNumber);
+            filterColumn = new XLFilterColumn(this, columnNumber);
+            _columns.Add(columnNumber, filterColumn);
         }
 
-        internal XLFilterColumn Column(Int32 columnNumber)
-        {
-            if (columnNumber < 1 || columnNumber > XLHelper.MaxColumnNumber)
-                throw new ArgumentOutOfRangeException(nameof(columnNumber), "Column " + columnNumber + " is outside the allowed column range.");
+        return filterColumn;
+    }
 
-            if (!_columns.TryGetValue(columnNumber, out XLFilterColumn filterColumn))
-            {
-                filterColumn = new XLFilterColumn(this, columnNumber);
-                _columns.Add(columnNumber, filterColumn);
-            }
+    internal XLAutoFilter Clear()
+    {
+        if (!IsEnabled) return this;
 
-            return filterColumn;
-        }
+        IsEnabled = false;
+        foreach (var filterColumn in _columns.Values)
+            filterColumn.Clear(false);
 
-        internal XLAutoFilter Clear()
-        {
-            if (!IsEnabled) return this;
+        foreach (IXLRangeRow row in Range.Rows().Where(r => r.RowNumber() > 1))
+            row.WorksheetRow().Unhide();
+        return this;
+    }
 
-            IsEnabled = false;
-            foreach (var filterColumn in _columns.Values)
-                filterColumn.Clear(false);
+    internal XLAutoFilter Set(IXLRangeBase range)
+    {
+        var firstOverlappingTable = range.Worksheet.Tables.FirstOrDefault(t => t.RangeUsed().Intersects(range));
+        if (firstOverlappingTable != null)
+            throw new InvalidOperationException($"The range {range.RangeAddress.ToStringRelative(includeSheet: true)} is already part of table '{firstOverlappingTable.Name}'");
 
-            foreach (IXLRangeRow row in Range.Rows().Where(r => r.RowNumber() > 1))
-                row.WorksheetRow().Unhide();
-            return this;
-        }
+        Range = range.AsRange();
+        IsEnabled = true;
+        return this;
+    }
 
-        internal XLAutoFilter Set(IXLRangeBase range)
-        {
-            var firstOverlappingTable = range.Worksheet.Tables.FirstOrDefault(t => t.RangeUsed().Intersects(range));
-            if (firstOverlappingTable != null)
-                throw new InvalidOperationException($"The range {range.RangeAddress.ToStringRelative(includeSheet: true)} is already part of table '{firstOverlappingTable.Name}'");
+    internal XLAutoFilter Sort(int columnToSortBy, XLSortOrder sortOrder, bool matchCase, bool ignoreBlanks)
+    {
+        if (!IsEnabled)
+            throw new InvalidOperationException("Filter has not been enabled.");
 
-            Range = range.AsRange();
-            IsEnabled = true;
-            return this;
-        }
+        Range.Range(Range.FirstCell().CellBelow(), Range.LastCell()).Sort(columnToSortBy, sortOrder, matchCase,
+            ignoreBlanks);
 
-        internal XLAutoFilter Sort(Int32 columnToSortBy, XLSortOrder sortOrder, Boolean matchCase, Boolean ignoreBlanks)
-        {
-            if (!IsEnabled)
-                throw new InvalidOperationException("Filter has not been enabled.");
+        Sorted = true;
+        SortOrder = sortOrder;
+        SortColumn = columnToSortBy;
 
-            Range.Range(Range.FirstCell().CellBelow(), Range.LastCell()).Sort(columnToSortBy, sortOrder, matchCase,
-                                                                              ignoreBlanks);
+        Reapply();
 
-            Sorted = true;
-            SortOrder = sortOrder;
-            SortColumn = columnToSortBy;
-
-            Reapply();
-
-            return this;
-        }
+        return this;
     }
 }

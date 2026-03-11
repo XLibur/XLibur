@@ -1,18 +1,15 @@
-using System;
+namespace ClosedXML.Excel;
 
-namespace ClosedXML.Excel
+internal class XLDrawingWeb : IXLDrawingWeb
 {
-    internal class XLDrawingWeb : IXLDrawingWeb
+    private readonly IXLDrawingStyle _style;
+
+    public XLDrawingWeb(IXLDrawingStyle style)
     {
-        private readonly IXLDrawingStyle _style;
-
-        public XLDrawingWeb(IXLDrawingStyle style)
-        {
-            _style = style;
-        }
-
-        public String? AlternateText { get; set; }
-
-        public IXLDrawingStyle SetAlternateText(String? value) { AlternateText = value; return _style; }
+        _style = style;
     }
+
+    public string? AlternateText { get; set; }
+
+    public IXLDrawingStyle SetAlternateText(string? value) { AlternateText = value; return _style; }
 }

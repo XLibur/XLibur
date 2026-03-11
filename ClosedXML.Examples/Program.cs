@@ -1,34 +1,33 @@
 using System;
 using System.IO;
 
-namespace ClosedXML.Examples
+namespace ClosedXML.Examples;
+
+public class Program
 {
-    public class Program
+    public static string BaseCreatedDirectory
     {
-        public static string BaseCreatedDirectory
+        get
         {
-            get
-            {
-                var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Created");
-                if (!Directory.Exists(path)) Directory.CreateDirectory(path);
-                return path;
-            }
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Created");
+            if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+            return path;
         }
+    }
 
-        public static string BaseModifiedDirectory
+    public static string BaseModifiedDirectory
+    {
+        get
         {
-            get
-            {
-                var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Modified");
-                if (!Directory.Exists(path)) Directory.CreateDirectory(path);
-                return path;
-            }
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Modified");
+            if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+            return path;
         }
+    }
 
-        private static void Main(string[] args)
-        {
-            CreateFiles.CreateAllFiles();
-            LoadFiles.LoadAllFiles();
-        }
+    private static void Main(string[] args)
+    {
+        CreateFiles.CreateAllFiles();
+        LoadFiles.LoadAllFiles();
     }
 }

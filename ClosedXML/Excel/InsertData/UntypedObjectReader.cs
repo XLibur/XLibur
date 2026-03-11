@@ -1,86 +1,83 @@
 #nullable disable
 
-// Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ClosedXML.Excel.InsertData
+namespace ClosedXML.Excel.InsertData;
+
+internal class UntypedObjectReader : IInsertDataReader
 {
-    internal class UntypedObjectReader : IInsertDataReader
+    private readonly IEnumerable<IInsertDataReader> _readers;
+
+    public UntypedObjectReader(IEnumerable data)
     {
-        private readonly IEnumerable<object> _data;
-        private readonly IEnumerable<IInsertDataReader> _readers;
+        var data1 = (data ?? Array.Empty<object>()).Cast<object>();
+        _readers = CreateReaders().ToList();
 
-        public UntypedObjectReader(IEnumerable data)
+        IEnumerable<IInsertDataReader> CreateReaders()
         {
-            _data = (data ?? new object[0]).Cast<object>();
-            _readers = CreateReaders().ToList();
+            if (!data1.Any())
+                yield break;
 
-            IEnumerable<IInsertDataReader> CreateReaders()
+            List<object> itemsOfSameType = new List<object>();
+            Type previousType = null;
+
+            foreach (var item in data1)
             {
-                if (!_data.Any())
-                    yield break;
+                var currentType = item?.GetType();
 
-                List<object> itemsOfSameType = new List<object>();
-                Type previousType = null;
-
-                foreach (var item in _data)
-                {
-                    var currentType = item?.GetType();
-
-                    if (previousType != currentType && itemsOfSameType.Count > 0)
-                    {
-                        yield return CreateReader(itemsOfSameType, previousType);
-                        itemsOfSameType.Clear();
-                    }
-                    itemsOfSameType.Add(item);
-                    previousType = currentType;
-                }
-
-                if (itemsOfSameType.Count > 0)
+                if (previousType != currentType && itemsOfSameType.Count > 0)
                 {
                     yield return CreateReader(itemsOfSameType, previousType);
+                    itemsOfSameType.Clear();
                 }
+                itemsOfSameType.Add(item);
+                previousType = currentType;
             }
 
-            IInsertDataReader CreateReader(List<object> itemsOfSameType, Type itemType)
+            if (itemsOfSameType.Count > 0)
             {
-                if (itemType == null)
-                    return new NullDataReader(itemsOfSameType);
-
-                var items = Array.CreateInstance(itemType, itemsOfSameType.Count);
-                Array.Copy(itemsOfSameType.ToArray(), items, items.Length);
-
-                return InsertDataReaderFactory.Instance.CreateReader(items);
+                yield return CreateReader(itemsOfSameType, previousType);
             }
         }
 
-        public IEnumerable<IEnumerable<XLCellValue>> GetRecords()
+        IInsertDataReader CreateReader(List<object> itemsOfSameType, Type itemType)
         {
-            foreach (var reader in _readers)
+            if (itemType == null)
+                return new NullDataReader(itemsOfSameType);
+
+            var items = Array.CreateInstance(itemType, itemsOfSameType.Count);
+            Array.Copy(itemsOfSameType.ToArray(), items, items.Length);
+
+            return InsertDataReaderFactory.Instance.CreateReader(items);
+        }
+    }
+
+    public IEnumerable<IEnumerable<XLCellValue>> GetRecords()
+    {
+        foreach (var reader in _readers)
+        {
+            foreach (var item in reader.GetRecords())
             {
-                foreach (var item in reader.GetRecords())
-                {
-                    yield return item;
-                }
+                yield return item;
             }
         }
+    }
 
-        public int GetPropertiesCount()
-        {
-            return GetFirstNonNullReader()?.GetPropertiesCount() ?? 0;
-        }
+    public int GetPropertiesCount()
+    {
+        return GetFirstNonNullReader()?.GetPropertiesCount() ?? 0;
+    }
 
-        public string GetPropertyName(int propertyIndex)
-        {
-            return GetFirstNonNullReader()?.GetPropertyName(propertyIndex);
-        }
+    public string GetPropertyName(int propertyIndex)
+    {
+        return GetFirstNonNullReader()?.GetPropertyName(propertyIndex);
+    }
 
-        private IInsertDataReader GetFirstNonNullReader()
-        {
-            return _readers.FirstOrDefault(r => !(r is NullDataReader));
-        }
+    private IInsertDataReader GetFirstNonNullReader()
+    {
+        return _readers.FirstOrDefault(r => !(r is NullDataReader));
     }
 }

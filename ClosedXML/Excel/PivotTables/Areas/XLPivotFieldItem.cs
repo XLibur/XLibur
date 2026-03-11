@@ -19,7 +19,7 @@ internal class XLPivotFieldItem
 
     internal XLPivotFieldItem(XLPivotTableField pivotField, int? itemIndex)
     {
-        if (itemIndex.HasValue && itemIndex.Value < 0)
+        if (itemIndex is < 0)
             throw new ArgumentOutOfRangeException(nameof(itemIndex));
 
         _pivotField = pivotField;

@@ -2,20 +2,18 @@
 
 using System;
 
-namespace ClosedXML.Excel.Exceptions
+namespace ClosedXML.Excel.Exceptions;
+
+public abstract class ClosedXMLException : Exception
 {
-    public abstract class ClosedXMLException : Exception
-    {
-        protected ClosedXMLException()
-            : base()
-        { }
+    protected ClosedXMLException()
+    { }
 
-        protected ClosedXMLException(String message)
-            : base(message)
-        { }
+    protected ClosedXMLException(string message)
+        : base(message)
+    { }
 
-        protected ClosedXMLException(String message, Exception innerException)
-            : base(message, innerException)
-        { }
-    }
+    protected ClosedXMLException(string message, Exception innerException)
+        : base(message, innerException)
+    { }
 }

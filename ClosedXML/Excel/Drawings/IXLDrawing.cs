@@ -1,47 +1,44 @@
 #nullable disable
 
-using System;
+namespace ClosedXML.Excel;
 
-namespace ClosedXML.Excel
+public enum XLDrawingAnchor { MoveAndSizeWithCells, MoveWithCells, Absolute }
+public interface IXLDrawing<out T>
 {
-    public enum XLDrawingAnchor { MoveAndSizeWithCells, MoveWithCells, Absolute}
-    public interface IXLDrawing<T>
-    {
-        Int32 ShapeId { get; }
+    int ShapeId { get; }
 
-        Boolean Visible { get; set; }
-        T SetVisible();
-        T SetVisible(Boolean hidden);
-                
-        ////String Name { get; set; }
-        ////T SetName(String name);
+    bool Visible { get; set; }
+    T SetVisible();
+    T SetVisible(bool hidden);
 
-        ////String Description { get; set; }
-        ////T SetDescription(String description);
+    ////String Name { get; set; }
+    ////T SetName(String name);
 
-        IXLDrawingPosition Position { get;  }
+    ////String Description { get; set; }
+    ////T SetDescription(String description);
 
-        Int32 ZOrder { get; set; }
-        T SetZOrder(Int32 zOrder);
+    IXLDrawingPosition Position { get; }
 
-        //Boolean HorizontalFlip { get; set; }
-        //T SetHorizontalFlip();
-        //T SetHorizontalFlip(Boolean horizontalFlip);
+    int ZOrder { get; set; }
+    T SetZOrder(int zOrder);
 
-        //Boolean VerticalFlip { get; set; }
-        //T SetVerticalFlip();
-        //T SetVerticalFlip(Boolean verticalFlip);
+    //Boolean HorizontalFlip { get; set; }
+    //T SetHorizontalFlip();
+    //T SetHorizontalFlip(Boolean horizontalFlip);
 
-        //Int32 Rotation { get; set; }
-        //T SetRotation(Int32 rotation);
+    //Boolean VerticalFlip { get; set; }
+    //T SetVerticalFlip();
+    //T SetVerticalFlip(Boolean verticalFlip);
 
-        //Int32 ExtentLength { get; set; }
-        //T SetExtentLength(Int32 ExtentLength);
+    //Int32 Rotation { get; set; }
+    //T SetRotation(Int32 rotation);
 
-        //Int32 ExtentWidth { get; set; }
-        //T SetExtentWidth(Int32 extentWidth);
+    //Int32 ExtentLength { get; set; }
+    //T SetExtentLength(Int32 ExtentLength);
 
-        IXLDrawingStyle Style { get; }
+    //Int32 ExtentWidth { get; set; }
+    //T SetExtentWidth(Int32 extentWidth);
 
-    }
+    IXLDrawingStyle Style { get; }
+
 }

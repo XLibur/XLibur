@@ -3,38 +3,37 @@
 using System;
 using System.Collections.Generic;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+/// <summary>
+/// Reference to a single cell in a workbook. Reference can be absolute, relative or mixed.
+/// Reference can be with or without a worksheet.
+/// </summary>
+public interface IXLAddress : IEqualityComparer<IXLAddress>, IEquatable<IXLAddress>
 {
+    string ColumnLetter { get; }
+    int ColumnNumber { get; }
+    bool FixedColumn { get; }
+    bool FixedRow { get; }
+    int RowNumber { get; }
+    string UniqueId { get; }
+
     /// <summary>
-    /// Reference to a single cell in a workbook. Reference can be absolute, relative or mixed.
-    /// Reference can be with or without a worksheet.
+    /// Worksheet of the reference. Value is null for address without a worksheet.
     /// </summary>
-    public interface IXLAddress : IEqualityComparer<IXLAddress>, IEquatable<IXLAddress>
-    {
-        String ColumnLetter { get; }
-        Int32 ColumnNumber { get; }
-        Boolean FixedColumn { get; }
-        Boolean FixedRow { get; }
-        Int32 RowNumber { get; }
-        String UniqueId { get; }
+    IXLWorksheet Worksheet { get; }
 
-        /// <summary>
-        /// Worksheet of the reference. Value is null for address without a worksheet.
-        /// </summary>
-        IXLWorksheet Worksheet { get; }
+    string ToString(XLReferenceStyle referenceStyle);
 
-        String ToString(XLReferenceStyle referenceStyle);
+    string ToString(XLReferenceStyle referenceStyle, bool includeSheet);
 
-        String ToString(XLReferenceStyle referenceStyle, Boolean includeSheet);
+    string ToStringFixed();
 
-        String ToStringFixed();
+    string ToStringFixed(XLReferenceStyle referenceStyle);
 
-        String ToStringFixed(XLReferenceStyle referenceStyle);
+    string ToStringFixed(XLReferenceStyle referenceStyle, bool includeSheet);
 
-        String ToStringFixed(XLReferenceStyle referenceStyle, Boolean includeSheet);
+    string ToStringRelative();
 
-        String ToStringRelative();
-
-        String ToStringRelative(Boolean includeSheet);
-    }
+    string ToStringRelative(bool includeSheet);
 }

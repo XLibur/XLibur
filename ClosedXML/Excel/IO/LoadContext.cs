@@ -73,15 +73,13 @@ internal class LoadContext
             };
             return XLNumberFormatValue.FromKey(ref customFormatKey);
         }
-        else
+
+        var predefinedFormatKey = new XLNumberFormatKey
         {
-            var predefinedFormatKey = new XLNumberFormatKey
-            {
-                NumberFormatId = numberFormatId.Value,
-                Format = string.Empty,
-            };
-            return XLNumberFormatValue.FromKey(ref predefinedFormatKey);
-        }
+            NumberFormatId = numberFormatId.Value,
+            Format = string.Empty,
+        };
+        return XLNumberFormatValue.FromKey(ref predefinedFormatKey);
     }
 
     private static Exception PivotCfNotFoundException(string sheetName, int priority)

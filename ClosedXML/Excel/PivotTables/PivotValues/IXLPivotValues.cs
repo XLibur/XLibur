@@ -1,49 +1,47 @@
 #nullable disable
 
-// Keep this file CodeMaid organised and cleaned
-using System;
+
 using System.Collections.Generic;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+public interface IXLPivotValues : IEnumerable<IXLPivotValue>
 {
-    public interface IXLPivotValues : IEnumerable<IXLPivotValue>
-    {
-        /// <summary>
-        /// Add a new value field to the pivot table. If addition would cause, the
-        /// <see cref="XLConstants.PivotTable.ValuesSentinalLabel"/> field is added to the
-        /// <see cref="IXLPivotTable.ColumnLabels"/>. The added field will use passed
-        /// <paramref name="sourceName"/> as the <see cref="IXLPivotField.CustomName"/>.
-        /// </summary>
-        /// <param name="sourceName">The <see cref="IXLPivotField.SourceName"/> that is used as a
-        ///     data. Multiple data fields can use same source (e.g. sum and count).</param>
-        /// <returns>Newly added field.</returns>
-        IXLPivotValue Add(String sourceName);
+    /// <summary>
+    /// Add a new value field to the pivot table. If addition would cause, the
+    /// <see cref="XLConstants.PivotTable.ValuesSentinalLabel"/> field is added to the
+    /// <see cref="IXLPivotTable.ColumnLabels"/>. The added field will use passed
+    /// <paramref name="sourceName"/> as the <see cref="IXLPivotField.CustomName"/>.
+    /// </summary>
+    /// <param name="sourceName">The <see cref="IXLPivotField.SourceName"/> that is used as a
+    ///     data. Multiple data fields can use same source (e.g. sum and count).</param>
+    /// <returns>Newly added field.</returns>
+    IXLPivotValue Add(string sourceName);
 
-        /// <summary>
-        /// Add a new value field to the pivot table. If addition would cause, the
-        /// <see cref="XLConstants.PivotTable.ValuesSentinalLabel"/> field is added to the
-        /// <see cref="IXLPivotTable.ColumnLabels"/>.
-        /// </summary>
-        /// <param name="sourceName">The <see cref="IXLPivotField.SourceName"/> that is used as a
-        ///     data. Multiple data fields can use same source (e.g. sum and count).</param>
-        /// <param name="customName">The added data field <see cref="IXLPivotField.CustomName"/>.</param>
-        /// <returns>Newly added field.</returns>
-        IXLPivotValue Add(String sourceName, String customName);
+    /// <summary>
+    /// Add a new value field to the pivot table. If addition would cause, the
+    /// <see cref="XLConstants.PivotTable.ValuesSentinalLabel"/> field is added to the
+    /// <see cref="IXLPivotTable.ColumnLabels"/>.
+    /// </summary>
+    /// <param name="sourceName">The <see cref="IXLPivotField.SourceName"/> that is used as a
+    ///     data. Multiple data fields can use same source (e.g. sum and count).</param>
+    /// <param name="customName">The added data field <see cref="IXLPivotField.CustomName"/>.</param>
+    /// <returns>Newly added field.</returns>
+    IXLPivotValue Add(string sourceName, string customName);
 
-        void Clear();
+    void Clear();
 
-        Boolean Contains(String customName);
+    bool Contains(string customName);
 
-        Boolean Contains(IXLPivotValue pivotValue);
+    bool Contains(IXLPivotValue pivotValue);
 
-        IXLPivotValue Get(String customName);
+    IXLPivotValue Get(string customName);
 
-        IXLPivotValue Get(Int32 index);
+    IXLPivotValue Get(int index);
 
-        Int32 IndexOf(String customName);
+    int IndexOf(string customName);
 
-        Int32 IndexOf(IXLPivotValue pivotValue);
+    int IndexOf(IXLPivotValue pivotValue);
 
-        void Remove(String customName);
-    }
+    void Remove(string customName);
 }

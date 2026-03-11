@@ -1,4 +1,4 @@
-// Keep this file CodeMaid organised and cleaned
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -77,19 +77,15 @@ internal class XLPivotStyleFormats : IXLPivotStyleFormats
             area.LabelOnly == (element == XLPivotStyleFormatElement.Label) &&
             area.GrandRow == _isRowGrand &&
             area.GrandCol == !_isRowGrand &&
-            area.CacheIndex == false &&
-            area.Offset is null &&
-            !area.CollapsedLevelsAreSubtotals &&
-            area.Axis is null &&
-            area.FieldPosition is null;
+            area is { CacheIndex: false, Offset: null, CollapsedLevelsAreSubtotals: false, Axis: null, FieldPosition: null };
     }
 
     private XLPivotArea CreateGrandArea(XLPivotStyleFormatElement element)
     {
         return new XLPivotArea
         {
-            DataOnly = (element == XLPivotStyleFormatElement.Data),
-            LabelOnly = (element == XLPivotStyleFormatElement.Label),
+            DataOnly = element == XLPivotStyleFormatElement.Data,
+            LabelOnly = element == XLPivotStyleFormatElement.Label,
             GrandRow = _isRowGrand,
             GrandCol = !_isRowGrand,
         };

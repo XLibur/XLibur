@@ -1,32 +1,31 @@
-// Keep this file CodeMaid organised and cleaned
+
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ClosedXML.Excel.InsertData
+namespace ClosedXML.Excel.InsertData;
+
+internal class NullDataReader : IInsertDataReader
 {
-    internal class NullDataReader : IInsertDataReader
+    private readonly XLCellValue[] _row = [Blank.Value];
+    private readonly int _count;
+
+    public NullDataReader(IEnumerable<object> nulls)
     {
-        private readonly XLCellValue[] _row = { Blank.Value };
-        private readonly int _count;
+        _count = nulls.Count();
+    }
 
-        public NullDataReader(IEnumerable<object> nulls)
-        {
-            _count = nulls.Count();
-        }
+    public IEnumerable<IEnumerable<XLCellValue>> GetRecords()
+    {
+        return Enumerable.Repeat(_row, _count);
+    }
 
-        public IEnumerable<IEnumerable<XLCellValue>> GetRecords()
-        {
-            return Enumerable.Repeat(_row, _count);
-        }
+    public int GetPropertiesCount()
+    {
+        return 0;
+    }
 
-        public int GetPropertiesCount()
-        {
-            return 0;
-        }
-
-        public string? GetPropertyName(int propertyIndex)
-        {
-            return null;
-        }
+    public string? GetPropertyName(int propertyIndex)
+    {
+        return null;
     }
 }

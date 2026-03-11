@@ -1,19 +1,17 @@
-using System;
 using ClosedXML.Excel;
 
 
-namespace ClosedXML.Examples.Styles
-{
-    public class PurpleWorksheet : IXLExample
-    {
-        public void Create(String filePath)
-        {
-            var workbook = new XLWorkbook();
-            var ws = workbook.Worksheets.Add("Purple Worksheet");
+namespace ClosedXML.Examples.Styles;
 
-            ws.Style.Fill.BackgroundColor = XLColor.Purple;
-            
-            workbook.SaveAs(filePath);
-        }
+public class PurpleWorksheet : IXLExample
+{
+    public void Create(string filePath)
+    {
+        var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Purple Worksheet");
+
+        ws.Style.Fill.BackgroundColor = XLColor.Purple;
+
+        workbook.SaveAs(filePath);
     }
 }

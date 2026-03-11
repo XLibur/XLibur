@@ -1,22 +1,16 @@
 #nullable disable
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+namespace ClosedXML.Excel;
 
-namespace ClosedXML.Excel
+internal class XLDrawingPosition : IXLDrawingPosition
 {
-    internal class XLDrawingPosition: IXLDrawingPosition
-    {
-        public Int32 Column { get; set; }
-        public IXLDrawingPosition SetColumn(Int32 column) { Column = column; return this; }
-        public Double ColumnOffset { get; set; }
-        public IXLDrawingPosition SetColumnOffset(Double columnOffset) { ColumnOffset = columnOffset; return this; }
-         
-        public Int32 Row { get; set; }
-        public IXLDrawingPosition SetRow(Int32 row) { Row = row; return this; }
-        public Double RowOffset { get; set; }
-        public IXLDrawingPosition SetRowOffset(Double rowOffset) { RowOffset = rowOffset; return this; }
-    }
+    public int Column { get; set; }
+    public IXLDrawingPosition SetColumn(int column) { Column = column; return this; }
+    public double ColumnOffset { get; set; }
+    public IXLDrawingPosition SetColumnOffset(double columnOffset) { ColumnOffset = columnOffset; return this; }
+
+    public int Row { get; set; }
+    public IXLDrawingPosition SetRow(int row) { Row = row; return this; }
+    public double RowOffset { get; set; }
+    public IXLDrawingPosition SetRowOffset(double rowOffset) { RowOffset = rowOffset; return this; }
 }

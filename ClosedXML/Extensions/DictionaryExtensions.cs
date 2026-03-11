@@ -1,22 +1,21 @@
 #nullable disable
 
-// Keep this file CodeMaid organised and cleaned
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+internal static class DictionaryExtensions
 {
-    internal static class DictionaryExtensions
+    public static void RemoveAll<TKey, TValue>(this Dictionary<TKey, TValue> dic,
+        Func<TValue, bool> predicate)
     {
-        public static void RemoveAll<TKey, TValue>(this Dictionary<TKey, TValue> dic,
-            Func<TValue, bool> predicate)
+        var keys = dic.Keys.Where(k => predicate(dic[k])).ToList();
+        foreach (var key in keys)
         {
-            var keys = dic.Keys.Where(k => predicate(dic[k])).ToList();
-            foreach (var key in keys)
-            {
-                dic.Remove(key);
-            }
+            dic.Remove(key);
         }
     }
 }

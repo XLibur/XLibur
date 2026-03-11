@@ -1,10 +1,9 @@
-// Keep this file CodeMaid organised and cleaned
 
-namespace ClosedXML.Excel
+
+namespace ClosedXML.Excel;
+
+internal class XLFileSharing : IXLFileSharing
 {
-    internal class XLFileSharing : IXLFileSharing
-    {
-        public bool ReadOnlyRecommended { get; set; }
-        public string? UserName { get; set; }
-    }
+    public bool ReadOnlyRecommended { get; set; }
+    public string? UserName { get; set; }
 }

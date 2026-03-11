@@ -394,12 +394,7 @@ internal class PivotTableDefinitionPartWriter2
         }
 
         var hasDefaultTheme =
-            pt.Theme == XLPivotTableTheme.None &&
-            pt.ShowRowHeaders == false &&
-            pt.ShowColumnHeaders == false &&
-            pt.ShowRowStripes == false &&
-            pt.ShowColumnStripes == false &&
-            pt.ShowLastColumn == false;
+            pt is { Theme: XLPivotTableTheme.None, ShowRowHeaders: false, ShowColumnHeaders: false, ShowRowStripes: false, ShowColumnStripes: false, ShowLastColumn: false };
         if (!hasDefaultTheme)
         {
             xml.WriteStartElement("pivotTableStyleInfo", Main2006SsNs);

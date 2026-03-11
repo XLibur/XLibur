@@ -1,34 +1,31 @@
 #nullable disable
 
-// Keep this file CodeMaid organised and cleaned
-using System;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+public interface IXLSparklineVerticalAxis
 {
-    public interface IXLSparklineVerticalAxis
-    {
-        #region Public Properties
+    #region Public Properties
 
-        Double? ManualMax { get; set; }
+    double? ManualMax { get; set; }
 
-        Double? ManualMin { get; set; }
+    double? ManualMin { get; set; }
 
-        XLSparklineAxisMinMax MaxAxisType { get; set; }
+    XLSparklineAxisMinMax MaxAxisType { get; set; }
 
-        XLSparklineAxisMinMax MinAxisType { get; set; }
+    XLSparklineAxisMinMax MinAxisType { get; set; }
 
-        #endregion Public Properties
+    #endregion Public Properties
 
-        #region Public Methods
+    #region Public Methods
 
-        IXLSparklineVerticalAxis SetManualMax(Double? value);
+    IXLSparklineVerticalAxis SetManualMax(double? value);
 
-        IXLSparklineVerticalAxis SetManualMin(Double? value);
+    IXLSparklineVerticalAxis SetManualMin(double? value);
 
-        IXLSparklineVerticalAxis SetMaxAxisType(XLSparklineAxisMinMax value);
+    IXLSparklineVerticalAxis SetMaxAxisType(XLSparklineAxisMinMax value);
 
-        IXLSparklineVerticalAxis SetMinAxisType(XLSparklineAxisMinMax value);
+    IXLSparklineVerticalAxis SetMinAxisType(XLSparklineAxisMinMax value);
 
-        #endregion Public Methods
-    }
+    #endregion Public Methods
 }

@@ -1,43 +1,41 @@
 #nullable disable
 
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+internal class XLIdManager
 {
-    internal class XLIdManager
+    private readonly HashSet<int> _hash = [];
+
+
+    public int GetNext()
     {
-        private HashSet<Int32> _hash = new HashSet<Int32>();
-        
-
-        public Int32 GetNext()
+        if (_hash.Count == 0)
         {
-            if (_hash.Count == 0)
+            _hash.Add(1);
+            return 1;
+        }
+
+        var id = 1;
+        while (true)
+        {
+            if (_hash.Add(id))
             {
-                _hash.Add(1);
-                return 1;
+                return id;
             }
 
-            Int32 id = 1;
-            while (true)
-            {
-                if (!_hash.Contains(id))
-                {
-                    _hash.Add(id);
-                    return id;
-                }
-                id++;
-            }
+            id++;
         }
-        public void Add(Int32 value)
-        {
-            _hash.Add(value);
-        }
-        public void Add(IEnumerable<Int32> values)
-        {
-            values.ForEach(v => _hash.Add(v));
-        }
+    }
+
+    public void Add(int value)
+    {
+        _hash.Add(value);
+    }
+
+    public void Add(IEnumerable<int> values)
+    {
+        values.ForEach(v => _hash.Add(v));
     }
 }

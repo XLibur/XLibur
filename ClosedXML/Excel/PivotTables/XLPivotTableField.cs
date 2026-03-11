@@ -16,13 +16,13 @@ namespace ClosedXML.Excel;
 internal class XLPivotTableField
 {
     private readonly XLPivotTable _pivotTable;
-    private readonly List<XLPivotFieldItem> _items = new();
+    private readonly List<XLPivotFieldItem> _items = [];
 
     public XLPivotTableField(XLPivotTable pivotTable)
     {
         _pivotTable = pivotTable;
         ShowAll = false; // The XML default value is true, but Excel always has false, so let's follow Excel.
-        Subtotals = new HashSet<XLSubtotalFunction> { XLSubtotalFunction.Automatic };
+        Subtotals = [XLSubtotalFunction.Automatic];
     }
 
     internal XLPivotTable PivotTable => _pivotTable;
@@ -84,7 +84,7 @@ internal class XLPivotTableField
     /// <summary>
     /// Are all items expanded?
     /// </summary>
-    internal bool AllDrilled { get; set; } = false;
+    internal bool AllDrilled { get; set; }
 
     internal XLNumberFormatValue? NumberFormatValue { get; init; }
 
@@ -208,7 +208,7 @@ internal class XLPivotTableField
     internal void AddSubtotal(XLSubtotalFunction value)
     {
         Subtotals.Add(value);
-        var subtotalItemType = GetItemTypeForSubtotal(value);;
+        var subtotalItemType = GetItemTypeForSubtotal(value);
         _items.Add(new XLPivotFieldItem(this, null) { ItemType = subtotalItemType });
     }
 

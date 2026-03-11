@@ -1,33 +1,30 @@
 #nullable disable
 
-using System;
+namespace ClosedXML.Excel;
 
-namespace ClosedXML.Excel
+public enum XLHFMode { OddPagesOnly, OddAndEvenPages, Odd }
+public interface IXLHeaderFooter
 {
-    public enum XLHFMode { OddPagesOnly, OddAndEvenPages, Odd }
-    public interface IXLHeaderFooter
-    {
-        /// <summary>
-        /// Gets the left header/footer item.
-        /// </summary>
-        IXLHFItem Left { get; }
+    /// <summary>
+    /// Gets the left header/footer item.
+    /// </summary>
+    IXLHFItem Left { get; }
 
-        /// <summary>
-        /// Gets the middle header/footer item.
-        /// </summary>
-        IXLHFItem Center { get; }
+    /// <summary>
+    /// Gets the middle header/footer item.
+    /// </summary>
+    IXLHFItem Center { get; }
 
-        /// <summary>
-        /// Gets the right header/footer item.
-        /// </summary>
-        IXLHFItem Right { get; }
+    /// <summary>
+    /// Gets the right header/footer item.
+    /// </summary>
+    IXLHFItem Right { get; }
 
-        /// <summary>
-        /// Gets the text of the specified header/footer occurrence.
-        /// </summary>
-        /// <param name="occurrence">The occurrence.</param>
-        String GetText(XLHFOccurrence occurrence);
+    /// <summary>
+    /// Gets the text of the specified header/footer occurrence.
+    /// </summary>
+    /// <param name="occurrence">The occurrence.</param>
+    string GetText(XLHFOccurrence occurrence);
 
-        IXLHeaderFooter Clear(XLHFOccurrence occurrence = XLHFOccurrence.AllPages);
-    }
+    IXLHeaderFooter Clear(XLHFOccurrence occurrence = XLHFOccurrence.AllPages);
 }

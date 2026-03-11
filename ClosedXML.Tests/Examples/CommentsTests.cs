@@ -1,15 +1,14 @@
 using ClosedXML.Examples;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Examples
+namespace ClosedXML.Tests.Examples;
+
+[TestFixture]
+public class CommentsTests
 {
-    [TestFixture]
-    public class CommentsTests
+    [Test]
+    public void AddingComments()
     {
-        [Test]
-        public void AddingComments()
-        {
-            TestHelper.RunTestExample<AddingComments>(@"Comments\AddingComments.xlsx");
-        }
+        TestHelper.RunTestExample<AddingComments>(@"Comments\AddingComments.xlsx");
     }
 }

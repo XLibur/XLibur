@@ -1,22 +1,20 @@
 using DocumentFormat.OpenXml.Spreadsheet;
-using System;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+internal class XLCFIsErrorConverter : IXLCFConverter
 {
-    internal class XLCFIsErrorConverter : IXLCFConverter
+    public ConditionalFormattingRule Convert(IXLConditionalFormat cf, int priority, XLWorkbook.SaveContext context)
     {
-        public ConditionalFormattingRule Convert(IXLConditionalFormat cf, int priority, XLWorkbook.SaveContext context)
-        {
-            var conditionalFormattingRule = XLCFBaseConverter.Convert(cf, priority);
-            var cfStyle = ((XLStyle)cf.Style).Value;
-            if (!cfStyle.Equals(XLWorkbook.DefaultStyleValue))
-                conditionalFormattingRule.FormatId = (UInt32)context.DifferentialFormats[cfStyle];
+        var conditionalFormattingRule = XLCFBaseConverter.Convert(cf, priority);
+        var cfStyle = ((XLStyle)cf.Style).Value;
+        if (!cfStyle.Equals(XLWorkbook.DefaultStyleValue))
+            conditionalFormattingRule.FormatId = (uint)context.DifferentialFormats[cfStyle];
 
-            var formula = new Formula { Text = "ISERROR(" + cf.Range.RangeAddress.FirstAddress.ToStringRelative(false) + ")" };
+        var formula = new Formula { Text = "ISERROR(" + cf.Range.RangeAddress.FirstAddress.ToStringRelative(false) + ")" };
 
-            conditionalFormattingRule.Append(formula);
+        conditionalFormattingRule.Append(formula);
 
-            return conditionalFormattingRule;
-        }
+        return conditionalFormattingRule;
     }
 }

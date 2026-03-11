@@ -1,26 +1,24 @@
-using System;
 using System.IO;
 using ClosedXML.Excel;
 
-namespace ClosedXML.Examples
-{
-    public class LoadFiles
-    {
-        public static void LoadAllFiles()
-        {
-            foreach (var file in Directory.GetFiles(Program.BaseCreatedDirectory))
-            {
-                var fileInfo = new FileInfo(file);
-                var fileName = fileInfo.Name;
-                LoadAndSaveFile(Path.Combine(Program.BaseCreatedDirectory, fileName), Path.Combine(Program.BaseModifiedDirectory, fileName));
-            }
-        }
+namespace ClosedXML.Examples;
 
-        private static void LoadAndSaveFile(String input, String output)
+public class LoadFiles
+{
+    public static void LoadAllFiles()
+    {
+        foreach (var file in Directory.GetFiles(Program.BaseCreatedDirectory))
         {
-            var wb = new XLWorkbook(input);
-            wb.SaveAs(output);
-            wb.SaveAs(output);
+            var fileInfo = new FileInfo(file);
+            var fileName = fileInfo.Name;
+            LoadAndSaveFile(Path.Combine(Program.BaseCreatedDirectory, fileName), Path.Combine(Program.BaseModifiedDirectory, fileName));
         }
+    }
+
+    private static void LoadAndSaveFile(string input, string output)
+    {
+        var wb = new XLWorkbook(input);
+        wb.SaveAs(output);
+        wb.SaveAs(output);
     }
 }

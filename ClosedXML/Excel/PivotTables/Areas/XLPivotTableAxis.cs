@@ -48,17 +48,17 @@ internal class XLPivotTableAxis : IXLPivotFields
 
     internal bool ContainsDataField => _fields.Any(x => x.IsDataField);
 
-    IXLPivotField IXLPivotFields.Add(String sourceName) => Add(sourceName, sourceName);
+    IXLPivotField IXLPivotFields.Add(string sourceName) => Add(sourceName, sourceName);
 
-    IXLPivotField IXLPivotFields.Add(String sourceName, String customName) => Add(sourceName, customName);
+    IXLPivotField IXLPivotFields.Add(string sourceName, string customName) => Add(sourceName, customName);
 
     void IXLPivotFields.Clear() => Clear();
 
-    Boolean IXLPivotFields.Contains(String sourceName) => Contains(sourceName);
+    bool IXLPivotFields.Contains(string sourceName) => Contains(sourceName);
 
-    Boolean IXLPivotFields.Contains(IXLPivotField pivotField) => Contains(pivotField.SourceName);
+    bool IXLPivotFields.Contains(IXLPivotField pivotField) => Contains(pivotField.SourceName);
 
-    IXLPivotField IXLPivotFields.Get(String sourceName)
+    IXLPivotField IXLPivotFields.Get(string sourceName)
     {
         if (!_pivotTable.TryGetSourceNameFieldIndex(sourceName, out var index) ||
             !_fields.Contains(index))
@@ -67,7 +67,7 @@ internal class XLPivotTableAxis : IXLPivotFields
         return new XLPivotTableAxisField(_pivotTable, index);
     }
 
-    IXLPivotField IXLPivotFields.Get(Int32 index)
+    IXLPivotField IXLPivotFields.Get(int index)
     {
         if (index < 0 || index >= _fields.Count)
             throw new IndexOutOfRangeException();
@@ -75,17 +75,17 @@ internal class XLPivotTableAxis : IXLPivotFields
         return new XLPivotTableAxisField(_pivotTable, _fields[index]);
     }
 
-    Int32 IXLPivotFields.IndexOf(String sourceName)
+    int IXLPivotFields.IndexOf(string sourceName)
     {
         return IndexOf(sourceName);
     }
 
-    Int32 IXLPivotFields.IndexOf(IXLPivotField pf)
+    int IXLPivotFields.IndexOf(IXLPivotField pf)
     {
         return IndexOf(pf.SourceName);
     }
 
-    void IXLPivotFields.Remove(String sourceName)
+    void IXLPivotFields.Remove(string sourceName)
     {
         var index = IndexOf(sourceName);
         if (index == -1)
@@ -129,7 +129,7 @@ internal class XLPivotTableAxis : IXLPivotFields
         _fields.Add(fieldIndex);
     }
 
-    private XLPivotTableAxisField Add(String sourceName, String customName)
+    private XLPivotTableAxisField Add(string sourceName, string customName)
     {
         var field = AddField(sourceName, customName);
 
@@ -141,7 +141,7 @@ internal class XLPivotTableAxis : IXLPivotFields
         return field;
     }
 
-    internal XLPivotTableAxisField AddField(String sourceName, String customName)
+    internal XLPivotTableAxisField AddField(string sourceName, string customName)
     {
         var index = _pivotTable.AddFieldToAxis(sourceName, customName, _axis);
         _fields.Add(index);
@@ -165,7 +165,7 @@ internal class XLPivotTableAxis : IXLPivotFields
         _fields.Clear();
     }
 
-    private Int32 IndexOf(String sourceName)
+    private int IndexOf(string sourceName)
     {
         if (!_pivotTable.TryGetSourceNameFieldIndex(sourceName, out var fieldIndex))
             return -1;

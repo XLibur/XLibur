@@ -222,10 +222,10 @@ internal class CriteriaTests
             yield break;
 
             static object[] S(ScalarValue s, XLCellValue v)
-                => new object[] { s, v, true };
+                => [s, v, true];
 
             static object[] F(ScalarValue s, XLCellValue v)
-                => new object[] { s, v, false };
+                => [s, v, false];
         }
     }
 }

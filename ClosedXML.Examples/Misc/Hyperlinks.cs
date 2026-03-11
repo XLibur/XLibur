@@ -2,129 +2,128 @@ using System;
 using ClosedXML.Excel;
 
 
-namespace ClosedXML.Examples.Misc
+namespace ClosedXML.Examples.Misc;
+
+public class Hyperlinks : IXLExample
 {
-    public class Hyperlinks : IXLExample
+    #region Variables
+
+    // Public
+
+    // Private
+
+
+    #endregion
+
+    #region Properties
+
+    // Public
+
+    // Private
+
+    // Override
+
+
+    #endregion
+
+    #region Events
+
+    // Public
+
+    // Private
+
+    // Override
+
+
+    #endregion
+
+    #region Methods
+
+    // Public
+    public void Create(string filePath)
     {
-        #region Variables
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Hyperlinks");
+        wb.Worksheets.Add("Second Sheet");
 
-        // Public
+        int ro = 0;
 
-        // Private
+        // You can create a link with pretty much anything you can put on a
+        // browser: http, ftp, mailto, gopher, news, nntp, etc.
 
+        ws.Cell(++ro, 1).Value = "Link to a web page, no tooltip - Yahoo!";
+        ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("http://www.yahoo.com"));
 
-        #endregion
+        ws.Cell(++ro, 1).Value = "Link to a web page, with a tooltip - Yahoo!";
+        ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("http://www.yahoo.com", "Click to go to Yahoo!"));
 
-        #region Properties
+        ws.Cell(++ro, 1).Value = "Link to a file - same folder";
+        ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("Test.xlsx"));
 
-        // Public
+        ws.Cell(++ro, 1).Value = "Link to a file - Absolute";
+        ws.Cell(ro, 1).SetHyperlink(new XLHyperlink(@"D:\Test.xlsx"));
 
-        // Private
+        ws.Cell(++ro, 1).Value = "Link to a file - relative address";
+        ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("../Test.xlsx"));
 
-        // Override
+        ws.Cell(++ro, 1).Value = "Link to an address in this worksheet";
+        ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("B1"));
 
+        ws.Cell(++ro, 1).Value = "Link to an address in another worksheet";
+        ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("'Second Sheet'!A1"));
 
-        #endregion
+        // You can also set the properties of a hyperlink directly:
 
-        #region Events
+        ws.Cell(++ro, 1).Value = "Link to a range in this worksheet";
+        ws.Cell(ro, 1).GetHyperlink().InternalAddress = "B1:C2";
+        ws.Cell(ro, 1).GetHyperlink().Tooltip = "SquareBox";
 
-        // Public
+        ws.Cell(++ro, 1).Value = "Link to an email message";
+        ws.Cell(ro, 1).GetHyperlink().ExternalAddress = new Uri("mailto:SantaClaus@NorthPole.com?subject=Presents");
 
-        // Private
+        // Deleting a hyperlink
+        ws.Cell(++ro, 1).Value = "This is no longer a link";
+        ws.Cell(ro, 1).GetHyperlink().InternalAddress = "A1";
+        ws.Cell(ro, 1).GetHyperlink().Delete();
 
-        // Override
+        // Setting a hyperlink preserves previous formatting:
+        ws.Cell(++ro, 1).Value = "Odd looking link";
+        ws.Cell(ro, 1).Style.Font.FontColor = XLColor.Red;
+        ws.Cell(ro, 1).Style.Font.Underline = XLFontUnderlineValues.Double;
+        ws.Cell(ro, 1).SetHyperlink(new XLHyperlink(ws.Range("B1:C2")));
 
+        // Hyperlink via formula
+        ws.Cell(++ro, 1)
+            .SetFormulaA1("=HYPERLINK(\"mailto:test@test.com\", \"Send Email through formula\")");
 
-        #endregion
+        ws.Cell(++ro, 1)
+            .SetFormulaA1("=HYPERLINK(\"[Hyperlinks.xlsx]Hyperlinks!B2:C4\", \"Link to range through formula\")");
 
-        #region Methods
+        ws.Cell(++ro, 1)
+            .SetFormulaA1("=HYPERLINK(\"[../Test.xlsx]Sheet1!B2:C4\", \"Link to another file through formula\")");
 
-        // Public
-        public void Create(String filePath)
-        {
-            var wb = new XLWorkbook();
-            var ws = wb.Worksheets.Add("Hyperlinks");
-            wb.Worksheets.Add("Second Sheet");
+        // List all hyperlinks in a worksheet:
+        var _ = ws.Hyperlinks;
 
-            Int32 ro = 0;
+        // Clearing a cell with a hyperlink
+        ws.Cell(++ro, 1).Value = "ERROR!";
+        ws.Cell(ro, 1).GetHyperlink().InternalAddress = "A1";
+        ws.Cell(ro, 1).Clear();
 
-            // You can create a link with pretty much anything you can put on a
-            // browser: http, ftp, mailto, gopher, news, nntp, etc.
-            
-            ws.Cell(++ro, 1).Value = "Link to a web page, no tooltip - Yahoo!";
-            ws.Cell(ro, 1).SetHyperlink(new XLHyperlink(@"http://www.yahoo.com"));
+        // Deleting a cell with a hyperlink
+        ws.Cell(++ro, 1).Value = "ERROR!";
+        ws.Cell(ro, 1).GetHyperlink().InternalAddress = "A1";
+        ws.Cell(ro, 1).Clear();
 
-            ws.Cell(++ro, 1).Value = "Link to a web page, with a tooltip - Yahoo!";
-            ws.Cell(ro, 1).SetHyperlink(new XLHyperlink(@"http://www.yahoo.com", "Click to go to Yahoo!"));
+        ws.Columns().AdjustToContents();
 
-            ws.Cell(++ro, 1).Value = "Link to a file - same folder";
-            ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("Test.xlsx"));
-
-            ws.Cell(++ro, 1).Value = "Link to a file - Absolute";
-            ws.Cell(ro, 1).SetHyperlink(new XLHyperlink(@"D:\Test.xlsx"));
-
-            ws.Cell(++ro, 1).Value = "Link to a file - relative address";
-            ws.Cell(ro, 1).SetHyperlink(new XLHyperlink(@"../Test.xlsx"));
-
-            ws.Cell(++ro, 1).Value = "Link to an address in this worksheet";
-            ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("B1"));
-
-            ws.Cell(++ro, 1).Value = "Link to an address in another worksheet";
-            ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("'Second Sheet'!A1"));
-
-            // You can also set the properties of a hyperlink directly:
-
-            ws.Cell(++ro, 1).Value = "Link to a range in this worksheet";
-            ws.Cell(ro, 1).GetHyperlink().InternalAddress = "B1:C2";
-            ws.Cell(ro, 1).GetHyperlink().Tooltip = "SquareBox";
-
-            ws.Cell(++ro, 1).Value = "Link to an email message";
-            ws.Cell(ro, 1).GetHyperlink().ExternalAddress = new Uri(@"mailto:SantaClaus@NorthPole.com?subject=Presents");
-
-            // Deleting a hyperlink
-            ws.Cell(++ro, 1).Value = "This is no longer a link";
-            ws.Cell(ro, 1).GetHyperlink().InternalAddress = "A1";
-            ws.Cell(ro, 1).GetHyperlink().Delete();
-
-            // Setting a hyperlink preserves previous formatting:
-            ws.Cell(++ro, 1).Value = "Odd looking link";
-            ws.Cell(ro, 1).Style.Font.FontColor = XLColor.Red;
-            ws.Cell(ro, 1).Style.Font.Underline = XLFontUnderlineValues.Double;
-            ws.Cell(ro, 1).SetHyperlink(new XLHyperlink(ws.Range("B1:C2")));
-            
-            // Hyperlink via formula
-            ws.Cell( ++ro, 1 )
-                .SetFormulaA1("=HYPERLINK(\"mailto:test@test.com\", \"Send Email through formula\")");
-
-            ws.Cell(++ro, 1)
-                .SetFormulaA1("=HYPERLINK(\"[Hyperlinks.xlsx]Hyperlinks!B2:C4\", \"Link to range through formula\")");
-
-            ws.Cell(++ro, 1)
-                .SetFormulaA1("=HYPERLINK(\"[../Test.xlsx]Sheet1!B2:C4\", \"Link to another file through formula\")");
-
-            // List all hyperlinks in a worksheet:
-            var hyperlinksInWorksheet = ws.Hyperlinks;
-
-            // Clearing a cell with a hyperlink
-            ws.Cell(++ro, 1).Value = "ERROR!";
-            ws.Cell(ro, 1).GetHyperlink().InternalAddress = "A1";
-            ws.Cell(ro, 1).Clear();
-
-            // Deleting a cell with a hyperlink
-            ws.Cell(++ro, 1).Value = "ERROR!";
-            ws.Cell(ro, 1).GetHyperlink().InternalAddress = "A1";
-            ws.Cell(ro, 1).Clear();
-
-            ws.Columns().AdjustToContents();
-
-            wb.SaveAs(filePath);
-        }
-
-        // Private
-
-        // Override
-
-
-        #endregion
+        wb.SaveAs(filePath);
     }
+
+    // Private
+
+    // Override
+
+
+    #endregion
 }

@@ -1,10 +1,7 @@
-using System;
+namespace ClosedXML.Excel;
 
-namespace ClosedXML.Excel
+public interface IXLDrawingWeb
 {
-    public interface IXLDrawingWeb
-    {
-        String? AlternateText { get; set; }
-        IXLDrawingStyle SetAlternateText(String? value);
-    }
+    string? AlternateText { get; set; }
+    IXLDrawingStyle SetAlternateText(string? value);
 }

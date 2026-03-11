@@ -1,13 +1,10 @@
 #nullable disable
 
-using System;
+namespace ClosedXML.Excel;
 
-namespace ClosedXML.Excel
+public interface IXLNumberFormatBase
 {
-    public interface IXLNumberFormatBase
-    {
-        Int32 NumberFormatId { get; set; }
+    int NumberFormatId { get; set; }
 
-        String Format { get; set; }
-    }
+    string Format { get; set; }
 }

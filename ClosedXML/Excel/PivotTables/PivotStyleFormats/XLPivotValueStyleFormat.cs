@@ -1,4 +1,4 @@
-// Keep this file CodeMaid organised and cleaned
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,7 +13,7 @@ internal class XLPivotValueStyleFormat : XLPivotStyleFormatBase, IXLPivotValueSt
     /// The term "lie on" means that either column or a row of data cell
     /// intersects a label cell of referenced field.
     /// </summary>
-    private readonly List<FieldReference> _fieldReferences = new();
+    private readonly List<FieldReference> _fieldReferences = [];
 
     public XLPivotValueStyleFormat(XLPivotTable pivotTable, FieldIndex fieldIndex)
         : base(pivotTable)
@@ -54,7 +54,7 @@ internal class XLPivotValueStyleFormat : XLPivotStyleFormatBase, IXLPivotValueSt
         if (valuesIndex == -1)
             throw new ArgumentOutOfRangeException($"Field '{valueField.CustomName}' is not among value fields of the pivot table.");
 
-        _fieldReferences.Add(new FieldReference(FieldIndex.DataField, new[] { (uint)valuesIndex }));
+        _fieldReferences.Add(new FieldReference(FieldIndex.DataField, [(uint)valuesIndex]));
         return this;
     }
 

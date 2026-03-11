@@ -20,9 +20,9 @@ internal readonly record struct XLFillKey
         hash.Add(BackgroundColor);
 
         if (HasNoForeground()) return hash.ToHashCode();
-                
+
         hash.Add(PatternColor);
-            
+
         return hash.ToHashCode();
     }
 

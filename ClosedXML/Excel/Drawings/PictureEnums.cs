@@ -1,32 +1,31 @@
 #nullable disable
 
-namespace ClosedXML.Excel.Drawings
+namespace ClosedXML.Excel.Drawings;
+
+public enum XLMarkerPosition
 {
-    public enum XLMarkerPosition
-    {
-        TopLeft,
-        BottomRight
-    }
+    TopLeft,
+    BottomRight
+}
 
-    public enum XLPictureFormat
-    {
-        Unknown,
-        Bmp,
-        Gif,
-        Png,
-        Tiff,
-        Icon,
-        Pcx,
-        Jpeg,
-        Emf,
-        Wmf,
-        Webp
-    }
+public enum XLPictureFormat
+{
+    Unknown,
+    Bmp,
+    Gif,
+    Png,
+    Tiff,
+    Icon,
+    Pcx,
+    Jpeg,
+    Emf,
+    Wmf,
+    Webp
+}
 
-    public enum XLPicturePlacement
-    {
-        MoveAndSize = 0,
-        Move = 1,
-        FreeFloating = 2
-    }
+public enum XLPicturePlacement
+{
+    MoveAndSize = 0,
+    Move = 1,
+    FreeFloating = 2
 }

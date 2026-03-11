@@ -2,16 +2,15 @@
 
 using System;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+public interface IXLProtection : IEquatable<IXLProtection>
 {
-    public interface IXLProtection : IEquatable<IXLProtection>
-    {
-        Boolean Locked { get; set; }
+    bool Locked { get; set; }
 
-        Boolean Hidden { get; set; }
+    bool Hidden { get; set; }
 
-        IXLStyle SetLocked(); IXLStyle SetLocked(Boolean value);
+    IXLStyle SetLocked(); IXLStyle SetLocked(bool value);
 
-        IXLStyle SetHidden(); IXLStyle SetHidden(Boolean value);
-    }
+    IXLStyle SetHidden(); IXLStyle SetHidden(bool value);
 }

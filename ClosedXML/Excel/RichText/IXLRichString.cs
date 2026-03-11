@@ -2,30 +2,29 @@
 
 using System;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+public interface IXLWithRichString
 {
-    public interface IXLWithRichString
-    {
-        IXLRichString AddText(String text);
-        IXLRichString AddNewLine();
-    }
-    public interface IXLRichString : IXLFontBase, IEquatable<IXLRichString>, IXLWithRichString
-    {
-        String Text { get; set; }
+    IXLRichString AddText(string text);
+    IXLRichString AddNewLine();
+}
+public interface IXLRichString : IXLFontBase, IEquatable<IXLRichString>, IXLWithRichString
+{
+    string Text { get; set; }
 
-        IXLRichString SetBold(); IXLRichString SetBold(Boolean value);
-        IXLRichString SetItalic(); IXLRichString SetItalic(Boolean value);
-        IXLRichString SetUnderline(); IXLRichString SetUnderline(XLFontUnderlineValues value);
-        IXLRichString SetStrikethrough(); IXLRichString SetStrikethrough(Boolean value);
-        IXLRichString SetVerticalAlignment(XLFontVerticalTextAlignmentValues value);
-        IXLRichString SetShadow(); IXLRichString SetShadow(Boolean value);
-        IXLRichString SetFontSize(Double value);
-        IXLRichString SetFontColor(XLColor value);
-        IXLRichString SetFontName(String value);
-        IXLRichString SetFontFamilyNumbering(XLFontFamilyNumberingValues value);
-        IXLRichString SetFontCharSet(XLFontCharSet value);
+    IXLRichString SetBold(); IXLRichString SetBold(bool value);
+    IXLRichString SetItalic(); IXLRichString SetItalic(bool value);
+    IXLRichString SetUnderline(); IXLRichString SetUnderline(XLFontUnderlineValues value);
+    IXLRichString SetStrikethrough(); IXLRichString SetStrikethrough(bool value);
+    IXLRichString SetVerticalAlignment(XLFontVerticalTextAlignmentValues value);
+    IXLRichString SetShadow(); IXLRichString SetShadow(bool value);
+    IXLRichString SetFontSize(double value);
+    IXLRichString SetFontColor(XLColor value);
+    IXLRichString SetFontName(string value);
+    IXLRichString SetFontFamilyNumbering(XLFontFamilyNumberingValues value);
+    IXLRichString SetFontCharSet(XLFontCharSet value);
 
-        /// <inheritdoc cref="IXLFontBase.FontScheme"/>
-        IXLRichString SetFontScheme(XLFontScheme value);
-    }
+    /// <inheritdoc cref="IXLFontBase.FontScheme"/>
+    IXLRichString SetFontScheme(XLFontScheme value);
 }

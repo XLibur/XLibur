@@ -49,7 +49,7 @@ internal class XLPivotReference
     /// </summary>
     internal bool Relative { get; init; } = false;
 
-    internal HashSet<XLSubtotalFunction> Subtotals { get; init; }= new();
+    internal HashSet<XLSubtotalFunction> Subtotals { get; init; } = new();
 
     internal void AddFieldItem(uint fieldItem)
     {

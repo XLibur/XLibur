@@ -4,90 +4,89 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ClosedXML.Excel
-{
-    internal class XLColumnsCollection : IDictionary<Int32, XLColumn>
-    {
-        private readonly Dictionary<Int32, XLColumn> _dictionary = new();
+namespace ClosedXML.Excel;
 
-        public void ShiftColumnsRight(Int32 startingColumn, Int32 columnsToShift)
+internal class XLColumnsCollection : IDictionary<int, XLColumn>
+{
+    private readonly Dictionary<int, XLColumn> _dictionary = new();
+
+    public void ShiftColumnsRight(int startingColumn, int columnsToShift)
+    {
+        foreach (var co in _dictionary.Keys.Where(k => k >= startingColumn).OrderByDescending(k => k))
         {
-            foreach (var co in _dictionary.Keys.Where(k => k >= startingColumn).OrderByDescending(k => k))
+            var columnToMove = _dictionary[co];
+            _dictionary.Remove(co);
+            int newColumnNum = co + columnsToShift;
+            if (newColumnNum <= XLHelper.MaxColumnNumber)
             {
-                var columnToMove = _dictionary[co];
-                _dictionary.Remove(co);
-                Int32 newColumnNum = co + columnsToShift;
-                if (newColumnNum <= XLHelper.MaxColumnNumber)
-                {
-                    columnToMove.SetColumnNumber(newColumnNum);
-                    _dictionary.Add(newColumnNum, columnToMove);
-                }
+                columnToMove.SetColumnNumber(newColumnNum);
+                _dictionary.Add(newColumnNum, columnToMove);
             }
         }
+    }
 
-        public void Add(int key, XLColumn value)
-        {
-            _dictionary.Add(key, value);
-        }
+    public void Add(int key, XLColumn value)
+    {
+        _dictionary.Add(key, value);
+    }
 
-        public bool ContainsKey(int key) => _dictionary.ContainsKey(key);
+    public bool ContainsKey(int key) => _dictionary.ContainsKey(key);
 
-        public ICollection<int> Keys => _dictionary.Keys;
+    public ICollection<int> Keys => _dictionary.Keys;
 
-        public bool Remove(int key)
-        {
-            return _dictionary.Remove(key);
-        }
-        
-        public bool TryGetValue(int key, out XLColumn value)
-        {
-            return _dictionary.TryGetValue(key, out value);
-        }
+    public bool Remove(int key)
+    {
+        return _dictionary.Remove(key);
+    }
 
-        public ICollection<XLColumn> Values => _dictionary.Values;
+    public bool TryGetValue(int key, out XLColumn value)
+    {
+        return _dictionary.TryGetValue(key, out value);
+    }
 
-        public XLColumn this[int key]
-        {
-            get => _dictionary[key];
-            set => _dictionary[key] = value;
-        }
+    public ICollection<XLColumn> Values => _dictionary.Values;
 
-        public void Add(KeyValuePair<int, XLColumn> item)
-        {
-            _dictionary.Add(item.Key, item.Value);
-        }
+    public XLColumn this[int key]
+    {
+        get => _dictionary[key];
+        set => _dictionary[key] = value;
+    }
 
-        public void Clear()
-        {
-            _dictionary.Clear();
-        }
+    public void Add(KeyValuePair<int, XLColumn> item)
+    {
+        _dictionary.Add(item.Key, item.Value);
+    }
 
-        public bool Contains(KeyValuePair<int, XLColumn> item)
-        {
-            return _dictionary.Contains(item);
-        }
+    public void Clear()
+    {
+        _dictionary.Clear();
+    }
 
-        public void CopyTo(KeyValuePair<int, XLColumn>[] array, int arrayIndex)
-        {
-            throw new NotImplementedException();
-        }
+    public bool Contains(KeyValuePair<int, XLColumn> item)
+    {
+        return _dictionary.Contains(item);
+    }
 
-        public int Count => _dictionary.Count;
+    public void CopyTo(KeyValuePair<int, XLColumn>[] array, int arrayIndex)
+    {
+        throw new NotImplementedException();
+    }
 
-        public bool IsReadOnly => false;
+    public int Count => _dictionary.Count;
 
-        public bool Remove(KeyValuePair<int, XLColumn> item)
-        {
-            return _dictionary.Remove(item.Key);
-        }
+    public bool IsReadOnly => false;
 
-        public IEnumerator<KeyValuePair<int, XLColumn>> GetEnumerator() => _dictionary.GetEnumerator();
+    public bool Remove(KeyValuePair<int, XLColumn> item)
+    {
+        return _dictionary.Remove(item.Key);
+    }
 
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _dictionary.GetEnumerator();
+    public IEnumerator<KeyValuePair<int, XLColumn>> GetEnumerator() => _dictionary.GetEnumerator();
 
-        public void RemoveAll(Func<XLColumn, Boolean> predicate)
-        {
-            _dictionary.RemoveAll(predicate);
-        }
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _dictionary.GetEnumerator();
+
+    public void RemoveAll(Func<XLColumn, bool> predicate)
+    {
+        _dictionary.RemoveAll(predicate);
     }
 }

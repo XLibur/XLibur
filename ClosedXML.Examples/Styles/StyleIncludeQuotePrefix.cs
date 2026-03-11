@@ -1,18 +1,17 @@
 ﻿using ClosedXML.Excel;
-using System;
 using System.Linq;
 
-namespace ClosedXML.Examples.Styles
-{
-    public class StyleIncludeQuotePrefix : IXLExample
-    {
-        public void Create(String filePath)
-        {
-            var workbook = new XLWorkbook();
-            var ws = workbook.Worksheets.Add("Style IncludeQuotePrefix");
+namespace ClosedXML.Examples.Styles;
 
-            var data = Enumerable.Range(1, 20)
-                .Select(i =>
+public class StyleIncludeQuotePrefix : IXLExample
+{
+    public void Create(string filePath)
+    {
+        var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Style IncludeQuotePrefix");
+
+        var data = Enumerable.Range(1, 20)
+            .Select(i =>
                 new
                 {
                     IntegerIndex = i,
@@ -21,19 +20,18 @@ namespace ClosedXML.Examples.Styles
                     PrependedString1000 = "Str" + (i * 1000).ToString().PadLeft(8, '0')
                 });
 
-            ws.FirstCell().InsertData(data);
+        ws.FirstCell().InsertData(data);
 
-            // Columns B to D will be of type text
-            // but column B will not have the leading quotation mark
-            ws.Column("B").Style.IncludeQuotePrefix = false;
+        // Columns B to D will be of type text
+        // but column B will not have the leading quotation mark
+        ws.Column("B").Style.IncludeQuotePrefix = false;
 
-            // Columns C and D will have the leading quotation mark
-            ws.Column("C").Style.IncludeQuotePrefix = true;
-            ws.Column("D").Style.SetIncludeQuotePrefix();
+        // Columns C and D will have the leading quotation mark
+        ws.Column("C").Style.IncludeQuotePrefix = true;
+        ws.Column("D").Style.SetIncludeQuotePrefix();
 
-            ws.Columns().AdjustToContents();
+        ws.Columns().AdjustToContents();
 
-            workbook.SaveAs(filePath);
-        }
+        workbook.SaveAs(filePath);
     }
 }

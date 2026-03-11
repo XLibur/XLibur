@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace ClosedXML.Excel;
 
-public interface IXLHyperlinks: IEnumerable<XLHyperlink>
+public interface IXLHyperlinks : IEnumerable<XLHyperlink>
 {
     /// <summary>
     /// Remove the hyperlink from a worksheet. Doesn't throw if hyperlinks is

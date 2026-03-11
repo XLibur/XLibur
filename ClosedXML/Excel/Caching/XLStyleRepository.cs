@@ -3,22 +3,21 @@
 using System;
 using System.Collections.Generic;
 
-namespace ClosedXML.Excel.Caching
+namespace ClosedXML.Excel.Caching;
+
+internal sealed class XLStyleRepository : XLRepositoryBase<XLStyleKey, XLStyleValue>
 {
-    internal sealed class XLStyleRepository : XLRepositoryBase<XLStyleKey, XLStyleValue>
+    #region Constructors
+
+    public XLStyleRepository(Func<XLStyleKey, XLStyleValue> createNew)
+        : base(createNew)
     {
-        #region Constructors
-
-        public XLStyleRepository(Func<XLStyleKey, XLStyleValue> createNew)
-            : base(createNew)
-        {
-        }
-
-        public XLStyleRepository(Func<XLStyleKey, XLStyleValue> createNew, IEqualityComparer<XLStyleKey> comparer)
-            : base(createNew, comparer)
-        {
-        }
-
-        #endregion Constructors
     }
+
+    public XLStyleRepository(Func<XLStyleKey, XLStyleValue> createNew, IEqualityComparer<XLStyleKey> comparer)
+        : base(createNew, comparer)
+    {
+    }
+
+    #endregion Constructors
 }

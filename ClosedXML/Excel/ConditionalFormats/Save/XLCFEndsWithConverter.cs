@@ -1,28 +1,26 @@
-using System;
 using DocumentFormat.OpenXml.Spreadsheet;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+internal class XLCFEndsWithConverter : IXLCFConverter
 {
-    internal class XLCFEndsWithConverter : IXLCFConverter
+    public ConditionalFormattingRule Convert(IXLConditionalFormat cf, int priority, XLWorkbook.SaveContext context)
     {
-        public ConditionalFormattingRule Convert(IXLConditionalFormat cf, int priority, XLWorkbook.SaveContext context)
-        {
-            String val = cf.Values[1].Value;
-            var conditionalFormattingRule = XLCFBaseConverter.Convert(cf, priority);
-            var cfStyle = ((XLStyle)cf.Style).Value;
-            if (!cfStyle.Equals(XLWorkbook.DefaultStyleValue))
-                conditionalFormattingRule.FormatId = (UInt32)context.DifferentialFormats[cfStyle];
+        string val = cf.Values[1].Value;
+        var conditionalFormattingRule = XLCFBaseConverter.Convert(cf, priority);
+        var cfStyle = ((XLStyle)cf.Style).Value;
+        if (!cfStyle.Equals(XLWorkbook.DefaultStyleValue))
+            conditionalFormattingRule.FormatId = (uint)context.DifferentialFormats[cfStyle];
 
-            conditionalFormattingRule.Operator = ConditionalFormattingOperatorValues.EndsWith;
-            conditionalFormattingRule.Text = val;
+        conditionalFormattingRule.Operator = ConditionalFormattingOperatorValues.EndsWith;
+        conditionalFormattingRule.Text = val;
 
-            var formula = new Formula { Text = "RIGHT(" + cf.Range.RangeAddress.FirstAddress.ToStringRelative(false) + "," + val.Length.ToString() + ")=\"" + val + "\"" };
+        var formula = new Formula { Text = "RIGHT(" + cf.Range.RangeAddress.FirstAddress.ToStringRelative(false) + "," + val.Length.ToString() + ")=\"" + val + "\"" };
 
-            conditionalFormattingRule.Append(formula);
+        conditionalFormattingRule.Append(formula);
 
-            return conditionalFormattingRule;
-        }
-
-
+        return conditionalFormattingRule;
     }
+
+
 }

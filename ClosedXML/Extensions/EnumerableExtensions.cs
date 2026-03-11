@@ -1,48 +1,50 @@
-// Keep this file CodeMaid organised and cleaned
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+internal static class EnumerableExtensions
 {
-    internal static class EnumerableExtensions
+    public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
     {
-        public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
+        foreach (var item in source)
+            action(item);
+    }
+
+    public static Type? GetItemType(this IEnumerable source)
+    {
+        return GetGenericArgument(source.GetType());
+
+        Type? GetGenericArgument(Type collectionType)
         {
-            foreach (T item in source)
-                action(item);
+            var ienumerable = collectionType.GetInterfaces()
+                .SingleOrDefault(i => i.GetGenericArguments().Length == 1 &&
+                                      i.Name == "IEnumerable`1");
+
+            return ienumerable?.GetGenericArguments().FirstOrDefault();
         }
+    }
 
-        public static Type? GetItemType(this IEnumerable source)
+    extension<T>(IEnumerable<T> source)
+    {
+        public HashSet<T> ToHashSet()
         {
-            return GetGenericArgument(source.GetType());
-
-            Type? GetGenericArgument(Type collectionType)
-            {
-                var ienumerable = collectionType.GetInterfaces()
-                    .SingleOrDefault(i => i.GetGenericArguments().Length == 1 &&
-                                          i.Name == "IEnumerable`1");
-
-                return ienumerable?.GetGenericArguments()?.FirstOrDefault();
-            }
-        }
-
-        public static HashSet<T> ToHashSet<T>(this IEnumerable<T> source)
-        {
-            return new HashSet<T>(source);
+            return [.. source];
         }
 
         /// <summary>
-        /// Skip last element of a sequence.
+        /// Skip the last element of a sequence.
         /// </summary>
-        public static IEnumerable<T> SkipLast<T>(this IEnumerable<T> source)
+        public IEnumerable<T> SkipLast()
         {
             using var enumerator = source.GetEnumerator();
             if (!enumerator.MoveNext())
                 yield break;
 
-            T prev = enumerator.Current;
+            var prev = enumerator.Current;
             while (enumerator.MoveNext())
             {
                 yield return prev;
@@ -50,9 +52,9 @@ namespace ClosedXML.Excel
             }
         }
 
-        public static Boolean HasDuplicates<T>(this IEnumerable<T> source)
+        public bool HasDuplicates()
         {
-            HashSet<T> distinctItems = new HashSet<T>();
+            HashSet<T> distinctItems = [];
             foreach (var item in source)
             {
                 if (!distinctItems.Add(item))
@@ -66,7 +68,7 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Select all <typeparamref name="TItem"/> that are not null.
         /// </summary>
-        public static IEnumerable<TItem> WhereNotNull<T, TItem>(this IEnumerable<T> source, Func<T, TItem?> property)
+        public IEnumerable<TItem> WhereNotNull<TItem>(Func<T, TItem?> property)
             where TItem : struct
         {
             return source.Select(property).Where(x => x.HasValue).Select(x => x!.Value);

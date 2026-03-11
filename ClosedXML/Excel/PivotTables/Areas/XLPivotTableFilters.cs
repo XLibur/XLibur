@@ -1,4 +1,4 @@
-// Keep this file CodeMaid organised and cleaned
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -27,9 +27,9 @@ internal class XLPivotTableFilters : IXLPivotFields
         _pivotTable = pivotTable;
     }
 
-    IXLPivotField IXLPivotFields.Add(String sourceName) => Add(sourceName, sourceName);
+    IXLPivotField IXLPivotFields.Add(string sourceName) => Add(sourceName, sourceName);
 
-    IXLPivotField IXLPivotFields.Add(String sourceName, String customName) => Add(sourceName, customName);
+    IXLPivotField IXLPivotFields.Add(string sourceName, string customName) => Add(sourceName, customName);
 
     public void Clear()
     {
@@ -39,7 +39,7 @@ internal class XLPivotTableFilters : IXLPivotFields
         _fields.Clear();
     }
 
-    public Boolean Contains(String sourceName)
+    public bool Contains(string sourceName)
     {
         return IndexOf(sourceName) >= 0;
     }
@@ -49,7 +49,7 @@ internal class XLPivotTableFilters : IXLPivotFields
         return Contains(pivotField.SourceName);
     }
 
-    public IXLPivotField Get(String sourceName)
+    public IXLPivotField Get(string sourceName)
     {
         if (!_pivotTable.TryGetSourceNameFieldIndex(sourceName, out var fieldIndex))
             throw new KeyNotFoundException($"Field with source name '{sourceName}' not found in {XLPivotAxis.AxisPage}.");
@@ -61,7 +61,7 @@ internal class XLPivotTableFilters : IXLPivotFields
         return new XLPivotTablePageField(_pivotTable, filterField);
     }
 
-    public IXLPivotField Get(Int32 index)
+    public IXLPivotField Get(int index)
     {
         if (index < 0 || index >= _fields.Count)
             throw new IndexOutOfRangeException();
@@ -79,7 +79,7 @@ internal class XLPivotTableFilters : IXLPivotFields
             yield return new XLPivotTablePageField(_pivotTable, field);
     }
 
-    public Int32 IndexOf(String sourceName)
+    public int IndexOf(string sourceName)
     {
         if (!_pivotTable.TryGetSourceNameFieldIndex(sourceName, out var fieldIndex))
             return -1;
@@ -87,12 +87,12 @@ internal class XLPivotTableFilters : IXLPivotFields
         return _fields.FindIndex(f => f.Field == fieldIndex);
     }
 
-    public Int32 IndexOf(IXLPivotField pf)
+    public int IndexOf(IXLPivotField pf)
     {
         return IndexOf(pf.SourceName);
     }
 
-    public void Remove(String sourceName)
+    public void Remove(string sourceName)
     {
         var index = IndexOf(sourceName);
         if (index == -1)
@@ -109,14 +109,14 @@ internal class XLPivotTableFilters : IXLPivotFields
 
     internal IReadOnlyList<XLPivotPageField> Fields => _fields;
 
-    internal XLPivotTablePageField Add(String sourceName, String customName)
+    internal XLPivotTablePageField Add(string sourceName, string customName)
     {
         if (sourceName == XLConstants.PivotTable.ValuesSentinalLabel)
             throw new ArgumentException(nameof(sourceName), $"The column '{sourceName}' does not appear in the source range.");
 
-        var heightDifference= GetHeightDifference(1);
+        var heightDifference = GetHeightDifference(1);
         var movedArea = _pivotTable.Area.ShiftRows(heightDifference);
-        
+
         var fieldIndex = _pivotTable.AddFieldToAxis(sourceName, customName, XLPivotAxis.AxisPage);
         var filterField = new XLPivotPageField(fieldIndex);
         _fields.Add(filterField);

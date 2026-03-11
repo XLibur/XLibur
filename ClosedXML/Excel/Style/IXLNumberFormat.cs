@@ -2,12 +2,11 @@
 
 using System;
 
-namespace ClosedXML.Excel
-{
-    public interface IXLNumberFormat : IXLNumberFormatBase, IEquatable<IXLNumberFormatBase>
-    {
-        IXLStyle SetNumberFormatId(Int32 value);
+namespace ClosedXML.Excel;
 
-        IXLStyle SetFormat(String value);
-    }
+public interface IXLNumberFormat : IXLNumberFormatBase, IEquatable<IXLNumberFormatBase>
+{
+    IXLStyle SetNumberFormatId(int value);
+
+    IXLStyle SetFormat(string value);
 }

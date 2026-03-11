@@ -1,32 +1,29 @@
 #nullable disable
 
-// Keep this file CodeMaid organised and cleaned
-using System;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+public interface IXLSparklineHorizontalAxis
 {
-    public interface IXLSparklineHorizontalAxis
-    {
-        #region Public Properties
+    #region Public Properties
 
-        XLColor Color { get; set; }
+    XLColor Color { get; set; }
 
-        Boolean DateAxis { get; }
+    bool DateAxis { get; }
 
-        Boolean IsVisible { get; set; }
+    bool IsVisible { get; set; }
 
-        Boolean RightToLeft { get; set; }
+    bool RightToLeft { get; set; }
 
-        #endregion Public Properties
+    #endregion Public Properties
 
-        #region Public Methods
+    #region Public Methods
 
-        IXLSparklineHorizontalAxis SetColor(XLColor value);
+    IXLSparklineHorizontalAxis SetColor(XLColor value);
 
-        IXLSparklineHorizontalAxis SetRightToLeft(Boolean value);
+    IXLSparklineHorizontalAxis SetRightToLeft(bool value);
 
-        IXLSparklineHorizontalAxis SetVisible(Boolean value);
+    IXLSparklineHorizontalAxis SetVisible(bool value);
 
-        #endregion Public Methods
-    }
+    #endregion Public Methods
 }

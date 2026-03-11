@@ -2,10 +2,9 @@
 
 using System.Collections.Generic;
 
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+public interface IXLCharts : IEnumerable<IXLChart>
 {
-    public interface IXLCharts: IEnumerable<IXLChart>
-    {
-        void Add(IXLChart chart);
-    }
+    void Add(IXLChart chart);
 }

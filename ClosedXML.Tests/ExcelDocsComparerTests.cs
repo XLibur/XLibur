@@ -2,57 +2,56 @@ using ClosedXML.Examples;
 using NUnit.Framework;
 using System.IO;
 
-namespace ClosedXML.Tests
+namespace ClosedXML.Tests;
+
+[TestFixture]
+public class ExcelDocsComparerTests
 {
-    [TestFixture]
-    public class ExcelDocsComparerTests
+    [Test]
+    public void CheckEqual()
     {
-        [Test]
-        public void CheckEqual()
+        string left = ExampleHelper.GetTempFilePath("left.xlsx");
+        string right = ExampleHelper.GetTempFilePath("right.xlsx");
+        try
         {
-            string left = ExampleHelper.GetTempFilePath("left.xlsx");
-            string right = ExampleHelper.GetTempFilePath("right.xlsx");
-            try
+            new BasicTable().Create(left);
+            new BasicTable().Create(right);
+            Assert.IsTrue(ExcelDocsComparer.Compare(left, right, out string message));
+        }
+        finally
+        {
+            if (File.Exists(left))
             {
-                new BasicTable().Create(left);
-                new BasicTable().Create(right);
-                Assert.IsTrue(ExcelDocsComparer.Compare(left, right, out string message));
+                File.Delete(left);
             }
-            finally
+            if (File.Exists(right))
             {
-                if (File.Exists(left))
-                {
-                    File.Delete(left);
-                }
-                if (File.Exists(right))
-                {
-                    File.Delete(right);
-                }
+                File.Delete(right);
             }
         }
+    }
 
-        [Test]
-        public void CheckNonEqual()
+    [Test]
+    public void CheckNonEqual()
+    {
+        string left = ExampleHelper.GetTempFilePath("left.xlsx");
+        string right = ExampleHelper.GetTempFilePath("right.xlsx");
+        try
         {
-            string left = ExampleHelper.GetTempFilePath("left.xlsx");
-            string right = ExampleHelper.GetTempFilePath("right.xlsx");
-            try
-            {
-                new BasicTable().Create(left);
-                new HelloWorld().Create(right);
+            new BasicTable().Create(left);
+            new HelloWorld().Create(right);
 
-                Assert.IsFalse(ExcelDocsComparer.Compare(left, right, out string message));
-            }
-            finally
+            Assert.IsFalse(ExcelDocsComparer.Compare(left, right, out string message));
+        }
+        finally
+        {
+            if (File.Exists(left))
             {
-                if (File.Exists(left))
-                {
-                    File.Delete(left);
-                }
-                if (File.Exists(right))
-                {
-                    File.Delete(right);
-                }
+                File.Delete(left);
+            }
+            if (File.Exists(right))
+            {
+                File.Delete(right);
             }
         }
     }

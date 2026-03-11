@@ -1,19 +1,17 @@
-using System;
-namespace ClosedXML.Excel
+namespace ClosedXML.Excel;
+
+public interface IXLCustomFilteredColumn
 {
-    public interface IXLCustomFilteredColumn
-    {
-        void EqualTo(XLCellValue value, bool reapply = true);
-        void NotEqualTo(XLCellValue value, bool reapply = true);
-        void GreaterThan(XLCellValue value, bool reapply = true);
-        void LessThan(XLCellValue value, bool reapply = true);
-        void EqualOrGreaterThan(XLCellValue value, bool reapply = true);
-        void EqualOrLessThan(XLCellValue value, bool reapply = true);
-        void BeginsWith(String value, bool reapply = true);
-        void NotBeginsWith(String value, bool reapply = true);
-        void EndsWith(String value, bool reapply = true);
-        void NotEndsWith(String value, bool reapply = true);
-        void Contains(String value, bool reapply = true);
-        void NotContains(String value, bool reapply = true);
-    }
+    void EqualTo(XLCellValue value, bool reapply = true);
+    void NotEqualTo(XLCellValue value, bool reapply = true);
+    void GreaterThan(XLCellValue value, bool reapply = true);
+    void LessThan(XLCellValue value, bool reapply = true);
+    void EqualOrGreaterThan(XLCellValue value, bool reapply = true);
+    void EqualOrLessThan(XLCellValue value, bool reapply = true);
+    void BeginsWith(string value, bool reapply = true);
+    void NotBeginsWith(string value, bool reapply = true);
+    void EndsWith(string value, bool reapply = true);
+    void NotEndsWith(string value, bool reapply = true);
+    void Contains(string value, bool reapply = true);
+    void NotContains(string value, bool reapply = true);
 }
