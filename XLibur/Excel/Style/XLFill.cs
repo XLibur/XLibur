@@ -182,20 +182,12 @@ internal sealed class XLFill : IXLFill
         return Key == otherF.Key;
     }
 
-    public override string ToString()
+    public override string ToString() => PatternType switch
     {
-        switch (PatternType)
-        {
-            case XLFillPatternValues.None:
-                return "None";
-
-            case XLFillPatternValues.Solid:
-                return string.Concat("Solid ", BackgroundColor.ToString());
-
-            default:
-                return string.Concat(PatternType.ToString(), " pattern: ", PatternColor.ToString(), " on ", BackgroundColor.ToString());
-        }
-    }
+        XLFillPatternValues.None => "None",
+        XLFillPatternValues.Solid => string.Concat("Solid ", BackgroundColor.ToString()),
+        _ => string.Concat(PatternType.ToString(), " pattern: ", PatternColor.ToString(), " on ", BackgroundColor.ToString()),
+    };
 
     public override int GetHashCode()
     {

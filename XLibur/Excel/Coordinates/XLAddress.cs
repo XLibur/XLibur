@@ -424,19 +424,12 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         }
         else
         {
-            switch (referenceStyle)
+            address = referenceStyle switch
             {
-                case XLReferenceStyle.A1:
-                    address = string.Concat('$', ColumnLetter, '$', _rowNumber.ToInvariantString());
-                    break;
-
-                case XLReferenceStyle.R1C1:
-                    address = string.Concat('R', _rowNumber.ToInvariantString(), 'C', ColumnNumber);
-                    break;
-
-                default:
-                    throw new NotImplementedException();
-            }
+                XLReferenceStyle.A1 => string.Concat('$', ColumnLetter, '$', _rowNumber.ToInvariantString()),
+                XLReferenceStyle.R1C1 => string.Concat('R', _rowNumber.ToInvariantString(), 'C', ColumnNumber),
+                _ => throw new NotImplementedException(),
+            };
         }
 
         if (includeSheet)

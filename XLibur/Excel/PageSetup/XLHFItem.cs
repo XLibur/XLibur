@@ -79,19 +79,18 @@ internal sealed class XLHFItem : IXLHFItem
 
     public IXLRichString AddText(XLHFPredefinedText predefinedText, XLHFOccurrence occurrence)
     {
-        string hfText;
-        switch (predefinedText)
+        var hfText = predefinedText switch
         {
-            case XLHFPredefinedText.PageNumber: hfText = "&P"; break;
-            case XLHFPredefinedText.NumberOfPages: hfText = "&N"; break;
-            case XLHFPredefinedText.Date: hfText = "&D"; break;
-            case XLHFPredefinedText.Time: hfText = "&T"; break;
-            case XLHFPredefinedText.Path: hfText = "&Z"; break;
-            case XLHFPredefinedText.File: hfText = "&F"; break;
-            case XLHFPredefinedText.SheetName: hfText = "&A"; break;
-            case XLHFPredefinedText.FullPath: hfText = "&Z&F"; break;
-            default: throw new NotImplementedException();
-        }
+            XLHFPredefinedText.PageNumber => "&P",
+            XLHFPredefinedText.NumberOfPages => "&N",
+            XLHFPredefinedText.Date => "&D",
+            XLHFPredefinedText.Time => "&T",
+            XLHFPredefinedText.Path => "&Z",
+            XLHFPredefinedText.File => "&F",
+            XLHFPredefinedText.SheetName => "&A",
+            XLHFPredefinedText.FullPath => "&Z&F",
+            _ => throw new NotImplementedException(),
+        };
         return AddText(hfText, occurrence);
     }
 

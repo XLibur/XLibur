@@ -219,18 +219,18 @@ internal sealed class XLTableField : IXLTableField
         if (TotalsRowFunction != XLTotalsRowFunction.None && TotalsRowFunction != XLTotalsRowFunction.Custom)
         {
             var cell = table.TotalsRow()!.Cell(Index + 1);
-            var formulaCode = string.Empty;
-            switch (TotalsRowFunction)
+            var formulaCode = TotalsRowFunction switch
             {
-                case XLTotalsRowFunction.Sum: formulaCode = "109"; break;
-                case XLTotalsRowFunction.Minimum: formulaCode = "105"; break;
-                case XLTotalsRowFunction.Maximum: formulaCode = "104"; break;
-                case XLTotalsRowFunction.Average: formulaCode = "101"; break;
-                case XLTotalsRowFunction.Count: formulaCode = "103"; break;
-                case XLTotalsRowFunction.CountNumbers: formulaCode = "102"; break;
-                case XLTotalsRowFunction.StandardDeviation: formulaCode = "107"; break;
-                case XLTotalsRowFunction.Variance: formulaCode = "110"; break;
-            }
+                XLTotalsRowFunction.Sum => "109",
+                XLTotalsRowFunction.Minimum => "105",
+                XLTotalsRowFunction.Maximum => "104",
+                XLTotalsRowFunction.Average => "101",
+                XLTotalsRowFunction.Count => "103",
+                XLTotalsRowFunction.CountNumbers => "102",
+                XLTotalsRowFunction.StandardDeviation => "107",
+                XLTotalsRowFunction.Variance => "110",
+                _ => string.Empty,
+            };
 
             var modifiedName = Name;
             QuotedTableFieldCharacters.ForEach(c => modifiedName = modifiedName.Replace(c, "'" + c));
