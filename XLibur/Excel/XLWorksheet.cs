@@ -1479,7 +1479,7 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
             if (definedName.SheetReferencesList.Any())
             {
                 var newRangeList =
-                    definedName.SheetReferencesList.Select(r => XLCell.ShiftFormulaRows(r, this, range, rowsShifted)).Where(
+                    definedName.SheetReferencesList.Select(r => XLCellFormulaShifter.ShiftFormulaRows(r, this, range, rowsShifted)).Where(
                         newReference => newReference.Length > 0).ToList();
                 var unionFormula = string.Join(",", newRangeList);
                 definedName.SetRefersTo(unionFormula);
@@ -1492,7 +1492,7 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
         foreach (var definedName in definedNames)
         {
             var newRangeList =
-                definedName.SheetReferencesList.Select(r => XLCell.ShiftFormulaColumns(r, this, range, columnsShifted)).Where(
+                definedName.SheetReferencesList.Select(r => XLCellFormulaShifter.ShiftFormulaColumns(r, this, range, columnsShifted)).Where(
                     newReference => newReference.Length > 0).ToList();
             var unionFormula = string.Join(",", newRangeList);
             definedName.SetRefersTo(unionFormula);
