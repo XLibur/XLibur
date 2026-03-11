@@ -39,19 +39,11 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <NoWarn>$(NoWarn);NU1605;CS1591</NoWarn>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>$(SourceRoot)/ClosedXML.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
   <!-- Make deterministic build (same binary is produced regardless of the machine building it) for CI -->
-  <PropertyGroup Condition="'$(APPVEYOR)' != ''">
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' != ''">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-  </PropertyGroup>
-
-  <!-- Additional properties that might not be applicable to a local dev environment -->
-  <PropertyGroup>
-    <DefineConstants>$(AppVeyor)</DefineConstants>
   </PropertyGroup>
 
 </Project>

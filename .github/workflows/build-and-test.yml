@@ -21,10 +21,10 @@ jobs:
             10.0.x
 
       - name: Restore dependencies
-        run: dotnet restore ClosedXML.sln
+        run: dotnet restore ClosedXML.slnx
 
       - name: Build
-        run: dotnet build ClosedXML.sln --configuration Release --no-restore
+        run: dotnet build ClosedXML.slnx --configuration Release --no-restore
 
       - name: Test
         run: dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
