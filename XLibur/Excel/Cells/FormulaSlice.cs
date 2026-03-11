@@ -3,7 +3,7 @@ using XLibur.Excel.CalcEngine;
 
 namespace XLibur.Excel;
 
-internal class FormulaSlice : ISlice
+internal sealed class FormulaSlice : ISlice
 {
     private readonly XLWorksheet _sheet;
     private readonly XLCalcEngine _engine;

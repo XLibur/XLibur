@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel.IO;
 
@@ -9,7 +9,7 @@ namespace XLibur.Excel.IO;
 /// a problem with producer of a workbook or XLibur. Both should do
 /// investigation based on a the file causing an error.
 /// </summary>
-internal class PartStructureException : Exception
+internal sealed class PartStructureException : Exception
 {
     private PartStructureException(string message, string? detail = null)
         : base(detail is null ? message : message[..^1] + " (" + detail + ").")

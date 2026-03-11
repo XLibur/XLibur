@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -9,7 +9,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// All values of a cache field for a pivot table.
 /// </summary>
-internal class XLPivotCacheValues
+internal sealed class XLPivotCacheValues
 {
     private readonly XLPivotCacheSharedItems _sharedItems;
 

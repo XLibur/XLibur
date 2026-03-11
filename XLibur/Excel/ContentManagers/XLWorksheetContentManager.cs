@@ -1,4 +1,4 @@
-using DocumentFormat.OpenXml;
+﻿using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System.Linq;
 
@@ -48,7 +48,7 @@ internal enum XLWorksheetContents
     WorksheetExtensionList = 40
 }
 
-internal class XLWorksheetContentManager : XLBaseContentManager<XLWorksheetContents>
+internal sealed class XLWorksheetContentManager : XLBaseContentManager<XLWorksheetContents>
 {
     public XLWorksheetContentManager(Worksheet opWorksheet)
     {

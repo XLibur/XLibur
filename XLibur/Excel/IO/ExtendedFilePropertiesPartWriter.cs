@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace XLibur.Excel.IO;
 
-internal class ExtendedFilePropertiesPartWriter
+internal sealed class ExtendedFilePropertiesPartWriter
 {
     internal static void GenerateContent(ExtendedFilePropertiesPart extendedFilePropertiesPart, XLWorkbook workbook)
     {

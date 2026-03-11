@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLComment : XLFormattedText<IXLComment>, IXLComment
+internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
 {
     private XLCell _cell = null!;
 

@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
 namespace XLibur.Excel;
 
-internal class XLBorder : IXLBorder
+internal sealed class XLBorder : IXLBorder
 {
     #region Static members
 

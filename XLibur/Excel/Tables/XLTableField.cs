@@ -1,11 +1,11 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
 namespace XLibur.Excel;
 
 [DebuggerDisplay("{Name}")]
-internal class XLTableField : IXLTableField
+internal sealed class XLTableField : IXLTableField
 {
     internal XLTotalsRowFunction totalsRowFunction;
     internal string? totalsRowLabel;

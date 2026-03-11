@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLSparkline : IXLSparkline
+internal sealed class XLSparkline : IXLSparkline
 {
     #region Private Fields
 

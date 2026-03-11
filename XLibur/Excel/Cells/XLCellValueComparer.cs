@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Excel.Cells;
 
-internal class XLCellValueComparer : IEqualityComparer<XLCellValue>
+internal sealed class XLCellValueComparer : IEqualityComparer<XLCellValue>
 {
     private readonly StringComparer _textComparer;
 

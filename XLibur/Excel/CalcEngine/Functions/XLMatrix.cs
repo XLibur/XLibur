@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Text.RegularExpressions;
 
 namespace XLibur.Excel.CalcEngine.Functions;
 
-internal class XLMatrix
+internal sealed class XLMatrix
 {
     public XLMatrix? L;
     public XLMatrix? U;

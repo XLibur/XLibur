@@ -1,9 +1,9 @@
-
+﻿
 
 
 namespace XLibur.Excel;
 
-internal class XLFileSharing : IXLFileSharing
+internal sealed class XLFileSharing : IXLFileSharing
 {
     public bool ReadOnlyRecommended { get; set; }
     public string? UserName { get; set; }

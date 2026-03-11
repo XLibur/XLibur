@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLSheetView : IXLSheetView
+internal sealed class XLSheetView : IXLSheetView
 {
     public XLSheetView(XLWorksheet worksheet)
     {

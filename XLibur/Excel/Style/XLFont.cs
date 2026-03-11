@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Text;
 
 namespace XLibur.Excel;
 
-internal class XLFont : IXLFont
+internal sealed class XLFont : IXLFont
 {
     #region Static members
 

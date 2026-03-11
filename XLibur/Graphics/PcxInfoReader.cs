@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
 using XLibur.Excel.Drawings;
@@ -10,7 +10,7 @@ namespace XLibur.Graphics;
 /// Read info about PCX picture.
 /// https://moddingwiki.shikadi.net/wiki/PCX_Format
 /// </summary>
-internal class PcxInfoReader : ImageInfoReader
+internal sealed class PcxInfoReader : ImageInfoReader
 {
     protected override bool CheckHeader(Stream stream)
     {

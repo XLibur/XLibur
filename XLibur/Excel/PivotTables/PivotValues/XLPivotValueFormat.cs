@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLPivotValueFormat : IXLPivotValueFormat
+internal sealed class XLPivotValueFormat : IXLPivotValueFormat
 {
     private readonly XLPivotDataField _pivotValue;
 

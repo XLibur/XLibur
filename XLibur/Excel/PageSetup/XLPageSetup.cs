@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLPageSetup : IXLPageSetup
+internal sealed class XLPageSetup : IXLPageSetup
 {
     public XLPageSetup(XLPageSetup defaultPageOptions, XLWorksheet worksheet)
     {

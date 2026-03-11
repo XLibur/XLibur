@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLPhonetics : IXLPhonetics
+internal sealed class XLPhonetics : IXLPhonetics
 {
     private readonly List<IXLPhonetic> _phonetics = new();
     private readonly XLFont _font;

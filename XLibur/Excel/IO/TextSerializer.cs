@@ -1,11 +1,11 @@
-using System.Xml;
-using XLibur.Extensions;
-using static XLibur.Excel.XLWorkbook;
-using static XLibur.Excel.IO.OpenXmlConst;
+﻿using System.Xml;
+using ClosedXML.Extensions;
+using static ClosedXML.Excel.XLWorkbook;
+using static ClosedXML.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
-internal class TextSerializer
+internal sealed class TextSerializer
 {
     internal static void WriteRichTextElements(XmlWriter w, XLImmutableRichText richText, SaveContext context)
     {

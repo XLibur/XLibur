@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -23,7 +23,7 @@ internal enum XLBarGrouping
     Standard
 }
 
-internal class XLChart : XLDrawing<IXLChart>, IXLChart
+internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
 {
     internal IXLWorksheet worksheet;
 

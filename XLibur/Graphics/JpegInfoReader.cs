@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -10,7 +10,7 @@ namespace XLibur.Graphics;
 /// <summary>
 /// Read <a href="https://www.w3.org/Graphics/JPEG/jfif3.pdf">JFIF</a> or EXIF.
 /// </summary>
-internal class JpegInfoReader : ImageInfoReader
+internal sealed class JpegInfoReader : ImageInfoReader
 {
     private static readonly byte[] APP0Identifer = "JFIF\0"u8.ToArray();
     private static readonly byte[] APP1Identifer = "Exif\0\0"u8.ToArray();

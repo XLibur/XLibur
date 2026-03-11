@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLWorksheetInternals : IDisposable
+internal sealed class XLWorksheetInternals : IDisposable
 {
     public XLWorksheetInternals(
         XLCellsCollection cellsCollection,

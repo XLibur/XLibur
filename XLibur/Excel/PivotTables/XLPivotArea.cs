@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
@@ -8,7 +8,7 @@ namespace XLibur.Excel;
 /// <remarks>
 /// [ISO-29500] 18.3.1.68 PivotArea
 /// </remarks>
-internal class XLPivotArea
+internal sealed class XLPivotArea
 {
     private readonly List<XLPivotReference> _references = new();
 

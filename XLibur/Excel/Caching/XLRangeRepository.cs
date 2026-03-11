@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Excel.Caching;
 
-internal class XLRangeRepository : XLWorkbookElementRepositoryBase<XLRangeKey, XLRangeBase>
+internal sealed class XLRangeRepository : XLWorkbookElementRepositoryBase<XLRangeKey, XLRangeBase>
 {
     public XLRangeRepository(XLWorkbook workbook, Func<XLRangeKey, XLRangeBase> createNew) : base(workbook, createNew)
     {

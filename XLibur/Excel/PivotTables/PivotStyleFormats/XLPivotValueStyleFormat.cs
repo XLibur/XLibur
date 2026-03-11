@@ -1,11 +1,11 @@
-
+﻿
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLPivotValueStyleFormat : XLPivotStyleFormatBase, IXLPivotValueStyleFormat
+internal sealed class XLPivotValueStyleFormat : XLPivotStyleFormatBase, IXLPivotValueStyleFormat
 {
     /// <summary>
     /// A list of references that specify which data cells will be styled.

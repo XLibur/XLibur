@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 
 namespace XLibur.Excel.InsertData;
 
-internal class DataRecordReader : IInsertDataReader
+internal sealed class DataRecordReader : IInsertDataReader
 {
     private readonly IEnumerable<XLCellValue>[] _inMemoryData;
     private string[]? _columns;

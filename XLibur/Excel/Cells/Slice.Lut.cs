@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace XLibur.Excel;
 
-internal partial class Slice<TElement>
+internal sealed partial class Slice<TElement>
 {
     /// <summary>
     /// <para>

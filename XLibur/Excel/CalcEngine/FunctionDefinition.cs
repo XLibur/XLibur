@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -7,7 +7,7 @@ namespace XLibur.Excel.CalcEngine;
 /// <summary>
 /// Function definition class (keeps function name, parameter counts, and delegate).
 /// </summary>
-internal class FunctionDefinition
+internal sealed class FunctionDefinition
 {
     private readonly CalcEngineFunction _function;
 

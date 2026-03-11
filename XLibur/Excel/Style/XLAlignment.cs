@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Text;
 
 namespace XLibur.Excel;
 
-internal class XLAlignment : IXLAlignment
+internal sealed class XLAlignment : IXLAlignment
 {
     #region Static members
 

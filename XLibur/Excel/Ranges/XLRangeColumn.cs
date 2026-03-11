@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
+internal sealed class XLRangeColumn : XLRangeBase, IXLRangeColumn
 {
     #region Constructor
 

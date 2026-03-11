@@ -7,7 +7,7 @@ namespace XLibur.Excel;
 /// of data. It is basically a container of strings that are displayed in a page filter above
 /// the pivot table.
 /// </summary>
-internal class XLPivotCacheSourceConsolidationPage
+internal sealed class XLPivotCacheSourceConsolidationPage
 {
     internal XLPivotCacheSourceConsolidationPage(List<string> pageItems)
     {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -348,7 +348,7 @@ internal class Quadrant
 /// <summary>
 /// A generic version of <see cref="Quadrant"/>
 /// </summary>
-internal class Quadrant<T> : Quadrant
+internal sealed class Quadrant<T> : Quadrant
     where T : IXLAddressable
 {
     public new IEnumerable<T>? Ranges => base.Ranges?.Cast<T>();

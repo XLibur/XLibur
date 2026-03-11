@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLDrawingColorsAndLines : IXLDrawingColorsAndLines
+internal sealed class XLDrawingColorsAndLines : IXLDrawingColorsAndLines
 {
     private readonly IXLDrawingStyle _style;
 

@@ -12,7 +12,7 @@ using System.Xml;
 
 namespace XLibur.Excel.IO;
 
-internal class VmlDrawingPartWriter
+internal sealed class VmlDrawingPartWriter
 {
     // Generates content of vmlDrawingPart1.
     internal static bool GenerateContent(VmlDrawingPart vmlDrawingPart, XLWorksheet xlWorksheet)

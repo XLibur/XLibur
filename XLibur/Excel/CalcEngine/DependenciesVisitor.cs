@@ -27,7 +27,7 @@ namespace XLibur.Excel.CalcEngine;
 /// range operator.
 /// </para>
 /// </summary>
-internal class DependenciesVisitor : IFormulaVisitor<DependenciesContext, List<XLBookArea>?>
+internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext, List<XLBookArea>?>
 {
     public List<XLBookArea>? Visit(DependenciesContext context, ScalarNode node)
     {
@@ -288,7 +288,7 @@ internal class DependenciesVisitor : IFormulaVisitor<DependenciesContext, List<X
 
         // First, try to interpret name as a sheet scoped name.
         sheetName = node.Prefix?.Sheet ?? context.FormulaArea.Name;
-        if (context.Workbook.TryGetWorksheet(sheetName, out XLWorksheet sheet) &&
+        if (context.Workbook.TryGetWorksheet(sheetName, out XLWorksheet? sheet) &&
             sheet.DefinedNames.TryGetScopedValue(node.Name, out var sheetDefinedName))
         {
             return VisitName(sheetDefinedName);

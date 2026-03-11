@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace XLibur.Excel;
 
-internal class XLHFItem : IXLHFItem
+internal sealed class XLHFItem : IXLHFItem
 {
     internal readonly XLHeaderFooter HeaderFooter;
     public XLHFItem(XLHeaderFooter headerFooter)

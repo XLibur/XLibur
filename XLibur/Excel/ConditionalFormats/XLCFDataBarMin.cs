@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLCFDataBarMin : IXLCFDataBarMin
+internal sealed class XLCFDataBarMin : IXLCFDataBarMin
 {
     private readonly XLConditionalFormat _conditionalFormat;
     public XLCFDataBarMin(XLConditionalFormat conditionalFormat)

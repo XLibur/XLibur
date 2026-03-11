@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel.InsertData;
 
-internal class UntypedObjectReader : IInsertDataReader
+internal sealed class UntypedObjectReader : IInsertDataReader
 {
     private readonly IEnumerable<IInsertDataReader> _readers;
 

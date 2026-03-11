@@ -1,9 +1,8 @@
-#nullable disable
-
 
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using XLibur.Excel.CalcEngine.Exceptions;
@@ -171,7 +170,7 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     /// <returns>Inserted Worksheet</returns>
     IXLWorksheet AddWorksheet(DataTable dataTable, string sheetName, string tableName);
 
-    IXLCell Cell(string namedCell);
+    IXLCell? Cell(string namedCell);
 
     IXLCells Cells(string namedCells);
 
@@ -192,7 +191,6 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
 
     IXLRows FindRows(Func<IXLRow, bool> predicate);
 
-#nullable enable
     [Obsolete($"Use {nameof(DefinedName)} instead.")]
     IXLDefinedName? NamedRange(string name);
 
@@ -216,11 +214,10 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     /// sheet specified (e.g. <c>Sheet!Name</c>).</param>
     /// <returns>Found name or null.</returns>
     IXLDefinedName? DefinedName(string name);
-#nullable disable
 
-    IXLRange Range(string range);
+    IXLRange? Range(string range);
 
-    IXLRange RangeFromFullAddress(string rangeAddress, out IXLWorksheet ws);
+    IXLRange? RangeFromFullAddress(string rangeAddress, out IXLWorksheet? ws);
 
     IXLRanges Ranges(string ranges);
 
@@ -290,7 +287,7 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     /// <exception cref="ArgumentOutOfRangeException">If no tables with this name could be found in the workbook.</exception>
     IXLTable Table(string tableName, StringComparison comparisonType = StringComparison.OrdinalIgnoreCase);
 
-    bool TryGetWorksheet(string name, out IXLWorksheet worksheet);
+    bool TryGetWorksheet(string name, [NotNullWhen(true)] out IXLWorksheet? worksheet);
 
     IXLWorksheet Worksheet(string name);
 

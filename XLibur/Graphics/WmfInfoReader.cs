@@ -1,4 +1,4 @@
-using ClosedXML.Excel.Drawings;
+﻿using ClosedXML.Excel.Drawings;
 using ClosedXML.Utils;
 using System;
 using System.Drawing;
@@ -11,7 +11,7 @@ namespace XLibur.Graphics;
 /// https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wmf/4813e7fd-52d0-4f42-965f-228c8b7488d2
 /// http://formats.kaitai.io/wmf/index.html
 /// </summary>
-internal class WmfInfoReader : ImageInfoReader
+internal sealed class WmfInfoReader : ImageInfoReader
 {
     protected override bool CheckHeader(Stream stream)
     {

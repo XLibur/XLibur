@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLDrawingStyle : IXLDrawingStyle
+internal sealed class XLDrawingStyle : IXLDrawingStyle
 {
     public XLDrawingStyle()
     {

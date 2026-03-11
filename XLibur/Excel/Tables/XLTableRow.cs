@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLTableRow : XLRangeRow, IXLTableRow
+internal sealed class XLTableRow : XLRangeRow, IXLTableRow
 {
     private readonly XLTableRange _tableRange;
 

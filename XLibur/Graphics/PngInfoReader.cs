@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.IO;
 using XLibur.Excel.Drawings;
 using XLibur.Utils;
 
 namespace XLibur.Graphics;
 
-internal class PngInfoReader : ImageInfoReader
+internal sealed class PngInfoReader : ImageInfoReader
 {
     private const int CrcLength = 4;
     private const int SkippedHeaderLength = 5;

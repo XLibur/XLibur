@@ -1,4 +1,4 @@
-using ClosedXML.Utils;
+﻿using ClosedXML.Utils;
 using System;
 using System.Drawing;
 using System.IO;
@@ -10,7 +10,7 @@ namespace XLibur.Graphics;
 /// <summary>
 /// Reader of dimensions for WebP image format.
 /// </summary>
-internal class WebpInfoReader : ImageInfoReader
+internal sealed class WebpInfoReader : ImageInfoReader
 {
     private const int Vp8ChunkMagicBytes = 0x9d012a;
     private const int Vp8LChunkMagicByte = 0x2F;

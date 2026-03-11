@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLMargins : IXLMargins
+internal sealed class XLMargins : IXLMargins
 {
     public double Left { get; set; }
     public double Right { get; set; }

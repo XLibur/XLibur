@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLDrawingPosition : IXLDrawingPosition
+internal sealed class XLDrawingPosition : IXLDrawingPosition
 {
     public int Column { get; set; }
     public IXLDrawingPosition SetColumn(int column) { Column = column; return this; }

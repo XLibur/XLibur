@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using ClosedXML.Parser;
 
 namespace XLibur.Excel.CalcEngine;
 
-internal class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue>
+internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue>
 {
     private readonly FunctionRegistry _functions;
     private readonly ArrayPool<AnyValue> _argsPool;

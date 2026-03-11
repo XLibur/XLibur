@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace XLibur.Excel.Drawings;
 
-internal class XLPictures : IXLPictures, IEnumerable<XLPicture>
+internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
 {
     private readonly List<XLPicture> _pictures = new List<XLPicture>();
     private readonly XLWorksheet _worksheet;

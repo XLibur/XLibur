@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using XLibur.Excel.CalcEngine;
 
@@ -11,7 +11,7 @@ internal enum XLFilterOperator { Equal, NotEqual, GreaterThan, LessThan, EqualOr
 /// <summary>
 /// A single filter condition for auto filter.
 /// </summary>
-internal class XLFilter
+internal sealed class XLFilter
 {
     private XLFilter()
     {

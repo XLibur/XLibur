@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -7,7 +7,7 @@ namespace XLibur.Excel;
 
 using System.Collections;
 
-internal class XLRowsCollection : IDictionary<int, XLRow>
+internal sealed class XLRowsCollection : IDictionary<int, XLRow>
 {
     private readonly Dictionary<int, XLRow> _dictionary = new();
 

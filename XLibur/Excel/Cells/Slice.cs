@@ -16,7 +16,7 @@ namespace XLibur.Excel;
 /// just don't use <c>ref</c> and structs will be copied.
 /// </remarks>
 /// <typeparam name="TElement">The type of data stored in the slice.</typeparam>
-internal partial class Slice<TElement> : ISlice
+internal sealed partial class Slice<TElement> : ISlice
 {
     private static readonly Lut<TElement> Dummy = new();
     private readonly TElement _defaultValue = default!;
@@ -292,7 +292,7 @@ internal partial class Slice<TElement> : ISlice
     /// Enumerator that returns used values from a specified range.
     /// </summary>
     [DebuggerDisplay("{Point}:{Current}")]
-    internal class Enumerator : IEnumerator<XLSheetPoint>
+    internal sealed class Enumerator : IEnumerator<XLSheetPoint>
     {
         private readonly XLSheetRange _range;
         private Lut<TElement>.LutEnumerator _columnsEnumerator;

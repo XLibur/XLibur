@@ -1,11 +1,11 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
 using System.Collections;
 
-internal class XLRangeRows : XLStylizedBase, IXLRangeRows, IXLStylized
+internal sealed class XLRangeRows : XLStylizedBase, IXLRangeRows, IXLStylized
 {
     private readonly List<XLRangeRow> _ranges = new List<XLRangeRow>();
 

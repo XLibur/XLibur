@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Excel.CalcEngine;
 
-internal class XLAddressComparer : IEqualityComparer<IXLAddress>
+internal sealed class XLAddressComparer : IEqualityComparer<IXLAddress>
 {
     private readonly bool _ignoreFixed;
 

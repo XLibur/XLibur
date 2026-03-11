@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
 using XLibur.Excel.Drawings;
@@ -10,7 +10,7 @@ namespace XLibur.Graphics;
 /// Read info about a GIF file. GIF file has no DPI, only pixel ratio.
 /// Specification: https://www.w3.org/Graphics/GIF/spec-gif89a.txt
 /// </summary>
-internal class GifInfoReader : ImageInfoReader
+internal sealed class GifInfoReader : ImageInfoReader
 {
     protected override bool CheckHeader(Stream stream)
     {

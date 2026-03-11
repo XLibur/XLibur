@@ -1,4 +1,4 @@
-using XLibur.Excel.CalcEngine.Functions;
+﻿using ClosedXML.Excel.CalcEngine.Functions;
 using System;
 using System.Globalization;
 using System.Linq;
@@ -14,7 +14,7 @@ namespace XLibur.Excel.CalcEngine;
 /// <para>This class has three extensibility points:</para>
 /// <para>Use the <b>RegisterFunction</b> method to define custom functions.</para>
 /// </remarks>
-internal class XLCalcEngine : ISheetListener, IWorkbookListener
+internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 {
     private readonly CultureInfo _culture;
     private readonly ExpressionCache _cache;               // cache with parsed expressions

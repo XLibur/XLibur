@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using static ClosedXML.Excel.XLProtectionAlgorithm;
 
 using System;
@@ -6,7 +6,7 @@ using static XLibur.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Excel;
 
-internal class XLSheetProtection : IXLSheetProtection
+internal sealed class XLSheetProtection : IXLSheetProtection
 {
     public XLSheetProtection(Algorithm algorithm)
     {

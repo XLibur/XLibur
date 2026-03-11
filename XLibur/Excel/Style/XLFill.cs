@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLFill : IXLFill
+internal sealed class XLFill : IXLFill
 {
     #region static members
 

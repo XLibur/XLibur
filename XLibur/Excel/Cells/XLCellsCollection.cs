@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLCellsCollection : IWorkbookListener
+internal sealed class XLCellsCollection : IWorkbookListener
 {
     private readonly XLWorksheet _ws;
     private readonly List<ISlice> _slices;

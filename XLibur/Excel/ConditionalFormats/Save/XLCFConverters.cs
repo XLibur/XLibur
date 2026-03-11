@@ -1,10 +1,10 @@
-using DocumentFormat.OpenXml.Spreadsheet;
+﻿using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
-internal class XLCFConverters
+internal sealed class XLCFConverters
 {
     private static readonly Dictionary<XLConditionalFormatType, IXLCFConverter> Converters;
     static XLCFConverters()

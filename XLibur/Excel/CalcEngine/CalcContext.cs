@@ -1,4 +1,4 @@
-using XLibur.Excel.CalcEngine.Exceptions;
+﻿using ClosedXML.Excel.CalcEngine.Exceptions;
 using System.Globalization;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,7 +10,7 @@ using XLibur.Excel.CalcEngine.Functions;
 
 namespace XLibur.Excel.CalcEngine;
 
-internal class CalcContext
+internal sealed class CalcContext
 {
     private readonly bool _recursive;
 

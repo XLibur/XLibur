@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -13,7 +13,7 @@ namespace XLibur.Excel;
 /// <remarks>
 /// See <em>[OI-29500] 18.10.1.69 pivotField(PivotTable Field)</em> for details.
 /// </remarks>
-internal class XLPivotTableField
+internal sealed class XLPivotTableField
 {
     private readonly XLPivotTable _pivotTable;
     private readonly List<XLPivotFieldItem> _items = [];

@@ -1,8 +1,8 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
-internal class XLIdManager
+internal sealed class XLIdManager
 {
     private readonly HashSet<int> _hash = [];
 

@@ -1,4 +1,4 @@
-using ClosedXML.Excel.CalcEngine;
+﻿using ClosedXML.Excel.CalcEngine;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,7 +7,7 @@ using System.Linq;
 namespace XLibur.Excel;
 
 [DebuggerDisplay("{Name}")]
-internal class XLPivotTable : IXLPivotTable
+internal sealed class XLPivotTable : IXLPivotTable
 {
     private readonly XLWorksheet _worksheet;
 

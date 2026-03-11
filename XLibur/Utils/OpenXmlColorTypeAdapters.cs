@@ -1,4 +1,4 @@
-
+﻿
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
@@ -14,7 +14,7 @@ internal interface IColorTypeAdapter
     public DoubleValue? Tint { get; set; }
 }
 
-internal class ColorTypeAdapter : IColorTypeAdapter
+internal sealed class ColorTypeAdapter : IColorTypeAdapter
 {
     public ColorTypeAdapter(ColorType colorType)
     {
@@ -34,7 +34,7 @@ internal class ColorTypeAdapter : IColorTypeAdapter
     public DoubleValue? Tint { get => ColorType.Tint; set => ColorType.Tint = value; }
 }
 
-internal class X14ColorTypeAdapter : IColorTypeAdapter
+internal sealed class X14ColorTypeAdapter : IColorTypeAdapter
 {
     public X14ColorTypeAdapter(X14.ColorType colorType)
     {

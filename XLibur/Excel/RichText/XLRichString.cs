@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 
 namespace XLibur.Excel;
 
 [DebuggerDisplay("{Text}")]
-internal class XLRichString : IXLRichString
+internal sealed class XLRichString : IXLRichString
 {
     private readonly IXLWithRichString _withRichString;
     private readonly XLFont _font;

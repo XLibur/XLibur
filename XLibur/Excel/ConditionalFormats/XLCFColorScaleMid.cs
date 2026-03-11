@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLCFColorScaleMid : IXLCFColorScaleMid
+internal sealed class XLCFColorScaleMid : IXLCFColorScaleMid
 {
     private readonly XLConditionalFormat _conditionalFormat;
     public XLCFColorScaleMid(XLConditionalFormat conditionalFormat)

@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
 using System.Linq;
 
-internal class XLHeaderFooter : IXLHeaderFooter
+internal sealed class XLHeaderFooter : IXLHeaderFooter
 {
     public XLHeaderFooter(XLWorksheet worksheet)
     {

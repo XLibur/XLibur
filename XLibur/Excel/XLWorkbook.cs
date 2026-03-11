@@ -1,7 +1,5 @@
-#nullable disable
-
-using XLibur.Excel.CalcEngine;
-using XLibur.Graphics;
+using ClosedXML.Excel.CalcEngine;
+using ClosedXML.Graphics;
 using DocumentFormat.OpenXml;
 using System;
 using System.Collections.Generic;
@@ -65,7 +63,7 @@ public partial class XLWorkbook : IXLWorkbook
     {
         get
         {
-            var defaultPageOptions = new XLPageSetup(null, null)
+            var defaultPageOptions = new XLPageSetup(null!, null!)
             {
                 PageOrientation = XLPageOrientation.Default,
                 Scale = 100,
@@ -153,7 +151,7 @@ public partial class XLWorkbook : IXLWorkbook
     /// <summary>
     ///   Gets an object to manipulate this workbook's theme.
     /// </summary>
-    public IXLTheme Theme { get; private set; }
+    public IXLTheme Theme { get; private set; } = null!;
 
     /// <summary>
     /// All pivot caches in the workbook, whether they have a pivot table or not.
@@ -292,7 +290,6 @@ public partial class XLWorkbook : IXLWorkbook
         };
     }
 
-#nullable enable
     [Obsolete($"Use {nameof(DefinedName)} instead.")]
     public IXLDefinedName? NamedRange(string name) => DefinedName(name);
 
@@ -305,7 +302,7 @@ public partial class XLWorkbook : IXLWorkbook
             var first = split[0];
             var wsName = first.StartsWith("'") ? first.Substring(1, first.Length - 2) : first;
             var sheetlessName = split[1];
-            if (TryGetWorksheet(wsName, out XLWorksheet ws))
+            if (TryGetWorksheet(wsName, out XLWorksheet? ws))
             {
                 if (ws.DefinedNames.TryGetScopedValue(sheetlessName, out var sheetDefinedName))
                     return sheetDefinedName;
@@ -316,11 +313,10 @@ public partial class XLWorkbook : IXLWorkbook
 
         return DefinedNamesInternal.TryGetScopedValue(name, out var definedName) ? definedName : null;
     }
-#nullable disable
 
-    public bool TryGetWorksheet(string name, out IXLWorksheet worksheet)
+    public bool TryGetWorksheet(string name, [NotNullWhen(true)] out IXLWorksheet? worksheet)
     {
-        if (TryGetWorksheet(name, out XLWorksheet foundSheet))
+        if (TryGetWorksheet(name, out XLWorksheet? foundSheet))
         {
             worksheet = foundSheet;
             return true;
@@ -330,12 +326,12 @@ public partial class XLWorkbook : IXLWorkbook
         return false;
     }
 
-    internal bool TryGetWorksheet(string name, [NotNullWhen(true)] out XLWorksheet worksheet)
+    internal bool TryGetWorksheet(string name, [NotNullWhen(true)] out XLWorksheet? worksheet)
     {
         return WorksheetsInternal.TryGetWorksheet(name, out worksheet);
     }
 
-    public IXLRange RangeFromFullAddress(string rangeAddress, out IXLWorksheet ws)
+    public IXLRange? RangeFromFullAddress(string rangeAddress, out IXLWorksheet? ws)
     {
         if (!rangeAddress.Contains('!'))
         {
@@ -345,7 +341,7 @@ public partial class XLWorkbook : IXLWorkbook
 
         var split = rangeAddress.Split('!');
         var wsName = split[0].UnescapeSheetName();
-        if (TryGetWorksheet(wsName, out XLWorksheet sheet))
+        if (TryGetWorksheet(wsName, out XLWorksheet? sheet))
         {
             ws = sheet;
             return sheet.Range(split[1]);
@@ -355,7 +351,7 @@ public partial class XLWorkbook : IXLWorkbook
         return null;
     }
 
-    public IXLCell CellFromFullAddress(string cellAddress, out IXLWorksheet ws)
+    public IXLCell? CellFromFullAddress(string cellAddress, out IXLWorksheet? ws)
     {
         if (!cellAddress.Contains('!'))
         {
@@ -365,7 +361,7 @@ public partial class XLWorkbook : IXLWorkbook
 
         var split = cellAddress.Split('!');
         var wsName = split[0].UnescapeSheetName();
-        if (TryGetWorksheet(wsName, out XLWorksheet sheet))
+        if (TryGetWorksheet(wsName, out XLWorksheet? sheet))
         {
             ws = sheet;
             return sheet.Cell(split[1]);
@@ -404,10 +400,10 @@ public partial class XLWorkbook : IXLWorkbook
 
         if (_loadSource == XLLoadSource.Stream)
         {
-            CreatePackage(_originalStream, false, _spreadsheetDocumentType, options);
+            CreatePackage(_originalStream!, false, _spreadsheetDocumentType, options);
         }
         else
-            CreatePackage(_originalFile, _spreadsheetDocumentType, options);
+            CreatePackage(_originalFile!, _spreadsheetDocumentType, options);
     }
 
     /// <summary>
@@ -447,9 +443,9 @@ public partial class XLWorkbook : IXLWorkbook
         }
         else if (_loadSource == XLLoadSource.File)
         {
-            if (String.Compare(_originalFile.Trim(), file.Trim(), StringComparison.OrdinalIgnoreCase) != 0)
+            if (String.Compare(_originalFile!.Trim(), file.Trim(), StringComparison.OrdinalIgnoreCase) != 0)
             {
-                File.Copy(_originalFile, file, true);
+                File.Copy(_originalFile!, file, true);
                 File.SetAttributes(file, FileAttributes.Normal);
             }
 
@@ -457,10 +453,10 @@ public partial class XLWorkbook : IXLWorkbook
         }
         else if (_loadSource == XLLoadSource.Stream)
         {
-            _originalStream.Position = 0;
+            _originalStream!.Position = 0;
 
             using var fileStream = File.Create(file);
-            CopyStream(_originalStream, fileStream);
+            CopyStream(_originalStream!, fileStream);
             CreatePackage(fileStream, false, _spreadsheetDocumentType, options);
         }
 
@@ -551,7 +547,7 @@ public partial class XLWorkbook : IXLWorkbook
         }
         else if (_loadSource == XLLoadSource.File)
         {
-            using (var fileStream = new FileStream(_originalFile, FileMode.Open, FileAccess.Read))
+            using (var fileStream = new FileStream(_originalFile!, FileMode.Open, FileAccess.Read))
             {
                 CopyStream(fileStream, stream);
             }
@@ -560,9 +556,9 @@ public partial class XLWorkbook : IXLWorkbook
         }
         else if (_loadSource == XLLoadSource.Stream)
         {
-            _originalStream.Position = 0;
+            _originalStream!.Position = 0;
             if (_originalStream != stream)
-                CopyStream(_originalStream, stream);
+                CopyStream(_originalStream!, stream);
 
             CreatePackage(stream, false, _spreadsheetDocumentType, options);
         }
@@ -596,7 +592,7 @@ public partial class XLWorkbook : IXLWorkbook
     /// <summary>
     /// Try to find a table with <paramref name="tableName"/> in a workbook.
     /// </summary>
-    internal bool TryGetTable(string tableName, out XLTable table,
+    internal bool TryGetTable(string tableName, [NotNullWhen(true)] out XLTable? table,
         StringComparison comparisonType = StringComparison.OrdinalIgnoreCase)
     {
         table = WorksheetsInternal
@@ -609,7 +605,7 @@ public partial class XLWorkbook : IXLWorkbook
     /// <summary>
     /// Try to find a table that covers same area as the <paramref name="area"/> in a workbook.
     /// </summary>
-    internal bool TryGetTable(XLBookArea area, out XLTable foundTable)
+    internal bool TryGetTable(XLBookArea area, [NotNullWhen(true)] out XLTable? foundTable)
     {
         foreach (var sheet in WorksheetsInternal)
         {
@@ -669,7 +665,7 @@ public partial class XLWorkbook : IXLWorkbook
         foreach (XLWorksheet ws in WorksheetsInternal)
         {
             foreach (IXLRow row in ws.Rows().Where(predicate))
-                rows.Add(row as XLRow);
+                rows.Add((XLRow)row);
         }
 
         return rows;
@@ -681,7 +677,7 @@ public partial class XLWorkbook : IXLWorkbook
         foreach (XLWorksheet ws in WorksheetsInternal)
         {
             foreach (IXLColumn column in ws.Columns().Where(predicate))
-                columns.Add(column as XLColumn);
+                columns.Add((XLColumn)column);
         }
 
         return columns;
@@ -706,8 +702,8 @@ public partial class XLWorkbook : IXLWorkbook
     #region Fields
 
     private XLLoadSource _loadSource = XLLoadSource.New;
-    private string _originalFile;
-    private Stream _originalStream;
+    private string? _originalFile;
+    private Stream? _originalStream;
 
     #endregion Fields
 
@@ -780,7 +776,7 @@ public partial class XLWorkbook : IXLWorkbook
         Protection = new XLWorkbookProtection(DefaultProtectionAlgorithm);
         DefaultRowHeight = 15;
         DefaultColumnWidth = 8.43;
-        Style = new XLStyle(null, DefaultStyle);
+        Style = new XLStyle(null!, DefaultStyle);
         RowHeight = DefaultRowHeight;
         ColumnWidth = DefaultColumnWidth;
         PageOptions = DefaultPageOptions;
@@ -818,7 +814,7 @@ public partial class XLWorkbook : IXLWorkbook
 
     #endregion Nested type: UnsupportedSheet
 
-    public IXLCell Cell(string namedCell)
+    public IXLCell? Cell(string namedCell)
     {
         var namedRange = DefinedName(namedCell);
         return namedRange != null
@@ -831,7 +827,7 @@ public partial class XLWorkbook : IXLWorkbook
         return Ranges(namedCells).Cells();
     }
 
-    public IXLRange Range(string range)
+    public IXLRange? Range(string range)
     {
         var namedRange = DefinedName(range);
         return namedRange != null ? namedRange.Ranges.FirstOrDefault() : RangeFromFullAddress(range, out _);
@@ -843,7 +839,7 @@ public partial class XLWorkbook : IXLWorkbook
         var rangePairs = ranges.Split(',');
         foreach (var range in rangePairs.Select(r => Range(r.Trim())).Where(range => range != null))
         {
-            retVal.Add(range);
+            retVal.Add(range!);
         }
 
         return retVal;
@@ -853,7 +849,7 @@ public partial class XLWorkbook : IXLWorkbook
 
     public void Dispose()
     {
-        Worksheets.ForEach(w => (w as XLWorksheet).Cleanup());
+        Worksheets.ForEach(w => ((XLWorksheet)w).Cleanup());
     }
 
 
@@ -915,7 +911,7 @@ public partial class XLWorkbook : IXLWorkbook
         return Worksheets.Add(dataTable, sheetName, tableName);
     }
 
-    private XLCalcEngine _calcEngine;
+    private XLCalcEngine? _calcEngine;
 
     internal XLCalcEngine CalcEngine
     {
@@ -938,7 +934,7 @@ public partial class XLWorkbook : IXLWorkbook
         CalcEngine.Recalculate(this, null);
     }
 
-    private static XLCalcEngine _calcEngineExpr;
+    private static XLCalcEngine? _calcEngineExpr;
     private readonly SpreadsheetDocumentType _spreadsheetDocumentType;
 
     private static XLCalcEngine CalcEngineExpr
@@ -1009,7 +1005,7 @@ public partial class XLWorkbook : IXLWorkbook
     IXLWorkbookProtection IXLProtectable<IXLWorkbookProtection, XLWorkbookProtectionElements>.Protection
     {
         get => Protection;
-        set => Protection = value as XLWorkbookProtection;
+        set => Protection = (XLWorkbookProtection)value;
     }
 
     internal XLWorkbookProtection Protection
@@ -1088,7 +1084,7 @@ public partial class XLWorkbook : IXLWorkbook
     /// </summary>
     internal void NotifyWorksheetAdded(XLWorksheet newSheet)
     {
-        _calcEngine.OnAddedSheet(newSheet);
+        _calcEngine?.OnAddedSheet(newSheet);
     }
 
     /// <summary>
@@ -1096,7 +1092,7 @@ public partial class XLWorkbook : IXLWorkbook
     /// </summary>
     internal void NotifyWorksheetDeleting(XLWorksheet sheet)
     {
-        _calcEngine.OnDeletingSheet(sheet);
+        _calcEngine?.OnDeletingSheet(sheet);
     }
 
     public override string ToString()

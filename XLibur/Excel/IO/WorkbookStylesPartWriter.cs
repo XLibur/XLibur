@@ -9,7 +9,7 @@ using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
 
-internal class WorkbookStylesPartWriter
+internal sealed class WorkbookStylesPartWriter
 {
     internal static void GenerateContent(WorkbookStylesPart workbookStylesPart, XLWorkbook workbook, SaveContext context)
     {

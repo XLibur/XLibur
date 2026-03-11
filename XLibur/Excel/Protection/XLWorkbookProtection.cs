@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using static ClosedXML.Excel.XLProtectionAlgorithm;
 
 using System;
@@ -6,7 +6,7 @@ using static XLibur.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Excel;
 
-internal class XLWorkbookProtection : IXLWorkbookProtection
+internal sealed class XLWorkbookProtection : IXLWorkbookProtection
 {
     public XLWorkbookProtection(Algorithm algorithm)
         : this(algorithm, XLWorkbookProtectionElements.Windows)

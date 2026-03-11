@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Text;
 
 namespace XLibur.Excel;
 
-internal class XLStyle : IXLStyle
+internal sealed class XLStyle : IXLStyle
 {
     #region Static members
 

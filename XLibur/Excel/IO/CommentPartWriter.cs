@@ -1,4 +1,4 @@
-using DocumentFormat.OpenXml.Packaging;
+﻿using DocumentFormat.OpenXml.Packaging;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml;
@@ -7,7 +7,7 @@ using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
-internal class CommentPartWriter
+internal sealed class CommentPartWriter
 {
     internal static void GenerateWorksheetCommentsPartContent(WorksheetCommentsPart worksheetCommentsPart,
         XLWorksheet xlWorksheet)

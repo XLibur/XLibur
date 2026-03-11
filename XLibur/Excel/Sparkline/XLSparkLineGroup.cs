@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLSparklineGroup : IXLSparklineGroup
+internal sealed class XLSparklineGroup : IXLSparklineGroup
 {
     private readonly XLWorksheet _worksheet;
     private IXLRange? _dateRange;

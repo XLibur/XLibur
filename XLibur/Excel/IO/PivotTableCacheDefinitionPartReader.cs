@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Extensions;
@@ -9,7 +9,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Excel.IO;
 
-internal class PivotTableCacheDefinitionPartReader
+internal sealed class PivotTableCacheDefinitionPartReader
 {
     internal static void Load(WorkbookPart workbookPart, XLWorkbook workbook)
     {

@@ -1,9 +1,9 @@
-using XLibur.Extensions;
+﻿using ClosedXML.Extensions;
 using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Excel;
 
-internal class XLCFDataBarConverter : IXLCFConverter
+internal sealed class XLCFDataBarConverter : IXLCFConverter
 {
     public ConditionalFormattingRule Convert(IXLConditionalFormat cf, int priority, XLWorkbook.SaveContext context)
     {

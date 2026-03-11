@@ -1,7 +1,7 @@
-
+﻿
 namespace ClosedXML.Excel;
 
-internal class XLPivotTableStyleFormats : IXLPivotTableStyleFormats
+internal sealed class XLPivotTableStyleFormats : IXLPivotTableStyleFormats
 {
     private readonly XLPivotTable _pivotTable;
 

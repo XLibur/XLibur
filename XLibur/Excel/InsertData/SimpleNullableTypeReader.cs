@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel.InsertData;
 
-internal class SimpleNullableTypeReader : IInsertDataReader
+internal sealed class SimpleNullableTypeReader : IInsertDataReader
 {
     private readonly IEnumerable<object> _data;
     private readonly Type _itemType;

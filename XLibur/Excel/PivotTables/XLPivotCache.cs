@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -6,7 +6,7 @@ using XLibur.Excel.Exceptions;
 
 namespace XLibur.Excel;
 
-internal class XLPivotCache : IXLPivotCache
+internal sealed class XLPivotCache : IXLPivotCache
 {
     private readonly XLWorkbook _workbook;
     private readonly Dictionary<string, int> _fieldIndexes = new(XLHelper.NameComparer);

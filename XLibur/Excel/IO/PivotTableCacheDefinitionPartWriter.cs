@@ -10,7 +10,7 @@ using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
 
-internal class PivotTableCacheDefinitionPartWriter
+internal sealed class PivotTableCacheDefinitionPartWriter
 {
     internal static void GenerateContent(
         PivotTableCacheDefinitionPart pivotTableCacheDefinitionPart,

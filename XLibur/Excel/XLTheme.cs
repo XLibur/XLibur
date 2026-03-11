@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLTheme : IXLTheme
+internal sealed class XLTheme : IXLTheme
 {
     public required XLColor Background1 { get; set; }
 

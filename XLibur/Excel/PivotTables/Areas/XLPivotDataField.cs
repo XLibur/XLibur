@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 
 namespace XLibur.Excel;
@@ -7,7 +7,7 @@ namespace XLibur.Excel;
 /// A field that describes calculation of value to display in the <see cref="XLPivotAreaType.Data"/>
 /// area of pivot table.
 /// </summary>
-internal class XLPivotDataField : IXLPivotValue
+internal sealed class XLPivotDataField : IXLPivotValue
 {
     private const int BaseFieldDefaultValue = -1;
     private const int BaseItemPreviousValue = 1048828;

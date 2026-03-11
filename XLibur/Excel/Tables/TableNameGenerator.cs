@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class TableNameGenerator
+internal sealed class TableNameGenerator
 {
     /// <summary>
     /// Generate a non conflicting table name for the workbook

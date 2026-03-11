@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
@@ -6,7 +6,7 @@ namespace XLibur.Excel;
 /// Represents a set of selected fields and selected items within those fields. It's used to select
 /// an area for <see cref="XLPivotArea"/>.
 /// </summary>
-internal class XLPivotReference
+internal sealed class XLPivotReference
 {
     private readonly List<uint> _fieldItems = new();
 

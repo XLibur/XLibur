@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -9,7 +9,7 @@ namespace XLibur.Excel;
 /// a collection of <see cref="XLConditionalFormat"/>. Doesn't contain pivot table formats,
 /// they are in pivot table <see cref="XLPivotTable.ConditionalFormats"/>,
 /// </summary>
-internal class XLConditionalFormats : IXLConditionalFormats
+internal sealed class XLConditionalFormats : IXLConditionalFormats
 {
     private readonly List<IXLConditionalFormat> _conditionalFormats = [];
 

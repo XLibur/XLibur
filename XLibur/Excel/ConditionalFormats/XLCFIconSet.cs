@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLCFIconSet : IXLCFIconSet
+internal sealed class XLCFIconSet : IXLCFIconSet
 {
     private readonly XLConditionalFormat _conditionalFormat;
     public XLCFIconSet(XLConditionalFormat conditionalFormat)

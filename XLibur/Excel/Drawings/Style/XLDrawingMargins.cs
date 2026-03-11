@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLDrawingMargins : IXLDrawingMargins
+internal sealed class XLDrawingMargins : IXLDrawingMargins
 {
     private readonly IXLDrawingStyle _style;
     public XLDrawingMargins(IXLDrawingStyle style)

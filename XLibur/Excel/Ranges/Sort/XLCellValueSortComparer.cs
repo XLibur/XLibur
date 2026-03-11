@@ -12,7 +12,7 @@ namespace XLibur.Excel;
 ///   <item>Stable sort.</item>
 /// </list>
 /// </summary>
-internal class XLCellValueSortComparer : IComparer<XLCellValue>
+internal sealed class XLCellValueSortComparer : IComparer<XLCellValue>
 {
     private readonly bool _isAscending;
     private readonly bool _interpretBlankAsString;

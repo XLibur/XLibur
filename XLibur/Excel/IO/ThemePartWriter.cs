@@ -3,7 +3,7 @@ using DocumentFormat.OpenXml.Packaging;
 
 namespace XLibur.Excel.IO;
 
-internal class ThemePartWriter
+internal sealed class ThemePartWriter
 {
     internal static void GenerateContent(ThemePart themePart, XLTheme theme)
     {

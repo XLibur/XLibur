@@ -7,7 +7,7 @@ using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
-internal class PivotTableCacheRecordsPartWriter
+internal sealed class PivotTableCacheRecordsPartWriter
 {
     internal static void WriteContent(PivotTableCacheRecordsPart recordsPart, XLPivotCache pivotCache)
     {

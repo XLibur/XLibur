@@ -1,4 +1,4 @@
-
+﻿
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace XLibur.Excel.InsertData;
 
-internal class ArrayReader : IInsertDataReader
+internal sealed class ArrayReader : IInsertDataReader
 {
     private readonly IEnumerable<IEnumerable> _data;
 

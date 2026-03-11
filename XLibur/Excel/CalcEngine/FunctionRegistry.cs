@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Excel.CalcEngine;
@@ -19,7 +19,7 @@ internal enum AllowRange
     Only,
 }
 
-internal class FunctionRegistry
+internal sealed class FunctionRegistry
 {
     private readonly Dictionary<string, FunctionDefinition> _func = new(StringComparer.InvariantCultureIgnoreCase);
 

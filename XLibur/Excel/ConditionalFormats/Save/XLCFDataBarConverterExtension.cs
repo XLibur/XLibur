@@ -1,4 +1,4 @@
-using XLibur.Extensions;
+﻿using ClosedXML.Extensions;
 using DocumentFormat.OpenXml.Office.Excel;
 using DocumentFormat.OpenXml.Office2010.Excel;
 using System.Collections.Generic;
@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLCFDataBarConverterExtension : IXLCFConverterExtension
+internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
 {
     private static readonly IReadOnlyDictionary<DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues, ConditionalFormattingValueObjectTypeValues> CFValueToTypeMap =
         new Dictionary<DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues, ConditionalFormattingValueObjectTypeValues>

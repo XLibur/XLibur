@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Graphics;
 
 namespace XLibur.Excel;
 
-internal class XLColumn : XLRangeBase, IXLColumn
+internal sealed class XLColumn : XLRangeBase, IXLColumn
 {
     #region Private fields
 

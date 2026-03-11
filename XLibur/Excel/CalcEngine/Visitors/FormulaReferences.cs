@@ -9,7 +9,7 @@ namespace XLibur.Excel.CalcEngine.Visitors;
 /// A collection of all references in the book (not others) found in a formula.
 /// Created by <see cref="CollectRefsFactory"/>.
 /// </summary>
-internal class FormulaReferences
+internal sealed class FormulaReferences
 {
     private readonly string _formula;
 
@@ -52,7 +52,7 @@ internal class FormulaReferences
         var list = new XLRanges();
         foreach (var reference in SheetReferences)
         {
-            if (workbook.TryGetWorksheet(reference.Sheet, out XLWorksheet sheet))
+            if (workbook.TryGetWorksheet(reference.Sheet, out XLWorksheet? sheet))
             {
                 var rangeAddress = reference.Reference.ToRangeAddress(sheet, anchor);
                 list.Add(sheet.Range(rangeAddress));
@@ -62,7 +62,7 @@ internal class FormulaReferences
         foreach (var (tableName, column, _) in StructuredReferences)
         {
             if (workbook.TryGetTable(tableName, out var table))
-                list.Add(table.DataRange!.Column(column));
+                list.Add(table!.DataRange!.Column(column));
         }
 
         return list;

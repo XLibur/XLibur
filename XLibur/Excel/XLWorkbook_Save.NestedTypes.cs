@@ -1,5 +1,3 @@
-#nullable disable
-
 using DocumentFormat.OpenXml.Packaging;
 using System;
 using System.Collections.Generic;
@@ -24,6 +22,7 @@ public partial class XLWorkbook
             TableId = 0;
             TableNames = [];
             PivotSourceCacheId = 0;
+            PivotSources = new Dictionary<Guid, PivotSourceInfo>();
         }
 
         public Dictionary<XLStyleValue, int> DifferentialFormats { get; private set; }
@@ -51,9 +50,8 @@ public partial class XLWorkbook
         /// value is an mapped stringId to write to a file. The mapped stringId has no gaps
         /// between ids.
         /// </summary>
-        public List<int> SstMap { get; set; }
+        public List<int> SstMap { get; set; } = null!;
 
-#nullable enable
         internal int GetSharedStringId(XLCell xlCell, string text)
         {
             var sharedStringId = SstMap[xlCell.MemorySstId];
@@ -76,7 +74,6 @@ public partial class XLWorkbook
                 ? customFormat.NumberFormatId
                 : numberFormat.NumberFormatId;
         }
-#nullable disable
     }
 
     #endregion Nested type: SaveContext
@@ -113,13 +110,13 @@ public partial class XLWorkbook
         public void AddExistingValues(WorkbookPart workbookPart, XLWorkbook xlWorkbook)
         {
             AddValues(workbookPart.Parts.Select(p => p.RelationshipId), RelType.Workbook);
-            AddValues(xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>().Where(ws => !string.IsNullOrWhiteSpace(ws.RelId)).Select(ws => ws.RelId), RelType.Workbook);
-            AddValues(xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>().Where(ws => !string.IsNullOrWhiteSpace(ws.LegacyDrawingId)).Select(ws => ws.LegacyDrawingId), RelType.Workbook);
+            AddValues(xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>().Where(ws => !string.IsNullOrWhiteSpace(ws.RelId)).Select(ws => ws.RelId!), RelType.Workbook);
+            AddValues(xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>().Where(ws => !string.IsNullOrWhiteSpace(ws.LegacyDrawingId)).Select(ws => ws.LegacyDrawingId!), RelType.Workbook);
             AddValues(xlWorkbook.WorksheetsInternal
                 .Cast<XLWorksheet>()
                 .SelectMany(ws => ws.Tables.Cast<XLTable>())
                 .Where(t => !string.IsNullOrWhiteSpace(t.RelId))
-                .Select(t => t.RelId), RelType.Workbook);
+                .Select(t => t.RelId!), RelType.Workbook);
 
             foreach (var xlWorksheet in xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>())
             {

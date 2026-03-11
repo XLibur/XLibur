@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -8,7 +8,7 @@ using ClosedXML.Parser;
 namespace XLibur.Excel;
 
 [DebuggerDisplay("{_name}:{_formula}")]
-internal class XLDefinedName : IXLDefinedName, IWorkbookListener
+internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
 {
     private readonly XLDefinedNames _container;
     private string _name;

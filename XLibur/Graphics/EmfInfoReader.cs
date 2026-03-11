@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.IO;
 using XLibur.Excel.Drawings;
 using XLibur.Utils;
@@ -8,7 +8,7 @@ namespace XLibur.Graphics;
 /// <summary>
 /// Metadata read of a vector EMF file. Specification: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/
 /// </summary>
-internal class EmfInfoReader : ImageInfoReader
+internal sealed class EmfInfoReader : ImageInfoReader
 {
     private const uint EmfSignature = 0x464D4520; // ' EMF'
 

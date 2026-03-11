@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLColumnsCollection : IDictionary<int, XLColumn>
+internal sealed class XLColumnsCollection : IDictionary<int, XLColumn>
 {
     private readonly Dictionary<int, XLColumn> _dictionary = new();
 

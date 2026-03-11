@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLCFColorScaleMax : IXLCFColorScaleMax
+internal sealed class XLCFColorScaleMax : IXLCFColorScaleMax
 {
     private readonly XLConditionalFormat _conditionalFormat;
     public XLCFColorScaleMax(XLConditionalFormat conditionalFormat)

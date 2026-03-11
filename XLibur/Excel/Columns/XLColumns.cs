@@ -1,11 +1,11 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
 using System.Collections;
 
-internal class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
+internal sealed class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
 {
     private readonly List<XLColumn> _columnsCollection = new List<XLColumn>();
     private readonly XLWorksheet? _worksheet;

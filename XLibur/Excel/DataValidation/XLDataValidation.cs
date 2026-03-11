@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class RangeEventArgs : EventArgs
+internal sealed class RangeEventArgs : EventArgs
 {
     public RangeEventArgs(IXLRange range)
     {
@@ -14,7 +14,7 @@ internal class RangeEventArgs : EventArgs
     public IXLRange Range { get; }
 }
 
-internal class XLDataValidation : IXLDataValidation
+internal sealed class XLDataValidation : IXLDataValidation
 {
     private readonly XLRanges _ranges;
     private readonly XLWorksheet _worksheet;

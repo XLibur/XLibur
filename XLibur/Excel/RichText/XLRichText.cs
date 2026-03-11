@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLRichText : XLFormattedText<IXLRichText>, IXLRichText
+internal sealed class XLRichText : XLFormattedText<IXLRichText>, IXLRichText
 {
     // Should be set as the last thing in ctor to prevent firing changes to immutable rich text during ctor
     private readonly XLCell? _cell;

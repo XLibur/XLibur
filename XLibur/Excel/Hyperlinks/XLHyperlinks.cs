@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLHyperlinks : IXLHyperlinks, ISheetListener
+internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
 {
     private readonly XLWorksheet _worksheet;
     private readonly Dictionary<XLSheetRange, XLHyperlink> _hyperlinks = new();

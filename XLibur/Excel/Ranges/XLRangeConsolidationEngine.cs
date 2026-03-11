@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +8,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// Engine for ranges consolidation. Supports IXLRanges including ranges from either one or multiple worksheets.
 /// </summary>
-internal class XLRangeConsolidationEngine
+internal sealed class XLRangeConsolidationEngine
 {
     #region Public Constructors
 

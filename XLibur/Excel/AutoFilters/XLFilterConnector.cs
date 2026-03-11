@@ -1,6 +1,6 @@
-namespace XLibur.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLFilterConnector : IXLFilterConnector
+internal sealed class XLFilterConnector : IXLFilterConnector
 {
     private readonly XLFilterColumn _filterColumn;
 

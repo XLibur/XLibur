@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLRangeParameters
+internal sealed class XLRangeParameters
 {
     #region Constructor
 

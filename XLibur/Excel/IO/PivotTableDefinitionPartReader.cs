@@ -8,7 +8,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Excel.IO;
 
-internal class PivotTableDefinitionPartReader
+internal sealed class PivotTableDefinitionPartReader
 {
     /// <summary>
     /// A field displayed as <c>∑Values</c> in a pivot table that contains names of all aggregation

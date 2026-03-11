@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using XLibur.Excel.Cells;
@@ -17,7 +17,7 @@ namespace XLibur.Excel;
 /// Shared items can't contain <see cref="XLPivotCacheValueType.Index"/>.
 /// </para>
 /// </summary>
-internal class XLPivotCacheSharedItems
+internal sealed class XLPivotCacheSharedItems
 {
     private readonly List<XLPivotCacheValue> _values = new();
 

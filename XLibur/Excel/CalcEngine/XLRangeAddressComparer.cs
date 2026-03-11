@@ -1,8 +1,8 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace XLibur.Excel.CalcEngine;
 
-internal class XLRangeAddressComparer : IEqualityComparer<IXLRangeAddress>
+internal sealed class XLRangeAddressComparer : IEqualityComparer<IXLRangeAddress>
 {
     private readonly XLAddressComparer _addressComparer;
 

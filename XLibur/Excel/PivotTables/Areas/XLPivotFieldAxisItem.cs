@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
@@ -9,7 +9,7 @@ namespace XLibur.Excel;
 /// <remarks>
 /// Represents 18.10.1.44 i (Row Items) and 18.10.1.96 x (Member Property Index).
 /// </remarks>
-internal class XLPivotFieldAxisItem
+internal sealed class XLPivotFieldAxisItem
 {
     public XLPivotFieldAxisItem(XLPivotItemType itemType, int dataItem, IEnumerable<int> fieldItems)
     {

@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLProtection : IXLProtection
+internal sealed class XLProtection : IXLProtection
 {
     #region Static members
 

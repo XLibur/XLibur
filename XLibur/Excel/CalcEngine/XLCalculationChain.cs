@@ -26,7 +26,7 @@ namespace XLibur.Excel.CalcEngine;
 /// can go on at the same time due to shared info about cycle detection.
 /// </para>
 /// </summary>
-internal class XLCalculationChain
+internal sealed class XLCalculationChain
 {
     /// <summary>
     /// Key to the <see cref="_nodeMap"/> that is the head of the chain.

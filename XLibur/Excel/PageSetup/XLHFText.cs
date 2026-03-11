@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Text;
 
 namespace XLibur.Excel;
 
-internal class XLHFText
+internal sealed class XLHFText
 {
     private readonly XLHFItem _hfItem;
 

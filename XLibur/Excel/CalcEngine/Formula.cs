@@ -1,9 +1,9 @@
-namespace XLibur.Excel.CalcEngine;
+﻿namespace ClosedXML.Excel.CalcEngine;
 
 /// <summary>
 /// A non-state representation of a formula that can be used by many cells.
 /// </summary>
-internal class Formula
+internal sealed class Formula
 {
     public Formula(string text, ValueNode root)
     {

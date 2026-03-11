@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLDrawingProperties : IXLDrawingProperties
+internal sealed class XLDrawingProperties : IXLDrawingProperties
 {
     private readonly IXLDrawingStyle _style;
 

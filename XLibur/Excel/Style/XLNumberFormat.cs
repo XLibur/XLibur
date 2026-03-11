@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLNumberFormat : IXLNumberFormat
+internal sealed class XLNumberFormat : IXLNumberFormat
 {
     #region Static members
 

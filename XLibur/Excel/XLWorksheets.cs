@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
+internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 {
     private readonly XLWorkbook _workbook;
     private readonly Dictionary<string, XLWorksheet> _worksheets = new Dictionary<string, XLWorksheet>(StringComparer.OrdinalIgnoreCase);

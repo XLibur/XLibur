@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLDrawingAlignment : IXLDrawingAlignment
+internal sealed class XLDrawingAlignment : IXLDrawingAlignment
 {
     private readonly IXLDrawingStyle _style;
 

@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Xml;
 using XLibur.Utils;
 using XLibur.Extensions;
@@ -8,7 +8,7 @@ using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
-internal class SharedStringTableWriter
+internal sealed class SharedStringTableWriter
 {
     internal static void GenerateSharedStringTablePartContent(XLWorkbook workbook, SharedStringTablePart sharedStringTablePart,
         SaveContext context)

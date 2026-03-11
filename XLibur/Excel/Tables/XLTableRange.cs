@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
 using System.Linq;
 
-internal class XLTableRange : XLRange, IXLTableRange
+internal sealed class XLTableRange : XLRange, IXLTableRange
 {
     private readonly XLTable _table;
     private readonly XLRange _range;

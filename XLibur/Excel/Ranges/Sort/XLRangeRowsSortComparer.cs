@@ -15,7 +15,7 @@ namespace XLibur.Excel;
 /// reference to underlaying data and compares row numbers that can be stores in a single
 /// allocated array of indexes.
 /// </remarks>
-internal class XLRangeRowsSortComparer : IComparer<int>
+internal sealed class XLRangeRowsSortComparer : IComparer<int>
 {
     private readonly List<(int ColumnNumber, XLCellValueSortComparer Comparer)> _columnComparers;
     private readonly ValueSlice _valueSlice;

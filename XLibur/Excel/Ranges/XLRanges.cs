@@ -1,4 +1,4 @@
-using XLibur.Excel.Ranges.Index;
+﻿using ClosedXML.Excel.Ranges.Index;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +7,7 @@ namespace XLibur.Excel;
 
 using System.Collections;
 
-internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
+internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 {
     /// <summary>
     /// Normally, XLRanges collection includes ranges from a single worksheet, but not necessarily.
@@ -161,7 +161,7 @@ internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 
     public IEnumerable<IXLDataValidation> DataValidation
     {
-        get { return Ranges.Select(range => range.GetDataValidation()).Where(dv => dv != null)!; }
+        get { return Ranges.Select(range => range.GetDataValidation()).Where(dv => dv != null).Select(dv => dv!); }
     }
 
     public IXLRanges AddToNamed(string rangeName)

@@ -1,4 +1,4 @@
-using XLibur.Excel.Patterns;
+﻿using ClosedXML.Excel.Patterns;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -180,7 +180,7 @@ internal abstract class XLRangeIndex : IXLRangeIndex
 /// <summary>
 /// Generic version of <see cref="XLRangeIndex"/>.
 /// </summary>
-internal class XLRangeIndex<T> : XLRangeIndex, IXLRangeIndex<T>
+internal sealed class XLRangeIndex<T> : XLRangeIndex, IXLRangeIndex<T>
     where T : IXLAddressable
 {
     public XLRangeIndex(IXLWorksheet worksheet) : base(worksheet)

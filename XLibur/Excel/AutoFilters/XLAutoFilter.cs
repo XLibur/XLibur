@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Linq;
 
 namespace XLibur.Excel;
 
 using System.Collections.Generic;
 
-internal class XLAutoFilter : IXLAutoFilter
+internal sealed class XLAutoFilter : IXLAutoFilter
 {
     /// <summary>
     /// Key is column number.

@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLRangeFactory
+internal sealed class XLRangeFactory
 {
     #region Properties
 

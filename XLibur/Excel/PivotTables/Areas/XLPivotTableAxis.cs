@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,7 +13,7 @@ namespace XLibur.Excel;
 /// <remarks>
 /// [ISO-29500] 18.10.1.17 colItems (Column Items), 18.10.1.84 rowItems (Row Items).
 /// </remarks>
-internal class XLPivotTableAxis : IXLPivotFields
+internal sealed class XLPivotTableAxis : IXLPivotFields
 {
     private readonly XLPivotTable _pivotTable;
 

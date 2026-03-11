@@ -1,4 +1,4 @@
-using ClosedXML.Excel.Drawings;
+﻿using ClosedXML.Excel.Drawings;
 using ClosedXML.Utils;
 using System;
 using System.IO;
@@ -9,7 +9,7 @@ namespace XLibur.Graphics;
 /// A reader for baseline TIFF.
 /// Specification: https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf
 /// </summary>
-internal class TiffInfoReader : ImageInfoReader
+internal sealed class TiffInfoReader : ImageInfoReader
 {
     private delegate bool TryReadU16(Stream s, out ushort value);
 

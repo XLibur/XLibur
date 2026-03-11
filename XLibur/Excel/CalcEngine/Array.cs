@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -105,7 +105,7 @@ internal abstract class Array : IEnumerable<ScalarValue>
 /// <summary>
 /// An array of scalar values.
 /// </summary>
-internal class ConstArray : Array
+internal sealed class ConstArray : Array
 {
     private readonly ScalarValue[,] _data;
 
@@ -126,7 +126,7 @@ internal class ConstArray : Array
 /// <summary>
 /// Array for array literal from a parser. It uses a 1D array of values as a storage.
 /// </summary>
-internal class LiteralArray : Array
+internal sealed class LiteralArray : Array
 {
     private readonly int _rows;
     private readonly int _columns;
@@ -167,7 +167,7 @@ internal class LiteralArray : Array
 /// <summary>
 /// A special case of an array that is actually only numbers.
 /// </summary>
-internal class NumberArray : Array
+internal sealed class NumberArray : Array
 {
     private readonly double[,] _data;
 
@@ -186,7 +186,7 @@ internal class NumberArray : Array
 /// <summary>
 /// An array that retrieves its value directly from the worksheet without allocating extra memory.
 /// </summary>
-internal class ReferenceArray : Array
+internal sealed class ReferenceArray : Array
 {
     private readonly XLRangeAddress _area;
     private readonly CalcContext _context;
@@ -208,7 +208,7 @@ internal class ReferenceArray : Array
     public override int Height => _area.RowSpan;
 }
 
-internal class RepeatedColumnArray : Array
+internal sealed class RepeatedColumnArray : Array
 {
     private readonly Array _columnArray;
 
@@ -239,7 +239,7 @@ internal class RepeatedColumnArray : Array
     }
 }
 
-internal class RepeatedRowArray : Array
+internal sealed class RepeatedRowArray : Array
 {
     private readonly Array _rowArray;
 
@@ -273,7 +273,7 @@ internal class RepeatedRowArray : Array
 /// <summary>
 /// A resize array from another array. Extra items without value have <c>#N/A</c>.
 /// </summary>
-internal class ResizedArray : Array
+internal sealed class ResizedArray : Array
 {
     private readonly Array _original;
 
@@ -305,7 +305,7 @@ internal class ResizedArray : Array
 /// <summary>
 /// An array where all elements have same value.
 /// </summary>
-internal class ScalarArray : Array
+internal sealed class ScalarArray : Array
 {
     private readonly ScalarValue _value;
     private readonly int _columns;
@@ -341,7 +341,7 @@ internal class ScalarArray : Array
     }
 }
 
-internal class TransposedArray : Array
+internal sealed class TransposedArray : Array
 {
     private readonly Array _original;
 
@@ -360,7 +360,7 @@ internal class TransposedArray : Array
 /// <summary>
 /// An array that is a rectangular slice of the original array.
 /// </summary>
-internal class SlicedArray : Array
+internal sealed class SlicedArray : Array
 {
     private readonly Array _original;
     private readonly int _rowOfs;

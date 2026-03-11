@@ -1,9 +1,9 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLPrintAreas : IXLPrintAreas
+internal sealed class XLPrintAreas : IXLPrintAreas
 {
     List<IXLRange> ranges = new List<IXLRange>();
     private XLWorksheet worksheet;

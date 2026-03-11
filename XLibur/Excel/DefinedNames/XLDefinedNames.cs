@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -8,7 +8,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// A collection of a named ranges, either for workbook or for worksheet.
 /// </summary>
-internal class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedName>
+internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedName>
 {
     private readonly Dictionary<string, XLDefinedName> _namedRanges = new(XLHelper.NameComparer);
 

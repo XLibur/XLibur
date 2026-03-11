@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLPhonetic : IXLPhonetic
+internal sealed class XLPhonetic : IXLPhonetic
 {
     public XLPhonetic(string text, int start, int end)
     {

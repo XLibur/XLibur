@@ -6,7 +6,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// A slice of a single worksheet for values of a cell.
 /// </summary>
-internal class ValueSlice : ISlice
+internal sealed class ValueSlice : ISlice
 {
     private readonly Slice<XLValueSliceContent> _values = new();
     private readonly SharedStringTable _sst;

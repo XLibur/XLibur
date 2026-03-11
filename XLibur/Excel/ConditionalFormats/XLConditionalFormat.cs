@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat, IXLStylized
+internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat, IXLStylized
 {
     private sealed class FullEqualityComparer : IEqualityComparer<IXLConditionalFormat>
     {
@@ -535,7 +535,7 @@ internal class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat, IXLSt
     }
 }
 
-internal class DictionaryComparer<TKey, TValue> :
+internal sealed class DictionaryComparer<TKey, TValue> :
     IEqualityComparer<Dictionary<TKey, TValue>>
     where TKey : notnull
 {
@@ -568,7 +568,7 @@ internal class DictionaryComparer<TKey, TValue> :
     }
 }
 
-internal class EnumerableComparer<T> : IEqualityComparer<IEnumerable<T>>
+internal sealed class EnumerableComparer<T> : IEqualityComparer<IEnumerable<T>>
 {
     private readonly IEqualityComparer<T> _valueComparer;
 

@@ -1,4 +1,4 @@
-
+﻿
 using ClosedXML.Attributes;
 using ClosedXML.Extensions;
 using System;
@@ -9,7 +9,7 @@ using System.Reflection;
 
 namespace XLibur.Excel.InsertData;
 
-internal class ObjectReader : IInsertDataReader
+internal sealed class ObjectReader : IInsertDataReader
 {
     private const BindingFlags MemberBindingFlags = BindingFlags.Public
                                                     | BindingFlags.Instance

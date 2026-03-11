@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLCustomProperty : IXLCustomProperty
+internal sealed class XLCustomProperty : IXLCustomProperty
 {
     private readonly XLWorkbook _workbook;
 

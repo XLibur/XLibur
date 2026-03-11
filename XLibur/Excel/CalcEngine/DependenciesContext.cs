@@ -6,7 +6,7 @@ namespace XLibur.Excel.CalcEngine;
 /// Context for <see cref="DependenciesVisitor"/>, it is used
 /// to collect all objects a formula depends on during calculation.
 /// </summary>
-internal class DependenciesContext
+internal sealed class DependenciesContext
 {
     internal DependenciesContext(XLBookArea formulaArea, XLWorkbook workbook)
     {

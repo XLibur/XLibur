@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
 using XLibur.Excel.Drawings;
@@ -13,7 +13,7 @@ namespace XLibur.Graphics;
 /// https://www.fileformat.info/format/bmp/egff.htm
 /// https://www.fileformat.info/format/os2bmp/egff.htm
 /// </summary>
-internal class BmpInfoReader : ImageInfoReader
+internal sealed class BmpInfoReader : ImageInfoReader
 {
     protected override bool CheckHeader(Stream stream)
     {

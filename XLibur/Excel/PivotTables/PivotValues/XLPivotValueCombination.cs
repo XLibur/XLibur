@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLPivotValueCombination : IXLPivotValueCombination
+internal sealed class XLPivotValueCombination : IXLPivotValueCombination
 {
     private readonly IXLPivotValue _pivotValue;
 

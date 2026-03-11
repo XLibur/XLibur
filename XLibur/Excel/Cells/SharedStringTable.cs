@@ -8,7 +8,7 @@ namespace XLibur.Excel;
 /// A class that holds all texts in a workbook. Each text can be either a simple
 /// <c>string</c> or a <see cref="XLImmutableRichText"/>.
 /// </summary>
-internal class SharedStringTable
+internal sealed class SharedStringTable
 {
     /// <summary>
     /// Table of <c>Id</c> to text. Some ids are empty (<c>entry.RefCount = 0</c>) and

@@ -1,4 +1,4 @@
-
+﻿
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ namespace XLibur.Excel;
 /// Page/filter fields of a <see cref="XLPivotTable"/>. It determines filter values and layout.
 /// It is accessible through fluent API <see cref="XLPivotTable.ReportFilters"/>.
 /// </summary>
-internal class XLPivotTableFilters : IXLPivotFields
+internal sealed class XLPivotTableFilters : IXLPivotFields
 {
     private readonly XLPivotTable _pivotTable;
 

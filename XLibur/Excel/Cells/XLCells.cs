@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -6,7 +6,7 @@ namespace XLibur.Excel;
 
 using System.Linq;
 
-internal class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerable<XLCell>
+internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerable<XLCell>
 {
     #region Fields
 

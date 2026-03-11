@@ -1,4 +1,4 @@
-
+﻿
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,7 +8,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// An API for grand totals from <see cref="XLPivotTableStyleFormats"/>.
 /// </summary>
-internal class XLPivotStyleFormats : IXLPivotStyleFormats
+internal sealed class XLPivotStyleFormats : IXLPivotStyleFormats
 {
     private readonly XLPivotTable _pivotTable;
     private readonly bool _isRowGrand;

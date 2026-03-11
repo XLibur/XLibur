@@ -1,8 +1,8 @@
-using ClosedXML.Excel.Caching;
+﻿using ClosedXML.Excel.Caching;
 
 namespace XLibur.Excel;
 
-internal class XLBorderValue
+internal sealed class XLBorderValue
 {
     private static readonly XLBorderRepository Repository = new XLBorderRepository(key => new XLBorderValue(key));
 

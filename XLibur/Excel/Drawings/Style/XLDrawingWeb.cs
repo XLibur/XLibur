@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLDrawingWeb : IXLDrawingWeb
+internal sealed class XLDrawingWeb : IXLDrawingWeb
 {
     private readonly IXLDrawingStyle _style;
 

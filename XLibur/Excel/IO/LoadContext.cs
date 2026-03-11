@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace XLibur.Excel.IO;
 
-internal class LoadContext
+internal sealed class LoadContext
 {
     /// <summary>
     /// Conditional formats for pivot tables, loaded from sheets. Key is sheet name, value is the

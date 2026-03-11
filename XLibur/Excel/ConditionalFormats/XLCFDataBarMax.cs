@@ -1,6 +1,6 @@
-namespace ClosedXML.Excel;
+﻿namespace ClosedXML.Excel;
 
-internal class XLCFDataBarMax : IXLCFDataBarMax
+internal sealed class XLCFDataBarMax : IXLCFDataBarMax
 {
     private readonly XLConditionalFormat _conditionalFormat;
     public XLCFDataBarMax(XLConditionalFormat conditionalFormat)

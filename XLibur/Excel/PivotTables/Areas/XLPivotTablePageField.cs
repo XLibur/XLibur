@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -8,7 +8,7 @@ namespace XLibur.Excel;
 /// Fluent API for filter fields of a <see cref="XLPivotTable"/>. This class shouldn't contain any
 /// state, only logic to change state per API.
 /// </summary>
-internal class XLPivotTablePageField : IXLPivotField
+internal sealed class XLPivotTablePageField : IXLPivotField
 {
     private readonly XLPivotTable _pivotTable;
     private readonly XLPivotPageField _filterField;

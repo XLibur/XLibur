@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLSparklineStyle : IXLSparklineStyle, IEquatable<XLSparklineStyle>
+internal sealed class XLSparklineStyle : IXLSparklineStyle, IEquatable<XLSparklineStyle>
 {
     #region Public Properties
 

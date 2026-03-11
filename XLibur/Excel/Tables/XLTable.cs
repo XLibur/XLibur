@@ -1,4 +1,4 @@
-
+﻿
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -12,7 +12,7 @@ using System.Text;
 namespace XLibur.Excel;
 
 [DebuggerDisplay("{Name}")]
-internal class XLTable : XLRange, IXLTable
+internal sealed class XLTable : XLRange, IXLTable
 {
     internal bool _showTotalsRow;
     internal HashSet<string> _uniqueNames = null!;

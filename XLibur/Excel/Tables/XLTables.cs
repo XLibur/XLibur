@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -7,7 +7,7 @@ namespace XLibur.Excel;
 
 using System.Collections;
 
-internal class XLTables : IXLTables, IEnumerable<XLTable>
+internal sealed class XLTables : IXLTables, IEnumerable<XLTable>
 {
     private readonly Dictionary<string, XLTable> _tables;
 

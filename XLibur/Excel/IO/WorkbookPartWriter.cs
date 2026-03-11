@@ -7,7 +7,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Excel.IO;
 
-internal class WorkbookPartWriter
+internal sealed class WorkbookPartWriter
 {
     internal static void GenerateContent(WorkbookPart workbookPart, XLWorkbook xlWorkbook, SaveOptions options, XLWorkbook.SaveContext context)
     {
@@ -151,7 +151,7 @@ internal class WorkbookPartWriter
                 var sheet = sheetElements.ElementAt(p - xlWorkbook.UnsupportedSheets.Count(us => us.Position <= p) - 1);
                 workbook.Sheets.RemoveChild(sheet);
                 workbook.Sheets.AppendChild(sheet);
-                var xlSheet = xlWorkbook.Worksheet(sheet.Name);
+                var xlSheet = xlWorkbook.Worksheet(sheet.Name!.Value!);
                 if (xlSheet.Visibility != XLWorksheetVisibility.Visible)
                     sheet.State = xlSheet.Visibility.ToOpenXml();
                 else

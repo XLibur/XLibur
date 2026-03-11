@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -8,7 +8,7 @@ namespace XLibur.Excel;
 /// A fluent API for one field in <see cref="XLPivotTableAxis"/>, either
 /// <see cref="XLPivotTable.RowLabels"/> or <see cref="XLPivotTable.ColumnLabels"/>.
 /// </summary>
-internal class XLPivotTableAxisField : IXLPivotField
+internal sealed class XLPivotTableAxisField : IXLPivotField
 {
     private readonly XLPivotTable _pivotTable;
     private readonly FieldIndex _index;

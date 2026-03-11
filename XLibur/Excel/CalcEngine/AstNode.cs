@@ -1,4 +1,4 @@
-using ClosedXML.Parser;
+﻿using ClosedXML.Parser;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -24,7 +24,7 @@ internal abstract class ValueNode : AstNode;
 /// <summary>
 /// AST node that contains a blank, logical, number, text or an error value.
 /// </summary>
-internal class ScalarNode : ValueNode
+internal sealed class ScalarNode : ValueNode
 {
     public ScalarNode(ScalarValue value)
     {
@@ -39,7 +39,7 @@ internal class ScalarNode : ValueNode
 /// <summary>
 /// AST node that contains a constant array. Array is at least 1x1.
 /// </summary>
-internal class ArrayNode : ValueNode
+internal sealed class ArrayNode : ValueNode
 {
     public ArrayNode(Array value)
     {
@@ -63,7 +63,7 @@ internal enum UnaryOp
 /// <summary>
 /// Unary expression, e.g. +123
 /// </summary>
-internal class UnaryNode : ValueNode
+internal sealed class UnaryNode : ValueNode
 {
     public UnaryNode(UnaryOp operation, ValueNode expr)
     {
@@ -104,7 +104,7 @@ internal enum BinaryOp
 /// <summary>
 /// Binary expression, e.g. 1+2
 /// </summary>
-internal class BinaryNode : ValueNode
+internal sealed class BinaryNode : ValueNode
 {
     public BinaryNode(BinaryOp operation, ValueNode exprLeft, ValueNode exprRight)
     {
@@ -125,7 +125,7 @@ internal class BinaryNode : ValueNode
 /// <summary>
 /// A function call, e.g. <c>SIN(0.5)</c>.
 /// </summary>
-internal class FunctionNode : ValueNode
+internal sealed class FunctionNode : ValueNode
 {
     public FunctionNode(string name, IReadOnlyList<ValueNode> parms) : this(null, name, parms)
     {
@@ -156,7 +156,7 @@ internal class FunctionNode : ValueNode
 /// <summary>
 /// An placeholder node for AST nodes that are not yet supported in XLibur.
 /// </summary>
-internal class NotSupportedNode : ValueNode
+internal sealed class NotSupportedNode : ValueNode
 {
     public NotSupportedNode(string featureName)
     {
@@ -171,7 +171,7 @@ internal class NotSupportedNode : ValueNode
 /// <summary>
 /// AST node for an reference to an external file in a formula.
 /// </summary>
-internal class FileNode : AstNode
+internal sealed class FileNode : AstNode
 {
     /// <summary>
     /// If the file is references indirectly, numeric identifier of a file.
@@ -205,7 +205,7 @@ internal class FileNode : AstNode
 /// <item>Prefix specifies a <c>File</c> and a <c>Sheet</c> - references looks for its address in the sheet of the file.</item>
 /// </list>
 /// </summary>
-internal class PrefixNode : AstNode
+internal sealed class PrefixNode : AstNode
 {
     public PrefixNode(FileNode? file, string? sheet, string? firstSheet, string? lastSheet)
     {
@@ -245,7 +245,7 @@ internal class PrefixNode : AstNode
         if (FirstSheet is not null || LastSheet is not null)
             throw new NotImplementedException("3D references are not yet implemented.");
 
-        if (!wb.TryGetWorksheet(Sheet, out XLWorksheet worksheet))
+        if (!wb.TryGetWorksheet(Sheet!, out XLWorksheet? worksheet))
             return XLError.CellReference;
 
         return OneOf<IXLWorksheet, XLError>.FromT0(worksheet);
@@ -255,7 +255,7 @@ internal class PrefixNode : AstNode
 /// <summary>
 /// AST node for a reference of an area in some sheet.
 /// </summary>
-internal class ReferenceNode : ValueNode
+internal sealed class ReferenceNode : ValueNode
 {
     public ReferenceNode(PrefixNode? prefix, ReferenceArea referenceArea, bool isA1)
     {
@@ -303,7 +303,7 @@ internal class ReferenceNode : ValueNode
 /// <summary>
 /// A name node in the formula. Name can refers to a generic formula, in most cases a reference, but it can be any kind of calculation (e.g. <c>A1+7</c>).
 /// </summary>
-internal class NameNode : ValueNode
+internal sealed class NameNode : ValueNode
 {
     public NameNode(PrefixNode? prefix, string name)
     {
@@ -359,7 +359,7 @@ internal class NameNode : ValueNode
     }
 }
 
-internal class StructuredReferenceNode : ValueNode
+internal sealed class StructuredReferenceNode : ValueNode
 {
     public StructuredReferenceNode(PrefixNode? prefix, string? table, StructuredReferenceArea area, string? firstColumn, string? lastColumn)
     {
