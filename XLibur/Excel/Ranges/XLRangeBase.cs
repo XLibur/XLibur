@@ -484,6 +484,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public bool Contains(string rangeAddress)
     {
+        ArgumentException.ThrowIfNullOrEmpty(rangeAddress);
         var addressToUse = rangeAddress.Contains("!")
             ? rangeAddress[(rangeAddress.IndexOf("!", StringComparison.Ordinal) + 1)..]
             : rangeAddress;
@@ -511,6 +512,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public bool Intersects(string rangeAddress)
     {
+        ArgumentException.ThrowIfNullOrEmpty(rangeAddress);
         return Intersects(Worksheet.Range(rangeAddress)!);
     }
 
@@ -535,6 +537,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public IXLRange AddToNamed(string name)
     {
+        ArgumentException.ThrowIfNullOrEmpty(name);
         return AddToNamed(name, XLScope.Workbook);
     }
 
@@ -604,6 +607,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public IXLCells Search(string searchText, CompareOptions compareOptions = CompareOptions.Ordinal, bool searchFormulae = false)
     {
+        ArgumentNullException.ThrowIfNull(searchText);
         var culture = CultureInfo.CurrentCulture;
         return CellsUsed(XLCellsUsedOptions.AllContents, c =>
         {
@@ -901,6 +905,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public virtual XLRanges Ranges(string ranges)
     {
+        ArgumentException.ThrowIfNullOrEmpty(ranges);
         var retVal = new XLRanges();
         var rangePairs = ranges.Split(',');
         foreach (var pair in rangePairs)

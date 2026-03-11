@@ -85,6 +85,7 @@ internal sealed class XLTables : IXLTables, IEnumerable<XLTable>
 
     public IXLTable Table(string name)
     {
+        ArgumentException.ThrowIfNullOrEmpty(name);
         if (TryGetTable(name, out var table))
             return table;
 
@@ -93,6 +94,7 @@ internal sealed class XLTables : IXLTables, IEnumerable<XLTable>
 
     internal bool TryGetTable(string tableName, [MaybeNullWhen(false)] out XLTable table)
     {
+        ArgumentNullException.ThrowIfNull(tableName);
         return _tables.TryGetValue(tableName, out table);
     }
 

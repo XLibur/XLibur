@@ -48,6 +48,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
     public bool Contains(string sheetName)
     {
+        ArgumentNullException.ThrowIfNull(sheetName);
         return _worksheets.ContainsKey(sheetName);
     }
 
@@ -65,6 +66,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
     internal bool TryGetWorksheet(string sheetName, [NotNullWhen(true)] out XLWorksheet? worksheet)
     {
+        ArgumentNullException.ThrowIfNull(sheetName);
         if (_worksheets.TryGetValue(sheetName.UnescapeSheetName(), out worksheet))
         {
             return true;
@@ -76,6 +78,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
     public IXLWorksheet Worksheet(string sheetName)
     {
+        ArgumentNullException.ThrowIfNull(sheetName);
         sheetName = sheetName.UnescapeSheetName();
 
         if (_worksheets.TryGetValue(sheetName, out XLWorksheet? w))
@@ -145,6 +148,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
     public void Delete(string sheetName)
     {
+        ArgumentException.ThrowIfNullOrEmpty(sheetName);
         Delete(_worksheets[sheetName].Position);
     }
 

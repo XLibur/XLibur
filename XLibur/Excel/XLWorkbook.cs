@@ -296,6 +296,7 @@ public partial class XLWorkbook : IXLWorkbook
     /// <inheritdoc/>
     public IXLDefinedName? DefinedName(string name)
     {
+        ArgumentNullException.ThrowIfNull(name);
         if (name.Contains("!"))
         {
             var split = name.Split('!');
@@ -333,6 +334,7 @@ public partial class XLWorkbook : IXLWorkbook
 
     public IXLRange? RangeFromFullAddress(string rangeAddress, out IXLWorksheet? ws)
     {
+        ArgumentNullException.ThrowIfNull(rangeAddress);
         if (!rangeAddress.Contains('!'))
         {
             ws = null;
@@ -353,6 +355,7 @@ public partial class XLWorkbook : IXLWorkbook
 
     public IXLCell? CellFromFullAddress(string cellAddress, out IXLWorksheet? ws)
     {
+        ArgumentNullException.ThrowIfNull(cellAddress);
         if (!cellAddress.Contains('!'))
         {
             ws = null;
@@ -429,6 +432,7 @@ public partial class XLWorkbook : IXLWorkbook
 
     public void SaveAs(string file, SaveOptions options)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(file);
         CheckForWorksheetsPresent();
 
         var directoryName = Path.GetDirectoryName(file);
@@ -720,6 +724,7 @@ public partial class XLWorkbook : IXLWorkbook
     internal XLWorkbook(string file, bool asTemplate)
         : this(new LoadOptions())
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(file);
         LoadSheetsFromTemplate(file);
     }
 
@@ -735,6 +740,7 @@ public partial class XLWorkbook : IXLWorkbook
     public XLWorkbook(string file, LoadOptions loadOptions)
         : this(loadOptions)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(file);
         _loadSource = XLLoadSource.File;
         _originalFile = file;
         _spreadsheetDocumentType = GetSpreadsheetDocumentType(_originalFile);
@@ -756,6 +762,7 @@ public partial class XLWorkbook : IXLWorkbook
     public XLWorkbook(Stream stream, LoadOptions loadOptions)
         : this(loadOptions)
     {
+        ArgumentNullException.ThrowIfNull(stream);
         _loadSource = XLLoadSource.Stream;
         _originalStream = stream;
         Load(stream);

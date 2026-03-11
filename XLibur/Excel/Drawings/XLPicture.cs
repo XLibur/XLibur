@@ -109,6 +109,7 @@ internal sealed class XLPicture : IXLPicture
         get { return _name; }
         set
         {
+            ArgumentException.ThrowIfNullOrEmpty(value);
             if (_name == value) return;
 
             if ((Worksheet.Pictures.FirstOrDefault(p => p.Name.Equals(value, StringComparison.OrdinalIgnoreCase)) ??

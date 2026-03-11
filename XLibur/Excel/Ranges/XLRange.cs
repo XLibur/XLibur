@@ -69,6 +69,7 @@ internal class XLRange : XLRangeBase, IXLRange
 
     public virtual IXLRangeColumns Columns(string columns)
     {
+        ArgumentException.ThrowIfNullOrEmpty(columns);
         var retVal = new XLRangeColumns();
         var columnPairs = columns.Split(',');
         foreach (string tPair in columnPairs.Select(pair => pair.Trim()))

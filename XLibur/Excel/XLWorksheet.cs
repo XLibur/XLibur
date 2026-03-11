@@ -329,6 +329,7 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
 
     public IXLColumns Columns(string columns)
     {
+        ArgumentException.ThrowIfNullOrEmpty(columns);
         var retVal = new XLColumns(null, StyleValue);
         var columnPairs = columns.Split(',');
         foreach (var tPair in columnPairs.Select(pair => pair.Trim()))
@@ -389,6 +390,7 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
 
     public IXLRows Rows(string rows)
     {
+        ArgumentException.ThrowIfNullOrEmpty(rows);
         var retVal = new XLRows(null, StyleValue);
         var rowPairs = rows.Split(',');
         foreach (var tPair in rowPairs.Select(pair => pair.Trim()))
@@ -1756,6 +1758,7 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
 
     public IXLPicture AddPicture(Stream stream, string name)
     {
+        ArgumentException.ThrowIfNullOrEmpty(name);
         return Pictures.Add(stream, name);
     }
 
@@ -1771,16 +1774,20 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
 
     public IXLPicture AddPicture(Stream stream, XLPictureFormat format, string name)
     {
+        ArgumentException.ThrowIfNullOrEmpty(name);
         return Pictures.Add(stream, format, name);
     }
 
     public IXLPicture AddPicture(string imageFile)
     {
+        ArgumentException.ThrowIfNullOrEmpty(imageFile);
         return Pictures.Add(imageFile);
     }
 
     public IXLPicture AddPicture(string imageFile, string name)
     {
+        ArgumentException.ThrowIfNullOrEmpty(imageFile);
+        ArgumentException.ThrowIfNullOrEmpty(name);
         return Pictures.Add(imageFile, name);
     }
 
