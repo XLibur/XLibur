@@ -11,7 +11,7 @@ using static XLibur.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Excel;
 
-internal class XLWorksheet : XLRangeBase, IXLWorksheet
+internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
 {
     #region Fields
 

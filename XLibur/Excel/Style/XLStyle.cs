@@ -9,7 +9,7 @@ internal class XLStyle : IXLStyle
 {
     #region Static members
 
-    public static XLStyle Default { get { return new XLStyle(XLStyleValue.Default); } }
+    public static XLStyle Default => new(XLStyleValue.Default);
 
     internal static XLStyleKey GenerateKey(IXLStyle initialStyle)
     {

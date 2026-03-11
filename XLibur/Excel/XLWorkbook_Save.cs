@@ -117,18 +117,18 @@ public partial class XLWorkbook
         var definedNames = wbPart.Workbook.Descendants<DefinedNames>().FirstOrDefault();
         if (definedNames != null)
         {
-            List<DefinedName> defNamesToDelete = new List<DefinedName>();
+            List<DefinedName> defNamesToDelete = [];
 
-            foreach (var Item in definedNames.OfType<DefinedName>())
+            foreach (var item in definedNames.OfType<DefinedName>())
             {
                 // This condition checks to delete only those names which are part of Sheet in question
-                if (Item.Text.Contains(worksheet.Name + "!"))
-                    defNamesToDelete.Add(Item);
+                if (item.Text.Contains(worksheet.Name + "!"))
+                    defNamesToDelete.Add(item);
             }
 
-            foreach (DefinedName Item in defNamesToDelete)
+            foreach (var item in defNamesToDelete)
             {
-                Item.Remove();
+                item.Remove();
             }
         }
         // Get the CalculationChainPart
@@ -139,12 +139,12 @@ public partial class XLWorkbook
         if (calChainPart != null)
         {
             var calChainEntries = calChainPart.CalculationChain.Descendants<CalculationCell>().Where(c => c.SheetId == sheetId);
-            List<CalculationCell> calcsToDelete = new List<CalculationCell>();
-            foreach (CalculationCell Item in calChainEntries)
-                calcsToDelete.Add(Item);
+            var calcsToDelete = new List<CalculationCell>();
+            foreach (var item in calChainEntries)
+                calcsToDelete.Add(item);
 
-            foreach (CalculationCell Item in calcsToDelete)
-                Item.Remove();
+            foreach (var item in calcsToDelete)
+                item.Remove();
 
             if (!calChainPart.CalculationChain.Any())
                 wbPart.DeletePart(calChainPart);

@@ -88,17 +88,11 @@ public partial class XLWorkbook : IXLWorkbook
         }
     }
 
-    public static IXLOutline DefaultOutline
+    public static IXLOutline DefaultOutline => new XLOutline
     {
-        get
-        {
-            return new XLOutline(null)
-            {
-                SummaryHLocation = XLOutlineSummaryHLocation.Right,
-                SummaryVLocation = XLOutlineSummaryVLocation.Bottom
-            };
-        }
-    }
+        SummaryHLocation = XLOutlineSummaryHLocation.Right,
+        SummaryVLocation = XLOutlineSummaryVLocation.Bottom
+    };
 
     /// <summary>
     ///   Behavior for <see cref = "IXLCell.set_Value" />

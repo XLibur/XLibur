@@ -1,5 +1,3 @@
-#nullable disable
-
 /* ====================================================================
    Licensed to the Apache Software Foundation (ASF) under one or more
    contributor license agreements.  See the NOTICE file distributed with
@@ -22,13 +20,13 @@ namespace XLibur.Excel;
 public static partial class XLHelper
 {
     private const int MaxWorksheetNameCharsCount = 31;
-    private static readonly char[] illegalWorksheetCharacters = "\u0000\u0003:\\/?*[]".ToCharArray();
+    private static readonly char[] IllegalWorksheetCharacters = "\0\u0003:\\/?*[]".ToCharArray();
 
     /// <summary>
     /// Creates a valid sheet name, which conforms to the following rules.
     /// A sheet name:
     /// is never null,
-    /// has minimum length of 1 and
+    /// has a minimum length of 1 and
     /// maximum length of 31,
     /// doesn't contain special chars: (: 0x0000 0x0003 / \ ? * ] [).
     /// Sheet names must not begin or end with ' (apostrophe)
@@ -39,7 +37,7 @@ public static partial class XLHelper
     // This method was ported and adapted from the POI project at https://github.com/apache/poi/blob/trunk/src/java/org/apache/poi/ss/util/WorkbookUtil.java
     public static string CreateSafeSheetName(string nameProposal, char replaceChar = ' ')
     {
-        if (illegalWorksheetCharacters.Contains(replaceChar) || replaceChar == '\'')
+        if (IllegalWorksheetCharacters.Contains(replaceChar) || replaceChar == '\'')
             throw new ArgumentException("Invalid replacement character.", nameof(replaceChar));
 
         if (nameProposal == null)
@@ -50,13 +48,13 @@ public static partial class XLHelper
         {
             return "empty";
         }
-        int length = Math.Min(MaxWorksheetNameCharsCount, nameProposal.Length);
-        var shortenedName = nameProposal.Substring(0, length);
+        var length = Math.Min(MaxWorksheetNameCharsCount, nameProposal.Length);
+        var shortenedName = nameProposal[..length];
         var result = new System.Text.StringBuilder(shortenedName);
-        for (int i = 0; i < length; i++)
+        for (var i = 0; i < length; i++)
         {
-            char ch = result[i];
-            if (illegalWorksheetCharacters.Contains(result[i]))
+            var ch = result[i];
+            if (IllegalWorksheetCharacters.Contains(result[i]))
                 result[i] = replaceChar;
 
             if (ch == '\'' && (i == 0 || i == length - 1))
@@ -68,7 +66,7 @@ public static partial class XLHelper
     /// <summary>
     /// Validates the name of the sheet.
     /// The character count MUST be greater than or equal to 1 and less than or equal to 31.
-    /// The string MUST NOT contain the any of the following characters:
+    /// The string MUST NOT contain any of the following characters:
     /// - 0x0000
     /// - 0x0003
     /// - colon (:)
@@ -92,15 +90,15 @@ public static partial class XLHelper
             throw new ArgumentException("sheetName must not be null or whitespace");
         }
 
-        int len = sheetName.Length;
-        if (len < 1 || len > MaxWorksheetNameCharsCount)
+        var len = sheetName.Length;
+        if (len is < 1 or > MaxWorksheetNameCharsCount)
         {
             throw new ArgumentException($"sheetName '{sheetName}' is invalid - character count MUST be greater than or equal to 1 and less than or equal to {MaxWorksheetNameCharsCount}");
         }
 
-        for (int i = 0; i < len; i++)
+        for (var i = 0; i < len; i++)
         {
-            if (illegalWorksheetCharacters.Contains(sheetName[i]))
+            if (IllegalWorksheetCharacters.Contains(sheetName[i]))
                 throw new ArgumentException($"Invalid char ({sheetName[i]}) found at index ({i}) in sheet name '{sheetName}'");
         }
         if (sheetName[0] == '\'' || sheetName[len - 1] == '\'')
