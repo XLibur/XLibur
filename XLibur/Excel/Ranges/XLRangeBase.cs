@@ -283,53 +283,37 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
         if (checkIntersect)
         {
-            var intersectedMergedRanges =
-                Worksheet.Internals.MergedRanges.GetIntersectedRanges(RangeAddress).ToList();
-            foreach (var intersectedMergedRange in intersectedMergedRanges)
-            {
-                Worksheet.Internals.MergedRanges.Remove(intersectedMergedRange);
-            }
+            Worksheet.Internals.MergedRanges
+                .GetIntersectedRanges(RangeAddress).ToList()
+                .ForEach(r => Worksheet.Internals.MergedRanges.Remove(r));
 
             var firstCell = FirstCell();
             var firstCellStyleKey = ((XLStyle)firstCell.Style).Key;
             var firstCellStyle = firstCell.Style;
             var defaultStyleKey = XLStyle.Default.Key;
-            var cellsUsed =
-                CellsUsed(XLCellsUsedOptions.All & ~XLCellsUsedOptions.MergedRanges, c => !c.Equals(firstCell))
-                    .ToList();
+            var cellsUsed = CellsUsed(XLCellsUsedOptions.All & ~XLCellsUsedOptions.MergedRanges, c => !c.Equals(firstCell))
+                .ToList();
+
             cellsUsed.ForEach(c => c.Clear(XLClearOptions.All
                                            & ~XLClearOptions.MergedRanges
                                            & ~XLClearOptions.NormalFormats));
 
-            if (firstCellStyleKey.Alignment != defaultStyleKey.Alignment)
-                asRange.Style.Alignment = firstCellStyle.Alignment;
-            else
-                cellsUsed.ForEach(c => c.Style.Alignment = firstCellStyle.Alignment);
+            // If the first cell has a non-default value for a style property, apply it to the
+            // whole merged range; otherwise propagate the first cell's value to every used cell.
+            void ApplyStyleProp<T>(bool nonDefault, T value, Action<IXLStyle, T> set)
+            {
+                if (nonDefault)
+                    set(asRange.Style, value);
+                else
+                    cellsUsed.ForEach(c => set(c.Style, value));
+            }
 
-            if (firstCellStyleKey.Fill != defaultStyleKey.Fill)
-                asRange.Style.Fill = firstCellStyle.Fill;
-            else
-                cellsUsed.ForEach(c => c.Style.Fill = firstCellStyle.Fill);
-
-            if (firstCellStyleKey.Font != defaultStyleKey.Font)
-                asRange.Style.Font = firstCellStyle.Font;
-            else
-                cellsUsed.ForEach(c => c.Style.Font = firstCellStyle.Font);
-
-            if (firstCellStyleKey.IncludeQuotePrefix != defaultStyleKey.IncludeQuotePrefix)
-                asRange.Style.IncludeQuotePrefix = firstCellStyle.IncludeQuotePrefix;
-            else
-                cellsUsed.ForEach(c => c.Style.IncludeQuotePrefix = firstCellStyle.IncludeQuotePrefix);
-
-            if (firstCellStyleKey.NumberFormat != defaultStyleKey.NumberFormat)
-                asRange.Style.NumberFormat = firstCellStyle.NumberFormat;
-            else
-                cellsUsed.ForEach(c => c.Style.NumberFormat = firstCellStyle.NumberFormat);
-
-            if (firstCellStyleKey.Protection != defaultStyleKey.Protection)
-                asRange.Style.Protection = firstCellStyle.Protection;
-            else
-                cellsUsed.ForEach(c => c.Style.Protection = firstCellStyle.Protection);
+            ApplyStyleProp(firstCellStyleKey.Alignment != defaultStyleKey.Alignment,                   firstCellStyle.Alignment,          (s, v) => s.Alignment = v);
+            ApplyStyleProp(firstCellStyleKey.Fill != defaultStyleKey.Fill,                             firstCellStyle.Fill,               (s, v) => s.Fill = v);
+            ApplyStyleProp(firstCellStyleKey.Font != defaultStyleKey.Font,                             firstCellStyle.Font,               (s, v) => s.Font = v);
+            ApplyStyleProp(firstCellStyleKey.IncludeQuotePrefix != defaultStyleKey.IncludeQuotePrefix, firstCellStyle.IncludeQuotePrefix, (s, v) => s.IncludeQuotePrefix = v);
+            ApplyStyleProp(firstCellStyleKey.NumberFormat != defaultStyleKey.NumberFormat,             firstCellStyle.NumberFormat,       (s, v) => s.NumberFormat = v);
+            ApplyStyleProp(firstCellStyleKey.Protection != defaultStyleKey.Protection,                 firstCellStyle.Protection,         (s, v) => s.Protection = v);
 
             if (cellsUsed.Any(c => ((XLStyle)c.Style).Key.Border != defaultStyleKey.Border))
                 asRange.Style.Border.SetInsideBorder(XLBorderStyleValues.None);
@@ -414,8 +398,8 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
     public bool Contains(string rangeAddress)
     {
         ArgumentException.ThrowIfNullOrEmpty(rangeAddress);
-        var addressToUse = rangeAddress.Contains("!")
-            ? rangeAddress[(rangeAddress.IndexOf("!", StringComparison.Ordinal) + 1)..]
+        var addressToUse = rangeAddress.Contains('!')
+            ? rangeAddress[(rangeAddress.IndexOf('!') + 1)..]
             : rangeAddress;
 
         XLAddress firstAddress;
