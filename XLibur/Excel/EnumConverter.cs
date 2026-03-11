@@ -13,29 +13,15 @@ internal static class EnumConverter
 {
     #region To OpenXml
 
-    public static UnderlineValues ToOpenXml(this XLFontUnderlineValues value)
+    public static UnderlineValues ToOpenXml(this XLFontUnderlineValues value) => value switch
     {
-        switch (value)
-        {
-            case XLFontUnderlineValues.Double:
-                return UnderlineValues.Double;
-
-            case XLFontUnderlineValues.DoubleAccounting:
-                return UnderlineValues.DoubleAccounting;
-
-            case XLFontUnderlineValues.None:
-                return UnderlineValues.None;
-
-            case XLFontUnderlineValues.Single:
-                return UnderlineValues.Single;
-
-            case XLFontUnderlineValues.SingleAccounting:
-                return UnderlineValues.SingleAccounting;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
+        XLFontUnderlineValues.Double => UnderlineValues.Double,
+        XLFontUnderlineValues.DoubleAccounting => UnderlineValues.DoubleAccounting,
+        XLFontUnderlineValues.None => UnderlineValues.None,
+        XLFontUnderlineValues.Single => UnderlineValues.Single,
+        XLFontUnderlineValues.SingleAccounting => UnderlineValues.SingleAccounting,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
     private static readonly string[] XLFontUnderlineValuesStrings =
     [
@@ -49,41 +35,21 @@ internal static class EnumConverter
     public static string ToOpenXmlString(this XLFontUnderlineValues value)
         => XLFontUnderlineValuesStrings[(int)value];
 
-    public static OrientationValues ToOpenXml(this XLPageOrientation value)
+    public static OrientationValues ToOpenXml(this XLPageOrientation value) => value switch
     {
-        switch (value)
-        {
-            case XLPageOrientation.Default:
-                return OrientationValues.Default;
+        XLPageOrientation.Default => OrientationValues.Default,
+        XLPageOrientation.Landscape => OrientationValues.Landscape,
+        XLPageOrientation.Portrait => OrientationValues.Portrait,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLPageOrientation.Landscape:
-                return OrientationValues.Landscape;
-
-            case XLPageOrientation.Portrait:
-                return OrientationValues.Portrait;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static VerticalAlignmentRunValues ToOpenXml(this XLFontVerticalTextAlignmentValues value)
+    public static VerticalAlignmentRunValues ToOpenXml(this XLFontVerticalTextAlignmentValues value) => value switch
     {
-        switch (value)
-        {
-            case XLFontVerticalTextAlignmentValues.Baseline:
-                return VerticalAlignmentRunValues.Baseline;
-
-            case XLFontVerticalTextAlignmentValues.Subscript:
-                return VerticalAlignmentRunValues.Subscript;
-
-            case XLFontVerticalTextAlignmentValues.Superscript:
-                return VerticalAlignmentRunValues.Superscript;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
+        XLFontVerticalTextAlignmentValues.Baseline => VerticalAlignmentRunValues.Baseline,
+        XLFontVerticalTextAlignmentValues.Subscript => VerticalAlignmentRunValues.Subscript,
+        XLFontVerticalTextAlignmentValues.Superscript => VerticalAlignmentRunValues.Superscript,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
     private static readonly string[] XLFontVerticalTextAlignmentValuesStrings =
     [
@@ -116,425 +82,175 @@ internal static class EnumConverter
         };
     }
 
-    public static PatternValues ToOpenXml(this XLFillPatternValues value)
+    public static PatternValues ToOpenXml(this XLFillPatternValues value) => value switch
     {
-        switch (value)
-        {
-            case XLFillPatternValues.DarkDown:
-                return PatternValues.DarkDown;
+        XLFillPatternValues.DarkDown => PatternValues.DarkDown,
+        XLFillPatternValues.DarkGray => PatternValues.DarkGray,
+        XLFillPatternValues.DarkGrid => PatternValues.DarkGrid,
+        XLFillPatternValues.DarkHorizontal => PatternValues.DarkHorizontal,
+        XLFillPatternValues.DarkTrellis => PatternValues.DarkTrellis,
+        XLFillPatternValues.DarkUp => PatternValues.DarkUp,
+        XLFillPatternValues.DarkVertical => PatternValues.DarkVertical,
+        XLFillPatternValues.Gray0625 => PatternValues.Gray0625,
+        XLFillPatternValues.Gray125 => PatternValues.Gray125,
+        XLFillPatternValues.LightDown => PatternValues.LightDown,
+        XLFillPatternValues.LightGray => PatternValues.LightGray,
+        XLFillPatternValues.LightGrid => PatternValues.LightGrid,
+        XLFillPatternValues.LightHorizontal => PatternValues.LightHorizontal,
+        XLFillPatternValues.LightTrellis => PatternValues.LightTrellis,
+        XLFillPatternValues.LightUp => PatternValues.LightUp,
+        XLFillPatternValues.LightVertical => PatternValues.LightVertical,
+        XLFillPatternValues.MediumGray => PatternValues.MediumGray,
+        XLFillPatternValues.None => PatternValues.None,
+        XLFillPatternValues.Solid => PatternValues.Solid,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLFillPatternValues.DarkGray:
-                return PatternValues.DarkGray;
-
-            case XLFillPatternValues.DarkGrid:
-                return PatternValues.DarkGrid;
-
-            case XLFillPatternValues.DarkHorizontal:
-                return PatternValues.DarkHorizontal;
-
-            case XLFillPatternValues.DarkTrellis:
-                return PatternValues.DarkTrellis;
-
-            case XLFillPatternValues.DarkUp:
-                return PatternValues.DarkUp;
-
-            case XLFillPatternValues.DarkVertical:
-                return PatternValues.DarkVertical;
-
-            case XLFillPatternValues.Gray0625:
-                return PatternValues.Gray0625;
-
-            case XLFillPatternValues.Gray125:
-                return PatternValues.Gray125;
-
-            case XLFillPatternValues.LightDown:
-                return PatternValues.LightDown;
-
-            case XLFillPatternValues.LightGray:
-                return PatternValues.LightGray;
-
-            case XLFillPatternValues.LightGrid:
-                return PatternValues.LightGrid;
-
-            case XLFillPatternValues.LightHorizontal:
-                return PatternValues.LightHorizontal;
-
-            case XLFillPatternValues.LightTrellis:
-                return PatternValues.LightTrellis;
-
-            case XLFillPatternValues.LightUp:
-                return PatternValues.LightUp;
-
-            case XLFillPatternValues.LightVertical:
-                return PatternValues.LightVertical;
-
-            case XLFillPatternValues.MediumGray:
-                return PatternValues.MediumGray;
-
-            case XLFillPatternValues.None:
-                return PatternValues.None;
-
-            case XLFillPatternValues.Solid:
-                return PatternValues.Solid;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static BorderStyleValues ToOpenXml(this XLBorderStyleValues value)
+    public static BorderStyleValues ToOpenXml(this XLBorderStyleValues value) => value switch
     {
-        switch (value)
-        {
-            case XLBorderStyleValues.DashDot:
-                return BorderStyleValues.DashDot;
+        XLBorderStyleValues.DashDot => BorderStyleValues.DashDot,
+        XLBorderStyleValues.DashDotDot => BorderStyleValues.DashDotDot,
+        XLBorderStyleValues.Dashed => BorderStyleValues.Dashed,
+        XLBorderStyleValues.Dotted => BorderStyleValues.Dotted,
+        XLBorderStyleValues.Double => BorderStyleValues.Double,
+        XLBorderStyleValues.Hair => BorderStyleValues.Hair,
+        XLBorderStyleValues.Medium => BorderStyleValues.Medium,
+        XLBorderStyleValues.MediumDashDot => BorderStyleValues.MediumDashDot,
+        XLBorderStyleValues.MediumDashDotDot => BorderStyleValues.MediumDashDotDot,
+        XLBorderStyleValues.MediumDashed => BorderStyleValues.MediumDashed,
+        XLBorderStyleValues.None => BorderStyleValues.None,
+        XLBorderStyleValues.SlantDashDot => BorderStyleValues.SlantDashDot,
+        XLBorderStyleValues.Thick => BorderStyleValues.Thick,
+        XLBorderStyleValues.Thin => BorderStyleValues.Thin,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLBorderStyleValues.DashDotDot:
-                return BorderStyleValues.DashDotDot;
-
-            case XLBorderStyleValues.Dashed:
-                return BorderStyleValues.Dashed;
-
-            case XLBorderStyleValues.Dotted:
-                return BorderStyleValues.Dotted;
-
-            case XLBorderStyleValues.Double:
-                return BorderStyleValues.Double;
-
-            case XLBorderStyleValues.Hair:
-                return BorderStyleValues.Hair;
-
-            case XLBorderStyleValues.Medium:
-                return BorderStyleValues.Medium;
-
-            case XLBorderStyleValues.MediumDashDot:
-                return BorderStyleValues.MediumDashDot;
-
-            case XLBorderStyleValues.MediumDashDotDot:
-                return BorderStyleValues.MediumDashDotDot;
-
-            case XLBorderStyleValues.MediumDashed:
-                return BorderStyleValues.MediumDashed;
-
-            case XLBorderStyleValues.None:
-                return BorderStyleValues.None;
-
-            case XLBorderStyleValues.SlantDashDot:
-                return BorderStyleValues.SlantDashDot;
-
-            case XLBorderStyleValues.Thick:
-                return BorderStyleValues.Thick;
-
-            case XLBorderStyleValues.Thin:
-                return BorderStyleValues.Thin;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static HorizontalAlignmentValues ToOpenXml(this XLAlignmentHorizontalValues value)
+    public static HorizontalAlignmentValues ToOpenXml(this XLAlignmentHorizontalValues value) => value switch
     {
-        switch (value)
-        {
-            case XLAlignmentHorizontalValues.Center:
-                return HorizontalAlignmentValues.Center;
+        XLAlignmentHorizontalValues.Center => HorizontalAlignmentValues.Center,
+        XLAlignmentHorizontalValues.CenterContinuous => HorizontalAlignmentValues.CenterContinuous,
+        XLAlignmentHorizontalValues.Distributed => HorizontalAlignmentValues.Distributed,
+        XLAlignmentHorizontalValues.Fill => HorizontalAlignmentValues.Fill,
+        XLAlignmentHorizontalValues.General => HorizontalAlignmentValues.General,
+        XLAlignmentHorizontalValues.Justify => HorizontalAlignmentValues.Justify,
+        XLAlignmentHorizontalValues.Left => HorizontalAlignmentValues.Left,
+        XLAlignmentHorizontalValues.Right => HorizontalAlignmentValues.Right,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLAlignmentHorizontalValues.CenterContinuous:
-                return HorizontalAlignmentValues.CenterContinuous;
-
-            case XLAlignmentHorizontalValues.Distributed:
-                return HorizontalAlignmentValues.Distributed;
-
-            case XLAlignmentHorizontalValues.Fill:
-                return HorizontalAlignmentValues.Fill;
-
-            case XLAlignmentHorizontalValues.General:
-                return HorizontalAlignmentValues.General;
-
-            case XLAlignmentHorizontalValues.Justify:
-                return HorizontalAlignmentValues.Justify;
-
-            case XLAlignmentHorizontalValues.Left:
-                return HorizontalAlignmentValues.Left;
-
-            case XLAlignmentHorizontalValues.Right:
-                return HorizontalAlignmentValues.Right;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static VerticalAlignmentValues ToOpenXml(this XLAlignmentVerticalValues value)
+    public static VerticalAlignmentValues ToOpenXml(this XLAlignmentVerticalValues value) => value switch
     {
-        switch (value)
-        {
-            case XLAlignmentVerticalValues.Bottom:
-                return VerticalAlignmentValues.Bottom;
+        XLAlignmentVerticalValues.Bottom => VerticalAlignmentValues.Bottom,
+        XLAlignmentVerticalValues.Center => VerticalAlignmentValues.Center,
+        XLAlignmentVerticalValues.Distributed => VerticalAlignmentValues.Distributed,
+        XLAlignmentVerticalValues.Justify => VerticalAlignmentValues.Justify,
+        XLAlignmentVerticalValues.Top => VerticalAlignmentValues.Top,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLAlignmentVerticalValues.Center:
-                return VerticalAlignmentValues.Center;
-
-            case XLAlignmentVerticalValues.Distributed:
-                return VerticalAlignmentValues.Distributed;
-
-            case XLAlignmentVerticalValues.Justify:
-                return VerticalAlignmentValues.Justify;
-
-            case XLAlignmentVerticalValues.Top:
-                return VerticalAlignmentValues.Top;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static PageOrderValues ToOpenXml(this XLPageOrderValues value)
+    public static PageOrderValues ToOpenXml(this XLPageOrderValues value) => value switch
     {
-        switch (value)
-        {
-            case XLPageOrderValues.DownThenOver:
-                return PageOrderValues.DownThenOver;
+        XLPageOrderValues.DownThenOver => PageOrderValues.DownThenOver,
+        XLPageOrderValues.OverThenDown => PageOrderValues.OverThenDown,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLPageOrderValues.OverThenDown:
-                return PageOrderValues.OverThenDown;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static CellCommentsValues ToOpenXml(this XLShowCommentsValues value)
+    public static CellCommentsValues ToOpenXml(this XLShowCommentsValues value) => value switch
     {
-        switch (value)
-        {
-            case XLShowCommentsValues.AsDisplayed:
-                return CellCommentsValues.AsDisplayed;
+        XLShowCommentsValues.AsDisplayed => CellCommentsValues.AsDisplayed,
+        XLShowCommentsValues.AtEnd => CellCommentsValues.AtEnd,
+        XLShowCommentsValues.None => CellCommentsValues.None,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLShowCommentsValues.AtEnd:
-                return CellCommentsValues.AtEnd;
-
-            case XLShowCommentsValues.None:
-                return CellCommentsValues.None;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static PrintErrorValues ToOpenXml(this XLPrintErrorValues value)
+    public static PrintErrorValues ToOpenXml(this XLPrintErrorValues value) => value switch
     {
-        switch (value)
-        {
-            case XLPrintErrorValues.Blank:
-                return PrintErrorValues.Blank;
+        XLPrintErrorValues.Blank => PrintErrorValues.Blank,
+        XLPrintErrorValues.Dash => PrintErrorValues.Dash,
+        XLPrintErrorValues.Displayed => PrintErrorValues.Displayed,
+        XLPrintErrorValues.NA => PrintErrorValues.NA,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLPrintErrorValues.Dash:
-                return PrintErrorValues.Dash;
-
-            case XLPrintErrorValues.Displayed:
-                return PrintErrorValues.Displayed;
-
-            case XLPrintErrorValues.NA:
-                return PrintErrorValues.NA;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static CalculateModeValues ToOpenXml(this XLCalculateMode value)
+    public static CalculateModeValues ToOpenXml(this XLCalculateMode value) => value switch
     {
-        switch (value)
-        {
-            case XLCalculateMode.Auto:
-                return CalculateModeValues.Auto;
+        XLCalculateMode.Auto => CalculateModeValues.Auto,
+        XLCalculateMode.AutoNoTable => CalculateModeValues.AutoNoTable,
+        XLCalculateMode.Manual => CalculateModeValues.Manual,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLCalculateMode.AutoNoTable:
-                return CalculateModeValues.AutoNoTable;
-
-            case XLCalculateMode.Manual:
-                return CalculateModeValues.Manual;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static ReferenceModeValues ToOpenXml(this XLReferenceStyle value)
+    public static ReferenceModeValues ToOpenXml(this XLReferenceStyle value) => value switch
     {
-        switch (value)
-        {
-            case XLReferenceStyle.R1C1:
-                return ReferenceModeValues.R1C1;
+        XLReferenceStyle.R1C1 => ReferenceModeValues.R1C1,
+        XLReferenceStyle.A1 => ReferenceModeValues.A1,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLReferenceStyle.A1:
-                return ReferenceModeValues.A1;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static uint ToOpenXml(this XLAlignmentReadingOrderValues value)
+    public static uint ToOpenXml(this XLAlignmentReadingOrderValues value) => value switch
     {
-        switch (value)
-        {
-            case XLAlignmentReadingOrderValues.ContextDependent:
-                return 0;
+        XLAlignmentReadingOrderValues.ContextDependent => 0,
+        XLAlignmentReadingOrderValues.LeftToRight => 1,
+        XLAlignmentReadingOrderValues.RightToLeft => 2,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLAlignmentReadingOrderValues.LeftToRight:
-                return 1;
-
-            case XLAlignmentReadingOrderValues.RightToLeft:
-                return 2;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static TotalsRowFunctionValues ToOpenXml(this XLTotalsRowFunction value)
+    public static TotalsRowFunctionValues ToOpenXml(this XLTotalsRowFunction value) => value switch
     {
-        switch (value)
-        {
-            case XLTotalsRowFunction.None:
-                return TotalsRowFunctionValues.None;
+        XLTotalsRowFunction.None => TotalsRowFunctionValues.None,
+        XLTotalsRowFunction.Sum => TotalsRowFunctionValues.Sum,
+        XLTotalsRowFunction.Minimum => TotalsRowFunctionValues.Minimum,
+        XLTotalsRowFunction.Maximum => TotalsRowFunctionValues.Maximum,
+        XLTotalsRowFunction.Average => TotalsRowFunctionValues.Average,
+        XLTotalsRowFunction.Count => TotalsRowFunctionValues.Count,
+        XLTotalsRowFunction.CountNumbers => TotalsRowFunctionValues.CountNumbers,
+        XLTotalsRowFunction.StandardDeviation => TotalsRowFunctionValues.StandardDeviation,
+        XLTotalsRowFunction.Variance => TotalsRowFunctionValues.Variance,
+        XLTotalsRowFunction.Custom => TotalsRowFunctionValues.Custom,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLTotalsRowFunction.Sum:
-                return TotalsRowFunctionValues.Sum;
-
-            case XLTotalsRowFunction.Minimum:
-                return TotalsRowFunctionValues.Minimum;
-
-            case XLTotalsRowFunction.Maximum:
-                return TotalsRowFunctionValues.Maximum;
-
-            case XLTotalsRowFunction.Average:
-                return TotalsRowFunctionValues.Average;
-
-            case XLTotalsRowFunction.Count:
-                return TotalsRowFunctionValues.Count;
-
-            case XLTotalsRowFunction.CountNumbers:
-                return TotalsRowFunctionValues.CountNumbers;
-
-            case XLTotalsRowFunction.StandardDeviation:
-                return TotalsRowFunctionValues.StandardDeviation;
-
-            case XLTotalsRowFunction.Variance:
-                return TotalsRowFunctionValues.Variance;
-
-            case XLTotalsRowFunction.Custom:
-                return TotalsRowFunctionValues.Custom;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static DataValidationValues ToOpenXml(this XLAllowedValues value)
+    public static DataValidationValues ToOpenXml(this XLAllowedValues value) => value switch
     {
-        switch (value)
-        {
-            case XLAllowedValues.AnyValue:
-                return DataValidationValues.None;
+        XLAllowedValues.AnyValue => DataValidationValues.None,
+        XLAllowedValues.Custom => DataValidationValues.Custom,
+        XLAllowedValues.Date => DataValidationValues.Date,
+        XLAllowedValues.Decimal => DataValidationValues.Decimal,
+        XLAllowedValues.List => DataValidationValues.List,
+        XLAllowedValues.TextLength => DataValidationValues.TextLength,
+        XLAllowedValues.Time => DataValidationValues.Time,
+        XLAllowedValues.WholeNumber => DataValidationValues.Whole,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLAllowedValues.Custom:
-                return DataValidationValues.Custom;
-
-            case XLAllowedValues.Date:
-                return DataValidationValues.Date;
-
-            case XLAllowedValues.Decimal:
-                return DataValidationValues.Decimal;
-
-            case XLAllowedValues.List:
-                return DataValidationValues.List;
-
-            case XLAllowedValues.TextLength:
-                return DataValidationValues.TextLength;
-
-            case XLAllowedValues.Time:
-                return DataValidationValues.Time;
-
-            case XLAllowedValues.WholeNumber:
-                return DataValidationValues.Whole;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static DataValidationErrorStyleValues ToOpenXml(this XLErrorStyle value)
+    public static DataValidationErrorStyleValues ToOpenXml(this XLErrorStyle value) => value switch
     {
-        switch (value)
-        {
-            case XLErrorStyle.Information:
-                return DataValidationErrorStyleValues.Information;
+        XLErrorStyle.Information => DataValidationErrorStyleValues.Information,
+        XLErrorStyle.Warning => DataValidationErrorStyleValues.Warning,
+        XLErrorStyle.Stop => DataValidationErrorStyleValues.Stop,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLErrorStyle.Warning:
-                return DataValidationErrorStyleValues.Warning;
-
-            case XLErrorStyle.Stop:
-                return DataValidationErrorStyleValues.Stop;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static DataValidationOperatorValues ToOpenXml(this XLOperator value)
+    public static DataValidationOperatorValues ToOpenXml(this XLOperator value) => value switch
     {
-        switch (value)
-        {
-            case XLOperator.Between:
-                return DataValidationOperatorValues.Between;
+        XLOperator.Between => DataValidationOperatorValues.Between,
+        XLOperator.EqualOrGreaterThan => DataValidationOperatorValues.GreaterThanOrEqual,
+        XLOperator.EqualOrLessThan => DataValidationOperatorValues.LessThanOrEqual,
+        XLOperator.EqualTo => DataValidationOperatorValues.Equal,
+        XLOperator.GreaterThan => DataValidationOperatorValues.GreaterThan,
+        XLOperator.LessThan => DataValidationOperatorValues.LessThan,
+        XLOperator.NotBetween => DataValidationOperatorValues.NotBetween,
+        XLOperator.NotEqualTo => DataValidationOperatorValues.NotEqual,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLOperator.EqualOrGreaterThan:
-                return DataValidationOperatorValues.GreaterThanOrEqual;
-
-            case XLOperator.EqualOrLessThan:
-                return DataValidationOperatorValues.LessThanOrEqual;
-
-            case XLOperator.EqualTo:
-                return DataValidationOperatorValues.Equal;
-
-            case XLOperator.GreaterThan:
-                return DataValidationOperatorValues.GreaterThan;
-
-            case XLOperator.LessThan:
-                return DataValidationOperatorValues.LessThan;
-
-            case XLOperator.NotBetween:
-                return DataValidationOperatorValues.NotBetween;
-
-            case XLOperator.NotEqualTo:
-                return DataValidationOperatorValues.NotEqual;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static SheetStateValues ToOpenXml(this XLWorksheetVisibility value)
+    public static SheetStateValues ToOpenXml(this XLWorksheetVisibility value) => value switch
     {
-        switch (value)
-        {
-            case XLWorksheetVisibility.Visible:
-                return SheetStateValues.Visible;
-
-            case XLWorksheetVisibility.Hidden:
-                return SheetStateValues.Hidden;
-
-            case XLWorksheetVisibility.VeryHidden:
-                return SheetStateValues.VeryHidden;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
+        XLWorksheetVisibility.Visible => SheetStateValues.Visible,
+        XLWorksheetVisibility.Hidden => SheetStateValues.Hidden,
+        XLWorksheetVisibility.VeryHidden => SheetStateValues.VeryHidden,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
     private static readonly string[] XLPhoneticAlignmentStrings =
     [
@@ -547,26 +263,14 @@ internal static class EnumConverter
     public static string ToOpenXmlString(this XLPhoneticAlignment value)
         => XLPhoneticAlignmentStrings[(int)value];
 
-    public static PhoneticValues ToOpenXml(this XLPhoneticType value)
+    public static PhoneticValues ToOpenXml(this XLPhoneticType value) => value switch
     {
-        switch (value)
-        {
-            case XLPhoneticType.FullWidthKatakana:
-                return PhoneticValues.FullWidthKatakana;
-
-            case XLPhoneticType.HalfWidthKatakana:
-                return PhoneticValues.HalfWidthKatakana;
-
-            case XLPhoneticType.Hiragana:
-                return PhoneticValues.Hiragana;
-
-            case XLPhoneticType.NoConversion:
-                return PhoneticValues.NoConversion;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
+        XLPhoneticType.FullWidthKatakana => PhoneticValues.FullWidthKatakana,
+        XLPhoneticType.HalfWidthKatakana => PhoneticValues.HalfWidthKatakana,
+        XLPhoneticType.Hiragana => PhoneticValues.Hiragana,
+        XLPhoneticType.NoConversion => PhoneticValues.NoConversion,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
     private static readonly string[] XLPhoneticTypeStrings =
     [
@@ -579,230 +283,170 @@ internal static class EnumConverter
     public static string ToOpenXmlString(this XLPhoneticType value)
         => XLPhoneticTypeStrings[(int)value];
 
-    public static DataConsolidateFunctionValues ToOpenXml(this XLPivotSummary value)
+    public static DataConsolidateFunctionValues ToOpenXml(this XLPivotSummary value) => value switch
     {
-        switch (value)
-        {
-            case XLPivotSummary.Sum: return DataConsolidateFunctionValues.Sum;
-            case XLPivotSummary.Count: return DataConsolidateFunctionValues.Count;
-            case XLPivotSummary.Average: return DataConsolidateFunctionValues.Average;
-            case XLPivotSummary.Minimum: return DataConsolidateFunctionValues.Minimum;
-            case XLPivotSummary.Maximum: return DataConsolidateFunctionValues.Maximum;
-            case XLPivotSummary.Product: return DataConsolidateFunctionValues.Product;
-            case XLPivotSummary.CountNumbers: return DataConsolidateFunctionValues.CountNumbers;
-            case XLPivotSummary.StandardDeviation: return DataConsolidateFunctionValues.StandardDeviation;
-            case XLPivotSummary.PopulationStandardDeviation: return DataConsolidateFunctionValues.StandardDeviationP;
-            case XLPivotSummary.Variance: return DataConsolidateFunctionValues.Variance;
-            case XLPivotSummary.PopulationVariance: return DataConsolidateFunctionValues.VarianceP;
+        XLPivotSummary.Sum => DataConsolidateFunctionValues.Sum,
+        XLPivotSummary.Count => DataConsolidateFunctionValues.Count,
+        XLPivotSummary.Average => DataConsolidateFunctionValues.Average,
+        XLPivotSummary.Minimum => DataConsolidateFunctionValues.Minimum,
+        XLPivotSummary.Maximum => DataConsolidateFunctionValues.Maximum,
+        XLPivotSummary.Product => DataConsolidateFunctionValues.Product,
+        XLPivotSummary.CountNumbers => DataConsolidateFunctionValues.CountNumbers,
+        XLPivotSummary.StandardDeviation => DataConsolidateFunctionValues.StandardDeviation,
+        XLPivotSummary.PopulationStandardDeviation => DataConsolidateFunctionValues.StandardDeviationP,
+        XLPivotSummary.Variance => DataConsolidateFunctionValues.Variance,
+        XLPivotSummary.PopulationVariance => DataConsolidateFunctionValues.VarianceP,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static ShowDataAsValues ToOpenXml(this XLPivotCalculation value)
+    public static ShowDataAsValues ToOpenXml(this XLPivotCalculation value) => value switch
     {
-        switch (value)
-        {
-            case XLPivotCalculation.Normal: return ShowDataAsValues.Normal;
-            case XLPivotCalculation.DifferenceFrom: return ShowDataAsValues.Difference;
-            case XLPivotCalculation.PercentageOf: return ShowDataAsValues.Percent;
-            case XLPivotCalculation.PercentageDifferenceFrom: return ShowDataAsValues.PercentageDifference;
-            case XLPivotCalculation.RunningTotal: return ShowDataAsValues.RunTotal;
-            case XLPivotCalculation.PercentageOfRow: return ShowDataAsValues.PercentOfRaw; // There's a typo in the OpenXML SDK =)
-            case XLPivotCalculation.PercentageOfColumn: return ShowDataAsValues.PercentOfColumn;
-            case XLPivotCalculation.PercentageOfTotal: return ShowDataAsValues.PercentOfTotal;
-            case XLPivotCalculation.Index: return ShowDataAsValues.Index;
+        XLPivotCalculation.Normal => ShowDataAsValues.Normal,
+        XLPivotCalculation.DifferenceFrom => ShowDataAsValues.Difference,
+        XLPivotCalculation.PercentageOf => ShowDataAsValues.Percent,
+        XLPivotCalculation.PercentageDifferenceFrom => ShowDataAsValues.PercentageDifference,
+        XLPivotCalculation.RunningTotal => ShowDataAsValues.RunTotal,
+        XLPivotCalculation.PercentageOfRow => ShowDataAsValues.PercentOfRaw, // There's a typo in the OpenXML SDK =)
+        XLPivotCalculation.PercentageOfColumn => ShowDataAsValues.PercentOfColumn,
+        XLPivotCalculation.PercentageOfTotal => ShowDataAsValues.PercentOfTotal,
+        XLPivotCalculation.Index => ShowDataAsValues.Index,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static FilterOperatorValues ToOpenXml(this XLFilterOperator value)
+    public static FilterOperatorValues ToOpenXml(this XLFilterOperator value) => value switch
     {
-        switch (value)
-        {
-            case XLFilterOperator.Equal: return FilterOperatorValues.Equal;
-            case XLFilterOperator.NotEqual: return FilterOperatorValues.NotEqual;
-            case XLFilterOperator.GreaterThan: return FilterOperatorValues.GreaterThan;
-            case XLFilterOperator.EqualOrGreaterThan: return FilterOperatorValues.GreaterThanOrEqual;
-            case XLFilterOperator.LessThan: return FilterOperatorValues.LessThan;
-            case XLFilterOperator.EqualOrLessThan: return FilterOperatorValues.LessThanOrEqual;
+        XLFilterOperator.Equal => FilterOperatorValues.Equal,
+        XLFilterOperator.NotEqual => FilterOperatorValues.NotEqual,
+        XLFilterOperator.GreaterThan => FilterOperatorValues.GreaterThan,
+        XLFilterOperator.EqualOrGreaterThan => FilterOperatorValues.GreaterThanOrEqual,
+        XLFilterOperator.LessThan => FilterOperatorValues.LessThan,
+        XLFilterOperator.EqualOrLessThan => FilterOperatorValues.LessThanOrEqual,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static DynamicFilterValues ToOpenXml(this XLFilterDynamicType value)
+    public static DynamicFilterValues ToOpenXml(this XLFilterDynamicType value) => value switch
     {
-        switch (value)
-        {
-            case XLFilterDynamicType.AboveAverage: return DynamicFilterValues.AboveAverage;
-            case XLFilterDynamicType.BelowAverage: return DynamicFilterValues.BelowAverage;
+        XLFilterDynamicType.AboveAverage => DynamicFilterValues.AboveAverage,
+        XLFilterDynamicType.BelowAverage => DynamicFilterValues.BelowAverage,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static DateTimeGroupingValues ToOpenXml(this XLDateTimeGrouping value)
+    public static DateTimeGroupingValues ToOpenXml(this XLDateTimeGrouping value) => value switch
     {
-        switch (value)
-        {
-            case XLDateTimeGrouping.Year: return DateTimeGroupingValues.Year;
-            case XLDateTimeGrouping.Month: return DateTimeGroupingValues.Month;
-            case XLDateTimeGrouping.Day: return DateTimeGroupingValues.Day;
-            case XLDateTimeGrouping.Hour: return DateTimeGroupingValues.Hour;
-            case XLDateTimeGrouping.Minute: return DateTimeGroupingValues.Minute;
-            case XLDateTimeGrouping.Second: return DateTimeGroupingValues.Second;
+        XLDateTimeGrouping.Year => DateTimeGroupingValues.Year,
+        XLDateTimeGrouping.Month => DateTimeGroupingValues.Month,
+        XLDateTimeGrouping.Day => DateTimeGroupingValues.Day,
+        XLDateTimeGrouping.Hour => DateTimeGroupingValues.Hour,
+        XLDateTimeGrouping.Minute => DateTimeGroupingValues.Minute,
+        XLDateTimeGrouping.Second => DateTimeGroupingValues.Second,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static SheetViewValues ToOpenXml(this XLSheetViewOptions value)
+    public static SheetViewValues ToOpenXml(this XLSheetViewOptions value) => value switch
     {
-        switch (value)
-        {
-            case XLSheetViewOptions.Normal: return SheetViewValues.Normal;
-            case XLSheetViewOptions.PageBreakPreview: return SheetViewValues.PageBreakPreview;
-            case XLSheetViewOptions.PageLayout: return SheetViewValues.PageLayout;
+        XLSheetViewOptions.Normal => SheetViewValues.Normal,
+        XLSheetViewOptions.PageBreakPreview => SheetViewValues.PageBreakPreview,
+        XLSheetViewOptions.PageLayout => SheetViewValues.PageLayout,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static Vml.StrokeLineStyleValues ToOpenXml(this XLLineStyle value)
+    public static Vml.StrokeLineStyleValues ToOpenXml(this XLLineStyle value) => value switch
     {
-        switch (value)
-        {
-            case XLLineStyle.Single: return Vml.StrokeLineStyleValues.Single;
-            case XLLineStyle.ThickBetweenThin: return Vml.StrokeLineStyleValues.ThickBetweenThin;
-            case XLLineStyle.ThickThin: return Vml.StrokeLineStyleValues.ThickThin;
-            case XLLineStyle.ThinThick: return Vml.StrokeLineStyleValues.ThinThick;
-            case XLLineStyle.ThinThin: return Vml.StrokeLineStyleValues.ThinThin;
+        XLLineStyle.Single => Vml.StrokeLineStyleValues.Single,
+        XLLineStyle.ThickBetweenThin => Vml.StrokeLineStyleValues.ThickBetweenThin,
+        XLLineStyle.ThickThin => Vml.StrokeLineStyleValues.ThickThin,
+        XLLineStyle.ThinThick => Vml.StrokeLineStyleValues.ThinThick,
+        XLLineStyle.ThinThin => Vml.StrokeLineStyleValues.ThinThin,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static ConditionalFormatValues ToOpenXml(this XLConditionalFormatType value)
+    public static ConditionalFormatValues ToOpenXml(this XLConditionalFormatType value) => value switch
     {
-        switch (value)
-        {
-            case XLConditionalFormatType.Expression: return ConditionalFormatValues.Expression;
-            case XLConditionalFormatType.CellIs: return ConditionalFormatValues.CellIs;
-            case XLConditionalFormatType.ColorScale: return ConditionalFormatValues.ColorScale;
-            case XLConditionalFormatType.DataBar: return ConditionalFormatValues.DataBar;
-            case XLConditionalFormatType.IconSet: return ConditionalFormatValues.IconSet;
-            case XLConditionalFormatType.Top10: return ConditionalFormatValues.Top10;
-            case XLConditionalFormatType.IsUnique: return ConditionalFormatValues.UniqueValues;
-            case XLConditionalFormatType.IsDuplicate: return ConditionalFormatValues.DuplicateValues;
-            case XLConditionalFormatType.ContainsText: return ConditionalFormatValues.ContainsText;
-            case XLConditionalFormatType.NotContainsText: return ConditionalFormatValues.NotContainsText;
-            case XLConditionalFormatType.StartsWith: return ConditionalFormatValues.BeginsWith;
-            case XLConditionalFormatType.EndsWith: return ConditionalFormatValues.EndsWith;
-            case XLConditionalFormatType.IsBlank: return ConditionalFormatValues.ContainsBlanks;
-            case XLConditionalFormatType.NotBlank: return ConditionalFormatValues.NotContainsBlanks;
-            case XLConditionalFormatType.IsError: return ConditionalFormatValues.ContainsErrors;
-            case XLConditionalFormatType.NotError: return ConditionalFormatValues.NotContainsErrors;
-            case XLConditionalFormatType.TimePeriod: return ConditionalFormatValues.TimePeriod;
-            case XLConditionalFormatType.AboveAverage: return ConditionalFormatValues.AboveAverage;
+        XLConditionalFormatType.Expression => ConditionalFormatValues.Expression,
+        XLConditionalFormatType.CellIs => ConditionalFormatValues.CellIs,
+        XLConditionalFormatType.ColorScale => ConditionalFormatValues.ColorScale,
+        XLConditionalFormatType.DataBar => ConditionalFormatValues.DataBar,
+        XLConditionalFormatType.IconSet => ConditionalFormatValues.IconSet,
+        XLConditionalFormatType.Top10 => ConditionalFormatValues.Top10,
+        XLConditionalFormatType.IsUnique => ConditionalFormatValues.UniqueValues,
+        XLConditionalFormatType.IsDuplicate => ConditionalFormatValues.DuplicateValues,
+        XLConditionalFormatType.ContainsText => ConditionalFormatValues.ContainsText,
+        XLConditionalFormatType.NotContainsText => ConditionalFormatValues.NotContainsText,
+        XLConditionalFormatType.StartsWith => ConditionalFormatValues.BeginsWith,
+        XLConditionalFormatType.EndsWith => ConditionalFormatValues.EndsWith,
+        XLConditionalFormatType.IsBlank => ConditionalFormatValues.ContainsBlanks,
+        XLConditionalFormatType.NotBlank => ConditionalFormatValues.NotContainsBlanks,
+        XLConditionalFormatType.IsError => ConditionalFormatValues.ContainsErrors,
+        XLConditionalFormatType.NotError => ConditionalFormatValues.NotContainsErrors,
+        XLConditionalFormatType.TimePeriod => ConditionalFormatValues.TimePeriod,
+        XLConditionalFormatType.AboveAverage => ConditionalFormatValues.AboveAverage,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static ConditionalFormatValueObjectValues ToOpenXml(this XLCFContentType value)
+    public static ConditionalFormatValueObjectValues ToOpenXml(this XLCFContentType value) => value switch
     {
-        switch (value)
-        {
-            case XLCFContentType.Number: return ConditionalFormatValueObjectValues.Number;
-            case XLCFContentType.Percent: return ConditionalFormatValueObjectValues.Percent;
-            case XLCFContentType.Maximum: return ConditionalFormatValueObjectValues.Max;
-            case XLCFContentType.Minimum: return ConditionalFormatValueObjectValues.Min;
-            case XLCFContentType.Formula: return ConditionalFormatValueObjectValues.Formula;
-            case XLCFContentType.Percentile: return ConditionalFormatValueObjectValues.Percentile;
+        XLCFContentType.Number => ConditionalFormatValueObjectValues.Number,
+        XLCFContentType.Percent => ConditionalFormatValueObjectValues.Percent,
+        XLCFContentType.Maximum => ConditionalFormatValueObjectValues.Max,
+        XLCFContentType.Minimum => ConditionalFormatValueObjectValues.Min,
+        XLCFContentType.Formula => ConditionalFormatValueObjectValues.Formula,
+        XLCFContentType.Percentile => ConditionalFormatValueObjectValues.Percentile,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static ConditionalFormattingOperatorValues ToOpenXml(this XLCFOperator value)
+    public static ConditionalFormattingOperatorValues ToOpenXml(this XLCFOperator value) => value switch
     {
-        switch (value)
-        {
-            case XLCFOperator.LessThan: return ConditionalFormattingOperatorValues.LessThan;
-            case XLCFOperator.EqualOrLessThan: return ConditionalFormattingOperatorValues.LessThanOrEqual;
-            case XLCFOperator.Equal: return ConditionalFormattingOperatorValues.Equal;
-            case XLCFOperator.NotEqual: return ConditionalFormattingOperatorValues.NotEqual;
-            case XLCFOperator.EqualOrGreaterThan: return ConditionalFormattingOperatorValues.GreaterThanOrEqual;
-            case XLCFOperator.GreaterThan: return ConditionalFormattingOperatorValues.GreaterThan;
-            case XLCFOperator.Between: return ConditionalFormattingOperatorValues.Between;
-            case XLCFOperator.NotBetween: return ConditionalFormattingOperatorValues.NotBetween;
-            case XLCFOperator.Contains: return ConditionalFormattingOperatorValues.ContainsText;
-            case XLCFOperator.NotContains: return ConditionalFormattingOperatorValues.NotContains;
-            case XLCFOperator.StartsWith: return ConditionalFormattingOperatorValues.BeginsWith;
-            case XLCFOperator.EndsWith: return ConditionalFormattingOperatorValues.EndsWith;
+        XLCFOperator.LessThan => ConditionalFormattingOperatorValues.LessThan,
+        XLCFOperator.EqualOrLessThan => ConditionalFormattingOperatorValues.LessThanOrEqual,
+        XLCFOperator.Equal => ConditionalFormattingOperatorValues.Equal,
+        XLCFOperator.NotEqual => ConditionalFormattingOperatorValues.NotEqual,
+        XLCFOperator.EqualOrGreaterThan => ConditionalFormattingOperatorValues.GreaterThanOrEqual,
+        XLCFOperator.GreaterThan => ConditionalFormattingOperatorValues.GreaterThan,
+        XLCFOperator.Between => ConditionalFormattingOperatorValues.Between,
+        XLCFOperator.NotBetween => ConditionalFormattingOperatorValues.NotBetween,
+        XLCFOperator.Contains => ConditionalFormattingOperatorValues.ContainsText,
+        XLCFOperator.NotContains => ConditionalFormattingOperatorValues.NotContains,
+        XLCFOperator.StartsWith => ConditionalFormattingOperatorValues.BeginsWith,
+        XLCFOperator.EndsWith => ConditionalFormattingOperatorValues.EndsWith,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static IconSetValues ToOpenXml(this XLIconSetStyle value)
+    public static IconSetValues ToOpenXml(this XLIconSetStyle value) => value switch
     {
-        switch (value)
-        {
-            case XLIconSetStyle.ThreeArrows: return IconSetValues.ThreeArrows;
-            case XLIconSetStyle.ThreeArrowsGray: return IconSetValues.ThreeArrowsGray;
-            case XLIconSetStyle.ThreeFlags: return IconSetValues.ThreeFlags;
-            case XLIconSetStyle.ThreeTrafficLights1: return IconSetValues.ThreeTrafficLights1;
-            case XLIconSetStyle.ThreeTrafficLights2: return IconSetValues.ThreeTrafficLights2;
-            case XLIconSetStyle.ThreeSigns: return IconSetValues.ThreeSigns;
-            case XLIconSetStyle.ThreeSymbols: return IconSetValues.ThreeSymbols;
-            case XLIconSetStyle.ThreeSymbols2: return IconSetValues.ThreeSymbols2;
-            case XLIconSetStyle.FourArrows: return IconSetValues.FourArrows;
-            case XLIconSetStyle.FourArrowsGray: return IconSetValues.FourArrowsGray;
-            case XLIconSetStyle.FourRedToBlack: return IconSetValues.FourRedToBlack;
-            case XLIconSetStyle.FourRating: return IconSetValues.FourRating;
-            case XLIconSetStyle.FourTrafficLights: return IconSetValues.FourTrafficLights;
-            case XLIconSetStyle.FiveArrows: return IconSetValues.FiveArrows;
-            case XLIconSetStyle.FiveArrowsGray: return IconSetValues.FiveArrowsGray;
-            case XLIconSetStyle.FiveRating: return IconSetValues.FiveRating;
-            case XLIconSetStyle.FiveQuarters: return IconSetValues.FiveQuarters;
+        XLIconSetStyle.ThreeArrows => IconSetValues.ThreeArrows,
+        XLIconSetStyle.ThreeArrowsGray => IconSetValues.ThreeArrowsGray,
+        XLIconSetStyle.ThreeFlags => IconSetValues.ThreeFlags,
+        XLIconSetStyle.ThreeTrafficLights1 => IconSetValues.ThreeTrafficLights1,
+        XLIconSetStyle.ThreeTrafficLights2 => IconSetValues.ThreeTrafficLights2,
+        XLIconSetStyle.ThreeSigns => IconSetValues.ThreeSigns,
+        XLIconSetStyle.ThreeSymbols => IconSetValues.ThreeSymbols,
+        XLIconSetStyle.ThreeSymbols2 => IconSetValues.ThreeSymbols2,
+        XLIconSetStyle.FourArrows => IconSetValues.FourArrows,
+        XLIconSetStyle.FourArrowsGray => IconSetValues.FourArrowsGray,
+        XLIconSetStyle.FourRedToBlack => IconSetValues.FourRedToBlack,
+        XLIconSetStyle.FourRating => IconSetValues.FourRating,
+        XLIconSetStyle.FourTrafficLights => IconSetValues.FourTrafficLights,
+        XLIconSetStyle.FiveArrows => IconSetValues.FiveArrows,
+        XLIconSetStyle.FiveArrowsGray => IconSetValues.FiveArrowsGray,
+        XLIconSetStyle.FiveRating => IconSetValues.FiveRating,
+        XLIconSetStyle.FiveQuarters => IconSetValues.FiveQuarters,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static TimePeriodValues ToOpenXml(this XLTimePeriod value)
+    public static TimePeriodValues ToOpenXml(this XLTimePeriod value) => value switch
     {
-        switch (value)
-        {
-            case XLTimePeriod.Yesterday: return TimePeriodValues.Yesterday;
-            case XLTimePeriod.Today: return TimePeriodValues.Today;
-            case XLTimePeriod.Tomorrow: return TimePeriodValues.Tomorrow;
-            case XLTimePeriod.InTheLast7Days: return TimePeriodValues.Last7Days;
-            case XLTimePeriod.LastWeek: return TimePeriodValues.LastWeek;
-            case XLTimePeriod.ThisWeek: return TimePeriodValues.ThisWeek;
-            case XLTimePeriod.NextWeek: return TimePeriodValues.NextWeek;
-            case XLTimePeriod.LastMonth: return TimePeriodValues.LastMonth;
-            case XLTimePeriod.ThisMonth: return TimePeriodValues.ThisMonth;
-            case XLTimePeriod.NextMonth: return TimePeriodValues.NextMonth;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
+        XLTimePeriod.Yesterday => TimePeriodValues.Yesterday,
+        XLTimePeriod.Today => TimePeriodValues.Today,
+        XLTimePeriod.Tomorrow => TimePeriodValues.Tomorrow,
+        XLTimePeriod.InTheLast7Days => TimePeriodValues.Last7Days,
+        XLTimePeriod.LastWeek => TimePeriodValues.LastWeek,
+        XLTimePeriod.ThisWeek => TimePeriodValues.ThisWeek,
+        XLTimePeriod.NextWeek => TimePeriodValues.NextWeek,
+        XLTimePeriod.LastMonth => TimePeriodValues.LastMonth,
+        XLTimePeriod.ThisMonth => TimePeriodValues.ThisMonth,
+        XLTimePeriod.NextMonth => TimePeriodValues.NextMonth,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
     private static readonly IReadOnlyDictionary<XLPictureFormat, PartTypeInfo> PictureFormatMap =
         new Dictionary<XLPictureFormat, PartTypeInfo>
@@ -825,108 +469,58 @@ internal static class EnumConverter
         return PictureFormatMap[value];
     }
 
-    public static Xdr.EditAsValues ToOpenXml(this XLPicturePlacement value)
+    public static Xdr.EditAsValues ToOpenXml(this XLPicturePlacement value) => value switch
     {
-        switch (value)
-        {
-            case XLPicturePlacement.FreeFloating:
-                return Xdr.EditAsValues.Absolute;
+        XLPicturePlacement.FreeFloating => Xdr.EditAsValues.Absolute,
+        XLPicturePlacement.Move => Xdr.EditAsValues.OneCell,
+        XLPicturePlacement.MoveAndSize => Xdr.EditAsValues.TwoCell,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            case XLPicturePlacement.Move:
-                return Xdr.EditAsValues.OneCell;
-
-            case XLPicturePlacement.MoveAndSize:
-                return Xdr.EditAsValues.TwoCell;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static PivotAreaValues ToOpenXml(this XLPivotAreaType value)
+    public static PivotAreaValues ToOpenXml(this XLPivotAreaType value) => value switch
     {
-        switch (value)
-        {
-            case XLPivotAreaType.None:
-                return PivotAreaValues.None;
+        XLPivotAreaType.None => PivotAreaValues.None,
+        XLPivotAreaType.Normal => PivotAreaValues.Normal,
+        XLPivotAreaType.Data => PivotAreaValues.Data,
+        XLPivotAreaType.All => PivotAreaValues.All,
+        XLPivotAreaType.Origin => PivotAreaValues.Origin,
+        XLPivotAreaType.Button => PivotAreaValues.Button,
+        XLPivotAreaType.TopRight => PivotAreaValues.TopRight,
+        XLPivotAreaType.TopEnd => PivotAreaValues.TopEnd,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "XLPivotAreaValues value not implemented"),
+    };
 
-            case XLPivotAreaType.Normal:
-                return PivotAreaValues.Normal;
-
-            case XLPivotAreaType.Data:
-                return PivotAreaValues.Data;
-
-            case XLPivotAreaType.All:
-                return PivotAreaValues.All;
-
-            case XLPivotAreaType.Origin:
-                return PivotAreaValues.Origin;
-
-            case XLPivotAreaType.Button:
-                return PivotAreaValues.Button;
-
-            case XLPivotAreaType.TopRight:
-                return PivotAreaValues.TopRight;
-
-            case XLPivotAreaType.TopEnd:
-                return PivotAreaValues.TopEnd;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "XLPivotAreaValues value not implemented");
-        }
-    }
-
-    public static X14.SparklineTypeValues ToOpenXml(this XLSparklineType value)
+    public static X14.SparklineTypeValues ToOpenXml(this XLSparklineType value) => value switch
     {
-        switch (value)
-        {
-            case XLSparklineType.Line: return X14.SparklineTypeValues.Line;
-            case XLSparklineType.Column: return X14.SparklineTypeValues.Column;
-            case XLSparklineType.Stacked: return X14.SparklineTypeValues.Stacked;
+        XLSparklineType.Line => X14.SparklineTypeValues.Line,
+        XLSparklineType.Column => X14.SparklineTypeValues.Column,
+        XLSparklineType.Stacked => X14.SparklineTypeValues.Stacked,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static X14.SparklineAxisMinMaxValues ToOpenXml(this XLSparklineAxisMinMax value)
+    public static X14.SparklineAxisMinMaxValues ToOpenXml(this XLSparklineAxisMinMax value) => value switch
     {
-        switch (value)
-        {
-            case XLSparklineAxisMinMax.Automatic: return X14.SparklineAxisMinMaxValues.Individual;
-            case XLSparklineAxisMinMax.SameForAll: return X14.SparklineAxisMinMaxValues.Group;
-            case XLSparklineAxisMinMax.Custom: return X14.SparklineAxisMinMaxValues.Custom;
+        XLSparklineAxisMinMax.Automatic => X14.SparklineAxisMinMaxValues.Individual,
+        XLSparklineAxisMinMax.SameForAll => X14.SparklineAxisMinMaxValues.Group,
+        XLSparklineAxisMinMax.Custom => X14.SparklineAxisMinMaxValues.Custom,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static X14.DisplayBlanksAsValues ToOpenXml(this XLDisplayBlanksAsValues value)
+    public static X14.DisplayBlanksAsValues ToOpenXml(this XLDisplayBlanksAsValues value) => value switch
     {
-        switch (value)
-        {
-            case XLDisplayBlanksAsValues.Interpolate: return X14.DisplayBlanksAsValues.Span;
-            case XLDisplayBlanksAsValues.NotPlotted: return X14.DisplayBlanksAsValues.Gap;
-            case XLDisplayBlanksAsValues.Zero: return X14.DisplayBlanksAsValues.Zero;
+        XLDisplayBlanksAsValues.Interpolate => X14.DisplayBlanksAsValues.Span,
+        XLDisplayBlanksAsValues.NotPlotted => X14.DisplayBlanksAsValues.Gap,
+        XLDisplayBlanksAsValues.Zero => X14.DisplayBlanksAsValues.Zero,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
-
-    public static FieldSortValues ToOpenXml(this XLPivotSortType value)
+    public static FieldSortValues ToOpenXml(this XLPivotSortType value) => value switch
     {
-        switch (value)
-        {
-            case XLPivotSortType.Default: return FieldSortValues.Manual;
-            case XLPivotSortType.Ascending: return FieldSortValues.Ascending;
-            case XLPivotSortType.Descending: return FieldSortValues.Descending;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
+        XLPivotSortType.Default => FieldSortValues.Manual,
+        XLPivotSortType.Ascending => FieldSortValues.Ascending,
+        XLPivotSortType.Descending => FieldSortValues.Descending,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
     #endregion To OpenXml
 
@@ -1137,23 +731,13 @@ internal static class EnumConverter
         return ReferenceModeMap[value];
     }
 
-    public static XLAlignmentReadingOrderValues ToClosedXml(this uint value)
+    public static XLAlignmentReadingOrderValues ToClosedXml(this uint value) => value switch
     {
-        switch (value)
-        {
-            case 0:
-                return XLAlignmentReadingOrderValues.ContextDependent;
-
-            case 1:
-                return XLAlignmentReadingOrderValues.LeftToRight;
-
-            case 2:
-                return XLAlignmentReadingOrderValues.RightToLeft;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
-        }
-    }
+        0 => XLAlignmentReadingOrderValues.ContextDependent,
+        1 => XLAlignmentReadingOrderValues.LeftToRight,
+        2 => XLAlignmentReadingOrderValues.RightToLeft,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+    };
 
     private static readonly IReadOnlyDictionary<TotalsRowFunctionValues, XLTotalsRowFunction> TotalsRowFunctionMap =
         new Dictionary<TotalsRowFunctionValues, XLTotalsRowFunction>
