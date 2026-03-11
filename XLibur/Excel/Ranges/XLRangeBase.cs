@@ -291,7 +291,8 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
             var firstCellStyleKey = ((XLStyle)firstCell.Style).Key;
             var firstCellStyle = firstCell.Style;
             var defaultStyleKey = XLStyle.Default.Key;
-            var cellsUsed = CellsUsed(XLCellsUsedOptions.All & ~XLCellsUsedOptions.MergedRanges, c => !c.Equals(firstCell))
+            var cellsUsed = CellsUsed(XLCellsUsedOptions.All & ~XLCellsUsedOptions.MergedRanges,
+                    c => !c.Equals(firstCell))
                 .ToList();
 
             cellsUsed.ForEach(c => c.Clear(XLClearOptions.All
@@ -308,12 +309,16 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
                     cellsUsed.ForEach(c => set(c.Style, value));
             }
 
-            ApplyStyleProp(firstCellStyleKey.Alignment != defaultStyleKey.Alignment,                   firstCellStyle.Alignment,          (s, v) => s.Alignment = v);
-            ApplyStyleProp(firstCellStyleKey.Fill != defaultStyleKey.Fill,                             firstCellStyle.Fill,               (s, v) => s.Fill = v);
-            ApplyStyleProp(firstCellStyleKey.Font != defaultStyleKey.Font,                             firstCellStyle.Font,               (s, v) => s.Font = v);
-            ApplyStyleProp(firstCellStyleKey.IncludeQuotePrefix != defaultStyleKey.IncludeQuotePrefix, firstCellStyle.IncludeQuotePrefix, (s, v) => s.IncludeQuotePrefix = v);
-            ApplyStyleProp(firstCellStyleKey.NumberFormat != defaultStyleKey.NumberFormat,             firstCellStyle.NumberFormat,       (s, v) => s.NumberFormat = v);
-            ApplyStyleProp(firstCellStyleKey.Protection != defaultStyleKey.Protection,                 firstCellStyle.Protection,         (s, v) => s.Protection = v);
+            ApplyStyleProp(firstCellStyleKey.Alignment != defaultStyleKey.Alignment, firstCellStyle.Alignment,
+                (s, v) => s.Alignment = v);
+            ApplyStyleProp(firstCellStyleKey.Fill != defaultStyleKey.Fill, firstCellStyle.Fill, (s, v) => s.Fill = v);
+            ApplyStyleProp(firstCellStyleKey.Font != defaultStyleKey.Font, firstCellStyle.Font, (s, v) => s.Font = v);
+            ApplyStyleProp(firstCellStyleKey.IncludeQuotePrefix != defaultStyleKey.IncludeQuotePrefix,
+                firstCellStyle.IncludeQuotePrefix, (s, v) => s.IncludeQuotePrefix = v);
+            ApplyStyleProp(firstCellStyleKey.NumberFormat != defaultStyleKey.NumberFormat, firstCellStyle.NumberFormat,
+                (s, v) => s.NumberFormat = v);
+            ApplyStyleProp(firstCellStyleKey.Protection != defaultStyleKey.Protection, firstCellStyle.Protection,
+                (s, v) => s.Protection = v);
 
             if (cellsUsed.Any(c => ((XLStyle)c.Style).Key.Border != defaultStyleKey.Border))
                 asRange.Style.Border.SetInsideBorder(XLBorderStyleValues.None);
@@ -721,9 +726,9 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
                 $"The cells {newFirstCellAddress} and {newLastCellAddress} are outside the range '{ToString()}'.");
         }
 
-        if (newFirstCellAddress.Worksheet != null)
-            return newFirstCellAddress.Worksheet.GetOrCreateRange(xlRangeParameters);
-        return Worksheet != null ? Worksheet.GetOrCreateRange(xlRangeParameters) : new XLRange(xlRangeParameters);
+        return newFirstCellAddress.Worksheet != null
+            ? newFirstCellAddress.Worksheet.GetOrCreateRange(xlRangeParameters)
+            : Worksheet.GetOrCreateRange(xlRangeParameters);
     }
 
     public XLRange Range(string firstCellAddress, string lastCellAddress)

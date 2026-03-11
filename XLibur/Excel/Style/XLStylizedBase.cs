@@ -105,6 +105,11 @@ internal abstract class XLStylizedBase : IXLStylized
 
     private static HashSet<XLStylizedBase> GetChildrenRecursively(XLStylizedBase parent)
     {
+        var results = new HashSet<XLStylizedBase>();
+        Collect(parent, results);
+
+        return results;
+
         void Collect(XLStylizedBase root, HashSet<XLStylizedBase> collector)
         {
             collector.Add(root);
@@ -113,11 +118,6 @@ internal abstract class XLStylizedBase : IXLStylized
                 Collect(child, collector);
             }
         }
-
-        var results = new HashSet<XLStylizedBase>();
-        Collect(parent, results);
-
-        return results;
     }
 
     #endregion Private methods
