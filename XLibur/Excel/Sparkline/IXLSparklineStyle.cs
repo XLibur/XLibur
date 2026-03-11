@@ -2,6 +2,7 @@
 
 
 
+
 namespace XLibur.Excel;
 
 public interface IXLSparklineStyle

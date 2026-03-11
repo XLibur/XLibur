@@ -386,7 +386,7 @@ public partial class XLWorkbook : IXLWorkbook
     /// </summary>
     public void Save()
     {
-        Save(false, false);
+        Save(false);
     }
 
     /// <summary>
@@ -421,11 +421,7 @@ public partial class XLWorkbook : IXLWorkbook
     /// </summary>
     public void SaveAs(string file)
     {
-#if DEBUG
-        SaveAs(file, true, false);
-#else
-            SaveAs(file, false, false);
-#endif
+        SaveAs(file, false);
     }
 
     /// <summary>
@@ -457,7 +453,7 @@ public partial class XLWorkbook : IXLWorkbook
         }
         else if (_loadSource == XLLoadSource.File)
         {
-            if (string.Compare(_originalFile.Trim(), file.Trim(), true) != 0)
+            if (String.Compare(_originalFile.Trim(), file.Trim(), StringComparison.OrdinalIgnoreCase) != 0)
             {
                 File.Copy(_originalFile, file, true);
                 File.SetAttributes(file, FileAttributes.Normal);
@@ -517,11 +513,7 @@ public partial class XLWorkbook : IXLWorkbook
     /// </summary>
     public void SaveAs(Stream stream)
     {
-#if DEBUG
-        SaveAs(stream, true, false);
-#else
-            SaveAs(stream, false, false);
-#endif
+        SaveAs(stream, false);
     }
 
     /// <summary>
@@ -836,7 +828,7 @@ public partial class XLWorkbook : IXLWorkbook
     {
         var namedRange = DefinedName(namedCell);
         return namedRange != null
-            ? namedRange.Ranges?.FirstOrDefault()?.FirstCell()
+            ? namedRange.Ranges.FirstOrDefault()?.FirstCell()
             : CellFromFullAddress(namedCell, out _);
     }
 

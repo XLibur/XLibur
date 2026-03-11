@@ -1,14 +1,15 @@
-using XLibur.Excel;
-using XLibur.Excel.Drawings;
-using NUnit.Framework;
 using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using ClosedXML.Excel;
+using ClosedXML.Excel.Drawings;
+using NUnit.Framework;
 
-namespace XLibur.Tests;
+namespace ClosedXML.Tests.Excel.Worksheets;
 
 [TestFixture]
+// ReSharper disable once InconsistentNaming
 public class XLWorksheetTests
 {
     private static readonly char[] IllegalWorksheetCharacters = "\0\u0003:\\/?*[]".ToCharArray();
@@ -536,11 +537,11 @@ public class XLWorksheetTests
 
         return;
 
-        void AssertStylesAreEqual(IXLWorksheet ws1, IXLWorksheet ws2)
+        void AssertStylesAreEqual(IXLWorksheet ws1Assert, IXLWorksheet ws2)
         {
-            Assert.AreEqual((ws1.Style as XLStyle).Value, (ws2.Style as XLStyle).Value,
+            Assert.AreEqual((ws1Assert.Style as XLStyle)!.Value, (ws2.Style as XLStyle)!.Value,
                 "Worksheet styles differ");
-            var cellsUsed = ws1.Range(ws1.FirstCell(), ws1.LastCellUsed()).Cells();
+            var cellsUsed = ws1Assert.Range(ws1Assert.FirstCell(), ws1Assert.LastCellUsed()).Cells();
             foreach (var cell in cellsUsed)
             {
                 var style1 = (cell.Style as XLStyle).Value;
@@ -686,33 +687,32 @@ public class XLWorksheetTests
         using var imageStream = Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable))
             .GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg");
         using var wb1 = new XLWorkbook();
+
+        var ws1 = wb1.Worksheets.Add("Original");
+
+        ws1.AddPicture(imageStream, "MyPicture")
+            .WithPlacement(XLPicturePlacement.FreeFloating)
+            .MoveTo(50, 50)
+            .WithSize(200, 200);
+
+        using (var wb2 = new XLWorkbook())
         {
-            var ws1 = wb1.Worksheets.Add("Original");
+            var ws2 = ws1.CopyTo(wb2, "Copy");
+            AssertPicturesAreEqual(ws1, ws2);
+            wb2.SaveAs(ms);
+        }
 
-            var picture = ws1.AddPicture(imageStream, "MyPicture")
-                .WithPlacement(XLPicturePlacement.FreeFloating)
-                .MoveTo(50, 50)
-                .WithSize(200, 200);
-
-            using (var wb2 = new XLWorkbook())
-            {
-                var ws2 = ws1.CopyTo(wb2, "Copy");
-                AssertPicturesAreEqual(ws1, ws2);
-                wb2.SaveAs(ms);
-            }
-
-            using (var wb2 = new XLWorkbook(ms))
-            {
-                var ws2 = wb2.Worksheet("Copy");
-                AssertPicturesAreEqual(ws1, ws2);
-            }
+        using (var wb2 = new XLWorkbook(ms))
+        {
+            var ws2 = wb2.Worksheet("Copy");
+            AssertPicturesAreEqual(ws1, ws2);
         }
 
         void AssertPicturesAreEqual(IXLWorksheet ws1, IXLWorksheet ws2)
         {
-            Assert.AreEqual(ws1.Pictures.Count(), ws2.Pictures.Count());
+            Assert.AreEqual(ws1.Pictures.Count, ws2.Pictures.Count);
 
-            for (var i = 0; i < ws1.Pictures.Count(); i++)
+            for (var i = 0; i < ws1.Pictures.Count; i++)
             {
                 var original = ws1.Pictures.ElementAt(i);
                 var copy = ws2.Pictures.ElementAt(i);
@@ -738,37 +738,36 @@ public class XLWorksheetTests
         using var ms = new MemoryStream();
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
         using var wb = new XLWorkbook(stream);
+
+        var ws1 = wb.Worksheet("pvt1");
+        var copyOfws1 = ws1.CopyTo("CopyOfPvt1");
+
+        AssertPivotTablesAreEqual(ws1, copyOfws1);
+
+        using (var wb2 = new XLWorkbook())
         {
-            var ws1 = wb.Worksheet("pvt1");
-            var copyOfws1 = ws1.CopyTo("CopyOfPvt1");
-
-            AssertPivotTablesAreEqual(ws1, copyOfws1);
-
-            using (var wb2 = new XLWorkbook())
-            {
-                // We need to  copy the source too. Cross workbook references don't work yet.
-                wb.Worksheet("PastrySalesData").CopyTo(wb2);
-                var ws2 = ws1.CopyTo(wb2, "Copy");
-                AssertPivotTablesAreEqual(ws1, ws2);
-                wb2.SaveAs(ms);
-            }
-
-            using (var wb2 = new XLWorkbook(ms))
-            {
-                var ws2 = wb2.Worksheet("Copy");
-                AssertPivotTablesAreEqual(ws1, ws2);
-            }
+            // We need to  copy the source too. Cross workbook references don't work yet.
+            wb.Worksheet("PastrySalesData").CopyTo(wb2);
+            var ws2 = ws1.CopyTo(wb2, "Copy");
+            AssertPivotTablesAreEqual(ws1, ws2);
+            wb2.SaveAs(ms);
         }
 
-        void AssertPivotTablesAreEqual(IXLWorksheet ws1, IXLWorksheet ws2)
+        using (var wb2 = new XLWorkbook(ms))
         {
-            Assert.AreEqual(ws1.PivotTables.Count(), ws2.PivotTables.Count());
+            var ws2 = wb2.Worksheet("Copy");
+            AssertPivotTablesAreEqual(ws1, ws2);
+        }
+
+        void AssertPivotTablesAreEqual(IXLWorksheet ws1Assert, IXLWorksheet ws2)
+        {
+            Assert.AreEqual(ws1Assert.PivotTables.Count(), ws2.PivotTables.Count());
 
             var comparer = new PivotTableComparer();
 
-            for (var i = 0; i < ws1.PivotTables.Count(); i++)
+            for (var i = 0; i < ws1Assert.PivotTables.Count(); i++)
             {
-                var original = ws1.PivotTables.ElementAt(i).CastTo<XLPivotTable>();
+                var original = ws1Assert.PivotTables.ElementAt(i).CastTo<XLPivotTable>();
                 var copy = ws2.PivotTables.ElementAt(i).CastTo<XLPivotTable>();
 
                 Assert.AreEqual(ws2, copy.Worksheet);
@@ -960,6 +959,7 @@ public class XLWorksheetTests
     }
 
     [Test]
+    // ReSharper disable once InconsistentNaming
     public void RangesFromDeletedWorksheetContainREF()
     {
         using var wb1 = new XLWorkbook();
@@ -1187,7 +1187,7 @@ public class XLWorksheetTests
         ws.Cell(1, 100).SetValue(5);
 
         var column = ws.FirstColumnUsed(options);
-        Assert.AreEqual(expectedColumn, column.ColumnNumber());
+        Assert.AreEqual(expectedColumn, column!.ColumnNumber());
     }
 
     [Test]

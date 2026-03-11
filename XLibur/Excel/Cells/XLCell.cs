@@ -1606,9 +1606,9 @@ internal sealed partial class XLCell : XLStylizedBase, IXLCell, IXLStylized
                 else
                     sheetName = worksheetInAction.Name;
 
-                if (string.Compare(sheetName, shiftedRange.Worksheet.Name, true) == 0)
+                if (String.Compare(sheetName, shiftedRange.Worksheet.Name, StringComparison.OrdinalIgnoreCase) == 0)
                 {
-                    var rangeAddress = matchString.Substring(matchString.IndexOf('!') + 1);
+                    var rangeAddress = matchString[(matchString.IndexOf('!') + 1)..];
                     if (!A1RowRegex.IsMatch(rangeAddress))
                     {
                         var matchRange = worksheetInAction.Workbook.Worksheet(sheetName).Range(rangeAddress);

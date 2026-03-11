@@ -5,7 +5,7 @@ namespace XLibur.Examples;
 
 public class StyleExamples
 {
-    public static void Create()
+    public void Create()
     {
         var path = Program.BaseCreatedDirectory;
         new StyleFont().Create(Path.Combine(path, "styleFont.xlsx"));

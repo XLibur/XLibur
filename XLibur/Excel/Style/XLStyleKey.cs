@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+namespace ClosedXML.Excel;
 
 internal readonly record struct XLStyleKey
 {

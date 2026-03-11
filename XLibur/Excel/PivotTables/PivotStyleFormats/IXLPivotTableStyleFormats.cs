@@ -1,5 +1,5 @@
 
-namespace XLibur.Excel;
+namespace ClosedXML.Excel;
 
 /// <summary>
 /// An API for modifying the pivot table styles that affect whole <see cref="IXLPivotTable"/>.

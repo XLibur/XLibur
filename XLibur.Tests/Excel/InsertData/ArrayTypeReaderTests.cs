@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
-using XLibur.Excel.InsertData;
+using ClosedXML.Excel.InsertData;
 using NUnit.Framework;
 using System.Linq;
-using XLibur.Excel;
+using ClosedXML.Excel;
 
 namespace XLibur.Tests.Excel.InsertData;
 

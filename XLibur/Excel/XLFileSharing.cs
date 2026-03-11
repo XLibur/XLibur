@@ -1,5 +1,6 @@
 
 
+
 namespace XLibur.Excel;
 
 internal class XLFileSharing : IXLFileSharing

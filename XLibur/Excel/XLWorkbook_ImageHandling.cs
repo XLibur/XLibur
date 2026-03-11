@@ -6,7 +6,7 @@ using DocumentFormat.OpenXml.Packaging;
 using System;
 using System.Linq;
 
-namespace XLibur.Excel;
+namespace ClosedXML.Excel;
 
 public partial class XLWorkbook
 {
@@ -14,7 +14,7 @@ public partial class XLWorkbook
     {
         var matchingAnchor = drawingsPart.WorksheetDrawing
             .Where(wsdr => wsdr.Descendants<BlipFill>()
-                .Any(x => x?.Blip?.Embed?.Value.Equals(relId) ?? false)
+                .Any(x => x.Blip?.Embed?.Value?.Equals(relId) ?? false)
             );
         return matchingAnchor.FirstOrDefault();
     }

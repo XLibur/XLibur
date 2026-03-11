@@ -1,5 +1,5 @@
 
-using XLibur.Excel;
+using ClosedXML.Excel;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
@@ -374,8 +374,8 @@ internal static class OpenXmlHelper
     /// </summary>
     /// <param name="openXMLColor">OpenXML color. Must be either <see cref="ColorType"/> or <see cref="X14.ColorType"/>.
     /// Since these types do not implement a common interface, we use dynamic.</param>
-    /// <returns>The color in XLibur format.</returns>
-    private static XLColor ConvertToXLiburColor(IColorTypeAdapter openXMLColor)
+    /// <returns>The color in ClosedXML format.</returns>
+    private static XLColor ConvertToClosedXMLColor(IColorTypeAdapter openXMLColor)
     {
         XLColor? retVal = null;
         if (openXMLColor.Rgb?.Value is not null)

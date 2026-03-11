@@ -2,6 +2,7 @@
 
 
 using System;
+using System.Globalization;
 
 namespace XLibur.Excel;
 
@@ -30,6 +31,6 @@ public class XLTimeCriteria : XLValidationCriteria
 
     private static string GetXLTime(TimeSpan value)
     {
-        return (value.TotalHours / 24.0).ToString();
+        return (value.TotalHours / 24.0).ToString(CultureInfo.InvariantCulture);
     }
 }

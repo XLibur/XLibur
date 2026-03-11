@@ -20,23 +20,20 @@ internal abstract class XLStylizedBase : IXLStylized
     internal virtual XLStyleValue StyleValue { get; private protected set; }
 
     /// <inheritdoc cref="IXLStylized.StyleValue"/>
-    XLStyleValue IXLStylized.StyleValue
-    {
-        get { return StyleValue; }
-    }
+    XLStyleValue IXLStylized.StyleValue => StyleValue;
 
     /// <inheritdoc cref="IXLStylized.Style"/>
     public IXLStyle Style
     {
-        get { return InnerStyle; }
-        set { SetStyle(value, true); }
+        get => InnerStyle;
+        set => SetStyle(value, true);
     }
 
     /// <inheritdoc cref="IXLStylized.InnerStyle"/>
     public IXLStyle InnerStyle
     {
-        get { return new XLStyle(this, StyleValue.Key); }
-        set { SetStyle(value, false); }
+        get => new XLStyle(this, StyleValue.Key);
+        set => SetStyle(value);
     }
 
     /// <summary>
@@ -55,7 +52,7 @@ internal abstract class XLStylizedBase : IXLStylized
 
     protected XLStylizedBase()
     {
-        // Ctor only for XLCell that stores `StyleValue` in a slice. 
+        // Ctor only for XLCell that stores `StyleValue` in a slice.
     }
 
     #region Private methods

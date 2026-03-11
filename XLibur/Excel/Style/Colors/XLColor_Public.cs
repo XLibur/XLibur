@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Globalization;
 
 namespace XLibur.Excel;
 
@@ -119,7 +120,7 @@ public partial class XLColor : IEquatable<XLColor>
             return Color.ToHex();
 
         if (ColorType == XLColorType.Theme)
-            return $"Color Theme: {ThemeColor.ToString()}, Tint: {ThemeTint.ToString()}";
+            return $"Color Theme: {ThemeColor.ToString()}, Tint: {ThemeTint.ToString(CultureInfo.InvariantCulture)}";
 
         return "Color Index: " + Indexed;
     }

@@ -1,6 +1,6 @@
 #nullable disable
 
-namespace XLibur.Excel;
+namespace ClosedXML.Excel;
 
 /// <summary>
 /// Enum describing how is a pivot field values (i.e. in data area) displayed.

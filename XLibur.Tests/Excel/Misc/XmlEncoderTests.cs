@@ -1,9 +1,9 @@
 using System.IO;
-using XLibur.Excel;
-using XLibur.Utils;
+using ClosedXML.Excel;
+using ClosedXML.Utils;
 using NUnit.Framework;
 
-namespace XLibur.Tests.Excel.Misc;
+namespace ClosedXML.Tests.Excel.Misc;
 
 [TestFixture]
 public class XmlEncoderTest

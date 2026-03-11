@@ -1,6 +1,6 @@
 #nullable disable
 
-namespace XLibur.Excel;
+namespace ClosedXML.Excel;
 
 public interface IXLMargins
 {

@@ -247,8 +247,8 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
                     {
                         case XLDataType.Text:
                             comparison = e.MatchCase
-                                ? thisCell.GetText().CompareTo(otherCell.GetText())
-                                : string.Compare(thisCell.GetText(), otherCell.GetText(), true);
+                                ? string.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.Ordinal)
+                                : string.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.OrdinalIgnoreCase);
                             break;
 
                         case XLDataType.TimeSpan:
@@ -274,9 +274,9 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
                 else if (thisCell.Value.IsUnifiedNumber && otherCell.Value.IsUnifiedNumber)
                     comparison = thisCell.Value.GetUnifiedNumber().CompareTo(otherCell.Value.GetUnifiedNumber());
                 else if (e.MatchCase)
-                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), true);
+                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.OrdinalIgnoreCase);
                 else
-                    comparison = thisCell.GetString().CompareTo(otherCell.GetString());
+                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.Ordinal);
             }
 
             if (comparison != 0)

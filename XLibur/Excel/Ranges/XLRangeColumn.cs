@@ -255,8 +255,8 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
                     else if (thisCell.DataType == XLDataType.Text)
                     {
                         comparison = e.MatchCase
-                            ? thisCell.GetText().CompareTo(otherCell.GetText())
-                            : string.Compare(thisCell.GetText(), otherCell.GetText(), true);
+                            ? String.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.Ordinal)
+                            : String.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.OrdinalIgnoreCase);
                     }
                     else if (thisCell.DataType == XLDataType.Error)
                         comparison = 0; // Errors are incomparable
@@ -264,9 +264,9 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
                         comparison = thisCell.CachedValue.GetUnifiedNumber().CompareTo(thisCell.CachedValue.GetUnifiedNumber());
                 }
                 else if (e.MatchCase)
-                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), true);
+                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.OrdinalIgnoreCase);
                 else
-                    comparison = thisCell.GetString().CompareTo(otherCell.GetString());
+                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.Ordinal);
             }
 
             if (comparison != 0)

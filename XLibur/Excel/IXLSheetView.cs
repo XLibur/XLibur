@@ -1,7 +1,7 @@
 #nullable disable
 
 
-namespace XLibur.Excel;
+namespace ClosedXML.Excel;
 
 public enum XLSheetViewOptions { Normal, PageBreakPreview, PageLayout }
 

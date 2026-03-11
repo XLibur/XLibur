@@ -561,7 +561,7 @@ internal class XLMatrix
     public static string NormalizeMatrixString(string matStr) // From Andy - thank you! :)
     {
         // Remove any multiple spaces
-        while (matStr.IndexOf("  ") != -1)
+        while (matStr.IndexOf("  ", StringComparison.Ordinal) != -1)
             matStr = matStr.Replace("  ", " ");
 
         // Remove any spaces before or after newlines
@@ -572,14 +572,12 @@ internal class XLMatrix
         // Make it easier by first replacing \r\n’s with |’s then
         // restore the |’s with \r\n’s
         matStr = matStr.Replace("\r\n", "|");
-        while (matStr.LastIndexOf("|") == (matStr.Length - 1))
-            matStr = matStr.Substring(0, matStr.Length - 1);
+        while (matStr.LastIndexOf('|') == matStr.Length - 1)
+            matStr = matStr[..^1];
 
         matStr = matStr.Replace("|", "\r\n");
         return matStr;
     }
-
-    //   O P E R A T O R S
 
     public static XLMatrix operator -(XLMatrix m)
     {

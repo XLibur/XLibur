@@ -1,9 +1,9 @@
 ﻿using System;
-using XLibur.Excel;
+using ClosedXML.Excel;
 using DocumentFormat.OpenXml;
 using NUnit.Framework;
 
-namespace XLibur.Tests.Excel.Misc;
+namespace ClosedXML.Tests.Excel.Misc;
 
 [TestFixture]
 public class ExtensionsTests

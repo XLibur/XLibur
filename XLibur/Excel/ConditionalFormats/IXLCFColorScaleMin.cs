@@ -1,6 +1,6 @@
 #nullable disable
 
-namespace XLibur.Excel;
+namespace ClosedXML.Excel;
 
 public enum XLCFContentType { Number, Percent, Formula, Percentile, Minimum, Maximum }
 public interface IXLCFColorScaleMin

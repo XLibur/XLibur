@@ -1,5 +1,5 @@
-using XLibur.Excel;
-using static XLibur.Excel.XLProtectionAlgorithm;
+using ClosedXML.Excel;
+using static ClosedXML.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Examples.Misc;
 
@@ -44,7 +44,7 @@ public class SheetProtection : IXLExample
 
         // Protect a sheet with a password
         var protectedSheet = wb.Worksheets.Add("Protected Password = 123");
-        var protection = protectedSheet.Protect("123", Algorithm.SimpleHash);
+        var protection = protectedSheet.Protect("123");
         protection.AllowElement
         (
             XLSheetProtectionElements.InsertRows

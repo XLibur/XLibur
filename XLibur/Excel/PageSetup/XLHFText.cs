@@ -71,7 +71,7 @@ internal class XLHFText
                 sb.Append("&E");
         }
 
-        var lastColorPosition = prevText.LastIndexOf("&K");
+        var lastColorPosition = prevText.LastIndexOf("&K", StringComparison.Ordinal);
 
         if (
             (lastColorPosition >= 0 && !RichText.FontColor.Equals(XLColor.FromHtml("#" + prevText.Substring(lastColorPosition + 2, 6))))

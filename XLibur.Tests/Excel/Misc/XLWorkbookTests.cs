@@ -1,10 +1,10 @@
 using System;
 using System.IO;
 using System.Linq;
-using XLibur.Excel;
+using ClosedXML.Excel;
 using NUnit.Framework;
 
-namespace XLibur.Tests.Excel.Misc;
+namespace ClosedXML.Tests.Excel.Misc;
 
 [TestFixture]
 // ReSharper disable once InconsistentNaming

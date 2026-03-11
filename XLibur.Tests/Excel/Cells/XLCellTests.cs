@@ -712,7 +712,7 @@ public class XLCellTests
     [Test]
     public void CurrentRegion()
     {
-        // Partially based on sample in https://github.com/XLibur/XLibur/issues/120
+        // Partially based on sample in https://github.com/ClosedXML/ClosedXML/issues/120
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 

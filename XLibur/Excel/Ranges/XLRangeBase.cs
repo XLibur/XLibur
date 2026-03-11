@@ -486,7 +486,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
     public bool Contains(string rangeAddress)
     {
         var addressToUse = rangeAddress.Contains("!")
-            ? rangeAddress[(rangeAddress.IndexOf("!") + 1)..]
+            ? rangeAddress[(rangeAddress.IndexOf("!", StringComparison.Ordinal) + 1)..]
             : rangeAddress;
 
         XLAddress firstAddress;

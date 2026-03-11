@@ -2,6 +2,9 @@
 
 
 using System;
+using static ClosedXML.Excel.XLProtectionAlgorithm;
+
+using System;
 using static XLibur.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Excel;

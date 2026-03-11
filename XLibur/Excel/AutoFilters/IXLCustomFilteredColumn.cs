@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+namespace ClosedXML.Excel;
 
 public interface IXLCustomFilteredColumn
 {

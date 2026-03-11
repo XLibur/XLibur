@@ -344,7 +344,7 @@ public class XLPivotTableTests
         using var ms = new MemoryStream();
         TestHelper.CreateAndCompare(() =>
         {
-            // Based on .\XLibur\XLibur.Examples\PivotTables\PivotTables.cs
+            // Based on .\ClosedXML\ClosedXML.Examples\PivotTables\PivotTables.cs
             // But with empty column for Month
             var pastries = new List<Pastry>
             {
@@ -698,7 +698,7 @@ public class XLPivotTableTests
     [Test]
     public void ClearPivotTableRenderedRange()
     {
-        // https://github.com/XLibur/XLibur/pull/856
+        // https://github.com/ClosedXML/ClosedXML/pull/856
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\PivotTableReferenceFiles\ClearPivotTableRenderedRangeWhenLoading\inputfile.xlsx"));
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook(stream))

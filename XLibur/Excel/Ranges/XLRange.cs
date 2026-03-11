@@ -276,7 +276,7 @@ internal class XLRange : XLRangeBase, IXLRange
 
     public XLTable CreateTable()
     {
-        return (XLTable)Worksheet.Table(this, true, true);
+        return (XLTable)Worksheet.Table(this, true);
     }
 
     IXLTable IXLRange.CreateTable(string name)
@@ -286,7 +286,7 @@ internal class XLRange : XLRangeBase, IXLRange
 
     public XLTable CreateTable(string name)
     {
-        return (XLTable)Worksheet.Table(this, name, true, true);
+        return (XLTable)Worksheet.Table(this, name, true);
     }
 
     public IXLTable CreateTable(string name, bool setAutofilter)

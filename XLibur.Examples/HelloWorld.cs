@@ -1,10 +1,10 @@
-using XLibur.Excel;
+using ClosedXML.Excel;
 
 namespace XLibur.Examples;
 
 public class HelloWorld
 {
-    public static void Create(string filePath)
+    public void Create(string filePath)
     {
         var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Sample Sheet");

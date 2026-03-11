@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.IO.Packaging;
+using ClosedXML.Tests.Utils;
 
 namespace XLibur.Tests;
 

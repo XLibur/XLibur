@@ -4,8 +4,8 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using XLibur.Excel.Drawings;
-using XLibur.Utils;
+using ClosedXML.Excel.Drawings;
+using ClosedXML.Utils;
 
 namespace XLibur.Graphics;
 

@@ -259,7 +259,7 @@ public class InsertingRangesTests
     [Test]
     public void MergedRangesConsistencyWhenInsertingRows()
     {
-        // https://github.com/XLibur/XLibur/issues/1013
+        // https://github.com/ClosedXML/ClosedXML/issues/1013
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 

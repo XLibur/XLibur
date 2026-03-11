@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel;
+﻿namespace ClosedXML.Excel;
 
 /// <summary>
 /// <see cref="XLReference"/> that includes a sheet. It can represent cell

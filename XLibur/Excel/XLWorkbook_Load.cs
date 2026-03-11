@@ -586,7 +586,7 @@ public partial class XLWorkbook
         var roundUpToMultiple = defaultColWidthPx + (8 - defaultColWidthPx % 8);
 
         // and last convert the width in pixels to width displayed in Excel. Shouldn't round the number, because
-        // it causes inconsistency with conversion to other units, but other places in XLibur do = keep for now.
+        // it causes inconsistency with conversion to other units, but other places in ClosedXML do = keep for now.
         var defaultColumnWidth = XLHelper.PixelToNoC(roundUpToMultiple, mdw).Round(2);
         return defaultColumnWidth;
     }
@@ -616,10 +616,10 @@ public partial class XLWorkbook
                 var spPr = anchor.Descendants<Xdr.ShapeProperties>().First();
                 picture.Placement = XLPicturePlacement.FreeFloating;
 
-                if (spPr?.Transform2D?.Extents?.Cx.HasValue ?? false)
+                if (spPr.Transform2D?.Extents?.Cx?.HasValue ?? false)
                     picture.Width = ConvertFromEnglishMetricUnits(spPr.Transform2D.Extents.Cx, ws.Workbook.DpiX);
 
-                if (spPr?.Transform2D?.Extents?.Cy.HasValue ?? false)
+                if (spPr.Transform2D?.Extents?.Cy?.HasValue ?? false)
                     picture.Height = ConvertFromEnglishMetricUnits(spPr.Transform2D.Extents.Cy, ws.Workbook.DpiY);
 
                 if (anchor is Xdr.AbsoluteAnchor absoluteAnchor)
@@ -2188,7 +2188,7 @@ public partial class XLWorkbook
             {
                 var negativeFillColor = conditionalFormattingRule
                     .Descendants<DocumentFormat.OpenXml.Office2010.Excel.NegativeFillColor>().SingleOrDefault();
-                xlConditionalFormat.Colors.Add(negativeFillColor.ToXLiburColor());
+                xlConditionalFormat.Colors.Add(negativeFillColor.ToClosedXMLColor());
             }
         }
 
@@ -2203,13 +2203,13 @@ public partial class XLWorkbook
 
             var xlSparklineStyle = xlSparklineGroup.Style;
             if (slg.FirstMarkerColor != null)
-                xlSparklineStyle.FirstMarkerColor = slg.FirstMarkerColor.ToXLiburColor();
-            if (slg.LastMarkerColor != null) xlSparklineStyle.LastMarkerColor = slg.LastMarkerColor.ToXLiburColor();
-            if (slg.HighMarkerColor != null) xlSparklineStyle.HighMarkerColor = slg.HighMarkerColor.ToXLiburColor();
-            if (slg.LowMarkerColor != null) xlSparklineStyle.LowMarkerColor = slg.LowMarkerColor.ToXLiburColor();
-            if (slg.SeriesColor != null) xlSparklineStyle.SeriesColor = slg.SeriesColor.ToXLiburColor();
-            if (slg.NegativeColor != null) xlSparklineStyle.NegativeColor = slg.NegativeColor.ToXLiburColor();
-            if (slg.MarkersColor != null) xlSparklineStyle.MarkersColor = slg.MarkersColor.ToXLiburColor();
+                xlSparklineStyle.FirstMarkerColor = slg.FirstMarkerColor.ToClosedXMLColor();
+            if (slg.LastMarkerColor != null) xlSparklineStyle.LastMarkerColor = slg.LastMarkerColor.ToClosedXMLColor();
+            if (slg.HighMarkerColor != null) xlSparklineStyle.HighMarkerColor = slg.HighMarkerColor.ToClosedXMLColor();
+            if (slg.LowMarkerColor != null) xlSparklineStyle.LowMarkerColor = slg.LowMarkerColor.ToClosedXMLColor();
+            if (slg.SeriesColor != null) xlSparklineStyle.SeriesColor = slg.SeriesColor.ToClosedXMLColor();
+            if (slg.NegativeColor != null) xlSparklineStyle.NegativeColor = slg.NegativeColor.ToClosedXMLColor();
+            if (slg.MarkersColor != null) xlSparklineStyle.MarkersColor = slg.MarkersColor.ToClosedXMLColor();
             xlSparklineGroup.Style = xlSparklineStyle;
 
             if (slg.DisplayHidden != null) xlSparklineGroup.DisplayHidden = slg.DisplayHidden;

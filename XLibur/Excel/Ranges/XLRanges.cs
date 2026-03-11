@@ -50,7 +50,7 @@ internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
         if (_styleInitialized)
             return;
 
-        var worksheetStyle = range?.Worksheet?.Style;
+        var worksheetStyle = range.Worksheet?.Style;
         if (worksheetStyle == null)
             return;
 

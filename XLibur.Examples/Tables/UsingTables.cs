@@ -1,4 +1,4 @@
-using XLibur.Excel;
+using ClosedXML.Excel;
 using System.IO;
 
 namespace XLibur.Examples.Tables;
