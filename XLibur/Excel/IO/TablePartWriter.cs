@@ -153,7 +153,7 @@ internal sealed class TablePartWriter
             else
                 xlTable.AutoFilter.Range = xlTable.Worksheet.Range(xlTable.RangeAddress);
 
-            WorksheetPartWriter.PopulateAutoFilter(xlTable.AutoFilter, autoFilter1);
+            AutoFilterWriter.PopulateAutoFilter(xlTable.AutoFilter, autoFilter1);
 
             table.AppendChild(autoFilter1);
         }
