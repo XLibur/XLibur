@@ -29,7 +29,7 @@ namespace ClosedXML.Excel
                 TimeSpan ts => ts.ToString("c", CultureInfo.InvariantCulture),
                 DateTime d => d.ToString(CultureInfo.InvariantCulture),
                 bool b => b.ToString().ToLowerInvariant(),
-                _ => value.ToString(),
+                _ => value.ToString()!,
             };
         }
     }

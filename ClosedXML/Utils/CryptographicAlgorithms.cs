@@ -56,12 +56,19 @@ namespace ClosedXML.Utils
 
         public static string GetSalt(int length = 32)
         {
-            using (var random = new RNGCryptoServiceProvider())
+            var salt = new byte[length];
+            RandomNumberGenerator.Fill(salt);
+            // Ensure no zero bytes (matching previous RNGCryptoServiceProvider.GetNonZeroBytes behavior)
+            Span<byte> singleByte = stackalloc byte[1];
+            for (int i = 0; i < salt.Length; i++)
             {
-                var salt = new byte[length];
-                random.GetNonZeroBytes(salt);
-                return Convert.ToBase64String(salt);
+                while (salt[i] == 0)
+                {
+                    RandomNumberGenerator.Fill(singleByte);
+                    salt[i] = singleByte[0];
+                }
             }
+            return Convert.ToBase64String(salt);
         }
 
         public static Boolean RequiresSalt(Algorithm algorithm)
@@ -120,7 +127,7 @@ namespace ClosedXML.Utils
             var bytes = saltBytes.Concat(passwordBytes).ToArray();
 
             byte[] hashedBytes;
-            using (var hash = new SHA512Managed())
+            using (var hash = SHA512.Create())
             {
                 hashedBytes = hash.ComputeHash(bytes);
 

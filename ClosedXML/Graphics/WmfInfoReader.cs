@@ -43,7 +43,7 @@ namespace ClosedXML.Graphics
         protected override XLPictureInfo ReadInfo(Stream stream)
         {
             Span<byte> header = stackalloc byte[22];
-            stream.Read(header);
+            stream.ReadExactly(header);
             var hasPlaceableHeader = header[0] == 0xD7;
             if (hasPlaceableHeader)
             {

@@ -89,7 +89,7 @@ namespace ClosedXML.Excel
         {
             return _sparklineGroups
                 .Select(g => g.GetSparkline(cell))
-                .FirstOrDefault(s => s != null);
+                .FirstOrDefault(s => s != null)!;
         }
 
         /// <summary>

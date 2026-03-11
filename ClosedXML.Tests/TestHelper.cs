@@ -260,6 +260,8 @@ namespace ClosedXML.Tests
         /// </summary>
         /// <param name="createWorksheet">Code to create a workbook.</param>
         /// <param name="assertLoadedWorkbook">Method to assert that workbook was loaded correctly.</param>
+        /// <param name="validate">Whether to validate the workbook on save.</param>
+        /// <param name="evaluateFormulas">Whether to evaluate formulas on save.</param>
         public static void CreateSaveLoadAssert(Action<XLWorkbook, IXLWorksheet> createWorksheet, Action<XLWorkbook, IXLWorksheet> assertLoadedWorkbook, bool validate = true, bool evaluateFormulas = false)
         {
             using var ms = new MemoryStream();

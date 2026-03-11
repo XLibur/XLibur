@@ -122,7 +122,7 @@ internal class XLNumberFormat : IXLNumberFormat
         return NumberFormatId + "-" + Format;
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         return Equals(obj as IXLNumberFormatBase);
     }

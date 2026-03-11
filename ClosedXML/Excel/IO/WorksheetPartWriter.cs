@@ -230,7 +230,7 @@ namespace ClosedXML.Excel.IO
                 split = PaneValues.TopRight;
             else if (ySplit != 0 && hSplit == 0)
                 split = PaneValues.BottomLeft;
-            else if (ySplit != 0 && hSplit != 0)
+            else
                 split = PaneValues.BottomRight;
 
             pane.ActivePane = split;

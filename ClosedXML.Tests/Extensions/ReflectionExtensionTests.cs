@@ -8,6 +8,7 @@ namespace ClosedXML.Tests.Extensions
 {
     public class ReflectionExtensionTests
     {
+#pragma warning disable CS0067 // Event is never used — members exist for reflection tests
         private class TestClass
         {
             static TestClass()
@@ -15,7 +16,7 @@ namespace ClosedXML.Tests.Extensions
             }
 
             public static int StaticProperty { get; set; }
-            public static int StaticField;
+            public static int StaticField = 0;
 
             public static event EventHandler<EventArgs> StaticEvent;
 
@@ -30,7 +31,7 @@ namespace ClosedXML.Tests.Extensions
             }
 
             public int InstanceProperty { get; set; }
-            public int InstanceField;
+            public int InstanceField = 0;
 
             public event EventHandler<EventArgs> InstanceEvent;
 
@@ -38,6 +39,7 @@ namespace ClosedXML.Tests.Extensions
             {
             }
         }
+#pragma warning restore CS0067
 
         [TestCase(nameof(TestClass.StaticProperty), true)]
         [TestCase(nameof(TestClass.StaticField), true)]

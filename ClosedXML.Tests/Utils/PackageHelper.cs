@@ -269,7 +269,6 @@ namespace ClosedXML.Tests
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <param name="compareToFirstDifference"></param>
-        /// <param name="excludeMethod"></param>
         /// <param name="message"></param>
         public static bool Compare(Package left, Package right, bool compareToFirstDifference, out string message)
         {
