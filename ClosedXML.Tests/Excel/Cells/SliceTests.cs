@@ -61,62 +61,62 @@ namespace ClosedXML.Tests.Excel.Cells
         public void Keeps_Track_Of_Used_Rows()
         {
             var slice = new Slice<int>();
-            Assert.IsEmpty(slice.UsedRows);
+            Assert.That(slice.UsedRows, Is.Empty);
 
             slice.Set(new XLSheetPoint(1, 1), 1);
-            CollectionAssert.AreEquivalent(new[] { 1 }, slice.UsedRows);
+            Assert.That(slice.UsedRows, Is.EquivalentTo(new[] { 1 }));
 
             slice.Set(new XLSheetPoint(70, 1), 1);
-            CollectionAssert.AreEquivalent(new[] { 1, 70 }, slice.UsedRows);
+            Assert.That(slice.UsedRows, Is.EquivalentTo(new[] { 1, 70 }));
 
             slice.Set(new XLSheetPoint(35, 1), 1);
-            CollectionAssert.AreEquivalent(new[] { 1, 35, 70 }, slice.UsedRows);
+            Assert.That(slice.UsedRows, Is.EquivalentTo(new[] { 1, 35, 70 }));
 
             slice.Set(new XLSheetPoint(35, 2), 1);
-            CollectionAssert.AreEquivalent(new[] { 1, 35, 70 }, slice.UsedRows);
+            Assert.That(slice.UsedRows, Is.EquivalentTo(new[] { 1, 35, 70 }));
 
             slice.Set(new XLSheetPoint(35, 1), 0);
-            CollectionAssert.AreEquivalent(new[] { 1, 35, 70 }, slice.UsedRows);
+            Assert.That(slice.UsedRows, Is.EquivalentTo(new[] { 1, 35, 70 }));
 
             slice.Set(new XLSheetPoint(35, 2), 0);
-            CollectionAssert.AreEquivalent(new[] { 1, 70 }, slice.UsedRows);
+            Assert.That(slice.UsedRows, Is.EquivalentTo(new[] { 1, 70 }));
 
             slice.Set(new XLSheetPoint(1, 1), 0);
-            CollectionAssert.AreEquivalent(new[] { 70 }, slice.UsedRows);
+            Assert.That(slice.UsedRows, Is.EquivalentTo(new[] { 70 }));
 
             slice.Set(new XLSheetPoint(70, 1), 0);
-            Assert.IsEmpty(slice.UsedRows);
+            Assert.That(slice.UsedRows, Is.Empty);
         }
 
         [Test]
         public void Keeps_Track_Of_Used_Columns()
         {
             var slice = new Slice<int>();
-            Assert.IsEmpty(slice.UsedColumns);
+            Assert.That(slice.UsedColumns, Is.Empty);
 
             slice.Set(new XLSheetPoint(1, 5), 1);
-            CollectionAssert.AreEquivalent(new[] { 5 }, slice.UsedColumns);
+            Assert.That(slice.UsedColumns, Is.EquivalentTo(new[] { 5 }));
 
             slice.Set(new XLSheetPoint(1, 750), 1);
-            CollectionAssert.AreEquivalent(new[] { 5, 750 }, slice.UsedColumns);
+            Assert.That(slice.UsedColumns, Is.EquivalentTo(new[] { 5, 750 }));
 
             slice.Set(new XLSheetPoint(1, 90), 1);
-            CollectionAssert.AreEquivalent(new[] { 5, 90, 750 }, slice.UsedColumns);
+            Assert.That(slice.UsedColumns, Is.EquivalentTo(new[] { 5, 90, 750 }));
 
             slice.Set(new XLSheetPoint(2, 5), 1);
-            CollectionAssert.AreEquivalent(new[] { 5, 90, 750 }, slice.UsedColumns);
+            Assert.That(slice.UsedColumns, Is.EquivalentTo(new[] { 5, 90, 750 }));
 
             slice.Set(new XLSheetPoint(1, 5), 0);
-            CollectionAssert.AreEquivalent(new[] { 5, 90, 750 }, slice.UsedColumns);
+            Assert.That(slice.UsedColumns, Is.EquivalentTo(new[] { 5, 90, 750 }));
 
             slice.Set(new XLSheetPoint(2, 5), 0);
-            CollectionAssert.AreEquivalent(new[] { 90, 750 }, slice.UsedColumns);
+            Assert.That(slice.UsedColumns, Is.EquivalentTo(new[] { 90, 750 }));
 
             slice.Set(new XLSheetPoint(1, 750), 0);
-            CollectionAssert.AreEquivalent(new[] { 90 }, slice.UsedColumns);
+            Assert.That(slice.UsedColumns, Is.EquivalentTo(new[] { 90 }));
 
             slice.Set(new XLSheetPoint(1, 90), 0);
-            Assert.IsEmpty(slice.UsedColumns);
+            Assert.That(slice.UsedColumns, Is.Empty);
         }
 
         [Test]

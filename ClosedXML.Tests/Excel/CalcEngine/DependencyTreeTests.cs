@@ -16,7 +16,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         public void Area_dependencies_are_extracted_from_formula(string formula, IReadOnlyList<XLBookArea> expectedAreas)
         {
             var dependencies = GetDependencies(formula);
-            CollectionAssert.AreEquivalent(expectedAreas, dependencies.Areas);
+            Assert.That(dependencies.Areas, Is.EquivalentTo(expectedAreas));
         }
 
         [Test]
@@ -24,7 +24,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         public void Name_dependencies_are_kept_for_dependencies_update(string formula, IReadOnlyList<XLName> expectedNames)
         {
             var dependencies = GetDependencies(formula);
-            CollectionAssert.AreEquivalent(expectedNames, dependencies.Names);
+            Assert.That(dependencies.Names, Is.EquivalentTo(expectedNames));
         }
 
         [Test]
@@ -34,13 +34,13 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             {
                 wb.DefinedNames.Add("name", "Sheet!$B$4+Sheet!$C$6");
             });
-            CollectionAssert.AreEquivalent(new XLBookArea[]
+            Assert.That(dependencies.Areas, Is.EquivalentTo(new XLBookArea[]
             {
                 new("Sheet", XLSheetRange.Parse("D2")),
                 new("Sheet", XLSheetRange.Parse("B4")),
                 new("Sheet", XLSheetRange.Parse("C6"))
-            }, dependencies.Areas);
-            CollectionAssert.AreEquivalent(new[] { new XLName("name") }, dependencies.Names);
+            }));
+            Assert.That(dependencies.Names, Is.EquivalentTo(new[] { new XLName("name") }));
         }
 
         [Test]
@@ -50,11 +50,11 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             {
                 wb.DefinedNames.Add("name", "Sheet!$D$7");
             });
-            CollectionAssert.AreEquivalent(new XLBookArea[]
+            Assert.That(dependencies.Areas, Is.EquivalentTo(new XLBookArea[]
             {
                 new("Sheet", XLSheetRange.Parse("B3:D7")),
-            }, dependencies.Areas);
-            CollectionAssert.AreEquivalent(new[] { new XLName("name") }, dependencies.Names);
+            }));
+            Assert.That(dependencies.Names, Is.EquivalentTo(new[] { new XLName("name") }));
         }
 
         [Test]
@@ -65,12 +65,12 @@ namespace ClosedXML.Tests.Excel.CalcEngine
                 wb.DefinedNames.Add("outer", "Sheet!$D$7 + inner");
                 wb.DefinedNames.Add("inner", "Sheet!$B$1");
             });
-            CollectionAssert.AreEquivalent(new XLBookArea[]
+            Assert.That(dependencies.Areas, Is.EquivalentTo(new XLBookArea[]
             {
                 new("Sheet", XLSheetRange.Parse("D7")),
                 new("Sheet", XLSheetRange.Parse("B1")),
-            }, dependencies.Areas);
-            CollectionAssert.AreEquivalent(new[] { new XLName("outer"), new XLName("inner") }, dependencies.Names);
+            }));
+            Assert.That(dependencies.Names, Is.EquivalentTo(new[] { new XLName("outer"), new XLName("inner") }));
         }
 
         [Test]
@@ -80,8 +80,8 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             {
                 wb.DefinedNames.Add("name", "1+3");
             });
-            CollectionAssert.IsEmpty(dependencies.Areas);
-            CollectionAssert.AreEquivalent(new[] { new XLName("name") }, dependencies.Names);
+            Assert.That(dependencies.Areas, Is.Empty);
+            Assert.That(dependencies.Names, Is.EquivalentTo(new[] { new XLName("name") }));
         }
 
         [Test]
@@ -95,11 +95,11 @@ namespace ClosedXML.Tests.Excel.CalcEngine
                 wb.Worksheet("Sheet").DefinedNames.Add("name", "Sheet!$A$1");
                 wb.DefinedNames.Add("name", "Sheet!$B$10");
             });
-            CollectionAssert.AreEquivalent(new XLBookArea[]
+            Assert.That(dependencies.Areas, Is.EquivalentTo(new XLBookArea[]
             {
                 new("Sheet", XLSheetRange.Parse("A1"))
-            }, dependencies.Areas);
-            CollectionAssert.AreEquivalent(new[] { new XLName("name") }, dependencies.Names);
+            }));
+            Assert.That(dependencies.Names, Is.EquivalentTo(new[] { new XLName("name") }));
         }
 
         [Test]
@@ -110,11 +110,11 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             {
                 wb.DefinedNames.Add("name", "Sheet!B4"); // equivalent of R[3]C[2]
             });
-            CollectionAssert.AreEquivalent(new XLBookArea[]
+            Assert.That(dependencies.Areas, Is.EquivalentTo(new XLBookArea[]
             {
                 new("Sheet", XLSheetRange.Parse("F7")), // D4 (formula cell) + R[3]C[2] (name relative reference) = F7
-            }, dependencies.Areas);
-            CollectionAssert.AreEquivalent(new[] { new XLName("name") }, dependencies.Names);
+            }));
+            Assert.That(dependencies.Names, Is.EquivalentTo(new[] { new XLName("name") }));
         }
 
         #endregion

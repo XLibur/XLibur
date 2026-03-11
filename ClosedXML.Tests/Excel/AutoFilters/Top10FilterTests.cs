@@ -25,7 +25,7 @@ namespace ClosedXML.Tests.Excel.AutoFilters
                 {
                     ws.AutoFilter.Reapply();
                     var filterResult = ws.Rows("2:7").Select(row => !row.IsHidden);
-                    CollectionAssert.AreEqual(new[] { true, true, false, false, false, true }, filterResult);
+                    Assert.That(filterResult, Is.EqualTo(new[] { true, true, false, false, false, true }));
                 });
         }
 
@@ -140,7 +140,7 @@ namespace ClosedXML.Tests.Excel.AutoFilters
                 else
                     filterColumn.Bottom(value);
             })!;
-            StringAssert.Contains("Value must be between 1 and 500.", ex.Message);
+            Assert.That(ex.Message, Does.Contain("Value must be between 1 and 500."));
         }
     }
 }

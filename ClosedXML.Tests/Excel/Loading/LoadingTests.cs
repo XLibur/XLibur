@@ -190,12 +190,12 @@ namespace ClosedXML.Tests.Excel
 
                 var subtotals = pt.RowLabels.Get("Group").Subtotals.ToArray();
 
-                CollectionAssert.AreEquivalent(new[]
+                Assert.That(subtotals, Is.EquivalentTo(new[]
                 {
                     XLSubtotalFunction.Average,
                     XLSubtotalFunction.Count,
                     XLSubtotalFunction.Sum,
-                }, subtotals);
+                }));
             }
         }
 

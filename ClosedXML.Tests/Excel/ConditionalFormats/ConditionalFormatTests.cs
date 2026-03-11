@@ -135,7 +135,7 @@ namespace ClosedXML.Tests.Excel.ConditionalFormats
             {
                 var cf = ws.ConditionalFormats.Single(cf => cf.ConditionalFormatType == XLConditionalFormatType.CellIs && cf.Operator == cfOperator);
                 Assert.AreEqual(expectedFormulas.Length, cf.Values.Count);
-                CollectionAssert.AreEqual(expectedFormulas, cf.Values.Select(v => v.Value.Value));
+                Assert.That(cf.Values.Select(v => v.Value.Value), Is.EqualTo(expectedFormulas));
             }
         }
 
@@ -156,7 +156,7 @@ namespace ClosedXML.Tests.Excel.ConditionalFormats
             {
                 var cf = ws.ConditionalFormats.Single(cf => cf.ConditionalFormatType == XLConditionalFormatType.Expression && cf.Range.RangeAddress.ToString() == range);
                 Assert.AreEqual(1, cf.Values.Count);
-                CollectionAssert.AreEqual(expectedFormula, cf.Values[1].Value);
+                Assert.That(cf.Values[1].Value, Is.EqualTo(expectedFormula));
             }
         }
     }

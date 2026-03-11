@@ -51,13 +51,13 @@ namespace ClosedXML.Tests.Extensions
         public void SkipLast_skips_last_element_of_enumerable()
         {
             var empty = Array.Empty<int>().SkipLast();
-            CollectionAssert.IsEmpty(empty);
+            Assert.That(empty, Is.Empty);
 
             var oneElement = new[] { 1 }.SkipLast();
-            CollectionAssert.IsEmpty(oneElement);
+            Assert.That(oneElement, Is.Empty);
 
             var twoElements = new[] { 1, 2 }.SkipLast();
-            CollectionAssert.AreEqual(new[] { 1 }, twoElements);
+            Assert.That(twoElements, Is.EqualTo(new[] { 1 }));
         }
 
         [Test]
@@ -67,7 +67,7 @@ namespace ClosedXML.Tests.Extensions
 
             var result = source.WhereNotNull(x => x);
 
-            CollectionAssert.AreEqual(new[] { 1, 2 }, result);
+            Assert.That(result, Is.EqualTo(new[] { 1, 2 }));
         }
     }
 }
