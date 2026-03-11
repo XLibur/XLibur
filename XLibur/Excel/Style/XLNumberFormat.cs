@@ -6,20 +6,16 @@ internal sealed class XLNumberFormat : IXLNumberFormat
 {
     #region Static members
 
-    internal static XLNumberFormatKey GenerateKey(IXLNumberFormat? defaultNumberFormat)
+    internal static XLNumberFormatKey GenerateKey(IXLNumberFormat? defaultNumberFormat) => defaultNumberFormat switch
     {
-        if (defaultNumberFormat == null)
-            return XLNumberFormatValue.Default.Key;
-
-        if (defaultNumberFormat is XLNumberFormat format)
-            return format.Key;
-
-        return new XLNumberFormatKey
+        null => XLNumberFormatValue.Default.Key,
+        XLNumberFormat format => format.Key,
+        _ => new XLNumberFormatKey
         {
             NumberFormatId = defaultNumberFormat.NumberFormatId,
             Format = defaultNumberFormat.Format
-        };
-    }
+        },
+    };
 
     #endregion Static members
 

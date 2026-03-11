@@ -240,16 +240,15 @@ internal static class DrawingPartReader
             var lineStyle = stroke.Attribute("linestyle");
             if (lineStyle != null)
             {
-                var lineStyleVal = lineStyle.Value.ToLower();
-                switch (lineStyleVal)
+                drawing.Style.ColorsAndLines.LineStyle = lineStyle.Value.ToLower() switch
                 {
-                    case "single": drawing.Style.ColorsAndLines.LineStyle = XLLineStyle.Single; break;
-                    case "thickbetweenthin":
-                        drawing.Style.ColorsAndLines.LineStyle = XLLineStyle.ThickBetweenThin; break;
-                    case "thickthin": drawing.Style.ColorsAndLines.LineStyle = XLLineStyle.ThickThin; break;
-                    case "thinthick": drawing.Style.ColorsAndLines.LineStyle = XLLineStyle.ThinThick; break;
-                    case "thinthin": drawing.Style.ColorsAndLines.LineStyle = XLLineStyle.ThinThin; break;
-                }
+                    "single" => XLLineStyle.Single,
+                    "thickbetweenthin" => XLLineStyle.ThickBetweenThin,
+                    "thickthin" => XLLineStyle.ThickThin,
+                    "thinthick" => XLLineStyle.ThinThick,
+                    "thinthin" => XLLineStyle.ThinThin,
+                    _ => drawing.Style.ColorsAndLines.LineStyle,
+                };
             }
         }
     }

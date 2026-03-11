@@ -9,14 +9,11 @@ internal sealed class XLStyle : IXLStyle
 
     public static XLStyle Default => new(XLStyleValue.Default);
 
-    internal static XLStyleKey GenerateKey(IXLStyle? initialStyle)
+    internal static XLStyleKey GenerateKey(IXLStyle? initialStyle) => initialStyle switch
     {
-        if (initialStyle == null)
-            return Default.Key;
-        if (initialStyle is XLStyle style)
-            return style.Key;
-
-        return new XLStyleKey
+        null => Default.Key,
+        XLStyle style => style.Key,
+        _ => new XLStyleKey
         {
             Alignment = XLAlignment.GenerateKey(initialStyle.Alignment),
             Border = XLBorder.GenerateKey(initialStyle.Border),
@@ -25,8 +22,8 @@ internal sealed class XLStyle : IXLStyle
             IncludeQuotePrefix = initialStyle.IncludeQuotePrefix,
             NumberFormat = XLNumberFormat.GenerateKey(initialStyle.NumberFormat),
             Protection = XLProtection.GenerateKey(initialStyle.Protection)
-        };
-    }
+        },
+    };
 
     internal static XLStyle CreateEmptyStyle()
     {

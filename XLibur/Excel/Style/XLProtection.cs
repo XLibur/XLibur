@@ -6,19 +6,16 @@ internal sealed class XLProtection : IXLProtection
 {
     #region Static members
 
-    internal static XLProtectionKey GenerateKey(IXLProtection? defaultProtection)
+    internal static XLProtectionKey GenerateKey(IXLProtection? defaultProtection) => defaultProtection switch
     {
-        if (defaultProtection == null)
-            return XLProtectionValue.Default.Key;
-        if (defaultProtection is XLProtection protection)
-            return protection.Key;
-
-        return new XLProtectionKey
+        null => XLProtectionValue.Default.Key,
+        XLProtection protection => protection.Key,
+        _ => new XLProtectionKey
         {
             Locked = defaultProtection.Locked,
             Hidden = defaultProtection.Hidden
-        };
-    }
+        },
+    };
 
     #endregion Static members
 

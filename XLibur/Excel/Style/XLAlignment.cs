@@ -7,34 +7,23 @@ internal sealed class XLAlignment : IXLAlignment
 {
     #region Static members
 
-    internal static XLAlignmentKey GenerateKey(IXLAlignment? d)
+    internal static XLAlignmentKey GenerateKey(IXLAlignment? d) => d switch
     {
-        XLAlignmentKey key;
-        if (d == null)
+        null => XLAlignmentValue.Default.Key,
+        XLAlignment alignment => alignment.Key,
+        _ => new XLAlignmentKey
         {
-            key = XLAlignmentValue.Default.Key;
-        }
-        else if (d is XLAlignment alignment)
-        {
-            key = alignment.Key;
-        }
-        else
-        {
-            key = new XLAlignmentKey
-            {
-                Horizontal = d.Horizontal,
-                Vertical = d.Vertical,
-                Indent = d.Indent,
-                JustifyLastLine = d.JustifyLastLine,
-                ReadingOrder = d.ReadingOrder,
-                RelativeIndent = d.RelativeIndent,
-                ShrinkToFit = d.ShrinkToFit,
-                TextRotation = d.TextRotation,
-                WrapText = d.WrapText
-            };
-        }
-        return key;
-    }
+            Horizontal = d.Horizontal,
+            Vertical = d.Vertical,
+            Indent = d.Indent,
+            JustifyLastLine = d.JustifyLastLine,
+            ReadingOrder = d.ReadingOrder,
+            RelativeIndent = d.RelativeIndent,
+            ShrinkToFit = d.ShrinkToFit,
+            TextRotation = d.TextRotation,
+            WrapText = d.WrapText
+        },
+    };
 
     #endregion Static members
 

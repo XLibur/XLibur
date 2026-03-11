@@ -6,28 +6,17 @@ internal sealed class XLFill : IXLFill
 {
     #region static members
 
-    internal static XLFillKey GenerateKey(IXLFill? defaultFill)
+    internal static XLFillKey GenerateKey(IXLFill? defaultFill) => defaultFill switch
     {
-        XLFillKey key;
-        if (defaultFill == null)
+        null => XLFillValue.Default.Key,
+        XLFill fill => fill.Key,
+        _ => new XLFillKey
         {
-            key = XLFillValue.Default.Key;
-        }
-        else if (defaultFill is XLFill fill)
-        {
-            key = fill.Key;
-        }
-        else
-        {
-            key = new XLFillKey
-            {
-                PatternType = defaultFill.PatternType,
-                BackgroundColor = defaultFill.BackgroundColor.Key,
-                PatternColor = defaultFill.PatternColor.Key
-            };
-        }
-        return key;
-    }
+            PatternType = defaultFill.PatternType,
+            BackgroundColor = defaultFill.BackgroundColor.Key,
+            PatternColor = defaultFill.PatternColor.Key
+        },
+    };
 
     #endregion static members
 

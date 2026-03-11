@@ -9,38 +9,26 @@ internal sealed class XLBorder : IXLBorder
 {
     #region Static members
 
-    internal static XLBorderKey GenerateKey(IXLBorder? defaultBorder)
+    internal static XLBorderKey GenerateKey(IXLBorder? defaultBorder) => defaultBorder switch
     {
-        XLBorderKey key;
-        if (defaultBorder == null)
+        null => XLBorderValue.Default.Key,
+        XLBorder border => border.Key,
+        _ => new XLBorderKey
         {
-            key = XLBorderValue.Default.Key;
-        }
-        else if (defaultBorder is XLBorder border)
-        {
-            key = border.Key;
-        }
-        else
-        {
-            key = new XLBorderKey
-            {
-                LeftBorder = defaultBorder.LeftBorder,
-                LeftBorderColor = defaultBorder.LeftBorderColor.Key,
-                RightBorder = defaultBorder.RightBorder,
-                RightBorderColor = defaultBorder.RightBorderColor.Key,
-                TopBorder = defaultBorder.TopBorder,
-                TopBorderColor = defaultBorder.TopBorderColor.Key,
-                BottomBorder = defaultBorder.BottomBorder,
-                BottomBorderColor = defaultBorder.BottomBorderColor.Key,
-                DiagonalBorder = defaultBorder.DiagonalBorder,
-                DiagonalBorderColor = defaultBorder.DiagonalBorderColor.Key,
-                DiagonalUp = defaultBorder.DiagonalUp,
-                DiagonalDown = defaultBorder.DiagonalDown,
-            };
-        }
-
-        return key;
-    }
+            LeftBorder = defaultBorder.LeftBorder,
+            LeftBorderColor = defaultBorder.LeftBorderColor.Key,
+            RightBorder = defaultBorder.RightBorder,
+            RightBorderColor = defaultBorder.RightBorderColor.Key,
+            TopBorder = defaultBorder.TopBorder,
+            TopBorderColor = defaultBorder.TopBorderColor.Key,
+            BottomBorder = defaultBorder.BottomBorder,
+            BottomBorderColor = defaultBorder.BottomBorderColor.Key,
+            DiagonalBorder = defaultBorder.DiagonalBorder,
+            DiagonalBorderColor = defaultBorder.DiagonalBorderColor.Key,
+            DiagonalUp = defaultBorder.DiagonalUp,
+            DiagonalDown = defaultBorder.DiagonalDown,
+        },
+    };
 
     #endregion Static members
 

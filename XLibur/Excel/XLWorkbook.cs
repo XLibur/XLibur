@@ -476,24 +476,15 @@ public partial class XLWorkbook : IXLWorkbook
         if (string.IsNullOrEmpty(extension)) throw new ArgumentException("Empty extension is not supported.");
         extension = extension.Substring(1).ToLowerInvariant();
 
-        switch (extension)
+        return extension switch
         {
-            case "xlsm":
-                return SpreadsheetDocumentType.MacroEnabledWorkbook;
-
-            case "xltm":
-                return SpreadsheetDocumentType.MacroEnabledTemplate;
-
-            case "xlsx":
-                return SpreadsheetDocumentType.Workbook;
-
-            case "xltx":
-                return SpreadsheetDocumentType.Template;
-
-            default:
-                throw new ArgumentException(
-                    $"Extension '{extension}' is not supported. Supported extensions are '.xlsx', '.xlsm', '.xltx' and '.xltm'.");
-        }
+            "xlsm" => SpreadsheetDocumentType.MacroEnabledWorkbook,
+            "xltm" => SpreadsheetDocumentType.MacroEnabledTemplate,
+            "xlsx" => SpreadsheetDocumentType.Workbook,
+            "xltx" => SpreadsheetDocumentType.Template,
+            _ => throw new ArgumentException(
+                $"Extension '{extension}' is not supported. Supported extensions are '.xlsx', '.xlsm', '.xltx' and '.xltm'."),
+        };
     }
 
     private void CheckForWorksheetsPresent()
