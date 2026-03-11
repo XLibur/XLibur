@@ -1,4 +1,4 @@
-using ClosedXML.Excel.ContentManagers;
+﻿using ClosedXML.Excel.ContentManagers;
 using ClosedXML.Excel.Exceptions;
 using ClosedXML.Extensions;
 using ClosedXML.Utils;
@@ -26,7 +26,7 @@ using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
-internal class WorksheetPartWriter
+internal sealed class WorksheetPartWriter
 {
     internal static void GenerateWorksheetPartContent(
         bool partIsEmpty,
@@ -73,14 +73,14 @@ internal class WorksheetPartWriter
             worksheet = new Worksheet();
         }
 
-        if (worksheet.NamespaceDeclarations.All(ns => ns.Value! != RelationshipsNs))
+        if (worksheet.NamespaceDeclarations.All(ns => ns.Value != RelationshipsNs))
             worksheet.AddNamespaceDeclaration("r", RelationshipsNs);
 
         // We store the x14ac:dyDescent attribute (if set by a xlRow) in a row element. It's an optional attribute and it
         // needs a declared namespace. To avoid writing namespace to each <x:row> element during streaming, write it to
         // every sheet part ahead of time. The namespace has to be marked as ignorable, because OpenXML SDK validator will
         // refuse to validate it because it's an optional extension (see ISO29500 part 3).
-        if (worksheet.NamespaceDeclarations.All(ns => ns.Value! != X14Ac2009SsNs))
+        if (worksheet.NamespaceDeclarations.All(ns => ns.Value != X14Ac2009SsNs))
         {
             worksheet.AddNamespaceDeclaration("x14ac", X14Ac2009SsNs);
             worksheet.SetAttribute(new OpenXmlAttribute("mc", "Ignorable", MarkupCompatibilityNs, "x14ac"));
@@ -1282,7 +1282,7 @@ internal class WorksheetPartWriter
 
             var existingBreaks = rowBreaks.ChildElements.OfType<Break>().ToArray();
             var rowBreaksToDelete = existingBreaks
-                .Where(rb => !rb.Id?.HasValue ?? true ||
+                .Where(rb => rb.Id?.Value is null ||
                              !xlWorksheet.PageSetup.RowBreaks.Contains((int)rb.Id!.Value))
                 .ToList();
 
@@ -1329,7 +1329,7 @@ internal class WorksheetPartWriter
 
             var existingBreaks = columnBreaks.ChildElements.OfType<Break>().ToArray();
             var columnBreaksToDelete = existingBreaks
-                .Where(cb => !cb.Id?.HasValue ?? true ||
+                .Where(cb => cb.Id?.Value is null ||
                              !xlWorksheet.PageSetup.ColumnBreaks.Contains((int)cb.Id!.Value))
                 .ToList();
 
@@ -1434,97 +1434,83 @@ internal class WorksheetPartWriter
 
         #endregion LegacyDrawing
 
-        #region LegacyDrawingHeaderFooter
-
-        //LegacyDrawingHeaderFooter legacyHeaderFooter = worksheetPart.Worksheet.Elements<LegacyDrawingHeaderFooter>().FirstOrDefault();
-        //if (legacyHeaderFooter != null)
-        //{
-        //    worksheetPart.Worksheet.RemoveAllChildren<LegacyDrawingHeaderFooter>();
-        //    {
-        //            var previousElement = cm.GetPreviousElementFor(XLWSContentManager.XLWSContents.LegacyDrawingHeaderFooter);
-        //            worksheetPart.Worksheet.InsertAfter(new LegacyDrawingHeaderFooter { Id = xlWorksheet.LegacyDrawingId },
-        //                                                previousElement);
-        //    }
-        //}
-
-        #endregion LegacyDrawingHeaderFooter
-
         return worksheet;
     }
 
     private static void WriteCellValue(XmlWriter w, XLCell xlCell, SaveContext context)
     {
         var dataType = xlCell.DataType;
-        if (dataType == XLDataType.Blank)
-            return;
-
-        if (dataType == XLDataType.Text)
+        switch (dataType)
         {
-            var text = xlCell.GetText();
-            if (xlCell.HasFormula)
+            case XLDataType.Blank:
+                return;
+            case XLDataType.Text:
             {
-                WriteStringValue(w, text);
-            }
-            else
-            {
-                if (xlCell.ShareString)
+                var text = xlCell.GetText();
+                if (xlCell.HasFormula)
                 {
-                    var sharedStringId = context.GetSharedStringId(xlCell, text);
-                    w.WriteStartElement("v", Main2006SsNs);
-                    w.WriteValue(sharedStringId);
-                    w.WriteEndElement();
+                    WriteStringValue(w, text);
                 }
                 else
                 {
-                    w.WriteStartElement("is", Main2006SsNs);
-                    var richText = xlCell.RichText;
-                    if (richText is not null)
+                    if (xlCell.ShareString)
                     {
-                        TextSerializer.WriteRichTextElements(w, richText, context);
+                        var sharedStringId = context.GetSharedStringId(xlCell, text);
+                        w.WriteStartElement("v", Main2006SsNs);
+                        w.WriteValue(sharedStringId);
+                        w.WriteEndElement();
                     }
                     else
                     {
-                        w.WriteStartElement("t", Main2006SsNs);
-                        if (text.PreserveSpaces())
-                            w.WritePreserveSpaceAttr();
+                        w.WriteStartElement("is", Main2006SsNs);
+                        var richText = xlCell.RichText;
+                        if (richText is not null)
+                        {
+                            TextSerializer.WriteRichTextElements(w, richText, context);
+                        }
+                        else
+                        {
+                            w.WriteStartElement("t", Main2006SsNs);
+                            if (text.PreserveSpaces())
+                                w.WritePreserveSpaceAttr();
 
-                        w.WriteString(text);
-                        w.WriteEndElement();
+                            w.WriteString(text);
+                            w.WriteEndElement();
+                        }
+
+                        w.WriteEndElement(); // is
                     }
-
-                    w.WriteEndElement(); // is
                 }
-            }
-        }
-        else if (dataType == XLDataType.TimeSpan)
-        {
-            WriteNumberValue(w, xlCell.Value.GetUnifiedNumber());
-        }
-        else if (dataType == XLDataType.Number)
-        {
-            WriteNumberValue(w, xlCell.Value.GetNumber());
-        }
-        else if (dataType == XLDataType.DateTime)
-        {
-            // OpenXML SDK validator requires a specific format, in addition to the spec, but can reads many more
-            var date = xlCell.GetDateTime();
-            if (xlCell.Worksheet.Workbook.Use1904DateSystem)
-                date = date.AddDays(-1462);
 
-            WriteNumberValue(w, date.ToSerialDateTime());
+                break;
+            }
+            case XLDataType.TimeSpan:
+                WriteNumberValue(w, xlCell.Value.GetUnifiedNumber());
+                break;
+            case XLDataType.Number:
+                WriteNumberValue(w, xlCell.Value.GetNumber());
+                break;
+            case XLDataType.DateTime:
+            {
+                // OpenXML SDK validator requires a specific format, in addition to the spec, but can read many more
+                var date = xlCell.GetDateTime();
+                if (xlCell.Worksheet.Workbook.Use1904DateSystem)
+                    date = date.AddDays(-1462);
+
+                WriteNumberValue(w, date.ToSerialDateTime());
+                break;
+            }
+            case XLDataType.Boolean:
+                WriteStringValue(w, xlCell.GetBoolean() ? TrueValue : FalseValue);
+                break;
+            case XLDataType.Error:
+                WriteStringValue(w, xlCell.Value.GetError().ToDisplayString());
+                break;
+            default:
+                throw new InvalidOperationException();
         }
-        else if (dataType == XLDataType.Boolean)
-        {
-            WriteStringValue(w, xlCell.GetBoolean() ? TrueValue : FalseValue);
-        }
-        else if (dataType == XLDataType.Error)
-        {
-            WriteStringValue(w, xlCell.Value.GetError().ToDisplayString());
-        }
-        else
-        {
-            throw new InvalidOperationException();
-        }
+
+        return;
 
         static void WriteStringValue(XmlWriter w, string text)
         {
@@ -1626,6 +1612,7 @@ internal class WorksheetPartWriter
                     filterColumn.Append(filters);
                     break;
 
+                case XLFilterType.None:
                 default:
                     throw new NotSupportedException();
             }
@@ -1638,7 +1625,7 @@ internal class WorksheetPartWriter
             string reference;
 
             if (filterRange.FirstCell().Address.RowNumber < filterRange.LastCell().Address.RowNumber)
-                reference = filterRange.Range(filterRange.FirstCell().CellBelow(), filterRange.LastCell())!.RangeAddress
+                reference = filterRange.Range(filterRange.FirstCell().CellBelow(), filterRange.LastCell()).RangeAddress
                     .ToString()!;
             else
                 reference = filterRange.RangeAddress.ToString()!;
@@ -1667,11 +1654,6 @@ internal class WorksheetPartWriter
         uint lastMin = 1;
         var count = sheetColumns.Count;
         var arr = sheetColumns.OrderBy(kp => kp.Key).ToArray();
-        // sheetColumns[kp.Key + 1]
-        //Int32 i = 0;
-        //foreach (KeyValuePair<uint, Column> kp in arr
-        //    //.Where(kp => !(kp.Key < count && ColumnsAreEqual(kp.Value, )))
-        //    )
         for (var i = 0; i < count; i++)
         {
             var kp = arr[i];
@@ -1687,7 +1669,6 @@ internal class WorksheetPartWriter
 
             columns.AppendChild(newColumn);
             lastMin = kp.Key + 1;
-            //i++;
         }
     }
 
@@ -1732,16 +1713,12 @@ internal class WorksheetPartWriter
             sheetColumnsByMin.Remove(column.Min!.Value);
             if (existingColumn.Min! + 1 > existingColumn.Max!)
             {
-                //existingColumn.Min = existingColumn.Min + 1;
-                //columns.InsertBefore(existingColumn, newColumn);
-                //existingColumn.Remove();
                 columns.RemoveChild(existingColumn);
                 columns.AppendChild(newColumn);
                 sheetColumnsByMin.Add(newColumn.Min.Value, newColumn);
             }
             else
             {
-                //columns.InsertBefore(existingColumn, newColumn);
                 columns.AppendChild(newColumn);
                 sheetColumnsByMin.Add(newColumn.Min!.Value, newColumn);
                 existingColumn.Min = existingColumn.Min! + 1;
@@ -1783,8 +1760,7 @@ internal class WorksheetPartWriter
         var drawingsPart = worksheetPart.DrawingsPart ??
                            worksheetPart.AddNewPart<DrawingsPart>(context.RelIdGenerator.GetNext(RelType.Workbook));
 
-        if (drawingsPart.WorksheetDrawing == null)
-            drawingsPart.WorksheetDrawing = new Xdr.WorksheetDrawing();
+        drawingsPart.WorksheetDrawing ??= new Xdr.WorksheetDrawing();
 
         var worksheetDrawing = drawingsPart.WorksheetDrawing;
 
@@ -1797,12 +1773,11 @@ internal class WorksheetPartWriter
                 nd.Value.Equals("http://schemas.openxmlformats.org/officeDocument/2006/relationships")))
             worksheetDrawing.AddNamespaceDeclaration("r",
                 "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
-        /////////
 
         // Overwrite actual image binary data
         ImagePart imagePart;
-        if (drawingsPart.HasPartWithId(pic.RelId))
-            imagePart = (ImagePart)drawingsPart.GetPartById(pic.RelId);
+        if (drawingsPart.HasPartWithId(pic.RelId!))
+            imagePart = (ImagePart)drawingsPart.GetPartById(pic.RelId!);
         else
         {
             pic.RelId = context.RelIdGenerator.GetNext(RelType.Workbook);
@@ -1816,10 +1791,9 @@ internal class WorksheetPartWriter
             stream.Seek(0, SeekOrigin.Begin);
             imagePart.FeedData(stream);
         }
-        /////////
 
         // Clear current anchors
-        OpenXmlElement? existingAnchor = GetAnchorFromImageId(drawingsPart, pic.RelId);
+        var existingAnchor = GetAnchorFromImageId(drawingsPart, pic.RelId!);
 
         var wb = pic.Worksheet.Workbook;
         var extentsCx = ConvertToEnglishMetricUnits(pic.Width, wb.DpiX);
@@ -1978,13 +1952,17 @@ internal class WorksheetPartWriter
 
                 AttachAnchor(oneCellAnchor, existingAnchor);
                 break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
 
-        void AttachAnchor(OpenXmlElement pictureAnchor, OpenXmlElement? existingAnchor)
+        return;
+
+        void AttachAnchor(OpenXmlElement pictureAnchor, OpenXmlElement? existingAnchorX)
         {
-            if (existingAnchor is not null)
+            if (existingAnchorX is not null)
             {
-                worksheetDrawing.ReplaceChild(pictureAnchor, existingAnchor);
+                worksheetDrawing.ReplaceChild(pictureAnchor, existingAnchorX);
             }
             else
             {
@@ -2035,7 +2013,7 @@ internal class WorksheetPartWriter
     }
 
     /// <summary>
-    /// Stream detached worksheet DOM to the worksheet part stream.
+    /// Stream detached worksheet DOM to the worksheet part of the stream.
     /// Replaces the content of the part.
     /// </summary>
     private static void StreamToPart(Worksheet worksheet, WorksheetPart worksheetPart, XLWorksheet xlWorksheet,
@@ -2082,7 +2060,7 @@ internal class WorksheetPartWriter
     private static void StreamSheetData(OpenXmlWriter writer, XLWorksheet xlWorksheet, SaveContext context,
         SaveOptions options)
     {
-        // Steal through reflection for now, whole OpenXmlPartWriter will be replaced by XmlWriter soon. OpenXmlPartWriter has basically
+        // Steal through reflection for now, the whole OpenXmlPartWriter will be replaced by XmlWriter soon. OpenXmlPartWriter has basically
         // no inner state, unless it is in a string leaf node. By writing SheetData through XmlWriter only, we bypass all that.
         var xmlWriterFieldInfo =
             typeof(OpenXmlPartWriter).GetField("_xmlWriter", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -2103,7 +2081,7 @@ internal class WorksheetPartWriter
         // A rather complicated state machine, so rows and cells can be written in a single loop
         var openedRowNumber = 0;
         var isRowOpened = false;
-        var cellRef = new char[10]; // Buffer, must be enough to hold span and rowNumber as strings
+        var cellRef = new char[10]; // Buffer must be enough to hold span and rowNumber as strings
         var rows = xlWorksheet.Internals.RowsCollection.Keys.ToList();
         rows.Sort();
         var rowPropIndex = 0;
@@ -2112,8 +2090,8 @@ internal class WorksheetPartWriter
         {
             var currentRowNumber = xlCell.SheetPoint.Row;
 
-            // A space between cells can have several rows that don't contain cells,
-            // but have custom properties (e.g. height). Write them out.
+            // A space between cells can have several rows that don't contain cells
+            // but have custom properties (e.g., height). Write them out.
             while (rowPropIndex < rows.Count && rows[rowPropIndex] < currentRowNumber)
             {
                 if (isRowOpened)
@@ -2188,6 +2166,7 @@ internal class WorksheetPartWriter
         }
 
         xml.WriteEndElement(); // SheetData
+        return;
 
         static bool RowHasCustomProps(XLRow xlRow)
         {
@@ -2261,8 +2240,8 @@ internal class WorksheetPartWriter
             }
 
             // thickBot and thickTop attributes are not written, because Excel seems to determine adjustments
-            // from cell borders on its own and it would be rather costly to check each cell in each row.
-            // If row was adjusted when cell had it's border modified, then it would be fine to write
+            // from cell borders on its own, and it would be rather costly to check each cell in each row.
+            // If the row was adjusted when the cell had its border modified, then it would be fine to write
             // the thickBot/thickBot attributes.
         }
 
@@ -2345,7 +2324,7 @@ internal class WorksheetPartWriter
                     if (input2Deleted)
                         xml.WriteAttributeString("del2", TrueValue);
 
-                    // Excel doesn't recalculate table formula on load or on click of a button or any kind of forced recalculation.
+                    // Excel doesn't recalculate table formula on a load or on the click of a button or any kind of forced recalculation.
                     // It is necessary to mark some precedent formula dirty (e.g. edit cell formula and enter in Excel).
                     // By setting the CalculateCell, we ensure that Excel will calculate values of data table formula on load and
                     // user will see correct values.
@@ -2386,9 +2365,9 @@ internal class WorksheetPartWriter
                 var field =
                     (XLTableField)table.Fields.First(f => f.Column.ColumnNumber() == xlCell.Address.ColumnNumber);
 
-                // If this is a cell in the totals row that contains a label (xor with function), write label
+                // If this is a cell in the total row that contains a label (xor with function), write label
                 // Only label can be written. Total functions are basically formulas that use structured
-                // references and SR are not yet supported, so not yet possible to calculate total values.
+                // references, and SR are not yet supported, so not yet possible to calculate total values.
                 if (!string.IsNullOrWhiteSpace(field.TotalsRowLabel))
                 {
                     // Excel requires that table totals row label attribute in tableColumn must match the cell
@@ -2437,7 +2416,7 @@ internal class WorksheetPartWriter
     ];
 
     /// <summary>
-    /// An array to convert data type for a cell that only contains a value. Key is <see cref="XLDataType"/>.
+    /// An array to convert a data type for a cell that only contains a value. Key is <see cref="XLDataType"/>.
     /// It saves some performance through direct indexation instead of switch.
     /// </summary>
     private static readonly string?[] ValueDataType =
@@ -2468,12 +2447,10 @@ internal class WorksheetPartWriter
             maxColumn = xlWorksheet.Internals.CellsCollection.MaxColumnUsed;
         }
 
-        if (xlWorksheet.Internals.ColumnsCollection.Count > 0)
-        {
-            var maxColCollection = xlWorksheet.Internals.ColumnsCollection.Keys.Max();
-            if (maxColCollection > maxColumn)
-                maxColumn = maxColCollection;
-        }
+        if (xlWorksheet.Internals.ColumnsCollection.Count <= 0) return maxColumn;
+        var maxColCollection = xlWorksheet.Internals.ColumnsCollection.Keys.Max();
+        if (maxColCollection > maxColumn)
+            maxColumn = maxColCollection;
 
         return maxColumn;
     }

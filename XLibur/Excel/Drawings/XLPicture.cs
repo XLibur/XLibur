@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -9,7 +9,7 @@ using XLibur.Graphics;
 namespace XLibur.Excel.Drawings;
 
 [DebuggerDisplay("{Name}")]
-internal class XLPicture : IXLPicture
+internal sealed class XLPicture : IXLPicture
 {
     private const string InvalidNameChars = @":\/?*[]";
     private int _height;
@@ -165,7 +165,7 @@ internal class XLPicture : IXLPicture
 
     internal IDictionary<XLMarkerPosition, XLMarker?> Markers { get; private set; }
 
-    internal string RelId { get; set; } = string.Empty;
+    internal string? RelId { get; set; }
 
     /// <summary>
     /// Create a copy of the picture on a different worksheet.
