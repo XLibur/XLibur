@@ -16,13 +16,29 @@ internal struct XLColorKey : IEquatable<XLColorKey>
 
     public override int GetHashCode()
     {
-        var hashCode = -331517974;
-        hashCode = hashCode * -1521134295 + (int)ColorType;
-        hashCode = hashCode * -1521134295 + (ColorType == XLColorType.Indexed ? Indexed : 0);
-        hashCode = hashCode * -1521134295 + (ColorType == XLColorType.Theme ? (int)ThemeColor : 0);
-        hashCode = hashCode * -1521134295 + (ColorType == XLColorType.Theme ? ThemeTint.GetHashCode() : 0);
-        hashCode = hashCode * -1521134295 + (ColorType == XLColorType.Color ? Color.ToArgb() : 0);
-        return hashCode;
+        unchecked
+        {
+            var hash = (int)ColorType;
+
+            switch (ColorType)
+            {
+                case XLColorType.Indexed:
+                    hash = (hash * 397) ^ Indexed;
+                    break;
+
+                case XLColorType.Theme:
+                    hash = (hash * 397) ^ (int)ThemeColor;
+                    var tintHash = (int)(ThemeTint * 100000);
+                    hash = (hash * 397) ^ tintHash;
+                    break;
+
+                case XLColorType.Color:
+                    hash = (hash * 397) ^ Color.ToArgb();
+                    break;
+            }
+
+            return hash;
+        }
     }
 
     public bool Equals(XLColorKey other)
