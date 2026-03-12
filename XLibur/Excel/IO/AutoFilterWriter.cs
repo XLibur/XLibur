@@ -1,6 +1,5 @@
 using XLibur.Excel.ContentManagers;
 using XLibur.Utils;
-using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Globalization;
@@ -64,9 +63,9 @@ internal sealed class AutoFilterWriter
                     break;
 
                 case XLFilterType.TopBottom:
-                    // Although there is FilterValue attribute, populating it seems like more
+                    // Although there is a FilterValue attribute, populating it seems like more
                     // trouble than it's worth due to consistency issues. It's optional, so we
-                    // can't rely on it during load anyway.
+                    // can't rely on it during a load anyway.
                     var top101 = new Top10
                     {
                         Val = xlFilterColumn.TopBottomValue,
@@ -118,6 +117,8 @@ internal sealed class AutoFilterWriter
                     break;
 
                 case XLFilterType.None:
+                    continue;
+
                 default:
                     throw new NotSupportedException();
             }

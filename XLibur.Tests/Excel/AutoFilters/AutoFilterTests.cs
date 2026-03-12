@@ -368,4 +368,25 @@ public class AutoFilterTests
 
         Assert.DoesNotThrow(() => { sheet.AutoFilter.Reapply(); });
     }
+
+    [Test]
+    public void SaveAutoFilterWithClearedColumnDoesNotThrow()
+    {
+        // When a filter column is added and then cleared, it remains in the
+        // internal dictionary with FilterType.None. Saving should skip it
+        // rather than throwing NotSupportedException.
+        using var ms = new MemoryStream();
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Test");
+
+        ws.Cell("A1").SetValue("Header");
+        ws.Cell("A2").SetValue("Value1");
+        ws.Cell("A3").SetValue("Value2");
+
+        var autoFilter = ws.RangeUsed()!.SetAutoFilter();
+        autoFilter.Column(1).AddFilter("Value1");
+        autoFilter.Column(1).Clear();
+
+        Assert.DoesNotThrow(() => wb.SaveAs(ms));
+    }
 }
