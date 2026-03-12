@@ -248,7 +248,22 @@ internal sealed class XLDataValidation : IXLDataValidation
     {
         AllowedValues = XLAllowedValues.List;
         InCellDropdown = inCellDropdown;
-        Value = list;
+        Value = QuoteListValueIfNeeded(list);
+    }
+
+    private string QuoteListValueIfNeeded(string list)
+    {
+        if (list.Length == 0 || list[0] == '=' || list[0] == '"')
+            return list;
+
+        if (XLHelper.IsValidRangeAddress(list))
+            return list;
+
+        if (_worksheet.DefinedNames.Contains(list) ||
+            _worksheet.Workbook.DefinedNames.Contains(list))
+            return list;
+
+        return "\"" + list + "\"";
     }
 
     public void List(IXLRange range)
