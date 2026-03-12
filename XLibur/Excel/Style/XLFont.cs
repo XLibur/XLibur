@@ -102,15 +102,16 @@ internal sealed class XLFont : IXLFont
 
     #endregion Constructors
 
+    internal void SyncValue(XLFontValue value) { _value = value; }
+
     private void Modify(Func<XLFontKey, XLFontKey> modification)
     {
         Key = modification(Key);
 
-        _style.Modify(styleKey =>
-        {
-            var font = modification(styleKey.Font);
-            return styleKey with { Font = font };
-        });
+        if (_style.IsCellContainer)
+            _style.ModifyFont(Key);
+        else
+            _style.Modify(styleKey => styleKey with { Font = modification(styleKey.Font) });
     }
 
     #region IXLFont Members

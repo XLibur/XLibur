@@ -69,6 +69,8 @@ internal sealed class XLBorder : IXLBorder
 
     #endregion Constructors
 
+    internal void SyncValue(XLBorderValue value) { _value = value; }
+
     #region IXLBorder Members
 
     public XLBorderStyleValues OutsideBorder
@@ -77,7 +79,7 @@ internal sealed class XLBorder : IXLBorder
         {
             if (_container == null) return;
 
-            if (_container is XLWorksheet || _container is XLConditionalFormat)
+            if (_container is XLWorksheet || _container is XLConditionalFormat || _container is XLCell)
             {
                 Modify(k => k with
                 {
@@ -106,7 +108,7 @@ internal sealed class XLBorder : IXLBorder
         {
             if (_container == null) return;
 
-            if (_container is XLWorksheet || _container is XLConditionalFormat)
+            if (_container is XLWorksheet || _container is XLConditionalFormat || _container is XLCell)
             {
                 Modify(k => k with
                 {
@@ -443,11 +445,10 @@ internal sealed class XLBorder : IXLBorder
     {
         Key = modification(Key);
 
-        _style.Modify(styleKey =>
-        {
-            var border = modification(styleKey.Border);
-            return styleKey with { Border = border };
-        });
+        if (_style.IsCellContainer)
+            _style.ModifyBorder(Key);
+        else
+            _style.Modify(styleKey => styleKey with { Border = modification(styleKey.Border) });
     }
 
     #region Overridden

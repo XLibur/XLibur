@@ -63,6 +63,8 @@ internal sealed class XLAlignment : IXLAlignment
 
     #endregion Constructors
 
+    internal void SyncValue(XLAlignmentValue value) { _value = value; }
+
     #region IXLAlignment Members
 
     public XLAlignmentHorizontalValues Horizontal
@@ -252,11 +254,10 @@ internal sealed class XLAlignment : IXLAlignment
     {
         Key = modification(Key);
 
-        _style.Modify(styleKey =>
-        {
-            var alignment = modification(styleKey.Alignment);
-            return styleKey with { Alignment = alignment };
-        });
+        if (_style.IsCellContainer)
+            _style.ModifyAlignment(Key);
+        else
+            _style.Modify(styleKey => styleKey with { Alignment = modification(styleKey.Alignment) });
     }
 
     #region Overridden

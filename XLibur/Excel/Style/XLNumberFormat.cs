@@ -56,6 +56,8 @@ internal sealed class XLNumberFormat : IXLNumberFormat
 
     #endregion Constructors
 
+    internal void SyncValue(XLNumberFormatValue value) { _value = value; }
+
     #region IXLNumberFormat Members
 
     public int NumberFormatId
@@ -104,11 +106,10 @@ internal sealed class XLNumberFormat : IXLNumberFormat
     {
         Key = modification(Key);
 
-        _style.Modify(styleKey =>
-        {
-            var numberFormat = modification(styleKey.NumberFormat);
-            return styleKey with { NumberFormat = numberFormat };
-        });
+        if (_style.IsCellContainer)
+            _style.ModifyNumberFormat(Key);
+        else
+            _style.Modify(styleKey => styleKey with { NumberFormat = modification(styleKey.NumberFormat) });
     }
 
     #region Overridden

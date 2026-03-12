@@ -27,10 +27,19 @@ internal abstract class XLStylizedBase : IXLStylized
         set => SetStyle(value, true);
     }
 
+    private XLStyle? _cachedStyle;
+
     /// <inheritdoc cref="IXLStylized.InnerStyle"/>
     public IXLStyle InnerStyle
     {
-        get => new XLStyle(this, StyleValue.Key);
+        get
+        {
+            if (_cachedStyle == null)
+                _cachedStyle = new XLStyle(this, StyleValue);
+            else
+                _cachedStyle.SyncValue(StyleValue);
+            return _cachedStyle;
+        }
         set => SetStyle(value);
     }
 

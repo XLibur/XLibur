@@ -56,6 +56,8 @@ internal sealed class XLProtection : IXLProtection
 
     #endregion Constructors
 
+    internal void SyncValue(XLProtectionValue value) { _value = value; }
+
     #region IXLProtection Members
 
     public bool Locked
@@ -106,11 +108,10 @@ internal sealed class XLProtection : IXLProtection
     {
         Key = modification(Key);
 
-        _style.Modify(styleKey =>
-        {
-            var protection = modification(styleKey.Protection);
-            return styleKey with { Protection = protection };
-        });
+        if (_style.IsCellContainer)
+            _style.ModifyProtection(Key);
+        else
+            _style.Modify(styleKey => styleKey with { Protection = modification(styleKey.Protection) });
     }
 
     #region Overridden

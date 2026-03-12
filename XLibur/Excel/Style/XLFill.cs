@@ -57,15 +57,16 @@ internal sealed class XLFill : IXLFill
 
     #endregion Constructors
 
+    internal void SyncValue(XLFillValue value) { _value = value; }
+
     private void Modify(Func<XLFillKey, XLFillKey> modification)
     {
         Key = modification(Key);
 
-        _style.Modify(styleKey =>
-        {
-            var fill = modification(styleKey.Fill);
-            return styleKey with { Fill = fill };
-        });
+        if (_style.IsCellContainer)
+            _style.ModifyFill(Key);
+        else
+            _style.Modify(styleKey => styleKey with { Fill = modification(styleKey.Fill) });
     }
 
     #region IXLFill Members

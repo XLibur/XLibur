@@ -193,16 +193,18 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (checkMergedRanges && IsInferiorMergedCell())
             return this;
 
-        SetValueAndStyle(value);
+        var point = new XLSheetPoint(_rowNumber, _columnNumber);
+
+        SetValueAndStyle(value, point);
 
         // Only clear formula if cell actually has one, to avoid unnecessary
         // property setter overhead (TrimFormulaEqual, InvalidateFormula, etc.)
-        if (Formula is not null)
+        if (_cellsCollection.FormulaSlice.Get(point) is not null)
             FormulaA1 = string.Empty;
 
         if (setTableHeader && Worksheet.Tables.Count > 0)
         {
-            var cellRange = new XLSheetRange(SheetPoint, SheetPoint);
+            var cellRange = new XLSheetRange(point, point);
             foreach (var table in Worksheet.Tables)
                 table.RefreshFieldsFromCells(cellRange);
         }
@@ -214,9 +216,9 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     /// Set value of a cell and its format (if necessary) from the passed value.
     /// It doesn't clear formulas or checks merged cells or tables.
     /// </summary>
-    private void SetValueAndStyle(XLCellValue value)
+    private void SetValueAndStyle(XLCellValue value, XLSheetPoint point)
     {
-        var modifiedStyleValue = Worksheet.GetStyleForValue(value, SheetPoint);
+        var modifiedStyleValue = Worksheet.GetStyleForValue(value, point);
         if (modifiedStyleValue is not null)
             StyleValue = modifiedStyleValue;
 
@@ -230,7 +232,8 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             }
         }
 
-        SetOnlyValue(value);
+        _cellsCollection.ValueSlice.SetCellValue(point, value);
+        Worksheet.Workbook.CalcEngine.MarkDirty(Worksheet, point);
     }
 
     public bool GetBoolean() => Value.GetBoolean();
@@ -884,6 +887,14 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         // XLCell cannot have children, so the base method may be optimized
         var styleKey = modification(StyleValue.Key);
         StyleValue = XLStyleValue.FromKey(ref styleKey);
+    }
+
+    /// <summary>
+    /// Direct style value setter used by XLStyle typed modify methods to bypass closure allocation.
+    /// </summary>
+    internal void SetStyleValue(XLStyleValue value)
+    {
+        StyleValue = value;
     }
 
     protected override IEnumerable<XLStylizedBase> Children

@@ -85,11 +85,87 @@ internal sealed class XLStyle : IXLStyle
         }
     }
 
+    /// <summary>
+    /// Fast-path style modification for XLCell containers. Only called when <see cref="IsCellContainer"/> is true.
+    /// Bypasses closure allocation by directly computing the new style key.
+    /// </summary>
+    internal void ModifyFont(XLFontKey newFontKey)
+    {
+        var styleKey = Key with { Font = newFontKey };
+        Value = XLStyleValue.FromKey(ref styleKey);
+        ((XLCell)_container!).SetStyleValue(Value);
+    }
+
+    /// <inheritdoc cref="ModifyFont"/>
+    internal void ModifyBorder(XLBorderKey newBorderKey)
+    {
+        var styleKey = Key with { Border = newBorderKey };
+        Value = XLStyleValue.FromKey(ref styleKey);
+        ((XLCell)_container!).SetStyleValue(Value);
+    }
+
+    /// <inheritdoc cref="ModifyFont"/>
+    internal void ModifyFill(XLFillKey newFillKey)
+    {
+        var styleKey = Key with { Fill = newFillKey };
+        Value = XLStyleValue.FromKey(ref styleKey);
+        ((XLCell)_container!).SetStyleValue(Value);
+    }
+
+    /// <inheritdoc cref="ModifyFont"/>
+    internal void ModifyAlignment(XLAlignmentKey newAlignmentKey)
+    {
+        var styleKey = Key with { Alignment = newAlignmentKey };
+        Value = XLStyleValue.FromKey(ref styleKey);
+        ((XLCell)_container!).SetStyleValue(Value);
+    }
+
+    /// <inheritdoc cref="ModifyFont"/>
+    internal void ModifyNumberFormat(XLNumberFormatKey newNumberFormatKey)
+    {
+        var styleKey = Key with { NumberFormat = newNumberFormatKey };
+        Value = XLStyleValue.FromKey(ref styleKey);
+        ((XLCell)_container!).SetStyleValue(Value);
+    }
+
+    /// <inheritdoc cref="ModifyFont"/>
+    internal void ModifyProtection(XLProtectionKey newProtectionKey)
+    {
+        var styleKey = Key with { Protection = newProtectionKey };
+        Value = XLStyleValue.FromKey(ref styleKey);
+        ((XLCell)_container!).SetStyleValue(Value);
+    }
+
+    internal void SyncValue(XLStyleValue value) { Value = value; }
+
+    /// <summary>
+    /// True when the container is an XLCell, allowing fast-path style modifications without closures.
+    /// </summary>
+    internal bool IsCellContainer => _container is XLCell;
+
+    #region Cached sub-wrappers
+
+    private XLFont? _cachedFont;
+    private XLAlignment? _cachedAlignment;
+    private XLBorder? _cachedBorder;
+    private XLFill? _cachedFill;
+    private XLNumberFormat? _cachedNumberFormat;
+    private XLProtection? _cachedProtection;
+
+    #endregion Cached sub-wrappers
+
     #region IXLStyle members
 
     public IXLFont Font
     {
-        get { return new XLFont(this, Value.Font); }
+        get
+        {
+            if (_cachedFont == null)
+                _cachedFont = new XLFont(this, Value.Font);
+            else
+                _cachedFont.SyncValue(Value.Font);
+            return _cachedFont;
+        }
         set
         {
             Modify(k => k with { Font = XLFont.GenerateKey(value) });
@@ -98,7 +174,14 @@ internal sealed class XLStyle : IXLStyle
 
     public IXLAlignment Alignment
     {
-        get { return new XLAlignment(this, Value.Alignment); }
+        get
+        {
+            if (_cachedAlignment == null)
+                _cachedAlignment = new XLAlignment(this, Value.Alignment);
+            else
+                _cachedAlignment.SyncValue(Value.Alignment);
+            return _cachedAlignment;
+        }
         set
         {
             Modify(k => k with { Alignment = XLAlignment.GenerateKey(value) });
@@ -107,7 +190,14 @@ internal sealed class XLStyle : IXLStyle
 
     public IXLBorder Border
     {
-        get { return new XLBorder(_container!, this, Value.Border); }
+        get
+        {
+            if (_cachedBorder == null)
+                _cachedBorder = new XLBorder(_container!, this, Value.Border);
+            else
+                _cachedBorder.SyncValue(Value.Border);
+            return _cachedBorder;
+        }
         set
         {
             Modify(k => k with { Border = XLBorder.GenerateKey(value) });
@@ -116,7 +206,14 @@ internal sealed class XLStyle : IXLStyle
 
     public IXLFill Fill
     {
-        get { return new XLFill(this, Value.Fill); }
+        get
+        {
+            if (_cachedFill == null)
+                _cachedFill = new XLFill(this, Value.Fill);
+            else
+                _cachedFill.SyncValue(Value.Fill);
+            return _cachedFill;
+        }
         set
         {
             Modify(k => k with { Fill = XLFill.GenerateKey(value) });
@@ -140,7 +237,14 @@ internal sealed class XLStyle : IXLStyle
 
     public IXLNumberFormat NumberFormat
     {
-        get { return new XLNumberFormat(this, Value.NumberFormat); }
+        get
+        {
+            if (_cachedNumberFormat == null)
+                _cachedNumberFormat = new XLNumberFormat(this, Value.NumberFormat);
+            else
+                _cachedNumberFormat.SyncValue(Value.NumberFormat);
+            return _cachedNumberFormat;
+        }
         set
         {
             Modify(k => k with { NumberFormat = XLNumberFormat.GenerateKey(value) });
@@ -149,7 +253,14 @@ internal sealed class XLStyle : IXLStyle
 
     public IXLProtection Protection
     {
-        get { return new XLProtection(this, Value.Protection); }
+        get
+        {
+            if (_cachedProtection == null)
+                _cachedProtection = new XLProtection(this, Value.Protection);
+            else
+                _cachedProtection.SyncValue(Value.Protection);
+            return _cachedProtection;
+        }
         set
         {
             Modify(k => k with { Protection = XLProtection.GenerateKey(value) });
