@@ -13,6 +13,12 @@
     <Optimize>true</Optimize>
   </PropertyGroup>
 
+    <PropertyGroup>
+        <!-- Use 'Full' for .NET Framework, 'Portable' or 'Embedded' for .NET Core/5+ -->
+        <DebugType>Portable</DebugType>
+        <DebugSymbols>true</DebugSymbols>
+    </PropertyGroup>
+
   <PropertyGroup>
     <!-- Use 'Full' for .NET Framework, 'Portable' or 'Embedded' for .NET Core/5+ -->
     <DebugType>Portable</DebugType>

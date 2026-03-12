@@ -1,11 +1,13 @@
 using System;
 using System.IO;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Diagnostics.dotTrace;
 using ClosedXML.Excel;
 
 namespace ClosedXML.Benchmarks;
 
 [MemoryDiagnoser]
+[DotTraceDiagnoser]
 public class WorkbookBenchmarks
 {
     private const int RowCount = 50_000;

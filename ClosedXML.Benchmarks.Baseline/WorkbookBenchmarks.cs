@@ -6,7 +6,7 @@ using ClosedXML.Excel;
 namespace ClosedXML.Benchmarks.Baseline;
 
 [MemoryDiagnoser]
-public class WorkbookBenchmarks
+public sealed class WorkbookBenchmarks
 {
     private const int RowCount = 50_000;
 
