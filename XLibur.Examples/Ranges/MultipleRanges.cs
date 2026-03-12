@@ -1,6 +1,6 @@
 using XLibur.Excel;
 
-namespace XLibur.Examples;
+namespace XLibur.Examples.Ranges;
 
 public class MultipleRanges : IXLExample
 {

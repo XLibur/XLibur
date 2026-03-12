@@ -39,7 +39,7 @@ public class ExcelDocsComparerTests
         try
         {
             new BasicTable().Create(left);
-            new HelloWorld().Create(right);
+            HelloWorld.Create(right);
 
             Assert.IsFalse(ExcelDocsComparer.Compare(left, right, out string message));
         }

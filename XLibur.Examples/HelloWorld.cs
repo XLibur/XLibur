@@ -4,7 +4,7 @@ namespace XLibur.Examples;
 
 public class HelloWorld
 {
-    public void Create(string filePath)
+    public static void Create(string filePath)
     {
         var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Sample Sheet");

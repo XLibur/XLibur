@@ -1,9 +1,9 @@
 using System.IO;
 using System.Linq;
-using XLibur.Excel;
 using MoreLinq;
+using XLibur.Excel;
 
-namespace XLibur.Examples;
+namespace XLibur.Examples.Misc;
 
 public class LambdaExpressions : IXLExample
 {

@@ -1,8 +1,7 @@
 using System.IO;
 using XLibur.Excel;
 
-
-namespace XLibur.Examples;
+namespace XLibur.Examples.Loading;
 
 public class ChangingBasicTable : IXLExample
 {

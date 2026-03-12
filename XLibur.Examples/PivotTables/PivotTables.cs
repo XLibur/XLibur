@@ -1,8 +1,8 @@
-using XLibur.Excel;
 using System;
 using System.Collections.Generic;
+using XLibur.Excel;
 
-namespace XLibur.Examples;
+namespace XLibur.Examples.PivotTables;
 
 public class PivotTables : IXLExample
 {

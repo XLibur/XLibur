@@ -1,9 +1,9 @@
-using XLibur.Excel;
-using XLibur.Excel.Drawings;
 using System.IO;
 using System.Reflection;
+using XLibur.Excel;
+using XLibur.Excel.Drawings;
 
-namespace XLibur.Examples;
+namespace XLibur.Examples.ImageHandling;
 
 public class ImageAnchors : IXLExample
 {

@@ -1,7 +1,6 @@
 using XLibur.Excel;
 
-
-namespace XLibur.Examples;
+namespace XLibur.Examples.Columns;
 
 public class DeletingColumns : IXLExample
 {

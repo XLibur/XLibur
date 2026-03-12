@@ -1,5 +1,6 @@
 ﻿using XLibur.Examples;
 using NUnit.Framework;
+using XLibur.Examples.PivotTables;
 
 namespace XLibur.Tests.Examples;
 

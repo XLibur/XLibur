@@ -1,7 +1,7 @@
 using System.IO;
 using XLibur.Excel;
 
-namespace XLibur.Examples;
+namespace XLibur.Examples.Ranges;
 
 public class CopyingRanges : IXLExample
 {

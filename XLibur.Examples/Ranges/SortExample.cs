@@ -1,8 +1,7 @@
 using System.Linq;
 using XLibur.Excel;
 
-
-namespace XLibur.Examples.Misc;
+namespace XLibur.Examples.Ranges;
 
 public class SortExample : IXLExample
 {

@@ -1,9 +1,8 @@
+using System.Reflection;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
-using System.IO;
-using System.Reflection;
 
-namespace XLibur.Examples;
+namespace XLibur.Examples.ImageHandling;
 
 public class ImageFormats : IXLExample
 {

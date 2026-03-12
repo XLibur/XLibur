@@ -77,12 +77,6 @@ public class BasicTable : IXLExample
         //Add thick borders
         rngTable.Style.Border.OutsideBorder = XLBorderStyleValues.Thick;
 
-        // You can also specify the border for each side with:
-        // rngTable.FirstColumn().Style.Border.LeftBorder = XLBorderStyleValues.Thick;
-        // rngTable.LastColumn().Style.Border.RightBorder = XLBorderStyleValues.Thick;
-        // rngTable.FirstRow().Style.Border.TopBorder = XLBorderStyleValues.Thick;
-        // rngTable.LastRow().Style.Border.BottomBorder = XLBorderStyleValues.Thick;
-
         // Adjust column widths to their content
         ws.Columns(2, 6).AdjustToContents();
 

@@ -1,13 +1,15 @@
+using System.IO;
 using XLibur.Examples.Columns;
+using XLibur.Examples.Comments;
+using XLibur.Examples.Loading;
 using XLibur.Examples.Misc;
 using XLibur.Examples.PageSetup;
 using XLibur.Examples.Ranges;
 using XLibur.Examples.Rows;
 using XLibur.Examples.Styles;
 using XLibur.Examples.Tables;
-using System.IO;
 
-namespace XLibur.Examples;
+namespace XLibur.Examples.Creating;
 
 public class CreateFiles
 {
@@ -15,10 +17,10 @@ public class CreateFiles
     {
         var path = Program.BaseCreatedDirectory;
 
-        new HelloWorld().Create(Path.Combine(path, "HelloWorld.xlsx"));
+        HelloWorld.Create(Path.Combine(path, "HelloWorld.xlsx"));
         new BasicTable().Create(Path.Combine(path, "BasicTable.xlsx"));
 
-        new StyleExamples().Create();
+        StyleExamples.Create();
         new ChangingBasicTable().Create(Path.Combine(path, "BasicTable_Modified.xlsx"));
         new ShiftingRanges().Create(Path.Combine(path, "ShiftingRanges.xlsx"));
         new ColumnSettings().Create(Path.Combine(path, "ColumnSettings.xlsx"));
@@ -90,7 +92,7 @@ public class CreateFiles
         new UsingPhonetics().Create(Path.Combine(path, "UsingPhonetics.xlsx"));
         new WalkingRanges().Create(Path.Combine(path, "CellMoves.xlsx"));
         new AddingComments().Create(Path.Combine(path, "AddingComments.xlsx"));
-        new PivotTables().Create(Path.Combine(path, "PivotTables.xlsx"));
+        new PivotTables.PivotTables().Create(Path.Combine(path, "PivotTables.xlsx"));
         new SheetViews().Create(Path.Combine(path, "SheetViews.xlsx"));
     }
 }

@@ -1,9 +1,11 @@
 using System;
 using System.IO;
+using XLibur.Examples.Creating;
+using XLibur.Examples.Loading;
 
 namespace XLibur.Examples;
 
-public class Program
+public static class Program
 {
     public static string BaseCreatedDirectory
     {
@@ -25,7 +27,7 @@ public class Program
         }
     }
 
-    private static void Main(string[] args)
+    private static void Main()
     {
         CreateFiles.CreateAllFiles();
         LoadFiles.LoadAllFiles();

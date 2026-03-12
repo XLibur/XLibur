@@ -1,7 +1,7 @@
-using XLibur.Excel;
 using System;
+using XLibur.Excel;
 
-namespace XLibur.Examples;
+namespace XLibur.Examples.Misc;
 
 public class ShowCase : IXLExample
 {

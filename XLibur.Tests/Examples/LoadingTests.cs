@@ -1,5 +1,6 @@
 using XLibur.Examples;
 using NUnit.Framework;
+using XLibur.Examples.Loading;
 
 namespace XLibur.Tests.Examples;
 

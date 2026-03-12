@@ -1,6 +1,6 @@
 using XLibur.Excel;
 
-namespace XLibur.Examples.Misc;
+namespace XLibur.Examples.Ranges;
 
 public class DefinedNames : IXLExample
 {

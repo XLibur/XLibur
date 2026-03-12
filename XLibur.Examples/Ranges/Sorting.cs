@@ -1,7 +1,7 @@
-using XLibur.Excel;
 using System;
+using XLibur.Excel;
 
-namespace XLibur.Examples.Misc;
+namespace XLibur.Examples.Ranges;
 
 public class Sorting : IXLExample
 {

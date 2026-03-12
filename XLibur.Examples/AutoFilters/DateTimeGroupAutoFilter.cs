@@ -1,7 +1,7 @@
-﻿using XLibur.Excel;
-using System;
+﻿using System;
+using XLibur.Excel;
 
-namespace XLibur.Examples;
+namespace XLibur.Examples.AutoFilters;
 
 public class DateTimeGroupAutoFilter : IXLExample
 {

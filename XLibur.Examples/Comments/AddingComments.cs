@@ -1,7 +1,7 @@
-using XLibur.Excel;
 using MoreLinq;
+using XLibur.Excel;
 
-namespace XLibur.Examples;
+namespace XLibur.Examples.Comments;
 
 public class AddingComments : IXLExample
 {
