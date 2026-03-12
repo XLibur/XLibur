@@ -1,5 +1,6 @@
 using System.Linq;
 using XLibur.Excel;
+using XLibur.Extensions;
 using NUnit.Framework;
 
 namespace XLibur.Tests.Excel.Columns;
@@ -285,5 +286,16 @@ public class ColumnTests
         Assert.AreEqual(100, ws.Column("C").Width, XLHelper.Epsilon);
         Assert.AreEqual(defaultColumnWidth, ws.Column("G").Width, XLHelper.Epsilon);
         Assert.AreEqual(defaultColumnWidth, ws.ColumnWidth, XLHelper.Epsilon);
+    }
+
+    [Test]
+    public void ColumnsCanBeInsertedWhenDocumentHasDefinedNameWithInvalidFormula()
+    {
+        // Issue: InsertColumnsBefore/After fails with a ParsingException when the workbook
+        // has a defined name with an invalid formula.
+        var wb = new XLWorkbook();
+        wb.DefinedNames.Add("TestName", XLError.NameNotRecognized.ToDisplayString());
+        wb.AddWorksheet().FirstColumn().InsertColumnsAfter(1);
+        wb.AddWorksheet().FirstColumn().InsertColumnsBefore(1);
     }
 }

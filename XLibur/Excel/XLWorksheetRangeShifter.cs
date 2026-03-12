@@ -334,11 +334,14 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         var ws = range.Worksheet;
         foreach (var definedName in definedNames)
         {
-            var newRangeList =
-                definedName.SheetReferencesList.Select(r => XLCellFormulaShifter.ShiftFormulaColumns(r, ws, range, columnsShifted)).Where(
-                    newReference => newReference.Length > 0).ToList();
-            var unionFormula = string.Join(",", newRangeList);
-            definedName.SetRefersTo(unionFormula);
+            if (definedName.SheetReferencesList.Any())
+            {
+                var newRangeList =
+                    definedName.SheetReferencesList.Select(r => XLCellFormulaShifter.ShiftFormulaColumns(r, ws, range, columnsShifted)).Where(
+                        newReference => newReference.Length > 0).ToList();
+                var unionFormula = string.Join(",", newRangeList);
+                definedName.SetRefersTo(unionFormula);
+            }
         }
     }
 }
