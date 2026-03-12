@@ -180,6 +180,48 @@ internal sealed class XLStyle : IXLStyle
         }
     }
 
+    /// <summary>
+    /// Apply multiple style changes as a single operation. For cell containers, only one repository
+    /// lookup and one style-slice write occurs regardless of how many key fields change.
+    /// </summary>
+    internal void BatchModify(Func<XLStyleKey, XLStyleKey> modify)
+    {
+        var currentKey = Value.Key;
+        var newKey = modify(currentKey);
+        if (currentKey.Equals(newKey))
+            return;
+
+        Value = XLStyleValue.FromKey(ref newKey);
+        if (_container is XLCell cell)
+            cell.SetStyleValue(Value);
+        else
+            _container?.ModifyStyle(_ => newKey);
+    }
+
+    /// <inheritdoc/>
+    public IXLStyle Batch(Action<IXLStyle> modifications)
+    {
+        if (!IsCellContainer)
+        {
+            // For ranges: fall back to normal behavior (each property triggers ModifyStyle)
+            modifications(this);
+            return this;
+        }
+
+        // For cells: use a deferred style that accumulates key changes
+        var deferred = new XLDeferredStyle(Value.Key);
+        modifications(deferred);
+        var newKey = deferred.Key;
+
+        if (!Value.Key.Equals(newKey))
+        {
+            Value = XLStyleValue.FromKey(ref newKey);
+            ((XLCell)_container!).SetStyleValue(Value);
+        }
+
+        return this;
+    }
+
     internal void SyncValue(XLStyleValue value) { Value = value; }
 
     /// <summary>

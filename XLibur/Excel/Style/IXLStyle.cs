@@ -26,4 +26,12 @@ public interface IXLStyle : IEquatable<IXLStyle>
     IXLProtection Protection { get; set; }
 
     IXLStyle SetIncludeQuotePrefix(bool includeQuotePrefix = true);
+
+    /// <summary>
+    /// Apply multiple style changes as a single operation. For cell containers, only one repository
+    /// lookup and one style-slice write occurs regardless of how many properties change.
+    /// </summary>
+    /// <param name="modifications">Action that receives an <see cref="IXLStyle"/> and sets desired properties.</param>
+    /// <returns>This style instance for fluent chaining.</returns>
+    IXLStyle Batch(Action<IXLStyle> modifications);
 }
