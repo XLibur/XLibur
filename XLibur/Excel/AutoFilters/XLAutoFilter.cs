@@ -8,7 +8,7 @@ using System.Collections.Generic;
 internal sealed class XLAutoFilter : IXLAutoFilter
 {
     /// <summary>
-    /// Key is column number.
+    /// The key is the column number.
     /// </summary>
     private readonly Dictionary<int, XLFilterColumn> _columns = new();
 
@@ -43,40 +43,34 @@ internal sealed class XLAutoFilter : IXLAutoFilter
 
     public IXLAutoFilter Reapply()
     {
-        // Recalculate shown / hidden rows
+        if (!IsEnabled) return this;
+
         var rows = Range.Rows(2, Range.RowCount());
-        rows.ForEach(row =>
-            row.WorksheetRow().Unhide()
-        );
+        rows.ForEach(row => row.WorksheetRow().Unhide());
 
         foreach (var filterColumn in _columns.Values)
             filterColumn.Refresh();
 
-        foreach (IXLRangeRow row in rows)
+        foreach (var row in rows)
         {
-            var rowMatch = true;
-
-            foreach (var (columnIndex, column) in _columns)
-            {
-                var cell = row.Cell(columnIndex);
-                var columnFilterMatch = column.Check(cell);
-                rowMatch &= columnFilterMatch;
-
-                if (!rowMatch) break;
-            }
-
-            if (!rowMatch) row.WorksheetRow().Hide();
+            if (!MatchesAllFilters(row))
+                row.WorksheetRow().Hide();
         }
 
         return this;
     }
 
+    private bool MatchesAllFilters(IXLRangeRow row)
+    {
+        return _columns.All(kvp => kvp.Value.Check(row.Cell(kvp.Key)));
+    }
+
     #endregion IXLAutoFilter Members
 
-    internal XLFilterColumn Column(string columnLetter)
+    private XLFilterColumn Column(string columnLetter)
     {
         var columnNumber = XLHelper.GetColumnNumberFromLetter(columnLetter);
-        if (columnNumber < 1 || columnNumber > XLHelper.MaxColumnNumber)
+        if (columnNumber is < 1 or > XLHelper.MaxColumnNumber)
             throw new ArgumentOutOfRangeException(nameof(columnLetter), "Column '" + columnLetter + "' is outside the allowed column range.");
 
         return Column(columnNumber);
@@ -84,14 +78,12 @@ internal sealed class XLAutoFilter : IXLAutoFilter
 
     internal XLFilterColumn Column(int columnNumber)
     {
-        if (columnNumber < 1 || columnNumber > XLHelper.MaxColumnNumber)
+        if (columnNumber is < 1 or > XLHelper.MaxColumnNumber)
             throw new ArgumentOutOfRangeException(nameof(columnNumber), "Column " + columnNumber + " is outside the allowed column range.");
 
-        if (!_columns.TryGetValue(columnNumber, out var filterColumn))
-        {
-            filterColumn = new XLFilterColumn(this, columnNumber);
-            _columns.Add(columnNumber, filterColumn);
-        }
+        if (_columns.TryGetValue(columnNumber, out var filterColumn)) return filterColumn;
+        filterColumn = new XLFilterColumn(this, columnNumber);
+        _columns.Add(columnNumber, filterColumn);
 
         return filterColumn;
     }
@@ -120,7 +112,7 @@ internal sealed class XLAutoFilter : IXLAutoFilter
         return this;
     }
 
-    internal XLAutoFilter Sort(int columnToSortBy, XLSortOrder sortOrder, bool matchCase, bool ignoreBlanks)
+    private XLAutoFilter Sort(int columnToSortBy, XLSortOrder sortOrder, bool matchCase, bool ignoreBlanks)
     {
         if (!IsEnabled)
             throw new InvalidOperationException("Filter has not been enabled.");
