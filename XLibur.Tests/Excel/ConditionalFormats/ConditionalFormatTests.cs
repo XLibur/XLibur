@@ -133,6 +133,56 @@ public class ConditionalFormatTests
     }
 
     [Test]
+    public void DataBar_Gradient_RoundTrips()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = 10;
+        ws.Cell("A2").Value = 20;
+        ws.Cell("A3").Value = 30;
+
+        ws.Range("A1:A3").AddConditionalFormat()
+            .DataBar(XLColor.FromArgb(0xFF638EC6), showBarOnly: false, gradient: true)
+            .LowestValue()
+            .HighestValue();
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var wb2 = new XLWorkbook(ms);
+        var cf = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
+
+        Assert.That(cf.Gradient, Is.True);
+        Assert.That(cf.Colors[1].Color.ToHex(), Is.EqualTo("FF638EC6"));
+    }
+
+    [Test]
+    public void DataBar_SolidFill_RoundTrips()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = 10;
+        ws.Cell("A2").Value = 20;
+        ws.Cell("A3").Value = 30;
+
+        ws.Range("A1:A3").AddConditionalFormat()
+            .DataBar(XLColor.FromArgb(0xFF638EC6), showBarOnly: false, gradient: false)
+            .LowestValue()
+            .HighestValue();
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var wb2 = new XLWorkbook(ms);
+        var cf = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
+
+        Assert.That(cf.Gradient, Is.False);
+        Assert.That(cf.Colors[1].Color.ToHex(), Is.EqualTo("FF638EC6"));
+    }
+
+    [Test]
     public void Expression_type_skips_empty_formula_tags()
     {
         // The Expression uses formula tag as arguments. Some producers generate extra empty

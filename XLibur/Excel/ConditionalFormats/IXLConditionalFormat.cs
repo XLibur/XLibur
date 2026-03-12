@@ -125,9 +125,9 @@ public interface IXLConditionalFormat
 
     IXLCFColorScaleMin ColorScale();
 
-    IXLCFDataBarMin DataBar(XLColor color, bool showBarOnly = false);
+    IXLCFDataBarMin DataBar(XLColor color, bool showBarOnly = false, bool gradient = true);
 
-    IXLCFDataBarMin DataBar(XLColor positiveColor, XLColor negativeColor, bool showBarOnly = false);
+    IXLCFDataBarMin DataBar(XLColor positiveColor, XLColor negativeColor, bool showBarOnly = false, bool gradient = true);
 
     IXLCFIconSet IconSet(XLIconSetStyle iconSetStyle, bool reverseIconOrder = false, bool showIconOnly = false);
 
@@ -142,6 +142,8 @@ public interface IXLConditionalFormat
     bool ShowIconOnly { get; }
 
     bool ShowBarOnly { get; }
+
+    bool Gradient { get; }
 
     bool StopIfTrue { get; }
 

@@ -200,6 +200,11 @@ internal static class ConditionalFormatReader
                 var negativeFillColor = conditionalFormattingRule
                     .Descendants<DocumentFormat.OpenXml.Office2010.Excel.NegativeFillColor>().SingleOrDefault();
                 xlConditionalFormat.Colors.Add(negativeFillColor!.ToXLiburColor());
+
+                var x14DataBar = conditionalFormattingRule
+                    .Descendants<DocumentFormat.OpenXml.Office2010.Excel.DataBar>().SingleOrDefault();
+                if (x14DataBar?.Gradient != null)
+                    xlConditionalFormat.Gradient = x14DataBar.Gradient.Value;
             }
         }
 

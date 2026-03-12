@@ -46,6 +46,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
                    && xx.StopIfTrue == yy.StopIfTrue
                    && xx.ShowIconOnly == yy.ShowIconOnly
                    && xx.ShowBarOnly == yy.ShowBarOnly
+                   && xx.Gradient == yy.Gradient
                    && _listComparer.Equals(xxValues, yyValues)
                    && _listComparer.Equals(xxFormulas, yyFormulas)
                    && _colorsComparer.Equals(xx.Colors, yy.Colors)
@@ -82,6 +83,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
                 hashCode = (hashCode * 397) ^ xx.ReverseIconOrder.GetHashCode();
                 hashCode = (hashCode * 397) ^ xx.ShowIconOnly.GetHashCode();
                 hashCode = (hashCode * 397) ^ xx.ShowBarOnly.GetHashCode();
+                hashCode = (hashCode * 397) ^ xx.Gradient.GetHashCode();
                 hashCode = (hashCode * 397) ^ xx.StopIfTrue.GetHashCode();
                 return hashCode;
             }
@@ -215,6 +217,8 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
     public bool ShowBarOnly { get; set; }
 
+    public bool Gradient { get; set; } = true;
+
     public bool StopIfTrue { get; set; }
 
     public IXLConditionalFormat SetStopIfTrue()
@@ -250,6 +254,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         ReverseIconOrder = other.ReverseIconOrder;
         ShowIconOnly = other.ShowIconOnly;
         ShowBarOnly = other.ShowBarOnly;
+        Gradient = other.Gradient;
         StopIfTrue = other.StopIfTrue;
 
         Values.Clear();
@@ -505,19 +510,21 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         return new XLCFColorScaleMin(this);
     }
 
-    public IXLCFDataBarMin DataBar(XLColor color, bool showBarOnly = false)
+    public IXLCFDataBarMin DataBar(XLColor color, bool showBarOnly = false, bool gradient = true)
     {
         Colors.Initialize(color);
         ShowBarOnly = showBarOnly;
+        Gradient = gradient;
         ConditionalFormatType = XLConditionalFormatType.DataBar;
         return new XLCFDataBarMin(this);
     }
 
-    public IXLCFDataBarMin DataBar(XLColor positiveColor, XLColor negativeColor, bool showBarOnly = false)
+    public IXLCFDataBarMin DataBar(XLColor positiveColor, XLColor negativeColor, bool showBarOnly = false, bool gradient = true)
     {
         Colors.Initialize(positiveColor);
         Colors.Add(negativeColor);
         ShowBarOnly = showBarOnly;
+        Gradient = gradient;
         ConditionalFormatType = XLConditionalFormatType.DataBar;
         return new XLCFDataBarMin(this);
     }
