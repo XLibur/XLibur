@@ -33,7 +33,7 @@ internal sealed class SharedStringTableWriter
         var sst = workbook.SharedStringTable;
         var map = sst.GetConsecutiveMap();
         context.SstMap = map;
-        for (var sharedStringId = 0; sharedStringId < map.Count; ++sharedStringId)
+        for (var sharedStringId = 0; sharedStringId < map.Length; ++sharedStringId)
         {
             var continuousId = map[sharedStringId];
             if (continuousId < 0)
@@ -51,7 +51,7 @@ internal sealed class SharedStringTableWriter
                 xml.WriteStartElement("si", Main2006SsNs);
                 xml.WriteStartElement("t", Main2006SsNs);
                 var sharedString = sst[sharedStringId];
-                if (!sharedString.Trim().Equals(sharedString))
+                if (sharedString.PreserveSpaces())
                     xml.WritePreserveSpaceAttr();
 
                 xml.WriteString(XmlEncoder.EncodeString(sharedString));

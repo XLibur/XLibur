@@ -50,7 +50,7 @@ public partial class XLWorkbook
         /// value is an mapped stringId to write to a file. The mapped stringId has no gaps
         /// between ids.
         /// </summary>
-        public List<int> SstMap { get; set; } = null!;
+        public int[] SstMap { get; set; } = null!;
 
         internal int GetSharedStringId(XLCell xlCell, string text)
         {

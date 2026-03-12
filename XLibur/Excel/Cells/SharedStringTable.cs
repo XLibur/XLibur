@@ -95,16 +95,17 @@ internal sealed class SharedStringTable
     /// Get a map that takes the actual string id and returns an continuous sequence (i.e. no gaps).
     /// If an id if free (no ref count), the id is mapped to -1.
     /// </summary>
-    internal List<int> GetConsecutiveMap()
+    internal int[] GetConsecutiveMap()
     {
-        var map = new List<int>(_table.Count);
+        var map = new int[_table.Count];
         var mappedStringId = 0;
-        foreach (var entry in _table)
+        for (var i = 0; i < _table.Count; i++)
         {
+            var entry = _table[i];
             var isShared =
                 entry.RefCount > 0 && // Only used entry can be written to sst
                 !entry.Text.Inline;  // Inline texts shouldn't be written to sst
-            map.Add(isShared ? mappedStringId++ : -1);
+            map[i] = isShared ? mappedStringId++ : -1;
         }
 
         return map;
