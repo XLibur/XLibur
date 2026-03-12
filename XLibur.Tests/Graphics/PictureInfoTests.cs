@@ -17,6 +17,9 @@ public class PictureInfoTests
 
     [TestCase("SampleImageJfif.jpg", 176, 270, 96, 96)]
     [TestCase("jpeg-rgb.jpg", 200, 200, 0, 0)] // Adobe JPG, has APP14 marker right after SOI instead of APP0
+    [TestCase("jpeg-icc-profile.jpg", 4, 4, 0, 0)] // JPEG with ICC profile (APP2) as first marker
+    [TestCase("jpeg-xmp.jpg", 4, 4, 0, 0)] // JPEG with XMP metadata (APP1/XMP) as first marker
+    [TestCase("jpeg-dqt-first.jpg", 4, 4, 0, 0)] // JPEG with DQT as first marker (no APP segment)
     public void CanReadJfif(string filename, int widthPx, int heightPx, int dpiX, int dpiY)
     {
         AssertRasterImage($"Jpg.{filename}", XLPictureFormat.Jpeg, new Size(widthPx, heightPx), dpiX, dpiY);

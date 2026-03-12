@@ -14,6 +14,8 @@ internal sealed class JpegInfoReader : ImageInfoReader
 {
     private static readonly byte[] APP0Identifer = "JFIF\0"u8.ToArray();
     private static readonly byte[] APP1Identifer = "Exif\0\0"u8.ToArray();
+    private static readonly byte[] APP1XmpIdentifier = "http://ns.adobe.com/xap/1.0/\0"u8.ToArray();
+    private static readonly byte[] APP2IccIdentifier = "ICC_PROFILE"u8.ToArray();
     private static readonly byte[] APP14Identifer = "Adobe\0"u8.ToArray();
 
     protected override bool CheckHeader(Stream stream)
@@ -29,9 +31,17 @@ internal sealed class JpegInfoReader : ImageInfoReader
                 case Marker.APP0:
                     return IsIdentifier(stream, APP0Identifer);
                 case Marker.APP1:
-                    return IsIdentifier(stream, APP1Identifer);
+                    var app1Pos = stream.Position;
+                    if (IsIdentifier(stream, APP1Identifer))
+                        return true;
+                    stream.Position = app1Pos;
+                    return IsIdentifier(stream, APP1XmpIdentifier);
+                case Marker.APP2:
+                    return IsIdentifier(stream, APP2IccIdentifier);
                 case Marker.APP14:
                     return IsIdentifier(stream, APP14Identifer);
+                case Marker.DQT:
+                    return true;
                 default:
                     stream.Position += length;
                     break;
@@ -113,7 +123,9 @@ internal sealed class JpegInfoReader : ImageInfoReader
         public const ushort SOI = 0xFFD8;
         public const ushort APP0 = 0xFFE0;
         public const ushort APP1 = 0xFFE1;
+        public const ushort APP2 = 0xFFE2;
         public const ushort APP14 = 0xFFEE;
+        public const ushort DQT = 0xFFDB;
         public static readonly ushort[] SOFx = [0xFFC0, 0xFFC1, 0xFFC2, 0xFFC3, 0xFFC5, 0xFFC6, 0xFFC7, 0xFFC9, 0xFFCA, 0xFFCB, 0xFFCD, 0xFFCE, 0xFFCF];
     }
 
