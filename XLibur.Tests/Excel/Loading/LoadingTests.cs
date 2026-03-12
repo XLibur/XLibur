@@ -666,6 +666,36 @@ public class LoadingTests
         }
     }
 
+    // https://github.com/ClosedXML/ClosedXML/issues/1920
+    [Test]
+    public void CanReadGoogleSheetsCommentText()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\GoogleSheets\GoogleDocExportWithComments.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+
+        Assert.That(ws.Cell("A1").HasComment, Is.True);
+        Assert.That(ws.Cell("A1").GetComment().Text, Is.EqualTo("Toook=12"));
+
+        Assert.That(ws.Cell("A2").HasComment, Is.False);
+
+        Assert.That(ws.Cell("A4").HasComment, Is.True);
+        Assert.That(ws.Cell("A4").GetComment().Text, Is.EqualTo("assas"));
+
+        Assert.That(ws.Cell("A7").HasComment, Is.True);
+        Assert.That(ws.Cell("A7").GetComment().Text, Is.EqualTo("12123123" + Environment.NewLine));
+
+        // Verify round-trip: save and reload
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms, true);
+        ms.Position = 0;
+
+        using var wb2 = new XLWorkbook(ms);
+        var ws2 = wb2.Worksheets.First();
+        Assert.That(ws2.Cell("A1").GetComment().Text, Is.EqualTo("Toook=12"));
+        Assert.That(ws2.Cell("A4").GetComment().Text, Is.EqualTo("assas"));
+    }
+
     [Test]
     public void CanLoadEmptyStyles()
     {

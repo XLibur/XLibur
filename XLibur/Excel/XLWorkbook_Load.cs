@@ -475,13 +475,21 @@ public partial class XLWorkbook
                     xlComment.Author = authors[(int)c.AuthorId!.Value].InnerText;
                     ShapeIdManager.Add(xlComment.ShapeId);
 
-                    var runs = c.GetFirstChild<CommentText>()!.Elements<Run>();
+                    var commentTextNode = c.GetFirstChild<CommentText>()!;
+                    var runs = commentTextNode.Elements<Run>();
                     foreach (var run in runs)
                     {
                         var runProperties = run.RunProperties;
                         var text = run.Text!.InnerText.FixNewLines();
                         var rt = xlComment.AddText(text);
                         OpenXmlHelper.LoadFont(runProperties, rt);
+                    }
+
+                    // Comments can have text not wrapped in a Run element (e.g. Google Sheets exports)
+                    if (commentTextNode.Text != null)
+                    {
+                        var plainText = commentTextNode.Text.Text.FixNewLines();
+                        xlComment.AddText(plainText);
                     }
 
                     if (shape != null)
