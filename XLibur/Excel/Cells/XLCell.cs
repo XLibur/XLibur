@@ -1123,7 +1123,12 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         set
         {
             if (Formula is null)
+            {
+                if (IsInferiorMergedCell())
+                    return;
+
                 throw new ArgumentException("Cell doesn't contain a formula.");
+            }
 
             if (value is null)
             {

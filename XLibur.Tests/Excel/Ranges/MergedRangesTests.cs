@@ -402,6 +402,23 @@ public class MergedRangesTests
     }
 
     [Test]
+    public void FormulaReference_setter_silently_ignores_inferior_merged_cell()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Range("A1:A3").Merge();
+
+        // Setting formula on superior cell works
+        ws.Cell("A1").FormulaA1 = "=1+2";
+        ws.Cell("A1").FormulaReference = ws.Range("A1:A3").RangeAddress;
+
+        // Setting FormulaReference on an inferior merged cell without a formula
+        // should not throw (consistent with FormulaA1 setter behavior)
+        Assert.DoesNotThrow(() => ws.Cell("A2").FormulaReference = ws.Range("A1:A3").RangeAddress);
+        Assert.DoesNotThrow(() => ws.Cell("A3").FormulaReference = ws.Range("A1:A3").RangeAddress);
+    }
+
+    [Test]
     public void MergeSingleCellRangeDoesNothing()
     {
         using var wb = new XLWorkbook();
