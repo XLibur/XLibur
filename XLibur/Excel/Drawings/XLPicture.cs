@@ -286,7 +286,7 @@ internal sealed class XLPicture : IXLPicture
         return this;
     }
 
-    internal IXLPicture CopyTo(XLWorksheet targetSheet)
+    private IXLPicture CopyTo(XLWorksheet targetSheet)
     {
         targetSheet ??= (XLWorksheet)Worksheet;
 
@@ -314,6 +314,8 @@ internal sealed class XLPicture : IXLPicture
                     targetSheet.Cell(BottomRightCell.Address),
                     GetOffset(XLMarkerPosition.BottomRight));
                 break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
 
         return newPicture;

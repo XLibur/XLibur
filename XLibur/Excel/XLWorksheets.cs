@@ -11,11 +11,11 @@ namespace XLibur.Excel;
 internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 {
     private readonly XLWorkbook _workbook;
-    private readonly Dictionary<string, XLWorksheet> _worksheets = new Dictionary<string, XLWorksheet>(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, XLWorksheet> _worksheets = new(StringComparer.OrdinalIgnoreCase);
     internal ICollection<string> Deleted { get; private set; }
 
     /// <summary>
-    /// SheetId that will be assigned to next created sheet.
+    /// SheetId that will be assigned to the next created sheet.
     /// </summary>
     private uint _nextSheetId = 1;
 
@@ -43,7 +43,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
     public int Count
     {
         [DebuggerStepThrough]
-        get { return _worksheets.Count; }
+        get => _worksheets.Count;
     }
 
     public bool Contains(string sheetName)
@@ -89,17 +89,14 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
     public IXLWorksheet Worksheet(int position)
     {
-        int wsCount = _worksheets.Values.Count(w => w.Position == position);
-        if (wsCount == 0)
-            throw new ArgumentException("There isn't a worksheet associated with that position.");
-
-        if (wsCount > 1)
+        var wsCount = _worksheets.Values.Count(w => w.Position == position);
+        return wsCount switch
         {
-            throw new ArgumentException(
-                "Can't retrieve a worksheet because there are multiple worksheets associated with that position.");
-        }
-
-        return _worksheets.Values.Single(w => w.Position == position);
+            0 => throw new ArgumentException("There isn't a worksheet associated with that position."),
+            > 1 => throw new ArgumentException(
+                "Can't retrieve a worksheet because there are multiple worksheets associated with that position."),
+            _ => _worksheets.Values.Single(w => w.Position == position)
+        };
     }
 
     public IXLWorksheet Add()
@@ -154,13 +151,15 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
     public void Delete(int position)
     {
-        int wsCount = _worksheets.Values.Count(w => w.Position == position);
-        if (wsCount == 0)
-            throw new ArgumentException("There isn't a worksheet associated with that index.");
-
-        if (wsCount > 1)
-            throw new ArgumentException(
-                "Can't delete the worksheet because there are multiple worksheets associated with that index.");
+        var wsCount = _worksheets.Values.Count(w => w.Position == position);
+        switch (wsCount)
+        {
+            case 0:
+                throw new ArgumentException("There isn't a worksheet associated with that index.");
+            case > 1:
+                throw new ArgumentException(
+                    "Can't delete the worksheet because there are multiple worksheets associated with that index.");
+        }
 
         var ws = _worksheets.Values.Single(w => w.Position == position);
         if (!string.IsNullOrWhiteSpace(ws.RelId) && !Deleted.Contains(ws.RelId))

@@ -35,6 +35,8 @@ internal readonly struct XLColorKey : IEquatable<XLColorKey>
                 case XLColorType.Color:
                     hash = (hash * 397) ^ Color.ToArgb();
                     break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
 
             return hash;
@@ -43,24 +45,25 @@ internal readonly struct XLColorKey : IEquatable<XLColorKey>
 
     public bool Equals(XLColorKey other)
     {
-        if (ColorType == other.ColorType)
+        if (ColorType != other.ColorType) return false;
+        switch (ColorType)
         {
-            if (ColorType == XLColorType.Color)
-            {
-                // .NET Color.Equals() will return false for Color.FromArgb(255, 255, 255, 255) == Color.White
-                // Therefore we compare the ToArgb() values
+            case XLColorType.Color:
                 return Color.ToArgb() == other.Color.ToArgb();
-            }
-            if (ColorType == XLColorType.Theme)
-            {
-                return
-                    ThemeColor == other.ThemeColor
-                    && Math.Abs(ThemeTint - other.ThemeTint) < XLHelper.Epsilon;
-            }
-            return Indexed == other.Indexed;
-        }
+            case XLColorType.Theme:
+                if (ThemeColor != other.ThemeColor)
+                    return false;
 
-        return false;
+                // Fast path for identical stored double values without floating-point ==.
+                if (BitConverter.DoubleToInt64Bits(ThemeTint) == BitConverter.DoubleToInt64Bits(other.ThemeTint))
+                    return true;
+
+                return Math.Abs(ThemeTint - other.ThemeTint) < XLHelper.Epsilon;
+
+            case XLColorType.Indexed:
+            default:
+                return Indexed == other.Indexed;
+        }
     }
 
     public override bool Equals(object? obj)

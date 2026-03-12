@@ -46,8 +46,8 @@ public partial class XLWorkbook
         public IDictionary<Guid, PivotSourceInfo> PivotSources { get; }
 
         /// <summary>
-        /// A map of shared string ids. The index is the actual index from sharedStringId and
-        /// value is an mapped stringId to write to a file. The mapped stringId has no gaps
+        /// A map of shared string ids. The index is the actual index from sharedStringId, and
+        /// the value is a mapped stringId to write to a file. The mapped stringId has no gaps
         /// between ids.
         /// </summary>
         public int[] SstMap { get; set; } = null!;
@@ -87,7 +87,7 @@ public partial class XLWorkbook
 
     internal enum RelType
     {
-        Workbook//, Worksheet
+        Workbook
     }
 
     #endregion Nested type: RelType
@@ -98,7 +98,7 @@ public partial class XLWorkbook
     {
         private readonly Dictionary<RelType, HashSet<string>> _relIds = new();
 
-        public void AddValues(IEnumerable<string> values, RelType relType)
+        private void AddValues(IEnumerable<string> values, RelType relType)
         {
             if (!_relIds.TryGetValue(relType, out var set))
             {
@@ -125,7 +125,7 @@ public partial class XLWorkbook
 
             foreach (var xlWorksheet in xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>())
             {
-                // if the worksheet is a new one, it doesn't have RelId yet.
+                // if the worksheet is new, it doesn't have RelId yet.
                 if (string.IsNullOrEmpty(xlWorksheet.RelId) || !workbookPart.TryGetPartById(xlWorksheet.RelId, out var part))
                     continue;
 
@@ -141,7 +141,7 @@ public partial class XLWorkbook
         {
             if (!_relIds.TryGetValue(relType, out var set))
             {
-                set = new HashSet<string>();
+                set = [];
                 _relIds.Add(relType, set);
             }
 

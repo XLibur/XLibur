@@ -570,21 +570,14 @@ public partial class XLWorkbook : IXLWorkbook
     /// </summary>
     internal bool TryGetTable(XLBookArea area, [NotNullWhen(true)] out XLTable? foundTable)
     {
-        foreach (var sheet in WorksheetsInternal)
+        var sheet = WorksheetsInternal.FirstOrDefault<XLWorksheet>(s => XLHelper.SheetComparer.Equals(s.Name, area.Name));
+        if (sheet is not null)
         {
-            if (XLHelper.SheetComparer.Equals(sheet.Name, area.Name))
+            foreach (var table in sheet.Tables)
             {
-                foreach (var table in sheet.Tables)
-                {
-                    if (table.Area != area.Area)
-                        continue;
-
-                    foundTable = table;
-                    return true;
-                }
-
-                // No other sheet has correct name.
-                break;
+                if (table.Area != area.Area) continue;
+                foundTable = table;
+                return true;
             }
         }
 
