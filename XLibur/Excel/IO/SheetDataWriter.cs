@@ -88,9 +88,13 @@ internal sealed class SheetDataWriter
         uint rowStyleId = 0;
         XLStyleValue? lastCachedStyle = null;
         uint lastCachedStyleId = 0;
-        foreach (var xlCell in xlWorksheet.Internals.CellsCollection.GetCells())
+        var cellsCollection = xlWorksheet.Internals.CellsCollection;
+        var use1904DateSystem = xlWorksheet.Workbook.Use1904DateSystem;
+        var enumerator = new XLCellsCollection.SlicesEnumerator(XLSheetRange.Full, cellsCollection);
+        while (enumerator.MoveNext())
         {
-            var currentRowNumber = xlCell.SheetPoint.Row;
+            var point = enumerator.Current;
+            var currentRowNumber = point.Row;
 
             // A space between cells can have several rows that don't contain cells
             // but have custom properties (e.g., height). Write them out.
@@ -115,16 +119,19 @@ internal sealed class SheetDataWriter
                 rowPropIndex++;
             }
 
-            // For saving cells to file, ignore conditional formatting, data validation rules and merged
-            // ranges. They just bloat the file
-            var isEmpty = xlCell.CachedValue.Type == XLDataType.Blank &&
-                          xlCell.IsEmpty(XLCellsUsedOptions.All
-                                         & ~XLCellsUsedOptions.ConditionalFormats
-                                         & ~XLCellsUsedOptions.DataValidation
-                                         & ~XLCellsUsedOptions.MergedRanges);
-
-            if (isEmpty)
-                continue;
+            // Quick check from value slice - avoids XLCell creation for non-blank cells
+            var cellValue = cellsCollection.ValueSlice.GetCellValue(point);
+            if (cellValue.Type == XLDataType.Blank)
+            {
+                // For blank cells, need full IsEmpty check which requires XLCell
+                var xlCell = cellsCollection.GetCell(point);
+                var isEmpty = xlCell.IsEmpty(XLCellsUsedOptions.All
+                                             & ~XLCellsUsedOptions.ConditionalFormats
+                                             & ~XLCellsUsedOptions.DataValidation
+                                             & ~XLCellsUsedOptions.MergedRanges);
+                if (isEmpty)
+                    continue;
+            }
 
             if (openedRowNumber != currentRowNumber)
             {
@@ -147,7 +154,7 @@ internal sealed class SheetDataWriter
                 openedRowNumber = currentRowNumber;
             }
 
-            var cellStyleValue = xlCell.StyleValue;
+            var cellStyleValue = xlWorksheet.GetStyleValue(point);
             uint cellStyleId;
             if (ReferenceEquals(cellStyleValue, lastCachedStyle))
                 cellStyleId = lastCachedStyleId;
@@ -157,7 +164,36 @@ internal sealed class SheetDataWriter
                 lastCachedStyleId = cellStyleId = context.SharedStyles[cellStyleValue].StyleId;
             }
 
-            WriteCell(xml, xlCell, cellRef, context, options, tableTotalCells, rowStyleId, cellStyleId);
+            // Formula and table-total paths are rare — only create XLCell for them
+            var hasFormula = cellsCollection.FormulaSlice.IsUsed(point);
+            if (hasFormula || (tableTotalCells is not null && tableTotalCells.Contains(point)))
+            {
+                var xlCell = cellsCollection.GetCell(point);
+                WriteCell(xml, xlCell, cellRef, context, options, tableTotalCells, rowStyleId, cellStyleId);
+            }
+            else if (cellValue.Type != XLDataType.Blank)
+            {
+                // Common value-only path — no XLCell allocation
+                Span<char> cellRefSpan = cellRef;
+                var cellRefLen = point.Format(cellRefSpan);
+                var shareString = cellsCollection.ValueSlice.GetShareString(point);
+                var dataType = GetCellValueTypeDirect(cellValue.Type, shareString);
+                ref readonly var misc = ref cellsCollection.MiscSlice[point];
+
+                WriteStartCellDirect(xml, cellRef, cellRefLen, dataType, cellStyleId, in misc);
+                WriteCellValueDirect(xml, cellValue, shareString, point, cellsCollection, use1904DateSystem, context);
+                xml.WriteEndElement(); // cell
+            }
+            else if (rowStyleId != cellStyleId)
+            {
+                // Blank cell with different style from row
+                Span<char> cellRefSpan = cellRef;
+                var cellRefLen = point.Format(cellRefSpan);
+                ref readonly var misc = ref cellsCollection.MiscSlice[point];
+
+                WriteStartCellDirect(xml, cellRef, cellRefLen, null, cellStyleId, in misc);
+                xml.WriteEndElement(); // cell
+            }
         }
 
         if (isRowOpened)
@@ -407,6 +443,121 @@ internal sealed class SheetDataWriter
                 // Non-written cells use inherited style of a row.
                 WriteStartCell(xml, xlCell, cellRef, cellRefLen, null, styleId);
                 xml.WriteEndElement(); // cell
+            }
+        }
+
+        static string? GetCellValueTypeDirect(XLDataType dataType, bool shareString)
+        {
+            if (dataType == XLDataType.Text && !shareString)
+                return "inlineStr";
+            return ValueDataType[(int)dataType];
+        }
+
+        static void WriteStartCellDirect(XmlWriter w, char[] reference, int referenceLength, string? dataType,
+            uint styleId, in XLMiscSliceContent misc)
+        {
+            w.WriteStartElement("c", Main2006SsNs);
+
+            w.WriteStartAttribute("r");
+            w.WriteRaw(reference, 0, referenceLength);
+            w.WriteEndAttribute();
+
+            // TODO: if (styleId != 0) Test files have style even for 0, fix later
+            w.WriteAttribute("s", styleId);
+
+            if (dataType is not null)
+                w.WriteAttributeString("t", dataType);
+
+            if (misc.HasPhonetic)
+                w.WriteAttributeString("ph", TrueValue);
+
+            if (misc.CellMetaIndex is not null)
+                w.WriteAttribute("cm", misc.CellMetaIndex.Value);
+
+            if (misc.ValueMetaIndex is not null)
+                w.WriteAttribute("vm", misc.ValueMetaIndex.Value);
+        }
+
+        static void WriteCellValueDirect(XmlWriter w, XLCellValue cellValue, bool shareString,
+            XLSheetPoint point, XLCellsCollection cellsCollection, bool use1904DateSystem, SaveContext context)
+        {
+            switch (cellValue.Type)
+            {
+                case XLDataType.Blank:
+                    return;
+                case XLDataType.Text:
+                {
+                    if (shareString)
+                    {
+                        var memorySstId = cellsCollection.ValueSlice.GetShareStringId(point);
+                        var sharedStringId = context.GetSharedStringId(memorySstId, point);
+                        w.WriteStartElement("v", Main2006SsNs);
+                        w.WriteValue(sharedStringId);
+                        w.WriteEndElement();
+                    }
+                    else
+                    {
+                        w.WriteStartElement("is", Main2006SsNs);
+                        var richText = cellsCollection.ValueSlice.GetRichText(point);
+                        if (richText is not null)
+                        {
+                            TextSerializer.WriteRichTextElements(w, richText, context);
+                        }
+                        else
+                        {
+                            var text = cellValue.GetText();
+                            w.WriteStartElement("t", Main2006SsNs);
+                            if (text.PreserveSpaces())
+                                w.WritePreserveSpaceAttr();
+
+                            w.WriteString(text);
+                            w.WriteEndElement();
+                        }
+
+                        w.WriteEndElement(); // is
+                    }
+
+                    break;
+                }
+                case XLDataType.TimeSpan:
+                    WriteNumberValue(w, cellValue.GetUnifiedNumber());
+                    break;
+                case XLDataType.Number:
+                    WriteNumberValue(w, cellValue.GetNumber());
+                    break;
+                case XLDataType.DateTime:
+                {
+                    var date = cellValue.GetDateTime();
+                    if (use1904DateSystem)
+                        date = date.AddDays(-1462);
+
+                    WriteNumberValue(w, date.ToSerialDateTime());
+                    break;
+                }
+                case XLDataType.Boolean:
+                    WriteStringValue(w, cellValue.GetBoolean() ? TrueValue : FalseValue);
+                    break;
+                case XLDataType.Error:
+                    WriteStringValue(w, cellValue.GetError().ToDisplayString());
+                    break;
+                default:
+                    throw new InvalidOperationException();
+            }
+
+            return;
+
+            static void WriteStringValue(XmlWriter w, string text)
+            {
+                w.WriteStartElement("v", Main2006SsNs);
+                w.WriteString(text);
+                w.WriteEndElement();
+            }
+
+            static void WriteNumberValue(XmlWriter w, double value)
+            {
+                w.WriteStartElement("v", Main2006SsNs);
+                w.WriteNumberValue(value);
+                w.WriteEndElement();
             }
         }
     }
