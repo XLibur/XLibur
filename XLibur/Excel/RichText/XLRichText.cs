@@ -9,7 +9,7 @@ internal sealed class XLRichText : XLFormattedText<IXLRichText>, IXLRichText
     private readonly XLCell? _cell;
 
     /// <summary>
-    /// Copy ctor to return user modifiable rich text from immutable rich text stored
+    /// Copy ctor to return user-modifiable rich text from immutable rich text stored
     /// in the shared string table.
     /// </summary>
     public XLRichText(XLCell cell, XLImmutableRichText original)

@@ -21,7 +21,7 @@ internal sealed class XLFillValue
 
     internal static readonly XLFillValue Default = FromKey(ref DefaultKey);
 
-    public XLFillKey Key { get; private set; }
+    public XLFillKey Key { get; }
 
     public XLColor BackgroundColor { get; private set; }
 

@@ -79,7 +79,7 @@ internal sealed class XLBorder : IXLBorder
         {
             if (_container == null) return;
 
-            if (_container is XLWorksheet || _container is XLConditionalFormat || _container is XLCell)
+            if (_container is XLWorksheet or XLConditionalFormat or XLCell)
             {
                 Modify(k => k with
                 {
@@ -108,7 +108,7 @@ internal sealed class XLBorder : IXLBorder
         {
             if (_container == null) return;
 
-            if (_container is XLWorksheet || _container is XLConditionalFormat || _container is XLCell)
+            if (_container is XLWorksheet or XLConditionalFormat or XLCell)
             {
                 Modify(k => k with
                 {
@@ -277,7 +277,7 @@ internal sealed class XLBorder : IXLBorder
 
     public XLBorderStyleValues TopBorder
     {
-        get { return Key.TopBorder; }
+        get => Key.TopBorder;
         set
         {
             if (Key.TopBorder == value) return;
@@ -310,7 +310,7 @@ internal sealed class XLBorder : IXLBorder
 
     public XLBorderStyleValues BottomBorder
     {
-        get { return Key.BottomBorder; }
+        get => Key.BottomBorder;
         set
         {
             if (Key.BottomBorder == value) return;
@@ -343,7 +343,7 @@ internal sealed class XLBorder : IXLBorder
 
     public XLBorderStyleValues DiagonalBorder
     {
-        get { return Key.DiagonalBorder; }
+        get => Key.DiagonalBorder;
         set
         {
             if (Key.DiagonalBorder == value) return;
@@ -376,7 +376,7 @@ internal sealed class XLBorder : IXLBorder
 
     public bool DiagonalUp
     {
-        get { return Key.DiagonalUp; }
+        get => Key.DiagonalUp;
         set
         {
             if (Key.DiagonalUp == value) return;
@@ -389,7 +389,7 @@ internal sealed class XLBorder : IXLBorder
 
     public bool DiagonalDown
     {
-        get { return Key.DiagonalDown; }
+        get => Key.DiagonalDown;
         set
         {
             if (Key.DiagonalDown == value) return;
@@ -536,28 +536,28 @@ internal sealed class XLBorder : IXLBorder
     {
         var sb = new StringBuilder();
         sb.Append(LeftBorder.ToString());
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(LeftBorderColor);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(RightBorder.ToString());
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(RightBorderColor);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(TopBorder.ToString());
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(TopBorderColor);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(BottomBorder.ToString());
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(BottomBorderColor);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(DiagonalBorder.ToString());
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(DiagonalBorderColor);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(DiagonalUp.ToString());
-        sb.Append("-");
-        sb.Append(DiagonalDown.ToString());
+        sb.Append('-');
+        sb.Append(DiagonalDown);
         return sb.ToString();
     }
 

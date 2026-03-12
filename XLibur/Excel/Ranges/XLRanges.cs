@@ -18,7 +18,7 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 
     private IXLRangeIndex<XLRange> GetRangeIndex(IXLWorksheet worksheet)
     {
-        if (!_indexes.TryGetValue(worksheet, out IXLRangeIndex<XLRange>? rangeIndex))
+        if (!_indexes.TryGetValue(worksheet, out var rangeIndex))
         {
             rangeIndex = new XLRangeIndex<XLRange>(worksheet);
             _indexes.Add(worksheet, rangeIndex);
@@ -194,7 +194,7 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
     public XLCells Cells()
     {
         var cells = new XLCells(false, XLCellsUsedOptions.AllContents);
-        foreach (XLRange container in Ranges)
+        foreach (var container in Ranges)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -202,7 +202,7 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
     public IXLCells CellsUsed()
     {
         var cells = new XLCells(true, XLCellsUsedOptions.AllContents);
-        foreach (XLRange container in Ranges)
+        foreach (var container in Ranges)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -210,7 +210,7 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
     public IXLCells CellsUsed(XLCellsUsedOptions options)
     {
         var cells = new XLCells(true, options);
-        foreach (XLRange container in Ranges)
+        foreach (var container in Ranges)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -223,7 +223,7 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
     {
         get
         {
-            foreach (XLRange rng in Ranges)
+            foreach (var rng in Ranges)
                 yield return rng;
         }
     }
@@ -237,7 +237,7 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 
     public override string ToString()
     {
-        string retVal = Ranges.Aggregate(string.Empty, (agg, r) => agg + (r + ","));
+        var retVal = Ranges.Aggregate(string.Empty, (agg, r) => agg + (r + ","));
         if (retVal.Length > 0) retVal = retVal.Substring(0, retVal.Length - 1);
         return retVal;
     }

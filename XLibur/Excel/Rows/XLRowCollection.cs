@@ -106,7 +106,7 @@ internal sealed class XLRowsCollection : IDictionary<int, XLRow>
         {
             var rowToMove = _dictionary[ro];
             _dictionary.Remove(ro);
-            int newRowNum = ro + rowsToShift;
+            var newRowNum = ro + rowsToShift;
             if (newRowNum <= XLHelper.MaxRowNumber)
             {
                 rowToMove.SetRowNumber(newRowNum);

@@ -4,14 +4,14 @@ namespace XLibur.Excel;
 
 public class XLAlignmentValue
 {
-    private static readonly XLAlignmentRepository Repository = new XLAlignmentRepository(key => new XLAlignmentValue(key));
+    private static readonly XLAlignmentRepository Repository = new(key => new XLAlignmentValue(key));
 
     public static XLAlignmentValue FromKey(ref XLAlignmentKey key)
     {
         return Repository.GetOrCreate(ref key);
     }
 
-    private static readonly XLAlignmentKey DefaultKey = new XLAlignmentKey
+    private static readonly XLAlignmentKey DefaultKey = new()
     {
         Indent = 0,
         Horizontal = XLAlignmentHorizontalValues.General,
@@ -26,25 +26,25 @@ public class XLAlignmentValue
 
     internal static readonly XLAlignmentValue Default = FromKey(ref DefaultKey);
 
-    public XLAlignmentKey Key { get; private set; }
+    public XLAlignmentKey Key { get; }
 
-    public XLAlignmentHorizontalValues Horizontal { get { return Key.Horizontal; } }
+    public XLAlignmentHorizontalValues Horizontal => Key.Horizontal;
 
-    public XLAlignmentVerticalValues Vertical { get { return Key.Vertical; } }
+    public XLAlignmentVerticalValues Vertical => Key.Vertical;
 
-    public int Indent { get { return Key.Indent; } }
+    public int Indent => Key.Indent;
 
-    public bool JustifyLastLine { get { return Key.JustifyLastLine; } }
+    public bool JustifyLastLine => Key.JustifyLastLine;
 
-    public XLAlignmentReadingOrderValues ReadingOrder { get { return Key.ReadingOrder; } }
+    public XLAlignmentReadingOrderValues ReadingOrder => Key.ReadingOrder;
 
-    public int RelativeIndent { get { return Key.RelativeIndent; } }
+    public int RelativeIndent => Key.RelativeIndent;
 
-    public bool ShrinkToFit { get { return Key.ShrinkToFit; } }
+    public bool ShrinkToFit => Key.ShrinkToFit;
 
-    public int TextRotation { get { return Key.TextRotation; } }
+    public int TextRotation => Key.TextRotation;
 
-    public bool WrapText { get { return Key.WrapText; } }
+    public bool WrapText => Key.WrapText;
 
     private XLAlignmentValue(XLAlignmentKey key)
     {

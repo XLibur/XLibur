@@ -33,7 +33,7 @@ internal sealed class XLDeferredProtection : IXLProtection
     public IXLStyle SetHidden() { Hidden = true; return _style; }
     public IXLStyle SetHidden(bool value) { Hidden = value; return _style; }
 
-    public bool Equals(IXLProtection? other) => other is XLDeferredProtection dp ? Key == dp.Key : false;
+    public bool Equals(IXLProtection? other) => other is XLDeferredProtection dp && Key == dp.Key;
     public override bool Equals(object? obj) => Equals(obj as IXLProtection);
     public override int GetHashCode() => Key.GetHashCode();
 }

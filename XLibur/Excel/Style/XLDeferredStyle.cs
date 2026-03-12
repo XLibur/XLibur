@@ -46,37 +46,25 @@ internal sealed class XLDeferredStyle : IXLStyle
     public IXLFont Font
     {
         get => _font;
-        set
-        {
-            _font.Key = XLFont.GenerateKey(value);
-        }
+        set => _font.Key = XLFont.GenerateKey(value);
     }
 
     public IXLAlignment Alignment
     {
         get => _alignment;
-        set
-        {
-            _alignment.Key = XLAlignment.GenerateKey(value);
-        }
+        set => _alignment.Key = XLAlignment.GenerateKey(value);
     }
 
     public IXLBorder Border
     {
         get => _border;
-        set
-        {
-            _border.Key = XLBorder.GenerateKey(value);
-        }
+        set => _border.Key = XLBorder.GenerateKey(value);
     }
 
     public IXLFill Fill
     {
         get => _fill;
-        set
-        {
-            _fill.Key = XLFill.GenerateKey(value);
-        }
+        set => _fill.Key = XLFill.GenerateKey(value);
     }
 
     public bool IncludeQuotePrefix
@@ -88,19 +76,13 @@ internal sealed class XLDeferredStyle : IXLStyle
     public IXLNumberFormat NumberFormat
     {
         get => _numberFormat;
-        set
-        {
-            _numberFormat.Key = XLNumberFormat.GenerateKey(value);
-        }
+        set => _numberFormat.Key = XLNumberFormat.GenerateKey(value);
     }
 
     public IXLProtection Protection
     {
         get => _protection;
-        set
-        {
-            _protection.Key = XLProtection.GenerateKey(value);
-        }
+        set => _protection.Key = XLProtection.GenerateKey(value);
     }
 
     public IXLNumberFormat DateFormat => _numberFormat;

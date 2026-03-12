@@ -73,12 +73,12 @@ internal sealed class XLFont : IXLFont
         _value = value;
     }
 
-    public XLFont(XLStyle? style, XLFontKey key) : this(style, XLFontValue.FromKey(ref key))
+    private XLFont(XLStyle? style, XLFontKey key) : this(style, XLFontValue.FromKey(ref key))
     {
     }
 
     /// <summary>
-    /// Create a new font that is attached to a style and the changes to the font object are propagated to the style.
+    /// Create a new font that is attached to a style, and the changes to the font object are propagated to the style.
     /// </summary>
     /// <param name="style">The container style that will be modified by changes of created <c>XLFont</c>.</param>
     public XLFont(XLStyle style) : this(style, GenerateKey(style.Font))
@@ -102,7 +102,10 @@ internal sealed class XLFont : IXLFont
 
     #endregion Constructors
 
-    internal void SyncValue(XLFontValue value) { _value = value; }
+    internal void SyncValue(XLFontValue value)
+    {
+        _value = value;
+    }
 
     /// <summary>
     /// Cell-container fast path: no Func&lt;&gt; allocation.
@@ -208,7 +211,7 @@ internal sealed class XLFont : IXLFont
         get => Key.FontSize;
         set
         {
-            if (Key.FontSize == value) return;
+            if (XLHelper.AreEqual(Key.FontSize, value)) return;
             if (_style.IsCellContainer)
                 SetKey(Key with { FontSize = value });
             else
@@ -396,17 +399,17 @@ internal sealed class XLFont : IXLFont
     public override string ToString()
     {
         var sb = new StringBuilder();
-        sb.Append(Bold.ToString());
+        sb.Append(Bold);
         sb.Append('-');
-        sb.Append(Italic.ToString());
+        sb.Append(Italic);
         sb.Append('-');
         sb.Append(Underline.ToString());
         sb.Append('-');
-        sb.Append(Strikethrough.ToString());
+        sb.Append(Strikethrough);
         sb.Append('-');
         sb.Append(VerticalAlignment.ToString());
         sb.Append('-');
-        sb.Append(Shadow.ToString());
+        sb.Append(Shadow);
         sb.Append('-');
         sb.Append(FontSize.ToString(CultureInfo.InvariantCulture));
         sb.Append('-');

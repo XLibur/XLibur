@@ -7,7 +7,7 @@ using System.Collections;
 
 internal sealed class XLRangeColumns : XLStylizedBase, IXLRangeColumns, IXLStylized
 {
-    private readonly List<XLRangeColumn> _ranges = new List<XLRangeColumn>();
+    private readonly List<XLRangeColumn> _ranges = [];
 
     public XLRangeColumns() : base(XLWorkbook.DefaultStyleValue)
     {
@@ -48,7 +48,7 @@ internal sealed class XLRangeColumns : XLStylizedBase, IXLRangeColumns, IXLStyli
     public IXLCells Cells()
     {
         var cells = new XLCells(usedCellsOnly: false, options: XLCellsUsedOptions.AllContents);
-        foreach (XLRangeColumn container in _ranges)
+        foreach (var container in _ranges)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -56,7 +56,7 @@ internal sealed class XLRangeColumns : XLStylizedBase, IXLRangeColumns, IXLStyli
     public IXLCells CellsUsed()
     {
         var cells = new XLCells(usedCellsOnly: true, options: XLCellsUsedOptions.AllContents);
-        foreach (XLRangeColumn container in _ranges)
+        foreach (var container in _ranges)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -65,7 +65,7 @@ internal sealed class XLRangeColumns : XLStylizedBase, IXLRangeColumns, IXLStyli
     public IXLCells CellsUsed(XLCellsUsedOptions options)
     {
         var cells = new XLCells(usedCellsOnly: true, options: options);
-        foreach (XLRangeColumn container in _ranges)
+        foreach (var container in _ranges)
             cells.Add(container.RangeAddress);
         return cells;
     }

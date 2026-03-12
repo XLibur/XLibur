@@ -34,8 +34,8 @@ internal sealed class XLAlignment : IXLAlignment
 
     internal XLAlignmentKey Key
     {
-        get { return _value.Key; }
-        private set { _value = XLAlignmentValue.FromKey(ref value); }
+        get => _value.Key;
+        private set => _value = XLAlignmentValue.FromKey(ref value);
     }
 
     #endregion Properties
@@ -69,7 +69,7 @@ internal sealed class XLAlignment : IXLAlignment
 
     public XLAlignmentHorizontalValues Horizontal
     {
-        get { return Key.Horizontal; }
+        get => Key.Horizontal;
         set
         {
             bool updateIndent = !(
@@ -89,7 +89,7 @@ internal sealed class XLAlignment : IXLAlignment
 
     public XLAlignmentVerticalValues Vertical
     {
-        get { return Key.Vertical; }
+        get => Key.Vertical;
         set
         {
             if (Key.Vertical == value) return;
@@ -102,7 +102,7 @@ internal sealed class XLAlignment : IXLAlignment
 
     public int Indent
     {
-        get { return Key.Indent; }
+        get => Key.Indent;
         set
         {
             if (Indent != value)
@@ -129,7 +129,7 @@ internal sealed class XLAlignment : IXLAlignment
 
     public bool JustifyLastLine
     {
-        get { return Key.JustifyLastLine; }
+        get => Key.JustifyLastLine;
         set
         {
             if (Key.JustifyLastLine == value) return;
@@ -142,7 +142,7 @@ internal sealed class XLAlignment : IXLAlignment
 
     public XLAlignmentReadingOrderValues ReadingOrder
     {
-        get { return Key.ReadingOrder; }
+        get => Key.ReadingOrder;
         set
         {
             if (Key.ReadingOrder == value) return;
@@ -155,7 +155,7 @@ internal sealed class XLAlignment : IXLAlignment
 
     public int RelativeIndent
     {
-        get { return Key.RelativeIndent; }
+        get => Key.RelativeIndent;
         set
         {
             if (Key.RelativeIndent == value) return;
@@ -168,7 +168,7 @@ internal sealed class XLAlignment : IXLAlignment
 
     public bool ShrinkToFit
     {
-        get { return Key.ShrinkToFit; }
+        get => Key.ShrinkToFit;
         set
         {
             if (Key.ShrinkToFit == value) return;
@@ -181,7 +181,7 @@ internal sealed class XLAlignment : IXLAlignment
 
     public int TextRotation
     {
-        get { return Key.TextRotation; }
+        get => Key.TextRotation;
         set
         {
             int rotation = value;
@@ -199,7 +199,7 @@ internal sealed class XLAlignment : IXLAlignment
 
     public bool WrapText
     {
-        get { return Key.WrapText; }
+        get => Key.WrapText;
         set
         {
             if (Key.WrapText == value) return;
@@ -212,8 +212,8 @@ internal sealed class XLAlignment : IXLAlignment
 
     public bool TopToBottom
     {
-        get { return TextRotation == 255; }
-        set { TextRotation = value ? 255 : 0; }
+        get => TextRotation == 255;
+        set => TextRotation = value ? 255 : 0;
     }
 
     public IXLStyle SetHorizontal(XLAlignmentHorizontalValues value)

@@ -11,7 +11,8 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
     /// Font used for a new rich text run, never modified. It is generally provided by a container of the formatted text.
     /// </summary>
     private readonly IXLFontBase _defaultFont;
-    private List<XLRichString> _richTexts = new();
+
+    private List<XLRichString> _richTexts = [];
     private XLPhonetics? _phonetics;
     protected T Container = default!;
 
@@ -85,7 +86,7 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
 
     public IXLFormattedText<T> ClearFont()
     {
-        string text = Text;
+        var text = Text;
         ClearText();
         AddText(text);
         return this;
@@ -105,13 +106,13 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
 
     public IXLFormattedText<T> Substring(int index, int length)
     {
-        if (index + 1 > Length || (Length - index + 1) < length || length <= 0)
+        if (index + 1 > Length || Length - index + 1 < length || length <= 0)
             throw new IndexOutOfRangeException("Index and length must refer to a location within the string.");
 
         var newRichTexts = new List<XLRichString>();
         var retVal = new XLFormattedText<T>(_defaultFont);
 
-        int lastPosition = 0;
+        var lastPosition = 0;
         foreach (var rt in _richTexts)
         {
             if (lastPosition >= index + 1 + length) // We already have what we need
@@ -120,14 +121,20 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
             }
             else if (lastPosition + rt.Text.Length >= index + 1) // Eureka!
             {
-                int startIndex = index - lastPosition;
+                var startIndex = index - lastPosition;
 
-                if (startIndex > 0)
-                    newRichTexts.Add(new XLRichString(rt.Text.Substring(0, startIndex), rt, this, OnContentChanged));
-                else if (startIndex < 0)
-                    startIndex = 0;
+                switch (startIndex)
+                {
+                    case > 0:
+                        newRichTexts.Add(new XLRichString(rt.Text.Substring(0, startIndex), rt, this,
+                            OnContentChanged));
+                        break;
+                    case < 0:
+                        startIndex = 0;
+                        break;
+                }
 
-                int leftToTake = length - retVal.Length;
+                var leftToTake = length - retVal.Length;
                 if (leftToTake > rt.Text.Length - startIndex)
                     leftToTake = rt.Text.Length - startIndex;
 
@@ -136,14 +143,17 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
                 retVal.AddText(newRt);
 
                 if (startIndex + leftToTake < rt.Text.Length)
-                    newRichTexts.Add(new XLRichString(rt.Text.Substring(startIndex + leftToTake), rt, this, OnContentChanged));
+                    newRichTexts.Add(new XLRichString(rt.Text.Substring(startIndex + leftToTake), rt, this,
+                        OnContentChanged));
             }
             else // We haven't reached the desired position yet
             {
                 newRichTexts.Add(rt);
             }
+
             lastPosition += rt.Text.Length;
         }
+
         _richTexts = newRichTexts;
         OnContentChanged();
         return retVal;
@@ -164,32 +174,145 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
 
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
-    public bool Bold { set { _richTexts.ForEach(rt => rt.Bold = value); } }
-    public bool Italic { set { _richTexts.ForEach(rt => rt.Italic = value); } }
-    public XLFontUnderlineValues Underline { set { _richTexts.ForEach(rt => rt.Underline = value); } }
-    public bool Strikethrough { set { _richTexts.ForEach(rt => rt.Strikethrough = value); } }
-    public XLFontVerticalTextAlignmentValues VerticalAlignment { set { _richTexts.ForEach(rt => rt.VerticalAlignment = value); } }
-    public bool Shadow { set { _richTexts.ForEach(rt => rt.Shadow = value); } }
-    public double FontSize { set { _richTexts.ForEach(rt => rt.FontSize = value); } }
-    public XLColor FontColor { set { _richTexts.ForEach(rt => rt.FontColor = value); } }
-    public string FontName { set { _richTexts.ForEach(rt => rt.FontName = value); } }
-    public XLFontFamilyNumberingValues FontFamilyNumbering { set { _richTexts.ForEach(rt => rt.FontFamilyNumbering = value); } }
+    public bool Bold
+    {
+        set { _richTexts.ForEach(rt => rt.Bold = value); }
+    }
 
-    public IXLFormattedText<T> SetBold() { Bold = true; return this; }
-    public IXLFormattedText<T> SetBold(bool value) { Bold = value; return this; }
-    public IXLFormattedText<T> SetItalic() { Italic = true; return this; }
-    public IXLFormattedText<T> SetItalic(bool value) { Italic = value; return this; }
-    public IXLFormattedText<T> SetUnderline() { Underline = XLFontUnderlineValues.Single; return this; }
-    public IXLFormattedText<T> SetUnderline(XLFontUnderlineValues value) { Underline = value; return this; }
-    public IXLFormattedText<T> SetStrikethrough() { Strikethrough = true; return this; }
-    public IXLFormattedText<T> SetStrikethrough(bool value) { Strikethrough = value; return this; }
-    public IXLFormattedText<T> SetVerticalAlignment(XLFontVerticalTextAlignmentValues value) { VerticalAlignment = value; return this; }
-    public IXLFormattedText<T> SetShadow() { Shadow = true; return this; }
-    public IXLFormattedText<T> SetShadow(bool value) { Shadow = value; return this; }
-    public IXLFormattedText<T> SetFontSize(double value) { FontSize = value; return this; }
-    public IXLFormattedText<T> SetFontColor(XLColor value) { FontColor = value; return this; }
-    public IXLFormattedText<T> SetFontName(string value) { FontName = value; return this; }
-    public IXLFormattedText<T> SetFontFamilyNumbering(XLFontFamilyNumberingValues value) { FontFamilyNumbering = value; return this; }
+    public bool Italic
+    {
+        set { _richTexts.ForEach(rt => rt.Italic = value); }
+    }
+
+    public XLFontUnderlineValues Underline
+    {
+        set { _richTexts.ForEach(rt => rt.Underline = value); }
+    }
+
+    public bool Strikethrough
+    {
+        set { _richTexts.ForEach(rt => rt.Strikethrough = value); }
+    }
+
+    public XLFontVerticalTextAlignmentValues VerticalAlignment
+    {
+        set { _richTexts.ForEach(rt => rt.VerticalAlignment = value); }
+    }
+
+    public bool Shadow
+    {
+        set { _richTexts.ForEach(rt => rt.Shadow = value); }
+    }
+
+    public double FontSize
+    {
+        set { _richTexts.ForEach(rt => rt.FontSize = value); }
+    }
+
+    public XLColor FontColor
+    {
+        set { _richTexts.ForEach(rt => rt.FontColor = value); }
+    }
+
+    public string FontName
+    {
+        set { _richTexts.ForEach(rt => rt.FontName = value); }
+    }
+
+    public XLFontFamilyNumberingValues FontFamilyNumbering
+    {
+        set { _richTexts.ForEach(rt => rt.FontFamilyNumbering = value); }
+    }
+
+    public IXLFormattedText<T> SetBold()
+    {
+        Bold = true;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetBold(bool value)
+    {
+        Bold = value;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetItalic()
+    {
+        Italic = true;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetItalic(bool value)
+    {
+        Italic = value;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetUnderline()
+    {
+        Underline = XLFontUnderlineValues.Single;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetUnderline(XLFontUnderlineValues value)
+    {
+        Underline = value;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetStrikethrough()
+    {
+        Strikethrough = true;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetStrikethrough(bool value)
+    {
+        Strikethrough = value;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetVerticalAlignment(XLFontVerticalTextAlignmentValues value)
+    {
+        VerticalAlignment = value;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetShadow()
+    {
+        Shadow = true;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetShadow(bool value)
+    {
+        Shadow = value;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetFontSize(double value)
+    {
+        FontSize = value;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetFontColor(XLColor value)
+    {
+        FontColor = value;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetFontName(string value)
+    {
+        FontName = value;
+        return this;
+    }
+
+    public IXLFormattedText<T> SetFontFamilyNumbering(XLFontFamilyNumberingValues value)
+    {
+        FontFamilyNumbering = value;
+        return this;
+    }
 
     public bool Equals(IXLFormattedText<T>? other)
     {

@@ -4,14 +4,14 @@ namespace XLibur.Excel;
 
 internal sealed class XLBorderValue
 {
-    private static readonly XLBorderRepository Repository = new XLBorderRepository(key => new XLBorderValue(key));
+    private static readonly XLBorderRepository Repository = new(key => new XLBorderValue(key));
 
     public static XLBorderValue FromKey(ref XLBorderKey key)
     {
         return Repository.GetOrCreate(ref key);
     }
 
-    private static readonly XLBorderKey DefaultKey = new XLBorderKey
+    private static readonly XLBorderKey DefaultKey = new()
     {
         BottomBorder = XLBorderStyleValues.None,
         DiagonalBorder = XLBorderStyleValues.None,
@@ -29,31 +29,31 @@ internal sealed class XLBorderValue
 
     internal static readonly XLBorderValue Default = FromKey(ref DefaultKey);
 
-    public XLBorderKey Key { get; private set; }
+    public XLBorderKey Key { get; }
 
-    public XLBorderStyleValues LeftBorder { get { return Key.LeftBorder; } }
+    public XLBorderStyleValues LeftBorder => Key.LeftBorder;
 
     public XLColor LeftBorderColor { get; private set; }
 
-    public XLBorderStyleValues RightBorder { get { return Key.RightBorder; } }
+    public XLBorderStyleValues RightBorder => Key.RightBorder;
 
     public XLColor RightBorderColor { get; private set; }
 
-    public XLBorderStyleValues TopBorder { get { return Key.TopBorder; } }
+    public XLBorderStyleValues TopBorder => Key.TopBorder;
 
     public XLColor TopBorderColor { get; private set; }
 
-    public XLBorderStyleValues BottomBorder { get { return Key.BottomBorder; } }
+    public XLBorderStyleValues BottomBorder => Key.BottomBorder;
 
     public XLColor BottomBorderColor { get; private set; }
 
-    public XLBorderStyleValues DiagonalBorder { get { return Key.DiagonalBorder; } }
+    public XLBorderStyleValues DiagonalBorder => Key.DiagonalBorder;
 
     public XLColor DiagonalBorderColor { get; private set; }
 
-    public bool DiagonalUp { get { return Key.DiagonalUp; } }
+    public bool DiagonalUp => Key.DiagonalUp;
 
-    public bool DiagonalDown { get { return Key.DiagonalDown; } }
+    public bool DiagonalDown => Key.DiagonalDown;
 
     private XLBorderValue(XLBorderKey key)
     {

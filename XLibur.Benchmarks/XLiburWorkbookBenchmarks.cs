@@ -8,8 +8,8 @@ using XLibur.Excel;
 namespace XLibur.Benchmarks;
 
 [MemoryDiagnoser]
-// [DotMemoryDiagnoser]
-// [DotTraceDiagnoser]
+//[DotMemoryDiagnoser]
+[DotTraceDiagnoser]
 public class XLiburWorkbookBenchmarks
 {
     private const int RowCount = 50_000;

@@ -53,7 +53,7 @@ internal static class XLRangeCellsHelper
     {
         predicate ??= (t => true);
 
-        //To avoid unnecessary initialization of thousands cells
+        //To avoid unnecessary initialization of thousands of cells
         var opt = options
                   & ~XLCellsUsedOptions.ConditionalFormats
                   & ~XLCellsUsedOptions.DataValidation

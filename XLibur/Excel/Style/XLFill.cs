@@ -28,8 +28,8 @@ internal sealed class XLFill : IXLFill
 
     internal XLFillKey Key
     {
-        get { return _value.Key; }
-        private set { _value = XLFillValue.FromKey(ref value); }
+        get => _value.Key;
+        private set => _value = XLFillValue.FromKey(ref value);
     }
 
     #endregion Properties
@@ -47,7 +47,7 @@ internal sealed class XLFill : IXLFill
         _value = value;
     }
 
-    public XLFill(XLStyle? style, XLFillKey key) : this(style, XLFillValue.FromKey(ref key))
+    private XLFill(XLStyle? style, XLFillKey key) : this(style, XLFillValue.FromKey(ref key))
     {
     }
 
@@ -85,8 +85,7 @@ internal sealed class XLFill : IXLFill
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            if ((PatternType == XLFillPatternValues.None ||
-                 PatternType == XLFillPatternValues.Solid)
+            if (PatternType is XLFillPatternValues.None or XLFillPatternValues.Solid
                 && XLColor.IsNullOrTransparent(BackgroundColor))
             {
                 var patternType = value.HasValue ? XLFillPatternValues.Solid : XLFillPatternValues.None;
@@ -127,14 +126,14 @@ internal sealed class XLFill : IXLFill
 
     public XLFillPatternValues PatternType
     {
-        get { return Key.PatternType; }
+        get => Key.PatternType;
         set
         {
             if (PatternType == XLFillPatternValues.None &&
                 value != XLFillPatternValues.None)
             {
-                // If fill was empty and the pattern changes to non-empty we have to specify a background color too.
-                // Otherwise the fill will be considered empty and pattern won't update (the cached empty fill will be used).
+                // If fill was empty and the pattern changes to non-empty, we have to specify a background color too.
+                // Otherwise, the fill will be considered empty, and the pattern won't update (the cached empty fill will be used).
                 if (_style.IsCellContainer)
                     SetKey(Key with { BackgroundColor = XLColor.FromTheme(XLThemeColor.Text1).Key, PatternType = value });
                 else

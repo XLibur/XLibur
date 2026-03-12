@@ -65,7 +65,7 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
     {
         var retVal = new XLCells(false, XLCellsUsedOptions.AllContents);
         var rangePairs = cellsInRow.Split(',');
-        foreach (string pair in rangePairs)
+        foreach (var pair in rangePairs)
             retVal.Add(Range(pair.Trim()).RangeAddress);
         return retVal;
     }
@@ -101,10 +101,10 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
     {
         base.CopyTo((XLCell)target);
 
-        int lastRowNumber = target.Address.RowNumber + RowCount() - 1;
+        var lastRowNumber = target.Address.RowNumber + RowCount() - 1;
         if (lastRowNumber > XLHelper.MaxRowNumber)
             lastRowNumber = XLHelper.MaxRowNumber;
-        int lastColumnNumber = target.Address.ColumnNumber + ColumnCount() - 1;
+        var lastColumnNumber = target.Address.ColumnNumber + ColumnCount() - 1;
         if (lastColumnNumber > XLHelper.MaxColumnNumber)
             lastColumnNumber = XLHelper.MaxColumnNumber;
 
@@ -119,10 +119,10 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
     public new IXLRangeRow CopyTo(IXLRangeBase target)
     {
         base.CopyTo(target);
-        int lastRowNumber = target.RangeAddress.FirstAddress.RowNumber + RowCount() - 1;
+        var lastRowNumber = target.RangeAddress.FirstAddress.RowNumber + RowCount() - 1;
         if (lastRowNumber > XLHelper.MaxRowNumber)
             lastRowNumber = XLHelper.MaxRowNumber;
-        int lastColumnNumber = target.RangeAddress.LastAddress.ColumnNumber + ColumnCount() - 1;
+        var lastColumnNumber = target.RangeAddress.LastAddress.ColumnNumber + ColumnCount() - 1;
         if (lastColumnNumber > XLHelper.MaxColumnNumber)
             lastColumnNumber = XLHelper.MaxColumnNumber;
 
@@ -148,7 +148,7 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
     {
         var retVal = new XLRangeRows();
         var columnPairs = rows.Split(',');
-        foreach (string trimmedPair in columnPairs.Select(pair => pair.Trim()))
+        foreach (var trimmedPair in columnPairs.Select(pair => pair.Trim()))
         {
             string firstColumn;
             string lastColumn;
@@ -207,8 +207,8 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
                 rangeAddressStr = rangeAddressStr.Replace('-', ':');
 
             var arrRange = rangeAddressStr.Split(':');
-            string firstPart = arrRange[0];
-            string secondPart = arrRange[1];
+            var firstPart = arrRange[0];
+            var secondPart = arrRange[1];
             rangeAddressToUse = FixRowAddress(firstPart) + ":" + FixRowAddress(secondPart);
         }
         else
@@ -220,13 +220,13 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
 
     public int CompareTo(XLRangeRow otherRow, IXLSortElements columnsToSort)
     {
-        foreach (IXLSortElement e in columnsToSort)
+        foreach (var e in columnsToSort)
         {
             var thisCell = (XLCell)Cell(e.ElementNumber);
             var otherCell = (XLCell)otherRow.Cell(e.ElementNumber);
             int comparison;
-            bool thisCellIsBlank = thisCell.IsEmpty();
-            bool otherCellIsBlank = otherCell.IsEmpty();
+            var thisCellIsBlank = thisCell.IsEmpty();
+            var otherCellIsBlank = otherCell.IsEmpty();
             if (e.IgnoreBlanks && (thisCellIsBlank || otherCellIsBlank))
             {
                 if (thisCellIsBlank && otherCellIsBlank)
@@ -288,7 +288,7 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
 
     private XLRangeRow RowShift(int rowsToShift)
     {
-        int rowNum = RowNumber() + rowsToShift;
+        var rowNum = RowNumber() + rowsToShift;
 
         var range = Worksheet.Range(
             rowNum,

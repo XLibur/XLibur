@@ -6,7 +6,7 @@ namespace XLibur.Excel;
 
 internal sealed class XLPhonetics : IXLPhonetics
 {
-    private readonly List<IXLPhonetic> _phonetics = new();
+    private readonly List<IXLPhonetic> _phonetics = [];
     private readonly XLFont _font;
     private readonly IXLFontBase _defaultFont;
     private readonly Action _onChange;
