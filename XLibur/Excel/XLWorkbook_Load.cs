@@ -19,6 +19,7 @@ using Ap;
 using Drawings;
 using Op;
 
+// ReSharper disable once InconsistentNaming
 public partial class XLWorkbook
 {
     private void Load(string file)
@@ -216,11 +217,10 @@ public partial class XLWorkbook
                 continue;
             }
 
-            // Although relationship to worksheet is most common, there can be other types
-            // than worksheet, e.g. chartSheet. Since we can't load them, add them to list
+            // Although the relationship to worksheet is most common, there can be other types
+            // than worksheet, e.g., chartSheet. Since we can't load them, add them to the list
             // of unsupported sheets and copy them when saving. See Codeplex #6932.
-            var worksheetPart = workbookPart.GetPartById(dSheet.Id!.Value!) as WorksheetPart;
-            if (worksheetPart == null)
+            if (workbookPart.GetPartById(dSheet.Id!.Value!) is not WorksheetPart)
             {
                 UnsupportedSheets.Add(new UnsupportedSheet { SheetId = sheetIdValue, Position = position });
                 continue;
@@ -283,7 +283,7 @@ public partial class XLWorkbook
 
                     if (reader.ElementType == typeof(SheetFormatProperties))
                     {
-                        var sheetFormatProperties = (SheetFormatProperties)reader.LoadCurrentElement()!;
+                        var sheetFormatProperties = (SheetFormatProperties?)reader.LoadCurrentElement();
                         if (sheetFormatProperties != null)
                         {
                             if (sheetFormatProperties.DefaultRowHeight != null)
@@ -305,7 +305,7 @@ public partial class XLWorkbook
                         WorksheetElementReader.LoadSheetViews((SheetViews)reader.LoadCurrentElement()!, ws);
                     else if (reader.ElementType == typeof(MergeCells))
                     {
-                        var mergedCells = (MergeCells)reader.LoadCurrentElement()!;
+                        var mergedCells = (MergeCells?)reader.LoadCurrentElement();
                         if (mergedCells != null)
                         {
                             foreach (var mergeCell in mergedCells.Elements<MergeCell>())
@@ -364,7 +364,7 @@ public partial class XLWorkbook
                 var dTable = tableDefinitionPart.Table!;
 
                 var reference = dTable.Reference!.Value!;
-                string tableName = dTable.Name?.Value ?? dTable.DisplayName?.Value ?? string.Empty;
+                var tableName = dTable.Name?.Value ?? dTable.DisplayName?.Value ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(tableName))
                     throw new InvalidDataException("The table name is missing.");
 
@@ -374,7 +374,6 @@ public partial class XLWorkbook
                 if (dTable.HeaderRowCount != null && dTable.HeaderRowCount == 0)
                 {
                     xlTable._showHeaderRow = false;
-                    //foreach (var tableColumn in dTable.TableColumns.Cast<TableColumn>())
                     xlTable.AddFields(dTable.TableColumns!.Cast<TableColumn>()
                         .Select(t => DrawingPartReader.GetTableColumnName(t.Name!.Value!)));
                 }
@@ -399,10 +398,7 @@ public partial class XLWorkbook
                     if (dTable.TableStyleInfo.Name != null)
                     {
                         var theme = XLTableTheme.FromName(dTable.TableStyleInfo.Name.Value!);
-                        if (theme != null)
-                            xlTable.Theme = theme;
-                        else
-                            xlTable.Theme = new XLTableTheme(dTable.TableStyleInfo.Name.Value!);
+                        xlTable.Theme = theme ?? new XLTableTheme(dTable.TableStyleInfo.Name.Value!);
                     }
                     else
                         xlTable.Theme = XLTableTheme.None;
@@ -471,7 +467,7 @@ public partial class XLWorkbook
 
                     var shapeIdString = shape?.Attribute("id")?.Value;
                     if (shapeIdString?.StartsWith("_x0000_s") ?? false)
-                        shapeIdString = shapeIdString.Substring(8);
+                        shapeIdString = shapeIdString[8..];
 
                     int? shapeId = int.TryParse(shapeIdString, out var sid) ? sid : null;
                     var xlComment = cell!.CreateComment(shapeId);
@@ -502,9 +498,6 @@ public partial class XLWorkbook
                         if (alt != null) xlComment.Style.Web.SetAlternateText(alt.Value);
 
                         DrawingPartReader.LoadColorsAndLines(xlComment, shape);
-
-                        //var insetmode = (string)shape.Attributes().First(a=> a.Name.LocalName == "insetmode");
-                        //xlComment.Style.Margins.Automatic = insetmode != null && insetmode.Equals("auto");
                     }
                 }
             }
@@ -515,7 +508,7 @@ public partial class XLWorkbook
         var workbook = workbookPart.Workbook;
 
         var bookViews = workbook.BookViews;
-        if (bookViews != null && bookViews.FirstOrDefault() is WorkbookView workbookView)
+        if (bookViews?.FirstOrDefault() is WorkbookView workbookView)
         {
             if (workbookView.ActiveTab == null || !workbookView.ActiveTab.HasValue)
             {
@@ -563,7 +556,7 @@ public partial class XLWorkbook
 
     /// <summary>
     /// Calculate expected column width as a number displayed in the column in Excel from
-    /// number of characters that should fit into the width and a font.
+    /// the number of characters that should fit into the width and a font.
     /// </summary>
     internal static double CalculateColumnWidth(double charWidth, IXLFont font, XLWorkbook workbook)
     {
@@ -571,11 +564,11 @@ public partial class XLWorkbook
         var mdw = workbook.GraphicEngine.GetMaxDigitWidth(font, workbook.DpiX).RoundToInt();
         var defaultColWidthPx = XLHelper.NoCToPixels(charWidth, mdw).RoundToInt();
 
-        // Excel then rounds this number up to the nearest multiple of 8 pixels, so that
+        // Excel then rounds this number up to the nearest multiple of 8 pixels so that
         // scrolling across columns and rows is faster.
         var roundUpToMultiple = defaultColWidthPx + (8 - defaultColWidthPx % 8);
 
-        // and last convert the width in pixels to width displayed in Excel. Shouldn't round the number, because
+        // and last, convert the width in pixels to width displayed in Excel. Shouldn't round the number, because
         // it causes inconsistency with conversion to other units, but other places in ClosedXML do = keep for now.
         var defaultColumnWidth = XLHelper.PixelToNoC(roundUpToMultiple, mdw).Round(2);
         return defaultColumnWidth;
@@ -583,83 +576,78 @@ public partial class XLWorkbook
 
     private static void LoadWorkbookTheme(ThemePart? tp, XLWorkbook wb)
     {
-        if (tp is null)
-            return;
-
-        var colorScheme = tp.Theme?.ThemeElements?.ColorScheme;
-        if (colorScheme is not null)
+        var colorScheme = tp?.Theme?.ThemeElements?.ColorScheme;
+        if (colorScheme == null) return;
+        var background1 = colorScheme.Light1Color?.RgbColorModelHex?.Val?.Value;
+        if (!string.IsNullOrEmpty(background1))
         {
-            var background1 = colorScheme.Light1Color?.RgbColorModelHex?.Val?.Value;
-            if (!string.IsNullOrEmpty(background1))
-            {
-                wb.Theme.Background1 = XLColor.FromHexRgb(background1);
-            }
+            wb.Theme.Background1 = XLColor.FromHexRgb(background1);
+        }
 
-            var text1 = colorScheme.Dark1Color?.RgbColorModelHex?.Val?.Value;
-            if (!string.IsNullOrEmpty(text1))
-            {
-                wb.Theme.Text1 = XLColor.FromHexRgb(text1);
-            }
+        var text1 = colorScheme.Dark1Color?.RgbColorModelHex?.Val?.Value;
+        if (!string.IsNullOrEmpty(text1))
+        {
+            wb.Theme.Text1 = XLColor.FromHexRgb(text1);
+        }
 
-            var background2 = colorScheme.Light2Color?.RgbColorModelHex?.Val?.Value;
-            if (!string.IsNullOrEmpty(background2))
-            {
-                wb.Theme.Background2 = XLColor.FromHexRgb(background2);
-            }
+        var background2 = colorScheme.Light2Color?.RgbColorModelHex?.Val?.Value;
+        if (!string.IsNullOrEmpty(background2))
+        {
+            wb.Theme.Background2 = XLColor.FromHexRgb(background2);
+        }
 
-            var text2 = colorScheme.Dark2Color?.RgbColorModelHex?.Val?.Value;
-            if (!string.IsNullOrEmpty(text2))
-            {
-                wb.Theme.Text2 = XLColor.FromHexRgb(text2);
-            }
+        var text2 = colorScheme.Dark2Color?.RgbColorModelHex?.Val?.Value;
+        if (!string.IsNullOrEmpty(text2))
+        {
+            wb.Theme.Text2 = XLColor.FromHexRgb(text2);
+        }
 
-            var accent1 = colorScheme.Accent1Color?.RgbColorModelHex?.Val?.Value;
-            if (!string.IsNullOrEmpty(accent1))
-            {
-                wb.Theme.Accent1 = XLColor.FromHexRgb(accent1);
-            }
+        var accent1 = colorScheme.Accent1Color?.RgbColorModelHex?.Val?.Value;
+        if (!string.IsNullOrEmpty(accent1))
+        {
+            wb.Theme.Accent1 = XLColor.FromHexRgb(accent1);
+        }
 
-            var accent2 = colorScheme.Accent2Color?.RgbColorModelHex?.Val?.Value;
-            if (!string.IsNullOrEmpty(accent2))
-            {
-                wb.Theme.Accent2 = XLColor.FromHexRgb(accent2);
-            }
+        var accent2 = colorScheme.Accent2Color?.RgbColorModelHex?.Val?.Value;
+        if (!string.IsNullOrEmpty(accent2))
+        {
+            wb.Theme.Accent2 = XLColor.FromHexRgb(accent2);
+        }
 
-            var accent3 = colorScheme.Accent3Color?.RgbColorModelHex?.Val?.Value;
-            if (!string.IsNullOrEmpty(accent3))
-            {
-                wb.Theme.Accent3 = XLColor.FromHexRgb(accent3);
-            }
+        var accent3 = colorScheme.Accent3Color?.RgbColorModelHex?.Val?.Value;
+        if (!string.IsNullOrEmpty(accent3))
+        {
+            wb.Theme.Accent3 = XLColor.FromHexRgb(accent3);
+        }
 
-            var accent4 = colorScheme.Accent4Color?.RgbColorModelHex?.Val?.Value;
-            if (!string.IsNullOrEmpty(accent4))
-            {
-                wb.Theme.Accent4 = XLColor.FromHexRgb(accent4);
-            }
+        var accent4 = colorScheme.Accent4Color?.RgbColorModelHex?.Val?.Value;
+        if (!string.IsNullOrEmpty(accent4))
+        {
+            wb.Theme.Accent4 = XLColor.FromHexRgb(accent4);
+        }
 
-            var accent5 = colorScheme.Accent5Color?.RgbColorModelHex?.Val?.Value;
-            if (!string.IsNullOrEmpty(accent5))
-            {
-                wb.Theme.Accent5 = XLColor.FromHexRgb(accent5);
-            }
+        var accent5 = colorScheme.Accent5Color?.RgbColorModelHex?.Val?.Value;
+        if (!string.IsNullOrEmpty(accent5))
+        {
+            wb.Theme.Accent5 = XLColor.FromHexRgb(accent5);
+        }
 
-            var accent6 = colorScheme.Accent6Color?.RgbColorModelHex?.Val?.Value;
-            if (!string.IsNullOrEmpty(accent6))
-            {
-                wb.Theme.Accent6 = XLColor.FromHexRgb(accent6);
-            }
+        var accent6 = colorScheme.Accent6Color?.RgbColorModelHex?.Val?.Value;
+        if (!string.IsNullOrEmpty(accent6))
+        {
+            wb.Theme.Accent6 = XLColor.FromHexRgb(accent6);
+        }
 
-            var hyperlink = colorScheme.Hyperlink?.RgbColorModelHex?.Val?.Value;
-            if (!string.IsNullOrEmpty(hyperlink))
-            {
-                wb.Theme.Hyperlink = XLColor.FromHexRgb(hyperlink);
-            }
+        var hyperlink = colorScheme.Hyperlink?.RgbColorModelHex?.Val?.Value;
+        if (!string.IsNullOrEmpty(hyperlink))
+        {
+            wb.Theme.Hyperlink = XLColor.FromHexRgb(hyperlink);
+        }
 
-            var followedHyperlink = colorScheme.FollowedHyperlinkColor?.RgbColorModelHex?.Val?.Value;
-            if (!string.IsNullOrEmpty(followedHyperlink))
-            {
-                wb.Theme.FollowedHyperlink = XLColor.FromHexRgb(followedHyperlink);
-            }
+        var followedHyperlink = colorScheme.FollowedHyperlinkColor?.RgbColorModelHex?.Val?.Value;
+        if (!string.IsNullOrEmpty(followedHyperlink))
+        {
+            wb.Theme.FollowedHyperlink = XLColor.FromHexRgb(followedHyperlink);
         }
     }
 

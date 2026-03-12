@@ -5,7 +5,6 @@ using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
-using System.IO;
 using System.Linq;
 using static ClosedXML.Excel.XLWorkbook;
 using Drawing = DocumentFormat.OpenXml.Spreadsheet.Drawing;
@@ -126,13 +125,8 @@ internal sealed class PictureWriter
             imagePart = drawingsPart.AddImagePart(pic.Format.ToOpenXml(), pic.RelId);
         }
 
-        using (var stream = new MemoryStream())
-        {
-            pic.ImageStream.Position = 0;
-            pic.ImageStream.CopyTo(stream);
-            stream.Seek(0, SeekOrigin.Begin);
-            imagePart.FeedData(stream);
-        }
+        pic.ImageStream.Position = 0;
+        imagePart.FeedData(pic.ImageStream);
 
         // Clear current anchors
         var existingAnchor = XLWorkbook.GetAnchorFromImageId(drawingsPart, pic.RelId!);
@@ -317,9 +311,8 @@ internal sealed class PictureWriter
     {
         var worksheetDrawing = worksheetPart.DrawingsPart!.WorksheetDrawing;
 
-        var toRebase = worksheetDrawing!.Descendants<Xdr.NonVisualDrawingProperties>()
-            .ToList();
-
-        toRebase.ForEach(nvdpr => nvdpr.Id = Convert.ToUInt32(toRebase.IndexOf(nvdpr) + 1));
+        uint id = 1;
+        foreach (var nvdpr in worksheetDrawing!.Descendants<Xdr.NonVisualDrawingProperties>())
+            nvdpr.Id = id++;
     }
 }

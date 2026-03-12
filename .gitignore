@@ -31,3 +31,5 @@ _ReSharper*/
 /packages
 .idea/
 .claude/settings.local.json
+/BenchmarkDotNet.Artifacts/*
+/results/*

@@ -12,48 +12,45 @@ using static XLibur.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Excel;
 
+// ReSharper disable once InconsistentNaming
 public enum XLCalculateMode
 {
     Auto,
     AutoNoTable,
     Manual,
     Default
-};
+}
 
+// ReSharper disable once InconsistentNaming
 public enum XLReferenceStyle
 {
     R1C1,
     A1,
     Default
-};
+}
 
+// ReSharper disable once InconsistentNaming
 public enum XLCellSetValueBehavior
 {
     /// <summary>
-    ///   Analyze input string and convert value. For avoid analyzing use escape symbol '
+    /// Analyze input string and convert value. For avoid analyzing use escape symbol '
     /// </summary>
     Smart = 0,
 
     /// <summary>
-    ///   Direct set value. If value has unsupported type - value will be stored as string returned by <see
-    ///    cref = "object.ToString()" />
+    /// Direct set value. If a value has an unsupported type-value will be stored as string returned by <see cref = "object.ToString()" />
     /// </summary>
     Simple = 1,
 }
 
+// ReSharper disable once InconsistentNaming
 public partial class XLWorkbook : IXLWorkbook
 {
     #region Static
 
-    public static IXLStyle DefaultStyle
-    {
-        get { return XLStyle.Default; }
-    }
+    public static IXLStyle DefaultStyle => XLStyle.Default;
 
-    internal static XLStyleValue DefaultStyleValue
-    {
-        get { return XLStyleValue.Default; }
-    }
+    internal static XLStyleValue DefaultStyleValue => XLStyleValue.Default;
 
     public static double DefaultRowHeight { get; private set; }
 
@@ -104,8 +101,7 @@ public partial class XLWorkbook : IXLWorkbook
 
     #endregion Static
 
-    internal readonly List<UnsupportedSheet> UnsupportedSheets =
-        new List<UnsupportedSheet>();
+    internal readonly List<UnsupportedSheet> UnsupportedSheets = [];
 
     internal IXLGraphicEngine GraphicEngine { get; }
 
@@ -119,6 +115,7 @@ public partial class XLWorkbook : IXLWorkbook
 
     #region Nested Type : XLLoadSource
 
+    // ReSharper disable once InconsistentNaming
     private enum XLLoadSource
     {
         New,
@@ -133,10 +130,7 @@ public partial class XLWorkbook : IXLWorkbook
     /// <summary>
     ///   Gets an object to manipulate the worksheets.
     /// </summary>
-    public IXLWorksheets Worksheets
-    {
-        get { return WorksheetsInternal; }
-    }
+    public IXLWorksheets Worksheets => WorksheetsInternal;
 
     internal XLDefinedNames DefinedNamesInternal { get; }
 
@@ -229,47 +223,23 @@ public partial class XLWorkbook : IXLWorkbook
 
     public bool RightToLeft { get; set; }
 
-    public bool DefaultShowFormulas
-    {
-        get { return false; }
-    }
+    public bool DefaultShowFormulas => false;
 
-    public bool DefaultShowGridLines
-    {
-        get { return true; }
-    }
+    public bool DefaultShowGridLines => true;
 
-    public bool DefaultShowOutlineSymbols
-    {
-        get { return true; }
-    }
+    public bool DefaultShowOutlineSymbols => true;
 
-    public bool DefaultShowRowColHeaders
-    {
-        get { return true; }
-    }
+    public bool DefaultShowRowColHeaders => true;
 
-    public bool DefaultShowRuler
-    {
-        get { return true; }
-    }
+    public bool DefaultShowRuler => true;
 
-    public bool DefaultShowWhiteSpace
-    {
-        get { return true; }
-    }
+    public bool DefaultShowWhiteSpace => true;
 
-    public bool DefaultShowZeros
-    {
-        get { return true; }
-    }
+    public bool DefaultShowZeros => true;
 
     public IXLFileSharing FileSharing { get; } = new XLFileSharing();
 
-    public bool DefaultRightToLeft
-    {
-        get { return false; }
-    }
+    public bool DefaultRightToLeft => false;
 
     private void InitializeTheme()
     {
@@ -297,7 +267,7 @@ public partial class XLWorkbook : IXLWorkbook
     public IXLDefinedName? DefinedName(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
-        if (name.Contains("!"))
+        if (name.Contains('!'))
         {
             var split = name.Split('!');
             var first = split[0];
@@ -323,7 +293,7 @@ public partial class XLWorkbook : IXLWorkbook
             return true;
         }
 
-        worksheet = default;
+        worksheet = null;
         return false;
     }
 
@@ -447,7 +417,7 @@ public partial class XLWorkbook : IXLWorkbook
         }
         else if (_loadSource == XLLoadSource.File)
         {
-            if (String.Compare(_originalFile!.Trim(), file.Trim(), StringComparison.OrdinalIgnoreCase) != 0)
+            if (string.Compare(_originalFile!.Trim(), file.Trim(), StringComparison.OrdinalIgnoreCase) != 0)
             {
                 File.Copy(_originalFile!, file, true);
                 File.SetAttributes(file, FileAttributes.Normal);
@@ -474,7 +444,7 @@ public partial class XLWorkbook : IXLWorkbook
         var extension = Path.GetExtension(filePath);
 
         if (string.IsNullOrEmpty(extension)) throw new ArgumentException("Empty extension is not supported.");
-        extension = extension.Substring(1).ToLowerInvariant();
+        extension = extension[1..].ToLowerInvariant();
 
         return extension switch
         {
@@ -483,13 +453,13 @@ public partial class XLWorkbook : IXLWorkbook
             "xlsx" => SpreadsheetDocumentType.Workbook,
             "xltx" => SpreadsheetDocumentType.Template,
             _ => throw new ArgumentException(
-                $"Extension '{extension}' is not supported. Supported extensions are '.xlsx', '.xlsm', '.xltx' and '.xltm'."),
+                $"Extension '{extension}' is not supported. Supported extensions are '.xlsx', '.xlsm', '.xltx' and '.xltm'.")
         };
     }
 
     private void CheckForWorksheetsPresent()
     {
-        if (!Worksheets.Any())
+        if (Worksheets.Count == 0)
             throw new InvalidOperationException("Workbooks need at least one worksheet.");
     }
 
@@ -519,13 +489,13 @@ public partial class XLWorkbook : IXLWorkbook
         CheckForWorksheetsPresent();
         if (_loadSource == XLLoadSource.New)
         {
-            // dm 20130422, this method or better the method SpreadsheetDocument.Create which is called
-            // inside of 'CreatePackage' need a stream which CanSeek & CanRead
-            // and an ordinary Response stream of a webserver can't do this
+            // This method or better the method SpreadsheetDocument.Create which is called
+            // inside 'CreatePackage' need a stream which CanSeek & CanRead
+            // and an ordinary Response stream of a webserver can't do this,
             // so we have to ask and provide a way around this
-            if (stream.CanRead && stream.CanSeek && stream.CanWrite)
+            if (stream is { CanRead: true, CanSeek: true, CanWrite: true })
             {
-                // all is fine the package can be created in a direct way
+                // all is fine the package can be created directly
                 CreatePackage(stream, true, _spreadsheetDocumentType, options);
             }
             else
@@ -534,8 +504,7 @@ public partial class XLWorkbook : IXLWorkbook
                 using var ms = new MemoryStream();
                 CreatePackage(ms, true, _spreadsheetDocumentType, options);
                 // not really necessary, because I changed CopyStream too.
-                // but for better understanding and if somebody in the future
-                // provides changed version of CopyStream
+                // For better understanding and if somebody in the future provides a changed version of CopyStream
                 ms.Position = 0;
                 CopyStream(ms, stream);
             }
@@ -567,21 +536,20 @@ public partial class XLWorkbook : IXLWorkbook
     {
         var buffer = new byte[8 * 1024];
         int len;
-        // dm 20130422, it is always a good idea to rewind the input stream, or not?
+        // It is always a good idea to rewind the input stream, or not?
         if (input.CanSeek)
             input.Seek(0, SeekOrigin.Begin);
         while ((len = input.Read(buffer, 0, buffer.Length)) > 0)
             output.Write(buffer, 0, len);
-        // dm 20130422, and flushing the output after write
+        // And flushing the output after writing
         output.Flush();
     }
 
     public IXLTable Table(string tableName, StringComparison comparisonType = StringComparison.OrdinalIgnoreCase)
     {
-        if (!TryGetTable(tableName, out var table, comparisonType))
-            throw new ArgumentOutOfRangeException($"Table {tableName} was not found.");
-
-        return table;
+        return !TryGetTable(tableName, out var table, comparisonType)
+            ? throw new ArgumentOutOfRangeException($"Table {tableName} was not found.")
+            : table;
     }
 
     /// <summary>
@@ -642,10 +610,11 @@ public partial class XLWorkbook : IXLWorkbook
     public IXLCells FindCells(Func<IXLCell, bool> predicate)
     {
         var cells = new XLCells(false, XLCellsUsedOptions.AllContents);
-        foreach (XLWorksheet ws in WorksheetsInternal)
+        foreach (var ws in WorksheetsInternal)
         {
-            foreach (XLCell cell in ws.CellsUsed(XLCellsUsedOptions.All))
+            foreach (var xlCell in ws.CellsUsed(XLCellsUsedOptions.All))
             {
+                var cell = (XLCell)xlCell;
                 if (predicate(cell))
                     cells.Add(cell);
             }
@@ -657,9 +626,9 @@ public partial class XLWorkbook : IXLWorkbook
     public IXLRows FindRows(Func<IXLRow, bool> predicate)
     {
         var rows = new XLRows(worksheet: null);
-        foreach (XLWorksheet ws in WorksheetsInternal)
+        foreach (var ws in WorksheetsInternal)
         {
-            foreach (IXLRow row in ws.Rows().Where(predicate))
+            foreach (var row in ws.Rows().Where(predicate))
                 rows.Add((XLRow)row);
         }
 
@@ -669,9 +638,9 @@ public partial class XLWorkbook : IXLWorkbook
     public IXLColumns FindColumns(Func<IXLColumn, bool> predicate)
     {
         var columns = new XLColumns(worksheet: null);
-        foreach (XLWorksheet ws in WorksheetsInternal)
+        foreach (var ws in WorksheetsInternal)
         {
-            foreach (IXLColumn column in ws.Columns().Where(predicate))
+            foreach (var column in ws.Columns().Where(predicate))
                 columns.Add((XLColumn)column);
         }
 
@@ -941,7 +910,8 @@ public partial class XLWorkbook : IXLWorkbook
     }
 
     /// <summary>
-    /// Evaluate a formula and return a value. Formulas with references don't work and culture used for conversion is invariant.
+    /// Evaluate a formula and return a value. Formulas with References don't work,
+    /// and culture used for conversion is invariant.
     /// </summary>
     public static XLCellValue EvaluateExpr(string expression)
     {
@@ -1009,7 +979,7 @@ public partial class XLWorkbook : IXLWorkbook
     internal XLWorkbookProtection Protection
     {
         get;
-        set { field = value.Clone().CastTo<XLWorkbookProtection>(); }
+        set => field = value.Clone().CastTo<XLWorkbookProtection>();
     }
 
     public IXLWorkbookProtection Protect(Algorithm algorithm = DefaultProtectionAlgorithm)
@@ -1078,7 +1048,7 @@ public partial class XLWorkbook : IXLWorkbook
     }
 
     /// <summary>
-    /// Notify various component of a workbook that sheet has been added.
+    /// Notify various components of a workbook that a sheet has been added.
     /// </summary>
     internal void NotifyWorksheetAdded(XLWorksheet newSheet)
     {

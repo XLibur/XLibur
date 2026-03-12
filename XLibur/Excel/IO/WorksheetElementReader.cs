@@ -1,4 +1,3 @@
-using ClosedXML.Extensions;
 using ClosedXML.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -373,6 +372,10 @@ internal static class WorksheetElementReader
                         case XLFilterOperator.NotEqual:
                             xlFilter = XLFilter.CreateCustomPatternFilter(filterValue, false, connector);
                             break;
+                        case XLFilterOperator.GreaterThan:
+                        case XLFilterOperator.LessThan:
+                        case XLFilterOperator.EqualOrGreaterThan:
+                        case XLFilterOperator.EqualOrLessThan:
                         default:
                             // OOXML allows only string, so do your best to convert back to a properly typed
                             // variable. It's not perfect, but let's mimic Excel.
