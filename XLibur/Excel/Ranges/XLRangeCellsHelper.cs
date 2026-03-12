@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// Contains the algorithm bodies for finding used cells and the internal cell-enumeration helper.

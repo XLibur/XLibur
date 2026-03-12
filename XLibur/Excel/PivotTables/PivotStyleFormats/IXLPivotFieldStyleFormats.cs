@@ -1,5 +1,5 @@
 
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// Interface to change the style of a <see cref="IXLPivotField"/> or its parts.

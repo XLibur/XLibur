@@ -1,5 +1,5 @@
-﻿using ClosedXML.Excel.Drawings;
-using ClosedXML.Utils;
+﻿using XLibur.Excel.Drawings;
+using XLibur.Utils;
 using System;
 using System.IO;
 

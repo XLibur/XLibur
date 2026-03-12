@@ -6,7 +6,7 @@ In order for XLibur, the wrapper around OpenXML, to support all the features, we
 Here are some tips.
 
 * Before starting a large pull request, log an issue and outline the problem and a broad outline of your solution. The maintainers will discuss the issue with you and possibly propose some alternative approaches to align with the XLibur development conventions. 
-* Please submit pull requests that are based on the `main` branch.
+* Please submit pull requests that are based on the `develop` branch.
 * Where possible, pull requests should include unit tests that cover as many uses cases as possible.
 
 ## Working with Excel file internals
@@ -36,5 +36,5 @@ Now, to compare 2 similar, but not exact Excel files:
 
 ## Reconciling Test Files
 
-XLibur uses a set of [reference .xlsx files](https://github.com/XLibur/XLibur/tree/main/XLibur.Tests/Resource) for comparison for some of the unit tests. Sometimes when you update the XLibur codebase, e.g. a bugfix, the reference test files maybe become obsolete. When running unit tests and the generated file doesn't match the reference file, you will have to update the reference file. You should do this only after inspecting the differences between the generated and reference files in detail and confirming that each change is indeed the expected behaviour. Check the new files visually (e.g. in Excel) and through XML comparison before overwriting the reference files.
+XLibur uses a set of [reference .xlsx files](https://github.com/XLibur/XLibur/tree/develop/XLibur.Tests/Resource) for comparison for some of the unit tests. Sometimes when you update the XLibur codebase, e.g. a bugfix, the reference test files maybe become obsolete. When running unit tests and the generated file doesn't match the reference file, you will have to update the reference file. You should do this only after inspecting the differences between the generated and reference files in detail and confirming that each change is indeed the expected behaviour. Check the new files visually (e.g. in Excel) and through XML comparison before overwriting the reference files.
 

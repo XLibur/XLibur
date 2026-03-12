@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using ClosedXML.Excel;
+using XLibur.Excel;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Excel.Misc;
+namespace XLibur.Tests.Excel.Misc;
 
 [TestFixture]
 public class XlHelperTests

@@ -1,10 +1,10 @@
-using ClosedXML.Extensions;
+using XLibur.Extensions;
 using System;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 internal static partial class XLCellFormulaShifter
 {

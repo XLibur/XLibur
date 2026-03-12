@@ -1,5 +1,5 @@
 ﻿
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 internal sealed class XLPivotTableStyleFormats : IXLPivotTableStyleFormats
 {

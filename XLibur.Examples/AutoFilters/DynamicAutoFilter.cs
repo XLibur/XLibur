@@ -74,7 +74,7 @@ public class DynamicAutoFilter : IXLExample
             //workbook.Worksheet(singleColumnNumbers).AutoFilter.Sort(1, XLSortOrder.Descending);
             #endregion
 
-            #region Multi Column 
+            #region Multi Column
             //workbook.Worksheet(multiColumn).AutoFilter.Sort(3, XLSortOrder.Descending);
             #endregion
 

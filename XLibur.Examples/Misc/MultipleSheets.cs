@@ -1,7 +1,7 @@
 using System.Linq;
 using XLibur.Excel;
 
-namespace ClosedXML.Examples.Misc;
+namespace XLibur.Examples.Misc;
 
 public class MultipleSheets : IXLExample
 {

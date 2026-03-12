@@ -3,8 +3,8 @@ using NUnit.Framework;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using ClosedXML.Excel;
-using ClosedXML.Tests.Excel.Tables;
+using XLibur.Excel;
+using XLibur.Tests.Excel.Tables;
 
 namespace XLibur.Tests.Excel.InsertData;
 

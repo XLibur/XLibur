@@ -1,7 +1,7 @@
 using XLibur.Examples;
 using NUnit.Framework;
 using System.IO;
-using ClosedXML.Tests.Utils;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests;
 

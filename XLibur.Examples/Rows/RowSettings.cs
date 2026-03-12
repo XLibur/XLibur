@@ -1,6 +1,6 @@
-using ClosedXML.Excel;
+using XLibur.Excel;
 
-namespace ClosedXML.Examples.Rows;
+namespace XLibur.Examples.Rows;
 
 public class RowSettings : IXLExample
 {

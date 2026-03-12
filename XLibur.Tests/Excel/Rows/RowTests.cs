@@ -1,9 +1,9 @@
 using System;
 using System.Linq;
-using ClosedXML.Excel;
+using XLibur.Excel;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Excel.Rows;
+namespace XLibur.Tests.Excel.Rows;
 
 [TestFixture]
 public class RowTests

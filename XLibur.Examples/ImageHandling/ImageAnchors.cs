@@ -12,7 +12,7 @@ public class ImageAnchors : IXLExample
         using var wb = new XLWorkbook();
         IXLWorksheet ws;
 
-        using (var fs = Assembly.GetExecutingAssembly().GetManifestResourceStream("ClosedXML.Examples.Resources.ImageHandling.png"))
+        using (var fs = Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Examples.Resources.ImageHandling.png"))
         {
             ws = wb.Worksheets.Add("Images1");
 
@@ -42,7 +42,7 @@ public class ImageAnchors : IXLExample
             #endregion TwoCellAnchor
         }
 
-        using (Stream fs = Assembly.GetExecutingAssembly().GetManifestResourceStream("ClosedXML.Examples.Resources.SampleImage.jpg"))
+        using (Stream fs = Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg"))
         {
             // Moving images around and scaling them
             ws = wb.Worksheets.Add("Images3");
@@ -61,7 +61,7 @@ public class ImageAnchors : IXLExample
                 .MoveTo(ws.Cell(10, 1));
         }
 
-        using (Stream fs = Assembly.GetExecutingAssembly().GetManifestResourceStream("ClosedXML.Examples.Resources.SampleImage.jpg"))
+        using (Stream fs = Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg"))
         {
             // Changing of placement
             ws = wb.Worksheets.Add("Images4");

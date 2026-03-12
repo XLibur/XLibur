@@ -1,9 +1,9 @@
-using ClosedXML.Excel.ContentManagers;
-using ClosedXML.Utils;
+using XLibur.Excel.ContentManagers;
+using XLibur.Utils;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System.Linq;
 
-namespace ClosedXML.Excel.IO;
+namespace XLibur.Excel.IO;
 
 internal sealed class SheetProtectionWriter
 {

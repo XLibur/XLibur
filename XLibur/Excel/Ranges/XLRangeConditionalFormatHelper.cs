@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// Contains the conditional-format removal algorithm.

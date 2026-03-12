@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using ClosedXML.Tests.Utils;
+using XLibur.Tests.Utils;
 using Path = System.IO.Path;
 
 namespace XLibur.Tests;
@@ -212,7 +212,7 @@ internal static class TestHelper
     }
 
     /// <summary>
-    /// A method for testing of a saving and loading capability of ClosedXML. Use this
+    /// A method for testing of a saving and loading capability of XLibur. Use this
     /// method to check properties are correctly saved and loaded.
     /// </summary>
     /// <remarks>This method is specialized, so it only works on one sheet.</remarks>

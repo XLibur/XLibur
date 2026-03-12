@@ -1,4 +1,4 @@
-﻿namespace ClosedXML.Excel;
+﻿namespace XLibur.Excel;
 
 /// <summary>
 /// A description of formatting that should be applied to a <see cref="XLPivotTable"/>.

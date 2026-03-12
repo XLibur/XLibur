@@ -480,7 +480,7 @@ internal static class DateAndTime
     }
 
     /// <summary>
-    /// Calculate week day. No checks. The default form is form 3 (week starts at Sun, range 1..7). 
+    /// Calculate week day. No checks. The default form is form 3 (week starts at Sun, range 1..7).
     /// </summary>
     private static int WeekdayCalc(int serialDate, int weekStartOffset = 0, int numberOffset = 1)
     {

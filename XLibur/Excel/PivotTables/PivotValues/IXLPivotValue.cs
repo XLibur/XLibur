@@ -1,4 +1,4 @@
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// Enum describing how is a pivot field values (i.e. in data area) displayed.

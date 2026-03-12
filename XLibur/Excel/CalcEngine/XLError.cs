@@ -1,4 +1,4 @@
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// A formula error.

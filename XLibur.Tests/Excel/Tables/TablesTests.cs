@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
-using ClosedXML.Attributes;
-using ClosedXML.Excel;
-using ClosedXML.Excel.Exceptions;
+using XLibur.Attributes;
+using XLibur.Excel;
+using XLibur.Excel.Exceptions;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Excel.Tables;
+namespace XLibur.Tests.Excel.Tables;
 
 [TestFixture]
 public class TablesTests

@@ -1,4 +1,4 @@
-﻿using ClosedXML.Utils;
+﻿using XLibur.Utils;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml;
@@ -99,7 +99,7 @@ internal sealed class PivotTableCacheDefinitionPartWriter
                 AutoPage = consolidationSource.AutoPage
             };
 
-            // OpenXML SDK has few bugs here. Use AppendChild to add more children, AddChild keeps only one child. 
+            // OpenXML SDK has few bugs here. Use AppendChild to add more children, AddChild keeps only one child.
             if (consolidationSource.Pages.Count > 0)
             {
                 var pages = new Pages();

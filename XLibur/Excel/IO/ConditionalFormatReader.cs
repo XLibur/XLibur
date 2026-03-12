@@ -1,5 +1,5 @@
-using ClosedXML.Extensions;
-using ClosedXML.Utils;
+using XLibur.Extensions;
+using XLibur.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
-namespace ClosedXML.Excel.IO;
+namespace XLibur.Excel.IO;
 
 /// <summary>
 /// Reads conditional formatting rules and worksheet extensions (sparklines, X14 data validations, data bars).
@@ -44,7 +44,7 @@ internal static class ConditionalFormatReader
 
             // The conditional formatting type is compulsory. If it doesn't exist, skip the entire rule.
             if (fr.Type == null) continue;
-            conditionalFormat.ConditionalFormatType = fr.Type.Value.ToClosedXml();
+            conditionalFormat.ConditionalFormatType = fr.Type.Value.ToXLibur();
             conditionalFormat.Priority = fr.Priority?.Value ?? int.MaxValue;
 
             // Although formulas are directly used only by CellIs and Expression type, other
@@ -52,7 +52,7 @@ internal static class ConditionalFormatReader
             // IsBlank writes `LEN(TRIM(A2))=0` or ContainsText writes `NOT(ISERROR(SEARCH("hello",A2)))`.
             if (conditionalFormat.ConditionalFormatType == XLConditionalFormatType.CellIs)
             {
-                conditionalFormat.Operator = fr.Operator!.Value.ToClosedXml();
+                conditionalFormat.Operator = fr.Operator!.Value.ToXLibur();
 
                 // The XML schema allows up to three <formula> tags, but at most two are used.
                 // Some producers emit empty <formula> tags that should be ignored and extra
@@ -107,7 +107,7 @@ internal static class ConditionalFormatReader
             else if (conditionalFormat.ConditionalFormatType == XLConditionalFormatType.TimePeriod)
             {
                 if (fr.TimePeriod != null)
-                    conditionalFormat.TimePeriod = fr.TimePeriod.Value.ToClosedXml();
+                    conditionalFormat.TimePeriod = fr.TimePeriod.Value.ToXLibur();
                 else
                     conditionalFormat.TimePeriod = XLTimePeriod.Yesterday;
             }
@@ -138,7 +138,7 @@ internal static class ConditionalFormatReader
                     conditionalFormat.ReverseIconOrder = iconSet.Reverse.Value;
 
                 if (iconSet.IconSetValue != null)
-                    conditionalFormat.IconSetStyle = iconSet.IconSetValue.Value.ToClosedXml();
+                    conditionalFormat.IconSetStyle = iconSet.IconSetValue.Value.ToXLibur();
                 else
                     conditionalFormat.IconSetStyle = XLIconSetStyle.ThreeTrafficLights1;
 
@@ -178,9 +178,9 @@ internal static class ConditionalFormatReader
                 if (dvs.Prompt != null) dvt.InputMessage = dvs.Prompt.Value!;
                 if (dvs.ErrorTitle != null) dvt.ErrorTitle = dvs.ErrorTitle.Value!;
                 if (dvs.Error != null) dvt.ErrorMessage = dvs.Error.Value!;
-                if (dvs.ErrorStyle != null) dvt.ErrorStyle = dvs.ErrorStyle.Value.ToClosedXml();
-                if (dvs.Type != null) dvt.AllowedValues = dvs.Type.Value.ToClosedXml();
-                if (dvs.Operator != null) dvt.Operator = dvs.Operator.Value.ToClosedXml();
+                if (dvs.ErrorStyle != null) dvt.ErrorStyle = dvs.ErrorStyle.Value.ToXLibur();
+                if (dvs.Type != null) dvt.AllowedValues = dvs.Type.Value.ToXLibur();
+                if (dvs.Operator != null) dvt.Operator = dvs.Operator.Value.ToXLibur();
                 if (dvs.DataValidationForumla1 != null) dvt.MinValue = dvs.DataValidationForumla1.InnerText;
                 if (dvs.DataValidationForumla2 != null) dvt.MaxValue = dvs.DataValidationForumla2.InnerText;
             }
@@ -199,7 +199,7 @@ internal static class ConditionalFormatReader
             {
                 var negativeFillColor = conditionalFormattingRule
                     .Descendants<DocumentFormat.OpenXml.Office2010.Excel.NegativeFillColor>().SingleOrDefault();
-                xlConditionalFormat.Colors.Add(negativeFillColor!.ToClosedXMLColor());
+                xlConditionalFormat.Colors.Add(negativeFillColor!.ToXLiburColor());
             }
         }
 
@@ -214,20 +214,20 @@ internal static class ConditionalFormatReader
 
             var xlSparklineStyle = xlSparklineGroup.Style;
             if (slg.FirstMarkerColor != null)
-                xlSparklineStyle.FirstMarkerColor = slg.FirstMarkerColor.ToClosedXMLColor();
-            if (slg.LastMarkerColor != null) xlSparklineStyle.LastMarkerColor = slg.LastMarkerColor.ToClosedXMLColor();
-            if (slg.HighMarkerColor != null) xlSparklineStyle.HighMarkerColor = slg.HighMarkerColor.ToClosedXMLColor();
-            if (slg.LowMarkerColor != null) xlSparklineStyle.LowMarkerColor = slg.LowMarkerColor.ToClosedXMLColor();
-            if (slg.SeriesColor != null) xlSparklineStyle.SeriesColor = slg.SeriesColor.ToClosedXMLColor();
-            if (slg.NegativeColor != null) xlSparklineStyle.NegativeColor = slg.NegativeColor.ToClosedXMLColor();
-            if (slg.MarkersColor != null) xlSparklineStyle.MarkersColor = slg.MarkersColor.ToClosedXMLColor();
+                xlSparklineStyle.FirstMarkerColor = slg.FirstMarkerColor.ToXLiburColor();
+            if (slg.LastMarkerColor != null) xlSparklineStyle.LastMarkerColor = slg.LastMarkerColor.ToXLiburColor();
+            if (slg.HighMarkerColor != null) xlSparklineStyle.HighMarkerColor = slg.HighMarkerColor.ToXLiburColor();
+            if (slg.LowMarkerColor != null) xlSparklineStyle.LowMarkerColor = slg.LowMarkerColor.ToXLiburColor();
+            if (slg.SeriesColor != null) xlSparklineStyle.SeriesColor = slg.SeriesColor.ToXLiburColor();
+            if (slg.NegativeColor != null) xlSparklineStyle.NegativeColor = slg.NegativeColor.ToXLiburColor();
+            if (slg.MarkersColor != null) xlSparklineStyle.MarkersColor = slg.MarkersColor.ToXLiburColor();
             xlSparklineGroup.Style = xlSparklineStyle;
 
             if (slg.DisplayHidden != null) xlSparklineGroup.DisplayHidden = slg.DisplayHidden;
             if (slg.LineWeight != null) xlSparklineGroup.LineWeight = slg.LineWeight;
-            if (slg.Type != null) xlSparklineGroup.Type = slg.Type.Value.ToClosedXml();
+            if (slg.Type != null) xlSparklineGroup.Type = slg.Type.Value.ToXLibur();
             if (slg.DisplayEmptyCellsAs != null)
-                xlSparklineGroup.DisplayEmptyCellsAs = slg.DisplayEmptyCellsAs.Value.ToClosedXml();
+                xlSparklineGroup.DisplayEmptyCellsAs = slg.DisplayEmptyCellsAs.Value.ToXLibur();
 
             xlSparklineGroup.ShowMarkers = XLSparklineMarkers.None;
             if (OpenXmlHelper.GetBooleanValueAsBool(slg.Markers, false))
@@ -251,9 +251,9 @@ internal static class ConditionalFormatReader
             if (slg.ManualMax != null) xlSparklineGroup.VerticalAxis.ManualMax = slg.ManualMax;
             if (slg.ManualMin != null) xlSparklineGroup.VerticalAxis.ManualMin = slg.ManualMin;
             if (slg.MinAxisType != null)
-                xlSparklineGroup.VerticalAxis.MinAxisType = slg.MinAxisType.Value.ToClosedXml();
+                xlSparklineGroup.VerticalAxis.MinAxisType = slg.MinAxisType.Value.ToXLibur();
             if (slg.MaxAxisType != null)
-                xlSparklineGroup.VerticalAxis.MaxAxisType = slg.MaxAxisType.Value.ToClosedXml();
+                xlSparklineGroup.VerticalAxis.MaxAxisType = slg.MaxAxisType.Value.ToXLibur();
 
             slg.Descendants<X14.Sparklines>().SelectMany(sls => sls.Descendants<X14.Sparkline>())
                 .ForEach(sl => xlSparklineGroup.Add(sl.ReferenceSequence!.Text!, sl.Formula!.Text!));
@@ -274,7 +274,7 @@ internal static class ConditionalFormatReader
         foreach (var c in element.Elements<ConditionalFormatValueObject>())
         {
             if (c.Type != null)
-                conditionalFormat.ContentTypes.Add(c.Type.Value.ToClosedXml());
+                conditionalFormat.ContentTypes.Add(c.Type.Value.ToXLibur());
             conditionalFormat.Values.Add(c.Val != null ? new XLFormula { Value = c.Val!.Value! } : null!);
 
             if (c.GreaterThanOrEqual != null)
@@ -287,7 +287,7 @@ internal static class ConditionalFormatReader
 
         foreach (var c in element.Elements<DocumentFormat.OpenXml.Spreadsheet.Color>())
         {
-            conditionalFormat.Colors.Add(c.ToClosedXMLColor());
+            conditionalFormat.Colors.Add(c.ToXLiburColor());
         }
     }
 }

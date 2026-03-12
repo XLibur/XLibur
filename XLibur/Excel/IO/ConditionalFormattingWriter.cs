@@ -1,6 +1,6 @@
-using ClosedXML.Excel.ContentManagers;
-using ClosedXML.Extensions;
-using ClosedXML.Utils;
+using XLibur.Excel.ContentManagers;
+using XLibur.Extensions;
+using XLibur.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
@@ -8,10 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 using OfficeExcel = DocumentFormat.OpenXml.Office.Excel;
-using static ClosedXML.Excel.IO.OpenXmlConst;
-using static ClosedXML.Excel.XLWorkbook;
+using static XLibur.Excel.IO.OpenXmlConst;
+using static XLibur.Excel.XLWorkbook;
 
-namespace ClosedXML.Excel.IO;
+namespace XLibur.Excel.IO;
 
 internal sealed class ConditionalFormattingWriter
 {
@@ -214,23 +214,23 @@ internal sealed class ConditionalFormattingWriter
                     "{A98FF5F8-AE60-43B5-8001-AD89004F45D3}"));
 
                 sparklineGroup.FirstMarkerColor =
-                    new X14.FirstMarkerColor().FromClosedXMLColor<X14.FirstMarkerColor>(xlSparklineGroup.Style
+                    new X14.FirstMarkerColor().FromXLiburColor<X14.FirstMarkerColor>(xlSparklineGroup.Style
                         .FirstMarkerColor);
                 sparklineGroup.LastMarkerColor =
-                    new X14.LastMarkerColor().FromClosedXMLColor<X14.LastMarkerColor>(xlSparklineGroup.Style
+                    new X14.LastMarkerColor().FromXLiburColor<X14.LastMarkerColor>(xlSparklineGroup.Style
                         .LastMarkerColor);
                 sparklineGroup.HighMarkerColor =
-                    new X14.HighMarkerColor().FromClosedXMLColor<X14.HighMarkerColor>(xlSparklineGroup.Style
+                    new X14.HighMarkerColor().FromXLiburColor<X14.HighMarkerColor>(xlSparklineGroup.Style
                         .HighMarkerColor);
                 sparklineGroup.LowMarkerColor =
-                    new X14.LowMarkerColor().FromClosedXMLColor<X14.LowMarkerColor>(xlSparklineGroup.Style
+                    new X14.LowMarkerColor().FromXLiburColor<X14.LowMarkerColor>(xlSparklineGroup.Style
                         .LowMarkerColor);
                 sparklineGroup.SeriesColor =
-                    new X14.SeriesColor().FromClosedXMLColor<X14.SeriesColor>(xlSparklineGroup.Style.SeriesColor);
+                    new X14.SeriesColor().FromXLiburColor<X14.SeriesColor>(xlSparklineGroup.Style.SeriesColor);
                 sparklineGroup.NegativeColor =
-                    new X14.NegativeColor().FromClosedXMLColor<X14.NegativeColor>(xlSparklineGroup.Style.NegativeColor);
+                    new X14.NegativeColor().FromXLiburColor<X14.NegativeColor>(xlSparklineGroup.Style.NegativeColor);
                 sparklineGroup.MarkersColor =
-                    new X14.MarkersColor().FromClosedXMLColor<X14.MarkersColor>(xlSparklineGroup.Style.MarkersColor);
+                    new X14.MarkersColor().FromXLiburColor<X14.MarkersColor>(xlSparklineGroup.Style.MarkersColor);
 
                 sparklineGroup.High = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.HighPoint);
                 sparklineGroup.Low = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.LowPoint);

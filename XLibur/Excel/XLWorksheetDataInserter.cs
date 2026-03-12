@@ -1,9 +1,9 @@
-using ClosedXML.Excel.InsertData;
+using XLibur.Excel.InsertData;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// Handles data and table insertion operations for a worksheet.

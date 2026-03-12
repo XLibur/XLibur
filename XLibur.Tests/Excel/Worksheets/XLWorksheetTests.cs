@@ -2,12 +2,12 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using ClosedXML.Excel;
-using ClosedXML.Excel.Drawings;
-using ClosedXML.Tests.Utils;
+using XLibur.Excel;
+using XLibur.Excel.Drawings;
+using XLibur.Tests.Utils;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Excel.Worksheets;
+namespace XLibur.Tests.Excel.Worksheets;
 
 [TestFixture]
 // ReSharper disable once InconsistentNaming

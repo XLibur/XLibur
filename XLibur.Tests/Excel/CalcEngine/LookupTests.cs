@@ -1,5 +1,5 @@
 
-using ClosedXML.Excel;
+using XLibur.Excel;
 using NUnit.Framework;
 using System;
 using System.Linq;
@@ -99,7 +99,7 @@ public class LookupTests
         // With a reference, it returns the column number
         Assert.AreEqual(26, ws.Cell("A1").SetFormulaA1("COLUMN(Z14)").Value);
 
-        // If a single column is used, return the column number 
+        // If a single column is used, return the column number
         Assert.AreEqual(3, ws.Cell("A2").SetFormulaA1("COLUMN(C:C)").Value);
 
         // Return a horizontal array for multiple columns. Use SUM to verify content of an array since ROWS/COLUMNS don't work yet.
@@ -585,7 +585,7 @@ public class LookupTests
         // With a reference, it returns the row number
         Assert.AreEqual(12, ws.Cell("A1").SetFormulaA1("ROW(C12)").Value);
 
-        // If a full row reference to a single row is used, return the row number 
+        // If a full row reference to a single row is used, return the row number
         Assert.AreEqual(40, ws.Cell("A2").SetFormulaA1("ROW(40:40)").Value);
 
         // Return a vertical array for multiple rows. Use SUM to verify content of an array since ROWS/COLUMNS don't work yet.

@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using ClosedXML.Graphics;
+using XLibur.Graphics;
 
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 internal static class XLCellGlyphHelper
 {

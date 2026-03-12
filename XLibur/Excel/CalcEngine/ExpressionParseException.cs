@@ -8,7 +8,7 @@ namespace XLibur.Excel.CalcEngine;
 public class ExpressionParseException : Exception
 {
     /// <summary>
-    /// Initializes a new instance of the ExpressionParseException class with a 
+    /// Initializes a new instance of the ExpressionParseException class with a
     /// specified error message.
     /// </summary>
     /// <param name="message">The message that describes the error.</param>

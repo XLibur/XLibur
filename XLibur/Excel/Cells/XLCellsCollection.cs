@@ -252,7 +252,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
                 continue;
 
             // Current row doesn't contain data it should, so it is a part of a permutation
-            // loop. Go over each item in a loop and 
+            // loop. Go over each item in a loop and
             // We need to replace
             var prevNumber = axisNumber;
             var currentNumber = dataAxisNumber;

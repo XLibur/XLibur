@@ -1,5 +1,5 @@
-using ClosedXML.Extensions;
-using ClosedXML.Utils;
+using XLibur.Extensions;
+using XLibur.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -9,7 +9,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
-using ClosedXML.Excel.IO;
+using XLibur.Excel.IO;
 using Ap = DocumentFormat.OpenXml.ExtendedProperties;
 using Op = DocumentFormat.OpenXml.CustomProperties;
 
@@ -140,7 +140,7 @@ public partial class XLWorkbook
         {
             var calculateMode = calculationProperties.CalculationMode;
             if (calculateMode != null)
-                CalculateMode = calculateMode.Value.ToClosedXml();
+                CalculateMode = calculateMode.Value.ToXLibur();
 
             var calculationOnSave = calculationProperties.CalculationOnSave;
             if (calculationOnSave != null)
@@ -160,7 +160,7 @@ public partial class XLWorkbook
 
             var referenceMode = calculationProperties.ReferenceMode;
             if (referenceMode != null)
-                ReferenceStyle = referenceMode.Value.ToClosedXml();
+                ReferenceStyle = referenceMode.Value.ToXLibur();
         }
 
         var efp = dSpreadsheet.ExtendedFilePropertiesPart;
@@ -212,7 +212,7 @@ public partial class XLWorkbook
                 // Some non-Excel producers create sheets with empty relId.
                 var emptySheet = WorksheetsInternal.Add(sheetName, position, sheetIdValue);
                 if (dSheet.State != null)
-                    emptySheet.Visibility = dSheet.State.Value.ToClosedXml();
+                    emptySheet.Visibility = dSheet.State.Value.ToXLibur();
 
                 continue;
             }
@@ -230,7 +230,7 @@ public partial class XLWorkbook
             ws.RelId = dSheet.Id;
 
             if (dSheet.State != null)
-                ws.Visibility = dSheet.State.Value.ToClosedXml();
+                ws.Visibility = dSheet.State.Value.ToXLibur();
         }
 
         position = 0;
@@ -419,7 +419,7 @@ public partial class XLWorkbook
                         var tableColumnName = DrawingPartReader.GetTableColumnName(tableColumn.Name!.Value!);
                         if (tableColumn.TotalsRowFunction != null)
                             xlTable.Field(tableColumnName).TotalsRowFunction =
-                                tableColumn.TotalsRowFunction.Value.ToClosedXml();
+                                tableColumn.TotalsRowFunction.Value.ToXLibur();
 
                         if (tableColumn.TotalsRowFormula != null)
                             xlTable.Field(tableColumnName).TotalsRowFormulaA1 =
@@ -569,7 +569,7 @@ public partial class XLWorkbook
         var roundUpToMultiple = defaultColWidthPx + (8 - defaultColWidthPx % 8);
 
         // and last, convert the width in pixels to width displayed in Excel. Shouldn't round the number, because
-        // it causes inconsistency with conversion to other units, but other places in ClosedXML do = keep for now.
+        // it causes inconsistency with conversion to other units, but other places in XLibur do = keep for now.
         var defaultColumnWidth = XLHelper.PixelToNoC(roundUpToMultiple, mdw).Round(2);
         return defaultColumnWidth;
     }

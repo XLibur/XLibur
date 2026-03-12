@@ -1,5 +1,5 @@
-using ClosedXML.Excel.InsertData;
-using ClosedXML.Extensions;
+using XLibur.Excel.InsertData;
+using XLibur.Extensions;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -7,7 +7,7 @@ using System.Data;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using ClosedXML.Graphics;
+using XLibur.Graphics;
 using ClosedXML.Parser;
 using XLibur.Excel.CalcEngine.Visitors;
 

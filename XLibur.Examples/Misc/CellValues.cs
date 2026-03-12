@@ -34,7 +34,7 @@ public class CellValues : IXLExample
         var dateTimeFormattedString = cellDateTime.GetFormattedString();
 
         // Set the values back to cells
-        // The apostrophe is to force ClosedXML to treat the date as a string
+        // The apostrophe is to force XLibur to treat the date as a string
         ws.Cell(3, 3).Value = dateTime1;
         ws.Cell(3, 4).Value = dateTime2;
         ws.Cell(3, 5).Value = dateTime3;
@@ -55,7 +55,7 @@ public class CellValues : IXLExample
         var booleanFormattedString = cellBoolean.GetFormattedString();
 
         // Set the values back to cells
-        // The apostrophe is to force ClosedXML to treat the boolean as a string
+        // The apostrophe is to force XLibur to treat the boolean as a string
         ws.Cell(4, 3).Value = boolean1;
         ws.Cell(4, 4).Value = boolean2;
         ws.Cell(4, 5).Value = boolean3;
@@ -77,7 +77,7 @@ public class CellValues : IXLExample
         var doubleFormattedString = cellDouble.GetFormattedString();
 
         // Set the values back to cells
-        // The apostrophe is to force ClosedXML to treat the double as a string
+        // The apostrophe is to force XLibur to treat the double as a string
         ws.Cell(5, 3).Value = double1;
         ws.Cell(5, 4).Value = double2;
         ws.Cell(5, 5).Value = double3;

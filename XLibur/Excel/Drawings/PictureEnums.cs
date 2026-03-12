@@ -1,4 +1,4 @@
-namespace ClosedXML.Excel.Drawings;
+namespace XLibur.Excel.Drawings;
 
 public enum XLMarkerPosition
 {

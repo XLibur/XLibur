@@ -1,4 +1,4 @@
-using ClosedXML.Extensions;
+using XLibur.Extensions;
 using DocumentFormat.OpenXml.Packaging;
 using System;
 using System.Collections.Generic;
@@ -6,11 +6,11 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
-using ClosedXML.Excel.Drawings;
+using XLibur.Excel.Drawings;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 using System.Drawing;
 
-namespace ClosedXML.Excel.IO;
+namespace XLibur.Excel.IO;
 
 /// <summary>
 /// Reads drawings (pictures), VML comment shapes, and drawing style properties from worksheet parts.

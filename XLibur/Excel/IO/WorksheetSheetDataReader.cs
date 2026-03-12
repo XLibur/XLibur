@@ -1,6 +1,6 @@
-using ClosedXML.Extensions;
+using XLibur.Extensions;
 using ClosedXML.Parser;
-using ClosedXML.Utils;
+using XLibur.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
@@ -8,9 +8,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using static ClosedXML.Excel.XLPredefinedFormat.DateTime;
+using static XLibur.Excel.XLPredefinedFormat.DateTime;
 
-namespace ClosedXML.Excel.IO;
+namespace XLibur.Excel.IO;
 
 /// <summary>
 /// Reads cell, row, and column data from a worksheet part, including style application and formula handling.
@@ -221,7 +221,7 @@ internal static class WorksheetSheetDataReader
 
         if (use1904DateSystem && xlCell.DataType == XLDataType.DateTime)
         {
-            // Internally ClosedXML stores cells as standard 1900-based style
+            // Internally XLibur stores cells as standard 1900-based style
             // so if a workbook is in 1904-format, we do that adjustment here and when saving.
             xlCell.SetOnlyValue(xlCell.GetDateTime().AddDays(1462));
         }
@@ -420,7 +420,7 @@ internal static class WorksheetSheetDataReader
                 var rt = xlCell.GetRichText().AddText(text);
                 var fontScheme = runProperties.Elements<FontScheme>().FirstOrDefault();
                 if (fontScheme is { Val: not null })
-                    rt.SetFontScheme(fontScheme.Val.Value.ToClosedXml());
+                    rt.SetFontScheme(fontScheme.Val.Value.ToXLibur());
 
                 OpenXmlHelper.LoadFont(runProperties, rt);
             }
@@ -435,9 +435,9 @@ internal static class WorksheetSheetDataReader
         if (pp != null)
         {
             if (pp.Alignment != null)
-                xlCell.GetRichText().Phonetics.Alignment = pp.Alignment.Value.ToClosedXml();
+                xlCell.GetRichText().Phonetics.Alignment = pp.Alignment.Value.ToXLibur();
             if (pp.Type != null)
-                xlCell.GetRichText().Phonetics.Type = pp.Type.Value.ToClosedXml();
+                xlCell.GetRichText().Phonetics.Type = pp.Type.Value.ToXLibur();
 
             OpenXmlHelper.LoadFont(pp, xlCell.GetRichText().Phonetics);
         }
@@ -539,7 +539,7 @@ internal static class WorksheetSheetDataReader
             var protection = cellFormat.Protection;
             var xlProtection = XLProtectionValue.Default.Key;
             if (protection is not null)
-                xlProtection = OpenXmlHelper.ProtectionToClosedXml(protection, xlProtection);
+                xlProtection = OpenXmlHelper.ProtectionToXLibur(protection, xlProtection);
 
             xlStyle = xlStyle with { Protection = xlProtection };
         }
@@ -558,7 +558,7 @@ internal static class WorksheetSheetDataReader
         var alignment = cellFormat.Alignment;
         if (alignment != null)
         {
-            var xlAlignment = OpenXmlHelper.AlignmentToClosedXml(alignment, xlStyle.Alignment);
+            var xlAlignment = OpenXmlHelper.AlignmentToXLibur(alignment, xlStyle.Alignment);
             xlStyle = xlStyle with { Alignment = xlAlignment };
         }
 
@@ -568,7 +568,7 @@ internal static class WorksheetSheetDataReader
             var border = (Border)borders.ElementAt((int)borderId);
             if (border is not null)
             {
-                var xlBorder = OpenXmlHelper.BorderToClosedXml(border, xlStyle.Border);
+                var xlBorder = OpenXmlHelper.BorderToXLibur(border, xlStyle.Border);
                 xlStyle = xlStyle with { Border = xlBorder };
             }
         }
@@ -579,7 +579,7 @@ internal static class WorksheetSheetDataReader
             var font = (Font)fonts.ElementAt((int)fontId!.Value);
             if (font is not null)
             {
-                var xlFont = OpenXmlHelper.FontToClosedXml(font, xlStyle.Font);
+                var xlFont = OpenXmlHelper.FontToXLibur(font, xlStyle.Font);
                 xlStyle = xlStyle with { Font = xlFont };
             }
         }

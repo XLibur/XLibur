@@ -1,4 +1,4 @@
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// Contains the address-shifting algorithm logic for ranges.

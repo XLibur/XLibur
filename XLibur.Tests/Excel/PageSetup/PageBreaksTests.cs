@@ -1,7 +1,7 @@
 using XLibur.Excel;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Excel.PageSetup;
+namespace XLibur.Tests.Excel.PageSetup;
 
 [TestFixture]
 public class PageBreaksTests

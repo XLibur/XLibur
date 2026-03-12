@@ -1,6 +1,6 @@
-using ClosedXML.Excel;
+using XLibur.Excel;
 
-namespace ClosedXML.Examples.Styles;
+namespace XLibur.Examples.Styles;
 
 public class StyleBorder : IXLExample
 {

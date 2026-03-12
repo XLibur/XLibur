@@ -21,7 +21,7 @@ internal sealed class XLPivotFieldAxisItem
     /// <summary>
     /// Each item is an index to field items of corresponding field from
     /// <see cref="XLPivotTableAxis.Fields"/>. Value <c>1048832</c> specifies that no item appears
-    /// at the position. 
+    /// at the position.
     /// </summary>
     internal List<int> FieldItem { get; }
 

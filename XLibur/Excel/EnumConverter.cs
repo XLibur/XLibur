@@ -1,4 +1,4 @@
-using ClosedXML.Excel.Drawings;
+using XLibur.Excel.Drawings;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
@@ -524,7 +524,7 @@ internal static class EnumConverter
 
     #endregion To OpenXml
 
-    #region To ClosedXml
+    #region To XLibur
 
     private static readonly IReadOnlyDictionary<UnderlineValues, XLFontUnderlineValues> UnderlineValuesMap =
         new Dictionary<UnderlineValues, XLFontUnderlineValues>
@@ -536,7 +536,7 @@ internal static class EnumConverter
             { UnderlineValues.SingleAccounting, XLFontUnderlineValues.SingleAccounting },
         };
 
-    public static XLFontUnderlineValues ToClosedXml(this UnderlineValues value)
+    public static XLFontUnderlineValues ToXLibur(this UnderlineValues value)
     {
         return UnderlineValuesMap[value];
     }
@@ -549,7 +549,7 @@ internal static class EnumConverter
             { FontSchemeValues.Minor, XLFontScheme.Minor },
         };
 
-    public static XLFontScheme ToClosedXml(this FontSchemeValues value)
+    public static XLFontScheme ToXLibur(this FontSchemeValues value)
     {
         return FontSchemeMap[value];
     }
@@ -562,7 +562,7 @@ internal static class EnumConverter
             { OrientationValues.Portrait, XLPageOrientation.Portrait },
         };
 
-    public static XLPageOrientation ToClosedXml(this OrientationValues value)
+    public static XLPageOrientation ToXLibur(this OrientationValues value)
     {
         return OrientationMap[value];
     }
@@ -576,7 +576,7 @@ internal static class EnumConverter
         };
 
 
-    public static XLFontVerticalTextAlignmentValues ToClosedXml(this VerticalAlignmentRunValues value)
+    public static XLFontVerticalTextAlignmentValues ToXLibur(this VerticalAlignmentRunValues value)
     {
         return VerticalAlignmentRunMap[value];
     }
@@ -605,7 +605,7 @@ internal static class EnumConverter
             { PatternValues.Solid, XLFillPatternValues.Solid },
         };
 
-    public static XLFillPatternValues ToClosedXml(this PatternValues value)
+    public static XLFillPatternValues ToXLibur(this PatternValues value)
     {
         return PatternMap[value];
     }
@@ -629,7 +629,7 @@ internal static class EnumConverter
             { BorderStyleValues.Thin, XLBorderStyleValues.Thin },
         };
 
-    public static XLBorderStyleValues ToClosedXml(this BorderStyleValues value)
+    public static XLBorderStyleValues ToXLibur(this BorderStyleValues value)
     {
         return BorderStyleMap[value];
     }
@@ -647,7 +647,7 @@ internal static class EnumConverter
             { HorizontalAlignmentValues.Right, XLAlignmentHorizontalValues.Right },
         };
 
-    public static XLAlignmentHorizontalValues ToClosedXml(this HorizontalAlignmentValues value)
+    public static XLAlignmentHorizontalValues ToXLibur(this HorizontalAlignmentValues value)
     {
         return HorizontalAlignmentMap[value];
     }
@@ -662,7 +662,7 @@ internal static class EnumConverter
             { VerticalAlignmentValues.Top, XLAlignmentVerticalValues.Top },
         };
 
-    public static XLAlignmentVerticalValues ToClosedXml(this VerticalAlignmentValues value)
+    public static XLAlignmentVerticalValues ToXLibur(this VerticalAlignmentValues value)
     {
         return VerticalAlignmentMap[value];
     }
@@ -674,7 +674,7 @@ internal static class EnumConverter
             { PageOrderValues.OverThenDown, XLPageOrderValues.OverThenDown },
         };
 
-    public static XLPageOrderValues ToClosedXml(this PageOrderValues value)
+    public static XLPageOrderValues ToXLibur(this PageOrderValues value)
     {
         return PageOrdersMap[value];
     }
@@ -687,7 +687,7 @@ internal static class EnumConverter
             { CellCommentsValues.None, XLShowCommentsValues.None },
         };
 
-    public static XLShowCommentsValues ToClosedXml(this CellCommentsValues value)
+    public static XLShowCommentsValues ToXLibur(this CellCommentsValues value)
     {
         return CellCommentsMap[value];
     }
@@ -701,7 +701,7 @@ internal static class EnumConverter
             { PrintErrorValues.NA, XLPrintErrorValues.NA },
         };
 
-    public static XLPrintErrorValues ToClosedXml(this PrintErrorValues value)
+    public static XLPrintErrorValues ToXLibur(this PrintErrorValues value)
     {
         return PrintErrorMap[value];
     }
@@ -714,7 +714,7 @@ internal static class EnumConverter
             { CalculateModeValues.Manual, XLCalculateMode.Manual },
         };
 
-    public static XLCalculateMode ToClosedXml(this CalculateModeValues value)
+    public static XLCalculateMode ToXLibur(this CalculateModeValues value)
     {
         return CalculateModeMap[value];
     }
@@ -726,12 +726,12 @@ internal static class EnumConverter
             { ReferenceModeValues.A1, XLReferenceStyle.A1 },
         };
 
-    public static XLReferenceStyle ToClosedXml(this ReferenceModeValues value)
+    public static XLReferenceStyle ToXLibur(this ReferenceModeValues value)
     {
         return ReferenceModeMap[value];
     }
 
-    public static XLAlignmentReadingOrderValues ToClosedXml(this uint value) => value switch
+    public static XLAlignmentReadingOrderValues ToXLibur(this uint value) => value switch
     {
         0 => XLAlignmentReadingOrderValues.ContextDependent,
         1 => XLAlignmentReadingOrderValues.LeftToRight,
@@ -755,7 +755,7 @@ internal static class EnumConverter
         };
 
 
-    public static XLTotalsRowFunction ToClosedXml(this TotalsRowFunctionValues value)
+    public static XLTotalsRowFunction ToXLibur(this TotalsRowFunctionValues value)
     {
         return TotalsRowFunctionMap[value];
     }
@@ -773,7 +773,7 @@ internal static class EnumConverter
             { DataValidationValues.Whole, XLAllowedValues.WholeNumber },
         };
 
-    public static XLAllowedValues ToClosedXml(this DataValidationValues value)
+    public static XLAllowedValues ToXLibur(this DataValidationValues value)
     {
         return DataValidationMap[value];
     }
@@ -786,7 +786,7 @@ internal static class EnumConverter
             { DataValidationErrorStyleValues.Stop, XLErrorStyle.Stop },
         };
 
-    public static XLErrorStyle ToClosedXml(this DataValidationErrorStyleValues value)
+    public static XLErrorStyle ToXLibur(this DataValidationErrorStyleValues value)
     {
         return DataValidationErrorStyleMap[value];
     }
@@ -804,7 +804,7 @@ internal static class EnumConverter
             { DataValidationOperatorValues.NotEqual, XLOperator.NotEqualTo },
         };
 
-    public static XLOperator ToClosedXml(this DataValidationOperatorValues value)
+    public static XLOperator ToXLibur(this DataValidationOperatorValues value)
     {
         return DataValidationOperatorMap[value];
     }
@@ -817,7 +817,7 @@ internal static class EnumConverter
             { SheetStateValues.VeryHidden, XLWorksheetVisibility.VeryHidden },
         };
 
-    public static XLWorksheetVisibility ToClosedXml(this SheetStateValues value)
+    public static XLWorksheetVisibility ToXLibur(this SheetStateValues value)
     {
         return SheetStateMap[value];
     }
@@ -832,7 +832,7 @@ internal static class EnumConverter
         };
 
 
-    public static XLPhoneticAlignment ToClosedXml(this PhoneticAlignmentValues value)
+    public static XLPhoneticAlignment ToXLibur(this PhoneticAlignmentValues value)
     {
         return PhoneticAlignmentMap[value];
     }
@@ -846,7 +846,7 @@ internal static class EnumConverter
             { PhoneticValues.NoConversion, XLPhoneticType.NoConversion },
         };
 
-    public static XLPhoneticType ToClosedXml(this PhoneticValues value)
+    public static XLPhoneticType ToXLibur(this PhoneticValues value)
     {
         return PhoneticMap[value];
     }
@@ -868,7 +868,7 @@ internal static class EnumConverter
 
         };
 
-    public static XLPivotSummary ToClosedXml(this DataConsolidateFunctionValues value)
+    public static XLPivotSummary ToXLibur(this DataConsolidateFunctionValues value)
     {
         return DataConsolidateFunctionMap[value];
     }
@@ -887,7 +887,7 @@ internal static class EnumConverter
             { ShowDataAsValues.Index, XLPivotCalculation.Index },
         };
 
-    public static XLPivotCalculation ToClosedXml(this ShowDataAsValues value)
+    public static XLPivotCalculation ToXLibur(this ShowDataAsValues value)
     {
         return ShowDataAsMap[value];
     }
@@ -903,7 +903,7 @@ internal static class EnumConverter
             { FilterOperatorValues.LessThanOrEqual, XLFilterOperator.EqualOrLessThan },
         };
 
-    public static XLFilterOperator ToClosedXml(this FilterOperatorValues value)
+    public static XLFilterOperator ToXLibur(this FilterOperatorValues value)
     {
         return FilterOperatorMap[value];
     }
@@ -915,7 +915,7 @@ internal static class EnumConverter
             { DynamicFilterValues.BelowAverage, XLFilterDynamicType.BelowAverage },
         };
 
-    public static XLFilterDynamicType ToClosedXml(this DynamicFilterValues value)
+    public static XLFilterDynamicType ToXLibur(this DynamicFilterValues value)
     {
         return DynamicFilterMap[value];
     }
@@ -931,7 +931,7 @@ internal static class EnumConverter
             { DateTimeGroupingValues.Second, XLDateTimeGrouping.Second },
         };
 
-    public static XLDateTimeGrouping ToClosedXml(this DateTimeGroupingValues value)
+    public static XLDateTimeGrouping ToXLibur(this DateTimeGroupingValues value)
     {
         return DateTimeGroupingMap[value];
     }
@@ -944,7 +944,7 @@ internal static class EnumConverter
             { SheetViewValues.PageLayout, XLSheetViewOptions.PageLayout },
         };
 
-    public static XLSheetViewOptions ToClosedXml(this SheetViewValues value)
+    public static XLSheetViewOptions ToXLibur(this SheetViewValues value)
     {
         return SheetViewMap[value];
     }
@@ -959,7 +959,7 @@ internal static class EnumConverter
             { Vml.StrokeLineStyleValues.ThinThin, XLLineStyle.ThinThin },
         };
 
-    public static XLLineStyle ToClosedXml(this Vml.StrokeLineStyleValues value)
+    public static XLLineStyle ToXLibur(this Vml.StrokeLineStyleValues value)
     {
         return StrokeLineStyleMap[value];
     }
@@ -987,7 +987,7 @@ internal static class EnumConverter
             { ConditionalFormatValues.AboveAverage, XLConditionalFormatType.AboveAverage },
         };
 
-    public static XLConditionalFormatType ToClosedXml(this ConditionalFormatValues value)
+    public static XLConditionalFormatType ToXLibur(this ConditionalFormatValues value)
     {
         return ConditionalFormatMap[value];
     }
@@ -1003,7 +1003,7 @@ internal static class EnumConverter
             { ConditionalFormatValueObjectValues.Percentile, XLCFContentType.Percentile },
         };
 
-    public static XLCFContentType ToClosedXml(this ConditionalFormatValueObjectValues value)
+    public static XLCFContentType ToXLibur(this ConditionalFormatValueObjectValues value)
     {
         return ConditionalFormatValueObjectMap[value];
     }
@@ -1025,7 +1025,7 @@ internal static class EnumConverter
             { ConditionalFormattingOperatorValues.EndsWith, XLCFOperator.EndsWith },
         };
 
-    public static XLCFOperator ToClosedXml(this ConditionalFormattingOperatorValues value)
+    public static XLCFOperator ToXLibur(this ConditionalFormattingOperatorValues value)
     {
         return ConditionalFormattingOperatorMap[value];
     }
@@ -1052,7 +1052,7 @@ internal static class EnumConverter
             { IconSetValues.FiveQuarters, XLIconSetStyle.FiveQuarters },
         };
 
-    public static XLIconSetStyle ToClosedXml(this IconSetValues value)
+    public static XLIconSetStyle ToXLibur(this IconSetValues value)
     {
         return IconSetMap[value];
     }
@@ -1072,7 +1072,7 @@ internal static class EnumConverter
             { TimePeriodValues.NextMonth, XLTimePeriod.NextMonth },
         };
 
-    public static XLTimePeriod ToClosedXml(this TimePeriodValues value)
+    public static XLTimePeriod ToXLibur(this TimePeriodValues value)
     {
         return TimePeriodMap[value];
     }
@@ -1090,7 +1090,7 @@ internal static class EnumConverter
             { PivotAreaValues.TopEnd, XLPivotAreaType.TopEnd },
         };
 
-    public static XLPivotAreaType ToClosedXml(this PivotAreaValues value)
+    public static XLPivotAreaType ToXLibur(this PivotAreaValues value)
     {
         return PivotAreaMap[value];
     }
@@ -1103,7 +1103,7 @@ internal static class EnumConverter
             { X14.SparklineTypeValues.Stacked, XLSparklineType.Stacked },
         };
 
-    public static XLSparklineType ToClosedXml(this X14.SparklineTypeValues value)
+    public static XLSparklineType ToXLibur(this X14.SparklineTypeValues value)
     {
         return SparklineTypeMap[value];
     }
@@ -1116,7 +1116,7 @@ internal static class EnumConverter
             { X14.SparklineAxisMinMaxValues.Custom, XLSparklineAxisMinMax.Custom },
         };
 
-    public static XLSparklineAxisMinMax ToClosedXml(this X14.SparklineAxisMinMaxValues value)
+    public static XLSparklineAxisMinMax ToXLibur(this X14.SparklineAxisMinMaxValues value)
     {
         return SparklineAxisMinMaxMap[value];
     }
@@ -1129,7 +1129,7 @@ internal static class EnumConverter
             { X14.DisplayBlanksAsValues.Zero, XLDisplayBlanksAsValues.Zero },
         };
 
-    public static XLDisplayBlanksAsValues ToClosedXml(this X14.DisplayBlanksAsValues value)
+    public static XLDisplayBlanksAsValues ToXLibur(this X14.DisplayBlanksAsValues value)
     {
         return DisplayBlanksAsMap[value];
     }
@@ -1142,7 +1142,7 @@ internal static class EnumConverter
             { FieldSortValues.Descending, XLPivotSortType.Descending },
         };
 
-    public static XLPivotSortType ToClosedXml(this FieldSortValues value)
+    public static XLPivotSortType ToXLibur(this FieldSortValues value)
     {
         return FieldSortMap[value];
     }
@@ -1156,7 +1156,7 @@ internal static class EnumConverter
             { PivotTableAxisValues.AxisValues, XLPivotAxis.AxisValues },
         };
 
-    internal static XLPivotAxis ToClosedXml(this PivotTableAxisValues value)
+    internal static XLPivotAxis ToXLibur(this PivotTableAxisValues value)
     {
         return PivotTableAxisMap[value];
     }
@@ -1181,7 +1181,7 @@ internal static class EnumConverter
             { ItemValues.Blank, XLPivotItemType.Blank },
         };
 
-    internal static XLPivotItemType ToClosedXml(this ItemValues value)
+    internal static XLPivotItemType ToXLibur(this ItemValues value)
     {
         return ItemMap[value];
     }
@@ -1193,7 +1193,7 @@ internal static class EnumConverter
             { FormatActionValues.Formatting, XLPivotFormatAction.Formatting },
         };
 
-    internal static XLPivotFormatAction ToClosedXml(this FormatActionValues value)
+    internal static XLPivotFormatAction ToXLibur(this FormatActionValues value)
     {
         return FormatActionMap[value];
     }
@@ -1206,7 +1206,7 @@ internal static class EnumConverter
             { ScopeValues.Field, XLPivotCfScope.FieldIntersections },
         };
 
-    internal static XLPivotCfScope ToClosedXml(this ScopeValues value)
+    internal static XLPivotCfScope ToXLibur(this ScopeValues value)
     {
         return ScopeMap[value];
     }
@@ -1220,10 +1220,10 @@ internal static class EnumConverter
             { RuleValues.Column, XLPivotCfRuleType.Column },
         };
 
-    internal static XLPivotCfRuleType ToClosedXml(this RuleValues value)
+    internal static XLPivotCfRuleType ToXLibur(this RuleValues value)
     {
         return RuleMap[value];
     }
 
-    #endregion To ClosedXml
+    #endregion To XLibur
 }

@@ -1,12 +1,12 @@
-using ClosedXML.Excel.ContentManagers;
+using XLibur.Excel.ContentManagers;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using static ClosedXML.Excel.XLWorkbook;
+using static XLibur.Excel.XLWorkbook;
 
-namespace ClosedXML.Excel.IO;
+namespace XLibur.Excel.IO;
 
 internal sealed class ColumnWriter
 {

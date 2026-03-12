@@ -1,8 +1,8 @@
 using System.Linq;
-using ClosedXML.Excel;
+using XLibur.Excel;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Excel.Columns;
+namespace XLibur.Tests.Excel.Columns;
 
 [TestFixture]
 public class ColumnTests

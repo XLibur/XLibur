@@ -1,4 +1,4 @@
-﻿using ClosedXML.Utils;
+﻿using XLibur.Utils;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml;
@@ -531,7 +531,7 @@ internal static class WorkbookStylesPartWriter
     /// Check if two styles are equivalent.
     /// </summary>
     /// <param name="f">Style in the OpenXML format.</param>
-    /// <param name="styleInfo">Style in the ClosedXML format.</param>
+    /// <param name="styleInfo">Style in the XLibur format.</param>
     /// <param name="compareAlignment">Flag specifying whether compare the alignments of two styles.
     /// Styles in the x:cellStyleXfs section do not include alignment, so we don't have to compare it in this case.
     /// Styles in the x:cellXfs section, on the opposite, do include alignments, and we must compare them.
@@ -558,7 +558,7 @@ internal static class WorkbookStylesPartWriter
     {
         var p = XLProtectionValue.Default.Key;
         if (protection is not null)
-            p = OpenXmlHelper.ProtectionToClosedXml(protection, p);
+            p = OpenXmlHelper.ProtectionToXLibur(protection, p);
 
         return p.Equals(xlProtection.Key);
     }
@@ -571,7 +571,7 @@ internal static class WorkbookStylesPartWriter
     private static bool AlignmentsAreEqual(Alignment? alignment, XLAlignmentValue xlAlignment)
     {
         if (alignment is null) return XLStyle.Default.Value.Alignment.Equals(xlAlignment);
-        var a = OpenXmlHelper.AlignmentToClosedXml(alignment, XLAlignmentValue.Default.Key);
+        var a = OpenXmlHelper.AlignmentToXLibur(alignment, XLAlignmentValue.Default.Key);
         return a.Equals(xlAlignment.Key);
     }
 
@@ -675,7 +675,7 @@ internal static class WorkbookStylesPartWriter
                 if (borderInfo.Border.DiagonalBorderColor != null)
                 {
                     var DiagonalBorderColor =
-                        new Color().FromClosedXMLColor<Color>(borderInfo.Border.DiagonalBorderColor);
+                        new Color().FromXLiburColor<Color>(borderInfo.Border.DiagonalBorderColor);
                     diagonalBorder.AppendChild(DiagonalBorderColor);
                 }
 
@@ -687,7 +687,7 @@ internal static class WorkbookStylesPartWriter
 
     private static bool BordersAreEqual(Border border, XLBorderValue xlBorder)
     {
-        var convertedBorder = OpenXmlHelper.BorderToClosedXml(
+        var convertedBorder = OpenXmlHelper.BorderToXLibur(
             border,
             XLBorderValue.Default.Key);
         return convertedBorder.Equals(xlBorder.Key);
@@ -778,15 +778,15 @@ internal static class WorkbookStylesPartWriter
                 {
                     patternFill.AppendChild(new ForegroundColor { Auto = true });
                     backgroundColor =
-                        new BackgroundColor().FromClosedXMLColor<BackgroundColor>(fillInfo.Fill.BackgroundColor, true);
+                        new BackgroundColor().FromXLiburColor<BackgroundColor>(fillInfo.Fill.BackgroundColor, true);
                     if (backgroundColor.HasAttributes)
                         patternFill.AppendChild(backgroundColor);
                 }
                 else
                 {
-                    // ClosedXML Background color to be populated into OpenXML fgColor
+                    // XLibur Background color to be populated into OpenXML fgColor
                     foregroundColor =
-                        new ForegroundColor().FromClosedXMLColor<ForegroundColor>(fillInfo.Fill.BackgroundColor);
+                        new ForegroundColor().FromXLiburColor<ForegroundColor>(fillInfo.Fill.BackgroundColor);
                     if (foregroundColor.HasAttributes)
                         patternFill.AppendChild(foregroundColor);
                 }
@@ -817,7 +817,7 @@ internal static class WorkbookStylesPartWriter
                     patternFill.AppendChild(foregroundColor);
 
                 backgroundColor =
-                    new BackgroundColor().FromClosedXMLColor<BackgroundColor>(fillInfo.Fill.BackgroundColor);
+                    new BackgroundColor().FromXLiburColor<BackgroundColor>(fillInfo.Fill.BackgroundColor);
                 if (backgroundColor.HasAttributes)
                     patternFill.AppendChild(backgroundColor);
 
@@ -904,7 +904,7 @@ internal static class WorkbookStylesPartWriter
             ? new FontSize { Val = fontInfo.Font.FontSize }
             : null;
         var color = fontInfo.Font.FontColor != XLFontValue.Default.FontColor || ignoreMod
-            ? new Color().FromClosedXMLColor<Color>(fontInfo.Font.FontColor)
+            ? new Color().FromXLiburColor<Color>(fontInfo.Font.FontColor)
             : null;
 
         var fontName = fontInfo.Font.FontName != XLFontValue.Default.FontName || ignoreMod
@@ -955,7 +955,7 @@ internal static class WorkbookStylesPartWriter
 
     private static bool FontsAreEqual(Font font, XLFontValue xlFont)
     {
-        var convertedFont = OpenXmlHelper.FontToClosedXml(
+        var convertedFont = OpenXmlHelper.FontToXLibur(
             font,
             XLFontValue.Default.Key);
         return convertedFont.Equals(xlFont.Key);

@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using ClosedXML.Excel;
+using XLibur.Excel;
 using NUnit.Framework;
-using static ClosedXML.Excel.XLProtectionAlgorithm;
+using static XLibur.Excel.XLProtectionAlgorithm;
 
-namespace ClosedXML.Tests.Excel.Protection;
+namespace XLibur.Tests.Excel.Protection;
 
 public class XLWorkbookProtectionTests
 {

@@ -4,11 +4,11 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using ClosedXML.Excel;
-using ClosedXML.Excel.Drawings;
+using XLibur.Excel;
+using XLibur.Excel.Drawings;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Excel.ImageHandling;
+namespace XLibur.Tests.Excel.ImageHandling;
 
 [TestFixture]
 public class PictureTests

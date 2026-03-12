@@ -1,8 +1,8 @@
 using System;
-using ClosedXML.Excel;
+using XLibur.Excel;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Excel.Ranges;
+namespace XLibur.Tests.Excel.Ranges;
 
 [TestFixture]
 public class XLRangeAddressTests

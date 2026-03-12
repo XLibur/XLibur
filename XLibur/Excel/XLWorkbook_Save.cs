@@ -1,4 +1,4 @@
-using ClosedXML.Extensions;
+using XLibur.Extensions;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -13,7 +13,7 @@ using System.Threading;
 using System.Xml;
 using System.Xml.Linq;
 using Path = System.IO.Path;
-using ClosedXML.Excel.IO;
+using XLibur.Excel.IO;
 using System.Diagnostics;
 
 namespace XLibur.Excel;

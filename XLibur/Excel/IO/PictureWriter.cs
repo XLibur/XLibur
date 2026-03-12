@@ -1,16 +1,16 @@
-using ClosedXML.Excel.ContentManagers;
-using ClosedXML.Extensions;
+using XLibur.Excel.ContentManagers;
+using XLibur.Extensions;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Linq;
-using static ClosedXML.Excel.XLWorkbook;
+using static XLibur.Excel.XLWorkbook;
 using Drawing = DocumentFormat.OpenXml.Spreadsheet.Drawing;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
-namespace ClosedXML.Excel.IO;
+namespace XLibur.Excel.IO;
 
 internal sealed class PictureWriter
 {

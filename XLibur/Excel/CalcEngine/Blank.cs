@@ -1,4 +1,4 @@
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// A blank value. Used as a value of blank cells or as an optional argument for function calls.

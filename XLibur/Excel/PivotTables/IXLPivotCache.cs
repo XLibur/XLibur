@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using ClosedXML.Excel.Exceptions;
+using XLibur.Excel.Exceptions;
 
 namespace XLibur.Excel;
 

@@ -1,4 +1,4 @@
-namespace ClosedXML.Excel.CalcEngine;
+namespace XLibur.Excel.CalcEngine;
 
 internal static class Engineering
 {

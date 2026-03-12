@@ -1,6 +1,6 @@
 using System;
 
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 internal static class XLCellRegionHelper
 {

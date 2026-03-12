@@ -3,7 +3,7 @@ using MoreLinq;
 using System;
 using System.Linq;
 
-namespace ClosedXML.Examples.Tables;
+namespace XLibur.Examples.Tables;
 
 public class ResizingTables : IXLExample
 {

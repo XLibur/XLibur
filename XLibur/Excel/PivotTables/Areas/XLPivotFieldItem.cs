@@ -10,7 +10,7 @@ namespace XLibur.Excel;
 /// <see cref="XLPivotCache"/>.
 /// </summary>
 /// <remarks>
-/// [OI29500] 18.10.1.45 item (PivotTable Field Item). 
+/// [OI29500] 18.10.1.45 item (PivotTable Field Item).
 /// </remarks>
 internal sealed class XLPivotFieldItem
 {

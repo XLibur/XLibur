@@ -1,5 +1,5 @@
 
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// A interface for styling various parts of a pivot table, e.g. the whole table, specific

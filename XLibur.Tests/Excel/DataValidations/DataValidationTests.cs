@@ -12,7 +12,6 @@ namespace XLibur.Tests.Excel.DataValidations;
 [TestFixture]
 public class DataValidationTests
 {
-
     [Test]
     public void Validation_Reference_List_Values_From_Separate_Sheet()
     {
@@ -187,7 +186,8 @@ public class DataValidationTests
     [TestCase("A1:C3", 5, true, "A1:C3")]
     [TestCase("A1:C3", 2, true, "A1:C4")]
     [TestCase("A1:C3", 1, true, "A2:C4")]
-    public void DataValidationShiftedOnRowInsert(string initialAddress, int rowNum, bool setValue, string expectedAddress)
+    public void DataValidationShiftedOnRowInsert(string initialAddress, int rowNum, bool setValue,
+        string expectedAddress)
     {
         // Arrange
         var wb = new XLWorkbook();
@@ -213,7 +213,8 @@ public class DataValidationTests
     [TestCase("A1:C3", 5, true, "A1:C3")]
     [TestCase("A1:C3", 2, true, "A1:D3")]
     [TestCase("A1:C3", 1, true, "B1:D3")]
-    public void DataValidationShiftedOnColumnInsert(string initialAddress, int columnNum, bool setValue, string expectedAddress)
+    public void DataValidationShiftedOnColumnInsert(string initialAddress, int columnNum, bool setValue,
+        string expectedAddress)
     {
         // Arrange
         var wb = new XLWorkbook();
@@ -442,6 +443,7 @@ public class DataValidationTests
                 default:
                     throw new ArgumentOutOfRangeException(nameof(allowedValues), allowedValues, null);
             }
+
             wb.SaveAs(ms);
         }
 

@@ -119,8 +119,8 @@ internal sealed class PivotTableDefinitionPartReader
             {
                 var name = dataField.Name?.Value;
                 var field = dataField.Field?.Value ?? throw PartStructureException.MissingAttribute();
-                var subtotal = dataField.Subtotal?.Value.ToClosedXml() ?? XLPivotSummary.Sum;
-                var showDataAsFormat = dataField.ShowDataAs?.Value.ToClosedXml() ?? XLPivotCalculation.Normal;
+                var subtotal = dataField.Subtotal?.Value.ToXLibur() ?? XLPivotSummary.Sum;
+                var showDataAsFormat = dataField.ShowDataAs?.Value.ToXLibur() ?? XLPivotCalculation.Normal;
                 var baseField = dataField.BaseField?.Value ?? -1;
                 var baseItem = dataField.BaseItem?.Value ?? 1048832;
                 var numberFormatId = checked((int?)dataField.NumberFormatId?.Value);
@@ -144,7 +144,7 @@ internal sealed class PivotTableDefinitionPartReader
         {
             foreach (var format in formats.Cast<Format>())
             {
-                var action = format.Action?.Value.ToClosedXml() ?? XLPivotFormatAction.Formatting;
+                var action = format.Action?.Value.ToXLibur() ?? XLPivotFormatAction.Formatting;
                 var dxfStyle = XLStyle.Default;
                 if (format.FormatId is not null)
                 {
@@ -172,8 +172,8 @@ internal sealed class PivotTableDefinitionPartReader
         {
             foreach (var conditionalFormat in conditionalFormats.Cast<ConditionalFormat>())
             {
-                var scope = conditionalFormat.Scope?.Value.ToClosedXml() ?? XLPivotCfScope.SelectedCells;
-                var type = conditionalFormat.Type?.Value.ToClosedXml() ?? XLPivotCfRuleType.None;
+                var scope = conditionalFormat.Scope?.Value.ToXLibur() ?? XLPivotCfScope.SelectedCells;
+                var type = conditionalFormat.Type?.Value.ToXLibur() ?? XLPivotCfRuleType.None;
                 var priority = conditionalFormat.Priority?.Value ?? throw PartStructureException.MissingAttribute();
                 var format = context.GetPivotCf(sheet.Name, checked((int)priority));
                 var xlConditionalFormat = new XLPivotConditionalFormat(format)
@@ -362,7 +362,7 @@ internal sealed class PivotTableDefinitionPartReader
         LoadContext context)
     {
         var customName = pivotField.Name?.Value;
-        var axis = pivotField.Axis?.Value.ToClosedXml();
+        var axis = pivotField.Axis?.Value.ToXLibur();
         var dataField = pivotField.DataField?.Value ?? false;
         var subtotalCaption = pivotField.SubtotalCaption?.Value;
         var showDropDowns = pivotField.ShowDropDowns?.Value ?? true;
@@ -390,7 +390,7 @@ internal sealed class PivotTableDefinitionPartReader
         var measureFilter = pivotField.MeasureFilter?.Value ?? false;
         var includeNewItemsInFilter = pivotField.IncludeNewItemsInFilter?.Value ?? false;
         var itemPageCount = pivotField.ItemPageCount?.Value ?? 10u;
-        var sortType = pivotField.SortType?.Value.ToClosedXml() ?? XLPivotSortType.Default;
+        var sortType = pivotField.SortType?.Value.ToXLibur() ?? XLPivotSortType.Default;
         var dataSourceSort = pivotField.DataSourceSort?.Value;
         var nonAutoSortDefault = pivotField.NonAutoSortDefault?.Value ?? false;
         var rankBy = pivotField.RankBy?.Value;
@@ -505,7 +505,7 @@ internal sealed class PivotTableDefinitionPartReader
                 var valueIsString = item.HasStringVlue?.Value ?? false;
                 var showDetails = item.HideDetails?.Value ?? true;
                 var itemIndex = item.Index?.Value;
-                var itemType = item.ItemType?.Value.ToClosedXml() ?? XLPivotItemType.Data;
+                var itemType = item.ItemType?.Value.ToXLibur() ?? XLPivotItemType.Data;
                 var xlItem = new XLPivotFieldItem(xlField, itemIndex is null ? null : checked((int)itemIndex.Value))
                 {
                     ApproximatelyHasChildren = approximatelyHasChildren,
@@ -560,7 +560,7 @@ internal sealed class PivotTableDefinitionPartReader
             var previous = new List<int>();
             foreach (var axisItem in axisItems.Cast<RowItem>())
             {
-                var xlItemType = axisItem.ItemType?.Value.ToClosedXml() ?? XLPivotItemType.Data;
+                var xlItemType = axisItem.ItemType?.Value.ToXLibur() ?? XLPivotItemType.Data;
                 var dataFieldIndex = checked((int)(axisItem.Index?.Value ?? 0)); // This is used by 'data' field
                 var repeatedCount = axisItem.RepeatedItemCount?.Value ?? 0;
                 var fieldIndexes = new List<int>();
@@ -577,7 +577,7 @@ internal sealed class PivotTableDefinitionPartReader
     private static XLPivotArea LoadPivotArea(PivotArea pivotArea)
     {
         var field = pivotArea.Field?.Value;
-        var type = pivotArea.Type?.Value.ToClosedXml() ?? XLPivotAreaType.Normal;
+        var type = pivotArea.Type?.Value.ToXLibur() ?? XLPivotAreaType.Normal;
         var dataOnly = pivotArea.DataOnly?.Value ?? true;
         var labelOnly = pivotArea.LabelOnly?.Value ?? false;
         var grandRow = pivotArea.GrandRow?.Value ?? false;
@@ -588,7 +588,7 @@ internal sealed class PivotTableDefinitionPartReader
             ? XLSheetRange.Parse(offsetRefText)
             : (XLSheetRange?)null;
         var collapsedLevelsAreSubtotals = pivotArea.CollapsedLevelsAreSubtotals?.Value ?? false;
-        var axis = pivotArea.Axis?.Value.ToClosedXml();
+        var axis = pivotArea.Axis?.Value.ToXLibur();
         var fieldPosition = pivotArea.FieldPosition?.Value;
         var xlPivotArea = new XLPivotArea
         {

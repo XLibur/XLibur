@@ -1,4 +1,4 @@
-﻿using ClosedXML.Extensions;
+﻿using XLibur.Extensions;
 using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Excel;

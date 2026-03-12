@@ -1,4 +1,4 @@
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 public enum XLSheetViewOptions { Normal, PageBreakPreview, PageLayout }
 

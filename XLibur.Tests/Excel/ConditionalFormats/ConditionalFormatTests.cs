@@ -112,7 +112,7 @@ public class ConditionalFormatTests
     public void CellIs_type_reads_only_required_formula_arguments()
     {
         // The CellIs uses formula tags as arguments. Some producers generate extra empty
-        // formula tags and ClosedXml should be able to load CellIs conditional formatting
+        // formula tags and XLibur should be able to load CellIs conditional formatting
         // with such extra tags without an exception. The test file has been modified to
         // include extra formula tags and test checks that extra tags are ignored.
         TestHelper.LoadAndAssert((_, ws) =>
@@ -136,7 +136,7 @@ public class ConditionalFormatTests
     public void Expression_type_skips_empty_formula_tags()
     {
         // The Expression uses formula tag as arguments. Some producers generate extra empty
-        // formula tags and ClosedXml should be able to load Expression conditional formatting
+        // formula tags and XLibur should be able to load Expression conditional formatting
         // with such extra tags without an exception. The test file has been modified to
         // include extra formula tags and test checks that extra tags are ignored.
         TestHelper.LoadAndAssert((_, ws) =>

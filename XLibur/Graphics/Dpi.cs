@@ -1,4 +1,4 @@
-namespace ClosedXML.Graphics;
+namespace XLibur.Graphics;
 
 /// <summary>
 /// A DPI resolution.

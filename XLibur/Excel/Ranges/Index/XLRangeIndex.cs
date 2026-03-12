@@ -1,4 +1,4 @@
-﻿using ClosedXML.Excel.Patterns;
+﻿using XLibur.Excel.Patterns;
 using System;
 using System.Collections.Generic;
 using System.Linq;

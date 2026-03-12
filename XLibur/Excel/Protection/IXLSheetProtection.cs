@@ -1,5 +1,3 @@
-using static ClosedXML.Excel.XLProtectionAlgorithm;
-
 using static XLibur.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Excel;

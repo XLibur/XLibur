@@ -6,10 +6,10 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using ClosedXML.Excel;
+using XLibur.Excel;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Excel.Cells;
+namespace XLibur.Tests.Excel.Cells;
 
 [TestFixture]
 // ReSharper disable once InconsistentNaming
@@ -713,7 +713,7 @@ public class XLCellTests
     [Test]
     public void CurrentRegion()
     {
-        // Partially based on sample in https://github.com/ClosedXML/ClosedXML/issues/120
+        // Partially based on sample in https://github.com/XLibur/XLibur/issues/120
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 

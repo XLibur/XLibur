@@ -1,12 +1,12 @@
-using ClosedXML.Excel.ContentManagers;
-using ClosedXML.Excel.Exceptions;
+using XLibur.Excel.ContentManagers;
+using XLibur.Excel.Exceptions;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Linq;
-using static ClosedXML.Excel.IO.OpenXmlConst;
-using static ClosedXML.Excel.XLWorkbook;
+using static XLibur.Excel.IO.OpenXmlConst;
+using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
 

@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace ClosedXML.Excel.IO;
+namespace XLibur.Excel.IO;
 
 /// <summary>
 /// Reads defined names (named ranges, print areas, print titles) from the workbook.

@@ -1,8 +1,8 @@
-using ClosedXML.Excel.CalcEngine;
+using XLibur.Excel.CalcEngine;
 using System;
 using System.Linq;
 
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// Handles range shifting operations (insert/delete rows/columns) for a worksheet,

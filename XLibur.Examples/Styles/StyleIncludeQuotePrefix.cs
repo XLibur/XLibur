@@ -1,4 +1,4 @@
-﻿using ClosedXML.Excel;
+﻿using XLibur.Excel;
 using System.Linq;
 
 namespace XLibur.Examples.Styles;

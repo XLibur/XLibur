@@ -1,4 +1,4 @@
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 public enum XLOutlineSummaryVLocation { Top, Bottom };
 public enum XLOutlineSummaryHLocation { Left, Right };

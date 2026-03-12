@@ -1,6 +1,5 @@
 
 
-
 namespace XLibur.Excel;
 
 internal static class FontBaseExtensions

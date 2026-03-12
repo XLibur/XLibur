@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.IO.Packaging;
 
-namespace ClosedXML.Tests.Utils;
+namespace XLibur.Tests.Utils;
 
 internal static class ExcelDocsComparer
 {

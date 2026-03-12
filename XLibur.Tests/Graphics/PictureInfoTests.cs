@@ -1,7 +1,7 @@
 ﻿using System.Drawing;
 using System.Reflection;
-using ClosedXML.Excel.Drawings;
-using ClosedXML.Graphics;
+using XLibur.Excel.Drawings;
+using XLibur.Graphics;
 using NUnit.Framework;
 
 namespace XLibur.Tests.Graphics;

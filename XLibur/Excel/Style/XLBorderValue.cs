@@ -1,4 +1,4 @@
-﻿using ClosedXML.Excel.Caching;
+﻿using XLibur.Excel.Caching;
 
 namespace XLibur.Excel;
 

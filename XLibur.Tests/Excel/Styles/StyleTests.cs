@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using ClosedXML.Excel;
+using XLibur.Excel;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Excel.Styles;
+namespace XLibur.Tests.Excel.Styles;
 
 [TestFixture]
 public class StyleTests

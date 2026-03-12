@@ -1,4 +1,4 @@
-using ClosedXML.Excel.ContentManagers;
+using XLibur.Excel.ContentManagers;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
@@ -6,9 +6,9 @@ using System.Collections.Generic;
 using System.Linq;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 using OfficeExcel = DocumentFormat.OpenXml.Office.Excel;
-using static ClosedXML.Excel.IO.OpenXmlConst;
+using static XLibur.Excel.IO.OpenXmlConst;
 
-namespace ClosedXML.Excel.IO;
+namespace XLibur.Excel.IO;
 
 internal sealed class DataValidationWriter
 {

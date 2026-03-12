@@ -1,9 +1,9 @@
 using System;
 using System.Linq;
-using ClosedXML.Excel;
+using XLibur.Excel;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Excel.Ranges;
+namespace XLibur.Tests.Excel.Ranges;
 
 [TestFixture]
 public class InsertingRangesTests
@@ -259,7 +259,7 @@ public class InsertingRangesTests
     [Test]
     public void MergedRangesConsistencyWhenInsertingRows()
     {
-        // https://github.com/ClosedXML/ClosedXML/issues/1013
+        // https://github.com/XLibur/XLibur/issues/1013
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 

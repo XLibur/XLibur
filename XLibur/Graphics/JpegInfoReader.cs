@@ -2,8 +2,8 @@
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using ClosedXML.Excel.Drawings;
-using ClosedXML.Utils;
+using XLibur.Excel.Drawings;
+using XLibur.Utils;
 
 namespace XLibur.Graphics;
 

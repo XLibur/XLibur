@@ -1,12 +1,12 @@
-using ClosedXML.Excel.ContentManagers;
-using ClosedXML.Utils;
+using XLibur.Excel.ContentManagers;
+using XLibur.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System.Collections.Generic;
 using System.Linq;
-using static ClosedXML.Excel.IO.OpenXmlConst;
+using static XLibur.Excel.IO.OpenXmlConst;
 
-namespace ClosedXML.Excel.IO;
+namespace XLibur.Excel.IO;
 
 internal sealed class SheetViewWriter
 {
@@ -18,7 +18,7 @@ internal sealed class SheetViewWriter
         worksheet.SheetProperties ??= new SheetProperties();
 
         worksheet.SheetProperties.TabColor = xlWorksheet.TabColor.HasValue
-            ? new TabColor().FromClosedXMLColor<TabColor>(xlWorksheet.TabColor)
+            ? new TabColor().FromXLiburColor<TabColor>(xlWorksheet.TabColor)
             : null;
 
         cm.SetElement(XLWorksheetContents.SheetProperties, worksheet.SheetProperties);

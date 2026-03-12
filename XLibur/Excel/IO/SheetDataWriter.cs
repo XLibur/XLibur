@@ -1,4 +1,4 @@
-using ClosedXML.Extensions;
+using XLibur.Extensions;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using System;
@@ -6,10 +6,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Xml;
-using static ClosedXML.Excel.IO.OpenXmlConst;
-using static ClosedXML.Excel.XLWorkbook;
+using static XLibur.Excel.IO.OpenXmlConst;
+using static XLibur.Excel.XLWorkbook;
 
-namespace ClosedXML.Excel.IO;
+namespace XLibur.Excel.IO;
 
 internal sealed class SheetDataWriter
 {

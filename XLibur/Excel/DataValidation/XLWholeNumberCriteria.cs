@@ -1,5 +1,5 @@
 
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 public class XLWholeNumberCriteria : XLWholeNumberCriteriaBase
 {

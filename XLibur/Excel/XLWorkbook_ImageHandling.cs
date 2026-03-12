@@ -4,7 +4,7 @@ using DocumentFormat.OpenXml.Packaging;
 using System;
 using System.Linq;
 
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 public partial class XLWorkbook
 {

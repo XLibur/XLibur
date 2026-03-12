@@ -1,4 +1,4 @@
-using ClosedXML.Excel;
+using XLibur.Excel;
 
 namespace XLibur.Examples.Styles;
 
@@ -12,7 +12,7 @@ public class UsingRichText : IXLExample
         // Let's start with a plain text and then decorate it...
         var cell1 = ws.Cell(1, 1).SetValue("The show must go on...");
 
-        // We want everything in blue except the word show 
+        // We want everything in blue except the word show
         // (which we want in red and with Courier Font)
         cell1.Style.Font.FontColor = XLColor.Blue; // Set the color for the entire cell
         cell1.GetRichText().Substring(4, 4)
@@ -32,7 +32,7 @@ public class UsingRichText : IXLExample
         cell.GetRichText().Substring(4, 7).SetUnderline();
 
         // Right now cell.RichText has the following 5 strings:
-        // 
+        //
         // "Hell"  -> Red
         // "o"     -> Red, Underlined
         // " BIG " -> Blue, Underlined, Bold
@@ -47,7 +47,7 @@ public class UsingRichText : IXLExample
         }
 
 
-        // Now we'll build a cell with rich text, and some other styles 
+        // Now we'll build a cell with rich text, and some other styles
         cell = ws.Cell(5, 1);
 
         // Add the text parts

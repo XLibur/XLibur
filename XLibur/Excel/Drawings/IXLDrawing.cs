@@ -1,4 +1,4 @@
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 public enum XLDrawingAnchor { MoveAndSizeWithCells, MoveWithCells, Absolute }
 public interface IXLDrawing<out T>

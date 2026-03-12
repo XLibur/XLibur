@@ -3,8 +3,6 @@ using XLibur.Excel;
 
 namespace XLibur.Examples.Ranges;
 
-namespace ClosedXML.Examples;
-
 public class TransposeRanges : IXLExample
 {
     public void Create(string filePath)

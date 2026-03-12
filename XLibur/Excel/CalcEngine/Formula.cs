@@ -1,4 +1,4 @@
-﻿namespace ClosedXML.Excel.CalcEngine;
+﻿namespace XLibur.Excel.CalcEngine;
 
 /// <summary>
 /// A non-state representation of a formula that can be used by many cells.

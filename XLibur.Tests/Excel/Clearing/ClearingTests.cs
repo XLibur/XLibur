@@ -1,10 +1,10 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
-using ClosedXML.Excel;
+using XLibur.Excel;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Excel.Clearing;
+namespace XLibur.Tests.Excel.Clearing;
 
 [TestFixture]
 public class ClearingTests

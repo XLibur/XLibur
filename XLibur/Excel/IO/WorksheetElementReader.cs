@@ -1,4 +1,4 @@
-using ClosedXML.Utils;
+using XLibur.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 
-namespace ClosedXML.Excel.IO;
+namespace XLibur.Excel.IO;
 
 /// <summary>
 /// Reads worksheet-level elements: sheet views, page setup, protection, data validation, autofilter, hyperlinks, and breaks.
@@ -120,17 +120,17 @@ internal static class WorksheetElementReader
         }
 
         if (pageSetup.PageOrder != null)
-            ws.PageSetup.PageOrder = pageSetup.PageOrder.Value.ToClosedXml();
+            ws.PageSetup.PageOrder = pageSetup.PageOrder.Value.ToXLibur();
         if (pageSetup.Orientation != null)
-            ws.PageSetup.PageOrientation = pageSetup.Orientation.Value.ToClosedXml();
+            ws.PageSetup.PageOrientation = pageSetup.Orientation.Value.ToXLibur();
         if (pageSetup.BlackAndWhite != null)
             ws.PageSetup.BlackAndWhite = pageSetup.BlackAndWhite;
         if (pageSetup.Draft != null)
             ws.PageSetup.DraftQuality = pageSetup.Draft;
         if (pageSetup.CellComments != null)
-            ws.PageSetup.ShowComments = pageSetup.CellComments.Value.ToClosedXml();
+            ws.PageSetup.ShowComments = pageSetup.CellComments.Value.ToXLibur();
         if (pageSetup.Errors != null)
-            ws.PageSetup.PrintErrorValue = pageSetup.Errors.Value.ToClosedXml();
+            ws.PageSetup.PrintErrorValue = pageSetup.Errors.Value.ToXLibur();
         if (pageSetup.HorizontalDpi != null) ws.PageSetup.HorizontalDpi = (int)pageSetup.HorizontalDpi.Value;
         if (pageSetup.VerticalDpi != null) ws.PageSetup.VerticalDpi = (int)pageSetup.VerticalDpi.Value;
         if (pageSetup.FirstPageNumber?.HasValue ?? false)
@@ -185,7 +185,7 @@ internal static class WorksheetElementReader
         if (sheetProperty == null) return;
 
         if (sheetProperty.TabColor != null)
-            ws.TabColor = sheetProperty.TabColor.ToClosedXMLColor();
+            ws.TabColor = sheetProperty.TabColor.ToXLiburColor();
 
         if (sheetProperty.OutlineProperties != null)
         {
@@ -299,9 +299,9 @@ internal static class WorksheetElementReader
                 if (dvs.Prompt != null) dvt.InputMessage = dvs.Prompt.Value!;
                 if (dvs.ErrorTitle != null) dvt.ErrorTitle = dvs.ErrorTitle.Value!;
                 if (dvs.Error != null) dvt.ErrorMessage = dvs.Error.Value!;
-                if (dvs.ErrorStyle != null) dvt.ErrorStyle = dvs.ErrorStyle.Value.ToClosedXml();
-                if (dvs.Type != null) dvt.AllowedValues = dvs.Type.Value.ToClosedXml();
-                if (dvs.Operator != null) dvt.Operator = dvs.Operator.Value.ToClosedXml();
+                if (dvs.ErrorStyle != null) dvt.ErrorStyle = dvs.ErrorStyle.Value.ToXLibur();
+                if (dvs.Type != null) dvt.AllowedValues = dvs.Type.Value.ToXLibur();
+                if (dvs.Operator != null) dvt.Operator = dvs.Operator.Value.ToXLibur();
                 if (dvs.Formula1 != null) dvt.MinValue = dvs.Formula1.Text;
                 if (dvs.Formula2 != null) dvt.MaxValue = dvs.Formula2.Text;
             }
@@ -361,7 +361,7 @@ internal static class WorksheetElementReader
                 {
                     // Equal or NotEqual use wildcards, not value comparison. The rest does value comparison.
                     // There is no filter operation for equal of numbers (maybe combine >= and <=).
-                    var op = filter.Operator is not null ? filter.Operator.Value.ToClosedXml() : XLFilterOperator.Equal;
+                    var op = filter.Operator is not null ? filter.Operator.Value.ToXLibur() : XLFilterOperator.Equal;
                     XLFilter xlFilter;
                     var filterValue = filter.Val!.Value!;
                     switch (op)
@@ -400,7 +400,7 @@ internal static class WorksheetElementReader
                     if (dateGroupItem.DateTimeGrouping is null || !dateGroupItem.DateTimeGrouping.HasValue)
                         continue;
 
-                    var xlGrouping = dateGroupItem.DateTimeGrouping.Value.ToClosedXml();
+                    var xlGrouping = dateGroupItem.DateTimeGrouping.Value.ToXLibur();
                     var year = 1900;
                     var month = 1;
                     var day = 1;
@@ -485,7 +485,7 @@ internal static class WorksheetElementReader
             {
                 xlFilterColumn.FilterType = XLFilterType.Dynamic;
                 var dynamicType = dynamicFilter.Type is { } dynamicFilterType
-                    ? dynamicFilterType.Value.ToClosedXml()
+                    ? dynamicFilterType.Value.ToXLibur()
                     : XLFilterDynamicType.AboveAverage;
                 var dynamicValue = filterColumn.DynamicFilter.Val!.Value;
 

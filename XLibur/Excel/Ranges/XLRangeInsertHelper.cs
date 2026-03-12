@@ -1,6 +1,6 @@
 using System.Linq;
 
-namespace ClosedXML.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// Contains the heavy algorithmic logic for inserting rows and columns into a range.
