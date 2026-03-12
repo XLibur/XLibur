@@ -6,8 +6,10 @@
   <Folder Name="/Solution Items/">
     <File Path="Directory.Build.props" />
   </Folder>
-  <Project Path="XLibur.Tests/XLibur.Tests.csproj" />
-  <Project Path="XLibur.Benchmarks/XLibur.Benchmarks.csproj" />
-  <Project Path="XLibur.Examples/XLibur.Examples.csproj" />
-  <Project Path="XLibur/XLibur.csproj" />
+  <Project Path="ClosedXML.Examples/ClosedXML.Examples.csproj" />
+  <Project Path="ClosedXML.Sandbox/ClosedXML.Sandbox.csproj" />
+  <Project Path="ClosedXML.Tests/ClosedXML.Tests.csproj" />
+  <Project Path="ClosedXML/ClosedXML.csproj" />
+  <Project Path="ClosedXML.Benchmarks/ClosedXML.Benchmarks.csproj" />
+  <Project Path="ClosedXML.Benchmarks.Baseline/ClosedXML.Benchmarks.Baseline.csproj" />
 </Solution>
