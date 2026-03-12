@@ -2,17 +2,17 @@ using System;
 
 namespace XLibur.Excel;
 
-internal struct XLColorKey : IEquatable<XLColorKey>
+internal readonly struct XLColorKey : IEquatable<XLColorKey>
 {
-    public XLColorType ColorType { get; set; }
+    public XLColorType ColorType { get; init; }
 
-    public System.Drawing.Color Color { get; set; }
+    public System.Drawing.Color Color { get; init; }
 
-    public int Indexed { get; set; }
+    public int Indexed { get; init; }
 
-    public XLThemeColor ThemeColor { get; set; }
+    public XLThemeColor ThemeColor { get; init; }
 
-    public double ThemeTint { get; set; }
+    public double ThemeTint { get; init; }
 
     public override int GetHashCode()
     {

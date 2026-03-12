@@ -65,7 +65,11 @@ internal sealed class XLProtection : IXLProtection
         get { return Key.Locked; }
         set
         {
-            Modify(k => k with { Locked = value });
+            if (Key.Locked == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { Locked = value });
+            else
+                Modify(k => k with { Locked = value });
         }
     }
 
@@ -74,7 +78,11 @@ internal sealed class XLProtection : IXLProtection
         get { return Key.Hidden; }
         set
         {
-            Modify(k => k with { Hidden = value });
+            if (Key.Hidden == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { Hidden = value });
+            else
+                Modify(k => k with { Hidden = value });
         }
     }
 
@@ -104,14 +112,16 @@ internal sealed class XLProtection : IXLProtection
 
     #endregion IXLProtection Members
 
+    private void SetKey(XLProtectionKey newKey)
+    {
+        Key = newKey;
+        _style.ModifyProtection(Key);
+    }
+
     private void Modify(Func<XLProtectionKey, XLProtectionKey> modification)
     {
         Key = modification(Key);
-
-        if (_style.IsCellContainer)
-            _style.ModifyProtection(Key);
-        else
-            _style.Modify(styleKey => styleKey with { Protection = modification(styleKey.Protection) });
+        _style.Modify(styleKey => styleKey with { Protection = modification(styleKey.Protection) });
     }
 
     #region Overridden

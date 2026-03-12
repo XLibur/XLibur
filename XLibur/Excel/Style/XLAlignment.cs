@@ -78,7 +78,10 @@ internal sealed class XLAlignment : IXLAlignment
                 || value == XLAlignmentHorizontalValues.Distributed
             );
 
-            Modify(k => k with { Horizontal = value });
+            if (_style.IsCellContainer)
+                SetKey(Key with { Horizontal = value });
+            else
+                Modify(k => k with { Horizontal = value });
             if (updateIndent)
                 Indent = 0;
         }
@@ -87,7 +90,14 @@ internal sealed class XLAlignment : IXLAlignment
     public XLAlignmentVerticalValues Vertical
     {
         get { return Key.Vertical; }
-        set { Modify(k => k with { Vertical = value }); }
+        set
+        {
+            if (Key.Vertical == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { Vertical = value });
+            else
+                Modify(k => k with { Vertical = value });
+        }
     }
 
     public int Indent
@@ -110,32 +120,63 @@ internal sealed class XLAlignment : IXLAlignment
                         "For indents, only left, right, and distributed horizontal alignments are supported.");
                 }
             }
-            Modify(k => k with { Indent = value });
+            if (_style.IsCellContainer)
+                SetKey(Key with { Indent = value });
+            else
+                Modify(k => k with { Indent = value });
         }
     }
 
     public bool JustifyLastLine
     {
         get { return Key.JustifyLastLine; }
-        set { Modify(k => k with { JustifyLastLine = value }); }
+        set
+        {
+            if (Key.JustifyLastLine == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { JustifyLastLine = value });
+            else
+                Modify(k => k with { JustifyLastLine = value });
+        }
     }
 
     public XLAlignmentReadingOrderValues ReadingOrder
     {
         get { return Key.ReadingOrder; }
-        set { Modify(k => k with { ReadingOrder = value }); }
+        set
+        {
+            if (Key.ReadingOrder == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { ReadingOrder = value });
+            else
+                Modify(k => k with { ReadingOrder = value });
+        }
     }
 
     public int RelativeIndent
     {
         get { return Key.RelativeIndent; }
-        set { Modify(k => k with { RelativeIndent = value }); }
+        set
+        {
+            if (Key.RelativeIndent == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { RelativeIndent = value });
+            else
+                Modify(k => k with { RelativeIndent = value });
+        }
     }
 
     public bool ShrinkToFit
     {
         get { return Key.ShrinkToFit; }
-        set { Modify(k => k with { ShrinkToFit = value }); }
+        set
+        {
+            if (Key.ShrinkToFit == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { ShrinkToFit = value });
+            else
+                Modify(k => k with { ShrinkToFit = value });
+        }
     }
 
     public int TextRotation
@@ -148,14 +189,25 @@ internal sealed class XLAlignment : IXLAlignment
             if (rotation != 255 && (rotation < -90 || rotation > 90))
                 throw new ArgumentException("TextRotation must be between -90 and 90 degrees, or 255.");
 
-            Modify(k => k with { TextRotation = rotation });
+            if (Key.TextRotation == rotation) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { TextRotation = rotation });
+            else
+                Modify(k => k with { TextRotation = rotation });
         }
     }
 
     public bool WrapText
     {
         get { return Key.WrapText; }
-        set { Modify(k => k with { WrapText = value }); }
+        set
+        {
+            if (Key.WrapText == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { WrapText = value });
+            else
+                Modify(k => k with { WrapText = value });
+        }
     }
 
     public bool TopToBottom
@@ -250,14 +302,16 @@ internal sealed class XLAlignment : IXLAlignment
 
     #endregion
 
+    private void SetKey(XLAlignmentKey newKey)
+    {
+        Key = newKey;
+        _style.ModifyAlignment(Key);
+    }
+
     private void Modify(Func<XLAlignmentKey, XLAlignmentKey> modification)
     {
         Key = modification(Key);
-
-        if (_style.IsCellContainer)
-            _style.ModifyAlignment(Key);
-        else
-            _style.Modify(styleKey => styleKey with { Alignment = modification(styleKey.Alignment) });
+        _style.Modify(styleKey => styleKey with { Alignment = modification(styleKey.Alignment) });
     }
 
     #region Overridden

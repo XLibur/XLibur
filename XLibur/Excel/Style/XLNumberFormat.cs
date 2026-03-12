@@ -65,11 +65,22 @@ internal sealed class XLNumberFormat : IXLNumberFormat
         get => Key.NumberFormatId;
         set
         {
-            Modify(_ => new XLNumberFormatKey
+            if (_style.IsCellContainer)
             {
-                Format = XLNumberFormatValue.Default.Format,
-                NumberFormatId = value,
-            });
+                SetKey(new XLNumberFormatKey
+                {
+                    Format = XLNumberFormatValue.Default.Format,
+                    NumberFormatId = value,
+                });
+            }
+            else
+            {
+                Modify(_ => new XLNumberFormatKey
+                {
+                    Format = XLNumberFormatValue.Default.Format,
+                    NumberFormatId = value,
+                });
+            }
         }
     }
 
@@ -78,13 +89,26 @@ internal sealed class XLNumberFormat : IXLNumberFormat
         get => Key.Format;
         set
         {
-            Modify(_ => new XLNumberFormatKey
+            if (_style.IsCellContainer)
             {
-                Format = value,
-                NumberFormatId = string.IsNullOrWhiteSpace(value)
-                    ? XLNumberFormatValue.Default.NumberFormatId
-                    : XLNumberFormatKey.CustomFormatNumberId
-            });
+                SetKey(new XLNumberFormatKey
+                {
+                    Format = value,
+                    NumberFormatId = string.IsNullOrWhiteSpace(value)
+                        ? XLNumberFormatValue.Default.NumberFormatId
+                        : XLNumberFormatKey.CustomFormatNumberId
+                });
+            }
+            else
+            {
+                Modify(_ => new XLNumberFormatKey
+                {
+                    Format = value,
+                    NumberFormatId = string.IsNullOrWhiteSpace(value)
+                        ? XLNumberFormatValue.Default.NumberFormatId
+                        : XLNumberFormatKey.CustomFormatNumberId
+                });
+            }
         }
     }
 
@@ -102,14 +126,16 @@ internal sealed class XLNumberFormat : IXLNumberFormat
 
     #endregion IXLNumberFormat Members
 
+    private void SetKey(XLNumberFormatKey newKey)
+    {
+        Key = newKey;
+        _style.ModifyNumberFormat(Key);
+    }
+
     private void Modify(Func<XLNumberFormatKey, XLNumberFormatKey> modification)
     {
         Key = modification(Key);
-
-        if (_style.IsCellContainer)
-            _style.ModifyNumberFormat(Key);
-        else
-            _style.Modify(styleKey => styleKey with { NumberFormat = modification(styleKey.NumberFormat) });
+        _style.Modify(styleKey => styleKey with { NumberFormat = modification(styleKey.NumberFormat) });
     }
 
     #region Overridden

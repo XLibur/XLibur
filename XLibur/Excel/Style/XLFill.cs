@@ -59,14 +59,16 @@ internal sealed class XLFill : IXLFill
 
     internal void SyncValue(XLFillValue value) { _value = value; }
 
+    private void SetKey(XLFillKey newKey)
+    {
+        Key = newKey;
+        _style.ModifyFill(Key);
+    }
+
     private void Modify(Func<XLFillKey, XLFillKey> modification)
     {
         Key = modification(Key);
-
-        if (_style.IsCellContainer)
-            _style.ModifyFill(Key);
-        else
-            _style.Modify(styleKey => styleKey with { Fill = modification(styleKey.Fill) });
+        _style.Modify(styleKey => styleKey with { Fill = modification(styleKey.Fill) });
     }
 
     #region IXLFill Members
@@ -88,14 +90,18 @@ internal sealed class XLFill : IXLFill
                 && XLColor.IsNullOrTransparent(BackgroundColor))
             {
                 var patternType = value.HasValue ? XLFillPatternValues.Solid : XLFillPatternValues.None;
-                Modify(k => k with
-                {
-                    BackgroundColor = value.Key,
-                    PatternType = patternType,
-                });
+                if (_style.IsCellContainer)
+                    SetKey(Key with { BackgroundColor = value.Key, PatternType = patternType });
+                else
+                    Modify(k => k with { BackgroundColor = value.Key, PatternType = patternType });
             }
             else
-                Modify(k => k with { BackgroundColor = value.Key });
+            {
+                if (_style.IsCellContainer)
+                    SetKey(Key with { BackgroundColor = value.Key });
+                else
+                    Modify(k => k with { BackgroundColor = value.Key });
+            }
         }
     }
 
@@ -111,7 +117,11 @@ internal sealed class XLFill : IXLFill
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            Modify(k => k with { PatternColor = value.Key });
+            if (Key.PatternColor == value.Key) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { PatternColor = value.Key });
+            else
+                Modify(k => k with { PatternColor = value.Key });
         }
     }
 
@@ -125,14 +135,19 @@ internal sealed class XLFill : IXLFill
             {
                 // If fill was empty and the pattern changes to non-empty we have to specify a background color too.
                 // Otherwise the fill will be considered empty and pattern won't update (the cached empty fill will be used).
-                Modify(k => k with
-                {
-                    BackgroundColor = XLColor.FromTheme(XLThemeColor.Text1).Key,
-                    PatternType = value,
-                });
+                if (_style.IsCellContainer)
+                    SetKey(Key with { BackgroundColor = XLColor.FromTheme(XLThemeColor.Text1).Key, PatternType = value });
+                else
+                    Modify(k => k with { BackgroundColor = XLColor.FromTheme(XLThemeColor.Text1).Key, PatternType = value });
             }
             else
-                Modify(k => k with { PatternType = value });
+            {
+                if (Key.PatternType == value) return;
+                if (_style.IsCellContainer)
+                    SetKey(Key with { PatternType = value });
+                else
+                    Modify(k => k with { PatternType = value });
+            }
         }
     }
 

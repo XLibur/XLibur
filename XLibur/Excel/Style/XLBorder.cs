@@ -212,7 +212,14 @@ internal sealed class XLBorder : IXLBorder
     public XLBorderStyleValues LeftBorder
     {
         get => Key.LeftBorder;
-        set { Modify(k => k with { LeftBorder = value }); }
+        set
+        {
+            if (Key.LeftBorder == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { LeftBorder = value });
+            else
+                Modify(k => k with { LeftBorder = value });
+        }
     }
 
     public XLColor LeftBorderColor
@@ -227,14 +234,25 @@ internal sealed class XLBorder : IXLBorder
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            Modify(k => k with { LeftBorderColor = value.Key });
+            if (Key.LeftBorderColor == value.Key) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { LeftBorderColor = value.Key });
+            else
+                Modify(k => k with { LeftBorderColor = value.Key });
         }
     }
 
     public XLBorderStyleValues RightBorder
     {
         get => Key.RightBorder;
-        set { Modify(k => k with { RightBorder = value }); }
+        set
+        {
+            if (Key.RightBorder == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { RightBorder = value });
+            else
+                Modify(k => k with { RightBorder = value });
+        }
     }
 
     public XLColor RightBorderColor
@@ -249,14 +267,25 @@ internal sealed class XLBorder : IXLBorder
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            Modify(k => k with { RightBorderColor = value.Key });
+            if (Key.RightBorderColor == value.Key) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { RightBorderColor = value.Key });
+            else
+                Modify(k => k with { RightBorderColor = value.Key });
         }
     }
 
     public XLBorderStyleValues TopBorder
     {
         get { return Key.TopBorder; }
-        set { Modify(k => k with { TopBorder = value }); }
+        set
+        {
+            if (Key.TopBorder == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { TopBorder = value });
+            else
+                Modify(k => k with { TopBorder = value });
+        }
     }
 
     public XLColor TopBorderColor
@@ -271,14 +300,25 @@ internal sealed class XLBorder : IXLBorder
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            Modify(k => k with { TopBorderColor = value.Key });
+            if (Key.TopBorderColor == value.Key) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { TopBorderColor = value.Key });
+            else
+                Modify(k => k with { TopBorderColor = value.Key });
         }
     }
 
     public XLBorderStyleValues BottomBorder
     {
         get { return Key.BottomBorder; }
-        set { Modify(k => k with { BottomBorder = value }); }
+        set
+        {
+            if (Key.BottomBorder == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { BottomBorder = value });
+            else
+                Modify(k => k with { BottomBorder = value });
+        }
     }
 
     public XLColor BottomBorderColor
@@ -293,14 +333,25 @@ internal sealed class XLBorder : IXLBorder
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            Modify(k => k with { BottomBorderColor = value.Key });
+            if (Key.BottomBorderColor == value.Key) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { BottomBorderColor = value.Key });
+            else
+                Modify(k => k with { BottomBorderColor = value.Key });
         }
     }
 
     public XLBorderStyleValues DiagonalBorder
     {
         get { return Key.DiagonalBorder; }
-        set { Modify(k => k with { DiagonalBorder = value }); }
+        set
+        {
+            if (Key.DiagonalBorder == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { DiagonalBorder = value });
+            else
+                Modify(k => k with { DiagonalBorder = value });
+        }
     }
 
     public XLColor DiagonalBorderColor
@@ -315,20 +366,38 @@ internal sealed class XLBorder : IXLBorder
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            Modify(k => k with { DiagonalBorderColor = value.Key });
+            if (Key.DiagonalBorderColor == value.Key) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { DiagonalBorderColor = value.Key });
+            else
+                Modify(k => k with { DiagonalBorderColor = value.Key });
         }
     }
 
     public bool DiagonalUp
     {
         get { return Key.DiagonalUp; }
-        set { Modify(k => k with { DiagonalUp = value }); }
+        set
+        {
+            if (Key.DiagonalUp == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { DiagonalUp = value });
+            else
+                Modify(k => k with { DiagonalUp = value });
+        }
     }
 
     public bool DiagonalDown
     {
         get { return Key.DiagonalDown; }
-        set { Modify(k => k with { DiagonalDown = value }); }
+        set
+        {
+            if (Key.DiagonalDown == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { DiagonalDown = value });
+            else
+                Modify(k => k with { DiagonalDown = value });
+        }
     }
 
     public IXLStyle SetOutsideBorder(XLBorderStyleValues value)
@@ -441,6 +510,16 @@ internal sealed class XLBorder : IXLBorder
 
     #endregion IXLBorder Members
 
+    private void SetKey(XLBorderKey newKey)
+    {
+        Key = newKey;
+        _style.ModifyBorder(Key);
+    }
+
+    /// <summary>
+    /// Kept for <see cref="RestoreOutsideBorder"/>, compound inside-border operations,
+    /// and non-cell-container paths that need per-property delta applied to each cell.
+    /// </summary>
     private void Modify(Func<XLBorderKey, XLBorderKey> modification)
     {
         Key = modification(Key);
