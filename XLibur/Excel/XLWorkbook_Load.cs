@@ -491,8 +491,9 @@ public partial class XLWorkbook
                         var clientData = shape.Elements().First(e => e.Name.LocalName == "ClientData");
                         DrawingPartReader.LoadClientData(xlComment, clientData);
 
-                        var textBox = shape.Elements().First(e => e.Name.LocalName == "textbox");
-                        DrawingPartReader.LoadTextBox(xlComment, textBox, DpiX, DpiY);
+                        var textBox = shape.Elements().FirstOrDefault(e => e.Name.LocalName == "textbox");
+                        if (textBox is not null)
+                            DrawingPartReader.LoadTextBox(xlComment, textBox, DpiX, DpiY);
 
                         var alt = shape.Attribute("alt");
                         if (alt != null) xlComment.Style.Web.SetAlternateText(alt.Value);

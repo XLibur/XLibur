@@ -5,6 +5,7 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 
 namespace XLibur.Tests.Excel.Comments;
 
@@ -186,6 +187,47 @@ public class CommentsTests
                 Assert.AreEqual(0, margins.Right);
                 Assert.AreEqual(0, margins.Bottom);
             }
-        }, @"Other\Comments\InsetsUnitConversion.xlsx", new LoadOptions { Dpi = new Point(120, 120) });
+        }, @"Other\Comments\InsetsUnitConversion.xlsx", new XLibur.Excel.LoadOptions { Dpi = new Point(120, 120) });
+    }
+
+    [Test]
+    public void Can_load_comment_with_missing_textbox_in_vml()
+    {
+        // Create a workbook with a comment, then strip the textbox element from VML.
+        // This reproduces files where notes/comments have shapes without a textbox element.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            ws.Cell("A1").SetValue("Test");
+            ws.Cell("A1").GetComment().AddText("Comment without textbox");
+            wb.SaveAs(ms);
+        }
+
+        // Remove the textbox element from VML drawing part
+        ms.Position = 0;
+        using (var doc = SpreadsheetDocument.Open(ms, isEditable: true))
+        {
+            var wsPart = doc.WorkbookPart!.WorksheetParts.First();
+            var vmlPart = wsPart.VmlDrawingParts.First();
+            using var vmlStream = vmlPart.GetStream(FileMode.Open);
+            var vml = XDocument.Load(vmlStream);
+
+            var textboxes = vml.Descendants().Where(e => e.Name.LocalName == "textbox").ToList();
+            foreach (var tb in textboxes)
+                tb.Remove();
+
+            vmlStream.SetLength(0);
+            vml.Save(vmlStream);
+        }
+
+        // Loading should not throw despite missing textbox
+        ms.Position = 0;
+        Assert.DoesNotThrow(() =>
+        {
+            using var wb = new XLWorkbook(ms);
+            var ws = wb.Worksheets.First();
+            Assert.That(ws.Cell("A1").HasComment, Is.True);
+        });
     }
 }
