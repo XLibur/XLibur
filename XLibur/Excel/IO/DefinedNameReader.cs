@@ -31,24 +31,18 @@ internal static class DefinedNameReader
 
             if (name == "_xlnm.Print_Area")
             {
-                var fixedNames = ValidateDefinedNames(definedName.Text.Split(','));
-                foreach (var area in fixedNames)
+                try
                 {
-                    if (area.Contains("["))
-                    {
-                        var ws = xlWorkbook.WorksheetsInternal.FirstOrDefault<XLWorksheet>(w => w.SheetId == (localSheetId + 1));
-                        if (ws != null)
-                        {
-                            ws.PageSetup.PrintAreas.Add(area);
-                        }
-                    }
-                    else
-                    {
-                        ParseReference(area, out var sheetName, out var sheetArea);
-                        if (!(sheetArea.Equals("#REF") || sheetArea.EndsWith("#REF!") || sheetArea.Length == 0 ||
-                              sheetName.Length == 0))
-                            xlWorkbook.WorksheetsInternal.Worksheet(sheetName).PageSetup.PrintAreas.Add(sheetArea);
-                    }
+                    LoadPrintAreas(definedName, xlWorkbook, localSheetId);
+                }
+                catch
+                {
+                    // The print area text is a formula (e.g. OFFSET) that can't be
+                    // resolved to simple range references. Store the raw text so it
+                    // can be round-tripped on save.
+                    var ws = xlWorkbook.WorksheetsInternal.FirstOrDefault<XLWorksheet>(w => w.SheetId == (localSheetId + 1));
+                    if (ws != null)
+                        ((XLPrintAreas)ws.PageSetup.PrintAreas).FormulaReference = definedName.Text;
                 }
             }
             else if (name == "_xlnm.Print_Titles")
@@ -96,6 +90,29 @@ internal static class DefinedNameReader
 
         if (sb.Length > 0)
             yield return sb.ToString();
+    }
+
+    private static void LoadPrintAreas(DefinedName definedName, XLWorkbook xlWorkbook, int localSheetId)
+    {
+        var fixedNames = ValidateDefinedNames(definedName.Text.Split(','));
+        foreach (var area in fixedNames)
+        {
+            if (area.Contains("["))
+            {
+                var ws = xlWorkbook.WorksheetsInternal.FirstOrDefault<XLWorksheet>(w => w.SheetId == (localSheetId + 1));
+                if (ws != null)
+                {
+                    ws.PageSetup.PrintAreas.Add(area);
+                }
+            }
+            else
+            {
+                ParseReference(area, out var sheetName, out var sheetArea);
+                if (!(sheetArea.Equals("#REF") || sheetArea.EndsWith("#REF!") || sheetArea.Length == 0 ||
+                      sheetName.Length == 0))
+                    xlWorkbook.WorksheetsInternal.Worksheet(sheetName).PageSetup.PrintAreas.Add(sheetArea);
+            }
+        }
     }
 
     private static void LoadPrintTitles(DefinedName definedName, XLWorkbook xlWorkbook)

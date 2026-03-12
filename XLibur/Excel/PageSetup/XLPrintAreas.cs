@@ -7,6 +7,14 @@ internal sealed class XLPrintAreas : IXLPrintAreas
 {
     List<IXLRange> ranges = new List<IXLRange>();
     private XLWorksheet worksheet;
+
+    /// <summary>
+    /// Stores the raw defined name text when the print area contains a formula
+    /// (e.g. OFFSET) that cannot be resolved to a simple range reference.
+    /// When set, this value is written as-is to the workbook on save.
+    /// </summary>
+    internal string? FormulaReference { get; set; }
+
     public XLPrintAreas(XLWorksheet worksheet)
     {
         this.worksheet = worksheet;
@@ -15,6 +23,7 @@ internal sealed class XLPrintAreas : IXLPrintAreas
     public XLPrintAreas(XLPrintAreas defaultPrintAreas, XLWorksheet worksheet)
     {
         ranges = defaultPrintAreas.ranges.ToList();
+        FormulaReference = defaultPrintAreas.FormulaReference;
         this.worksheet = worksheet;
     }
 

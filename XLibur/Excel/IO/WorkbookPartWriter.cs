@@ -219,7 +219,18 @@ internal sealed class WorkbookPartWriter
                 sheetId++;
             }
 
-            if (worksheet.PageSetup.PrintAreas.Any())
+            var printAreas = (XLPrintAreas)worksheet.PageSetup.PrintAreas;
+            if (printAreas.FormulaReference != null)
+            {
+                var definedName = new DefinedName
+                {
+                    Name = "_xlnm.Print_Area",
+                    LocalSheetId = sheetId,
+                    Text = printAreas.FormulaReference
+                };
+                definedNames.AppendChild(definedName);
+            }
+            else if (worksheet.PageSetup.PrintAreas.Any())
             {
                 var definedName = new DefinedName { Name = "_xlnm.Print_Area", LocalSheetId = sheetId };
                 var worksheetName = worksheet.Name;
