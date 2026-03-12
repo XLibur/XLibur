@@ -13,6 +13,9 @@ namespace ClosedXML.Excel.IO;
 
 internal sealed class SheetDataWriter
 {
+    private static readonly FieldInfo XmlWriterFieldInfo =
+        typeof(OpenXmlPartWriter).GetField("_xmlWriter", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
     /// <summary>
     /// An array to convert data type for a formula cell. Key is <see cref="XLDataType"/>.
     /// It saves some performance through direct indexation instead of switch.
@@ -48,9 +51,7 @@ internal sealed class SheetDataWriter
     {
         // Steal through reflection for now, the whole OpenXmlPartWriter will be replaced by XmlWriter soon. OpenXmlPartWriter has basically
         // no inner state, unless it is in a string leaf node. By writing SheetData through XmlWriter only, we bypass all that.
-        var xmlWriterFieldInfo =
-            typeof(OpenXmlPartWriter).GetField("_xmlWriter", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var untypedXmlWriter = xmlWriterFieldInfo.GetValue(writer);
+        var untypedXmlWriter = XmlWriterFieldInfo.GetValue(writer);
         var xml = (XmlWriter)untypedXmlWriter!;
 
         var maxColumn = GetMaxColumn(xlWorksheet);
@@ -68,8 +69,17 @@ internal sealed class SheetDataWriter
         var openedRowNumber = 0;
         var isRowOpened = false;
         var cellRef = new char[10]; // Buffer must be enough to hold span and rowNumber as strings
-        var rows = xlWorksheet.Internals.RowsCollection.Keys.ToList();
-        rows.Sort();
+        List<int> rows;
+        if (xlWorksheet.Internals.RowsCollection.Count > 0)
+        {
+            rows = xlWorksheet.Internals.RowsCollection.Keys.ToList();
+            rows.Sort();
+        }
+        else
+        {
+            rows = [];
+        }
+
         var rowPropIndex = 0;
         uint rowStyleId = 0;
         foreach (var xlCell in xlWorksheet.Internals.CellsCollection.GetCells())

@@ -195,9 +195,12 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
         SetValueAndStyle(value);
 
-        FormulaA1 = string.Empty;
+        // Only clear formula if cell actually has one, to avoid unnecessary
+        // property setter overhead (TrimFormulaEqual, InvalidateFormula, etc.)
+        if (Formula is not null)
+            FormulaA1 = string.Empty;
 
-        if (setTableHeader)
+        if (setTableHeader && Worksheet.Tables.Count > 0)
         {
             var cellRange = new XLSheetRange(SheetPoint, SheetPoint);
             foreach (var table in Worksheet.Tables)

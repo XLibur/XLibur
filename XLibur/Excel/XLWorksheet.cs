@@ -1592,6 +1592,15 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
         return XLStyleValue.Combine(sheetStyle, rowStyle, colStyle);
     }
 
+    // Cache for auto-formatted date/time styles to avoid repeated slice access + key computation.
+    // Key is the source style, value is the derived style with the appropriate number format.
+    private XLStyleValue? _cachedDateOnlySourceStyle;
+    private XLStyleValue? _cachedDateOnlyResultStyle;
+    private XLStyleValue? _cachedDateTimeSourceStyle;
+    private XLStyleValue? _cachedDateTimeResultStyle;
+    private XLStyleValue? _cachedTimeSpanSourceStyle;
+    private XLStyleValue? _cachedTimeSpanResultStyle;
+
     /// <summary>
     /// Get a style that should be used for a <paramref name="value"/>,
     /// if the value is set to the <paramref name="point"/>.
@@ -1610,8 +1619,28 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
                     if (styleValue.NumberFormat.Format.Length == 0 &&
                         styleValue.NumberFormat.NumberFormatId == 0)
                     {
-                        var dateTimeNumberFormat = styleValue.NumberFormat.WithNumberFormatId(onlyDatePart ? 14 : 22);
-                        return styleValue.WithNumberFormat(dateTimeNumberFormat);
+                        if (onlyDatePart)
+                        {
+                            if (ReferenceEquals(styleValue, _cachedDateOnlySourceStyle))
+                                return _cachedDateOnlyResultStyle;
+
+                            var dateNumberFormat = styleValue.NumberFormat.WithNumberFormatId(14);
+                            var result = styleValue.WithNumberFormat(dateNumberFormat);
+                            _cachedDateOnlySourceStyle = styleValue;
+                            _cachedDateOnlyResultStyle = result;
+                            return result;
+                        }
+                        else
+                        {
+                            if (ReferenceEquals(styleValue, _cachedDateTimeSourceStyle))
+                                return _cachedDateTimeResultStyle;
+
+                            var dateTimeNumberFormat = styleValue.NumberFormat.WithNumberFormatId(22);
+                            var result = styleValue.WithNumberFormat(dateTimeNumberFormat);
+                            _cachedDateTimeSourceStyle = styleValue;
+                            _cachedDateTimeResultStyle = result;
+                            return result;
+                        }
                     }
                 }
                 break;
@@ -1621,8 +1650,14 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
                     var styleValue = GetStyleValue(point);
                     if (styleValue.NumberFormat.Format.Length == 0 && styleValue.NumberFormat.NumberFormatId == 0)
                     {
+                        if (ReferenceEquals(styleValue, _cachedTimeSpanSourceStyle))
+                            return _cachedTimeSpanResultStyle;
+
                         var durationNumberFormat = styleValue.NumberFormat.WithNumberFormatId(46);
-                        return styleValue.WithNumberFormat(durationNumberFormat);
+                        var result = styleValue.WithNumberFormat(durationNumberFormat);
+                        _cachedTimeSpanSourceStyle = styleValue;
+                        _cachedTimeSpanResultStyle = result;
+                        return result;
                     }
                 }
                 break;

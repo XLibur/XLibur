@@ -17,6 +17,8 @@ internal sealed class XLTables : IXLTables, IEnumerable<XLTable>
         Deleted = new HashSet<string>();
     }
 
+    internal int Count => _tables.Count;
+
     internal ICollection<string> Deleted { get; }
 
     #region IXLTables Members
