@@ -223,7 +223,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
     {
         XLCellValue convertedValue = value switch
         {
-            null => Blank.Value,
+            null or DBNull => Blank.Value,
             Blank blankValue => blankValue,
             bool logical => logical,
             sbyte number => number,

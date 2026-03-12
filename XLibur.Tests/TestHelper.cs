@@ -15,15 +15,14 @@ internal static class TestHelper
 {
     public static string CurrencySymbol => Thread.CurrentThread.CurrentCulture.NumberFormat.CurrencySymbol;
 
-    //Note: Run example tests parameters
-    public static string TestsOutputDirectory => Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location), "Generated");
+    private static string TestsOutputDirectory => Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? throw new InvalidOperationException(), "Generated");
 
-    public const string ActualTestResultPostFix = "";
-    public static readonly string ExampleTestsOutputDirectory = Path.Combine(TestsOutputDirectory, "Examples");
+    private const string ActualTestResultPostFix = "";
+    private static readonly string ExampleTestsOutputDirectory = Path.Combine(TestsOutputDirectory, "Examples");
 
     private const bool CompareWithResources = true;
 
-    private static readonly ResourceFileExtractor _extractor = new(".Resource.");
+    private static readonly ResourceFileExtractor Extractor = new(".Resource.");
 
     public static void SaveWorkbook(XLWorkbook workbook, params string[] fileNameParts)
     {
@@ -36,12 +35,12 @@ internal static class TestHelper
     // Therefore, we ignore the width attribute when running on Unix
     public static bool StripColumnWidths => IsRunningOnUnix;
 
-    public static bool IsRunningOnUnix
+    private static bool IsRunningOnUnix
     {
         get
         {
             var p = (int)Environment.OSVersion.Platform;
-            return ((p == 4) || (p == 6) || (p == 128));
+            return p is 4 or 6 or 128;
         }
     }
 
@@ -62,7 +61,7 @@ internal static class TestHelper
         fileName += ActualTestResultPostFix;
         fileName = Path.ChangeExtension(fileName, extension);
 
-        filePath1 = Path.Combine(directory, "z" + fileName);
+        filePath1 = Path.Combine(directory ?? throw new InvalidOperationException(), "z" + fileName);
         var filePath2 = Path.Combine(directory, fileName);
 
         //Run test
@@ -79,7 +78,7 @@ internal static class TestHelper
         if (CompareWithResources)
         {
             var resourcePath = "Examples." + filePartName.Replace('\\', '.').TrimStart('.');
-            using var streamExpected = _extractor.ReadFileFromResourceToStream(resourcePath);
+            using var streamExpected = Extractor.ReadFileFromResourceToStream(resourcePath);
             using var streamActual = File.OpenRead(filePath2);
             var success = ExcelDocsComparer.Compare(streamActual, streamExpected, out var message);
             var formattedMessage =
@@ -120,7 +119,7 @@ internal static class TestHelper
         fileName += ActualTestResultPostFix;
         fileName = Path.ChangeExtension(fileName, extension);
 
-        var filePath2 = Path.Combine(directory, fileName);
+        var filePath2 = Path.Combine(directory ?? throw new InvalidOperationException(), fileName);
 
         using (var wb = workbookGenerator.Invoke())
             wb.SaveAs(filePath2, validate, evaluateFormulae);
@@ -128,7 +127,7 @@ internal static class TestHelper
         if (CompareWithResources)
         {
             var resourcePath = referenceResource.Replace('\\', '.').TrimStart('.');
-            using var streamExpected = _extractor.ReadFileFromResourceToStream(resourcePath);
+            using var streamExpected = Extractor.ReadFileFromResourceToStream(resourcePath);
             using var streamActual = File.OpenRead(filePath2);
             var success = ExcelDocsComparer.Compare(streamActual, streamExpected, out var message);
             var formattedMessage =
@@ -197,7 +196,7 @@ internal static class TestHelper
 
     public static Stream GetStreamFromResource(string resourcePath)
     {
-        return _extractor.ReadFileFromResourceToStream(resourcePath);
+        return Extractor.ReadFileFromResourceToStream(resourcePath);
     }
 
     public static void LoadFile(string filePartName)
@@ -208,7 +207,7 @@ internal static class TestHelper
 
     public static IEnumerable<string> ListResourceFiles(Func<string, bool> predicate = null)
     {
-        return _extractor.GetFileNames(predicate);
+        return Extractor.GetFileNames(predicate);
     }
 
     /// <summary>

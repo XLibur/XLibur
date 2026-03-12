@@ -167,8 +167,8 @@ public class XLCellTests
         ws.FirstCell().InsertData(table);
 
         Assert.AreEqual(25, ws.Cell("A1").Value);
-        Assert.AreEqual("", ws.Cell("C4").Value);
-        Assert.AreEqual("", ws.Cell("D5").Value);
+        Assert.IsTrue(ws.Cell("C4").Value.IsBlank);
+        Assert.IsTrue(ws.Cell("D5").Value.IsBlank);
     }
 
     [Test]
