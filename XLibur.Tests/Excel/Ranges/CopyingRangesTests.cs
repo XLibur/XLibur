@@ -136,6 +136,24 @@ public class CopyingRangesTests
         Assert.AreEqual("A1:A2", ws2.ConditionalFormats.First().Ranges.First().RangeAddress.ToString());
     }
 
+    [Test]
+    public void CopyConditionalFormatColorScaleInRange()
+    {
+        var ws = new XLWorkbook().Worksheets.Add("Sheet");
+
+        ws.Row(1).Cell(1).AddConditionalFormat()
+            .ColorScale()
+            .LowestValue(XLColor.Teal)
+            .HighestValue(XLColor.Orange);
+
+        ws.Cell(5, 2).CopyFrom(ws.Range(1, 1, 1, 5));
+
+        Assert.That(ws.ConditionalFormats.Count(), Is.EqualTo(2));
+        Assert.That(
+            ws.ConditionalFormats.Single(x => x.Range.RangeAddress.ToStringRelative() == "B5:B5").ConditionalFormatType,
+            Is.EqualTo(XLConditionalFormatType.ColorScale));
+    }
+
     private static void FillRow(IXLRow row1)
     {
         row1.Cell(1).Style.Fill.SetBackgroundColor(XLColor.Red);
