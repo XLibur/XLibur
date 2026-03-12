@@ -88,52 +88,96 @@ internal sealed class XLStyle : IXLStyle
     /// <summary>
     /// Fast-path style modification for XLCell containers. Only called when <see cref="IsCellContainer"/> is true.
     /// Bypasses closure allocation by directly computing the new style key.
+    /// Uses per-base-style transition cache to skip full key hash + repository lookup on repeat transitions.
     /// </summary>
     internal void ModifyFont(XLFontKey newFontKey)
     {
-        var styleKey = Key with { Font = newFontKey };
-        Value = XLStyleValue.FromKey(ref styleKey);
+        var transitionHash = newFontKey.GetHashCode();
+        Value = Value.GetTransition(transitionHash)
+                ?? Value.StoreTransition(transitionHash, ResolveFont(newFontKey));
         ((XLCell)_container!).SetStyleValue(Value);
+
+        XLStyleValue ResolveFont(XLFontKey key)
+        {
+            var styleKey = Key with { Font = key };
+            return XLStyleValue.FromKey(ref styleKey);
+        }
     }
 
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyBorder(XLBorderKey newBorderKey)
     {
-        var styleKey = Key with { Border = newBorderKey };
-        Value = XLStyleValue.FromKey(ref styleKey);
+        // Shift hash to avoid collision with other component types stored on the same base style.
+        var transitionHash = (newBorderKey.GetHashCode() * 397) ^ 1;
+        Value = Value.GetTransition(transitionHash)
+                ?? Value.StoreTransition(transitionHash, ResolveBorder(newBorderKey));
         ((XLCell)_container!).SetStyleValue(Value);
+
+        XLStyleValue ResolveBorder(XLBorderKey key)
+        {
+            var styleKey = Key with { Border = key };
+            return XLStyleValue.FromKey(ref styleKey);
+        }
     }
 
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyFill(XLFillKey newFillKey)
     {
-        var styleKey = Key with { Fill = newFillKey };
-        Value = XLStyleValue.FromKey(ref styleKey);
+        var transitionHash = (newFillKey.GetHashCode() * 397) ^ 2;
+        Value = Value.GetTransition(transitionHash)
+                ?? Value.StoreTransition(transitionHash, ResolveFill(newFillKey));
         ((XLCell)_container!).SetStyleValue(Value);
+
+        XLStyleValue ResolveFill(XLFillKey key)
+        {
+            var styleKey = Key with { Fill = key };
+            return XLStyleValue.FromKey(ref styleKey);
+        }
     }
 
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyAlignment(XLAlignmentKey newAlignmentKey)
     {
-        var styleKey = Key with { Alignment = newAlignmentKey };
-        Value = XLStyleValue.FromKey(ref styleKey);
+        var transitionHash = (newAlignmentKey.GetHashCode() * 397) ^ 3;
+        Value = Value.GetTransition(transitionHash)
+                ?? Value.StoreTransition(transitionHash, ResolveAlignment(newAlignmentKey));
         ((XLCell)_container!).SetStyleValue(Value);
+
+        XLStyleValue ResolveAlignment(XLAlignmentKey key)
+        {
+            var styleKey = Key with { Alignment = key };
+            return XLStyleValue.FromKey(ref styleKey);
+        }
     }
 
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyNumberFormat(XLNumberFormatKey newNumberFormatKey)
     {
-        var styleKey = Key with { NumberFormat = newNumberFormatKey };
-        Value = XLStyleValue.FromKey(ref styleKey);
+        var transitionHash = (newNumberFormatKey.GetHashCode() * 397) ^ 4;
+        Value = Value.GetTransition(transitionHash)
+                ?? Value.StoreTransition(transitionHash, ResolveNumberFormat(newNumberFormatKey));
         ((XLCell)_container!).SetStyleValue(Value);
+
+        XLStyleValue ResolveNumberFormat(XLNumberFormatKey key)
+        {
+            var styleKey = Key with { NumberFormat = key };
+            return XLStyleValue.FromKey(ref styleKey);
+        }
     }
 
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyProtection(XLProtectionKey newProtectionKey)
     {
-        var styleKey = Key with { Protection = newProtectionKey };
-        Value = XLStyleValue.FromKey(ref styleKey);
+        var transitionHash = (newProtectionKey.GetHashCode() * 397) ^ 5;
+        Value = Value.GetTransition(transitionHash)
+                ?? Value.StoreTransition(transitionHash, ResolveProtection(newProtectionKey));
         ((XLCell)_container!).SetStyleValue(Value);
+
+        XLStyleValue ResolveProtection(XLProtectionKey key)
+        {
+            var styleKey = Key with { Protection = key };
+            return XLStyleValue.FromKey(ref styleKey);
+        }
     }
 
     internal void SyncValue(XLStyleValue value) { Value = value; }

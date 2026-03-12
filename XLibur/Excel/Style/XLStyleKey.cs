@@ -47,12 +47,13 @@ internal readonly record struct XLStyleKey
 
     public bool Equals(XLStyleKey other)
     {
-        return Alignment.Equals(other.Alignment)
-               && Border.Equals(other.Border)
+        // Order by discrimination power: font/fill/border vary most, protection/alignment least.
+        return Font.Equals(other.Font)
                && Fill.Equals(other.Fill)
-               && Font.Equals(other.Font)
-               && IncludeQuotePrefix == other.IncludeQuotePrefix
+               && Border.Equals(other.Border)
                && NumberFormat.Equals(other.NumberFormat)
+               && Alignment.Equals(other.Alignment)
+               && IncludeQuotePrefix == other.IncludeQuotePrefix
                && Protection.Equals(other.Protection);
     }
 

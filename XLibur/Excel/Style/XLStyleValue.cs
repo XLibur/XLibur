@@ -45,6 +45,58 @@ internal sealed class XLStyleValue : IEquatable<XLStyleValue?>
 
     internal XLStyleKey Key { get; }
 
+    #region Transition cache
+
+    /// <summary>
+    /// Direct-mapped transition cache stored per base style. When many cells undergo the same
+    /// style transition (e.g., Default → Bold=true), this cache returns the result immediately
+    /// without computing XLStyleKey hash or hitting the ConcurrentDictionary repository.
+    /// Each entry is a (hash, result) pair; collisions simply evict.
+    /// Thread-safety: benign races at most cause a cache miss, never incorrect results.
+    /// </summary>
+    private const int TransitionCacheSize = 8;
+    private const int TransitionCacheMask = TransitionCacheSize - 1;
+
+    private int[]? _transitionHashes;
+    private XLStyleValue?[]? _transitionResults;
+
+    /// <summary>
+    /// Look up a cached transition from this style. Returns null on miss.
+    /// </summary>
+    internal XLStyleValue? GetTransition(int transitionHash)
+    {
+        var hashes = _transitionHashes;
+        if (hashes is null)
+            return null;
+
+        var slot = transitionHash & TransitionCacheMask;
+        if (hashes[slot] == transitionHash)
+            return _transitionResults![slot];
+
+        return null;
+    }
+
+    /// <summary>
+    /// Store a transition result and return it (for fluent use: value ?? StoreTransition(...)).
+    /// </summary>
+    internal XLStyleValue StoreTransition(int transitionHash, XLStyleValue result)
+    {
+        var hashes = _transitionHashes;
+        if (hashes is null)
+        {
+            hashes = new int[TransitionCacheSize];
+            _transitionResults = new XLStyleValue?[TransitionCacheSize];
+            _transitionHashes = hashes;
+        }
+
+        var slot = transitionHash & TransitionCacheMask;
+        hashes[slot] = transitionHash;
+        _transitionResults![slot] = result;
+        return result;
+    }
+
+    #endregion Transition cache
+
     internal XLAlignmentValue Alignment { get; }
 
     internal XLBorderValue Border { get; }
@@ -69,7 +121,7 @@ internal sealed class XLStyleValue : IEquatable<XLStyleValue?>
         if (other is null)
             return false;
 
-        return _hashCode == other._hashCode && Key.Equals(other.Key);
+        return ReferenceEquals(this, other) || (_hashCode == other._hashCode && Key.Equals(other.Key));
     }
 
     public override int GetHashCode() => _hashCode;
