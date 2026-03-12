@@ -484,4 +484,20 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     IXLPicture AddPicture(string imageFile);
 
     IXLPicture AddPicture(string imageFile, string name);
+
+    /// <summary>
+    /// Sets a cell value directly at the given row and column without allocating
+    /// an intermediate <see cref="IXLCell"/> object. This is significantly faster
+    /// for bulk data population scenarios.
+    /// </summary>
+    /// <remarks>
+    /// <para>This method only sets the cell value and adjusts the number format
+    /// for date/time types. It does not clear formulas, check merged ranges,
+    /// or refresh table headers. Use <see cref="IXLCell.SetValue"/> for the
+    /// full-featured API.</para>
+    /// </remarks>
+    /// <param name="row">Row number (1-based).</param>
+    /// <param name="column">Column number (1-based).</param>
+    /// <param name="value">The value to set.</param>
+    void SetCellValue(int row, int column, XLCellValue value);
 }

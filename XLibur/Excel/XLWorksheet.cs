@@ -1601,6 +1601,29 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
     private XLStyleValue? _cachedTimeSpanSourceStyle;
     private XLStyleValue? _cachedTimeSpanResultStyle;
 
+    /// <inheritdoc />
+    public void SetCellValue(int row, int column, XLCellValue value)
+    {
+        var point = new XLSheetPoint(row, column);
+
+        // Apply style changes for date/time/text values (number format, quote prefix, wrap text).
+        var modifiedStyle = GetStyleForValue(value, point);
+        if (modifiedStyle is not null)
+            Internals.CellsCollection.StyleSlice.Set(row, column, modifiedStyle);
+
+        // Strip leading quote prefix from text values (same as XLCell.SetValueAndStyle).
+        if (value.Type == XLDataType.Text)
+        {
+            var text = value.GetText();
+            if (text.Length > 0 && text[0] == '\'')
+            {
+                value = text.Substring(1);
+            }
+        }
+
+        Internals.CellsCollection.ValueSlice.SetCellValue(point, value);
+    }
+
     /// <summary>
     /// Get a style that should be used for a <paramref name="value"/>,
     /// if the value is set to the <paramref name="point"/>.
