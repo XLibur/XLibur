@@ -597,7 +597,7 @@ public class XLWorksheetTests
         ws1.Cell("B3").Value = 50;
         ws1.Cell("A4").Value = "Ivan Ivanov";
         ws1.Cell("B4").Value = 40;
-        var table1 = ws1.Range("A2:B4").CreateTable("Test table 1");
+        var table1 = ws1.Range("A2:B4").CreateTable("Test_table_1");
         table1
             .SetShowAutoFilter(true)
             .SetShowTotalsRow(true)

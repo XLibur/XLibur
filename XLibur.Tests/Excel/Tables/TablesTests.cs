@@ -521,12 +521,12 @@ public class TablesTests
 
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
-        Assert.Throws<InvalidOperationException>(() => ws.Cell(1, 1).InsertTable(dt, "May2019"));
-        Assert.Throws<InvalidOperationException>(() => ws.Cell(1, 1).InsertTable(dt, "A1"));
-        Assert.Throws<InvalidOperationException>(() => ws.Cell(1, 1).InsertTable(dt, "R1C2"));
-        Assert.Throws<InvalidOperationException>(() => ws.Cell(1, 1).InsertTable(dt, "r3c2"));
-        Assert.Throws<InvalidOperationException>(() => ws.Cell(1, 1).InsertTable(dt, "R2C33333"));
-        Assert.Throws<InvalidOperationException>(() => ws.Cell(1, 1).InsertTable(dt, "RC"));
+        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "May2019"));
+        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "A1"));
+        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "R1C2"));
+        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "r3c2"));
+        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "R2C33333"));
+        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "RC"));
     }
 
     [Test]
@@ -965,7 +965,7 @@ public class TablesTests
         ws1.Cell("A2").Value = "Value 1";
         ws1.Cell("B2").Value = 123.45;
         ws1.Cell("C2").Value = new DateTime(2018, 5, 10);
-        var original = ws1.Range("A1:C2").AsTable("Detached table");
+        var original = ws1.Range("A1:C2").AsTable("Detached_table");
         var ws2 = wb.Worksheets.Add("Sheet2");
 
         var copy = original.CopyTo(ws2);
@@ -995,7 +995,7 @@ public class TablesTests
         ws1.Cell("A2").Value = "Value 1";
         ws1.Cell("B2").Value = 123.45;
         ws1.Cell("C2").Value = new DateTime(2018, 5, 10);
-        var original = ws1.Range("A1:C2").AsTable("Attached table");
+        var original = ws1.Range("A1:C2").AsTable("Attached_table");
         ws1.Tables.Add(original);
         var ws2 = wb.Worksheets.Add("Sheet2");
 
@@ -1030,7 +1030,7 @@ public class TablesTests
             ws.Cell("A2").Value = "Value 1";
             ws.Cell("B2").Value = 123.45;
             ws.Cell("C2").Value = new DateTime(2018, 5, 10);
-            var original = ws.Range("A1:C2").CreateTable("Attached table");
+            var original = ws.Range("A1:C2").CreateTable("Attached_table");
 
             Assert.AreEqual(1, ws.Tables.Count());
             Assert.IsNull((original as XLTable).RelId);
@@ -1073,7 +1073,7 @@ public class TablesTests
         ws1.Cell("A2").Value = "Value 1";
         ws1.Cell("B2").Value = 123.45;
         ws1.Cell("C2").Value = new DateTime(2018, 5, 10);
-        var original = ws1.Range("A1:C2").AsTable("Attached table");
+        var original = ws1.Range("A1:C2").AsTable("Attached_table");
         ws1.Tables.Add(original);
         var ws2 = wb.Worksheets.Add("Sheet2") as XLWorksheet;
 

@@ -195,11 +195,13 @@ internal sealed class XLTable : XLRange, IXLTable
         {
             if (field == value) return;
 
-            // Validation rules for table names
+            // Allow casing-only changes (e.g. "Table1" -> "TABLE1") without conflict check
             var oldname = field ?? string.Empty;
-            var tableNames = Worksheet.Tables.Select<XLTable, string>(t => t.Name);
-            if (!XLHelper.ValidateName("table", value, oldname, tableNames, out var message))
-                throw new ArgumentException(message, nameof(value));
+            var casingOnlyChange = !string.IsNullOrWhiteSpace(oldname) &&
+                                   string.Equals(oldname, value, StringComparison.OrdinalIgnoreCase);
+
+            if (!casingOnlyChange && !TableNameValidator.IsValidTableName(value, Worksheet, out var message))
+                throw new ArgumentException(message);
 
             field = value;
 

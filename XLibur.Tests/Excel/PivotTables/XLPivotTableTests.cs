@@ -775,7 +775,7 @@ public class XLPivotTableTests
         {
             ("Name", "Count"),
             ("Pie", 14),
-        }, "Test table");
+        }, "Test_table");
 
         // A range that matches the size of an area
         var matchingRange = ws.Range("A1:B3");
@@ -784,7 +784,7 @@ public class XLPivotTableTests
 
         var cacheSource = (XLPivotSourceReference)((XLPivotCache)tablePivot1.PivotCache).Source;
         Assert.True(cacheSource.UsesName);
-        Assert.AreEqual("Test table", cacheSource.Name);
+        Assert.AreEqual("Test_table", cacheSource.Name);
     }
 
     [Test]

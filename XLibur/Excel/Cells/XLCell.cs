@@ -427,9 +427,6 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (data == null || data.Columns.Count == 0)
             return null;
 
-        if (tableName is not null && (XLHelper.IsValidA1Address(tableName) || XLHelper.IsValidRCAddress(tableName)))
-            throw new InvalidOperationException($"Table name cannot be a valid Cell Address '{tableName}'.");
-
         if (createTable && Worksheet.Tables.Any<XLTable>(t => t.Contains(this)))
             throw new InvalidOperationException($"This cell '{Address}' is already part of a table.");
 
