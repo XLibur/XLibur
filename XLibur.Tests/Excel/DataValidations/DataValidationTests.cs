@@ -2,7 +2,10 @@ using XLibur.Excel;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Tests.Excel.DataValidations;
 
@@ -406,6 +409,50 @@ public class DataValidationTests
         dv.AddRange(range2);
 
         Assert.AreSame(range2, addedRange);
+    }
+
+    [TestCase(XLAllowedValues.List)]
+    [TestCase(XLAllowedValues.Custom)]
+    [TestCase(XLAllowedValues.AnyValue)]
+    public void DataValidation_DoesNotWriteOperatorAttribute_ForTypesWithoutOperator(XLAllowedValues allowedValues)
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet();
+            var dv = ws.Range("A1:A5").CreateDataValidation();
+            switch (allowedValues)
+            {
+                case XLAllowedValues.List:
+                    dv.List("\"Yes,No\"");
+                    break;
+                case XLAllowedValues.Custom:
+                    dv.Custom("A1>0");
+                    break;
+                case XLAllowedValues.AnyValue:
+                    // AnyValue is the default, just set input message to create a validation
+                    dv.InputMessage = "Enter any value";
+                    break;
+                case XLAllowedValues.WholeNumber:
+                case XLAllowedValues.Decimal:
+                case XLAllowedValues.Date:
+                case XLAllowedValues.Time:
+                case XLAllowedValues.TextLength:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(allowedValues), allowedValues, null);
+            }
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var doc = SpreadsheetDocument.Open(ms, false);
+        var worksheetPart = doc.WorkbookPart.WorksheetParts.First();
+        var dataValidation = worksheetPart.Worksheet
+            .Descendants<DataValidation>()
+            .First();
+
+        Assert.IsNull(dataValidation.Operator);
     }
 
     [Test]

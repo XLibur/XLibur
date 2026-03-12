@@ -110,7 +110,7 @@ internal sealed class DataValidationWriter
                     ShowDropDown = !dv.InCellDropdown,
                     ShowInputMessage = dv.ShowInputMessage,
                     ErrorStyle = dv.ErrorStyle.ToOpenXml(),
-                    Operator = dv.Operator.ToOpenXml(),
+                    Operator = HasOperator(dv.AllowedValues) ? dv.Operator.ToOpenXml() : null,
                     SequenceOfReferences = new ListValue<StringValue> { InnerText = sequence }
                 };
 
@@ -200,7 +200,7 @@ internal sealed class DataValidationWriter
                     ShowDropDown = !dv.InCellDropdown,
                     ShowInputMessage = dv.ShowInputMessage,
                     ErrorStyle = dv.ErrorStyle.ToOpenXml(),
-                    Operator = dv.Operator.ToOpenXml(),
+                    Operator = HasOperator(dv.AllowedValues) ? dv.Operator.ToOpenXml() : null,
                     ReferenceSequence = new OfficeExcel.ReferenceSequence() { Text = sequence }
                 };
                 extensionDataValidations.AppendChild(dataValidation);
@@ -209,4 +209,18 @@ internal sealed class DataValidationWriter
             extensionDataValidations.Count = (uint)dataValidationsExtension.Count;
         }
     }
+
+    /// <summary>
+    /// Only validation types that compare values use the operator attribute.
+    /// List, Custom, and AnyValue do not.
+    /// </summary>
+    private static bool HasOperator(XLAllowedValues allowedValues) => allowedValues switch
+    {
+        XLAllowedValues.WholeNumber or
+        XLAllowedValues.Decimal or
+        XLAllowedValues.Date or
+        XLAllowedValues.Time or
+        XLAllowedValues.TextLength => true,
+        _ => false,
+    };
 }
