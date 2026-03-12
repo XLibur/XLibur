@@ -437,6 +437,32 @@ public class PictureTests
         Assert.AreEqual(XLPictureFormat.Emf, img2.Format);
     }
 
+    [TestCase(@"Picture:With:Colons")]
+    [TestCase(@"Picture/With/Slashes")]
+    [TestCase(@"Picture\With\Backslashes")]
+    [TestCase(@"Picture?With?Questions")]
+    [TestCase(@"Picture*With*Stars")]
+    [TestCase(@"Picture[With]Brackets")]
+    public void Picture_name_can_contain_special_characters(string name)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png");
+        var pic = ws.AddPicture(stream, XLPictureFormat.Png, "temp");
+        pic.Name = name;
+
+        Assert.AreEqual(name, pic.Name);
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+
+        ms.Seek(0, SeekOrigin.Begin);
+        using var wb2 = new XLWorkbook(ms);
+        var ws2 = wb2.Worksheet("Sheet1");
+        Assert.AreEqual(name, ws2.Pictures.First().Name);
+    }
+
     [Test]
     public void KeepOriginalDrawingShapesZOrder()
     {

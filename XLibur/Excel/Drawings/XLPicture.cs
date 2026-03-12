@@ -11,7 +11,6 @@ namespace XLibur.Excel.Drawings;
 [DebuggerDisplay("{Name}")]
 internal sealed class XLPicture : IXLPicture
 {
-    private const string InvalidNameChars = @":\/?*[]";
     private int _height;
     private int _id;
     private string _name = string.Empty;
@@ -324,13 +323,6 @@ internal sealed class XLPicture : IXLPicture
     {
         if (string.IsNullOrWhiteSpace(value))
             throw new ArgumentException("Picture names cannot be empty");
-
-        if (value.IndexOfAny(InvalidNameChars.ToCharArray()) != -1)
-            throw new ArgumentException(
-                $"Picture names cannot contain any of the following characters: {InvalidNameChars}");
-
-        if (value.Length > 31)
-            throw new ArgumentException("Picture names cannot be more than 31 characters");
 
         _name = value;
     }
