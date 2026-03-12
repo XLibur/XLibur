@@ -58,12 +58,16 @@ internal sealed class SheetDataWriter
 
         xml.WriteStartElement("sheetData", Main2006SsNs);
 
-        var tableTotalCells = new HashSet<IXLAddress>(
-            xlWorksheet.Tables
-                .Where<XLTable>(table => table.ShowTotalsRow)
-                .SelectMany(table =>
-                    table.TotalsRow()!.CellsUsed())
-                .Select(cell => cell.Address));
+        HashSet<XLSheetPoint>? tableTotalCells = null;
+        if (xlWorksheet.Tables.Count > 0)
+        {
+            tableTotalCells = new HashSet<XLSheetPoint>(
+                xlWorksheet.Tables
+                    .Where<XLTable>(table => table.ShowTotalsRow)
+                    .SelectMany(table =>
+                        table.TotalsRow()!.CellsUsed())
+                    .Select(cell => ((XLCell)cell).SheetPoint));
+        }
 
         // A rather complicated state machine, so rows and cells can be written in a single loop
         var openedRowNumber = 0;
@@ -82,6 +86,8 @@ internal sealed class SheetDataWriter
 
         var rowPropIndex = 0;
         uint rowStyleId = 0;
+        XLStyleValue? lastCachedStyle = null;
+        uint lastCachedStyleId = 0;
         foreach (var xlCell in xlWorksheet.Internals.CellsCollection.GetCells())
         {
             var currentRowNumber = xlCell.SheetPoint.Row;
@@ -141,7 +147,17 @@ internal sealed class SheetDataWriter
                 openedRowNumber = currentRowNumber;
             }
 
-            WriteCell(xml, xlCell, cellRef, context, options, tableTotalCells, rowStyleId);
+            var cellStyleValue = xlCell.StyleValue;
+            uint cellStyleId;
+            if (ReferenceEquals(cellStyleValue, lastCachedStyle))
+                cellStyleId = lastCachedStyleId;
+            else
+            {
+                lastCachedStyle = cellStyleValue;
+                lastCachedStyleId = cellStyleId = context.SharedStyles[cellStyleValue].StyleId;
+            }
+
+            WriteCell(xml, xlCell, cellRef, context, options, tableTotalCells, rowStyleId, cellStyleId);
         }
 
         if (isRowOpened)
@@ -267,9 +283,8 @@ internal sealed class SheetDataWriter
         }
 
         static void WriteCell(XmlWriter xml, XLCell xlCell, char[] cellRef, SaveContext context, SaveOptions options,
-            HashSet<IXLAddress> tableTotalCells, uint rowStyleId)
+            HashSet<XLSheetPoint>? tableTotalCells, uint rowStyleId, uint styleId)
         {
-            var styleId = context.SharedStyles[xlCell.StyleValue].StyleId;
 
             Span<char> cellRefSpan = cellRef;
             var cellRefLen = xlCell.SheetPoint.Format(cellRefSpan);
@@ -355,11 +370,11 @@ internal sealed class SheetDataWriter
 
                 xml.WriteEndElement(); // cell
             }
-            else if (tableTotalCells.Contains(xlCell.Address))
+            else if (tableTotalCells is not null && tableTotalCells.Contains(xlCell.SheetPoint))
             {
                 var table = xlCell.Worksheet.Tables.First<XLTable>(t => t.AsRange().Contains(xlCell));
                 var field =
-                    (XLTableField)table.Fields.First(f => f.Column.ColumnNumber() == xlCell.Address.ColumnNumber);
+                    (XLTableField)table.Fields.First(f => f.Column.ColumnNumber() == xlCell.SheetPoint.Column);
 
                 // If this is a cell in the total row that contains a label (xor with function), write label
                 // Only label can be written. Total functions are basically formulas that use structured

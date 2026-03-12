@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Xml;
 using XLibur.Excel;
 using XLibur.Excel.IO;
@@ -7,6 +8,9 @@ namespace XLibur.Extensions;
 
 internal static class XmlWriterExtensions
 {
+    [ThreadStatic]
+    private static char[]? t_numberBuffer;
+
     public static void WriteAttribute(this XmlWriter w, string attrName, string value)
     {
         w.WriteStartAttribute(attrName);
@@ -103,8 +107,9 @@ internal static class XmlWriterExtensions
 
     public static void WriteNumberValue(this XmlWriter w, double value)
     {
-        // G17 will survive roundtrip to file and back
-        w.WriteValue(value.ToInvariantString());
+        var buffer = t_numberBuffer ??= new char[32];
+        value.TryFormat(buffer, out var charsWritten, "G15", CultureInfo.InvariantCulture);
+        w.WriteRaw(buffer, 0, charsWritten);
     }
 
     public static void WritePreserveSpaceAttr(this XmlWriter w)

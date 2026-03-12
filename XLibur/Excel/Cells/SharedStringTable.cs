@@ -32,6 +32,16 @@ internal sealed class SharedStringTable
     internal int Count => _table.Count - _freeIds.Count;
 
     /// <summary>
+    /// Pre-size internal data structures to avoid repeated resizing during bulk inserts.
+    /// </summary>
+    /// <param name="capacity">Expected number of unique strings.</param>
+    internal void EnsureCapacity(int capacity)
+    {
+        _table.EnsureCapacity(capacity);
+        _reverseDict.EnsureCapacity(capacity);
+    }
+
+    /// <summary>
     /// Get a string for specified id. Doesn't matter if it is a plain text or a rich text. In both cases, return text.
     /// </summary>
     internal string this[int id]
