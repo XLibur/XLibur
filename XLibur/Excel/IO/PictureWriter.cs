@@ -26,6 +26,10 @@ internal sealed class PictureWriter
             var xlPictures = (Drawings.XLPictures)xlWorksheet.Pictures;
             foreach (var removedPicture in xlPictures.Deleted)
             {
+                var anchor = XLWorkbook.GetAnchorFromImageId(worksheetPart.DrawingsPart, removedPicture);
+                if (anchor is not null)
+                    worksheetPart.DrawingsPart.WorksheetDrawing!.RemoveChild(anchor);
+
                 worksheetPart.DrawingsPart.DeletePart(removedPicture);
             }
 
