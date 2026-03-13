@@ -1,19 +1,12 @@
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace XLibur.Excel;
+namespace XLibur.Extensions;
 
 internal static class EnumerableExtensions
 {
-    public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
-    {
-        foreach (var item in source)
-            action(item);
-    }
-
     public static Type? GetItemType(this IEnumerable source)
     {
         return GetGenericArgument(source.GetType());
@@ -30,11 +23,6 @@ internal static class EnumerableExtensions
 
     extension<T>(IEnumerable<T> source)
     {
-        public HashSet<T> ToHashSet()
-        {
-            return [.. source];
-        }
-
         /// <summary>
         /// Skip the last element of a sequence.
         /// </summary>
@@ -65,6 +53,12 @@ internal static class EnumerableExtensions
             where TItem : struct
         {
             return source.Select(property).Where(x => x.HasValue).Select(x => x!.Value);
+        }
+
+        public void ForEach(Action<T> action)
+        {
+            foreach (var item in source)
+                action(item);
         }
     }
 }

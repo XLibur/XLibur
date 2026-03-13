@@ -1,4 +1,6 @@
-﻿namespace XLibur.Excel;
+﻿using System.Linq;
+
+namespace XLibur.Excel;
 
 internal sealed class XLPivotTableAxisFieldStyleFormats : IXLPivotFieldStyleFormats
 {
