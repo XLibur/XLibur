@@ -142,6 +142,66 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     }
 
     /// <summary>
+    /// Try to evaluate a single cell's formula directly, without building the full
+    /// dependency tree and calculation chain. If the formula references dirty
+    /// precedent cells (throws <see cref="GettingDataException"/>), falls back
+    /// to full workbook recalculation which handles dependency ordering.
+    /// </summary>
+    /// <returns><c>true</c> if single-cell eval succeeded, <c>false</c> if full recalculate was used.</returns>
+    internal bool TryEvaluateSingleCell(XLCellFormula formula, XLSheetPoint point, XLWorksheet sheet)
+    {
+        // DataTable formulas need the full chain for correct evaluation.
+        if (formula.Type == FormulaType.DataTable)
+        {
+            Recalculate(sheet.Workbook, null);
+            return false;
+        }
+
+        try
+        {
+            var valueSlice = sheet.Internals.CellsCollection.ValueSlice;
+            if (formula.Type == FormulaType.Normal)
+            {
+                var result = EvaluateFormula(
+                    formula.A1,
+                    sheet.Workbook,
+                    sheet,
+                    new XLAddress(sheet, point.Row, point.Column, true, true));
+                valueSlice.SetCellValue(point, result.ToCellValue());
+            }
+            else if (formula.Type == FormulaType.Array)
+            {
+                var range = formula.Range;
+                var leftTopCorner = range.FirstPoint;
+                var masterCell = sheet.Cell(leftTopCorner.Row, leftTopCorner.Column);
+                var array = EvaluateArrayFormula(formula.A1, masterCell, recalculateSheetId: null);
+                var result = array.Broadcast(range.Height, range.Width);
+
+                for (var rowIdx = 0; rowIdx < result.Height; ++rowIdx)
+                {
+                    for (var colIdx = 0; colIdx < result.Width; ++colIdx)
+                    {
+                        var cellValue = result[rowIdx, colIdx];
+                        var row = range.FirstPoint.Row + rowIdx;
+                        var column = range.FirstPoint.Column + colIdx;
+                        valueSlice.SetCellValue(new XLSheetPoint(row, column), cellValue.ToCellValue());
+                    }
+                }
+            }
+
+            formula.IsDirty = false;
+            return true;
+        }
+        catch (GettingDataException)
+        {
+            // Formula depends on a dirty precedent cell — need the full
+            // dependency-ordered recalculation to resolve it.
+            Recalculate(sheet.Workbook, null);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Recalculate a workbook or a sheet.
     /// </summary>
     internal void Recalculate(XLWorkbook wb, uint? recalculateSheetId)

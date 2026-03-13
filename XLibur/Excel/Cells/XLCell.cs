@@ -349,9 +349,11 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             return;
         }
 
-        // TODO: Only one cell, somehow
         var wb = Worksheet.Workbook;
-        wb.CalcEngine.Recalculate(wb, null);
+        if (force || !wb.CalcEngine.TryEvaluateSingleCell(Formula, SheetPoint, Worksheet))
+        {
+            wb.CalcEngine.Recalculate(wb, null);
+        }
     }
 
     /// <summary>
