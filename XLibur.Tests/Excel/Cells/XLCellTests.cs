@@ -605,6 +605,21 @@ public class XLCellTests
     }
 
     [Test]
+    public void Load_InlineString_entities_decoded_text_is_at_limit()
+    {
+        // Inline string XML contains &#xA; entities making raw XML > 32767 chars,
+        // but decoded text is exactly 32767 characters. Should load without error.
+        // FixNewLines() on Windows converts \n to \r\n, making .Length larger,
+        // but the Excel-visible length (not counting \r) must be 32767.
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\InlineStringEntitiesAtLimit.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+        var text = ws.Cell(1, 1).Value.GetText();
+        var excelLength = text.Length - text.AsSpan().Count('\r');
+        Assert.That(excelLength, Is.EqualTo(32767));
+    }
+
+    [Test]
     public void SetCellValueWipesFormulas()
     {
         using var wb = new XLWorkbook();

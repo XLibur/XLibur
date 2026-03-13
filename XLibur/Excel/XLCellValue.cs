@@ -47,7 +47,11 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
         if (text is null)
             throw new ArgumentNullException(nameof(text));
 
-        if (text.Length > 32767)
+        // Excel counts each line break as one character regardless of platform
+        // representation. On Windows, FixNewLines() converts \n to \r\n during
+        // loading, but the extra \r should not count toward the 32767 limit.
+        var excelLength = text.Length - text.AsSpan().Count('\r');
+        if (excelLength > 32767)
             throw new ArgumentOutOfRangeException(nameof(text), "Cells can hold a maximum of 32,767 characters.");
 
         Type = XLDataType.Text;
