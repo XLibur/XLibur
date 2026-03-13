@@ -1,7 +1,9 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
+using XLibur.Excel.IO;
 using NUnit.Framework;
 
 namespace XLibur.Tests.Excel.RichText;
@@ -824,6 +826,27 @@ public class XLRichStringTests
             Assert.AreEqual(textWithSpaces, richText.First().Text);
             Assert.AreEqual(phoneticsWithSpace, richText.Phonetics.First().Text);
         }
+    }
+
+    [Test]
+    public void Empty_phonetic_run_in_shared_string_is_skipped()
+    {
+        // Some versions of Excel produce <rPh sb="0" eb="0"><t/></rPh> elements
+        // in sharedStrings.xml for Japanese text. These have empty text and equal
+        // start/end indices, which should be silently skipped rather than throwing.
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var xlCell = (XLCell)ws.Cell(1, 1);
+
+        var sharedString = new SharedStringItem(
+            new Run(new Text("日本語テスト")),
+            new PhoneticRun(new Text()) { BaseTextStartIndex = 0, EndingBaseIndex = 0 },
+            new PhoneticProperties { FontId = 0 });
+
+        WorksheetSheetDataReader.SetCellText(xlCell, sharedString);
+
+        Assert.AreEqual("日本語テスト", xlCell.GetRichText().Text);
+        Assert.AreEqual(0, xlCell.GetRichText().Phonetics.Count);
     }
 
     [Test]

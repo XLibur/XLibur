@@ -447,8 +447,16 @@ internal static class WorksheetSheetDataReader
         var phoneticRuns = element.Elements<PhoneticRun>();
         foreach (var pr in phoneticRuns)
         {
-            xlCell.GetRichText().Phonetics.Add(pr.Text!.InnerText.FixNewLines(), (int)pr.BaseTextStartIndex!.Value,
-                (int)pr.EndingBaseIndex!.Value);
+            var phoneticText = pr.Text!.InnerText.FixNewLines();
+            var sb = (int)pr.BaseTextStartIndex!.Value;
+            var eb = (int)pr.EndingBaseIndex!.Value;
+
+            // Skip invalid phonetic runs (e.g. empty text or sb >= eb) that
+            // some versions of Excel produce for Japanese text.
+            if (phoneticText.Length == 0 || sb >= eb)
+                continue;
+
+            xlCell.GetRichText().Phonetics.Add(phoneticText, sb, eb);
         }
     }
 
