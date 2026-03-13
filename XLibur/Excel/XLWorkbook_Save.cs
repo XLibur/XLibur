@@ -185,16 +185,22 @@ public partial class XLWorkbook
             .Select(c => c!)
             .Distinct()
             .ToList();
+        // Collect relationship IDs before deleting parts, because GetIdOfPart
+        // throws after the part has been removed.
+        var pivotCacheRelIds = workbookPart.Workbook is { PivotCaches: not null }
+            ? pivotCacheDefinitionsToRemove.Select(workbookPart.GetIdOfPart).ToHashSet()
+            : null;
+
         pivotCacheDefinitionsToRemove.ForEach(c => workbookPart.DeletePart(c));
 
-        if (workbookPart.Workbook is { PivotCaches: not null })
+        if (pivotCacheRelIds is not null)
         {
-            var idList = pivotCacheDefinitionsToRemove.Select(workbookPart.GetIdOfPart).ToList();
-            var pivotCachesToRemove = workbookPart.Workbook.PivotCaches
+            var idList = pivotCacheRelIds;
+            var pivotCachesToRemove = workbookPart.Workbook!.PivotCaches!
                 .Where(pc => ((PivotCache)pc).Id?.Value is { } idVal && idList.Contains(idVal))
                 .Distinct()
                 .ToList();
-            pivotCachesToRemove.ForEach(c => workbookPart.Workbook.PivotCaches.RemoveChild(c));
+            pivotCachesToRemove.ForEach(c => workbookPart.Workbook.PivotCaches!.RemoveChild(c));
         }
 
         worksheets.Deleted.ToList().ForEach(ws => DeleteSheetAndDependencies(workbookPart, ws));
@@ -230,7 +236,8 @@ public partial class XLWorkbook
 
         foreach (var relId in cacheRelIds)
         {
-            if (workbookPart.GetPartById(relId) is PivotTableCacheDefinitionPart pivotTableCacheDefinitionPart)
+            // The part might have been removed when a worksheet with pivot tables was deleted.
+            if (workbookPart.TryGetPartById(relId, out var part) && part is PivotTableCacheDefinitionPart pivotTableCacheDefinitionPart)
                 pivotTableCacheDefinitionPart.PivotCacheDefinition!.CacheFields!.RemoveAllChildren();
         }
 

@@ -1226,4 +1226,18 @@ public class XLPivotTableTests
         row.Append(new Cell { CellReference = $"C{rowIndex}", DataType = CellValues.Number, CellValue = new CellValue(val2) });
         return row;
     }
+
+    [Test]
+    public void Deleting_sheet_with_pivot_table_does_not_throw_on_save()
+    {
+        // https://github.com/ClosedXML/ClosedXML/issues/2737
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\LoadPivotTables.xlsx"));
+        using var wb = new XLWorkbook(stream);
+
+        // The file has a sheet "PivotTable1" that contains a pivot table
+        wb.Worksheet("PivotTable1").Delete();
+
+        using var ms = new MemoryStream();
+        Assert.DoesNotThrow(() => wb.SaveAs(ms));
+    }
 }
