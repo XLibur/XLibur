@@ -140,4 +140,40 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
         Center.Clear(occurrence);
         return this;
     }
+
+    /// <summary>
+    /// Returns true if any left/center/right item has images for any occurrence.
+    /// </summary>
+    internal bool HasImages =>
+        ((XLHFItem)Left).HasImages ||
+        ((XLHFItem)Center).HasImages ||
+        ((XLHFItem)Right).HasImages;
+
+    /// <summary>
+    /// Collects all images across all occurrences, keyed by their VML position code
+    /// (e.g. "LH", "CH", "RH" for header or "LF", "CF", "RF" for footer).
+    /// </summary>
+    /// <param name="suffix">"H" for header, "F" for footer.</param>
+    internal List<XLHFImage> CollectImages(string suffix)
+    {
+        var result = new List<XLHFImage>();
+        var items = new[] { ('L', (XLHFItem)Left), ('C', (XLHFItem)Center), ('R', (XLHFItem)Right) };
+        var occurrences = new[] { XLHFOccurrence.OddPages, XLHFOccurrence.EvenPages, XLHFOccurrence.FirstPage };
+
+        foreach (var (posChar, item) in items)
+        {
+            foreach (var occ in occurrences)
+            {
+                var image = item.GetImage(occ);
+                if (image != null)
+                {
+                    image.PositionCode = $"{posChar}{suffix}";
+                    if (!result.Contains(image))
+                        result.Add(image);
+                }
+            }
+        }
+
+        return result;
+    }
 }

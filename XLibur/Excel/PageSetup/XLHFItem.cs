@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using XLibur.Excel.RichText;
@@ -19,6 +19,12 @@ internal sealed class XLHFItem : IXLHFItem
         defaultHFItem.texts.ForEach(kp => texts.Add(kp.Key, kp.Value));
     }
     private readonly Dictionary<XLHFOccurrence, List<XLHFText>> texts = new Dictionary<XLHFOccurrence, List<XLHFText>>();
+
+    /// <summary>
+    /// Images keyed by occurrence. Each occurrence has at most one image per HFItem (left/center/right).
+    /// </summary>
+    private readonly Dictionary<XLHFOccurrence, XLHFImage> _images = new();
+
     public string GetText(XLHFOccurrence occurrence)
     {
         var sb = new StringBuilder();
@@ -66,8 +72,41 @@ internal sealed class XLHFItem : IXLHFItem
 
     public IXLRichString AddImage(string imagePath, XLHFOccurrence occurrence = XLHFOccurrence.AllPages)
     {
-        throw new NotImplementedException();
+        var image = XLHFImage.FromFile(imagePath, (XLWorkbook)HeaderFooter.Worksheet.Workbook);
+
+        if (occurrence == XLHFOccurrence.AllPages)
+        {
+            AddImageToOccurrence(image, XLHFOccurrence.EvenPages);
+            AddImageToOccurrence(image, XLHFOccurrence.FirstPage);
+            AddImageToOccurrence(image, XLHFOccurrence.OddPages);
+        }
+        else
+        {
+            AddImageToOccurrence(image, occurrence);
+        }
+
+        // Insert the &G marker into the text stream at the current position
+        return AddText("&G", occurrence);
     }
+
+    private void AddImageToOccurrence(XLHFImage image, XLHFOccurrence occurrence)
+    {
+        _images[occurrence] = image;
+        HeaderFooter.Changed = true;
+    }
+
+    /// <summary>
+    /// Gets the image for a specific occurrence, or null if none.
+    /// </summary>
+    internal XLHFImage? GetImage(XLHFOccurrence occurrence)
+    {
+        return _images.TryGetValue(occurrence, out var image) ? image : null;
+    }
+
+    /// <summary>
+    /// Returns true if any occurrence has an image.
+    /// </summary>
+    internal bool HasImages => _images.Count > 0;
 
     private void AddTextToOccurrence(XLHFText hfText, XLHFOccurrence occurrence)
     {
@@ -113,5 +152,6 @@ internal sealed class XLHFItem : IXLHFItem
     private void ClearOccurrence(XLHFOccurrence occurrence)
     {
         texts.Remove(occurrence);
+        _images.Remove(occurrence);
     }
 }

@@ -155,6 +155,7 @@ internal sealed class WorksheetPartWriter
 
         PictureWriter.WriteDrawings(worksheet, cm, xlWorksheet, worksheetPart, context);
         PictureWriter.WriteLegacyDrawing(worksheet, cm, xlWorksheet);
+        HeaderFooterImageWriter.WriteHeaderFooterImages(worksheet, cm, xlWorksheet, worksheetPart, context);
 
         return worksheet;
     }
