@@ -7,6 +7,27 @@ namespace XLibur.Tests.Excel.PivotTables;
 public class XLPivotTableFiltersTests
 {
     [Test]
+    [Description("https://github.com/ClosedXML/ClosedXML/issues/2486")]
+    public void AddSelectedValue_allows_value_not_present_in_data()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var data = ws.Cell("A1").InsertData(new object[]
+        {
+            ("Col1", "Col2"),
+            ("A", false),
+            ("B", false),
+        });
+
+        var pt = ws.PivotTables.Add("pt", ws.Cell("E1"), data);
+        pt.RowLabels.Add("Col1");
+        var filter = pt.ReportFilters.Add("Col2");
+
+        // true is not among the data values, but should still be allowed as a filter selection
+        Assert.DoesNotThrow(() => filter.AddSelectedValue(true));
+    }
+
+    [Test]
     public void Adding_and_removing_filters_shifts_pivot_table_area()
     {
         using var wb = new XLWorkbook();
