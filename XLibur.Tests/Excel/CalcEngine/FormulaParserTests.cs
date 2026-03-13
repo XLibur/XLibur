@@ -484,6 +484,16 @@ public class FormulaParserTests
         AssertCanParseButNotEvaluate(formula, "References from other files are not yet implemented.");
     }
 
+    [TestCase("='[asdf.xlsx]Sec'!A1")]
+    [TestCase("='[workbook.xlsx]Sheet1'!A1")]
+    public void External_workbook_reference_with_filename_does_not_throw(string formula)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").SetFormulaA1(formula);
+        Assert.AreEqual(formula.TrimStart('='), ws.Cell("A1").FormulaA1);
+    }
+
     #endregion
 
     private static void AssertCanParseButNotEvaluate(string formula, string notSupportedMessage)

@@ -33,7 +33,17 @@ internal static class FormulaTransformation
         if (!MightContainFutureFunction(formula.AsSpan()))
             return formula;
 
-        return SafeModifyA1(formula, sheetName, origin.Row, origin.Column, RemapFutureFunctions);
+        try
+        {
+            return SafeModifyA1(formula, sheetName, origin.Row, origin.Column, RemapFutureFunctions);
+        }
+        catch (Exception)
+        {
+            // Parser doesn't support all formula constructs (e.g. external workbook
+            // references like '[file.xlsx]Sheet'!A1). If parsing fails, the formula
+            // can't contain a future function that needs remapping, so return as-is.
+            return formula;
+        }
     }
 
     /// <summary>
