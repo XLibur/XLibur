@@ -23,6 +23,12 @@ internal sealed class XLPivotCache : IXLPivotCache
     /// </summary>
     private readonly Dictionary<int, string> _calculatedFieldFormulas = new();
 
+    /// <summary>
+    /// Indexes of fields that are not database fields (i.e., don't have records in the
+    /// cache records part). This includes both calculated fields and grouping fields.
+    /// </summary>
+    private readonly HashSet<int> _nonDatabaseFieldIndexes = new();
+
     internal XLPivotCache(IXLPivotSource source, XLWorkbook workbook)
     {
         _workbook = workbook;
@@ -152,7 +158,7 @@ internal sealed class XLPivotCache : IXLPivotCache
     {
         foreach (var fieldValues in _values)
         {
-            if (!IsCalculatedField(_values.IndexOf(fieldValues)))
+            if (!IsNonDatabaseField(_values.IndexOf(fieldValues)))
                 fieldValues.AllocateCapacity(recordCount);
         }
     }
@@ -164,6 +170,17 @@ internal sealed class XLPivotCache : IXLPivotCache
     internal void SetCalculatedField(int fieldIndex, string formula)
     {
         _calculatedFieldFormulas[fieldIndex] = formula;
+        _nonDatabaseFieldIndexes.Add(fieldIndex);
+    }
+
+    /// <summary>
+    /// Mark a field as a non-database field (e.g. a grouping field created by Excel
+    /// when grouping dates/numbers). Such fields have <c>databaseField="0"</c> in the
+    /// cache definition but no formula.
+    /// </summary>
+    internal void SetNonDatabaseField(int fieldIndex)
+    {
+        _nonDatabaseFieldIndexes.Add(fieldIndex);
     }
 
     /// <summary>
@@ -175,6 +192,15 @@ internal sealed class XLPivotCache : IXLPivotCache
     }
 
     /// <summary>
+    /// Is the field at the given index a non-database field (calculated or grouping)?
+    /// Non-database fields don't have records in the cache records part.
+    /// </summary>
+    internal bool IsNonDatabaseField(int fieldIndex)
+    {
+        return _nonDatabaseFieldIndexes.Contains(fieldIndex);
+    }
+
+    /// <summary>
     /// Get the formula for a calculated field. Returns null if the field is not calculated.
     /// </summary>
     internal string? GetCalculatedFieldFormula(int fieldIndex)
@@ -183,10 +209,10 @@ internal sealed class XLPivotCache : IXLPivotCache
     }
 
     /// <summary>
-    /// Number of database (non-calculated) fields in the cache.
+    /// Number of database fields in the cache (excludes calculated and grouping fields).
     /// This is the number of fields that have records.
     /// </summary>
-    internal int DatabaseFieldCount => _fieldNames.Count - _calculatedFieldFormulas.Count;
+    internal int DatabaseFieldCount => _fieldNames.Count - _nonDatabaseFieldIndexes.Count;
 
     private string AdjustedFieldName(string header)
     {

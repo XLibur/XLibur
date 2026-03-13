@@ -233,12 +233,19 @@ internal sealed class PivotTableCacheDefinitionPartReader
             var fieldValues = new XLPivotCacheValues(fieldSharedItems, fieldStats);
             pivotCache.AddCachedField(fieldName, fieldValues);
 
+            var fieldIndex = pivotCache.FieldCount - 1;
+
             // A calculated field has a formula and DatabaseField=false. It doesn't have
             // records in the cache records part — its values are computed by Excel.
             if (cacheField.Formula?.Value is { } formula)
             {
-                var fieldIndex = pivotCache.FieldCount - 1;
                 pivotCache.SetCalculatedField(fieldIndex, formula);
+            }
+            else if (cacheField.DatabaseField?.Value == false)
+            {
+                // A grouping field (e.g. months grouped from a date field) has
+                // DatabaseField=false but no formula. It also has no records.
+                pivotCache.SetNonDatabaseField(fieldIndex);
             }
         }
     }
@@ -347,7 +354,7 @@ internal sealed class PivotTableCacheDefinitionPartReader
             : 0;
         pivotCache.AllocateRecordCapacity(recordCount);
 
-        // Calculated fields don't have records — only database fields do.
+        // Non-database fields (calculated and grouping) don't have records — only database fields do.
         var databaseFieldCount = pivotCache.DatabaseFieldCount;
         foreach (var record in recordsPart.Elements<PivotCacheRecord>())
         {
@@ -355,11 +362,11 @@ internal sealed class PivotTableCacheDefinitionPartReader
             if (recordColumns != databaseFieldCount)
                 throw PartStructureException.IncorrectElementsCount();
 
-            // Map record column index to field index, skipping calculated fields.
+            // Map record column index to field index, skipping non-database fields.
             var recordColIdx = 0;
             for (var fieldIdx = 0; fieldIdx < pivotCache.FieldCount; ++fieldIdx)
             {
-                if (pivotCache.IsCalculatedField(fieldIdx))
+                if (pivotCache.IsNonDatabaseField(fieldIdx))
                     continue;
 
                 var fieldValues = pivotCache.GetFieldValues(fieldIdx);

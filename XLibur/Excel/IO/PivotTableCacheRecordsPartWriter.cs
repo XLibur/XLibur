@@ -35,8 +35,8 @@ internal sealed class PivotTableCacheRecordsPartWriter
             xml.WriteStartElement("r");
             for (var fieldIdx = 0; fieldIdx < fieldCount; ++fieldIdx)
             {
-                // Calculated fields don't have records — their values are computed by Excel.
-                if (pivotCache.IsCalculatedField(fieldIdx))
+                // Non-database fields (calculated and grouping) don't have records.
+                if (pivotCache.IsNonDatabaseField(fieldIdx))
                     continue;
                 var fieldValues = pivotCache.GetFieldValues(fieldIdx);
                 var value = fieldValues.GetValue(recordIdx);
