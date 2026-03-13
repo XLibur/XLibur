@@ -475,13 +475,14 @@ public class FormulaParserTests
     [TestCase("=Jan:Dec!A1")]
     public void Prefix_can_be_sheets_for_3d_reference(string formula)
     {
-        AssertCanParseButNotEvaluate(formula, "3D references are not yet implemented.");
+        AssertCanParseAndEvaluateToRefError(formula);
     }
 
     [TestCase("=[1]Sheet4!A1")]
+    [TestCase("=INDEX([1]Data!$A$2:$N$1494,MIN(IF([1]Data!$A$2:$N$1494=A2,ROW([1]Data!$A$2:$N$1494)-ROW([1]Data!$A$2)+1)),MATCH(A2,INDEX([1]Data!$A$2:$N$1494,MIN(IF([1]Data!$A$2:$N$1494=A2,ROW([1]Data!$A$2:$N$1494)-ROW([1]Data!$A$2)+1)),0),0)+2)")]
     public void Prefix_can_be_file_and_sheet_token(string formula)
     {
-        AssertCanParseButNotEvaluate(formula, "References from other files are not yet implemented.");
+        AssertCanParseAndEvaluateToRefError(formula);
     }
 
     [TestCase("='[asdf.xlsx]Sec'!A1")]
@@ -503,5 +504,14 @@ public class FormulaParserTests
         var calcEngine = new XLCalcEngine(CultureInfo.InvariantCulture);
         _ = calcEngine.Parse(formula);
         Assert.Throws(Is.TypeOf<NotImplementedException>().With.Message.EqualTo(notSupportedMessage), () => ws.Evaluate(formula, "A1"));
+    }
+
+    private static void AssertCanParseAndEvaluateToRefError(string formula)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var calcEngine = new XLCalcEngine(CultureInfo.InvariantCulture);
+        _ = calcEngine.Parse(formula);
+        Assert.AreEqual(XLError.CellReference, ws.Evaluate(formula, "A1"));
     }
 }

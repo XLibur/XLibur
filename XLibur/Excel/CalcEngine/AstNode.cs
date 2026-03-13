@@ -240,10 +240,10 @@ internal sealed class PrefixNode : AstNode
     internal OneOf<IXLWorksheet, XLError> GetWorksheet(XLWorkbook wb)
     {
         if (File is not null)
-            throw new NotImplementedException("References from other files are not yet implemented.");
+            return XLError.CellReference;
 
         if (FirstSheet is not null || LastSheet is not null)
-            throw new NotImplementedException("3D references are not yet implemented.");
+            return XLError.CellReference;
 
         if (!wb.TryGetWorksheet(Sheet!, out XLWorksheet? worksheet))
             return XLError.CellReference;
