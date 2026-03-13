@@ -231,6 +231,14 @@ internal sealed class PivotTableCacheDefinitionPartReader
 
             var fieldValues = new XLPivotCacheValues(fieldSharedItems, fieldStats);
             pivotCache.AddCachedField(fieldName, fieldValues);
+
+            // A calculated field has a formula and DatabaseField=false. It doesn't have
+            // records in the cache records part — its values are computed by Excel.
+            if (cacheField.Formula?.Value is { } formula)
+            {
+                var fieldIndex = pivotCache.FieldCount - 1;
+                pivotCache.SetCalculatedField(fieldIndex, formula);
+            }
         }
     }
 
@@ -338,17 +346,24 @@ internal sealed class PivotTableCacheDefinitionPartReader
             : 0;
         pivotCache.AllocateRecordCapacity(recordCount);
 
-        var fieldsCount = pivotCache.FieldCount;
+        // Calculated fields don't have records — only database fields do.
+        var databaseFieldCount = pivotCache.DatabaseFieldCount;
         foreach (var record in recordsPart.Elements<PivotCacheRecord>())
         {
             var recordColumns = record.ChildElements.Count;
-            if (recordColumns != fieldsCount)
+            if (recordColumns != databaseFieldCount)
                 throw PartStructureException.IncorrectElementsCount();
 
-            for (var fieldIdx = 0; fieldIdx < fieldsCount; ++fieldIdx)
+            // Map record column index to field index, skipping calculated fields.
+            var recordColIdx = 0;
+            for (var fieldIdx = 0; fieldIdx < pivotCache.FieldCount; ++fieldIdx)
             {
+                if (pivotCache.IsCalculatedField(fieldIdx))
+                    continue;
+
                 var fieldValues = pivotCache.GetFieldValues(fieldIdx);
-                var recordItem = record.ElementAt(fieldIdx);
+                var recordItem = record.ElementAt(recordColIdx);
+                recordColIdx++;
 
                 // Don't add values to the shared items of a cache when record value is added, because we want 1:1
                 // read/write. Read them from definition. Whatever is in shared items now should be written out,

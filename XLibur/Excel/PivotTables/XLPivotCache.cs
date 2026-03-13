@@ -17,6 +17,12 @@ internal sealed class XLPivotCache : IXLPivotCache
     /// </summary>
     private readonly List<XLPivotCacheValues> _values = new();
 
+    /// <summary>
+    /// Formulas for calculated fields, keyed by field index. A calculated field
+    /// has <c>DatabaseField=false</c> and a <c>Formula</c> attribute in the cache definition.
+    /// </summary>
+    private readonly Dictionary<int, string> _calculatedFieldFormulas = new();
+
     internal XLPivotCache(IXLPivotSource source, XLWorkbook workbook)
     {
         _workbook = workbook;
@@ -146,9 +152,41 @@ internal sealed class XLPivotCache : IXLPivotCache
     {
         foreach (var fieldValues in _values)
         {
-            fieldValues.AllocateCapacity(recordCount);
+            if (!IsCalculatedField(_values.IndexOf(fieldValues)))
+                fieldValues.AllocateCapacity(recordCount);
         }
     }
+
+    /// <summary>
+    /// Mark a field as a calculated field with the given formula.
+    /// Calculated fields have <c>DatabaseField=false</c> and don't have record values.
+    /// </summary>
+    internal void SetCalculatedField(int fieldIndex, string formula)
+    {
+        _calculatedFieldFormulas[fieldIndex] = formula;
+    }
+
+    /// <summary>
+    /// Is the field at the given index a calculated field?
+    /// </summary>
+    internal bool IsCalculatedField(int fieldIndex)
+    {
+        return _calculatedFieldFormulas.ContainsKey(fieldIndex);
+    }
+
+    /// <summary>
+    /// Get the formula for a calculated field. Returns null if the field is not calculated.
+    /// </summary>
+    internal string? GetCalculatedFieldFormula(int fieldIndex)
+    {
+        return _calculatedFieldFormulas.TryGetValue(fieldIndex, out var formula) ? formula : null;
+    }
+
+    /// <summary>
+    /// Number of database (non-calculated) fields in the cache.
+    /// This is the number of fields that have records.
+    /// </summary>
+    internal int DatabaseFieldCount => _fieldNames.Count - _calculatedFieldFormulas.Count;
 
     private string AdjustedFieldName(string header)
     {

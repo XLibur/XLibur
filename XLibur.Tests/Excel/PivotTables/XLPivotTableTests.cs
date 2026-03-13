@@ -5,6 +5,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using XLibur.Tests.Utils;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Tests;
 
@@ -938,5 +941,257 @@ public class XLPivotTableTests
         Assert.AreEqual(withDefaults, field.RepeatItemLabels, "RepeatItemLabels save failure");
         Assert.AreEqual(withDefaults, field.InsertPageBreaks, "InsertPageBreaks save failure");
         Assert.AreEqual(withDefaults, field.IncludeNewItemsInFilter, "IncludeNewItemsInFilter save failure");
+    }
+
+    [Test]
+    [Description("Loading pivots with custom theme should not throw (ClosedXML#1429)")]
+    public void PivotTableWithCustomTheme_CanLoadAndSave()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Lion\PivotTables\CustomPivotTheme.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+    }
+
+    [Test]
+    [Description("Loading pivots with styles should not throw (ClosedXML#1429)")]
+    public void PivotTableWithStyles_CanLoadAndSave()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Lion\PivotTables\PivotWithStyles.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+    }
+
+    [Test]
+    [Description("Pivot table with calculated field should round-trip without losing the formula (ClosedXML#885)")]
+    public void PivotTableWithCalculatedField_RoundTrips()
+    {
+        // Create an xlsx with a pivot table that has a calculated field using raw OpenXML SDK.
+        using var inputStream = new MemoryStream();
+        CreateWorkbookWithCalculatedField(inputStream);
+        inputStream.Position = 0;
+
+        // Load through XLibur and re-save.
+        using var wb = new XLWorkbook(inputStream);
+        using var outputStream = new MemoryStream();
+        wb.SaveAs(outputStream);
+
+        // Verify the calculated field survived the round-trip.
+        outputStream.Position = 0;
+        using var doc = SpreadsheetDocument.Open(outputStream, false);
+        var cachePart = doc.WorkbookPart!.GetPartsOfType<PivotTableCacheDefinitionPart>().First();
+        var cacheFields = cachePart.PivotCacheDefinition.CacheFields!.Elements<CacheField>().ToList();
+
+        // Should have 3 data fields + 1 calculated field = 4 total
+        Assert.That(cacheFields.Count, Is.EqualTo(4), "Expected 3 source fields + 1 calculated field");
+
+        var calculatedField = cacheFields.Last();
+        Assert.That(calculatedField.Name?.Value, Is.EqualTo("Profit"), "Calculated field name should be 'Profit'");
+        Assert.That(calculatedField.Formula?.Value, Is.EqualTo("Revenue - Cost"), "Calculated field formula should be preserved");
+        Assert.That(calculatedField.DatabaseField?.Value, Is.False, "Calculated field DatabaseField should be false");
+    }
+
+    /// <summary>
+    /// Creates a minimal xlsx with a pivot table that includes a calculated field "Profit = Revenue - Cost".
+    /// </summary>
+    private static void CreateWorkbookWithCalculatedField(Stream stream)
+    {
+        using var doc = SpreadsheetDocument.Create(stream, SpreadsheetDocumentType.Workbook);
+
+        // Workbook part
+        var workbookPart = doc.AddWorkbookPart();
+        workbookPart.Workbook = new Workbook();
+        var sheets = workbookPart.Workbook.AppendChild(new Sheets());
+
+        // Data worksheet
+        var dataSheetPart = workbookPart.AddNewPart<WorksheetPart>();
+        var dataSheetPartId = workbookPart.GetIdOfPart(dataSheetPart);
+        sheets.Append(new Sheet { Id = dataSheetPartId, SheetId = 1, Name = "Data" });
+
+        var sheetData = new SheetData();
+        // Header row
+        sheetData.Append(CreateRow(1, "Name", "Revenue", "Cost"));
+        // Data rows
+        sheetData.Append(CreateNumericRow(2, "Cookies", 500, 200));
+        sheetData.Append(CreateNumericRow(3, "Cake", 800, 350));
+        sheetData.Append(CreateNumericRow(4, "Pie", 300, 100));
+        dataSheetPart.Worksheet = new Worksheet(sheetData);
+
+        // Pivot table worksheet
+        var pivotSheetPart = workbookPart.AddNewPart<WorksheetPart>();
+        var pivotSheetPartId = workbookPart.GetIdOfPart(pivotSheetPart);
+        sheets.Append(new Sheet { Id = pivotSheetPartId, SheetId = 2, Name = "PivotSheet" });
+        pivotSheetPart.Worksheet = new Worksheet(new SheetData());
+
+        // Pivot cache definition
+        var cachePart = workbookPart.AddNewPart<PivotTableCacheDefinitionPart>();
+        var cachePartId = workbookPart.GetIdOfPart(cachePart);
+
+        var cacheDefinition = new PivotCacheDefinition
+        {
+            Id = "rId1",
+            RefreshOnLoad = true,
+            CreatedVersion = 5,
+            RefreshedVersion = 5,
+        };
+        cacheDefinition.AddNamespaceDeclaration("r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+
+        var cacheSource = new CacheSource { Type = SourceValues.Worksheet };
+        cacheSource.Append(new WorksheetSource { Sheet = "Data", Reference = "A1:C4" });
+        cacheDefinition.Append(cacheSource);
+
+        var cacheFields = new CacheFields();
+        // Field 0: Name (string)
+        var nameField = new CacheField { Name = "Name" };
+        var nameShared = new SharedItems { ContainsSemiMixedTypes = false, ContainsString = true, ContainsNumber = false, Count = 3 };
+        nameShared.Append(new StringItem { Val = "Cookies" });
+        nameShared.Append(new StringItem { Val = "Cake" });
+        nameShared.Append(new StringItem { Val = "Pie" });
+        nameField.SharedItems = nameShared;
+        cacheFields.Append(nameField);
+
+        // Field 1: Revenue (number)
+        var revenueField = new CacheField { Name = "Revenue" };
+        var revenueShared = new SharedItems { ContainsSemiMixedTypes = false, ContainsString = false, ContainsNumber = true, MinValue = 300, MaxValue = 800, Count = 3 };
+        revenueShared.Append(new NumberItem { Val = 500 });
+        revenueShared.Append(new NumberItem { Val = 800 });
+        revenueShared.Append(new NumberItem { Val = 300 });
+        revenueField.SharedItems = revenueShared;
+        cacheFields.Append(revenueField);
+
+        // Field 2: Cost (number)
+        var costField = new CacheField { Name = "Cost" };
+        var costShared = new SharedItems { ContainsSemiMixedTypes = false, ContainsString = false, ContainsNumber = true, MinValue = 100, MaxValue = 350, Count = 3 };
+        costShared.Append(new NumberItem { Val = 200 });
+        costShared.Append(new NumberItem { Val = 350 });
+        costShared.Append(new NumberItem { Val = 100 });
+        costField.SharedItems = costShared;
+        cacheFields.Append(costField);
+
+        // Field 3: Profit (calculated field) - Formula = "Revenue - Cost"
+        var profitField = new CacheField { Name = "Profit", Formula = "Revenue - Cost", DatabaseField = false };
+        cacheFields.Append(profitField);
+
+        cacheFields.Count = 4;
+        cacheDefinition.Append(cacheFields);
+
+        // Cache records
+        var recordsPart = cachePart.AddNewPart<PivotTableCacheRecordsPart>();
+        var records = new PivotCacheRecords { Count = 3 };
+        // Records for 3 source fields only (calculated fields don't have records)
+        records.Append(new PivotCacheRecord(new FieldItem { Val = 0 }, new NumberItem { Val = 500 }, new NumberItem { Val = 200 }));
+        records.Append(new PivotCacheRecord(new FieldItem { Val = 1 }, new NumberItem { Val = 800 }, new NumberItem { Val = 350 }));
+        records.Append(new PivotCacheRecord(new FieldItem { Val = 2 }, new NumberItem { Val = 300 }, new NumberItem { Val = 100 }));
+        recordsPart.PivotCacheRecords = records;
+
+        cachePart.PivotCacheDefinition = cacheDefinition;
+
+        // Register the cache in the workbook
+        var pivotCaches = new PivotCaches();
+        pivotCaches.Append(new PivotCache { CacheId = 0, Id = cachePartId });
+        workbookPart.Workbook.Append(pivotCaches);
+
+        // Pivot table part
+        var pivotTablePart = pivotSheetPart.AddNewPart<PivotTablePart>();
+
+        // Link the pivot table part to the cache definition part
+        var pivotTableCacheRelId = pivotTablePart.CreateRelationshipToPart(cachePart);
+
+        var pivotTableDef = new PivotTableDefinition
+        {
+            Name = "PivotTable1",
+            CacheId = 0,
+            DataCaption = "Values",
+            CreatedVersion = 5,
+            UpdatedVersion = 5,
+        };
+
+        var location = new Location { Reference = "A1:B5", FirstHeaderRow = 1, FirstDataRow = 2, FirstDataColumn = 1 };
+        pivotTableDef.Append(location);
+
+        // Pivot fields: one per cache field
+        var pivotFields = new PivotFields { Count = 4 };
+
+        // Field 0: Name - axis row
+        var pf0 = new PivotField { Axis = PivotTableAxisValues.AxisRow, ShowAll = false };
+        var items0 = new Items { Count = 4 };
+        items0.Append(new Item { Index = 0 });
+        items0.Append(new Item { Index = 1 });
+        items0.Append(new Item { Index = 2 });
+        items0.Append(new Item { ItemType = ItemValues.Default });
+        pf0.Append(items0);
+        pivotFields.Append(pf0);
+
+        // Field 1: Revenue - not on any axis
+        pivotFields.Append(new PivotField { ShowAll = false });
+
+        // Field 2: Cost - not on any axis
+        pivotFields.Append(new PivotField { ShowAll = false });
+
+        // Field 3: Profit - calculated field, used as data field
+        pivotFields.Append(new PivotField
+        {
+            DataField = true,
+            ShowAll = false,
+            DefaultSubtotal = false,
+            DragToRow = false,
+            DragToColumn = false,
+            DragToPage = false,
+        });
+
+        pivotTableDef.Append(pivotFields);
+
+        // Row fields
+        var rowFields = new RowFields { Count = 1 };
+        rowFields.Append(new Field { Index = 0 });
+        pivotTableDef.Append(rowFields);
+
+        // Row items
+        var rowItems = new RowItems { Count = 4 };
+        rowItems.Append(new RowItem(new MemberPropertyIndex { Val = 0 }));
+        rowItems.Append(new RowItem(new MemberPropertyIndex { Val = 1 }));
+        rowItems.Append(new RowItem(new MemberPropertyIndex { Val = 2 }));
+        rowItems.Append(new RowItem(new MemberPropertyIndex()) { ItemType = ItemValues.Grand });
+        pivotTableDef.Append(rowItems);
+
+        // Column items
+        var colItems = new ColumnItems { Count = 1 };
+        colItems.Append(new RowItem(new MemberPropertyIndex()) { ItemType = ItemValues.Grand });
+        pivotTableDef.Append(colItems);
+
+        // Data fields (the calculated field "Profit")
+        var dataFields = new DataFields { Count = 1 };
+        dataFields.Append(new DataField { Name = "Sum of Profit", Field = 3 });
+        pivotTableDef.Append(dataFields);
+
+        // Pivot table style
+        pivotTableDef.Append(new PivotTableStyle { Name = "PivotStyleLight16", ShowRowHeaders = true, ShowColumnHeaders = true });
+
+        pivotTablePart.PivotTableDefinition = pivotTableDef;
+    }
+
+    private static Row CreateRow(uint rowIndex, params string[] values)
+    {
+        var row = new Row { RowIndex = rowIndex };
+        for (var i = 0; i < values.Length; i++)
+        {
+            row.Append(new Cell
+            {
+                CellReference = $"{(char)('A' + i)}{rowIndex}",
+                DataType = CellValues.String,
+                CellValue = new CellValue(values[i])
+            });
+        }
+        return row;
+    }
+
+    private static Row CreateNumericRow(uint rowIndex, string name, double val1, double val2)
+    {
+        var row = new Row { RowIndex = rowIndex };
+        row.Append(new Cell { CellReference = $"A{rowIndex}", DataType = CellValues.String, CellValue = new CellValue(name) });
+        row.Append(new Cell { CellReference = $"B{rowIndex}", DataType = CellValues.Number, CellValue = new CellValue(val1) });
+        row.Append(new Cell { CellReference = $"C{rowIndex}", DataType = CellValues.Number, CellValue = new CellValue(val2) });
+        return row;
     }
 }

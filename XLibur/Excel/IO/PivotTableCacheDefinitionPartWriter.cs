@@ -173,6 +173,33 @@ internal sealed class PivotTableCacheDefinitionPartWriter
         for (var fieldIdx = 0; fieldIdx < pivotCache.FieldCount; ++fieldIdx)
         {
             var cacheFieldName = pivotCache.FieldNames[fieldIdx];
+
+            // Calculated fields have a formula and no database records or shared items.
+            if (pivotCache.GetCalculatedFieldFormula(fieldIdx) is { } formula)
+            {
+                var calcField = cacheFields
+                    .Elements<CacheField>()
+                    .FirstOrDefault(f => f.Name == cacheFieldName);
+
+                if (calcField == null)
+                {
+                    calcField = new CacheField
+                    {
+                        Name = cacheFieldName,
+                        Formula = formula,
+                        DatabaseField = false,
+                    };
+                    cacheFields.AppendChild(calcField);
+                }
+                else
+                {
+                    calcField.Formula = formula;
+                    calcField.DatabaseField = false;
+                }
+
+                continue;
+            }
+
             var fieldValues = pivotCache.GetFieldValues(fieldIdx);
             var xlSharedItems = pivotCache.GetFieldSharedItems(fieldIdx)
                 .GetCellValues()
