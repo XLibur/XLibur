@@ -116,7 +116,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
             }
         }
 
-        var copiedFormula = FormulaConverter.ModifyA1(_formula, sheet.Name, 1, 1, new RenameRefModVisitor
+        var copiedFormula = FormulaTransformation.SafeModifyA1(_formula, sheet.Name, 1, 1, new RenameRefModVisitor
         {
             Sheets = new Dictionary<string, string?> { { sheet.Name, targetSheet.Name } },
             Tables = tableRenames,
@@ -173,7 +173,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
         if (!_references.ContainsSheet(oldSheetName))
             return;
 
-        var modified = FormulaConverter.ModifyA1(_formula, newSheetName ?? string.Empty, 1, 1, new RenameRefModVisitor
+        var modified = FormulaTransformation.SafeModifyA1(_formula, newSheetName ?? string.Empty, 1, 1, new RenameRefModVisitor
         {
             Sheets = new Dictionary<string, string?> { { oldSheetName, newSheetName } }
         });

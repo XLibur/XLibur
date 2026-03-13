@@ -567,7 +567,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             var formula = value.TrimFormulaEqual();
             if (!string.IsNullOrWhiteSpace(formula))
             {
-                var formulaA1 = FormulaConverter.ToA1(formula, _rowNumber, _columnNumber);
+                var formulaA1 = FormulaTransformation.SafeToA1(formula, _rowNumber, _columnNumber);
                 var fixedFunctionsFormulaA1 =
                     FormulaTransformation.FixFutureFunctions(formulaA1, Worksheet.Name, SheetPoint);
                 Formula = XLCellFormula.NormalA1(fixedFunctionsFormulaA1);

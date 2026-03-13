@@ -8,6 +8,14 @@ namespace XLibur.Excel.CalcEngine.Visitors;
 
 internal static class FormulaTransformation
 {
+    /// <summary>
+    /// A placeholder character (fullwidth colon U+FF1A) used to temporarily replace colons
+    /// inside single-bracket structured reference column names (e.g. <c>Table[Some Header: Other]</c>)
+    /// so the parser does not misinterpret them as range operators. The fullwidth colon is valid
+    /// in the parser's grammar for column names but won't be treated as a range separator.
+    /// </summary>
+    private const char ColonPlaceholder = '\uFF1A';
+
     private static readonly Lazy<PrefixTree> FutureFunctionSet =
         new(() => PrefixTree.Build(XLConstants.FutureFunctionMap.Value.Keys));
 
@@ -25,7 +33,115 @@ internal static class FormulaTransformation
         if (!MightContainFutureFunction(formula.AsSpan()))
             return formula;
 
-        return FormulaConverter.ModifyA1(formula, sheetName, origin.Row, origin.Column, RemapFutureFunctions);
+        return SafeModifyA1(formula, sheetName, origin.Row, origin.Column, RemapFutureFunctions);
+    }
+
+    /// <summary>
+    /// Wrapper around FormulaConverter.ModifyA1 that protects colons inside
+    /// single-bracket structured reference column names from being misinterpreted as range operators.
+    /// </summary>
+    internal static string SafeModifyA1(string formula, string sheetName, int row, int column, RefModVisitor visitor)
+    {
+        var protected_ = ProtectStructuredRefColons(formula, out var wasProtected);
+        var result = FormulaConverter.ModifyA1(protected_, sheetName, row, column, visitor);
+        return wasProtected ? result.Replace(ColonPlaceholder, ':') : result;
+    }
+
+    /// <summary>
+    /// Wrapper around <see cref="FormulaConverter.ToR1C1"/> that protects colons inside
+    /// single-bracket structured reference column names.
+    /// </summary>
+    internal static string SafeToR1C1(string formulaA1, int row, int column)
+    {
+        var protected_ = ProtectStructuredRefColons(formulaA1, out var wasProtected);
+        var result = FormulaConverter.ToR1C1(protected_, row, column);
+        return wasProtected ? result.Replace(ColonPlaceholder, ':') : result;
+    }
+
+    /// <summary>
+    /// Wrapper around <see cref="FormulaConverter.ToA1"/> that protects colons inside
+    /// single-bracket structured reference column names.
+    /// </summary>
+    internal static string SafeToA1(string formulaR1C1, int row, int column)
+    {
+        var protected_ = ProtectStructuredRefColons(formulaR1C1, out var wasProtected);
+        var result = FormulaConverter.ToA1(protected_, row, column);
+        return wasProtected ? result.Replace(ColonPlaceholder, ':') : result;
+    }
+
+    /// <summary>
+    /// Replace colons inside single-bracket structured reference column names with a
+    /// placeholder so the formula parser does not treat them as range operators.
+    /// <para>
+    /// Single-bracket references like <c>Table[Some Header: Other]</c> contain a literal
+    /// column name. Double-bracket references like <c>Table[[Col1]:[Col2]]</c> use the colon
+    /// as a range separator and are left untouched.
+    /// </para>
+    /// </summary>
+    private static string ProtectStructuredRefColons(string formula, out bool wasProtected)
+    {
+        wasProtected = false;
+
+        // Quick check: if no colon, nothing to protect.
+        if (formula.IndexOf(':') < 0)
+            return formula;
+
+        char[]? chars = null;
+        var i = 0;
+        while (i < formula.Length)
+        {
+            var c = formula[i];
+
+            // Skip string literals.
+            if (c == '"')
+            {
+                i++;
+                while (i < formula.Length && formula[i] != '"')
+                    i++;
+                i++; // skip closing quote
+                continue;
+            }
+
+            // Skip single-quoted sheet name references (e.g. '[Book.xlsx]Sheet'!A1).
+            if (c == '\'')
+            {
+                i++;
+                while (i < formula.Length && formula[i] != '\'')
+                    i++;
+                i++; // skip closing quote
+                continue;
+            }
+
+            // When we see '[', check if this is a single-bracket column reference.
+            if (c == '[')
+            {
+                var next = i + 1;
+                if (next < formula.Length && formula[next] != '[' && formula[next] != '#')
+                {
+                    // Inside a single-bracket structured reference column name.
+                    // Replace colons with placeholders until the closing ']'.
+                    var j = next;
+                    while (j < formula.Length && formula[j] != ']')
+                    {
+                        if (formula[j] == ':')
+                        {
+                            chars ??= formula.ToCharArray();
+                            chars[j] = ColonPlaceholder;
+                            wasProtected = true;
+                        }
+
+                        j++;
+                    }
+
+                    i = j + 1;
+                    continue;
+                }
+            }
+
+            i++;
+        }
+
+        return wasProtected ? new string(chars!) : formula;
     }
 
     private static bool MightContainFutureFunction(ReadOnlySpan<char> formula)
