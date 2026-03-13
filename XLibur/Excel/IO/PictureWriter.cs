@@ -56,13 +56,15 @@ internal sealed class PictureWriter
 
         // Instead of saving a file with an empty Drawings.xml file, rather remove the .xml file
         var hasCharts = worksheetPart.DrawingsPart is not null && worksheetPart.DrawingsPart.Parts.Any();
-        var hasNonPictureShapes = worksheetPart.DrawingsPart?.WorksheetDrawing?.HasChildren ?? false;
         if (worksheetPart.DrawingsPart is not null && // There is a drawing part for the sheet that could be deleted
             xlWorksheet
                 .LegacyDrawingId is null && // and sheet doesn't contain any form controls or comments or other shapes
             !xlWorksheet.Pictures.Any() && // and also no pictures.
             !hasCharts && // and no charts
-            !hasNonPictureShapes) // and no non-picture shapes (textboxes, rectangles, etc.)
+            // Check for non-picture shapes (textboxes, rectangles, etc.) last to avoid
+            // loading the DrawingsPart DOM unnecessarily — DOM loading causes re-serialization
+            // that changes the XML even when no modifications are made.
+            !(worksheetPart.DrawingsPart.WorksheetDrawing?.HasChildren ?? false))
         {
             var id = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart);
             worksheet.RemoveChild(worksheet.OfType<Drawing>().FirstOrDefault(p => p.Id == id));

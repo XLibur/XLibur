@@ -732,7 +732,7 @@ public class SavingTests
         // Issue 2080: Drawing was loading the workbook DOM from the worksheet part and
         // the OpenXML SDK was ignoring worksheet changes saved through streaming, but used
         // the eager loaded DOM instead.
-        // Saved file doesn't contain shape because it's not yet supported (#1252)
+        // Shapes are now preserved across load/save (#2377)
         TestHelper.LoadModifyAndCompare(
             @"Other\Parts\WorksheetWithDrawingCanBeModified-input.xlsx",
             wb =>
