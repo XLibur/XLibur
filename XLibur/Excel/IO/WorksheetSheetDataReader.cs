@@ -25,7 +25,7 @@ internal static class WorksheetSheetDataReader
     ];
 
     internal static void LoadRow(Stylesheet s, NumberingFormats? numberingFormats, Fills fills, Borders borders,
-        Fonts fonts, XLWorksheet ws, SharedStringItem[]? sharedStrings,
+        Fonts fonts, XLWorksheet ws, SharedStringEntry[]? sharedStrings,
         Dictionary<uint, string> sharedFormulasR1C1, Dictionary<int, IXLStyle> styleList,
         OpenXmlPartReader reader, ref int lastRow, ref int lastColumnNumber, bool use1904DateSystem)
     {
@@ -102,7 +102,7 @@ internal static class WorksheetSheetDataReader
             reader.Skip();
     }
 
-    internal static void LoadCell(SharedStringItem[]? sharedStrings, Stylesheet s, NumberingFormats? numberingFormats,
+    internal static void LoadCell(SharedStringEntry[]? sharedStrings, Stylesheet s, NumberingFormats? numberingFormats,
         Fills fills, Borders borders, Fonts fonts, Dictionary<uint, string> sharedFormulasR1C1,
         XLWorksheet ws, Dictionary<int, IXLStyle> styleList, OpenXmlPartReader reader, int rowIndex,
         ref int lastColumnNumber, bool use1904DateSystem)
@@ -337,7 +337,7 @@ internal static class WorksheetSheetDataReader
     }
 
     internal static void SetCellValue(CellValues dataType, string? cellValue, XLCell xlCell,
-        SharedStringItem[]? sharedStrings)
+        SharedStringEntry[]? sharedStrings)
     {
         if (dataType == CellValues.Number)
         {
@@ -361,9 +361,11 @@ internal static class WorksheetSheetDataReader
                 && int.TryParse(cellValue, XLHelper.NumberStyle, XLHelper.ParseCulture, out var sharedStringId)
                 && sharedStrings is not null && sharedStringId >= 0 && sharedStringId < sharedStrings.Length)
             {
-                var sharedString = sharedStrings[sharedStringId];
-
-                SetCellText(xlCell, sharedString);
+                var entry = sharedStrings[sharedStringId];
+                if (entry.IsRichText)
+                    SetCellText(xlCell, entry.RichText);
+                else
+                    xlCell.SetOnlyValue(entry.PlainText);
             }
             else
                 xlCell.SetOnlyValue(string.Empty);

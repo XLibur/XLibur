@@ -88,12 +88,12 @@ public partial class XLWorkbook
         ShapeIdManager = new XLIdManager();
         SetProperties(dSpreadsheet);
 
-        SharedStringItem[]? sharedStrings = null;
+        SharedStringEntry[]? sharedStrings = null;
         var workbookPart = dSpreadsheet.WorkbookPart!;
         if (workbookPart.GetPartsOfType<SharedStringTablePart>().Any())
         {
             var shareStringPart = workbookPart.GetPartsOfType<SharedStringTablePart>().First();
-            sharedStrings = shareStringPart.SharedStringTable!.Elements<SharedStringItem>().ToArray();
+            sharedStrings = SharedStringReader.Read(shareStringPart);
         }
 
         LoadWorkbookTheme(workbookPart.ThemePart, this);
