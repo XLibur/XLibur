@@ -371,6 +371,94 @@ public class AutoFilterTests
     }
 
     [Test]
+    public void ReapplyExpandsRangeToIncludeNewDataRows()
+    {
+        // Bug #2812: When new rows are added below the autofilter range and
+        // Reapply() is called, the range should expand to include the new data
+        // and the filter should be applied to those rows too.
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+
+        ws.Cell("A1").SetValue("Number");
+        ws.Cell("B1").SetValue("Name");
+        ws.Cell("A2").SetValue(34);
+        ws.Cell("B2").SetValue("Alice");
+        ws.Cell("A3").SetValue(50);
+        ws.Cell("B3").SetValue("Bob");
+
+        // Set autofilter on A1:B3 and filter to show only value 34
+        var autoFilter = ws.Range("A1:B3").SetAutoFilter();
+        autoFilter.Column(1).AddFilter("34");
+
+        // Verify initial state: only row with 34 visible (+ header)
+        Assert.AreEqual(1, autoFilter.HiddenRows.Count());
+        Assert.AreEqual("A1:B3", autoFilter.Range.RangeAddress.ToStringRelative());
+
+        // Add a new row beyond the filter range
+        ws.Cell("A4").SetValue(35);
+        ws.Cell("B4").SetValue("Charlie");
+
+        // Reapply should expand range and hide the new row (35 != 34)
+        autoFilter.Reapply();
+
+        Assert.AreEqual("A1:B4", autoFilter.Range.RangeAddress.ToStringRelative());
+        Assert.AreEqual(2, autoFilter.HiddenRows.Count());
+        // Visible = header row + the row matching filter "34"
+        Assert.AreEqual(2, autoFilter.VisibleRows.Count());
+    }
+
+    [Test]
+    public void ReapplyDoesNotExpandRangeAcrossGap()
+    {
+        // Range should only expand to contiguous data, not jump over empty rows.
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+
+        ws.Cell("A1").SetValue("Number");
+        ws.Cell("A2").SetValue(34);
+        ws.Cell("A3").SetValue(50);
+
+        var autoFilter = ws.Range("A1:A3").SetAutoFilter();
+        autoFilter.Column(1).AddFilter("34");
+
+        // Add data with a gap (row 4 empty, row 5 has data)
+        ws.Cell("A5").SetValue(99);
+
+        autoFilter.Reapply();
+
+        // Range should NOT expand past the empty row
+        Assert.AreEqual("A1:A3", autoFilter.Range.RangeAddress.ToStringRelative());
+    }
+
+    [Test]
+    public void ReapplyExpandsRangeAndFiltersFromLoadedFile()
+    {
+        // Test with the actual bug report file
+        using var stream = TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"Other\AutoFilter\autofilter_bug_2812.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+
+        var originalRange = ws.AutoFilter.Range.RangeAddress.ToStringRelative();
+
+        // Add a new row of data below the filter range
+        var lastRow = ws.AutoFilter.Range.RangeAddress.LastAddress.RowNumber;
+        var newRow = lastRow + 1;
+        ws.Cell(newRow, 1).SetValue(35);
+        ws.Cell(newRow, 2).SetValue("test");
+        ws.Cell(newRow, 3).SetValue("test2");
+
+        ws.AutoFilter.Reapply();
+
+        // Range should have expanded
+        var newRange = ws.AutoFilter.Range.RangeAddress.ToStringRelative();
+        Assert.AreNotEqual(originalRange, newRange);
+
+        // The last row of the range should now include the new data
+        Assert.AreEqual(newRow, ws.AutoFilter.Range.RangeAddress.LastAddress.RowNumber);
+    }
+
+    [Test]
     public void SaveAutoFilterWithClearedColumnDoesNotThrow()
     {
         // When a filter column is added and then cleared, it remains in the

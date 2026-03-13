@@ -13,6 +13,12 @@ internal sealed class XLAutoFilter : IXLAutoFilter
     /// </summary>
     private readonly Dictionary<int, XLFilterColumn> _columns = new();
 
+    /// <summary>
+    /// When true, <see cref="Reapply"/> will not expand the range to include new data rows.
+    /// Used for table autofilters where the table manages the range.
+    /// </summary>
+    internal bool IsTableAutoFilter { get; set; }
+
     internal IReadOnlyDictionary<int, XLFilterColumn> Columns => _columns;
 
     #region IXLAutoFilter Members
@@ -46,6 +52,8 @@ internal sealed class XLAutoFilter : IXLAutoFilter
     {
         if (!IsEnabled) return this;
 
+        ExpandRangeToData();
+
         var rows = Range.Rows(2, Range.RowCount());
         rows.ForEach(row => row.WorksheetRow().Unhide());
 
@@ -59,6 +67,53 @@ internal sealed class XLAutoFilter : IXLAutoFilter
         }
 
         return this;
+    }
+
+    /// <summary>
+    /// Expand the autofilter range downward to include any contiguous data rows
+    /// that were added after the filter was originally set.
+    /// </summary>
+    private void ExpandRangeToData()
+    {
+        if (IsTableAutoFilter)
+            return;
+
+        var rangeAddress = Range.RangeAddress;
+        var ws = Range.Worksheet;
+        var firstCol = rangeAddress.FirstAddress.ColumnNumber;
+        var lastCol = rangeAddress.LastAddress.ColumnNumber;
+        var currentLastRow = rangeAddress.LastAddress.RowNumber;
+
+        // Walk downward from the row after the current range to find contiguous data.
+        var newLastRow = currentLastRow;
+        while (true)
+        {
+            var nextRow = newLastRow + 1;
+            if (nextRow > XLHelper.MaxRowNumber)
+                break;
+
+            var hasData = false;
+            for (var col = firstCol; col <= lastCol; col++)
+            {
+                if (!ws.Cell(nextRow, col).IsEmpty())
+                {
+                    hasData = true;
+                    break;
+                }
+            }
+
+            if (!hasData)
+                break;
+
+            newLastRow = nextRow;
+        }
+
+        if (newLastRow > currentLastRow)
+        {
+            Range = ws.Range(
+                rangeAddress.FirstAddress.RowNumber, firstCol,
+                newLastRow, lastCol);
+        }
     }
 
     private bool MatchesAllFilters(IXLRangeRow row)

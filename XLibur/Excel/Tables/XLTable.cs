@@ -157,7 +157,7 @@ internal sealed class XLTable : XLRange, IXLTable
     {
         get
         {
-            field ??= new XLAutoFilter();
+            field ??= new XLAutoFilter { IsTableAutoFilter = true };
 
             field.Range = ShowTotalsRow ? Range(1, 1, RowCount() - 1, ColumnCount()) : AsRange();
             return field;
