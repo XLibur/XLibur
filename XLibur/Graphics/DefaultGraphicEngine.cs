@@ -32,6 +32,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine
         new EmfInfoReader(),
         new WmfInfoReader(),
         new WebpInfoReader(),
+        new SvgInfoReader(),
         new PcxInfoReader() // Due to poor magic detection, keep last
     ];
 

@@ -3,6 +3,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
@@ -484,6 +485,58 @@ public class PictureTests
         using var wb2 = new XLWorkbook(ms);
         var ws2 = wb2.Worksheet("Sheet1");
         Assert.AreEqual(name, ws2.Pictures.First().Name);
+    }
+
+    [Test]
+    public void CanAddSvgPictureFromStream()
+    {
+        var svgContent = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg>";
+        using var svgStream = new MemoryStream(Encoding.UTF8.GetBytes(svgContent));
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+
+        var picture = ws.AddPicture(svgStream, "img.svg")
+            .MoveTo(ws.Cell(1, 1))
+            .WithSize(120, 120);
+
+        Assert.AreEqual(XLPictureFormat.Svg, picture.Format);
+        Assert.AreEqual(120, picture.Width);
+        Assert.AreEqual(120, picture.Height);
+        Assert.AreEqual(24, picture.OriginalWidth);
+        Assert.AreEqual(24, picture.OriginalHeight);
+    }
+
+    [Test]
+    public void CanSaveAndLoadSvgPicture()
+    {
+        var svgContent = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><path d=\"M20 6 9 17l-5-5\"/></svg>";
+        using var svgStream = new MemoryStream(Encoding.UTF8.GetBytes(svgContent));
+
+        using var ms = new MemoryStream();
+
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.Worksheets.Add("Sheet1");
+            ws.AddPicture(svgStream, "CheckIcon")
+                .MoveTo(ws.Cell(1, 1))
+                .WithSize(120, 120);
+
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var ws = wb.Worksheets.First();
+            Assert.AreEqual(1, ws.Pictures.Count);
+
+            var pic = ws.Pictures.First();
+            Assert.AreEqual(XLPictureFormat.Svg, pic.Format);
+            Assert.AreEqual("CheckIcon", pic.Name);
+            Assert.AreEqual(120, pic.Width);
+            Assert.AreEqual(120, pic.Height);
+        }
     }
 
     [Test]

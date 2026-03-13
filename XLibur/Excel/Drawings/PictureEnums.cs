@@ -18,7 +18,8 @@ public enum XLPictureFormat
     Jpeg,
     Emf,
     Wmf,
-    Webp
+    Webp,
+    Svg
 }
 
 public enum XLPicturePlacement

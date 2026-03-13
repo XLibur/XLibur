@@ -112,6 +112,18 @@ public class PictureInfoTests
         AssertRasterImage("SampleImageWebpLossless.webp", XLPictureFormat.Webp, new Size(395, 136), 72, 72);
     }
 
+    [Test]
+    public void CanReadSvgWithWidthAndHeight()
+    {
+        AssertRasterImage("SampleImageSvg.svg", XLPictureFormat.Svg, new Size(24, 24), 96, 96);
+    }
+
+    [Test]
+    public void CanReadSvgWithViewBoxOnly()
+    {
+        AssertRasterImage("SampleImageSvgViewBox.svg", XLPictureFormat.Svg, new Size(100, 50), 96, 96);
+    }
+
     private static void AssertRasterImage(string imageName, XLPictureFormat expectedFormat, Size expectedPxSize, double expectedDpiX, double expectedDpiY)
     {
         AssertImage(imageName, expectedFormat, expectedPxSize, Size.Empty, expectedDpiX, expectedDpiY);

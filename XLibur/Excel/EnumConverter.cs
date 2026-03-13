@@ -464,7 +464,8 @@ internal static class EnumConverter
             { XLPictureFormat.Jpeg, ImagePartType.Jpeg },
             { XLPictureFormat.Emf, ImagePartType.Emf },
             { XLPictureFormat.Wmf, ImagePartType.Wmf },
-            { XLPictureFormat.Webp, new PartTypeInfo("image/webp", ".webp") }
+            { XLPictureFormat.Webp, new PartTypeInfo("image/webp", ".webp") },
+            { XLPictureFormat.Svg, new PartTypeInfo("image/svg+xml", ".svg") }
         };
 
     public static PartTypeInfo ToOpenXml(this XLPictureFormat value)
