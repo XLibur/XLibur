@@ -35,6 +35,40 @@ public class PictureTests
         Assert.That(pic.Name, Does.StartWith("Picture"));
     }
 
+    [Test]
+    public void Non_picture_shapes_are_preserved_after_roundtrip()
+    {
+        // Issue #2377: textboxes and shapes (non-picture anchors) were lost after load/save
+        // because the DrawingsPart was deleted when there were no pictures.
+        using var stream = TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"TryToLoad\textbox_shapemissing_onload_2377.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+
+        // Verify the drawing part still exists with both shapes
+        ms.Position = 0;
+        using var savedDoc = SpreadsheetDocument.Open(ms, false);
+        var worksheetPart = savedDoc.WorkbookPart!.WorksheetParts.First();
+        Assert.That(worksheetPart.DrawingsPart, Is.Not.Null, "DrawingsPart should be preserved");
+
+        var drawing = worksheetPart.DrawingsPart!.WorksheetDrawing!;
+        var twoCellAnchors = drawing.Elements<Xdr.TwoCellAnchor>().ToList();
+        var oneCellAnchors = drawing.Elements<Xdr.OneCellAnchor>().ToList();
+
+        Assert.That(twoCellAnchors, Has.Count.EqualTo(1), "TwoCellAnchor (rectangle shape) should be preserved");
+        Assert.That(oneCellAnchors, Has.Count.EqualTo(1), "OneCellAnchor (textbox) should be preserved");
+
+        // Verify the shape text content is preserved
+        var shapeText = twoCellAnchors[0].Descendants<Xdr.Shape>().First()
+            .Descendants<Xdr.TextBody>().First().InnerText;
+        Assert.That(shapeText, Is.EqualTo("SHAPE"));
+
+        var textboxText = oneCellAnchors[0].Descendants<Xdr.Shape>().First()
+            .Descendants<Xdr.TextBody>().First().InnerText;
+        Assert.That(textboxText, Is.EqualTo("TEXTBOX"));
+    }
+
     /// <summary>
     /// Creates a minimal xlsx with a single picture whose cNvPr name attribute is empty string.
     /// </summary>
