@@ -98,6 +98,8 @@ public partial class XLWorkbook
 
         LoadWorkbookTheme(workbookPart.ThemePart, this);
 
+        RichDataReader.LoadRichData(workbookPart, this, context);
+
         if (dSpreadsheet.CustomFilePropertiesPart != null)
         {
             foreach (var m in dSpreadsheet.CustomFilePropertiesPart.Properties!.Elements<CustomDocumentProperty>())
@@ -353,6 +355,18 @@ public partial class XLWorkbook
                 }
 
                 reader.Close();
+            }
+
+            // Hydrate in-cell images from rich data metadata
+            if (context.RichValueImages is not null)
+            {
+                foreach (var cell in ws.Internals.CellsCollection.GetCells(c => c.ValueMetaIndex is not null))
+                {
+                    if (context.RichValueImages.TryGetValue(cell.ValueMetaIndex!.Value, out var cellImage))
+                    {
+                        cell.CellImage = cellImage;
+                    }
+                }
             }
 
             ws.ConditionalFormats.ReorderAccordingToOriginalPriority();

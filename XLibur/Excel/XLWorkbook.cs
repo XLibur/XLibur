@@ -114,6 +114,8 @@ public partial class XLWorkbook : IXLWorkbook
 
     internal SharedStringTable SharedStringTable { get; } = new();
 
+    internal XLInCellImageStore InCellImages { get; } = new();
+
     #region Nested Type : XLLoadSource
 
     // ReSharper disable once InconsistentNaming

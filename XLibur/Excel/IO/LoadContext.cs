@@ -82,6 +82,12 @@ internal sealed class LoadContext
         return XLNumberFormatValue.FromKey(ref predefinedFormatKey);
     }
 
+    /// <summary>
+    /// Maps 1-based vm (value metadata) index to cell image info loaded from rich data parts.
+    /// Populated by <see cref="RichDataReader"/>.
+    /// </summary>
+    internal Dictionary<uint, XLCellImage>? RichValueImages { get; set; }
+
     private static Exception PivotCfNotFoundException(string sheetName, int priority)
     {
         return PartStructureException.ExpectedElementNotFound($"conditional formatting for pivot table in sheet {sheetName} with priority {priority}");

@@ -158,6 +158,7 @@ public partial class XLWorkbook
         GenerateWorkbookLevelParts(document, workbookPart, options, context);
         PreparePivotCaches(workbookPart, context);
         EnsureDynamicArrayMetadata(workbookPart, context);
+        EnsureRichValueImageParts(workbookPart, context);
 
         foreach (var worksheet in WorksheetsInternal.Cast<XLWorksheet>().OrderBy(w => w.Position))
         {
@@ -391,6 +392,162 @@ public partial class XLWorkbook
         block.Append(new MetadataRecord { TypeIndex = typeIndex, Val = 0 });
         cellMeta.Append(block);
         cellMeta.Count = (uint)(cellMeta.Count ?? 0) + 1;
+    }
+
+    /// <summary>
+    /// If any cell in the workbook has an in-cell image (CellImage), write the
+    /// four rich data XML parts and update metadata.xml with XLRICHVALUE entries.
+    /// Sets each cell's ValueMetaIndex and SliceCellValue for the sheet writer.
+    /// </summary>
+    private void EnsureRichValueImageParts(WorkbookPart workbookPart, SaveContext context)
+    {
+        // Collect all cells with CellImage across all worksheets
+        var cellsWithImages = new List<(XLCell Cell, XLCellImage Image)>();
+        foreach (var ws in WorksheetsInternal.Cast<XLWorksheet>())
+        {
+            foreach (var cell in ws.Internals.CellsCollection.GetCells(c => c.CellImage is not null))
+            {
+                cellsWithImages.Add((cell, cell.CellImage!));
+            }
+        }
+
+        if (cellsWithImages.Count == 0)
+            return;
+
+        // Build rich value entries (one per cell)
+        var entries = new List<RichDataWriter.RichValueEntry>(cellsWithImages.Count);
+        foreach (var (_, image) in cellsWithImages)
+        {
+            entries.Add(new RichDataWriter.RichValueEntry(image.WorkbookImageIndex, image.AltText));
+        }
+
+        // Write the four rich data XML parts
+        RichDataWriter.WriteRichDataParts(workbookPart, InCellImages, entries, context.RelIdGenerator);
+
+        // Update metadata.xml with XLRICHVALUE type
+        var cellMetadataPart = workbookPart.CellMetadataPart;
+        Metadata metadata;
+        if (cellMetadataPart is not null)
+        {
+            metadata = cellMetadataPart.Metadata ?? new Metadata();
+        }
+        else
+        {
+            cellMetadataPart = workbookPart.AddNewPart<CellMetadataPart>(
+                context.RelIdGenerator.GetNext(RelType.Workbook));
+            metadata = new Metadata();
+            cellMetadataPart.Metadata = metadata;
+        }
+
+        // Add XLRICHVALUE metadata type
+        var metadataTypes = metadata.MetadataTypes;
+        if (metadataTypes is null)
+        {
+            metadataTypes = new MetadataTypes { Count = 0 };
+            metadata.Append(metadataTypes);
+        }
+
+        // Check if XLRICHVALUE type already exists
+        uint? existingTypeIndex = null;
+        uint typeIdx = 1;
+        foreach (var mt in metadataTypes.Elements<MetadataType>())
+        {
+            if (mt.Name?.Value == "XLRICHVALUE")
+            {
+                existingTypeIndex = typeIdx;
+                break;
+            }
+
+            typeIdx++;
+        }
+
+        uint richValueTypeIndex;
+        if (existingTypeIndex is not null)
+        {
+            richValueTypeIndex = existingTypeIndex.Value;
+        }
+        else
+        {
+            metadataTypes.Append(new MetadataType
+            {
+                Name = "XLRICHVALUE",
+                MinSupportedVersion = 120000,
+                Copy = true,
+                PasteAll = true,
+                PasteValues = true,
+                Merge = true,
+                SplitFirst = true,
+                RowColumnShift = true,
+                ClearFormats = true,
+                ClearComments = true,
+                Assign = true,
+                Coerce = true
+            });
+            metadataTypes.Count = (uint)(metadataTypes.Count ?? 0) + 1;
+            richValueTypeIndex = metadataTypes.Count.Value;
+        }
+
+        // Remove existing XLRICHVALUE futureMetadata if any
+        var existingFm = metadata.Elements<FutureMetadata>()
+            .FirstOrDefault(fm => fm.Name?.Value == "XLRICHVALUE");
+        existingFm?.Remove();
+
+        // Add futureMetadata with one block per rich value
+        const string xlrvNs = "http://schemas.microsoft.com/office/spreadsheetml/2017/richdata";
+        var futureMetadata = new FutureMetadata { Name = "XLRICHVALUE", Count = (uint)entries.Count };
+        for (var i = 0; i < entries.Count; i++)
+        {
+            var fmBlock = new FutureMetadataBlock();
+            var extList = new ExtensionList();
+            var ext = new Extension { Uri = "{3e2802c4-a4d2-4d8b-9148-e3be6c30e623}" };
+
+            var rvb = new OpenXmlUnknownElement("xlrv", "rvb", xlrvNs);
+            rvb.SetAttribute(new OpenXmlAttribute("", "i", "", i.ToString()));
+            ext.Append(rvb);
+            extList.Append(ext);
+            fmBlock.Append(extList);
+            futureMetadata.Append(fmBlock);
+        }
+
+        metadata.Append(futureMetadata);
+
+        // Remove existing XLRICHVALUE valueMetadata records
+        var valueMeta = metadata.GetFirstChild<ValueMetadata>();
+        if (valueMeta is not null)
+        {
+            // Remove blocks referencing XLRICHVALUE type
+            var blocksToRemove = new List<MetadataBlock>();
+            foreach (var bk in valueMeta.Elements<MetadataBlock>())
+            {
+                var rc = bk.GetFirstChild<MetadataRecord>();
+                if (rc?.TypeIndex?.Value == richValueTypeIndex)
+                    blocksToRemove.Add(bk);
+            }
+
+            foreach (var bk in blocksToRemove)
+            {
+                bk.Remove();
+                valueMeta.Count = (uint)(valueMeta.Count ?? 1) - 1;
+            }
+        }
+        else
+        {
+            valueMeta = new ValueMetadata { Count = 0 };
+            metadata.Append(valueMeta);
+        }
+
+        // Add one valueMetadata record per cell, set each cell's ValueMetaIndex
+        for (var i = 0; i < cellsWithImages.Count; i++)
+        {
+            var block = new MetadataBlock();
+            block.Append(new MetadataRecord { TypeIndex = richValueTypeIndex, Val = (uint)i });
+            valueMeta.Append(block);
+            valueMeta.Count = (uint)(valueMeta.Count ?? 0) + 1;
+
+            var cell = cellsWithImages[i].Cell;
+            cell.ValueMetaIndex = valueMeta.Count.Value; // 1-based
+            cell.SliceCellValue = (double)i; // rv index as number
+        }
     }
 
     private void PreparePivotCaches(WorkbookPart workbookPart, SaveContext context)

@@ -21,6 +21,10 @@ internal static class OpenXmlConst
 
     public const string RevisionNs = "http://schemas.microsoft.com/office/spreadsheetml/2014/revision";
 
+    public const string RichDataNs = "http://schemas.microsoft.com/office/spreadsheetml/2017/richdata";
+
+    public const string RichData2Ns = "http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2";
+
     /// <summary>
     /// Valid and shorter than normal true.
     /// </summary>

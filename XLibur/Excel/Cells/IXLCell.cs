@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
+using System.IO;
+using XLibur.Excel.Drawings;
 
 namespace XLibur.Excel;
 
@@ -134,6 +136,25 @@ public interface IXLCell
     bool HasRichText { get; }
 
     bool HasSparkline { get; }
+
+    /// <summary>
+    /// Returns <c>true</c> if the cell contains an in-cell image ("Place in Cell" feature, Excel 365+).
+    /// </summary>
+    bool HasCellImage { get; }
+
+    /// <summary>
+    /// Set an in-cell image on this cell, replacing any existing value or formula.
+    /// The image format is auto-detected from the stream content.
+    /// </summary>
+    /// <param name="imageStream">Stream containing image data.</param>
+    /// <param name="format">Image format.</param>
+    /// <param name="altText">Alt text for accessibility.</param>
+    IXLCell SetCellImage(Stream imageStream, XLPictureFormat format, string altText = "");
+
+    /// <summary>
+    /// Remove the in-cell image from this cell.
+    /// </summary>
+    void RemoveCellImage();
 
     /// <summary>
     /// Flag indicating that previously calculated cell value may be not valid anymore and has to be re-evaluated.

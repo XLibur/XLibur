@@ -6,7 +6,9 @@ using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using XLibur.Excel.Drawings;
 using XLibur.Graphics;
 using ClosedXML.Parser;
 using XLibur.Excel.CalcEngine.Visitors;
@@ -121,6 +123,21 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             {
                 var modified = original;
                 modified.ValueMetaIndex = value;
+                _cellsCollection.MiscSlice.Set(_rowNumber, _columnNumber, in modified);
+            }
+        }
+    }
+
+    internal XLCellImage? CellImage
+    {
+        get => _cellsCollection.MiscSlice[_rowNumber, _columnNumber].CellImage;
+        set
+        {
+            ref readonly var original = ref _cellsCollection.MiscSlice[_rowNumber, _columnNumber];
+            if (original.CellImage != value)
+            {
+                var modified = original;
+                modified.CellImage = value;
                 _cellsCollection.MiscSlice.Set(_rowNumber, _columnNumber, in modified);
             }
         }
@@ -492,6 +509,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
                 SetHyperlink(null);
                 SliceCellValue = Blank.Value;
                 FormulaA1 = string.Empty;
+                CellImage = null;
             }
 
             if (clearOptions.HasFlag(XLClearOptions.NormalFormats))
@@ -710,6 +728,9 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             _ => false
         };
 
+        if (CellImage is not null)
+            return false;
+
         if (!isValueEmpty || HasFormula)
             return false;
 
@@ -820,6 +841,23 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     /// <summary> The sparkline assigned to the cell </summary>
     public IXLSparkline? Sparkline => Worksheet.SparklineGroups.GetSparkline(this);
+
+    public bool HasCellImage => CellImage is not null;
+
+    public IXLCell SetCellImage(Stream imageStream, XLPictureFormat format, string altText = "")
+    {
+        var store = Worksheet.Workbook.InCellImages;
+        var imageIndex = store.Add(imageStream, format);
+        CellImage = new XLCellImage(imageIndex, altText);
+        SliceCellValue = Blank.Value;
+        FormulaA1 = string.Empty;
+        return this;
+    }
+
+    public void RemoveCellImage()
+    {
+        CellImage = null;
+    }
 
     public IXLDataValidation GetDataValidation()
     {

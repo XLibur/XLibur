@@ -23,6 +23,8 @@ internal static class XLCellCopyHelper
         {
             target.SetCellHyperlink(new XLHyperlink(sourceHyperlink));
         }
+
+        target.CellImage = source.CellImage;
     }
 
     internal static IXLCell CopyFromInternal(XLCell target, XLCell otherCell, XLCellCopyOptions options)
