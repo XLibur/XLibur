@@ -59,6 +59,12 @@ public partial class XLWorkbook
         /// </summary>
         public int[] SstMap { get; set; } = null!;
 
+        /// <summary>
+        /// 1-based index into <c>cellMetadata</c> records for the XLDAPR (dynamic array)
+        /// metadata type. When <c>null</c>, no dynamic array formulas are present.
+        /// </summary>
+        public uint? DynamicArrayMetaIndex { get; set; }
+
         internal int GetSharedStringId(XLCell xlCell, string text)
         {
             return GetSharedStringId(xlCell.MemorySstId, xlCell.SheetPoint);

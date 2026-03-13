@@ -789,6 +789,27 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return this;
     }
 
+    public IXLCell SetDynamicFormulaA1(string formula)
+    {
+        if (IsInferiorMergedCell())
+            return this;
+
+        var trimmed = formula.TrimFormulaEqual();
+        if (!string.IsNullOrWhiteSpace(trimmed))
+        {
+            var fixedFunctionsFormula =
+                FormulaTransformation.FixFutureFunctions(trimmed, Worksheet.Name, SheetPoint);
+            Formula = XLCellFormula.DynamicArrayA1(fixedFunctionsFormula);
+        }
+        else
+        {
+            Formula = null;
+        }
+
+        InvalidateFormula();
+        return this;
+    }
+
     public IXLCell SetFormulaR1C1(string formula)
     {
         FormulaR1C1 = formula;

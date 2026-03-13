@@ -150,6 +150,13 @@ internal sealed class XLCellFormula
     }
 
     /// <summary>
+    /// Is this a dynamic array formula? Dynamic array formulas use the modern
+    /// Excel 365+ calculation engine without implicit intersection (no <c>@</c>
+    /// prefix). Requires cell metadata <c>XLDAPR</c> in the saved file.
+    /// </summary>
+    internal bool IsDynamicArray { get; private init; }
+
+    /// <summary>
     /// A factory method to create a normal A1 formula. Doesn't affect recalculation version.
     /// </summary>
     /// <param name="formulaA1">Formula in A1 form. Shouldn't start with <c>=</c>.</param>
@@ -159,6 +166,21 @@ internal sealed class XLCellFormula
         {
             Type = FormulaType.Normal,
             _flags = FormulaFlags.None
+        };
+    }
+
+    /// <summary>
+    /// A factory method to create a dynamic array formula. The formula will be
+    /// evaluated using the Excel 365+ dynamic array engine (no implicit intersection).
+    /// </summary>
+    /// <param name="formulaA1">Formula in A1 form. Shouldn't start with <c>=</c>.</param>
+    internal static XLCellFormula DynamicArrayA1(string formulaA1)
+    {
+        return new XLCellFormula(formulaA1)
+        {
+            Type = FormulaType.Normal,
+            _flags = FormulaFlags.None,
+            IsDynamicArray = true
         };
     }
 

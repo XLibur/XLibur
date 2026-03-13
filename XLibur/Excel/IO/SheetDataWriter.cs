@@ -294,7 +294,7 @@ internal sealed class SheetDataWriter
         }
 
         static void WriteStartCell(XmlWriter w, XLCell xlCell, char[] reference, int referenceLength, string? dataType,
-            uint styleId)
+            uint styleId, SaveContext context)
         {
             w.WriteStartElement("c", Main2006SsNs);
 
@@ -311,8 +311,12 @@ internal sealed class SheetDataWriter
             if (xlCell.ShowPhonetic)
                 w.WriteAttributeString("ph", TrueValue);
 
-            if (xlCell.CellMetaIndex is not null)
-                w.WriteAttribute("cm", xlCell.CellMetaIndex.Value);
+            var cmIndex = xlCell.CellMetaIndex;
+            if (cmIndex is null && xlCell.Formula is { IsDynamicArray: true } && context.DynamicArrayMetaIndex is not null)
+                cmIndex = context.DynamicArrayMetaIndex.Value;
+
+            if (cmIndex is not null)
+                w.WriteAttribute("cm", cmIndex.Value);
 
             if (xlCell.ValueMetaIndex is not null)
                 w.WriteAttribute("vm", xlCell.ValueMetaIndex.Value);
@@ -341,7 +345,7 @@ internal sealed class SheetDataWriter
                     }
                 }
 
-                WriteStartCell(xml, xlCell, cellRef, cellRefLen, dataType, styleId);
+                WriteStartCell(xml, xlCell, cellRef, cellRefLen, dataType, styleId, context);
 
                 var xlFormula = xlCell.Formula!;
                 if (xlFormula.Type == FormulaType.DataTable)
@@ -420,7 +424,7 @@ internal sealed class SheetDataWriter
                     // Excel requires that table totals row label attribute in tableColumn must match the cell
                     // string from SST. If they don't match, Excel will consider it a corrupt workbook.
                     var sharedStringId = context.GetSharedStringId(xlCell, field.TotalsRowLabel);
-                    WriteStartCell(xml, xlCell, cellRef, cellRefLen, "s", styleId);
+                    WriteStartCell(xml, xlCell, cellRef, cellRefLen, "s", styleId, context);
                     xml.WriteStartElement("v", Main2006SsNs);
                     xml.WriteValue(sharedStringId);
                     xml.WriteEndElement();
@@ -432,7 +436,7 @@ internal sealed class SheetDataWriter
             {
                 // Cell contains only a value
                 var dataType = GetCellValueType(xlCell);
-                WriteStartCell(xml, xlCell, cellRef, cellRefLen, dataType, styleId);
+                WriteStartCell(xml, xlCell, cellRef, cellRefLen, dataType, styleId, context);
 
                 WriteCellValue(xml, xlCell, context);
                 xml.WriteEndElement(); // cell
@@ -441,7 +445,7 @@ internal sealed class SheetDataWriter
             {
                 // Cell is blank and should be written only if it has different style from parent.
                 // Non-written cells use inherited style of a row.
-                WriteStartCell(xml, xlCell, cellRef, cellRefLen, null, styleId);
+                WriteStartCell(xml, xlCell, cellRef, cellRefLen, null, styleId, context);
                 xml.WriteEndElement(); // cell
             }
         }

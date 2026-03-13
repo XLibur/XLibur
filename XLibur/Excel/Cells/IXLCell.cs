@@ -507,6 +507,16 @@ public interface IXLCell
 
     IXLCell SetFormulaA1(string formula);
 
+    /// <summary>
+    /// Set a formula that uses the Excel 365+ dynamic array engine. Unlike
+    /// <see cref="SetFormulaA1"/>, a dynamic array formula won't get the
+    /// implicit intersection operator <c>@</c> prepended by Excel. Use this
+    /// for modern functions such as <c>IMAGE</c>, <c>FILTER</c>,
+    /// <c>SORT</c>, <c>UNIQUE</c>, <c>SEQUENCE</c>, etc.
+    /// </summary>
+    /// <param name="formula">Formula text (with or without leading <c>=</c>).</param>
+    IXLCell SetDynamicFormulaA1(string formula);
+
     IXLCell SetFormulaR1C1(string formula);
 
     /// <summary>

@@ -157,6 +157,7 @@ public partial class XLWorkbook
 
         GenerateWorkbookLevelParts(document, workbookPart, options, context);
         PreparePivotCaches(workbookPart, context);
+        EnsureDynamicArrayMetadata(workbookPart, context);
 
         foreach (var worksheet in WorksheetsInternal.Cast<XLWorksheet>().OrderBy(w => w.Position))
         {
@@ -224,6 +225,172 @@ public partial class XLWorkbook
                                  workbookPart.AddNewPart<WorkbookStylesPart>(
                                      context.RelIdGenerator.GetNext(RelType.Workbook));
         WorkbookStylesPartWriter.GenerateContent(workbookStylesPart, this, context);
+    }
+
+    /// <summary>
+    /// If any cell in the workbook has a dynamic array formula, ensure that the
+    /// <c>CellMetadataPart</c> (metadata.xml) contains the <c>XLDAPR</c> future
+    /// metadata entry required by Excel 365+ to suppress the implicit intersection
+    /// <c>@</c> operator. Sets <see cref="SaveContext.DynamicArrayMetaIndex"/> so
+    /// the sheet writer can emit the <c>cm</c> attribute on those cells.
+    /// </summary>
+    private void EnsureDynamicArrayMetadata(WorkbookPart workbookPart, SaveContext context)
+    {
+        var hasDynamicArray = WorksheetsInternal
+            .Cast<XLWorksheet>()
+            .Any(ws => ws.Internals.CellsCollection
+                .GetCells(c => c.HasFormula && c.Formula!.IsDynamicArray)
+                .Any());
+
+        if (!hasDynamicArray)
+            return;
+
+        // The XLDAPR metadata structure in metadata.xml consists of three parts:
+        // 1. metadataTypes - declares the "XLDAPR" type with its capabilities
+        // 2. futureMetadata - contains the dynamic array properties extension
+        // 3. cellMetadata - one record referencing the type, used by cm attribute on cells
+
+        var cellMetadataPart = workbookPart.CellMetadataPart;
+        if (cellMetadataPart is not null)
+        {
+            // Check if XLDAPR already exists in the metadata
+            var metadata = cellMetadataPart.Metadata;
+            if (metadata is not null)
+            {
+                var metadataTypes = metadata.MetadataTypes;
+                if (metadataTypes is not null)
+                {
+                    uint typeIndex = 1; // 1-based
+                    foreach (var mt in metadataTypes.Elements<MetadataType>())
+                    {
+                        if (mt.Name?.Value == "XLDAPR")
+                        {
+                            // Find the cellMetadata record that references this type
+                            var cellMeta = metadata.GetFirstChild<CellMetadata>();
+                            if (cellMeta is not null)
+                            {
+                                uint cmIndex = 1; // 1-based
+                                foreach (var bk in cellMeta.Elements<MetadataBlock>())
+                                {
+                                    var rc = bk.GetFirstChild<MetadataRecord>();
+                                    if (rc?.TypeIndex?.Value == typeIndex)
+                                    {
+                                        context.DynamicArrayMetaIndex = cmIndex;
+                                        return;
+                                    }
+                                    cmIndex++;
+                                }
+                            }
+
+                            // Type exists but no cellMetadata record for it - add one
+                            if (cellMeta is null)
+                            {
+                                cellMeta = new CellMetadata { Count = 0 };
+                                metadata.Append(cellMeta);
+                            }
+
+                            var newBlock = new MetadataBlock();
+                            newBlock.Append(new MetadataRecord { TypeIndex = typeIndex, Val = 0 });
+                            cellMeta.Append(newBlock);
+                            cellMeta.Count = (uint)(cellMeta.Count ?? 0) + 1;
+
+                            // cm is 1-based index of the newly added record
+                            context.DynamicArrayMetaIndex = cellMeta.Count.Value;
+                            return;
+                        }
+                        typeIndex++;
+                    }
+                }
+
+                // XLDAPR type doesn't exist - add everything
+                AppendXldaprToMetadata(metadata);
+                context.DynamicArrayMetaIndex = metadata.GetFirstChild<CellMetadata>()!.Count!.Value;
+                return;
+            }
+        }
+
+        // No metadata part at all - create from scratch
+        cellMetadataPart = workbookPart.AddNewPart<CellMetadataPart>(
+            context.RelIdGenerator.GetNext(RelType.Workbook));
+
+        var newMetadata = CreateXldaprMetadata();
+        cellMetadataPart.Metadata = newMetadata;
+        context.DynamicArrayMetaIndex = 1;
+    }
+
+    /// <summary>
+    /// Create a new <see cref="Metadata"/> element with the XLDAPR dynamic array support.
+    /// </summary>
+    private static Metadata CreateXldaprMetadata()
+    {
+        var metadata = new Metadata();
+        AppendXldaprToMetadata(metadata);
+        return metadata;
+    }
+
+    /// <summary>
+    /// Append the XLDAPR metadata type, future metadata, and cell metadata record
+    /// to an existing <see cref="Metadata"/> element.
+    /// </summary>
+    private static void AppendXldaprToMetadata(Metadata metadata)
+    {
+        // 1. Add MetadataType
+        var metadataTypes = metadata.MetadataTypes;
+        if (metadataTypes is null)
+        {
+            metadataTypes = new MetadataTypes { Count = 0 };
+            metadata.Append(metadataTypes);
+        }
+
+        metadataTypes.Append(new MetadataType
+        {
+            Name = "XLDAPR",
+            MinSupportedVersion = 120000,
+            Copy = true,
+            PasteAll = true,
+            PasteValues = true,
+            Merge = true,
+            SplitFirst = true,
+            RowColumnShift = true,
+            ClearFormats = true,
+            ClearComments = true,
+            Assign = true,
+            Coerce = true,
+            CellMeta = true
+        });
+        metadataTypes.Count = (uint)(metadataTypes.Count ?? 0) + 1;
+
+        var typeIndex = metadataTypes.Count.Value; // 1-based index of the just-added type
+
+        // 2. Add FutureMetadata with dynamic array properties extension
+        var futureMetadata = new FutureMetadata { Name = "XLDAPR", Count = 1 };
+        var fmBlock = new FutureMetadataBlock();
+        var extList = new ExtensionList();
+        var ext = new Extension { Uri = "{bdbb8cdc-fa1e-496e-a857-3c3f30c029c3}" };
+
+        // The xda:dynamicArrayProperties element must be in the correct namespace
+        const string xdaNs = "http://schemas.microsoft.com/office/spreadsheetml/2017/dynamicarray";
+        var dynArrayProps = new OpenXmlUnknownElement("xda", "dynamicArrayProperties", xdaNs);
+        dynArrayProps.SetAttribute(new OpenXmlAttribute("", "fDynamic", "", "1"));
+        dynArrayProps.SetAttribute(new OpenXmlAttribute("", "fCollapsed", "", "0"));
+        ext.Append(dynArrayProps);
+        extList.Append(ext);
+        fmBlock.Append(extList);
+        futureMetadata.Append(fmBlock);
+        metadata.Append(futureMetadata);
+
+        // 3. Add CellMetadata record referencing the XLDAPR type
+        var cellMeta = metadata.GetFirstChild<CellMetadata>();
+        if (cellMeta is null)
+        {
+            cellMeta = new CellMetadata { Count = 0 };
+            metadata.Append(cellMeta);
+        }
+
+        var block = new MetadataBlock();
+        block.Append(new MetadataRecord { TypeIndex = typeIndex, Val = 0 });
+        cellMeta.Append(block);
+        cellMeta.Count = (uint)(cellMeta.Count ?? 0) + 1;
     }
 
     private void PreparePivotCaches(WorkbookPart workbookPart, SaveContext context)
