@@ -211,5 +211,6 @@ internal sealed class XLPivotCache : IXLPivotCache
     private void SetExcelDefaults()
     {
         SaveSourceData = true;
+        RefreshDataOnOpen = true;
     }
 }

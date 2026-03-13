@@ -59,7 +59,7 @@ internal sealed class PivotTableCacheDefinitionPartWriter
         #endregion MinRefreshableVersion
 
         pivotCacheDefinition.SaveData = pivotCache.SaveSourceData;
-        pivotCacheDefinition.RefreshOnLoad = true; //pt.RefreshDataOnOpen
+        pivotCacheDefinition.RefreshOnLoad = pivotCache.RefreshDataOnOpen;
 
         if (pivotCache.ItemsToRetainPerField == XLItemsToRetain.None)
             pivotCacheDefinition.MissingItemsLimit = 0U;

@@ -48,6 +48,7 @@ internal sealed class PivotTableCacheDefinitionPartReader
             }
 
             pivotCache.SaveSourceData = cacheDefinition.SaveData?.Value ?? true;
+            pivotCache.RefreshDataOnOpen = cacheDefinition.RefreshOnLoad?.Value ?? false;
         }
     }
 

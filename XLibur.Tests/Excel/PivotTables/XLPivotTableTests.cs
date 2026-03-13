@@ -798,14 +798,51 @@ public class XLPivotTableTests
         // but the table and original sheet are gone. It's possible to load
         // and save such a pivot table.
         // Opening the saved file in Excel throws an error 'Reference isn't valid'
-        // on load, because of `RefreshOnLoad` flag. That flag is always enabled because
-        // XLibur relies on Excel to rebuild the table and fix it.
+        // on load, because of `RefreshOnLoad` flag. That flag is enabled by default for
+        // newly created pivot caches (XLibur relies on Excel to rebuild the table and fix it).
         // At this time, there is no content, only shape, because we don't have an engine
         // to determine correct layout and values. Change RefreshDataOnOpen to 0 and change
         // PT in Excel to see the values (aka gimp on Excel PT engine).
         TestHelper.LoadSaveAndCompare(
             @"Other\PivotTableReferenceFiles\PivotTableWithoutSourceData-input.xlsx",
             @"Other\PivotTableReferenceFiles\PivotTableWithoutSourceData-output.xlsx");
+    }
+
+    [Test]
+    [Description("https://github.com/ClosedXML/ClosedXML/issues/2219")]
+    public void Pivot_field_item_hidden_flags_survive_round_trip()
+    {
+        // Pivot table has filters applied through hidden items (h="1") on row fields.
+        // Previously, the cache writer always set refreshOnLoad=true, causing Excel
+        // to rebuild the pivot table on open and lose all applied filters.
+        using var stream = TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"TryToLoad\Pivotfilters_lost_2219.xlsx"));
+        using var wb = new XLWorkbook(stream);
+
+        var pt = (XLPivotTable)wb.Worksheets.First().PivotTables.First();
+
+        // Field 2 (Modell) has items with h="1" (hidden) — these represent the applied filter.
+        var modellField = pt.PivotFields[2];
+        var hiddenItems = modellField.Items.Where(i => i.Hidden).ToList();
+        Assert.That(hiddenItems.Count, Is.GreaterThan(0), "Precondition: field should have hidden items");
+
+        // Save and reload
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+
+        ms.Position = 0;
+        using var wb2 = new XLWorkbook(ms);
+        var pt2 = (XLPivotTable)wb2.Worksheets.First().PivotTables.First();
+        var modellField2 = pt2.PivotFields[2];
+
+        // Hidden items must be preserved
+        var hiddenItems2 = modellField2.Items.Where(i => i.Hidden).ToList();
+        Assert.That(hiddenItems2.Count, Is.EqualTo(hiddenItems.Count),
+            "Hidden items (filters) should survive round-trip");
+
+        // RefreshOnLoad should not be forced to true
+        Assert.That(pt2.PivotCache.RefreshDataOnOpen, Is.False,
+            "RefreshDataOnOpen should preserve original value (false)");
     }
 
     [Test]
