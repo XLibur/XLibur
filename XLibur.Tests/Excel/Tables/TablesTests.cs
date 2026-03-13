@@ -1262,4 +1262,45 @@ public class TablesTests
         Assert.AreEqual(0, table.DataRowCount);
         Assert.IsNull(table.DataRange);
     }
+
+    [Test]
+    public void DataRange_FirstRowUsed_returns_null_when_no_used_rows()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        // Create a table with a header and one empty data row
+        ws.Cell("A1").Value = "Col1";
+        ws.Cell("B1").Value = "Col2";
+        ws.Cell("A2").Value = Blank.Value;
+        ws.Cell("B2").Value = Blank.Value;
+
+        var table = ws.Range("A1:B2").CreateTable("TestTable");
+        var dataRange = table.DataRange!;
+
+        // FirstRowUsed should return null, not throw NRE
+        Assert.IsNull(dataRange.FirstRowUsed());
+        Assert.IsNull(dataRange.LastRowUsed());
+    }
+
+    [Test]
+    public void DataRange_FirstRowUsed_returns_row_when_data_exists()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        ws.Cell("A1").Value = "Col1";
+        ws.Cell("B1").Value = "Col2";
+        ws.Cell("A2").Value = "Data1";
+        ws.Cell("B2").Value = "Data2";
+
+        var table = ws.Range("A1:B2").CreateTable("TestTable");
+        var dataRange = table.DataRange!;
+
+        var firstRow = dataRange.FirstRowUsed();
+        Assert.IsNotNull(firstRow);
+
+        var lastRow = dataRange.LastRowUsed();
+        Assert.IsNotNull(lastRow);
+    }
 }

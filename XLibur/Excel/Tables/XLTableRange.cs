@@ -55,7 +55,10 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
     internal XLTableRow? FirstRowUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool>? predicate = null)
     {
         if (predicate == null)
-            return new XLTableRow(this, (_range.FirstRowUsed(options)!));
+        {
+            var row = _range.FirstRowUsed(options);
+            return row is null ? null : new XLTableRow(this, row);
+        }
 
         int rowCount = _range.RowCount();
 
@@ -108,7 +111,10 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
     internal XLTableRow? LastRowUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool>? predicate = null)
     {
         if (predicate == null)
-            return new XLTableRow(this, (_range.LastRowUsed(options)!));
+        {
+            var row = _range.LastRowUsed(options);
+            return row is null ? null : new XLTableRow(this, row);
+        }
 
         int rowCount = _range.RowCount();
 
