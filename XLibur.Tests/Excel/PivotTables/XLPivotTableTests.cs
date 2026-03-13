@@ -964,6 +964,38 @@ public class XLPivotTableTests
     }
 
     [Test]
+    [Description("Loading an Excel-created workbook with a pivot table calculated field should not throw IncorrectElementsCount")]
+    public void PivotTable_with_calculated_field_can_be_loaded()
+    {
+        // The file has 3 database fields (datum, weekdag, verbruik) and 1 calculated field (Field1 = verbruik*2).
+        // Before the fix, ReadRecords compared record.ChildElements.Count (3) against FieldCount (4),
+        // causing IncorrectElementsCount. The fix uses DatabaseFieldCount (3) instead.
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\PivotTable\pivottable_customfield.xlsx"));
+        using var wb = new XLWorkbook(stream);
+
+        // Verify calculated field formula survived load
+        var pivotCache = wb.PivotCachesInternal.Cast<XLPivotCache>().First();
+        Assert.That(pivotCache.FieldCount, Is.EqualTo(4));
+        Assert.That(pivotCache.DatabaseFieldCount, Is.EqualTo(3));
+        Assert.That(pivotCache.GetCalculatedFieldFormula(3), Is.EqualTo("verbruik*2"));
+
+        // Round-trip: save and reload
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var doc = SpreadsheetDocument.Open(ms, false);
+        var cachePart = doc.WorkbookPart!.GetPartsOfType<PivotTableCacheDefinitionPart>().First();
+        var cacheFields = cachePart.PivotCacheDefinition.CacheFields!.Elements<CacheField>().ToList();
+        Assert.That(cacheFields.Count, Is.EqualTo(4));
+
+        var calcField = cacheFields[3];
+        Assert.That(calcField.Name?.Value, Is.EqualTo("Field1"));
+        Assert.That(calcField.Formula?.Value, Is.EqualTo("verbruik*2"));
+        Assert.That(calcField.DatabaseField?.Value, Is.False);
+    }
+
+    [Test]
     [Description("Pivot table with calculated field should round-trip without losing the formula (ClosedXML#885)")]
     public void PivotTableWithCalculatedField_RoundTrips()
     {
