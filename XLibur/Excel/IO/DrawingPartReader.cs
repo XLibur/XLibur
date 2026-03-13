@@ -68,8 +68,20 @@ internal static class DrawingPartReader
                 using var ms = new MemoryStream();
                 stream.CopyTo(ms);
                 var vsdp = XLWorkbook.GetPropertiesFromAnchor(anchor);
+                var pictureName = vsdp!.Name?.Value;
+                var pictureId = Convert.ToInt32(vsdp.Id!.Value);
 
-                var picture = ws.AddPicture(ms, vsdp!.Name!.Value!, Convert.ToInt32(vsdp!.Id!.Value)) as XLPicture;
+                // Empty name is valid per ECMA-376 (xsd:string, no minLength). Excel can produce such files.
+                XLPicture picture;
+                if (string.IsNullOrWhiteSpace(pictureName))
+                {
+                    picture = (XLPicture)ws.AddPicture(ms);
+                    picture.Id = pictureId;
+                }
+                else
+                {
+                    picture = (XLPicture)ws.AddPicture(ms, pictureName, pictureId);
+                }
                 picture!.RelId = imgId;
 
                 var spPr = anchor.Descendants<Xdr.ShapeProperties>().First();
