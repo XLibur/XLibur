@@ -191,6 +191,24 @@ public class CommentsTests
     }
 
     [Test]
+    public void Can_load_threaded_comment()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\ThreadedComment.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+        var c = ws.FirstCellUsed()!;
+
+        Assert.That(c.GetComment().Text, Is.EqualTo(@"[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    This is a threaded comment.
+Reply:
+    This is a reply."));
+    }
+
+    [Test]
     public void Can_load_comment_with_missing_textbox_in_vml()
     {
         // Create a workbook with a comment, then strip the textbox element from VML.
