@@ -20,6 +20,19 @@ internal sealed class XLInCellImageStore
     internal int Count => _images.Count;
 
     /// <summary>
+    /// Dispose all held <see cref="MemoryStream"/>s and release collections.
+    /// Called from <see cref="XLWorkbook.Dispose"/>.
+    /// </summary>
+    internal void Dispose()
+    {
+        foreach (var (stream, _) in _images)
+            stream.Dispose();
+
+        _images.Clear();
+        _hashToIndex.Clear();
+    }
+
+    /// <summary>
     /// Add an image blob to the store, deduplicating by content hash.
     /// </summary>
     /// <param name="imageStream">Stream containing image data. Position is read from current to end.</param>

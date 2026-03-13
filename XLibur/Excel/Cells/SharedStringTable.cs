@@ -33,6 +33,17 @@ internal sealed class SharedStringTable
     internal int Count => _table.Count - _freeIds.Count;
 
     /// <summary>
+    /// Release all entries so the memory can be reclaimed by GC.
+    /// Called from <see cref="XLWorkbook.Dispose"/>.
+    /// </summary>
+    internal void Clear()
+    {
+        _table.Clear();
+        _freeIds.Clear();
+        _reverseDict.Clear();
+    }
+
+    /// <summary>
     /// Pre-size internal data structures to avoid repeated resizing during bulk inserts.
     /// </summary>
     /// <param name="capacity">Expected number of unique strings.</param>

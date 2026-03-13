@@ -813,6 +813,16 @@ public partial class XLWorkbook : IXLWorkbook
     public void Dispose()
     {
         Worksheets.ForEach(w => ((XLWorksheet)w).Cleanup());
+
+        // Release calc engine and its heavy structures (DependencyTree,
+        // CalculationChain, ExpressionCache, ArrayPool buffers).
+        _calcEngine = null;
+
+        // Release shared string table entries and reverse dictionary.
+        SharedStringTable.Clear();
+
+        // Dispose in-cell image MemoryStreams and release collections.
+        InCellImages.Dispose();
     }
 
 
