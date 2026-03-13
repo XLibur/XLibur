@@ -129,11 +129,17 @@ internal static class WorkbookStylesPartWriter
             foreach (var c in worksheet.Internals.CellsCollection.GetCells())
                 styles.Add(c.StyleValue);
 
-            var xlPivotTableCustomFormats = worksheet.PivotTables
+            var xlPivotTableDataFieldFormats = worksheet.PivotTables
                 .SelectMany<XLPivotTable, XLPivotDataField>(pt => pt.DataFields)
                 .Where(x => x.NumberFormatValue is not null && !string.IsNullOrEmpty(x.NumberFormatValue.Format))
                 .Select(x => x.NumberFormatValue!.Format);
-            pivotCustomFormats.UnionWith(xlPivotTableCustomFormats);
+            pivotCustomFormats.UnionWith(xlPivotTableDataFieldFormats);
+
+            var xlPivotTableFieldFormats = worksheet.PivotTables
+                .SelectMany<XLPivotTable, XLPivotTableField>(pt => pt.PivotFields)
+                .Where(x => x.NumberFormatValue is not null && !string.IsNullOrEmpty(x.NumberFormatValue.Format))
+                .Select(x => x.NumberFormatValue!.Format);
+            pivotCustomFormats.UnionWith(xlPivotTableFieldFormats);
         }
 
         return (styles, pivotCustomFormats);

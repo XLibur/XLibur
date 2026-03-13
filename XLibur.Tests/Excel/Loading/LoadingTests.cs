@@ -195,6 +195,21 @@ public class LoadingTests
         ]));
     }
 
+    /// <summary>
+    /// Pivot table fields can have a <c>name</c> attribute that renames the field
+    /// from its cache source name. When loading, the renamed name is stored as
+    /// <c>CustomName</c> while the original cache name is <c>SourceName</c>.
+    /// Verify the file can be loaded and saved without errors (#2591).
+    /// </summary>
+    [Test]
+    public void CanLoadAndSavePivotTableWithRenamedColumns()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\load_pivottable_renamedcolumns_2591.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms, true);
+    }
+
     [Test]
     [Ignore("PT styles will be fixed in a different PR")]
     public void CanLoadPivotTableWithBorder()
