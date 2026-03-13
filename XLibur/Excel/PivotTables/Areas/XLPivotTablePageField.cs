@@ -107,6 +107,16 @@ internal sealed class XLPivotTablePageField : IXLPivotField
         return this;
     }
 
+    public IXLPivotField SetSubtotal(XLSubtotalFunction function, bool enabled)
+    {
+        if (enabled)
+            GetField().AddSubtotal(function);
+        else
+            GetField().RemoveSubtotal(function);
+
+        return this;
+    }
+
     public IXLPivotField AddSubtotal(XLSubtotalFunction value)
     {
         GetField().AddSubtotal(value);

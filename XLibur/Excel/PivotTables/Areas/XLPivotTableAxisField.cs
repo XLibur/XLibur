@@ -58,19 +58,7 @@ internal sealed class XLPivotTableAxisField : IXLPivotField
 
     public IReadOnlyCollection<XLSubtotalFunction> Subtotals
     {
-        get
-        {
-            var subtotal = GetField().Subtotals;
-            var isCustomSubtotal = subtotal.Count > 1 || (subtotal.Count > 0 && !subtotal.Contains(XLSubtotalFunction.Automatic));
-            if (isCustomSubtotal)
-            {
-                // When subtotal is custom, the automatic is not shown
-                subtotal = new HashSet<XLSubtotalFunction>(subtotal);
-                subtotal.Remove(XLSubtotalFunction.Automatic);
-            }
-
-            return subtotal;
-        }
+        get => GetField().Subtotals;
     }
 
     public bool IncludeNewItemsInFilter
@@ -160,6 +148,16 @@ internal sealed class XLPivotTableAxisField : IXLPivotField
     public IXLPivotField SetSubtotalCaption(string value)
     {
         SubtotalCaption = value;
+        return this;
+    }
+
+    public IXLPivotField SetSubtotal(XLSubtotalFunction function, bool enabled)
+    {
+        if (enabled)
+            GetField().AddSubtotal(function);
+        else
+            GetField().RemoveSubtotal(function);
+
         return this;
     }
 

@@ -178,6 +178,7 @@ public class LoadingTests
         var subtotals = pt.RowLabels.Get("Group").Subtotals.ToArray();
 
         Assert.That(subtotals, Is.EquivalentTo([
+            XLSubtotalFunction.Automatic,
             XLSubtotalFunction.Average,
             XLSubtotalFunction.Count,
             XLSubtotalFunction.Sum

@@ -91,6 +91,20 @@ public interface IXLPivotField
 
     IXLPivotField SetSubtotalCaption(string value);
 
+    /// <summary>
+    /// <para>
+    /// Enable or disable a subtotal function for the pivot field. If the field already contains
+    /// the same subtotal function, it won't be added a second time.
+    /// </para>
+    /// <para>
+    /// <see cref="XLSubtotalFunction.Automatic"/> is a fallback and won't be displayed if any
+    /// other subtotal function is set.
+    /// </para>
+    /// </summary>
+    /// <param name="function">A subtotal function to change.</param>
+    /// <param name="enabled">Should the subtotal function be included in subtotals of the field.</param>
+    IXLPivotField SetSubtotal(XLSubtotalFunction function, bool enabled);
+
     IXLPivotField AddSubtotal(XLSubtotalFunction value);
 
     IXLPivotField SetIncludeNewItemsInFilter(bool value = true);

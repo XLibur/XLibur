@@ -22,7 +22,7 @@ internal sealed class XLPivotTableField
     {
         _pivotTable = pivotTable;
         ShowAll = false; // The XML default value is true, but Excel always has false, so let's follow Excel.
-        Subtotals = [XLSubtotalFunction.Automatic];
+        Subtotals = [];
     }
 
     internal XLPivotTable PivotTable => _pivotTable;
@@ -207,7 +207,9 @@ internal sealed class XLPivotTableField
 
     internal void AddSubtotal(XLSubtotalFunction value)
     {
-        Subtotals.Add(value);
+        if (!Subtotals.Add(value))
+            return;
+
         var subtotalItemType = GetItemTypeForSubtotal(value);
         _items.Add(new XLPivotFieldItem(this, null) { ItemType = subtotalItemType });
     }

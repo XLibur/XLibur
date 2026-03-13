@@ -133,10 +133,9 @@ internal sealed class XLPivotTableAxis : IXLPivotFields
     {
         var field = AddField(sourceName, customName);
 
-        // Excel by default adds a subtotal, but previous versions of XLibur didn't have them,
-        // so keep API behavior.
+        // New fields added via API get default automatic subtotal.
         if (field.Offset != FieldIndex.DataField.Value)
-            _pivotTable.PivotFields[field.Offset].RemoveSubtotal(XLSubtotalFunction.Automatic);
+            _pivotTable.PivotFields[field.Offset].AddSubtotal(XLSubtotalFunction.Automatic);
 
         return field;
     }
