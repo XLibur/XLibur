@@ -144,8 +144,8 @@ internal sealed class XLDataValidation : IXLDataValidation
     public bool InCellDropdown { get; set; }
     public string InputMessage { get; set; } = string.Empty;
     public string InputTitle { get; set; } = string.Empty;
-    public string MaxValue { get => maxValue; set { Validate(value); maxValue = value; } }
-    public string MinValue { get => minValue; set { Validate(value); minValue = value; } }
+    public string MaxValue { get => maxValue; set => maxValue = value; }
+    public string MinValue { get => minValue; set => minValue = value; }
     public XLOperator Operator { get; set; }
     public IEnumerable<IXLRange> Ranges => _ranges.AsEnumerable();
 
@@ -298,9 +298,4 @@ internal sealed class XLDataValidation : IXLDataValidation
 
     #endregion IXLDataValidation Members
 
-    private void Validate(string value)
-    {
-        if (value.Length > 255)
-            throw new ArgumentOutOfRangeException(nameof(value), "The maximum allowed length of the value is 255 characters.");
-    }
 }

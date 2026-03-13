@@ -268,28 +268,26 @@ public class DataValidationTests
     }
 
     [Test]
-    public void ListLengthOverflow()
+    public void LongListValue_SavedViaExtensionFormat()
     {
         var values = string.Join(",", Enumerable.Range(1, 20)
             .Select(i => Guid.NewGuid().ToString("N")));
 
-        Assert.True(values.Length > 255);
+        Assert.That(values.Length, Is.GreaterThan(255));
 
         using var wb = new XLWorkbook();
         var dv = wb.AddWorksheet("Sheet 1").Cell(1, 1).GetDataValidation();
+        dv.List(values);
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => dv.List(values));
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-        {
-            dv.TextLength.Between(0, 5);
-            dv.MinValue = values;
-        });
+        Assert.That(dv.Value, Is.EqualTo("\"" + values + "\""));
 
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-        {
-            dv.TextLength.Between(0, 5);
-            dv.MaxValue = values;
-        });
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+
+        ms.Position = 0;
+        using var wb2 = new XLWorkbook(ms);
+        var dv2 = wb2.Worksheet(1).Cell(1, 1).GetDataValidation();
+        Assert.That(dv2.Value, Is.EqualTo("\"" + values + "\""));
     }
 
     [Test]

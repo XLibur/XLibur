@@ -35,9 +35,12 @@ internal sealed class DataValidationWriter
             var (minReferencesAnotherSheet, minValue) = UsesExternalSheet(xlWorksheet, dv.MinValue);
             var (maxReferencesAnotherSheet, maxValue) = UsesExternalSheet(xlWorksheet, dv.MaxValue);
 
-            if (minReferencesAnotherSheet || maxReferencesAnotherSheet)
+            // Standard <dataValidation> element limits formula1/formula2 to 255 chars.
+            // Longer formulas or formulas referencing another sheet must use X14 extension.
+            var formulaTooLong = minValue.Length > 255 || maxValue.Length > 255;
+            if (minReferencesAnotherSheet || maxReferencesAnotherSheet || formulaTooLong)
             {
-                // We're dealing with a data validation that references another sheet so has to be saved to extensions
+                // We're dealing with a data validation that references another sheet or has long formulas, so has to be saved to extensions
                 dataValidationsExtension.Add((dv, minValue, maxValue));
             }
             else
