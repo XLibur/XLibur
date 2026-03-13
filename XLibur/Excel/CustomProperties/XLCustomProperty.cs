@@ -41,7 +41,7 @@ internal sealed class XLCustomProperty : IXLCustomProperty
             if (Value is bool)
                 return XLCustomPropertyType.Boolean;
 
-            if (double.TryParse(Value.ToString(), out double dTest))
+            if (Value is double or int or long or float or decimal or short or byte or sbyte or ushort or uint or ulong)
                 return XLCustomPropertyType.Number;
 
             return XLCustomPropertyType.Text;
