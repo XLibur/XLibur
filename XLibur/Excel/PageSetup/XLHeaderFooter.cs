@@ -44,8 +44,6 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
         retVal += leftText.Length > 0 ? "&L" + leftText : string.Empty;
         retVal += centerText.Length > 0 ? "&C" + centerText : string.Empty;
         retVal += rightText.Length > 0 ? "&R" + rightText : string.Empty;
-        if (retVal.Length > 255)
-            throw new ArgumentOutOfRangeException("Headers and Footers cannot be longer than 255 characters (including style markups)");
         return retVal;
     }
 
