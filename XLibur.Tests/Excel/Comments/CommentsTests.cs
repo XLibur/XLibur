@@ -199,14 +199,22 @@ public class CommentsTests
         var ws = wb.Worksheets.First();
         var c = ws.FirstCellUsed()!;
 
-        Assert.That(c.GetComment().Text, Is.EqualTo(@"[Threaded comment]
+        // Threaded comment text is loaded from the threadedComments part,
+        // replacing the legacy placeholder from comments1.xml.
+        Assert.That(c.GetComment().Text, Is.EqualTo(
+            "This is a threaded comment.\nThis is a reply."));
+    }
 
-Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+    [Test]
+    public void Can_load_threaded_comment_text() // #2344
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\celltextcomment_load_2344.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+        var c = ws.Cell("B2");
 
-Comment:
-    This is a threaded comment.
-Reply:
-    This is a reply."));
+        Assert.That(c.HasComment, Is.True);
+        Assert.That(c.GetComment().Text, Is.EqualTo("This is the comment in b2"));
     }
 
     [Test]

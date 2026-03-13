@@ -12,6 +12,7 @@ using System.Xml.Linq;
 using XLibur.Excel.IO;
 using Ap = DocumentFormat.OpenXml.ExtendedProperties;
 using Op = DocumentFormat.OpenXml.CustomProperties;
+using TC = DocumentFormat.OpenXml.Office2019.Excel.ThreadedComments;
 
 namespace XLibur.Excel;
 
@@ -512,6 +513,55 @@ public partial class XLWorkbook
             }
 
             #endregion LoadComments
+
+            #region ReplaceThreadedCommentText
+
+            // Modern Excel stores threaded comments in a separate part. The legacy
+            // comments1.xml contains only a placeholder ("[Threaded comment] ...").
+            // When the threaded comments part is present, replace the placeholder
+            // text with the actual comment text from the threaded comments.
+            foreach (var threadedPart in worksheetPart.WorksheetThreadedCommentsParts)
+            {
+                var threadedComments = threadedPart.ThreadedComments;
+                if (threadedComments is null)
+                    continue;
+
+                // Group threaded comments by cell reference. Root comments have no
+                // ParentId; replies reference the root via ParentId. Order: root
+                // first (no ParentId), then replies sorted by timestamp.
+                var byRef = threadedComments
+                    .Elements<TC.ThreadedComment>()
+                    .GroupBy(tc => tc.Ref?.Value ?? string.Empty);
+
+                foreach (var group in byRef)
+                {
+                    if (string.IsNullOrEmpty(group.Key))
+                        continue;
+
+                    var cell = ws.Cell(group.Key);
+                    if (cell?.SliceComment is null)
+                        continue;
+
+                    var ordered = group
+                        .OrderBy(tc => tc.ParentId is not null ? 1 : 0)
+                        .ThenBy(tc => tc.DT?.Value)
+                        .ToList();
+
+                    var texts = ordered
+                        .Select(tc => tc.ThreadedCommentText?.InnerText)
+                        .Where(t => !string.IsNullOrEmpty(t))
+                        .ToList();
+
+                    if (texts.Count > 0)
+                    {
+                        var xlComment = cell.SliceComment;
+                        xlComment.ClearText();
+                        xlComment.AddText(string.Join("\n", texts));
+                    }
+                }
+            }
+
+            #endregion ReplaceThreadedCommentText
         }
 
         var workbook = workbookPart.Workbook;
