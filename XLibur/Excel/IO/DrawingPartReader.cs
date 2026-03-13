@@ -63,7 +63,9 @@ internal static class DrawingPartReader
                 //If imgId is null, we're probably dealing with a TextBox (or another shape) instead of a picture
                 if (imgId == null) continue;
 
-                var imagePart = drawingsPart.GetPartById(imgId);
+                // Skip external image references (e.g. URLs) — they have no embedded part.
+                if (!drawingsPart.TryGetPartById(imgId, out var imagePart))
+                    continue;
                 using var stream = imagePart.GetStream();
                 using var ms = new MemoryStream();
                 stream.CopyTo(ms);

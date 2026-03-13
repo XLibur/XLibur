@@ -29,6 +29,15 @@ public class LoadingTests
         TestHelper.LoadFile(file);
     }
 
+    [Test]
+    public void Can_load_and_save_file_with_external_image_reference()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath("TryToLoad.external_image_reference_2608.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        using var ms = new MemoryStream();
+        Assert.DoesNotThrow(() => wb.SaveAs(ms));
+    }
+
     [TestCaseSource(nameof(LOFiles))]
     public void CanSuccessfullyLoadLOFiles(string file)
     {
