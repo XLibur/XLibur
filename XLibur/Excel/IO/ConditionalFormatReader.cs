@@ -93,7 +93,7 @@ internal static class ConditionalFormatReader
             }
 
             if (!string.IsNullOrWhiteSpace(fr.Text))
-                conditionalFormat.Values.Add(GetFormula(fr.Text!.Value!));
+                conditionalFormat.Values.Add(new XLFormula { _value = fr.Text!.Value!, IsFormula = false });
 
             if (conditionalFormat.ConditionalFormatType == XLConditionalFormatType.Top10)
             {

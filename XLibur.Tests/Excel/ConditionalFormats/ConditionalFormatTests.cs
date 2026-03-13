@@ -203,4 +203,36 @@ public class ConditionalFormatTests
             Assert.That(cf.Values[1].Value, Is.EqualTo(expectedFormula));
         }
     }
+
+    [Test]
+    public void ContainsText_with_pipe_in_value_can_be_loaded()
+    {
+        // Issue #2754: conditional format with pipe character in cell value
+        // should load without parsing errors.
+        TestHelper.LoadAndAssert((_, ws) =>
+        {
+            var cf = ws.ConditionalFormats
+                .Single(cf => cf.ConditionalFormatType == XLConditionalFormatType.ContainsText);
+            Assert.That(cf.Values[1].Value, Is.EqualTo("70|"));
+        }, @"Other\ConditionalFormats\ConditionalFormat_cellvalueequal_2754.xlsx");
+    }
+
+    [Test]
+    public void ContainsText_with_pipe_in_value_round_trips()
+    {
+        // Issue #2754: conditional format with pipe character in value
+        // should survive save and reload.
+        using var stream = TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"Other\ConditionalFormats\ConditionalFormat_cellvalueequal_2754.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var wb2 = new XLWorkbook(ms);
+        var ws = wb2.Worksheets.First();
+        var cf = ws.ConditionalFormats
+            .Single(cf => cf.ConditionalFormatType == XLConditionalFormatType.ContainsText);
+        Assert.That(cf.Values[1].Value, Is.EqualTo("70|"));
+    }
 }
