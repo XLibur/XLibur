@@ -769,4 +769,14 @@ public class LoadingTests
             Assert.NotNull(wb.Worksheet("Pivot").PivotTables.Contains("PivotTable1"));
         }, @"TryToLoad\DialogSheet.xlsx");
     }
+
+    // https://github.com/ClosedXML/ClosedXML/issues/2619
+    [Test]
+    public void Can_load_google_sheets_file_with_table_and_autofilter_on_same_range()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\GoogleSheets\2619_exported-broken2.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+        Assert.That(ws.Tables.Count(), Is.GreaterThanOrEqualTo(1));
+    }
 }

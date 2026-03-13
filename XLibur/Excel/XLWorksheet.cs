@@ -1240,9 +1240,10 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
         return Table(range, TableNameGenerator.GetNewTableName(Workbook), addToTables, setAutofilter);
     }
 
-    public IXLTable Table(XLRange range, string name, bool addToTables, bool setAutofilter = true)
+    public IXLTable Table(XLRange range, string name, bool addToTables, bool setAutofilter = true, bool validateOverlap = true)
     {
-        CheckRangeNotOverlappingOtherEntities(range);
+        if (validateOverlap)
+            CheckRangeNotOverlappingOtherEntities(range);
         XLRangeAddress rangeAddress;
         if (range.Rows().Count() == 1)
         {

@@ -368,7 +368,7 @@ public partial class XLWorkbook
                 if (string.IsNullOrWhiteSpace(tableName))
                     throw new InvalidDataException("The table name is missing.");
 
-                var xlTable = ws.Range(reference)!.CreateTable(tableName, false) as XLTable;
+                var xlTable = ws.Table(ws.Range(reference)!, tableName, addToTables: true, setAutofilter: false, validateOverlap: false) as XLTable;
                 xlTable!.RelId = relId;
 
                 if (dTable.HeaderRowCount != null && dTable.HeaderRowCount == 0)
