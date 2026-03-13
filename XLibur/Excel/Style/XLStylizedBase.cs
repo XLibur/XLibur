@@ -94,12 +94,12 @@ internal abstract class XLStylizedBase : IXLStylized
         }
     }
 
-    private static readonly ReferenceEqualityComparer<XLStyleValue> _comparer = new();
+    private static readonly ReferenceEqualityComparer<XLStyleValue> Comparer = new();
 
     void IXLStylized.ModifyStyle(Func<XLStyleKey, XLStyleKey> modification)
     {
         var children = GetChildrenRecursively(this)
-            .GroupBy(child => child.StyleValue, _comparer);
+            .GroupBy(child => child.StyleValue, Comparer);
 
         foreach (var group in children)
         {
@@ -137,7 +137,7 @@ internal abstract class XLStylizedBase : IXLStylized
     {
         public bool Equals(T? x, T? y) => ReferenceEquals(x, y);
 
-        public int GetHashCode(T obj) => RuntimeHelpers.GetHashCode(obj!);
+        public int GetHashCode(T obj) => RuntimeHelpers.GetHashCode(obj);
     }
 
     #endregion Nested classes

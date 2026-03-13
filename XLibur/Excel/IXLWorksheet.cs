@@ -25,14 +25,14 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     double RowHeight { get; set; }
 
     /// <summary>
-    /// Gets or sets the name (caption) of this worksheet. The sheet rename also renames sheet
+    /// Gets or sets the name (caption) of this worksheet. The sheet rename also renames a sheet
     /// in formulas and defined names.
     /// </summary>
     string Name { get; set; }
 
     /// <summary>
     /// Gets or sets the position of the sheet.
-    /// <para>When setting the Position all other sheets' positions are shifted accordingly.</para>
+    /// <para>When setting the Position, all other sheets' positions are shifted accordingly.</para>
     /// </summary>
     int Position { get; set; }
 
@@ -81,7 +81,7 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     /// <summary>
     /// Gets the last non-empty row of the worksheet that contains a cell with a value.
     /// </summary>
-    /// <param name="options">The options to determine whether a cell is used.</param>
+    /// <param name="options">The option to determine whether a cell is used.</param>
     IXLRow? LastRowUsed(XLCellsUsedOptions options);
 
     /// <summary>
@@ -97,7 +97,7 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     /// <summary>
     /// Gets the first non-empty column of the worksheet that contains a cell with a value.
     /// </summary>
-    /// <param name="options">The options to determine whether a cell is used.</param>
+    /// <param name="options">The option to determine whether a cell is used.</param>
     IXLColumn? FirstColumnUsed(XLCellsUsedOptions options);
 
     /// <summary>
@@ -113,7 +113,7 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     /// <summary>
     /// Gets the last non-empty column of the worksheet that contains a cell with a value.
     /// </summary>
-    /// <param name="options">The options to determine whether a cell is used.</param>
+    /// <param name="options">The option to determine whether a cell is used.</param>
     IXLColumn? LastColumnUsed(XLCellsUsedOptions options);
 
     /// <summary>

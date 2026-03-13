@@ -162,7 +162,7 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     IXLWorksheet AddWorksheet(DataTable dataTable, string sheetName);
 
     /// <summary>
-    /// Add a worksheet with a table at Cell(row:1, column:1).
+    /// Add a worksheet with a table at Cell(row:1, column: 1).
     /// </summary>
     /// <param name="dataTable">dataTable to insert as Excel Table</param>
     /// <param name="sheetName">Worksheet name</param>
@@ -181,7 +181,7 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     /// </summary>
     /// <param name="expression">Formula expression to evaluate.</param>
     /// <exception cref="MissingContextException">
-    /// If the expression contains a function that requires a context (e.g. current cell or worksheet).
+    /// If the expression contains a function that requires a context (e.g., current cell or worksheet).
     /// </exception>
     XLCellValue Evaluate(string expression);
 
@@ -200,7 +200,7 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     /// <para>
     /// <example>
     /// Requested name <c>Sheet1!Name</c> will first try to find <c>Name</c> in a sheet
-    /// <c>Sheet1</c> (if such sheet exists) and if not found there, tries to find <c>Name</c>
+    /// <c>Sheet1</c> (if such a sheet exists) and if not found there, tries to find <c>Name</c>
     /// in workbook.
     /// </example>
     /// </para>

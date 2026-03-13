@@ -1,4 +1,3 @@
-// Keep this file CodeMaid organized and cleaned
 using System;
 using System.Drawing;
 using XLibur.Graphics;
@@ -16,7 +15,7 @@ public class LoadOptions
     public static IXLGraphicEngine? DefaultGraphicEngine { internal get; set; }
 
     /// <summary>
-    /// Should all formulas in a workbook be recalculated during load? Default value is <c>false</c>.
+    /// Should all formulas in a workbook be recalculated during a load? Default value is <c>false</c>.
     /// </summary>
     public bool RecalculateAllFormulas { get; set; } = false;
 

@@ -40,18 +40,16 @@ internal sealed class XLStyle : IXLStyle
 
     internal XLStyleKey Key
     {
-        get { return Value.Key; }
-        private set
-        {
-            Value = XLStyleValue.FromKey(ref value);
-        }
+        get => Value.Key;
+        private set => Value = XLStyleValue.FromKey(ref value);
     }
 
     #endregion properties
 
     #region constructors
 
-    public XLStyle(IXLStylized container, IXLStyle? initialStyle = null, bool useDefaultModify = true) : this(container, GenerateKey(initialStyle))
+    public XLStyle(IXLStylized container, IXLStyle? initialStyle = null, bool useDefaultModify = true) : this(container,
+        GenerateKey(initialStyle))
     {
     }
 
@@ -112,6 +110,7 @@ internal sealed class XLStyle : IXLStyle
         Value = Value.GetTransition(transitionHash)
                 ?? Value.StoreTransition(transitionHash, ResolveBorder(newBorderKey));
         ((XLCell)_container!).SetStyleValue(Value);
+        return;
 
         XLStyleValue ResolveBorder(XLBorderKey key)
         {
@@ -127,6 +126,7 @@ internal sealed class XLStyle : IXLStyle
         Value = Value.GetTransition(transitionHash)
                 ?? Value.StoreTransition(transitionHash, ResolveFill(newFillKey));
         ((XLCell)_container!).SetStyleValue(Value);
+        return;
 
         XLStyleValue ResolveFill(XLFillKey key)
         {
@@ -142,6 +142,7 @@ internal sealed class XLStyle : IXLStyle
         Value = Value.GetTransition(transitionHash)
                 ?? Value.StoreTransition(transitionHash, ResolveAlignment(newAlignmentKey));
         ((XLCell)_container!).SetStyleValue(Value);
+        return;
 
         XLStyleValue ResolveAlignment(XLAlignmentKey key)
         {
@@ -157,6 +158,7 @@ internal sealed class XLStyle : IXLStyle
         Value = Value.GetTransition(transitionHash)
                 ?? Value.StoreTransition(transitionHash, ResolveNumberFormat(newNumberFormatKey));
         ((XLCell)_container!).SetStyleValue(Value);
+        return;
 
         XLStyleValue ResolveNumberFormat(XLNumberFormatKey key)
         {
@@ -172,6 +174,7 @@ internal sealed class XLStyle : IXLStyle
         Value = Value.GetTransition(transitionHash)
                 ?? Value.StoreTransition(transitionHash, ResolveProtection(newProtectionKey));
         ((XLCell)_container!).SetStyleValue(Value);
+        return;
 
         XLStyleValue ResolveProtection(XLProtectionKey key)
         {
@@ -222,7 +225,10 @@ internal sealed class XLStyle : IXLStyle
         return this;
     }
 
-    internal void SyncValue(XLStyleValue value) { Value = value; }
+    internal void SyncValue(XLStyleValue value)
+    {
+        Value = value;
+    }
 
     /// <summary>
     /// True when the container is an XLCell, allowing fast-path style modifications without closures.
@@ -252,10 +258,7 @@ internal sealed class XLStyle : IXLStyle
                 _cachedFont.SyncValue(Value.Font);
             return _cachedFont;
         }
-        set
-        {
-            Modify(k => k with { Font = XLFont.GenerateKey(value) });
-        }
+        set { Modify(k => k with { Font = XLFont.GenerateKey(value) }); }
     }
 
     public IXLAlignment Alignment
@@ -268,10 +271,7 @@ internal sealed class XLStyle : IXLStyle
                 _cachedAlignment.SyncValue(Value.Alignment);
             return _cachedAlignment;
         }
-        set
-        {
-            Modify(k => k with { Alignment = XLAlignment.GenerateKey(value) });
-        }
+        set { Modify(k => k with { Alignment = XLAlignment.GenerateKey(value) }); }
     }
 
     public IXLBorder Border
@@ -284,10 +284,7 @@ internal sealed class XLStyle : IXLStyle
                 _cachedBorder.SyncValue(Value.Border);
             return _cachedBorder;
         }
-        set
-        {
-            Modify(k => k with { Border = XLBorder.GenerateKey(value) });
-        }
+        set { Modify(k => k with { Border = XLBorder.GenerateKey(value) }); }
     }
 
     public IXLFill Fill
@@ -300,19 +297,13 @@ internal sealed class XLStyle : IXLStyle
                 _cachedFill.SyncValue(Value.Fill);
             return _cachedFill;
         }
-        set
-        {
-            Modify(k => k with { Fill = XLFill.GenerateKey(value) });
-        }
+        set { Modify(k => k with { Fill = XLFill.GenerateKey(value) }); }
     }
 
     public bool IncludeQuotePrefix
     {
-        get { return Value.IncludeQuotePrefix; }
-        set
-        {
-            Modify(k => k with { IncludeQuotePrefix = value });
-        }
+        get => Value.IncludeQuotePrefix;
+        set { Modify(k => k with { IncludeQuotePrefix = value }); }
     }
 
     public IXLStyle SetIncludeQuotePrefix(bool includeQuotePrefix = true)
@@ -331,10 +322,7 @@ internal sealed class XLStyle : IXLStyle
                 _cachedNumberFormat.SyncValue(Value.NumberFormat);
             return _cachedNumberFormat;
         }
-        set
-        {
-            Modify(k => k with { NumberFormat = XLNumberFormat.GenerateKey(value) });
-        }
+        set { Modify(k => k with { NumberFormat = XLNumberFormat.GenerateKey(value) }); }
     }
 
     public IXLProtection Protection
@@ -347,16 +335,10 @@ internal sealed class XLStyle : IXLStyle
                 _cachedProtection.SyncValue(Value.Protection);
             return _cachedProtection;
         }
-        set
-        {
-            Modify(k => k with { Protection = XLProtection.GenerateKey(value) });
-        }
+        set { Modify(k => k with { Protection = XLProtection.GenerateKey(value) }); }
     }
 
-    public IXLNumberFormat DateFormat
-    {
-        get { return NumberFormat; }
-    }
+    public IXLNumberFormat DateFormat => NumberFormat;
 
     #endregion IXLStyle members
 

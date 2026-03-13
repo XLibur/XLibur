@@ -68,18 +68,21 @@ internal static class EnumConverter
         "minor"
     ];
 
-    public static string ToOpenXml(this XLFontScheme value)
-        => XLFontSchemeStrings[(int)value];
-
-    public static FontSchemeValues ToOpenXmlEnum(this XLFontScheme value)
+    extension(XLFontScheme value)
     {
-        return value switch
+        public string ToOpenXml()
+            => XLFontSchemeStrings[(int)value];
+
+        public FontSchemeValues ToOpenXmlEnum()
         {
-            XLFontScheme.None => FontSchemeValues.None,
-            XLFontScheme.Major => FontSchemeValues.Major,
-            XLFontScheme.Minor => FontSchemeValues.Minor,
-            _ => throw new ArgumentOutOfRangeException()
-        };
+            return value switch
+            {
+                XLFontScheme.None => FontSchemeValues.None,
+                XLFontScheme.Major => FontSchemeValues.Major,
+                XLFontScheme.Minor => FontSchemeValues.Minor,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+        }
     }
 
     public static PatternValues ToOpenXml(this XLFillPatternValues value) => value switch
@@ -567,13 +570,14 @@ internal static class EnumConverter
         return OrientationMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<VerticalAlignmentRunValues, XLFontVerticalTextAlignmentValues> VerticalAlignmentRunMap =
-        new Dictionary<VerticalAlignmentRunValues, XLFontVerticalTextAlignmentValues>
-        {
-            { VerticalAlignmentRunValues.Baseline, XLFontVerticalTextAlignmentValues.Baseline },
-            { VerticalAlignmentRunValues.Subscript, XLFontVerticalTextAlignmentValues.Subscript },
-            { VerticalAlignmentRunValues.Superscript, XLFontVerticalTextAlignmentValues.Superscript },
-        };
+    private static readonly IReadOnlyDictionary<VerticalAlignmentRunValues, XLFontVerticalTextAlignmentValues>
+        VerticalAlignmentRunMap =
+            new Dictionary<VerticalAlignmentRunValues, XLFontVerticalTextAlignmentValues>
+            {
+                { VerticalAlignmentRunValues.Baseline, XLFontVerticalTextAlignmentValues.Baseline },
+                { VerticalAlignmentRunValues.Subscript, XLFontVerticalTextAlignmentValues.Subscript },
+                { VerticalAlignmentRunValues.Superscript, XLFontVerticalTextAlignmentValues.Superscript },
+            };
 
 
     public static XLFontVerticalTextAlignmentValues ToXLibur(this VerticalAlignmentRunValues value)
@@ -634,33 +638,35 @@ internal static class EnumConverter
         return BorderStyleMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<HorizontalAlignmentValues, XLAlignmentHorizontalValues> HorizontalAlignmentMap =
-        new Dictionary<HorizontalAlignmentValues, XLAlignmentHorizontalValues>
-        {
-            { HorizontalAlignmentValues.Center, XLAlignmentHorizontalValues.Center },
-            { HorizontalAlignmentValues.CenterContinuous, XLAlignmentHorizontalValues.CenterContinuous },
-            { HorizontalAlignmentValues.Distributed, XLAlignmentHorizontalValues.Distributed },
-            { HorizontalAlignmentValues.Fill, XLAlignmentHorizontalValues.Fill },
-            { HorizontalAlignmentValues.General, XLAlignmentHorizontalValues.General },
-            { HorizontalAlignmentValues.Justify, XLAlignmentHorizontalValues.Justify },
-            { HorizontalAlignmentValues.Left, XLAlignmentHorizontalValues.Left },
-            { HorizontalAlignmentValues.Right, XLAlignmentHorizontalValues.Right },
-        };
+    private static readonly IReadOnlyDictionary<HorizontalAlignmentValues, XLAlignmentHorizontalValues>
+        HorizontalAlignmentMap =
+            new Dictionary<HorizontalAlignmentValues, XLAlignmentHorizontalValues>
+            {
+                { HorizontalAlignmentValues.Center, XLAlignmentHorizontalValues.Center },
+                { HorizontalAlignmentValues.CenterContinuous, XLAlignmentHorizontalValues.CenterContinuous },
+                { HorizontalAlignmentValues.Distributed, XLAlignmentHorizontalValues.Distributed },
+                { HorizontalAlignmentValues.Fill, XLAlignmentHorizontalValues.Fill },
+                { HorizontalAlignmentValues.General, XLAlignmentHorizontalValues.General },
+                { HorizontalAlignmentValues.Justify, XLAlignmentHorizontalValues.Justify },
+                { HorizontalAlignmentValues.Left, XLAlignmentHorizontalValues.Left },
+                { HorizontalAlignmentValues.Right, XLAlignmentHorizontalValues.Right },
+            };
 
     public static XLAlignmentHorizontalValues ToXLibur(this HorizontalAlignmentValues value)
     {
         return HorizontalAlignmentMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<VerticalAlignmentValues, XLAlignmentVerticalValues> VerticalAlignmentMap =
-        new Dictionary<VerticalAlignmentValues, XLAlignmentVerticalValues>
-        {
-            { VerticalAlignmentValues.Bottom, XLAlignmentVerticalValues.Bottom },
-            { VerticalAlignmentValues.Center, XLAlignmentVerticalValues.Center },
-            { VerticalAlignmentValues.Distributed, XLAlignmentVerticalValues.Distributed },
-            { VerticalAlignmentValues.Justify, XLAlignmentVerticalValues.Justify },
-            { VerticalAlignmentValues.Top, XLAlignmentVerticalValues.Top },
-        };
+    private static readonly IReadOnlyDictionary<VerticalAlignmentValues, XLAlignmentVerticalValues>
+        VerticalAlignmentMap =
+            new Dictionary<VerticalAlignmentValues, XLAlignmentVerticalValues>
+            {
+                { VerticalAlignmentValues.Bottom, XLAlignmentVerticalValues.Bottom },
+                { VerticalAlignmentValues.Center, XLAlignmentVerticalValues.Center },
+                { VerticalAlignmentValues.Distributed, XLAlignmentVerticalValues.Distributed },
+                { VerticalAlignmentValues.Justify, XLAlignmentVerticalValues.Justify },
+                { VerticalAlignmentValues.Top, XLAlignmentVerticalValues.Top },
+            };
 
     public static XLAlignmentVerticalValues ToXLibur(this VerticalAlignmentValues value)
     {
@@ -778,13 +784,14 @@ internal static class EnumConverter
         return DataValidationMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<DataValidationErrorStyleValues, XLErrorStyle> DataValidationErrorStyleMap =
-        new Dictionary<DataValidationErrorStyleValues, XLErrorStyle>
-        {
-            { DataValidationErrorStyleValues.Information, XLErrorStyle.Information },
-            { DataValidationErrorStyleValues.Warning, XLErrorStyle.Warning },
-            { DataValidationErrorStyleValues.Stop, XLErrorStyle.Stop },
-        };
+    private static readonly IReadOnlyDictionary<DataValidationErrorStyleValues, XLErrorStyle>
+        DataValidationErrorStyleMap =
+            new Dictionary<DataValidationErrorStyleValues, XLErrorStyle>
+            {
+                { DataValidationErrorStyleValues.Information, XLErrorStyle.Information },
+                { DataValidationErrorStyleValues.Warning, XLErrorStyle.Warning },
+                { DataValidationErrorStyleValues.Stop, XLErrorStyle.Stop },
+            };
 
     public static XLErrorStyle ToXLibur(this DataValidationErrorStyleValues value)
     {
@@ -851,22 +858,22 @@ internal static class EnumConverter
         return PhoneticMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<DataConsolidateFunctionValues, XLPivotSummary> DataConsolidateFunctionMap =
-        new Dictionary<DataConsolidateFunctionValues, XLPivotSummary>
-        {
-            { DataConsolidateFunctionValues.Sum, XLPivotSummary.Sum },
-            { DataConsolidateFunctionValues.Count, XLPivotSummary.Count },
-            { DataConsolidateFunctionValues.Average, XLPivotSummary.Average },
-            { DataConsolidateFunctionValues.Minimum, XLPivotSummary.Minimum },
-            { DataConsolidateFunctionValues.Maximum, XLPivotSummary.Maximum },
-            { DataConsolidateFunctionValues.Product, XLPivotSummary.Product },
-            { DataConsolidateFunctionValues.CountNumbers, XLPivotSummary.CountNumbers },
-            { DataConsolidateFunctionValues.StandardDeviation, XLPivotSummary.StandardDeviation },
-            { DataConsolidateFunctionValues.StandardDeviationP, XLPivotSummary.PopulationStandardDeviation },
-            { DataConsolidateFunctionValues.Variance, XLPivotSummary.Variance },
-            { DataConsolidateFunctionValues.VarianceP, XLPivotSummary.PopulationVariance },
-
-        };
+    private static readonly IReadOnlyDictionary<DataConsolidateFunctionValues, XLPivotSummary>
+        DataConsolidateFunctionMap =
+            new Dictionary<DataConsolidateFunctionValues, XLPivotSummary>
+            {
+                { DataConsolidateFunctionValues.Sum, XLPivotSummary.Sum },
+                { DataConsolidateFunctionValues.Count, XLPivotSummary.Count },
+                { DataConsolidateFunctionValues.Average, XLPivotSummary.Average },
+                { DataConsolidateFunctionValues.Minimum, XLPivotSummary.Minimum },
+                { DataConsolidateFunctionValues.Maximum, XLPivotSummary.Maximum },
+                { DataConsolidateFunctionValues.Product, XLPivotSummary.Product },
+                { DataConsolidateFunctionValues.CountNumbers, XLPivotSummary.CountNumbers },
+                { DataConsolidateFunctionValues.StandardDeviation, XLPivotSummary.StandardDeviation },
+                { DataConsolidateFunctionValues.StandardDeviationP, XLPivotSummary.PopulationStandardDeviation },
+                { DataConsolidateFunctionValues.Variance, XLPivotSummary.Variance },
+                { DataConsolidateFunctionValues.VarianceP, XLPivotSummary.PopulationVariance },
+            };
 
     public static XLPivotSummary ToXLibur(this DataConsolidateFunctionValues value)
     {
@@ -881,7 +888,9 @@ internal static class EnumConverter
             { ShowDataAsValues.Percent, XLPivotCalculation.PercentageOf },
             { ShowDataAsValues.PercentageDifference, XLPivotCalculation.PercentageDifferenceFrom },
             { ShowDataAsValues.RunTotal, XLPivotCalculation.RunningTotal },
-            { ShowDataAsValues.PercentOfRaw, XLPivotCalculation.PercentageOfRow }, // There's a typo in the OpenXML SDK =)
+            {
+                ShowDataAsValues.PercentOfRaw, XLPivotCalculation.PercentageOfRow
+            }, // There's a typo in the OpenXML SDK =)
             { ShowDataAsValues.PercentOfColumn, XLPivotCalculation.PercentageOfColumn },
             { ShowDataAsValues.PercentOfTotal, XLPivotCalculation.PercentageOfTotal },
             { ShowDataAsValues.Index, XLPivotCalculation.Index },
@@ -992,38 +1001,40 @@ internal static class EnumConverter
         return ConditionalFormatMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<ConditionalFormatValueObjectValues, XLCFContentType> ConditionalFormatValueObjectMap =
-        new Dictionary<ConditionalFormatValueObjectValues, XLCFContentType>
-        {
-            { ConditionalFormatValueObjectValues.Number, XLCFContentType.Number },
-            { ConditionalFormatValueObjectValues.Percent, XLCFContentType.Percent },
-            { ConditionalFormatValueObjectValues.Max, XLCFContentType.Maximum },
-            { ConditionalFormatValueObjectValues.Min, XLCFContentType.Minimum },
-            { ConditionalFormatValueObjectValues.Formula, XLCFContentType.Formula },
-            { ConditionalFormatValueObjectValues.Percentile, XLCFContentType.Percentile },
-        };
+    private static readonly IReadOnlyDictionary<ConditionalFormatValueObjectValues, XLCFContentType>
+        ConditionalFormatValueObjectMap =
+            new Dictionary<ConditionalFormatValueObjectValues, XLCFContentType>
+            {
+                { ConditionalFormatValueObjectValues.Number, XLCFContentType.Number },
+                { ConditionalFormatValueObjectValues.Percent, XLCFContentType.Percent },
+                { ConditionalFormatValueObjectValues.Max, XLCFContentType.Maximum },
+                { ConditionalFormatValueObjectValues.Min, XLCFContentType.Minimum },
+                { ConditionalFormatValueObjectValues.Formula, XLCFContentType.Formula },
+                { ConditionalFormatValueObjectValues.Percentile, XLCFContentType.Percentile },
+            };
 
     public static XLCFContentType ToXLibur(this ConditionalFormatValueObjectValues value)
     {
         return ConditionalFormatValueObjectMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<ConditionalFormattingOperatorValues, XLCFOperator> ConditionalFormattingOperatorMap =
-        new Dictionary<ConditionalFormattingOperatorValues, XLCFOperator>
-        {
-            { ConditionalFormattingOperatorValues.LessThan, XLCFOperator.LessThan },
-            { ConditionalFormattingOperatorValues.LessThanOrEqual, XLCFOperator.EqualOrLessThan },
-            { ConditionalFormattingOperatorValues.Equal, XLCFOperator.Equal },
-            { ConditionalFormattingOperatorValues.NotEqual, XLCFOperator.NotEqual },
-            { ConditionalFormattingOperatorValues.GreaterThanOrEqual, XLCFOperator.EqualOrGreaterThan },
-            { ConditionalFormattingOperatorValues.GreaterThan, XLCFOperator.GreaterThan },
-            { ConditionalFormattingOperatorValues.Between, XLCFOperator.Between },
-            { ConditionalFormattingOperatorValues.NotBetween, XLCFOperator.NotBetween },
-            { ConditionalFormattingOperatorValues.ContainsText, XLCFOperator.Contains },
-            { ConditionalFormattingOperatorValues.NotContains, XLCFOperator.NotContains },
-            { ConditionalFormattingOperatorValues.BeginsWith, XLCFOperator.StartsWith },
-            { ConditionalFormattingOperatorValues.EndsWith, XLCFOperator.EndsWith },
-        };
+    private static readonly IReadOnlyDictionary<ConditionalFormattingOperatorValues, XLCFOperator>
+        ConditionalFormattingOperatorMap =
+            new Dictionary<ConditionalFormattingOperatorValues, XLCFOperator>
+            {
+                { ConditionalFormattingOperatorValues.LessThan, XLCFOperator.LessThan },
+                { ConditionalFormattingOperatorValues.LessThanOrEqual, XLCFOperator.EqualOrLessThan },
+                { ConditionalFormattingOperatorValues.Equal, XLCFOperator.Equal },
+                { ConditionalFormattingOperatorValues.NotEqual, XLCFOperator.NotEqual },
+                { ConditionalFormattingOperatorValues.GreaterThanOrEqual, XLCFOperator.EqualOrGreaterThan },
+                { ConditionalFormattingOperatorValues.GreaterThan, XLCFOperator.GreaterThan },
+                { ConditionalFormattingOperatorValues.Between, XLCFOperator.Between },
+                { ConditionalFormattingOperatorValues.NotBetween, XLCFOperator.NotBetween },
+                { ConditionalFormattingOperatorValues.ContainsText, XLCFOperator.Contains },
+                { ConditionalFormattingOperatorValues.NotContains, XLCFOperator.NotContains },
+                { ConditionalFormattingOperatorValues.BeginsWith, XLCFOperator.StartsWith },
+                { ConditionalFormattingOperatorValues.EndsWith, XLCFOperator.EndsWith },
+            };
 
     public static XLCFOperator ToXLibur(this ConditionalFormattingOperatorValues value)
     {
@@ -1108,13 +1119,14 @@ internal static class EnumConverter
         return SparklineTypeMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<X14.SparklineAxisMinMaxValues, XLSparklineAxisMinMax> SparklineAxisMinMaxMap =
-        new Dictionary<X14.SparklineAxisMinMaxValues, XLSparklineAxisMinMax>
-        {
-            { X14.SparklineAxisMinMaxValues.Individual, XLSparklineAxisMinMax.Automatic },
-            { X14.SparklineAxisMinMaxValues.Group, XLSparklineAxisMinMax.SameForAll },
-            { X14.SparklineAxisMinMaxValues.Custom, XLSparklineAxisMinMax.Custom },
-        };
+    private static readonly IReadOnlyDictionary<X14.SparklineAxisMinMaxValues, XLSparklineAxisMinMax>
+        SparklineAxisMinMaxMap =
+            new Dictionary<X14.SparklineAxisMinMaxValues, XLSparklineAxisMinMax>
+            {
+                { X14.SparklineAxisMinMaxValues.Individual, XLSparklineAxisMinMax.Automatic },
+                { X14.SparklineAxisMinMaxValues.Group, XLSparklineAxisMinMax.SameForAll },
+                { X14.SparklineAxisMinMaxValues.Custom, XLSparklineAxisMinMax.Custom },
+            };
 
     public static XLSparklineAxisMinMax ToXLibur(this X14.SparklineAxisMinMaxValues value)
     {

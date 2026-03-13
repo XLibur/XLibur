@@ -27,8 +27,8 @@ internal sealed class XLProtection : IXLProtection
 
     internal XLProtectionKey Key
     {
-        get { return _value.Key; }
-        private set { _value = XLProtectionValue.FromKey(ref value); }
+        get => _value.Key;
+        private set => _value = XLProtectionValue.FromKey(ref value);
     }
 
     #endregion Properties
@@ -62,7 +62,7 @@ internal sealed class XLProtection : IXLProtection
 
     public bool Locked
     {
-        get { return Key.Locked; }
+        get => Key.Locked;
         set
         {
             if (Key.Locked == value) return;
@@ -75,7 +75,7 @@ internal sealed class XLProtection : IXLProtection
 
     public bool Hidden
     {
-        get { return Key.Hidden; }
+        get => Key.Hidden;
         set
         {
             if (Key.Hidden == value) return;

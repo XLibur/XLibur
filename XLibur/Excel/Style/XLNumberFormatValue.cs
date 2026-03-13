@@ -30,9 +30,9 @@ internal sealed class XLNumberFormatValue
     /// not explicitly written and might differ depending on culture. Custom number formats
     /// have a valid <see cref="Format"/> and the id is <c>-1</c>.
     /// </summary>
-    public int NumberFormatId { get { return Key.NumberFormatId; } }
+    public int NumberFormatId => Key.NumberFormatId;
 
-    public string Format { get { return Key.Format; } }
+    public string Format => Key.Format;
 
     private XLNumberFormatValue(XLNumberFormatKey key)
     {

@@ -9,10 +9,7 @@ internal sealed class XLStylizedEmpty : XLStylizedBase, IXLStylized
     {
     }
 
-    public override IXLRanges RangesUsed
-    {
-        get { return new XLRanges(); }
-    }
+    public override IXLRanges RangesUsed => new XLRanges();
 
     protected override IEnumerable<XLStylizedBase> Children
     {

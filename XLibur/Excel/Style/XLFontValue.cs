@@ -29,7 +29,7 @@ internal sealed class XLFontValue
     };
     internal static readonly XLFontValue Default = FromKey(ref DefaultKey);
 
-    public XLFontKey Key { get; private set; }
+    public XLFontKey Key { get; }
 
     public bool Bold => Key.Bold;
 
