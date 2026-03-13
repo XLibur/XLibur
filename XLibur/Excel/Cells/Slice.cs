@@ -230,6 +230,10 @@ internal sealed partial class Slice<TElement> : ISlice
         var rowLut = _data.Get(row - 1);
         if (rowLut is null)
         {
+            // Don't allocate a row Lut just to store the default value.
+            if (EqualityComparer<TElement>.Default.Equals(value, _defaultValue))
+                return;
+
             rowLut = new Lut<TElement>();
             _data.Set(row - 1, rowLut);
         }

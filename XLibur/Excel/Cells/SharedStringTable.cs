@@ -54,6 +54,16 @@ internal sealed class SharedStringTable
     }
 
     /// <summary>
+    /// Release excess capacity from internal collections after bulk loading is complete.
+    /// </summary>
+    internal void TrimExcess()
+    {
+        _table.TrimExcess();
+        _reverseDict.TrimExcess();
+        _freeIds.TrimExcess();
+    }
+
+    /// <summary>
     /// Get a string for specified id. Doesn't matter if it is a plain text or a rich text. In both cases, return text.
     /// </summary>
     internal string this[int id]

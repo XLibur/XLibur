@@ -682,6 +682,7 @@ public partial class XLWorkbook : IXLWorkbook
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(file);
         LoadSheetsFromTemplate(file);
+        SharedStringTable.TrimExcess();
     }
 
     /// <summary>
@@ -701,6 +702,7 @@ public partial class XLWorkbook : IXLWorkbook
         _originalFile = file;
         _spreadsheetDocumentType = GetSpreadsheetDocumentType(_originalFile);
         Load(file);
+        SharedStringTable.TrimExcess();
 
         if (loadOptions.RecalculateAllFormulas)
             RecalculateAllFormulas();
@@ -722,6 +724,7 @@ public partial class XLWorkbook : IXLWorkbook
         _loadSource = XLLoadSource.Stream;
         _originalStream = stream;
         Load(stream);
+        SharedStringTable.TrimExcess();
 
         if (loadOptions.RecalculateAllFormulas)
             RecalculateAllFormulas();

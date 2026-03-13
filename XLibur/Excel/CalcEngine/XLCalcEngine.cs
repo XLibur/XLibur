@@ -23,6 +23,13 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     private DependencyTree? _dependencyTree;
     private XLCalculationChain? _chain;
 
+    /// <summary>
+    /// Set to true after <see cref="TryEvaluateSingleCell"/> clears a formula's dirty flag,
+    /// indicating that future MarkDirty calls need a dependency tree to
+    /// correctly propagate dirtiness to dependents.
+    /// </summary>
+    private bool _needsDependencyTree;
+
     public XLCalcEngine(CultureInfo culture)
     {
         _culture = culture;
@@ -119,6 +126,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     {
         _dependencyTree = null;
         _chain = null;
+        _needsDependencyTree = false;
 
         // Mark everything as dirty, because there can be stale values
         foreach (var sheet in sheets)
@@ -134,6 +142,11 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 
     internal void MarkDirty(XLWorksheet sheet, XLSheetRange area)
     {
+        if (_dependencyTree is null && _needsDependencyTree)
+        {
+            _dependencyTree = DependencyTree.CreateFrom(sheet.Workbook);
+        }
+
         if (_dependencyTree is not null)
         {
             var bookArea = new XLBookArea(sheet.Name, area);
@@ -190,6 +203,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             }
 
             formula.IsDirty = false;
+            _needsDependencyTree = true;
             return true;
         }
         catch (GettingDataException)
