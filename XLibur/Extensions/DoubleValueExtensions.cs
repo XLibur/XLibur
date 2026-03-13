@@ -1,8 +1,7 @@
-
-using DocumentFormat.OpenXml;
 using System;
+using DocumentFormat.OpenXml;
 
-namespace XLibur.Excel;
+namespace XLibur.Extensions;
 
 internal static class DoubleValueExtensions
 {

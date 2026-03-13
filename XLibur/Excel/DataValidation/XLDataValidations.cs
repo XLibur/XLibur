@@ -2,6 +2,7 @@
 using XLibur.Excel.Ranges.Index;
 using System;
 using System.Collections.Generic;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 

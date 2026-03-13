@@ -1,4 +1,5 @@
 ﻿using System.Xml;
+using XLibur.Excel.RichText;
 using XLibur.Extensions;
 using static XLibur.Excel.XLWorkbook;
 using static XLibur.Excel.IO.OpenXmlConst;

@@ -1,7 +1,7 @@
 
 using System;
 
-namespace XLibur.Excel;
+namespace XLibur.Extensions;
 
 internal static class DateTimeExtensions
 {

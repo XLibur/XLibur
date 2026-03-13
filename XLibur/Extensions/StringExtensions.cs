@@ -2,82 +2,86 @@ using System;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using XLibur.Excel;
 
-namespace XLibur.Excel;
+namespace XLibur.Extensions;
 
 internal static partial class StringExtensions
 {
     private static readonly Regex RegexNewLine = RegexNewLineGenerated();
 
-    public static int CharCount(this string instance, char c)
+    extension(string instance)
     {
-        return instance.Length - instance.Replace(c.ToString(), "").Length;
-    }
-
-    public static string RemoveSpecialCharacters(this string str)
-    {
-        var sb = new StringBuilder();
-        foreach (var c in str.Where(c => char.IsLetterOrDigit(c) || c == '.' || c == '_'))
+        public int CharCount(char c)
         {
-            sb.Append(c);
+            return instance.Length - instance.Replace(c.ToString(), "").Length;
         }
-        return sb.ToString();
-    }
 
-    internal static string EscapeSheetName(this string sheetName)
-    {
-        if (string.IsNullOrEmpty(sheetName)) return sheetName;
-
-        var needEscape = (!char.IsLetter(sheetName[0]) && sheetName[0] != '_') ||
-                         XLHelper.IsValidA1Address(sheetName) ||
-                         XLHelper.IsValidRCAddress(sheetName) ||
-                         sheetName.Any(c => (char.IsPunctuation(c) && c != '.' && c != '_') ||
-                                            char.IsSeparator(c) ||
-                                            char.IsControl(c) ||
-                                            char.IsSymbol(c));
-        return needEscape ? string.Concat('\'', sheetName.Replace("'", "''"), '\'') : sheetName;
-    }
-
-    internal static string FixNewLines(this string value)
-    {
-        return RegexNewLine.Replace(value, Environment.NewLine);
-    }
-
-    internal static bool PreserveSpaces(this string value)
-    {
-        return value.StartsWith(' ') || value.EndsWith(' ') || value.AsSpan().IndexOfAny('\n', '\r', '\t') >= 0;
-    }
-
-    internal static string ToCamel(this string value)
-    {
-        return value.Length switch
+        public string RemoveSpecialCharacters()
         {
-            0 => value,
-            1 => value.ToLower(),
-            _ => string.Concat(value[..1].ToLower(), value.AsSpan(1))
-        };
-    }
+            var sb = new StringBuilder();
+            foreach (var c in instance.Where(c => char.IsLetterOrDigit(c) || c == '.' || c == '_'))
+            {
+                sb.Append(c);
+            }
+            return sb.ToString();
+        }
 
-    internal static string ToProper(this string value)
-    {
-        return value.Length switch
+        internal string EscapeSheetName()
         {
-            0 => value,
-            1 => value.ToUpper(),
-            _ => value[..1].ToUpper() + value[1..]
-        };
-    }
+            if (string.IsNullOrEmpty(instance)) return instance;
 
-    internal static string UnescapeSheetName(this string sheetName)
-    {
-        return sheetName
-            .Trim('\'')
-            .Replace("''", "'");
-    }
+            var needEscape = (!char.IsLetter(instance[0]) && instance[0] != '_') ||
+                             XLHelper.IsValidA1Address(instance) ||
+                             XLHelper.IsValidRCAddress(instance) ||
+                             instance.Any(c => (char.IsPunctuation(c) && c != '.' && c != '_') ||
+                                               char.IsSeparator(c) ||
+                                               char.IsControl(c) ||
+                                               char.IsSymbol(c));
+            return needEscape ? string.Concat('\'', instance.Replace("'", "''"), '\'') : instance;
+        }
 
-    internal static string WithoutLast(this string value, int length)
-    {
-        return length < value.Length ? value[..^length] : string.Empty;
+        internal string FixNewLines()
+        {
+            return RegexNewLine.Replace(instance, Environment.NewLine);
+        }
+
+        internal bool PreserveSpaces()
+        {
+            return instance.StartsWith(' ') || instance.EndsWith(' ') || instance.AsSpan().IndexOfAny('\n', '\r', '\t') >= 0;
+        }
+
+        internal string ToCamel()
+        {
+            return instance.Length switch
+            {
+                0 => instance,
+                1 => instance.ToLower(),
+                _ => string.Concat(instance[..1].ToLower(), instance.AsSpan(1))
+            };
+        }
+
+        internal string ToProper()
+        {
+            return instance.Length switch
+            {
+                0 => instance,
+                1 => instance.ToUpper(),
+                _ => instance[..1].ToUpper() + instance[1..]
+            };
+        }
+
+        internal string UnescapeSheetName()
+        {
+            return instance
+                .Trim('\'')
+                .Replace("''", "'");
+        }
+
+        internal string WithoutLast(int length)
+        {
+            return length < instance.Length ? instance[..^length] : string.Empty;
+        }
     }
 
     /// <summary>
@@ -107,7 +111,7 @@ internal static partial class StringExtensions
     }
 
     /// <summary>
-    /// Is the string a new line of any kind (widnows/unix/mac)?
+    /// Is the string a new line of any kind (widnows/unix/Mac)?
     /// </summary>
     /// <param name="text">Input text to check for EOL at the beginning.</param>
     /// <param name="length">Length of EOL chars.</param>

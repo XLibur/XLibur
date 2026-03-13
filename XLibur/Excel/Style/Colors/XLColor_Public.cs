@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Globalization;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 

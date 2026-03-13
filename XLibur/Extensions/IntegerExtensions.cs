@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace XLibur.Excel;
+namespace XLibur.Extensions;
 
 internal static class IntegerExtensions
 {

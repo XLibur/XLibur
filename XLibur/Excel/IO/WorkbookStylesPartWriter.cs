@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using static XLibur.Excel.XLWorkbook;
+using EnumerableExtensions = XLibur.Extensions.EnumerableExtensions;
 
 namespace XLibur.Excel.IO;
 
@@ -215,7 +216,7 @@ internal static class WorkbookStylesPartWriter
         }
 
         context.SharedStyles.Clear();
-        newSharedStyles.ForEach(kp => context.SharedStyles.Add(kp.Key, kp.Value));
+        EnumerableExtensions.ForEach(newSharedStyles, kp => context.SharedStyles.Add(kp.Key, kp.Value));
     }
 
     /// <summary>

@@ -5,7 +5,6 @@ namespace XLibur.Examples.Comments;
 
 public class AddingComments : IXLExample
 {
-
     public void Create(string filePath)
     {
         var wb = new XLWorkbook { Author = "Manuel" };

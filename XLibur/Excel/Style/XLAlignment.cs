@@ -32,10 +32,10 @@ internal sealed class XLAlignment : IXLAlignment
 
     private XLAlignmentValue _value;
 
-    internal XLAlignmentKey Key
+    private XLAlignmentKey Key
     {
         get => _value.Key;
-        private set => _value = XLAlignmentValue.FromKey(ref value);
+        set => _value = XLAlignmentValue.FromKey(ref value);
     }
 
     #endregion Properties

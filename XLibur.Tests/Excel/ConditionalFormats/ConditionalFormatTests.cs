@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.ConditionalFormats;
 

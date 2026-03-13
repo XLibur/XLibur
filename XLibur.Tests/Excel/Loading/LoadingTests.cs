@@ -8,6 +8,7 @@ using XLibur.Excel;
 using XLibur.Excel.Drawings;
 using XLibur.Tests.Utils;
 using NUnit.Framework;
+using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.Loading;
 

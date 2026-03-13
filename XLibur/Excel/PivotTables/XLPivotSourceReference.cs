@@ -66,7 +66,7 @@ internal sealed class XLPivotSourceReference : IXLPivotSource
     }
 
     /// <summary>
-    /// Try to determine actual area of the source reference in the
+    /// Try to determine the actual area of the source reference in the
     /// workbook. Source reference might not be valid in the workbook.
     /// </summary>
     public bool TryGetSource(XLWorkbook workbook, out XLWorksheet? sheet, out XLSheetRange? sheetArea)
@@ -93,7 +93,7 @@ internal sealed class XLPivotSourceReference : IXLPivotSource
             return true;
         }
 
-        sheetArea = default;
+        sheetArea = null;
         return false;
     }
 }

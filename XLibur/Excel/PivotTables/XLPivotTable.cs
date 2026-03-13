@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
@@ -17,6 +18,7 @@ internal sealed class XLPivotTable : IXLPivotTable
     /// reference same field multiple times, so it mostly stores data in data fields).
     /// </summary>
     private readonly List<XLPivotTableField> _fields = new();
+
     private readonly List<XLPivotFormat> _formats = new();
     private readonly List<XLPivotConditionalFormat> _conditionalFormats = new();
     private XLPivotCache _cache;
@@ -40,7 +42,11 @@ internal sealed class XLPivotTable : IXLPivotTable
         SetExcelDefaults();
     }
 
-    IXLPivotCache IXLPivotTable.PivotCache { get => PivotCache; set => PivotCache = (XLPivotCache)value; }
+    IXLPivotCache IXLPivotTable.PivotCache
+    {
+        get => PivotCache;
+        set => PivotCache = (XLPivotCache)value;
+    }
 
     public IXLCell TargetCell
     {
@@ -217,26 +223,26 @@ internal sealed class XLPivotTable : IXLPivotTable
         newPivotTable.ShowRowStripes = ShowRowStripes;
         newPivotTable.ShowColumnStripes = ShowColumnStripes;
         newPivotTable.Theme = Theme;
-        // TODO: Copy Styleformats
-
         return newPivotTable;
     }
 
     public string Name
     {
-        get { return field!; }
+        get => field!;
         set
         {
             if (field == value) return;
 
             var oldname = field ?? string.Empty;
 
-            if (!XLHelper.ValidateName("pivot table", value, oldname, Worksheet.PivotTables.Select(pvt => pvt.Name), out string message))
+            if (!XLHelper.ValidateName("pivot table", value, oldname, Worksheet.PivotTables.Select(pvt => pvt.Name),
+                    out string message))
                 throw new ArgumentException(message, nameof(value));
 
             field = value;
 
-            if (!string.IsNullOrWhiteSpace(oldname) && !string.Equals(oldname, field, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(oldname) &&
+                !string.Equals(oldname, field, StringComparison.OrdinalIgnoreCase))
             {
                 Worksheet.PivotTables.Delete(oldname);
                 ((XLPivotTables)Worksheet.PivotTables).Add(field, this);
@@ -246,21 +252,24 @@ internal sealed class XLPivotTable : IXLPivotTable
 
     public IXLPivotTable SetName(string value)
     {
-        Name = value; return this;
+        Name = value;
+        return this;
     }
 
     public string Title { get; set; } = string.Empty;
 
     public IXLPivotTable SetTitle(string value)
     {
-        Title = value; return this;
+        Title = value;
+        return this;
     }
 
     public string Description { get; set; } = string.Empty;
 
     public IXLPivotTable SetDescription(string value)
     {
-        Description = value; return this;
+        Description = value;
+        return this;
     }
 
     public IXLPivotTable SetColumnHeaderCaption(string? value)
@@ -277,32 +286,38 @@ internal sealed class XLPivotTable : IXLPivotTable
 
     public IXLPivotTable SetMergeAndCenterWithLabels()
     {
-        MergeAndCenterWithLabels = true; return this;
+        MergeAndCenterWithLabels = true;
+        return this;
     }
 
     public IXLPivotTable SetMergeAndCenterWithLabels(bool value)
     {
-        MergeAndCenterWithLabels = value; return this;
+        MergeAndCenterWithLabels = value;
+        return this;
     }
 
     public IXLPivotTable SetRowLabelIndent(int value)
     {
-        RowLabelIndent = value; return this;
+        RowLabelIndent = value;
+        return this;
     }
 
     public IXLPivotTable SetFilterAreaOrder(XLFilterAreaOrder value)
     {
-        FilterAreaOrder = value; return this;
+        FilterAreaOrder = value;
+        return this;
     }
 
     public IXLPivotTable SetFilterFieldsPageWrap(int value)
     {
-        FilterFieldsPageWrap = value; return this;
+        FilterFieldsPageWrap = value;
+        return this;
     }
 
     public IXLPivotTable SetErrorValueReplacement(string? value)
     {
-        ErrorValueReplacement = value; return this;
+        ErrorValueReplacement = value;
+        return this;
     }
 
     public string EmptyCellReplacement
@@ -331,219 +346,262 @@ internal sealed class XLPivotTable : IXLPivotTable
 
     public IXLPivotTable SetEmptyCellReplacement(string value)
     {
-        EmptyCellReplacement = value; return this;
+        EmptyCellReplacement = value;
+        return this;
     }
 
     public IXLPivotTable SetAutofitColumns()
     {
-        AutofitColumns = true; return this;
+        AutofitColumns = true;
+        return this;
     }
 
     public IXLPivotTable SetAutofitColumns(bool value)
     {
-        AutofitColumns = value; return this;
+        AutofitColumns = value;
+        return this;
     }
 
     public IXLPivotTable SetPreserveCellFormatting()
     {
-        PreserveCellFormatting = true; return this;
+        PreserveCellFormatting = true;
+        return this;
     }
 
     public IXLPivotTable SetPreserveCellFormatting(bool value)
     {
-        PreserveCellFormatting = value; return this;
+        PreserveCellFormatting = value;
+        return this;
     }
 
     public IXLPivotTable SetShowGrandTotalsRows()
     {
-        ShowGrandTotalsRows = true; return this;
+        ShowGrandTotalsRows = true;
+        return this;
     }
 
     public IXLPivotTable SetShowGrandTotalsRows(bool value)
     {
-        ShowGrandTotalsRows = value; return this;
+        ShowGrandTotalsRows = value;
+        return this;
     }
 
     public IXLPivotTable SetShowGrandTotalsColumns()
     {
-        ShowGrandTotalsColumns = true; return this;
+        ShowGrandTotalsColumns = true;
+        return this;
     }
 
     public IXLPivotTable SetShowGrandTotalsColumns(bool value)
     {
-        ShowGrandTotalsColumns = value; return this;
+        ShowGrandTotalsColumns = value;
+        return this;
     }
 
     public IXLPivotTable SetFilteredItemsInSubtotals()
     {
-        FilteredItemsInSubtotals = true; return this;
+        FilteredItemsInSubtotals = true;
+        return this;
     }
 
     public IXLPivotTable SetFilteredItemsInSubtotals(bool value)
     {
-        FilteredItemsInSubtotals = value; return this;
+        FilteredItemsInSubtotals = value;
+        return this;
     }
 
     public IXLPivotTable SetAllowMultipleFilters()
     {
-        AllowMultipleFilters = true; return this;
+        AllowMultipleFilters = true;
+        return this;
     }
 
     public IXLPivotTable SetAllowMultipleFilters(bool value)
     {
-        AllowMultipleFilters = value; return this;
+        AllowMultipleFilters = value;
+        return this;
     }
 
     public IXLPivotTable SetUseCustomListsForSorting()
     {
-        UseCustomListsForSorting = true; return this;
+        UseCustomListsForSorting = true;
+        return this;
     }
 
     public IXLPivotTable SetUseCustomListsForSorting(bool value)
     {
-        UseCustomListsForSorting = value; return this;
+        UseCustomListsForSorting = value;
+        return this;
     }
 
     public IXLPivotTable SetShowExpandCollapseButtons()
     {
-        ShowExpandCollapseButtons = true; return this;
+        ShowExpandCollapseButtons = true;
+        return this;
     }
 
     public IXLPivotTable SetShowExpandCollapseButtons(bool value)
     {
-        ShowExpandCollapseButtons = value; return this;
+        ShowExpandCollapseButtons = value;
+        return this;
     }
 
     public IXLPivotTable SetShowContextualTooltips()
     {
-        ShowContextualTooltips = true; return this;
+        ShowContextualTooltips = true;
+        return this;
     }
 
     public IXLPivotTable SetShowContextualTooltips(bool value)
     {
-        ShowContextualTooltips = value; return this;
+        ShowContextualTooltips = value;
+        return this;
     }
 
     public IXLPivotTable SetShowPropertiesInTooltips()
     {
-        ShowPropertiesInTooltips = true; return this;
+        ShowPropertiesInTooltips = true;
+        return this;
     }
 
     public IXLPivotTable SetShowPropertiesInTooltips(bool value)
     {
-        ShowPropertiesInTooltips = value; return this;
+        ShowPropertiesInTooltips = value;
+        return this;
     }
 
     public IXLPivotTable SetDisplayCaptionsAndDropdowns()
     {
-        DisplayCaptionsAndDropdowns = true; return this;
+        DisplayCaptionsAndDropdowns = true;
+        return this;
     }
 
     public IXLPivotTable SetDisplayCaptionsAndDropdowns(bool value)
     {
-        DisplayCaptionsAndDropdowns = value; return this;
+        DisplayCaptionsAndDropdowns = value;
+        return this;
     }
 
     public IXLPivotTable SetClassicPivotTableLayout()
     {
-        ClassicPivotTableLayout = true; return this;
+        ClassicPivotTableLayout = true;
+        return this;
     }
 
     public IXLPivotTable SetClassicPivotTableLayout(bool value)
     {
-        ClassicPivotTableLayout = value; return this;
+        ClassicPivotTableLayout = value;
+        return this;
     }
 
     public bool ShowValuesRow { get; set; }
 
     public IXLPivotTable SetShowValuesRow()
     {
-        ShowValuesRow = true; return this;
+        ShowValuesRow = true;
+        return this;
     }
 
     public IXLPivotTable SetShowValuesRow(bool value)
     {
-        ShowValuesRow = value; return this;
+        ShowValuesRow = value;
+        return this;
     }
 
     public IXLPivotTable SetShowEmptyItemsOnRows()
     {
-        ShowEmptyItemsOnRows = true; return this;
+        ShowEmptyItemsOnRows = true;
+        return this;
     }
 
     public IXLPivotTable SetShowEmptyItemsOnRows(bool value)
     {
-        ShowEmptyItemsOnRows = value; return this;
+        ShowEmptyItemsOnRows = value;
+        return this;
     }
 
     public IXLPivotTable SetShowEmptyItemsOnColumns()
     {
-        ShowEmptyItemsOnColumns = true; return this;
+        ShowEmptyItemsOnColumns = true;
+        return this;
     }
 
     public IXLPivotTable SetShowEmptyItemsOnColumns(bool value)
     {
-        ShowEmptyItemsOnColumns = value; return this;
+        ShowEmptyItemsOnColumns = value;
+        return this;
     }
 
     public IXLPivotTable SetDisplayItemLabels()
     {
-        DisplayItemLabels = true; return this;
+        DisplayItemLabels = true;
+        return this;
     }
 
     public IXLPivotTable SetDisplayItemLabels(bool value)
     {
-        DisplayItemLabels = value; return this;
+        DisplayItemLabels = value;
+        return this;
     }
 
     public IXLPivotTable SetSortFieldsAtoZ()
     {
-        SortFieldsAtoZ = true; return this;
+        SortFieldsAtoZ = true;
+        return this;
     }
 
     public IXLPivotTable SetSortFieldsAtoZ(bool value)
     {
-        SortFieldsAtoZ = value; return this;
+        SortFieldsAtoZ = value;
+        return this;
     }
 
     public IXLPivotTable SetPrintExpandCollapsedButtons()
     {
-        PrintExpandCollapsedButtons = true; return this;
+        PrintExpandCollapsedButtons = true;
+        return this;
     }
 
     public IXLPivotTable SetPrintExpandCollapsedButtons(bool value)
     {
-        PrintExpandCollapsedButtons = value; return this;
+        PrintExpandCollapsedButtons = value;
+        return this;
     }
 
     public IXLPivotTable SetRepeatRowLabels()
     {
-        RepeatRowLabels = true; return this;
+        RepeatRowLabels = true;
+        return this;
     }
 
     public IXLPivotTable SetRepeatRowLabels(bool value)
     {
-        RepeatRowLabels = value; return this;
+        RepeatRowLabels = value;
+        return this;
     }
 
     public IXLPivotTable SetPrintTitles()
     {
-        PrintTitles = true; return this;
+        PrintTitles = true;
+        return this;
     }
 
     public IXLPivotTable SetPrintTitles(bool value)
     {
-        PrintTitles = value; return this;
+        PrintTitles = value;
+        return this;
     }
 
     public IXLPivotTable SetEnableShowDetails()
     {
-        EnableShowDetails = true; return this;
+        EnableShowDetails = true;
+        return this;
     }
 
     public IXLPivotTable SetEnableShowDetails(bool value)
     {
-        EnableShowDetails = value; return this;
+        EnableShowDetails = value;
+        return this;
     }
 
 
@@ -551,60 +609,70 @@ internal sealed class XLPivotTable : IXLPivotTable
 
     public IXLPivotTable SetEnableCellEditing()
     {
-        EnableCellEditing = true; return this;
+        EnableCellEditing = true;
+        return this;
     }
 
     public IXLPivotTable SetEnableCellEditing(bool value)
     {
-        EnableCellEditing = value; return this;
+        EnableCellEditing = value;
+        return this;
     }
 
     public bool ShowRowHeaders { get; set; }
 
     public IXLPivotTable SetShowRowHeaders()
     {
-        ShowRowHeaders = true; return this;
+        ShowRowHeaders = true;
+        return this;
     }
 
     public IXLPivotTable SetShowRowHeaders(bool value)
     {
-        ShowRowHeaders = value; return this;
+        ShowRowHeaders = value;
+        return this;
     }
 
     public bool ShowColumnHeaders { get; set; }
 
     public IXLPivotTable SetShowColumnHeaders()
     {
-        ShowColumnHeaders = true; return this;
+        ShowColumnHeaders = true;
+        return this;
     }
 
     public IXLPivotTable SetShowColumnHeaders(bool value)
     {
-        ShowColumnHeaders = value; return this;
+        ShowColumnHeaders = value;
+        return this;
     }
 
     public bool ShowRowStripes { get; set; }
 
     public IXLPivotTable SetShowRowStripes()
     {
-        ShowRowStripes = true; return this;
+        ShowRowStripes = true;
+        return this;
     }
 
     public IXLPivotTable SetShowRowStripes(bool value)
     {
-        ShowRowStripes = value; return this;
+        ShowRowStripes = value;
+        return this;
     }
 
     public bool ShowColumnStripes { get; set; }
 
     public IXLPivotTable SetShowColumnStripes()
     {
-        ShowColumnStripes = true; return this;
+        ShowColumnStripes = true;
+        return this;
     }
 
     public IXLPivotTable SetShowColumnStripes(bool value)
     {
-        ShowColumnStripes = value; return this;
+        ShowColumnStripes = value;
+        return this;
     }
 
     /// <summary>
@@ -616,7 +684,8 @@ internal sealed class XLPivotTable : IXLPivotTable
 
     public IXLPivotTable SetSubtotals(XLPivotSubtotals value)
     {
-        Subtotals = value; return this;
+        Subtotals = value;
+        return this;
     }
 
     public XLPivotLayout Layout
@@ -649,7 +718,8 @@ internal sealed class XLPivotTable : IXLPivotTable
 
     public IXLPivotTable SetLayout(XLPivotLayout value)
     {
-        Layout = value; return this;
+        Layout = value;
+        return this;
     }
 
     public bool InsertBlankLines
@@ -659,15 +729,18 @@ internal sealed class XLPivotTable : IXLPivotTable
 
     public IXLPivotTable SetInsertBlankLines()
     {
-        InsertBlankLines = true; return this;
+        InsertBlankLines = true;
+        return this;
     }
 
     public IXLPivotTable SetInsertBlankLines(bool value)
     {
-        InsertBlankLines = value; return this;
+        InsertBlankLines = value;
+        return this;
     }
 
     internal string? RelId { get; set; }
+
     internal string? CacheDefinitionRelId { get; set; }
 
     private void SetExcelDefaults()
@@ -678,28 +751,28 @@ internal sealed class XLPivotTable : IXLPivotTable
         ShowRowHeaders = true;
 
         // source http://www.datypic.com/sc/ooxml/e-ssml_pivotTableDefinition.html
-        DisplayItemLabels = true;	//	Show Item Names
-        ShowExpandCollapseButtons = true;	//	Show Expand Collapse
-        PrintExpandCollapsedButtons = false;	//	Print Drill Indicators
-        ShowPropertiesInTooltips = true;	//	Show Member Property ToolTips
-        ShowContextualTooltips = true;	//	Show ToolTips on Data
-        EnableShowDetails = true;	//	Enable Drill Down
-        PreserveCellFormatting = true;	//	Preserve Formatting
-        AutofitColumns = false;	//	Auto Formatting
-        FilterAreaOrder = XLFilterAreaOrder.DownThenOver;	//	Page Over Then Down
-        FilteredItemsInSubtotals = false;	//	Subtotal Hidden Items
-        ShowGrandTotalsRows = true;	//	Row Grand Totals
-        ShowGrandTotalsColumns = true;	//	Grand Totals On Columns
-        PrintTitles = false;	//	Field Print Titles
-        RepeatRowLabels = false;	//	Item Print Titles
-        MergeAndCenterWithLabels = false;	//	Merge Titles
-        RowLabelIndent = 1;	//	Indentation for Compact Axis
-        ShowEmptyItemsOnRows = false;	//	Show Empty Row
-        ShowEmptyItemsOnColumns = false;	//	Show Empty Column
-        DisplayCaptionsAndDropdowns = true;	//	Show Field Headers
-        ClassicPivotTableLayout = false;	//	Enable Drop Zones
-        AllowMultipleFilters = true;	//	Multiple Field Filters
-        SortFieldsAtoZ = false;	//	Default Sort Order
+        DisplayItemLabels = true; //	Show Item Names
+        ShowExpandCollapseButtons = true; //	Show Expand Collapse
+        PrintExpandCollapsedButtons = false; //	Print Drill Indicators
+        ShowPropertiesInTooltips = true; //	Show Member Property ToolTips
+        ShowContextualTooltips = true; //	Show ToolTips on Data
+        EnableShowDetails = true; //	Enable Drill Down
+        PreserveCellFormatting = true; //	Preserve Formatting
+        AutofitColumns = false; //	Auto Formatting
+        FilterAreaOrder = XLFilterAreaOrder.DownThenOver; //	Page Over Then Down
+        FilteredItemsInSubtotals = false; //	Subtotal Hidden Items
+        ShowGrandTotalsRows = true; //	Row Grand Totals
+        ShowGrandTotalsColumns = true; //	Grand Totals On Columns
+        PrintTitles = false; //	Field Print Titles
+        RepeatRowLabels = false; //	Item Print Titles
+        MergeAndCenterWithLabels = false; //	Merge Titles
+        RowLabelIndent = 1; //	Indentation for Compact Axis
+        ShowEmptyItemsOnRows = false; //	Show Empty Row
+        ShowEmptyItemsOnColumns = false; //	Show Empty Column
+        DisplayCaptionsAndDropdowns = true; //	Show Field Headers
+        ClassicPivotTableLayout = false; //	Enable Drop Zones
+        AllowMultipleFilters = true; //	Multiple Field Filters
+        SortFieldsAtoZ = false; //	Default Sort Order
         UseCustomListsForSorting = true; //	Custom List AutoSort
     }
 
@@ -716,15 +789,6 @@ internal sealed class XLPivotTable : IXLPivotTable
 
             foreach (var styleFormat in StyleFormats.ColumnGrandTotalFormats)
                 yield return styleFormat;
-
-            // TODO: Skipped for now, until I implement stubs
-            //foreach (var pivotField in ImplementedFields)
-            //{
-            //    yield return pivotField.StyleFormats.Subtotal;
-            //    yield return pivotField.StyleFormats.Header;
-            //    yield return pivotField.StyleFormats.Label;
-            //    yield return pivotField.StyleFormats.DataValuesFormat;
-            //}
         }
     }
 
@@ -1247,7 +1311,7 @@ internal sealed class XLPivotTable : IXLPivotTable
     #endregion
 
     /// <summary>
-    /// Add field to a specific axis (page/row/col). Only modified <see cref="PivotFields"/>, doesn't modify
+    /// Add a field to a specific axis (page/row/col). Only modified <see cref="PivotFields"/>, doesn't modify
     /// additional info in <see cref="RowAxis"/>, <see cref="ColumnAxis"/> or <see cref="Filters"/>.
     /// </summary>
     internal FieldIndex AddFieldToAxis(string sourceName, string customName, XLPivotAxis axis)
@@ -1283,7 +1347,7 @@ internal sealed class XLPivotTable : IXLPivotTable
         field.Axis = axis;
 
         // If it is an axis, all possible values to field items, because they should be referenced in items.
-        // Page field must have default item, otherwise Excel asks for repair.
+        // The page field must have the default item, otherwise Excel asks for repair.
         var sharedItems = _cache.GetFieldSharedItems(fieldIndex);
         for (var i = 0; i < sharedItems.Count; ++i)
             field.AddItem(new XLPivotFieldItem(field, i));
@@ -1363,11 +1427,9 @@ internal sealed class XLPivotTable : IXLPivotTable
         var allFields = PivotFields;
         for (var i = 0; i < allFields.Count; ++i)
         {
-            if (comparer.Equals(customName, allFields[i].Name))
-            {
-                index = i;
-                return true;
-            }
+            if (!comparer.Equals(customName, allFields[i].Name)) continue;
+            index = i;
+            return true;
         }
 
         index = default;
@@ -1375,7 +1437,7 @@ internal sealed class XLPivotTable : IXLPivotTable
     }
 
     /// <summary>
-    /// Refresh cache fields after cache has changed.
+    /// Refresh cache fields after the cache has changed.
     /// </summary>
     internal void UpdateCacheFields(IReadOnlyList<string> oldFieldNames)
     {
@@ -1397,7 +1459,8 @@ internal sealed class XLPivotTable : IXLPivotTable
         }
 
         var includeValuesField = keptDataFields.Count > 1;
-        var keptFilterSourceNames = GetKeptNames(Filters.Fields.Select(x => (FieldIndex)x.Field).ToList(), oldFieldNames, newNames, includeValuesField);
+        var keptFilterSourceNames = GetKeptNames(Filters.Fields.Select(x => (FieldIndex)x.Field).ToList(),
+            oldFieldNames, newNames, includeValuesField);
         var keptRowSourceNames = GetKeptNames(RowAxis.Fields, oldFieldNames, newNames, includeValuesField);
         var keptColumnSourceNames = GetKeptNames(ColumnAxis.Fields, oldFieldNames, newNames, includeValuesField);
 
@@ -1407,7 +1470,7 @@ internal sealed class XLPivotTable : IXLPivotTable
         DataFields.Clear();
 
         _fields.Clear();
-        foreach (var fieldName in PivotCache.FieldNames)
+        foreach (var unused in PivotCache.FieldNames)
         {
             var field = new XLPivotTableField(this)
             {
@@ -1431,6 +1494,8 @@ internal sealed class XLPivotTable : IXLPivotTable
             var dataField = DataFields.AddField(keptDataField.SourceName, keptDataField.CustomName);
             dataField.Subtotal = keptDataField.Field.Subtotal;
         }
+
+        return;
 
         static List<string> GetKeptNames(
             IReadOnlyList<FieldIndex> fieldIndexes,
@@ -1457,7 +1522,7 @@ internal sealed class XLPivotTable : IXLPivotTable
     }
 
     /// <summary>
-    /// Is field used by any axis (row, column, filter), but not data.
+    /// Is a field used by any axis (row, column, filter), but not data.
     /// </summary>
     internal bool IsFieldUsedOnAxis(FieldIndex fieldIndex)
     {
@@ -1472,8 +1537,6 @@ internal sealed class XLPivotTable : IXLPivotTable
     internal int GetFieldIndex(XLPivotTableField field)
     {
         var index = _fields.IndexOf(field);
-        if (index < 0)
-            throw new ArgumentException($"Unable to find field '{field.Name}'.");
-        return index;
+        return index < 0 ? throw new ArgumentException($"Unable to find field '{field.Name}'.") : index;
     }
 }

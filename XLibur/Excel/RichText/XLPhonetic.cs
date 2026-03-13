@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel;
+﻿namespace XLibur.Excel.RichText;
 
 internal sealed class XLPhonetic : IXLPhonetic
 {
@@ -8,8 +8,11 @@ internal sealed class XLPhonetic : IXLPhonetic
         Start = start;
         End = end;
     }
+
     public string Text { get; }
+
     public int Start { get; }
+
     public int End { get; }
 
     public bool Equals(IXLPhonetic? other)

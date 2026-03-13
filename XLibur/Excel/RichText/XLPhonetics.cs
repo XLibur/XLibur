@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.RichText;
 
 internal sealed class XLPhonetics : IXLPhonetics
 {

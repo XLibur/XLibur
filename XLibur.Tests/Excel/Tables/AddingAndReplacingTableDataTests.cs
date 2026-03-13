@@ -6,6 +6,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.Tables;
 

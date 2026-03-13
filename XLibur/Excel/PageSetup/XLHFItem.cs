@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using XLibur.Excel.RichText;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 

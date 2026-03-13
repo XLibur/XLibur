@@ -7,6 +7,7 @@ using XLibur.Attributes;
 using XLibur.Excel;
 using XLibur.Excel.Exceptions;
 using NUnit.Framework;
+using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.Tables;
 

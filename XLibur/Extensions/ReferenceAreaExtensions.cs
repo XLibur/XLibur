@@ -10,7 +10,7 @@ namespace XLibur.Extensions;
 internal static class ReferenceAreaExtensions
 {
     /// <summary>
-    /// Convert area to an absolute sheet range (regardless if the area is A1 or R1C1).
+    /// Convert an area to an absolute sheet range (regardless if the area is A1 or R1C1).
     /// </summary>
     /// <param name="area">Area to convert</param>
     /// <param name="anchor">An anchor address that is the centre of R1C1 relative address.</param>

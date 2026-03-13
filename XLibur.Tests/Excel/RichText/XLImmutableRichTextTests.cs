@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using XLibur.Excel;
 using NUnit.Framework;
+using XLibur.Excel.RichText;
 
 namespace XLibur.Tests.Excel.RichText;
 

@@ -1,9 +1,8 @@
-
 using System.IO;
 using System.Xml;
 using System.Xml.Linq;
 
-namespace XLibur.Excel;
+namespace XLibur.Extensions;
 
 internal static class XDocumentExtensions
 {

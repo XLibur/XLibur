@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using XLibur.Excel.InsertData;
+using XLibur.Extensions;
 using static XLibur.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Excel;

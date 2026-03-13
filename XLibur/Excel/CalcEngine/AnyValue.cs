@@ -27,7 +27,8 @@ internal readonly struct AnyValue
     private readonly Array? _array;
     private readonly Reference? _reference;
 
-    private AnyValue(byte index, bool logical, double number, string? text, XLError error, Array? array, Reference? reference)
+    private AnyValue(byte index, bool logical, double number, string? text, XLError error, Array? array,
+        Reference? reference)
     {
         _index = index;
         _logical = logical;
@@ -41,28 +42,27 @@ internal readonly struct AnyValue
     /// <summary>
     /// A value of a blank cell or missing argument. Conversion methods mostly treat blank like 0 or an empty string.
     /// </summary>
-    public static readonly AnyValue Blank = new(BlankValue, default, default, default, default, default, default);
+    public static readonly AnyValue Blank = new(BlankValue, false, 0, null, default, null, null);
 
-    public static AnyValue From(bool logical) => new(LogicalValue, logical, default, default, default, default, default);
+    public static AnyValue From(bool logical) => new(LogicalValue, logical, 0, null, default, null, null);
 
-    public static AnyValue From(double number) => new(NumberValue, default, number, default, default, default, default);
+    public static AnyValue From(double number) => new(NumberValue, false, number, null, default, null, null);
 
     public static AnyValue From(string text)
     {
-        if (text is null)
-            throw new ArgumentNullException();
-
-        return new AnyValue(TextValue, default, default, text, default, default, default);
+        return text is null
+            ? throw new ArgumentNullException()
+            : new AnyValue(TextValue, false, 0, text, default, null, null);
     }
 
-    public static AnyValue From(XLError error) => new(ErrorValue, default, default, default, error, default, default);
+    public static AnyValue From(XLError error) => new(ErrorValue, false, 0, null, error, null, null);
 
     public static AnyValue From(Array array)
     {
         if (array is null)
             throw new ArgumentNullException();
 
-        return new(ArrayValue, default, default, default, default, array, default);
+        return new(ArrayValue, false, 0, null, default, array, null);
     }
 
     public static AnyValue From(Reference reference)
@@ -70,7 +70,7 @@ internal readonly struct AnyValue
         if (reference is null)
             throw new ArgumentNullException();
 
-        return new(ReferenceValue, default, default, default, default, default, reference);
+        return new(ReferenceValue, false, 0, null, default, null, reference);
     }
 
     public static implicit operator AnyValue(bool logical) => From(logical);
@@ -144,7 +144,7 @@ internal readonly struct AnyValue
             return true;
         }
 
-        array = default;
+        array = null;
         return false;
     }
 
@@ -157,7 +157,7 @@ internal readonly struct AnyValue
             return true;
         }
 
-        reference = default;
+        reference = null;
         error = _index == ErrorValue ? _error : XLError.IncompatibleValue;
         return false;
     }
@@ -225,7 +225,7 @@ internal readonly struct AnyValue
     {
         if (TryPickScalar(out scalar, out var collection))
         {
-            array = default;
+            array = null;
             return true;
         }
 
@@ -252,7 +252,10 @@ internal readonly struct AnyValue
         return false;
     }
 
-    public TResult Match<TResult>(Func<TResult> transformBlank, Func<bool, TResult> transformLogical, Func<double, TResult> transformNumber, Func<string, TResult> transformText, Func<XLError, TResult> transformError, Func<Array, TResult> transformArray, Func<Reference, TResult> transformReference)
+    public TResult Match<TResult>(Func<TResult> transformBlank, Func<bool, TResult> transformLogical,
+        Func<double, TResult> transformNumber, Func<string, TResult> transformText,
+        Func<XLError, TResult> transformError, Func<Array, TResult> transformArray,
+        Func<Reference, TResult> transformReference)
     {
         return _index switch
         {
@@ -379,42 +382,49 @@ internal readonly struct AnyValue
 
     public static AnyValue BinaryPlus(in AnyValue left, in AnyValue right, CalcContext context)
     {
-        return BinaryOperation(in left, in right, static (in leftItem, in rightItem, ctx) =>
-        {
-            return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => lhs + rhs, ctx);
-        }, context);
+        return BinaryOperation(in left, in right,
+            static (in leftItem, in rightItem, ctx) =>
+            {
+                return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => lhs + rhs, ctx);
+            }, context);
     }
 
     public static AnyValue BinaryMinus(in AnyValue left, in AnyValue right, CalcContext context)
     {
-        return BinaryOperation(in left, in right, static (in leftItem, in rightItem, ctx) =>
-        {
-            return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => lhs - rhs, ctx);
-        }, context);
+        return BinaryOperation(in left, in right,
+            static (in leftItem, in rightItem, ctx) =>
+            {
+                return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => lhs - rhs, ctx);
+            }, context);
     }
 
     public static AnyValue BinaryMult(in AnyValue left, in AnyValue right, CalcContext context)
     {
-        return BinaryOperation(in left, in right, static (in leftItem, in rightItem, ctx) =>
-        {
-            return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => lhs * rhs, ctx);
-        }, context);
+        return BinaryOperation(in left, in right,
+            static (in leftItem, in rightItem, ctx) =>
+            {
+                return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => lhs * rhs, ctx);
+            }, context);
     }
 
     public static AnyValue BinaryDiv(in AnyValue left, in AnyValue right, CalcContext context)
     {
-        return BinaryOperation(in left, in right, static (in leftItem, in rightItem, ctx) =>
-        {
-            return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => rhs == 0.0 ? XLError.DivisionByZero : lhs / rhs, ctx);
-        }, context);
+        return BinaryOperation(in left, in right,
+            static (in leftItem, in rightItem, ctx) =>
+            {
+                return BinaryArithmeticOp(in leftItem, in rightItem,
+                    static (lhs, rhs) => rhs == 0.0 ? XLError.DivisionByZero : lhs / rhs, ctx);
+            }, context);
     }
 
     public static AnyValue BinaryExp(in AnyValue left, in AnyValue right, CalcContext context)
     {
-        return BinaryOperation(in left, in right, static (in leftItem, in rightItem, ctx) =>
-        {
-            return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => lhs == 0 && rhs == 0 ? XLError.NumberInvalid : Math.Pow(lhs, rhs), ctx);
-        }, context);
+        return BinaryOperation(in left, in right,
+            static (in leftItem, in rightItem, ctx) =>
+            {
+                return BinaryArithmeticOp(in leftItem, in rightItem,
+                    static (lhs, rhs) => lhs == 0 && rhs == 0 ? XLError.NumberInvalid : Math.Pow(lhs, rhs), ctx);
+            }, context);
     }
 
     #endregion
@@ -528,7 +538,8 @@ internal readonly struct AnyValue
         return leftBroadcastedArray.Apply(rightBroadcastedArray, func, context);
     }
 
-    private static ScalarValue BinaryArithmeticOp(in ScalarValue left, in ScalarValue right, BinaryNumberFunc func, CalcContext ctx)
+    private static ScalarValue BinaryArithmeticOp(in ScalarValue left, in ScalarValue right, BinaryNumberFunc func,
+        CalcContext ctx)
     {
         var leftConversionResult = left.ToNumber(ctx.Culture);
         if (!leftConversionResult.TryPickT0(out var leftNumber, out var leftError))
@@ -595,7 +606,8 @@ internal readonly struct AnyValue
                 (leftText, culture) => string.Compare(leftText, string.Empty, culture, CompareOptions.IgnoreCase),
                 (rightLogical, _, _) => -1,
                 (rightNumber, _, _) => 1,
-                (rightText, leftText, culture) => string.Compare(leftText, rightText, culture, CompareOptions.IgnoreCase),
+                (rightText, leftText, culture) =>
+                    string.Compare(leftText, rightText, culture, CompareOptions.IgnoreCase),
                 (rightError, _, _) => rightError),
             (leftError, _) => leftError);
     }
@@ -610,7 +622,8 @@ internal readonly struct AnyValue
             TextValue => $"Text: {_text}",
             ErrorValue => $"Error: {_error.ToDisplayString()}",
             ArrayValue => $"Array{_array!.Height}x{_array.Width}",
-            ReferenceValue => $"Reference: {string.Join(",", _reference!.Areas.Select(a => $"{a.FirstAddress}:{a.LastAddress}"))}",
+            ReferenceValue =>
+                $"Reference: {string.Join(",", _reference!.Areas.Select(a => $"{a.FirstAddress}:{a.LastAddress}"))}",
             _ => throw new InvalidOperationException()
         };
     }

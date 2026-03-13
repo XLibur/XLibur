@@ -10,7 +10,7 @@ namespace XLibur.Excel.CalcEngine.Visitors;
 internal sealed class RenameFunctionsVisitor : RefModVisitor
 {
     /// <summary>
-    /// Case insensitive dictionary of function names.
+    /// Case-insensitive dictionary of function names.
     /// </summary>
     private readonly Lazy<IReadOnlyDictionary<string, string>> _functionMap;
 

@@ -1,6 +1,7 @@
 using XLibur.Excel;
 using NUnit.Framework;
 using System;
+using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Linq;
+using XLibur.Excel.RichText;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 

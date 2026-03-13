@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 

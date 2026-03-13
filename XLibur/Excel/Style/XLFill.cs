@@ -182,8 +182,7 @@ internal sealed class XLFill : IXLFill
 
     public bool Equals(IXLFill? other)
     {
-        var otherF = other as XLFill;
-        if (otherF == null)
+        if (other is not XLFill otherF)
             return false;
 
         return Key == otherF.Key;

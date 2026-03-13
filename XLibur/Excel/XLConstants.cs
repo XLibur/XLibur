@@ -19,8 +19,6 @@ public static class XLConstants
     {
         internal const byte CreatedVersion = 5;
         internal const byte RefreshedVersion = 5;
-
-        //TODO: Needs to be refactored to be more user-friendly.
         public const string ValuesSentinalLabel = "{{Values}}";
     }
 

@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
+using XLibur.Extensions;
 
 namespace XLibur.Graphics;
 

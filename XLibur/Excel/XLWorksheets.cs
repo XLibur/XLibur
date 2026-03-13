@@ -5,6 +5,7 @@ using System.Data;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 

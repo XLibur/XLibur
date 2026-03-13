@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.RichText;
 
 [DebuggerDisplay("{Text}")]
 internal sealed class XLRichString : IXLRichString
@@ -261,8 +261,8 @@ internal sealed class XLRichString : IXLRichString
 
     public override int GetHashCode()
     {
-        // Since all properties of type are mutable, can't have different hashcode for any instance.
-        // Don't ever use this class in a dictionary, e.g. SST.
+        // Since all properties of the type are mutable, can't have different hashcode for any instance.
+        // Don't ever use this class in a dictionary, e.g., SST.
         return 4; // Chosen by fair dice roll. Guaranteed to be random.
     }
 }

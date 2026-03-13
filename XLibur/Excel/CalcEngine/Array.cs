@@ -21,7 +21,7 @@ internal abstract class Array : IEnumerable<ScalarValue>
     public abstract int Height { get; }
 
     /// <summary>
-    /// Get a value at specified coordinate.
+    /// Get a value at a specified coordinate.
     /// </summary>
     /// <param name="y">Uses 0-based notation.</param>
     /// <param name="x">Uses 0-based notation.</param>
@@ -36,9 +36,9 @@ internal abstract class Array : IEnumerable<ScalarValue>
 
     protected IEnumerable<ScalarValue> FlattenArray()
     {
-        for (int row = 0; row < Height; row++)
+        for (var row = 0; row < Height; row++)
         {
-            for (int col = 0; col < Width; col++)
+            for (var col = 0; col < Width; col++)
             {
                 yield return this[row, col];
             }
@@ -51,8 +51,8 @@ internal abstract class Array : IEnumerable<ScalarValue>
     public Array Apply(Func<ScalarValue, ScalarValue> op)
     {
         var data = new ScalarValue[Height, Width];
-        for (int y = 0; y < Height; ++y)
-            for (int x = 0; x < Width; ++x)
+        for (var y = 0; y < Height; ++y)
+            for (var x = 0; x < Width; ++x)
                 data[y, x] = op(this[y, x]);
 
         return new ConstArray(data);
@@ -68,9 +68,9 @@ internal abstract class Array : IEnumerable<ScalarValue>
         var width = Math.Max(leftArray.Width, rightArray.Width);
         var height = Math.Max(leftArray.Height, rightArray.Height);
         var data = new ScalarValue[height, width];
-        for (int y = 0; y < height; ++y)
+        for (var y = 0; y < height; ++y)
         {
-            for (int x = 0; x < width; ++x)
+            for (var x = 0; x < width; ++x)
             {
                 var leftItem = x < leftArray.Width && y < leftArray.Height ? leftArray[y, x] : XLError.NoValueAvailable;
                 var rightItem = x < rightArray.Width && y < rightArray.Height ? rightArray[y, x] : XLError.NoValueAvailable;
@@ -128,8 +128,6 @@ internal sealed class ConstArray : Array
 /// </summary>
 internal sealed class LiteralArray : Array
 {
-    private readonly int _rows;
-    private readonly int _columns;
     private readonly IReadOnlyList<ScalarValue> _elements;
 
     /// <summary>
@@ -143,8 +141,8 @@ internal sealed class LiteralArray : Array
         if (rows * columns != elements.Count)
             throw new ArgumentException("Number of elements in not the same as size of an array.", nameof(elements));
 
-        _rows = rows;
-        _columns = columns;
+        Height = rows;
+        Width = columns;
         _elements = elements;
     }
 
@@ -152,16 +150,16 @@ internal sealed class LiteralArray : Array
     {
         get
         {
-            if (x < 0 || x >= _columns)
+            if (x < 0 || x >= Width)
                 throw new ArgumentOutOfRangeException(nameof(x));
 
-            return _elements[y * _columns + x];
+            return _elements[y * Width + x];
         }
     }
 
-    public override int Width => _columns;
+    public override int Width { get; }
 
-    public override int Height => _rows;
+    public override int Height { get; }
 }
 
 /// <summary>
@@ -303,32 +301,30 @@ internal sealed class ResizedArray : Array
 }
 
 /// <summary>
-/// An array where all elements have same value.
+/// An array where all elements have the same value.
 /// </summary>
 internal sealed class ScalarArray : Array
 {
     private readonly ScalarValue _value;
-    private readonly int _columns;
-    private readonly int _rows;
 
     public ScalarArray(ScalarValue value, int columns, int rows)
     {
-        if (columns < 1) throw new ArgumentOutOfRangeException(nameof(columns));
-        if (rows < 1) throw new ArgumentOutOfRangeException(nameof(rows));
+        ArgumentOutOfRangeException.ThrowIfLessThan(columns, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(rows, 1);
         _value = value;
-        _columns = columns;
-        _rows = rows;
+        Width = columns;
+        Height = rows;
     }
 
-    public override int Width => _columns;
+    public override int Width { get; }
 
-    public override int Height => _rows;
+    public override int Height { get; }
 
     public override ScalarValue this[int y, int x]
     {
         get
         {
-            if (x < 0 || x >= _columns || y < 0 || y >= _rows)
+            if (x < 0 || x >= Width || y < 0 || y >= Height)
                 throw new IndexOutOfRangeException();
 
             return _value;
@@ -337,7 +333,7 @@ internal sealed class ScalarArray : Array
 
     public override IEnumerator<ScalarValue> GetEnumerator()
     {
-        return Enumerable.Range(0, _columns * _rows).Select(_ => _value).GetEnumerator();
+        return Enumerable.Range(0, Width * Height).Select(_ => _value).GetEnumerator();
     }
 }
 

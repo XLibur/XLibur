@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using NUnit.Framework;
 using XLibur.Excel;
+using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.AutoFilters;
 

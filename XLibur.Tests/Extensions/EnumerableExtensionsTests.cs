@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 using XLibur.Tests.Excel.Tables;
 
 namespace XLibur.Tests.Extensions;

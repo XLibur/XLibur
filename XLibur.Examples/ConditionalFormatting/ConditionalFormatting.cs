@@ -14,7 +14,7 @@ public class CFColorScaleLowMidHigh : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().ColorScale()
+        ws.RangeUsed()!.AddConditionalFormat().ColorScale()
             .LowestValue(XLColor.Red)
             .Midpoint(XLCFContentType.Percent, "50", XLColor.Yellow)
             .HighestValue(XLColor.Green);
@@ -35,7 +35,7 @@ public class CFColorScaleLowHigh : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().ColorScale()
+        ws.RangeUsed()!.AddConditionalFormat().ColorScale()
             .Minimum(XLCFContentType.Number, "2", XLColor.Red)
             .Maximum(XLCFContentType.Percentile, "90", XLColor.Green);
 
@@ -55,7 +55,7 @@ public class CFColorScaleMinimumMaximum : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().ColorScale()
+        ws.RangeUsed()!.AddConditionalFormat().ColorScale()
             .LowestValue(XLColor.FromHtml("#FFFF7128"))
             .HighestValue(XLColor.FromHtml("#FFFFEF9C"));
 
@@ -75,7 +75,7 @@ public class CFStartsWith : IXLExample
             .CellBelow().SetValue("Hell")
             .CellBelow().SetValue("Holl");
 
-        ws.RangeUsed().AddConditionalFormat().WhenStartsWith("Hell")
+        ws.RangeUsed()!.AddConditionalFormat().WhenStartsWith("Hell")
             .Fill.SetBackgroundColor(XLColor.Red)
             .Border.SetOutsideBorder(XLBorderStyleValues.Thick)
             .Border.SetOutsideBorderColor(XLColor.Blue)
@@ -97,7 +97,7 @@ public class CFEndsWith : IXLExample
             .CellBelow().SetValue("Hell")
             .CellBelow().SetValue("Holl");
 
-        ws.RangeUsed().AddConditionalFormat().WhenEndsWith("ll")
+        ws.RangeUsed()!.AddConditionalFormat().WhenEndsWith("ll")
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -116,7 +116,7 @@ public class CFIsBlank : IXLExample
             .CellBelow().SetValue("")
             .CellBelow().SetValue("Holl");
 
-        ws.RangeUsed().AddConditionalFormat().WhenIsBlank()
+        ws.RangeUsed()!.AddConditionalFormat().WhenIsBlank()
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -135,7 +135,7 @@ public class CFNotBlank : IXLExample
             .CellBelow().SetValue("")
             .CellBelow().SetValue("Holl");
 
-        ws.RangeUsed().AddConditionalFormat().WhenNotBlank()
+        ws.RangeUsed()!.AddConditionalFormat().WhenNotBlank()
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -154,7 +154,7 @@ public class CFIsError : IXLExample
             .CellBelow().SetFormulaA1("1/0")
             .CellBelow().SetValue("Holl");
 
-        ws.RangeUsed().AddConditionalFormat().WhenIsError()
+        ws.RangeUsed()!.AddConditionalFormat().WhenIsError()
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -173,7 +173,7 @@ public class CFNotError : IXLExample
             .CellBelow().SetFormulaA1("1/0")
             .CellBelow().SetValue("Holl");
 
-        ws.RangeUsed().AddConditionalFormat().WhenNotError()
+        ws.RangeUsed()!.AddConditionalFormat().WhenNotError()
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -192,7 +192,7 @@ public class CFContains : IXLExample
             .CellBelow().SetValue("Hell")
             .CellBelow().SetValue("Holl");
 
-        ws.RangeUsed().AddConditionalFormat().WhenContains("Hell")
+        ws.RangeUsed()!.AddConditionalFormat().WhenContains("Hell")
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -211,7 +211,7 @@ public class CFNotContains : IXLExample
             .CellBelow().SetValue("Hell")
             .CellBelow().SetValue("Holl");
 
-        ws.RangeUsed().AddConditionalFormat().WhenNotContains("Hell")
+        ws.RangeUsed()!.AddConditionalFormat().WhenNotContains("Hell")
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -230,7 +230,7 @@ public class CFEqualsString : IXLExample
             .CellBelow().SetValue("Hell")
             .CellBelow().SetValue("Holl");
 
-        ws.RangeUsed().AddConditionalFormat().WhenEquals("Hell")
+        ws.RangeUsed()!.AddConditionalFormat().WhenEquals("Hell")
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -249,7 +249,7 @@ public class CFEqualsNumber : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().WhenEquals(2)
+        ws.RangeUsed()!.AddConditionalFormat().WhenEquals(2)
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -268,7 +268,7 @@ public class CFNotEqualsString : IXLExample
             .CellBelow().SetValue("Hell")
             .CellBelow().SetValue("Holl");
 
-        ws.RangeUsed().AddConditionalFormat().WhenNotEquals("Hell")
+        ws.RangeUsed()!.AddConditionalFormat().WhenNotEquals("Hell")
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -287,7 +287,7 @@ public class CFNotEqualsNumber : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().WhenNotEquals(2)
+        ws.RangeUsed()!.AddConditionalFormat().WhenNotEquals(2)
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -306,7 +306,7 @@ public class CFGreaterThan : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().WhenGreaterThan("2")
+        ws.RangeUsed()!.AddConditionalFormat().WhenGreaterThan("2")
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -325,7 +325,7 @@ public class CFEqualOrGreaterThan : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().WhenEqualOrGreaterThan("2")
+        ws.RangeUsed()!.AddConditionalFormat().WhenEqualOrGreaterThan("2")
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -344,7 +344,7 @@ public class CFLessThan : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().WhenLessThan("2")
+        ws.RangeUsed()!.AddConditionalFormat().WhenLessThan("2")
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -363,7 +363,7 @@ public class CFEqualOrLessThan : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().WhenEqualOrLessThan("2")
+        ws.RangeUsed()!.AddConditionalFormat().WhenEqualOrLessThan("2")
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -382,7 +382,7 @@ public class CFBetween : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().WhenBetween("2", "3")
+        ws.RangeUsed()!.AddConditionalFormat().WhenBetween("2", "3")
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -401,7 +401,7 @@ public class CFNotBetween : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().WhenNotBetween("2", "3")
+        ws.RangeUsed()!.AddConditionalFormat().WhenNotBetween("2", "3")
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -420,7 +420,7 @@ public class CFUnique : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().WhenIsUnique()
+        ws.RangeUsed()!.AddConditionalFormat().WhenIsUnique()
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -439,7 +439,7 @@ public class CFDuplicate : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().WhenIsDuplicate()
+        ws.RangeUsed()!.AddConditionalFormat().WhenIsDuplicate()
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -458,7 +458,7 @@ public class CFIsTrue : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().WhenIsTrue("TRUE")
+        ws.RangeUsed()!.AddConditionalFormat().WhenIsTrue("TRUE")
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -477,7 +477,7 @@ public class CFTop : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().WhenIsTop(2)
+        ws.RangeUsed()!.AddConditionalFormat().WhenIsTop(2)
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -496,7 +496,7 @@ public class CFBottom : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().WhenIsBottom(10, XLTopBottomType.Percent)
+        ws.RangeUsed()!.AddConditionalFormat().WhenIsBottom(10, XLTopBottomType.Percent)
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -515,7 +515,7 @@ public class CFDataBar : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().DataBar(XLColor.Red, true)
+        ws.RangeUsed()!.AddConditionalFormat().DataBar(XLColor.Red, true)
             .LowestValue()
             .Maximum(XLCFContentType.Percent, "100");
 
@@ -568,7 +568,7 @@ public class CFIconSet : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().IconSet(XLIconSetStyle.ThreeTrafficLights2, true, true)
+        ws.RangeUsed()!.AddConditionalFormat().IconSet(XLIconSetStyle.ThreeTrafficLights2, true, true)
             .AddValue(XLCFIconSetOperator.EqualOrGreaterThan, "0", XLCFContentType.Number)
             .AddValue(XLCFIconSetOperator.EqualOrGreaterThan, "2", XLCFContentType.Number)
             .AddValue(XLCFIconSetOperator.EqualOrGreaterThan, "3", XLCFContentType.Number);
@@ -589,12 +589,12 @@ public class CFTwoConditions : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().IconSet(XLIconSetStyle.ThreeTrafficLights2, true, true)
+        ws.RangeUsed()!.AddConditionalFormat().IconSet(XLIconSetStyle.ThreeTrafficLights2, true, true)
             .AddValue(XLCFIconSetOperator.EqualOrGreaterThan, "0", XLCFContentType.Number)
             .AddValue(XLCFIconSetOperator.EqualOrGreaterThan, "2", XLCFContentType.Number)
             .AddValue(XLCFIconSetOperator.EqualOrGreaterThan, "3", XLCFContentType.Number);
 
-        ws.RangeUsed().AddConditionalFormat().WhenContains("1")
+        ws.RangeUsed()!.AddConditionalFormat().WhenContains("1")
             .Fill.SetBackgroundColor(XLColor.Red);
 
         workbook.SaveAs(filePath);
@@ -634,7 +634,7 @@ public class CFTest : IXLExample
             .CellBelow().SetValue(3)
             .CellBelow().SetValue(4);
 
-        ws.RangeUsed().AddConditionalFormat().DataBar(XLColor.Red, XLColor.Green)
+        ws.RangeUsed()!.AddConditionalFormat().DataBar(XLColor.Red, XLColor.Green)
             .LowestValue()
             .HighestValue();
 
@@ -673,9 +673,9 @@ public class CFStopIfTrue : IXLExample
             .CellBelow().SetValue(2)
             .CellBelow().SetValue(3);
 
-        ws.RangeUsed().AddConditionalFormat().SetStopIfTrue().WhenGreaterThan(5);
+        ws.RangeUsed()!.AddConditionalFormat().SetStopIfTrue().WhenGreaterThan(5);
 
-        ws.RangeUsed().AddConditionalFormat().IconSet(XLIconSetStyle.ThreeTrafficLights2, true, true)
+        ws.RangeUsed()!.AddConditionalFormat().IconSet(XLIconSetStyle.ThreeTrafficLights2, true, true)
             .AddValue(XLCFIconSetOperator.EqualOrGreaterThan, "0", XLCFContentType.Number)
             .AddValue(XLCFIconSetOperator.EqualOrGreaterThan, "2", XLCFContentType.Number)
             .AddValue(XLCFIconSetOperator.EqualOrGreaterThan, "3", XLCFContentType.Number);

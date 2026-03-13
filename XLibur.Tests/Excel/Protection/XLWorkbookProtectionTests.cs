@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using XLibur.Excel;
 using NUnit.Framework;
+using XLibur.Extensions;
 using static XLibur.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Tests.Excel.Protection;

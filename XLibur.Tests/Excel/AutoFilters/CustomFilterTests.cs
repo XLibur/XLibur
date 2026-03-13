@@ -79,7 +79,8 @@ public class CustomFilterTests
     {
         new AutoFilterTester(f => f.LessThan(XLError.CellReference))
             .AddTrue(XLError.NullValue, XLError.IncompatibleValue)
-            .AddFalse(XLError.CellReference, XLError.NameNotRecognized, 1, "#NULL!", "Test", "", true, false, Blank.Value)
+            .AddFalse(XLError.CellReference, XLError.NameNotRecognized, 1, "#NULL!", "Test", "", true, false,
+                Blank.Value)
             .AssertVisibility();
     }
 
@@ -115,7 +116,8 @@ public class CustomFilterTests
     {
         new AutoFilterTester(f => f.GreaterThan(XLError.CellReference))
             .AddTrue(XLError.NameNotRecognized, XLError.NumberInvalid, XLError.NoValueAvailable)
-            .AddFalse(XLError.CellReference, XLError.IncompatibleValue, XLError.NullValue, 1, "#NULL!", "Test", "", true, false, Blank.Value)
+            .AddFalse(XLError.CellReference, XLError.IncompatibleValue, XLError.NullValue, 1, "#NULL!", "Test", "",
+                true, false, Blank.Value)
             .AssertVisibility();
     }
 
@@ -170,7 +172,7 @@ public class CustomFilterTests
     [SetCulture("cs-CZ")]
     public void Equal_uses_format_string_matching_for_filter_values_that_look_like_non_patterns()
     {
-        // Note the ',' separator that is used detect number. Excel doesn't use invariant culture.
+        // Note the ',' separator used to detect number. Excel doesn't use invariant culture.
         new AutoFilterTester(f => f.EqualTo("1,00"))
             .Add("1,00", true)
             .Add(1, nf => nf.SetNumberFormatId((int)XLPredefinedFormat.Number.Precision2), true)
@@ -186,7 +188,8 @@ public class CustomFilterTests
         // 1,00 is detected as a type number with value 1.
         new AutoFilterTester(f => f.NotEqualTo("1,00"))
             .Add(1, false) // Value is equal => hide
-            .Add(1, nf => nf.SetNumberFormatId((int)XLPredefinedFormat.Number.Precision2), false) // Value is equal => hide
+            .Add(1, nf => nf.SetNumberFormatId((int)XLPredefinedFormat.Number.Precision2),
+                false) // Value is equal => hide
             .Add("1,00", true) // wrong type
             .Add(99, nf => nf.SetFormat("\"1,00\""), true) // Value is wrong => non-equal
             .AddTrue("A", "B", 2, XLError.DivisionByZero, true, false) // Wrong type

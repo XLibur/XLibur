@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Linq;
+using System.Text;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.RichText;
 
 internal class XLFormattedText<T> : IXLFormattedText<T>
 {

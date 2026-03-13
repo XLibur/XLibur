@@ -4,6 +4,7 @@ using XLibur.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Extensions;
 
 namespace XLibur.Excel.IO;
 

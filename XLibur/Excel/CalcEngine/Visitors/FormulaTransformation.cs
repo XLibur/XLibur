@@ -8,12 +8,13 @@ namespace XLibur.Excel.CalcEngine.Visitors;
 
 internal static class FormulaTransformation
 {
-    private static readonly Lazy<PrefixTree> FutureFunctionSet = new(() => PrefixTree.Build(XLConstants.FutureFunctionMap.Value.Keys));
+    private static readonly Lazy<PrefixTree> FutureFunctionSet =
+        new(() => PrefixTree.Build(XLConstants.FutureFunctionMap.Value.Keys));
 
     private static readonly RenameFunctionsVisitor RemapFutureFunctions = new(XLConstants.FutureFunctionMap);
 
     /// <summary>
-    /// Add necessary prefixes to a user-supplied future functions without a prefix (e.g.
+    /// Add the necessary prefixes to a user-supplied future function without a prefix (e.g.
     /// <c>acot(A5)/2</c> to <c>_xlfn.ACOT(A5)/2</c>).
     /// </summary>
     internal static string FixFutureFunctions(string formula, string sheetName, XLSheetPoint origin)

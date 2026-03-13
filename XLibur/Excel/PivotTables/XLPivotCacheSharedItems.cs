@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using XLibur.Excel.Cells;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 

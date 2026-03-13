@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using XLibur.Excel.CalcEngine.Visitors;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
@@ -1166,17 +1167,6 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         target.CopyFrom(this);
     }
 
-    //public IXLChart CreateChart(Int32 firstRow, Int32 firstColumn, Int32 lastRow, Int32 lastColumn)
-    //{
-    //    IXLChart chart = new XLChartWorksheet;
-    //    chart.FirstRow = firstRow;
-    //    chart.LastRow = lastRow;
-    //    chart.LastColumn = lastColumn;
-    //    chart.FirstColumn = firstColumn;
-    //    Worksheet.Charts.Add(chart);
-    //    return chart;
-    //}
-
     IXLPivotTable IXLRangeBase.CreatePivotTable(IXLCell targetCell, string name)
     {
         return CreatePivotTable(targetCell, name);
@@ -1354,7 +1344,4 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
     public IXLCells Difference(IXLRangeBase otherRange, Func<IXLCell, bool>? thisRangePredicate = null,
         Func<IXLCell, bool>? otherRangePredicate = null)
         => XLRangeSetOperationsHelper.Difference(this, otherRange, thisRangePredicate, otherRangePredicate);
-
-    // private IEnumerable<IXLCell> CellsUsedInternal(XLCellsUsedOptions options, Func<IXLRange, IXLCell> selector, Func<IXLCell, bool>? predicate)
-    //     => XLRangeCellsHelper.CellsUsedInternal(this, options, selector, predicate);
 }

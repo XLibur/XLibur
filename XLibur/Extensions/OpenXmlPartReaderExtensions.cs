@@ -9,109 +9,116 @@ namespace XLibur.Extensions;
 
 internal static class OpenXmlPartReaderExtensions
 {
-    internal static bool IsStartElement(this OpenXmlPartReader reader, string localName)
+    extension(OpenXmlPartReader reader)
     {
-        return reader.LocalName == localName && reader is { NamespaceUri: OpenXmlConst.Main2006SsNs, IsStartElement: true };
-    }
-
-    internal static void MoveAhead(this OpenXmlPartReader reader)
-    {
-        if (!reader.Read())
-            throw new InvalidOperationException("Unexpected end of stream.");
-    }
-
-    internal static string? GetAttribute(this ReadOnlyCollection<OpenXmlAttribute> attributes, string name)
-    {
-        // Don't use foreach, performance critical
-        var length = attributes.Count;
-        for (var i = 0; i < length; ++i)
+        internal bool IsStartElement(string localName)
         {
-            var attr = attributes[i];
-            if (attr.LocalName == name && string.IsNullOrEmpty(attr.NamespaceUri))
-                return attr.Value;
+            return reader.LocalName == localName && reader is
+                { NamespaceUri: OpenXmlConst.Main2006SsNs, IsStartElement: true };
         }
 
-        return null;
+        internal void MoveAhead()
+        {
+            if (!reader.Read())
+                throw new InvalidOperationException("Unexpected end of stream.");
+        }
     }
 
-    internal static string? GetAttribute(this ReadOnlyCollection<OpenXmlAttribute> attributes, string name, string namespaceUri)
+    extension(ReadOnlyCollection<OpenXmlAttribute> attributes)
     {
-        // Don't use foreach, performance critical
-        var length = attributes.Count;
-        for (var i = 0; i < length; ++i)
+        internal string? GetAttribute(string name)
         {
-            var attr = attributes[i];
-            if (attr.LocalName == name && attr.NamespaceUri == namespaceUri)
-                return attr.Value;
+            // Don't use foreach, performance critical
+            var length = attributes.Count;
+            for (var i = 0; i < length; ++i)
+            {
+                var attr = attributes[i];
+                if (attr.LocalName == name && string.IsNullOrEmpty(attr.NamespaceUri))
+                    return attr.Value;
+            }
+
+            return null;
         }
 
-        return null;
-    }
+        internal string? GetAttribute(string name, string namespaceUri)
+        {
+            // Don't use foreach, performance critical
+            var length = attributes.Count;
+            for (var i = 0; i < length; ++i)
+            {
+                var attr = attributes[i];
+                if (attr.LocalName == name && attr.NamespaceUri == namespaceUri)
+                    return attr.Value;
+            }
 
-    internal static bool GetBoolAttribute(this ReadOnlyCollection<OpenXmlAttribute> attributes, string name, bool defaultValue)
-    {
-        var attribute = attributes.GetAttribute(name);
-        return ParseBool(attribute, defaultValue);
-    }
+            return null;
+        }
 
-    internal static int? GetIntAttribute(this ReadOnlyCollection<OpenXmlAttribute> attributes, string name)
-    {
-        var attribute = attributes.GetAttribute(name);
-        if (!string.IsNullOrEmpty(attribute))
-            return int.Parse(attribute);
+        internal bool GetBoolAttribute(string name, bool defaultValue)
+        {
+            var attribute = attributes.GetAttribute(name);
+            return ParseBool(attribute, defaultValue);
+        }
 
-        return null;
-    }
+        internal int? GetIntAttribute(string name)
+        {
+            var attribute = attributes.GetAttribute(name);
+            if (!string.IsNullOrEmpty(attribute))
+                return int.Parse(attribute);
 
-    internal static uint? GetUintAttribute(this ReadOnlyCollection<OpenXmlAttribute> attributes, string name)
-    {
-        var attribute = attributes.GetAttribute(name);
-        if (!string.IsNullOrEmpty(attribute))
-            return uint.Parse(attribute);
+            return null;
+        }
 
-        return null;
-    }
+        internal uint? GetUintAttribute(string name)
+        {
+            var attribute = attributes.GetAttribute(name);
+            if (!string.IsNullOrEmpty(attribute))
+                return uint.Parse(attribute);
 
-    internal static double? GetDoubleAttribute(this ReadOnlyCollection<OpenXmlAttribute> attributes, string name, string namespaceUri)
-    {
-        var attribute = attributes.GetAttribute(name, namespaceUri);
-        if (!string.IsNullOrEmpty(attribute))
-            return double.Parse(attribute, NumberStyles.Float, XLHelper.ParseCulture);
+            return null;
+        }
 
-        return null;
-    }
+        internal double? GetDoubleAttribute(string name, string namespaceUri)
+        {
+            var attribute = attributes.GetAttribute(name, namespaceUri);
+            if (!string.IsNullOrEmpty(attribute))
+                return double.Parse(attribute, NumberStyles.Float, XLHelper.ParseCulture);
 
-    internal static double? GetDoubleAttribute(this ReadOnlyCollection<OpenXmlAttribute> attributes, string name)
-    {
-        var attribute = attributes.GetAttribute(name);
-        if (!string.IsNullOrEmpty(attribute))
-            return double.Parse(attribute, NumberStyles.Float, XLHelper.ParseCulture);
+            return null;
+        }
 
-        return null;
-    }
+        internal double? GetDoubleAttribute(string name)
+        {
+            var attribute = attributes.GetAttribute(name);
+            if (!string.IsNullOrEmpty(attribute))
+                return double.Parse(attribute, NumberStyles.Float, XLHelper.ParseCulture);
 
-    /// <summary>
-    /// Get value of attribute with type <c>ST_CellRef</c>.
-    /// </summary>
-    internal static XLSheetPoint? GetCellRefAttribute(this ReadOnlyCollection<OpenXmlAttribute> attributes, string name)
-    {
-        var attribute = attributes.GetAttribute(name);
-        if (!string.IsNullOrEmpty(attribute))
-            return XLSheetPoint.Parse(attribute);
+            return null;
+        }
 
-        return null;
-    }
+        /// <summary>
+        /// Get value of attribute with type <c>ST_CellRef</c>.
+        /// </summary>
+        internal XLSheetPoint? GetCellRefAttribute(string name)
+        {
+            var attribute = attributes.GetAttribute(name);
+            if (!string.IsNullOrEmpty(attribute))
+                return XLSheetPoint.Parse(attribute);
 
-    /// <summary>
-    /// Get value of attribute with type <c>ST_Ref</c>.
-    /// </summary>
-    internal static XLSheetRange? GetRefAttribute(this ReadOnlyCollection<OpenXmlAttribute> attributes, string name)
-    {
-        var attribute = attributes.GetAttribute(name);
-        if (!string.IsNullOrEmpty(attribute))
-            return XLSheetRange.Parse(attribute);
+            return null;
+        }
 
-        return null;
+        /// <summary>
+        /// Get value of attribute with type <c>ST_Ref</c>.
+        /// </summary>
+        internal XLSheetRange? GetRefAttribute(string name)
+        {
+            var attribute = attributes.GetAttribute(name);
+            if (!string.IsNullOrEmpty(attribute))
+                return XLSheetRange.Parse(attribute);
+
+            return null;
+        }
     }
 
     private static bool ParseBool(string? input, bool defaultValue)

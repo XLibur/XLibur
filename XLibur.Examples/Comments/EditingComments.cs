@@ -5,7 +5,6 @@ namespace XLibur.Examples.Comments;
 
 class EditingComments : IXLExample
 {
-
     public void Create(string filePath)
     {
         // Exercise(@"path/to/test/resources/comments");
@@ -38,10 +37,6 @@ class EditingComments : IXLExample
         // new with author
         sheet.Cell("F3").GetComment().AddSignature();
         sheet.Cell("F3").GetComment().AddText("comment from author");
-
-        // TODO: merge with cells
-        // TODO: resize with cells
-        // TODO: visible
 
         book.SaveAs(Path.Combine(basePath, "EditingComments_modified.xlsx"));
     }

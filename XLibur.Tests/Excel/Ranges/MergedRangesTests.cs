@@ -1,6 +1,7 @@
 using System.Linq;
 using XLibur.Excel;
 using NUnit.Framework;
+using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.Ranges;
 

@@ -6,6 +6,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.Comments;
 

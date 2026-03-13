@@ -19,7 +19,8 @@ internal sealed class CalcContext
     {
     }
 
-    public CalcContext(XLCalcEngine calcEngine, CultureInfo culture, XLWorkbook? workbook, XLWorksheet? worksheet, IXLAddress? formulaAddress, bool recursive = false)
+    public CalcContext(XLCalcEngine calcEngine, CultureInfo culture, XLWorkbook? workbook, XLWorksheet? worksheet,
+        IXLAddress? formulaAddress, bool recursive = false)
     {
         CalcEngine = calcEngine;
         Workbook = workbook;
@@ -79,12 +80,13 @@ internal sealed class CalcContext
     /// <summary>
     /// An upper limit (exclusive) of used calendar system.
     /// </summary>
-    internal double DateSystemUpperLimit => Use1904DateSystem ? XLHelper.Calendar1904UpperLimit : XLHelper.Calendar1900UpperLimit;
+    internal double DateSystemUpperLimit =>
+        Use1904DateSystem ? XLHelper.Calendar1904UpperLimit : XLHelper.Calendar1900UpperLimit;
 
-    internal CancellationToken CancellationToken { get; init; } = CancellationToken.None;
+    private CancellationToken CancellationToken { get; init; } = CancellationToken.None;
 
     /// <summary>
-    /// A helper method to check is user cancelled the calculation in function loops.
+    /// A helper method to check is user canceled the calculation in function loops.
     /// </summary>
     internal void ThrowIfCancelled()
     {
@@ -109,7 +111,7 @@ internal sealed class CalcContext
             return valueSlice.GetCellValue(point);
 
         // A special branch for functions out of cells (e.g. worksheet.Evaluate("A1+2")).
-        // These functions are not a part of calculation chain and thus reordering a chain
+        // These functions are not a part of the calculation chain, and thus reordering a chain
         // for them doesn't make sense.
         if (_recursive)
         {
@@ -122,7 +124,7 @@ internal sealed class CalcContext
 
     /// <summary>
     /// This method goes over slices and returns a value for each non-blank cell. Because it is using
-    /// slice iterators, it scales with number of cells, not a size of area in reference (i.e. it works
+    /// slice iterators, it scales with number of cells, not a size of area in reference (i.e., it works
     /// fine even if reference is <c>A1:XFD1048576</c>). It also works for 3D references.
     /// </summary>
     internal IEnumerable<ScalarValue> GetNonBlankValues(Reference reference)
@@ -132,7 +134,7 @@ internal sealed class CalcContext
             var sheet = area.Worksheet ?? Worksheet;
             var range = XLSheetRange.FromRangeAddress(area);
 
-            // A value can be either in a non-empty value slice or a empty cell with a formula.
+            // A value can be either in a non-empty value slice or an empty cell with a formula.
             var enumerator = sheet.Internals.CellsCollection.ForValuesAndFormulas(range);
             while (enumerator.MoveNext())
             {
@@ -152,12 +154,12 @@ internal sealed class CalcContext
         var sheet = areaReference.Worksheet ?? Worksheet;
         var area = XLSheetRange.FromRangeAddress(areaReference);
 
-        // This is a performance optimization when user specifies a whole column
+        // This is a performance optimization when a user specifies a whole column
         // in the tally function (e.g. SUMIF(A:B, "5", C:D)).
         if (criteria.CanBlankValueMatch)
         {
             // Criteria can match blank cells, thus it's not possible to use optimized
-            // used enumerators and we have to check value of each cell.
+            // used enumerators, and we have to check value of each cell.
             foreach (var point in area)
             {
                 var scalarValue = GetCellValue(sheet, point.Row, point.Column);
@@ -180,7 +182,8 @@ internal sealed class CalcContext
         }
     }
 
-    internal IEnumerable<ScalarValue> GetFilteredNonBlankValues(Reference reference, string function, bool skipHiddenRows = false)
+    internal IEnumerable<ScalarValue> GetFilteredNonBlankValues(Reference reference, string function,
+        bool skipHiddenRows = false)
     {
         // Allocate one per call, because visitor holds info whether function was found in a formula.
         var visitor = new FunctionVisitor(function);
@@ -203,7 +206,8 @@ internal sealed class CalcContext
                     if (currentRow != point.Row)
                     {
                         currentRow = point.Row;
-                        rowIsHidden = sheet.Internals.RowsCollection.TryGetValue(currentRow, out var row) && row.IsHidden;
+                        rowIsHidden = sheet.Internals.RowsCollection.TryGetValue(currentRow, out var row) &&
+                                      row.IsHidden;
                     }
 
                     if (rowIsHidden)
@@ -234,7 +238,7 @@ internal sealed class CalcContext
             if (!visitor.Found)
                 return false;
 
-            // In order to reuse same visitor without allocation, clear the found flag.
+            // To reuse same visitor without allocation, clear the found flag.
             visitor.Clear();
             return true;
         }
@@ -249,7 +253,7 @@ internal sealed class CalcContext
         if (value.TryPickScalar(out var scalar, out var collection))
         {
             if (scalar.IsBlank)
-                return System.Array.Empty<ScalarValue>();
+                return [];
 
             return new ScalarArray(scalar, 1, 1);
         }
@@ -271,7 +275,7 @@ internal sealed class CalcContext
         return GetAllCellValues(reference);
     }
 
-    internal IEnumerable<ScalarValue> GetAllCellValues(Reference reference)
+    private IEnumerable<ScalarValue> GetAllCellValues(Reference reference)
     {
         foreach (var area in reference.Areas)
         {
@@ -296,10 +300,11 @@ internal sealed class CalcContext
 
         public void Clear() => Found = false;
 
-        public override object? Function(FunctionVisitor context, SymbolRange range, ReadOnlySpan<char> functionName, IReadOnlyList<object?> arguments)
+        public override object? Function(FunctionVisitor context, SymbolRange range, ReadOnlySpan<char> functionName,
+            IReadOnlyList<object?> arguments)
         {
             Found = Found || functionName.Equals(FunctionName.AsSpan(), StringComparison.OrdinalIgnoreCase);
-            return default;
+            return null;
         }
     }
 }

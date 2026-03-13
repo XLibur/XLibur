@@ -100,7 +100,7 @@ internal sealed class FormulaSlice : ISlice
     /// Set all cells in a <paramref name="range"/> to the array formula.
     /// </summary>
     /// <remarks>
-    /// This method doesn't check that formula doesn't damage other array formulas.
+    /// This method doesn't check that the formula doesn't damage other array formulas.
     /// </remarks>
     internal void SetArray(XLSheetRange range, XLCellFormula? arrayFormula)
     {
@@ -113,8 +113,8 @@ internal sealed class FormulaSlice : ISlice
 
                 _formulas.Set(point, arrayFormula);
 
-                // The formula removal removes formula from dependency tree
-                // (number of cells formula affects doesn't matter) and also
+                // The formula removal removes formula from a dependency tree
+                // (the number of cells formula affects doesn't matter) and also
                 // removes point from the calc chain. Therefore, it works for
                 // array and normal formulas.
                 var bookPoint = new XLBookPoint(_sheet.SheetId, point);

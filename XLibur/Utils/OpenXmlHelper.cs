@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Linq;
+using XLibur.Extensions;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Utils;

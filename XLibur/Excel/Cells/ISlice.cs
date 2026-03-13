@@ -3,7 +3,7 @@
 namespace XLibur.Excel;
 
 /// <summary>
-/// An interface for methods of <see cref="Slice{TElement}"/> without specified type of an element.
+/// An interface for methods of <see cref="Slice{TElement}"/> without specified type of element.
 /// </summary>
 internal interface ISlice
 {
@@ -13,22 +13,22 @@ internal interface ISlice
     bool IsEmpty { get; }
 
     /// <summary>
-    /// Get maximum used column in the slice or 0, if no column is used.
+    /// Get the maximum used column in the slice or 0, if no column is used.
     /// </summary>
     int MaxColumn { get; }
 
     /// <summary>
-    /// Get maximum used row in the slice or 0, if no row is used.
+    /// Get the maximum used row in the slice or 0, if no row is used.
     /// </summary>
     int MaxRow { get; }
 
     /// <summary>
-    /// A set of columns that have at least one used cell. Order of columns is non-deterministic.
+    /// A set of columns that have at least one used cell. The order of columns is non-deterministic.
     /// </summary>
     Dictionary<int, int>.KeyCollection UsedColumns { get; }
 
     /// <summary>
-    /// A set of rows that have at least one used cell. Order of rows is non-deterministic.
+    /// A set of rows that have at least one used cell. The order of rows is non-deterministic.
     /// </summary>
     IEnumerable<int> UsedRows { get; }
 
@@ -69,7 +69,7 @@ internal interface ISlice
     void InsertAreaAndShiftRight(XLSheetRange range);
 
     /// <summary>
-    /// Does slice contains a non-default value at specified point?
+    /// Does a slice contain a non-default value at a specified point?
     /// </summary>
     bool IsUsed(XLSheetPoint address);
 

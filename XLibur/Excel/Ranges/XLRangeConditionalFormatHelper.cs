@@ -1,4 +1,5 @@
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
@@ -95,7 +96,6 @@ internal static class XLRangeConditionalFormatHelper
 
         if (ml.ColumnNumber < l.ColumnNumber)
         {
-            //TODO: reflect the formula for a new range
             format.Ranges.Add(worksheet.Range(f.RowNumber, ml.ColumnNumber + 1, l.RowNumber, l.ColumnNumber));
         }
 

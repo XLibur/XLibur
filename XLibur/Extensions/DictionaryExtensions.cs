@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace XLibur.Excel;
+namespace XLibur.Extensions;
 
 internal static class DictionaryExtensions
 {

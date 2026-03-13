@@ -2,6 +2,7 @@ using XLibur.Graphics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
