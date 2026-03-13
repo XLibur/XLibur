@@ -8,9 +8,9 @@ namespace XLibur.Graphics;
 /// <remarks>
 /// In most cases, a glyph represents a single unicode code point. In some cases,
 /// multiple code points are represented by a single glyph (emojis in most cases).
-/// Although data type is float, the actual values should be whole numbers.
-/// That best fits to Excel behavior, but there might be some cases in the future,
-/// where values can be a floats (e.g. advance could be non-pixels aligned).
+/// AdvanceWidth is stored as an unrounded float to avoid accumulated rounding errors
+/// when summing widths across many glyphs (e.g. for column auto-fit). EmSize and
+/// Descent are rounded to whole pixels to match Excel's row height behavior.
 /// </remarks>
 [DebuggerDisplay("{AdvanceWidth}x{LineHeight}")]
 public readonly struct GlyphBox
@@ -28,7 +28,7 @@ public readonly struct GlyphBox
     }
 
     /// <summary>
-    /// Advance width in px of a box for code point. Value should be whole number.
+    /// Advance width in px of a box for code point.
     /// </summary>
     public float AdvanceWidth { get; }
 

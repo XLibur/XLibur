@@ -68,8 +68,8 @@ public class FontTests
 
         var box = engine.GetGlyphBox(text, nonExistentFont, new Dpi(96, 96));
 
-        // Max digit width of CarlitoBare is 7, unlike MS Sans Serif which is 8
-        Assert.AreEqual(7, box.AdvanceWidth);
+        // Max digit width of CarlitoBare is ~7.4 at 11pt, unlike MS Sans Serif which is ~8
+        Assert.That(box.AdvanceWidth, Is.EqualTo(7.43359375f));
     }
 
     [TestCase]

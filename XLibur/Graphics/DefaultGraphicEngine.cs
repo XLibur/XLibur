@@ -217,7 +217,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine
         var advancePx = PointsToPixels(advanceFu * font.FontSize / metric.UnitsPerEm, dpi.X);
         var descentPx = GetDescent(font, dpi.Y, metric);
         return new GlyphBox(
-            (float)Math.Round(advancePx, MidpointRounding.AwayFromZero),
+            (float)advancePx,
             (float)Math.Round(emInPx, MidpointRounding.AwayFromZero),
             (float)Math.Round(descentPx, MidpointRounding.AwayFromZero));
     }
