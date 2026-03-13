@@ -218,6 +218,40 @@ public class CommentsTests
     }
 
     [Test]
+    public void AutomaticSize_fits_comment_box_to_text()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("CommentSize");
+            var comment = ws.Cell("A1").CreateComment();
+            comment.AddText("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
+            comment.Style.Size.SetAutomaticSize();
+            wb.SaveAs(ms);
+        }
+
+        // Inspect the VML drawing
+        ms.Position = 0;
+        using var doc = SpreadsheetDocument.Open(ms, isEditable: false);
+        var wsPart = doc.WorkbookPart!.WorksheetParts.First();
+        var vmlPart = wsPart.VmlDrawingParts.First();
+        using var vmlStream = vmlPart.GetStream();
+        var vml = XDocument.Load(vmlStream);
+        var vmlStr = vml.ToString();
+
+        // Verify mso-fit-shape-to-text is present
+        Assert.That(vmlStr, Does.Contain("mso-fit-shape-to-text:t"));
+
+        // Verify that the height was auto-sized to be larger than default 59.25pt.
+        // The lorem ipsum text at Tahoma 9pt in 144pt-wide box wraps to 5 lines,
+        // requiring more height than the default 59.25pt.
+        var heightMatch = System.Text.RegularExpressions.Regex.Match(vmlStr, @"height:(\d+\.?\d*)pt");
+        Assert.That(heightMatch.Success, Is.True);
+        var height = double.Parse(heightMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.That(height, Is.GreaterThan(59.25));
+    }
+
+    [Test]
     public void Can_load_comment_with_missing_textbox_in_vml()
     {
         // Create a workbook with a comment, then strip the textbox element from VML.
