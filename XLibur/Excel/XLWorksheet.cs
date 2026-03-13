@@ -1592,17 +1592,21 @@ internal sealed class XLWorksheet : XLRangeBase, IXLWorksheet
         if (styleValue is not null)
             return styleValue;
 
-        // If the slice doesn't contain any value, determine values by inheriting.
-        // Cells that lie on an intersection of a XLColumn and a XLRow have their
-        // style set when column/row is created to avoid problems with correct which
-        // style has precedence. I.e. set column blue, set row red => cell is red.
-        // Swap order the the cell is blue.
+        return GetInheritedStyleValue(point.Row, point.Column);
+    }
+
+    /// <summary>
+    /// Compute the style a cell at (<paramref name="row"/>, <paramref name="column"/>) would
+    /// inherit from its row, column, and the worksheet — without consulting the StyleSlice.
+    /// </summary>
+    internal XLStyleValue GetInheritedStyleValue(int row, int column)
+    {
         var sheetStyle = StyleValue;
-        var rowStyle = Internals.RowsCollection.TryGetValue(point.Row, out var row)
-            ? row.StyleValue
+        var rowStyle = Internals.RowsCollection.TryGetValue(row, out var r)
+            ? r.StyleValue
             : sheetStyle;
-        var colStyle = Internals.ColumnsCollection.TryGetValue(point.Column, out var column)
-            ? column.StyleValue
+        var colStyle = Internals.ColumnsCollection.TryGetValue(column, out var c)
+            ? c.StyleValue
             : sheetStyle;
 
         return XLStyleValue.Combine(sheetStyle, rowStyle, colStyle);

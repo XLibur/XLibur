@@ -266,7 +266,7 @@ public partial class XLWorkbook
 
             WorksheetSheetDataReader.ApplyStyle(ws, 0, s!, fills!, borders!, fonts!, numberingFormats);
 
-            var styleList = new Dictionary<int, IXLStyle>(); // {{0, ws.Style}};
+            var styleList = new Dictionary<int, XLStyleValue>();
             PageSetupProperties? pageSetupProperties = null;
 
             var lastRow = 0;

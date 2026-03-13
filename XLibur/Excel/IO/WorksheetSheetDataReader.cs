@@ -26,7 +26,7 @@ internal static class WorksheetSheetDataReader
 
     internal static void LoadRow(Stylesheet s, NumberingFormats? numberingFormats, Fills fills, Borders borders,
         Fonts fonts, XLWorksheet ws, SharedStringEntry[]? sharedStrings,
-        Dictionary<uint, string> sharedFormulasR1C1, Dictionary<int, IXLStyle> styleList,
+        Dictionary<uint, string> sharedFormulasR1C1, Dictionary<int, XLStyleValue> styleList,
         OpenXmlPartReader reader, ref int lastRow, ref int lastColumnNumber, bool use1904DateSystem)
     {
         Debug.Assert(reader.LocalName == "row");
@@ -104,7 +104,7 @@ internal static class WorksheetSheetDataReader
 
     internal static void LoadCell(SharedStringEntry[]? sharedStrings, Stylesheet s, NumberingFormats? numberingFormats,
         Fills fills, Borders borders, Fonts fonts, Dictionary<uint, string> sharedFormulasR1C1,
-        XLWorksheet ws, Dictionary<int, IXLStyle> styleList, OpenXmlPartReader reader, int rowIndex,
+        XLWorksheet ws, Dictionary<int, XLStyleValue> styleList, OpenXmlPartReader reader, int rowIndex,
         ref int lastColumnNumber, bool use1904DateSystem)
     {
         Debug.Assert(reader.LocalName == "c" && reader.IsStartElement);
@@ -131,14 +131,26 @@ internal static class WorksheetSheetDataReader
 
         var xlCell = ws.Cell(cellAddress.Row, cellAddress.Column);
 
-        if (styleList.TryGetValue(styleIndex, out var style))
+        // Resolve style index to interned XLStyleValue (cached after first encounter).
+        // The actual write to StyleSlice is deferred to the end of the method so we can
+        // check whether other slices (value/formula/misc) already make this cell visible
+        // to the SlicesEnumerator.  When the resolved style matches the inherited style
+        // AND the cell has data in another slice, we skip the StyleSlice write — avoiding
+        // per-row Lut allocation in the style slice for large data sheets.
+        if (!styleList.TryGetValue(styleIndex, out var cellStyleValue))
         {
-            xlCell.InnerStyle = style;
+            cellStyleValue = ResolveStyleValue(styleIndex, s, fills, borders, fonts, numberingFormats);
+            styleList[styleIndex] = cellStyleValue;
         }
-        else
-        {
-            ApplyStyle(xlCell, styleIndex, s, fills, borders, fonts, numberingFormats);
-        }
+
+        // Set the style immediately so that xlCell.StyleValue returns the correct value
+        // for number-format-driven type detection (date vs number).  We may clear the
+        // entry at the end of the method if it turns out to be redundant.
+        var cellsCollection = ws.Internals.CellsCollection;
+        var inherited = ws.GetInheritedStyleValue(cellAddress.Row, cellAddress.Column);
+        var styleMatchesInherited = ReferenceEquals(cellStyleValue, inherited);
+        if (!styleMatchesInherited)
+            cellsCollection.StyleSlice.Set(cellAddress.Row, cellAddress.Column, cellStyleValue);
 
         var showPhonetic = attributes.GetBoolAttribute("ph", false);
         if (showPhonetic)
@@ -227,8 +239,18 @@ internal static class WorksheetSheetDataReader
             xlCell.SetOnlyValue(xlCell.GetDateTime().AddDays(1462));
         }
 
-        if (!styleList.ContainsKey(styleIndex))
-            styleList.Add(styleIndex, xlCell.Style);
+        // For blank cells that exist only to carry a style (no value, formula, or misc data),
+        // we must write the style to the StyleSlice so the cell remains visible to the
+        // SlicesEnumerator during save — even when the style matches the inherited style.
+        if (styleMatchesInherited)
+        {
+            var hasOtherData = cellsCollection.ValueSlice.IsUsed(cellAddress)
+                || cellsCollection.FormulaSlice.IsUsed(cellAddress)
+                || cellsCollection.MiscSlice.IsUsed(cellAddress);
+
+            if (!hasOtherData)
+                cellsCollection.StyleSlice.Set(cellAddress.Row, cellAddress.Column, cellStyleValue);
+        }
     }
 
     internal static XLCellFormula? SetCellFormula(XLWorksheet ws, XLSheetPoint cellAddress, OpenXmlPartReader reader,
@@ -533,6 +555,18 @@ internal static class WorksheetSheetDataReader
         {
             xlStylized.InnerStyle = new XLStyle(xlStylized, xlStyleKey);
         }
+    }
+
+    /// <summary>
+    /// Resolve a CellFormats style index to an interned <see cref="XLStyleValue"/>
+    /// without creating an <see cref="XLStyle"/> wrapper or writing to any slice.
+    /// </summary>
+    internal static XLStyleValue ResolveStyleValue(int styleIndex, Stylesheet s, Fills fills, Borders borders,
+        Fonts fonts, NumberingFormats? numberingFormats)
+    {
+        var xlStyleKey = XLStyle.Default.Key;
+        LoadStyle(ref xlStyleKey, styleIndex, s, fills, borders, fonts, numberingFormats);
+        return XLStyleValue.FromKey(ref xlStyleKey);
     }
 
     internal static void LoadStyle(ref XLStyleKey xlStyle, int styleIndex, Stylesheet s, Fills fills, Borders borders,
