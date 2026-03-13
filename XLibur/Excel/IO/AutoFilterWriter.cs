@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Globalization;
 using System.Linq;
+using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
 
@@ -12,7 +13,8 @@ internal sealed class AutoFilterWriter
     internal static void WriteAutoFilter(
         Worksheet worksheet,
         XLWorksheetContentManager cm,
-        XLWorksheet xlWorksheet)
+        XLWorksheet xlWorksheet,
+        SaveContext context)
     {
         worksheet.RemoveAllChildren<AutoFilter>();
         if (xlWorksheet.AutoFilter.IsEnabled)
@@ -23,7 +25,7 @@ internal sealed class AutoFilterWriter
             var autoFilter = worksheet.Elements<AutoFilter>().First();
             cm.SetElement(XLWorksheetContents.AutoFilter, autoFilter);
 
-            PopulateAutoFilter(xlWorksheet.AutoFilter, autoFilter);
+            PopulateAutoFilter(xlWorksheet.AutoFilter, autoFilter, context);
         }
         else
         {
@@ -31,7 +33,7 @@ internal sealed class AutoFilterWriter
         }
     }
 
-    internal static void PopulateAutoFilter(XLAutoFilter xlAutoFilter, AutoFilter autoFilter)
+    internal static void PopulateAutoFilter(XLAutoFilter xlAutoFilter, AutoFilter autoFilter, SaveContext context)
     {
         var filterRange = xlAutoFilter.Range;
         autoFilter.Reference = filterRange.RangeAddress.ToString();
@@ -114,6 +116,19 @@ internal sealed class AutoFilterWriter
                     }
 
                     filterColumn.Append(filters);
+                    break;
+
+                case XLFilterType.Color:
+                    var dxfKey = (xlFilterColumn.FilterColor.Key, xlFilterColumn.FilterByCellColor);
+                    if (context.ColorFilterDxfIds.TryGetValue(dxfKey, out var dxfId))
+                    {
+                        var colorFilter = new ColorFilter
+                        {
+                            FormatId = (uint)dxfId,
+                            CellColor = OpenXmlHelper.GetBooleanValue(xlFilterColumn.FilterByCellColor, true),
+                        };
+                        filterColumn.Append(colorFilter);
+                    }
                     break;
 
                 case XLFilterType.None:

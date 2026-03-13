@@ -61,6 +61,16 @@ internal sealed class XLFilterColumn : IXLFilterColumn, IXLFilteredColumn, IEnum
         SetAverage(aboveAverage: false, reapply);
     }
 
+    public void ColorFilter(XLColor color, bool reapply)
+    {
+        SetColorFilter(color, byCellColor: true, reapply);
+    }
+
+    public void FontColorFilter(XLColor color, bool reapply)
+    {
+        SetColorFilter(color, byCellColor: false, reapply);
+    }
+
     public IXLFilterConnector EqualTo(XLCellValue value, bool reapply)
     {
         return AddCustomFilter(value.ToString(), true, reapply);
@@ -144,6 +154,10 @@ internal sealed class XLFilterColumn : IXLFilterColumn, IXLFilteredColumn, IEnum
     /// </summary>
     public double DynamicValue { get; set; } = double.NaN;
 
+    public XLColor FilterColor { get; set; } = XLColor.NoColor;
+
+    public bool FilterByCellColor { get; set; }
+
     #endregion IXLFilterColumn Members
 
     /// <summary>
@@ -192,6 +206,14 @@ internal sealed class XLFilterColumn : IXLFilterColumn, IXLFilteredColumn, IEnum
             default:
                 throw new NotSupportedException();
         }
+    }
+
+    private void SetColorFilter(XLColor color, bool byCellColor, bool reapply)
+    {
+        ResetFilter(XLFilterType.Color);
+        FilterColor = color;
+        FilterByCellColor = byCellColor;
+        AddFilter(XLFilter.CreateColorFilter(color, byCellColor), reapply);
     }
 
     private void SetAverage(bool aboveAverage, bool reapply)
@@ -256,6 +278,7 @@ internal sealed class XLFilterColumn : IXLFilterColumn, IXLFilteredColumn, IEnum
             XLFilterType.Custom => 2,
             XLFilterType.TopBottom => 1,
             XLFilterType.Dynamic => 1,
+            XLFilterType.Color => 1,
             _ => throw new NotSupportedException()
         };
         if (_filters.Count >= maxFilters)

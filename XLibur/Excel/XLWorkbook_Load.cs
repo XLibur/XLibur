@@ -321,7 +321,7 @@ public partial class XLWorkbook
                             styleList, reader, ref lastRow, ref lastColumnNumber, Use1904DateSystem);
                     }
                     else if (reader.ElementType == typeof(AutoFilter))
-                        WorksheetElementReader.LoadAutoFilter((AutoFilter)reader.LoadCurrentElement()!, ws);
+                        WorksheetElementReader.LoadAutoFilter((AutoFilter)reader.LoadCurrentElement()!, ws, differentialFormats);
                     else if (reader.ElementType == typeof(SheetProtection))
                         WorksheetElementReader.LoadSheetProtection((SheetProtection)reader.LoadCurrentElement()!, ws);
                     else if (reader.ElementType == typeof(DataValidations))

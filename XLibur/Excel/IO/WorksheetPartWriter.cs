@@ -109,7 +109,7 @@ internal sealed class WorksheetPartWriter
         #endregion SheetData
 
         SheetProtectionWriter.WriteSheetProtection(worksheet, cm, xlWorksheet);
-        AutoFilterWriter.WriteAutoFilter(worksheet, cm, xlWorksheet);
+        AutoFilterWriter.WriteAutoFilter(worksheet, cm, xlWorksheet, context);
 
         #region MergeCells
 

@@ -333,18 +333,20 @@ internal static class WorksheetElementReader
         }
     }
 
-    internal static void LoadAutoFilter(AutoFilter af, XLWorksheet ws)
+    internal static void LoadAutoFilter(AutoFilter af, XLWorksheet ws,
+        Dictionary<int, DifferentialFormat> differentialFormats)
     {
         if (af != null)
         {
             ws.Range(af.Reference!.Value!)!.SetAutoFilter();
             var autoFilter = ws.AutoFilter;
             LoadAutoFilterSort(af, ws, autoFilter);
-            LoadAutoFilterColumns(af, autoFilter);
+            LoadAutoFilterColumns(af, autoFilter, differentialFormats);
         }
     }
 
-    internal static void LoadAutoFilterColumns(AutoFilter af, XLAutoFilter autoFilter)
+    internal static void LoadAutoFilterColumns(AutoFilter af, XLAutoFilter autoFilter,
+        Dictionary<int, DifferentialFormat>? differentialFormats = null)
     {
         foreach (var filterColumn in af.Elements<FilterColumn>())
         {
@@ -493,6 +495,41 @@ internal static class WorksheetElementReader
                 xlFilterColumn.DynamicValue = dynamicValue;
                 xlFilterColumn.AddFilter(XLFilter.CreateAverage(dynamicValue,
                     dynamicType == XLFilterDynamicType.AboveAverage));
+            }
+            else if (filterColumn.Elements<ColorFilter>().FirstOrDefault() is { } colorFilter
+                     && differentialFormats is not null)
+            {
+                xlFilterColumn.FilterType = XLFilterType.Color;
+                var byCellColor = OpenXmlHelper.GetBooleanValueAsBool(colorFilter.CellColor, true);
+                xlFilterColumn.FilterByCellColor = byCellColor;
+
+                var formatId = (int)colorFilter.FormatId!.Value;
+                if (differentialFormats.TryGetValue(formatId, out var dxf))
+                {
+                    XLColor filterColorValue;
+                    if (byCellColor)
+                    {
+                        var fill = dxf.Fill;
+                        var patternFill = fill?.PatternFill;
+                        if (patternFill?.BackgroundColor is { } bgColor)
+                            filterColorValue = bgColor.ToXLiburColor();
+                        else if (patternFill?.ForegroundColor is { } fgColor)
+                            filterColorValue = fgColor.ToXLiburColor();
+                        else
+                            filterColorValue = XLColor.NoColor;
+                    }
+                    else
+                    {
+                        var font = dxf.Font;
+                        var fontColor = font?.Color;
+                        filterColorValue = fontColor is not null
+                            ? fontColor.ToXLiburColor()
+                            : XLColor.NoColor;
+                    }
+
+                    xlFilterColumn.FilterColor = filterColorValue;
+                    xlFilterColumn.AddFilter(XLFilter.CreateColorFilter(filterColorValue, byCellColor));
+                }
             }
         }
     }

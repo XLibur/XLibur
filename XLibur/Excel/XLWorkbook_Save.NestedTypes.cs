@@ -15,6 +15,7 @@ public partial class XLWorkbook
         public SaveContext()
         {
             DifferentialFormats = new Dictionary<XLStyleValue, int>();
+            ColorFilterDxfIds = new Dictionary<(XLColorKey, bool), int>();
             RelIdGenerator = new RelIdGenerator();
             SharedFonts = new Dictionary<XLFontValue, FontInfo>();
             SharedNumberFormats = new Dictionary<XLNumberFormatValue, NumberFormatInfo>();
@@ -26,6 +27,12 @@ public partial class XLWorkbook
         }
 
         public Dictionary<XLStyleValue, int> DifferentialFormats { get; private set; }
+
+        /// <summary>
+        /// Maps (color key, byCellColor) to a dxf index for autofilter color filters.
+        /// </summary>
+        public Dictionary<(XLColorKey Color, bool ByCellColor), int> ColorFilterDxfIds { get; private set; }
+
         public RelIdGenerator RelIdGenerator { get; private set; }
         public Dictionary<XLFontValue, FontInfo> SharedFonts { get; private set; }
         public Dictionary<XLNumberFormatValue, NumberFormatInfo> SharedNumberFormats { get; private set; }

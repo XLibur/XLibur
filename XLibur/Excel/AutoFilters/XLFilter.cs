@@ -203,6 +203,19 @@ internal sealed class XLFilter
         };
     }
 
+    internal static XLFilter CreateColorFilter(XLColor color, bool byCellColor)
+    {
+        return new XLFilter
+        {
+            Value = color,
+            Operator = XLFilterOperator.Equal,
+            Connector = XLConnector.Or,
+            Condition = byCellColor
+                ? (cell, _) => cell.Style.Fill.BackgroundColor == color
+                : (cell, _) => cell.Style.Font.FontColor == color,
+        };
+    }
+
     internal static XLFilter CreateAverage(double initialAverage, bool aboveAverage)
     {
         bool AboveAverage(IXLCell cell, XLFilterColumn filterColumn)
