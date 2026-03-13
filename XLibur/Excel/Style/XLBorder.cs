@@ -78,9 +78,7 @@ internal sealed class XLBorder : IXLBorder
     {
         set
         {
-            if (_container == null) return;
-
-            if (_container is XLWorksheet or XLConditionalFormat or XLCell)
+            if (_container is null or XLWorksheet or XLConditionalFormat or XLCell)
             {
                 Modify(k => k with
                 {
@@ -107,9 +105,7 @@ internal sealed class XLBorder : IXLBorder
     {
         set
         {
-            if (_container == null) return;
-
-            if (_container is XLWorksheet or XLConditionalFormat or XLCell)
+            if (_container is null or XLWorksheet or XLConditionalFormat or XLCell)
             {
                 Modify(k => k with
                 {
@@ -136,9 +132,7 @@ internal sealed class XLBorder : IXLBorder
     {
         set
         {
-            if (_container == null) return;
-
-            if (_container is XLWorksheet)
+            if (_container is null or XLWorksheet)
             {
                 Modify(k => k with
                 {
@@ -175,9 +169,7 @@ internal sealed class XLBorder : IXLBorder
     {
         set
         {
-            if (_container == null) return;
-
-            if (_container is XLWorksheet)
+            if (_container is null or XLWorksheet)
             {
                 Modify(k => k with
                 {
