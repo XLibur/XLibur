@@ -135,21 +135,30 @@ internal sealed class XLTable : XLRange, IXLTable
     {
         get
         {
-            var firstDataRowNumber = 1;
-            var lastDataRowNumber = RowCount();
-
-            if (_showHeaderRow)
-                firstDataRowNumber++;
-
-            if (_showTotalsRow)
-                lastDataRowNumber--;
-
-            if (firstDataRowNumber > lastDataRowNumber)
+            var dataRowCount = DataRowCount;
+            if (dataRowCount == 0)
                 return null;
 
-            var range = Range(firstDataRowNumber, 1, lastDataRowNumber, ColumnCount());
+            var firstDataRowNumber = _showHeaderRow ? 2 : 1;
+            var range = Range(firstDataRowNumber, 1, firstDataRowNumber + dataRowCount - 1, ColumnCount());
 
             return new XLTableRange(range, this);
+        }
+    }
+
+    public int DataRowCount
+    {
+        get
+        {
+            var count = RowCount();
+
+            if (_showHeaderRow)
+                count--;
+
+            if (_showTotalsRow)
+                count--;
+
+            return Math.Max(count, 0);
         }
     }
 

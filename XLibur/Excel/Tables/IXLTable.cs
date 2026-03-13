@@ -9,6 +9,13 @@ public interface IXLTable : IXLRange
 {
     IXLAutoFilter AutoFilter { get; }
     IXLTableRange? DataRange { get; }
+
+    /// <summary>
+    /// Gets the number of data rows in the table, excluding header and totals rows.
+    /// Returns 0 when the table contains only a header row.
+    /// </summary>
+    int DataRowCount { get; }
+
     bool EmphasizeFirstColumn { get; set; }
     bool EmphasizeLastColumn { get; set; }
     IEnumerable<IXLTableField> Fields { get; }

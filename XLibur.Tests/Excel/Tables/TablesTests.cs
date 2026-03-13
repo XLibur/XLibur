@@ -1233,4 +1233,33 @@ public class TablesTests
         Assert.IsTrue(table.Cell(3, 1).Value.IsBlank);
         Assert.AreEqual("Carlo", table.Cell(4,1).Value);
     }
+
+    [Test]
+    public void DataRowCount_returns_data_rows_excluding_header_and_totals()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        var data = Enumerable.Range(1, 5).Select(i => new { Name = "Item" + i, Value = i });
+        var table = ws.FirstCell().InsertTable(data, "Table1", true);
+
+        // Table has header + 5 data rows
+        Assert.AreEqual(6, table.RowCount());
+        Assert.AreEqual(5, table.DataRowCount);
+        Assert.AreEqual(5, table.DataRange!.RowCount());
+
+        // Delete all data rows from worksheet (rows 2..6)
+        for (var row = 6; row >= 2; row--)
+            ws.Row(row).Delete();
+
+        // Resize table to header-only range
+        var headerOnlyRange = ws.Range(1, 1, 1, 2);
+        table.Resize(headerOnlyRange);
+
+        // After resize, the table range spans only 1 row (the header)
+        Assert.AreEqual(1, table.RowCount());
+        // DataRowCount should be 0 and DataRange should be null
+        Assert.AreEqual(0, table.DataRowCount);
+        Assert.IsNull(table.DataRange);
+    }
 }
