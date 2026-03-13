@@ -85,7 +85,9 @@ internal static class Statistical
         ce.RegisterFunction("STDEV.P", 1, int.MaxValue, StDevP, FunctionFlags.Range, AllowRange.All);
         //STEYX	Returns the standard error of the predicted y-value for each x in the regression
         //TDIST	Returns the Student's t-distribution
-        //TINV	Returns the inverse of the Student's t-distribution
+        ce.RegisterFunction("TINV", 2, 2, Adapt(TInv2S), FunctionFlags.Scalar); // Returns the two-tailed inverse of the Student's t-distribution (legacy)
+        ce.RegisterFunction("T.INV", 2, 2, Adapt(TInv), FunctionFlags.Scalar); // Returns the left-tailed inverse of the Student's t-distribution
+        ce.RegisterFunction("T.INV.2T", 2, 2, Adapt(TInv2S), FunctionFlags.Scalar); // Returns the two-tailed inverse of the Student's t-distribution
         //TREND	Returns values along a linear trend
         //TRIMMEAN	Returns the mean of the interior of a data set
         //TTEST	Returns the probability associated with a Student's t-test
@@ -270,6 +272,34 @@ internal static class Statistical
             return XLError.NumberInvalid;
 
         return 0.5 * Math.Log((1 + x) / (1 - x));
+    }
+
+    private static ScalarValue TInv(CalcContext ctx, double probability, double degreesOfFreedom)
+    {
+        // T.INV: left-tailed inverse. probability in (0, 1), df >= 1.
+        if (probability is <= 0 or >= 1)
+            return XLError.NumberInvalid;
+
+        var df = Math.Floor(degreesOfFreedom);
+        if (df < 1)
+            return XLError.NumberInvalid;
+
+        return XLMath.StudentTInv(probability, df);
+    }
+
+    private static ScalarValue TInv2S(CalcContext ctx, double probability, double degreesOfFreedom)
+    {
+        // TINV / T.INV.2T: two-tailed inverse. probability in (0, 1), df >= 1.
+        if (probability is <= 0 or >= 1)
+            return XLError.NumberInvalid;
+
+        var df = Math.Floor(degreesOfFreedom);
+        if (df < 1)
+            return XLError.NumberInvalid;
+
+        // Two-tailed: result is always positive.
+        // TINV(p, df) = T.INV(1 - p/2, df)
+        return XLMath.StudentTInv(1.0 - probability / 2.0, df);
     }
 
     private static AnyValue GeoMean(CalcContext ctx, Span<AnyValue> args)
