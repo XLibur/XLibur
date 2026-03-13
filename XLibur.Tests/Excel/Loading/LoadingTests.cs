@@ -30,6 +30,33 @@ public class LoadingTests
     }
 
     [Test]
+    public void Can_load_and_save_preserves_timelines()
+    {
+        // Regression test for https://github.com/ClosedXML/ClosedXML/issues/2132
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath("TryToLoad.Timelines_Missing_21232.xlsx"));
+        using var wb = new XLWorkbook(stream);
+
+        var ws = wb.AddWorksheet("Sample Sheet");
+        ws.Cell("A1").Value = "Hello World!";
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+
+        ms.Position = 0;
+        using var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Read);
+        var entryNames = zip.Entries.Select(e => e.FullName).ToList();
+
+        Assert.That(entryNames, Has.Some.Contains("timelines/timeline1.xml"), "Timeline part is missing");
+        Assert.That(entryNames, Has.Some.Contains("timelineCaches/timelineCache1.xml"), "Timeline cache part is missing");
+
+        using (var reader = new StreamReader(zip.GetEntry("xl/workbook.xml")!.Open()))
+            Assert.That(reader.ReadToEnd(), Does.Contain("timelineCacheRef"), "Workbook XML lost timelineCacheRef");
+
+        using (var reader = new StreamReader(zip.GetEntry("xl/worksheets/sheet1.xml")!.Open()))
+            Assert.That(reader.ReadToEnd(), Does.Contain("timelineRef"), "Worksheet XML lost timelineRef");
+    }
+
+    [Test]
     public void Can_load_and_save_file_with_external_image_reference()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath("TryToLoad.external_image_reference_2608.xlsx"));
