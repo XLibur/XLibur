@@ -221,6 +221,7 @@ public class SavingTests
     }
 
     [Test]
+    [Platform("Win", Reason = "FileAttributes.ReadOnly does not prevent writes on Linux/macOS")]
     public void CannotSaveAsOverwriteExistingReadOnlyFile()
     {
         using var existing = new TemporaryFile();
