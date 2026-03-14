@@ -1,0 +1,30 @@
+language: en-US
+
+reviews:
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - '!**/*.trx'
+    - '!**/BenchmarkDotNet.Artifacts/**'
+  path_instructions:
+    - path: 'XLibur/**/*.cs'
+      instructions: |
+        This is the core library. Focus on:
+        - Thread safety and concurrency issues
+        - Memory allocations and performance
+        - Nullable reference type correctness
+        - Public API surface changes
+    - path: 'XLibur.Tests/**/*.cs'
+      instructions: |
+        These are NUnit 4.x tests. Check for:
+        - Proper assertions (prefer Assert.That constraint model)
+        - Test isolation and determinism
+        - Missing edge case coverage
+
+chat:
+  auto_reply: true

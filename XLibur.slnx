@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/.github/">
+    <File Path=".github/ISSUE_TEMPLATE.md" />
+    <File Path=".github/PULL_REQUEST_TEMPLATE.md" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
+  </Folder>
+  <Project Path="XLibur.Tests/XLibur.Tests.csproj" />
+  <Project Path="XLibur.Benchmarks/XLibur.Benchmarks.csproj" />
+  <Project Path="XLibur.Examples/XLibur.Examples.csproj" />
+  <Project Path="XLibur/XLibur.csproj" />
+</Solution>

@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore XLibur.slnx
+
+      - name: Build
+        run: dotnet build XLibur.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test XLibur.Tests/XLibur.Tests.csproj --configuration Release --no-build
+
+      - name: Pack
+        run: dotnet pack XLibur/XLibur.csproj --configuration Release --no-build --output ./artifacts
+
+      - name: Push to NuGet
+        run: dotnet nuget push ./artifacts/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+
+      - name: Push symbols to NuGet
+        run: dotnet nuget push ./artifacts/*.snupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+
+      - name: Publish GitHub Release
+        uses: release-drafter/release-drafter@v6
+        with:
+          publish: true
+          tag: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./artifacts/*.nupkg
+            ./artifacts/*.snupkg
