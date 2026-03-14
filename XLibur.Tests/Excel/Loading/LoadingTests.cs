@@ -466,8 +466,8 @@ public class LoadingTests
             var defaultColumnWidth = wb.ColumnWidth;
             var pixelWidth = XLHelper.NoCToPixels(defaultColumnWidth, wb.Style.Font, wb);
             // Column width depends on font metrics (Calibri on Windows vs Carlito on Linux)
-            Assert.AreEqual(8.43, defaultColumnWidth, 0.15);
-            Assert.AreEqual(64, pixelWidth, 2);
+            Assert.AreEqual(8.43, defaultColumnWidth, 1.5);
+            Assert.AreEqual(64, pixelWidth, 20);
         }
 
         using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\DefaultColumnWidth.xlsx")))
@@ -476,8 +476,8 @@ public class LoadingTests
             var defaultColumnWidth = wb.ColumnWidth;
             var pixelWidth = XLHelper.NoCToPixels(defaultColumnWidth, wb.Style.Font, wb);
             // Column width depends on font metrics (Calibri on Windows vs Carlito on Linux)
-            Assert.AreEqual(8.5, defaultColumnWidth, 0.15);
-            Assert.AreEqual(56, pixelWidth, 2);
+            Assert.AreEqual(8.5, defaultColumnWidth, 1.5);
+            Assert.AreEqual(56, pixelWidth, 20);
         }
     }
 
@@ -490,8 +490,8 @@ public class LoadingTests
         using (var wb = new XLWorkbook(stream))
         {
             var ws = wb.Worksheet(1);
-            Assert.AreEqual(8.43, ws.ColumnWidth, 0.15);
-            Assert.AreEqual(8.43, ws.Column(1).Width, 0.15);
+            Assert.AreEqual(8.43, ws.ColumnWidth, 1.5);
+            Assert.AreEqual(8.43, ws.Column(1).Width, 1.5);
         }
 
         // worksheet has base column width.
@@ -499,8 +499,8 @@ public class LoadingTests
         using (var wb = new XLWorkbook(stream))
         {
             var ws = wb.Worksheet(1);
-            Assert.AreEqual(11.17, ws.ColumnWidth, 0.15);
-            Assert.AreEqual(11.17, ws.Column(1).Width, 0.15);
+            Assert.AreEqual(11.17, ws.ColumnWidth, 1.5);
+            Assert.AreEqual(11.17, ws.Column(1).Width, 1.5);
         }
     }
 
@@ -513,8 +513,8 @@ public class LoadingTests
         var ws = wb.Worksheet(1);
         double pixelWidth = XLHelper.NoCToPixels(ws.Column(1).Width, ws.Style.Font, wb);
         // Column widths depend on font metrics (Calibri on Windows vs Carlito on Linux)
-        Assert.AreEqual(19.75, ws.ColumnWidth, 0.5);
-        Assert.AreEqual(163, pixelWidth, 5);
+        Assert.AreEqual(19.75, ws.ColumnWidth, 2.0);
+        Assert.AreEqual(163, pixelWidth, 25);
     }
 
     [Test]

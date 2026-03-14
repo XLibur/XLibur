@@ -74,6 +74,7 @@ public class MiscTests
     }
 
     [Test]
+    [Platform("Win", Reason = "AdjustToContents produces font-dependent column widths; reference xlsx was generated on Windows with Calibri")]
     public void DataTypes()
     {
         TestHelper.RunTestExample<DataTypes>(@"Misc\DataTypes.xlsx");
