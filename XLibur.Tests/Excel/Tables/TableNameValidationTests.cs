@@ -148,7 +148,7 @@ public class TableNameValidationTests
     {
         using var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet();
-        var ws2 = wb.AddWorksheet();
+        _ = wb.AddWorksheet();
 
         wb.DefinedNames.Add("WorkbookDefinedName", "Sheet1!A1:A10");
 

@@ -16,7 +16,7 @@ internal sealed class XLColumnsCollection : IDictionary<int, XLColumn>
         {
             var columnToMove = _dictionary[co];
             _dictionary.Remove(co);
-            int newColumnNum = co + columnsToShift;
+            var newColumnNum = co + columnsToShift;
             if (newColumnNum <= XLHelper.MaxColumnNumber)
             {
                 columnToMove.SetColumnNumber(newColumnNum);
