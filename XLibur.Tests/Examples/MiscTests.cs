@@ -20,6 +20,7 @@ public class MiscTests
     }
 
     [Test]
+    [Platform("Win", Reason = "AdjustToContents produces font-dependent column widths; reference xlsx was generated on Windows with Calibri")]
     public void AdjustToContents()
     {
         TestHelper.RunTestExample<AdjustToContents>(@"Misc\AdjustToContents.xlsx");
@@ -50,6 +51,7 @@ public class MiscTests
     }
 
     [Test]
+    [Platform("Win", Reason = "SharedStrings differ on Linux due to platform-specific double-to-string formatting")]
     public void CellValues()
     {
         TestHelper.RunTestExample<CellValues>(@"Misc\CellValues.xlsx", true);
@@ -74,6 +76,7 @@ public class MiscTests
     }
 
     [Test]
+    [Platform("Win", Reason = "AdjustToContents produces font-dependent column widths; reference xlsx was generated on Windows with Calibri")]
     public void DataTypes()
     {
         TestHelper.RunTestExample<DataTypes>(@"Misc\DataTypes.xlsx");
