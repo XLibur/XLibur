@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using XLibur.Extensions;
 
@@ -323,6 +324,321 @@ internal sealed partial class Slice<TElement>
 
                 return int.MinValue;
             }
+        }
+    }
+
+    /// <summary>
+    /// Compact per-row storage. For narrow rows (all columns &lt; 32), stores a flat
+    /// array indexed by column with a 32-bit bitmap. For wide rows, delegates to
+    /// a full <see cref="Lut{T}"/>. Default struct represents an empty row, allowing
+    /// storage in the outer <see cref="Lut{T}"/> without per-row heap allocations.
+    /// </summary>
+    private struct RowData : IEquatable<RowData>
+    {
+        private static readonly TElement ElementDefault = default!;
+
+        /// <summary>
+        /// Discriminated storage: null (empty), TElement[] (narrow), or Lut&lt;TElement&gt; (wide).
+        /// </summary>
+        private object? _storage;
+
+        /// <summary>
+        /// In narrow mode, bit i set means column i is used. Unused in wide mode.
+        /// </summary>
+        private uint _bitmap;
+
+        internal readonly bool IsEmpty => _storage is null;
+
+        internal readonly bool IsNonEmpty => _storage is not null;
+
+        internal readonly int MaxUsedIndex
+        {
+            get
+            {
+                if (_storage is Lut<TElement> lut)
+                    return lut.MaxUsedIndex;
+
+                return _bitmap == 0 ? -1 : _bitmap.GetHighestSetBit();
+            }
+        }
+
+        internal readonly ref readonly TElement Get(int columnIndex)
+        {
+            if (_storage is TElement[] nodes)
+            {
+                if (columnIndex >= nodes.Length || (_bitmap & (1u << columnIndex)) == 0)
+                    return ref ElementDefault;
+
+                return ref nodes[columnIndex];
+            }
+
+            if (_storage is Lut<TElement> lut)
+                return ref lut.Get(columnIndex);
+
+            return ref ElementDefault;
+        }
+
+        internal readonly bool IsUsed(int columnIndex)
+        {
+            if (_storage is Lut<TElement> lut)
+                return lut.IsUsed(columnIndex);
+
+            return columnIndex < 32 && (_bitmap & (1u << columnIndex)) != 0;
+        }
+
+        internal void Set(int columnIndex, TElement value)
+        {
+            if (_storage is Lut<TElement> lut)
+            {
+                lut.Set(columnIndex, value);
+                return;
+            }
+
+            if (columnIndex >= 32)
+            {
+                UpgradeToWideAndSet(columnIndex, value);
+                return;
+            }
+
+            // Narrow mode
+            if (_storage is not TElement[] nodes)
+            {
+                var size = 4;
+                while (columnIndex >= size)
+                    size *= 2;
+
+                nodes = new TElement[size];
+                _storage = nodes;
+            }
+            else if (columnIndex >= nodes.Length)
+            {
+                var size = nodes.Length;
+                while (columnIndex >= size)
+                    size *= 2;
+
+                Array.Resize(ref nodes, size);
+                _storage = nodes;
+            }
+
+            nodes[columnIndex] = value;
+
+            var valueIsDefault = EqualityComparer<TElement>.Default.Equals(value, ElementDefault);
+            if (valueIsDefault)
+                _bitmap &= ~(1u << columnIndex);
+            else
+                _bitmap |= 1u << columnIndex;
+
+            if (_bitmap == 0)
+                _storage = null;
+        }
+
+        private void UpgradeToWideAndSet(int columnIndex, TElement value)
+        {
+            var lut = new Lut<TElement>();
+            if (_storage is TElement[] existingNodes)
+            {
+                var bm = _bitmap;
+                while (bm != 0)
+                {
+                    var bit = BitOperations.TrailingZeroCount(bm);
+                    lut.Set(bit, existingNodes[bit]);
+                    bm &= bm - 1;
+                }
+            }
+
+            lut.Set(columnIndex, value);
+            _storage = lut;
+            _bitmap = 0;
+        }
+
+        internal static RowData CreateForSet(int columnIndex, TElement value)
+        {
+            if (columnIndex >= 32)
+            {
+                var lut = new Lut<TElement>();
+                lut.Set(columnIndex, value);
+                return new RowData { _storage = lut };
+            }
+
+            var size = 4;
+            while (columnIndex >= size)
+                size *= 2;
+
+            var nodes = new TElement[size];
+            nodes[columnIndex] = value;
+            return new RowData { _storage = nodes, _bitmap = 1u << columnIndex };
+        }
+
+        internal readonly ColumnEnumerator GetColumnEnumerator(int startCol, int endCol)
+        {
+            if (_storage is TElement[] nodes)
+                return new ColumnEnumerator(nodes, _bitmap, startCol, endCol);
+
+            if (_storage is Lut<TElement> lut)
+                return new ColumnEnumerator(lut, startCol, endCol);
+
+            return default;
+        }
+
+        internal readonly ReverseColumnEnumerator GetReverseColumnEnumerator(int startCol, int endCol)
+        {
+            if (_storage is TElement[] nodes)
+                return new ReverseColumnEnumerator(nodes, _bitmap, startCol, endCol);
+
+            if (_storage is Lut<TElement> lut)
+                return new ReverseColumnEnumerator(lut, startCol, endCol);
+
+            return default;
+        }
+
+        public readonly bool Equals(RowData other)
+            => ReferenceEquals(_storage, other._storage) && _bitmap == other._bitmap;
+
+        public override readonly bool Equals(object? obj)
+            => obj is RowData other && Equals(other);
+
+        public override readonly int GetHashCode()
+            => HashCode.Combine(_storage, _bitmap);
+    }
+
+    /// <summary>
+    /// Forward column enumerator that works with both narrow (flat array) and wide (Lut) row storage.
+    /// </summary>
+    private struct ColumnEnumerator
+    {
+        private readonly TElement[]? _nodes;
+        private uint _remainingBits;
+        private Lut<TElement>.LutEnumerator _lutEnumerator;
+        private int _idx;
+        private readonly bool _isWide;
+
+        internal ColumnEnumerator(TElement[] nodes, uint bitmap, int startCol, int endCol)
+        {
+            _nodes = nodes;
+            _isWide = false;
+            _idx = -1;
+            _lutEnumerator = default;
+
+            // Mask bitmap to [startCol, endCol]
+            var mask = endCol < 31 ? (1u << (endCol + 1)) - 1 : ~0u;
+            if (startCol > 0)
+                mask &= ~((1u << startCol) - 1);
+
+            _remainingBits = bitmap & mask;
+        }
+
+        internal ColumnEnumerator(Lut<TElement> lut, int startCol, int endCol)
+        {
+            _isWide = true;
+            _nodes = null;
+            _remainingBits = 0;
+            _idx = -1;
+            _lutEnumerator = new Lut<TElement>.LutEnumerator(lut, startCol, endCol);
+        }
+
+        public ref readonly TElement Current
+        {
+            get
+            {
+                if (_isWide)
+                    return ref _lutEnumerator.Current;
+
+                return ref _nodes![_idx];
+            }
+        }
+
+        public int Index
+        {
+            get
+            {
+                if (_isWide)
+                    return _lutEnumerator.Index;
+
+                return _idx;
+            }
+        }
+
+        public bool MoveNext()
+        {
+            if (_isWide)
+                return _lutEnumerator.MoveNext();
+
+            if (_remainingBits == 0)
+                return false;
+
+            _idx = BitOperations.TrailingZeroCount(_remainingBits);
+            _remainingBits &= _remainingBits - 1;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Reverse column enumerator that works with both narrow (flat array) and wide (Lut) row storage.
+    /// </summary>
+    private struct ReverseColumnEnumerator
+    {
+        private readonly TElement[]? _nodes;
+        private uint _remainingBits;
+        private Lut<TElement>.ReverseLutEnumerator _lutEnumerator;
+        private int _idx;
+        private readonly bool _isWide;
+
+        internal ReverseColumnEnumerator(TElement[] nodes, uint bitmap, int startCol, int endCol)
+        {
+            _nodes = nodes;
+            _isWide = false;
+            _idx = -1;
+            _lutEnumerator = default;
+
+            var mask = endCol < 31 ? (1u << (endCol + 1)) - 1 : ~0u;
+            if (startCol > 0)
+                mask &= ~((1u << startCol) - 1);
+
+            _remainingBits = bitmap & mask;
+        }
+
+        internal ReverseColumnEnumerator(Lut<TElement> lut, int startCol, int endCol)
+        {
+            _isWide = true;
+            _nodes = null;
+            _remainingBits = 0;
+            _idx = -1;
+            _lutEnumerator = new Lut<TElement>.ReverseLutEnumerator(lut, startCol, endCol);
+        }
+
+        public ref TElement Current
+        {
+            get
+            {
+                if (_isWide)
+                    return ref _lutEnumerator.Current;
+
+                return ref _nodes![_idx];
+            }
+        }
+
+        public int Index
+        {
+            get
+            {
+                if (_isWide)
+                    return _lutEnumerator.Index;
+
+                return _idx;
+            }
+        }
+
+        public bool MoveNext()
+        {
+            if (_isWide)
+                return _lutEnumerator.MoveNext();
+
+            if (_remainingBits == 0)
+                return false;
+
+            _idx = 31 - BitOperations.LeadingZeroCount(_remainingBits);
+            _remainingBits &= ~(1u << _idx);
+            return true;
         }
     }
 }
