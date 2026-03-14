@@ -2,18 +2,18 @@
 
 ## Project Overview
 
-ClosedXML is a .NET library for reading, manipulating, and writing Excel 2007+ (.xlsx, .xlsm) files. It provides an intuitive interface over the OpenXML API, enabling Excel file creation without the Excel application. Licensed under MIT.
+XLibur is a .NET library for reading, manipulating, and writing Excel 2007+ (.xlsx, .xlsm) files. It provides an intuitive interface over the OpenXML API, enabling Excel file creation without the Excel application. Licensed under MIT.
 
-- **Repository:** https://github.com/ClosedXML/ClosedXML
+- **Repository:** https://github.com/XLibur/XLibur
 - **Docs:** https://closedxml.readthedocs.io/
 - **Version:** 0.105.0
 
 ## Project Structure
 
-- **ClosedXML** - Core library
-- **ClosedXML.Tests** - NUnit test suite
-- **ClosedXML.Examples** - Example applications
-- **ClosedXML.Sandbox** - Development sandbox
+- **XLibur** - Core library
+- **XLibur.Tests** - NUnit test suite
+- **XLibur.Examples** - Example applications
+- **XLibur.Sandbox** - Development sandbox
 
 Solution uses `.slnx` format (modern MSBuild Solution Extension).
 

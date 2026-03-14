@@ -1,0 +1,14 @@
+#nullable disable
+
+
+using System;
+
+namespace XLibur.Extensions;
+
+internal static class GuidExtensions
+{
+    internal static string WrapInBraces(this Guid guid)
+    {
+        return string.Concat('{', guid.ToString(), '}');
+    }
+}

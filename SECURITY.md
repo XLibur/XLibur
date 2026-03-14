@@ -2,17 +2,17 @@
 
 ## Supported Versions
 
-Only the latest version without a label (e.g. rc, beta) released through [NuGet.org](https://www.nuget.org/packages/ClosedXML) is supported.
+Only the latest version without a label (e.g. rc, beta) released through [NuGet.org](https://www.nuget.org/packages/XLibur) is supported.
 
 ## NETStandard dependencies
 
-ClosedXML directly or indirectly depends on [NETStandard.Library](https://www.nuget.org/packages/NETStandard.Library).
+XLibur directly or indirectly depends on [NETStandard.Library](https://www.nuget.org/packages/NETStandard.Library).
 The netStandard package references some other packages with minimal versions that might be marked as vulnerable.
 
 One of them is `System.Text.RegularExpressions@4.3.0` or `System.Net.Http@4.3.0`, generally through `Irony.NetCore` package.
 
-* ClosedXML@0.100.3 > XLParser@1.5.2 > Irony.NetCore@1.0.11 > NETStandard.Library@1.6.1 > System.Xml.XDocument@4.3.0 > System.Xml.ReaderWriter@4.3.0 > System.Text.RegularExpressions@4.3.0
-* ClosedXML@0.100.3 > XLParser@1.5.2 > Irony.NetCore@1.0.11 > NETStandard.Library@1.6.1 > System.Net.Http@4.3.0
+* XLibur@0.100.3 > XLParser@1.5.2 > Irony.NetCore@1.0.11 > NETStandard.Library@1.6.1 > System.Xml.XDocument@4.3.0 > System.Xml.ReaderWriter@4.3.0 > System.Text.RegularExpressions@4.3.0
+* XLibur@0.100.3 > XLParser@1.5.2 > Irony.NetCore@1.0.11 > NETStandard.Library@1.6.1 > System.Net.Http@4.3.0
 
 **These reports are false positives.**
 

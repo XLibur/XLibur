@@ -21,17 +21,17 @@ jobs:
             10.0.x
 
       - name: Restore dependencies
-        run: dotnet restore ClosedXML.slnx
+        run: dotnet restore XLibur.slnx
 
       - name: Build
-        run: dotnet build ClosedXML.slnx --configuration Release --no-restore
+        run: dotnet build XLibur.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+        run: dotnet test XLibur.Tests/XLibur.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
-          path: ClosedXML.Tests/TestResults/*.trx
+          path: XLibur.Tests/TestResults/*.trx
