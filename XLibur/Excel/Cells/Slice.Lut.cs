@@ -391,6 +391,8 @@ internal sealed partial class Slice<TElement>
             if (_storage is Lut<TElement> lut)
             {
                 lut.Set(columnIndex, value);
+                if (lut.IsEmpty)
+                    _storage = null;
                 return;
             }
 
