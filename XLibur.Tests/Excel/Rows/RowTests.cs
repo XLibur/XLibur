@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using XLibur.Excel;
 using NUnit.Framework;
@@ -340,5 +341,113 @@ public class RowTests
         Assert.AreEqual(30, ws.Row(3).Height, XLHelper.Epsilon);
         Assert.AreEqual(defaultRowHeight, ws.Row(11).Height, XLHelper.Epsilon);
         Assert.AreEqual(defaultRowHeight, ws.RowHeight, XLHelper.Epsilon);
+    }
+
+    [Test]
+    public void LoadingDataOnlyRows_DoesNotCreateXLRowObjects()
+    {
+        // Data-only rows (no custom height, style, hidden, etc.) should not
+        // create XLRow objects in RowsCollection during loading.
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = "Hello";
+        ws.Cell("A2").Value = "World";
+        ws.Cell("A3").Value = 42;
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var loaded = new XLWorkbook(ms);
+        var loadedWs = (XLWorksheet)loaded.Worksheets.First();
+
+        // No rows should be in RowsCollection since none have custom properties
+        Assert.That(loadedWs.Internals.RowsCollection, Is.Empty);
+
+        // But cell data should still be accessible
+        Assert.That(loadedWs.Cell("A1").GetString(), Is.EqualTo("Hello"));
+        Assert.That(loadedWs.Cell("A2").GetString(), Is.EqualTo("World"));
+        Assert.That(loadedWs.Cell("A3").GetValue<int>(), Is.EqualTo(42));
+    }
+
+    [Test]
+    public void LoadingRowsWithCustomHeight_CreatesXLRowObjects()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = "Normal row";
+        ws.Cell("A2").Value = "Custom height row";
+        ws.Row(2).Height = 30;
+        ws.Cell("A3").Value = "Normal row";
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var loaded = new XLWorkbook(ms);
+        var loadedWs = (XLWorksheet)loaded.Worksheets.First();
+
+        // Only row 2 should be in RowsCollection (it has custom height)
+        Assert.That(loadedWs.Internals.RowsCollection, Has.Count.EqualTo(1));
+        Assert.That(loadedWs.Internals.RowsCollection.ContainsKey(2), Is.True);
+        Assert.That(loadedWs.Internals.RowsCollection[2].Height, Is.EqualTo(30).Within(XLHelper.Epsilon));
+
+        // All cell data should still be accessible
+        Assert.That(loadedWs.Cell("A1").GetString(), Is.EqualTo("Normal row"));
+        Assert.That(loadedWs.Cell("A2").GetString(), Is.EqualTo("Custom height row"));
+        Assert.That(loadedWs.Cell("A3").GetString(), Is.EqualTo("Normal row"));
+    }
+
+    [Test]
+    public void LoadingRowsWithHiddenFlag_CreatesXLRowObjects()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = "Visible";
+        ws.Cell("A2").Value = "Hidden";
+        ws.Row(2).Hide();
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var loaded = new XLWorkbook(ms);
+        var loadedWs = (XLWorksheet)loaded.Worksheets.First();
+
+        Assert.That(loadedWs.Internals.RowsCollection.ContainsKey(2), Is.True);
+        Assert.That(loadedWs.Row(2).IsHidden, Is.True);
+    }
+
+    [Test]
+    public void LoadAndSaveRoundTrip_DataOnlyRows_PreservesData()
+    {
+        // Verify that skipping XLRow creation doesn't break save round-trip
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        for (var i = 1; i <= 100; i++)
+        {
+            ws.Cell(i, 1).Value = $"Row {i}";
+            ws.Cell(i, 2).Value = i * 10;
+        }
+        // Set custom height on one row
+        ws.Row(50).Height = 25;
+
+        using var ms1 = new MemoryStream();
+        wb.SaveAs(ms1);
+        ms1.Position = 0;
+
+        // Load and re-save
+        using var loaded = new XLWorkbook(ms1);
+        using var ms2 = new MemoryStream();
+        loaded.SaveAs(ms2);
+        ms2.Position = 0;
+
+        // Load again and verify
+        using var reloaded = new XLWorkbook(ms2);
+        var rws = reloaded.Worksheets.First();
+        Assert.That(rws.Cell("A1").GetString(), Is.EqualTo("Row 1"));
+        Assert.That(rws.Cell("A100").GetString(), Is.EqualTo("Row 100"));
+        Assert.That(rws.Cell("B50").GetValue<int>(), Is.EqualTo(500));
+        Assert.That(rws.Row(50).Height, Is.EqualTo(25).Within(XLHelper.Epsilon));
     }
 }
