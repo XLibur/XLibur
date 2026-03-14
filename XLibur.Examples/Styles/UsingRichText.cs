@@ -19,7 +19,7 @@ public class UsingRichText : IXLExample
             .SetFontColor(XLColor.Red)
             .SetFontName("Courier"); // Set the color and font for the word "show"
 
-        // On the next example we'll start with an empty cell and add the rich text
+        // In the next example we'll start with an empty cell and add the rich text
         var cell = ws.Cell(3, 1);
 
         // Add the text parts
@@ -33,11 +33,11 @@ public class UsingRichText : IXLExample
 
         // Right now cell.RichText has the following 5 strings:
         //
-        // "Hell"  -> Red
-        // "o"     -> Red, Underlined
-        // " BIG " -> Blue, Underlined, Bold
-        // "W"     -> Red, Underlined
-        // "orld"  -> Red
+        // "Hell" -> Red
+        // "o" -> Red, Underlined
+        // "BIG" -> Blue, Underlined, Bold
+        // "W" -> Red, Underlined
+        // "orld" -> Red
 
         // Of course, you can loop through each piece of text and check its properties
         foreach (var richText in cell.GetRichText())
@@ -47,7 +47,7 @@ public class UsingRichText : IXLExample
         }
 
 
-        // Now we'll build a cell with rich text, and some other styles
+        // Now we'll build a cell with rich text and some other styles
         cell = ws.Cell(5, 1);
 
         // Add the text parts
@@ -59,7 +59,7 @@ public class UsingRichText : IXLExample
 
         ws.Cell(5, 2).GetRichText().CopyFrom(cell.GetRichText()); // Should copy only rich text, but not cell background
 
-        // Parts of the rich text can be associated with a font scheme that changes font, when you switch theme
+        // Parts of the rich text can be associated with a font scheme that changes font when you switch theme
         cell = ws.Cell(6, 1);
         cell.Style.Font.FontSize = 25;
         cell.GetRichText()
@@ -68,7 +68,7 @@ public class UsingRichText : IXLExample
             .SetFontScheme(XLFontScheme.Major)
             .AddText(" ")
             .AddText("Minor scheme")
-            .SetFontName(@"Times New Roman")
+            .SetFontName("Times New Roman")
             .SetFontScheme(XLFontScheme.Minor)
             .AddText(" ")
             .AddText("No scheme")

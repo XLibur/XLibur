@@ -16,7 +16,7 @@ internal static class WorksheetElementReader
 {
     internal static void LoadSheetViews(SheetViews sheetViews, XLWorksheet ws)
     {
-        if (sheetViews == null) return;
+        ArgumentNullException.ThrowIfNull(ws);
 
         var sheetView = sheetViews.Elements<SheetView>().FirstOrDefault();
 
@@ -62,13 +62,13 @@ internal static class WorksheetElementReader
                 ws.SheetView.SplitRow = (int)pane.VerticalSplit.Value;
         }
 
-        if (sheetView.TopLeftCell?.Value is string topLeftCell && XLHelper.IsValidA1Address(topLeftCell))
+        if (sheetView.TopLeftCell?.Value is { } topLeftCell && XLHelper.IsValidA1Address(topLeftCell))
             ws.SheetView.TopLeftCellAddress = ws.Cell(topLeftCell)!.Address;
     }
 
     internal static void LoadPrintOptions(PrintOptions printOptions, XLWorksheet ws)
     {
-        if (printOptions == null) return;
+        ArgumentNullException.ThrowIfNull(printOptions);
 
         if (printOptions.GridLines != null)
             ws.PageSetup.ShowGridlines = printOptions.GridLines;
@@ -82,7 +82,7 @@ internal static class WorksheetElementReader
 
     internal static void LoadPageMargins(PageMargins pageMargins, XLWorksheet ws)
     {
-        if (pageMargins == null) return;
+        ArgumentNullException.ThrowIfNull(pageMargins);
 
         if (pageMargins.Bottom != null)
             ws.PageSetup.Margins.Bottom = pageMargins.Bottom;
@@ -100,7 +100,7 @@ internal static class WorksheetElementReader
 
     internal static void LoadPageSetup(PageSetup pageSetup, XLWorksheet ws, PageSetupProperties? pageSetupProperties)
     {
-        if (pageSetup == null) return;
+        ArgumentNullException.ThrowIfNull(pageSetup);
 
         if (pageSetup.PaperSize != null)
             ws.PageSetup.PaperSize = (XLPaperSize)int.Parse(pageSetup.PaperSize.InnerText!);
@@ -108,15 +108,8 @@ internal static class WorksheetElementReader
             ws.PageSetup.Scale = int.Parse(pageSetup.Scale.InnerText!);
         if (pageSetupProperties != null && pageSetupProperties.FitToPage != null && pageSetupProperties.FitToPage.Value)
         {
-            if (pageSetup.FitToWidth == null)
-                ws.PageSetup.PagesWide = 1;
-            else
-                ws.PageSetup.PagesWide = int.Parse(pageSetup.FitToWidth.InnerText!);
-
-            if (pageSetup.FitToHeight == null)
-                ws.PageSetup.PagesTall = 1;
-            else
-                ws.PageSetup.PagesTall = int.Parse(pageSetup.FitToHeight.InnerText!);
+            ws.PageSetup.PagesWide = pageSetup.FitToWidth == null ? 1 : int.Parse(pageSetup.FitToWidth.InnerText!);
+            ws.PageSetup.PagesTall = pageSetup.FitToHeight == null ? 1 : int.Parse(pageSetup.FitToHeight.InnerText!);
         }
 
         if (pageSetup.PageOrder != null)
@@ -139,7 +132,7 @@ internal static class WorksheetElementReader
 
     internal static void LoadHeaderFooter(HeaderFooter headerFooter, XLWorksheet ws)
     {
-        if (headerFooter == null) return;
+        ArgumentNullException.ThrowIfNull(headerFooter);
 
         if (headerFooter.AlignWithMargins != null)
             ws.PageSetup.AlignHFWithMargins = headerFooter.AlignWithMargins;
@@ -181,8 +174,8 @@ internal static class WorksheetElementReader
     internal static void LoadSheetProperties(SheetProperties sheetProperty, XLWorksheet ws,
         out PageSetupProperties? pageSetupProperties)
     {
+        ArgumentNullException.ThrowIfNull(ws);
         pageSetupProperties = null;
-        if (sheetProperty == null) return;
 
         if (sheetProperty.TabColor != null)
             ws.TabColor = sheetProperty.TabColor.ToXLiburColor();
@@ -210,7 +203,7 @@ internal static class WorksheetElementReader
 
     internal static void LoadRowBreaks(RowBreaks rowBreaks, XLWorksheet ws)
     {
-        if (rowBreaks == null) return;
+        ArgumentNullException.ThrowIfNull(rowBreaks);
 
         foreach (var rowBreak in rowBreaks.Elements<Break>())
             ws.PageSetup.RowBreaks.Add(int.Parse(rowBreak.Id!.InnerText!));
@@ -218,8 +211,7 @@ internal static class WorksheetElementReader
 
     internal static void LoadColumnBreaks(ColumnBreaks columnBreaks, XLWorksheet ws)
     {
-        if (columnBreaks == null) return;
-
+        ArgumentNullException.ThrowIfNull(columnBreaks);
         foreach (var columnBreak in columnBreaks.Elements<Break>().Where(columnBreak => columnBreak.Id != null))
         {
             ws.PageSetup.ColumnBreaks.Add(int.Parse(columnBreak.Id!.InnerText!));
@@ -228,7 +220,7 @@ internal static class WorksheetElementReader
 
     internal static void LoadSheetProtection(SheetProtection sp, XLWorksheet ws)
     {
-        if (sp == null) return;
+        ArgumentNullException.ThrowIfNull(ws);
 
         ws.Protection.IsProtected = OpenXmlHelper.GetBooleanValueAsBool(sp.Sheet, false);
 
@@ -281,7 +273,7 @@ internal static class WorksheetElementReader
 
     internal static void LoadDataValidations(DataValidations dataValidations, XLWorksheet ws)
     {
-        if (dataValidations == null) return;
+        ArgumentNullException.ThrowIfNull(ws);
 
         foreach (var dvs in dataValidations.Elements<DataValidation>())
         {
@@ -310,19 +302,19 @@ internal static class WorksheetElementReader
 
     internal static void LoadHyperlinks(Hyperlinks hyperlinks, WorksheetPart worksheetPart, XLWorksheet ws)
     {
-        var hyperlinkDictionary = new Dictionary<string, Uri>();
-        if (worksheetPart.HyperlinkRelationships != null)
-            hyperlinkDictionary = worksheetPart.HyperlinkRelationships.ToDictionary(hr => hr.Id, hr => hr.Uri);
-
-        if (hyperlinks == null) return;
+        ArgumentNullException.ThrowIfNull(ws);
+        ArgumentNullException.ThrowIfNull(hyperlinks);
+        ArgumentNullException.ThrowIfNull(worksheetPart);
+        var hyperlinkDictionary = worksheetPart.HyperlinkRelationships.ToDictionary(hr => hr.Id, hr => hr.Uri);
 
         foreach (var hl in hyperlinks.Elements<Hyperlink>())
         {
             if (hl.Reference!.Value!.Equals("#REF")) continue;
             var tooltip = hl.Tooltip != null ? hl.Tooltip.Value : string.Empty;
             var xlRange = ws.Range(hl.Reference!.Value!);
-            foreach (XLCell xlCell in xlRange!.Cells())
+            foreach (var xlCell1 in xlRange!.Cells())
             {
+                var xlCell = (XLCell)xlCell1;
                 if (hl.Id != null)
                     xlCell.SetCellHyperlink(new XLHyperlink(hyperlinkDictionary[hl.Id.Value!], tooltip!));
                 else if (hl.Location != null)

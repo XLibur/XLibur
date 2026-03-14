@@ -1,7 +1,6 @@
-using System;
 using System.Linq;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.Tables;
 
 /// <summary>
 /// Consolidates table name validation logic per the OOXML spec:

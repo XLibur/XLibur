@@ -8,6 +8,7 @@ namespace XLibur.Excel;
 public interface IXLTable : IXLRange
 {
     IXLAutoFilter AutoFilter { get; }
+
     IXLTableRange? DataRange { get; }
 
     /// <summary>
@@ -17,19 +18,27 @@ public interface IXLTable : IXLRange
     int DataRowCount { get; }
 
     bool EmphasizeFirstColumn { get; set; }
+
     bool EmphasizeLastColumn { get; set; }
+
     IEnumerable<IXLTableField> Fields { get; }
 
     /// <summary>
     /// Change the name of a table. Structural references to the table are not updated.
     /// </summary>
-    /// <exception cref="ArgumentException">If the new table name is already used by other table in the sheet.</exception>
+    /// <exception cref="ArgumentException">If the new table name is already used by another table in the sheet.</exception>
     string Name { get; set; }
+
     bool ShowAutoFilter { get; set; }
+
     bool ShowColumnStripes { get; set; }
+
     bool ShowHeaderRow { get; set; }
+
     bool ShowRowStripes { get; set; }
+
     bool ShowTotalsRow { get; set; }
+
     XLTableTheme Theme { get; set; }
 
     /// <summary>
@@ -69,7 +78,7 @@ public interface IXLTable : IXLRange
     /// <returns>
     /// The range of the new rows.
     /// </returns>
-    IXLRange? AppendData(IEnumerable data, bool transpose, bool propagateExtraColumns = false);
+    IXLRange? AppendData(IEnumerable data, bool transpose, bool propagateExtraColumns);
 
     /// <summary>
     /// Appends the data of a data table and returns the range of the new rows.
@@ -86,11 +95,10 @@ public interface IXLTable : IXLRange
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="data">The table data.</param>
-    /// <param name="propagateExtraColumns">if set to <c>true</c> propagate extra columns' values and formulas.</param>
     /// <returns>
     /// The range of the new rows.
     /// </returns>
-    IXLRange? AppendData<T>(IEnumerable<T> data, bool propagateExtraColumns = false);
+    IXLRange? AppendData<T>(IEnumerable<T> data);
 
     /// <summary>
     /// Replaces the IEnumerable data elements and returns the table's data range.
@@ -111,7 +119,7 @@ public interface IXLTable : IXLRange
     /// <returns>
     /// The table's data range.
     /// </returns>
-    IXLRange ReplaceData(IEnumerable data, bool transpose, bool propagateExtraColumns = false);
+    IXLRange ReplaceData(IEnumerable data, bool transpose, bool propagateExtraColumns);
 
     /// <summary>
     /// Replaces the data from the records of a data table and returns the table's data range.
@@ -215,7 +223,7 @@ public interface IXLTable : IXLRange
     IXLRangeRow? TotalsRow();
 
     /// <summary>
-    /// Converts the table to an enumerable of dynamic objects
+    /// Converts the table to an IEnumerable of dynamic objects, where each object represents a row of the table with properties corresponding to the table's fields.
     /// </summary>
     IEnumerable<dynamic> AsDynamicEnumerable();
 

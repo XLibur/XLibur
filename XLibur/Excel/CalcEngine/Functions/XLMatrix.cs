@@ -7,17 +7,17 @@ internal sealed class XLMatrix
 {
     public XLMatrix? L;
     public XLMatrix? U;
-    public int cols;
-    private double detOfP = 1;
-    public double[,] mat;
-    private int[]? pi;
-    public int rows;
+    public int Cols;
+    private double _detOfP = 1;
+    public double[,] Mat;
+    private int[]? _pi;
+    private readonly int _rows;
 
     public XLMatrix(int iRows, int iCols) // XLMatrix Class constructor
     {
-        rows = iRows;
-        cols = iCols;
-        mat = new double[rows, cols];
+        _rows = iRows;
+        Cols = iCols;
+        Mat = new double[_rows, Cols];
     }
 
     public XLMatrix(double[,] arr)
@@ -29,24 +29,24 @@ internal sealed class XLMatrix
         {
             for (int co = 0; co < coCount; co++)
             {
-                mat[ro, co] = arr[ro, co];
+                Mat[ro, co] = arr[ro, co];
             }
         }
     }
 
     public double this[int iRow, int iCol] // Access this matrix as a 2D array
     {
-        get { return mat[iRow, iCol]; }
-        set { mat[iRow, iCol] = value; }
+        get { return Mat[iRow, iCol]; }
+        set { Mat[iRow, iCol] = value; }
     }
 
     public bool IsSingular()
     {
-        for (var row = 0; row < rows; row++)
+        for (var row = 0; row < _rows; row++)
         {
-            for (var col = 0; col < cols; col++)
+            for (var col = 0; col < Cols; col++)
             {
-                var element = mat[row, col];
+                var element = Mat[row, col];
                 if (double.IsNaN(element) || double.IsInfinity(element))
                     return true;
             }
@@ -57,36 +57,36 @@ internal sealed class XLMatrix
 
     public bool IsSquare()
     {
-        return (rows == cols);
+        return (_rows == Cols);
     }
 
     public XLMatrix GetCol(int k)
     {
-        var m = new XLMatrix(rows, 1);
-        for (var i = 0; i < rows; i++) m[i, 0] = mat[i, k];
+        var m = new XLMatrix(_rows, 1);
+        for (var i = 0; i < _rows; i++) m[i, 0] = Mat[i, k];
         return m;
     }
 
     public void SetCol(XLMatrix v, int k)
     {
-        for (var i = 0; i < rows; i++) mat[i, k] = v[i, 0];
+        for (var i = 0; i < _rows; i++) Mat[i, k] = v[i, 0];
     }
 
-    public void MakeLU() // Function for LU decomposition
+    public void MakeLu() // Function for LU decomposition
     {
         if (!IsSquare()) throw new InvalidOperationException("The matrix is not square!");
-        L = IdentityMatrix(rows, cols);
+        L = IdentityMatrix(_rows, Cols);
         U = Duplicate();
 
-        pi = new int[rows];
-        for (var i = 0; i < rows; i++) pi[i] = i;
+        _pi = new int[_rows];
+        for (var i = 0; i < _rows; i++) _pi[i] = i;
 
         var k0 = 0;
 
-        for (var k = 0; k < cols - 1; k++)
+        for (var k = 0; k < Cols - 1; k++)
         {
             double p = 0;
-            for (var i = k; i < rows; i++) // find the row with the biggest pivot
+            for (var i = k; i < _rows; i++) // find the row with the biggest pivot
             {
                 if (Math.Abs(U[i, k]) > p)
                 {
@@ -97,9 +97,9 @@ internal sealed class XLMatrix
             if (p == 0)
                 throw new InvalidOperationException("The matrix is singular!");
 
-            var pom1 = pi[k];
-            pi[k] = pi[k0];
-            pi[k0] = pom1; // switch two rows in permutation matrix
+            var pom1 = _pi[k];
+            _pi[k] = _pi[k0];
+            _pi[k0] = pom1; // switch two rows in permutation matrix
 
             double pom2;
             for (var i = 0; i < k; i++)
@@ -109,19 +109,19 @@ internal sealed class XLMatrix
                 L[k0, i] = pom2;
             }
 
-            if (k != k0) detOfP *= -1;
+            if (k != k0) _detOfP *= -1;
 
-            for (var i = 0; i < cols; i++) // Switch rows in U
+            for (var i = 0; i < Cols; i++) // Switch rows in U
             {
                 pom2 = U[k, i];
                 U[k, i] = U[k0, i];
                 U[k0, i] = pom2;
             }
 
-            for (var i = k + 1; i < rows; i++)
+            for (var i = k + 1; i < _rows; i++)
             {
                 L[i, k] = U[i, k] / U[k, k];
-                for (var j = k; j < cols; j++)
+                for (var j = k; j < Cols; j++)
                     U[i, j] = U[i, j] - L[i, k] * U[k, j];
             }
         }
@@ -130,12 +130,12 @@ internal sealed class XLMatrix
 
     public XLMatrix SolveWith(XLMatrix v) // Function solves Ax = v in conformity with solution vector "v"
     {
-        if (rows != cols) throw new InvalidOperationException("The matrix is not square!");
-        if (rows != v.rows) throw new ArgumentException("Wrong number of results in solution vector!");
-        if (L == null) MakeLU();
+        if (_rows != Cols) throw new InvalidOperationException("The matrix is not square!");
+        if (_rows != v._rows) throw new ArgumentException("Wrong number of results in solution vector!");
+        if (L == null) MakeLu();
 
-        var b = new XLMatrix(rows, 1);
-        for (var i = 0; i < rows; i++) b[i, 0] = v[pi![i], 0]; // switch two items in "v" due to permutation matrix
+        var b = new XLMatrix(_rows, 1);
+        for (var i = 0; i < _rows; i++) b[i, 0] = v[_pi![i], 0]; // switch two items in "v" due to permutation matrix
 
         var z = SubsForth(L!, b);
         var x = SubsBack(U!, z);
@@ -145,15 +145,15 @@ internal sealed class XLMatrix
 
     public XLMatrix Invert() // Function returns the inverted matrix
     {
-        if (L == null) MakeLU();
+        if (L == null) MakeLu();
 
-        var inv = new XLMatrix(rows, cols);
+        var inv = new XLMatrix(_rows, Cols);
 
-        for (var i = 0; i < rows; i++)
+        for (var i = 0; i < _rows; i++)
         {
-            var Ei = ZeroMatrix(rows, 1);
-            Ei[i, 0] = 1;
-            var col = SolveWith(Ei);
+            var ei = ZeroMatrix(_rows, 1);
+            ei[i, 0] = 1;
+            var col = SolveWith(ei);
             inv.SetCol(col, i);
         }
         return inv;
@@ -161,56 +161,56 @@ internal sealed class XLMatrix
 
     public double Determinant() // Function for determinant
     {
-        if (L == null) MakeLU();
-        var det = detOfP;
-        for (var i = 0; i < rows; i++) det *= U![i, i];
+        if (L == null) MakeLu();
+        var det = _detOfP;
+        for (var i = 0; i < _rows; i++) det *= U![i, i];
         return det;
     }
 
     public XLMatrix GetP() // Function returns permutation matrix "P" due to permutation vector "pi"
     {
-        if (L == null) MakeLU();
+        if (L == null) MakeLu();
 
-        var matrix = ZeroMatrix(rows, cols);
-        for (var i = 0; i < rows; i++) matrix[pi![i], i] = 1;
+        var matrix = ZeroMatrix(_rows, Cols);
+        for (var i = 0; i < _rows; i++) matrix[_pi![i], i] = 1;
         return matrix;
     }
 
     public XLMatrix Duplicate() // Function returns the copy of this matrix
     {
-        var matrix = new XLMatrix(rows, cols);
-        for (var i = 0; i < rows; i++)
-            for (var j = 0; j < cols; j++)
-                matrix[i, j] = mat[i, j];
+        var matrix = new XLMatrix(_rows, Cols);
+        for (var i = 0; i < _rows; i++)
+            for (var j = 0; j < Cols; j++)
+                matrix[i, j] = Mat[i, j];
         return matrix;
     }
 
-    public static XLMatrix SubsForth(XLMatrix A, XLMatrix b) // Function solves Ax = b for A as a lower triangular matrix
+    public static XLMatrix SubsForth(XLMatrix a, XLMatrix b) // Function solves Ax = b for A as a lower triangular matrix
     {
-        if (A.L == null) A.MakeLU();
-        var n = A.rows;
+        if (a.L == null) a.MakeLu();
+        var n = a._rows;
         var x = new XLMatrix(n, 1);
 
         for (var i = 0; i < n; i++)
         {
             x[i, 0] = b[i, 0];
-            for (var j = 0; j < i; j++) x[i, 0] -= A[i, j] * x[j, 0];
-            x[i, 0] = x[i, 0] / A[i, i];
+            for (var j = 0; j < i; j++) x[i, 0] -= a[i, j] * x[j, 0];
+            x[i, 0] = x[i, 0] / a[i, i];
         }
         return x;
     }
 
-    public static XLMatrix SubsBack(XLMatrix A, XLMatrix b) // Function solves Ax = b for A as an upper triangular matrix
+    public static XLMatrix SubsBack(XLMatrix a, XLMatrix b) // Function solves Ax = b for A as an upper triangular matrix
     {
-        if (A.L == null) A.MakeLU();
-        var n = A.rows;
+        if (a.L == null) a.MakeLu();
+        var n = a._rows;
         var x = new XLMatrix(n, 1);
 
         for (var i = n - 1; i > -1; i--)
         {
             x[i, 0] = b[i, 0];
-            for (var j = n - 1; j > i; j--) x[i, 0] -= A[i, j] * x[j, 0];
-            x[i, 0] = x[i, 0] / A[i, i];
+            for (var j = n - 1; j > i; j--) x[i, 0] -= a[i, j] * x[j, 0];
+            x[i, 0] = x[i, 0] / a[i, i];
         }
         return x;
     }
@@ -266,9 +266,9 @@ internal sealed class XLMatrix
     public override string ToString() // Function returns matrix as a string
     {
         var s = "";
-        for (var i = 0; i < rows; i++)
+        for (var i = 0; i < _rows; i++)
         {
-            for (var j = 0; j < cols; j++) s += $"{mat[i, j],5:0.00}" + " ";
+            for (var j = 0; j < Cols; j++) s += $"{Mat[i, j],5:0.00}" + " ";
             s += "\r\n";
         }
         return s;
@@ -276,16 +276,16 @@ internal sealed class XLMatrix
 
     public static XLMatrix Transpose(XLMatrix m) // XLMatrix transpose, for any rectangular matrix
     {
-        var t = new XLMatrix(m.cols, m.rows);
-        for (var i = 0; i < m.rows; i++)
-            for (var j = 0; j < m.cols; j++)
+        var t = new XLMatrix(m.Cols, m._rows);
+        for (var i = 0; i < m._rows; i++)
+            for (var j = 0; j < m.Cols; j++)
                 t[j, i] = m[i, j];
         return t;
     }
 
     public static XLMatrix Power(XLMatrix m, int pow) // Power matrix to exponent
     {
-        if (pow == 0) return IdentityMatrix(m.rows, m.cols);
+        if (pow == 0) return IdentityMatrix(m._rows, m.Cols);
         if (pow == 1) return m.Duplicate();
         if (pow == -1) return m.Invert();
 
@@ -297,7 +297,7 @@ internal sealed class XLMatrix
         }
         else x = m.Duplicate();
 
-        var ret = IdentityMatrix(m.rows, m.cols);
+        var ret = IdentityMatrix(m._rows, m.Cols);
         while (pow != 0)
         {
             if ((pow & 1) == 1) ret *= x;
@@ -307,72 +307,72 @@ internal sealed class XLMatrix
         return ret;
     }
 
-    private static void SafeAplusBintoC(XLMatrix A, int xa, int ya, XLMatrix B, int xb, int yb, XLMatrix C, int size)
+    private static void SafeAplusBintoC(XLMatrix a, int xa, int ya, XLMatrix b, int xb, int yb, XLMatrix c, int size)
     {
         for (var i = 0; i < size; i++) // rows
             for (var j = 0; j < size; j++) // cols
             {
-                C[i, j] = 0;
-                if (xa + j < A.cols && ya + i < A.rows) C[i, j] += A[ya + i, xa + j];
-                if (xb + j < B.cols && yb + i < B.rows) C[i, j] += B[yb + i, xb + j];
+                c[i, j] = 0;
+                if (xa + j < a.Cols && ya + i < a._rows) c[i, j] += a[ya + i, xa + j];
+                if (xb + j < b.Cols && yb + i < b._rows) c[i, j] += b[yb + i, xb + j];
             }
     }
 
-    private static void SafeAminusBintoC(XLMatrix A, int xa, int ya, XLMatrix B, int xb, int yb, XLMatrix C, int size)
+    private static void SafeAminusBintoC(XLMatrix a, int xa, int ya, XLMatrix b, int xb, int yb, XLMatrix c, int size)
     {
         for (var i = 0; i < size; i++) // rows
             for (var j = 0; j < size; j++) // cols
             {
-                C[i, j] = 0;
-                if (xa + j < A.cols && ya + i < A.rows) C[i, j] += A[ya + i, xa + j];
-                if (xb + j < B.cols && yb + i < B.rows) C[i, j] -= B[yb + i, xb + j];
+                c[i, j] = 0;
+                if (xa + j < a.Cols && ya + i < a._rows) c[i, j] += a[ya + i, xa + j];
+                if (xb + j < b.Cols && yb + i < b._rows) c[i, j] -= b[yb + i, xb + j];
             }
     }
 
-    private static void SafeACopytoC(XLMatrix A, int xa, int ya, XLMatrix C, int size)
+    private static void SafeACopytoC(XLMatrix a, int xa, int ya, XLMatrix c, int size)
     {
         for (var i = 0; i < size; i++) // rows
             for (var j = 0; j < size; j++) // cols
             {
-                C[i, j] = 0;
-                if (xa + j < A.cols && ya + i < A.rows) C[i, j] += A[ya + i, xa + j];
+                c[i, j] = 0;
+                if (xa + j < a.Cols && ya + i < a._rows) c[i, j] += a[ya + i, xa + j];
             }
     }
 
-    private static void AplusBintoC(XLMatrix A, int xa, int ya, XLMatrix B, int xb, int yb, XLMatrix C, int size)
+    private static void AplusBintoC(XLMatrix a, int xa, int ya, XLMatrix b, int xb, int yb, XLMatrix c, int size)
     {
         for (var i = 0; i < size; i++) // rows
-            for (var j = 0; j < size; j++) C[i, j] = A[ya + i, xa + j] + B[yb + i, xb + j];
+            for (var j = 0; j < size; j++) c[i, j] = a[ya + i, xa + j] + b[yb + i, xb + j];
     }
 
-    private static void AminusBintoC(XLMatrix A, int xa, int ya, XLMatrix B, int xb, int yb, XLMatrix C, int size)
+    private static void AminusBintoC(XLMatrix a, int xa, int ya, XLMatrix b, int xb, int yb, XLMatrix c, int size)
     {
         for (var i = 0; i < size; i++) // rows
-            for (var j = 0; j < size; j++) C[i, j] = A[ya + i, xa + j] - B[yb + i, xb + j];
+            for (var j = 0; j < size; j++) c[i, j] = a[ya + i, xa + j] - b[yb + i, xb + j];
     }
 
-    private static void ACopytoC(XLMatrix A, int xa, int ya, XLMatrix C, int size)
+    private static void ACopytoC(XLMatrix a, int xa, int ya, XLMatrix c, int size)
     {
         for (var i = 0; i < size; i++) // rows
-            for (var j = 0; j < size; j++) C[i, j] = A[ya + i, xa + j];
+            for (var j = 0; j < size; j++) c[i, j] = a[ya + i, xa + j];
     }
 
-    private static XLMatrix StrassenMultiply(XLMatrix A, XLMatrix B) // Smart matrix multiplication
+    private static XLMatrix StrassenMultiply(XLMatrix a, XLMatrix b) // Smart matrix multiplication
     {
-        if (A.cols != B.rows) throw new ArgumentException("Wrong dimension of matrix!");
+        if (a.Cols != b._rows) throw new ArgumentException("Wrong dimension of matrix!");
 
-        XLMatrix R;
+        XLMatrix r;
 
-        var msize = Math.Max(Math.Max(A.rows, A.cols), Math.Max(B.rows, B.cols));
+        var msize = Math.Max(Math.Max(a._rows, a.Cols), Math.Max(b._rows, b.Cols));
 
         if (msize < 32)
         {
-            R = ZeroMatrix(A.rows, B.cols);
-            for (var i = 0; i < R.rows; i++)
-                for (var j = 0; j < R.cols; j++)
-                    for (var k = 0; k < A.cols; k++)
-                        R[i, j] += A[i, k] * B[k, j];
-            return R;
+            r = ZeroMatrix(a._rows, b.Cols);
+            for (var i = 0; i < r._rows; i++)
+                for (var j = 0; j < r.Cols; j++)
+                    for (var k = 0; k < a.Cols; k++)
+                        r[i, j] += a[i, k] * b[k, j];
+            return r;
         }
 
         var size = 1;
@@ -400,158 +400,158 @@ internal sealed class XLMatrix
             for (var j = 0; j < 9; j++) mField[i, j] = new XLMatrix(z, z);
         }
 
-        SafeAplusBintoC(A, 0, 0, A, h, h, mField[0, 0], h);
-        SafeAplusBintoC(B, 0, 0, B, h, h, mField[0, 1], h);
+        SafeAplusBintoC(a, 0, 0, a, h, h, mField[0, 0], h);
+        SafeAplusBintoC(b, 0, 0, b, h, h, mField[0, 1], h);
         StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 1], 1, mField); // (A11 + A22) * (B11 + B22);
 
-        SafeAplusBintoC(A, 0, h, A, h, h, mField[0, 0], h);
-        SafeACopytoC(B, 0, 0, mField[0, 1], h);
+        SafeAplusBintoC(a, 0, h, a, h, h, mField[0, 0], h);
+        SafeACopytoC(b, 0, 0, mField[0, 1], h);
         StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 2], 1, mField); // (A21 + A22) * B11;
 
-        SafeACopytoC(A, 0, 0, mField[0, 0], h);
-        SafeAminusBintoC(B, h, 0, B, h, h, mField[0, 1], h);
+        SafeACopytoC(a, 0, 0, mField[0, 0], h);
+        SafeAminusBintoC(b, h, 0, b, h, h, mField[0, 1], h);
         StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 3], 1, mField); //A11 * (B12 - B22);
 
-        SafeACopytoC(A, h, h, mField[0, 0], h);
-        SafeAminusBintoC(B, 0, h, B, 0, 0, mField[0, 1], h);
+        SafeACopytoC(a, h, h, mField[0, 0], h);
+        SafeAminusBintoC(b, 0, h, b, 0, 0, mField[0, 1], h);
         StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 4], 1, mField); //A22 * (B21 - B11);
 
-        SafeAplusBintoC(A, 0, 0, A, h, 0, mField[0, 0], h);
-        SafeACopytoC(B, h, h, mField[0, 1], h);
+        SafeAplusBintoC(a, 0, 0, a, h, 0, mField[0, 0], h);
+        SafeACopytoC(b, h, h, mField[0, 1], h);
         StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 5], 1, mField); //(A11 + A12) * B22;
 
-        SafeAminusBintoC(A, 0, h, A, 0, 0, mField[0, 0], h);
-        SafeAplusBintoC(B, 0, 0, B, h, 0, mField[0, 1], h);
+        SafeAminusBintoC(a, 0, h, a, 0, 0, mField[0, 0], h);
+        SafeAplusBintoC(b, 0, 0, b, h, 0, mField[0, 1], h);
         StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 6], 1, mField); //(A21 - A11) * (B11 + B12);
 
-        SafeAminusBintoC(A, h, 0, A, h, h, mField[0, 0], h);
-        SafeAplusBintoC(B, 0, h, B, h, h, mField[0, 1], h);
+        SafeAminusBintoC(a, h, 0, a, h, h, mField[0, 0], h);
+        SafeAplusBintoC(b, 0, h, b, h, h, mField[0, 1], h);
         StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 7], 1, mField); // (A12 - A22) * (B21 + B22);
 
-        R = new XLMatrix(A.rows, B.cols); // result
+        r = new XLMatrix(a._rows, b.Cols); // result
 
         // C11
-        for (var i = 0; i < Math.Min(h, R.rows); i++) // rows
-            for (var j = 0; j < Math.Min(h, R.cols); j++) // cols
-                R[i, j] = mField[0, 1 + 1][i, j] + mField[0, 1 + 4][i, j] - mField[0, 1 + 5][i, j] +
+        for (var i = 0; i < Math.Min(h, r._rows); i++) // rows
+            for (var j = 0; j < Math.Min(h, r.Cols); j++) // cols
+                r[i, j] = mField[0, 1 + 1][i, j] + mField[0, 1 + 4][i, j] - mField[0, 1 + 5][i, j] +
                           mField[0, 1 + 7][i, j];
 
         // C12
-        for (var i = 0; i < Math.Min(h, R.rows); i++) // rows
-            for (var j = h; j < Math.Min(2 * h, R.cols); j++) // cols
-                R[i, j] = mField[0, 1 + 3][i, j - h] + mField[0, 1 + 5][i, j - h];
+        for (var i = 0; i < Math.Min(h, r._rows); i++) // rows
+            for (var j = h; j < Math.Min(2 * h, r.Cols); j++) // cols
+                r[i, j] = mField[0, 1 + 3][i, j - h] + mField[0, 1 + 5][i, j - h];
 
         // C21
-        for (var i = h; i < Math.Min(2 * h, R.rows); i++) // rows
-            for (var j = 0; j < Math.Min(h, R.cols); j++) // cols
-                R[i, j] = mField[0, 1 + 2][i - h, j] + mField[0, 1 + 4][i - h, j];
+        for (var i = h; i < Math.Min(2 * h, r._rows); i++) // rows
+            for (var j = 0; j < Math.Min(h, r.Cols); j++) // cols
+                r[i, j] = mField[0, 1 + 2][i - h, j] + mField[0, 1 + 4][i - h, j];
 
         // C22
-        for (var i = h; i < Math.Min(2 * h, R.rows); i++) // rows
-            for (var j = h; j < Math.Min(2 * h, R.cols); j++) // cols
-                R[i, j] = mField[0, 1 + 1][i - h, j - h] - mField[0, 1 + 2][i - h, j - h] +
+        for (var i = h; i < Math.Min(2 * h, r._rows); i++) // rows
+            for (var j = h; j < Math.Min(2 * h, r.Cols); j++) // cols
+                r[i, j] = mField[0, 1 + 1][i - h, j - h] - mField[0, 1 + 2][i - h, j - h] +
                           mField[0, 1 + 3][i - h, j - h] + mField[0, 1 + 6][i - h, j - h];
 
-        return R;
+        return r;
     }
 
     // function for square matrix 2^N x 2^N
 
-    private static void StrassenMultiplyRun(XLMatrix A, XLMatrix B, XLMatrix C, int l, XLMatrix[,] f)
+    private static void StrassenMultiplyRun(XLMatrix a, XLMatrix b, XLMatrix c, int l, XLMatrix[,] f)
     // A * B into C, level of recursion, matrix field
     {
-        var size = A.rows;
+        var size = a._rows;
         var h = size / 2;
 
         if (size < 32)
         {
-            for (var i = 0; i < C.rows; i++)
-                for (var j = 0; j < C.cols; j++)
+            for (var i = 0; i < c._rows; i++)
+                for (var j = 0; j < c.Cols; j++)
                 {
-                    C[i, j] = 0;
-                    for (var k = 0; k < A.cols; k++) C[i, j] += A[i, k] * B[k, j];
+                    c[i, j] = 0;
+                    for (var k = 0; k < a.Cols; k++) c[i, j] += a[i, k] * b[k, j];
                 }
             return;
         }
 
-        AplusBintoC(A, 0, 0, A, h, h, f[l, 0], h);
-        AplusBintoC(B, 0, 0, B, h, h, f[l, 1], h);
+        AplusBintoC(a, 0, 0, a, h, h, f[l, 0], h);
+        AplusBintoC(b, 0, 0, b, h, h, f[l, 1], h);
         StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 1], l + 1, f); // (A11 + A22) * (B11 + B22);
 
-        AplusBintoC(A, 0, h, A, h, h, f[l, 0], h);
-        ACopytoC(B, 0, 0, f[l, 1], h);
+        AplusBintoC(a, 0, h, a, h, h, f[l, 0], h);
+        ACopytoC(b, 0, 0, f[l, 1], h);
         StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 2], l + 1, f); // (A21 + A22) * B11;
 
-        ACopytoC(A, 0, 0, f[l, 0], h);
-        AminusBintoC(B, h, 0, B, h, h, f[l, 1], h);
+        ACopytoC(a, 0, 0, f[l, 0], h);
+        AminusBintoC(b, h, 0, b, h, h, f[l, 1], h);
         StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 3], l + 1, f); //A11 * (B12 - B22);
 
-        ACopytoC(A, h, h, f[l, 0], h);
-        AminusBintoC(B, 0, h, B, 0, 0, f[l, 1], h);
+        ACopytoC(a, h, h, f[l, 0], h);
+        AminusBintoC(b, 0, h, b, 0, 0, f[l, 1], h);
         StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 4], l + 1, f); //A22 * (B21 - B11);
 
-        AplusBintoC(A, 0, 0, A, h, 0, f[l, 0], h);
-        ACopytoC(B, h, h, f[l, 1], h);
+        AplusBintoC(a, 0, 0, a, h, 0, f[l, 0], h);
+        ACopytoC(b, h, h, f[l, 1], h);
         StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 5], l + 1, f); //(A11 + A12) * B22;
 
-        AminusBintoC(A, 0, h, A, 0, 0, f[l, 0], h);
-        AplusBintoC(B, 0, 0, B, h, 0, f[l, 1], h);
+        AminusBintoC(a, 0, h, a, 0, 0, f[l, 0], h);
+        AplusBintoC(b, 0, 0, b, h, 0, f[l, 1], h);
         StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 6], l + 1, f); //(A21 - A11) * (B11 + B12);
 
-        AminusBintoC(A, h, 0, A, h, h, f[l, 0], h);
-        AplusBintoC(B, 0, h, B, h, h, f[l, 1], h);
+        AminusBintoC(a, h, 0, a, h, h, f[l, 0], h);
+        AplusBintoC(b, 0, h, b, h, h, f[l, 1], h);
         StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 7], l + 1, f); // (A12 - A22) * (B21 + B22);
 
         // C11
         for (var i = 0; i < h; i++) // rows
             for (var j = 0; j < h; j++) // cols
-                C[i, j] = f[l, 1 + 1][i, j] + f[l, 1 + 4][i, j] - f[l, 1 + 5][i, j] + f[l, 1 + 7][i, j];
+                c[i, j] = f[l, 1 + 1][i, j] + f[l, 1 + 4][i, j] - f[l, 1 + 5][i, j] + f[l, 1 + 7][i, j];
 
         // C12
         for (var i = 0; i < h; i++) // rows
             for (var j = h; j < size; j++) // cols
-                C[i, j] = f[l, 1 + 3][i, j - h] + f[l, 1 + 5][i, j - h];
+                c[i, j] = f[l, 1 + 3][i, j - h] + f[l, 1 + 5][i, j - h];
 
         // C21
         for (var i = h; i < size; i++) // rows
             for (var j = 0; j < h; j++) // cols
-                C[i, j] = f[l, 1 + 2][i - h, j] + f[l, 1 + 4][i - h, j];
+                c[i, j] = f[l, 1 + 2][i - h, j] + f[l, 1 + 4][i - h, j];
 
         // C22
         for (var i = h; i < size; i++) // rows
             for (var j = h; j < size; j++) // cols
-                C[i, j] = f[l, 1 + 1][i - h, j - h] - f[l, 1 + 2][i - h, j - h] + f[l, 1 + 3][i - h, j - h] +
+                c[i, j] = f[l, 1 + 1][i - h, j - h] - f[l, 1 + 2][i - h, j - h] + f[l, 1 + 3][i - h, j - h] +
                           f[l, 1 + 6][i - h, j - h];
     }
 
     public static XLMatrix StupidMultiply(XLMatrix m1, XLMatrix m2) // Stupid matrix multiplication
     {
-        if (m1.cols != m2.rows) throw new ArgumentException("Wrong dimensions of matrix!");
+        if (m1.Cols != m2._rows) throw new ArgumentException("Wrong dimensions of matrix!");
 
-        var result = ZeroMatrix(m1.rows, m2.cols);
-        for (var i = 0; i < result.rows; i++)
-            for (var j = 0; j < result.cols; j++)
-                for (var k = 0; k < m1.cols; k++)
+        var result = ZeroMatrix(m1._rows, m2.Cols);
+        for (var i = 0; i < result._rows; i++)
+            for (var j = 0; j < result.Cols; j++)
+                for (var k = 0; k < m1.Cols; k++)
                     result[i, j] += m1[i, k] * m2[k, j];
         return result;
     }
 
     private static XLMatrix Multiply(double n, XLMatrix m) // Multiplication by constant n
     {
-        var r = new XLMatrix(m.rows, m.cols);
-        for (var i = 0; i < m.rows; i++)
-            for (var j = 0; j < m.cols; j++)
+        var r = new XLMatrix(m._rows, m.Cols);
+        for (var i = 0; i < m._rows; i++)
+            for (var j = 0; j < m.Cols; j++)
                 r[i, j] = m[i, j] * n;
         return r;
     }
 
     private static XLMatrix Add(XLMatrix m1, XLMatrix m2)
     {
-        if (m1.rows != m2.rows || m1.cols != m2.cols)
+        if (m1._rows != m2._rows || m1.Cols != m2.Cols)
             throw new ArgumentException("Matrices must have the same dimensions!");
-        var r = new XLMatrix(m1.rows, m1.cols);
-        for (var i = 0; i < r.rows; i++)
-            for (var j = 0; j < r.cols; j++)
+        var r = new XLMatrix(m1._rows, m1.Cols);
+        for (var i = 0; i < r._rows; i++)
+            for (var j = 0; j < r.Cols; j++)
                 r[i, j] = m1[i, j] + m2[i, j];
         return r;
     }
@@ -559,7 +559,7 @@ internal sealed class XLMatrix
     public static string NormalizeMatrixString(string matStr) // From Andy - thank you! :)
     {
         // Remove any multiple spaces
-        while (matStr.IndexOf("  ", StringComparison.Ordinal) != -1)
+        while (matStr.Contains("  "))
             matStr = matStr.Replace("  ", " ");
 
         // Remove any spaces before or after newlines

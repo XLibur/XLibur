@@ -3,6 +3,7 @@ using System.Data;
 using System.Linq;
 using XLibur.Excel;
 using NUnit.Framework;
+using XLibur.Excel.Tables;
 
 namespace XLibur.Tests.Excel.Tables;
 
