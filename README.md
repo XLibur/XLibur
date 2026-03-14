@@ -1,14 +1,18 @@
 # About
 
-This is a fork from the ClosedXML project, at version v105.
-Namespaces have been changed to avoid conflicts with the original project.
+This is a fork from the [ClosedXML](https://github.com/ClosedXML/ClosedXML/) project, taken from version v0.105.0 (May 15, 2025)
+Namespaces are changed to avoid conflicts with the original project.
 
 This project goal was a desire to get some much-needed patches implemented that I use in my workflows, and the ClosedXML
-project was not accepting community contributions.
+project is at the time of writing not accepting community contributions. We've had some PR's up for a few months with no traction.
 
 XLibur is a .NET library for reading, manipulating and writing Excel 2007+ (.xlsx, .xlsm) files. It aims to provide an
-intuitive and user-friendly interface to dealing with the
-underlying [OpenXML](https://github.com/OfficeDev/Open-XML-SDK) API.
+intuitive and user-friendly interface to dealing with the underlying [OpenXML](https://github.com/OfficeDev/Open-XML-SDK) API.
+
+## Should I use this?
+
+If you have no issues currently with ClosedXML, then this library likely gains you nothing.
+If some of the differences introduced here are useful, then sure consider it!
 
 ### Primary differences from ClosedXML (0.105)
 
@@ -45,6 +49,34 @@ using (var workbook = new XLWorkbook())
     worksheet.Cell("A2").FormulaA1 = "=MID(A1, 7, 5)";
     workbook.SaveAs("HelloWorld.xlsx");
 }
+```
+
+## Building, Testing, and Benchmarks
+
+Build the solution:
+
+```sh
+dotnet build XLibur.slnx
+```
+
+Run the test suite:
+
+```sh
+dotnet test XLibur.Tests/XLibur.Tests.csproj
+```
+
+Run benchmarks (XLibur vs ClosedXML comparison):
+
+```sh
+# List available benchmarks
+dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --list flat
+
+# Run all benchmarks
+dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --filter *
+
+# Run a specific benchmark class
+dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --filter '*XLiburWorkbookBenchmarks*'
+dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --filter '*ClosedXmlWorkbookBenchmarks*'
 ```
 
 ## Developer guidelines

@@ -4,8 +4,9 @@
     <SourceRoot>$(MSBuildThisFileDirectory)</SourceRoot>
   </PropertyGroup>
 
+  <!-- MinVer derives version from git tags (e.g. v0.105.0). Set tag prefix to 'v'. -->
   <PropertyGroup>
-    <Version>0.105.0</Version>
+    <MinVerTagPrefix>v</MinVerTagPrefix>
   </PropertyGroup>
 
   <!-- Set common properties regarding assembly information and nuget packages -->
@@ -19,21 +20,16 @@
     <PackageProjectUrl>https://github.com/XLibur/XLibur</PackageProjectUrl>
     <PackageIcon>nuget-logo.png</PackageIcon>
     <PackageTags>Excel OpenXml xlsx</PackageTags>
-    <Description>See release notes https://github.com/XLibur/XLibur/releases/tag/$(productVersion) XLibur is a .NET library for reading, manipulating and writing Excel 2007+ (.xlsx, .xlsm) files. It aims to provide an intuitive and user-friendly interface to dealing with the underlying OpenXML API.</Description>
-    <PackageReleaseNotes>See https://github.com/XLibur/XLibur/releases/tag/$(productVersion)</PackageReleaseNotes>
+    <Description>See release notes https://github.com/XLibur/XLibur/releases/tag/$(Version) XLibur is a .NET library for reading, manipulating and writing Excel 2007+ (.xlsx, .xlsm) files. It aims to provide an intuitive and user-friendly interface to dealing with the underlying OpenXML API.</Description>
+    <PackageReleaseNotes>See https://github.com/XLibur/XLibur/releases/tag/$(Version)</PackageReleaseNotes>
     <RepositoryUrl>https://github.com/XLibur/XLibur</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
 
     <!-- Sourcelink: https://github.com/dotnet/sourcelink/ -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <!-- Nuget won't accept dll in nuget and pdb in snupkg because they have different checksum.
-         That is likely causes by Fody https://github.com/jbevain/cecil/issues/610. In the meantime,
-         just include pdb directly to nuget. Pdb also has to embed untracked sources (likely sources
-         for Polyfill package, because they are not a stored in repository). -->
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
 
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
