@@ -30,6 +30,8 @@ _ReSharper*/
 [Tt]est[Rr]esult*
 /packages
 .idea/
-.claude/settings.local.json
-/BenchmarkDotNet.Artifacts/*
+.claude/
+*.DotSettings
+*.DotSettings.user
+BenchmarkDotNet.Artifacts/
 /results/*

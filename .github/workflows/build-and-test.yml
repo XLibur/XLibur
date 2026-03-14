@@ -41,11 +41,32 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore XLibur.slnx
 
+      - name: Begin SonarCloud analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: >
+          dotnet sonarscanner begin
+          /k:"XLibur_XLibur"
+          /o:"xlibur"
+          /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+          /d:sonar.host.url="https://sonarcloud.io"
+          /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml"
+
       - name: Build
         run: dotnet build XLibur.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test XLibur.Tests/XLibur.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+        run: >
+          dotnet test XLibur.Tests/XLibur.Tests.csproj
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --collect:"XPlat Code Coverage;Format=opencover"
+
+      - name: End SonarCloud analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

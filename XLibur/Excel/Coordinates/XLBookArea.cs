@@ -32,10 +32,9 @@ internal readonly struct XLBookArea : IEquatable<XLBookArea>
 
     internal static XLBookArea From(IXLRange range)
     {
-        if (range.Worksheet is null)
-            throw new ArgumentException("Range doesn't contain sheet.", nameof(range));
-
-        return new XLBookArea(range.Worksheet.Name, XLSheetRange.FromRangeAddress(range.RangeAddress));
+        return range.Worksheet is null
+            ? throw new ArgumentException("Range doesn't contain sheet.", nameof(range))
+            : new XLBookArea(range.Worksheet.Name, XLSheetRange.FromRangeAddress(range.RangeAddress));
     }
 
     public bool Equals(XLBookArea other)
