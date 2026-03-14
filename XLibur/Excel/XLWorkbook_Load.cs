@@ -388,7 +388,7 @@ public partial class XLWorkbook
 
                 if (dTable.HeaderRowCount != null && dTable.HeaderRowCount == 0)
                 {
-                    xlTable._showHeaderRow = false;
+                    xlTable.HydrateShowHeaderRow(false);
                     xlTable.AddFields(dTable.TableColumns!.Cast<TableColumn>()
                         .Select(t => DrawingPartReader.GetTableColumnName(t.Name!.Value!)));
                 }
@@ -398,7 +398,7 @@ public partial class XLWorkbook
                 }
 
                 if (dTable.TotalsRowCount != null && dTable.TotalsRowCount.Value > 0)
-                    xlTable._showTotalsRow = true;
+                    xlTable.HydrateShowTotalsRow(true);
 
                 if (dTable.TableStyleInfo != null)
                 {

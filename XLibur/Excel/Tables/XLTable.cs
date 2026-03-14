@@ -14,7 +14,7 @@ namespace XLibur.Excel;
 [DebuggerDisplay("{Name}")]
 internal sealed class XLTable : XLRange, IXLTable
 {
-    internal bool _showTotalsRow;
+    private bool _showTotalsRow;
     private HashSet<string> _uniqueNames = null!;
 
     /// <summary>
@@ -599,7 +599,19 @@ internal sealed class XLTable : XLRange, IXLTable
             : throw new ArgumentOutOfRangeException("The header row doesn't contain field name '" + name + "'.");
     }
 
-    internal bool _showHeaderRow;
+    private bool _showHeaderRow;
+
+    /// <summary>
+    /// Sets <see cref="ShowHeaderRow"/> without performing structural row operations.
+    /// Use during load or copy where the table range already has the correct shape.
+    /// </summary>
+    internal void HydrateShowHeaderRow(bool value) => _showHeaderRow = value;
+
+    /// <summary>
+    /// Sets <see cref="ShowTotalsRow"/> without performing structural row operations.
+    /// Use during load or copy where the table range already has the correct shape.
+    /// </summary>
+    internal void HydrateShowTotalsRow(bool value) => _showTotalsRow = value;
 
     public bool ShowHeaderRow
     {
@@ -845,7 +857,7 @@ internal sealed class XLTable : XLRange, IXLTable
         newTable.ShowColumnStripes = ShowColumnStripes;
         newTable.ShowAutoFilter = ShowAutoFilter;
         newTable.Theme = Theme;
-        newTable._showTotalsRow = ShowTotalsRow;
+        newTable.HydrateShowTotalsRow(ShowTotalsRow);
 
         var fieldCount = ColumnCount();
         for (var f = 0; f < fieldCount; f++)
