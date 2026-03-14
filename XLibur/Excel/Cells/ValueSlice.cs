@@ -238,6 +238,12 @@ internal sealed class ValueSlice : ISlice
         }
     }
 
+    /// <summary>
+    /// Per-cell value storage packed into 9 bytes (double + flags byte) instead
+    /// of the previous 16 bytes (double + enum + bool + alignment padding).
+    /// Layout: <c>[Value:8 bytes][_flags:1 byte]</c> where _flags packs
+    /// <see cref="XLDataType"/> in bits 0-3 and Inline flag in bit 4.
+    /// </summary>
     private readonly record struct XLValueSliceContent
     {
         /// <summary>
@@ -246,16 +252,21 @@ internal sealed class ValueSlice : ISlice
         internal readonly double Value;
 
         /// <summary>
-        /// Type of a cell <see cref="Value"/>.
+        /// Bits 0-3: <see cref="XLDataType"/>, bit 4: Inline flag.
         /// </summary>
-        internal readonly XLDataType Type;
-        internal readonly bool Inline;
+        private readonly byte _flags;
 
         internal XLValueSliceContent(double value, XLDataType type, bool inline)
         {
             Value = value;
-            Type = type;
-            Inline = inline;
+            _flags = (byte)((int)type | (inline ? 0x10 : 0));
         }
+
+        /// <summary>
+        /// Type of a cell <see cref="Value"/>.
+        /// </summary>
+        internal XLDataType Type => (XLDataType)(_flags & 0x0F);
+
+        internal bool Inline => (_flags & 0x10) != 0;
     }
 }

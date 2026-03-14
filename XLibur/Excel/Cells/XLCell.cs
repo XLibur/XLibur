@@ -21,26 +21,24 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 {
     private readonly XLCellsCollection _cellsCollection;
 
-    private readonly int _rowNumber;
-
-    private readonly int _columnNumber;
+    private readonly XLSheetPoint _point;
 
     internal XLCell(XLWorksheet worksheet, int row, int column)
+        : this(worksheet, new XLSheetPoint(row, column))
     {
-        _cellsCollection = worksheet.Internals.CellsCollection;
-        _rowNumber = row;
-        _columnNumber = column;
     }
 
-    internal XLCell(XLWorksheet worksheet, XLSheetPoint point) : this(worksheet, point.Row, point.Column)
+    internal XLCell(XLWorksheet worksheet, XLSheetPoint point)
     {
+        _cellsCollection = worksheet.Internals.CellsCollection;
+        _point = point;
     }
 
     public XLWorksheet Worksheet => _cellsCollection.Worksheet;
 
-    public XLAddress Address => new(Worksheet, _rowNumber, _columnNumber, false, false);
+    public XLAddress Address => new(Worksheet, _point.Row, _point.Column, false, false);
 
-    internal XLSheetPoint SheetPoint => new(_rowNumber, _columnNumber);
+    internal XLSheetPoint SheetPoint => _point;
 
     #region Slice fields
 
@@ -60,7 +58,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     internal override XLStyleValue StyleValue
     {
         get => Worksheet.GetStyleValue(SheetPoint);
-        private protected set => _cellsCollection.StyleSlice.Set(_rowNumber, _columnNumber, value);
+        private protected set => _cellsCollection.StyleSlice.Set(_point, value);
     }
 
     internal int MemorySstId => _cellsCollection.ValueSlice.GetShareStringId(SheetPoint);
@@ -85,60 +83,60 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     internal XLComment? SliceComment
     {
-        get => _cellsCollection.MiscSlice[_rowNumber, _columnNumber].Comment;
+        get => _cellsCollection.MiscSlice[_point].Comment;
         set
         {
-            ref readonly var original = ref _cellsCollection.MiscSlice[_rowNumber, _columnNumber];
+            ref readonly var original = ref _cellsCollection.MiscSlice[_point];
             if (original.Comment != value)
             {
                 var modified = original;
                 modified.Comment = value;
-                _cellsCollection.MiscSlice.Set(_rowNumber, _columnNumber, in modified);
+                _cellsCollection.MiscSlice.Set(_point, in modified);
             }
         }
     }
 
     internal uint? CellMetaIndex
     {
-        get => _cellsCollection.MiscSlice[_rowNumber, _columnNumber].CellMetaIndex;
+        get => _cellsCollection.MiscSlice[_point].CellMetaIndex;
         set
         {
-            ref readonly var original = ref _cellsCollection.MiscSlice[_rowNumber, _columnNumber];
+            ref readonly var original = ref _cellsCollection.MiscSlice[_point];
             if (original.CellMetaIndex != value)
             {
                 var modified = original;
                 modified.CellMetaIndex = value;
-                _cellsCollection.MiscSlice.Set(_rowNumber, _columnNumber, in modified);
+                _cellsCollection.MiscSlice.Set(_point, in modified);
             }
         }
     }
 
     internal uint? ValueMetaIndex
     {
-        get => _cellsCollection.MiscSlice[_rowNumber, _columnNumber].ValueMetaIndex;
+        get => _cellsCollection.MiscSlice[_point].ValueMetaIndex;
         set
         {
-            ref readonly var original = ref _cellsCollection.MiscSlice[_rowNumber, _columnNumber];
+            ref readonly var original = ref _cellsCollection.MiscSlice[_point];
             if (original.ValueMetaIndex != value)
             {
                 var modified = original;
                 modified.ValueMetaIndex = value;
-                _cellsCollection.MiscSlice.Set(_rowNumber, _columnNumber, in modified);
+                _cellsCollection.MiscSlice.Set(_point, in modified);
             }
         }
     }
 
     internal XLCellImage? CellImage
     {
-        get => _cellsCollection.MiscSlice[_rowNumber, _columnNumber].CellImage;
+        get => _cellsCollection.MiscSlice[_point].CellImage;
         set
         {
-            ref readonly var original = ref _cellsCollection.MiscSlice[_rowNumber, _columnNumber];
+            ref readonly var original = ref _cellsCollection.MiscSlice[_point];
             if (original.CellImage != value)
             {
                 var modified = original;
                 modified.CellImage = value;
-                _cellsCollection.MiscSlice.Set(_rowNumber, _columnNumber, in modified);
+                _cellsCollection.MiscSlice.Set(_point, in modified);
             }
         }
     }
@@ -211,7 +209,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (checkMergedRanges && IsInferiorMergedCell())
             return this;
 
-        var point = new XLSheetPoint(_rowNumber, _columnNumber);
+        var point = _point;
 
         SetValueAndStyle(value, point);
 
@@ -459,8 +457,8 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         var table = Worksheet.Tables.FirstOrDefault<XLTable>(t => t.AsRange().Contains(this));
         if (table == null) return XLTableCellType.None;
 
-        if (table.ShowHeaderRow && table.HeadersRow()!.RowNumber().Equals(_rowNumber)) return XLTableCellType.Header;
-        if (table.ShowTotalsRow && table.TotalsRow()!.RowNumber().Equals(_rowNumber)) return XLTableCellType.Total;
+        if (table.ShowHeaderRow && table.HeadersRow()!.RowNumber().Equals(_point.Row)) return XLTableCellType.Header;
+        if (table.ShowTotalsRow && table.TotalsRow()!.RowNumber().Equals(_point.Row)) return XLTableCellType.Total;
 
         return XLTableCellType.Data;
     }
@@ -587,7 +585,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             var formula = value.TrimFormulaEqual();
             if (!string.IsNullOrWhiteSpace(formula))
             {
-                var formulaA1 = FormulaTransformation.SafeToA1(formula, _rowNumber, _columnNumber);
+                var formulaA1 = FormulaTransformation.SafeToA1(formula, _point.Row, _point.Column);
                 var fixedFunctionsFormulaA1 =
                     FormulaTransformation.FixFutureFunctions(formulaA1, Worksheet.Name, SheetPoint);
                 Formula = XLCellFormula.NormalA1(fixedFunctionsFormulaA1);
@@ -746,11 +744,11 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
             if (StyleValue.Equals(Worksheet.StyleValue))
             {
-                if (Worksheet.Internals.RowsCollection.TryGetValue(_rowNumber, out var row) &&
+                if (Worksheet.Internals.RowsCollection.TryGetValue(_point.Row, out var row) &&
                     !row.StyleValue.Equals(Worksheet.StyleValue))
                     return false;
 
-                if (Worksheet.Internals.ColumnsCollection.TryGetValue(_columnNumber, out var column) &&
+                if (Worksheet.Internals.ColumnsCollection.TryGetValue(_point.Column, out var column) &&
                     !column.StyleValue.Equals(Worksheet.StyleValue))
                     return false;
             }
@@ -777,12 +775,12 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     public IXLColumn WorksheetColumn()
     {
-        return Worksheet.Column(_columnNumber);
+        return Worksheet.Column(_point.Column);
     }
 
     public IXLRow WorksheetRow()
     {
-        return Worksheet.Row(_rowNumber);
+        return Worksheet.Row(_point.Row);
     }
 
     public IXLCell CopyTo(IXLCell target)
@@ -924,15 +922,15 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     /// <inheritdoc />
     public bool ShowPhonetic
     {
-        get => _cellsCollection.MiscSlice[_rowNumber, _columnNumber].HasPhonetic;
+        get => _cellsCollection.MiscSlice[_point].HasPhonetic;
         set
         {
-            ref readonly var original = ref _cellsCollection.MiscSlice[_rowNumber, _columnNumber];
+            ref readonly var original = ref _cellsCollection.MiscSlice[_point];
             if (original.HasPhonetic != value)
             {
                 var modified = original;
                 modified.HasPhonetic = value;
-                _cellsCollection.MiscSlice.Set(_rowNumber, _columnNumber, in modified);
+                _cellsCollection.MiscSlice.Set(_point, in modified);
             }
         }
     }
@@ -1031,13 +1029,13 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     internal string GetFormulaR1C1(string value)
     {
         return XLCellFormula.GetFormula(value, FormulaConversionType.A1ToR1C1,
-            new XLSheetPoint(_rowNumber, _columnNumber));
+            _point);
     }
 
     internal string GetFormulaA1(string value)
     {
         return XLCellFormula.GetFormula(value, FormulaConversionType.R1C1ToA1,
-            new XLSheetPoint(_rowNumber, _columnNumber));
+            _point);
     }
 
     internal void CopyValuesFrom(XLCell source)
@@ -1063,7 +1061,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     private XLCell CellShift(int rowsToShift, int columnsToShift)
     {
-        return Worksheet.Cell(_rowNumber + rowsToShift, _columnNumber + columnsToShift);
+        return Worksheet.Cell(_point.Row + rowsToShift, _point.Column + columnsToShift);
     }
 
     #region XLCell Above
@@ -1203,7 +1201,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     }
 
     public IXLRange CurrentRegion
-        => Worksheet.Range(XLCellRegionHelper.FindCurrentRegion(Worksheet, _rowNumber, _columnNumber));
+        => Worksheet.Range(XLCellRegionHelper.FindCurrentRegion(Worksheet, _point.Row, _point.Column));
 
     internal bool IsInferiorMergedCell()
     {
