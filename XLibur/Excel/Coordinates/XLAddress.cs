@@ -1,11 +1,33 @@
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
+/// <summary>
+/// Cell address with optional worksheet, absolute/relative flags, and
+/// a cached trimmed-address string. Row, column, fixedRow, and fixedColumn
+/// are packed into a single <c>ulong</c> to eliminate alignment padding.
+/// </summary>
+/// <remarks>
+/// Layout of <see cref="_packed"/>:
+/// <list type="bullet">
+///   <item>bits  0-14: column stored as (column + 1) so that -1 maps to 0 (15 bits)</item>
+///   <item>bits 15-35: row stored as (row + 1) so that -1 maps to 0 (21 bits)</item>
+///   <item>bit     36: fixedRow flag</item>
+///   <item>bit     37: fixedColumn flag</item>
+/// </list>
+/// </remarks>
 internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
 {
+    private const int ColumnBits = 15;  // 15 bits: max stored value 16385 (16384+1 offset)
+    private const int RowBits = 21;    // 21 bits: max stored value 1048577 (1048576+1 offset)
+    private const int FixedRowBit = ColumnBits + RowBits;       // 36
+    private const int FixedColumnBit = FixedRowBit + 1;          // 37
+    private const ulong ColumnMask = (1UL << ColumnBits) - 1;   // 0x7FFF
+    private const ulong RowMask = (1UL << RowBits) - 1;         // 0x1FFFFF
+
     #region Static
     /// <summary>
     /// Create address without worksheet. For calculation only!
@@ -72,16 +94,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     #region Private fields
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private readonly bool _fixedRow;
-
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private readonly bool _fixedColumn;
-
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private readonly int _rowNumber;
-
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private readonly int _columnNumber;
+    private readonly ulong _packed;
 
     private string? _trimmedAddress;
 
@@ -134,15 +147,16 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     /// <param name = "columnNumber">The column number of the cell address.</param>
     /// <param name = "fixedRow"></param>
     /// <param name = "fixedColumn"></param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public XLAddress(XLWorksheet? worksheet, int rowNumber, int columnNumber, bool fixedRow, bool fixedColumn) : this()
-
     {
         Worksheet = worksheet;
 
-        _rowNumber = rowNumber;
-        _columnNumber = columnNumber;
-        _fixedColumn = fixedColumn;
-        _fixedRow = fixedRow;
+        // Store row and column with +1 offset so that -1 (invalid sentinel) maps to 0.
+        _packed = ((ulong)(uint)(columnNumber + 1) & ColumnMask)
+                | (((ulong)(uint)(rowNumber + 1) & RowMask) << ColumnBits)
+                | (fixedRow ? 1UL << FixedRowBit : 0UL)
+                | (fixedColumn ? 1UL << FixedColumnBit : 0UL);
     }
 
     #endregion Constructors
@@ -165,12 +179,14 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
 
     public bool FixedRow
     {
-        get { return _fixedRow; }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get { return (_packed & (1UL << FixedRowBit)) != 0; }
     }
 
     public bool FixedColumn
     {
-        get { return _fixedColumn; }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get { return (_packed & (1UL << FixedColumnBit)) != 0; }
     }
 
     /// <summary>
@@ -178,7 +194,8 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     /// </summary>
     public int RowNumber
     {
-        get { return _rowNumber; }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get { return (int)((_packed >> ColumnBits) & RowMask) - 1; }
     }
 
     /// <summary>
@@ -186,7 +203,8 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     /// </summary>
     public int ColumnNumber
     {
-        get { return _columnNumber; }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get { return (int)(_packed & ColumnMask) - 1; }
     }
 
     /// <summary>
@@ -194,7 +212,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     /// </summary>
     public string ColumnLetter
     {
-        get { return XLHelper.GetColumnLetterFromNumber(_columnNumber); }
+        get { return XLHelper.GetColumnLetterFromNumber(ColumnNumber); }
     }
 
     #endregion Properties
@@ -207,15 +225,15 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
             return "#REF!";
 
         string retVal = ColumnLetter;
-        if (_fixedColumn)
+        if (FixedColumn)
         {
             retVal = "$" + retVal;
         }
-        if (_fixedRow)
+        if (FixedRow)
         {
             retVal += "$";
         }
-        retVal += _rowNumber.ToInvariantString();
+        retVal += RowNumber.ToInvariantString();
         return retVal;
     }
 
@@ -233,7 +251,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
             address = GetTrimmedAddress();
         else if (referenceStyle == XLReferenceStyle.R1C1
                  || HasWorksheet && Worksheet!.Workbook.ReferenceStyle == XLReferenceStyle.R1C1)
-            address = "R" + _rowNumber.ToInvariantString() + "C" + ColumnNumber.ToInvariantString();
+            address = "R" + RowNumber.ToInvariantString() + "C" + ColumnNumber.ToInvariantString();
         else
             address = GetTrimmedAddress();
 
@@ -252,7 +270,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
 
     public string GetTrimmedAddress()
     {
-        return _trimmedAddress ??= ColumnLetter + _rowNumber.ToInvariantString();
+        return _trimmedAddress ??= ColumnLetter + RowNumber.ToInvariantString();
     }
 
     #endregion Methods
@@ -264,8 +282,8 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         return new XLAddress(left.Worksheet,
             left.RowNumber + right.RowNumber,
             left.ColumnNumber + right.ColumnNumber,
-            left._fixedRow,
-            left._fixedColumn);
+            left.FixedRow,
+            left.FixedColumn);
     }
 
     public static XLAddress operator -(XLAddress left, XLAddress right)
@@ -273,8 +291,8 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         return new XLAddress(left.Worksheet,
             left.RowNumber - right.RowNumber,
             left.ColumnNumber - right.ColumnNumber,
-            left._fixedRow,
-            left._fixedColumn);
+            left.FixedRow,
+            left.FixedColumn);
     }
 
     public static XLAddress operator +(XLAddress left, int right)
@@ -282,8 +300,8 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         return new XLAddress(left.Worksheet,
             left.RowNumber + right,
             left.ColumnNumber + right,
-            left._fixedRow,
-            left._fixedColumn);
+            left.FixedRow,
+            left.FixedColumn);
     }
 
     public static XLAddress operator -(XLAddress left, int right)
@@ -291,8 +309,8 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         return new XLAddress(left.Worksheet,
             left.RowNumber - right,
             left.ColumnNumber - right,
-            left._fixedRow,
-            left._fixedColumn);
+            left.FixedRow,
+            left.FixedColumn);
     }
 
     public static bool operator ==(XLAddress left, XLAddress right)
@@ -330,18 +348,16 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         if (other == null)
             return false;
 
-        return _rowNumber == other.RowNumber &&
-               _columnNumber == other.ColumnNumber &&
-               _fixedRow == other.FixedRow &&
-               _fixedColumn == other.FixedColumn;
+        return RowNumber == other.RowNumber &&
+               ColumnNumber == other.ColumnNumber &&
+               FixedRow == other.FixedRow &&
+               FixedColumn == other.FixedColumn;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Equals(XLAddress other)
     {
-        return _rowNumber == other._rowNumber &&
-               _columnNumber == other._columnNumber &&
-               _fixedRow == other._fixedRow &&
-               _fixedColumn == other._fixedColumn;
+        return _packed == other._packed;
     }
 
     public override bool Equals(object? other)
@@ -349,14 +365,10 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         return Equals(other as IXLAddress);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override int GetHashCode()
     {
-        var hashCode = 2122234362;
-        hashCode = hashCode * -1521134295 + _fixedRow.GetHashCode();
-        hashCode = hashCode * -1521134295 + _fixedColumn.GetHashCode();
-        hashCode = hashCode * -1521134295 + _rowNumber.GetHashCode();
-        hashCode = hashCode * -1521134295 + _columnNumber.GetHashCode();
-        return hashCode;
+        return _packed.GetHashCode();
     }
 
     public int GetHashCode(IXLAddress obj)
@@ -427,8 +439,8 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         {
             address = referenceStyle switch
             {
-                XLReferenceStyle.A1 => string.Concat('$', ColumnLetter, '$', _rowNumber.ToInvariantString()),
-                XLReferenceStyle.R1C1 => string.Concat('R', _rowNumber.ToInvariantString(), 'C', ColumnNumber),
+                XLReferenceStyle.A1 => string.Concat('$', ColumnLetter, '$', RowNumber.ToInvariantString()),
+                XLReferenceStyle.R1C1 => string.Concat('R', RowNumber.ToInvariantString(), 'C', ColumnNumber),
                 _ => throw new NotImplementedException(),
             };
         }
