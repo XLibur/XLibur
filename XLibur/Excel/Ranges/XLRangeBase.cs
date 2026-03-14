@@ -23,10 +23,9 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     #region Constructor
 
-    protected XLRangeBase(XLRangeAddress rangeAddress, XLStyleValue styleValue)
+    protected XLRangeBase(XLStyleValue styleValue)
         : base(styleValue)
     {
-        _rangeAddress = rangeAddress;
     }
 
     #endregion Constructor
@@ -38,21 +37,9 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     #region Public properties
 
-    private XLRangeAddress _rangeAddress;
+    public abstract XLRangeAddress RangeAddress { get; protected set; }
 
-    public XLRangeAddress RangeAddress
-    {
-        get => _rangeAddress;
-        protected set
-        {
-            if (_rangeAddress == value) return;
-            var oldAddress = _rangeAddress;
-            _rangeAddress = value;
-            OnRangeAddressChanged(oldAddress, _rangeAddress);
-        }
-    }
-
-    public XLWorksheet Worksheet => RangeAddress.Worksheet!;
+    public virtual XLWorksheet Worksheet => RangeAddress.Worksheet!;
 
     internal XLSheetRange SheetRange => !RangeAddress.IsValid
         ? throw new InvalidOperationException("Range address is invalid.")

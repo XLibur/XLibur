@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace XLibur.Excel;
 
-internal sealed class XLRangeColumn : XLRangeBase, IXLRangeColumn
+internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
 {
     #region Constructor
 

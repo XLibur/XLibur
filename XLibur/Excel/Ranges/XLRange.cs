@@ -6,7 +6,7 @@ using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal class XLRange : XLRangeBase, IXLRange
+internal class XLRange : XLStoredRangeBase, IXLRange
 {
     #region Constructor
 

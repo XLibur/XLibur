@@ -10,6 +10,8 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
 {
     #region Private fields
 
+    private readonly XLWorksheet _worksheet;
+    private int _columnNumber;
     private int _outlineLevel;
 
     #endregion Private fields
@@ -20,14 +22,23 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
     /// The direct constructor should only be used in <see cref="XLWorksheet.RangeFactory"/>.
     /// </summary>
     public XLColumn(XLWorksheet worksheet, int column)
-        : base(XLRangeAddress.EntireColumn(worksheet, column), worksheet.StyleValue)
+        : base(worksheet.StyleValue)
     {
-        SetColumnNumber(column);
+        _worksheet = worksheet;
+        _columnNumber = column;
 
         Width = worksheet.ColumnWidth;
     }
 
     #endregion Constructor
+
+    public override XLRangeAddress RangeAddress
+    {
+        get => XLRangeAddress.EntireColumn(_worksheet, _columnNumber);
+        protected set => _columnNumber = value.FirstAddress.ColumnNumber;
+    }
+
+    public override XLWorksheet Worksheet => _worksheet;
 
     public override XLRangeType RangeType
     {
@@ -467,17 +478,9 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
 
     internal void SetColumnNumber(int column)
     {
-        RangeAddress = new XLRangeAddress(
-            new XLAddress(Worksheet,
-                1,
-                column,
-                RangeAddress.FirstAddress.FixedRow,
-                RangeAddress.FirstAddress.FixedColumn),
-            new XLAddress(Worksheet,
-                XLHelper.MaxRowNumber,
-                column,
-                RangeAddress.LastAddress.FixedRow,
-                RangeAddress.LastAddress.FixedColumn));
+        var oldAddress = RangeAddress;
+        _columnNumber = column;
+        OnRangeAddressChanged(oldAddress, RangeAddress);
     }
 
     public override XLRange Range(string rangeAddressStr)
