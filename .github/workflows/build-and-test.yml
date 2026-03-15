@@ -50,7 +50,13 @@ jobs:
         run: dotnet format XLibur.slnx --verify-no-changes --verbosity diagnostic
 
       - name: Check vulnerable packages
-        run: dotnet list XLibur.slnx package --vulnerable --include-transitive
+        run: |
+          OUTPUT=$(dotnet list XLibur.slnx package --vulnerable --include-transitive --format json)
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | jq -e '.projects[] | select(.frameworks)' > /dev/null 2>&1; then
+            echo "::error::Vulnerable packages detected"
+            exit 1
+          fi
 
       - name: Begin SonarCloud analysis
         if: env.SONAR_TOKEN != ''

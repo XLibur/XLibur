@@ -1716,8 +1716,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
                         styleValue = styleValue.WithIncludeQuotePrefix(true);
                     }
 
-                    var containsNewLine = text.AsSpan()
-                        .Contains(Environment.NewLine.AsSpan(), StringComparison.Ordinal);
+                    var containsNewLine = text.Contains('\n');
                     if (containsNewLine)
                     {
                         styleValue ??= GetStyleValue(point);

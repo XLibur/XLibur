@@ -13,6 +13,11 @@ namespace XLibur.Excel.IO;
 
 internal sealed class SheetDataWriter
 {
+    /// <summary>
+    /// Day offset between the 1900 and 1904 date systems used by Excel.
+    /// </summary>
+    private const int Date1904OffsetDays = 1462;
+
     private static readonly FieldInfo XmlWriterFieldInfo =
         typeof(OpenXmlPartWriter).GetField("_xmlWriter", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
@@ -549,7 +554,7 @@ internal sealed class SheetDataWriter
                 {
                     var date = cellValue.GetDateTime();
                     if (use1904DateSystem)
-                        date = date.AddDays(-1462);
+                        date = date.AddDays(-Date1904OffsetDays);
 
                     WriteNumberValue(w, date.ToSerialDateTime());
                     break;
@@ -620,7 +625,7 @@ internal sealed class SheetDataWriter
                     // OpenXML SDK validator requires a specific format, in addition to the spec, but can read many more
                     var date = xlCell.GetDateTime();
                     if (xlCell.Worksheet.Workbook.Use1904DateSystem)
-                        date = date.AddDays(-1462);
+                        date = date.AddDays(-Date1904OffsetDays);
 
                     WriteNumberValue(w, date.ToSerialDateTime());
                     break;

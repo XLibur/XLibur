@@ -345,7 +345,9 @@ internal sealed class XLRow : XLRangeBase, IXLRow
                         else
                         {
                             // At the end of each line, add height of the line to total height.
-                            textHeight += lineMaxHeight;
+                            // Use glyph.LineHeight as fallback for empty lines (consecutive/leading/trailing newlines).
+                            var effectiveLineHeight = lineMaxHeight > 0 ? lineMaxHeight : glyph.LineHeight;
+                            textHeight += effectiveLineHeight;
                             lineMaxHeight = 0d;
                         }
                     }
