@@ -329,53 +329,58 @@ internal static class WorkbookStylesPartWriter
     private static void AddAutoFilterColorFilterDxfs(DifferentialFormats differentialFormats, XLWorksheet ws,
         SaveContext context)
     {
-        void AddColorFilterDxf(XLAutoFilter autoFilter)
-        {
-            foreach (var (_, xlFilterColumn) in autoFilter.Columns)
-            {
-                if (xlFilterColumn.FilterType != XLFilterType.Color)
-                    continue;
-
-                var key = (xlFilterColumn.FilterColor.Key, xlFilterColumn.FilterByCellColor);
-                if (context.ColorFilterDxfIds.ContainsKey(key))
-                    continue;
-
-                var differentialFormat = new DifferentialFormat();
-                if (xlFilterColumn.FilterByCellColor)
-                {
-                    var fillKey = new XLFillKey
-                    {
-                        PatternType = XLFillPatternValues.Solid,
-                        BackgroundColor = xlFilterColumn.FilterColor.Key,
-                        PatternColor = XLColor.FromIndex(64).Key,
-                    };
-                    var fillValue = XLFillValue.FromKey(ref fillKey);
-                    var fill = GetNewFill(new FillInfo { Fill = fillValue }, differentialFillFormat: true);
-                    differentialFormat.Append(fill);
-                }
-                else
-                {
-                    var fontKey = XLFontValue.Default.Key with
-                    {
-                        FontColor = xlFilterColumn.FilterColor.Key,
-                    };
-                    var fontValue = XLFontValue.FromKey(ref fontKey);
-                    var font = GetNewFont(new FontInfo { Font = fontValue }, false);
-                    if (font?.HasChildren ?? false)
-                        differentialFormat.Append(font);
-                }
-
-                differentialFormats.Append(differentialFormat);
-                context.ColorFilterDxfIds.Add(key, differentialFormats.Count() - 1);
-            }
-        }
-
-        AddColorFilterDxf(ws.AutoFilter);
+        AddColorFilterDxfs(differentialFormats, ws.AutoFilter, context);
 
         foreach (var table in ws.Tables.Cast<XLTable>())
+            AddColorFilterDxfs(differentialFormats, table.AutoFilter, context);
+    }
+
+    private static void AddColorFilterDxfs(DifferentialFormats differentialFormats, XLAutoFilter autoFilter,
+        SaveContext context)
+    {
+        foreach (var (_, xlFilterColumn) in autoFilter.Columns)
         {
-            AddColorFilterDxf(table.AutoFilter);
+            if (xlFilterColumn.FilterType != XLFilterType.Color)
+                continue;
+
+            var key = (xlFilterColumn.FilterColor.Key, xlFilterColumn.FilterByCellColor);
+            if (context.ColorFilterDxfIds.ContainsKey(key))
+                continue;
+
+            var differentialFormat = CreateColorDifferentialFormat(xlFilterColumn);
+            differentialFormats.Append(differentialFormat);
+            context.ColorFilterDxfIds.Add(key, differentialFormats.Count() - 1);
         }
+    }
+
+    private static DifferentialFormat CreateColorDifferentialFormat(AutoFilters.XLFilterColumn xlFilterColumn)
+    {
+        var differentialFormat = new DifferentialFormat();
+        if (xlFilterColumn.FilterByCellColor)
+        {
+            var fillKey = new XLFillKey
+            {
+                PatternType = XLFillPatternValues.Solid,
+                BackgroundColor = xlFilterColumn.FilterColor.Key,
+                PatternColor = XLColor.FromIndex(64).Key,
+            };
+            var fillValue = XLFillValue.FromKey(ref fillKey);
+            var fill = GetNewFill(new FillInfo { Fill = fillValue }, differentialFillFormat: true);
+            differentialFormat.Append(fill);
+        }
+        else
+        {
+            var fontKey = XLFontValue.Default.Key with
+            {
+                FontColor = xlFilterColumn.FilterColor.Key,
+            };
+            var fontValue = XLFontValue.FromKey(ref fontKey);
+            var font = GetNewFont(new FontInfo { Font = fontValue }, false);
+            if (font?.HasChildren ?? false)
+                differentialFormat.Append(font);
+        }
+
+        return differentialFormat;
     }
 
     private static void FillDifferentialFormatsCollection(DifferentialFormats differentialFormats,
