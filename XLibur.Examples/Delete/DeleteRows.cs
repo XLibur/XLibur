@@ -7,7 +7,7 @@ public class DeleteRows : IXLExample
 {
     public void Create(string filePath)
     {
-        var workbook = new XLWorkbook();
+        using var workbook = new XLWorkbook();
         var ws = workbook.Worksheets.Add("Delete red rows");
 
         // Put a value in a few cells
@@ -25,7 +25,7 @@ public class DeleteRows : IXLExample
         redRow.Style.Fill.BackgroundColor = XLColor.Red;
         workbook.SaveAs(filePath);
 
-        var workbook2 = new XLWorkbook(filePath);
+        using var workbook2 = new XLWorkbook(filePath);
         var ws2 = workbook2.Worksheets.Worksheet("Delete red rows");
 
         ws2.Rows(1, 2).Delete();

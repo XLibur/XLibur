@@ -212,7 +212,7 @@ public static class MemoryProfile
     // ReSharper disable once InconsistentNaming
     private static void ForceGC()
     {
-#pragma warning disable S1215
+#pragma warning disable S1215 // Intentionally forcing GC for accurate memory profiling
         GC.Collect(2, GCCollectionMode.Forced, true, true);
         GC.WaitForPendingFinalizers();
         GC.Collect(2, GCCollectionMode.Forced, true, true);

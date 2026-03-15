@@ -44,7 +44,7 @@ public class HeaderFooterTests
         header.SetInnerText(XLHFOccurrence.AllPages, s);
 
         // Verify header was changed (or remained empty for empty input)
-        Assert.AreEqual(s != "", header.Changed);
+        Assert.That(header.Changed, Is.EqualTo(!string.IsNullOrEmpty(s)));
     }
 
     [Test]

@@ -286,12 +286,13 @@ public class XLWorksheetTests
         var copy2 = ws2.CopyTo("Copy2");
 
         var ws3 = wb.Worksheets.Skip(2).First();
-        ws3.CopyTo("Copy3");
-
-        ws3.CopyTo("Copy4");
+        var copy3 = ws3.CopyTo("Copy3");
+        var copy4 = ws3.CopyTo("Copy4");
 
         Assert.AreEqual(ws.Pictures.Count, copy1.Pictures.Count);
         Assert.AreEqual(ws2.Pictures.Count, copy2.Pictures.Count);
+        Assert.AreEqual(ws3.Pictures.Count, copy3.Pictures.Count);
+        Assert.AreEqual(ws3.Pictures.Count, copy4.Pictures.Count);
     }
 
     [Test]

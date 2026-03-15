@@ -112,17 +112,25 @@ public class SavingTests
     {
         string[] cultures = ["it", "de-AT"];
 
-        foreach (var culture in cultures)
+        var originalCulture = Thread.CurrentThread.CurrentCulture;
+        try
         {
-            Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo(culture);
+            foreach (var culture in cultures)
+            {
+                Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo(culture);
 
-            using var wb = new XLWorkbook();
-            var memoryStream = new MemoryStream();
-            var ws = wb.Worksheets.Add("Sheet1");
+                using var wb = new XLWorkbook();
+                var memoryStream = new MemoryStream();
+                var ws = wb.Worksheets.Add("Sheet1");
 
-            wb.SaveAs(memoryStream, true);
+                wb.SaveAs(memoryStream, true);
 
-            Assert.That(memoryStream.Length, Is.GreaterThan(0), $"Failed for culture {culture}");
+                Assert.That(memoryStream.Length, Is.GreaterThan(0), $"Failed for culture {culture}");
+            }
+        }
+        finally
+        {
+            Thread.CurrentThread.CurrentCulture = originalCulture;
         }
     }
 

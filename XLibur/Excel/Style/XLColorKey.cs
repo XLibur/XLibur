@@ -35,8 +35,8 @@ internal readonly struct XLColorKey : IEquatable<XLColorKey>
                 case XLColorType.Color:
                     hash = (hash * 397) ^ Color.ToArgb();
                     break;
-                // ReSharper disable once RedundantEmptySwitchSection
                 default:
+                    hash = (hash * 397) ^ Indexed;
                     break;
             }
 

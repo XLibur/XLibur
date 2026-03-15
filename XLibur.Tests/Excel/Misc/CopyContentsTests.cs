@@ -111,9 +111,11 @@ public class CopyContentsTests
         }
         TestHelper.SaveWorkbook(workbook, "Misc", "CopyRowContents.xlsx");
 
-        Assert.AreEqual("test value", copyRangeSheet.Cell("A2").Value);
-        Assert.AreEqual("test value", copyRowSheet.Cell("A2").Value);
-        Assert.IsTrue(copyRangeSheet.Range("A2:E2").IsMerged());
+        Assert.That(copyRangeSheet.Cell("A2").Value, Is.EqualTo((XLCellValue)"test value"));
+        Assert.That(copyRowSheet.Cell("A2").Value, Is.EqualTo((XLCellValue)"test value"));
+        Assert.That(copyRangeSheet.Range("A2:E2").IsMerged(), Is.True);
+        Assert.That(copyRowAsRangeSheet.Cell("A3").Value, Is.EqualTo((XLCellValue)"test value"));
+        Assert.That(copyRowAsRangeSheet.Range("A3:E3").IsMerged(), Is.True);
     }
 
     [Test]

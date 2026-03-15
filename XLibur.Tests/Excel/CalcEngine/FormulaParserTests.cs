@@ -11,6 +11,7 @@ namespace XLibur.Tests.Excel.CalcEngine;
 /// Tests that verify that we can parse formulas and evaluate them. Take a look at XLParser ExcelFormulaGrammar.cs and each rule + its transformation into Abstract Syntax Tree is checked here.
 /// </summary>
 [TestFixture]
+[SetCulture("en-US")]
 public class FormulaParserTests
 {
     #region Start.Rule

@@ -283,8 +283,8 @@ public class RowTests
         ws.Rows(1, 2).Group();
         ws.Rows(1, 2).Ungroup(true);
 
-        Assert.AreEqual(0, ws.Row(1).OutlineLevel);
-        Assert.AreEqual(0, ws.Row(2).OutlineLevel);
+        Assert.That(ws.Row(1).OutlineLevel, Is.EqualTo(0));
+        Assert.That(ws.Row(2).OutlineLevel, Is.EqualTo(0));
     }
 
     [Test]
