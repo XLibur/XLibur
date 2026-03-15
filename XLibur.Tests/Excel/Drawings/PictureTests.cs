@@ -17,7 +17,7 @@ public class PictureTests
     [TestCase("Other.Drawings.picture-webp.xlsx")]
     public void Can_load_and_save_workbook_with_image_type(string resourceWithImageType)
     {
-        TestHelper.LoadSaveAndCompare(resourceWithImageType, resourceWithImageType);
+        Assert.DoesNotThrow(() => TestHelper.LoadSaveAndCompare(resourceWithImageType, resourceWithImageType));
     }
 
     [Test]

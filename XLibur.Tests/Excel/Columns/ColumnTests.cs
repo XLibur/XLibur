@@ -225,6 +225,9 @@ public class ColumnTests
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         ws.Columns(1, 2).Group();
         ws.Columns(1, 2).Ungroup(true);
+
+        Assert.That(ws.Column(1).OutlineLevel, Is.EqualTo(0));
+        Assert.That(ws.Column(2).OutlineLevel, Is.EqualTo(0));
     }
 
     [Test]
@@ -295,7 +298,11 @@ public class ColumnTests
         // has a defined name with an invalid formula.
         var wb = new XLWorkbook();
         wb.DefinedNames.Add("TestName", XLError.NameNotRecognized.ToDisplayString());
-        wb.AddWorksheet().FirstColumn().InsertColumnsAfter(1);
-        wb.AddWorksheet().FirstColumn().InsertColumnsBefore(1);
+        var ws1 = wb.AddWorksheet();
+        ws1.FirstColumn().InsertColumnsAfter(1);
+        var ws2 = wb.AddWorksheet();
+        ws2.FirstColumn().InsertColumnsBefore(1);
+
+        Assert.That(wb.Worksheets.Count, Is.EqualTo(2));
     }
 }
