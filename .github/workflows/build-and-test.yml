@@ -9,6 +9,8 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -23,12 +25,14 @@ jobs:
             10.0.x
 
       - name: Set up JDK 17
+        if: env.SONAR_TOKEN != ''
         uses: actions/setup-java@v4
         with:
           java-version: 17
           distribution: 'zulu'
 
       - name: Cache SonarCloud packages
+        if: env.SONAR_TOKEN != ''
         uses: actions/cache@v4
         with:
           path: ~/sonar/cache
@@ -36,14 +40,14 @@ jobs:
           restore-keys: ${{ runner.os }}-sonar
 
       - name: Install SonarCloud scanner
+        if: env.SONAR_TOKEN != ''
         run: dotnet tool install --global dotnet-sonarscanner
 
       - name: Restore dependencies
         run: dotnet restore XLibur.slnx
 
       - name: Begin SonarCloud analysis
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        if: env.SONAR_TOKEN != ''
         run: >
           dotnet sonarscanner begin
           /k:"XLibur_XLibur"
@@ -64,8 +68,7 @@ jobs:
           --collect:"XPlat Code Coverage;Format=opencover"
 
       - name: End SonarCloud analysis
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        if: env.SONAR_TOKEN != ''
         run: dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
 
       - name: Upload test results
