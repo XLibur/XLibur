@@ -566,7 +566,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
 
     [Obsolete($"Used {nameof(DefinedName)} instead.")]
-    IXLDefinedName IXLWorksheet.NamedRange(string name) => DefinedName(name);
+    IXLDefinedName IXLWorksheet.NamedRange(string rangeName) => DefinedName(rangeName);
 
     IXLDefinedName IXLWorksheet.DefinedName(string name) => DefinedName(name);
 

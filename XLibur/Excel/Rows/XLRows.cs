@@ -153,9 +153,9 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
         Rows.ForEach(r => r.Group(outlineLevel, collapse));
     }
 
-    public void Ungroup(bool ungroupFromAll)
+    public void Ungroup(bool fromAll)
     {
-        Rows.ForEach(r => r.Ungroup(ungroupFromAll));
+        Rows.ForEach(r => r.Ungroup(fromAll));
     }
 
     public void Collapse()

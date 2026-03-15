@@ -137,14 +137,14 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
         return namedRange;
     }
 
-    public void Delete(string rangeName)
+    public void Delete(string name)
     {
-        _namedRanges.Remove(rangeName);
+        _namedRanges.Remove(name);
     }
 
-    public void Delete(int rangeIndex)
+    public void Delete(int index)
     {
-        _namedRanges.Remove(_namedRanges.ElementAt(rangeIndex).Key);
+        _namedRanges.Remove(_namedRanges.ElementAt(index).Key);
     }
 
     public void DeleteAll()
@@ -188,19 +188,19 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
 
     #endregion IEnumerable Members
 
-    public bool TryGetValue(string name, [NotNullWhen(true)] out IXLDefinedName? definedName)
+    public bool TryGetValue(string name, [NotNullWhen(true)] out IXLDefinedName? range)
     {
         if (TryGetScopedValue(name, out var sheetDefinedName))
         {
-            definedName = sheetDefinedName;
+            range = sheetDefinedName;
             return true;
         }
 
-        definedName = Scope == XLNamedRangeScope.Workbook
+        range = Scope == XLNamedRangeScope.Workbook
             ? Workbook.DefinedName(name)
             : null;
 
-        return definedName is not null;
+        return range is not null;
     }
 
     internal bool TryGetScopedValue(string name, [NotNullWhen(true)] out XLDefinedName? definedName)

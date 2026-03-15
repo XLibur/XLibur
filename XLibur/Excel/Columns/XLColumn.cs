@@ -171,7 +171,7 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
         return AdjustToContents(startRow, XLHelper.MaxRowNumber, minWidth, maxWidth);
     }
 
-    public IXLColumn AdjustToContents(int startRow, int endRow, double minWidthNoC, double maxWidthNoC)
+    public IXLColumn AdjustToContents(int startRow, int endRow, double minWidth, double maxWidth)
     {
         var engine = Worksheet.Workbook.GraphicEngine;
         var dpi = new Dpi(Worksheet.Workbook.DpiX, Worksheet.Workbook.DpiY);
@@ -180,11 +180,11 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
         // Maximum digit width, rounded to pixels, so Calibri at 11 pts returns 7 pixels MDW (the correct value)
         var mdw = (int)Math.Round(engine.GetMaxDigitWidth(Worksheet.Workbook.Style.Font, dpi.X));
 
-        var minWidthInPx = Math.Ceiling(XLHelper.NoCToPixels(minWidthNoC, mdw));
+        var minWidthInPx = Math.Ceiling(XLHelper.NoCToPixels(minWidth, mdw));
         if (columnWidthPx < minWidthInPx)
             columnWidthPx = (int)minWidthInPx;
 
-        var maxWidthInPx = Math.Ceiling(XLHelper.NoCToPixels(maxWidthNoC, mdw));
+        var maxWidthInPx = Math.Ceiling(XLHelper.NoCToPixels(maxWidth, mdw));
         if (columnWidthPx > maxWidthInPx)
             columnWidthPx = (int)maxWidthInPx;
 
@@ -362,9 +362,9 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
         return Ungroup(false);
     }
 
-    public IXLColumn Ungroup(bool ungroupFromAll)
+    public IXLColumn Ungroup(bool fromAll)
     {
-        if (ungroupFromAll)
+        if (fromAll)
             OutlineLevel = 0;
         else
         {
@@ -401,15 +401,15 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
 
     IXLRangeColumn IXLColumn.Column(int start, int end) => Column(start, end);
 
-    IXLRangeColumn IXLColumn.CopyTo(IXLCell target)
+    IXLRangeColumn IXLColumn.CopyTo(IXLCell cell)
     {
-        var copy = AsRange().CopyTo(target);
+        var copy = AsRange().CopyTo(cell);
         return copy.Column(1);
     }
 
-    IXLRangeColumn IXLColumn.CopyTo(IXLRangeBase target)
+    IXLRangeColumn IXLColumn.CopyTo(IXLRangeBase range)
     {
-        var copy = AsRange().CopyTo(target);
+        var copy = AsRange().CopyTo(range);
         return copy.Column(1);
     }
 

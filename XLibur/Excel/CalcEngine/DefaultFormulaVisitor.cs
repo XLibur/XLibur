@@ -56,12 +56,12 @@ internal class DefaultFormulaVisitor<TContext> : IFormulaVisitor<TContext, AstNo
 
     public virtual AstNode Visit(TContext context, StructuredReferenceNode node) => node;
 
-    public virtual AstNode Visit(TContext context, PrefixNode prefix)
+    public virtual AstNode Visit(TContext context, PrefixNode node)
     {
-        var acceptedFile = prefix.File?.Accept(context, this);
-        return !ReferenceEquals(acceptedFile, prefix.File)
-            ? new PrefixNode((FileNode?)acceptedFile, prefix.Sheet, prefix.FirstSheet, prefix.LastSheet)
-            : prefix;
+        var acceptedFile = node.File?.Accept(context, this);
+        return !ReferenceEquals(acceptedFile, node.File)
+            ? new PrefixNode((FileNode?)acceptedFile, node.Sheet, node.FirstSheet, node.LastSheet)
+            : node;
     }
 
     public virtual AstNode Visit(TContext context, FileNode node) => node;

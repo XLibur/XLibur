@@ -96,12 +96,12 @@ internal sealed class XLSparklineGroups : IXLSparklineGroups
     /// <summary>
     /// Find all sparklines located in a given range
     /// </summary>
-    /// <param name="searchRange">The range to search</param>
+    /// <param name="rangeBase">The range to search</param>
     /// <returns>The sparkline in the cell or null if no sparklines are found</returns>
-    public IEnumerable<IXLSparkline> GetSparklines(IXLRangeBase searchRange)
+    public IEnumerable<IXLSparkline> GetSparklines(IXLRangeBase rangeBase)
     {
         return _sparklineGroups
-            .SelectMany(g => g.GetSparklines(searchRange));
+            .SelectMany(g => g.GetSparklines(rangeBase));
     }
 
     public IEnumerator<IXLSparklineGroup> GetEnumerator()

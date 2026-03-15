@@ -28,9 +28,9 @@ internal sealed class XLRangeColumns : XLStylizedBase, IXLRangeColumns, IXLStyli
         _ranges.Clear();
     }
 
-    public void Add(IXLRangeColumn range)
+    public void Add(IXLRangeColumn columRange)
     {
-        _ranges.Add((XLRangeColumn)range);
+        _ranges.Add((XLRangeColumn)columRange);
     }
 
     public IEnumerator<IXLRangeColumn> GetEnumerator()

@@ -67,7 +67,7 @@ internal sealed class FormulaParser
 
         public ScalarValue NumberValue(string context, SymbolRange range, double value) => value;
 
-        public ScalarValue TextValue(string context, SymbolRange range, string value) => value;
+        public ScalarValue TextValue(string context, SymbolRange range, string text) => text;
 
         public ScalarValue ErrorValue(string context, SymbolRange range, ReadOnlySpan<char> error)
         {

@@ -446,9 +446,9 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         return this;
     }
 
-    public IXLRow Ungroup(bool ungroupFromAll)
+    public IXLRow Ungroup(bool fromAll)
     {
-        if (ungroupFromAll)
+        if (fromAll)
             OutlineLevel = 0;
         else
         {
@@ -488,15 +488,15 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         return this;
     }
 
-    IXLRangeRow IXLRow.CopyTo(IXLCell target)
+    IXLRangeRow IXLRow.CopyTo(IXLCell cell)
     {
-        var copy = AsRange().CopyTo(target);
+        var copy = AsRange().CopyTo(cell);
         return copy.Row(1);
     }
 
-    IXLRangeRow IXLRow.CopyTo(IXLRangeBase target)
+    IXLRangeRow IXLRow.CopyTo(IXLRangeBase range)
     {
-        var copy = AsRange().CopyTo(target);
+        var copy = AsRange().CopyTo(range);
         return copy.Row(1);
     }
 
@@ -524,10 +524,10 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         return Row(start.Address.ColumnNumber, end.Address.ColumnNumber);
     }
 
-    public IXLRangeRows Rows(string rows)
+    public IXLRangeRows Rows(string columns)
     {
         var retVal = new XLRangeRows();
-        var rowPairs = rows.Split(',');
+        var rowPairs = columns.Split(',');
         foreach (string pair in rowPairs)
             AsRange().Rows(pair.Trim()).ForEach(retVal.Add);
 

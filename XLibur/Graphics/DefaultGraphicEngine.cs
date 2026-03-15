@@ -140,11 +140,11 @@ public class DefaultGraphicEngine : IXLGraphicEngine
         return new DefaultGraphicEngine(fallbackFontStream, true, fontStreams);
     }
 
-    public XLPictureInfo GetPictureInfo(Stream stream, XLPictureFormat expectedFormat)
+    public XLPictureInfo GetPictureInfo(Stream imageStream, XLPictureFormat expectedFormat)
     {
         foreach (var imageReader in _imageReaders)
         {
-            if (imageReader.TryGetInfo(stream, out var dimensions))
+            if (imageReader.TryGetInfo(imageStream, out var dimensions))
                 return dimensions;
         }
 
@@ -162,11 +162,11 @@ public class DefaultGraphicEngine : IXLGraphicEngine
         return PointsToPixels(-metrics.VerticalMetrics.Descender * font.FontSize / metrics.UnitsPerEm, dpiY);
     }
 
-    public double GetMaxDigitWidth(IXLFontBase fontBase, double dpiX)
+    public double GetMaxDigitWidth(IXLFontBase font, double dpiX)
     {
-        var metricId = new MetricId(fontBase);
+        var metricId = new MetricId(font);
         var maxDigitWidth = _maxDigitWidths.GetOrAdd(metricId, _calculateMaxDigitWidth);
-        return PointsToPixels(maxDigitWidth * fontBase.FontSize, dpiX);
+        return PointsToPixels(maxDigitWidth * font.FontSize, dpiX);
     }
 
     public double GetTextHeight(IXLFontBase font, double dpiY)
@@ -177,15 +177,15 @@ public class DefaultGraphicEngine : IXLGraphicEngine
             metrics.UnitsPerEm, dpiY);
     }
 
-    public double GetTextWidth(string text, IXLFontBase fontBase, double dpiX)
+    public double GetTextWidth(string text, IXLFontBase font, double dpiX)
     {
-        var font = GetFont(fontBase);
-        var dimensionsPx = TextMeasurer.MeasureAdvance(text, new TextOptions(font)
+        var fontInstance = GetFont(font);
+        var dimensionsPx = TextMeasurer.MeasureAdvance(text, new TextOptions(fontInstance)
         {
             Dpi = 72, // Normalize DPI, so 1px is 1pt
             KerningMode = KerningMode.None
         });
-        return PointsToPixels(dimensionsPx.Width / FontMetricSize * fontBase.FontSize, dpiX);
+        return PointsToPixels(dimensionsPx.Width / FontMetricSize * font.FontSize, dpiX);
     }
 
     /// <inheritdoc />
