@@ -1,5 +1,5 @@
-name-template: 'v$RESOLVED_VERSION'
-tag-template: 'v$RESOLVED_VERSION'
+name-template: 'Next Release'
+tag-template: ''
 
 categories:
   - title: 'Breaking Changes'
@@ -34,27 +34,7 @@ change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
 change-title-escapes: '\<*_&'
 no-changes-template: 'No changes.'
 
-version-resolver:
-  major:
-    labels:
-      - 'breaking'
-  minor:
-    labels:
-      - 'enhancement'
-      - 'feature'
-  patch:
-    labels:
-      - 'bug'
-      - 'fix'
-      - 'performance'
-      - 'perf'
-      - 'refactor'
-      - 'chore'
-  default: patch
-
 template: |
   ## What's Changed
 
   $CHANGES
-
-  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
