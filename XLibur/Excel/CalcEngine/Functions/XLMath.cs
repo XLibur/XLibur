@@ -335,8 +335,8 @@ public static class XLMath
         }
 
         var lnBetaAB = LnBeta(a, b);
-        var lnX = (Math.Log(a) + lnBetaAB) / a;
-        var lnOneMinusX = (Math.Log(b) + lnBetaAB) / b;
+        var lnX = (Math.Log(p) + Math.Log(a) + lnBetaAB) / a;
+        var lnOneMinusX = (Math.Log(1.0 - p) + Math.Log(b) + lnBetaAB) / b;
 
         var t2 = Math.Exp(lnX);
         return t2 <= 1.0 ? t2 : 1.0 - Math.Exp(lnOneMinusX);

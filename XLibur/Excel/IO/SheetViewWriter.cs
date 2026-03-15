@@ -139,13 +139,13 @@ internal sealed class SheetViewWriter
         return pane;
     }
 
-    private static PaneValues GetActivePaneValue(double hSplit, double ySplit)
+    private static PaneValues GetActivePaneValue(int hSplit, int ySplit)
     {
         if (ySplit == 0 && hSplit == 0)
             return PaneValues.TopLeft;
-        if (ySplit == 0 && hSplit != 0)
+        if (ySplit == 0)
             return PaneValues.TopRight;
-        if (ySplit != 0 && hSplit == 0)
+        if (hSplit == 0)
             return PaneValues.BottomLeft;
         return PaneValues.BottomRight;
     }
