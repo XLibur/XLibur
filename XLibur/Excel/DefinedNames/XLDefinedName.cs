@@ -95,7 +95,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     /// Get sheet references found in the formula in A1. Doesn't return tables or name references,
     /// only what has col/row coordinates.
     /// </summary>
-    internal IReadOnlyList<string> SheetReferencesList => _references.SheetReferences.Select(x => x.GetA1()).ToList();
+    internal IReadOnlyList<string> GetSheetReferencesList() => _references.SheetReferences.Select(x => x.GetA1()).ToList();
 
     internal XLDefinedName CopyTo(XLWorksheet targetSheet)
     {

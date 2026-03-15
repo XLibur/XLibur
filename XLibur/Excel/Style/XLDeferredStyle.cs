@@ -101,6 +101,4 @@ internal sealed class XLDeferredStyle : IXLStyle
     }
 
     public bool Equals(IXLStyle? other) => other is XLDeferredStyle ds && Key.Equals(ds.Key);
-    public override bool Equals(object? obj) => Equals(obj as IXLStyle);
-    public override int GetHashCode() => Key.GetHashCode();
 }

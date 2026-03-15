@@ -363,7 +363,7 @@ public partial class XLWorkbook
     {
         // Only call LoadCurrentElement() for recognized types. Calling it on
         // wrapper elements like SheetData would consume all child elements
-        // (e.g. Row), preventing the main loop from processing them.
+        // (e.g., Row), preventing the main loop from processing them.
         var elementType = reader.ElementType;
 
         if (elementType == typeof(SheetFormatProperties))
@@ -587,7 +587,7 @@ public partial class XLWorkbook
             OpenXmlHelper.LoadFont(runProperties, rt);
         }
 
-        // Comments can have text not wrapped in a Run element (e.g. Google Sheets exports)
+        // Comments can have text not wrapped in a Run element (e.g., Google Sheets exports)
         if (commentTextNode.Text != null)
         {
             var plainText = commentTextNode.Text.Text.FixNewLines();

@@ -1,1 +1,4 @@
 #nullable enable
+static XLibur.Excel.IO.PartStructureException.IncorrectElementFormat(string! elementName) -> XLibur.Excel.IO.PartStructureException!
+static XLibur.Excel.IO.PartStructureException.RequiredElementIsMissing() -> XLibur.Excel.IO.PartStructureException!
+XLibur.Excel.IO.PartStructureException

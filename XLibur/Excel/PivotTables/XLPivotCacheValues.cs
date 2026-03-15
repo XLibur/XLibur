@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using XLibur.Excel.Cells;
 
+#pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility
+
 namespace XLibur.Excel;
 
 /// <summary>

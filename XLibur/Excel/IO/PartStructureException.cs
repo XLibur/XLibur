@@ -6,10 +6,10 @@ namespace XLibur.Excel.IO;
 /// An exception thrown from parser when there is a problem with data in XML.
 /// The exception messages are rather generic and not very helpful, but they
 /// aren't supposed to be. If this exception is thrown, there is either
-/// a problem with producer of a workbook or XLibur. Both should do
-/// investigation based on a the file causing an error.
+/// a problem with the producer of a workbook or XLibur. Both should do
+/// investigation based on the file causing an error.
 /// </summary>
-internal sealed class PartStructureException : Exception
+public sealed class PartStructureException : Exception
 {
     private PartStructureException(string message, string? detail = null)
         : base(detail is null ? message : message[..^1] + " (" + detail + ").")
@@ -46,9 +46,9 @@ internal sealed class PartStructureException : Exception
         return new PartStructureException("The attribute has a value in an incorrect format.");
     }
 
-    public static Exception IncorrectElementFormat(string elementName)
+    public static PartStructureException IncorrectElementFormat(string elementName)
     {
-        return new PartStructureException($"The element '{elementName}' doesn't have or misses child elements/attributes that are required by constrains of the workbook.");
+        return new PartStructureException($"The element '{elementName}' is missing required child elements or attributes required by the workbook constraints.");
     }
 
     internal static Exception IncorrectAttributeValue()
@@ -61,8 +61,8 @@ internal sealed class PartStructureException : Exception
         return new PartStructureException($"The value of attribute '{attributeValue}' is not valid value for the attribute.");
     }
 
-    public static Exception RequiredElementIsMissing()
+    public static PartStructureException RequiredElementIsMissing()
     {
-        return new PartStructureException("The XML schema requires an element, but is is not present.");
+        return new PartStructureException("The XML schema requires an element, but it is not present.");
     }
 }

@@ -76,6 +76,4 @@ internal sealed class XLDeferredFill : IXLFill
     public IXLStyle SetPatternType(XLFillPatternValues value) { PatternType = value; return _style; }
 
     public bool Equals(IXLFill? other) => other is XLDeferredFill df ? Key == df.Key : false;
-    public override bool Equals(object? obj) => Equals(obj as IXLFill);
-    public override int GetHashCode() => Key.GetHashCode();
 }

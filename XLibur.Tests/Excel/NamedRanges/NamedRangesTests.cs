@@ -407,9 +407,10 @@ public class NamedRangesTests
             Assert.AreEqual(2, nr.Ranges.Count);
             Assert.AreEqual("'Sheet 1'!A5:D5", nr.Ranges.First().RangeAddress.ToString(XLReferenceStyle.A1, true));
             Assert.AreEqual("'Sheet 1'!A15:D15", nr.Ranges.Last().RangeAddress.ToString(XLReferenceStyle.A1, true));
-            Assert.AreEqual(2, nr.SheetReferencesList.Count);
-            Assert.AreEqual("'Sheet 1'!$A$5:$D$5", nr.SheetReferencesList.First());
-            Assert.AreEqual("'Sheet 1'!$A$15:$D$15", nr.SheetReferencesList.Last());
+            var sheetRefs = nr.GetSheetReferencesList();
+            Assert.That(sheetRefs, Has.Count.EqualTo(2));
+            Assert.That(sheetRefs.First(), Is.EqualTo("'Sheet 1'!$A$5:$D$5"));
+            Assert.That(sheetRefs.Last(), Is.EqualTo("'Sheet 1'!$A$15:$D$15"));
         }
     }
 
