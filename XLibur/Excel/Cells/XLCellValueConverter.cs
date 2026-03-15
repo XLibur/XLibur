@@ -95,6 +95,13 @@ internal static partial class XLCellValueConverter
             return false;
         }
 
+        if (typeCode == TypeCode.Decimal && (double.IsNaN(doubleValue) || double.IsInfinity(doubleValue)
+            || doubleValue < (double)decimal.MinValue || doubleValue > (double)decimal.MaxValue))
+        {
+            value = default!;
+            return false;
+        }
+
         value = typeCode switch
         {
             TypeCode.Single => (T)(object)(float)doubleValue,
@@ -137,19 +144,27 @@ internal static partial class XLCellValueConverter
             return false;
         }
 
-        value = typeCode switch
+        try
         {
-            TypeCode.SByte => (T)(object)(sbyte)doubleValue,
-            TypeCode.Byte => (T)(object)(byte)doubleValue,
-            TypeCode.Int16 => (T)(object)(short)doubleValue,
-            TypeCode.UInt16 => (T)(object)(ushort)doubleValue,
-            TypeCode.Int32 => (T)(object)(int)doubleValue,
-            TypeCode.UInt32 => (T)(object)(uint)doubleValue,
-            TypeCode.Int64 => (T)(object)(long)doubleValue,
-            TypeCode.UInt64 => (T)(object)(ulong)doubleValue,
-            _ => throw new NotSupportedException()
-        };
-        return true;
+            value = typeCode switch
+            {
+                TypeCode.SByte => (T)(object)(sbyte)doubleValue,
+                TypeCode.Byte => (T)(object)(byte)doubleValue,
+                TypeCode.Int16 => (T)(object)(short)doubleValue,
+                TypeCode.UInt16 => (T)(object)(ushort)doubleValue,
+                TypeCode.Int32 => (T)(object)(int)doubleValue,
+                TypeCode.UInt32 => (T)(object)(uint)doubleValue,
+                TypeCode.Int64 => (T)(object)checked((long)doubleValue),
+                TypeCode.UInt64 => (T)(object)checked((ulong)doubleValue),
+                _ => throw new NotSupportedException()
+            };
+            return true;
+        }
+        catch (OverflowException)
+        {
+            value = default!;
+            return false;
+        }
     }
 
     private static bool TryGetStringValue<T>(out T value, XLCellValue currentValue)

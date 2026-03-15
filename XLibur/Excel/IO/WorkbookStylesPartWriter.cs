@@ -308,7 +308,7 @@ internal static class WorkbookStylesPartWriter
         foreach (var xlPivotFormat in pt.Formats)
         {
             var xlStyleValue = xlPivotFormat.DxfStyleValue;
-            if (xlStyleValue != XLStyleValue.Default &&
+            if (!xlStyleValue.Equals(XLStyleValue.Default) &&
                 !context.DifferentialFormats.ContainsKey(xlStyleValue))
                 AddStyleAsDifferentialFormat(differentialFormats, xlStyleValue, context);
         }
@@ -320,7 +320,7 @@ internal static class WorkbookStylesPartWriter
         foreach (var xlConditionalStyle in pt.ConditionalFormats)
         {
             var xlStyle = (XLStyle)xlConditionalStyle.Format.Style;
-            if (xlStyle.Value != XLStyleValue.Default &&
+            if (!xlStyle.Value.Equals(XLStyleValue.Default) &&
                 !context.DifferentialFormats.ContainsKey(xlStyle.Value))
                 AddStyleAsDifferentialFormat(differentialFormats, xlStyle.Value, context);
         }

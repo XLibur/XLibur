@@ -56,7 +56,7 @@ internal static partial class XLCellFormulaShifter
         {
             var sheetName = matchString.Substring(0, matchString.IndexOf('!'));
             if (sheetName[0] == '\'')
-                sheetName = sheetName.Substring(1, sheetName.Length - 2);
+                sheetName = sheetName.Substring(1, sheetName.Length - 2).Replace("''", "'");
             return (sheetName, true);
         }
 

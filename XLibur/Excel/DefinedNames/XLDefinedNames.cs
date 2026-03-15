@@ -105,7 +105,7 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
                 "The range address '{0}' for the named range '{1}' is not a valid range.", rangeAddress,
                 name));
 
-        if (Scope == XLNamedRangeScope.Workbook || !XLHelper.NamedRangeReferenceRegex.Match(range.ToString()!).Success)
+        if (Scope == XLNamedRangeScope.Workbook && !XLHelper.NamedRangeReferenceRegex.Match(range.ToString()!).Success)
             throw new ArgumentException(
                 "For named ranges in the workbook scope, specify the sheet name in the reference.");
 

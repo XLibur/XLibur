@@ -97,8 +97,12 @@ internal sealed class XLWorksheetDataInserter(XLWorksheet worksheet)
             var modifiedStyle = worksheet.GetStyleForValue(value, point);
             if (modifiedStyle is not null)
             {
-                if (value.IsText && value.GetText()[0] == '\'')
-                    value = value.GetText().Substring(1);
+                if (value.IsText)
+                {
+                    var text = value.GetText();
+                    if (text.Length > 0 && text[0] == '\'')
+                        value = text.Substring(1);
+                }
 
                 styleSlice.Set(point, modifiedStyle);
             }
