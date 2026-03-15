@@ -53,7 +53,7 @@ internal sealed class XLPicture : IXLPicture
 
     public IXLCell BottomRightCell
     {
-        get { return Markers[XLMarkerPosition.BottomRight]!.Cell; }
+        get => Markers[XLMarkerPosition.BottomRight]!.Cell;
 
         private set
         {
@@ -68,18 +68,19 @@ internal sealed class XLPicture : IXLPicture
 
     public int Height
     {
-        get { return _height; }
+        get => _height;
         set
         {
             if (Placement == XLPicturePlacement.MoveAndSize)
-                throw new ArgumentException("To set the height, the placement should be FreeFloating or Move");
+                throw new ArgumentException(
+                    $"Cannot set the height when placement is '{Placement}'. Change the placement to FreeFloating or Move first.");
             _height = value;
         }
     }
 
     public int Id
     {
-        get { return _id; }
+        get => _id;
         internal set
         {
             if ((Worksheet.Pictures.FirstOrDefault(p => p.Id.Equals(value)) ?? this) != this)
@@ -93,11 +94,12 @@ internal sealed class XLPicture : IXLPicture
 
     public int Left
     {
-        get { return Markers[XLMarkerPosition.TopLeft]?.Offset.X ?? 0; }
+        get => Markers[XLMarkerPosition.TopLeft]?.Offset.X ?? 0;
         set
         {
             if (Placement != XLPicturePlacement.FreeFloating)
-                throw new ArgumentException("To set the left-hand offset, the placement should be FreeFloating");
+                throw new ArgumentException(
+                    $"Cannot set the left-hand offset when placement is '{Placement}'. Change the placement to FreeFloating first.");
 
             Markers[XLMarkerPosition.TopLeft] = new XLMarker(Worksheet.Cell(1, 1), new Point(value, Top));
         }
@@ -105,7 +107,7 @@ internal sealed class XLPicture : IXLPicture
 
     public string Name
     {
-        get { return _name; }
+        get => _name;
         set
         {
             ArgumentException.ThrowIfNullOrEmpty(value);
@@ -115,7 +117,11 @@ internal sealed class XLPicture : IXLPicture
                  this) != this)
                 throw new ArgumentException($"The picture name '{value}' already exists.");
 
-            SetName(value);
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Picture name cannot be empty or consist only of whitespace.",
+                    nameof(value));
+
+            _name = value;
         }
     }
 
@@ -127,11 +133,12 @@ internal sealed class XLPicture : IXLPicture
 
     public int Top
     {
-        get { return Markers[XLMarkerPosition.TopLeft]?.Offset.Y ?? 0; }
+        get => Markers[XLMarkerPosition.TopLeft]?.Offset.Y ?? 0;
         set
         {
             if (Placement != XLPicturePlacement.FreeFloating)
-                throw new ArgumentException("To set the top offset, the placement should be FreeFloating");
+                throw new ArgumentException(
+                    $"Cannot set the top offset when placement is '{Placement}'. Change the placement to FreeFloating first.");
 
             Markers[XLMarkerPosition.TopLeft] = new XLMarker(Worksheet.Cell(1, 1), new Point(Left, value));
         }
@@ -139,7 +146,7 @@ internal sealed class XLPicture : IXLPicture
 
     public IXLCell TopLeftCell
     {
-        get { return Markers[XLMarkerPosition.TopLeft]!.Cell; }
+        get => Markers[XLMarkerPosition.TopLeft]!.Cell;
 
         private set
         {
@@ -152,11 +159,12 @@ internal sealed class XLPicture : IXLPicture
 
     public int Width
     {
-        get { return _width; }
+        get => _width;
         set
         {
             if (Placement == XLPicturePlacement.MoveAndSize)
-                throw new ArgumentException("To set the width, the placement should be FreeFloating or Move");
+                throw new ArgumentException(
+                    $"Cannot set the width when placement is '{Placement}'. Change the placement to FreeFloating or Move first.");
             _width = value;
         }
     }
@@ -288,8 +296,6 @@ internal sealed class XLPicture : IXLPicture
 
     private IXLPicture CopyTo(XLWorksheet targetSheet)
     {
-        targetSheet ??= (XLWorksheet)Worksheet;
-
         var newPicture = targetSheet == Worksheet
             ? targetSheet.AddPicture(ImageStream, Format)
             : targetSheet.AddPicture(ImageStream, Format, Name);
@@ -314,8 +320,6 @@ internal sealed class XLPicture : IXLPicture
                     targetSheet.Cell(BottomRightCell.Address),
                     GetOffset(XLMarkerPosition.BottomRight));
                 break;
-            default:
-                throw new ArgumentOutOfRangeException();
         }
 
         return newPicture;
@@ -324,7 +328,7 @@ internal sealed class XLPicture : IXLPicture
     internal void SetName(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
-            throw new ArgumentException("Picture names cannot be empty");
+            throw new ArgumentException("Picture name cannot be empty or consist only of whitespace.", nameof(value));
 
         _name = value;
     }

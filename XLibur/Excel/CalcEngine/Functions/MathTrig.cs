@@ -18,7 +18,6 @@ internal static class MathTrig
     /// </summary>
     private const double MaxDoubleInt = 9007199254740991;
 
-    private static readonly Random _rnd = new Random();
 
     /// <summary>
     /// Key: roman form. Value: A collection of subtract symbols and subtract value.
@@ -840,7 +839,7 @@ internal static class MathTrig
 
     private static ScalarValue Rand()
     {
-        return _rnd.NextDouble();
+        return Random.Shared.NextDouble();
     }
 
     private static ScalarValue RandBetween(CalcContext ctx, double lowerBound, double upperBound)
@@ -852,7 +851,7 @@ internal static class MathTrig
         upperBound = Math.Ceiling(upperBound);
 
         var range = upperBound - lowerBound;
-        return lowerBound + Math.Round(_rnd.NextDouble() * range, MidpointRounding.AwayFromZero);
+        return lowerBound + Math.Round(Random.Shared.NextDouble() * range, MidpointRounding.AwayFromZero);
     }
 
     private static ScalarValue Roman(CalcContext ctx, double number, double formValue)
