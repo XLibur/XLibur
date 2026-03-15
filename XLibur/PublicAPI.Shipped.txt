@@ -4425,7 +4425,6 @@ static XLibur.Excel.XLHelper.IsValidRangeAddress(XLibur.Excel.IXLRangeAddress! r
 static XLibur.Excel.XLHelper.IsValidRangeAddress(string! rangeAddress) -> bool
 static XLibur.Excel.XLHelper.IsValidRow(string! rowString) -> bool
 static XLibur.Excel.XLHelper.LastCell.get -> string!
-static XLibur.Excel.XLHelper.NoBomUTF8 -> System.Text.Encoding!
 static XLibur.Excel.XLHelper.ValidateSheetName(string! sheetName) -> void
 static XLibur.Excel.XLPredefinedFormat.General.get -> int
 static XLibur.Excel.XLSparklineTheme.Accent1.get -> XLibur.Excel.IXLSparklineStyle!
