@@ -102,56 +102,60 @@ internal static class FormulaTransformation
         {
             var c = formula[i];
 
-            // Skip string literals.
             if (c == '"')
             {
-                i++;
-                while (i < formula.Length && formula[i] != '"')
-                    i++;
-                i++; // skip closing quote
+                i = SkipQuoted(formula, i, '"');
                 continue;
             }
 
-            // Skip single-quoted sheet name references (e.g. '[Book.xlsx]Sheet'!A1).
             if (c == '\'')
             {
-                i++;
-                while (i < formula.Length && formula[i] != '\'')
-                    i++;
-                i++; // skip closing quote
+                i = SkipQuoted(formula, i, '\'');
                 continue;
             }
 
-            // When we see '[', check if this is a single-bracket column reference.
             if (c == '[')
             {
-                var next = i + 1;
-                if (next < formula.Length && formula[next] != '[' && formula[next] != '#')
-                {
-                    // Inside a single-bracket structured reference column name.
-                    // Replace colons with placeholders until the closing ']'.
-                    var j = next;
-                    while (j < formula.Length && formula[j] != ']')
-                    {
-                        if (formula[j] == ':')
-                        {
-                            chars ??= formula.ToCharArray();
-                            chars[j] = ColonPlaceholder;
-                            wasProtected = true;
-                        }
-
-                        j++;
-                    }
-
-                    i = j + 1;
-                    continue;
-                }
+                i = ProcessBracket(formula, i, ref chars, ref wasProtected);
+                continue;
             }
 
             i++;
         }
 
         return wasProtected ? new string(chars!) : formula;
+    }
+
+    private static int SkipQuoted(string formula, int i, char quoteChar)
+    {
+        i++;
+        while (i < formula.Length && formula[i] != quoteChar)
+            i++;
+        return i + 1;
+    }
+
+    private static int ProcessBracket(string formula, int i, ref char[]? chars, ref bool wasProtected)
+    {
+        var next = i + 1;
+        if (next < formula.Length && formula[next] != '[' && formula[next] != '#')
+        {
+            var j = next;
+            while (j < formula.Length && formula[j] != ']')
+            {
+                if (formula[j] == ':')
+                {
+                    chars ??= formula.ToCharArray();
+                    chars[j] = ColonPlaceholder;
+                    wasProtected = true;
+                }
+
+                j++;
+            }
+
+            return j + 1;
+        }
+
+        return i + 1;
     }
 
     private static bool MightContainFutureFunction(ReadOnlySpan<char> formula)

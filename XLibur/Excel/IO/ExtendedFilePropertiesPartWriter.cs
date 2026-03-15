@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml.ExtendedProperties;
+using DocumentFormat.OpenXml.ExtendedProperties;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.VariantTypes;
 using DocumentFormat.OpenXml;
@@ -14,14 +14,32 @@ internal sealed class ExtendedFilePropertiesPartWriter
         extendedFilePropertiesPart.Properties ??= new Properties();
 
         var properties = extendedFilePropertiesPart.Properties;
-        if (
-            !properties.NamespaceDeclarations.Contains(new KeyValuePair<string, string>("vt",
+        EnsureNamespaceDeclaration(properties);
+        EnsureDefaultChildren(properties);
+
+        properties.HeadingPairs ??= new HeadingPairs();
+        properties.TitlesOfParts ??= new TitlesOfParts();
+
+        properties.HeadingPairs.VTVector = new VTVector { BaseType = VectorBaseValues.Variant };
+        properties.TitlesOfParts.VTVector = new VTVector { BaseType = VectorBaseValues.Lpstr };
+
+        PopulateVectors(properties, workbook);
+        SetManagerProperty(properties, workbook);
+        SetCompanyProperty(properties, workbook);
+    }
+
+    private static void EnsureNamespaceDeclaration(Properties properties)
+    {
+        if (!properties.NamespaceDeclarations.Contains(new KeyValuePair<string, string>("vt",
                 "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes")))
         {
             properties.AddNamespaceDeclaration("vt",
                 "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes");
         }
+    }
 
+    private static void EnsureDefaultChildren(Properties properties)
+    {
         if (properties.Application == null)
             properties.AppendChild(new Application { Text = "Microsoft Excel" });
 
@@ -30,18 +48,12 @@ internal sealed class ExtendedFilePropertiesPartWriter
 
         if (properties.ScaleCrop == null)
             properties.AppendChild(new ScaleCrop { Text = "false" });
+    }
 
-        properties.HeadingPairs ??= new HeadingPairs();
-
-        properties.TitlesOfParts ??= new TitlesOfParts();
-
-        properties.HeadingPairs.VTVector = new VTVector { BaseType = VectorBaseValues.Variant };
-
-        properties.TitlesOfParts.VTVector = new VTVector { BaseType = VectorBaseValues.Lpstr };
-
-        var vTVectorOne = properties.HeadingPairs.VTVector;
-
-        var vTVectorTwo = properties.TitlesOfParts.VTVector;
+    private static void PopulateVectors(Properties properties, XLWorkbook workbook)
+    {
+        var vTVectorOne = properties.HeadingPairs!.VTVector!;
+        var vTVectorTwo = properties.TitlesOfParts!.VTVector!;
 
         var modifiedWorksheets =
             ((IEnumerable<XLWorksheet>)workbook.WorksheetsInternal).Select(w => new { w.Name, Order = w.Position }).ToList();
@@ -60,26 +72,30 @@ internal sealed class ExtendedFilePropertiesPartWriter
 
         foreach (var vTlpstr7 in modifiedNamedRanges.Select(nr => new VTLPSTR { Text = nr }))
             vTVectorTwo.AppendChild(vTlpstr7);
+    }
 
-        if (workbook.Properties.Manager != null)
+    private static void SetManagerProperty(Properties properties, XLWorkbook workbook)
+    {
+        if (workbook.Properties.Manager == null)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(workbook.Properties.Manager))
         {
-            if (!string.IsNullOrWhiteSpace(workbook.Properties.Manager))
-            {
-                if (properties.Manager == null)
-                    properties.Manager = new Manager();
-
-                properties.Manager.Text = workbook.Properties.Manager;
-            }
-            else
-                properties.Manager = null;
+            properties.Manager ??= new Manager();
+            properties.Manager.Text = workbook.Properties.Manager;
         }
+        else
+            properties.Manager = null;
+    }
 
-        if (workbook.Properties.Company == null) return;
+    private static void SetCompanyProperty(Properties properties, XLWorkbook workbook)
+    {
+        if (workbook.Properties.Company == null)
+            return;
 
         if (!string.IsNullOrWhiteSpace(workbook.Properties.Company))
         {
             properties.Company ??= new Company();
-
             properties.Company.Text = workbook.Properties.Company;
         }
         else

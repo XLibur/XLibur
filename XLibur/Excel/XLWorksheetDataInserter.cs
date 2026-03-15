@@ -26,7 +26,49 @@ internal sealed class XLWorksheetDataInserter(XLWorksheet worksheet)
 
     public XLRange InsertData(XLSheetPoint origin, IInsertDataReader reader, bool addHeadings, bool transpose)
     {
-        // Prepare data. Heading is basically just another row of data, so unify it.
+        var rows = PrepareRows(reader, addHeadings, transpose);
+        var propCount = reader.GetPropertiesCount();
+
+        var valueSlice = worksheet.Internals.CellsCollection.ValueSlice;
+        var styleSlice = worksheet.Internals.CellsCollection.StyleSlice;
+
+        var rowBuffer = new List<XLCellValue>();
+        var maximumColumn = origin.Column;
+        var rowNumber = origin.Row;
+        foreach (var row in rows)
+        {
+            rowBuffer.AddRange(row);
+
+            for (var i = rowBuffer.Count; i < propCount; ++i)
+                rowBuffer.Add(Blank.Value);
+
+            maximumColumn = Math.Max(origin.Column + rowBuffer.Count - 1, maximumColumn);
+            if (maximumColumn > XLHelper.MaxColumnNumber || rowNumber > XLHelper.MaxRowNumber)
+                throw new ArgumentException("Data would write out of the sheet.");
+
+            WriteRow(rowBuffer, rowNumber, origin.Column, valueSlice, styleSlice);
+
+            rowBuffer.Clear();
+            rowNumber++;
+        }
+
+        var lastRow = Math.Max(rowNumber - 1, origin.Row);
+        var insertedArea = new XLSheetRange(origin, new XLSheetPoint(lastRow, maximumColumn));
+
+        foreach (var table in worksheet.Tables)
+            table.RefreshFieldsFromCells(insertedArea);
+
+        worksheet.Workbook.CalcEngine.MarkDirty(worksheet, insertedArea);
+
+        return worksheet.Range(
+            insertedArea.FirstPoint.Row,
+            insertedArea.FirstPoint.Column,
+            insertedArea.LastPoint.Row,
+            insertedArea.LastPoint.Column);
+    }
+
+    private static IEnumerable<IEnumerable<XLCellValue>> PrepareRows(IInsertDataReader reader, bool addHeadings, bool transpose)
+    {
         var rows = reader.GetRecords();
         var propCount = reader.GetPropertiesCount();
         if (addHeadings)
@@ -39,74 +81,31 @@ internal sealed class XLWorksheetDataInserter(XLWorksheet worksheet)
         }
 
         if (transpose)
-        {
             rows = TransposeJaggedArray(rows);
-        }
 
-        var valueSlice = worksheet.Internals.CellsCollection.ValueSlice;
-        var styleSlice = worksheet.Internals.CellsCollection.StyleSlice;
+        return rows;
+    }
 
-        // A buffer to avoid multiple enumerations of the source.
-        var rowBuffer = new List<XLCellValue>();
-        var maximumColumn = origin.Column;
-        var rowNumber = origin.Row;
-        foreach (var row in rows)
+    private void WriteRow(List<XLCellValue> rowBuffer, int rowNumber, int startColumn,
+        ValueSlice valueSlice, Slice<XLStyleValue?> styleSlice)
+    {
+        var column = startColumn;
+        foreach (var t in rowBuffer)
         {
-            rowBuffer.AddRange(row);
-
-            // InsertData should also clear data and if row doesn't have enough data,
-            // fill in the rest. Only fill up to the props to be consistent. We can't
-            // know how long any next row will be, so props are used as a source of truth
-            // for which columns should be cleared.
-            for (var i = rowBuffer.Count; i < propCount; ++i)
-                rowBuffer.Add(Blank.Value);
-
-            // Each row can have different number of values, so we have to check every row.
-            maximumColumn = Math.Max(origin.Column + rowBuffer.Count - 1, maximumColumn);
-            if (maximumColumn > XLHelper.MaxColumnNumber || rowNumber > XLHelper.MaxRowNumber)
-                throw new ArgumentException("Data would write out of the sheet.");
-
-            var column = origin.Column;
-            foreach (var t in rowBuffer)
+            var value = t;
+            var point = new XLSheetPoint(rowNumber, column);
+            var modifiedStyle = worksheet.GetStyleForValue(value, point);
+            if (modifiedStyle is not null)
             {
-                var value = t;
-                var point = new XLSheetPoint(rowNumber, column);
-                var modifiedStyle = worksheet.GetStyleForValue(value, point);
-                if (modifiedStyle is not null)
-                {
-                    if (value.IsText && value.GetText()[0] == '\'')
-                        value = value.GetText().Substring(1);
+                if (value.IsText && value.GetText()[0] == '\'')
+                    value = value.GetText().Substring(1);
 
-                    styleSlice.Set(point, modifiedStyle);
-                }
-
-                valueSlice.SetCellValue(point, value);
-                column++;
+                styleSlice.Set(point, modifiedStyle);
             }
 
-            rowBuffer.Clear();
-            rowNumber++;
+            valueSlice.SetCellValue(point, value);
+            column++;
         }
-
-        // If there is no row, rowNumber is kept at origin instead of last row + 1 .
-        var lastRow = Math.Max(rowNumber - 1, origin.Row);
-        var insertedArea = new XLSheetRange(origin, new XLSheetPoint(lastRow, maximumColumn));
-
-        // If inserted area affected a table, we must fix headings and totals, because these values
-        // are duplicated. Basically the table values are the truth and cells are a reflection of the
-        // truth, but here we inserted shadow first.
-        foreach (var table in worksheet.Tables)
-            table.RefreshFieldsFromCells(insertedArea);
-
-        // Invalidate only once, not for every cell.
-        worksheet.Workbook.CalcEngine.MarkDirty(worksheet, insertedArea);
-
-        // Return area that contains all inserted cells, no matter how jagged were data.
-        return worksheet.Range(
-            insertedArea.FirstPoint.Row,
-            insertedArea.FirstPoint.Column,
-            insertedArea.LastPoint.Row,
-            insertedArea.LastPoint.Column);
     }
 
     // Rather memory inefficient, but the original code also materialized

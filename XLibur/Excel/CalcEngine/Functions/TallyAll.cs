@@ -109,30 +109,37 @@ internal sealed class TallyAll : ITally
 
         foreach (var value in valuesIterator)
         {
-            // Blank lines are ignored. Logical are counted in reference, but not in array.
-            if (!isArray && value.TryPickLogical(out var logical))
-            {
-                state = state.Tally(logical ? 1 : 0);
-            }
-            else if (value.TryPickNumber(out var number))
-            {
-                state = state.Tally(number);
-            }
-            else if (value.IsText && (!isArray || !_ignoreArrayText))
-            {
-                // Some *A functions consider text in an array (e.g. {"3", "Hello"}) as a zero and others don't.
-                // The text values from cells behave differently. Unlike array, the *A functions consider cell text as 0.
-                state = state.Tally(0);
-            }
-            else if (value.TryPickError(out var error))
-            {
-                if (!_includeErrors)
-                    return error;
-
-                state = state.Tally(0);
-            }
+            var result = TallyValue(value, isArray, ref state);
+            if (!result.TryPickT0(out _, out var error))
+                return error;
         }
 
         return state;
+    }
+
+    private OneOf<bool, XLError> TallyValue<T>(ScalarValue value, bool isArray, ref T state)
+        where T : ITallyState<T>
+    {
+        if (!isArray && value.TryPickLogical(out var logical))
+        {
+            state = state.Tally(logical ? 1 : 0);
+        }
+        else if (value.TryPickNumber(out var number))
+        {
+            state = state.Tally(number);
+        }
+        else if (value.IsText && (!isArray || !_ignoreArrayText))
+        {
+            state = state.Tally(0);
+        }
+        else if (value.TryPickError(out var error))
+        {
+            if (!_includeErrors)
+                return error;
+
+            state = state.Tally(0);
+        }
+
+        return true;
     }
 }

@@ -22,127 +22,147 @@ internal sealed class ColumnWriter
         if (xlWorksheet.Internals.CellsCollection.IsEmpty &&
             xlWorksheet.Internals.ColumnsCollection.Count == 0
             && worksheetStyleId == 0)
-            worksheet.RemoveAllChildren<Columns>();
-        else
         {
-            if (!worksheet.Elements<Columns>().Any())
+            worksheet.RemoveAllChildren<Columns>();
+            return;
+        }
+
+        if (!worksheet.Elements<Columns>().Any())
+        {
+            var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.Columns);
+            worksheet.InsertAfter(new Columns(), previousElement);
+        }
+
+        var columns = worksheet.Elements<Columns>().First();
+        cm.SetElement(XLWorksheetContents.Columns, columns);
+
+        var sheetColumnsByMin = columns.Elements<Column>().ToDictionary(c => c.Min!.Value, c => c);
+
+        var (minInColumnsCollection, maxInColumnsCollection) = GetColumnsRange(xlWorksheet);
+
+        WritePreColumns(columns, sheetColumnsByMin, minInColumnsCollection, worksheetStyleId, worksheetColumnWidth);
+        var maxCol = WriteMainColumns(columns, sheetColumnsByMin, xlWorksheet, minInColumnsCollection,
+            maxInColumnsCollection, worksheetStyleId, worksheetColumnWidth, context);
+        WritePostColumns(columns, maxCol, worksheetStyleId, worksheetColumnWidth);
+
+        CollapseColumns(columns, sheetColumnsByMin);
+
+        if (!columns.Any())
+        {
+            worksheet.RemoveAllChildren<Columns>();
+            cm.SetElement(XLWorksheetContents.Columns, null);
+        }
+    }
+
+    private static (int min, int max) GetColumnsRange(XLWorksheet xlWorksheet)
+    {
+        if (xlWorksheet.Internals.ColumnsCollection.Count > 0)
+        {
+            return (xlWorksheet.Internals.ColumnsCollection.Keys.Min(),
+                    xlWorksheet.Internals.ColumnsCollection.Keys.Max());
+        }
+
+        return (1, 0);
+    }
+
+    private static void WritePreColumns(Columns columns, Dictionary<uint, Column> sheetColumnsByMin,
+        int minInColumnsCollection, uint worksheetStyleId, double worksheetColumnWidth)
+    {
+        if (minInColumnsCollection <= 1)
+            return;
+
+        UInt32Value min = 1;
+        UInt32Value max = (uint)(minInColumnsCollection - 1);
+
+        for (var co = min; co <= max; co++)
+        {
+            var column = new Column
             {
-                var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.Columns);
-                worksheet.InsertAfter(new Columns(), previousElement);
-            }
+                Min = co,
+                Max = co,
+                Style = worksheetStyleId,
+                Width = worksheetColumnWidth,
+                CustomWidth = true
+            };
 
-            var columns = worksheet.Elements<Columns>().First();
-            cm.SetElement(XLWorksheetContents.Columns, columns);
+            UpdateColumn(column, columns, sheetColumnsByMin);
+        }
+    }
 
-            var sheetColumnsByMin = columns.Elements<Column>().ToDictionary(c => c.Min!.Value, c => c);
-
-            int minInColumnsCollection;
-            int maxInColumnsCollection;
-            if (xlWorksheet.Internals.ColumnsCollection.Count > 0)
+    private static int WriteMainColumns(Columns columns, Dictionary<uint, Column> sheetColumnsByMin,
+        XLWorksheet xlWorksheet, int minInColumnsCollection, int maxInColumnsCollection,
+        uint worksheetStyleId, double worksheetColumnWidth, SaveContext context)
+    {
+        for (var co = minInColumnsCollection; co <= maxInColumnsCollection; co++)
+        {
+            uint styleId;
+            double columnWidth;
+            var isHidden = false;
+            var collapsed = false;
+            var outlineLevel = 0;
+            if (xlWorksheet.Internals.ColumnsCollection.TryGetValue(co, out var col))
             {
-                minInColumnsCollection = xlWorksheet.Internals.ColumnsCollection.Keys.Min();
-                maxInColumnsCollection = xlWorksheet.Internals.ColumnsCollection.Keys.Max();
+                styleId = context.SharedStyles[col.StyleValue].StyleId;
+                columnWidth = GetColumnWidth(col.Width).SaveRound();
+                isHidden = col.IsHidden;
+                collapsed = col.Collapsed;
+                outlineLevel = col.OutlineLevel;
             }
             else
             {
-                minInColumnsCollection = 1;
-                maxInColumnsCollection = 0;
+                styleId = context.SharedStyles[xlWorksheet.StyleValue].StyleId;
+                columnWidth = worksheetColumnWidth;
             }
 
-            if (minInColumnsCollection > 1)
+            var column = new Column
             {
-                UInt32Value min = 1;
-                UInt32Value max = (uint)(minInColumnsCollection - 1);
+                Min = (uint)co,
+                Max = (uint)co,
+                Style = styleId,
+                Width = columnWidth,
+                CustomWidth = true
+            };
 
-                for (var co = min; co <= max; co++)
-                {
-                    var column = new Column
-                    {
-                        Min = co,
-                        Max = co,
-                        Style = worksheetStyleId,
-                        Width = worksheetColumnWidth,
-                        CustomWidth = true
-                    };
+            if (isHidden)
+                column.Hidden = true;
+            if (collapsed)
+                column.Collapsed = true;
+            if (outlineLevel > 0)
+                column.OutlineLevel = (byte)outlineLevel;
 
-                    UpdateColumn(column, columns, sheetColumnsByMin);
-                }
-            }
-
-            for (var co = minInColumnsCollection; co <= maxInColumnsCollection; co++)
-            {
-                uint styleId;
-                double columnWidth;
-                var isHidden = false;
-                var collapsed = false;
-                var outlineLevel = 0;
-                if (xlWorksheet.Internals.ColumnsCollection.TryGetValue(co, out var col))
-                {
-                    styleId = context.SharedStyles[col.StyleValue].StyleId;
-                    columnWidth = GetColumnWidth(col.Width).SaveRound();
-                    isHidden = col.IsHidden;
-                    collapsed = col.Collapsed;
-                    outlineLevel = col.OutlineLevel;
-                }
-                else
-                {
-                    styleId = context.SharedStyles[xlWorksheet.StyleValue].StyleId;
-                    columnWidth = worksheetColumnWidth;
-                }
-
-                var column = new Column
-                {
-                    Min = (uint)co,
-                    Max = (uint)co,
-                    Style = styleId,
-                    Width = columnWidth,
-                    CustomWidth = true
-                };
-
-                if (isHidden)
-                    column.Hidden = true;
-                if (collapsed)
-                    column.Collapsed = true;
-                if (outlineLevel > 0)
-                    column.OutlineLevel = (byte)outlineLevel;
-
-                UpdateColumn(column, columns, sheetColumnsByMin);
-            }
-
-            var collection = maxInColumnsCollection;
-            foreach (
-                var col in
-                columns.Elements<Column>().Where(c => c.Min! > (uint)(collection)).OrderBy(c => c.Min!.Value))
-            {
-                col.Style = worksheetStyleId;
-                col.Width = worksheetColumnWidth;
-                col.CustomWidth = true;
-
-                if ((int)col.Max!.Value > maxInColumnsCollection)
-                    maxInColumnsCollection = (int)col.Max.Value;
-            }
-
-            if (maxInColumnsCollection < XLHelper.MaxColumnNumber && worksheetStyleId != 0)
-            {
-                var column = new Column
-                {
-                    Min = (uint)(maxInColumnsCollection + 1),
-                    Max = (uint)(XLHelper.MaxColumnNumber),
-                    Style = worksheetStyleId,
-                    Width = worksheetColumnWidth,
-                    CustomWidth = true
-                };
-                columns.AppendChild(column);
-            }
-
-            CollapseColumns(columns, sheetColumnsByMin);
-
-            if (!columns.Any())
-            {
-                worksheet.RemoveAllChildren<Columns>();
-                cm.SetElement(XLWorksheetContents.Columns, null);
-            }
+            UpdateColumn(column, columns, sheetColumnsByMin);
         }
+
+        foreach (
+            var col in
+            columns.Elements<Column>().Where(c => c.Min! > (uint)(maxInColumnsCollection)).OrderBy(c => c.Min!.Value))
+        {
+            col.Style = worksheetStyleId;
+            col.Width = worksheetColumnWidth;
+            col.CustomWidth = true;
+
+            if ((int)col.Max!.Value > maxInColumnsCollection)
+                maxInColumnsCollection = (int)col.Max.Value;
+        }
+
+        return maxInColumnsCollection;
+    }
+
+    private static void WritePostColumns(Columns columns, int maxInColumnsCollection,
+        uint worksheetStyleId, double worksheetColumnWidth)
+    {
+        if (maxInColumnsCollection >= XLHelper.MaxColumnNumber || worksheetStyleId == 0)
+            return;
+
+        var column = new Column
+        {
+            Min = (uint)(maxInColumnsCollection + 1),
+            Max = (uint)(XLHelper.MaxColumnNumber),
+            Style = worksheetStyleId,
+            Width = worksheetColumnWidth,
+            CustomWidth = true
+        };
+        columns.AppendChild(column);
     }
 
     internal static double GetColumnWidth(double columnWidth)
@@ -183,62 +203,63 @@ internal sealed class ColumnWriter
         }
         else
         {
-            var existingColumn = sheetColumnsByMin[column.Min.Value];
-            newColumn = (Column)existingColumn.CloneNode(true);
-            newColumn.Min = column.Min;
-            newColumn.Max = column.Max;
-            newColumn.Style = column.Style;
-            newColumn.Width = column.Width!.SaveRound();
-            newColumn.CustomWidth = column.CustomWidth;
+            UpdateExistingColumn(column, columns, sheetColumnsByMin);
+        }
+    }
 
-            if (column.Hidden != null)
-                newColumn.Hidden = true;
-            else
-                newColumn.Hidden = null;
+    private static void UpdateExistingColumn(Column column, Columns columns, Dictionary<uint, Column> sheetColumnsByMin)
+    {
+        var existingColumn = sheetColumnsByMin[column.Min!.Value];
+        var newColumn = (Column)existingColumn.CloneNode(true);
+        newColumn.Min = column.Min;
+        newColumn.Max = column.Max;
+        newColumn.Style = column.Style;
+        newColumn.Width = column.Width!.SaveRound();
+        newColumn.CustomWidth = column.CustomWidth;
 
-            if (column.Collapsed != null)
-                newColumn.Collapsed = true;
-            else
-                newColumn.Collapsed = null;
+        newColumn.Hidden = column.Hidden != null ? true : null;
+        newColumn.Collapsed = column.Collapsed != null ? true : null;
+        newColumn.OutlineLevel = column.OutlineLevel != null && column.OutlineLevel > 0
+            ? (byte)column.OutlineLevel
+            : null;
 
-            if (column.OutlineLevel != null && column.OutlineLevel > 0)
-                newColumn.OutlineLevel = (byte)column.OutlineLevel;
-            else
-                newColumn.OutlineLevel = null;
-
-            sheetColumnsByMin.Remove(column.Min!.Value);
-            if (existingColumn.Min! + 1 > existingColumn.Max!)
-            {
-                columns.RemoveChild(existingColumn);
-                columns.AppendChild(newColumn);
-                sheetColumnsByMin.Add(newColumn.Min.Value, newColumn);
-            }
-            else
-            {
-                columns.AppendChild(newColumn);
-                sheetColumnsByMin.Add(newColumn.Min!.Value, newColumn);
-                existingColumn.Min = existingColumn.Min! + 1;
-                sheetColumnsByMin.Add(existingColumn.Min!.Value, existingColumn);
-            }
+        sheetColumnsByMin.Remove(column.Min!.Value);
+        if (existingColumn.Min! + 1 > existingColumn.Max!)
+        {
+            columns.RemoveChild(existingColumn);
+            columns.AppendChild(newColumn);
+            sheetColumnsByMin.Add(newColumn.Min.Value, newColumn);
+        }
+        else
+        {
+            columns.AppendChild(newColumn);
+            sheetColumnsByMin.Add(newColumn.Min!.Value, newColumn);
+            existingColumn.Min = existingColumn.Min! + 1;
+            sheetColumnsByMin.Add(existingColumn.Min!.Value, existingColumn);
         }
     }
 
     private static bool ColumnsAreEqual(Column left, Column right)
     {
-        return
-            ((left.Style == null && right.Style == null)
-             || (left.Style != null && right.Style != null && left.Style.Value == right.Style.Value))
-            && ((left.Width == null && right.Width == null)
-                || (left.Width != null && right.Width != null &&
-                    (Math.Abs(left.Width.Value - right.Width.Value) < XLHelper.Epsilon)))
-            && ((left.Hidden == null && right.Hidden == null)
-                || (left.Hidden != null && right.Hidden != null && left.Hidden.Value == right.Hidden.Value))
-            && ((left.Collapsed == null && right.Collapsed == null)
-                ||
-                (left.Collapsed != null && right.Collapsed != null && left.Collapsed.Value == right.Collapsed.Value))
-            && ((left.OutlineLevel == null && right.OutlineLevel == null)
-                ||
-                (left.OutlineLevel != null && right.OutlineLevel != null &&
-                 left.OutlineLevel.Value == right.OutlineLevel.Value));
+        return NullableValuesEqual(left.Style, right.Style)
+            && NullableDoublesEqual(left.Width, right.Width)
+            && NullableValuesEqual(left.Hidden, right.Hidden)
+            && NullableValuesEqual(left.Collapsed, right.Collapsed)
+            && NullableValuesEqual(left.OutlineLevel, right.OutlineLevel);
+    }
+
+    private static bool NullableValuesEqual<T>(OpenXmlSimpleValue<T>? left, OpenXmlSimpleValue<T>? right)
+        where T : struct
+    {
+        if (left == null && right == null) return true;
+        if (left == null || right == null) return false;
+        return left.Value.Equals(right.Value);
+    }
+
+    private static bool NullableDoublesEqual(DoubleValue? left, DoubleValue? right)
+    {
+        if (left == null && right == null) return true;
+        if (left == null || right == null) return false;
+        return Math.Abs(left.Value - right.Value) < XLHelper.Epsilon;
     }
 }

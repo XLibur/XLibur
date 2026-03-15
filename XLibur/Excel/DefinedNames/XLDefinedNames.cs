@@ -81,40 +81,46 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
     /// </exception>
     internal IXLDefinedName Add(string name, string rangeAddress, string? comment, bool validateName, bool validateRangeAddress)
     {
-        // When loading named ranges from an existing file, we do not validate the range address or name.
         if (validateRangeAddress)
-        {
-            var match = XLHelper.NamedRangeReferenceRegex.Match(rangeAddress);
-
-            if (!match.Success)
-            {
-                if (XLHelper.IsValidRangeAddress(rangeAddress))
-                {
-                    IXLRange? range;
-                    if (Scope == XLNamedRangeScope.Worksheet)
-                        range = Worksheet!.Range(rangeAddress);
-                    else if (Scope == XLNamedRangeScope.Workbook)
-                        range = Workbook.Range(rangeAddress);
-                    else
-                        throw new NotSupportedException($"Scope {Scope} is not supported");
-
-                    if (range == null)
-                        throw new ArgumentException(string.Format(
-                            "The range address '{0}' for the named range '{1}' is not a valid range.", rangeAddress,
-                            name));
-
-                    if (Scope == XLNamedRangeScope.Workbook || !XLHelper.NamedRangeReferenceRegex.Match(range.ToString()!).Success)
-                        throw new ArgumentException(
-                            "For named ranges in the workbook scope, specify the sheet name in the reference.");
-
-                    rangeAddress = range.ToString()!;
-                }
-            }
-        }
+            rangeAddress = ValidateAndResolveAddress(name, rangeAddress);
 
         var namedRange = new XLDefinedName(this, name, validateName, rangeAddress, comment);
         _namedRanges.Add(name, namedRange);
         return namedRange;
+    }
+
+    private string ValidateAndResolveAddress(string name, string rangeAddress)
+    {
+        var match = XLHelper.NamedRangeReferenceRegex.Match(rangeAddress);
+        if (match.Success)
+            return rangeAddress;
+
+        if (!XLHelper.IsValidRangeAddress(rangeAddress))
+            return rangeAddress;
+
+        var range = ResolveRange(rangeAddress);
+
+        if (range == null)
+            throw new ArgumentException(string.Format(
+                "The range address '{0}' for the named range '{1}' is not a valid range.", rangeAddress,
+                name));
+
+        if (Scope == XLNamedRangeScope.Workbook || !XLHelper.NamedRangeReferenceRegex.Match(range.ToString()!).Success)
+            throw new ArgumentException(
+                "For named ranges in the workbook scope, specify the sheet name in the reference.");
+
+        return range.ToString()!;
+    }
+
+    private IXLRange? ResolveRange(string rangeAddress)
+    {
+        if (Scope == XLNamedRangeScope.Worksheet)
+            return Worksheet!.Range(rangeAddress);
+
+        if (Scope == XLNamedRangeScope.Workbook)
+            return Workbook.Range(rangeAddress);
+
+        throw new NotSupportedException($"Scope {Scope} is not supported");
     }
 
     public IXLDefinedName Add(string name, IXLRange range, string? comment)

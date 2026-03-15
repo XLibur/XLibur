@@ -411,42 +411,9 @@ internal sealed class PivotTableDefinitionPartReader
         var showPropAsCaption = pivotField.ShowPropAsCaption?.Value ?? false;
         var defaultAttributeDrillState = pivotField.DefaultAttributeDrillState?.Value ?? false;
 
-        var subtotals = new HashSet<XLSubtotalFunction>();
-        if (defaultSubtotal)
-            subtotals.Add(XLSubtotalFunction.Automatic);
-
-        if (sumSubtotal)
-            subtotals.Add(XLSubtotalFunction.Sum);
-
-        if (countASubtotal)
-            subtotals.Add(XLSubtotalFunction.Count);
-
-        if (avgSubtotal)
-            subtotals.Add(XLSubtotalFunction.Average);
-
-        if (maxSubtotal)
-            subtotals.Add(XLSubtotalFunction.Maximum);
-
-        if (minSubtotal)
-            subtotals.Add(XLSubtotalFunction.Minimum);
-
-        if (productSubtotal)
-            subtotals.Add(XLSubtotalFunction.Product);
-
-        if (countSubtotal)
-            subtotals.Add(XLSubtotalFunction.CountNumbers);
-
-        if (stdDevSubtotal)
-            subtotals.Add(XLSubtotalFunction.StandardDeviation);
-
-        if (stdDevPSubtotal)
-            subtotals.Add(XLSubtotalFunction.PopulationStandardDeviation);
-
-        if (varSubtotal)
-            subtotals.Add(XLSubtotalFunction.Variance);
-
-        if (varPSubtotal)
-            subtotals.Add(XLSubtotalFunction.PopulationVariance);
+        var subtotals = BuildSubtotals(defaultSubtotal, sumSubtotal, countASubtotal, avgSubtotal,
+            maxSubtotal, minSubtotal, productSubtotal, countSubtotal, stdDevSubtotal, stdDevPSubtotal,
+            varSubtotal, varPSubtotal);
 
         var xlField = new XLPivotTableField(xlPivotTable)
         {
@@ -706,6 +673,51 @@ internal sealed class PivotTableDefinitionPartReader
             xlPivotTable.ShowColumnStripes = pivotTableStyle.ShowColumnStripes?.Value ?? false;
             xlPivotTable.ShowLastColumn = pivotTableStyle.ShowColumnStripes?.Value ?? false;
         }
+    }
+
+    private static HashSet<XLSubtotalFunction> BuildSubtotals(bool defaultSubtotal, bool sumSubtotal,
+        bool countASubtotal, bool avgSubtotal, bool maxSubtotal, bool minSubtotal,
+        bool productSubtotal, bool countSubtotal, bool stdDevSubtotal, bool stdDevPSubtotal,
+        bool varSubtotal, bool varPSubtotal)
+    {
+        var subtotals = new HashSet<XLSubtotalFunction>();
+        if (defaultSubtotal)
+            subtotals.Add(XLSubtotalFunction.Automatic);
+
+        if (sumSubtotal)
+            subtotals.Add(XLSubtotalFunction.Sum);
+
+        if (countASubtotal)
+            subtotals.Add(XLSubtotalFunction.Count);
+
+        if (avgSubtotal)
+            subtotals.Add(XLSubtotalFunction.Average);
+
+        if (maxSubtotal)
+            subtotals.Add(XLSubtotalFunction.Maximum);
+
+        if (minSubtotal)
+            subtotals.Add(XLSubtotalFunction.Minimum);
+
+        if (productSubtotal)
+            subtotals.Add(XLSubtotalFunction.Product);
+
+        if (countSubtotal)
+            subtotals.Add(XLSubtotalFunction.CountNumbers);
+
+        if (stdDevSubtotal)
+            subtotals.Add(XLSubtotalFunction.StandardDeviation);
+
+        if (stdDevPSubtotal)
+            subtotals.Add(XLSubtotalFunction.PopulationStandardDeviation);
+
+        if (varSubtotal)
+            subtotals.Add(XLSubtotalFunction.Variance);
+
+        if (varPSubtotal)
+            subtotals.Add(XLSubtotalFunction.PopulationVariance);
+
+        return subtotals;
     }
 
     private static void LoadExtensionList(PivotTableDefinition pivotTable, XLPivotTable xlPivotTable)

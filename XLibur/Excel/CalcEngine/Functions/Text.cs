@@ -140,19 +140,9 @@ internal static class Text
                     sb.Append((char)(c - 0x30CA + 0xFF85));
                     break;
 
-                // ha-ho (ハ-ホ) unvoiced
-                case >= 0x30CF and <= 0x30DD when c % 3 == 0:
-                    sb.Append((char)((c - 0x30CF) / 3 + 0xFF8A));
-                    break;
-                // ba-bo (バ-ボ) voiced = base + dakuten
-                case >= 0x30CF and <= 0x30DD when c % 3 == 1:
-                    sb.Append((char)((c - 0x30D0) / 3 + 0xFF8A));
-                    sb.Append(dakuten);
-                    break;
-                // pa-po (パ-ポ) semi-voiced = base + handakuten
-                case >= 0x30CF and <= 0x30DD when c % 3 == 2:
-                    sb.Append((char)((c - 0x30D1) / 3 + 0xFF8A));
-                    sb.Append(handakuten);
+                // ha-ho (ハ-ホ) group: unvoiced, voiced (dakuten), semi-voiced (handakuten)
+                case >= 0x30CF and <= 0x30DD:
+                    AppendHaHoGroup(sb, c, dakuten, handakuten);
                     break;
 
                 // ma-mo (マ-モ)
@@ -186,6 +176,24 @@ internal static class Text
                 default:
                     sb.Append((char)c);
                     break;
+            }
+        }
+
+        static void AppendHaHoGroup(StringBuilder sb, int c, char dakuten, char handakuten)
+        {
+            if (c % 3 == 0)
+            {
+                sb.Append((char)((c - 0x30CF) / 3 + 0xFF8A));
+            }
+            else if (c % 3 == 1)
+            {
+                sb.Append((char)((c - 0x30D0) / 3 + 0xFF8A));
+                sb.Append(dakuten);
+            }
+            else
+            {
+                sb.Append((char)((c - 0x30D1) / 3 + 0xFF8A));
+                sb.Append(handakuten);
             }
         }
 
@@ -552,31 +560,7 @@ internal static class Text
         }
 
         if (collection.TryPickT0(out var array, out var reference))
-        {
-            var arrayResult = new ScalarValue[array.Height, array.Width];
-            for (var row = 0; row < array.Height; ++row)
-            {
-                for (var col = 0; col < array.Width; ++col)
-                {
-                    ctx.ThrowIfCancelled();
-                    var element = array[row, col];
-                    if (element.TryPickError(out var arrayError))
-                    {
-                        arrayResult[row, col] = arrayError;
-                    }
-                    else if (element.IsText)
-                    {
-                        arrayResult[row, col] = element.GetText();
-                    }
-                    else
-                    {
-                        arrayResult[row, col] = string.Empty;
-                    }
-                }
-            }
-
-            return new ConstArray(arrayResult);
-        }
+            return TArray(ctx, array);
 
         var area = reference.Areas[0];
         var cellValue = ctx.GetCellValue(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber);
@@ -584,6 +568,27 @@ internal static class Text
             return cellError;
 
         return cellValue.IsText ? cellValue.GetText() : string.Empty;
+    }
+
+    private static AnyValue TArray(CalcContext ctx, Array array)
+    {
+        var arrayResult = new ScalarValue[array.Height, array.Width];
+        for (var row = 0; row < array.Height; ++row)
+        {
+            for (var col = 0; col < array.Width; ++col)
+            {
+                ctx.ThrowIfCancelled();
+                var element = array[row, col];
+                if (element.TryPickError(out var arrayError))
+                    arrayResult[row, col] = arrayError;
+                else if (element.IsText)
+                    arrayResult[row, col] = element.GetText();
+                else
+                    arrayResult[row, col] = string.Empty;
+            }
+        }
+
+        return new ConstArray(arrayResult);
     }
 
     private static ScalarValue _Text(CalcContext ctx, ScalarValue value, string format)
@@ -623,35 +628,43 @@ internal static class Text
         var sb = new StringBuilder();
         foreach (var textValue in texts)
         {
-            // Optimization for large areas, e.g. column ranges
-            var textElements = ignoreEmpty
-                ? ctx.GetNonBlankValues(textValue)
-                : ctx.GetAllValues(textValue);
-            foreach (var scalar in textElements)
-            {
-                ctx.ThrowIfCancelled();
-                if (!scalar.ToText(ctx.Culture).TryPickT0(out var text, out var error))
-                    return error;
-
-                if (ignoreEmpty && text.Length == 0)
-                    continue;
-
-                if (first)
-                {
-                    sb.Append(text);
-                    first = false;
-                }
-                else
-                {
-                    sb.Append(delimiter).Append(text);
-                }
-
-                if (sb.Length > XLHelper.CellTextLimit)
-                    return XLError.IncompatibleValue;
-            }
+            var result = TextJoinAppend(ctx, delimiter, ignoreEmpty, textValue, sb, ref first);
+            if (result.TryPickError(out var error))
+                return error;
         }
 
         return sb.ToString();
+    }
+
+    private static ScalarValue TextJoinAppend(CalcContext ctx, string delimiter, bool ignoreEmpty, AnyValue textValue, StringBuilder sb, ref bool first)
+    {
+        var textElements = ignoreEmpty
+            ? ctx.GetNonBlankValues(textValue)
+            : ctx.GetAllValues(textValue);
+        foreach (var scalar in textElements)
+        {
+            ctx.ThrowIfCancelled();
+            if (!scalar.ToText(ctx.Culture).TryPickT0(out var text, out var error))
+                return error;
+
+            if (ignoreEmpty && text.Length == 0)
+                continue;
+
+            if (first)
+            {
+                sb.Append(text);
+                first = false;
+            }
+            else
+            {
+                sb.Append(delimiter).Append(text);
+            }
+
+            if (sb.Length > XLHelper.CellTextLimit)
+                return XLError.IncompatibleValue;
+        }
+
+        return ScalarValue.Blank;
     }
 
     private static ScalarValue Trim(CalcContext ctx, string text)
@@ -743,25 +756,7 @@ internal static class Text
 
         // Process by ODF specification. Add one character for optional 0 before decimal.
         Span<char> textSpan = stackalloc char[text.Length + 1];
-        var newLength = 0;
-        var decimalSeen = false;
-        foreach (var c in text)
-        {
-            if (c == decimalSep)
-            {
-                // Only first decimal separator should be replaced by '.'
-                textSpan[newLength++] = !decimalSeen ? '.' : c;
-                decimalSeen = true;
-            }
-            else if (c == groupSep && !decimalSeen)
-            {
-                // Do nothing. Skip all group separators before first encounter of decimal one
-            }
-            else if (!char.IsWhiteSpace(c))
-            {
-                textSpan[newLength++] = c;
-            }
-        }
+        var newLength = NormalizeNumberText(text, textSpan, decimalSep, groupSep);
 
         if (textSpan.Length > 0 && textSpan[0] == '.')
         {
@@ -783,7 +778,35 @@ internal static class Text
         if (!double.TryParse(textSpan.ToString(), NumberStyles.Float | NumberStyles.AllowParentheses, CultureInfo.InvariantCulture, out var number))
             return XLError.IncompatibleValue;
 
-        // Too large exponent can return infinity
+        return ValidateNumberValue(number, percentCount);
+    }
+
+    private static int NormalizeNumberText(string text, Span<char> textSpan, char decimalSep, char groupSep)
+    {
+        var newLength = 0;
+        var decimalSeen = false;
+        foreach (var c in text)
+        {
+            if (c == decimalSep)
+            {
+                textSpan[newLength++] = !decimalSeen ? '.' : c;
+                decimalSeen = true;
+            }
+            else if (c == groupSep && !decimalSeen)
+            {
+                // Skip all group separators before first encounter of decimal one
+            }
+            else if (!char.IsWhiteSpace(c))
+            {
+                textSpan[newLength++] = c;
+            }
+        }
+
+        return newLength;
+    }
+
+    private static ScalarValue ValidateNumberValue(double number, int percentCount)
+    {
         if (double.IsInfinity(number))
             return XLError.NumberInvalid;
 

@@ -14,33 +14,11 @@ internal static class XLRangeInsertHelper
             throw new System.ArgumentOutOfRangeException(nameof(numberOfColumns),
                 $"Number of columns to insert must be a positive number no more than {XLHelper.MaxColumnNumber}");
 
-        foreach (var ws in range.Worksheet.Workbook.WorksheetsInternal)
-        {
-            foreach (var cell in ws.Internals.CellsCollection.GetCells(c => c.Formula is not null))
-                cell.ShiftFormulaColumns(range.AsRange(), numberOfColumns);
-        }
+        ShiftFormulasForColumns(range, numberOfColumns);
 
         range.Worksheet.SparklineGroupsInternal.ShiftColumns(XLSheetRange.FromRangeAddress(range.RangeAddress), numberOfColumns);
 
-        // Inserting and shifting of whole columns is rather inconsistent across the codebase. In some places, the columns collection
-        // is shifted before this method is called and thus the we can't shift column properties again. In others, the code relies on
-        // shifting in this method.
-        if (!onlyUsedCells)
-        {
-            var lastColumn = range.Worksheet.Internals.CellsCollection.MaxColumnUsed;
-            if (lastColumn > 0)
-            {
-                var firstColumn = range.RangeAddress.FirstAddress.ColumnNumber;
-                for (var co = lastColumn; co >= firstColumn; co--)
-                {
-                    var newColumn = co + numberOfColumns;
-                    if (range.IsEntireColumn())
-                    {
-                        range.Worksheet.Column(newColumn).Width = range.Worksheet.Column(co).Width;
-                    }
-                }
-            }
-        }
+        ShiftColumnWidths(range, onlyUsedCells, numberOfColumns);
 
         var insertedRange = new XLSheetRange(
             XLSheetPoint.FromAddress(range.RangeAddress.FirstAddress),
@@ -57,11 +35,47 @@ internal static class XLRangeInsertHelper
 
         var rangeToReturn = range.Worksheet.Range(firstRowReturn, firstColumnReturn, lastRowReturn, lastColumnReturn);
 
-        // We deliberately ignore conditional formats and data validation here. Their shifting is handled elsewhere
         var contentFlags = XLCellsUsedOptions.All
                            & ~XLCellsUsedOptions.ConditionalFormats
                            & ~XLCellsUsedOptions.DataValidation;
 
+        ApplyColumnFormatting(range, rangeToReturn, formatFromLeft, contentFlags);
+
+        if (nullReturn)
+            return null;
+
+        return rangeToReturn.Columns();
+    }
+
+    private static void ShiftFormulasForColumns(XLRangeBase range, int numberOfColumns)
+    {
+        foreach (var ws in range.Worksheet.Workbook.WorksheetsInternal)
+        {
+            foreach (var cell in ws.Internals.CellsCollection.GetCells(c => c.Formula is not null))
+                cell.ShiftFormulaColumns(range.AsRange(), numberOfColumns);
+        }
+    }
+
+    private static void ShiftColumnWidths(XLRangeBase range, bool onlyUsedCells, int numberOfColumns)
+    {
+        if (onlyUsedCells)
+            return;
+
+        var lastColumn = range.Worksheet.Internals.CellsCollection.MaxColumnUsed;
+        if (lastColumn <= 0)
+            return;
+
+        var firstColumn = range.RangeAddress.FirstAddress.ColumnNumber;
+        for (var co = lastColumn; co >= firstColumn; co--)
+        {
+            var newColumn = co + numberOfColumns;
+            if (range.IsEntireColumn())
+                range.Worksheet.Column(newColumn).Width = range.Worksheet.Column(co).Width;
+        }
+    }
+
+    private static void ApplyColumnFormatting(XLRangeBase range, IXLRange rangeToReturn, bool formatFromLeft, XLCellsUsedOptions contentFlags)
+    {
         if (formatFromLeft && rangeToReturn.RangeAddress.FirstAddress.ColumnNumber > 1)
         {
             var firstColumnUsed = rangeToReturn!.FirstColumn()!;
@@ -97,11 +111,6 @@ internal static class XLRangeInsertHelper
                 }
             }
         }
-
-        if (nullReturn)
-            return null;
-
-        return rangeToReturn.Columns();
     }
 
     internal static IXLRangeRows? InsertRowsAbove(XLRangeBase range, bool onlyUsedCells, int numberOfRows, bool formatFromAbove, bool nullReturn)
@@ -110,31 +119,11 @@ internal static class XLRangeInsertHelper
             throw new System.ArgumentOutOfRangeException(nameof(numberOfRows),
                 $"Number of rows to insert must be a positive number no more than {XLHelper.MaxRowNumber}");
 
-        var asRange = range.AsRange();
-        foreach (var ws in range.Worksheet.Workbook.WorksheetsInternal)
-        {
-            foreach (var cell in ws.Internals.CellsCollection.GetCells(c => c.Formula is not null))
-                cell.ShiftFormulaRows(asRange, numberOfRows);
-        }
+        ShiftFormulasForRows(range, numberOfRows);
 
         range.Worksheet.SparklineGroupsInternal.ShiftRows(XLSheetRange.FromRangeAddress(range.RangeAddress), numberOfRows);
 
-        if (!onlyUsedCells)
-        {
-            var lastRow = range.Worksheet.Internals.CellsCollection.MaxRowUsed;
-            if (lastRow > 0)
-            {
-                var firstRow = range.RangeAddress.FirstAddress.RowNumber;
-                for (var ro = lastRow; ro >= firstRow; ro--)
-                {
-                    var newRow = ro + numberOfRows;
-                    if (range.IsEntireRow())
-                    {
-                        range.Worksheet.Row(newRow).Height = range.Worksheet.Row(ro).Height;
-                    }
-                }
-            }
-        }
+        ShiftRowHeights(range, onlyUsedCells, numberOfRows);
 
         var insertedRange = new XLSheetRange(
             XLSheetPoint.FromAddress(range.RangeAddress.FirstAddress),
@@ -150,11 +139,49 @@ internal static class XLRangeInsertHelper
 
         var rangeToReturn = range.Worksheet.Range(firstRowReturn, firstColumnReturn, lastRowReturn, lastColumnReturn);
 
-        // We deliberately ignore conditional formats and data validation here. Their shifting is handled elsewhere
         var contentFlags = XLCellsUsedOptions.All
                            & ~XLCellsUsedOptions.ConditionalFormats
                            & ~XLCellsUsedOptions.DataValidation;
 
+        ApplyRowFormatting(range, rangeToReturn, formatFromAbove, contentFlags);
+
+        // Skip calling .Rows() for performance reasons if required.
+        if (nullReturn)
+            return null;
+
+        return rangeToReturn.Rows();
+    }
+
+    private static void ShiftFormulasForRows(XLRangeBase range, int numberOfRows)
+    {
+        var asRange = range.AsRange();
+        foreach (var ws in range.Worksheet.Workbook.WorksheetsInternal)
+        {
+            foreach (var cell in ws.Internals.CellsCollection.GetCells(c => c.Formula is not null))
+                cell.ShiftFormulaRows(asRange, numberOfRows);
+        }
+    }
+
+    private static void ShiftRowHeights(XLRangeBase range, bool onlyUsedCells, int numberOfRows)
+    {
+        if (onlyUsedCells)
+            return;
+
+        var lastRow = range.Worksheet.Internals.CellsCollection.MaxRowUsed;
+        if (lastRow <= 0)
+            return;
+
+        var firstRow = range.RangeAddress.FirstAddress.RowNumber;
+        for (var ro = lastRow; ro >= firstRow; ro--)
+        {
+            var newRow = ro + numberOfRows;
+            if (range.IsEntireRow())
+                range.Worksheet.Row(newRow).Height = range.Worksheet.Row(ro).Height;
+        }
+    }
+
+    private static void ApplyRowFormatting(XLRangeBase range, IXLRange rangeToReturn, bool formatFromAbove, XLCellsUsedOptions contentFlags)
+    {
         if (formatFromAbove && rangeToReturn.RangeAddress.FirstAddress.RowNumber > 1)
         {
             var fr = rangeToReturn!.FirstRow()!;
@@ -190,11 +217,5 @@ internal static class XLRangeInsertHelper
                 }
             }
         }
-
-        // Skip calling .Rows() for performance reasons if required.
-        if (nullReturn)
-            return null;
-
-        return rangeToReturn.Rows();
     }
 }

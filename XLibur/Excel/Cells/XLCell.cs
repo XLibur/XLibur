@@ -495,8 +495,6 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     internal IXLCell Clear(XLClearOptions clearOptions, bool calledFromRange)
     {
-        //Note: We have to check if the cell is part of a merged range. If so we have to clear the whole range
-        //Checking if called from range to avoid stack overflow
         if (!calledFromRange && IsMerged())
         {
             var firstOrDefault = Worksheet.Internals.MergedRanges.GetIntersectedRanges(Address).FirstOrDefault();
@@ -504,43 +502,42 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         }
         else
         {
-            if (clearOptions.HasFlag(XLClearOptions.Contents))
-            {
-                SetHyperlink(null);
-                SliceCellValue = Blank.Value;
-                FormulaA1 = string.Empty;
-                CellImage = null;
-            }
-
-            if (clearOptions.HasFlag(XLClearOptions.NormalFormats))
-                SetStyle(Worksheet.Style);
-
-            if (clearOptions.HasFlag(XLClearOptions.ConditionalFormats))
-            {
-                AsRange().RemoveConditionalFormatting();
-            }
-
-            if (clearOptions.HasFlag(XLClearOptions.Comments))
-                SliceComment = null;
-
-            if (clearOptions.HasFlag(XLClearOptions.Sparklines))
-            {
-                AsRange().RemoveSparklines();
-            }
-
-            if (clearOptions.HasFlag(XLClearOptions.DataValidation) && HasDataValidation)
-            {
-                var validation = CreateDataValidation();
-                Worksheet.DataValidations.Delete(validation);
-            }
-
-            if (clearOptions.HasFlag(XLClearOptions.MergedRanges) && IsMerged())
-            {
-                ClearMerged();
-            }
+            ClearCellContent(clearOptions);
         }
 
         return this;
+    }
+
+    private void ClearCellContent(XLClearOptions clearOptions)
+    {
+        if (clearOptions.HasFlag(XLClearOptions.Contents))
+        {
+            SetHyperlink(null);
+            SliceCellValue = Blank.Value;
+            FormulaA1 = string.Empty;
+            CellImage = null;
+        }
+
+        if (clearOptions.HasFlag(XLClearOptions.NormalFormats))
+            SetStyle(Worksheet.Style);
+
+        if (clearOptions.HasFlag(XLClearOptions.ConditionalFormats))
+            AsRange().RemoveConditionalFormatting();
+
+        if (clearOptions.HasFlag(XLClearOptions.Comments))
+            SliceComment = null;
+
+        if (clearOptions.HasFlag(XLClearOptions.Sparklines))
+            AsRange().RemoveSparklines();
+
+        if (clearOptions.HasFlag(XLClearOptions.DataValidation) && HasDataValidation)
+        {
+            var validation = CreateDataValidation();
+            Worksheet.DataValidations.Delete(validation);
+        }
+
+        if (clearOptions.HasFlag(XLClearOptions.MergedRanges) && IsMerged())
+            ClearMerged();
     }
 
     public void Delete(XLShiftDeletedCells shiftDeleteCells)
@@ -721,38 +718,11 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     public bool IsEmpty(XLCellsUsedOptions options)
     {
-        var isValueEmpty = SliceCellValue.Type switch
-        {
-            XLDataType.Blank => true,
-            XLDataType.Text => SliceCellValue.GetText().Length == 0,
-            _ => false
-        };
-
-        if (CellImage is not null)
+        if (!IsContentEmpty())
             return false;
 
-        if (!isValueEmpty || HasFormula)
+        if (options.HasFlag(XLCellsUsedOptions.NormalFormats) && !IsFormatEmpty())
             return false;
-
-        if (options.HasFlag(XLCellsUsedOptions.NormalFormats))
-        {
-            if (StyleValue.IncludeQuotePrefix)
-                return false;
-
-            if (!StyleValue.Equals(Worksheet.StyleValue))
-                return false;
-
-            if (StyleValue.Equals(Worksheet.StyleValue))
-            {
-                if (Worksheet.Internals.RowsCollection.TryGetValue(_point.Row, out var row) &&
-                    !row.StyleValue.Equals(Worksheet.StyleValue))
-                    return false;
-
-                if (Worksheet.Internals.ColumnsCollection.TryGetValue(_point.Column, out var column) &&
-                    !column.StyleValue.Equals(Worksheet.StyleValue))
-                    return false;
-            }
-        }
 
         if (options.HasFlag(XLCellsUsedOptions.MergedRanges) && IsMerged())
             return false;
@@ -768,6 +738,41 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             return false;
 
         if (options.HasFlag(XLCellsUsedOptions.Sparklines) && HasSparkline)
+            return false;
+
+        return true;
+    }
+
+    private bool IsContentEmpty()
+    {
+        if (CellImage is not null)
+            return false;
+
+        if (HasFormula)
+            return false;
+
+        return SliceCellValue.Type switch
+        {
+            XLDataType.Blank => true,
+            XLDataType.Text => SliceCellValue.GetText().Length == 0,
+            _ => false
+        };
+    }
+
+    private bool IsFormatEmpty()
+    {
+        if (StyleValue.IncludeQuotePrefix)
+            return false;
+
+        if (!StyleValue.Equals(Worksheet.StyleValue))
+            return false;
+
+        if (Worksheet.Internals.RowsCollection.TryGetValue(_point.Row, out var row) &&
+            !row.StyleValue.Equals(Worksheet.StyleValue))
+            return false;
+
+        if (Worksheet.Internals.ColumnsCollection.TryGetValue(_point.Column, out var column) &&
+            !column.StyleValue.Equals(Worksheet.StyleValue))
             return false;
 
         return true;
