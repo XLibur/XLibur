@@ -217,11 +217,13 @@ internal static class XLRangeInsertHelper
         if (lastCoUsed == null)
             return;
 
-        var lastCoReturned = lastCoUsed.ColumnNumber();
+        var firstWsCol = rangeToReturn.RangeAddress.FirstAddress.ColumnNumber;
+        var lastCoReturned = lastCoUsed.ColumnNumber() - firstWsCol + 1;
         for (var co = 1; co <= lastCoReturned; co++)
         {
+            var wsCol = firstWsCol + co - 1;
             var styleToUse =
-                range.Worksheet.Internals.ColumnsCollection.TryGetValue(co, out var column)
+                range.Worksheet.Internals.ColumnsCollection.TryGetValue(wsCol, out var column)
                     ? column.Style
                     : range.Worksheet.Style;
 

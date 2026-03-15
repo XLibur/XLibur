@@ -102,8 +102,21 @@ internal sealed class XLHFText
         var lastColorPosition = prevText.LastIndexOf("&K", StringComparison.Ordinal);
 
         var hasPrevColor = lastColorPosition >= 0 && prevText.Length >= lastColorPosition + 8;
+        XLColor? prevColor = null;
+        if (hasPrevColor)
+        {
+            try
+            {
+                prevColor = XLColor.FromHtml("#" + prevText.Substring(lastColorPosition + 2, 6));
+            }
+            catch (FormatException)
+            {
+                hasPrevColor = false;
+            }
+        }
+
         if (
-            (hasPrevColor && !RichText.FontColor.Equals(XLColor.FromHtml("#" + prevText.Substring(lastColorPosition + 2, 6))))
+            (hasPrevColor && !RichText.FontColor.Equals(prevColor))
             || (!hasPrevColor && !RichText.FontColor.Equals(wsFont.FontColor))
         )
             sb.Append("&K" + RichText.FontColor.Color.ToHex().Substring(2));
