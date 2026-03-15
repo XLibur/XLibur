@@ -299,9 +299,9 @@ public class ColumnTests
         var wb = new XLWorkbook();
         wb.DefinedNames.Add("TestName", XLError.NameNotRecognized.ToDisplayString());
         var ws1 = wb.AddWorksheet();
-        ws1.FirstColumn().InsertColumnsAfter(1);
+        Assert.DoesNotThrow(() => ws1.FirstColumn().InsertColumnsAfter(1));
         var ws2 = wb.AddWorksheet();
-        ws2.FirstColumn().InsertColumnsBefore(1);
+        Assert.DoesNotThrow(() => ws2.FirstColumn().InsertColumnsBefore(1));
 
         Assert.That(wb.Worksheets.Count, Is.EqualTo(2));
     }
