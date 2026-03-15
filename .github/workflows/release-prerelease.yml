@@ -1,0 +1,70 @@
+name: Pre-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease-label:
+        description: 'Pre-release label (alpha, beta, rc)'
+        required: true
+        default: 'alpha'
+        type: choice
+        options:
+          - alpha
+          - beta
+          - rc
+      dry-run:
+        description: 'Dry run (build, test, pack — skip NuGet publish)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  prerelease:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Show computed version
+        run: |
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Pre-release label: ${{ inputs.prerelease-label }}"
+
+      - name: Restore dependencies
+        run: dotnet restore XLibur.slnx
+
+      - name: Build
+        run: dotnet build XLibur.slnx --configuration Release --no-restore -p:MinVerDefaultPreReleaseIdentifiers=${{ inputs.prerelease-label }}
+
+      - name: Test
+        run: dotnet test XLibur.Tests/XLibur.Tests.csproj --configuration Release --no-build
+
+      - name: Pack
+        run: dotnet pack XLibur/XLibur.csproj --configuration Release --no-build --output ./artifacts
+
+      - name: Show package version
+        run: ls -la ./artifacts/
+
+      - name: Push to NuGet
+        if: ${{ inputs.dry-run == false }}
+        run: dotnet nuget push ./artifacts/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+
+      - name: Push symbols to NuGet
+        if: ${{ inputs.dry-run == false }}
+        run: dotnet nuget push ./artifacts/*.snupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+
+      - name: Dry run — skipped NuGet publish
+        if: ${{ inputs.dry-run == true }}
+        run: echo "Dry run enabled — packages were built but not published to NuGet."
