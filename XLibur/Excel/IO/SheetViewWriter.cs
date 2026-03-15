@@ -87,6 +87,9 @@ internal sealed class SheetViewWriter
 
         SetTopLeftCell(sheetView, xlWorksheet);
 
+        sheetView.RemoveAllChildren<Selection>();
+        svcm.SetElement(XLSheetViewContents.Selection, null);
+
         if (xlWorksheet.SelectedRanges.Any() || xlWorksheet.ActiveCell is not null)
             SetupSelections(sheetView, svcm, xlWorksheet, pane);
 
@@ -162,9 +165,6 @@ internal sealed class SheetViewWriter
     private static void SetupSelections(SheetView sheetView, XLSheetViewContentManager svcm,
         XLWorksheet xlWorksheet, Pane? pane)
     {
-        sheetView.RemoveAllChildren<Selection>();
-        svcm.SetElement(XLSheetViewContents.Selection, null);
-
         var firstSelection = xlWorksheet.SelectedRanges.FirstOrDefault();
 
         void PopulateSelection(Selection selection)
