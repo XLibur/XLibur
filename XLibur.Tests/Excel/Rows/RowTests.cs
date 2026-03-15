@@ -453,4 +453,60 @@ public class RowTests
         Assert.That(rws.Cell("B50").GetValue<int>(), Is.EqualTo(500));
         Assert.That(rws.Row(50).Height, Is.EqualTo(25).Within(XLHelper.Epsilon));
     }
+
+    [Test]
+    public void AdjustToContents_MultilineText_HeightIsLargerThanSingleLine()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        ws.Cell("A1").Value = "Single line";
+        ws.Cell("A2").Value = "Line 1\nLine 2";
+        ws.Cell("A3").Value = "Line 1\nLine 2\nLine 3";
+
+        ws.Row(1).AdjustToContents();
+        ws.Row(2).AdjustToContents();
+        ws.Row(3).AdjustToContents();
+
+        var singleLineHeight = ws.Row(1).Height;
+        var twoLineHeight = ws.Row(2).Height;
+        var threeLineHeight = ws.Row(3).Height;
+
+        Assert.That(twoLineHeight, Is.GreaterThan(singleLineHeight),
+            "Two-line text should produce a taller row than single-line text");
+        Assert.That(threeLineHeight, Is.GreaterThan(twoLineHeight),
+            "Three-line text should produce a taller row than two-line text");
+    }
+
+    [Test]
+    public void AdjustToContents_ConsecutiveNewlines_EachContributesHeight()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        ws.Cell("A1").Value = "A\nB";
+        ws.Cell("A2").Value = "A\n\nB";
+
+        ws.Row(1).AdjustToContents();
+        ws.Row(2).AdjustToContents();
+
+        Assert.That(ws.Row(2).Height, Is.GreaterThan(ws.Row(1).Height),
+            "Consecutive newlines (empty line) should add height");
+    }
+
+    [Test]
+    public void AdjustToContents_CrLfNewlines_DetectedSameAsLf()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        ws.Cell("A1").Value = "Line 1\nLine 2";
+        ws.Cell("A2").Value = "Line 1\r\nLine 2";
+
+        ws.Row(1).AdjustToContents();
+        ws.Row(2).AdjustToContents();
+
+        Assert.That(ws.Row(1).Height, Is.EqualTo(ws.Row(2).Height).Within(XLHelper.Epsilon),
+            "LF and CRLF newlines should produce the same row height");
+    }
 }

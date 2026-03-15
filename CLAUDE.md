@@ -24,7 +24,7 @@ Solution uses `.slnx` format (modern MSBuild Solution Extension).
 
 ## Versioning
 
-- **MinVer** 5.0.0 derives version from git tags (e.g. `v0.105.0`)
+- **MinVer** derives version from git tags (e.g. `v0.105.0`)
 - Tag prefix: `v`
 - No hardcoded `<Version>` in project files
 
