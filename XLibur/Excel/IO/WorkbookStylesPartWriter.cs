@@ -43,10 +43,10 @@ internal static class WorkbookStylesPartWriter
         uint fillCount = 3;
         uint borderCount = 1;
 
-        foreach (var font in xlStyles.Select(s => s.Font).Distinct())
+        foreach (var font in xlStyles.Select(s => s.Font).Distinct()
+                     .Where(f => !context.SharedFonts.ContainsKey(f)))
         {
-            if (!context.SharedFonts.ContainsKey(font))
-                context.SharedFonts.Add(font, new FontInfo { FontId = fontCount++, Font = font });
+            context.SharedFonts.Add(font, new FontInfo { FontId = fontCount++, Font = font });
         }
 
         var sharedFills = xlStyles.Select(s => s.Fill).Distinct().ToDictionary(
@@ -75,7 +75,7 @@ internal static class WorkbookStylesPartWriter
             workbookStylesPart.Stylesheet!.CellStyles.AppendChild(new CellStyle
             { Name = "Normal", FormatId = defaultFormatId, BuiltinId = 0U });
 
-        workbookStylesPart.Stylesheet!.CellStyles.Count = (uint)workbookStylesPart.Stylesheet!.CellStyles.Count();
+        workbookStylesPart.Stylesheet!.CellStyles.Count = (uint)workbookStylesPart.Stylesheet!.CellStyles.ChildElements.Count;
 
         RemapStyleIds(workbookStylesPart, context);
 
@@ -245,7 +245,7 @@ internal static class WorkbookStylesPartWriter
             AddAutoFilterColorFilterDxfs(differentialFormats, ws, context);
         }
 
-        differentialFormats.Count = (uint)differentialFormats.Count();
+        differentialFormats.Count = (uint)differentialFormats.ChildElements.Count;
         if (differentialFormats.Count == 0)
             workbookStylesPart.Stylesheet!.DifferentialFormats = null;
     }
@@ -349,7 +349,7 @@ internal static class WorkbookStylesPartWriter
 
             var differentialFormat = CreateColorDifferentialFormat(xlFilterColumn);
             differentialFormats.Append(differentialFormat);
-            context.ColorFilterDxfIds.Add(key, differentialFormats.Count() - 1);
+            context.ColorFilterDxfIds.Add(key, differentialFormats.ChildElements.Count - 1);
         }
     }
 
@@ -417,7 +417,7 @@ internal static class WorkbookStylesPartWriter
         {
             var numberFormat = new NumberingFormat
             {
-                NumberFormatId = (uint)(XLConstants.NumberOfBuiltInStyles + differentialFormats.Count()),
+                NumberFormatId = (uint)(XLConstants.NumberOfBuiltInStyles + differentialFormats.ChildElements.Count),
                 FormatCode = cf.Style.NumberFormat.Format
             };
             differentialFormat.Append(numberFormat);
@@ -433,7 +433,7 @@ internal static class WorkbookStylesPartWriter
 
         differentialFormats.Append(differentialFormat);
 
-        context.DifferentialFormats.Add(styleValue, differentialFormats.Count() - 1);
+        context.DifferentialFormats.Add(styleValue, differentialFormats.ChildElements.Count - 1);
     }
 
     private static void AddStyleAsDifferentialFormat(DifferentialFormats differentialFormats, XLStyleValue style,
@@ -484,7 +484,7 @@ internal static class WorkbookStylesPartWriter
 
         differentialFormats.Append(differentialFormat);
 
-        context.DifferentialFormats.Add(style, differentialFormats.Count() - 1);
+        context.DifferentialFormats.Add(style, differentialFormats.ChildElements.Count - 1);
     }
 
     private static void ResolveRest(WorkbookStylesPart workbookStylesPart, SaveContext context)
@@ -522,7 +522,7 @@ internal static class WorkbookStylesPartWriter
             workbookStylesPart.Stylesheet!.CellFormats!.AppendChild(cellFormat);
         }
 
-        workbookStylesPart.Stylesheet!.CellFormats!.Count = (uint)workbookStylesPart.Stylesheet!.CellFormats!.Count();
+        workbookStylesPart.Stylesheet!.CellFormats!.Count = (uint)workbookStylesPart.Stylesheet!.CellFormats!.ChildElements.Count;
 
         static int GetOpenXmlTextRotation(XLAlignmentValue alignment)
         {
@@ -556,7 +556,7 @@ internal static class WorkbookStylesPartWriter
         }
 
         workbookStylesPart.Stylesheet!.CellStyleFormats!.Count =
-            (uint)workbookStylesPart.Stylesheet!.CellStyleFormats!.Count();
+            (uint)workbookStylesPart.Stylesheet!.CellStyleFormats!.ChildElements.Count;
     }
 
     private static bool ApplyFill(StyleInfo styleInfo)
@@ -686,7 +686,7 @@ internal static class WorkbookStylesPartWriter
                 borderInfo with { BorderId = (uint)borderId });
         }
 
-        workbookStylesPart.Stylesheet!.Borders.Count = (uint)workbookStylesPart.Stylesheet!.Borders.Count();
+        workbookStylesPart.Stylesheet!.Borders.Count = (uint)workbookStylesPart.Stylesheet!.Borders.ChildElements.Count;
         return allSharedBorders;
     }
 
@@ -788,7 +788,7 @@ internal static class WorkbookStylesPartWriter
             allSharedFills.Add(fillInfo.Fill, fillInfo with { FillId = (uint)fillId });
         }
 
-        fills.Count = (uint)fills.Count();
+        fills.Count = (uint)fills.ChildElements.Count;
         return allSharedFills;
     }
 
@@ -930,7 +930,7 @@ internal static class WorkbookStylesPartWriter
         foreach (var kp in newFonts)
             context.SharedFonts.Add(kp.Key, kp.Value);
 
-        workbookStylesPart.Stylesheet!.Fonts.Count = (uint)workbookStylesPart.Stylesheet!.Fonts.Count();
+        workbookStylesPart.Stylesheet!.Fonts.Count = (uint)workbookStylesPart.Stylesheet!.Fonts.ChildElements.Count;
     }
 
     private static Font GetNewFont(FontInfo fontInfo, bool ignoreMod = true)
@@ -1054,7 +1054,7 @@ internal static class WorkbookStylesPartWriter
         }
 
         workbookStylesPart.Stylesheet!.NumberingFormats.Count =
-            (uint)workbookStylesPart.Stylesheet!.NumberingFormats.Count();
+            (uint)workbookStylesPart.Stylesheet!.NumberingFormats.ChildElements.Count;
         return allSharedNumberFormats;
     }
 
