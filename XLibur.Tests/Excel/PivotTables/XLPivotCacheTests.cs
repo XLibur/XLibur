@@ -86,6 +86,11 @@ public class XLPivotCacheTests
         // through load/save.
         // The cache fields in the file don't have any shared values or records, only stats,
         // and load/save preserves all Contains* flags and Min/Max values.
+        TestHelper.LoadAndAssert(wb =>
+        {
+            Assert.That(wb.Worksheets.Count, Is.GreaterThan(0));
+        }, @"Other\PivotTableReferenceFiles\PivotCacheWithoutSourceData-input.xlsx");
+
         TestHelper.LoadSaveAndCompare(
             @"Other\PivotTableReferenceFiles\PivotCacheWithoutSourceData-input.xlsx",
             @"Other\PivotTableReferenceFiles\PivotCacheWithoutSourceData-output.xlsx");

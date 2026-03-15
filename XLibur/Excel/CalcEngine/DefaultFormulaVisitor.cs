@@ -38,20 +38,20 @@ internal class DefaultFormulaVisitor<TContext> : IFormulaVisitor<TContext, AstNo
 
     public virtual AstNode Visit(TContext context, NotSupportedNode node) => node;
 
-    public virtual AstNode Visit(TContext context, ReferenceNode referenceNode)
+    public virtual AstNode Visit(TContext context, ReferenceNode node)
     {
-        var acceptedPrefix = referenceNode.Prefix?.Accept(context, this);
-        return !ReferenceEquals(acceptedPrefix, referenceNode.Prefix)
-            ? new ReferenceNode((PrefixNode?)acceptedPrefix, referenceNode.ReferenceArea, referenceNode.IsA1)
-            : referenceNode;
+        var acceptedPrefix = node.Prefix?.Accept(context, this);
+        return !ReferenceEquals(acceptedPrefix, node.Prefix)
+            ? new ReferenceNode((PrefixNode?)acceptedPrefix, node.ReferenceArea, node.IsA1)
+            : node;
     }
 
-    public virtual AstNode Visit(TContext context, NameNode nameNode)
+    public virtual AstNode Visit(TContext context, NameNode node)
     {
-        var acceptedPrefix = nameNode.Prefix?.Accept(context, this);
-        return !ReferenceEquals(acceptedPrefix, nameNode.Prefix)
-            ? new NameNode((PrefixNode?)acceptedPrefix, nameNode.Name)
-            : nameNode;
+        var acceptedPrefix = node.Prefix?.Accept(context, this);
+        return !ReferenceEquals(acceptedPrefix, node.Prefix)
+            ? new NameNode((PrefixNode?)acceptedPrefix, node.Name)
+            : node;
     }
 
     public virtual AstNode Visit(TContext context, StructuredReferenceNode node) => node;

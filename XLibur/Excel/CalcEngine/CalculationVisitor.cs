@@ -70,12 +70,12 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
         };
     }
 
-    public AnyValue Visit(CalcContext context, FunctionNode functionNode)
+    public AnyValue Visit(CalcContext context, FunctionNode node)
     {
-        if (!_functions.TryGetFunc(functionNode.Name, out var fn))
+        if (!_functions.TryGetFunc(node.Name, out var fn))
             return XLError.NameNotRecognized;
 
-        var parameters = functionNode.Parameters;
+        var parameters = node.Parameters;
         var pool = _argsPool.Rent(parameters.Count);
         var args = new Span<AnyValue>(pool, 0, parameters.Count);
         try
@@ -113,6 +113,12 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
 
         return new Reference(XLRangeAddress.FromSheetRange(context.Worksheet, range));
     }
+
+    public AnyValue Visit(CalcContext context, PrefixNode node)
+        => throw new InvalidOperationException("Node should never be visited.");
+
+    public AnyValue Visit(CalcContext context, FileNode node)
+        => throw new InvalidOperationException("Node should never be visited.");
 
     private static bool TryResolveStructuredReference(
         CalcContext context,
@@ -226,64 +232,44 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
     {
         var area = table.Area;
         var dataEndRowNo = table.ShowTotalsRow ? area.BottomRow - 1 : area.BottomRow;
-        switch (tableArea)
+
+        if (tableArea == StructuredReferenceArea.Totals && !table.ShowTotalsRow)
         {
-            case StructuredReferenceArea.None:
-            case StructuredReferenceArea.Data:
-                rowStartNo = area.TopRow + 1;
-                rowEndNo = dataEndRowNo;
-                break;
-            case StructuredReferenceArea.Headers:
-                rowStartNo = area.TopRow;
-                rowEndNo = area.TopRow;
-                break;
-            case StructuredReferenceArea.Headers | StructuredReferenceArea.Data:
-                rowStartNo = area.TopRow;
-                rowEndNo = dataEndRowNo;
-                break;
-            case StructuredReferenceArea.Totals:
-                var hasTotals = table.ShowTotalsRow;
-                if (!hasTotals)
-                {
-                    rowStartNo = rowEndNo = 0;
-                    error = XLError.CellReference;
-                    return false;
-                }
-
-                rowStartNo = area.BottomRow;
-                rowEndNo = area.BottomRow;
-                break;
-            case StructuredReferenceArea.Totals | StructuredReferenceArea.Data:
-                rowStartNo = area.TopRow + 1;
-                rowEndNo = area.BottomRow;
-                break;
-            case StructuredReferenceArea.All:
-                rowStartNo = area.TopRow;
-                rowEndNo = area.BottomRow;
-                break;
-            case StructuredReferenceArea.ThisRow:
-                var thisRow = context.FormulaSheetPoint.Row;
-                if (area.TopRow >= thisRow || dataEndRowNo < thisRow)
-                {
-                    rowStartNo = rowEndNo = 0;
-                    error = XLError.IncompatibleValue;
-                    return false;
-                }
-
-                rowStartNo = thisRow;
-                rowEndNo = thisRow;
-                break;
-            default:
-                throw new NotSupportedException($"Unexpected value {tableArea}.");
+            rowStartNo = rowEndNo = 0;
+            error = XLError.CellReference;
+            return false;
         }
+
+        if (tableArea == StructuredReferenceArea.ThisRow)
+        {
+            var thisRow = context.FormulaSheetPoint.Row;
+            if (area.TopRow >= thisRow || dataEndRowNo < thisRow)
+            {
+                rowStartNo = rowEndNo = 0;
+                error = XLError.IncompatibleValue;
+                return false;
+            }
+
+            rowStartNo = thisRow;
+            rowEndNo = thisRow;
+            error = default;
+            return true;
+        }
+
+        (rowStartNo, rowEndNo) = tableArea switch
+        {
+            StructuredReferenceArea.None or
+            StructuredReferenceArea.Data => (area.TopRow + 1, dataEndRowNo),
+            StructuredReferenceArea.Headers => (area.TopRow, area.TopRow),
+            StructuredReferenceArea.Headers | StructuredReferenceArea.Data => (area.TopRow, dataEndRowNo),
+            StructuredReferenceArea.Totals => (area.BottomRow, area.BottomRow),
+            StructuredReferenceArea.Totals | StructuredReferenceArea.Data => (area.TopRow + 1, area.BottomRow),
+            StructuredReferenceArea.All => (area.TopRow, area.BottomRow),
+            _ => throw new NotSupportedException($"Unexpected value {tableArea}.")
+        };
 
         error = default;
         return true;
     }
 
-    public AnyValue Visit(CalcContext context, PrefixNode node)
-        => throw new InvalidOperationException("Node should never be visited.");
-
-    public AnyValue Visit(CalcContext context, FileNode node)
-        => throw new InvalidOperationException("Node should never be visited.");
 }

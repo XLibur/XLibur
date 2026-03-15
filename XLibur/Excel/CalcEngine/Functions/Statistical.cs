@@ -114,10 +114,10 @@ internal static class Statistical
         if (!tally.Tally(ctx, args, new SumState()).TryPickT0(out var state, out var error))
             return error;
 
-        if (state.Count == 0)
+        if (state.SampleCount == 0)
             return XLError.DivisionByZero;
 
-        return state.Sum / state.Count;
+        return state.Sum / state.SampleCount;
     }
 
     private static AnyValue AverageA(CalcContext ctx, Span<AnyValue> args)
@@ -185,7 +185,7 @@ internal static class Statistical
         if (!result.TryPickT0(out var state, out var error))
             return error;
 
-        return state.Count;
+        return state.TallyCount;
     }
 
     private static AnyValue CountA(CalcContext ctx, Span<AnyValue> args)
@@ -222,7 +222,7 @@ internal static class Statistical
         if (!result.TryPickT0(out var state, out var error))
             return error;
 
-        return state.Count;
+        return state.TallyCount;
     }
 
     private static AnyValue CountIfs(CalcContext ctx, List<(AnyValue Range, ScalarValue Criteria)> criteriaRanges)
@@ -250,7 +250,7 @@ internal static class Statistical
         if (!result.TryPickT0(out var state, out var error))
             return error;
 
-        return state.Count;
+        return state.TallyCount;
     }
 
     private static AnyValue DevSq(CalcContext ctx, Span<AnyValue> args)
@@ -260,7 +260,7 @@ internal static class Statistical
             return error;
 
         // An outlier, most others return #DIV/0! when they can't calculate mean.
-        if (squareDiff.Count == 0)
+        if (squareDiff.SampleCount == 0)
             return XLError.NumberInvalid;
 
         return squareDiff.Sum;
@@ -311,7 +311,7 @@ internal static class Statistical
         if (!tally.TryPickT0(out var geoMean, out var error))
             return error;
 
-        if (geoMean.Count == 0)
+        if (geoMean.SampleCount == 0)
             return XLError.NumberInvalid;
 
         // Some value was negative or zero. NaN plus whatever is NaN, infinity
@@ -319,7 +319,7 @@ internal static class Statistical
         if (double.IsInfinity(geoMean.LogSum) || double.IsNaN(geoMean.LogSum))
             return XLError.NumberInvalid;
 
-        return Math.Exp(geoMean.LogSum / geoMean.Count);
+        return Math.Exp(geoMean.LogSum / geoMean.SampleCount);
     }
 
     private static AnyValue Max(CalcContext ctx, Span<AnyValue> args)
@@ -336,7 +336,7 @@ internal static class Statistical
         if (!state.HasValues)
             return 0;
 
-        return state.Max;
+        return state.MaxValue;
     }
 
     private static AnyValue MaxA(CalcContext ctx, Span<AnyValue> args)
@@ -382,7 +382,7 @@ internal static class Statistical
         if (!state.HasValues)
             return 0;
 
-        return state.Min;
+        return state.MinValue;
     }
 
     private static AnyValue MinA(CalcContext ctx, Span<AnyValue> args)
@@ -400,10 +400,10 @@ internal static class Statistical
         if (!GetSquareDiffSum(ctx, args, tally).TryPickT0(out var squareDiff, out var error))
             return error;
 
-        if (squareDiff.Count <= 1)
+        if (squareDiff.SampleCount <= 1)
             return XLError.DivisionByZero;
 
-        return Math.Sqrt(squareDiff.Sum / (squareDiff.Count - 1));
+        return Math.Sqrt(squareDiff.Sum / (squareDiff.SampleCount - 1));
     }
 
     private static AnyValue StDevA(CalcContext ctx, Span<AnyValue> args)
@@ -421,10 +421,10 @@ internal static class Statistical
         if (!GetSquareDiffSum(ctx, args, tally).TryPickT0(out var squareDiff, out var error))
             return error;
 
-        if (squareDiff.Count < 1)
+        if (squareDiff.SampleCount < 1)
             return XLError.DivisionByZero;
 
-        return Math.Sqrt(squareDiff.Sum / squareDiff.Count);
+        return Math.Sqrt(squareDiff.Sum / squareDiff.SampleCount);
     }
 
     private static AnyValue StDevPA(CalcContext ctx, Span<AnyValue> args)
@@ -442,10 +442,10 @@ internal static class Statistical
         if (!GetSquareDiffSum(ctx, args, tally).TryPickT0(out var squareDiff, out var error))
             return error;
 
-        if (squareDiff.Count <= 1)
+        if (squareDiff.SampleCount <= 1)
             return XLError.DivisionByZero;
 
-        return squareDiff.Sum / (squareDiff.Count - 1);
+        return squareDiff.Sum / (squareDiff.SampleCount - 1);
     }
 
     private static AnyValue VarA(CalcContext ctx, Span<AnyValue> args)
@@ -463,10 +463,10 @@ internal static class Statistical
         if (!GetSquareDiffSum(ctx, args, tally).TryPickT0(out var squareDiff, out var error))
             return error;
 
-        if (squareDiff.Count < 1)
+        if (squareDiff.SampleCount < 1)
             return XLError.DivisionByZero;
 
-        return squareDiff.Sum / squareDiff.Count;
+        return squareDiff.Sum / squareDiff.SampleCount;
     }
 
     private static AnyValue VarPA(CalcContext ctx, Span<AnyValue> args)
@@ -533,13 +533,13 @@ internal static class Statistical
         if (!tally.Tally(ctx, args, new SumState(0.0, 0)).TryPickT0(out var sumState, out var sumError))
             return sumError;
 
-        if (sumState.Count == 0)
+        if (sumState.SampleCount == 0)
             return new SquareDiff(0.0, 0, double.NaN);
 
-        var sampleMean = sumState.Sum / sumState.Count;
+        var sampleMean = sumState.Sum / sumState.SampleCount;
 
         // Calculate sum of squares of deviations from sample mean
-        var initialSquareDiffState = new SquareDiff(Sum: 0.0, Count: 0, SampleMean: sampleMean);
+        var initialSquareDiffState = new SquareDiff(Sum: 0.0, SampleCount: 0, SampleMean: sampleMean);
         var result = tally.Tally(ctx, args, initialSquareDiffState);
 
         if (!result.TryPickT0(out var squareDiff, out var error))
@@ -548,45 +548,45 @@ internal static class Statistical
         return squareDiff;
     }
 
-    private readonly record struct SumState(double Sum, int Count) : ITallyState<SumState>
+    private readonly record struct SumState(double Sum, int SampleCount) : ITallyState<SumState>
     {
-        public SumState Tally(double number) => new(Sum + number, Count + 1);
+        public SumState Tally(double number) => new(Sum + number, SampleCount + 1);
     }
 
-    private readonly record struct SquareDiff(double Sum, int Count, double SampleMean) : ITallyState<SquareDiff>
+    private readonly record struct SquareDiff(double Sum, int SampleCount, double SampleMean) : ITallyState<SquareDiff>
     {
         public SquareDiff Tally(double sampleValue)
         {
             var diff = sampleValue - SampleMean;
             var sum = Sum + diff * diff;
-            return new SquareDiff(sum, Count + 1, SampleMean);
+            return new SquareDiff(sum, SampleCount + 1, SampleMean);
         }
     }
 
-    private readonly record struct MinState(double Min, bool HasValues) : ITallyState<MinState>
+    private readonly record struct MinState(double MinValue, bool HasValues) : ITallyState<MinState>
     {
         public MinState() : this(double.MaxValue, false)
         {
         }
 
-        public MinState Tally(double number) => new(Math.Min(Min, number), true);
+        public MinState Tally(double number) => new(Math.Min(MinValue, number), true);
     }
 
-    private readonly record struct MaxState(double Max, bool HasValues) : ITallyState<MaxState>
+    private readonly record struct MaxState(double MaxValue, bool HasValues) : ITallyState<MaxState>
     {
         public MaxState() : this(double.MinValue, false)
         {
         }
 
-        public MaxState Tally(double number) => new(Math.Max(Max, number), true);
+        public MaxState Tally(double number) => new(Math.Max(MaxValue, number), true);
     }
 
-    private readonly record struct LogSumState(double LogSum, int Count) : ITallyState<LogSumState>
+    private readonly record struct LogSumState(double LogSum, int SampleCount) : ITallyState<LogSumState>
     {
         public LogSumState Tally(double number)
         {
             var logSum = LogSum + Math.Log(number);
-            return new(logSum, Count + 1);
+            return new(logSum, SampleCount + 1);
         }
     }
 
@@ -599,8 +599,8 @@ internal static class Statistical
         }
     }
 
-    private readonly record struct CountState(int Count) : ITallyState<CountState>
+    private readonly record struct CountState(int TallyCount) : ITallyState<CountState>
     {
-        public CountState Tally(double number) => new(Count + 1);
+        public CountState Tally(double number) => new(TallyCount + 1);
     }
 }

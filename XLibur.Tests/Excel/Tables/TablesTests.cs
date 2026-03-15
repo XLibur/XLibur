@@ -47,6 +47,9 @@ public class TablesTests
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
+
+        Assert.That(ms.Length, Is.GreaterThan(0));
+        Assert.That(wb.Worksheets.First().Tables.Count(), Is.EqualTo(1));
     }
 
     [Test]
@@ -58,7 +61,7 @@ public class TablesTests
         var dt = new DataTable();
         var table = ws.FirstCell().InsertTable(dt);
 
-        Assert.AreEqual(null, table);
+        Assert.That(table, Is.Null);
     }
 
     [Test]
@@ -67,10 +70,13 @@ public class TablesTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue("Title");
-        ws.Range("A1").CreateTable();
+        var table = ws.Range("A1").CreateTable();
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
+
+        Assert.That(ms.Length, Is.GreaterThan(0));
+        Assert.That(table.Field(0).Name, Is.EqualTo("Title"));
     }
 
     [Test]

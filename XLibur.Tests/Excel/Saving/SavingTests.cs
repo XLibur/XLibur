@@ -36,6 +36,8 @@ public class SavingTests
         using var wb = new XLWorkbook();
         wb.AddWorksheet("Sheet1");
         wb.SaveAs(ms);
+
+        Assert.That(ms.Length, Is.GreaterThan(0));
     }
 
     [Test]
@@ -55,6 +57,9 @@ public class SavingTests
             sheet.Cell(i, 1).Value = "test" + i;
             wb.SaveAs(memoryStream, validate: true);
         }
+
+        Assert.AreEqual("test3", sheet.Cell(3, 1).Value);
+        Assert.That(memoryStream.Length, Is.GreaterThan(0));
     }
 
     [Test]
@@ -107,15 +112,25 @@ public class SavingTests
     {
         string[] cultures = ["it", "de-AT"];
 
-        foreach (var culture in cultures)
+        var originalCulture = Thread.CurrentThread.CurrentCulture;
+        try
         {
-            Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo(culture);
+            foreach (var culture in cultures)
+            {
+                Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo(culture);
 
-            using var wb = new XLWorkbook();
-            var memoryStream = new MemoryStream();
-            var ws = wb.Worksheets.Add("Sheet1");
+                using var wb = new XLWorkbook();
+                var memoryStream = new MemoryStream();
+                var ws = wb.Worksheets.Add("Sheet1");
 
-            wb.SaveAs(memoryStream, true);
+                wb.SaveAs(memoryStream, true);
+
+                Assert.That(memoryStream.Length, Is.GreaterThan(0), $"Failed for culture {culture}");
+            }
+        }
+        finally
+        {
+            Thread.CurrentThread.CurrentCulture = originalCulture;
         }
     }
 
@@ -289,6 +304,10 @@ public class SavingTests
         ws.Cell("D4").GetComment().SetVisible().AddText("This is a comment");
 
         wb.SaveAs(ms);
+
+        Assert.That(ms.Length, Is.GreaterThan(0));
+        Assert.AreEqual(1, ws.Pictures.Count);
+        Assert.IsTrue(ws.Cell("D4").HasComment);
     }
 
     [Test]
@@ -791,6 +810,11 @@ public class SavingTests
         // (likely a replacement in a decade or two) and three control parts.
         //
         // Also check that custom text of the form controls is preserved (stored in VML).
+        TestHelper.LoadAndAssert(wb =>
+        {
+            Assert.That(wb.Worksheets.Count, Is.GreaterThan(0));
+        }, @"Other\Shapes\sheet-with-form-controls-input.xlsx");
+
         TestHelper.LoadSaveAndCompare(
             @"Other\Shapes\sheet-with-form-controls-input.xlsx",
             @"Other\Shapes\sheet-with-form-controls-output.xlsx");

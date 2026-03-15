@@ -1,4 +1,6 @@
-﻿namespace XLibur.Excel;
+﻿using XLibur.Excel.AutoFilters;
+
+namespace XLibur.Excel;
 
 internal sealed class XLFilterConnector : IXLFilterConnector
 {

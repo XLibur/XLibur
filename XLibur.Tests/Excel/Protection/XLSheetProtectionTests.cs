@@ -111,7 +111,9 @@ public class XLSheetProtectionTests
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\Misc\SheetProtection.xlsx"));
         using var wb = new XLWorkbook(stream);
+#pragma warning disable S2068 // Test data — hard-coded password is not a real credential
         var ws1 = wb.Worksheet("Protected Password = 123");
+#pragma warning restore S2068
         var p1 = ws1.Protection.CastTo<XLSheetProtection>();
         Assert.IsTrue(p1.IsProtected);
 

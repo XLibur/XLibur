@@ -9,7 +9,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// Workbook-level store for in-cell image blobs. Deduplicates by SHA256 hash.
 /// </summary>
-internal sealed class XLInCellImageStore
+internal sealed class XLInCellImageStore : IDisposable
 {
     private readonly List<(MemoryStream Stream, XLPictureFormat Format)> _images = new();
     private readonly Dictionary<string, int> _hashToIndex = new(StringComparer.Ordinal);
@@ -23,7 +23,7 @@ internal sealed class XLInCellImageStore
     /// Dispose all held <see cref="MemoryStream"/>s and release collections.
     /// Called from <see cref="XLWorkbook.Dispose"/>.
     /// </summary>
-    internal void Dispose()
+    public void Dispose()
     {
         foreach (var (stream, _) in _images)
             stream.Dispose();

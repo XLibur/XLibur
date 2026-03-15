@@ -76,52 +76,136 @@ internal static class Text
         // unicode block to half-width variants.
 
         // Because fullwidth code points are in base multilingual plane, I just skip over surrogates.
+        // Voiced/semi-voiced katakana map to two half-width chars (base + combining mark),
+        // so the result can be longer than the input.
         var sb = new StringBuilder(text.Length);
         foreach (int c in text)
-            sb.Append((char)ToHalfForm(c));
+            AppendHalfForm(sb, c);
 
         return sb.ToString();
 
         // Per ODS specification https://docs.oasis-open.org/office/v1.2/os/OpenDocument-v1.2-os-part2.html#ASC
-        static int ToHalfForm(int c)
+        static void AppendHalfForm(StringBuilder sb, int c)
         {
-            return c switch
-            {
-                >= 0x30A1 and <= 0x30AA when c % 2 == 0 => (c - 0x30A2) / 2 + 0xFF71, // katakana a-o
-                >= 0x30A1 and <= 0x30AA when c % 2 == 1 => (c - 0x30A1) / 2 + 0xFF67, // katakana small a-o
-                >= 0x30AB and <= 0x30C2 when c % 2 == 1 => (c - 0x30AB) / 2 + 0xFF76, // katakana ka-chi
-                >= 0x30AB and <= 0x30C2 when c % 2 == 0 => (c - 0x30AC) / 2 + 0xFF76, // katakana ga-dhi
-                0x30C3 => 0xFF6F, // katakana small tsu
-                >= 0x30C4 and <= 0x30C9 when c % 2 == 0 => (c - 0x30C4) / 2 + 0xFF82, // katakana tsu-to
-                >= 0x30C4 and <= 0x30C9 when c % 2 == 1 => (c - 0x30C5) / 2 + 0xFF82, // katakana du-do
-                >= 0x30CA and <= 0x30CE => c - 0x30CA + 0xFF85, // katakana na-no
-                >= 0x30CF and <= 0x30DD when c % 3 == 0 => (c - 0x30CF) / 3 + 0xFF8A, // katakana ha-ho
-                >= 0x30CF and <= 0x30DD when c % 3 == 1 => (c - 0x30D0) / 3 + 0xFF8A, // katakana ba-bo
-                >= 0x30CF and <= 0x30DD when c % 3 == 2 => (c - 0x30d1) / 3 + 0xff8a, // katakana pa-po
-                >= 0x30DE and <= 0x30E2 => c - 0x30DE + 0xFF8F, // katakana ma-mo
-                >= 0x30E3 and <= 0x30E8 when c % 2 == 0 => (c - 0x30E4) / 2 + 0xFF94, // katakana ya-yo
-                >= 0x30E3 and <= 0x30E8 when c % 2 == 1 => (c - 0x30E3) / 2 + 0xFF6C, // katakana small ya - yo
-                >= 0x30E9 and <= 0x30ED => c - 0x30e9 + 0xff97, // katakana ra-ro
-                0x30EF => 0xFF9C, // katakana wa
-                0x30F2 => 0xFF66, // katakana wo
-                0x30F3 => 0xFF9D, // katakana n
-                >= 0xFF01 and <= 0xFF5E => c - 0xFF01 + 0x0021, // ASCII characters
-                0x2015 => 0xFF70, // HORIZONTAL BAR => HALFWIDTH KATAKANA-HIRAGANA PROLONGED SOUND MARK
-                0x2018 => 0x0060, // LEFT SINGLE QUOTATION MARK => GRAVE ACCENT
-                0x2019 => 0x0027, // RIGHT SINGLE QUOTATION MARK => APOSTROPHE
-                0x201D => 0x0022, // RIGHT DOUBLE QUOTATION MARK => QUOTATION MARK
-                0x3001 => 0xFF64, // IDEOGRAPHIC COMMA
-                0x3002 => 0xFF61, // IDEOGRAPHIC FULL STOP
-                0x300C => 0xFF62, // LEFT CORNER BRACKET
-                0x300D => 0xFF63, // RIGHT CORNER BRACKET
-                0x309B => 0xFF9E, // KATAKANA-HIRAGANA VOICED SOUND MARK
-                0x309C => 0xFF9F, // KATAKANA-HIRAGANA SEMI-VOICED SOUND MARK
-                0x30FB => 0xFF65, // KATAKANA MIDDLE DOT
-                0x30FC => 0xFF70, // KATAKANA-HIRAGANA PROLONGED SOUND MARK
-                0xFFE5 => 0x005C, // FULLWIDTH YEN SIGN => REVERSE SOLIDUS "\"
-                _ => c
-            };
+            if (c is >= 0x30A1 and <= 0x30F4)
+                AppendKatakanaHalfWidth(sb, c);
+            else if (c is >= 0xFF01 and <= 0xFF5E)
+                sb.Append((char)(c - 0xFF01 + 0x0021)); // Fullwidth ASCII to ASCII
+            else
+                sb.Append((char)PunctuationToHalfWidth(c));
         }
+
+        static void AppendKatakanaHalfWidth(StringBuilder sb, int c)
+        {
+            const char dakuten = '\uFF9E';
+            const char handakuten = '\uFF9F';
+
+            switch (c)
+            {
+                // a-o vowels (ア-オ) and their small forms (ァ-ォ)
+                case >= 0x30A1 and <= 0x30AA when c % 2 == 0:
+                    sb.Append((char)((c - 0x30A2) / 2 + 0xFF71));
+                    break;
+                case >= 0x30A1 and <= 0x30AA when c % 2 == 1:
+                    sb.Append((char)((c - 0x30A1) / 2 + 0xFF67));
+                    break;
+
+                // ka-chi (カ-チ) unvoiced
+                case >= 0x30AB and <= 0x30C2 when c % 2 == 1:
+                    sb.Append((char)((c - 0x30AB) / 2 + 0xFF76));
+                    break;
+                // ga-dhi (ガ-ヂ) voiced = base + dakuten
+                case >= 0x30AB and <= 0x30C2 when c % 2 == 0:
+                    sb.Append((char)((c - 0x30AC) / 2 + 0xFF76));
+                    sb.Append(dakuten);
+                    break;
+
+                // small tsu (ッ)
+                case 0x30C3:
+                    sb.Append('\uFF6F');
+                    break;
+
+                // tsu-to (ツ-ト) unvoiced
+                case >= 0x30C4 and <= 0x30C9 when c % 2 == 0:
+                    sb.Append((char)((c - 0x30C4) / 2 + 0xFF82));
+                    break;
+                // du-do (ヅ-ド) voiced = base + dakuten
+                case >= 0x30C4 and <= 0x30C9 when c % 2 == 1:
+                    sb.Append((char)((c - 0x30C5) / 2 + 0xFF82));
+                    sb.Append(dakuten);
+                    break;
+
+                // na-no (ナ-ノ)
+                case >= 0x30CA and <= 0x30CE:
+                    sb.Append((char)(c - 0x30CA + 0xFF85));
+                    break;
+
+                // ha-ho (ハ-ホ) unvoiced
+                case >= 0x30CF and <= 0x30DD when c % 3 == 0:
+                    sb.Append((char)((c - 0x30CF) / 3 + 0xFF8A));
+                    break;
+                // ba-bo (バ-ボ) voiced = base + dakuten
+                case >= 0x30CF and <= 0x30DD when c % 3 == 1:
+                    sb.Append((char)((c - 0x30D0) / 3 + 0xFF8A));
+                    sb.Append(dakuten);
+                    break;
+                // pa-po (パ-ポ) semi-voiced = base + handakuten
+                case >= 0x30CF and <= 0x30DD when c % 3 == 2:
+                    sb.Append((char)((c - 0x30D1) / 3 + 0xFF8A));
+                    sb.Append(handakuten);
+                    break;
+
+                // ma-mo (マ-モ)
+                case >= 0x30DE and <= 0x30E2:
+                    sb.Append((char)(c - 0x30DE + 0xFF8F));
+                    break;
+
+                // ya-yo (ヤ-ヨ) and small forms (ャ-ョ)
+                case >= 0x30E3 and <= 0x30E8 when c % 2 == 0:
+                    sb.Append((char)((c - 0x30E4) / 2 + 0xFF94));
+                    break;
+                case >= 0x30E3 and <= 0x30E8 when c % 2 == 1:
+                    sb.Append((char)((c - 0x30E3) / 2 + 0xFF6C));
+                    break;
+
+                // ra-ro (ラ-ロ)
+                case >= 0x30E9 and <= 0x30ED:
+                    sb.Append((char)(c - 0x30E9 + 0xFF97));
+                    break;
+
+                case 0x30EF: sb.Append('\uFF9C'); break; // wa (ワ)
+                case 0x30F2: sb.Append('\uFF66'); break; // wo (ヲ)
+                case 0x30F3: sb.Append('\uFF9D'); break; // n (ン)
+
+                // vu (ヴ) voiced = ｳ + dakuten
+                case 0x30F4:
+                    sb.Append('\uFF73');
+                    sb.Append(dakuten);
+                    break;
+
+                default:
+                    sb.Append((char)c);
+                    break;
+            }
+        }
+
+        static int PunctuationToHalfWidth(int c) => c switch
+        {
+            0x2015 => 0xFF70, // HORIZONTAL BAR => HALFWIDTH PROLONGED SOUND MARK
+            0x2018 => 0x0060, // LEFT SINGLE QUOTATION MARK => GRAVE ACCENT
+            0x2019 => 0x0027, // RIGHT SINGLE QUOTATION MARK => APOSTROPHE
+            0x201D => 0x0022, // RIGHT DOUBLE QUOTATION MARK => QUOTATION MARK
+            0x3001 => 0xFF64, // IDEOGRAPHIC COMMA
+            0x3002 => 0xFF61, // IDEOGRAPHIC FULL STOP
+            0x300C => 0xFF62, // LEFT CORNER BRACKET
+            0x300D => 0xFF63, // RIGHT CORNER BRACKET
+            0x309B => 0xFF9E, // KATAKANA-HIRAGANA VOICED SOUND MARK
+            0x309C => 0xFF9F, // KATAKANA-HIRAGANA SEMI-VOICED SOUND MARK
+            0x30FB => 0xFF65, // KATAKANA MIDDLE DOT
+            0x30FC => 0xFF70, // KATAKANA-HIRAGANA PROLONGED SOUND MARK
+            0xFFE5 => 0x005C, // FULLWIDTH YEN SIGN => REVERSE SOLIDUS
+            _ => c
+        };
     }
 
     private static ScalarValue Char(double number)

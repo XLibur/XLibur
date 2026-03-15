@@ -22,6 +22,11 @@ internal class XLPivotSourceTests
         //
         // Open the workbook and click Pivot Table Analyze - Refresh - Refresh All. It shouldn't
         // report an error.
+        TestHelper.LoadAndAssert(wb =>
+        {
+            Assert.That(wb.Worksheets.Count, Is.GreaterThan(0));
+        }, @"Other\PivotTable\Sources\PivotTable-AllSources-input.xlsx");
+
         TestHelper.LoadSaveAndCompare(
             @"Other\PivotTable\Sources\PivotTable-AllSources-input.xlsx",
             @"Other\PivotTable\Sources\PivotTable-AllSources-output.xlsx");

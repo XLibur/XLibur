@@ -3,13 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.AutoFilters;
 
 internal sealed class XLFilterColumn : IXLFilterColumn, IXLFilteredColumn, IEnumerable<XLFilter>
 {
     private readonly XLAutoFilter _autoFilter;
     private readonly int _column;
-    private readonly List<XLFilter> _filters = new();
+    private readonly List<XLFilter> _filters = [];
 
     public XLFilterColumn(XLAutoFilter autoFilter, int column)
     {
@@ -19,7 +19,7 @@ internal sealed class XLFilterColumn : IXLFilterColumn, IXLFilteredColumn, IEnum
 
     #region IXLFilterColumn Members
 
-    public void Clear(bool reapply)
+    public void Clear(bool reapply = true)
     {
         _filters.Clear();
         FilterType = XLFilterType.None;
@@ -27,116 +27,116 @@ internal sealed class XLFilterColumn : IXLFilterColumn, IXLFilteredColumn, IEnum
             _autoFilter.Reapply();
     }
 
-    public IXLFilteredColumn AddFilter(XLCellValue value, bool reapply)
+    public IXLFilteredColumn AddFilter(XLCellValue value, bool reapply = true)
     {
         SwitchFilter(XLFilterType.Regular);
         AddFilter(XLFilter.CreateRegularFilter(value.ToString()), reapply);
         return this;
     }
 
-    public IXLFilteredColumn AddDateGroupFilter(DateTime date, XLDateTimeGrouping dateTimeGrouping, bool reapply)
+    public IXLFilteredColumn AddDateGroupFilter(DateTime date, XLDateTimeGrouping dateTimeGrouping, bool reapply = true)
     {
         SwitchFilter(XLFilterType.Regular);
         AddFilter(XLFilter.CreateDateGroupFilter(date, dateTimeGrouping), reapply);
         return this;
     }
 
-    public void Top(int value, XLTopBottomType type, bool reapply)
+    public void Top(int value, XLTopBottomType type = XLTopBottomType.Items, bool reapply = true)
     {
         SetTopBottom(value, type, takeTop: true, reapply);
     }
 
-    public void Bottom(int value, XLTopBottomType type, bool reapply)
+    public void Bottom(int value, XLTopBottomType type = XLTopBottomType.Items, bool reapply = true)
     {
         SetTopBottom(value, type, takeTop: false, reapply);
     }
 
-    public void AboveAverage(bool reapply)
+    public void AboveAverage(bool reapply = true)
     {
         SetAverage(aboveAverage: true, reapply);
     }
 
-    public void BelowAverage(bool reapply)
+    public void BelowAverage(bool reapply = true)
     {
         SetAverage(aboveAverage: false, reapply);
     }
 
-    public void ColorFilter(XLColor color, bool reapply)
+    public void ColorFilter(XLColor color, bool reapply = true)
     {
         SetColorFilter(color, byCellColor: true, reapply);
     }
 
-    public void FontColorFilter(XLColor color, bool reapply)
+    public void FontColorFilter(XLColor color, bool reapply = true)
     {
         SetColorFilter(color, byCellColor: false, reapply);
     }
 
-    public IXLFilterConnector EqualTo(XLCellValue value, bool reapply)
+    public IXLFilterConnector EqualTo(XLCellValue value, bool reapply = true)
     {
         return AddCustomFilter(value.ToString(), true, reapply);
     }
 
-    public IXLFilterConnector NotEqualTo(XLCellValue value, bool reapply)
+    public IXLFilterConnector NotEqualTo(XLCellValue value, bool reapply = true)
     {
         return AddCustomFilter(value.ToString(), false, reapply);
     }
 
-    public IXLFilterConnector GreaterThan(XLCellValue value, bool reapply)
+    public IXLFilterConnector GreaterThan(XLCellValue value, bool reapply = true)
     {
         return AddCustomFilter(value, XLFilterOperator.GreaterThan, reapply);
     }
 
-    public IXLFilterConnector LessThan(XLCellValue value, bool reapply)
+    public IXLFilterConnector LessThan(XLCellValue value, bool reapply = true)
     {
         return AddCustomFilter(value, XLFilterOperator.LessThan, reapply);
     }
 
-    public IXLFilterConnector EqualOrGreaterThan(XLCellValue value, bool reapply)
+    public IXLFilterConnector EqualOrGreaterThan(XLCellValue value, bool reapply = true)
     {
         return AddCustomFilter(value, XLFilterOperator.EqualOrGreaterThan, reapply);
     }
 
-    public IXLFilterConnector EqualOrLessThan(XLCellValue value, bool reapply)
+    public IXLFilterConnector EqualOrLessThan(XLCellValue value, bool reapply = true)
     {
         return AddCustomFilter(value, XLFilterOperator.EqualOrLessThan, reapply);
     }
 
-    public void Between(XLCellValue minValue, XLCellValue maxValue, bool reapply)
+    public void Between(XLCellValue minValue, XLCellValue maxValue, bool reapply = true)
     {
         EqualOrGreaterThan(minValue, false).And.EqualOrLessThan(maxValue, reapply);
     }
 
-    public void NotBetween(XLCellValue minValue, XLCellValue maxValue, bool reapply)
+    public void NotBetween(XLCellValue minValue, XLCellValue maxValue, bool reapply = true)
     {
         LessThan(minValue, false).Or.GreaterThan(maxValue, reapply);
     }
 
-    public IXLFilterConnector BeginsWith(string value, bool reapply)
+    public IXLFilterConnector BeginsWith(string value, bool reapply = true)
     {
         return AddCustomFilter(value + "*", true, reapply);
     }
 
-    public IXLFilterConnector NotBeginsWith(string value, bool reapply)
+    public IXLFilterConnector NotBeginsWith(string value, bool reapply = true)
     {
         return AddCustomFilter(value + "*", false, reapply);
     }
 
-    public IXLFilterConnector EndsWith(string value, bool reapply)
+    public IXLFilterConnector EndsWith(string value, bool reapply = true)
     {
         return AddCustomFilter("*" + value, true, reapply);
     }
 
-    public IXLFilterConnector NotEndsWith(string value, bool reapply)
+    public IXLFilterConnector NotEndsWith(string value, bool reapply = true)
     {
         return AddCustomFilter("*" + value, false, reapply);
     }
 
-    public IXLFilterConnector Contains(string value, bool reapply)
+    public IXLFilterConnector Contains(string value, bool reapply = true)
     {
         return AddCustomFilter("*" + value + "*", true, reapply);
     }
 
-    public IXLFilterConnector NotContains(string value, bool reapply)
+    public IXLFilterConnector NotContains(string value, bool reapply = true)
     {
         return AddCustomFilter("*" + value + "*", false, reapply);
     }

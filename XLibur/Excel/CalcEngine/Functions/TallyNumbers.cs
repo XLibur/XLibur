@@ -53,42 +53,58 @@ internal sealed class TallyNumbers : ITally
         {
             if (arg.TryPickScalar(out var scalar, out var collection))
             {
-                if (_ignoreScalarBlank && scalar.IsBlank)
-                    continue;
-
-                // Scalars are converted to number.
-                if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
-                {
-                    if (_ignoreErrors)
-                        continue;
-
+                if (!TallyScalar(ctx, scalar, ref tally, out var error))
                     return error;
-                }
-
-                tally = tally.Tally(number);
             }
             else
             {
-                var valuesIterator = !collection.TryPickT0(out var array, out var reference)
-                    ? _getNonBlankValues(ctx, reference)
-                    : array;
-                foreach (var value in valuesIterator)
-                {
-                    if (value.TryPickError(out var error))
-                    {
-                        if (_ignoreErrors)
-                            continue;
-
-                        return error;
-                    }
-
-                    // For arrays and references, only the number type is used. Other types are ignored.
-                    if (value.TryPickNumber(out var number))
-                        tally = tally.Tally(number);
-                }
+                if (!TallyCollection(ctx, collection, ref tally, out var error))
+                    return error;
             }
         }
 
         return tally;
+    }
+
+    private bool TallyScalar<T>(CalcContext ctx, ScalarValue scalar, ref T tally, out XLError error)
+        where T : ITallyState<T>
+    {
+        error = default;
+
+        if (_ignoreScalarBlank && scalar.IsBlank)
+            return true;
+
+        // Scalars are converted to number.
+        if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out error))
+            return _ignoreErrors;
+
+        tally = tally.Tally(number);
+        return true;
+    }
+
+    private bool TallyCollection<T>(CalcContext ctx, OneOf<Array, Reference> collection, ref T tally, out XLError error)
+        where T : ITallyState<T>
+    {
+        error = default;
+        var valuesIterator = !collection.TryPickT0(out var array, out var reference)
+            ? _getNonBlankValues(ctx, reference)
+            : array;
+
+        foreach (var value in valuesIterator)
+        {
+            if (value.TryPickError(out error))
+            {
+                if (_ignoreErrors)
+                    continue;
+
+                return false;
+            }
+
+            // For arrays and references, only the number type is used. Other types are ignored.
+            if (value.TryPickNumber(out var number))
+                tally = tally.Tally(number);
+        }
+
+        return true;
     }
 }

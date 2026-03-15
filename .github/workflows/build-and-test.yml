@@ -55,6 +55,7 @@ jobs:
           /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
           /d:sonar.host.url="https://sonarcloud.io"
           /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml"
+          /d:sonar.coverage.exclusions="XLibur.Examples/**,XLibur.Benchmarks/**"
 
       - name: Build
         run: dotnet build XLibur.slnx --configuration Release --no-restore

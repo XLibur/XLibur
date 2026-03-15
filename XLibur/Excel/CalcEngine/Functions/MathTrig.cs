@@ -203,7 +203,6 @@ internal static class MathTrig
         if (input.Length > 255)
             return XLError.IncompatibleValue;
 
-        // Check minus sign
         var text = input.AsSpan().Trim();
         var minusSign = text.Length > 0 && text[0] == '-';
         if (minusSign)
@@ -218,26 +217,36 @@ internal static class MathTrig
 
             total += addValue;
 
-            // Standard roman numbers allow only one subtract symbol, Excel allows many
-            // subtract symbols of different types.
-            while (i > 0)
-            {
-                var subtractSymbol = char.ToUpperInvariant(text[i - 1]);
-                if (!RomanSymbolValues.TryGetValue(subtractSymbol, out var subtractValue))
-                    return XLError.IncompatibleValue;
+            var subtractResult = AccumulateSubtractSymbols(text, ref i, addValue);
+            if (!subtractResult.TryPickT0(out var subtracted, out var error))
+                return error;
 
-                if (subtractValue >= addValue)
-                    break;
-
-                total -= subtractValue;
-                --i;
-            }
+            total -= subtracted;
         }
 
         if (minusSign && total == 0)
             return XLError.NumberInvalid;
 
         return minusSign ? -total : total;
+    }
+
+    private static OneOf<int, XLError> AccumulateSubtractSymbols(ReadOnlySpan<char> text, ref int i, int addValue)
+    {
+        var subtracted = 0;
+        while (i > 0)
+        {
+            var subtractSymbol = char.ToUpperInvariant(text[i - 1]);
+            if (!RomanSymbolValues.TryGetValue(subtractSymbol, out var subtractValue))
+                return XLError.IncompatibleValue;
+
+            if (subtractValue >= addValue)
+                break;
+
+            subtracted += subtractValue;
+            --i;
+        }
+
+        return subtracted;
     }
 
     private static ScalarValue Asin(double number)
@@ -725,20 +734,9 @@ internal static class MathTrig
             foreach (var scalar in numberCollection)
             {
                 ctx.ThrowIfCancelled();
-                if (scalar.IsLogical)
-                    return XLError.IncompatibleValue;
 
-                if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
-                    return error;
-
-                if (number < 0)
-                    return XLError.NumberInvalid;
-
-                number = Math.Truncate(number);
-                numbersSum += number;
-                denominator *= XLMath.Factorial(number);
-                if (double.IsInfinity(denominator))
-                    return XLError.NumberInvalid;
+                if (!ProcessMultinomialScalar(scalar, ctx, ref numbersSum, ref denominator))
+                    return GetMultinomialScalarError(scalar, ctx);
             }
         }
 
@@ -747,6 +745,38 @@ internal static class MathTrig
             return XLError.NumberInvalid;
 
         return numerator / denominator;
+    }
+
+    private static bool ProcessMultinomialScalar(ScalarValue scalar, CalcContext ctx, ref double numbersSum, ref double denominator)
+    {
+        if (scalar.IsLogical)
+            return false;
+
+        if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out _))
+            return false;
+
+        if (number < 0)
+            return false;
+
+        number = Math.Truncate(number);
+        numbersSum += number;
+        denominator *= XLMath.Factorial(number);
+        return !double.IsInfinity(denominator);
+    }
+
+    private static ScalarValue GetMultinomialScalarError(ScalarValue scalar, CalcContext ctx)
+    {
+        if (scalar.IsLogical)
+            return XLError.IncompatibleValue;
+
+        if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+            return error;
+
+        if (number < 0)
+            return XLError.NumberInvalid;
+
+        // denominator overflow
+        return XLError.NumberInvalid;
     }
 
     private static ScalarValue Odd(double number)
@@ -792,7 +822,7 @@ internal static class MathTrig
         if (!result.TryPickT0(out var state, out var error))
             return error;
 
-        return state.HasValues ? state.Product : 0;
+        return state.HasValues ? state.Result : 0;
     }
 
     private static ScalarValue Quotient(CalcContext ctx, double dividend, double divisor)
@@ -993,7 +1023,7 @@ internal static class MathTrig
         if (!result.TryPickT0(out var state, out var error))
             return error;
 
-        return state.Sum;
+        return state.Total;
     }
 
     private static AnyValue SumIf(CalcContext ctx, AnyValue range, ScalarValue selectionCriteria, AnyValue sumRange)
@@ -1046,31 +1076,37 @@ internal static class MathTrig
         if (areas.Length < 1)
             return XLError.IncompatibleValue;
 
-        var width = 0;
-        var height = 0;
+        if (!ValidateSumProductDimensions(areas, out var width, out var height))
+            return XLError.IncompatibleValue;
 
-        // Check that all arguments have same width and height.
+        return CalculateSumProduct(areas, width, height);
+    }
+
+    private static bool ValidateSumProductDimensions(Array[] areas, out int width, out int height)
+    {
+        width = 0;
+        height = 0;
+
         foreach (var area in areas)
         {
             var areaWidth = area.Width;
             var areaHeight = area.Height;
 
-            // We don't need to do this check for every value later, because scalar
-            // blank value can only happen for 1x1.
-            if (areaWidth == 1 &&
-                areaHeight == 1 &&
-                area[0, 0].IsBlank)
-                return XLError.IncompatibleValue;
+            if (areaWidth == 1 && areaHeight == 1 && area[0, 0].IsBlank)
+                return false;
 
-            // If this is the first argument, use it as a baseline width and height
             if (width == 0) width = areaWidth;
             if (height == 0) height = areaHeight;
 
             if (width != areaWidth || height != areaHeight)
-                return XLError.IncompatibleValue;
+                return false;
         }
 
-        // Calculate SumProduct
+        return true;
+    }
+
+    private static AnyValue CalculateSumProduct(Array[] areas, int width, int height)
+    {
         var sum = 0.0;
         for (var rowIdx = 0; rowIdx < height; ++rowIdx)
         {
@@ -1103,7 +1139,7 @@ internal static class MathTrig
         if (!result.TryPickT0(out var sumSq, out var error))
             return error;
 
-        return sumSq.Sum;
+        return sumSq.Total;
     }
 
     private static ScalarValue Tan(double radians)
@@ -1183,21 +1219,21 @@ internal static class MathTrig
         return allForms;
     }
 
-    private readonly record struct SumState(double Sum) : ITallyState<SumState>
+    private readonly record struct SumState(double Total) : ITallyState<SumState>
     {
-        public SumState Tally(double number) => new(Sum + number);
+        public SumState Tally(double number) => new(Total + number);
     }
 
-    private readonly record struct SumSqState(double Sum) : ITallyState<SumSqState>
+    private readonly record struct SumSqState(double Total) : ITallyState<SumSqState>
     {
         public SumSqState Tally(double number)
         {
-            return new SumSqState(Sum + number * number);
+            return new SumSqState(Total + number * number);
         }
     }
 
-    private readonly record struct ProductState(double Product, bool HasValues) : ITallyState<ProductState>
+    private readonly record struct ProductState(double Result, bool HasValues) : ITallyState<ProductState>
     {
-        public ProductState Tally(double number) => new(Product * number, true);
+        public ProductState Tally(double number) => new(Result * number, true);
     }
 }

@@ -36,7 +36,8 @@ internal readonly struct XLColorKey : IEquatable<XLColorKey>
                     hash = (hash * 397) ^ Color.ToArgb();
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    hash = (hash * 397) ^ Indexed;
+                    break;
             }
 
             return hash;

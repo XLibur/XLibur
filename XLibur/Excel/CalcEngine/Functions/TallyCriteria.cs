@@ -99,19 +99,7 @@ internal sealed class TallyCriteria : ITally
             // Until all elements are processed.
             while (true)
             {
-                // Do all enumerators have same offset?
-                var allSame = true;
-                var minOfs = GetOffset(0);
-                for (var i = 1; i < enumerables.Count; ++i)
-                {
-                    var currentOfs = GetOffset(i);
-                    var comparison = currentOfs.CompareTo(minOfs);
-                    if (minOfs != currentOfs)
-                        allSame = false;
-
-                    if (comparison < 0)
-                        minOfs = currentOfs;
-                }
+                var (minOfs, allSame) = FindMinimumOffset(enumerables, enumerators);
 
                 // If all offsets are same, that means all criteria are
                 // satisfied for same offset.
@@ -120,15 +108,8 @@ internal sealed class TallyCriteria : ITally
 
                 // Move all enumerators that point at the minimum offset
                 // to the next element.
-                for (var i = 0; i < enumerables.Count; ++i)
-                {
-                    var currentOfs = GetOffset(i);
-                    if (currentOfs.CompareTo(minOfs) <= 0)
-                    {
-                        if (!enumerators[i].MoveNext())
-                            yield break;
-                    }
-                }
+                if (!AdvanceMinimumEnumerators(enumerables, enumerators, minOfs))
+                    yield break;
             }
         }
         finally
@@ -136,12 +117,52 @@ internal sealed class TallyCriteria : ITally
             foreach (var enumerator in enumerators)
                 enumerator.Dispose();
         }
+    }
 
-        XLSheetOffset GetOffset(int i)
+    private static (XLSheetOffset MinOffset, bool AllSame) FindMinimumOffset(
+        List<(XLSheetPoint Origin, IEnumerable<XLSheetPoint> Enumerable)> enumerables,
+        List<IEnumerator<XLSheetPoint>> enumerators)
+    {
+        var allSame = true;
+        var minOfs = GetOffset(enumerables, enumerators, 0);
+        for (var i = 1; i < enumerables.Count; ++i)
         {
-            var origin = enumerables[i].Origin;
-            var point = enumerators[i].Current;
-            return point - origin;
+            var currentOfs = GetOffset(enumerables, enumerators, i);
+            if (minOfs != currentOfs)
+                allSame = false;
+
+            if (currentOfs.CompareTo(minOfs) < 0)
+                minOfs = currentOfs;
         }
+
+        return (minOfs, allSame);
+    }
+
+    private static bool AdvanceMinimumEnumerators(
+        List<(XLSheetPoint Origin, IEnumerable<XLSheetPoint> Enumerable)> enumerables,
+        List<IEnumerator<XLSheetPoint>> enumerators,
+        XLSheetOffset minOfs)
+    {
+        for (var i = 0; i < enumerables.Count; ++i)
+        {
+            var currentOfs = GetOffset(enumerables, enumerators, i);
+            if (currentOfs.CompareTo(minOfs) <= 0)
+            {
+                if (!enumerators[i].MoveNext())
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static XLSheetOffset GetOffset(
+        List<(XLSheetPoint Origin, IEnumerable<XLSheetPoint> Enumerable)> enumerables,
+        List<IEnumerator<XLSheetPoint>> enumerators,
+        int i)
+    {
+        var origin = enumerables[i].Origin;
+        var point = enumerators[i].Current;
+        return point - origin;
     }
 }

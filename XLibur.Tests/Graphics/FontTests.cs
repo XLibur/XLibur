@@ -105,6 +105,9 @@ public class FontTests
         var ws = wb.AddWorksheet();
         ws.Cell(1, 1).Value = @"اصين";
         ws.Column(1).AdjustToContents();
+
+        // AdjustToContents should set width to match content (short Arabic text is narrower than default)
+        Assert.That(ws.Column(1).Width, Is.GreaterThan(0));
     }
 
     private class DummyFont : IXLFontBase

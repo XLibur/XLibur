@@ -13,7 +13,7 @@ namespace XLibur.Benchmarks;
 ///
 /// Modes:
 ///   load  - Profile workbook loading only (XLWorkbook constructor)
-///   read  - Profile loading + reading all cells as strings
+///   read  - Profile loading & reading all cells as strings
 ///   both  - Take snapshots at each phase (default)
 ///
 /// Output: .dmw workspace files in C:\profiles\
@@ -63,7 +63,6 @@ public static class MemoryProfile
                 case "read":
                     ProfileLoadAndRead(fileBytes);
                     break;
-                case "both":
                 default:
                     ProfileBoth(fileBytes);
                     break;
@@ -210,10 +209,13 @@ public static class MemoryProfile
         return ms.ToArray();
     }
 
+    // ReSharper disable once InconsistentNaming
     private static void ForceGC()
     {
+#pragma warning disable S1215 // Intentionally forcing GC for accurate memory profiling
         GC.Collect(2, GCCollectionMode.Forced, true, true);
         GC.WaitForPendingFinalizers();
         GC.Collect(2, GCCollectionMode.Forced, true, true);
+#pragma warning restore S1215
     }
 }

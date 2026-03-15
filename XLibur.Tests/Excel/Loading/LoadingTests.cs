@@ -131,7 +131,10 @@ public class LoadingTests
         using var wb = new XLWorkbook(stream);
         var ws = wb.Worksheets.First();
         var table = ws.Tables.First();
+        var rangeBefore = table.RangeAddress.ToString();
         table.DataRange.InsertRowsBelow(5);
+
+        Assert.AreNotEqual(rangeBefore, table.RangeAddress.ToString());
     }
 
     [Test]
