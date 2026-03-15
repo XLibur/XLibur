@@ -111,6 +111,12 @@ Reports are generated in `StrykerOutput/` — open the HTML report to see surviv
 
 ## Developer guidelines
 
+Before submitting a PR, run the formatter to ensure your code matches the project style:
+
+```sh
+dotnet format XLibur.slnx
+```
+
 The [OpenXML specification](https://ecma-international.org/publications-and-standards/standards/ecma-376/) is a large  and complicated beast.
 
 Feel free to submit a PR
