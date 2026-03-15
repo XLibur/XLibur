@@ -193,7 +193,5 @@ internal sealed class XLDeferredBorder : IXLBorder
     public IXLStyle SetDiagonalBorder(XLBorderStyleValues value) { DiagonalBorder = value; return _style; }
     public IXLStyle SetDiagonalBorderColor(XLColor value) { DiagonalBorderColor = value; return _style; }
 
-    public bool Equals(IXLBorder? other) => other is XLDeferredBorder db ? Key == db.Key : false;
-    public override bool Equals(object? obj) => Equals(obj as IXLBorder);
-    public override int GetHashCode() => Key.GetHashCode();
+    public bool Equals(IXLBorder? other) => other is XLDeferredBorder db && Key == db.Key;
 }

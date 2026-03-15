@@ -118,6 +118,4 @@ internal sealed class XLDeferredFont : IXLFont
     public IXLStyle SetFontScheme(XLFontScheme value) { FontScheme = value; return _style; }
 
     public bool Equals(IXLFont? other) => other is XLDeferredFont df ? Key == df.Key : false;
-    public override bool Equals(object? obj) => Equals(obj as IXLFont);
-    public override int GetHashCode() => Key.GetHashCode();
 }

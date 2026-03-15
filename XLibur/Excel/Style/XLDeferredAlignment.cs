@@ -128,6 +128,4 @@ internal sealed class XLDeferredAlignment : IXLAlignment
     public IXLStyle SetTopToBottom(bool value) { TopToBottom = value; return _style; }
 
     public bool Equals(IXLAlignment? other) => other is XLDeferredAlignment da ? Key == da.Key : false;
-    public override bool Equals(object? obj) => Equals(obj as IXLAlignment);
-    public override int GetHashCode() => Key.GetHashCode();
 }
