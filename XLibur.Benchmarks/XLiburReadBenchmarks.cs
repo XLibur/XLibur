@@ -20,7 +20,9 @@ public class XLiburReadBenchmarks
         using var workbook = new XLWorkbook();
         var ws = workbook.AddWorksheet("Data");
 
+#pragma warning disable S2245 // Deterministic seed for reproducible benchmarks
         var random = new Random(42);
+#pragma warning restore S2245
         var baseDate = new DateTime(2020, 1, 1);
         string[] regions = { "North", "South", "East", "West", "Central" };
         string[] statuses = { "Active", "Pending", "Closed", "Review", "Draft" };
