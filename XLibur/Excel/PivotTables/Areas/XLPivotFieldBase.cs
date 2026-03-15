@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace XLibur.Excel;
@@ -50,7 +51,7 @@ internal abstract class XLPivotFieldBase : IXLPivotField
         set => GetField().SubtotalCaption = value;
     }
 
-    public IReadOnlyCollection<XLSubtotalFunction> Subtotals => GetField().Subtotals;
+    public IReadOnlyCollection<XLSubtotalFunction> Subtotals => GetFieldValue<IReadOnlyCollection<XLSubtotalFunction>>(f => f.Subtotals, Array.Empty<XLSubtotalFunction>());
 
     public bool IncludeNewItemsInFilter
     {

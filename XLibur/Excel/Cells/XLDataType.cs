@@ -42,7 +42,7 @@ public enum XLDataType
     DateTime = 5,
 
     /// <summary>
-    /// The value is a <see cref="TimeSpan"/>, represented in a serial date time (24 hours is 1, 36 hours is 1.5 ect.).
+    /// The value is a <see cref="TimeSpan"/>, represented in a serial date time (24 hours is 1, 36 hours is 1.5 etc.).
     /// </summary>
     TimeSpan = 6,
 }

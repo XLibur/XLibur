@@ -194,7 +194,7 @@ internal sealed class XLRangeIndex<T> : XLRangeIndex, IXLRangeIndex<T>
 
     public int RemoveAll(Predicate<T>? predicate = null)
     {
-        predicate = predicate ?? (_ => true);
+        predicate ??= _ => true;
 
         return base.RemoveAll(r => predicate((T)r));
     }
