@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -8,7 +9,9 @@ namespace XLibur.Excel.CalcEngine;
 /// </summary>
 internal static class FractionParser
 {
-    private static readonly Regex FractionRegex = new(@"^ *([+-]?) *([0-9]+) ([0-9]{1,5})/([0-9]{1,5}) *$", RegexOptions.CultureInvariant);
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(150);
+
+    private static readonly Regex FractionRegex = new(@"^ *([+-]?) *([0-9]+) ([0-9]{1,5})/([0-9]{1,5}) *$", RegexOptions.CultureInvariant, RegexTimeout);
 
     public static bool TryParse(string s, out double result)
     {

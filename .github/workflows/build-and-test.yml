@@ -60,6 +60,8 @@ jobs:
 
       - name: Begin SonarCloud analysis
         if: env.SONAR_TOKEN != ''
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: >
           dotnet sonarscanner begin
           /k:"XLibur_XLibur"
@@ -84,6 +86,8 @@ jobs:
 
       - name: End SonarCloud analysis
         if: env.SONAR_TOKEN != ''
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"
 
       - name: Upload test results

@@ -5,6 +5,7 @@ namespace XLibur.Excel.CalcEngine.Functions;
 
 internal sealed class XLMatrix
 {
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(150);
     public XLMatrix? L;
     public XLMatrix? U;
     public int Cols;
@@ -257,22 +258,26 @@ internal sealed class XLMatrix
     public static XLMatrix Parse(string ps) // Function parses the matrix from string
     {
         var s = NormalizeMatrixString(ps);
-        var rows = Regex.Split(s, "\r\n");
-        var nums = rows[0].Split(' ');
-        var matrix = new XLMatrix(rows.Length, nums.Length);
         try
         {
+            var rows = Regex.Split(s, "\r\n", RegexOptions.None, RegexTimeout);
+            var nums = rows[0].Split(' ');
+            var matrix = new XLMatrix(rows.Length, nums.Length);
             for (var i = 0; i < rows.Length; i++)
             {
                 nums = rows[i].Split(' ');
                 for (var j = 0; j < nums.Length; j++) matrix[i, j] = double.Parse(nums[j]);
             }
+            return matrix;
+        }
+        catch (RegexMatchTimeoutException ex)
+        {
+            throw new FormatException("Wrong input format!", ex);
         }
         catch (FormatException fe)
         {
             throw new FormatException("Wrong input format!", fe);
         }
-        return matrix;
     }
 
     public override string ToString() // Function returns matrix as a string
