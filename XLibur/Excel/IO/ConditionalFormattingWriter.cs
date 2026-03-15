@@ -135,7 +135,7 @@ internal sealed class ConditionalFormattingWriter
                     conditionalFormatting.AddNamespaceDeclaration("xm", XmMain2006);
                     conditionalFormatting.Append(XLCFConvertersExtension.Convert(xlConditionalFormat, context));
                     var referenceSequence = new OfficeExcel.ReferenceSequence
-                        { Text = cfGroup.RangeId };
+                    { Text = cfGroup.RangeId };
                     conditionalFormatting.Append(referenceSequence);
 
                     conditionalFormattings.Append(conditionalFormatting);
@@ -245,7 +245,7 @@ internal sealed class ConditionalFormattingWriter
                 sparklineGroup.DisplayEmptyCellsAs = xlSparklineGroup.DisplayEmptyCellsAs.ToOpenXml();
 
                 sparklineGroup.AxisColor = new X14.AxisColor()
-                    { Rgb = xlSparklineGroup.HorizontalAxis.Color.Color.ToHex() };
+                { Rgb = xlSparklineGroup.HorizontalAxis.Color.Color.ToHex() };
                 sparklineGroup.DisplayXAxis = xlSparklineGroup.HorizontalAxis.IsVisible;
                 sparklineGroup.RightToLeft = xlSparklineGroup.HorizontalAxis.RightToLeft;
                 sparklineGroup.DateAxis = xlSparklineGroup.HorizontalAxis.DateAxis;

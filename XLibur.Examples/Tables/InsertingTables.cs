@@ -49,8 +49,8 @@ public class InsertingTables : IXLExample
         };
 
         var people = from p in list
-            where p.Age >= 21
-            select p;
+                     where p.Age >= 21
+                     select p;
 
         ws.Cell(7, 6).Value = "From Query";
         ws.Range(7, 6, 7, 9).Merge().AddToNamed("Titles");

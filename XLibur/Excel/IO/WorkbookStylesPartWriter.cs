@@ -73,7 +73,7 @@ internal static class WorkbookStylesPartWriter
         if (!workbookStylesPart.Stylesheet!.CellStyles.Elements<CellStyle>().Any(c =>
                 c.BuiltinId != null && c.BuiltinId.HasValue && c.BuiltinId.Value == 0U))
             workbookStylesPart.Stylesheet!.CellStyles.AppendChild(new CellStyle
-                { Name = "Normal", FormatId = defaultFormatId, BuiltinId = 0U });
+            { Name = "Normal", FormatId = defaultFormatId, BuiltinId = 0U });
 
         workbookStylesPart.Stylesheet!.CellStyles.Count = (uint)workbookStylesPart.Stylesheet!.CellStyles.Count();
 

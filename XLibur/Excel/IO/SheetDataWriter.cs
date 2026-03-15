@@ -490,39 +490,39 @@ internal sealed class SheetDataWriter
                 case XLDataType.Blank:
                     return;
                 case XLDataType.Text:
-                {
-                    if (shareString)
                     {
-                        var memorySstId = cellsCollection.ValueSlice.GetShareStringId(point);
-                        var sharedStringId = context.GetSharedStringId(memorySstId, point);
-                        w.WriteStartElement("v", Main2006SsNs);
-                        w.WriteValue(sharedStringId);
-                        w.WriteEndElement();
-                    }
-                    else
-                    {
-                        w.WriteStartElement("is", Main2006SsNs);
-                        var richText = cellsCollection.ValueSlice.GetRichText(point);
-                        if (richText is not null)
+                        if (shareString)
                         {
-                            TextSerializer.WriteRichTextElements(w, richText, context);
+                            var memorySstId = cellsCollection.ValueSlice.GetShareStringId(point);
+                            var sharedStringId = context.GetSharedStringId(memorySstId, point);
+                            w.WriteStartElement("v", Main2006SsNs);
+                            w.WriteValue(sharedStringId);
+                            w.WriteEndElement();
                         }
                         else
                         {
-                            var text = cellValue.GetText();
-                            w.WriteStartElement("t", Main2006SsNs);
-                            if (text.PreserveSpaces())
-                                w.WritePreserveSpaceAttr();
+                            w.WriteStartElement("is", Main2006SsNs);
+                            var richText = cellsCollection.ValueSlice.GetRichText(point);
+                            if (richText is not null)
+                            {
+                                TextSerializer.WriteRichTextElements(w, richText, context);
+                            }
+                            else
+                            {
+                                var text = cellValue.GetText();
+                                w.WriteStartElement("t", Main2006SsNs);
+                                if (text.PreserveSpaces())
+                                    w.WritePreserveSpaceAttr();
 
-                            w.WriteString(text);
-                            w.WriteEndElement();
+                                w.WriteString(text);
+                                w.WriteEndElement();
+                            }
+
+                            w.WriteEndElement(); // is
                         }
 
-                        w.WriteEndElement(); // is
+                        break;
                     }
-
-                    break;
-                }
                 case XLDataType.TimeSpan:
                     WriteNumberValue(w, cellValue.GetUnifiedNumber());
                     break;
@@ -530,14 +530,14 @@ internal sealed class SheetDataWriter
                     WriteNumberValue(w, cellValue.GetNumber());
                     break;
                 case XLDataType.DateTime:
-                {
-                    var date = cellValue.GetDateTime();
-                    if (use1904DateSystem)
-                        date = date.AddDays(-1462);
+                    {
+                        var date = cellValue.GetDateTime();
+                        if (use1904DateSystem)
+                            date = date.AddDays(-1462);
 
-                    WriteNumberValue(w, date.ToSerialDateTime());
-                    break;
-                }
+                        WriteNumberValue(w, date.ToSerialDateTime());
+                        break;
+                    }
                 case XLDataType.Boolean:
                     WriteStringValue(w, cellValue.GetBoolean() ? TrueValue : FalseValue);
                     break;
@@ -574,45 +574,45 @@ internal sealed class SheetDataWriter
             case XLDataType.Blank:
                 return;
             case XLDataType.Text:
-            {
-                var text = xlCell.GetText();
-                if (xlCell.HasFormula)
                 {
-                    WriteStringValue(w, text);
-                }
-                else
-                {
-                    if (xlCell.ShareString)
+                    var text = xlCell.GetText();
+                    if (xlCell.HasFormula)
                     {
-                        var sharedStringId = context.GetSharedStringId(xlCell, text);
-                        w.WriteStartElement("v", Main2006SsNs);
-                        w.WriteValue(sharedStringId);
-                        w.WriteEndElement();
+                        WriteStringValue(w, text);
                     }
                     else
                     {
-                        w.WriteStartElement("is", Main2006SsNs);
-                        var richText = xlCell.RichText;
-                        if (richText is not null)
+                        if (xlCell.ShareString)
                         {
-                            TextSerializer.WriteRichTextElements(w, richText, context);
+                            var sharedStringId = context.GetSharedStringId(xlCell, text);
+                            w.WriteStartElement("v", Main2006SsNs);
+                            w.WriteValue(sharedStringId);
+                            w.WriteEndElement();
                         }
                         else
                         {
-                            w.WriteStartElement("t", Main2006SsNs);
-                            if (text.PreserveSpaces())
-                                w.WritePreserveSpaceAttr();
+                            w.WriteStartElement("is", Main2006SsNs);
+                            var richText = xlCell.RichText;
+                            if (richText is not null)
+                            {
+                                TextSerializer.WriteRichTextElements(w, richText, context);
+                            }
+                            else
+                            {
+                                w.WriteStartElement("t", Main2006SsNs);
+                                if (text.PreserveSpaces())
+                                    w.WritePreserveSpaceAttr();
 
-                            w.WriteString(text);
-                            w.WriteEndElement();
+                                w.WriteString(text);
+                                w.WriteEndElement();
+                            }
+
+                            w.WriteEndElement(); // is
                         }
-
-                        w.WriteEndElement(); // is
                     }
-                }
 
-                break;
-            }
+                    break;
+                }
             case XLDataType.TimeSpan:
                 WriteNumberValue(w, xlCell.Value.GetUnifiedNumber());
                 break;
@@ -620,15 +620,15 @@ internal sealed class SheetDataWriter
                 WriteNumberValue(w, xlCell.Value.GetNumber());
                 break;
             case XLDataType.DateTime:
-            {
-                // OpenXML SDK validator requires a specific format, in addition to the spec, but can read many more
-                var date = xlCell.GetDateTime();
-                if (xlCell.Worksheet.Workbook.Use1904DateSystem)
-                    date = date.AddDays(-1462);
+                {
+                    // OpenXML SDK validator requires a specific format, in addition to the spec, but can read many more
+                    var date = xlCell.GetDateTime();
+                    if (xlCell.Worksheet.Workbook.Use1904DateSystem)
+                        date = date.AddDays(-1462);
 
-                WriteNumberValue(w, date.ToSerialDateTime());
-                break;
-            }
+                    WriteNumberValue(w, date.ToSerialDateTime());
+                    break;
+                }
             case XLDataType.Boolean:
                 WriteStringValue(w, xlCell.GetBoolean() ? TrueValue : FalseValue);
                 break;

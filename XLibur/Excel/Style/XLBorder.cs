@@ -614,28 +614,28 @@ internal sealed class XLBorder : IXLBorder
         {
             _topBorders.ForEach(kp => ((XLBorder)_range.FirstRow()!.Cell(kp.Key).Style
                 .Border).Modify(k => k with
-            {
-                TopBorder = kp.Value.TopBorder,
-                TopBorderColor = kp.Value.TopBorderColor,
-            }));
+                {
+                    TopBorder = kp.Value.TopBorder,
+                    TopBorderColor = kp.Value.TopBorderColor,
+                }));
             _bottomBorders.ForEach(kp => ((XLBorder)_range.LastRow()!.Cell(kp.Key).Style
                 .Border).Modify(k => k with
-            {
-                BottomBorder = kp.Value.BottomBorder,
-                BottomBorderColor = kp.Value.BottomBorderColor,
-            }));
+                {
+                    BottomBorder = kp.Value.BottomBorder,
+                    BottomBorderColor = kp.Value.BottomBorderColor,
+                }));
             _leftBorders.ForEach(kp => ((XLBorder)_range.FirstColumn()!.Cell(kp.Key).Style
                 .Border).Modify(k => k with
-            {
-                LeftBorder = kp.Value.LeftBorder,
-                LeftBorderColor = kp.Value.LeftBorderColor,
-            }));
+                {
+                    LeftBorder = kp.Value.LeftBorder,
+                    LeftBorderColor = kp.Value.LeftBorderColor,
+                }));
             _rightBorders.ForEach(kp => ((XLBorder)_range.LastColumn()!.Cell(kp.Key).Style
                 .Border).Modify(k => k with
-            {
-                RightBorder = kp.Value.RightBorder,
-                RightBorderColor = kp.Value.RightBorderColor,
-            }));
+                {
+                    RightBorder = kp.Value.RightBorder,
+                    RightBorderColor = kp.Value.RightBorderColor,
+                }));
         }
     }
 }

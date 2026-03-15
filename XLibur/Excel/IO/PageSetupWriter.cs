@@ -248,11 +248,11 @@ internal sealed class PageSetupWriter
             rowBreaks.ManualBreakCount = (uint)rowBreakCount;
             var lastRowNum = (uint)xlWorksheet.RangeAddress.LastAddress.RowNumber;
             foreach (var break1 in rowBreaksToAdd.Select(rb => new Break
-                     {
-                         Id = (uint)rb,
-                         Max = lastRowNum,
-                         ManualPageBreak = true
-                     }))
+            {
+                Id = (uint)rb,
+                Max = lastRowNum,
+                ManualPageBreak = true
+            }))
                 rowBreaks.AppendChild(break1);
             cm.SetElement(XLWorksheetContents.RowBreaks, rowBreaks);
         }
@@ -297,11 +297,11 @@ internal sealed class PageSetupWriter
             columnBreaks.ManualBreakCount = (uint)columnBreakCount;
             var maxColumnNumber = (uint)xlWorksheet.RangeAddress.LastAddress.ColumnNumber;
             foreach (var break1 in columnBreaksToAdd.Select(cb => new Break
-                     {
-                         Id = (uint)cb,
-                         Max = maxColumnNumber,
-                         ManualPageBreak = true
-                     }))
+            {
+                Id = (uint)cb,
+                Max = maxColumnNumber,
+                ManualPageBreak = true
+            }))
                 columnBreaks.AppendChild(break1);
             cm.SetElement(XLWorksheetContents.ColumnBreaks, columnBreaks);
         }

@@ -14,7 +14,7 @@ internal static class OpenXmlPartReaderExtensions
         internal bool IsStartElement(string localName)
         {
             return reader.LocalName == localName && reader is
-                { NamespaceUri: OpenXmlConst.Main2006SsNs, IsStartElement: true };
+            { NamespaceUri: OpenXmlConst.Main2006SsNs, IsStartElement: true };
         }
 
         internal void MoveAhead()

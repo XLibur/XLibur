@@ -236,10 +236,10 @@ public static partial class XLHelper
     public static bool IsValidRangeAddress(IXLRangeAddress rangeAddress)
     {
         return rangeAddress is
-               {
-                   IsValid: true, FirstAddress: { RowNumber: >= 1, ColumnNumber: >= 1 },
-                   LastAddress: { RowNumber: <= MaxRowNumber, ColumnNumber: <= MaxColumnNumber }
-               }
+        {
+            IsValid: true, FirstAddress: { RowNumber: >= 1, ColumnNumber: >= 1 },
+            LastAddress: { RowNumber: <= MaxRowNumber, ColumnNumber: <= MaxColumnNumber }
+        }
                && rangeAddress.FirstAddress.RowNumber <= rangeAddress.LastAddress.RowNumber
                && rangeAddress.FirstAddress.ColumnNumber <= rangeAddress.LastAddress.ColumnNumber;
     }
