@@ -341,3 +341,4 @@ internal sealed class XLPicture : IXLPicture
         _height = OriginalHeight = size.Height;
     }
 }
+
