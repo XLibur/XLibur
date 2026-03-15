@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -35,6 +36,8 @@ public class DefaultGraphicEngine : IXLGraphicEngine
         new SvgInfoReader(),
         new PcxInfoReader() // Due to poor magic detection, keep last
     ];
+
+    private readonly Dictionary<XLPictureFormat, ImageInfoReader> _readersByFormat;
 
     private readonly Lazy<IReadOnlyFontCollection> _fontCollection;
     private readonly string _fallbackFont;
@@ -74,6 +77,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine
         _fallbackFont = fallbackFont;
         _loadFont = LoadFont;
         _calculateMaxDigitWidth = CalculateMaxDigitWidth;
+        _readersByFormat = BuildReadersByFormat(_imageReaders);
     }
 
     /// <summary>
@@ -100,6 +104,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine
         _fallbackFont = fallbackFamily.Name;
         _loadFont = LoadFont;
         _calculateMaxDigitWidth = CalculateMaxDigitWidth;
+        _readersByFormat = BuildReadersByFormat(_imageReaders);
     }
 
     /// <summary>
@@ -145,6 +150,13 @@ public class DefaultGraphicEngine : IXLGraphicEngine
 
     public XLPictureInfo GetPictureInfo(Stream stream, XLPictureFormat expectedFormat)
     {
+        if (expectedFormat != XLPictureFormat.Unknown
+            && _readersByFormat.TryGetValue(expectedFormat, out var preferredReader)
+            && preferredReader.TryGetInfo(stream, out var info))
+        {
+            return info;
+        }
+
         foreach (var imageReader in _imageReaders)
         {
             if (imageReader.TryGetInfo(stream, out var dimensions))
@@ -301,6 +313,33 @@ public class DefaultGraphicEngine : IXLGraphicEngine
         }
 
         return maxWidth / (double)metrics.UnitsPerEm;
+    }
+
+    private static Dictionary<XLPictureFormat, ImageInfoReader> BuildReadersByFormat(ImageInfoReader[] readers)
+    {
+        var map = new Dictionary<XLPictureFormat, ImageInfoReader>();
+        foreach (var reader in readers)
+        {
+            var format = reader switch
+            {
+                PngInfoReader => XLPictureFormat.Png,
+                JpegInfoReader => XLPictureFormat.Jpeg,
+                GifInfoReader => XLPictureFormat.Gif,
+                TiffInfoReader => XLPictureFormat.Tiff,
+                BmpInfoReader => XLPictureFormat.Bmp,
+                EmfInfoReader => XLPictureFormat.Emf,
+                WmfInfoReader => XLPictureFormat.Wmf,
+                WebpInfoReader => XLPictureFormat.Webp,
+                SvgInfoReader => XLPictureFormat.Svg,
+                PcxInfoReader => XLPictureFormat.Pcx,
+                _ => XLPictureFormat.Unknown
+            };
+
+            if (format != XLPictureFormat.Unknown)
+                map[format] = reader;
+        }
+
+        return map;
     }
 
     private static double PointsToPixels(double points, double dpi) => points / 72d * dpi;
