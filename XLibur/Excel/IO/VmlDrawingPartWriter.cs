@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Vml.Office;
 using DocumentFormat.OpenXml.Vml.Spreadsheet;
 using DocumentFormat.OpenXml;
@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Xml;
 using XLibur.Extensions;
+using XLibur.Graphics;
 
 namespace XLibur.Excel.IO;
 
@@ -265,77 +266,66 @@ internal sealed class VmlDrawingPartWriter
         var engine = cell.Worksheet.Workbook.GraphicEngine;
         var margins = comment.Style.Margins;
 
-        // Calculate margins in points (margins are stored in inches)
-        double marginLeftPt, marginRightPt, marginTopPt, marginBottomPt;
-        if (margins.Automatic)
-        {
-            // Default VML margins
-            marginLeftPt = 0.1 * 72.0;
-            marginRightPt = 0.1 * 72.0;
-            marginTopPt = 0.05 * 72.0;
-            marginBottomPt = 0.05 * 72.0;
-        }
-        else
-        {
-            marginLeftPt = margins.Left * 72.0;
-            marginRightPt = margins.Right * 72.0;
-            marginTopPt = margins.Top * 72.0;
-            marginBottomPt = margins.Bottom * 72.0;
-        }
+        var (marginLeftPt, marginRightPt, marginTopPt, marginBottomPt) = GetMarginsPt(margins);
 
         var availableWidth = widthPt - marginLeftPt - marginRightPt;
         if (availableWidth <= 0)
             return comment.Style.Size.Height;
 
-        // Determine font for measurement: use font of the first run, or default comment font.
         IXLFontBase font = XLFont.DefaultCommentFont;
         var firstRun = comment.FirstOrDefault();
         if (firstRun is not null)
             font = firstRun;
 
-        // Line height in points (at 72 DPI, pixels = points)
         var lineHeight = engine.GetTextHeight(font, 72.0);
         var spaceWidth = engine.GetTextWidth(" ", font, 72.0);
 
-        // Split text on explicit newlines, then simulate word wrapping for each
         var text = comment.Text;
         var lines = text.Split(["\r\n", "\n"], StringSplitOptions.None);
 
         var totalLines = 0;
         foreach (var line in lines)
         {
-            if (line.Length == 0)
-            {
-                totalLines += 1;
-                continue;
-            }
-
-            // Simulate word wrapping
-            var words = line.Split(' ');
-            var currentLineWidth = 0.0;
-            var lineCount = 1;
-
-            foreach (var word in words)
-            {
-                var wordWidth = engine.GetTextWidth(word, font, 72.0);
-
-                if (currentLineWidth > 0 && currentLineWidth + spaceWidth + wordWidth > availableWidth)
-                {
-                    // Word doesn't fit, start a new line
-                    lineCount++;
-                    currentLineWidth = wordWidth;
-                }
-                else
-                {
-                    // Add word to current line (with space if not first word)
-                    currentLineWidth += (currentLineWidth > 0 ? spaceWidth : 0) + wordWidth;
-                }
-            }
-
-            totalLines += lineCount;
+            totalLines += CountWrappedLines(line, engine, font, spaceWidth, availableWidth);
         }
 
         return totalLines * lineHeight + marginTopPt + marginBottomPt;
+    }
+
+    private static (double left, double right, double top, double bottom) GetMarginsPt(IXLDrawingMargins margins)
+    {
+        if (margins.Automatic)
+            return (0.1 * 72.0, 0.1 * 72.0, 0.05 * 72.0, 0.05 * 72.0);
+
+        return (margins.Left * 72.0, margins.Right * 72.0, margins.Top * 72.0, margins.Bottom * 72.0);
+    }
+
+    private static int CountWrappedLines(string line, IXLGraphicEngine engine, IXLFontBase font,
+        double spaceWidth, double availableWidth)
+    {
+        if (line.Length == 0)
+            return 1;
+
+        var words = line.Split(' ');
+        var currentLineWidth = 0.0;
+        var lineCount = 1;
+
+        foreach (var word in words)
+        {
+            var wordWidth = engine.GetTextWidth(word, font, 72.0);
+
+            if (currentLineWidth > 0 && currentLineWidth + spaceWidth + wordWidth > availableWidth)
+            {
+                lineCount++;
+                currentLineWidth = wordWidth;
+            }
+            else
+            {
+                currentLineWidth += (currentLineWidth > 0 ? spaceWidth : 0) + wordWidth;
+            }
+        }
+
+        return lineCount;
     }
 
 }

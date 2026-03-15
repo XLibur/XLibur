@@ -153,133 +153,158 @@ internal sealed class ConditionalFormattingWriter
 
         if (!xlWorksheet.SparklineGroups.Any())
         {
-            var worksheetExtensionList = worksheet.Elements<WorksheetExtensionList>().FirstOrDefault();
-            var worksheetExtension = worksheetExtensionList?.Elements<WorksheetExtension>()
-                .FirstOrDefault(ext =>
-                    string.Equals(ext.Uri, sparklineGroupsExtensionUri, StringComparison.InvariantCultureIgnoreCase));
-
-            worksheetExtension?.RemoveAllChildren<X14.SparklineGroups>();
-
-            if (worksheetExtensionList != null)
-            {
-                if (worksheetExtension is { HasChildren: false })
-                {
-                    worksheetExtensionList.RemoveChild(worksheetExtension);
-                }
-
-                if (!worksheetExtensionList.HasChildren)
-                {
-                    worksheet.RemoveChild(worksheetExtensionList);
-                    cm.SetElement(XLWorksheetContents.WorksheetExtensionList, null);
-                }
-            }
+            RemoveSparklineExtension(worksheet, cm, sparklineGroupsExtensionUri);
         }
         else
         {
-            if (!worksheet.Elements<WorksheetExtensionList>().Any())
-            {
-                var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.WorksheetExtensionList);
-                worksheet.InsertAfter(new WorksheetExtensionList(), previousElement);
-            }
-
-            var worksheetExtensionList = worksheet.Elements<WorksheetExtensionList>().First();
-            cm.SetElement(XLWorksheetContents.WorksheetExtensionList, worksheetExtensionList);
-
-            var sparklineGroups = worksheetExtensionList.Descendants<X14.SparklineGroups>().SingleOrDefault();
-
-            if (sparklineGroups == null || !sparklineGroups.Any())
-            {
-                var worksheetExtension1 = new WorksheetExtension() { Uri = sparklineGroupsExtensionUri };
-                worksheetExtension1.AddNamespaceDeclaration("x14", X14Main2009SsNs);
-                worksheetExtensionList.Append(worksheetExtension1);
-
-                sparklineGroups = new X14.SparklineGroups();
-                sparklineGroups.AddNamespaceDeclaration("xm", XmMain2006);
-                worksheetExtension1.Append(sparklineGroups);
-            }
-            else
-            {
-                sparklineGroups.RemoveAllChildren();
-            }
-
-            foreach (var xlSparklineGroup in xlWorksheet.SparklineGroups)
-            {
-                // Do not create an empty Sparkline group
-                if (!xlSparklineGroup.Any())
-                    continue;
-
-                var sparklineGroup = new X14.SparklineGroup();
-                sparklineGroup.SetAttribute(new OpenXmlAttribute("xr2", "uid",
-                    "http://schemas.microsoft.com/office/spreadsheetml/2015/revision2",
-                    "{A98FF5F8-AE60-43B5-8001-AD89004F45D3}"));
-
-                sparklineGroup.FirstMarkerColor =
-                    new X14.FirstMarkerColor().FromXLiburColor<X14.FirstMarkerColor>(xlSparklineGroup.Style
-                        .FirstMarkerColor);
-                sparklineGroup.LastMarkerColor =
-                    new X14.LastMarkerColor().FromXLiburColor<X14.LastMarkerColor>(xlSparklineGroup.Style
-                        .LastMarkerColor);
-                sparklineGroup.HighMarkerColor =
-                    new X14.HighMarkerColor().FromXLiburColor<X14.HighMarkerColor>(xlSparklineGroup.Style
-                        .HighMarkerColor);
-                sparklineGroup.LowMarkerColor =
-                    new X14.LowMarkerColor().FromXLiburColor<X14.LowMarkerColor>(xlSparklineGroup.Style
-                        .LowMarkerColor);
-                sparklineGroup.SeriesColor =
-                    new X14.SeriesColor().FromXLiburColor<X14.SeriesColor>(xlSparklineGroup.Style.SeriesColor);
-                sparklineGroup.NegativeColor =
-                    new X14.NegativeColor().FromXLiburColor<X14.NegativeColor>(xlSparklineGroup.Style.NegativeColor);
-                sparklineGroup.MarkersColor =
-                    new X14.MarkersColor().FromXLiburColor<X14.MarkersColor>(xlSparklineGroup.Style.MarkersColor);
-
-                sparklineGroup.High = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.HighPoint);
-                sparklineGroup.Low = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.LowPoint);
-                sparklineGroup.First = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.FirstPoint);
-                sparklineGroup.Last = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.LastPoint);
-                sparklineGroup.Negative = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.NegativePoints);
-                sparklineGroup.Markers = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.Markers);
-
-                sparklineGroup.DisplayHidden = xlSparklineGroup.DisplayHidden;
-                sparklineGroup.LineWeight = xlSparklineGroup.LineWeight;
-                sparklineGroup.Type = xlSparklineGroup.Type.ToOpenXml();
-                sparklineGroup.DisplayEmptyCellsAs = xlSparklineGroup.DisplayEmptyCellsAs.ToOpenXml();
-
-                sparklineGroup.AxisColor = new X14.AxisColor()
-                { Rgb = xlSparklineGroup.HorizontalAxis.Color.Color.ToHex() };
-                sparklineGroup.DisplayXAxis = xlSparklineGroup.HorizontalAxis.IsVisible;
-                sparklineGroup.RightToLeft = xlSparklineGroup.HorizontalAxis.RightToLeft;
-                sparklineGroup.DateAxis = xlSparklineGroup.HorizontalAxis.DateAxis;
-                if (xlSparklineGroup.HorizontalAxis.DateAxis)
-                    sparklineGroup.Formula = new OfficeExcel.Formula(
-                        xlSparklineGroup.DateRange!.RangeAddress.ToString(XLReferenceStyle.A1, true));
-
-                sparklineGroup.MinAxisType = xlSparklineGroup.VerticalAxis.MinAxisType.ToOpenXml();
-                if (xlSparklineGroup.VerticalAxis.MinAxisType == XLSparklineAxisMinMax.Custom)
-                    sparklineGroup.ManualMin = xlSparklineGroup.VerticalAxis.ManualMin;
-
-                sparklineGroup.MaxAxisType = xlSparklineGroup.VerticalAxis.MaxAxisType.ToOpenXml();
-                if (xlSparklineGroup.VerticalAxis.MaxAxisType == XLSparklineAxisMinMax.Custom)
-                    sparklineGroup.ManualMax = xlSparklineGroup.VerticalAxis.ManualMax;
-
-                var sparklines = new X14.Sparklines(xlSparklineGroup
-                    .Select(xlSparkline => new X14.Sparkline
-                    {
-                        Formula = new OfficeExcel.Formula(
-                            xlSparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)),
-                        ReferenceSequence =
-                            new OfficeExcel.ReferenceSequence(xlSparkline.Location.Address.ToString()!)
-                    })
-                );
-
-                sparklineGroup.Append(sparklines);
-                sparklineGroups.Append(sparklineGroup);
-            }
-
-            // if all Sparkline groups had no Sparklines, remove the entire SparklineGroup element
-            if (sparklineGroups.ChildElements.Count == 0)
-            {
-                sparklineGroups.Remove();
-            }
+            WriteSparklineGroups(worksheet, cm, xlWorksheet, sparklineGroupsExtensionUri);
         }
+    }
+
+    private static void RemoveSparklineExtension(Worksheet worksheet, XLWorksheetContentManager cm,
+        string sparklineGroupsExtensionUri)
+    {
+        var worksheetExtensionList = worksheet.Elements<WorksheetExtensionList>().FirstOrDefault();
+        var worksheetExtension = worksheetExtensionList?.Elements<WorksheetExtension>()
+            .FirstOrDefault(ext =>
+                string.Equals(ext.Uri, sparklineGroupsExtensionUri, StringComparison.InvariantCultureIgnoreCase));
+
+        worksheetExtension?.RemoveAllChildren<X14.SparklineGroups>();
+
+        if (worksheetExtensionList == null)
+            return;
+
+        if (worksheetExtension is { HasChildren: false })
+            worksheetExtensionList.RemoveChild(worksheetExtension);
+
+        if (!worksheetExtensionList.HasChildren)
+        {
+            worksheet.RemoveChild(worksheetExtensionList);
+            cm.SetElement(XLWorksheetContents.WorksheetExtensionList, null);
+        }
+    }
+
+    private static void WriteSparklineGroups(Worksheet worksheet, XLWorksheetContentManager cm,
+        XLWorksheet xlWorksheet, string sparklineGroupsExtensionUri)
+    {
+        if (!worksheet.Elements<WorksheetExtensionList>().Any())
+        {
+            var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.WorksheetExtensionList);
+            worksheet.InsertAfter(new WorksheetExtensionList(), previousElement);
+        }
+
+        var worksheetExtensionList = worksheet.Elements<WorksheetExtensionList>().First();
+        cm.SetElement(XLWorksheetContents.WorksheetExtensionList, worksheetExtensionList);
+
+        var sparklineGroups = worksheetExtensionList.Descendants<X14.SparklineGroups>().SingleOrDefault();
+
+        if (sparklineGroups == null || !sparklineGroups.Any())
+        {
+            var worksheetExtension1 = new WorksheetExtension() { Uri = sparklineGroupsExtensionUri };
+            worksheetExtension1.AddNamespaceDeclaration("x14", X14Main2009SsNs);
+            worksheetExtensionList.Append(worksheetExtension1);
+
+            sparklineGroups = new X14.SparklineGroups();
+            sparklineGroups.AddNamespaceDeclaration("xm", XmMain2006);
+            worksheetExtension1.Append(sparklineGroups);
+        }
+        else
+        {
+            sparklineGroups.RemoveAllChildren();
+        }
+
+        foreach (var xlSparklineGroup in xlWorksheet.SparklineGroups)
+        {
+            if (!xlSparklineGroup.Any())
+                continue;
+
+            var sparklineGroup = CreateSparklineGroup(xlSparklineGroup);
+            sparklineGroups.Append(sparklineGroup);
+        }
+
+        if (sparklineGroups.ChildElements.Count == 0)
+            sparklineGroups.Remove();
+    }
+
+    private static X14.SparklineGroup CreateSparklineGroup(IXLSparklineGroup xlSparklineGroup)
+    {
+        var sparklineGroup = new X14.SparklineGroup();
+        sparklineGroup.SetAttribute(new OpenXmlAttribute("xr2", "uid",
+            "http://schemas.microsoft.com/office/spreadsheetml/2015/revision2",
+            "{A98FF5F8-AE60-43B5-8001-AD89004F45D3}"));
+
+        SetSparklineColors(sparklineGroup, xlSparklineGroup);
+        SetSparklineMarkers(sparklineGroup, xlSparklineGroup);
+        SetSparklineDisplayOptions(sparklineGroup, xlSparklineGroup);
+        SetSparklineAxes(sparklineGroup, xlSparklineGroup);
+
+        var sparklines = new X14.Sparklines(xlSparklineGroup
+            .Select(xlSparkline => new X14.Sparkline
+            {
+                Formula = new OfficeExcel.Formula(
+                    xlSparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)),
+                ReferenceSequence =
+                    new OfficeExcel.ReferenceSequence(xlSparkline.Location.Address.ToString()!)
+            })
+        );
+
+        sparklineGroup.Append(sparklines);
+        return sparklineGroup;
+    }
+
+    private static void SetSparklineColors(X14.SparklineGroup sparklineGroup, IXLSparklineGroup xlSparklineGroup)
+    {
+        sparklineGroup.FirstMarkerColor =
+            new X14.FirstMarkerColor().FromXLiburColor<X14.FirstMarkerColor>(xlSparklineGroup.Style.FirstMarkerColor);
+        sparklineGroup.LastMarkerColor =
+            new X14.LastMarkerColor().FromXLiburColor<X14.LastMarkerColor>(xlSparklineGroup.Style.LastMarkerColor);
+        sparklineGroup.HighMarkerColor =
+            new X14.HighMarkerColor().FromXLiburColor<X14.HighMarkerColor>(xlSparklineGroup.Style.HighMarkerColor);
+        sparklineGroup.LowMarkerColor =
+            new X14.LowMarkerColor().FromXLiburColor<X14.LowMarkerColor>(xlSparklineGroup.Style.LowMarkerColor);
+        sparklineGroup.SeriesColor =
+            new X14.SeriesColor().FromXLiburColor<X14.SeriesColor>(xlSparklineGroup.Style.SeriesColor);
+        sparklineGroup.NegativeColor =
+            new X14.NegativeColor().FromXLiburColor<X14.NegativeColor>(xlSparklineGroup.Style.NegativeColor);
+        sparklineGroup.MarkersColor =
+            new X14.MarkersColor().FromXLiburColor<X14.MarkersColor>(xlSparklineGroup.Style.MarkersColor);
+    }
+
+    private static void SetSparklineMarkers(X14.SparklineGroup sparklineGroup, IXLSparklineGroup xlSparklineGroup)
+    {
+        sparklineGroup.High = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.HighPoint);
+        sparklineGroup.Low = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.LowPoint);
+        sparklineGroup.First = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.FirstPoint);
+        sparklineGroup.Last = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.LastPoint);
+        sparklineGroup.Negative = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.NegativePoints);
+        sparklineGroup.Markers = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.Markers);
+    }
+
+    private static void SetSparklineDisplayOptions(X14.SparklineGroup sparklineGroup, IXLSparklineGroup xlSparklineGroup)
+    {
+        sparklineGroup.DisplayHidden = xlSparklineGroup.DisplayHidden;
+        sparklineGroup.LineWeight = xlSparklineGroup.LineWeight;
+        sparklineGroup.Type = xlSparklineGroup.Type.ToOpenXml();
+        sparklineGroup.DisplayEmptyCellsAs = xlSparklineGroup.DisplayEmptyCellsAs.ToOpenXml();
+    }
+
+    private static void SetSparklineAxes(X14.SparklineGroup sparklineGroup, IXLSparklineGroup xlSparklineGroup)
+    {
+        sparklineGroup.AxisColor = new X14.AxisColor()
+        { Rgb = xlSparklineGroup.HorizontalAxis.Color.Color.ToHex() };
+        sparklineGroup.DisplayXAxis = xlSparklineGroup.HorizontalAxis.IsVisible;
+        sparklineGroup.RightToLeft = xlSparklineGroup.HorizontalAxis.RightToLeft;
+        sparklineGroup.DateAxis = xlSparklineGroup.HorizontalAxis.DateAxis;
+        if (xlSparklineGroup.HorizontalAxis.DateAxis)
+            sparklineGroup.Formula = new OfficeExcel.Formula(
+                xlSparklineGroup.DateRange!.RangeAddress.ToString(XLReferenceStyle.A1, true));
+
+        sparklineGroup.MinAxisType = xlSparklineGroup.VerticalAxis.MinAxisType.ToOpenXml();
+        if (xlSparklineGroup.VerticalAxis.MinAxisType == XLSparklineAxisMinMax.Custom)
+            sparklineGroup.ManualMin = xlSparklineGroup.VerticalAxis.ManualMin;
+
+        sparklineGroup.MaxAxisType = xlSparklineGroup.VerticalAxis.MaxAxisType.ToOpenXml();
+        if (xlSparklineGroup.VerticalAxis.MaxAxisType == XLSparklineAxisMinMax.Custom)
+            sparklineGroup.ManualMax = xlSparklineGroup.VerticalAxis.ManualMax;
     }
 }

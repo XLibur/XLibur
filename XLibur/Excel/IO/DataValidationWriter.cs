@@ -130,88 +130,100 @@ internal sealed class DataValidationWriter
         XLWorksheetContentManager cm,
         List<(IXLDataValidation DataValidation, string MinValue, string MaxValue)> dataValidationsExtension)
     {
-        // Second phase, save all the data validations that reference other sheets into the worksheet extensions.
         const string dataValidationsExtensionUri = "{CCE6A557-97BC-4b89-ADB6-D9C93CAAB3DF}";
         if (dataValidationsExtension.Count == 0)
         {
-            var worksheetExtensionList = worksheet.Elements<WorksheetExtensionList>().FirstOrDefault();
-            var worksheetExtension = worksheetExtensionList?.Elements<WorksheetExtension>()
-                .FirstOrDefault(ext =>
-                    string.Equals(ext.Uri, dataValidationsExtensionUri, StringComparison.OrdinalIgnoreCase));
-
-            worksheetExtension?.RemoveAllChildren<X14.DataValidations>();
-
-            if (worksheetExtensionList != null)
-            {
-                if (worksheetExtension is { HasChildren: false })
-                {
-                    worksheetExtensionList.RemoveChild(worksheetExtension);
-                }
-
-                if (!worksheetExtensionList.HasChildren)
-                {
-                    worksheet.RemoveChild(worksheetExtensionList);
-                    cm.SetElement(XLWorksheetContents.WorksheetExtensionList, null);
-                }
-            }
+            RemoveExtensionDataValidations(worksheet, cm, dataValidationsExtensionUri);
         }
         else
         {
-            if (!worksheet.Elements<WorksheetExtensionList>().Any())
-            {
-                var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.WorksheetExtensionList);
-                worksheet.InsertAfter(new WorksheetExtensionList(), previousElement);
-            }
-
-            var worksheetExtensionList = worksheet.Elements<WorksheetExtensionList>().First();
-            cm.SetElement(XLWorksheetContents.WorksheetExtensionList, worksheetExtensionList);
-
-            var extensionDataValidations = worksheetExtensionList.Descendants<X14.DataValidations>().SingleOrDefault();
-
-            if (extensionDataValidations == null || !extensionDataValidations.Any())
-            {
-                var worksheetExtension = new WorksheetExtension() { Uri = dataValidationsExtensionUri };
-                worksheetExtension.AddNamespaceDeclaration("x14", X14Main2009SsNs);
-                worksheetExtensionList.Append(worksheetExtension);
-
-                extensionDataValidations = new X14.DataValidations();
-                extensionDataValidations.AddNamespaceDeclaration("xm", XmMain2006);
-                worksheetExtension.Append(extensionDataValidations);
-            }
-            else
-            {
-                extensionDataValidations.RemoveAllChildren();
-            }
-
-            foreach (var (dv, minValue, maxValue) in dataValidationsExtension)
-            {
-                var sequence = string.Join(" ", dv.Ranges.Select(x => x.RangeAddress));
-                var dataValidation = new X14.DataValidation
-                {
-                    AllowBlank = dv.IgnoreBlanks,
-                    DataValidationForumla1 = !string.IsNullOrWhiteSpace(minValue)
-                        ? new X14.DataValidationForumla1(new OfficeExcel.Formula(minValue))
-                        : null,
-                    DataValidationForumla2 = !string.IsNullOrWhiteSpace(maxValue)
-                        ? new X14.DataValidationForumla2(new OfficeExcel.Formula(maxValue))
-                        : null,
-                    Type = dv.AllowedValues.ToOpenXml(),
-                    ShowErrorMessage = dv.ShowErrorMessage,
-                    Prompt = dv.InputMessage,
-                    PromptTitle = dv.InputTitle,
-                    ErrorTitle = dv.ErrorTitle,
-                    Error = dv.ErrorMessage,
-                    ShowDropDown = !dv.InCellDropdown,
-                    ShowInputMessage = dv.ShowInputMessage,
-                    ErrorStyle = dv.ErrorStyle.ToOpenXml(),
-                    Operator = HasOperator(dv.AllowedValues) ? dv.Operator.ToOpenXml() : null,
-                    ReferenceSequence = new OfficeExcel.ReferenceSequence() { Text = sequence }
-                };
-                extensionDataValidations.AppendChild(dataValidation);
-            }
-
-            extensionDataValidations.Count = (uint)dataValidationsExtension.Count;
+            WriteExtensionDataValidationElements(worksheet, cm, dataValidationsExtension, dataValidationsExtensionUri);
         }
+    }
+
+    private static void RemoveExtensionDataValidations(Worksheet worksheet, XLWorksheetContentManager cm,
+        string dataValidationsExtensionUri)
+    {
+        var worksheetExtensionList = worksheet.Elements<WorksheetExtensionList>().FirstOrDefault();
+        var worksheetExtension = worksheetExtensionList?.Elements<WorksheetExtension>()
+            .FirstOrDefault(ext =>
+                string.Equals(ext.Uri, dataValidationsExtensionUri, StringComparison.OrdinalIgnoreCase));
+
+        worksheetExtension?.RemoveAllChildren<X14.DataValidations>();
+
+        if (worksheetExtensionList == null)
+            return;
+
+        if (worksheetExtension is { HasChildren: false })
+            worksheetExtensionList.RemoveChild(worksheetExtension);
+
+        if (!worksheetExtensionList.HasChildren)
+        {
+            worksheet.RemoveChild(worksheetExtensionList);
+            cm.SetElement(XLWorksheetContents.WorksheetExtensionList, null);
+        }
+    }
+
+    private static void WriteExtensionDataValidationElements(
+        Worksheet worksheet,
+        XLWorksheetContentManager cm,
+        List<(IXLDataValidation DataValidation, string MinValue, string MaxValue)> dataValidationsExtension,
+        string dataValidationsExtensionUri)
+    {
+        if (!worksheet.Elements<WorksheetExtensionList>().Any())
+        {
+            var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.WorksheetExtensionList);
+            worksheet.InsertAfter(new WorksheetExtensionList(), previousElement);
+        }
+
+        var worksheetExtensionList = worksheet.Elements<WorksheetExtensionList>().First();
+        cm.SetElement(XLWorksheetContents.WorksheetExtensionList, worksheetExtensionList);
+
+        var extensionDataValidations = worksheetExtensionList.Descendants<X14.DataValidations>().SingleOrDefault();
+
+        if (extensionDataValidations == null || !extensionDataValidations.Any())
+        {
+            var worksheetExtension = new WorksheetExtension() { Uri = dataValidationsExtensionUri };
+            worksheetExtension.AddNamespaceDeclaration("x14", X14Main2009SsNs);
+            worksheetExtensionList.Append(worksheetExtension);
+
+            extensionDataValidations = new X14.DataValidations();
+            extensionDataValidations.AddNamespaceDeclaration("xm", XmMain2006);
+            worksheetExtension.Append(extensionDataValidations);
+        }
+        else
+        {
+            extensionDataValidations.RemoveAllChildren();
+        }
+
+        foreach (var (dv, minValue, maxValue) in dataValidationsExtension)
+        {
+            var sequence = string.Join(" ", dv.Ranges.Select(x => x.RangeAddress));
+            var dataValidation = new X14.DataValidation
+            {
+                AllowBlank = dv.IgnoreBlanks,
+                DataValidationForumla1 = !string.IsNullOrWhiteSpace(minValue)
+                    ? new X14.DataValidationForumla1(new OfficeExcel.Formula(minValue))
+                    : null,
+                DataValidationForumla2 = !string.IsNullOrWhiteSpace(maxValue)
+                    ? new X14.DataValidationForumla2(new OfficeExcel.Formula(maxValue))
+                    : null,
+                Type = dv.AllowedValues.ToOpenXml(),
+                ShowErrorMessage = dv.ShowErrorMessage,
+                Prompt = dv.InputMessage,
+                PromptTitle = dv.InputTitle,
+                ErrorTitle = dv.ErrorTitle,
+                Error = dv.ErrorMessage,
+                ShowDropDown = !dv.InCellDropdown,
+                ShowInputMessage = dv.ShowInputMessage,
+                ErrorStyle = dv.ErrorStyle.ToOpenXml(),
+                Operator = HasOperator(dv.AllowedValues) ? dv.Operator.ToOpenXml() : null,
+                ReferenceSequence = new OfficeExcel.ReferenceSequence() { Text = sequence }
+            };
+            extensionDataValidations.AppendChild(dataValidation);
+        }
+
+        extensionDataValidations.Count = (uint)dataValidationsExtension.Count;
     }
 
     /// <summary>

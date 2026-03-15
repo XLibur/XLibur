@@ -133,33 +133,43 @@ internal static class OpenXmlHelper
                 break;
 
             case XLFillPatternValues.Solid:
-                if (differentialFillFormat)
-                {
-                    if (openXMLFill.PatternFill.BackgroundColor != null)
-                        XLiburFill.BackgroundColor = openXMLFill.PatternFill.BackgroundColor.ToXLiburColor();
-                    else
-                        XLiburFill.BackgroundColor = XLColor.FromIndex(64);
-                }
-                else
-                {
-                    // yes, source is foreground!
-                    if (openXMLFill.PatternFill.ForegroundColor != null)
-                        XLiburFill.BackgroundColor = openXMLFill.PatternFill.ForegroundColor.ToXLiburColor();
-                    else
-                        XLiburFill.BackgroundColor = XLColor.FromIndex(64);
-                }
+                LoadSolidFill(openXMLFill.PatternFill, XLiburFill, differentialFillFormat);
                 break;
 
             default:
-                if (openXMLFill.PatternFill.ForegroundColor != null)
-                    XLiburFill.PatternColor = openXMLFill.PatternFill.ForegroundColor.ToXLiburColor();
-
-                if (openXMLFill.PatternFill.BackgroundColor != null)
-                    XLiburFill.BackgroundColor = openXMLFill.PatternFill.BackgroundColor.ToXLiburColor();
-                else
-                    XLiburFill.BackgroundColor = XLColor.FromIndex(64);
+                LoadPatternedFill(openXMLFill.PatternFill, XLiburFill);
                 break;
         }
+    }
+
+    private static void LoadSolidFill(PatternFill patternFill, IXLFill XLiburFill, bool differentialFillFormat)
+    {
+        if (differentialFillFormat)
+        {
+            if (patternFill.BackgroundColor != null)
+                XLiburFill.BackgroundColor = patternFill.BackgroundColor.ToXLiburColor();
+            else
+                XLiburFill.BackgroundColor = XLColor.FromIndex(64);
+        }
+        else
+        {
+            // yes, source is foreground!
+            if (patternFill.ForegroundColor != null)
+                XLiburFill.BackgroundColor = patternFill.ForegroundColor.ToXLiburColor();
+            else
+                XLiburFill.BackgroundColor = XLColor.FromIndex(64);
+        }
+    }
+
+    private static void LoadPatternedFill(PatternFill patternFill, IXLFill XLiburFill)
+    {
+        if (patternFill.ForegroundColor != null)
+            XLiburFill.PatternColor = patternFill.ForegroundColor.ToXLiburColor();
+
+        if (patternFill.BackgroundColor != null)
+            XLiburFill.BackgroundColor = patternFill.BackgroundColor.ToXLiburColor();
+        else
+            XLiburFill.BackgroundColor = XLColor.FromIndex(64);
     }
 
     internal static void LoadFont(OpenXmlElement? fontSource, IXLFontBase fontBase)
@@ -171,45 +181,60 @@ internal static class OpenXmlHelper
         if (fontColor != null)
             fontBase.FontColor = fontColor.ToXLiburColor();
 
-        var fontFamilyNumbering =
-            fontSource.Elements<FontFamily>().FirstOrDefault();
-        if (fontFamilyNumbering != null && fontFamilyNumbering.Val != null)
-            fontBase.FontFamilyNumbering =
-                (XLFontFamilyNumberingValues)int.Parse(fontFamilyNumbering.Val.ToString()!);
-        var runFont = fontSource.Elements<RunFont>().FirstOrDefault();
-        if (runFont != null)
-        {
-            if (runFont.Val != null)
-                fontBase.FontName = runFont.Val!;
-        }
-        var fontSize = fontSource.Elements<FontSize>().FirstOrDefault();
-        if (fontSize != null)
-        {
-            if ((fontSize).Val != null)
-                fontBase.FontSize = (fontSize).Val;
-        }
+        LoadFontFamilyNumbering(fontSource, fontBase);
+        LoadFontName(fontSource, fontBase);
+        LoadFontSize(fontSource, fontBase);
 
         fontBase.Italic = GetBoolean(fontSource.Elements<Italic>().FirstOrDefault());
         fontBase.Shadow = GetBoolean(fontSource.Elements<Shadow>().FirstOrDefault());
         fontBase.Strikethrough = GetBoolean(fontSource.Elements<Strike>().FirstOrDefault());
 
+        LoadFontUnderline(fontSource, fontBase);
+        LoadFontVerticalAlignment(fontSource, fontBase);
+        LoadFontScheme(fontSource, fontBase);
+    }
+
+    private static void LoadFontFamilyNumbering(OpenXmlElement fontSource, IXLFontBase fontBase)
+    {
+        var fontFamilyNumbering = fontSource.Elements<FontFamily>().FirstOrDefault();
+        if (fontFamilyNumbering != null && fontFamilyNumbering.Val != null)
+            fontBase.FontFamilyNumbering =
+                (XLFontFamilyNumberingValues)int.Parse(fontFamilyNumbering.Val.ToString()!);
+    }
+
+    private static void LoadFontName(OpenXmlElement fontSource, IXLFontBase fontBase)
+    {
+        var runFont = fontSource.Elements<RunFont>().FirstOrDefault();
+        if (runFont?.Val != null)
+            fontBase.FontName = runFont.Val!;
+    }
+
+    private static void LoadFontSize(OpenXmlElement fontSource, IXLFontBase fontBase)
+    {
+        var fontSize = fontSource.Elements<FontSize>().FirstOrDefault();
+        if (fontSize?.Val != null)
+            fontBase.FontSize = fontSize.Val;
+    }
+
+    private static void LoadFontUnderline(OpenXmlElement fontSource, IXLFontBase fontBase)
+    {
         var underline = fontSource.Elements<Underline>().FirstOrDefault();
         if (underline != null)
-        {
             fontBase.Underline = underline.Val != null ? underline.Val.Value.ToXLibur() : XLFontUnderlineValues.Single;
-        }
+    }
 
+    private static void LoadFontVerticalAlignment(OpenXmlElement fontSource, IXLFontBase fontBase)
+    {
         var verticalTextAlignment = fontSource.Elements<VerticalTextAlignment>().FirstOrDefault();
         if (verticalTextAlignment is not null)
-        {
             fontBase.VerticalAlignment = verticalTextAlignment.Val is not null ? verticalTextAlignment.Val.Value.ToXLibur() : XLFontVerticalTextAlignmentValues.Baseline;
-        }
+    }
 
+    private static void LoadFontScheme(OpenXmlElement fontSource, IXLFontBase fontBase)
+    {
         var fontScheme = fontSource.Elements<FontScheme>().FirstOrDefault();
         if (fontScheme is not null)
-        {
             fontBase.FontScheme = fontScheme.Val is not null ? fontScheme.Val.Value.ToXLibur() : XLFontScheme.None;
-        }
     }
 
     internal static bool GetBoolean(BooleanPropertyType? property)
@@ -249,50 +274,48 @@ internal static class OpenXmlHelper
         var diagonalBorder = b.DiagonalBorder;
         if (diagonalBorder is not null)
         {
-            if (diagonalBorder.Style is not null)
-                nb = nb with { DiagonalBorder = diagonalBorder.Style.Value.ToXLibur() };
-            if (diagonalBorder.Color is not null)
-                nb = nb with { DiagonalBorderColor = diagonalBorder.Color.ToXLiburColor().Key };
+            nb = ApplyBorderStyleAndColor(nb, diagonalBorder,
+                (key, style) => key with { DiagonalBorder = style },
+                (key, color) => key with { DiagonalBorderColor = color });
             if (b.DiagonalUp is not null)
                 nb = nb with { DiagonalUp = b.DiagonalUp.Value };
             if (b.DiagonalDown is not null)
                 nb = nb with { DiagonalDown = b.DiagonalDown.Value };
         }
 
-        var leftBorder = b.LeftBorder;
-        if (leftBorder is not null)
-        {
-            if (leftBorder.Style is not null)
-                nb = nb with { LeftBorder = leftBorder.Style.Value.ToXLibur() };
-            if (leftBorder.Color is not null)
-                nb = nb with { LeftBorderColor = leftBorder.Color.ToXLiburColor().Key };
-        }
+        if (b.LeftBorder is not null)
+            nb = ApplyBorderStyleAndColor(nb, b.LeftBorder,
+                (key, style) => key with { LeftBorder = style },
+                (key, color) => key with { LeftBorderColor = color });
 
-        var rightBorder = b.RightBorder;
-        if (rightBorder is not null)
-        {
-            if (rightBorder.Style is not null)
-                nb = nb with { RightBorder = rightBorder.Style.Value.ToXLibur() };
-            if (rightBorder.Color is not null)
-                nb = nb with { RightBorderColor = rightBorder.Color.ToXLiburColor().Key };
-        }
+        if (b.RightBorder is not null)
+            nb = ApplyBorderStyleAndColor(nb, b.RightBorder,
+                (key, style) => key with { RightBorder = style },
+                (key, color) => key with { RightBorderColor = color });
 
-        var topBorder = b.TopBorder;
-        if (topBorder is not null)
-        {
-            if (topBorder.Style is not null)
-                nb = nb with { TopBorder = topBorder.Style.Value.ToXLibur() };
-            if (topBorder.Color is not null)
-                nb = nb with { TopBorderColor = topBorder.Color.ToXLiburColor().Key };
-        }
+        if (b.TopBorder is not null)
+            nb = ApplyBorderStyleAndColor(nb, b.TopBorder,
+                (key, style) => key with { TopBorder = style },
+                (key, color) => key with { TopBorderColor = color });
 
-        var bottomBorder = b.BottomBorder;
-        if (bottomBorder is null) return nb;
-        if (bottomBorder.Style is not null)
-            nb = nb with { BottomBorder = bottomBorder.Style.Value.ToXLibur() };
-        if (bottomBorder.Color is not null)
-            nb = nb with { BottomBorderColor = bottomBorder.Color.ToXLiburColor().Key };
+        if (b.BottomBorder is not null)
+            nb = ApplyBorderStyleAndColor(nb, b.BottomBorder,
+                (key, style) => key with { BottomBorder = style },
+                (key, color) => key with { BottomBorderColor = color });
 
+        return nb;
+    }
+
+    private static XLBorderKey ApplyBorderStyleAndColor(
+        XLBorderKey nb,
+        BorderPropertiesType border,
+        Func<XLBorderKey, XLBorderStyleValues, XLBorderKey> applyStyle,
+        Func<XLBorderKey, XLColorKey, XLBorderKey> applyColor)
+    {
+        if (border.Style is not null)
+            nb = applyStyle(nb, border.Style.Value.ToXLibur());
+        if (border.Color is not null)
+            nb = applyColor(nb, border.Color.ToXLiburColor().Key);
         return nb;
     }
 

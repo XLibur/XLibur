@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System.Linq;
 using static XLibur.Excel.XLWorkbook;
@@ -21,47 +21,53 @@ internal sealed class CalculationChainPartWriter
         {
             foreach (var c in worksheet.Internals.CellsCollection.GetCells().Where(c => c.HasFormula))
             {
-                if (c.Formula!.Type == FormulaType.DataTable)
-                {
-                    // Do nothing, Excel doesn't generate calc chain for data table
-                }
-                else if (c.HasArrayFormula)
-                {
-                    c.FormulaReference ??= c.AsRange().RangeAddress;
-
-                    if (c.FormulaReference.FirstAddress.Equals(c.Address))
-                    {
-                        var cc = new CalculationCell
-                        {
-                            CellReference = c.Address.ToString(),
-                            SheetId = (int)worksheet.SheetId,
-                            Array = true
-                        };
-
-                        calculationChain.AppendChild(cc);
-
-                        foreach (var childCell in worksheet.Range(c.FormulaReference).Cells())
-                        {
-                            calculationChain.AppendChild(new CalculationCell
-                            {
-                                CellReference = childCell.Address.ToString(),
-                                SheetId = (int)worksheet.SheetId,
-                            });
-                        }
-                    }
-                }
-                else
-                {
-                    calculationChain.AppendChild(new CalculationCell
-                    {
-                        CellReference = c.Address.ToString(),
-                        SheetId = (int)worksheet.SheetId
-                    });
-                }
+                AppendFormulaCell(calculationChain, c, worksheet);
             }
         }
 
         if (!calculationChain.Any())
             workbookPart.DeletePart(workbookPart.CalculationChainPart);
+    }
+
+    private static void AppendFormulaCell(CalculationChain calculationChain, XLCell c, XLWorksheet worksheet)
+    {
+        if (c.Formula!.Type == FormulaType.DataTable)
+            return;
+
+        if (c.HasArrayFormula)
+        {
+            AppendArrayFormulaCell(calculationChain, c, worksheet);
+            return;
+        }
+
+        calculationChain.AppendChild(new CalculationCell
+        {
+            CellReference = c.Address.ToString(),
+            SheetId = (int)worksheet.SheetId
+        });
+    }
+
+    private static void AppendArrayFormulaCell(CalculationChain calculationChain, XLCell c, XLWorksheet worksheet)
+    {
+        c.FormulaReference ??= c.AsRange().RangeAddress;
+
+        if (!c.FormulaReference.FirstAddress.Equals(c.Address))
+            return;
+
+        calculationChain.AppendChild(new CalculationCell
+        {
+            CellReference = c.Address.ToString(),
+            SheetId = (int)worksheet.SheetId,
+            Array = true
+        });
+
+        foreach (var childCell in worksheet.Range(c.FormulaReference).Cells())
+        {
+            calculationChain.AppendChild(new CalculationCell
+            {
+                CellReference = childCell.Address.ToString(),
+                SheetId = (int)worksheet.SheetId,
+            });
+        }
     }
 }

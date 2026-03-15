@@ -66,73 +66,13 @@ internal static class DrawingPartReader
                 // Skip external image references (e.g. URLs) — they have no embedded part.
                 if (!drawingsPart.TryGetPartById(imgId, out var imagePart))
                     continue;
-                using var stream = imagePart.GetStream();
-                using var ms = new MemoryStream();
-                stream.CopyTo(ms);
-                var vsdp = XLWorkbook.GetPropertiesFromAnchor(anchor);
-                var pictureName = vsdp!.Name?.Value;
-                var pictureId = Convert.ToInt32(vsdp.Id!.Value);
 
-                // Empty name is valid per ECMA-376 (xsd:string, no minLength). Excel can produce such files.
-                XLPicture picture;
-                if (string.IsNullOrWhiteSpace(pictureName))
-                {
-                    picture = (XLPicture)ws.AddPicture(ms);
-                    picture.Id = pictureId;
-                }
-                else
-                {
-                    picture = (XLPicture)ws.AddPicture(ms, pictureName, pictureId);
-                }
-                picture!.RelId = imgId;
+                var picture = LoadPictureFromAnchor(drawingsPart, anchor, imgId, imagePart, ws);
+                if (picture is null)
+                    continue;
 
-                var spPr = anchor.Descendants<Xdr.ShapeProperties>().First();
-                picture.Placement = XLPicturePlacement.FreeFloating;
-
-                if (spPr.Transform2D?.Extents?.Cx?.HasValue ?? false)
-                    picture.Width = ConvertFromEnglishMetricUnits(spPr.Transform2D.Extents.Cx, ws.Workbook.DpiX);
-
-                if (spPr.Transform2D?.Extents?.Cy?.HasValue ?? false)
-                    picture.Height = ConvertFromEnglishMetricUnits(spPr.Transform2D.Extents.Cy, ws.Workbook.DpiY);
-
-                if (anchor is Xdr.AbsoluteAnchor absoluteAnchor)
-                {
-                    picture.MoveTo(
-                        ConvertFromEnglishMetricUnits(absoluteAnchor.Position!.X!.Value, ws.Workbook.DpiX),
-                        ConvertFromEnglishMetricUnits(absoluteAnchor.Position!.Y!.Value, ws.Workbook.DpiY)
-                    );
-                }
-                else if (anchor is Xdr.OneCellAnchor oneCellAnchor)
-                {
-                    var from = LoadMarker(ws, oneCellAnchor.FromMarker!);
-                    picture.MoveTo(from.Cell, from.Offset);
-                }
-                else if (anchor is Xdr.TwoCellAnchor twoCellAnchor)
-                {
-                    var from = LoadMarker(ws, twoCellAnchor.FromMarker!);
-                    var to = LoadMarker(ws, twoCellAnchor.ToMarker!);
-
-                    if (twoCellAnchor.EditAs == null || !twoCellAnchor.EditAs.HasValue ||
-                        twoCellAnchor.EditAs.Value == Xdr.EditAsValues.TwoCell)
-                    {
-                        picture.MoveTo(from.Cell, from.Offset, to.Cell, to.Offset);
-                    }
-                    else if (twoCellAnchor.EditAs.Value == Xdr.EditAsValues.Absolute)
-                    {
-                        var shapeProperties = twoCellAnchor.Descendants<Xdr.ShapeProperties>().FirstOrDefault();
-                        if (shapeProperties != null)
-                        {
-                            picture.MoveTo(
-                                ConvertFromEnglishMetricUnits(spPr.Transform2D!.Offset!.X!, ws.Workbook.DpiX),
-                                ConvertFromEnglishMetricUnits(spPr.Transform2D!.Offset!.Y!, ws.Workbook.DpiY)
-                            );
-                        }
-                    }
-                    else if (twoCellAnchor.EditAs.Value == Xdr.EditAsValues.OneCell)
-                    {
-                        picture.MoveTo(from.Cell, from.Offset);
-                    }
-                }
+                LoadPictureTransform(picture, anchor, ws);
+                LoadPicturePlacement(picture, anchor, ws);
             }
         }
     }
@@ -184,87 +124,15 @@ internal static class DrawingPartReader
 
     internal static void LoadColorsAndLines<T>(IXLDrawing<T> drawing, XElement shape)
     {
-        var strokeColor = shape.Attribute("strokecolor");
-        if (strokeColor != null) drawing.Style.ColorsAndLines.LineColor = XLColor.FromVmlColor(strokeColor.Value);
-
-        var strokeWeight = shape.Attribute("strokeweight");
-        if (strokeWeight != null && TryGetPtValue(strokeWeight.Value, out var lineWeight))
-            drawing.Style.ColorsAndLines.LineWeight = lineWeight;
-
-        var fillColor = shape.Attribute("fillcolor");
-        if (fillColor != null) drawing.Style.ColorsAndLines.FillColor = XLColor.FromVmlColor(fillColor.Value);
+        LoadShapeColors(drawing, shape);
 
         var fill = shape.Elements().FirstOrDefault(e => e.Name.LocalName == "fill");
         if (fill != null)
-        {
-            var opacity = fill.Attribute("opacity");
-            if (opacity != null)
-            {
-                var opacityVal = opacity.Value;
-                if (opacityVal.EndsWith("f"))
-                    drawing.Style.ColorsAndLines.FillTransparency =
-                        double.Parse(opacityVal.Substring(0, opacityVal.Length - 1), CultureInfo.InvariantCulture) /
-                        65536.0;
-                else
-                    drawing.Style.ColorsAndLines.FillTransparency =
-                        double.Parse(opacityVal, CultureInfo.InvariantCulture);
-            }
-        }
+            LoadFillOpacity(drawing, fill);
 
         var stroke = shape.Elements().FirstOrDefault(e => e.Name.LocalName == "stroke");
         if (stroke != null)
-        {
-            var opacity = stroke.Attribute("opacity");
-            if (opacity != null)
-            {
-                var opacityVal = opacity.Value;
-                if (opacityVal.EndsWith("f"))
-                    drawing.Style.ColorsAndLines.LineTransparency =
-                        double.Parse(opacityVal.Substring(0, opacityVal.Length - 1), CultureInfo.InvariantCulture) /
-                        65536.0;
-                else
-                    drawing.Style.ColorsAndLines.LineTransparency =
-                        double.Parse(opacityVal, CultureInfo.InvariantCulture);
-            }
-
-            var dashStyle = stroke.Attribute("dashstyle");
-            if (dashStyle != null)
-            {
-                var dashStyleVal = dashStyle.Value.ToLower();
-                if (dashStyleVal is "1 1" or "shortdot")
-                {
-                    var endCap = stroke.Attribute("endcap");
-                    drawing.Style.ColorsAndLines.LineDash =
-                        endCap is { Value: "round" } ? XLDashStyle.RoundDot : XLDashStyle.SquareDot;
-                }
-                else
-                {
-                    drawing.Style.ColorsAndLines.LineDash = dashStyleVal switch
-                    {
-                        "dash" => XLDashStyle.Dash,
-                        "dashdot" => XLDashStyle.DashDot,
-                        "longdash" => XLDashStyle.LongDash,
-                        "longdashdot" => XLDashStyle.LongDashDot,
-                        "longdashdotdot" => XLDashStyle.LongDashDotDot,
-                        _ => drawing.Style.ColorsAndLines.LineDash
-                    };
-                }
-            }
-
-            var lineStyle = stroke.Attribute("linestyle");
-            if (lineStyle != null)
-            {
-                drawing.Style.ColorsAndLines.LineStyle = lineStyle.Value.ToLower() switch
-                {
-                    "single" => XLLineStyle.Single,
-                    "thickbetweenthin" => XLLineStyle.ThickBetweenThin,
-                    "thickthin" => XLLineStyle.ThickThin,
-                    "thinthick" => XLLineStyle.ThinThick,
-                    "thinthin" => XLLineStyle.ThinThin,
-                    _ => drawing.Style.ColorsAndLines.LineStyle,
-                };
-            }
-        }
+            LoadStrokeProperties(drawing, stroke);
     }
 
     internal static void LoadTextBox<T>(IXLDrawing<T> xlDrawing, XElement textBox, double dpiX, double dpiY)
@@ -318,10 +186,7 @@ internal static class DrawingPartReader
             {
                 case "mso-fit-shape-to-text": xlDrawing.Style.Size.SetAutomaticSize(attrValue.Equals("t")); break;
                 case "mso-layout-flow-alt":
-                    if (attrValue.Equals("bottom-to-top"))
-                        xlDrawing.Style.Alignment.SetOrientation(XLDrawingTextOrientation.BottomToTop);
-                    else if (attrValue.Equals("top-to-bottom"))
-                        xlDrawing.Style.Alignment.SetOrientation(XLDrawingTextOrientation.Vertical);
+                    LoadLayoutFlowAlt(xlDrawing, attrValue);
                     break;
 
                 case "layout-flow": isVertical = attrValue.Equals("vertical"); break;
@@ -471,5 +336,196 @@ internal static class DrawingPartReader
     internal static string GetTableColumnName(string name)
     {
         return name.Replace("_x000a_", Environment.NewLine).Replace("_x005f_x000a_", "_x000a_");
+    }
+
+    private static XLPicture? LoadPictureFromAnchor(DrawingsPart drawingsPart,
+        DocumentFormat.OpenXml.OpenXmlElement anchor, string imgId,
+        DocumentFormat.OpenXml.Packaging.OpenXmlPart imagePart, XLWorksheet ws)
+    {
+        using var stream = imagePart.GetStream();
+        using var ms = new MemoryStream();
+        stream.CopyTo(ms);
+        var vsdp = XLWorkbook.GetPropertiesFromAnchor(anchor);
+        var pictureName = vsdp!.Name?.Value;
+        var pictureId = Convert.ToInt32(vsdp.Id!.Value);
+
+        XLPicture picture;
+        if (string.IsNullOrWhiteSpace(pictureName))
+        {
+            picture = (XLPicture)ws.AddPicture(ms);
+            picture.Id = pictureId;
+        }
+        else
+        {
+            picture = (XLPicture)ws.AddPicture(ms, pictureName, pictureId);
+        }
+        picture!.RelId = imgId;
+        return picture;
+    }
+
+    private static void LoadPictureTransform(XLPicture picture,
+        DocumentFormat.OpenXml.OpenXmlElement anchor, XLWorksheet ws)
+    {
+        var spPr = anchor.Descendants<Xdr.ShapeProperties>().First();
+        picture.Placement = XLPicturePlacement.FreeFloating;
+
+        if (spPr.Transform2D?.Extents?.Cx?.HasValue ?? false)
+            picture.Width = ConvertFromEnglishMetricUnits(spPr.Transform2D.Extents.Cx, ws.Workbook.DpiX);
+
+        if (spPr.Transform2D?.Extents?.Cy?.HasValue ?? false)
+            picture.Height = ConvertFromEnglishMetricUnits(spPr.Transform2D.Extents.Cy, ws.Workbook.DpiY);
+    }
+
+    private static void LoadPicturePlacement(XLPicture picture,
+        DocumentFormat.OpenXml.OpenXmlElement anchor, XLWorksheet ws)
+    {
+        if (anchor is Xdr.AbsoluteAnchor absoluteAnchor)
+        {
+            picture.MoveTo(
+                ConvertFromEnglishMetricUnits(absoluteAnchor.Position!.X!.Value, ws.Workbook.DpiX),
+                ConvertFromEnglishMetricUnits(absoluteAnchor.Position!.Y!.Value, ws.Workbook.DpiY)
+            );
+        }
+        else if (anchor is Xdr.OneCellAnchor oneCellAnchor)
+        {
+            var from = LoadMarker(ws, oneCellAnchor.FromMarker!);
+            picture.MoveTo(from.Cell, from.Offset);
+        }
+        else if (anchor is Xdr.TwoCellAnchor twoCellAnchor)
+        {
+            LoadTwoCellAnchorPlacement(picture, twoCellAnchor, ws);
+        }
+    }
+
+    private static void LoadTwoCellAnchorPlacement(XLPicture picture, Xdr.TwoCellAnchor twoCellAnchor, XLWorksheet ws)
+    {
+        var from = LoadMarker(ws, twoCellAnchor.FromMarker!);
+        var to = LoadMarker(ws, twoCellAnchor.ToMarker!);
+
+        if (twoCellAnchor.EditAs == null || !twoCellAnchor.EditAs.HasValue ||
+            twoCellAnchor.EditAs.Value == Xdr.EditAsValues.TwoCell)
+        {
+            picture.MoveTo(from.Cell, from.Offset, to.Cell, to.Offset);
+        }
+        else if (twoCellAnchor.EditAs.Value == Xdr.EditAsValues.Absolute)
+        {
+            var shapeProperties = twoCellAnchor.Descendants<Xdr.ShapeProperties>().FirstOrDefault();
+            if (shapeProperties != null)
+            {
+                var spPr = shapeProperties;
+                picture.MoveTo(
+                    ConvertFromEnglishMetricUnits(spPr.Transform2D!.Offset!.X!, ws.Workbook.DpiX),
+                    ConvertFromEnglishMetricUnits(spPr.Transform2D!.Offset!.Y!, ws.Workbook.DpiY)
+                );
+            }
+        }
+        else if (twoCellAnchor.EditAs.Value == Xdr.EditAsValues.OneCell)
+        {
+            picture.MoveTo(from.Cell, from.Offset);
+        }
+    }
+
+    private static void LoadShapeColors<T>(IXLDrawing<T> drawing, XElement shape)
+    {
+        var strokeColor = shape.Attribute("strokecolor");
+        if (strokeColor != null) drawing.Style.ColorsAndLines.LineColor = XLColor.FromVmlColor(strokeColor.Value);
+
+        var strokeWeight = shape.Attribute("strokeweight");
+        if (strokeWeight != null && TryGetPtValue(strokeWeight.Value, out var lineWeight))
+            drawing.Style.ColorsAndLines.LineWeight = lineWeight;
+
+        var fillColor = shape.Attribute("fillcolor");
+        if (fillColor != null) drawing.Style.ColorsAndLines.FillColor = XLColor.FromVmlColor(fillColor.Value);
+    }
+
+    private static void LoadFillOpacity<T>(IXLDrawing<T> drawing, XElement fill)
+    {
+        var opacity = fill.Attribute("opacity");
+        if (opacity != null)
+        {
+            var opacityVal = opacity.Value;
+            if (opacityVal.EndsWith("f"))
+                drawing.Style.ColorsAndLines.FillTransparency =
+                    double.Parse(opacityVal.Substring(0, opacityVal.Length - 1), CultureInfo.InvariantCulture) /
+                    65536.0;
+            else
+                drawing.Style.ColorsAndLines.FillTransparency =
+                    double.Parse(opacityVal, CultureInfo.InvariantCulture);
+        }
+    }
+
+    private static void LoadStrokeProperties<T>(IXLDrawing<T> drawing, XElement stroke)
+    {
+        LoadStrokeOpacity(drawing, stroke);
+        LoadStrokeDashStyle(drawing, stroke);
+        LoadStrokeLineStyle(drawing, stroke);
+    }
+
+    private static void LoadStrokeOpacity<T>(IXLDrawing<T> drawing, XElement stroke)
+    {
+        var opacity = stroke.Attribute("opacity");
+        if (opacity != null)
+        {
+            var opacityVal = opacity.Value;
+            if (opacityVal.EndsWith("f"))
+                drawing.Style.ColorsAndLines.LineTransparency =
+                    double.Parse(opacityVal.Substring(0, opacityVal.Length - 1), CultureInfo.InvariantCulture) /
+                    65536.0;
+            else
+                drawing.Style.ColorsAndLines.LineTransparency =
+                    double.Parse(opacityVal, CultureInfo.InvariantCulture);
+        }
+    }
+
+    private static void LoadStrokeDashStyle<T>(IXLDrawing<T> drawing, XElement stroke)
+    {
+        var dashStyle = stroke.Attribute("dashstyle");
+        if (dashStyle != null)
+        {
+            var dashStyleVal = dashStyle.Value.ToLower();
+            if (dashStyleVal is "1 1" or "shortdot")
+            {
+                var endCap = stroke.Attribute("endcap");
+                drawing.Style.ColorsAndLines.LineDash =
+                    endCap is { Value: "round" } ? XLDashStyle.RoundDot : XLDashStyle.SquareDot;
+            }
+            else
+            {
+                drawing.Style.ColorsAndLines.LineDash = dashStyleVal switch
+                {
+                    "dash" => XLDashStyle.Dash,
+                    "dashdot" => XLDashStyle.DashDot,
+                    "longdash" => XLDashStyle.LongDash,
+                    "longdashdot" => XLDashStyle.LongDashDot,
+                    "longdashdotdot" => XLDashStyle.LongDashDotDot,
+                    _ => drawing.Style.ColorsAndLines.LineDash
+                };
+            }
+        }
+    }
+
+    private static void LoadStrokeLineStyle<T>(IXLDrawing<T> drawing, XElement stroke)
+    {
+        var lineStyle = stroke.Attribute("linestyle");
+        if (lineStyle != null)
+        {
+            drawing.Style.ColorsAndLines.LineStyle = lineStyle.Value.ToLower() switch
+            {
+                "single" => XLLineStyle.Single,
+                "thickbetweenthin" => XLLineStyle.ThickBetweenThin,
+                "thickthin" => XLLineStyle.ThickThin,
+                "thinthick" => XLLineStyle.ThinThick,
+                "thinthin" => XLLineStyle.ThinThin,
+                _ => drawing.Style.ColorsAndLines.LineStyle,
+            };
+        }
+    }
+
+    private static void LoadLayoutFlowAlt<T>(IXLDrawing<T> xlDrawing, string attrValue)
+    {
+        if (attrValue.Equals("bottom-to-top"))
+            xlDrawing.Style.Alignment.SetOrientation(XLDrawingTextOrientation.BottomToTop);
+        else if (attrValue.Equals("top-to-bottom"))
+            xlDrawing.Style.Alignment.SetOrientation(XLDrawingTextOrientation.Vertical);
     }
 }

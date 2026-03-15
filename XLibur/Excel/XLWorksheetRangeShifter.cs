@@ -136,25 +136,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
 
             foreach (var cfRange in cfRanges)
             {
-                var cfAddress = cfRange.RangeAddress;
-                IXLRange newRange;
-                if (cfRange.Intersects(model))
-                {
-                    newRange = worksheet.Range(cfAddress.FirstAddress.RowNumber,
-                        cfAddress.FirstAddress.ColumnNumber,
-                        cfAddress.LastAddress.RowNumber,
-                        Math.Min(XLHelper.MaxColumnNumber, cfAddress.LastAddress.ColumnNumber + columnsShifted));
-                }
-                else if (cfAddress.FirstAddress.ColumnNumber >= firstCol)
-                {
-                    newRange = worksheet.Range(cfAddress.FirstAddress.RowNumber,
-                        Math.Max(cfAddress.FirstAddress.ColumnNumber + columnsShifted, firstCol),
-                        cfAddress.LastAddress.RowNumber,
-                        Math.Min(XLHelper.MaxColumnNumber, cfAddress.LastAddress.ColumnNumber + columnsShifted));
-                }
-                else
-                    newRange = cfRange;
-
+                var newRange = ShiftRangeColumns(cfRange, model, firstCol, columnsShifted);
                 if (newRange.RangeAddress.IsValid &&
                     newRange.RangeAddress.FirstAddress.ColumnNumber <=
                     newRange.RangeAddress.LastAddress.ColumnNumber)
@@ -182,25 +164,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
 
             foreach (var cfRange in cfRanges)
             {
-                var cfAddress = cfRange.RangeAddress;
-                IXLRange newRange;
-                if (cfRange.Intersects(model))
-                {
-                    newRange = worksheet.Range(cfAddress.FirstAddress.RowNumber,
-                        cfAddress.FirstAddress.ColumnNumber,
-                        Math.Min(XLHelper.MaxRowNumber, cfAddress.LastAddress.RowNumber + rowsShifted),
-                        cfAddress.LastAddress.ColumnNumber);
-                }
-                else if (cfAddress.FirstAddress.RowNumber >= firstRow)
-                {
-                    newRange = worksheet.Range(Math.Max(cfAddress.FirstAddress.RowNumber + rowsShifted, firstRow),
-                        cfAddress.FirstAddress.ColumnNumber,
-                        Math.Min(XLHelper.MaxRowNumber, cfAddress.LastAddress.RowNumber + rowsShifted),
-                        cfAddress.LastAddress.ColumnNumber);
-                }
-                else
-                    newRange = cfRange;
-
+                var newRange = ShiftRangeRows(cfRange, model, firstRow, rowsShifted);
                 if (newRange.RangeAddress.IsValid &&
                     newRange.RangeAddress.FirstAddress.RowNumber <= newRange.RangeAddress.LastAddress.RowNumber)
                     cf.Ranges.Add(newRange);
@@ -227,25 +191,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
 
             foreach (var dvRange in dvRanges)
             {
-                var dvAddress = dvRange.RangeAddress;
-                IXLRange newRange;
-                if (dvRange.Intersects(model))
-                {
-                    newRange = worksheet.Range(dvAddress.FirstAddress.RowNumber,
-                        dvAddress.FirstAddress.ColumnNumber,
-                        dvAddress.LastAddress.RowNumber,
-                        Math.Min(XLHelper.MaxColumnNumber, dvAddress.LastAddress.ColumnNumber + columnsShifted));
-                }
-                else if (dvAddress.FirstAddress.ColumnNumber >= firstCol)
-                {
-                    newRange = worksheet.Range(dvAddress.FirstAddress.RowNumber,
-                        Math.Max(dvAddress.FirstAddress.ColumnNumber + columnsShifted, firstCol),
-                        dvAddress.LastAddress.RowNumber,
-                        Math.Min(XLHelper.MaxColumnNumber, dvAddress.LastAddress.ColumnNumber + columnsShifted));
-                }
-                else
-                    newRange = dvRange;
-
+                var newRange = ShiftRangeColumns(dvRange, model, firstCol, columnsShifted);
                 if (newRange.RangeAddress.IsValid &&
                     newRange.RangeAddress.FirstAddress.ColumnNumber <=
                     newRange.RangeAddress.LastAddress.ColumnNumber)
@@ -273,25 +219,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
 
             foreach (var dvRange in dvRanges)
             {
-                var dvAddress = dvRange.RangeAddress;
-                IXLRange newRange;
-                if (dvRange.Intersects(model))
-                {
-                    newRange = worksheet.Range(dvAddress.FirstAddress.RowNumber,
-                        dvAddress.FirstAddress.ColumnNumber,
-                        Math.Min(XLHelper.MaxRowNumber, dvAddress.LastAddress.RowNumber + rowsShifted),
-                        dvAddress.LastAddress.ColumnNumber);
-                }
-                else if (dvAddress.FirstAddress.RowNumber >= firstRow)
-                {
-                    newRange = worksheet.Range(Math.Max(dvAddress.FirstAddress.RowNumber + rowsShifted, firstRow),
-                        dvAddress.FirstAddress.ColumnNumber,
-                        Math.Min(XLHelper.MaxRowNumber, dvAddress.LastAddress.RowNumber + rowsShifted),
-                        dvAddress.LastAddress.ColumnNumber);
-                }
-                else
-                    newRange = dvRange;
-
+                var newRange = ShiftRangeRows(dvRange, model, firstRow, rowsShifted);
                 if (newRange.RangeAddress.IsValid &&
                     newRange.RangeAddress.FirstAddress.RowNumber <= newRange.RangeAddress.LastAddress.RowNumber)
                     dv.AddRange(newRange);
@@ -300,6 +228,50 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
             if (!dv.Ranges.Any())
                 worksheet.DataValidations.Delete(v => v == dv);
         }
+    }
+
+    private IXLRange ShiftRangeColumns(IXLRange range, IXLRange model, int firstCol, int columnsShifted)
+    {
+        var address = range.RangeAddress;
+        if (range.Intersects(model))
+        {
+            return worksheet.Range(address.FirstAddress.RowNumber,
+                address.FirstAddress.ColumnNumber,
+                address.LastAddress.RowNumber,
+                Math.Min(XLHelper.MaxColumnNumber, address.LastAddress.ColumnNumber + columnsShifted));
+        }
+
+        if (address.FirstAddress.ColumnNumber >= firstCol)
+        {
+            return worksheet.Range(address.FirstAddress.RowNumber,
+                Math.Max(address.FirstAddress.ColumnNumber + columnsShifted, firstCol),
+                address.LastAddress.RowNumber,
+                Math.Min(XLHelper.MaxColumnNumber, address.LastAddress.ColumnNumber + columnsShifted));
+        }
+
+        return range;
+    }
+
+    private IXLRange ShiftRangeRows(IXLRange range, IXLRange model, int firstRow, int rowsShifted)
+    {
+        var address = range.RangeAddress;
+        if (range.Intersects(model))
+        {
+            return worksheet.Range(address.FirstAddress.RowNumber,
+                address.FirstAddress.ColumnNumber,
+                Math.Min(XLHelper.MaxRowNumber, address.LastAddress.RowNumber + rowsShifted),
+                address.LastAddress.ColumnNumber);
+        }
+
+        if (address.FirstAddress.RowNumber >= firstRow)
+        {
+            return worksheet.Range(Math.Max(address.FirstAddress.RowNumber + rowsShifted, firstRow),
+                address.FirstAddress.ColumnNumber,
+                Math.Min(XLHelper.MaxRowNumber, address.LastAddress.RowNumber + rowsShifted),
+                address.LastAddress.ColumnNumber);
+        }
+
+        return range;
     }
 
     private void RemoveInvalidSparklines()

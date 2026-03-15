@@ -117,6 +117,18 @@ internal sealed class PageSetupWriter
         var pageSetup = worksheet.Elements<PageSetup>().First();
         cm.SetElement(XLWorksheetContents.PageSetup, pageSetup);
 
+        SetPageSetupBasicProperties(pageSetup, xlWorksheet);
+        SetPageSetupDpiAndScale(pageSetup, xlWorksheet);
+
+        // For some reason some Excel files already contains pageSetup.Copies = 0
+        // The validation fails for this
+        // Let's remove the attribute of that's the case.
+        if ((pageSetup.Copies ?? 0) <= 0)
+            pageSetup.Copies = null;
+    }
+
+    private static void SetPageSetupBasicProperties(PageSetup pageSetup, XLWorksheet xlWorksheet)
+    {
         pageSetup.Orientation = xlWorksheet.PageSetup.PageOrientation.ToOpenXml();
         pageSetup.PaperSize = (uint)xlWorksheet.PageSetup.PaperSize;
         pageSetup.BlackAndWhite = xlWorksheet.PageSetup.BlackAndWhite;
@@ -136,16 +148,17 @@ internal sealed class PageSetupWriter
             pageSetup.FirstPageNumber = null;
             pageSetup.UseFirstPageNumber = null;
         }
+    }
 
-        if (xlWorksheet.PageSetup.HorizontalDpi > 0)
-            pageSetup.HorizontalDpi = (uint)xlWorksheet.PageSetup.HorizontalDpi;
-        else
-            pageSetup.HorizontalDpi = null;
+    private static void SetPageSetupDpiAndScale(PageSetup pageSetup, XLWorksheet xlWorksheet)
+    {
+        pageSetup.HorizontalDpi = xlWorksheet.PageSetup.HorizontalDpi > 0
+            ? (uint)xlWorksheet.PageSetup.HorizontalDpi
+            : null;
 
-        if (xlWorksheet.PageSetup.VerticalDpi > 0)
-            pageSetup.VerticalDpi = (uint)xlWorksheet.PageSetup.VerticalDpi;
-        else
-            pageSetup.VerticalDpi = null;
+        pageSetup.VerticalDpi = xlWorksheet.PageSetup.VerticalDpi > 0
+            ? (uint)xlWorksheet.PageSetup.VerticalDpi
+            : null;
 
         if (xlWorksheet.PageSetup.Scale > 0)
         {
@@ -163,12 +176,6 @@ internal sealed class PageSetupWriter
             if (xlWorksheet.PageSetup.PagesTall >= 0 && xlWorksheet.PageSetup.PagesTall != 1)
                 pageSetup.FitToHeight = (uint)xlWorksheet.PageSetup.PagesTall;
         }
-
-        // For some reason some Excel files already contains pageSetup.Copies = 0
-        // The validation fails for this
-        // Let's remove the attribute of that's the case.
-        if ((pageSetup.Copies ?? 0) <= 0)
-            pageSetup.Copies = null;
     }
 
     internal static void WriteHeaderFooter(

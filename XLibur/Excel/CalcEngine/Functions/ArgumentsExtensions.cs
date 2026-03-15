@@ -65,24 +65,44 @@ internal static class ArgumentsExtensions
             }
             else
             {
-                var valuesIterator = collection.TryPickT0(out var array, out var reference)
-                    ? array
-                    : reference.GetCellsValues(ctx);
+                if (!TryAggregateCollection(collection, ctx, convert, aggregate, collectionFilter, ref result, out var collectionHadElement, out var error))
+                    return error;
 
-                foreach (var value in valuesIterator)
-                {
-                    if (collectionFilter is not null && !collectionFilter(value))
-                        continue;
-
-                    if (!TryConvertAndAggregate(value, ctx, convert, aggregate, ref result, out var error))
-                        return error;
-
-                    hasElement = true;
-                }
+                hasElement |= collectionHadElement;
             }
         }
 
         return hasElement ? result : noElementsResult;
+    }
+
+    private static bool TryAggregateCollection<TValue>(
+        OneOf<Array, Reference> collection,
+        CalcContext ctx,
+        Func<ScalarValue, CalcContext, OneOf<TValue, XLError>> convert,
+        Func<TValue, TValue, TValue> aggregate,
+        Func<ScalarValue, bool>? collectionFilter,
+        ref TValue accumulator,
+        out bool hadElement,
+        out XLError error)
+    {
+        hadElement = false;
+        var valuesIterator = collection.TryPickT0(out var array, out var reference)
+            ? array
+            : reference.GetCellsValues(ctx);
+
+        foreach (var value in valuesIterator)
+        {
+            if (collectionFilter is not null && !collectionFilter(value))
+                continue;
+
+            if (!TryConvertAndAggregate(value, ctx, convert, aggregate, ref accumulator, out error))
+                return false;
+
+            hadElement = true;
+        }
+
+        error = default;
+        return true;
     }
 
     private static bool TryConvertAndAggregate<TValue>(

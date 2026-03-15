@@ -235,61 +235,52 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         // Each outer loop moves chain one cell ahead.
         while (_chain.MoveAhead())
         {
-            // Inner loop that pushes supporting formulas ahead of current.
-            // It ends when a cell has been calculated and thus chain can move ahead.
-            while (true)
-            {
-                var current = _chain.Current;
-                var sheetId = current.SheetId;
-
-                // Skip dirty cells from sheets that are not being recalculated
-                if (recalculateSheetId is not null && sheetId != recalculateSheetId.Value)
-                {
-                    // Even though cell is dirty, it's in the ignored sheet and
-                    // thus chain can move ahead.
-                    break;
-                }
-
-                if (!sheetIdMap.TryGetValue(sheetId, out var sheetInfo))
-                {
-                    throw new InvalidOperationException($"Unable to find sheet with sheetId {sheetId} for a point ${current.Point}.");
-                }
-
-                if (_chain.IsCurrentInCycle)
-                {
-                    throw new InvalidOperationException($"Formula in a cell '${sheetInfo.Sheet.Name}'!${current.Point} is part of a cycle.");
-                }
-
-                var cellFormula = sheetInfo.FormulaSlice.Get(current.Point);
-                if (cellFormula is null)
-                {
-                    throw new InvalidOperationException($"Calculation chain contains a '${sheetInfo.Sheet.Name}'!${current.Point}, but the cell doesn't contain formula.");
-                }
-
-                if (!cellFormula.IsDirty)
-                    break;
-
-                try
-                {
-                    ApplyFormula(cellFormula, current.Point, sheetInfo.Sheet, sheetInfo.ValueSlice,
-                        recalculateSheetId);
-                    cellFormula.IsDirty = false;
-
-                    // Break out of the inner loop, a dirty cell has been
-                    // calculated and thus chain can move ahead.
-                    break;
-                }
-                catch (GettingDataException ex)
-                {
-                    _chain.MoveToCurrent(ex.Point);
-                }
-            }
+            RecalculateCurrentCell(_chain, sheetIdMap, recalculateSheetId);
         }
 
         // Super important to clean up the chain for next recalculation.
         // Chain contains shared data and not cleaning it would cause hard
         // to diagnose issues.
         _chain.Reset();
+    }
+
+    private void RecalculateCurrentCell(
+        XLCalculationChain chain,
+        System.Collections.Generic.Dictionary<uint, (XLWorksheet Sheet, ValueSlice ValueSlice, FormulaSlice FormulaSlice)> sheetIdMap,
+        uint? recalculateSheetId)
+    {
+        while (true)
+        {
+            var current = chain.Current;
+            var sheetId = current.SheetId;
+
+            if (recalculateSheetId is not null && sheetId != recalculateSheetId.Value)
+                break;
+
+            if (!sheetIdMap.TryGetValue(sheetId, out var sheetInfo))
+                throw new InvalidOperationException($"Unable to find sheet with sheetId {sheetId} for a point ${current.Point}.");
+
+            if (chain.IsCurrentInCycle)
+                throw new InvalidOperationException($"Formula in a cell '${sheetInfo.Sheet.Name}'!${current.Point} is part of a cycle.");
+
+            var cellFormula = sheetInfo.FormulaSlice.Get(current.Point);
+            if (cellFormula is null)
+                throw new InvalidOperationException($"Calculation chain contains a '${sheetInfo.Sheet.Name}'!${current.Point}, but the cell doesn't contain formula.");
+
+            if (!cellFormula.IsDirty)
+                break;
+
+            try
+            {
+                ApplyFormula(cellFormula, current.Point, sheetInfo.Sheet, sheetInfo.ValueSlice, recalculateSheetId);
+                cellFormula.IsDirty = false;
+                break;
+            }
+            catch (GettingDataException ex)
+            {
+                chain.MoveToCurrent(ex.Point);
+            }
+        }
     }
 
     private void ApplyFormula(XLCellFormula formula, XLSheetPoint appliedPoint, XLWorksheet sheet, ValueSlice valueSlice, uint? recalculateSheetId)

@@ -314,11 +314,16 @@ public static class XLMath
         if (p > 0.5)
             return 1.0 - InverseBetaRegularized(1.0 - p, b, a);
 
-        // Initial approximation (AS 109 / Cran et al.)
-        double x;
+        var x = InverseBetaInitialGuess(p, a, b);
+        x = Math.Max(1e-14, Math.Min(1.0 - 1e-14, x));
+
+        return InverseBetaNewtonRefine(x, p, a, b);
+    }
+
+    private static double InverseBetaInitialGuess(double p, double a, double b)
+    {
         if (a >= 1.0 && b >= 1.0)
         {
-            // Normal approximation for the initial guess
             var t = Math.Sqrt(-2.0 * Math.Log(p));
             var s = t - (2.30753 + 0.27061 * t) / (1.0 + (0.99229 + 0.04481 * t) * t);
 
@@ -326,21 +331,19 @@ public static class XLMath
             var h = 2.0 / (1.0 / (2.0 * a - 1.0) + 1.0 / (2.0 * b - 1.0));
             var w = s * Math.Sqrt(al + h) / h - (1.0 / (2.0 * b - 1.0) - 1.0 / (2.0 * a - 1.0))
                     * (al + 5.0 / 6.0 - 2.0 / (3.0 * h));
-            x = a / (a + b * Math.Exp(2.0 * w));
-        }
-        else
-        {
-            var lnBetaAB = LnBeta(a, b);
-            var lnX = (Math.Log(a) + lnBetaAB) / a;
-            var lnOneMinusX = (Math.Log(b) + lnBetaAB) / b;
-
-            var t = Math.Exp(lnX);
-            x = t <= 1.0 ? t : 1.0 - Math.Exp(lnOneMinusX);
+            return a / (a + b * Math.Exp(2.0 * w));
         }
 
-        x = Math.Max(1e-14, Math.Min(1.0 - 1e-14, x));
+        var lnBetaAB = LnBeta(a, b);
+        var lnX = (Math.Log(p) + Math.Log(a) + lnBetaAB) / a;
+        var lnOneMinusX = (Math.Log(1.0 - p) + Math.Log(b) + lnBetaAB) / b;
 
-        // Newton's method with bisection bounds
+        var t2 = Math.Exp(lnX);
+        return t2 <= 1.0 ? t2 : 1.0 - Math.Exp(lnOneMinusX);
+    }
+
+    private static double InverseBetaNewtonRefine(double x, double p, double a, double b)
+    {
         var lo = 0.0;
         var hi = 1.0;
         var lnBeta = -LnBeta(a, b);
@@ -349,7 +352,6 @@ public static class XLMath
         {
             var err = BetaRegularized(x, a, b) - p;
 
-            // Update bisection bounds
             if (err < 0)
                 lo = x;
             else
@@ -358,24 +360,16 @@ public static class XLMath
             if (Math.Abs(err) < 1e-15)
                 break;
 
-            // PDF of the beta distribution: f(x) = x^(a-1) * (1-x)^(b-1) / B(a,b)
             var logPdf = (a - 1.0) * Math.Log(x) + (b - 1.0) * Math.Log(1.0 - x) + lnBeta;
             var pdf = Math.Exp(logPdf);
 
             if (pdf > 0)
             {
-                // Newton step
                 var newX = x - err / pdf;
-
-                // If Newton step stays in bounds, use it; otherwise bisect
-                if (newX > lo && newX < hi)
-                    x = newX;
-                else
-                    x = (lo + hi) / 2.0;
+                x = (newX > lo && newX < hi) ? newX : (lo + hi) / 2.0;
             }
             else
             {
-                // PDF is zero (extreme parameters), fall back to bisection
                 x = (lo + hi) / 2.0;
             }
 
