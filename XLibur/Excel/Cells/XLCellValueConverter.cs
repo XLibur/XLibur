@@ -22,6 +22,39 @@ internal static partial class XLCellValueConverter
         }
 
         var underlyingType = targetType.GetUnderlyingType();
+        if (TryConvertKnownTypes(currentValue, underlyingType, out value))
+            return true;
+
+        if (TryGetStringValue(out value, currentValue)) return true;
+
+        if (underlyingType == typeof(XLError))
+        {
+            if (currentValue.IsError)
+            {
+                value = (T)(object)currentValue.GetError();
+                return true;
+            }
+
+            return false;
+        }
+
+        var culture = CultureInfo.CurrentCulture;
+        if (underlyingType.IsEnum)
+            return TryConvertEnum<T>(currentValue, underlyingType, culture, out value);
+
+        var typeCode = Type.GetTypeCode(underlyingType);
+
+        if (typeCode is >= TypeCode.Single and <= TypeCode.Decimal)
+            return TryConvertFloatingPoint<T>(currentValue, typeCode, culture, out value);
+
+        if (typeCode is >= TypeCode.SByte and <= TypeCode.UInt64)
+            return TryConvertInteger<T>(currentValue, typeCode, culture, out value);
+
+        return false;
+    }
+
+    private static bool TryConvertKnownTypes<T>(XLCellValue currentValue, Type underlyingType, out T value)
+    {
         if (underlyingType == typeof(DateTime) && currentValue.TryConvert(out DateTime dateTime))
         {
             value = (T)(object)dateTime;
@@ -41,30 +74,7 @@ internal static partial class XLCellValueConverter
             return true;
         }
 
-        if (TryGetStringValue(out value, currentValue)) return true;
-
-        if (underlyingType == typeof(XLError))
-        {
-            if (currentValue.IsError)
-            {
-                value = (T)(object)currentValue.GetError();
-                return true;
-            }
-
-            return false;
-        }
-
-        if (underlyingType.IsEnum)
-            return TryConvertEnum<T>(currentValue, underlyingType, culture, out value);
-
-        var typeCode = Type.GetTypeCode(underlyingType);
-
-        if (typeCode is >= TypeCode.Single and <= TypeCode.Decimal)
-            return TryConvertFloatingPoint<T>(currentValue, typeCode, culture, out value);
-
-        if (typeCode is >= TypeCode.SByte and <= TypeCode.UInt64)
-            return TryConvertInteger<T>(currentValue, typeCode, culture, out value);
-
+        value = default!;
         return false;
     }
 

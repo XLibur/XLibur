@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using XLibur.Utils;
 using DocumentFormat.OpenXml;
@@ -23,8 +23,32 @@ internal sealed class WorkbookPartWriter
                 "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
         }
 
-        #region WorkbookProperties
+        WriteWorkbookProperties(workbook, xlWorkbook, options);
+        WriteFileSharing(workbook, xlWorkbook);
+        WriteWorkbookProtection(workbook, xlWorkbook);
 
+        workbook.BookViews ??= new BookViews();
+        workbook.Sheets ??= new Sheets();
+
+        var worksheets = xlWorkbook.WorksheetsInternal;
+        workbook.Sheets.Elements<Sheet>().Where(s => worksheets.Deleted.Contains(s.Id!)).ToList().ForEach(
+            s => s.Remove());
+
+        UpdateExistingSheets(workbook, xlWorkbook);
+        AppendNewSheets(workbook, xlWorkbook, context);
+
+        var (_, firstSheetVisible) = ReorderSheets(workbook, xlWorkbook);
+
+        WriteWorkbookView(workbook, xlWorkbook, worksheets, firstSheetVisible);
+
+        var definedNames = BuildDefinedNames(workbook, xlWorkbook);
+        workbook.DefinedNames = definedNames;
+
+        WriteCalculationProperties(workbook, xlWorkbook);
+    }
+
+    private static void WriteWorkbookProperties(Workbook workbook, XLWorkbook xlWorkbook, SaveOptions options)
+    {
         workbook.WorkbookProperties ??= new WorkbookProperties();
 
         if (workbook.WorkbookProperties.CodeName == null)
@@ -34,11 +58,10 @@ internal sealed class WorkbookPartWriter
 
         if (options.FilterPrivacy.HasValue)
             workbook.WorkbookProperties.FilterPrivacy = OpenXmlHelper.GetBooleanValue(options.FilterPrivacy.Value, false);
+    }
 
-        #endregion WorkbookProperties
-
-        #region FileSharing
-
+    private static void WriteFileSharing(Workbook workbook, XLWorkbook xlWorkbook)
+    {
         workbook.FileSharing ??= new FileSharing();
 
         workbook.FileSharing.ReadOnlyRecommended = OpenXmlHelper.GetBooleanValue(xlWorkbook.FileSharing.ReadOnlyRecommended, false);
@@ -46,11 +69,10 @@ internal sealed class WorkbookPartWriter
 
         if (!workbook.FileSharing.HasChildren && !workbook.FileSharing.HasAttributes)
             workbook.FileSharing = null;
+    }
 
-        #endregion FileSharing
-
-        #region WorkbookProtection
-
+    private static void WriteWorkbookProtection(Workbook workbook, XLWorkbook xlWorkbook)
+    {
         if (xlWorkbook.Protection.IsProtected)
         {
             workbook.WorkbookProtection ??= new WorkbookProtection();
@@ -85,17 +107,11 @@ internal sealed class WorkbookPartWriter
         {
             workbook.WorkbookProtection = null;
         }
+    }
 
-        #endregion WorkbookProtection
-
-        workbook.BookViews ??= new BookViews();
-        workbook.Sheets ??= new Sheets();
-
-        var worksheets = xlWorkbook.WorksheetsInternal;
-        workbook.Sheets.Elements<Sheet>().Where(s => worksheets.Deleted.Contains(s.Id!)).ToList().ForEach(
-            s => s.Remove());
-
-        foreach (var sheet in workbook.Sheets.Elements<Sheet>())
+    private static void UpdateExistingSheets(Workbook workbook, XLWorkbook xlWorkbook)
+    {
+        foreach (var sheet in workbook.Sheets!.Elements<Sheet>())
         {
             var sheetId = (int)sheet.SheetId!.Value;
 
@@ -105,7 +121,11 @@ internal sealed class WorkbookPartWriter
             wks.RelId = sheet.Id;
             sheet.Name = wks.Name;
         }
+    }
 
+    private static void AppendNewSheets(Workbook workbook, XLWorkbook xlWorkbook, XLWorkbook.SaveContext context)
+    {
+        var sheets = workbook.Sheets!;
         foreach (var xlSheet in xlWorkbook.WorksheetsInternal.OrderBy<XLWorksheet, int>(w => w.Position))
         {
             string rId;
@@ -120,7 +140,7 @@ internal sealed class WorkbookPartWriter
                 rId = xlSheet.RelId;
             }
 
-            if (workbook.Sheets.Cast<Sheet>().All(s => s.Id != rId))
+            if (sheets.Cast<Sheet>().All(s => s.Id != rId))
             {
                 var newSheet = new Sheet
                 {
@@ -129,52 +149,71 @@ internal sealed class WorkbookPartWriter
                     SheetId = xlSheet.SheetId
                 };
 
-                workbook.Sheets.AppendChild(newSheet);
+                sheets.AppendChild(newSheet);
             }
         }
+    }
 
-        var sheetElements = from sheet in workbook.Sheets.Elements<Sheet>()
+    private static (IEnumerable<Sheet> sheetElements, uint firstSheetVisible) ReorderSheets(Workbook workbook, XLWorkbook xlWorkbook)
+    {
+        var sheetElements = from sheet in workbook.Sheets!.Elements<Sheet>()
                             join worksheet in ((IEnumerable<XLWorksheet>)xlWorkbook.WorksheetsInternal) on sheet.Id!.Value
                                 equals worksheet.RelId
                             orderby worksheet.Position
                             select sheet;
 
         uint firstSheetVisible = 0;
-        var activeTab =
-            (from us in xlWorkbook.UnsupportedSheets where us.IsActive select (uint)us.Position - 1).FirstOrDefault();
         var foundVisible = false;
 
         var totalSheets = sheetElements.Count() + xlWorkbook.UnsupportedSheets.Count;
         for (var p = 1; p <= totalSheets; p++)
         {
             if (xlWorkbook.UnsupportedSheets.All(us => us.Position != p))
-            {
-                var sheet = sheetElements.ElementAt(p - xlWorkbook.UnsupportedSheets.Count(us => us.Position <= p) - 1);
-                workbook.Sheets.RemoveChild(sheet);
-                workbook.Sheets.AppendChild(sheet);
-                var xlSheet = xlWorkbook.Worksheet(sheet.Name!.Value!);
-                if (xlSheet.Visibility != XLWorksheetVisibility.Visible)
-                    sheet.State = xlSheet.Visibility.ToOpenXml();
-                else
-                    sheet.State = null;
-
-                if (foundVisible) continue;
-
-                if (sheet.State == null || sheet.State == SheetStateValues.Visible)
-                    foundVisible = true;
-                else
-                    firstSheetVisible++;
-            }
+                ReorderSupportedSheet(workbook, xlWorkbook, sheetElements, p, ref foundVisible, ref firstSheetVisible);
             else
-            {
-                var unsupportedSheetId = xlWorkbook.UnsupportedSheets.First(us => us.Position == p).SheetId;
-                var sheet = workbook.Sheets.Elements<Sheet>().First(s => s.SheetId! == unsupportedSheetId);
-                workbook.Sheets.RemoveChild(sheet);
-                workbook.Sheets.AppendChild(sheet);
-            }
+                ReorderUnsupportedSheet(workbook, xlWorkbook, p);
         }
 
-        var workbookView = workbook.BookViews.Elements<WorkbookView>().FirstOrDefault();
+        return (sheetElements, firstSheetVisible);
+    }
+
+    private static void ReorderSupportedSheet(
+        Workbook workbook, XLWorkbook xlWorkbook, IEnumerable<Sheet> sheetElements,
+        int position, ref bool foundVisible, ref uint firstSheetVisible)
+    {
+        var sheet = sheetElements.ElementAt(position - xlWorkbook.UnsupportedSheets.Count(us => us.Position <= position) - 1);
+        workbook.Sheets!.RemoveChild(sheet);
+        workbook.Sheets.AppendChild(sheet);
+
+        var xlSheet = xlWorkbook.Worksheet(sheet.Name!.Value!);
+        sheet.State = xlSheet.Visibility != XLWorksheetVisibility.Visible
+            ? xlSheet.Visibility.ToOpenXml()
+            : null;
+
+        if (foundVisible)
+            return;
+
+        if (sheet.State == null || sheet.State == SheetStateValues.Visible)
+            foundVisible = true;
+        else
+            firstSheetVisible++;
+    }
+
+    private static void ReorderUnsupportedSheet(Workbook workbook, XLWorkbook xlWorkbook, int position)
+    {
+        var unsupportedSheetId = xlWorkbook.UnsupportedSheets.First(us => us.Position == position).SheetId;
+        var sheet = workbook.Sheets!.Elements<Sheet>().First(s => s.SheetId! == unsupportedSheetId);
+        workbook.Sheets.RemoveChild(sheet);
+        workbook.Sheets.AppendChild(sheet);
+    }
+
+    private static void WriteWorkbookView(Workbook workbook, XLWorkbook xlWorkbook, XLWorksheets worksheets,
+        uint firstSheetVisible)
+    {
+        var workbookView = workbook.BookViews!.Elements<WorkbookView>().FirstOrDefault();
+
+        var activeTab =
+            (from us in xlWorkbook.UnsupportedSheets where us.IsActive select (uint)us.Position - 1).FirstOrDefault();
 
         if (activeTab == 0)
         {
@@ -209,118 +248,24 @@ internal sealed class WorkbookPartWriter
             workbookView.ActiveTab = activeTab;
             workbookView.FirstSheet = firstSheetVisible;
         }
+    }
 
+    private static DefinedNames BuildDefinedNames(Workbook workbook, XLWorkbook xlWorkbook)
+    {
         var definedNames = new DefinedNames();
         foreach (var worksheet in xlWorkbook.WorksheetsInternal)
         {
             var wsSheetId = worksheet.SheetId;
             uint sheetId = 0;
-            foreach (var s in workbook.Sheets.Elements<Sheet>().TakeWhile(s => s.SheetId! != wsSheetId))
+            foreach (var s in workbook.Sheets!.Elements<Sheet>().TakeWhile(s => s.SheetId! != wsSheetId))
             {
                 sheetId++;
             }
 
-            var printAreas = (XLPrintAreas)worksheet.PageSetup.PrintAreas;
-            if (printAreas.FormulaReference != null)
-            {
-                var definedName = new DefinedName
-                {
-                    Name = "_xlnm.Print_Area",
-                    LocalSheetId = sheetId,
-                    Text = printAreas.FormulaReference
-                };
-                definedNames.AppendChild(definedName);
-            }
-            else if (worksheet.PageSetup.PrintAreas.Any())
-            {
-                var definedName = new DefinedName { Name = "_xlnm.Print_Area", LocalSheetId = sheetId };
-                var worksheetName = worksheet.Name;
-                var definedNameText = worksheet.PageSetup.PrintAreas.Aggregate(string.Empty,
-                    (current, printArea) =>
-                        current +
-                        (worksheetName.EscapeSheetName() + "!" +
-                         printArea.RangeAddress.
-                             FirstAddress.ToStringFixed(
-                                 XLReferenceStyle.A1) +
-                         ":" +
-                         printArea.RangeAddress.
-                             LastAddress.ToStringFixed(
-                                 XLReferenceStyle.A1) +
-                         ","));
-                definedName.Text = definedNameText.Substring(0, definedNameText.Length - 1);
-                definedNames.AppendChild(definedName);
-            }
-
-            if (worksheet.AutoFilter.IsEnabled)
-            {
-                var definedName = new DefinedName
-                {
-                    Name = "_xlnm._FilterDatabase",
-                    LocalSheetId = sheetId,
-                    Text = worksheet.Name.EscapeSheetName() + "!" +
-                           worksheet.AutoFilter.Range.RangeAddress.FirstAddress.ToStringFixed(
-                               XLReferenceStyle.A1) +
-                           ":" +
-                           worksheet.AutoFilter.Range.RangeAddress.LastAddress.ToStringFixed(
-                               XLReferenceStyle.A1),
-                    Hidden = BooleanValue.FromBoolean(true)
-                };
-                definedNames.AppendChild(definedName);
-            }
-
-            foreach (var xlDefinedName in worksheet.DefinedNames.Where<XLDefinedName>(n => n.Name != "_xlnm._FilterDatabase"))
-            {
-                var definedName = new DefinedName
-                {
-                    Name = xlDefinedName.Name,
-                    LocalSheetId = sheetId,
-                    Text = xlDefinedName.ToString()
-                };
-
-                if (!xlDefinedName.Visible)
-                    definedName.Hidden = BooleanValue.FromBoolean(true);
-
-                if (!string.IsNullOrWhiteSpace(xlDefinedName.Comment))
-                    definedName.Comment = xlDefinedName.Comment;
-                definedNames.AppendChild(definedName);
-            }
-
-            var definedNameTextRow = string.Empty;
-            var definedNameTextColumn = string.Empty;
-            if (worksheet.PageSetup.FirstRowToRepeatAtTop > 0)
-            {
-                definedNameTextRow = worksheet.Name.EscapeSheetName() + "!" + worksheet.PageSetup.FirstRowToRepeatAtTop
-                                     + ":" + worksheet.PageSetup.LastRowToRepeatAtTop;
-            }
-            if (worksheet.PageSetup.FirstColumnToRepeatAtLeft > 0)
-            {
-                var minColumn = worksheet.PageSetup.FirstColumnToRepeatAtLeft;
-                var maxColumn = worksheet.PageSetup.LastColumnToRepeatAtLeft;
-                definedNameTextColumn = worksheet.Name.EscapeSheetName() + "!" +
-                                        XLHelper.GetColumnLetterFromNumber(minColumn)
-                                        + ":" + XLHelper.GetColumnLetterFromNumber(maxColumn);
-            }
-
-            string titles;
-            if (definedNameTextColumn.Length > 0)
-            {
-                titles = definedNameTextColumn;
-                if (definedNameTextRow.Length > 0)
-                    titles += "," + definedNameTextRow;
-            }
-            else
-                titles = definedNameTextRow;
-
-            if (titles.Length <= 0) continue;
-
-            var definedName2 = new DefinedName
-            {
-                Name = "_xlnm.Print_Titles",
-                LocalSheetId = sheetId,
-                Text = titles
-            };
-
-            definedNames.AppendChild(definedName2);
+            AppendPrintAreaDefinedNames(definedNames, worksheet, sheetId);
+            AppendAutoFilterDefinedName(definedNames, worksheet, sheetId);
+            AppendWorksheetDefinedNames(definedNames, worksheet, sheetId);
+            AppendPrintTitlesDefinedName(definedNames, worksheet, sheetId);
         }
 
         foreach (var xlDefinedName in xlWorkbook.DefinedNamesInternal)
@@ -339,8 +284,125 @@ internal sealed class WorkbookPartWriter
             definedNames.AppendChild(definedName);
         }
 
-        workbook.DefinedNames = definedNames;
+        return definedNames;
+    }
 
+    private static void AppendPrintAreaDefinedNames(DefinedNames definedNames, XLWorksheet worksheet, uint sheetId)
+    {
+        var printAreas = (XLPrintAreas)worksheet.PageSetup.PrintAreas;
+        if (printAreas.FormulaReference != null)
+        {
+            var definedName = new DefinedName
+            {
+                Name = "_xlnm.Print_Area",
+                LocalSheetId = sheetId,
+                Text = printAreas.FormulaReference
+            };
+            definedNames.AppendChild(definedName);
+        }
+        else if (worksheet.PageSetup.PrintAreas.Any())
+        {
+            var definedName = new DefinedName { Name = "_xlnm.Print_Area", LocalSheetId = sheetId };
+            var worksheetName = worksheet.Name;
+            var definedNameText = worksheet.PageSetup.PrintAreas.Aggregate(string.Empty,
+                (current, printArea) =>
+                    current +
+                    (worksheetName.EscapeSheetName() + "!" +
+                     printArea.RangeAddress.
+                         FirstAddress.ToStringFixed(
+                             XLReferenceStyle.A1) +
+                     ":" +
+                     printArea.RangeAddress.
+                         LastAddress.ToStringFixed(
+                             XLReferenceStyle.A1) +
+                     ","));
+            definedName.Text = definedNameText.Substring(0, definedNameText.Length - 1);
+            definedNames.AppendChild(definedName);
+        }
+    }
+
+    private static void AppendAutoFilterDefinedName(DefinedNames definedNames, XLWorksheet worksheet, uint sheetId)
+    {
+        if (worksheet.AutoFilter.IsEnabled)
+        {
+            var definedName = new DefinedName
+            {
+                Name = "_xlnm._FilterDatabase",
+                LocalSheetId = sheetId,
+                Text = worksheet.Name.EscapeSheetName() + "!" +
+                       worksheet.AutoFilter.Range.RangeAddress.FirstAddress.ToStringFixed(
+                           XLReferenceStyle.A1) +
+                       ":" +
+                       worksheet.AutoFilter.Range.RangeAddress.LastAddress.ToStringFixed(
+                           XLReferenceStyle.A1),
+                Hidden = BooleanValue.FromBoolean(true)
+            };
+            definedNames.AppendChild(definedName);
+        }
+    }
+
+    private static void AppendWorksheetDefinedNames(DefinedNames definedNames, XLWorksheet worksheet, uint sheetId)
+    {
+        foreach (var xlDefinedName in worksheet.DefinedNames.Where<XLDefinedName>(n => n.Name != "_xlnm._FilterDatabase"))
+        {
+            var definedName = new DefinedName
+            {
+                Name = xlDefinedName.Name,
+                LocalSheetId = sheetId,
+                Text = xlDefinedName.ToString()
+            };
+
+            if (!xlDefinedName.Visible)
+                definedName.Hidden = BooleanValue.FromBoolean(true);
+
+            if (!string.IsNullOrWhiteSpace(xlDefinedName.Comment))
+                definedName.Comment = xlDefinedName.Comment;
+            definedNames.AppendChild(definedName);
+        }
+    }
+
+    private static void AppendPrintTitlesDefinedName(DefinedNames definedNames, XLWorksheet worksheet, uint sheetId)
+    {
+        var definedNameTextRow = string.Empty;
+        var definedNameTextColumn = string.Empty;
+        if (worksheet.PageSetup.FirstRowToRepeatAtTop > 0)
+        {
+            definedNameTextRow = worksheet.Name.EscapeSheetName() + "!" + worksheet.PageSetup.FirstRowToRepeatAtTop
+                                 + ":" + worksheet.PageSetup.LastRowToRepeatAtTop;
+        }
+        if (worksheet.PageSetup.FirstColumnToRepeatAtLeft > 0)
+        {
+            var minColumn = worksheet.PageSetup.FirstColumnToRepeatAtLeft;
+            var maxColumn = worksheet.PageSetup.LastColumnToRepeatAtLeft;
+            definedNameTextColumn = worksheet.Name.EscapeSheetName() + "!" +
+                                    XLHelper.GetColumnLetterFromNumber(minColumn)
+                                    + ":" + XLHelper.GetColumnLetterFromNumber(maxColumn);
+        }
+
+        string titles;
+        if (definedNameTextColumn.Length > 0)
+        {
+            titles = definedNameTextColumn;
+            if (definedNameTextRow.Length > 0)
+                titles += "," + definedNameTextRow;
+        }
+        else
+            titles = definedNameTextRow;
+
+        if (titles.Length <= 0) return;
+
+        var definedName2 = new DefinedName
+        {
+            Name = "_xlnm.Print_Titles",
+            LocalSheetId = sheetId,
+            Text = titles
+        };
+
+        definedNames.AppendChild(definedName2);
+    }
+
+    private static void WriteCalculationProperties(Workbook workbook, XLWorkbook xlWorkbook)
+    {
         workbook.CalculationProperties ??= new CalculationProperties { CalculationId = 125725U };
 
         if (xlWorkbook.CalculateMode == XLCalculateMode.Default)

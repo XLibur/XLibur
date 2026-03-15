@@ -94,9 +94,7 @@ internal static class TimeSpanParser
         if (!TryReadNumber(ref i, s, out var seconds))
             return false;
 
-        if ((hoursOrMinutes >= 24 && minutesOrSeconds >= 60)
-            || (hoursOrMinutes >= 24 && seconds >= 60)
-            || (minutesOrSeconds >= 60 && seconds >= 60))
+        if (HasTwoOrMoreOutOfBoundsComponents(hoursOrMinutes, minutesOrSeconds, seconds))
             return false;
 
         SkipWhitespace(ref i, s);
@@ -105,6 +103,21 @@ internal static class TimeSpanParser
             result = new TimeSpan(hoursOrMinutes, minutesOrSeconds, seconds);
             return true;
         }
+
+        return TryParseHMSWithDecimal(ref i, s, decimalSeparator, hoursOrMinutes, minutesOrSeconds, seconds, out result);
+    }
+
+    private static bool HasTwoOrMoreOutOfBoundsComponents(int hours, int minutes, int seconds)
+    {
+        return (hours >= 24 && minutes >= 60)
+            || (hours >= 24 && seconds >= 60)
+            || (minutes >= 60 && seconds >= 60);
+    }
+
+    private static bool TryParseHMSWithDecimal(ref int i, string s, string decimalSeparator,
+        int hours, int minutes, int seconds, out TimeSpan result)
+    {
+        result = default;
 
         if (!InputMatches(ref i, s, decimalSeparator))
             return false;
@@ -115,10 +128,10 @@ internal static class TimeSpanParser
 
         if (i == s.Length)
         {
-            result = new TimeSpan(0, hoursOrMinutes, minutesOrSeconds, seconds, milliseconds);
-            return (hoursOrMinutes < 24 && minutesOrSeconds < 60)
-                   || (hoursOrMinutes < 24 && seconds < 60)
-                   || (minutesOrSeconds < 60 && seconds < 60);
+            result = new TimeSpan(0, hours, minutes, seconds, milliseconds);
+            return (hours < 24 && minutes < 60)
+                   || (hours < 24 && seconds < 60)
+                   || (minutes < 60 && seconds < 60);
         }
 
         return false;

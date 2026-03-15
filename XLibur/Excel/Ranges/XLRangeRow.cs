@@ -1,6 +1,7 @@
+using XLibur.Excel.Ranges;
+
 namespace XLibur.Excel;
 
-using System;
 using System.Linq;
 
 internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
@@ -224,66 +225,18 @@ internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
         {
             var thisCell = (XLCell)Cell(e.ElementNumber);
             var otherCell = (XLCell)otherRow.Cell(e.ElementNumber);
-            int comparison;
-            var thisCellIsBlank = thisCell.IsEmpty();
-            var otherCellIsBlank = otherCell.IsEmpty();
-            if (e.IgnoreBlanks && (thisCellIsBlank || otherCellIsBlank))
-            {
-                if (thisCellIsBlank && otherCellIsBlank)
-                    comparison = 0;
-                else
-                {
-                    if (thisCellIsBlank)
-                        comparison = e.SortOrder == XLSortOrder.Ascending ? 1 : -1;
-                    else
-                        comparison = e.SortOrder == XLSortOrder.Ascending ? -1 : 1;
-                }
-            }
-            else
-            {
-                if (thisCell.DataType == otherCell.DataType)
-                {
-                    switch (thisCell.DataType)
-                    {
-                        case XLDataType.Text:
-                            comparison = e.MatchCase
-                                ? string.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.Ordinal)
-                                : string.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.OrdinalIgnoreCase);
-                            break;
-
-                        case XLDataType.TimeSpan:
-                            comparison = thisCell.GetTimeSpan().CompareTo(otherCell.GetTimeSpan());
-                            break;
-
-                        case XLDataType.DateTime:
-                            comparison = thisCell.GetDateTime().CompareTo(otherCell.GetDateTime());
-                            break;
-
-                        case XLDataType.Number:
-                            comparison = thisCell.GetDouble().CompareTo(otherCell.GetDouble());
-                            break;
-
-                        case XLDataType.Boolean:
-                            comparison = thisCell.GetBoolean().CompareTo(otherCell.GetBoolean());
-                            break;
-
-                        default:
-                            throw new NotImplementedException();
-                    }
-                }
-                else if (thisCell.Value.IsUnifiedNumber && otherCell.Value.IsUnifiedNumber)
-                    comparison = thisCell.Value.GetUnifiedNumber().CompareTo(otherCell.Value.GetUnifiedNumber());
-                else if (e.MatchCase)
-                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.OrdinalIgnoreCase);
-                else
-                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.Ordinal);
-            }
+            var comparison = CompareRowCells(thisCell, otherCell, e);
 
             if (comparison != 0)
                 return e.SortOrder == XLSortOrder.Ascending ? comparison : -comparison;
         }
 
         return 0;
+    }
+
+    private static int CompareRowCells(XLCell thisCell, XLCell otherCell, IXLSortElement e)
+    {
+        return XLCellComparer.CompareCells(thisCell, otherCell, e);
     }
 
     private XLRangeRow RowShift(int rowsToShift)

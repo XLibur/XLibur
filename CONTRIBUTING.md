@@ -5,9 +5,39 @@ In order for XLibur, the wrapper around OpenXML, to support all the features, we
 
 Here are some tips.
 
-* Before starting a large pull request, log an issue and outline the problem and a broad outline of your solution. The maintainers will discuss the issue with you and possibly propose some alternative approaches to align with the XLibur development conventions. 
+* Before starting a large pull request, log an issue and outline the problem and a broad outline of your solution. The maintainers will discuss the issue with you and possibly propose some alternative approaches to align with the XLibur development conventions.
 * Please submit pull requests that are based on the `main` branch.
 * Where possible, pull requests should include unit tests that cover as many uses cases as possible.
+
+## Setting up the pre-commit hook
+
+The repository includes a pre-commit hook that automatically formats staged C# files with `dotnet format`. After cloning, enable it by running:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+## Mutation Testing
+
+[Stryker.NET](https://stryker-mutator.io/docs/stryker-net/introduction/) runs daily in CI to measure test effectiveness. To run locally:
+
+```sh
+# Restore the Stryker tool (first time only)
+dotnet tool restore
+
+# Set StrykerEnabled to disable TreatWarningsAsErrors so mutants can compile
+# PowerShell:  $env:StrykerEnabled="true"
+# CMD:         set StrykerEnabled=true
+# Bash:        export StrykerEnabled=true
+
+# Run mutation testing with the default config
+dotnet stryker -f stryker-config.json
+
+# Run against a specific file or folder
+dotnet stryker -f stryker-config.json --mutate "XLibur/Excel/Cells/**/*.cs"
+```
+
+Reports are generated in `StrykerOutput/` — open the HTML report to see surviving mutants.
 
 ## Working with Excel file internals
 Excel files (`.xlsx` and `.xlsm`) are zip packages. You can easily verify this by renaming the extension any Excel file to `.zip` and opening the file in your favourite `.zip` file editor.

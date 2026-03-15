@@ -379,7 +379,7 @@ public partial class XLWorkbook
         var extList = new ExtensionList();
         var ext = new Extension { Uri = "{bdbb8cdc-fa1e-496e-a857-3c3f30c029c3}" };
 
-        // The xda:dynamicArrayProperties element must be in the correct namespace
+        // The `xda:dynamicArrayProperties` element must be in the correct namespace
         const string xdaNs = "http://schemas.microsoft.com/office/spreadsheetml/2017/dynamicarray";
         var dynArrayProps = new OpenXmlUnknownElement("xda", "dynamicArrayProperties", xdaNs);
         dynArrayProps.SetAttribute(new OpenXmlAttribute("", "fDynamic", "", "1"));

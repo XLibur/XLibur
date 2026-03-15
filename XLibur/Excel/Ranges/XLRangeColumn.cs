@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using XLibur.Excel.Ranges;
 
 namespace XLibur.Excel;
 
@@ -97,39 +98,20 @@ internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
     public IXLRangeColumn CopyTo(IXLCell target)
     {
         base.CopyTo((XLCell)target);
-
-        var lastRowNumber = target.Address.RowNumber + RowCount() - 1;
-        if (lastRowNumber > XLHelper.MaxRowNumber)
-            lastRowNumber = XLHelper.MaxRowNumber;
-        var lastColumnNumber = target.Address.ColumnNumber + ColumnCount() - 1;
-        if (lastColumnNumber > XLHelper.MaxColumnNumber)
-            lastColumnNumber = XLHelper.MaxColumnNumber;
-
-        return target.Worksheet.Range(
-                target.Address.RowNumber,
-                target.Address.ColumnNumber,
-                lastRowNumber,
-                lastColumnNumber)
-            .Column(1);
+        return BuildCopyResult(target.Worksheet, target.Address.RowNumber, target.Address.ColumnNumber);
     }
 
     public new IXLRangeColumn CopyTo(IXLRangeBase target)
     {
         base.CopyTo(target);
+        return BuildCopyResult(target.Worksheet, target.RangeAddress.FirstAddress.RowNumber, target.RangeAddress.FirstAddress.ColumnNumber);
+    }
 
-        var lastRowNumber = target.RangeAddress.FirstAddress.RowNumber + RowCount() - 1;
-        if (lastRowNumber > XLHelper.MaxRowNumber)
-            lastRowNumber = XLHelper.MaxRowNumber;
-        var lastColumnNumber = target.RangeAddress.FirstAddress.ColumnNumber + ColumnCount() - 1;
-        if (lastColumnNumber > XLHelper.MaxColumnNumber)
-            lastColumnNumber = XLHelper.MaxColumnNumber;
-
-        return target.Worksheet.Range(
-                target.RangeAddress.FirstAddress.RowNumber,
-                target.RangeAddress.FirstAddress.ColumnNumber,
-                lastRowNumber,
-                lastColumnNumber)
-            .Column(1);
+    private IXLRangeColumn BuildCopyResult(IXLWorksheet worksheet, int startRow, int startColumn)
+    {
+        var lastRowNumber = Math.Min(startRow + RowCount() - 1, XLHelper.MaxRowNumber);
+        var lastColumnNumber = Math.Min(startColumn + ColumnCount() - 1, XLHelper.MaxColumnNumber);
+        return worksheet.Range(startRow, startColumn, lastRowNumber, lastColumnNumber).Column(1);
     }
 
     public IXLRangeColumn Column(int start, int end)
@@ -227,51 +209,18 @@ internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
         {
             var thisCell = Cell(e.ElementNumber);
             var otherCell = otherColumn.Cell(e.ElementNumber);
-            int comparison;
-            var thisCellIsBlank = thisCell.IsEmpty();
-            var otherCellIsBlank = otherCell.IsEmpty();
-            if (e.IgnoreBlanks && (thisCellIsBlank || otherCellIsBlank))
-            {
-                if (thisCellIsBlank && otherCellIsBlank)
-                    comparison = 0;
-                else
-                {
-                    if (thisCellIsBlank)
-                        comparison = e.SortOrder == XLSortOrder.Ascending ? 1 : -1;
-                    else
-                        comparison = e.SortOrder == XLSortOrder.Ascending ? -1 : 1;
-                }
-            }
-            else
-            {
-                if (thisCell.DataType == otherCell.DataType)
-                {
-                    if (thisCell.DataType == XLDataType.Blank)
-                        comparison = 0;
-                    else if (thisCell.DataType == XLDataType.Boolean)
-                        comparison = thisCell.GetBoolean().CompareTo(otherCell.GetBoolean());
-                    else if (thisCell.DataType == XLDataType.Text)
-                    {
-                        comparison = e.MatchCase
-                            ? String.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.Ordinal)
-                            : String.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.OrdinalIgnoreCase);
-                    }
-                    else if (thisCell.DataType == XLDataType.Error)
-                        comparison = 0; // Errors are incomparable
-                    else
-                        comparison = thisCell.CachedValue.GetUnifiedNumber().CompareTo(thisCell.CachedValue.GetUnifiedNumber());
-                }
-                else if (e.MatchCase)
-                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.OrdinalIgnoreCase);
-                else
-                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.Ordinal);
-            }
+            var comparison = CompareColumnCells(thisCell, otherCell, e);
 
             if (comparison != 0)
                 return e.SortOrder == XLSortOrder.Ascending ? comparison : comparison * -1;
         }
 
         return 0;
+    }
+
+    private static int CompareColumnCells(XLCell thisCell, XLCell otherCell, IXLSortElement e)
+    {
+        return XLCellComparer.CompareCells(thisCell, otherCell, e);
     }
 
     private XLRangeColumn ColumnShift(int columnsToShift)
@@ -334,34 +283,32 @@ internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
 
     public IXLTable AsTable()
     {
-        if (IsTableColumn())
-            throw new InvalidOperationException("This column is already part of a table.");
-
+        ThrowIfTableColumn();
         return AsRange().AsTable();
     }
 
     public IXLTable AsTable(string name)
     {
-        if (IsTableColumn())
-            throw new InvalidOperationException("This column is already part of a table.");
-
+        ThrowIfTableColumn();
         return AsRange().AsTable(name);
     }
 
     public IXLTable CreateTable()
     {
-        if (IsTableColumn())
-            throw new InvalidOperationException("This column is already part of a table.");
-
+        ThrowIfTableColumn();
         return AsRange().CreateTable();
     }
 
     public IXLTable CreateTable(string name)
     {
+        ThrowIfTableColumn();
+        return AsRange().CreateTable(name);
+    }
+
+    private void ThrowIfTableColumn()
+    {
         if (IsTableColumn())
             throw new InvalidOperationException("This column is already part of a table.");
-
-        return AsRange().CreateTable(name);
     }
 
     public new IXLRangeColumn Clear(XLClearOptions clearOptions = XLClearOptions.All)

@@ -35,6 +35,31 @@ internal sealed class XLHFText
 
         StringBuilder sb = new StringBuilder();
 
+        AppendFontNameAndStyle(sb, wsFont);
+
+        if (RichText.FontSize > 0 && Math.Abs(RichText.FontSize - wsFont.FontSize) > XLHelper.Epsilon)
+            sb.Append("&" + RichText.FontSize);
+
+        if (RichText.Strikethrough && !wsFont.Strikethrough)
+            sb.Append("&S");
+
+        AppendVerticalAlignment(sb, wsFont);
+        AppendUnderline(sb, wsFont);
+        AppendFontColor(sb, prevText, wsFont);
+
+        sb.Append(RichText.Text);
+
+        AppendUnderline(sb, wsFont);
+        AppendVerticalAlignment(sb, wsFont);
+
+        if (RichText.Strikethrough && !wsFont.Strikethrough)
+            sb.Append("&S");
+
+        return sb.ToString();
+    }
+
+    private void AppendFontNameAndStyle(StringBuilder sb, IXLFontBase wsFont)
+    {
         if (RichText.FontName != null && RichText.FontName != wsFont.FontName)
             sb.Append("&\"" + RichText.FontName);
         else
@@ -48,13 +73,10 @@ internal sealed class XLHFText
             sb.Append(",Italic\"");
         else
             sb.Append(",Regular\"");
+    }
 
-        if (RichText.FontSize > 0 && Math.Abs(RichText.FontSize - wsFont.FontSize) > XLHelper.Epsilon)
-            sb.Append("&" + RichText.FontSize);
-
-        if (RichText.Strikethrough && !wsFont.Strikethrough)
-            sb.Append("&S");
-
+    private void AppendVerticalAlignment(StringBuilder sb, IXLFontBase wsFont)
+    {
         if (RichText.VerticalAlignment != wsFont.VerticalAlignment)
         {
             if (RichText.VerticalAlignment == XLFontVerticalTextAlignmentValues.Subscript)
@@ -62,7 +84,10 @@ internal sealed class XLHFText
             else if (RichText.VerticalAlignment == XLFontVerticalTextAlignmentValues.Superscript)
                 sb.Append("&X");
         }
+    }
 
+    private void AppendUnderline(StringBuilder sb, IXLFontBase wsFont)
+    {
         if (RichText.Underline != wsFont.Underline)
         {
             if (RichText.Underline == XLFontUnderlineValues.Single)
@@ -70,36 +95,30 @@ internal sealed class XLHFText
             else if (RichText.Underline == XLFontUnderlineValues.Double)
                 sb.Append("&E");
         }
+    }
 
+    private void AppendFontColor(StringBuilder sb, string prevText, IXLFontBase wsFont)
+    {
         var lastColorPosition = prevText.LastIndexOf("&K", StringComparison.Ordinal);
 
+        var hasPrevColor = lastColorPosition >= 0 && prevText.Length >= lastColorPosition + 8;
+        XLColor? prevColor = null;
+        if (hasPrevColor)
+        {
+            try
+            {
+                prevColor = XLColor.FromHtml(string.Concat("#", prevText.AsSpan(lastColorPosition + 2, 6)));
+            }
+            catch (FormatException)
+            {
+                hasPrevColor = false;
+            }
+        }
+
         if (
-            (lastColorPosition >= 0 && !RichText.FontColor.Equals(XLColor.FromHtml("#" + prevText.Substring(lastColorPosition + 2, 6))))
-            || (lastColorPosition == -1 && !RichText.FontColor.Equals(wsFont.FontColor))
+            (hasPrevColor && !RichText.FontColor.Equals(prevColor))
+            || (!hasPrevColor && !RichText.FontColor.Equals(wsFont.FontColor))
         )
-            sb.Append("&K" + RichText.FontColor.Color.ToHex().Substring(2));
-
-        sb.Append(RichText.Text);
-
-        if (RichText.Underline != wsFont.Underline)
-        {
-            if (RichText.Underline == XLFontUnderlineValues.Single)
-                sb.Append("&U");
-            else if (RichText.Underline == XLFontUnderlineValues.Double)
-                sb.Append("&E");
-        }
-
-        if (RichText.VerticalAlignment != wsFont.VerticalAlignment)
-        {
-            if (RichText.VerticalAlignment == XLFontVerticalTextAlignmentValues.Subscript)
-                sb.Append("&Y");
-            else if (RichText.VerticalAlignment == XLFontVerticalTextAlignmentValues.Superscript)
-                sb.Append("&X");
-        }
-
-        if (RichText.Strikethrough && !wsFont.Strikethrough)
-            sb.Append("&S");
-
-        return sb.ToString();
+            sb.Append("&K").Append(RichText.FontColor.Color.ToHex().AsSpan(2));
     }
 }

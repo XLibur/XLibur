@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Pre-commit hook: auto-format staged C# files with dotnet format.
+# Install: git config core.hooksPath .githooks
+
+set -euo pipefail
+
+# Get staged .cs files (added, modified, or renamed)
+STAGED_CS=$(git diff --cached --name-only --diff-filter=AMR -- '*.cs' || true)
+
+if [ -z "$STAGED_CS" ]; then
+    exit 0
+fi
+
+echo "Running dotnet format on staged files..."
+dotnet format XLibur.slnx --include $STAGED_CS --verbosity quiet
+
+# Re-stage any files that were reformatted
+for file in $STAGED_CS; do
+    if [ -f "$file" ]; then
+        git add "$file"
+    fi
+done

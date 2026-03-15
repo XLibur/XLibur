@@ -121,30 +121,7 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
             }
             else if (lastPosition + rt.Text.Length >= index + 1) // Eureka!
             {
-                var startIndex = index - lastPosition;
-
-                switch (startIndex)
-                {
-                    case > 0:
-                        newRichTexts.Add(new XLRichString(rt.Text.Substring(0, startIndex), rt, this,
-                            OnContentChanged));
-                        break;
-                    case < 0:
-                        startIndex = 0;
-                        break;
-                }
-
-                var leftToTake = length - retVal.Length;
-                if (leftToTake > rt.Text.Length - startIndex)
-                    leftToTake = rt.Text.Length - startIndex;
-
-                var newRt = new XLRichString(rt.Text.Substring(startIndex, leftToTake), rt, this, OnContentChanged);
-                newRichTexts.Add(newRt);
-                retVal.AddText(newRt);
-
-                if (startIndex + leftToTake < rt.Text.Length)
-                    newRichTexts.Add(new XLRichString(rt.Text.Substring(startIndex + leftToTake), rt, this,
-                        OnContentChanged));
+                ProcessRichStringInRange(rt, index, length, lastPosition, newRichTexts, retVal);
             }
             else // We haven't reached the desired position yet
             {
@@ -157,6 +134,33 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
         _richTexts = newRichTexts;
         OnContentChanged();
         return retVal;
+    }
+
+    private void ProcessRichStringInRange(XLRichString rt, int index, int length, int lastPosition,
+        List<XLRichString> newRichTexts, XLFormattedText<T> retVal)
+    {
+        var startIndex = index - lastPosition;
+
+        switch (startIndex)
+        {
+            case > 0:
+                newRichTexts.Add(new XLRichString(rt.Text.Substring(0, startIndex), rt, this, OnContentChanged));
+                break;
+            case < 0:
+                startIndex = 0;
+                break;
+        }
+
+        var leftToTake = length - retVal.Length;
+        if (leftToTake > rt.Text.Length - startIndex)
+            leftToTake = rt.Text.Length - startIndex;
+
+        var newRt = new XLRichString(rt.Text.Substring(startIndex, leftToTake), rt, this, OnContentChanged);
+        newRichTexts.Add(newRt);
+        retVal.AddText(newRt);
+
+        if (startIndex + leftToTake < rt.Text.Length)
+            newRichTexts.Add(new XLRichString(rt.Text.Substring(startIndex + leftToTake), rt, this, OnContentChanged));
     }
 
     public IXLFormattedText<T> CopyFrom(IXLFormattedText<T> original)

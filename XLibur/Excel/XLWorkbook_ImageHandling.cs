@@ -33,7 +33,7 @@ public partial class XLWorkbook
         if (!IsAllowedAnchor(anchor))
             return null;
 
-        // Maybe we should not restrict here, and just search for all NonVisualDrawingProperties in an anchor?
+        // Maybe we should not restrict here and just search for all NonVisualDrawingProperties in an anchor?
         var shape = anchor.Descendants<Picture>().Cast<OpenXmlCompositeElement>().FirstOrDefault()
                     ?? anchor.Descendants<ConnectionShape>().Cast<OpenXmlCompositeElement>().FirstOrDefault();
 

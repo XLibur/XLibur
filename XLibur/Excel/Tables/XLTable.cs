@@ -765,9 +765,9 @@ internal sealed class XLTable : XLRange, IXLTable
         return column;
     }
 
-    public override XLRangeColumn Column(string columnName)
+    public override XLRangeColumn Column(string columnLetter)
     {
-        var column = base.Column(columnName);
+        var column = base.Column(columnLetter);
         column.Table = this;
         return column;
     }

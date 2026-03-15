@@ -35,7 +35,7 @@ public static partial class XLHelper
     /// </summary>
     internal const int Calendar1904UpperLimit = 2957004;
 
-    public static Encoding NoBomUTF8 = new UTF8Encoding(false);
+    internal static readonly Encoding NoBomUTF8 = new UTF8Encoding(false);
 
     public static string LastCell => $"{MaxColumnLetter}{MaxRowNumber}";
 

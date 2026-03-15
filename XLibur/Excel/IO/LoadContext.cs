@@ -5,6 +5,17 @@ using System.Linq;
 
 namespace XLibur.Excel.IO;
 
+/// <summary>
+/// Bundles the stylesheet and its sub-collections that are always passed together during loading.
+/// </summary>
+internal sealed record StylesheetData(
+    Stylesheet? Stylesheet,
+    NumberingFormats? NumberingFormats,
+    Fills? Fills,
+    Borders? Borders,
+    Fonts? Fonts,
+    Dictionary<int, DifferentialFormat> DifferentialFormats);
+
 internal sealed class LoadContext
 {
     /// <summary>
@@ -81,6 +92,11 @@ internal sealed class LoadContext
         };
         return XLNumberFormatValue.FromKey(ref predefinedFormatKey);
     }
+
+    /// <summary>
+    /// The stylesheet and its sub-collections, populated once from the workbook styles part.
+    /// </summary>
+    internal StylesheetData Styles { get; set; } = null!;
 
     /// <summary>
     /// Maps 1-based vm (value metadata) index to cell image info loaded from rich data parts.

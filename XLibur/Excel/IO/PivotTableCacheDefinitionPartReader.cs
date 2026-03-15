@@ -72,34 +72,7 @@ internal sealed class PivotTableCacheDefinitionPartReader
         // Not all sources are supported, but at least pipe the data through so the load/save works
         IEnumValue sourceType = cacheSource.Type?.Value ?? throw PartStructureException.MissingAttribute();
         if (sourceType.Equals(SourceValues.Worksheet))
-        {
-            var sheetSource = cacheSource.WorksheetSource;
-            if (sheetSource is null)
-                throw PartStructureException.ExpectedElementNotFound("'worksheetSource' element is required for type 'worksheet'.");
-
-            // If the source is a defined name, it must be a single area reference
-            if (sheetSource.Name?.Value is { } tableOrName)
-            {
-                if (sheetSource.Id?.Value is { } externalWorkbookRelId)
-                    return new XLPivotSourceExternalWorkbook(externalWorkbookRelId, tableOrName);
-
-                return new XLPivotSourceReference(tableOrName);
-            }
-
-            if (sheetSource.Sheet?.Value is { } sheetName &&
-                sheetSource.Reference?.Value is { } areaRef &&
-                XLSheetRange.TryParse(areaRef.AsSpan(), out var sheetArea))
-            {
-                var area = new XLBookArea(sheetName, sheetArea);
-                if (sheetSource.Id?.Value is { } externalWorkbookRelId)
-                    return new XLPivotSourceExternalWorkbook(externalWorkbookRelId, area);
-
-                // area is in this workbook
-                return new XLPivotSourceReference(area);
-            }
-
-            throw PartStructureException.IncorrectElementFormat("worksheetSource");
-        }
+            return ParseWorksheetSource(cacheSource);
 
         if (sourceType.Equals(SourceValues.External))
         {
@@ -110,45 +83,7 @@ internal sealed class PivotTableCacheDefinitionPartReader
         }
 
         if (sourceType.Equals(SourceValues.Consolidation))
-        {
-            if (cacheSource.Consolidation is not { } consolidation)
-                throw PartStructureException.ExpectedElementNotFound("consolidation");
-
-            var autoPage = consolidation.AutoPage?.Value ?? true;
-            var xlPages = new List<XLPivotCacheSourceConsolidationPage>();
-            if (consolidation.Pages is { } pages)
-            {
-                // There is 1..4 pages
-                foreach (var page in pages.Cast<Page>())
-                {
-                    var xlPageItems = new List<string>();
-                    foreach (var pageItem in page.Cast<PageItem>())
-                    {
-                        var pageItemName = pageItem.Name?.Value ?? throw PartStructureException.MissingAttribute();
-                        xlPageItems.Add(pageItemName);
-                    }
-
-                    xlPages.Add(new XLPivotCacheSourceConsolidationPage(xlPageItems));
-                }
-            }
-
-            if (consolidation.RangeSets is not { } rangeSets)
-                throw PartStructureException.RequiredElementIsMissing();
-
-            var xlRangeSets = new List<XLPivotCacheSourceConsolidationRangeSet>();
-            foreach (var rangeSet in rangeSets.Cast<RangeSet>())
-                xlRangeSets.Add(GetRangeSet(rangeSet, xlPages));
-
-            if (xlRangeSets.Count < 1)
-                throw PartStructureException.IncorrectElementsCount();
-
-            return new XLPivotSourceConsolidation
-            {
-                AutoPage = autoPage,
-                Pages = xlPages,
-                RangeSets = xlRangeSets
-            };
-        }
+            return ParseConsolidationSource(cacheSource);
 
         if (sourceType.Equals(SourceValues.Scenario))
         {
@@ -156,59 +91,135 @@ internal sealed class PivotTableCacheDefinitionPartReader
         }
 
         throw PartStructureException.InvalidAttributeValue(sourceType.Value);
+    }
 
-        static XLPivotCacheSourceConsolidationRangeSet GetRangeSet(RangeSet rangeSet, List<XLPivotCacheSourceConsolidationPage> xlPages)
+    private static IXLPivotSource ParseWorksheetSource(CacheSource cacheSource)
+    {
+        var sheetSource = cacheSource.WorksheetSource;
+        if (sheetSource is null)
+            throw PartStructureException.ExpectedElementNotFound("'worksheetSource' element is required for type 'worksheet'.");
+
+        // If the source is a defined name, it must be a single area reference
+        if (sheetSource.Name?.Value is { } tableOrName)
         {
-            var pageIndexes = new[]
+            if (sheetSource.Id?.Value is { } externalWorkbookRelId)
+                return new XLPivotSourceExternalWorkbook(externalWorkbookRelId, tableOrName);
+
+            return new XLPivotSourceReference(tableOrName);
+        }
+
+        if (sheetSource.Sheet?.Value is { } sheetName &&
+            sheetSource.Reference?.Value is { } areaRef &&
+            XLSheetRange.TryParse(areaRef.AsSpan(), out var sheetArea))
+        {
+            var area = new XLBookArea(sheetName, sheetArea);
+            if (sheetSource.Id?.Value is { } externalWorkbookRelId)
+                return new XLPivotSourceExternalWorkbook(externalWorkbookRelId, area);
+
+            // area is in this workbook
+            return new XLPivotSourceReference(area);
+        }
+
+        throw PartStructureException.IncorrectElementFormat("worksheetSource");
+    }
+
+    private static XLPivotSourceConsolidation ParseConsolidationSource(CacheSource cacheSource)
+    {
+        if (cacheSource.Consolidation is not { } consolidation)
+            throw PartStructureException.ExpectedElementNotFound("consolidation");
+
+        var autoPage = consolidation.AutoPage?.Value ?? true;
+        var xlPages = new List<XLPivotCacheSourceConsolidationPage>();
+        if (consolidation.Pages is { } pages)
+        {
+            // There is 1..4 pages
+            foreach (var page in pages.Cast<Page>())
             {
-                rangeSet.FieldItemIndexPage1?.Value,
-                rangeSet.FieldItemIndexPage2?.Value,
-                rangeSet.FieldItemIndexPage3?.Value,
-                rangeSet.FieldItemIndexPage4?.Value,
+                var xlPageItems = new List<string>();
+                foreach (var pageItem in page.Cast<PageItem>())
+                {
+                    var pageItemName = pageItem.Name?.Value ?? throw PartStructureException.MissingAttribute();
+                    xlPageItems.Add(pageItemName);
+                }
+
+                xlPages.Add(new XLPivotCacheSourceConsolidationPage(xlPageItems));
+            }
+        }
+
+        if (consolidation.RangeSets is not { } rangeSets)
+            throw PartStructureException.RequiredElementIsMissing();
+
+        var xlRangeSets = new List<XLPivotCacheSourceConsolidationRangeSet>();
+        foreach (var rangeSet in rangeSets.Cast<RangeSet>())
+            xlRangeSets.Add(GetRangeSet(rangeSet, xlPages));
+
+        if (xlRangeSets.Count < 1)
+            throw PartStructureException.IncorrectElementsCount();
+
+        return new XLPivotSourceConsolidation
+        {
+            AutoPage = autoPage,
+            Pages = xlPages,
+            RangeSets = xlRangeSets
+        };
+    }
+
+    private static XLPivotCacheSourceConsolidationRangeSet GetRangeSet(RangeSet rangeSet, List<XLPivotCacheSourceConsolidationPage> xlPages)
+    {
+        var pageIndexes = new[]
+        {
+            rangeSet.FieldItemIndexPage1?.Value,
+            rangeSet.FieldItemIndexPage2?.Value,
+            rangeSet.FieldItemIndexPage3?.Value,
+            rangeSet.FieldItemIndexPage4?.Value,
+        };
+
+        ValidateRangeSetPageIndexes(pageIndexes, xlPages);
+
+        if (rangeSet.Name?.Value is { } tableOrName)
+        {
+            return new XLPivotCacheSourceConsolidationRangeSet
+            {
+                Indexes = pageIndexes,
+                RelId = rangeSet.Id?.Value,
+                TableOrName = tableOrName,
             };
+        }
 
-            // Validate that supplied indexes reference existing page and page items
-            for (var i = 0; i < pageIndexes.Length; ++i)
+        if (rangeSet.Sheet?.Value is { } sheet &&
+            rangeSet.Reference?.Value is { } reference &&
+            XLSheetRange.TryParse(reference.AsSpan(), out var area))
+        {
+            return new XLPivotCacheSourceConsolidationRangeSet
             {
-                var pageIndex = pageIndexes[i];
+                Indexes = pageIndexes,
+                RelId = rangeSet.Id?.Value,
+                Area = new XLBookArea(sheet, area)
+            };
+        }
 
-                // If there is a page and rangeSet doesn't define index to the page, it is displayed as blank
-                if (pageIndex is null)
-                    continue;
+        throw PartStructureException.IncorrectElementFormat("rangeSet");
+    }
 
-                // Range set points to a non-existent page filter
-                if (i >= xlPages.Count)
-                    throw PartStructureException.IncorrectAttributeValue();
+    private static void ValidateRangeSetPageIndexes(uint?[] pageIndexes, List<XLPivotCacheSourceConsolidationPage> xlPages)
+    {
+        // Validate that supplied indexes reference existing page and page items
+        for (var i = 0; i < pageIndexes.Length; ++i)
+        {
+            var pageIndex = pageIndexes[i];
 
-                // Range set points to a non-existent item in a page filter
-                var pageFilter = xlPages[i];
-                if (pageIndex.Value >= pageFilter.PageItems.Count)
-                    throw PartStructureException.IncorrectAttributeValue();
-            }
+            // If there is a page and rangeSet doesn't define index to the page, it is displayed as blank
+            if (pageIndex is null)
+                continue;
 
-            if (rangeSet.Name?.Value is { } tableOrName)
-            {
-                return new XLPivotCacheSourceConsolidationRangeSet
-                {
-                    Indexes = pageIndexes,
-                    RelId = rangeSet.Id?.Value,
-                    TableOrName = tableOrName,
-                };
-            }
+            // Range set points to a non-existent page filter
+            if (i >= xlPages.Count)
+                throw PartStructureException.IncorrectAttributeValue();
 
-            if (rangeSet.Sheet?.Value is { } sheet &&
-                rangeSet.Reference?.Value is { } reference &&
-                XLSheetRange.TryParse(reference.AsSpan(), out var area))
-            {
-                return new XLPivotCacheSourceConsolidationRangeSet
-                {
-                    Indexes = pageIndexes,
-                    RelId = rangeSet.Id?.Value,
-                    Area = new XLBookArea(sheet, area)
-                };
-            }
-
-            throw PartStructureException.IncorrectElementFormat("rangeSet");
+            // Range set points to a non-existent item in a page filter
+            var pageFilter = xlPages[i];
+            if (pageIndex.Value >= pageFilter.PageItems.Count)
+                throw PartStructureException.IncorrectAttributeValue();
         }
     }
 
@@ -294,56 +305,37 @@ internal sealed class PivotTableCacheDefinitionPartReader
             // Shared items can't contain element of type index (`x`),
             // because index references shared items. That is main reason
             // for rather significant duplication with reading records.
-            switch (item)
-            {
-                case MissingItem:
-                    sharedItems.AddMissing();
-                    break;
-
-                case NumberItem numberItem:
-                    if (numberItem.Val?.Value is not { } number)
-                        throw PartStructureException.MissingAttribute();
-
-                    sharedItems.AddNumber(number);
-                    break;
-
-                case BooleanItem booleanItem:
-                    if (booleanItem.Val?.Value is not { } boolean)
-                        throw PartStructureException.MissingAttribute();
-
-                    sharedItems.AddBoolean(boolean);
-                    break;
-
-                case ErrorItem errorItem:
-                    if (errorItem.Val?.Value is not { } errorText)
-                        throw PartStructureException.MissingAttribute();
-
-                    if (!XLErrorParser.TryParseError(errorText, out var error))
-                        throw PartStructureException.IncorrectAttributeFormat();
-
-                    sharedItems.AddError(error);
-                    break;
-
-                case StringItem stringItem:
-                    if (stringItem.Val?.Value is not { } text)
-                        throw PartStructureException.MissingAttribute();
-
-                    sharedItems.AddString(text);
-                    break;
-
-                case DateTimeItem dateTimeItem:
-                    if (dateTimeItem.Val?.Value is not { } dateTime)
-                        throw PartStructureException.MissingAttribute();
-
-                    sharedItems.AddDateTime(dateTime);
-                    break;
-
-                default:
-                    throw PartStructureException.ExpectedElementNotFound();
-            }
+            AddSharedItem(sharedItems, item);
         }
 
         return sharedItems;
+    }
+
+    private static void AddSharedItem(XLPivotCacheSharedItems sharedItems, DocumentFormat.OpenXml.OpenXmlElement item)
+    {
+        switch (item)
+        {
+            case MissingItem:
+                sharedItems.AddMissing();
+                break;
+            case NumberItem numberItem:
+                sharedItems.AddNumber(GetNumberValue(numberItem));
+                break;
+            case BooleanItem booleanItem:
+                sharedItems.AddBoolean(GetBooleanValue(booleanItem));
+                break;
+            case ErrorItem errorItem:
+                sharedItems.AddError(GetErrorValue(errorItem));
+                break;
+            case StringItem stringItem:
+                sharedItems.AddString(GetStringValue(stringItem));
+                break;
+            case DateTimeItem dateTimeItem:
+                sharedItems.AddDateTime(GetDateTimeValue(dateTimeItem));
+                break;
+            default:
+                throw PartStructureException.ExpectedElementNotFound();
+        }
     }
 
     private static void ReadRecords(PivotCacheRecords recordsPart, XLPivotCache pivotCache)
@@ -376,64 +368,76 @@ internal sealed class PivotTableCacheDefinitionPartReader
                 // Don't add values to the shared items of a cache when record value is added, because we want 1:1
                 // read/write. Read them from definition. Whatever is in shared items now should be written out,
                 // unless there is a cache refresh. Basically trust the author of the workbook that it is valid.
-                switch (recordItem)
-                {
-                    case MissingItem:
-                        fieldValues.AddMissing();
-                        break;
-
-                    case NumberItem numberItem:
-                        if (numberItem.Val?.Value is not { } number)
-                            throw PartStructureException.MissingAttribute();
-
-                        fieldValues.AddNumber(number);
-                        break;
-
-                    case BooleanItem booleanItem:
-                        if (booleanItem.Val?.Value is not { } boolean)
-                            throw PartStructureException.MissingAttribute();
-
-                        fieldValues.AddBoolean(boolean);
-                        break;
-
-                    case ErrorItem errorItem:
-                        if (errorItem.Val?.Value is not { } errorText)
-                            throw PartStructureException.MissingAttribute();
-
-                        if (!XLErrorParser.TryParseError(errorText, out var error))
-                            throw PartStructureException.IncorrectAttributeFormat();
-
-                        fieldValues.AddError(error);
-                        break;
-
-                    case StringItem stringItem:
-                        if (stringItem.Val?.Value is not { } text)
-                            throw PartStructureException.MissingAttribute();
-
-                        fieldValues.AddString(text);
-                        break;
-
-                    case DateTimeItem dateTimeItem:
-                        if (dateTimeItem.Val?.Value is not { } dateTime)
-                            throw PartStructureException.MissingAttribute();
-
-                        fieldValues.AddDateTime(dateTime);
-                        break;
-
-                    case FieldItem indexItem:
-                        if (indexItem.Val?.Value is not { } index)
-                            throw PartStructureException.MissingAttribute();
-
-                        if (index >= fieldValues.SharedCount)
-                            throw PartStructureException.IncorrectAttributeValue();
-
-                        fieldValues.AddIndex(index);
-                        break;
-
-                    default:
-                        throw PartStructureException.ExpectedElementNotFound();
-                }
+                AddRecordItem(fieldValues, recordItem);
             }
         }
+    }
+
+    private static void AddRecordItem(XLPivotCacheValues fieldValues, DocumentFormat.OpenXml.OpenXmlElement recordItem)
+    {
+        switch (recordItem)
+        {
+            case MissingItem:
+                fieldValues.AddMissing();
+                break;
+            case NumberItem numberItem:
+                fieldValues.AddNumber(GetNumberValue(numberItem));
+                break;
+            case BooleanItem booleanItem:
+                fieldValues.AddBoolean(GetBooleanValue(booleanItem));
+                break;
+            case ErrorItem errorItem:
+                fieldValues.AddError(GetErrorValue(errorItem));
+                break;
+            case StringItem stringItem:
+                fieldValues.AddString(GetStringValue(stringItem));
+                break;
+            case DateTimeItem dateTimeItem:
+                fieldValues.AddDateTime(GetDateTimeValue(dateTimeItem));
+                break;
+            case FieldItem indexItem:
+                fieldValues.AddIndex(GetFieldIndex(indexItem, fieldValues.SharedCount));
+                break;
+            default:
+                throw PartStructureException.ExpectedElementNotFound();
+        }
+    }
+
+    private static double GetNumberValue(NumberItem numberItem)
+    {
+        return numberItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
+    }
+
+    private static bool GetBooleanValue(BooleanItem booleanItem)
+    {
+        return booleanItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
+    }
+
+    private static XLError GetErrorValue(ErrorItem errorItem)
+    {
+        var errorText = errorItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
+        if (!XLErrorParser.TryParseError(errorText, out var error))
+            throw PartStructureException.IncorrectAttributeFormat();
+
+        return error;
+    }
+
+    private static string GetStringValue(StringItem stringItem)
+    {
+        return stringItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
+    }
+
+    private static DateTime GetDateTimeValue(DateTimeItem dateTimeItem)
+    {
+        return dateTimeItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
+    }
+
+    private static uint GetFieldIndex(FieldItem indexItem, int sharedCount)
+    {
+        var index = indexItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
+        if (index >= sharedCount)
+            throw PartStructureException.IncorrectAttributeValue();
+
+        return index;
     }
 }

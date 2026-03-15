@@ -436,18 +436,27 @@ internal static class WorksheetSheetDataReader
                 if (i == -1)
                     return null;
             }
-            else if (c == '0' || c == '#' || c == '?')
-                return XLDataType.Number;
-            else if (c == 'y' || c == 'd')
-                return XLDataType.DateTime;
-            else if (c == 'h' || c == 's')
-                return XLDataType.TimeSpan;
-            else if (c == 'm')
+            else
             {
-                return ResolveMonthOrMinute(format, i, length);
+                var result = ClassifyFormatChar(c, format, i, length);
+                if (result.HasValue)
+                    return result.Value;
             }
         }
 
+        return null;
+    }
+
+    private static XLDataType? ClassifyFormatChar(char c, string format, int i, int length)
+    {
+        if (c == '0' || c == '#' || c == '?')
+            return XLDataType.Number;
+        if (c == 'y' || c == 'd')
+            return XLDataType.DateTime;
+        if (c == 'h' || c == 's')
+            return XLDataType.TimeSpan;
+        if (c == 'm')
+            return ResolveMonthOrMinute(format, i, length);
         return null;
     }
 
