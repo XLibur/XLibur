@@ -61,9 +61,9 @@ internal sealed class PictureWriter
                 .LegacyDrawingId is null && // and sheet doesn't contain any form controls or comments or other shapes
             !xlWorksheet.Pictures.Any() && // and also no pictures.
             !hasCharts && // and no charts
-            // Check for non-picture shapes (textboxes, rectangles, etc.) last to avoid
-            // loading the DrawingsPart DOM unnecessarily — DOM loading causes re-serialization
-            // that changes the XML even when no modifications are made.
+                          // Check for non-picture shapes (textboxes, rectangles, etc.) last to avoid
+                          // loading the DrawingsPart DOM unnecessarily — DOM loading causes re-serialization
+                          // that changes the XML even when no modifications are made.
             !(worksheetPart.DrawingsPart.WorksheetDrawing?.HasChildren ?? false))
         {
             var id = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart);

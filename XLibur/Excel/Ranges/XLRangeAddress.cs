@@ -106,12 +106,14 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
 
     IXLAddress IXLRangeAddress.FirstAddress
     {
-        [DebuggerStepThrough] get => FirstAddress;
+        [DebuggerStepThrough]
+        get => FirstAddress;
     }
 
     IXLAddress IXLRangeAddress.LastAddress
     {
-        [DebuggerStepThrough] get => LastAddress;
+        [DebuggerStepThrough]
+        get => LastAddress;
     }
 
     public bool IsValid => FirstAddress.IsValid && LastAddress.IsValid;

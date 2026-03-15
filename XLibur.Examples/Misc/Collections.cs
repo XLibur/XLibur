@@ -48,8 +48,8 @@ public class Collections : IXLExample
         };
 
         var people = from p in list
-            where p.Age >= 21
-            select new { p.Name, p.House, p.Age };
+                     where p.Age >= 21
+                     select new { p.Name, p.House, p.Age };
 
         ws.Cell(6, 6).Value = "Query";
         ws.Range(6, 6, 6, 8).Merge().AddToNamed("Titles");

@@ -1,0 +1,46 @@
+name: Mutation Testing
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # Daily at 04:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stryker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Restore dependencies
+        run: dotnet restore XLibur.slnx
+
+      - name: Build
+        run: dotnet build XLibur.slnx --configuration Release --no-restore
+
+      - name: Run Stryker
+        env:
+          StrykerEnabled: 'true'
+        run: dotnet stryker -f stryker-config.json
+
+      - name: Upload mutation report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stryker-report
+          path: StrykerOutput/**/reports/
+          retention-days: 30

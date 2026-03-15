@@ -342,7 +342,7 @@ public static class PackageHelper
             }
         }
 
-        EXIT:
+    EXIT:
         var sortedPairs = pairs.Values.ToList();
         sortedPairs.Sort((one, other) => string.Compare(one.Uri.OriginalString, other.Uri.OriginalString, StringComparison.Ordinal));
         var sbuilder = new StringBuilder();

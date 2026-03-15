@@ -40,12 +40,12 @@ internal sealed class VmlDrawingPartWriter
                 new Vml.Stroke { JoinStyle = Vml.StrokeJoinStyleValues.Miter },
                 new Vml.Path { AllowGradientShape = true, ConnectionPointType = ConnectValues.Rectangle }
             )
-            {
-                Id = XLConstants.Comment.ShapeTypeId,
-                CoordinateSize = "21600,21600",
-                OptionalNumber = 202,
-                EdgePath = "m,l,21600r21600,l21600,xe",
-            }
+        {
+            Id = XLConstants.Comment.ShapeTypeId,
+            CoordinateSize = "21600,21600",
+            OptionalNumber = 202,
+            EdgePath = "m,l,21600r21600,l21600,xe",
+        }
             .WriteTo(writer);
 
         var cellWithComments = xlWorksheet.Internals.CellsCollection.GetCells(c => c.HasComment);

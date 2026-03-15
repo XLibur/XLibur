@@ -1657,78 +1657,77 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         switch (value.Type)
         {
             case XLDataType.DateTime:
-            {
-                var onlyDatePart = value.GetUnifiedNumber() % 1 == 0;
-                var styleValue = GetStyleValue(point);
-                if (styleValue.NumberFormat.Format.Length == 0 &&
-                    styleValue.NumberFormat.NumberFormatId == 0)
                 {
-                    if (onlyDatePart)
+                    var onlyDatePart = value.GetUnifiedNumber() % 1 == 0;
+                    var styleValue = GetStyleValue(point);
+                    if (styleValue.NumberFormat.Format.Length == 0 &&
+                        styleValue.NumberFormat.NumberFormatId == 0)
                     {
-                        if (ReferenceEquals(styleValue, _cachedDateOnlySourceStyle))
-                            return _cachedDateOnlyResultStyle;
+                        if (onlyDatePart)
+                        {
+                            if (ReferenceEquals(styleValue, _cachedDateOnlySourceStyle))
+                                return _cachedDateOnlyResultStyle;
 
-                        var dateNumberFormat = styleValue.NumberFormat.WithNumberFormatId(14);
-                        var result = styleValue.WithNumberFormat(dateNumberFormat);
-                        _cachedDateOnlySourceStyle = styleValue;
-                        _cachedDateOnlyResultStyle = result;
-                        return result;
-                    }
-                    else
-                    {
-                        if (ReferenceEquals(styleValue, _cachedDateTimeSourceStyle))
-                            return _cachedDateTimeResultStyle;
+                            var dateNumberFormat = styleValue.NumberFormat.WithNumberFormatId(14);
+                            var result = styleValue.WithNumberFormat(dateNumberFormat);
+                            _cachedDateOnlySourceStyle = styleValue;
+                            _cachedDateOnlyResultStyle = result;
+                            return result;
+                        }
+                        else
+                        {
+                            if (ReferenceEquals(styleValue, _cachedDateTimeSourceStyle))
+                                return _cachedDateTimeResultStyle;
 
-                        var dateTimeNumberFormat = styleValue.NumberFormat.WithNumberFormatId(22);
-                        var result = styleValue.WithNumberFormat(dateTimeNumberFormat);
-                        _cachedDateTimeSourceStyle = styleValue;
-                        _cachedDateTimeResultStyle = result;
-                        return result;
+                            var dateTimeNumberFormat = styleValue.NumberFormat.WithNumberFormatId(22);
+                            var result = styleValue.WithNumberFormat(dateTimeNumberFormat);
+                            _cachedDateTimeSourceStyle = styleValue;
+                            _cachedDateTimeResultStyle = result;
+                            return result;
+                        }
                     }
                 }
-            }
                 break;
 
             case XLDataType.TimeSpan:
-            {
-                var styleValue = GetStyleValue(point);
-                if (styleValue.NumberFormat.Format.Length == 0 && styleValue.NumberFormat.NumberFormatId == 0)
                 {
-                    if (ReferenceEquals(styleValue, _cachedTimeSpanSourceStyle))
-                        return _cachedTimeSpanResultStyle;
+                    var styleValue = GetStyleValue(point);
+                    if (styleValue.NumberFormat.Format.Length == 0 && styleValue.NumberFormat.NumberFormatId == 0)
+                    {
+                        if (ReferenceEquals(styleValue, _cachedTimeSpanSourceStyle))
+                            return _cachedTimeSpanResultStyle;
 
-                    var durationNumberFormat = styleValue.NumberFormat.WithNumberFormatId(46);
-                    var result = styleValue.WithNumberFormat(durationNumberFormat);
-                    _cachedTimeSpanSourceStyle = styleValue;
-                    _cachedTimeSpanResultStyle = result;
-                    return result;
+                        var durationNumberFormat = styleValue.NumberFormat.WithNumberFormatId(46);
+                        var result = styleValue.WithNumberFormat(durationNumberFormat);
+                        _cachedTimeSpanSourceStyle = styleValue;
+                        _cachedTimeSpanResultStyle = result;
+                        return result;
+                    }
                 }
-            }
                 break;
 
             case XLDataType.Text:
-            {
-                var text = value.GetText();
-                XLStyleValue? styleValue = null;
-                if (text.Length > 0 && text[0] == '\'')
                 {
-                    styleValue = GetStyleValue(point);
-                    styleValue = styleValue.WithIncludeQuotePrefix(true);
-                }
-
-                var containsNewLine = text.AsSpan()
-                    .Contains(Environment.NewLine.AsSpan(), StringComparison.Ordinal);
-                if (containsNewLine)
-                {
-                    styleValue ??= GetStyleValue(point);
-                    if (!styleValue.Alignment.WrapText)
+                    var text = value.GetText();
+                    XLStyleValue? styleValue = null;
+                    if (text.Length > 0 && text[0] == '\'')
                     {
-                        styleValue = styleValue.WithAlignment(static alignment => alignment.WithWrapText(true));
+                        styleValue = GetStyleValue(point);
+                        styleValue = styleValue.WithIncludeQuotePrefix(true);
                     }
-                }
 
-                return styleValue;
-            }
+                    var containsNewLine = text.Contains('\n');
+                    if (containsNewLine)
+                    {
+                        styleValue ??= GetStyleValue(point);
+                        if (!styleValue.Alignment.WrapText)
+                        {
+                            styleValue = styleValue.WithAlignment(static alignment => alignment.WithWrapText(true));
+                        }
+                    }
+
+                    return styleValue;
+                }
             case XLDataType.Blank:
             case XLDataType.Boolean:
             case XLDataType.Number:

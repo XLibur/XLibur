@@ -13,6 +13,11 @@ namespace XLibur.Excel.IO;
 
 internal sealed class SheetDataWriter
 {
+    /// <summary>
+    /// Day offset between the 1900 and 1904 date systems used by Excel.
+    /// </summary>
+    private const int Date1904OffsetDays = 1462;
+
     private static readonly FieldInfo XmlWriterFieldInfo =
         typeof(OpenXmlPartWriter).GetField("_xmlWriter", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
@@ -546,14 +551,14 @@ internal sealed class SheetDataWriter
                 WriteNumberValue(w, cellValue.GetNumber());
                 break;
             case XLDataType.DateTime:
-            {
-                var date = cellValue.GetDateTime();
-                if (use1904DateSystem)
-                    date = date.AddDays(-1462);
+                {
+                    var date = cellValue.GetDateTime();
+                    if (use1904DateSystem)
+                        date = date.AddDays(-Date1904OffsetDays);
 
-                WriteNumberValue(w, date.ToSerialDateTime());
-                break;
-            }
+                    WriteNumberValue(w, date.ToSerialDateTime());
+                    break;
+                }
             case XLDataType.Boolean:
                 WriteStringValue(w, cellValue.GetBoolean() ? TrueValue : FalseValue);
                 break;
@@ -616,15 +621,15 @@ internal sealed class SheetDataWriter
                 WriteNumberValue(w, xlCell.Value.GetNumber());
                 break;
             case XLDataType.DateTime:
-            {
-                // OpenXML SDK validator requires a specific format, in addition to the spec, but can read many more
-                var date = xlCell.GetDateTime();
-                if (xlCell.Worksheet.Workbook.Use1904DateSystem)
-                    date = date.AddDays(-1462);
+                {
+                    // OpenXML SDK validator requires a specific format, in addition to the spec, but can read many more
+                    var date = xlCell.GetDateTime();
+                    if (xlCell.Worksheet.Workbook.Use1904DateSystem)
+                        date = date.AddDays(-Date1904OffsetDays);
 
-                WriteNumberValue(w, date.ToSerialDateTime());
-                break;
-            }
+                    WriteNumberValue(w, date.ToSerialDateTime());
+                    break;
+                }
             case XLDataType.Boolean:
                 WriteStringValue(w, xlCell.GetBoolean() ? TrueValue : FalseValue);
                 break;
