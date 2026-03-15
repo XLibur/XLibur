@@ -64,7 +64,7 @@ jobs:
           dotnet sonarscanner begin
           /k:"XLibur_XLibur"
           /o:"xlibur"
-          /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+          /d:sonar.token="$SONAR_TOKEN"
           /d:sonar.host.url="https://sonarcloud.io"
           /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml"
           /d:sonar.coverage.exclusions="XLibur.Examples/**,XLibur.Benchmarks/**"
@@ -84,7 +84,7 @@ jobs:
 
       - name: End SonarCloud analysis
         if: env.SONAR_TOKEN != ''
-        run: dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+        run: dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"
 
       - name: Upload test results
         uses: actions/upload-artifact@v7
