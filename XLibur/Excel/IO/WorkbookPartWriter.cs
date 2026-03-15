@@ -37,9 +37,9 @@ internal sealed class WorkbookPartWriter
         UpdateExistingSheets(workbook, xlWorkbook);
         AppendNewSheets(workbook, xlWorkbook, context);
 
-        var (sheetElements, firstSheetVisible) = ReorderSheets(workbook, xlWorkbook);
+        var (_, firstSheetVisible) = ReorderSheets(workbook, xlWorkbook);
 
-        WriteWorkbookView(workbook, xlWorkbook, worksheets, sheetElements, firstSheetVisible);
+        WriteWorkbookView(workbook, xlWorkbook, worksheets, firstSheetVisible);
 
         var definedNames = BuildDefinedNames(workbook, xlWorkbook);
         workbook.DefinedNames = definedNames;
@@ -208,7 +208,7 @@ internal sealed class WorkbookPartWriter
     }
 
     private static void WriteWorkbookView(Workbook workbook, XLWorkbook xlWorkbook, XLWorksheets worksheets,
-        IEnumerable<Sheet> sheetElements, uint firstSheetVisible)
+        uint firstSheetVisible)
     {
         var workbookView = workbook.BookViews!.Elements<WorkbookView>().FirstOrDefault();
 

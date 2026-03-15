@@ -963,7 +963,7 @@ internal static class WorkbookStylesPartWriter
 
     private static void AppendFontScalarElements(Font font, XLFontValue f, XLFontValue d, bool ignoreMod)
     {
-        if (f.FontSize != d.FontSize || ignoreMod)
+        if (!XLHelper.AreEqual(f.FontSize, d.FontSize) || ignoreMod)
             font.AppendChild(new FontSize { Val = f.FontSize });
 
         if (f.FontColor != d.FontColor || ignoreMod)

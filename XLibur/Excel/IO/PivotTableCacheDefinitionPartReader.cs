@@ -123,7 +123,7 @@ internal sealed class PivotTableCacheDefinitionPartReader
         throw PartStructureException.IncorrectElementFormat("worksheetSource");
     }
 
-    private static IXLPivotSource ParseConsolidationSource(CacheSource cacheSource)
+    private static XLPivotSourceConsolidation ParseConsolidationSource(CacheSource cacheSource)
     {
         if (cacheSource.Consolidation is not { } consolidation)
             throw PartStructureException.ExpectedElementNotFound("consolidation");
