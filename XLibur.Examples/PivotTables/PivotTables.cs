@@ -35,23 +35,23 @@ public class PivotTables : IXLExample
     {
         var pastries = new List<Pastry>
         {
-            new("Croissant", 101, 150, 60.2, "Apr", new DateTime(2016, 04, 21)),
-            new("Croissant", 101, 250, 50.42, "May", new DateTime(2016, 05, 03)),
-            new("Croissant", 101, 134, 22.12, "Jun", new DateTime(2016, 06, 24)),
-            new("Doughnut", 102, 250, 89.99, "Apr", new DateTime(2017, 04, 23)),
-            new("Doughnut", 102, 225, 70, "May", new DateTime(2016, 05, 24)),
-            new("Doughnut", 102, 210, 75.33, "Jun", new DateTime(2016, 06, 02)),
-            new("Bearclaw", 103, 134, 10.24, "Apr", new DateTime(2016, 04, 27)),
-            new("Bearclaw", 103, 184, 33.33, "May", new DateTime(2016, 05, 20)),
-            new("Bearclaw", 103, 124, 25, "Jun", new DateTime(2017, 06, 05)),
-            new("Danish", 104, 394, -20.24, "Apr", new DateTime(2017, 04, 24)),
-            new("Danish", 104, 190, 60, "May", new DateTime(2017, 05, 08)),
-            new("Danish", 104, 221, 24.76, "Jun", new DateTime(2016, 06, 21)),
+            new("Croissant", 101, 150, 60.2, "Apr", new DateTime(2016, 04, 21, 0, 0, 0, DateTimeKind.Unspecified)),
+            new("Croissant", 101, 250, 50.42, "May", new DateTime(2016, 05, 03, 0, 0, 0, DateTimeKind.Unspecified)),
+            new("Croissant", 101, 134, 22.12, "Jun", new DateTime(2016, 06, 24, 0, 0, 0, DateTimeKind.Unspecified)),
+            new("Doughnut", 102, 250, 89.99, "Apr", new DateTime(2017, 04, 23, 0, 0, 0, DateTimeKind.Unspecified)),
+            new("Doughnut", 102, 225, 70, "May", new DateTime(2016, 05, 24, 0, 0, 0, DateTimeKind.Unspecified)),
+            new("Doughnut", 102, 210, 75.33, "Jun", new DateTime(2016, 06, 02, 0, 0, 0, DateTimeKind.Unspecified)),
+            new("Bearclaw", 103, 134, 10.24, "Apr", new DateTime(2016, 04, 27, 0, 0, 0, DateTimeKind.Unspecified)),
+            new("Bearclaw", 103, 184, 33.33, "May", new DateTime(2016, 05, 20, 0, 0, 0, DateTimeKind.Unspecified)),
+            new("Bearclaw", 103, 124, 25, "Jun", new DateTime(2017, 06, 05, 0, 0, 0, DateTimeKind.Unspecified)),
+            new("Danish", 104, 394, -20.24, "Apr", new DateTime(2017, 04, 24, 0, 0, 0, DateTimeKind.Unspecified)),
+            new("Danish", 104, 190, 60, "May", new DateTime(2017, 05, 08, 0, 0, 0, DateTimeKind.Unspecified)),
+            new("Danish", 104, 221, 24.76, "Jun", new DateTime(2016, 06, 21, 0, 0, 0, DateTimeKind.Unspecified)),
 
             // Deliberately add different casings of same string to ensure pivot table doesn't duplicate it.
-            new("Scone", 105, 135, 0, "Apr", new DateTime(2017, 04, 22)),
-            new("SconE", 105, 122, 5.19, "May", new DateTime(2017, 05, 03)),
-            new("SCONE", 105, 243, 44.2, "Jun", new DateTime(2017, 06, 14)),
+            new("Scone", 105, 135, 0, "Apr", new DateTime(2017, 04, 22, 0, 0, 0, DateTimeKind.Unspecified)),
+            new("SconE", 105, 122, 5.19, "May", new DateTime(2017, 05, 03, 0, 0, 0, DateTimeKind.Unspecified)),
+            new("SCONE", 105, 243, 44.2, "Jun", new DateTime(2017, 06, 14, 0, 0, 0, DateTimeKind.Unspecified)),
 
             // For ContainsBlank and integer rows/columns test
             new("Scone", null, 255, 18.4, null, null),
@@ -195,7 +195,7 @@ public class PivotTables : IXLExample
             .AddSelectedValue(5.19);
 
         pt.ReportFilters.Add("BakeDate")
-            .AddSelectedValue(new DateTime(2017, 05, 03));
+            .AddSelectedValue(new DateTime(2017, 05, 03, 0, 0, 0, DateTimeKind.Unspecified));
 
         #endregion Pivot Table with filter
 
