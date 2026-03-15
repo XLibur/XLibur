@@ -252,71 +252,81 @@ public partial class XLWorkbook
         // 3. cellMetadata - one record referencing the type, used by cm attribute on cells
 
         var cellMetadataPart = workbookPart.CellMetadataPart;
-        if (cellMetadataPart is not null)
+        if (cellMetadataPart?.Metadata is not null)
         {
-            // Check if XLDAPR already exists in the metadata
-            var metadata = cellMetadataPart.Metadata;
-            if (metadata is not null)
-            {
-                var metadataTypes = metadata.MetadataTypes;
-                if (metadataTypes is not null)
-                {
-                    uint typeIndex = 1; // 1-based
-                    foreach (var mt in metadataTypes.Elements<MetadataType>())
-                    {
-                        if (mt.Name?.Value == "XLDAPR")
-                        {
-                            // Find the cellMetadata record that references this type
-                            var cellMeta = metadata.GetFirstChild<CellMetadata>();
-                            if (cellMeta is not null)
-                            {
-                                uint cmIndex = 1; // 1-based
-                                foreach (var bk in cellMeta.Elements<MetadataBlock>())
-                                {
-                                    var rc = bk.GetFirstChild<MetadataRecord>();
-                                    if (rc?.TypeIndex?.Value == typeIndex)
-                                    {
-                                        context.DynamicArrayMetaIndex = cmIndex;
-                                        return;
-                                    }
-                                    cmIndex++;
-                                }
-                            }
-
-                            // Type exists but no cellMetadata record for it - add one
-                            if (cellMeta is null)
-                            {
-                                cellMeta = new CellMetadata { Count = 0 };
-                                metadata.Append(cellMeta);
-                            }
-
-                            var newBlock = new MetadataBlock();
-                            newBlock.Append(new MetadataRecord { TypeIndex = typeIndex, Val = 0 });
-                            cellMeta.Append(newBlock);
-                            cellMeta.Count = (uint)(cellMeta.Count ?? 0) + 1;
-
-                            // cm is 1-based index of the newly added record
-                            context.DynamicArrayMetaIndex = cellMeta.Count.Value;
-                            return;
-                        }
-                        typeIndex++;
-                    }
-                }
-
-                // XLDAPR type doesn't exist - add everything
-                AppendXldaprToMetadata(metadata);
-                context.DynamicArrayMetaIndex = metadata.GetFirstChild<CellMetadata>()!.Count!.Value;
-                return;
-            }
+            SetDynamicArrayMetaFromExisting(cellMetadataPart.Metadata, context);
+            return;
         }
 
         // No metadata part at all - create from scratch
-        cellMetadataPart = workbookPart.AddNewPart<CellMetadataPart>(
+        cellMetadataPart ??= workbookPart.AddNewPart<CellMetadataPart>(
             context.RelIdGenerator.GetNext(RelType.Workbook));
 
         var newMetadata = CreateXldaprMetadata();
         cellMetadataPart.Metadata = newMetadata;
         context.DynamicArrayMetaIndex = 1;
+    }
+
+    private static void SetDynamicArrayMetaFromExisting(Metadata metadata, SaveContext context)
+    {
+        var metadataTypes = metadata.MetadataTypes;
+        if (metadataTypes is not null)
+        {
+            var xldaprIndex = FindXldaprTypeIndex(metadataTypes);
+            if (xldaprIndex is not null)
+            {
+                EnsureXldaprCellMetadata(metadata, xldaprIndex.Value, context);
+                return;
+            }
+        }
+
+        // XLDAPR type doesn't exist - add everything
+        AppendXldaprToMetadata(metadata);
+        context.DynamicArrayMetaIndex = metadata.GetFirstChild<CellMetadata>()!.Count!.Value;
+    }
+
+    private static uint? FindXldaprTypeIndex(MetadataTypes metadataTypes)
+    {
+        uint typeIndex = 1;
+        foreach (var mt in metadataTypes.Elements<MetadataType>())
+        {
+            if (mt.Name?.Value == "XLDAPR")
+                return typeIndex;
+            typeIndex++;
+        }
+        return null;
+    }
+
+    private static void EnsureXldaprCellMetadata(Metadata metadata, uint typeIndex, SaveContext context)
+    {
+        var cellMeta = metadata.GetFirstChild<CellMetadata>();
+        if (cellMeta is not null)
+        {
+            uint cmIndex = 1;
+            foreach (var bk in cellMeta.Elements<MetadataBlock>())
+            {
+                var rc = bk.GetFirstChild<MetadataRecord>();
+                if (rc?.TypeIndex?.Value == typeIndex)
+                {
+                    context.DynamicArrayMetaIndex = cmIndex;
+                    return;
+                }
+                cmIndex++;
+            }
+        }
+
+        // Type exists but no cellMetadata record for it - add one
+        if (cellMeta is null)
+        {
+            cellMeta = new CellMetadata { Count = 0 };
+            metadata.Append(cellMeta);
+        }
+
+        var newBlock = new MetadataBlock();
+        newBlock.Append(new MetadataRecord { TypeIndex = typeIndex, Val = 0 });
+        cellMeta.Append(newBlock);
+        cellMeta.Count = (uint)(cellMeta.Count ?? 0) + 1;
+        context.DynamicArrayMetaIndex = cellMeta.Count.Value;
     }
 
     /// <summary>
@@ -424,22 +434,41 @@ public partial class XLWorkbook
         // Write the four rich data XML parts
         RichDataWriter.WriteRichDataParts(workbookPart, InCellImages, entries, context.RelIdGenerator);
 
-        // Update metadata.xml with XLRICHVALUE type
-        var cellMetadataPart = workbookPart.CellMetadataPart;
-        Metadata metadata;
-        if (cellMetadataPart is not null)
-        {
-            metadata = cellMetadataPart.Metadata ?? new Metadata();
-        }
-        else
-        {
-            cellMetadataPart = workbookPart.AddNewPart<CellMetadataPart>(
-                context.RelIdGenerator.GetNext(RelType.Workbook));
-            metadata = new Metadata();
-            cellMetadataPart.Metadata = metadata;
-        }
+        var metadata = EnsureMetadataPart(workbookPart, context);
+        var richValueTypeIndex = EnsureRichValueMetadataType(metadata);
 
-        // Add XLRICHVALUE metadata type
+        AppendRichValueFutureMetadata(metadata, entries);
+        var valueMeta = PrepareValueMetadata(metadata, richValueTypeIndex);
+
+        // Add one valueMetadata record per cell, set each cell's ValueMetaIndex
+        for (var i = 0; i < cellsWithImages.Count; i++)
+        {
+            var block = new MetadataBlock();
+            block.Append(new MetadataRecord { TypeIndex = richValueTypeIndex, Val = (uint)i });
+            valueMeta.Append(block);
+            valueMeta.Count = (uint)(valueMeta.Count ?? 0) + 1;
+
+            var cell = cellsWithImages[i].Cell;
+            cell.ValueMetaIndex = valueMeta.Count.Value; // 1-based
+            cell.SliceCellValue = (double)i; // rv index as number
+        }
+    }
+
+    private static Metadata EnsureMetadataPart(WorkbookPart workbookPart, SaveContext context)
+    {
+        var cellMetadataPart = workbookPart.CellMetadataPart;
+        if (cellMetadataPart is not null)
+            return cellMetadataPart.Metadata ?? new Metadata();
+
+        cellMetadataPart = workbookPart.AddNewPart<CellMetadataPart>(
+            context.RelIdGenerator.GetNext(RelType.Workbook));
+        var metadata = new Metadata();
+        cellMetadataPart.Metadata = metadata;
+        return metadata;
+    }
+
+    private static uint EnsureRichValueMetadataType(Metadata metadata)
+    {
         var metadataTypes = metadata.MetadataTypes;
         if (metadataTypes is null)
         {
@@ -447,52 +476,39 @@ public partial class XLWorkbook
             metadata.Append(metadataTypes);
         }
 
-        // Check if XLRICHVALUE type already exists
-        uint? existingTypeIndex = null;
         uint typeIdx = 1;
         foreach (var mt in metadataTypes.Elements<MetadataType>())
         {
             if (mt.Name?.Value == "XLRICHVALUE")
-            {
-                existingTypeIndex = typeIdx;
-                break;
-            }
-
+                return typeIdx;
             typeIdx++;
         }
 
-        uint richValueTypeIndex;
-        if (existingTypeIndex is not null)
+        metadataTypes.Append(new MetadataType
         {
-            richValueTypeIndex = existingTypeIndex.Value;
-        }
-        else
-        {
-            metadataTypes.Append(new MetadataType
-            {
-                Name = "XLRICHVALUE",
-                MinSupportedVersion = 120000,
-                Copy = true,
-                PasteAll = true,
-                PasteValues = true,
-                Merge = true,
-                SplitFirst = true,
-                RowColumnShift = true,
-                ClearFormats = true,
-                ClearComments = true,
-                Assign = true,
-                Coerce = true
-            });
-            metadataTypes.Count = (uint)(metadataTypes.Count ?? 0) + 1;
-            richValueTypeIndex = metadataTypes.Count.Value;
-        }
+            Name = "XLRICHVALUE",
+            MinSupportedVersion = 120000,
+            Copy = true,
+            PasteAll = true,
+            PasteValues = true,
+            Merge = true,
+            SplitFirst = true,
+            RowColumnShift = true,
+            ClearFormats = true,
+            ClearComments = true,
+            Assign = true,
+            Coerce = true
+        });
+        metadataTypes.Count = (uint)(metadataTypes.Count ?? 0) + 1;
+        return metadataTypes.Count.Value;
+    }
 
-        // Remove existing XLRICHVALUE futureMetadata if any
+    private static void AppendRichValueFutureMetadata(Metadata metadata, List<RichDataWriter.RichValueEntry> entries)
+    {
         var existingFm = metadata.Elements<FutureMetadata>()
             .FirstOrDefault(fm => fm.Name?.Value == "XLRICHVALUE");
         existingFm?.Remove();
 
-        // Add futureMetadata with one block per rich value
         const string xlrvNs = "http://schemas.microsoft.com/office/spreadsheetml/2017/richdata";
         var futureMetadata = new FutureMetadata { Name = "XLRICHVALUE", Count = (uint)entries.Count };
         for (var i = 0; i < entries.Count; i++)
@@ -510,12 +526,13 @@ public partial class XLWorkbook
         }
 
         metadata.Append(futureMetadata);
+    }
 
-        // Remove existing XLRICHVALUE valueMetadata records
+    private static ValueMetadata PrepareValueMetadata(Metadata metadata, uint richValueTypeIndex)
+    {
         var valueMeta = metadata.GetFirstChild<ValueMetadata>();
         if (valueMeta is not null)
         {
-            // Remove blocks referencing XLRICHVALUE type
             var blocksToRemove = new List<MetadataBlock>();
             foreach (var bk in valueMeta.Elements<MetadataBlock>())
             {
@@ -536,18 +553,7 @@ public partial class XLWorkbook
             metadata.Append(valueMeta);
         }
 
-        // Add one valueMetadata record per cell, set each cell's ValueMetaIndex
-        for (var i = 0; i < cellsWithImages.Count; i++)
-        {
-            var block = new MetadataBlock();
-            block.Append(new MetadataRecord { TypeIndex = richValueTypeIndex, Val = (uint)i });
-            valueMeta.Append(block);
-            valueMeta.Count = (uint)(valueMeta.Count ?? 0) + 1;
-
-            var cell = cellsWithImages[i].Cell;
-            cell.ValueMetaIndex = valueMeta.Count.Value; // 1-based
-            cell.SliceCellValue = (double)i; // rv index as number
-        }
+        return valueMeta;
     }
 
     private void PreparePivotCaches(WorkbookPart workbookPart, SaveContext context)

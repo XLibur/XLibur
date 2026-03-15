@@ -284,31 +284,45 @@ internal static class WorkbookStylesPartWriter
     {
         foreach (var pt in ws.PivotTables)
         {
-            // Dxf from old pivot table structures.
-            foreach (var styleFormat in pt.AllStyleFormats)
-            {
-                var xlStyle = (XLStyle)styleFormat.Style;
-                if (!xlStyle.Value.Equals(DefaultStyleValue) &&
-                    !context.DifferentialFormats.ContainsKey(xlStyle.Value))
-                    AddStyleAsDifferentialFormat(differentialFormats, xlStyle.Value, context);
-            }
+            AddPivotTableStyleFormatDxfs(differentialFormats, pt, context);
+            AddPivotTableFormatDxfs(differentialFormats, pt, context);
+            AddPivotTableConditionalFormatDxfs(differentialFormats, pt, context);
+        }
+    }
 
-            // Dxf from new pivot table structures.
-            foreach (var xlPivotFormat in pt.Formats)
-            {
-                var xlStyleValue = xlPivotFormat.DxfStyleValue;
-                if (xlStyleValue != XLStyleValue.Default &&
-                    !context.DifferentialFormats.ContainsKey(xlStyleValue))
-                    AddStyleAsDifferentialFormat(differentialFormats, xlStyleValue, context);
-            }
+    private static void AddPivotTableStyleFormatDxfs(DifferentialFormats differentialFormats,
+        XLPivotTable pt, SaveContext context)
+    {
+        foreach (var styleFormat in pt.AllStyleFormats)
+        {
+            var xlStyle = (XLStyle)styleFormat.Style;
+            if (!xlStyle.Value.Equals(DefaultStyleValue) &&
+                !context.DifferentialFormats.ContainsKey(xlStyle.Value))
+                AddStyleAsDifferentialFormat(differentialFormats, xlStyle.Value, context);
+        }
+    }
 
-            foreach (var xlConditionalStyle in pt.ConditionalFormats)
-            {
-                var xlStyle = (XLStyle)xlConditionalStyle.Format.Style;
-                if (xlStyle.Value != XLStyleValue.Default &&
-                    !context.DifferentialFormats.ContainsKey(xlStyle.Value))
-                    AddStyleAsDifferentialFormat(differentialFormats, xlStyle.Value, context);
-            }
+    private static void AddPivotTableFormatDxfs(DifferentialFormats differentialFormats,
+        XLPivotTable pt, SaveContext context)
+    {
+        foreach (var xlPivotFormat in pt.Formats)
+        {
+            var xlStyleValue = xlPivotFormat.DxfStyleValue;
+            if (!xlStyleValue.Equals(XLStyleValue.Default) &&
+                !context.DifferentialFormats.ContainsKey(xlStyleValue))
+                AddStyleAsDifferentialFormat(differentialFormats, xlStyleValue, context);
+        }
+    }
+
+    private static void AddPivotTableConditionalFormatDxfs(DifferentialFormats differentialFormats,
+        XLPivotTable pt, SaveContext context)
+    {
+        foreach (var xlConditionalStyle in pt.ConditionalFormats)
+        {
+            var xlStyle = (XLStyle)xlConditionalStyle.Format.Style;
+            if (!xlStyle.Value.Equals(XLStyleValue.Default) &&
+                !context.DifferentialFormats.ContainsKey(xlStyle.Value))
+                AddStyleAsDifferentialFormat(differentialFormats, xlStyle.Value, context);
         }
     }
 

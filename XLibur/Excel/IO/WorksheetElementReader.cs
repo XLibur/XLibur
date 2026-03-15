@@ -1,3 +1,4 @@
+using XLibur.Excel.AutoFilters;
 using XLibur.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -22,6 +23,17 @@ internal static class WorksheetElementReader
 
         if (sheetView == null) return;
 
+        LoadSheetViewProperties(sheetView, ws);
+        LoadSheetViewSelection(sheetView, ws);
+        LoadSheetViewZoom(sheetView, ws);
+        LoadSheetViewPane(sheetView, ws);
+
+        if (sheetView.TopLeftCell?.Value is { } topLeftCell && XLHelper.IsValidA1Address(topLeftCell))
+            ws.SheetView.TopLeftCellAddress = ws.Cell(topLeftCell)!.Address;
+    }
+
+    private static void LoadSheetViewProperties(SheetView sheetView, XLWorksheet ws)
+    {
         if (sheetView.RightToLeft != null) ws.RightToLeft = sheetView.RightToLeft.Value;
         if (sheetView.ShowFormulas != null) ws.ShowFormulas = sheetView.ShowFormulas.Value;
         if (sheetView.ShowGridLines != null) ws.ShowGridLines = sheetView.ShowGridLines.Value;
@@ -32,17 +44,22 @@ internal static class WorksheetElementReader
         if (sheetView.ShowWhiteSpace != null) ws.ShowWhiteSpace = sheetView.ShowWhiteSpace.Value;
         if (sheetView.ShowZeros != null) ws.ShowZeros = sheetView.ShowZeros.Value;
         if (sheetView.TabSelected != null) ws.TabSelected = sheetView.TabSelected.Value;
+    }
 
+    private static void LoadSheetViewSelection(SheetView sheetView, XLWorksheet ws)
+    {
         var selection = sheetView.Elements<Selection>().FirstOrDefault();
-        if (selection != null)
-        {
-            if (selection.SequenceOfReferences != null)
-                ws.Ranges(selection.SequenceOfReferences!.InnerText!.Replace(" ", ",")).Select();
+        if (selection == null) return;
 
-            if (selection.ActiveCell != null)
-                ws.Cell(selection.ActiveCell!.Value!)!.SetActive();
-        }
+        if (selection.SequenceOfReferences != null)
+            ws.Ranges(selection.SequenceOfReferences!.InnerText!.Replace(" ", ",")).Select();
 
+        if (selection.ActiveCell != null)
+            ws.Cell(selection.ActiveCell!.Value!)!.SetActive();
+    }
+
+    private static void LoadSheetViewZoom(SheetView sheetView, XLWorksheet ws)
+    {
         if (sheetView.ZoomScale != null)
             ws.SheetView.ZoomScale = (int)UInt32Value.ToUInt32(sheetView.ZoomScale);
         if (sheetView.ZoomScaleNormal != null)
@@ -51,7 +68,10 @@ internal static class WorksheetElementReader
             ws.SheetView.ZoomScalePageLayoutView = (int)UInt32Value.ToUInt32(sheetView.ZoomScalePageLayoutView);
         if (sheetView.ZoomScaleSheetLayoutView != null)
             ws.SheetView.ZoomScaleSheetLayoutView = (int)UInt32Value.ToUInt32(sheetView.ZoomScaleSheetLayoutView);
+    }
 
+    private static void LoadSheetViewPane(SheetView sheetView, XLWorksheet ws)
+    {
         var pane = sheetView.Elements<Pane>().FirstOrDefault();
         if (new[] { PaneStateValues.Frozen, PaneStateValues.FrozenSplit }.Contains(pane?.State?.Value ??
                 PaneStateValues.Split))
@@ -61,9 +81,6 @@ internal static class WorksheetElementReader
             if (pane!.VerticalSplit != null)
                 ws.SheetView.SplitRow = (int)pane.VerticalSplit.Value;
         }
-
-        if (sheetView.TopLeftCell?.Value is { } topLeftCell && XLHelper.IsValidA1Address(topLeftCell))
-            ws.SheetView.TopLeftCellAddress = ws.Cell(topLeftCell)!.Address;
     }
 
     internal static void LoadPrintOptions(PrintOptions printOptions, XLWorksheet ws)
@@ -106,12 +123,22 @@ internal static class WorksheetElementReader
             ws.PageSetup.PaperSize = (XLPaperSize)int.Parse(pageSetup.PaperSize.InnerText!);
         if (pageSetup.Scale != null)
             ws.PageSetup.Scale = int.Parse(pageSetup.Scale.InnerText!);
-        if (pageSetupProperties != null && pageSetupProperties.FitToPage != null && pageSetupProperties.FitToPage.Value)
+
+        LoadFitToPage(pageSetup, ws, pageSetupProperties);
+        LoadPageSetupOptions(pageSetup, ws);
+    }
+
+    private static void LoadFitToPage(PageSetup pageSetup, XLWorksheet ws, PageSetupProperties? pageSetupProperties)
+    {
+        if (pageSetupProperties?.FitToPage != null && pageSetupProperties.FitToPage.Value)
         {
             ws.PageSetup.PagesWide = pageSetup.FitToWidth == null ? 1 : int.Parse(pageSetup.FitToWidth.InnerText!);
             ws.PageSetup.PagesTall = pageSetup.FitToHeight == null ? 1 : int.Parse(pageSetup.FitToHeight.InnerText!);
         }
+    }
 
+    private static void LoadPageSetupOptions(PageSetup pageSetup, XLWorksheet ws)
+    {
         if (pageSetup.PageOrder != null)
             ws.PageSetup.PageOrder = pageSetup.PageOrder.Value.ToXLibur();
         if (pageSetup.Orientation != null)
@@ -283,21 +310,26 @@ internal static class WorksheetElementReader
             {
                 var dvt = new XLDataValidation(ws.Range(rangeAddress)!);
                 ws.DataValidations.Add(dvt, skipIntersectionsCheck: true);
-                if (dvs.AllowBlank != null) dvt.IgnoreBlanks = dvs.AllowBlank;
-                if (dvs.ShowDropDown != null) dvt.InCellDropdown = !dvs.ShowDropDown.Value;
-                if (dvs.ShowErrorMessage != null) dvt.ShowErrorMessage = dvs.ShowErrorMessage;
-                if (dvs.ShowInputMessage != null) dvt.ShowInputMessage = dvs.ShowInputMessage;
-                if (dvs.PromptTitle != null) dvt.InputTitle = dvs.PromptTitle.Value!;
-                if (dvs.Prompt != null) dvt.InputMessage = dvs.Prompt.Value!;
-                if (dvs.ErrorTitle != null) dvt.ErrorTitle = dvs.ErrorTitle.Value!;
-                if (dvs.Error != null) dvt.ErrorMessage = dvs.Error.Value!;
-                if (dvs.ErrorStyle != null) dvt.ErrorStyle = dvs.ErrorStyle.Value.ToXLibur();
-                if (dvs.Type != null) dvt.AllowedValues = dvs.Type.Value.ToXLibur();
-                if (dvs.Operator != null) dvt.Operator = dvs.Operator.Value.ToXLibur();
-                if (dvs.Formula1 != null) dvt.MinValue = dvs.Formula1.Text;
-                if (dvs.Formula2 != null) dvt.MaxValue = dvs.Formula2.Text;
+                ApplyDataValidationProperties(dvs, dvt);
             }
         }
+    }
+
+    private static void ApplyDataValidationProperties(DataValidation dvs, XLDataValidation dvt)
+    {
+        if (dvs.AllowBlank != null) dvt.IgnoreBlanks = dvs.AllowBlank;
+        if (dvs.ShowDropDown != null) dvt.InCellDropdown = !dvs.ShowDropDown.Value;
+        if (dvs.ShowErrorMessage != null) dvt.ShowErrorMessage = dvs.ShowErrorMessage;
+        if (dvs.ShowInputMessage != null) dvt.ShowInputMessage = dvs.ShowInputMessage;
+        if (dvs.PromptTitle != null) dvt.InputTitle = dvs.PromptTitle.Value!;
+        if (dvs.Prompt != null) dvt.InputMessage = dvs.Prompt.Value!;
+        if (dvs.ErrorTitle != null) dvt.ErrorTitle = dvs.ErrorTitle.Value!;
+        if (dvs.Error != null) dvt.ErrorMessage = dvs.Error.Value!;
+        if (dvs.ErrorStyle != null) dvt.ErrorStyle = dvs.ErrorStyle.Value.ToXLibur();
+        if (dvs.Type != null) dvt.AllowedValues = dvs.Type.Value.ToXLibur();
+        if (dvs.Operator != null) dvt.Operator = dvs.Operator.Value.ToXLibur();
+        if (dvs.Formula1 != null) dvt.MinValue = dvs.Formula1.Text;
+        if (dvs.Formula2 != null) dvt.MaxValue = dvs.Formula2.Text;
     }
 
     internal static void LoadHyperlinks(Hyperlinks hyperlinks, WorksheetPart worksheetPart, XLWorksheet ws)
@@ -345,185 +377,178 @@ internal static class WorksheetElementReader
             var column = (int)filterColumn.ColumnId!.Value + 1;
             var xlFilterColumn = autoFilter.Column(column);
             if (filterColumn.CustomFilters is { } customFilters)
-            {
-                xlFilterColumn.FilterType = XLFilterType.Custom;
-                var connector = OpenXmlHelper.GetBooleanValueAsBool(customFilters.And, false)
-                    ? XLConnector.And
-                    : XLConnector.Or;
-
-                foreach (var filter in customFilters.OfType<CustomFilter>())
-                {
-                    // Equal or NotEqual use wildcards, not value comparison. The rest does value comparison.
-                    // There is no filter operation for equal of numbers (maybe combine >= and <=).
-                    var op = filter.Operator is not null ? filter.Operator.Value.ToXLibur() : XLFilterOperator.Equal;
-                    XLFilter xlFilter;
-                    var filterValue = filter.Val!.Value!;
-                    switch (op)
-                    {
-                        case XLFilterOperator.Equal:
-                            xlFilter = XLFilter.CreateCustomPatternFilter(filterValue, true, connector);
-                            break;
-                        case XLFilterOperator.NotEqual:
-                            xlFilter = XLFilter.CreateCustomPatternFilter(filterValue, false, connector);
-                            break;
-                        case XLFilterOperator.GreaterThan:
-                        case XLFilterOperator.LessThan:
-                        case XLFilterOperator.EqualOrGreaterThan:
-                        case XLFilterOperator.EqualOrLessThan:
-                        default:
-                            // OOXML allows only string, so do your best to convert back to a properly typed
-                            // variable. It's not perfect, but let's mimic Excel.
-                            var customValue = XLCellValue.FromText(filterValue, CultureInfo.InvariantCulture);
-                            xlFilter = XLFilter.CreateCustomFilter(customValue, op, connector);
-                            break;
-                    }
-
-                    xlFilterColumn.AddFilter(xlFilter);
-                }
-            }
+                LoadCustomFilters(xlFilterColumn, customFilters);
             else if (filterColumn.Filters is { } filters)
-            {
-                xlFilterColumn.FilterType = XLFilterType.Regular;
-                foreach (var filter in filters.OfType<Filter>())
-                {
-                    xlFilterColumn.AddFilter(XLFilter.CreateRegularFilter(filter.Val!.Value!));
-                }
-
-                foreach (var dateGroupItem in filters.OfType<DateGroupItem>())
-                {
-                    if (dateGroupItem.DateTimeGrouping is null || !dateGroupItem.DateTimeGrouping.HasValue)
-                        continue;
-
-                    var xlGrouping = dateGroupItem.DateTimeGrouping.Value.ToXLibur();
-                    var year = 1900;
-                    var month = 1;
-                    var day = 1;
-                    var hour = 0;
-                    var minute = 0;
-                    var second = 0;
-
-                    var valid = true;
-
-                    if (xlGrouping >= XLDateTimeGrouping.Year)
-                    {
-                        if (dateGroupItem.Year?.HasValue ?? false)
-                            year = dateGroupItem.Year.Value;
-                        else
-                            valid = false;
-                    }
-
-                    if (xlGrouping >= XLDateTimeGrouping.Month)
-                    {
-                        if (dateGroupItem.Month?.HasValue ?? false)
-                            month = dateGroupItem.Month.Value;
-                        else
-                            valid = false;
-                    }
-
-                    if (xlGrouping >= XLDateTimeGrouping.Day)
-                    {
-                        if (dateGroupItem.Day?.HasValue ?? false)
-                            day = dateGroupItem.Day.Value;
-                        else
-                            valid = false;
-                    }
-
-                    if (xlGrouping >= XLDateTimeGrouping.Hour)
-                    {
-                        if (dateGroupItem.Hour?.HasValue ?? false)
-                            hour = dateGroupItem.Hour.Value;
-                        else
-                            valid = false;
-                    }
-
-                    if (xlGrouping >= XLDateTimeGrouping.Minute)
-                    {
-                        if (dateGroupItem.Minute?.HasValue ?? false)
-                            minute = dateGroupItem.Minute.Value;
-                        else
-                            valid = false;
-                    }
-
-                    if (xlGrouping >= XLDateTimeGrouping.Second)
-                    {
-                        if (dateGroupItem.Second?.HasValue ?? false)
-                            second = dateGroupItem.Second.Value;
-                        else
-                            valid = false;
-                    }
-
-                    if (valid)
-                    {
-                        var date = new DateTime(year, month, day, hour, minute, second);
-                        var xlDateGroupFilter = XLFilter.CreateDateGroupFilter(date, xlGrouping);
-                        xlFilterColumn.AddFilter(xlDateGroupFilter);
-                    }
-                }
-            }
+                LoadRegularFilters(xlFilterColumn, filters);
             else if (filterColumn.Top10 is { } top10)
-            {
-                xlFilterColumn.FilterType = XLFilterType.TopBottom;
-                xlFilterColumn.TopBottomType = OpenXmlHelper.GetBooleanValueAsBool(top10.Percent, false)
-                    ? XLTopBottomType.Percent
-                    : XLTopBottomType.Items;
-                var takeTop = OpenXmlHelper.GetBooleanValueAsBool(top10.Top, true);
-                xlFilterColumn.TopBottomPart = takeTop ? XLTopBottomPart.Top : XLTopBottomPart.Bottom;
-
-                // Value contains how many percent or items, so it can only be int.
-                // Filter value is optional, so we don't rely on it.
-                var percentsOrItems = (int)top10.Val!.Value;
-                xlFilterColumn.TopBottomValue = percentsOrItems;
-                xlFilterColumn.AddFilter(XLFilter.CreateTopBottom(takeTop, percentsOrItems));
-            }
+                LoadTop10Filter(xlFilterColumn, top10);
             else if (filterColumn.DynamicFilter is { } dynamicFilter)
-            {
-                xlFilterColumn.FilterType = XLFilterType.Dynamic;
-                var dynamicType = dynamicFilter.Type is { } dynamicFilterType
-                    ? dynamicFilterType.Value.ToXLibur()
-                    : XLFilterDynamicType.AboveAverage;
-                var dynamicValue = filterColumn.DynamicFilter.Val!.Value;
-
-                xlFilterColumn.DynamicType = dynamicType;
-                xlFilterColumn.DynamicValue = dynamicValue;
-                xlFilterColumn.AddFilter(XLFilter.CreateAverage(dynamicValue,
-                    dynamicType == XLFilterDynamicType.AboveAverage));
-            }
+                LoadDynamicFilter(xlFilterColumn, filterColumn, dynamicFilter);
             else if (filterColumn.Elements<ColorFilter>().FirstOrDefault() is { } colorFilter
                      && differentialFormats is not null)
-            {
-                xlFilterColumn.FilterType = XLFilterType.Color;
-                var byCellColor = OpenXmlHelper.GetBooleanValueAsBool(colorFilter.CellColor, true);
-                xlFilterColumn.FilterByCellColor = byCellColor;
-
-                var formatId = (int)colorFilter.FormatId!.Value;
-                if (differentialFormats.TryGetValue(formatId, out var dxf))
-                {
-                    XLColor filterColorValue;
-                    if (byCellColor)
-                    {
-                        var fill = dxf.Fill;
-                        var patternFill = fill?.PatternFill;
-                        if (patternFill?.BackgroundColor is { } bgColor)
-                            filterColorValue = bgColor.ToXLiburColor();
-                        else if (patternFill?.ForegroundColor is { } fgColor)
-                            filterColorValue = fgColor.ToXLiburColor();
-                        else
-                            filterColorValue = XLColor.NoColor;
-                    }
-                    else
-                    {
-                        var font = dxf.Font;
-                        var fontColor = font?.Color;
-                        filterColorValue = fontColor is not null
-                            ? fontColor.ToXLiburColor()
-                            : XLColor.NoColor;
-                    }
-
-                    xlFilterColumn.FilterColor = filterColorValue;
-                    xlFilterColumn.AddFilter(XLFilter.CreateColorFilter(filterColorValue, byCellColor));
-                }
-            }
+                LoadColorFilter(xlFilterColumn, colorFilter, differentialFormats);
         }
+    }
+
+    private static void LoadCustomFilters(XLFilterColumn xlFilterColumn, CustomFilters customFilters)
+    {
+        xlFilterColumn.FilterType = XLFilterType.Custom;
+        var connector = OpenXmlHelper.GetBooleanValueAsBool(customFilters.And, false)
+            ? XLConnector.And
+            : XLConnector.Or;
+
+        foreach (var filter in customFilters.OfType<CustomFilter>())
+        {
+            var op = filter.Operator is not null ? filter.Operator.Value.ToXLibur() : XLFilterOperator.Equal;
+            var filterValue = filter.Val!.Value!;
+            var xlFilter = CreateCustomXLFilter(op, filterValue, connector);
+            xlFilterColumn.AddFilter(xlFilter);
+        }
+    }
+
+    private static XLFilter CreateCustomXLFilter(XLFilterOperator op, string filterValue, XLConnector connector)
+    {
+        switch (op)
+        {
+            case XLFilterOperator.Equal:
+                return XLFilter.CreateCustomPatternFilter(filterValue, true, connector);
+            case XLFilterOperator.NotEqual:
+                return XLFilter.CreateCustomPatternFilter(filterValue, false, connector);
+            default:
+                // OOXML allows only string, so do your best to convert back to a properly typed
+                // variable. It's not perfect, but let's mimic Excel.
+                var customValue = XLCellValue.FromText(filterValue, CultureInfo.InvariantCulture);
+                return XLFilter.CreateCustomFilter(customValue, op, connector);
+        }
+    }
+
+    private static void LoadRegularFilters(XLFilterColumn xlFilterColumn, Filters filters)
+    {
+        xlFilterColumn.FilterType = XLFilterType.Regular;
+        foreach (var filter in filters.OfType<Filter>())
+        {
+            xlFilterColumn.AddFilter(XLFilter.CreateRegularFilter(filter.Val!.Value!));
+        }
+
+        foreach (var dateGroupItem in filters.OfType<DateGroupItem>())
+        {
+            LoadDateGroupItem(xlFilterColumn, dateGroupItem);
+        }
+    }
+
+    private static void LoadDateGroupItem(XLFilterColumn xlFilterColumn, DateGroupItem dateGroupItem)
+    {
+        if (dateGroupItem.DateTimeGrouping is null || !dateGroupItem.DateTimeGrouping.HasValue)
+            return;
+
+        var xlGrouping = dateGroupItem.DateTimeGrouping.Value.ToXLibur();
+        var year = 1900;
+        var month = 1;
+        var day = 1;
+        var hour = 0;
+        var minute = 0;
+        var second = 0;
+
+        var valid = true;
+
+        if (xlGrouping >= XLDateTimeGrouping.Year)
+            valid = TryGetDatePart(dateGroupItem.Year, ref year) && valid;
+
+        if (xlGrouping >= XLDateTimeGrouping.Month)
+            valid = TryGetDatePart(dateGroupItem.Month, ref month) && valid;
+
+        if (xlGrouping >= XLDateTimeGrouping.Day)
+            valid = TryGetDatePart(dateGroupItem.Day, ref day) && valid;
+
+        if (xlGrouping >= XLDateTimeGrouping.Hour)
+            valid = TryGetDatePart(dateGroupItem.Hour, ref hour) && valid;
+
+        if (xlGrouping >= XLDateTimeGrouping.Minute)
+            valid = TryGetDatePart(dateGroupItem.Minute, ref minute) && valid;
+
+        if (xlGrouping >= XLDateTimeGrouping.Second)
+            valid = TryGetDatePart(dateGroupItem.Second, ref second) && valid;
+
+        if (valid)
+        {
+            var date = new DateTime(year, month, day, hour, minute, second);
+            var xlDateGroupFilter = XLFilter.CreateDateGroupFilter(date, xlGrouping);
+            xlFilterColumn.AddFilter(xlDateGroupFilter);
+        }
+    }
+
+    private static bool TryGetDatePart(UInt16Value? value, ref int result)
+    {
+        if (value?.HasValue ?? false)
+        {
+            result = value.Value;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void LoadTop10Filter(XLFilterColumn xlFilterColumn, Top10 top10)
+    {
+        xlFilterColumn.FilterType = XLFilterType.TopBottom;
+        xlFilterColumn.TopBottomType = OpenXmlHelper.GetBooleanValueAsBool(top10.Percent, false)
+            ? XLTopBottomType.Percent
+            : XLTopBottomType.Items;
+        var takeTop = OpenXmlHelper.GetBooleanValueAsBool(top10.Top, true);
+        xlFilterColumn.TopBottomPart = takeTop ? XLTopBottomPart.Top : XLTopBottomPart.Bottom;
+
+        // Value contains how many percent or items, so it can only be int.
+        // Filter value is optional, so we don't rely on it.
+        var percentsOrItems = (int)top10.Val!.Value;
+        xlFilterColumn.TopBottomValue = percentsOrItems;
+        xlFilterColumn.AddFilter(XLFilter.CreateTopBottom(takeTop, percentsOrItems));
+    }
+
+    private static void LoadDynamicFilter(XLFilterColumn xlFilterColumn, FilterColumn filterColumn,
+        DynamicFilter dynamicFilter)
+    {
+        xlFilterColumn.FilterType = XLFilterType.Dynamic;
+        var dynamicType = dynamicFilter.Type is { } dynamicFilterType
+            ? dynamicFilterType.Value.ToXLibur()
+            : XLFilterDynamicType.AboveAverage;
+        var dynamicValue = filterColumn.DynamicFilter!.Val!.Value;
+
+        xlFilterColumn.DynamicType = dynamicType;
+        xlFilterColumn.DynamicValue = dynamicValue;
+        xlFilterColumn.AddFilter(XLFilter.CreateAverage(dynamicValue,
+            dynamicType == XLFilterDynamicType.AboveAverage));
+    }
+
+    private static void LoadColorFilter(XLFilterColumn xlFilterColumn, ColorFilter colorFilter,
+        Dictionary<int, DifferentialFormat> differentialFormats)
+    {
+        xlFilterColumn.FilterType = XLFilterType.Color;
+        var byCellColor = OpenXmlHelper.GetBooleanValueAsBool(colorFilter.CellColor, true);
+        xlFilterColumn.FilterByCellColor = byCellColor;
+
+        var formatId = (int)colorFilter.FormatId!.Value;
+        if (differentialFormats.TryGetValue(formatId, out var dxf))
+        {
+            var filterColorValue = ResolveFilterColor(dxf, byCellColor);
+            xlFilterColumn.FilterColor = filterColorValue;
+            xlFilterColumn.AddFilter(XLFilter.CreateColorFilter(filterColorValue, byCellColor));
+        }
+    }
+
+    private static XLColor ResolveFilterColor(DifferentialFormat dxf, bool byCellColor)
+    {
+        if (byCellColor)
+        {
+            var patternFill = dxf.Fill?.PatternFill;
+            if (patternFill?.BackgroundColor is { } bgColor)
+                return bgColor.ToXLiburColor();
+            if (patternFill?.ForegroundColor is { } fgColor)
+                return fgColor.ToXLiburColor();
+            return XLColor.NoColor;
+        }
+
+        var fontColor = dxf.Font?.Color;
+        return fontColor is not null ? fontColor.ToXLiburColor() : XLColor.NoColor;
     }
 
     internal static void LoadAutoFilterSort(AutoFilter af, XLWorksheet ws, XLAutoFilter autoFilter)

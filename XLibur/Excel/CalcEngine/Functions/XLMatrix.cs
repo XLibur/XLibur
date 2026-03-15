@@ -85,38 +85,13 @@ internal sealed class XLMatrix
 
         for (var k = 0; k < Cols - 1; k++)
         {
-            double p = 0;
-            for (var i = k; i < _rows; i++) // find the row with the biggest pivot
-            {
-                if (Math.Abs(U[i, k]) > p)
-                {
-                    p = Math.Abs(U[i, k]);
-                    k0 = i;
-                }
-            }
-            if (p == 0)
-                throw new InvalidOperationException("The matrix is singular!");
+            k0 = FindPivotRow(k);
 
             var pom1 = _pi[k];
             _pi[k] = _pi[k0];
             _pi[k0] = pom1; // switch two rows in permutation matrix
 
-            double pom2;
-            for (var i = 0; i < k; i++)
-            {
-                pom2 = L[k, i];
-                L[k, i] = L[k0, i];
-                L[k0, i] = pom2;
-            }
-
-            if (k != k0) _detOfP *= -1;
-
-            for (var i = 0; i < Cols; i++) // Switch rows in U
-            {
-                pom2 = U[k, i];
-                U[k, i] = U[k0, i];
-                U[k0, i] = pom2;
-            }
+            SwapLuRows(k, k0);
 
             for (var i = k + 1; i < _rows; i++)
             {
@@ -124,6 +99,43 @@ internal sealed class XLMatrix
                 for (var j = k; j < Cols; j++)
                     U[i, j] = U[i, j] - L[i, k] * U[k, j];
             }
+        }
+    }
+
+    private int FindPivotRow(int k)
+    {
+        double p = 0;
+        var k0 = k;
+        for (var i = k; i < _rows; i++)
+        {
+            if (Math.Abs(U![i, k]) > p)
+            {
+                p = Math.Abs(U[i, k]);
+                k0 = i;
+            }
+        }
+        if (p == 0)
+            throw new InvalidOperationException("The matrix is singular!");
+        return k0;
+    }
+
+    private void SwapLuRows(int k, int k0)
+    {
+        double pom2;
+        for (var i = 0; i < k; i++)
+        {
+            pom2 = L![k, i];
+            L[k, i] = L[k0, i];
+            L[k0, i] = pom2;
+        }
+
+        if (k != k0) _detOfP *= -1;
+
+        for (var i = 0; i < Cols; i++)
+        {
+            pom2 = U![k, i];
+            U[k, i] = U[k0, i];
+            U[k0, i] = pom2;
         }
     }
 
@@ -361,19 +373,10 @@ internal sealed class XLMatrix
     {
         if (a.Cols != b._rows) throw new ArgumentException("Wrong dimension of matrix!");
 
-        XLMatrix r;
-
         var msize = Math.Max(Math.Max(a._rows, a.Cols), Math.Max(b._rows, b.Cols));
 
         if (msize < 32)
-        {
-            r = ZeroMatrix(a._rows, b.Cols);
-            for (var i = 0; i < r._rows; i++)
-                for (var j = 0; j < r.Cols; j++)
-                    for (var k = 0; k < a.Cols; k++)
-                        r[i, j] += a[i, k] * b[k, j];
-            return r;
-        }
+            return NaiveMultiply(a, b);
 
         var size = 1;
         var n = 0;
@@ -387,139 +390,155 @@ internal sealed class XLMatrix
 
         var mField = new XLMatrix[n, 9];
 
-        /*
-         *  8x8, 8x8, 8x8, ...
-         *  4x4, 4x4, 4x4, ...
-         *  2x2, 2x2, 2x2, ...
-         *  . . .
-         */
-
-        for (var i = 0; i < n - 4; i++) // rows
+        for (var i = 0; i < n - 4; i++)
         {
             var z = (int)Math.Pow(2, n - i - 1);
             for (var j = 0; j < 9; j++) mField[i, j] = new XLMatrix(z, z);
         }
 
+        StrassenComputeProducts(a, b, h, mField);
+
+        var r = new XLMatrix(a._rows, b.Cols);
+        StrassenAssembleResult(r, h, mField);
+        return r;
+    }
+
+    private static XLMatrix NaiveMultiply(XLMatrix a, XLMatrix b)
+    {
+        var r = ZeroMatrix(a._rows, b.Cols);
+        for (var i = 0; i < r._rows; i++)
+            for (var j = 0; j < r.Cols; j++)
+                for (var k = 0; k < a.Cols; k++)
+                    r[i, j] += a[i, k] * b[k, j];
+        return r;
+    }
+
+    private static void StrassenComputeProducts(XLMatrix a, XLMatrix b, int h, XLMatrix[,] mField)
+    {
         SafeAplusBintoC(a, 0, 0, a, h, h, mField[0, 0], h);
         SafeAplusBintoC(b, 0, 0, b, h, h, mField[0, 1], h);
-        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 1], 1, mField); // (A11 + A22) * (B11 + B22);
+        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 1], 1, mField);
 
         SafeAplusBintoC(a, 0, h, a, h, h, mField[0, 0], h);
         SafeACopytoC(b, 0, 0, mField[0, 1], h);
-        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 2], 1, mField); // (A21 + A22) * B11;
+        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 2], 1, mField);
 
         SafeACopytoC(a, 0, 0, mField[0, 0], h);
         SafeAminusBintoC(b, h, 0, b, h, h, mField[0, 1], h);
-        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 3], 1, mField); //A11 * (B12 - B22);
+        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 3], 1, mField);
 
         SafeACopytoC(a, h, h, mField[0, 0], h);
         SafeAminusBintoC(b, 0, h, b, 0, 0, mField[0, 1], h);
-        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 4], 1, mField); //A22 * (B21 - B11);
+        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 4], 1, mField);
 
         SafeAplusBintoC(a, 0, 0, a, h, 0, mField[0, 0], h);
         SafeACopytoC(b, h, h, mField[0, 1], h);
-        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 5], 1, mField); //(A11 + A12) * B22;
+        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 5], 1, mField);
 
         SafeAminusBintoC(a, 0, h, a, 0, 0, mField[0, 0], h);
         SafeAplusBintoC(b, 0, 0, b, h, 0, mField[0, 1], h);
-        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 6], 1, mField); //(A21 - A11) * (B11 + B12);
+        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 6], 1, mField);
 
         SafeAminusBintoC(a, h, 0, a, h, h, mField[0, 0], h);
         SafeAplusBintoC(b, 0, h, b, h, h, mField[0, 1], h);
-        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 7], 1, mField); // (A12 - A22) * (B21 + B22);
+        StrassenMultiplyRun(mField[0, 0], mField[0, 1], mField[0, 1 + 7], 1, mField);
+    }
 
-        r = new XLMatrix(a._rows, b.Cols); // result
-
-        // C11
-        for (var i = 0; i < Math.Min(h, r._rows); i++) // rows
-            for (var j = 0; j < Math.Min(h, r.Cols); j++) // cols
+    private static void StrassenAssembleResult(XLMatrix r, int h, XLMatrix[,] mField)
+    {
+        for (var i = 0; i < Math.Min(h, r._rows); i++)
+            for (var j = 0; j < Math.Min(h, r.Cols); j++)
                 r[i, j] = mField[0, 1 + 1][i, j] + mField[0, 1 + 4][i, j] - mField[0, 1 + 5][i, j] +
                           mField[0, 1 + 7][i, j];
 
-        // C12
-        for (var i = 0; i < Math.Min(h, r._rows); i++) // rows
-            for (var j = h; j < Math.Min(2 * h, r.Cols); j++) // cols
+        for (var i = 0; i < Math.Min(h, r._rows); i++)
+            for (var j = h; j < Math.Min(2 * h, r.Cols); j++)
                 r[i, j] = mField[0, 1 + 3][i, j - h] + mField[0, 1 + 5][i, j - h];
 
-        // C21
-        for (var i = h; i < Math.Min(2 * h, r._rows); i++) // rows
-            for (var j = 0; j < Math.Min(h, r.Cols); j++) // cols
+        for (var i = h; i < Math.Min(2 * h, r._rows); i++)
+            for (var j = 0; j < Math.Min(h, r.Cols); j++)
                 r[i, j] = mField[0, 1 + 2][i - h, j] + mField[0, 1 + 4][i - h, j];
 
-        // C22
-        for (var i = h; i < Math.Min(2 * h, r._rows); i++) // rows
-            for (var j = h; j < Math.Min(2 * h, r.Cols); j++) // cols
+        for (var i = h; i < Math.Min(2 * h, r._rows); i++)
+            for (var j = h; j < Math.Min(2 * h, r.Cols); j++)
                 r[i, j] = mField[0, 1 + 1][i - h, j - h] - mField[0, 1 + 2][i - h, j - h] +
                           mField[0, 1 + 3][i - h, j - h] + mField[0, 1 + 6][i - h, j - h];
-
-        return r;
     }
 
     // function for square matrix 2^N x 2^N
 
     private static void StrassenMultiplyRun(XLMatrix a, XLMatrix b, XLMatrix c, int l, XLMatrix[,] f)
-    // A * B into C, level of recursion, matrix field
     {
         var size = a._rows;
         var h = size / 2;
 
         if (size < 32)
         {
-            for (var i = 0; i < c._rows; i++)
-                for (var j = 0; j < c.Cols; j++)
-                {
-                    c[i, j] = 0;
-                    for (var k = 0; k < a.Cols; k++) c[i, j] += a[i, k] * b[k, j];
-                }
+            NaiveMultiplyInto(a, b, c);
             return;
         }
 
+        StrassenRunComputeProducts(a, b, h, l, f);
+        StrassenRunAssembleResult(c, h, size, l, f);
+    }
+
+    private static void NaiveMultiplyInto(XLMatrix a, XLMatrix b, XLMatrix c)
+    {
+        for (var i = 0; i < c._rows; i++)
+            for (var j = 0; j < c.Cols; j++)
+            {
+                c[i, j] = 0;
+                for (var k = 0; k < a.Cols; k++) c[i, j] += a[i, k] * b[k, j];
+            }
+    }
+
+    private static void StrassenRunComputeProducts(XLMatrix a, XLMatrix b, int h, int l, XLMatrix[,] f)
+    {
         AplusBintoC(a, 0, 0, a, h, h, f[l, 0], h);
         AplusBintoC(b, 0, 0, b, h, h, f[l, 1], h);
-        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 1], l + 1, f); // (A11 + A22) * (B11 + B22);
+        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 1], l + 1, f);
 
         AplusBintoC(a, 0, h, a, h, h, f[l, 0], h);
         ACopytoC(b, 0, 0, f[l, 1], h);
-        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 2], l + 1, f); // (A21 + A22) * B11;
+        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 2], l + 1, f);
 
         ACopytoC(a, 0, 0, f[l, 0], h);
         AminusBintoC(b, h, 0, b, h, h, f[l, 1], h);
-        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 3], l + 1, f); //A11 * (B12 - B22);
+        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 3], l + 1, f);
 
         ACopytoC(a, h, h, f[l, 0], h);
         AminusBintoC(b, 0, h, b, 0, 0, f[l, 1], h);
-        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 4], l + 1, f); //A22 * (B21 - B11);
+        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 4], l + 1, f);
 
         AplusBintoC(a, 0, 0, a, h, 0, f[l, 0], h);
         ACopytoC(b, h, h, f[l, 1], h);
-        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 5], l + 1, f); //(A11 + A12) * B22;
+        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 5], l + 1, f);
 
         AminusBintoC(a, 0, h, a, 0, 0, f[l, 0], h);
         AplusBintoC(b, 0, 0, b, h, 0, f[l, 1], h);
-        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 6], l + 1, f); //(A21 - A11) * (B11 + B12);
+        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 6], l + 1, f);
 
         AminusBintoC(a, h, 0, a, h, h, f[l, 0], h);
         AplusBintoC(b, 0, h, b, h, h, f[l, 1], h);
-        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 7], l + 1, f); // (A12 - A22) * (B21 + B22);
+        StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 7], l + 1, f);
+    }
 
-        // C11
-        for (var i = 0; i < h; i++) // rows
-            for (var j = 0; j < h; j++) // cols
+    private static void StrassenRunAssembleResult(XLMatrix c, int h, int size, int l, XLMatrix[,] f)
+    {
+        for (var i = 0; i < h; i++)
+            for (var j = 0; j < h; j++)
                 c[i, j] = f[l, 1 + 1][i, j] + f[l, 1 + 4][i, j] - f[l, 1 + 5][i, j] + f[l, 1 + 7][i, j];
 
-        // C12
-        for (var i = 0; i < h; i++) // rows
-            for (var j = h; j < size; j++) // cols
+        for (var i = 0; i < h; i++)
+            for (var j = h; j < size; j++)
                 c[i, j] = f[l, 1 + 3][i, j - h] + f[l, 1 + 5][i, j - h];
 
-        // C21
-        for (var i = h; i < size; i++) // rows
-            for (var j = 0; j < h; j++) // cols
+        for (var i = h; i < size; i++)
+            for (var j = 0; j < h; j++)
                 c[i, j] = f[l, 1 + 2][i - h, j] + f[l, 1 + 4][i - h, j];
 
-        // C22
-        for (var i = h; i < size; i++) // rows
-            for (var j = h; j < size; j++) // cols
+        for (var i = h; i < size; i++)
+            for (var j = h; j < size; j++)
                 c[i, j] = f[l, 1 + 1][i - h, j - h] - f[l, 1 + 2][i - h, j - h] + f[l, 1 + 3][i - h, j - h] +
                           f[l, 1 + 6][i - h, j - h];
     }

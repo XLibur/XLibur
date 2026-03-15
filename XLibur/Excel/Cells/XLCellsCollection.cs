@@ -412,27 +412,28 @@ internal sealed class XLCellsCollection : IWorkbookListener
             if (_count == 0)
                 return false;
 
-            var hasValue = false;
-            var current = default(XLSheetPoint);
-            for (var i = 0; i < _count; i++)
+            var current = FindNextPoint();
+            Current = current;
+            AdvanceMatchingEnumerators(current);
+            return true;
+        }
+
+        private XLSheetPoint FindNextPoint()
+        {
+            var current = _enumerators[0].Current;
+            for (var i = 1; i < _count; i++)
             {
-                var enumerator = _enumerators[i];
-                if (!hasValue || (
-                        _reverse
-                            ? enumerator.Current.CompareTo(current) > 0
-                            : enumerator.Current.CompareTo(current) < 0
-                    ))
-                {
-                    current = enumerator.Current;
-                    hasValue = true;
-                }
+                var candidate = _enumerators[i].Current;
+                var comparison = candidate.CompareTo(current);
+                if (_reverse ? comparison > 0 : comparison < 0)
+                    current = candidate;
             }
 
-            if (!hasValue)
-                return false;
+            return current;
+        }
 
-            Current = current;
-
+        private void AdvanceMatchingEnumerators(XLSheetPoint current)
+        {
             for (var i = _count - 1; i >= 0; --i)
             {
                 var enumerator = _enumerators[i];
@@ -440,15 +441,12 @@ internal sealed class XLCellsCollection : IWorkbookListener
                 {
                     if (!enumerator.MoveNext())
                     {
-                        // Swap-remove: move last element into this slot.
                         _count--;
                         if (i < _count)
                             _enumerators[i] = _enumerators[_count];
                     }
                 }
             }
-
-            return true;
         }
     }
 

@@ -178,32 +178,39 @@ internal static class RichDataReader
                 continue;
             }
 
-            // Read child <v> elements: [relIndex, calcOrigin, altText]
-            var values = new List<string>();
-            using (var rvReader = reader.ReadSubtree())
-            {
-                while (rvReader.Read())
-                {
-                    if (rvReader.NodeType == XmlNodeType.Element && rvReader.LocalName == "v")
-                    {
-                        values.Add(rvReader.ReadElementContentAsString());
-                    }
-                }
-            }
-
-            if (values.Count >= 1 && int.TryParse(values[0], out var relIndex) &&
-                relIndexToImageStoreIndex.TryGetValue(relIndex, out var imageStoreIndex))
-            {
-                var altText = values.Count >= 3 ? values[2] : string.Empty;
-                entries.Add(new XLCellImage(imageStoreIndex, altText));
-            }
-            else
-            {
-                entries.Add(null);
-            }
+            var values = ReadRvChildValues(reader);
+            entries.Add(BuildCellImageFromValues(values, relIndexToImageStoreIndex));
         }
 
         return entries;
+    }
+
+    private static List<string> ReadRvChildValues(XmlReader reader)
+    {
+        var values = new List<string>();
+        using var rvReader = reader.ReadSubtree();
+        while (rvReader.Read())
+        {
+            if (rvReader.NodeType == XmlNodeType.Element && rvReader.LocalName == "v")
+            {
+                values.Add(rvReader.ReadElementContentAsString());
+            }
+        }
+
+        return values;
+    }
+
+    private static XLCellImage? BuildCellImageFromValues(List<string> values,
+        Dictionary<int, int> relIndexToImageStoreIndex)
+    {
+        if (values.Count >= 1 && int.TryParse(values[0], out var relIndex) &&
+            relIndexToImageStoreIndex.TryGetValue(relIndex, out var imageStoreIndex))
+        {
+            var altText = values.Count >= 3 ? values[2] : string.Empty;
+            return new XLCellImage(imageStoreIndex, altText);
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -250,10 +257,6 @@ internal static class RichDataReader
             var rc = bk.GetFirstChild<MetadataRecord>();
             if (rc?.TypeIndex?.Value == richValueTypeIndex)
             {
-                // The val is the index into futureMetadata blocks for XLRICHVALUE,
-                // which in turn maps to the rv index.
-                // For simple cases, the futureMetadata contains <xlrv:rvb i="N"/>
-                // where N is the rv index.
                 var fmIndex = (int)(rc.Val?.Value ?? 0);
                 var rvIndex = FindRvIndexFromFutureMetadata(metadata, richValueTypeIndex.Value, fmIndex);
                 result[vmIndex] = rvIndex;
@@ -276,36 +279,45 @@ internal static class RichDataReader
             if (fm.Name?.Value != "XLRICHVALUE")
                 continue;
 
-            var idx = 0;
-            foreach (var block in fm.Elements<FutureMetadataBlock>())
-            {
-                if (idx == blockIndex)
-                {
-                    // Look for xlrv:rvb element with i attribute
-                    var extList = block.GetFirstChild<ExtensionList>();
-                    if (extList is not null)
-                    {
-                        foreach (var ext in extList.Elements<Extension>())
-                        {
-                            foreach (var child in ext.ChildElements)
-                            {
-                                var iAttr = child.GetAttributes()
-                                    .FirstOrDefault(a => a.LocalName == "i");
-                                if (iAttr.Value is not null && int.TryParse(iAttr.Value, out var rvIndex))
-                                    return rvIndex;
-                            }
-                        }
-                    }
-
-                    // If no explicit rvb element found, the blockIndex itself is the rv index
-                    return blockIndex;
-                }
-
-                idx++;
-            }
+            return FindRvIndexInFutureMetadataBlocks(fm, blockIndex);
         }
 
         // Fallback: use the block index directly
+        return blockIndex;
+    }
+
+    private static int FindRvIndexInFutureMetadataBlocks(FutureMetadata fm, int blockIndex)
+    {
+        var idx = 0;
+        foreach (var block in fm.Elements<FutureMetadataBlock>())
+        {
+            if (idx == blockIndex)
+                return ExtractRvIndexFromBlock(block, blockIndex);
+
+            idx++;
+        }
+
+        return blockIndex;
+    }
+
+    private static int ExtractRvIndexFromBlock(FutureMetadataBlock block, int blockIndex)
+    {
+        var extList = block.GetFirstChild<ExtensionList>();
+        if (extList is not null)
+        {
+            foreach (var ext in extList.Elements<Extension>())
+            {
+                foreach (var child in ext.ChildElements)
+                {
+                    var iAttr = child.GetAttributes()
+                        .FirstOrDefault(a => a.LocalName == "i");
+                    if (iAttr.Value is not null && int.TryParse(iAttr.Value, out var rvIndex))
+                        return rvIndex;
+                }
+            }
+        }
+
+        // If no explicit rvb element found, the blockIndex itself is the rv index
         return blockIndex;
     }
 

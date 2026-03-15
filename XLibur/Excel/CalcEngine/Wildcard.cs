@@ -70,56 +70,63 @@ internal readonly struct Wildcard
     {
         var inputIndex = 0;
         var patternIndex = 0;
-        var starIndex = -1; // Index of a last processed '*' in the pattern
-        var matchIndex = 0; // Input index for last processed '*'. Basically a bookmark for backtracking.
+        var starIndex = -1;
+        var matchIndex = 0;
 
         while (inputIndex < input.Length)
         {
-            if (patternIndex < pattern.Length)
-            {
-                if (pattern[patternIndex] == '?')
-                {
-                    inputIndex++;
-                    patternIndex++;
-                    continue;
-                }
-
-                if (pattern[patternIndex] == '*')
-                {
-                    starIndex = patternIndex;
-                    matchIndex = inputIndex;
-                    patternIndex++;
-                    continue;
-                }
-
-                if (pattern[patternIndex] == '~' && patternIndex + 1 < pattern.Length)
-                    patternIndex++;
-
-                if (char.ToUpperInvariant(pattern[patternIndex]) == char.ToUpperInvariant(input[inputIndex]))
-                {
-                    inputIndex++;
-                    patternIndex++;
-                    continue;
-                }
-            }
-
-            // Pattern didn't match the input. If there was a previous '*', backtrack and try next position in input.
-            if (starIndex != -1)
-            {
-                matchIndex++;
-                inputIndex = matchIndex;
-                patternIndex = starIndex + 1;
+            if (TryMatchPatternChar(pattern, input, ref patternIndex, ref inputIndex, ref starIndex, ref matchIndex))
                 continue;
-            }
 
-            // No match for pattern char or pattern is complete while input has characters left
             return (patternIndex == pattern.Length, inputIndex);
         }
 
-        // The input has been fully matched. Check for remaining '*' in the pattern
         while (patternIndex < pattern.Length && pattern[patternIndex] == '*')
             patternIndex++;
 
         return (patternIndex == pattern.Length, inputIndex);
+    }
+
+    private static bool TryMatchPatternChar(ReadOnlySpan<char> pattern, ReadOnlySpan<char> input,
+        ref int patternIndex, ref int inputIndex, ref int starIndex, ref int matchIndex)
+    {
+        if (patternIndex < pattern.Length)
+        {
+            if (pattern[patternIndex] == '?')
+            {
+                inputIndex++;
+                patternIndex++;
+                return true;
+            }
+
+            if (pattern[patternIndex] == '*')
+            {
+                starIndex = patternIndex;
+                matchIndex = inputIndex;
+                patternIndex++;
+                return true;
+            }
+
+            var pi = patternIndex;
+            if (pattern[pi] == '~' && pi + 1 < pattern.Length)
+                pi++;
+
+            if (char.ToUpperInvariant(pattern[pi]) == char.ToUpperInvariant(input[inputIndex]))
+            {
+                inputIndex++;
+                patternIndex = pi + 1;
+                return true;
+            }
+        }
+
+        if (starIndex != -1)
+        {
+            matchIndex++;
+            inputIndex = matchIndex;
+            patternIndex = starIndex + 1;
+            return true;
+        }
+
+        return false;
     }
 }

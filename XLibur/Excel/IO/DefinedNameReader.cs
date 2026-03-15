@@ -32,19 +32,7 @@ internal static class DefinedNameReader
 
             if (name == "_xlnm.Print_Area")
             {
-                try
-                {
-                    LoadPrintAreas(definedName, xlWorkbook, localSheetId);
-                }
-                catch
-                {
-                    // The print area text is a formula (e.g. OFFSET) that can't be
-                    // resolved to simple range references. Store the raw text so it
-                    // can be round-tripped on save.
-                    var ws = xlWorkbook.WorksheetsInternal.FirstOrDefault<XLWorksheet>(w => w.SheetId == (localSheetId + 1));
-                    if (ws != null)
-                        ((XLPrintAreas)ws.PageSetup.PrintAreas).FormulaReference = definedName.Text;
-                }
+                LoadPrintAreaSafe(definedName, xlWorkbook, localSheetId);
             }
             else if (name == "_xlnm.Print_Titles")
             {
@@ -52,21 +40,7 @@ internal static class DefinedNameReader
             }
             else
             {
-                var text = definedName.Text;
-
-                var comment = definedName.Comment;
-                if (localSheetId == -1)
-                {
-                    if (xlWorkbook.DefinedNamesInternal.All<XLDefinedName>(nr => nr.Name != name))
-                        xlWorkbook.DefinedNamesInternal.Add(name!, text, comment, validateName: false, validateRangeAddress: false)
-                            .Visible = visible;
-                }
-                else
-                {
-                    if (xlWorkbook.Worksheet(localSheetId + 1).DefinedNames.All(nr => nr.Name != name))
-                        ((XLDefinedNames)xlWorkbook.Worksheet(localSheetId + 1).DefinedNames).Add(name!, text, comment,
-                            validateName: false, validateRangeAddress: false).Visible = visible;
-                }
+                LoadNamedRange(definedName, xlWorkbook, name!, visible, localSheetId);
             }
         }
     }
@@ -91,6 +65,42 @@ internal static class DefinedNameReader
 
         if (sb.Length > 0)
             yield return sb.ToString();
+    }
+
+    private static void LoadPrintAreaSafe(DefinedName definedName, XLWorkbook xlWorkbook, int localSheetId)
+    {
+        try
+        {
+            LoadPrintAreas(definedName, xlWorkbook, localSheetId);
+        }
+        catch
+        {
+            // The print area text is a formula (e.g. OFFSET) that can't be
+            // resolved to simple range references. Store the raw text so it
+            // can be round-tripped on save.
+            var ws = xlWorkbook.WorksheetsInternal.FirstOrDefault<XLWorksheet>(w => w.SheetId == (localSheetId + 1));
+            if (ws != null)
+                ((XLPrintAreas)ws.PageSetup.PrintAreas).FormulaReference = definedName.Text;
+        }
+    }
+
+    private static void LoadNamedRange(DefinedName definedName, XLWorkbook xlWorkbook, string name, bool visible,
+        int localSheetId)
+    {
+        var text = definedName.Text;
+        var comment = definedName.Comment;
+        if (localSheetId == -1)
+        {
+            if (xlWorkbook.DefinedNamesInternal.All<XLDefinedName>(nr => nr.Name != name))
+                xlWorkbook.DefinedNamesInternal.Add(name, text, comment, validateName: false, validateRangeAddress: false)
+                    .Visible = visible;
+        }
+        else
+        {
+            if (xlWorkbook.Worksheet(localSheetId + 1).DefinedNames.All(nr => nr.Name != name))
+                ((XLDefinedNames)xlWorkbook.Worksheet(localSheetId + 1).DefinedNames).Add(name, text, comment,
+                    validateName: false, validateRangeAddress: false).Visible = visible;
+        }
     }
 
     private static void LoadPrintAreas(DefinedName definedName, XLWorkbook xlWorkbook, int localSheetId)
