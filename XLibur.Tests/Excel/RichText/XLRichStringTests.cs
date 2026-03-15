@@ -862,8 +862,8 @@ public class XLRichStringTests
         // contains phonetic run for the kanji in the text that would be out-of-bounds if space
         // attribute there. The input is from Excel, output is by XLibur. Output must contain
         // the space attribute.
-        TestHelper.LoadSaveAndCompare(
+        Assert.DoesNotThrow(() => TestHelper.LoadSaveAndCompare(
             @"Other\RichText\kanji-with-new-line-input.xlsx",
-            @"Other\RichText\kanji-with-new-line-output.xlsx");
+            @"Other\RichText\kanji-with-new-line-output.xlsx"));
     }
 }

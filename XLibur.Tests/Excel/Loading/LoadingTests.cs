@@ -173,6 +173,8 @@ public class LoadingTests
         using var wb = new XLWorkbook(stream);
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
+
+        Assert.That(ms.Length, Is.GreaterThan(0));
     }
 
     [Test]
@@ -238,6 +240,8 @@ public class LoadingTests
         using var wb = new XLWorkbook(stream);
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
+
+        Assert.That(ms.Length, Is.GreaterThan(0));
     }
 
     [Test]
@@ -268,6 +272,8 @@ public class LoadingTests
         using var wb = new XLWorkbook(stream);
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
+
+        Assert.That(ms.Length, Is.GreaterThan(0));
     }
 
     /// <summary>

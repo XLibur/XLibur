@@ -337,9 +337,9 @@ public class XLPivotTableTests
         // Load an excel that contains a table which has various combinations of types in columns.
         // The pivot cache definition contain various flags in shared items for each field and the
         // test checks the flags in cache are set correctly (they are determined in cache writer).
-        TestHelper.LoadSaveAndCompare(
+        Assert.DoesNotThrow(() => TestHelper.LoadSaveAndCompare(
             @"Other\PivotTableReferenceFiles\VariousDataTypesInTableColumns\input.xlsx",
-            @"Other\PivotTableReferenceFiles\VariousDataTypesInTableColumns\output.xlsx");
+            @"Other\PivotTableReferenceFiles\VariousDataTypesInTableColumns\output.xlsx"));
     }
 
     [Test]
@@ -694,9 +694,9 @@ public class XLPivotTableTests
     {
         // Make sure that if the original file has *subtotals*, the subtotals are
         // turned on even after loading into XLibur and then saving the document.
-        TestHelper.LoadSaveAndCompare(
+        Assert.DoesNotThrow(() => TestHelper.LoadSaveAndCompare(
             @"Other\PivotTableReferenceFiles\PivotSubtotalsSource\input.xlsx",
-            @"Other\PivotTableReferenceFiles\PivotSubtotalsSource\output.xlsx");
+            @"Other\PivotTableReferenceFiles\PivotSubtotalsSource\output.xlsx"));
     }
 
     [Test]
@@ -803,9 +803,9 @@ public class XLPivotTableTests
         // At this time, there is no content, only shape, because we don't have an engine
         // to determine correct layout and values. Change RefreshDataOnOpen to 0 and change
         // PT in Excel to see the values (aka gimp on Excel PT engine).
-        TestHelper.LoadSaveAndCompare(
+        Assert.DoesNotThrow(() => TestHelper.LoadSaveAndCompare(
             @"Other\PivotTableReferenceFiles\PivotTableWithoutSourceData-input.xlsx",
-            @"Other\PivotTableReferenceFiles\PivotTableWithoutSourceData-output.xlsx");
+            @"Other\PivotTableReferenceFiles\PivotTableWithoutSourceData-output.xlsx"));
     }
 
     [Test]
@@ -988,6 +988,8 @@ public class XLPivotTableTests
         using var wb = new XLWorkbook(stream);
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
+
+        Assert.That(ms.Length, Is.GreaterThan(0));
     }
 
     [Test]
@@ -998,6 +1000,8 @@ public class XLPivotTableTests
         using var wb = new XLWorkbook(stream);
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
+
+        Assert.That(ms.Length, Is.GreaterThan(0));
     }
 
     [Test]

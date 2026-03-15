@@ -23,9 +23,9 @@ public class XLCellFormulaTests
     [Test]
     public void DataTable_MaintainProperties()
     {
-        TestHelper.LoadSaveAndCompare(
+        Assert.DoesNotThrow(() => TestHelper.LoadSaveAndCompare(
             @"Other\Formulas\DataTableFormula-Excel-Input.xlsx",
-            @"Other\Formulas\DataTableFormula-Output.xlsx");
+            @"Other\Formulas\DataTableFormula-Output.xlsx"));
     }
 
     [Test]
