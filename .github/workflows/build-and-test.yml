@@ -65,8 +65,10 @@ jobs:
           dotnet test XLibur.Tests/XLibur.Tests.csproj
           --configuration Release
           --no-build
+          --framework net10.0
           --logger "trx;LogFileName=test-results.trx"
-          --collect:"XPlat Code Coverage;Format=opencover"
+          --collect:"XPlat Code Coverage"
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
       - name: End SonarCloud analysis
         if: env.SONAR_TOKEN != ''
