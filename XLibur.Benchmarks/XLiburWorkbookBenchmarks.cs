@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Diagnostics.dotMemory;
 using BenchmarkDotNet.Diagnostics.dotTrace;
 using XLibur.Excel;
 
@@ -25,8 +24,10 @@ public class XLiburWorkbookBenchmarks
         _numbers = new double[RowCount];
         _dates = new DateTime[RowCount];
 
+#pragma warning disable S2245 // Deterministic seed for reproducible benchmarks
         var random = new Random(42);
-        var baseDate = new DateTime(2020, 1, 1);
+#pragma warning restore S2245
+        var baseDate = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 
         for (var i = 0; i < RowCount; i++)
         {
@@ -83,7 +84,8 @@ public class XLiburWorkbookBenchmarks
 
     private static void WriteHeaders(IXLWorksheet ws)
     {
-        var headers = new[] { "Name", "Amount", "Date", "Quantity", "Price", "Total", "Status", "Category", "Region", "Notes" };
+        var headers = new[]
+            { "Name", "Amount", "Date", "Quantity", "Price", "Total", "Status", "Category", "Region", "Notes" };
         for (var c = 1; c <= 10; c++)
         {
             var hdr = ws.Cell(1, c);
@@ -105,13 +107,21 @@ public class XLiburWorkbookBenchmarks
         ws.Cell(row, 4).Value = (i % 500) + 1;
         ws.Cell(row, 5).Value = _numbers[idx] * 0.1;
         ws.Cell(row, 6).Value = _numbers[idx] * ((i % 500) + 1) * 0.1;
-        ws.Cell(row, 7).Value = i % 3 == 0 ? "Active" : i % 3 == 1 ? "Pending" : "Closed";
+        var status = (i % 3) switch { 0 => "Active", 1 => "Pending", _ => "Closed" };
+        ws.Cell(row, 7).Value = status;
         ws.Cell(row, 8).Value = $"Cat-{(i % 12) + 1}";
-        ws.Cell(row, 9).Value = i % 5 == 0 ? "North" : i % 5 == 1 ? "South" : i % 5 == 2 ? "East" : i % 5 == 3 ? "West" : "Central";
+        var region = (i % 5) switch { 0 => "North", 1 => "South", 2 => "East", 3 => "West", _ => "Central" };
+        ws.Cell(row, 9).Value = region;
         ws.Cell(row, 10).Value = $"Note for row {row}";
     }
 
     private static void ApplyRowFormatting(IXLWorksheet ws, int row, int i)
+    {
+        FormatNumericCells(ws, row);
+        FormatCategoryCells(ws, row, i);
+    }
+
+    private static void FormatNumericCells(IXLWorksheet ws, int row)
     {
         var c1 = ws.Cell(row, 1);
         c1.Style.Font.Bold = true;
@@ -145,10 +155,14 @@ public class XLiburWorkbookBenchmarks
         c6.Style.Font.Bold = true;
         c6.Style.Border.BottomBorder = XLBorderStyleValues.Dashed;
         c6.Style.Border.BottomBorderColor = XLColor.Navy;
+    }
 
+    private static void FormatCategoryCells(IXLWorksheet ws, int row, int i)
+    {
         var c7 = ws.Cell(row, 7);
         c7.Style.Font.Strikethrough = i % 3 == 2;
-        c7.Style.Font.FontColor = i % 3 == 0 ? XLColor.Green : i % 3 == 1 ? XLColor.Orange : XLColor.Red;
+        var fontColor = (i % 3) switch { 0 => XLColor.Green, 1 => XLColor.Orange, _ => XLColor.Red };
+        c7.Style.Font.FontColor = fontColor;
         c7.Style.Fill.BackgroundColor = XLColor.Lavender;
 
         var c8 = ws.Cell(row, 8);
