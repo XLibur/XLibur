@@ -52,15 +52,19 @@ internal sealed class FunctionDefinition
     public AnyValue CallAsArray(CalcContext ctx, Span<AnyValue> args)
     {
         if (_flags.HasFlag(FunctionFlags.ReturnsArray) && _allowRanges == AllowRange.All)
-        {
             return _function(ctx, args);
-        }
 
-        // Step 1: For scalar parameters of function, determine maximum size of scalar
-        // parameters from argument arrays
         var (totalRows, totalColumns) = GetScalarArgsMaxSize(args);
+        NormalizeArguments(ctx, args, totalRows, totalColumns);
+        return EvaluateArrayElements(ctx, args, totalRows, totalColumns);
+    }
 
-        // Step 2: Normalize arguments. Single params are converted to array of same size, multi params are converted from scalars
+    /// <summary>
+    /// Normalize arguments. Single params are broadcast to the total array size,
+    /// multi params are converted from scalars to 1x1 arrays.
+    /// </summary>
+    private void NormalizeArguments(CalcContext ctx, Span<AnyValue> args, int totalRows, int totalColumns)
+    {
         for (var i = 0; i < args.Length; ++i)
         {
             ref var arg = ref args[i];
@@ -75,41 +79,48 @@ internal sealed class FunctionDefinition
             {
                 // 18.17.2.4 When a function expects a multi-valued argument but a single-valued
                 // expression is passed, that single-valued argument is treated as a 1x1 array.
-                // If there is an error as a single value, e.g. reference to a single cell, the SUMIF behaves
-                // as it was converted to 1x1 array and doesn't return error, just because it found an error.
-                // Ergo: for ranges, we don't immediately return error, just because range parameter contains an error
                 arg = argIsSingle
                     ? new ScalarArray(single, 1, 1)
                     : multi!;
             }
         }
+    }
 
-        // Step 3: For each item in total array, calculate function
+    /// <summary>
+    /// For each element in the total array, call the function and collect results.
+    /// </summary>
+    private AnyValue EvaluateArrayElements(CalcContext ctx, Span<AnyValue> args, int totalRows, int totalColumns)
+    {
         var result = new ScalarValue[totalRows, totalColumns];
         for (var row = 0; row < totalRows; ++row)
         {
             for (var column = 0; column < totalColumns; ++column)
             {
-                var itemArg = new AnyValue[args.Length];
-                for (var i = 0; i < itemArg.Length; ++i)
-                {
-                    ref var arg = ref args[i];
-                    itemArg[i] = IsParameterSingleValue(i)
-                        ? arg.GetArray()[row, column].ToAnyValue()
-                        : arg;
-                }
-
-                var itemResult = _function(ctx, args);
-
-                // Even if function returns an array, only the top-left value of array is used
-                // as a result for the item, per tests with FILTERXML.
-                result[row, column] = itemResult.TryPickSingleOrMultiValue(out var scalarResult, out var arrayResult, ctx)
-                    ? scalarResult
-                    : arrayResult![0, 0];
+                result[row, column] = EvaluateSingleElement(ctx, args, row, column);
             }
         }
 
         return new ConstArray(result);
+    }
+
+    private ScalarValue EvaluateSingleElement(CalcContext ctx, Span<AnyValue> args, int row, int column)
+    {
+        var itemArg = new AnyValue[args.Length];
+        for (var i = 0; i < itemArg.Length; ++i)
+        {
+            ref var arg = ref args[i];
+            itemArg[i] = IsParameterSingleValue(i)
+                ? arg.GetArray()[row, column].ToAnyValue()
+                : arg;
+        }
+
+        var itemResult = _function(ctx, args);
+
+        // Even if function returns an array, only the top-left value of array is used
+        // as a result for the item, per tests with FILTERXML.
+        return itemResult.TryPickSingleOrMultiValue(out var scalarResult, out var arrayResult, ctx)
+            ? scalarResult
+            : arrayResult![0, 0];
     }
 
     private void IntersectArguments(CalcContext ctx, Span<AnyValue> args)

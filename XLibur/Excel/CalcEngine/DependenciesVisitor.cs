@@ -71,93 +71,94 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
 
     public List<XLBookArea>? Visit(DependenciesContext context, BinaryNode node)
     {
-        // Only range operations transform ranges
         var leftAreas = node.LeftExpression.Accept(context, this);
         var rightAreas = node.RightExpression.Accept(context, this);
 
-        // Reference operation only makes sense, if both sides are references.
-        // Otherwise reference operation results into an error.
+        // Reference operation only makes sense if both sides are references.
+        // Otherwise reference operation results in an error.
         if (leftAreas is not null && rightAreas is not null)
-        {
-            // Both sides are references - calculate new ranges and propagate
-            if (node.Operation == BinaryOp.Union)
-            {
-                leftAreas.AddRange(rightAreas);
-                return leftAreas;
-            }
-
-            if (node.Operation == BinaryOp.Range)
-            {
-                var rangeResult = new List<XLBookArea>();
-
-                // Create a new range from both operands. It must deal with
-                // situation where there are multiple sheets for both operands,
-                // e.g. `IF(G4,Sheet1!A1,Sheet2!A2):IF(H3,Sheet2!C4,Sheet1!C5)`
-                // that creates a valid range.
-                var sheetGroups = leftAreas.Concat(rightAreas)
-                    .GroupBy(area => area.Name, XLHelper.SheetComparer);
-
-                // There is no simple way to go through all paths, so try to find
-                // largest possible ranges that could be the result. For normal
-                // operands(A1:B2:C3), it will work fine and for freaks, it will
-                // find largest possible range that is a superset of actual result.
-                foreach (var sheetGroup in sheetGroups)
-                {
-                    var sheetAreas = sheetGroup.ToList();
-                    if (sheetAreas.Count == 1)
-                        continue;
-
-                    var rangeArea = sheetAreas[0].Area;
-                    for (var i = 1; i < sheetAreas.Count; ++i)
-                        rangeArea = rangeArea.Range(sheetAreas[i].Area);
-
-                    rangeResult.Add(new XLBookArea(sheetGroup.Key, rangeArea));
-                }
-
-                // It's enough to return result of range operation. Operands can
-                // be discarded, because they are included in the result.
-                return rangeResult;
-            }
-
-            if (node.Operation == BinaryOp.Intersection)
-            {
-                // Intersection makes range smaller, so it's rather hard to optimize
-                // areas. We make a special case for the most frequent case.
-                if (leftAreas.Count == 1 && rightAreas.Count == 1)
-                {
-                    var leftArea = leftAreas[0];
-                    var rightArea = rightAreas[0];
-                    var intersection = leftArea.Intersect(rightArea);
-
-                    // Propagate only the intersection, not operands. Even if operands
-                    // change, it doesn't affect the formula, because cells outside
-                    // intersection are never used.
-                    if (intersection is not null)
-                        return [intersection.Value];
-
-                    return null;
-                }
-
-                // Anything else is too complicated and thus just propagate all references.
-                leftAreas.AddRange(rightAreas);
-                return leftAreas;
-            }
-
-            // Operand is not a reference one, so reference is turned to array of values.
-            context.AddAreas(leftAreas);
-            context.AddAreas(rightAreas);
-            return null;
-        }
+            return VisitBinaryReferenceOp(context, node.Operation, leftAreas, rightAreas);
 
         // Both children aren't references or only one is -> binary operation transforms it
         // to a non-reference, either value or #REF!
-        if (leftAreas is not null)
-            context.AddAreas(leftAreas);
-
-        if (rightAreas is not null)
-            context.AddAreas(rightAreas);
-
+        AddAreasIfNotNull(context, leftAreas);
+        AddAreasIfNotNull(context, rightAreas);
         return null;
+    }
+
+    private static List<XLBookArea>? VisitBinaryReferenceOp(
+        DependenciesContext context, BinaryOp operation,
+        List<XLBookArea> leftAreas, List<XLBookArea> rightAreas)
+    {
+        // Both sides are references — calculate new ranges and propagate.
+        if (operation == BinaryOp.Union)
+        {
+            leftAreas.AddRange(rightAreas);
+            return leftAreas;
+        }
+
+        if (operation == BinaryOp.Range)
+            return CombineRangeAreas(leftAreas, rightAreas);
+
+        if (operation == BinaryOp.Intersection)
+            return IntersectAreas(leftAreas, rightAreas);
+
+        // Operand is not a reference one, so reference is turned to array of values.
+        context.AddAreas(leftAreas);
+        context.AddAreas(rightAreas);
+        return null;
+    }
+
+    private static List<XLBookArea> CombineRangeAreas(List<XLBookArea> leftAreas, List<XLBookArea> rightAreas)
+    {
+        var rangeResult = new List<XLBookArea>();
+
+        // Create a new range from both operands. It must deal with
+        // situation where there are multiple sheets for both operands,
+        // e.g. `IF(G4,Sheet1!A1,Sheet2!A2):IF(H3,Sheet2!C4,Sheet1!C5)`
+        // that creates a valid range.
+        var sheetGroups = leftAreas.Concat(rightAreas)
+            .GroupBy(area => area.Name, XLHelper.SheetComparer);
+
+        // There is no simple way to go through all paths, so try to find
+        // largest possible ranges that could be the result. For normal
+        // operands (A1:B2:C3), it will work fine and for freaks, it will
+        // find largest possible range that is a superset of actual result.
+        foreach (var sheetGroup in sheetGroups)
+        {
+            var sheetAreas = sheetGroup.ToList();
+            if (sheetAreas.Count == 1)
+                continue;
+
+            var rangeArea = sheetAreas[0].Area;
+            for (var i = 1; i < sheetAreas.Count; ++i)
+                rangeArea = rangeArea.Range(sheetAreas[i].Area);
+
+            rangeResult.Add(new XLBookArea(sheetGroup.Key, rangeArea));
+        }
+
+        // It's enough to return result of range operation. Operands can
+        // be discarded, because they are included in the result.
+        return rangeResult;
+    }
+
+    private static List<XLBookArea>? IntersectAreas(List<XLBookArea> leftAreas, List<XLBookArea> rightAreas)
+    {
+        // Intersection makes range smaller, so it's rather hard to optimize
+        // areas. We make a special case for the most frequent case.
+        if (leftAreas.Count == 1 && rightAreas.Count == 1)
+        {
+            var intersection = leftAreas[0].Intersect(rightAreas[0]);
+
+            // Propagate only the intersection, not operands. Even if operands
+            // change, it doesn't affect the formula, because cells outside
+            // intersection are never used.
+            return intersection is not null ? [intersection.Value] : null;
+        }
+
+        // Anything else is too complicated and thus just propagate all references.
+        leftAreas.AddRange(rightAreas);
+        return leftAreas;
     }
 
     public List<XLBookArea>? Visit(DependenciesContext context, FunctionNode node)
@@ -166,81 +167,91 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         // Only these functions are allowed to return references, per grammar.
         // However, OFFSET and INDIRECT are volatile function that always have to be
         // recalculated (=are always marked dirty).
-
         if (XLHelper.FunctionComparer.Equals(node.Name, "IF"))
-        {
-            // Tested value is not propagated, it's evaluated as an argument
-            var testReference = node.Parameters[0].Accept(context, this);
-            if (testReference is not null)
-                context.AddAreas(testReference);
-
-            // If argument is reference and test is evaluated to TRUE,
-            // the reference is returned => propagate.
-            var valueIfTrueReference = node.Parameters[1].Accept(context, this);
-            var valueIfFalseReference = node.Parameters.Count == 3
-                ? node.Parameters[2].Accept(context, this)
-                : null;
-
-            if (valueIfFalseReference is not null && valueIfTrueReference is not null)
-            {
-                valueIfTrueReference.AddRange(valueIfFalseReference);
-                return valueIfTrueReference;
-            }
-
-            return valueIfFalseReference ?? valueIfTrueReference;
-        }
+            return VisitIfFunction(context, node);
 
         if (XLHelper.FunctionComparer.Equals(node.Name, "INDEX"))
-        {
-            // Add argument references, INDEX can have 2 or 3 arguments
-            for (var i = 1; i < node.Parameters.Count; ++i)
-            {
-                var argReference = node.Parameters[i].Accept(context, this);
-                if (argReference is not null)
-                    context.AddAreas(argReference);
-            }
-
-            // If INDEX function indexes into an area, it returns reference,
-            // not a value. Either way, return whole reference that is indexed,
-            // even though it's larger than actual function result.
-            var arrayReference = node.Parameters[0].Accept(context, this);
-            return arrayReference;
-        }
+            return VisitIndexFunction(context, node);
 
         if (XLHelper.FunctionComparer.Equals(node.Name, "CHOOSE"))
-        {
-            // Index argument is used to select value, so don't propagate
-            var indexReference = node.Parameters[0].Accept(context, this);
-            if (indexReference is not null)
-                context.AddAreas(indexReference);
-
-            // Any of arguments can be propagated -> propagate all.
-            // Initialize list as null to reduce allocations
-            List<XLBookArea>? parametersReference = null;
-            for (var i = 1; i < node.Parameters.Count; ++i)
-            {
-                var parameterReference = node.Parameters[i].Accept(context, this);
-                if (parameterReference is null)
-                    continue;
-
-                if (parametersReference is not null)
-                    parametersReference.AddRange(parameterReference);
-                else
-                    parametersReference = parameterReference;
-            }
-
-            return parametersReference;
-        }
+            return VisitChooseFunction(context, node);
 
         // All other functions can have references as arguments, but not as an output value.
-        foreach (var parameterNode in node.Parameters)
+        AcceptAndAddAllParameters(context, node);
+        return null;
+    }
+
+    private List<XLBookArea>? VisitIfFunction(DependenciesContext context, FunctionNode node)
+    {
+        // Tested value is not propagated, it's evaluated as an argument.
+        AcceptAndAddParameter(context, node.Parameters[0]);
+
+        // If argument is reference and test is evaluated to TRUE,
+        // the reference is returned => propagate.
+        var valueIfTrueReference = node.Parameters[1].Accept(context, this);
+        var valueIfFalseReference = node.Parameters.Count == 3
+            ? node.Parameters[2].Accept(context, this)
+            : null;
+
+        if (valueIfFalseReference is not null && valueIfTrueReference is not null)
         {
-            var paramReference = parameterNode.Accept(context, this);
-            if (paramReference is not null)
-                context.AddAreas(paramReference);
+            valueIfTrueReference.AddRange(valueIfFalseReference);
+            return valueIfTrueReference;
         }
 
-        return null;
+        return valueIfFalseReference ?? valueIfTrueReference;
+    }
+
+    private List<XLBookArea>? VisitIndexFunction(DependenciesContext context, FunctionNode node)
+    {
+        // Add argument references, INDEX can have 2 or 3 arguments.
+        for (var i = 1; i < node.Parameters.Count; ++i)
+            AcceptAndAddParameter(context, node.Parameters[i]);
+
+        // If INDEX function indexes into an area, it returns reference,
+        // not a value. Either way, return whole reference that is indexed,
+        // even though it's larger than actual function result.
+        return node.Parameters[0].Accept(context, this);
+    }
+
+    private List<XLBookArea>? VisitChooseFunction(DependenciesContext context, FunctionNode node)
+    {
+        // Index argument is used to select value, so don't propagate.
+        AcceptAndAddParameter(context, node.Parameters[0]);
+
+        // Any of arguments can be propagated -> propagate all.
+        // Initialize list as null to reduce allocations.
+        List<XLBookArea>? parametersReference = null;
+        for (var i = 1; i < node.Parameters.Count; ++i)
+        {
+            var parameterReference = node.Parameters[i].Accept(context, this);
+            if (parameterReference is null)
+                continue;
+
+            if (parametersReference is not null)
+                parametersReference.AddRange(parameterReference);
+            else
+                parametersReference = parameterReference;
+        }
+
+        return parametersReference;
+    }
+
+    private void AcceptAndAddParameter(DependenciesContext context, ValueNode parameter)
+    {
+        AddAreasIfNotNull(context, parameter.Accept(context, this));
+    }
+
+    private void AcceptAndAddAllParameters(DependenciesContext context, FunctionNode node)
+    {
+        foreach (var parameterNode in node.Parameters)
+            AcceptAndAddParameter(context, parameterNode);
+    }
+
+    private static void AddAreasIfNotNull(DependenciesContext context, List<XLBookArea>? areas)
+    {
+        if (areas is not null)
+            context.AddAreas(areas);
     }
 
     public List<XLBookArea>? Visit(DependenciesContext context, NotSupportedNode node)

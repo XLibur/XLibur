@@ -20,7 +20,7 @@ internal static class DateAndTime
         ce.RegisterFunction("DATE", 3, 3, Adapt(Date), FunctionFlags.Scalar); // Returns the serial number of a particular date
         ce.RegisterFunction("DATEDIF", 3, 3, Adapt(DateDif), FunctionFlags.Scalar); // Calculates the number of days, months, or years between two dates
         ce.RegisterFunction("DATEVALUE", 1, 1, Adapt(dateValue), FunctionFlags.Scalar); // Converts a date in the form of text to a serial number
-        ce.RegisterFunction("DAY", 1, 1, Adapt(Day), FunctionFlags.Scalar); // Converts a serial number to a day of the month
+        ce.RegisterFunction("DAY", 1, 1, Adapt(GetDay), FunctionFlags.Scalar); // Converts a serial number to a day of the month
         ce.RegisterFunction("DAYS", 2, 2, Adapt(Days), FunctionFlags.Scalar | FunctionFlags.Future); // Returns the number of days between two dates.
         ce.RegisterFunction("DAYS360", 2, 3, AdaptLastOptional(Days360, false), FunctionFlags.Scalar); // Calculates the number of days between two dates based on a 360-day year
         ce.RegisterFunction("EDATE", 2, 2, Adapt(EDate), FunctionFlags.Scalar); // Returns the serial number of the date that is the indicated number of months before or after the start date
@@ -28,7 +28,7 @@ internal static class DateAndTime
         ce.RegisterFunction("HOUR", 1, 1, Adapt(Hour), FunctionFlags.Scalar); // Converts a serial number to an hour
         ce.RegisterFunction("ISOWEEKNUM", 1, 1, Adapt(IsoWeekNum), FunctionFlags.Scalar | FunctionFlags.Future); // Returns number of the ISO week number of the year for a given date.
         ce.RegisterFunction("MINUTE", 1, 1, Adapt(Minute), FunctionFlags.Scalar); // Converts a serial number to a minute
-        ce.RegisterFunction("MONTH", 1, 1, Adapt(Month), FunctionFlags.Scalar); // Converts a serial number to a month
+        ce.RegisterFunction("MONTH", 1, 1, Adapt(GetMonth), FunctionFlags.Scalar); // Converts a serial number to a month
         ce.RegisterFunction("NETWORKDAYS", 2, 3, AdaptLastOptional(NetWorkDays), FunctionFlags.Range, AllowRange.Only, 2); // Returns the number of whole workdays between two dates
         ce.RegisterFunction("NOW", 0, 0, Adapt(Now), FunctionFlags.Scalar | FunctionFlags.Volatile); // Returns the serial number of the current date and time
         ce.RegisterFunction("SECOND", 1, 1, Adapt(Second), FunctionFlags.Scalar); // Converts a serial number to a second
@@ -38,7 +38,7 @@ internal static class DateAndTime
         ce.RegisterFunction("WEEKDAY", 1, 2, AdaptLastOptional(Weekday), FunctionFlags.Scalar); // Converts a serial number to a day of the week
         ce.RegisterFunction("WEEKNUM", 1, 2, AdaptLastOptional(WeekNum, 1), FunctionFlags.Scalar); // Converts a serial number to a number representing where the week falls numerically with a year
         ce.RegisterFunction("WORKDAY", 2, 3, AdaptLastOptional(Workday), FunctionFlags.Range, AllowRange.Only, 2); // Returns the serial number of the date before or after a specified number of workdays
-        ce.RegisterFunction("YEAR", 1, 1, Adapt(Year), FunctionFlags.Scalar); // Converts a serial number to a year
+        ce.RegisterFunction("YEAR", 1, 1, Adapt(GetYear), FunctionFlags.Scalar); // Converts a serial number to a year
         ce.RegisterFunction("YEARFRAC", 2, 3, AdaptLastOptional(YearFrac, 0), FunctionFlags.Scalar); // Returns the year fraction representing the number of whole days between start_date and end_date
     }
 
@@ -130,67 +130,70 @@ internal static class DateAndTime
 
         var startDate = DateParts.From(ctx, startSerialDate);
         var endDate = DateParts.From(ctx, endSerialDate);
-        unit = unit.ToUpperInvariant();
 
-        if (unit == "Y")
+        return unit.ToUpperInvariant() switch
         {
-            // Calculate number of complete years the end date is from the start date
-            var isLastYearComplete = endDate.Month > startDate.Month ||
-                                     (endDate.Month == startDate.Month && endDate.Day >= startDate.Day);
-            return endDate.Year - startDate.Year - (isLastYearComplete ? 0 : 1);
-        }
+            "Y" => DateDifYears(startDate, endDate),
+            "M" => DateDifMonths(startDate, endDate),
+            "D" => endSerialDate - startSerialDate,
+            "MD" => DateDifDaysIgnoringMonths(startDate, endDate, endSerialDate),
+            "YM" => DateDifMonthsIgnoringYears(startDate, endDate),
+            "YD" => DateDifDaysIgnoringYears(startDate, endDate, startSerialDate),
+            _ => XLError.NumberInvalid
+        };
+    }
 
-        if (unit == "M")
+    private static int DateDifYears(DateParts startDate, DateParts endDate)
+    {
+        // Calculate number of complete years the end date is from the start date
+        var isLastYearComplete = endDate.Month > startDate.Month ||
+                                 (endDate.Month == startDate.Month && endDate.Day >= startDate.Day);
+        return endDate.Year - startDate.Year - (isLastYearComplete ? 0 : 1);
+    }
+
+    private static int DateDifMonths(DateParts startDate, DateParts endDate)
+    {
+        // Calculate number of complete months the end date is from start date
+        var isLastMonthComplete = endDate.Day >= startDate.Day;
+        return (endDate.Year - startDate.Year) * 12 + endDate.Month - startDate.Month - (isLastMonthComplete ? 0 : 1);
+    }
+
+    private static int DateDifDaysIgnoringMonths(DateParts startDate, DateParts endDate, int endSerialDate)
+    {
+        // The difference between the days in startDate and endDate, ignore year and month
+        // of startDate, only days are used
+        if (endDate.Day >= startDate.Day)
+            return endDate.Day - startDate.Day;
+
+        var adjacentStartDate = startDate with
         {
-            // Calculate number of complete months the end date is from start date
-            var isLastMonthComplete = endDate.Day >= startDate.Day;
-            return (endDate.Year - startDate.Year) * 12 + endDate.Month - startDate.Month - (isLastMonthComplete ? 0 : 1);
-        }
+            Month = (endDate.Month - 2 + 12) % 12 + 1,
+            Year = endDate.Month > 1 ? endDate.Year : endDate.Year - 1
+        };
+        return endSerialDate - adjacentStartDate.SerialDate;
+    }
 
-        if (unit == "D")
-        {
-            return endSerialDate - startSerialDate;
-        }
+    private static int DateDifMonthsIgnoringYears(DateParts startDate, DateParts endDate)
+    {
+        // The difference between the months in start-date and end-date. Add 12 and then
+        // modulo, so result is always positive
+        var isLastMonthComplete = endDate.Day >= startDate.Day;
+        return (endDate.Month + 12 - startDate.Month - (isLastMonthComplete ? 0 : 1)) % 12;
+    }
 
-        if (unit == "MD")
-        {
-            // The difference between the days in startDate and endDate, ignore year and month
-            // of startDate, only days are used
-            if (endDate.Day >= startDate.Day)
-                return endDate.Day - startDate.Day;
+    private static int DateDifDaysIgnoringYears(DateParts startDate, DateParts endDate, int startSerialDate)
+    {
+        var endFollowsStart = endDate.Month > startDate.Month || (endDate.Month == startDate.Month && endDate.Day >= startDate.Day);
+        var newEndYear = startDate.Year + (endFollowsStart ? 0 : 1);
+        var newEndDate = endDate with { Year = newEndYear };
+        var daysDiff = newEndDate.SerialDate - startSerialDate;
 
-            var adjacentStartDate = startDate with
-            {
-                Month = (endDate.Month - 2 + 12) % 12 + 1,
-                Year = endDate.Month > 1 ? endDate.Year : endDate.Year - 1
-            };
-            return endSerialDate - adjacentStartDate.SerialDate;
-        }
+        // If start date is in 1900 jan/feb, there are sometimes errors. I couldn't decipher actual logic,
+        // only condition when it happens. Based on the Excel vs XLibur comparisons, it seems to work.
+        if (startSerialDate <= 60 && endDate is { Year: > 1900, Month: 3 } && endDate.Day < startDate.Day)
+            daysDiff--;
 
-        if (unit == "YM")
-        {
-            // The difference between the months in start-date and end-date. Add 12 and then
-            // modulo, so result is always positive
-            var isLastMonthComplete = endDate.Day >= startDate.Day;
-            return (endDate.Month + 12 - startDate.Month - (isLastMonthComplete ? 0 : 1)) % 12;
-        }
-
-        if (unit == "YD")
-        {
-            var endFollowsStart = endDate.Month > startDate.Month || (endDate.Month == startDate.Month && endDate.Day >= startDate.Day);
-            var newEndYear = startDate.Year + (endFollowsStart ? 0 : 1);
-            var newEndDate = endDate with { Year = newEndYear };
-            var daysDiff = newEndDate.SerialDate - startSerialDate;
-
-            // If start date is in 1900 jan/feb, there are sometimes errors. I couldn't decipher actual logic,
-            // only condition when it happens. Based on the Excel vs XLibur comparisons, it seems to work.
-            if (startSerialDate <= 60 && endDate is { Year: > 1900, Month: 3 } && endDate.Day < startDate.Day)
-                daysDiff--;
-
-            return daysDiff;
-        }
-
-        return XLError.NumberInvalid;
+        return daysDiff;
     }
 
     private static ScalarValue DateValue(CalcContext ctx, ScalarValue value)
@@ -204,7 +207,7 @@ internal static class DateAndTime
         return Math.Truncate(serialDateTime);
     }
 
-    private static ScalarValue Day(CalcContext ctx, double serialDateTime)
+    private static ScalarValue GetDay(CalcContext ctx, double serialDateTime)
     {
         if (!TryGetDate(ctx, serialDateTime, out var serialDate))
             return XLError.NumberInvalid;
@@ -346,7 +349,7 @@ internal static class DateAndTime
         return GetTimeComponent(ctx, serialTime, static d => d.Minute);
     }
 
-    private static ScalarValue Month(CalcContext ctx, double serialDateTime)
+    private static ScalarValue GetMonth(CalcContext ctx, double serialDateTime)
     {
         if (!TryGetDate(ctx, serialDateTime, out var serialDate))
             return XLError.NumberInvalid;
@@ -553,50 +556,78 @@ internal static class DateAndTime
         var cmp = dayOffset > 0 ? Comparer<int>.Default : Comparer<int>.Create(static (x, y) => y.CompareTo(x));
         var oneDay = dayOffset > 0 ? 1 : -1; // One day in a specified direction
 
-        if (!GetHolidays(cmp).TryPickT0(out var orderedHolidays, out var holidaysError))
+        if (!CollectWorkdayHolidays(ctx, holidays, startDate, cmp).TryPickT0(out var orderedHolidays, out var holidaysError))
             return holidaysError;
 
-        // The algorithm should count workdays for each segment between holiday days
-        // and sum them up.
+        var (lastDateSoFar, workdaysSoFar) = SkipHolidaySegments(orderedHolidays, startDate, dayOffset, oneDay, cmp);
 
-        // A date up to which we have counted workdays. It is inclusive, so if
-        // the lastDateSoFar is a workday, it is already counted in workdaysSoFar.
+        return FindWorkdayFromPosition(lastDateSoFar, dayOffset - workdaysSoFar, oneDay);
+    }
+
+    private static OneOf<List<int>, XLError> CollectWorkdayHolidays(
+        CalcContext ctx, AnyValue holidays, int startDate, IComparer<int> comparer)
+    {
+        // Use set to skip duplicate values
+        var distinctHolidays = new HashSet<int>();
+        foreach (var holidayValue in ctx.GetNonBlankValues(holidays))
+        {
+            if (!TryGetDate(ctx, holidayValue, out var holidayDate, out var error))
+                return error;
+
+            if (comparer.Compare(holidayDate, startDate) < 0)
+                continue;
+
+            if (IsWeekend(holidayDate))
+                continue;
+
+            distinctHolidays.Add(holidayDate);
+        }
+
+        // Distinct, ordered holidays during a workweek
+        var sortedHolidays = new List<int>(distinctHolidays);
+        sortedHolidays.Sort(comparer);
+        return sortedHolidays;
+    }
+
+    /// <summary>
+    /// Walk through holiday segments, counting workdays between consecutive holidays,
+    /// until we've either exhausted all holidays or passed the target offset.
+    /// Returns the last date processed and the number of workdays counted so far.
+    /// </summary>
+    private static (int LastDate, int WorkdaysCounted) SkipHolidaySegments(
+        List<int> orderedHolidays, int startDate, int dayOffset, int oneDay, IComparer<int> cmp)
+    {
         var lastDateSoFar = startDate;
-
-        // Number of workdays that have already been processed from startDate up to
-        // the lastDateSoFar (inclusive).
         var workdaysSoFar = 0;
         var startIsHoliday = orderedHolidays.Count > 0 && orderedHolidays[0] == startDate;
+
         for (var i = startIsHoliday ? 1 : 0; i < orderedHolidays.Count; ++i)
         {
             var holidayDate = orderedHolidays[i];
 
-            // Because workdays up to and including lastDateSoFar has already been counted, we add + 1.
-            // The holidayDate is not a Saturday or Sunday (it has been filtered out).
-            // Because we know there is no holiday between lastDateSoFar (which might have been
-            // a holiday or not) + 1 (by adding 1, we are sure it's not counted).
-            // We are counting up to and including holidayDate. We can't use `holidayDate-1`, because
-            // if two holidays were next to each other, the `holidayDate-1` might be *before* `lastDateSoFar+1`.
+            // Count workdays in the segment from lastDateSoFar+oneDay to holidayDate.
             // When days are same, BusinessDaysUntil returns 1 regardless of direction, so add a condition.
             var segmentWorkdays = lastDateSoFar + oneDay != holidayDate
                 ? BusinessDaysUntil(lastDateSoFar + oneDay, holidayDate, System.Array.Empty<int>())
                 : oneDay;
 
             if (cmp.Compare(workdaysSoFar + segmentWorkdays, dayOffset) > 0)
-            {
-                // We know that the target day for desired dayOffset is in this segment.
-                // Possibly at the start, in the middle or at the end. Because of it,
-                // we know that there are no holidays from `lastDateSoFar..{resultDate}`.
-                break;
-            }
+                break; // Target day is in this segment — no more holidays to skip.
 
             // The segment workdays include holidayDate as a workday, use -1 so it is not counted.
             workdaysSoFar += segmentWorkdays - oneDay;
             lastDateSoFar = holidayDate;
         }
 
-        // At this point, we can just have to find the target date without any interference from holidays.
-        var remainingWorkdays = dayOffset - workdaysSoFar;
+        return (lastDateSoFar, workdaysSoFar);
+    }
+
+    /// <summary>
+    /// From a known position with no remaining holidays, advance by the given number
+    /// of remaining workdays, skipping weekends.
+    /// </summary>
+    private static int FindWorkdayFromPosition(int fromDate, int remainingWorkdays, int oneDay)
+    {
         var weekCount = Math.DivRem(remainingWorkdays, 5, out var remaining);
 
         // When we start on Sunday and want 5 dayOffset, ensure that we end up on friday of same week, not Sunday.
@@ -607,44 +638,21 @@ internal static class DateAndTime
             remaining += oneDay * 5;
         }
 
-        var workday = lastDateSoFar + weekCount * 7;
+        var workday = fromDate + weekCount * 7;
         while (remaining != 0)
         {
             do
             {
                 workday += oneDay;
             } while (IsWeekend(workday));
+
             remaining -= oneDay;
         }
 
         return workday;
-
-        OneOf<List<int>, XLError> GetHolidays(IComparer<int> comparer)
-        {
-            // Use set to skip duplicate values
-            var distinctHolidays = new HashSet<int>();
-            foreach (var holidayValue in ctx.GetNonBlankValues(holidays))
-            {
-                if (!TryGetDate(ctx, holidayValue, out var holidayDate, out var error))
-                    return error;
-
-                if (comparer.Compare(holidayDate, startDate) < 0)
-                    continue;
-
-                if (IsWeekend(holidayDate))
-                    continue;
-
-                distinctHolidays.Add(holidayDate);
-            }
-
-            // Distinct, ordered holidays during a workweek
-            var sortedHolidays = new List<int>(distinctHolidays);
-            sortedHolidays.Sort(comparer);
-            return sortedHolidays;
-        }
     }
 
-    private static ScalarValue Year(CalcContext ctx, double serialDateTime)
+    private static ScalarValue GetYear(CalcContext ctx, double serialDateTime)
     {
         if (!TryGetDate(ctx, serialDateTime, out var serialDate))
             return XLError.NumberInvalid;

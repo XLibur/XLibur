@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel;
+﻿namespace XLibur.Excel.AutoFilters;
 
 internal sealed class XLCustomFilteredColumn : IXLCustomFilteredColumn
 {
@@ -11,62 +11,62 @@ internal sealed class XLCustomFilteredColumn : IXLCustomFilteredColumn
         _connector = connector;
     }
 
-    public void EqualTo(XLCellValue value, bool reapply)
+    public void EqualTo(XLCellValue value, bool reapply = true)
     {
         ApplyCustomFilter(value, XLFilterOperator.Equal, reapply);
     }
 
-    public void NotEqualTo(XLCellValue value, bool reapply)
+    public void NotEqualTo(XLCellValue value, bool reapply = true)
     {
         ApplyCustomFilter(value, XLFilterOperator.NotEqual, reapply);
     }
 
-    public void GreaterThan(XLCellValue value, bool reapply)
+    public void GreaterThan(XLCellValue value, bool reapply = true)
     {
         ApplyCustomFilter(value, XLFilterOperator.GreaterThan, reapply);
     }
 
-    public void LessThan(XLCellValue value, bool reapply)
+    public void LessThan(XLCellValue value, bool reapply = true)
     {
         ApplyCustomFilter(value, XLFilterOperator.LessThan, reapply);
     }
 
-    public void EqualOrGreaterThan(XLCellValue value, bool reapply)
+    public void EqualOrGreaterThan(XLCellValue value, bool reapply = true)
     {
         ApplyCustomFilter(value, XLFilterOperator.EqualOrGreaterThan, reapply);
     }
 
-    public void EqualOrLessThan(XLCellValue value, bool reapply)
+    public void EqualOrLessThan(XLCellValue value, bool reapply = true)
     {
         ApplyCustomFilter(value, XLFilterOperator.EqualOrLessThan, reapply);
     }
 
-    public void BeginsWith(string value, bool reapply)
+    public void BeginsWith(string value, bool reapply = true)
     {
         ApplyWildcardCustomFilter(value + "*", true, reapply);
     }
 
-    public void NotBeginsWith(string value, bool reapply)
+    public void NotBeginsWith(string value, bool reapply = true)
     {
         ApplyWildcardCustomFilter(value + "*", false, reapply);
     }
 
-    public void EndsWith(string value, bool reapply)
+    public void EndsWith(string value, bool reapply = true)
     {
         ApplyWildcardCustomFilter("*" + value, true, reapply);
     }
 
-    public void NotEndsWith(string value, bool reapply)
+    public void NotEndsWith(string value, bool reapply = true)
     {
         ApplyWildcardCustomFilter("*" + value, false, reapply);
     }
 
-    public void Contains(string value, bool reapply)
+    public void Contains(string value, bool reapply = true)
     {
         ApplyWildcardCustomFilter("*" + value + "*", true, reapply);
     }
 
-    public void NotContains(string value, bool reapply)
+    public void NotContains(string value, bool reapply = true)
     {
         ApplyWildcardCustomFilter("*" + value + "*", false, reapply);
     }

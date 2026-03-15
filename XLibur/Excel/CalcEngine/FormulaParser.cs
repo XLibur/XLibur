@@ -63,15 +63,15 @@ internal sealed class FormulaParser
             _isA1 = isA1;
         }
 
-        public ScalarValue LogicalValue(string context, SymbolRange range, bool logical) => logical;
+        public ScalarValue LogicalValue(string context, SymbolRange range, bool value) => value;
 
-        public ScalarValue NumberValue(string context, SymbolRange range, double number) => number;
+        public ScalarValue NumberValue(string context, SymbolRange range, double value) => value;
 
-        public ScalarValue TextValue(string context, SymbolRange range, string text) => text;
+        public ScalarValue TextValue(string context, SymbolRange range, string value) => value;
 
-        public ScalarValue ErrorValue(string context, SymbolRange range, ReadOnlySpan<char> errorText)
+        public ScalarValue ErrorValue(string context, SymbolRange range, ReadOnlySpan<char> error)
         {
-            return GetErrorValue(errorText);
+            return GetErrorValue(error);
         }
 
         public ValueNode ArrayNode(string context, SymbolRange range, int rows, int columns,
@@ -86,20 +86,19 @@ internal sealed class FormulaParser
             return new ScalarNode(ScalarValue.Blank);
         }
 
-        public ValueNode LogicalNode(string context, SymbolRange range, bool logical)
+        public ValueNode LogicalNode(string context, SymbolRange range, bool value)
         {
-            return new ScalarNode(logical);
+            return new ScalarNode(value);
         }
 
-        public ValueNode ErrorNode(string context, SymbolRange range, ReadOnlySpan<char> errorText)
+        public ValueNode ErrorNode(string context, SymbolRange range, ReadOnlySpan<char> error)
         {
-            var error = GetErrorValue(errorText);
-            return new ScalarNode(error);
+            return new ScalarNode(GetErrorValue(error));
         }
 
-        public ValueNode NumberNode(string context, SymbolRange range, double number)
+        public ValueNode NumberNode(string context, SymbolRange range, double value)
         {
-            return new ScalarNode(number);
+            return new ScalarNode(value);
         }
 
         public ValueNode TextNode(string context, SymbolRange range, string text)
@@ -107,15 +106,15 @@ internal sealed class FormulaParser
             return new ScalarNode(text);
         }
 
-        public ValueNode Reference(string context, SymbolRange range, ReferenceArea area)
+        public ValueNode Reference(string context, SymbolRange range, ReferenceArea reference)
         {
-            return new ReferenceNode(null, area, _isA1);
+            return new ReferenceNode(null, reference, _isA1);
         }
 
-        public ValueNode SheetReference(string context, SymbolRange range, string sheet, ReferenceArea area)
+        public ValueNode SheetReference(string context, SymbolRange range, string sheet, ReferenceArea reference)
         {
             var prefixNode = new PrefixNode(null, sheet, null, null);
-            return new ReferenceNode(prefixNode, area, _isA1);
+            return new ReferenceNode(prefixNode, reference, _isA1);
         }
 
         public ValueNode BangReference(string context, SymbolRange range, ReferenceArea reference)
@@ -124,58 +123,57 @@ internal sealed class FormulaParser
         }
 
         public ValueNode Reference3D(string context, SymbolRange range, string firstSheet, string lastSheet,
-            ReferenceArea area)
+            ReferenceArea reference)
         {
             var prefixNode = new PrefixNode(null, null, firstSheet, lastSheet);
-            return new ReferenceNode(prefixNode, area, _isA1);
+            return new ReferenceNode(prefixNode, reference, _isA1);
         }
 
         public ValueNode ExternalSheetReference(string context, SymbolRange range, int workbookIndex, string sheet,
-            ReferenceArea area)
+            ReferenceArea reference)
         {
             var fileNode = new FileNode(workbookIndex);
             var prefixNode = new PrefixNode(fileNode, sheet, null, null);
-            return new ReferenceNode(prefixNode, area, _isA1);
+            return new ReferenceNode(prefixNode, reference, _isA1);
         }
 
         public ValueNode ExternalReference3D(string context, SymbolRange range, int workbookIndex, string firstSheet,
-            string lastSheet, ReferenceArea area)
+            string lastSheet, ReferenceArea reference)
         {
             var fileNode = new FileNode(workbookIndex);
             var prefixNode = new PrefixNode(fileNode, null, firstSheet, lastSheet);
-            return new ReferenceNode(prefixNode, area, _isA1);
+            return new ReferenceNode(prefixNode, reference, _isA1);
         }
 
-        public ValueNode Function(string context, SymbolRange range, ReadOnlySpan<char> name,
-            IReadOnlyList<ValueNode> args)
+        public ValueNode Function(string context, SymbolRange range, ReadOnlySpan<char> functionName,
+            IReadOnlyList<ValueNode> arguments)
         {
-            var functionName = name.ToString();
-            return GetFunctionNode(null, functionName, args);
+            return GetFunctionNode(null, functionName.ToString(), arguments);
         }
 
-        public ValueNode Function(string context, SymbolRange range, string sheetName, ReadOnlySpan<char> name,
+        public ValueNode Function(string context, SymbolRange range, string sheetName, ReadOnlySpan<char> functionName,
             IReadOnlyList<ValueNode> args)
         {
             var prefixNode = new PrefixNode(null, sheetName, null, null);
-            return GetFunctionNode(prefixNode, name.ToString(), args);
+            return GetFunctionNode(prefixNode, functionName.ToString(), args);
         }
 
-        public ValueNode ExternalFunction(string context, SymbolRange range, int workbookIndex, string sheet,
-            ReadOnlySpan<char> name, IReadOnlyList<ValueNode> args)
+        public ValueNode ExternalFunction(string context, SymbolRange range, int workbookIndex, string sheetName,
+            ReadOnlySpan<char> functionName, IReadOnlyList<ValueNode> arguments)
         {
-            var prefixNode = new PrefixNode(new FileNode(workbookIndex), sheet, null, null);
-            return GetFunctionNode(prefixNode, name.ToString(), args);
+            var prefixNode = new PrefixNode(new FileNode(workbookIndex), sheetName, null, null);
+            return GetFunctionNode(prefixNode, functionName.ToString(), arguments);
         }
 
-        public ValueNode ExternalFunction(string context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> name,
-            IReadOnlyList<ValueNode> args)
+        public ValueNode ExternalFunction(string context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> functionName,
+            IReadOnlyList<ValueNode> arguments)
         {
             var prefixNode = new PrefixNode(new FileNode(workbookIndex), null, null, null);
-            return GetFunctionNode(prefixNode, name.ToString(), args);
+            return GetFunctionNode(prefixNode, functionName.ToString(), arguments);
         }
 
         public ValueNode CellFunction(string context, SymbolRange range, RowCol cell,
-            IReadOnlyList<ValueNode> args)
+            IReadOnlyList<ValueNode> arguments)
         {
             // Grammar technically allows to evaluate a function from a different cell. The intended
             // usage is likely for lambda functions. Excel (as of 2022) doesn't do that, so use preference
@@ -183,7 +181,7 @@ internal sealed class FormulaParser
             // here.
             var functionName = context.Substring(range.Start, context.IndexOf('(', range.Start) - range.Start);
             if (_functionRegistry.TryGetFunc(functionName, out _, out _))
-                return new FunctionNode(functionName, args);
+                return new FunctionNode(functionName, arguments);
 
             // Nonexistent function is evaluated to #NAME?, but cell function should be evaluated to #REF!
             return new ScalarNode(XLError.CellReference);

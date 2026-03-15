@@ -191,31 +191,18 @@ internal sealed class CalcContext
         {
             var sheet = area.Worksheet ?? Worksheet;
             var range = XLSheetRange.FromRangeAddress(area);
-            var currentRow = 0;
-            var rowIsHidden = true;
+            var hiddenRowTracker = new HiddenRowTracker(sheet);
 
-            // A value can be either in a non-empty value slice or a empty cell with a formula.
+            // A value can be either in a non-empty value slice or an empty cell with a formula.
             var enumerator = sheet.Internals.CellsCollection.ForValuesAndFormulas(range);
             while (enumerator.MoveNext())
             {
                 var point = enumerator.Current;
 
-                if (skipHiddenRows)
-                {
-                    // If row changed, update hidden info about current row
-                    if (currentRow != point.Row)
-                    {
-                        currentRow = point.Row;
-                        rowIsHidden = sheet.Internals.RowsCollection.TryGetValue(currentRow, out var row) &&
-                                      row.IsHidden;
-                    }
+                if (skipHiddenRows && hiddenRowTracker.IsHidden(point.Row))
+                    continue;
 
-                    if (rowIsHidden)
-                        continue;
-                }
-
-                var formula = sheet.Internals.CellsCollection.FormulaSlice.Get(point);
-                if (CallsFunction(formula, visitor))
+                if (CallsFunction(sheet.Internals.CellsCollection.FormulaSlice.Get(point), visitor))
                     continue;
 
                 var scalarValue = GetCellValue(sheet, point.Row, point.Column);
@@ -241,6 +228,26 @@ internal sealed class CalcContext
             // To reuse same visitor without allocation, clear the found flag.
             visitor.Clear();
             return true;
+        }
+    }
+
+    /// <summary>
+    /// Tracks whether the current row is hidden, caching the result per row to avoid repeated lookups.
+    /// </summary>
+    private struct HiddenRowTracker(XLWorksheet sheet)
+    {
+        private int _currentRow;
+        private bool _isHidden = true;
+
+        internal bool IsHidden(int row)
+        {
+            if (_currentRow != row)
+            {
+                _currentRow = row;
+                _isHidden = sheet.Internals.RowsCollection.TryGetValue(row, out var r) && r.IsHidden;
+            }
+
+            return _isHidden;
         }
     }
 

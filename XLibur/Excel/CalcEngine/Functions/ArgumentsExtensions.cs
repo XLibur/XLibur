@@ -58,33 +58,46 @@ internal static class ArgumentsExtensions
         {
             if (arg.TryPickScalar(out var scalar, out var collection))
             {
-                var conversionResult = convert(scalar, ctx);
-                if (!conversionResult.TryPickT0(out var elementValue, out var elementError))
-                    return elementError;
+                if (!TryConvertAndAggregate(scalar, ctx, convert, aggregate, ref result, out var error))
+                    return error;
 
                 hasElement = true;
-                result = aggregate(result, elementValue);
             }
             else
             {
                 var valuesIterator = collection.TryPickT0(out var array, out var reference)
                     ? array
                     : reference.GetCellsValues(ctx);
+
                 foreach (var value in valuesIterator)
                 {
                     if (collectionFilter is not null && !collectionFilter(value))
                         continue;
 
-                    var conversionResult = convert(value, ctx);
-                    if (!conversionResult.TryPickT0(out var elementValue, out var elementError))
-                        return elementError;
+                    if (!TryConvertAndAggregate(value, ctx, convert, aggregate, ref result, out var error))
+                        return error;
 
                     hasElement = true;
-                    result = aggregate(result, elementValue);
                 }
             }
         }
 
         return hasElement ? result : noElementsResult;
+    }
+
+    private static bool TryConvertAndAggregate<TValue>(
+        ScalarValue scalar,
+        CalcContext ctx,
+        Func<ScalarValue, CalcContext, OneOf<TValue, XLError>> convert,
+        Func<TValue, TValue, TValue> aggregate,
+        ref TValue accumulator,
+        out XLError error)
+    {
+        var conversionResult = convert(scalar, ctx);
+        if (!conversionResult.TryPickT0(out var elementValue, out error))
+            return false;
+
+        accumulator = aggregate(accumulator, elementValue);
+        return true;
     }
 }

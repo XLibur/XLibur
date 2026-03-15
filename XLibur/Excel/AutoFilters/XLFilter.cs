@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using XLibur.Excel.AutoFilters;
 using XLibur.Excel.CalcEngine;
 
 namespace XLibur.Excel;
@@ -119,15 +120,28 @@ internal sealed class XLFilter
 
         static bool IsMatch(DateTime date1, DateTime date2, XLDateTimeGrouping dateTimeGrouping)
         {
-            bool isMatch = true;
-            if (dateTimeGrouping >= XLDateTimeGrouping.Year) isMatch &= date1.Year.Equals(date2.Year);
-            if (isMatch && dateTimeGrouping >= XLDateTimeGrouping.Month) isMatch &= date1.Month.Equals(date2.Month);
-            if (isMatch && dateTimeGrouping >= XLDateTimeGrouping.Day) isMatch &= date1.Day.Equals(date2.Day);
-            if (isMatch && dateTimeGrouping >= XLDateTimeGrouping.Hour) isMatch &= date1.Hour.Equals(date2.Hour);
-            if (isMatch && dateTimeGrouping >= XLDateTimeGrouping.Minute) isMatch &= date1.Minute.Equals(date2.Minute);
-            if (isMatch && dateTimeGrouping >= XLDateTimeGrouping.Second) isMatch &= date1.Second.Equals(date2.Second);
-
-            return isMatch;
+            return dateTimeGrouping switch
+            {
+                XLDateTimeGrouping.Year =>
+                    date1.Year == date2.Year,
+                XLDateTimeGrouping.Month =>
+                    date1.Year == date2.Year && date1.Month == date2.Month,
+                XLDateTimeGrouping.Day =>
+                    date1.Year == date2.Year && date1.Month == date2.Month
+                    && date1.Day == date2.Day,
+                XLDateTimeGrouping.Hour =>
+                    date1.Year == date2.Year && date1.Month == date2.Month
+                    && date1.Day == date2.Day && date1.Hour == date2.Hour,
+                XLDateTimeGrouping.Minute =>
+                    date1.Year == date2.Year && date1.Month == date2.Month
+                    && date1.Day == date2.Day && date1.Hour == date2.Hour
+                    && date1.Minute == date2.Minute,
+                XLDateTimeGrouping.Second =>
+                    date1.Year == date2.Year && date1.Month == date2.Month
+                    && date1.Day == date2.Day && date1.Hour == date2.Hour
+                    && date1.Minute == date2.Minute && date1.Second == date2.Second,
+                _ => throw new NotSupportedException($"Unexpected grouping: {dateTimeGrouping}")
+            };
         }
     }
 

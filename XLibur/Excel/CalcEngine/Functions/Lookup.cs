@@ -59,25 +59,11 @@ internal static class Lookup
 
     private static AnyValue Hlookup(CalcContext ctx, ScalarValue lookupValue, AnyValue rangeValue, double rowNumber, bool approximateSearchFlag)
     {
-        if (lookupValue.IsError)
-            return lookupValue.ToAnyValue();
+        if (!NormalizeLookupValue(lookupValue).TryPickT0(out lookupValue, out var lookupError))
+            return lookupError;
 
-        // Only the lookup value is converted to 0, not values in the range
-        if (lookupValue.IsBlank)
-            lookupValue = 0;
-
-        if (lookupValue.TryPickText(out var lookupText, out _) && lookupText!.Length > 255)
-            return XLError.IncompatibleValue;
-
-        if (rangeValue.TryPickScalar(out _, out var range))
-            return XLError.NoValueAvailable;
-        if (!range.TryPickT0(out var array, out var reference))
-        {
-            if (reference.Areas.Count > 1)
-                return XLError.NoValueAvailable;
-
-            array = new ReferenceArray(reference.Areas.Single(), ctx);
-        }
+        if (!ResolveRangeToArray(rangeValue, ctx).TryPickT0(out var array, out var rangeError))
+            return rangeError;
 
         var rowIndex = (int)Math.Truncate(rowNumber) - 1;
         if (rowIndex < 0)
@@ -87,7 +73,6 @@ internal static class Lookup
 
         if (approximateSearchFlag)
         {
-            // Bisection in Excel and here differs, so we return different values for unsorted ranges, but same values for sorted ranges.
             var transposedArray = new TransposedArray(array);
             var foundColumn = Bisection(transposedArray, lookupValue);
             if (foundColumn == -1)
@@ -97,17 +82,11 @@ internal static class Lookup
         }
 
         // TODO: Implement wildcard search
-        for (var columnIndex = 0; columnIndex < array.Width; columnIndex++)
-        {
-            var currentValue = array[0, columnIndex];
+        var exactColumn = ExactSearchColumn(array, lookupValue);
+        if (exactColumn == -1)
+            return XLError.NoValueAvailable;
 
-            // Because lookup value can't be an error, it doesn't matter that sort treats all errors as equal.
-            var comparison = ScalarValueComparer.SortIgnoreCase.Compare(currentValue, lookupValue);
-            if (comparison == 0)
-                return array[rowIndex, columnIndex].ToAnyValue();
-        }
-
-        return XLError.NoValueAvailable;
+        return array[rowIndex, exactColumn].ToAnyValue();
     }
 
     private static AnyValue Hyperlink(CalcContext ctx, string linkLocation, ScalarValue? friendlyName)
@@ -126,45 +105,13 @@ internal static class Lookup
 
         // There must be two paths, one for array and one for reference. Reference path
         // must return reference, so it behaves correctly with implicit intersection.
-        OneOf<XLRangeAddress, Array> data;
-        if (value.TryPickScalar(out var scalar, out var collection))
-        {
-            if (scalar.IsBlank)
-                return XLError.IncompatibleValue;
-
-            data = new ScalarArray(scalar, 1, 1);
-        }
-        else if (collection.TryPickT0(out var valueArray, out var reference))
-        {
-            data = valueArray;
-        }
-        else
-        {
-            if (areaNumber > reference.Areas.Count)
-                return XLError.CellReference;
-
-            data = reference.Areas[areaNumber - 1];
-        }
+        if (!ResolveIndexData(value, areaNumber).TryPickT0(out var data, out var dataError))
+            return dataError;
 
         var width = data.Match(static area => area.ColumnSpan, static array => array!.Width);
         var height = data.Match(static area => area.RowSpan, static array => array!.Height);
 
-        var rowNumber = 0;
-        var colNumber = 0;
-        if (p.Count == 1)
-        {
-            if (width == 1)
-                rowNumber = p[0];
-
-            if (height == 1)
-                colNumber = p[0];
-        }
-
-        if (p.Count >= 2)
-        {
-            rowNumber = p[0];
-            colNumber = p[1];
-        }
+        var (rowNumber, colNumber) = ResolveIndexNumbers(p, width, height);
 
         // Check the bounded values
         if (rowNumber < 0 || colNumber < 0)
@@ -407,25 +354,11 @@ internal static class Lookup
 
     private static AnyValue Vlookup(CalcContext ctx, ScalarValue lookupValue, AnyValue rangeValue, double columnNumber, bool approximateSearchFlag)
     {
-        if (lookupValue.IsError)
-            return lookupValue.ToAnyValue();
+        if (!NormalizeLookupValue(lookupValue).TryPickT0(out lookupValue, out var lookupError))
+            return lookupError;
 
-        // Only the lookup value is converted to 0, not values in the range
-        if (lookupValue.IsBlank)
-            lookupValue = 0;
-
-        if (lookupValue.TryPickText(out var lookupText, out _) && lookupText!.Length > 255)
-            return XLError.IncompatibleValue;
-
-        if (rangeValue.TryPickScalar(out _, out var range))
-            return XLError.NoValueAvailable;
-        if (!range.TryPickT0(out var array, out var reference))
-        {
-            if (reference.Areas.Count > 1)
-                return XLError.NoValueAvailable;
-
-            array = new ReferenceArray(reference.Areas.Single(), ctx);
-        }
+        if (!ResolveRangeToArray(rangeValue, ctx).TryPickT0(out var array, out var rangeError))
+            return rangeError;
 
         var columnIdx = (int)Math.Truncate(columnNumber) - 1;
         if (columnIdx < 0)
@@ -435,7 +368,6 @@ internal static class Lookup
 
         if (approximateSearchFlag)
         {
-            // Bisection in Excel and here differs, so we return different values for unsorted ranges, but same values for sorted ranges.
             var foundRow = Bisection(array, lookupValue);
             if (foundRow == -1)
                 return XLError.NoValueAvailable;
@@ -444,17 +376,128 @@ internal static class Lookup
         }
 
         // TODO: Implement wildcard search
+        var exactRow = ExactSearchRow(array, lookupValue);
+        if (exactRow == -1)
+            return XLError.NoValueAvailable;
+
+        return array[exactRow, columnIdx].ToAnyValue();
+    }
+
+    /// <summary>
+    /// Validate and normalize a lookup value for HLOOKUP/VLOOKUP.
+    /// Blank is converted to 0, errors are propagated, and text longer than 255 is rejected.
+    /// </summary>
+    private static OneOf<ScalarValue, XLError> NormalizeLookupValue(ScalarValue lookupValue)
+    {
+        if (lookupValue.IsError)
+            return lookupValue.GetError();
+
+        // Only the lookup value is converted to 0, not values in the range
+        if (lookupValue.IsBlank)
+            return (ScalarValue)0;
+
+        if (lookupValue.TryPickText(out var lookupText, out _) && lookupText!.Length > 255)
+            return XLError.IncompatibleValue;
+
+        return lookupValue;
+    }
+
+    /// <summary>
+    /// Resolve a range value to an <see cref="Array"/> for HLOOKUP/VLOOKUP.
+    /// </summary>
+    private static OneOf<Array, XLError> ResolveRangeToArray(AnyValue rangeValue, CalcContext ctx)
+    {
+        if (rangeValue.TryPickScalar(out _, out var range))
+            return XLError.NoValueAvailable;
+
+        if (!range.TryPickT0(out var array, out var reference))
+        {
+            if (reference.Areas.Count > 1)
+                return XLError.NoValueAvailable;
+
+            array = new ReferenceArray(reference.Areas.Single(), ctx);
+        }
+
+        return array;
+    }
+
+    /// <summary>
+    /// Linear exact search across the first row of an array. Returns the column index or -1.
+    /// </summary>
+    private static int ExactSearchColumn(Array array, ScalarValue lookupValue)
+    {
+        for (var columnIndex = 0; columnIndex < array.Width; columnIndex++)
+        {
+            var currentValue = array[0, columnIndex];
+            var comparison = ScalarValueComparer.SortIgnoreCase.Compare(currentValue, lookupValue);
+            if (comparison == 0)
+                return columnIndex;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Linear exact search down the first column of an array. Returns the row index or -1.
+    /// </summary>
+    private static int ExactSearchRow(Array array, ScalarValue lookupValue)
+    {
         for (var rowIndex = 0; rowIndex < array.Height; rowIndex++)
         {
             var currentValue = array[rowIndex, 0];
-
-            // Because lookup value can't be an error, it doesn't matter that sort treats all errors as equal.
             var comparison = ScalarValueComparer.SortIgnoreCase.Compare(currentValue, lookupValue);
             if (comparison == 0)
-                return array[rowIndex, columnIdx].ToAnyValue();
+                return rowIndex;
         }
 
-        return XLError.NoValueAvailable;
+        return -1;
+    }
+
+    /// <summary>
+    /// Resolve the data argument for the INDEX function into either a range address or an array.
+    /// </summary>
+    private static OneOf<OneOf<XLRangeAddress, Array>, XLError> ResolveIndexData(AnyValue value, int areaNumber)
+    {
+        if (value.TryPickScalar(out var scalar, out var collection))
+        {
+            if (scalar.IsBlank)
+                return XLError.IncompatibleValue;
+
+            return (OneOf<XLRangeAddress, Array>)new ScalarArray(scalar, 1, 1);
+        }
+
+        if (collection.TryPickT0(out var valueArray, out var reference))
+            return (OneOf<XLRangeAddress, Array>)valueArray;
+
+        if (areaNumber > reference.Areas.Count)
+            return XLError.CellReference;
+
+        return (OneOf<XLRangeAddress, Array>)reference.Areas[areaNumber - 1];
+    }
+
+    /// <summary>
+    /// Determine row and column numbers from the INDEX parameter list, given the data dimensions.
+    /// </summary>
+    private static (int RowNumber, int ColNumber) ResolveIndexNumbers(List<int> p, int width, int height)
+    {
+        var rowNumber = 0;
+        var colNumber = 0;
+        if (p.Count == 1)
+        {
+            if (width == 1)
+                rowNumber = p[0];
+
+            if (height == 1)
+                colNumber = p[0];
+        }
+
+        if (p.Count >= 2)
+        {
+            rowNumber = p[0];
+            colNumber = p[1];
+        }
+
+        return (rowNumber, colNumber);
     }
 
     private static int Bisection(Array range, ScalarValue lookupValue)

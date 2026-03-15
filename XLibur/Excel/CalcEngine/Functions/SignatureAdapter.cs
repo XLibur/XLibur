@@ -652,40 +652,19 @@ internal static class SignatureAdapter
     {
         return (ctx, args) =>
         {
-            // SERIESSUM doesn't convert logical values to number...
-            if (args[0].IsLogical)
-                return XLError.IncompatibleValue;
-
-            var arg0Converted = ToNumber(args[0], ctx);
-            if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+            if (!ToNonLogicalNumber(args[0], ctx).TryPickT0(out var arg0, out var err0))
                 return err0;
 
-            if (args[1].IsLogical)
-                return XLError.IncompatibleValue;
-
-            var arg1Converted = ToNumber(args[1], ctx);
-            if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+            if (!ToNonLogicalNumber(args[1], ctx).TryPickT0(out var arg1, out var err1))
                 return err1;
 
-            if (args[2].IsLogical)
-                return XLError.IncompatibleValue;
-
-            var arg2Converted = ToNumber(args[2], ctx);
-            if (!arg2Converted.TryPickT0(out var arg2, out var err2))
+            if (!ToNonLogicalNumber(args[2], ctx).TryPickT0(out var arg2, out var err2))
                 return err2;
 
-            if (args[3].TryPickSingleOrMultiValue(out var scalar, out var arg3, ctx))
-            {
-                if (scalar.IsLogical)
-                    return XLError.IncompatibleValue;
+            if (!ToSeriesSumCoefficients(args[3], ctx).TryPickT0(out var arg3, out var err3))
+                return err3;
 
-                if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
-                    return error;
-
-                arg3 = new ScalarArray(number, 1, 1);
-            }
-
-            return f(ctx, arg0, arg1, arg2, arg3!).ToAnyValue();
+            return f(ctx, arg0, arg1, arg2, arg3).ToAnyValue();
         };
     }
 
@@ -754,31 +733,6 @@ internal static class SignatureAdapter
 
             return f(ctx, scalarCollections).ToAnyValue();
         };
-
-        static IEnumerable<ScalarValue> GetNonBlankScalars(AnyValue value, CalcContext ctx)
-        {
-            if (value.TryPickScalar(out var scalar, out var collection))
-            {
-                if (!scalar.IsBlank)
-                    yield return scalar;
-            }
-            else if (collection.TryPickT0(out var array, out var reference))
-            {
-                foreach (var element in array)
-                {
-                    if (!element.IsBlank)
-                        yield return element;
-                }
-            }
-            else
-            {
-                foreach (var element in ctx.GetNonBlankValues(reference))
-                {
-                    if (!element.IsBlank)
-                        yield return element;
-                }
-            }
-        }
     }
 
     /// <summary>
@@ -884,27 +838,13 @@ internal static class SignatureAdapter
             if (!arg2Converted.TryPickT0(out var arg2, out var err2))
                 return err2;
 
-            var arg3Optional = defaultValue0;
-            if (args.Length >= 4)
-            {
-                var arg3Converted = ToNumber(args[3], ctx);
-                if (!arg3Converted.TryPickT0(out var arg3, out var err3))
-                    return err3;
+            if (!ToOptionalNumber(args, 3, defaultValue0, ctx).TryPickT0(out var arg3, out var err3))
+                return err3;
 
-                arg3Optional = arg3;
-            }
+            if (!ToOptionalNumber(args, 4, defaultValue1, ctx).TryPickT0(out var arg4, out var err4))
+                return err4;
 
-            var arg4Optional = defaultValue1;
-            if (args.Length >= 5)
-            {
-                var arg4Converted = ToNumber(args[4], ctx);
-                if (!arg4Converted.TryPickT0(out var arg4, out var err4))
-                    return err4;
-
-                arg4Optional = arg4;
-            }
-
-            return f(arg0, arg1, arg2, arg3Optional, arg4Optional);
+            return f(arg0, arg1, arg2, arg3, arg4);
         };
     }
 
@@ -928,27 +868,13 @@ internal static class SignatureAdapter
             if (!arg3Converted.TryPickT0(out var arg3, out var err3))
                 return err3;
 
-            var arg4Optional = defaultValue0;
-            if (args.Length >= 5)
-            {
-                var arg4Converted = ToNumber(args[4], ctx);
-                if (!arg4Converted.TryPickT0(out var arg4, out var err4))
-                    return err4;
+            if (!ToOptionalNumber(args, 4, defaultValue0, ctx).TryPickT0(out var arg4, out var err4))
+                return err4;
 
-                arg4Optional = arg4;
-            }
+            if (!ToOptionalNumber(args, 5, defaultValue1, ctx).TryPickT0(out var arg5, out var err5))
+                return err5;
 
-            var arg5Optional = defaultValue1;
-            if (args.Length >= 6)
-            {
-                var arg5Converted = ToNumber(args[5], ctx);
-                if (!arg5Converted.TryPickT0(out var arg5, out var err5))
-                    return err5;
-
-                arg5Optional = arg5;
-            }
-
-            return f(arg0, arg1, arg2, arg3, arg4Optional, arg5Optional);
+            return f(arg0, arg1, arg2, arg3, arg4, arg5);
         };
     }
 
@@ -1012,6 +938,59 @@ internal static class SignatureAdapter
             return referenceScalar;
 
         return OneOf<ScalarValue, XLError>.FromT1(XLError.IncompatibleValue);
+    }
+
+    private static OneOf<double, XLError> ToNonLogicalNumber(in AnyValue value, CalcContext ctx)
+    {
+        if (value.IsLogical)
+            return XLError.IncompatibleValue;
+
+        return ToNumber(value, ctx);
+    }
+
+    private static OneOf<Array, XLError> ToSeriesSumCoefficients(in AnyValue value, CalcContext ctx)
+    {
+        if (value.TryPickSingleOrMultiValue(out var scalar, out var array, ctx))
+        {
+            if (scalar.IsLogical)
+                return XLError.IncompatibleValue;
+
+            if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+                return error;
+
+            return new ScalarArray(number, 1, 1);
+        }
+
+        return array!;
+    }
+
+    private static OneOf<double, XLError> ToOptionalNumber(Span<AnyValue> args, int index, double defaultValue, CalcContext ctx)
+    {
+        if (args.Length > index)
+            return ToNumber(args[index], ctx);
+
+        return defaultValue;
+    }
+
+    private static IEnumerable<ScalarValue> GetNonBlankScalars(AnyValue value, CalcContext ctx)
+    {
+        if (value.TryPickScalar(out var scalar, out var collection))
+        {
+            if (!scalar.IsBlank)
+                yield return scalar;
+
+            yield break;
+        }
+
+        IEnumerable<ScalarValue> source = collection.TryPickT0(out var array, out var reference)
+            ? array
+            : ctx.GetNonBlankValues(reference);
+
+        foreach (var element in source)
+        {
+            if (!element.IsBlank)
+                yield return element;
+        }
     }
 
     private static OneOf<List<(AnyValue Range, ScalarValue Criteria)>, XLError> ToCriteria(CalcContext ctx, ReadOnlySpan<AnyValue> args)
