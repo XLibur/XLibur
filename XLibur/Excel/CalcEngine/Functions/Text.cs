@@ -76,42 +76,118 @@ internal static class Text
         // unicode block to half-width variants.
 
         // Because fullwidth code points are in base multilingual plane, I just skip over surrogates.
+        // Voiced/semi-voiced katakana map to two half-width chars (base + combining mark),
+        // so the result can be longer than the input.
         var sb = new StringBuilder(text.Length);
         foreach (int c in text)
-            sb.Append((char)ToHalfForm(c));
+            AppendHalfForm(sb, c);
 
         return sb.ToString();
 
         // Per ODS specification https://docs.oasis-open.org/office/v1.2/os/OpenDocument-v1.2-os-part2.html#ASC
-        static int ToHalfForm(int c) => c switch
+        static void AppendHalfForm(StringBuilder sb, int c)
         {
-            >= 0x30A1 and <= 0x30F3 => KatakanaToHalfWidth(c),
-            >= 0xFF01 and <= 0xFF5E => c - 0xFF01 + 0x0021, // Fullwidth ASCII to ASCII
-            _ => PunctuationToHalfWidth(c),
-        };
+            if (c is >= 0x30A1 and <= 0x30F4)
+                AppendKatakanaHalfWidth(sb, c);
+            else if (c is >= 0xFF01 and <= 0xFF5E)
+                sb.Append((char)(c - 0xFF01 + 0x0021)); // Fullwidth ASCII to ASCII
+            else
+                sb.Append((char)PunctuationToHalfWidth(c));
+        }
 
-        static int KatakanaToHalfWidth(int c) => c switch
+        static void AppendKatakanaHalfWidth(StringBuilder sb, int c)
         {
-            >= 0x30A1 and <= 0x30AA when c % 2 == 0 => (c - 0x30A2) / 2 + 0xFF71, // a-o
-            >= 0x30A1 and <= 0x30AA when c % 2 == 1 => (c - 0x30A1) / 2 + 0xFF67, // small a-o
-            >= 0x30AB and <= 0x30C2 when c % 2 == 1 => (c - 0x30AB) / 2 + 0xFF76, // ka-chi
-            >= 0x30AB and <= 0x30C2 when c % 2 == 0 => (c - 0x30AC) / 2 + 0xFF76, // ga-dhi
-            0x30C3 => 0xFF6F, // small tsu
-            >= 0x30C4 and <= 0x30C9 when c % 2 == 0 => (c - 0x30C4) / 2 + 0xFF82, // tsu-to
-            >= 0x30C4 and <= 0x30C9 when c % 2 == 1 => (c - 0x30C5) / 2 + 0xFF82, // du-do
-            >= 0x30CA and <= 0x30CE => c - 0x30CA + 0xFF85, // na-no
-            >= 0x30CF and <= 0x30DD when c % 3 == 0 => (c - 0x30CF) / 3 + 0xFF8A, // ha-ho
-            >= 0x30CF and <= 0x30DD when c % 3 == 1 => (c - 0x30D0) / 3 + 0xFF8A, // ba-bo
-            >= 0x30CF and <= 0x30DD when c % 3 == 2 => (c - 0x30D1) / 3 + 0xFF8A, // pa-po
-            >= 0x30DE and <= 0x30E2 => c - 0x30DE + 0xFF8F, // ma-mo
-            >= 0x30E3 and <= 0x30E8 when c % 2 == 0 => (c - 0x30E4) / 2 + 0xFF94, // ya-yo
-            >= 0x30E3 and <= 0x30E8 when c % 2 == 1 => (c - 0x30E3) / 2 + 0xFF6C, // small ya-yo
-            >= 0x30E9 and <= 0x30ED => c - 0x30E9 + 0xFF97, // ra-ro
-            0x30EF => 0xFF9C, // wa
-            0x30F2 => 0xFF66, // wo
-            0x30F3 => 0xFF9D, // n
-            _ => c
-        };
+            const char dakuten = '\uFF9E';
+            const char handakuten = '\uFF9F';
+
+            switch (c)
+            {
+                // a-o vowels (ア-オ) and their small forms (ァ-ォ)
+                case >= 0x30A1 and <= 0x30AA when c % 2 == 0:
+                    sb.Append((char)((c - 0x30A2) / 2 + 0xFF71));
+                    break;
+                case >= 0x30A1 and <= 0x30AA when c % 2 == 1:
+                    sb.Append((char)((c - 0x30A1) / 2 + 0xFF67));
+                    break;
+
+                // ka-chi (カ-チ) unvoiced
+                case >= 0x30AB and <= 0x30C2 when c % 2 == 1:
+                    sb.Append((char)((c - 0x30AB) / 2 + 0xFF76));
+                    break;
+                // ga-dhi (ガ-ヂ) voiced = base + dakuten
+                case >= 0x30AB and <= 0x30C2 when c % 2 == 0:
+                    sb.Append((char)((c - 0x30AC) / 2 + 0xFF76));
+                    sb.Append(dakuten);
+                    break;
+
+                // small tsu (ッ)
+                case 0x30C3:
+                    sb.Append('\uFF6F');
+                    break;
+
+                // tsu-to (ツ-ト) unvoiced
+                case >= 0x30C4 and <= 0x30C9 when c % 2 == 0:
+                    sb.Append((char)((c - 0x30C4) / 2 + 0xFF82));
+                    break;
+                // du-do (ヅ-ド) voiced = base + dakuten
+                case >= 0x30C4 and <= 0x30C9 when c % 2 == 1:
+                    sb.Append((char)((c - 0x30C5) / 2 + 0xFF82));
+                    sb.Append(dakuten);
+                    break;
+
+                // na-no (ナ-ノ)
+                case >= 0x30CA and <= 0x30CE:
+                    sb.Append((char)(c - 0x30CA + 0xFF85));
+                    break;
+
+                // ha-ho (ハ-ホ) unvoiced
+                case >= 0x30CF and <= 0x30DD when c % 3 == 0:
+                    sb.Append((char)((c - 0x30CF) / 3 + 0xFF8A));
+                    break;
+                // ba-bo (バ-ボ) voiced = base + dakuten
+                case >= 0x30CF and <= 0x30DD when c % 3 == 1:
+                    sb.Append((char)((c - 0x30D0) / 3 + 0xFF8A));
+                    sb.Append(dakuten);
+                    break;
+                // pa-po (パ-ポ) semi-voiced = base + handakuten
+                case >= 0x30CF and <= 0x30DD when c % 3 == 2:
+                    sb.Append((char)((c - 0x30D1) / 3 + 0xFF8A));
+                    sb.Append(handakuten);
+                    break;
+
+                // ma-mo (マ-モ)
+                case >= 0x30DE and <= 0x30E2:
+                    sb.Append((char)(c - 0x30DE + 0xFF8F));
+                    break;
+
+                // ya-yo (ヤ-ヨ) and small forms (ャ-ョ)
+                case >= 0x30E3 and <= 0x30E8 when c % 2 == 0:
+                    sb.Append((char)((c - 0x30E4) / 2 + 0xFF94));
+                    break;
+                case >= 0x30E3 and <= 0x30E8 when c % 2 == 1:
+                    sb.Append((char)((c - 0x30E3) / 2 + 0xFF6C));
+                    break;
+
+                // ra-ro (ラ-ロ)
+                case >= 0x30E9 and <= 0x30ED:
+                    sb.Append((char)(c - 0x30E9 + 0xFF97));
+                    break;
+
+                case 0x30EF: sb.Append('\uFF9C'); break; // wa (ワ)
+                case 0x30F2: sb.Append('\uFF66'); break; // wo (ヲ)
+                case 0x30F3: sb.Append('\uFF9D'); break; // n (ン)
+
+                // vu (ヴ) voiced = ｳ + dakuten
+                case 0x30F4:
+                    sb.Append('\uFF73');
+                    sb.Append(dakuten);
+                    break;
+
+                default:
+                    sb.Append((char)c);
+                    break;
+            }
+        }
 
         static int PunctuationToHalfWidth(int c) => c switch
         {
