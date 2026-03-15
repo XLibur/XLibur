@@ -227,51 +227,57 @@ internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
         {
             var thisCell = Cell(e.ElementNumber);
             var otherCell = otherColumn.Cell(e.ElementNumber);
-            int comparison;
-            var thisCellIsBlank = thisCell.IsEmpty();
-            var otherCellIsBlank = otherCell.IsEmpty();
-            if (e.IgnoreBlanks && (thisCellIsBlank || otherCellIsBlank))
-            {
-                if (thisCellIsBlank && otherCellIsBlank)
-                    comparison = 0;
-                else
-                {
-                    if (thisCellIsBlank)
-                        comparison = e.SortOrder == XLSortOrder.Ascending ? 1 : -1;
-                    else
-                        comparison = e.SortOrder == XLSortOrder.Ascending ? -1 : 1;
-                }
-            }
-            else
-            {
-                if (thisCell.DataType == otherCell.DataType)
-                {
-                    if (thisCell.DataType == XLDataType.Blank)
-                        comparison = 0;
-                    else if (thisCell.DataType == XLDataType.Boolean)
-                        comparison = thisCell.GetBoolean().CompareTo(otherCell.GetBoolean());
-                    else if (thisCell.DataType == XLDataType.Text)
-                    {
-                        comparison = e.MatchCase
-                            ? String.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.Ordinal)
-                            : String.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.OrdinalIgnoreCase);
-                    }
-                    else if (thisCell.DataType == XLDataType.Error)
-                        comparison = 0; // Errors are incomparable
-                    else
-                        comparison = thisCell.CachedValue.GetUnifiedNumber().CompareTo(thisCell.CachedValue.GetUnifiedNumber());
-                }
-                else if (e.MatchCase)
-                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.OrdinalIgnoreCase);
-                else
-                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.Ordinal);
-            }
+            var comparison = CompareColumnCells(thisCell, otherCell, e);
 
             if (comparison != 0)
                 return e.SortOrder == XLSortOrder.Ascending ? comparison : comparison * -1;
         }
 
         return 0;
+    }
+
+    private static int CompareColumnCells(XLCell thisCell, XLCell otherCell, IXLSortElement e)
+    {
+        var thisCellIsBlank = thisCell.IsEmpty();
+        var otherCellIsBlank = otherCell.IsEmpty();
+
+        if (e.IgnoreBlanks && (thisCellIsBlank || otherCellIsBlank))
+            return CompareBlanks(thisCellIsBlank, otherCellIsBlank, e.SortOrder);
+
+        return CompareSameOrMixedTypes(thisCell, otherCell, e.MatchCase);
+    }
+
+    private static int CompareBlanks(bool thisCellIsBlank, bool otherCellIsBlank, XLSortOrder sortOrder)
+    {
+        if (thisCellIsBlank && otherCellIsBlank)
+            return 0;
+        if (thisCellIsBlank)
+            return sortOrder == XLSortOrder.Ascending ? 1 : -1;
+        return sortOrder == XLSortOrder.Ascending ? -1 : 1;
+    }
+
+    private static int CompareSameOrMixedTypes(XLCell thisCell, XLCell otherCell, bool matchCase)
+    {
+        if (thisCell.DataType != otherCell.DataType)
+        {
+            return matchCase
+                ? string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.OrdinalIgnoreCase)
+                : string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.Ordinal);
+        }
+
+        if (thisCell.DataType == XLDataType.Blank)
+            return 0;
+        if (thisCell.DataType == XLDataType.Boolean)
+            return thisCell.GetBoolean().CompareTo(otherCell.GetBoolean());
+        if (thisCell.DataType == XLDataType.Text)
+        {
+            return matchCase
+                ? String.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.Ordinal)
+                : String.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.OrdinalIgnoreCase);
+        }
+        if (thisCell.DataType == XLDataType.Error)
+            return 0;
+        return thisCell.CachedValue.GetUnifiedNumber().CompareTo(thisCell.CachedValue.GetUnifiedNumber());
     }
 
     private XLRangeColumn ColumnShift(int columnsToShift)

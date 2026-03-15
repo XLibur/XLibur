@@ -329,41 +329,41 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
     public override string ToString()
     {
         if (!IsValid || WorksheetIsDeleted)
-        {
-            var worksheet = WorksheetIsDeleted ? "#REF!" : "";
-
-            var address = (!FirstAddress.IsValid || !LastAddress.IsValid)
-                ? "#REF!"
-                : string.Concat(FirstAddress.ToString(), ":", LastAddress.ToString());
-            return string.Concat(worksheet, address);
-        }
+            return BuildInvalidOrDeletedString();
 
         if (IsEntireSheet())
-        {
-            var worksheet = WorksheetIsDeleted ? "#REF!" : "";
-            var address = $"1:{XLHelper.MaxRowNumber}";
-            return string.Concat(worksheet, address);
-        }
+            return $"1:{XLHelper.MaxRowNumber}";
 
         if (IsEntireRow())
-        {
-            var worksheet = WorksheetIsDeleted ? "#REF!" : "";
-            var firstAddress = FirstAddress.IsValid ? FirstAddress.RowNumber.ToString() : "#REF!";
-            var lastAddress = LastAddress.IsValid ? LastAddress.RowNumber.ToString() : "#REF!";
-
-            return string.Concat(worksheet, firstAddress, ':', lastAddress);
-        }
+            return BuildEntireRowString();
 
         if (IsEntireColumn())
-        {
-            var worksheet = WorksheetIsDeleted ? "#REF!" : "";
-            var firstAddress = FirstAddress.IsValid ? FirstAddress.ColumnLetter : "#REF!";
-            var lastAddress = LastAddress.IsValid ? LastAddress.ColumnLetter : "#REF!";
-
-            return string.Concat(worksheet, firstAddress, ':', lastAddress);
-        }
+            return BuildEntireColumnString();
 
         return string.Concat(FirstAddress.ToString(), ":", LastAddress.ToString());
+    }
+
+    private string BuildInvalidOrDeletedString()
+    {
+        var worksheet = WorksheetIsDeleted ? "#REF!" : "";
+        var address = (!FirstAddress.IsValid || !LastAddress.IsValid)
+            ? "#REF!"
+            : string.Concat(FirstAddress.ToString(), ":", LastAddress.ToString());
+        return string.Concat(worksheet, address);
+    }
+
+    private string BuildEntireRowString()
+    {
+        var firstAddress = FirstAddress.IsValid ? FirstAddress.RowNumber.ToString() : "#REF!";
+        var lastAddress = LastAddress.IsValid ? LastAddress.RowNumber.ToString() : "#REF!";
+        return string.Concat(firstAddress, ':', lastAddress);
+    }
+
+    private string BuildEntireColumnString()
+    {
+        var firstAddress = FirstAddress.IsValid ? FirstAddress.ColumnLetter : "#REF!";
+        var lastAddress = LastAddress.IsValid ? LastAddress.ColumnLetter : "#REF!";
+        return string.Concat(firstAddress, ':', lastAddress);
     }
 
     public string ToString(XLReferenceStyle referenceStyle)

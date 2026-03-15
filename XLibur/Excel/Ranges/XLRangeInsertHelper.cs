@@ -77,39 +77,43 @@ internal static class XLRangeInsertHelper
     private static void ApplyColumnFormatting(XLRangeBase range, IXLRange rangeToReturn, bool formatFromLeft, XLCellsUsedOptions contentFlags)
     {
         if (formatFromLeft && rangeToReturn.RangeAddress.FirstAddress.ColumnNumber > 1)
-        {
-            var firstColumnUsed = rangeToReturn!.FirstColumn()!;
-            var model = firstColumnUsed.ColumnLeft()!;
-            var modelFirstRow = ((IXLRangeBase)model).FirstCellUsed(contentFlags);
-            var modelLastRow = ((IXLRangeBase)model).LastCellUsed(contentFlags);
-            if (modelFirstRow != null && modelLastRow != null)
-            {
-                var firstRoReturned = modelFirstRow.Address.RowNumber
-                    - model.RangeAddress.FirstAddress.RowNumber + 1;
-                var lastRoReturned = modelLastRow.Address.RowNumber
-                    - model.RangeAddress.FirstAddress.RowNumber + 1;
-                for (var ro = firstRoReturned; ro <= lastRoReturned; ro++)
-                {
-                    rangeToReturn.Row(ro).Style = model.Cell(ro).Style;
-                }
-            }
-        }
+            ApplyColumnFormattingFromLeft(rangeToReturn, contentFlags);
         else
-        {
-            var lastRoUsed = rangeToReturn.LastRowUsed(contentFlags);
-            if (lastRoUsed != null)
-            {
-                var lastRoReturned = lastRoUsed.RowNumber();
-                for (var ro = 1; ro <= lastRoReturned; ro++)
-                {
-                    var styleToUse =
-                        range.Worksheet.Internals.RowsCollection.TryGetValue(ro, out var row)
-                            ? row.Style
-                            : range.Worksheet.Style;
+            ApplyColumnFormattingFromExistingRows(range, rangeToReturn, contentFlags);
+    }
 
-                    rangeToReturn.Row(ro).Style = styleToUse;
-                }
-            }
+    private static void ApplyColumnFormattingFromLeft(IXLRange rangeToReturn, XLCellsUsedOptions contentFlags)
+    {
+        var firstColumnUsed = rangeToReturn!.FirstColumn()!;
+        var model = firstColumnUsed.ColumnLeft()!;
+        var modelFirstRow = ((IXLRangeBase)model).FirstCellUsed(contentFlags);
+        var modelLastRow = ((IXLRangeBase)model).LastCellUsed(contentFlags);
+        if (modelFirstRow == null || modelLastRow == null)
+            return;
+
+        var firstRoReturned = modelFirstRow.Address.RowNumber
+            - model.RangeAddress.FirstAddress.RowNumber + 1;
+        var lastRoReturned = modelLastRow.Address.RowNumber
+            - model.RangeAddress.FirstAddress.RowNumber + 1;
+        for (var ro = firstRoReturned; ro <= lastRoReturned; ro++)
+            rangeToReturn.Row(ro).Style = model.Cell(ro).Style;
+    }
+
+    private static void ApplyColumnFormattingFromExistingRows(XLRangeBase range, IXLRange rangeToReturn, XLCellsUsedOptions contentFlags)
+    {
+        var lastRoUsed = rangeToReturn.LastRowUsed(contentFlags);
+        if (lastRoUsed == null)
+            return;
+
+        var lastRoReturned = lastRoUsed.RowNumber();
+        for (var ro = 1; ro <= lastRoReturned; ro++)
+        {
+            var styleToUse =
+                range.Worksheet.Internals.RowsCollection.TryGetValue(ro, out var row)
+                    ? row.Style
+                    : range.Worksheet.Style;
+
+            rangeToReturn.Row(ro).Style = styleToUse;
         }
     }
 
@@ -183,39 +187,43 @@ internal static class XLRangeInsertHelper
     private static void ApplyRowFormatting(XLRangeBase range, IXLRange rangeToReturn, bool formatFromAbove, XLCellsUsedOptions contentFlags)
     {
         if (formatFromAbove && rangeToReturn.RangeAddress.FirstAddress.RowNumber > 1)
-        {
-            var fr = rangeToReturn!.FirstRow()!;
-            var model = fr.RowAbove()!;
-            var modelFirstColumn = ((IXLRangeBase)model).FirstCellUsed(contentFlags);
-            var modelLastColumn = ((IXLRangeBase)model).LastCellUsed(contentFlags);
-            if (modelFirstColumn != null && modelLastColumn != null)
-            {
-                var firstCoReturned = modelFirstColumn.Address.ColumnNumber
-                    - model.RangeAddress.FirstAddress.ColumnNumber + 1;
-                var lastCoReturned = modelLastColumn.Address.ColumnNumber
-                    - model.RangeAddress.FirstAddress.ColumnNumber + 1;
-                for (var co = firstCoReturned; co <= lastCoReturned; co++)
-                {
-                    rangeToReturn.Column(co).Style = model.Cell(co).Style;
-                }
-            }
-        }
+            ApplyRowFormattingFromAbove(rangeToReturn, contentFlags);
         else
-        {
-            var lastCoUsed = rangeToReturn.LastColumnUsed(contentFlags);
-            if (lastCoUsed != null)
-            {
-                var lastCoReturned = lastCoUsed.ColumnNumber();
-                for (var co = 1; co <= lastCoReturned; co++)
-                {
-                    var styleToUse =
-                        range.Worksheet.Internals.ColumnsCollection.TryGetValue(co, out var column)
-                            ? column.Style
-                            : range.Worksheet.Style;
+            ApplyRowFormattingFromExistingColumns(range, rangeToReturn, contentFlags);
+    }
 
-                    rangeToReturn.Style = styleToUse;
-                }
-            }
+    private static void ApplyRowFormattingFromAbove(IXLRange rangeToReturn, XLCellsUsedOptions contentFlags)
+    {
+        var fr = rangeToReturn!.FirstRow()!;
+        var model = fr.RowAbove()!;
+        var modelFirstColumn = ((IXLRangeBase)model).FirstCellUsed(contentFlags);
+        var modelLastColumn = ((IXLRangeBase)model).LastCellUsed(contentFlags);
+        if (modelFirstColumn == null || modelLastColumn == null)
+            return;
+
+        var firstCoReturned = modelFirstColumn.Address.ColumnNumber
+            - model.RangeAddress.FirstAddress.ColumnNumber + 1;
+        var lastCoReturned = modelLastColumn.Address.ColumnNumber
+            - model.RangeAddress.FirstAddress.ColumnNumber + 1;
+        for (var co = firstCoReturned; co <= lastCoReturned; co++)
+            rangeToReturn.Column(co).Style = model.Cell(co).Style;
+    }
+
+    private static void ApplyRowFormattingFromExistingColumns(XLRangeBase range, IXLRange rangeToReturn, XLCellsUsedOptions contentFlags)
+    {
+        var lastCoUsed = rangeToReturn.LastColumnUsed(contentFlags);
+        if (lastCoUsed == null)
+            return;
+
+        var lastCoReturned = lastCoUsed.ColumnNumber();
+        for (var co = 1; co <= lastCoReturned; co++)
+        {
+            var styleToUse =
+                range.Worksheet.Internals.ColumnsCollection.TryGetValue(co, out var column)
+                    ? column.Style
+                    : range.Worksheet.Style;
+
+            rangeToReturn.Style = styleToUse;
         }
     }
 }

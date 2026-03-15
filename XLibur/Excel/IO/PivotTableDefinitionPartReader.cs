@@ -112,88 +112,12 @@ internal sealed class PivotTableDefinitionPartReader
         }
 
         // Load data fields.
-        var dataFields = pivotTable.DataFields;
-        if (dataFields is not null)
-        {
-            foreach (var dataField in dataFields.Cast<DataField>())
-            {
-                var name = dataField.Name?.Value;
-                var field = dataField.Field?.Value ?? throw PartStructureException.MissingAttribute();
-                var subtotal = dataField.Subtotal?.Value.ToXLibur() ?? XLPivotSummary.Sum;
-                var showDataAsFormat = dataField.ShowDataAs?.Value.ToXLibur() ?? XLPivotCalculation.Normal;
-                var baseField = dataField.BaseField?.Value ?? -1;
-                var baseItem = dataField.BaseItem?.Value ?? 1048832;
-                var numberFormatId = checked((int?)dataField.NumberFormatId?.Value);
-                var numberFormat = context.GetNumberFormat(numberFormatId);
-                var xlDataField = new XLPivotDataField(xlPivotTable, checked((int)field))
-                {
-                    DataFieldName = name,
-                    Subtotal = subtotal,
-                    ShowDataAsFormat = showDataAsFormat,
-                    BaseField = baseField,
-                    BaseItem = baseItem,
-                    NumberFormatValue = numberFormat,
-                };
-                xlPivotTable.DataFields.AddField(xlDataField);
-            }
-        }
+        LoadDataFields(pivotTable.DataFields, xlPivotTable, context);
 
         // Load formats
-        var formats = pivotTable.Formats;
-        if (formats is not null)
-        {
-            foreach (var format in formats.Cast<Format>())
-            {
-                var action = format.Action?.Value.ToXLibur() ?? XLPivotFormatAction.Formatting;
-                var dxfStyle = XLStyle.Default;
-                if (format.FormatId is not null)
-                {
-                    // TODO: What about alignment?
-                    var df = differentialFormats[checked((int)format.FormatId.Value)];
-                    OpenXmlHelper.LoadFont(df.Font, dxfStyle.Font);
-                    OpenXmlHelper.LoadFill(df.Fill, dxfStyle.Fill, differentialFillFormat: true);
-                    OpenXmlHelper.LoadBorder(df.Border, dxfStyle.Border);
-                    OpenXmlHelper.LoadNumberFormat(df.NumberingFormat, dxfStyle.NumberFormat);
-                }
+        LoadFormats(pivotTable.Formats, xlPivotTable, differentialFormats);
 
-                var pivotArea = format.PivotArea ?? throw PartStructureException.ExpectedElementNotFound();
-                var xlPivotArea = LoadPivotArea(pivotArea);
-                var xlFormat = new XLPivotFormat(xlPivotArea)
-                {
-                    Action = action,
-                    DxfStyleValue = dxfStyle.Value,
-                };
-                xlPivotTable.AddFormat(xlFormat);
-            }
-        }
-
-        var conditionalFormats = pivotTable.ConditionalFormats;
-        if (conditionalFormats is not null)
-        {
-            foreach (var conditionalFormat in conditionalFormats.Cast<ConditionalFormat>())
-            {
-                var scope = conditionalFormat.Scope?.Value.ToXLibur() ?? XLPivotCfScope.SelectedCells;
-                var type = conditionalFormat.Type?.Value.ToXLibur() ?? XLPivotCfRuleType.None;
-                var priority = conditionalFormat.Priority?.Value ?? throw PartStructureException.MissingAttribute();
-                var format = context.GetPivotCf(sheet.Name, checked((int)priority));
-                var xlConditionalFormat = new XLPivotConditionalFormat(format)
-                {
-                    Scope = scope,
-                    Type = type,
-                };
-                var pivotAreas = conditionalFormat.PivotAreas;
-                if (pivotAreas is not null)
-                {
-                    foreach (var pivotArea in pivotAreas.Cast<PivotArea>())
-                    {
-                        var xlPivotArea = LoadPivotArea(pivotArea);
-                        xlConditionalFormat.AddArea(xlPivotArea);
-                    }
-                }
-
-                xlPivotTable.AddConditionalFormat(xlConditionalFormat);
-            }
-        }
+        LoadConditionalFormats(pivotTable.ConditionalFormats, xlPivotTable, sheet, context);
 
         // TODO: chartFormats
         // pivotHierarchies is OLAP and thus for now out of scope.
@@ -206,6 +130,95 @@ internal sealed class PivotTableDefinitionPartReader
         LoadExtensionList(pivotTable, xlPivotTable);
 
         return xlPivotTable;
+    }
+
+    private static void LoadDataFields(DataFields? dataFields, XLPivotTable xlPivotTable, LoadContext context)
+    {
+        if (dataFields is null)
+            return;
+
+        foreach (var dataField in dataFields.Cast<DataField>())
+        {
+            var name = dataField.Name?.Value;
+            var field = dataField.Field?.Value ?? throw PartStructureException.MissingAttribute();
+            var subtotal = dataField.Subtotal?.Value.ToXLibur() ?? XLPivotSummary.Sum;
+            var showDataAsFormat = dataField.ShowDataAs?.Value.ToXLibur() ?? XLPivotCalculation.Normal;
+            var baseField = dataField.BaseField?.Value ?? -1;
+            var baseItem = dataField.BaseItem?.Value ?? 1048832;
+            var numberFormatId = checked((int?)dataField.NumberFormatId?.Value);
+            var numberFormat = context.GetNumberFormat(numberFormatId);
+            var xlDataField = new XLPivotDataField(xlPivotTable, checked((int)field))
+            {
+                DataFieldName = name,
+                Subtotal = subtotal,
+                ShowDataAsFormat = showDataAsFormat,
+                BaseField = baseField,
+                BaseItem = baseItem,
+                NumberFormatValue = numberFormat,
+            };
+            xlPivotTable.DataFields.AddField(xlDataField);
+        }
+    }
+
+    private static void LoadFormats(Formats? formats, XLPivotTable xlPivotTable, Dictionary<int, DifferentialFormat> differentialFormats)
+    {
+        if (formats is null)
+            return;
+
+        foreach (var format in formats.Cast<Format>())
+        {
+            var action = format.Action?.Value.ToXLibur() ?? XLPivotFormatAction.Formatting;
+            var dxfStyle = XLStyle.Default;
+            if (format.FormatId is not null)
+            {
+                // TODO: What about alignment?
+                var df = differentialFormats[checked((int)format.FormatId.Value)];
+                OpenXmlHelper.LoadFont(df.Font, dxfStyle.Font);
+                OpenXmlHelper.LoadFill(df.Fill, dxfStyle.Fill, differentialFillFormat: true);
+                OpenXmlHelper.LoadBorder(df.Border, dxfStyle.Border);
+                OpenXmlHelper.LoadNumberFormat(df.NumberingFormat, dxfStyle.NumberFormat);
+            }
+
+            var pivotArea = format.PivotArea ?? throw PartStructureException.ExpectedElementNotFound();
+            var xlPivotArea = LoadPivotArea(pivotArea);
+            var xlFormat = new XLPivotFormat(xlPivotArea)
+            {
+                Action = action,
+                DxfStyleValue = dxfStyle.Value,
+            };
+            xlPivotTable.AddFormat(xlFormat);
+        }
+    }
+
+    private static void LoadConditionalFormats(ConditionalFormats? conditionalFormats, XLPivotTable xlPivotTable,
+        XLWorksheet sheet, LoadContext context)
+    {
+        if (conditionalFormats is null)
+            return;
+
+        foreach (var conditionalFormat in conditionalFormats.Cast<ConditionalFormat>())
+        {
+            var scope = conditionalFormat.Scope?.Value.ToXLibur() ?? XLPivotCfScope.SelectedCells;
+            var type = conditionalFormat.Type?.Value.ToXLibur() ?? XLPivotCfRuleType.None;
+            var priority = conditionalFormat.Priority?.Value ?? throw PartStructureException.MissingAttribute();
+            var format = context.GetPivotCf(sheet.Name, checked((int)priority));
+            var xlConditionalFormat = new XLPivotConditionalFormat(format)
+            {
+                Scope = scope,
+                Type = type,
+            };
+            var pivotAreas = conditionalFormat.PivotAreas;
+            if (pivotAreas is not null)
+            {
+                foreach (var pivotArea in pivotAreas.Cast<PivotArea>())
+                {
+                    var xlPivotArea = LoadPivotArea(pivotArea);
+                    xlConditionalFormat.AddArea(xlPivotArea);
+                }
+            }
+
+            xlPivotTable.AddConditionalFormat(xlConditionalFormat);
+        }
     }
 
     private static XLPivotTable LoadPivotTableAttributes(PivotTableDefinition pivotTable, XLWorksheet sheet,

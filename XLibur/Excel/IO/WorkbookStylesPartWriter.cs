@@ -694,69 +694,47 @@ internal static class WorkbookStylesPartWriter
         if (borderInfo.Border.DiagonalDown != XLBorderValue.Default.DiagonalDown || ignoreMod)
             border.DiagonalDown = borderInfo.Border.DiagonalDown;
 
-        if (borderInfo.Border.LeftBorder != XLBorderValue.Default.LeftBorder || ignoreMod)
-        {
-            var leftBorder = new LeftBorder { Style = borderInfo.Border.LeftBorder.ToOpenXml() };
-            if (borderInfo.Border.LeftBorderColor != XLBorderValue.Default.LeftBorderColor || ignoreMod)
-            {
-                var leftBorderColor = new Color().FromXLiburColor<Color>(borderInfo.Border.LeftBorderColor);
-                leftBorder.AppendChild(leftBorderColor);
-            }
-
-            border.AppendChild(leftBorder);
-        }
-
-        if (borderInfo.Border.RightBorder != XLBorderValue.Default.RightBorder || ignoreMod)
-        {
-            var rightBorder = new RightBorder { Style = borderInfo.Border.RightBorder.ToOpenXml() };
-            if (borderInfo.Border.RightBorderColor != XLBorderValue.Default.RightBorderColor || ignoreMod)
-            {
-                var rightBorderColor = new Color().FromXLiburColor<Color>(borderInfo.Border.RightBorderColor);
-                rightBorder.AppendChild(rightBorderColor);
-            }
-
-            border.AppendChild(rightBorder);
-        }
-
-        if (borderInfo.Border.TopBorder != XLBorderValue.Default.TopBorder || ignoreMod)
-        {
-            var topBorder = new TopBorder { Style = borderInfo.Border.TopBorder.ToOpenXml() };
-            if (borderInfo.Border.TopBorderColor != XLBorderValue.Default.TopBorderColor || ignoreMod)
-            {
-                var topBorderColor = new Color().FromXLiburColor<Color>(borderInfo.Border.TopBorderColor);
-                topBorder.AppendChild(topBorderColor);
-            }
-
-            border.AppendChild(topBorder);
-        }
-
-        if (borderInfo.Border.BottomBorder != XLBorderValue.Default.BottomBorder || ignoreMod)
-        {
-            var bottomBorder = new BottomBorder { Style = borderInfo.Border.BottomBorder.ToOpenXml() };
-            if (borderInfo.Border.BottomBorderColor != XLBorderValue.Default.BottomBorderColor || ignoreMod)
-            {
-                var bottomBorderColor = new Color().FromXLiburColor<Color>(borderInfo.Border.BottomBorderColor);
-                bottomBorder.AppendChild(bottomBorderColor);
-            }
-
-            border.AppendChild(bottomBorder);
-        }
+        AppendBorderSideWithColor<LeftBorder>(border, borderInfo.Border.LeftBorder, XLBorderValue.Default.LeftBorder,
+            borderInfo.Border.LeftBorderColor, XLBorderValue.Default.LeftBorderColor, ignoreMod);
+        AppendBorderSideWithColor<RightBorder>(border, borderInfo.Border.RightBorder, XLBorderValue.Default.RightBorder,
+            borderInfo.Border.RightBorderColor, XLBorderValue.Default.RightBorderColor, ignoreMod);
+        AppendBorderSideWithColor<TopBorder>(border, borderInfo.Border.TopBorder, XLBorderValue.Default.TopBorder,
+            borderInfo.Border.TopBorderColor, XLBorderValue.Default.TopBorderColor, ignoreMod);
+        AppendBorderSideWithColor<BottomBorder>(border, borderInfo.Border.BottomBorder, XLBorderValue.Default.BottomBorder,
+            borderInfo.Border.BottomBorderColor, XLBorderValue.Default.BottomBorderColor, ignoreMod);
 
         if (borderInfo.Border.DiagonalBorder != XLBorderValue.Default.DiagonalBorder || ignoreMod)
         {
             var diagonalBorder = new DiagonalBorder { Style = borderInfo.Border.DiagonalBorder.ToOpenXml() };
-            if (borderInfo.Border.DiagonalBorderColor != XLBorderValue.Default.DiagonalBorderColor || ignoreMod)
-                if (borderInfo.Border.DiagonalBorderColor != null)
-                {
-                    var DiagonalBorderColor =
-                        new Color().FromXLiburColor<Color>(borderInfo.Border.DiagonalBorderColor);
-                    diagonalBorder.AppendChild(DiagonalBorderColor);
-                }
+            if ((borderInfo.Border.DiagonalBorderColor != XLBorderValue.Default.DiagonalBorderColor || ignoreMod)
+                && borderInfo.Border.DiagonalBorderColor != null)
+            {
+                var diagonalBorderColor = new Color().FromXLiburColor<Color>(borderInfo.Border.DiagonalBorderColor);
+                diagonalBorder.AppendChild(diagonalBorderColor);
+            }
 
             border.AppendChild(diagonalBorder);
         }
 
         return border;
+    }
+
+    private static void AppendBorderSideWithColor<TSide>(Border border,
+        XLBorderStyleValues sideStyle, XLBorderStyleValues defaultStyle,
+        XLColor sideColor, XLColor defaultColor, bool ignoreMod)
+        where TSide : BorderPropertiesType, new()
+    {
+        if (sideStyle == defaultStyle && !ignoreMod)
+            return;
+
+        var side = new TSide { Style = sideStyle.ToOpenXml() };
+        if (sideColor != defaultColor || ignoreMod)
+        {
+            var color = new Color().FromXLiburColor<Color>(sideColor);
+            side.AppendChild(color);
+        }
+
+        border.AppendChild(side);
     }
 
     private static bool BordersAreEqual(Border border, XLBorderValue xlBorder)
@@ -953,78 +931,55 @@ internal static class WorkbookStylesPartWriter
     private static Font GetNewFont(FontInfo fontInfo, bool ignoreMod = true)
     {
         var font = new Font();
-        var bold = (fontInfo.Font.Bold != XLFontValue.Default.Bold || ignoreMod) && fontInfo.Font.Bold
-            ? new Bold()
-            : null;
-        var italic = (fontInfo.Font.Italic != XLFontValue.Default.Italic || ignoreMod) && fontInfo.Font.Italic
-            ? new Italic()
-            : null;
-        var underline = (fontInfo.Font.Underline != XLFontValue.Default.Underline || ignoreMod) &&
-                        fontInfo.Font.Underline != XLFontUnderlineValues.None
-            ? new Underline { Val = fontInfo.Font.Underline.ToOpenXml() }
-            : null;
-        var strike = (fontInfo.Font.Strikethrough != XLFontValue.Default.Strikethrough || ignoreMod) &&
-                     fontInfo.Font.Strikethrough
-            ? new Strike()
-            : null;
-        var verticalAlignment = fontInfo.Font.VerticalAlignment != XLFontValue.Default.VerticalAlignment || ignoreMod
-            ? new VerticalTextAlignment { Val = fontInfo.Font.VerticalAlignment.ToOpenXml() }
-            : null;
+        var f = fontInfo.Font;
+        var d = XLFontValue.Default;
 
-        var shadow = (fontInfo.Font.Shadow != XLFontValue.Default.Shadow || ignoreMod) && fontInfo.Font.Shadow
-            ? new Shadow()
-            : null;
-        var fontSize = fontInfo.Font.FontSize != XLFontValue.Default.FontSize || ignoreMod
-            ? new FontSize { Val = fontInfo.Font.FontSize }
-            : null;
-        var color = fontInfo.Font.FontColor != XLFontValue.Default.FontColor || ignoreMod
-            ? new Color().FromXLiburColor<Color>(fontInfo.Font.FontColor)
-            : null;
-
-        var fontName = fontInfo.Font.FontName != XLFontValue.Default.FontName || ignoreMod
-            ? new FontName { Val = fontInfo.Font.FontName }
-            : null;
-        var fontFamilyNumbering =
-            fontInfo.Font.FontFamilyNumbering != XLFontValue.Default.FontFamilyNumbering || ignoreMod
-                ? new FontFamilyNumbering { Val = (int)fontInfo.Font.FontFamilyNumbering }
-                : null;
-
-        var fontCharSet = (fontInfo.Font.FontCharSet != XLFontValue.Default.FontCharSet || ignoreMod) &&
-                          fontInfo.Font.FontCharSet != XLFontCharSet.Default
-            ? new FontCharSet { Val = (int)fontInfo.Font.FontCharSet }
-            : null;
-
-        var fontScheme = (fontInfo.Font.FontScheme != XLFontValue.Default.FontScheme || ignoreMod) &&
-                         fontInfo.Font.FontScheme != XLFontScheme.None
-            ? new FontScheme { Val = fontInfo.Font.FontScheme.ToOpenXmlEnum() }
-            : null;
-
-        if (bold != null)
-            font.AppendChild(bold);
-        if (italic != null)
-            font.AppendChild(italic);
-        if (underline != null)
-            font.AppendChild(underline);
-        if (strike != null)
-            font.AppendChild(strike);
-        if (verticalAlignment != null)
-            font.AppendChild(verticalAlignment);
-        if (shadow != null)
-            font.AppendChild(shadow);
-        if (fontSize != null)
-            font.AppendChild(fontSize);
-        if (color != null)
-            font.AppendChild(color);
-        if (fontName != null)
-            font.AppendChild(fontName);
-        if (fontFamilyNumbering != null)
-            font.AppendChild(fontFamilyNumbering);
-        if (fontCharSet != null)
-            font.AppendChild(fontCharSet);
-        if (fontScheme != null)
-            font.AppendChild(fontScheme);
+        AppendFontFlagElements(font, f, d, ignoreMod);
+        AppendFontScalarElements(font, f, d, ignoreMod);
 
         return font;
+    }
+
+    private static void AppendFontFlagElements(Font font, XLFontValue f, XLFontValue d, bool ignoreMod)
+    {
+        if ((f.Bold != d.Bold || ignoreMod) && f.Bold)
+            font.AppendChild(new Bold());
+
+        if ((f.Italic != d.Italic || ignoreMod) && f.Italic)
+            font.AppendChild(new Italic());
+
+        if ((f.Underline != d.Underline || ignoreMod) && f.Underline != XLFontUnderlineValues.None)
+            font.AppendChild(new Underline { Val = f.Underline.ToOpenXml() });
+
+        if ((f.Strikethrough != d.Strikethrough || ignoreMod) && f.Strikethrough)
+            font.AppendChild(new Strike());
+
+        if (f.VerticalAlignment != d.VerticalAlignment || ignoreMod)
+            font.AppendChild(new VerticalTextAlignment { Val = f.VerticalAlignment.ToOpenXml() });
+
+        if ((f.Shadow != d.Shadow || ignoreMod) && f.Shadow)
+            font.AppendChild(new Shadow());
+    }
+
+    private static void AppendFontScalarElements(Font font, XLFontValue f, XLFontValue d, bool ignoreMod)
+    {
+        if (f.FontSize != d.FontSize || ignoreMod)
+            font.AppendChild(new FontSize { Val = f.FontSize });
+
+        if (f.FontColor != d.FontColor || ignoreMod)
+            font.AppendChild(new Color().FromXLiburColor<Color>(f.FontColor));
+
+        if (f.FontName != d.FontName || ignoreMod)
+            font.AppendChild(new FontName { Val = f.FontName });
+
+        if (f.FontFamilyNumbering != d.FontFamilyNumbering || ignoreMod)
+            font.AppendChild(new FontFamilyNumbering { Val = (int)f.FontFamilyNumbering });
+
+        if ((f.FontCharSet != d.FontCharSet || ignoreMod) && f.FontCharSet != XLFontCharSet.Default)
+            font.AppendChild(new FontCharSet { Val = (int)f.FontCharSet });
+
+        if ((f.FontScheme != d.FontScheme || ignoreMod) && f.FontScheme != XLFontScheme.None)
+            font.AppendChild(new FontScheme { Val = f.FontScheme.ToOpenXmlEnum() });
     }
 
     private static bool FontsAreEqual(Font font, XLFontValue xlFont)

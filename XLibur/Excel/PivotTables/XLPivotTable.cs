@@ -1355,6 +1355,13 @@ internal sealed class XLPivotTable : IXLPivotTable
         // Subtotal items must be synchronized with subtotals. If field has a an item for
         // subtotal function, but doesn't declare subtotals function, Excel will try to
         // repair workbook. Subtotal items can be in any order.
+        AddSubtotalItems(field);
+
+        return fieldIndex;
+    }
+
+    private static void AddSubtotalItems(XLPivotTableField field)
+    {
         foreach (var subtotalFunction in field.Subtotals)
         {
             var itemType = subtotalFunction switch
@@ -1375,8 +1382,6 @@ internal sealed class XLPivotTable : IXLPivotTable
             };
             field.AddItem(new XLPivotFieldItem(field, null) { ItemType = itemType });
         }
-
-        return fieldIndex;
     }
 
     internal void RemoveFieldFromAxis(FieldIndex index)

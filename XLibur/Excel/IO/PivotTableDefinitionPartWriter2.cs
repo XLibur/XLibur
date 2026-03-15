@@ -28,6 +28,55 @@ internal sealed class PivotTableDefinitionPartWriter2
         xml.WriteStartElement("pivotTableDefinition", Main2006SsNs);
         xml.WriteAttributeString("xmlns", Main2006SsNs);
 
+        WritePivotTableAttributes(xml, pt);
+
+        // Location
+        xml.WriteStartElement("location", Main2006SsNs);
+        xml.WriteAttribute("ref", pt.Area.ToString());
+        xml.WriteAttribute("firstHeaderRow", pt.FirstHeaderRow);
+        xml.WriteAttribute("firstDataRow", pt.FirstDataRow);
+        xml.WriteAttribute("firstDataCol", pt.FirstDataCol);
+
+        var filterArea = pt.Filters.GetSize();
+        xml.WriteAttributeDefault("rowPageCount", filterArea.Height, 0);
+        xml.WriteAttributeDefault("colPageCount", filterArea.Width, 0);
+        xml.WriteEndElement(); // location
+
+        WritePivotFields(xml, pt, context);
+
+        WriteAxis(xml, pt.RowAxis, "rowFields", "rowItems");
+        WriteAxis(xml, pt.ColumnAxis, "colFields", "colItems");
+
+        WritePageFields(xml, pt);
+        WriteDataFields(xml, pt, context);
+        WriteFormats(xml, pt, context);
+        WriteConditionalFormats(xml, pt);
+        WritePivotTableStyleInfo(xml, pt);
+
+        // Because extensions are pretty large, always write them.
+        xml.WriteStartElement("extLst");
+
+        {
+            // See [MS-XLSX] 2.2.4.5 Pivot Table
+            xml.WriteStartElement("ext", Main2006SsNs);
+            xml.WriteAttributeString("xmlns", "x14", null, X14Main2009SsNs);
+            xml.WriteAttributeString("uri", "{962EF5D1-5CA2-4c93-8EF4-DBF5C05439D2}");
+            xml.WriteStartElement("pivotTableDefinition", X14Main2009SsNs);
+            xml.WriteAttribute("enableEdit", pt.EnableCellEditing);
+            xml.WriteAttribute("hideValuesRow", !pt.ShowValuesRow);
+            xml.WriteEndElement(); // pivotTableDefinition
+            xml.WriteEndElement(); // ext
+        }
+
+        xml.WriteEndElement(); // extList
+
+        xml.WriteEndElement(); // pivotTableDefinition
+
+        xml.Close();
+    }
+
+    private static void WritePivotTableAttributes(XmlWriter xml, XLPivotTable pt)
+    {
         xml.WriteAttribute("name", pt.Name);
         xml.WriteAttribute("cacheId", pt.PivotCache.CacheId!.Value); // TODO: Maybe not nullable?
         xml.WriteAttributeDefault("dataOnRows", pt.DataOnRows, false);
@@ -99,20 +148,10 @@ internal sealed class PivotTableDefinitionPartWriter2
         xml.WriteAttributeDefault("fieldListSortAscending", pt.SortFieldsAtoZ, false);
         xml.WriteAttributeDefault(@"mdxSubqueries", pt.MdxSubQueries, false);
         xml.WriteAttributeDefault("customListSort", pt.UseCustomListsForSorting, true);
+    }
 
-        // Location
-        xml.WriteStartElement("location", Main2006SsNs);
-        xml.WriteAttribute("ref", pt.Area.ToString());
-        xml.WriteAttribute("firstHeaderRow", pt.FirstHeaderRow);
-        xml.WriteAttribute("firstDataRow", pt.FirstDataRow);
-        xml.WriteAttribute("firstDataCol", pt.FirstDataCol);
-
-        var filterArea = pt.Filters.GetSize();
-        xml.WriteAttributeDefault("rowPageCount", filterArea.Height, 0);
-        xml.WriteAttributeDefault("colPageCount", filterArea.Width, 0);
-        xml.WriteEndElement(); // location
-
-        // Pivot Fields
+    private static void WritePivotFields(XmlWriter xml, XLPivotTable pt, SaveContext context)
+    {
         xml.WriteStartElement("pivotFields", Main2006SsNs);
         xml.WriteAttribute("count", pt.PivotFields.Count);
 
@@ -233,10 +272,10 @@ internal sealed class PivotTableDefinitionPartWriter2
         }
 
         xml.WriteEndElement(); // pivotFields
+    }
 
-        WriteAxis(xml, pt.RowAxis, "rowFields", "rowItems");
-        WriteAxis(xml, pt.ColumnAxis, "colFields", "colItems");
-
+    private static void WritePageFields(XmlWriter xml, XLPivotTable pt)
+    {
         var filterFields = pt.Filters.Fields;
         if (filterFields.Count > 0)
         {
@@ -255,7 +294,10 @@ internal sealed class PivotTableDefinitionPartWriter2
 
             xml.WriteEndElement(); // pageFields
         }
+    }
 
+    private static void WriteDataFields(XmlWriter xml, XLPivotTable pt, SaveContext context)
+    {
         if (pt.DataFields.Count > 0)
         {
             xml.WriteStartElement("dataFields", Main2006SsNs);
@@ -312,7 +354,10 @@ internal sealed class PivotTableDefinitionPartWriter2
 
             xml.WriteEndElement(); // dataFields
         }
+    }
 
+    private static void WriteFormats(XmlWriter xml, XLPivotTable pt, SaveContext context)
+    {
         if (pt.Formats.Count > 0)
         {
             xml.WriteStartElement("formats", Main2006SsNs);
@@ -344,7 +389,10 @@ internal sealed class PivotTableDefinitionPartWriter2
             }
             xml.WriteEndElement(); // formats
         }
+    }
 
+    private static void WriteConditionalFormats(XmlWriter xml, XLPivotTable pt)
+    {
         // Pivot table CF only specifies what should be formatted in PT. The actual CF
         // specification is in sheet:conditionalFormatting that with a flag Pivot="1"
         // and matching priority.
@@ -392,7 +440,10 @@ internal sealed class PivotTableDefinitionPartWriter2
 
             xml.WriteEndElement(); // conditionalFormats
         }
+    }
 
+    private static void WritePivotTableStyleInfo(XmlWriter xml, XLPivotTable pt)
+    {
         var hasDefaultTheme =
             pt is { Theme: XLPivotTableTheme.None, ShowRowHeaders: false, ShowColumnHeaders: false, ShowRowStripes: false, ShowColumnStripes: false, ShowLastColumn: false };
         if (!hasDefaultTheme)
@@ -408,27 +459,6 @@ internal sealed class PivotTableDefinitionPartWriter2
             xml.WriteAttributeDefault("showLastColumn", pt.ShowLastColumn, false);
             xml.WriteEndElement(); // pivotTableStyleInfo
         }
-
-        // Because extensions are pretty large, always write them.
-        xml.WriteStartElement("extLst");
-
-        {
-            // See [MS-XLSX] 2.2.4.5 Pivot Table
-            xml.WriteStartElement("ext", Main2006SsNs);
-            xml.WriteAttributeString("xmlns", "x14", null, X14Main2009SsNs);
-            xml.WriteAttributeString("uri", "{962EF5D1-5CA2-4c93-8EF4-DBF5C05439D2}");
-            xml.WriteStartElement("pivotTableDefinition", X14Main2009SsNs);
-            xml.WriteAttribute("enableEdit", pt.EnableCellEditing);
-            xml.WriteAttribute("hideValuesRow", !pt.ShowValuesRow);
-            xml.WriteEndElement(); // pivotTableDefinition
-            xml.WriteEndElement(); // ext
-        }
-
-        xml.WriteEndElement(); // extList
-
-        xml.WriteEndElement(); // pivotTableDefinition
-
-        xml.Close();
     }
 
     private static void WriteAxis(XmlWriter xml, XLPivotTableAxis axis, string fieldsElement, string itemsElement)
@@ -448,47 +478,50 @@ internal sealed class PivotTableDefinitionPartWriter2
         }
 
         if (axis.Items.Count > 0)
+            WriteAxisItems(xml, axis, itemsElement);
+    }
+
+    private static void WriteAxisItems(XmlWriter xml, XLPivotTableAxis axis, string itemsElement)
+    {
+        xml.WriteStartElement(itemsElement, Main2006SsNs);
+        xml.WriteAttribute("count", axis.Items.Count);
+
+        IReadOnlyList<int> previous = Array.Empty<int>();
+        foreach (var axisItem in axis.Items)
         {
-            xml.WriteStartElement(itemsElement, Main2006SsNs);
-            xml.WriteAttribute("count", axis.Items.Count);
-
-            IReadOnlyList<int> previous = Array.Empty<int>();
-            foreach (var axisItem in axis.Items)
+            xml.WriteStartElement("i", Main2006SsNs);
+            if (axisItem.ItemType != XLPivotItemType.Data)
             {
-                xml.WriteStartElement("i", Main2006SsNs);
-                if (axisItem.ItemType != XLPivotItemType.Data)
-                {
-                    var itemTypeAttr = GetItemTypeAttr(axisItem.ItemType);
-                    xml.WriteAttribute("t", itemTypeAttr);
-                }
-
-                // 'r' attribute means repeat data from previous axis item.
-                var r = 0;
-                var maxPrefixLen = Math.Min(previous.Count, axisItem.FieldItem.Count);
-                while (r < maxPrefixLen && previous[r] == axisItem.FieldItem[r])
-                    r++;
-
-                // It seems that Excel always has at least one <x> element, not sure if necessary,
-                // but it makes xml comparisons far easier. This is common for non-data type items.
-                if (r > 0 && r == axisItem.FieldItem.Count)
-                    r--;
-
-                xml.WriteAttributeDefault("r", r, 0);
-                xml.WriteAttributeDefault("i", axisItem.DataItem, 0); // Data field index
-
-                foreach (var fieldItem in axisItem.FieldItem.Skip(r))
-                {
-                    xml.WriteStartElement("x", Main2006SsNs);
-                    xml.WriteAttributeDefault("v", fieldItem, 0);
-                    xml.WriteEndElement(); // x
-                }
-
-                xml.WriteEndElement(); // i
-                previous = axisItem.FieldItem;
+                var itemTypeAttr = GetItemTypeAttr(axisItem.ItemType);
+                xml.WriteAttribute("t", itemTypeAttr);
             }
 
-            xml.WriteEndElement();
+            // 'r' attribute means repeat data from previous axis item.
+            var r = 0;
+            var maxPrefixLen = Math.Min(previous.Count, axisItem.FieldItem.Count);
+            while (r < maxPrefixLen && previous[r] == axisItem.FieldItem[r])
+                r++;
+
+            // It seems that Excel always has at least one <x> element, not sure if necessary,
+            // but it makes xml comparisons far easier. This is common for non-data type items.
+            if (r > 0 && r == axisItem.FieldItem.Count)
+                r--;
+
+            xml.WriteAttributeDefault("r", r, 0);
+            xml.WriteAttributeDefault("i", axisItem.DataItem, 0); // Data field index
+
+            foreach (var fieldItem in axisItem.FieldItem.Skip(r))
+            {
+                xml.WriteStartElement("x", Main2006SsNs);
+                xml.WriteAttributeDefault("v", fieldItem, 0);
+                xml.WriteEndElement(); // x
+            }
+
+            xml.WriteEndElement(); // i
+            previous = axisItem.FieldItem;
         }
+
+        xml.WriteEndElement();
     }
 
     private static void WritePivotArea(XmlWriter xml, XLPivotArea pivotArea)

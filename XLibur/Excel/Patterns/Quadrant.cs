@@ -156,18 +156,8 @@ internal class Quadrant
             }
         }
 
-        if (Children != null)
-        {
-            foreach (var childQuadrant in Children)
-            {
-                if (childQuadrant.Intersects(in rangeAddress))
-                {
-                    var childRanges = childQuadrant.GetIntersectedRanges(rangeAddress);
-                    foreach (var range in childRanges)
-                        yield return range;
-                }
-            }
-        }
+        foreach (var range in GetIntersectedRangesFromChildren(rangeAddress))
+            yield return range;
     }
 
     /// <summary>
@@ -184,16 +174,36 @@ internal class Quadrant
             }
         }
 
-        if (Children != null)
+        foreach (var range in GetIntersectedRangesFromChildren(address))
+            yield return range;
+    }
+
+    private IEnumerable<IXLAddressable> GetIntersectedRangesFromChildren(IXLRangeAddress rangeAddress)
+    {
+        if (Children == null)
+            yield break;
+
+        foreach (var childQuadrant in Children)
         {
-            foreach (var childQuadrant in Children)
+            if (childQuadrant.Intersects(in rangeAddress))
             {
-                if (childQuadrant.Covers(in address))
-                {
-                    var childRanges = childQuadrant.GetIntersectedRanges(address);
-                    foreach (var range in childRanges)
-                        yield return range;
-                }
+                foreach (var range in childQuadrant.GetIntersectedRanges(rangeAddress))
+                    yield return range;
+            }
+        }
+    }
+
+    private IEnumerable<IXLAddressable> GetIntersectedRangesFromChildren(IXLAddress address)
+    {
+        if (Children == null)
+            yield break;
+
+        foreach (var childQuadrant in Children)
+        {
+            if (childQuadrant.Covers(in address))
+            {
+                foreach (var range in childQuadrant.GetIntersectedRanges(address))
+                    yield return range;
             }
         }
     }

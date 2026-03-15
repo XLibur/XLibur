@@ -100,29 +100,7 @@ public partial class XLWorkbook
 
         RichDataReader.LoadRichData(workbookPart, this, context);
 
-        if (dSpreadsheet.CustomFilePropertiesPart != null)
-        {
-            foreach (var m in dSpreadsheet.CustomFilePropertiesPart.Properties!.Elements<CustomDocumentProperty>())
-            {
-                var name = m.Name?.Value;
-
-                if (string.IsNullOrWhiteSpace(name))
-                    continue;
-
-                if (m.VTLPWSTR != null)
-                    CustomProperties.Add(name, m.VTLPWSTR.Text);
-                else if (m.VTFileTime != null)
-                {
-                    CustomProperties.Add(name,
-                        DateTime.ParseExact(m.VTFileTime.Text, "yyyy'-'MM'-'dd'T'HH':'mm':'ssK",
-                            CultureInfo.InvariantCulture));
-                }
-                else if (m.VTDouble != null)
-                    CustomProperties.Add(name, double.Parse(m.VTDouble.Text, CultureInfo.InvariantCulture));
-                else if (m.VTBool != null)
-                    CustomProperties.Add(name, m.VTBool.Text == "true");
-            }
-        }
+        LoadCustomFileProperties(dSpreadsheet);
 
         var wbProps = workbookPart.Workbook!.WorkbookProperties;
         if (wbProps != null)
@@ -138,43 +116,9 @@ public partial class XLWorkbook
 
         LoadWorkbookProtection(workbookPart.Workbook!.WorkbookProtection, this);
 
-        var calculationProperties = workbookPart.Workbook!.CalculationProperties;
-        if (calculationProperties != null)
-        {
-            var calculateMode = calculationProperties.CalculationMode;
-            if (calculateMode != null)
-                CalculateMode = calculateMode.Value.ToXLibur();
+        LoadCalculationProperties(workbookPart.Workbook!.CalculationProperties);
 
-            var calculationOnSave = calculationProperties.CalculationOnSave;
-            if (calculationOnSave != null)
-                CalculationOnSave = calculationOnSave.Value;
-
-            var forceFullCalculation = calculationProperties.ForceFullCalculation;
-            if (forceFullCalculation != null)
-                ForceFullCalculation = forceFullCalculation.Value;
-
-            var fullCalculationOnLoad = calculationProperties.FullCalculationOnLoad;
-            if (fullCalculationOnLoad != null)
-                FullCalculationOnLoad = fullCalculationOnLoad.Value;
-
-            var fullPrecision = calculationProperties.FullPrecision;
-            if (fullPrecision != null)
-                FullPrecision = fullPrecision.Value;
-
-            var referenceMode = calculationProperties.ReferenceMode;
-            if (referenceMode != null)
-                ReferenceStyle = referenceMode.Value.ToXLibur();
-        }
-
-        var efp = dSpreadsheet.ExtendedFilePropertiesPart;
-        if (efp is { Properties: not null })
-        {
-            if (efp.Properties.Elements<Company>().Any())
-                Properties.Company = efp.Properties.GetFirstChild<Company>()!.Text;
-
-            if (efp.Properties.Elements<Manager>().Any())
-                Properties.Manager = efp.Properties.GetFirstChild<Manager>()!.Text;
-        }
+        LoadExtendedFileProperties(dSpreadsheet);
 
         var s = workbookPart.WorkbookStylesPart?.Stylesheet;
         var numberingFormats = s?.NumberingFormats;
@@ -203,8 +147,94 @@ public partial class XLWorkbook
         // e.g. when reading calculations that reference other sheets, we know that those sheets always already exist.
         // That consistency point isn't required yet but could be taken advantage of in the future.
         var sheets = workbookPart.Workbook!.Sheets;
+        LoadSheetsPass1(workbookPart, sheets!);
+
+        LoadSheetsPass2(workbookPart, sheets!, s, numberingFormats, fills, borders, fonts,
+            differentialFormats, sharedStrings, context);
+
+        LoadActiveTab(workbookPart.Workbook);
+
+        DefinedNameReader.LoadDefinedNames(workbookPart.Workbook, this);
+
+        PivotTableCacheDefinitionPartReader.Load(workbookPart, this);
+
+        LoadPivotTables(workbookPart, sheets!, differentialFormats, context);
+    }
+
+    private void LoadCustomFileProperties(SpreadsheetDocument dSpreadsheet)
+    {
+        if (dSpreadsheet.CustomFilePropertiesPart != null)
+        {
+            foreach (var m in dSpreadsheet.CustomFilePropertiesPart.Properties!.Elements<CustomDocumentProperty>())
+            {
+                var name = m.Name?.Value;
+
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                if (m.VTLPWSTR != null)
+                    CustomProperties.Add(name, m.VTLPWSTR.Text);
+                else if (m.VTFileTime != null)
+                {
+                    CustomProperties.Add(name,
+                        DateTime.ParseExact(m.VTFileTime.Text, "yyyy'-'MM'-'dd'T'HH':'mm':'ssK",
+                            CultureInfo.InvariantCulture));
+                }
+                else if (m.VTDouble != null)
+                    CustomProperties.Add(name, double.Parse(m.VTDouble.Text, CultureInfo.InvariantCulture));
+                else if (m.VTBool != null)
+                    CustomProperties.Add(name, m.VTBool.Text == "true");
+            }
+        }
+    }
+
+    private void LoadCalculationProperties(CalculationProperties? calculationProperties)
+    {
+        if (calculationProperties != null)
+        {
+            var calculateMode = calculationProperties.CalculationMode;
+            if (calculateMode != null)
+                CalculateMode = calculateMode.Value.ToXLibur();
+
+            var calculationOnSave = calculationProperties.CalculationOnSave;
+            if (calculationOnSave != null)
+                CalculationOnSave = calculationOnSave.Value;
+
+            var forceFullCalculation = calculationProperties.ForceFullCalculation;
+            if (forceFullCalculation != null)
+                ForceFullCalculation = forceFullCalculation.Value;
+
+            var fullCalculationOnLoad = calculationProperties.FullCalculationOnLoad;
+            if (fullCalculationOnLoad != null)
+                FullCalculationOnLoad = fullCalculationOnLoad.Value;
+
+            var fullPrecision = calculationProperties.FullPrecision;
+            if (fullPrecision != null)
+                FullPrecision = fullPrecision.Value;
+
+            var referenceMode = calculationProperties.ReferenceMode;
+            if (referenceMode != null)
+                ReferenceStyle = referenceMode.Value.ToXLibur();
+        }
+    }
+
+    private void LoadExtendedFileProperties(SpreadsheetDocument dSpreadsheet)
+    {
+        var efp = dSpreadsheet.ExtendedFilePropertiesPart;
+        if (efp is { Properties: not null })
+        {
+            if (efp.Properties.Elements<Company>().Any())
+                Properties.Company = efp.Properties.GetFirstChild<Company>()!.Text;
+
+            if (efp.Properties.Elements<Manager>().Any())
+                Properties.Manager = efp.Properties.GetFirstChild<Manager>()!.Text;
+        }
+    }
+
+    private void LoadSheetsPass1(WorkbookPart workbookPart, Sheets sheets)
+    {
         var position = 0;
-        foreach (var dSheet in sheets!.OfType<Sheet>())
+        foreach (var dSheet in sheets.OfType<Sheet>())
         {
             position++;
             string sheetName = dSheet.Name!.Value!;
@@ -235,13 +265,22 @@ public partial class XLWorkbook
             if (dSheet.State != null)
                 ws.Visibility = dSheet.State.Value.ToXLibur();
         }
+    }
 
-        position = 0;
-        foreach (var dSheet in sheets!.OfType<Sheet>())
+    private void LoadSheetsPass2(
+        WorkbookPart workbookPart,
+        Sheets sheets,
+        Stylesheet? s,
+        NumberingFormats? numberingFormats,
+        Fills? fills,
+        Borders? borders,
+        Fonts? fonts,
+        Dictionary<int, DifferentialFormat> differentialFormats,
+        SharedStringEntry[]? sharedStrings,
+        LoadContext context)
+    {
+        foreach (var dSheet in sheets.OfType<Sheet>())
         {
-            position++;
-            string sheetName = dSheet.Name!.Value!;
-
             if (string.IsNullOrEmpty(dSheet.Id))
             {
                 // Some non-Excel producers create sheets with empty relId.
@@ -258,6 +297,7 @@ public partial class XLWorkbook
             }
 
             var sharedFormulasR1C1 = new Dictionary<uint, string>();
+            string sheetName = dSheet.Name!.Value!;
             if (!WorksheetsInternal.TryGetWorksheet(sheetName, out var ws))
             {
                 // This shouldn't be possible, as all worksheets should have already been added in the loop before this loop
@@ -272,314 +312,350 @@ public partial class XLWorkbook
             var lastRow = 0;
             var lastColumnNumber = 0;
 
-            using (var reader = new OpenXmlPartReader(worksheetPart))
-            {
-                Type[] ignoredElements =
-                [
-                    typeof(CustomSheetViews) // Custom sheet views contain their own auto filter data, and more, which should be ignored for now
-                ];
-
-                while (reader.Read())
-                {
-                    while (ignoredElements.Contains(reader.ElementType))
-                        reader.ReadNextSibling();
-
-                    if (reader.ElementType == typeof(SheetFormatProperties))
-                    {
-                        var sheetFormatProperties = (SheetFormatProperties?)reader.LoadCurrentElement();
-                        if (sheetFormatProperties != null)
-                        {
-                            if (sheetFormatProperties.DefaultRowHeight != null)
-                                ws.RowHeight = sheetFormatProperties.DefaultRowHeight;
-
-                            ws.RowHeightChanged = (sheetFormatProperties.CustomHeight != null &&
-                                                   sheetFormatProperties.CustomHeight.Value);
-
-                            if (sheetFormatProperties.DefaultColumnWidth != null)
-                                ws.ColumnWidth =
-                                    XLHelper.ConvertWidthToNoC(sheetFormatProperties.DefaultColumnWidth.Value,
-                                        ws.Style.Font, this);
-                            else if (sheetFormatProperties.BaseColumnWidth != null)
-                                ws.ColumnWidth = CalculateColumnWidth(sheetFormatProperties.BaseColumnWidth.Value,
-                                    ws.Style.Font, this);
-                        }
-                    }
-                    else if (reader.ElementType == typeof(SheetViews))
-                        WorksheetElementReader.LoadSheetViews((SheetViews)reader.LoadCurrentElement()!, ws);
-                    else if (reader.ElementType == typeof(MergeCells))
-                    {
-                        var mergedCells = (MergeCells?)reader.LoadCurrentElement();
-                        if (mergedCells != null)
-                        {
-                            foreach (var mergeCell in mergedCells.Elements<MergeCell>())
-                                ws.Range(mergeCell.Reference!)!.Merge(false);
-                        }
-                    }
-                    else if (reader.ElementType == typeof(Columns))
-                        WorksheetSheetDataReader.LoadColumns(s!, numberingFormats, fills!, borders!, fonts!, ws,
-                            (Columns)reader.LoadCurrentElement()!);
-                    else if (reader.ElementType == typeof(Row))
-                    {
-                        WorksheetSheetDataReader.LoadRow(s!, numberingFormats, fills!, borders!, fonts!, ws, sharedStrings, sharedFormulasR1C1,
-                            styleList, reader, ref lastRow, ref lastColumnNumber, Use1904DateSystem);
-                    }
-                    else if (reader.ElementType == typeof(AutoFilter))
-                        WorksheetElementReader.LoadAutoFilter((AutoFilter)reader.LoadCurrentElement()!, ws, differentialFormats);
-                    else if (reader.ElementType == typeof(SheetProtection))
-                        WorksheetElementReader.LoadSheetProtection((SheetProtection)reader.LoadCurrentElement()!, ws);
-                    else if (reader.ElementType == typeof(DataValidations))
-                        WorksheetElementReader.LoadDataValidations((DataValidations)reader.LoadCurrentElement()!, ws);
-                    else if (reader.ElementType == typeof(ConditionalFormatting))
-                        ConditionalFormatReader.LoadConditionalFormatting((ConditionalFormatting)reader.LoadCurrentElement()!, ws,
-                            differentialFormats, context);
-                    else if (reader.ElementType == typeof(Hyperlinks))
-                        WorksheetElementReader.LoadHyperlinks((Hyperlinks)reader.LoadCurrentElement()!, worksheetPart, ws);
-                    else if (reader.ElementType == typeof(PrintOptions))
-                        WorksheetElementReader.LoadPrintOptions((PrintOptions)reader.LoadCurrentElement()!, ws);
-                    else if (reader.ElementType == typeof(PageMargins))
-                        WorksheetElementReader.LoadPageMargins((PageMargins)reader.LoadCurrentElement()!, ws);
-                    else if (reader.ElementType == typeof(PageSetup))
-                        WorksheetElementReader.LoadPageSetup((PageSetup)reader.LoadCurrentElement()!, ws, pageSetupProperties);
-                    else if (reader.ElementType == typeof(HeaderFooter))
-                        WorksheetElementReader.LoadHeaderFooter((HeaderFooter)reader.LoadCurrentElement()!, ws);
-                    else if (reader.ElementType == typeof(SheetProperties))
-                        WorksheetElementReader.LoadSheetProperties((SheetProperties)reader.LoadCurrentElement()!, ws, out pageSetupProperties);
-                    else if (reader.ElementType == typeof(RowBreaks))
-                        WorksheetElementReader.LoadRowBreaks((RowBreaks)reader.LoadCurrentElement()!, ws);
-                    else if (reader.ElementType == typeof(ColumnBreaks))
-                        WorksheetElementReader.LoadColumnBreaks((ColumnBreaks)reader.LoadCurrentElement()!, ws);
-                    else if (reader.ElementType == typeof(WorksheetExtensionList))
-                        ConditionalFormatReader.LoadExtensions((WorksheetExtensionList)reader.LoadCurrentElement()!, ws, this);
-                    else if (reader.ElementType == typeof(LegacyDrawing))
-                        ws.LegacyDrawingId = ((LegacyDrawing)reader.LoadCurrentElement()!).Id?.Value;
-                }
-
-                reader.Close();
-            }
+            LoadWorksheetElements(worksheetPart, ws, s, numberingFormats, fills, borders, fonts,
+                differentialFormats, sharedStrings, sharedFormulasR1C1, styleList, ref pageSetupProperties,
+                ref lastRow, ref lastColumnNumber, context);
 
             // Hydrate in-cell images from rich data metadata
-            if (context.RichValueImages is not null)
-            {
-                foreach (var cell in ws.Internals.CellsCollection.GetCells(c => c.ValueMetaIndex is not null))
-                {
-                    if (context.RichValueImages.TryGetValue(cell.ValueMetaIndex!.Value, out var cellImage))
-                    {
-                        cell.CellImage = cellImage;
-                    }
-                }
-            }
+            LoadRichValueImages(context, ws);
 
             ws.ConditionalFormats.ReorderAccordingToOriginalPriority();
 
-            #region LoadTables
-
-            foreach (var tableDefinitionPart in worksheetPart.TableDefinitionParts)
-            {
-                var relId = worksheetPart.GetIdOfPart(tableDefinitionPart);
-                var dTable = tableDefinitionPart.Table!;
-
-                var reference = dTable.Reference!.Value!;
-                var tableName = dTable.Name?.Value ?? dTable.DisplayName?.Value ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(tableName))
-                    throw new InvalidDataException("The table name is missing.");
-
-                var xlTable = ws.Table(ws.Range(reference)!, tableName, addToTables: true, setAutofilter: false, validateOverlap: false) as XLTable;
-                xlTable!.RelId = relId;
-
-                if (dTable.HeaderRowCount != null && dTable.HeaderRowCount == 0)
-                {
-                    xlTable.HydrateShowHeaderRow(false);
-                    xlTable.AddFields(dTable.TableColumns!.Cast<TableColumn>()
-                        .Select(t => DrawingPartReader.GetTableColumnName(t.Name!.Value!)));
-                }
-                else
-                {
-                    xlTable.InitializeAutoFilter();
-                }
-
-                if (dTable.TotalsRowCount != null && dTable.TotalsRowCount.Value > 0)
-                    xlTable.HydrateShowTotalsRow(true);
-
-                if (dTable.TableStyleInfo != null)
-                {
-                    if (dTable.TableStyleInfo.ShowFirstColumn != null)
-                        xlTable.EmphasizeFirstColumn = dTable.TableStyleInfo.ShowFirstColumn.Value;
-                    if (dTable.TableStyleInfo.ShowLastColumn != null)
-                        xlTable.EmphasizeLastColumn = dTable.TableStyleInfo.ShowLastColumn.Value;
-                    if (dTable.TableStyleInfo.ShowRowStripes != null)
-                        xlTable.ShowRowStripes = dTable.TableStyleInfo.ShowRowStripes.Value;
-                    if (dTable.TableStyleInfo.ShowColumnStripes != null)
-                        xlTable.ShowColumnStripes = dTable.TableStyleInfo.ShowColumnStripes.Value;
-                    if (dTable.TableStyleInfo.Name != null)
-                    {
-                        var theme = XLTableTheme.FromName(dTable.TableStyleInfo.Name.Value!);
-                        xlTable.Theme = theme ?? new XLTableTheme(dTable.TableStyleInfo.Name.Value!);
-                    }
-                    else
-                        xlTable.Theme = XLTableTheme.None;
-                }
-
-                if (dTable.AutoFilter != null)
-                {
-                    xlTable.ShowAutoFilter = true;
-                    WorksheetElementReader.LoadAutoFilterColumns(dTable.AutoFilter, xlTable.AutoFilter);
-                }
-                else
-                    xlTable.ShowAutoFilter = false;
-
-                if (xlTable.ShowTotalsRow)
-                {
-                    foreach (var tableColumn in dTable.TableColumns!.Cast<TableColumn>())
-                    {
-                        var tableColumnName = DrawingPartReader.GetTableColumnName(tableColumn.Name!.Value!);
-                        if (tableColumn.TotalsRowFunction != null)
-                            xlTable.Field(tableColumnName).TotalsRowFunction =
-                                tableColumn.TotalsRowFunction.Value.ToXLibur();
-
-                        if (tableColumn.TotalsRowFormula != null)
-                            xlTable.Field(tableColumnName).TotalsRowFormulaA1 =
-                                tableColumn.TotalsRowFormula.Text;
-
-                        if (tableColumn.TotalsRowLabel != null)
-                            xlTable.Field(tableColumnName).TotalsRowLabel = tableColumn.TotalsRowLabel.Value;
-                    }
-
-                    if (xlTable.AutoFilter != null)
-                        xlTable.AutoFilter.Range = xlTable.Worksheet.Range(
-                            xlTable.RangeAddress.FirstAddress.RowNumber, xlTable.RangeAddress.FirstAddress.ColumnNumber,
-                            xlTable.RangeAddress.LastAddress.RowNumber - 1,
-                            xlTable.RangeAddress.LastAddress.ColumnNumber);
-                }
-                else if (xlTable.AutoFilter != null)
-                    xlTable.AutoFilter.Range = xlTable.Worksheet.Range(xlTable.RangeAddress);
-            }
-
-            #endregion LoadTables
+            LoadTables(worksheetPart, ws);
 
             DrawingPartReader.LoadDrawings(worksheetPart, ws);
 
-            #region LoadComments
+            LoadComments(worksheetPart, ws);
 
-            if (worksheetPart.WorksheetCommentsPart != null)
+            LoadThreadedComments(worksheetPart, ws);
+        }
+    }
+
+    private void LoadWorksheetElements(
+        WorksheetPart worksheetPart,
+        XLWorksheet ws,
+        Stylesheet? s,
+        NumberingFormats? numberingFormats,
+        Fills? fills,
+        Borders? borders,
+        Fonts? fonts,
+        Dictionary<int, DifferentialFormat> differentialFormats,
+        SharedStringEntry[]? sharedStrings,
+        Dictionary<uint, string> sharedFormulasR1C1,
+        Dictionary<int, XLStyleValue> styleList,
+        ref PageSetupProperties? pageSetupProperties,
+        ref int lastRow,
+        ref int lastColumnNumber,
+        LoadContext context)
+    {
+        using var reader = new OpenXmlPartReader(worksheetPart);
+
+        Type[] ignoredElements =
+        [
+            typeof(CustomSheetViews) // Custom sheet views contain their own auto filter data, and more, which should be ignored for now
+        ];
+
+        while (reader.Read())
+        {
+            while (ignoredElements.Contains(reader.ElementType))
+                reader.ReadNextSibling();
+
+            if (reader.ElementType == typeof(SheetFormatProperties))
             {
-                var root = worksheetPart.WorksheetCommentsPart.Comments!;
-                var authors = root.GetFirstChild<Authors>()!.ChildElements.OfType<Author>().ToList();
-                var comments = root.GetFirstChild<CommentList>()!.ChildElements.OfType<Comment>().ToList();
-
-                // **** MAYBE FUTURE SHAPE SIZE SUPPORT
-                var shapes = DrawingPartReader.GetCommentShapes(worksheetPart);
-
-                for (var i = 0; i < comments.Count; i++)
+                var sheetFormatProperties = (SheetFormatProperties?)reader.LoadCurrentElement();
+                if (sheetFormatProperties != null)
                 {
-                    var c = comments[i];
+                    if (sheetFormatProperties.DefaultRowHeight != null)
+                        ws.RowHeight = sheetFormatProperties.DefaultRowHeight;
 
-                    XElement? shape = null;
-                    if (i < shapes.Count)
-                        shape = shapes[i];
+                    ws.RowHeightChanged = (sheetFormatProperties.CustomHeight != null &&
+                                           sheetFormatProperties.CustomHeight.Value);
 
-                    // find cell by reference
-                    var cell = ws.Cell(c.Reference!);
-
-                    var shapeIdString = shape?.Attribute("id")?.Value;
-                    if (shapeIdString?.StartsWith("_x0000_s") ?? false)
-                        shapeIdString = shapeIdString[8..];
-
-                    int? shapeId = int.TryParse(shapeIdString, out var sid) ? sid : null;
-                    var xlComment = cell!.CreateComment(shapeId);
-
-                    xlComment.Author = authors[(int)c.AuthorId!.Value].InnerText;
-                    ShapeIdManager.Add(xlComment.ShapeId);
-
-                    var commentTextNode = c.GetFirstChild<CommentText>()!;
-                    var runs = commentTextNode.Elements<Run>();
-                    foreach (var run in runs)
-                    {
-                        var runProperties = run.RunProperties;
-                        var text = run.Text!.InnerText.FixNewLines();
-                        var rt = xlComment.AddText(text);
-                        OpenXmlHelper.LoadFont(runProperties, rt);
-                    }
-
-                    // Comments can have text not wrapped in a Run element (e.g. Google Sheets exports)
-                    if (commentTextNode.Text != null)
-                    {
-                        var plainText = commentTextNode.Text.Text.FixNewLines();
-                        xlComment.AddText(plainText);
-                    }
-
-                    if (shape != null)
-                    {
-                        DrawingPartReader.LoadShapeProperties(xlComment, shape);
-
-                        var clientData = shape.Elements().First(e => e.Name.LocalName == "ClientData");
-                        DrawingPartReader.LoadClientData(xlComment, clientData);
-
-                        var textBox = shape.Elements().FirstOrDefault(e => e.Name.LocalName == "textbox");
-                        if (textBox is not null)
-                            DrawingPartReader.LoadTextBox(xlComment, textBox, DpiX, DpiY);
-
-                        var alt = shape.Attribute("alt");
-                        if (alt != null) xlComment.Style.Web.SetAlternateText(alt.Value);
-
-                        DrawingPartReader.LoadColorsAndLines(xlComment, shape);
-                    }
+                    if (sheetFormatProperties.DefaultColumnWidth != null)
+                        ws.ColumnWidth =
+                            XLHelper.ConvertWidthToNoC(sheetFormatProperties.DefaultColumnWidth.Value,
+                                ws.Style.Font, this);
+                    else if (sheetFormatProperties.BaseColumnWidth != null)
+                        ws.ColumnWidth = CalculateColumnWidth(sheetFormatProperties.BaseColumnWidth.Value,
+                            ws.Style.Font, this);
                 }
             }
-
-            #endregion LoadComments
-
-            #region ReplaceThreadedCommentText
-
-            // Modern Excel stores threaded comments in a separate part. The legacy
-            // comments1.xml contains only a placeholder ("[Threaded comment] ...").
-            // When the threaded comments part is present, replace the placeholder
-            // text with the actual comment text from the threaded comments.
-            foreach (var threadedPart in worksheetPart.WorksheetThreadedCommentsParts)
+            else if (reader.ElementType == typeof(SheetViews))
+                WorksheetElementReader.LoadSheetViews((SheetViews)reader.LoadCurrentElement()!, ws);
+            else if (reader.ElementType == typeof(MergeCells))
             {
-                var threadedComments = threadedPart.ThreadedComments;
-                if (threadedComments is null)
-                    continue;
-
-                // Group threaded comments by cell reference. Root comments have no
-                // ParentId; replies reference the root via ParentId. Order: root
-                // first (no ParentId), then replies sorted by timestamp.
-                var byRef = threadedComments
-                    .Elements<TC.ThreadedComment>()
-                    .GroupBy(tc => tc.Ref?.Value ?? string.Empty);
-
-                foreach (var group in byRef)
+                var mergedCells = (MergeCells?)reader.LoadCurrentElement();
+                if (mergedCells != null)
                 {
-                    if (string.IsNullOrEmpty(group.Key))
-                        continue;
-
-                    var cell = ws.Cell(group.Key);
-                    if (cell?.SliceComment is null)
-                        continue;
-
-                    var ordered = group
-                        .OrderBy(tc => tc.ParentId is not null ? 1 : 0)
-                        .ThenBy(tc => tc.DT?.Value)
-                        .ToList();
-
-                    var texts = ordered
-                        .Select(tc => tc.ThreadedCommentText?.InnerText)
-                        .Where(t => !string.IsNullOrEmpty(t))
-                        .ToList();
-
-                    if (texts.Count > 0)
-                    {
-                        var xlComment = cell.SliceComment;
-                        xlComment.ClearText();
-                        xlComment.AddText(string.Join("\n", texts));
-                    }
+                    foreach (var mergeCell in mergedCells.Elements<MergeCell>())
+                        ws.Range(mergeCell.Reference!)!.Merge(false);
                 }
             }
-
-            #endregion ReplaceThreadedCommentText
+            else if (reader.ElementType == typeof(Columns))
+                WorksheetSheetDataReader.LoadColumns(s!, numberingFormats, fills!, borders!, fonts!, ws,
+                    (Columns)reader.LoadCurrentElement()!);
+            else if (reader.ElementType == typeof(Row))
+            {
+                WorksheetSheetDataReader.LoadRow(s!, numberingFormats, fills!, borders!, fonts!, ws, sharedStrings, sharedFormulasR1C1,
+                    styleList, reader, ref lastRow, ref lastColumnNumber, Use1904DateSystem);
+            }
+            else if (reader.ElementType == typeof(AutoFilter))
+                WorksheetElementReader.LoadAutoFilter((AutoFilter)reader.LoadCurrentElement()!, ws, differentialFormats);
+            else if (reader.ElementType == typeof(SheetProtection))
+                WorksheetElementReader.LoadSheetProtection((SheetProtection)reader.LoadCurrentElement()!, ws);
+            else if (reader.ElementType == typeof(DataValidations))
+                WorksheetElementReader.LoadDataValidations((DataValidations)reader.LoadCurrentElement()!, ws);
+            else if (reader.ElementType == typeof(ConditionalFormatting))
+                ConditionalFormatReader.LoadConditionalFormatting((ConditionalFormatting)reader.LoadCurrentElement()!, ws,
+                    differentialFormats, context);
+            else if (reader.ElementType == typeof(Hyperlinks))
+                WorksheetElementReader.LoadHyperlinks((Hyperlinks)reader.LoadCurrentElement()!, worksheetPart, ws);
+            else if (reader.ElementType == typeof(PrintOptions))
+                WorksheetElementReader.LoadPrintOptions((PrintOptions)reader.LoadCurrentElement()!, ws);
+            else if (reader.ElementType == typeof(PageMargins))
+                WorksheetElementReader.LoadPageMargins((PageMargins)reader.LoadCurrentElement()!, ws);
+            else if (reader.ElementType == typeof(PageSetup))
+                WorksheetElementReader.LoadPageSetup((PageSetup)reader.LoadCurrentElement()!, ws, pageSetupProperties);
+            else if (reader.ElementType == typeof(HeaderFooter))
+                WorksheetElementReader.LoadHeaderFooter((HeaderFooter)reader.LoadCurrentElement()!, ws);
+            else if (reader.ElementType == typeof(SheetProperties))
+                WorksheetElementReader.LoadSheetProperties((SheetProperties)reader.LoadCurrentElement()!, ws, out pageSetupProperties);
+            else if (reader.ElementType == typeof(RowBreaks))
+                WorksheetElementReader.LoadRowBreaks((RowBreaks)reader.LoadCurrentElement()!, ws);
+            else if (reader.ElementType == typeof(ColumnBreaks))
+                WorksheetElementReader.LoadColumnBreaks((ColumnBreaks)reader.LoadCurrentElement()!, ws);
+            else if (reader.ElementType == typeof(WorksheetExtensionList))
+                ConditionalFormatReader.LoadExtensions((WorksheetExtensionList)reader.LoadCurrentElement()!, ws, this);
+            else if (reader.ElementType == typeof(LegacyDrawing))
+                ws.LegacyDrawingId = ((LegacyDrawing)reader.LoadCurrentElement()!).Id?.Value;
         }
 
-        var workbook = workbookPart.Workbook;
+        reader.Close();
+    }
 
+    private static void LoadRichValueImages(LoadContext context, XLWorksheet ws)
+    {
+        // Hydrate in-cell images from rich data metadata
+        if (context.RichValueImages is not null)
+        {
+            foreach (var cell in ws.Internals.CellsCollection.GetCells(c => c.ValueMetaIndex is not null))
+            {
+                if (context.RichValueImages.TryGetValue(cell.ValueMetaIndex!.Value, out var cellImage))
+                {
+                    cell.CellImage = cellImage;
+                }
+            }
+        }
+    }
+
+    private static void LoadTables(WorksheetPart worksheetPart, XLWorksheet ws)
+    {
+        foreach (var tableDefinitionPart in worksheetPart.TableDefinitionParts)
+        {
+            var relId = worksheetPart.GetIdOfPart(tableDefinitionPart);
+            var dTable = tableDefinitionPart.Table!;
+
+            var reference = dTable.Reference!.Value!;
+            var tableName = dTable.Name?.Value ?? dTable.DisplayName?.Value ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(tableName))
+                throw new InvalidDataException("The table name is missing.");
+
+            var xlTable = ws.Table(ws.Range(reference)!, tableName, addToTables: true, setAutofilter: false, validateOverlap: false) as XLTable;
+            xlTable!.RelId = relId;
+
+            if (dTable.HeaderRowCount != null && dTable.HeaderRowCount == 0)
+            {
+                xlTable.HydrateShowHeaderRow(false);
+                xlTable.AddFields(dTable.TableColumns!.Cast<TableColumn>()
+                    .Select(t => DrawingPartReader.GetTableColumnName(t.Name!.Value!)));
+            }
+            else
+            {
+                xlTable.InitializeAutoFilter();
+            }
+
+            if (dTable.TotalsRowCount != null && dTable.TotalsRowCount.Value > 0)
+                xlTable.HydrateShowTotalsRow(true);
+
+            LoadTableStyleInfo(dTable, xlTable);
+
+            if (dTable.AutoFilter != null)
+            {
+                xlTable.ShowAutoFilter = true;
+                WorksheetElementReader.LoadAutoFilterColumns(dTable.AutoFilter, xlTable.AutoFilter);
+            }
+            else
+                xlTable.ShowAutoFilter = false;
+
+            if (xlTable.ShowTotalsRow)
+            {
+                foreach (var tableColumn in dTable.TableColumns!.Cast<TableColumn>())
+                {
+                    var tableColumnName = DrawingPartReader.GetTableColumnName(tableColumn.Name!.Value!);
+                    if (tableColumn.TotalsRowFunction != null)
+                        xlTable.Field(tableColumnName).TotalsRowFunction =
+                            tableColumn.TotalsRowFunction.Value.ToXLibur();
+
+                    if (tableColumn.TotalsRowFormula != null)
+                        xlTable.Field(tableColumnName).TotalsRowFormulaA1 =
+                            tableColumn.TotalsRowFormula.Text;
+
+                    if (tableColumn.TotalsRowLabel != null)
+                        xlTable.Field(tableColumnName).TotalsRowLabel = tableColumn.TotalsRowLabel.Value;
+                }
+
+                if (xlTable.AutoFilter != null)
+                    xlTable.AutoFilter.Range = xlTable.Worksheet.Range(
+                        xlTable.RangeAddress.FirstAddress.RowNumber, xlTable.RangeAddress.FirstAddress.ColumnNumber,
+                        xlTable.RangeAddress.LastAddress.RowNumber - 1,
+                        xlTable.RangeAddress.LastAddress.ColumnNumber);
+            }
+            else if (xlTable.AutoFilter != null)
+                xlTable.AutoFilter.Range = xlTable.Worksheet.Range(xlTable.RangeAddress);
+        }
+    }
+
+    private static void LoadTableStyleInfo(Table dTable, XLTable xlTable)
+    {
+        if (dTable.TableStyleInfo != null)
+        {
+            if (dTable.TableStyleInfo.ShowFirstColumn != null)
+                xlTable.EmphasizeFirstColumn = dTable.TableStyleInfo.ShowFirstColumn.Value;
+            if (dTable.TableStyleInfo.ShowLastColumn != null)
+                xlTable.EmphasizeLastColumn = dTable.TableStyleInfo.ShowLastColumn.Value;
+            if (dTable.TableStyleInfo.ShowRowStripes != null)
+                xlTable.ShowRowStripes = dTable.TableStyleInfo.ShowRowStripes.Value;
+            if (dTable.TableStyleInfo.ShowColumnStripes != null)
+                xlTable.ShowColumnStripes = dTable.TableStyleInfo.ShowColumnStripes.Value;
+            if (dTable.TableStyleInfo.Name != null)
+            {
+                var theme = XLTableTheme.FromName(dTable.TableStyleInfo.Name.Value!);
+                xlTable.Theme = theme ?? new XLTableTheme(dTable.TableStyleInfo.Name.Value!);
+            }
+            else
+                xlTable.Theme = XLTableTheme.None;
+        }
+    }
+
+    private void LoadComments(WorksheetPart worksheetPart, XLWorksheet ws)
+    {
+        if (worksheetPart.WorksheetCommentsPart != null)
+        {
+            var root = worksheetPart.WorksheetCommentsPart.Comments!;
+            var authors = root.GetFirstChild<Authors>()!.ChildElements.OfType<Author>().ToList();
+            var comments = root.GetFirstChild<CommentList>()!.ChildElements.OfType<Comment>().ToList();
+
+            // **** MAYBE FUTURE SHAPE SIZE SUPPORT
+            var shapes = DrawingPartReader.GetCommentShapes(worksheetPart);
+
+            for (var i = 0; i < comments.Count; i++)
+            {
+                var c = comments[i];
+
+                XElement? shape = null;
+                if (i < shapes.Count)
+                    shape = shapes[i];
+
+                // find cell by reference
+                var cell = ws.Cell(c.Reference!);
+
+                var shapeIdString = shape?.Attribute("id")?.Value;
+                if (shapeIdString?.StartsWith("_x0000_s") ?? false)
+                    shapeIdString = shapeIdString[8..];
+
+                int? shapeId = int.TryParse(shapeIdString, out var sid) ? sid : null;
+                var xlComment = cell!.CreateComment(shapeId);
+
+                xlComment.Author = authors[(int)c.AuthorId!.Value].InnerText;
+                ShapeIdManager.Add(xlComment.ShapeId);
+
+                var commentTextNode = c.GetFirstChild<CommentText>()!;
+                var runs = commentTextNode.Elements<Run>();
+                foreach (var run in runs)
+                {
+                    var runProperties = run.RunProperties;
+                    var text = run.Text!.InnerText.FixNewLines();
+                    var rt = xlComment.AddText(text);
+                    OpenXmlHelper.LoadFont(runProperties, rt);
+                }
+
+                // Comments can have text not wrapped in a Run element (e.g. Google Sheets exports)
+                if (commentTextNode.Text != null)
+                {
+                    var plainText = commentTextNode.Text.Text.FixNewLines();
+                    xlComment.AddText(plainText);
+                }
+
+                if (shape != null)
+                {
+                    DrawingPartReader.LoadShapeProperties(xlComment, shape);
+
+                    var clientData = shape.Elements().First(e => e.Name.LocalName == "ClientData");
+                    DrawingPartReader.LoadClientData(xlComment, clientData);
+
+                    var textBox = shape.Elements().FirstOrDefault(e => e.Name.LocalName == "textbox");
+                    if (textBox is not null)
+                        DrawingPartReader.LoadTextBox(xlComment, textBox, DpiX, DpiY);
+
+                    var alt = shape.Attribute("alt");
+                    if (alt != null) xlComment.Style.Web.SetAlternateText(alt.Value);
+
+                    DrawingPartReader.LoadColorsAndLines(xlComment, shape);
+                }
+            }
+        }
+    }
+
+    private static void LoadThreadedComments(WorksheetPart worksheetPart, XLWorksheet ws)
+    {
+        // Modern Excel stores threaded comments in a separate part. The legacy
+        // comments1.xml contains only a placeholder ("[Threaded comment] ...").
+        // When the threaded comments part is present, replace the placeholder
+        // text with the actual comment text from the threaded comments.
+        foreach (var threadedPart in worksheetPart.WorksheetThreadedCommentsParts)
+        {
+            var threadedComments = threadedPart.ThreadedComments;
+            if (threadedComments is null)
+                continue;
+
+            // Group threaded comments by cell reference. Root comments have no
+            // ParentId; replies reference the root via ParentId. Order: root
+            // first (no ParentId), then replies sorted by timestamp.
+            var byRef = threadedComments
+                .Elements<TC.ThreadedComment>()
+                .GroupBy(tc => tc.Ref?.Value ?? string.Empty);
+
+            foreach (var group in byRef)
+            {
+                if (string.IsNullOrEmpty(group.Key))
+                    continue;
+
+                var cell = ws.Cell(group.Key);
+                if (cell?.SliceComment is null)
+                    continue;
+
+                var ordered = group
+                    .OrderBy(tc => tc.ParentId is not null ? 1 : 0)
+                    .ThenBy(tc => tc.DT?.Value)
+                    .ToList();
+
+                var texts = ordered
+                    .Select(tc => tc.ThreadedCommentText?.InnerText)
+                    .Where(t => !string.IsNullOrEmpty(t))
+                    .ToList();
+
+                if (texts.Count > 0)
+                {
+                    var xlComment = cell.SliceComment;
+                    xlComment.ClearText();
+                    xlComment.AddText(string.Join("\n", texts));
+                }
+            }
+        }
+    }
+
+    private void LoadActiveTab(Workbook workbook)
+    {
         var bookViews = workbook.BookViews;
         if (bookViews?.FirstOrDefault() is WorkbookView workbookView)
         {
@@ -599,13 +675,16 @@ public partial class XLWorkbook
                 }
             }
         }
+    }
 
-        DefinedNameReader.LoadDefinedNames(workbook, this);
-
-        PivotTableCacheDefinitionPartReader.Load(workbookPart, this);
-
+    private void LoadPivotTables(
+        WorkbookPart workbookPart,
+        Sheets sheets,
+        Dictionary<int, DifferentialFormat> differentialFormats,
+        LoadContext context)
+    {
         // Delay loading of pivot tables until all sheets have been loaded
-        foreach (var dSheet in sheets!.OfType<Sheet>())
+        foreach (var dSheet in sheets.OfType<Sheet>())
         {
             if (string.IsNullOrEmpty(dSheet.Id))
             {

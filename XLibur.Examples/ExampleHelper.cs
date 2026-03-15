@@ -4,9 +4,9 @@ namespace XLibur.Examples;
 
 public static class ExampleHelper
 {
-    public static string GetTempFilePath()
+    private static string GetTempFilePath()
     {
-        return Path.GetTempFileName();
+        return Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
     }
 
     public static string GetTempFilePath(string filePath)

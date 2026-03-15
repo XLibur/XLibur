@@ -111,8 +111,30 @@ internal sealed class WorksheetPartWriter
         SheetProtectionWriter.WriteSheetProtection(worksheet, cm, xlWorksheet);
         AutoFilterWriter.WriteAutoFilter(worksheet, cm, xlWorksheet, context);
 
-        #region MergeCells
+        WriteMergeCells(worksheet, cm, xlWorksheet);
 
+        ConditionalFormattingWriter.WriteConditionalFormatting(worksheet, cm, xlWorksheet, context);
+        ConditionalFormattingWriter.WriteSparklines(worksheet, cm, xlWorksheet);
+        DataValidationWriter.WriteDataValidations(worksheet, cm, xlWorksheet, options);
+        PageSetupWriter.WriteHyperlinks(worksheet, cm, xlWorksheet, worksheetPart, context);
+        PageSetupWriter.WritePrintOptions(worksheet, cm, xlWorksheet);
+        PageSetupWriter.WritePageMargins(worksheet, cm, xlWorksheet);
+        PageSetupWriter.WritePageSetup(worksheet, cm, xlWorksheet);
+        PageSetupWriter.WriteHeaderFooter(worksheet, cm, xlWorksheet);
+        PageSetupWriter.WriteRowBreaks(worksheet, cm, xlWorksheet);
+        PageSetupWriter.WriteColumnBreaks(worksheet, cm, xlWorksheet);
+
+        PopulateTablePartReferences(xlWorksheet.Tables, worksheet, cm);
+
+        PictureWriter.WriteDrawings(worksheet, cm, xlWorksheet, worksheetPart, context);
+        PictureWriter.WriteLegacyDrawing(worksheet, cm, xlWorksheet);
+        HeaderFooterImageWriter.WriteHeaderFooterImages(worksheet, cm, xlWorksheet, worksheetPart, context);
+
+        return worksheet;
+    }
+
+    private static void WriteMergeCells(Worksheet worksheet, XLWorksheetContentManager cm, XLWorksheet xlWorksheet)
+    {
         if ((xlWorksheet).Internals.MergedRanges.Any())
         {
             if (!worksheet.Elements<MergeCells>().Any())
@@ -137,27 +159,6 @@ internal sealed class WorksheetPartWriter
             worksheet.RemoveAllChildren<MergeCells>();
             cm.SetElement(XLWorksheetContents.MergeCells, null);
         }
-
-        #endregion MergeCells
-
-        ConditionalFormattingWriter.WriteConditionalFormatting(worksheet, cm, xlWorksheet, context);
-        ConditionalFormattingWriter.WriteSparklines(worksheet, cm, xlWorksheet);
-        DataValidationWriter.WriteDataValidations(worksheet, cm, xlWorksheet, options);
-        PageSetupWriter.WriteHyperlinks(worksheet, cm, xlWorksheet, worksheetPart, context);
-        PageSetupWriter.WritePrintOptions(worksheet, cm, xlWorksheet);
-        PageSetupWriter.WritePageMargins(worksheet, cm, xlWorksheet);
-        PageSetupWriter.WritePageSetup(worksheet, cm, xlWorksheet);
-        PageSetupWriter.WriteHeaderFooter(worksheet, cm, xlWorksheet);
-        PageSetupWriter.WriteRowBreaks(worksheet, cm, xlWorksheet);
-        PageSetupWriter.WriteColumnBreaks(worksheet, cm, xlWorksheet);
-
-        PopulateTablePartReferences(xlWorksheet.Tables, worksheet, cm);
-
-        PictureWriter.WriteDrawings(worksheet, cm, xlWorksheet, worksheetPart, context);
-        PictureWriter.WriteLegacyDrawing(worksheet, cm, xlWorksheet);
-        HeaderFooterImageWriter.WriteHeaderFooterImages(worksheet, cm, xlWorksheet, worksheetPart, context);
-
-        return worksheet;
     }
 
     private static void PopulateTablePartReferences(XLTables xlTables, Worksheet worksheet,
