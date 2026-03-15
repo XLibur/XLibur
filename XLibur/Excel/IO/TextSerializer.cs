@@ -1,13 +1,12 @@
-#nullable disable
-
-using System.Xml;
+﻿using System.Xml;
+using XLibur.Excel.RichText;
 using XLibur.Extensions;
 using static XLibur.Excel.XLWorkbook;
 using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
-internal class TextSerializer
+internal sealed class TextSerializer
 {
     internal static void WriteRichTextElements(XmlWriter w, XLImmutableRichText richText, SaveContext context)
     {

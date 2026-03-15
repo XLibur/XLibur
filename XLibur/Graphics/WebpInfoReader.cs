@@ -1,18 +1,17 @@
-#nullable disable
-
-using XLibur.Utils;
+﻿using XLibur.Utils;
 using System;
 using System.Drawing;
 using System.IO;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
+using XLibur.Extensions;
 
 namespace XLibur.Graphics;
 
 /// <summary>
 /// Reader of dimensions for WebP image format.
 /// </summary>
-internal class WebpInfoReader : ImageInfoReader
+internal sealed class WebpInfoReader : ImageInfoReader
 {
     private const int Vp8ChunkMagicBytes = 0x9d012a;
     private const int Vp8LChunkMagicByte = 0x2F;
@@ -123,7 +122,7 @@ internal class WebpInfoReader : ImageInfoReader
                 throw new ArgumentException("Unexpected end of file.");
             }
 
-            // Width is 14 bits and height is 14 bit, packed into 4 bytes
+            // Width is 14 bits, and height is 14 bit, packed into 4 bytes
             var width = header[0] + ((header[1] & 0x3F) << 8) + 1;
             var height = ((header[1] & 0xC0) >> 6) + (header[2] << 2) + ((header[3] & 0xF) << 10) + 1;
 

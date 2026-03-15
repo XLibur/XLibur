@@ -1,14 +1,14 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
 using System.Collections;
 
-internal class XLTables : IXLTables, IEnumerable<XLTable>
+internal sealed class XLTables : IXLTables, IEnumerable<XLTable>
 {
     private readonly Dictionary<string, XLTable> _tables;
 
@@ -18,11 +18,13 @@ internal class XLTables : IXLTables, IEnumerable<XLTable>
         Deleted = new HashSet<string>();
     }
 
+    internal int Count => _tables.Count;
+
     internal ICollection<string> Deleted { get; }
 
     #region IXLTables Members
 
-    bool IXLTables.TryGetTable(string tableName, out IXLTable table)
+    bool IXLTables.TryGetTable(string tableName, out IXLTable? table)
     {
         if (TryGetTable(tableName, out var foundTable))
         {
@@ -86,14 +88,16 @@ internal class XLTables : IXLTables, IEnumerable<XLTable>
 
     public IXLTable Table(string name)
     {
-        if (TryGetTable(name, out XLTable table))
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        if (TryGetTable(name, out var table))
             return table;
 
         throw new ArgumentOutOfRangeException(nameof(name), $"Table {name} was not found.");
     }
 
-    internal bool TryGetTable(string tableName, out XLTable table)
+    internal bool TryGetTable(string tableName, [MaybeNullWhen(false)] out XLTable table)
     {
+        ArgumentNullException.ThrowIfNull(tableName);
         return _tables.TryGetValue(tableName, out table);
     }
 

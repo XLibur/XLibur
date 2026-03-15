@@ -1,14 +1,15 @@
-using XLibur.Excel;
-using XLibur.Excel.Drawings;
-using NUnit.Framework;
 using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
+using XLibur.Excel;
+using XLibur.Excel.Drawings;
+using NUnit.Framework;
 
-namespace XLibur.Tests;
+namespace XLibur.Tests.Excel.ImageHandling;
 
 [TestFixture]
 public class PictureTests
@@ -245,6 +246,29 @@ public class PictureTests
     }
 
     [Test]
+    public void CanDeletePictureOnlyOne()
+    {
+        using var ms = new MemoryStream();
+        int originalCount;
+
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\ImageHandling\ImageAnchors.xlsx")))
+        using (var wb = new XLWorkbook(stream))
+        {
+            var ws = wb.Worksheets.First();
+            originalCount = ws.Pictures.Count;
+            ws.Pictures.Delete(ws.Pictures.First());
+
+            wb.SaveAs(ms);
+        }
+
+        using (var wb = new XLWorkbook(ms))
+        {
+            var ws = wb.Worksheets.First();
+            Assert.AreEqual(originalCount - 1, ws.Pictures.Count);
+        }
+    }
+
+    [Test]
     public void CanDeletePictures()
     {
         using var ms = new MemoryStream();
@@ -435,6 +459,84 @@ public class PictureTests
         ws2 = wb2.Worksheet("Sheet2");
         img2 = ws2.Pictures.First();
         Assert.AreEqual(XLPictureFormat.Emf, img2.Format);
+    }
+
+    [TestCase(@"Picture:With:Colons")]
+    [TestCase(@"Picture/With/Slashes")]
+    [TestCase(@"Picture\With\Backslashes")]
+    [TestCase(@"Picture?With?Questions")]
+    [TestCase(@"Picture*With*Stars")]
+    [TestCase(@"Picture[With]Brackets")]
+    public void Picture_name_can_contain_special_characters(string name)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png");
+        var pic = ws.AddPicture(stream, XLPictureFormat.Png, "temp");
+        pic.Name = name;
+
+        Assert.AreEqual(name, pic.Name);
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+
+        ms.Seek(0, SeekOrigin.Begin);
+        using var wb2 = new XLWorkbook(ms);
+        var ws2 = wb2.Worksheet("Sheet1");
+        Assert.AreEqual(name, ws2.Pictures.First().Name);
+    }
+
+    [Test]
+    public void CanAddSvgPictureFromStream()
+    {
+        var svgContent = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg>";
+        using var svgStream = new MemoryStream(Encoding.UTF8.GetBytes(svgContent));
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+
+        var picture = ws.AddPicture(svgStream, "img.svg")
+            .MoveTo(ws.Cell(1, 1))
+            .WithSize(120, 120);
+
+        Assert.AreEqual(XLPictureFormat.Svg, picture.Format);
+        Assert.AreEqual(120, picture.Width);
+        Assert.AreEqual(120, picture.Height);
+        Assert.AreEqual(24, picture.OriginalWidth);
+        Assert.AreEqual(24, picture.OriginalHeight);
+    }
+
+    [Test]
+    public void CanSaveAndLoadSvgPicture()
+    {
+        var svgContent = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><path d=\"M20 6 9 17l-5-5\"/></svg>";
+        using var svgStream = new MemoryStream(Encoding.UTF8.GetBytes(svgContent));
+
+        using var ms = new MemoryStream();
+
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.Worksheets.Add("Sheet1");
+            ws.AddPicture(svgStream, "CheckIcon")
+                .MoveTo(ws.Cell(1, 1))
+                .WithSize(120, 120);
+
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var ws = wb.Worksheets.First();
+            Assert.AreEqual(1, ws.Pictures.Count);
+
+            var pic = ws.Pictures.First();
+            Assert.AreEqual(XLPictureFormat.Svg, pic.Format);
+            Assert.AreEqual("CheckIcon", pic.Name);
+            Assert.AreEqual(120, pic.Width);
+            Assert.AreEqual(120, pic.Height);
+        }
     }
 
     [Test]

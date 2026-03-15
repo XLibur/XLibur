@@ -135,6 +135,28 @@ public interface IXLFilterColumn
 
     void BelowAverage(bool reapply = true);
 
+    /// <summary>
+    /// <para>
+    /// Set a color filter that shows only rows where the cell's background color matches the
+    /// specified <paramref name="color"/>. Sets filter type to <see cref="XLFilterType.Color"/>
+    /// and replaces any existing filter on this column.
+    /// </para>
+    /// </summary>
+    /// <param name="color">The background color to filter by.</param>
+    /// <param name="reapply">Should the autofilter be immediately reapplied?</param>
+    void ColorFilter(XLColor color, bool reapply = true);
+
+    /// <summary>
+    /// <para>
+    /// Set a color filter that shows only rows where the cell's font color matches the
+    /// specified <paramref name="color"/>. Sets filter type to <see cref="XLFilterType.Color"/>
+    /// and replaces any existing filter on this column.
+    /// </para>
+    /// </summary>
+    /// <param name="color">The font color to filter by.</param>
+    /// <param name="reapply">Should the autofilter be immediately reapplied?</param>
+    void FontColorFilter(XLColor color, bool reapply = true);
+
     IXLFilterConnector EqualTo(XLCellValue value, bool reapply = true);
 
     IXLFilterConnector NotEqualTo(XLCellValue value, bool reapply = true);
@@ -214,4 +236,22 @@ public interface IXLFilterColumn
     /// Returns undefined value, if <see cref="FilterType"/> is not <see cref="XLFilterType.Dynamic"/>.
     /// </remarks>
     double DynamicValue { get; }
+
+    /// <summary>
+    /// Configuration of a <see cref="XLFilterType.Color"/> filter. The color that rows are
+    /// matched against.
+    /// </summary>
+    /// <remarks>
+    /// Returns undefined value, if <see cref="FilterType"/> is not <see cref="XLFilterType.Color"/>.
+    /// </remarks>
+    XLColor FilterColor { get; }
+
+    /// <summary>
+    /// Configuration of a <see cref="XLFilterType.Color"/> filter. When <c>true</c>, filter
+    /// matches on cell background (fill) color; when <c>false</c>, filter matches on font color.
+    /// </summary>
+    /// <remarks>
+    /// Returns undefined value, if <see cref="FilterType"/> is not <see cref="XLFilterType.Color"/>.
+    /// </remarks>
+    bool FilterByCellColor { get; }
 }

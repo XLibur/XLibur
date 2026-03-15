@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace XLibur.Excel;
 
 public interface IXLRow : IXLRangeBase
@@ -64,7 +62,7 @@ public interface IXLRow : IXLRangeBase
     /// <summary>
     /// Adjust height of the column according to the content of the cells.
     /// </summary>
-    /// <param name="startColumn">Number of a first column whose content is considered.</param>
+    /// <param name="startColumn">Number of the first column whose content is considered.</param>
     /// <param name="endColumn">Number of a last column whose content is considered.</param>
     /// <param name="minHeightPt">Minimum height of adjusted column, in points.</param>
     /// <param name="maxHeightPt">Maximum height of adjusted column, in points.</param>

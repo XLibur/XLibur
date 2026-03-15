@@ -1,6 +1,4 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Excel.CalcEngine;
@@ -8,7 +6,7 @@ namespace XLibur.Excel.CalcEngine;
 /// <summary>
 /// A comparer of a scalar logic. Each comparer with it's logic can be accessed through a static property.
 /// </summary>
-internal class ScalarValueComparer : IComparer<ScalarValue>
+internal sealed class ScalarValueComparer : IComparer<ScalarValue>
 {
     private readonly StringComparer _stringComparer;
 

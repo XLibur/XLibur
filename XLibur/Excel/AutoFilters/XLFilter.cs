@@ -1,7 +1,4 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 using System.Globalization;
 using XLibur.Excel.CalcEngine;
 
@@ -14,7 +11,7 @@ internal enum XLFilterOperator { Equal, NotEqual, GreaterThan, LessThan, EqualOr
 /// <summary>
 /// A single filter condition for auto filter.
 /// </summary>
-internal class XLFilter
+internal sealed class XLFilter
 {
     private XLFilter()
     {
@@ -29,14 +26,14 @@ internal class XLFilter
     /// </summary>
     public XLCellValue CustomValue { get; init; }
 
-    public Func<IXLCell, XLFilterColumn, bool> Condition { get; init; }
+    public Func<IXLCell, XLFilterColumn, bool> Condition { get; init; } = null!;
 
     public XLFilterOperator Operator { get; init; } = XLFilterOperator.Equal;
 
     /// <summary>
     /// Value for <see cref="XLFilterType.Regular"/> filter.
     /// </summary>
-    public object Value { get; set; }
+    public object? Value { get; set; }
 
     internal static XLFilter CreateCustomFilter(XLCellValue value, XLFilterOperator op, XLConnector connector)
     {
@@ -203,6 +200,19 @@ internal class XLFilter
             Operator = XLFilterOperator.Equal,
             Connector = XLConnector.Or,
             Condition = takeTop ? TopFilter : BottomFilter,
+        };
+    }
+
+    internal static XLFilter CreateColorFilter(XLColor color, bool byCellColor)
+    {
+        return new XLFilter
+        {
+            Value = color,
+            Operator = XLFilterOperator.Equal,
+            Connector = XLConnector.Or,
+            Condition = byCellColor
+                ? (cell, _) => cell.Style.Fill.BackgroundColor == color
+                : (cell, _) => cell.Style.Font.FontColor == color,
         };
     }
 

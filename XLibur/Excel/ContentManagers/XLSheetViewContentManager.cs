@@ -1,6 +1,4 @@
-#nullable disable
-
-using DocumentFormat.OpenXml.Spreadsheet;
+﻿using DocumentFormat.OpenXml.Spreadsheet;
 using System.Linq;
 
 namespace XLibur.Excel.ContentManagers;
@@ -13,7 +11,7 @@ internal enum XLSheetViewContents
     ExtensionList
 }
 
-internal class XLSheetViewContentManager : XLBaseContentManager<XLSheetViewContents>
+internal sealed class XLSheetViewContentManager : XLBaseContentManager<XLSheetViewContents>
 {
     public XLSheetViewContentManager(SheetView sheetView)
     {

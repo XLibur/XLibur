@@ -8,40 +8,6 @@ namespace XLibur.Examples.Misc;
 
 public class Collections : IXLExample
 {
-    #region Variables
-
-    // Public
-
-    // Private
-
-
-    #endregion
-
-    #region Properties
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Events
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var wb = new XLWorkbook();
@@ -82,8 +48,8 @@ public class Collections : IXLExample
         };
 
         var people = from p in list
-                     where p.Age >= 21
-                     select new { p.Name, p.House, p.Age };
+            where p.Age >= 21
+            select new { p.Name, p.House, p.Age };
 
         ws.Cell(6, 6).Value = "Query";
         ws.Range(6, 6, 6, 8).Merge().AddToNamed("Titles");
@@ -107,14 +73,15 @@ public class Collections : IXLExample
     class Person
     {
         public string House { get; set; }
+
         public string Name { get; set; }
+
         public int Age { get; set; }
     }
 
     // Private
     private DataTable GetTable()
     {
-
         DataTable table = new DataTable();
         table.Columns.Add("Dosage", typeof(int));
         table.Columns.Add("Drug", typeof(string));
@@ -128,8 +95,4 @@ public class Collections : IXLExample
         table.Rows.Add(100, "Dilantin", "Melanie", new DateTime(2000, 1, 5));
         return table;
     }
-    // Override
-
-
-    #endregion
 }

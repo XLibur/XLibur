@@ -1,15 +1,12 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLSparklineHorizontalAxis : IXLSparklineHorizontalAxis
+internal sealed class XLSparklineHorizontalAxis : IXLSparklineHorizontalAxis
 {
     #region Public Properties
 
-    public XLColor Color { get; set; }
+    public XLColor Color { get; set; } = null!;
 
     public bool DateAxis => SparklineGroup.DateRange != null;
 

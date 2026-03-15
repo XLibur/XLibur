@@ -1,5 +1,3 @@
-#nullable disable
-
 using DocumentFormat.OpenXml.Packaging;
 using System;
 using System.Collections.Generic;
@@ -17,6 +15,7 @@ public partial class XLWorkbook
         public SaveContext()
         {
             DifferentialFormats = new Dictionary<XLStyleValue, int>();
+            ColorFilterDxfIds = new Dictionary<(XLColorKey, bool), int>();
             RelIdGenerator = new RelIdGenerator();
             SharedFonts = new Dictionary<XLFontValue, FontInfo>();
             SharedNumberFormats = new Dictionary<XLNumberFormatValue, NumberFormatInfo>();
@@ -24,9 +23,16 @@ public partial class XLWorkbook
             TableId = 0;
             TableNames = [];
             PivotSourceCacheId = 0;
+            PivotSources = new Dictionary<Guid, PivotSourceInfo>();
         }
 
         public Dictionary<XLStyleValue, int> DifferentialFormats { get; private set; }
+
+        /// <summary>
+        /// Maps (color key, byCellColor) to a dxf index for autofilter color filters.
+        /// </summary>
+        public Dictionary<(XLColorKey Color, bool ByCellColor), int> ColorFilterDxfIds { get; private set; }
+
         public RelIdGenerator RelIdGenerator { get; private set; }
         public Dictionary<XLFontValue, FontInfo> SharedFonts { get; private set; }
         public Dictionary<XLNumberFormatValue, NumberFormatInfo> SharedNumberFormats { get; private set; }
@@ -47,19 +53,29 @@ public partial class XLWorkbook
         public IDictionary<Guid, PivotSourceInfo> PivotSources { get; }
 
         /// <summary>
-        /// A map of shared string ids. The index is the actual index from sharedStringId and
-        /// value is an mapped stringId to write to a file. The mapped stringId has no gaps
+        /// A map of shared string ids. The index is the actual index from sharedStringId, and
+        /// the value is a mapped stringId to write to a file. The mapped stringId has no gaps
         /// between ids.
         /// </summary>
-        public List<int> SstMap { get; set; }
+        public int[] SstMap { get; set; } = null!;
 
-#nullable enable
+        /// <summary>
+        /// 1-based index into <c>cellMetadata</c> records for the XLDAPR (dynamic array)
+        /// metadata type. When <c>null</c>, no dynamic array formulas are present.
+        /// </summary>
+        public uint? DynamicArrayMetaIndex { get; set; }
+
         internal int GetSharedStringId(XLCell xlCell, string text)
         {
-            var sharedStringId = SstMap[xlCell.MemorySstId];
+            return GetSharedStringId(xlCell.MemorySstId, xlCell.SheetPoint);
+        }
+
+        internal int GetSharedStringId(int memorySstId, XLSheetPoint point)
+        {
+            var sharedStringId = SstMap[memorySstId];
             if (sharedStringId < 0)
             {
-                throw new UnreachableException($"Unable to find text '{text}' in shared string table for cell {xlCell.SheetPoint}. " +
+                throw new UnreachableException($"Unable to find SST id {memorySstId} in shared string table for cell {point}. " +
                                                "That likely means reference counting is broken. As a stop-gap, try to set the " +
                                                "text value to an unused cell to increase number of references for the text.");
             }
@@ -76,7 +92,6 @@ public partial class XLWorkbook
                 ? customFormat.NumberFormatId
                 : numberFormat.NumberFormatId;
         }
-#nullable disable
     }
 
     #endregion Nested type: SaveContext
@@ -85,7 +100,7 @@ public partial class XLWorkbook
 
     internal enum RelType
     {
-        Workbook//, Worksheet
+        Workbook
     }
 
     #endregion Nested type: RelType
@@ -96,7 +111,7 @@ public partial class XLWorkbook
     {
         private readonly Dictionary<RelType, HashSet<string>> _relIds = new();
 
-        public void AddValues(IEnumerable<string> values, RelType relType)
+        private void AddValues(IEnumerable<string> values, RelType relType)
         {
             if (!_relIds.TryGetValue(relType, out var set))
             {
@@ -113,17 +128,17 @@ public partial class XLWorkbook
         public void AddExistingValues(WorkbookPart workbookPart, XLWorkbook xlWorkbook)
         {
             AddValues(workbookPart.Parts.Select(p => p.RelationshipId), RelType.Workbook);
-            AddValues(xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>().Where(ws => !string.IsNullOrWhiteSpace(ws.RelId)).Select(ws => ws.RelId), RelType.Workbook);
-            AddValues(xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>().Where(ws => !string.IsNullOrWhiteSpace(ws.LegacyDrawingId)).Select(ws => ws.LegacyDrawingId), RelType.Workbook);
+            AddValues(xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>().Where(ws => !string.IsNullOrWhiteSpace(ws.RelId)).Select(ws => ws.RelId!), RelType.Workbook);
+            AddValues(xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>().Where(ws => !string.IsNullOrWhiteSpace(ws.LegacyDrawingId)).Select(ws => ws.LegacyDrawingId!), RelType.Workbook);
             AddValues(xlWorkbook.WorksheetsInternal
                 .Cast<XLWorksheet>()
                 .SelectMany(ws => ws.Tables.Cast<XLTable>())
                 .Where(t => !string.IsNullOrWhiteSpace(t.RelId))
-                .Select(t => t.RelId), RelType.Workbook);
+                .Select(t => t.RelId!), RelType.Workbook);
 
             foreach (var xlWorksheet in xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>())
             {
-                // if the worksheet is a new one, it doesn't have RelId yet.
+                // if the worksheet is new, it doesn't have RelId yet.
                 if (string.IsNullOrEmpty(xlWorksheet.RelId) || !workbookPart.TryGetPartById(xlWorksheet.RelId, out var part))
                     continue;
 
@@ -139,7 +154,7 @@ public partial class XLWorkbook
         {
             if (!_relIds.TryGetValue(relType, out var set))
             {
-                set = new HashSet<string>();
+                set = [];
                 _relIds.Add(relType, set);
             }
 

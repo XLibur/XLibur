@@ -1,9 +1,9 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 /// <summary>
 /// A description of formatting that should be applied to a <see cref="XLPivotTable"/>.
 /// </summary>
-internal class XLPivotFormat
+internal sealed class XLPivotFormat
 {
     internal XLPivotFormat(XLPivotArea pivotArea)
     {

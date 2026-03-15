@@ -1,14 +1,11 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 
 namespace XLibur.Excel.Drawings;
 
 [DebuggerDisplay("{Address} {Offset}")]
-internal class XLMarker
+internal sealed class XLMarker
 {
     // Using a range to store the location so that it gets added to the range repository
     // and hence will be adjusted when there are insertions / deletions

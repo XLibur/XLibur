@@ -6,40 +6,6 @@ namespace XLibur.Examples.Misc;
 
 public class WorkbookProperties : IXLExample
 {
-    #region Variables
-
-    // Public
-
-    // Private
-
-
-    #endregion
-
-    #region Properties
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Events
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var wb = new XLWorkbook();
@@ -58,17 +24,12 @@ public class WorkbookProperties : IXLExample
 
         // Creating/Using custom properties
         wb.CustomProperties.Add("theText", "XXX");
-        wb.CustomProperties.Add("theDate", new DateTime(2011, 1, 1, 17, 0, 0, DateTimeKind.Utc)); // Use UTC to make sure test can be run in any time zone
+        wb.CustomProperties.Add("theDate",
+            new DateTime(2011, 1, 1, 17, 0, 0,
+                DateTimeKind.Utc)); // Use UTC to make sure test can be run in any time zone
         wb.CustomProperties.Add("theNumber", 123.456);
         wb.CustomProperties.Add("theBoolean", true);
 
         wb.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

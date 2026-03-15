@@ -1,4 +1,3 @@
-using System.IO;
 using System.Reflection;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
@@ -12,7 +11,8 @@ public class ImageFormats : IXLExample
         var wb = new XLWorkbook();
         IXLWorksheet ws;
 
-        using (Stream fs = Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Examples.Resources.ImageHandling.jpg"))
+        using (var fs = Assembly.GetExecutingAssembly()
+                   .GetManifestResourceStream("XLibur.Examples.Resources.ImageHandling.jpg"))
         {
             #region Jpeg
 
@@ -23,7 +23,8 @@ public class ImageFormats : IXLExample
             #endregion Jpeg
         }
 
-        using (Stream fs = Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Examples.Resources.ImageHandling.png"))
+        using (var fs = Assembly.GetExecutingAssembly()
+                   .GetManifestResourceStream("XLibur.Examples.Resources.ImageHandling.png"))
         {
             #region Png
 

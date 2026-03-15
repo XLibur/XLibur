@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.Runtime.CompilerServices;
 
 namespace XLibur.Excel.CalcEngine;

@@ -1,8 +1,6 @@
-#nullable disable
+﻿namespace XLibur.Excel;
 
-namespace XLibur.Excel;
-
-internal class XLDrawingFont : IXLDrawingFont
+internal sealed class XLDrawingFont : IXLDrawingFont
 {
     private readonly IXLDrawingStyle _style;
 

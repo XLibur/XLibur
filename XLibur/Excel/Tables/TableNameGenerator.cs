@@ -2,15 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.Tables;
 
-internal class TableNameGenerator
+internal static class TableNameGenerator
 {
     /// <summary>
-    /// Generate a non conflicting table name for the workbook
+    /// Generate a non-conflicting table name for the workbook
     /// </summary>
     /// <param name="workbook">Workbook to generate name for</param>
-    /// <param name="baseTableName">"Base Table Name</param>
+    /// <param name="baseTableName">Base Table Name</param>
     /// <returns>Name for the table</returns>
     internal static string GetNewTableName(IXLWorkbook workbook, string baseTableName = "Table")
     {

@@ -1,8 +1,6 @@
-#nullable disable
+﻿namespace XLibur.Excel;
 
-namespace XLibur.Excel;
-
-internal class XLTableRow : XLRangeRow, IXLTableRow
+internal sealed class XLTableRow : XLRangeRow, IXLTableRow
 {
     private readonly XLTableRange _tableRange;
 
@@ -40,7 +38,7 @@ internal class XLTableRow : XLRangeRow, IXLTableRow
 
     private XLTableRow RowShift(int rowsToShift)
     {
-        return _tableRange.Row(RowNumber() - _tableRange.FirstRow().RowNumber() + 1 + rowsToShift);
+        return _tableRange.Row(RowNumber() - _tableRange.FirstRow()!.RowNumber() + 1 + rowsToShift);
     }
 
     #region XLTableRow Above

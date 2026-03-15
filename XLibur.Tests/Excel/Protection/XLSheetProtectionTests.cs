@@ -1,12 +1,11 @@
-﻿
-using XLibur.Excel;
-using NUnit.Framework;
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
+using XLibur.Excel;
+using NUnit.Framework;
 using static XLibur.Excel.XLProtectionAlgorithm;
 
-namespace XLibur.Tests.Excel.Worksheets;
+namespace XLibur.Tests.Excel.Protection;
 
 [TestFixture]
 public class XLSheetProtectionTests

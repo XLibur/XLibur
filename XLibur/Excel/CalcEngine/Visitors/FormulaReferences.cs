@@ -9,7 +9,7 @@ namespace XLibur.Excel.CalcEngine.Visitors;
 /// A collection of all references in the book (not others) found in a formula.
 /// Created by <see cref="CollectRefsFactory"/>.
 /// </summary>
-internal class FormulaReferences
+internal sealed class FormulaReferences
 {
     private readonly string _formula;
 
@@ -26,19 +26,20 @@ internal class FormulaReferences
     /// <summary>
     /// Areas without a sheet found in the formula.
     /// </summary>
-    internal HashSet<XLReference> References { get; } = new();
+    internal HashSet<XLReference> References { get; } = [];
 
     /// <summary>
     /// Areas with a sheet found in the formula.
     /// </summary>
-    internal HashSet<XLSheetReference> SheetReferences { get; } = new();
+    internal HashSet<XLSheetReference> SheetReferences { get; } = [];
 
-    internal HashSet<(string Table, string Column, string Symbol)> StructuredReferences { get; } = new();
+    private HashSet<(string Table, string Column, string Symbol)> StructuredReferences { get; } = new();
 
     internal static FormulaReferences ForFormula(string formula)
     {
         var references = new FormulaReferences(formula);
-        FormulaParser<object?, object?, FormulaReferences>.CellFormulaA1(formula, references, CollectRefsFactory.Instance);
+        FormulaParser<object?, object?, FormulaReferences>.CellFormulaA1(formula, references,
+            CollectRefsFactory.Instance);
         return references;
     }
 
@@ -52,7 +53,7 @@ internal class FormulaReferences
         var list = new XLRanges();
         foreach (var reference in SheetReferences)
         {
-            if (workbook.TryGetWorksheet(reference.Sheet, out XLWorksheet sheet))
+            if (workbook.TryGetWorksheet(reference.Sheet, out XLWorksheet? sheet))
             {
                 var rangeAddress = reference.Reference.ToRangeAddress(sheet, anchor);
                 list.Add(sheet.Range(rangeAddress));
@@ -62,7 +63,7 @@ internal class FormulaReferences
         foreach (var (tableName, column, _) in StructuredReferences)
         {
             if (workbook.TryGetTable(tableName, out var table))
-                list.Add(table.DataRange.Column(column));
+                list.Add(table.DataRange!.Column(column));
         }
 
         return list;
@@ -87,18 +88,21 @@ internal class FormulaReferences
             return base.Reference(context, range, reference);
         }
 
-        public override object? SheetReference(FormulaReferences context, SymbolRange range, string sheet, ReferenceArea reference)
+        public override object? SheetReference(FormulaReferences context, SymbolRange range, string sheet,
+            ReferenceArea reference)
         {
             context.SheetReferences.Add(new XLSheetReference(sheet, new XLReference(reference)));
             return base.SheetReference(context, range, sheet, reference);
         }
 
-        public override object? StructureReference(FormulaReferences context, SymbolRange range, string table, StructuredReferenceArea area,
+        public override object? StructureReference(FormulaReferences context, SymbolRange range, string table,
+            StructuredReferenceArea area,
             string? firstColumn, string? lastColumn)
         {
             // TODO: Temporary placeholder, extract range detection from CalculationVisitor
             if (firstColumn is not null)
-                context.StructuredReferences.Add((table, firstColumn, context._formula.Substring(range.Start, range.End - range.Start)));
+                context.StructuredReferences.Add((table, firstColumn,
+                    context._formula.Substring(range.Start, range.End - range.Start)));
 
             return base.StructureReference(context, range, table, area, firstColumn, lastColumn);
         }

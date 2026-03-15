@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using XLibur.Utils;
+﻿using XLibur.Utils;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml;
@@ -12,7 +10,7 @@ using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
 
-internal class PivotTableCacheDefinitionPartWriter
+internal sealed class PivotTableCacheDefinitionPartWriter
 {
     internal static void GenerateContent(
         PivotTableCacheDefinitionPart pivotTableCacheDefinitionPart,
@@ -61,7 +59,7 @@ internal class PivotTableCacheDefinitionPartWriter
         #endregion MinRefreshableVersion
 
         pivotCacheDefinition.SaveData = pivotCache.SaveSourceData;
-        pivotCacheDefinition.RefreshOnLoad = true; //pt.RefreshDataOnOpen
+        pivotCacheDefinition.RefreshOnLoad = pivotCache.RefreshDataOnOpen;
 
         if (pivotCache.ItemsToRetainPerField == XLItemsToRetain.None)
             pivotCacheDefinition.MissingItemsLimit = 0U;
@@ -101,7 +99,7 @@ internal class PivotTableCacheDefinitionPartWriter
                 AutoPage = consolidationSource.AutoPage
             };
 
-            // OpenXML SDK has few bugs here. Use AppendChild to add more children, AddChild keeps only one child. 
+            // OpenXML SDK has few bugs here. Use AppendChild to add more children, AddChild keeps only one child.
             if (consolidationSource.Pages.Count > 0)
             {
                 var pages = new Pages();
@@ -175,6 +173,33 @@ internal class PivotTableCacheDefinitionPartWriter
         for (var fieldIdx = 0; fieldIdx < pivotCache.FieldCount; ++fieldIdx)
         {
             var cacheFieldName = pivotCache.FieldNames[fieldIdx];
+
+            // Calculated fields have a formula and no database records or shared items.
+            if (pivotCache.GetCalculatedFieldFormula(fieldIdx) is { } formula)
+            {
+                var calcField = cacheFields
+                    .Elements<CacheField>()
+                    .FirstOrDefault(f => f.Name == cacheFieldName);
+
+                if (calcField == null)
+                {
+                    calcField = new CacheField
+                    {
+                        Name = cacheFieldName,
+                        Formula = formula,
+                        DatabaseField = false,
+                    };
+                    cacheFields.AppendChild(calcField);
+                }
+                else
+                {
+                    calcField.Formula = formula;
+                    calcField.DatabaseField = false;
+                }
+
+                continue;
+            }
+
             var fieldValues = pivotCache.GetFieldValues(fieldIdx);
             var xlSharedItems = pivotCache.GetFieldSharedItems(fieldIdx)
                 .GetCellValues()
@@ -184,8 +209,7 @@ internal class PivotTableCacheDefinitionPartWriter
             // So if there are any entries, it would be from previous pivot tables
             // with an identical source range.
             // When pivot sources get its refactoring, this will not be necessary
-            var cacheField = pivotCacheDefinition
-                .CacheFields
+            var cacheField = cacheFields
                 .Elements<CacheField>()
                 .FirstOrDefault(f => f.Name == cacheFieldName);
 
@@ -198,6 +222,7 @@ internal class PivotTableCacheDefinitionPartWriter
                 };
                 cacheFields.AppendChild(cacheField);
             }
+            cacheField.SharedItems ??= new SharedItems();
             var sharedItems = cacheField.SharedItems;
 
             var ptfi = new PivotTableFieldInfo

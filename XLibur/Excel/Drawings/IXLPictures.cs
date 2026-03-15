@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.Collections.Generic;
 using System.IO;
 
@@ -29,5 +27,5 @@ public interface IXLPictures : IEnumerable<IXLPicture>
 
     IXLPicture Picture(string pictureName);
 
-    bool TryGetPicture(string pictureName, out IXLPicture picture);
+    bool TryGetPicture(string pictureName, out IXLPicture? picture);
 }

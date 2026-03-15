@@ -1,5 +1,7 @@
 using System;
 using System.Drawing;
+using System.Globalization;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
@@ -30,10 +32,7 @@ public partial class XLColor : IEquatable<XLColor>
 {
     public bool HasValue { get; private set; }
 
-    public XLColorType ColorType
-    {
-        get { return Key.ColorType; }
-    }
+    public XLColorType ColorType => Key.ColorType;
 
     public Color Color
     {
@@ -119,7 +118,7 @@ public partial class XLColor : IEquatable<XLColor>
             return Color.ToHex();
 
         if (ColorType == XLColorType.Theme)
-            return $"Color Theme: {ThemeColor.ToString()}, Tint: {ThemeTint.ToString()}";
+            return $"Color Theme: {ThemeColor.ToString()}, Tint: {ThemeTint.ToString(CultureInfo.InvariantCulture)}";
 
         return "Color Index: " + Indexed;
     }

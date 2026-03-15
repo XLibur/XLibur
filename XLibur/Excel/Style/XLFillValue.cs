@@ -1,4 +1,3 @@
-#nullable disable
 
 using XLibur.Excel.Caching;
 
@@ -6,14 +5,14 @@ namespace XLibur.Excel;
 
 internal sealed class XLFillValue
 {
-    private static readonly XLFillRepository Repository = new XLFillRepository(key => new XLFillValue(key));
+    private static readonly XLFillRepository Repository = new(key => new XLFillValue(key));
 
     public static XLFillValue FromKey(ref XLFillKey key)
     {
         return Repository.GetOrCreate(ref key);
     }
 
-    private static readonly XLFillKey DefaultKey = new XLFillKey
+    private static readonly XLFillKey DefaultKey = new()
     {
         BackgroundColor = XLColor.FromIndex(64).Key,
         PatternType = XLFillPatternValues.None,
@@ -22,13 +21,13 @@ internal sealed class XLFillValue
 
     internal static readonly XLFillValue Default = FromKey(ref DefaultKey);
 
-    public XLFillKey Key { get; private set; }
+    public XLFillKey Key { get; }
 
     public XLColor BackgroundColor { get; private set; }
 
     public XLColor PatternColor { get; private set; }
 
-    public XLFillPatternValues PatternType { get { return Key.PatternType; } }
+    public XLFillPatternValues PatternType => Key.PatternType;
 
     private XLFillValue(XLFillKey key)
     {
@@ -39,7 +38,7 @@ internal sealed class XLFillValue
         PatternColor = XLColor.FromKey(ref patternColorKey);
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         var cached = obj as XLFillValue;
         return cached != null &&

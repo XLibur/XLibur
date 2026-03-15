@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
@@ -9,7 +10,7 @@ namespace XLibur.Excel;
 /// a collection of <see cref="XLConditionalFormat"/>. Doesn't contain pivot table formats,
 /// they are in pivot table <see cref="XLPivotTable.ConditionalFormats"/>,
 /// </summary>
-internal class XLConditionalFormats : IXLConditionalFormats
+internal sealed class XLConditionalFormats : IXLConditionalFormats
 {
     private readonly List<IXLConditionalFormat> _conditionalFormats = [];
 
@@ -73,7 +74,7 @@ internal class XLConditionalFormats : IXLConditionalFormats
                     item.Ranges.Select(r => r.RangeAddress.FirstAddress.RowNumber).Min(),
                     item.Ranges.Select(r => r.RangeAddress.FirstAddress.ColumnNumber).Min(),
                     false, false);
-                var baseCell = firstRange.Worksheet.Cell(baseAddress) as XLCell;
+                var baseCell = (XLCell)firstRange.Worksheet.Cell(baseAddress);
 
                 int i = 1;
                 bool stop;
@@ -114,7 +115,7 @@ internal class XLConditionalFormats : IXLConditionalFormats
                 item.Ranges.RemoveAll();
                 consRanges.ForEach(r => item.Ranges.Add(r));
 
-                var targetCell = item.Ranges.First().FirstCell() as XLCell;
+                var targetCell = (XLCell)item.Ranges.First().FirstCell();
                 ((XLConditionalFormat)item).AdjustFormulas(baseCell, targetCell);
 
                 similarFormats.ForEach(cf => formats.Remove(cf));

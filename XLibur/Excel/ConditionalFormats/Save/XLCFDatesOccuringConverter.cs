@@ -1,9 +1,9 @@
-using DocumentFormat.OpenXml.Spreadsheet;
+﻿using DocumentFormat.OpenXml.Spreadsheet;
 using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
-internal class XLCFDatesOccurringConverter : IXLCFConverter
+internal sealed class XLCFDatesOccurringConverter : IXLCFConverter
 {
     private static readonly IDictionary<XLTimePeriod, string> formulaTemplates = new Dictionary<XLTimePeriod, string>()
     {

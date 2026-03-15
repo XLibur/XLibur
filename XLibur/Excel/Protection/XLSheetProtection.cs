@@ -1,12 +1,9 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 using static XLibur.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Excel;
 
-internal class XLSheetProtection : IXLSheetProtection
+internal sealed class XLSheetProtection : IXLSheetProtection
 {
     public XLSheetProtection(Algorithm algorithm)
     {
@@ -20,8 +17,8 @@ internal class XLSheetProtection : IXLSheetProtection
     public bool IsPasswordProtected => IsProtected && !string.IsNullOrEmpty(PasswordHash);
     public bool IsProtected { get; internal set; }
 
-    internal string Base64EncodedSalt { get; set; }
-    internal string PasswordHash { get; set; }
+    internal string Base64EncodedSalt { get; set; } = string.Empty;
+    internal string PasswordHash { get; set; } = string.Empty;
     internal uint SpinCount { get; set; } = 100000;
 
     public IXLSheetProtection AllowElement(XLSheetProtectionElements element, bool allowed = true)

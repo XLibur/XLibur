@@ -1,15 +1,17 @@
-using System;
+﻿using System;
 using System.Linq;
+using XLibur.Excel.RichText;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal class XLRichText : XLFormattedText<IXLRichText>, IXLRichText
+internal sealed class XLRichText : XLFormattedText<IXLRichText>, IXLRichText
 {
     // Should be set as the last thing in ctor to prevent firing changes to immutable rich text during ctor
     private readonly XLCell? _cell;
 
     /// <summary>
-    /// Copy ctor to return user modifiable rich text from immutable rich text stored
+    /// Copy ctor to return user-modifiable rich text from immutable rich text stored
     /// in the shared string table.
     /// </summary>
     public XLRichText(XLCell cell, XLImmutableRichText original)

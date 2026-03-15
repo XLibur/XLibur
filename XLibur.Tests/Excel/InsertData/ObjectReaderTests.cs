@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel;
+using XLibur.Tests.Excel.Tables;
 
 namespace XLibur.Tests.Excel.InsertData;
 

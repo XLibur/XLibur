@@ -8,6 +8,7 @@ namespace XLibur.Tests.Excel.PivotTables.Create;
 /// Expected: Make sure Excel can read the stuff we wrote.
 /// </summary>
 [TestFixture]
+// ReSharper disable once InconsistentNaming
 internal class XLPivotTableAddFieldsTests
 {
     [Test]

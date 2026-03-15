@@ -1,18 +1,23 @@
-#nullable disable
-
+using System.Diagnostics.CodeAnalysis;
 
 namespace XLibur.Excel;
 
-internal class XLOutline : IXLOutline
+internal sealed class XLOutline : IXLOutline
 {
+    [SetsRequiredMembers]
+    public XLOutline()
+    {
+        SummaryVLocation = XLOutlineSummaryVLocation.Top;
+        SummaryHLocation = XLOutlineSummaryHLocation.Left;
+    }
+    [SetsRequiredMembers]
     public XLOutline(IXLOutline outline)
     {
-        if (outline != null)
-        {
-            SummaryHLocation = outline.SummaryHLocation;
-            SummaryVLocation = outline.SummaryVLocation;
-        }
+        SummaryHLocation = outline.SummaryHLocation;
+        SummaryVLocation = outline.SummaryVLocation;
     }
-    public XLOutlineSummaryVLocation SummaryVLocation { get; set; }
-    public XLOutlineSummaryHLocation SummaryHLocation { get; set; }
+
+    public required XLOutlineSummaryVLocation SummaryVLocation { get; set; }
+
+    public required XLOutlineSummaryHLocation SummaryHLocation { get; set; }
 }

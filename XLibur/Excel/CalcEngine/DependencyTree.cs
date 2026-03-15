@@ -27,7 +27,7 @@ namespace XLibur.Excel.CalcEngine;
 /// the formula dependencies must be updated.
 /// </para>
 /// </summary>
-internal class DependencyTree
+internal sealed class DependencyTree
 {
     /// <summary>
     /// The source of the truth, a storage of formula dependencies. The dependency tree is

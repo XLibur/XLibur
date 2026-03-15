@@ -1,6 +1,4 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,7 +8,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// Engine for ranges consolidation. Supports IXLRanges including ranges from either one or multiple worksheets.
 /// </summary>
-internal class XLRangeConsolidationEngine
+internal sealed class XLRangeConsolidationEngine
 {
     #region Public Constructors
 
@@ -114,7 +112,7 @@ internal class XLRangeConsolidationEngine
         #region Private Fields
 
         private readonly IXLWorksheet _worksheet;
-        private Dictionary<int, BitArray> _bitMatrix;
+        private Dictionary<int, BitArray> _bitMatrix = null!;
         private int _maxColumn;
         private int _minColumn = XLHelper.MaxColumnNumber + 1;
 
@@ -184,10 +182,10 @@ internal class XLRangeConsolidationEngine
                     ? _maxColumn
                     : address.LastAddress.ColumnNumber;
 
-                _bitMatrix.TryAdd(address.FirstAddress.RowNumber, null);
-                _bitMatrix.TryAdd(address.LastAddress.RowNumber, null);
+                _bitMatrix.TryAdd(address.FirstAddress.RowNumber, null!);
+                _bitMatrix.TryAdd(address.LastAddress.RowNumber, null!);
                 if (!_bitMatrix.ContainsKey(address.LastAddress.RowNumber + 1))
-                    _bitMatrix.Add(address.LastAddress.RowNumber + 1, null);
+                    _bitMatrix.Add(address.LastAddress.RowNumber + 1, null!);
             }
 
             var keys = _bitMatrix.Keys.ToList();

@@ -9,7 +9,7 @@ namespace XLibur.Excel.CalcEngine.Functions;
 /// all selection areas and associated criteria. The main <see cref="Tally{T}"/> function is then
 /// called with values that will be tallied, based on the areas+criteria in the tally object.
 /// </summary>
-internal class TallyCriteria : ITally
+internal sealed class TallyCriteria : ITally
 {
     /// <summary>
     /// A collection of areas that are tested and if all satisfy the criteria, corresponding values

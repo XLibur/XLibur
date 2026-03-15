@@ -1,13 +1,14 @@
-using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using NUnit.Framework;
+using XLibur.Excel;
+using XLibur.Extensions;
 
-namespace XLibur.Tests;
+namespace XLibur.Tests.Excel.AutoFilters;
 
 [TestFixture]
 public class AutoFilterTests
@@ -22,7 +23,7 @@ public class AutoFilterTests
             .CellBelow().SetValue("1")
             .CellBelow().SetValue("2");
 
-        var table = ws.RangeUsed().CreateTable();
+        var table = ws.RangeUsed()!.CreateTable();
 
         var listOfArr = new List<int>
         {
@@ -32,7 +33,7 @@ public class AutoFilterTests
             6
         };
 
-        table.DataRange.InsertRowsBelow(listOfArr.Count - table.DataRange.RowCount());
+        table.DataRange!.InsertRowsBelow(listOfArr.Count - table.DataRange.RowCount());
         table.DataRange.FirstCell().InsertData(listOfArr);
 
         Assert.AreEqual("A1:A5", table.AutoFilter.Range.RangeAddress.ToStringRelative());
@@ -49,7 +50,7 @@ public class AutoFilterTests
             .CellBelow().SetValue("Manuel")
             .CellBelow().SetValue("Carlos")
             .CellBelow().SetValue("Dominic");
-        ws.RangeUsed().SetAutoFilter().Sort();
+        ws.RangeUsed()!.SetAutoFilter().Sort();
         Assert.AreEqual("Carlos", ws.Cell(4, 3).GetText());
     }
 
@@ -66,7 +67,7 @@ public class AutoFilterTests
         ws.AutoFilter.Clear(); // We should be able to clear a filter even if it hasn't been set.
         Assert.That(!ws.AutoFilter.IsEnabled);
 
-        ws.RangeUsed().SetAutoFilter();
+        ws.RangeUsed()!.SetAutoFilter();
         Assert.That(ws.AutoFilter.IsEnabled);
 
         ws.AutoFilter.Clear();
@@ -86,10 +87,10 @@ public class AutoFilterTests
         ws.SetAutoFilter(false);
         Assert.That(!ws.AutoFilter.IsEnabled);
 
-        ws.RangeUsed().SetAutoFilter();
+        ws.RangeUsed()!.SetAutoFilter();
         Assert.That(ws.AutoFilter.IsEnabled);
 
-        ws.RangeUsed().SetAutoFilter(false);
+        ws.RangeUsed()!.SetAutoFilter(false);
         Assert.That(!ws.AutoFilter.IsEnabled);
     }
 
@@ -107,7 +108,7 @@ public class AutoFilterTests
             ws.Cell("A3").Value = "Hank";
             ws.Cell("A4").Value = "Dagny";
 
-            ws.RangeUsed().SetAutoFilter();
+            ws.RangeUsed()!.SetAutoFilter();
 
             wb1.SaveAs(ms1);
 
@@ -135,7 +136,7 @@ public class AutoFilterTests
         var ws = wb.AddWorksheet();
         ws.FirstCell().InsertTable(data);
 
-        Assert.Throws<InvalidOperationException>(() => ws.RangeUsed().SetAutoFilter());
+        Assert.Throws<InvalidOperationException>(() => ws.RangeUsed()!.SetAutoFilter());
     }
 
     [Test]
@@ -176,8 +177,7 @@ public class AutoFilterTests
             .CellBelow().SetValue("Carlos")
             .CellBelow().SetValue("Dominic");
 
-        var autoFilter = ws.RangeUsed()
-            .SetAutoFilter();
+        var autoFilter = ws.RangeUsed()!.SetAutoFilter();
 
         autoFilter.Column(1).AddFilter("Carlos");
 
@@ -199,7 +199,7 @@ public class AutoFilterTests
             .CellBelow().SetValue("Dominic")
             .CellBelow().SetValue("Jose");
 
-        var autoFilter = ws.RangeUsed()
+        var autoFilter = ws.RangeUsed()!
             .SetAutoFilter();
 
         autoFilter.Column(1).AddFilter("Carlos");
@@ -221,10 +221,10 @@ public class AutoFilterTests
 
         try
         {
-            // Set thread culture to French, which should format numbers using a space as thousands separator
+            // Set thread culture to French, which should format numbers using a space as thousand's separator
             var culture = CultureInfo.CreateSpecificCulture("fr-FR");
 
-            // The value in sheet that will be compared with autofilter value is a number
+            // The value in the sheet that will be compared with autofilter value is a number
             // `10000`. That number will be formatted using culture to `10 000.00` thanks to
             // modified properties of culture - period instead of a comma for decimal separator
             // and space as group separator. The formatted number will thus match with the
@@ -234,7 +234,9 @@ public class AutoFilterTests
 
             Thread.CurrentThread.CurrentCulture = culture;
 
-            using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\AutoFilter\AutoFilterWithThousandsSeparator.xlsx")))
+            using (var stream =
+                   TestHelper.GetStreamFromResource(
+                       TestHelper.GetResourcePath(@"Other\AutoFilter\AutoFilterWithThousandsSeparator.xlsx")))
             using (var wb = new XLWorkbook(stream))
             {
                 var ws = wb.Worksheets.First();
@@ -250,13 +252,15 @@ public class AutoFilterTests
 
             Thread.CurrentThread.CurrentCulture = CultureInfo.CreateSpecificCulture("en-US");
 
-            using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\AutoFilter\AutoFilterWithThousandsSeparator.xlsx")))
+            using (var stream =
+                   TestHelper.GetStreamFromResource(
+                       TestHelper.GetResourcePath(@"Other\AutoFilter\AutoFilterWithThousandsSeparator.xlsx")))
             using (var wb = new XLWorkbook(stream))
             {
                 var ws = wb.Worksheets.First();
                 Assert.AreEqual("10 000.00", ((XLAutoFilter)ws.AutoFilter).Column(1).Single().Value);
 
-                var v = ws.AutoFilter.VisibleRows.Select(r => r.FirstCell().Value).ToList();
+                var unused = ws.AutoFilter.VisibleRows.Select(r => r.FirstCell().Value).ToList();
                 Assert.AreEqual(2, ws.AutoFilter.VisibleRows.Count());
 
                 ws.AutoFilter.Reapply();
@@ -283,7 +287,7 @@ public class AutoFilterTests
                 ws.Cell(i + 2, 1).SetValue($"String{i}");
             }
 
-            var autoFilter = ws.RangeUsed()
+            var autoFilter = ws.RangeUsed()!
                 .SetAutoFilter();
 
             autoFilter.Column(1).NotContains("String3");
@@ -322,7 +326,7 @@ public class AutoFilterTests
             }
 
             ws.Columns().AdjustToContents();
-            var autoFilter = ws.RangeUsed()
+            var autoFilter = ws.RangeUsed()!
                 .SetAutoFilter();
 
             switch (type)
@@ -340,6 +344,7 @@ public class AutoFilterTests
                     autoFilter.Column(1).NotContains("3-");
                     break;
             }
+
             Assert.AreEqual(1, autoFilter.HiddenRows.Count());
 
             wb.SaveAs(ms);
@@ -354,5 +359,123 @@ public class AutoFilterTests
             autoFilter.Reapply();
             Assert.AreEqual(1, autoFilter.HiddenRows.Count());
         }
+    }
+
+    [Test]
+    public void AutoFilterReapplyShouldNotThrowNullReferenceError()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.Worksheets.Add("Test");
+
+        Assert.DoesNotThrow(() => { sheet.AutoFilter.Reapply(); });
+    }
+
+    [Test]
+    public void ReapplyExpandsRangeToIncludeNewDataRows()
+    {
+        // Bug #2812: When new rows are added below the autofilter range and
+        // Reapply() is called, the range should expand to include the new data
+        // and the filter should be applied to those rows too.
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+
+        ws.Cell("A1").SetValue("Number");
+        ws.Cell("B1").SetValue("Name");
+        ws.Cell("A2").SetValue(34);
+        ws.Cell("B2").SetValue("Alice");
+        ws.Cell("A3").SetValue(50);
+        ws.Cell("B3").SetValue("Bob");
+
+        // Set autofilter on A1:B3 and filter to show only value 34
+        var autoFilter = ws.Range("A1:B3").SetAutoFilter();
+        autoFilter.Column(1).AddFilter("34");
+
+        // Verify initial state: only row with 34 visible (+ header)
+        Assert.AreEqual(1, autoFilter.HiddenRows.Count());
+        Assert.AreEqual("A1:B3", autoFilter.Range.RangeAddress.ToStringRelative());
+
+        // Add a new row beyond the filter range
+        ws.Cell("A4").SetValue(35);
+        ws.Cell("B4").SetValue("Charlie");
+
+        // Reapply should expand range and hide the new row (35 != 34)
+        autoFilter.Reapply();
+
+        Assert.AreEqual("A1:B4", autoFilter.Range.RangeAddress.ToStringRelative());
+        Assert.AreEqual(2, autoFilter.HiddenRows.Count());
+        // Visible = header row + the row matching filter "34"
+        Assert.AreEqual(2, autoFilter.VisibleRows.Count());
+    }
+
+    [Test]
+    public void ReapplyDoesNotExpandRangeAcrossGap()
+    {
+        // Range should only expand to contiguous data, not jump over empty rows.
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+
+        ws.Cell("A1").SetValue("Number");
+        ws.Cell("A2").SetValue(34);
+        ws.Cell("A3").SetValue(50);
+
+        var autoFilter = ws.Range("A1:A3").SetAutoFilter();
+        autoFilter.Column(1).AddFilter("34");
+
+        // Add data with a gap (row 4 empty, row 5 has data)
+        ws.Cell("A5").SetValue(99);
+
+        autoFilter.Reapply();
+
+        // Range should NOT expand past the empty row
+        Assert.AreEqual("A1:A3", autoFilter.Range.RangeAddress.ToStringRelative());
+    }
+
+    [Test]
+    public void ReapplyExpandsRangeAndFiltersFromLoadedFile()
+    {
+        // Test with the actual bug report file
+        using var stream = TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"Other\AutoFilter\autofilter_bug_2812.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+
+        var originalRange = ws.AutoFilter.Range.RangeAddress.ToStringRelative();
+
+        // Add a new row of data below the filter range
+        var lastRow = ws.AutoFilter.Range.RangeAddress.LastAddress.RowNumber;
+        var newRow = lastRow + 1;
+        ws.Cell(newRow, 1).SetValue(35);
+        ws.Cell(newRow, 2).SetValue("test");
+        ws.Cell(newRow, 3).SetValue("test2");
+
+        ws.AutoFilter.Reapply();
+
+        // Range should have expanded
+        var newRange = ws.AutoFilter.Range.RangeAddress.ToStringRelative();
+        Assert.AreNotEqual(originalRange, newRange);
+
+        // The last row of the range should now include the new data
+        Assert.AreEqual(newRow, ws.AutoFilter.Range.RangeAddress.LastAddress.RowNumber);
+    }
+
+    [Test]
+    public void SaveAutoFilterWithClearedColumnDoesNotThrow()
+    {
+        // When a filter column is added and then cleared, it remains in the
+        // internal dictionary with FilterType.None. Saving should skip it
+        // rather than throwing NotSupportedException.
+        using var ms = new MemoryStream();
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Test");
+
+        ws.Cell("A1").SetValue("Header");
+        ws.Cell("A2").SetValue("Value1");
+        ws.Cell("A3").SetValue("Value2");
+
+        var autoFilter = ws.RangeUsed()!.SetAutoFilter();
+        autoFilter.Column(1).AddFilter("Value1");
+        autoFilter.Column(1).Clear();
+
+        Assert.DoesNotThrow(() => wb.SaveAs(ms));
     }
 }

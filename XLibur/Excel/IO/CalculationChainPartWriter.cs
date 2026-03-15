@@ -1,20 +1,18 @@
-﻿#nullable disable
-
-using DocumentFormat.OpenXml.Packaging;
+﻿using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System.Linq;
 using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
 
-internal class CalculationChainPartWriter
+internal sealed class CalculationChainPartWriter
 {
     internal static void GenerateContent(WorkbookPart workbookPart, XLWorkbook workbook, SaveContext context)
     {
         if (workbookPart.CalculationChainPart == null)
             workbookPart.AddNewPart<CalculationChainPart>(context.RelIdGenerator.GetNext(RelType.Workbook));
 
-        workbookPart.CalculationChainPart.CalculationChain ??= new CalculationChain();
+        workbookPart.CalculationChainPart!.CalculationChain ??= new CalculationChain();
 
         var calculationChain = workbookPart.CalculationChainPart.CalculationChain;
         calculationChain.RemoveAllChildren<CalculationCell>();
@@ -23,7 +21,7 @@ internal class CalculationChainPartWriter
         {
             foreach (var c in worksheet.Internals.CellsCollection.GetCells().Where(c => c.HasFormula))
             {
-                if (c.Formula.Type == FormulaType.DataTable)
+                if (c.Formula!.Type == FormulaType.DataTable)
                 {
                     // Do nothing, Excel doesn't generate calc chain for data table
                 }

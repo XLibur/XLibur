@@ -1,6 +1,4 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
 using XLibur.Excel.Drawings;
@@ -15,7 +13,7 @@ namespace XLibur.Graphics;
 /// https://www.fileformat.info/format/bmp/egff.htm
 /// https://www.fileformat.info/format/os2bmp/egff.htm
 /// </summary>
-internal class BmpInfoReader : ImageInfoReader
+internal sealed class BmpInfoReader : ImageInfoReader
 {
     protected override bool CheckHeader(Stream stream)
     {
@@ -32,12 +30,10 @@ internal class BmpInfoReader : ImageInfoReader
         stream.Position += 14;
         var infoHeaderSize = stream.ReadS32LE();
         // BMP Version 1.x, used by IBM OS/2 1.x and Win 2.0 and later
-        if (infoHeaderSize == 12)
-            return ReadBmpV1X(stream);
-
-        // BMP Version 2.x used by IBM OS/2 has a different overall structure, but width/height and resolution have same offsets as V3.x
-        // BMP Version 3.x has dimension and resolution at same offsets and V4.x+ only add fields
-        return ReadBmpV2X(stream);
+        return infoHeaderSize == 12 ? ReadBmpV1X(stream) :
+            // BMP Version 2.x used by IBM OS/2 has a different overall structure, but width/height and resolution have same offsets as V3.x
+            // BMP Version 3.x has dimension and resolution at same offsets and V4.x+ only add fields
+            ReadBmpV2X(stream);
     }
 
     private static XLPictureInfo ReadBmpV1X(Stream stream)

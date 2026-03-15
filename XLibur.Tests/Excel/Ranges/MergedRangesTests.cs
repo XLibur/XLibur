@@ -1,8 +1,9 @@
+using System.Linq;
 using XLibur.Excel;
 using NUnit.Framework;
-using System.Linq;
+using XLibur.Extensions;
 
-namespace XLibur.Tests;
+namespace XLibur.Tests.Excel.Ranges;
 
 [TestFixture]
 public class MergedRangesTests
@@ -11,11 +12,11 @@ public class MergedRangesTests
     public void LastCellFromMerge()
     {
         var wb = new XLWorkbook();
-        IXLWorksheet ws = wb.Worksheets.Add("Sheet");
+        var ws = wb.Worksheets.Add("Sheet");
         ws.Range("B2:D4").Merge();
 
-        string first = ws.FirstCellUsed(XLCellsUsedOptions.All).Address.ToStringRelative();
-        string last = ws.LastCellUsed(XLCellsUsedOptions.All).Address.ToStringRelative();
+        var first = ws.FirstCellUsed(XLCellsUsedOptions.All).Address.ToStringRelative();
+        var last = ws.LastCellUsed(XLCellsUsedOptions.All).Address.ToStringRelative();
 
         Assert.AreEqual("B2", first);
         Assert.AreEqual("D4", last);
@@ -204,7 +205,7 @@ public class MergedRangesTests
     [Test]
     public void MergedCellsAcquireFirstCellStyle()
     {
-        using XLWorkbook wb = new XLWorkbook();
+        using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.Cell("A1").Style.Fill.BackgroundColor = XLColor.Red;
         ws.Cell("A2").Style.Fill.BackgroundColor = XLColor.Yellow;
@@ -219,7 +220,7 @@ public class MergedRangesTests
     [Test]
     public void MergedCellsLooseData()
     {
-        using XLWorkbook wb = new XLWorkbook();
+        using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.Range("A1:A3").SetValue(100);
         ws.Range("A1:A3").Merge();
@@ -232,7 +233,7 @@ public class MergedRangesTests
     [Test]
     public void MergedCellsLooseConditionalFormats()
     {
-        using XLWorkbook wb = new XLWorkbook();
+        using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.Cell("A1").AddConditionalFormat().WhenContains("1").Fill.BackgroundColor = XLColor.Red;
         ws.Cell("A2").AddConditionalFormat().WhenContains("2").Fill.BackgroundColor = XLColor.Yellow;
@@ -246,7 +247,7 @@ public class MergedRangesTests
     [Test]
     public void MergedCellsLooseDataValidation()
     {
-        using XLWorkbook wb = new XLWorkbook();
+        using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.Cell("A1").CreateDataValidation().WholeNumber.Between(1, 2);
         ws.Cell("A2").CreateDataValidation().Date.GreaterThan(new System.DateTime(2018, 1, 1));
@@ -262,7 +263,7 @@ public class MergedRangesTests
     [Test]
     public void UnmergedCellsPreserveStyle()
     {
-        using XLWorkbook wb = new XLWorkbook();
+        using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         var range = ws.Range("B2:D4");
         range.Style.Fill.SetBackgroundColor(XLColor.Yellow);
@@ -399,6 +400,23 @@ public class MergedRangesTests
             ws.Cell("B1").SetFormulaR1C1("SUM(A:A)");
             Assert.AreEqual(1, ws.Cell("B1").Value);
         }
+    }
+
+    [Test]
+    public void FormulaReference_setter_silently_ignores_inferior_merged_cell()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Range("A1:A3").Merge();
+
+        // Setting formula on superior cell works
+        ws.Cell("A1").FormulaA1 = "=1+2";
+        ws.Cell("A1").FormulaReference = ws.Range("A1:A3").RangeAddress;
+
+        // Setting FormulaReference on an inferior merged cell without a formula
+        // should not throw (consistent with FormulaA1 setter behavior)
+        Assert.DoesNotThrow(() => ws.Cell("A2").FormulaReference = ws.Range("A1:A3").RangeAddress);
+        Assert.DoesNotThrow(() => ws.Cell("A3").FormulaReference = ws.Range("A1:A3").RangeAddress);
     }
 
     [Test]

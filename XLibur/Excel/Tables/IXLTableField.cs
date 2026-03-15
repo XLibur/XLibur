@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace XLibur.Excel;
 
 public enum XLTotalsRowFunction
@@ -37,13 +35,13 @@ public interface IXLTableField
     IXLCells DataCells { get; }
 
     /// <summary>
-    /// Gets the footer cell for the table field. 
+    /// Gets the footer cell for the table field.
     /// </summary>
     /// <value>
     /// The footer cell. <c>null</c>, if the table
     /// doesn't have set <see cref="IXLTable.ShowTotalsRow"/>.
     /// </value>
-    IXLCell TotalsCell { get; }
+    IXLCell? TotalsCell { get; }
 
     /// <summary>
     /// Gets the header cell for the table field.
@@ -52,7 +50,7 @@ public interface IXLTableField
     /// The header cell.<c>null</c>, if the table
     /// doesn't have set <see cref="IXLTable.ShowHeaderRow"/>.
     /// </value>
-    IXLCell HeaderCell { get; }
+    IXLCell? HeaderCell { get; }
 
     /// <summary>
     /// Gets the index of the column (0-based).
@@ -93,21 +91,21 @@ public interface IXLTableField
     string TotalsRowFormulaR1C1 { get; set; }
 
     /// <summary>
-    /// Gets or sets the totals row function.
+    /// Gets or sets the total row function.
     /// </summary>
     /// <value>
-    /// The totals row function.
+    /// The total row function.
     /// </value>
     XLTotalsRowFunction TotalsRowFunction { get; set; }
 
     /// <summary>
-    /// Gets or sets the totals row label (the leftmost cell in the totals row).
+    /// Gets or sets the total row label (the leftmost cell in the totals row).
     /// </summary>
     /// <value>
-    /// The totals row label.
+    /// The total row label.
     /// </value>
-    /// <exception>If the totals row is not displayed for the table.</exception>
-    string TotalsRowLabel { get; set; }
+    /// <exception>If the total row is not displayed for the table.</exception>
+    string? TotalsRowLabel { get; set; }
 
     /// <summary>
     /// Deletes this table field from the table.
@@ -115,17 +113,17 @@ public interface IXLTableField
     void Delete();
 
     /// <summary>
-    /// Determines whether all cells this table field have a consistent data type.
+    /// Determines whether all cells in this table field have a consistent data type.
     /// </summary>
     bool IsConsistentDataType();
 
     /// <summary>
-    /// Determines whether all cells this table field have a consistent formula.
+    /// Determines whether all cells in this table field have a consistent formula.
     /// </summary>
     bool IsConsistentFormula();
 
     /// <summary>
-    /// Determines whether all cells this table field have a consistent style.
+    /// Determines whether all cells in this table field have a consistent style.
     /// </summary>
     bool IsConsistentStyle();
 }

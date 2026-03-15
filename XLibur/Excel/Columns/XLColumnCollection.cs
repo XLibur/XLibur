@@ -1,12 +1,12 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal class XLColumnsCollection : IDictionary<int, XLColumn>
+internal sealed class XLColumnsCollection : IDictionary<int, XLColumn>
 {
     private readonly Dictionary<int, XLColumn> _dictionary = new();
 
@@ -16,7 +16,7 @@ internal class XLColumnsCollection : IDictionary<int, XLColumn>
         {
             var columnToMove = _dictionary[co];
             _dictionary.Remove(co);
-            int newColumnNum = co + columnsToShift;
+            var newColumnNum = co + columnsToShift;
             if (newColumnNum <= XLHelper.MaxColumnNumber)
             {
                 columnToMove.SetColumnNumber(newColumnNum);
@@ -39,7 +39,7 @@ internal class XLColumnsCollection : IDictionary<int, XLColumn>
         return _dictionary.Remove(key);
     }
 
-    public bool TryGetValue(int key, out XLColumn value)
+    public bool TryGetValue(int key, [MaybeNullWhen(false)] out XLColumn value)
     {
         return _dictionary.TryGetValue(key, out value);
     }

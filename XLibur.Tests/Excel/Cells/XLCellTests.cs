@@ -1,5 +1,3 @@
-using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -8,10 +6,13 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using XLibur.Excel;
+using NUnit.Framework;
 
-namespace XLibur.Tests;
+namespace XLibur.Tests.Excel.Cells;
 
 [TestFixture]
+// ReSharper disable once InconsistentNaming
 public class XLCellTests
 {
     [SuppressMessage("ReSharper", "RedundantCast")]
@@ -166,8 +167,8 @@ public class XLCellTests
         ws.FirstCell().InsertData(table);
 
         Assert.AreEqual(25, ws.Cell("A1").Value);
-        Assert.AreEqual("", ws.Cell("C4").Value);
-        Assert.AreEqual("", ws.Cell("D5").Value);
+        Assert.IsTrue(ws.Cell("C4").Value.IsBlank);
+        Assert.IsTrue(ws.Cell("D5").Value.IsBlank);
     }
 
     [Test]
@@ -601,6 +602,21 @@ public class XLCellTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() => ws.FirstCell().Value = new String('A', 32768));
         Assert.Throws<ArgumentOutOfRangeException>(() => ws.FirstCell().SetValue(new String('A', 32768)));
+    }
+
+    [Test]
+    public void Load_InlineString_entities_decoded_text_is_at_limit()
+    {
+        // Inline string XML contains &#xA; entities making raw XML > 32767 chars,
+        // but decoded text is exactly 32767 characters. Should load without error.
+        // FixNewLines() on Windows converts \n to \r\n, making .Length larger,
+        // but the Excel-visible length (not counting \r) must be 32767.
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\InlineStringEntitiesAtLimit.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+        var text = ws.Cell(1, 1).Value.GetText();
+        var excelLength = text.Length - text.AsSpan().Count('\r');
+        Assert.That(excelLength, Is.EqualTo(32767));
     }
 
     [Test]

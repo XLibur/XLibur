@@ -1,19 +1,17 @@
-#nullable disable
-
 using XLibur.Excel.Caching;
 
 namespace XLibur.Excel;
 
 internal sealed class XLProtectionValue
 {
-    private static readonly XLProtectionRepository Repository = new XLProtectionRepository(key => new XLProtectionValue(key));
+    private static readonly XLProtectionRepository Repository = new(key => new XLProtectionValue(key));
 
     public static XLProtectionValue FromKey(ref XLProtectionKey key)
     {
         return Repository.GetOrCreate(ref key);
     }
 
-    private static readonly XLProtectionKey DefaultKey = new XLProtectionKey
+    private static readonly XLProtectionKey DefaultKey = new()
     {
         Locked = true,
         Hidden = false
@@ -21,18 +19,18 @@ internal sealed class XLProtectionValue
 
     internal static readonly XLProtectionValue Default = FromKey(ref DefaultKey);
 
-    public XLProtectionKey Key { get; private set; }
+    public XLProtectionKey Key { get; }
 
-    public bool Locked { get { return Key.Locked; } }
+    public bool Locked => Key.Locked;
 
-    public bool Hidden { get { return Key.Hidden; } }
+    public bool Hidden => Key.Hidden;
 
     private XLProtectionValue(XLProtectionKey key)
     {
         Key = key;
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         var cached = obj as XLProtectionValue;
         return cached != null &&

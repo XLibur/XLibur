@@ -1,10 +1,8 @@
-#nullable disable
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
-internal class XLSortElements : IXLSortElements
+internal sealed class XLSortElements : IXLSortElements
 {
     List<IXLSortElement> elements = new List<IXLSortElement>();
     public void Add(int elementNumber)

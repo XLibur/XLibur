@@ -238,4 +238,135 @@ internal class XLPivotTableAxisTests
     #endregion
 
     #endregion
+
+    #region SetSubtotal
+
+    [Test]
+    public void SetSubtotal_adds_subtotal_when_enabled()
+    {
+        using var wb = new XLWorkbook();
+        var data = wb.AddWorksheet();
+        var range = data.Cell("A1").InsertData(new object[]
+        {
+            ("ID", "Count"),
+            (1, 10),
+        });
+        var ptSheet = wb.AddWorksheet();
+        var pt = ptSheet.PivotTables.Add("pt", ptSheet.Cell("A1"), range);
+        var field = pt.RowLabels.Add("ID");
+
+        field.SetSubtotal(XLSubtotalFunction.Sum, true);
+
+        Assert.That(field.Subtotals, Does.Contain(XLSubtotalFunction.Sum));
+    }
+
+    [Test]
+    public void SetSubtotal_removes_subtotal_when_disabled()
+    {
+        using var wb = new XLWorkbook();
+        var data = wb.AddWorksheet();
+        var range = data.Cell("A1").InsertData(new object[]
+        {
+            ("ID", "Count"),
+            (1, 10),
+        });
+        var ptSheet = wb.AddWorksheet();
+        var pt = ptSheet.PivotTables.Add("pt", ptSheet.Cell("A1"), range);
+        var field = pt.RowLabels.Add("ID")
+            .AddSubtotal(XLSubtotalFunction.Sum)
+            .AddSubtotal(XLSubtotalFunction.Average);
+
+        field.SetSubtotal(XLSubtotalFunction.Sum, false);
+
+        Assert.That(field.Subtotals, Does.Not.Contain(XLSubtotalFunction.Sum));
+        Assert.That(field.Subtotals, Does.Contain(XLSubtotalFunction.Average));
+    }
+
+    [Test]
+    public void SetSubtotal_can_remove_automatic_to_clear_subtotals()
+    {
+        using var wb = new XLWorkbook();
+        var data = wb.AddWorksheet();
+        var range = data.Cell("A1").InsertData(new object[]
+        {
+            ("ID", "Count"),
+            (1, 10),
+        });
+        var ptSheet = wb.AddWorksheet();
+        var pt = ptSheet.PivotTables.Add("pt", ptSheet.Cell("A1"), range);
+        var field = pt.RowLabels.Add("ID");
+
+        // By default, new field has Automatic subtotal
+        Assert.That(field.Subtotals, Does.Contain(XLSubtotalFunction.Automatic));
+
+        field.SetSubtotal(XLSubtotalFunction.Automatic, false);
+
+        Assert.That(field.Subtotals, Is.Empty);
+    }
+
+    [Test]
+    public void SetSubtotal_does_not_add_duplicate()
+    {
+        using var wb = new XLWorkbook();
+        var data = wb.AddWorksheet();
+        var range = data.Cell("A1").InsertData(new object[]
+        {
+            ("ID", "Count"),
+            (1, 10),
+        });
+        var ptSheet = wb.AddWorksheet();
+        var pt = ptSheet.PivotTables.Add("pt", ptSheet.Cell("A1"), range);
+        var field = pt.RowLabels.Add("ID")
+            .SetSubtotal(XLSubtotalFunction.Sum, true)
+            .SetSubtotal(XLSubtotalFunction.Sum, true);
+
+        Assert.That(field.Subtotals.Count(s => s == XLSubtotalFunction.Sum), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Subtotals_exposes_automatic_when_present()
+    {
+        using var wb = new XLWorkbook();
+        var data = wb.AddWorksheet();
+        var range = data.Cell("A1").InsertData(new object[]
+        {
+            ("ID", "Count"),
+            (1, 10),
+        });
+        var ptSheet = wb.AddWorksheet();
+        var pt = ptSheet.PivotTables.Add("pt", ptSheet.Cell("A1"), range);
+        var field = pt.RowLabels.Add("ID");
+
+        // Default field has Automatic
+        Assert.That(field.Subtotals, Is.EquivalentTo(new[] { XLSubtotalFunction.Automatic }));
+
+        // Adding a custom subtotal still shows Automatic
+        field.AddSubtotal(XLSubtotalFunction.Sum);
+        Assert.That(field.Subtotals, Does.Contain(XLSubtotalFunction.Automatic));
+        Assert.That(field.Subtotals, Does.Contain(XLSubtotalFunction.Sum));
+    }
+
+    [Test]
+    public void SetSubtotal_on_filter_field_works()
+    {
+        using var wb = new XLWorkbook();
+        var data = wb.AddWorksheet();
+        var range = data.Cell("A1").InsertData(new object[]
+        {
+            ("ID", "Color", "Count"),
+            (1, "Blue", 10),
+        });
+        var ptSheet = wb.AddWorksheet();
+        var pt = ptSheet.PivotTables.Add("pt", ptSheet.Cell("A1"), range);
+        pt.Values.Add("Count");
+        var filterField = pt.ReportFilters.Add("Color");
+
+        filterField.SetSubtotal(XLSubtotalFunction.Sum, true);
+        Assert.That(filterField.Subtotals, Does.Contain(XLSubtotalFunction.Sum));
+
+        filterField.SetSubtotal(XLSubtotalFunction.Sum, false);
+        Assert.That(filterField.Subtotals, Does.Not.Contain(XLSubtotalFunction.Sum));
+    }
+
+    #endregion
 }

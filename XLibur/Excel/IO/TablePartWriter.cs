@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Linq;
+using XLibur.Extensions;
 using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
@@ -10,7 +11,7 @@ namespace XLibur.Excel.IO;
 /// <summary>
 /// A writer for table definition part.
 /// </summary>
-internal class TablePartWriter
+internal sealed class TablePartWriter
 {
     internal static void SynchronizeTableParts(XLTables tables, WorksheetPart worksheetPart, SaveContext context)
     {
@@ -40,7 +41,7 @@ internal class TablePartWriter
         foreach (var xlTable in tables.Cast<XLTable>())
         {
             var relId = xlTable.RelId;
-            var tableDefinitionPart = (TableDefinitionPart)worksheetPart.GetPartById(relId);
+            var tableDefinitionPart = (TableDefinitionPart)worksheetPart.GetPartById(relId!);
             GenerateTableDefinitionPartContent(tableDefinitionPart, xlTable, context);
         }
     }
@@ -153,7 +154,7 @@ internal class TablePartWriter
             else
                 xlTable.AutoFilter.Range = xlTable.Worksheet.Range(xlTable.RangeAddress);
 
-            WorksheetPartWriter.PopulateAutoFilter(xlTable.AutoFilter, autoFilter1);
+            AutoFilterWriter.PopulateAutoFilter(xlTable.AutoFilter, autoFilter1, context);
 
             table.AppendChild(autoFilter1);
         }

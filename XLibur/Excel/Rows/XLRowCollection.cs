@@ -1,14 +1,14 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
 using System.Collections;
 
-internal class XLRowsCollection : IDictionary<int, XLRow>
+internal sealed class XLRowsCollection : IDictionary<int, XLRow>
 {
     private readonly Dictionary<int, XLRow> _dictionary = new();
 
@@ -41,7 +41,7 @@ internal class XLRowsCollection : IDictionary<int, XLRow>
         return _dictionary.Remove(key);
     }
 
-    public bool TryGetValue(int key, out XLRow value)
+    public bool TryGetValue(int key, [MaybeNullWhen(false)] out XLRow value)
     {
         return _dictionary.TryGetValue(key, out value);
     }
@@ -107,7 +107,7 @@ internal class XLRowsCollection : IDictionary<int, XLRow>
         {
             var rowToMove = _dictionary[ro];
             _dictionary.Remove(ro);
-            int newRowNum = ro + rowsToShift;
+            var newRowNum = ro + rowsToShift;
             if (newRowNum <= XLHelper.MaxRowNumber)
             {
                 rowToMove.SetRowNumber(newRowNum);

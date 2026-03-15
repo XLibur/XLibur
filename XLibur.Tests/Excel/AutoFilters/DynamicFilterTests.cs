@@ -32,7 +32,7 @@ public class DynamicFilterTests
     [Test]
     public void BelowAverage_takes_values_under_avg_value()
     {
-        // The average 2 is not included. 
+        // The average 2 is not included.
         new AutoFilterTester(f => f.BelowAverage())
             .AddTrue(1)
             .AddFalse(2, 3)

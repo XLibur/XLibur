@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using XLibur.Utils;
+﻿using XLibur.Utils;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml;
@@ -8,12 +6,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using static XLibur.Excel.XLWorkbook;
+using EnumerableExtensions = XLibur.Extensions.EnumerableExtensions;
 
 namespace XLibur.Excel.IO;
 
-internal class WorkbookStylesPartWriter
+internal static class WorkbookStylesPartWriter
 {
-    internal static void GenerateContent(WorkbookStylesPart workbookStylesPart, XLWorkbook workbook, SaveContext context)
+    internal static void GenerateContent(WorkbookStylesPart workbookStylesPart, XLWorkbook workbook,
+        SaveContext context)
     {
         var defaultStyle = DefaultStyleValue;
 
@@ -21,26 +21,9 @@ internal class WorkbookStylesPartWriter
             context.SharedFonts.Add(defaultStyle.Font, new FontInfo { FontId = 0, Font = defaultStyle.Font });
 
         workbookStylesPart.Stylesheet ??= new Stylesheet();
+        workbookStylesPart.Stylesheet!.CellStyles ??= new CellStyles();
 
-        // Cell styles = Named styles
-        workbookStylesPart.Stylesheet.CellStyles ??= new CellStyles();
-
-        // To determine the default workbook style, we look for the style with builtInId = 0 (I hope that is the correct approach)
-        uint defaultFormatId;
-        if (workbookStylesPart.Stylesheet.CellStyles.Elements<CellStyle>().Any(c => c.BuiltinId != null && c.BuiltinId.HasValue && c.BuiltinId.Value == 0))
-        {
-            // Possible to have duplicate default cell styles - occurs when file gets saved under different cultures.
-            // We prefer the style that is named Normal
-            var normalCellStyles = workbookStylesPart.Stylesheet.CellStyles.Elements<CellStyle>()
-                .Where(c => c.BuiltinId != null && c.BuiltinId.HasValue && c.BuiltinId.Value == 0)
-                .OrderBy(c => c.Name != null && c.Name.HasValue && c.Name.Value == "Normal");
-
-            defaultFormatId = normalCellStyles.Last().FormatId.Value;
-        }
-        else if (workbookStylesPart.Stylesheet.CellStyles.Elements<CellStyle>().Any())
-            defaultFormatId = workbookStylesPart.Stylesheet.CellStyles.Elements<CellStyle>().Max(c => c.FormatId.Value) + 1;
-        else
-            defaultFormatId = 0;
+        var defaultFormatId = ResolveDefaultFormatId(workbookStylesPart);
 
         context.SharedStyles.Add(defaultStyle,
             new StyleInfo
@@ -52,86 +35,152 @@ internal class WorkbookStylesPartWriter
                 BorderId = 0,
                 IncludeQuotePrefix = false,
                 NumberFormatId = 0
-                //AlignmentId = 0
             });
 
-        uint styleCount = 1;
+        var (xlStyles, pivotCustomFormats) = CollectWorkbookStyles(workbook);
+
         uint fontCount = 1;
         uint fillCount = 3;
         uint borderCount = 1;
-        var xlPivotTablesCustomFormats = new HashSet<string>();
-        var xlStyles = new HashSet<XLStyleValue>();
 
-        foreach (var worksheet in workbook.WorksheetsInternal)
-        {
-            xlStyles.Add(worksheet.StyleValue);
-            foreach (var s in worksheet.Internals.ColumnsCollection.Select(c => c.Value.StyleValue))
-            {
-                xlStyles.Add(s);
-            }
-            foreach (var s in worksheet.Internals.RowsCollection.Select(r => r.Value.StyleValue))
-            {
-                xlStyles.Add(s);
-            }
-
-            foreach (var c in worksheet.Internals.CellsCollection.GetCells())
-            {
-                xlStyles.Add(c.StyleValue);
-            }
-
-            var xlPivotTableCustomFormats = worksheet.PivotTables
-                .SelectMany<XLPivotTable, XLPivotDataField>(pt => pt.DataFields)
-                .Where(x => x.NumberFormatValue is not null && !string.IsNullOrEmpty(x.NumberFormatValue.Format))
-                .Select(x => x.NumberFormatValue.Format);
-            xlPivotTablesCustomFormats.UnionWith(xlPivotTableCustomFormats);
-        }
-
-        var borders = xlStyles.Select(s => s.Border).Distinct().ToList();
-        var fonts = xlStyles.Select(s => s.Font).Distinct().ToList();
-        var fills = xlStyles.Select(s => s.Fill).Distinct().ToList();
-        var numberFormats = xlStyles.Select(s => s.NumberFormat).Distinct().ToList();
-
-        foreach (var font in fonts)
+        foreach (var font in xlStyles.Select(s => s.Font).Distinct())
         {
             if (!context.SharedFonts.ContainsKey(font))
-            {
                 context.SharedFonts.Add(font, new FontInfo { FontId = fontCount++, Font = font });
-            }
         }
 
-        var sharedFills = fills.ToDictionary(
+        var sharedFills = xlStyles.Select(s => s.Fill).Distinct().ToDictionary(
             f => f, f => new FillInfo { FillId = fillCount++, Fill = f });
 
-        var sharedBorders = borders.ToDictionary(
+        var sharedBorders = xlStyles.Select(s => s.Border).Distinct().ToDictionary(
             b => b, b => new BorderInfo { BorderId = borderCount++, Border = b });
 
-        var customNumberFormats = numberFormats
-            .Where(nf => nf.NumberFormatId == -1)
-            .ToHashSet();
-
-        foreach (var pivotNumberFormat in xlPivotTablesCustomFormats)
-        {
-            var numberFormatKey = XLNumberFormatKey.ForFormat(pivotNumberFormat);
-            var numberFormat = XLNumberFormatValue.FromKey(ref numberFormatKey);
-
-            customNumberFormats.Add(numberFormat);
-        }
+        var customNumberFormats = CollectCustomNumberFormats(xlStyles, pivotCustomFormats);
 
         var allSharedNumberFormats = ResolveNumberFormats(workbookStylesPart, customNumberFormats, defaultFormatId);
         foreach (var nf in allSharedNumberFormats)
-        {
             context.SharedNumberFormats.Add(nf.Key, nf.Value);
-        }
 
         ResolveFonts(workbookStylesPart, context);
         var allSharedFills = ResolveFills(workbookStylesPart, sharedFills);
         var allSharedBorders = ResolveBorders(workbookStylesPart, sharedBorders);
 
+        BuildSharedStyleMappings(context, xlStyles, allSharedNumberFormats, allSharedFills, allSharedBorders);
+
+        ResolveCellStyleFormats(workbookStylesPart, context);
+        ResolveRest(workbookStylesPart, context);
+
+        if (!workbookStylesPart.Stylesheet!.CellStyles.Elements<CellStyle>().Any(c =>
+                c.BuiltinId != null && c.BuiltinId.HasValue && c.BuiltinId.Value == 0U))
+            workbookStylesPart.Stylesheet!.CellStyles.AppendChild(new CellStyle
+                { Name = "Normal", FormatId = defaultFormatId, BuiltinId = 0U });
+
+        workbookStylesPart.Stylesheet!.CellStyles.Count = (uint)workbookStylesPart.Stylesheet!.CellStyles.Count();
+
+        RemapStyleIds(workbookStylesPart, context);
+
+        AddDifferentialFormats(workbookStylesPart, workbook, context);
+    }
+
+    /// <summary>
+    /// Determine the default workbook style by looking for the style with builtInId = 0.
+    /// </summary>
+    private static uint ResolveDefaultFormatId(WorkbookStylesPart workbookStylesPart)
+    {
+        var cellStyles = workbookStylesPart.Stylesheet!.CellStyles!;
+
+        if (cellStyles.Elements<CellStyle>()
+            .Any(c => c.BuiltinId != null && c.BuiltinId.HasValue && c.BuiltinId.Value == 0))
+        {
+            // Possible to have duplicate default cell styles - occurs when file gets saved under different cultures.
+            // We prefer the style that is named Normal
+            var normalCellStyles = cellStyles.Elements<CellStyle>()
+                .Where(c => c.BuiltinId != null && c.BuiltinId.HasValue && c.BuiltinId.Value == 0)
+                .OrderBy(c => c.Name != null && c.Name.HasValue && c.Name.Value == "Normal");
+
+            return normalCellStyles.Last().FormatId!.Value;
+        }
+
+        if (cellStyles.Elements<CellStyle>().Any())
+            return cellStyles.Elements<CellStyle>().Max(c => c.FormatId!.Value) + 1;
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Collect all distinct styles and pivot table custom number formats from every worksheet.
+    /// </summary>
+    private static (HashSet<XLStyleValue> styles, HashSet<string> pivotCustomFormats) CollectWorkbookStyles(
+        XLWorkbook workbook)
+    {
+        var pivotCustomFormats = new HashSet<string>();
+        var styles = new HashSet<XLStyleValue>();
+
+        foreach (var worksheet in workbook.WorksheetsInternal)
+        {
+            styles.Add(worksheet.StyleValue);
+
+            foreach (var s in worksheet.Internals.ColumnsCollection.Select(c => c.Value.StyleValue))
+                styles.Add(s);
+
+            foreach (var s in worksheet.Internals.RowsCollection.Select(r => r.Value.StyleValue))
+                styles.Add(s);
+
+            foreach (var c in worksheet.Internals.CellsCollection.GetCells())
+                styles.Add(c.StyleValue);
+
+            var xlPivotTableDataFieldFormats = worksheet.PivotTables
+                .SelectMany<XLPivotTable, XLPivotDataField>(pt => pt.DataFields)
+                .Where(x => x.NumberFormatValue is not null && !string.IsNullOrEmpty(x.NumberFormatValue.Format))
+                .Select(x => x.NumberFormatValue!.Format);
+            pivotCustomFormats.UnionWith(xlPivotTableDataFieldFormats);
+
+            var xlPivotTableFieldFormats = worksheet.PivotTables
+                .SelectMany<XLPivotTable, XLPivotTableField>(pt => pt.PivotFields)
+                .Where(x => x.NumberFormatValue is not null && !string.IsNullOrEmpty(x.NumberFormatValue.Format))
+                .Select(x => x.NumberFormatValue!.Format);
+            pivotCustomFormats.UnionWith(xlPivotTableFieldFormats);
+        }
+
+        return (styles, pivotCustomFormats);
+    }
+
+    private static HashSet<XLNumberFormatValue> CollectCustomNumberFormats(
+        HashSet<XLStyleValue> xlStyles,
+        HashSet<string> pivotCustomFormats)
+    {
+        var customNumberFormats = xlStyles
+            .Select(s => s.NumberFormat)
+            .Distinct()
+            .Where(nf => nf.NumberFormatId == -1)
+            .ToHashSet();
+
+        foreach (var pivotNumberFormat in pivotCustomFormats)
+        {
+            var numberFormatKey = XLNumberFormatKey.ForFormat(pivotNumberFormat);
+            var numberFormat = XLNumberFormatValue.FromKey(ref numberFormatKey);
+            customNumberFormats.Add(numberFormat);
+        }
+
+        return customNumberFormats;
+    }
+
+    /// <summary>
+    /// Map each collected style to a <see cref="StyleInfo"/> with resolved font/fill/border/number-format IDs.
+    /// </summary>
+    private static void BuildSharedStyleMappings(
+        SaveContext context,
+        HashSet<XLStyleValue> xlStyles,
+        Dictionary<XLNumberFormatValue, NumberFormatInfo> sharedNumberFormats,
+        Dictionary<XLFillValue, FillInfo> sharedFills,
+        Dictionary<XLBorderValue, BorderInfo> sharedBorders)
+    {
+        uint styleCount = 1;
         foreach (var xlStyle in xlStyles)
         {
             var numberFormatId = xlStyle.NumberFormat.NumberFormatId >= 0
                 ? xlStyle.NumberFormat.NumberFormatId
-                : allSharedNumberFormats[xlStyle.NumberFormat].NumberFormatId;
+                : sharedNumberFormats[xlStyle.NumberFormat].NumberFormatId;
 
             if (!context.SharedStyles.ContainsKey(xlStyle))
                 context.SharedStyles.Add(xlStyle,
@@ -140,113 +189,179 @@ internal class WorkbookStylesPartWriter
                         StyleId = styleCount++,
                         Style = xlStyle,
                         FontId = context.SharedFonts[xlStyle.Font].FontId,
-                        FillId = allSharedFills[xlStyle.Fill].FillId,
-                        BorderId = allSharedBorders[xlStyle.Border].BorderId,
+                        FillId = sharedFills[xlStyle.Fill].FillId,
+                        BorderId = sharedBorders[xlStyle.Border].BorderId,
                         NumberFormatId = numberFormatId,
                         IncludeQuotePrefix = xlStyle.IncludeQuotePrefix
                     });
         }
+    }
 
-        ResolveCellStyleFormats(workbookStylesPart, context);
-        ResolveRest(workbookStylesPart, context);
-
-        if (!workbookStylesPart.Stylesheet.CellStyles.Elements<CellStyle>().Any(c => c.BuiltinId != null && c.BuiltinId.HasValue && c.BuiltinId.Value == 0U))
-            workbookStylesPart.Stylesheet.CellStyles.AppendChild(new CellStyle { Name = "Normal", FormatId = defaultFormatId, BuiltinId = 0U });
-
-        workbookStylesPart.Stylesheet.CellStyles.Count = (uint)workbookStylesPart.Stylesheet.CellStyles.Count();
-
+    /// <summary>
+    /// Match each shared style against the CellFormats in the part and assign the final style ID.
+    /// </summary>
+    private static void RemapStyleIds(WorkbookStylesPart workbookStylesPart, SaveContext context)
+    {
         var newSharedStyles = new Dictionary<XLStyleValue, StyleInfo>();
         foreach (var ss in context.SharedStyles)
         {
             var styleId = -1;
-            foreach (CellFormat f in workbookStylesPart.Stylesheet.CellFormats)
+            foreach (var openXmlElement in workbookStylesPart.Stylesheet!.CellFormats!)
             {
+                var f = (CellFormat)openXmlElement;
                 styleId++;
                 if (CellFormatsAreEqual(f, ss.Value, compareAlignment: true))
                     break;
             }
+
             if (styleId == -1)
                 styleId = 0;
             var si = ss.Value;
             si.StyleId = (uint)styleId;
             newSharedStyles.Add(ss.Key, si);
         }
-        context.SharedStyles.Clear();
-        newSharedStyles.ForEach(kp => context.SharedStyles.Add(kp.Key, kp.Value));
 
-        AddDifferentialFormats(workbookStylesPart, workbook, context);
+        context.SharedStyles.Clear();
+        EnumerableExtensions.ForEach(newSharedStyles, kp => context.SharedStyles.Add(kp.Key, kp.Value));
     }
 
     /// <summary>
     /// Populates the differential formats that are currently in the file to the SaveContext
     /// </summary>
-    private static void AddDifferentialFormats(WorkbookStylesPart workbookStylesPart, XLWorkbook workbook, SaveContext context)
+    private static void AddDifferentialFormats(WorkbookStylesPart workbookStylesPart, XLWorkbook workbook,
+        SaveContext context)
     {
-        workbookStylesPart.Stylesheet.DifferentialFormats ??= new DifferentialFormats();
+        workbookStylesPart.Stylesheet!.DifferentialFormats ??= new DifferentialFormats();
 
-        var differentialFormats = workbookStylesPart.Stylesheet.DifferentialFormats;
+        var differentialFormats = workbookStylesPart.Stylesheet!.DifferentialFormats;
         differentialFormats.RemoveAllChildren();
         FillDifferentialFormatsCollection(differentialFormats, context.DifferentialFormats);
 
         foreach (var ws in workbook.WorksheetsInternal)
         {
-            foreach (var cf in ws.ConditionalFormats)
-            {
-                var styleValue = (cf.Style as XLStyle).Value;
-                if (!styleValue.Equals(DefaultStyleValue) && !context.DifferentialFormats.ContainsKey(styleValue))
-                    AddConditionalDifferentialFormat(workbookStylesPart.Stylesheet.DifferentialFormats, cf, context);
-            }
-
-            foreach (var tf in ws.Tables.SelectMany<XLTable, IXLTableField>(t => t.Fields))
-            {
-                if (tf.IsConsistentStyle())
-                {
-                    var style = (tf.Column.Cells()
-                        .Skip(tf.Table.ShowHeaderRow ? 1 : 0)
-                        .First()
-                        .Style as XLStyle).Value;
-
-                    if (!style.Equals(DefaultStyleValue) && !context.DifferentialFormats.ContainsKey(style))
-                        AddStyleAsDifferentialFormat(workbookStylesPart.Stylesheet.DifferentialFormats, style, context);
-                }
-            }
-
-            foreach (var pt in ws.PivotTables)
-            {
-                // Add Dxf from old pivot table structures.
-                foreach (var styleFormat in pt.AllStyleFormats)
-                {
-                    var xlStyle = (XLStyle)styleFormat.Style;
-                    if (!xlStyle.Value.Equals(DefaultStyleValue) && !context.DifferentialFormats.ContainsKey(xlStyle.Value))
-                        AddStyleAsDifferentialFormat(workbookStylesPart.Stylesheet.DifferentialFormats, xlStyle.Value, context);
-                }
-
-                // Add Dxf from new pivot table structures.
-                foreach (var xlPivotFormat in pt.Formats)
-                {
-                    var xlStyleValue = xlPivotFormat.DxfStyleValue;
-                    if (xlStyleValue != XLStyleValue.Default &&
-                        !context.DifferentialFormats.ContainsKey(xlStyleValue))
-                    {
-                        AddStyleAsDifferentialFormat(workbookStylesPart.Stylesheet.DifferentialFormats, xlStyleValue, context);
-                    }
-                }
-
-                foreach (var xlConditionalStyle in pt.ConditionalFormats)
-                {
-                    var xlStyle = ((XLStyle)xlConditionalStyle.Format.Style);
-                    if (xlStyle.Value != XLStyleValue.Default &&
-                        !context.DifferentialFormats.ContainsKey(xlStyle.Value))
-                    {
-                        AddStyleAsDifferentialFormat(workbookStylesPart.Stylesheet.DifferentialFormats, xlStyle.Value, context);
-                    }
-                }
-            }
+            AddConditionalFormatDxfs(differentialFormats, ws, context);
+            AddTableFieldDxfs(differentialFormats, ws, context);
+            AddPivotTableDxfs(differentialFormats, ws, context);
+            AddAutoFilterColorFilterDxfs(differentialFormats, ws, context);
         }
 
         differentialFormats.Count = (uint)differentialFormats.Count();
         if (differentialFormats.Count == 0)
-            workbookStylesPart.Stylesheet.DifferentialFormats = null;
+            workbookStylesPart.Stylesheet!.DifferentialFormats = null;
+    }
+
+    private static void AddConditionalFormatDxfs(DifferentialFormats differentialFormats, XLWorksheet ws,
+        SaveContext context)
+    {
+        foreach (var cf in ws.ConditionalFormats)
+        {
+            var styleValue = ((XLStyle)cf.Style).Value;
+            if (!styleValue.Equals(DefaultStyleValue) && !context.DifferentialFormats.ContainsKey(styleValue))
+                AddConditionalDifferentialFormat(differentialFormats, cf, context);
+        }
+    }
+
+    private static void AddTableFieldDxfs(DifferentialFormats differentialFormats, XLWorksheet ws,
+        SaveContext context)
+    {
+        foreach (var tf in ws.Tables.SelectMany<XLTable, IXLTableField>(t => t.Fields))
+        {
+            if (!tf.IsConsistentStyle())
+                continue;
+
+            var style = ((XLStyle)tf.Column.Cells()
+                .Skip(tf.Table.ShowHeaderRow ? 1 : 0)
+                .First()
+                .Style).Value;
+
+            if (!style.Equals(DefaultStyleValue) && !context.DifferentialFormats.ContainsKey(style))
+                AddStyleAsDifferentialFormat(differentialFormats, style, context);
+        }
+    }
+
+    private static void AddPivotTableDxfs(DifferentialFormats differentialFormats, XLWorksheet ws,
+        SaveContext context)
+    {
+        foreach (var pt in ws.PivotTables)
+        {
+            // Dxf from old pivot table structures.
+            foreach (var styleFormat in pt.AllStyleFormats)
+            {
+                var xlStyle = (XLStyle)styleFormat.Style;
+                if (!xlStyle.Value.Equals(DefaultStyleValue) &&
+                    !context.DifferentialFormats.ContainsKey(xlStyle.Value))
+                    AddStyleAsDifferentialFormat(differentialFormats, xlStyle.Value, context);
+            }
+
+            // Dxf from new pivot table structures.
+            foreach (var xlPivotFormat in pt.Formats)
+            {
+                var xlStyleValue = xlPivotFormat.DxfStyleValue;
+                if (xlStyleValue != XLStyleValue.Default &&
+                    !context.DifferentialFormats.ContainsKey(xlStyleValue))
+                    AddStyleAsDifferentialFormat(differentialFormats, xlStyleValue, context);
+            }
+
+            foreach (var xlConditionalStyle in pt.ConditionalFormats)
+            {
+                var xlStyle = (XLStyle)xlConditionalStyle.Format.Style;
+                if (xlStyle.Value != XLStyleValue.Default &&
+                    !context.DifferentialFormats.ContainsKey(xlStyle.Value))
+                    AddStyleAsDifferentialFormat(differentialFormats, xlStyle.Value, context);
+            }
+        }
+    }
+
+    private static void AddAutoFilterColorFilterDxfs(DifferentialFormats differentialFormats, XLWorksheet ws,
+        SaveContext context)
+    {
+        void AddColorFilterDxf(XLAutoFilter autoFilter)
+        {
+            foreach (var (_, xlFilterColumn) in autoFilter.Columns)
+            {
+                if (xlFilterColumn.FilterType != XLFilterType.Color)
+                    continue;
+
+                var key = (xlFilterColumn.FilterColor.Key, xlFilterColumn.FilterByCellColor);
+                if (context.ColorFilterDxfIds.ContainsKey(key))
+                    continue;
+
+                var differentialFormat = new DifferentialFormat();
+                if (xlFilterColumn.FilterByCellColor)
+                {
+                    var fillKey = new XLFillKey
+                    {
+                        PatternType = XLFillPatternValues.Solid,
+                        BackgroundColor = xlFilterColumn.FilterColor.Key,
+                        PatternColor = XLColor.FromIndex(64).Key,
+                    };
+                    var fillValue = XLFillValue.FromKey(ref fillKey);
+                    var fill = GetNewFill(new FillInfo { Fill = fillValue }, differentialFillFormat: true);
+                    differentialFormat.Append(fill);
+                }
+                else
+                {
+                    var fontKey = XLFontValue.Default.Key with
+                    {
+                        FontColor = xlFilterColumn.FilterColor.Key,
+                    };
+                    var fontValue = XLFontValue.FromKey(ref fontKey);
+                    var font = GetNewFont(new FontInfo { Font = fontValue }, false);
+                    if (font?.HasChildren ?? false)
+                        differentialFormat.Append(font);
+                }
+
+                differentialFormats.Append(differentialFormat);
+                context.ColorFilterDxfIds.Add(key, differentialFormats.Count() - 1);
+            }
+        }
+
+        AddColorFilterDxf(ws.AutoFilter);
+
+        foreach (var table in ws.Tables.Cast<XLTable>())
+        {
+            AddColorFilterDxf(table.AutoFilter);
+        }
     }
 
     private static void FillDifferentialFormatsCollection(DifferentialFormats differentialFormats,
@@ -258,8 +373,6 @@ internal class WorkbookStylesPartWriter
         foreach (var df in differentialFormats.Elements<DifferentialFormat>())
         {
             var emptyContainer = new XLStylizedEmpty(DefaultStyle);
-
-            var style = new XLStyle(emptyContainer, DefaultStyle);
             OpenXmlHelper.LoadFont(df.Font, emptyContainer.Style.Font);
             OpenXmlHelper.LoadBorder(df.Border, emptyContainer.Style.Border);
             OpenXmlHelper.LoadNumberFormat(df.NumberingFormat, emptyContainer.Style.NumberFormat);
@@ -270,11 +383,12 @@ internal class WorkbookStylesPartWriter
         }
     }
 
-    private static void AddConditionalDifferentialFormat(DifferentialFormats differentialFormats, IXLConditionalFormat cf,
+    private static void AddConditionalDifferentialFormat(DifferentialFormats differentialFormats,
+        IXLConditionalFormat cf,
         SaveContext context)
     {
         var differentialFormat = new DifferentialFormat();
-        var styleValue = (cf.Style as XLStyle).Value;
+        var styleValue = ((XLStyle)cf.Style).Value;
 
         var diffFont = GetNewFont(new FontInfo { Font = styleValue.Font }, false);
         if (diffFont?.HasChildren ?? false)
@@ -320,16 +434,21 @@ internal class WorkbookStylesPartWriter
             {
                 numberFormat.FormatCode = style.NumberFormat.Format;
                 numberFormat.NumberFormatId = (uint)(XLConstants.NumberOfBuiltInStyles +
-                                                       differentialFormats
-                                                           .Descendants<DifferentialFormat>()
-                                                           .Count(df => df.NumberingFormat != null && df.NumberingFormat.NumberFormatId != null && df.NumberingFormat.NumberFormatId.Value >= XLConstants.NumberOfBuiltInStyles));
+                                                     differentialFormats
+                                                         .Descendants<DifferentialFormat>()
+                                                         .Count(df =>
+                                                             df.NumberingFormat != null &&
+                                                             df.NumberingFormat.NumberFormatId != null &&
+                                                             df.NumberingFormat.NumberFormatId.Value >=
+                                                             XLConstants.NumberOfBuiltInStyles));
             }
             else
             {
                 numberFormat.NumberFormatId = (uint)(style.NumberFormat.NumberFormatId);
                 if (!string.IsNullOrEmpty(style.NumberFormat.Format))
                     numberFormat.FormatCode = style.NumberFormat.Format;
-                else if (XLPredefinedFormat.FormatCodes.TryGetValue(style.NumberFormat.NumberFormatId, out string formatCode))
+                else if (XLPredefinedFormat.FormatCodes.TryGetValue(style.NumberFormat.NumberFormatId,
+                             out var formatCode))
                     numberFormat.FormatCode = formatCode;
             }
 
@@ -351,13 +470,14 @@ internal class WorkbookStylesPartWriter
 
     private static void ResolveRest(WorkbookStylesPart workbookStylesPart, SaveContext context)
     {
-        workbookStylesPart.Stylesheet.CellFormats ??= new CellFormats();
+        workbookStylesPart.Stylesheet!.CellFormats ??= new CellFormats();
 
         foreach (var styleInfo in context.SharedStyles.Values)
         {
             var info = styleInfo;
             var foundOne =
-                workbookStylesPart.Stylesheet.CellFormats.Cast<CellFormat>().Any(f => CellFormatsAreEqual(f, info, compareAlignment: true));
+                workbookStylesPart.Stylesheet!.CellFormats.Cast<CellFormat>()
+                    .Any(f => CellFormatsAreEqual(f, info, compareAlignment: true));
 
             if (foundOne) continue;
 
@@ -377,12 +497,13 @@ internal class WorkbookStylesPartWriter
             };
             cellFormat.AppendChild(alignment);
 
-            if (cellFormat.ApplyProtection.Value)
+            if (cellFormat.ApplyProtection!.Value)
                 cellFormat.AppendChild(GetProtection(styleInfo));
 
-            workbookStylesPart.Stylesheet.CellFormats.AppendChild(cellFormat);
+            workbookStylesPart.Stylesheet!.CellFormats!.AppendChild(cellFormat);
         }
-        workbookStylesPart.Stylesheet.CellFormats.Count = (uint)workbookStylesPart.Stylesheet.CellFormats.Count();
+
+        workbookStylesPart.Stylesheet!.CellFormats!.Count = (uint)workbookStylesPart.Stylesheet!.CellFormats!.Count();
 
         static int GetOpenXmlTextRotation(XLAlignmentValue alignment)
         {
@@ -396,26 +517,27 @@ internal class WorkbookStylesPartWriter
     private static void ResolveCellStyleFormats(WorkbookStylesPart workbookStylesPart,
         SaveContext context)
     {
-        workbookStylesPart.Stylesheet.CellStyleFormats ??= new CellStyleFormats();
+        workbookStylesPart.Stylesheet!.CellStyleFormats ??= new CellStyleFormats();
 
         foreach (var styleInfo in context.SharedStyles.Values)
         {
             var info = styleInfo;
             var foundOne =
-                workbookStylesPart.Stylesheet.CellStyleFormats.Cast<CellFormat>().Any(
-                    f => CellFormatsAreEqual(f, info, compareAlignment: false));
+                workbookStylesPart.Stylesheet!.CellStyleFormats.Cast<CellFormat>()
+                    .Any(f => CellFormatsAreEqual(f, info, compareAlignment: false));
 
             if (foundOne) continue;
 
             var cellStyleFormat = GetCellFormat(styleInfo);
 
-            if (cellStyleFormat.ApplyProtection.Value)
+            if (cellStyleFormat.ApplyProtection!.Value)
                 cellStyleFormat.AppendChild(GetProtection(styleInfo));
 
-            workbookStylesPart.Stylesheet.CellStyleFormats.AppendChild(cellStyleFormat);
+            workbookStylesPart.Stylesheet!.CellStyleFormats!.AppendChild(cellStyleFormat);
         }
-        workbookStylesPart.Stylesheet.CellStyleFormats.Count =
-            (uint)workbookStylesPart.Stylesheet.CellStyleFormats.Count();
+
+        workbookStylesPart.Stylesheet!.CellStyleFormats!.Count =
+            (uint)workbookStylesPart.Stylesheet!.CellStyleFormats!.Count();
     }
 
     private static bool ApplyFill(StyleInfo styleInfo)
@@ -466,13 +588,13 @@ internal class WorkbookStylesPartWriter
     }
 
     /// <summary>
-    /// Check if two style are equivalent.
+    /// Check if two styles are equivalent.
     /// </summary>
     /// <param name="f">Style in the OpenXML format.</param>
     /// <param name="styleInfo">Style in the XLibur format.</param>
-    /// <param name="compareAlignment">Flag specifying whether or not compare the alignments of two styles.
-    /// Styles in x:cellStyleXfs section do not include alignment so we don't have to compare it in this case.
-    /// Styles in x:cellXfs section, on the opposite, do include alignments, and we must compare them.
+    /// <param name="compareAlignment">Flag specifying whether compare the alignments of two styles.
+    /// Styles in the x:cellStyleXfs section do not include alignment, so we don't have to compare it in this case.
+    /// Styles in the x:cellXfs section, on the opposite, do include alignments, and we must compare them.
     /// </param>
     /// <returns>True if two formats are equivalent, false otherwise.</returns>
     private static bool CellFormatsAreEqual(CellFormat f, StyleInfo styleInfo, bool compareAlignment)
@@ -492,56 +614,60 @@ internal class WorkbookStylesPartWriter
             ;
     }
 
-    private static bool ProtectionsAreEqual(Protection protection, XLProtectionValue xlProtection)
+    private static bool ProtectionsAreEqual(Protection? protection, XLProtectionValue xlProtection)
     {
         var p = XLProtectionValue.Default.Key;
         if (protection is not null)
-            p = OpenXmlHelper.ProtectionToClosedXml(protection, p);
+            p = OpenXmlHelper.ProtectionToXLibur(protection, p);
 
         return p.Equals(xlProtection.Key);
     }
 
-    private static bool QuotePrefixesAreEqual(BooleanValue quotePrefix, bool includeQuotePrefix)
+    private static bool QuotePrefixesAreEqual(BooleanValue? quotePrefix, bool includeQuotePrefix)
     {
         return OpenXmlHelper.GetBooleanValueAsBool(quotePrefix, false) == includeQuotePrefix;
     }
 
-    private static bool AlignmentsAreEqual(Alignment alignment, XLAlignmentValue xlAlignment)
+    private static bool AlignmentsAreEqual(Alignment? alignment, XLAlignmentValue xlAlignment)
     {
         if (alignment is null) return XLStyle.Default.Value.Alignment.Equals(xlAlignment);
-        var a = OpenXmlHelper.AlignmentToClosedXml(alignment, XLAlignmentValue.Default.Key);
+        var a = OpenXmlHelper.AlignmentToXLibur(alignment, XLAlignmentValue.Default.Key);
         return a.Equals(xlAlignment.Key);
-
     }
 
     private static Dictionary<XLBorderValue, BorderInfo> ResolveBorders(WorkbookStylesPart workbookStylesPart,
         Dictionary<XLBorderValue, BorderInfo> sharedBorders)
     {
-        workbookStylesPart.Stylesheet.Borders ??= new Borders();
+        workbookStylesPart.Stylesheet!.Borders ??= new Borders();
 
         var allSharedBorders = new Dictionary<XLBorderValue, BorderInfo>();
         foreach (var borderInfo in sharedBorders.Values)
         {
             var borderId = 0;
             var foundOne = false;
-            foreach (Border f in workbookStylesPart.Stylesheet.Borders)
+            foreach (var openXmlElement in workbookStylesPart.Stylesheet!.Borders)
             {
+                var f = (Border)openXmlElement;
                 if (BordersAreEqual(f, borderInfo.Border))
                 {
                     foundOne = true;
                     break;
                 }
+
                 borderId++;
             }
+
             if (!foundOne)
             {
                 var border = GetNewBorder(borderInfo);
-                workbookStylesPart.Stylesheet.Borders.AppendChild(border);
+                workbookStylesPart.Stylesheet!.Borders.AppendChild(border);
             }
+
             allSharedBorders.Add(borderInfo.Border,
-                new BorderInfo { Border = borderInfo.Border, BorderId = (uint)borderId });
+                borderInfo with { BorderId = (uint)borderId });
         }
-        workbookStylesPart.Stylesheet.Borders.Count = (uint)workbookStylesPart.Stylesheet.Borders.Count();
+
+        workbookStylesPart.Stylesheet!.Borders.Count = (uint)workbookStylesPart.Stylesheet!.Borders.Count();
         return allSharedBorders;
     }
 
@@ -562,6 +688,7 @@ internal class WorkbookStylesPartWriter
                 var leftBorderColor = new Color().FromXLiburColor<Color>(borderInfo.Border.LeftBorderColor);
                 leftBorder.AppendChild(leftBorderColor);
             }
+
             border.AppendChild(leftBorder);
         }
 
@@ -573,6 +700,7 @@ internal class WorkbookStylesPartWriter
                 var rightBorderColor = new Color().FromXLiburColor<Color>(borderInfo.Border.RightBorderColor);
                 rightBorder.AppendChild(rightBorderColor);
             }
+
             border.AppendChild(rightBorder);
         }
 
@@ -584,6 +712,7 @@ internal class WorkbookStylesPartWriter
                 var topBorderColor = new Color().FromXLiburColor<Color>(borderInfo.Border.TopBorderColor);
                 topBorder.AppendChild(topBorderColor);
             }
+
             border.AppendChild(topBorder);
         }
 
@@ -595,19 +724,22 @@ internal class WorkbookStylesPartWriter
                 var bottomBorderColor = new Color().FromXLiburColor<Color>(borderInfo.Border.BottomBorderColor);
                 bottomBorder.AppendChild(bottomBorderColor);
             }
+
             border.AppendChild(bottomBorder);
         }
 
         if (borderInfo.Border.DiagonalBorder != XLBorderValue.Default.DiagonalBorder || ignoreMod)
         {
-            var DiagonalBorder = new DiagonalBorder { Style = borderInfo.Border.DiagonalBorder.ToOpenXml() };
+            var diagonalBorder = new DiagonalBorder { Style = borderInfo.Border.DiagonalBorder.ToOpenXml() };
             if (borderInfo.Border.DiagonalBorderColor != XLBorderValue.Default.DiagonalBorderColor || ignoreMod)
                 if (borderInfo.Border.DiagonalBorderColor != null)
                 {
-                    var DiagonalBorderColor = new Color().FromXLiburColor<Color>(borderInfo.Border.DiagonalBorderColor);
-                    DiagonalBorder.AppendChild(DiagonalBorderColor);
+                    var DiagonalBorderColor =
+                        new Color().FromXLiburColor<Color>(borderInfo.Border.DiagonalBorderColor);
+                    diagonalBorder.AppendChild(DiagonalBorderColor);
                 }
-            border.AppendChild(DiagonalBorder);
+
+            border.AppendChild(diagonalBorder);
         }
 
         return border;
@@ -615,7 +747,7 @@ internal class WorkbookStylesPartWriter
 
     private static bool BordersAreEqual(Border border, XLBorderValue xlBorder)
     {
-        var convertedBorder = OpenXmlHelper.BorderToClosedXml(
+        var convertedBorder = OpenXmlHelper.BorderToXLibur(
             border,
             XLBorderValue.Default.Key);
         return convertedBorder.Equals(xlBorder.Key);
@@ -624,12 +756,12 @@ internal class WorkbookStylesPartWriter
     private static Dictionary<XLFillValue, FillInfo> ResolveFills(WorkbookStylesPart workbookStylesPart,
         Dictionary<XLFillValue, FillInfo> sharedFills)
     {
-        workbookStylesPart.Stylesheet.Fills ??= new Fills();
+        workbookStylesPart.Stylesheet!.Fills ??= new Fills();
 
-        var fills = workbookStylesPart.Stylesheet.Fills;
+        var fills = workbookStylesPart.Stylesheet!.Fills;
 
         // Pattern idx 0 and idx 1 are hardcoded to Excel with values None (0) and Gray125. Excel will ignore
-        // values from the file. Every file has have these values inside to keep the first available idx at 2.
+        // values from the file. Every file has had these values inside to keep the first available idx at 2.
         ResolveFillWithPattern(fills, 0, PatternValues.None);
         ResolveFillWithPattern(fills, 1, PatternValues.Gray125);
 
@@ -638,21 +770,25 @@ internal class WorkbookStylesPartWriter
         {
             var fillId = 0;
             var foundOne = false;
-            foreach (Fill f in fills)
+            foreach (var openXmlElement in fills)
             {
+                var f = (Fill)openXmlElement;
                 if (FillsAreEqual(f, fillInfo.Fill, fromDifferentialFormat: false))
                 {
                     foundOne = true;
                     break;
                 }
+
                 fillId++;
             }
+
             if (!foundOne)
             {
                 var fill = GetNewFill(fillInfo, differentialFillFormat: false);
                 fills.AppendChild(fill);
             }
-            allSharedFills.Add(fillInfo.Fill, new FillInfo { Fill = fillInfo.Fill, FillId = (uint)fillId });
+
+            allSharedFills.Add(fillInfo.Fill, fillInfo with { FillId = (uint)fillId });
         }
 
         fills.Count = (uint)fills.Count();
@@ -661,7 +797,7 @@ internal class WorkbookStylesPartWriter
 
     private static void ResolveFillWithPattern(Fills fills, int index, PatternValues patternValues)
     {
-        var fill = (Fill)fills.ElementAtOrDefault(index);
+        var fill = (Fill?)fills.ElementAtOrDefault(index);
         if (fill is null)
         {
             fills.InsertAt(new Fill { PatternFill = new PatternFill { PatternType = patternValues } }, index);
@@ -701,26 +837,47 @@ internal class WorkbookStylesPartWriter
                 if (differentialFillFormat)
                 {
                     patternFill.AppendChild(new ForegroundColor { Auto = true });
-                    backgroundColor = new BackgroundColor().FromXLiburColor<BackgroundColor>(fillInfo.Fill.BackgroundColor, true);
+                    backgroundColor =
+                        new BackgroundColor().FromXLiburColor<BackgroundColor>(fillInfo.Fill.BackgroundColor, true);
                     if (backgroundColor.HasAttributes)
                         patternFill.AppendChild(backgroundColor);
                 }
                 else
                 {
                     // XLibur Background color to be populated into OpenXML fgColor
-                    foregroundColor = new ForegroundColor().FromXLiburColor<ForegroundColor>(fillInfo.Fill.BackgroundColor);
+                    foregroundColor =
+                        new ForegroundColor().FromXLiburColor<ForegroundColor>(fillInfo.Fill.BackgroundColor);
                     if (foregroundColor.HasAttributes)
                         patternFill.AppendChild(foregroundColor);
                 }
+
                 break;
 
+            case XLFillPatternValues.DarkDown:
+            case XLFillPatternValues.DarkGray:
+            case XLFillPatternValues.DarkGrid:
+            case XLFillPatternValues.DarkHorizontal:
+            case XLFillPatternValues.DarkTrellis:
+            case XLFillPatternValues.DarkUp:
+            case XLFillPatternValues.DarkVertical:
+            case XLFillPatternValues.Gray0625:
+            case XLFillPatternValues.Gray125:
+            case XLFillPatternValues.LightDown:
+            case XLFillPatternValues.LightGray:
+            case XLFillPatternValues.LightGrid:
+            case XLFillPatternValues.LightHorizontal:
+            case XLFillPatternValues.LightTrellis:
+            case XLFillPatternValues.LightUp:
+            case XLFillPatternValues.LightVertical:
+            case XLFillPatternValues.MediumGray:
             default:
 
                 foregroundColor = new ForegroundColor().FromXLiburColor<ForegroundColor>(fillInfo.Fill.PatternColor);
                 if (foregroundColor.HasAttributes)
                     patternFill.AppendChild(foregroundColor);
 
-                backgroundColor = new BackgroundColor().FromXLiburColor<BackgroundColor>(fillInfo.Fill.BackgroundColor);
+                backgroundColor =
+                    new BackgroundColor().FromXLiburColor<BackgroundColor>(fillInfo.Fill.BackgroundColor);
                 if (backgroundColor.HasAttributes)
                     patternFill.AppendChild(backgroundColor);
 
@@ -744,15 +901,14 @@ internal class WorkbookStylesPartWriter
 
     private static void ResolveFonts(WorkbookStylesPart workbookStylesPart, SaveContext context)
     {
-        if (workbookStylesPart.Stylesheet.Fonts == null)
-            workbookStylesPart.Stylesheet.Fonts = new Fonts();
+        workbookStylesPart.Stylesheet!.Fonts ??= new Fonts();
 
         var newFonts = new Dictionary<XLFontValue, FontInfo>();
         foreach (var fontInfo in context.SharedFonts.Values)
         {
             var fontId = 0;
             var foundOne = false;
-            foreach (var openXmlElement in workbookStylesPart.Stylesheet.Fonts)
+            foreach (var openXmlElement in workbookStylesPart.Stylesheet!.Fonts)
             {
                 var f = (Font)openXmlElement;
                 if (FontsAreEqual(f, fontInfo.Font))
@@ -760,56 +916,72 @@ internal class WorkbookStylesPartWriter
                     foundOne = true;
                     break;
                 }
+
                 fontId++;
             }
+
             if (!foundOne)
             {
                 var font = GetNewFont(fontInfo);
-                workbookStylesPart.Stylesheet.Fonts.AppendChild(font);
+                workbookStylesPart.Stylesheet!.Fonts.AppendChild(font);
             }
+
             newFonts.Add(fontInfo.Font, new FontInfo { Font = fontInfo.Font, FontId = (uint)fontId });
         }
+
         context.SharedFonts.Clear();
         foreach (var kp in newFonts)
             context.SharedFonts.Add(kp.Key, kp.Value);
 
-        workbookStylesPart.Stylesheet.Fonts.Count = (uint)workbookStylesPart.Stylesheet.Fonts.Count();
+        workbookStylesPart.Stylesheet!.Fonts.Count = (uint)workbookStylesPart.Stylesheet!.Fonts.Count();
     }
 
     private static Font GetNewFont(FontInfo fontInfo, bool ignoreMod = true)
     {
         var font = new Font();
-        var bold = (fontInfo.Font.Bold != XLFontValue.Default.Bold || ignoreMod) && fontInfo.Font.Bold ? new Bold() : null;
-        var italic = (fontInfo.Font.Italic != XLFontValue.Default.Italic || ignoreMod) && fontInfo.Font.Italic ? new Italic() : null;
+        var bold = (fontInfo.Font.Bold != XLFontValue.Default.Bold || ignoreMod) && fontInfo.Font.Bold
+            ? new Bold()
+            : null;
+        var italic = (fontInfo.Font.Italic != XLFontValue.Default.Italic || ignoreMod) && fontInfo.Font.Italic
+            ? new Italic()
+            : null;
         var underline = (fontInfo.Font.Underline != XLFontValue.Default.Underline || ignoreMod) &&
                         fontInfo.Font.Underline != XLFontUnderlineValues.None
             ? new Underline { Val = fontInfo.Font.Underline.ToOpenXml() }
             : null;
-        var strike = (fontInfo.Font.Strikethrough != XLFontValue.Default.Strikethrough || ignoreMod) && fontInfo.Font.Strikethrough
+        var strike = (fontInfo.Font.Strikethrough != XLFontValue.Default.Strikethrough || ignoreMod) &&
+                     fontInfo.Font.Strikethrough
             ? new Strike()
             : null;
         var verticalAlignment = fontInfo.Font.VerticalAlignment != XLFontValue.Default.VerticalAlignment || ignoreMod
             ? new VerticalTextAlignment { Val = fontInfo.Font.VerticalAlignment.ToOpenXml() }
             : null;
 
-        var shadow = (fontInfo.Font.Shadow != XLFontValue.Default.Shadow || ignoreMod) && fontInfo.Font.Shadow ? new Shadow() : null;
+        var shadow = (fontInfo.Font.Shadow != XLFontValue.Default.Shadow || ignoreMod) && fontInfo.Font.Shadow
+            ? new Shadow()
+            : null;
         var fontSize = fontInfo.Font.FontSize != XLFontValue.Default.FontSize || ignoreMod
             ? new FontSize { Val = fontInfo.Font.FontSize }
             : null;
-        var color = fontInfo.Font.FontColor != XLFontValue.Default.FontColor || ignoreMod ? new Color().FromXLiburColor<Color>(fontInfo.Font.FontColor) : null;
+        var color = fontInfo.Font.FontColor != XLFontValue.Default.FontColor || ignoreMod
+            ? new Color().FromXLiburColor<Color>(fontInfo.Font.FontColor)
+            : null;
 
         var fontName = fontInfo.Font.FontName != XLFontValue.Default.FontName || ignoreMod
             ? new FontName { Val = fontInfo.Font.FontName }
             : null;
-        var fontFamilyNumbering = fontInfo.Font.FontFamilyNumbering != XLFontValue.Default.FontFamilyNumbering || ignoreMod
-            ? new FontFamilyNumbering { Val = (int)fontInfo.Font.FontFamilyNumbering }
-            : null;
+        var fontFamilyNumbering =
+            fontInfo.Font.FontFamilyNumbering != XLFontValue.Default.FontFamilyNumbering || ignoreMod
+                ? new FontFamilyNumbering { Val = (int)fontInfo.Font.FontFamilyNumbering }
+                : null;
 
-        var fontCharSet = (fontInfo.Font.FontCharSet != XLFontValue.Default.FontCharSet || ignoreMod) && fontInfo.Font.FontCharSet != XLFontCharSet.Default
+        var fontCharSet = (fontInfo.Font.FontCharSet != XLFontValue.Default.FontCharSet || ignoreMod) &&
+                          fontInfo.Font.FontCharSet != XLFontCharSet.Default
             ? new FontCharSet { Val = (int)fontInfo.Font.FontCharSet }
             : null;
 
-        var fontScheme = (fontInfo.Font.FontScheme != XLFontValue.Default.FontScheme || ignoreMod) && fontInfo.Font.FontScheme != XLFontScheme.None
+        var fontScheme = (fontInfo.Font.FontScheme != XLFontValue.Default.FontScheme || ignoreMod) &&
+                         fontInfo.Font.FontScheme != XLFontScheme.None
             ? new FontScheme { Val = fontInfo.Font.FontScheme.ToOpenXmlEnum() }
             : null;
 
@@ -843,7 +1015,7 @@ internal class WorkbookStylesPartWriter
 
     private static bool FontsAreEqual(Font font, XLFontValue xlFont)
     {
-        var convertedFont = OpenXmlHelper.FontToClosedXml(
+        var convertedFont = OpenXmlHelper.FontToXLibur(
             font,
             XLFontValue.Default.Key);
         return convertedFont.Equals(xlFont.Key);
@@ -854,10 +1026,10 @@ internal class WorkbookStylesPartWriter
         HashSet<XLNumberFormatValue> customNumberFormats,
         uint defaultFormatId)
     {
-        if (workbookStylesPart.Stylesheet.NumberingFormats == null)
+        if (workbookStylesPart.Stylesheet!.NumberingFormats == null)
         {
-            workbookStylesPart.Stylesheet.NumberingFormats = new NumberingFormats();
-            workbookStylesPart.Stylesheet.NumberingFormats.AppendChild(new NumberingFormat()
+            workbookStylesPart.Stylesheet!.NumberingFormats = new NumberingFormats();
+            workbookStylesPart.Stylesheet!.NumberingFormats.AppendChild(new NumberingFormat()
             {
                 NumberFormatId = 0,
                 FormatCode = ""
@@ -865,26 +1037,26 @@ internal class WorkbookStylesPartWriter
         }
 
         var allSharedNumberFormats = new Dictionary<XLNumberFormatValue, NumberFormatInfo>();
-        var partNumberingFormats = workbookStylesPart.Stylesheet.NumberingFormats;
+        var partNumberingFormats = workbookStylesPart.Stylesheet!.NumberingFormats;
 
-        // number format ids in the part can have holes in the sequence and first id can be greater than last built-in style id.
-        // In some cases, there are also existing number formats with id below last built-in style id.
+        // number format ids in the part can have holes in the sequence, and the first id can be greater than the last built-in style id.
+        // In some cases, there are also existing number formats with id below the last built-in style id.
         var availableNumberFormatId = partNumberingFormats.Any()
-            ? Math.Max(partNumberingFormats.Cast<NumberingFormat>().Max(nf => nf.NumberFormatId!.Value) + 1, XLConstants.NumberOfBuiltInStyles)
+            ? Math.Max(partNumberingFormats.Cast<NumberingFormat>().Max(nf => nf.NumberFormatId!.Value) + 1,
+                XLConstants.NumberOfBuiltInStyles)
             : XLConstants.NumberOfBuiltInStyles; // 0-based
 
         // Merge custom formats used in the workbook that are not already present in the part to the part and assign ids
         foreach (var customNumberFormat in customNumberFormats.Where(nf => nf.NumberFormatId != defaultFormatId))
         {
-            NumberingFormat partNumberFormat = null;
-            foreach (var nf in workbookStylesPart.Stylesheet.NumberingFormats.Cast<NumberingFormat>())
+            NumberingFormat? partNumberFormat = null;
+            foreach (var nf in workbookStylesPart.Stylesheet!.NumberingFormats.Cast<NumberingFormat>())
             {
-                if (CustomNumberFormatsAreEqual(nf, customNumberFormat))
-                {
-                    partNumberFormat = nf;
-                    break;
-                }
+                if (!CustomNumberFormatsAreEqual(nf, customNumberFormat)) continue;
+                partNumberFormat = nf;
+                break;
             }
+
             if (partNumberFormat is null)
             {
                 partNumberFormat = new NumberingFormat
@@ -892,8 +1064,9 @@ internal class WorkbookStylesPartWriter
                     NumberFormatId = availableNumberFormatId++,
                     FormatCode = customNumberFormat.Format
                 };
-                workbookStylesPart.Stylesheet.NumberingFormats.AppendChild(partNumberFormat);
+                workbookStylesPart.Stylesheet!.NumberingFormats.AppendChild(partNumberFormat);
             }
+
             allSharedNumberFormats.Add(customNumberFormat,
                 new NumberFormatInfo
                 {
@@ -901,18 +1074,17 @@ internal class WorkbookStylesPartWriter
                     NumberFormatId = (int)partNumberFormat.NumberFormatId!.Value
                 });
         }
-        workbookStylesPart.Stylesheet.NumberingFormats.Count =
-            (uint)workbookStylesPart.Stylesheet.NumberingFormats.Count();
+
+        workbookStylesPart.Stylesheet!.NumberingFormats.Count =
+            (uint)workbookStylesPart.Stylesheet!.NumberingFormats.Count();
         return allSharedNumberFormats;
     }
 
     private static bool CustomNumberFormatsAreEqual(NumberingFormat nf, XLNumberFormatValue xlNumberFormat)
     {
         if (nf.FormatCode != null && !string.IsNullOrWhiteSpace(nf.FormatCode.Value))
-            return string.Equals(xlNumberFormat?.Format, nf.FormatCode.Value);
+            return string.Equals(xlNumberFormat.Format, nf.FormatCode.Value);
 
         return false;
     }
-
-
 }

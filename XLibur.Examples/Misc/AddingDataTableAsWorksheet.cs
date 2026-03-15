@@ -7,40 +7,6 @@ namespace XLibur.Examples.Misc;
 
 public class AddingDataTableAsWorksheet : IXLExample
 {
-    #region Variables
-
-    // Public
-
-    // Private
-
-
-    #endregion
-
-    #region Properties
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Events
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var wb = new XLWorkbook();
@@ -54,10 +20,9 @@ public class AddingDataTableAsWorksheet : IXLExample
         wb.SaveAs(filePath);
     }
 
-    // Private
     private DataTable GetTable(string tableName)
     {
-        DataTable table = new DataTable();
+        var table = new DataTable();
         table.TableName = tableName;
         table.Columns.Add("Dosage", typeof(int));
         table.Columns.Add("Drug", typeof(string));
@@ -71,8 +36,4 @@ public class AddingDataTableAsWorksheet : IXLExample
         table.Rows.Add(100, "Dilantin", "Melanie", new DateTime(2000, 1, 5));
         return table;
     }
-    // Override
-
-
-    #endregion
 }

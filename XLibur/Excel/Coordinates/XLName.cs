@@ -5,7 +5,7 @@ namespace XLibur.Excel;
 
 /// <summary>
 /// A name in a worksheet. Unlike <see cref="IXLDefinedName"/>, this is basically only a reference.
-/// The actual 
+/// The actual
 /// </summary>
 internal readonly struct XLName : IEquatable<XLName>
 {

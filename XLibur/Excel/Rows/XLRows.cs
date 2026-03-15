@@ -1,11 +1,12 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
 using System.Collections;
 
-internal class XLRows : XLStylizedBase, IXLRows, IXLStylized
+internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
 {
     private readonly List<XLRow> _rowsCollection = new List<XLRow>();
     private readonly XLWorksheet? _worksheet;

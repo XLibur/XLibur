@@ -1,48 +1,35 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal class XLBorder : IXLBorder
+internal sealed class XLBorder : IXLBorder
 {
     #region Static members
 
-    internal static XLBorderKey GenerateKey(IXLBorder defaultBorder)
+    internal static XLBorderKey GenerateKey(IXLBorder? defaultBorder) => defaultBorder switch
     {
-        XLBorderKey key;
-        if (defaultBorder == null)
+        null => XLBorderValue.Default.Key,
+        XLBorder border => border.Key,
+        _ => new XLBorderKey
         {
-            key = XLBorderValue.Default.Key;
-        }
-        else if (defaultBorder is XLBorder border)
-        {
-            key = border.Key;
-        }
-        else
-        {
-            key = new XLBorderKey
-            {
-                LeftBorder = defaultBorder.LeftBorder,
-                LeftBorderColor = defaultBorder.LeftBorderColor.Key,
-                RightBorder = defaultBorder.RightBorder,
-                RightBorderColor = defaultBorder.RightBorderColor.Key,
-                TopBorder = defaultBorder.TopBorder,
-                TopBorderColor = defaultBorder.TopBorderColor.Key,
-                BottomBorder = defaultBorder.BottomBorder,
-                BottomBorderColor = defaultBorder.BottomBorderColor.Key,
-                DiagonalBorder = defaultBorder.DiagonalBorder,
-                DiagonalBorderColor = defaultBorder.DiagonalBorderColor.Key,
-                DiagonalUp = defaultBorder.DiagonalUp,
-                DiagonalDown = defaultBorder.DiagonalDown,
-            };
-        }
-
-        return key;
-    }
+            LeftBorder = defaultBorder.LeftBorder,
+            LeftBorderColor = defaultBorder.LeftBorderColor.Key,
+            RightBorder = defaultBorder.RightBorder,
+            RightBorderColor = defaultBorder.RightBorderColor.Key,
+            TopBorder = defaultBorder.TopBorder,
+            TopBorderColor = defaultBorder.TopBorderColor.Key,
+            BottomBorder = defaultBorder.BottomBorder,
+            BottomBorderColor = defaultBorder.BottomBorderColor.Key,
+            DiagonalBorder = defaultBorder.DiagonalBorder,
+            DiagonalBorderColor = defaultBorder.DiagonalBorderColor.Key,
+            DiagonalUp = defaultBorder.DiagonalUp,
+            DiagonalDown = defaultBorder.DiagonalDown,
+        },
+    };
 
     #endregion Static members
 
@@ -69,7 +56,7 @@ internal class XLBorder : IXLBorder
     public XLBorder(IXLStylized container, XLStyle style, XLBorderValue value)
     {
         _container = container;
-        _style = style ?? _container.Style as XLStyle ?? XLStyle.CreateEmptyStyle();
+        _style = style ?? (_container.Style as XLStyle) ?? XLStyle.CreateEmptyStyle();
         _value = value;
     }
 
@@ -77,11 +64,13 @@ internal class XLBorder : IXLBorder
     {
     }
 
-    public XLBorder(IXLStylized container, XLStyle style = null, IXLBorder d = null) : this(container, style, GenerateKey(d))
+    public XLBorder(IXLStylized container, XLStyle? style = null, IXLBorder? d = null) : this(container, style!, GenerateKey(d))
     {
     }
 
     #endregion Constructors
+
+    internal void SyncValue(XLBorderValue value) { _value = value; }
 
     #region IXLBorder Members
 
@@ -89,9 +78,7 @@ internal class XLBorder : IXLBorder
     {
         set
         {
-            if (_container == null) return;
-
-            if (_container is XLWorksheet || _container is XLConditionalFormat)
+            if (_container is null or XLWorksheet or XLConditionalFormat or XLCell)
             {
                 Modify(k => k with
                 {
@@ -105,10 +92,10 @@ internal class XLBorder : IXLBorder
             {
                 foreach (IXLRange r in _container.RangesUsed)
                 {
-                    r.FirstColumn().Style.Border.LeftBorder = value;
-                    r.LastColumn().Style.Border.RightBorder = value;
-                    r.FirstRow().Style.Border.TopBorder = value;
-                    r.LastRow().Style.Border.BottomBorder = value;
+                    r.FirstColumn()!.Style.Border.LeftBorder = value;
+                    r.LastColumn()!.Style.Border.RightBorder = value;
+                    r.FirstRow()!.Style.Border.TopBorder = value;
+                    r.LastRow()!.Style.Border.BottomBorder = value;
                 }
             }
         }
@@ -118,9 +105,7 @@ internal class XLBorder : IXLBorder
     {
         set
         {
-            if (_container == null) return;
-
-            if (_container is XLWorksheet || _container is XLConditionalFormat)
+            if (_container is null or XLWorksheet or XLConditionalFormat or XLCell)
             {
                 Modify(k => k with
                 {
@@ -134,10 +119,10 @@ internal class XLBorder : IXLBorder
             {
                 foreach (IXLRange r in _container.RangesUsed)
                 {
-                    r.FirstColumn().Style.Border.LeftBorderColor = value;
-                    r.LastColumn().Style.Border.RightBorderColor = value;
-                    r.FirstRow().Style.Border.TopBorderColor = value;
-                    r.LastRow().Style.Border.BottomBorderColor = value;
+                    r.FirstColumn()!.Style.Border.LeftBorderColor = value;
+                    r.LastColumn()!.Style.Border.RightBorderColor = value;
+                    r.FirstRow()!.Style.Border.TopBorderColor = value;
+                    r.LastRow()!.Style.Border.BottomBorderColor = value;
                 }
             }
         }
@@ -147,9 +132,7 @@ internal class XLBorder : IXLBorder
     {
         set
         {
-            if (_container == null) return;
-
-            if (_container is XLWorksheet)
+            if (_container is null or XLWorksheet)
             {
                 Modify(k => k with
                 {
@@ -167,7 +150,7 @@ internal class XLBorder : IXLBorder
                     {
                         foreach (var cell in r.Cells())
                         {
-                            (cell.Style.Border as XLBorder)
+                            ((XLBorder)cell.Style.Border)
                                 .Modify(k => k with
                                 {
                                     TopBorder = value,
@@ -186,9 +169,7 @@ internal class XLBorder : IXLBorder
     {
         set
         {
-            if (_container == null) return;
-
-            if (_container is XLWorksheet)
+            if (_container is null or XLWorksheet)
             {
                 Modify(k => k with
                 {
@@ -206,7 +187,7 @@ internal class XLBorder : IXLBorder
                     {
                         foreach (var cell in r.Cells())
                         {
-                            (cell.Style.Border as XLBorder)
+                            ((XLBorder)cell.Style.Border)
                                 .Modify(k => k with
                                 {
                                     TopBorderColor = value.Key,
@@ -224,7 +205,14 @@ internal class XLBorder : IXLBorder
     public XLBorderStyleValues LeftBorder
     {
         get => Key.LeftBorder;
-        set { Modify(k => k with { LeftBorder = value }); }
+        set
+        {
+            if (Key.LeftBorder == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { LeftBorder = value });
+            else
+                Modify(k => k with { LeftBorder = value });
+        }
     }
 
     public XLColor LeftBorderColor
@@ -239,14 +227,25 @@ internal class XLBorder : IXLBorder
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            Modify(k => k with { LeftBorderColor = value.Key });
+            if (Key.LeftBorderColor == value.Key) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { LeftBorderColor = value.Key });
+            else
+                Modify(k => k with { LeftBorderColor = value.Key });
         }
     }
 
     public XLBorderStyleValues RightBorder
     {
         get => Key.RightBorder;
-        set { Modify(k => k with { RightBorder = value }); }
+        set
+        {
+            if (Key.RightBorder == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { RightBorder = value });
+            else
+                Modify(k => k with { RightBorder = value });
+        }
     }
 
     public XLColor RightBorderColor
@@ -261,14 +260,25 @@ internal class XLBorder : IXLBorder
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            Modify(k => k with { RightBorderColor = value.Key });
+            if (Key.RightBorderColor == value.Key) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { RightBorderColor = value.Key });
+            else
+                Modify(k => k with { RightBorderColor = value.Key });
         }
     }
 
     public XLBorderStyleValues TopBorder
     {
-        get { return Key.TopBorder; }
-        set { Modify(k => k with { TopBorder = value }); }
+        get => Key.TopBorder;
+        set
+        {
+            if (Key.TopBorder == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { TopBorder = value });
+            else
+                Modify(k => k with { TopBorder = value });
+        }
     }
 
     public XLColor TopBorderColor
@@ -283,14 +293,25 @@ internal class XLBorder : IXLBorder
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            Modify(k => k with { TopBorderColor = value.Key });
+            if (Key.TopBorderColor == value.Key) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { TopBorderColor = value.Key });
+            else
+                Modify(k => k with { TopBorderColor = value.Key });
         }
     }
 
     public XLBorderStyleValues BottomBorder
     {
-        get { return Key.BottomBorder; }
-        set { Modify(k => k with { BottomBorder = value }); }
+        get => Key.BottomBorder;
+        set
+        {
+            if (Key.BottomBorder == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { BottomBorder = value });
+            else
+                Modify(k => k with { BottomBorder = value });
+        }
     }
 
     public XLColor BottomBorderColor
@@ -305,14 +326,25 @@ internal class XLBorder : IXLBorder
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            Modify(k => k with { BottomBorderColor = value.Key });
+            if (Key.BottomBorderColor == value.Key) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { BottomBorderColor = value.Key });
+            else
+                Modify(k => k with { BottomBorderColor = value.Key });
         }
     }
 
     public XLBorderStyleValues DiagonalBorder
     {
-        get { return Key.DiagonalBorder; }
-        set { Modify(k => k with { DiagonalBorder = value }); }
+        get => Key.DiagonalBorder;
+        set
+        {
+            if (Key.DiagonalBorder == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { DiagonalBorder = value });
+            else
+                Modify(k => k with { DiagonalBorder = value });
+        }
     }
 
     public XLColor DiagonalBorderColor
@@ -327,20 +359,38 @@ internal class XLBorder : IXLBorder
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            Modify(k => k with { DiagonalBorderColor = value.Key });
+            if (Key.DiagonalBorderColor == value.Key) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { DiagonalBorderColor = value.Key });
+            else
+                Modify(k => k with { DiagonalBorderColor = value.Key });
         }
     }
 
     public bool DiagonalUp
     {
-        get { return Key.DiagonalUp; }
-        set { Modify(k => k with { DiagonalUp = value }); }
+        get => Key.DiagonalUp;
+        set
+        {
+            if (Key.DiagonalUp == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { DiagonalUp = value });
+            else
+                Modify(k => k with { DiagonalUp = value });
+        }
     }
 
     public bool DiagonalDown
     {
-        get { return Key.DiagonalDown; }
-        set { Modify(k => k with { DiagonalDown = value }); }
+        get => Key.DiagonalDown;
+        set
+        {
+            if (Key.DiagonalDown == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { DiagonalDown = value });
+            else
+                Modify(k => k with { DiagonalDown = value });
+        }
     }
 
     public IXLStyle SetOutsideBorder(XLBorderStyleValues value)
@@ -453,15 +503,24 @@ internal class XLBorder : IXLBorder
 
     #endregion IXLBorder Members
 
+    private void SetKey(XLBorderKey newKey)
+    {
+        Key = newKey;
+        _style.ModifyBorder(Key);
+    }
+
+    /// <summary>
+    /// Kept for <see cref="RestoreOutsideBorder"/>, compound inside-border operations,
+    /// and non-cell-container paths that need per-property delta applied to each cell.
+    /// </summary>
     private void Modify(Func<XLBorderKey, XLBorderKey> modification)
     {
         Key = modification(Key);
 
-        _style.Modify(styleKey =>
-        {
-            var border = modification(styleKey.Border);
-            return styleKey with { Border = border };
-        });
+        if (_style.IsCellContainer)
+            _style.ModifyBorder(Key);
+        else
+            _style.Modify(styleKey => styleKey with { Border = modification(styleKey.Border) });
     }
 
     #region Overridden
@@ -470,37 +529,37 @@ internal class XLBorder : IXLBorder
     {
         var sb = new StringBuilder();
         sb.Append(LeftBorder.ToString());
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(LeftBorderColor);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(RightBorder.ToString());
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(RightBorderColor);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(TopBorder.ToString());
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(TopBorderColor);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(BottomBorder.ToString());
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(BottomBorderColor);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(DiagonalBorder.ToString());
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(DiagonalBorderColor);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(DiagonalUp.ToString());
-        sb.Append("-");
-        sb.Append(DiagonalDown.ToString());
+        sb.Append('-');
+        sb.Append(DiagonalDown);
         return sb.ToString();
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         return Equals(obj as XLBorder);
     }
 
-    public bool Equals(IXLBorder other)
+    public bool Equals(IXLBorder? other)
     {
         var otherB = other as XLBorder;
         if (otherB == null)
@@ -534,45 +593,45 @@ internal class XLBorder : IXLBorder
         {
             _range = range ?? throw new ArgumentNullException(nameof(range));
 
-            _topBorders = range.FirstRow().Cells().ToDictionary(
+            _topBorders = range.FirstRow()!.Cells().ToDictionary(
                 c => c.Address.ColumnNumber - range.RangeAddress.FirstAddress.ColumnNumber + 1,
-                c => (c.Style as XLStyle).Key.Border);
+                c => ((XLStyle)c.Style).Key.Border);
 
-            _bottomBorders = range.LastRow().Cells().ToDictionary(
+            _bottomBorders = range.LastRow()!.Cells().ToDictionary(
                 c => c.Address.ColumnNumber - range.RangeAddress.FirstAddress.ColumnNumber + 1,
-                c => (c.Style as XLStyle).Key.Border);
+                c => ((XLStyle)c.Style).Key.Border);
 
-            _leftBorders = range.FirstColumn().Cells().ToDictionary(
+            _leftBorders = range.FirstColumn()!.Cells().ToDictionary(
                 c => c.Address.RowNumber - range.RangeAddress.FirstAddress.RowNumber + 1,
-                c => (c.Style as XLStyle).Key.Border);
+                c => ((XLStyle)c.Style).Key.Border);
 
-            _rightBorders = range.LastColumn().Cells().ToDictionary(
+            _rightBorders = range.LastColumn()!.Cells().ToDictionary(
                 c => c.Address.RowNumber - range.RangeAddress.FirstAddress.RowNumber + 1,
-                c => (c.Style as XLStyle).Key.Border);
+                c => ((XLStyle)c.Style).Key.Border);
         }
 
         public void Dispose()
         {
-            _topBorders.ForEach(kp => (_range.FirstRow().Cell(kp.Key).Style
-                .Border as XLBorder).Modify(k => k with
+            _topBorders.ForEach(kp => ((XLBorder)_range.FirstRow()!.Cell(kp.Key).Style
+                .Border).Modify(k => k with
             {
                 TopBorder = kp.Value.TopBorder,
                 TopBorderColor = kp.Value.TopBorderColor,
             }));
-            _bottomBorders.ForEach(kp => (_range.LastRow().Cell(kp.Key).Style
-                .Border as XLBorder).Modify(k => k with
+            _bottomBorders.ForEach(kp => ((XLBorder)_range.LastRow()!.Cell(kp.Key).Style
+                .Border).Modify(k => k with
             {
                 BottomBorder = kp.Value.BottomBorder,
                 BottomBorderColor = kp.Value.BottomBorderColor,
             }));
-            _leftBorders.ForEach(kp => (_range.FirstColumn().Cell(kp.Key).Style
-                .Border as XLBorder).Modify(k => k with
+            _leftBorders.ForEach(kp => ((XLBorder)_range.FirstColumn()!.Cell(kp.Key).Style
+                .Border).Modify(k => k with
             {
                 LeftBorder = kp.Value.LeftBorder,
                 LeftBorderColor = kp.Value.LeftBorderColor,
             }));
-            _rightBorders.ForEach(kp => (_range.LastColumn().Cell(kp.Key).Style
-                .Border as XLBorder).Modify(k => k with
+            _rightBorders.ForEach(kp => ((XLBorder)_range.LastColumn()!.Cell(kp.Key).Style
+                .Border).Modify(k => k with
             {
                 RightBorder = kp.Value.RightBorder,
                 RightBorderColor = kp.Value.RightBorderColor,

@@ -579,6 +579,75 @@ public class StatisticalTests
         return (XLError)XLWorkbook.EvaluateExpr($"FISHER({sourceValue})");
     }
 
+    [TestCase(0.05464, 60, 1.960041187)] // From Microsoft documentation
+    [TestCase(0.05, 10, 2.228138852)]
+    [TestCase(0.1, 30, 1.697260887)]
+    [TestCase(0.5, 1, 1.0)]
+    [TestCase(0.01, 5, 4.032142984)]
+    [TestCase(0.9, 100, 0.125980882)] // T.INV.2S(0.9, 100) = T.INV(0.55, 100)
+    [DefaultFloatingPointTolerance(1e-6)]
+    public void TInv_returns_two_tailed_inverse(double probability, double df, double expected)
+    {
+        var result = (double)XLWorkbook.EvaluateExpr($"TINV({probability.ToInvariantString()}, {df.ToInvariantString()})");
+        Assert.AreEqual(expected, result);
+    }
+
+    [TestCase(0, 10, ExpectedResult = XLError.NumberInvalid)] // probability = 0
+    [TestCase(1, 10, ExpectedResult = XLError.NumberInvalid)] // probability = 1
+    [TestCase(-0.1, 10, ExpectedResult = XLError.NumberInvalid)] // probability < 0
+    [TestCase(1.1, 10, ExpectedResult = XLError.NumberInvalid)] // probability > 1
+    [TestCase(0.5, 0, ExpectedResult = XLError.NumberInvalid)] // df < 1
+    [TestCase(0.5, 0.5, ExpectedResult = XLError.NumberInvalid)] // df rounds down to 0
+    public XLError TInv_returns_error_on_invalid_input(double probability, double df)
+    {
+        return (XLError)XLWorkbook.EvaluateExpr($"TINV({probability.ToInvariantString()}, {df.ToInvariantString()})");
+    }
+
+    [TestCase(0.05464, 60, 1.960041187)]
+    [TestCase(0.05, 10, 2.228138852)]
+    [DefaultFloatingPointTolerance(1e-6)]
+    public void TInv2T_returns_same_as_TInv(double probability, double df, double expected)
+    {
+        // T.INV.2T is the modern equivalent of TINV
+        var result = (double)XLWorkbook.EvaluateExpr($"T.INV.2T({probability.ToInvariantString()}, {df.ToInvariantString()})");
+        Assert.AreEqual(expected, result);
+    }
+
+    [TestCase(0.5, 10, 0.0)] // Median is 0 for symmetric distribution
+    [TestCase(0.975, 60, 2.000297822)] // T.INV(0.975, 60) — TINV(0.05, 60)
+    [TestCase(0.025, 60, -2.000297822)] // Negative tail
+    [TestCase(0.95, 10, 1.812461123)]
+    [TestCase(0.05, 10, -1.812461123)]
+    [DefaultFloatingPointTolerance(1e-6)]
+    public void TInv_one_tailed_returns_left_inverse(double probability, double df, double expected)
+    {
+        var result = (double)XLWorkbook.EvaluateExpr($"T.INV({probability.ToInvariantString()}, {df.ToInvariantString()})");
+        Assert.AreEqual(expected, result);
+    }
+
+    [TestCase(0, 10, ExpectedResult = XLError.NumberInvalid)]
+    [TestCase(1, 10, ExpectedResult = XLError.NumberInvalid)]
+    [TestCase(0.5, 0, ExpectedResult = XLError.NumberInvalid)]
+    public XLError TInv_one_tailed_returns_error_on_invalid_input(double probability, double df)
+    {
+        return (XLError)XLWorkbook.EvaluateExpr($"T.INV({probability.ToInvariantString()}, {df.ToInvariantString()})");
+    }
+
+    [Test]
+    [DefaultFloatingPointTolerance(1e-6)]
+    public void TInv_user_example()
+    {
+        // The exact example from the issue
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sample Sheet");
+
+        ws.Cell("A1").Value = "0.05464";
+        ws.Cell("A2").Value = "60";
+        ws.Cell("B1").FormulaA1 = "=TINV(A1,A2)";
+
+        Assert.AreEqual(1.960041187, (double)ws.Cell("B1").Value);
+    }
+
     [Test]
     public void Max()
     {

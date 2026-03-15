@@ -17,6 +17,9 @@ public class PictureInfoTests
 
     [TestCase("SampleImageJfif.jpg", 176, 270, 96, 96)]
     [TestCase("jpeg-rgb.jpg", 200, 200, 0, 0)] // Adobe JPG, has APP14 marker right after SOI instead of APP0
+    [TestCase("jpeg-icc-profile.jpg", 4, 4, 0, 0)] // JPEG with ICC profile (APP2) as first marker
+    [TestCase("jpeg-xmp.jpg", 4, 4, 0, 0)] // JPEG with XMP metadata (APP1/XMP) as first marker
+    [TestCase("jpeg-dqt-first.jpg", 4, 4, 0, 0)] // JPEG with DQT as first marker (no APP segment)
     public void CanReadJfif(string filename, int widthPx, int heightPx, int dpiX, int dpiY)
     {
         AssertRasterImage($"Jpg.{filename}", XLPictureFormat.Jpeg, new Size(widthPx, heightPx), dpiX, dpiY);
@@ -107,6 +110,18 @@ public class PictureInfoTests
     public void CanReadLosslessWebp()
     {
         AssertRasterImage("SampleImageWebpLossless.webp", XLPictureFormat.Webp, new Size(395, 136), 72, 72);
+    }
+
+    [Test]
+    public void CanReadSvgWithWidthAndHeight()
+    {
+        AssertRasterImage("SampleImageSvg.svg", XLPictureFormat.Svg, new Size(24, 24), 96, 96);
+    }
+
+    [Test]
+    public void CanReadSvgWithViewBoxOnly()
+    {
+        AssertRasterImage("SampleImageSvgViewBox.svg", XLPictureFormat.Svg, new Size(100, 50), 96, 96);
     }
 
     private static void AssertRasterImage(string imageName, XLPictureFormat expectedFormat, Size expectedPxSize, double expectedDpiX, double expectedDpiY)

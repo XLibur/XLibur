@@ -1,8 +1,6 @@
-#nullable disable
+﻿namespace XLibur.Excel;
 
-namespace XLibur.Excel;
-
-internal class XLDrawingMargins : IXLDrawingMargins
+internal sealed class XLDrawingMargins : IXLDrawingMargins
 {
     private readonly IXLDrawingStyle _style;
     public XLDrawingMargins(IXLDrawingStyle style)

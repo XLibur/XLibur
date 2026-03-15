@@ -9,7 +9,7 @@ namespace XLibur.Excel.CalcEngine.Functions;
 /// A representation of selection criteria used in IFs functions <c>{SUM,AVERAGE,COUNT}{IF,IFS}</c>
 /// and database functions (<c>D{AVERAGE,COUNT,COUNTA,...}</c>).
 /// </summary>
-internal class Criteria
+internal sealed class Criteria
 {
     // Values are ordered by length of a prefix. The longer ones are before sorter ones.
     private static readonly List<(string Prefix, Comparison Comparison)> AllComparisons =

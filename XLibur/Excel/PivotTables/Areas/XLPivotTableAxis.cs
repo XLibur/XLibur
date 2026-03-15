@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,7 +13,7 @@ namespace XLibur.Excel;
 /// <remarks>
 /// [ISO-29500] 18.10.1.17 colItems (Column Items), 18.10.1.84 rowItems (Row Items).
 /// </remarks>
-internal class XLPivotTableAxis : IXLPivotFields
+internal sealed class XLPivotTableAxis : IXLPivotFields
 {
     private readonly XLPivotTable _pivotTable;
 
@@ -133,10 +133,9 @@ internal class XLPivotTableAxis : IXLPivotFields
     {
         var field = AddField(sourceName, customName);
 
-        // Excel by default adds a subtotal, but previous versions of XLibur didn't have them,
-        // so keep API behavior.
+        // New fields added via API get default automatic subtotal.
         if (field.Offset != FieldIndex.DataField.Value)
-            _pivotTable.PivotFields[field.Offset].RemoveSubtotal(XLSubtotalFunction.Automatic);
+            _pivotTable.PivotFields[field.Offset].AddSubtotal(XLSubtotalFunction.Automatic);
 
         return field;
     }

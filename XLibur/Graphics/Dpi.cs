@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace XLibur.Graphics;
 
 /// <summary>

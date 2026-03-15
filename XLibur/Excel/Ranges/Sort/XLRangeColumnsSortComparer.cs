@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLRangeColumnsSortComparer : IComparer<int>
+internal sealed class XLRangeColumnsSortComparer : IComparer<int>
 {
     private readonly List<(int RowNumber, XLCellValueSortComparer Comparer)> _rowComparers;
     private readonly ValueSlice _valueSlice;

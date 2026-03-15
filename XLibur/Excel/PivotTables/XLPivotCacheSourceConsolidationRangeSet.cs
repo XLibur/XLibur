@@ -7,7 +7,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// One of ranges that form a <see cref="XLPivotSourceConsolidation"/> source for a <see cref="XLPivotCache"/>.
 /// </summary>
-internal class XLPivotCacheSourceConsolidationRangeSet
+internal sealed class XLPivotCacheSourceConsolidationRangeSet
 {
     /// <summary>
     /// Indexes into the <see cref="XLPivotSourceConsolidation.Pages"/>. If the value is null

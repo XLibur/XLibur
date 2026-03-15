@@ -1,12 +1,10 @@
-#nullable disable
-
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
 using System.Linq;
 
-internal class XLTableRange : XLRange, IXLTableRange
+internal sealed class XLTableRange : XLRange, IXLTableRange
 {
     private readonly XLTable _table;
     private readonly XLRange _range;
@@ -18,15 +16,15 @@ internal class XLTableRange : XLRange, IXLTableRange
         _range = range;
     }
 
-    IXLTableRow IXLTableRange.FirstRow(Func<IXLTableRow, bool> predicate)
+    IXLTableRow? IXLTableRange.FirstRow(Func<IXLTableRow, bool>? predicate)
     {
         return FirstRow(predicate);
     }
 
-    public XLTableRow FirstRow(Func<IXLTableRow, bool> predicate = null)
+    public XLTableRow? FirstRow(Func<IXLTableRow, bool>? predicate = null)
     {
         if (predicate == null)
-            return new XLTableRow(this, (_range.FirstRow()));
+            return new XLTableRow(this, (_range.FirstRow()!));
 
         int rowCount = _range.RowCount();
 
@@ -39,25 +37,28 @@ internal class XLTableRange : XLRange, IXLTableRange
         return null;
     }
 
-    IXLTableRow IXLTableRange.FirstRowUsed(Func<IXLTableRow, bool> predicate)
+    IXLTableRow? IXLTableRange.FirstRowUsed(Func<IXLTableRow, bool>? predicate)
     {
         return FirstRowUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    public XLTableRow FirstRowUsed(Func<IXLTableRow, bool> predicate = null)
+    public XLTableRow? FirstRowUsed(Func<IXLTableRow, bool>? predicate = null)
     {
         return FirstRowUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    IXLTableRow IXLTableRange.FirstRowUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool> predicate)
+    IXLTableRow? IXLTableRange.FirstRowUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool>? predicate)
     {
         return FirstRowUsed(options, predicate);
     }
 
-    internal XLTableRow FirstRowUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool> predicate = null)
+    internal XLTableRow? FirstRowUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool>? predicate = null)
     {
         if (predicate == null)
-            return new XLTableRow(this, (_range.FirstRowUsed(options)));
+        {
+            var row = _range.FirstRowUsed(options);
+            return row is null ? null : new XLTableRow(this, row);
+        }
 
         int rowCount = _range.RowCount();
 
@@ -72,15 +73,15 @@ internal class XLTableRange : XLRange, IXLTableRange
         return null;
     }
 
-    IXLTableRow IXLTableRange.LastRow(Func<IXLTableRow, bool> predicate)
+    IXLTableRow? IXLTableRange.LastRow(Func<IXLTableRow, bool>? predicate)
     {
         return LastRow(predicate);
     }
 
-    public XLTableRow LastRow(Func<IXLTableRow, bool> predicate = null)
+    public XLTableRow? LastRow(Func<IXLTableRow, bool>? predicate = null)
     {
         if (predicate == null)
-            return new XLTableRow(this, (_range.LastRow()));
+            return new XLTableRow(this, (_range.LastRow()!));
 
         int rowCount = _range.RowCount();
 
@@ -92,25 +93,28 @@ internal class XLTableRange : XLRange, IXLTableRange
         return null;
     }
 
-    IXLTableRow IXLTableRange.LastRowUsed(Func<IXLTableRow, bool> predicate)
+    IXLTableRow? IXLTableRange.LastRowUsed(Func<IXLTableRow, bool>? predicate)
     {
         return LastRowUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    public XLTableRow LastRowUsed(Func<IXLTableRow, bool> predicate = null)
+    public XLTableRow? LastRowUsed(Func<IXLTableRow, bool>? predicate = null)
     {
         return LastRowUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    IXLTableRow IXLTableRange.LastRowUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool> predicate)
+    IXLTableRow? IXLTableRange.LastRowUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool>? predicate)
     {
         return LastRowUsed(options, predicate);
     }
 
-    internal XLTableRow LastRowUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool> predicate = null)
+    internal XLTableRow? LastRowUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool>? predicate = null)
     {
         if (predicate == null)
-            return new XLTableRow(this, (_range.LastRowUsed(options)));
+        {
+            var row = _range.LastRowUsed(options);
+            return row is null ? null : new XLTableRow(this, row);
+        }
 
         int rowCount = _range.RowCount();
 
@@ -143,7 +147,7 @@ internal class XLTableRange : XLRange, IXLTableRange
         return new XLTableRow(this, base.Row(row));
     }
 
-    public IXLTableRows Rows(Func<IXLTableRow, bool> predicate = null)
+    public IXLTableRows Rows(Func<IXLTableRow, bool>? predicate = null)
     {
         var retVal = new XLTableRows(Worksheet.Style);
         int rowCount = _range.RowCount();
@@ -193,12 +197,12 @@ internal class XLTableRange : XLRange, IXLTableRange
         return retVal;
     }
 
-    IXLTableRows IXLTableRange.RowsUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool> predicate)
+    IXLTableRows IXLTableRange.RowsUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool>? predicate)
     {
         return RowsUsed(options, predicate);
     }
 
-    internal XLTableRows RowsUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool> predicate = null)
+    internal XLTableRows RowsUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool>? predicate = null)
     {
         var rows = new XLTableRows(Worksheet.Style);
         int rowCount = RowCount();
@@ -213,19 +217,19 @@ internal class XLTableRange : XLRange, IXLTableRange
         return rows;
     }
 
-    IXLTableRows IXLTableRange.RowsUsed(Func<IXLTableRow, bool> predicate)
+    IXLTableRows IXLTableRange.RowsUsed(Func<IXLTableRow, bool>? predicate)
     {
         return RowsUsed(predicate);
     }
 
-    public IXLTableRows RowsUsed(Func<IXLTableRow, bool> predicate = null)
+    public IXLTableRows RowsUsed(Func<IXLTableRow, bool>? predicate = null)
     {
         return RowsUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    IXLTable IXLTableRange.Table { get { return _table; } }
+    IXLTable IXLTableRange.Table => _table;
 
-    public XLTable Table { get { return _table; } }
+    public XLTable Table => _table;
 
     public new IXLTableRows InsertRowsAbove(int numberOfRows)
     {

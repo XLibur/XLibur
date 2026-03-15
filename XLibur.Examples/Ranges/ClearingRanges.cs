@@ -6,9 +6,6 @@ namespace XLibur.Examples.Ranges;
 
 public class ClearingRanges : IXLExample
 {
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var workbook = new XLWorkbook();
@@ -42,11 +39,4 @@ public class ClearingRanges : IXLExample
 
         workbook.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

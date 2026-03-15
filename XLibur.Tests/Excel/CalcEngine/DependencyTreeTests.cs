@@ -456,7 +456,7 @@ internal class DependencyTreeTests
                 "@A1:A4",
                 new[]
                 {
-                    // Implicit intersection 
+                    // Implicit intersection
                     new XLBookArea("Sheet", XLSheetRange.Parse("A1:A4")),
                 }
             ];

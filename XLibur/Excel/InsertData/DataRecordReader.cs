@@ -1,17 +1,14 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 
 namespace XLibur.Excel.InsertData;
 
-internal class DataRecordReader : IInsertDataReader
+internal sealed class DataRecordReader : IInsertDataReader
 {
     private readonly IEnumerable<XLCellValue>[] _inMemoryData;
-    private string[] _columns;
+    private string[]? _columns;
 
     public DataRecordReader(IEnumerable<IDataRecord> data)
     {
@@ -27,10 +24,10 @@ internal class DataRecordReader : IInsertDataReader
 
     public int GetPropertiesCount()
     {
-        return _columns.Length;
+        return _columns?.Length ?? 0;
     }
 
-    public string GetPropertyName(int propertyIndex)
+    public string? GetPropertyName(int propertyIndex)
     {
         if (propertyIndex < 0)
             throw new ArgumentOutOfRangeException(nameof(propertyIndex), "Property index must be non-negative");

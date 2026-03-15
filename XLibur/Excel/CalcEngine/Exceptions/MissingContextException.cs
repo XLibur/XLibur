@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel.CalcEngine.Exceptions;
 
@@ -8,4 +8,4 @@ namespace XLibur.Excel.CalcEngine.Exceptions;
 /// needs an address of the formula cell. Various methods in XLibur are missing different information, e.g.
 /// <see cref="IXLWorksheet.Evaluate(string, string)"/> has worksheet, but no cell address (=ranges will work, other things won't).
 /// </summary>
-internal class MissingContextException : InvalidOperationException;
+internal sealed class MissingContextException : InvalidOperationException;

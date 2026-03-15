@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLPivotAreaComparer : IEqualityComparer<XLPivotArea>
+internal sealed class XLPivotAreaComparer : IEqualityComparer<XLPivotArea>
 {
     private readonly XLPivotReferenceComparer _referenceComparer = new();
 

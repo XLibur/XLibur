@@ -1,55 +1,72 @@
-#nullable disable
-
 using System;
 
 namespace XLibur.Excel;
 
-internal struct XLColorKey : IEquatable<XLColorKey>
+internal readonly struct XLColorKey : IEquatable<XLColorKey>
 {
-    public XLColorType ColorType { get; set; }
+    public XLColorType ColorType { get; init; }
 
-    public System.Drawing.Color Color { get; set; }
+    public System.Drawing.Color Color { get; init; }
 
-    public int Indexed { get; set; }
+    public int Indexed { get; init; }
 
-    public XLThemeColor ThemeColor { get; set; }
+    public XLThemeColor ThemeColor { get; init; }
 
-    public double ThemeTint { get; set; }
+    public double ThemeTint { get; init; }
 
     public override int GetHashCode()
     {
-        var hashCode = -331517974;
-        hashCode = hashCode * -1521134295 + (int)ColorType;
-        hashCode = hashCode * -1521134295 + (ColorType == XLColorType.Indexed ? Indexed : 0);
-        hashCode = hashCode * -1521134295 + (ColorType == XLColorType.Theme ? (int)ThemeColor : 0);
-        hashCode = hashCode * -1521134295 + (ColorType == XLColorType.Theme ? ThemeTint.GetHashCode() : 0);
-        hashCode = hashCode * -1521134295 + (ColorType == XLColorType.Color ? Color.ToArgb() : 0);
-        return hashCode;
+        unchecked
+        {
+            var hash = (int)ColorType;
+
+            switch (ColorType)
+            {
+                case XLColorType.Indexed:
+                    hash = (hash * 397) ^ Indexed;
+                    break;
+
+                case XLColorType.Theme:
+                    hash = (hash * 397) ^ (int)ThemeColor;
+                    var tintHash = (int)(ThemeTint * 100000);
+                    hash = (hash * 397) ^ tintHash;
+                    break;
+
+                case XLColorType.Color:
+                    hash = (hash * 397) ^ Color.ToArgb();
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
+            return hash;
+        }
     }
 
     public bool Equals(XLColorKey other)
     {
-        if (ColorType == other.ColorType)
+        if (ColorType != other.ColorType) return false;
+        switch (ColorType)
         {
-            if (ColorType == XLColorType.Color)
-            {
-                // .NET Color.Equals() will return false for Color.FromArgb(255, 255, 255, 255) == Color.White
-                // Therefore we compare the ToArgb() values
+            case XLColorType.Color:
                 return Color.ToArgb() == other.Color.ToArgb();
-            }
-            if (ColorType == XLColorType.Theme)
-            {
-                return
-                    ThemeColor == other.ThemeColor
-                    && Math.Abs(ThemeTint - other.ThemeTint) < XLHelper.Epsilon;
-            }
-            return Indexed == other.Indexed;
-        }
+            case XLColorType.Theme:
+                if (ThemeColor != other.ThemeColor)
+                    return false;
 
-        return false;
+                // Fast path for identical stored double values without floating-point ==.
+                if (BitConverter.DoubleToInt64Bits(ThemeTint) == BitConverter.DoubleToInt64Bits(other.ThemeTint))
+                    return true;
+
+                return Math.Abs(ThemeTint - other.ThemeTint) < XLHelper.Epsilon;
+
+            case XLColorType.Indexed:
+            default:
+                return Indexed == other.Indexed;
+        }
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         if (obj is XLColorKey key)
             return Equals(key);
@@ -63,7 +80,7 @@ internal struct XLColorKey : IEquatable<XLColorKey>
             XLColorType.Color => Color.ToString(),
             XLColorType.Theme => $"{ThemeColor} ({ThemeTint})",
             XLColorType.Indexed => $"Indexed: {Indexed}",
-            _ => base.ToString()
+            _ => base.ToString()!
         };
     }
 

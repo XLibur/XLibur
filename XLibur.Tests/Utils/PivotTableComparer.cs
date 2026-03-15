@@ -1,9 +1,9 @@
-﻿using XLibur.Excel;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel;
 
-namespace XLibur.Tests;
+namespace XLibur.Tests.Utils;
 
 internal class PivotTableComparer : IEqualityComparer<XLPivotTable>
 {

@@ -83,7 +83,7 @@ public class SavingTests
         // https://github.com/XLibur/XLibur/issues/435
 
         using var ms = new MemoryStream();
-        using (XLWorkbook book1 = new XLWorkbook())
+        using (var book1 = new XLWorkbook())
         {
             book1.AddWorksheet("sheet1");
             book1.AddWorksheet("sheet2");
@@ -92,7 +92,7 @@ public class SavingTests
         }
         ms.Position = 0;
 
-        using (XLWorkbook book2 = new XLWorkbook(ms))
+        using (var book2 = new XLWorkbook(ms))
         {
             var ws = book2.Worksheet(1);
             Assert.AreEqual("sheet1", ws.Name);
@@ -135,7 +135,7 @@ public class SavingTests
         }
         ms.Position = 0;
 
-        using (XLWorkbook book2 = new XLWorkbook(ms))
+        using (var book2 = new XLWorkbook(ms))
         {
             var ws = book2.Worksheet(1);
 
@@ -147,7 +147,7 @@ public class SavingTests
     public void SaveCachedValueWhenFlagIsTrue()
     {
         using var ms = new MemoryStream();
-        using (XLWorkbook book1 = new XLWorkbook())
+        using (var book1 = new XLWorkbook())
         {
             var sheet = book1.AddWorksheet("sheet1");
             sheet.Cell("A1").Value = 123;
@@ -159,12 +159,11 @@ public class SavingTests
         }
         ms.Position = 0;
 
-        using (XLWorkbook book2 = new XLWorkbook(ms))
+        using (var book2 = new XLWorkbook(ms))
         {
             var ws = book2.Worksheet(1);
 
             Assert.AreEqual(1230, ws.Cell("A2").CachedValue);
-
             Assert.AreEqual("1 230", ws.Cell("A3").CachedValue);
         }
     }
@@ -733,7 +732,7 @@ public class SavingTests
         // Issue 2080: Drawing was loading the workbook DOM from the worksheet part and
         // the OpenXML SDK was ignoring worksheet changes saved through streaming, but used
         // the eager loaded DOM instead.
-        // Saved file doesn't contain shape because it's not yet supported (#1252)
+        // Shapes are now preserved across load/save (#2377)
         TestHelper.LoadModifyAndCompare(
             @"Other\Parts\WorksheetWithDrawingCanBeModified-input.xlsx",
             wb =>

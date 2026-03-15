@@ -21,7 +21,7 @@ public class GlobalizationTests
         Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("ru-RU");
 
         using var ms = new MemoryStream();
-        using (XLWorkbook book1 = new XLWorkbook())
+        using (var book1 = new XLWorkbook())
         {
             var sheet = book1.AddWorksheet("sheet1");
             sheet.Cell("A1").Value = 123;
@@ -32,7 +32,7 @@ public class GlobalizationTests
         }
         ms.Position = 0;
 
-        using (XLWorkbook book2 = new XLWorkbook(ms))
+        using (var book2 = new XLWorkbook(ms))
         {
             var ws = book2.Worksheet(1);
             var storedValueA2 = ws.Cell("A2").CachedValue;

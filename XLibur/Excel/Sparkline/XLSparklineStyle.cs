@@ -1,27 +1,24 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLSparklineStyle : IXLSparklineStyle, IEquatable<XLSparklineStyle>
+internal sealed class XLSparklineStyle : IXLSparklineStyle, IEquatable<XLSparklineStyle>
 {
     #region Public Properties
 
-    public XLColor FirstMarkerColor { get; set; }
+    public XLColor FirstMarkerColor { get; set; } = null!;
 
-    public XLColor HighMarkerColor { get; set; }
+    public XLColor HighMarkerColor { get; set; } = null!;
 
-    public XLColor LastMarkerColor { get; set; }
+    public XLColor LastMarkerColor { get; set; } = null!;
 
-    public XLColor LowMarkerColor { get; set; }
+    public XLColor LowMarkerColor { get; set; } = null!;
 
-    public XLColor MarkersColor { get; set; }
+    public XLColor MarkersColor { get; set; } = null!;
 
-    public XLColor NegativeColor { get; set; }
+    public XLColor NegativeColor { get; set; } = null!;
 
-    public XLColor SeriesColor { get; set; }
+    public XLColor SeriesColor { get; set; } = null!;
 
     #endregion Public Properties
 
@@ -105,7 +102,7 @@ internal class XLSparklineStyle : IXLSparklineStyle, IEquatable<XLSparklineStyle
     /// <summary>Indicates whether the current object is equal to another object of the same type.</summary>
     /// <param name="other">An object to compare with this object.</param>
     /// <returns>true if the current object is equal to the <paramref name="other">other</paramref> parameter; otherwise, false.</returns>
-    public bool Equals(XLSparklineStyle other)
+    public bool Equals(XLSparklineStyle? other)
     {
         if (ReferenceEquals(null, other)) return false;
         if (ReferenceEquals(this, other)) return true;
@@ -121,7 +118,7 @@ internal class XLSparklineStyle : IXLSparklineStyle, IEquatable<XLSparklineStyle
     /// <summary>Determines whether the specified object is equal to the current object.</summary>
     /// <param name="obj">The object to compare with the current object.</param>
     /// <returns>true if the specified object  is equal to the current object; otherwise, false.</returns>
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         if (ReferenceEquals(null, obj)) return false;
         if (ReferenceEquals(this, obj)) return true;

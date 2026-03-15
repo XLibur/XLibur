@@ -1,12 +1,12 @@
-using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using XLibur.Excel;
+using NUnit.Framework;
 
-namespace XLibur.Tests.Excel;
+namespace XLibur.Tests.Excel.Styles;
 
 public class NumberFormatTests
 {

@@ -6,33 +6,27 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.Tables;
 
 [TestFixture]
 public class AppendingAndReplacingTableDataTests
 {
-    public class TestObjectWithoutAttributes
-    {
-        public String Column1 { get; set; }
-        public String Column2 { get; set; }
-    }
-
     public class Person
     {
         public int Age { get; set; }
 
         [XLColumn(Header = "Last name", Order = 2)]
-        public String LastName { get; set; }
+        public string LastName { get; set; }
 
         [XLColumn(Header = "First name", Order = 1)]
-        public String FirstName { get; set; }
+        public string FirstName { get; set; }
 
         [XLColumn(Header = "Full name", Order = 0)]
-        public String FullName => string.Concat(FirstName, " ", LastName);
+        public string FullName => string.Concat(FirstName, " ", LastName);
 
-        [XLColumn(Order = 3)]
-        public DateTime DateOfBirth { get; set; }
+        [XLColumn(Order = 3)] public DateTime DateOfBirth { get; set; }
 
         [XLColumn(Header = "Is active", Order = 4)]
         public bool IsActive;
@@ -43,14 +37,26 @@ public class AppendingAndReplacingTableDataTests
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Tables");
 
-        var data = new[]
+        var persons = new[]
         {
-            new Person{FirstName = "Francois", LastName = "Botha", Age = 39, DateOfBirth = new DateTime(1980,1,1), IsActive = true},
-            new Person{FirstName = "Leon", LastName = "Oosthuizen", Age = 40, DateOfBirth = new DateTime(1979,1,1), IsActive = false},
-            new Person{FirstName = "Rian", LastName = "Prinsloo", Age = 41, DateOfBirth = new DateTime(1978,1,1), IsActive = false}
+            new Person
+            {
+                FirstName = "Francois", LastName = "Botha", Age = 39, DateOfBirth = new DateTime(1980, 1, 1),
+                IsActive = true
+            },
+            new Person
+            {
+                FirstName = "Leon", LastName = "Oosthuizen", Age = 40, DateOfBirth = new DateTime(1979, 1, 1),
+                IsActive = false
+            },
+            new Person
+            {
+                FirstName = "Rian", LastName = "Prinsloo", Age = 41, DateOfBirth = new DateTime(1978, 1, 1),
+                IsActive = false
+            }
         };
 
-        ws.FirstCell().CellRight().CellBelow().InsertTable(data);
+        ws.FirstCell().CellRight().CellBelow().InsertTable(persons);
 
         ws.Columns().AdjustToContents();
 
@@ -63,9 +69,9 @@ public class AppendingAndReplacingTableDataTests
         var ws = wb.Worksheets.First();
 
         var table = ws.Tables.First();
-        table.HeadersRow()
+        table.HeadersRow()!
             .LastCell().CellRight()
-            .InsertData(new[] { "CumulativeAge", "NameLength", "IsOld", "HardCodedValue" }, transpose: true);
+            .InsertData(Data, transpose: true);
 
         table.Resize(ws.Range(table.FirstCell(), table.LastCell().CellRight(4)));
 
@@ -79,9 +85,19 @@ public class AppendingAndReplacingTableDataTests
 
     private Person[] NewData =>
     [
-        new() {FirstName = "Michelle", LastName = "de Beer", Age = 35, DateOfBirth = new DateTime(1983,1,1), IsActive = false},
-        new() {FirstName = "Marichen", LastName = "van der Gryp", Age = 30, DateOfBirth = new DateTime(1990,1,1), IsActive = true}
+        new()
+        {
+            FirstName = "Michelle", LastName = "de Beer", Age = 35, DateOfBirth = new DateTime(1983, 1, 1),
+            IsActive = false
+        },
+        new()
+        {
+            FirstName = "Marichen", LastName = "van der Gryp", Age = 30, DateOfBirth = new DateTime(1990, 1, 1),
+            IsActive = true
+        }
     ];
+
+    private static readonly string[] Data = ["CumulativeAge", "NameLength", "IsOld", "HardCodedValue"];
 
     [Test]
     public void AddingEmptyEnumerables()
@@ -91,18 +107,11 @@ public class AppendingAndReplacingTableDataTests
 
         var table = ws.Tables.First();
 
-        IEnumerable<Person> personEnumerable = null;
-        // ReSharper disable once ExpressionIsAlwaysNull
+        IEnumerable<Person> personEnumerable = [];
+
         Assert.AreEqual(null, table.AppendData(personEnumerable));
 
-        personEnumerable = [];
-        Assert.AreEqual(null, table.AppendData(personEnumerable));
-
-        IEnumerable enumerable = null;
-        // ReSharper disable once ExpressionIsAlwaysNull
-        Assert.AreEqual(null, table.AppendData(enumerable));
-
-        enumerable = Array.Empty<Person>();
+        IEnumerable enumerable = Array.Empty<Person>();
         Assert.AreEqual(null, table.AppendData(enumerable));
     }
 
@@ -114,16 +123,10 @@ public class AppendingAndReplacingTableDataTests
 
         var table = ws.Tables.First();
 
-        IEnumerable<Person> personEnumerable = null;
+        IEnumerable<Person> personEnumerable = [];
         Assert.Throws<InvalidOperationException>(() => table.ReplaceData(personEnumerable));
 
-        personEnumerable = [];
-        Assert.Throws<InvalidOperationException>(() => table.ReplaceData(personEnumerable));
-
-        IEnumerable enumerable = null;
-        Assert.Throws<InvalidOperationException>(() => table.ReplaceData(enumerable));
-
-        enumerable = new Person[] { };
+        IEnumerable enumerable = Array.Empty<Person>();
         Assert.Throws<InvalidOperationException>(() => table.ReplaceData(enumerable));
     }
 
@@ -189,7 +192,7 @@ public class AppendingAndReplacingTableDataTests
     public void CanAppendTypedEnumerableAndPushDownCellsBelowTable()
     {
         using var ms = new MemoryStream();
-        var value = "Some value that will be overwritten";
+        const string value = "Some value that will be overwritten";
         IXLAddress address;
         using (var wb = PrepareWorkbook())
         {

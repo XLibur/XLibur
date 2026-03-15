@@ -5,9 +5,6 @@ namespace XLibur.Examples.PageSetup;
 
 public class Sheets : IXLExample
 {
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var workbook = new XLWorkbook();
@@ -22,11 +19,4 @@ public class Sheets : IXLExample
 
         workbook.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

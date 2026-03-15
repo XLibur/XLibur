@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
@@ -13,7 +14,7 @@ namespace XLibur.Excel;
 /// <remarks>
 /// See <em>[OI-29500] 18.10.1.69 pivotField(PivotTable Field)</em> for details.
 /// </remarks>
-internal class XLPivotTableField
+internal sealed class XLPivotTableField
 {
     private readonly XLPivotTable _pivotTable;
     private readonly List<XLPivotFieldItem> _items = [];
@@ -22,7 +23,7 @@ internal class XLPivotTableField
     {
         _pivotTable = pivotTable;
         ShowAll = false; // The XML default value is true, but Excel always has false, so let's follow Excel.
-        Subtotals = [XLSubtotalFunction.Automatic];
+        Subtotals = [];
     }
 
     internal XLPivotTable PivotTable => _pivotTable;
@@ -207,7 +208,9 @@ internal class XLPivotTableField
 
     internal void AddSubtotal(XLSubtotalFunction value)
     {
-        Subtotals.Add(value);
+        if (!Subtotals.Add(value))
+            return;
+
         var subtotalItemType = GetItemTypeForSubtotal(value);
         _items.Add(new XLPivotFieldItem(this, null) { ItemType = subtotalItemType });
     }

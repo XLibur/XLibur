@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -9,31 +6,31 @@ using System.Reflection;
 
 namespace XLibur.Utils;
 
-internal static class DescribedEnumParser<T>
+internal static class DescribedEnumParser<T> where T : notnull
 {
-    private static Lazy<IDictionary<string, T>> fromDescriptions = new Lazy<IDictionary<string, T>>(() =>
+    private static readonly Lazy<IDictionary<string, T>> FromDescriptions = new(() =>
     {
         return ParseEnumDescriptions().ToDictionary(a => a.Item2, a => a.Item1);
     });
 
-    private static Lazy<IDictionary<T, string>> toDescriptions = new Lazy<IDictionary<T, string>>(() =>
+    private static readonly Lazy<IDictionary<T, string>> ToDescriptions = new(() =>
     {
         return ParseEnumDescriptions().ToDictionary(a => a.Item1, a => a.Item2);
     });
 
     public static T FromDescription(string value)
     {
-        return fromDescriptions.Value[value];
+        return FromDescriptions.Value[value];
     }
 
     public static bool IsValidDescription(string value)
     {
-        return fromDescriptions.Value.ContainsKey(value);
+        return FromDescriptions.Value.ContainsKey(value);
     }
 
     public static string ToDescription(T value)
     {
-        return toDescriptions.Value[value];
+        return ToDescriptions.Value[value];
     }
 
     private static IEnumerable<Tuple<T, string>> ParseEnumDescriptions()

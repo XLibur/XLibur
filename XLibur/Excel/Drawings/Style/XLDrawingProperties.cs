@@ -1,8 +1,6 @@
-#nullable disable
+﻿namespace XLibur.Excel;
 
-namespace XLibur.Excel;
-
-internal class XLDrawingProperties : IXLDrawingProperties
+internal sealed class XLDrawingProperties : IXLDrawingProperties
 {
     private readonly IXLDrawingStyle _style;
 

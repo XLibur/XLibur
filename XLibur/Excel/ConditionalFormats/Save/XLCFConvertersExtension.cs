@@ -1,11 +1,9 @@
-#nullable disable
-
-using DocumentFormat.OpenXml.Office2010.Excel;
+﻿using DocumentFormat.OpenXml.Office2010.Excel;
 using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
-internal class XLCFConvertersExtension
+internal sealed class XLCFConvertersExtension
 {
     private static readonly Dictionary<XLConditionalFormatType, IXLCFConverterExtension> Converters;
 

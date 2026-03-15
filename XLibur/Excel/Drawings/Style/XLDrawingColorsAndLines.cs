@@ -1,14 +1,14 @@
-#nullable disable
+﻿namespace XLibur.Excel;
 
-namespace XLibur.Excel;
-
-internal class XLDrawingColorsAndLines : IXLDrawingColorsAndLines
+internal sealed class XLDrawingColorsAndLines : IXLDrawingColorsAndLines
 {
     private readonly IXLDrawingStyle _style;
 
     public XLDrawingColorsAndLines(IXLDrawingStyle style)
     {
         _style = style;
+        FillColor = XLColor.NoColor;
+        LineColor = XLColor.NoColor;
     }
     public XLColor FillColor { get; set; }
     public IXLDrawingStyle SetFillColor(XLColor value) { FillColor = value; return _style; }

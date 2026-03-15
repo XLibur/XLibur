@@ -3,7 +3,7 @@ namespace XLibur.Excel;
 using System;
 using System.Linq;
 
-internal class XLRangeRow : XLRangeBase, IXLRangeRow
+internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
 {
     #region Constructor
 
@@ -65,7 +65,7 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
     {
         var retVal = new XLCells(false, XLCellsUsedOptions.AllContents);
         var rangePairs = cellsInRow.Split(',');
-        foreach (string pair in rangePairs)
+        foreach (var pair in rangePairs)
             retVal.Add(Range(pair.Trim()).RangeAddress);
         return retVal;
     }
@@ -101,10 +101,10 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
     {
         base.CopyTo((XLCell)target);
 
-        int lastRowNumber = target.Address.RowNumber + RowCount() - 1;
+        var lastRowNumber = target.Address.RowNumber + RowCount() - 1;
         if (lastRowNumber > XLHelper.MaxRowNumber)
             lastRowNumber = XLHelper.MaxRowNumber;
-        int lastColumnNumber = target.Address.ColumnNumber + ColumnCount() - 1;
+        var lastColumnNumber = target.Address.ColumnNumber + ColumnCount() - 1;
         if (lastColumnNumber > XLHelper.MaxColumnNumber)
             lastColumnNumber = XLHelper.MaxColumnNumber;
 
@@ -119,10 +119,10 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
     public new IXLRangeRow CopyTo(IXLRangeBase target)
     {
         base.CopyTo(target);
-        int lastRowNumber = target.RangeAddress.FirstAddress.RowNumber + RowCount() - 1;
+        var lastRowNumber = target.RangeAddress.FirstAddress.RowNumber + RowCount() - 1;
         if (lastRowNumber > XLHelper.MaxRowNumber)
             lastRowNumber = XLHelper.MaxRowNumber;
-        int lastColumnNumber = target.RangeAddress.LastAddress.ColumnNumber + ColumnCount() - 1;
+        var lastColumnNumber = target.RangeAddress.LastAddress.ColumnNumber + ColumnCount() - 1;
         if (lastColumnNumber > XLHelper.MaxColumnNumber)
             lastColumnNumber = XLHelper.MaxColumnNumber;
 
@@ -148,7 +148,7 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
     {
         var retVal = new XLRangeRows();
         var columnPairs = rows.Split(',');
-        foreach (string trimmedPair in columnPairs.Select(pair => pair.Trim()))
+        foreach (var trimmedPair in columnPairs.Select(pair => pair.Trim()))
         {
             string firstColumn;
             string lastColumn;
@@ -166,7 +166,7 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
                 lastColumn = trimmedPair;
             }
 
-            retVal.Add(Range(firstColumn, lastColumn).FirstRow());
+            retVal.Add(Range(firstColumn, lastColumn).FirstRow()!);
         }
 
         return retVal;
@@ -207,8 +207,8 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
                 rangeAddressStr = rangeAddressStr.Replace('-', ':');
 
             var arrRange = rangeAddressStr.Split(':');
-            string firstPart = arrRange[0];
-            string secondPart = arrRange[1];
+            var firstPart = arrRange[0];
+            var secondPart = arrRange[1];
             rangeAddressToUse = FixRowAddress(firstPart) + ":" + FixRowAddress(secondPart);
         }
         else
@@ -220,13 +220,13 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
 
     public int CompareTo(XLRangeRow otherRow, IXLSortElements columnsToSort)
     {
-        foreach (IXLSortElement e in columnsToSort)
+        foreach (var e in columnsToSort)
         {
             var thisCell = (XLCell)Cell(e.ElementNumber);
             var otherCell = (XLCell)otherRow.Cell(e.ElementNumber);
             int comparison;
-            bool thisCellIsBlank = thisCell.IsEmpty();
-            bool otherCellIsBlank = otherCell.IsEmpty();
+            var thisCellIsBlank = thisCell.IsEmpty();
+            var otherCellIsBlank = otherCell.IsEmpty();
             if (e.IgnoreBlanks && (thisCellIsBlank || otherCellIsBlank))
             {
                 if (thisCellIsBlank && otherCellIsBlank)
@@ -247,8 +247,8 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
                     {
                         case XLDataType.Text:
                             comparison = e.MatchCase
-                                ? thisCell.GetText().CompareTo(otherCell.GetText())
-                                : string.Compare(thisCell.GetText(), otherCell.GetText(), true);
+                                ? string.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.Ordinal)
+                                : string.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.OrdinalIgnoreCase);
                             break;
 
                         case XLDataType.TimeSpan:
@@ -274,9 +274,9 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
                 else if (thisCell.Value.IsUnifiedNumber && otherCell.Value.IsUnifiedNumber)
                     comparison = thisCell.Value.GetUnifiedNumber().CompareTo(otherCell.Value.GetUnifiedNumber());
                 else if (e.MatchCase)
-                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), true);
+                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.OrdinalIgnoreCase);
                 else
-                    comparison = thisCell.GetString().CompareTo(otherCell.GetString());
+                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.Ordinal);
             }
 
             if (comparison != 0)
@@ -288,7 +288,7 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
 
     private XLRangeRow RowShift(int rowsToShift)
     {
-        int rowNum = RowNumber() + rowsToShift;
+        var rowNum = RowNumber() + rowsToShift;
 
         var range = Worksheet.Range(
             rowNum,
@@ -296,7 +296,7 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
             rowNum,
             RangeAddress.LastAddress.ColumnNumber);
 
-        return range.FirstRow();
+        return range.FirstRow()!;
     }
 
     #region XLRangeRow Above
@@ -356,7 +356,7 @@ internal class XLRangeRow : XLRangeBase, IXLRangeRow
 
     public IXLRangeRow RowUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
     {
-        return Row((this as IXLRangeBase).FirstCellUsed(options),
-            (this as IXLRangeBase).LastCellUsed(options));
+        return Row((this as IXLRangeBase).FirstCellUsed(options)!,
+            (this as IXLRangeBase).LastCellUsed(options)!);
     }
 }

@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace XLibur.Excel;
 
 public class XLFormula
@@ -28,7 +26,7 @@ public class XLFormula
         Value = value.ToInvariantString();
     }
 
-    internal string _value;
+    internal string _value = string.Empty;
     public string Value
     {
         get { return _value; }

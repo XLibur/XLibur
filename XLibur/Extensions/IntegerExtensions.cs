@@ -1,10 +1,6 @@
-#nullable disable
-
-
-
 using System.Diagnostics;
 
-namespace XLibur.Excel;
+namespace XLibur.Extensions;
 
 internal static class IntegerExtensions
 {
@@ -13,54 +9,57 @@ internal static class IntegerExtensions
         return val >= from && val <= to;
     }
 
-    /// <summary>
-    /// Get index of highest set bit &lt;= to <paramref name="maximalIndex"/> or -1 if no such bit.
-    /// </summary>
-    internal static int GetHighestSetBitBelow(this uint value, int maximalIndex)
+    extension(uint value)
     {
-        Debug.Assert(maximalIndex is >= 0 and < 32);
-        const uint highestBit = 0x80000000;
-        value <<= 31 - maximalIndex;
-        while (value != 0)
+        /// <summary>
+        /// Get index of the highest set bit &lt;= to <paramref name="maximalIndex"/> or -1 if no such bit.
+        /// </summary>
+        internal int GetHighestSetBitBelow(int maximalIndex)
         {
-            if ((value & highestBit) != 0)
-                return maximalIndex;
-            value <<= 1;
-            maximalIndex--;
+            Debug.Assert(maximalIndex is >= 0 and < 32);
+            const uint highestBit = 0x80000000;
+            value <<= 31 - maximalIndex;
+            while (value != 0)
+            {
+                if ((value & highestBit) != 0)
+                    return maximalIndex;
+                value <<= 1;
+                maximalIndex--;
+            }
+
+            return -1;
         }
 
-        return -1;
-    }
-
-    /// <summary>
-    /// Get index of lowest set bit &gt;= to <paramref name="minimalIndex"/> or -1 if no such bit.
-    /// </summary>
-    internal static int GetLowestSetBitAbove(this uint value, int minimalIndex)
-    {
-        value >>= minimalIndex;
-        while (value != 0)
+        /// <summary>
+        /// Get index of lowest set bit &gt;= to <paramref name="minimalIndex"/> or -1 if no such bit.
+        /// </summary>
+        internal int GetLowestSetBitAbove(int minimalIndex)
         {
-            if ((value & 1) == 1)
-                return minimalIndex;
-            value >>= 1;
-            minimalIndex++;
+            value >>= minimalIndex;
+            while (value != 0)
+            {
+                if ((value & 1) == 1)
+                    return minimalIndex;
+                value >>= 1;
+                minimalIndex++;
+            }
+
+            return -1;
         }
 
-        return -1;
-    }
-
-    /// <summary>
-    /// Get highest set bit index or -1 if no bit is set.
-    /// </summary>
-    internal static int GetHighestSetBit(this uint value)
-    {
-        var highestSetBitIndex = -1;
-        while (value != 0)
+        /// <summary>
+        /// Get the highest set bit index or -1 if no bit is set.
+        /// </summary>
+        internal int GetHighestSetBit()
         {
-            value >>= 1;
-            highestSetBitIndex++;
-        }
+            var highestSetBitIndex = -1;
+            while (value != 0)
+            {
+                value >>= 1;
+                highestSetBitIndex++;
+            }
 
-        return highestSetBitIndex;
+            return highestSetBitIndex;
+        }
     }
 }

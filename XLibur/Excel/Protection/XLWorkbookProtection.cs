@@ -1,12 +1,9 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 using static XLibur.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Excel;
 
-internal class XLWorkbookProtection : IXLWorkbookProtection
+internal sealed class XLWorkbookProtection : IXLWorkbookProtection
 {
     public XLWorkbookProtection(Algorithm algorithm)
         : this(algorithm, XLWorkbookProtectionElements.Windows)
@@ -24,8 +21,8 @@ internal class XLWorkbookProtection : IXLWorkbookProtection
     public bool IsPasswordProtected => IsProtected && !string.IsNullOrEmpty(PasswordHash);
     public bool IsProtected { get; internal set; }
 
-    internal string Base64EncodedSalt { get; set; }
-    internal string PasswordHash { get; set; }
+    internal string Base64EncodedSalt { get; set; } = string.Empty;
+    internal string PasswordHash { get; set; } = string.Empty;
     internal uint SpinCount { get; set; } = 100000;
 
     public IXLWorkbookProtection AllowElement(XLWorkbookProtectionElements element, bool allowed = true)

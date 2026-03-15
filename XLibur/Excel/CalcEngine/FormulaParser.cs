@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using XLibur.Extensions;
 using ClosedXML.Parser;
 
 namespace XLibur.Excel.CalcEngine;
 
-internal class FormulaParser
+internal sealed class FormulaParser
 {
     private readonly AstFactory _nodeFactoryA1;
     private readonly AstFactory _nodeFactoryR1C1;

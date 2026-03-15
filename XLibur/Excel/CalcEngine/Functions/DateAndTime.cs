@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using XLibur.Extensions;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
 
 namespace XLibur.Excel.CalcEngine.Functions;
@@ -197,7 +198,7 @@ internal static class DateAndTime
         if (!value.TryPickText(out var text, out var error))
             return error;
 
-        if (!ScalarValue.ToSerialDateTime(text, ctx.Culture, out var serialDateTime))
+        if (!ScalarValue.ToSerialDateTime(text!, ctx.Culture, out var serialDateTime))
             return XLError.IncompatibleValue;
 
         return Math.Truncate(serialDateTime);
@@ -417,7 +418,7 @@ internal static class DateAndTime
         if (!value.TryPickText(out var text, out var error))
             return error;
 
-        if (!ScalarValue.ToSerialDateTime(text, ctx.Culture, out var serialDateTime))
+        if (!ScalarValue.ToSerialDateTime(text!, ctx.Culture, out var serialDateTime))
             return XLError.IncompatibleValue;
 
         return serialDateTime % 1.0;
@@ -480,7 +481,7 @@ internal static class DateAndTime
     }
 
     /// <summary>
-    /// Calculate week day. No checks. The default form is form 3 (week starts at Sun, range 1..7). 
+    /// Calculate week day. No checks. The default form is form 3 (week starts at Sun, range 1..7).
     /// </summary>
     private static int WeekdayCalc(int serialDate, int weekStartOffset = 0, int numberOffset = 1)
     {

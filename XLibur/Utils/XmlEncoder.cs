@@ -11,6 +11,12 @@ internal static partial class XmlEncoder
 
     public static string EncodeString(string encodeStr)
     {
+        // Fast-path: if the string has no characters that need encoding, return as-is.
+        // Most shared strings are plain text (letters, digits, punctuation) and don't
+        // need any XML encoding or _xHHHH_ escape processing.
+        if (!NeedsEncoding(encodeStr))
+            return encodeStr;
+
         encodeStr = xHHHHRegex.Replace(encodeStr, "_x005F_$1_");
 
         var sb = new StringBuilder(encodeStr.Length);
@@ -34,6 +40,48 @@ internal static partial class XmlEncoder
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Checks whether a string contains any characters that require encoding.
+    /// Returns false (no encoding needed) for the common case of plain text.
+    /// </summary>
+    private static bool NeedsEncoding(string s)
+    {
+        var len = s.Length;
+        for (var i = 0; i < len; i++)
+        {
+            var c = s[i];
+
+            // Check for _xHHHH_ escape pattern that needs to be escaped itself.
+            // Pattern: underscore followed by 'x', 4 hex digits, underscore.
+            if (c == '_' && i + 6 < len && s[i + 1] == 'x' && s[i + 6] == '_'
+                && IsHexDigit(s[i + 2]) && IsHexDigit(s[i + 3])
+                && IsHexDigit(s[i + 4]) && IsHexDigit(s[i + 5]))
+            {
+                return true;
+            }
+
+            // Check for non-XML characters that need encoding.
+            if (!XmlConvert.IsXmlChar(c))
+            {
+                // Valid surrogate pair doesn't need encoding.
+                if (i + 1 < len && XmlConvert.IsXmlSurrogatePair(s[i + 1], c))
+                {
+                    i++; // Skip the low surrogate
+                    continue;
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsHexDigit(char c)
+    {
+        return (uint)(c - '0') <= 9 || (uint)(c - 'a') <= 5 || (uint)(c - 'A') <= 5;
     }
 
     public static string DecodeString(string? decodeStr)

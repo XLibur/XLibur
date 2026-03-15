@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -9,7 +9,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// All values of a cache field for a pivot table.
 /// </summary>
-internal class XLPivotCacheValues
+internal sealed class XLPivotCacheValues
 {
     private readonly XLPivotCacheSharedItems _sharedItems;
 
@@ -196,7 +196,9 @@ internal class XLPivotCacheValues
     }
 
     /// <summary>
-    /// Get or add a value to the shared items. Throw, if value is not in items.
+    /// Get or add a value to the shared items. The value doesn't have to
+    /// be present among records — e.g. a filter can select a value that
+    /// doesn't exist in the data.
     /// </summary>
     /// <returns>Index in shared items.</returns>
     internal int GetOrAddSharedItem(XLCellValue value)
@@ -205,30 +207,11 @@ internal class XLPivotCacheValues
         if (sharedItemsIndex >= 0)
             return sharedItemsIndex;
 
-        // Not in shared items, make sure it actually is present.
-        if (!ContainsRecord(value))
-            throw new ArgumentException($"Value '{value}' not among cache field values.");
-
         _sharedItems.Add(value);
 
         return _sharedItems.Count - 1;
     }
 
-    /// <summary>
-    /// Is among the <c>value</c> among values of the record.
-    /// </summary>
-    private bool ContainsRecord(XLCellValue value)
-    {
-        for (var index = 0; index < _values.Count; ++index)
-        {
-            var recordValue = GetValue(index);
-            var cacheValue = recordValue.GetCellValue(_stringStorage, _sharedItems);
-            if (XLCellValueComparer.OrdinalIgnoreCase.Equals(cacheValue, value))
-                return true;
-        }
-
-        return false;
-    }
 
     private void Initialize(ValueSlice valueSlice, int column, XLSheetRange area)
     {

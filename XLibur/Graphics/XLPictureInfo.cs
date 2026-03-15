@@ -1,5 +1,3 @@
-#nullable disable
-
 using XLibur.Excel.Drawings;
 using System;
 using System.Drawing;
@@ -64,12 +62,12 @@ public readonly struct XLPictureInfo
 
     internal Size GetSizePx(double dpiX, double dpiY)
     {
-        if (SizePx.IsEmpty && SizePhys.IsEmpty)
-            throw new InvalidOperationException("Image doesn't have a size.");
-
-        if (!SizePx.IsEmpty)
-            return SizePx;
-
-        return new Size((int)Math.Ceiling(SizePhys.Width / 1000d / 2.54d * dpiX), (int)Math.Ceiling(SizePhys.Height / 1000d / 2.54d * dpiY));
+        return SizePx.IsEmpty switch
+        {
+            true when SizePhys.IsEmpty => throw new InvalidOperationException("Image doesn't have a size."),
+            false => SizePx,
+            _ => new Size((int)Math.Ceiling(SizePhys.Width / 1000d / 2.54d * dpiX),
+                (int)Math.Ceiling(SizePhys.Height / 1000d / 2.54d * dpiY))
+        };
     }
 }

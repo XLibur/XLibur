@@ -1,6 +1,4 @@
-#nullable disable
-
-using XLibur.Excel.Drawings;
+﻿using XLibur.Excel.Drawings;
 using XLibur.Utils;
 using System;
 using System.IO;
@@ -11,7 +9,7 @@ namespace XLibur.Graphics;
 /// A reader for baseline TIFF.
 /// Specification: https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf
 /// </summary>
-internal class TiffInfoReader : ImageInfoReader
+internal sealed class TiffInfoReader : ImageInfoReader
 {
     private delegate bool TryReadU16(Stream s, out ushort value);
 
@@ -74,6 +72,7 @@ internal class TiffInfoReader : ImageInfoReader
                     resolutionUnit = readU16(stream);
                     break;
             }
+
             stream.Position = nextEntryStart;
         }
 
@@ -85,15 +84,15 @@ internal class TiffInfoReader : ImageInfoReader
         return new XLPictureInfo(XLPictureFormat.Tiff, width, height, dpiX, dpiY);
     }
 
-    private static uint ReadShortOrLone(Stream stream, ushort entryType, Func<Stream, ushort> readU16, Func<Stream, uint> readU32)
+    private static uint ReadShortOrLone(Stream stream, ushort entryType, Func<Stream, ushort> readU16,
+        Func<Stream, uint> readU32)
     {
         if (entryType == FieldType.Long)
             return readU32(stream);
 
-        if (entryType == FieldType.Short)
-            return readU16(stream);
-
-        throw new ArgumentException("Expected only SHORT/LONG type.");
+        return entryType == FieldType.Short
+            ? readU16(stream)
+            : throw new ArgumentException("Expected only SHORT/LONG type.");
     }
 
     private static double ReadRational(Stream stream, Func<Stream, uint> readU32)

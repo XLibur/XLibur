@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Excel.CalcEngine.Functions;
 
-internal class TallyNumbers : ITally
+internal sealed class TallyNumbers : ITally
 {
     private readonly bool _ignoreScalarBlank;
     private readonly bool _ignoreErrors;

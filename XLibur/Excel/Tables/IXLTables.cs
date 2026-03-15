@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using System.Collections.Generic;
 
 namespace XLibur.Excel;
@@ -25,5 +22,5 @@ public interface IXLTables : IEnumerable<IXLTable>
 
     IXLTable Table(string name);
 
-    bool TryGetTable(string tableName, out IXLTable table);
+    bool TryGetTable(string tableName, out IXLTable? table);
 }

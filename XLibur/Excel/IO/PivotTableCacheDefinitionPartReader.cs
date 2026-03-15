@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Extensions;
@@ -9,7 +9,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Excel.IO;
 
-internal class PivotTableCacheDefinitionPartReader
+internal sealed class PivotTableCacheDefinitionPartReader
 {
     internal static void Load(WorkbookPart workbookPart, XLWorkbook workbook)
     {
@@ -48,6 +48,7 @@ internal class PivotTableCacheDefinitionPartReader
             }
 
             pivotCache.SaveSourceData = cacheDefinition.SaveData?.Value ?? true;
+            pivotCache.RefreshDataOnOpen = cacheDefinition.RefreshOnLoad?.Value ?? false;
         }
     }
 
@@ -231,6 +232,21 @@ internal class PivotTableCacheDefinitionPartReader
 
             var fieldValues = new XLPivotCacheValues(fieldSharedItems, fieldStats);
             pivotCache.AddCachedField(fieldName, fieldValues);
+
+            var fieldIndex = pivotCache.FieldCount - 1;
+
+            // A calculated field has a formula and DatabaseField=false. It doesn't have
+            // records in the cache records part — its values are computed by Excel.
+            if (cacheField.Formula?.Value is { } formula)
+            {
+                pivotCache.SetCalculatedField(fieldIndex, formula);
+            }
+            else if (cacheField.DatabaseField?.Value == false)
+            {
+                // A grouping field (e.g. months grouped from a date field) has
+                // DatabaseField=false but no formula. It also has no records.
+                pivotCache.SetNonDatabaseField(fieldIndex);
+            }
         }
     }
 
@@ -338,17 +354,24 @@ internal class PivotTableCacheDefinitionPartReader
             : 0;
         pivotCache.AllocateRecordCapacity(recordCount);
 
-        var fieldsCount = pivotCache.FieldCount;
+        // Non-database fields (calculated and grouping) don't have records — only database fields do.
+        var databaseFieldCount = pivotCache.DatabaseFieldCount;
         foreach (var record in recordsPart.Elements<PivotCacheRecord>())
         {
             var recordColumns = record.ChildElements.Count;
-            if (recordColumns != fieldsCount)
+            if (recordColumns != databaseFieldCount)
                 throw PartStructureException.IncorrectElementsCount();
 
-            for (var fieldIdx = 0; fieldIdx < fieldsCount; ++fieldIdx)
+            // Map record column index to field index, skipping non-database fields.
+            var recordColIdx = 0;
+            for (var fieldIdx = 0; fieldIdx < pivotCache.FieldCount; ++fieldIdx)
             {
+                if (pivotCache.IsNonDatabaseField(fieldIdx))
+                    continue;
+
                 var fieldValues = pivotCache.GetFieldValues(fieldIdx);
-                var recordItem = record.ElementAt(fieldIdx);
+                var recordItem = record.ElementAt(recordColIdx);
+                recordColIdx++;
 
                 // Don't add values to the shared items of a cache when record value is added, because we want 1:1
                 // read/write. Read them from definition. Whatever is in shared items now should be written out,

@@ -1,9 +1,9 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
-internal class XLPivotCaches : IXLPivotCaches, IEnumerable<XLPivotCache>
+internal sealed class XLPivotCaches : IXLPivotCaches, IEnumerable<XLPivotCache>
 {
     private readonly XLWorkbook _workbook;
     private readonly List<XLPivotCache> _caches = new();

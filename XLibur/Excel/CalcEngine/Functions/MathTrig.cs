@@ -561,7 +561,7 @@ internal static class MathTrig
         if (value.TryPickSingleOrMultiValue(out var scalar, out var array, ctx))
             array = new ScalarArray(scalar, 1, 1);
 
-        var rows = array.Height;
+        var rows = array!.Height;
         var cols = array.Width;
         var arr = new double[rows, cols];
 
@@ -668,7 +668,7 @@ internal static class MathTrig
         if (inverse.IsSingular())
             return XLError.NumberInvalid;
 
-        return new NumberArray(inverse.mat);
+        return new NumberArray(inverse.Mat);
     }
 
     private static AnyValue MMult(CalcContext ctx, Span<AnyValue> args)

@@ -5,9 +5,6 @@ namespace XLibur.Examples.Ranges;
 
 public class DeletingRanges : IXLExample
 {
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var workbook = new XLWorkbook();
@@ -57,11 +54,4 @@ public class DeletingRanges : IXLExample
 
         workbook.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

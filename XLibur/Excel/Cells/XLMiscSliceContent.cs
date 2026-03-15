@@ -9,4 +9,6 @@ internal struct XLMiscSliceContent
     internal uint? ValueMetaIndex { get; set; }
 
     internal bool HasPhonetic { get; set; }
+
+    internal XLCellImage? CellImage { get; set; }
 }

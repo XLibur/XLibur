@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics.CodeAnalysis;
 
 namespace XLibur.Excel;
@@ -10,9 +10,9 @@ namespace XLibur.Excel;
 /// <see cref="XLPivotCache"/>.
 /// </summary>
 /// <remarks>
-/// [OI29500] 18.10.1.45 item (PivotTable Field Item). 
+/// [OI29500] 18.10.1.45 item (PivotTable Field Item).
 /// </remarks>
-internal class XLPivotFieldItem
+internal sealed class XLPivotFieldItem
 {
     private readonly XLPivotTable _pivotTable;
     private readonly XLPivotTableField _pivotField;

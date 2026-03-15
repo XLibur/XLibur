@@ -6,7 +6,7 @@ namespace XLibur.Excel.CalcEngine.Exceptions;
 /// Exception that happens when formula in a cell depends on other cells,
 /// but the supporting formulas are still dirty.
 /// </summary>
-internal class GettingDataException : Exception
+internal sealed class GettingDataException : Exception
 {
     public GettingDataException(XLBookPoint point)
     {

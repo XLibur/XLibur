@@ -89,8 +89,7 @@ dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --
 
 ## Developer guidelines
 
-The [OpenXML specification](https://ecma-international.org/publications-and-standards/standards/ecma-376/) is a large
-and complicated beast.
+The [OpenXML specification](https://ecma-international.org/publications-and-standards/standards/ecma-376/) is a large  and complicated beast.
 
 Feel free to submit a PR
 

@@ -88,12 +88,6 @@ public class ShowCase : IXLExample
         //Add thick borders to the contents of our spreadsheet
         ws.RangeUsed().Style.Border.OutsideBorder = XLBorderStyleValues.Thick;
 
-        // You can also specify the border for each side with:
-        // contents.FirstColumn().Style.Border.LeftBorder = XLBorderStyleValues.Thick;
-        // contents.LastColumn().Style.Border.RightBorder = XLBorderStyleValues.Thick;
-        // contents.FirstRow().Style.Border.TopBorder = XLBorderStyleValues.Thick;
-        // contents.LastRow().Style.Border.BottomBorder = XLBorderStyleValues.Thick;
-
         // Adjust column widths to their content
         ws.Columns(2, 6).AdjustToContents();
 

@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 
 namespace XLibur.Excel;
@@ -25,8 +23,8 @@ public interface IXLPivotTable
     string Title { get; set; }
     string Description { get; set; }
 
-    string ColumnHeaderCaption { get; set; }
-    string RowHeaderCaption { get; set; }
+    string? ColumnHeaderCaption { get; set; }
+    string? RowHeaderCaption { get; set; }
 
     /// <summary>
     /// Top left corner cell of a pivot table. If the pivot table contains filters fields, the target cell is top
@@ -56,7 +54,7 @@ public interface IXLPivotTable
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">If value &lt; 0.</exception>
     int FilterFieldsPageWrap { get; set; } // PageWrap
-    string ErrorValueReplacement { get; set; } // ErrorCaption
+    string? ErrorValueReplacement { get; set; } // ErrorCaption
     string EmptyCellReplacement { get; set; } // MissingCaption
     bool AutofitColumns { get; set; } //UseAutoFormatting
     bool PreserveCellFormatting { get; set; } // PreserveFormatting
@@ -101,7 +99,7 @@ public interface IXLPivotTable
 
     IXLPivotTable SetFilterFieldsPageWrap(int value);
 
-    IXLPivotTable SetErrorValueReplacement(string value);
+    IXLPivotTable SetErrorValueReplacement(string? value);
 
     IXLPivotTable SetEmptyCellReplacement(string value);
 
@@ -160,9 +158,9 @@ public interface IXLPivotTable
 
     IXLPivotTable SetEnableCellEditing(); IXLPivotTable SetEnableCellEditing(bool value);
 
-    IXLPivotTable SetColumnHeaderCaption(string value);
+    IXLPivotTable SetColumnHeaderCaption(string? value);
 
-    IXLPivotTable SetRowHeaderCaption(string value);
+    IXLPivotTable SetRowHeaderCaption(string? value);
 
     bool ShowRowHeaders { get; set; }
     bool ShowColumnHeaders { get; set; }

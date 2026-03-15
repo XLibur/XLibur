@@ -1,14 +1,17 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 using XLibur.Graphics;
 
 namespace XLibur.Excel;
 
-internal class XLColumn : XLRangeBase, IXLColumn
+internal sealed class XLColumn : XLRangeBase, IXLColumn
 {
     #region Private fields
 
+    private readonly XLWorksheet _worksheet;
+    private int _columnNumber;
     private int _outlineLevel;
 
     #endregion Private fields
@@ -19,14 +22,23 @@ internal class XLColumn : XLRangeBase, IXLColumn
     /// The direct constructor should only be used in <see cref="XLWorksheet.RangeFactory"/>.
     /// </summary>
     public XLColumn(XLWorksheet worksheet, int column)
-        : base(XLRangeAddress.EntireColumn(worksheet, column), worksheet.StyleValue)
+        : base(worksheet.StyleValue)
     {
-        SetColumnNumber(column);
+        _worksheet = worksheet;
+        _columnNumber = column;
 
         Width = worksheet.ColumnWidth;
     }
 
     #endregion Constructor
+
+    public override XLRangeAddress RangeAddress
+    {
+        get => XLRangeAddress.EntireColumn(_worksheet, _columnNumber);
+        protected set => _columnNumber = value.FirstAddress.ColumnNumber;
+    }
+
+    public override XLWorksheet Worksheet => _worksheet;
 
     public override XLRangeType RangeType
     {
@@ -89,7 +101,7 @@ internal class XLColumn : XLRangeBase, IXLColumn
     {
         return usedCellsOnly
             ? Cells(true, XLCellsUsedOptions.AllContents)
-            : Cells(FirstCellUsed().Address.RowNumber, LastCellUsed().Address.RowNumber);
+            : Cells(FirstCellUsed()!.Address.RowNumber, LastCellUsed()!.Address.RowNumber);
     }
 
     public XLCells Cells(int firstRow, int lastRow)
@@ -198,12 +210,12 @@ internal class XLColumn : XLRangeBase, IXLColumn
     {
         var autoFilterRows = new List<int>();
         if (Worksheet.AutoFilter is { Range: not null })
-            autoFilterRows.Add(Worksheet.AutoFilter.Range.FirstRow().RowNumber());
+            autoFilterRows.Add(Worksheet.AutoFilter.Range.FirstRow()!.RowNumber());
 
         autoFilterRows.AddRange(Worksheet.Tables.Where<XLTable>(t =>
                 t.AutoFilter is { Range: not null }
-                && !autoFilterRows.Contains(t.AutoFilter.Range.FirstRow().RowNumber()))
-            .Select(t => t.AutoFilter.Range.FirstRow().RowNumber()));
+                && !autoFilterRows.Contains(t.AutoFilter.Range.FirstRow()!.RowNumber()))
+            .Select(t => t.AutoFilter.Range.FirstRow()!.RowNumber()));
 
         // Reusable buffer
         var glyphs = new List<GlyphBox>();
@@ -444,8 +456,8 @@ internal class XLColumn : XLRangeBase, IXLColumn
 
     public IXLRangeColumn ColumnUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
     {
-        return Column((this as IXLRangeBase).FirstCellUsed(options),
-            (this as IXLRangeBase).LastCellUsed(options));
+        return Column((this as IXLRangeBase).FirstCellUsed(options)!,
+            (this as IXLRangeBase).LastCellUsed(options)!);
     }
 
     #endregion IXLColumn Members
@@ -466,17 +478,9 @@ internal class XLColumn : XLRangeBase, IXLColumn
 
     internal void SetColumnNumber(int column)
     {
-        RangeAddress = new XLRangeAddress(
-            new XLAddress(Worksheet,
-                1,
-                column,
-                RangeAddress.FirstAddress.FixedRow,
-                RangeAddress.FirstAddress.FixedColumn),
-            new XLAddress(Worksheet,
-                XLHelper.MaxRowNumber,
-                column,
-                RangeAddress.LastAddress.FixedRow,
-                RangeAddress.LastAddress.FixedColumn));
+        var oldAddress = RangeAddress;
+        _columnNumber = column;
+        OnRangeAddressChanged(oldAddress, RangeAddress);
     }
 
     public override XLRange Range(string rangeAddressStr)

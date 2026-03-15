@@ -1,8 +1,8 @@
-#nullable disable
+﻿using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLPivotTableAxisFieldStyleFormats : IXLPivotFieldStyleFormats
+internal sealed class XLPivotTableAxisFieldStyleFormats : IXLPivotFieldStyleFormats
 {
     private readonly XLPivotTable _pivotTable;
     private readonly XLPivotTableAxisField _axisField;

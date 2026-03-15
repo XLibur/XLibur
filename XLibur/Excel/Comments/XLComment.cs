@@ -1,14 +1,13 @@
-#nullable disable
-
-using System;
+﻿using System;
+using XLibur.Excel.RichText;
 
 namespace XLibur.Excel;
 
-internal class XLComment : XLFormattedText<IXLComment>, IXLComment
+internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
 {
-    private XLCell _cell;
+    private XLCell _cell = null!;
 
-    public XLComment(XLCell cell, IXLFontBase defaultFont = null, int? shapeId = null)
+    public XLComment(XLCell cell, IXLFontBase? defaultFont = null, int? shapeId = null)
         : base(defaultFont ?? XLFont.DefaultCommentFont)
     {
         Initialize(cell, shapeId: shapeId);
@@ -29,7 +28,7 @@ internal class XLComment : XLFormattedText<IXLComment>, IXLComment
 
     #region IXLComment Members
 
-    public string Author { get; set; }
+    public string Author { get; set; } = string.Empty;
 
     public IXLComment SetAuthor(string value)
     {
@@ -52,9 +51,9 @@ internal class XLComment : XLFormattedText<IXLComment>, IXLComment
 
     #region IXLDrawing
 
-    public string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
 
-    public string Description { get; set; }
+    public string Description { get; set; } = string.Empty;
 
     public XLDrawingAnchor Anchor { get; set; }
 
@@ -84,7 +83,7 @@ internal class XLComment : XLFormattedText<IXLComment>, IXLComment
         return Container;
     }
 
-    public IXLDrawingPosition Position { get; private set; }
+    public IXLDrawingPosition Position { get; private set; } = null!;
 
     public int ZOrder { get; set; }
 
@@ -94,7 +93,7 @@ internal class XLComment : XLFormattedText<IXLComment>, IXLComment
         return Container;
     }
 
-    public IXLDrawingStyle Style { get; private set; }
+    public IXLDrawingStyle Style { get; private set; } = null!;
 
     public IXLComment SetName(string name)
     {
@@ -152,7 +151,7 @@ internal class XLComment : XLFormattedText<IXLComment>, IXLComment
 
     #endregion IXLDrawing
 
-    private void Initialize(XLCell cell, IXLDrawingStyle style = null, int? shapeId = null)
+    private void Initialize(XLCell cell, IXLDrawingStyle? style = null, int? shapeId = null)
     {
         style ??= XLDrawingStyle.DefaultCommentStyle;
         shapeId ??= cell.Worksheet.Workbook.ShapeIdManager.GetNext();
@@ -169,7 +168,7 @@ internal class XLComment : XLFormattedText<IXLComment>, IXLComment
             previousRowNumber--;
 
             previousRowOffset =
-                cell.Worksheet.Internals.RowsCollection.TryGetValue(previousRowNumber, out XLRow previousRow)
+                cell.Worksheet.Internals.RowsCollection.TryGetValue(previousRowNumber, out var previousRow)
                     ? Math.Max(0, previousRow.Height - 7)
                     : Math.Max(0, cell.Worksheet.RowHeight - 7);
         }

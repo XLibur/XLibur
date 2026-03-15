@@ -30,6 +30,33 @@ internal readonly record struct XLStyleKey
                     Protection == XLStyle.Default.Key.Protection ? "Default" : Protection.ToString());
     }
 
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            var hash = Alignment.GetHashCode();
+            hash = (hash * 397) ^ Border.GetHashCode();
+            hash = (hash * 397) ^ Fill.GetHashCode();
+            hash = (hash * 397) ^ Font.GetHashCode();
+            hash = (hash * 397) ^ IncludeQuotePrefix.GetHashCode();
+            hash = (hash * 397) ^ NumberFormat.GetHashCode();
+            hash = (hash * 397) ^ Protection.GetHashCode();
+            return hash;
+        }
+    }
+
+    public bool Equals(XLStyleKey other)
+    {
+        // Order by discrimination power: font/fill/border vary most, protection/alignment least.
+        return Font.Equals(other.Font)
+               && Fill.Equals(other.Fill)
+               && Border.Equals(other.Border)
+               && NumberFormat.Equals(other.NumberFormat)
+               && Alignment.Equals(other.Alignment)
+               && IncludeQuotePrefix == other.IncludeQuotePrefix
+               && Protection.Equals(other.Protection);
+    }
+
     public void Deconstruct(
         out XLAlignmentKey alignment,
         out XLBorderKey border,

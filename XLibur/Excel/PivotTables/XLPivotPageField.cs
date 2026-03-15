@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
 /// <summary>
 /// A field displayed in the filters part of a pivot table.
 /// </summary>
-internal class XLPivotPageField
+internal sealed class XLPivotPageField
 {
     internal XLPivotPageField(int field)
     {

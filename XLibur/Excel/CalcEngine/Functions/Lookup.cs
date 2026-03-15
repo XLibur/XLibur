@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -69,7 +66,7 @@ internal static class Lookup
         if (lookupValue.IsBlank)
             lookupValue = 0;
 
-        if (lookupValue.TryPickText(out var lookupText, out _) && lookupText.Length > 255)
+        if (lookupValue.TryPickText(out var lookupText, out _) && lookupText!.Length > 255)
             return XLError.IncompatibleValue;
 
         if (rangeValue.TryPickScalar(out _, out var range))
@@ -149,8 +146,8 @@ internal static class Lookup
             data = reference.Areas[areaNumber - 1];
         }
 
-        var width = data.Match(static area => area.ColumnSpan, static array => array.Width);
-        var height = data.Match(static area => area.RowSpan, static array => array.Height);
+        var width = data.Match(static area => area.ColumnSpan, static array => array!.Width);
+        var height = data.Match(static area => area.RowSpan, static array => array!.Height);
 
         var rowNumber = 0;
         var colNumber = 0;
@@ -240,7 +237,7 @@ internal static class Lookup
 
         // Match only supports arrays with one row or one column.
         // Normalize to an array with one column in both cases.
-        if (array.Height == 1 && array.Width > 1)
+        if (array!.Height == 1 && array.Width > 1)
             array = new TransposedArray(array);
 
         if (array.Width != 1)
@@ -405,7 +402,7 @@ internal static class Lookup
         if (value.TryPickSingleOrMultiValue(out var single, out var multi, ctx))
             return single.ToAnyValue();
 
-        return new TransposedArray(multi);
+        return new TransposedArray(multi!);
     }
 
     private static AnyValue Vlookup(CalcContext ctx, ScalarValue lookupValue, AnyValue rangeValue, double columnNumber, bool approximateSearchFlag)
@@ -417,7 +414,7 @@ internal static class Lookup
         if (lookupValue.IsBlank)
             lookupValue = 0;
 
-        if (lookupValue.TryPickText(out var lookupText, out _) && lookupText.Length > 255)
+        if (lookupValue.TryPickText(out var lookupText, out _) && lookupText!.Length > 255)
             return XLError.IncompatibleValue;
 
         if (rangeValue.TryPickScalar(out _, out var range))
@@ -574,7 +571,7 @@ internal static class Lookup
             return rows ? area.RowSpan : area.ColumnSpan;
 
         if (value.TryPickArray(out var array))
-            return rows ? array.Height : array.Width;
+            return rows ? array!.Height : array!.Width;
 
         if (value.TryPickError(out var error))
             return error;

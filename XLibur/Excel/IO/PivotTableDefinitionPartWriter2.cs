@@ -12,7 +12,7 @@ using Array = System.Array;
 
 namespace XLibur.Excel.IO;
 
-internal class PivotTableDefinitionPartWriter2
+internal sealed class PivotTableDefinitionPartWriter2
 {
     internal static void WriteContent(PivotTablePart pivotTablePart, XLPivotTable pt, SaveContext context)
     {

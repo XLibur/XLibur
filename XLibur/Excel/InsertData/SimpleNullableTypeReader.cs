@@ -1,14 +1,12 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel.InsertData;
 
-internal class SimpleNullableTypeReader : IInsertDataReader
+internal sealed class SimpleNullableTypeReader : IInsertDataReader
 {
     private readonly IEnumerable<object> _data;
     private readonly Type _itemType;
@@ -16,7 +14,7 @@ internal class SimpleNullableTypeReader : IInsertDataReader
     public SimpleNullableTypeReader(IEnumerable data)
     {
         _data = data?.Cast<object>() ?? throw new ArgumentNullException(nameof(data));
-        _itemType = data.GetItemType().GetUnderlyingType();
+        _itemType = data.GetItemType()!.GetUnderlyingType();
     }
 
     public IEnumerable<IEnumerable<XLCellValue>> GetRecords()

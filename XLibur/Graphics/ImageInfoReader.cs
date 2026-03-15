@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.IO;
 
 namespace XLibur.Graphics;

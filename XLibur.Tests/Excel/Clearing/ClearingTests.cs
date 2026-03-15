@@ -1,32 +1,30 @@
-﻿using XLibur.Excel;
-using NUnit.Framework;
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
+using XLibur.Excel;
+using NUnit.Framework;
 
-namespace XLibur.Tests;
+namespace XLibur.Tests.Excel.Clearing;
 
 [TestFixture]
 public class ClearingTests
 {
-    private static XLColor backgroundColor = XLColor.LightBlue;
-    private static XLColor foregroundColor = XLColor.DarkBrown;
+    private static readonly XLColor BackgroundColor = XLColor.LightBlue;
+    private static readonly XLColor ForegroundColor = XLColor.DarkBrown;
 
     private IXLWorkbook SetupWorkbook()
     {
         var wb = new XLWorkbook();
-        IXLWorksheet ws = wb.Worksheets.Add("Sheet1");
+        var ws = wb.Worksheets.Add("Sheet1");
 
         var c = ws.FirstCell()
             .SetValue("Hello world!");
 
         c.GetComment().AddText("Some comment");
 
-        c.Style.Fill.BackgroundColor = backgroundColor;
-        c.Style.Font.FontColor = foregroundColor;
+        c.Style.Fill.BackgroundColor = BackgroundColor;
+        c.Style.Font.FontColor = ForegroundColor;
         c.CreateDataValidation().Custom("B1");
-
-        ////
 
         c = ws.FirstCell()
             .CellBelow()
@@ -34,10 +32,8 @@ public class ClearingTests
 
         c.GetComment().AddText("Another comment");
 
-        c.Style.Fill.BackgroundColor = backgroundColor;
-        c.Style.Font.FontColor = foregroundColor;
-
-        ////
+        c.Style.Fill.BackgroundColor = BackgroundColor;
+        c.Style.Font.FontColor = ForegroundColor;
 
         c = ws.FirstCell()
             .CellBelow(2)
@@ -45,8 +41,8 @@ public class ClearingTests
 
         c.GetComment().AddText("A date");
 
-        c.Style.Fill.BackgroundColor = backgroundColor;
-        c.Style.Font.FontColor = foregroundColor;
+        c.Style.Fill.BackgroundColor = BackgroundColor;
+        c.Style.Font.FontColor = ForegroundColor;
 
         ws.Column(1)
             .AddConditionalFormat().WhenStartsWith("Hell")
@@ -65,8 +61,8 @@ public class ClearingTests
 
         foreach (var cell in ws.Range("A1:A3").Cells())
         {
-            Assert.AreEqual(backgroundColor, cell.Style.Fill.BackgroundColor);
-            Assert.AreEqual(foregroundColor, cell.Style.Font.FontColor);
+            Assert.AreEqual(BackgroundColor, cell.Style.Fill.BackgroundColor);
+            Assert.AreEqual(ForegroundColor, cell.Style.Font.FontColor);
             Assert.IsTrue(ws.ConditionalFormats.Any());
             Assert.IsTrue(cell.HasComment);
         }
@@ -92,7 +88,7 @@ public class ClearingTests
             Assert.AreEqual(ws.Style.Font.FontColor, c.Style.Font.FontColor);
             Assert.IsFalse(ws.ConditionalFormats.Any());
             Assert.IsFalse(c.HasComment);
-            Assert.AreEqual(String.Empty, c.GetDataValidation().Value);
+            Assert.AreEqual(string.Empty, c.GetDataValidation().Value);
         }
     }
 
@@ -109,8 +105,8 @@ public class ClearingTests
             Assert.AreEqual(XLDataType.Blank, ws.Cell("A1").DataType);
             Assert.IsTrue(c.IsEmpty(XLCellsUsedOptions.Contents));
 
-            Assert.AreEqual(backgroundColor, c.Style.Fill.BackgroundColor);
-            Assert.AreEqual(foregroundColor, c.Style.Font.FontColor);
+            Assert.AreEqual(BackgroundColor, c.Style.Fill.BackgroundColor);
+            Assert.AreEqual(ForegroundColor, c.Style.Font.FontColor);
             Assert.IsTrue(ws.ConditionalFormats.Any());
             Assert.IsTrue(c.HasComment);
         }
@@ -153,8 +149,8 @@ public class ClearingTests
         foreach (var c in ws.Range("A1:A3").Cells())
         {
             Assert.IsFalse(c.IsEmpty());
-            Assert.AreEqual(backgroundColor, c.Style.Fill.BackgroundColor);
-            Assert.AreEqual(foregroundColor, c.Style.Font.FontColor);
+            Assert.AreEqual(BackgroundColor, c.Style.Fill.BackgroundColor);
+            Assert.AreEqual(ForegroundColor, c.Style.Font.FontColor);
             Assert.IsFalse(ws.ConditionalFormats.Any());
             Assert.IsTrue(c.HasComment);
         }
@@ -177,8 +173,8 @@ public class ClearingTests
         foreach (var c in ws.Range("A1:A3").Cells())
         {
             Assert.IsFalse(c.IsEmpty());
-            Assert.AreEqual(backgroundColor, c.Style.Fill.BackgroundColor);
-            Assert.AreEqual(foregroundColor, c.Style.Font.FontColor);
+            Assert.AreEqual(BackgroundColor, c.Style.Fill.BackgroundColor);
+            Assert.AreEqual(ForegroundColor, c.Style.Font.FontColor);
             Assert.IsTrue(ws.ConditionalFormats.Any());
             Assert.IsFalse(c.HasComment);
         }
@@ -201,8 +197,8 @@ public class ClearingTests
         foreach (var c in ws.Range("A1:A3").Cells())
         {
             Assert.IsFalse(c.IsEmpty());
-            Assert.AreEqual(backgroundColor, c.Style.Fill.BackgroundColor);
-            Assert.AreEqual(foregroundColor, c.Style.Font.FontColor);
+            Assert.AreEqual(BackgroundColor, c.Style.Fill.BackgroundColor);
+            Assert.AreEqual(ForegroundColor, c.Style.Font.FontColor);
             Assert.IsTrue(ws.ConditionalFormats.Any());
             Assert.IsTrue(c.HasComment);
         }

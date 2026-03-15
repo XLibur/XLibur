@@ -1,8 +1,8 @@
-using DocumentFormat.OpenXml.Spreadsheet;
+﻿using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Excel;
 
-internal class XLCFTopConverter : IXLCFConverter
+internal sealed class XLCFTopConverter : IXLCFConverter
 {
     public ConditionalFormattingRule Convert(IXLConditionalFormat cf, int priority, XLWorkbook.SaveContext context)
     {

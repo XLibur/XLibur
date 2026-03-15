@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using DocumentFormat.OpenXml.Packaging;
+﻿using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Vml.Office;
 using DocumentFormat.OpenXml.Vml.Spreadsheet;
 using DocumentFormat.OpenXml;
@@ -9,12 +7,14 @@ using Locked = DocumentFormat.OpenXml.Vml.Spreadsheet.Locked;
 using Vml = DocumentFormat.OpenXml.Vml;
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Xml;
+using XLibur.Extensions;
 
 namespace XLibur.Excel.IO;
 
-internal class VmlDrawingPartWriter
+internal sealed class VmlDrawingPartWriter
 {
     // Generates content of vmlDrawingPart1.
     internal static bool GenerateContent(VmlDrawingPart vmlDrawingPart, XLWorksheet xlWorksheet)
@@ -60,9 +60,9 @@ internal class VmlDrawingPartWriter
         if (ms.Length > 0)
         {
             ms.Position = 0;
-            var xdoc = XDocumentExtensions.Load(ms);
-            xdoc.Root.Elements().ForEach(e => writer.WriteRaw(e.ToString()));
-            hasAnyVmlElements |= xdoc.Root.HasElements;
+            var xdoc = XDocumentExtensions.Load(ms)!;
+            xdoc.Root!.Elements().ForEach(e => writer.WriteRaw(e.ToString()));
+            hasAnyVmlElements |= xdoc.Root!.HasElements;
         }
 
         writer.WriteEndElement();
@@ -80,8 +80,19 @@ internal class VmlDrawingPartWriter
 
         var comment = c.GetComment();
         var shapeId = string.Concat("_x0000_s", comment.ShapeId);
+
+        // When AutomaticSize is enabled, calculate dimensions that fit the text.
+        // Width stays in column-width units, height in points.
+        var effectiveWidth = comment.Style.Size.Width;
+        var effectiveHeight = comment.Style.Size.Height;
+        if (comment.Style.Alignment.AutomaticSize)
+        {
+            var autoHeight = EstimateAutoSizeHeight(c, effectiveWidth * 7.5, comment);
+            effectiveHeight = Math.Max(effectiveHeight, autoHeight);
+        }
+
         // Unique per cell (workbook?), e.g.: "_x0000_s1026"
-        var anchor = GetAnchor(c);
+        var anchor = GetAnchor(c, effectiveWidth, effectiveHeight);
         var textBox = GetTextBox(comment.Style);
         var fill = new Vml.Fill { Color2 = "#" + comment.Style.ColorsAndLines.FillColor.Color.ToHex().Substring(2) };
         if (comment.Style.ColorsAndLines.FillTransparency < 1)
@@ -116,9 +127,9 @@ internal class VmlDrawingPartWriter
         {
             Id = shapeId,
             Type = "#" + XLConstants.Comment.ShapeTypeId,
-            Style = GetCommentStyle(c),
-            FillColor = "#" + comment.Style.ColorsAndLines.FillColor.Color.ToHex().Substring(2),
-            StrokeColor = "#" + comment.Style.ColorsAndLines.LineColor.Color.ToHex().Substring(2),
+            Style = GetCommentStyle(c, effectiveWidth, effectiveHeight),
+            FillColor = string.Concat("#", comment.Style.ColorsAndLines.FillColor.Color.ToHex().AsSpan(2)),
+            StrokeColor = string.Concat("#", comment.Style.ColorsAndLines.LineColor.Color.ToHex().AsSpan(2)),
             StrokeWeight = string.Concat(comment.Style.ColorsAndLines.LineWeight.ToInvariantString(), "pt"),
             InsetMode = comment.Style.Margins.Automatic ? InsetMarginValues.Auto : InsetMarginValues.Custom
         };
@@ -184,10 +195,9 @@ internal class VmlDrawingPartWriter
         return tb;
     }
 
-    private static Anchor GetAnchor(XLCell cell)
+    private static Anchor GetAnchor(XLCell cell, double cWidth, double cHeight)
     {
         var c = cell.GetComment();
-        var cWidth = c.Style.Size.Width;
         var fcNumber = c.Position.Column - 1;
         var fcOffset = Convert.ToInt32(c.Position.ColumnOffset * 7.5);
         var widthFromColumns = cell.Worksheet.Column(c.Position.Column).Width - c.Position.ColumnOffset;
@@ -201,7 +211,6 @@ internal class VmlDrawingPartWriter
         var lcNumber = lastCell.WorksheetColumn().ColumnNumber() - 1;
         var lcOffset = Convert.ToInt32((lastCell.WorksheetColumn().Width - (widthFromColumns - cWidth)) * 7.5);
 
-        var cHeight = c.Style.Size.Height; //c.Style.Size.Height * 72.0;
         var frNumber = c.Position.Row - 1;
         var frOffset = Convert.ToInt32(c.Position.RowOffset);
         var heightFromRows = cell.Worksheet.Row(c.Position.Row).Height - c.Position.RowOffset;
@@ -225,7 +234,7 @@ internal class VmlDrawingPartWriter
         };
     }
 
-    private static StringValue GetCommentStyle(XLCell cell)
+    private static StringValue GetCommentStyle(XLCell cell, double widthInColumns, double heightPt)
     {
         var c = cell.GetComment();
         var sb = new StringBuilder("position:absolute; ");
@@ -235,16 +244,98 @@ internal class VmlDrawingPartWriter
         sb.Append(";");
 
         sb.Append("width:");
-        sb.Append(Math.Round(c.Style.Size.Width * 7.5, 2).ToInvariantString());
+        sb.Append(Math.Round(widthInColumns * 7.5, 2).ToInvariantString());
         sb.Append("pt;");
         sb.Append("height:");
-        sb.Append(Math.Round(c.Style.Size.Height, 2).ToInvariantString());
+        sb.Append(Math.Round(heightPt, 2).ToInvariantString());
         sb.Append("pt;");
 
         sb.Append("z-index:");
         sb.Append(c.ZOrder.ToInvariantString());
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Estimate the height needed to fit the comment text at the given width.
+    /// Uses the graphic engine to measure text, simulating word wrap.
+    /// </summary>
+    private static double EstimateAutoSizeHeight(XLCell cell, double widthPt, XLComment comment)
+    {
+        var engine = cell.Worksheet.Workbook.GraphicEngine;
+        var margins = comment.Style.Margins;
+
+        // Calculate margins in points (margins are stored in inches)
+        double marginLeftPt, marginRightPt, marginTopPt, marginBottomPt;
+        if (margins.Automatic)
+        {
+            // Default VML margins
+            marginLeftPt = 0.1 * 72.0;
+            marginRightPt = 0.1 * 72.0;
+            marginTopPt = 0.05 * 72.0;
+            marginBottomPt = 0.05 * 72.0;
+        }
+        else
+        {
+            marginLeftPt = margins.Left * 72.0;
+            marginRightPt = margins.Right * 72.0;
+            marginTopPt = margins.Top * 72.0;
+            marginBottomPt = margins.Bottom * 72.0;
+        }
+
+        var availableWidth = widthPt - marginLeftPt - marginRightPt;
+        if (availableWidth <= 0)
+            return comment.Style.Size.Height;
+
+        // Determine font for measurement: use font of the first run, or default comment font.
+        IXLFontBase font = XLFont.DefaultCommentFont;
+        var firstRun = comment.FirstOrDefault();
+        if (firstRun is not null)
+            font = firstRun;
+
+        // Line height in points (at 72 DPI, pixels = points)
+        var lineHeight = engine.GetTextHeight(font, 72.0);
+        var spaceWidth = engine.GetTextWidth(" ", font, 72.0);
+
+        // Split text on explicit newlines, then simulate word wrapping for each
+        var text = comment.Text;
+        var lines = text.Split(["\r\n", "\n"], StringSplitOptions.None);
+
+        var totalLines = 0;
+        foreach (var line in lines)
+        {
+            if (line.Length == 0)
+            {
+                totalLines += 1;
+                continue;
+            }
+
+            // Simulate word wrapping
+            var words = line.Split(' ');
+            var currentLineWidth = 0.0;
+            var lineCount = 1;
+
+            foreach (var word in words)
+            {
+                var wordWidth = engine.GetTextWidth(word, font, 72.0);
+
+                if (currentLineWidth > 0 && currentLineWidth + spaceWidth + wordWidth > availableWidth)
+                {
+                    // Word doesn't fit, start a new line
+                    lineCount++;
+                    currentLineWidth = wordWidth;
+                }
+                else
+                {
+                    // Add word to current line (with space if not first word)
+                    currentLineWidth += (currentLineWidth > 0 ? spaceWidth : 0) + wordWidth;
+                }
+            }
+
+            totalLines += lineCount;
+        }
+
+        return totalLines * lineHeight + marginTopPt + marginBottomPt;
     }
 
 }

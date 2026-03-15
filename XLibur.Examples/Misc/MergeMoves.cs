@@ -6,10 +6,9 @@ namespace XLibur.Examples.Misc;
 
 public class MergeMoves : IXLExample
 {
-
     public void Create(string filePath)
     {
-        string tempFile = ExampleHelper.GetTempFilePath(filePath);
+        var tempFile = ExampleHelper.GetTempFilePath(filePath);
         try
         {
             new MergeCells().Create(tempFile);

@@ -1,8 +1,6 @@
-#nullable disable
+﻿namespace XLibur.Excel;
 
-namespace XLibur.Excel;
-
-internal class XLDrawingAlignment : IXLDrawingAlignment
+internal sealed class XLDrawingAlignment : IXLDrawingAlignment
 {
     private readonly IXLDrawingStyle _style;
 

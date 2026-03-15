@@ -1,11 +1,11 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Text;
+using XLibur.Excel.RichText;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal class XLHFText
+internal sealed class XLHFText
 {
     private readonly XLHFItem _hfItem;
 
@@ -71,7 +71,7 @@ internal class XLHFText
                 sb.Append("&E");
         }
 
-        var lastColorPosition = prevText.LastIndexOf("&K");
+        var lastColorPosition = prevText.LastIndexOf("&K", StringComparison.Ordinal);
 
         if (
             (lastColorPosition >= 0 && !RichText.FontColor.Equals(XLColor.FromHtml("#" + prevText.Substring(lastColorPosition + 2, 6))))

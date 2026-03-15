@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.RichText;
 
 /// <summary>
 /// A class for holding <see cref="XLRichText"/> in a <see cref="SharedStringTable"/>.
@@ -166,12 +166,12 @@ internal sealed class XLImmutableRichText : IEquatable<XLImmutableRichText>
     }
 
     /// <summary>
-    /// Phonetic runs can't overlap and must be in order (i.e. start index must be ascending).
+    /// Phonetic runs can't overlap and must be in order (i.e., start index must be ascending).
     /// </summary>
     internal readonly struct PhoneticRun
     {
         /// <summary>
-        /// Text that is displayed above a segment indicating how should segment be read.
+        /// Text that is displayed above a segment indicating how segment should be read.
         /// </summary>
         internal readonly string Text;
 
@@ -224,13 +224,13 @@ internal sealed class XLImmutableRichText : IEquatable<XLImmutableRichText>
     }
 
     /// <summary>
-    /// Properties of phonetic runs. All phonetic runs of a rich text have same font and other properties.
+    /// Properties of phonetic runs. All phonetic runs of a rich text have the same font and other properties.
     /// </summary>
     internal readonly struct PhoneticProperties
     {
         /// <summary>
-        /// Font used for text of phonetic runs. All phonetic runs use same font. There can be no phonetic runs,
-        /// but with specified font (e.g. the mutable API has only specified font, but no text yet).
+        /// Font used for text of phonetic runs. All phonetic runs use the same font. There can be no phonetic runs,
+        /// but with a specified font (e.g., the mutable API has only the specified font but no text yet).
         /// </summary>
         public readonly XLFontValue Font;
 

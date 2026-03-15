@@ -8,6 +8,7 @@ using XLibur.Excel;
 using XLibur.Excel.Drawings;
 using XLibur.Tests.Utils;
 using NUnit.Framework;
+using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.Loading;
 
@@ -26,6 +27,42 @@ public class LoadingTests
     public void CanSuccessfullyLoadFiles(string file)
     {
         TestHelper.LoadFile(file);
+    }
+
+    [Test]
+    public void Can_load_and_save_preserves_timelines()
+    {
+        // Regression test for https://github.com/ClosedXML/ClosedXML/issues/2132
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath("TryToLoad.Timelines_Missing_21232.xlsx"));
+        using var wb = new XLWorkbook(stream);
+
+        var ws = wb.AddWorksheet("Sample Sheet");
+        ws.Cell("A1").Value = "Hello World!";
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+
+        ms.Position = 0;
+        using var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Read);
+        var entryNames = zip.Entries.Select(e => e.FullName).ToList();
+
+        Assert.That(entryNames, Has.Some.Contains("timelines/timeline1.xml"), "Timeline part is missing");
+        Assert.That(entryNames, Has.Some.Contains("timelineCaches/timelineCache1.xml"), "Timeline cache part is missing");
+
+        using (var reader = new StreamReader(zip.GetEntry("xl/workbook.xml")!.Open()))
+            Assert.That(reader.ReadToEnd(), Does.Contain("timelineCacheRef"), "Workbook XML lost timelineCacheRef");
+
+        using (var reader = new StreamReader(zip.GetEntry("xl/worksheets/sheet1.xml")!.Open()))
+            Assert.That(reader.ReadToEnd(), Does.Contain("timelineRef"), "Worksheet XML lost timelineRef");
+    }
+
+    [Test]
+    public void Can_load_and_save_file_with_external_image_reference()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath("TryToLoad.external_image_reference_2608.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        using var ms = new MemoryStream();
+        Assert.DoesNotThrow(() => wb.SaveAs(ms));
     }
 
     [TestCaseSource(nameof(LOFiles))]
@@ -178,10 +215,26 @@ public class LoadingTests
         var subtotals = pt.RowLabels.Get("Group").Subtotals.ToArray();
 
         Assert.That(subtotals, Is.EquivalentTo([
+            XLSubtotalFunction.Automatic,
             XLSubtotalFunction.Average,
             XLSubtotalFunction.Count,
             XLSubtotalFunction.Sum
         ]));
+    }
+
+    /// <summary>
+    /// Pivot table fields can have a <c>name</c> attribute that renames the field
+    /// from its cache source name. When loading, the renamed name is stored as
+    /// <c>CustomName</c> while the original cache name is <c>SourceName</c>.
+    /// Verify the file can be loaded and saved without errors (#2591).
+    /// </summary>
+    [Test]
+    public void CanLoadAndSavePivotTableWithRenamedColumns()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\load_pivottable_renamedcolumns_2591.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms, true);
     }
 
     [Test]
@@ -666,6 +719,36 @@ public class LoadingTests
         }
     }
 
+    // https://github.com/ClosedXML/ClosedXML/issues/1920
+    [Test]
+    public void CanReadGoogleSheetsCommentText()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\GoogleSheets\GoogleDocExportWithComments.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+
+        Assert.That(ws.Cell("A1").HasComment, Is.True);
+        Assert.That(ws.Cell("A1").GetComment().Text, Is.EqualTo("Toook=12"));
+
+        Assert.That(ws.Cell("A2").HasComment, Is.False);
+
+        Assert.That(ws.Cell("A4").HasComment, Is.True);
+        Assert.That(ws.Cell("A4").GetComment().Text, Is.EqualTo("assas"));
+
+        Assert.That(ws.Cell("A7").HasComment, Is.True);
+        Assert.That(ws.Cell("A7").GetComment().Text, Is.EqualTo("12123123" + Environment.NewLine));
+
+        // Verify round-trip: save and reload
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms, true);
+        ms.Position = 0;
+
+        using var wb2 = new XLWorkbook(ms);
+        var ws2 = wb2.Worksheets.First();
+        Assert.That(ws2.Cell("A1").GetComment().Text, Is.EqualTo("Toook=12"));
+        Assert.That(ws2.Cell("A4").GetComment().Text, Is.EqualTo("assas"));
+    }
+
     [Test]
     public void CanLoadEmptyStyles()
     {
@@ -736,5 +819,15 @@ public class LoadingTests
             Assert.AreEqual(2, wb.Worksheets.Count);
             Assert.NotNull(wb.Worksheet("Pivot").PivotTables.Contains("PivotTable1"));
         }, @"TryToLoad\DialogSheet.xlsx");
+    }
+
+    // https://github.com/ClosedXML/ClosedXML/issues/2619
+    [Test]
+    public void Can_load_google_sheets_file_with_table_and_autofilter_on_same_range()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\GoogleSheets\2619_exported-broken2.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+        Assert.That(ws.Tables.Count(), Is.GreaterThanOrEqualTo(1));
     }
 }

@@ -1,5 +1,4 @@
-#nullable disable
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -9,7 +8,7 @@ namespace XLibur.Excel;
 /// Fluent API for filter fields of a <see cref="XLPivotTable"/>. This class shouldn't contain any
 /// state, only logic to change state per API.
 /// </summary>
-internal class XLPivotTablePageField : IXLPivotField
+internal sealed class XLPivotTablePageField : IXLPivotField
 {
     private readonly XLPivotTable _pivotTable;
     private readonly XLPivotPageField _filterField;
@@ -24,7 +23,7 @@ internal class XLPivotTablePageField : IXLPivotField
 
     public string CustomName
     {
-        get => GetField().Name;
+        get => GetField().Name!;
         set => GetField().Name = value;
     }
 
@@ -105,6 +104,16 @@ internal class XLPivotTablePageField : IXLPivotField
     public IXLPivotField SetSubtotalCaption(string value)
     {
         SubtotalCaption = value;
+        return this;
+    }
+
+    public IXLPivotField SetSubtotal(XLSubtotalFunction function, bool enabled)
+    {
+        if (enabled)
+            GetField().AddSubtotal(function);
+        else
+            GetField().RemoveSubtotal(function);
+
         return this;
     }
 

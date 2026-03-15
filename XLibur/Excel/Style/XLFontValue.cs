@@ -1,5 +1,3 @@
-#nullable disable
-
 using XLibur.Excel.Caching;
 using System.Collections.Generic;
 
@@ -7,14 +5,14 @@ namespace XLibur.Excel;
 
 internal sealed class XLFontValue
 {
-    private static readonly XLFontRepository Repository = new XLFontRepository(key => new XLFontValue(key));
+    private static readonly XLFontRepository Repository = new(key => new XLFontValue(key));
 
     public static XLFontValue FromKey(ref XLFontKey key)
     {
         return Repository.GetOrCreate(ref key);
     }
 
-    private static readonly XLFontKey DefaultKey = new XLFontKey
+    private static readonly XLFontKey DefaultKey = new()
     {
         Bold = false,
         Italic = false,
@@ -31,31 +29,31 @@ internal sealed class XLFontValue
     };
     internal static readonly XLFontValue Default = FromKey(ref DefaultKey);
 
-    public XLFontKey Key { get; private set; }
+    public XLFontKey Key { get; }
 
-    public bool Bold { get { return Key.Bold; } }
+    public bool Bold => Key.Bold;
 
-    public bool Italic { get { return Key.Italic; } }
+    public bool Italic => Key.Italic;
 
-    public XLFontUnderlineValues Underline { get { return Key.Underline; } }
+    public XLFontUnderlineValues Underline => Key.Underline;
 
-    public bool Strikethrough { get { return Key.Strikethrough; } }
+    public bool Strikethrough => Key.Strikethrough;
 
-    public XLFontVerticalTextAlignmentValues VerticalAlignment { get { return Key.VerticalAlignment; } }
+    public XLFontVerticalTextAlignmentValues VerticalAlignment => Key.VerticalAlignment;
 
-    public bool Shadow { get { return Key.Shadow; } }
+    public bool Shadow => Key.Shadow;
 
-    public double FontSize { get { return Key.FontSize; } }
+    public double FontSize => Key.FontSize;
 
     public XLColor FontColor { get; private set; }
 
-    public string FontName { get { return Key.FontName; } }
+    public string FontName => Key.FontName;
 
-    public XLFontFamilyNumberingValues FontFamilyNumbering { get { return Key.FontFamilyNumbering; } }
+    public XLFontFamilyNumberingValues FontFamilyNumbering => Key.FontFamilyNumbering;
 
-    public XLFontCharSet FontCharSet { get { return Key.FontCharSet; } }
+    public XLFontCharSet FontCharSet => Key.FontCharSet;
 
-    public XLFontScheme FontScheme { get { return Key.FontScheme; } }
+    public XLFontScheme FontScheme => Key.FontScheme;
 
     private XLFontValue(XLFontKey key)
     {
@@ -64,7 +62,7 @@ internal sealed class XLFontValue
         FontColor = XLColor.FromKey(ref fontColorKey);
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         var cached = obj as XLFontValue;
         return cached != null &&

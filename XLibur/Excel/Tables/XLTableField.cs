@@ -1,37 +1,34 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
 [DebuggerDisplay("{Name}")]
-internal class XLTableField : IXLTableField
+internal sealed class XLTableField : IXLTableField
 {
     internal XLTotalsRowFunction totalsRowFunction;
     internal string? totalsRowLabel;
-    private readonly XLTable table;
+    private readonly XLTable _table;
 
     private IXLRangeColumn? _column;
-    private int index;
-    private string name;
+    private string _name;
 
     public XLTableField(XLTable table, string name)
     {
-        this.table = table;
-        this.name = name;
+        this._table = table;
+        this._name = name;
     }
 
     public IXLRangeColumn Column
     {
         get
         {
-            _column ??= table.AsRange().Column(Index + 1);
+            _column ??= _table.AsRange().Column(Index + 1);
             return _column;
         }
-        internal set
-        {
-            _column = value;
-        }
+        internal set => _column = value;
     }
 
     public IXLCells DataCells
@@ -40,62 +37,50 @@ internal class XLTableField : IXLTableField
         {
             return Column.Cells(c =>
             {
-                if (table.ShowHeaderRow && c.Equals(HeaderCell))
+                if (_table.ShowHeaderRow && c.Equals(HeaderCell))
                     return false;
-                if (table.ShowTotalsRow && c.Equals(TotalsCell))
+                if (_table.ShowTotalsRow && c.Equals(TotalsCell))
                     return false;
                 return true;
             });
         }
     }
 
-    public IXLCell? HeaderCell
-    {
-        get
-        {
-            if (!table.ShowHeaderRow)
-                return null;
-
-            return Column.FirstCell();
-        }
-    }
+    public IXLCell? HeaderCell => !_table.ShowHeaderRow ? null : Column.FirstCell();
 
     public int Index
     {
-        get { return index; }
+        get;
         internal set
         {
-            if (index == value) return;
-            index = value;
+            if (field == value) return;
+            field = value;
             _column = null;
         }
     }
 
     public string Name
     {
-        get
-        {
-            return name;
-        }
+        get => _name;
         set
         {
-            if (name == value) return;
+            if (_name == value) return;
 
-            if (table.ShowHeaderRow)
-                ((XLCell)table.HeadersRow(false).Cell(Index + 1)).SetValue(value, setTableHeader: false, checkMergedRanges: true);
+            if (_table.ShowHeaderRow)
+                ((XLCell)_table.HeadersRow(false)!.Cell(Index + 1)).SetValue(value, setTableHeader: false, checkMergedRanges: true);
 
-            table.RenameField(name, value);
-            name = value;
+            _table.RenameField(_name, value);
+            _name = value;
         }
     }
 
-    public IXLTable Table { get { return table; } }
+    public IXLTable Table => _table;
 
     public IXLCell? TotalsCell
     {
         get
         {
-            if (!table.ShowTotalsRow)
+            if (!_table.ShowTotalsRow)
                 return null;
 
             return Column.LastCell();
@@ -104,27 +89,27 @@ internal class XLTableField : IXLTableField
 
     public string TotalsRowFormulaA1
     {
-        get { return table.TotalsRow().Cell(Index + 1).FormulaA1; }
+        get => _table.TotalsRow()!.Cell(Index + 1).FormulaA1;
         set
         {
             totalsRowFunction = XLTotalsRowFunction.Custom;
-            table.TotalsRow().Cell(Index + 1).FormulaA1 = value;
+            _table.TotalsRow()!.Cell(Index + 1).FormulaA1 = value;
         }
     }
 
     public string TotalsRowFormulaR1C1
     {
-        get { return table.TotalsRow().Cell(Index + 1).FormulaR1C1; }
+        get => _table.TotalsRow()!.Cell(Index + 1).FormulaR1C1;
         set
         {
             totalsRowFunction = XLTotalsRowFunction.Custom;
-            table.TotalsRow().Cell(Index + 1).FormulaR1C1 = value;
+            _table.TotalsRow()!.Cell(Index + 1).FormulaR1C1 = value;
         }
     }
 
     public XLTotalsRowFunction TotalsRowFunction
     {
-        get { return totalsRowFunction; }
+        get => totalsRowFunction;
         set
         {
             totalsRowFunction = value;
@@ -134,11 +119,11 @@ internal class XLTableField : IXLTableField
 
     public string? TotalsRowLabel
     {
-        get { return totalsRowLabel; }
+        get => totalsRowLabel;
         set
         {
             totalsRowFunction = XLTotalsRowFunction.None;
-            ((XLCell)table.TotalsRow().Cell(Index + 1)).SetValue(value, setTableHeader: false, checkMergedRanges: true);
+            ((XLCell)_table.TotalsRow()!.Cell(Index + 1)).SetValue(value, setTableHeader: false, checkMergedRanges: true);
             totalsRowLabel = value;
         }
     }
@@ -150,25 +135,25 @@ internal class XLTableField : IXLTableField
 
     internal void Delete(bool deleteUnderlyingRangeColumn)
     {
-        var fields = table.Fields.Cast<XLTableField>().ToArray();
+        var fields = _table.Fields.Cast<XLTableField>().ToArray();
 
         if (deleteUnderlyingRangeColumn)
         {
-            table.AsRange().ColumnQuick(Index + 1).Delete();
+            _table.AsRange().ColumnQuick(Index + 1).Delete();
         }
 
         fields.Where(f => f.Index > Index).ForEach(f => f.Index--);
-        table.FieldNames.Remove(Name);
+        _table.FieldNames.Remove(Name);
     }
 
     public bool IsConsistentDataType()
     {
         var dataTypes = Column
             .Cells()
-            .Skip(table.ShowHeaderRow ? 1 : 0)
+            .Skip(_table.ShowHeaderRow ? 1 : 0)
             .Select(c => c.DataType);
 
-        if (table.ShowTotalsRow)
+        if (_table.ShowTotalsRow)
             dataTypes = dataTypes.SkipLast();
 
         var distinctDataTypes = dataTypes
@@ -182,10 +167,10 @@ internal class XLTableField : IXLTableField
     {
         var formulas = Column
             .Cells()
-            .Skip(table.ShowHeaderRow ? 1 : 0)
+            .Skip(_table.ShowHeaderRow ? 1 : 0)
             .Select(c => c.FormulaR1C1);
 
-        if (table.ShowTotalsRow)
+        if (_table.ShowTotalsRow)
             formulas = formulas.SkipLast();
 
         var distinctFormulas = formulas
@@ -199,11 +184,11 @@ internal class XLTableField : IXLTableField
     {
         var styles = Column
             .Cells()
-            .Skip(table.ShowHeaderRow ? 1 : 0)
+            .Skip(_table.ShowHeaderRow ? 1 : 0)
             .OfType<XLCell>()
             .Select(c => c.StyleValue);
 
-        if (table.ShowTotalsRow)
+        if (_table.ShowTotalsRow)
             styles = styles.SkipLast();
 
         var distinctStyles = styles
@@ -212,38 +197,38 @@ internal class XLTableField : IXLTableField
         return distinctStyles.Count() == 1;
     }
 
-    private static IEnumerable<string> QuotedTableFieldCharacters = ["'", "#"];
+    private static readonly IEnumerable<string> QuotedTableFieldCharacters = ["'", "#"];
 
     internal void UpdateTableFieldTotalsRowFormula()
     {
         if (TotalsRowFunction != XLTotalsRowFunction.None && TotalsRowFunction != XLTotalsRowFunction.Custom)
         {
-            var cell = table.TotalsRow().Cell(Index + 1);
-            var formulaCode = string.Empty;
-            switch (TotalsRowFunction)
+            var cell = _table.TotalsRow()!.Cell(Index + 1);
+            var formulaCode = TotalsRowFunction switch
             {
-                case XLTotalsRowFunction.Sum: formulaCode = "109"; break;
-                case XLTotalsRowFunction.Minimum: formulaCode = "105"; break;
-                case XLTotalsRowFunction.Maximum: formulaCode = "104"; break;
-                case XLTotalsRowFunction.Average: formulaCode = "101"; break;
-                case XLTotalsRowFunction.Count: formulaCode = "103"; break;
-                case XLTotalsRowFunction.CountNumbers: formulaCode = "102"; break;
-                case XLTotalsRowFunction.StandardDeviation: formulaCode = "107"; break;
-                case XLTotalsRowFunction.Variance: formulaCode = "110"; break;
-            }
+                XLTotalsRowFunction.Sum => "109",
+                XLTotalsRowFunction.Minimum => "105",
+                XLTotalsRowFunction.Maximum => "104",
+                XLTotalsRowFunction.Average => "101",
+                XLTotalsRowFunction.Count => "103",
+                XLTotalsRowFunction.CountNumbers => "102",
+                XLTotalsRowFunction.StandardDeviation => "107",
+                XLTotalsRowFunction.Variance => "110",
+                _ => string.Empty,
+            };
 
             var modifiedName = Name;
             QuotedTableFieldCharacters.ForEach(c => modifiedName = modifiedName.Replace(c, "'" + c));
 
-            if (modifiedName.StartsWith(" ") || modifiedName.EndsWith(" "))
+            if (modifiedName.StartsWith(' ') || modifiedName.EndsWith(' '))
             {
                 modifiedName = "[" + modifiedName + "]";
             }
 
-            var prependTableName = modifiedName.Contains(" ");
+            var prependTableName = modifiedName.Contains(' ');
 
-            cell.FormulaA1 = $"SUBTOTAL({formulaCode},{(prependTableName ? table.Name : string.Empty)}[{modifiedName}])";
-            var lastCell = table.LastRow().Cell(Index + 1);
+            cell.FormulaA1 = $"SUBTOTAL({formulaCode},{(prependTableName ? _table.Name : string.Empty)}[{modifiedName}])";
+            var lastCell = _table.LastRow()!.Cell(Index + 1);
             if (lastCell.DataType != XLDataType.Text)
             {
                 cell.Style.NumberFormat = lastCell.Style.NumberFormat;

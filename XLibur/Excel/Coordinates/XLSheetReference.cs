@@ -1,4 +1,6 @@
-﻿namespace XLibur.Excel;
+﻿using XLibur.Extensions;
+
+namespace XLibur.Excel;
 
 /// <summary>
 /// <see cref="XLReference"/> that includes a sheet. It can represent cell

@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Text;
 
 namespace XLibur.Excel;
 
-internal class XLFont : IXLFont
+internal sealed class XLFont : IXLFont
 {
     #region Static members
 
@@ -73,12 +73,12 @@ internal class XLFont : IXLFont
         _value = value;
     }
 
-    public XLFont(XLStyle? style, XLFontKey key) : this(style, XLFontValue.FromKey(ref key))
+    private XLFont(XLStyle? style, XLFontKey key) : this(style, XLFontValue.FromKey(ref key))
     {
     }
 
     /// <summary>
-    /// Create a new font that is attached to a style and the changes to the font object are propagated to the style.
+    /// Create a new font that is attached to a style, and the changes to the font object are propagated to the style.
     /// </summary>
     /// <param name="style">The container style that will be modified by changes of created <c>XLFont</c>.</param>
     public XLFont(XLStyle style) : this(style, GenerateKey(style.Font))
@@ -102,15 +102,28 @@ internal class XLFont : IXLFont
 
     #endregion Constructors
 
+    internal void SyncValue(XLFontValue value)
+    {
+        _value = value;
+    }
+
+    /// <summary>
+    /// Cell-container fast path: no Func&lt;&gt; allocation.
+    /// </summary>
+    private void SetKey(XLFontKey newKey)
+    {
+        Key = newKey;
+        _style.ModifyFont(Key);
+    }
+
+    /// <summary>
+    /// Non-cell path (ranges, worksheets, conditional formats): must apply per-property
+    /// delta to each cell's individual font key via a modification function.
+    /// </summary>
     private void Modify(Func<XLFontKey, XLFontKey> modification)
     {
         Key = modification(Key);
-
-        _style.Modify(styleKey =>
-        {
-            var font = modification(styleKey.Font);
-            return styleKey with { Font = font };
-        });
+        _style.Modify(styleKey => styleKey with { Font = modification(styleKey.Font) });
     }
 
     #region IXLFont Members
@@ -118,43 +131,92 @@ internal class XLFont : IXLFont
     public bool Bold
     {
         get => Key.Bold;
-        set { Modify(k => k with { Bold = value }); }
+        set
+        {
+            if (Key.Bold == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { Bold = value });
+            else
+                Modify(k => k with { Bold = value });
+        }
     }
 
     public bool Italic
     {
         get => Key.Italic;
-        set { Modify(k => k with { Italic = value }); }
+        set
+        {
+            if (Key.Italic == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { Italic = value });
+            else
+                Modify(k => k with { Italic = value });
+        }
     }
 
     public XLFontUnderlineValues Underline
     {
         get => Key.Underline;
-        set { Modify(k => k with { Underline = value }); }
+        set
+        {
+            if (Key.Underline == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { Underline = value });
+            else
+                Modify(k => k with { Underline = value });
+        }
     }
 
     public bool Strikethrough
     {
         get => Key.Strikethrough;
-        set { Modify(k => k with { Strikethrough = value }); }
+        set
+        {
+            if (Key.Strikethrough == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { Strikethrough = value });
+            else
+                Modify(k => k with { Strikethrough = value });
+        }
     }
 
     public XLFontVerticalTextAlignmentValues VerticalAlignment
     {
         get => Key.VerticalAlignment;
-        set { Modify(k => k with { VerticalAlignment = value }); }
+        set
+        {
+            if (Key.VerticalAlignment == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { VerticalAlignment = value });
+            else
+                Modify(k => k with { VerticalAlignment = value });
+        }
     }
 
     public bool Shadow
     {
         get => Key.Shadow;
-        set { Modify(k => k with { Shadow = value }); }
+        set
+        {
+            if (Key.Shadow == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { Shadow = value });
+            else
+                Modify(k => k with { Shadow = value });
+        }
     }
 
     public double FontSize
     {
         get => Key.FontSize;
-        set { Modify(k => k with { FontSize = value }); }
+        set
+        {
+            if (XLHelper.AreEqual(Key.FontSize, value)) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { FontSize = value });
+            else
+                Modify(k => k with { FontSize = value });
+        }
     }
 
     public XLColor FontColor
@@ -168,32 +230,64 @@ internal class XLFont : IXLFont
         {
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
-            Modify(k => k with { FontColor = value.Key });
+            if (Key.FontColor == value.Key) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { FontColor = value.Key });
+            else
+                Modify(k => k with { FontColor = value.Key });
         }
     }
 
     public string FontName
     {
         get => Key.FontName;
-        set { Modify(k => k with { FontName = value }); }
+        set
+        {
+            if (Key.FontName == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { FontName = value });
+            else
+                Modify(k => k with { FontName = value });
+        }
     }
 
     public XLFontFamilyNumberingValues FontFamilyNumbering
     {
         get => Key.FontFamilyNumbering;
-        set { Modify(k => k with { FontFamilyNumbering = value }); }
+        set
+        {
+            if (Key.FontFamilyNumbering == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { FontFamilyNumbering = value });
+            else
+                Modify(k => k with { FontFamilyNumbering = value });
+        }
     }
 
     public XLFontCharSet FontCharSet
     {
         get => Key.FontCharSet;
-        set { Modify(k => k with { FontCharSet = value }); }
+        set
+        {
+            if (Key.FontCharSet == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { FontCharSet = value });
+            else
+                Modify(k => k with { FontCharSet = value });
+        }
     }
 
     public XLFontScheme FontScheme
     {
         get => Key.FontScheme;
-        set { Modify(k => k with { FontScheme = value }); }
+        set
+        {
+            if (Key.FontScheme == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { FontScheme = value });
+            else
+                Modify(k => k with { FontScheme = value });
+        }
     }
 
     public IXLStyle SetBold()
@@ -305,17 +399,17 @@ internal class XLFont : IXLFont
     public override string ToString()
     {
         var sb = new StringBuilder();
-        sb.Append(Bold.ToString());
+        sb.Append(Bold);
         sb.Append('-');
-        sb.Append(Italic.ToString());
+        sb.Append(Italic);
         sb.Append('-');
         sb.Append(Underline.ToString());
         sb.Append('-');
-        sb.Append(Strikethrough.ToString());
+        sb.Append(Strikethrough);
         sb.Append('-');
         sb.Append(VerticalAlignment.ToString());
         sb.Append('-');
-        sb.Append(Shadow.ToString());
+        sb.Append(Shadow);
         sb.Append('-');
         sb.Append(FontSize.ToString(CultureInfo.InvariantCulture));
         sb.Append('-');

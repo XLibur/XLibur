@@ -1,25 +1,21 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLNumberFormat : IXLNumberFormat
+internal sealed class XLNumberFormat : IXLNumberFormat
 {
     #region Static members
 
-    internal static XLNumberFormatKey GenerateKey(IXLNumberFormat? defaultNumberFormat)
+    internal static XLNumberFormatKey GenerateKey(IXLNumberFormat? defaultNumberFormat) => defaultNumberFormat switch
     {
-        if (defaultNumberFormat == null)
-            return XLNumberFormatValue.Default.Key;
-
-        if (defaultNumberFormat is XLNumberFormat format)
-            return format.Key;
-
-        return new XLNumberFormatKey
+        null => XLNumberFormatValue.Default.Key,
+        XLNumberFormat format => format.Key,
+        _ => new XLNumberFormatKey
         {
             NumberFormatId = defaultNumberFormat.NumberFormatId,
             Format = defaultNumberFormat.Format
-        };
-    }
+        },
+    };
 
     #endregion Static members
 
@@ -60,6 +56,8 @@ internal class XLNumberFormat : IXLNumberFormat
 
     #endregion Constructors
 
+    internal void SyncValue(XLNumberFormatValue value) { _value = value; }
+
     #region IXLNumberFormat Members
 
     public int NumberFormatId
@@ -67,11 +65,22 @@ internal class XLNumberFormat : IXLNumberFormat
         get => Key.NumberFormatId;
         set
         {
-            Modify(_ => new XLNumberFormatKey
+            if (_style.IsCellContainer)
             {
-                Format = XLNumberFormatValue.Default.Format,
-                NumberFormatId = value,
-            });
+                SetKey(new XLNumberFormatKey
+                {
+                    Format = XLNumberFormatValue.Default.Format,
+                    NumberFormatId = value,
+                });
+            }
+            else
+            {
+                Modify(_ => new XLNumberFormatKey
+                {
+                    Format = XLNumberFormatValue.Default.Format,
+                    NumberFormatId = value,
+                });
+            }
         }
     }
 
@@ -80,13 +89,26 @@ internal class XLNumberFormat : IXLNumberFormat
         get => Key.Format;
         set
         {
-            Modify(_ => new XLNumberFormatKey
+            if (_style.IsCellContainer)
             {
-                Format = value,
-                NumberFormatId = string.IsNullOrWhiteSpace(value)
-                    ? XLNumberFormatValue.Default.NumberFormatId
-                    : XLNumberFormatKey.CustomFormatNumberId
-            });
+                SetKey(new XLNumberFormatKey
+                {
+                    Format = value,
+                    NumberFormatId = string.IsNullOrWhiteSpace(value)
+                        ? XLNumberFormatValue.Default.NumberFormatId
+                        : XLNumberFormatKey.CustomFormatNumberId
+                });
+            }
+            else
+            {
+                Modify(_ => new XLNumberFormatKey
+                {
+                    Format = value,
+                    NumberFormatId = string.IsNullOrWhiteSpace(value)
+                        ? XLNumberFormatValue.Default.NumberFormatId
+                        : XLNumberFormatKey.CustomFormatNumberId
+                });
+            }
         }
     }
 
@@ -104,15 +126,16 @@ internal class XLNumberFormat : IXLNumberFormat
 
     #endregion IXLNumberFormat Members
 
+    private void SetKey(XLNumberFormatKey newKey)
+    {
+        Key = newKey;
+        _style.ModifyNumberFormat(Key);
+    }
+
     private void Modify(Func<XLNumberFormatKey, XLNumberFormatKey> modification)
     {
         Key = modification(Key);
-
-        _style.Modify(styleKey =>
-        {
-            var numberFormat = modification(styleKey.NumberFormat);
-            return styleKey with { NumberFormat = numberFormat };
-        });
+        _style.Modify(styleKey => styleKey with { NumberFormat = modification(styleKey.NumberFormat) });
     }
 
     #region Overridden
@@ -129,8 +152,7 @@ internal class XLNumberFormat : IXLNumberFormat
 
     public bool Equals(IXLNumberFormatBase? other)
     {
-        var otherN = other as XLNumberFormat;
-        if (otherN == null)
+        if (other is not XLNumberFormat otherN)
             return false;
 
         return Key == otherN.Key;

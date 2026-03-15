@@ -281,7 +281,9 @@ public class FormulaCachingTests
 
         Assert.AreEqual(11, ws.Evaluate("LEN(B2)"));
 
-        Assert.Throws(Is.TypeOf<NotImplementedException>().And.Message.EqualTo("References from other files are not yet implemented."), wb.RecalculateAllFormulas);
+        // External file references evaluate to #REF! instead of throwing
+        Assert.DoesNotThrow(wb.RecalculateAllFormulas);
+        Assert.AreEqual(XLError.CellReference, cell.Value);
     }
 
     [Test]

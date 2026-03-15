@@ -1,27 +1,31 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
 using System.Collections;
 
-internal class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
+internal sealed class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
 {
-    private readonly List<XLColumn> _columnsCollection = new List<XLColumn>();
+    private readonly List<XLColumn> _columnsCollection = [];
     private readonly XLWorksheet? _worksheet;
+
     private bool IsMaterialized => _lazyEnumerable == null;
 
     private IEnumerable<XLColumn>? _lazyEnumerable;
+
     private IEnumerable<XLColumn> Columns => _lazyEnumerable ?? _columnsCollection.AsEnumerable();
 
     /// <summary>
     /// Create a new instance of <see cref="XLColumns"/>.
     /// </summary>
     /// <param name="worksheet">If worksheet is specified it means that the created instance represents
-    /// all columns on a worksheet so changing its width will affect all columns.</param>
+    /// all columns on a worksheet, so changing its width will affect all columns.</param>
     /// <param name="defaultStyle">Default style to use when initializing child entries.</param>
     /// <param name="lazyEnumerable">A predefined enumerator of <see cref="XLColumn"/> to support lazy initialization.</param>
-    public XLColumns(XLWorksheet? worksheet, XLStyleValue? defaultStyle = null, IEnumerable<XLColumn>? lazyEnumerable = null)
+    public XLColumns(XLWorksheet? worksheet, XLStyleValue? defaultStyle = null,
+        IEnumerable<XLColumn>? lazyEnumerable = null)
         : base(defaultStyle)
     {
         _worksheet = worksheet;
@@ -63,20 +67,20 @@ internal class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
         else
         {
             var toDelete = new Dictionary<IXLWorksheet, List<int>>();
-            foreach (XLColumn c in Columns)
+            foreach (var c in Columns)
             {
-                if (!toDelete.TryGetValue(c.Worksheet, out List<int>? list))
+                if (!toDelete.TryGetValue(c.Worksheet, out var list))
                 {
-                    list = new List<int>();
+                    list = [];
                     toDelete.Add(c.Worksheet, list);
                 }
 
                 list.Add(c.ColumnNumber());
             }
 
-            foreach (KeyValuePair<IXLWorksheet, List<int>> kp in toDelete)
+            foreach (var kp in toDelete)
             {
-                foreach (int c in kp.Value.OrderByDescending(c => c))
+                foreach (var c in kp.Value.OrderByDescending(c => c))
                     kp.Key.Column(c).Delete();
             }
         }
@@ -171,7 +175,7 @@ internal class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
     public IXLCells Cells()
     {
         var cells = new XLCells(false, XLCellsUsedOptions.All);
-        foreach (XLColumn container in Columns)
+        foreach (var container in Columns)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -179,7 +183,7 @@ internal class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
     public IXLCells CellsUsed()
     {
         var cells = new XLCells(true, XLCellsUsedOptions.All);
-        foreach (XLColumn container in Columns)
+        foreach (var container in Columns)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -194,7 +198,7 @@ internal class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
     public IXLCells CellsUsed(XLCellsUsedOptions options)
     {
         var cells = new XLCells(true, options);
-        foreach (XLColumn container in Columns)
+        foreach (var container in Columns)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -204,7 +208,7 @@ internal class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
     /// </summary>
     public IXLColumns AddVerticalPageBreaks()
     {
-        foreach (XLColumn col in Columns)
+        foreach (var col in Columns)
             col.Worksheet.PageSetup.AddVerticalPageBreak(col.ColumnNumber());
         return this;
     }

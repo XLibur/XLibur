@@ -1,22 +1,24 @@
-﻿using XLibur.Attributes;
-using XLibur.Excel;
-using XLibur.Excel.Exceptions;
-using NUnit.Framework;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using XLibur.Attributes;
+using XLibur.Excel;
+using XLibur.Excel.Exceptions;
+using NUnit.Framework;
+using XLibur.Extensions;
 
-namespace XLibur.Tests.Excel;
+namespace XLibur.Tests.Excel.Tables;
 
 [TestFixture]
 public class TablesTests
 {
     public class TestObjectWithoutAttributes
     {
-        public String Column1 { get; set; }
-        public String Column2 { get; set; }
+        public string Column1 { get; set; }
+
+        public string Column2 { get; set; }
     }
 
     public class TestObjectWithAttributes
@@ -24,10 +26,10 @@ public class TablesTests
         public int UnOrderedColumn { get; set; }
 
         [XLColumn(Header = "SecondColumn", Order = 1)]
-        public String Column1 { get; set; }
+        public string Column1 { get; set; }
 
         [XLColumn(Header = "FirstColumn", Order = 0)]
-        public String Column2 { get; set; }
+        public string Column2 { get; set; }
 
         [XLColumn(Header = "SomeFieldNotProperty", Order = 2)]
         public int MyField;
@@ -94,9 +96,9 @@ public class TablesTests
             .CellBelow().SetValue("B")
             .CellBelow().SetValue("C");
 
-        var table = ws.RangeUsed().CreateTable();
+        var table = ws.RangeUsed()!.CreateTable();
         table.InsertColumnsAfter(1);
-        Assert.AreEqual("Column2", table.HeadersRow().LastCell().GetText());
+        Assert.AreEqual("Column2", table.HeadersRow()!.LastCell().GetText());
     }
 
     [Test]
@@ -109,7 +111,7 @@ public class TablesTests
             .CellBelow().SetValue("B")
             .CellBelow().SetValue("C");
 
-        var table = ws.RangeUsed().CreateTable();
+        var table = ws.RangeUsed()!.CreateTable();
 
         ws.Rows("2:4").Delete();
 
@@ -124,7 +126,7 @@ public class TablesTests
         var columnName = "Line1" + Environment.NewLine + "Line2";
         ws.FirstCell().SetValue(columnName)
             .CellBelow().SetValue("A");
-        ws.RangeUsed().CreateTable();
+        ws.RangeUsed()!.CreateTable();
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
         var wb2 = new XLWorkbook(ms);
@@ -178,22 +180,18 @@ public class TablesTests
     [Test]
     public void TableCreatedFromEmptyListOfInt()
     {
-        var l = new List<Int32>();
-
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
-        ws.FirstCell().InsertTable(l);
+        ws.FirstCell().InsertTable(new List<int>());
         Assert.AreEqual(1, ws.Tables.First().ColumnCount());
     }
 
     [Test]
     public void TableCreatedFromEmptyListOfObject()
     {
-        var l = new List<TestObjectWithoutAttributes>();
-
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
-        ws.FirstCell().InsertTable(l);
+        ws.FirstCell().InsertTable(new List<TestObjectWithoutAttributes>());
         Assert.AreEqual(2, ws.Tables.First().ColumnCount());
     }
 
@@ -202,8 +200,8 @@ public class TablesTests
     {
         var l = new List<TestObjectWithAttributes>()
         {
-            new TestObjectWithAttributes() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
-            new TestObjectWithAttributes() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
+            new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
+            new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
         };
 
         using var wb = new XLWorkbook();
@@ -219,11 +217,9 @@ public class TablesTests
     [Test]
     public void EmptyTableCreatedFromListOfObjectWithPropertyAttributes()
     {
-        var l = new List<TestObjectWithAttributes>();
-
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
-        ws.FirstCell().InsertTable(l);
+        ws.FirstCell().InsertTable(new List<TestObjectWithAttributes>());
         Assert.AreEqual(4, ws.Tables.First().ColumnCount());
         Assert.AreEqual("FirstColumn", ws.FirstCell().Value);
         Assert.AreEqual("SecondColumn", ws.FirstCell().CellRight().Value);
@@ -242,8 +238,8 @@ public class TablesTests
         table.SetShowTotalsRow()
             .Field(0).TotalsRowFunction = XLTotalsRowFunction.Sum;
 
-        var row = table.DataRange.FirstRow();
-        row.Field("Value").Value = 3;
+        var row = table.DataRange!.FirstRow();
+        row!.Field("Value").Value = 3;
         row = table.DataRange.InsertRowsAbove(1).First();
         row.Field("Value").Value = 2;
         row = table.DataRange.InsertRowsAbove(1).First();
@@ -265,8 +261,8 @@ public class TablesTests
         table.SetShowTotalsRow()
             .Field(0).TotalsRowFunction = XLTotalsRowFunction.Sum;
 
-        var row = table.DataRange.FirstRow();
-        row.Field("Value").Value = 3;
+        var row = table.DataRange!.FirstRow();
+        row!.Field("Value").Value = 3;
         row = row.InsertRowsAbove(1).First();
         row.Field("Value").Value = 2;
         row = row.InsertRowsAbove(1).First();
@@ -288,8 +284,8 @@ public class TablesTests
         table.SetShowTotalsRow()
             .Field(0).TotalsRowFunction = XLTotalsRowFunction.Sum;
 
-        var row = table.DataRange.FirstRow();
-        row.Field("Value").Value = 1;
+        var row = table.DataRange!.FirstRow();
+        row!.Field("Value").Value = 1;
         row = table.DataRange.InsertRowsBelow(1).First();
         row.Field("Value").Value = 2;
         row = table.DataRange.InsertRowsBelow(1).First();
@@ -311,8 +307,8 @@ public class TablesTests
         table.SetShowTotalsRow()
             .Field(0).TotalsRowFunction = XLTotalsRowFunction.Sum;
 
-        var row = table.DataRange.FirstRow();
-        row.Field("Value").Value = 1;
+        var row = table.DataRange!.FirstRow();
+        row!.Field("Value").Value = 1;
         row = row.InsertRowsBelow(1).First();
         row.Field("Value").Value = 2;
         row = row.InsertRowsBelow(1).First();
@@ -333,7 +329,7 @@ public class TablesTests
             .CellBelow().SetValue("B")
             .CellBelow().SetValue("C");
 
-        var table = ws.RangeUsed().CreateTable();
+        var table = ws.RangeUsed()!.CreateTable();
 
         Assert.AreEqual("Categories", table.Fields.First().Name);
 
@@ -343,15 +339,15 @@ public class TablesTests
 
         Assert.IsTrue(ws.Cell(1, 1).IsEmpty(XLCellsUsedOptions.All));
         Assert.AreEqual(null, table.HeadersRow());
-        Assert.AreEqual("A", table.DataRange.FirstRow().Field("Categories").GetText());
-        Assert.AreEqual("C", table.DataRange.LastRow().Field("Categories").GetText());
+        Assert.AreEqual("A", table.DataRange!.FirstRow()!.Field("Categories").GetText());
+        Assert.AreEqual("C", table.DataRange.LastRow()!.Field("Categories").GetText());
         Assert.AreEqual("A", table.DataRange.FirstCell().GetText());
         Assert.AreEqual("C", table.DataRange.LastCell().GetText());
 
         table.SetShowHeaderRow();
         var headerRow = table.HeadersRow();
         Assert.AreNotEqual(null, headerRow);
-        Assert.AreEqual("Categories", headerRow.Cell(1).GetText());
+        Assert.AreEqual("Categories", headerRow!.Cell(1).GetText());
 
         table.SetShowHeaderRow(false);
 
@@ -362,8 +358,8 @@ public class TablesTests
         Assert.AreEqual("x", ws.FirstCell().GetText());
         Assert.AreEqual("Categories", ws.Cell("A2").GetText());
         Assert.AreNotEqual(null, headerRow);
-        Assert.AreEqual("A", table.DataRange.FirstRow().Field("Categories").GetText());
-        Assert.AreEqual("C", table.DataRange.LastRow().Field("Categories").GetText());
+        Assert.AreEqual("A", table.DataRange.FirstRow()!.Field("Categories").GetText());
+        Assert.AreEqual("C", table.DataRange.LastRow()!.Field("Categories").GetText());
         Assert.AreEqual("A", table.DataRange.FirstCell().GetText());
         Assert.AreEqual("C", table.DataRange.LastCell().GetText());
     }
@@ -392,7 +388,7 @@ public class TablesTests
         ws.Cell("B1").SetValue("LName")
             .CellBelow().SetValue("Doe");
 
-        var tbl = ws.RangeUsed().CreateTable();
+        var tbl = ws.RangeUsed()!.CreateTable();
         var nameBefore = tbl.Field(tbl.Fields.Last().Index).Name;
         tbl.Field(tbl.Fields.Last().Index).Name = "LastName";
         var nameAfter = tbl.Field(tbl.Fields.Last().Index).Name;
@@ -409,7 +405,7 @@ public class TablesTests
         Assert.AreEqual("LastNameChanged", nameAfter);
 
         tbl.SetShowHeaderRow(true);
-        nameAfter = (String)tbl.Cell("B1").Value;
+        nameAfter = (string)tbl.Cell("B1").Value;
         Assert.AreEqual("LastNameChanged", nameAfter);
 
         var field = tbl.Field("LastNameChanged");
@@ -424,8 +420,8 @@ public class TablesTests
     {
         var l = new List<TestObjectWithAttributes>()
         {
-            new TestObjectWithAttributes() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
-            new TestObjectWithAttributes() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
+            new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
+            new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
         };
 
         using var wb = new XLWorkbook();
@@ -448,8 +444,8 @@ public class TablesTests
     {
         var l = new List<TestObjectWithAttributes>()
         {
-            new TestObjectWithAttributes() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
-            new TestObjectWithAttributes() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
+            new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
+            new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
         };
 
         using var wb = new XLWorkbook();
@@ -458,10 +454,10 @@ public class TablesTests
 
         Assert.AreEqual(4, table.Fields.Count());
 
-        Assert.AreEqual("B2", table.Field(0).HeaderCell.Address.ToString());
-        Assert.AreEqual("C2", table.Field(1).HeaderCell.Address.ToString());
-        Assert.AreEqual("D2", table.Field(2).HeaderCell.Address.ToString());
-        Assert.AreEqual("E2", table.Field(3).HeaderCell.Address.ToString());
+        Assert.AreEqual("B2", table.Field(0).HeaderCell!.Address.ToString());
+        Assert.AreEqual("C2", table.Field(1).HeaderCell!.Address.ToString());
+        Assert.AreEqual("D2", table.Field(2).HeaderCell!.Address.ToString());
+        Assert.AreEqual("E2", table.Field(3).HeaderCell!.Address.ToString());
 
         Assert.IsNull(table.Field(0).TotalsCell);
         Assert.IsNull(table.Field(1).TotalsCell);
@@ -470,10 +466,10 @@ public class TablesTests
 
         table.SetShowTotalsRow();
 
-        Assert.AreEqual("B5", table.Field(0).TotalsCell.Address.ToString());
-        Assert.AreEqual("C5", table.Field(1).TotalsCell.Address.ToString());
-        Assert.AreEqual("D5", table.Field(2).TotalsCell.Address.ToString());
-        Assert.AreEqual("E5", table.Field(3).TotalsCell.Address.ToString());
+        Assert.AreEqual("B5", table.Field(0).TotalsCell!.Address.ToString());
+        Assert.AreEqual("C5", table.Field(1).TotalsCell!.Address.ToString());
+        Assert.AreEqual("D5", table.Field(2).TotalsCell!.Address.ToString());
+        Assert.AreEqual("E5", table.Field(3).TotalsCell!.Address.ToString());
 
         var field = table.Fields.Last();
 
@@ -487,8 +483,8 @@ public class TablesTests
     {
         var l = new List<TestObjectWithAttributes>()
         {
-            new TestObjectWithAttributes() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
-            new TestObjectWithAttributes() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
+            new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
+            new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
         };
 
         using var ms = new MemoryStream();
@@ -521,12 +517,12 @@ public class TablesTests
 
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
-        Assert.Throws<InvalidOperationException>(() => ws.Cell(1, 1).InsertTable(dt, "May2019"));
-        Assert.Throws<InvalidOperationException>(() => ws.Cell(1, 1).InsertTable(dt, "A1"));
-        Assert.Throws<InvalidOperationException>(() => ws.Cell(1, 1).InsertTable(dt, "R1C2"));
-        Assert.Throws<InvalidOperationException>(() => ws.Cell(1, 1).InsertTable(dt, "r3c2"));
-        Assert.Throws<InvalidOperationException>(() => ws.Cell(1, 1).InsertTable(dt, "R2C33333"));
-        Assert.Throws<InvalidOperationException>(() => ws.Cell(1, 1).InsertTable(dt, "RC"));
+        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "May2019"));
+        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "A1"));
+        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "R1C2"));
+        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "r3c2"));
+        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "R2C33333"));
+        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "RC"));
     }
 
     [Test]
@@ -550,7 +546,6 @@ public class TablesTests
             Assert.AreEqual(1, wb.Worksheets.Count);
             Assert.AreEqual(1, wb.Worksheet(1).Tables.Count());
         }
-
     }
 
     [Test]
@@ -558,8 +553,8 @@ public class TablesTests
     {
         var l = new List<TestObjectWithAttributes>()
         {
-            new TestObjectWithAttributes() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
-            new TestObjectWithAttributes() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
+            new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
+            new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
         };
 
         using var wb = new XLWorkbook();
@@ -586,10 +581,10 @@ public class TablesTests
     {
         var l = new List<TestObjectWithAttributes>()
         {
-            new TestObjectWithAttributes() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
-            new TestObjectWithAttributes() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 },
-            new TestObjectWithAttributes() { Column1 = "e", Column2 = "f", MyField = 6, UnOrderedColumn = 555 },
-            new TestObjectWithAttributes() { Column1 = "g", Column2 = "h", MyField = 7, UnOrderedColumn = 333 }
+            new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
+            new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 },
+            new() { Column1 = "e", Column2 = "f", MyField = 6, UnOrderedColumn = 555 },
+            new() { Column1 = "g", Column2 = "h", MyField = 7, UnOrderedColumn = 333 }
         };
 
         using var wb = new XLWorkbook();
@@ -598,7 +593,7 @@ public class TablesTests
 
         Assert.AreEqual("B2:E6", table.RangeAddress.ToString());
 
-        table.DataRange.Rows(3, 4).Delete();
+        table.DataRange!.Rows(3, 4).Delete();
 
         Assert.AreEqual(2, table.DataRange.Rows().Count());
 
@@ -657,7 +652,7 @@ public class TablesTests
                 {
                     Index = i,
                     Character = Convert.ToChar(64 + i),
-                    String = new String('a', i)
+                    String = new string('a', i)
                 });
 
         var table = ws.FirstCell().InsertTable(data1, true)
@@ -671,7 +666,7 @@ public class TablesTests
                 {
                     Index = i,
                     Character = Convert.ToChar(64 + i),
-                    String = new String('b', i),
+                    String = new string('b', i),
                     Int = 64 + i
                 });
 
@@ -689,8 +684,8 @@ public class TablesTests
     {
         var l = new List<TestObjectWithAttributes>()
         {
-            new TestObjectWithAttributes() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
-            new TestObjectWithAttributes() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
+            new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
+            new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
         };
 
         using var wb = new XLWorkbook();
@@ -717,7 +712,7 @@ public class TablesTests
         Assert.Throws<ArgumentException>(() => table1.Name = "c");
 
         Assert.Throws<ArgumentException>(() => table1.Name = "123");
-        Assert.Throws<ArgumentException>(() => table1.Name = new String('A', 256));
+        Assert.Throws<ArgumentException>(() => table1.Name = new string('A', 256));
 
         Assert.Throws<ArgumentException>(() => table1.Name = "Table2");
         Assert.Throws<ArgumentException>(() => table1.Name = "TABLE2");
@@ -735,7 +730,7 @@ public class TablesTests
                 {
                     Index = i,
                     Character = Convert.ToChar(64 + i),
-                    String = new String('a', i)
+                    String = new string('a', i)
                 });
 
         var table = ws.FirstCell().InsertTable(data1, true)
@@ -749,7 +744,7 @@ public class TablesTests
                 {
                     Index = i,
                     Character = Convert.ToChar(64 + i),
-                    String = new String('b', i),
+                    String = new string('b', i),
                     Integer = 64 + i
                 });
 
@@ -769,8 +764,8 @@ public class TablesTests
     {
         var l = new List<TestObjectWithAttributes>()
         {
-            new TestObjectWithAttributes() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
-            new TestObjectWithAttributes() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
+            new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
+            new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
         };
 
         using var wb = new XLWorkbook();
@@ -781,15 +776,10 @@ public class TablesTests
         {
             Assert.DoesNotThrow(() =>
             {
-                object value;
-                // ReSharper disable once RedundantAssignment
-                value = d.FirstColumn;
-                // ReSharper disable once RedundantAssignment
-                value = d.SecondColumn;
-                // ReSharper disable once RedundantAssignment
-                value = d.UnOrderedColumn;
-                // ReSharper disable once RedundantAssignment
-                value = d.SomeFieldNotProperty;
+                _ = d.FirstColumn;
+                _ = d.SecondColumn;
+                _ = d.UnOrderedColumn;
+                _ = d.SomeFieldNotProperty;
             });
         }
     }
@@ -813,10 +803,10 @@ public class TablesTests
         Assert.AreEqual("SomeFieldNotProperty", table.Columns[2].ColumnName);
         Assert.AreEqual("UnOrderedColumn", table.Columns[3].ColumnName);
 
-        Assert.AreEqual(typeof(String), table.Columns[0].DataType);
-        Assert.AreEqual(typeof(String), table.Columns[1].DataType);
-        Assert.AreEqual(typeof(Double), table.Columns[2].DataType);
-        Assert.AreEqual(typeof(Double), table.Columns[3].DataType);
+        Assert.AreEqual(typeof(string), table.Columns[0].DataType);
+        Assert.AreEqual(typeof(string), table.Columns[1].DataType);
+        Assert.AreEqual(typeof(double), table.Columns[2].DataType);
+        Assert.AreEqual(typeof(double), table.Columns[3].DataType);
 
         var dr = table.Rows[0];
         Assert.AreEqual("b", dr["FirstColumn"]);
@@ -843,7 +833,7 @@ public class TablesTests
                 {
                     Index = i,
                     Character = Convert.ToChar(64 + i),
-                    String = new String('a', i)
+                    String = new string('a', i)
                 });
 
         var table = ws.FirstCell().InsertTable(data1, true)
@@ -851,9 +841,9 @@ public class TablesTests
             .SetShowTotalsRow();
         table.Fields.First().TotalsRowFunction = XLTotalsRowFunction.Sum;
 
-        Assert.AreEqual(XLTableCellType.Header, table.HeadersRow().Cell(1).TableCellType());
-        Assert.AreEqual(XLTableCellType.Data, table.HeadersRow().Cell(1).CellBelow().TableCellType());
-        Assert.AreEqual(XLTableCellType.Total, table.TotalsRow().Cell(1).TableCellType());
+        Assert.AreEqual(XLTableCellType.Header, table.HeadersRow()!.Cell(1).TableCellType());
+        Assert.AreEqual(XLTableCellType.Data, table.HeadersRow()!.Cell(1).CellBelow().TableCellType());
+        Assert.AreEqual(XLTableCellType.Total, table.TotalsRow()!.Cell(1).TableCellType());
         Assert.AreEqual(XLTableCellType.None, ws.Cell("Z100").TableCellType());
     }
 
@@ -862,8 +852,8 @@ public class TablesTests
     {
         var l = new List<TestObjectWithAttributes>()
         {
-            new TestObjectWithAttributes() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
-            new TestObjectWithAttributes() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
+            new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
+            new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
         };
 
         using var wb = new XLWorkbook();
@@ -876,7 +866,7 @@ public class TablesTests
         ws.Cell("C1").Value = "   as'df   ";
         ws.Cell("D1").Value = "Normal";
 
-        var table = ws.RangeUsed().CreateTable();
+        var table = ws.RangeUsed()!.CreateTable();
         Assert.IsNotNull(table);
 
         table.ShowTotalsRow = true;
@@ -896,14 +886,14 @@ public class TablesTests
     {
         var l = new List<TestObjectWithAttributes>()
         {
-            new TestObjectWithAttributes() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
-            new TestObjectWithAttributes() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
+            new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
+            new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
         };
 
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().InsertTable(l);
-        Assert.Throws<InvalidOperationException>(() => ws.RangeUsed().CreateTable());
+        Assert.Throws<InvalidOperationException>(() => ws.RangeUsed()!.CreateTable());
     }
 
     [Test]
@@ -919,9 +909,9 @@ public class TablesTests
 
         var ws = wb.AddWorksheet();
         ws.FirstCell().InsertTable(data, createTable: false);
-        ws.RangeUsed().SetAutoFilter().Column(1).AddFilter(5);
+        ws.RangeUsed()!.SetAutoFilter().Column(1).AddFilter(5);
 
-        Assert.Throws<InvalidOperationException>(() => ws.RangeUsed().CreateTable());
+        Assert.Throws<InvalidOperationException>(() => ws.RangeUsed()!.CreateTable());
     }
 
     [Test]
@@ -965,7 +955,7 @@ public class TablesTests
         ws1.Cell("A2").Value = "Value 1";
         ws1.Cell("B2").Value = 123.45;
         ws1.Cell("C2").Value = new DateTime(2018, 5, 10);
-        var original = ws1.Range("A1:C2").AsTable("Detached table");
+        var original = ws1.Range("A1:C2").AsTable("Detached_table");
         var ws2 = wb.Worksheets.Add("Sheet2");
 
         var copy = original.CopyTo(ws2);
@@ -995,7 +985,7 @@ public class TablesTests
         ws1.Cell("A2").Value = "Value 1";
         ws1.Cell("B2").Value = 123.45;
         ws1.Cell("C2").Value = new DateTime(2018, 5, 10);
-        var original = ws1.Range("A1:C2").AsTable("Attached table");
+        var original = ws1.Range("A1:C2").AsTable("Attached_table");
         ws1.Tables.Add(original);
         var ws2 = wb.Worksheets.Add("Sheet2");
 
@@ -1030,10 +1020,10 @@ public class TablesTests
             ws.Cell("A2").Value = "Value 1";
             ws.Cell("B2").Value = 123.45;
             ws.Cell("C2").Value = new DateTime(2018, 5, 10);
-            var original = ws.Range("A1:C2").CreateTable("Attached table");
+            var original = ws.Range("A1:C2").CreateTable("Attached_table");
 
             Assert.AreEqual(1, ws.Tables.Count());
-            Assert.IsNull((original as XLTable).RelId);
+            Assert.IsNull((original as XLTable)!.RelId);
 
             wb.SaveAs(ms);
         }
@@ -1043,12 +1033,12 @@ public class TablesTests
             var ws = wb.Worksheets.Add("Sheet2");
             var original = wb.Worksheets.First().Tables.First();
 
-            Assert.IsNotNull((original as XLTable).RelId);
+            Assert.IsNotNull((original as XLTable)!.RelId);
 
             var copy = original.CopyTo(ws);
 
             Assert.AreEqual(1, ws.Tables.Count());
-            Assert.IsNull((copy as XLTable).RelId);
+            Assert.IsNull((copy as XLTable)!.RelId);
 
             AssertTablesAreEqual(original, copy);
 
@@ -1073,21 +1063,21 @@ public class TablesTests
         ws1.Cell("A2").Value = "Value 1";
         ws1.Cell("B2").Value = 123.45;
         ws1.Cell("C2").Value = new DateTime(2018, 5, 10);
-        var original = ws1.Range("A1:C2").AsTable("Attached table");
+        var original = ws1.Range("A1:C2").AsTable("Attached_table");
         ws1.Tables.Add(original);
         var ws2 = wb.Worksheets.Add("Sheet2") as XLWorksheet;
 
-        var copy = (original as XLTable).CopyTo(ws2, false);
+        var copy = (original as XLTable)!.CopyTo(ws2!, false);
 
         AssertTablesAreEqual(original, copy);
 
         Assert.AreEqual("Sheet2!A1:C2", copy.RangeAddress.ToString(XLReferenceStyle.A1, true));
-        Assert.AreEqual("Custom column 1", ws2.Cell("A1").Value);
-        Assert.AreEqual("Custom column 2", ws2.Cell("B1").Value);
-        Assert.AreEqual("Custom column 3", ws2.Cell("C1").Value);
-        Assert.AreEqual(Blank.Value, ws2.Cell("A2").Value);
-        Assert.AreEqual(Blank.Value, ws2.Cell("B2").Value);
-        Assert.AreEqual(Blank.Value, ws2.Cell("C2").Value);
+        Assert.AreEqual("Custom column 1", ws2!.Cell("A1")!.Value);
+        Assert.AreEqual("Custom column 2", ws2.Cell("B1")!.Value);
+        Assert.AreEqual("Custom column 3", ws2.Cell("C1")!.Value);
+        Assert.AreEqual(Blank.Value, ws2.Cell("A2")!.Value);
+        Assert.AreEqual(Blank.Value, ws2.Cell("B2")!.Value);
+        Assert.AreEqual(Blank.Value, ws2.Cell("C2")!.Value);
     }
 
     [Test]
@@ -1101,7 +1091,7 @@ public class TablesTests
             .Select(i => new
             {
                 Number = i,
-                NumberString = String.Concat("Number", i.ToString())
+                NumberString = string.Concat("Number", i.ToString())
             });
 
         var table = ws.FirstCell()
@@ -1110,7 +1100,7 @@ public class TablesTests
 
         table.Fields.Last().TotalsRowFunction = XLTotalsRowFunction.Count;
 
-        table.DataRange.Rows()
+        table.DataRange!.Rows()
             .OrderByDescending(r => r.RowNumber())
             .ToList()
             .ForEach(r => r.WorksheetRow().Delete());
@@ -1184,7 +1174,8 @@ public class TablesTests
 
     private void AssertTablesAreEqual(IXLTable table1, IXLTable table2)
     {
-        Assert.AreEqual(table1.RangeAddress.ToString(XLReferenceStyle.A1, false), table2.RangeAddress.ToString(XLReferenceStyle.A1, false));
+        Assert.AreEqual(table1.RangeAddress.ToString(XLReferenceStyle.A1, false),
+            table2.RangeAddress.ToString(XLReferenceStyle.A1, false));
         Assert.AreEqual(table1.Fields.Count(), table2.Fields.Count());
         for (var j = 0; j < table1.Fields.Count(); j++)
         {
@@ -1204,9 +1195,102 @@ public class TablesTests
         Assert.AreEqual(table1.ShowHeaderRow, table2.ShowHeaderRow);
         Assert.AreEqual(table1.ShowRowStripes, table2.ShowRowStripes);
         Assert.AreEqual(table1.ShowTotalsRow, table2.ShowTotalsRow);
-        Assert.AreEqual((table1.Style as XLStyle).Value, (table2.Style as XLStyle).Value);
+        Assert.AreEqual((table1.Style as XLStyle)!.Value, (table2.Style as XLStyle)!.Value);
         Assert.AreEqual(table1.Theme, table2.Theme);
     }
 
-    //TODO: Delete table (not underlying range)
+    [TestCase(typeof(string))]
+    [TestCase(typeof(object))]
+    public void InsertData_WhenValuesAreDbNull_WritesBlanks(Type columnType)
+    {
+        // arrange
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        var data = new DataTable();
+        data.Columns.Add("Name", columnType);
+        data.Rows.Add("Mario");
+        data.Rows.Add(DBNull.Value); // This should be written as blank
+        data.Rows.Add("Carlo");
+
+        // act
+        var cell = ws.FirstCell();
+        var table = cell.InsertTable(data);
+
+        // assert
+        Assert.AreEqual("Name", table!.Cell(1, 1).Value);
+        Assert.AreEqual("Mario", table.Cell(2, 1).Value);
+        Assert.IsTrue(table.Cell(3, 1).Value.IsBlank);
+        Assert.AreEqual("Carlo", table.Cell(4, 1).Value);
+    }
+
+    [Test]
+    public void DataRowCount_returns_data_rows_excluding_header_and_totals()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        var data = Enumerable.Range(1, 5).Select(i => new { Name = "Item" + i, Value = i });
+        var table = ws.FirstCell().InsertTable(data, "Table1", true);
+
+        // Table has header + 5 data rows
+        Assert.AreEqual(6, table.RowCount());
+        Assert.AreEqual(5, table.DataRowCount);
+        Assert.AreEqual(5, table.DataRange!.RowCount());
+
+        // Delete all data rows from worksheet (rows 2..6)
+        for (var row = 6; row >= 2; row--)
+            ws.Row(row).Delete();
+
+        // Resize table to header-only range
+        var headerOnlyRange = ws.Range(1, 1, 1, 2);
+        table.Resize(headerOnlyRange);
+
+        // After resize, the table range spans only 1 row (the header)
+        Assert.AreEqual(1, table.RowCount());
+        // DataRowCount should be 0 and DataRange should be null
+        Assert.AreEqual(0, table.DataRowCount);
+        Assert.IsNull(table.DataRange);
+    }
+
+    [Test]
+    public void DataRange_FirstRowUsed_returns_null_when_no_used_rows()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        // Create a table with a header and one empty data row
+        ws.Cell("A1").Value = "Col1";
+        ws.Cell("B1").Value = "Col2";
+        ws.Cell("A2").Value = Blank.Value;
+        ws.Cell("B2").Value = Blank.Value;
+
+        var table = ws.Range("A1:B2").CreateTable("TestTable");
+        var dataRange = table.DataRange!;
+
+        // FirstRowUsed should return null, not throw NRE
+        Assert.IsNull(dataRange.FirstRowUsed());
+        Assert.IsNull(dataRange.LastRowUsed());
+    }
+
+    [Test]
+    public void DataRange_FirstRowUsed_returns_row_when_data_exists()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        ws.Cell("A1").Value = "Col1";
+        ws.Cell("B1").Value = "Col2";
+        ws.Cell("A2").Value = "Data1";
+        ws.Cell("B2").Value = "Data2";
+
+        var table = ws.Range("A1:B2").CreateTable("TestTable");
+        var dataRange = table.DataRange!;
+
+        var firstRow = dataRange.FirstRowUsed();
+        Assert.IsNotNull(firstRow);
+
+        var lastRow = dataRange.LastRowUsed();
+        Assert.IsNotNull(lastRow);
+    }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using XLibur.Excel.RichText;
 
 namespace XLibur.Excel;
 
@@ -8,7 +9,7 @@ namespace XLibur.Excel;
 /// A class that holds all texts in a workbook. Each text can be either a simple
 /// <c>string</c> or a <see cref="XLImmutableRichText"/>.
 /// </summary>
-internal class SharedStringTable
+internal sealed class SharedStringTable
 {
     /// <summary>
     /// Table of <c>Id</c> to text. Some ids are empty (<c>entry.RefCount = 0</c>) and
@@ -30,6 +31,37 @@ internal class SharedStringTable
     /// Number of texts the table holds reference to.
     /// </summary>
     internal int Count => _table.Count - _freeIds.Count;
+
+    /// <summary>
+    /// Release all entries so the memory can be reclaimed by GC.
+    /// Called from <see cref="XLWorkbook.Dispose"/>.
+    /// </summary>
+    internal void Clear()
+    {
+        _table.Clear();
+        _freeIds.Clear();
+        _reverseDict.Clear();
+    }
+
+    /// <summary>
+    /// Pre-size internal data structures to avoid repeated resizing during bulk inserts.
+    /// </summary>
+    /// <param name="capacity">Expected number of unique strings.</param>
+    internal void EnsureCapacity(int capacity)
+    {
+        _table.EnsureCapacity(capacity);
+        _reverseDict.EnsureCapacity(capacity);
+    }
+
+    /// <summary>
+    /// Release excess capacity from internal collections after bulk loading is complete.
+    /// </summary>
+    internal void TrimExcess()
+    {
+        _table.TrimExcess();
+        _reverseDict.TrimExcess();
+        _freeIds.TrimExcess();
+    }
 
     /// <summary>
     /// Get a string for specified id. Doesn't matter if it is a plain text or a rich text. In both cases, return text.
@@ -95,16 +127,17 @@ internal class SharedStringTable
     /// Get a map that takes the actual string id and returns an continuous sequence (i.e. no gaps).
     /// If an id if free (no ref count), the id is mapped to -1.
     /// </summary>
-    internal List<int> GetConsecutiveMap()
+    internal int[] GetConsecutiveMap()
     {
-        var map = new List<int>(_table.Count);
+        var map = new int[_table.Count];
         var mappedStringId = 0;
-        foreach (var entry in _table)
+        for (var i = 0; i < _table.Count; i++)
         {
+            var entry = _table[i];
             var isShared =
                 entry.RefCount > 0 && // Only used entry can be written to sst
                 !entry.Text.Inline;  // Inline texts shouldn't be written to sst
-            map.Add(isShared ? mappedStringId++ : -1);
+            map[i] = isShared ? mappedStringId++ : -1;
         }
 
         return map;

@@ -5,6 +5,8 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.Comments;
 
@@ -34,7 +36,7 @@ public class CommentsTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
-        string strExcelComment = "1) ABCDEFGHIJKLMNOPQRSTUVWXYZ ABC ABC ABC ABC ABC" + Environment.NewLine;
+        var strExcelComment = "1) ABCDEFGHIJKLMNOPQRSTUVWXYZ ABC ABC ABC ABC ABC" + Environment.NewLine;
         strExcelComment = strExcelComment + "1) ABCDEFGHIJKLMNOPQRSTUVWXYZ ABC ABC ABC ABC ABC" + Environment.NewLine;
         strExcelComment = strExcelComment + "2) ABCDEFGHIJKLMNOPQRSTUVWXYZ ABC ABC ABC ABC ABC" + Environment.NewLine;
         strExcelComment = strExcelComment + "3) ABCDEFGHIJKLMNOPQRSTUVWXYZ ABC ABC ABC ABC ABC" + Environment.NewLine;
@@ -63,25 +65,25 @@ public class CommentsTests
 
         ws.Row(1).InsertRowsAbove(1);
 
-        Action<IXLCell> validate = c =>
+        void Validate(IXLCell c)
         {
             Assert.IsTrue(c.GetComment().Style.Alignment.AutomaticSize);
             Assert.AreEqual(XLColor.Red, c.GetComment().Style.ColorsAndLines.FillColor);
-        };
+        }
 
-        validate(ws.Cell("B3"));
+        Validate(ws.Cell("B3"));
 
         ws.Column(1).InsertColumnsBefore(2);
 
-        validate(ws.Cell("D3"));
+        Validate(ws.Cell("D3"));
 
         ws.Column(1).Delete();
 
-        validate(ws.Cell("C3"));
+        Validate(ws.Cell("C3"));
 
         ws.Row(1).Delete();
 
-        validate(ws.Cell("C2"));
+        Validate(ws.Cell("C2"));
     }
 
     [Test]
@@ -186,6 +188,107 @@ public class CommentsTests
                 Assert.AreEqual(0, margins.Right);
                 Assert.AreEqual(0, margins.Bottom);
             }
-        }, @"Other\Comments\InsetsUnitConversion.xlsx", new LoadOptions { Dpi = new Point(120, 120) });
+        }, @"Other\Comments\InsetsUnitConversion.xlsx", new XLibur.Excel.LoadOptions { Dpi = new Point(120, 120) });
+    }
+
+    [Test]
+    public void Can_load_threaded_comment()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\ThreadedComment.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+        var c = ws.FirstCellUsed()!;
+
+        // Threaded comment text is loaded from the threadedComments part,
+        // replacing the legacy placeholder from comments1.xml.
+        Assert.That(c.GetComment().Text, Is.EqualTo(
+            "This is a threaded comment.\nThis is a reply."));
+    }
+
+    [Test]
+    public void Can_load_threaded_comment_text() // #2344
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\celltextcomment_load_2344.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+        var c = ws.Cell("B2");
+
+        Assert.That(c.HasComment, Is.True);
+        Assert.That(c.GetComment().Text, Is.EqualTo("This is the comment in b2"));
+    }
+
+    [Test]
+    public void AutomaticSize_fits_comment_box_to_text()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("CommentSize");
+            var comment = ws.Cell("A1").CreateComment();
+            comment.AddText("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
+            comment.Style.Size.SetAutomaticSize();
+            wb.SaveAs(ms);
+        }
+
+        // Inspect the VML drawing
+        ms.Position = 0;
+        using var doc = SpreadsheetDocument.Open(ms, isEditable: false);
+        var wsPart = doc.WorkbookPart!.WorksheetParts.First();
+        var vmlPart = wsPart.VmlDrawingParts.First();
+        using var vmlStream = vmlPart.GetStream();
+        var vml = XDocument.Load(vmlStream);
+        var vmlStr = vml.ToString();
+
+        // Verify mso-fit-shape-to-text is present
+        Assert.That(vmlStr, Does.Contain("mso-fit-shape-to-text:t"));
+
+        // Verify that the height was auto-sized to be larger than default 59.25pt.
+        // The lorem ipsum text at Tahoma 9pt in 144pt-wide box wraps to 5 lines,
+        // requiring more height than the default 59.25pt.
+        var heightMatch = System.Text.RegularExpressions.Regex.Match(vmlStr, @"height:(\d+\.?\d*)pt");
+        Assert.That(heightMatch.Success, Is.True);
+        var height = double.Parse(heightMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.That(height, Is.GreaterThan(59.25));
+    }
+
+    [Test]
+    public void Can_load_comment_with_missing_textbox_in_vml()
+    {
+        // Create a workbook with a comment, then strip the textbox element from VML.
+        // This reproduces files where notes/comments have shapes without a textbox element.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            ws.Cell("A1").SetValue("Test");
+            ws.Cell("A1").GetComment().AddText("Comment without textbox");
+            wb.SaveAs(ms);
+        }
+
+        // Remove the textbox element from VML drawing part
+        ms.Position = 0;
+        using (var doc = SpreadsheetDocument.Open(ms, isEditable: true))
+        {
+            var wsPart = doc.WorkbookPart!.WorksheetParts.First();
+            var vmlPart = wsPart.VmlDrawingParts.First();
+            using var vmlStream = vmlPart.GetStream(FileMode.Open);
+            var vml = XDocument.Load(vmlStream);
+
+            var textboxes = vml.Descendants().Where(e => e.Name.LocalName == "textbox").ToList();
+            foreach (var tb in textboxes)
+                tb.Remove();
+
+            vmlStream.SetLength(0);
+            vml.Save(vmlStream);
+        }
+
+        // Loading should not throw despite missing textbox
+        ms.Position = 0;
+        Assert.DoesNotThrow(() =>
+        {
+            using var wb = new XLWorkbook(ms);
+            var ws = wb.Worksheets.First();
+            Assert.That(ws.Cell("A1").HasComment, Is.True);
+        });
     }
 }

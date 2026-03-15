@@ -1,15 +1,13 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLCustomProperty : IXLCustomProperty
+internal sealed class XLCustomProperty : IXLCustomProperty
 {
     private readonly XLWorkbook _workbook;
 
-    private string name;
+    private string name = string.Empty;
 
     public XLCustomProperty(XLWorkbook workbook)
     {
@@ -43,14 +41,14 @@ internal class XLCustomProperty : IXLCustomProperty
             if (Value is bool)
                 return XLCustomPropertyType.Boolean;
 
-            if (double.TryParse(Value.ToString(), out double dTest))
+            if (Value is double or int or long or float or decimal or short or byte or sbyte or ushort or uint or ulong)
                 return XLCustomPropertyType.Number;
 
             return XLCustomPropertyType.Text;
         }
     }
 
-    public object Value { get; set; }
+    public object Value { get; set; } = null!;
 
     public T GetValue<T>()
     {

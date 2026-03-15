@@ -1,5 +1,4 @@
-#nullable disable
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -9,7 +8,7 @@ namespace XLibur.Excel;
 /// A fluent API for one field in <see cref="XLPivotTableAxis"/>, either
 /// <see cref="XLPivotTable.RowLabels"/> or <see cref="XLPivotTable.ColumnLabels"/>.
 /// </summary>
-internal class XLPivotTableAxisField : IXLPivotField
+internal sealed class XLPivotTableAxisField : IXLPivotField
 {
     private readonly XLPivotTable _pivotTable;
     private readonly FieldIndex _index;
@@ -35,7 +34,7 @@ internal class XLPivotTableAxisField : IXLPivotField
 
     public string CustomName
     {
-        get => GetFieldValue(f => f.Name, _pivotTable.DataCaption);
+        get => GetFieldValue(f => f.Name!, _pivotTable.DataCaption);
         set
         {
             if (_index.IsDataField)
@@ -59,19 +58,7 @@ internal class XLPivotTableAxisField : IXLPivotField
 
     public IReadOnlyCollection<XLSubtotalFunction> Subtotals
     {
-        get
-        {
-            var subtotal = GetField().Subtotals;
-            var isCustomSubtotal = subtotal.Count > 1 || (subtotal.Count > 0 && !subtotal.Contains(XLSubtotalFunction.Automatic));
-            if (isCustomSubtotal)
-            {
-                // When subtotal is custom, the automatic is not shown
-                subtotal = new HashSet<XLSubtotalFunction>(subtotal);
-                subtotal.Remove(XLSubtotalFunction.Automatic);
-            }
-
-            return subtotal;
-        }
+        get => GetField().Subtotals;
     }
 
     public bool IncludeNewItemsInFilter
@@ -161,6 +148,16 @@ internal class XLPivotTableAxisField : IXLPivotField
     public IXLPivotField SetSubtotalCaption(string value)
     {
         SubtotalCaption = value;
+        return this;
+    }
+
+    public IXLPivotField SetSubtotal(XLSubtotalFunction function, bool enabled)
+    {
+        if (enabled)
+            GetField().AddSubtotal(function);
+        else
+            GetField().RemoveSubtotal(function);
+
         return this;
     }
 

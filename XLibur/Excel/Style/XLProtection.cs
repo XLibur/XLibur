@@ -1,24 +1,21 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLProtection : IXLProtection
+internal sealed class XLProtection : IXLProtection
 {
     #region Static members
 
-    internal static XLProtectionKey GenerateKey(IXLProtection? defaultProtection)
+    internal static XLProtectionKey GenerateKey(IXLProtection? defaultProtection) => defaultProtection switch
     {
-        if (defaultProtection == null)
-            return XLProtectionValue.Default.Key;
-        if (defaultProtection is XLProtection protection)
-            return protection.Key;
-
-        return new XLProtectionKey
+        null => XLProtectionValue.Default.Key,
+        XLProtection protection => protection.Key,
+        _ => new XLProtectionKey
         {
             Locked = defaultProtection.Locked,
             Hidden = defaultProtection.Hidden
-        };
-    }
+        },
+    };
 
     #endregion Static members
 
@@ -30,8 +27,8 @@ internal class XLProtection : IXLProtection
 
     internal XLProtectionKey Key
     {
-        get { return _value.Key; }
-        private set { _value = XLProtectionValue.FromKey(ref value); }
+        get => _value.Key;
+        private set => _value = XLProtectionValue.FromKey(ref value);
     }
 
     #endregion Properties
@@ -59,23 +56,33 @@ internal class XLProtection : IXLProtection
 
     #endregion Constructors
 
+    internal void SyncValue(XLProtectionValue value) { _value = value; }
+
     #region IXLProtection Members
 
     public bool Locked
     {
-        get { return Key.Locked; }
+        get => Key.Locked;
         set
         {
-            Modify(k => k with { Locked = value });
+            if (Key.Locked == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { Locked = value });
+            else
+                Modify(k => k with { Locked = value });
         }
     }
 
     public bool Hidden
     {
-        get { return Key.Hidden; }
+        get => Key.Hidden;
         set
         {
-            Modify(k => k with { Hidden = value });
+            if (Key.Hidden == value) return;
+            if (_style.IsCellContainer)
+                SetKey(Key with { Hidden = value });
+            else
+                Modify(k => k with { Hidden = value });
         }
     }
 
@@ -105,15 +112,16 @@ internal class XLProtection : IXLProtection
 
     #endregion IXLProtection Members
 
+    private void SetKey(XLProtectionKey newKey)
+    {
+        Key = newKey;
+        _style.ModifyProtection(Key);
+    }
+
     private void Modify(Func<XLProtectionKey, XLProtectionKey> modification)
     {
         Key = modification(Key);
-
-        _style.Modify(styleKey =>
-        {
-            var protection = modification(styleKey.Protection);
-            return styleKey with { Protection = protection };
-        });
+        _style.Modify(styleKey => styleKey with { Protection = modification(styleKey.Protection) });
     }
 
     #region Overridden

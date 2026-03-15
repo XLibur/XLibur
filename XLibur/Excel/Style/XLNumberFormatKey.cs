@@ -20,8 +20,7 @@ internal readonly record struct XLNumberFormatKey
 
     public static XLNumberFormatKey ForFormat(string customFormat)
     {
-        if (string.IsNullOrEmpty(customFormat))
-            throw new ArgumentException();
+        ArgumentException.ThrowIfNullOrEmpty(customFormat);
 
         return new XLNumberFormatKey
         {

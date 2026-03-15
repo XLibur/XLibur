@@ -5,9 +5,6 @@ namespace XLibur.Examples.PageSetup;
 
 public class HeaderFooters : IXLExample
 {
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var workbook = new XLWorkbook();
@@ -34,13 +31,12 @@ public class HeaderFooters : IXLExample
             .SetItalic()
             .SetFontName("Broadway");
 
-
         // Using predefined header/footer text:
 
         // Let's put the full path to the file on the right footer of every odd page:
         ws.PageSetup.Footer.Right.AddText(XLHFPredefinedText.FullPath, XLHFOccurrence.OddPages);
 
-        // Let's put the current page number and total pages on the center of every footer:
+        // Let's put the current page number and total pages in the center of every footer:
         ws.PageSetup.Footer.Center.AddText(XLHFPredefinedText.PageNumber, XLHFOccurrence.AllPages);
         ws.PageSetup.Footer.Center.AddText(" / ", XLHFOccurrence.AllPages);
         ws.PageSetup.Footer.Center.AddText(XLHFPredefinedText.NumberOfPages, XLHFOccurrence.AllPages);
@@ -53,11 +49,4 @@ public class HeaderFooters : IXLExample
 
         workbook.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

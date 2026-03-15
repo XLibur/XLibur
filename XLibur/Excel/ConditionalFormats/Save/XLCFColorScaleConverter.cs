@@ -1,10 +1,9 @@
-#nullable disable
-
-using DocumentFormat.OpenXml.Spreadsheet;
+﻿using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal class XLCFColorScaleConverter : IXLCFConverter
+internal sealed class XLCFColorScaleConverter : IXLCFConverter
 {
     public ConditionalFormattingRule Convert(IXLConditionalFormat cf, int priority, XLWorkbook.SaveContext context)
     {
@@ -14,7 +13,7 @@ internal class XLCFColorScaleConverter : IXLCFConverter
         for (int i = 1; i <= cf.ContentTypes.Count; i++)
         {
             var type = cf.ContentTypes[i].ToOpenXml();
-            var val = cf.Values.TryGetValue(i, out XLFormula formula) ? formula?.Value : null;
+            var val = cf.Values.TryGetValue(i, out var formula) ? formula?.Value : null;
 
             var conditionalFormatValueObject = new ConditionalFormatValueObject { Type = type };
             if (val != null)

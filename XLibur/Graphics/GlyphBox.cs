@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.Diagnostics;
 
 namespace XLibur.Graphics;
@@ -10,9 +8,9 @@ namespace XLibur.Graphics;
 /// <remarks>
 /// In most cases, a glyph represents a single unicode code point. In some cases,
 /// multiple code points are represented by a single glyph (emojis in most cases).
-/// Although data type is float, the actual values should be whole numbers.
-/// That best fits to Excel behavior, but there might be some cases in the future,
-/// where values can be a floats (e.g. advance could be non-pixels aligned).
+/// AdvanceWidth is stored as an unrounded float to avoid accumulated rounding errors
+/// when summing widths across many glyphs (e.g. for column auto-fit). EmSize and
+/// Descent are rounded to whole pixels to match Excel's row height behavior.
 /// </remarks>
 [DebuggerDisplay("{AdvanceWidth}x{LineHeight}")]
 public readonly struct GlyphBox
@@ -30,29 +28,29 @@ public readonly struct GlyphBox
     }
 
     /// <summary>
-    /// Advance width in px of a box for code point. Value should be whole number.
+    /// Advance width in px of a box for code point.
     /// </summary>
     public float AdvanceWidth { get; }
 
     /// <summary>
     /// Size of Em square in pixels. If em is not a square, vertical dimension of
-    /// em square. Value should be whole number.
+    /// em square. Value should be the whole number.
     /// </summary>
     public float EmSize { get; }
 
     /// <summary>
-    /// Distance in px from baseline to the bottom of the box.
+    /// Distance in px from the baseline to the bottom of the box.
     /// </summary>
     /// <remarks>
     /// Descent/height is determined by font, not by codepoints
-    /// of the glyph. Value should be whole number.
+    /// of the glyph. Value should be the whole number.
     /// </remarks>
     public float Descent { get; }
 
     internal bool IsLineBreak => AdvanceWidth == 0 && EmSize == 0 && Descent == 0;
 
     /// <summary>
-    /// Get line width of the glyph box. It is calculated as central band with a text and
+    /// Get line width of the glyph box. It is calculated as a central band with a text and
     /// a lower and an upper bands. Central band (text) has height is <c>em-square - descent</c>
     /// and the bands are <c>descent</c>.
     /// </summary>

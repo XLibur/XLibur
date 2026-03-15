@@ -14,7 +14,7 @@ public class SharedStringTableTests
         using var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet();
         var ws2 = wb.AddWorksheet();
-        var txt1 = "Hello";
+        const string txt1 = "Hello";
         var txt2 = new StringBuilder("Hel").Append("lo").ToString();
         Assert.AreNotSame(txt1, txt2);
 
@@ -102,11 +102,11 @@ public class SharedStringTableTests
     public void StringItem_without_text_is_loaded_as_empty_text()
     {
         // PR#2218: A text cell that references self-closed <si/> tag in SST is loaded without
-        // an error and is loaded as type TEXT. Although it's not very common, empty string is
+        // an error and is loaded as type TEXT. Although it's not very common, an empty string is
         // a valid value of a cell.
         TestHelper.LoadAndAssert((_, ws) =>
         {
-            // Check that type is a empty string, just like in Excel.
+            // Check that type is an empty string, just like in Excel.
             Assert.AreEqual(2, ws.Evaluate("TYPE(B2)"));
             Assert.IsEmpty(ws.Cell("B2").GetText());
         }, @"Other\Cells\EmptySi.xlsx");

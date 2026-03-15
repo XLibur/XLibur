@@ -1,6 +1,6 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
-internal class XLCustomFilteredColumn : IXLCustomFilteredColumn
+internal sealed class XLCustomFilteredColumn : IXLCustomFilteredColumn
 {
     private readonly XLFilterColumn _filterColumn;
     private readonly XLConnector _connector;

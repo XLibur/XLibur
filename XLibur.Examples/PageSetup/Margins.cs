@@ -5,9 +5,6 @@ namespace XLibur.Examples.PageSetup;
 
 public class Margins : IXLExample
 {
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var workbook = new XLWorkbook();
@@ -24,11 +21,4 @@ public class Margins : IXLExample
 
         workbook.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

@@ -1,10 +1,8 @@
-#nullable disable
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace XLibur.Excel.CalcEngine;
 
-internal class XLRangeAddressComparer : IEqualityComparer<IXLRangeAddress>
+internal sealed class XLRangeAddressComparer : IEqualityComparer<IXLRangeAddress>
 {
     private readonly XLAddressComparer _addressComparer;
 
@@ -18,7 +16,7 @@ internal class XLRangeAddressComparer : IEqualityComparer<IXLRangeAddress>
         _addressComparer = new XLAddressComparer(ignoreFixed);
     }
 
-    public bool Equals(IXLRangeAddress x, IXLRangeAddress y)
+    public bool Equals(IXLRangeAddress? x, IXLRangeAddress? y)
     {
         return (x == null && y == null) ||
                (x != null && y != null &&

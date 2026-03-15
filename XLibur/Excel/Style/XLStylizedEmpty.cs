@@ -1,18 +1,15 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
-internal class XLStylizedEmpty : XLStylizedBase, IXLStylized
+internal sealed class XLStylizedEmpty : XLStylizedBase, IXLStylized
 {
     public XLStylizedEmpty(IXLStyle? defaultStyle)
         : base((defaultStyle as XLStyle)?.Value)
     {
     }
 
-    public override IXLRanges RangesUsed
-    {
-        get { return new XLRanges(); }
-    }
+    public override IXLRanges RangesUsed => new XLRanges();
 
     protected override IEnumerable<XLStylizedBase> Children
     {

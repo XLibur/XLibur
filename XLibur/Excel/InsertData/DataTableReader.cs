@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 
 namespace XLibur.Excel.InsertData;
 
-internal class DataTableReader : IInsertDataReader
+internal sealed class DataTableReader : IInsertDataReader
 {
     private readonly IEnumerable<DataRow> _dataRows;
     private readonly DataTable? _dataTable;

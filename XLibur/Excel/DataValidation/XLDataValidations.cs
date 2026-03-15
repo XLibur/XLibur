@@ -1,14 +1,15 @@
-
+﻿
 using XLibur.Excel.Ranges.Index;
 using System;
 using System.Collections.Generic;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
 using System.Collections;
 using System.Linq;
 
-internal class XLDataValidations : IXLDataValidations
+internal sealed class XLDataValidations : IXLDataValidations
 {
     private readonly XLRangeIndex<XLDataValidationIndexEntry> _dataValidationIndex;
 

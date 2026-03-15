@@ -1,9 +1,8 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
@@ -17,26 +16,32 @@ internal abstract class XLStylizedBase : IXLStylized
     /// <summary>
     /// Read-only style property.
     /// </summary>
-    internal virtual XLStyleValue StyleValue { get; private protected set; }
+    internal virtual XLStyleValue StyleValue { get; private protected set; } = null!;
 
     /// <inheritdoc cref="IXLStylized.StyleValue"/>
-    XLStyleValue IXLStylized.StyleValue
-    {
-        get { return StyleValue; }
-    }
+    XLStyleValue IXLStylized.StyleValue => StyleValue;
 
     /// <inheritdoc cref="IXLStylized.Style"/>
     public IXLStyle Style
     {
-        get { return InnerStyle; }
-        set { SetStyle(value, true); }
+        get => InnerStyle;
+        set => SetStyle(value, true);
     }
+
+    private XLStyle? _cachedStyle;
 
     /// <inheritdoc cref="IXLStylized.InnerStyle"/>
     public IXLStyle InnerStyle
     {
-        get { return new XLStyle(this, StyleValue.Key); }
-        set { SetStyle(value, false); }
+        get
+        {
+            if (_cachedStyle == null)
+                _cachedStyle = new XLStyle(this, StyleValue);
+            else
+                _cachedStyle.SyncValue(StyleValue);
+            return _cachedStyle;
+        }
+        set => SetStyle(value);
     }
 
     /// <summary>
@@ -48,14 +53,19 @@ internal abstract class XLStylizedBase : IXLStylized
 
     #endregion Properties
 
-    protected XLStylizedBase(XLStyleValue styleValue)
+    protected XLStylizedBase(XLStyleValue? styleValue)
     {
         StyleValue = styleValue ?? XLWorkbook.DefaultStyleValue;
     }
 
+    /// <summary>
+    /// Ctor only for XLCell that stores <see cref="StyleValue"/> in a slice.
+    /// Do not set StyleValue here — XLCell overrides the property with a virtual
+    /// setter that requires fields not yet initialized by the derived constructor.
+    /// The backing field is initialized to <c>null!</c> via the property initializer.
+    /// </summary>
     protected XLStylizedBase()
     {
-        // Ctor only for XLCell that stores `StyleValue` in a slice. 
     }
 
     #region Private methods
@@ -85,12 +95,12 @@ internal abstract class XLStylizedBase : IXLStylized
         }
     }
 
-    private static readonly ReferenceEqualityComparer<XLStyleValue> _comparer = new();
+    private static readonly ReferenceEqualityComparer<XLStyleValue> Comparer = new();
 
     void IXLStylized.ModifyStyle(Func<XLStyleKey, XLStyleKey> modification)
     {
         var children = GetChildrenRecursively(this)
-            .GroupBy(child => child.StyleValue, _comparer);
+            .GroupBy(child => child.StyleValue, Comparer);
 
         foreach (var group in children)
         {
@@ -105,6 +115,11 @@ internal abstract class XLStylizedBase : IXLStylized
 
     private static HashSet<XLStylizedBase> GetChildrenRecursively(XLStylizedBase parent)
     {
+        var results = new HashSet<XLStylizedBase>();
+        Collect(parent, results);
+
+        return results;
+
         void Collect(XLStylizedBase root, HashSet<XLStylizedBase> collector)
         {
             collector.Add(root);
@@ -113,11 +128,6 @@ internal abstract class XLStylizedBase : IXLStylized
                 Collect(child, collector);
             }
         }
-
-        var results = new HashSet<XLStylizedBase>();
-        Collect(parent, results);
-
-        return results;
     }
 
     #endregion Private methods
@@ -126,7 +136,7 @@ internal abstract class XLStylizedBase : IXLStylized
 
     public sealed class ReferenceEqualityComparer<T> : IEqualityComparer<T> where T : class
     {
-        public bool Equals(T x, T y) => ReferenceEquals(x, y);
+        public bool Equals(T? x, T? y) => ReferenceEquals(x, y);
 
         public int GetHashCode(T obj) => RuntimeHelpers.GetHashCode(obj);
     }

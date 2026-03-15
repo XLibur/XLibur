@@ -1,22 +1,19 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLSparklineGroup : IXLSparklineGroup
+internal sealed class XLSparklineGroup : IXLSparklineGroup
 {
     private readonly XLWorksheet _worksheet;
-    private IXLRange _dateRange;
-    private IXLSparklineStyle _style;
+    private IXLRange? _dateRange;
+    private IXLSparklineStyle _style = null!;
 
     #region Public Properties
 
-    public IXLRange DateRange
+    public IXLRange? DateRange
     {
         get => _dateRange;
         set => SetDateRange(value);
@@ -152,8 +149,8 @@ internal class XLSparklineGroup : IXLSparklineGroup
     public IEnumerable<IXLSparkline> Add(string locationRangeAddress, string sourceDataAddress)
     {
         var sourceDataRange = _worksheet.Workbook.Range(sourceDataAddress) ??
-                              _worksheet.Range(sourceDataAddress);
-        return Add(_worksheet.Range(locationRangeAddress), sourceDataRange);
+                              _worksheet.Range(sourceDataAddress)!;
+        return Add(_worksheet.Range(locationRangeAddress)!, sourceDataRange);
     }
 
     /// <summary>
@@ -162,11 +159,11 @@ internal class XLSparklineGroup : IXLSparklineGroup
     /// <param name="sparklineGroup">The sparkline group to copy from</param>
     public void CopyFrom(IXLSparklineGroup sparklineGroup)
     {
-        if (sparklineGroup.DateRange != null)
+        if (sparklineGroup.DateRange is { } dateRange)
         {
-            DateRange = sparklineGroup.DateRange.Worksheet == sparklineGroup.Worksheet
-                ? _worksheet.Range(sparklineGroup.DateRange.RangeAddress.ToString())
-                : sparklineGroup.DateRange;
+            DateRange = dateRange.Worksheet == sparklineGroup.Worksheet
+                ? _worksheet.Range(dateRange.RangeAddress.ToString()!)
+                : dateRange;
         }
 
         DisplayEmptyCellsAs = sparklineGroup.DisplayEmptyCellsAs;
@@ -198,7 +195,7 @@ internal class XLSparklineGroup : IXLSparklineGroup
         {
             var location = targetSheet.Cell(((XLAddress)sparkline.Location.Address).WithoutWorksheet());
             var sourceData = sparkline.SourceData.Worksheet == Worksheet
-                ? targetSheet.Range(sparkline.SourceData.RangeAddress.ToString())
+                ? targetSheet.Range(sparkline.SourceData.RangeAddress.ToString()!)!
                 : sparkline.SourceData;
 
             copy.Add(location, sourceData);
@@ -216,7 +213,7 @@ internal class XLSparklineGroup : IXLSparklineGroup
         return GetEnumerator();
     }
 
-    public IXLSparkline GetSparkline(IXLCell cell)
+    public IXLSparkline? GetSparkline(IXLCell cell)
     {
         return _sparklines.GetValueOrDefault(cell);
     }
@@ -225,7 +222,7 @@ internal class XLSparklineGroup : IXLSparklineGroup
     {
         foreach (var key in _sparklines.Keys.Where(searchRange.Contains))
         {
-            yield return GetSparkline(key);
+            yield return GetSparkline(key)!;
         }
     }
 
@@ -255,7 +252,7 @@ internal class XLSparklineGroup : IXLSparklineGroup
         _sparklines.Clear();
     }
 
-    public IXLSparklineGroup SetDateRange(IXLRange value)
+    public IXLSparklineGroup SetDateRange(IXLRange? value)
     {
         if (value != null)
         {

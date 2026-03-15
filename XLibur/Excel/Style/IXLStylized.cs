@@ -8,14 +8,14 @@ namespace XLibur.Excel;
 internal interface IXLStylized
 {
     /// <summary>
-    /// Editable style of the workbook element. Modification of this property DOES affect styles of child objects as well - they will
+    /// Editable style of the workbook element. Modification of this property DOES affect the styles of child objects as well - they will
     /// be changed accordingly. Accessing this property causes a new <see cref="XLStyle"/> instance generated so use this property
     /// with caution. If you need only _read_ the style consider using <see cref="StyleValue"/> property instead.
     /// </summary>
     IXLStyle Style { get; set; }
 
     /// <summary>
-    /// Editable style of the workbook element. Modification of this property DOES NOT affect styles of child objects.
+    /// Editable style of the workbook element. Modification of this property DOES NOT affect the styles of child objects.
     /// Accessing this property causes a new <see cref="XLStyle"/> instance generated so use this property with caution. If you need
     /// only _read_ the style consider using <see cref="StyleValue"/> property instead.
     /// </summary>
@@ -27,7 +27,7 @@ internal interface IXLStylized
     /// <see cref="XLBorder.OutsideBorder"/>).
     /// </para>
     /// <para>
-    /// Return ranges represented by elements. For one element (e.g. workbook, cell,
+    /// Return ranges represented by elements. For one element (e.g., workbook, cell,
     /// column), it should return only the element itself. For element that represent a
     /// collection of other elements, e.g. <see cref="XLRows"/>, <see cref="XLColumns"/>,
     /// <see cref="XLCells"/>, it should return range for each element in the collection.
@@ -44,7 +44,7 @@ internal interface IXLStylized
 
     /// <summary>
     /// A callback method called when <see cref="Style"/> is changed. It should update
-    /// style of the stylized descendants of the stylized element.
+    /// the style of the stylized descendants of the stylized element.
     /// </summary>
     /// <param name="modification">A method that changes the style from original to modified.</param>
     void ModifyStyle(Func<XLStyleKey, XLStyleKey> modification);

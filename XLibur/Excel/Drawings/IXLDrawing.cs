@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace XLibur.Excel;
 
 public enum XLDrawingAnchor { MoveAndSizeWithCells, MoveWithCells, Absolute }

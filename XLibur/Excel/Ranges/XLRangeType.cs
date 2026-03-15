@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace XLibur.Excel;
 
 internal enum XLRangeType : byte

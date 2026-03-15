@@ -1,6 +1,5 @@
 using XLibur.Excel;
 
-
 namespace XLibur.Examples.Styles;
 
 public class PurpleWorksheet : IXLExample

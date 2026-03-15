@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace XLibur.Excel;
 
 public enum XLCustomPropertyType { Text, Number, Date, Boolean }

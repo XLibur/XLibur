@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -8,7 +8,7 @@ namespace XLibur.Excel.CalcEngine
     /// Reference is a collection of cells in the workbook. It's used in formula evaluation.
     /// Every reference has at least one cell.
     /// </summary>
-    internal class Reference
+    internal sealed class Reference
     {
         public Reference(XLRangeAddress area)
         {

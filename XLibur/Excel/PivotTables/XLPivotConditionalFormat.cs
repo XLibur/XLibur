@@ -5,7 +5,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// Specification of conditional formatting of a pivot table.
 /// </summary>
-internal class XLPivotConditionalFormat
+internal sealed class XLPivotConditionalFormat
 {
     private readonly List<XLPivotArea> _area = new();
 

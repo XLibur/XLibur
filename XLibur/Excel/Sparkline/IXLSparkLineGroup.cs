@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using System;
 using System.Collections.Generic;
 
@@ -44,7 +41,7 @@ public interface IXLSparklineGroup : IEnumerable<IXLSparkline>
 {
     #region Public Properties
 
-    IXLRange DateRange { get; set; }
+    IXLRange? DateRange { get; set; }
 
     XLDisplayBlanksAsValues DisplayEmptyCellsAs { get; set; }
 
@@ -82,7 +79,7 @@ public interface IXLSparklineGroup : IEnumerable<IXLSparkline>
     /// <param name="targetSheet">The worksheet to copy this sparkline group to</param>
     IXLSparklineGroup CopyTo(IXLWorksheet targetSheet);
 
-    IXLSparkline GetSparkline(IXLCell cell);
+    IXLSparkline? GetSparkline(IXLCell cell);
 
     IEnumerable<IXLSparkline> GetSparklines(IXLRangeBase searchRange);
 
@@ -92,7 +89,7 @@ public interface IXLSparklineGroup : IEnumerable<IXLSparkline>
 
     void RemoveAll();
 
-    IXLSparklineGroup SetDateRange(IXLRange value);
+    IXLSparklineGroup SetDateRange(IXLRange? value);
 
     IXLSparklineGroup SetDisplayEmptyCellsAs(XLDisplayBlanksAsValues value);
 

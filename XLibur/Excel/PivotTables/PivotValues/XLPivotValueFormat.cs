@@ -1,6 +1,6 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
-internal class XLPivotValueFormat : IXLPivotValueFormat
+internal sealed class XLPivotValueFormat : IXLPivotValueFormat
 {
     private readonly XLPivotDataField _pivotValue;
 

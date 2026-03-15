@@ -1,6 +1,4 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Excel.CalcEngine;
@@ -21,11 +19,11 @@ internal enum AllowRange
     Only,
 }
 
-internal class FunctionRegistry
+internal sealed class FunctionRegistry
 {
     private readonly Dictionary<string, FunctionDefinition> _func = new(StringComparer.InvariantCultureIgnoreCase);
 
-    public bool TryGetFunc(string name, out FunctionDefinition func)
+    public bool TryGetFunc(string name, out FunctionDefinition? func)
     {
         return _func.TryGetValue(name, out func);
     }

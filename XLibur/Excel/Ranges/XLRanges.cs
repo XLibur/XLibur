@@ -1,13 +1,14 @@
-using XLibur.Excel.Ranges.Index;
+﻿using XLibur.Excel.Ranges.Index;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
 using System.Collections;
 
-internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
+internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 {
     /// <summary>
     /// Normally, XLRanges collection includes ranges from a single worksheet, but not necessarily.
@@ -18,7 +19,7 @@ internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 
     private IXLRangeIndex<XLRange> GetRangeIndex(IXLWorksheet worksheet)
     {
-        if (!_indexes.TryGetValue(worksheet, out IXLRangeIndex<XLRange>? rangeIndex))
+        if (!_indexes.TryGetValue(worksheet, out var rangeIndex))
         {
             rangeIndex = new XLRangeIndex<XLRange>(worksheet);
             _indexes.Add(worksheet, rangeIndex);
@@ -50,7 +51,7 @@ internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
         if (_styleInitialized)
             return;
 
-        var worksheetStyle = range?.Worksheet?.Style;
+        var worksheetStyle = range.Worksheet?.Style;
         if (worksheetStyle == null)
             return;
 
@@ -150,7 +151,7 @@ internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 
     internal IEnumerable<IXLRange> GetIntersectedRanges(in XLAddress address)
     {
-        return GetRangeIndex(address.Worksheet)
+        return GetRangeIndex(address.Worksheet!)
             .GetIntersectedRanges(address);
     }
 
@@ -161,7 +162,7 @@ internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 
     public IEnumerable<IXLDataValidation> DataValidation
     {
-        get { return Ranges.Select(range => range.GetDataValidation()).Where(dv => dv != null); }
+        get { return Ranges.Select(range => range.GetDataValidation()).Where(dv => dv != null).Select(dv => dv!); }
     }
 
     public IXLRanges AddToNamed(string rangeName)
@@ -194,7 +195,7 @@ internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
     public XLCells Cells()
     {
         var cells = new XLCells(false, XLCellsUsedOptions.AllContents);
-        foreach (XLRange container in Ranges)
+        foreach (var container in Ranges)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -202,7 +203,7 @@ internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
     public IXLCells CellsUsed()
     {
         var cells = new XLCells(true, XLCellsUsedOptions.AllContents);
-        foreach (XLRange container in Ranges)
+        foreach (var container in Ranges)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -210,7 +211,7 @@ internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
     public IXLCells CellsUsed(XLCellsUsedOptions options)
     {
         var cells = new XLCells(true, options);
-        foreach (XLRange container in Ranges)
+        foreach (var container in Ranges)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -223,7 +224,7 @@ internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
     {
         get
         {
-            foreach (XLRange rng in Ranges)
+            foreach (var rng in Ranges)
                 yield return rng;
         }
     }
@@ -237,7 +238,7 @@ internal class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 
     public override string ToString()
     {
-        string retVal = Ranges.Aggregate(string.Empty, (agg, r) => agg + (r + ","));
+        var retVal = Ranges.Aggregate(string.Empty, (agg, r) => agg + (r + ","));
         if (retVal.Length > 0) retVal = retVal.Substring(0, retVal.Length - 1);
         return retVal;
     }

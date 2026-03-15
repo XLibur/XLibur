@@ -1,11 +1,9 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
+internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
 {
     #region Constructor
 
@@ -13,7 +11,7 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
     /// The direct constructor should only be used in <see cref="XLWorksheet.RangeFactory"/>.
     /// </summary>
     public XLRangeColumn(XLRangeParameters rangeParameters)
-        : base(rangeParameters.RangeAddress, (rangeParameters.DefaultStyle as XLStyle).Value)
+        : base(rangeParameters.RangeAddress, ((XLStyle)rangeParameters.DefaultStyle).Value)
     {
     }
 
@@ -32,7 +30,7 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
     {
         var retVal = new XLCells(false, XLCellsUsedOptions.AllContents);
         var rangePairs = cellsInColumn.Split(',');
-        foreach (string pair in rangePairs)
+        foreach (var pair in rangePairs)
             retVal.Add(Range(pair.Trim()).RangeAddress);
         return retVal;
     }
@@ -51,11 +49,11 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
     {
         if (deleteTableField && IsTableColumn())
         {
-            var table = Table as XLTable;
+            var table = (XLTable)Table!;
             if (!Cell(1).Value.TryGetText(out var firstCellValue))
                 throw new InvalidOperationException("Top cell doesn't contain a text.");
 
-            if (!table.FieldNames.ContainsKey(firstCellValue))
+            if (!table.FieldNames.ContainsKey(firstCellValue!))
                 throw new InvalidOperationException($"Field {firstCellValue} not found.");
 
             var field = table.Fields.Cast<XLTableField>().Single(f => f.Name == firstCellValue);
@@ -100,10 +98,10 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
     {
         base.CopyTo((XLCell)target);
 
-        int lastRowNumber = target.Address.RowNumber + RowCount() - 1;
+        var lastRowNumber = target.Address.RowNumber + RowCount() - 1;
         if (lastRowNumber > XLHelper.MaxRowNumber)
             lastRowNumber = XLHelper.MaxRowNumber;
-        int lastColumnNumber = target.Address.ColumnNumber + ColumnCount() - 1;
+        var lastColumnNumber = target.Address.ColumnNumber + ColumnCount() - 1;
         if (lastColumnNumber > XLHelper.MaxColumnNumber)
             lastColumnNumber = XLHelper.MaxColumnNumber;
 
@@ -119,10 +117,10 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
     {
         base.CopyTo(target);
 
-        int lastRowNumber = target.RangeAddress.FirstAddress.RowNumber + RowCount() - 1;
+        var lastRowNumber = target.RangeAddress.FirstAddress.RowNumber + RowCount() - 1;
         if (lastRowNumber > XLHelper.MaxRowNumber)
             lastRowNumber = XLHelper.MaxRowNumber;
-        int lastColumnNumber = target.RangeAddress.FirstAddress.ColumnNumber + ColumnCount() - 1;
+        var lastColumnNumber = target.RangeAddress.FirstAddress.ColumnNumber + ColumnCount() - 1;
         if (lastColumnNumber > XLHelper.MaxColumnNumber)
             lastColumnNumber = XLHelper.MaxColumnNumber;
 
@@ -136,7 +134,7 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
 
     public IXLRangeColumn Column(int start, int end)
     {
-        return Range(start, end).FirstColumn();
+        return Range(start, end).FirstColumn()!;
     }
 
     public IXLRangeColumn Column(IXLCell start, IXLCell end)
@@ -148,7 +146,7 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
     {
         var retVal = new XLRangeColumns();
         var rowPairs = columns.Split(',');
-        foreach (string trimmedPair in rowPairs.Select(pair => pair.Trim()))
+        foreach (var trimmedPair in rowPairs.Select(pair => pair.Trim()))
         {
             string firstRow;
             string lastRow;
@@ -165,7 +163,7 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
                 lastRow = trimmedPair;
             }
 
-            retVal.Add(Range(firstRow, lastRow).FirstColumn());
+            retVal.Add(Range(firstRow, lastRow).FirstColumn()!);
         }
 
         return retVal;
@@ -212,8 +210,8 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
                 rangeAddressStr = rangeAddressStr.Replace('-', ':');
 
             var arrRange = rangeAddressStr.Split(':');
-            string firstPart = arrRange[0];
-            string secondPart = arrRange[1];
+            var firstPart = arrRange[0];
+            var secondPart = arrRange[1];
             rangeAddressToUse = FixColumnAddress(firstPart) + ":" + FixColumnAddress(secondPart);
         }
         else
@@ -225,13 +223,13 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
 
     public int CompareTo(XLRangeColumn otherColumn, IXLSortElements rowsToSort)
     {
-        foreach (IXLSortElement e in rowsToSort)
+        foreach (var e in rowsToSort)
         {
             var thisCell = Cell(e.ElementNumber);
             var otherCell = otherColumn.Cell(e.ElementNumber);
             int comparison;
-            bool thisCellIsBlank = thisCell.IsEmpty();
-            bool otherCellIsBlank = otherCell.IsEmpty();
+            var thisCellIsBlank = thisCell.IsEmpty();
+            var otherCellIsBlank = otherCell.IsEmpty();
             if (e.IgnoreBlanks && (thisCellIsBlank || otherCellIsBlank))
             {
                 if (thisCellIsBlank && otherCellIsBlank)
@@ -255,8 +253,8 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
                     else if (thisCell.DataType == XLDataType.Text)
                     {
                         comparison = e.MatchCase
-                            ? thisCell.GetText().CompareTo(otherCell.GetText())
-                            : string.Compare(thisCell.GetText(), otherCell.GetText(), true);
+                            ? String.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.Ordinal)
+                            : String.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.OrdinalIgnoreCase);
                     }
                     else if (thisCell.DataType == XLDataType.Error)
                         comparison = 0; // Errors are incomparable
@@ -264,9 +262,9 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
                         comparison = thisCell.CachedValue.GetUnifiedNumber().CompareTo(thisCell.CachedValue.GetUnifiedNumber());
                 }
                 else if (e.MatchCase)
-                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), true);
+                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.OrdinalIgnoreCase);
                 else
-                    comparison = thisCell.GetString().CompareTo(otherCell.GetString());
+                    comparison = string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.Ordinal);
             }
 
             if (comparison != 0)
@@ -278,12 +276,12 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
 
     private XLRangeColumn ColumnShift(int columnsToShift)
     {
-        int columnNumber = ColumnNumber() + columnsToShift;
+        var columnNumber = ColumnNumber() + columnsToShift;
         return Worksheet.Range(
             RangeAddress.FirstAddress.RowNumber,
             columnNumber,
             RangeAddress.LastAddress.RowNumber,
-            columnNumber).FirstColumn();
+            columnNumber).FirstColumn()!;
     }
 
     #region XLRangeColumn Left
@@ -375,11 +373,11 @@ internal class XLRangeColumn : XLRangeBase, IXLRangeColumn
 
     public IXLRangeColumn ColumnUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
     {
-        return Column((this as IXLRangeBase).FirstCellUsed(options),
-            (this as IXLRangeBase).LastCellUsed(options));
+        return Column((this as IXLRangeBase).FirstCellUsed(options)!,
+            (this as IXLRangeBase).LastCellUsed(options)!);
     }
 
-    internal IXLTable Table { get; set; }
+    internal IXLTable? Table { get; set; }
 
     public bool IsTableColumn()
     {

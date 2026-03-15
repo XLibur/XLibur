@@ -1,11 +1,8 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLSparklineVerticalAxis : IXLSparklineVerticalAxis
+internal sealed class XLSparklineVerticalAxis : IXLSparklineVerticalAxis
 {
     #region Public Properties
 

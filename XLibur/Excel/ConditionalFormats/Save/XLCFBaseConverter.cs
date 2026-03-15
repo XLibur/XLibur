@@ -1,5 +1,3 @@
-#nullable disable
-
 using XLibur.Utils;
 using DocumentFormat.OpenXml.Spreadsheet;
 

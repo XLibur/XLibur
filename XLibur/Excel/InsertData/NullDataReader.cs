@@ -1,10 +1,10 @@
-
+﻿
 using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel.InsertData;
 
-internal class NullDataReader : IInsertDataReader
+internal sealed class NullDataReader : IInsertDataReader
 {
     private readonly XLCellValue[] _row = [Blank.Value];
     private readonly int _count;

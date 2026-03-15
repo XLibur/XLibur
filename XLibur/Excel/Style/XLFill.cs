@@ -1,33 +1,22 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLFill : IXLFill
+internal sealed class XLFill : IXLFill
 {
     #region static members
 
-    internal static XLFillKey GenerateKey(IXLFill? defaultFill)
+    internal static XLFillKey GenerateKey(IXLFill? defaultFill) => defaultFill switch
     {
-        XLFillKey key;
-        if (defaultFill == null)
+        null => XLFillValue.Default.Key,
+        XLFill fill => fill.Key,
+        _ => new XLFillKey
         {
-            key = XLFillValue.Default.Key;
-        }
-        else if (defaultFill is XLFill fill)
-        {
-            key = fill.Key;
-        }
-        else
-        {
-            key = new XLFillKey
-            {
-                PatternType = defaultFill.PatternType,
-                BackgroundColor = defaultFill.BackgroundColor.Key,
-                PatternColor = defaultFill.PatternColor.Key
-            };
-        }
-        return key;
-    }
+            PatternType = defaultFill.PatternType,
+            BackgroundColor = defaultFill.BackgroundColor.Key,
+            PatternColor = defaultFill.PatternColor.Key
+        },
+    };
 
     #endregion static members
 
@@ -39,8 +28,8 @@ internal class XLFill : IXLFill
 
     internal XLFillKey Key
     {
-        get { return _value.Key; }
-        private set { _value = XLFillValue.FromKey(ref value); }
+        get => _value.Key;
+        private set => _value = XLFillValue.FromKey(ref value);
     }
 
     #endregion Properties
@@ -58,7 +47,7 @@ internal class XLFill : IXLFill
         _value = value;
     }
 
-    public XLFill(XLStyle? style, XLFillKey key) : this(style, XLFillValue.FromKey(ref key))
+    private XLFill(XLStyle? style, XLFillKey key) : this(style, XLFillValue.FromKey(ref key))
     {
     }
 
@@ -68,16 +57,37 @@ internal class XLFill : IXLFill
 
     #endregion Constructors
 
+    internal void SyncValue(XLFillValue value) { _value = value; }
+
+    private void SetKey(XLFillKey newKey)
+    {
+        Key = newKey;
+        _style.ModifyFill(Key);
+    }
+
     private void Modify(Func<XLFillKey, XLFillKey> modification)
     {
         Key = modification(Key);
-
-        _style.Modify(styleKey =>
-        {
-            var fill = modification(styleKey.Fill);
-            return styleKey with { Fill = fill };
-        });
+        _style.Modify(styleKey => styleKey with { Fill = modification(styleKey.Fill) });
     }
+
+    private void ApplyKeyUpdate(Func<XLFillKey, XLFillKey> update)
+    {
+        if (_style.IsCellContainer)
+            SetKey(update(Key));
+        else
+            Modify(update);
+    }
+
+    private static XLFillPatternValues PatternTypeFromBackgroundColor(XLColor color)
+        => color.HasValue ? XLFillPatternValues.Solid : XLFillPatternValues.None;
+
+    private bool ShouldAdjustPatternTypeForBackgroundColor()
+        => PatternType is XLFillPatternValues.None or XLFillPatternValues.Solid
+           && XLColor.IsNullOrTransparent(BackgroundColor);
+
+    private static XLColorKey DefaultPatternBackgroundColorKey()
+        => XLColor.FromTheme(XLThemeColor.Text1).Key;
 
     #region IXLFill Members
 
@@ -93,19 +103,15 @@ internal class XLFill : IXLFill
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            if ((PatternType == XLFillPatternValues.None ||
-                 PatternType == XLFillPatternValues.Solid)
-                && XLColor.IsNullOrTransparent(BackgroundColor))
+            if (ShouldAdjustPatternTypeForBackgroundColor())
             {
-                var patternType = value.HasValue ? XLFillPatternValues.Solid : XLFillPatternValues.None;
-                Modify(k => k with
-                {
-                    BackgroundColor = value.Key,
-                    PatternType = patternType,
-                });
+                var patternType = PatternTypeFromBackgroundColor(value);
+                ApplyKeyUpdate(k => k with { BackgroundColor = value.Key, PatternType = patternType });
             }
             else
-                Modify(k => k with { BackgroundColor = value.Key });
+            {
+                ApplyKeyUpdate(k => k with { BackgroundColor = value.Key });
+            }
         }
     }
 
@@ -121,28 +127,29 @@ internal class XLFill : IXLFill
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            Modify(k => k with { PatternColor = value.Key });
+            if (Key.PatternColor == value.Key) return;
+            ApplyKeyUpdate(k => k with { PatternColor = value.Key });
         }
     }
 
     public XLFillPatternValues PatternType
     {
-        get { return Key.PatternType; }
+        get => Key.PatternType;
         set
         {
             if (PatternType == XLFillPatternValues.None &&
                 value != XLFillPatternValues.None)
             {
-                // If fill was empty and the pattern changes to non-empty we have to specify a background color too.
-                // Otherwise the fill will be considered empty and pattern won't update (the cached empty fill will be used).
-                Modify(k => k with
-                {
-                    BackgroundColor = XLColor.FromTheme(XLThemeColor.Text1).Key,
-                    PatternType = value,
-                });
+                // If fill was empty and the pattern changes to non-empty, we have to specify a background color too.
+                // Otherwise, the fill will be considered empty, and the pattern won't update (the cached empty fill will be used).
+                var defaultBackgroundColor = DefaultPatternBackgroundColorKey();
+                ApplyKeyUpdate(k => k with { BackgroundColor = defaultBackgroundColor, PatternType = value });
             }
             else
-                Modify(k => k with { PatternType = value });
+            {
+                if (Key.PatternType == value) return;
+                ApplyKeyUpdate(k => k with { PatternType = value });
+            }
         }
     }
 
@@ -175,27 +182,18 @@ internal class XLFill : IXLFill
 
     public bool Equals(IXLFill? other)
     {
-        var otherF = other as XLFill;
-        if (otherF == null)
+        if (other is not XLFill otherF)
             return false;
 
         return Key == otherF.Key;
     }
 
-    public override string ToString()
+    public override string ToString() => PatternType switch
     {
-        switch (PatternType)
-        {
-            case XLFillPatternValues.None:
-                return "None";
-
-            case XLFillPatternValues.Solid:
-                return string.Concat("Solid ", BackgroundColor.ToString());
-
-            default:
-                return string.Concat(PatternType.ToString(), " pattern: ", PatternColor.ToString(), " on ", BackgroundColor.ToString());
-        }
-    }
+        XLFillPatternValues.None => "None",
+        XLFillPatternValues.Solid => string.Concat("Solid ", BackgroundColor.ToString()),
+        _ => string.Concat(PatternType.ToString(), " pattern: ", PatternColor.ToString(), " on ", BackgroundColor.ToString()),
+    };
 
     public override int GetHashCode()
     {

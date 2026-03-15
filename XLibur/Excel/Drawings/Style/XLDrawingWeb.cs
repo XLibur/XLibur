@@ -1,6 +1,6 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
-internal class XLDrawingWeb : IXLDrawingWeb
+internal sealed class XLDrawingWeb : IXLDrawingWeb
 {
     private readonly IXLDrawingStyle _style;
 

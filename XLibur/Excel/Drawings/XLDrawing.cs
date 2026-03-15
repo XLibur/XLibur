@@ -1,10 +1,8 @@
-#nullable disable
-
 namespace XLibur.Excel;
 
 internal class XLDrawing<T> : IXLDrawing<T>
 {
-    internal T Container;
+    internal T Container = default!;
     public XLDrawing()
     {
         Style = new XLDrawingStyle();
@@ -25,14 +23,14 @@ internal class XLDrawing<T> : IXLDrawing<T>
         return Container;
     }
 
-    public string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
     public T SetName(string name)
     {
         Name = name;
         return Container;
     }
 
-    public string Description { get; set; }
+    public string Description { get; set; } = string.Empty;
     public T SetDescription(string description)
     {
         Description = description;

@@ -2,14 +2,16 @@ using XLibur.Excel;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Tests.Excel.DataValidations;
 
 [TestFixture]
 public class DataValidationTests
 {
-
     [Test]
     public void Validation_Reference_List_Values_From_Separate_Sheet()
     {
@@ -184,7 +186,8 @@ public class DataValidationTests
     [TestCase("A1:C3", 5, true, "A1:C3")]
     [TestCase("A1:C3", 2, true, "A1:C4")]
     [TestCase("A1:C3", 1, true, "A2:C4")]
-    public void DataValidationShiftedOnRowInsert(string initialAddress, int rowNum, bool setValue, string expectedAddress)
+    public void DataValidationShiftedOnRowInsert(string initialAddress, int rowNum, bool setValue,
+        string expectedAddress)
     {
         // Arrange
         var wb = new XLWorkbook();
@@ -210,7 +213,8 @@ public class DataValidationTests
     [TestCase("A1:C3", 5, true, "A1:C3")]
     [TestCase("A1:C3", 2, true, "A1:D3")]
     [TestCase("A1:C3", 1, true, "B1:D3")]
-    public void DataValidationShiftedOnColumnInsert(string initialAddress, int columnNum, bool setValue, string expectedAddress)
+    public void DataValidationShiftedOnColumnInsert(string initialAddress, int columnNum, bool setValue,
+        string expectedAddress)
     {
         // Arrange
         var wb = new XLWorkbook();
@@ -264,28 +268,26 @@ public class DataValidationTests
     }
 
     [Test]
-    public void ListLengthOverflow()
+    public void LongListValue_SavedViaExtensionFormat()
     {
         var values = string.Join(",", Enumerable.Range(1, 20)
             .Select(i => Guid.NewGuid().ToString("N")));
 
-        Assert.True(values.Length > 255);
+        Assert.That(values.Length, Is.GreaterThan(255));
 
         using var wb = new XLWorkbook();
         var dv = wb.AddWorksheet("Sheet 1").Cell(1, 1).GetDataValidation();
+        dv.List(values);
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => dv.List(values));
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-        {
-            dv.TextLength.Between(0, 5);
-            dv.MinValue = values;
-        });
+        Assert.That(dv.Value, Is.EqualTo("\"" + values + "\""));
 
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-        {
-            dv.TextLength.Between(0, 5);
-            dv.MaxValue = values;
-        });
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+
+        ms.Position = 0;
+        using var wb2 = new XLWorkbook(ms);
+        var dv2 = wb2.Worksheet(1).Cell(1, 1).GetDataValidation();
+        Assert.That(dv2.Value, Is.EqualTo("\"" + values + "\""));
     }
 
     [Test]
@@ -408,6 +410,51 @@ public class DataValidationTests
         Assert.AreSame(range2, addedRange);
     }
 
+    [TestCase(XLAllowedValues.List)]
+    [TestCase(XLAllowedValues.Custom)]
+    [TestCase(XLAllowedValues.AnyValue)]
+    public void DataValidation_DoesNotWriteOperatorAttribute_ForTypesWithoutOperator(XLAllowedValues allowedValues)
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet();
+            var dv = ws.Range("A1:A5").CreateDataValidation();
+            switch (allowedValues)
+            {
+                case XLAllowedValues.List:
+                    dv.List("\"Yes,No\"");
+                    break;
+                case XLAllowedValues.Custom:
+                    dv.Custom("A1>0");
+                    break;
+                case XLAllowedValues.AnyValue:
+                    // AnyValue is the default, just set input message to create a validation
+                    dv.InputMessage = "Enter any value";
+                    break;
+                case XLAllowedValues.WholeNumber:
+                case XLAllowedValues.Decimal:
+                case XLAllowedValues.Date:
+                case XLAllowedValues.Time:
+                case XLAllowedValues.TextLength:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(allowedValues), allowedValues, null);
+            }
+
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var doc = SpreadsheetDocument.Open(ms, false);
+        var worksheetPart = doc.WorkbookPart.WorksheetParts.First();
+        var dataValidation = worksheetPart.Worksheet
+            .Descendants<DataValidation>()
+            .First();
+
+        Assert.IsNull(dataValidation.Operator);
+    }
+
     [Test]
     public void AddRangesFiresMultipleEvents()
     {
@@ -475,4 +522,91 @@ public class DataValidationTests
 
         Assert.AreEqual(2, removedRanges.Count);
     }
+
+     [Test]
+        [TestCase("$F$2:$F$8", "$F$2:$F$8", Description = "Cell reference stored verbatim")]
+        [TestCase("Sheet1!$A$1:$A$10", "Sheet1!$A$1:$A$10", Description = "Sheet-qualified reference stored verbatim")]
+        [TestCase("\"foobar\"", "\"foobar\"", Description = "Already quoted string stored verbatim")]
+        [TestCase("\"foo,bar,baz\"", "\"foo,bar,baz\"", Description = "Already quoted CSV stored verbatim")]
+        [TestCase("=YesNo", "=YesNo", Description = "Formula reference stored verbatim")]
+        [TestCase("=Sheet1!$A$1:$A$10", "=Sheet1!$A$1:$A$10", Description = "Formula with sheet reference stored verbatim")]
+        [TestCase("foobar", "\"foobar\"", Description = "Literal string gets quoted")]
+        [TestCase("foo,bar,baz", "\"foo,bar,baz\"", Description = "Literal CSV list gets quoted")]
+        [TestCase("123abc", "\"123abc\"", Description = "String starting with number gets quoted")]
+        [TestCase("MyNamedRange", "\"MyNamedRange\"", Description = "Non-existent named range gets quoted")]
+        public void List_String_AutoQuotesLiteralStrings(string input, string expectedValue)
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var dv = ws.Cell("A1").CreateDataValidation();
+
+            dv.List(input);
+
+            Assert.AreEqual(XLAllowedValues.List, dv.AllowedValues);
+            Assert.AreEqual(expectedValue, dv.Value);
+        }
+
+        [Test]
+        public void List_String_ExistingNamedRangeStoredVerbatim()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            // Create a workbook-scoped named range
+            wb.DefinedNames.Add("MyNamedRange", ws.Range("E1:E5"));
+
+            var dv = ws.Cell("A1").CreateDataValidation();
+            dv.List("MyNamedRange");
+
+            Assert.AreEqual("MyNamedRange", dv.Value);
+        }
+
+        [Test]
+        public void List_String_WorksheetScopedNamedRangeStoredVerbatim()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            // Create a worksheet-scoped named range
+            ws.DefinedNames.Add("LocalRange", ws.Range("E1:E5"));
+
+            var dv = ws.Cell("A1").CreateDataValidation();
+            dv.List("LocalRange");
+
+            Assert.AreEqual("LocalRange", dv.Value);
+        }
+
+        [Test]
+        public void Issue1711_ListWithPreQuotedString_AndAutoFilter()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            // Set up headers
+            ws.Cell("A1").Value = "User";
+            ws.Cell("B1").Value = "Date";
+            ws.Cell("C1").Value = "Error";
+            ws.Cell("D1").Value = "Is Issue";
+
+            // Add data rows
+            for (var row = 2; row <= 11; row++)
+            {
+                ws.Cell(row, 4).Value = row <= 6 ? "Is Issue" : "No Issue";
+            }
+
+            // Set up AutoFilter on column 4 with "Is Issue" filter
+            ws.RangeUsed().SetAutoFilter().Column(4).AddFilter("Is Issue");
+
+            // User passes a pre-quoted string with comma-separated values
+            var errorList = new List<string> { "New", "Backdated", "Old", "Other" };
+            var errors = $"\"{string.Join(",", errorList)}\"";
+
+            var dv = ws.Range("C2:C11").CreateDataValidation();
+            dv.List(errors, true);
+
+            // Pre-quoted string should be stored verbatim
+            Assert.AreEqual("\"New,Backdated,Old,Other\"", dv.Value);
+        }
+
+
 }

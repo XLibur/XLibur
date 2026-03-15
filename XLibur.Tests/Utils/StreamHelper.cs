@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace XLibur.Tests;
+namespace XLibur.Tests.Utils;
 
 /// <summary>
 ///     Help methods for work with streams
@@ -144,7 +144,10 @@ public static class StreamHelper
 
         foreach (var element in document.Descendants().Where(e => e.Attributes().Any()))
         {
-            var attrs = element.Attributes().OrderBy(a => a.Name.LocalName).ToList();
+            var attrs = element.Attributes()
+                .OrderBy(a => a.Name.NamespaceName, StringComparer.Ordinal)
+                .ThenBy(a => a.Name.LocalName, StringComparer.Ordinal)
+                .ToList();
             element.ReplaceAttributes(attrs);
         }
     }

@@ -10,10 +10,10 @@ namespace XLibur.Extensions;
 internal static class ReferenceAreaExtensions
 {
     /// <summary>
-    /// Convert area to an absolute sheet range (regardless if the area is A1 or R1C1).
+    /// Convert an area to an absolute sheet range (regardless if the area is A1 or R1C1).
     /// </summary>
     /// <param name="area">Area to convert</param>
-    /// <param name="anchor">An anchor address that is the center of R1C1 relative address.</param>
+    /// <param name="anchor">An anchor address that is the centre of R1C1 relative address.</param>
     /// <returns>Converted absolute range.</returns>
     public static XLSheetRange ToSheetRange(this ReferenceArea area, XLSheetPoint anchor)
     {
@@ -73,7 +73,7 @@ internal static class ReferenceAreaExtensions
                 }
 
             case ReferenceAxisType.None:
-                return defaultPosition; // other axis specified, e.g. R3:R5 doesn't have row.
+                return defaultPosition; // another axis specified, e.g. R3:R5 doesn't have a row.
 
             default:
                 throw new NotSupportedException();

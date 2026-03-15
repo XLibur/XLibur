@@ -1,12 +1,13 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.RichText;
 
-internal class XLPhonetics : IXLPhonetics
+internal sealed class XLPhonetics : IXLPhonetics
 {
-    private readonly List<IXLPhonetic> _phonetics = new();
+    private readonly List<IXLPhonetic> _phonetics = [];
     private readonly XLFont _font;
     private readonly IXLFontBase _defaultFont;
     private readonly Action _onChange;

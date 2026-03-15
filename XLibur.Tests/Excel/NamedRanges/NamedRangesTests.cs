@@ -1,13 +1,13 @@
-
-using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using XLibur.Excel;
 using ClosedXML.Parser;
+using NUnit.Framework;
+using XLibur.Extensions;
 
-namespace XLibur.Tests.Excel;
+namespace XLibur.Tests.Excel.NamedRanges;
 
 [TestFixture]
 public class NamedRangesTests
@@ -670,5 +670,65 @@ public class NamedRangesTests
         a2.FormulaA1 = "=RAND * 10";
 
         Assert.AreEqual(50, a2.GetDouble());
+    }
+
+    [Test]
+    public void DefinedName_SheetNameLikeCellRef_PreservesQuotes_OnRoundTrip()
+    {
+        // Sheet name "C05A" looks like it could be a cell reference prefix;
+        // Excel requires it to be quoted in formulas.
+        using var ms = new MemoryStream();
+
+        // Create a workbook with sheet "C05A" and a defined name referencing it.
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("C05A");
+            ws.Cell("A1").Value = 1;
+            // Directly set formula with quoted sheet name (as Excel would)
+            wb.DefinedNames.Add("TestName", "'C05A'!$A$1:$A$10");
+            wb.SaveAs(ms);
+        }
+
+        // Round-trip: open and save
+        ms.Position = 0;
+        using var ms2 = new MemoryStream();
+        using (var wb = new XLWorkbook(ms))
+        {
+            var dn = wb.DefinedNames.DefinedName("TestName");
+            // The formula should still have quotes around C05A
+            Assert.AreEqual("'C05A'!$A$1:$A$10", dn.RefersTo);
+            wb.SaveAs(ms2);
+        }
+
+        // Verify the saved XML still has quotes
+        ms2.Position = 0;
+        using (var wb = new XLWorkbook(ms2))
+        {
+            var dn = wb.DefinedNames.DefinedName("TestName");
+            Assert.AreEqual("'C05A'!$A$1:$A$10", dn.RefersTo);
+        }
+    }
+
+    [Test]
+    public void DefinedName_SheetNameLikeCellRef_AddFromRange_EscapesCorrectly()
+    {
+        // When creating a defined name from a range (not a formula string),
+        // a sheet name that could be ambiguous with cell references should be quoted.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("C05A");
+            ws.Cell("A1").Value = 1;
+            ws.Range("A1:A10").AddToNamed("TestName", XLScope.Workbook);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var dn = wb.DefinedNames.DefinedName("TestName");
+            // Sheet name C05A should be quoted because it looks like a cell reference prefix
+            Assert.AreEqual("'C05A'!$A$1:$A$10", dn.RefersTo);
+        }
     }
 }

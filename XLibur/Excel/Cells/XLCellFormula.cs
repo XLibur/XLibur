@@ -138,8 +138,8 @@ internal sealed class XLCellFormula
 
         var converted = conversionType switch
         {
-            FormulaConversionType.A1ToR1C1 => FormulaConverter.ToR1C1(formula, cellAddress.Row, cellAddress.Column),
-            FormulaConversionType.R1C1ToA1 => FormulaConverter.ToA1(formula, cellAddress.Row, cellAddress.Column),
+            FormulaConversionType.A1ToR1C1 => FormulaTransformation.SafeToR1C1(formula, cellAddress.Row, cellAddress.Column),
+            FormulaConversionType.R1C1ToA1 => FormulaTransformation.SafeToA1(formula, cellAddress.Row, cellAddress.Column),
             _ => throw new NotSupportedException()
         };
 
@@ -148,6 +148,13 @@ internal sealed class XLCellFormula
 
         return converted;
     }
+
+    /// <summary>
+    /// Is this a dynamic array formula? Dynamic array formulas use the modern
+    /// Excel 365+ calculation engine without implicit intersection (no <c>@</c>
+    /// prefix). Requires cell metadata <c>XLDAPR</c> in the saved file.
+    /// </summary>
+    internal bool IsDynamicArray { get; private init; }
 
     /// <summary>
     /// A factory method to create a normal A1 formula. Doesn't affect recalculation version.
@@ -159,6 +166,21 @@ internal sealed class XLCellFormula
         {
             Type = FormulaType.Normal,
             _flags = FormulaFlags.None
+        };
+    }
+
+    /// <summary>
+    /// A factory method to create a dynamic array formula. The formula will be
+    /// evaluated using the Excel 365+ dynamic array engine (no implicit intersection).
+    /// </summary>
+    /// <param name="formulaA1">Formula in A1 form. Shouldn't start with <c>=</c>.</param>
+    internal static XLCellFormula DynamicArrayA1(string formulaA1)
+    {
+        return new XLCellFormula(formulaA1)
+        {
+            Type = FormulaType.Normal,
+            _flags = FormulaFlags.None,
+            IsDynamicArray = true
         };
     }
 
@@ -303,7 +325,7 @@ internal sealed class XLCellFormula
     public void RenameSheet(XLSheetPoint origin, string oldSheetName, string newSheetName)
     {
         var a1 = A1;
-        var res = FormulaConverter.ModifyA1(a1, newSheetName, origin.Row, origin.Column, new RenameRefModVisitor
+        var res = FormulaTransformation.SafeModifyA1(a1, newSheetName, origin.Row, origin.Column, new RenameRefModVisitor
         {
             Sheets = new Dictionary<string, string?> { { oldSheetName, newSheetName } }
         });
@@ -321,8 +343,8 @@ internal sealed class XLCellFormula
         if (Type != FormulaType.Normal)
             throw new InvalidOperationException("Can only swap normal formulas.");
 
-        var originR1C1 = FormulaConverter.ToR1C1(A1, origin.Row, origin.Column);
-        var targetA1 = FormulaConverter.ToA1(originR1C1, destination.Row, destination.Column);
+        var originR1C1 = FormulaTransformation.SafeToR1C1(A1, origin.Row, origin.Column);
+        var targetA1 = FormulaTransformation.SafeToA1(originR1C1, destination.Row, destination.Column);
         var targetFormula = NormalA1(targetA1);
         targetFormula.IsDirty = true;
         return targetFormula;

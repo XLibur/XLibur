@@ -1,16 +1,14 @@
-#nullable disable
-
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace XLibur.Excel;
+namespace XLibur.Extensions;
 
 internal static class DictionaryExtensions
 {
     public static void RemoveAll<TKey, TValue>(this Dictionary<TKey, TValue> dic,
         Func<TValue, bool> predicate)
+        where TKey : notnull
     {
         var keys = dic.Keys.Where(k => predicate(dic[k])).ToList();
         foreach (var key in keys)

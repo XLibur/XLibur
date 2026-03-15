@@ -1,8 +1,6 @@
-#nullable disable
+﻿namespace XLibur.Excel;
 
-namespace XLibur.Excel;
-
-internal class XLCFIconSet : IXLCFIconSet
+internal sealed class XLCFIconSet : IXLCFIconSet
 {
     private readonly XLConditionalFormat _conditionalFormat;
     public XLCFIconSet(XLConditionalFormat conditionalFormat)

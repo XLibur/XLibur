@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace XLibur.Excel.Drawings;
 
 public enum XLMarkerPosition
@@ -20,7 +18,8 @@ public enum XLPictureFormat
     Jpeg,
     Emf,
     Wmf,
-    Webp
+    Webp,
+    Svg
 }
 
 public enum XLPicturePlacement

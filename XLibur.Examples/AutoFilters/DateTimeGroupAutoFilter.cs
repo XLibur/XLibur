@@ -29,7 +29,7 @@ public class DateTimeGroupAutoFilter : IXLExample
             ws.RangeUsed().SetAutoFilter().Column(1).AddDateGroupFilter(new DateTime(2018, 1, 1).AddDays(3), XLDateTimeGrouping.Day);
 
             // Sort the filtered list
-            ws.AutoFilter.Sort(1);
+            ws.AutoFilter.Sort();
 
             #endregion Single Column Dates
 

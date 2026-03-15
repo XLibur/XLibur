@@ -1,15 +1,13 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel.InsertData;
 
-internal class InsertDataReaderFactory
+internal sealed class InsertDataReaderFactory
 {
     private static readonly Lazy<InsertDataReaderFactory> _instance = new(() => new InsertDataReaderFactory());
 

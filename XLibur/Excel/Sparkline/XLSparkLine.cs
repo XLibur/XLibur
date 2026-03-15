@@ -1,16 +1,13 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLSparkline : IXLSparkline
+internal sealed class XLSparkline : IXLSparkline
 {
     #region Private Fields
 
-    private IXLCell _location;
-    private IXLRange _sourceData;
+    private IXLCell? _location;
+    private IXLRange _sourceData = null!;
 
     #endregion Private Fields
 
@@ -24,7 +21,7 @@ internal class XLSparkline : IXLSparkline
 
     public IXLCell Location
     {
-        get => _location;
+        get => _location!;
         set => SetLocation(value);
     }
 
@@ -46,7 +43,7 @@ internal class XLSparkline : IXLSparkline
     /// <param name="sparklineGroup">The sparkline group to add the sparkline to</param>
     /// <param name="cell">The cell to place the sparkline in</param>
     /// <param name="sourceData">The range the sparkline gets data from</param>
-    public XLSparkline(IXLSparklineGroup sparklineGroup, IXLCell cell, IXLRange sourceData)
+    public XLSparkline(IXLSparklineGroup sparklineGroup, IXLCell cell, IXLRange? sourceData)
     {
         if (sparklineGroup == null)
             throw new ArgumentNullException(nameof(sparklineGroup));
@@ -59,7 +56,7 @@ internal class XLSparkline : IXLSparkline
 
         SparklineGroup = sparklineGroup;
         Location = cell;
-        SourceData = sourceData;
+        SetSourceData(sourceData);
     }
 
     #endregion Public Constructors
@@ -68,10 +65,10 @@ internal class XLSparkline : IXLSparkline
 
     public IXLSparkline SetLocation(IXLCell cell)
     {
-        if (cell != null && cell.Worksheet != SparklineGroup.Worksheet)
+        if (cell.Worksheet != SparklineGroup.Worksheet)
             throw new InvalidOperationException("Cannot move the sparkline to a different worksheet");
 
-        if (_location != null)
+        if (_location is not null)
             SparklineGroup.Remove(_location);
 
         _location = cell;
@@ -79,12 +76,12 @@ internal class XLSparkline : IXLSparkline
         return this;
     }
 
-    public IXLSparkline SetSourceData(IXLRange range)
+    public IXLSparkline SetSourceData(IXLRange? range)
     {
-        if (range != null && range.RowCount() != 1 && range.ColumnCount() != 1)
+        if (range is not null && range.RowCount() != 1 && range.ColumnCount() != 1)
             throw new ArgumentException("SourceData range must have either a single row or a single column");
 
-        _sourceData = range;
+        _sourceData = range!;
         return this;
     }
 

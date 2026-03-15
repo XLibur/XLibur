@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace XLibur.Excel.Drawings;
 
-internal class XLPictures : IXLPictures, IEnumerable<XLPicture>
+internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
 {
     private readonly List<XLPicture> _pictures = new List<XLPicture>();
     private readonly XLWorksheet _worksheet;
@@ -36,6 +36,7 @@ internal class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     public IXLPicture Add(Stream stream, string name)
     {
+        ArgumentException.ThrowIfNullOrEmpty(name);
         var picture = Add(stream);
         picture.Name = name;
         return picture;
@@ -51,6 +52,7 @@ internal class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     public IXLPicture Add(Stream stream, XLPictureFormat format, string name)
     {
+        ArgumentException.ThrowIfNullOrEmpty(name);
         var picture = Add(stream, format);
         picture.Name = name;
         return picture;
@@ -58,6 +60,7 @@ internal class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     public IXLPicture Add(string imageFile)
     {
+        ArgumentException.ThrowIfNullOrEmpty(imageFile);
         using var fs = File.OpenRead(imageFile);
         var picture = new XLPicture(_worksheet, fs);
         _pictures.Add(picture);
@@ -67,6 +70,8 @@ internal class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     public IXLPicture Add(string imageFile, string name)
     {
+        ArgumentException.ThrowIfNullOrEmpty(imageFile);
+        ArgumentException.ThrowIfNullOrEmpty(name);
         var picture = Add(imageFile);
         picture.Name = name;
         return picture;
@@ -74,6 +79,7 @@ internal class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     public bool Contains(string pictureName)
     {
+        ArgumentNullException.ThrowIfNull(pictureName);
         return _pictures.Any(p => string.Equals(p.Name, pictureName, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -84,6 +90,7 @@ internal class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     public void Delete(string pictureName)
     {
+        ArgumentException.ThrowIfNullOrEmpty(pictureName);
         var picturesToDelete = _pictures
             .Where(picture => picture.Name.Equals(pictureName, StringComparison.OrdinalIgnoreCase))
             .ToList();
@@ -117,6 +124,7 @@ internal class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     public IXLPicture Picture(string pictureName)
     {
+        ArgumentException.ThrowIfNullOrEmpty(pictureName);
         if (TryGetPicture(pictureName, out IXLPicture? p))
             return p!;
 
@@ -125,6 +133,7 @@ internal class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     public bool TryGetPicture(string pictureName, out IXLPicture? picture)
     {
+        ArgumentNullException.ThrowIfNull(pictureName);
         var match = _pictures.FirstOrDefault(p => p.Name.Equals(pictureName, StringComparison.OrdinalIgnoreCase));
         if (match is not null)
         {

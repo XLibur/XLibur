@@ -1,26 +1,23 @@
-#nullable disable
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal class XLRange : XLRangeBase, IXLRange
+internal class XLRange : XLStoredRangeBase, IXLRange
 {
     #region Constructor
 
     public XLRange(XLRangeParameters xlRangeParameters)
-        : base(xlRangeParameters.RangeAddress, (xlRangeParameters.DefaultStyle as XLStyle).Value)
+        : base(xlRangeParameters.RangeAddress, ((XLStyle)xlRangeParameters.DefaultStyle).Value)
     {
     }
 
     #endregion Constructor
 
-    public override XLRangeType RangeType
-    {
-        get { return XLRangeType.Range; }
-    }
+    public override XLRangeType RangeType => XLRangeType.Range;
 
     #region IXLRange Members
 
@@ -39,11 +36,11 @@ internal class XLRange : XLRangeBase, IXLRange
         return Column(columnLetter);
     }
 
-    public virtual IXLRangeColumns Columns(Func<IXLRangeColumn, bool> predicate = null)
+    public virtual IXLRangeColumns Columns(Func<IXLRangeColumn, bool>? predicate = null)
     {
         var retVal = new XLRangeColumns();
-        int columnCount = ColumnCount();
-        for (int c = 1; c <= columnCount; c++)
+        var columnCount = ColumnCount();
+        for (var c = 1; c <= columnCount; c++)
         {
             var column = Column(c);
             if (predicate == null || predicate(column))
@@ -57,7 +54,7 @@ internal class XLRange : XLRangeBase, IXLRange
     {
         var retVal = new XLRangeColumns();
 
-        for (int co = firstColumn; co <= lastColumn; co++)
+        for (var co = firstColumn; co <= lastColumn; co++)
             retVal.Add(Column(co));
         return retVal;
     }
@@ -70,38 +67,39 @@ internal class XLRange : XLRangeBase, IXLRange
 
     public virtual IXLRangeColumns Columns(string columns)
     {
+        ArgumentException.ThrowIfNullOrEmpty(columns);
         var retVal = new XLRangeColumns();
-        var columnPairs = columns.Split(',');
-        foreach (string tPair in columnPairs.Select(pair => pair.Trim()))
-        {
-            string firstColumn;
-            string lastColumn;
-            if (tPair.Contains(':') || tPair.Contains('-'))
-            {
-                string[] columnRange = XLHelper.SplitRange(tPair);
-
-                firstColumn = columnRange[0];
-                lastColumn = columnRange[1];
-            }
-            else
-            {
-                firstColumn = tPair;
-                lastColumn = tPair;
-            }
-
-            if (int.TryParse(firstColumn, out int tmp))
-            {
-                foreach (IXLRangeColumn col in Columns(int.Parse(firstColumn), int.Parse(lastColumn)))
-                    retVal.Add(col);
-            }
-            else
-            {
-                foreach (IXLRangeColumn col in Columns(firstColumn, lastColumn))
-                    retVal.Add(col);
-            }
-        }
+        foreach (var segment in columns.Split(','))
+            AddColumnsFromSegment(retVal, segment.Trim());
 
         return retVal;
+    }
+
+    private void AddColumnsFromSegment(XLRangeColumns result, string segment)
+    {
+        ParseRangeSegment(segment, out var first, out var last);
+
+        var columnsToAdd = int.TryParse(first, out _)
+            ? Columns(int.Parse(first), int.Parse(last))
+            : Columns(first, last);
+
+        foreach (var col in columnsToAdd)
+            result.Add(col);
+    }
+
+    private static void ParseRangeSegment(string segment, out string first, out string last)
+    {
+        if (segment.Contains(':') || segment.Contains('-'))
+        {
+            var parts = XLHelper.SplitRange(segment);
+            first = parts[0];
+            last = parts[1];
+        }
+        else
+        {
+            first = segment;
+            last = segment;
+        }
     }
 
     IXLCell IXLRange.Cell(int row, int column)
@@ -111,7 +109,7 @@ internal class XLRange : XLRangeBase, IXLRange
 
     IXLCell IXLRange.Cell(string cellAddressInRange)
     {
-        return Cell(cellAddressInRange);
+        return Cell(cellAddressInRange)!;
     }
 
     IXLCell IXLRange.Cell(int row, string column)
@@ -131,7 +129,7 @@ internal class XLRange : XLRangeBase, IXLRange
 
     IXLRange IXLRange.Range(string rangeAddress)
     {
-        return Range(rangeAddress);
+        return Range(rangeAddress)!;
     }
 
     IXLRange IXLRange.Range(IXLCell firstCell, IXLCell lastCell)
@@ -156,11 +154,11 @@ internal class XLRange : XLRangeBase, IXLRange
 
     IXLRanges IXLRange.Ranges(string ranges) => Ranges(ranges);
 
-    public IXLRangeRows Rows(Func<IXLRangeRow, bool> predicate = null)
+    public IXLRangeRows Rows(Func<IXLRangeRow, bool>? predicate = null)
     {
         var retVal = new XLRangeRows();
-        int rowCount = RowCount();
-        for (int r = 1; r <= rowCount; r++)
+        var rowCount = RowCount();
+        for (var r = 1; r <= rowCount; r++)
         {
             var row = Row(r);
             if (predicate == null || predicate(row))
@@ -174,7 +172,7 @@ internal class XLRange : XLRangeBase, IXLRange
     {
         var retVal = new XLRangeRows();
 
-        for (int ro = firstRow; ro <= lastRow; ro++)
+        for (var ro = firstRow; ro <= lastRow; ro++)
             retVal.Add(Row(ro));
         return retVal;
     }
@@ -182,25 +180,10 @@ internal class XLRange : XLRangeBase, IXLRange
     public IXLRangeRows Rows(string rows)
     {
         var retVal = new XLRangeRows();
-        var rowPairs = rows.Split(',');
-        foreach (string tPair in rowPairs.Select(pair => pair.Trim()))
+        foreach (var segment in rows.Split(','))
         {
-            string firstRow;
-            string lastRow;
-            if (tPair.Contains(':') || tPair.Contains('-'))
-            {
-                string[] rowRange = XLHelper.SplitRange(tPair);
-
-                firstRow = rowRange[0];
-                lastRow = rowRange[1];
-            }
-            else
-            {
-                firstRow = tPair;
-                lastRow = tPair;
-            }
-
-            foreach (IXLRangeRow row in Rows(int.Parse(firstRow), int.Parse(lastRow)))
+            ParseRangeSegment(segment.Trim(), out var first, out var last);
+            foreach (var row in Rows(int.Parse(first), int.Parse(last)))
                 retVal.Add(row);
         }
 
@@ -209,9 +192,9 @@ internal class XLRange : XLRangeBase, IXLRange
 
     public void Transpose(XLTransposeOptions transposeOption)
     {
-        int rowCount = RowCount();
-        int columnCount = ColumnCount();
-        int squareSide = rowCount > columnCount ? rowCount : columnCount;
+        var rowCount = RowCount();
+        var columnCount = ColumnCount();
+        var squareSide = rowCount > columnCount ? rowCount : columnCount;
 
         var firstCell = FirstCell();
 
@@ -245,9 +228,9 @@ internal class XLRange : XLRangeBase, IXLRange
             rng.Delete(XLShiftDeletedCells.ShiftCellsLeft);
         }
 
-        foreach (IXLCell c in Range(1, 1, columnCount, rowCount).Cells())
+        foreach (var c in Range(1, 1, columnCount, rowCount).Cells())
         {
-            var border = (c.Style as XLStyle).Value.Border;
+            var border = ((XLStyle)c.Style).Value.Border;
             c.Style.Border.TopBorder = border.LeftBorder;
             c.Style.Border.TopBorderColor = border.LeftBorderColor;
             c.Style.Border.LeftBorder = border.TopBorder;
@@ -276,7 +259,7 @@ internal class XLRange : XLRangeBase, IXLRange
 
     public XLTable CreateTable()
     {
-        return (XLTable)Worksheet.Table(this, true, true);
+        return (XLTable)Worksheet.Table(this, true);
     }
 
     IXLTable IXLRange.CreateTable(string name)
@@ -286,7 +269,7 @@ internal class XLRange : XLRangeBase, IXLRange
 
     public XLTable CreateTable(string name)
     {
-        return (XLTable)Worksheet.Table(this, name, true, true);
+        return (XLTable)Worksheet.Table(this, name, true);
     }
 
     public IXLTable CreateTable(string name, bool setAutofilter)
@@ -298,10 +281,10 @@ internal class XLRange : XLRangeBase, IXLRange
     {
         base.CopyTo((XLCell)target);
 
-        int lastRowNumber = target.Address.RowNumber + RowCount() - 1;
+        var lastRowNumber = target.Address.RowNumber + RowCount() - 1;
         if (lastRowNumber > XLHelper.MaxRowNumber)
             lastRowNumber = XLHelper.MaxRowNumber;
-        int lastColumnNumber = target.Address.ColumnNumber + ColumnCount() - 1;
+        var lastColumnNumber = target.Address.ColumnNumber + ColumnCount() - 1;
         if (lastColumnNumber > XLHelper.MaxColumnNumber)
             lastColumnNumber = XLHelper.MaxColumnNumber;
 
@@ -315,10 +298,10 @@ internal class XLRange : XLRangeBase, IXLRange
     {
         base.CopyTo(target);
 
-        int lastRowNumber = target.RangeAddress.FirstAddress.RowNumber + RowCount() - 1;
+        var lastRowNumber = target.RangeAddress.FirstAddress.RowNumber + RowCount() - 1;
         if (lastRowNumber > XLHelper.MaxRowNumber)
             lastRowNumber = XLHelper.MaxRowNumber;
-        int lastColumnNumber = target.RangeAddress.FirstAddress.ColumnNumber + ColumnCount() - 1;
+        var lastColumnNumber = target.RangeAddress.FirstAddress.ColumnNumber + ColumnCount() - 1;
         if (lastColumnNumber > XLHelper.MaxColumnNumber)
             lastColumnNumber = XLHelper.MaxColumnNumber;
 
@@ -363,18 +346,18 @@ internal class XLRange : XLRangeBase, IXLRange
         RangeAddress = (XLRangeAddress)ShiftRows(RangeAddress, range, rowsShifted);
     }
 
-    IXLRangeColumn IXLRange.FirstColumn(Func<IXLRangeColumn, bool> predicate)
+    IXLRangeColumn? IXLRange.FirstColumn(Func<IXLRangeColumn, bool>? predicate)
     {
         return FirstColumn(predicate);
     }
 
-    internal XLRangeColumn FirstColumn(Func<IXLRangeColumn, bool> predicate = null)
+    internal XLRangeColumn? FirstColumn(Func<IXLRangeColumn, bool>? predicate = null)
     {
         if (predicate == null)
             return Column(1);
 
-        int columnCount = ColumnCount();
-        for (int c = 1; c <= columnCount; c++)
+        var columnCount = ColumnCount();
+        for (var c = 1; c <= columnCount; c++)
         {
             var column = Column(c);
             if (predicate(column)) return column;
@@ -383,18 +366,18 @@ internal class XLRange : XLRangeBase, IXLRange
         return null;
     }
 
-    IXLRangeColumn IXLRange.LastColumn(Func<IXLRangeColumn, bool> predicate)
+    IXLRangeColumn? IXLRange.LastColumn(Func<IXLRangeColumn, bool>? predicate)
     {
         return LastColumn(predicate);
     }
 
-    internal XLRangeColumn LastColumn(Func<IXLRangeColumn, bool> predicate = null)
+    internal XLRangeColumn? LastColumn(Func<IXLRangeColumn, bool>? predicate = null)
     {
-        int columnCount = ColumnCount();
+        var columnCount = ColumnCount();
         if (predicate == null)
             return Column(columnCount);
 
-        for (int c = columnCount; c >= 1; c--)
+        for (var c = columnCount; c >= 1; c--)
         {
             var column = Column(c);
             if (predicate(column)) return column;
@@ -403,34 +386,34 @@ internal class XLRange : XLRangeBase, IXLRange
         return null;
     }
 
-    IXLRangeColumn IXLRange.FirstColumnUsed(Func<IXLRangeColumn, bool> predicate)
+    IXLRangeColumn? IXLRange.FirstColumnUsed(Func<IXLRangeColumn, bool>? predicate)
     {
         return FirstColumnUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    internal XLRangeColumn FirstColumnUsed(Func<IXLRangeColumn, bool> predicate = null)
+    internal XLRangeColumn? FirstColumnUsed(Func<IXLRangeColumn, bool>? predicate = null)
     {
         return FirstColumnUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    IXLRangeColumn IXLRange.FirstColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool> predicate)
+    IXLRangeColumn? IXLRange.FirstColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool>? predicate)
     {
         return FirstColumnUsed(options, predicate);
     }
 
-    internal XLRangeColumn FirstColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool> predicate = null)
+    internal XLRangeColumn? FirstColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool>? predicate = null)
     {
         if (predicate == null)
         {
-            int firstColumnUsed = Worksheet.Internals.CellsCollection.FirstColumnUsed(
+            var firstColumnUsed = Worksheet.Internals.CellsCollection.FirstColumnUsed(
                 XLSheetRange.FromRangeAddress(RangeAddress),
                 options);
 
             return firstColumnUsed == 0 ? null : Column(firstColumnUsed - RangeAddress.FirstAddress.ColumnNumber + 1);
         }
 
-        int columnCount = ColumnCount();
-        for (int co = 1; co <= columnCount; co++)
+        var columnCount = ColumnCount();
+        for (var co = 1; co <= columnCount; co++)
         {
             var column = Column(co);
 
@@ -441,34 +424,34 @@ internal class XLRange : XLRangeBase, IXLRange
         return null;
     }
 
-    IXLRangeColumn IXLRange.LastColumnUsed(Func<IXLRangeColumn, bool> predicate)
+    IXLRangeColumn? IXLRange.LastColumnUsed(Func<IXLRangeColumn, bool>? predicate)
     {
         return LastColumnUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    internal XLRangeColumn LastColumnUsed(Func<IXLRangeColumn, bool> predicate = null)
+    internal XLRangeColumn? LastColumnUsed(Func<IXLRangeColumn, bool>? predicate = null)
     {
         return LastColumnUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    IXLRangeColumn IXLRange.LastColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool> predicate)
+    IXLRangeColumn? IXLRange.LastColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool>? predicate)
     {
         return LastColumnUsed(options, predicate);
     }
 
-    internal XLRangeColumn LastColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool> predicate = null)
+    internal XLRangeColumn? LastColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool>? predicate = null)
     {
         if (predicate == null)
         {
-            int lastColumnUsed = Worksheet.Internals.CellsCollection.LastColumnUsed(
+            var lastColumnUsed = Worksheet.Internals.CellsCollection.LastColumnUsed(
                 XLSheetRange.FromRangeAddress(RangeAddress),
                 options);
 
             return lastColumnUsed == 0 ? null : Column(lastColumnUsed - RangeAddress.FirstAddress.ColumnNumber + 1);
         }
 
-        int columnCount = ColumnCount();
-        for (int co = columnCount; co >= 1; co--)
+        var columnCount = ColumnCount();
+        for (var co = columnCount; co >= 1; co--)
         {
             var column = Column(co);
 
@@ -479,18 +462,18 @@ internal class XLRange : XLRangeBase, IXLRange
         return null;
     }
 
-    IXLRangeRow IXLRange.FirstRow(Func<IXLRangeRow, bool> predicate)
+    IXLRangeRow? IXLRange.FirstRow(Func<IXLRangeRow, bool>? predicate)
     {
         return FirstRow(predicate);
     }
 
-    public XLRangeRow FirstRow(Func<IXLRangeRow, bool> predicate = null)
+    public XLRangeRow? FirstRow(Func<IXLRangeRow, bool>? predicate = null)
     {
         if (predicate == null)
             return Row(1);
 
-        int rowCount = RowCount();
-        for (int ro = 1; ro <= rowCount; ro++)
+        var rowCount = RowCount();
+        for (var ro = 1; ro <= rowCount; ro++)
         {
             var row = Row(ro);
             if (predicate(row)) return row;
@@ -499,18 +482,18 @@ internal class XLRange : XLRangeBase, IXLRange
         return null;
     }
 
-    IXLRangeRow IXLRange.LastRow(Func<IXLRangeRow, bool> predicate)
+    IXLRangeRow? IXLRange.LastRow(Func<IXLRangeRow, bool>? predicate)
     {
         return LastRow(predicate);
     }
 
-    public XLRangeRow LastRow(Func<IXLRangeRow, bool> predicate = null)
+    public XLRangeRow? LastRow(Func<IXLRangeRow, bool>? predicate = null)
     {
-        int rowCount = RowCount();
+        var rowCount = RowCount();
         if (predicate == null)
             return Row(rowCount);
 
-        for (int ro = rowCount; ro >= 1; ro--)
+        for (var ro = rowCount; ro >= 1; ro--)
         {
             var row = Row(ro);
             if (predicate(row)) return row;
@@ -519,33 +502,33 @@ internal class XLRange : XLRangeBase, IXLRange
         return null;
     }
 
-    IXLRangeRow IXLRange.FirstRowUsed(Func<IXLRangeRow, bool> predicate)
+    IXLRangeRow? IXLRange.FirstRowUsed(Func<IXLRangeRow, bool>? predicate)
     {
         return FirstRowUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    internal XLRangeRow FirstRowUsed(Func<IXLRangeRow, bool> predicate = null)
+    internal XLRangeRow? FirstRowUsed(Func<IXLRangeRow, bool>? predicate = null)
     {
         return FirstRowUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    IXLRangeRow IXLRange.FirstRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool> predicate)
+    IXLRangeRow? IXLRange.FirstRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool>? predicate)
     {
         return FirstRowUsed(options, predicate);
     }
 
-    internal XLRangeRow FirstRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool> predicate = null)
+    internal XLRangeRow? FirstRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool>? predicate = null)
     {
         if (predicate == null)
         {
-            int rowFromCells = Worksheet.Internals.CellsCollection.FirstRowUsed(
+            var rowFromCells = Worksheet.Internals.CellsCollection.FirstRowUsed(
                 XLSheetRange.FromRangeAddress(RangeAddress), options);
 
             return rowFromCells == 0 ? null : Row(rowFromCells - RangeAddress.FirstAddress.RowNumber + 1);
         }
 
-        int rowCount = RowCount();
-        for (int ro = 1; ro <= rowCount; ro++)
+        var rowCount = RowCount();
+        for (var ro = 1; ro <= rowCount; ro++)
         {
             var row = Row(ro);
 
@@ -556,33 +539,33 @@ internal class XLRange : XLRangeBase, IXLRange
         return null;
     }
 
-    IXLRangeRow IXLRange.LastRowUsed(Func<IXLRangeRow, bool> predicate)
+    IXLRangeRow? IXLRange.LastRowUsed(Func<IXLRangeRow, bool>? predicate)
     {
         return LastRowUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    internal XLRangeRow LastRowUsed(Func<IXLRangeRow, bool> predicate = null)
+    internal XLRangeRow? LastRowUsed(Func<IXLRangeRow, bool>? predicate = null)
     {
         return LastRowUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    IXLRangeRow IXLRange.LastRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool> predicate)
+    IXLRangeRow? IXLRange.LastRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool>? predicate)
     {
         return LastRowUsed(options, predicate);
     }
 
-    internal XLRangeRow LastRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool> predicate = null)
+    internal XLRangeRow? LastRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool>? predicate = null)
     {
         if (predicate == null)
         {
-            int lastRowUsed = Worksheet.Internals.CellsCollection.LastRowUsed(
+            var lastRowUsed = Worksheet.Internals.CellsCollection.LastRowUsed(
                 XLSheetRange.FromRangeAddress(RangeAddress), options);
 
             return lastRowUsed == 0 ? null : Row(lastRowUsed - RangeAddress.FirstAddress.RowNumber + 1);
         }
 
-        int rowCount = RowCount();
-        for (int ro = rowCount; ro >= 1; ro--)
+        var rowCount = RowCount();
+        for (var ro = rowCount; ro >= 1; ro--)
         {
             var row = Row(ro);
 
@@ -593,17 +576,17 @@ internal class XLRange : XLRangeBase, IXLRange
         return null;
     }
 
-    IXLRangeRows IXLRange.RowsUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool> predicate)
+    IXLRangeRows IXLRange.RowsUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool>? predicate)
     {
         return RowsUsed(options, predicate);
     }
 
-    internal XLRangeRows RowsUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool> predicate = null)
+    internal XLRangeRows RowsUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool>? predicate = null)
     {
-        XLRangeRows rows = new XLRangeRows();
-        int rowCount = RowCount(options);
+        var rows = new XLRangeRows();
+        var rowCount = RowCount(options);
 
-        for (int ro = 1; ro <= rowCount; ro++)
+        for (var ro = 1; ro <= rowCount; ro++)
         {
             var row = Row(ro);
 
@@ -614,27 +597,27 @@ internal class XLRange : XLRangeBase, IXLRange
         return rows;
     }
 
-    IXLRangeRows IXLRange.RowsUsed(Func<IXLRangeRow, bool> predicate)
+    IXLRangeRows IXLRange.RowsUsed(Func<IXLRangeRow, bool>? predicate)
     {
         return RowsUsed(predicate);
     }
 
-    internal XLRangeRows RowsUsed(Func<IXLRangeRow, bool> predicate = null)
+    internal XLRangeRows RowsUsed(Func<IXLRangeRow, bool>? predicate = null)
     {
         return RowsUsed(XLCellsUsedOptions.AllContents, predicate);
     }
 
-    IXLRangeColumns IXLRange.ColumnsUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool> predicate)
+    IXLRangeColumns IXLRange.ColumnsUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool>? predicate)
     {
         return ColumnsUsed(options, predicate);
     }
 
-    internal virtual XLRangeColumns ColumnsUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool> predicate = null)
+    internal virtual XLRangeColumns ColumnsUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool>? predicate = null)
     {
-        XLRangeColumns columns = new XLRangeColumns();
-        int columnCount = ColumnCount(options);
+        var columns = new XLRangeColumns();
+        var columnCount = ColumnCount(options);
 
-        for (int co = 1; co <= columnCount; co++)
+        for (var co = 1; co <= columnCount; co++)
         {
             var column = Column(co);
 
@@ -645,12 +628,12 @@ internal class XLRange : XLRangeBase, IXLRange
         return columns;
     }
 
-    IXLRangeColumns IXLRange.ColumnsUsed(Func<IXLRangeColumn, bool> predicate)
+    IXLRangeColumns IXLRange.ColumnsUsed(Func<IXLRangeColumn, bool>? predicate)
     {
         return ColumnsUsed(predicate);
     }
 
-    internal virtual XLRangeColumns ColumnsUsed(Func<IXLRangeColumn, bool> predicate = null)
+    internal virtual XLRangeColumns ColumnsUsed(Func<IXLRangeColumn, bool>? predicate = null)
     {
         return ColumnsUsed(XLCellsUsedOptions.AllContents, predicate);
     }
@@ -796,7 +779,7 @@ internal class XLRange : XLRangeBase, IXLRange
         {
             if (rowCount > columnCount)
             {
-                int toMove = rowCount - columnCount;
+                var toMove = rowCount - columnCount;
                 var rngToClear = Worksheet.Range(
                     RangeAddress.FirstAddress.RowNumber,
                     RangeAddress.LastAddress.ColumnNumber + 1,
@@ -806,7 +789,7 @@ internal class XLRange : XLRangeBase, IXLRange
             }
             else if (columnCount > rowCount)
             {
-                int toMove = columnCount - rowCount;
+                var toMove = columnCount - rowCount;
                 var rngToClear = Worksheet.Range(
                     RangeAddress.LastAddress.RowNumber + 1,
                     RangeAddress.FirstAddress.ColumnNumber,
@@ -817,7 +800,7 @@ internal class XLRange : XLRangeBase, IXLRange
         }
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         var other = obj as XLRange;
         if (other == null)
@@ -838,10 +821,10 @@ internal class XLRange : XLRangeBase, IXLRange
         return this;
     }
 
-    public IXLRangeColumn FindColumn(Func<IXLRangeColumn, bool> predicate)
+    public IXLRangeColumn? FindColumn(Func<IXLRangeColumn, bool> predicate)
     {
-        int columnCount = ColumnCount();
-        for (int c = 1; c <= columnCount; c++)
+        var columnCount = ColumnCount();
+        for (var c = 1; c <= columnCount; c++)
         {
             var column = Column(c);
             if (predicate == null || predicate(column))
@@ -851,10 +834,10 @@ internal class XLRange : XLRangeBase, IXLRange
         return null;
     }
 
-    public IXLRangeRow FindRow(Func<IXLRangeRow, bool> predicate)
+    public IXLRangeRow? FindRow(Func<IXLRangeRow, bool> predicate)
     {
-        int rowCount = RowCount();
-        for (int r = 1; r <= rowCount; r++)
+        var rowCount = RowCount();
+        for (var r = 1; r <= rowCount; r++)
         {
             var row = Row(r);
             if (predicate(row))

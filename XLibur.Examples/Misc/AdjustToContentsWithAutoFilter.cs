@@ -4,7 +4,6 @@ namespace XLibur.Examples.Misc;
 
 public class AdjustToContentsWithAutoFilter : IXLExample
 {
-    // Public
     public void Create(string filePath)
     {
         var wb = new XLWorkbook();

@@ -1,13 +1,11 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal class RangeEventArgs : EventArgs
+internal sealed class RangeEventArgs : EventArgs
 {
     public RangeEventArgs(IXLRange range)
     {
@@ -17,16 +15,14 @@ internal class RangeEventArgs : EventArgs
     public IXLRange Range { get; }
 }
 
-internal class XLDataValidation : IXLDataValidation
+internal sealed class XLDataValidation : IXLDataValidation
 {
     private readonly XLRanges _ranges;
     private readonly XLWorksheet _worksheet;
 
     public XLDataValidation(IXLRange range)
-        : this(range?.Worksheet as XLWorksheet)
+        : this((XLWorksheet)(range ?? throw new ArgumentNullException(nameof(range))).Worksheet)
     {
-        if (range == null) throw new ArgumentNullException(nameof(range));
-
         AddRange(range);
     }
 
@@ -44,9 +40,9 @@ internal class XLDataValidation : IXLDataValidation
         Initialize();
     }
 
-    internal event EventHandler<RangeEventArgs> RangeAdded;
+    internal event EventHandler<RangeEventArgs>? RangeAdded;
 
-    internal event EventHandler<RangeEventArgs> RangeRemoved;
+    internal event EventHandler<RangeEventArgs>? RangeRemoved;
 
     internal XLWorksheet Worksheet => _worksheet;
 
@@ -93,7 +89,7 @@ internal class XLDataValidation : IXLDataValidation
 
         foreach (var rangeToSplit in rangesToSplit)
         {
-            var newRanges = (rangeToSplit as XLRange).Split(rangeAddress, includeIntersection: false);
+            var newRanges = ((XLRange)rangeToSplit).Split(rangeAddress, includeIntersection: false);
             RemoveRange(rangeToSplit);
             newRanges.ForEach(AddRange);
         }
@@ -119,8 +115,8 @@ internal class XLDataValidation : IXLDataValidation
 
     #region IXLDataValidation Members
 
-    private string maxValue;
-    private string minValue;
+    private string maxValue = string.Empty;
+    private string minValue = string.Empty;
     public XLAllowedValues AllowedValues { get; set; }
 
     public XLDateCriteria Date
@@ -141,15 +137,15 @@ internal class XLDataValidation : IXLDataValidation
         }
     }
 
-    public string ErrorMessage { get; set; }
+    public string ErrorMessage { get; set; } = string.Empty;
     public XLErrorStyle ErrorStyle { get; set; }
-    public string ErrorTitle { get; set; }
+    public string ErrorTitle { get; set; } = string.Empty;
     public bool IgnoreBlanks { get; set; }
     public bool InCellDropdown { get; set; }
-    public string InputMessage { get; set; }
-    public string InputTitle { get; set; }
-    public string MaxValue { get => maxValue; set { Validate(value); maxValue = value; } }
-    public string MinValue { get => minValue; set { Validate(value); minValue = value; } }
+    public string InputMessage { get; set; } = string.Empty;
+    public string InputTitle { get; set; } = string.Empty;
+    public string MaxValue { get => maxValue; set => maxValue = value; }
+    public string MinValue { get => minValue; set => minValue = value; }
     public XLOperator Operator { get; set; }
     public IEnumerable<IXLRange> Ranges => _ranges.AsEnumerable();
 
@@ -253,7 +249,22 @@ internal class XLDataValidation : IXLDataValidation
     {
         AllowedValues = XLAllowedValues.List;
         InCellDropdown = inCellDropdown;
-        Value = list;
+        Value = QuoteListValueIfNeeded(list);
+    }
+
+    private string QuoteListValueIfNeeded(string list)
+    {
+        if (list.Length == 0 || list[0] == '=' || list[0] == '"')
+            return list;
+
+        if (XLHelper.IsValidRangeAddress(list))
+            return list;
+
+        if (_worksheet.DefinedNames.Contains(list) ||
+            _worksheet.Workbook.DefinedNames.Contains(list))
+            return list;
+
+        return "\"" + list + "\"";
     }
 
     public void List(IXLRange range)
@@ -287,9 +298,4 @@ internal class XLDataValidation : IXLDataValidation
 
     #endregion IXLDataValidation Members
 
-    private void Validate(string value)
-    {
-        if (value.Length > 255)
-            throw new ArgumentOutOfRangeException(nameof(value), "The maximum allowed length of the value is 255 characters.");
-    }
 }

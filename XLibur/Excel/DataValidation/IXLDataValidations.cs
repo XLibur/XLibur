@@ -1,6 +1,3 @@
-#nullable disable
-
-
 using System;
 using System.Collections.Generic;
 
@@ -39,5 +36,5 @@ public interface IXLDataValidations : IEnumerable<IXLDataValidation>
     /// For example, if the rule is applied to ranges A1:A3,C1:C3 then this method will
     /// return True for ranges A1:A3, C1:C2, A2:A3, and False for ranges A1:C3, A1:C1, etc.</param>
     /// <returns>True is the data validation rule was found, false otherwise.</returns>
-    bool TryGet(IXLRangeAddress rangeAddress, out IXLDataValidation dataValidation);
+    bool TryGet(IXLRangeAddress rangeAddress, out IXLDataValidation? dataValidation);
 }

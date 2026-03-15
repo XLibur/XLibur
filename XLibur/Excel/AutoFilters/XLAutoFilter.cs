@@ -1,19 +1,23 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
 using System.Collections.Generic;
 
-internal class XLAutoFilter : IXLAutoFilter
+internal sealed class XLAutoFilter : IXLAutoFilter
 {
     /// <summary>
-    /// Key is column number.
+    /// The key is the column number.
     /// </summary>
     private readonly Dictionary<int, XLFilterColumn> _columns = new();
+
+    /// <summary>
+    /// When true, <see cref="Reapply"/> will not expand the range to include new data rows.
+    /// Used for table autofilters where the table manages the range.
+    /// </summary>
+    internal bool IsTableAutoFilter { get; set; }
 
     internal IReadOnlyDictionary<int, XLFilterColumn> Columns => _columns;
 
@@ -23,7 +27,7 @@ internal class XLAutoFilter : IXLAutoFilter
 
     public bool IsEnabled { get; set; }
 
-    public IXLRange Range { get; set; }
+    public IXLRange Range { get; set; } = null!;
 
     public int SortColumn { get; set; }
 
@@ -46,40 +50,83 @@ internal class XLAutoFilter : IXLAutoFilter
 
     public IXLAutoFilter Reapply()
     {
-        // Recalculate shown / hidden rows
+        if (!IsEnabled) return this;
+
+        ExpandRangeToData();
+
         var rows = Range.Rows(2, Range.RowCount());
-        rows.ForEach(row =>
-            row.WorksheetRow().Unhide()
-        );
+        rows.ForEach(row => row.WorksheetRow().Unhide());
 
         foreach (var filterColumn in _columns.Values)
             filterColumn.Refresh();
 
-        foreach (IXLRangeRow row in rows)
+        foreach (var row in rows)
         {
-            var rowMatch = true;
-
-            foreach (var (columnIndex, column) in _columns)
-            {
-                var cell = row.Cell(columnIndex);
-                var columnFilterMatch = column.Check(cell);
-                rowMatch &= columnFilterMatch;
-
-                if (!rowMatch) break;
-            }
-
-            if (!rowMatch) row.WorksheetRow().Hide();
+            if (!MatchesAllFilters(row))
+                row.WorksheetRow().Hide();
         }
 
         return this;
     }
 
+    /// <summary>
+    /// Expand the autofilter range downward to include any contiguous data rows
+    /// that were added after the filter was originally set.
+    /// </summary>
+    private void ExpandRangeToData()
+    {
+        if (IsTableAutoFilter)
+            return;
+
+        var rangeAddress = Range.RangeAddress;
+        var ws = Range.Worksheet;
+        var firstCol = rangeAddress.FirstAddress.ColumnNumber;
+        var lastCol = rangeAddress.LastAddress.ColumnNumber;
+        var currentLastRow = rangeAddress.LastAddress.RowNumber;
+
+        // Walk downward from the row after the current range to find contiguous data.
+        var newLastRow = currentLastRow;
+        while (true)
+        {
+            var nextRow = newLastRow + 1;
+            if (nextRow > XLHelper.MaxRowNumber)
+                break;
+
+            var hasData = false;
+            for (var col = firstCol; col <= lastCol; col++)
+            {
+                if (!ws.Cell(nextRow, col).IsEmpty())
+                {
+                    hasData = true;
+                    break;
+                }
+            }
+
+            if (!hasData)
+                break;
+
+            newLastRow = nextRow;
+        }
+
+        if (newLastRow > currentLastRow)
+        {
+            Range = ws.Range(
+                rangeAddress.FirstAddress.RowNumber, firstCol,
+                newLastRow, lastCol);
+        }
+    }
+
+    private bool MatchesAllFilters(IXLRangeRow row)
+    {
+        return _columns.All(kvp => kvp.Value.Check(row.Cell(kvp.Key)));
+    }
+
     #endregion IXLAutoFilter Members
 
-    internal XLFilterColumn Column(string columnLetter)
+    private XLFilterColumn Column(string columnLetter)
     {
         var columnNumber = XLHelper.GetColumnNumberFromLetter(columnLetter);
-        if (columnNumber < 1 || columnNumber > XLHelper.MaxColumnNumber)
+        if (columnNumber is < 1 or > XLHelper.MaxColumnNumber)
             throw new ArgumentOutOfRangeException(nameof(columnLetter), "Column '" + columnLetter + "' is outside the allowed column range.");
 
         return Column(columnNumber);
@@ -87,14 +134,12 @@ internal class XLAutoFilter : IXLAutoFilter
 
     internal XLFilterColumn Column(int columnNumber)
     {
-        if (columnNumber < 1 || columnNumber > XLHelper.MaxColumnNumber)
+        if (columnNumber is < 1 or > XLHelper.MaxColumnNumber)
             throw new ArgumentOutOfRangeException(nameof(columnNumber), "Column " + columnNumber + " is outside the allowed column range.");
 
-        if (!_columns.TryGetValue(columnNumber, out XLFilterColumn filterColumn))
-        {
-            filterColumn = new XLFilterColumn(this, columnNumber);
-            _columns.Add(columnNumber, filterColumn);
-        }
+        if (_columns.TryGetValue(columnNumber, out var filterColumn)) return filterColumn;
+        filterColumn = new XLFilterColumn(this, columnNumber);
+        _columns.Add(columnNumber, filterColumn);
 
         return filterColumn;
     }
@@ -114,7 +159,7 @@ internal class XLAutoFilter : IXLAutoFilter
 
     internal XLAutoFilter Set(IXLRangeBase range)
     {
-        var firstOverlappingTable = range.Worksheet.Tables.FirstOrDefault(t => t.RangeUsed().Intersects(range));
+        var firstOverlappingTable = range.Worksheet.Tables.FirstOrDefault(t => t.RangeUsed()!.Intersects(range));
         if (firstOverlappingTable != null)
             throw new InvalidOperationException($"The range {range.RangeAddress.ToStringRelative(includeSheet: true)} is already part of table '{firstOverlappingTable.Name}'");
 
@@ -123,7 +168,7 @@ internal class XLAutoFilter : IXLAutoFilter
         return this;
     }
 
-    internal XLAutoFilter Sort(int columnToSortBy, XLSortOrder sortOrder, bool matchCase, bool ignoreBlanks)
+    private XLAutoFilter Sort(int columnToSortBy, XLSortOrder sortOrder, bool matchCase, bool ignoreBlanks)
     {
         if (!IsEnabled)
             throw new InvalidOperationException("Filter has not been enabled.");

@@ -2,12 +2,16 @@ using XLibur.Graphics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
 internal sealed class XLRow : XLRangeBase, IXLRow
 {
     #region Private fields
+
+    private readonly XLWorksheet _worksheet;
+    private int _rowNumber;
 
     /// <summary>
     /// Don't use directly, use properties.
@@ -25,14 +29,23 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     /// The direct constructor should only be used in <see cref="XLWorksheet.RangeFactory"/>.
     /// </summary>
     public XLRow(XLWorksheet worksheet, int row)
-        : base(XLRangeAddress.EntireRow(worksheet, row), worksheet.StyleValue)
+        : base(worksheet.StyleValue)
     {
-        SetRowNumber(row);
+        _worksheet = worksheet;
+        _rowNumber = row;
 
         _height = worksheet.RowHeight;
     }
 
     #endregion Constructor
+
+    public override XLRangeAddress RangeAddress
+    {
+        get => XLRangeAddress.EntireRow(_worksheet, _rowNumber);
+        protected set => _rowNumber = value.FirstAddress.RowNumber;
+    }
+
+    public override XLWorksheet Worksheet => _worksheet;
 
     public override XLRangeType RangeType
     {
@@ -223,7 +236,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     {
         return usedCellsOnly
             ? Cells(true, XLCellsUsedOptions.AllContents)
-            : Cells(FirstCellUsed().Address.ColumnNumber, LastCellUsed().Address.ColumnNumber);
+            : Cells(FirstCellUsed()!.Address.ColumnNumber, LastCellUsed()!.Address.ColumnNumber);
     }
 
     public override XLCells Cells(string cellsInRow)
@@ -529,8 +542,8 @@ internal sealed class XLRow : XLRangeBase, IXLRow
 
     public IXLRangeRow RowUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
     {
-        return Row((this as IXLRangeBase).FirstCellUsed(options),
-            (this as IXLRangeBase).LastCellUsed(options));
+        return Row((this as IXLRangeBase).FirstCellUsed(options)!,
+            (this as IXLRangeBase).LastCellUsed(options)!);
     }
 
     #endregion IXLRow Members
@@ -552,14 +565,9 @@ internal sealed class XLRow : XLRangeBase, IXLRow
 
     internal void SetRowNumber(int row)
     {
-        RangeAddress = new XLRangeAddress(
-            new XLAddress(Worksheet, row, 1, RangeAddress.FirstAddress.FixedRow,
-                RangeAddress.FirstAddress.FixedColumn),
-            new XLAddress(Worksheet,
-                row,
-                XLHelper.MaxColumnNumber,
-                RangeAddress.LastAddress.FixedRow,
-                RangeAddress.LastAddress.FixedColumn));
+        var oldAddress = RangeAddress;
+        _rowNumber = row;
+        OnRangeAddressChanged(oldAddress, RangeAddress);
     }
 
     public override XLRange Range(string rangeAddressStr)

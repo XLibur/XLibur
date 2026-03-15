@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace XLibur.Excel.IO;
 
-internal class LoadContext
+internal sealed class LoadContext
 {
     /// <summary>
     /// Conditional formats for pivot tables, loaded from sheets. Key is sheet name, value is the
@@ -81,6 +81,12 @@ internal class LoadContext
         };
         return XLNumberFormatValue.FromKey(ref predefinedFormatKey);
     }
+
+    /// <summary>
+    /// Maps 1-based vm (value metadata) index to cell image info loaded from rich data parts.
+    /// Populated by <see cref="RichDataReader"/>.
+    /// </summary>
+    internal Dictionary<uint, XLCellImage>? RichValueImages { get; set; }
 
     private static Exception PivotCfNotFoundException(string sheetName, int priority)
     {

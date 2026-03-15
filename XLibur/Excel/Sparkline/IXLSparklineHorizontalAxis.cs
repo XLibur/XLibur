@@ -1,6 +1,3 @@
-#nullable disable
-
-
 namespace XLibur.Excel;
 
 public interface IXLSparklineHorizontalAxis

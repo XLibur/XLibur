@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLPivotStyleFormat : XLPivotStyleFormatBase
+internal sealed class XLPivotStyleFormat : XLPivotStyleFormatBase
 {
     private readonly Func<XLPivotArea, bool> _filter;
     private readonly Func<XLPivotArea> _factory;

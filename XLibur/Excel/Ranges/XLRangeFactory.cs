@@ -1,10 +1,8 @@
-#nullable disable
-
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLRangeFactory
+internal sealed class XLRangeFactory
 {
     #region Properties
 
@@ -23,33 +21,16 @@ internal class XLRangeFactory
 
     #region Methods
 
-    public XLRangeBase Create(XLRangeKey key)
+    public XLRangeBase Create(XLRangeKey key) => key.RangeType switch
     {
-        switch (key.RangeType)
-        {
-            case XLRangeType.Range:
-                return CreateRange(key.RangeAddress);
-
-            case XLRangeType.Column:
-                return CreateColumn(key.RangeAddress.FirstAddress.ColumnNumber);
-
-            case XLRangeType.Row:
-                return CreateColumn(key.RangeAddress.FirstAddress.RowNumber);
-
-            case XLRangeType.RangeColumn:
-                return CreateRangeColumn(key.RangeAddress);
-
-            case XLRangeType.RangeRow:
-                return CreateRangeRow(key.RangeAddress);
-
-            case XLRangeType.Table:
-                return CreateTable(key.RangeAddress);
-
-            case XLRangeType.Worksheet:
-            default:
-                throw new NotImplementedException(key.RangeType.ToString());
-        }
-    }
+        XLRangeType.Range => CreateRange(key.RangeAddress),
+        XLRangeType.Column => CreateColumn(key.RangeAddress.FirstAddress.ColumnNumber),
+        XLRangeType.Row => CreateColumn(key.RangeAddress.FirstAddress.RowNumber),
+        XLRangeType.RangeColumn => CreateRangeColumn(key.RangeAddress),
+        XLRangeType.RangeRow => CreateRangeRow(key.RangeAddress),
+        XLRangeType.Table => CreateTable(key.RangeAddress),
+        _ => throw new NotImplementedException(key.RangeType.ToString()),
+    };
 
     public XLRange CreateRange(XLRangeAddress rangeAddress)
     {

@@ -1,8 +1,6 @@
-#nullable disable
+﻿namespace XLibur.Excel;
 
-namespace XLibur.Excel;
-
-internal class XLRangeParameters
+internal sealed class XLRangeParameters
 {
     #region Constructor
 

@@ -6,12 +6,9 @@ namespace XLibur.Examples.Ranges;
 
 public class AddingRowToTables : IXLExample
 {
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
-        string tempFile = ExampleHelper.GetTempFilePath(filePath);
+        var tempFile = ExampleHelper.GetTempFilePath(filePath);
         try
         {
             new BasicTable().Create(tempFile);
@@ -45,10 +42,4 @@ public class AddingRowToTables : IXLExample
             }
         }
     }
-
-    // Private
-
-    // Override
-
-    #endregion Methods
 }

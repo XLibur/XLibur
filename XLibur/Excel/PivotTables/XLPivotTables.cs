@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 
 using System;
 using System.Collections.Generic;
@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLPivotTables : IXLPivotTables, IEnumerable<XLPivotTable>
+internal sealed class XLPivotTables : IXLPivotTables, IEnumerable<XLPivotTable>
 {
     private readonly Dictionary<string, XLPivotTable> _pivotTables = new(StringComparer.OrdinalIgnoreCase);
 

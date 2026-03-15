@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace XLibur.Excel;
 
 public interface IXLTableRow : IXLRangeRow
@@ -10,7 +8,8 @@ public interface IXLTableRow : IXLRangeRow
 
     new IXLTableRow Sort();
 
-    new IXLTableRow SortLeftToRight(XLSortOrder sortOrder = XLSortOrder.Ascending, bool matchCase = false, bool ignoreBlanks = true);
+    new IXLTableRow SortLeftToRight(XLSortOrder sortOrder = XLSortOrder.Ascending, bool matchCase = false,
+        bool ignoreBlanks = true);
 
     new IXLTableRow RowAbove();
 

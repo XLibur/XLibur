@@ -1,12 +1,10 @@
 using System.Linq;
 using XLibur.Excel;
 
-
 namespace XLibur.Examples.Misc;
 
 public class MultipleSheets : IXLExample
 {
-
     public void Create(string filePath)
     {
         var wb = new XLWorkbook();

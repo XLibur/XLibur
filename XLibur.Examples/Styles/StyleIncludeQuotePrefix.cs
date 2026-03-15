@@ -22,7 +22,7 @@ public class StyleIncludeQuotePrefix : IXLExample
 
         ws.FirstCell().InsertData(data);
 
-        // Columns B to D will be of type text
+        // Columns B to D will be of type text,
         // but column B will not have the leading quotation mark
         ws.Column("B").Style.IncludeQuotePrefix = false;
 

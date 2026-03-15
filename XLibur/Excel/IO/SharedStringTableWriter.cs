@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Xml;
 using XLibur.Utils;
 using XLibur.Extensions;
@@ -8,7 +8,7 @@ using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
-internal class SharedStringTableWriter
+internal sealed class SharedStringTableWriter
 {
     internal static void GenerateSharedStringTablePartContent(XLWorkbook workbook, SharedStringTablePart sharedStringTablePart,
         SaveContext context)
@@ -33,7 +33,7 @@ internal class SharedStringTableWriter
         var sst = workbook.SharedStringTable;
         var map = sst.GetConsecutiveMap();
         context.SstMap = map;
-        for (var sharedStringId = 0; sharedStringId < map.Count; ++sharedStringId)
+        for (var sharedStringId = 0; sharedStringId < map.Length; ++sharedStringId)
         {
             var continuousId = map[sharedStringId];
             if (continuousId < 0)
@@ -51,7 +51,7 @@ internal class SharedStringTableWriter
                 xml.WriteStartElement("si", Main2006SsNs);
                 xml.WriteStartElement("t", Main2006SsNs);
                 var sharedString = sst[sharedStringId];
-                if (!sharedString.Trim().Equals(sharedString))
+                if (sharedString.PreserveSpaces())
                     xml.WritePreserveSpaceAttr();
 
                 xml.WriteString(XmlEncoder.EncodeString(sharedString));

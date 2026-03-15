@@ -1,14 +1,20 @@
-#nullable disable
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLPrintAreas : IXLPrintAreas
+internal sealed class XLPrintAreas : IXLPrintAreas
 {
     List<IXLRange> ranges = new List<IXLRange>();
     private XLWorksheet worksheet;
+
+    /// <summary>
+    /// Stores the raw defined name text when the print area contains a formula
+    /// (e.g. OFFSET) that cannot be resolved to a simple range reference.
+    /// When set, this value is written as-is to the workbook on save.
+    /// </summary>
+    internal string? FormulaReference { get; set; }
+
     public XLPrintAreas(XLWorksheet worksheet)
     {
         this.worksheet = worksheet;
@@ -17,6 +23,7 @@ internal class XLPrintAreas : IXLPrintAreas
     public XLPrintAreas(XLPrintAreas defaultPrintAreas, XLWorksheet worksheet)
     {
         ranges = defaultPrintAreas.ranges.ToList();
+        FormulaReference = defaultPrintAreas.FormulaReference;
         this.worksheet = worksheet;
     }
 
@@ -32,7 +39,7 @@ internal class XLPrintAreas : IXLPrintAreas
 
     public void Add(string rangeAddress)
     {
-        ranges.Add(worksheet.Range(rangeAddress));
+        ranges.Add(worksheet.Range(rangeAddress)!);
     }
 
     public void Add(string firstCellAddress, string lastCellAddress)

@@ -1,11 +1,8 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLSheetView : IXLSheetView
+internal sealed class XLSheetView : IXLSheetView
 {
     public XLSheetView(XLWorksheet worksheet)
     {
@@ -24,21 +21,29 @@ internal class XLSheetView : IXLSheetView
         SplitRow = sheetView.SplitRow;
         SplitColumn = sheetView.SplitColumn;
         FreezePanes = sheetView.FreezePanes;
-        TopLeftCellAddress = new XLAddress(Worksheet, sheetView.TopLeftCellAddress.RowNumber, sheetView.TopLeftCellAddress.ColumnNumber, sheetView.TopLeftCellAddress.FixedRow, sheetView.TopLeftCellAddress.FixedColumn);
+        TopLeftCellAddress = new XLAddress(Worksheet, sheetView.TopLeftCellAddress.RowNumber,
+            sheetView.TopLeftCellAddress.ColumnNumber, sheetView.TopLeftCellAddress.FixedRow,
+            sheetView.TopLeftCellAddress.FixedColumn);
     }
 
     public bool FreezePanes { get; set; }
+
     public int SplitColumn { get; set; }
+
     public int SplitRow { get; set; }
 
-    IXLAddress IXLSheetView.TopLeftCellAddress { get => TopLeftCellAddress; set => TopLeftCellAddress = (XLAddress)value; }
+    IXLAddress IXLSheetView.TopLeftCellAddress
+    {
+        get => TopLeftCellAddress;
+        set => TopLeftCellAddress = (XLAddress)value;
+    }
 
     public XLAddress TopLeftCellAddress
     {
         get;
         set
         {
-            if (value.HasWorksheet && !value.Worksheet.Equals(Worksheet))
+            if (value.HasWorksheet && !value.Worksheet!.Equals(Worksheet))
                 throw new ArgumentException("The value should be on the same worksheet as the sheet view.");
 
             field = value;

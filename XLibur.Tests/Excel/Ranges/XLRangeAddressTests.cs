@@ -1,8 +1,8 @@
+using System;
 using XLibur.Excel;
 using NUnit.Framework;
-using System;
 
-namespace XLibur.Tests;
+namespace XLibur.Tests.Excel.Ranges;
 
 [TestFixture]
 public class XLRangeAddressTests
@@ -10,8 +10,8 @@ public class XLRangeAddressTests
     [Test]
     public void ToStringTest()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLRangeAddress address = ws.Cell(1, 1).AsRange().RangeAddress;
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var address = ws.Cell(1, 1).AsRange().RangeAddress;
 
         Assert.AreEqual("A1:A1", address.ToString());
         Assert.AreEqual("Sheet1!R1C1:R1C1", address.ToString(XLReferenceStyle.R1C1, true));
@@ -31,8 +31,8 @@ public class XLRangeAddressTests
     [Test]
     public void ToStringTestWithSpace()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet 1");
-        IXLRangeAddress address = ws.Cell(1, 1).AsRange().RangeAddress;
+        var ws = new XLWorkbook().Worksheets.Add("Sheet 1");
+        var address = ws.Cell(1, 1).AsRange().RangeAddress;
 
         Assert.AreEqual("A1:A1", address.ToString());
         Assert.AreEqual("'Sheet 1'!R1C1:R1C1", address.ToString(XLReferenceStyle.R1C1, true));
@@ -62,7 +62,7 @@ public class XLRangeAddressTests
     [TestCase("$B$5:$E$2", "$B$2:$E$5")]
     public void RangeAddressNormalizeTest(string inputAddress, string expectedAddress)
     {
-        XLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet 1") as XLWorksheet;
+        var ws = new XLWorkbook().Worksheets.Add("Sheet 1") as XLWorksheet;
         var rangeAddress = new XLRangeAddress(ws, inputAddress);
 
         var normalizedAddress = rangeAddress.Normalize();
@@ -319,7 +319,7 @@ public class XLRangeAddressTests
 
     private IXLRangeAddress ProduceInvalidAddress()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet 1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet 1");
         var range = ws.Range("A1:B2");
 
         ws.Rows(1, 5).Delete();
@@ -328,7 +328,7 @@ public class XLRangeAddressTests
 
     private IXLRangeAddress ProduceAddressOnDeletedWorksheet()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet 1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet 1");
         var address = ws.Range("A1:B2").RangeAddress;
 
         ws.Delete();

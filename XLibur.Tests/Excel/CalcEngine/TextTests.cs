@@ -2,6 +2,7 @@ using XLibur.Excel;
 using NUnit.Framework;
 using System;
 using System.Globalization;
+using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 

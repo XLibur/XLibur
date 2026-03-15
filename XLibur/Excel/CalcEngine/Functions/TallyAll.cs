@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Excel.CalcEngine.Functions;
@@ -7,7 +7,7 @@ namespace XLibur.Excel.CalcEngine.Functions;
 /// A tally function for *A functions (e.g. AverageA, MinA, MaxA). The behavior is buggy in Excel,
 /// because they doesn't count logical values in array, but do count them in reference ¯\_(ツ)_/¯.
 /// </summary>
-internal class TallyAll : ITally
+internal sealed class TallyAll : ITally
 {
     private readonly bool _ignoreArrayText;
     private readonly bool _includeErrors;

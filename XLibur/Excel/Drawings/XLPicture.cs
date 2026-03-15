@@ -1,7 +1,4 @@
-#nullable disable
-
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -12,9 +9,8 @@ using XLibur.Graphics;
 namespace XLibur.Excel.Drawings;
 
 [DebuggerDisplay("{Name}")]
-internal class XLPicture : IXLPicture
+internal sealed class XLPicture : IXLPicture
 {
-    private const string InvalidNameChars = @":\/?*[]";
     private int _height;
     private int _id;
     private string _name = string.Empty;
@@ -43,7 +39,7 @@ internal class XLPicture : IXLPicture
     {
         Worksheet = worksheet ?? throw new ArgumentNullException(nameof(worksheet));
         Placement = XLPicturePlacement.MoveAndSize;
-        Markers = new Dictionary<XLMarkerPosition, XLMarker>()
+        Markers = new Dictionary<XLMarkerPosition, XLMarker?>()
         {
             [XLMarkerPosition.TopLeft] = null,
             [XLMarkerPosition.BottomRight] = null
@@ -57,7 +53,7 @@ internal class XLPicture : IXLPicture
 
     public IXLCell BottomRightCell
     {
-        get { return Markers[XLMarkerPosition.BottomRight].Cell; }
+        get { return Markers[XLMarkerPosition.BottomRight]!.Cell; }
 
         private set
         {
@@ -93,7 +89,7 @@ internal class XLPicture : IXLPicture
         }
     }
 
-    public MemoryStream ImageStream { get; private set; }
+    public MemoryStream ImageStream { get; private set; } = null!;
 
     public int Left
     {
@@ -112,6 +108,7 @@ internal class XLPicture : IXLPicture
         get { return _name; }
         set
         {
+            ArgumentException.ThrowIfNullOrEmpty(value);
             if (_name == value) return;
 
             if ((Worksheet.Pictures.FirstOrDefault(p => p.Name.Equals(value, StringComparison.OrdinalIgnoreCase)) ??
@@ -142,7 +139,7 @@ internal class XLPicture : IXLPicture
 
     public IXLCell TopLeftCell
     {
-        get { return Markers[XLMarkerPosition.TopLeft].Cell; }
+        get { return Markers[XLMarkerPosition.TopLeft]!.Cell; }
 
         private set
         {
@@ -166,9 +163,9 @@ internal class XLPicture : IXLPicture
 
     public IXLWorksheet Worksheet { get; }
 
-    internal IDictionary<XLMarkerPosition, XLMarker> Markers { get; private set; }
+    internal IDictionary<XLMarkerPosition, XLMarker?> Markers { get; private set; }
 
-    internal string RelId { get; set; }
+    internal string? RelId { get; set; }
 
     /// <summary>
     /// Create a copy of the picture on a different worksheet.
@@ -205,7 +202,7 @@ internal class XLPicture : IXLPicture
 
     public Point GetOffset(XLMarkerPosition position)
     {
-        return Markers[position].Offset;
+        return Markers[position]!.Offset;
     }
 
     public IXLPicture MoveTo(int left, int top)
@@ -230,7 +227,7 @@ internal class XLPicture : IXLPicture
     {
         Placement = XLPicturePlacement.Move;
         TopLeftCell = cell ?? throw new ArgumentNullException(nameof(cell));
-        Markers[XLMarkerPosition.TopLeft].Offset = offset;
+        Markers[XLMarkerPosition.TopLeft]!.Offset = offset;
         return this;
     }
 
@@ -251,10 +248,10 @@ internal class XLPicture : IXLPicture
         Placement = XLPicturePlacement.MoveAndSize;
 
         TopLeftCell = fromCell ?? throw new ArgumentNullException(nameof(fromCell));
-        Markers[XLMarkerPosition.TopLeft].Offset = fromOffset;
+        Markers[XLMarkerPosition.TopLeft]!.Offset = fromOffset;
 
         BottomRightCell = toCell ?? throw new ArgumentNullException(nameof(toCell));
-        Markers[XLMarkerPosition.BottomRight].Offset = toOffset;
+        Markers[XLMarkerPosition.BottomRight]!.Offset = toOffset;
 
         return this;
     }
@@ -289,9 +286,9 @@ internal class XLPicture : IXLPicture
         return this;
     }
 
-    internal IXLPicture CopyTo(XLWorksheet targetSheet)
+    private IXLPicture CopyTo(XLWorksheet targetSheet)
     {
-        targetSheet ??= Worksheet as XLWorksheet;
+        targetSheet ??= (XLWorksheet)Worksheet;
 
         var newPicture = targetSheet == Worksheet
             ? targetSheet.AddPicture(ImageStream, Format)
@@ -317,6 +314,8 @@ internal class XLPicture : IXLPicture
                     targetSheet.Cell(BottomRightCell.Address),
                     GetOffset(XLMarkerPosition.BottomRight));
                 break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
 
         return newPicture;
@@ -326,13 +325,6 @@ internal class XLPicture : IXLPicture
     {
         if (string.IsNullOrWhiteSpace(value))
             throw new ArgumentException("Picture names cannot be empty");
-
-        if (value.IndexOfAny(InvalidNameChars.ToCharArray()) != -1)
-            throw new ArgumentException(
-                $"Picture names cannot contain any of the following characters: {InvalidNameChars}");
-
-        if (value.Length > 31)
-            throw new ArgumentException("Picture names cannot be more than 31 characters");
 
         _name = value;
     }

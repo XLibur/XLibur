@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +8,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// A collection of <see cref="XLPivotDataField"/>.
 /// </summary>
-internal class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XLPivotDataField>
+internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XLPivotDataField>
 {
     private readonly XLPivotTable _pivotTable;
 

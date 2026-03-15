@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Excel;
 
-internal class XLCellsCollection : IWorkbookListener
+internal sealed class XLCellsCollection : IWorkbookListener
 {
     private readonly XLWorksheet _ws;
     private readonly List<ISlice> _slices;
@@ -252,7 +252,7 @@ internal class XLCellsCollection : IWorkbookListener
                 continue;
 
             // Current row doesn't contain data it should, so it is a part of a permutation
-            // loop. Go over each item in a loop and 
+            // loop. Go over each item in a loop and
             // We need to replace
             var prevNumber = axisNumber;
             var currentNumber = dataAxisNumber;
@@ -377,7 +377,9 @@ internal class XLCellsCollection : IWorkbookListener
     /// </summary>
     internal struct SlicesEnumerator
     {
-        private readonly List<IEnumerator<XLSheetPoint>> _enumerators;
+        // Fixed-size array to avoid List overhead; max 4 slices (value, formula, style, misc).
+        private readonly IEnumerator<XLSheetPoint>[] _enumerators;
+        private int _count;
         private readonly bool _reverse;
 
         public SlicesEnumerator(XLSheetRange range, XLCellsCollection cellsCollection, bool reverse = false)
@@ -394,11 +396,12 @@ internal class XLCellsCollection : IWorkbookListener
         {
             Current = new XLSheetPoint(1, 1);
             _reverse = reverse;
-            _enumerators = [];
+            _enumerators = new IEnumerator<XLSheetPoint>[enumerators.Length];
+            _count = 0;
             foreach (var enumerator in enumerators)
             {
                 if (enumerator.MoveNext())
-                    _enumerators.Add(enumerator);
+                    _enumerators[_count++] = enumerator;
             }
         }
 
@@ -406,31 +409,41 @@ internal class XLCellsCollection : IWorkbookListener
 
         public bool MoveNext()
         {
-            XLSheetPoint? current = null;
-            foreach (var enumerator in _enumerators)
-            {
-                if (current is null || (
-                        _reverse
-                            ? enumerator.Current.CompareTo(current.Value) > 0
-                            : enumerator.Current.CompareTo(current.Value) < 0
-                    ))
-                    current = enumerator.Current;
-            }
-
-            if (current == null)
+            if (_count == 0)
                 return false;
 
-            Current = current.Value;
+            var hasValue = false;
+            var current = default(XLSheetPoint);
+            for (var i = 0; i < _count; i++)
+            {
+                var enumerator = _enumerators[i];
+                if (!hasValue || (
+                        _reverse
+                            ? enumerator.Current.CompareTo(current) > 0
+                            : enumerator.Current.CompareTo(current) < 0
+                    ))
+                {
+                    current = enumerator.Current;
+                    hasValue = true;
+                }
+            }
 
-            for (var i = _enumerators.Count - 1; i >= 0; --i)
+            if (!hasValue)
+                return false;
+
+            Current = current;
+
+            for (var i = _count - 1; i >= 0; --i)
             {
                 var enumerator = _enumerators[i];
                 if (enumerator.Current == current)
                 {
-                    var isDone = !enumerator.MoveNext();
-                    if (isDone)
+                    if (!enumerator.MoveNext())
                     {
-                        _enumerators.RemoveAt(i);
+                        // Swap-remove: move last element into this slot.
+                        _count--;
+                        if (i < _count)
+                            _enumerators[i] = _enumerators[_count];
                     }
                 }
             }

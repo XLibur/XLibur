@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -18,16 +16,15 @@ namespace XLibur.Excel;
 /// just don't use <c>ref</c> and structs will be copied.
 /// </remarks>
 /// <typeparam name="TElement">The type of data stored in the slice.</typeparam>
-internal partial class Slice<TElement> : ISlice
+internal sealed partial class Slice<TElement> : ISlice
 {
-    private static readonly Lut<TElement> Dummy = new();
-    private readonly TElement _defaultValue = default;
+    private readonly TElement _defaultValue = default!;
 
     /// <summary>
     /// The content of the slice. Note that LUT uses index that starts from 0,
     /// so rows and columns must be adjusted to retrieved the value.
     /// </summary>
-    private readonly Lut<Lut<TElement>> _data;
+    private readonly Lut<RowData> _data;
 
     /// <summary>
     /// Key is column number, value is number of cells in the column that are used.
@@ -51,11 +48,8 @@ internal partial class Slice<TElement> : ISlice
     {
         get
         {
-            var rowLut = _data.Get(row - 1);
-            if (rowLut is null)
-                return ref _defaultValue;
-
-            return ref rowLut.Get(column - 1);
+            ref readonly var rowData = ref _data.Get(row - 1);
+            return ref rowData.Get(column - 1);
         }
     }
 
@@ -73,10 +67,10 @@ internal partial class Slice<TElement> : ISlice
     {
         get
         {
-            var rowsEnumerator = new Lut<Lut<TElement>>.LutEnumerator(_data, XLHelper.MinRowNumber - 1, XLHelper.MaxRowNumber - 1);
+            var rowsEnumerator = new Lut<RowData>.LutEnumerator(_data, XLHelper.MinRowNumber - 1, XLHelper.MaxRowNumber - 1);
             while (rowsEnumerator.MoveNext())
             {
-                if (!rowsEnumerator.Current.IsEmpty)
+                if (rowsEnumerator.Current.IsNonEmpty)
                     yield return rowsEnumerator.Index + 1;
             }
         }
@@ -209,11 +203,8 @@ internal partial class Slice<TElement> : ISlice
 
     public bool IsUsed(XLSheetPoint address)
     {
-        var rowLut = _data.Get(address.Row - 1);
-        if (rowLut is null)
-            return false;
-
-        return rowLut.IsUsed(address.Column - 1);
+        ref readonly var rowData = ref _data.Get(address.Row - 1);
+        return rowData.IsUsed(address.Column - 1);
     }
 
     public void Swap(XLSheetPoint sp1, XLSheetPoint sp2)
@@ -229,16 +220,29 @@ internal partial class Slice<TElement> : ISlice
 
     internal void Set(int row, int column, in TElement value)
     {
-        var rowLut = _data.Get(row - 1);
-        if (rowLut is null)
+        ref readonly var existing = ref _data.Get(row - 1);
+        if (existing.IsEmpty)
         {
-            rowLut = new Lut<TElement>();
-            _data.Set(row - 1, rowLut);
+            // Don't allocate a row just to store the default value.
+            if (EqualityComparer<TElement>.Default.Equals(value, _defaultValue))
+                return;
+
+            var rowData = RowData.CreateForSet(column - 1, value);
+            _data.Set(row - 1, rowData);
+            IncrementColumnUsage(column);
+            if (column > MaxColumn)
+                MaxColumn = column;
+            return;
         }
 
-        var wasUsed = rowLut.IsUsed(column - 1);
-        rowLut.Set(column - 1, value);
-        var isUsed = rowLut.IsUsed(column - 1);
+        // Copy the struct so we can mutate it.
+        var rd = existing;
+        var wasUsed = rd.IsUsed(column - 1);
+        rd.Set(column - 1, value);
+        var isUsed = rd.IsUsed(column - 1);
+
+        // Write back (outer Lut detects default RowData and clears its bitmap).
+        _data.Set(row - 1, rd);
 
         if (wasUsed && !isUsed)
         {
@@ -247,9 +251,6 @@ internal partial class Slice<TElement> : ISlice
             {
                 MaxColumn = CalculateMaxColumn();
             }
-
-            if (rowLut.IsEmpty)
-                _data.Set(row - 1, null);
         }
 
         if (!wasUsed && isUsed)
@@ -263,7 +264,7 @@ internal partial class Slice<TElement> : ISlice
     private int CalculateMaxColumn()
     {
         var maxColIdx = -1;
-        var rowEnumerator = new Lut<Lut<TElement>>.LutEnumerator(_data, XLHelper.MinRowNumber - 1, XLHelper.MaxRowNumber - 1);
+        var rowEnumerator = new Lut<RowData>.LutEnumerator(_data, XLHelper.MinRowNumber - 1, XLHelper.MaxRowNumber - 1);
         while (rowEnumerator.MoveNext())
             maxColIdx = Math.Max(maxColIdx, rowEnumerator.Current.MaxUsedIndex);
 
@@ -294,18 +295,18 @@ internal partial class Slice<TElement> : ISlice
     /// Enumerator that returns used values from a specified range.
     /// </summary>
     [DebuggerDisplay("{Point}:{Current}")]
-    internal class Enumerator : IEnumerator<XLSheetPoint>
+    internal sealed class Enumerator : IEnumerator<XLSheetPoint>
     {
         private readonly XLSheetRange _range;
-        private Lut<TElement>.LutEnumerator _columnsEnumerator;
-        private Lut<Lut<TElement>>.LutEnumerator _rowsEnumerator;
+        private ColumnEnumerator _columnsEnumerator;
+        private Lut<RowData>.LutEnumerator _rowsEnumerator;
 
         internal Enumerator(Slice<TElement> slice, XLSheetRange range)
         {
             _range = range;
 
-            _columnsEnumerator = new Lut<TElement>.LutEnumerator(Dummy, XLHelper.MaxColumnNumber + 1, XLHelper.MaxColumnNumber + 1);
-            _rowsEnumerator = new Lut<Lut<TElement>>.LutEnumerator(
+            _columnsEnumerator = default;
+            _rowsEnumerator = new Lut<RowData>.LutEnumerator(
                 slice._data,
                 range.FirstPoint.Row - 1,
                 range.LastPoint.Row - 1);
@@ -325,8 +326,7 @@ internal partial class Slice<TElement> : ISlice
                 if (!_rowsEnumerator.MoveNext())
                     return false;
 
-                _columnsEnumerator = new Lut<TElement>.LutEnumerator(
-                    _rowsEnumerator.Current,
+                _columnsEnumerator = _rowsEnumerator.Current.GetColumnEnumerator(
                     _range.FirstPoint.Column - 1,
                     _range.LastPoint.Column - 1);
             }
@@ -347,14 +347,14 @@ internal partial class Slice<TElement> : ISlice
     private class ReverseEnumerator : IEnumerator<XLSheetPoint>
     {
         private readonly XLSheetRange _range;
-        private Lut<TElement>.ReverseLutEnumerator _columnsEnumerator;
-        private Lut<Lut<TElement>>.ReverseLutEnumerator _rowsEnumerator;
+        private ReverseColumnEnumerator _columnsEnumerator;
+        private Lut<RowData>.ReverseLutEnumerator _rowsEnumerator;
 
         internal ReverseEnumerator(Slice<TElement> slice, XLSheetRange range)
         {
             _range = range;
-            _columnsEnumerator = new Lut<TElement>.ReverseLutEnumerator(Dummy, -1, -1);
-            _rowsEnumerator = new Lut<Lut<TElement>>.ReverseLutEnumerator(
+            _columnsEnumerator = default;
+            _rowsEnumerator = new Lut<RowData>.ReverseLutEnumerator(
                 slice._data,
                 range.FirstPoint.Row - 1,
                 range.LastPoint.Row - 1);
@@ -371,14 +371,12 @@ internal partial class Slice<TElement> : ISlice
                 if (!_rowsEnumerator.MoveNext())
                     return false;
 
-                _columnsEnumerator = new Lut<TElement>.ReverseLutEnumerator(
-                    _rowsEnumerator.Current,
+                _columnsEnumerator = _rowsEnumerator.Current.GetReverseColumnEnumerator(
                     _range.FirstPoint.Column - 1,
                     _range.LastPoint.Column - 1);
             }
             return true;
         }
-
 
         void IEnumerator.Reset() => throw new NotSupportedException();
 

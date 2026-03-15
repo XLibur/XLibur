@@ -4,40 +4,6 @@ namespace XLibur.Examples.Rows;
 
 public class RowCells : IXLExample
 {
-    #region Variables
-
-    // Public
-
-    // Private
-
-
-    #endregion
-
-    #region Properties
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Events
-
-    // Public
-
-    // Private
-
-    // Override
-
-
-    #endregion
-
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var workbook = new XLWorkbook();
@@ -60,11 +26,4 @@ public class RowCells : IXLExample
 
         workbook.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

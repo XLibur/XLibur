@@ -1,4 +1,4 @@
-using XLibur.Excel.CalcEngine.Functions;
+﻿using XLibur.Excel.CalcEngine.Functions;
 using System;
 using System.Globalization;
 using System.Linq;
@@ -14,7 +14,7 @@ namespace XLibur.Excel.CalcEngine;
 /// <para>This class has three extensibility points:</para>
 /// <para>Use the <b>RegisterFunction</b> method to define custom functions.</para>
 /// </remarks>
-internal class XLCalcEngine : ISheetListener, IWorkbookListener
+internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 {
     private readonly CultureInfo _culture;
     private readonly ExpressionCache _cache;               // cache with parsed expressions
@@ -22,6 +22,13 @@ internal class XLCalcEngine : ISheetListener, IWorkbookListener
     private readonly CalculationVisitor _visitor;
     private DependencyTree? _dependencyTree;
     private XLCalculationChain? _chain;
+
+    /// <summary>
+    /// Set to true after <see cref="TryEvaluateSingleCell"/> clears a formula's dirty flag,
+    /// indicating that future MarkDirty calls need a dependency tree to
+    /// correctly propagate dirtiness to dependents.
+    /// </summary>
+    private bool _needsDependencyTree;
 
     public XLCalcEngine(CultureInfo culture)
     {
@@ -119,6 +126,7 @@ internal class XLCalcEngine : ISheetListener, IWorkbookListener
     {
         _dependencyTree = null;
         _chain = null;
+        _needsDependencyTree = false;
 
         // Mark everything as dirty, because there can be stale values
         foreach (var sheet in sheets)
@@ -134,10 +142,76 @@ internal class XLCalcEngine : ISheetListener, IWorkbookListener
 
     internal void MarkDirty(XLWorksheet sheet, XLSheetRange area)
     {
+        if (_dependencyTree is null && _needsDependencyTree)
+        {
+            _dependencyTree = DependencyTree.CreateFrom(sheet.Workbook);
+        }
+
         if (_dependencyTree is not null)
         {
             var bookArea = new XLBookArea(sheet.Name, area);
             _dependencyTree.MarkDirty(bookArea);
+        }
+    }
+
+    /// <summary>
+    /// Try to evaluate a single cell's formula directly, without building the full
+    /// dependency tree and calculation chain. If the formula references dirty
+    /// precedent cells (throws <see cref="GettingDataException"/>), falls back
+    /// to full workbook recalculation which handles dependency ordering.
+    /// </summary>
+    /// <returns><c>true</c> if single-cell eval succeeded, <c>false</c> if full recalculate was used.</returns>
+    internal bool TryEvaluateSingleCell(XLCellFormula formula, XLSheetPoint point, XLWorksheet sheet)
+    {
+        // DataTable formulas need the full chain for correct evaluation.
+        if (formula.Type == FormulaType.DataTable)
+        {
+            Recalculate(sheet.Workbook, null);
+            return false;
+        }
+
+        try
+        {
+            var valueSlice = sheet.Internals.CellsCollection.ValueSlice;
+            if (formula.Type == FormulaType.Normal)
+            {
+                var result = EvaluateFormula(
+                    formula.A1,
+                    sheet.Workbook,
+                    sheet,
+                    new XLAddress(sheet, point.Row, point.Column, true, true));
+                valueSlice.SetCellValue(point, result.ToCellValue());
+            }
+            else if (formula.Type == FormulaType.Array)
+            {
+                var range = formula.Range;
+                var leftTopCorner = range.FirstPoint;
+                var masterCell = sheet.Cell(leftTopCorner.Row, leftTopCorner.Column);
+                var array = EvaluateArrayFormula(formula.A1, masterCell, recalculateSheetId: null);
+                var result = array.Broadcast(range.Height, range.Width);
+
+                for (var rowIdx = 0; rowIdx < result.Height; ++rowIdx)
+                {
+                    for (var colIdx = 0; colIdx < result.Width; ++colIdx)
+                    {
+                        var cellValue = result[rowIdx, colIdx];
+                        var row = range.FirstPoint.Row + rowIdx;
+                        var column = range.FirstPoint.Column + colIdx;
+                        valueSlice.SetCellValue(new XLSheetPoint(row, column), cellValue.ToCellValue());
+                    }
+                }
+            }
+
+            formula.IsDirty = false;
+            _needsDependencyTree = true;
+            return true;
+        }
+        catch (GettingDataException)
+        {
+            // Formula depends on a dirty precedent cell — need the full
+            // dependency-ordered recalculation to resolve it.
+            Recalculate(sheet.Workbook, null);
+            return false;
         }
     }
 
@@ -313,7 +387,7 @@ internal class XLCalcEngine : ISheetListener, IWorkbookListener
         if (result.TryPickSingleOrMultiValue(out var single, out var multi, ctx))
             return new ScalarArray(single, 1, 1);
 
-        return multi;
+        return multi!;
     }
 
     internal AnyValue EvaluateName(string nameFormula, XLWorksheet ws)

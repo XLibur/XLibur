@@ -1,13 +1,12 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
 using System.Linq;
 
-internal class XLHeaderFooter : IXLHeaderFooter
+internal sealed class XLHeaderFooter : IXLHeaderFooter
 {
     public XLHeaderFooter(XLWorksheet worksheet)
     {
@@ -45,8 +44,6 @@ internal class XLHeaderFooter : IXLHeaderFooter
         retVal += leftText.Length > 0 ? "&L" + leftText : string.Empty;
         retVal += centerText.Length > 0 ? "&C" + centerText : string.Empty;
         retVal += rightText.Length > 0 ? "&R" + rightText : string.Empty;
-        if (retVal.Length > 255)
-            throw new ArgumentOutOfRangeException("Headers and Footers cannot be longer than 255 characters (including style markups)");
         return retVal;
     }
 
@@ -114,7 +111,7 @@ internal class XLHeaderFooter : IXLHeaderFooter
         return parsedElements;
     }
 
-    private Dictionary<XLHFOccurrence, string> _initialTexts;
+    private Dictionary<XLHFOccurrence, string> _initialTexts = new();
 
     internal bool Changed
     {
@@ -140,5 +137,41 @@ internal class XLHeaderFooter : IXLHeaderFooter
         Right.Clear(occurrence);
         Center.Clear(occurrence);
         return this;
+    }
+
+    /// <summary>
+    /// Returns true if any left/center/right item has images for any occurrence.
+    /// </summary>
+    internal bool HasImages =>
+        ((XLHFItem)Left).HasImages ||
+        ((XLHFItem)Center).HasImages ||
+        ((XLHFItem)Right).HasImages;
+
+    /// <summary>
+    /// Collects all images across all occurrences, keyed by their VML position code
+    /// (e.g. "LH", "CH", "RH" for header or "LF", "CF", "RF" for footer).
+    /// </summary>
+    /// <param name="suffix">"H" for header, "F" for footer.</param>
+    internal List<XLHFImage> CollectImages(string suffix)
+    {
+        var result = new List<XLHFImage>();
+        var items = new[] { ('L', (XLHFItem)Left), ('C', (XLHFItem)Center), ('R', (XLHFItem)Right) };
+        var occurrences = new[] { XLHFOccurrence.OddPages, XLHFOccurrence.EvenPages, XLHFOccurrence.FirstPage };
+
+        foreach (var (posChar, item) in items)
+        {
+            foreach (var occ in occurrences)
+            {
+                var image = item.GetImage(occ);
+                if (image != null)
+                {
+                    image.PositionCode = $"{posChar}{suffix}";
+                    if (!result.Contains(image))
+                        result.Add(image);
+                }
+            }
+        }
+
+        return result;
     }
 }

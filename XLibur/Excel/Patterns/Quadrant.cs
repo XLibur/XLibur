@@ -1,6 +1,4 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -21,7 +19,7 @@ internal class Quadrant
     /// <summary>
     /// Smaller quadrants which the current one is split to. Is NULL until ranges are added to child quadrants.
     /// </summary>
-    public IReadOnlyList<Quadrant> Children { get; private set; }
+    public IReadOnlyList<Quadrant>? Children { get; private set; }
 
     /// <summary>
     /// The level of current quadrant. Top most has level 0, child quadrants has levels (Level + 1).
@@ -51,7 +49,7 @@ internal class Quadrant
     /// <summary>
     /// Collection of ranges belonging to this quadrant (does not include ranges from child quadrants).
     /// </summary>
-    public IEnumerable<IXLAddressable> Ranges
+    public IEnumerable<IXLAddressable>? Ranges
     {
         get => _ranges?.Values.AsEnumerable();
     }
@@ -274,7 +272,7 @@ internal class Quadrant
     /// <summary>
     /// Collection of ranges belonging to the current quadrant (that cannot fit into child quadrants).
     /// </summary>
-    private Dictionary<IXLRangeAddress, IXLAddressable> _ranges;
+    private Dictionary<IXLRangeAddress, IXLAddressable>? _ranges;
 
     #endregion Private Fields
 
@@ -350,10 +348,10 @@ internal class Quadrant
 /// <summary>
 /// A generic version of <see cref="Quadrant"/>
 /// </summary>
-internal class Quadrant<T> : Quadrant
+internal sealed class Quadrant<T> : Quadrant
     where T : IXLAddressable
 {
-    public new IEnumerable<T> Ranges => base.Ranges.Cast<T>();
+    public new IEnumerable<T>? Ranges => base.Ranges?.Cast<T>();
 
     public bool Add(T range)
     {

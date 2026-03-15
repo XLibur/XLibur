@@ -1,7 +1,3 @@
-#nullable disable
-
-
-
 namespace XLibur.Excel;
 
 public interface IXLSparklineStyle

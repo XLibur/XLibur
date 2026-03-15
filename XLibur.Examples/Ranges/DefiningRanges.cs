@@ -5,9 +5,6 @@ namespace XLibur.Examples.Ranges;
 
 public class DefiningRanges : IXLExample
 {
-    #region Methods
-
-    // Public
     public void Create(string filePath)
     {
         var workbook = new XLWorkbook();
@@ -37,11 +34,4 @@ public class DefiningRanges : IXLExample
 
         workbook.SaveAs(filePath);
     }
-
-    // Private
-
-    // Override
-
-
-    #endregion
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
@@ -49,7 +50,7 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
 
     public XLRangeAddress(XLWorksheet? worksheet, string rangeAddress) : this()
     {
-        string addressToUse = rangeAddress.Contains('!')
+        var addressToUse = rangeAddress.Contains('!')
             ? rangeAddress.Substring(rangeAddress.LastIndexOf('!') + 1)
             : rangeAddress;
 
@@ -101,19 +102,16 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
 
     public XLAddress LastAddress { get; }
 
-    IXLWorksheet? IXLRangeAddress.Worksheet
-    {
-        get { return Worksheet; }
-    }
+    IXLWorksheet? IXLRangeAddress.Worksheet => Worksheet;
 
     IXLAddress IXLRangeAddress.FirstAddress
     {
-        [DebuggerStepThrough] get { return FirstAddress; }
+        [DebuggerStepThrough] get => FirstAddress;
     }
 
     IXLAddress IXLRangeAddress.LastAddress
     {
-        [DebuggerStepThrough] get { return LastAddress; }
+        [DebuggerStepThrough] get => LastAddress;
     }
 
     public bool IsValid => FirstAddress.IsValid && LastAddress.IsValid;
@@ -224,7 +222,7 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
     }
 
     /// <summary>
-    /// Does this range contains whole another range?
+    /// Does this range contain whole another range?
     /// </summary>
     public bool ContainsWhole(IXLRangeAddress range)
     {

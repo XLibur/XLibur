@@ -1,10 +1,9 @@
-#nullable disable
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal class XLIdManager
+internal sealed class XLIdManager
 {
     private readonly HashSet<int> _hash = [];
 

@@ -1,8 +1,6 @@
-#nullable disable
+﻿namespace XLibur.Excel;
 
-namespace XLibur.Excel;
-
-internal class XLCFDataBarMin : IXLCFDataBarMin
+internal sealed class XLCFDataBarMin : IXLCFDataBarMin
 {
     private readonly XLConditionalFormat _conditionalFormat;
     public XLCFDataBarMin(XLConditionalFormat conditionalFormat)

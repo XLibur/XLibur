@@ -49,7 +49,7 @@ public class TextToNumberCoercionTests
     [TestCase("1,000.00%", 10)]
     [TestCase("(1,000.00%)", -10, Ignore = ".NET parser doesn't parse percents.")]
     [TestCase(" % 100", 1)] // Percents can be at start or end, position doesn't matter
-    public void Percent_UnlistedFormats(string percent, double? expectedValue) // 
+    public void Percent_UnlistedFormats(string percent, double? expectedValue) //
     {
         AssertCoercion(percent, expectedValue);
     }
@@ -88,7 +88,7 @@ public class TextToNumberCoercionTests
     }
 
     [TestCase("30-apr-2000", 36646)]
-    [TestCase("30-apr-20", 43951)] // 2020-04-30	
+    [TestCase("30-apr-20", 43951)] // 2020-04-30
     [TestCase("31-dec-9999", 2958465)]
     [TestCase("1-jan-10000", null)]
     [TestCase("1 - jan - 2022  ", 44562)] // Can have whitespace in the date
@@ -138,12 +138,12 @@ public class TextToNumberCoercionTests
     [TestCase("feb-31", 11355)] // 1931-02-01
     [TestCase("feb-003", null)] // three digits not allowed
     [TestCase("aug   -   55", 20302)] // spaces are allowed inside the pattern
-    [TestCase(" aug-55", null, Ignore = ".NET allow whitespaces even without specified DateTimeStyle.AllowLeadingWhite")] // starting spaces not allowed 
+    [TestCase(" aug-55", null, Ignore = ".NET allow whitespaces even without specified DateTimeStyle.AllowLeadingWhite")] // starting spaces not allowed
     [TestCase("aug-55 ", 20302)] // trailing spaces allowed
     [TestCase("MaR-42", 15401)] // case insensitive
     [TestCase("marc-2", 44622, Ignore = ".NET parser recognizes only abbreviation or full name of a month.")] // name can be more than three long abbr
     [TestCase("march-55", 20149)]
-    [TestCase("ma-2", null)] // Name of month must be at least three chars long	
+    [TestCase("ma-2", null)] // Name of month must be at least three chars long
     public void Date_Format17(string text, double? expectedValue) // Format 17 'mmm-yy'
     {
         AssertCoercion(text, expectedValue);
@@ -218,7 +218,7 @@ public class TextToNumberCoercionTests
     [TestCase("24:00:60", null)] // Only one part can be over the limit, but here are hours and seconds
     [TestCase("23:60:06", 1.000069444)]
     [TestCase("  24   :  00  :   59  ", 1.00068287)] // Extra padding
-    [TestCase("24:0:", 1)] // Last part can be omitted 
+    [TestCase("24:0:", 1)] // Last part can be omitted
     [TestCase("0::0", null)] // Parts in the middle can't be omitted
     [TestCase(":0:0", null)] // First part can't be omitted
     public void TimeSpan_Format21(string timeSpan, double? expectedValue) // 'h:mm:ss'

@@ -38,9 +38,9 @@ internal class XLPivotFieldStyleFormatsTests
     [TestCase(XLPivotLayout.Tabular, "Set_pivot_field_header_style-tabular.xlsx")]
     public void Set_pivot_field_header_style(XLPivotLayout layout, string testFile)
     {
-        // Header in compact is only one cell, whereas tabular has individual header for each field
-        // on axis. Tested axis contains two fields to check that even when there is only one header,
-        // it is used for all fields (i.e. the single header cell is colored, not a cell next to it).
+        // Header in compact is only one cell, whereas tabular has an individual header for each field on the
+        //  axis. Tested axis contains two fields to check that even when there is only one header,
+        // it is used for all fields (i.e., the single header cell is colored, not a cell next to it).
         TestHelper.CreateAndCompare(wb =>
         {
             var dataSheet = wb.AddWorksheet();
@@ -60,7 +60,7 @@ internal class XLPivotFieldStyleFormatsTests
             pt.ColumnLabels.Add("Name");
             var styledHeaderField = pt.ColumnLabels.Add("Flavor");
 
-            // Set two style in two steps to check that second one doesn't overwrite first one.
+            // Set two styles in two steps to check that second one doesn't overwrite first one.
             styledHeaderField.StyleFormats.Header.Style.Fill.SetBackgroundColor(XLColor.Green);
             styledHeaderField.StyleFormats.Header.Style.Font.SetFontColor(XLColor.Red);
         }, $@"Other\PivotTable\Style\{testFile}");
@@ -69,8 +69,8 @@ internal class XLPivotFieldStyleFormatsTests
     [Test]
     public void Set_pivot_field_subtotals_style()
     {
-        // In the test we set two subtotals, one for name and other for month. The month one
-        // is there to check the subtotal of a last field on an multi-field axis is displayed
+        // In the test we set two subtotals, one for name and the other for month. The month one
+        // is there to check the subtotal of a last field on a multi-field axis is displayed
         // correctly (it needs Outline:0 attribute to be displayed correctly in Excel).
         TestHelper.CreateAndCompare(wb =>
         {
@@ -94,7 +94,7 @@ internal class XLPivotFieldStyleFormatsTests
                 .AddSubtotal(XLSubtotalFunction.Minimum)
                 .SetSubtotalsAtTop(false);
 
-            // Set two style in two steps to check that second one doesn't overwrite first one
+            // Set two styles in two steps to check that second one doesn't overwrite first one
             // and also that second access modifies the same pivot area.
             nameField.StyleFormats.Subtotal.Style.Font.SetFontColor(XLColor.GoldenBrown);
             nameField.StyleFormats.Subtotal.Style.Fill.SetBackgroundColor(XLColor.Yellow);
@@ -109,11 +109,11 @@ internal class XLPivotFieldStyleFormatsTests
     {
         // Style cells that belong to a row/column that represent a specific field.
         // The question for data cell is this: does the row/column of the cell
-        // intersects a label that belongs to specified field? 
-        // Therefore, some cells are not styled, because they don't satisfy the
+        // intersect a label that belongs to a specified field?
+        // Therefore, some cells are not styled because they don't satisfy the
         // condition: grand columns, labels, rows that lie on name field row, but
         // not month field row.
-        // You can switch layout to Table and the demo styles will be overlapped.
+        // You can switch layout to Table, and the demo styles will be overlapped.
         TestHelper.CreateAndCompare(wb =>
         {
             var dataSheet = wb.AddWorksheet();
@@ -132,7 +132,7 @@ internal class XLPivotFieldStyleFormatsTests
             var flavorColumnField = pt.ColumnLabels.Add("Flavor");
             pt.Values.Add("Price");
 
-            // To demonstrate styling of data values on a row,
+            // To demonstrate styling of data values in a row,
             // also display subtotals for name field.
             nameRowField.AddSubtotal(XLSubtotalFunction.Sum);
             nameRowField.SubtotalsAtTop = true;
@@ -150,7 +150,7 @@ internal class XLPivotFieldStyleFormatsTests
     {
         // Style all data cells that display 'Max Price' value (i.e. value cells and grand totals)
         // and lie on a row that represents the 'flavor' field. 'lie on' means it intersects a row
-        // that contains field label.
+        // that contains a field label.
         TestHelper.CreateAndCompare(wb =>
         {
             var dataSheet = wb.AddWorksheet();

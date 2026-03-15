@@ -1,8 +1,4 @@
-#nullable disable
-
-
 using System;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -19,20 +15,23 @@ public static class AttributeExtensions
         return (TAttribute[])attributes;
     }
 
-    public static MethodInfo GetMethod<T>(this T instance, Expression<Func<T, object>> methodSelector)
+    extension<T>(T instance)
     {
-        return ((MethodCallExpression)methodSelector.Body).Method;
-    }
+        public MethodInfo GetMethod(Expression<Func<T, object>> methodSelector)
+        {
+            return ((MethodCallExpression)methodSelector.Body).Method;
+        }
 
-    public static MethodInfo GetMethod<T>(this T instance, Expression<Action<T>> methodSelector)
-    {
-        return ((MethodCallExpression)methodSelector.Body).Method;
+        public MethodInfo GetMethod(Expression<Action<T>> methodSelector)
+        {
+            return ((MethodCallExpression)methodSelector.Body).Method;
+        }
     }
 
     public static bool HasAttribute<TAttribute>(
         this MemberInfo member)
         where TAttribute : Attribute
     {
-        return GetAttributes<TAttribute>(member).Any();
+        return member.GetAttributes<TAttribute>().Length != 0;
     }
 }

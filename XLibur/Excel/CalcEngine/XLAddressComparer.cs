@@ -1,11 +1,9 @@
-#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Excel.CalcEngine;
 
-internal class XLAddressComparer : IEqualityComparer<IXLAddress>
+internal sealed class XLAddressComparer : IEqualityComparer<IXLAddress>
 {
     private readonly bool _ignoreFixed;
 
@@ -14,11 +12,11 @@ internal class XLAddressComparer : IEqualityComparer<IXLAddress>
         _ignoreFixed = ignoreFixed;
     }
 
-    public bool Equals(IXLAddress x, IXLAddress y)
+    public bool Equals(IXLAddress? x, IXLAddress? y)
     {
         return (x == null && y == null) ||
                (x != null && y != null &&
-                string.Equals(x.Worksheet.Name, y.Worksheet.Name, StringComparison.InvariantCultureIgnoreCase) &&
+                string.Equals(x.Worksheet?.Name, y.Worksheet?.Name, StringComparison.InvariantCultureIgnoreCase) &&
                 x.ColumnNumber == y.ColumnNumber &&
                 x.RowNumber == y.RowNumber &&
                 (_ignoreFixed || x.FixedColumn == y.FixedColumn &&
@@ -29,7 +27,7 @@ internal class XLAddressComparer : IEqualityComparer<IXLAddress>
     {
         return new
         {
-            WorksheetName = obj.Worksheet.Name.ToUpperInvariant(),
+            WorksheetName = obj.Worksheet?.Name.ToUpperInvariant(),
             obj.ColumnNumber,
             obj.RowNumber,
             FixedColumn = !_ignoreFixed && obj.FixedColumn,

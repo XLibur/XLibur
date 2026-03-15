@@ -7,7 +7,7 @@ using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
-internal class PivotTableCacheRecordsPartWriter
+internal sealed class PivotTableCacheRecordsPartWriter
 {
     internal static void WriteContent(PivotTableCacheRecordsPart recordsPart, XLPivotCache pivotCache)
     {
@@ -35,6 +35,9 @@ internal class PivotTableCacheRecordsPartWriter
             xml.WriteStartElement("r");
             for (var fieldIdx = 0; fieldIdx < fieldCount; ++fieldIdx)
             {
+                // Non-database fields (calculated and grouping) don't have records.
+                if (pivotCache.IsNonDatabaseField(fieldIdx))
+                    continue;
                 var fieldValues = pivotCache.GetFieldValues(fieldIdx);
                 var value = fieldValues.GetValue(recordIdx);
                 switch (value.Type)

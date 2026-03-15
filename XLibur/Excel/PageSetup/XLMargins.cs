@@ -1,8 +1,6 @@
-#nullable disable
+﻿namespace XLibur.Excel;
 
-namespace XLibur.Excel;
-
-internal class XLMargins : IXLMargins
+internal sealed class XLMargins : IXLMargins
 {
     public double Left { get; set; }
     public double Right { get; set; }

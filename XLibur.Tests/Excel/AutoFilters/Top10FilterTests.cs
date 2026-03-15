@@ -17,7 +17,7 @@ public class Top10FilterTests
                 var autoFilter = ws.Cell("A1").InsertData(new object[]
                 {
                     "Data",
-                    4,4,1,3,2,5,
+                    4, 4, 1, 3, 2, 5,
                 }).SetAutoFilter();
                 autoFilter.Column(1).Top(3);
             },

@@ -8,7 +8,7 @@ using System.Net.Mime;
 using System.Text;
 using System.Xml.Serialization;
 
-namespace XLibur.Tests;
+namespace XLibur.Tests.Utils;
 
 public static class PackageHelper
 {
@@ -273,7 +273,7 @@ public static class PackageHelper
 
         #endregion Check
 
-        excludeMethod ??= (uri => false);
+        excludeMethod ??= (_ => false);
         var leftParts = left.GetParts();
         var rightParts = right.GetParts();
 
@@ -344,7 +344,7 @@ public static class PackageHelper
 
         EXIT:
         var sortedPairs = pairs.Values.ToList();
-        sortedPairs.Sort((one, other) => one.Uri.OriginalString.CompareTo(other.Uri.OriginalString));
+        sortedPairs.Sort((one, other) => string.Compare(one.Uri.OriginalString, other.Uri.OriginalString, StringComparison.Ordinal));
         var sbuilder = new StringBuilder();
         foreach (var pair in sortedPairs.Where(pair => pair.Status != CompareStatus.Equal))
         {

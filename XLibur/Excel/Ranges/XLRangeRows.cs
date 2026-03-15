@@ -1,13 +1,12 @@
-#nullable disable
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
 using System.Collections;
 
-internal class XLRangeRows : XLStylizedBase, IXLRangeRows, IXLStylized
+internal sealed class XLRangeRows : XLStylizedBase, IXLRangeRows, IXLStylized
 {
     private readonly List<XLRangeRow> _ranges = new List<XLRangeRow>();
 
@@ -50,7 +49,7 @@ internal class XLRangeRows : XLStylizedBase, IXLRangeRows, IXLStylized
     public IXLCells Cells()
     {
         var cells = new XLCells(false, XLCellsUsedOptions.AllContents);
-        foreach (XLRangeRow container in _ranges)
+        foreach (var container in _ranges)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -58,7 +57,7 @@ internal class XLRangeRows : XLStylizedBase, IXLRangeRows, IXLStylized
     public IXLCells CellsUsed()
     {
         var cells = new XLCells(true, XLCellsUsedOptions.AllContents);
-        foreach (XLRangeRow container in _ranges)
+        foreach (var container in _ranges)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -67,7 +66,7 @@ internal class XLRangeRows : XLStylizedBase, IXLRangeRows, IXLStylized
     public IXLCells CellsUsed(XLCellsUsedOptions options)
     {
         var cells = new XLCells(true, options);
-        foreach (XLRangeRow container in _ranges)
+        foreach (var container in _ranges)
             cells.Add(container.RangeAddress);
         return cells;
     }

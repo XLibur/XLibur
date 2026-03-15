@@ -1,15 +1,14 @@
-﻿#nullable disable
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using XLibur.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Extensions;
 
 namespace XLibur.Excel.IO;
 
-internal class WorkbookPartWriter
+internal sealed class WorkbookPartWriter
 {
     internal static void GenerateContent(WorkbookPart workbookPart, XLWorkbook xlWorkbook, SaveOptions options, XLWorkbook.SaveContext context)
     {
@@ -93,12 +92,12 @@ internal class WorkbookPartWriter
         workbook.Sheets ??= new Sheets();
 
         var worksheets = xlWorkbook.WorksheetsInternal;
-        workbook.Sheets.Elements<Sheet>().Where(s => worksheets.Deleted.Contains(s.Id)).ToList().ForEach(
+        workbook.Sheets.Elements<Sheet>().Where(s => worksheets.Deleted.Contains(s.Id!)).ToList().ForEach(
             s => s.Remove());
 
         foreach (var sheet in workbook.Sheets.Elements<Sheet>())
         {
-            var sheetId = (int)sheet.SheetId.Value;
+            var sheetId = (int)sheet.SheetId!.Value;
 
             if (xlWorkbook.WorksheetsInternal.All<XLWorksheet>(w => w.SheetId != sheetId)) continue;
 
@@ -135,7 +134,7 @@ internal class WorkbookPartWriter
         }
 
         var sheetElements = from sheet in workbook.Sheets.Elements<Sheet>()
-                            join worksheet in ((IEnumerable<XLWorksheet>)xlWorkbook.WorksheetsInternal) on sheet.Id.Value
+                            join worksheet in ((IEnumerable<XLWorksheet>)xlWorkbook.WorksheetsInternal) on sheet.Id!.Value
                                 equals worksheet.RelId
                             orderby worksheet.Position
                             select sheet;
@@ -153,7 +152,7 @@ internal class WorkbookPartWriter
                 var sheet = sheetElements.ElementAt(p - xlWorkbook.UnsupportedSheets.Count(us => us.Position <= p) - 1);
                 workbook.Sheets.RemoveChild(sheet);
                 workbook.Sheets.AppendChild(sheet);
-                var xlSheet = xlWorkbook.Worksheet(sheet.Name);
+                var xlSheet = xlWorkbook.Worksheet(sheet.Name!.Value!);
                 if (xlSheet.Visibility != XLWorksheetVisibility.Visible)
                     sheet.State = xlSheet.Visibility.ToOpenXml();
                 else
@@ -168,8 +167,8 @@ internal class WorkbookPartWriter
             }
             else
             {
-                var sheetId = xlWorkbook.UnsupportedSheets.First(us => us.Position == p).SheetId;
-                var sheet = workbook.Sheets.Elements<Sheet>().First(s => s.SheetId == sheetId);
+                var unsupportedSheetId = xlWorkbook.UnsupportedSheets.First(us => us.Position == p).SheetId;
+                var sheet = workbook.Sheets.Elements<Sheet>().First(s => s.SheetId! == unsupportedSheetId);
                 workbook.Sheets.RemoveChild(sheet);
                 workbook.Sheets.AppendChild(sheet);
             }
@@ -216,12 +215,23 @@ internal class WorkbookPartWriter
         {
             var wsSheetId = worksheet.SheetId;
             uint sheetId = 0;
-            foreach (var s in workbook.Sheets.Elements<Sheet>().TakeWhile(s => s.SheetId != wsSheetId))
+            foreach (var s in workbook.Sheets.Elements<Sheet>().TakeWhile(s => s.SheetId! != wsSheetId))
             {
                 sheetId++;
             }
 
-            if (worksheet.PageSetup.PrintAreas.Any())
+            var printAreas = (XLPrintAreas)worksheet.PageSetup.PrintAreas;
+            if (printAreas.FormulaReference != null)
+            {
+                var definedName = new DefinedName
+                {
+                    Name = "_xlnm.Print_Area",
+                    LocalSheetId = sheetId,
+                    Text = printAreas.FormulaReference
+                };
+                definedNames.AppendChild(definedName);
+            }
+            else if (worksheet.PageSetup.PrintAreas.Any())
             {
                 var definedName = new DefinedName { Name = "_xlnm.Print_Area", LocalSheetId = sheetId };
                 var worksheetName = worksheet.Name;

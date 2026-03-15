@@ -1,8 +1,6 @@
-#nullable disable
+﻿namespace XLibur.Excel;
 
-namespace XLibur.Excel;
-
-internal class XLCFColorScaleMid : IXLCFColorScaleMid
+internal sealed class XLCFColorScaleMid : IXLCFColorScaleMid
 {
     private readonly XLConditionalFormat _conditionalFormat;
     public XLCFColorScaleMid(XLConditionalFormat conditionalFormat)
@@ -30,7 +28,7 @@ internal class XLCFColorScaleMid : IXLCFColorScaleMid
     }
     public void HighestValue(XLColor color)
     {
-        _conditionalFormat.Values.Initialize(null);
+        _conditionalFormat.Values.Initialize(null!);
         _conditionalFormat.Colors.Add(color);
         _conditionalFormat.ContentTypes.Add(XLCFContentType.Maximum);
     }

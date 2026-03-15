@@ -1,10 +1,8 @@
-#nullable disable
-
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
-internal class XLWorksheetInternals : IDisposable
+internal sealed class XLWorksheetInternals : IDisposable
 {
     public XLWorksheetInternals(
         XLCellsCollection cellsCollection,
@@ -20,8 +18,11 @@ internal class XLWorksheetInternals : IDisposable
     }
 
     public XLCellsCollection CellsCollection { get; }
+
     public XLColumnsCollection ColumnsCollection { get; }
+
     public XLRowsCollection RowsCollection { get; }
+
     public XLRanges MergedRanges { get; internal set; }
 
     public void Dispose()

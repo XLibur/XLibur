@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.IO;
 
@@ -7,118 +5,124 @@ namespace XLibur.Utils;
 
 internal static class StreamExtensions
 {
-    public static int ReadS32LE(this Stream stream)
+    // ReSharper disable once InconsistentNaming
+    extension(Stream stream)
     {
-        var b1 = stream.ReadU8();
-        var b2 = stream.ReadU8();
-        var b3 = stream.ReadU8();
-        var b4 = stream.ReadU8();
-        return b4 << 24 | b3 << 16 | b2 << 8 | b1;
-    }
-
-    public static short ReadS16LE(this Stream stream)
-    {
-        var b1 = stream.ReadU8();
-        var b2 = stream.ReadU8();
-        return (short)((b2 << 8) | b1);
-    }
-
-    public static ushort ReadU16BE(this Stream stream)
-    {
-        if (!TryReadU16BE(stream, out var number))
-            throw EndOfStreamException();
-        return number;
-    }
-
-    public static uint ReadU32BE(this Stream stream)
-    {
-        if (!TryReadU32BE(stream, out var number))
-            throw EndOfStreamException();
-        return number;
-    }
-
-    public static uint ReadU32LE(this Stream stream)
-    {
-        if (!TryReadU32LE(stream, out var number))
-            throw EndOfStreamException();
-        return number;
-    }
-
-    public static bool TryReadU32LE(this Stream stream, out uint number)
-    {
-        if (!TryReadLE(stream, 4, out var result))
+        public int ReadS32LE()
         {
-            number = 0;
-            return false;
+            var b1 = stream.ReadU8();
+            var b2 = stream.ReadU8();
+            var b3 = stream.ReadU8();
+            var b4 = stream.ReadU8();
+            return b4 << 24 | b3 << 16 | b2 << 8 | b1;
         }
-        number = (uint)result;
-        return true;
-    }
 
-    public static ushort ReadU16LE(this Stream stream)
-    {
-        if (!TryReadU16LE(stream, out var number))
-            throw EndOfStreamException();
-        return number;
-    }
-
-    public static bool TryReadU16LE(this Stream stream, out ushort number)
-    {
-        if (!TryReadLE(stream, 2, out var result))
+        // ReSharper disable once InconsistentNaming
+        public short ReadS16LE()
         {
-            number = 0;
-            return false;
+            var b1 = stream.ReadU8();
+            var b2 = stream.ReadU8();
+            return (short)((b2 << 8) | b1);
         }
-        number = (ushort)result;
-        return true;
-    }
 
-    public static int ReadU24BE(this Stream stream)
-    {
-        if (!TryReadBE(stream, 3, out var result))
-            throw EndOfStreamException();
-
-        return result;
-    }
-
-    public static int ReadU24LE(this Stream stream)
-    {
-        if (!TryReadLE(stream, 3, out var result))
-            throw EndOfStreamException();
-
-        return result;
-    }
-
-    public static byte ReadU8(this Stream stream)
-    {
-        var b = stream.ReadByte();
-        if (b == -1)
-            throw EndOfStreamException();
-        return (byte)b;
-    }
-
-    public static bool TryReadU32BE(this Stream stream, out uint number)
-    {
-        if (!TryReadBE(stream, 4, out var readNumber))
+        // ReSharper disable once InconsistentNaming
+        public ushort ReadU16BE()
         {
-            number = 0;
-            return false;
+            return !stream.TryReadU16BE(out var number) ? throw EndOfStreamException() : number;
         }
-        number = (uint)readNumber;
-        return true;
-    }
 
-    public static bool TryReadU16BE(this Stream stream, out ushort number)
-    {
-        if (TryReadBE(stream, 2, out var readNumber))
+        // ReSharper disable once InconsistentNaming
+        public uint ReadU32BE()
         {
-            number = (ushort)readNumber;
+            return !stream.TryReadU32BE(out var number) ? throw EndOfStreamException() : number;
+        }
+
+        // ReSharper disable once InconsistentNaming
+        public uint ReadU32LE()
+        {
+            return !stream.TryReadU32LE(out var number) ? throw EndOfStreamException() : number;
+        }
+
+        // ReSharper disable once InconsistentNaming
+        public bool TryReadU32LE(out uint number)
+        {
+            if (!TryReadLE(stream, 4, out var result))
+            {
+                number = 0;
+                return false;
+            }
+
+            number = (uint)result;
             return true;
         }
-        number = default;
-        return false;
+
+        // ReSharper disable once InconsistentNaming
+        public ushort ReadU16LE()
+        {
+            return !stream.TryReadU16LE(out var number) ? throw EndOfStreamException() : number;
+        }
+
+        // ReSharper disable once InconsistentNaming
+        public bool TryReadU16LE(out ushort number)
+        {
+            if (!TryReadLE(stream, 2, out var result))
+            {
+                number = 0;
+                return false;
+            }
+
+            number = (ushort)result;
+            return true;
+        }
+
+        // ReSharper disable once InconsistentNaming
+        public int ReadU24BE()
+        {
+            return !TryReadBE(stream, 3, out var result) ? throw EndOfStreamException() : result;
+        }
+
+        // ReSharper disable once InconsistentNaming
+        public int ReadU24LE()
+        {
+            return !TryReadLE(stream, 3, out var result) ? throw EndOfStreamException() : result;
+        }
+
+        public byte ReadU8()
+        {
+            var b = stream.ReadByte();
+            if (b == -1)
+                throw EndOfStreamException();
+            return (byte)b;
+        }
+
+        // ReSharper disable once InconsistentNaming
+        public bool TryReadU32BE(out uint number)
+        {
+            if (!TryReadBE(stream, 4, out var readNumber))
+            {
+                number = 0;
+                return false;
+            }
+
+            number = (uint)readNumber;
+            return true;
+        }
+
+        // ReSharper disable once InconsistentNaming
+        public bool TryReadU16BE(out ushort number)
+        {
+            if (TryReadBE(stream, 2, out var readNumber))
+            {
+                number = (ushort)readNumber;
+                return true;
+            }
+
+            number = 0;
+            return false;
+        }
     }
 
+    // ReSharper disable once InconsistentNaming
     private static bool TryReadLE(Stream stream, int size, out int number)
     {
         number = 0;
@@ -134,6 +138,7 @@ internal static class StreamExtensions
         return true;
     }
 
+    // ReSharper disable once InconsistentNaming
     private static bool TryReadBE(Stream stream, int size, out int number)
     {
         number = 0;
@@ -145,6 +150,7 @@ internal static class StreamExtensions
 
             number |= readByte << (size - i) * 8;
         }
+
         return true;
     }
 

@@ -1,30 +1,59 @@
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace XLibur.Excel;
 
 /// <summary>
 /// An point (address) in a worksheet, an equivalent of <c>ST_CellRef</c>.
+/// Row and column are packed into a single <c>ulong</c> as
+/// <c>[row0:20 bits][column0:14 bits]</c> (0-based internally) for fast
+/// equality, hashing, and row-major comparison.
 /// </summary>
 /// <remarks>Unlike the XLAddress, sheet can never be invalid.</remarks>
 [DebuggerDisplay("{XLHelper.GetColumnLetterFromNumber(Column)+Row}")]
 internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XLSheetPoint>
 {
+    internal const int ColumnBits = 14;
+    private const ulong ColumnMask = (1UL << ColumnBits) - 1; // 0x3FFF
+
+    /// <summary>
+    /// Packed representation: bits 0-13 = column 0-based, bits 14-33 = row 0-based.
+    /// Values are stored 0-based for bit-packing efficiency; the <see cref="Row"/> and
+    /// <see cref="Column"/> properties return the 1-based values used everywhere else.
+    /// </summary>
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal readonly ulong PackedValue;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public XLSheetPoint(int row, int column)
     {
-        Row = row;
-        Column = column;
+        PackedValue = ((ulong)(uint)(row - 1) << ColumnBits) | (uint)(column - 1);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private XLSheetPoint(ulong packed)
+    {
+        PackedValue = packed;
     }
 
     /// <summary>
     /// 1-based row number in a sheet.
     /// </summary>
-    public readonly int Row;
+    public int Row
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => (int)(PackedValue >> ColumnBits) + 1;
+    }
 
     /// <summary>
     /// 1-based column number in a sheet.
     /// </summary>
-    public readonly int Column;
+    public int Column
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => (int)(PackedValue & ColumnMask) + 1;
+    }
 
     public static implicit operator XLSheetRange(XLSheetPoint point)
     {
@@ -36,24 +65,28 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
         return obj is XLSheetPoint point && Equals(point);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Equals(XLSheetPoint other)
     {
-        return Row == other.Row && Column == other.Column;
+        return PackedValue == other.PackedValue;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override int GetHashCode()
     {
-        return (Row * -1) ^ Column;
+        return PackedValue.GetHashCode();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator ==(XLSheetPoint a, XLSheetPoint b)
     {
-        return a.Row == b.Row && a.Column == b.Column;
+        return a.PackedValue == b.PackedValue;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator !=(XLSheetPoint a, XLSheetPoint b)
     {
-        return a.Row != b.Row || a.Column != b.Column;
+        return a.PackedValue != b.PackedValue;
     }
 
     /// <summary>
@@ -149,8 +182,9 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
         for (var i = 0; i < columnLetters.Length; ++i)
             output[i] = columnLetters[i];
 
-        var digitCount = GetDigitCount(Row);
-        var rowRemainder = Row;
+        var row = Row;
+        var digitCount = GetDigitCount(row);
+        var rowRemainder = row;
         var formattedLength = digitCount + columnLetters.Length;
         for (var i = formattedLength - 1; i >= columnLetters.Length; --i)
         {
@@ -186,13 +220,10 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     public static XLSheetPoint FromAddress(IXLAddress address)
         => new(address.RowNumber, address.ColumnNumber);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int CompareTo(XLSheetPoint other)
     {
-        var rowComparison = Row.CompareTo(other.Row);
-        if (rowComparison != 0)
-            return rowComparison;
-
-        return Column.CompareTo(other.Column);
+        return PackedValue.CompareTo(other.PackedValue);
     }
 
     /// <summary>
@@ -221,6 +252,7 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     /// <param name="rowShift">How many rows will new point be shifted. Positive - new point
     ///     is downwards, negative - new point is upwards relative to the current point.</param>
     /// <returns>Shifted point.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal XLSheetPoint ShiftRow(int rowShift)
     {
         return new XLSheetPoint(Row + rowShift, Column);
@@ -232,6 +264,7 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     /// <param name="columnShift">How many columns will new point be shifted. Positive - new
     ///     point is to the right, negative - new point is to the left.</param>
     /// <returns>Shifted point.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal XLSheetPoint ShiftColumn(int columnShift)
     {
         return new XLSheetPoint(Row, Column + columnShift);

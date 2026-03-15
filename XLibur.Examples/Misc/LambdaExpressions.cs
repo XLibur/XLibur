@@ -9,8 +9,7 @@ public class LambdaExpressions : IXLExample
 {
     public void Create(string filePath)
     {
-
-        string tempFile = ExampleHelper.GetTempFilePath(filePath);
+        var tempFile = ExampleHelper.GetTempFilePath(filePath);
         try
         {
             new BasicTable().Create(tempFile);
@@ -26,11 +25,6 @@ public class LambdaExpressions : IXLExample
             rngData.Rows() // From all rows
                 .Where(r => !r.Cell(3).GetBoolean()) // where the 3rd cell of each row is false
                 .ForEach(r => r.Delete()); // delete the row and shift the cells up (the default for rows in a range)
-
-            //// Put a light gray background to all text cells
-            //rngData.Cells() // From all cells
-            //        .Where(c => c.DataType == XLCellValues.Text) // where the data type is Text
-            //        .ForEach(c => c.Style.Fill.BackgroundColor = XLColor.LightGray); // Fill with a light gray
 
             var cells = rngData.Cells();
             var filtered = cells.Where(c => c.DataType == XLDataType.Text);

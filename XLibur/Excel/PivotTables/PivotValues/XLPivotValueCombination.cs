@@ -1,8 +1,6 @@
-#nullable disable
+﻿namespace XLibur.Excel;
 
-namespace XLibur.Excel;
-
-internal class XLPivotValueCombination : IXLPivotValueCombination
+internal sealed class XLPivotValueCombination : IXLPivotValueCombination
 {
     private readonly IXLPivotValue _pivotValue;
 

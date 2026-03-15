@@ -12,7 +12,7 @@ namespace XLibur.Excel;
 ///   <item>Stable sort.</item>
 /// </list>
 /// </summary>
-internal class XLCellValueSortComparer : IComparer<XLCellValue>
+internal sealed class XLCellValueSortComparer : IComparer<XLCellValue>
 {
     private readonly bool _isAscending;
     private readonly bool _interpretBlankAsString;
@@ -60,27 +60,14 @@ internal class XLCellValueSortComparer : IComparer<XLCellValue>
     {
         x = _interpretBlankAsString && x.Type == XLDataType.Blank ? string.Empty : x;
         y = _interpretBlankAsString && y.Type == XLDataType.Blank ? string.Empty : y;
-        switch (x.Type)
+        return x.Type switch
         {
-            case XLDataType.Blank:
-                return 0; // Blanks are not sorted. That doesn't really affect content, but cells still contain other info, e.g. style.
-
-            case XLDataType.Text:
-                return _comparer.Compare(x.GetText(), y.GetText());
-
-            case XLDataType.Boolean:
-                return x.GetBoolean().CompareTo(y.GetBoolean());
-
-            case XLDataType.Error:
-                return 0; // Errors are never sorted
-
-            case XLDataType.Number:
-            case XLDataType.DateTime:
-            case XLDataType.TimeSpan:
-                return x.GetUnifiedNumber().CompareTo(y.GetUnifiedNumber());
-
-            default:
-                throw new NotSupportedException();
-        }
+            XLDataType.Blank => 0, // Blanks are not sorted. That doesn't really affect content, but cells still contain other info, e.g. style.
+            XLDataType.Text => _comparer.Compare(x.GetText(), y.GetText()),
+            XLDataType.Boolean => x.GetBoolean().CompareTo(y.GetBoolean()),
+            XLDataType.Error => 0, // Errors are never sorted
+            XLDataType.Number or XLDataType.DateTime or XLDataType.TimeSpan => x.GetUnifiedNumber().CompareTo(y.GetUnifiedNumber()),
+            _ => throw new NotSupportedException(),
+        };
     }
 }

@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Linq;
+using XLibur.Extensions;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Utils;
@@ -76,19 +77,17 @@ internal static class OpenXmlHelper
         return ConvertToXLiburColor(new X14ColorTypeAdapter(openXMLColor));
     }
 
-#nullable disable
-
-    internal static void LoadNumberFormat(NumberingFormat nfSource, IXLNumberFormat nf)
+    internal static void LoadNumberFormat(NumberingFormat? nfSource, IXLNumberFormat nf)
     {
         if (nfSource == null) return;
 
         if (nfSource.NumberFormatId != null && nfSource.NumberFormatId.Value < XLConstants.NumberOfBuiltInStyles)
             nf.NumberFormatId = (int)nfSource.NumberFormatId.Value;
         else if (nfSource.FormatCode != null)
-            nf.Format = nfSource.FormatCode.Value;
+            nf.Format = nfSource.FormatCode.Value!;
     }
 
-    internal static void LoadBorder(Border borderSource, IXLBorder border)
+    internal static void LoadBorder(Border? borderSource, IXLBorder border)
     {
         if (borderSource == null) return;
 
@@ -105,30 +104,30 @@ internal static class OpenXmlHelper
         LoadBorderValues(borderSource.BottomBorder, border.SetBottomBorder, border.SetBottomBorderColor);
     }
 
-    private static void LoadBorderValues(BorderPropertiesType source, Func<XLBorderStyleValues, IXLStyle> setBorder, Func<XLColor, IXLStyle> setColor)
+    private static void LoadBorderValues(BorderPropertiesType? source, Func<XLBorderStyleValues, IXLStyle> setBorder, Func<XLColor, IXLStyle> setColor)
     {
         if (source != null)
         {
             if (source.Style != null)
-                setBorder(source.Style.Value.ToClosedXml());
+                setBorder(source.Style.Value.ToXLibur());
             if (source.Color != null)
                 setColor(source.Color.ToXLiburColor());
         }
     }
 
-    // Differential fills store the patterns differently than other fills
-    // Actually differential fills make more sense. bg is bg and fg is fg
-    // 'Other' fills store the bg color in the fg field when pattern type is solid
-    internal static void LoadFill(Fill openXMLFill, IXLFill closedXMLFill, bool differentialFillFormat)
+    // Differential fills store the patterns differently than other fills. Actually,
+    //  differential fills make more sense. bg is bg, and fg is fg
+    // 'Other' fills store the bg color in the fg field when the pattern type is solid
+    internal static void LoadFill(Fill? openXMLFill, IXLFill XLiburFill, bool differentialFillFormat)
     {
         if (openXMLFill?.PatternFill == null) return;
 
         if (openXMLFill.PatternFill.PatternType != null)
-            closedXMLFill.PatternType = openXMLFill.PatternFill.PatternType.Value.ToClosedXml();
+            XLiburFill.PatternType = openXMLFill.PatternFill.PatternType.Value.ToXLibur();
         else
-            closedXMLFill.PatternType = XLFillPatternValues.Solid;
+            XLiburFill.PatternType = XLFillPatternValues.Solid;
 
-        switch (closedXMLFill.PatternType)
+        switch (XLiburFill.PatternType)
         {
             case XLFillPatternValues.None:
                 break;
@@ -137,33 +136,33 @@ internal static class OpenXmlHelper
                 if (differentialFillFormat)
                 {
                     if (openXMLFill.PatternFill.BackgroundColor != null)
-                        closedXMLFill.BackgroundColor = openXMLFill.PatternFill.BackgroundColor.ToXLiburColor();
+                        XLiburFill.BackgroundColor = openXMLFill.PatternFill.BackgroundColor.ToXLiburColor();
                     else
-                        closedXMLFill.BackgroundColor = XLColor.FromIndex(64);
+                        XLiburFill.BackgroundColor = XLColor.FromIndex(64);
                 }
                 else
                 {
                     // yes, source is foreground!
                     if (openXMLFill.PatternFill.ForegroundColor != null)
-                        closedXMLFill.BackgroundColor = openXMLFill.PatternFill.ForegroundColor.ToXLiburColor();
+                        XLiburFill.BackgroundColor = openXMLFill.PatternFill.ForegroundColor.ToXLiburColor();
                     else
-                        closedXMLFill.BackgroundColor = XLColor.FromIndex(64);
+                        XLiburFill.BackgroundColor = XLColor.FromIndex(64);
                 }
                 break;
 
             default:
                 if (openXMLFill.PatternFill.ForegroundColor != null)
-                    closedXMLFill.PatternColor = openXMLFill.PatternFill.ForegroundColor.ToXLiburColor();
+                    XLiburFill.PatternColor = openXMLFill.PatternFill.ForegroundColor.ToXLiburColor();
 
                 if (openXMLFill.PatternFill.BackgroundColor != null)
-                    closedXMLFill.BackgroundColor = openXMLFill.PatternFill.BackgroundColor.ToXLiburColor();
+                    XLiburFill.BackgroundColor = openXMLFill.PatternFill.BackgroundColor.ToXLiburColor();
                 else
-                    closedXMLFill.BackgroundColor = XLColor.FromIndex(64);
+                    XLiburFill.BackgroundColor = XLColor.FromIndex(64);
                 break;
         }
     }
 
-    internal static void LoadFont(OpenXmlElement fontSource, IXLFontBase fontBase)
+    internal static void LoadFont(OpenXmlElement? fontSource, IXLFontBase fontBase)
     {
         if (fontSource == null) return;
 
@@ -176,12 +175,12 @@ internal static class OpenXmlHelper
             fontSource.Elements<FontFamily>().FirstOrDefault();
         if (fontFamilyNumbering != null && fontFamilyNumbering.Val != null)
             fontBase.FontFamilyNumbering =
-                (XLFontFamilyNumberingValues)int.Parse(fontFamilyNumbering.Val.ToString());
+                (XLFontFamilyNumberingValues)int.Parse(fontFamilyNumbering.Val.ToString()!);
         var runFont = fontSource.Elements<RunFont>().FirstOrDefault();
         if (runFont != null)
         {
             if (runFont.Val != null)
-                fontBase.FontName = runFont.Val;
+                fontBase.FontName = runFont.Val!;
         }
         var fontSize = fontSource.Elements<FontSize>().FirstOrDefault();
         if (fontSize != null)
@@ -197,23 +196,23 @@ internal static class OpenXmlHelper
         var underline = fontSource.Elements<Underline>().FirstOrDefault();
         if (underline != null)
         {
-            fontBase.Underline = underline.Val != null ? underline.Val.Value.ToClosedXml() : XLFontUnderlineValues.Single;
+            fontBase.Underline = underline.Val != null ? underline.Val.Value.ToXLibur() : XLFontUnderlineValues.Single;
         }
 
         var verticalTextAlignment = fontSource.Elements<VerticalTextAlignment>().FirstOrDefault();
         if (verticalTextAlignment is not null)
         {
-            fontBase.VerticalAlignment = verticalTextAlignment.Val is not null ? verticalTextAlignment.Val.Value.ToClosedXml() : XLFontVerticalTextAlignmentValues.Baseline;
+            fontBase.VerticalAlignment = verticalTextAlignment.Val is not null ? verticalTextAlignment.Val.Value.ToXLibur() : XLFontVerticalTextAlignmentValues.Baseline;
         }
 
         var fontScheme = fontSource.Elements<FontScheme>().FirstOrDefault();
         if (fontScheme is not null)
         {
-            fontBase.FontScheme = fontScheme.Val is not null ? fontScheme.Val.Value.ToClosedXml() : XLFontScheme.None;
+            fontBase.FontScheme = fontScheme.Val is not null ? fontScheme.Val.Value.ToXLibur() : XLFontScheme.None;
         }
     }
 
-    internal static bool GetBoolean(BooleanPropertyType property)
+    internal static bool GetBoolean(BooleanPropertyType? property)
     {
         if (property != null)
         {
@@ -225,19 +224,17 @@ internal static class OpenXmlHelper
         return false;
     }
 
-#nullable enable
-
-    public static XLAlignmentKey AlignmentToClosedXml(Alignment alignment, XLAlignmentKey defaultAlignment)
+    public static XLAlignmentKey AlignmentToXLibur(Alignment alignment, XLAlignmentKey defaultAlignment)
     {
         return new XLAlignmentKey
         {
             Indent = checked((int?)alignment.Indent?.Value) ?? defaultAlignment.Indent,
-            Horizontal = alignment.Horizontal?.Value.ToClosedXml() ?? defaultAlignment.Horizontal,
-            Vertical = alignment.Vertical?.Value.ToClosedXml() ?? defaultAlignment.Vertical,
-            ReadingOrder = alignment.ReadingOrder?.Value.ToClosedXml() ?? defaultAlignment.ReadingOrder,
+            Horizontal = alignment.Horizontal?.Value.ToXLibur() ?? defaultAlignment.Horizontal,
+            Vertical = alignment.Vertical?.Value.ToXLibur() ?? defaultAlignment.Vertical,
+            ReadingOrder = alignment.ReadingOrder?.Value.ToXLibur() ?? defaultAlignment.ReadingOrder,
             WrapText = alignment.WrapText?.Value ?? defaultAlignment.WrapText,
             TextRotation = alignment.TextRotation is not null
-                ? GetClosedXmlTextRotation(alignment)
+                ? GetXLiburTextRotation(alignment)
                 : defaultAlignment.TextRotation,
             ShrinkToFit = alignment.ShrinkToFit?.Value ?? defaultAlignment.ShrinkToFit,
             RelativeIndent = alignment.RelativeIndent?.Value ?? defaultAlignment.RelativeIndent,
@@ -245,7 +242,7 @@ internal static class OpenXmlHelper
         };
     }
 
-    public static XLBorderKey BorderToClosedXml(Border b, XLBorderKey defaultBorder)
+    public static XLBorderKey BorderToXLibur(Border b, XLBorderKey defaultBorder)
     {
         var nb = defaultBorder;
 
@@ -253,7 +250,7 @@ internal static class OpenXmlHelper
         if (diagonalBorder is not null)
         {
             if (diagonalBorder.Style is not null)
-                nb = nb with { DiagonalBorder = diagonalBorder.Style.Value.ToClosedXml() };
+                nb = nb with { DiagonalBorder = diagonalBorder.Style.Value.ToXLibur() };
             if (diagonalBorder.Color is not null)
                 nb = nb with { DiagonalBorderColor = diagonalBorder.Color.ToXLiburColor().Key };
             if (b.DiagonalUp is not null)
@@ -266,7 +263,7 @@ internal static class OpenXmlHelper
         if (leftBorder is not null)
         {
             if (leftBorder.Style is not null)
-                nb = nb with { LeftBorder = leftBorder.Style.Value.ToClosedXml() };
+                nb = nb with { LeftBorder = leftBorder.Style.Value.ToXLibur() };
             if (leftBorder.Color is not null)
                 nb = nb with { LeftBorderColor = leftBorder.Color.ToXLiburColor().Key };
         }
@@ -275,7 +272,7 @@ internal static class OpenXmlHelper
         if (rightBorder is not null)
         {
             if (rightBorder.Style is not null)
-                nb = nb with { RightBorder = rightBorder.Style.Value.ToClosedXml() };
+                nb = nb with { RightBorder = rightBorder.Style.Value.ToXLibur() };
             if (rightBorder.Color is not null)
                 nb = nb with { RightBorderColor = rightBorder.Color.ToXLiburColor().Key };
         }
@@ -284,24 +281,22 @@ internal static class OpenXmlHelper
         if (topBorder is not null)
         {
             if (topBorder.Style is not null)
-                nb = nb with { TopBorder = topBorder.Style.Value.ToClosedXml() };
+                nb = nb with { TopBorder = topBorder.Style.Value.ToXLibur() };
             if (topBorder.Color is not null)
                 nb = nb with { TopBorderColor = topBorder.Color.ToXLiburColor().Key };
         }
 
         var bottomBorder = b.BottomBorder;
-        if (bottomBorder is not null)
-        {
-            if (bottomBorder.Style is not null)
-                nb = nb with { BottomBorder = bottomBorder.Style.Value.ToClosedXml() };
-            if (bottomBorder.Color is not null)
-                nb = nb with { BottomBorderColor = bottomBorder.Color.ToXLiburColor().Key };
-        }
+        if (bottomBorder is null) return nb;
+        if (bottomBorder.Style is not null)
+            nb = nb with { BottomBorder = bottomBorder.Style.Value.ToXLibur() };
+        if (bottomBorder.Color is not null)
+            nb = nb with { BottomBorderColor = bottomBorder.Color.ToXLiburColor().Key };
 
         return nb;
     }
 
-    public static XLFontKey FontToClosedXml(Font f, XLFontKey nf)
+    public static XLFontKey FontToXLibur(Font f, XLFontKey nf)
     {
         nf = nf with
         {
@@ -314,7 +309,7 @@ internal static class OpenXmlHelper
         var underline = f.Underline;
         if (underline is not null)
         {
-            var value = underline.Val?.Value.ToClosedXml() ??
+            var value = underline.Val?.Value.ToXLibur() ??
                         XLFontUnderlineValues.Single;
             nf = nf with { Underline = value };
         }
@@ -322,7 +317,7 @@ internal static class OpenXmlHelper
         var verticalTextAlignment = f.VerticalTextAlignment;
         if (verticalTextAlignment is not null)
         {
-            var value = verticalTextAlignment.Val?.Value.ToClosedXml() ??
+            var value = verticalTextAlignment.Val?.Value.ToXLibur() ??
                         XLFontVerticalTextAlignmentValues.Baseline;
             nf = nf with { VerticalAlignment = value };
         }
@@ -349,11 +344,11 @@ internal static class OpenXmlHelper
 
         var fontScheme = f.FontScheme;
         if (fontScheme is not null)
-            nf = nf with { FontScheme = fontScheme.Val?.Value.ToClosedXml() ?? XLFontScheme.None };
+            nf = nf with { FontScheme = fontScheme.Val?.Value.ToXLibur() ?? XLFontScheme.None };
         return nf;
     }
 
-    public static XLProtectionKey ProtectionToClosedXml(Protection protection, XLProtectionKey p)
+    public static XLProtectionKey ProtectionToXLibur(Protection protection, XLProtectionKey p)
     {
         // OI29500, hidden default is false, locked default is true.
         if (protection.Hidden is not null)
@@ -432,7 +427,7 @@ internal static class OpenXmlHelper
         }
     }
 
-    internal static int GetClosedXmlTextRotation(Alignment alignment)
+    internal static int GetXLiburTextRotation(Alignment alignment)
     {
         if (alignment.TextRotation is null)
             return 0;

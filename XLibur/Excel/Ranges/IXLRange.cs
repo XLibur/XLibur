@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 
 namespace XLibur.Excel;
@@ -9,7 +7,7 @@ public enum XLShiftDeletedCells { ShiftCellsUp, ShiftCellsLeft }
 /// <summary>
 /// A behavior of extra outside cells for transpose operation. The option
 /// is meaningful only for transposition of non-squared ranges, because
-/// squared ranges can always be transposed without effecting outside cells. 
+/// squared ranges can always be transposed without effecting outside cells.
 /// </summary>
 public enum XLTransposeOptions
 {
@@ -73,35 +71,35 @@ public interface IXLRange : IXLRangeBase
     /// <summary>
     /// Gets the first column of the range.
     /// </summary>
-    IXLRangeColumn FirstColumn(Func<IXLRangeColumn, bool> predicate = null);
+    IXLRangeColumn? FirstColumn(Func<IXLRangeColumn, bool>? predicate = null);
 
     /// <summary>
     /// Gets the first non-empty column of the range that contains a cell with a value.
     /// </summary>
     /// <param name="options">The options to determine whether a cell is used.</param>
     /// <param name="predicate">The predicate to choose cells.</param>
-    IXLRangeColumn FirstColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool> predicate = null);
+    IXLRangeColumn? FirstColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool>? predicate = null);
 
-    IXLRangeColumn FirstColumnUsed(Func<IXLRangeColumn, bool> predicate = null);
+    IXLRangeColumn? FirstColumnUsed(Func<IXLRangeColumn, bool>? predicate = null);
 
     /// <summary>
     /// Gets the last column of the range.
     /// </summary>
-    IXLRangeColumn LastColumn(Func<IXLRangeColumn, bool> predicate = null);
+    IXLRangeColumn? LastColumn(Func<IXLRangeColumn, bool>? predicate = null);
 
     /// <summary>
     /// Gets the last non-empty column of the range that contains a cell with a value.
     /// </summary>
     /// <param name="options">The options to determine whether a cell is used.</param>
     /// <param name="predicate">The predicate to choose cells.</param>
-    IXLRangeColumn LastColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool> predicate = null);
+    IXLRangeColumn? LastColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool>? predicate = null);
 
-    IXLRangeColumn LastColumnUsed(Func<IXLRangeColumn, bool> predicate = null);
+    IXLRangeColumn? LastColumnUsed(Func<IXLRangeColumn, bool>? predicate = null);
 
     /// <summary>
     /// Gets a collection of all columns in this range.
     /// </summary>
-    IXLRangeColumns Columns(Func<IXLRangeColumn, bool> predicate = null);
+    IXLRangeColumns Columns(Func<IXLRangeColumn, bool>? predicate = null);
 
     /// <summary>
     /// Gets a collection of the specified columns in this range.
@@ -128,40 +126,40 @@ public interface IXLRange : IXLRangeBase
     /// <summary>
     /// Returns the first row that matches the given predicate
     /// </summary>
-    IXLRangeColumn FindColumn(Func<IXLRangeColumn, bool> predicate);
+    IXLRangeColumn? FindColumn(Func<IXLRangeColumn, bool> predicate);
 
     /// <summary>
     /// Returns the first row that matches the given predicate
     /// </summary>
-    IXLRangeRow FindRow(Func<IXLRangeRow, bool> predicate);
+    IXLRangeRow? FindRow(Func<IXLRangeRow, bool> predicate);
 
     /// <summary>
     /// Gets the first row of the range.
     /// </summary>
-    IXLRangeRow FirstRow(Func<IXLRangeRow, bool> predicate = null);
+    IXLRangeRow? FirstRow(Func<IXLRangeRow, bool>? predicate = null);
 
     /// <summary>
     /// Gets the first non-empty row of the range that contains a cell with a value.
     /// </summary>
     /// <param name="options">The options to determine whether a cell is used.</param>
     /// <param name="predicate">The predicate to choose cells.</param>
-    IXLRangeRow FirstRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool> predicate = null);
+    IXLRangeRow? FirstRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool>? predicate = null);
 
-    IXLRangeRow FirstRowUsed(Func<IXLRangeRow, bool> predicate = null);
+    IXLRangeRow? FirstRowUsed(Func<IXLRangeRow, bool>? predicate = null);
 
     /// <summary>
     /// Gets the last row of the range.
     /// </summary>
-    IXLRangeRow LastRow(Func<IXLRangeRow, bool> predicate = null);
+    IXLRangeRow? LastRow(Func<IXLRangeRow, bool>? predicate = null);
 
     /// <summary>
     /// Gets the last non-empty row of the range that contains a cell with a value.
     /// </summary>
     /// <param name="options">The options to determine whether a cell is used.</param>
     /// <param name="predicate">The predicate to choose cells.</param>
-    IXLRangeRow LastRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool> predicate = null);
+    IXLRangeRow? LastRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool>? predicate = null);
 
-    IXLRangeRow LastRowUsed(Func<IXLRangeRow, bool> predicate = null);
+    IXLRangeRow? LastRowUsed(Func<IXLRangeRow, bool>? predicate = null);
 
     /// <summary>
     /// Gets the specified row of the range.
@@ -170,7 +168,7 @@ public interface IXLRange : IXLRangeBase
     /// <returns>The relevant row</returns>
     IXLRangeRow Row(int row);
 
-    IXLRangeRows Rows(Func<IXLRangeRow, bool> predicate = null);
+    IXLRangeRows Rows(Func<IXLRangeRow, bool>? predicate = null);
 
     /// <summary>
     /// Gets a collection of the specified rows in this range.
@@ -304,7 +302,7 @@ public interface IXLRange : IXLRangeBase
 
     IXLTable CreateTable(string name);
 
-    IXLRange RangeUsed();
+    IXLRange? RangeUsed();
 
     IXLRange CopyTo(IXLCell target);
 
@@ -393,11 +391,11 @@ public interface IXLRange : IXLRangeBase
     /// <param name="clearOptions">Specify what you want to clear.</param>
     new IXLRange Clear(XLClearOptions clearOptions = XLClearOptions.All);
 
-    IXLRangeRows RowsUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool> predicate = null);
+    IXLRangeRows RowsUsed(XLCellsUsedOptions options, Func<IXLRangeRow, bool>? predicate = null);
 
-    IXLRangeRows RowsUsed(Func<IXLRangeRow, bool> predicate = null);
+    IXLRangeRows RowsUsed(Func<IXLRangeRow, bool>? predicate = null);
 
-    IXLRangeColumns ColumnsUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool> predicate = null);
+    IXLRangeColumns ColumnsUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, bool>? predicate = null);
 
-    IXLRangeColumns ColumnsUsed(Func<IXLRangeColumn, bool> predicate = null);
+    IXLRangeColumns ColumnsUsed(Func<IXLRangeColumn, bool>? predicate = null);
 }
