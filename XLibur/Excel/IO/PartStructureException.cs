@@ -46,9 +46,9 @@ public sealed class PartStructureException : Exception
         return new PartStructureException("The attribute has a value in an incorrect format.");
     }
 
-    public static Exception IncorrectElementFormat(string elementName)
+    public static PartStructureException IncorrectElementFormat(string elementName)
     {
-        return new PartStructureException($"The element '{elementName}' doesn't have or misses child elements/attributes that are required by constrains of the workbook.");
+        return new PartStructureException($"The element '{elementName}' is missing required child elements or attributes required by the workbook constraints.");
     }
 
     internal static Exception IncorrectAttributeValue()
@@ -61,8 +61,8 @@ public sealed class PartStructureException : Exception
         return new PartStructureException($"The value of attribute '{attributeValue}' is not valid value for the attribute.");
     }
 
-    public static Exception RequiredElementIsMissing()
+    public static PartStructureException RequiredElementIsMissing()
     {
-        return new PartStructureException("The XML schema requires an element, but is is not present.");
+        return new PartStructureException("The XML schema requires an element, but it is not present.");
     }
 }
