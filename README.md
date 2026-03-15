@@ -87,6 +87,28 @@ dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --
 dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --filter '*ClosedXmlWorkbookBenchmarks*'
 ```
 
+## Mutation Testing
+
+[Stryker.NET](https://stryker-mutator.io/docs/stryker-net/introduction/) runs daily in CI to measure test effectiveness. To run locally:
+
+```sh
+# Restore the Stryker tool (first time only)
+dotnet tool restore
+
+# Set StrykerEnabled to disable TreatWarningsAsErrors so mutants can compile
+# PowerShell:  $env:StrykerEnabled="true"
+# CMD:         set StrykerEnabled=true
+# Bash:        export StrykerEnabled=true
+
+# Run mutation testing with the default config
+dotnet stryker -f stryker-config.json
+
+# Run against a specific file or folder
+dotnet stryker -f stryker-config.json --mutate "XLibur/Excel/Cells/**/*.cs"
+```
+
+Reports are generated in `StrykerOutput/` — open the HTML report to see surviving mutants.
+
 ## Developer guidelines
 
 Before submitting a PR, run the formatter to ensure your code matches the project style:
