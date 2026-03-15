@@ -77,7 +77,6 @@ internal sealed class PivotTableCacheDefinitionPartWriter
         }
 
         WriteCacheFields(pivotCache, cacheFields);
-        cacheFields.Count = (uint)cacheFields.ChildElements.Count;
 
         // End CacheFields
     }
