@@ -291,10 +291,10 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         var ws = range.Worksheet;
         foreach (var definedName in definedNames)
         {
-            if (definedName.SheetReferencesList.Any())
+            if (definedName.GetSheetReferencesList().Any())
             {
                 var newRangeList =
-                    definedName.SheetReferencesList.Select(r => XLCellFormulaShifter.ShiftFormulaRows(r, ws, range, rowsShifted)).Where(
+                    definedName.GetSheetReferencesList().Select(r => XLCellFormulaShifter.ShiftFormulaRows(r, ws, range, rowsShifted)).Where(
                         newReference => newReference.Length > 0).ToList();
                 var unionFormula = string.Join(",", newRangeList);
                 definedName.SetRefersTo(unionFormula);
@@ -307,10 +307,10 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         var ws = range.Worksheet;
         foreach (var definedName in definedNames)
         {
-            if (definedName.SheetReferencesList.Any())
+            if (definedName.GetSheetReferencesList().Any())
             {
                 var newRangeList =
-                    definedName.SheetReferencesList.Select(r => XLCellFormulaShifter.ShiftFormulaColumns(r, ws, range, columnsShifted)).Where(
+                    definedName.GetSheetReferencesList().Select(r => XLCellFormulaShifter.ShiftFormulaColumns(r, ws, range, columnsShifted)).Where(
                         newReference => newReference.Length > 0).ToList();
                 var unionFormula = string.Join(",", newRangeList);
                 definedName.SetRefersTo(unionFormula);
