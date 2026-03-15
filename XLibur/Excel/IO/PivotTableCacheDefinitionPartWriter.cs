@@ -227,6 +227,7 @@ internal sealed class PivotTableCacheDefinitionPartWriter
         {
             calcField.Formula = formula;
             calcField.DatabaseField = false;
+            calcField.SharedItems?.Remove();
         }
     }
 
@@ -256,6 +257,7 @@ internal sealed class PivotTableCacheDefinitionPartWriter
         }
         cacheField.SharedItems ??= new SharedItems();
         var sharedItems = cacheField.SharedItems;
+        sharedItems.RemoveAllChildren();
 
         sharedItems.Count = fieldValues.SharedCount != 0 ? checked((uint)xlSharedItems.Length) : null;
 

@@ -101,9 +101,10 @@ internal sealed class XLHFText
     {
         var lastColorPosition = prevText.LastIndexOf("&K", StringComparison.Ordinal);
 
+        var hasPrevColor = lastColorPosition >= 0 && prevText.Length >= lastColorPosition + 8;
         if (
-            (lastColorPosition >= 0 && !RichText.FontColor.Equals(XLColor.FromHtml("#" + prevText.Substring(lastColorPosition + 2, 6))))
-            || (lastColorPosition == -1 && !RichText.FontColor.Equals(wsFont.FontColor))
+            (hasPrevColor && !RichText.FontColor.Equals(XLColor.FromHtml("#" + prevText.Substring(lastColorPosition + 2, 6))))
+            || (!hasPrevColor && !RichText.FontColor.Equals(wsFont.FontColor))
         )
             sb.Append("&K" + RichText.FontColor.Color.ToHex().Substring(2));
     }

@@ -1,3 +1,5 @@
+using XLibur.Excel.Ranges;
+
 namespace XLibur.Excel;
 
 using System.Linq;

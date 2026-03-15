@@ -105,11 +105,13 @@ internal static class XLRangeInsertHelper
         if (lastRoUsed == null)
             return;
 
-        var lastRoReturned = lastRoUsed.RowNumber();
+        var firstWsRow = rangeToReturn.RangeAddress.FirstAddress.RowNumber;
+        var lastRoReturned = lastRoUsed.RowNumber() - firstWsRow + 1;
         for (var ro = 1; ro <= lastRoReturned; ro++)
         {
+            var wsRow = firstWsRow + ro - 1;
             var styleToUse =
-                range.Worksheet.Internals.RowsCollection.TryGetValue(ro, out var row)
+                range.Worksheet.Internals.RowsCollection.TryGetValue(wsRow, out var row)
                     ? row.Style
                     : range.Worksheet.Style;
 
@@ -223,7 +225,7 @@ internal static class XLRangeInsertHelper
                     ? column.Style
                     : range.Worksheet.Style;
 
-            rangeToReturn.Style = styleToUse;
+            rangeToReturn.Column(co).Style = styleToUse;
         }
     }
 }

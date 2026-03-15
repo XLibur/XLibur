@@ -351,8 +351,6 @@ public partial class XLWorkbook
 
             LoadWorksheetElement(reader, worksheetPart, ws, styles, pageSetupProperties, context);
         }
-
-        reader.Close();
     }
 
     private void LoadWorksheetElement(
@@ -363,60 +361,47 @@ public partial class XLWorkbook
         PageSetupProperties? pageSetupProperties,
         LoadContext context)
     {
-        switch (reader.LoadCurrentElement())
-        {
-            case SheetFormatProperties e:
-                LoadSheetFormatProperties(e, ws);
-                break;
-            case MergeCells e:
-                LoadMergeCells(e, ws);
-                break;
-            case SheetViews e:
-                WorksheetElementReader.LoadSheetViews(e, ws);
-                break;
-            case Columns e:
-                WorksheetSheetDataReader.LoadColumns(styles.Stylesheet!, styles.NumberingFormats, styles.Fills!, styles.Borders!, styles.Fonts!, ws, e);
-                break;
-            case AutoFilter e:
-                WorksheetElementReader.LoadAutoFilter(e, ws, styles.DifferentialFormats);
-                break;
-            case SheetProtection e:
-                WorksheetElementReader.LoadSheetProtection(e, ws);
-                break;
-            case DataValidations e:
-                WorksheetElementReader.LoadDataValidations(e, ws);
-                break;
-            case ConditionalFormatting e:
-                ConditionalFormatReader.LoadConditionalFormatting(e, ws, styles.DifferentialFormats, context);
-                break;
-            case Hyperlinks e:
-                WorksheetElementReader.LoadHyperlinks(e, worksheetPart, ws);
-                break;
-            case PrintOptions e:
-                WorksheetElementReader.LoadPrintOptions(e, ws);
-                break;
-            case PageMargins e:
-                WorksheetElementReader.LoadPageMargins(e, ws);
-                break;
-            case PageSetup e:
-                WorksheetElementReader.LoadPageSetup(e, ws, pageSetupProperties);
-                break;
-            case HeaderFooter e:
-                WorksheetElementReader.LoadHeaderFooter(e, ws);
-                break;
-            case RowBreaks e:
-                WorksheetElementReader.LoadRowBreaks(e, ws);
-                break;
-            case ColumnBreaks e:
-                WorksheetElementReader.LoadColumnBreaks(e, ws);
-                break;
-            case WorksheetExtensionList e:
-                ConditionalFormatReader.LoadExtensions(e, ws, this);
-                break;
-            case LegacyDrawing e:
-                ws.LegacyDrawingId = e.Id?.Value;
-                break;
-        }
+        // Only call LoadCurrentElement() for recognized types. Calling it on
+        // wrapper elements like SheetData would consume all child elements
+        // (e.g. Row), preventing the main loop from processing them.
+        var elementType = reader.ElementType;
+
+        if (elementType == typeof(SheetFormatProperties))
+            LoadSheetFormatProperties((SheetFormatProperties)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(MergeCells))
+            LoadMergeCells((MergeCells)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(SheetViews))
+            WorksheetElementReader.LoadSheetViews((SheetViews)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(Columns))
+            WorksheetSheetDataReader.LoadColumns(styles.Stylesheet!, styles.NumberingFormats, styles.Fills!, styles.Borders!, styles.Fonts!, ws,
+                (Columns)reader.LoadCurrentElement()!);
+        else if (elementType == typeof(AutoFilter))
+            WorksheetElementReader.LoadAutoFilter((AutoFilter)reader.LoadCurrentElement()!, ws, styles.DifferentialFormats);
+        else if (elementType == typeof(SheetProtection))
+            WorksheetElementReader.LoadSheetProtection((SheetProtection)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(DataValidations))
+            WorksheetElementReader.LoadDataValidations((DataValidations)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(ConditionalFormatting))
+            ConditionalFormatReader.LoadConditionalFormatting((ConditionalFormatting)reader.LoadCurrentElement()!, ws,
+                styles.DifferentialFormats, context);
+        else if (elementType == typeof(Hyperlinks))
+            WorksheetElementReader.LoadHyperlinks((Hyperlinks)reader.LoadCurrentElement()!, worksheetPart, ws);
+        else if (elementType == typeof(PrintOptions))
+            WorksheetElementReader.LoadPrintOptions((PrintOptions)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(PageMargins))
+            WorksheetElementReader.LoadPageMargins((PageMargins)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(PageSetup))
+            WorksheetElementReader.LoadPageSetup((PageSetup)reader.LoadCurrentElement()!, ws, pageSetupProperties);
+        else if (elementType == typeof(HeaderFooter))
+            WorksheetElementReader.LoadHeaderFooter((HeaderFooter)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(RowBreaks))
+            WorksheetElementReader.LoadRowBreaks((RowBreaks)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(ColumnBreaks))
+            WorksheetElementReader.LoadColumnBreaks((ColumnBreaks)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(WorksheetExtensionList))
+            ConditionalFormatReader.LoadExtensions((WorksheetExtensionList)reader.LoadCurrentElement()!, ws, this);
+        else if (elementType == typeof(LegacyDrawing))
+            ws.LegacyDrawingId = ((LegacyDrawing)reader.LoadCurrentElement()!).Id?.Value;
     }
 
     private void LoadSheetFormatProperties(SheetFormatProperties sfp, XLWorksheet ws)

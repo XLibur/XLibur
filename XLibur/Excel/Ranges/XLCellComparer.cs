@@ -1,6 +1,6 @@
 using System;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.Ranges;
 
 internal static class XLCellComparer
 {
@@ -17,19 +17,19 @@ internal static class XLCellComparer
 
     private static int CompareBlanks(bool thisCellIsBlank, bool otherCellIsBlank, XLSortOrder sortOrder)
     {
-        if (thisCellIsBlank && otherCellIsBlank)
-            return 0;
-        if (thisCellIsBlank)
-            return sortOrder == XLSortOrder.Ascending ? 1 : -1;
-        return sortOrder == XLSortOrder.Ascending ? -1 : 1;
+        return thisCellIsBlank switch
+        {
+            true when otherCellIsBlank => 0,
+            true => sortOrder == XLSortOrder.Ascending ? 1 : -1,
+            _ => sortOrder == XLSortOrder.Ascending ? -1 : 1
+        };
     }
 
     private static int CompareSameOrMixedTypes(XLCell thisCell, XLCell otherCell, bool matchCase)
     {
-        if (thisCell.DataType != otherCell.DataType)
-            return CompareMixedTypes(thisCell, otherCell, matchCase);
-
-        return CompareSameType(thisCell, otherCell, matchCase);
+        return thisCell.DataType != otherCell.DataType
+            ? CompareMixedTypes(thisCell, otherCell, matchCase)
+            : CompareSameType(thisCell, otherCell, matchCase);
     }
 
     private static int CompareMixedTypes(XLCell thisCell, XLCell otherCell, bool matchCase)
@@ -60,7 +60,8 @@ internal static class XLCellComparer
             case XLDataType.Number:
                 return thisCell.GetDouble().CompareTo(otherCell.GetDouble());
             default:
-                throw new NotImplementedException();
+                throw new NotImplementedException(
+                    $"Cell comparison not implemented for data type {thisCell.DataType}.");
         }
     }
 }
