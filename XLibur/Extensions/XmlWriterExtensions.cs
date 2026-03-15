@@ -4,6 +4,8 @@ using System.Xml;
 using XLibur.Excel;
 using XLibur.Excel.IO;
 
+#pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility
+
 namespace XLibur.Extensions;
 
 internal static class XmlWriterExtensions

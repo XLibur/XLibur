@@ -7,6 +7,8 @@ using System.Linq;
 using XLibur.Extensions;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
+#pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility
+
 namespace XLibur.Utils;
 
 internal static class OpenXmlHelper
