@@ -61,9 +61,9 @@ internal sealed class XLPivotSourceExternalWorkbook : IXLPivotSource
         return false;
     }
 
-    public override bool Equals(object? other)
+    public override bool Equals(object? obj)
     {
-        return other is IXLPivotSource source && Equals(source);
+        return obj is IXLPivotSource source && Equals(source);
     }
 
     public override int GetHashCode()

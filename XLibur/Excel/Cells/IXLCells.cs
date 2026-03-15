@@ -7,7 +7,7 @@ public interface IXLCells : IEnumerable<IXLCell>
     /// <summary>
     /// Sets the cells' value.
     /// <para>
-    /// Setter will clear a formula, if the cell contains a formula.
+    /// Setter will clear a formula if the cell contains a formula.
     /// If the value is a text that starts with a single quote, setter will prefix the value with a single quote through
     /// <see cref="IXLStyle.IncludeQuotePrefix"/> in Excel too and the value of cell is set to to non-quoted text.
     /// </para>

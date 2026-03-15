@@ -27,9 +27,9 @@ internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
         return Cell(1, columnNumber);
     }
 
-    public override XLCell Cell(string columnLetter)
+    public override XLCell Cell(string cellAddressInRange)
     {
-        return Cell(1, columnLetter);
+        return Cell(1, cellAddressInRange);
     }
 
     IXLCell IXLRangeRow.Cell(string columnLetter)
@@ -62,10 +62,10 @@ internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
         return InsertColumnsBefore(numberOfColumns, expandRange).Cells();
     }
 
-    public override XLCells Cells(string cellsInRow)
+    public override XLCells Cells(string cells)
     {
         var retVal = new XLCells(false, XLCellsUsedOptions.AllContents);
-        var rangePairs = cellsInRow.Split(',');
+        var rangePairs = cells.Split(',');
         foreach (var pair in rangePairs)
             retVal.Add(Range(pair.Trim()).RangeAddress);
         return retVal;
@@ -100,7 +100,7 @@ internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
 
     public IXLRangeRow CopyTo(IXLCell target)
     {
-        base.CopyTo((XLCell)target);
+        base.CopyToCell((XLCell)target);
 
         var lastRowNumber = target.Address.RowNumber + RowCount() - 1;
         if (lastRowNumber > XLHelper.MaxRowNumber)

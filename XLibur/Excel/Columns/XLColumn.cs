@@ -83,10 +83,10 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
         return Cell(rowNumber, 1);
     }
 
-    public override XLCells Cells(string cellsInColumn)
+    public override XLCells Cells(string cells)
     {
         var retVal = new XLCells(false, XLCellsUsedOptions.All);
-        var rangePairs = cellsInColumn.Split(',');
+        var rangePairs = cells.Split(',');
         foreach (string pair in rangePairs)
             retVal.Add(Range(pair.Trim()).RangeAddress);
         return retVal;

@@ -27,10 +27,10 @@ internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
 
     IXLCells IXLRangeColumn.Cells(string cellsInColumn) => Cells(cellsInColumn);
 
-    public override XLCells Cells(string cellsInColumn)
+    public override XLCells Cells(string cells)
     {
         var retVal = new XLCells(false, XLCellsUsedOptions.AllContents);
-        var rangePairs = cellsInColumn.Split(',');
+        var rangePairs = cells.Split(',');
         foreach (var pair in rangePairs)
             retVal.Add(Range(pair.Trim()).RangeAddress);
         return retVal;
@@ -97,7 +97,7 @@ internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
 
     public IXLRangeColumn CopyTo(IXLCell target)
     {
-        base.CopyTo((XLCell)target);
+        base.CopyToCell((XLCell)target);
         return BuildCopyResult(target.Worksheet, target.Address.RowNumber, target.Address.ColumnNumber);
     }
 

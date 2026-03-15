@@ -333,7 +333,6 @@ XLibur.Excel.IXLCell.RemoveCellImage() -> void
 XLibur.Excel.IXLCell.Select() -> void
 XLibur.Excel.IXLCell.SetActive(bool value = true) -> XLibur.Excel.IXLCell!
 XLibur.Excel.IXLCell.SetCellImage(System.IO.Stream! imageStream, XLibur.Excel.Drawings.XLPictureFormat format, string! altText = "") -> XLibur.Excel.IXLCell!
-XLibur.Excel.IXLCell.SetDataValidation() -> XLibur.Excel.IXLDataValidation!
 XLibur.Excel.IXLCell.SetDynamicFormulaA1(string! formula) -> XLibur.Excel.IXLCell!
 XLibur.Excel.IXLCell.SetFormulaA1(string! formula) -> XLibur.Excel.IXLCell!
 XLibur.Excel.IXLCell.SetFormulaR1C1(string! formula) -> XLibur.Excel.IXLCell!

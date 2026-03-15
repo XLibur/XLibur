@@ -123,7 +123,7 @@ internal sealed class XLPivotTablePageField : IXLPivotField
         return this;
     }
 
-    public IXLPivotField SetIncludeNewItemsInFilter(bool value)
+    public IXLPivotField SetIncludeNewItemsInFilter(bool value = true)
     {
         IncludeNewItemsInFilter = value;
         return this;
@@ -135,37 +135,37 @@ internal sealed class XLPivotTablePageField : IXLPivotField
         return this;
     }
 
-    public IXLPivotField SetSubtotalsAtTop(bool value)
+    public IXLPivotField SetSubtotalsAtTop(bool value = true)
     {
         SubtotalsAtTop = value;
         return this;
     }
 
-    public IXLPivotField SetRepeatItemLabels(bool value)
+    public IXLPivotField SetRepeatItemLabels(bool value = true)
     {
         RepeatItemLabels = value;
         return this;
     }
 
-    public IXLPivotField SetInsertBlankLines(bool value)
+    public IXLPivotField SetInsertBlankLines(bool value = true)
     {
         InsertBlankLines = value;
         return this;
     }
 
-    public IXLPivotField SetShowBlankItems(bool value)
+    public IXLPivotField SetShowBlankItems(bool value = true)
     {
         ShowBlankItems = value;
         return this;
     }
 
-    public IXLPivotField SetInsertPageBreaks(bool value)
+    public IXLPivotField SetInsertPageBreaks(bool value = true)
     {
         InsertPageBreaks = value;
         return this;
     }
 
-    public IXLPivotField SetCollapsed(bool value)
+    public IXLPivotField SetCollapsed(bool value = true)
     {
         Collapsed = value;
         return this;

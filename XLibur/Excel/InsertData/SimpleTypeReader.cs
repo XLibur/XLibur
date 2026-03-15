@@ -27,7 +27,7 @@ internal sealed class SimpleTypeReader : IInsertDataReader
         return 1;
     }
 
-    public string GetPropertyName(int propertyIndex = 0)
+    public string GetPropertyName(int propertyIndex)
     {
         if (propertyIndex != 0)
             throw new ArgumentException("SimpleTypeReader supports only a single property");

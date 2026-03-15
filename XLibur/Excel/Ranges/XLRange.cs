@@ -279,7 +279,7 @@ internal class XLRange : XLStoredRangeBase, IXLRange
 
     public IXLRange CopyTo(IXLCell target)
     {
-        base.CopyTo((XLCell)target);
+        base.CopyToCell((XLCell)target);
 
         var lastRowNumber = target.Address.RowNumber + RowCount() - 1;
         if (lastRowNumber > XLHelper.MaxRowNumber)

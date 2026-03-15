@@ -27,7 +27,7 @@ internal sealed class SimpleNullableTypeReader : IInsertDataReader
         return 1;
     }
 
-    public string GetPropertyName(int propertyIndex = 0)
+    public string GetPropertyName(int propertyIndex)
     {
         if (propertyIndex != 0)
             throw new ArgumentException("SimpleNullableTypeReader supports only a single property");

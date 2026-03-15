@@ -217,9 +217,9 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         return Cell(1, columnNumber);
     }
 
-    public override XLCell Cell(string columnLetter)
+    public override XLCell Cell(string cellAddressInRange)
     {
-        return Cell(1, columnLetter);
+        return Cell(1, cellAddressInRange);
     }
 
     IXLCell IXLRow.Cell(string columnLetter)
@@ -239,10 +239,10 @@ internal sealed class XLRow : XLRangeBase, IXLRow
             : Cells(FirstCellUsed()!.Address.ColumnNumber, LastCellUsed()!.Address.ColumnNumber);
     }
 
-    public override XLCells Cells(string cellsInRow)
+    public override XLCells Cells(string cells)
     {
         var retVal = new XLCells(false, XLCellsUsedOptions.AllContents);
-        var rangePairs = cellsInRow.Split(',');
+        var rangePairs = cells.Split(',');
         foreach (var pair in rangePairs)
             retVal.Add(Range(pair.Trim()).RangeAddress);
         return retVal;

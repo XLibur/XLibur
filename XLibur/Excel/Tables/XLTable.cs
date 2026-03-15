@@ -925,7 +925,7 @@ internal sealed class XLTable : XLRange, IXLTable
 
     #region Append and replace data
 
-    public IXLRange? AppendData(IEnumerable data, bool propagateExtraColumns)
+    public IXLRange? AppendData(IEnumerable data, bool propagateExtraColumns = false)
     {
         return AppendData(data, transpose: false, propagateExtraColumns: propagateExtraColumns);
     }

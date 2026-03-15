@@ -496,7 +496,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         return Style;
     }
 
-    public IXLStyle WhenIsBottom(int value, XLTopBottomType topBottomType = XLTopBottomType.Items)
+    public IXLStyle WhenIsBottom(int value, XLTopBottomType topBottomType)
     {
         Values.Initialize(new XLFormula(value));
         Percent = topBottomType == XLTopBottomType.Percent;
