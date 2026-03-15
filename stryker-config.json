@@ -1,0 +1,18 @@
+{
+  "stryker-config": {
+    "project": "XLibur/XLibur.csproj",
+    "test-projects": ["XLibur.Tests/XLibur.Tests.csproj"],
+    "target-framework": "net10.0",
+    "reporters": ["html", "markdown", "json"],
+    "verbosity": "info",
+    "concurrency": 4,
+    "thresholds": {
+      "high": 80,
+      "low": 60,
+      "break": 0
+    },
+    "mutation-level": "Standard",
+    "ignore-mutations": ["string", "linq"],
+    "ignore-methods": ["Dispose", "ToString"]
+  }
+}

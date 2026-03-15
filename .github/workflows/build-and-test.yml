@@ -46,6 +46,12 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore XLibur.slnx
 
+      - name: Check formatting
+        run: dotnet format XLibur.slnx --verify-no-changes --verbosity diagnostic
+
+      - name: Check vulnerable packages
+        run: dotnet list XLibur.slnx package --vulnerable --include-transitive
+
       - name: Begin SonarCloud analysis
         if: env.SONAR_TOKEN != ''
         run: >
