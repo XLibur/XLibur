@@ -107,7 +107,7 @@ internal sealed class XLHFText
         {
             try
             {
-                prevColor = XLColor.FromHtml("#" + prevText.Substring(lastColorPosition + 2, 6));
+                prevColor = XLColor.FromHtml(string.Concat("#", prevText.AsSpan(lastColorPosition + 2, 6)));
             }
             catch (FormatException)
             {
@@ -119,6 +119,6 @@ internal sealed class XLHFText
             (hasPrevColor && !RichText.FontColor.Equals(prevColor))
             || (!hasPrevColor && !RichText.FontColor.Equals(wsFont.FontColor))
         )
-            sb.Append("&K" + RichText.FontColor.Color.ToHex().Substring(2));
+            sb.Append("&K").Append(RichText.FontColor.Color.ToHex().AsSpan(2));
     }
 }

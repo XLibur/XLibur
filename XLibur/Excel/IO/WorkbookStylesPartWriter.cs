@@ -93,7 +93,7 @@ internal static class WorkbookStylesPartWriter
             .Any(c => c.BuiltinId != null && c.BuiltinId.HasValue && c.BuiltinId.Value == 0))
         {
             // Possible to have duplicate default cell styles - occurs when file gets saved under different cultures.
-            // We prefer the style that is named Normal
+            // We prefer the style named Normal
             var normalCellStyles = cellStyles.Elements<CellStyle>()
                 .Where(c => c.BuiltinId != null && c.BuiltinId.HasValue && c.BuiltinId.Value == 0)
                 .OrderBy(c => c.Name != null && c.Name.HasValue && c.Name.Value == "Normal");
@@ -945,6 +945,7 @@ internal static class WorkbookStylesPartWriter
         return font;
     }
 
+#pragma warning disable S3776 // Each property check is independent and flat
     private static void AppendFontFlagElements(Font font, XLFontValue f, XLFontValue d, bool ignoreMod)
     {
         if ((f.Bold != d.Bold || ignoreMod) && f.Bold)
@@ -965,7 +966,9 @@ internal static class WorkbookStylesPartWriter
         if ((f.Shadow != d.Shadow || ignoreMod) && f.Shadow)
             font.AppendChild(new Shadow());
     }
+#pragma warning restore S3776
 
+#pragma warning disable S3776 // Each property check is independent and flat
     private static void AppendFontScalarElements(Font font, XLFontValue f, XLFontValue d, bool ignoreMod)
     {
         if (!XLHelper.AreEqual(f.FontSize, d.FontSize) || ignoreMod)
@@ -986,6 +989,7 @@ internal static class WorkbookStylesPartWriter
         if ((f.FontScheme != d.FontScheme || ignoreMod) && f.FontScheme != XLFontScheme.None)
             font.AppendChild(new FontScheme { Val = f.FontScheme.ToOpenXmlEnum() });
     }
+#pragma warning restore S3776    
 
     private static bool FontsAreEqual(Font font, XLFontValue xlFont)
     {
