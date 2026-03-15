@@ -64,9 +64,9 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
         Add((XLRange)range.AsRange());
     }
 
-    public void Add(IXLCell cell)
+    public void Add(IXLCell range)
     {
-        Add(cell.AsRange());
+        Add(range.AsRange());
     }
 
     public bool Remove(IXLRange range)

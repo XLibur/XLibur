@@ -1020,8 +1020,8 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return formatCodes.TryGetValue(style.NumberFormat.NumberFormatId, out var format) ? format : string.Empty;
     }
 
-    public IXLCell CopyFrom(IXLRangeBase rangeObject)
-        => XLCellCopyHelper.CopyFromRange(this, rangeObject);
+    public IXLCell CopyFrom(IXLRangeBase rangeBase)
+        => XLCellCopyHelper.CopyFromRange(this, rangeBase);
 
     private void ClearMerged()
         => XLCellCopyHelper.ClearMerged(this);

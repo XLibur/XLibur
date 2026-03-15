@@ -555,9 +555,9 @@ internal static class Statistical
 
     private readonly record struct SquareDiff(double Sum, int SampleCount, double SampleMean) : ITallyState<SquareDiff>
     {
-        public SquareDiff Tally(double sampleValue)
+        public SquareDiff Tally(double number)
         {
-            var diff = sampleValue - SampleMean;
+            var diff = number - SampleMean;
             var sum = Sum + diff * diff;
             return new SquareDiff(sum, SampleCount + 1, SampleMean);
         }

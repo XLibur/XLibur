@@ -264,21 +264,21 @@ internal sealed class XLSparklineGroup : IXLSparklineGroup
         return this;
     }
 
-    public IXLSparklineGroup SetDisplayEmptyCellsAs(XLDisplayBlanksAsValues displayEmptyCellsAs)
+    public IXLSparklineGroup SetDisplayEmptyCellsAs(XLDisplayBlanksAsValues value)
     {
-        DisplayEmptyCellsAs = displayEmptyCellsAs;
+        DisplayEmptyCellsAs = value;
         return this;
     }
 
-    public IXLSparklineGroup SetDisplayHidden(bool displayHidden)
+    public IXLSparklineGroup SetDisplayHidden(bool value)
     {
-        DisplayHidden = displayHidden;
+        DisplayHidden = value;
         return this;
     }
 
-    public IXLSparklineGroup SetLineWeight(double lineWeight)
+    public IXLSparklineGroup SetLineWeight(double value)
     {
-        LineWeight = lineWeight;
+        LineWeight = value;
         return this;
     }
 
@@ -294,9 +294,9 @@ internal sealed class XLSparklineGroup : IXLSparklineGroup
         return this;
     }
 
-    public IXLSparklineGroup SetType(XLSparklineType type)
+    public IXLSparklineGroup SetType(XLSparklineType value)
     {
-        Type = type;
+        Type = value;
         return this;
     }
 

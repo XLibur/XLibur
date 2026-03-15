@@ -112,12 +112,12 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         Purge(sheet.Workbook.WorksheetsInternal);
     }
 
-    public void OnDeleteAreaAndShiftLeft(XLWorksheet sheet, XLSheetRange deletedArea)
+    public void OnDeleteAreaAndShiftLeft(XLWorksheet sheet, XLSheetRange deletedRange)
     {
         Purge(sheet.Workbook.WorksheetsInternal);
     }
 
-    public void OnDeleteAreaAndShiftUp(XLWorksheet sheet, XLSheetRange deletedArea)
+    public void OnDeleteAreaAndShiftUp(XLWorksheet sheet, XLSheetRange deletedRange)
     {
         Purge(sheet.Workbook.WorksheetsInternal);
     }

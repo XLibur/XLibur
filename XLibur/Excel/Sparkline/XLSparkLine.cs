@@ -63,25 +63,25 @@ internal sealed class XLSparkline : IXLSparkline
 
     #region Public Methods
 
-    public IXLSparkline SetLocation(IXLCell cell)
+    public IXLSparkline SetLocation(IXLCell value)
     {
-        if (cell.Worksheet != SparklineGroup.Worksheet)
+        if (value.Worksheet != SparklineGroup.Worksheet)
             throw new InvalidOperationException("Cannot move the sparkline to a different worksheet");
 
         if (_location is not null)
             SparklineGroup.Remove(_location);
 
-        _location = cell;
+        _location = value;
         ((XLSparklineGroup)SparklineGroup).Add(this);
         return this;
     }
 
-    public IXLSparkline SetSourceData(IXLRange? range)
+    public IXLSparkline SetSourceData(IXLRange? value)
     {
-        if (range is not null && range.RowCount() != 1 && range.ColumnCount() != 1)
+        if (value is not null && value.RowCount() != 1 && value.ColumnCount() != 1)
             throw new ArgumentException("SourceData range must have either a single row or a single column");
 
-        _sourceData = range!;
+        _sourceData = value!;
         return this;
     }
 

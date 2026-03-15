@@ -21,9 +21,9 @@ internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
 
     IXLCells IXLRangeRow.Cells(string cellsInRow) => Cells(cellsInRow);
 
-    public IXLCell Cell(int column)
+    public IXLCell Cell(int columnNumber)
     {
-        return Cell(1, column);
+        return Cell(1, columnNumber);
     }
 
     public override XLCell Cell(string columnLetter)

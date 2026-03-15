@@ -7,8 +7,8 @@ public interface IXLRangeColumns : IEnumerable<IXLRangeColumn>
     /// <summary>
     /// Adds a column range to this group.
     /// </summary>
-    /// <param name="columRange">The column range to add.</param>
-    void Add(IXLRangeColumn columRange);
+    /// <param name="columnRange">The column range to add.</param>
+    void Add(IXLRangeColumn columnRange);
 
     /// <summary>
     /// Returns the collection of cells.

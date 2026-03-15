@@ -34,39 +34,39 @@ internal sealed class XLSparklineVerticalAxis : IXLSparklineVerticalAxis
 
     #region Public Methods
 
-    public IXLSparklineVerticalAxis SetManualMax(double? manualMax)
+    public IXLSparklineVerticalAxis SetManualMax(double? value)
     {
-        if (manualMax != null)
+        if (value != null)
             MaxAxisType = XLSparklineAxisMinMax.Custom;
 
-        _manualMax = manualMax;
+        _manualMax = value;
         return this;
     }
 
-    public IXLSparklineVerticalAxis SetManualMin(double? manualMin)
+    public IXLSparklineVerticalAxis SetManualMin(double? value)
     {
-        if (manualMin != null)
+        if (value != null)
             MinAxisType = XLSparklineAxisMinMax.Custom;
 
-        _manualMin = manualMin;
+        _manualMin = value;
         return this;
     }
 
-    public IXLSparklineVerticalAxis SetMaxAxisType(XLSparklineAxisMinMax maxAxisType)
+    public IXLSparklineVerticalAxis SetMaxAxisType(XLSparklineAxisMinMax value)
     {
-        if (maxAxisType != XLSparklineAxisMinMax.Custom)
+        if (value != XLSparklineAxisMinMax.Custom)
             _manualMax = null;
 
-        _maxAxisType = maxAxisType;
+        _maxAxisType = value;
         return this;
     }
 
-    public IXLSparklineVerticalAxis SetMinAxisType(XLSparklineAxisMinMax minAxisType)
+    public IXLSparklineVerticalAxis SetMinAxisType(XLSparklineAxisMinMax value)
     {
-        if (minAxisType != XLSparklineAxisMinMax.Custom)
+        if (value != XLSparklineAxisMinMax.Custom)
             _manualMin = null;
 
-        _minAxisType = minAxisType;
+        _minAxisType = value;
         return this;
     }
 

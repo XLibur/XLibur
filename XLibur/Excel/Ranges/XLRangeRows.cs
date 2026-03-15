@@ -28,9 +28,9 @@ internal sealed class XLRangeRows : XLStylizedBase, IXLRangeRows, IXLStylized
         _ranges.Clear();
     }
 
-    public void Add(IXLRangeRow range)
+    public void Add(IXLRangeRow rowRange)
     {
-        _ranges.Add((XLRangeRow)range);
+        _ranges.Add((XLRangeRow)rowRange);
     }
 
     public IEnumerator<IXLRangeRow> GetEnumerator()

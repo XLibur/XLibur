@@ -241,14 +241,14 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
         return XLHelper.InsertRowsWithoutEvents(base.InsertRowsBelow, this, numberOfRows, !Table.ShowTotalsRow);
     }
 
-    public new IXLRangeColumn Column(string column)
+    public new IXLRangeColumn Column(string columnLetter)
     {
-        if (XLHelper.IsValidColumn(column))
+        if (XLHelper.IsValidColumn(columnLetter))
         {
-            int coNum = XLHelper.GetColumnNumberFromLetter(column);
-            return coNum > ColumnCount() ? Column(_table.GetFieldIndex(column) + 1) : Column(coNum);
+            int coNum = XLHelper.GetColumnNumberFromLetter(columnLetter);
+            return coNum > ColumnCount() ? Column(_table.GetFieldIndex(columnLetter) + 1) : Column(coNum);
         }
 
-        return Column(_table.GetFieldIndex(column) + 1);
+        return Column(_table.GetFieldIndex(columnLetter) + 1);
     }
 }
