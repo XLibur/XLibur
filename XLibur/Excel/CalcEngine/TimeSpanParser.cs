@@ -4,20 +4,20 @@ using System.Globalization;
 namespace XLibur.Excel.CalcEngine;
 
 /// <summary>
-/// A parser of timespan format used by excel during coercion from text to number. <see cref="TimeSpan" /> parsing methods
-/// don't allow for several features required by excel (e.g. seconds/minutes over 60, hours over 24).
-/// Parser can parse following formats from ECMA-376, Part 1, §18.8.30. due to standard text-to-number coercion:
+/// A parser of timespan format used by Excel during coercion from text to number. <see cref="TimeSpan" /> parsing methods
+/// don't allow for several features required by Excel (e.g., seconds/minutes over 60, hours over 24).
+/// Parser can parse the following formats from ECMA-376, Part 1, §18.8.30. Due to standard text-to-number coercion:
 /// <list type="bullet">
 ///     <item>Format 20 - <c>h:mm</c>.</item>
 ///     <item>Format 21 - <c>h:mm:ss</c>.</item>
-///     <item>Format 47 - <c>mm:ss.0</c> (format is incorrectly described as <c>mmss.0</c> in the standard,
-///           but fixed in an implementation errata).</item>
+///     <item>Format 47 - <c>mm:ss.0</c> (a format is incorrectly described as <c>mmss.0</c> in the standard,
+///           but fixed in an implementation erratum).</item>
 /// </list>
-/// Timespan is never interpreted through format 45 (<c>mm:ss</c>), instead preferring the format 20 (<c>h:mm</c>).
+/// Timespan is never interpreted through format 45 (<c>mm:ss</c>), instead preferring format 20 (<c>h:mm</c>).
 /// Timespan is never interpreted through format 46 (<c>[h]:mm:ss</c>], such values are covered by format 21 (<c>h:mm:ss</c>).
 /// </summary>
 /// <remarks>
-/// Note that the decimal fraction differs format 20 and 47, thus mere addition of decimal
+/// Note that the decimal fraction differs format 20 and 47, thus the mere addition of a decimal
 /// place means significantly different values. Parser also copies features of Excel, like whitespaces around
 /// a decimal place (<c>10:20 . 5</c> is allowed).
 /// <example>
@@ -31,7 +31,7 @@ internal static class TimeSpanParser
     {
         var timeSeparator = ci.DateTimeFormat.TimeSeparator;
         var decimalSeparator = ci.NumberFormat.NumberDecimalSeparator;
-        result = default;
+        result = TimeSpan.Zero;
         var i = 0;
         SkipWhitespace(ref i, s);
         if (!TryReadNumber(ref i, s, out var hoursOrMinutes))
@@ -60,13 +60,13 @@ internal static class TimeSpanParser
             return hoursOrMinutes < 24 || minutesOrSeconds < 60;
         }
 
-        if (InputMatches(ref i, s, decimalSeparator))
-            return TryParseFormat47(ref i, s, hoursOrMinutes, minutesOrSeconds, out result);
-
-        return TryParseHMS(ref i, s, timeSeparator, decimalSeparator, hoursOrMinutes, minutesOrSeconds, out result);
+        return InputMatches(ref i, s, decimalSeparator)
+            ? TryParseFormat47(ref i, s, hoursOrMinutes, minutesOrSeconds, out result)
+            : TryParseHMS(ref i, s, timeSeparator, decimalSeparator, hoursOrMinutes, minutesOrSeconds, out result);
     }
 
-    private static bool TryParseFormat47(ref int i, string s, int hoursOrMinutes, int minutesOrSeconds, out TimeSpan result)
+    private static bool TryParseFormat47(ref int i, string s, int hoursOrMinutes, int minutesOrSeconds,
+        out TimeSpan result)
     {
         SkipWhitespace(ref i, s);
         var ms = ReadFractionInMs(ref i, s);
@@ -79,7 +79,7 @@ internal static class TimeSpanParser
     private static bool TryParseHMS(ref int i, string s, string timeSeparator, string decimalSeparator,
         int hoursOrMinutes, int minutesOrSeconds, out TimeSpan result)
     {
-        result = default;
+        result = TimeSpan.Zero;
 
         if (!InputMatches(ref i, s, timeSeparator))
             return false;
@@ -104,20 +104,21 @@ internal static class TimeSpanParser
             return true;
         }
 
-        return TryParseHMSWithDecimal(ref i, s, decimalSeparator, hoursOrMinutes, minutesOrSeconds, seconds, out result);
+        return TryParseHMSWithDecimal(ref i, s, decimalSeparator, hoursOrMinutes, minutesOrSeconds, seconds,
+            out result);
     }
 
     private static bool HasTwoOrMoreOutOfBoundsComponents(int hours, int minutes, int seconds)
     {
         return (hours >= 24 && minutes >= 60)
-            || (hours >= 24 && seconds >= 60)
-            || (minutes >= 60 && seconds >= 60);
+               || (hours >= 24 && seconds >= 60)
+               || (minutes >= 60 && seconds >= 60);
     }
 
     private static bool TryParseHMSWithDecimal(ref int i, string s, string decimalSeparator,
         int hours, int minutes, int seconds, out TimeSpan result)
     {
-        result = default;
+        result = TimeSpan.Zero;
 
         if (!InputMatches(ref i, s, decimalSeparator))
             return false;

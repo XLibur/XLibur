@@ -153,7 +153,7 @@ public class PivotTables : IXLExample
 
         ptSheet = wb.Worksheets.Add("pvtHideSubTotals");
 
-        // Create the pivot table, using the data from the "PastrySalesData" table
+        // Create the pivot table using the data from the "PastrySalesData" table
         pt = ptSheet.PivotTables.Add("pvtHidesubTotals", ptSheet.Cell(1, 1), table);
 
         // The rows in our pivot table will be the names of the pastries

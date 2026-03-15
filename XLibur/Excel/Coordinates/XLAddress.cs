@@ -360,9 +360,9 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         return _packed == other._packed;
     }
 
-    public override bool Equals(object? other)
+    public override bool Equals(object? obj)
     {
-        return Equals(other as IXLAddress);
+        return Equals(obj as IXLAddress);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

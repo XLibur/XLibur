@@ -1146,10 +1146,10 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public virtual void CopyTo(IXLRangeBase target)
     {
-        CopyTo((XLCell)target.FirstCell());
+        CopyToCell((XLCell)target.FirstCell());
     }
 
-    internal void CopyTo(XLCell target)
+    internal void CopyToCell(XLCell target)
     {
         target.CopyFrom(this);
     }

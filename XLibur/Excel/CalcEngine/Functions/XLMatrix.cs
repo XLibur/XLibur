@@ -247,11 +247,10 @@ internal sealed class XLMatrix
 
     public static XLMatrix RandomMatrix(int iRows, int iCols, int dispersion) // Function generates the zero matrix
     {
-        var random = new Random();
         var matrix = new XLMatrix(iRows, iCols);
         for (var i = 0; i < iRows; i++)
             for (var j = 0; j < iCols; j++)
-                matrix[i, j] = random.Next(-dispersion, dispersion);
+                matrix[i, j] = Random.Shared.Next(-dispersion, dispersion);
         return matrix;
     }
 

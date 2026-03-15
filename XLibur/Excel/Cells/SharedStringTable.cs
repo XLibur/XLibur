@@ -83,7 +83,7 @@ internal sealed class SharedStringTable
 
     /// <summary>
     /// The principle is that every entry is a text, but only some are rich text.
-    /// This tries to get a rich text, if it is one. If it is just plain text, return null.
+    /// This tries to get a rich text if it is one. If it is just plain text, return null.
     /// </summary>
     internal XLImmutableRichText? GetRichText(int id)
     {
@@ -95,16 +95,16 @@ internal sealed class SharedStringTable
     }
 
     /// <summary>
-    /// Get id for a text and increase a number of references to the text by one.
+    /// Get id for a text and increase the number of references to the text by one.
     /// </summary>
-    /// <returns>Id of a text in the SST.</returns>
+    /// <returns>ID of a text in the SST.</returns>
     internal int IncreaseRef(string text, bool inline) => IncreaseTextRef(new Text(text, inline));
 
     /// <inheritdoc cref="IncreaseRef(string, bool)"/>
     internal int IncreaseRef(XLImmutableRichText text, bool inline) => IncreaseTextRef(new Text(text, inline));
 
     /// <summary>
-    /// Decrease reference count of a text and free if necessary.
+    /// Decrease the reference count of a text and free if necessary.
     /// </summary>
     internal void DecreaseRef(int id)
     {
@@ -124,8 +124,8 @@ internal sealed class SharedStringTable
     }
 
     /// <summary>
-    /// Get a map that takes the actual string id and returns an continuous sequence (i.e. no gaps).
-    /// If an id if free (no ref count), the id is mapped to -1.
+    /// Get a map that takes the actual string id and returns a continuous sequence (i.e., no gaps).
+    /// If an id is free (no ref count), the id is mapped to -1.
     /// </summary>
     internal int[] GetConsecutiveMap()
     {
@@ -136,7 +136,7 @@ internal sealed class SharedStringTable
             var entry = _table[i];
             var isShared =
                 entry.RefCount > 0 && // Only used entry can be written to sst
-                !entry.Text.Inline;  // Inline texts shouldn't be written to sst
+                !entry.Text.Inline; // Inline texts shouldn't be written to sst
             map[i] = isShared ? mappedStringId++ : -1;
         }
 

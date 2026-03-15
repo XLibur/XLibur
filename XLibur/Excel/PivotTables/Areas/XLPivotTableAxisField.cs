@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -8,112 +8,48 @@ namespace XLibur.Excel;
 /// A fluent API for one field in <see cref="XLPivotTableAxis"/>, either
 /// <see cref="XLPivotTable.RowLabels"/> or <see cref="XLPivotTable.ColumnLabels"/>.
 /// </summary>
-internal sealed class XLPivotTableAxisField : IXLPivotField
+internal sealed class XLPivotTableAxisField : XLPivotFieldBase
 {
-    private readonly XLPivotTable _pivotTable;
     private readonly FieldIndex _index;
 
     internal XLPivotTableAxisField(XLPivotTable pivotTable, FieldIndex index)
+        : base(pivotTable)
     {
-        _pivotTable = pivotTable;
         _index = index;
     }
 
-    #region IXLPivotField memebers
-
-    public string SourceName
+    public override string SourceName
     {
         get
         {
             if (_index.IsDataField)
                 return XLConstants.PivotTable.ValuesSentinalLabel;
 
-            return _pivotTable.PivotCache.FieldNames[_index];
+            return PivotTable.PivotCache.FieldNames[_index];
         }
     }
 
-    public string CustomName
+    public override string CustomName
     {
-        get => GetFieldValue(f => f.Name!, _pivotTable.DataCaption);
+        get => GetFieldValue(f => f.Name!, PivotTable.DataCaption);
         set
         {
             if (_index.IsDataField)
             {
-                _pivotTable.DataCaption = value;
+                PivotTable.DataCaption = value;
                 return;
             }
 
-            if (_pivotTable.TryGetCustomNameFieldIndex(value, out var idx) && idx != _index)
+            if (PivotTable.TryGetCustomNameFieldIndex(value, out var idx) && idx != _index)
                 throw new ArgumentException($"Custom name '{value}' is already used by another field.");
 
-            _pivotTable.PivotFields[_index].Name = value;
+            PivotTable.PivotFields[_index].Name = value;
         }
     }
 
-    public string SubtotalCaption
+    public override bool Collapsed
     {
-        get => GetFieldValue(f => f.SubtotalCaption, string.Empty);
-        set => GetField().SubtotalCaption = value;
-    }
-
-    public IReadOnlyCollection<XLSubtotalFunction> Subtotals
-    {
-        get => GetField().Subtotals;
-    }
-
-    public bool IncludeNewItemsInFilter
-    {
-        get => GetFieldValue(f => f.IncludeNewItemsInFilter, false);
-        set => GetField().IncludeNewItemsInFilter = value;
-    }
-
-    public bool Outline
-    {
-        get => GetFieldValue(f => f.Outline, true);
-        set => GetField().Outline = value;
-    }
-    public bool Compact
-    {
-        get => GetFieldValue(f => f.Compact, true);
-        set => GetField().Compact = value;
-    }
-
-    public bool? SubtotalsAtTop
-    {
-        get => GetFieldValue(f => f.SubtotalTop, true);
-        set => GetField().SubtotalTop = value ?? true;
-    }
-
-    public bool RepeatItemLabels
-    {
-        get => GetFieldValue(f => f.RepeatItemLabels, false);
-        set => GetField().RepeatItemLabels = value;
-    }
-
-    public bool InsertBlankLines
-    {
-        get => GetFieldValue(f => f.InsertBlankRow, false);
-        set => GetField().InsertBlankRow = value;
-    }
-
-    public bool ShowBlankItems
-    {
-        get => GetFieldValue(f => f.ShowAll, true);
-        set => GetField().ShowAll = value;
-    }
-
-    public bool InsertPageBreaks
-    {
-        get => GetFieldValue(f => f.InsertPageBreak, false);
-        set => GetField().InsertPageBreak = value;
-    }
-
-    public bool Collapsed
-    {
-        get
-        {
-            return GetFieldValue(f => !f.Items.Any(i => i.ShowDetails), false);
-        }
+        get => GetFieldValue(f => !f.Items.Any(i => i.ShowDetails), false);
         set
         {
             foreach (var item in GetField().Items)
@@ -121,111 +57,21 @@ internal sealed class XLPivotTableAxisField : IXLPivotField
         }
     }
 
-    public XLPivotSortType SortType
-    {
-        get => GetFieldValue(f => f.SortType, XLPivotSortType.Default);
-        set => GetField().SortType = value;
-    }
+    public override IReadOnlyList<XLCellValue> SelectedValues => Array.Empty<XLCellValue>();
 
-    public IReadOnlyList<XLCellValue> SelectedValues => Array.Empty<XLCellValue>();
+    public override IXLPivotFieldStyleFormats StyleFormats => new XLPivotTableAxisFieldStyleFormats(PivotTable, this);
 
-    public IXLPivotFieldStyleFormats StyleFormats => new XLPivotTableAxisFieldStyleFormats(_pivotTable, this);
+    public override bool IsOnRowAxis => GetFieldValue(f => f.Axis == XLPivotAxis.AxisRow, PivotTable.DataOnRows);
 
-    public bool IsOnRowAxis => GetFieldValue(f => f.Axis == XLPivotAxis.AxisRow, _pivotTable.DataOnRows);
+    public override bool IsOnColumnAxis => GetFieldValue(f => f.Axis == XLPivotAxis.AxisCol, !PivotTable.DataOnRows);
 
-    public bool IsOnColumnAxis => GetFieldValue(f => f.Axis == XLPivotAxis.AxisCol, !_pivotTable.DataOnRows);
+    public override bool IsInFilterList => false;
 
-    public bool IsInFilterList => false;
+    public override int Offset => _index;
 
-    public int Offset => _index;
+    public override IXLPivotField AddSelectedValue(XLCellValue value) => this;
 
-    public IXLPivotField SetCustomName(string value)
-    {
-        CustomName = value;
-        return this;
-    }
-
-    public IXLPivotField SetSubtotalCaption(string value)
-    {
-        SubtotalCaption = value;
-        return this;
-    }
-
-    public IXLPivotField SetSubtotal(XLSubtotalFunction function, bool enabled)
-    {
-        if (enabled)
-            GetField().AddSubtotal(function);
-        else
-            GetField().RemoveSubtotal(function);
-
-        return this;
-    }
-
-    public IXLPivotField AddSubtotal(XLSubtotalFunction value)
-    {
-        GetField().AddSubtotal(value);
-        return this;
-    }
-
-    public IXLPivotField SetIncludeNewItemsInFilter(bool value)
-    {
-        IncludeNewItemsInFilter = value;
-        return this;
-    }
-
-    public IXLPivotField SetLayout(XLPivotLayout value)
-    {
-        GetField().SetLayout(value);
-        return this;
-    }
-
-    public IXLPivotField SetSubtotalsAtTop(bool value)
-    {
-        SubtotalsAtTop = value;
-        return this;
-    }
-
-    public IXLPivotField SetRepeatItemLabels(bool value)
-    {
-        RepeatItemLabels = value;
-        return this;
-    }
-
-    public IXLPivotField SetInsertBlankLines(bool value)
-    {
-        InsertBlankLines = value;
-        return this;
-    }
-
-    public IXLPivotField SetShowBlankItems(bool value)
-    {
-        ShowBlankItems = value;
-        return this;
-    }
-
-    public IXLPivotField SetInsertPageBreaks(bool value)
-    {
-        InsertPageBreaks = value;
-        return this;
-    }
-
-    public IXLPivotField SetCollapsed(bool value)
-    {
-        Collapsed = true;
-        return this;
-    }
-
-    public IXLPivotField SetSort(XLPivotSortType value)
-    {
-        SortType = value;
-        return this;
-    }
-
-    public IXLPivotField AddSelectedValue(XLCellValue value) => this;
-
-    public IXLPivotField AddSelectedValues(IEnumerable<XLCellValue> values) => this;
-
-    #endregion IXLPivotField members
+    public override IXLPivotField AddSelectedValues(IEnumerable<XLCellValue> values) => this;
 
     internal XLPivotAxis Axis => IsOnColumnAxis ? XLPivotAxis.AxisCol : XLPivotAxis.AxisRow;
 
@@ -236,7 +82,7 @@ internal sealed class XLPivotTableAxisField : IXLPivotField
     {
         get
         {
-            var axis = IsOnColumnAxis ? _pivotTable.ColumnAxis : _pivotTable.RowAxis;
+            var axis = IsOnColumnAxis ? PivotTable.ColumnAxis : PivotTable.RowAxis;
             var position = axis.IndexOf(_index);
             if (position == -1)
                 throw new InvalidOperationException("Field is not on the axis.");
@@ -245,19 +91,19 @@ internal sealed class XLPivotTableAxisField : IXLPivotField
         }
     }
 
-    private XLPivotTableField GetField()
+    private protected override XLPivotTableField GetField()
     {
         if (_index.IsDataField)
             throw new InvalidOperationException("Can't set this property on a data field.");
 
-        return _pivotTable.PivotFields[_index];
+        return PivotTable.PivotFields[_index];
     }
 
-    private T GetFieldValue<T>(Func<XLPivotTableField, T> getter, T dataFieldValue)
+    private protected override T GetFieldValue<T>(Func<XLPivotTableField, T> getter, T defaultValue)
     {
         if (_index.IsDataField)
-            return dataFieldValue;
-        var field = _pivotTable.PivotFields[_index];
-        return getter(field);
+            return defaultValue;
+
+        return getter(PivotTable.PivotFields[_index]);
     }
 }

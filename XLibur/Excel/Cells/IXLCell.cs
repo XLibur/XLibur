@@ -8,61 +8,11 @@ using XLibur.Excel.Drawings;
 
 namespace XLibur.Excel;
 
-/// <summary>
-/// A value that is in the cell.
-/// </summary>
-public enum XLDataType
-{
-    /// <summary>
-    /// The value is a blank (either blank cells or the omitted optional argument of a function, e.g. <c>IF(TRUE,,)</c>.
-    /// </summary>
-    /// <remarks>Keep as the first, so the default values are blank.</remarks>
-    Blank = 0,
-
-    /// <summary>
-    /// The value is a logical value.
-    /// </summary>
-    Boolean = 1,
-
-    /// <summary>
-    /// The value is a double-precision floating points number, excluding <see cref="Double.NaN"/>,
-    /// <see cref="Double.PositiveInfinity"/> or <see cref="double.NegativeInfinity"/>.
-    /// </summary>
-    Number = 2,
-
-    /// <summary>
-    /// A text or a rich text. Can't be <c>null</c> and can be at most 32767 characters long.
-    /// </summary>
-    Text = 3,
-
-    /// <summary>
-    /// The value is one of <see cref="XLError"/>.
-    /// </summary>
-    Error = 4,
-
-    /// <summary>
-    /// The value is a <see cref="DateTime"/>, represented as a serial date time number.
-    /// </summary>
-    /// <remarks>
-    /// Serial date time 60 is a 1900-02-29, nonexistent day kept for compatibility,
-    /// but unrepresentable by <c>DateTime</c>. Don't use.
-    /// </remarks>
-    DateTime = 5,
-
-    /// <summary>
-    /// The value is a <see cref="TimeSpan"/>, represented in a serial date time (24 hours is 1, 36 hours is 1.5 ect.).
-    /// </summary>
-    TimeSpan = 6,
-}
-
-public enum XLTableCellType { None, Header, Data, Total }
-
 public interface IXLCell
 {
     /// <summary>
-    /// Is this cell the <see cref="IXLWorksheet.ActiveCell">active cell of
-    /// the worksheet</see>? Setting false deactivates cell only when the
-    /// cell is currently active.
+    /// Is this cell the <see cref="IXLWorksheet.ActiveCell">active cell of the worksheet</see>?
+    /// Setting false deactivates a cell only when the cell is currently active. 
     /// </summary>
     bool Active { get; set; }
 
@@ -76,7 +26,7 @@ public interface IXLCell
     /// doesn't contain a formula, it returns same value as <see cref="Value"/>.
     /// May hold invalid value when <see cref="NeedsRecalculation"/> flag is True.
     /// </summary>
-    /// <remarks>Can be useful to decrease a number of formula evaluations.</remarks>
+    /// <remarks>Can be useful to decrease the number of formula evaluations.</remarks>
     XLCellValue CachedValue { get; }
 
     /// <summary>
@@ -118,8 +68,8 @@ public interface IXLCell
     string FormulaR1C1 { get; set; }
 
     /// <summary>
-    /// An indication that value of this cell is calculated by a array formula
-    /// that calculates values for cells in the referenced address. Null if not part of such formula.
+    /// An indication that the value of this cell is calculated by an array formula
+    /// that calculates values for cells in the referenced address. Null if not part of such a formula.
     /// </summary>
     IXLRangeAddress? FormulaReference { get; set; }
 
@@ -157,7 +107,7 @@ public interface IXLCell
     void RemoveCellImage();
 
     /// <summary>
-    /// Flag indicating that previously calculated cell value may be not valid anymore and has to be re-evaluated.
+    /// Flag indicating that a previously calculated cell value may be not valid anymore and has to be re-evaluated.
     /// Only cells with formula may return <c>true</c>, value cells always return <c>false</c>.
     /// </summary>
     bool NeedsRecalculation { get; }
@@ -166,7 +116,7 @@ public interface IXLCell
     /// Gets or sets a value indicating whether this cell's text should be shared or not.
     /// </summary>
     /// <value>
-    ///   If false the cell's text will not be shared and stored as an inline value.
+    ///   If false, the cell's text will not be shared and stored as an inline value.
     /// </value>
     bool ShareString { get; set; }
 
@@ -180,11 +130,11 @@ public interface IXLCell
     /// <summary>
     /// Gets or sets the cell's value.
     /// <para>
-    /// Getter will return value of a cell or value of formula. Getter will evaluate a formula, if the cell
+    /// Getter will return the value of a cell or value of a formula. Getter will evaluate a formula, if the cell
     /// <see cref="NeedsRecalculation"/>, before returning up-to-date value.
     /// </para>
     /// <para>
-    /// Setter will clear a formula, if the cell contains a formula.
+    /// Setter will clear a formula if the cell contains a formula.
     /// If the value is a text that starts with a single quote, setter will prefix the value with a single quote through
     /// <see cref="IXLStyle.IncludeQuotePrefix"/> in Excel too and the value of cell is set to to non-quoted text.
     /// </para>
@@ -194,7 +144,7 @@ public interface IXLCell
     IXLWorksheet Worksheet { get; }
 
     /// <summary>
-    /// Should the cell show phonetic (i.e. furigana) above the rich text of the cell?
+    /// Should the cell show phonetic (i.e., furigana) above the rich text of the cell?
     /// It shows phonetic runs in the rich text, it is not autogenerated. Default
     /// is <c>false</c>.
     /// </summary>
@@ -259,8 +209,8 @@ public interface IXLCell
     IXLCell CopyFrom(string otherCell);
 
     /// <summary>
-    /// Copy range content to an area of same size starting at the cell.
-    /// Original content of cells is overwritten.
+    /// Copy range content to an area of the same size starting at the cell.
+    /// The original content of cells is overwritten.
     /// </summary>
     /// <param name="rangeBase">Range whose content to copy.</param>
     /// <returns>This cell.</returns>
@@ -523,9 +473,6 @@ public interface IXLCell
 
     IXLCell SetActive(bool value = true);
 
-    [Obsolete("Use GetDataValidation to access the existing rule, or CreateDataValidation() to create a new one.")]
-    IXLDataValidation SetDataValidation();
-
     IXLCell SetFormulaA1(string formula);
 
     /// <summary>
@@ -541,8 +488,8 @@ public interface IXLCell
     IXLCell SetFormulaR1C1(string formula);
 
     /// <summary>
-    /// Set hyperlink of a cell. When user clicks on a cell with hyperlink,
-    /// the Excel opens the target or moves cursor to the target cells in a
+    /// Set a hyperlink of a cell. When a user clicks on a cell with hyperlink,
+    /// the Excel opens the target or moves the cursor to the target cells in a
     /// worksheet. The text of hyperlink is a cell value, the hyperlink
     /// target and tooltip are defined by the <paramref name="hyperlink"/>
     /// parameter.
@@ -554,6 +501,7 @@ public interface IXLCell
     /// <param name="hyperlink">The new cell hyperlink. Use <c>null</c> to
     ///   remove the hyperlink.</param>
     void SetHyperlink(XLHyperlink? hyperlink);
+
     /// <inheritdoc cref="Value"/>
     /// <returns>This cell.</returns>
     IXLCell SetValue(XLCellValue value);

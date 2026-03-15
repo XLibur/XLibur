@@ -6,8 +6,8 @@ using System.Diagnostics;
 namespace XLibur.Excel;
 
 /// <summary>
-/// Slice is a sparse array that stores a part of cell information (e.g. only values,
-/// only styles ...). Slice has same size as a worksheet. If some cells are pushed out
+/// Slice is a sparse array that stores a part of cell information (e.g., only values,
+/// only styles ...). Slice has the same size as a worksheet. If some cells are pushed out
 /// of the permitted range, they are gone.
 /// </summary>
 /// <remarks>
@@ -21,19 +21,19 @@ internal sealed partial class Slice<TElement> : ISlice
     private readonly TElement _defaultValue = default!;
 
     /// <summary>
-    /// The content of the slice. Note that LUT uses index that starts from 0,
-    /// so rows and columns must be adjusted to retrieved the value.
+    /// The content of the slice. Note that LUT uses an index that starts from 0,
+    /// so rows and columns must be adjusted to retrieve the value.
     /// </summary>
     private readonly Lut<RowData> _data;
 
     /// <summary>
-    /// Key is column number, value is number of cells in the column that are used.
+    /// Key is the column number, value is the number of cells in the column that are used.
     /// </summary>
     private readonly Dictionary<int, int> _columnUsage = new();
 
     internal Slice()
     {
-        _data = new();
+        _data = new Lut<RowData>();
     }
 
     /// <summary>

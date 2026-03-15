@@ -52,10 +52,10 @@ public class Hyperlinks : IXLExample
         // browser: http, ftp, mailto, gopher, news, nntp, etc.
 
         ws.Cell(++ro, 1).Value = "Link to a web page, no tooltip - Yahoo!";
-        ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("http://www.yahoo.com"));
+        ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("https://www.yahoo.com"));
 
         ws.Cell(++ro, 1).Value = "Link to a web page, with a tooltip - Yahoo!";
-        ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("http://www.yahoo.com", "Click to go to Yahoo!"));
+        ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("https://www.yahoo.com", "Click to go to Yahoo!"));
 
         ws.Cell(++ro, 1).Value = "Link to a file - same folder";
         ws.Cell(ro, 1).SetHyperlink(new XLHyperlink("Test.xlsx"));
