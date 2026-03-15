@@ -133,20 +133,29 @@ internal sealed class PivotTableCacheDefinitionPartWriter
 
         // OpenXML SDK has few bugs here. Use AppendChild to add more children, AddChild keeps only one child.
         if (consolidationSource.Pages.Count > 0)
+            consolidation.AddChild(BuildConsolidationPages(consolidationSource));
+
+        consolidation.AddChild(BuildConsolidationRangeSets(consolidationSource));
+        cacheSource.AddChild(consolidation);
+    }
+
+    private static Pages BuildConsolidationPages(XLPivotSourceConsolidation consolidationSource)
+    {
+        var pages = new Pages();
+        foreach (var xlPageFilter in consolidationSource.Pages)
         {
-            var pages = new Pages();
-            foreach (var xlPageFilter in consolidationSource.Pages)
-            {
-                var page = new Page();
-                foreach (var xlPageItem in xlPageFilter.PageItems)
-                    page.AppendChild(new PageItem { Name = xlPageItem });
+            var page = new Page();
+            foreach (var xlPageItem in xlPageFilter.PageItems)
+                page.AppendChild(new PageItem { Name = xlPageItem });
 
-                pages.AppendChild(page);
-            }
-
-            consolidation.AddChild(pages);
+            pages.AppendChild(page);
         }
 
+        return pages;
+    }
+
+    private static RangeSets BuildConsolidationRangeSets(XLPivotSourceConsolidation consolidationSource)
+    {
         var rangeSets = new RangeSets();
         foreach (var xlRangeSet in consolidationSource.RangeSets)
         {
@@ -178,8 +187,7 @@ internal sealed class PivotTableCacheDefinitionPartWriter
             rangeSets.AppendChild(rangeSet);
         }
 
-        consolidation.AddChild(rangeSets);
-        cacheSource.AddChild(consolidation);
+        return rangeSets;
     }
 
     private static void WriteCacheFields(XLPivotCache pivotCache, CacheFields cacheFields)
@@ -191,73 +199,82 @@ internal sealed class PivotTableCacheDefinitionPartWriter
             // Calculated fields have a formula and no database records or shared items.
             if (pivotCache.GetCalculatedFieldFormula(fieldIdx) is { } formula)
             {
-                var calcField = cacheFields
-                    .Elements<CacheField>()
-                    .FirstOrDefault(f => f.Name == cacheFieldName);
-
-                if (calcField == null)
-                {
-                    calcField = new CacheField
-                    {
-                        Name = cacheFieldName,
-                        Formula = formula,
-                        DatabaseField = false,
-                    };
-                    cacheFields.AppendChild(calcField);
-                }
-                else
-                {
-                    calcField.Formula = formula;
-                    calcField.DatabaseField = false;
-                }
-
+                WriteCalculatedCacheField(cacheFields, cacheFieldName, formula);
                 continue;
             }
 
-            var fieldValues = pivotCache.GetFieldValues(fieldIdx);
-            var xlSharedItems = pivotCache.GetFieldSharedItems(fieldIdx)
-                .GetCellValues()
-                .ToArray();
+            WriteRegularCacheField(pivotCache, cacheFields, fieldIdx, cacheFieldName);
+        }
+    }
 
-            // .CacheFields is cleared when workbook is begin saved
-            // So if there are any entries, it would be from previous pivot tables
-            // with an identical source range.
-            // When pivot sources get its refactoring, this will not be necessary
-            var cacheField = cacheFields
-                .Elements<CacheField>()
-                .FirstOrDefault(f => f.Name == cacheFieldName);
+    private static void WriteCalculatedCacheField(CacheFields cacheFields, string cacheFieldName, string formula)
+    {
+        var calcField = cacheFields
+            .Elements<CacheField>()
+            .FirstOrDefault(f => f.Name == cacheFieldName);
 
-            if (cacheField == null)
+        if (calcField == null)
+        {
+            calcField = new CacheField
             {
-                cacheField = new CacheField
-                {
-                    Name = cacheFieldName,
-                    SharedItems = new SharedItems()
-                };
-                cacheFields.AppendChild(cacheField);
-            }
-            cacheField.SharedItems ??= new SharedItems();
-            var sharedItems = cacheField.SharedItems;
+                Name = cacheFieldName,
+                Formula = formula,
+                DatabaseField = false,
+            };
+            cacheFields.AppendChild(calcField);
+        }
+        else
+        {
+            calcField.Formula = formula;
+            calcField.DatabaseField = false;
+        }
+    }
 
-            sharedItems.Count = fieldValues.SharedCount != 0 ? checked((uint)xlSharedItems.Length) : null;
+    private static void WriteRegularCacheField(XLPivotCache pivotCache, CacheFields cacheFields, int fieldIdx, string cacheFieldName)
+    {
+        var fieldValues = pivotCache.GetFieldValues(fieldIdx);
+        var xlSharedItems = pivotCache.GetFieldSharedItems(fieldIdx)
+            .GetCellValues()
+            .ToArray();
 
-            WriteSharedItemStats(sharedItems, fieldValues.Stats);
+        // .CacheFields is cleared when workbook is begin saved
+        // So if there are any entries, it would be from previous pivot tables
+        // with an identical source range.
+        // When pivot sources get its refactoring, this will not be necessary
+        var cacheField = cacheFields
+            .Elements<CacheField>()
+            .FirstOrDefault(f => f.Name == cacheFieldName);
 
-            foreach (var value in xlSharedItems)
+        if (cacheField == null)
+        {
+            cacheField = new CacheField
             {
-                OpenXmlElement toAdd = value.Type switch
-                {
-                    XLDataType.Blank => new MissingItem(),
-                    XLDataType.Boolean => new BooleanItem { Val = value.GetBoolean() },
-                    XLDataType.Number => new NumberItem { Val = value.GetNumber() },
-                    XLDataType.Text => new StringItem { Val = value.GetText() },
-                    XLDataType.Error => new ErrorItem { Val = value.GetError().ToDisplayString() },
-                    XLDataType.DateTime => new DateTimeItem { Val = value.GetDateTime() },
-                    XLDataType.TimeSpan => new DateTimeItem { Val = DateTime.FromOADate(value.GetUnifiedNumber()) },
-                    _ => throw new InvalidOperationException()
-                };
-                sharedItems.AppendChild(toAdd);
-            }
+                Name = cacheFieldName,
+                SharedItems = new SharedItems()
+            };
+            cacheFields.AppendChild(cacheField);
+        }
+        cacheField.SharedItems ??= new SharedItems();
+        var sharedItems = cacheField.SharedItems;
+
+        sharedItems.Count = fieldValues.SharedCount != 0 ? checked((uint)xlSharedItems.Length) : null;
+
+        WriteSharedItemStats(sharedItems, fieldValues.Stats);
+
+        foreach (var value in xlSharedItems)
+        {
+            OpenXmlElement toAdd = value.Type switch
+            {
+                XLDataType.Blank => new MissingItem(),
+                XLDataType.Boolean => new BooleanItem { Val = value.GetBoolean() },
+                XLDataType.Number => new NumberItem { Val = value.GetNumber() },
+                XLDataType.Text => new StringItem { Val = value.GetText() },
+                XLDataType.Error => new ErrorItem { Val = value.GetError().ToDisplayString() },
+                XLDataType.DateTime => new DateTimeItem { Val = value.GetDateTime() },
+                XLDataType.TimeSpan => new DateTimeItem { Val = DateTime.FromOADate(value.GetUnifiedNumber()) },
+                _ => throw new InvalidOperationException()
+            };
+            sharedItems.AppendChild(toAdd);
         }
     }
 

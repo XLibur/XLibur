@@ -318,45 +318,21 @@ internal sealed class PivotTableCacheDefinitionPartReader
             case MissingItem:
                 sharedItems.AddMissing();
                 break;
-
             case NumberItem numberItem:
-                if (numberItem.Val?.Value is not { } number)
-                    throw PartStructureException.MissingAttribute();
-
-                sharedItems.AddNumber(number);
+                sharedItems.AddNumber(GetNumberValue(numberItem));
                 break;
-
             case BooleanItem booleanItem:
-                if (booleanItem.Val?.Value is not { } boolean)
-                    throw PartStructureException.MissingAttribute();
-
-                sharedItems.AddBoolean(boolean);
+                sharedItems.AddBoolean(GetBooleanValue(booleanItem));
                 break;
-
             case ErrorItem errorItem:
-                if (errorItem.Val?.Value is not { } errorText)
-                    throw PartStructureException.MissingAttribute();
-
-                if (!XLErrorParser.TryParseError(errorText, out var error))
-                    throw PartStructureException.IncorrectAttributeFormat();
-
-                sharedItems.AddError(error);
+                sharedItems.AddError(GetErrorValue(errorItem));
                 break;
-
             case StringItem stringItem:
-                if (stringItem.Val?.Value is not { } text)
-                    throw PartStructureException.MissingAttribute();
-
-                sharedItems.AddString(text);
+                sharedItems.AddString(GetStringValue(stringItem));
                 break;
-
             case DateTimeItem dateTimeItem:
-                if (dateTimeItem.Val?.Value is not { } dateTime)
-                    throw PartStructureException.MissingAttribute();
-
-                sharedItems.AddDateTime(dateTime);
+                sharedItems.AddDateTime(GetDateTimeValue(dateTimeItem));
                 break;
-
             default:
                 throw PartStructureException.ExpectedElementNotFound();
         }
@@ -404,57 +380,64 @@ internal sealed class PivotTableCacheDefinitionPartReader
             case MissingItem:
                 fieldValues.AddMissing();
                 break;
-
             case NumberItem numberItem:
-                if (numberItem.Val?.Value is not { } number)
-                    throw PartStructureException.MissingAttribute();
-
-                fieldValues.AddNumber(number);
+                fieldValues.AddNumber(GetNumberValue(numberItem));
                 break;
-
             case BooleanItem booleanItem:
-                if (booleanItem.Val?.Value is not { } boolean)
-                    throw PartStructureException.MissingAttribute();
-
-                fieldValues.AddBoolean(boolean);
+                fieldValues.AddBoolean(GetBooleanValue(booleanItem));
                 break;
-
             case ErrorItem errorItem:
-                if (errorItem.Val?.Value is not { } errorText)
-                    throw PartStructureException.MissingAttribute();
-
-                if (!XLErrorParser.TryParseError(errorText, out var error))
-                    throw PartStructureException.IncorrectAttributeFormat();
-
-                fieldValues.AddError(error);
+                fieldValues.AddError(GetErrorValue(errorItem));
                 break;
-
             case StringItem stringItem:
-                if (stringItem.Val?.Value is not { } text)
-                    throw PartStructureException.MissingAttribute();
-
-                fieldValues.AddString(text);
+                fieldValues.AddString(GetStringValue(stringItem));
                 break;
-
             case DateTimeItem dateTimeItem:
-                if (dateTimeItem.Val?.Value is not { } dateTime)
-                    throw PartStructureException.MissingAttribute();
-
-                fieldValues.AddDateTime(dateTime);
+                fieldValues.AddDateTime(GetDateTimeValue(dateTimeItem));
                 break;
-
             case FieldItem indexItem:
-                if (indexItem.Val?.Value is not { } index)
-                    throw PartStructureException.MissingAttribute();
-
-                if (index >= fieldValues.SharedCount)
-                    throw PartStructureException.IncorrectAttributeValue();
-
-                fieldValues.AddIndex(index);
+                fieldValues.AddIndex(GetFieldIndex(indexItem, fieldValues.SharedCount));
                 break;
-
             default:
                 throw PartStructureException.ExpectedElementNotFound();
         }
+    }
+
+    private static double GetNumberValue(NumberItem numberItem)
+    {
+        return numberItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
+    }
+
+    private static bool GetBooleanValue(BooleanItem booleanItem)
+    {
+        return booleanItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
+    }
+
+    private static XLError GetErrorValue(ErrorItem errorItem)
+    {
+        var errorText = errorItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
+        if (!XLErrorParser.TryParseError(errorText, out var error))
+            throw PartStructureException.IncorrectAttributeFormat();
+
+        return error;
+    }
+
+    private static string GetStringValue(StringItem stringItem)
+    {
+        return stringItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
+    }
+
+    private static DateTime GetDateTimeValue(DateTimeItem dateTimeItem)
+    {
+        return dateTimeItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
+    }
+
+    private static uint GetFieldIndex(FieldItem indexItem, int sharedCount)
+    {
+        var index = indexItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
+        if (index >= sharedCount)
+            throw PartStructureException.IncorrectAttributeValue();
+
+        return index;
     }
 }

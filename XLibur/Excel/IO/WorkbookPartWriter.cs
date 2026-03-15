@@ -169,33 +169,42 @@ internal sealed class WorkbookPartWriter
         for (var p = 1; p <= totalSheets; p++)
         {
             if (xlWorkbook.UnsupportedSheets.All(us => us.Position != p))
-            {
-                var sheet = sheetElements.ElementAt(p - xlWorkbook.UnsupportedSheets.Count(us => us.Position <= p) - 1);
-                workbook.Sheets.RemoveChild(sheet);
-                workbook.Sheets.AppendChild(sheet);
-                var xlSheet = xlWorkbook.Worksheet(sheet.Name!.Value!);
-                if (xlSheet.Visibility != XLWorksheetVisibility.Visible)
-                    sheet.State = xlSheet.Visibility.ToOpenXml();
-                else
-                    sheet.State = null;
-
-                if (foundVisible) continue;
-
-                if (sheet.State == null || sheet.State == SheetStateValues.Visible)
-                    foundVisible = true;
-                else
-                    firstSheetVisible++;
-            }
+                ReorderSupportedSheet(workbook, xlWorkbook, sheetElements, p, ref foundVisible, ref firstSheetVisible);
             else
-            {
-                var unsupportedSheetId = xlWorkbook.UnsupportedSheets.First(us => us.Position == p).SheetId;
-                var sheet = workbook.Sheets.Elements<Sheet>().First(s => s.SheetId! == unsupportedSheetId);
-                workbook.Sheets.RemoveChild(sheet);
-                workbook.Sheets.AppendChild(sheet);
-            }
+                ReorderUnsupportedSheet(workbook, xlWorkbook, p);
         }
 
         return (sheetElements, firstSheetVisible);
+    }
+
+    private static void ReorderSupportedSheet(
+        Workbook workbook, XLWorkbook xlWorkbook, IEnumerable<Sheet> sheetElements,
+        int position, ref bool foundVisible, ref uint firstSheetVisible)
+    {
+        var sheet = sheetElements.ElementAt(position - xlWorkbook.UnsupportedSheets.Count(us => us.Position <= position) - 1);
+        workbook.Sheets!.RemoveChild(sheet);
+        workbook.Sheets.AppendChild(sheet);
+
+        var xlSheet = xlWorkbook.Worksheet(sheet.Name!.Value!);
+        sheet.State = xlSheet.Visibility != XLWorksheetVisibility.Visible
+            ? xlSheet.Visibility.ToOpenXml()
+            : null;
+
+        if (foundVisible)
+            return;
+
+        if (sheet.State == null || sheet.State == SheetStateValues.Visible)
+            foundVisible = true;
+        else
+            firstSheetVisible++;
+    }
+
+    private static void ReorderUnsupportedSheet(Workbook workbook, XLWorkbook xlWorkbook, int position)
+    {
+        var unsupportedSheetId = xlWorkbook.UnsupportedSheets.First(us => us.Position == position).SheetId;
+        var sheet = workbook.Sheets!.Elements<Sheet>().First(s => s.SheetId! == unsupportedSheetId);
+        workbook.Sheets.RemoveChild(sheet);
+        workbook.Sheets.AppendChild(sheet);
     }
 
     private static void WriteWorkbookView(Workbook workbook, XLWorkbook xlWorkbook, XLWorksheets worksheets,
