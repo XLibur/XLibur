@@ -25,7 +25,9 @@ public class StyleKeyHashCodeBenchmarks
     [GlobalSetup]
     public void Setup()
     {
+#pragma warning disable S2245 // Deterministic seed for reproducible benchmarks
         var random = new Random(42);
+#pragma warning restore S2245
 
         _colorKeys = new XLColorKey[Iterations];
         for (var i = 0; i < Iterations; i++)

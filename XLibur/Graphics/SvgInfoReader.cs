@@ -86,7 +86,7 @@ internal sealed partial class SvgInfoReader : ImageInfoReader
     {
         // Match attribute="value" or attribute='value'
         var pattern = $@"\b{name}\s*=\s*[""']([^""']*)[""']";
-        var match = Regex.Match(element, pattern, RegexOptions.IgnoreCase);
+        var match = Regex.Match(element, pattern, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(5));
         return match.Success ? match.Groups[1].Value : null;
     }
 

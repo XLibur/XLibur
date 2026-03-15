@@ -14,7 +14,7 @@ namespace XLibur.Excel.IO;
 /// </summary>
 internal static class DefinedNameReader
 {
-    private static readonly Regex DefinedNameRegex = new(@"\A('?).*\1!.*\z", RegexOptions.Compiled);
+    private static readonly Regex DefinedNameRegex = new(@"\A('?).*\1!.*\z", RegexOptions.Compiled, TimeSpan.FromSeconds(5));
 
     internal static void LoadDefinedNames(Workbook workbook, XLWorkbook xlWorkbook)
     {
