@@ -99,10 +99,10 @@ internal sealed class XLPivotTableAxisField : XLPivotFieldBase
         return PivotTable.PivotFields[_index];
     }
 
-    private protected override T GetFieldValue<T>(Func<XLPivotTableField, T> getter, T dataFieldValue)
+    private protected override T GetFieldValue<T>(Func<XLPivotTableField, T> getter, T defaultValue)
     {
         if (_index.IsDataField)
-            return dataFieldValue;
+            return defaultValue;
 
         return getter(PivotTable.PivotFields[_index]);
     }
