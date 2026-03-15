@@ -20,6 +20,8 @@ internal static class DateTimeParser
     // what patterns Excel uses for which cultures.
     private static readonly ConcurrentDictionary<CultureInfo, string[]> CultureSpecificPatterns = new();
 
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(150);
+
     private static readonly string[] TimeOfDayPatterns = ["h:m tt", "h:m t", "h:m:s tt", "h:m:s t"];
 
     public static bool TryParseCultureDate(string s, CultureInfo culture, out DateTime date)
@@ -35,8 +37,8 @@ internal static class DateTimeParser
             var shortDatePatterns = ci.DateTimeFormat.GetAllDateTimePatterns('d')
                 .Concat(ci.DateTimeFormat.GetAllDateTimePatterns('D'))
                 .Where(pattern => !pattern.Contains("dddd")) // It doesn't seem that Excel parser is capable of parsing day names in any culture
-                .Select(pattern => Regex.Replace(pattern, leadingZeroMonthPattern, "M")) // Recognize months even without leading zero
-                .Select(pattern => Regex.Replace(pattern, leadingZeroDayPattern, "d")) // Recognize days even without leading zero
+                .Select(pattern => Regex.Replace(pattern, leadingZeroMonthPattern, "M", RegexOptions.None, RegexTimeout)) // Recognize months even without leading zero
+                .Select(pattern => Regex.Replace(pattern, leadingZeroDayPattern, "d", RegexOptions.None, RegexTimeout)) // Recognize days even without leading zero
                 .Distinct().ToArray();
 
             // Not sure about this, but reasonably close. Hours pattern is probably generated (e.g. 'as-IN' culture

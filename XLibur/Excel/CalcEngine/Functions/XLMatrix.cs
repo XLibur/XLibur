@@ -5,6 +5,7 @@ namespace XLibur.Excel.CalcEngine.Functions;
 
 internal sealed class XLMatrix
 {
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(150);
     public XLMatrix? L;
     public XLMatrix? U;
     public int Cols;
@@ -257,7 +258,7 @@ internal sealed class XLMatrix
     public static XLMatrix Parse(string ps) // Function parses the matrix from string
     {
         var s = NormalizeMatrixString(ps);
-        var rows = Regex.Split(s, "\r\n");
+        var rows = Regex.Split(s, "\r\n", RegexOptions.None, RegexTimeout);
         var nums = rows[0].Split(' ');
         var matrix = new XLMatrix(rows.Length, nums.Length);
         try
