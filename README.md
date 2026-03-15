@@ -117,7 +117,7 @@ Before submitting a PR, run the formatter to ensure your code matches the projec
 dotnet format XLibur.slnx
 ```
 
-The [OpenXML specification](https://ecma-international.org/publications-and-standards/standards/ecma-376/) is a large  and complicated beast.
+See the [OpenXML specification](https://ecma-international.org/publications-and-standards/standards/ecma-376/) for reference.
 
 Feel free to submit a PR
 

@@ -1,7 +1,7 @@
 # Developer guidelines
 
-The [OpenXML specification](https://www.ecma-international.org/publications/standards/Ecma-376.htm) is a large and complicated beast. 
-In order for XLibur, the wrapper around OpenXML, to support all the features, we rely on community contributions. 
+See the [OpenXML specification](https://www.ecma-international.org/publications/standards/Ecma-376.htm) for reference.
+In order for XLibur, the wrapper around OpenXML, to support all the features, we rely on community contributions.
 
 Here are some tips.
 
