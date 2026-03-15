@@ -1,6 +1,5 @@
 namespace XLibur.Excel;
 
-using System;
 using System.Linq;
 
 internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
@@ -235,65 +234,7 @@ internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
 
     private static int CompareRowCells(XLCell thisCell, XLCell otherCell, IXLSortElement e)
     {
-        var thisCellIsBlank = thisCell.IsEmpty();
-        var otherCellIsBlank = otherCell.IsEmpty();
-
-        if (e.IgnoreBlanks && (thisCellIsBlank || otherCellIsBlank))
-            return CompareBlanks(thisCellIsBlank, otherCellIsBlank, e.SortOrder);
-
-        return CompareSameOrMixedTypes(thisCell, otherCell, e.MatchCase);
-    }
-
-    private static int CompareBlanks(bool thisCellIsBlank, bool otherCellIsBlank, XLSortOrder sortOrder)
-    {
-        if (thisCellIsBlank && otherCellIsBlank)
-            return 0;
-        if (thisCellIsBlank)
-            return sortOrder == XLSortOrder.Ascending ? 1 : -1;
-        return sortOrder == XLSortOrder.Ascending ? -1 : 1;
-    }
-
-    private static int CompareSameOrMixedTypes(XLCell thisCell, XLCell otherCell, bool matchCase)
-    {
-        if (thisCell.DataType != otherCell.DataType)
-            return CompareMixedTypes(thisCell, otherCell, matchCase);
-
-        return CompareSameType(thisCell, otherCell, matchCase);
-    }
-
-    private static int CompareMixedTypes(XLCell thisCell, XLCell otherCell, bool matchCase)
-    {
-        if (thisCell.Value.IsUnifiedNumber && otherCell.Value.IsUnifiedNumber)
-            return thisCell.Value.GetUnifiedNumber().CompareTo(otherCell.Value.GetUnifiedNumber());
-        return matchCase
-            ? string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.OrdinalIgnoreCase)
-            : string.Compare(thisCell.GetString(), otherCell.GetString(), StringComparison.Ordinal);
-    }
-
-    private static int CompareSameType(XLCell thisCell, XLCell otherCell, bool matchCase)
-    {
-        switch (thisCell.DataType)
-        {
-            case XLDataType.Text:
-                return matchCase
-                    ? string.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.Ordinal)
-                    : string.Compare(thisCell.GetText(), otherCell.GetText(), StringComparison.OrdinalIgnoreCase);
-
-            case XLDataType.TimeSpan:
-                return thisCell.GetTimeSpan().CompareTo(otherCell.GetTimeSpan());
-
-            case XLDataType.DateTime:
-                return thisCell.GetDateTime().CompareTo(otherCell.GetDateTime());
-
-            case XLDataType.Number:
-                return thisCell.GetDouble().CompareTo(otherCell.GetDouble());
-
-            case XLDataType.Boolean:
-                return thisCell.GetBoolean().CompareTo(otherCell.GetBoolean());
-
-            default:
-                throw new NotImplementedException();
-        }
+        return XLCellComparer.CompareCells(thisCell, otherCell, e);
     }
 
     private XLRangeRow RowShift(int rowsToShift)
