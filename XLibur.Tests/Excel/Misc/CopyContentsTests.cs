@@ -110,6 +110,10 @@ public class CopyContentsTests
             originalRow.CopyTo(destinationRow);
         }
         TestHelper.SaveWorkbook(workbook, "Misc", "CopyRowContents.xlsx");
+
+        Assert.AreEqual("test value", copyRangeSheet.Cell("A2").Value);
+        Assert.AreEqual("test value", copyRowSheet.Cell("A2").Value);
+        Assert.IsTrue(copyRangeSheet.Range("A2:E2").IsMerged());
     }
 
     [Test]

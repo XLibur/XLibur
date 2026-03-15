@@ -30,11 +30,15 @@ public class FormulaParserTests
     [TestCase]
     public void Root_formula_string_can_be_union_without_parenthesis()
     {
-        // Root of a formula string is pretty much the only place where reference union can be without parenthesis. Elsewhere it must have
+        // The root of a formula string is pretty much the only place where reference union can be without parenthesis. Elsewhere it must have
         // parentheses to avoid misusing union op (coma) with a separation of arguments in a function call.
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        ws.Evaluate("=A1,A3", "Z100");
+        ws.Cell("A1").Value = 1;
+        ws.Cell("A3").Value = 3;
+
+        // Union reference can't be implicitly intersected with Z100, so it returns #VALUE!
+        Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate("=A1,A3", "Z100"));
     }
 
     #endregion
@@ -253,7 +257,9 @@ public class FormulaParserTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        ws.Evaluate("A1:A3:C2", "Z100");
+
+        // Binary range of two references can't be implicitly intersected with Z100, so it returns #VALUE!
+        Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate("A1:A3:C2", "Z100"));
     }
 
     [TestCase]
@@ -267,7 +273,9 @@ public class FormulaParserTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        ws.Evaluate("=(A1:A3,A2:B2,B1:B4)", "Z100");
+
+        // Union reference can't be implicitly intersected with Z100, so it returns #VALUE!
+        Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate("=(A1:A3,A2:B2,B1:B4)", "Z100"));
     }
 
     [TestCase]

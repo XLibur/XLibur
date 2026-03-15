@@ -280,15 +280,18 @@ public class XLWorksheetTests
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\ImageHandling\ImageAnchors.xlsx"));
         using var wb = new XLWorkbook(stream);
         var ws = wb.Worksheets.First();
-        ws.CopyTo("Copy1");
+        var copy1 = ws.CopyTo("Copy1");
 
         var ws2 = wb.Worksheets.Skip(1).First();
-        ws2.CopyTo("Copy2");
+        var copy2 = ws2.CopyTo("Copy2");
 
         var ws3 = wb.Worksheets.Skip(2).First();
         ws3.CopyTo("Copy3");
 
         ws3.CopyTo("Copy4");
+
+        Assert.AreEqual(ws.Pictures.Count, copy1.Pictures.Count);
+        Assert.AreEqual(ws2.Pictures.Count, copy2.Pictures.Count);
     }
 
     [Test]

@@ -60,7 +60,25 @@ public class ClosedXmlWorkbookBenchmarks
         using var workbook = new XLWorkbook();
         var ws = workbook.AddWorksheet("Formatted");
 
-        // Headers
+        WriteHeaders(ws);
+
+        for (var i = 0; i < RowCount; i++)
+        {
+            var row = i + 2;
+            var idx = i % _strings.Length;
+
+            PopulateRow(ws, row, i, idx);
+
+            if (i % 2 == 0)
+                FormatEvenRow(ws, row, i);
+        }
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+    }
+
+    private static void WriteHeaders(IXLWorksheet ws)
+    {
         var headers = new[]
             { "Name", "Amount", "Date", "Quantity", "Price", "Total", "Status", "Category", "Region", "Notes" };
         for (var c = 1; c <= 10; c++)
@@ -74,104 +92,135 @@ public class ClosedXmlWorkbookBenchmarks
             hdr.Style.Border.BottomBorder = XLBorderStyleValues.Double;
             hdr.Style.Border.BottomBorderColor = XLColor.Black;
         }
+    }
 
-        for (var i = 0; i < RowCount; i++)
+    private void PopulateRow(IXLWorksheet ws, int row, int i, int idx)
+    {
+        ws.Cell(row, 1).Value = _strings[idx];
+        ws.Cell(row, 2).Value = _numbers[idx];
+        ws.Cell(row, 3).Value = _dates[idx];
+        ws.Cell(row, 4).Value = (i % 500) + 1;
+        ws.Cell(row, 5).Value = _numbers[idx] * 0.1;
+        ws.Cell(row, 6).Value = _numbers[idx] * ((i % 500) + 1) * 0.1;
+        ws.Cell(row, 7).Value = GetStatus(i);
+        ws.Cell(row, 8).Value = $"Cat-{(i % 12) + 1}";
+        ws.Cell(row, 9).Value = GetRegion(i);
+        ws.Cell(row, 10).Value = $"Note for row {row}";
+    }
+
+    private static string GetStatus(int i) => (i % 3) switch
+    {
+        0 => "Active",
+        1 => "Pending",
+        _ => "Closed"
+    };
+
+    private static string GetRegion(int i) => (i % 5) switch
+    {
+        0 => "North",
+        1 => "South",
+        2 => "East",
+        3 => "West",
+        _ => "Central"
+    };
+
+    private static void FormatEvenRow(IXLWorksheet ws, int row, int i)
+    {
+        FormatNameColumn(ws.Cell(row, 1));
+        FormatAmountColumn(ws.Cell(row, 2));
+        FormatDateColumn(ws.Cell(row, 3));
+        FormatQuantityColumn(ws.Cell(row, 4));
+        FormatPriceColumn(ws.Cell(row, 5));
+        FormatTotalColumn(ws.Cell(row, 6));
+        FormatStatusColumn(ws.Cell(row, 7), i);
+        FormatCategoryColumn(ws.Cell(row, 8));
+        FormatRegionColumn(ws.Cell(row, 9));
+        FormatNotesColumn(ws.Cell(row, 10));
+    }
+
+    private static void FormatNameColumn(IXLCell cell)
+    {
+        cell.Style.Font.Bold = true;
+        cell.Style.Fill.BackgroundColor = XLColor.LightBlue;
+    }
+
+    private static void FormatAmountColumn(IXLCell cell)
+    {
+        cell.Style.NumberFormat.Format = "#,##0.00";
+        cell.Style.Font.FontColor = XLColor.DarkRed;
+        cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        cell.Style.Border.OutsideBorderColor = XLColor.Gray;
+    }
+
+    private static void FormatDateColumn(IXLCell cell)
+    {
+        cell.Style.NumberFormat.NumberFormatId = 15;
+        cell.Style.Font.Italic = true;
+        cell.Style.Fill.BackgroundColor = XLColor.LightGreen;
+    }
+
+    private static void FormatQuantityColumn(IXLCell cell)
+    {
+        cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        cell.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
+        cell.Style.Border.OutsideBorderColor = XLColor.DarkGoldenrod;
+        cell.Style.Fill.BackgroundColor = XLColor.LightYellow;
+    }
+
+    private static void FormatPriceColumn(IXLCell cell)
+    {
+        cell.Style.NumberFormat.Format = "$ #,##0.00";
+        cell.Style.Font.FontName = "Consolas";
+        cell.Style.Font.FontSize = 10;
+        cell.Style.Fill.BackgroundColor = XLColor.LightCoral;
+    }
+
+    private static void FormatTotalColumn(IXLCell cell)
+    {
+        cell.Style.NumberFormat.Format = "_($* #,##0.00_)";
+        cell.Style.Font.Bold = true;
+        cell.Style.Border.BottomBorder = XLBorderStyleValues.Dashed;
+        cell.Style.Border.BottomBorderColor = XLColor.Navy;
+    }
+
+    private static void FormatStatusColumn(IXLCell cell, int i)
+    {
+        cell.Style.Font.Strikethrough = i % 3 == 2;
+        cell.Style.Font.FontColor = (i % 3) switch
         {
-            var row = i + 2;
-            var idx = i % _strings.Length;
+            0 => XLColor.Green,
+            1 => XLColor.Orange,
+            _ => XLColor.Red
+        };
+        cell.Style.Fill.BackgroundColor = XLColor.Lavender;
+    }
 
-            // Write data to all 10 columns
-            ws.Cell(row, 1).Value = _strings[idx];
-            ws.Cell(row, 2).Value = _numbers[idx];
-            ws.Cell(row, 3).Value = _dates[idx];
-            ws.Cell(row, 4).Value = (i % 500) + 1;
-            ws.Cell(row, 5).Value = _numbers[idx] * 0.1;
-            ws.Cell(row, 6).Value = _numbers[idx] * ((i % 500) + 1) * 0.1;
-            ws.Cell(row, 7).Value = i % 3 == 0 ? "Active" : i % 3 == 1 ? "Pending" : "Closed";
-            ws.Cell(row, 8).Value = $"Cat-{(i % 12) + 1}";
-            ws.Cell(row, 9).Value = i % 5 == 0 ? "North" :
-                i % 5 == 1 ? "South" :
-                i % 5 == 2 ? "East" :
-                i % 5 == 3 ? "West" : "Central";
-            ws.Cell(row, 10).Value = $"Note for row {row}";
+    private static void FormatCategoryColumn(IXLCell cell)
+    {
+        cell.Style.Font.Underline = XLFontUnderlineValues.Single;
+        cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        cell.Style.Border.RightBorder = XLBorderStyleValues.Dotted;
+        cell.Style.Border.RightBorderColor = XLColor.Purple;
+        cell.Style.Fill.BackgroundColor = XLColor.LightGray;
+    }
 
-            // Apply formatting to every second row
-            if (i % 2 != 0)
-                continue;
+    private static void FormatRegionColumn(IXLCell cell)
+    {
+        cell.Style.Font.FontName = "Georgia";
+        cell.Style.Font.FontSize = 12;
+        cell.Style.Font.FontColor = XLColor.Teal;
+        cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thick;
+        cell.Style.Border.OutsideBorderColor = XLColor.Teal;
+        cell.Style.Fill.BackgroundColor = XLColor.Wheat;
+    }
 
-            // Col 1: Bold font + light blue background
-            var c1 = ws.Cell(row, 1);
-            c1.Style.Font.Bold = true;
-            c1.Style.Fill.BackgroundColor = XLColor.LightBlue;
-
-            // Col 2: Number format + red font + thin border
-            var c2 = ws.Cell(row, 2);
-            c2.Style.NumberFormat.Format = "#,##0.00";
-            c2.Style.Font.FontColor = XLColor.DarkRed;
-            c2.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-            c2.Style.Border.OutsideBorderColor = XLColor.Gray;
-
-            // Col 3: Date format + italic + light green fill
-            var c3 = ws.Cell(row, 3);
-            c3.Style.NumberFormat.NumberFormatId = 15;
-            c3.Style.Font.Italic = true;
-            c3.Style.Fill.BackgroundColor = XLColor.LightGreen;
-
-            // Col 4: Center aligned + medium border + yellow fill
-            var c4 = ws.Cell(row, 4);
-            c4.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-            c4.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
-            c4.Style.Border.OutsideBorderColor = XLColor.DarkGoldenrod;
-            c4.Style.Fill.BackgroundColor = XLColor.LightYellow;
-
-            // Col 5: Currency format + font change + coral fill
-            var c5 = ws.Cell(row, 5);
-            c5.Style.NumberFormat.Format = "$ #,##0.00";
-            c5.Style.Font.FontName = "Consolas";
-            c5.Style.Font.FontSize = 10;
-            c5.Style.Fill.BackgroundColor = XLColor.LightCoral;
-
-            // Col 6: Accounting format + bold + dashed border
-            var c6 = ws.Cell(row, 6);
-            c6.Style.NumberFormat.Format = "_($* #,##0.00_)";
-            c6.Style.Font.Bold = true;
-            c6.Style.Border.BottomBorder = XLBorderStyleValues.Dashed;
-            c6.Style.Border.BottomBorderColor = XLColor.Navy;
-
-            // Col 7: Strikethrough + font color based on value + lavender fill
-            var c7 = ws.Cell(row, 7);
-            c7.Style.Font.Strikethrough = i % 3 == 2;
-            c7.Style.Font.FontColor = i % 3 == 0 ? XLColor.Green : i % 3 == 1 ? XLColor.Orange : XLColor.Red;
-            c7.Style.Fill.BackgroundColor = XLColor.Lavender;
-
-            // Col 8: Underline + right aligned + dotted border + light gray fill
-            var c8 = ws.Cell(row, 8);
-            c8.Style.Font.Underline = XLFontUnderlineValues.Single;
-            c8.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
-            c8.Style.Border.RightBorder = XLBorderStyleValues.Dotted;
-            c8.Style.Border.RightBorderColor = XLColor.Purple;
-            c8.Style.Fill.BackgroundColor = XLColor.LightGray;
-
-            // Col 9: Different font + large size + thick border + wheat fill
-            var c9 = ws.Cell(row, 9);
-            c9.Style.Font.FontName = "Georgia";
-            c9.Style.Font.FontSize = 12;
-            c9.Style.Font.FontColor = XLColor.Teal;
-            c9.Style.Border.OutsideBorder = XLBorderStyleValues.Thick;
-            c9.Style.Border.OutsideBorderColor = XLColor.Teal;
-            c9.Style.Fill.BackgroundColor = XLColor.Wheat;
-
-            // Col 10: Wrap text + vertical top + double border + light salmon fill
-            var c10 = ws.Cell(row, 10);
-            c10.Style.Alignment.WrapText = true;
-            c10.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
-            c10.Style.Border.OutsideBorder = XLBorderStyleValues.Double;
-            c10.Style.Border.OutsideBorderColor = XLColor.Chocolate;
-            c10.Style.Fill.BackgroundColor = XLColor.LightSalmon;
-            c10.Style.Font.FontColor = XLColor.DarkSlateGray;
-        }
-
-        using var stream = new MemoryStream();
-        workbook.SaveAs(stream);
+    private static void FormatNotesColumn(IXLCell cell)
+    {
+        cell.Style.Alignment.WrapText = true;
+        cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
+        cell.Style.Border.OutsideBorder = XLBorderStyleValues.Double;
+        cell.Style.Border.OutsideBorderColor = XLColor.Chocolate;
+        cell.Style.Fill.BackgroundColor = XLColor.LightSalmon;
+        cell.Style.Font.FontColor = XLColor.DarkSlateGray;
     }
 }

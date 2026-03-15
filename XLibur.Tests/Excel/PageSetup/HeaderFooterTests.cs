@@ -40,10 +40,11 @@ public class HeaderFooterTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
-        {
-            var header = ws.PageSetup.Header as XLHeaderFooter;
-            header.SetInnerText(XLHFOccurrence.AllPages, s);
-        }
+        var header = (XLHeaderFooter)ws.PageSetup.Header;
+        header.SetInnerText(XLHFOccurrence.AllPages, s);
+
+        // Verify header was changed (or remained empty for empty input)
+        Assert.AreEqual(s != "", header.Changed);
     }
 
     [Test]

@@ -282,6 +282,9 @@ public class RowTests
         IXLWorksheet ws = new XLWorkbook().AddWorksheet("Sheet1");
         ws.Rows(1, 2).Group();
         ws.Rows(1, 2).Ungroup(true);
+
+        Assert.AreEqual(0, ws.Row(1).OutlineLevel);
+        Assert.AreEqual(0, ws.Row(2).OutlineLevel);
     }
 
     [Test]

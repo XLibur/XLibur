@@ -42,7 +42,9 @@ public class SheetProtection : IXLExample
         ws.Columns().AdjustToContents();
 
         // Protect a sheet with a password
+#pragma warning disable S2068        
         var protectedSheet = wb.Worksheets.Add("Protected Password = 123");
+#pragma warning restore S2068        
         var protection = protectedSheet.Protect("123");
         protection.AllowElement
         (

@@ -3,10 +3,12 @@ using System.IO;
 
 namespace XLibur.Tests.Utils;
 
-internal class TemporaryFile : IDisposable
+internal sealed class TemporaryFile : IDisposable
 {
+    private bool _disposed;
+
     internal TemporaryFile()
-        : this(System.IO.Path.ChangeExtension(System.IO.Path.GetTempFileName(), "xlsx"))
+        : this(System.IO.Path.ChangeExtension(System.IO.Path.GetRandomFileName(), "xlsx"))
     {
     }
 
@@ -15,7 +17,7 @@ internal class TemporaryFile : IDisposable
     {
     }
 
-    internal TemporaryFile(string path, bool preserve)
+    private TemporaryFile(string path, bool preserve)
     {
         Path = path;
         Preserve = preserve;
@@ -23,12 +25,22 @@ internal class TemporaryFile : IDisposable
 
     public string Path { get; private set; }
 
-    public bool Preserve { get; private set; }
+    private bool Preserve { get; set; }
 
     public void Dispose()
     {
-        if (!Preserve)
+        Dispose(disposing: true);
+    }
+
+    private void Dispose(bool disposing)
+    {
+        if (_disposed)
+            return;
+
+        if (disposing && !Preserve)
             File.Delete(Path);
+
+        _disposed = true;
     }
 
     public override string ToString()
