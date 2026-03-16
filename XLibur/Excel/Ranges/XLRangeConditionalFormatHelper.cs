@@ -61,7 +61,7 @@ internal static class XLRangeConditionalFormatHelper
     private static bool TrySplitByWidth(
         IXLConditionalFormat format,
         IXLWorksheet worksheet,
-        IXLAddress mf, IXLAddress ml,
+        XLAddress mf, XLAddress ml,
         IXLAddress f, IXLAddress l)
     {
         if (mf.ColumnNumber > f.ColumnNumber || ml.ColumnNumber < l.ColumnNumber)
@@ -82,7 +82,7 @@ internal static class XLRangeConditionalFormatHelper
     private static bool TrySplitByHeight(
         IXLConditionalFormat format,
         IXLWorksheet worksheet,
-        IXLAddress mf, IXLAddress ml,
+        XLAddress mf, XLAddress ml,
         IXLAddress f, IXLAddress l)
     {
         if (mf.RowNumber > f.RowNumber || ml.RowNumber < l.RowNumber)

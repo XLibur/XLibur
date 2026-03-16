@@ -566,7 +566,7 @@ internal static class DateAndTime
     }
 
     private static OneOf<List<int>, XLError> CollectWorkdayHolidays(
-        CalcContext ctx, AnyValue holidays, int startDate, IComparer<int> comparer)
+        CalcContext ctx, AnyValue holidays, int startDate, Comparer<int> comparer)
     {
         // Use set to skip duplicate values
         var distinctHolidays = new HashSet<int>();
@@ -596,7 +596,7 @@ internal static class DateAndTime
     /// Returns the last date processed and the number of workdays counted so far.
     /// </summary>
     private static (int LastDate, int WorkdaysCounted) SkipHolidaySegments(
-        List<int> orderedHolidays, int startDate, int dayOffset, int oneDay, IComparer<int> cmp)
+        List<int> orderedHolidays, int startDate, int dayOffset, int oneDay, Comparer<int> cmp)
     {
         var lastDateSoFar = startDate;
         var workdaysSoFar = 0;
