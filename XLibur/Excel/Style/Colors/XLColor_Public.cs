@@ -28,7 +28,7 @@ public enum XLThemeColor
     FollowedHyperlink
 }
 
-public partial class XLColor : IEquatable<XLColor>
+public sealed partial class XLColor : IEquatable<XLColor>
 {
     public bool HasValue { get; private set; }
 

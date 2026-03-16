@@ -63,7 +63,8 @@ public enum XLFontCharSet
     /// <summary>
     /// Another common spelling of the Korean character set.
     /// </summary>
-    Hangeul = 129,
+    [Obsolete("Use Hangul instead.")]
+    Hangeul = Hangul,
 
     /// <summary>
     /// Korean character set.

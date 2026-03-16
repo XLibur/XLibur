@@ -255,7 +255,7 @@ internal static class RichDataReader
             if (rc?.TypeIndex?.Value == richValueTypeIndex)
             {
                 var fmIndex = (int)(rc.Val?.Value ?? 0);
-                var rvIndex = FindRvIndexFromFutureMetadata(metadata, richValueTypeIndex.Value, fmIndex);
+                var rvIndex = FindRvIndexFromFutureMetadata(metadata, fmIndex);
                 result[vmIndex] = rvIndex;
             }
 
@@ -268,7 +268,7 @@ internal static class RichDataReader
     /// <summary>
     /// Find the rv index from futureMetadata block at the given index for XLRICHVALUE type.
     /// </summary>
-    private static int FindRvIndexFromFutureMetadata(Metadata metadata, uint typeIndex, int blockIndex)
+    private static int FindRvIndexFromFutureMetadata(Metadata metadata, int blockIndex)
     {
         // Find the futureMetadata element with name "XLRICHVALUE"
         foreach (var fm in metadata.Elements<FutureMetadata>())

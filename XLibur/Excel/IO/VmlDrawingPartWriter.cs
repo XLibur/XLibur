@@ -95,7 +95,7 @@ internal static class VmlDrawingPartWriter
         // Unique per cell (workbook?), e.g.: "_x0000_s1026"
         var anchor = GetAnchor(c, effectiveWidth, effectiveHeight);
         var textBox = GetTextBox(comment.Style);
-        var fill = new Vml.Fill { Color2 = "#" + comment.Style.ColorsAndLines.FillColor.Color.ToHex().Substring(2) };
+        var fill = new Vml.Fill { Color2 = string.Concat("#", comment.Style.ColorsAndLines.FillColor.Color.ToHex().AsSpan(2)) };
         if (comment.Style.ColorsAndLines.FillTransparency < 1)
             fill.Opacity =
                 Math.Round(Convert.ToDouble(comment.Style.ColorsAndLines.FillTransparency), 2).ToInvariantString();

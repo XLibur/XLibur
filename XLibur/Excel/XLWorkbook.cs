@@ -823,6 +823,8 @@ public partial class XLWorkbook : IXLWorkbook
 
         // Dispose in-cell image MemoryStreams and release collections.
         InCellImages.Dispose();
+
+        GC.SuppressFinalize(this);
     }
 
 

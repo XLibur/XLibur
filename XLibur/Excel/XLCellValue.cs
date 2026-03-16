@@ -462,6 +462,10 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
         }
     }
 
+    public static bool operator ==(XLCellValue left, XLCellValue right) => left.Equals(right);
+
+    public static bool operator !=(XLCellValue left, XLCellValue right) => !left.Equals(right);
+
     /// <summary>
     /// Get a value, if it is a <see cref="XLDataType.Text"/>.
     /// </summary>

@@ -4,7 +4,7 @@ using System.Drawing;
 
 namespace XLibur.Excel.Drawings;
 
-[DebuggerDisplay("{Address} {Offset}")]
+[DebuggerDisplay("R{RowNumber}C{ColumnNumber} {Offset}")]
 internal sealed class XLMarker
 {
     // Using a range to store the location so that it gets added to the range repository

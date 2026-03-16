@@ -113,19 +113,15 @@ internal static class CryptographicAlgorithms
         var passwordBytes = Encoding.Unicode.GetBytes(password);
         var bytes = saltBytes.Concat(passwordBytes).ToArray();
 
-        byte[] hashedBytes;
-        using (var hash = SHA512.Create())
-        {
-            hashedBytes = hash.ComputeHash(bytes);
+        var hashedBytes = SHA512.HashData(bytes);
 
-            bytes = new byte[hashedBytes.Length + sizeof(uint)];
-            for (uint i = 0; i < spinCount; i++)
-            {
-                var le = BitConverter.GetBytes(i);
-                Array.Copy(hashedBytes, bytes, hashedBytes.Length);
-                Array.Copy(le, 0, bytes, hashedBytes.Length, le.Length);
-                hashedBytes = hash.ComputeHash(bytes);
-            }
+        bytes = new byte[hashedBytes.Length + sizeof(uint)];
+        for (uint i = 0; i < spinCount; i++)
+        {
+            var le = BitConverter.GetBytes(i);
+            Array.Copy(hashedBytes, bytes, hashedBytes.Length);
+            Array.Copy(le, 0, bytes, hashedBytes.Length, le.Length);
+            hashedBytes = SHA512.HashData(bytes);
         }
 
         return Convert.ToBase64String(hashedBytes);

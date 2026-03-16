@@ -153,10 +153,10 @@ public partial class XLColor
         // ST_ColorType can have an *optional* index to a palette (*system* palette, not indexed colors),
         // but it only brings trouble because VML is used pretty much only for unusual features like notes,
         // form controls ect. Ignore the palette entry completely, it is a legacy feature from times of 256 colors.
-        var paletteIndexStart = colorType.IndexOf("[", StringComparison.Ordinal);
+        var paletteIndexStart = colorType.IndexOf('[', StringComparison.Ordinal);
         var hasPaletteEntry = paletteIndexStart >= 0;
         colorType = hasPaletteEntry ? colorType.Substring(0, paletteIndexStart).Trim() : colorType;
-        if (colorType.StartsWith("#", StringComparison.Ordinal))
+        if (colorType.StartsWith('#'))
             return FromHtml(colorType);
 
         if (_paletteEntries.Value.TryGetValue(colorType, out var xlColor))

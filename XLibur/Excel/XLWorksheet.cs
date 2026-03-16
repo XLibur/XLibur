@@ -1334,7 +1334,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
             return Range(new XLRangeAddress(Worksheet, rangeAddressStr));
 
         if (rangeAddressStr.Contains('['))
-            return Table(rangeAddressStr[..rangeAddressStr.IndexOf("[", StringComparison.Ordinal)]) as XLRange;
+            return Table(rangeAddressStr[..rangeAddressStr.IndexOf('[', StringComparison.Ordinal)]) as XLRange;
 
         if (DefinedNames.TryGetValue(rangeAddressStr, out var sheetDefinedName))
             return sheetDefinedName.Ranges.First().CastTo<XLRange>();

@@ -5,12 +5,13 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.Comments;
 
-public class CommentsTests
+public partial class CommentsTests
 {
     [Test]
     public void CanConvertVmlPaletteEntriesToColors()
@@ -245,7 +246,7 @@ public class CommentsTests
         // Verify that the height was auto-sized to be larger than default 59.25pt.
         // The lorem ipsum text at Tahoma 9pt in 144pt-wide box wraps to 5 lines,
         // requiring more height than the default 59.25pt.
-        var heightMatch = System.Text.RegularExpressions.Regex.Match(vmlStr, @"height:(\d+\.?\d*)pt");
+        var heightMatch = HeightPattern().Match(vmlStr);
         Assert.That(heightMatch.Success, Is.True);
         var height = double.Parse(heightMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
         Assert.That(height, Is.GreaterThan(59.25));
@@ -291,4 +292,7 @@ public class CommentsTests
             Assert.That(ws.Cell("A1").HasComment, Is.True);
         });
     }
+
+    [GeneratedRegex(@"height:(\d+\.?\d*)pt")]
+    private static partial Regex HeightPattern();
 }

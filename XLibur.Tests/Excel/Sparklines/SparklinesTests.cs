@@ -15,14 +15,14 @@ public class SparklinesTests
     [Test]
     public void CannotCreateSparklineGroupsWithoutWorksheet()
     {
-        TestDelegate action = () => new XLSparklineGroups(null);
+        TestDelegate action = () => _ = new XLSparklineGroups(null);
         Assert.Throws<ArgumentNullException>(action);
     }
 
     [Test]
     public void CannotCreateSparklineGroupWithoutWorksheet()
     {
-        TestDelegate action = () => new XLSparklineGroup(null);
+        TestDelegate action = () => _ = new XLSparklineGroup(null);
         Assert.Throws<ArgumentNullException>(action);
     }
 
@@ -30,7 +30,7 @@ public class SparklinesTests
     public void CannotCreateSparklineWithoutGroup()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
-        TestDelegate action = () => new XLSparkline(null, ws.Cell("A1"), ws.Range("A2:A5"));
+        TestDelegate action = () => _ = new XLSparkline(null, ws.Cell("A1"), ws.Range("A2:A5"));
         Assert.Throws<ArgumentNullException>(action);
     }
 
@@ -39,7 +39,7 @@ public class SparklinesTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         var group = new XLSparklineGroup(ws);
-        TestDelegate action = () => new XLSparkline(group, null, ws.Range("A2:A5"));
+        TestDelegate action = () => _ = new XLSparkline(group, null, ws.Range("A2:A5"));
         Assert.Throws<ArgumentNullException>(action);
     }
 
