@@ -283,13 +283,13 @@ internal sealed class XLMatrix
 
     public override string ToString() // Function returns matrix as a string
     {
-        var s = "";
+        var sb = new System.Text.StringBuilder();
         for (var i = 0; i < _rows; i++)
         {
-            for (var j = 0; j < Cols; j++) s += $"{Mat[i, j],5:0.00}" + " ";
-            s += "\r\n";
+            for (var j = 0; j < Cols; j++) sb.Append($"{Mat[i, j],5:0.00}").Append(' ');
+            sb.Append("\r\n");
         }
-        return s;
+        return sb.ToString();
     }
 
     public static XLMatrix Transpose(XLMatrix m) // XLMatrix transpose, for any rectangular matrix

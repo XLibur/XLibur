@@ -118,8 +118,8 @@ internal static class Information
         if (collection.TryPickT0(out var array, out var reference))
             return array.Apply(static v => ToNumber(v));
 
-        var area = reference.Areas.First();
-        var referenceValue = ctx.GetCellValue(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.RowNumber);
+        var area = reference.Areas[0];
+        var referenceValue = ctx.GetCellValue(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber);
         return ToNumber(referenceValue).ToAnyValue();
 
         static ScalarValue ToNumber(ScalarValue scalar)

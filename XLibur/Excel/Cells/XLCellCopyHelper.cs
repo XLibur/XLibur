@@ -193,7 +193,7 @@ internal static class XLCellCopyHelper
 
             var c = new XLConditionalFormat(fmtRanges, true);
             c.CopyFrom(cf);
-            c.AdjustFormulas((XLCell)cf.Ranges.First().FirstCell(), fmtRanges.First().FirstCell());
+            c.AdjustFormulas((XLCell)cf.Ranges.First().FirstCell(), fmtRanges[0].FirstCell());
 
             target.Worksheet.ConditionalFormats.Add(c);
         }
@@ -213,7 +213,7 @@ internal static class XLCellCopyHelper
             return defaultWorksheet.Cell(target)!;
 
         var wsName = pair[0];
-        if (wsName.StartsWith("'"))
+        if (wsName.StartsWith('\''))
             wsName = wsName.Substring(1, wsName.Length - 2);
         return defaultWorksheet.Workbook.Worksheet(wsName).Cell(pair[1]);
     }

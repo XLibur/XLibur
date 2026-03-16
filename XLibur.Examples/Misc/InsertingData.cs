@@ -77,7 +77,7 @@ public class InsertingData : IXLExample
         wb.SaveAs(filePath);
     }
 
-    private class Person
+    private sealed class Person
     {
         public string House { get; set; }
 

@@ -48,7 +48,7 @@ internal static class DateTimeParser
             // the input couldn't match in any format => excel has likely it's own logic, independent of region setting).
             var timePatterns = new[] { "h:m tt", "H:m", "h:m" };
             var longDatePatterns = shortDatePatterns
-                .SelectMany(datePattern => timePatterns.Select(timePattern => FormattableString.Invariant($"{datePattern} {timePattern}")));
+                .SelectMany(datePattern => timePatterns.Select(timePattern => string.Create(CultureInfo.InvariantCulture, $"{datePattern} {timePattern}")));
 
             // ISO8601 should be parseable in all cultures, not sure if Excel does. Be more forgiving, M,d instead MM,dd.
             return shortDatePatterns.Concat(longDatePatterns).Concat(["yyyy-M-d"]).Distinct().ToArray();

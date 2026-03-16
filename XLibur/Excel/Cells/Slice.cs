@@ -344,7 +344,7 @@ internal sealed partial class Slice<TElement> : ISlice
     }
 
     [DebuggerDisplay("{Point}:{Current}")]
-    private class ReverseEnumerator : IEnumerator<XLSheetPoint>
+    private sealed class ReverseEnumerator : IEnumerator<XLSheetPoint>
     {
         private readonly XLSheetRange _range;
         private ReverseColumnEnumerator _columnsEnumerator;

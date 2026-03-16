@@ -57,7 +57,7 @@ internal sealed class XLPivotAreaComparer : IEqualityComparer<XLPivotArea>
         return hashCode.ToHashCode();
     }
 
-    private class XLPivotReferenceComparer : IEqualityComparer<XLPivotReference>
+    private sealed class XLPivotReferenceComparer : IEqualityComparer<XLPivotReference>
     {
         public bool Equals(XLPivotReference? x, XLPivotReference? y)
         {

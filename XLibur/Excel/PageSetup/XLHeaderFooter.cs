@@ -37,14 +37,14 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
     {
         //if (innerTexts.ContainsKey(occurrence)) return innerTexts[occurrence];
 
-        var retVal = string.Empty;
         var leftText = Left.GetText(occurrence);
         var centerText = Center.GetText(occurrence);
         var rightText = Right.GetText(occurrence);
-        retVal += leftText.Length > 0 ? "&L" + leftText : string.Empty;
-        retVal += centerText.Length > 0 ? "&C" + centerText : string.Empty;
-        retVal += rightText.Length > 0 ? "&R" + rightText : string.Empty;
-        return retVal;
+        var sb = new System.Text.StringBuilder();
+        if (leftText.Length > 0) sb.Append("&L").Append(leftText);
+        if (centerText.Length > 0) sb.Append("&C").Append(centerText);
+        if (rightText.Length > 0) sb.Append("&R").Append(rightText);
+        return sb.ToString();
     }
 
     private Dictionary<XLHFOccurrence, string> innerTexts = new();

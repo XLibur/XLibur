@@ -108,7 +108,7 @@ internal sealed class WmfInfoReader : ImageInfoReader
     private static int ToHiMetric(int size, double unitsPerInch) =>
         (int)Math.Round(size / unitsPerInch * 254d, MidpointRounding.AwayFromZero);
 
-    private class PlaceableHeader
+    private sealed class PlaceableHeader
     {
         private readonly uint _key;
         private readonly ushort _resourceHandle;

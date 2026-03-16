@@ -581,7 +581,7 @@ internal sealed class XLBorder : IXLBorder
     /// Helper class that remembers outside border state before editing (in constructor) and restore afterwards (on disposing).
     /// It presumes that size of the range does not change during the editing, else it will fail.
     /// </summary>
-    private class RestoreOutsideBorder : IDisposable
+    private sealed class RestoreOutsideBorder : IDisposable
     {
         private readonly IXLRange _range;
         private readonly Dictionary<int, XLBorderKey> _topBorders;

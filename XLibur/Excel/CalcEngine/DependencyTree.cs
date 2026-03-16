@@ -202,7 +202,7 @@ internal sealed class DependencyTree
     /// contains precedent cells for a formula. If anything in the area
     /// potentially changes, all dependents might also change.
     /// </summary>
-    private class AreaDependents : ISpatialData
+    private sealed class AreaDependents : ISpatialData
     {
         /// <summary>
         /// An area in a sheet that is used by formulas, converted to RBush envelope.
@@ -302,7 +302,7 @@ internal sealed class DependencyTree
     /// <summary>
     /// A dependency tree for a single worksheet.
     /// </summary>
-    private class SheetDependencyTree
+    private sealed class SheetDependencyTree
     {
         /// <summary>
         /// The precedent areas are not duplicated, though two areas might overlap.

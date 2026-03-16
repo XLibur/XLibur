@@ -56,7 +56,7 @@ internal sealed class XLRangeConsolidationEngine
     /// Class representing the area covering ranges to be consolidated as a set of bit matrices. Does all the dirty job
     /// of ranges consolidation.
     /// </summary>
-    private class XLRangeConsolidationMatrix
+    private sealed class XLRangeConsolidationMatrix
     {
         #region Public Constructors
 

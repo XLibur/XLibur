@@ -32,7 +32,7 @@ internal sealed class XLCFCellIsConverter : IXLCFConverter
         string value = formula.Value;
 
         if (formula.IsFormula ||
-            value.StartsWith("\"") && value.EndsWith("\"") ||
+            value.StartsWith('"') && value.EndsWith('"') ||
             double.TryParse(value, XLHelper.NumberStyle, XLHelper.ParseCulture, out _))
         {
             return value;

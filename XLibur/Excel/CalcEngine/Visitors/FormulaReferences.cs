@@ -72,7 +72,7 @@ internal sealed class FormulaReferences
     /// <summary>
     /// Factory to get all references (cells, tables, names) in local workbook.
     /// </summary>
-    private class CollectRefsFactory : CollectVisitor<FormulaReferences>
+    private sealed class CollectRefsFactory : CollectVisitor<FormulaReferences>
     {
         public static readonly CollectRefsFactory Instance = new();
 

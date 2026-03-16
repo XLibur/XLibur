@@ -294,7 +294,7 @@ internal sealed class CalcContext
         }
     }
 
-    private class FunctionVisitor : CollectVisitor<FunctionVisitor>
+    private sealed class FunctionVisitor : CollectVisitor<FunctionVisitor>
     {
         public FunctionVisitor(string function)
         {

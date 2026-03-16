@@ -88,5 +88,5 @@ internal sealed class XLPivotValueStyleFormat : XLPivotStyleFormatBase, IXLPivot
         return XLPivotAreaComparer.Instance.Equals(area, currentArea);
     }
 
-    private record FieldReference(FieldIndex FieldIndex, IReadOnlyList<uint>? Items = null);
+    private sealed record FieldReference(FieldIndex FieldIndex, IReadOnlyList<uint>? Items = null);
 }

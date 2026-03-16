@@ -6,7 +6,7 @@ namespace XLibur.Examples.PivotTables;
 
 public class PivotTables : IXLExample
 {
-    private class Pastry
+    private sealed class Pastry
     {
         public Pastry(string name, int? code, int numberOfOrders, double quality, string month, DateTime? bakeDate)
         {

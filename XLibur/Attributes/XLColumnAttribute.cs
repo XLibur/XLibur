@@ -15,7 +15,7 @@ public class XLColumnAttribute : Attribute
 
     private static XLColumnAttribute? GetXLColumnAttribute(MemberInfo mi)
     {
-        return !mi.HasAttribute<XLColumnAttribute>() ? null : mi.GetAttributes<XLColumnAttribute>().First();
+        return !mi.HasAttribute<XLColumnAttribute>() ? null : mi.GetAttributes<XLColumnAttribute>()[0];
     }
 
     internal static string? GetHeader(MemberInfo mi)

@@ -57,7 +57,7 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats
 
         while (formats.Count > 0)
         {
-            var item = formats.First();
+            var item = formats[0];
 
             if (!CFTypesExcludedFromConsolidation.Contains(item.ConditionalFormatType))
             {
