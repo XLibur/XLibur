@@ -384,6 +384,9 @@ internal sealed partial class Slice<TElement> : ISlice
 
         object IEnumerator.Current => Point;
 
-        public void Dispose() { }
+        public void Dispose()
+        {
+            GC.SuppressFinalize(this);
+        }
     }
 }

@@ -3,7 +3,7 @@ using System.IO;
 
 namespace XLibur.Examples;
 
-public class ModifyFiles
+public static class ModifyFiles
 {
     public static void Run()
     {

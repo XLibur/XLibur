@@ -9,7 +9,7 @@ using Break = DocumentFormat.OpenXml.Spreadsheet.Break;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class PageSetupWriter
+internal static class PageSetupWriter
 {
     internal static void WriteHyperlinks(
         Worksheet worksheet,

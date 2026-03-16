@@ -3,7 +3,7 @@ using System.IO;
 
 namespace XLibur.Examples;
 
-public class StyleExamples
+public static class StyleExamples
 {
     public static void Create()
     {

@@ -34,7 +34,7 @@ internal sealed class SharedStringTable
 
     /// <summary>
     /// Release all entries so the memory can be reclaimed by GC.
-    /// Called from <see cref="XLWorkbook.Dispose"/>.
+    /// Called from <see cref="XLWorkbook.Dispose()"/>.
     /// </summary>
     internal void Clear()
     {

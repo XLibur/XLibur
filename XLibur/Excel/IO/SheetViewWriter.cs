@@ -9,7 +9,7 @@ using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class SheetViewWriter
+internal static class SheetViewWriter
 {
     internal static void WriteSheetProperties(
         Worksheet worksheet,

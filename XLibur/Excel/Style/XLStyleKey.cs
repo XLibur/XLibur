@@ -18,16 +18,20 @@ internal readonly record struct XLStyleKey
 
     public override string ToString()
     {
-        return
-            this == XLStyle.Default.Key ? "Default" :
-                string.Format("Alignment: {0} Border: {1} Fill: {2} Font: {3} IncludeQuotePrefix: {4} NumberFormat: {5} Protection: {6}",
-                    Alignment == XLStyle.Default.Key.Alignment ? "Default" : Alignment.ToString(),
-                    Border == XLStyle.Default.Key.Border ? "Default" : Border.ToString(),
-                    Fill == XLStyle.Default.Key.Fill ? "Default" : Fill.ToString(),
-                    Font == XLStyle.Default.Key.Font ? "Default" : Font.ToString(),
-                    IncludeQuotePrefix == XLStyle.Default.Key.IncludeQuotePrefix ? "Default" : IncludeQuotePrefix.ToString(),
-                    NumberFormat == XLStyle.Default.Key.NumberFormat ? "Default" : NumberFormat.ToString(),
-                    Protection == XLStyle.Default.Key.Protection ? "Default" : Protection.ToString());
+        if (this == XLStyle.Default.Key)
+            return "Default";
+
+        var defaultKey = XLStyle.Default.Key;
+        var alignment = Alignment == defaultKey.Alignment ? "Default" : Alignment.ToString();
+        var border = Border == defaultKey.Border ? "Default" : Border.ToString();
+        var fill = Fill == defaultKey.Fill ? "Default" : Fill.ToString();
+        var font = Font == defaultKey.Font ? "Default" : Font.ToString();
+        var includeQuotePrefix = IncludeQuotePrefix == defaultKey.IncludeQuotePrefix ? "Default" : IncludeQuotePrefix.ToString();
+        var numberFormat = NumberFormat == defaultKey.NumberFormat ? "Default" : NumberFormat.ToString();
+        var protection = Protection == defaultKey.Protection ? "Default" : Protection.ToString();
+
+        return string.Format("Alignment: {0} Border: {1} Fill: {2} Font: {3} IncludeQuotePrefix: {4} NumberFormat: {5} Protection: {6}",
+            alignment, border, fill, font, includeQuotePrefix, numberFormat, protection);
     }
 
     public override int GetHashCode()

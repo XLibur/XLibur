@@ -21,7 +21,7 @@ internal sealed class XLInCellImageStore : IDisposable
 
     /// <summary>
     /// Dispose all held <see cref="MemoryStream"/>s and release collections.
-    /// Called from <see cref="XLWorkbook.Dispose"/>.
+    /// Called from <see cref="XLWorkbook.Dispose()"/>.
     /// </summary>
     public void Dispose()
     {

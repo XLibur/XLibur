@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class SheetProtectionWriter
+internal static class SheetProtectionWriter
 {
     internal static void WriteSheetProtection(
         Worksheet worksheet,

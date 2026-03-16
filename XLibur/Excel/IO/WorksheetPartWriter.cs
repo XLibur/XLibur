@@ -190,7 +190,7 @@ internal static class WorksheetPartWriter
             tableParts.AppendChild(new TablePart { Id = xlTable.RelId });
         }
 
-        tableParts.Count = (uint)xlTables.Count<XLTable>();
+        tableParts.Count = (uint)xlTables.Count;
     }
 
     /// <summary>

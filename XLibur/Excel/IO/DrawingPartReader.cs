@@ -225,8 +225,7 @@ internal static class DrawingPartReader
         var textHAlign = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "TextHAlign");
         if (textHAlign != null)
             drawing.Style.Alignment.Horizontal =
-                (XLDrawingHorizontalAlignment)Enum.Parse(typeof(XLDrawingHorizontalAlignment),
-                    textHAlign.Value.ToProper());
+                Enum.Parse<XLDrawingHorizontalAlignment>(textHAlign.Value.ToProper());
     }
 
     internal static void LoadDrawingVAlignment<T>(IXLDrawing<T> drawing, XElement clientData)
@@ -234,7 +233,7 @@ internal static class DrawingPartReader
         var textVAlign = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "TextVAlign");
         if (textVAlign != null)
             drawing.Style.Alignment.Vertical =
-                (XLDrawingVerticalAlignment)Enum.Parse(typeof(XLDrawingVerticalAlignment), textVAlign.Value.ToProper());
+                Enum.Parse<XLDrawingVerticalAlignment>(textVAlign.Value.ToProper());
     }
 
     internal static void LoadDrawingProtection<T>(IXLDrawing<T> drawing, XElement clientData)

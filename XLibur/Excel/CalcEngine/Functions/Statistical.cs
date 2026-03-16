@@ -201,8 +201,7 @@ internal static class Statistical
         // To be efficient for cases like whole sheet with only few values, calculate
         // the blank count as number of total area size without non-blank cells.
         var nonBlankCount = ctx.GetNonBlankValues(new Reference(area))
-            .Where(static value => !value.IsBlank && !(value.IsText && value.GetText().Length == 0))
-            .LongCount();
+            .LongCount(static value => !value.IsBlank && !(value.IsText && value.GetText().Length == 0));
 
         return area.Size - nonBlankCount;
     }

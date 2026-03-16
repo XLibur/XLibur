@@ -812,6 +812,15 @@ public partial class XLWorkbook : IXLWorkbook
 
     public void Dispose()
     {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!disposing)
+            return;
+
         Worksheets.ForEach(w => ((XLWorksheet)w).Cleanup());
 
         // Release calc engine and its heavy structures (DependencyTree,

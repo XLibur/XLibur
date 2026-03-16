@@ -104,8 +104,7 @@ internal static class ConditionalFormatReader
     private static void LoadExpressionFormula(ConditionalFormattingRule fr, XLConditionalFormat conditionalFormat)
     {
         var formula = fr.Elements<Formula>()
-            .Where(static f => !string.IsNullOrEmpty(f.Text))
-            .FirstOrDefault();
+            .FirstOrDefault(static f => !string.IsNullOrEmpty(f.Text));
 
         if (formula is null)
             throw PartStructureException.IncorrectElementsCount();
