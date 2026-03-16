@@ -24,7 +24,7 @@ public class ClosedXmlWorkbookBenchmarks
 #pragma warning disable S2245 // Using pseudorandom number generator - deterministic seed is intentional for benchmarks
         var random = new Random(42);
 #pragma warning restore S2245
-        var baseDate = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var baseDate = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 
         for (var i = 0; i < RowCount; i++)
         {

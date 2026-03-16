@@ -14,7 +14,7 @@ public class DateTimeGroupAutoFilter : IXLExample
         var singleColumnDates = "Single Column Dates";
         var ws = wb.Worksheets.Add(singleColumnDates);
 
-        // Add a bunch of numbers to filter
+        // Add a bunch of dates to filter
         ws.Cell("A1").SetValue("Dates")
             .CellBelow().SetValue(new DateTime(2018, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(2))
             .CellBelow().SetValue(new DateTime(2018, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(3))

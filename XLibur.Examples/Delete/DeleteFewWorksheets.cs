@@ -24,7 +24,7 @@ public class DeleteFewWorksheets : IXLExample
 
     private static void Delete(string filePath, string tempFile)
     {
-        var workbook = new XLWorkbook(tempFile);
+        using var workbook = new XLWorkbook(tempFile);
         workbook.Worksheets.Delete("1");
         workbook.Worksheets.Delete("2");
         workbook.SaveAs(filePath);
@@ -32,7 +32,7 @@ public class DeleteFewWorksheets : IXLExample
 
     private static void Prepare(string tempFile)
     {
-        var workbook = new XLWorkbook();
+        using var workbook = new XLWorkbook();
         workbook.Worksheets.Add("1");
         workbook.Worksheets.Add("2");
         workbook.Worksheets.Add("3");

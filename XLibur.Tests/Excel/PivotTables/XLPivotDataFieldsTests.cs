@@ -75,7 +75,7 @@ internal class XLPivotDataFieldsTests
         var ptSheet = wb.AddWorksheet();
         var pt = ptSheet.PivotTables.Add("pt", ptSheet.Cell("A1"), range);
 
-        Assert.DoesNotThrow(() => pt.Values.Clear());
+        Assert.That(() => pt.Values.Clear(), Throws.Nothing);
     }
 
     [Test]
@@ -138,7 +138,7 @@ internal class XLPivotDataFieldsTests
         var ptSheet = wb.AddWorksheet();
         var pt = ptSheet.PivotTables.Add("pt", ptSheet.Cell("A1"), range);
 
-        Assert.DoesNotThrow(() => pt.Values.Remove("NonExistent"));
+        Assert.That(() => pt.Values.Remove("NonExistent"), Throws.Nothing);
     }
 
     #endregion

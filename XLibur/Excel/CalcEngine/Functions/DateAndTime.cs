@@ -106,7 +106,8 @@ internal static class DateAndTime
 
         // Year 1 is earliest allowable in both date system. Also avoid the double
         // to int conversion problems when double is too small.
-        if (year < 1)
+        // DateTime only accepts years 1-9999, so year 10000+ must return an error.
+        if (year < 1 || year > 9999)
             return XLError.NumberInvalid;
 
         var startOfMonth = new DateTime((int)year, (int)month, 1, 0, 0, 0, DateTimeKind.Unspecified).ToSerialDateTime();

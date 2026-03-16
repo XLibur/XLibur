@@ -218,7 +218,7 @@ public class ClearingTests
         {
             var ws = wb.Worksheets.First();
             Assert.AreEqual("Hello world!", ws.Cell("A1").GetText());
-            Assert.AreEqual(new DateTime(2018, 1, 15, 0, 0, 0, DateTimeKind.Unspecified), ws.Cell("A3").GetDateTime());
+            Assert.That(ws.Cell("A3").GetDateTime(), Is.EqualTo(new DateTime(2018, 1, 15, 0, 0, 0, DateTimeKind.Unspecified)));
 
             wb.SaveAs(ms);
         }
