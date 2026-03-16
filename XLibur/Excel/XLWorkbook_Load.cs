@@ -366,6 +366,19 @@ public partial class XLWorkbook
         // (e.g., Row), preventing the main loop from processing them.
         var elementType = reader.ElementType;
 
+        if (!LoadStructureElement(reader, elementType, ws, styles))
+            LoadPrintAndExtensionElement(reader, elementType, worksheetPart, ws, styles, pageSetupProperties, context);
+    }
+
+    /// <summary>
+    /// Loads worksheet structure elements (format, merge, views, columns, filter, protection, validation, legacy drawing).
+    /// </summary>
+    /// <returns><c>true</c> if the element was handled; <c>false</c> to try the next group.</returns>
+    private bool LoadStructureElement(OpenXmlPartReader reader, Type elementType, XLWorksheet ws, StylesheetData styles)
+    {
+        // Only call LoadCurrentElement() for recognized types. Calling it on
+        // wrapper elements like SheetData would consume all child elements
+        // (e.g., Row), preventing the main loop from processing them.
         if (elementType == typeof(SheetFormatProperties))
             LoadSheetFormatProperties((SheetFormatProperties)reader.LoadCurrentElement()!, ws);
         else if (elementType == typeof(MergeCells))
@@ -381,7 +394,31 @@ public partial class XLWorkbook
             WorksheetElementReader.LoadSheetProtection((SheetProtection)reader.LoadCurrentElement()!, ws);
         else if (elementType == typeof(DataValidations))
             WorksheetElementReader.LoadDataValidations((DataValidations)reader.LoadCurrentElement()!, ws);
-        else if (elementType == typeof(ConditionalFormatting))
+        else if (elementType == typeof(LegacyDrawing))
+            ws.LegacyDrawingId = ((LegacyDrawing)reader.LoadCurrentElement()!).Id?.Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    /// <summary>
+    /// Loads print-related and extension elements (conditional formatting, hyperlinks, print options,
+    /// page margins/setup, header/footer, breaks, extensions).
+    /// </summary>
+    private void LoadPrintAndExtensionElement(
+        OpenXmlPartReader reader,
+        Type elementType,
+        WorksheetPart worksheetPart,
+        XLWorksheet ws,
+        StylesheetData styles,
+        PageSetupProperties? pageSetupProperties,
+        LoadContext context)
+    {
+        // Only call LoadCurrentElement() for recognized types. Calling it on
+        // wrapper elements like SheetData would consume all child elements
+        // (e.g., Row), preventing the main loop from processing them.
+        if (elementType == typeof(ConditionalFormatting))
             ConditionalFormatReader.LoadConditionalFormatting((ConditionalFormatting)reader.LoadCurrentElement()!, ws,
                 styles.DifferentialFormats, context);
         else if (elementType == typeof(Hyperlinks))
@@ -400,8 +437,6 @@ public partial class XLWorkbook
             WorksheetElementReader.LoadColumnBreaks((ColumnBreaks)reader.LoadCurrentElement()!, ws);
         else if (elementType == typeof(WorksheetExtensionList))
             ConditionalFormatReader.LoadExtensions((WorksheetExtensionList)reader.LoadCurrentElement()!, ws, this);
-        else if (elementType == typeof(LegacyDrawing))
-            ws.LegacyDrawingId = ((LegacyDrawing)reader.LoadCurrentElement()!).Id?.Value;
     }
 
     private void LoadSheetFormatProperties(SheetFormatProperties sfp, XLWorksheet ws)
