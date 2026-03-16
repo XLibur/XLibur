@@ -122,7 +122,7 @@ internal static class WorksheetSheetDataReader
         };
 
         // Resolve style index to interned XLStyleValue (cached after first encounter).
-        // The actual write to StyleSlice is deferred to the end of the method so we can
+        // The actual writing to StyleSlice is deferred to the end of the method, so we can
         // check whether other slices (value/formula/misc) already make this cell visible
         // to the SlicesEnumerator.  When the resolved style matches the inherited style
         // AND the cell has data in another slice, we skip the StyleSlice write — avoiding
@@ -143,7 +143,7 @@ internal static class WorksheetSheetDataReader
 
         LoadCellMisc(attributes, cellsCollection, cellAddress);
 
-        // Move from cell start element onwards.
+        // Move from the cell start element onwards.
         reader.MoveAhead();
 
         var cellHasFormula = reader.IsStartElement("f");
@@ -152,12 +152,12 @@ internal static class WorksheetSheetDataReader
         {
             formula = SetCellFormula(ws, cellAddress, reader, context.SharedFormulasR1C1);
 
-            // Move from end of 'f' element.
+            // Move from the end of 'f' element.
             reader.MoveAhead();
         }
 
-        // Unified code to load value. Value can be empty and only type specified (e.g. when formula doesn't save values)
-        // String type is only for formulas, while shared string/inline string/date is only for pure cell values.
+        // Unified code to load value. Value can be empty and only type specified (e.g. when the formula doesn't save values)
+        // The string type is only for formulas, while shared string/inline string/date is only for pure cell values.
         var cellHasValue = reader.IsStartElement("v");
         if (cellHasValue)
         {
@@ -169,14 +169,14 @@ internal static class WorksheetSheetDataReader
         }
         else
         {
-            // A string cell must contain at least empty string.
+            // A string cell must contain at least an empty string.
             if (dataType.Equals(CellValues.SharedString) || dataType.Equals(CellValues.String))
                 cellsCollection.ValueSlice.SetCellValue(cellAddress, string.Empty);
         }
 
         // If the cell doesn't contain value, we should invalidate it, otherwise rely on the stored value.
         // The value is likely more reliable. It should be set when cellFormula.CalculateCell is set or
-        // when value is missing. Formula can be null in some cases, e.g. slave cells of array formula.
+        // when the value is missing. Formula can be null in some cases, e.g., slave cells of array formula.
         if (formula is not null && !cellHasValue)
         {
             formula.IsDirty = true;
@@ -267,12 +267,20 @@ internal static class WorksheetSheetDataReader
         XLCellsCollection cellsCollection, XLSheetPoint cellAddress, XLStyleValue cellStyleValue,
         XLWorksheet ws, SharedStringEntry[]? sharedStrings)
     {
+        // Only String writes an empty value when v is null.
+        if (cellValue is null)
+        {
+            if (dataType == CellValues.String)
+                cellsCollection.ValueSlice.SetCellValue(cellAddress, string.Empty);
+            return;
+        }
+
         if (dataType == CellValues.Number)
             SetNumberCellValue(cellValue, cellsCollection, cellAddress, cellStyleValue);
         else if (dataType == CellValues.SharedString)
             SetSharedStringCellValue(cellValue, cellsCollection, cellAddress, ws, sharedStrings);
         else if (dataType == CellValues.String)
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, cellValue ?? string.Empty);
+            cellsCollection.ValueSlice.SetCellValue(cellAddress, cellValue);
         else if (dataType == CellValues.Boolean)
             SetBooleanCellValue(cellValue, cellsCollection, cellAddress);
         else if (dataType == CellValues.Error)
@@ -316,8 +324,6 @@ internal static class WorksheetSheetDataReader
 
     internal static void LoadColumns(StylesheetData styles, XLWorksheet ws, Columns columns)
     {
-        if (columns == null) return;
-
         var wsDefaultColumn =
             columns.Elements<Column>().FirstOrDefault(c => c.Max?.Value == XLHelper.MaxColumnNumber);
 
@@ -479,15 +485,14 @@ internal static class WorksheetSheetDataReader
 
     private static XLDataType? ClassifyFormatChar(char c, string format, int i, int length)
     {
-        if (c == '0' || c == '#' || c == '?')
-            return XLDataType.Number;
-        if (c == 'y' || c == 'd')
-            return XLDataType.DateTime;
-        if (c == 'h' || c == 's')
-            return XLDataType.TimeSpan;
-        if (c == 'm')
-            return ResolveMonthOrMinute(format, i, length);
-        return null;
+        return c switch
+        {
+            '0' or '#' or '?' => XLDataType.Number,
+            'y' or 'd' => XLDataType.DateTime,
+            'h' or 's' => XLDataType.TimeSpan,
+            'm' => ResolveMonthOrMinute(format, i, length),
+            _ => null
+        };
     }
 
     internal static bool UInt32HasValue(UInt32Value? value)
@@ -552,16 +557,14 @@ internal static class WorksheetSheetDataReader
         var showPhonetic = attributes.GetBoolAttribute("ph", false);
         var cellMetaIndex = attributes.GetUintAttribute("cm");
         var valueMetaIndex = attributes.GetUintAttribute("vm");
-        if (showPhonetic || cellMetaIndex is not null || valueMetaIndex is not null)
+        if (!showPhonetic && cellMetaIndex is null && valueMetaIndex is null) return;
+        var misc = new XLMiscSliceContent
         {
-            var misc = new XLMiscSliceContent
-            {
-                HasPhonetic = showPhonetic,
-                CellMetaIndex = cellMetaIndex,
-                ValueMetaIndex = valueMetaIndex
-            };
-            cellsCollection.MiscSlice.Set(cellAddress, in misc);
-        }
+            HasPhonetic = showPhonetic,
+            CellMetaIndex = cellMetaIndex,
+            ValueMetaIndex = valueMetaIndex
+        };
+        cellsCollection.MiscSlice.Set(cellAddress, in misc);
     }
 
     private static void LoadInlineString(CellValues dataType, XLCellsCollection cellsCollection,
@@ -649,40 +652,36 @@ internal static class WorksheetSheetDataReader
             var input2Deleted = attributes.GetBoolAttribute("del2", false);
             var input2 = attributes.GetCellRefAttribute("r2") ?? throw MissingRequiredAttr("r2");
             formula = XLCellFormula.DataTable2D(dataTableArea, input1, input1Deleted, input2, input2Deleted);
-            formulaSlice.Set(cellAddress, formula);
         }
         else
         {
             var isRowDataTable = attributes.GetBoolAttribute("dtr", false);
             formula = XLCellFormula.DataTable1D(dataTableArea, input1, input1Deleted, isRowDataTable);
-            formulaSlice.Set(cellAddress, formula);
         }
+
+        formulaSlice.Set(cellAddress, formula);
 
         return formula;
     }
 
-    private static void SetNumberCellValue(string? cellValue, XLCellsCollection cellsCollection,
+    private static void SetNumberCellValue(string cellValue, XLCellsCollection cellsCollection,
         XLSheetPoint cellAddress, XLStyleValue cellStyleValue)
     {
-        if (cellValue is not null &&
-            double.TryParse(cellValue, XLHelper.NumberStyle, XLHelper.ParseCulture, out var number))
+        if (!double.TryParse(cellValue, XLHelper.NumberStyle, XLHelper.ParseCulture, out var number)) return;
+        var numberDataType = GetNumberDataType(cellStyleValue.NumberFormat);
+        var cellNumber = numberDataType switch
         {
-            var numberDataType = GetNumberDataType(cellStyleValue.NumberFormat);
-            var cellNumber = numberDataType switch
-            {
-                XLDataType.DateTime => XLCellValue.FromSerialDateTime(number),
-                XLDataType.TimeSpan => XLCellValue.FromSerialTimeSpan(number),
-                _ => number
-            };
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, cellNumber);
-        }
+            XLDataType.DateTime => XLCellValue.FromSerialDateTime(number),
+            XLDataType.TimeSpan => XLCellValue.FromSerialTimeSpan(number),
+            _ => number
+        };
+        cellsCollection.ValueSlice.SetCellValue(cellAddress, cellNumber);
     }
 
-    private static void SetSharedStringCellValue(string? cellValue, XLCellsCollection cellsCollection,
+    private static void SetSharedStringCellValue(string cellValue, XLCellsCollection cellsCollection,
         XLSheetPoint cellAddress, XLWorksheet ws, SharedStringEntry[]? sharedStrings)
     {
-        if (cellValue is not null
-            && int.TryParse(cellValue, XLHelper.NumberStyle, XLHelper.ParseCulture, out var sharedStringId)
+        if (int.TryParse(cellValue, XLHelper.NumberStyle, XLHelper.ParseCulture, out var sharedStringId)
             && sharedStrings is not null && sharedStringId >= 0 && sharedStringId < sharedStrings.Length)
         {
             var entry = sharedStrings[sharedStringId];
@@ -698,34 +697,28 @@ internal static class WorksheetSheetDataReader
             cellsCollection.ValueSlice.SetCellValue(cellAddress, string.Empty);
     }
 
-    private static void SetBooleanCellValue(string? cellValue, XLCellsCollection cellsCollection,
+    private static void SetBooleanCellValue(string cellValue, XLCellsCollection cellsCollection,
         XLSheetPoint cellAddress)
     {
-        if (cellValue is not null)
-        {
-            var isTrue = string.Equals(cellValue, "1", StringComparison.Ordinal) ||
-                         string.Equals(cellValue, "TRUE", StringComparison.OrdinalIgnoreCase);
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, isTrue);
-        }
+        var isTrue = string.Equals(cellValue, "1", StringComparison.Ordinal) ||
+                     string.Equals(cellValue, "TRUE", StringComparison.OrdinalIgnoreCase);
+        cellsCollection.ValueSlice.SetCellValue(cellAddress, isTrue);
     }
 
-    private static void SetErrorCellValue(string? cellValue, XLCellsCollection cellsCollection,
+    private static void SetErrorCellValue(string cellValue, XLCellsCollection cellsCollection,
         XLSheetPoint cellAddress)
     {
-        if (cellValue is not null && XLErrorParser.TryParseError(cellValue, out var error))
+        if (XLErrorParser.TryParseError(cellValue, out var error))
             cellsCollection.ValueSlice.SetCellValue(cellAddress, error);
     }
 
-    private static void SetDateCellValue(string? cellValue, XLCellsCollection cellsCollection,
+    private static void SetDateCellValue(string cellValue, XLCellsCollection cellsCollection,
         XLSheetPoint cellAddress)
     {
-        if (cellValue is not null)
-        {
-            var date = DateTime.ParseExact(cellValue, DateCellFormats,
-                XLHelper.ParseCulture,
-                DateTimeStyles.AllowLeadingWhite | DateTimeStyles.AllowTrailingWhite);
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, date);
-        }
+        var date = DateTime.ParseExact(cellValue, DateCellFormats,
+            XLHelper.ParseCulture,
+            DateTimeStyles.AllowLeadingWhite | DateTimeStyles.AllowTrailingWhite);
+        cellsCollection.ValueSlice.SetCellValue(cellAddress, date);
     }
 
     private static void LoadPhonetics(XLCell xlCell, RstType element)
@@ -791,12 +784,10 @@ internal static class WorksheetSheetDataReader
     private static XLStyleKey LoadStyleFill(CellFormat cellFormat, Fills fills, XLStyleKey xlStyle)
     {
         var fill = (Fill)fills.ElementAt((int)cellFormat.FillId!.Value);
-        if (fill.PatternFill != null)
-        {
-            var xlFill = new XLFill();
-            OpenXmlHelper.LoadFill(fill, xlFill, differentialFillFormat: false);
-            xlStyle = xlStyle with { Fill = xlFill.Key };
-        }
+        if (fill.PatternFill == null) return xlStyle;
+        var xlFill = new XLFill();
+        OpenXmlHelper.LoadFill(fill, xlFill, differentialFillFormat: false);
+        xlStyle = xlStyle with { Fill = xlFill.Key };
 
         return xlStyle;
     }
@@ -823,16 +814,13 @@ internal static class WorksheetSheetDataReader
         var numberFormatId = cellFormat.NumberFormatId;
 
         var formatCode = string.Empty;
-        if (numberingFormats != null)
-        {
-            var numberingFormat =
-                numberingFormats.FirstOrDefault(nf =>
-                    ((NumberingFormat)nf).NumberFormatId != null &&
-                    ((NumberingFormat)nf).NumberFormatId!.Value == numberFormatId!) as NumberingFormat;
+        var numberingFormat =
+            numberingFormats?.FirstOrDefault(nf =>
+                ((NumberingFormat)nf).NumberFormatId != null &&
+                ((NumberingFormat)nf).NumberFormatId!.Value == numberFormatId!) as NumberingFormat;
 
-            if (numberingFormat != null && numberingFormat.FormatCode != null)
-                formatCode = numberingFormat.FormatCode.Value!;
-        }
+        if (numberingFormat != null && numberingFormat.FormatCode != null)
+            formatCode = numberingFormat.FormatCode.Value!;
 
         var xlNumberFormat = xlStyle.NumberFormat;
         if (formatCode.Length > 0)
@@ -850,12 +838,15 @@ internal static class WorksheetSheetDataReader
         for (var j = i + 1; j < length; j++)
         {
             var cj = char.ToLowerInvariant(format[j]);
-            if (cj == 'm')
-                continue;
-            if (cj == 's')
-                return XLDataType.TimeSpan;
-            if (cj is >= 'a' and <= 'z' or >= '0' and <= '9')
-                return XLDataType.DateTime;
+            switch (cj)
+            {
+                case 'm':
+                    continue;
+                case 's':
+                    return XLDataType.TimeSpan;
+                case >= 'a' and <= 'z' or >= '0' and <= '9':
+                    return XLDataType.DateTime;
+            }
         }
 
         return XLDataType.DateTime;
