@@ -343,7 +343,7 @@ internal static class WorksheetSheetDataReader
         var xlStyleKey = XLStyle.Default.Key;
         LoadStyle(ref xlStyleKey, styleIndex, styles);
 
-        // When loading columns we must propagate style to each column but not deeper. In other cases we do not propagate at all.
+        // When loading columns, we must propagate style to each column but not deeper. In other cases we do not propagate at all.
         if (xlStylized is IXLColumns columns)
         {
             columns.Cast<XLColumn>().ForEach(col => col.InnerStyle = new XLStyle(col, xlStyleKey));
@@ -367,13 +367,13 @@ internal static class WorksheetSheetDataReader
 
     internal static void LoadStyle(ref XLStyleKey xlStyle, int styleIndex, StylesheetData styles)
     {
-        var s = styles.Stylesheet!;
+        if (styles.Stylesheet is not { CellFormats: not null } s)
+            return; //No Stylesheet, no Styles
+
         var fills = styles.Fills!;
         var borders = styles.Borders!;
         var fonts = styles.Fonts!;
         var numberingFormats = styles.NumberingFormats;
-
-        if (s == null || s.CellFormats is null) return; //No Stylesheet, no Styles
 
         var cellFormat = (CellFormat)s.CellFormats.ElementAt(styleIndex);
 
@@ -401,10 +401,10 @@ internal static class WorksheetSheetDataReader
         }
 
         if (UInt32HasValue(cellFormat.BorderId))
-            xlStyle = LoadStyleBorder(cellFormat, borders, xlStyle);
+            xlStyle = LoadStyleBorder(cellFormat.BorderId!.Value, borders, xlStyle);
 
         if (UInt32HasValue(cellFormat.FontId))
-            xlStyle = LoadStyleFont(cellFormat, fonts, xlStyle);
+            xlStyle = LoadStyleFont(cellFormat.FontId!.Value, fonts, xlStyle);
 
         if (UInt32HasValue(cellFormat.NumberFormatId))
             xlStyle = LoadStyleNumberFormat(cellFormat, numberingFormats, xlStyle);
@@ -526,7 +526,7 @@ internal static class WorksheetSheetDataReader
         if (collapsed)
             xlRow.Collapsed = true;
 
-        if (outlineLevel is not null && outlineLevel.Value > 0)
+        if (outlineLevel > 0)
             xlRow.OutlineLevel = outlineLevel.Value;
 
         if (showPhonetic)
@@ -801,29 +801,19 @@ internal static class WorksheetSheetDataReader
         return xlStyle;
     }
 
-    private static XLStyleKey LoadStyleBorder(CellFormat cellFormat, Borders borders, XLStyleKey xlStyle)
+    private static XLStyleKey LoadStyleBorder(uint borderId, Borders borders, XLStyleKey xlStyle)
     {
-        var borderId = cellFormat.BorderId!.Value;
         var border = (Border)borders.ElementAt((int)borderId);
-        if (border is not null)
-        {
-            var xlBorder = OpenXmlHelper.BorderToXLibur(border, xlStyle.Border);
-            xlStyle = xlStyle with { Border = xlBorder };
-        }
-
+        var xlBorder = OpenXmlHelper.BorderToXLibur(border, xlStyle.Border);
+        xlStyle = xlStyle with { Border = xlBorder };
         return xlStyle;
     }
 
-    private static XLStyleKey LoadStyleFont(CellFormat cellFormat, Fonts fonts, XLStyleKey xlStyle)
+    private static XLStyleKey LoadStyleFont(uint fontId, Fonts fonts, XLStyleKey xlStyle)
     {
-        var fontId = cellFormat.FontId;
-        var font = (Font)fonts.ElementAt((int)fontId!.Value);
-        if (font is not null)
-        {
-            var xlFont = OpenXmlHelper.FontToXLibur(font, xlStyle.Font);
-            xlStyle = xlStyle with { Font = xlFont };
-        }
-
+        var font = (Font)fonts.ElementAt((int)fontId);
+        var xlFont = OpenXmlHelper.FontToXLibur(font, xlStyle.Font);
+        xlStyle = xlStyle with { Font = xlFont };
         return xlStyle;
     }
 
@@ -864,7 +854,7 @@ internal static class WorksheetSheetDataReader
                 continue;
             if (cj == 's')
                 return XLDataType.TimeSpan;
-            if ((cj >= 'a' && cj <= 'z') || (cj >= '0' && cj <= '9'))
+            if (cj is >= 'a' and <= 'z' or >= '0' and <= '9')
                 return XLDataType.DateTime;
         }
 
