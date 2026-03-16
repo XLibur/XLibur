@@ -362,7 +362,7 @@ public class PictureTests
         var copy = original.Duplicate()
             .MoveTo(300, 200) as XLPicture;
 
-        Assert.AreEqual(2, ws1.Pictures.Count());
+        Assert.AreEqual(2, ws1.Pictures.Count);
         Assert.AreEqual(ws1, copy.Worksheet);
         Assert.AreEqual(original.Format, copy.Format);
         Assert.AreEqual(original.Height, copy.Height);
@@ -393,8 +393,8 @@ public class PictureTests
 
         var copy = original.CopyTo(ws2);
 
-        Assert.AreEqual(1, ws1.Pictures.Count());
-        Assert.AreEqual(1, ws2.Pictures.Count());
+        Assert.AreEqual(1, ws1.Pictures.Count);
+        Assert.AreEqual(1, ws2.Pictures.Count);
 
         Assert.AreEqual(ws2, copy.Worksheet);
 

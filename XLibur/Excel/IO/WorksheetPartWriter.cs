@@ -136,7 +136,7 @@ internal static class WorksheetPartWriter
 
     private static void WriteMergeCells(Worksheet worksheet, XLWorksheetContentManager cm, XLWorksheet xlWorksheet)
     {
-        if ((xlWorksheet).Internals.MergedRanges.Any())
+        if ((xlWorksheet).Internals.MergedRanges.Count > 0)
         {
             if (!worksheet.Elements<MergeCells>().Any())
             {
@@ -153,7 +153,7 @@ internal static class WorksheetPartWriter
                      .Select(merged => new MergeCell { Reference = merged }))
                 mergeCells.AppendChild(mergeCell);
 
-            mergeCells.Count = (uint)mergeCells.Count();
+            mergeCells.Count = (uint)mergeCells.ChildElements.Count;
         }
         else
         {

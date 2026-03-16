@@ -30,7 +30,7 @@ internal static partial class XLCellFormulaShifter
             var matchIndex = match.Index;
             if (value.Substring(0, matchIndex).CharCount('"') % 2 == 0)
             {
-                sb.Append(value.Substring(lastIndex, matchIndex - lastIndex));
+                sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex));
                 var (sheetName, useSheetName) = ExtractSheetName(matchString, worksheetInAction);
 
                 if (String.Compare(sheetName, shiftedWsName, StringComparison.OrdinalIgnoreCase) == 0)
@@ -39,13 +39,13 @@ internal static partial class XLCellFormulaShifter
                     sb.Append(matchString);
             }
             else
-                sb.Append(value.Substring(lastIndex, matchIndex - lastIndex + matchString.Length));
+                sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex + matchString.Length));
 
             lastIndex = matchIndex + matchString.Length;
         }
 
         if (lastIndex < value.Length)
-            sb.Append(value.Substring(lastIndex));
+            sb.Append(value.AsSpan(lastIndex));
 
         return sb.ToString();
     }
@@ -163,7 +163,7 @@ internal static partial class XLCellFormulaShifter
             var matchIndex = match.Index;
             if (value.Substring(0, matchIndex).CharCount('"') % 2 == 0)
             {
-                sb.Append(value.Substring(lastIndex, matchIndex - lastIndex));
+                sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex));
                 var (sheetName, useSheetName) = ExtractSheetName(matchString, worksheetInAction);
 
                 if (String.Compare(sheetName, shiftedRange.Worksheet.Name, StringComparison.OrdinalIgnoreCase) == 0)
@@ -172,13 +172,13 @@ internal static partial class XLCellFormulaShifter
                     sb.Append(matchString);
             }
             else
-                sb.Append(value.Substring(lastIndex, matchIndex - lastIndex + matchString.Length));
+                sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex + matchString.Length));
 
             lastIndex = matchIndex + matchString.Length;
         }
 
         if (lastIndex < value.Length)
-            sb.Append(value.Substring(lastIndex));
+            sb.Append(value.AsSpan(lastIndex));
 
         return sb.ToString();
     }

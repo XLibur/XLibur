@@ -1341,7 +1341,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         if (Workbook.DefinedNamesInternal.TryGetValue(rangeAddressStr, out var workbookDefinedName))
         {
-            if (!workbookDefinedName.Ranges.Any())
+            if (workbookDefinedName.Ranges.Count == 0)
                 return null;
 
             return workbookDefinedName.Ranges.First().CastTo<XLRange>();

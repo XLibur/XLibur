@@ -412,8 +412,8 @@ public class NamedRangesTests
             Assert.AreEqual("'Sheet 1'!A15:D15", nr.Ranges.Last().RangeAddress.ToString(XLReferenceStyle.A1, true));
             var sheetRefs = nr.GetSheetReferencesList();
             Assert.That(sheetRefs, Has.Count.EqualTo(2));
-            Assert.That(sheetRefs.First(), Is.EqualTo("'Sheet 1'!$A$5:$D$5"));
-            Assert.That(sheetRefs.Last(), Is.EqualTo("'Sheet 1'!$A$15:$D$15"));
+            Assert.That(sheetRefs[0], Is.EqualTo("'Sheet 1'!$A$5:$D$5"));
+            Assert.That(sheetRefs[^1], Is.EqualTo("'Sheet 1'!$A$15:$D$15"));
         }
     }
 

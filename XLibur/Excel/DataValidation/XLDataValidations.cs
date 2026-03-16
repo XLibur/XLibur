@@ -75,7 +75,7 @@ internal sealed class XLDataValidations : IXLDataValidations
 
     public void Delete(IXLRange range)
     {
-        if (range == null) throw new ArgumentNullException(nameof(range));
+        ArgumentNullException.ThrowIfNull(range);
 
         var dataValidationsToRemove = _dataValidationIndex.GetIntersectedRanges((XLRangeAddress)range.RangeAddress)
             .Select(e => e.DataValidation)
@@ -138,7 +138,7 @@ internal sealed class XLDataValidations : IXLDataValidations
 
     internal IXLDataValidation Add(IXLDataValidation dataValidation, bool skipIntersectionsCheck)
     {
-        if (dataValidation == null) throw new ArgumentNullException(nameof(dataValidation));
+        ArgumentNullException.ThrowIfNull(dataValidation);
 
         XLDataValidation xlDataValidation;
         if (dataValidation is not XLDataValidation validation ||
@@ -190,7 +190,7 @@ internal sealed class XLDataValidations : IXLDataValidations
         var rules = _dataValidations.ToList();
         rules.ForEach(Delete);
 
-        while (rules.Any())
+        while (rules.Count > 0)
         {
             var similarRules = rules.Where(r => areEqual(rules[0], r)).ToList();
             similarRules.ForEach(r => rules.Remove(r));

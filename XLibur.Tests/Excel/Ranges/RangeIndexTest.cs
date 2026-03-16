@@ -179,25 +179,25 @@ public class RangeIndexTest
             child.MaximumRow == 24576 &&
             child.Y == 2));
 
-        Assert.True(level0.Children.ElementAt(0).Children.Any());
+        Assert.True(level0.Children[0].Children.Any());
         Assert.True(level0.Children.Skip(1).All(child => child.Children == null));
 
         var level8 = level0
-            .Children.First() // 1
-            .Children.First() // 2
-            .Children.First() // 3
-            .Children.First() // 4
-            .Children.First() // 5
-            .Children.First() // 6
-            .Children.First() // 7
-            .Children.Last(); // 8
+            .Children[0] // 1
+            .Children[0] // 2
+            .Children[0] // 3
+            .Children[0] // 4
+            .Children[0] // 5
+            .Children[0] // 6
+            .Children[0] // 7
+            .Children[^1]; // 8
 
         Assert.AreEqual(65, level8.MinimumColumn);
         Assert.AreEqual(65, level8.MinimumRow);
         Assert.AreEqual(128, level8.MaximumColumn);
         Assert.AreEqual(128, level8.MaximumRow);
 
-        var level9 = level8.Children.First();
+        var level9 = level8.Children[0];
         Assert.NotNull(level9.Ranges);
         Assert.AreEqual(range, level9.Ranges.Single());
     }
@@ -218,7 +218,7 @@ public class RangeIndexTest
         ranges.Add(range3);
         Assert.AreEqual(2, ranges.Count);
 
-        Assert.AreEqual(ranges.Count, ranges.Count());
+        Assert.AreEqual(ranges.Count, ranges.Count);
 
         // Add many entries to activate QuadTree
         for (var i = 1; i <= TestCount; i++)

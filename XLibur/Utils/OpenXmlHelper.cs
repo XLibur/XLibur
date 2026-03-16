@@ -425,11 +425,8 @@ internal static class OpenXmlHelper
     /// differential format (affects the transparent color processing).</param>
     private static void FillFromXLiburColor(IColorTypeAdapter openXMLColor, XLColor xlColor, bool isDifferential)
     {
-        if (openXMLColor == null)
-            throw new ArgumentNullException(nameof(openXMLColor));
-
-        if (xlColor == null)
-            throw new ArgumentNullException(nameof(xlColor));
+        ArgumentNullException.ThrowIfNull(openXMLColor);
+        ArgumentNullException.ThrowIfNull(xlColor);
 
         switch (xlColor.ColorType)
         {

@@ -49,8 +49,7 @@ internal static class XLCellCopyHelper
 
     internal static IXLCell CopyFromRange(XLCell target, IXLRangeBase rangeObject)
     {
-        if (rangeObject is null)
-            throw new ArgumentNullException(nameof(rangeObject));
+        ArgumentNullException.ThrowIfNull(rangeObject);
 
         var asRange = (XLRangeBase)rangeObject;
         var maxRows = asRange.RowCount();

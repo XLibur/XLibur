@@ -155,8 +155,7 @@ internal sealed class ValueSlice : ISlice
 
     internal void SetRichText(XLSheetPoint point, XLImmutableRichText richText)
     {
-        if (richText is null)
-            throw new ArgumentNullException(nameof(richText));
+        ArgumentNullException.ThrowIfNull(richText);
 
         ref readonly var original = ref _values[point];
 

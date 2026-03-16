@@ -23,7 +23,7 @@ internal sealed class XLRangeConsolidationEngine
 
     public IXLRanges Consolidate()
     {
-        if (!_allRanges.Any())
+        if (_allRanges.Count == 0)
             return _allRanges;
 
         var worksheets = _allRanges.Select(r => r.Worksheet).Distinct().OrderBy(ws => ws.Position);

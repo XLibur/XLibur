@@ -24,7 +24,7 @@ internal sealed class XLPicture : IXLPicture
     internal XLPicture(IXLWorksheet worksheet, Stream stream, XLPictureFormat format)
         : this(worksheet)
     {
-        if (stream == null) throw new ArgumentNullException(nameof(stream));
+        ArgumentNullException.ThrowIfNull(stream);
 
         var info = worksheet.Workbook.GraphicEngine.GetPictureInfo(stream, format);
         Init(info);
