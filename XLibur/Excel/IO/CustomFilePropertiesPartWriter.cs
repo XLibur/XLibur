@@ -5,7 +5,7 @@ using System;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class CustomFilePropertiesPartWriter
+internal static class CustomFilePropertiesPartWriter
 {
     internal static void GenerateContent(CustomFilePropertiesPart customFilePropertiesPart, XLWorkbook workbook)
     {

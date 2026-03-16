@@ -9,7 +9,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class PivotTableCacheDefinitionPartReader
+internal static class PivotTableCacheDefinitionPartReader
 {
     internal static void Load(WorkbookPart workbookPart, XLWorkbook workbook)
     {

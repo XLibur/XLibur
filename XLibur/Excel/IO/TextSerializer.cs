@@ -6,7 +6,7 @@ using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class TextSerializer
+internal static class TextSerializer
 {
     internal static void WriteRichTextElements(XmlWriter w, XLImmutableRichText richText, SaveContext context)
     {

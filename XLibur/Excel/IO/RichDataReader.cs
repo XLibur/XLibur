@@ -21,9 +21,6 @@ internal static class RichDataReader
     private const string RichValueRelRelType = "http://schemas.microsoft.com/office/2017/06/relationships/richValueRel";
 
     // XML namespaces
-    private const string RvNs = "http://schemas.microsoft.com/office/spreadsheetml/2017/richdata";
-    private const string RvsNs = "http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2";
-    private const string RvrNs = "http://schemas.microsoft.com/office/spreadsheetml/2022/richvaluerel";
     private const string RNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
     /// <summary>

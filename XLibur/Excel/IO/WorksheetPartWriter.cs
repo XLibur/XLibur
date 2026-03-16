@@ -11,7 +11,7 @@ using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class WorksheetPartWriter
+internal static class WorksheetPartWriter
 {
     internal static void GenerateWorksheetPartContent(
         bool partIsEmpty,

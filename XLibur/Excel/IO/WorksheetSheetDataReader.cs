@@ -420,27 +420,31 @@ internal static class WorksheetSheetDataReader
     internal static XLDataType? GetDataTypeFromFormat(string format)
     {
         var length = format.Length;
-        for (var i = 0; i < length; i++)
+        var i = 0;
+        while (i < length)
         {
             var c = char.ToLowerInvariant(format[i]);
             if (c == '"')
             {
-                i = format.IndexOf('"', i + 1);
-                if (i == -1)
+                var closeIndex = format.IndexOf('"', i + 1);
+                if (closeIndex == -1)
                     return null;
+                i = closeIndex + 1;
             }
             else if (c == '[')
             {
                 // #1742 We need to skip locale prefixes in DateTime formats [...]
-                i = format.IndexOf(']', i + 1);
-                if (i == -1)
+                var closeIndex = format.IndexOf(']', i + 1);
+                if (closeIndex == -1)
                     return null;
+                i = closeIndex + 1;
             }
             else
             {
                 var result = ClassifyFormatChar(c, format, i, length);
                 if (result.HasValue)
                     return result.Value;
+                i++;
             }
         }
 

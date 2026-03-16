@@ -33,9 +33,6 @@ internal static class RichDataWriter
     private const string RvrNs = "http://schemas.microsoft.com/office/spreadsheetml/2022/richvaluerel";
     private const string RNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
-    // Image binary relationship type
-    private const string ImageRelType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
-
     /// <summary>
     /// Entry for a single rich value (one per cell with in-cell image).
     /// </summary>

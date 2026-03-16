@@ -9,7 +9,7 @@ using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class AutoFilterWriter
+internal static class AutoFilterWriter
 {
     internal static void WriteAutoFilter(
         Worksheet worksheet,

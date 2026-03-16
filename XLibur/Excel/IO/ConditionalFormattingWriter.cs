@@ -13,7 +13,7 @@ using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class ConditionalFormattingWriter
+internal static class ConditionalFormattingWriter
 {
     internal static void WriteConditionalFormatting(
         Worksheet worksheet,

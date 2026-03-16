@@ -9,7 +9,7 @@ using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class SharedStringTableWriter
+internal static class SharedStringTableWriter
 {
     internal static void GenerateSharedStringTablePartContent(XLWorkbook workbook, SharedStringTablePart sharedStringTablePart,
         SaveContext context)

@@ -12,6 +12,11 @@ namespace XLibur.Tests.Excel.PageSetup;
 [TestFixture]
 public class HeaderFooterImageTests
 {
+    private static readonly string[] ShapeIdsLH = ["LH"];
+    private static readonly string[] ShapeIdsCH = ["CH"];
+    private static readonly string[] ShapeIdsRH = ["RH"];
+    private static readonly string[] ShapeIdsLF = ["LF"];
+
     private string _pngPath = null!;
     private string _jpegPath = null!;
     private string _tempDir = null!;
@@ -47,7 +52,7 @@ public class HeaderFooterImageTests
         wb.SaveAs(ms, true);
 
         ms.Position = 0;
-        AssertPackageContainsHFImage(ms, expectedShapeIds: new[] { "LH" }, expectedHeaderText: "&L&G");
+        AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsLH, expectedHeaderText: "&L&G");
     }
 
     [Test]
@@ -61,7 +66,7 @@ public class HeaderFooterImageTests
         wb.SaveAs(ms, true);
 
         ms.Position = 0;
-        AssertPackageContainsHFImage(ms, expectedShapeIds: new[] { "CH" }, expectedHeaderText: "&C&G");
+        AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsCH, expectedHeaderText: "&C&G");
     }
 
     [Test]
@@ -75,7 +80,7 @@ public class HeaderFooterImageTests
         wb.SaveAs(ms, true);
 
         ms.Position = 0;
-        AssertPackageContainsHFImage(ms, expectedShapeIds: new[] { "RH" }, expectedHeaderText: "&R&G");
+        AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsRH, expectedHeaderText: "&R&G");
     }
 
     [Test]
@@ -89,7 +94,7 @@ public class HeaderFooterImageTests
         wb.SaveAs(ms, true);
 
         ms.Position = 0;
-        AssertPackageContainsHFImage(ms, expectedShapeIds: new[] { "LF" }, expectedFooterText: "&L&G");
+        AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsLF, expectedFooterText: "&L&G");
     }
 
     [Test]
@@ -105,7 +110,7 @@ public class HeaderFooterImageTests
         wb.SaveAs(ms, true);
 
         ms.Position = 0;
-        AssertPackageContainsHFImage(ms, expectedShapeIds: new[] { "LH" }, expectedHeaderText: "&LBefore:&G:After");
+        AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsLH, expectedHeaderText: "&LBefore:&G:After");
     }
 
     [Test]
@@ -452,7 +457,7 @@ public class HeaderFooterImageTests
         var vNs = XNamespace.Get("urn:schemas-microsoft-com:vml");
         return doc.Descendants(vNs + "shape")
             .Select(s => s.Attribute("id")?.Value ?? "")
-            .Where(id => !string.IsNullOrEmpty(id) && !id.StartsWith("_"))
+            .Where(id => !string.IsNullOrEmpty(id) && !id.StartsWith('_'))
             .ToArray();
     }
 

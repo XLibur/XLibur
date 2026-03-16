@@ -9,7 +9,7 @@ using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class ColumnWriter
+internal static class ColumnWriter
 {
     internal static void WriteColumns(
         Worksheet worksheet,

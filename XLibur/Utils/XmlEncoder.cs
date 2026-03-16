@@ -21,21 +21,25 @@ internal static partial class XmlEncoder
 
         var sb = new StringBuilder(encodeStr.Length);
         var len = encodeStr.Length;
-        for (var i = 0; i < len; ++i)
+        var i = 0;
+        while (i < len)
         {
             var currentChar = encodeStr[i];
             if (XmlConvert.IsXmlChar(currentChar))
             {
                 sb.Append(currentChar);
+                i++;
             }
             else if (i + 1 < len && XmlConvert.IsXmlSurrogatePair(encodeStr[i + 1], currentChar))
             {
                 sb.Append(currentChar);
-                sb.Append(encodeStr[++i]);
+                sb.Append(encodeStr[i + 1]);
+                i += 2;
             }
             else
             {
                 sb.Append(XmlConvert.EncodeName(currentChar.ToString()));
+                i++;
             }
         }
 
@@ -49,7 +53,8 @@ internal static partial class XmlEncoder
     private static bool NeedsEncoding(string s)
     {
         var len = s.Length;
-        for (var i = 0; i < len; i++)
+        var i = 0;
+        while (i < len)
         {
             var c = s[i];
 
@@ -68,12 +73,14 @@ internal static partial class XmlEncoder
                 // Valid surrogate pair doesn't need encoding.
                 if (i + 1 < len && XmlConvert.IsXmlSurrogatePair(s[i + 1], c))
                 {
-                    i++; // Skip the low surrogate
+                    i += 2; // Skip the surrogate pair
                     continue;
                 }
 
                 return true;
             }
+
+            i++;
         }
 
         return false;
