@@ -68,9 +68,6 @@ internal static class DrawingPartReader
                     continue;
 
                 var picture = LoadPictureFromAnchor(anchor, imgId, imagePart, ws);
-                if (picture is null)
-                    continue;
-
                 LoadPictureTransform(picture, anchor, ws);
                 LoadPicturePlacement(picture, anchor, ws);
             }

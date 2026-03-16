@@ -246,7 +246,7 @@ public class RangeIndexTest
         return new XLRangeIndex<IXLRangeBase>((XLWorksheet)worksheet);
     }
 
-    private static XLRangeIndex FillIndexWithTestData(IXLWorksheet worksheet)
+    private static XLRangeIndex<IXLRangeBase> FillIndexWithTestData(IXLWorksheet worksheet)
     {
         var ranges = new List<IXLRange>();
         for (var i = 1; i <= TestCount; i++)
