@@ -117,75 +117,90 @@ public class XLiburWorkbookBenchmarks
 
     private static void ApplyRowFormatting(IXLWorksheet ws, int row, int i)
     {
-        FormatNumericCells(ws, row);
-        FormatCategoryCells(ws, row, i);
+        ApplyCellStyle(ws, row, 1, s =>
+        {
+            s.Font.Bold = true;
+            s.Fill.BackgroundColor = XLColor.LightBlue;
+        });
+
+        ApplyCellStyle(ws, row, 2, s =>
+        {
+            s.NumberFormat.Format = "#,##0.00";
+            s.Font.FontColor = XLColor.DarkRed;
+            s.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            s.Border.OutsideBorderColor = XLColor.Gray;
+        });
+
+        ApplyCellStyle(ws, row, 3, s =>
+        {
+            s.NumberFormat.NumberFormatId = 15;
+            s.Font.Italic = true;
+            s.Fill.BackgroundColor = XLColor.LightGreen;
+        });
+
+        ApplyCellStyle(ws, row, 4, s =>
+        {
+            s.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            s.Border.OutsideBorder = XLBorderStyleValues.Medium;
+            s.Border.OutsideBorderColor = XLColor.DarkGoldenrod;
+            s.Fill.BackgroundColor = XLColor.LightYellow;
+        });
+
+        ApplyCellStyle(ws, row, 5, s =>
+        {
+            s.NumberFormat.Format = "$ #,##0.00";
+            s.Font.FontName = "Consolas";
+            s.Font.FontSize = 10;
+            s.Fill.BackgroundColor = XLColor.LightCoral;
+        });
+
+        ApplyCellStyle(ws, row, 6, s =>
+        {
+            s.NumberFormat.Format = "_($* #,##0.00_)";
+            s.Font.Bold = true;
+            s.Border.BottomBorder = XLBorderStyleValues.Dashed;
+            s.Border.BottomBorderColor = XLColor.Navy;
+        });
+
+        ApplyCellStyle(ws, row, 7, s =>
+        {
+            s.Font.Strikethrough = i % 3 == 2;
+            s.Font.FontColor = (i % 3) switch { 0 => XLColor.Green, 1 => XLColor.Orange, _ => XLColor.Red };
+            s.Fill.BackgroundColor = XLColor.Lavender;
+        });
+
+        ApplyCellStyle(ws, row, 8, s =>
+        {
+            s.Font.Underline = XLFontUnderlineValues.Single;
+            s.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            s.Border.RightBorder = XLBorderStyleValues.Dotted;
+            s.Border.RightBorderColor = XLColor.Purple;
+            s.Fill.BackgroundColor = XLColor.LightGray;
+        });
+
+        ApplyCellStyle(ws, row, 9, s =>
+        {
+            s.Font.FontName = "Georgia";
+            s.Font.FontSize = 12;
+            s.Font.FontColor = XLColor.Teal;
+            s.Border.OutsideBorder = XLBorderStyleValues.Thick;
+            s.Border.OutsideBorderColor = XLColor.Teal;
+            s.Fill.BackgroundColor = XLColor.Wheat;
+        });
+
+        ApplyCellStyle(ws, row, 10, s =>
+        {
+            s.Alignment.WrapText = true;
+            s.Alignment.Vertical = XLAlignmentVerticalValues.Top;
+            s.Border.OutsideBorder = XLBorderStyleValues.Double;
+            s.Border.OutsideBorderColor = XLColor.Chocolate;
+            s.Fill.BackgroundColor = XLColor.LightSalmon;
+            s.Font.FontColor = XLColor.DarkSlateGray;
+        });
     }
 
-    private static void FormatNumericCells(IXLWorksheet ws, int row)
+    private static void ApplyCellStyle(IXLWorksheet ws, int row, int col, Action<IXLStyle> apply)
     {
-        var c1 = ws.Cell(row, 1);
-        c1.Style.Font.Bold = true;
-        c1.Style.Fill.BackgroundColor = XLColor.LightBlue;
-
-        var c2 = ws.Cell(row, 2);
-        c2.Style.NumberFormat.Format = "#,##0.00";
-        c2.Style.Font.FontColor = XLColor.DarkRed;
-        c2.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-        c2.Style.Border.OutsideBorderColor = XLColor.Gray;
-
-        var c3 = ws.Cell(row, 3);
-        c3.Style.NumberFormat.NumberFormatId = 15;
-        c3.Style.Font.Italic = true;
-        c3.Style.Fill.BackgroundColor = XLColor.LightGreen;
-
-        var c4 = ws.Cell(row, 4);
-        c4.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        c4.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
-        c4.Style.Border.OutsideBorderColor = XLColor.DarkGoldenrod;
-        c4.Style.Fill.BackgroundColor = XLColor.LightYellow;
-
-        var c5 = ws.Cell(row, 5);
-        c5.Style.NumberFormat.Format = "$ #,##0.00";
-        c5.Style.Font.FontName = "Consolas";
-        c5.Style.Font.FontSize = 10;
-        c5.Style.Fill.BackgroundColor = XLColor.LightCoral;
-
-        var c6 = ws.Cell(row, 6);
-        c6.Style.NumberFormat.Format = "_($* #,##0.00_)";
-        c6.Style.Font.Bold = true;
-        c6.Style.Border.BottomBorder = XLBorderStyleValues.Dashed;
-        c6.Style.Border.BottomBorderColor = XLColor.Navy;
-    }
-
-    private static void FormatCategoryCells(IXLWorksheet ws, int row, int i)
-    {
-        var c7 = ws.Cell(row, 7);
-        c7.Style.Font.Strikethrough = i % 3 == 2;
-        var fontColor = (i % 3) switch { 0 => XLColor.Green, 1 => XLColor.Orange, _ => XLColor.Red };
-        c7.Style.Font.FontColor = fontColor;
-        c7.Style.Fill.BackgroundColor = XLColor.Lavender;
-
-        var c8 = ws.Cell(row, 8);
-        c8.Style.Font.Underline = XLFontUnderlineValues.Single;
-        c8.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
-        c8.Style.Border.RightBorder = XLBorderStyleValues.Dotted;
-        c8.Style.Border.RightBorderColor = XLColor.Purple;
-        c8.Style.Fill.BackgroundColor = XLColor.LightGray;
-
-        var c9 = ws.Cell(row, 9);
-        c9.Style.Font.FontName = "Georgia";
-        c9.Style.Font.FontSize = 12;
-        c9.Style.Font.FontColor = XLColor.Teal;
-        c9.Style.Border.OutsideBorder = XLBorderStyleValues.Thick;
-        c9.Style.Border.OutsideBorderColor = XLColor.Teal;
-        c9.Style.Fill.BackgroundColor = XLColor.Wheat;
-
-        var c10 = ws.Cell(row, 10);
-        c10.Style.Alignment.WrapText = true;
-        c10.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
-        c10.Style.Border.OutsideBorder = XLBorderStyleValues.Double;
-        c10.Style.Border.OutsideBorderColor = XLColor.Chocolate;
-        c10.Style.Fill.BackgroundColor = XLColor.LightSalmon;
-        c10.Style.Font.FontColor = XLColor.DarkSlateGray;
+        apply(ws.Cell(row, col).Style);
     }
 }
