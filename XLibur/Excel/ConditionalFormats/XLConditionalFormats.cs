@@ -51,7 +51,7 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats
     internal void Consolidate()
     {
         var formats = _conditionalFormats
-            .Where(cf => cf.Ranges.Any())
+            .Where(cf => cf.Ranges.Count > 0)
             .ToList();
         _conditionalFormats.Clear();
 

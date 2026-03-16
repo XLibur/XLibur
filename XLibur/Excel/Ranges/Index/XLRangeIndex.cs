@@ -28,8 +28,7 @@ internal abstract class XLRangeIndex : IXLRangeIndex
 
     public bool Add(IXLAddressable range)
     {
-        if (range == null)
-            throw new ArgumentNullException(nameof(range));
+        ArgumentNullException.ThrowIfNull(range);
 
         if (!range.RangeAddress.IsValid)
             throw new ArgumentException("Range is invalid");
@@ -114,8 +113,7 @@ internal abstract class XLRangeIndex : IXLRangeIndex
 
     public bool Remove(IXLRangeAddress rangeAddress)
     {
-        if (rangeAddress == null)
-            throw new ArgumentNullException(nameof(rangeAddress));
+        ArgumentNullException.ThrowIfNull(rangeAddress);
 
         CheckWorksheet(rangeAddress.Worksheet);
 

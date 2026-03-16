@@ -730,8 +730,7 @@ public partial class XLWorkbook : IXLWorkbook
 
     public XLWorkbook(LoadOptions loadOptions)
     {
-        if (loadOptions is null)
-            throw new ArgumentNullException(nameof(loadOptions));
+        ArgumentNullException.ThrowIfNull(loadOptions);
 
         DpiX = loadOptions.Dpi.X;
         DpiY = loadOptions.Dpi.Y;

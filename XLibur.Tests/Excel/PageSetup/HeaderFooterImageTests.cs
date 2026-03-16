@@ -477,7 +477,7 @@ public class HeaderFooterImageTests
                 var height = ParseStyleValue(style, "height");
                 return (id, width, height);
             })
-            .Where(s => !string.IsNullOrEmpty(s.id) && !s.id.StartsWith("_"))
+            .Where(s => !string.IsNullOrEmpty(s.id) && !s.id.StartsWith('_'))
             .ToArray();
     }
 

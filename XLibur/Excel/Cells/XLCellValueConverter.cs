@@ -197,7 +197,7 @@ internal static partial class XLCellValueConverter
             {
                 var matchString = match.Value;
                 var matchIndex = match.Index;
-                sb.Append(s.Substring(lastIndex, matchIndex - lastIndex));
+                sb.Append(s.AsSpan(lastIndex, matchIndex - lastIndex));
 
                 sb.Append((char)int.Parse(match.Groups[1].Value, NumberStyles.AllowHexSpecifier));
 
@@ -205,7 +205,7 @@ internal static partial class XLCellValueConverter
             }
 
             if (lastIndex < s.Length)
-                sb.Append(s.Substring(lastIndex));
+                sb.Append(s.AsSpan(lastIndex));
 
             value = (T)Convert.ChangeType(sb.ToString(), typeof(T));
             return true;

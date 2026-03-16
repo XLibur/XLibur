@@ -55,7 +55,7 @@ internal sealed class XLDataValidation : IXLDataValidation
     {
         if (dataValidation == this) return;
 
-        if (!_ranges.Any())
+        if (_ranges.Count == 0)
             AddRanges(dataValidation.Ranges);
 
         IgnoreBlanks = dataValidation.IgnoreBlanks;
@@ -194,7 +194,7 @@ internal sealed class XLDataValidation : IXLDataValidation
     /// <param name="range">A range to add.</param>
     public void AddRange(IXLRange range)
     {
-        if (range == null) throw new ArgumentNullException(nameof(range));
+        ArgumentNullException.ThrowIfNull(range);
 
         if (range.Worksheet != Worksheet)
             range = Worksheet.Range(((XLRangeAddress)range.RangeAddress).WithoutWorksheet());

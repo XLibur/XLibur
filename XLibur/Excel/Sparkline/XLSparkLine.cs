@@ -45,11 +45,8 @@ internal sealed class XLSparkline : IXLSparkline
     /// <param name="sourceData">The range the sparkline gets data from</param>
     public XLSparkline(IXLSparklineGroup sparklineGroup, IXLCell cell, IXLRange? sourceData)
     {
-        if (sparklineGroup == null)
-            throw new ArgumentNullException(nameof(sparklineGroup));
-
-        if (cell == null)
-            throw new ArgumentNullException(nameof(cell));
+        ArgumentNullException.ThrowIfNull(sparklineGroup);
+        ArgumentNullException.ThrowIfNull(cell);
 
         if (sparklineGroup.Worksheet != cell.Worksheet)
             throw new InvalidOperationException("Cell must belong to the same worksheet as the sparkline group");

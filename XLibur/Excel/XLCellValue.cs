@@ -46,8 +46,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
 
     private XLCellValue(string text) : this()
     {
-        if (text is null)
-            throw new ArgumentNullException(nameof(text));
+        ArgumentNullException.ThrowIfNull(text);
 
         // Excel counts each line break as one character regardless of platform
         // representation. On Windows, FixNewLines() converts \n to \r\n during

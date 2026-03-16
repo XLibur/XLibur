@@ -231,7 +231,7 @@ internal sealed class XLTable : XLRange, IXLTable
             field = value;
 
             // Some totals' row formula depends on the table name. Update them.
-            if (_fieldNames?.Any() ?? false)
+            if (_fieldNames?.Count > 0)
                 Fields.ForEach(f => ((XLTableField)f).UpdateTableFieldTotalsRowFormula());
 
             if (!string.IsNullOrWhiteSpace(oldname) &&

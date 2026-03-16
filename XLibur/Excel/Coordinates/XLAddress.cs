@@ -71,7 +71,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
                 columnLetter = cellAddressString.Substring(startPos, rowPos);
             }
 
-            rowNumber = int.Parse(cellAddressString.Substring(rowPos + 1), XLHelper.NumberStyle, XLHelper.ParseCulture);
+            rowNumber = int.Parse(cellAddressString.AsSpan(rowPos + 1), XLHelper.NumberStyle, XLHelper.ParseCulture);
         }
         else
         {
@@ -84,7 +84,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
                 columnLetter = cellAddressString.Substring(startPos, rowPos);
             }
 
-            rowNumber = int.Parse(cellAddressString.Substring(rowPos), XLHelper.NumberStyle, XLHelper.ParseCulture);
+            rowNumber = int.Parse(cellAddressString.AsSpan(rowPos), XLHelper.NumberStyle, XLHelper.ParseCulture);
         }
         return new XLAddress(worksheet, rowNumber, columnLetter, fixedRow, fixedColumn);
     }

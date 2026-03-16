@@ -184,7 +184,7 @@ public class FormulaCachingTests
         var modifiedCells = allCells.Where(cell => cell.NeedsRecalculation);
 
         var xlCells = modifiedCells as IXLCell[] ?? modifiedCells.ToArray();
-        Assert.AreEqual(affectedCells.Length, xlCells.Count());
+        Assert.AreEqual(affectedCells.Length, xlCells.Length);
         foreach (var cellAddress in affectedCells)
         {
             Assert.IsTrue(xlCells.Any(cell => cell.Address.ToString() == cellAddress),
