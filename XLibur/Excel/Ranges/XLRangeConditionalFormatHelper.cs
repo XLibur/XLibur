@@ -19,7 +19,7 @@ internal static class XLRangeConditionalFormatHelper
         {
             SplitFormatRanges(format, range);
 
-            if (!format.Ranges.Any())
+            if (format.Ranges.Count == 0)
                 range.Worksheet.ConditionalFormats.Remove(x => x == format);
         }
     }

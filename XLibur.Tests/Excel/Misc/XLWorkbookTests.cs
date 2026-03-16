@@ -156,7 +156,7 @@ public class XLWorkbookTests
         var r = wb.Ranges(rangesAddress);
 
         Assert.NotNull(r);
-        Assert.False(r.Any());
+        Assert.That(r.Count, Is.EqualTo(0));
     }
 
     [Test]

@@ -143,7 +143,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
                     cf.Ranges.Add(newRange);
             }
 
-            if (!cf.Ranges.Any())
+            if (cf.Ranges.Count == 0)
                 worksheet.ConditionalFormats.Remove(f => f == cf);
         }
     }
@@ -170,7 +170,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
                     cf.Ranges.Add(newRange);
             }
 
-            if (!cf.Ranges.Any())
+            if (cf.Ranges.Count == 0)
                 worksheet.ConditionalFormats.Remove(f => f == cf);
         }
     }

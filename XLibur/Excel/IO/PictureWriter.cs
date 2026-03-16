@@ -41,11 +41,11 @@ internal sealed class PictureWriter
             AddPictureAnchor(worksheetPart, pic, context);
         }
 
-        if (xlWorksheet.Pictures.Any())
+        if (xlWorksheet.Pictures.Count > 0)
             RebaseNonVisualDrawingPropertiesIds(worksheetPart);
 
         var tableParts = worksheet.Elements<TableParts>().First();
-        if (xlWorksheet.Pictures.Any() && !worksheet.OfType<Drawing>().Any())
+        if (xlWorksheet.Pictures.Count > 0 && !worksheet.OfType<Drawing>().Any())
         {
             var worksheetDrawing = new Drawing { Id = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart!) };
             worksheetDrawing.AddNamespaceDeclaration("r",
@@ -59,7 +59,7 @@ internal sealed class PictureWriter
         if (worksheetPart.DrawingsPart is not null && // There is a drawing part for the sheet that could be deleted
             xlWorksheet
                 .LegacyDrawingId is null && // and sheet doesn't contain any form controls or comments or other shapes
-            !xlWorksheet.Pictures.Any() && // and also no pictures.
+            xlWorksheet.Pictures.Count == 0 && // and also no pictures.
             !hasCharts && // and no charts
                           // Check for non-picture shapes (textboxes, rectangles, etc.) last to avoid
                           // loading the DrawingsPart DOM unnecessarily — DOM loading causes re-serialization

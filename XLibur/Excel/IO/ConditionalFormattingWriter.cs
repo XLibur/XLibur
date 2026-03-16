@@ -35,7 +35,7 @@ internal sealed class ConditionalFormattingWriter
         for (var i = 0; i < xlConditionalFormats.Count; ++i)
             xlConditionalFormats[i].Priority = i + 1;
 
-        if (!xlConditionalFormats.Any())
+        if (xlConditionalFormats.Count == 0)
         {
             worksheet.RemoveAllChildren<ConditionalFormatting>();
             cm.SetElement(XLWorksheetContents.ConditionalFormatting, null);
@@ -87,7 +87,7 @@ internal sealed class ConditionalFormattingWriter
     {
         var exlst = xlWorksheet.ConditionalFormats
             .Where(c => c.ConditionalFormatType == XLConditionalFormatType.DataBar).ToArray();
-        if (exlst.Any())
+        if (exlst.Length > 0)
         {
             if (!worksheet.Elements<WorksheetExtensionList>().Any())
             {

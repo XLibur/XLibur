@@ -155,7 +155,7 @@ namespace XLibur.Excel.CalcEngine
                     intersections.Add(intersectedArea);
             }
 
-            return intersections.Any() ? new Reference(intersections) : XLError.NullValue;
+            return intersections.Count > 0 ? new Reference(intersections) : XLError.NullValue;
         }
 
         /// <summary>
