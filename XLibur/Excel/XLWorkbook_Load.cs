@@ -91,11 +91,9 @@ public partial class XLWorkbook
 
         SharedStringEntry[]? sharedStrings = null;
         var workbookPart = dSpreadsheet.WorkbookPart!;
-        if (workbookPart.GetPartsOfType<SharedStringTablePart>().Any())
-        {
-            var shareStringPart = workbookPart.GetPartsOfType<SharedStringTablePart>().First();
+        var shareStringPart = workbookPart.GetPartsOfType<SharedStringTablePart>().FirstOrDefault();
+        if (shareStringPart is not null)
             sharedStrings = SharedStringReader.Read(shareStringPart);
-        }
 
         LoadWorkbookTheme(workbookPart.ThemePart, this);
 
@@ -103,12 +101,10 @@ public partial class XLWorkbook
 
         LoadCustomFileProperties(dSpreadsheet);
 
-        var wbProps = workbookPart.Workbook!.WorkbookProperties;
-        if (wbProps != null)
+        if (workbookPart.Workbook!.WorkbookProperties is { } wbProps)
             Use1904DateSystem = OpenXmlHelper.GetBooleanValueAsBool(wbProps.Date1904, false);
 
-        var wbFilesharing = workbookPart.Workbook!.FileSharing;
-        if (wbFilesharing != null)
+        if (workbookPart.Workbook!.FileSharing is { } wbFilesharing)
         {
             FileSharing.ReadOnlyRecommended =
                 OpenXmlHelper.GetBooleanValueAsBool(wbFilesharing.ReadOnlyRecommended, false);
@@ -124,10 +120,11 @@ public partial class XLWorkbook
         var s = workbookPart.WorkbookStylesPart?.Stylesheet;
         var numberingFormats = s?.NumberingFormats;
         context.LoadNumberFormats(numberingFormats);
-        var dfCount = 0;
-        var differentialFormats = s is { DifferentialFormats: not null }
-            ? s.DifferentialFormats.Elements<DifferentialFormat>().ToDictionary(_ => dfCount++)
-            : new Dictionary<int, DifferentialFormat>();
+        var differentialFormats = s?.DifferentialFormats
+            ?.Elements<DifferentialFormat>()
+            .Select((df, i) => (df, i))
+            .ToDictionary(x => x.i, x => x.df)
+            ?? new Dictionary<int, DifferentialFormat>();
 
         context.Styles = new StylesheetData(s, numberingFormats, s?.Fills, s?.Borders, s?.Fonts, differentialFormats);
 
@@ -276,14 +273,11 @@ public partial class XLWorkbook
                 continue;
             }
 
-            // Although relationship to worksheet is most common, there can be other types
-            // than worksheet, e.g. chartSheet. Since we can't load them, add them to list
+            // Although the relationship to worksheet is most common, there can be other types
+            // than worksheet, e.g., chartSheet. Since we can't load them, add them to a list
             // of unsupported sheets and copy them when saving. See Codeplex #6932.
-            var worksheetPart = workbookPart.GetPartById(dSheet.Id!.Value!) as WorksheetPart;
-            if (worksheetPart == null)
-            {
+            if (workbookPart.GetPartById(dSheet.Id!.Value!) is not WorksheetPart worksheetPart)
                 continue;
-            }
 
             string sheetName = dSheet.Name!.Value!;
             if (!WorksheetsInternal.TryGetWorksheet(sheetName, out var ws))
@@ -321,8 +315,9 @@ public partial class XLWorkbook
         var sharedFormulasR1C1 = new Dictionary<uint, string>();
         var styleList = new Dictionary<int, XLStyleValue>();
         PageSetupProperties? pageSetupProperties = null;
-        var lastRow = 0;
-        var lastColumnNumber = 0;
+        var sheetDataContext = new WorksheetSheetDataReader.SheetDataReadContext(
+            styles, ws, sharedStrings, sharedFormulasR1C1, styleList, Use1904DateSystem);
+        var sheetDataState = new WorksheetSheetDataReader.SheetDataReadState();
 
         using var reader = new OpenXmlPartReader(worksheetPart);
 
@@ -338,8 +333,7 @@ public partial class XLWorkbook
 
             if (reader.ElementType == typeof(Row))
             {
-                WorksheetSheetDataReader.LoadRow(styles, ws, sharedStrings, sharedFormulasR1C1, styleList,
-                    reader, ref lastRow, ref lastColumnNumber, Use1904DateSystem);
+                WorksheetSheetDataReader.LoadRow(in sheetDataContext, reader, ref sheetDataState);
                 continue;
             }
 
@@ -557,24 +551,25 @@ public partial class XLWorkbook
 
     private static void LoadTableStyleInfo(Table dTable, XLTable xlTable)
     {
-        if (dTable.TableStyleInfo != null)
+        if (dTable.TableStyleInfo is not { } info)
+            return;
+
+        if (info.ShowFirstColumn != null)
+            xlTable.EmphasizeFirstColumn = info.ShowFirstColumn.Value;
+        if (info.ShowLastColumn != null)
+            xlTable.EmphasizeLastColumn = info.ShowLastColumn.Value;
+        if (info.ShowRowStripes != null)
+            xlTable.ShowRowStripes = info.ShowRowStripes.Value;
+        if (info.ShowColumnStripes != null)
+            xlTable.ShowColumnStripes = info.ShowColumnStripes.Value;
+
+        if (info.Name != null)
         {
-            if (dTable.TableStyleInfo.ShowFirstColumn != null)
-                xlTable.EmphasizeFirstColumn = dTable.TableStyleInfo.ShowFirstColumn.Value;
-            if (dTable.TableStyleInfo.ShowLastColumn != null)
-                xlTable.EmphasizeLastColumn = dTable.TableStyleInfo.ShowLastColumn.Value;
-            if (dTable.TableStyleInfo.ShowRowStripes != null)
-                xlTable.ShowRowStripes = dTable.TableStyleInfo.ShowRowStripes.Value;
-            if (dTable.TableStyleInfo.ShowColumnStripes != null)
-                xlTable.ShowColumnStripes = dTable.TableStyleInfo.ShowColumnStripes.Value;
-            if (dTable.TableStyleInfo.Name != null)
-            {
-                var theme = XLTableTheme.FromName(dTable.TableStyleInfo.Name.Value!);
-                xlTable.Theme = theme ?? new XLTableTheme(dTable.TableStyleInfo.Name.Value!);
-            }
-            else
-                xlTable.Theme = XLTableTheme.None;
+            var theme = XLTableTheme.FromName(info.Name.Value!);
+            xlTable.Theme = theme ?? new XLTableTheme(info.Name.Value!);
         }
+        else
+            xlTable.Theme = XLTableTheme.None;
     }
 
     private void LoadComments(WorksheetPart worksheetPart, XLWorksheet ws)
@@ -652,17 +647,14 @@ public partial class XLWorkbook
         // comments1.xml file contains only a placeholder ("[Threaded comment] ...").
         // When the threaded comments part is present, replace the placeholder
         // text with the actual comment text from the threaded comments.
-        foreach (var threadedPart in worksheetPart.WorksheetThreadedCommentsParts)
+        foreach (var threadedComments in worksheetPart.WorksheetThreadedCommentsParts
+            .Select(p => p.ThreadedComments)
+            .Where(tc => tc is not null))
         {
-            var threadedComments = threadedPart.ThreadedComments;
-            if (threadedComments is null)
-                continue;
-
             // Group threaded comments by cell reference. Root comments have no
             // ParentId; replies reference the root via ParentId. Order: root
             // first (no ParentId), then replies sorted by timestamp.
-            var byRef = threadedComments
-                .Elements<TC.ThreadedComment>()
+            var byRef = threadedComments!.Elements<TC.ThreadedComment>()
                 .GroupBy(tc => tc.Ref?.Value ?? string.Empty);
 
             foreach (var group in byRef)
@@ -755,7 +747,7 @@ public partial class XLWorkbook
     /// Calculate expected column width as a number displayed in the column in Excel from
     /// the number of characters that should fit into the width and a font.
     /// </summary>
-    internal static double CalculateColumnWidth(double charWidth, IXLFont font, XLWorkbook workbook)
+    private static double CalculateColumnWidth(double charWidth, IXLFont font, XLWorkbook workbook)
     {
         // Convert width as a number of characters and translate it into a given number of pixels.
         var mdw = workbook.GraphicEngine.GetMaxDigitWidth(font, workbook.DpiX).RoundToInt();
@@ -775,77 +767,25 @@ public partial class XLWorkbook
     {
         var colorScheme = tp?.Theme?.ThemeElements?.ColorScheme;
         if (colorScheme == null) return;
-        var background1 = colorScheme.Light1Color?.RgbColorModelHex?.Val?.Value;
-        if (!string.IsNullOrEmpty(background1))
+
+        static void SetIfPresent(string? hex, Action<XLColor> setter)
         {
-            wb.Theme.Background1 = XLColor.FromHexRgb(background1);
+            if (!string.IsNullOrEmpty(hex))
+                setter(XLColor.FromHexRgb(hex));
         }
 
-        var text1 = colorScheme.Dark1Color?.RgbColorModelHex?.Val?.Value;
-        if (!string.IsNullOrEmpty(text1))
-        {
-            wb.Theme.Text1 = XLColor.FromHexRgb(text1);
-        }
-
-        var background2 = colorScheme.Light2Color?.RgbColorModelHex?.Val?.Value;
-        if (!string.IsNullOrEmpty(background2))
-        {
-            wb.Theme.Background2 = XLColor.FromHexRgb(background2);
-        }
-
-        var text2 = colorScheme.Dark2Color?.RgbColorModelHex?.Val?.Value;
-        if (!string.IsNullOrEmpty(text2))
-        {
-            wb.Theme.Text2 = XLColor.FromHexRgb(text2);
-        }
-
-        var accent1 = colorScheme.Accent1Color?.RgbColorModelHex?.Val?.Value;
-        if (!string.IsNullOrEmpty(accent1))
-        {
-            wb.Theme.Accent1 = XLColor.FromHexRgb(accent1);
-        }
-
-        var accent2 = colorScheme.Accent2Color?.RgbColorModelHex?.Val?.Value;
-        if (!string.IsNullOrEmpty(accent2))
-        {
-            wb.Theme.Accent2 = XLColor.FromHexRgb(accent2);
-        }
-
-        var accent3 = colorScheme.Accent3Color?.RgbColorModelHex?.Val?.Value;
-        if (!string.IsNullOrEmpty(accent3))
-        {
-            wb.Theme.Accent3 = XLColor.FromHexRgb(accent3);
-        }
-
-        var accent4 = colorScheme.Accent4Color?.RgbColorModelHex?.Val?.Value;
-        if (!string.IsNullOrEmpty(accent4))
-        {
-            wb.Theme.Accent4 = XLColor.FromHexRgb(accent4);
-        }
-
-        var accent5 = colorScheme.Accent5Color?.RgbColorModelHex?.Val?.Value;
-        if (!string.IsNullOrEmpty(accent5))
-        {
-            wb.Theme.Accent5 = XLColor.FromHexRgb(accent5);
-        }
-
-        var accent6 = colorScheme.Accent6Color?.RgbColorModelHex?.Val?.Value;
-        if (!string.IsNullOrEmpty(accent6))
-        {
-            wb.Theme.Accent6 = XLColor.FromHexRgb(accent6);
-        }
-
-        var hyperlink = colorScheme.Hyperlink?.RgbColorModelHex?.Val?.Value;
-        if (!string.IsNullOrEmpty(hyperlink))
-        {
-            wb.Theme.Hyperlink = XLColor.FromHexRgb(hyperlink);
-        }
-
-        var followedHyperlink = colorScheme.FollowedHyperlinkColor?.RgbColorModelHex?.Val?.Value;
-        if (!string.IsNullOrEmpty(followedHyperlink))
-        {
-            wb.Theme.FollowedHyperlink = XLColor.FromHexRgb(followedHyperlink);
-        }
+        SetIfPresent(colorScheme.Light1Color?.RgbColorModelHex?.Val?.Value, c => wb.Theme.Background1 = c);
+        SetIfPresent(colorScheme.Dark1Color?.RgbColorModelHex?.Val?.Value, c => wb.Theme.Text1 = c);
+        SetIfPresent(colorScheme.Light2Color?.RgbColorModelHex?.Val?.Value, c => wb.Theme.Background2 = c);
+        SetIfPresent(colorScheme.Dark2Color?.RgbColorModelHex?.Val?.Value, c => wb.Theme.Text2 = c);
+        SetIfPresent(colorScheme.Accent1Color?.RgbColorModelHex?.Val?.Value, c => wb.Theme.Accent1 = c);
+        SetIfPresent(colorScheme.Accent2Color?.RgbColorModelHex?.Val?.Value, c => wb.Theme.Accent2 = c);
+        SetIfPresent(colorScheme.Accent3Color?.RgbColorModelHex?.Val?.Value, c => wb.Theme.Accent3 = c);
+        SetIfPresent(colorScheme.Accent4Color?.RgbColorModelHex?.Val?.Value, c => wb.Theme.Accent4 = c);
+        SetIfPresent(colorScheme.Accent5Color?.RgbColorModelHex?.Val?.Value, c => wb.Theme.Accent5 = c);
+        SetIfPresent(colorScheme.Accent6Color?.RgbColorModelHex?.Val?.Value, c => wb.Theme.Accent6 = c);
+        SetIfPresent(colorScheme.Hyperlink?.RgbColorModelHex?.Val?.Value, c => wb.Theme.Hyperlink = c);
+        SetIfPresent(colorScheme.FollowedHyperlinkColor?.RgbColorModelHex?.Val?.Value, c => wb.Theme.FollowedHyperlink = c);
     }
 
     private static void LoadWorkbookProtection(WorkbookProtection? wp, XLWorkbook wb)

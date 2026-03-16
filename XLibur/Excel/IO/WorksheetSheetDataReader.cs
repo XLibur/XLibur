@@ -18,21 +18,48 @@ namespace XLibur.Excel.IO;
 /// </summary>
 internal static class WorksheetSheetDataReader
 {
+    /// <summary>
+    /// Loop-invariant parameters for sheet data reading.
+    /// </summary>
+    internal readonly struct SheetDataReadContext(
+        StylesheetData styles,
+        XLWorksheet worksheet,
+        SharedStringEntry[]? sharedStrings,
+        Dictionary<uint, string> sharedFormulasR1C1,
+        Dictionary<int, XLStyleValue> styleList,
+        bool use1904DateSystem)
+    {
+        public readonly StylesheetData Styles = styles;
+        public readonly XLWorksheet Worksheet = worksheet;
+        public readonly SharedStringEntry[]? SharedStrings = sharedStrings;
+        public readonly Dictionary<uint, string> SharedFormulasR1C1 = sharedFormulasR1C1;
+        public readonly Dictionary<int, XLStyleValue> StyleList = styleList;
+        public readonly bool Use1904DateSystem = use1904DateSystem;
+    }
+
+    /// <summary>
+    /// Mutable tracking state across rows during sheet data reading.
+    /// </summary>
+    internal struct SheetDataReadState
+    {
+        public int LastRow;
+        public int LastColumnNumber;
+    }
+
     private static readonly string[] DateCellFormats =
     [
         "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff", // Format accepted by OpenXML SDK
         "yyyy-MM-ddTHH:mm", "yyyy-MM-dd" // Formats accepted by Excel.
     ];
 
-    internal static void LoadRow(StylesheetData styles, XLWorksheet ws, SharedStringEntry[]? sharedStrings,
-        Dictionary<uint, string> sharedFormulasR1C1, Dictionary<int, XLStyleValue> styleList,
-        OpenXmlPartReader reader, ref int lastRow, ref int lastColumnNumber, bool use1904DateSystem)
+    internal static void LoadRow(in SheetDataReadContext context, OpenXmlPartReader reader,
+        ref SheetDataReadState state)
     {
         Debug.Assert(reader.LocalName == "row");
 
         var attributes = reader.Attributes;
         var rowIndexAttr = attributes.GetAttribute("r");
-        var rowIndex = string.IsNullOrEmpty(rowIndexAttr) ? ++lastRow : int.Parse(rowIndexAttr);
+        var rowIndex = string.IsNullOrEmpty(rowIndexAttr) ? ++state.LastRow : int.Parse(rowIndexAttr);
 
         var height = attributes.GetDoubleAttribute("ht");
         var dyDescent = attributes.GetDoubleAttribute("dyDescent", OpenXmlConst.X14Ac2009SsNs);
@@ -47,19 +74,18 @@ internal static class WorksheetSheetDataReader
 
         if (hasCustomProps)
         {
-            ApplyRowCustomProps(attributes, ws, rowIndex, height, dyDescent, hidden, collapsed, outlineLevel,
-                showPhonetic, customFormat, styles);
+            ApplyRowCustomProps(attributes, context.Worksheet, rowIndex, height, dyDescent, hidden, collapsed,
+                outlineLevel, showPhonetic, customFormat, context.Styles);
         }
 
-        lastColumnNumber = 0;
+        state.LastColumnNumber = 0;
 
         // Move from the start element of 'row' forward. We can get cell, extList or end of row.
         reader.MoveAhead();
 
         while (reader.IsStartElement("c"))
         {
-            LoadCell(sharedStrings, styles, sharedFormulasR1C1, ws, styleList,
-                reader, rowIndex, ref lastColumnNumber, use1904DateSystem);
+            LoadCell(in context, reader, rowIndex, ref state.LastColumnNumber);
 
             // Move from an end element of 'cell' either to next cell, extList start or end of row.
             reader.MoveAhead();
@@ -70,10 +96,8 @@ internal static class WorksheetSheetDataReader
             reader.Skip();
     }
 
-    private static void LoadCell(SharedStringEntry[]? sharedStrings, StylesheetData styles,
-        Dictionary<uint, string> sharedFormulasR1C1,
-        XLWorksheet ws, Dictionary<int, XLStyleValue> styleList, OpenXmlPartReader reader, int rowIndex,
-        ref int lastColumnNumber, bool use1904DateSystem)
+    private static void LoadCell(in SheetDataReadContext context, OpenXmlPartReader reader, int rowIndex,
+        ref int lastColumnNumber)
     {
         Debug.Assert(reader is { LocalName: "c", IsStartElement: true });
 
@@ -103,13 +127,14 @@ internal static class WorksheetSheetDataReader
         // to the SlicesEnumerator.  When the resolved style matches the inherited style
         // AND the cell has data in another slice, we skip the StyleSlice write — avoiding
         // per-row Lut allocation in the style slice for large data sheets.
-        if (!styleList.TryGetValue(styleIndex, out var cellStyleValue))
+        if (!context.StyleList.TryGetValue(styleIndex, out var cellStyleValue))
         {
-            cellStyleValue = ResolveStyleValue(styleIndex, styles);
-            styleList[styleIndex] = cellStyleValue;
+            cellStyleValue = ResolveStyleValue(styleIndex, context.Styles);
+            context.StyleList[styleIndex] = cellStyleValue;
         }
 
         // Write style directly to the slice — no XLCell allocation needed.
+        var ws = context.Worksheet;
         var cellsCollection = ws.Internals.CellsCollection;
         var inherited = ws.GetInheritedStyleValue(cellAddress.Row, cellAddress.Column);
         var styleMatchesInherited = ReferenceEquals(cellStyleValue, inherited);
@@ -125,7 +150,7 @@ internal static class WorksheetSheetDataReader
         XLCellFormula? formula = null;
         if (cellHasFormula)
         {
-            formula = SetCellFormula(ws, cellAddress, reader, sharedFormulasR1C1);
+            formula = SetCellFormula(ws, cellAddress, reader, context.SharedFormulasR1C1);
 
             // Move from end of 'f' element.
             reader.MoveAhead();
@@ -136,7 +161,8 @@ internal static class WorksheetSheetDataReader
         var cellHasValue = reader.IsStartElement("v");
         if (cellHasValue)
         {
-            SetCellValue(dataType, reader.GetText(), cellsCollection, cellAddress, cellStyleValue, ws, sharedStrings);
+            SetCellValue(dataType, reader.GetText(), cellsCollection, cellAddress, cellStyleValue, ws,
+                context.SharedStrings);
 
             // Skips all nodes of the 'v' element (has no child nodes) and moves to the first element after.
             reader.Skip();
@@ -160,7 +186,7 @@ internal static class WorksheetSheetDataReader
         if (reader.IsStartElement("is"))
             LoadInlineString(dataType, cellsCollection, cellAddress, ws, reader);
 
-        if (use1904DateSystem)
+        if (context.Use1904DateSystem)
             Adjust1904DateSystem(cellsCollection, cellAddress);
 
         if (styleMatchesInherited)
