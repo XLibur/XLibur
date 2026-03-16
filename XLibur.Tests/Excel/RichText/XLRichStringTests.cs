@@ -596,7 +596,7 @@ public class XLRichStringTests
 
         richString.AddText("Hello");
 
-        Assert.That(() => richString.Substring(50), Throws.TypeOf<IndexOutOfRangeException>());
+        Assert.That(() => richString.Substring(50), Throws.TypeOf<ArgumentOutOfRangeException>());
     }
 
     [Test]
@@ -608,7 +608,7 @@ public class XLRichStringTests
         richString.AddText("Hello");
         richString.AddText("World");
 
-        Assert.That(() => richString.Substring(50), Throws.TypeOf<IndexOutOfRangeException>());
+        Assert.That(() => richString.Substring(50), Throws.TypeOf<ArgumentOutOfRangeException>());
     }
 
     [Test]
@@ -619,7 +619,7 @@ public class XLRichStringTests
 
         richString.AddText("Hello");
 
-        Assert.That(() => richString.Substring(1, 10), Throws.TypeOf<IndexOutOfRangeException>());
+        Assert.That(() => richString.Substring(1, 10), Throws.TypeOf<ArgumentOutOfRangeException>());
     }
 
     [Test]
@@ -631,7 +631,7 @@ public class XLRichStringTests
         richString.AddText("Hello");
         richString.AddText("World");
 
-        Assert.That(() => richString.Substring(5, 20), Throws.TypeOf<IndexOutOfRangeException>());
+        Assert.That(() => richString.Substring(5, 20), Throws.TypeOf<ArgumentOutOfRangeException>());
     }
 
     [Test]

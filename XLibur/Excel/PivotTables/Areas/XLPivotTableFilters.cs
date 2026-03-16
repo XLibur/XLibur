@@ -64,7 +64,7 @@ internal sealed class XLPivotTableFilters : IXLPivotFields
     public IXLPivotField Get(int index)
     {
         if (index < 0 || index >= _fields.Count)
-            throw new IndexOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(index));
 
         return new XLPivotTablePageField(_pivotTable, _fields[index]);
     }

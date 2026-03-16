@@ -107,7 +107,7 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
     public IXLFormattedText<T> Substring(int index, int length)
     {
         if (index + 1 > Length || Length - index + 1 < length || length <= 0)
-            throw new IndexOutOfRangeException("Index and length must refer to a location within the string.");
+            throw new ArgumentOutOfRangeException(nameof(index), "Index and length must refer to a location within the string.");
 
         var newRichTexts = new List<XLRichString>();
         var retVal = new XLFormattedText<T>(_defaultFont);

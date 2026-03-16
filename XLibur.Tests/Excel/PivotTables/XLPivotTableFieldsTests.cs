@@ -182,8 +182,8 @@ internal class XLPivotTableAxisTests
         pt.ColumnLabels.Add("Color");
 
         Assert.AreEqual("ID", pt.RowLabels.Get(0).SourceName);
-        Assert.Throws<IndexOutOfRangeException>(() => pt.RowLabels.Get(-2));
-        Assert.Throws<IndexOutOfRangeException>(() => pt.RowLabels.Get(1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => pt.RowLabels.Get(-2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => pt.RowLabels.Get(1));
     }
 
     #endregion

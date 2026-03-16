@@ -38,7 +38,7 @@ public partial class XLWorkbook
 
         if (!errors.Any()) return;
         var message = string.Join("\r\n", errors.Select(e => $"Part {e.Part?.Uri}, Path {e.Path?.XPath}: {e.Description}").ToArray());
-        throw new ApplicationException(message);
+        throw new InvalidOperationException(message);
     }
 
     private void CreatePackage(string filePath, SpreadsheetDocumentType spreadsheetDocumentType, SaveOptions options)

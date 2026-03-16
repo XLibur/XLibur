@@ -70,7 +70,7 @@ internal sealed class XLPivotTableAxis : IXLPivotFields
     IXLPivotField IXLPivotFields.Get(int index)
     {
         if (index < 0 || index >= _fields.Count)
-            throw new IndexOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(index));
 
         return new XLPivotTableAxisField(_pivotTable, _fields[index]);
     }
