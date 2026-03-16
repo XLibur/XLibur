@@ -207,7 +207,10 @@ internal static class WorksheetSheetDataReader
         if (reader.IsStartElement("is"))
             LoadInlineString(dataType, cellsCollection, cellAddress, ws, reader);
 
-        if (context.Use1904DateSystem)
+        // Only adjust for the 1904 date system when the cell contains a numeric serial
+        // date (t="n" or no type attribute, both parsed as CellValues.Number). ISO 8601
+        // date cells (t="d", parsed as CellValues.Date) are absolute and must not be shifted.
+        if (context.Use1904DateSystem && dataType == CellValues.Number)
             Adjust1904DateSystem(cellsCollection, cellAddress);
     }
 
@@ -627,10 +630,10 @@ internal static class WorksheetSheetDataReader
     }
 
     /// <summary>
-    /// Adjusts the cell value for the 1904 date system by adding 1462 days to any date values.
+    /// Adjusts the cell value for the 1904 date system by adding 1462 days.
+    /// Must only be called for numeric serial date cells (t="n" or absent type attribute).
+    /// ISO 8601 date cells (t="d") are absolute and must not be adjusted.
     /// </summary>
-    /// <param name="cellsCollection"></param>
-    /// <param name="cellAddress"></param>
     private static void Adjust1904DateSystem(XLCellsCollection cellsCollection, XLSheetPoint cellAddress)
     {
         var cellValue = cellsCollection.ValueSlice.GetCellValue(cellAddress);
