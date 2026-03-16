@@ -275,7 +275,7 @@ public partial class XLWorkbook : IXLWorkbook
         {
             var split = name.Split('!');
             var first = split[0];
-            var wsName = first.StartsWith("'") ? first.Substring(1, first.Length - 2) : first;
+            var wsName = first.StartsWith('\'') ? first.Substring(1, first.Length - 2) : first;
             var sheetlessName = split[1];
             if (TryGetWorksheet(wsName, out XLWorksheet? ws))
             {

@@ -444,7 +444,7 @@ internal static class DrawingPartReader
         if (opacity != null)
         {
             var opacityVal = opacity.Value;
-            if (opacityVal.EndsWith("f"))
+            if (opacityVal.EndsWith('f'))
                 drawing.Style.ColorsAndLines.FillTransparency =
                     double.Parse(opacityVal.Substring(0, opacityVal.Length - 1), CultureInfo.InvariantCulture) /
                     65536.0;
@@ -467,7 +467,7 @@ internal static class DrawingPartReader
         if (opacity != null)
         {
             var opacityVal = opacity.Value;
-            if (opacityVal.EndsWith("f"))
+            if (opacityVal.EndsWith('f'))
                 drawing.Style.ColorsAndLines.LineTransparency =
                     double.Parse(opacityVal.Substring(0, opacityVal.Length - 1), CultureInfo.InvariantCulture) /
                     65536.0;

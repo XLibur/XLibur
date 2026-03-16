@@ -74,7 +74,7 @@ public class InsertingTables : IXLExample
         wb.SaveAs(filePath);
     }
 
-    private class Person
+    private sealed class Person
     {
         [XLColumn(Header = "House Street")] public string House { get; set; }
 

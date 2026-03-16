@@ -325,7 +325,7 @@ internal static class ConditionalFormatReader
     {
         var formula = new XLFormula();
         formula._value = value;
-        formula.IsFormula = !(value[0] == '"' && value.EndsWith("\""));
+        formula.IsFormula = !(value[0] == '"' && value.EndsWith('"'));
         return formula;
     }
 

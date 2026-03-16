@@ -192,10 +192,10 @@ internal sealed class XLDataValidations : IXLDataValidations
 
         while (rules.Any())
         {
-            var similarRules = rules.Where(r => areEqual(rules.First(), r)).ToList();
+            var similarRules = rules.Where(r => areEqual(rules[0], r)).ToList();
             similarRules.ForEach(r => rules.Remove(r));
 
-            var consRule = similarRules.First();
+            var consRule = similarRules[0];
             var ranges = similarRules.SelectMany(dv => dv.Ranges).ToList();
 
             IXLRanges consolidatedRanges = new XLRanges();
@@ -262,7 +262,7 @@ internal sealed class XLDataValidations : IXLDataValidations
     /// <summary>
     /// Class used for indexing data validation rules.
     /// </summary>
-    private class XLDataValidationIndexEntry : IXLAddressable
+    private sealed class XLDataValidationIndexEntry : IXLAddressable
     {
         public XLDataValidationIndexEntry(IXLRangeAddress rangeAddress, XLDataValidation dataValidation)
         {
