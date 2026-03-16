@@ -218,8 +218,6 @@ public class RangeIndexTest
         ranges.Add(range3);
         Assert.AreEqual(2, ranges.Count);
 
-        Assert.AreEqual(ranges.Count, ranges.Count);
-
         // Add many entries to activate QuadTree
         for (var i = 1; i <= TestCount; i++)
         {
