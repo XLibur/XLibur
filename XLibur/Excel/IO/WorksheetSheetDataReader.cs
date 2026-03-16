@@ -60,6 +60,7 @@ internal static class WorksheetSheetDataReader
         var attributes = reader.Attributes;
         var rowIndexAttr = attributes.GetAttribute("r");
         var rowIndex = string.IsNullOrEmpty(rowIndexAttr) ? ++state.LastRow : int.Parse(rowIndexAttr);
+        state.LastRow = rowIndex;
 
         var height = attributes.GetDoubleAttribute("ht");
         var dyDescent = attributes.GetDoubleAttribute("dyDescent", OpenXmlConst.X14Ac2009SsNs);
@@ -152,7 +153,7 @@ internal static class WorksheetSheetDataReader
         {
             formula = SetCellFormula(ws, cellAddress, reader, context.SharedFormulasR1C1);
 
-            // Move from the end of 'f' element.
+            // Move from the end of the 'f' element.
             reader.MoveAhead();
         }
 
@@ -252,7 +253,7 @@ internal static class WorksheetSheetDataReader
             valueSlice.SetShareString(cellAddress, false);
         }
 
-        // Go from start of 'f' element to the end of 'f' element.
+        // Go from the start of the 'f' element to the end of the 'f' element.
         reader.MoveAhead();
 
         return formula;
@@ -349,7 +350,7 @@ internal static class WorksheetSheetDataReader
         var xlStyleKey = XLStyle.Default.Key;
         LoadStyle(ref xlStyleKey, styleIndex, styles);
 
-        // When loading columns, we must propagate style to each column but not deeper. In other cases we do not propagate at all.
+        // When loading columns, we must propagate the style to each column but not deeper. In other cases we do not propagate at all.
         if (xlStylized is IXLColumns columns)
         {
             columns.Cast<XLColumn>().ForEach(col => col.InnerStyle = new XLStyle(col, xlStyleKey));
@@ -440,13 +441,11 @@ internal static class WorksheetSheetDataReader
         if (isDateTimeFormat)
             return XLDataType.DateTime;
 
-        if (!string.IsNullOrWhiteSpace(numberFormat.Format))
-        {
-            var dataType = GetDataTypeFromFormat(numberFormat.Format);
-            return dataType ?? XLDataType.Number;
-        }
+        if (string.IsNullOrWhiteSpace(numberFormat.Format)) return XLDataType.Number;
+        
+        var dataType = GetDataTypeFromFormat(numberFormat.Format);
+        return dataType ?? XLDataType.Number;
 
-        return XLDataType.Number;
     }
 
     internal static XLDataType? GetDataTypeFromFormat(string format)
@@ -456,27 +455,33 @@ internal static class WorksheetSheetDataReader
         while (i < length)
         {
             var c = char.ToLowerInvariant(format[i]);
-            if (c == '"')
+            switch (c)
             {
-                var closeIndex = format.IndexOf('"', i + 1);
-                if (closeIndex == -1)
-                    return null;
-                i = closeIndex + 1;
-            }
-            else if (c == '[')
-            {
-                // #1742 We need to skip locale prefixes in DateTime formats [...]
-                var closeIndex = format.IndexOf(']', i + 1);
-                if (closeIndex == -1)
-                    return null;
-                i = closeIndex + 1;
-            }
-            else
-            {
-                var result = ClassifyFormatChar(c, format, i, length);
-                if (result.HasValue)
-                    return result.Value;
-                i++;
+                case '"':
+                {
+                    var closeIndex = format.IndexOf('"', i + 1);
+                    if (closeIndex == -1)
+                        return null;
+                    i = closeIndex + 1;
+                    break;
+                }
+                case '[':
+                {
+                    // #1742 We need to skip locale prefixes in DateTime formats [...]
+                    var closeIndex = format.IndexOf(']', i + 1);
+                    if (closeIndex == -1)
+                        return null;
+                    i = closeIndex + 1;
+                    break;
+                }
+                default:
+                {
+                    var result = ClassifyFormatChar(c, format, i, length);
+                    if (result.HasValue)
+                        return result.Value;
+                    i++;
+                    break;
+                }
             }
         }
 

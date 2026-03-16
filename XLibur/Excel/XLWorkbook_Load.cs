@@ -552,7 +552,14 @@ public partial class XLWorkbook
     private static void LoadTableStyleInfo(Table dTable, XLTable xlTable)
     {
         if (dTable.TableStyleInfo is not { } info)
+        {
+            xlTable.Theme = XLTableTheme.None;
+            xlTable.ShowRowStripes = false;
+            xlTable.ShowColumnStripes = false;
+            xlTable.EmphasizeFirstColumn = false;
+            xlTable.EmphasizeLastColumn = false;
             return;
+        }
 
         if (info.ShowFirstColumn != null)
             xlTable.EmphasizeFirstColumn = info.ShowFirstColumn.Value;
