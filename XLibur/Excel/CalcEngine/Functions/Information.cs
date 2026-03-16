@@ -119,7 +119,7 @@ internal static class Information
             return array.Apply(static v => ToNumber(v));
 
         var area = reference.Areas[0];
-        var referenceValue = ctx.GetCellValue(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.RowNumber);
+        var referenceValue = ctx.GetCellValue(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber);
         return ToNumber(referenceValue).ToAnyValue();
 
         static ScalarValue ToNumber(ScalarValue scalar)
