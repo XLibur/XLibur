@@ -254,8 +254,8 @@ internal static class WorksheetSheetDataReader
             valueSlice.SetShareString(cellAddress, false);
         }
         else if (formulaType == CellFormulaValues.Array && attributes.GetRefAttribute("ref") is
-                 {
-                 } arrayArea) // Child cells of an array may have an array type, but not ref, that is reserved for the master cell
+        {
+        } arrayArea) // Child cells of an array may have an array type, but not ref, that is reserved for the master cell
         {
             var aca = attributes.GetBoolAttribute("aca", false);
 
@@ -487,30 +487,30 @@ internal static class WorksheetSheetDataReader
             switch (c)
             {
                 case '"':
-                {
-                    var closeIndex = format.IndexOf('"', i + 1);
-                    if (closeIndex == -1)
-                        return null;
-                    i = closeIndex + 1;
-                    break;
-                }
+                    {
+                        var closeIndex = format.IndexOf('"', i + 1);
+                        if (closeIndex == -1)
+                            return null;
+                        i = closeIndex + 1;
+                        break;
+                    }
                 case '[':
-                {
-                    // #1742 We need to skip locale prefixes in DateTime formats [...]
-                    var closeIndex = format.IndexOf(']', i + 1);
-                    if (closeIndex == -1)
-                        return null;
-                    i = closeIndex + 1;
-                    break;
-                }
+                    {
+                        // #1742 We need to skip locale prefixes in DateTime formats [...]
+                        var closeIndex = format.IndexOf(']', i + 1);
+                        if (closeIndex == -1)
+                            return null;
+                        i = closeIndex + 1;
+                        break;
+                    }
                 default:
-                {
-                    var result = ClassifyFormatChar(c, format, i, length);
-                    if (result.HasValue)
-                        return result.Value;
-                    i++;
-                    break;
-                }
+                    {
+                        var result = ClassifyFormatChar(c, format, i, length);
+                        if (result.HasValue)
+                            return result.Value;
+                        i++;
+                        break;
+                    }
             }
         }
 
