@@ -5,7 +5,7 @@ using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class CalculationChainPartWriter
+internal static class CalculationChainPartWriter
 {
     internal static void GenerateContent(WorkbookPart workbookPart, XLWorkbook workbook, SaveContext context)
     {

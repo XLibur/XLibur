@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
-internal sealed class XLCFConverters
+internal static class XLCFConverters
 {
     private static readonly Dictionary<XLConditionalFormatType, IXLCFConverter> Converters;
     static XLCFConverters()

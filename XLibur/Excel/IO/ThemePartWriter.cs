@@ -4,7 +4,7 @@ using XLibur.Extensions;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class ThemePartWriter
+internal static class ThemePartWriter
 {
     internal static void GenerateContent(ThemePart themePart, XLTheme theme)
     {

@@ -16,9 +16,6 @@ internal static class Engineering
     private const long OctMin = -536870912;
     private const long HexMax = 549755813887;
     private const long HexMin = -549755813888;
-    private const long TwoP10 = 1L << 10;
-    private const long TwoP30 = 1L << 30;
-    private const long TwoP40 = 1L << 40;
 
     public static void Register(FunctionRegistry ce)
     {

@@ -46,7 +46,7 @@ internal static class TableNameValidator
         return true;
     }
 
-    private static bool IsDefinedNameConflict(string tableName, IXLWorkbook workbook)
+    private static bool IsDefinedNameConflict(string tableName, XLWorkbook workbook)
     {
         return workbook.DefinedNames.Contains(tableName) ||
                workbook.Worksheets.Any(ws => ws.DefinedNames.Contains(tableName));

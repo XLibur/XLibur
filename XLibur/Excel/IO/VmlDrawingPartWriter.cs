@@ -15,7 +15,7 @@ using XLibur.Graphics;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class VmlDrawingPartWriter
+internal static class VmlDrawingPartWriter
 {
     // Generates content of vmlDrawingPart1.
     internal static bool GenerateContent(VmlDrawingPart vmlDrawingPart, XLWorksheet xlWorksheet)

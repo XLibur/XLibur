@@ -8,7 +8,7 @@ using XLibur.Extensions;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class WorkbookPartWriter
+internal static class WorkbookPartWriter
 {
     internal static void GenerateContent(WorkbookPart workbookPart, XLWorkbook xlWorkbook, SaveOptions options, XLWorkbook.SaveContext context)
     {

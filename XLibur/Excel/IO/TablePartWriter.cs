@@ -12,7 +12,7 @@ namespace XLibur.Excel.IO;
 /// <summary>
 /// A writer for table definition part.
 /// </summary>
-internal sealed class TablePartWriter
+internal static class TablePartWriter
 {
     internal static void SynchronizeTableParts(XLTables tables, WorksheetPart worksheetPart, SaveContext context)
     {

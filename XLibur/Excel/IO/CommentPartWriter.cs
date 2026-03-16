@@ -8,7 +8,7 @@ using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class CommentPartWriter
+internal static class CommentPartWriter
 {
     internal static void GenerateWorksheetCommentsPartContent(WorksheetCommentsPart worksheetCommentsPart,
         XLWorksheet xlWorksheet)

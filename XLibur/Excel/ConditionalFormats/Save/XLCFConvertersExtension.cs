@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
-internal sealed class XLCFConvertersExtension
+internal static class XLCFConvertersExtension
 {
     private static readonly Dictionary<XLConditionalFormatType, IXLCFConverterExtension> Converters;
 

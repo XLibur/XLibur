@@ -571,7 +571,7 @@ internal static class EnumConverter
         return OrientationMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<VerticalAlignmentRunValues, XLFontVerticalTextAlignmentValues>
+    private static readonly Dictionary<VerticalAlignmentRunValues, XLFontVerticalTextAlignmentValues>
         VerticalAlignmentRunMap =
             new Dictionary<VerticalAlignmentRunValues, XLFontVerticalTextAlignmentValues>
             {
@@ -639,7 +639,7 @@ internal static class EnumConverter
         return BorderStyleMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<HorizontalAlignmentValues, XLAlignmentHorizontalValues>
+    private static readonly Dictionary<HorizontalAlignmentValues, XLAlignmentHorizontalValues>
         HorizontalAlignmentMap =
             new Dictionary<HorizontalAlignmentValues, XLAlignmentHorizontalValues>
             {
@@ -658,7 +658,7 @@ internal static class EnumConverter
         return HorizontalAlignmentMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<VerticalAlignmentValues, XLAlignmentVerticalValues>
+    private static readonly Dictionary<VerticalAlignmentValues, XLAlignmentVerticalValues>
         VerticalAlignmentMap =
             new Dictionary<VerticalAlignmentValues, XLAlignmentVerticalValues>
             {
@@ -785,7 +785,7 @@ internal static class EnumConverter
         return DataValidationMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<DataValidationErrorStyleValues, XLErrorStyle>
+    private static readonly Dictionary<DataValidationErrorStyleValues, XLErrorStyle>
         DataValidationErrorStyleMap =
             new Dictionary<DataValidationErrorStyleValues, XLErrorStyle>
             {
@@ -859,7 +859,7 @@ internal static class EnumConverter
         return PhoneticMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<DataConsolidateFunctionValues, XLPivotSummary>
+    private static readonly Dictionary<DataConsolidateFunctionValues, XLPivotSummary>
         DataConsolidateFunctionMap =
             new Dictionary<DataConsolidateFunctionValues, XLPivotSummary>
             {
@@ -1002,7 +1002,7 @@ internal static class EnumConverter
         return ConditionalFormatMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<ConditionalFormatValueObjectValues, XLCFContentType>
+    private static readonly Dictionary<ConditionalFormatValueObjectValues, XLCFContentType>
         ConditionalFormatValueObjectMap =
             new Dictionary<ConditionalFormatValueObjectValues, XLCFContentType>
             {
@@ -1019,7 +1019,7 @@ internal static class EnumConverter
         return ConditionalFormatValueObjectMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<ConditionalFormattingOperatorValues, XLCFOperator>
+    private static readonly Dictionary<ConditionalFormattingOperatorValues, XLCFOperator>
         ConditionalFormattingOperatorMap =
             new Dictionary<ConditionalFormattingOperatorValues, XLCFOperator>
             {
@@ -1120,7 +1120,7 @@ internal static class EnumConverter
         return SparklineTypeMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<X14.SparklineAxisMinMaxValues, XLSparklineAxisMinMax>
+    private static readonly Dictionary<X14.SparklineAxisMinMaxValues, XLSparklineAxisMinMax>
         SparklineAxisMinMaxMap =
             new Dictionary<X14.SparklineAxisMinMaxValues, XLSparklineAxisMinMax>
             {
