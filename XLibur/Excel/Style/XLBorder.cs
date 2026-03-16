@@ -636,6 +636,7 @@ internal sealed class XLBorder : IXLBorder
                     RightBorder = kp.Value.RightBorder,
                     RightBorderColor = kp.Value.RightBorderColor,
                 }));
+            GC.SuppressFinalize(this);
         }
     }
 }
