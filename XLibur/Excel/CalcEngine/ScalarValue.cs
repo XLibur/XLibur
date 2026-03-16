@@ -448,6 +448,7 @@ internal readonly struct ScalarValue
         switch (_index)
         {
             case BlankValue:
+            case TextValue when (StringComparer.OrdinalIgnoreCase.Equals(_text!, "FALSE")):
                 value = false;
                 error = default;
                 return true;
@@ -461,10 +462,6 @@ internal readonly struct ScalarValue
                 return true;
             case TextValue when (StringComparer.OrdinalIgnoreCase.Equals(_text!, "TRUE")):
                 value = true;
-                error = default;
-                return true;
-            case TextValue when (StringComparer.OrdinalIgnoreCase.Equals(_text!, "FALSE")):
-                value = false;
                 error = default;
                 return true;
             case ErrorValue:

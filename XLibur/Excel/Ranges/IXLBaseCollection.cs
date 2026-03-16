@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
-public interface IXLBaseCollection<TSingle, TMultiple> : IEnumerable<TSingle>
+public interface IXLBaseCollection<out TSingle, TMultiple> : IEnumerable<TSingle>
 {
     int Count { get; }
 

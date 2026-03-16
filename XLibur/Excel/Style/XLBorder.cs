@@ -548,7 +548,7 @@ internal sealed class XLBorder : IXLBorder
         sb.Append('-');
         sb.Append(DiagonalBorderColor);
         sb.Append('-');
-        sb.Append(DiagonalUp.ToString());
+        sb.Append(DiagonalUp);
         sb.Append('-');
         sb.Append(DiagonalDown);
         return sb.ToString();

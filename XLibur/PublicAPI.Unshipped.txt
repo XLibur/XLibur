@@ -1,5 +1,7 @@
 #nullable enable
 static XLibur.Excel.IO.PartStructureException.IncorrectElementFormat(string! elementName) -> XLibur.Excel.IO.PartStructureException!
 static XLibur.Excel.IO.PartStructureException.RequiredElementIsMissing() -> XLibur.Excel.IO.PartStructureException!
+static XLibur.Excel.XLCellValue.operator ==(XLibur.Excel.XLCellValue left, XLibur.Excel.XLCellValue right) -> bool
+static XLibur.Excel.XLCellValue.operator !=(XLibur.Excel.XLCellValue left, XLibur.Excel.XLCellValue right) -> bool
 virtual XLibur.Excel.XLWorkbook.Dispose(bool disposing) -> void
 XLibur.Excel.IO.PartStructureException

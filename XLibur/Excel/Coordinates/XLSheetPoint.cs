@@ -132,8 +132,9 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
             return false;
 
         var columnIndex = c - 'A' + 1;
-        while (i < input.Length && IsLetter(c = input[i]))
+        while (i < input.Length && IsLetter(input[i]))
         {
+            c = input[i];
             columnIndex = columnIndex * 26 + c - 'A' + 1;
             i++;
         }
@@ -152,8 +153,9 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
             return false;
 
         var rowIndex = c - '0';
-        while (i < input.Length && IsDigit(c = input[i]))
+        while (i < input.Length && IsDigit(input[i]))
         {
+            c = input[i];
             rowIndex = rowIndex * 10 + c - '0';
             i++;
         }

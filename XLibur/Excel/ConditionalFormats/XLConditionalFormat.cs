@@ -120,7 +120,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
     #region Constructors
 
-    private XLConditionalFormat(XLStyleValue style)
+    private XLConditionalFormat()
         : base(XLStyle.Default.Value)
     {
         Id = Guid.NewGuid();
@@ -132,7 +132,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     }
 
     public XLConditionalFormat(XLRange range, bool copyDefaultModify = false)
-        : this(XLStyle.Default.Value)
+        : this()
     {
         if (range != null)
             Ranges.Add(range);
@@ -140,7 +140,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     }
 
     public XLConditionalFormat(IEnumerable<XLRange> ranges, bool copyDefaultModify = false)
-        : this(XLStyle.Default.Value)
+        : this()
     {
         ranges?.ForEach(range => Ranges.Add(range));
         CopyDefaultModify = copyDefaultModify;
@@ -152,7 +152,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     }
 
     public XLConditionalFormat(XLConditionalFormat conditionalFormat, IEnumerable<IXLRange> targetRanges)
-        : this(conditionalFormat.StyleValue)
+        : this()
     {
         targetRanges?.ForEach(range => Ranges.Add(range));
         CopyFrom(conditionalFormat);

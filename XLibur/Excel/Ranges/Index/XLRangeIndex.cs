@@ -13,7 +13,7 @@ internal abstract class XLRangeIndex : IXLRangeIndex
 {
     #region Public Constructors
 
-    public XLRangeIndex(IXLWorksheet worksheet)
+    protected XLRangeIndex(IXLWorksheet worksheet)
     {
         _worksheet = worksheet;
         _rangeList = [];

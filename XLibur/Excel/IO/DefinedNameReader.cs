@@ -108,7 +108,7 @@ internal static class DefinedNameReader
         var fixedNames = ValidateDefinedNames(definedName.Text.Split(','));
         foreach (var area in fixedNames)
         {
-            if (area.Contains("["))
+            if (area.Contains('['))
             {
                 var ws = xlWorkbook.WorksheetsInternal.FirstOrDefault<XLWorksheet>(w => w.SheetId == (localSheetId + 1));
                 if (ws != null)

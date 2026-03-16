@@ -67,7 +67,7 @@ internal static class DrawingPartReader
                 if (!drawingsPart.TryGetPartById(imgId, out var imagePart))
                     continue;
 
-                var picture = LoadPictureFromAnchor(drawingsPart, anchor, imgId, imagePart, ws);
+                var picture = LoadPictureFromAnchor(anchor, imgId, imagePart, ws);
                 if (picture is null)
                     continue;
 
@@ -252,12 +252,12 @@ internal static class DrawingPartReader
         var sizeWithCellsElement = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "SizeWithCells");
         var moveWithCells = !(moveWithCellsElement != null && moveWithCellsElement.Value.ToLower() == "true");
         var sizeWithCells = !(sizeWithCellsElement != null && sizeWithCellsElement.Value.ToLower() == "true");
-        if (moveWithCells && !sizeWithCells)
-            drawing.Style.Properties.Positioning = XLDrawingAnchor.MoveWithCells;
-        else if (moveWithCells && sizeWithCells)
+        if (!moveWithCells)
+            drawing.Style.Properties.Positioning = XLDrawingAnchor.Absolute;
+        else if (sizeWithCells)
             drawing.Style.Properties.Positioning = XLDrawingAnchor.MoveAndSizeWithCells;
         else
-            drawing.Style.Properties.Positioning = XLDrawingAnchor.Absolute;
+            drawing.Style.Properties.Positioning = XLDrawingAnchor.MoveWithCells;
     }
 
     internal static void LoadClientDataAnchor<T>(IXLDrawing<T> drawing, XElement anchor)
@@ -337,7 +337,7 @@ internal static class DrawingPartReader
         return name.Replace("_x000a_", Environment.NewLine).Replace("_x005f_x000a_", "_x000a_");
     }
 
-    private static XLPicture? LoadPictureFromAnchor(DrawingsPart drawingsPart,
+    private static XLPicture? LoadPictureFromAnchor(
         DocumentFormat.OpenXml.OpenXmlElement anchor, string imgId,
         DocumentFormat.OpenXml.Packaging.OpenXmlPart imagePart, XLWorksheet ws)
     {

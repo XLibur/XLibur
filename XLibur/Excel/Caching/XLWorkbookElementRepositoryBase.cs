@@ -12,12 +12,12 @@ internal abstract class XLWorkbookElementRepositoryBase<Tkey, Tvalue> : XLReposi
 {
     public XLWorkbook Workbook { get; private set; }
 
-    public XLWorkbookElementRepositoryBase(XLWorkbook workbook, Func<Tkey, Tvalue> createNew)
+    protected XLWorkbookElementRepositoryBase(XLWorkbook workbook, Func<Tkey, Tvalue> createNew)
         : this(workbook, createNew, EqualityComparer<Tkey>.Default)
     {
     }
 
-    public XLWorkbookElementRepositoryBase(XLWorkbook workbook, Func<Tkey, Tvalue> createNew, IEqualityComparer<Tkey> comparer)
+    protected XLWorkbookElementRepositoryBase(XLWorkbook workbook, Func<Tkey, Tvalue> createNew, IEqualityComparer<Tkey> comparer)
         : base(createNew, comparer)
     {
         Workbook = workbook;
