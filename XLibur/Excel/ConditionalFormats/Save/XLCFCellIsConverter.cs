@@ -27,7 +27,7 @@ internal sealed class XLCFCellIsConverter : IXLCFConverter
         return conditionalFormattingRule;
     }
 
-    private string GetQuoted(XLFormula formula)
+    private static string GetQuoted(XLFormula formula)
     {
         string value = formula.Value;
 

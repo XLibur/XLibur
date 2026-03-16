@@ -92,7 +92,7 @@ internal sealed class JpegInfoReader : ImageInfoReader
         throw new ArgumentException("SOF not found in the JFIF.");
     }
 
-    private bool TryGetMarker(Stream stream, out ushort marker)
+    private static bool TryGetMarker(Stream stream, out ushort marker)
     {
         if (!stream.TryReadU16BE(out marker))
             return false;
@@ -100,7 +100,7 @@ internal sealed class JpegInfoReader : ImageInfoReader
         return marker >> 8 == 0xFF;
     }
 
-    private bool TryGetLength(Stream stream, out ushort length)
+    private static bool TryGetLength(Stream stream, out ushort length)
     {
         if (!stream.TryReadU16BE(out length))
             return false;
@@ -108,7 +108,7 @@ internal sealed class JpegInfoReader : ImageInfoReader
         length -= 2;
         return true;
     }
-    private double ConvertToDpi(int density, byte units)
+    private static double ConvertToDpi(int density, byte units)
     {
         return units switch
         {

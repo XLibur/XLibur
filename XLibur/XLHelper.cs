@@ -402,7 +402,7 @@ public static partial class XLHelper
             return false;
         }
 
-        if (new[] { 'C', 'R' }.Any(c => newName.ToUpper().Equals(c.ToString())))
+        if (newName.Equals("C", StringComparison.OrdinalIgnoreCase) || newName.Equals("R", StringComparison.OrdinalIgnoreCase))
         {
             message = $"The {objectType} name '{newName}' is invalid";
             return false;

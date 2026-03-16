@@ -24,7 +24,7 @@ internal sealed class FunctionDefinition
     public FunctionDefinition(int minParams, int maxParams, CalcEngineFunction function, FunctionFlags flags, AllowRange allowRanges, IReadOnlyCollection<int> markedParams)
     {
         if (allowRanges == AllowRange.None && markedParams.Count > 0)
-            throw new ArgumentException(nameof(markedParams));
+            throw new ArgumentException("Marked params must be empty when AllowRange is None.", nameof(markedParams));
 
         MinParams = minParams;
         MaxParams = maxParams;
@@ -40,7 +40,7 @@ internal sealed class FunctionDefinition
 
     public AnyValue CallFunction(CalcContext ctx, Span<AnyValue> args)
     {
-        if (ctx.UseImplicitIntersection)
+        if (CalcContext.UseImplicitIntersection)
             IntersectArguments(ctx, args);
 
         return _function(ctx, args);

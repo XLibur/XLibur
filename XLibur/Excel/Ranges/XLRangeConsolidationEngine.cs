@@ -138,7 +138,7 @@ internal sealed class XLRangeConsolidationEngine
             }
         }
 
-        private void ClearRangeInRow(BitArray rowArray, Tuple<int, int> rangeBoundaries)
+        private static void ClearRangeInRow(BitArray rowArray, Tuple<int, int> rangeBoundaries)
         {
             for (var i = rangeBoundaries.Item1; i <= rangeBoundaries.Item2; i++)
             {
@@ -157,7 +157,7 @@ internal sealed class XLRangeConsolidationEngine
                 _bitMatrix.Values.All(r => !r[0] && !r[^1]));
         }
 
-        private IEnumerable<Tuple<int, int>> GetRangesBoundariesStartingByRow(BitArray rowArray)
+        private static IEnumerable<Tuple<int, int>> GetRangesBoundariesStartingByRow(BitArray rowArray)
         {
             var startIdx = 0;
             for (var i = 1; i < rowArray.Length - 1; i++)
@@ -195,7 +195,7 @@ internal sealed class XLRangeConsolidationEngine
             }
         }
 
-        private bool RowIncludesRange(BitArray rowArray, Tuple<int, int> rangeBoundaries)
+        private static bool RowIncludesRange(BitArray rowArray, Tuple<int, int> rangeBoundaries)
         {
             for (var i = rangeBoundaries.Item1; i <= rangeBoundaries.Item2; i++)
             {

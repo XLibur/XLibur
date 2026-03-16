@@ -1179,7 +1179,7 @@ public class TablesTests
         Assert.AreEqual("Table2", t2.Name);
     }
 
-    private void AssertTablesAreEqual(IXLTable table1, IXLTable table2)
+    private static void AssertTablesAreEqual(IXLTable table1, IXLTable table2)
     {
         Assert.AreEqual(table1.RangeAddress.ToString(XLReferenceStyle.A1, false),
             table2.RangeAddress.ToString(XLReferenceStyle.A1, false));

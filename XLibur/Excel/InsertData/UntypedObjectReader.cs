@@ -49,7 +49,7 @@ internal sealed class UntypedObjectReader : IInsertDataReader
             var items = Array.CreateInstance(itemType, itemsOfSameType.Count);
             Array.Copy(itemsOfSameType.ToArray(), items, items.Length);
 
-            return InsertDataReaderFactory.Instance.CreateReader(items);
+            return InsertDataReaderFactory.CreateReader(items);
         }
     }
 

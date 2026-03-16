@@ -244,8 +244,7 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
     /// <param name="rows">How many rows to take, must be at least one.</param>
     public XLSheetRange SliceFromBottom(int rows)
     {
-        if (rows < 1)
-            throw new ArgumentOutOfRangeException();
+        ArgumentOutOfRangeException.ThrowIfLessThan(rows, 1);
 
         return new XLSheetRange(new XLSheetPoint(BottomRow - rows + 1, FirstPoint.Column), LastPoint);
     }
@@ -256,8 +255,7 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
     /// <param name="rows">How many rows to take, must be at least one.</param>
     public XLSheetRange SliceFromTop(int rows)
     {
-        if (rows < 1)
-            throw new ArgumentOutOfRangeException();
+        ArgumentOutOfRangeException.ThrowIfLessThan(rows, 1);
 
         return new XLSheetRange(FirstPoint, new XLSheetPoint(TopRow + rows - 1, LastPoint.Column));
     }
@@ -268,8 +266,7 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
     /// <param name="columns">How many columns to take, must be at least one.</param>
     public XLSheetRange SliceFromLeft(int columns)
     {
-        if (columns < 1)
-            throw new ArgumentOutOfRangeException();
+        ArgumentOutOfRangeException.ThrowIfLessThan(columns, 1);
 
         return new XLSheetRange(FirstPoint, new XLSheetPoint(FirstPoint.Row, LeftColumn + columns - 1));
     }
@@ -280,8 +277,7 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
     /// <param name="columns">How many columns to take, must be at least one.</param>
     public XLSheetRange SliceFromRight(int columns)
     {
-        if (columns < 1)
-            throw new ArgumentOutOfRangeException();
+        ArgumentOutOfRangeException.ThrowIfLessThan(columns, 1);
 
         return new XLSheetRange(new XLSheetPoint(FirstPoint.Row, RightColumn - columns + 1), LastPoint);
     }

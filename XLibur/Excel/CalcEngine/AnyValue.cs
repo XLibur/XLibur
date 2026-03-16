@@ -53,7 +53,7 @@ internal readonly struct AnyValue
     public static AnyValue From(string text)
     {
         return text is null
-            ? throw new ArgumentNullException()
+            ? throw new ArgumentNullException(nameof(text))
             : new AnyValue(TextValue, false, 0, text, default, null, null);
     }
 
@@ -62,7 +62,7 @@ internal readonly struct AnyValue
     public static AnyValue From(Array array)
     {
         if (array is null)
-            throw new ArgumentNullException();
+            throw new ArgumentNullException(nameof(array));
 
         return new(ArrayValue, false, 0, null, default, array, null);
     }
@@ -70,7 +70,7 @@ internal readonly struct AnyValue
     public static AnyValue From(Reference reference)
     {
         if (reference is null)
-            throw new ArgumentNullException();
+            throw new ArgumentNullException(nameof(reference));
 
         return new(ReferenceValue, false, 0, null, default, null, reference);
     }

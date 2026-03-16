@@ -229,11 +229,8 @@ internal class Quadrant
             }
         }
 
-        if (!coveredByChild)
-        {
-            if (_ranges?.Remove(rangeAddress) == true)
-                res = true;
-        }
+        if (!coveredByChild && _ranges?.Remove(rangeAddress) == true)
+            res = true;
 
         return res;
     }

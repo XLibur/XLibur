@@ -39,7 +39,7 @@ public class UntypedObjectReaderTests
     [TestCase(3, "UnOrderedColumn")]
     public void CanGetPropertyName(int propertyIndex, string expectedPropertyName)
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         var actualPropertyName = reader.GetPropertyName(propertyIndex);
         Assert.AreEqual(expectedPropertyName, actualPropertyName);
     }
@@ -47,21 +47,21 @@ public class UntypedObjectReaderTests
     [Test]
     public void CanGetPropertiesCount()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         Assert.AreEqual(4, reader.GetPropertiesCount());
     }
 
     [Test]
     public void CanGetRecordsCount()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         Assert.AreEqual(9, reader.GetRecords().Count());
     }
 
     [Test]
     public void CanGetData()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
 
         var result = reader.GetRecords().ToArray();
 

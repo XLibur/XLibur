@@ -22,7 +22,7 @@ public class InsertDataReaderFactoryTests
     [TestCaseSource(nameof(SimpleSources))]
     public void CanCreateSimpleReader(IEnumerable data)
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(data);
+        var reader = InsertDataReaderFactory.CreateReader(data);
 
         Assert.IsInstanceOf<SimpleTypeReader>(reader);
     }
@@ -42,7 +42,7 @@ public class InsertDataReaderFactoryTests
     [TestCaseSource(nameof(SimpleNullableSources))]
     public void CanCreateSimpleNullableReader(IEnumerable data)
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(data);
+        var reader = InsertDataReaderFactory.CreateReader(data);
 
         Assert.IsInstanceOf<SimpleNullableTypeReader>(reader);
     }
@@ -61,7 +61,7 @@ public class InsertDataReaderFactoryTests
     [TestCaseSource(nameof(ArraySources))]
     public void CanCreateArrayReader<T>(IEnumerable<T> data)
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(data);
+        var reader = InsertDataReaderFactory.CreateReader(data);
 
         Assert.IsInstanceOf<ArrayReader>(reader);
     }
@@ -109,7 +109,7 @@ public class InsertDataReaderFactoryTests
             SourceArray.AsEnumerable(),
             SourceArray0.AsEnumerable(),
         };
-        var reader = InsertDataReaderFactory.Instance.CreateReader(data);
+        var reader = InsertDataReaderFactory.CreateReader(data);
 
         Assert.IsInstanceOf<ArrayReader>(reader);
     }
@@ -122,7 +122,7 @@ public class InsertDataReaderFactoryTests
             "String 1",
             "String 2",
         };
-        var reader = InsertDataReaderFactory.Instance.CreateReader(data);
+        var reader = InsertDataReaderFactory.CreateReader(data);
 
         Assert.IsInstanceOf<SimpleTypeReader>(reader);
     }
@@ -131,7 +131,7 @@ public class InsertDataReaderFactoryTests
     public void CanCreateDataTableReader()
     {
         var dt = new DataTable();
-        var reader = InsertDataReaderFactory.Instance.CreateReader(dt);
+        var reader = InsertDataReaderFactory.CreateReader(dt);
 
         Assert.IsInstanceOf<XLibur.Excel.InsertData.DataTableReader>(reader);
     }
@@ -140,7 +140,7 @@ public class InsertDataReaderFactoryTests
     public void CanCreateDataRecordReader()
     {
         var dataRecords = Array.Empty<IDataRecord>();
-        var reader = InsertDataReaderFactory.Instance.CreateReader(dataRecords);
+        var reader = InsertDataReaderFactory.CreateReader(dataRecords);
         Assert.IsInstanceOf<DataRecordReader>(reader);
     }
 
@@ -148,7 +148,7 @@ public class InsertDataReaderFactoryTests
     public void CanCreateObjectReader()
     {
         var entities = Array.Empty<TestEntity>();
-        var reader = InsertDataReaderFactory.Instance.CreateReader(entities);
+        var reader = InsertDataReaderFactory.CreateReader(entities);
         Assert.IsInstanceOf<ObjectReader>(reader);
     }
 
@@ -156,7 +156,7 @@ public class InsertDataReaderFactoryTests
     public void CanCreateObjectReaderForStruct()
     {
         var entities = Array.Empty<TestStruct>();
-        var reader = InsertDataReaderFactory.Instance.CreateReader(entities);
+        var reader = InsertDataReaderFactory.CreateReader(entities);
         Assert.IsInstanceOf<ObjectReader>(reader);
     }
 
@@ -168,7 +168,7 @@ public class InsertDataReaderFactoryTests
             new TestEntity(),
             "123",
         });
-        var reader = InsertDataReaderFactory.Instance.CreateReader(entities);
+        var reader = InsertDataReaderFactory.CreateReader(entities);
         Assert.IsInstanceOf<UntypedObjectReader>(reader);
     }
 

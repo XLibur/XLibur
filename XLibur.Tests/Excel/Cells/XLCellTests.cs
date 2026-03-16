@@ -31,6 +31,8 @@ public class XLCellTests
         (decimal)11.875m
     ];
 
+    private static readonly string[] InsertDataStrings = ["a", "b", "c"];
+
     [Test]
     public void CellsUsed()
     {
@@ -99,7 +101,7 @@ public class XLCellTests
     public void InsertData1()
     {
         IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLRange range = ws.Cell(2, 2).InsertData(new[] { "a", "b", "c" });
+        IXLRange range = ws.Cell(2, 2).InsertData(InsertDataStrings);
         Assert.AreEqual("Sheet1!B2:B4", range.ToString());
     }
 
@@ -107,7 +109,7 @@ public class XLCellTests
     public void InsertData_DoesntTransposeDataOnFalseFlag()
     {
         IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLRange range = ws.Cell(2, 2).InsertData(new[] { "a", "b", "c" }, false);
+        IXLRange range = ws.Cell(2, 2).InsertData(InsertDataStrings, false);
         Assert.AreEqual("Sheet1!B2:B4", range.ToString());
     }
 
@@ -115,7 +117,7 @@ public class XLCellTests
     public void InsertData_TransposesDataOnTrueFlag()
     {
         IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLRange range = ws.Cell(2, 2).InsertData(new[] { "a", "b", "c" }, true);
+        IXLRange range = ws.Cell(2, 2).InsertData(InsertDataStrings, true);
         Assert.AreEqual("Sheet1!B2:D2", range.ToString());
     }
 

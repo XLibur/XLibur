@@ -7,6 +7,10 @@ namespace XLibur.Tests.Excel.CalcEngine;
 [TestFixture]
 public class LogicalTests
 {
+    private static readonly int[] IfTestDataA = [1, 2, 3];
+    private static readonly int[] IfTestDataB = [4, 5, 6];
+    private static readonly bool[] IfTestDataC = [true, false, true];
+
     [Test]
     public void And_IsLogicalConjunction()
     {
@@ -141,9 +145,9 @@ public class LogicalTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        ws.Cell("A1").InsertData(new[] { 1, 2, 3 });
-        ws.Cell("B1").InsertData(new[] { 4, 5, 6 });
-        ws.Cell("C1").InsertData(new[] { true, false, true });
+        ws.Cell("A1").InsertData(IfTestDataA);
+        ws.Cell("B1").InsertData(IfTestDataB);
+        ws.Cell("C1").InsertData(IfTestDataC);
         for (var row = 1; row <= 4; ++row)
             ws.Cell(row, 4).FormulaA1 = "SUM(IF(C1:C3, A1:A3, B1:B3))";
 

@@ -26,7 +26,7 @@ public class LookupTests
         ws = SetupWorkbook();
     }
 
-    private IXLWorksheet SetupWorkbook()
+    private static IXLWorksheet SetupWorkbook()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Data");

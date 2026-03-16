@@ -104,9 +104,9 @@ public class SortTests
         var ws = wb.AddWorksheet();
         ws.FirstCell().InsertData(new object[]
         {
-            new[] { 1, 2 },
-            new[] { 2, 2 },
-            new[] { 1, 1 },
+            SortRow1,
+            SortRow2,
+            SortRow3,
         });
 
         ws.Range("A1:B4").Sort("2 ASC, 1 DESC");
@@ -121,6 +121,9 @@ public class SortTests
 
     private static readonly int[] Data = [2, 2, 1];
     private static readonly int[] DataArray = [1, 2, 1];
+    private static readonly int[] SortRow1 = [1, 2];
+    private static readonly int[] SortRow2 = [2, 2];
+    private static readonly int[] SortRow3 = [1, 1];
 
     [Test]
     public void Sort_columns_in_range_by_rows()

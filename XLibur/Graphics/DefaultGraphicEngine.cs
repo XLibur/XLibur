@@ -68,7 +68,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine
     public DefaultGraphicEngine(string fallbackFont)
     {
         if (string.IsNullOrWhiteSpace(fallbackFont))
-            throw new ArgumentException(nameof(fallbackFont));
+            throw new ArgumentException("Fallback font name must not be null or whitespace.", nameof(fallbackFont));
 
         var fontCollection = new FontCollection();
         AddEmbeddedFont(fontCollection);
@@ -172,7 +172,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine
         return GetDescent(font, dpiY, metrics);
     }
 
-    private double GetDescent(IXLFontBase font, double dpiY, FontMetrics metrics)
+    private static double GetDescent(IXLFontBase font, double dpiY, FontMetrics metrics)
     {
         return PointsToPixels(-metrics.VerticalMetrics.Descender * font.FontSize / metrics.UnitsPerEm, dpiY);
     }
@@ -272,7 +272,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine
         return fontFamily.CreateFont(FontMetricSize); // Size is irrelevant for metric
     }
 
-    private void AddEmbeddedFont(FontCollection fontCollection)
+    private static void AddEmbeddedFont(FontCollection fontCollection)
     {
         var assembly = Assembly.GetExecutingAssembly();
         const string resourcePath = "XLibur.Graphics.Fonts.CarlitoBare-{0}.ttf";

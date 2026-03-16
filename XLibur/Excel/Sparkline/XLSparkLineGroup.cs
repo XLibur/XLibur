@@ -254,11 +254,8 @@ internal sealed class XLSparklineGroup : IXLSparklineGroup
 
     public IXLSparklineGroup SetDateRange(IXLRange? value)
     {
-        if (value != null)
-        {
-            if (value.RowCount() != 1 && value.ColumnCount() != 1)
-                throw new ArgumentException("The date range must be either one row high or one column wide");
-        }
+        if (value != null && value.RowCount() != 1 && value.ColumnCount() != 1)
+            throw new ArgumentException("The date range must be either one row high or one column wide");
 
         _dateRange = value;
         return this;

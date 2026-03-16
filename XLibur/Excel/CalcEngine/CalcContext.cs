@@ -57,7 +57,7 @@ internal sealed class CalcContext
     /// Excel 2016 and earlier doesn't support dynamic array formulas (it used an array formulas instead). As a consequence,
     /// all arguments for scalar functions where passed through implicit intersection before calling the function.
     /// </summary>
-    public bool UseImplicitIntersection => true;
+    public static bool UseImplicitIntersection => true;
 
     /// <summary>
     /// Should functions be calculated per item of multi-values argument in the scalar parameters.

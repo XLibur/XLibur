@@ -82,7 +82,7 @@ public class SampleSparklines : IXLExample
         workbook.SaveAs(filePath);
     }
 
-    private void FillSampleData(IXLWorksheet ws)
+    private static void FillSampleData(IXLWorksheet ws)
     {
         ws.Column(1).Style.Alignment.SetWrapText(true);
         ws.Column(1).Width = 30;

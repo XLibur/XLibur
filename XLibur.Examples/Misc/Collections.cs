@@ -80,7 +80,7 @@ public class Collections : IXLExample
     }
 
     // Private
-    private DataTable GetTable()
+    private static DataTable GetTable()
     {
         DataTable table = new DataTable();
         table.Columns.Add("Dosage", typeof(int));

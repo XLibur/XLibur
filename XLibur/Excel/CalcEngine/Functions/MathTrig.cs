@@ -20,6 +20,7 @@ internal static class MathTrig
     /// </summary>
     private const double MaxDoubleInt = 9007199254740991;
 
+    private static readonly int[] SumIfsAllowedRangeParams = new[] { 0 }.Concat(Enumerable.Range(0, 128).Select(x => x * 2 + 1)).ToArray();
 
     /// <summary>
     /// Key: roman form. Value: A collection of subtract symbols and subtract value.
@@ -107,7 +108,7 @@ internal static class MathTrig
         ce.RegisterFunction("SUBTOTAL", 2, 255, Adapt(Subtotal), FunctionFlags.Range, AllowRange.Except, 0);
         ce.RegisterFunction("SUM", 1, int.MaxValue, Sum, FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("SUMIF", 2, 3, AdaptLastOptional(SumIf), FunctionFlags.Range, AllowRange.Only, 0, 2);
-        ce.RegisterFunction("SUMIFS", 3, 255, AdaptIfs(SumIfs), FunctionFlags.Range, AllowRange.Only, new[] { 0 }.Concat(Enumerable.Range(0, 128).Select(x => x * 2 + 1)).ToArray());
+        ce.RegisterFunction("SUMIFS", 3, 255, AdaptIfs(SumIfs), FunctionFlags.Range, AllowRange.Only, SumIfsAllowedRangeParams);
         ce.RegisterFunction("SUMPRODUCT", 1, 30, Adapt(SumProduct), FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("SUMSQ", 1, 255, SumSq, FunctionFlags.Range, AllowRange.All);
         //ce.RegisterFunction("SUMX2MY2", SumX2MY2, 1);

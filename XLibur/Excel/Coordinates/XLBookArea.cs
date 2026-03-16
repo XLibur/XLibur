@@ -20,7 +20,7 @@ internal readonly struct XLBookArea : IEquatable<XLBookArea>
     public XLBookArea(string name, XLSheetRange area)
     {
         if (string.IsNullOrEmpty(name))
-            throw new ArgumentException(nameof(name));
+            throw new ArgumentException("Name must not be null or empty.", nameof(name));
 
         Name = name;
         Area = area;

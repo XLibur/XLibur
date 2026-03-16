@@ -16,7 +16,7 @@ internal static class XLErrorExtensions
             XLError.NoValueAvailable => "#N/A",
             XLError.NullValue => "#NULL!",
             XLError.NumberInvalid => "#NUM!",
-            _ => throw new ArgumentOutOfRangeException()
+            _ => throw new ArgumentOutOfRangeException(nameof(error), error, "Unknown XLError value.")
         };
 }
 

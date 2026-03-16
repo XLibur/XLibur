@@ -14,7 +14,7 @@ public class SimpleNullableTypeReaderTests
     [TestCaseSource(nameof(SimpleNullableSourceNames))]
     public string CanGetPropertyName<T>(IEnumerable<T> data)
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(data);
+        var reader = InsertDataReaderFactory.CreateReader(data);
         return reader.GetPropertyName(0);
     }
 
@@ -33,21 +33,21 @@ public class SimpleNullableTypeReaderTests
     [Test]
     public void CanGetPropertiesCount()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         Assert.AreEqual(1, reader.GetPropertiesCount());
     }
 
     [Test]
     public void CanGetRecordsCount()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         Assert.AreEqual(3, reader.GetRecords().Count());
     }
 
     [Test]
     public void CanReadValues()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         var result = reader.GetRecords();
 
         var enumerable = result.ToList();

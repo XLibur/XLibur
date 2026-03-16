@@ -6,17 +6,21 @@ namespace XLibur.Tests.Excel.PivotTables;
 [TestFixture]
 public class XLPivotCacheTests
 {
+    private static readonly string[] PivotCacheFieldNamePie = ["Name", "Pie"];
+    private static readonly string[] PivotCacheFieldNameOnly = ["Name"];
+    private static readonly string[] PivotCacheFieldPastry = ["Pastry"];
+
     [Test]
     public void FieldNames_KeepNamesEvenWhenSourceChange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        var range = ws.FirstCell().InsertData(new[] { "Name", "Pie" });
+        var range = ws.FirstCell().InsertData(PivotCacheFieldNamePie);
 
         var pivotCache = wb.PivotCaches.Add(range);
         ws.Cell("A1").Value = "Pastry";
 
-        Assert.AreEqual(new[] { "Name" }, pivotCache.FieldNames);
+        Assert.AreEqual(PivotCacheFieldNameOnly, pivotCache.FieldNames);
     }
 
     [Test]
@@ -24,13 +28,13 @@ public class XLPivotCacheTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        var range = ws.FirstCell().InsertData(new[] { "Name", "Pie" });
+        var range = ws.FirstCell().InsertData(PivotCacheFieldNamePie);
 
         var pivotCache = wb.PivotCaches.Add(range);
         ws.Cell("A1").Value = "Pastry";
         pivotCache.Refresh();
 
-        Assert.AreEqual(new[] { "Pastry" }, pivotCache.FieldNames);
+        Assert.AreEqual(PivotCacheFieldPastry, pivotCache.FieldNames);
     }
 
     [Test]
@@ -38,7 +42,7 @@ public class XLPivotCacheTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        var range = ws.FirstCell().InsertData(new[] { "Name", "Pie" });
+        var range = ws.FirstCell().InsertData(PivotCacheFieldNamePie);
 
         var pivotCache = wb.PivotCaches.Add(range);
 

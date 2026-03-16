@@ -13,7 +13,7 @@ internal sealed class InsertDataReaderFactory
 
     public static InsertDataReaderFactory Instance => _instance.Value;
 
-    public IInsertDataReader CreateReader(IEnumerable data)
+    public static IInsertDataReader CreateReader(IEnumerable data)
     {
         ArgumentNullException.ThrowIfNull(data);
 
@@ -35,12 +35,12 @@ internal sealed class InsertDataReaderFactory
         return new ObjectReader(data);
     }
 
-    public IInsertDataReader CreateReader<T>(IEnumerable<T[]> data)
+    public static IInsertDataReader CreateReader<T>(IEnumerable<T[]> data)
     {
         return data == null ? throw new ArgumentNullException(nameof(data)) : new ArrayReader(data);
     }
 
-    public IInsertDataReader CreateReader(IEnumerable<IEnumerable> data)
+    public static IInsertDataReader CreateReader(IEnumerable<IEnumerable> data)
     {
         ArgumentNullException.ThrowIfNull(data);
 
@@ -50,7 +50,7 @@ internal sealed class InsertDataReaderFactory
         return new ArrayReader(data);
     }
 
-    public IInsertDataReader CreateReader(DataTable dataTable)
+    public static IInsertDataReader CreateReader(DataTable dataTable)
     {
         return dataTable == null ? throw new ArgumentNullException(nameof(dataTable)) : new DataTableReader(dataTable);
     }

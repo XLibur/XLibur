@@ -422,7 +422,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     public IXLTable InsertTable<T>(IEnumerable<T> data, string? tableName, bool createTable, bool addHeadings,
         bool transpose)
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(data);
+        var reader = InsertDataReaderFactory.CreateReader(data);
         return Worksheet.InsertTable(SheetPoint, reader, tableName, createTable, addHeadings, transpose);
     }
 
@@ -449,7 +449,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (createTable && Worksheet.Tables.Any<XLTable>(t => t.Contains(this)))
             throw new InvalidOperationException($"This cell '{Address}' is already part of a table.");
 
-        var reader = InsertDataReaderFactory.Instance.CreateReader(data);
+        var reader = InsertDataReaderFactory.CreateReader(data);
         return Worksheet.InsertTable(SheetPoint, reader, tableName, createTable, addHeadings: true, transpose: false);
     }
 
@@ -474,7 +474,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (data is null or string)
             return null;
 
-        var reader = InsertDataReaderFactory.Instance.CreateReader(data);
+        var reader = InsertDataReaderFactory.CreateReader(data);
         return Worksheet.InsertData(SheetPoint, reader, addHeadings: false, transpose: transpose);
     }
 
@@ -483,7 +483,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (dataTable == null)
             return null;
 
-        var reader = InsertDataReaderFactory.Instance.CreateReader(dataTable);
+        var reader = InsertDataReaderFactory.CreateReader(dataTable);
         return Worksheet.InsertData(SheetPoint, reader, addHeadings: false, transpose: false);
     }
 

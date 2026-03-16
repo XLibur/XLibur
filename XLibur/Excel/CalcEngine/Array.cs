@@ -375,7 +375,7 @@ internal sealed class SlicedArray : Array
         if (rowOfs < 0 || rows < 1 || colOfs < 0 || cols < 1 ||
             rowOfs + rows > original.Height ||
             colOfs + cols > original.Width)
-            throw new ArgumentOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(original), "Slice dimensions exceed the bounds of the original array.");
 
         _original = original;
         _rowOfs = rowOfs;

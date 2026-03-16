@@ -63,11 +63,8 @@ internal static class DateAndTime
         // subtract the number of bank holidays during the time interval
         foreach (var holidayDate in distinctHolidays)
         {
-            if (firstDay <= holidayDate && holidayDate <= lastDay)
-            {
-                if (!IsWeekend(holidayDate))
-                    --workDays;
-            }
+            if (firstDay <= holidayDate && holidayDate <= lastDay && !IsWeekend(holidayDate))
+                --workDays;
         }
 
         return workDays;
@@ -439,12 +436,9 @@ internal static class DateAndTime
             return dateError;
 
         var flagValue = 1d;
-        if (!flag.IsBlank)
-        {
-            // Caller provided a value for optional parameter
-            if (!flag.ToNumber(ctx.Culture).TryPickT0(out flagValue, out var flagError))
-                return flagError;
-        }
+        // Caller provided a value for optional parameter
+        if (!flag.IsBlank && !flag.ToNumber(ctx.Culture).TryPickT0(out flagValue, out var flagError))
+            return flagError;
 
         var result = Weekday(serialDate, (int)Math.Truncate(flagValue));
 

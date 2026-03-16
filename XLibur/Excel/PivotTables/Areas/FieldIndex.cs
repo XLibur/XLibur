@@ -13,7 +13,7 @@ internal readonly record struct FieldIndex
     internal FieldIndex(int value)
     {
         if (value < 0 && value != -2)
-            throw new ArgumentOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(value), value, "Field index must be non-negative or -2 for data field.");
 
         Value = value;
     }

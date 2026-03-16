@@ -32,7 +32,7 @@ public class ColumnsTests
     }
 
     //[Test] // Not working yet
-    public void InsertColumns()
+    public static void InsertColumns()
     {
         TestHelper.RunTestExample<InsertColumns>(@"Columns\InsertColumns.xlsx");
     }

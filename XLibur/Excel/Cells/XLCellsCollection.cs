@@ -437,14 +437,11 @@ internal sealed class XLCellsCollection : IWorkbookListener
             for (var i = _count - 1; i >= 0; --i)
             {
                 var enumerator = _enumerators[i];
-                if (enumerator.Current == current)
+                if (enumerator.Current == current && !enumerator.MoveNext())
                 {
-                    if (!enumerator.MoveNext())
-                    {
-                        _count--;
-                        if (i < _count)
-                            _enumerators[i] = _enumerators[_count];
-                    }
+                    _count--;
+                    if (i < _count)
+                        _enumerators[i] = _enumerators[_count];
                 }
             }
         }

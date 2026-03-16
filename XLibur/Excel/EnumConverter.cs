@@ -80,7 +80,7 @@ internal static class EnumConverter
                 XLFontScheme.None => FontSchemeValues.None,
                 XLFontScheme.Major => FontSchemeValues.Major,
                 XLFontScheme.Minor => FontSchemeValues.Minor,
-                _ => throw new ArgumentOutOfRangeException()
+                _ => throw new ArgumentOutOfRangeException(nameof(value), value, "Unsupported font scheme value.")
             };
         }
     }

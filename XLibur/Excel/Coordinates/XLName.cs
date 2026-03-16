@@ -23,7 +23,7 @@ internal readonly struct XLName : IEquatable<XLName>
     public XLName(string sheetName, string name)
     {
         if (string.IsNullOrEmpty(sheetName))
-            throw new ArgumentException(nameof(sheetName));
+            throw new ArgumentException("Sheet name must not be null or empty.", nameof(sheetName));
 
         if (name.Any(char.IsWhiteSpace))
             throw new ArgumentException("Name can't contain whitespace.");

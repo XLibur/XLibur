@@ -320,23 +320,23 @@ internal sealed class XLAlignment : IXLAlignment
     {
         var sb = new StringBuilder();
         sb.Append(Horizontal);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(Vertical);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(Indent);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(JustifyLastLine);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(ReadingOrder);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(RelativeIndent);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(ShrinkToFit);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(TextRotation);
-        sb.Append("-");
+        sb.Append('-');
         sb.Append(WrapText);
-        sb.Append("-");
+        sb.Append('-');
         return sb.ToString();
     }
 

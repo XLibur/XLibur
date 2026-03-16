@@ -14,6 +14,9 @@ public class MathTrigTests
 {
     private const double tolerance = 1e-10;
 
+    private static readonly int[] MultinomialDataB2 = [2, 0, 5];
+    private static readonly int[] MultinomialDataA5 = [3, 6];
+
     [Theory]
     public void Abs_ReturnsItselfOnPositiveNumbers([Range(0, 10, 0.1)] double input)
     {
@@ -1594,8 +1597,8 @@ public class MathTrigTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        ws.Cell("B2").InsertData(new[] { 2, 0, 5 });
-        ws.Cell("A5").InsertData(new[] { 3, 6 });
+        ws.Cell("B2").InsertData(MultinomialDataB2);
+        ws.Cell("A5").InsertData(MultinomialDataA5);
 
         Assert.AreEqual(3087564480d, ws.Evaluate("MULTINOMIAL(B:XFD, 2, A5:A6)"));
     }

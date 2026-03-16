@@ -303,7 +303,7 @@ public class XLPivotTableTests
         AssertPivotTablesAreEqual(pt1, pt1.CopyTo(wb2.AddWorksheet("pvt").FirstCell()) as XLPivotTable, compareName: true);
     }
 
-    private void AssertPivotTablesAreEqual(XLPivotTable original, XLPivotTable copy, Boolean compareName)
+    private static void AssertPivotTablesAreEqual(XLPivotTable original, XLPivotTable copy, Boolean compareName)
     {
         Assert.AreEqual(compareName, original.Name.Equals(copy.Name));
 

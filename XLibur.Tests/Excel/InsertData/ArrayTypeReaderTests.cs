@@ -17,28 +17,28 @@ public class ArrayTypeReaderTests
     [Test]
     public void GetPropertyNameReturnsNull()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         Assert.IsNull(reader.GetPropertyName(0));
     }
 
     [Test]
     public void CanGetPropertiesCount()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         Assert.AreEqual(3, reader.GetPropertiesCount());
     }
 
     [Test]
     public void CanGetRecordsCount()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         Assert.AreEqual(2, reader.GetRecords().Count());
     }
 
     [Test]
     public void CanReadValues()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         var result = reader.GetRecords();
         var enumerable = result as IEnumerable<XLCellValue>[] ?? result.ToArray();
 

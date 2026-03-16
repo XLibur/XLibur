@@ -277,11 +277,8 @@ public partial class XLWorkbook : IXLWorkbook
             var first = split[0];
             var wsName = first.StartsWith("'") ? first.Substring(1, first.Length - 2) : first;
             var sheetlessName = split[1];
-            if (TryGetWorksheet(wsName, out XLWorksheet? ws))
-            {
-                if (ws.DefinedNames.TryGetScopedValue(sheetlessName, out var sheetDefinedName))
-                    return sheetDefinedName;
-            }
+            if (TryGetWorksheet(wsName, out XLWorksheet? ws) && ws.DefinedNames.TryGetScopedValue(sheetlessName, out var sheetDefinedName))
+                return sheetDefinedName;
 
             name = sheetlessName;
         }

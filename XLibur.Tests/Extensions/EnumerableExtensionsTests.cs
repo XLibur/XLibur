@@ -11,6 +11,9 @@ namespace XLibur.Tests.Extensions;
 
 public class EnumerableExtensionsTests
 {
+    private static readonly int[] SkipLastSingle = [1];
+    private static readonly int[] SkipLastTwo = [1, 2];
+
     [Test]
     public void CanGetItemType()
     {
@@ -54,10 +57,10 @@ public class EnumerableExtensionsTests
         var empty = Array.Empty<int>().SkipLast();
         Assert.That(empty, Is.Empty);
 
-        var oneElement = new[] { 1 }.SkipLast();
+        var oneElement = SkipLastSingle.SkipLast();
         Assert.That(oneElement, Is.Empty);
 
-        var twoElements = new[] { 1, 2 }.SkipLast();
+        var twoElements = SkipLastTwo.SkipLast();
         Assert.That(twoElements, Is.EqualTo([1]));
     }
 

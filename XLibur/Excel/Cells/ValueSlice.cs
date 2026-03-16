@@ -95,7 +95,7 @@ internal sealed class ValueSlice : ISlice
             XLDataType.Error => (XLError)value,
             XLDataType.DateTime => XLCellValue.FromSerialDateTime(value),
             XLDataType.TimeSpan => XLCellValue.FromSerialTimeSpan(value),
-            _ => throw new ArgumentOutOfRangeException()
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unexpected data type.")
         };
     }
 

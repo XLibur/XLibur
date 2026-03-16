@@ -68,7 +68,7 @@ public class ObjectReaderTests
     [TestCaseSource(nameof(ObjectSourceNames))]
     public string CanGetPropertyName<T>(IEnumerable<T> data, int propertyIndex)
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(data);
+        var reader = InsertDataReaderFactory.CreateReader(data);
         return reader.GetPropertyName(propertyIndex);
     }
 
@@ -101,7 +101,7 @@ public class ObjectReaderTests
     [TestCaseSource(nameof(PropertyCounts))]
     public int CanGetPropertiesCount(IEnumerable data)
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(data);
+        var reader = InsertDataReaderFactory.CreateReader(data);
         return reader.GetPropertiesCount();
     }
 
@@ -126,14 +126,14 @@ public class ObjectReaderTests
     [Test]
     public void CanGetRecordsCount()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(ObjectWithAttributes);
+        var reader = InsertDataReaderFactory.CreateReader(ObjectWithAttributes);
         Assert.AreEqual(2, reader.GetRecords().Count());
     }
 
     [Test]
     public void CanReadValues_FromObject()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(ObjectWithAttributes);
+        var reader = InsertDataReaderFactory.CreateReader(ObjectWithAttributes);
         var result = reader.GetRecords();
 
         var enumerable = result.ToList();
@@ -154,7 +154,7 @@ public class ObjectReaderTests
     [Test]
     public void CanReadValues_FromStruct()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(Structs);
+        var reader = InsertDataReaderFactory.CreateReader(Structs);
         var result = reader.GetRecords();
 
         var enumerable = result.ToList();
@@ -173,7 +173,7 @@ public class ObjectReaderTests
     [Test]
     public void CanReadValues_FromNullableStruct()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(NullableStructs);
+        var reader = InsertDataReaderFactory.CreateReader(NullableStructs);
         var result = reader.GetRecords();
 
         var enumerable = result.ToList();
@@ -193,7 +193,7 @@ public class ObjectReaderTests
     public void IgnoresIndexers()
     {
         var data = new[] { new TestClassWithIndexer() };
-        var reader = InsertDataReaderFactory.Instance.CreateReader(data);
+        var reader = InsertDataReaderFactory.CreateReader(data);
 
         Assert.AreEqual(1, reader.GetPropertiesCount());
         Assert.AreEqual(nameof(TestClassWithIndexer.Value), reader.GetPropertyName(0));
@@ -201,7 +201,7 @@ public class ObjectReaderTests
 
     private record TestClassWithIndexer
     {
-        public int Value => 0;
+        public static int Value => 0;
     }
 
     private struct TestPoint

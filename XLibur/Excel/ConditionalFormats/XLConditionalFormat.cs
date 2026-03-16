@@ -266,7 +266,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         CopyDictionary(IconSetOperators, other.IconSetOperators);
     }
 
-    private void CopyDictionary<T>(XLDictionary<T> target, XLDictionary<T> source) where T : notnull
+    private static void CopyDictionary<T>(XLDictionary<T> target, XLDictionary<T> source) where T : notnull
     {
         target.Clear();
         source.ForEach(kp => target.Add(kp.Key, kp.Value));
