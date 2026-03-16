@@ -121,38 +121,16 @@ internal static class WorksheetSheetDataReader
         Debug.Assert(reader is { LocalName: "c", IsStartElement: true });
 
         var attributes = reader.Attributes;
-
         var styleIndex = attributes.GetIntAttribute("s") ?? 0;
-
         var cellAddress = attributes.GetCellRefAttribute("r") ?? new XLSheetPoint(rowIndex, lastColumnNumber + 1);
         lastColumnNumber = cellAddress.Column;
+        var dataType = ParseCellDataType(attributes.GetAttribute("t"));
 
-        var dataType = attributes.GetAttribute("t") switch
-        {
-            "b" => CellValues.Boolean,
-            "n" => CellValues.Number,
-            "e" => CellValues.Error,
-            "s" => CellValues.SharedString,
-            "str" => CellValues.String,
-            "inlineStr" => CellValues.InlineString,
-            "d" => CellValues.Date,
-            null => CellValues.Number,
-            _ => throw new FormatException($"Unknown cell type.")
-        };
+        var cellStyleValue = ResolveCachedStyleValue(styleIndex, context.Styles, context.StyleList);
 
-        // Resolve style index to interned XLStyleValue (cached after first encounter).
-        // The actual writing to StyleSlice is deferred to the end of the method, so we can
-        // check whether other slices (value/formula/misc) already make this cell visible
-        // to the SlicesEnumerator.  When the resolved style matches the inherited style
-        // AND the cell has data in another slice, we skip the StyleSlice write — avoiding
-        // per-row Lut allocation in the style slice for large data sheets.
-        if (!context.StyleList.TryGetValue(styleIndex, out var cellStyleValue))
-        {
-            cellStyleValue = ResolveStyleValue(styleIndex, context.Styles);
-            context.StyleList[styleIndex] = cellStyleValue;
-        }
-
-        // Write style directly to the slice — no XLCell allocation needed.
+        // When the resolved style matches the inherited style AND the cell has data
+        // in another slice, we skip the StyleSlice write — avoiding per-row Lut
+        // allocation in the style slice for large data sheets.
         var ws = context.Worksheet;
         var cellsCollection = ws.Internals.CellsCollection;
         var inherited = ws.GetInheritedStyleValue(cellAddress.Row, cellAddress.Column);
@@ -165,51 +143,86 @@ internal static class WorksheetSheetDataReader
         // Move from the cell start element onwards.
         reader.MoveAhead();
 
-        var cellHasFormula = reader.IsStartElement("f");
-        XLCellFormula? formula = null;
-        if (cellHasFormula)
-        {
-            formula = SetCellFormula(ws, cellAddress, reader, context.SharedFormulasR1C1);
+        LoadCellContent(in context, reader, dataType, cellAddress, cellStyleValue, ws, cellsCollection);
 
-            // Move from the end of the 'f' element.
-            reader.MoveAhead();
+        if (styleMatchesInherited)
+            EnsureStyleForBlankCell(cellsCollection, cellAddress, cellStyleValue);
+    }
+
+    private static CellValues ParseCellDataType(string? typeAttribute)
+    {
+        return typeAttribute switch
+        {
+            "b" => CellValues.Boolean,
+            "n" => CellValues.Number,
+            "e" => CellValues.Error,
+            "s" => CellValues.SharedString,
+            "str" => CellValues.String,
+            "inlineStr" => CellValues.InlineString,
+            "d" => CellValues.Date,
+            null => CellValues.Number,
+            _ => throw new FormatException($"Unknown cell type.")
+        };
+    }
+
+    private static XLStyleValue ResolveCachedStyleValue(int styleIndex, StylesheetData styles,
+        Dictionary<int, XLStyleValue> styleList)
+    {
+        if (!styleList.TryGetValue(styleIndex, out var cellStyleValue))
+        {
+            cellStyleValue = ResolveStyleValue(styleIndex, styles);
+            styleList[styleIndex] = cellStyleValue;
         }
 
-        // Unified code to load value. Value can be empty and only type specified (e.g. when the formula doesn't save values)
-        // The string type is only for formulas, while shared string/inline string/date is only for pure cell values.
+        return cellStyleValue;
+    }
+
+    /// <summary>
+    /// Reads formula, value, and inline string elements from the current reader position.
+    /// The reader must be positioned just after the cell start element's attributes.
+    /// </summary>
+    private static void LoadCellContent(in SheetDataReadContext context, OpenXmlPartReader reader,
+        CellValues dataType, XLSheetPoint cellAddress, XLStyleValue cellStyleValue,
+        XLWorksheet ws, XLCellsCollection cellsCollection)
+    {
+        var formula = LoadCellFormula(ws, cellAddress, reader, context.SharedFormulasR1C1);
+
         var cellHasValue = reader.IsStartElement("v");
         if (cellHasValue)
         {
             SetCellValue(dataType, reader.GetText(), cellsCollection, cellAddress, cellStyleValue, ws,
                 context.SharedStrings);
-
-            // Skips all nodes of the 'v' element (has no child nodes) and moves to the first element after.
             reader.Skip();
         }
-        else
+        else if (dataType.Equals(CellValues.SharedString) || dataType.Equals(CellValues.String))
         {
-            // A string cell must contain at least an empty string.
-            if (dataType.Equals(CellValues.SharedString) || dataType.Equals(CellValues.String))
-                cellsCollection.ValueSlice.SetCellValue(cellAddress, string.Empty);
+            cellsCollection.ValueSlice.SetCellValue(cellAddress, string.Empty);
         }
 
-        // If the cell doesn't contain value, we should invalidate it, otherwise rely on the stored value.
-        // The value is likely more reliable. It should be set when cellFormula.CalculateCell is set or
-        // when the value is missing. Formula can be null in some cases, e.g., slave cells of array formula.
+        // If the cell doesn't contain a value, invalidate the formula so it recalculates.
+        // Formula can be null for slave cells of array formulas.
         if (formula is not null && !cellHasValue)
-        {
             formula.IsDirty = true;
-        }
 
-        // Inline text is dealt separately, because it is in a separate element.
         if (reader.IsStartElement("is"))
             LoadInlineString(dataType, cellsCollection, cellAddress, ws, reader);
 
         if (context.Use1904DateSystem)
             Adjust1904DateSystem(cellsCollection, cellAddress);
+    }
 
-        if (styleMatchesInherited)
-            EnsureStyleForBlankCell(cellsCollection, cellAddress, cellStyleValue);
+    /// <summary>
+    /// If the reader is positioned at an 'f' element, loads the formula and advances past it.
+    /// </summary>
+    private static XLCellFormula? LoadCellFormula(XLWorksheet ws, XLSheetPoint cellAddress,
+        OpenXmlPartReader reader, Dictionary<uint, string> sharedFormulasR1C1)
+    {
+        if (!reader.IsStartElement("f"))
+            return null;
+
+        var formula = SetCellFormula(ws, cellAddress, reader, sharedFormulasR1C1);
+        reader.MoveAhead();
+        return formula;
     }
 
     private static XLCellFormula? SetCellFormula(XLWorksheet ws, XLSheetPoint cellAddress, OpenXmlPartReader reader,
@@ -240,8 +253,7 @@ internal static class WorksheetSheetDataReader
             formulaSlice.Set(cellAddress, formula);
             valueSlice.SetShareString(cellAddress, false);
         }
-        else if (formulaType == CellFormulaValues.Array &&
-                 attributes.GetRefAttribute("ref") is
+        else if (formulaType == CellFormulaValues.Array && attributes.GetRefAttribute("ref") is
                  {
                  } arrayArea) // Child cells of an array may have an array type, but not ref, that is reserved for the master cell
         {
@@ -460,10 +472,9 @@ internal static class WorksheetSheetDataReader
             return XLDataType.DateTime;
 
         if (string.IsNullOrWhiteSpace(numberFormat.Format)) return XLDataType.Number;
-        
+
         var dataType = GetDataTypeFromFormat(numberFormat.Format);
         return dataType ?? XLDataType.Number;
-
     }
 
     internal static XLDataType? GetDataTypeFromFormat(string format)
