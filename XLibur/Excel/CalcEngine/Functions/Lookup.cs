@@ -232,7 +232,8 @@ internal static class Lookup
         {
             // Data should be in ascending order, but Excel doesn't use bisection.
             var found = -1;
-            for (var i = 0; i < data.Height; ++i)
+            var i = 0;
+            while (i < data.Height)
             {
                 // Skip elements with different type
                 var value = data[i, 0];
@@ -241,7 +242,8 @@ internal static class Lookup
                     if (i == data.Height - 1)
                         return found;
 
-                    value = data[++i, 0];
+                    i++;
+                    value = data[i, 0];
                 }
 
                 var compare = comparer.Compare(target, value);
@@ -253,6 +255,7 @@ internal static class Lookup
 
                 // value > target, so there might an exact match later
                 found = i;
+                i++;
             }
 
             return found;

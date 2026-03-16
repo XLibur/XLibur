@@ -674,7 +674,8 @@ internal static class Text
         const char space = ' ';
         var span = text.AsSpan().Trim(space);
         var sb = new StringBuilder(span.Length);
-        for (var i = 0; i < span.Length; ++i)
+        var i = 0;
+        while (i < span.Length)
         {
             sb.Append(span[i]);
             if (span[i] == space)
@@ -682,6 +683,8 @@ internal static class Text
                 while (i < span.Length - 1 && span[i + 1] == space)
                     i++;
             }
+
+            i++;
         }
 
         return sb.ToString();

@@ -5,8 +5,8 @@ namespace XLibur.Excel;
 
 internal sealed class XLPrintAreas : IXLPrintAreas
 {
-    List<IXLRange> ranges = new List<IXLRange>();
-    private XLWorksheet worksheet;
+    readonly List<IXLRange> ranges = new List<IXLRange>();
+    private readonly XLWorksheet worksheet;
 
     /// <summary>
     /// Stores the raw defined name text when the print area contains a formula

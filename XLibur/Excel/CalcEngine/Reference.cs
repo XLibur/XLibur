@@ -92,7 +92,7 @@ namespace XLibur.Excel.CalcEngine
             var lhsWorksheets = lhs.Areas.Count == 1
                 ? lhs.Areas.Select(a => a.Worksheet).Where(ws => ws is not null).ToList()!
                 : lhs.Areas.Select(a => a.Worksheet ?? contextWorksheet).Where(ws => ws is not null).Distinct().ToList();
-            if (lhsWorksheets.Count() > 1)
+            if (lhsWorksheets.Count > 1)
                 return XLError.IncompatibleValue;
 
             var lhsWorksheet = lhsWorksheets.SingleOrDefault();
@@ -100,7 +100,7 @@ namespace XLibur.Excel.CalcEngine
             var rhsWorksheets = rhs.Areas.Count == 1
                 ? rhs.Areas.Select(a => a.Worksheet).Where(ws => ws is not null).ToList()!
                 : rhs.Areas.Select(a => a.Worksheet ?? contextWorksheet).Where(ws => ws is not null).Distinct().ToList();
-            if (rhsWorksheets.Count() > 1)
+            if (rhsWorksheets.Count > 1)
                 return XLError.IncompatibleValue;
 
             var rhsWorksheet = rhsWorksheets.SingleOrDefault();

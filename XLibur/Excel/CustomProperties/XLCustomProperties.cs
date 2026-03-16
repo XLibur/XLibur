@@ -4,13 +4,13 @@ namespace XLibur.Excel;
 
 internal sealed class XLCustomProperties : IXLCustomProperties
 {
-    XLWorkbook workbook;
+    readonly XLWorkbook workbook;
     public XLCustomProperties(XLWorkbook workbook)
     {
         this.workbook = workbook;
     }
 
-    private Dictionary<string, IXLCustomProperty> customProperties = new();
+    private readonly Dictionary<string, IXLCustomProperty> customProperties = new();
     public void Add(IXLCustomProperty customProperty)
     {
         customProperties.Add(customProperty.Name, customProperty);

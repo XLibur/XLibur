@@ -153,7 +153,7 @@ internal static class WorksheetPartWriter
                      .Select(merged => new MergeCell { Reference = merged }))
                 mergeCells.AppendChild(mergeCell);
 
-            mergeCells.Count = (uint)mergeCells.Count();
+            mergeCells.Count = (uint)mergeCells.ChildElements.Count;
         }
         else
         {
@@ -190,7 +190,7 @@ internal static class WorksheetPartWriter
             tableParts.AppendChild(new TablePart { Id = xlTable.RelId });
         }
 
-        tableParts.Count = (uint)xlTables.Count<XLTable>();
+        tableParts.Count = (uint)xlTables.Count;
     }
 
     /// <summary>

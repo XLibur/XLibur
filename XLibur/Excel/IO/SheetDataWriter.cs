@@ -12,7 +12,7 @@ using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class SheetDataWriter
+internal static class SheetDataWriter
 {
     /// <summary>
     /// Day offset between the 1900 and 1904 date systems used by Excel.
