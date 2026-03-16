@@ -1,6 +1,5 @@
 using XLibur.Extensions;
 using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Packaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -67,53 +66,54 @@ internal static class SheetDataWriter
         var tableTotalCells = CollectTableTotalCells(xlWorksheet);
 
         // A rather complicated state machine, so rows and cells can be written in a single loop
-        var openedRowNumber = 0;
-        var isRowOpened = false;
-        var cellRef = new char[10]; // Buffer must be enough to hold span and rowNumber as strings
+        var rowState = new RowWriterState();
         var rows = GetSortedRowNumbers(xlWorksheet);
-
-        var rowPropIndex = 0;
+        var cellCtx = new CellWriteContext
+        {
+            CellsCollection = xlWorksheet.Internals.CellsCollection,
+            CellRef = new char[10], // Buffer must be enough to hold span and rowNumber as strings
+            SaveContext = context,
+            SaveOptions = options,
+            TableTotalCells = tableTotalCells,
+            Use1904DateSystem = xlWorksheet.Workbook.Use1904DateSystem,
+        };
         uint rowStyleId = 0;
         XLStyleValue? lastCachedStyle = null;
         uint lastCachedStyleId = 0;
-        var cellsCollection = xlWorksheet.Internals.CellsCollection;
-        var use1904DateSystem = xlWorksheet.Workbook.Use1904DateSystem;
-        var enumerator = new XLCellsCollection.SlicesEnumerator(XLSheetRange.Full, cellsCollection);
+        var enumerator = new XLCellsCollection.SlicesEnumerator(XLSheetRange.Full, cellCtx.CellsCollection);
         while (enumerator.MoveNext())
         {
             var point = enumerator.Current;
             var currentRowNumber = point.Row;
 
-            (isRowOpened, openedRowNumber, rowPropIndex) = WriteIntermediateRows(
-                xml, xlWorksheet, rows, rowPropIndex, currentRowNumber, isRowOpened, openedRowNumber, maxColumn, context);
+            WriteIntermediateRows(xml, xlWorksheet, rows, currentRowNumber, maxColumn, context, ref rowState);
 
-            if (IsBlankAndEmpty(cellsCollection, point))
+            if (IsBlankAndEmpty(cellCtx.CellsCollection, point))
                 continue;
 
-            if (openedRowNumber != currentRowNumber)
+            if (rowState.OpenedRowNumber != currentRowNumber)
             {
-                if (isRowOpened)
+                if (rowState.IsRowOpened)
                     xml.WriteEndElement(); // row
 
-                rowStyleId = ResolveRowStyleId(xlWorksheet, currentRowNumber, ref rowPropIndex, context);
+                rowStyleId = ResolveRowStyleId(xlWorksheet, currentRowNumber, ref rowState.RowPropIndex, context);
 
                 xlWorksheet.Internals.RowsCollection.TryGetValue(currentRowNumber, out var row);
                 WriteStartRow(xml, row, currentRowNumber, maxColumn, context);
 
-                isRowOpened = true;
-                openedRowNumber = currentRowNumber;
+                rowState.IsRowOpened = true;
+                rowState.OpenedRowNumber = currentRowNumber;
             }
 
             var cellStyleId = ResolveCellStyleId(xlWorksheet, point, ref lastCachedStyle, ref lastCachedStyleId, context);
 
-            WriteCellAtPoint(xml, cellsCollection, point, cellRef, context, options,
-                tableTotalCells, rowStyleId, cellStyleId, use1904DateSystem);
+            WriteCellAtPoint(xml, ref cellCtx, point, rowStyleId, cellStyleId);
         }
 
-        if (isRowOpened)
+        if (rowState.IsRowOpened)
             xml.WriteEndElement(); // row
 
-        WriteTrailingRows(xml, xlWorksheet, rows, rowPropIndex, context);
+        WriteTrailingRows(xml, xlWorksheet, rows, rowState.RowPropIndex, context);
 
         xml.WriteEndElement(); // SheetData
     }
@@ -140,31 +140,30 @@ internal static class SheetDataWriter
         return rows;
     }
 
-    private static (bool isRowOpened, int openedRowNumber, int rowPropIndex) WriteIntermediateRows(
-        XmlWriter xml, XLWorksheet xlWorksheet, List<int> rows, int rowPropIndex,
-        int currentRowNumber, bool isRowOpened, int openedRowNumber, int maxColumn, SaveContext context)
+    private static void WriteIntermediateRows(
+        XmlWriter xml, XLWorksheet xlWorksheet, List<int> rows,
+        int currentRowNumber, int maxColumn, SaveContext context,
+        ref RowWriterState state)
     {
-        while (rowPropIndex < rows.Count && rows[rowPropIndex] < currentRowNumber)
+        while (state.RowPropIndex < rows.Count && rows[state.RowPropIndex] < currentRowNumber)
         {
-            if (isRowOpened)
+            if (state.IsRowOpened)
             {
                 xml.WriteEndElement(); // row
-                isRowOpened = false;
+                state.IsRowOpened = false;
             }
 
-            var rowNumber = rows[rowPropIndex];
+            var rowNumber = rows[state.RowPropIndex];
             var xlRow = xlWorksheet.Internals.RowsCollection[rowNumber];
             if (RowHasCustomProps(xlRow))
             {
                 WriteStartRow(xml, xlRow, rowNumber, maxColumn, context);
-                isRowOpened = true;
-                openedRowNumber = rowNumber;
+                state.IsRowOpened = true;
+                state.OpenedRowNumber = rowNumber;
             }
 
-            rowPropIndex++;
+            state.RowPropIndex++;
         }
-
-        return (isRowOpened, openedRowNumber, rowPropIndex);
     }
 
     private static bool RowHasCustomProps(XLRow xlRow)
@@ -213,42 +212,39 @@ internal static class SheetDataWriter
         return lastCachedStyleId;
     }
 
-    private static void WriteCellAtPoint(XmlWriter xml,
-        XLCellsCollection cellsCollection, XLSheetPoint point, char[] cellRef,
-        SaveContext context, SaveOptions options, HashSet<XLSheetPoint>? tableTotalCells,
-        uint rowStyleId, uint cellStyleId, bool use1904DateSystem)
+    private static void WriteCellAtPoint(XmlWriter xml, ref CellWriteContext ctx,
+        XLSheetPoint point, uint rowStyleId, uint cellStyleId)
     {
-        var hasFormula = cellsCollection.FormulaSlice.IsUsed(point);
-        if (hasFormula || (tableTotalCells is not null && tableTotalCells.Contains(point)))
+        var hasFormula = ctx.CellsCollection.FormulaSlice.IsUsed(point);
+        if (hasFormula || (ctx.TableTotalCells is not null && ctx.TableTotalCells.Contains(point)))
         {
-            var xlCell = cellsCollection.GetCell(point);
-            WriteCell(xml, xlCell, cellRef, context, options, tableTotalCells, rowStyleId, cellStyleId);
+            var xlCell = ctx.CellsCollection.GetCell(point);
+            WriteCell(xml, xlCell, ctx.CellRef, ctx.SaveContext, ctx.SaveOptions, ctx.TableTotalCells, rowStyleId, cellStyleId);
             return;
         }
 
-        var cellValue = cellsCollection.ValueSlice.GetCellValue(point);
+        var cellValue = ctx.CellsCollection.ValueSlice.GetCellValue(point);
         if (cellValue.Type != XLDataType.Blank)
         {
-            WriteValueOnlyCell(xml, cellsCollection, point, cellRef, cellStyleId, cellValue, use1904DateSystem, context);
+            WriteValueOnlyCell(xml, ref ctx, point, cellStyleId, cellValue);
         }
         else if (rowStyleId != cellStyleId)
         {
-            WriteBlankStyledCell(xml, cellsCollection, point, cellRef, cellStyleId);
+            WriteBlankStyledCell(xml, ctx.CellsCollection, point, ctx.CellRef, cellStyleId);
         }
     }
 
-    private static void WriteValueOnlyCell(XmlWriter xml, XLCellsCollection cellsCollection,
-        XLSheetPoint point, char[] cellRef, uint cellStyleId, XLCellValue cellValue,
-        bool use1904DateSystem, SaveContext context)
+    private static void WriteValueOnlyCell(XmlWriter xml, ref CellWriteContext ctx,
+        XLSheetPoint point, uint cellStyleId, XLCellValue cellValue)
     {
-        Span<char> cellRefSpan = cellRef;
+        Span<char> cellRefSpan = ctx.CellRef;
         var cellRefLen = point.Format(cellRefSpan);
-        var shareString = cellsCollection.ValueSlice.GetShareString(point);
+        var shareString = ctx.CellsCollection.ValueSlice.GetShareString(point);
         var dataType = GetCellValueTypeDirect(cellValue.Type, shareString);
-        ref readonly var misc = ref cellsCollection.MiscSlice[point];
+        ref readonly var misc = ref ctx.CellsCollection.MiscSlice[point];
 
-        WriteStartCellDirect(xml, cellRef, cellRefLen, dataType, cellStyleId, in misc);
-        WriteCellValueDirect(xml, cellValue, shareString, point, cellsCollection, use1904DateSystem, context);
+        WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId, in misc);
+        WriteCellValueDirect(xml, cellValue, shareString, point, ctx.CellsCollection, ctx.Use1904DateSystem, ctx.SaveContext);
         xml.WriteEndElement(); // cell
     }
 
@@ -352,7 +348,6 @@ internal static class SheetDataWriter
         w.WriteRaw(reference, 0, referenceLength);
         w.WriteEndAttribute();
 
-        // TODO: if (styleId != 0) Test files have style even for 0, fix later
         w.WriteAttribute("s", styleId);
 
         if (dataType is not null)
@@ -519,7 +514,6 @@ internal static class SheetDataWriter
         w.WriteRaw(reference, 0, referenceLength);
         w.WriteEndAttribute();
 
-        // TODO: if (styleId != 0) Test files have style even for 0, fix later
         w.WriteAttribute("s", styleId);
 
         if (dataType is not null)
@@ -700,6 +694,23 @@ internal static class SheetDataWriter
         if (dataType == XLDataType.Text && !xlCell.ShareString)
             return "inlineStr";
         return ValueDataType[(int)dataType];
+    }
+
+    private struct RowWriterState
+    {
+        public bool IsRowOpened;
+        public int OpenedRowNumber;
+        public int RowPropIndex;
+    }
+
+    private ref struct CellWriteContext
+    {
+        public XLCellsCollection CellsCollection;
+        public char[] CellRef;
+        public SaveContext SaveContext;
+        public SaveOptions SaveOptions;
+        public HashSet<XLSheetPoint>? TableTotalCells;
+        public bool Use1904DateSystem;
     }
 
     internal static int GetMaxColumn(XLWorksheet xlWorksheet)

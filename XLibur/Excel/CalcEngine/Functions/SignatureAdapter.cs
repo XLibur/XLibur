@@ -491,7 +491,9 @@ internal static class SignatureAdapter
             if (!arg2Converted.TryPickT0(out var arg2, out var err2))
                 return err2;
 
+#pragma warning disable S2234            
             return f(arg0, arg1, arg2).ToAnyValue();
+#pragma warning restore S2234            
         };
     }
 
@@ -796,8 +798,10 @@ internal static class SignatureAdapter
             var arg2Converted = args.Length > 2 ? ToNumber(args[2], ctx) : defaultValue2;
             if (!arg2Converted.TryPickT0(out var arg2, out var err2))
                 return err2;
-
+#pragma warning disable S2234
             return f(arg0, arg1, arg2).ToAnyValue();
+#pragma warning restore S2234
+            
         };
     }
 
@@ -843,8 +847,9 @@ internal static class SignatureAdapter
 
             if (!ToOptionalNumber(args, 4, defaultValue1, ctx).TryPickT0(out var arg4, out var err4))
                 return err4;
-
+#pragma warning disable S2234
             return f(arg0, arg1, arg2, arg3, arg4);
+#pragma warning restore S2234                        
         };
     }
 
@@ -873,8 +878,9 @@ internal static class SignatureAdapter
 
             if (!ToOptionalNumber(args, 5, defaultValue1, ctx).TryPickT0(out var arg5, out var err5))
                 return err5;
-
+#pragma warning disable S2234
             return f(arg0, arg1, arg2, arg3, arg4, arg5);
+#pragma warning restore S2234                                    
         };
     }
 

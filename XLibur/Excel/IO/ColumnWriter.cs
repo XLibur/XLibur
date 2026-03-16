@@ -59,7 +59,7 @@ internal static class ColumnWriter
         if (xlWorksheet.Internals.ColumnsCollection.Count > 0)
         {
             return (xlWorksheet.Internals.ColumnsCollection.Keys.Min(),
-                    xlWorksheet.Internals.ColumnsCollection.Keys.Max());
+                xlWorksheet.Internals.ColumnsCollection.Keys.Max());
         }
 
         return (1, 0);
@@ -242,10 +242,10 @@ internal static class ColumnWriter
     private static bool ColumnsAreEqual(Column left, Column right)
     {
         return NullableValuesEqual(left.Style, right.Style)
-            && NullableDoublesEqual(left.Width, right.Width)
-            && NullableValuesEqual(left.Hidden, right.Hidden)
-            && NullableValuesEqual(left.Collapsed, right.Collapsed)
-            && NullableValuesEqual(left.OutlineLevel, right.OutlineLevel);
+               && NullableDoublesEqual(left.Width, right.Width)
+               && NullableValuesEqual(left.Hidden, right.Hidden)
+               && NullableValuesEqual(left.Collapsed, right.Collapsed)
+               && NullableValuesEqual(left.OutlineLevel, right.OutlineLevel);
     }
 
     private static bool NullableValuesEqual<T>(OpenXmlSimpleValue<T>? left, OpenXmlSimpleValue<T>? right)

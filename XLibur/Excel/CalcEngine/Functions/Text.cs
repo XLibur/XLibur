@@ -1,21 +1,20 @@
-using ExcelNumberFormat;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
-using XLibur.Excel.CalcEngine.Functions;
+using ExcelNumberFormat;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
 
 #pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility
 
-namespace XLibur.Excel.CalcEngine;
+namespace XLibur.Excel.CalcEngine.Functions;
 
 internal static class Text
 {
     /// <summary>
     /// Characters 0x80 to 0xFF of win-1252 encoding. Core doesn't include win-1252 encoding,
-    /// so keep conversion table in this string.
+    /// so keep the conversion table in this string.
     /// </summary>
     private const string Windows1252 =
         "\u20AC\u0081\u201A\u0192\u201E\u2026\u2020\u2021\u02C6\u2030\u0160\u2039\u0152\u008D\u017D\u008F" +
@@ -37,34 +36,57 @@ internal static class Text
 
     public static void Register(FunctionRegistry ce)
     {
-        ce.RegisterFunction("ASC", 1, 1, Adapt(Asc), FunctionFlags.Scalar); // Changes full-width (double-byte) English letters or katakana within a character string to half-width (single-byte) characters
+        ce.RegisterFunction("ASC", 1, 1, Adapt(Asc),
+            FunctionFlags
+                .Scalar); // Changes full-width (double-byte) English letters or katakana within a character string to half-width (single-byte) characters
         //ce.RegisterFunction("BAHTTEXT	Converts a number to text, using the ß (baht) currency format
-        ce.RegisterFunction("CHAR", 1, 1, Adapt(Char), FunctionFlags.Scalar); // Returns the character specified by the code number
-        ce.RegisterFunction("CLEAN", 1, 1, Adapt(Clean), FunctionFlags.Scalar); //	Removes all nonprintable characters from text
-        ce.RegisterFunction("CODE", 1, 1, Adapt(Code), FunctionFlags.Scalar); // Returns a numeric code for the first character in a text string
-        ce.RegisterFunction("CONCAT", 1, 255, Adapt(Concat), FunctionFlags.Future | FunctionFlags.Range, AllowRange.All); // Joins several text items into one text item
-        ce.RegisterFunction("CONCATENATE", 1, 255, Adapt(Concatenate), FunctionFlags.Scalar); //	Joins several text items into one text item
-        ce.RegisterFunction("DOLLAR", 1, 2, AdaptLastOptional(Dollar, 2), FunctionFlags.Scalar); // Converts a number to text, using the $ (dollar) currency format
-        ce.RegisterFunction("EXACT", 2, 2, Adapt(Exact), FunctionFlags.Scalar); // Checks to see if two text values are identical
-        ce.RegisterFunction("FIND", 2, 3, AdaptLastOptional(Find), FunctionFlags.Scalar); //Finds one text value within another (case-sensitive)
-        ce.RegisterFunction("FIXED", 1, 3, AdaptLastTwoOptional(Fixed, 2, false), FunctionFlags.Scalar); // Formats a number as text with a fixed number of decimals
+        ce.RegisterFunction("CHAR", 1, 1, Adapt(Char),
+            FunctionFlags.Scalar); // Returns the character specified by the code number
+        ce.RegisterFunction("CLEAN", 1, 1, Adapt(Clean),
+            FunctionFlags.Scalar); //	Removes all nonprintable characters from text
+        ce.RegisterFunction("CODE", 1, 1, Adapt(Code),
+            FunctionFlags.Scalar); // Returns a numeric code for the first character in a text string
+        ce.RegisterFunction("CONCAT", 1, 255, Adapt(Concat), FunctionFlags.Future | FunctionFlags.Range,
+            AllowRange.All); // Joins several text items into one text item
+        ce.RegisterFunction("CONCATENATE", 1, 255, Adapt(Concatenate),
+            FunctionFlags.Scalar); //	Joins several text items into one text item
+        ce.RegisterFunction("DOLLAR", 1, 2, AdaptLastOptional(Dollar, 2),
+            FunctionFlags.Scalar); // Converts a number to text, using the $ (dollar) currency format
+        ce.RegisterFunction("EXACT", 2, 2, Adapt(Exact),
+            FunctionFlags.Scalar); // Checks to see if two text values are identical
+        ce.RegisterFunction("FIND", 2, 3, AdaptLastOptional(Find),
+            FunctionFlags.Scalar); //Finds one text value within another (case-sensitive)
+        ce.RegisterFunction("FIXED", 1, 3, AdaptLastTwoOptional(Fixed, 2, false),
+            FunctionFlags.Scalar); // Formats a number as text with a fixed number of decimals
         //ce.RegisterFunction("JIS	Changes half-width (single-byte) English letters or katakana within a character string to full-width (double-byte) characters
-        ce.RegisterFunction("LEFT", 1, 2, AdaptLastOptional(Left, 1), FunctionFlags.Scalar); // Returns the leftmost characters from a text value
+        ce.RegisterFunction("LEFT", 1, 2, AdaptLastOptional(Left, 1),
+            FunctionFlags.Scalar); // Returns the leftmost characters from a text value
         //ce.RegisterFunction("LEFTB", 1, 2, AdaptLastOptional(Leftb, 1), FunctionFlags.Scalar); // Returns the leftmost bytes from a text value
-        ce.RegisterFunction("LEN", 1, 1, Adapt(Len), FunctionFlags.Scalar); //, Returns the number of characters in a text string
+        ce.RegisterFunction("LEN", 1, 1, Adapt(Len),
+            FunctionFlags.Scalar); //, Returns the number of characters in a text string
         ce.RegisterFunction("LOWER", 1, 1, Adapt(Lower), FunctionFlags.Scalar); //	Converts text to lowercase
-        ce.RegisterFunction("MID", 3, 3, Adapt(Mid), FunctionFlags.Scalar); // Returns a specific number of characters from a text string starting at the position you specify
-        ce.RegisterFunction("NUMBERVALUE", 1, 3, AdaptNumberValue(NumberValue), FunctionFlags.Scalar | FunctionFlags.Future); // Converts a text argument to a number
+        ce.RegisterFunction("MID", 3, 3, Adapt(Mid),
+            FunctionFlags
+                .Scalar); // Returns a specific number of characters from a text string starting at the position you specify
+        ce.RegisterFunction("NUMBERVALUE", 1, 3, AdaptNumberValue(NumberValue),
+            FunctionFlags.Scalar | FunctionFlags.Future); // Converts a text argument to a number
         //ce.RegisterFunction("PHONETIC	Extracts the phonetic (furigana) characters from a text string
-        ce.RegisterFunction("PROPER", 1, 1, Adapt(Proper), FunctionFlags.Scalar); // Capitalizes the first letter in each word of a text value
+        ce.RegisterFunction("PROPER", 1, 1, Adapt(Proper),
+            FunctionFlags.Scalar); // Capitalizes the first letter in each word of a text value
         ce.RegisterFunction("REPLACE", 4, 4, Adapt(Replace), FunctionFlags.Scalar); // Replaces characters within text
         ce.RegisterFunction("REPT", 2, 2, Adapt(Rept), FunctionFlags.Scalar); // Repeats text a given number of times
-        ce.RegisterFunction("RIGHT", 1, 2, AdaptLastOptional(Right, 1), FunctionFlags.Scalar); // Returns the rightmost characters from a text value
-        ce.RegisterFunction("SEARCH", 2, 3, AdaptLastOptional(Search), FunctionFlags.Scalar); // Finds one text value within another (not case-sensitive)
-        ce.RegisterFunction("SUBSTITUTE", 3, 4, AdaptSubstitute(Substitute), FunctionFlags.Scalar); // Substitutes new text for old text in a text string
-        ce.RegisterFunction("T", 1, 1, Adapt(T), FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Converts its arguments to text
-        ce.RegisterFunction("TEXT", 2, 2, Adapt(_Text), FunctionFlags.Scalar); // Formats a number and converts it to text
-        ce.RegisterFunction("TEXTJOIN", 3, 255, Adapt(TextJoin), FunctionFlags.Range | FunctionFlags.Future, AllowRange.Except, 0, 1); // Joins text via delimiter
+        ce.RegisterFunction("RIGHT", 1, 2, AdaptLastOptional(Right, 1),
+            FunctionFlags.Scalar); // Returns the rightmost characters from a text value
+        ce.RegisterFunction("SEARCH", 2, 3, AdaptLastOptional(Search),
+            FunctionFlags.Scalar); // Finds one text value within another (not case-sensitive)
+        ce.RegisterFunction("SUBSTITUTE", 3, 4, AdaptSubstitute(Substitute),
+            FunctionFlags.Scalar); // Substitutes new text for old text in a text string
+        ce.RegisterFunction("T", 1, 1, Adapt(T), FunctionFlags.Range | FunctionFlags.ReturnsArray,
+            AllowRange.All); // Converts its arguments to text
+        ce.RegisterFunction("TEXT", 2, 2, Adapt(_Text),
+            FunctionFlags.Scalar); // Formats a number and converts it to text
+        ce.RegisterFunction("TEXTJOIN", 3, 255, Adapt(TextJoin), FunctionFlags.Range | FunctionFlags.Future,
+            AllowRange.Except, 0, 1); // Joins text via delimiter
         ce.RegisterFunction("TRIM", 1, 1, Adapt(Trim), FunctionFlags.Scalar); // Removes spaces from text
         ce.RegisterFunction("UPPER", 1, 1, Adapt(Upper), FunctionFlags.Scalar); // Converts text to uppercase
         ce.RegisterFunction("VALUE", 1, 1, Adapt(Value), FunctionFlags.Scalar); // Converts a text argument to a number
@@ -72,12 +94,12 @@ internal static class Text
 
     private static ScalarValue Asc(CalcContext ctx, string text)
     {
-        // Excel version only works when authoring language is set to a specific languages (e.g Japanese).
-        // Function doesn't do anything when Excel is set to most locales (e.g. English). There is no further
+        // Excel version only works when the authoring language is set to specific languages (e.g., Japanese).
+        // Function doesn't do anything when Excel is set to most locales (e.g., English). There is no further
         // info. For practical purposes, it converts full-width characters from Halfwidth and Fullwidth Forms
-        // unicode block to half-width variants.
+        // Unicode block to half-width variants.
 
-        // Because fullwidth code points are in base multilingual plane, I just skip over surrogates.
+        // Because fullwidth code points are in the base multilingual plane, I just skip over surrogates.
         // Voiced/semi-voiced katakana map to two half-width chars (base + combining mark),
         // so the result can be longer than the input.
         var sb = new StringBuilder(text.Length);
@@ -237,7 +259,7 @@ internal static class Text
 
     private static ScalarValue Clean(CalcContext ctx, string text)
     {
-        // Although standard says it removes only 0..1F, real one removes other characters as
+        // Although the standard says it removes only 0..1F, the real one removes other characters as
         // well. Based on `LEN(CLEAN(UNICHAR(A1))) = 0`, it removes 1-1F and 0x80-0x9F. ODF
         // says to remove Cc and Cn, but Excel doesn't seem to remove Cn.
         var result = new StringBuilder(text.Length);
@@ -435,7 +457,8 @@ internal static class Text
         return sb.ToString();
     }
 
-    private static ScalarValue Replace(CalcContext ctx, string oldText, double startPos, double numChars, string replacement)
+    private static ScalarValue Replace(CalcContext ctx, string oldText, double startPos, double numChars,
+        string replacement)
     {
         if (startPos is < 1 or >= XLHelper.CellTextLimit + 1)
             return XLError.IncompatibleValue;
@@ -521,7 +544,8 @@ internal static class Text
         return firstIdx + startIndex + 1;
     }
 
-    private static ScalarValue Substitute(CalcContext ctx, string text, string oldText, string newText, double? occurrenceOrMissing)
+    private static ScalarValue Substitute(CalcContext ctx, string text, string oldText, string newText,
+        double? occurrenceOrMissing)
     {
         // Replace is case sensitive
         if (occurrenceOrMissing is < 1 or >= 2147483647)
@@ -638,7 +662,8 @@ internal static class Text
         return sb.ToString();
     }
 
-    private static ScalarValue TextJoinAppend(CalcContext ctx, string delimiter, bool ignoreEmpty, AnyValue textValue, StringBuilder sb, ref bool first)
+    private static ScalarValue TextJoinAppend(CalcContext ctx, string delimiter, bool ignoreEmpty, AnyValue textValue,
+        StringBuilder sb, ref bool first)
     {
         var textElements = ignoreEmpty
             ? ctx.GetNonBlankValues(textValue)
@@ -717,7 +742,7 @@ internal static class Text
         if (double.TryParse(textWithoutPercent, NumberStyles.Any, ctx.Culture, out var parsedNumber))
             return isPercent ? parsedNumber / 100d : parsedNumber;
 
-        // fraction not parsed, maybe in the future
+        // fraction isn't parsed, maybe in the future
         // No idea how Date/Time parsing works, good enough for initial approach
         var dateTimeFormats = new[]
         {
@@ -780,7 +805,8 @@ internal static class Text
             percentCount++;
         }
 
-        if (!double.TryParse(textSpan.ToString(), NumberStyles.Float | NumberStyles.AllowParentheses, CultureInfo.InvariantCulture, out var number))
+        if (!double.TryParse(textSpan.ToString(), NumberStyles.Float | NumberStyles.AllowParentheses,
+                CultureInfo.InvariantCulture, out var number))
             return XLError.IncompatibleValue;
 
         return ValidateNumberValue(number, percentCount);

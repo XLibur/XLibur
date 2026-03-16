@@ -137,8 +137,7 @@ public partial class XLWorkbook
         if (normalStyle != null)
         {
             var normalStyleKey = ((XLStyle)Style).Key;
-            WorksheetSheetDataReader.LoadStyle(ref normalStyleKey, (int)normalStyle.FormatId!.Value,
-                s!, context.Styles.Fills!, context.Styles.Borders!, context.Styles.Fonts!, numberingFormats);
+            WorksheetSheetDataReader.LoadStyle(ref normalStyleKey, (int)normalStyle.FormatId!.Value, context.Styles);
             Style = new XLStyle(null!, normalStyleKey);
             ColumnWidth = CalculateColumnWidth(8, Style.Font, this);
         }
@@ -293,7 +292,7 @@ public partial class XLWorkbook
                 continue;
             }
 
-            WorksheetSheetDataReader.ApplyStyle(ws, 0, styles.Stylesheet!, styles.Fills!, styles.Borders!, styles.Fonts!, styles.NumberingFormats);
+            WorksheetSheetDataReader.ApplyStyle(ws, 0, styles);
 
             LoadWorksheetElements(worksheetPart, ws, sharedStrings, context);
 
@@ -339,8 +338,8 @@ public partial class XLWorkbook
 
             if (reader.ElementType == typeof(Row))
             {
-                WorksheetSheetDataReader.LoadRow(styles.Stylesheet!, styles.NumberingFormats, styles.Fills!, styles.Borders!, styles.Fonts!,
-                    ws, sharedStrings, sharedFormulasR1C1, styleList, reader, ref lastRow, ref lastColumnNumber, Use1904DateSystem);
+                WorksheetSheetDataReader.LoadRow(styles, ws, sharedStrings, sharedFormulasR1C1, styleList,
+                    reader, ref lastRow, ref lastColumnNumber, Use1904DateSystem);
                 continue;
             }
 
@@ -387,8 +386,7 @@ public partial class XLWorkbook
         else if (elementType == typeof(SheetViews))
             WorksheetElementReader.LoadSheetViews((SheetViews)reader.LoadCurrentElement()!, ws);
         else if (elementType == typeof(Columns))
-            WorksheetSheetDataReader.LoadColumns(styles.Stylesheet!, styles.NumberingFormats, styles.Fills!, styles.Borders!, styles.Fonts!, ws,
-                (Columns)reader.LoadCurrentElement()!);
+            WorksheetSheetDataReader.LoadColumns(styles, ws, (Columns)reader.LoadCurrentElement()!);
         else if (elementType == typeof(AutoFilter))
             WorksheetElementReader.LoadAutoFilter((AutoFilter)reader.LoadCurrentElement()!, ws, styles.DifferentialFormats);
         else if (elementType == typeof(SheetProtection))

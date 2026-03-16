@@ -1,6 +1,5 @@
 using XLibur.Extensions;
 using XLibur.Excel.CalcEngine.Visitors;
-using ClosedXML.Parser;
 using XLibur.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -25,8 +24,7 @@ internal static class WorksheetSheetDataReader
         "yyyy-MM-ddTHH:mm", "yyyy-MM-dd" // Formats accepted by Excel.
     ];
 
-    internal static void LoadRow(Stylesheet s, NumberingFormats? numberingFormats, Fills fills, Borders borders,
-        Fonts fonts, XLWorksheet ws, SharedStringEntry[]? sharedStrings,
+    internal static void LoadRow(StylesheetData styles, XLWorksheet ws, SharedStringEntry[]? sharedStrings,
         Dictionary<uint, string> sharedFormulasR1C1, Dictionary<int, XLStyleValue> styleList,
         OpenXmlPartReader reader, ref int lastRow, ref int lastColumnNumber, bool use1904DateSystem)
     {
@@ -45,12 +43,12 @@ internal static class WorksheetSheetDataReader
         var customFormat = attributes.GetBoolAttribute("customFormat", false);
 
         var hasCustomProps = height is not null || dyDescent is not null || hidden || collapsed
-            || (outlineLevel is not null && outlineLevel.Value > 0) || showPhonetic || customFormat;
+                             || outlineLevel > 0 || showPhonetic || customFormat;
 
         if (hasCustomProps)
         {
             ApplyRowCustomProps(attributes, ws, rowIndex, height, dyDescent, hidden, collapsed, outlineLevel,
-                showPhonetic, customFormat, s, fills, borders, fonts, numberingFormats);
+                showPhonetic, customFormat, styles);
         }
 
         lastColumnNumber = 0;
@@ -60,10 +58,10 @@ internal static class WorksheetSheetDataReader
 
         while (reader.IsStartElement("c"))
         {
-            LoadCell(sharedStrings, s, numberingFormats, fills, borders, fonts, sharedFormulasR1C1, ws, styleList,
+            LoadCell(sharedStrings, styles, sharedFormulasR1C1, ws, styleList,
                 reader, rowIndex, ref lastColumnNumber, use1904DateSystem);
 
-            // Move from end element of 'cell' either to next cell, extList start or end of row.
+            // Move from an end element of 'cell' either to next cell, extList start or end of row.
             reader.MoveAhead();
         }
 
@@ -72,12 +70,12 @@ internal static class WorksheetSheetDataReader
             reader.Skip();
     }
 
-    internal static void LoadCell(SharedStringEntry[]? sharedStrings, Stylesheet s, NumberingFormats? numberingFormats,
-        Fills fills, Borders borders, Fonts fonts, Dictionary<uint, string> sharedFormulasR1C1,
+    private static void LoadCell(SharedStringEntry[]? sharedStrings, StylesheetData styles,
+        Dictionary<uint, string> sharedFormulasR1C1,
         XLWorksheet ws, Dictionary<int, XLStyleValue> styleList, OpenXmlPartReader reader, int rowIndex,
         ref int lastColumnNumber, bool use1904DateSystem)
     {
-        Debug.Assert(reader.LocalName == "c" && reader.IsStartElement);
+        Debug.Assert(reader is { LocalName: "c", IsStartElement: true });
 
         var attributes = reader.Attributes;
 
@@ -107,7 +105,7 @@ internal static class WorksheetSheetDataReader
         // per-row Lut allocation in the style slice for large data sheets.
         if (!styleList.TryGetValue(styleIndex, out var cellStyleValue))
         {
-            cellStyleValue = ResolveStyleValue(styleIndex, s, fills, borders, fonts, numberingFormats);
+            cellStyleValue = ResolveStyleValue(styleIndex, styles);
             styleList[styleIndex] = cellStyleValue;
         }
 
@@ -169,7 +167,7 @@ internal static class WorksheetSheetDataReader
             EnsureStyleForBlankCell(cellsCollection, cellAddress, cellStyleValue);
     }
 
-    internal static XLCellFormula? SetCellFormula(XLWorksheet ws, XLSheetPoint cellAddress, OpenXmlPartReader reader,
+    private static XLCellFormula? SetCellFormula(XLWorksheet ws, XLSheetPoint cellAddress, OpenXmlPartReader reader,
         Dictionary<uint, string> sharedFormulasR1C1)
     {
         var attributes = reader.Attributes;
@@ -188,8 +186,8 @@ internal static class WorksheetSheetDataReader
             _ => throw new NotSupportedException("Unknown formula type.")
         };
 
-        // Always set shareString flag to `false`, because the text result of
-        // formula is stored directly in the sheet, not shared string table.
+        // Always set the shareString flag to `false`, because the text result of
+        // the formula is stored directly in the sheet, not the shared string table.
         XLCellFormula? formula = null;
         if (formulaType == CellFormulaValues.Normal)
         {
@@ -200,12 +198,12 @@ internal static class WorksheetSheetDataReader
         else if (formulaType == CellFormulaValues.Array &&
                  attributes.GetRefAttribute("ref") is
                  {
-                 } arrayArea) // Child cells of an array may have array type, but not ref, that is reserved for master cell
+                 } arrayArea) // Child cells of an array may have an array type, but not ref, that is reserved for the master cell
         {
             var aca = attributes.GetBoolAttribute("aca", false);
 
             // Because cells are read from top-to-bottom, from left-to-right, none of child cells have
-            // a formula yet. Also, Excel doesn't allow change of array data, only through parent formula.
+            // a formula yet. Also, Excel doesn't allow change of array data, only through the parent formula.
             formula = XLCellFormula.Array(formulaText, arrayArea, aca);
             formulaSlice.SetArray(arrayArea, formula);
 
@@ -290,8 +288,7 @@ internal static class WorksheetSheetDataReader
         LoadPhonetics(xlCell, element);
     }
 
-    internal static void LoadColumns(Stylesheet s, NumberingFormats? numberingFormats, Fills fills, Borders borders,
-        Fonts fonts, XLWorksheet ws, Columns columns)
+    internal static void LoadColumns(StylesheetData styles, XLWorksheet ws, Columns columns)
     {
         if (columns == null) return;
 
@@ -305,21 +302,20 @@ internal static class WorksheetSheetDataReader
             ? int.Parse(wsDefaultColumn.Style!.InnerText!)
             : -1;
         if (styleIndexDefault >= 0)
-            ApplyStyle(ws, styleIndexDefault, s, fills, borders, fonts, numberingFormats);
+            ApplyStyle(ws, styleIndexDefault, styles);
 
         foreach (var col in columns.Elements<Column>())
         {
             if (col.Max?.Value == XLHelper.MaxColumnNumber) continue;
 
-            LoadColumn(col, ws, s, fills, borders, fonts, numberingFormats);
+            LoadColumn(col, ws, styles);
         }
     }
 
-    internal static void ApplyStyle(IXLStylized xlStylized, int styleIndex, Stylesheet s, Fills fills, Borders borders,
-        Fonts fonts, NumberingFormats? numberingFormats)
+    internal static void ApplyStyle(IXLStylized xlStylized, int styleIndex, StylesheetData styles)
     {
         var xlStyleKey = XLStyle.Default.Key;
-        LoadStyle(ref xlStyleKey, styleIndex, s, fills, borders, fonts, numberingFormats);
+        LoadStyle(ref xlStyleKey, styleIndex, styles);
 
         // When loading columns we must propagate style to each column but not deeper. In other cases we do not propagate at all.
         if (xlStylized is IXLColumns columns)
@@ -336,17 +332,21 @@ internal static class WorksheetSheetDataReader
     /// Resolve a CellFormats style index to an interned <see cref="XLStyleValue"/>
     /// without creating an <see cref="XLStyle"/> wrapper or writing to any slice.
     /// </summary>
-    internal static XLStyleValue ResolveStyleValue(int styleIndex, Stylesheet s, Fills fills, Borders borders,
-        Fonts fonts, NumberingFormats? numberingFormats)
+    internal static XLStyleValue ResolveStyleValue(int styleIndex, StylesheetData styles)
     {
         var xlStyleKey = XLStyle.Default.Key;
-        LoadStyle(ref xlStyleKey, styleIndex, s, fills, borders, fonts, numberingFormats);
+        LoadStyle(ref xlStyleKey, styleIndex, styles);
         return XLStyleValue.FromKey(ref xlStyleKey);
     }
 
-    internal static void LoadStyle(ref XLStyleKey xlStyle, int styleIndex, Stylesheet s, Fills fills, Borders borders,
-        Fonts fonts, NumberingFormats? numberingFormats)
+    internal static void LoadStyle(ref XLStyleKey xlStyle, int styleIndex, StylesheetData styles)
     {
+        var s = styles.Stylesheet!;
+        var fills = styles.Fills!;
+        var borders = styles.Borders!;
+        var fonts = styles.Fonts!;
+        var numberingFormats = styles.NumberingFormats;
+
         if (s == null || s.CellFormats is null) return; //No Stylesheet, no Styles
 
         var cellFormat = (CellFormat)s.CellFormats.ElementAt(styleIndex);
@@ -469,15 +469,14 @@ internal static class WorksheetSheetDataReader
         return value != null && value.HasValue;
     }
 
-    internal static Exception MissingRequiredAttr(string attributeName)
+    private static Exception MissingRequiredAttr(string attributeName)
     {
         throw new InvalidOperationException($"XML doesn't contain required attribute '{attributeName}'.");
     }
 
     private static void ApplyRowCustomProps(ReadOnlyCollection<OpenXmlAttribute> attributes, XLWorksheet ws,
         int rowIndex, double? height, double? dyDescent, bool hidden, bool collapsed, int? outlineLevel,
-        bool showPhonetic, bool customFormat, Stylesheet s, Fills fills, Borders borders, Fonts fonts,
-        NumberingFormats? numberingFormats)
+        bool showPhonetic, bool customFormat, StylesheetData styles)
     {
         var xlRow = ws.Row(rowIndex, false);
 
@@ -512,7 +511,7 @@ internal static class WorksheetSheetDataReader
             var styleIndex = attributes.GetIntAttribute("s");
             if (styleIndex is not null)
             {
-                ApplyStyle(xlRow, styleIndex.Value, s, fills, borders, fonts, numberingFormats);
+                ApplyStyle(xlRow, styleIndex.Value, styles);
             }
             else
             {
@@ -582,8 +581,8 @@ internal static class WorksheetSheetDataReader
         XLStyleValue cellStyleValue)
     {
         var hasOtherData = cellsCollection.ValueSlice.IsUsed(cellAddress)
-            || cellsCollection.FormulaSlice.IsUsed(cellAddress)
-            || cellsCollection.MiscSlice.IsUsed(cellAddress);
+                           || cellsCollection.FormulaSlice.IsUsed(cellAddress)
+                           || cellsCollection.MiscSlice.IsUsed(cellAddress);
 
         if (!hasOtherData)
             cellsCollection.StyleSlice.Set(cellAddress.Row, cellAddress.Column, cellStyleValue);
@@ -603,7 +602,8 @@ internal static class WorksheetSheetDataReader
         }
         else
         {
-            var sharedFormulaA1 = FormulaTransformation.SafeToA1(sharedR1C1Formula, cellAddress.Row, cellAddress.Column);
+            var sharedFormulaA1 =
+                FormulaTransformation.SafeToA1(sharedR1C1Formula, cellAddress.Row, cellAddress.Column);
             formula = XLCellFormula.NormalA1(sharedFormulaA1);
             formulaSlice.Set(cellAddress, formula);
         }
@@ -728,8 +728,7 @@ internal static class WorksheetSheetDataReader
         }
     }
 
-    private static void LoadColumn(Column col, XLWorksheet ws, Stylesheet s, Fills fills, Borders borders,
-        Fonts fonts, NumberingFormats? numberingFormats)
+    private static void LoadColumn(Column col, XLWorksheet ws, StylesheetData styles)
     {
         var xlColumns = (XLColumns)ws.Columns((int)col.Min!.Value, (int)col.Max!.Value);
         if (col.Width != null)
@@ -755,7 +754,7 @@ internal static class WorksheetSheetDataReader
         var styleIndex = col.Style != null ? int.Parse(col.Style!.InnerText!) : -1;
         if (styleIndex >= 0)
         {
-            ApplyStyle(xlColumns, styleIndex, s, fills, borders, fonts, numberingFormats);
+            ApplyStyle(xlColumns, styleIndex, styles);
         }
         else
         {

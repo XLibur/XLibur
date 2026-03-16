@@ -3,18 +3,18 @@ using System;
 namespace XLibur.Excel.CalcEngine.Functions;
 
 /// <summary>
-/// An extension methods
+/// Extension methods
 /// </summary>
 internal static class ArgumentsExtensions
 {
     /// <summary>
-    /// Aggregate all values in the arguments of a function into a single value. If any value is error, return the error.
+    /// Aggregate all values in the arguments of a function into a single value. If any value is an error, return the error.
     /// </summary>
     /// <remarks>
     /// A lot of functions take all argument values and aggregate the values to a different value.
     /// These aggregation functions apply aggregation on each argument and if the argument is
     /// a collection (array/reference), the aggregation function is also applied to each element of
-    /// the array/reference (e.g. <c>SUM({1, 2}, 3)</c> applies sum on each element of an array
+    /// the array/reference (e.g. <c>SUM({1, 2}, 3)</c> applies a sum on each element of an array
     /// <c>{1,2}</c> and thus result is <c>1+2+3</c>).
     /// </remarks>
     /// <typeparam name="TValue">Type of the value that is being aggregated.</typeparam>
@@ -24,24 +24,24 @@ internal static class ArgumentsExtensions
     /// Initial value of the accumulator. It is used as an input into the first call of <paramref name="aggregate"/>.
     /// </param>
     /// <param name="noElementsResult">
-    /// What should be the result of aggregation, if there are no elements. Common choices are
+    /// What should be the result of aggregation if there are no elements. Common choices are
     /// <see cref="XLError.IncompatibleValue"/> or the <paramref name="initialValue"/>.
     /// </param>
     /// <param name="aggregate">
     /// The aggregation function. First parameter is the accumulator, second parameter is the value of
-    /// current element taken from <paramref name="convert"/>. Make sure the method is static lambda to
+    /// the current element taken from <paramref name="convert"/>. Make sure the method is a static lambda to
     /// avoid useless allocations.
     /// </param>
     /// <param name="convert">
     /// A function that converts a scalar value of an element into the <typeparamref name="TValue"/> or
-    /// an error if it can't be converted. Make sure the method is static lambda to avoid useless allocations.
+    /// an error if it can't be converted. Make sure the method is a static lambda to avoid useless allocations.
     /// </param>
     /// <param name="collectionFilter">
-    /// Some functions skip elements in a array/reference that would be accepted as an argument,
+    /// Some functions skip elements in an array/reference that would be accepted as an argument,
     /// e.g. <c>SUM("1", {2,"4"})</c> is <c>3</c> - it converts string <c>"3"</c> to a number <c>3</c>
     /// in for root arguments, but omits element <c>"4"</c> in the array. This is a function that
-    /// determines which elements to include and which to skip. If null, all elements of array are included and
-    /// all values are treated same. Make sure the method is static lambda to avoid useless allocations.
+    /// determines which elements to include and which to skip. If null, all elements of an array are included and
+    /// all values are treated the same. Make sure the method is a static lambda to avoid useless allocations.
     /// </param>
     public static OneOf<TValue, XLError> Aggregate<TValue>(
         this Span<AnyValue> args,
@@ -74,7 +74,7 @@ internal static class ArgumentsExtensions
 
         return hasElement ? result : noElementsResult;
     }
-
+#pragma warning disable S107
     private static bool TryAggregateCollection<TValue>(
         OneOf<Array, Reference> collection,
         CalcContext ctx,
@@ -84,6 +84,7 @@ internal static class ArgumentsExtensions
         ref TValue accumulator,
         out bool hadElement,
         out XLError error)
+#pragma warning restore S107
     {
         hadElement = false;
         var valuesIterator = collection.TryPickT0(out var array, out var reference)
