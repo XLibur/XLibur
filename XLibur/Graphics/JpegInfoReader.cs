@@ -105,6 +105,9 @@ internal sealed class JpegInfoReader : ImageInfoReader
         if (!stream.TryReadU16BE(out length))
             return false;
 
+        if (length < 2)
+            return false;
+
         length -= 2;
         return true;
     }

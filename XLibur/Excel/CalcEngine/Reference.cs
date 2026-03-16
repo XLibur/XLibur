@@ -23,6 +23,8 @@ namespace XLibur.Excel.CalcEngine
         /// </summary>
         public Reference(List<XLRangeAddress> areas)
         {
+            ArgumentNullException.ThrowIfNull(areas);
+
             if (areas.Count < 1)
                 throw new ArgumentException("Reference must contain at least one area.", nameof(areas));
 
@@ -31,6 +33,8 @@ namespace XLibur.Excel.CalcEngine
 
         public Reference(IXLRanges ranges)
         {
+            ArgumentNullException.ThrowIfNull(ranges);
+
             if (ranges.Count < 1)
                 throw new ArgumentException("Reference must contain at least one range.", nameof(ranges));
 

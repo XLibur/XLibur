@@ -372,6 +372,8 @@ internal sealed class SlicedArray : Array
     /// <param name="cols">The number of columns in the sliced array.</param>
     public SlicedArray(Array original, int rowOfs, int rows, int colOfs, int cols)
     {
+        ArgumentNullException.ThrowIfNull(original);
+
         if (rowOfs < 0 || rows < 1 || colOfs < 0 || cols < 1 ||
             rowOfs + rows > original.Height ||
             colOfs + cols > original.Width)
