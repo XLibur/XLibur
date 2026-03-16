@@ -113,7 +113,7 @@ public class TextToNumberCoercionTests
         if (expectedValue is not null)
         {
             var date = DateTime.FromOADate(expectedValue.Value);
-            expectedValue = new DateTime(DateTime.Now.Year, date.Month, date.Day).ToOADate();
+            expectedValue = new DateTime(DateTime.Now.Year, date.Month, date.Day, 0, 0, 0, DateTimeKind.Unspecified).ToOADate();
         }
 
         AssertCoercion(text, expectedValue);
@@ -124,7 +124,7 @@ public class TextToNumberCoercionTests
     [TestCase("3-led", 36528)] // Serial datetime is for 03-01-2000
     public void Date_Format16_UsesCulture(string text, double? expectedValue) // Format 16 'd-mmm'
     {
-        expectedValue += new DateTime(DateTime.Now.Year, 1, 1).ToOADate() - new DateTime(2000, 1, 1).ToOADate();
+        expectedValue += new DateTime(DateTime.Now.Year, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).ToOADate() - new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).ToOADate();
         AssertCoercion(text, expectedValue);
     }
 

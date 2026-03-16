@@ -34,7 +34,7 @@ public class Top10FilterTests
     {
         // Sort and then use cutoff value, it's 4 here and then take all values >= cutoff.
         new AutoFilterTester(f => f.Top(1))
-            .AddTrue(new DateTime(1900, 2, 10))
+            .AddTrue(new DateTime(1900, 2, 10, 0, 0, 0, DateTimeKind.Unspecified))
             .AddFalse(11, 10)
             .AddFalse("-1000", "Text", Blank.Value, true, false, XLError.IncompatibleValue)
             .AssertVisibility();
@@ -44,7 +44,7 @@ public class Top10FilterTests
     public void Bottom_items_filter_excludes_non_unified_numbers()
     {
         new AutoFilterTester(f => f.Bottom(1))
-            .AddTrue(new DateTime(1900, 1, 1))
+            .AddTrue(new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Unspecified))
             .AddFalse(2, 3)
             .AddFalse("-1000", "Text", Blank.Value, true, false, XLError.IncompatibleValue)
             .AssertVisibility();

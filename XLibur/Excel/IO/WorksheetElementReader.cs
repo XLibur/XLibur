@@ -471,7 +471,7 @@ internal static class WorksheetElementReader
 
         if (valid)
         {
-            var date = new DateTime(year, month, day, hour, minute, second);
+            var date = new DateTime(year, month, day, hour, minute, second, DateTimeKind.Unspecified);
             var xlDateGroupFilter = XLFilter.CreateDateGroupFilter(date, xlGrouping);
             xlFilterColumn.AddFilter(xlDateGroupFilter);
         }

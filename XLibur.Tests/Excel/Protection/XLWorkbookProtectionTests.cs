@@ -94,7 +94,7 @@ public class XLWorkbookProtectionTests
         using var stream = GetProtectedWorkbookStreamWithoutPassword();
         using var wb = new XLWorkbook(stream);
         var ex = Assert.Throws<ArgumentException>(() => wb.Unprotect("dummy password"));
-        Assert.AreEqual("Invalid password", ex.Message);
+        Assert.AreEqual("Invalid password", ex!.Message);
     }
 
     [Test]
@@ -103,7 +103,7 @@ public class XLWorkbookProtectionTests
         using var stream = GetProtectedWorkbookStreamWithPassword();
         using var wb = new XLWorkbook(stream);
         var ex = Assert.Throws<InvalidOperationException>(() => wb.Unprotect());
-        Assert.AreEqual("The workbook structure is password protected", ex.Message);
+        Assert.AreEqual("The workbook structure is password protected", ex!.Message);
     }
 
     [Test]
@@ -140,7 +140,7 @@ public class XLWorkbookProtectionTests
             Assert.IsFalse(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Windows));
 
             var ex = Assert.Throws<ArgumentException>(() => wb.Unprotect("dummy password"));
-            Assert.AreEqual("Invalid password", ex.Message);
+            Assert.AreEqual("Invalid password", ex!.Message);
 
             wb.Protection.Unprotect("12345");
 
@@ -226,9 +226,9 @@ public class XLWorkbookProtectionTests
     public void IXLProtectableTests()
     {
         using var wb = new XLWorkbook();
-        Enumerable.Range(1, 5).ForEach(i => wb.AddWorksheet());
+        Enumerable.Range(1, 5).ForEach(_ => wb.AddWorksheet());
 
-        var list = new List<IXLProtectable>() { wb };
+        var list = new List<IXLProtectable> { wb };
         list.AddRange(wb.Worksheets);
 
         list.ForEach(el => el.Protect());
@@ -300,7 +300,7 @@ public class XLWorkbookProtectionTests
         Assert.AreEqual(wb1.Protection.PasswordHash, wb2.Protection.PasswordHash);
     }
 
-    private Stream GetProtectedWorkbookStreamWithoutPassword() => TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Protection\protectstructurewithoutpassword.xlsx"));
+    private static Stream GetProtectedWorkbookStreamWithoutPassword() => TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Protection\protectstructurewithoutpassword.xlsx"));
 
-    private Stream GetProtectedWorkbookStreamWithPassword() => TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Protection\protectstructurewithpassword.xlsx"));
+    private static Stream GetProtectedWorkbookStreamWithPassword() => TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Protection\protectstructurewithpassword.xlsx"));
 }

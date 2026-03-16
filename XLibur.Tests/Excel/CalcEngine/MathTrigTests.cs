@@ -2397,7 +2397,7 @@ public class MathTrigTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.Cell("A1").Value = 1;
-        ws.Cell("A2").Value = new DateTime(2018, 1, 1);
+        ws.Cell("A2").Value = new DateTime(2018, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
         Assert.AreEqual(43102, ws.Evaluate("SUM(A1:A2)"));
 
         ws.Cell("A1").Value = 2;

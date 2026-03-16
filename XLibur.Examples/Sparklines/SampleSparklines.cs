@@ -89,7 +89,7 @@ public class SampleSparklines : IXLExample
         ws.Column(2).Width = 30;
 
         ws.Range("C1:P1").Cells()
-            .ForEach(c => c.Value = new DateTime(2016, 1, 1).AddDays(c.Address.ColumnNumber * 7));
+            .ForEach(c => c.Value = new DateTime(2016, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(c.Address.ColumnNumber * 7));
 
         ws.Range("C2:P19").Cells()
             .ForEach(c => c.Value = Math.Round(c.Address.RowNumber * Math.Sin(c.Address.ColumnNumber) * 10, 0));

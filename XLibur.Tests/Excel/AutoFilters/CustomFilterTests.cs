@@ -217,7 +217,7 @@ public class CustomFilterTests
         // Add equivalent of 1 and other types
         return new AutoFilterTester(filter)
             .Add(1, true)
-            .Add(new DateTime(1900, 1, 1), true) // =1 in serial date time
+            .Add(new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), true) // =1 in serial date time
             .Add(new TimeSpan(1, 0, 0, 0), true) // =1 in serial date time
             .Add("1", false)
             .Add(Blank.Value, false)

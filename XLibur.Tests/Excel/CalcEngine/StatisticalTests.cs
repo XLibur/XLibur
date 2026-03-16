@@ -1328,7 +1328,7 @@ public class StatisticalTests
             .InsertTable(data, "Table1");
 
         var ws2 = wb.AddWorksheet("MixedData");
-        ws2.FirstCell().InsertData(new object[] { 1, 2.0, "3", 3, new DateTime(2020, 1, 1), true, new TimeSpan(10, 5, 30, 10) });
+        ws2.FirstCell().InsertData(new object[] { 1, 2.0, "3", 3, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), true, new TimeSpan(10, 5, 30, 10) });
 
         return wb;
     }

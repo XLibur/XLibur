@@ -24,7 +24,7 @@ public class DataValidation : IXLExample
 
         // Date after the millennium
         var dv2 = ws.Cell("A4").CreateDataValidation();
-        dv2.Date.EqualOrGreaterThan(new DateTime(2000, 1, 1));
+        dv2.Date.EqualOrGreaterThan(new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Unspecified));
         // Change the input message
         dv2.InputTitle = "Can't party like it's 1999.";
         dv2.InputMessage = "Please enter a date in this century.";

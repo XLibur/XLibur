@@ -23,18 +23,18 @@ public class AddingComments : IXLExample
         wb.SaveAs(filePath);
     }
 
-    private void AddWeb(XLWorkbook wb)
+    private static void AddWeb(XLWorkbook wb)
     {
         var ws = wb.Worksheets.Add("Web");
         ws.Cell("A1").GetComment().Style.Web.AlternateText = "The alternate text in case you need it.";
     }
 
-    private void AddSize(XLWorkbook wb)
+    private static void AddSize(XLWorkbook wb)
     {
         var ws = wb.Worksheets.Add("Size");
 
         // Automatic size is a copy of the property comment.Style.Alignment.AutomaticSize
-        // I created the duplicate because it makes more sense for it to be in Size
+        // I created the duplicate because it makes more sense for it to be in Size,
         // but Excel has it under the Alignment tab.
         ws.Cell("A2").GetComment().AddText("Things are very tight around here.");
         ws.Cell("A2").GetComment().Style.Size.SetAutomaticSize();
@@ -48,7 +48,7 @@ public class AddingComments : IXLExample
         ws.CellsUsed(XLCellsUsedOptions.All, c => c.HasComment).ForEach(c => c.GetComment().SetVisible());
     }
 
-    private void AddProtection(XLWorkbook wb)
+    private static void AddProtection(XLWorkbook wb)
     {
         var ws = wb.Worksheets.Add("Protection");
 
@@ -57,7 +57,7 @@ public class AddingComments : IXLExample
             .Protection.SetLockText(false);
     }
 
-    private void AddProperties(XLWorkbook wb)
+    private static void AddProperties(XLWorkbook wb)
     {
         var ws = wb.Worksheets.Add("Properties");
 
@@ -66,7 +66,7 @@ public class AddingComments : IXLExample
         ws.Cell("A3").GetComment().Style.Properties.Positioning = XLDrawingAnchor.MoveWithCells;
     }
 
-    private void AddMargins(XLWorkbook wb)
+    private static void AddMargins(XLWorkbook wb)
     {
         var ws = wb.Worksheets.Add("Margins");
 
@@ -81,7 +81,7 @@ public class AddingComments : IXLExample
             .Size.SetAutomaticSize();
     }
 
-    private void AddColorsAndLines(XLWorkbook wb)
+    private static void AddColorsAndLines(XLWorkbook wb)
     {
         var ws = wb.Worksheets.Add("Colors and Lines");
 
@@ -102,7 +102,7 @@ public class AddingComments : IXLExample
         ws.CellsUsed(XLCellsUsedOptions.All, c => c.HasComment).ForEach(c => c.GetComment().SetVisible());
     }
 
-    private void AddStyleAlignment(XLWorkbook wb)
+    private static void AddStyleAlignment(XLWorkbook wb)
     {
         var ws = wb.Worksheets.Add("Alignment");
 
@@ -213,14 +213,15 @@ public class AddingComments : IXLExample
         ws.Cell("A9").GetComment().SetAuthor("MDeLeon").AddSignature().AddText("Something");
         ws.Cell("A9").GetComment().SetBold().SetFontColor(XLColor.DarkBlue);
 
-        ws.CellsUsed(XLCellsUsedOptions.All, c => !c.Address.ToStringRelative().Equals("A1") && c.HasComment).ForEach(c => c.GetComment().SetVisible());
+        ws.CellsUsed(XLCellsUsedOptions.All, c => !c.Address.ToStringRelative().Equals("A1") && c.HasComment)
+            .ForEach(c => c.GetComment().SetVisible());
     }
 
     private static void AddVisibilityComments(XLWorkbook wb)
     {
         var ws = wb.Worksheets.Add("Visibility");
 
-        // By default comments are hidden
+        // By default, comments are hidden
         ws.Cell("A1").SetValue("I have a hidden comment").GetComment().AddText("Hidden");
 
         // Set the comment as visible
@@ -230,18 +231,13 @@ public class AddingComments : IXLExample
         // here we're explicit about the ZOrder
         ws.Cell("A3").GetComment().SetZOrder(5).SetVisible().AddText("On Top");
 
-        // We want this comment to appear underneath the one for A3
-        // so we set the ZOrder to something lower
+        // We want this comment to appear underneath the one for `A3` so we set the ZOrder to something lower
         ws.Cell("A4").GetComment().SetZOrder(4).SetVisible().AddText("Underneath");
         ws.Cell("A4").GetComment().Style.Alignment.SetVertical(XLDrawingVerticalAlignment.Bottom);
-
-        // Alternatively you could set all comments to visible with the following line:
-        // ws.CellsUsed(true, c => c.HasComment).ForEach(c => c.Comment.SetVisible());
-
         ws.Columns().AdjustToContents();
     }
 
-    private void AddPosition(XLWorkbook wb)
+    private static void AddPosition(XLWorkbook wb)
     {
         var ws = wb.Worksheets.Add("Position");
 
@@ -258,13 +254,11 @@ public class AddingComments : IXLExample
         ws.CellsUsed(XLCellsUsedOptions.All, c => c.HasComment).ForEach(c => c.GetComment().SetVisible());
     }
 
-    private void AddSignatures(XLWorkbook wb)
+    private static void AddSignatures(XLWorkbook wb)
     {
         var ws = wb.Worksheets.Add("Signatures");
 
-        // By default the signature will be with the logged user
-        // ws.Cell("A2").Comment.AddSignature().AddText("Hello World!");
-
+        // By default, the signature will be with the logged user
         // You can override this by specifying the comment's author:
         ws.Cell("A2").GetComment()
             .SetAuthor("MDeLeon")

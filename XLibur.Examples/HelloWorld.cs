@@ -2,7 +2,7 @@ using XLibur.Excel;
 
 namespace XLibur.Examples;
 
-public class HelloWorld
+public static class HelloWorld
 {
     public static void Create(string filePath)
     {

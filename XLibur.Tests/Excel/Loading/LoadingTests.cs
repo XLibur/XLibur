@@ -147,7 +147,7 @@ public class LoadingTests
             var ws = wb.Worksheets.First();
             var c = ws.Cell("A2");
             Assert.AreEqual(XLDataType.DateTime, c.DataType);
-            Assert.AreEqual(new DateTime(2017, 10, 27, 21, 0, 0), c.GetDateTime());
+            Assert.AreEqual(new DateTime(2017, 10, 27, 21, 0, 0, DateTimeKind.Unspecified), c.GetDateTime());
             wb.SaveAs(ms);
         }
 
@@ -158,7 +158,7 @@ public class LoadingTests
             var ws = wb.Worksheets.First();
             var c = ws.Cell("A2");
             Assert.AreEqual(XLDataType.DateTime, c.DataType);
-            Assert.AreEqual(new DateTime(2017, 10, 27, 21, 0, 0), c.GetDateTime());
+            Assert.AreEqual(new DateTime(2017, 10, 27, 21, 0, 0, DateTimeKind.Unspecified), c.GetDateTime());
             wb.SaveAs(ms);
         }
     }
@@ -682,8 +682,8 @@ public class LoadingTests
         const string keywords = "TestKeywords";
         const string comments = "TestComments";
         const string status = "TestStatus";
-        var created = new DateTime(2019, 10, 19, 20, 42, 30);
-        var modified = new DateTime(2020, 11, 20, 09, 51, 20);
+        var created = new DateTime(2019, 10, 19, 20, 42, 30, DateTimeKind.Unspecified);
+        var modified = new DateTime(2020, 11, 20, 09, 51, 20, DateTimeKind.Unspecified);
         const string lastModifiedBy = "TestLastModifiedBy";
         const string company = "TestCompany";
         const string manager = "TestManager";

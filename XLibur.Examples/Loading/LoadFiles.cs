@@ -3,7 +3,7 @@ using XLibur.Excel;
 
 namespace XLibur.Examples.Loading;
 
-public class LoadFiles
+public static class LoadFiles
 {
     public static void LoadAllFiles()
     {

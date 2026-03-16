@@ -35,9 +35,9 @@ public class BasicTable : IXLExample
         ws.Cell("D6").Value = false;
         //Date of Birth
         ws.Cell("E3").Value = "DOB";
-        ws.Cell("E4").Value = new DateTime(1919, 1, 21);
-        ws.Cell("E5").Value = new DateTime(1907, 3, 4);
-        ws.Cell("E6").Value = new DateTime(1921, 12, 15);
+        ws.Cell("E4").Value = new DateTime(1919, 1, 21, 0, 0, 0, DateTimeKind.Unspecified);
+        ws.Cell("E5").Value = new DateTime(1907, 3, 4, 0, 0, 0, DateTimeKind.Unspecified);
+        ws.Cell("E6").Value = new DateTime(1921, 12, 15, 0, 0, 0, DateTimeKind.Unspecified);
         //Income
         ws.Cell("F3").Value = "Income";
         ws.Cell("F4").Value = 2000;

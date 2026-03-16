@@ -11,7 +11,7 @@ using XLibur.Examples.Tables;
 
 namespace XLibur.Examples.Creating;
 
-public class CreateFiles
+public static class CreateFiles
 {
     public static void CreateAllFiles()
     {

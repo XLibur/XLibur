@@ -17,8 +17,8 @@ public class AddingRowToTables : IXLExample
 
             var firstCell = ws.FirstCellUsed();
             var lastCell = ws.LastCellUsed();
-            var range = ws.Range(firstCell.Address, lastCell.Address);
-            range.FirstRow().Delete(); // Deleting the "Contacts" header (we don't need it for our purposes)
+            var range = ws.Range(firstCell!.Address, lastCell!.Address);
+            range.FirstRow()!.Delete(); // Deleting the "Contacts" header (we don't need it for our purposes)
 
             // We want to use a theme for table, not the hard coded format of the BasicTable
             range.Clear(XLClearOptions.AllFormats);
@@ -30,7 +30,7 @@ public class AddingRowToTables : IXLExample
 
             ws.Cell("Q6000").Value = "dummy value";
 
-            var row = table.DataRange.InsertRowsBelow(1).First();
+            table.DataRange!.InsertRowsBelow(1);
 
             wb.SaveAs(filePath);
         }

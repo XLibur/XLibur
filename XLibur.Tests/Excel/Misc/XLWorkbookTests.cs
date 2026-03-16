@@ -26,7 +26,7 @@ public class XLWorkbookTests
         ws.FirstCell().SetValue(1).AddToNamed("Result", XLScope.Worksheet);
         var cell = wb.Cell("Sheet1!Result");
         Assert.IsNotNull(cell);
-        Assert.AreEqual(1, cell.Value);
+        Assert.AreEqual(1, cell!.Value);
     }
 
     [Test]
@@ -37,7 +37,7 @@ public class XLWorkbookTests
         ws.FirstCell().SetValue(1).AddToNamed("Result");
         var cell = wb.Cell("Sheet1!Result");
         Assert.IsNotNull(cell);
-        Assert.AreEqual(1, cell.Value);
+        Assert.AreEqual(1, cell!.Value);
     }
 
     [Test]
@@ -218,7 +218,7 @@ public class XLWorkbookTests
         ws.FirstCell().SetValue(1).AddToNamed("Result", XLScope.Worksheet);
         var range = wb.Range("Sheet1!Result");
         Assert.IsNotNull(range);
-        Assert.AreEqual(1, range.Cells().Count());
+        Assert.AreEqual(1, range!.Cells().Count());
         Assert.AreEqual(1, range.FirstCell().Value);
     }
 
@@ -230,7 +230,7 @@ public class XLWorkbookTests
         ws.FirstCell().SetValue(1).AddToNamed("Result");
         var range = wb.Range("Sheet1!Result");
         Assert.IsNotNull(range);
-        Assert.AreEqual(1, range.Cells().Count());
+        Assert.AreEqual(1, range!.Cells().Count());
         Assert.AreEqual(1, range.FirstCell().Value);
     }
 
@@ -240,7 +240,7 @@ public class XLWorkbookTests
         var wb = new XLWorkbook();
         var ranges = wb.Ranges("ABC");
         Assert.IsNotNull(ranges);
-        Assert.AreEqual(0, ranges.Count());
+        Assert.AreEqual(0, ranges.Count);
     }
 
     [Test]
@@ -273,7 +273,7 @@ public class XLWorkbookTests
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell(1, 1).SetValue("Test").AddToNamed("TestCell");
-        Assert.AreEqual("Test", wb.Cell("TestCell").GetText());
+        Assert.AreEqual("Test", wb.Cell("TestCell")!.GetText());
         Assert.AreEqual("Test", ws.Cell("TestCell").GetText());
     }
 
@@ -302,7 +302,7 @@ public class XLWorkbookTests
         ws.Cell(2, 1).SetValue("B");
         var original = ws.Range("A1:A2");
         original.AddToNamed("TestRange");
-        Assert.AreEqual(original.RangeAddress.ToStringFixed(), wb.Range("TestRange").RangeAddress.ToString());
+        Assert.AreEqual(original.RangeAddress.ToStringFixed(), wb.Range("TestRange")!.RangeAddress.ToString());
         Assert.AreEqual(original.RangeAddress.ToStringFixed(), ws.Range("TestRange").RangeAddress.ToString());
     }
 
@@ -428,5 +428,4 @@ public class XLWorkbookTests
             Assert.AreEqual(Environment.UserName, wb.FileSharing.UserName);
         }
     }
-
 }

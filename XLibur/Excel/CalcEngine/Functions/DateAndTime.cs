@@ -106,10 +106,11 @@ internal static class DateAndTime
 
         // Year 1 is earliest allowable in both date system. Also avoid the double
         // to int conversion problems when double is too small.
-        if (year < 1)
+        // DateTime only accepts years 1-9999, so year 10000+ must return an error.
+        if (year < 1 || year > 9999)
             return XLError.NumberInvalid;
 
-        var startOfMonth = new DateTime((int)year, (int)month, 1).ToSerialDateTime();
+        var startOfMonth = new DateTime((int)year, (int)month, 1, 0, 0, 0, DateTimeKind.Unspecified).ToSerialDateTime();
         var serialDate = startOfMonth + day - 1;
         if (serialDate < 0 || serialDate >= ctx.DateSystemUpperLimit)
             return XLError.NumberInvalid;
@@ -524,7 +525,7 @@ internal static class DateAndTime
             return 0;
 
         var date = DateParts.From(ctx, serialDate);
-        var startOfYearDate = (int)(new DateTime(date.Year, 1, 1).ToSerialDateTime());
+        var startOfYearDate = (int)(new DateTime(date.Year, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).ToSerialDateTime());
         var startOfYearDayOfWeek = (DayOfWeek)((startOfYearDate + 6) % 7);
         var startOfWeekAdjust = firstDayOfWeek - startOfYearDayOfWeek;
 
@@ -774,7 +775,7 @@ internal static class DateAndTime
 
         private static readonly DateParts Feb29 = new(1900, 2, 29);
 
-        internal int SerialDate => (int)(new DateTime(Year, Month, 1).ToSerialDateTime()) + Day - 1;
+        internal int SerialDate => (int)(new DateTime(Year, Month, 1, 0, 0, 0, DateTimeKind.Unspecified).ToSerialDateTime()) + Day - 1;
 
         public DayOfWeek DayOfWeek => (DayOfWeek)((WeekdayCalc(SerialDate) + 7 - 1) % 7);
 

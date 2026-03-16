@@ -316,7 +316,7 @@ public class XLWorksheetTests
             wb.Worksheets.Add(title);
         };
 
-        Assert.Throws(typeof(ArgumentException), addWorksheet);
+        Assert.Throws<ArgumentException>(addWorksheet);
     }
 
     [Test]
@@ -329,7 +329,7 @@ public class XLWorksheetTests
             wb.Worksheets.Add(title);
         };
 
-        Assert.Throws(typeof(ArgumentException), addWorksheet);
+        Assert.Throws<ArgumentException>(addWorksheet);
     }
 
     [Test]
@@ -379,13 +379,13 @@ public class XLWorksheetTests
 
         ws1.Cell("A1").Value = "A1 value";
         ws1.Cell("A2").Value = 100;
-        ws1.Cell("D4").Value = new DateTime(2018, 5, 1);
+        ws1.Cell("D4").Value = new DateTime(2018, 5, 1, 0, 0, 0, DateTimeKind.Unspecified);
 
         var ws2 = ws1.CopyTo(wb2, "Copy");
 
         Assert.AreEqual("A1 value", ws2.Cell("A1").Value);
         Assert.AreEqual(100, ws2.Cell("A2").Value);
-        Assert.AreEqual(new DateTime(2018, 5, 1), ws2.Cell("D4").Value);
+        Assert.AreEqual(new DateTime(2018, 5, 1, 0, 0, 0, DateTimeKind.Unspecified), ws2.Cell("D4").Value);
     }
 
     [Test]

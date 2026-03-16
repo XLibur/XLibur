@@ -95,10 +95,10 @@ public class XLCellValueTests
     [Test]
     public void Creation_DateTime()
     {
-        XLCellValue dateTime = new DateTime(2021, 1, 1);
+        XLCellValue dateTime = new DateTime(2021, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
         Assert.AreEqual(XLDataType.DateTime, dateTime.Type);
         Assert.True(dateTime.IsDateTime);
-        Assert.AreEqual(new DateTime(2021, 1, 1), dateTime.GetDateTime());
+        Assert.AreEqual(new DateTime(2021, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), dateTime.GetDateTime());
     }
 
     [Test]
@@ -118,7 +118,7 @@ public class XLCellValueTests
         Assert.AreEqual(XLDataType.Boolean, XLCellValue.FromObject(true).Type);
         Assert.AreEqual(XLDataType.Text, XLCellValue.FromObject("Hello World").Type);
         Assert.AreEqual(XLDataType.Error, XLCellValue.FromObject(XLError.NumberInvalid).Type);
-        Assert.AreEqual(XLDataType.DateTime, XLCellValue.FromObject(new DateTime(2021, 1, 1)).Type);
+        Assert.AreEqual(XLDataType.DateTime, XLCellValue.FromObject(new DateTime(2021, 1, 1, 0, 0, 0, DateTimeKind.Unspecified)).Type);
         Assert.AreEqual(XLDataType.TimeSpan, XLCellValue.FromObject(new TimeSpan(10, 1, 2, 3, 456)).Type);
         Assert.AreEqual(XLDataType.Number, XLCellValue.FromObject((sbyte)42).Type);
         Assert.AreEqual(XLDataType.Number, XLCellValue.FromObject((byte)42).Type);
@@ -361,7 +361,7 @@ public class XLCellValueTests
     [Test]
     public void NullableDateTime_WithDateValue_IsConvertedToDateTime()
     {
-        DateTime? dateTime = new DateTime(2020, 5, 14, 8, 14, 30);
+        DateTime? dateTime = new DateTime(2020, 5, 14, 8, 14, 30, DateTimeKind.Unspecified);
         XLCellValue dateTimeCellValue = dateTime;
         Assert.IsTrue(dateTimeCellValue.IsDateTime);
         Assert.AreEqual(dateTime.Value, dateTimeCellValue.GetDateTime());
@@ -399,7 +399,7 @@ public class XLCellValueTests
         Assert.True(value.IsUnifiedNumber);
         Assert.AreEqual(14.0, value.GetUnifiedNumber());
 
-        value = new DateTime(1900, 1, 1);
+        value = new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
         Assert.True(value.IsUnifiedNumber);
         Assert.AreEqual(1.0, value.GetUnifiedNumber());
 
@@ -445,10 +445,10 @@ public class XLCellValueTests
         v = XLError.IncompatibleValue;
         Assert.AreEqual("#VALUE!", v.ToString());
 
-        v = new DateTime(1900, 1, 2);
+        v = new DateTime(1900, 1, 2, 0, 0, 0, DateTimeKind.Unspecified);
         Assert.AreEqual("02.01.1900 0:00:00", v.ToString());
 
-        v = new DateTime(1900, 3, 1, 4, 10, 5);
+        v = new DateTime(1900, 3, 1, 4, 10, 5, DateTimeKind.Unspecified);
         Assert.AreEqual("01.03.1900 4:10:05", v.ToString());
 
         v = new TimeSpan(4, 5, 6, 7, 82);
@@ -519,7 +519,7 @@ public class XLCellValueTests
         Assert.True(value.TryConvert(out number, c));
         Assert.AreEqual(0.0, number);
 
-        value = new DateTime(2020, 4, 5, 10, 14, 5);
+        value = new DateTime(2020, 4, 5, 10, 14, 5, DateTimeKind.Unspecified);
         Assert.True(value.TryConvert(out number, c));
         Assert.AreEqual(43926.42644675926, number);
 
@@ -531,21 +531,21 @@ public class XLCellValueTests
     [Test]
     public void TryConvert_DateTime()
     {
-        XLCellValue v = new DateTime(2020, 1, 1);
+        XLCellValue v = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
         Assert.True(v.TryConvert(out DateTime dt));
-        Assert.AreEqual(new DateTime(2020, 1, 1), dt);
+        Assert.AreEqual(new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), dt);
 
         var lastSerialDate = 2958465;
         v = lastSerialDate;
         Assert.True(v.TryConvert(out dt));
-        Assert.AreEqual(new DateTime(9999, 12, 31), dt);
+        Assert.AreEqual(new DateTime(9999, 12, 31, 0, 0, 0, DateTimeKind.Unspecified), dt);
 
         v = lastSerialDate + 1;
         Assert.False(v.TryConvert(out dt));
 
         v = new TimeSpan(14, 0, 0, 0);
         Assert.True(v.TryConvert(out dt));
-        Assert.AreEqual(new DateTime(1900, 1, 14), dt);
+        Assert.AreEqual(new DateTime(1900, 1, 14, 0, 0, 0, DateTimeKind.Unspecified), dt);
     }
 
     [Test]

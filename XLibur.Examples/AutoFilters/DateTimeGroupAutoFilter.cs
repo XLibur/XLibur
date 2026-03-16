@@ -7,34 +7,33 @@ public class DateTimeGroupAutoFilter : IXLExample
 {
     public void Create(string filePath)
     {
-        using (var wb = new XLWorkbook())
-        {
-            #region Single Column Dates
+        using var wb = new XLWorkbook();
 
-            var singleColumnDates = "Single Column Dates";
-            var ws = wb.Worksheets.Add(singleColumnDates);
+        #region Single Column Dates
 
-            // Add a bunch of numbers to filter
-            ws.Cell("A1").SetValue("Dates")
-                .CellBelow().SetValue(new DateTime(2018, 1, 1).AddDays(2))
-                .CellBelow().SetValue(new DateTime(2018, 1, 1).AddDays(3))
-                .CellBelow().SetValue(new DateTime(2018, 1, 1).AddDays(3))
-                .CellBelow().SetValue(new DateTime(2018, 1, 1).AddDays(5))
-                .CellBelow().SetValue(new DateTime(2018, 1, 1).AddDays(1))
-                .CellBelow().SetValue(new DateTime(2018, 1, 1).AddDays(4));
+        var singleColumnDates = "Single Column Dates";
+        var ws = wb.Worksheets.Add(singleColumnDates);
 
-            ws.Column(1).Style.NumberFormat.Format = "d MMMM yyyy";
+        // Add a bunch of dates to filter
+        ws.Cell("A1").SetValue("Dates")
+            .CellBelow().SetValue(new DateTime(2018, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(2))
+            .CellBelow().SetValue(new DateTime(2018, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(3))
+            .CellBelow().SetValue(new DateTime(2018, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(3))
+            .CellBelow().SetValue(new DateTime(2018, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(5))
+            .CellBelow().SetValue(new DateTime(2018, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(1))
+            .CellBelow().SetValue(new DateTime(2018, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(4));
 
-            // Add filters
-            ws.RangeUsed().SetAutoFilter().Column(1).AddDateGroupFilter(new DateTime(2018, 1, 1).AddDays(3), XLDateTimeGrouping.Day);
+        ws.Column(1).Style.NumberFormat.Format = "d MMMM yyyy";
 
-            // Sort the filtered list
-            ws.AutoFilter.Sort();
+        // Add filters
+        ws.RangeUsed().SetAutoFilter().Column(1).AddDateGroupFilter(new DateTime(2018, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(3), XLDateTimeGrouping.Day);
 
-            #endregion Single Column Dates
+        // Sort the filtered list
+        ws.AutoFilter.Sort();
 
-            ws.Columns().AdjustToContents();
-            wb.SaveAs(filePath);
-        }
+        #endregion Single Column Dates
+
+        ws.Columns().AdjustToContents();
+        wb.SaveAs(filePath);
     }
 }

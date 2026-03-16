@@ -1127,7 +1127,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
             return column;
         // This is a new column, so we're going to reference all
         // cells in this column to preserve their formatting
-        Internals.RowsCollection.Keys.ForEach(r => Cell(r, columnNumber).PingStyle());
+        Internals.RowsCollection.Keys.ForEach(r => Cell(r, columnNumber).MaterializeStyle());
 
         column = RangeFactory.CreateColumn(columnNumber);
         Internals.ColumnsCollection.Add(columnNumber, column);
@@ -1229,7 +1229,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         {
             // This is a new row, so we're going to reference all
             // cells in columns of this row to preserve their formatting
-            Internals.ColumnsCollection.Keys.ForEach(c => Cell(rowNumber, c).PingStyle());
+            Internals.ColumnsCollection.Keys.ForEach(c => Cell(rowNumber, c).MaterializeStyle());
         }
 
         row = RangeFactory.CreateRow(rowNumber);

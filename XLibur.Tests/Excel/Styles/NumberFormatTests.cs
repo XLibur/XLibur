@@ -21,7 +21,7 @@ public class NumberFormatTests
 
         for (var i = 0; i < 10; i++)
         {
-            table.Rows.Add(new DateTime(2017, 1, 1).AddMonths(i));
+            table.Rows.Add(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddMonths(i));
         }
 
         ws.Column(1).Style.NumberFormat.Format = "yy-MM-dd";

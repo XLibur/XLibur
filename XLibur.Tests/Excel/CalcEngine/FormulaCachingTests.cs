@@ -183,10 +183,11 @@ public class FormulaCachingTests
         sheet.Cell(changedCell).Value = 100;
         var modifiedCells = allCells.Where(cell => cell.NeedsRecalculation);
 
-        Assert.AreEqual(affectedCells.Length, modifiedCells.Count());
+        var xlCells = modifiedCells as IXLCell[] ?? modifiedCells.ToArray();
+        Assert.AreEqual(affectedCells.Length, xlCells.Count());
         foreach (var cellAddress in affectedCells)
         {
-            Assert.IsTrue(modifiedCells.Any(cell => cell.Address.ToString() == cellAddress),
+            Assert.IsTrue(xlCells.Any(cell => cell.Address.ToString() == cellAddress),
                 $"Cell {cellAddress} is expected to need recalculation, but it does not");
         }
     }
@@ -211,10 +212,10 @@ public class FormulaCachingTests
         var getValueA3 = new TestDelegate(() => { _ = a3.Value; });
         var getValueA4 = new TestDelegate(() => { _ = a4.Value; });
 
-        Assert.Throws(typeof(InvalidOperationException), getValueA1);
-        Assert.Throws(typeof(InvalidOperationException), getValueA2);
-        Assert.Throws(typeof(InvalidOperationException), getValueA3);
-        Assert.Throws(typeof(InvalidOperationException), getValueA4);
+        Assert.Throws<InvalidOperationException>(getValueA1);
+        Assert.Throws<InvalidOperationException>(getValueA2);
+        Assert.Throws<InvalidOperationException>(getValueA3);
+        Assert.Throws<InvalidOperationException>(getValueA4);
     }
 
     [Test]
@@ -281,7 +282,7 @@ public class FormulaCachingTests
 
         Assert.AreEqual(11, ws.Evaluate("LEN(B2)"));
 
-        // External file references evaluate to #REF! instead of throwing
+        // External file references to evaluate to #REF! instead of throwing
         Assert.DoesNotThrow(wb.RecalculateAllFormulas);
         Assert.AreEqual(XLError.CellReference, cell.Value);
     }
@@ -299,7 +300,7 @@ public class FormulaCachingTests
         cell.Value = 74.0;
         Assert.AreEqual(74.0, cell.CachedValue);
 
-        cell.Value = new DateTime(2019, 1, 1, 14, 0, 0);
-        Assert.AreEqual(new DateTime(2019, 1, 1, 14, 0, 0), cell.CachedValue);
+        cell.Value = new DateTime(2019, 1, 1, 14, 0, 0, DateTimeKind.Unspecified);
+        Assert.AreEqual(new DateTime(2019, 1, 1, 14, 0, 0, DateTimeKind.Unspecified), cell.CachedValue);
     }
 }

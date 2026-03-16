@@ -41,17 +41,17 @@ public class AppendingAndReplacingTableDataTests
         {
             new Person
             {
-                FirstName = "Francois", LastName = "Botha", Age = 39, DateOfBirth = new DateTime(1980, 1, 1),
+                FirstName = "Francois", LastName = "Botha", Age = 39, DateOfBirth = new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Unspecified),
                 IsActive = true
             },
             new Person
             {
-                FirstName = "Leon", LastName = "Oosthuizen", Age = 40, DateOfBirth = new DateTime(1979, 1, 1),
+                FirstName = "Leon", LastName = "Oosthuizen", Age = 40, DateOfBirth = new DateTime(1979, 1, 1, 0, 0, 0, DateTimeKind.Unspecified),
                 IsActive = false
             },
             new Person
             {
-                FirstName = "Rian", LastName = "Prinsloo", Age = 41, DateOfBirth = new DateTime(1978, 1, 1),
+                FirstName = "Rian", LastName = "Prinsloo", Age = 41, DateOfBirth = new DateTime(1978, 1, 1, 0, 0, 0, DateTimeKind.Unspecified),
                 IsActive = false
             }
         };
@@ -87,12 +87,12 @@ public class AppendingAndReplacingTableDataTests
     [
         new()
         {
-            FirstName = "Michelle", LastName = "de Beer", Age = 35, DateOfBirth = new DateTime(1983, 1, 1),
+            FirstName = "Michelle", LastName = "de Beer", Age = 35, DateOfBirth = new DateTime(1983, 1, 1, 0, 0, 0, DateTimeKind.Unspecified),
             IsActive = false
         },
         new()
         {
-            FirstName = "Marichen", LastName = "van der Gryp", Age = 30, DateOfBirth = new DateTime(1990, 1, 1),
+            FirstName = "Marichen", LastName = "van der Gryp", Age = 30, DateOfBirth = new DateTime(1990, 1, 1, 0, 0, 0, DateTimeKind.Unspecified),
             IsActive = true
         }
     ];

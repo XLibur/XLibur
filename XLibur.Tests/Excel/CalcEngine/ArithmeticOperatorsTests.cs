@@ -229,9 +229,9 @@ public class ArithmeticOperatorsTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Test1");
-        ws.Cell("A1").Value = new DateTime(2021, 1, 15);
-        ws.Cell("A2").Value = new DateTime(2021, 1, 10);
-        ws.Cell("B1").Value = new DateTime(2021, 1, 5);
+        ws.Cell("A1").Value = new DateTime(2021, 1, 15, 0, 0, 0, DateTimeKind.Unspecified);
+        ws.Cell("A2").Value = new DateTime(2021, 1, 10, 0, 0, 0, DateTimeKind.Unspecified);
+        ws.Cell("B1").Value = new DateTime(2021, 1, 5, 0, 0, 0, DateTimeKind.Unspecified);
         Assert.AreEqual(5, ws.Evaluate("MIN(A1:A2-B1)"));
     }
 

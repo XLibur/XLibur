@@ -131,7 +131,7 @@ internal readonly struct XLPivotCacheValue
     internal DateTime GetDateTime()
     {
         var ticks = BitConverter.DoubleToInt64Bits(_value);
-        return new DateTime(ticks);
+        return new DateTime(ticks, DateTimeKind.Unspecified);
     }
 
     internal uint GetIndex()

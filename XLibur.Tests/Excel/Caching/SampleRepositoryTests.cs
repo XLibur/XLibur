@@ -115,7 +115,7 @@ public class BaseRepositoryTests
         Assert.AreSame(entity, all.First());
     }
 
-    private SampleRepository CreateSampleRepository()
+    private static SampleRepository CreateSampleRepository()
     {
         return new SampleRepository();
     }

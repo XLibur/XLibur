@@ -76,8 +76,8 @@ internal sealed class XLPivotCacheValues
     {
         get
         {
-            DateTime? minDate = _containsDate && _minDateTicks is not null ? new DateTime(_minDateTicks.Value) : null;
-            DateTime? maxDate = _containsDate && _maxDateTicks is not null ? new DateTime(_maxDateTicks.Value) : null;
+            DateTime? minDate = _containsDate && _minDateTicks is not null ? new DateTime(_minDateTicks.Value, DateTimeKind.Unspecified) : null;
+            DateTime? maxDate = _containsDate && _maxDateTicks is not null ? new DateTime(_maxDateTicks.Value, DateTimeKind.Unspecified) : null;
 
             return new XLPivotCacheValuesStats(
                 _containsBlank,

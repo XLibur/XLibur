@@ -46,7 +46,7 @@ public class ColorFilterTests
         autoFilter.Column(1).AddFilter(1);
         Assert.That(autoFilter.Column(1).FilterType, Is.EqualTo(XLFilterType.Regular));
 
-        // Then switch to color filter — should replace
+        // Then switch to the color filter — should replace
         autoFilter.Column(1).ColorFilter(XLColor.Red);
         Assert.That(autoFilter.Column(1).FilterType, Is.EqualTo(XLFilterType.Color));
 
@@ -79,7 +79,7 @@ public class ColorFilterTests
                 // After load, reapply to check it works
                 ws.AutoFilter.Reapply();
                 var visibility = ws.Rows("2:4").Select(row => !row.IsHidden);
-                Assert.That(visibility, Is.EqualTo(new[] { true, false, true }));
+                Assert.That(visibility, Is.EqualTo([true, false, true]));
             });
     }
 
@@ -105,7 +105,7 @@ public class ColorFilterTests
 
                 ws.AutoFilter.Reapply();
                 var visibility = ws.Rows("2:3").Select(row => !row.IsHidden);
-                Assert.That(visibility, Is.EqualTo(new[] { true, false }));
+                Assert.That(visibility, Is.EqualTo([true, false]));
             });
     }
 

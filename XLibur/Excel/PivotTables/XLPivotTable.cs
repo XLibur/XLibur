@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using XLibur.Excel.PivotTables.Areas;
 using XLibur.Extensions;
 
 namespace XLibur.Excel;

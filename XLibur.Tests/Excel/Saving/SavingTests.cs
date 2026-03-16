@@ -254,7 +254,7 @@ public class SavingTests
             };
 
             // Assert
-            Assert.Throws(typeof(UnauthorizedAccessException), saveAs);
+            Assert.Throws<UnauthorizedAccessException>(saveAs);
         }
         finally
         {

@@ -23,7 +23,7 @@ public class CellValues : IXLExample
 
         // Fill a cell with a date
         var cellDateTime = ws.Cell(3, 2);
-        cellDateTime.Value = new DateTime(2010, 9, 2);
+        cellDateTime.Value = new DateTime(2010, 9, 2, 0, 0, 0, DateTimeKind.Unspecified);
         cellDateTime.Style.DateFormat.Format = "yyyy-MMM-dd";
 
         // Extract the date in different ways

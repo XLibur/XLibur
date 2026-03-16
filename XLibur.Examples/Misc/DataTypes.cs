@@ -17,10 +17,10 @@ public class DataTypes : IXLExample
         ws.Cell(ro, co + 1).Value = "Hello World.";
 
         ws.Cell(++ro, co).Value = "Plain Date:";
-        ws.Cell(ro, co + 1).Value = new DateTime(2010, 9, 2);
+        ws.Cell(ro, co + 1).Value = new DateTime(2010, 9, 2, 0, 0, 0, DateTimeKind.Unspecified);
 
         ws.Cell(++ro, co).Value = "Plain DateTime:";
-        ws.Cell(ro, co + 1).Value = new DateTime(2010, 9, 2, 13, 45, 22);
+        ws.Cell(ro, co + 1).Value = new DateTime(2010, 9, 2, 13, 45, 22, DateTimeKind.Unspecified);
 
         ws.Cell(++ro, co).Value = "Plain Boolean:";
         ws.Cell(ro, co + 1).Value = true;
@@ -42,10 +42,10 @@ public class DataTypes : IXLExample
         ws.Cell(ro, co + 1).Value = "'Hello World.";
 
         ws.Cell(++ro, co).Value = "Date as Text:";
-        ws.Cell(ro, co + 1).Value = "'" + new DateTime(2010, 9, 2);
+        ws.Cell(ro, co + 1).Value = "'" + new DateTime(2010, 9, 2, 0, 0, 0, DateTimeKind.Unspecified);
 
         ws.Cell(++ro, co).Value = "DateTime as Text:";
-        ws.Cell(ro, co + 1).Value = "'" + new DateTime(2010, 9, 2, 13, 45, 22);
+        ws.Cell(ro, co + 1).Value = "'" + new DateTime(2010, 9, 2, 13, 45, 22, DateTimeKind.Unspecified);
 
         ws.Cell(++ro, co).Value = "Boolean as Text:";
         ws.Cell(ro, co + 1).Value = "'TRUE";
