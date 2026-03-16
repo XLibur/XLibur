@@ -18,7 +18,7 @@ public class XLSheetProtectionTests
             var ws = wb.AddWorksheet("Sheet1");
             ws.Protect().AllowedElements = XLSheetProtectionElements.Everything;
 
-            foreach (var element in Enum.GetValues(typeof(XLSheetProtectionElements)).Cast<XLSheetProtectionElements>())
+            foreach (var element in Enum.GetValues<XLSheetProtectionElements>())
                 Assert.IsTrue(ws.Protection.AllowedElements.HasFlag(element), element.ToString());
         }
 
@@ -27,7 +27,7 @@ public class XLSheetProtectionTests
             var ws = wb.AddWorksheet("Sheet1");
             ws.Protect().AllowElement(XLSheetProtectionElements.Everything);
 
-            foreach (var element in Enum.GetValues(typeof(XLSheetProtectionElements)).Cast<XLSheetProtectionElements>())
+            foreach (var element in Enum.GetValues<XLSheetProtectionElements>())
                 Assert.IsTrue(ws.Protection.AllowedElements.HasFlag(element), element.ToString());
         }
 
@@ -36,7 +36,7 @@ public class XLSheetProtectionTests
             var ws = wb.AddWorksheet("Sheet1");
             ws.Protect().AllowEverything();
 
-            foreach (var element in Enum.GetValues(typeof(XLSheetProtectionElements)).Cast<XLSheetProtectionElements>())
+            foreach (var element in Enum.GetValues<XLSheetProtectionElements>())
                 Assert.IsTrue(ws.Protection.AllowedElements.HasFlag(element), element.ToString());
         }
     }
@@ -49,8 +49,7 @@ public class XLSheetProtectionTests
             var ws = wb.AddWorksheet("Sheet1");
             ws.Protect().AllowedElements = XLSheetProtectionElements.None;
 
-            foreach (var element in Enum.GetValues(typeof(XLSheetProtectionElements))
-                         .Cast<XLSheetProtectionElements>()
+            foreach (var element in Enum.GetValues<XLSheetProtectionElements>()
                          .Where(e => e != XLSheetProtectionElements.None))
 
                 Assert.IsFalse(ws.Protection.AllowedElements.HasFlag(element), element.ToString());
@@ -61,8 +60,7 @@ public class XLSheetProtectionTests
             var ws = wb.AddWorksheet("Sheet1");
             ws.Protect().AllowNone();
 
-            foreach (var element in Enum.GetValues(typeof(XLSheetProtectionElements))
-                         .Cast<XLSheetProtectionElements>()
+            foreach (var element in Enum.GetValues<XLSheetProtectionElements>()
                          .Where(e => e != XLSheetProtectionElements.None))
 
                 Assert.IsFalse(ws.Protection.AllowedElements.HasFlag(element), element.ToString());

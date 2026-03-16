@@ -11,7 +11,7 @@ using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class DataValidationWriter
+internal static class DataValidationWriter
 {
     internal static void WriteDataValidations(
         Worksheet worksheet,

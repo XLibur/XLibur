@@ -47,7 +47,7 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
         return sb.ToString();
     }
 
-    private Dictionary<XLHFOccurrence, string> innerTexts = new();
+    private readonly Dictionary<XLHFOccurrence, string> innerTexts = new();
     internal void SetInnerText(XLHFOccurrence occurrence, string text)
     {
         var parsedElements = ParseFormattedHeaderFooterText(text);
@@ -78,7 +78,8 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
         var currentPosition = 'L'; // default is LEFT
         var hfElement = "";
 
-        for (int i = 0; i < text.Length; i++)
+        var i = 0;
+        while (i < text.Length)
         {
             if (IsAtPositionIndicator(i))
             {
@@ -91,15 +92,11 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
                 currentPosition = text[i + 1];
                 i += 2;
                 hfElement = "";
+                continue;
             }
 
-            if (i < text.Length)
-            {
-                if (IsAtPositionIndicator(i))
-                    i--;
-                else
-                    hfElement += text[i];
-            }
+            hfElement += text[i];
+            i++;
         }
 
         if (hfElement.Length > 0)
@@ -124,7 +121,7 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
     internal void SetAsInitial()
     {
         _initialTexts = new Dictionary<XLHFOccurrence, string>();
-        foreach (var o in Enum.GetValues(typeof(XLHFOccurrence)).Cast<XLHFOccurrence>())
+        foreach (var o in Enum.GetValues<XLHFOccurrence>())
         {
             _initialTexts.Add(o, GetText(o));
         }

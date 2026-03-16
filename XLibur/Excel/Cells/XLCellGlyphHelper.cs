@@ -48,13 +48,14 @@ internal static class XLCellGlyphHelper
         // be distributed through multiple grapheme. In the worst case, all extra
         // code units are in exactly one grapheme -> allocate buffer of that size.
         Span<int> codePointsBuffer = stackalloc int[1 + text.Length - graphemeStarts.Length];
-        for (var i = 0; i < graphemeStarts.Length; ++i)
+        var i = 0;
+        while (i < graphemeStarts.Length)
         {
             var startIdx = graphemeStarts[i];
             var slice = textSpan.Slice(startIdx);
             if (slice.TrySliceNewLine(out var eolLen))
             {
-                i += eolLen - 1;
+                i += eolLen;
                 if (prevWasNewLine)
                 {
                     // If there are consecutive new lines, we need height of new the lines between them
@@ -75,6 +76,7 @@ internal static class XLCellGlyphHelper
                 var box = engine.GetGlyphBox(grapheme, font, dpi);
                 output.Add(box);
                 prevWasNewLine = false;
+                i++;
             }
         }
     }

@@ -95,17 +95,21 @@ internal static partial class StringExtensions
     internal static int ToCodePoints(this ReadOnlySpan<char> text, Span<int> output)
     {
         var j = 0;
-        for (var i = 0; i < text.Length; ++i, ++j)
+        var i = 0;
+        while (i < text.Length)
         {
             if (i + 1 < text.Length && char.IsSurrogatePair(text[i], text[i + 1]))
             {
                 output[j] = char.ConvertToUtf32(text[i], text[i + 1]);
-                i++;
+                i += 2;
             }
             else
             {
                 output[j] = text[i];
+                i++;
             }
+
+            j++;
         }
 
         return j;

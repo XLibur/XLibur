@@ -12,7 +12,7 @@ using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
 namespace XLibur.Excel.IO;
 
-internal sealed class PictureWriter
+internal static class PictureWriter
 {
     internal static void WriteDrawings(
         Worksheet worksheet,

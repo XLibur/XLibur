@@ -67,7 +67,7 @@ internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
         ? XLChartTypeCategory.Bar3D
         : throw new NotImplementedException();
 
-    private HashSet<XLChartType> Bar3DCharts =
+    private readonly HashSet<XLChartType> Bar3DCharts =
     [
         XLChartType.BarClustered3D,
         XLChartType.BarStacked100Percent3D,
@@ -82,7 +82,7 @@ internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
         ? XLBarOrientation.Horizontal
         : XLBarOrientation.Vertical;
 
-    private HashSet<XLChartType> HorizontalCharts =
+    private readonly HashSet<XLChartType> HorizontalCharts =
     [
         XLChartType.BarClustered,
         XLChartType.BarClustered3D,
