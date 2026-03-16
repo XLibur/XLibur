@@ -589,55 +589,20 @@ internal static class PivotTableDefinitionPartReader
         var selected = reference.Selected?.Value ?? true;
         var byPosition = reference.ByPosition?.Value ?? false;
         var relative = reference.Relative?.Value ?? false;
-        var defaultSubtotal = reference.DefaultSubtotal?.Value ?? false;
-        var sumSubtotal = reference.SumSubtotal?.Value ?? false;
-        var countASubtotal = reference.CountASubtotal?.Value ?? false;
-        var avgSubtotal = reference.AverageSubtotal?.Value ?? false;
-        var maxSubtotal = reference.MaxSubtotal?.Value ?? false;
-        var minSubtotal = reference.MinSubtotal?.Value ?? false;
-        var productSubtotal = reference.ApplyProductInSubtotal?.Value ?? false;
-        var countSubtotal = reference.CountSubtotal?.Value ?? false;
-        var stdDevSubtotal = reference.ApplyStandardDeviationInSubtotal?.Value ?? false;
-        var stdDevPSubtotal = reference.ApplyStandardDeviationPInSubtotal?.Value ?? false;
-        var varSubtotal = reference.ApplyVarianceInSubtotal?.Value ?? false;
-        var varPSubtotal = reference.ApplyVariancePInSubtotal?.Value ?? false;
 
-        var subtotals = new HashSet<XLSubtotalFunction>();
-        if (defaultSubtotal)
-            subtotals.Add(XLSubtotalFunction.Automatic);
-
-        if (sumSubtotal)
-            subtotals.Add(XLSubtotalFunction.Sum);
-
-        if (countASubtotal)
-            subtotals.Add(XLSubtotalFunction.Count);
-
-        if (avgSubtotal)
-            subtotals.Add(XLSubtotalFunction.Average);
-
-        if (maxSubtotal)
-            subtotals.Add(XLSubtotalFunction.Maximum);
-
-        if (minSubtotal)
-            subtotals.Add(XLSubtotalFunction.Minimum);
-
-        if (productSubtotal)
-            subtotals.Add(XLSubtotalFunction.Product);
-
-        if (countSubtotal)
-            subtotals.Add(XLSubtotalFunction.CountNumbers);
-
-        if (stdDevSubtotal)
-            subtotals.Add(XLSubtotalFunction.StandardDeviation);
-
-        if (stdDevPSubtotal)
-            subtotals.Add(XLSubtotalFunction.PopulationStandardDeviation);
-
-        if (varSubtotal)
-            subtotals.Add(XLSubtotalFunction.Variance);
-
-        if (varPSubtotal)
-            subtotals.Add(XLSubtotalFunction.PopulationVariance);
+        var subtotals = BuildSubtotalsFromFlags(
+            defaultSubtotal: reference.DefaultSubtotal?.Value ?? false,
+            sum: reference.SumSubtotal?.Value ?? false,
+            countA: reference.CountASubtotal?.Value ?? false,
+            average: reference.AverageSubtotal?.Value ?? false,
+            max: reference.MaxSubtotal?.Value ?? false,
+            min: reference.MinSubtotal?.Value ?? false,
+            product: reference.ApplyProductInSubtotal?.Value ?? false,
+            count: reference.CountSubtotal?.Value ?? false,
+            stdDev: reference.ApplyStandardDeviationInSubtotal?.Value ?? false,
+            stdDevP: reference.ApplyStandardDeviationPInSubtotal?.Value ?? false,
+            variance: reference.ApplyVarianceInSubtotal?.Value ?? false,
+            varianceP: reference.ApplyVariancePInSubtotal?.Value ?? false);
 
         var xlReference = new XLPivotReference
         {
@@ -676,41 +641,61 @@ internal static class PivotTableDefinitionPartReader
 
     private static HashSet<XLSubtotalFunction> BuildSubtotals(PivotField pivotField)
     {
+        return BuildSubtotalsFromFlags(
+            defaultSubtotal: pivotField.DefaultSubtotal?.Value ?? true,
+            sum: pivotField.SumSubtotal?.Value ?? false,
+            countA: pivotField.CountASubtotal?.Value ?? false,
+            average: pivotField.AverageSubTotal?.Value ?? false,
+            max: pivotField.MaxSubtotal?.Value ?? false,
+            min: pivotField.MinSubtotal?.Value ?? false,
+            product: pivotField.ApplyProductInSubtotal?.Value ?? false,
+            count: pivotField.CountSubtotal?.Value ?? false,
+            stdDev: pivotField.ApplyStandardDeviationInSubtotal?.Value ?? false,
+            stdDevP: pivotField.ApplyStandardDeviationPInSubtotal?.Value ?? false,
+            variance: pivotField.ApplyVarianceInSubtotal?.Value ?? false,
+            varianceP: pivotField.ApplyVariancePInSubtotal?.Value ?? false);
+    }
+
+    private static HashSet<XLSubtotalFunction> BuildSubtotalsFromFlags(
+        bool defaultSubtotal, bool sum, bool countA, bool average,
+        bool max, bool min, bool product, bool count,
+        bool stdDev, bool stdDevP, bool variance, bool varianceP)
+    {
         var subtotals = new HashSet<XLSubtotalFunction>();
-        if (pivotField.DefaultSubtotal?.Value ?? true)
+        if (defaultSubtotal)
             subtotals.Add(XLSubtotalFunction.Automatic);
 
-        if (pivotField.SumSubtotal?.Value ?? false)
+        if (sum)
             subtotals.Add(XLSubtotalFunction.Sum);
 
-        if (pivotField.CountASubtotal?.Value ?? false)
+        if (countA)
             subtotals.Add(XLSubtotalFunction.Count);
 
-        if (pivotField.AverageSubTotal?.Value ?? false)
+        if (average)
             subtotals.Add(XLSubtotalFunction.Average);
 
-        if (pivotField.MaxSubtotal?.Value ?? false)
+        if (max)
             subtotals.Add(XLSubtotalFunction.Maximum);
 
-        if (pivotField.MinSubtotal?.Value ?? false)
+        if (min)
             subtotals.Add(XLSubtotalFunction.Minimum);
 
-        if (pivotField.ApplyProductInSubtotal?.Value ?? false)
+        if (product)
             subtotals.Add(XLSubtotalFunction.Product);
 
-        if (pivotField.CountSubtotal?.Value ?? false)
+        if (count)
             subtotals.Add(XLSubtotalFunction.CountNumbers);
 
-        if (pivotField.ApplyStandardDeviationInSubtotal?.Value ?? false)
+        if (stdDev)
             subtotals.Add(XLSubtotalFunction.StandardDeviation);
 
-        if (pivotField.ApplyStandardDeviationPInSubtotal?.Value ?? false)
+        if (stdDevP)
             subtotals.Add(XLSubtotalFunction.PopulationStandardDeviation);
 
-        if (pivotField.ApplyVarianceInSubtotal?.Value ?? false)
+        if (variance)
             subtotals.Add(XLSubtotalFunction.Variance);
 
-        if (pivotField.ApplyVariancePInSubtotal?.Value ?? false)
+        if (varianceP)
             subtotals.Add(XLSubtotalFunction.PopulationVariance);
 
         return subtotals;

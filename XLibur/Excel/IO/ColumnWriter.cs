@@ -56,13 +56,19 @@ internal static class ColumnWriter
 
     private static (int min, int max) GetColumnsRange(XLWorksheet xlWorksheet)
     {
-        if (xlWorksheet.Internals.ColumnsCollection.Count > 0)
+        var keys = xlWorksheet.Internals.ColumnsCollection.Keys;
+        if (keys.Count == 0)
+            return (1, 0);
+
+        var min = int.MaxValue;
+        var max = int.MinValue;
+        foreach (var key in keys)
         {
-            return (xlWorksheet.Internals.ColumnsCollection.Keys.Min(),
-                xlWorksheet.Internals.ColumnsCollection.Keys.Max());
+            if (key < min) min = key;
+            if (key > max) max = key;
         }
 
-        return (1, 0);
+        return (min, max);
     }
 
     private static void WritePreColumns(Columns columns, Dictionary<uint, Column> sheetColumnsByMin,

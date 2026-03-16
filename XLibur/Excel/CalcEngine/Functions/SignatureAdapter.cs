@@ -801,7 +801,6 @@ internal static class SignatureAdapter
 #pragma warning disable S2234
             return f(arg0, arg1, arg2).ToAnyValue();
 #pragma warning restore S2234
-
         };
     }
 
