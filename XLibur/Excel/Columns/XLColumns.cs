@@ -44,6 +44,7 @@ internal sealed class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
         return GetEnumerator();
     }
 
+#pragma warning disable S2376 // Write-only properties: intentional batch-set on collection items
     public double Width
     {
         set
@@ -56,6 +57,7 @@ internal sealed class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
             _worksheet.Internals.ColumnsCollection.ForEach(c => c.Value.Width = value);
         }
     }
+#pragma warning restore S2376
 
     public void Delete()
     {

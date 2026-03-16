@@ -241,12 +241,12 @@ public class RangeIndexTest
         Assert.AreEqual(0, ranges.Count);
     }
 
-    private static IXLRangeIndex CreateRangeIndex(IXLWorksheet worksheet)
+    private static XLRangeIndex<IXLRangeBase> CreateRangeIndex(IXLWorksheet worksheet)
     {
         return new XLRangeIndex<IXLRangeBase>((XLWorksheet)worksheet);
     }
 
-    private IXLRangeIndex FillIndexWithTestData(IXLWorksheet worksheet)
+    private static XLRangeIndex<IXLRangeBase> FillIndexWithTestData(IXLWorksheet worksheet)
     {
         var ranges = new List<IXLRange>();
         for (var i = 1; i <= TestCount; i++)

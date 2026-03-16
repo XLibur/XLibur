@@ -171,8 +171,11 @@ public interface IXLPivotTable
     /// <summary>
     /// Set the layout of the pivot table. It also changes layout of all pivot fields.
     /// </summary>
+    // Write-only properties: intentional design for applying settings to all pivot fields
+#pragma warning disable S2376
     XLPivotLayout Layout { set; }
     bool InsertBlankLines { set; }
+#pragma warning restore S2376
 
     IXLPivotTable SetShowRowHeaders(); IXLPivotTable SetShowRowHeaders(bool value);
 

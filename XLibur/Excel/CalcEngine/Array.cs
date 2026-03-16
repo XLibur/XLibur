@@ -227,7 +227,7 @@ internal sealed class RepeatedColumnArray : Array
         get
         {
             if (row >= Height || column >= Width)
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(row), "Index was out of range.");
 
             if (row >= _columnArray.Height)
                 return XLError.NoValueAvailable;
@@ -258,7 +258,7 @@ internal sealed class RepeatedRowArray : Array
         get
         {
             if (row >= Height || column >= Width)
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(row), "Index was out of range.");
 
             if (column >= _rowArray.Width)
                 return XLError.NoValueAvailable;
@@ -291,7 +291,7 @@ internal sealed class ResizedArray : Array
         get
         {
             if (y >= Height || x >= Width)
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(y), "Index was out of range.");
 
             return y < _original.Height && x < _original.Width
                 ? _original[y, x]
@@ -325,7 +325,7 @@ internal sealed class ScalarArray : Array
         get
         {
             if (x < 0 || x >= Width || y < 0 || y >= Height)
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(y), "Index was out of range.");
 
             return _value;
         }

@@ -31,9 +31,11 @@ public class ReflectionExtensionTests
 
         public event EventHandler<EventArgs> InstanceEvent;
 
+#pragma warning disable CA1822 // Intentionally non-static: test verifies IsStatic() returns false
         public void InstanceMethod()
         {
         }
+#pragma warning restore CA1822
     }
 #pragma warning restore CS0067
 

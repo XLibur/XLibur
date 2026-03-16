@@ -45,7 +45,10 @@ public interface IXLBaseCollection<out TSingle, TMultiple> : IEnumerable<TSingle
     /// <value>
     /// The object containing the value(s) to set.
     /// </value>
+    // Write-only property: intentional design for setting values across a collection
+#pragma warning disable S2376
     object Value { set; }
+#pragma warning restore S2376
 
     TMultiple SetValue<T>(T value);
 

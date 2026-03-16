@@ -451,7 +451,7 @@ internal static class EnumConverter
         _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
     };
 
-    private static readonly IReadOnlyDictionary<XLPictureFormat, PartTypeInfo> PictureFormatMap =
+    private static readonly Dictionary<XLPictureFormat, PartTypeInfo> PictureFormatMap =
         new Dictionary<XLPictureFormat, PartTypeInfo>
         {
             { XLPictureFormat.Unknown, new PartTypeInfo("image/unknown", ".bin") },
@@ -530,7 +530,7 @@ internal static class EnumConverter
 
     #region To XLibur
 
-    private static readonly IReadOnlyDictionary<UnderlineValues, XLFontUnderlineValues> UnderlineValuesMap =
+    private static readonly Dictionary<UnderlineValues, XLFontUnderlineValues> UnderlineValuesMap =
         new Dictionary<UnderlineValues, XLFontUnderlineValues>
         {
             { UnderlineValues.Double, XLFontUnderlineValues.Double },
@@ -545,7 +545,7 @@ internal static class EnumConverter
         return UnderlineValuesMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<FontSchemeValues, XLFontScheme> FontSchemeMap =
+    private static readonly Dictionary<FontSchemeValues, XLFontScheme> FontSchemeMap =
         new Dictionary<FontSchemeValues, XLFontScheme>
         {
             { FontSchemeValues.None, XLFontScheme.None },
@@ -558,7 +558,7 @@ internal static class EnumConverter
         return FontSchemeMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<OrientationValues, XLPageOrientation> OrientationMap =
+    private static readonly Dictionary<OrientationValues, XLPageOrientation> OrientationMap =
         new Dictionary<OrientationValues, XLPageOrientation>
         {
             { OrientationValues.Default, XLPageOrientation.Default },
@@ -586,7 +586,7 @@ internal static class EnumConverter
         return VerticalAlignmentRunMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<PatternValues, XLFillPatternValues> PatternMap =
+    private static readonly Dictionary<PatternValues, XLFillPatternValues> PatternMap =
         new Dictionary<PatternValues, XLFillPatternValues>
         {
             { PatternValues.DarkDown, XLFillPatternValues.DarkDown },
@@ -615,7 +615,7 @@ internal static class EnumConverter
         return PatternMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<BorderStyleValues, XLBorderStyleValues> BorderStyleMap =
+    private static readonly Dictionary<BorderStyleValues, XLBorderStyleValues> BorderStyleMap =
         new Dictionary<BorderStyleValues, XLBorderStyleValues>
         {
             { BorderStyleValues.DashDot, XLBorderStyleValues.DashDot },
@@ -674,7 +674,7 @@ internal static class EnumConverter
         return VerticalAlignmentMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<PageOrderValues, XLPageOrderValues> PageOrdersMap =
+    private static readonly Dictionary<PageOrderValues, XLPageOrderValues> PageOrdersMap =
         new Dictionary<PageOrderValues, XLPageOrderValues>
         {
             { PageOrderValues.DownThenOver, XLPageOrderValues.DownThenOver },
@@ -686,7 +686,7 @@ internal static class EnumConverter
         return PageOrdersMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<CellCommentsValues, XLShowCommentsValues> CellCommentsMap =
+    private static readonly Dictionary<CellCommentsValues, XLShowCommentsValues> CellCommentsMap =
         new Dictionary<CellCommentsValues, XLShowCommentsValues>
         {
             { CellCommentsValues.AsDisplayed, XLShowCommentsValues.AsDisplayed },
@@ -699,7 +699,7 @@ internal static class EnumConverter
         return CellCommentsMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<PrintErrorValues, XLPrintErrorValues> PrintErrorMap =
+    private static readonly Dictionary<PrintErrorValues, XLPrintErrorValues> PrintErrorMap =
         new Dictionary<PrintErrorValues, XLPrintErrorValues>
         {
             { PrintErrorValues.Blank, XLPrintErrorValues.Blank },
@@ -713,7 +713,7 @@ internal static class EnumConverter
         return PrintErrorMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<CalculateModeValues, XLCalculateMode> CalculateModeMap =
+    private static readonly Dictionary<CalculateModeValues, XLCalculateMode> CalculateModeMap =
         new Dictionary<CalculateModeValues, XLCalculateMode>
         {
             { CalculateModeValues.Auto, XLCalculateMode.Auto },
@@ -726,7 +726,7 @@ internal static class EnumConverter
         return CalculateModeMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<ReferenceModeValues, XLReferenceStyle> ReferenceModeMap =
+    private static readonly Dictionary<ReferenceModeValues, XLReferenceStyle> ReferenceModeMap =
         new Dictionary<ReferenceModeValues, XLReferenceStyle>
         {
             { ReferenceModeValues.R1C1, XLReferenceStyle.R1C1 },
@@ -746,7 +746,7 @@ internal static class EnumConverter
         _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
     };
 
-    private static readonly IReadOnlyDictionary<TotalsRowFunctionValues, XLTotalsRowFunction> TotalsRowFunctionMap =
+    private static readonly Dictionary<TotalsRowFunctionValues, XLTotalsRowFunction> TotalsRowFunctionMap =
         new Dictionary<TotalsRowFunctionValues, XLTotalsRowFunction>
         {
             { TotalsRowFunctionValues.None, XLTotalsRowFunction.None },
@@ -767,7 +767,7 @@ internal static class EnumConverter
         return TotalsRowFunctionMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<DataValidationValues, XLAllowedValues> DataValidationMap =
+    private static readonly Dictionary<DataValidationValues, XLAllowedValues> DataValidationMap =
         new Dictionary<DataValidationValues, XLAllowedValues>
         {
             { DataValidationValues.None, XLAllowedValues.AnyValue },
@@ -799,7 +799,7 @@ internal static class EnumConverter
         return DataValidationErrorStyleMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<DataValidationOperatorValues, XLOperator> DataValidationOperatorMap =
+    private static readonly Dictionary<DataValidationOperatorValues, XLOperator> DataValidationOperatorMap =
         new Dictionary<DataValidationOperatorValues, XLOperator>
         {
             { DataValidationOperatorValues.Between, XLOperator.Between },
@@ -817,7 +817,7 @@ internal static class EnumConverter
         return DataValidationOperatorMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<SheetStateValues, XLWorksheetVisibility> SheetStateMap =
+    private static readonly Dictionary<SheetStateValues, XLWorksheetVisibility> SheetStateMap =
         new Dictionary<SheetStateValues, XLWorksheetVisibility>
         {
             { SheetStateValues.Visible, XLWorksheetVisibility.Visible },
@@ -830,7 +830,7 @@ internal static class EnumConverter
         return SheetStateMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<PhoneticAlignmentValues, XLPhoneticAlignment> PhoneticAlignmentMap =
+    private static readonly Dictionary<PhoneticAlignmentValues, XLPhoneticAlignment> PhoneticAlignmentMap =
         new Dictionary<PhoneticAlignmentValues, XLPhoneticAlignment>
         {
             { PhoneticAlignmentValues.Center, XLPhoneticAlignment.Center },
@@ -845,7 +845,7 @@ internal static class EnumConverter
         return PhoneticAlignmentMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<PhoneticValues, XLPhoneticType> PhoneticMap =
+    private static readonly Dictionary<PhoneticValues, XLPhoneticType> PhoneticMap =
         new Dictionary<PhoneticValues, XLPhoneticType>
         {
             { PhoneticValues.FullWidthKatakana, XLPhoneticType.FullWidthKatakana },
@@ -881,7 +881,7 @@ internal static class EnumConverter
         return DataConsolidateFunctionMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<ShowDataAsValues, XLPivotCalculation> ShowDataAsMap =
+    private static readonly Dictionary<ShowDataAsValues, XLPivotCalculation> ShowDataAsMap =
         new Dictionary<ShowDataAsValues, XLPivotCalculation>
         {
             { ShowDataAsValues.Normal, XLPivotCalculation.Normal },
@@ -902,7 +902,7 @@ internal static class EnumConverter
         return ShowDataAsMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<FilterOperatorValues, XLFilterOperator> FilterOperatorMap =
+    private static readonly Dictionary<FilterOperatorValues, XLFilterOperator> FilterOperatorMap =
         new Dictionary<FilterOperatorValues, XLFilterOperator>
         {
             { FilterOperatorValues.Equal, XLFilterOperator.Equal },
@@ -918,7 +918,7 @@ internal static class EnumConverter
         return FilterOperatorMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<DynamicFilterValues, XLFilterDynamicType> DynamicFilterMap =
+    private static readonly Dictionary<DynamicFilterValues, XLFilterDynamicType> DynamicFilterMap =
         new Dictionary<DynamicFilterValues, XLFilterDynamicType>
         {
             { DynamicFilterValues.AboveAverage, XLFilterDynamicType.AboveAverage },
@@ -930,7 +930,7 @@ internal static class EnumConverter
         return DynamicFilterMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<DateTimeGroupingValues, XLDateTimeGrouping> DateTimeGroupingMap =
+    private static readonly Dictionary<DateTimeGroupingValues, XLDateTimeGrouping> DateTimeGroupingMap =
         new Dictionary<DateTimeGroupingValues, XLDateTimeGrouping>
         {
             { DateTimeGroupingValues.Year, XLDateTimeGrouping.Year },
@@ -946,7 +946,7 @@ internal static class EnumConverter
         return DateTimeGroupingMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<SheetViewValues, XLSheetViewOptions> SheetViewMap =
+    private static readonly Dictionary<SheetViewValues, XLSheetViewOptions> SheetViewMap =
         new Dictionary<SheetViewValues, XLSheetViewOptions>
         {
             { SheetViewValues.Normal, XLSheetViewOptions.Normal },
@@ -959,7 +959,7 @@ internal static class EnumConverter
         return SheetViewMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<Vml.StrokeLineStyleValues, XLLineStyle> StrokeLineStyleMap =
+    private static readonly Dictionary<Vml.StrokeLineStyleValues, XLLineStyle> StrokeLineStyleMap =
         new Dictionary<Vml.StrokeLineStyleValues, XLLineStyle>
         {
             { Vml.StrokeLineStyleValues.Single, XLLineStyle.Single },
@@ -974,7 +974,7 @@ internal static class EnumConverter
         return StrokeLineStyleMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<ConditionalFormatValues, XLConditionalFormatType> ConditionalFormatMap =
+    private static readonly Dictionary<ConditionalFormatValues, XLConditionalFormatType> ConditionalFormatMap =
         new Dictionary<ConditionalFormatValues, XLConditionalFormatType>
         {
             { ConditionalFormatValues.Expression, XLConditionalFormatType.Expression },
@@ -1042,7 +1042,7 @@ internal static class EnumConverter
         return ConditionalFormattingOperatorMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<IconSetValues, XLIconSetStyle> IconSetMap =
+    private static readonly Dictionary<IconSetValues, XLIconSetStyle> IconSetMap =
         new Dictionary<IconSetValues, XLIconSetStyle>
         {
             { IconSetValues.ThreeArrows, XLIconSetStyle.ThreeArrows },
@@ -1069,7 +1069,7 @@ internal static class EnumConverter
         return IconSetMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<TimePeriodValues, XLTimePeriod> TimePeriodMap =
+    private static readonly Dictionary<TimePeriodValues, XLTimePeriod> TimePeriodMap =
         new Dictionary<TimePeriodValues, XLTimePeriod>
         {
             { TimePeriodValues.Yesterday, XLTimePeriod.Yesterday },
@@ -1089,7 +1089,7 @@ internal static class EnumConverter
         return TimePeriodMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<PivotAreaValues, XLPivotAreaType> PivotAreaMap =
+    private static readonly Dictionary<PivotAreaValues, XLPivotAreaType> PivotAreaMap =
         new Dictionary<PivotAreaValues, XLPivotAreaType>
         {
             { PivotAreaValues.None, XLPivotAreaType.None },
@@ -1107,7 +1107,7 @@ internal static class EnumConverter
         return PivotAreaMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<X14.SparklineTypeValues, XLSparklineType> SparklineTypeMap =
+    private static readonly Dictionary<X14.SparklineTypeValues, XLSparklineType> SparklineTypeMap =
         new Dictionary<X14.SparklineTypeValues, XLSparklineType>
         {
             { X14.SparklineTypeValues.Line, XLSparklineType.Line },
@@ -1134,7 +1134,7 @@ internal static class EnumConverter
         return SparklineAxisMinMaxMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<X14.DisplayBlanksAsValues, XLDisplayBlanksAsValues> DisplayBlanksAsMap =
+    private static readonly Dictionary<X14.DisplayBlanksAsValues, XLDisplayBlanksAsValues> DisplayBlanksAsMap =
         new Dictionary<X14.DisplayBlanksAsValues, XLDisplayBlanksAsValues>
         {
             { X14.DisplayBlanksAsValues.Span, XLDisplayBlanksAsValues.Interpolate },
@@ -1147,7 +1147,7 @@ internal static class EnumConverter
         return DisplayBlanksAsMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<FieldSortValues, XLPivotSortType> FieldSortMap =
+    private static readonly Dictionary<FieldSortValues, XLPivotSortType> FieldSortMap =
         new Dictionary<FieldSortValues, XLPivotSortType>
         {
             { FieldSortValues.Manual, XLPivotSortType.Default },
@@ -1160,7 +1160,7 @@ internal static class EnumConverter
         return FieldSortMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<PivotTableAxisValues, XLPivotAxis> PivotTableAxisMap =
+    private static readonly Dictionary<PivotTableAxisValues, XLPivotAxis> PivotTableAxisMap =
         new Dictionary<PivotTableAxisValues, XLPivotAxis>
         {
             { PivotTableAxisValues.AxisRow, XLPivotAxis.AxisRow },
@@ -1174,7 +1174,7 @@ internal static class EnumConverter
         return PivotTableAxisMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<ItemValues, XLPivotItemType> ItemMap =
+    private static readonly Dictionary<ItemValues, XLPivotItemType> ItemMap =
         new Dictionary<ItemValues, XLPivotItemType>
         {
             { ItemValues.Data, XLPivotItemType.Data },
@@ -1199,7 +1199,7 @@ internal static class EnumConverter
         return ItemMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<FormatActionValues, XLPivotFormatAction> FormatActionMap =
+    private static readonly Dictionary<FormatActionValues, XLPivotFormatAction> FormatActionMap =
         new Dictionary<FormatActionValues, XLPivotFormatAction>
         {
             { FormatActionValues.Blank, XLPivotFormatAction.Blank },
@@ -1211,7 +1211,7 @@ internal static class EnumConverter
         return FormatActionMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<ScopeValues, XLPivotCfScope> ScopeMap =
+    private static readonly Dictionary<ScopeValues, XLPivotCfScope> ScopeMap =
         new Dictionary<ScopeValues, XLPivotCfScope>
         {
             { ScopeValues.Selection, XLPivotCfScope.SelectedCells },
@@ -1224,7 +1224,7 @@ internal static class EnumConverter
         return ScopeMap[value];
     }
 
-    private static readonly IReadOnlyDictionary<RuleValues, XLPivotCfRuleType> RuleMap =
+    private static readonly Dictionary<RuleValues, XLPivotCfRuleType> RuleMap =
         new Dictionary<RuleValues, XLPivotCfRuleType>
         {
             { RuleValues.None, XLPivotCfRuleType.None },

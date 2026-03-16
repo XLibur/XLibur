@@ -5,6 +5,7 @@ namespace XLibur.Excel;
 
 public interface IXLFormattedText<T> : IEnumerable<IXLRichString>, IEquatable<IXLFormattedText<T>>, IXLWithRichString
 {
+#pragma warning disable S2376 // Write-only properties: intentional "apply to all runs" design
     bool Bold { set; }
     bool Italic { set; }
     XLFontUnderlineValues Underline { set; }
@@ -15,6 +16,7 @@ public interface IXLFormattedText<T> : IEnumerable<IXLRichString>, IEquatable<IX
     XLColor FontColor { set; }
     string FontName { set; }
     XLFontFamilyNumberingValues FontFamilyNumbering { set; }
+#pragma warning restore S2376
 
     IXLFormattedText<T> SetBold(); IXLFormattedText<T> SetBold(bool value);
     IXLFormattedText<T> SetItalic(); IXLFormattedText<T> SetItalic(bool value);

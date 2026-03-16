@@ -13,6 +13,8 @@ public interface IXLRangeBase : IXLAddressable
 {
     IXLWorksheet Worksheet { get; }
 
+    // Write-only properties: intentional design for setting values across a range
+#pragma warning disable S2376
     /// <summary>
     /// Sets a value to every cell in this range.
     /// <para>
@@ -55,9 +57,12 @@ public interface IXLRangeBase : IXLAddressable
     /// </remarks>
     /// <value>The formula with R1C1 references.</value>
     string FormulaR1C1 { set; }
+#pragma warning restore S2376
 
     IXLStyle Style { get; set; }
 
+    // Write-only property: intentional design for setting values across a range
+#pragma warning disable S2376
     /// <summary>
     ///   Gets or sets a value indicating whether this cell's text should be shared or not.
     /// </summary>
@@ -65,6 +70,7 @@ public interface IXLRangeBase : IXLAddressable
     ///   If false the cell's text will not be shared and stored as an inline value.
     /// </value>
     bool ShareString { set; }
+#pragma warning restore S2376
 
     /// <summary>
     ///   Returns the collection of cells.

@@ -22,6 +22,8 @@ public enum XLBorderStyleValues
 
 public interface IXLBorder : IEquatable<IXLBorder>
 {
+    // Write-only properties: convenience setters that apply to all border sides
+#pragma warning disable S2376
     XLBorderStyleValues OutsideBorder { set; }
 
     XLColor OutsideBorderColor { set; }
@@ -29,6 +31,7 @@ public interface IXLBorder : IEquatable<IXLBorder>
     XLBorderStyleValues InsideBorder { set; }
 
     XLColor InsideBorderColor { set; }
+#pragma warning restore S2376
 
     XLBorderStyleValues LeftBorder { get; set; }
 
@@ -78,9 +81,11 @@ public interface IXLBorder : IEquatable<IXLBorder>
 
     IXLStyle SetBottomBorderColor(XLColor value);
 
-    IXLStyle SetDiagonalUp(); IXLStyle SetDiagonalUp(bool value);
+    IXLStyle SetDiagonalUp();
+    IXLStyle SetDiagonalUp(bool value);
 
-    IXLStyle SetDiagonalDown(); IXLStyle SetDiagonalDown(bool value);
+    IXLStyle SetDiagonalDown();
+    IXLStyle SetDiagonalDown(bool value);
 
     IXLStyle SetDiagonalBorder(XLBorderStyleValues value);
 

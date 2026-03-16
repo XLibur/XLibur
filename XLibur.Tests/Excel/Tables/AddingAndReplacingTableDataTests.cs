@@ -63,7 +63,7 @@ public class AppendingAndReplacingTableDataTests
         return wb;
     }
 
-    private XLWorkbook PrepareWorkbookWithAdditionalColumns()
+    private static XLWorkbook PrepareWorkbookWithAdditionalColumns()
     {
         var wb = PrepareWorkbook();
         var ws = wb.Worksheets.First();

@@ -179,9 +179,10 @@ public class XLAddressTests
         return address;
     }
 
-    private IXLAddress ProduceInvalidAddressOnDeletedWorksheet()
+    private static IXLAddress ProduceInvalidAddressOnDeletedWorksheet()
     {
         var address = ProduceInvalidAddress();
+        Assert.That(address.Worksheet, Is.Not.Null);
         address.Worksheet.Delete();
         return address;
     }

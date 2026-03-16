@@ -227,7 +227,7 @@ internal sealed class DependencyTree
         /// <summary>
         /// List of formulas that depend on the range, always at least one.
         /// </summary>
-        internal IReadOnlyList<Dependent> Dependents => _dependents;
+        internal List<Dependent> Dependents => _dependents;
 
         internal void AddDependent(Dependent dependent)
         {

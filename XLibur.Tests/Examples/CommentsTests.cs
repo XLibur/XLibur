@@ -1,4 +1,3 @@
-using XLibur.Examples;
 using NUnit.Framework;
 using XLibur.Examples.Comments;
 

@@ -4,6 +4,7 @@ namespace XLibur.Excel;
 
 public interface IXLColumns : IEnumerable<IXLColumn>
 {
+#pragma warning disable S2376 // Write-only properties: intentional batch-set on collection items
     /// <summary>
     /// Sets the width of all columns.
     /// </summary>
@@ -11,6 +12,7 @@ public interface IXLColumns : IEnumerable<IXLColumn>
     /// The width of all columns.
     /// </value>
     double Width { set; }
+#pragma warning restore S2376
 
     /// <summary>
     /// Deletes all columns and shifts the columns at the right of them accordingly.

@@ -151,7 +151,7 @@ public partial class CommentsTests
             wb.SaveAs(ms);
         }
 
-        Assert.DoesNotThrow(() => new XLWorkbook(ms));
+        Assert.DoesNotThrow(() => _ = new XLWorkbook(ms));
     }
 
     [Test]

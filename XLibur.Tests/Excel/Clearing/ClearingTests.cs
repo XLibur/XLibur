@@ -12,7 +12,7 @@ public class ClearingTests
     private static readonly XLColor BackgroundColor = XLColor.LightBlue;
     private static readonly XLColor ForegroundColor = XLColor.DarkBrown;
 
-    private static IXLWorkbook SetupWorkbook()
+    private static XLWorkbook SetupWorkbook()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");

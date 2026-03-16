@@ -16,6 +16,8 @@ internal sealed class RenameRefModVisitor : RefModVisitor
     /// A mapping of sheets, from old name (key) to a new name (value).
     /// The <c>null</c> value indicates sheet has been deleted.
     /// </summary>
+    // Write-only (init) properties: intentional design for immutable configuration
+#pragma warning disable S2376
     internal IReadOnlyDictionary<string, string?> Sheets
     {
         init => _sheets = value.ToDictionary(x => x.Key, x => x.Value, XLHelper.SheetComparer);
@@ -25,6 +27,7 @@ internal sealed class RenameRefModVisitor : RefModVisitor
     {
         init => _tables = value.ToDictionary(x => x.Key, x => x.Value, XLHelper.NameComparer);
     }
+#pragma warning restore S2376
 
     protected override string? ModifySheet(ModContext ctx, string sheetName)
     {

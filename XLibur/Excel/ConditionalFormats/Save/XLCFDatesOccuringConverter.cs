@@ -5,7 +5,7 @@ namespace XLibur.Excel;
 
 internal sealed class XLCFDatesOccurringConverter : IXLCFConverter
 {
-    private static readonly IDictionary<XLTimePeriod, string> formulaTemplates = new Dictionary<XLTimePeriod, string>()
+    private static readonly Dictionary<XLTimePeriod, string> formulaTemplates = new Dictionary<XLTimePeriod, string>()
     {
         [XLTimePeriod.Today] = "FLOOR({0},1)=TODAY()",
         [XLTimePeriod.Yesterday] = "FLOOR({0},1)=TODAY()-1",

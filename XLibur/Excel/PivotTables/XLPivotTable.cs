@@ -689,6 +689,8 @@ internal sealed class XLPivotTable : IXLPivotTable
         return this;
     }
 
+    // Write-only properties: intentional design for applying settings to all pivot fields
+#pragma warning disable S2376
     public XLPivotLayout Layout
     {
         set
@@ -727,6 +729,7 @@ internal sealed class XLPivotTable : IXLPivotTable
     {
         set { ImplementedFields.ForEach(f => f.SetInsertBlankLines(value)); }
     }
+#pragma warning restore S2376
 
     public IXLPivotTable SetInsertBlankLines()
     {

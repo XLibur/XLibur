@@ -85,10 +85,10 @@ public class InsertingData : IXLExample
 
         public int Age { get; set; }
 
-        public static string ClassType
-        {
-            get { return nameof(Person); }
-        }
+#pragma warning disable S1144 // Used for a test.
+        // ReSharper disable once UnusedMember.Local
+        public static string ClassType => nameof(Person);
+#pragma warning restore S1144
     }
 
     // Private
