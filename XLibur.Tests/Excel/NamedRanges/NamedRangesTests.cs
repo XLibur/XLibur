@@ -456,7 +456,7 @@ public class NamedRangesTests
         Assert.AreEqual("Named range 4", wb.DefinedNames.ElementAt(1).Name);
         Assert.AreEqual(XLNamedRangeScope.Workbook, wb.DefinedNames.ElementAt(1).Scope);
         Assert.AreEqual("#REF!", wb.DefinedNames.ElementAt(1).RefersTo);
-        Assert.IsFalse(wb.DefinedNames.ElementAt(1).Ranges.Any());
+        Assert.That(wb.DefinedNames.ElementAt(1).Ranges.Count, Is.EqualTo(0));
 
         Assert.AreEqual("Named range 5", wb.DefinedNames.ElementAt(2).Name);
         Assert.AreEqual(XLNamedRangeScope.Workbook, wb.DefinedNames.ElementAt(2).Scope);
@@ -574,7 +574,7 @@ public class NamedRangesTests
             Assert.AreEqual("Named range 4", wb.DefinedNames.ElementAt(1).Name);
             Assert.AreEqual(XLNamedRangeScope.Workbook, wb.DefinedNames.ElementAt(1).Scope);
             Assert.AreEqual("#REF!", wb.DefinedNames.ElementAt(1).RefersTo);
-            Assert.IsFalse(wb.DefinedNames.ElementAt(1).Ranges.Any());
+            Assert.That(wb.DefinedNames.ElementAt(1).Ranges.Count, Is.EqualTo(0));
 
             Assert.AreEqual("Named range 5", wb.DefinedNames.ElementAt(2).Name);
             Assert.AreEqual(XLNamedRangeScope.Workbook, wb.DefinedNames.ElementAt(2).Scope);

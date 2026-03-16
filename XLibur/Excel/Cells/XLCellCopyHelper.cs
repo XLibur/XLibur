@@ -168,7 +168,7 @@ internal static class XLCellCopyHelper
         {
             var fs = srcSheet.ConditionalFormats
                 .SelectMany(cf => cf.Ranges.GetIntersectedRanges(fromRange.RangeAddress)).ToArray();
-            if (fs.Any())
+            if (fs.Length > 0)
             {
                 minRo = fs.Max(r => r.RangeAddress.LastAddress.RowNumber);
                 minCo = fs.Max(r => r.RangeAddress.LastAddress.ColumnNumber);

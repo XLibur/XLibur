@@ -90,7 +90,7 @@ internal sealed class SheetViewWriter
         sheetView.RemoveAllChildren<Selection>();
         svcm.SetElement(XLSheetViewContents.Selection, null);
 
-        if (xlWorksheet.SelectedRanges.Any() || xlWorksheet.ActiveCell is not null)
+        if (xlWorksheet.SelectedRanges.Count > 0 || xlWorksheet.ActiveCell is not null)
             SetupSelections(sheetView, svcm, xlWorksheet, pane);
 
         SetZoomScales(sheetView, xlWorksheet);
