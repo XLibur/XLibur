@@ -16,7 +16,7 @@ public class NamedRangesTests
     public void Formula_must_be_valid()
     {
         using var wb = new XLWorkbook();
-        var ws = wb.AddWorksheet();
+        wb.AddWorksheet();
         Assert.Throws<ParsingException>(() => wb.DefinedNames.Add("Test", "SUM(Sheet7!A4"));
     }
 
@@ -41,8 +41,8 @@ public class NamedRangesTests
         var ws1 = wb.Worksheets.Add("Sheet1");
         ws1.Cell("A1").SetValue(1).AddToNamed("value1");
 
-        Assert.AreEqual(1, wb.Cell("value1").Value);
-        Assert.AreEqual(1, wb.Range("value1").FirstCell().Value);
+        Assert.AreEqual(1, wb.Cell("value1")!.Value);
+        Assert.AreEqual(1, wb.Range("value1")!.FirstCell().Value);
 
         Assert.AreEqual(1, ws1.Cell("value1").Value);
         Assert.AreEqual(1, ws1.Range("value1").FirstCell().Value);
@@ -51,8 +51,8 @@ public class NamedRangesTests
 
         ws2.Cell("A1").SetFormulaA1("=value1").AddToNamed("value2");
 
-        Assert.AreEqual(1, wb.Cell("value2").Value);
-        Assert.AreEqual(1, wb.Range("value2").FirstCell().Value);
+        Assert.AreEqual(1, wb.Cell("value2")!.Value);
+        Assert.AreEqual(1, wb.Range("value2")!.FirstCell().Value);
 
         Assert.AreEqual(1, ws2.Cell("value1").Value);
         Assert.AreEqual(1, ws2.Range("value1").FirstCell().Value);
@@ -82,22 +82,23 @@ public class NamedRangesTests
         ws2.Delete();
         ws3.Delete();
 
-        var globalValidRanges = wb.DefinedNames.ValidNamedRanges();
-        var globalInvalidRanges = wb.DefinedNames.InvalidNamedRanges();
-        var localValidRanges = ws1.DefinedNames.ValidNamedRanges();
-        var localInvalidRanges = ws1.DefinedNames.InvalidNamedRanges();
+        var globalValidRanges = wb.DefinedNames.ValidNamedRanges().ToList();
+        var globalInvalidRanges = wb.DefinedNames.InvalidNamedRanges().ToList();
+        var localValidRanges = ws1.DefinedNames.ValidNamedRanges().ToList();
+        var localInvalidRanges = ws1.DefinedNames.InvalidNamedRanges().ToList();
 
-        Assert.AreEqual(1, globalValidRanges.Count());
-        Assert.AreEqual("Named range 2", globalValidRanges.First().Name);
+        var xlDefinedNames = globalValidRanges.ToList();
+        Assert.AreEqual(1, xlDefinedNames.Count);
+        Assert.AreEqual("Named range 2", xlDefinedNames.First().Name);
 
-        Assert.AreEqual(2, globalInvalidRanges.Count());
+        Assert.AreEqual(2, globalInvalidRanges.Count);
         Assert.AreEqual("Named range 4", globalInvalidRanges.First().Name);
         Assert.AreEqual("Named range 5", globalInvalidRanges.Last().Name);
 
-        Assert.AreEqual(1, localValidRanges.Count());
+        Assert.AreEqual(1, localValidRanges.Count);
         Assert.AreEqual("Named range 1", localValidRanges.First().Name);
 
-        Assert.AreEqual(0, localInvalidRanges.Count());
+        Assert.AreEqual(0, localInvalidRanges.Count);
     }
 
     [Test]
@@ -153,12 +154,14 @@ public class NamedRangesTests
 
             Assert.AreEqual(1, wb.DefinedNames.Count());
             Assert.AreEqual("wbNamedRange", wb.DefinedNames.Single().Name);
-            Assert.AreEqual("Sheet1!$B$2,Sheet1!$B$3:$C$3,Sheet2!$D$3:$D$4,Sheet1!$6:$7,Sheet1!$F:$G", wb.DefinedNames.Single().RefersTo);
+            Assert.AreEqual("Sheet1!$B$2,Sheet1!$B$3:$C$3,Sheet2!$D$3:$D$4,Sheet1!$6:$7,Sheet1!$F:$G",
+                wb.DefinedNames.Single().RefersTo);
             Assert.AreEqual(5, wb.DefinedNames.Single().Ranges.Count);
 
             Assert.AreEqual(1, sheet1.DefinedNames.Count());
             Assert.AreEqual("sheet1NamedRange", sheet1.DefinedNames.Single().Name);
-            Assert.AreEqual("Sheet1!$B$2,Sheet1!$B$3:$C$3,Sheet2!$D$3:$D$4,Sheet1!$6:$7,Sheet1!$F:$G", sheet1.DefinedNames.Single().RefersTo);
+            Assert.AreEqual("Sheet1!$B$2,Sheet1!$B$3:$C$3,Sheet2!$D$3:$D$4,Sheet1!$6:$7,Sheet1!$F:$G",
+                sheet1.DefinedNames.Single().RefersTo);
             Assert.AreEqual(5, sheet1.DefinedNames.Single().Ranges.Count);
 
             Assert.AreEqual(1, sheet2.DefinedNames.Count());
@@ -221,7 +224,7 @@ public class NamedRangesTests
     public void Copy_workbook_scoped_defined()
     {
         using var wb = new XLWorkbook();
-        var ws = wb.AddWorksheet("Sheet");
+        wb.AddWorksheet("Sheet");
         var name = wb.DefinedNames.Add("Name", "Sheet!$A$1");
 
         var copySheet = wb.AddWorksheet();
@@ -239,7 +242,7 @@ public class NamedRangesTests
 
         TestDelegate action = () => dn.CopyTo(ws1);
 
-        Assert.Throws(typeof(InvalidOperationException), action);
+        Assert.Throws<InvalidOperationException>(action);
     }
 
     [Test]
@@ -439,14 +442,16 @@ public class NamedRangesTests
         Assert.AreEqual("Named range 1", ws1.DefinedNames.First().Name);
         Assert.AreEqual(XLNamedRangeScope.Worksheet, ws1.DefinedNames.First().Scope);
         Assert.AreEqual("'Sheet 1'!$A$1:$D$1", ws1.DefinedNames.First().RefersTo);
-        Assert.AreEqual("'Sheet 1'!A1:D1", ws1.DefinedNames.First().Ranges.Single().RangeAddress.ToString(XLReferenceStyle.A1, true));
+        Assert.AreEqual("'Sheet 1'!A1:D1",
+            ws1.DefinedNames.First().Ranges.Single().RangeAddress.ToString(XLReferenceStyle.A1, true));
 
         Assert.AreEqual(3, wb.DefinedNames.Count());
 
         Assert.AreEqual("Named range 2", wb.DefinedNames.ElementAt(0).Name);
         Assert.AreEqual(XLNamedRangeScope.Workbook, wb.DefinedNames.ElementAt(0).Scope);
         Assert.AreEqual("'Sheet 1'!$A$2:$D$2", wb.DefinedNames.ElementAt(0).RefersTo);
-        Assert.AreEqual("'Sheet 1'!A2:D2", wb.DefinedNames.ElementAt(0).Ranges.Single().RangeAddress.ToString(XLReferenceStyle.A1, true));
+        Assert.AreEqual("'Sheet 1'!A2:D2",
+            wb.DefinedNames.ElementAt(0).Ranges.Single().RangeAddress.ToString(XLReferenceStyle.A1, true));
 
         Assert.AreEqual("Named range 4", wb.DefinedNames.ElementAt(1).Name);
         Assert.AreEqual(XLNamedRangeScope.Workbook, wb.DefinedNames.ElementAt(1).Scope);
@@ -457,7 +462,8 @@ public class NamedRangesTests
         Assert.AreEqual(XLNamedRangeScope.Workbook, wb.DefinedNames.ElementAt(2).Scope);
         Assert.AreEqual("'Sheet 1'!$A$5:$D$5,#REF!", wb.DefinedNames.ElementAt(2).RefersTo);
         Assert.AreEqual(1, wb.DefinedNames.ElementAt(2).Ranges.Count);
-        Assert.AreEqual("'Sheet 1'!A5:D5", wb.DefinedNames.ElementAt(2).Ranges.Single().RangeAddress.ToString(XLReferenceStyle.A1, true));
+        Assert.AreEqual("'Sheet 1'!A5:D5",
+            wb.DefinedNames.ElementAt(2).Ranges.Single().RangeAddress.ToString(XLReferenceStyle.A1, true));
     }
 
     [Test]
@@ -510,7 +516,7 @@ public class NamedRangesTests
         Assert.AreEqual(104, wsCopy.Cell("C3").Value);
 
         Assert.AreEqual("Sheet1!A1:A10",
-            wb.DefinedName("wbNamedRange").Ranges.First().RangeAddress.ToStringRelative(true));
+            wb.DefinedName("wbNamedRange")!.Ranges.First().RangeAddress.ToStringRelative(true));
         Assert.AreEqual("Copy!A3:A3",
             wsCopy.DefinedName("wsNamedRange").Ranges.First().RangeAddress.ToStringRelative(true));
         Assert.AreEqual("Sheet2!A4:A4",
@@ -607,7 +613,7 @@ public class NamedRangesTests
         Boolean found1 = wb.DefinedNames.TryGetValue("Sheet1!Name", out var definedName1);
         Assert.IsTrue(found1);
         Assert.IsNotNull(definedName1);
-        Assert.AreEqual(XLNamedRangeScope.Worksheet, definedName1.Scope);
+        Assert.AreEqual(XLNamedRangeScope.Worksheet, definedName1!.Scope);
 
         Boolean found2 = wb.DefinedNames.TryGetValue("Sheet1!NameX", out var definedName2);
         Assert.IsFalse(found2);
@@ -676,11 +682,10 @@ public class NamedRangesTests
     [Test]
     public void DefinedName_SheetNameLikeCellRef_PreservesQuotes_OnRoundTrip()
     {
-        // Sheet name "C05A" looks like it could be a cell reference prefix;
         // Excel requires it to be quoted in formulas.
         using var ms = new MemoryStream();
 
-        // Create a workbook with sheet "C05A" and a defined name referencing it.
+        // Create a workbook with a sheet "C05A" and a defined name referencing it.
         using (var wb = new XLWorkbook())
         {
             var ws = wb.AddWorksheet("C05A");

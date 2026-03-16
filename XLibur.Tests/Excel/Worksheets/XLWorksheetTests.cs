@@ -316,7 +316,7 @@ public class XLWorksheetTests
             wb.Worksheets.Add(title);
         };
 
-        Assert.Throws(typeof(ArgumentException), addWorksheet);
+        Assert.Throws<ArgumentException>(addWorksheet);
     }
 
     [Test]
@@ -329,7 +329,7 @@ public class XLWorksheetTests
             wb.Worksheets.Add(title);
         };
 
-        Assert.Throws(typeof(ArgumentException), addWorksheet);
+        Assert.Throws<ArgumentException>(addWorksheet);
     }
 
     [Test]

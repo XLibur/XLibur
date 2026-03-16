@@ -8,6 +8,13 @@ namespace XLibur.Tests.Excel.InsertData;
 
 public class SimpleTypeReaderTests
 {
+    private static readonly int[] IntData = [1, 2, 3];
+    private static readonly List<double> DoubleData = [1.0, 2.0, 3.0];
+    private static readonly decimal[] DecimalData = [1.0m, 2.0m, 3.0m];
+    private static readonly string[] StringData = ["A", "B", "C"];
+    private static readonly char[] CharData = ['A', 'B', 'C'];
+    private static readonly DateTime[] DateTimeData = [new(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified)];
+
     private readonly int[] _data = [1, 2, 3];
 
     [TestCaseSource(nameof(SimpleSourceNames))]
@@ -21,12 +28,12 @@ public class SimpleTypeReaderTests
     {
         get
         {
-            yield return new TestCaseData(new[] { 1, 2, 3 }).Returns("Int32");
-            yield return new TestCaseData(new List<double> { 1.0, 2.0, 3.0 }).Returns("Double");
-            yield return new TestCaseData(new[] { 1.0m, 2.0m, 3.0m }).Returns("Decimal");
-            yield return new TestCaseData(arg: new[] { "A", "B", "C" }).Returns("String");
-            yield return new TestCaseData(new[] { 'A', 'B', 'C' }).Returns("Char");
-            yield return new TestCaseData(new[] { new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified) }).Returns("DateTime");
+            yield return new TestCaseData(IntData).Returns("Int32");
+            yield return new TestCaseData(DoubleData).Returns("Double");
+            yield return new TestCaseData(DecimalData).Returns("Decimal");
+            yield return new TestCaseData(arg: StringData).Returns("String");
+            yield return new TestCaseData(CharData).Returns("Char");
+            yield return new TestCaseData(DateTimeData).Returns("DateTime");
         }
     }
 

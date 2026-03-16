@@ -136,7 +136,7 @@ public class InsertingRangesTests
         var thisRange = ws.Range(thisRangeAddress) as XLRange;
         var shiftedRange = ws.Range(shiftedRangeAddress) as XLRange;
 
-        thisRange.WorksheetRangeShiftedColumns(shiftedRange, shiftedColumns);
+        thisRange!.WorksheetRangeShiftedColumns(shiftedRange!, shiftedColumns);
 
         Assert.IsTrue(thisRange.RangeAddress.IsValid);
         Assert.AreEqual(expectedRange, thisRange.RangeAddress.ToString());
@@ -151,7 +151,7 @@ public class InsertingRangesTests
         var thisRange = ws.Range(thisRangeAddress) as XLRange;
         var shiftedRange = ws.Range(shiftedRangeAddress) as XLRange;
 
-        thisRange.WorksheetRangeShiftedColumns(shiftedRange, shiftedColumns);
+        thisRange!.WorksheetRangeShiftedColumns(shiftedRange!, shiftedColumns);
 
         Assert.IsFalse(thisRange.RangeAddress.IsValid);
     }
@@ -182,7 +182,7 @@ public class InsertingRangesTests
         var thisRange = ws.Range(thisRangeAddress) as XLRange;
         var shiftedRange = ws.Range(shiftedRangeAddress) as XLRange;
 
-        thisRange.WorksheetRangeShiftedRows(shiftedRange, shiftedRows);
+        thisRange!.WorksheetRangeShiftedRows(shiftedRange!, shiftedRows);
 
         Assert.IsTrue(thisRange.RangeAddress.IsValid);
         Assert.AreEqual(expectedRange, thisRange.RangeAddress.ToString());
@@ -197,7 +197,7 @@ public class InsertingRangesTests
         var thisRange = ws.Range(thisRangeAddress) as XLRange;
         var shiftedRange = ws.Range(shiftedRangeAddress) as XLRange;
 
-        thisRange.WorksheetRangeShiftedRows(shiftedRange, shiftedRows);
+        thisRange!.WorksheetRangeShiftedRows(shiftedRange!, shiftedRows);
 
         Assert.IsFalse(thisRange.RangeAddress.IsValid);
     }
@@ -207,8 +207,8 @@ public class InsertingRangesTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         var range = ws.FirstCell().AsRange();
-        Assert.Throws(typeof(ArgumentOutOfRangeException), () => range.InsertColumnsAfter(0));
-        Assert.Throws(typeof(ArgumentOutOfRangeException), () => range.InsertColumnsBefore(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => range.InsertColumnsAfter(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => range.InsertColumnsBefore(0));
     }
 
     [Test]
@@ -216,8 +216,8 @@ public class InsertingRangesTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         var range = ws.FirstCell().AsRange();
-        Assert.Throws(typeof(ArgumentOutOfRangeException), () => range.InsertColumnsAfter(-1));
-        Assert.Throws(typeof(ArgumentOutOfRangeException), () => range.InsertColumnsBefore(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => range.InsertColumnsAfter(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => range.InsertColumnsBefore(-1));
     }
 
     [Test]
@@ -225,8 +225,8 @@ public class InsertingRangesTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         var range = ws.FirstCell().AsRange();
-        Assert.Throws(typeof(ArgumentOutOfRangeException), () => range.InsertColumnsAfter(16385));
-        Assert.Throws(typeof(ArgumentOutOfRangeException), () => range.InsertColumnsBefore(16385));
+        Assert.Throws<ArgumentOutOfRangeException>(() => range.InsertColumnsAfter(16385));
+        Assert.Throws<ArgumentOutOfRangeException>(() => range.InsertColumnsBefore(16385));
     }
 
     [Test]
@@ -234,8 +234,8 @@ public class InsertingRangesTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         var range = ws.FirstCell().AsRange();
-        Assert.Throws(typeof(ArgumentOutOfRangeException), () => range.InsertRowsAbove(0));
-        Assert.Throws(typeof(ArgumentOutOfRangeException), () => range.InsertRowsBelow(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => range.InsertRowsAbove(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => range.InsertRowsBelow(0));
     }
 
     [Test]
@@ -243,8 +243,8 @@ public class InsertingRangesTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         var range = ws.FirstCell().AsRange();
-        Assert.Throws(typeof(ArgumentOutOfRangeException), () => range.InsertRowsAbove(-1));
-        Assert.Throws(typeof(ArgumentOutOfRangeException), () => range.InsertRowsBelow(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => range.InsertRowsAbove(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => range.InsertRowsBelow(-1));
     }
 
     [Test]
@@ -252,8 +252,8 @@ public class InsertingRangesTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         var range = ws.FirstCell().AsRange();
-        Assert.Throws(typeof(ArgumentOutOfRangeException), () => range.InsertRowsAbove(1048577));
-        Assert.Throws(typeof(ArgumentOutOfRangeException), () => range.InsertRowsBelow(1048577));
+        Assert.Throws<ArgumentOutOfRangeException>(() => range.InsertRowsAbove(1048577));
+        Assert.Throws<ArgumentOutOfRangeException>(() => range.InsertRowsBelow(1048577));
     }
 
     [Test]
@@ -263,13 +263,13 @@ public class InsertingRangesTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
-        //create merged row
+        //create a merged row
         ws.Cell("A1").Value = "Merged Row(1) of Range (A1:F1)";
         ws.Range("A1:F1").Row(1).Merge();
 
         var row = ws.FirstRow();
 
-        // Add some lines and copy format & merging
+        // Add some lines and copy a format & merging
         for (var r = 1; r <= 10; r++)
         {
             row.InsertRowsBelow(1);         // insert a row below row 1, as a row 2

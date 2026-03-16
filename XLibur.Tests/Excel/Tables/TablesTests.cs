@@ -931,7 +931,7 @@ public class TablesTests
 
         TestDelegate action = () => table.CopyTo(ws1);
 
-        Assert.Throws(typeof(InvalidOperationException), action);
+        Assert.Throws<InvalidOperationException>(action);
     }
 
     [Test]
