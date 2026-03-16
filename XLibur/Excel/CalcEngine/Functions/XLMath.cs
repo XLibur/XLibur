@@ -231,7 +231,9 @@ public static class XLMath
 
         // Use the symmetry relation when x > (a+1)/(a+b+2) for better convergence.
         if (x > (a + 1.0) / (a + b + 2.0))
+#pragma warning disable S2234
             return 1.0 - BetaRegularized(1.0 - x, b, a);
+#pragma warning restore S2234        
 
         // Compute the log of the prefix: x^a * (1-x)^b / (a * Beta(a,b))
         var lnPrefix = a * Math.Log(x) + b * Math.Log(1.0 - x)
@@ -314,7 +316,9 @@ public static class XLMath
 
         // Use symmetry to keep p <= 0.5 for better numerical behavior.
         if (p > 0.5)
+#pragma warning disable S2234
             return 1.0 - InverseBetaRegularized(1.0 - p, b, a);
+#pragma warning restore S2234        
 
         var x = InverseBetaInitialGuess(p, a, b);
         x = Math.Max(1e-14, Math.Min(1.0 - 1e-14, x));

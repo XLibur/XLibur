@@ -56,17 +56,15 @@ internal static class PivotTableDefinitionPartWriter2
         // Because extensions are pretty large, always write them.
         xml.WriteStartElement("extLst");
 
-        {
-            // See [MS-XLSX] 2.2.4.5 Pivot Table
-            xml.WriteStartElement("ext", Main2006SsNs);
-            xml.WriteAttributeString("xmlns", "x14", null, X14Main2009SsNs);
-            xml.WriteAttributeString("uri", "{962EF5D1-5CA2-4c93-8EF4-DBF5C05439D2}");
-            xml.WriteStartElement("pivotTableDefinition", X14Main2009SsNs);
-            xml.WriteAttribute("enableEdit", pt.EnableCellEditing);
-            xml.WriteAttribute("hideValuesRow", !pt.ShowValuesRow);
-            xml.WriteEndElement(); // pivotTableDefinition
-            xml.WriteEndElement(); // ext
-        }
+        // See [MS-XLSX] 2.2.4.5 Pivot Table
+        xml.WriteStartElement("ext", Main2006SsNs);
+        xml.WriteAttributeString("xmlns", "x14", null, X14Main2009SsNs);
+        xml.WriteAttributeString("uri", "{962EF5D1-5CA2-4c93-8EF4-DBF5C05439D2}");
+        xml.WriteStartElement("pivotTableDefinition", X14Main2009SsNs);
+        xml.WriteAttribute("enableEdit", pt.EnableCellEditing);
+        xml.WriteAttribute("hideValuesRow", !pt.ShowValuesRow);
+        xml.WriteEndElement(); // pivotTableDefinition
+        xml.WriteEndElement(); // ext
 
         xml.WriteEndElement(); // extList
 
@@ -83,7 +81,7 @@ internal static class PivotTableDefinitionPartWriter2
         xml.WriteAttributeOptional("dataPosition", pt.DataPosition);
         xml.WriteAttributeOptional("autoFormatId", pt.AutoFormatId);
 
-        // Although apply*Formats do have default value `false`, Excel always writes them.
+        // Although apply*Formats do have the default value `false`, Excel always writes them.
         xml.WriteAttribute("applyNumberFormats", pt.ApplyNumberFormats);
         xml.WriteAttribute("applyBorderFormats", pt.ApplyBorderFormats);
         xml.WriteAttribute("applyFontFormats", pt.ApplyFontFormats);

@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Attributes;
 using XLibur.Excel;
 using XLibur.Excel.Exceptions;
@@ -1299,5 +1302,60 @@ public class TablesTests
 
         var lastRow = dataRange.LastRowUsed();
         Assert.IsNotNull(lastRow);
+    }
+
+    [Test]
+    public void LoadTable_without_TableStyleInfo_sets_no_theme_and_clears_style_flags()
+    {
+        using var ms = new MemoryStream();
+        using (var doc = SpreadsheetDocument.Create(ms, SpreadsheetDocumentType.Workbook))
+        {
+            var workbookPart = doc.AddWorkbookPart();
+            workbookPart.Workbook = new Workbook(new Sheets(
+                new Sheet { Id = "rId1", SheetId = 1, Name = "Sheet1" }));
+
+            var worksheetPart = workbookPart.AddNewPart<WorksheetPart>("rId1");
+            worksheetPart.Worksheet = new Worksheet(new SheetData(
+                new Row(
+                    new Cell { CellReference = "A1", DataType = CellValues.InlineString, InlineString = new InlineString(new Text("Col1")) },
+                    new Cell { CellReference = "B1", DataType = CellValues.InlineString, InlineString = new InlineString(new Text("Col2")) })
+                { RowIndex = 1 },
+                new Row(
+                    new Cell { CellReference = "A2", DataType = CellValues.InlineString, InlineString = new InlineString(new Text("A")) },
+                    new Cell { CellReference = "B2", DataType = CellValues.InlineString, InlineString = new InlineString(new Text("B")) })
+                { RowIndex = 2 }));
+
+            // Add a TablePart referencing a table with NO TableStyleInfo element.
+            var tableDefPart = worksheetPart.AddNewPart<TableDefinitionPart>();
+            tableDefPart.Table = new Table(
+                new AutoFilter { Reference = "A1:B2" },
+                new TableColumns(
+                    new TableColumn { Id = 1, Name = "Col1" },
+                    new TableColumn { Id = 2, Name = "Col2" })
+                { Count = 2 })
+            {
+                Id = 1,
+                Name = "TestTable",
+                DisplayName = "TestTable",
+                Reference = "A1:B2",
+                TotalsRowShown = false
+            };
+            // Explicitly: no TableStyleInfo child
+
+            var tableParts = new TableParts(
+                new TablePart { Id = worksheetPart.GetIdOfPart(tableDefPart) })
+            { Count = 1 };
+            worksheetPart.Worksheet.Append(tableParts);
+        }
+
+        ms.Position = 0;
+        using var wb = new XLWorkbook(ms);
+        var table = wb.Worksheets.First().Tables.First();
+
+        Assert.That(table.Theme, Is.EqualTo(XLTableTheme.None));
+        Assert.That(table.ShowRowStripes, Is.False);
+        Assert.That(table.ShowColumnStripes, Is.False);
+        Assert.That(table.EmphasizeFirstColumn, Is.False);
+        Assert.That(table.EmphasizeLastColumn, Is.False);
     }
 }

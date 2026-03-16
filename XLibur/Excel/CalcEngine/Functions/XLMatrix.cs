@@ -325,6 +325,7 @@ internal sealed class XLMatrix
         return ret;
     }
 
+#pragma warning disable S107 // Strassen matrix multiplication requires passing submatrix coordinates
     private static void SafeAplusBintoC(XLMatrix a, int xa, int ya, XLMatrix b, int xb, int yb, XLMatrix c, int size)
     {
         for (var i = 0; i < size; i++) // rows
@@ -368,6 +369,7 @@ internal sealed class XLMatrix
         for (var i = 0; i < size; i++) // rows
             for (var j = 0; j < size; j++) c[i, j] = a[ya + i, xa + j] - b[yb + i, xb + j];
     }
+#pragma warning restore S107
 
     private static void ACopytoC(XLMatrix a, int xa, int ya, XLMatrix c, int size)
     {

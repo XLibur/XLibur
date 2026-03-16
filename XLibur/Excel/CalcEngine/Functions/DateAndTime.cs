@@ -45,7 +45,9 @@ internal static class DateAndTime
     private static int BusinessDaysUntil(int firstDay, int lastDay, ICollection<int> distinctHolidays)
     {
         if (firstDay > lastDay)
+#pragma warning disable S2234            
             return -BusinessDaysUntil(lastDay, firstDay, distinctHolidays);
+#pragma warning restore S2234        
 
         var workDays = lastDay - firstDay + 1;
         var fullWeekCount = Math.DivRem(workDays, 7, out var remainingDays);

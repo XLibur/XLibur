@@ -237,8 +237,8 @@ internal static class DrawingPartReader
     {
         var lockedElement = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "Locked");
         var lockTextElement = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "LockText");
-        var locked = lockedElement != null && lockedElement.Value.ToLower() == "true";
-        var lockText = lockTextElement != null && lockTextElement.Value.ToLower() == "true";
+        var locked = lockedElement != null && lockedElement.Value.Equals("true", StringComparison.OrdinalIgnoreCase);
+        var lockText = lockTextElement != null && lockTextElement.Value.Equals("true", StringComparison.OrdinalIgnoreCase);
         drawing.Style.Protection.Locked = locked;
         drawing.Style.Protection.LockText = lockText;
     }
@@ -247,8 +247,8 @@ internal static class DrawingPartReader
     {
         var moveWithCellsElement = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "MoveWithCells");
         var sizeWithCellsElement = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "SizeWithCells");
-        var moveWithCells = !(moveWithCellsElement != null && moveWithCellsElement.Value.ToLower() == "true");
-        var sizeWithCells = !(sizeWithCellsElement != null && sizeWithCellsElement.Value.ToLower() == "true");
+        var moveWithCells = !(moveWithCellsElement != null && moveWithCellsElement.Value.Equals("true", StringComparison.OrdinalIgnoreCase));
+        var sizeWithCells = !(sizeWithCellsElement != null && sizeWithCellsElement.Value.Equals("true", StringComparison.OrdinalIgnoreCase));
         if (!moveWithCells)
             drawing.Style.Properties.Positioning = XLDrawingAnchor.Absolute;
         else if (sizeWithCells)
