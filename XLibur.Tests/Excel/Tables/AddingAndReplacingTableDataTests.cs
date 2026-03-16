@@ -32,7 +32,7 @@ public class AppendingAndReplacingTableDataTests
         public bool IsActive;
     }
 
-    private XLWorkbook PrepareWorkbook()
+    private static XLWorkbook PrepareWorkbook()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Tables");
@@ -83,7 +83,7 @@ public class AppendingAndReplacingTableDataTests
         return wb;
     }
 
-    private Person[] NewData =>
+    private static Person[] NewData =>
     [
         new()
         {

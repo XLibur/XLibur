@@ -116,14 +116,14 @@ public class RangeShiftingTests
         Assert.AreEqual(deletedRangeAddress, mergedRange.RangeAddress.ToString());
     }
 
-    private void SetContent(IXLCell cell)
+    private static void SetContent(IXLCell cell)
     {
         cell.FormulaA1 = $"\"Formula \" & \"{cell.Address}\"";
         cell.Style.Fill.SetBackgroundColor(XLColor.Green);
         cell.CreateComment().AddText("Some comment " + cell.Address);
     }
 
-    private void AssertContent(IXLCell cell, string originalAddress)
+    private static void AssertContent(IXLCell cell, string originalAddress)
     {
         Assert.AreEqual($"\"Formula \" & \"{originalAddress}\"", cell.FormulaA1);
         Assert.AreEqual(XLColor.Green, cell.Style.Fill.BackgroundColor);

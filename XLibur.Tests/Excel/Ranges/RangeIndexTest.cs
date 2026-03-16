@@ -243,7 +243,7 @@ public class RangeIndexTest
         Assert.AreEqual(0, ranges.Count);
     }
 
-    private IXLRangeIndex CreateRangeIndex(IXLWorksheet worksheet)
+    private static IXLRangeIndex CreateRangeIndex(IXLWorksheet worksheet)
     {
         return new XLRangeIndex<IXLRangeBase>((XLWorksheet)worksheet);
     }

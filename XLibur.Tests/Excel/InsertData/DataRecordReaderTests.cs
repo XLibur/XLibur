@@ -41,7 +41,7 @@ public class DataRecordReaderTests
     [Test]
     public void CanGetPropertyName()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(GetData());
+        var reader = InsertDataReaderFactory.CreateReader(GetData());
         Assert.AreEqual("StringValue", reader.GetPropertyName(0));
         Assert.AreEqual("NumericValue", reader.GetPropertyName(1));
     }
@@ -49,21 +49,21 @@ public class DataRecordReaderTests
     [Test]
     public void CanGetPropertiesCount()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(GetData());
+        var reader = InsertDataReaderFactory.CreateReader(GetData());
         Assert.AreEqual(2, reader.GetPropertiesCount());
     }
 
     [Test]
     public void CanGetRecordsCount()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(GetData());
+        var reader = InsertDataReaderFactory.CreateReader(GetData());
         Assert.AreEqual(3, reader.GetRecords().Count());
     }
 
     [Test]
     public void CanGetData()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(GetData());
+        var reader = InsertDataReaderFactory.CreateReader(GetData());
         var result = reader.GetRecords().ToArray();
 
         Assert.AreEqual("Value 1", result.First().First());

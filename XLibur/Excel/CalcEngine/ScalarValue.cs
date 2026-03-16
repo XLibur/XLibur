@@ -63,7 +63,7 @@ internal readonly struct ScalarValue
     public static ScalarValue From(string text)
     {
         if (text is null)
-            throw new ArgumentNullException();
+            throw new ArgumentNullException(nameof(text));
 
         return new ScalarValue(TextValue, default, default, text, default);
     }

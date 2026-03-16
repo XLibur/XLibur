@@ -76,7 +76,7 @@ internal sealed class XLSheetView : IXLSheetView
                     ZoomScaleSheetLayoutView = value;
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(nameof(View), View, "Unsupported sheet view option.");
             }
         }
     }

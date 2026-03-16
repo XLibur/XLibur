@@ -26,7 +26,7 @@ public class RowsTests
     }
 
     //[Test] // Not working yet
-    public void InsertRows()
+    public static void InsertRows()
     {
         TestHelper.RunTestExample<InsertRows>(@"Rows\InsertRows.xlsx");
     }

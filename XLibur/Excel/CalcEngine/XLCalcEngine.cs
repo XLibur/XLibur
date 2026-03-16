@@ -352,7 +352,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             RecalculateSheetId = recalculateSheetId
         };
         var result = EvaluateFormula(expression, ctx);
-        if (ctx.UseImplicitIntersection)
+        if (CalcContext.UseImplicitIntersection)
         {
             result = result.Match(
                 () => AnyValue.Blank,
@@ -396,7 +396,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     }
 
     // build/get static keyword table
-    private FunctionRegistry GetFunctionTable()
+    private static FunctionRegistry GetFunctionTable()
     {
         var fr = new FunctionRegistry();
 

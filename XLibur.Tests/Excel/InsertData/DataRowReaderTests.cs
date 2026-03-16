@@ -23,7 +23,7 @@ public class DataRowReaderTests
     [Test]
     public void CanGetPropertyName()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         Assert.AreEqual("Last name", reader.GetPropertyName(0));
         Assert.AreEqual("First name", reader.GetPropertyName(1));
         Assert.AreEqual("Age", reader.GetPropertyName(2));
@@ -32,21 +32,21 @@ public class DataRowReaderTests
     [Test]
     public void CanGetPropertiesCount()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         Assert.AreEqual(3, reader.GetPropertiesCount());
     }
 
     [Test]
     public void CanGetRecordsCount()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         Assert.AreEqual(2, reader.GetRecords().Count());
     }
 
     [Test]
     public void CanReadValue()
     {
-        var reader = InsertDataReaderFactory.Instance.CreateReader(_data);
+        var reader = InsertDataReaderFactory.CreateReader(_data);
         var result = reader.GetRecords();
 
         var enumerable = result.ToList();

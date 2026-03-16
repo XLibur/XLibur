@@ -13,7 +13,7 @@ namespace XLibur.Excel.CalcEngine
         public Reference(XLRangeAddress area)
         {
             if (!area.IsNormalized)
-                throw new ArgumentException();
+                throw new ArgumentException("Range address must be normalized.", nameof(area));
 
             Areas = new List<XLRangeAddress>(1) { area };
         }
@@ -23,16 +23,20 @@ namespace XLibur.Excel.CalcEngine
         /// </summary>
         public Reference(List<XLRangeAddress> areas)
         {
+            ArgumentNullException.ThrowIfNull(areas);
+
             if (areas.Count < 1)
-                throw new ArgumentException();
+                throw new ArgumentException("Reference must contain at least one area.", nameof(areas));
 
             Areas = areas;
         }
 
         public Reference(IXLRanges ranges)
         {
+            ArgumentNullException.ThrowIfNull(ranges);
+
             if (ranges.Count < 1)
-                throw new ArgumentException();
+                throw new ArgumentException("Reference must contain at least one range.", nameof(ranges));
 
             var areas = new List<XLRangeAddress>(ranges.Count);
             foreach (var range in ranges)
@@ -101,11 +105,8 @@ namespace XLibur.Excel.CalcEngine
 
             var rhsWorksheet = rhsWorksheets.SingleOrDefault();
 
-            if (rhsWorksheet is not null)
-            {
-                if ((lhsWorksheet ?? contextWorksheet) != rhsWorksheet)
-                    return XLError.IncompatibleValue;
-            }
+            if (rhsWorksheet is not null && (lhsWorksheet ?? contextWorksheet) != rhsWorksheet)
+                return XLError.IncompatibleValue;
 
             var minCol = XLHelper.MaxColumnNumber;
             var maxCol = 1;

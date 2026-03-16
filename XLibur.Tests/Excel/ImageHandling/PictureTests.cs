@@ -90,7 +90,7 @@ public class PictureTests
         }
     }
 
-    private void verifyAddImageFromFile(string filePath)
+    private static void verifyAddImageFromFile(string filePath)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");

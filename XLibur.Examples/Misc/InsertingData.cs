@@ -92,7 +92,7 @@ public class InsertingData : IXLExample
     }
 
     // Private
-    private DataTable GetTable()
+    private static DataTable GetTable()
     {
         var table = new DataTable();
         table.Columns.Add("Dosage", typeof(int));

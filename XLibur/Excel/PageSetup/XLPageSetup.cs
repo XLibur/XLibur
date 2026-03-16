@@ -76,8 +76,8 @@ internal sealed class XLPageSetup : IXLPageSetup
     }
     public void SetRowsToRepeatAtTop(int firstRowToRepeatAtTop, int lastRowToRepeatAtTop)
     {
-        if (firstRowToRepeatAtTop <= 0) throw new ArgumentOutOfRangeException("The first row has to be greater than zero.");
-        if (firstRowToRepeatAtTop > lastRowToRepeatAtTop) throw new ArgumentOutOfRangeException("The first row has to be less than the second row.");
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(firstRowToRepeatAtTop);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(firstRowToRepeatAtTop, lastRowToRepeatAtTop);
 
         FirstRowToRepeatAtTop = firstRowToRepeatAtTop;
         LastRowToRepeatAtTop = lastRowToRepeatAtTop;
@@ -98,8 +98,8 @@ internal sealed class XLPageSetup : IXLPageSetup
     }
     public void SetColumnsToRepeatAtLeft(int firstColumnToRepeatAtLeft, int lastColumnToRepeatAtLeft)
     {
-        if (firstColumnToRepeatAtLeft <= 0) throw new ArgumentOutOfRangeException("The first column has to be greater than zero.");
-        if (firstColumnToRepeatAtLeft > lastColumnToRepeatAtLeft) throw new ArgumentOutOfRangeException("The first column has to be less than the second column.");
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(firstColumnToRepeatAtLeft);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(firstColumnToRepeatAtLeft, lastColumnToRepeatAtLeft);
 
         FirstColumnToRepeatAtLeft = firstColumnToRepeatAtLeft;
         LastColumnToRepeatAtLeft = lastColumnToRepeatAtLeft;

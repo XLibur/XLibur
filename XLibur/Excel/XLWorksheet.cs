@@ -1671,7 +1671,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
             case XLDataType.Error:
                 break;
             default:
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(value), value.Type, "Unexpected data type.");
         }
 
         return null;

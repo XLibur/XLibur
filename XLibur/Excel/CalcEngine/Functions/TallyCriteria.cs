@@ -146,11 +146,8 @@ internal sealed class TallyCriteria : ITally
         for (var i = 0; i < enumerables.Count; ++i)
         {
             var currentOfs = GetOffset(enumerables, enumerators, i);
-            if (currentOfs.CompareTo(minOfs) <= 0)
-            {
-                if (!enumerators[i].MoveNext())
-                    return false;
-            }
+            if (currentOfs.CompareTo(minOfs) <= 0 && !enumerators[i].MoveNext())
+                return false;
         }
 
         return true;

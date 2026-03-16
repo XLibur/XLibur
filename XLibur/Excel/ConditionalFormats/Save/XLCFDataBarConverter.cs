@@ -43,7 +43,7 @@ internal sealed class XLCFDataBarConverter : IXLCFConverter
         return conditionalFormattingRule;
     }
 
-    private ConditionalFormattingRuleExtension BuildRuleExtension(IXLConditionalFormat cf)
+    private static ConditionalFormattingRuleExtension BuildRuleExtension(IXLConditionalFormat cf)
     {
         var conditionalFormattingRuleExtension = new ConditionalFormattingRuleExtension { Uri = "{B025F937-C7B1-47D3-B67F-A62EFF666E3E}" };
         conditionalFormattingRuleExtension.AddNamespaceDeclaration("x14", "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
@@ -56,7 +56,7 @@ internal sealed class XLCFDataBarConverter : IXLCFConverter
         return conditionalFormattingRuleExtension;
     }
 
-    private ConditionalFormatValueObject GetConditionalFormatValueObjectByIndex(IXLConditionalFormat cf, int index, ConditionalFormatValueObjectValues defaultType)
+    private static ConditionalFormatValueObject GetConditionalFormatValueObjectByIndex(IXLConditionalFormat cf, int index, ConditionalFormatValueObjectValues defaultType)
     {
         var conditionalFormatValueObject = new ConditionalFormatValueObject();
 

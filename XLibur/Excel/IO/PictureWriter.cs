@@ -297,7 +297,7 @@ internal sealed class PictureWriter
                 AttachAnchor(oneCellAnchor, existingAnchor);
                 break;
             default:
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(pic.Placement), pic.Placement, "Unsupported picture placement.");
         }
 
         return;

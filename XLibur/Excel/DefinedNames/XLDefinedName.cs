@@ -21,11 +21,8 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     {
         // Excel accepts invalid names per grammar (e.g. `[Foo]Bar`) as a valid name and they can
         // encountered in existing workbooks. We shouldn't throw exception on load.
-        if (validateName)
-        {
-            if (!XLHelper.ValidateName("named range", name, out var error))
-                throw new ArgumentException(error, nameof(name));
-        }
+        if (validateName && !XLHelper.ValidateName("named range", name, out var error))
+            throw new ArgumentException(error, nameof(name));
 
         _container = container;
         _name = name;
@@ -70,7 +67,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
         set
         {
             if (value is null)
-                throw new ArgumentNullException();
+                throw new ArgumentNullException(nameof(value));
 
             var formula = value.TrimFormulaEqual();
             var references = FormulaReferences.ForFormula(formula);

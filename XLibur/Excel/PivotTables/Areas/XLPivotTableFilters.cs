@@ -112,7 +112,7 @@ internal sealed class XLPivotTableFilters : IXLPivotFields
     internal XLPivotTablePageField Add(string sourceName, string customName)
     {
         if (sourceName == XLConstants.PivotTable.ValuesSentinalLabel)
-            throw new ArgumentException(nameof(sourceName), $"The column '{sourceName}' does not appear in the source range.");
+            throw new ArgumentException($"The column '{sourceName}' does not appear in the source range.", nameof(sourceName));
 
         var heightDifference = GetHeightDifference(1);
         var movedArea = _pivotTable.Area.ShiftRows(heightDifference);

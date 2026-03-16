@@ -334,7 +334,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         return x == y;
     }
 
-    public new bool Equals(object? x, object? y)
+    public static new bool Equals(object? x, object? y)
     {
         return x == y;
     }

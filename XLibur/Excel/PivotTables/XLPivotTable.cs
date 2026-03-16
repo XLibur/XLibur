@@ -1064,8 +1064,7 @@ internal sealed class XLPivotTable : IXLPivotTable
         get => _filterFieldsPageWrap;
         set
         {
-            if (value < 0)
-                throw new ArgumentOutOfRangeException();
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
 
             _filterFieldsPageWrap = value;
         }

@@ -162,12 +162,9 @@ internal sealed class XLFilter
         if (cellValue.IsBlank || filterValue.IsBlank)
             return false;
 
-        if (cellValue.Type != filterValue.Type)
-        {
-            // Types are different, but could still be unified numbers and thus comparable.
-            if (!(cellValue.IsUnifiedNumber && filterValue.IsUnifiedNumber))
-                return false;
-        }
+        // Types are different, but could still be unified numbers and thus comparable.
+        if (cellValue.Type != filterValue.Type && !(cellValue.IsUnifiedNumber && filterValue.IsUnifiedNumber))
+            return false;
 
         // Note that custom filter even error values, basically everything as a number.
         var comparison = cellValue.Type switch

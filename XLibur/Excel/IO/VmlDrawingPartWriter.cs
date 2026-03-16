@@ -242,7 +242,7 @@ internal static class VmlDrawingPartWriter
 
         sb.Append("visibility:");
         sb.Append(c.Visible ? "visible" : "hidden");
-        sb.Append(";");
+        sb.Append(';');
 
         sb.Append("width:");
         sb.Append(Math.Round(widthInColumns * 7.5, 2).ToInvariantString());

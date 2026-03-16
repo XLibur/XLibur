@@ -1271,7 +1271,7 @@ public class StatisticalTests
         Assert.AreEqual(XLError.IncompatibleValue, value);
     }
 
-    private XLWorkbook SetupWorkbook()
+    private static XLWorkbook SetupWorkbook()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet("Data");
