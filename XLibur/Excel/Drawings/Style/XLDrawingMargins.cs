@@ -22,6 +22,8 @@ internal sealed class XLDrawingMargins : IXLDrawingMargins
     double _bottom;
     public double Bottom { get { return _bottom; } set { _bottom = value; Automatic = false; } }
     public IXLDrawingStyle SetBottom(double value) { Bottom = value; return _style; }
+    // Write-only property: intentional design for setting all margins at once
+#pragma warning disable S2376
     public double All
     {
         set
@@ -33,5 +35,6 @@ internal sealed class XLDrawingMargins : IXLDrawingMargins
             Automatic = false;
         }
     }
+#pragma warning restore S2376
     public IXLDrawingStyle SetAll(double value) { All = value; return _style; }
 }

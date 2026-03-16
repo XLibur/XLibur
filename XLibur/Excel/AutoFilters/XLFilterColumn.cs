@@ -238,14 +238,14 @@ internal sealed class XLFilterColumn : IXLFilterColumn, IXLFilteredColumn, IEnum
             .Average();
     }
 
-    private IXLFilterConnector AddCustomFilter(XLCellValue value, XLFilterOperator op, bool reapply)
+    private XLFilterConnector AddCustomFilter(XLCellValue value, XLFilterOperator op, bool reapply)
     {
         ResetFilter(XLFilterType.Custom);
         AddFilter(XLFilter.CreateCustomFilter(value, op, XLConnector.Or), reapply);
         return new XLFilterConnector(this);
     }
 
-    private IXLFilterConnector AddCustomFilter(string pattern, bool match, bool reapply)
+    private XLFilterConnector AddCustomFilter(string pattern, bool match, bool reapply)
     {
         ResetFilter(XLFilterType.Custom);
         AddFilter(XLFilter.CreateCustomPatternFilter(pattern, match, XLConnector.Or), reapply);

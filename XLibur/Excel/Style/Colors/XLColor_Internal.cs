@@ -2,7 +2,7 @@ using System.Drawing;
 
 namespace XLibur.Excel;
 
-public partial class XLColor
+public sealed partial class XLColor
 {
     internal XLColorKey Key { get; private set; }
 

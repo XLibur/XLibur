@@ -28,7 +28,7 @@ internal sealed class XLRangeConsolidationEngine
 
         var worksheets = _allRanges.Select(r => r.Worksheet).Distinct().OrderBy(ws => ws.Position);
 
-        IXLRanges retVal = new XLRanges();
+        var retVal = new XLRanges();
         foreach (var ws in worksheets)
         {
             var matrix = new XLRangeConsolidationMatrix(ws, _allRanges.Where(r => r.Worksheet == ws).ToList());

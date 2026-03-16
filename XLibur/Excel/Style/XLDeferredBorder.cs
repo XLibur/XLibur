@@ -18,6 +18,7 @@ internal sealed class XLDeferredBorder : IXLBorder
         Key = key;
     }
 
+#pragma warning disable S2376
     public XLBorderStyleValues OutsideBorder
     {
         set => Key = Key with
@@ -61,6 +62,7 @@ internal sealed class XLDeferredBorder : IXLBorder
             RightBorderColor = value.Key,
         };
     }
+#pragma warning restore S2376
 
     public XLBorderStyleValues LeftBorder
     {

@@ -8,7 +8,7 @@ namespace XLibur.Excel;
 
 internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
 {
-    private static readonly IReadOnlyDictionary<DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues, ConditionalFormattingValueObjectTypeValues> CFValueToTypeMap =
+    private static readonly Dictionary<DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues, ConditionalFormattingValueObjectTypeValues> CFValueToTypeMap =
         new Dictionary<DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues, ConditionalFormattingValueObjectTypeValues>
         {
             { DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues.Max, ConditionalFormattingValueObjectTypeValues.AutoMax },

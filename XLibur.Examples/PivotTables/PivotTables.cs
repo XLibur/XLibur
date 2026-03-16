@@ -145,7 +145,7 @@ public class PivotTables : IXLExample
         pt.RowLabels.Add("Name");
         pt.RowLabels.Add("Month");
 
-        pt.Values.Add("Name").SetSummaryFormula(XLPivotSummary.Count); //.NumberFormat.Format = "#0.00";
+        pt.Values.Add("Name").SetSummaryFormula(XLPivotSummary.Count);
 
         #endregion Pivot table with a field both as a value and as a row/column/filter label
 

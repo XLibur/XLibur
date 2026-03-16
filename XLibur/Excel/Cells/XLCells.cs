@@ -179,10 +179,12 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
         return GetEnumerator();
     }
 
+#pragma warning disable S2376 // Write-only properties: intentional batch-set on collection items
     public XLCellValue Value
     {
         set { this.ForEach<XLCell>(c => c.Value = value); }
     }
+#pragma warning restore S2376
 
     public IXLCells Clear(XLClearOptions clearOptions = XLClearOptions.All)
     {
@@ -200,6 +202,7 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
         this.ForEach<XLCell>(c => c.DeleteSparkline());
     }
 
+#pragma warning disable S2376 // Write-only properties: intentional batch-set on collection items
     public string FormulaA1
     {
         set { this.ForEach<XLCell>(c => c.FormulaA1 = value); }
@@ -209,6 +212,7 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
     {
         set { this.ForEach<XLCell>(c => c.FormulaR1C1 = value); }
     }
+#pragma warning restore S2376
 
     #endregion IXLCells Members
 

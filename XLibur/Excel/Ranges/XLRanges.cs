@@ -181,10 +181,13 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
         return this;
     }
 
+    // Write-only property: intentional design for setting values across ranges
+#pragma warning disable S2376
     public XLCellValue Value
     {
         set { Ranges.ForEach(r => r.Value = value); }
     }
+#pragma warning restore S2376
 
     public IXLRanges SetValue(XLCellValue value)
     {

@@ -28,7 +28,7 @@ internal static class MathTrig
     /// </summary>
     private static readonly Lazy<IReadOnlyDictionary<int, IReadOnlyList<(string Symbol, int Value)>>> RomanForms = new(BuildRomanForms);
 
-    private static readonly IReadOnlyDictionary<char, int> RomanSymbolValues = new Dictionary<char, int>
+    private static readonly Dictionary<char, int> RomanSymbolValues = new Dictionary<char, int>
     {
         {'I', 1},
         {'V', 5},
@@ -818,7 +818,7 @@ internal static class MathTrig
         return Product(ctx, args, TallyNumbers.WithoutScalarBlank);
     }
 
-    private static AnyValue Product(CalcContext ctx, Span<AnyValue> args, ITally tally)
+    private static AnyValue Product(CalcContext ctx, Span<AnyValue> args, TallyNumbers tally)
     {
         var result = tally.Tally(ctx, args, new ProductState(1, false));
         if (!result.TryPickT0(out var state, out var error))

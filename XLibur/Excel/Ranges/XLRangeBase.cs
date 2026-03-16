@@ -66,6 +66,8 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     IXLWorksheet IXLRangeBase.Worksheet => RangeAddress.Worksheet!;
 
+    // Write-only properties: intentional design for setting values across a range
+#pragma warning disable S2376
     public string FormulaA1
     {
         set
@@ -139,6 +141,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
     {
         set { Cells().ForEach(c => c.Value = value); }
     }
+#pragma warning restore S2376
 
     #endregion IXLRangeBase Members
 

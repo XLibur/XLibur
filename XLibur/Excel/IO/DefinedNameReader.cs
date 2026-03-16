@@ -111,10 +111,7 @@ internal static class DefinedNameReader
             if (area.Contains('['))
             {
                 var ws = xlWorkbook.WorksheetsInternal.FirstOrDefault<XLWorksheet>(w => w.SheetId == (localSheetId + 1));
-                if (ws != null)
-                {
-                    ws.PageSetup.PrintAreas.Add(area);
-                }
+                ws?.PageSetup.PrintAreas.Add(area);
             }
             else
             {

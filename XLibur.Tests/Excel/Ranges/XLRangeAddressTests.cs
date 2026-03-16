@@ -335,7 +335,7 @@ public class XLRangeAddressTests
         return address;
     }
 
-    private IXLRangeAddress ProduceInvalidAddressOnDeletedWorksheet()
+    private static IXLRangeAddress ProduceInvalidAddressOnDeletedWorksheet()
     {
         var address = ProduceInvalidAddress();
         address.Worksheet.Delete();

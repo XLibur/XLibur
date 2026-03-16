@@ -4,6 +4,7 @@ namespace XLibur.Excel;
 
 public interface IXLRows : IEnumerable<IXLRow>
 {
+#pragma warning disable S2376 // Write-only properties: intentional batch-set on collection items
     /// <summary>
     /// Sets the height of all rows.
     /// </summary>
@@ -11,6 +12,7 @@ public interface IXLRows : IEnumerable<IXLRow>
     /// The height of all rows.
     /// </value>
     double Height { set; }
+#pragma warning restore S2376
 
     /// <summary>
     /// Deletes all rows and shifts the rows below them accordingly.

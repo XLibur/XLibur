@@ -93,7 +93,10 @@ public interface IXLRanges : IEnumerable<IXLRange>
     /// <see cref="IXLStyle.IncludeQuotePrefix"/> in Excel too and the value of cell is set to to non-quoted text.
     /// </para>
     /// </summary>
+    // Write-only property: intentional design for setting values across ranges
+#pragma warning disable S2376
     XLCellValue Value { set; }
+#pragma warning restore S2376
 
     IXLRanges SetValue(XLCellValue value);
 

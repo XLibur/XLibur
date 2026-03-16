@@ -74,6 +74,7 @@ internal sealed class XLBorder : IXLBorder
 
     #region IXLBorder Members
 
+#pragma warning disable S2376
     public XLBorderStyleValues OutsideBorder
     {
         set
@@ -201,6 +202,7 @@ internal sealed class XLBorder : IXLBorder
             }
         }
     }
+#pragma warning restore S2376
 
     public XLBorderStyleValues LeftBorder
     {

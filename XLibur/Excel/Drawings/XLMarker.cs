@@ -13,11 +13,13 @@ internal sealed class XLMarker
 
     internal XLMarker(IXLCell cell)
         : this(cell.AsRange(), new Point(0, 0))
-    { }
+    {
+    }
 
     internal XLMarker(IXLCell cell, Point offset)
         : this(cell.AsRange(), offset)
-    { }
+    {
+    }
 
     private XLMarker(IXLRange rangeCell, Point offset)
     {
@@ -28,8 +30,11 @@ internal sealed class XLMarker
         Offset = offset;
     }
 
-    public IXLCell Cell { get => rangeCell.FirstCell(); }
-    public int ColumnNumber { get => rangeCell.RangeAddress.FirstAddress.ColumnNumber; }
+    public IXLCell Cell => rangeCell.FirstCell();
+
+    public int ColumnNumber => rangeCell.RangeAddress.FirstAddress.ColumnNumber;
+
     public Point Offset { get; set; }
-    public int RowNumber { get => rangeCell.RangeAddress.FirstAddress.RowNumber; }
+
+    public int RowNumber => rangeCell.RangeAddress.FirstAddress.RowNumber;
 }

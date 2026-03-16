@@ -42,6 +42,7 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
         return GetEnumerator();
     }
 
+#pragma warning disable S2376 // Write-only properties: intentional batch-set on collection items
     public double Height
     {
         set
@@ -52,6 +53,7 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
             _worksheet.Internals.RowsCollection.ForEach(r => r.Value.Height = value);
         }
     }
+#pragma warning restore S2376
 
     public void Delete()
     {

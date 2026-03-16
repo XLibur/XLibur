@@ -170,7 +170,7 @@ internal static class DrawingPartReader
         return 0;
     }
 
-    internal static void LoadTextBoxStyle<T>(IXLDrawing<T> xlDrawing, XAttribute attStyle)
+    private static void LoadTextBoxStyle<T>(IXLDrawing<T> xlDrawing, XAttribute attStyle)
     {
         var style = attStyle.Value;
         var attributes = style.Split(';');
@@ -260,7 +260,7 @@ internal static class DrawingPartReader
             drawing.Style.Properties.Positioning = XLDrawingAnchor.MoveWithCells;
     }
 
-    internal static void LoadClientDataAnchor<T>(IXLDrawing<T> drawing, XElement anchor)
+    private static void LoadClientDataAnchor<T>(IXLDrawing<T> drawing, XElement anchor)
     {
         var location = anchor.Value.Split(',');
         drawing.Position.Column = int.Parse(location[0]) + 1;
@@ -337,9 +337,9 @@ internal static class DrawingPartReader
         return name.Replace("_x000a_", Environment.NewLine).Replace("_x005f_x000a_", "_x000a_");
     }
 
-    private static XLPicture? LoadPictureFromAnchor(
+    private static XLPicture LoadPictureFromAnchor(
         DocumentFormat.OpenXml.OpenXmlElement anchor, string imgId,
-        DocumentFormat.OpenXml.Packaging.OpenXmlPart imagePart, XLWorksheet ws)
+        OpenXmlPart imagePart, XLWorksheet ws)
     {
         using var stream = imagePart.GetStream();
         using var ms = new MemoryStream();
@@ -358,7 +358,8 @@ internal static class DrawingPartReader
         {
             picture = (XLPicture)ws.AddPicture(ms, pictureName, pictureId);
         }
-        picture!.RelId = imgId;
+
+        picture.RelId = imgId;
         return picture;
     }
 

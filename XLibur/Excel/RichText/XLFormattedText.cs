@@ -178,6 +178,7 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
 
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
+#pragma warning disable S2376 // Write-only properties: intentional "apply to all runs" design
     public bool Bold
     {
         set { _richTexts.ForEach(rt => rt.Bold = value); }
@@ -227,6 +228,7 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
     {
         set { _richTexts.ForEach(rt => rt.FontFamilyNumbering = value); }
     }
+#pragma warning restore S2376
 
     public IXLFormattedText<T> SetBold()
     {

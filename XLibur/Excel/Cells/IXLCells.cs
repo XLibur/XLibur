@@ -4,6 +4,7 @@ namespace XLibur.Excel;
 
 public interface IXLCells : IEnumerable<IXLCell>
 {
+#pragma warning disable S2376 // Write-only properties: intentional batch-set on collection items
     /// <summary>
     /// Sets the cells' value.
     /// <para>
@@ -13,6 +14,7 @@ public interface IXLCells : IEnumerable<IXLCell>
     /// </para>
     /// </summary>
     XLCellValue Value { set; }
+#pragma warning restore S2376
 
     /// <summary>
     /// Clears the contents of these cells.
@@ -30,17 +32,21 @@ public interface IXLCells : IEnumerable<IXLCell>
     /// </summary>
     void DeleteSparklines();
 
+#pragma warning disable S2376 // Write-only properties: intentional batch-set on collection items
     /// <summary>
     /// Sets the cells' formula with A1 references.
     /// </summary>
     /// <value>The formula with A1 references.</value>
     string FormulaA1 { set; }
+#pragma warning restore S2376
 
+#pragma warning disable S2376 // Write-only properties: intentional batch-set on collection items
     /// <summary>
     /// Sets the cells' formula with R1C1 references.
     /// </summary>
     /// <value>The formula with R1C1 references.</value>
     string FormulaR1C1 { set; }
+#pragma warning restore S2376
 
     IXLStyle Style { get; set; }
 
