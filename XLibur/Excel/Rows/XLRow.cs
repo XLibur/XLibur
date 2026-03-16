@@ -106,18 +106,6 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         }
     }
 
-    public bool Loading
-    {
-        get => _flags.HasFlag(XlRowFlags.Loading);
-        set
-        {
-            if (value)
-                _flags |= XlRowFlags.Loading;
-            else
-                _flags &= ~XlRowFlags.Loading;
-        }
-    }
-
     /// <summary>
     /// Does row have an individual height or is it derived from the worksheet <see cref="XLWorksheet.RowHeight"/>?
     /// </summary>
@@ -140,11 +128,18 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         get { return _height; }
         set
         {
-            if (!Loading)
-                HeightChanged = true;
-
+            HeightChanged = true;
             _height = value;
         }
+    }
+
+    /// <summary>
+    /// Set height without marking <see cref="HeightChanged"/>. Used during loading
+    /// to assign the worksheet default height without flagging a custom override.
+    /// </summary>
+    internal void SetHeightNoFlag(double height)
+    {
+        _height = height;
     }
 
     IXLCells IXLRow.Cells(string cellsInRow) => Cells(cellsInRow);
@@ -692,7 +687,6 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         Collapsed = 1,
         IsHidden = 2,
         ShowPhonetic = 4,
-        HeightChanged = 8,
-        Loading = 16
+        HeightChanged = 8
     }
 }

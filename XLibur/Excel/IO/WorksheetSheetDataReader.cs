@@ -46,6 +46,26 @@ internal static class WorksheetSheetDataReader
         public int LastColumnNumber;
     }
 
+    /// <summary>
+    /// Parsed row-level attributes from a &lt;row&gt; element, used to transport
+    /// custom properties to <see cref="ApplyRowCustomProps"/> without a long parameter list.
+    /// Stack-allocated (readonly record struct) to avoid per-row GC pressure.
+    /// </summary>
+    private readonly record struct RowProperties(
+        double? Height,
+        double? DyDescent,
+        bool Hidden,
+        bool Collapsed,
+        int? OutlineLevel,
+        bool ShowPhonetic,
+        bool CustomFormat,
+        int? StyleIndex)
+    {
+        public bool HasCustomProps =>
+            Height is not null || DyDescent is not null || Hidden || Collapsed
+            || OutlineLevel > 0 || ShowPhonetic || CustomFormat;
+    }
+
     private static readonly string[] DateCellFormats =
     [
         "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff", // Format accepted by OpenXML SDK
@@ -62,21 +82,19 @@ internal static class WorksheetSheetDataReader
         var rowIndex = string.IsNullOrEmpty(rowIndexAttr) ? ++state.LastRow : int.Parse(rowIndexAttr);
         state.LastRow = rowIndex;
 
-        var height = attributes.GetDoubleAttribute("ht");
-        var dyDescent = attributes.GetDoubleAttribute("dyDescent", OpenXmlConst.X14Ac2009SsNs);
-        var hidden = attributes.GetBoolAttribute("hidden", false);
-        var collapsed = attributes.GetBoolAttribute("collapsed", false);
-        var outlineLevel = attributes.GetIntAttribute("outlineLevel");
-        var showPhonetic = attributes.GetBoolAttribute("ph", false);
-        var customFormat = attributes.GetBoolAttribute("customFormat", false);
+        var rowProps = new RowProperties(
+            Height: attributes.GetDoubleAttribute("ht"),
+            DyDescent: attributes.GetDoubleAttribute("dyDescent", OpenXmlConst.X14Ac2009SsNs),
+            Hidden: attributes.GetBoolAttribute("hidden", false),
+            Collapsed: attributes.GetBoolAttribute("collapsed", false),
+            OutlineLevel: attributes.GetIntAttribute("outlineLevel"),
+            ShowPhonetic: attributes.GetBoolAttribute("ph", false),
+            CustomFormat: attributes.GetBoolAttribute("customFormat", false),
+            StyleIndex: attributes.GetIntAttribute("s"));
 
-        var hasCustomProps = height is not null || dyDescent is not null || hidden || collapsed
-                             || outlineLevel > 0 || showPhonetic || customFormat;
-
-        if (hasCustomProps)
+        if (rowProps.HasCustomProps)
         {
-            ApplyRowCustomProps(attributes, context.Worksheet, rowIndex, height, dyDescent, hidden, collapsed,
-                outlineLevel, showPhonetic, customFormat, context.Styles);
+            ApplyRowCustomProps(in rowProps, context.Worksheet, rowIndex, context.Styles);
         }
 
         state.LastColumnNumber = 0;
@@ -510,44 +528,40 @@ internal static class WorksheetSheetDataReader
         throw new InvalidOperationException($"XML doesn't contain required attribute '{attributeName}'.");
     }
 
-    private static void ApplyRowCustomProps(ReadOnlyCollection<OpenXmlAttribute> attributes, XLWorksheet ws,
-        int rowIndex, double? height, double? dyDescent, bool hidden, bool collapsed, int? outlineLevel,
-        bool showPhonetic, bool customFormat, StylesheetData styles)
+    private static void ApplyRowCustomProps(in RowProperties props, XLWorksheet ws,
+        int rowIndex, StylesheetData styles)
     {
         var xlRow = ws.Row(rowIndex, false);
 
-        if (height is not null)
+        if (props.Height is not null)
         {
-            xlRow.Height = height.Value;
+            xlRow.Height = props.Height.Value;
         }
         else
         {
-            xlRow.Loading = true;
-            xlRow.Height = ws.RowHeight;
-            xlRow.Loading = false;
+            xlRow.SetHeightNoFlag(ws.RowHeight);
         }
 
-        if (dyDescent is not null)
-            xlRow.DyDescent = dyDescent.Value;
+        if (props.DyDescent is not null)
+            xlRow.DyDescent = props.DyDescent.Value;
 
-        if (hidden)
+        if (props.Hidden)
             xlRow.Hide();
 
-        if (collapsed)
+        if (props.Collapsed)
             xlRow.Collapsed = true;
 
-        if (outlineLevel > 0)
-            xlRow.OutlineLevel = outlineLevel.Value;
+        if (props.OutlineLevel > 0)
+            xlRow.OutlineLevel = props.OutlineLevel.Value;
 
-        if (showPhonetic)
+        if (props.ShowPhonetic)
             xlRow.ShowPhonetic = true;
 
-        if (customFormat)
+        if (props.CustomFormat)
         {
-            var styleIndex = attributes.GetIntAttribute("s");
-            if (styleIndex is not null)
+            if (props.StyleIndex is not null)
             {
-                ApplyStyle(xlRow, styleIndex.Value, styles);
+                ApplyStyle(xlRow, props.StyleIndex.Value, styles);
             }
             else
             {
@@ -578,8 +592,7 @@ internal static class WorksheetSheetDataReader
         if (dataType == CellValues.InlineString)
         {
             cellsCollection.ValueSlice.SetShareString(cellAddress, false);
-            var inlineString = reader.LoadCurrentElement() as RstType;
-            if (inlineString is not null)
+            if (reader.LoadCurrentElement() is RstType inlineString)
             {
                 if (inlineString.Text is not null)
                     cellsCollection.ValueSlice.SetCellValue(cellAddress, inlineString.Text.Text.FixNewLines());
@@ -602,6 +615,11 @@ internal static class WorksheetSheetDataReader
         }
     }
 
+    /// <summary>
+    /// Adjusts the cell value for the 1904 date system by adding 1462 days to any date values.
+    /// </summary>
+    /// <param name="cellsCollection"></param>
+    /// <param name="cellAddress"></param>
     private static void Adjust1904DateSystem(XLCellsCollection cellsCollection, XLSheetPoint cellAddress)
     {
         var cellValue = cellsCollection.ValueSlice.GetCellValue(cellAddress);
