@@ -368,7 +368,7 @@ public class XLPivotTableTests
                 // Deliberately add different casings of same string to ensure pivot table doesn't duplicate it.
                 new Pastry("Scone", 105, 135, 0, "", new DateTime(2017, 04, 22, 0, 0, 0, DateTimeKind.Unspecified)),
                 new Pastry("SconE", 105, 122, 5.19, "", new DateTime(2017, 05, 03, 0, 0, 0, DateTimeKind.Unspecified)),
-                new Pastry("SCONE", 105, 243, 44.2, "", new DateTime(2017, 06, 14)),
+                new Pastry("SCONE", 105, 243, 44.2, "", new DateTime(2017, 06, 14, 0, 0, 0, DateTimeKind.Unspecified)),
 
                 // For ContainsBlank and integer rows/columns test
                 new Pastry("Scone", null, 255, 18.4, "", null),
@@ -478,7 +478,7 @@ public class XLPivotTableTests
             // Deliberately add different casings of same string to ensure pivot table doesn't duplicate it.
             new Pastry("Scone", 105, 135, 0, "", new DateTime(2017, 04, 22, 0, 0, 0, DateTimeKind.Unspecified)),
             new Pastry("SconE", 105, 122, 5.19, "", new DateTime(2017, 05, 03, 0, 0, 0, DateTimeKind.Unspecified)),
-            new Pastry("SCONE", 105, 243, 44.2, "", new DateTime(2017, 06, 14)),
+            new Pastry("SCONE", 105, 243, 44.2, "", new DateTime(2017, 06, 14, 0, 0, 0, DateTimeKind.Unspecified)),
 
             // For ContainsBlank and integer rows/columns test
             new Pastry("Scone", null, 255, 18.4, "", null),
@@ -637,7 +637,7 @@ public class XLPivotTableTests
             // Deliberately add different casings of same string to ensure pivot table doesn't duplicate it.
             new Pastry("Scone", 105, 135, 0, "", new DateTime(2017, 04, 22, 0, 0, 0, DateTimeKind.Unspecified)),
             new Pastry("SconE", 105, 122, 5.19, "", new DateTime(2017, 05, 03, 0, 0, 0, DateTimeKind.Unspecified)),
-            new Pastry("SCONE", 105, 243, 44.2, "", new DateTime(2017, 06, 14)),
+            new Pastry("SCONE", 105, 243, 44.2, "", new DateTime(2017, 06, 14, 0, 0, 0, DateTimeKind.Unspecified)),
 
             // For ContainsBlank and integer rows/columns test
             new Pastry("Scone", null, 255, 18.4, "", null),
