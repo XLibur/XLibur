@@ -1,4 +1,5 @@
 ﻿using System;
+using XLibur.Excel.Tables;
 
 namespace XLibur.Excel;
 

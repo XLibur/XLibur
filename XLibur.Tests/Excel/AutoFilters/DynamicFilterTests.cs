@@ -52,7 +52,7 @@ public class DynamicFilterTests
     public void Average_ignores_non_unified_numbers()
     {
         new AutoFilterTester(f => f.BelowAverage())
-            .AddTrue(new DateTime(1900, 1, 1)) // Serial date time 1
+            .AddTrue(new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Unspecified)) // Serial date time 1
             .AddFalse(1.1)
             .AddFalse(1.2)
             .AddFalse(XLError.NoValueAvailable, true, false, "-100", "Text", Blank.Value)

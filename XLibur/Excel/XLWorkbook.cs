@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using XLibur.Excel.Tables;
 using XLibur.Extensions;
 using static XLibur.Excel.XLProtectionAlgorithm;
 

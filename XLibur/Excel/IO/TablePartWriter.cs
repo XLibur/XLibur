@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Linq;
+using XLibur.Excel.Tables;
 using XLibur.Extensions;
 using static XLibur.Excel.XLWorkbook;
 

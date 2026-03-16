@@ -2,6 +2,7 @@ using XLibur.Excel.InsertData;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.Tables;
 
 namespace XLibur.Excel;
 

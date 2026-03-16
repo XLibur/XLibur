@@ -1,7 +1,6 @@
 using System;
 using XLibur.Excel;
 
-
 namespace XLibur.Examples.Misc;
 
 public class WorkbookProperties : IXLExample
@@ -9,7 +8,7 @@ public class WorkbookProperties : IXLExample
     public void Create(string filePath)
     {
         var wb = new XLWorkbook();
-        var ws = wb.Worksheets.Add("Workbook Properties");
+        wb.Worksheets.Add("Workbook Properties");
 
         wb.Properties.Author = "theAuthor";
         wb.Properties.Title = "theTitle";
@@ -26,7 +25,7 @@ public class WorkbookProperties : IXLExample
         wb.CustomProperties.Add("theText", "XXX");
         wb.CustomProperties.Add("theDate",
             new DateTime(2011, 1, 1, 17, 0, 0,
-                DateTimeKind.Utc)); // Use UTC to make sure test can be run in any time zone
+                DateTimeKind.Utc)); // Use UTC to make sure the test can be run in any time zone
         wb.CustomProperties.Add("theNumber", 123.456);
         wb.CustomProperties.Add("theBoolean", true);
 

@@ -9,9 +9,8 @@ public class TabColors : IXLExample
     {
         var wb = new XLWorkbook();
 
-        var wsRed = wb.Worksheets.Add("Red").SetTabColor(XLColor.Red);
-
-        var wsAccent3 = wb.Worksheets.Add("Accent3").SetTabColor(XLColor.FromTheme(XLThemeColor.Accent3));
+        wb.Worksheets.Add("Red").SetTabColor(XLColor.Red);
+        wb.Worksheets.Add("Accent3").SetTabColor(XLColor.FromTheme(XLThemeColor.Accent3));
 
         var wsIndexed = wb.Worksheets.Add("Indexed");
         wsIndexed.TabColor = XLColor.FromIndex(24);

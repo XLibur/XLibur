@@ -7,14 +7,15 @@ using System.Dynamic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
-using XLibur.Excel.Tables;
 using XLibur.Extensions;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.Tables;
 
 [DebuggerDisplay("{Name}")]
 internal sealed class XLTable : XLRange, IXLTable
 {
+    private const string DefaultColumnPrefix = "Column";
+
     private bool _showTotalsRow;
     private HashSet<string>? _uniqueNames;
 
@@ -48,7 +49,7 @@ internal sealed class XLTable : XLRange, IXLTable
     }
 
     /// <summary>
-    /// Area of the range, including headings and totals, if table has them.
+    /// Area of the range, including headings and totals, if the table has them.
     /// </summary>
     internal XLSheetRange Area => XLSheetRange.FromRangeAddress(RangeAddress);
 
@@ -87,7 +88,7 @@ internal sealed class XLTable : XLRange, IXLTable
 
         // Be careful here. Fields names may actually be whitespace, but not empty
         if (string.IsNullOrEmpty(name))
-            name = GetUniqueName("Column", cellPos + 1, true);
+            name = GetUniqueName(DefaultColumnPrefix, cellPos + 1, true);
 
         if (_fieldNames!.ContainsKey(name))
             throw new ArgumentException("The header row contains more than one field name '" + name + "'.");
@@ -109,7 +110,7 @@ internal sealed class XLTable : XLRange, IXLTable
         {
             if (_fieldNames.Values.All(f => f.Index != i - 1))
             {
-                var name = "Column" + i;
+                var name = DefaultColumnPrefix + i;
                 _fieldNames.Add(name, new XLTableField(this, name) { Index = i - 1 });
             }
         }
@@ -183,9 +184,15 @@ internal sealed class XLTable : XLRange, IXLTable
         return AutoFilter;
     }
 
+    /// <summary>
+    /// For tables, the range address is not allowed to change as a result of structural changes to the range (e.g., inserting rows or columns),
+    /// because the table definition must always refer to the entire table area. Therefore, ignore any attempts to change the range address
+    /// </summary>
+    /// <param name="oldAddress"></param>
+    /// <param name="newAddress"></param>
     protected override void OnRangeAddressChanged(XLRangeAddress oldAddress, XLRangeAddress newAddress)
     {
-        //Do nothing for table
+        // Do nothing for table
     }
 
     #region IXLTable Members
@@ -346,7 +353,7 @@ internal sealed class XLTable : XLRange, IXLTable
         var totalsRowChanged = ShowTotalsRow ? range.LastRow()!.RowNumber() - TotalsRow()!.RowNumber() : 0;
         var oldTotalsRowNumber = ShowTotalsRow ? TotalsRow()!.RowNumber() : -1;
 
-        // Force evaluation of f.Column field
+        // Force evaluation of the `f.Column` field
         _ = Fields.Select(f => f.Column).ToArray();
 
         var newHeaders = CollectNewHeaders(range);
@@ -381,7 +388,7 @@ internal sealed class XLTable : XLRange, IXLTable
         foreach (var c in firstRow.Cells())
         {
             if (c.IsEmpty(XLCellsUsedOptions.Contents))
-                c.Value = GetUniqueName("Column", co, true);
+                c.Value = GetUniqueName(DefaultColumnPrefix, co, true);
 
             var header = c.GetString();
             _uniqueNames.Add(header);
@@ -599,7 +606,7 @@ internal sealed class XLTable : XLRange, IXLTable
         {
             // Be careful here. Fields names may actually be whitespace, but not empty
             if (c.IsEmpty(XLCellsUsedOptions.Contents))
-                ((XLCell)c).SetValue(GetUniqueName("Column", co, true), false, false);
+                ((XLCell)c).SetValue(GetUniqueName(DefaultColumnPrefix, co, true), false, false);
             _uniqueNames.Add(c.GetString());
             co++;
         }
@@ -683,7 +690,7 @@ internal sealed class XLTable : XLRange, IXLTable
         foreach (var c in headersRow.Cells())
         {
             if (string.IsNullOrWhiteSpace(c.GetString()))
-                c.Value = GetUniqueName("Column", co, true);
+                c.Value = GetUniqueName(DefaultColumnPrefix, co, true);
             _uniqueNames.Add(c.GetString());
             co++;
         }
@@ -962,13 +969,8 @@ internal sealed class XLTable : XLRange, IXLTable
         if (materializedData.Length == 0)
             return null;
 
-        var numberOfNewRows = materializedData.Length;
-
-        if (numberOfNewRows == 0)
-            return null;
-
         var lastRowOfOldRange = DataRange!.LastRow()!;
-        lastRowOfOldRange.InsertRowsBelow(numberOfNewRows);
+        lastRowOfOldRange.InsertRowsBelow(materializedData.Length);
         Fields.Cast<XLTableField>().ForEach(f => f.Column = null!);
 
         var insertedRange = lastRowOfOldRange.RowBelow().FirstCell().InsertData(materializedData)!;
@@ -1112,7 +1114,8 @@ internal sealed class XLTable : XLRange, IXLTable
     /// reads the cell value and applies it as text to the corresponding field via <paramref name="applyValue"/>.
     /// Excel always stores header and totals row values as text, so the string conversion is intentional.
     /// </summary>
-    private void RefreshFieldsInRow(XLSheetRange row, XLSheetRange refreshArea, Action<IXLTableField, string> applyValue)
+    private void RefreshFieldsInRow(XLSheetRange row, XLSheetRange refreshArea,
+        Action<IXLTableField, string> applyValue)
     {
         var intersection = row.Intersect(refreshArea);
         if (intersection is null) return;

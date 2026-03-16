@@ -26,7 +26,7 @@ public class SimpleTypeReaderTests
             yield return new TestCaseData(new[] { 1.0m, 2.0m, 3.0m }).Returns("Decimal");
             yield return new TestCaseData(arg: new[] { "A", "B", "C" }).Returns("String");
             yield return new TestCaseData(new[] { 'A', 'B', 'C' }).Returns("Char");
-            yield return new TestCaseData(new[] { new DateTime(2020, 1, 1) }).Returns("DateTime");
+            yield return new TestCaseData(new[] { new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified) }).Returns("DateTime");
         }
     }
 

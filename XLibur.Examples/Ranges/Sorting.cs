@@ -15,11 +15,11 @@ public class Sorting : IXLExample
         AddTestTable(wsTable);
 
         wsTable.Row(1).InsertRowsAbove(1);
-        var lastCo = wsTable.LastColumnUsed().ColumnNumber();
+        var lastCo = wsTable.LastColumnUsed()!.ColumnNumber();
         for (var co = 1; co <= lastCo; co++)
-            wsTable.Cell(1, co).Value = "Column" + co.ToString();
+            wsTable.Cell(1, co).Value = "Column" + co;
 
-        var table = wsTable.RangeUsed().AsTable();
+        var table = wsTable.RangeUsed()!.AsTable();
         table.Sort("Column2 Desc, 1, 3 Asc");
 
         // Sort table another way
@@ -27,13 +27,12 @@ public class Sorting : IXLExample
         AddTestTable(wsTable);
 
         wsTable.Row(1).InsertRowsAbove(1);
-        lastCo = wsTable.LastColumnUsed().ColumnNumber();
+        lastCo = wsTable.LastColumnUsed()!.ColumnNumber();
         for (var co = 1; co <= lastCo; co++)
             wsTable.Cell(1, co).Value = "Column" + co;
 
-        table = wsTable.RangeUsed().AsTable();
+        table = wsTable.RangeUsed()!.AsTable();
         table.Sort("Column2", XLSortOrder.Descending);
-
 
         #endregion Sort Table
 
@@ -42,8 +41,8 @@ public class Sorting : IXLExample
         var wsRows = wb.Worksheets.Add("Rows");
         AddTestTable(wsRows);
         wsRows.Row(1).Sort();
-        wsRows.RangeUsed().Row(2).Sort();
-        wsRows.Rows(3, wsRows.LastRowUsed().RowNumber()).Delete();
+        wsRows.RangeUsed()!.Row(2).Sort();
+        wsRows.Rows(3, wsRows.LastRowUsed()!.RowNumber()).Delete();
 
         #endregion Sort Rows
 
@@ -51,9 +50,9 @@ public class Sorting : IXLExample
 
         var wsColumns = wb.Worksheets.Add("Columns");
         AddTestTable(wsColumns);
-        wsColumns.LastColumnUsed().Delete();
+        wsColumns.LastColumnUsed()!.Delete();
         wsColumns.Column(1).Sort();
-        wsColumns.RangeUsed().Column(2).Sort();
+        wsColumns.RangeUsed()!.Column(2).Sort();
 
         #endregion Sort Columns
 
@@ -162,19 +161,21 @@ public class Sorting : IXLExample
         wb.SaveAs(filePath);
     }
 
-    private void AddTestColumnMixed(IXLWorksheet ws)
+    private static void AddTestColumnMixed(IXLWorksheet ws)
     {
-        ws.Cell("A1").SetValue(new DateTime(2011, 1, 30)).Style.Fill.SetBackgroundColor(XLColor.LightGreen);
+        ws.Cell("A1").SetValue(new DateTime(2011, 1, 30, 0, 0, 0, DateTimeKind.Unspecified)).Style.Fill
+            .SetBackgroundColor(XLColor.LightGreen);
         ws.Cell("A2").SetValue(1.15).Style.Fill.SetBackgroundColor(XLColor.DarkTurquoise);
         ws.Cell("A3").SetValue(new TimeSpan(1, 1, 12, 30)).Style.Fill.SetBackgroundColor(XLColor.BurlyWood);
         ws.Cell("A4").SetValue(Blank.Value).Style.Fill.SetBackgroundColor(XLColor.DarkGray);
         ws.Cell("A5").SetValue(Blank.Value).Style.Fill.SetBackgroundColor(XLColor.DarkSalmon);
         ws.Cell("A6").SetValue(9).Style.Fill.SetBackgroundColor(XLColor.DodgerBlue);
         ws.Cell("A7").SetValue(new TimeSpan(9, 4, 30)).Style.Fill.SetBackgroundColor(XLColor.IndianRed);
-        ws.Cell("A8").SetValue(new DateTime(2011, 4, 15)).Style.Fill.SetBackgroundColor(XLColor.DeepPink);
+        ws.Cell("A8").SetValue(new DateTime(2011, 4, 15, 0, 0, 0, DateTimeKind.Unspecified)).Style.Fill
+            .SetBackgroundColor(XLColor.DeepPink);
     }
 
-    private void AddTestColumnNumbers(IXLWorksheet ws)
+    private static void AddTestColumnNumbers(IXLWorksheet ws)
     {
         ws.Cell("A1").SetValue(1.30).Style.Fill.SetBackgroundColor(XLColor.LightGreen);
         ws.Cell("A2").SetValue(1.15).Style.Fill.SetBackgroundColor(XLColor.DarkTurquoise);
@@ -186,7 +187,7 @@ public class Sorting : IXLExample
         ws.Cell("A8").SetValue(4.15).Style.Fill.SetBackgroundColor(XLColor.DeepPink);
     }
 
-    private void AddTestColumnTimeSpans(IXLWorksheet ws)
+    private static void AddTestColumnTimeSpans(IXLWorksheet ws)
     {
         ws.Cell("A1").SetValue(new TimeSpan(0, 12, 35, 21)).Style.Fill.SetBackgroundColor(XLColor.LightGreen);
         ws.Cell("A2").SetValue(new TimeSpan(45, 1, 15)).Style.Fill.SetBackgroundColor(XLColor.DarkTurquoise);
@@ -198,19 +199,25 @@ public class Sorting : IXLExample
         ws.Cell("A8").SetValue(new TimeSpan(1, 4, 15)).Style.Fill.SetBackgroundColor(XLColor.DeepPink);
     }
 
-    private void AddTestColumnDates(IXLWorksheet ws)
+    private static void AddTestColumnDates(IXLWorksheet ws)
     {
-        ws.Cell("A1").SetValue(new DateTime(2011, 1, 30)).Style.Fill.SetBackgroundColor(XLColor.LightGreen);
-        ws.Cell("A2").SetValue(new DateTime(2011, 1, 15)).Style.Fill.SetBackgroundColor(XLColor.DarkTurquoise);
-        ws.Cell("A3").SetValue(new DateTime(2011, 12, 30)).Style.Fill.SetBackgroundColor(XLColor.BurlyWood);
+        ws.Cell("A1").SetValue(new DateTime(2011, 1, 30, 0, 0, 0, DateTimeKind.Unspecified)).Style.Fill
+            .SetBackgroundColor(XLColor.LightGreen);
+        ws.Cell("A2").SetValue(new DateTime(2011, 1, 15, 0, 0, 0, DateTimeKind.Unspecified)).Style.Fill
+            .SetBackgroundColor(XLColor.DarkTurquoise);
+        ws.Cell("A3").SetValue(new DateTime(2011, 12, 30, 0, 0, 0, DateTimeKind.Unspecified)).Style.Fill
+            .SetBackgroundColor(XLColor.BurlyWood);
         ws.Cell("A4").SetValue(Blank.Value).Style.Fill.SetBackgroundColor(XLColor.DarkGray);
         ws.Cell("A5").SetValue(Blank.Value).Style.Fill.SetBackgroundColor(XLColor.DarkSalmon);
-        ws.Cell("A6").SetValue(new DateTime(2011, 12, 15)).Style.Fill.SetBackgroundColor(XLColor.DodgerBlue);
-        ws.Cell("A7").SetValue(new DateTime(2011, 4, 30)).Style.Fill.SetBackgroundColor(XLColor.IndianRed);
-        ws.Cell("A8").SetValue(new DateTime(2011, 4, 15)).Style.Fill.SetBackgroundColor(XLColor.DeepPink);
+        ws.Cell("A6").SetValue(new DateTime(2011, 12, 15, 0, 0, 0, DateTimeKind.Unspecified)).Style.Fill
+            .SetBackgroundColor(XLColor.DodgerBlue);
+        ws.Cell("A7").SetValue(new DateTime(2011, 4, 30, 0, 0, 0, DateTimeKind.Unspecified)).Style.Fill
+            .SetBackgroundColor(XLColor.IndianRed);
+        ws.Cell("A8").SetValue(new DateTime(2011, 4, 15, 0, 0, 0, DateTimeKind.Unspecified)).Style.Fill
+            .SetBackgroundColor(XLColor.DeepPink);
     }
 
-    private void AddTestColumn(IXLWorksheet ws)
+    private static void AddTestColumn(IXLWorksheet ws)
     {
         ws.Cell("A1").SetValue("B").Style.Fill.SetBackgroundColor(XLColor.LightGreen);
         ws.Cell("A2").SetValue("A").Style.Fill.SetBackgroundColor(XLColor.DarkTurquoise);
@@ -222,7 +229,7 @@ public class Sorting : IXLExample
         ws.Cell("A8").SetValue("c").Style.Fill.SetBackgroundColor(XLColor.DeepPink);
     }
 
-    private void AddTestTable(IXLWorksheet ws)
+    private static void AddTestTable(IXLWorksheet ws)
     {
         ws.Cell("A1").SetValue("B").Style.Fill.SetBackgroundColor(XLColor.LightGreen);
         ws.Cell("A2").SetValue("A").Style.Fill.SetBackgroundColor(XLColor.DarkTurquoise);

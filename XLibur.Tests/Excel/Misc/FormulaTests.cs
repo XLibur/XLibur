@@ -101,7 +101,7 @@ public class FormulaTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
-        ws.Cell("A1").Value = new DateTime(2016, 1, 1);
+        ws.Cell("A1").Value = new DateTime(2016, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 
         ws.Cell("A2").FormulaA1 = @"=IF(A1 = """", ""A"", ""B"")";
         var actual = ws.Cell("A2").Value;

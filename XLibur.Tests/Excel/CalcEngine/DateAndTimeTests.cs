@@ -450,16 +450,16 @@ public class DateAndTimeTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.FirstCell().SetValue("Date")
-            .CellBelow().SetValue(new DateTime(2008, 10, 1))
-            .CellBelow().SetValue(new DateTime(2009, 3, 1))
-            .CellBelow().SetValue(new DateTime(2008, 11, 26))
-            .CellBelow().SetValue(new DateTime(2008, 12, 4))
-            .CellBelow().SetValue(new DateTime(2009, 1, 21))
-            .CellBelow().SetValue(new DateTime(2009, 1, 4)) // Holiday is on Sunday - do not count twice
-            .CellBelow().SetValue(new DateTime(2009, 1, 6))  // Workweek holiday is specified twice, shouldn't be counted twice
-            .CellBelow().SetValue(new DateTime(2009, 1, 6))
-            .CellBelow().SetValue(new DateTime(2008, 9, 30)) // Tuesday holiday just before the first date, shouldn't be counted
-            .CellBelow().SetValue(new DateTime(2009, 3, 2)) // Monday holiday just after the last date, shouldn't be counted
+            .CellBelow().SetValue(new DateTime(2008, 10, 1, 0, 0, 0, DateTimeKind.Unspecified))
+            .CellBelow().SetValue(new DateTime(2009, 3, 1, 0, 0, 0, DateTimeKind.Unspecified))
+            .CellBelow().SetValue(new DateTime(2008, 11, 26, 0, 0, 0, DateTimeKind.Unspecified))
+            .CellBelow().SetValue(new DateTime(2008, 12, 4, 0, 0, 0, DateTimeKind.Unspecified))
+            .CellBelow().SetValue(new DateTime(2009, 1, 21, 0, 0, 0, DateTimeKind.Unspecified))
+            .CellBelow().SetValue(new DateTime(2009, 1, 4, 0, 0, 0, DateTimeKind.Unspecified)) // Holiday is on Sunday - do not count twice
+            .CellBelow().SetValue(new DateTime(2009, 1, 6, 0, 0, 0, DateTimeKind.Unspecified))  // Workweek holiday is specified twice, shouldn't be counted twice
+            .CellBelow().SetValue(new DateTime(2009, 1, 6, 0, 0, 0, DateTimeKind.Unspecified))
+            .CellBelow().SetValue(new DateTime(2008, 9, 30, 0, 0, 0, DateTimeKind.Unspecified)) // Tuesday holiday just before the first date, shouldn't be counted
+            .CellBelow().SetValue(new DateTime(2009, 3, 2, 0, 0, 0, DateTimeKind.Unspecified)) // Monday holiday just after the last date, shouldn't be counted
             ;
         var actual = ws.Evaluate("NETWORKDAYS(A2, A3, A4:A11)");
         Assert.AreEqual(104, actual);
@@ -835,30 +835,30 @@ public class DateAndTimeTests
         var wb = new XLWorkbook();
         IXLWorksheet ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue("Date")
-            .CellBelow().SetValue(new DateTime(2008, 10, 1))
+            .CellBelow().SetValue(new DateTime(2008, 10, 1, 0, 0, 0, DateTimeKind.Unspecified))
             .CellBelow().SetValue(151)
-            .CellBelow().SetValue(new DateTime(2008, 11, 26))
-            .CellBelow().SetValue(new DateTime(2008, 12, 4))
-            .CellBelow().SetValue(new DateTime(2009, 1, 21));
+            .CellBelow().SetValue(new DateTime(2008, 11, 26, 0, 0, 0, DateTimeKind.Unspecified))
+            .CellBelow().SetValue(new DateTime(2008, 12, 4, 0, 0, 0, DateTimeKind.Unspecified))
+            .CellBelow().SetValue(new DateTime(2009, 1, 21, 0, 0, 0, DateTimeKind.Unspecified));
         var actual = ws.Evaluate("Workday(A2,A3,A4:A6)");
-        Assert.AreEqual(new DateTime(2009, 5, 5).ToSerialDateTime(), actual);
+        Assert.AreEqual(new DateTime(2009, 5, 5, 0, 0, 0, DateTimeKind.Unspecified).ToSerialDateTime(), actual);
     }
 
     [Test]
     public void Workdays_NoHolidaysGiven()
     {
         var actual = XLWorkbook.EvaluateExpr("Workday(\"10/01/2008\", 151)");
-        Assert.AreEqual(new DateTime(2009, 4, 30).ToSerialDateTime(), actual);
+        Assert.AreEqual(new DateTime(2009, 4, 30, 0, 0, 0, DateTimeKind.Unspecified).ToSerialDateTime(), actual);
 
         actual = XLWorkbook.EvaluateExpr("Workday(\"2016-01-01\", -10)");
-        Assert.AreEqual(new DateTime(2015, 12, 18).ToSerialDateTime(), actual);
+        Assert.AreEqual(new DateTime(2015, 12, 18, 0, 0, 0, DateTimeKind.Unspecified).ToSerialDateTime(), actual);
     }
 
     [Test]
     public void Workdays_OneHolidaysGiven()
     {
         var actual = XLWorkbook.EvaluateExpr("Workday(\"10/01/2008\", 152, \"11/26/2008\")");
-        Assert.AreEqual(new DateTime(2009, 5, 4).ToSerialDateTime(), actual);
+        Assert.AreEqual(new DateTime(2009, 5, 4, 0, 0, 0, DateTimeKind.Unspecified).ToSerialDateTime(), actual);
     }
 
     [TestCase(0, 0, 0)]

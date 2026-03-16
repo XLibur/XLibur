@@ -5,6 +5,7 @@ using DocumentFormat.OpenXml;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.Tables;
 using static XLibur.Excel.XLWorkbook;
 using EnumerableExtensions = XLibur.Extensions.EnumerableExtensions;
 

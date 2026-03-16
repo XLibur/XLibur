@@ -35,9 +35,9 @@ public class ShowCase : IXLExample
         ws.Cell("D6").SetValue(false); // Another way to set the value
         //Date of Birth
         ws.Cell("E3").Value = "DOB";
-        ws.Cell("E4").Value = new DateTime(1919, 1, 21);
-        ws.Cell("E5").Value = new DateTime(1907, 3, 4);
-        ws.Cell("E6").SetValue(new DateTime(1921, 12, 15)); // Another way to set the value
+        ws.Cell("E4").Value = new DateTime(1919, 1, 21, 0, 0, 0, DateTimeKind.Unspecified);
+        ws.Cell("E5").Value = new DateTime(1907, 3, 4, 0, 0, 0, DateTimeKind.Unspecified);
+        ws.Cell("E6").SetValue(new DateTime(1921, 12, 15, 0, 0, 0, DateTimeKind.Unspecified)); // Another way to set the value
         //Income
         ws.Cell("F3").Value = "Income";
         ws.Cell("F4").Value = 2000;

@@ -2,6 +2,7 @@
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using ClosedXML.Parser;
+using XLibur.Excel.Tables;
 
 namespace XLibur.Excel.CalcEngine;
 

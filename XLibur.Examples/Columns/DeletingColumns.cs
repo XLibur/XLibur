@@ -9,7 +9,6 @@ public class DeletingColumns : IXLExample
         var workbook = new XLWorkbook();
         var ws = workbook.Worksheets.Add("Deleting Columns");
 
-        var rngTitles = ws.Range("B2:D2");
         ws.Row(1).InsertRowsBelow(2);
 
         var rng1 = ws.Range("B2:D2");

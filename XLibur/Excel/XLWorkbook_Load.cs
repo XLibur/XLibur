@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 using XLibur.Excel.IO;
+using XLibur.Excel.Tables;
 using Ap = DocumentFormat.OpenXml.ExtendedProperties;
 using Op = DocumentFormat.OpenXml.CustomProperties;
 using TC = DocumentFormat.OpenXml.Office2019.Excel.ThreadedComments;

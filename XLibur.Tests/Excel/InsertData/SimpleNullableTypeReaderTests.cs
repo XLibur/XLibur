@@ -26,7 +26,7 @@ public class SimpleNullableTypeReaderTests
             yield return new TestCaseData(new List<double?> { 1.0, 2.0, null }).Returns("Double");
             yield return new TestCaseData(new decimal?[] { 1.0m, 2.0m, null }).Returns("Decimal");
             yield return new TestCaseData(new char?[] { 'A', 'B', null }).Returns("Char");
-            yield return new TestCaseData(new DateTime?[] { new DateTime(2020, 1, 1), null }).Returns("DateTime");
+            yield return new TestCaseData(new DateTime?[] { new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), null }).Returns("DateTime");
         }
     }
 

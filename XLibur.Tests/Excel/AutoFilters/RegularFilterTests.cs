@@ -21,12 +21,12 @@ public class RegularFilterTests
                 {
                     "Data",
                     1, 2,
-                    new DateTime(2015, 7, 25),
-                    new DateTime(2015, 8, 25),
+                    new DateTime(2015, 7, 25, 0, 0, 0, DateTimeKind.Unspecified),
+                    new DateTime(2015, 8, 25, 0, 0, 0, DateTimeKind.Unspecified),
                 }).SetAutoFilter();
                 autoFilter.Column(1)
                     .AddFilter(1)
-                    .AddDateGroupFilter(new DateTime(2015, 8, 1), XLDateTimeGrouping.Month);
+                    .AddDateGroupFilter(new DateTime(2015, 8, 1, 0, 0, 0, DateTimeKind.Unspecified), XLDateTimeGrouping.Month);
             },
             (_, ws) =>
             {

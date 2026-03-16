@@ -9,8 +9,8 @@ public class DataValidationDate : IXLExample
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        var date1 = new DateTime(2020, 01, 31);
-        var date2 = new DateTime(2020, 02, 29);
+        var date1 = new DateTime(2020, 01, 31, 0, 0, 0, DateTimeKind.Unspecified);
+        var date2 = new DateTime(2020, 02, 29, 0, 0, 0, DateTimeKind.Unspecified);
         var c1 = ws.Cell("A1");
         var c2 = ws.Cell("B1");
         c1.Value = date1;

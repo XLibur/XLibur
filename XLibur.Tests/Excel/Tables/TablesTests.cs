@@ -7,6 +7,7 @@ using XLibur.Attributes;
 using XLibur.Excel;
 using XLibur.Excel.Exceptions;
 using NUnit.Framework;
+using XLibur.Excel.Tables;
 using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.Tables;
@@ -960,7 +961,7 @@ public class TablesTests
         ws1.Cell("C1").Value = "Custom column 3";
         ws1.Cell("A2").Value = "Value 1";
         ws1.Cell("B2").Value = 123.45;
-        ws1.Cell("C2").Value = new DateTime(2018, 5, 10);
+        ws1.Cell("C2").Value = new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified);
         var original = ws1.Range("A1:C2").AsTable("Detached_table");
         var ws2 = wb.Worksheets.Add("Sheet2");
 
@@ -977,7 +978,7 @@ public class TablesTests
         Assert.AreEqual("Custom column 3", ws2.Cell("C1").Value);
         Assert.AreEqual("Value 1", ws2.Cell("A2").Value);
         Assert.AreEqual(123.45, (double)ws2.Cell("B2").Value, XLHelper.Epsilon);
-        Assert.AreEqual(new DateTime(2018, 5, 10), ws2.Cell("C2").Value);
+        Assert.AreEqual(new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified), ws2.Cell("C2").Value);
     }
 
     [Test]
@@ -990,7 +991,7 @@ public class TablesTests
         ws1.Cell("C1").Value = "Custom column 3";
         ws1.Cell("A2").Value = "Value 1";
         ws1.Cell("B2").Value = 123.45;
-        ws1.Cell("C2").Value = new DateTime(2018, 5, 10);
+        ws1.Cell("C2").Value = new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified);
         var original = ws1.Range("A1:C2").AsTable("Attached_table");
         ws1.Tables.Add(original);
         var ws2 = wb.Worksheets.Add("Sheet2");
@@ -1010,7 +1011,7 @@ public class TablesTests
         Assert.AreEqual("Custom column 3", ws2.Cell("C1").Value);
         Assert.AreEqual("Value 1", ws2.Cell("A2").Value);
         Assert.AreEqual(123.45, (double)ws2.Cell("B2").Value, XLHelper.Epsilon);
-        Assert.AreEqual(new DateTime(2018, 5, 10), ws2.Cell("C2").Value);
+        Assert.AreEqual(new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified), ws2.Cell("C2").Value);
     }
 
     [Test]
@@ -1025,7 +1026,7 @@ public class TablesTests
             ws.Cell("C1").Value = "Custom column 3";
             ws.Cell("A2").Value = "Value 1";
             ws.Cell("B2").Value = 123.45;
-            ws.Cell("C2").Value = new DateTime(2018, 5, 10);
+            ws.Cell("C2").Value = new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified);
             var original = ws.Range("A1:C2").CreateTable("Attached_table");
 
             Assert.AreEqual(1, ws.Tables.Count());
@@ -1054,7 +1055,7 @@ public class TablesTests
             Assert.AreEqual("Custom column 3", ws.Cell("C1").Value);
             Assert.AreEqual("Value 1", ws.Cell("A2").Value);
             Assert.AreEqual(123.45, (double)ws.Cell("B2").Value, XLHelper.Epsilon);
-            Assert.AreEqual(new DateTime(2018, 5, 10), ws.Cell("C2").Value);
+            Assert.AreEqual(new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified), ws.Cell("C2").Value);
         }
     }
 
@@ -1068,7 +1069,7 @@ public class TablesTests
         ws1.Cell("C1").Value = "Custom column 3";
         ws1.Cell("A2").Value = "Value 1";
         ws1.Cell("B2").Value = 123.45;
-        ws1.Cell("C2").Value = new DateTime(2018, 5, 10);
+        ws1.Cell("C2").Value = new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified);
         var original = ws1.Range("A1:C2").AsTable("Attached_table");
         ws1.Tables.Add(original);
         var ws2 = wb.Worksheets.Add("Sheet2") as XLWorksheet;

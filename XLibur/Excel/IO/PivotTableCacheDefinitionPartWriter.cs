@@ -327,8 +327,8 @@ internal sealed class PivotTableCacheDefinitionPartWriter
             long? maxDateTicks = NullableMax(stats.MaxDate?.Ticks, maxValueAsDateTime);
 
             // @minDate/@maxDate can be present, only if at least one child is a d element.
-            sharedItems.MinDate = minDateTicks is not null ? new DateTime(minDateTicks.Value) : null;
-            sharedItems.MaxDate = maxDateTicks is not null ? new DateTime(maxDateTicks.Value) : null;
+            sharedItems.MinDate = minDateTicks is not null ? new DateTime(minDateTicks.Value, DateTimeKind.Unspecified) : null;
+            sharedItems.MaxDate = maxDateTicks is not null ? new DateTime(maxDateTicks.Value, DateTimeKind.Unspecified) : null;
         }
         else if (stats.ContainsNumber)
         {

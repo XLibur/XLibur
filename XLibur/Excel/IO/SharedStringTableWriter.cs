@@ -3,6 +3,7 @@ using System.Xml;
 using XLibur.Utils;
 using XLibur.Extensions;
 using DocumentFormat.OpenXml.Packaging;
+using XLibur.Excel.Tables;
 using static XLibur.Excel.XLWorkbook;
 using static XLibur.Excel.IO.OpenXmlConst;
 

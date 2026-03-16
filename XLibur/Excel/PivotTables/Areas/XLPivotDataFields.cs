@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.PivotTables.Areas;
 
 /// <summary>
 /// A collection of <see cref="XLPivotDataField"/>.
@@ -15,7 +15,7 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
     /// <summary>
     /// Fields displayed in the data area of the pivot table, in the order fields are displayed.
     /// </summary>
-    private readonly List<XLPivotDataField> _fields = new();
+    private readonly List<XLPivotDataField> _fields = [];
 
     internal XLPivotDataFields(XLPivotTable pivotTable)
     {
@@ -38,9 +38,9 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
 
     public void Clear()
     {
-        _fields.Clear();
         foreach (var field in _fields)
             _pivotTable.RemoveFieldFromAxis(field.Field);
+        _fields.Clear();
     }
 
     public bool Contains(string customName)
@@ -56,12 +56,7 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
     public IXLPivotValue Get(string customName)
     {
         var dataField = _fields.SingleOrDefault(x => XLHelper.NameComparer.Equals(x.CustomName, customName));
-        if (dataField is null)
-        {
-            throw new KeyNotFoundException($"Unable to find data field for '{customName}'.");
-        }
-
-        return dataField;
+        return dataField ?? throw new KeyNotFoundException($"Unable to find data field for '{customName}'.");
     }
 
     public IXLPivotValue Get(int index)
@@ -107,7 +102,8 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
         if (!_pivotTable.TryGetSourceNameFieldIndex(sourceName, out var fieldIndex))
         {
             var validNames = string.Join("','", _pivotTable.PivotCache.FieldNames);
-            throw new ArgumentOutOfRangeException(nameof(sourceName), $"Field '{sourceName}' is not in the fields of a pivot cache. Should be one of '{validNames}'.");
+            throw new ArgumentOutOfRangeException(nameof(sourceName),
+                $"Field '{sourceName}' is not in the fields of a pivot cache. Should be one of '{validNames}'.");
         }
 
         if (fieldIndex.IsDataField)
@@ -119,7 +115,7 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
         };
         AddField(dataField);
 
-        // If there are multiple values, at least axis must contain 'data' field.
+        // If there are multiple values, at least the axis must contain the 'data' field.
         // Otherwise, Excel requires a repair.
         if (_fields.Count > 1 &&
             !_pivotTable.RowAxis.ContainsDataField &&

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using XLibur.Excel.CalcEngine.Visitors;
 using ClosedXML.Parser;
+using XLibur.Excel.Tables;
 using XLibur.Extensions;
 
 namespace XLibur.Excel;

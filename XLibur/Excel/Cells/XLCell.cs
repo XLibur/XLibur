@@ -13,6 +13,7 @@ using XLibur.Graphics;
 using ClosedXML.Parser;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.RichText;
+using XLibur.Excel.Tables;
 
 namespace XLibur.Excel;
 

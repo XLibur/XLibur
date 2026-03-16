@@ -158,10 +158,10 @@ public class XLCellTests
         table.Columns.Add("Patient", typeof(string));
         table.Columns.Add("Date", typeof(DateTime));
 
-        table.Rows.Add(25, "Indocin", "David", new DateTime(2000, 1, 1));
-        table.Rows.Add(50, "Enebrel", "Sam", new DateTime(2000, 1, 2));
-        table.Rows.Add(10, "Hydralazine", "Christoff", new DateTime(2000, 1, 3));
-        table.Rows.Add(21, "Combivent", DBNull.Value, new DateTime(2000, 1, 4));
+        table.Rows.Add(25, "Indocin", "David", new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Unspecified));
+        table.Rows.Add(50, "Enebrel", "Sam", new DateTime(2000, 1, 2, 0, 0, 0, DateTimeKind.Unspecified));
+        table.Rows.Add(10, "Hydralazine", "Christoff", new DateTime(2000, 1, 3, 0, 0, 0, DateTimeKind.Unspecified));
+        table.Rows.Add(21, "Combivent", DBNull.Value, new DateTime(2000, 1, 4, 0, 0, 0, DateTimeKind.Unspecified));
         table.Rows.Add(100, "Dilantin", "Melanie", DBNull.Value);
 
         ws.FirstCell().InsertData(table);
@@ -178,16 +178,16 @@ public class XLCellTests
 
         var dateTimeList = new List<DateTime?>()
         {
-            new DateTime(2000, 1, 1),
-            new DateTime(2000, 1, 2),
-            new DateTime(2000, 1, 3),
-            new DateTime(2000, 1, 4),
+            new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Unspecified),
+            new DateTime(2000, 1, 2, 0, 0, 0, DateTimeKind.Unspecified),
+            new DateTime(2000, 1, 3, 0, 0, 0, DateTimeKind.Unspecified),
+            new DateTime(2000, 1, 4, 0, 0, 0, DateTimeKind.Unspecified),
             null
         };
 
         ws.FirstCell().InsertData(dateTimeList);
 
-        Assert.AreEqual(new DateTime(2000, 1, 1), ws.Cell("A1").GetDateTime());
+        Assert.AreEqual(new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), ws.Cell("A1").GetDateTime());
         Assert.AreEqual(Blank.Value, ws.Cell("A5").Value);
     }
 
@@ -383,7 +383,7 @@ public class XLCellTests
 
         success = ws.Cell("B1").TryGetValue(out outValue);
         Assert.IsTrue(success);
-        Assert.AreEqual(new DateTime(2020, 07, 09), outValue);
+        Assert.AreEqual(new DateTime(2020, 07, 09, 0, 0, 0, DateTimeKind.Unspecified), outValue);
     }
 
     [Test]
@@ -558,12 +558,12 @@ public class XLCellTests
 
         IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
         IXLCell cell = ws.Cell(1, 1);
-        cell.Value = new DateTime(2000, 1, 2);
+        cell.Value = new DateTime(2000, 1, 2, 0, 0, 0, DateTimeKind.Unspecified);
         cell.Value = String.Empty;
         Assert.AreEqual(expected, cell.GetText());
         Assert.AreEqual(expected, cell.Value);
 
-        cell.Value = new DateTime(2000, 1, 2);
+        cell.Value = new DateTime(2000, 1, 2, 0, 0, 0, DateTimeKind.Unspecified);
         cell.SetValue(string.Empty);
         Assert.AreEqual(expected, cell.GetText());
         Assert.AreEqual(expected, cell.Value);
@@ -596,7 +596,7 @@ public class XLCellTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
-        ws.FirstCell().Value = new DateTime(2018, 5, 15);
+        ws.FirstCell().Value = new DateTime(2018, 5, 15, 0, 0, 0, DateTimeKind.Unspecified);
 
         ws.FirstCell().SetValue(new string('A', 32767));
 
@@ -683,9 +683,9 @@ public class XLCellTests
         {
             var ws = wb.AddWorksheet("Sheet1");
             var c = ws.FirstCell();
-            c.SetValue(new DateTime(2017, 10, 08));
+            c.SetValue(new DateTime(2017, 10, 08, 0, 0, 0, DateTimeKind.Unspecified));
             Assert.AreEqual(XLDataType.DateTime, c.DataType);
-            Assert.AreEqual(new DateTime(2017, 10, 08), c.Value);
+            Assert.AreEqual(new DateTime(2017, 10, 08, 0, 0, 0, DateTimeKind.Unspecified), c.Value);
 
             wb.SaveAs(ms);
         }
@@ -695,7 +695,7 @@ public class XLCellTests
             var ws = wb.Worksheets.First();
             var c = ws.FirstCell();
             Assert.AreEqual(XLDataType.DateTime, c.DataType);
-            Assert.AreEqual(new DateTime(2017, 10, 08), c.Value);
+            Assert.AreEqual(new DateTime(2017, 10, 08, 0, 0, 0, DateTimeKind.Unspecified), c.Value);
 
             c.Clear();
             wb.Save();

@@ -352,22 +352,22 @@ public class XLPivotTableTests
             // But with empty column for Month
             var pastries = new List<Pastry>
             {
-                new Pastry("Croissant", 101, 150, 60.2, "", new DateTime(2016, 04, 21)),
-                new Pastry("Croissant", 101, 250, 50.42, "", new DateTime(2016, 05, 03)),
-                new Pastry("Croissant", 101, 134, 22.12, "", new DateTime(2016, 06, 24)),
-                new Pastry("Doughnut", 102, 250, 89.99, "", new DateTime(2017, 04, 23)),
-                new Pastry("Doughnut", 102, 225, 70, "", new DateTime(2016, 05, 24)),
-                new Pastry("Doughnut", 102, 210, 75.33, "", new DateTime(2016, 06, 02)),
-                new Pastry("Bearclaw", 103, 134, 10.24, "", new DateTime(2016, 04, 27)),
-                new Pastry("Bearclaw", 103, 184, 33.33, "", new DateTime(2016, 05, 20)),
-                new Pastry("Bearclaw", 103, 124, 25, "", new DateTime(2017, 06, 05)),
+                new Pastry("Croissant", 101, 150, 60.2, "", new DateTime(2016, 04, 21, 0, 0, 0, DateTimeKind.Unspecified)),
+                new Pastry("Croissant", 101, 250, 50.42, "", new DateTime(2016, 05, 03, 0, 0, 0, DateTimeKind.Unspecified)),
+                new Pastry("Croissant", 101, 134, 22.12, "", new DateTime(2016, 06, 24, 0, 0, 0, DateTimeKind.Unspecified)),
+                new Pastry("Doughnut", 102, 250, 89.99, "", new DateTime(2017, 04, 23, 0, 0, 0, DateTimeKind.Unspecified)),
+                new Pastry("Doughnut", 102, 225, 70, "", new DateTime(2016, 05, 24, 0, 0, 0, DateTimeKind.Unspecified)),
+                new Pastry("Doughnut", 102, 210, 75.33, "", new DateTime(2016, 06, 02, 0, 0, 0, DateTimeKind.Unspecified)),
+                new Pastry("Bearclaw", 103, 134, 10.24, "", new DateTime(2016, 04, 27, 0, 0, 0, DateTimeKind.Unspecified)),
+                new Pastry("Bearclaw", 103, 184, 33.33, "", new DateTime(2016, 05, 20, 0, 0, 0, DateTimeKind.Unspecified)),
+                new Pastry("Bearclaw", 103, 124, 25, "", new DateTime(2017, 06, 05, 0, 0, 0, DateTimeKind.Unspecified)),
                 new Pastry("Danish", 104, 394, -20.24, "", null),
-                new Pastry("Danish", 104, 190, 60, "", new DateTime(2017, 05, 08)),
-                new Pastry("Danish", 104, 221, 24.76, "", new DateTime(2016, 06, 21)),
+                new Pastry("Danish", 104, 190, 60, "", new DateTime(2017, 05, 08, 0, 0, 0, DateTimeKind.Unspecified)),
+                new Pastry("Danish", 104, 221, 24.76, "", new DateTime(2016, 06, 21, 0, 0, 0, DateTimeKind.Unspecified)),
 
                 // Deliberately add different casings of same string to ensure pivot table doesn't duplicate it.
-                new Pastry("Scone", 105, 135, 0, "", new DateTime(2017, 04, 22)),
-                new Pastry("SconE", 105, 122, 5.19, "", new DateTime(2017, 05, 03)),
+                new Pastry("Scone", 105, 135, 0, "", new DateTime(2017, 04, 22, 0, 0, 0, DateTimeKind.Unspecified)),
+                new Pastry("SconE", 105, 122, 5.19, "", new DateTime(2017, 05, 03, 0, 0, 0, DateTimeKind.Unspecified)),
                 new Pastry("SCONE", 105, 243, 44.2, "", new DateTime(2017, 06, 14)),
 
                 // For ContainsBlank and integer rows/columns test
@@ -462,22 +462,22 @@ public class XLPivotTableTests
     {
         var pastries = new List<Pastry>
         {
-            new Pastry("Croissant", 101, 150, 60.2, "", new DateTime(2016, 04, 21)),
-            new Pastry("Croissant", 101, 250, 50.42, "", new DateTime(2016, 05, 03)),
-            new Pastry("Croissant", 101, 134, 22.12, "", new DateTime(2016, 06, 24)),
-            new Pastry("Doughnut", 102, 250, 89.99, "", new DateTime(2017, 04, 23)),
-            new Pastry("Doughnut", 102, 225, 70, "", new DateTime(2016, 05, 24)),
-            new Pastry("Doughnut", 102, 210, 75.33, "", new DateTime(2016, 06, 02)),
-            new Pastry("Bearclaw", 103, 134, 10.24, "", new DateTime(2016, 04, 27)),
-            new Pastry("Bearclaw", 103, 184, 33.33, "", new DateTime(2016, 05, 20)),
-            new Pastry("Bearclaw", 103, 124, 25, "", new DateTime(2017, 06, 05)),
+            new Pastry("Croissant", 101, 150, 60.2, "", new DateTime(2016, 04, 21, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Croissant", 101, 250, 50.42, "", new DateTime(2016, 05, 03, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Croissant", 101, 134, 22.12, "", new DateTime(2016, 06, 24, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Doughnut", 102, 250, 89.99, "", new DateTime(2017, 04, 23, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Doughnut", 102, 225, 70, "", new DateTime(2016, 05, 24, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Doughnut", 102, 210, 75.33, "", new DateTime(2016, 06, 02, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Bearclaw", 103, 134, 10.24, "", new DateTime(2016, 04, 27, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Bearclaw", 103, 184, 33.33, "", new DateTime(2016, 05, 20, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Bearclaw", 103, 124, 25, "", new DateTime(2017, 06, 05, 0, 0, 0, DateTimeKind.Unspecified)),
             new Pastry("Danish", 104, 394, -20.24, "", null),
-            new Pastry("Danish", 104, 190, 60, "", new DateTime(2017, 05, 08)),
-            new Pastry("Danish", 104, 221, 24.76, "", new DateTime(2016, 06, 21)),
+            new Pastry("Danish", 104, 190, 60, "", new DateTime(2017, 05, 08, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Danish", 104, 221, 24.76, "", new DateTime(2016, 06, 21, 0, 0, 0, DateTimeKind.Unspecified)),
 
             // Deliberately add different casings of same string to ensure pivot table doesn't duplicate it.
-            new Pastry("Scone", 105, 135, 0, "", new DateTime(2017, 04, 22)),
-            new Pastry("SconE", 105, 122, 5.19, "", new DateTime(2017, 05, 03)),
+            new Pastry("Scone", 105, 135, 0, "", new DateTime(2017, 04, 22, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("SconE", 105, 122, 5.19, "", new DateTime(2017, 05, 03, 0, 0, 0, DateTimeKind.Unspecified)),
             new Pastry("SCONE", 105, 243, 44.2, "", new DateTime(2017, 06, 14)),
 
             // For ContainsBlank and integer rows/columns test
@@ -621,22 +621,22 @@ public class XLPivotTableTests
     {
         var pastries = new List<Pastry>
         {
-            new Pastry("Croissant", 101, 150, 60.2, "", new DateTime(2016, 04, 21)),
-            new Pastry("Croissant", 101, 250, 50.42, "", new DateTime(2016, 05, 03)),
-            new Pastry("Croissant", 101, 134, 22.12, "", new DateTime(2016, 06, 24)),
-            new Pastry("Doughnut", 102, 250, 89.99, "", new DateTime(2017, 04, 23)),
-            new Pastry("Doughnut", 102, 225, 70, "", new DateTime(2016, 05, 24)),
-            new Pastry("Doughnut", 102, 210, 75.33, "", new DateTime(2016, 06, 02)),
-            new Pastry("Bearclaw", 103, 134, 10.24, "", new DateTime(2016, 04, 27)),
-            new Pastry("Bearclaw", 103, 184, 33.33, "", new DateTime(2016, 05, 20)),
-            new Pastry("Bearclaw", 103, 124, 25, "", new DateTime(2017, 06, 05)),
+            new Pastry("Croissant", 101, 150, 60.2, "", new DateTime(2016, 04, 21, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Croissant", 101, 250, 50.42, "", new DateTime(2016, 05, 03, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Croissant", 101, 134, 22.12, "", new DateTime(2016, 06, 24, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Doughnut", 102, 250, 89.99, "", new DateTime(2017, 04, 23, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Doughnut", 102, 225, 70, "", new DateTime(2016, 05, 24, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Doughnut", 102, 210, 75.33, "", new DateTime(2016, 06, 02, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Bearclaw", 103, 134, 10.24, "", new DateTime(2016, 04, 27, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Bearclaw", 103, 184, 33.33, "", new DateTime(2016, 05, 20, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Bearclaw", 103, 124, 25, "", new DateTime(2017, 06, 05, 0, 0, 0, DateTimeKind.Unspecified)),
             new Pastry("Danish", 104, 394, -20.24, "", null),
-            new Pastry("Danish", 104, 190, 60, "", new DateTime(2017, 05, 08)),
-            new Pastry("Danish", 104, 221, 24.76, "", new DateTime(2016, 06, 21)),
+            new Pastry("Danish", 104, 190, 60, "", new DateTime(2017, 05, 08, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("Danish", 104, 221, 24.76, "", new DateTime(2016, 06, 21, 0, 0, 0, DateTimeKind.Unspecified)),
 
             // Deliberately add different casings of same string to ensure pivot table doesn't duplicate it.
-            new Pastry("Scone", 105, 135, 0, "", new DateTime(2017, 04, 22)),
-            new Pastry("SconE", 105, 122, 5.19, "", new DateTime(2017, 05, 03)),
+            new Pastry("Scone", 105, 135, 0, "", new DateTime(2017, 04, 22, 0, 0, 0, DateTimeKind.Unspecified)),
+            new Pastry("SconE", 105, 122, 5.19, "", new DateTime(2017, 05, 03, 0, 0, 0, DateTimeKind.Unspecified)),
             new Pastry("SCONE", 105, 243, 44.2, "", new DateTime(2017, 06, 14)),
 
             // For ContainsBlank and integer rows/columns test
