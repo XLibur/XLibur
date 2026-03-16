@@ -52,12 +52,12 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     }
 
     /// <summary>
-    /// Overriden <see cref="XLStylizedBase.StyleValue"/>, because we can't store the value
-    /// in the cell.
+    /// Gets the effective style by resolving inheritance (cell → row → column → worksheet).
+    /// Sets an explicit style on the cell, overriding inheritance.
     /// </summary>
     internal override XLStyleValue StyleValue
     {
-        get => Worksheet.GetStyleValue(SheetPoint);
+        get => GetInheritedStyle();
         private protected set => _cellsCollection.StyleSlice.Set(_point, value);
     }
 
@@ -976,12 +976,15 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     #endregion IXLStylized Members
 
     /// <summary>
-    /// Ensure the cell has a style set directly on the cell, not inherited from column/row/worksheet styles.
+    /// Materialize the cell's currently inherited style into explicit storage,
+    /// so it is preserved when the parent row/column/worksheet style changes.
     /// </summary>
-    internal void PingStyle()
+    internal void MaterializeStyle()
     {
-        StyleValue = StyleValue;
+        StyleValue = GetInheritedStyle();
     }
+
+    private XLStyleValue GetInheritedStyle() => Worksheet.GetStyleValue(SheetPoint);
 
     public XLRange AsRange()
     {
