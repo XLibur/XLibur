@@ -7,8 +7,19 @@ using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
 namespace XLibur.Excel.IO;
 
+/// <summary>
+/// Reads chart definitions from an OpenXML worksheet part and populates the worksheet's chart collection.
+/// Iterates TwoCellAnchor elements looking for GraphicFrame references to ChartParts,
+/// then parses chart type, title, series data, and anchor positions.
+/// </summary>
 internal static class ChartReader
 {
+    /// <summary>
+    /// Loads all charts from the worksheet part's DrawingsPart into the worksheet's Charts collection.
+    /// Each loaded chart has <see cref="XLChart.IsNew"/> set to <c>false</c> so it is skipped during save.
+    /// </summary>
+    /// <param name="worksheetPart">The OpenXML worksheet part to read from.</param>
+    /// <param name="ws">The target worksheet to populate with loaded charts.</param>
     internal static void LoadCharts(WorksheetPart worksheetPart, XLWorksheet ws)
     {
         var drawingsPart = worksheetPart.DrawingsPart;
@@ -76,6 +87,9 @@ internal static class ChartReader
         }
     }
 
+    /// <summary>
+    /// Maps an OpenXML BarChart's direction and grouping to the corresponding <see cref="XLChartType"/>.
+    /// </summary>
     private static XLChartType DetermineChartType(BarChart barChart)
     {
         var direction = barChart.BarDirection?.Val?.Value ?? BarDirectionValues.Column;
@@ -93,6 +107,10 @@ internal static class ChartReader
         return XLChartType.ColumnClustered;
     }
 
+    /// <summary>
+    /// Reads all <see cref="BarChartSeries"/> elements from a BarChart and adds them to the chart's series collection.
+    /// Extracts series name from StringCache, category references, and value references.
+    /// </summary>
     private static void ReadBarChartSeries(BarChart barChart, XLChart xlChart)
     {
         foreach (var series in barChart.Elements<BarChartSeries>())
@@ -133,6 +151,11 @@ internal static class ChartReader
         }
     }
 
+    /// <summary>
+    /// Reads the FromMarker and ToMarker of a TwoCellAnchor into the chart's
+    /// Position and <see cref="XLChart.SecondPosition"/>.
+    /// Offsets are converted from EMUs (English Metric Units) to pixels (÷ 9525).
+    /// </summary>
     private static void ReadPositions(Xdr.TwoCellAnchor anchor, XLChart xlChart)
     {
         var from = anchor.FromMarker;

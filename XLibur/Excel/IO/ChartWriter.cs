@@ -12,8 +12,19 @@ using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
 namespace XLibur.Excel.IO;
 
+/// <summary>
+/// Writes newly created charts to OpenXML. For each chart with <see cref="XLChart.IsNew"/> == <c>true</c>,
+/// creates a ChartPart containing the ChartSpace DOM and a TwoCellAnchor with a GraphicFrame
+/// referencing the chart. Ensures the worksheet's <c>&lt;drawing&gt;</c> element exists.
+/// Charts loaded from an existing file (<see cref="XLChart.IsNew"/> == <c>false</c>) are skipped
+/// and preserved untouched by OpenXML.
+/// </summary>
 internal static class ChartWriter
 {
+    /// <summary>
+    /// Writes all new charts from the worksheet to the OpenXML worksheet part.
+    /// Skips charts that were loaded from an existing file.
+    /// </summary>
     internal static void WriteCharts(
         Worksheet worksheet,
         XLWorksheetContentManager cm,
@@ -31,6 +42,11 @@ internal static class ChartWriter
         }
     }
 
+    /// <summary>
+    /// Writes a single chart: creates the ChartPart, builds the ChartSpace DOM,
+    /// appends a TwoCellAnchor/GraphicFrame to the DrawingsPart, and ensures
+    /// the worksheet XML contains a <c>&lt;drawing&gt;</c> reference.
+    /// </summary>
     private static void WriteChart(
         Worksheet worksheet,
         XLWorksheetContentManager cm,
@@ -116,6 +132,10 @@ internal static class ChartWriter
         }
     }
 
+    /// <summary>
+    /// Builds the complete OpenXML ChartSpace DOM for a chart, including the BarChart element
+    /// with series, category/value axes, and an optional title.
+    /// </summary>
     private static ChartSpace BuildChartSpace(XLChart xlChart)
     {
         var barChart = new BarChart
@@ -212,6 +232,9 @@ internal static class ChartWriter
         return new ChartSpace(chart);
     }
 
+    /// <summary>
+    /// Maps the chart's <see cref="XLBarOrientation"/> to the OpenXML <see cref="BarDirectionValues"/>.
+    /// </summary>
     private static BarDirectionValues GetBarDirection(XLChart xlChart)
     {
         return xlChart.BarOrientation == XLBarOrientation.Horizontal
@@ -219,6 +242,9 @@ internal static class ChartWriter
             : BarDirectionValues.Column;
     }
 
+    /// <summary>
+    /// Maps the chart's <see cref="XLBarGrouping"/> to the OpenXML <see cref="BarGroupingValues"/>.
+    /// </summary>
     private static BarGroupingValues GetGrouping(XLChart xlChart)
     {
         return xlChart.BarGrouping switch
@@ -230,6 +256,9 @@ internal static class ChartWriter
         };
     }
 
+    /// <summary>
+    /// Ensures the WorksheetDrawing element has the required DrawingML and relationships namespace declarations.
+    /// </summary>
     private static void EnsureNamespaces(Xdr.WorksheetDrawing worksheetDrawing)
     {
         if (!worksheetDrawing.NamespaceDeclarations.Any(nd =>
