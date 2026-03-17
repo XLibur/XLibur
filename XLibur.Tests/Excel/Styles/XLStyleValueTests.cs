@@ -54,5 +54,30 @@ public class XLStyleValueTests
     {
         Assert.IsFalse(XLStyleValue.Default.Equals(null));
     }
+
+    [Test]
+    public void ToString_DefaultKey_ReturnsDefault()
+    {
+        var key = XLStyleValue.Default.Key;
+        Assert.That(key.ToString(), Is.EqualTo("Default"));
+    }
+
+    [Test]
+    public void ToString_NonDefaultKey_ShowsChangedComponents()
+    {
+        var key = XLStyleValue.Default.Key with { IncludeQuotePrefix = true };
+        var result = key.ToString();
+
+        // Changed component should not say "Default"
+        Assert.That(result, Does.Contain("IncludeQuotePrefix: True"));
+
+        // Unchanged components should say "Default"
+        Assert.That(result, Does.Contain("Alignment: Default"));
+        Assert.That(result, Does.Contain("Border: Default"));
+        Assert.That(result, Does.Contain("Fill: Default"));
+        Assert.That(result, Does.Contain("Font: Default"));
+        Assert.That(result, Does.Contain("NumberFormat: Default"));
+        Assert.That(result, Does.Contain("Protection: Default"));
+    }
 }
 
