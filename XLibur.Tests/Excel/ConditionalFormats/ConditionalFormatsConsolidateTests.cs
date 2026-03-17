@@ -1,6 +1,7 @@
 ﻿using XLibur.Excel;
 using NUnit.Framework;
 using System.Linq;
+using XLibur.Excel.ConditionalFormats;
 
 namespace XLibur.Tests.Excel.ConditionalFormats;
 

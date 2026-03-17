@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel;
+﻿namespace XLibur.Excel.ConditionalFormats;
 
 internal sealed class XLCFDataBarMin : IXLCFDataBarMin
 {

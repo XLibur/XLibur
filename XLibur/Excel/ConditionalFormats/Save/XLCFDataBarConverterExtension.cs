@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml.Office.Excel;
 using DocumentFormat.OpenXml.Office2010.Excel;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.ConditionalFormats;
 
 namespace XLibur.Excel;
 

@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using XLibur.Extensions;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.Coordinates;
 
 /// <summary>
 /// Cell address with optional worksheet, absolute/relative flags, and
@@ -21,6 +21,7 @@ namespace XLibur.Excel;
 /// </remarks>
 internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
 {
+    private const string InvalidRef = "#REF!";
     private const int ColumnBits = 15;  // 15 bits: max stored value 16385 (16384+1 offset)
     private const int RowBits = 21;    // 21 bits: max stored value 1048577 (1048576+1 offset)
     private const int FixedRowBit = ColumnBits + RowBits;       // 36
@@ -30,7 +31,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
 
     #region Static
     /// <summary>
-    /// Create address without worksheet. For calculation only!
+    /// Create an address without a worksheet. For calculation only!
     /// </summary>
     /// <param name="cellAddressString"></param>
     public static XLAddress Create(string cellAddressString)
@@ -51,7 +52,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
             startPos = 0;
         }
 
-        int rowPos = startPos;
+        var rowPos = startPos;
         while (cellAddressString[rowPos] > '9')
         {
             rowPos++;
@@ -153,8 +154,8 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         Worksheet = worksheet;
 
         // Store row and column with +1 offset so that -1 (invalid sentinel) maps to 0.
-        _packed = ((ulong)(uint)(columnNumber + 1) & ColumnMask)
-                | (((ulong)(uint)(rowNumber + 1) & RowMask) << ColumnBits)
+        _packed = ((uint)(columnNumber + 1) & ColumnMask)
+                | (((uint)(rowNumber + 1) & RowMask) << ColumnBits)
                 | (fixedRow ? 1UL << FixedRowBit : 0UL)
                 | (fixedColumn ? 1UL << FixedColumnBit : 0UL);
     }
@@ -168,25 +169,25 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     IXLWorksheet? IXLAddress.Worksheet
     {
         [DebuggerStepThrough]
-        get { return Worksheet; }
+        get => Worksheet;
     }
 
     public bool HasWorksheet
     {
         [DebuggerStepThrough]
-        get { return Worksheet != null; }
+        get => Worksheet != null;
     }
 
     public bool FixedRow
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get { return (_packed & (1UL << FixedRowBit)) != 0; }
+        get => (_packed & (1UL << FixedRowBit)) != 0;
     }
 
     public bool FixedColumn
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get { return (_packed & (1UL << FixedColumnBit)) != 0; }
+        get => (_packed & (1UL << FixedColumnBit)) != 0;
     }
 
     /// <summary>
@@ -195,7 +196,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     public int RowNumber
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get { return (int)((_packed >> ColumnBits) & RowMask) - 1; }
+        get => (int)((_packed >> ColumnBits) & RowMask) - 1;
     }
 
     /// <summary>
@@ -204,16 +205,13 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     public int ColumnNumber
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get { return (int)(_packed & ColumnMask) - 1; }
+        get => (int)(_packed & ColumnMask) - 1;
     }
 
     /// <summary>
     /// Gets the column letter(s) of this address.
     /// </summary>
-    public string ColumnLetter
-    {
-        get { return XLHelper.GetColumnLetterFromNumber(ColumnNumber); }
-    }
+    public string ColumnLetter => XLHelper.GetColumnLetterFromNumber(ColumnNumber);
 
     #endregion Properties
 
@@ -222,9 +220,9 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     public override string ToString()
     {
         if (!IsValid)
-            return "#REF!";
+            return InvalidRef;
 
-        string retVal = ColumnLetter;
+        var retVal = ColumnLetter;
         if (FixedColumn)
         {
             retVal = "$" + retVal;
@@ -246,7 +244,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     {
         string address;
         if (!IsValid)
-            address = "#REF!";
+            address = InvalidRef;
         else if (referenceStyle == XLReferenceStyle.A1)
             address = GetTrimmedAddress();
         else if (referenceStyle == XLReferenceStyle.R1C1
@@ -331,10 +329,11 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
 
     public bool Equals(IXLAddress? x, IXLAddress? y)
     {
-        return x == y;
+        if (x is null) return y is null;
+        return x.Equals(y);
     }
 
-    public static new bool Equals(object? x, object? y)
+    public new static bool Equals(object? x, object? y)
     {
         return x == y;
     }
@@ -385,14 +384,9 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         return ToStringRelative(false);
     }
 
-    public string ToStringFixed()
-    {
-        return ToStringFixed(XLReferenceStyle.Default);
-    }
-
     public string ToStringRelative(bool includeSheet)
     {
-        var address = IsValid ? GetTrimmedAddress() : "#REF!";
+        var address = IsValid ? GetTrimmedAddress() : InvalidRef;
 
         if (includeSheet)
             return string.Concat(
@@ -404,14 +398,9 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         return address;
     }
 
-    internal XLAddress WithoutWorksheet()
+    public string ToStringFixed()
     {
-        return new XLAddress(RowNumber, ColumnNumber, FixedRow, FixedColumn);
-    }
-
-    internal XLAddress WithWorksheet(XLWorksheet worksheet)
-    {
-        return new XLAddress(worksheet, RowNumber, ColumnNumber, FixedRow, FixedColumn);
+        return ToStringFixed(XLReferenceStyle.Default);
     }
 
     public string ToStringFixed(XLReferenceStyle referenceStyle)
@@ -433,7 +422,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
 
         if (!IsValid)
         {
-            address = "#REF!";
+            address = InvalidRef;
         }
         else
         {
@@ -452,6 +441,16 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
                 address);
 
         return address;
+    }
+
+    internal XLAddress WithoutWorksheet()
+    {
+        return new XLAddress(RowNumber, ColumnNumber, FixedRow, FixedColumn);
+    }
+
+    internal XLAddress WithWorksheet(XLWorksheet worksheet)
+    {
+        return new XLAddress(worksheet, RowNumber, ColumnNumber, FixedRow, FixedColumn);
     }
 
     public string UniqueId => RowNumber.ToString("0000000") + ColumnNumber.ToString("00000");

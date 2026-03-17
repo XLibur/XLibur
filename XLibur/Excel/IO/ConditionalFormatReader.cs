@@ -5,6 +5,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.ConditionalFormats;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Excel.IO;

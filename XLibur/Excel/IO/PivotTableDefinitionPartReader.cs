@@ -5,6 +5,7 @@ using XLibur.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel.IO;
 
@@ -190,7 +191,7 @@ internal static class PivotTableDefinitionPartReader
         }
     }
 
-    private static void LoadConditionalFormats(ConditionalFormats? conditionalFormats, XLPivotTable xlPivotTable,
+    private static void LoadConditionalFormats(DocumentFormat.OpenXml.Spreadsheet.ConditionalFormats? conditionalFormats, XLPivotTable xlPivotTable,
         XLWorksheet sheet, LoadContext context)
     {
         if (conditionalFormats is null)

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using XLibur.Excel.ConditionalFormats;
 
 namespace XLibur.Excel;
 
