@@ -21,14 +21,15 @@ are referenced in the same project.
 
 ## Should I use this?
 
-**Stick with ClosedXML** if it meets your needs — XLibur gives you nothing extra.
+**Stick with ClosedXML** if:
+- A library with developers who have had experience with the library over many years.
+- A longer term focus on the product.
 
-**Consider XLibur if** you want any of the following improvements over ClosedXML 0.105:
+**Consider XLibur if** you want any of the following changes over ClosedXML 0.105:
 
-- **Reduced memory usage and performance gains** — particularly for workbooks with many formatted cells
-- **Nullability annotations** — full nullable reference type support throughout the API
-- **Bug fixes** — several outstanding issues resolved that are pending upstream
-- **No legacy .NET support** — .NET 8 and below are not supported
+- **Reduced memory usage and performance gains** - particularly for workbooks with many formatted cells
+- **Bug fixes** — several outstanding community issues resolved that are pending upstream
+- **Community PR/enhancements** - several community contriubtions or requests have been merged in to this codebase.
 
 > ⚠️ XLibur has limited real-world production history. Use in critical systems at your own discretion.
 
