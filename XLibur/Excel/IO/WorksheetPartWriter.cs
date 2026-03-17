@@ -128,6 +128,7 @@ internal static class WorksheetPartWriter
         PopulateTablePartReferences(xlWorksheet.Tables, worksheet, cm);
 
         PictureWriter.WriteDrawings(worksheet, cm, xlWorksheet, worksheetPart, context);
+        ChartWriter.WriteCharts(worksheet, cm, xlWorksheet, worksheetPart, context);
         PictureWriter.WriteLegacyDrawing(worksheet, cm, xlWorksheet);
         HeaderFooterImageWriter.WriteHeaderFooterImages(worksheet, cm, xlWorksheet, worksheetPart, context);
 

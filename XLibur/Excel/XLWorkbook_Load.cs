@@ -299,6 +299,8 @@ public partial class XLWorkbook
 
             DrawingPartReader.LoadDrawings(worksheetPart, ws);
 
+            ChartReader.LoadCharts(worksheetPart, ws);
+
             LoadComments(worksheetPart, ws);
 
             LoadThreadedComments(worksheetPart, ws);

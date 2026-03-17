@@ -25,12 +25,10 @@ internal enum XLBarGrouping
 
 internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
 {
-    internal IXLWorksheet worksheet;
-
     public XLChart(XLWorksheet worksheet)
     {
         Container = this;
-        this.worksheet = worksheet;
+        Worksheet = worksheet;
         int zOrder;
         if (worksheet.Charts.Any())
             zOrder = worksheet.Charts.Max(c => c.ZOrder) + 1;
@@ -39,7 +37,27 @@ internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
         ZOrder = zOrder;
         ShapeId = worksheet.Workbook.ShapeIdManager.GetNext();
         RightAngleAxes = true;
+        Series = new XLChartSeriesCollection();
+        SecondPosition = new XLDrawingPosition();
     }
+
+    public string? Title { get; set; }
+
+    public IXLChart SetTitle(string? title)
+    {
+        Title = title;
+        return this;
+    }
+
+    public IXLChartSeriesCollection Series { get; }
+
+    public IXLWorksheet Worksheet { get; }
+
+    public IXLDrawingPosition SecondPosition { get; }
+
+    internal string? RelId { get; set; }
+
+    internal bool IsNew { get; set; } = true;
 
     public bool RightAngleAxes { get; set; }
 

@@ -56,11 +56,13 @@ internal static class PictureWriter
 
         // Instead of saving a file with an empty Drawings.xml file, rather remove the .xml file
         var hasCharts = worksheetPart.DrawingsPart is not null && worksheetPart.DrawingsPart.Parts.Any();
+        var hasNewCharts = xlWorksheet.Charts.Any(c => ((XLChart)c).IsNew);
         if (worksheetPart.DrawingsPart is not null && // There is a drawing part for the sheet that could be deleted
             xlWorksheet
                 .LegacyDrawingId is null && // and sheet doesn't contain any form controls or comments or other shapes
             xlWorksheet.Pictures.Count == 0 && // and also no pictures.
-            !hasCharts && // and no charts
+            !hasCharts && // and no existing chart parts
+            !hasNewCharts && // and no new charts pending write
                           // Check for non-picture shapes (textboxes, rectangles, etc.) last to avoid
                           // loading the DrawingsPart DOM unnecessarily — DOM loading causes re-serialization
                           // that changes the XML even when no modifications are made.

@@ -85,4 +85,12 @@ public interface IXLChart : IXLDrawing<IXLChart>
     XLChartType ChartType { get; set; }
     IXLChart SetChartType(XLChartType chartType);
 
+    string? Title { get; set; }
+    IXLChart SetTitle(string? title);
+
+    IXLChartSeriesCollection Series { get; }
+
+    IXLWorksheet Worksheet { get; }
+
+    IXLDrawingPosition SecondPosition { get; }
 }

@@ -5,3 +5,24 @@ static XLibur.Excel.XLCellValue.operator ==(XLibur.Excel.XLCellValue left, XLibu
 static XLibur.Excel.XLCellValue.operator !=(XLibur.Excel.XLCellValue left, XLibur.Excel.XLCellValue right) -> bool
 virtual XLibur.Excel.XLWorkbook.Dispose(bool disposing) -> void
 XLibur.Excel.IO.PartStructureException
+XLibur.Excel.IXLChart.SecondPosition.get -> XLibur.Excel.IXLDrawingPosition!
+XLibur.Excel.IXLChart.Series.get -> XLibur.Excel.IXLChartSeriesCollection!
+XLibur.Excel.IXLChart.SetTitle(string? title) -> XLibur.Excel.IXLChart!
+XLibur.Excel.IXLChart.Title.get -> string?
+XLibur.Excel.IXLChart.Title.set -> void
+XLibur.Excel.IXLChart.Worksheet.get -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.IXLCharts.Add(XLibur.Excel.XLChartType chartType) -> XLibur.Excel.IXLChart!
+XLibur.Excel.IXLCharts.Count.get -> int
+XLibur.Excel.IXLChartSeries
+XLibur.Excel.IXLChartSeries.CategoryReferences.get -> string?
+XLibur.Excel.IXLChartSeries.CategoryReferences.set -> void
+XLibur.Excel.IXLChartSeries.Index.get -> uint
+XLibur.Excel.IXLChartSeries.Name.get -> string!
+XLibur.Excel.IXLChartSeries.Name.set -> void
+XLibur.Excel.IXLChartSeries.Order.get -> uint
+XLibur.Excel.IXLChartSeries.ValueReferences.get -> string!
+XLibur.Excel.IXLChartSeries.ValueReferences.set -> void
+XLibur.Excel.IXLChartSeriesCollection
+XLibur.Excel.IXLChartSeriesCollection.Add(string! name, string! valueReferences, string? categoryReferences = null) -> XLibur.Excel.IXLChartSeries!
+XLibur.Excel.IXLChartSeriesCollection.Count.get -> int
+XLibur.Excel.IXLWorksheet.Charts.get -> XLibur.Excel.IXLCharts!
