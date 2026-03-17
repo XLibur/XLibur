@@ -24,7 +24,7 @@ are referenced in the same project.
 **Stick with ClosedXML** if:
 - A library with developers who have had experience with the library over many years.
 - A longer term focus on the product.
-- Your on dotnet <8 (net standard, or NET472)
+- You need support for dotnet <8 (net standard, or NET472)
 
 **Consider XLibur if** you want any of the following changes over ClosedXML 0.105:
 
