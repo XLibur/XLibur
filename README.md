@@ -96,8 +96,6 @@ dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --
 dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --filter '*ClosedXmlWorkbookBenchmarks*'
 ```
 
-
-
 ## Developer guidelines
 
 Please read the [full developer guidelines](CONTRIBUTING.md).

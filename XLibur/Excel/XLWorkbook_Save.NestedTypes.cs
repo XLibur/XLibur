@@ -25,7 +25,6 @@ public partial class XLWorkbook
             TableId = 0;
             TableNames = [];
             PivotSourceCacheId = 0;
-            PivotSources = new Dictionary<Guid, PivotSourceInfo>();
         }
 
         public Dictionary<XLStyleValue, int> DifferentialFormats { get; private set; }
@@ -48,11 +47,6 @@ public partial class XLWorkbook
         /// cache parts.
         /// </summary>
         public uint PivotSourceCacheId { get; set; }
-
-        /// <summary>
-        /// A dictionary of extra info for pivot during saving. The key is <see cref="XLPivotCache.Guid"/>.
-        /// </summary>
-        public IDictionary<Guid, PivotSourceInfo> PivotSources { get; }
 
         /// <summary>
         /// A map of shared string ids. The index is the actual index from sharedStringId, and
@@ -234,25 +228,4 @@ public partial class XLWorkbook
     }
 
     #endregion Nested type: StyleInfo
-
-    #region Nested type: Pivot tables
-
-    internal struct PivotTableFieldInfo
-    {
-        public bool MixedDataType;
-        public IReadOnlyList<XLCellValue> DistinctValues;
-        public bool IsTotallyBlankField;
-    }
-
-    internal struct PivotSourceInfo
-    {
-        public IDictionary<string, PivotTableFieldInfo> Fields;
-
-        public PivotSourceInfo(IDictionary<string, PivotTableFieldInfo> fields)
-        {
-            Fields = fields;
-        }
-    }
-
-    #endregion Nested type: Pivot tables
 }
