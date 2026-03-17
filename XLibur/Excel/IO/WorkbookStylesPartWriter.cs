@@ -483,6 +483,10 @@ internal static class WorkbookStylesPartWriter
         if (diffBorder?.HasChildren ?? false)
             differentialFormat.Append(diffBorder);
 
+        var diffAlignment = GetNewDifferentialAlignment(style.Alignment);
+        if (diffAlignment is not null)
+            differentialFormat.Append(diffAlignment);
+
         differentialFormats.Append(differentialFormat);
 
         context.DifferentialFormats.Add(style, differentialFormats.ChildElements.Count - 1);
@@ -723,6 +727,48 @@ internal static class WorkbookStylesPartWriter
         }
 
         return border;
+    }
+
+    private static Alignment? GetNewDifferentialAlignment(XLAlignmentValue alignment)
+    {
+        var d = XLAlignmentValue.Default;
+        if (alignment.Horizontal == d.Horizontal &&
+            alignment.Vertical == d.Vertical &&
+            alignment.Indent == d.Indent &&
+            alignment.ReadingOrder == d.ReadingOrder &&
+            alignment.WrapText == d.WrapText &&
+            alignment.TextRotation == d.TextRotation &&
+            alignment.ShrinkToFit == d.ShrinkToFit &&
+            alignment.RelativeIndent == d.RelativeIndent &&
+            alignment.JustifyLastLine == d.JustifyLastLine)
+        {
+            return null;
+        }
+
+        var result = new Alignment();
+        if (alignment.Horizontal != d.Horizontal)
+            result.Horizontal = alignment.Horizontal.ToOpenXml();
+        if (alignment.Vertical != d.Vertical)
+            result.Vertical = alignment.Vertical.ToOpenXml();
+        if (alignment.Indent != d.Indent)
+            result.Indent = (uint)alignment.Indent;
+        if (alignment.ReadingOrder != d.ReadingOrder)
+            result.ReadingOrder = alignment.ReadingOrder.ToOpenXml();
+        if (alignment.WrapText != d.WrapText)
+            result.WrapText = alignment.WrapText;
+        if (alignment.TextRotation != d.TextRotation)
+        {
+            var textRotation = alignment.TextRotation;
+            result.TextRotation = (uint)(textRotation >= 0 ? textRotation : 90 - textRotation);
+        }
+        if (alignment.ShrinkToFit != d.ShrinkToFit)
+            result.ShrinkToFit = alignment.ShrinkToFit;
+        if (alignment.RelativeIndent != d.RelativeIndent)
+            result.RelativeIndent = alignment.RelativeIndent;
+        if (alignment.JustifyLastLine != d.JustifyLastLine)
+            result.JustifyLastLine = alignment.JustifyLastLine;
+
+        return result;
     }
 
     private static void AppendBorderSideWithColor<TSide>(Border border,

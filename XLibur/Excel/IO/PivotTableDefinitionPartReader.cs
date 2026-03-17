@@ -171,12 +171,12 @@ internal static class PivotTableDefinitionPartReader
             var dxfStyle = XLStyle.Default;
             if (format.FormatId is not null)
             {
-                // TODO: What about alignment?
                 var df = differentialFormats[checked((int)format.FormatId.Value)];
                 OpenXmlHelper.LoadFont(df.Font, dxfStyle.Font);
                 OpenXmlHelper.LoadFill(df.Fill, dxfStyle.Fill, differentialFillFormat: true);
                 OpenXmlHelper.LoadBorder(df.Border, dxfStyle.Border);
                 OpenXmlHelper.LoadNumberFormat(df.NumberingFormat, dxfStyle.NumberFormat);
+                OpenXmlHelper.LoadAlignment(df.Alignment, dxfStyle.Alignment);
             }
 
             var pivotArea = format.PivotArea ?? throw PartStructureException.ExpectedElementNotFound();
