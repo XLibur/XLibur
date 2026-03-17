@@ -1,5 +1,7 @@
 # XLibur
 
+<img src="https://raw.githubusercontent.com/XLibur/XLibur/main/resources/logo/nuget-logo.png" alt="XLibur logo" width="128" />
+
 [![NuGet](https://img.shields.io/nuget/v/XLibur.svg)](https://www.nuget.org/packages/XLibur)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/XLibur.svg)](https://www.nuget.org/packages/XLibur)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/XLibur/XLibur/blob/main/LICENSE)
