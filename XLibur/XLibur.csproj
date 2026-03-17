@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
         <RootNamespace>XLibur</RootNamespace>
         <Company>XLibur</Company>
+        <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)'=='Release'">
@@ -31,6 +32,7 @@
     <ItemGroup>
         <None Include="..\.editorconfig" Link=".editorconfig"/>
         <None Include="..\resources\logo\nuget-logo.png" Pack="true" PackagePath="\"/>
+        <None Include="NUGET_README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
     <ItemGroup>
