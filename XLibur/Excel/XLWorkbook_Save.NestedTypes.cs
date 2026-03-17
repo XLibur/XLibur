@@ -31,7 +31,7 @@ public partial class XLWorkbook
         public Dictionary<XLStyleValue, int> DifferentialFormats { get; private set; }
 
         /// <summary>
-        /// Maps (color key, byCellColor) to a dxf index for autofilter color filters.
+        /// Maps (color key, byCellColor) to a dxf index for auto-filter color filters.
         /// </summary>
         public Dictionary<(XLColorKey Color, bool ByCellColor), int> ColorFilterDxfIds { get; private set; }
 

@@ -5,6 +5,7 @@
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path="Directory.Build.props" />
+    <File Path="README.md" />
   </Folder>
   <Project Path="XLibur.Tests/XLibur.Tests.csproj" />
   <Project Path="XLibur.Benchmarks/XLibur.Benchmarks.csproj" />
