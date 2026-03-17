@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.Coordinates;
 
 /// <summary>
 /// A specification of an area (rectangular range) of a sheet.
@@ -8,7 +8,7 @@ namespace XLibur.Excel;
 internal readonly struct XLBookArea : IEquatable<XLBookArea>
 {
     /// <summary>
-    /// Name of the sheet. Sheet may exist or not (e.g. deleted). Never null.
+    /// Name of the sheet. Sheet may exist or not (e.g., deleted). Never null.
     /// </summary>
     public readonly string Name;
 

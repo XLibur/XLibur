@@ -6,6 +6,7 @@ using XLibur.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel.IO;
 
@@ -278,17 +279,19 @@ internal static class PivotTableCacheDefinitionPartReader
         var longText = OpenXmlHelper.GetBooleanValueAsBool(sharedItems?.LongText, false);
 
         // The containsMixedTypes, containsNonDate and containsSemiMixedTypes are derived from primary stats.
-        return new XLPivotCacheValuesStats(
-            containsBlank,
-            containsNumber,
-            containsOnlyInteger,
-            minValue,
-            maxValue,
-            containsString,
-            longText,
-            containsDate,
-            minDate,
-            maxDate);
+        return new XLPivotCacheValuesStats
+        {
+            ContainsBlank = containsBlank,
+            ContainsNumber = containsNumber,
+            ContainsInteger = containsOnlyInteger,
+            MinValue = minValue,
+            MaxValue = maxValue,
+            ContainsString = containsString,
+            LongText = longText,
+            ContainsDate = containsDate,
+            MinDate = minDate,
+            MaxDate = maxDate,
+        };
     }
 
     private static XLPivotCacheSharedItems ReadSharedItems(CacheField cacheField)

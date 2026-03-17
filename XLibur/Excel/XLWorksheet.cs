@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using XLibur.Excel.ConditionalFormats;
+using XLibur.Excel.Coordinates;
 using XLibur.Excel.InsertData;
 using XLibur.Excel.Tables;
 using XLibur.Extensions;

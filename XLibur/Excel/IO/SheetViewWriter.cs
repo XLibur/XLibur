@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 using static XLibur.Excel.IO.OpenXmlConst;
 

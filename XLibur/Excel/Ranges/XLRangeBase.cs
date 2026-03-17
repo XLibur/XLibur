@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.ConditionalFormats;
+using XLibur.Excel.Coordinates;
 using XLibur.Excel.Tables;
 using XLibur.Extensions;
 

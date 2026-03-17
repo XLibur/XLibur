@@ -8,7 +8,7 @@ using System.Collections;
 
 internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
 {
-    private readonly List<XLRow> _rowsCollection = new List<XLRow>();
+    private readonly List<XLRow> _rowsCollection = [];
     private readonly XLWorksheet? _worksheet;
 
     private bool IsMaterialized => _lazyEnumerable == null;
@@ -20,7 +20,7 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
     /// Create a new instance of <see cref="XLRows"/>.
     /// </summary>
     /// <param name="worksheet">If worksheet is specified it means that the created instance represents
-    /// all rows on a worksheet so changing its height will affect all rows.</param>
+    /// all rows on a worksheet, so changing its height will affect all rows.</param>
     /// <param name="defaultStyle">Default style to use when initializing child entries.</param>
     /// <param name="lazyEnumerable">A predefined enumerator of <see cref="XLRow"/> to support lazy initialization.</param>
     public XLRows(XLWorksheet? worksheet, XLStyleValue? defaultStyle = null, IEnumerable<XLRow>? lazyEnumerable = null)
@@ -140,11 +140,6 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
         Group(outlineLevel, false);
     }
 
-    public void Ungroup()
-    {
-        Ungroup(false);
-    }
-
     public void Group(bool collapse)
     {
         Rows.ForEach(r => r.Group(collapse));
@@ -153,6 +148,11 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
     public void Group(int outlineLevel, bool collapse)
     {
         Rows.ForEach(r => r.Group(outlineLevel, collapse));
+    }
+
+    public void Ungroup()
+    {
+        Ungroup(false);
     }
 
     public void Ungroup(bool fromAll)

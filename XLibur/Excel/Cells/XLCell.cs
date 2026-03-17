@@ -12,6 +12,7 @@ using XLibur.Excel.Drawings;
 using XLibur.Graphics;
 using ClosedXML.Parser;
 using XLibur.Excel.CalcEngine.Visitors;
+using XLibur.Excel.Coordinates;
 using XLibur.Excel.RichText;
 using XLibur.Excel.Tables;
 

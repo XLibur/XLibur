@@ -9,6 +9,7 @@ using System.Xml.Linq;
 using XLibur.Excel.Drawings;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 using System.Drawing;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel.IO;
 

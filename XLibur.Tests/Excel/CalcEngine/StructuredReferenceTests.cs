@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Data;
 using XLibur.Excel;
 using NUnit.Framework;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 

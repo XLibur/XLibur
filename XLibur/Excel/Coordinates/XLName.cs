@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Linq;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.Coordinates;
 
 /// <summary>
 /// A name in a worksheet. Unlike <see cref="IXLDefinedName"/>, this is basically only a reference.
@@ -16,7 +16,7 @@ internal readonly struct XLName : IEquatable<XLName>
     public string? SheetName { get; }
 
     /// <summary>
-    /// The defined name in the scope. Case insensitive during comparisons.
+    /// The defined name in the scope. Case-insensitive during comparisons.
     /// </summary>
     public string Name { get; }
 

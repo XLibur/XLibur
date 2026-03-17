@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
 using ClosedXML.Parser;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel.CalcEngine.Visitors;
 

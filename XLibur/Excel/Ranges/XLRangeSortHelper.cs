@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel;
 

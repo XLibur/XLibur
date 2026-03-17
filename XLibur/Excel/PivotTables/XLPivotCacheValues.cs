@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using XLibur.Excel.Cells;
+using XLibur.Excel.Coordinates;
 
 #pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility
 
@@ -79,17 +80,19 @@ internal sealed class XLPivotCacheValues
             DateTime? minDate = _containsDate && _minDateTicks is not null ? new DateTime(_minDateTicks.Value, DateTimeKind.Unspecified) : null;
             DateTime? maxDate = _containsDate && _maxDateTicks is not null ? new DateTime(_maxDateTicks.Value, DateTimeKind.Unspecified) : null;
 
-            return new XLPivotCacheValuesStats(
-                _containsBlank,
-                _containsNumber,
-                _containsInteger,
-                _minValue,
-                _maxValue,
-                _containsString,
-                _longText,
-                _containsDate,
-                minDate,
-                maxDate);
+            return new XLPivotCacheValuesStats
+            {
+                ContainsBlank = _containsBlank,
+                ContainsNumber = _containsNumber,
+                ContainsInteger = _containsInteger,
+                MinValue = _minValue,
+                MaxValue = _maxValue,
+                ContainsString = _containsString,
+                LongText = _longText,
+                ContainsDate = _containsDate,
+                MinDate = minDate,
+                MaxDate = maxDate,
+            };
         }
     }
 

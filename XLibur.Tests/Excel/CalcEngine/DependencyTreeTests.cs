@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
 using NUnit.Framework;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 

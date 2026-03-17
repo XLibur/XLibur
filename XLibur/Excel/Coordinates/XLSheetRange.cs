@@ -3,10 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.Coordinates;
 
 /// <summary>
-/// A representation of a <c>ST_Ref</c>, i.e. an area in a sheet (no reference to the sheet).
+/// A representation of a <c>ST_Ref</c>, i.e., an area in a sheet (no reference to the sheet).
 /// </summary>
 internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XLSheetPoint>
 {

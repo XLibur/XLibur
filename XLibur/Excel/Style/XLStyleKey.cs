@@ -2,6 +2,8 @@ namespace XLibur.Excel;
 
 internal readonly record struct XLStyleKey
 {
+    private const string DefaultLabel = "Default";
+
     public required XLAlignmentKey Alignment { get; init; }
 
     public required XLBorderKey Border { get; init; }
@@ -19,16 +21,16 @@ internal readonly record struct XLStyleKey
     public override string ToString()
     {
         if (this == XLStyle.Default.Key)
-            return "Default";
+            return DefaultLabel;
 
         var defaultKey = XLStyle.Default.Key;
-        var alignment = Alignment == defaultKey.Alignment ? "Default" : Alignment.ToString();
-        var border = Border == defaultKey.Border ? "Default" : Border.ToString();
-        var fill = Fill == defaultKey.Fill ? "Default" : Fill.ToString();
-        var font = Font == defaultKey.Font ? "Default" : Font.ToString();
-        var includeQuotePrefix = IncludeQuotePrefix == defaultKey.IncludeQuotePrefix ? "Default" : IncludeQuotePrefix.ToString();
-        var numberFormat = NumberFormat == defaultKey.NumberFormat ? "Default" : NumberFormat.ToString();
-        var protection = Protection == defaultKey.Protection ? "Default" : Protection.ToString();
+        var alignment = Alignment == defaultKey.Alignment ? DefaultLabel : Alignment.ToString();
+        var border = Border == defaultKey.Border ? DefaultLabel : Border.ToString();
+        var fill = Fill == defaultKey.Fill ? DefaultLabel : Fill.ToString();
+        var font = Font == defaultKey.Font ? DefaultLabel : Font.ToString();
+        var includeQuotePrefix = IncludeQuotePrefix == defaultKey.IncludeQuotePrefix ? DefaultLabel : IncludeQuotePrefix.ToString();
+        var numberFormat = NumberFormat == defaultKey.NumberFormat ? DefaultLabel : NumberFormat.ToString();
+        var protection = Protection == defaultKey.Protection ? DefaultLabel : Protection.ToString();
 
         return string.Format("Alignment: {0} Border: {1} Fill: {2} Font: {3} IncludeQuotePrefix: {4} NumberFormat: {5} Protection: {6}",
             alignment, border, fill, font, includeQuotePrefix, numberFormat, protection);

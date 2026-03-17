@@ -7,6 +7,7 @@ using ClosedXML.Parser;
 using System;
 using System.Threading;
 using XLibur.Excel.CalcEngine.Functions;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel.CalcEngine;
 

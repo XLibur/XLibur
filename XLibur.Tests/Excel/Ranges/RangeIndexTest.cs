@@ -4,6 +4,7 @@ using XLibur.Excel.Ranges.Index;
 using NUnit.Framework;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Tests.Excel.Ranges;
 

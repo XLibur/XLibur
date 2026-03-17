@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using RBush;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel.CalcEngine;
 

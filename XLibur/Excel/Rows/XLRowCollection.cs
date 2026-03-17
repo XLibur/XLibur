@@ -1,12 +1,11 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using XLibur.Extensions;
 
-namespace XLibur.Excel;
-
-using System.Collections;
+namespace XLibur.Excel.Rows;
 
 internal sealed class XLRowsCollection : IDictionary<int, XLRow>
 {
@@ -103,7 +102,7 @@ internal sealed class XLRowsCollection : IDictionary<int, XLRow>
 
     public void ShiftRowsDown(int startingRow, int rowsToShift)
     {
-        foreach (int ro in _dictionary.Keys.Where(k => k >= startingRow).OrderByDescending(k => k))
+        foreach (var ro in _dictionary.Keys.Where(k => k >= startingRow).OrderByDescending(k => k).ToList())
         {
             var rowToMove = _dictionary[ro];
             _dictionary.Remove(ro);

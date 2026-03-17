@@ -3,6 +3,7 @@ using XLibur.Excel;
 using XLibur.Extensions;
 using ClosedXML.Parser;
 using NUnit.Framework;
+using XLibur.Excel.Coordinates;
 using static ClosedXML.Parser.ReferenceAxisType;
 using static ClosedXML.Parser.ReferenceStyle;
 

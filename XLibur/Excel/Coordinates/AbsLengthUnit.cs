@@ -1,10 +1,10 @@
-﻿namespace XLibur.Excel;
+﻿namespace XLibur.Excel.Coordinates;
 
 /// <summary>
 /// Absolute units of physical length.
 /// </summary>
 /// <remarks>
-/// Pixels are relative units to the size of screen.
+/// Pixels are relative units to the size of the screen.
 /// </remarks>
 internal enum AbsLengthUnit
 {

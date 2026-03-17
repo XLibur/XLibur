@@ -1,4 +1,6 @@
-﻿namespace XLibur.Excel;
+﻿using XLibur.Excel.Coordinates;
+
+namespace XLibur.Excel;
 
 /// <summary>
 /// An interface for components reacting on changes in a worksheet.

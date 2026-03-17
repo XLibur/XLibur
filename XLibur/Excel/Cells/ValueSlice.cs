@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using XLibur.Excel.Coordinates;
 using XLibur.Excel.RichText;
 
 #pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility
