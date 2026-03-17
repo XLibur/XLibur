@@ -1,4 +1,5 @@
 using System.IO;
+using XLibur.Examples.Charts;
 using XLibur.Examples.Columns;
 using XLibur.Examples.Comments;
 using XLibur.Examples.Loading;
@@ -94,5 +95,6 @@ public static class CreateFiles
         new AddingComments().Create(Path.Combine(path, "AddingComments.xlsx"));
         new PivotTables.PivotTables().Create(Path.Combine(path, "PivotTables.xlsx"));
         new SheetViews().Create(Path.Combine(path, "SheetViews.xlsx"));
+        new ChartExamples().Create(Path.Combine(path, "ChartExamples.xlsx"));
     }
 }
