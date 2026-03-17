@@ -89,6 +89,30 @@ internal static class OpenXmlHelper
             nf.Format = nfSource.FormatCode.Value!;
     }
 
+    internal static void LoadAlignment(Alignment? alignmentSource, IXLAlignment alignment)
+    {
+        if (alignmentSource is null) return;
+
+        if (alignmentSource.Horizontal?.Value is not null)
+            alignment.Horizontal = alignmentSource.Horizontal.Value.ToXLibur();
+        if (alignmentSource.Vertical?.Value is not null)
+            alignment.Vertical = alignmentSource.Vertical.Value.ToXLibur();
+        if (alignmentSource.Indent?.Value is not null)
+            alignment.Indent = checked((int)alignmentSource.Indent.Value);
+        if (alignmentSource.ReadingOrder?.Value is not null)
+            alignment.ReadingOrder = alignmentSource.ReadingOrder.Value.ToXLibur();
+        if (alignmentSource.WrapText?.Value is not null)
+            alignment.WrapText = alignmentSource.WrapText.Value;
+        if (alignmentSource.TextRotation is not null)
+            alignment.TextRotation = GetXLiburTextRotation(alignmentSource);
+        if (alignmentSource.ShrinkToFit?.Value is not null)
+            alignment.ShrinkToFit = alignmentSource.ShrinkToFit.Value;
+        if (alignmentSource.RelativeIndent?.Value is not null)
+            alignment.RelativeIndent = alignmentSource.RelativeIndent.Value;
+        if (alignmentSource.JustifyLastLine?.Value is not null)
+            alignment.JustifyLastLine = alignmentSource.JustifyLastLine.Value;
+    }
+
     internal static void LoadBorder(Border? borderSource, IXLBorder border)
     {
         if (borderSource == null) return;
