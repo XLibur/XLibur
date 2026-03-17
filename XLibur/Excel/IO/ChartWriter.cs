@@ -133,78 +133,11 @@ internal static class ChartWriter
     }
 
     /// <summary>
-    /// Builds the complete OpenXML ChartSpace DOM for a chart, including the BarChart element
-    /// with series, category/value axes, and an optional title.
+    /// Builds the complete OpenXML ChartSpace DOM for a chart.
+    /// Dispatches to pie or bar/column chart builders based on the chart type.
     /// </summary>
     private static ChartSpace BuildChartSpace(XLChart xlChart)
     {
-        var barChart = new BarChart
-        {
-            BarDirection = new BarDirection { Val = GetBarDirection(xlChart) },
-            BarGrouping = new BarGrouping { Val = GetGrouping(xlChart) }
-        };
-
-        foreach (var s in xlChart.Series)
-        {
-            var series = new BarChartSeries
-            {
-                Index = new Index { Val = s.Index },
-                Order = new Order { Val = s.Order },
-                SeriesText = new SeriesText(
-                    new StringReference(
-                        new StringCache(
-                            new PointCount { Val = 1 },
-                            new StringPoint(new NumericValue(s.Name)) { Index = 0 }
-                        )
-                    )
-                )
-            };
-
-            if (s.CategoryReferences != null)
-            {
-                series.Append(new CategoryAxisData(
-                    new StringReference
-                    {
-                        Formula = new C.Formula(s.CategoryReferences)
-                    }
-                ));
-            }
-
-            series.Append(new C.Values(
-                new NumberReference
-                {
-                    Formula = new C.Formula(s.ValueReferences)
-                }
-            ));
-
-            barChart.Append(series);
-        }
-
-        const uint catAxisId = 1u;
-        const uint valAxisId = 2u;
-
-        barChart.Append(new AxisId { Val = catAxisId });
-        barChart.Append(new AxisId { Val = valAxisId });
-
-        var plotArea = new PlotArea(
-            new Layout(),
-            barChart,
-            new CategoryAxis(
-                new AxisId { Val = catAxisId },
-                new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
-                new Delete { Val = false },
-                new AxisPosition { Val = AxisPositionValues.Bottom },
-                new CrossingAxis { Val = valAxisId }
-            ),
-            new ValueAxis(
-                new AxisId { Val = valAxisId },
-                new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
-                new Delete { Val = false },
-                new AxisPosition { Val = AxisPositionValues.Left },
-                new CrossingAxis { Val = catAxisId }
-            )
-        );
-
         var chart = new C.Chart();
 
         if (xlChart.Title != null)
@@ -226,34 +159,285 @@ internal static class ChartWriter
             );
         }
 
-        chart.Append(plotArea);
+        chart.Append(BuildPlotArea(xlChart));
         chart.Append(new PlotVisibleOnly { Val = true });
 
         return new ChartSpace(chart);
     }
 
+    private static bool IsPieType(XLChartType chartType) =>
+        chartType is XLChartType.Pie or XLChartType.PieExploded
+            or XLChartType.Pie3D or XLChartType.PieExploded3D
+            or XLChartType.PieToPie or XLChartType.PieToBar;
+
+    private static bool IsLineType(XLChartType chartType) =>
+        chartType is XLChartType.Line or XLChartType.Line3D
+            or XLChartType.LineStacked or XLChartType.LineStacked100Percent
+            or XLChartType.LineWithMarkers or XLChartType.LineWithMarkersStacked
+            or XLChartType.LineWithMarkersStacked100Percent;
+
+    private static bool IsRadarType(XLChartType chartType) =>
+        chartType is XLChartType.Radar or XLChartType.RadarFilled
+            or XLChartType.RadarWithMarkers;
+
     /// <summary>
-    /// Maps the chart's <see cref="XLBarOrientation"/> to the OpenXML <see cref="BarDirectionValues"/>.
+    /// Builds the PlotArea, dispatching to the appropriate chart element builder.
+    /// For combo charts, emits both a primary and secondary chart element sharing axes.
     /// </summary>
-    private static BarDirectionValues GetBarDirection(XLChart xlChart)
+    private static PlotArea BuildPlotArea(XLChart xlChart)
     {
-        return xlChart.BarOrientation == XLBarOrientation.Horizontal
-            ? BarDirectionValues.Bar
-            : BarDirectionValues.Column;
+        if (IsPieType(xlChart.ChartType))
+            return BuildPiePlotArea(xlChart);
+
+        const uint catAxisId = 1u;
+        const uint valAxisId = 2u;
+
+        var plotArea = new PlotArea();
+        plotArea.Append(new Layout());
+
+        // Primary chart element
+        AppendChartElement(plotArea, xlChart.ChartType, xlChart.Series, catAxisId, valAxisId);
+
+        // Secondary chart element (combo charts)
+        if (xlChart.SecondaryChartType.HasValue && xlChart.SecondarySeries.Count > 0)
+        {
+            AppendChartElement(plotArea, xlChart.SecondaryChartType.Value, xlChart.SecondarySeries,
+                catAxisId, valAxisId);
+        }
+
+        // Shared axes
+        plotArea.Append(new CategoryAxis(
+            new AxisId { Val = catAxisId },
+            new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
+            new Delete { Val = false },
+            new AxisPosition { Val = AxisPositionValues.Bottom },
+            new CrossingAxis { Val = valAxisId }
+        ));
+        plotArea.Append(new ValueAxis(
+            new AxisId { Val = valAxisId },
+            new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
+            new Delete { Val = false },
+            new AxisPosition { Val = AxisPositionValues.Left },
+            new CrossingAxis { Val = catAxisId }
+        ));
+
+        return plotArea;
     }
 
     /// <summary>
-    /// Maps the chart's <see cref="XLBarGrouping"/> to the OpenXML <see cref="BarGroupingValues"/>.
+    /// Appends a typed chart element (BarChart, LineChart, or RadarChart) with its series to the PlotArea.
     /// </summary>
-    private static BarGroupingValues GetGrouping(XLChart xlChart)
+    private static void AppendChartElement(
+        PlotArea plotArea,
+        XLChartType chartType,
+        IXLChartSeriesCollection seriesCollection,
+        uint catAxisId,
+        uint valAxisId)
     {
-        return xlChart.BarGrouping switch
+        if (IsLineType(chartType))
         {
-            XLBarGrouping.Clustered => BarGroupingValues.Clustered,
-            XLBarGrouping.Stacked => BarGroupingValues.Stacked,
-            XLBarGrouping.Percent => BarGroupingValues.PercentStacked,
-            _ => BarGroupingValues.Standard
-        };
+            var lineChart = new LineChart
+            {
+                Grouping = new Grouping { Val = GetLineGrouping(chartType) }
+            };
+
+            foreach (var s in seriesCollection)
+            {
+                var series = new LineChartSeries
+                {
+                    Index = new Index { Val = s.Index },
+                    Order = new Order { Val = s.Order },
+                    SeriesText = BuildSeriesText(s)
+                };
+
+                if (s.CategoryReferences != null)
+                {
+                    series.Append(new CategoryAxisData(
+                        new StringReference { Formula = new C.Formula(s.CategoryReferences) }
+                    ));
+                }
+
+                series.Append(new C.Values(
+                    new NumberReference { Formula = new C.Formula(s.ValueReferences) }
+                ));
+
+                if (chartType is XLChartType.LineWithMarkers
+                    or XLChartType.LineWithMarkersStacked
+                    or XLChartType.LineWithMarkersStacked100Percent)
+                {
+                    series.Append(new Marker { Symbol = new Symbol { Val = MarkerStyleValues.Auto } });
+                }
+
+                lineChart.Append(series);
+            }
+
+            lineChart.Append(new AxisId { Val = catAxisId });
+            lineChart.Append(new AxisId { Val = valAxisId });
+            plotArea.Append(lineChart);
+        }
+        else if (IsRadarType(chartType))
+        {
+            var radarStyle = chartType == XLChartType.RadarFilled
+                ? RadarStyleValues.Filled
+                : RadarStyleValues.Marker;
+
+            var radarChart = new RadarChart
+            {
+                RadarStyle = new RadarStyle { Val = radarStyle }
+            };
+
+            foreach (var s in seriesCollection)
+            {
+                var series = new RadarChartSeries
+                {
+                    Index = new Index { Val = s.Index },
+                    Order = new Order { Val = s.Order },
+                    SeriesText = BuildSeriesText(s)
+                };
+
+                if (s.CategoryReferences != null)
+                {
+                    series.Append(new CategoryAxisData(
+                        new StringReference { Formula = new C.Formula(s.CategoryReferences) }
+                    ));
+                }
+
+                series.Append(new C.Values(
+                    new NumberReference { Formula = new C.Formula(s.ValueReferences) }
+                ));
+
+                radarChart.Append(series);
+            }
+
+            radarChart.Append(new AxisId { Val = catAxisId });
+            radarChart.Append(new AxisId { Val = valAxisId });
+            plotArea.Append(radarChart);
+        }
+        else
+        {
+            // Bar/Column chart
+            var xlChart = new XLChart_BarParams(chartType);
+            var barChart = new BarChart
+            {
+                BarDirection = new BarDirection { Val = xlChart.Direction },
+                BarGrouping = new BarGrouping { Val = xlChart.Grouping }
+            };
+
+            foreach (var s in seriesCollection)
+            {
+                var series = new BarChartSeries
+                {
+                    Index = new Index { Val = s.Index },
+                    Order = new Order { Val = s.Order },
+                    SeriesText = BuildSeriesText(s)
+                };
+
+                if (s.CategoryReferences != null)
+                {
+                    series.Append(new CategoryAxisData(
+                        new StringReference { Formula = new C.Formula(s.CategoryReferences) }
+                    ));
+                }
+
+                series.Append(new C.Values(
+                    new NumberReference { Formula = new C.Formula(s.ValueReferences) }
+                ));
+
+                barChart.Append(series);
+            }
+
+            barChart.Append(new AxisId { Val = catAxisId });
+            barChart.Append(new AxisId { Val = valAxisId });
+            plotArea.Append(barChart);
+        }
+    }
+
+    /// <summary>
+    /// Builds a PlotArea containing a PieChart. Pie charts have no axes.
+    /// </summary>
+    private static PlotArea BuildPiePlotArea(XLChart xlChart)
+    {
+        var pieChart = new PieChart();
+
+        foreach (var s in xlChart.Series)
+        {
+            var series = new PieChartSeries
+            {
+                Index = new Index { Val = s.Index },
+                Order = new Order { Val = s.Order },
+                SeriesText = BuildSeriesText(s)
+            };
+
+            if (s.CategoryReferences != null)
+            {
+                series.Append(new CategoryAxisData(
+                    new StringReference { Formula = new C.Formula(s.CategoryReferences) }
+                ));
+            }
+
+            series.Append(new C.Values(
+                new NumberReference { Formula = new C.Formula(s.ValueReferences) }
+            ));
+
+            pieChart.Append(series);
+        }
+
+        return new PlotArea(new Layout(), pieChart);
+    }
+
+    private static GroupingValues GetLineGrouping(XLChartType chartType) =>
+        chartType is XLChartType.LineStacked or XLChartType.LineWithMarkersStacked
+            ? GroupingValues.Stacked
+            : chartType is XLChartType.LineStacked100Percent or XLChartType.LineWithMarkersStacked100Percent
+                ? GroupingValues.PercentStacked
+                : GroupingValues.Standard;
+
+    /// <summary>
+    /// Lightweight helper that resolves bar direction/grouping from a chart type
+    /// without needing a full XLChart instance.
+    /// </summary>
+    private readonly struct XLChart_BarParams
+    {
+        public BarDirectionValues Direction { get; }
+        public BarGroupingValues Grouping { get; }
+
+        public XLChart_BarParams(XLChartType chartType)
+        {
+            Direction = IsHorizontalBarType(chartType) ? BarDirectionValues.Bar : BarDirectionValues.Column;
+            Grouping = GetBarGroupingForType(chartType);
+        }
+
+        private static bool IsHorizontalBarType(XLChartType ct) =>
+            ct is XLChartType.BarClustered or XLChartType.BarClustered3D
+                or XLChartType.BarStacked or XLChartType.BarStacked100Percent
+                or XLChartType.BarStacked100Percent3D or XLChartType.BarStacked3D;
+
+        private static BarGroupingValues GetBarGroupingForType(XLChartType ct) =>
+            ct is XLChartType.BarClustered or XLChartType.BarClustered3D
+                or XLChartType.ColumnClustered or XLChartType.ColumnClustered3D
+                ? BarGroupingValues.Clustered
+                : ct is XLChartType.BarStacked or XLChartType.BarStacked3D
+                    or XLChartType.ColumnStacked or XLChartType.ColumnStacked3D
+                    ? BarGroupingValues.Stacked
+                    : ct is XLChartType.BarStacked100Percent or XLChartType.BarStacked100Percent3D
+                        or XLChartType.ColumnStacked100Percent or XLChartType.ColumnStacked100Percent3D
+                        ? BarGroupingValues.PercentStacked
+                        : BarGroupingValues.Clustered;
+    }
+
+    /// <summary>
+    /// Builds a SeriesText element containing the series name in a StringCache.
+    /// </summary>
+    private static SeriesText BuildSeriesText(IXLChartSeries s)
+    {
+        return new SeriesText(
+            new StringReference(
+                new StringCache(
+                    new PointCount { Val = 1 },
+                    new StringPoint(new NumericValue(s.Name)) { Index = 0 }
+                )
+            )
+        );
     }
 
     /// <summary>

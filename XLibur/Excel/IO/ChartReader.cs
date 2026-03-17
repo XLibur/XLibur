@@ -72,12 +72,7 @@ internal static class ChartReader
             var plotArea = chart.PlotArea;
             if (plotArea != null)
             {
-                var barChart = plotArea.Elements<BarChart>().FirstOrDefault();
-                if (barChart != null)
-                {
-                    xlChart.ChartType = DetermineChartType(barChart);
-                    ReadBarChartSeries(barChart, xlChart);
-                }
+                ReadPlotArea(plotArea, xlChart);
             }
 
             // Read positions from anchor
@@ -149,6 +144,201 @@ internal static class ChartReader
 
             xlChart.Series.Add(name, valRef, catRef);
         }
+    }
+
+    /// <summary>
+    /// Reads all <see cref="PieChartSeries"/> elements from a PieChart and adds them to the chart's series collection.
+    /// </summary>
+    private static void ReadPieChartSeries(PieChart pieChart, XLChart xlChart)
+    {
+        foreach (var series in pieChart.Elements<PieChartSeries>())
+        {
+            var name = string.Empty;
+            var seriesText = series.SeriesText;
+            if (seriesText != null)
+            {
+                var strRef = seriesText.Elements<StringReference>().FirstOrDefault();
+                var strCache = strRef?.Elements<StringCache>().FirstOrDefault();
+                var pt = strCache?.Elements<StringPoint>().FirstOrDefault();
+                name = pt?.Elements<NumericValue>().FirstOrDefault()?.Text ?? string.Empty;
+            }
+
+            string? catRef = null;
+            var catData = series.Elements<CategoryAxisData>().FirstOrDefault();
+            if (catData != null)
+            {
+                var strRefCat = catData.Elements<StringReference>().FirstOrDefault();
+                catRef = strRefCat?.Formula?.Text;
+
+                if (catRef == null)
+                {
+                    var numRefCat = catData.Elements<NumberReference>().FirstOrDefault();
+                    catRef = numRefCat?.Formula?.Text;
+                }
+            }
+
+            var valRef = string.Empty;
+            var valData = series.Elements<C.Values>().FirstOrDefault();
+            if (valData != null)
+            {
+                var numRef = valData.Elements<NumberReference>().FirstOrDefault();
+                valRef = numRef?.Formula?.Text ?? string.Empty;
+            }
+
+            xlChart.Series.Add(name, valRef, catRef);
+        }
+    }
+
+    /// <summary>
+    /// Reads all chart elements from a PlotArea. The first recognized element sets the primary
+    /// chart type and series; a second recognized element (combo chart) sets the secondary.
+    /// </summary>
+    private static void ReadPlotArea(PlotArea plotArea, XLChart xlChart)
+    {
+        var primarySet = false;
+
+        var barChart = plotArea.Elements<BarChart>().FirstOrDefault();
+        if (barChart != null)
+        {
+            xlChart.ChartType = DetermineChartType(barChart);
+            ReadBarChartSeries(barChart, xlChart);
+            primarySet = true;
+        }
+
+        var pieChart = plotArea.Elements<PieChart>().FirstOrDefault();
+        if (pieChart != null)
+        {
+            if (!primarySet)
+            {
+                xlChart.ChartType = XLChartType.Pie;
+                ReadPieChartSeries(pieChart, xlChart);
+                primarySet = true;
+            }
+        }
+
+        var lineChart = plotArea.Elements<LineChart>().FirstOrDefault();
+        if (lineChart != null)
+        {
+            var lineType = DetermineLineChartType(lineChart);
+            if (!primarySet)
+            {
+                xlChart.ChartType = lineType;
+                ReadLineChartSeries(lineChart, xlChart.Series);
+                primarySet = true;
+            }
+            else
+            {
+                xlChart.SecondaryChartType = lineType;
+                ReadLineChartSeries(lineChart, xlChart.SecondarySeries);
+            }
+        }
+
+        var radarChart = plotArea.Elements<RadarChart>().FirstOrDefault();
+        if (radarChart != null)
+        {
+            var radarType = DetermineRadarChartType(radarChart);
+            if (!primarySet)
+            {
+                xlChart.ChartType = radarType;
+                ReadRadarChartSeries(radarChart, xlChart.Series);
+            }
+            else
+            {
+                xlChart.SecondaryChartType = radarType;
+                ReadRadarChartSeries(radarChart, xlChart.SecondarySeries);
+            }
+        }
+
+        // Handle combo: if bar was primary and line was secondary, check the reverse too
+        if (primarySet && barChart != null && lineChart == null)
+        {
+            // Check if there's a second BarChart element for combo bar types
+            // (not common, but handle gracefully)
+        }
+    }
+
+    private static XLChartType DetermineLineChartType(LineChart lineChart)
+    {
+        var grouping = lineChart.Grouping?.Val?.Value;
+        if (grouping == GroupingValues.Stacked) return XLChartType.LineStacked;
+        if (grouping == GroupingValues.PercentStacked) return XLChartType.LineStacked100Percent;
+
+        // Check if series have markers
+        var hasMarkers = lineChart.Elements<LineChartSeries>()
+            .Any(s => s.Elements<Marker>().Any());
+        return hasMarkers ? XLChartType.LineWithMarkers : XLChartType.Line;
+    }
+
+    private static XLChartType DetermineRadarChartType(RadarChart radarChart)
+    {
+        var style = radarChart.RadarStyle?.Val?.Value;
+        if (style == RadarStyleValues.Filled) return XLChartType.RadarFilled;
+        return XLChartType.Radar;
+    }
+
+    /// <summary>
+    /// Reads series from a LineChart element into the specified series collection.
+    /// </summary>
+    private static void ReadLineChartSeries(LineChart lineChart, IXLChartSeriesCollection target)
+    {
+        foreach (var series in lineChart.Elements<LineChartSeries>())
+        {
+            var (name, catRef, valRef) = ExtractSeriesData(series.SeriesText,
+                series.Elements<CategoryAxisData>().FirstOrDefault(),
+                series.Elements<C.Values>().FirstOrDefault());
+            target.Add(name, valRef, catRef);
+        }
+    }
+
+    /// <summary>
+    /// Reads series from a RadarChart element into the specified series collection.
+    /// </summary>
+    private static void ReadRadarChartSeries(RadarChart radarChart, IXLChartSeriesCollection target)
+    {
+        foreach (var series in radarChart.Elements<RadarChartSeries>())
+        {
+            var (name, catRef, valRef) = ExtractSeriesData(series.SeriesText,
+                series.Elements<CategoryAxisData>().FirstOrDefault(),
+                series.Elements<C.Values>().FirstOrDefault());
+            target.Add(name, valRef, catRef);
+        }
+    }
+
+    /// <summary>
+    /// Extracts name, category reference, and value reference from common series child elements.
+    /// </summary>
+    private static (string name, string? catRef, string valRef) ExtractSeriesData(
+        SeriesText? seriesText, CategoryAxisData? catData, C.Values? valData)
+    {
+        var name = string.Empty;
+        if (seriesText != null)
+        {
+            var strRef = seriesText.Elements<StringReference>().FirstOrDefault();
+            var strCache = strRef?.Elements<StringCache>().FirstOrDefault();
+            var pt = strCache?.Elements<StringPoint>().FirstOrDefault();
+            name = pt?.Elements<NumericValue>().FirstOrDefault()?.Text ?? string.Empty;
+        }
+
+        string? catRef = null;
+        if (catData != null)
+        {
+            var strRefCat = catData.Elements<StringReference>().FirstOrDefault();
+            catRef = strRefCat?.Formula?.Text;
+            if (catRef == null)
+            {
+                var numRefCat = catData.Elements<NumberReference>().FirstOrDefault();
+                catRef = numRefCat?.Formula?.Text;
+            }
+        }
+
+        var valRef = string.Empty;
+        if (valData != null)
+        {
+            var numRef = valData.Elements<NumberReference>().FirstOrDefault();
+            valRef = numRef?.Formula?.Text ?? string.Empty;
+        }
+
+        return (name, catRef, valRef);
     }
 
     /// <summary>

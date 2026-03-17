@@ -138,4 +138,17 @@ public interface IXLChart : IXLDrawing<IXLChart>
     /// Use together with <see cref="IXLDrawing{T}.Position"/> (top-left) to define the chart's size and location.
     /// </summary>
     IXLDrawingPosition SecondPosition { get; }
+
+    /// <summary>
+    /// Gets or sets the secondary chart type for combo charts.
+    /// When set, the chart renders both <see cref="ChartType"/> and this type
+    /// in the same plot area, each with its own series. Set to <c>null</c> for single-type charts.
+    /// </summary>
+    XLChartType? SecondaryChartType { get; set; }
+
+    /// <summary>
+    /// Gets the collection of data series for the secondary chart type in a combo chart.
+    /// Only used when <see cref="SecondaryChartType"/> is set.
+    /// </summary>
+    IXLChartSeriesCollection SecondarySeries { get; }
 }

@@ -46,6 +46,7 @@ internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
         ShapeId = worksheet.Workbook.ShapeIdManager.GetNext();
         RightAngleAxes = true;
         Series = new XLChartSeriesCollection();
+        SecondarySeries = new XLChartSeriesCollection();
         SecondPosition = new XLDrawingPosition();
     }
 
@@ -62,6 +63,10 @@ internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
     public IXLWorksheet Worksheet { get; }
 
     public IXLDrawingPosition SecondPosition { get; }
+
+    public XLChartType? SecondaryChartType { get; set; }
+
+    public IXLChartSeriesCollection SecondarySeries { get; }
 
     /// <summary>
     /// The relationship ID linking this chart to its ChartPart within the DrawingsPart.

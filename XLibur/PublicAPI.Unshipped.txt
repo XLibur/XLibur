@@ -5,6 +5,9 @@ static XLibur.Excel.XLCellValue.operator ==(XLibur.Excel.XLCellValue left, XLibu
 static XLibur.Excel.XLCellValue.operator !=(XLibur.Excel.XLCellValue left, XLibur.Excel.XLCellValue right) -> bool
 virtual XLibur.Excel.XLWorkbook.Dispose(bool disposing) -> void
 XLibur.Excel.IO.PartStructureException
+XLibur.Excel.IXLChart.SecondaryChartType.get -> XLibur.Excel.XLChartType?
+XLibur.Excel.IXLChart.SecondaryChartType.set -> void
+XLibur.Excel.IXLChart.SecondarySeries.get -> XLibur.Excel.IXLChartSeriesCollection!
 XLibur.Excel.IXLChart.SecondPosition.get -> XLibur.Excel.IXLDrawingPosition!
 XLibur.Excel.IXLChart.Series.get -> XLibur.Excel.IXLChartSeriesCollection!
 XLibur.Excel.IXLChart.SetTitle(string? title) -> XLibur.Excel.IXLChart!

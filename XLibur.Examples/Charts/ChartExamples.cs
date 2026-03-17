@@ -91,6 +91,165 @@ public class ChartExamples : IXLExample
         chart3.Position.SetColumn(0).SetRow(5);
         chart3.SecondPosition.SetColumn(7).SetRow(18);
 
+        // --- Sheet 4: Pie chart ---
+        var ws4 = wb.Worksheets.Add("Market Share");
+
+        ws4.Cell("A1").Value = "Company";
+        ws4.Cell("B1").Value = "Share %";
+
+        ws4.Cell("A2").Value = "Acme Corp";
+        ws4.Cell("A3").Value = "Globex";
+        ws4.Cell("A4").Value = "Initech";
+        ws4.Cell("A5").Value = "Umbrella";
+
+        ws4.Cell("B2").Value = 35;
+        ws4.Cell("B3").Value = 28;
+        ws4.Cell("B4").Value = 22;
+        ws4.Cell("B5").Value = 15;
+
+        ws4.Columns("A", "B").AdjustToContents();
+
+        var chart4 = ws4.Charts.Add(XLChartType.Pie);
+        chart4.SetTitle("Market Share");
+        chart4.Series.Add("Share %", "'Market Share'!$B$2:$B$5", "'Market Share'!$A$2:$A$5");
+        chart4.Position.SetColumn(0).SetRow(7);
+        chart4.SecondPosition.SetColumn(8).SetRow(22);
+
+        // --- Sheet 5: Stacked bar chart ---
+        var ws5 = wb.Worksheets.Add("Staff Hours");
+
+        ws5.Cell("A1").Value = "Department";
+        ws5.Cell("B1").Value = "Regular";
+        ws5.Cell("C1").Value = "Overtime";
+
+        ws5.Cell("A2").Value = "Engineering";
+        ws5.Cell("A3").Value = "Sales";
+        ws5.Cell("A4").Value = "Support";
+        ws5.Cell("A5").Value = "Marketing";
+
+        ws5.Cell("B2").Value = 160;
+        ws5.Cell("B3").Value = 140;
+        ws5.Cell("B4").Value = 150;
+        ws5.Cell("B5").Value = 130;
+
+        ws5.Cell("C2").Value = 40;
+        ws5.Cell("C3").Value = 25;
+        ws5.Cell("C4").Value = 35;
+        ws5.Cell("C5").Value = 10;
+
+        ws5.Columns("A", "C").AdjustToContents();
+
+        var chart5 = ws5.Charts.Add(XLChartType.BarStacked);
+        chart5.SetTitle("Staff Hours by Department");
+        chart5.Series.Add("Regular", "'Staff Hours'!$B$2:$B$5", "'Staff Hours'!$A$2:$A$5");
+        chart5.Series.Add("Overtime", "'Staff Hours'!$C$2:$C$5", "'Staff Hours'!$A$2:$A$5");
+        chart5.Position.SetColumn(0).SetRow(7);
+        chart5.SecondPosition.SetColumn(9).SetRow(22);
+
+        // --- Sheet 6: Line chart ---
+        var ws6 = wb.Worksheets.Add("Trends");
+
+        ws6.Cell("A1").Value = "Month";
+        ws6.Cell("B1").Value = "Revenue";
+        ws6.Cell("C1").Value = "Costs";
+
+        ws6.Cell("A2").Value = "Jan";
+        ws6.Cell("A3").Value = "Feb";
+        ws6.Cell("A4").Value = "Mar";
+        ws6.Cell("A5").Value = "Apr";
+        ws6.Cell("A6").Value = "May";
+        ws6.Cell("A7").Value = "Jun";
+
+        ws6.Cell("B2").Value = 50000;
+        ws6.Cell("B3").Value = 52000;
+        ws6.Cell("B4").Value = 48000;
+        ws6.Cell("B5").Value = 55000;
+        ws6.Cell("B6").Value = 60000;
+        ws6.Cell("B7").Value = 63000;
+
+        ws6.Cell("C2").Value = 42000;
+        ws6.Cell("C3").Value = 44000;
+        ws6.Cell("C4").Value = 41000;
+        ws6.Cell("C5").Value = 43000;
+        ws6.Cell("C6").Value = 46000;
+        ws6.Cell("C7").Value = 47000;
+
+        ws6.Columns("A", "C").AdjustToContents();
+
+        var chart6 = ws6.Charts.Add(XLChartType.LineWithMarkers);
+        chart6.SetTitle("Revenue vs Costs");
+        chart6.Series.Add("Revenue", "Trends!$B$2:$B$7", "Trends!$A$2:$A$7");
+        chart6.Series.Add("Costs", "Trends!$C$2:$C$7", "Trends!$A$2:$A$7");
+        chart6.Position.SetColumn(0).SetRow(9);
+        chart6.SecondPosition.SetColumn(9).SetRow(24);
+
+        // --- Sheet 7: Combo chart (columns + line overlay) ---
+        var ws7 = wb.Worksheets.Add("Combo");
+
+        ws7.Cell("A1").Value = "Quarter";
+        ws7.Cell("B1").Value = "Units";
+        ws7.Cell("C1").Value = "Avg Price";
+
+        ws7.Cell("A2").Value = "Q1";
+        ws7.Cell("A3").Value = "Q2";
+        ws7.Cell("A4").Value = "Q3";
+        ws7.Cell("A5").Value = "Q4";
+
+        ws7.Cell("B2").Value = 800;
+        ws7.Cell("B3").Value = 950;
+        ws7.Cell("B4").Value = 1100;
+        ws7.Cell("B5").Value = 1250;
+
+        ws7.Cell("C2").Value = 12.5;
+        ws7.Cell("C3").Value = 11.8;
+        ws7.Cell("C4").Value = 13.2;
+        ws7.Cell("C5").Value = 14.0;
+
+        ws7.Columns("A", "C").AdjustToContents();
+
+        // Primary: column chart for units; Secondary: line chart for average price
+        var chart7 = ws7.Charts.Add(XLChartType.ColumnClustered);
+        chart7.SetTitle("Units Sold & Avg Price");
+        chart7.Series.Add("Units", "Combo!$B$2:$B$5", "Combo!$A$2:$A$5");
+        chart7.SecondaryChartType = XLChartType.Line;
+        chart7.SecondarySeries.Add("Avg Price", "Combo!$C$2:$C$5", "Combo!$A$2:$A$5");
+        chart7.Position.SetColumn(0).SetRow(7);
+        chart7.SecondPosition.SetColumn(10).SetRow(24);
+
+        // --- Sheet 8: Radar chart ---
+        var ws8 = wb.Worksheets.Add("Skills");
+
+        ws8.Cell("A1").Value = "Skill";
+        ws8.Cell("B1").Value = "Alice";
+        ws8.Cell("C1").Value = "Bob";
+
+        ws8.Cell("A2").Value = "C#";
+        ws8.Cell("A3").Value = "SQL";
+        ws8.Cell("A4").Value = "DevOps";
+        ws8.Cell("A5").Value = "Testing";
+        ws8.Cell("A6").Value = "Design";
+
+        ws8.Cell("B2").Value = 9;
+        ws8.Cell("B3").Value = 7;
+        ws8.Cell("B4").Value = 6;
+        ws8.Cell("B5").Value = 8;
+        ws8.Cell("B6").Value = 4;
+
+        ws8.Cell("C2").Value = 6;
+        ws8.Cell("C3").Value = 9;
+        ws8.Cell("C4").Value = 8;
+        ws8.Cell("C5").Value = 5;
+        ws8.Cell("C6").Value = 7;
+
+        ws8.Columns("A", "C").AdjustToContents();
+
+        var chart8 = ws8.Charts.Add(XLChartType.Radar);
+        chart8.SetTitle("Skill Comparison");
+        chart8.Series.Add("Alice", "Skills!$B$2:$B$6", "Skills!$A$2:$A$6");
+        chart8.Series.Add("Bob", "Skills!$C$2:$C$6", "Skills!$A$2:$A$6");
+        chart8.Position.SetColumn(0).SetRow(8);
+        chart8.SecondPosition.SetColumn(9).SetRow(24);
+
         wb.SaveAs(filePath);
     }
 }

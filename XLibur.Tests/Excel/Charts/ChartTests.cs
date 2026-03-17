@@ -234,4 +234,176 @@ public class ChartTests
             Assert.That(wb.Worksheet("Data").Charts.Count, Is.EqualTo(1));
         }
     }
+
+    [Test]
+    public void CanSaveAndLoadPieChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "Alpha";
+            ws.Cell("A2").Value = "Beta";
+            ws.Cell("A3").Value = "Gamma";
+            ws.Cell("B1").Value = 40;
+            ws.Cell("B2").Value = 35;
+            ws.Cell("B3").Value = 25;
+
+            var chart = ws.Charts.Add(XLChartType.Pie);
+            chart.SetTitle("Distribution");
+            chart.Series.Add("Values", "Data!$B$1:$B$3", "Data!$A$1:$A$3");
+            chart.Position.SetColumn(0).SetRow(5);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Pie));
+            Assert.That(chart.Title, Is.EqualTo("Distribution"));
+            Assert.That(chart.Series.Count, Is.EqualTo(1));
+            Assert.That(chart.Series.First().ValueReferences, Is.EqualTo("Data!$B$1:$B$3"));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadStackedBarChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "X";
+            ws.Cell("A2").Value = "Y";
+            ws.Cell("B1").Value = 10;
+            ws.Cell("B2").Value = 20;
+            ws.Cell("C1").Value = 30;
+            ws.Cell("C2").Value = 40;
+
+            var chart = ws.Charts.Add(XLChartType.BarStacked);
+            chart.SetTitle("Stacked");
+            chart.Series.Add("S1", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Series.Add("S2", "Data!$C$1:$C$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.BarStacked));
+            Assert.That(chart.Series.Count, Is.EqualTo(2));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadLineChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "Jan";
+            ws.Cell("A2").Value = "Feb";
+            ws.Cell("A3").Value = "Mar";
+            ws.Cell("B1").Value = 10;
+            ws.Cell("B2").Value = 20;
+            ws.Cell("B3").Value = 15;
+
+            var chart = ws.Charts.Add(XLChartType.Line);
+            chart.SetTitle("Trend");
+            chart.Series.Add("Values", "Data!$B$1:$B$3", "Data!$A$1:$A$3");
+            chart.Position.SetColumn(0).SetRow(5);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Line));
+            Assert.That(chart.Title, Is.EqualTo("Trend"));
+            Assert.That(chart.Series.Count, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadRadarChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "Skill1";
+            ws.Cell("A2").Value = "Skill2";
+            ws.Cell("A3").Value = "Skill3";
+            ws.Cell("B1").Value = 8;
+            ws.Cell("B2").Value = 6;
+            ws.Cell("B3").Value = 9;
+
+            var chart = ws.Charts.Add(XLChartType.Radar);
+            chart.SetTitle("Skills");
+            chart.Series.Add("Person", "Data!$B$1:$B$3", "Data!$A$1:$A$3");
+            chart.Position.SetColumn(0).SetRow(5);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Radar));
+            Assert.That(chart.Title, Is.EqualTo("Skills"));
+            Assert.That(chart.Series.Count, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadComboChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "Q1";
+            ws.Cell("A2").Value = "Q2";
+            ws.Cell("B1").Value = 100;
+            ws.Cell("B2").Value = 200;
+            ws.Cell("C1").Value = 5.5;
+            ws.Cell("C2").Value = 6.0;
+
+            var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+            chart.SetTitle("Combo");
+            chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.SecondaryChartType = XLChartType.Line;
+            chart.SecondarySeries.Add("Price", "Data!$C$1:$C$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.ColumnClustered));
+            Assert.That(chart.Series.Count, Is.EqualTo(1));
+            Assert.That(chart.Series.First().Name, Is.EqualTo("Units"));
+
+            Assert.That(chart.SecondaryChartType, Is.EqualTo(XLChartType.Line));
+            Assert.That(chart.SecondarySeries.Count, Is.EqualTo(1));
+            Assert.That(chart.SecondarySeries.First().Name, Is.EqualTo("Price"));
+        }
+    }
 }
