@@ -1,5 +1,4 @@
 ﻿using System.IO;
-using System.Linq;
 using XLibur.Excel;
 using NUnit.Framework;
 
@@ -77,11 +76,11 @@ internal class XLPivotTableStyleFormatsTests
 
         using (var wb = new XLWorkbook(ms))
         {
-            var pt = (XLPivotTable)wb.Worksheet(2).PivotTables.First();
+            var pt = (XLPivotTable)wb.Worksheet(2).PivotTables.PivotTable("pivot table");
 
             // Check DxfStyleValue on the loaded format — the internal representation
             // that proves alignment round-tripped through the DXF record.
-            var format = pt.Formats.First();
+            var format = pt.Formats[0];
             var alignment = format.DxfStyleValue.Alignment;
             Assert.AreEqual(XLAlignmentHorizontalValues.Center, alignment.Horizontal);
             Assert.AreEqual(XLAlignmentVerticalValues.Top, alignment.Vertical);

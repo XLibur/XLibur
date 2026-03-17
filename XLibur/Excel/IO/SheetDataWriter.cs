@@ -21,7 +21,10 @@ internal static class SheetDataWriter
     private const int Date1904OffsetDays = 1462;
 
     private static readonly FieldInfo XmlWriterFieldInfo =
-        typeof(OpenXmlPartWriter).GetField("_xmlWriter", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        typeof(OpenXmlPartWriter).GetField("_xmlWriter", BindingFlags.Instance | BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException(
+            "OpenXmlPartWriter no longer has a '_xmlWriter' field. " +
+            "The DocumentFormat.OpenXml version may have changed its internals.");
 
     /// <summary>
     /// An array to convert data type for a formula cell. Key is <see cref="XLDataType"/>.
@@ -56,7 +59,7 @@ internal static class SheetDataWriter
     internal static void StreamSheetData(OpenXmlWriter writer, XLWorksheet xlWorksheet, SaveContext context,
         SaveOptions options)
     {
-        // Steal through reflection for now, the whole OpenXmlPartWriter will be replaced by XmlWriter soon. OpenXmlPartWriter has basically
+        // Steal through reflection for now, the whole OpenXmlPartWriter will be replaced by XmlWriter soon. OpenXmlPartWriter basically has
         // no inner state, unless it is in a string leaf node. By writing SheetData through XmlWriter only, we bypass all that.
         var untypedXmlWriter = XmlWriterFieldInfo.GetValue(writer);
         var xml = (XmlWriter)untypedXmlWriter!;
@@ -107,7 +110,8 @@ internal static class SheetDataWriter
                 rowState.OpenedRowNumber = currentRowNumber;
             }
 
-            var cellStyleId = ResolveCellStyleId(xlWorksheet, point, ref lastCachedStyle, ref lastCachedStyleId, context);
+            var cellStyleId =
+                ResolveCellStyleId(xlWorksheet, point, ref lastCachedStyle, ref lastCachedStyleId, context);
 
             WriteCellAtPoint(xml, ref cellCtx, point, rowStyleId, cellStyleId);
         }
@@ -125,11 +129,13 @@ internal static class SheetDataWriter
         if (xlWorksheet.Tables.Count == 0)
             return null;
 
-        return new HashSet<XLSheetPoint>(
-            xlWorksheet.Tables
+        return
+        [
+            ..xlWorksheet.Tables
                 .Where<XLTable>(table => table.ShowTotalsRow)
                 .SelectMany(table => table.TotalsRow()!.CellsUsed())
-                .Select(cell => ((XLCell)cell).SheetPoint));
+                .Select(cell => ((XLCell)cell).SheetPoint)
+        ];
     }
 
     private static List<int> GetSortedRowNumbers(XLWorksheet xlWorksheet)
@@ -221,7 +227,8 @@ internal static class SheetDataWriter
         if (hasFormula || (ctx.TableTotalCells is not null && ctx.TableTotalCells.Contains(point)))
         {
             var xlCell = ctx.CellsCollection.GetCell(point);
-            WriteCell(xml, xlCell, ctx.CellRef, ctx.SaveContext, ctx.SaveOptions, ctx.TableTotalCells, rowStyleId, cellStyleId);
+            WriteCell(xml, xlCell, ctx.CellRef, ctx.SaveContext, ctx.SaveOptions, ctx.TableTotalCells, rowStyleId,
+                cellStyleId);
             return;
         }
 
@@ -246,7 +253,8 @@ internal static class SheetDataWriter
         ref readonly var misc = ref ctx.CellsCollection.MiscSlice[point];
 
         WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId, in misc);
-        WriteCellValueDirect(xml, cellValue, shareString, point, ctx.CellsCollection, ctx.Use1904DateSystem, ctx.SaveContext);
+        WriteCellValueDirect(xml, cellValue, shareString, point, ctx.CellsCollection, ctx.Use1904DateSystem,
+            ctx.SaveContext);
         xml.WriteEndElement(); // cell
     }
 
@@ -461,9 +469,9 @@ internal static class SheetDataWriter
             xml.WriteAttributeString("del2", TrueValue);
 
         // Excel doesn't recalculate table formula on a load or on the click of a button or any kind of forced recalculation.
-        // It is necessary to mark some precedent formula dirty (e.g. edit cell formula and enter in Excel).
+        // It is necessary to mark some precedent formula dirty (e.g., edit cell formula and enter in Excel).
         // By setting the CalculateCell, we ensure that Excel will calculate values of data table formula on load and
-        // user will see correct values.
+        // the user will see correct values.
         xml.WriteAttributeString("ca", TrueValue);
 
         xml.WriteEndElement(); // f
@@ -492,12 +500,17 @@ internal static class SheetDataWriter
         {
             var sharedStringId = context.GetSharedStringId(xlCell, field.TotalsRowLabel);
             WriteStartCell(xml, xlCell, cellRef, cellRefLen, "s", styleId, context);
-            xml.WriteStartElement("v", Main2006SsNs);
-            xml.WriteValue(sharedStringId);
-            xml.WriteEndElement();
+            WriteValue(xml, sharedStringId);
         }
 
         xml.WriteEndElement(); // cell
+    }
+
+    private static void WriteValue(XmlWriter xml, int sharedStringId)
+    {
+        xml.WriteStartElement("v", Main2006SsNs);
+        xml.WriteValue(sharedStringId);
+        xml.WriteEndElement();
     }
 
     private static string? GetCellValueTypeDirect(XLDataType dataType, bool shareString)
@@ -548,14 +561,14 @@ internal static class SheetDataWriter
                 WriteNumberValue(w, cellValue.GetNumber());
                 break;
             case XLDataType.DateTime:
-                {
-                    var date = cellValue.GetDateTime();
-                    if (use1904DateSystem)
-                        date = date.AddDays(-Date1904OffsetDays);
+            {
+                var date = cellValue.GetDateTime();
+                if (use1904DateSystem)
+                    date = date.AddDays(-Date1904OffsetDays);
 
-                    WriteNumberValue(w, date.ToSerialDateTime());
-                    break;
-                }
+                WriteNumberValue(w, date.ToSerialDateTime());
+                break;
+            }
             case XLDataType.Boolean:
                 WriteStringValue(w, cellValue.GetBoolean() ? TrueValue : FalseValue);
                 break;
@@ -574,9 +587,7 @@ internal static class SheetDataWriter
         {
             var memorySstId = cellsCollection.ValueSlice.GetShareStringId(point);
             var sharedStringId = context.GetSharedStringId(memorySstId, point);
-            w.WriteStartElement("v", Main2006SsNs);
-            w.WriteValue(sharedStringId);
-            w.WriteEndElement();
+            WriteValue(w, sharedStringId);
         }
         else
         {
@@ -601,7 +612,7 @@ internal static class SheetDataWriter
         }
     }
 
-    internal static void WriteCellValue(XmlWriter w, XLCell xlCell, SaveContext context)
+    private static void WriteCellValue(XmlWriter w, XLCell xlCell, SaveContext context)
     {
         var dataType = xlCell.DataType;
         switch (dataType)
@@ -618,15 +629,15 @@ internal static class SheetDataWriter
                 WriteNumberValue(w, xlCell.Value.GetNumber());
                 break;
             case XLDataType.DateTime:
-                {
-                    // OpenXML SDK validator requires a specific format, in addition to the spec, but can read many more
-                    var date = xlCell.GetDateTime();
-                    if (xlCell.Worksheet.Workbook.Use1904DateSystem)
-                        date = date.AddDays(-Date1904OffsetDays);
+            {
+                // OpenXML SDK validator requires a specific format, in addition to the spec, but can read many more
+                var date = xlCell.GetDateTime();
+                if (xlCell.Worksheet.Workbook.Use1904DateSystem)
+                    date = date.AddDays(-Date1904OffsetDays);
 
-                    WriteNumberValue(w, date.ToSerialDateTime());
-                    break;
-                }
+                WriteNumberValue(w, date.ToSerialDateTime());
+                break;
+            }
             case XLDataType.Boolean:
                 WriteStringValue(w, xlCell.GetBoolean() ? TrueValue : FalseValue);
                 break;

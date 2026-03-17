@@ -4,10 +4,10 @@ namespace XLibur.Excel;
 
 internal sealed class XLCharts : IXLCharts
 {
-    private readonly List<IXLChart> charts = new List<IXLChart>();
+    private readonly List<IXLChart> _charts = [];
     public IEnumerator<IXLChart> GetEnumerator()
     {
-        return charts.GetEnumerator();
+        return _charts.GetEnumerator();
     }
 
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
@@ -17,6 +17,6 @@ internal sealed class XLCharts : IXLCharts
 
     public void Add(IXLChart chart)
     {
-        charts.Add(chart);
+        _charts.Add(chart);
     }
 }
