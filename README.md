@@ -1,5 +1,7 @@
 # XLibur
 
+<img src="resources/logo/logo.png" alt="XLibur logo" width="512" />
+
 [![Build and Test](https://github.com/XLibur/XLibur/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/XLibur/XLibur/actions/workflows/build-and-test.yml)
 [![NuGet](https://img.shields.io/nuget/v/XLibur.svg)](https://www.nuget.org/packages/XLibur)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/XLibur.svg)](https://www.nuget.org/packages/XLibur)
@@ -87,39 +89,7 @@ dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --
 dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --filter '*ClosedXmlWorkbookBenchmarks*'
 ```
 
-## Mutation Testing
-
-[Stryker.NET](https://stryker-mutator.io/docs/stryker-net/introduction/) runs daily in CI to measure test effectiveness. To run locally:
-
-```sh
-# Restore the Stryker tool (first time only)
-dotnet tool restore
-
-# Set StrykerEnabled to disable TreatWarningsAsErrors so mutants can compile
-# PowerShell:  $env:StrykerEnabled="true"
-# CMD:         set StrykerEnabled=true
-# Bash:        export StrykerEnabled=true
-
-# Run mutation testing with the default config
-dotnet stryker -f stryker-config.json
-
-# Run against a specific file or folder
-dotnet stryker -f stryker-config.json --mutate "XLibur/Excel/Cells/**/*.cs"
-```
-
-Reports are generated in `StrykerOutput/` — open the HTML report to see surviving mutants.
-
 ## Developer guidelines
-
-Before submitting a PR, run the formatter to ensure your code matches the project style:
-
-```sh
-dotnet format XLibur.slnx
-```
-
-See the [OpenXML specification](https://ecma-international.org/publications-and-standards/standards/ecma-376/) for reference.
-
-Feel free to submit a PR
 
 Please read the [full developer guidelines](CONTRIBUTING.md).
 
