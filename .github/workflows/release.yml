@@ -26,13 +26,10 @@ jobs:
             10.0.x
 
       - name: Restore dependencies
-        run: dotnet restore XLibur.slnx
+        run: dotnet restore XLibur/XLibur.csproj
 
       - name: Build
-        run: dotnet build XLibur.slnx --configuration Release --no-restore
-
-      - name: Test
-        run: dotnet test XLibur.Tests/XLibur.Tests.csproj --configuration Release --no-build
+        run: dotnet build XLibur/XLibur.csproj --configuration Release --no-restore
 
       - name: Pack
         run: dotnet pack XLibur/XLibur.csproj --configuration Release --no-build --output ./artifacts

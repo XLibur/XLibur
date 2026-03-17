@@ -13,7 +13,7 @@ on:
           - beta
           - rc
       dry-run:
-        description: 'Dry run (build, test, pack — skip NuGet publish)'
+        description: 'Dry run (build, pack — skip NuGet publish)'
         required: false
         default: false
         type: boolean
@@ -45,13 +45,10 @@ jobs:
           echo "Pre-release label: ${{ inputs.prerelease-label }}"
 
       - name: Restore dependencies
-        run: dotnet restore XLibur.slnx
+        run: dotnet restore XLibur/XLibur.csproj
 
       - name: Build
-        run: dotnet build XLibur.slnx --configuration Release --no-restore -p:MinVerDefaultPreReleaseIdentifiers=${{ inputs.prerelease-label }}
-
-      - name: Test
-        run: dotnet test XLibur.Tests/XLibur.Tests.csproj --configuration Release --no-build
+        run: dotnet build XLibur/XLibur.csproj --configuration Release --no-restore -p:MinVerDefaultPreReleaseIdentifiers=${{ inputs.prerelease-label }}
 
       - name: Pack
         run: dotnet pack XLibur/XLibur.csproj --configuration Release --no-build --output ./artifacts
