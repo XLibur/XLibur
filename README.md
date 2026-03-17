@@ -50,6 +50,11 @@ Or via the .NET CLI:
 dotnet add package XLibur
 ```
 
+## User Guide
+
+Nothing local. As the library is largely the same as ClosedXML, the [official documentation](https://closedxml.github.io/ClosedXML/) is still valid.
+
+
 ## Usage
 
 XLibur lets you create and manipulate Excel files without Excel installed — a common use case is generating reports on a web server.
@@ -90,6 +95,8 @@ dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --
 dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --filter '*XLiburWorkbookBenchmarks*'
 dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --filter '*ClosedXmlWorkbookBenchmarks*'
 ```
+
+
 
 ## Developer guidelines
 
