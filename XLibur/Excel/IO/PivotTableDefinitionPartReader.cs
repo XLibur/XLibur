@@ -39,10 +39,11 @@ internal static class PivotTableDefinitionPartReader
         var pivotTableDefinition = pivotTablePart.PivotTableDefinition;
 
         var target = ws.FirstCell();
-        if (pivotTableDefinition?.Location?.Reference?.HasValue ?? false)
+        if (pivotTableDefinition?.Location?.Reference is { HasValue: true, Value: { } referenceValue }
+            && ws.Range(referenceValue) is { } range)
         {
-            ws.Range(pivotTableDefinition.Location!.Reference!.Value!)!.Clear();
-            target = ws.Range(pivotTableDefinition.Location.Reference.Value!)!.FirstCell();
+            range.Clear();
+            target = range.FirstCell();
         }
 
         if (target != null && pivotSource != null)

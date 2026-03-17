@@ -151,7 +151,7 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats
     }
 
     /// <summary>
-    /// Reorders the according to the original priority. Done during the load process
+    /// Reorders the conditional formats according to the original priority. Done during the load process.
     /// </summary>
     public void ReorderAccordingToOriginalPriority()
     {

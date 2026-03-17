@@ -65,22 +65,23 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         public int GetHashCode(IXLConditionalFormat obj)
         {
             var xx = (XLConditionalFormat)obj;
-            var xStyle = ((XLStyle)obj.Style).Value;
-            var xValues = xx.Values.Values.Where(v => !v.IsFormula).Select(v => v.Value);
+            var xValues = xx.Values.Values
+                .Where(v => v is not null and not { IsFormula: true })
+                .Select(v => v.Value);
             if (obj.Ranges.Count > 0)
                 xValues = xValues
-                    .Union(xx.Values.Values.Where(v => v.IsFormula).Select(f =>
-                        ((XLCell)obj.Ranges.First().FirstCell()).GetFormulaR1C1(f.Value)));
+                    .Union(xx.Values.Values
+                        .Where(v => v is { IsFormula: true })
+                        .Select(f => ((XLCell)obj.Ranges.First().FirstCell()).GetFormulaR1C1(f.Value)));
 
             unchecked
             {
-                var hashCode = xStyle.GetHashCode();
-                hashCode = (hashCode * 397) ^ xx.StyleValue.GetHashCode();
+                var hashCode = xx.StyleValue.GetHashCode();
                 hashCode = (hashCode * 397) ^ xx.CopyDefaultModify.GetHashCode();
-                hashCode = (hashCode * 397) ^ xValues.GetHashCode();
-                hashCode = (hashCode * 397) ^ xx.Colors.GetHashCode();
-                hashCode = (hashCode * 397) ^ xx.ContentTypes.GetHashCode();
-                hashCode = (hashCode * 397) ^ xx.IconSetOperators.GetHashCode();
+                hashCode = (hashCode * 397) ^ _listComparer.GetHashCode(xValues);
+                hashCode = (hashCode * 397) ^ _colorsComparer.GetHashCode(xx.Colors);
+                hashCode = (hashCode * 397) ^ _contentsTypeComparer.GetHashCode(xx.ContentTypes);
+                hashCode = (hashCode * 397) ^ _iconSetTypeComparer.GetHashCode(xx.IconSetOperators);
                 hashCode = (hashCode * 397) ^ (_compareRange ? xx.Ranges.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ (int)xx.ConditionalFormatType;
                 hashCode = (hashCode * 397) ^ (int)xx.TimePeriod;
@@ -574,7 +575,20 @@ internal sealed class DictionaryComparer<TKey, TValue> :
 
     public int GetHashCode(Dictionary<TKey, TValue>? obj)
     {
-        throw new NotImplementedException();
+        if (obj is null)
+            return 0;
+
+        unchecked
+        {
+            var hash = 0;
+            foreach (var pair in obj)
+            {
+                var entryHash = pair.Key.GetHashCode();
+                entryHash = (entryHash * 397) ^ (pair.Value is not null ? _valueComparer.GetHashCode(pair.Value) : 0);
+                hash ^= entryHash;
+            }
+            return hash;
+        }
     }
 }
 
@@ -595,7 +609,16 @@ internal sealed class EnumerableComparer<T> : IEqualityComparer<IEnumerable<T>>
 
     public int GetHashCode(IEnumerable<T>? obj)
     {
-        throw new NotImplementedException();
+        if (obj is null)
+            return 0;
+
+        unchecked
+        {
+            var hash = 0;
+            foreach (var item in obj)
+                hash ^= item is not null ? _valueComparer.GetHashCode(item) : 0;
+            return hash;
+        }
     }
 
     private static bool SetEquals(IEnumerable<T> first, IEnumerable<T> second,
