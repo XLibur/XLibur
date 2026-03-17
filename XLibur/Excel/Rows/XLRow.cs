@@ -47,10 +47,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
 
     public override XLWorksheet Worksheet => _worksheet;
 
-    public override XLRangeType RangeType
-    {
-        get { return XLRangeType.Row; }
-    }
+    public override XLRangeType RangeType => XLRangeType.Row;
 
     protected override IEnumerable<XLStylizedBase> Children
     {
@@ -82,7 +79,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     /// </summary>
     /// <remarks>
     /// If the attribute is set, it sets customHeight to true even if the customHeight is explicitly
-    /// set to false. Custom height means no auto-sizing by Excel on load, so if row has this
+    /// set to false. Custom height means no auto-sizing by Excel on load, so if a row has this
     /// attribute, it stops Excel from auto-sizing the height of a row to fit the content on load.
     /// </remarks>
     public double? DyDescent { get; set; }
@@ -90,8 +87,8 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     /// <summary>
     /// Should cells in the row display phonetic? This doesn't actually affect whether the phonetic are
     /// shown in the row, that depends entirely on the <see cref="IXLCell.ShowPhonetic"/> property
-    /// of a cell. This property determines whether a new cell in the row will have it's phonetic turned on
-    /// (and also the state of the "Show or hide phonetic" in Excel when whole row is selected).
+    /// of a cell. This property determines whether a new cell in the row will have its phonetic turned on
+    /// (and also the state of the "Show or hide phonetic" in Excel when the whole row is selected).
     /// Default is <c>false</c>.
     /// </summary>
     public bool ShowPhonetic
@@ -125,7 +122,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
 
     public double Height
     {
-        get { return _height; }
+        get => _height;
         set
         {
             HeightChanged = true;
@@ -679,7 +676,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     }
 
     /// <summary>
-    /// Flag enum to save space, instead of wasting byte for each flag.
+    /// Flag enum to save space instead of wasting byte for each flag.
     /// </summary>
     [Flags]
     private enum XlRowFlags : byte

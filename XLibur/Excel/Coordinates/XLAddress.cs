@@ -335,7 +335,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
 
     public new static bool Equals(object? x, object? y)
     {
-        return x == y;
+        return object.Equals(x, y);
     }
 
     #endregion IEqualityComparer<XLCellAddress> Members

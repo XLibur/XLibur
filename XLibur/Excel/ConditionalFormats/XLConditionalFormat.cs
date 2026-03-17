@@ -190,7 +190,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
     public IXLRange Range
     {
-        get => Ranges.FirstOrDefault()!;
+        get => Ranges.FirstOrDefault() ?? throw new InvalidOperationException("XLConditionalFormat requires at least one Range.");
         set
         {
             Ranges.RemoveAll();
@@ -481,7 +481,11 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
     public IXLStyle WhenIsTrue(string formula)
     {
-        var f = formula.TrimStart()[0] == '=' ? formula : "=" + formula;
+        if (string.IsNullOrWhiteSpace(formula))
+            throw new ArgumentException("Formula cannot be null, empty, or whitespace.", nameof(formula));
+
+        var trimmed = formula.TrimStart();
+        var f = trimmed[0] == '=' ? formula : "=" + formula;
         Values.Initialize(new XLFormula { Value = f });
         ConditionalFormatType = XLConditionalFormatType.Expression;
         return Style;

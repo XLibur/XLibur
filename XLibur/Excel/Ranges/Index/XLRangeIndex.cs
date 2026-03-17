@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel.Coordinates;
+using XLibur.Excel.Rows;
 using XLibur.Excel.Tables;
 
 namespace XLibur.Excel.Ranges.Index;

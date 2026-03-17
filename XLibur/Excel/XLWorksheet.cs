@@ -9,6 +9,7 @@ using System.Linq;
 using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.InsertData;
+using XLibur.Excel.Rows;
 using XLibur.Excel.Tables;
 using XLibur.Extensions;
 using static XLibur.Excel.XLProtectionAlgorithm;

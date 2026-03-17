@@ -41,7 +41,7 @@ internal static class PivotTableDefinitionPartReader
         var target = ws.FirstCell();
         if (pivotTableDefinition?.Location?.Reference?.HasValue ?? false)
         {
-            ws.Range(pivotTableDefinition!.Location!.Reference!.Value!)!.Clear();
+            ws.Range(pivotTableDefinition.Location!.Reference!.Value!)!.Clear();
             target = ws.Range(pivotTableDefinition.Location.Reference.Value!)!.FirstCell();
         }
 
@@ -523,12 +523,12 @@ internal static class PivotTableDefinitionPartReader
     {
         if (axisItems is not null)
         {
-            // Both row and column use RowItem type for axis item.
+            // Both row and column use the RowItem type for the axis item.
             var previous = new List<int>();
             foreach (var axisItem in axisItems.Cast<RowItem>())
             {
                 var xlItemType = axisItem.ItemType?.Value.ToXLibur() ?? XLPivotItemType.Data;
-                var dataFieldIndex = checked((int)(axisItem.Index?.Value ?? 0)); // This is used by 'data' field
+                var dataFieldIndex = checked((int)(axisItem.Index?.Value ?? 0)); // This is used by the 'data' field
                 var repeatedCount = axisItem.RepeatedItemCount?.Value ?? 0;
                 var fieldIndexes = new List<int>();
                 foreach (var dataIndex in axisItem.ChildElements.Cast<MemberPropertyIndex>())
