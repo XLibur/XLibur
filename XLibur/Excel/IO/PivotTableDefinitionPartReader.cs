@@ -38,21 +38,24 @@ internal static class PivotTableDefinitionPartReader
 
         var pivotTableDefinition = pivotTablePart.PivotTableDefinition;
 
-        var target = ws.FirstCell();
-        if (pivotTableDefinition?.Location?.Reference is { HasValue: true, Value: { } referenceValue }
-            && ws.Range(referenceValue) is { } range)
+        if (pivotSource != null)
         {
-            range.Clear();
-            target = range.FirstCell();
-        }
+            var target = ws.FirstCell();
+            if (pivotTableDefinition?.Location?.Reference is { HasValue: true, Value: { } referenceValue }
+                && ws.Range(referenceValue) is { } range)
+            {
+                range.Clear();
+                target = range.FirstCell();
+            }
 
-        if (target != null && pivotSource != null)
-        {
-            var pt = LoadPivotTableDefinition(pivotTableDefinition!, ws, pivotSource, differentialFormats, context);
-            ws.PivotTables.Add(pt);
+            if (target != null)
+            {
+                var pt = LoadPivotTableDefinition(pivotTableDefinition!, ws, pivotSource, differentialFormats, context);
+                ws.PivotTables.Add(pt);
 
-            pt.RelId = worksheetPart.GetIdOfPart(pivotTablePart);
-            pt.CacheDefinitionRelId = pivotTablePart.GetIdOfPart(cache);
+                pt.RelId = worksheetPart.GetIdOfPart(pivotTablePart);
+                pt.CacheDefinitionRelId = pivotTablePart.GetIdOfPart(cache);
+            }
         }
     }
 

@@ -230,7 +230,7 @@ public class ConditionalFormatsConsolidateTests
         var comparer = XLConditionalFormat.FullComparer;
         Assert.That(comparer.Equals(cf1, cf2), Is.False);
 
-        // Different formats should (likely) produce different hashes
+        // HashSet uses comparer.Equals to resolve collisions, so both are kept because Equals returns false
         var set = new HashSet<IXLConditionalFormat>(comparer) { cf1, cf2 };
         Assert.That(set, Has.Count.EqualTo(2));
     }
