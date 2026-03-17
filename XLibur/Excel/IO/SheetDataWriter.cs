@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Xml;
+using XLibur.Excel.Coordinates;
+using XLibur.Excel.Rows;
 using XLibur.Excel.Tables;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;

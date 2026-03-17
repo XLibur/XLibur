@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.ConditionalFormats;
 
 /// <summary>
 /// A container for conditional formatting of a <see cref="XLWorksheet"/>. It contains
@@ -46,7 +47,7 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats
     }
 
     /// <summary>
-    /// The method consolidate the same conditional formats, which are located in adjacent ranges.
+    /// The method consolidates the same conditional formats, which are located in adjacent ranges.
     /// </summary>
     internal void Consolidate()
     {
@@ -70,15 +71,13 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats
         }
     }
 
-    private static List<IXLConditionalFormat> ConsolidateItem(IXLConditionalFormat item, List<IXLConditionalFormat> formats)
+    private static List<IXLConditionalFormat> ConsolidateItem(IXLConditionalFormat item,
+        List<IXLConditionalFormat> formats)
     {
         var rangesToJoin = new XLRanges();
         item.Ranges.ForEach(rangesToJoin.Add);
         var firstRange = item.Ranges.First();
         var skippedRanges = new XLRanges();
-        Func<IXLConditionalFormat, bool> IsSameFormat = f =>
-            f != item && f.Ranges.First().Worksheet.Position == firstRange.Worksheet.Position &&
-            XLConditionalFormat.NoRangeComparer.Equals(f, item);
 
         var baseAddress = new XLAddress(
             item.Ranges.Select(r => r.RangeAddress.FirstAddress.RowNumber).Min(),
@@ -96,6 +95,11 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats
         ((XLConditionalFormat)item).AdjustFormulas(baseCell, targetCell);
 
         return similarFormats;
+
+        bool IsSameFormat(IXLConditionalFormat f) => f != item &&
+                                                     f.Ranges.First().Worksheet.Position ==
+                                                     firstRange.Worksheet.Position &&
+                                                     XLConditionalFormat.NoRangeComparer.Equals(f, item);
     }
 
     private static List<IXLConditionalFormat> FindSimilarFormats(
@@ -105,11 +109,11 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats
         Func<IXLConditionalFormat, bool> isSameFormat)
     {
         List<IXLConditionalFormat> similarFormats = [];
-        int i = 1;
+        var i = 1;
         bool stop;
         do
         {
-            stop = (i >= formats.Count);
+            stop = i >= formats.Count;
 
             if (!stop)
             {
@@ -147,7 +151,7 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats
     }
 
     /// <summary>
-    /// Reorders the according to original priority. Done during load process
+    /// Reorders the conditional formats according to the original priority. Done during the load process.
     /// </summary>
     public void ReorderAccordingToOriginalPriority()
     {

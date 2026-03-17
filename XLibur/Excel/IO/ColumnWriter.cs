@@ -11,6 +11,12 @@ namespace XLibur.Excel.IO;
 
 internal static class ColumnWriter
 {
+    private readonly record struct ColumnWriteContext(
+        Columns Columns,
+        Dictionary<uint, Column> SheetColumnsByMin,
+        uint WorksheetStyleId,
+        double WorksheetColumnWidth);
+
     internal static void WriteColumns(
         Worksheet worksheet,
         XLWorksheetContentManager cm,
@@ -37,13 +43,13 @@ internal static class ColumnWriter
         cm.SetElement(XLWorksheetContents.Columns, columns);
 
         var sheetColumnsByMin = columns.Elements<Column>().ToDictionary(c => c.Min!.Value, c => c);
+        var ctx = new ColumnWriteContext(columns, sheetColumnsByMin, worksheetStyleId, worksheetColumnWidth);
 
         var (minInColumnsCollection, maxInColumnsCollection) = GetColumnsRange(xlWorksheet);
 
-        WritePreColumns(columns, sheetColumnsByMin, minInColumnsCollection, worksheetStyleId, worksheetColumnWidth);
-        var maxCol = WriteMainColumns(columns, sheetColumnsByMin, xlWorksheet, minInColumnsCollection,
-            maxInColumnsCollection, worksheetStyleId, worksheetColumnWidth, context);
-        WritePostColumns(columns, maxCol, worksheetStyleId, worksheetColumnWidth);
+        WritePreColumns(ctx, minInColumnsCollection);
+        var maxCol = WriteMainColumns(ctx, xlWorksheet, minInColumnsCollection, maxInColumnsCollection, context);
+        WritePostColumns(ctx, maxCol);
 
         CollapseColumns(columns, sheetColumnsByMin);
 
@@ -71,8 +77,7 @@ internal static class ColumnWriter
         return (min, max);
     }
 
-    private static void WritePreColumns(Columns columns, Dictionary<uint, Column> sheetColumnsByMin,
-        int minInColumnsCollection, uint worksheetStyleId, double worksheetColumnWidth)
+    private static void WritePreColumns(ColumnWriteContext ctx, int minInColumnsCollection)
     {
         if (minInColumnsCollection <= 1)
             return;
@@ -86,65 +91,30 @@ internal static class ColumnWriter
             {
                 Min = co,
                 Max = co,
-                Style = worksheetStyleId,
-                Width = worksheetColumnWidth,
+                Style = ctx.WorksheetStyleId,
+                Width = ctx.WorksheetColumnWidth,
                 CustomWidth = true
             };
 
-            UpdateColumn(column, columns, sheetColumnsByMin);
+            UpdateColumn(column, ctx.Columns, ctx.SheetColumnsByMin);
         }
     }
 
-    private static int WriteMainColumns(Columns columns, Dictionary<uint, Column> sheetColumnsByMin,
-        XLWorksheet xlWorksheet, int minInColumnsCollection, int maxInColumnsCollection,
-        uint worksheetStyleId, double worksheetColumnWidth, SaveContext context)
+    private static int WriteMainColumns(ColumnWriteContext ctx, XLWorksheet xlWorksheet,
+        int minInColumnsCollection, int maxInColumnsCollection, SaveContext context)
     {
         for (var co = minInColumnsCollection; co <= maxInColumnsCollection; co++)
         {
-            uint styleId;
-            double columnWidth;
-            var isHidden = false;
-            var collapsed = false;
-            var outlineLevel = 0;
-            if (xlWorksheet.Internals.ColumnsCollection.TryGetValue(co, out var col))
-            {
-                styleId = context.SharedStyles[col.StyleValue].StyleId;
-                columnWidth = GetColumnWidth(col.Width).SaveRound();
-                isHidden = col.IsHidden;
-                collapsed = col.Collapsed;
-                outlineLevel = col.OutlineLevel;
-            }
-            else
-            {
-                styleId = context.SharedStyles[xlWorksheet.StyleValue].StyleId;
-                columnWidth = worksheetColumnWidth;
-            }
-
-            var column = new Column
-            {
-                Min = (uint)co,
-                Max = (uint)co,
-                Style = styleId,
-                Width = columnWidth,
-                CustomWidth = true
-            };
-
-            if (isHidden)
-                column.Hidden = true;
-            if (collapsed)
-                column.Collapsed = true;
-            if (outlineLevel > 0)
-                column.OutlineLevel = (byte)outlineLevel;
-
-            UpdateColumn(column, columns, sheetColumnsByMin);
+            var column = BuildColumnElement(ctx, xlWorksheet, co, context);
+            UpdateColumn(column, ctx.Columns, ctx.SheetColumnsByMin);
         }
 
         foreach (
             var col in
-            columns.Elements<Column>().Where(c => c.Min! > (uint)(maxInColumnsCollection)).OrderBy(c => c.Min!.Value))
+            ctx.Columns.Elements<Column>().Where(c => c.Min! > (uint)(maxInColumnsCollection)).OrderBy(c => c.Min!.Value))
         {
-            col.Style = worksheetStyleId;
-            col.Width = worksheetColumnWidth;
+            col.Style = ctx.WorksheetStyleId;
+            col.Width = ctx.WorksheetColumnWidth;
             col.CustomWidth = true;
 
             if ((int)col.Max!.Value > maxInColumnsCollection)
@@ -154,21 +124,62 @@ internal static class ColumnWriter
         return maxInColumnsCollection;
     }
 
-    private static void WritePostColumns(Columns columns, int maxInColumnsCollection,
-        uint worksheetStyleId, double worksheetColumnWidth)
+    private static Column BuildColumnElement(ColumnWriteContext ctx, XLWorksheet xlWorksheet,
+        int columnNumber, SaveContext context)
     {
-        if (maxInColumnsCollection >= XLHelper.MaxColumnNumber || worksheetStyleId == 0)
+        uint styleId;
+        double columnWidth;
+        var isHidden = false;
+        var collapsed = false;
+        var outlineLevel = 0;
+
+        if (xlWorksheet.Internals.ColumnsCollection.TryGetValue(columnNumber, out var col))
+        {
+            styleId = context.SharedStyles[col.StyleValue].StyleId;
+            columnWidth = GetColumnWidth(col.Width).SaveRound();
+            isHidden = col.IsHidden;
+            collapsed = col.Collapsed;
+            outlineLevel = col.OutlineLevel;
+        }
+        else
+        {
+            styleId = context.SharedStyles[xlWorksheet.StyleValue].StyleId;
+            columnWidth = ctx.WorksheetColumnWidth;
+        }
+
+        var column = new Column
+        {
+            Min = (uint)columnNumber,
+            Max = (uint)columnNumber,
+            Style = styleId,
+            Width = columnWidth,
+            CustomWidth = true
+        };
+
+        if (isHidden)
+            column.Hidden = true;
+        if (collapsed)
+            column.Collapsed = true;
+        if (outlineLevel > 0)
+            column.OutlineLevel = (byte)outlineLevel;
+
+        return column;
+    }
+
+    private static void WritePostColumns(ColumnWriteContext ctx, int maxInColumnsCollection)
+    {
+        if (maxInColumnsCollection >= XLHelper.MaxColumnNumber || ctx.WorksheetStyleId == 0)
             return;
 
         var column = new Column
         {
             Min = (uint)(maxInColumnsCollection + 1),
             Max = (uint)(XLHelper.MaxColumnNumber),
-            Style = worksheetStyleId,
-            Width = worksheetColumnWidth,
+            Style = ctx.WorksheetStyleId,
+            Width = ctx.WorksheetColumnWidth,
             CustomWidth = true
         };
-        columns.AppendChild(column);
+        ctx.Columns.AppendChild(column);
     }
 
     internal static double GetColumnWidth(double columnWidth)

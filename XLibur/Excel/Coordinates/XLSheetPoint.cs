@@ -2,15 +2,15 @@ using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.Coordinates;
 
 /// <summary>
-/// An point (address) in a worksheet, an equivalent of <c>ST_CellRef</c>.
+/// A point (address) in a worksheet, an equivalent of <c>ST_CellRef</c>.
 /// Row and column are packed into a single <c>ulong</c> as
 /// <c>[row0:20 bits][column0:14 bits]</c> (0-based internally) for fast
 /// equality, hashing, and row-major comparison.
 /// </summary>
-/// <remarks>Unlike the XLAddress, sheet can never be invalid.</remarks>
+/// <remarks>Unlike the XLAddress, a sheet can never be invalid.</remarks>
 [DebuggerDisplay("{XLHelper.GetColumnLetterFromNumber(Column)+Row}")]
 internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XLSheetPoint>
 {

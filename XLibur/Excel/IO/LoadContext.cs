@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.ConditionalFormats;
 
 namespace XLibur.Excel.IO;
 

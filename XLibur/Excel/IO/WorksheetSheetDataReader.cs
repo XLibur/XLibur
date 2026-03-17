@@ -9,6 +9,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using XLibur.Excel.Coordinates;
 using static XLibur.Excel.XLPredefinedFormat.DateTime;
 
 namespace XLibur.Excel.IO;

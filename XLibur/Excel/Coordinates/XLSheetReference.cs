@@ -1,6 +1,6 @@
 ﻿using XLibur.Extensions;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.Coordinates;
 
 /// <summary>
 /// <see cref="XLReference"/> that includes a sheet. It can represent cell

@@ -1,7 +1,7 @@
-﻿using XLibur.Extensions;
-using ClosedXML.Parser;
+﻿using ClosedXML.Parser;
+using XLibur.Extensions;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.Coordinates;
 
 /// <summary>
 /// A reference without a sheet. Can represent single cell (<c>A1</c>), area

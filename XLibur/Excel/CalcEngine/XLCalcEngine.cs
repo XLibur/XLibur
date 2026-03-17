@@ -3,6 +3,7 @@ using System;
 using System.Globalization;
 using System.Linq;
 using XLibur.Excel.CalcEngine.Exceptions;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel.CalcEngine;
 

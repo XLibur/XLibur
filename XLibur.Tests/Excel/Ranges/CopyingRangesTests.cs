@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Linq;
 using XLibur.Excel;
 using NUnit.Framework;
+using XLibur.Excel.ConditionalFormats;
 
 namespace XLibur.Tests.Excel.Ranges;
 

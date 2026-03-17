@@ -1,6 +1,7 @@
 ﻿using System;
 using XLibur.Excel;
 using ClosedXML.Parser;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Extensions;
 

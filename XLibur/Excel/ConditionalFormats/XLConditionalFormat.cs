@@ -3,17 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using XLibur.Extensions;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.ConditionalFormats;
 
 internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat, IXLStylized
 {
     private sealed class FullEqualityComparer : IEqualityComparer<IXLConditionalFormat>
     {
         private readonly bool _compareRange;
-        private readonly DictionaryComparer<int, XLColor> _colorsComparer = new DictionaryComparer<int, XLColor>();
-        private readonly EnumerableComparer<string?> _listComparer = new EnumerableComparer<string?>();
-        private readonly DictionaryComparer<int, XLCFContentType> _contentsTypeComparer = new DictionaryComparer<int, XLCFContentType>();
-        private readonly DictionaryComparer<int, XLCFIconSetOperator> _iconSetTypeComparer = new DictionaryComparer<int, XLCFIconSetOperator>();
+        private readonly DictionaryComparer<int, XLColor> _colorsComparer = new();
+        private readonly EnumerableComparer<string?> _listComparer = new();
+        private readonly DictionaryComparer<int, XLCFContentType> _contentsTypeComparer = new();
+        private readonly DictionaryComparer<int, XLCFIconSetOperator> _iconSetTypeComparer = new();
 
         public FullEqualityComparer(bool compareRange)
         {
@@ -27,10 +27,16 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
             if (ReferenceEquals(xx, yy)) return true;
             if (xx.GetType() != yy.GetType()) return false;
 
-            var xxValues = xx.Values.Values.Where(v => v is not { IsFormula: true }).Select(v => v?.Value);
-            var yyValues = yy.Values.Values.Where(v => v is not { IsFormula: true }).Select(v => v?.Value);
-            var xxFormulas = x.Ranges.Count > 0 ? xx.Values.Values.Where(v => v is { IsFormula: true }).Select(f => ((XLCell)x.Ranges.First().FirstCell()).GetFormulaR1C1(f.Value)) : null;
-            var yyFormulas = y.Ranges.Count > 0 ? yy.Values.Values.Where(v => v is { IsFormula: true }).Select(f => ((XLCell)y.Ranges.First().FirstCell()).GetFormulaR1C1(f.Value)) : null;
+            var xxValues = xx.Values.Values.Where(v => v is not null and not { IsFormula: true }).Select(v => v.Value);
+            var yyValues = yy.Values.Values.Where(v => v is not null and not { IsFormula: true }).Select(v => v.Value);
+            var xxFormulas = x.Ranges.Count > 0
+                ? xx.Values.Values.Where(v => v is { IsFormula: true }).Select(f =>
+                    ((XLCell)x.Ranges.First().FirstCell()).GetFormulaR1C1(f.Value))
+                : null;
+            var yyFormulas = y.Ranges.Count > 0
+                ? yy.Values.Values.Where(v => v is { IsFormula: true }).Select(f =>
+                    ((XLCell)y.Ranges.First().FirstCell()).GetFormulaR1C1(f.Value))
+                : null;
 
             var xStyle = xx.StyleValue;
             var yStyle = yy.StyleValue;
@@ -59,22 +65,24 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         public int GetHashCode(IXLConditionalFormat obj)
         {
             var xx = (XLConditionalFormat)obj;
-            var xStyle = ((XLStyle)obj.Style).Value;
-            var xValues = xx.Values.Values.Where(v => !v.IsFormula).Select(v => v.Value);
+            var xValues = xx.Values.Values
+                .Where(v => v is not null and not { IsFormula: true })
+                .Select(v => v.Value);
             if (obj.Ranges.Count > 0)
                 xValues = xValues
-                    .Union(xx.Values.Values.Where(v => v.IsFormula).Select(f => ((XLCell)obj.Ranges.First().FirstCell()).GetFormulaR1C1(f.Value)));
+                    .Union(xx.Values.Values
+                        .Where(v => v is { IsFormula: true })
+                        .Select(f => ((XLCell)obj.Ranges.First().FirstCell()).GetFormulaR1C1(f.Value)));
 
             unchecked
             {
-                var hashCode = xStyle.GetHashCode();
-                hashCode = (hashCode * 397) ^ xx.StyleValue.GetHashCode();
+                var hashCode = xx.StyleValue.GetHashCode();
                 hashCode = (hashCode * 397) ^ xx.CopyDefaultModify.GetHashCode();
-                hashCode = (hashCode * 397) ^ xValues.GetHashCode();
-                hashCode = (hashCode * 397) ^ (xx.Colors != null ? xx.Colors.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ (xx.ContentTypes != null ? xx.ContentTypes.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ (xx.IconSetOperators != null ? xx.IconSetOperators.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ (_compareRange && xx.Ranges != null ? xx.Ranges.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ _listComparer.GetHashCode(xValues);
+                hashCode = (hashCode * 397) ^ _colorsComparer.GetHashCode(xx.Colors);
+                hashCode = (hashCode * 397) ^ _contentsTypeComparer.GetHashCode(xx.ContentTypes);
+                hashCode = (hashCode * 397) ^ _iconSetTypeComparer.GetHashCode(xx.IconSetOperators);
+                hashCode = (hashCode * 397) ^ (_compareRange ? xx.Ranges.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ (int)xx.ConditionalFormatType;
                 hashCode = (hashCode * 397) ^ (int)xx.TimePeriod;
                 hashCode = (hashCode * 397) ^ (int)xx.IconSetStyle;
@@ -99,24 +107,21 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
             if (Values[key] == null || !Values[key].IsFormula)
                 continue;
 
+            // ReSharper disable once InconsistentNaming
             var r1c1 = baseCell.GetFormulaR1C1(Values[key].Value);
             Values[key] = new XLFormula { _value = targetCell.GetFormulaA1(r1c1), IsFormula = true };
         }
     }
 
-    private static readonly IEqualityComparer<IXLConditionalFormat> FullComparerInstance = new FullEqualityComparer(true);
+    private static readonly IEqualityComparer<IXLConditionalFormat> FullComparerInstance =
+        new FullEqualityComparer(true);
 
-    public static IEqualityComparer<IXLConditionalFormat> FullComparer
-    {
-        get { return FullComparerInstance; }
-    }
+    public static IEqualityComparer<IXLConditionalFormat> FullComparer => FullComparerInstance;
 
-    private static readonly IEqualityComparer<IXLConditionalFormat> NoRangeComparerInstance = new FullEqualityComparer(false);
+    private static readonly IEqualityComparer<IXLConditionalFormat> NoRangeComparerInstance =
+        new FullEqualityComparer(false);
 
-    public static IEqualityComparer<IXLConditionalFormat> NoRangeComparer
-    {
-        get { return NoRangeComparerInstance; }
-    }
+    public static IEqualityComparer<IXLConditionalFormat> NoRangeComparer => NoRangeComparerInstance;
 
     #region Constructors
 
@@ -134,15 +139,14 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     public XLConditionalFormat(XLRange range, bool copyDefaultModify = false)
         : this()
     {
-        if (range != null)
-            Ranges.Add(range);
+        Ranges.Add(range);
         CopyDefaultModify = copyDefaultModify;
     }
 
     public XLConditionalFormat(IEnumerable<XLRange> ranges, bool copyDefaultModify = false)
         : this()
     {
-        ranges?.ForEach(range => Ranges.Add(range));
+        ranges.ForEach(range => Ranges.Add(range));
         CopyDefaultModify = copyDefaultModify;
     }
 
@@ -154,7 +158,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     public XLConditionalFormat(XLConditionalFormat conditionalFormat, IEnumerable<IXLRange> targetRanges)
         : this()
     {
-        targetRanges?.ForEach(range => Ranges.Add(range));
+        targetRanges.ForEach(range => Ranges.Add(range));
         CopyFrom(conditionalFormat);
     }
 
@@ -175,10 +179,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         get { yield break; }
     }
 
-    public override IXLRanges RangesUsed
-    {
-        get { return new XLRanges(); }
-    }
+    public override IXLRanges RangesUsed => new XLRanges();
 
     public XLDictionary<XLFormula> Values { get; private set; }
 
@@ -190,7 +191,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
     public IXLRange Range
     {
-        get { return Ranges.FirstOrDefault()!; }
+        get => Ranges.FirstOrDefault() ?? throw new InvalidOperationException("XLConditionalFormat requires at least one Range.");
         set
         {
             Ranges.RemoveAll();
@@ -235,8 +236,9 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
     public IXLConditionalFormat CopyTo(IXLWorksheet targetSheet)
     {
-        if (targetSheet == Range?.Worksheet)
-            throw new InvalidOperationException("Cannot copy conditional format to the worksheet it already belongs to.");
+        if (targetSheet == Range.Worksheet)
+            throw new InvalidOperationException(
+                "Cannot copy conditional format to the worksheet it already belongs to.");
         var targetRanges = Ranges.Select(r => targetSheet.Range(((XLRangeAddress)r.RangeAddress).WithoutWorksheet()));
         var newCf = new XLConditionalFormat(this, targetRanges);
         targetSheet.ConditionalFormats.Add(newCf);
@@ -260,7 +262,6 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
         Values.Clear();
         other.Values.Where(kp => kp.Value != null).ForEach(kp => Values.Add(kp.Key, new XLFormula(kp.Value)));
-        //CopyDictionary(Values, other.Values);
         CopyDictionary(Colors, other.Colors);
         CopyDictionary(ContentTypes, other.ContentTypes);
         CopyDictionary(IconSetOperators, other.IconSetOperators);
@@ -481,7 +482,11 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
     public IXLStyle WhenIsTrue(string formula)
     {
-        string f = formula.TrimStart()[0] == '=' ? formula : "=" + formula;
+        if (string.IsNullOrWhiteSpace(formula))
+            throw new ArgumentException("Formula cannot be null, empty, or whitespace.", nameof(formula));
+
+        var trimmed = formula.TrimStart();
+        var f = trimmed[0] == '=' ? formula : "=" + formula;
         Values.Initialize(new XLFormula { Value = f });
         ConditionalFormatType = XLConditionalFormatType.Expression;
         return Style;
@@ -520,7 +525,8 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         return new XLCFDataBarMin(this);
     }
 
-    public IXLCFDataBarMin DataBar(XLColor positiveColor, XLColor negativeColor, bool showBarOnly = false, bool gradient = true)
+    public IXLCFDataBarMin DataBar(XLColor positiveColor, XLColor negativeColor, bool showBarOnly = false,
+        bool gradient = true)
     {
         Colors.Initialize(positiveColor);
         Colors.Add(negativeColor);
@@ -564,15 +570,25 @@ internal sealed class DictionaryComparer<TKey, TValue> :
             return false;
         if (y.Keys.Except(x.Keys).Any())
             return false;
-        foreach (var pair in x)
-            if (!_valueComparer.Equals(pair.Value, y[pair.Key]))
-                return false;
-        return true;
+        return x.All(pair => _valueComparer.Equals(pair.Value, y[pair.Key]));
     }
 
     public int GetHashCode(Dictionary<TKey, TValue>? obj)
     {
-        throw new NotImplementedException();
+        if (obj is null)
+            return 0;
+
+        unchecked
+        {
+            var hash = 0;
+            foreach (var pair in obj)
+            {
+                var entryHash = pair.Key.GetHashCode();
+                entryHash = (entryHash * 397) ^ (pair.Value is not null ? _valueComparer.GetHashCode(pair.Value) : 0);
+                hash ^= entryHash;
+            }
+            return hash;
+        }
     }
 }
 
@@ -588,16 +604,24 @@ internal sealed class EnumerableComparer<T> : IEqualityComparer<IEnumerable<T>>
     public bool Equals(IEnumerable<T>? x, IEnumerable<T>? y)
     {
         if (x is null) return y is null;
-        if (y is null) return false;
-        return SetEquals(x, y, _valueComparer);
+        return y is not null && SetEquals(x, y, _valueComparer);
     }
 
     public int GetHashCode(IEnumerable<T>? obj)
     {
-        throw new NotImplementedException();
+        if (obj is null)
+            return 0;
+
+        unchecked
+        {
+            var hash = 0;
+            foreach (var item in obj)
+                hash ^= item is not null ? _valueComparer.GetHashCode(item) : 0;
+            return hash;
+        }
     }
 
-    public static bool SetEquals(IEnumerable<T> first, IEnumerable<T> second,
+    private static bool SetEquals(IEnumerable<T> first, IEnumerable<T> second,
         IEqualityComparer<T>? comparer)
     {
         return new HashSet<T>(second, comparer ?? EqualityComparer<T>.Default)

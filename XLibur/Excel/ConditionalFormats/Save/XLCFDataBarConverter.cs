@@ -1,5 +1,6 @@
 ﻿using XLibur.Extensions;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.ConditionalFormats;
 
 namespace XLibur.Excel;
 

@@ -7,6 +7,7 @@ using System.Dynamic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 
 namespace XLibur.Excel.Tables;

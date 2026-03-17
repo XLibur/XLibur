@@ -1,26 +1,24 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using XLibur.Extensions;
 
-namespace XLibur.Excel;
-
-using System.Collections;
+namespace XLibur.Excel.Rows;
 
 internal sealed class XLRowsCollection : IDictionary<int, XLRow>
 {
     private readonly Dictionary<int, XLRow> _dictionary = new();
 
-    public Dictionary<int, XLRow> Deleted { get; } = new();
+    private Dictionary<int, XLRow> Deleted { get; } = new();
 
-    public int MaxRowUsed;
+    private int _maxRowUsed;
 
     #region IDictionary<int,XLRow> Members
 
     public void Add(int key, XLRow value)
     {
-        if (key > MaxRowUsed) MaxRowUsed = key;
+        if (key > _maxRowUsed) _maxRowUsed = key;
 
         Deleted.Remove(key);
         _dictionary.Add(key, value);
@@ -56,7 +54,7 @@ internal sealed class XLRowsCollection : IDictionary<int, XLRow>
 
     public void Add(KeyValuePair<int, XLRow> item)
     {
-        if (item.Key > MaxRowUsed) MaxRowUsed = item.Key;
+        if (item.Key > _maxRowUsed) _maxRowUsed = item.Key;
 
         Deleted.Remove(item.Key);
         _dictionary.Add(item.Key, item.Value);
@@ -103,7 +101,7 @@ internal sealed class XLRowsCollection : IDictionary<int, XLRow>
 
     public void ShiftRowsDown(int startingRow, int rowsToShift)
     {
-        foreach (int ro in _dictionary.Keys.Where(k => k >= startingRow).OrderByDescending(k => k))
+        foreach (var ro in _dictionary.Keys.Where(k => k >= startingRow).OrderByDescending(k => k).ToList())
         {
             var rowToMove = _dictionary[ro];
             _dictionary.Remove(ro);
@@ -114,15 +112,5 @@ internal sealed class XLRowsCollection : IDictionary<int, XLRow>
                 _dictionary.Add(newRowNum, rowToMove);
             }
         }
-    }
-
-    public void RemoveAll(Func<XLRow, bool> predicate)
-    {
-        foreach (var row in _dictionary.Values.Where(predicate).Where(row1 => !Deleted.ContainsKey(row1.RowNumber())))
-        {
-            Deleted.Add(row.RowNumber(), row);
-        }
-
-        _dictionary.RemoveAll(predicate);
     }
 }

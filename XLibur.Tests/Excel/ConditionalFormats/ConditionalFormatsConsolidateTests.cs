@@ -1,6 +1,8 @@
-﻿using XLibur.Excel;
+﻿using System.Collections.Generic;
+using XLibur.Excel;
 using NUnit.Framework;
 using System.Linq;
+using XLibur.Excel.ConditionalFormats;
 
 namespace XLibur.Tests.Excel.ConditionalFormats;
 
@@ -186,6 +188,51 @@ public class ConditionalFormatsConsolidateTests
             .LowestValue(XLColor.Red)
             .HighestValue(XLColor.Green);
         Assert.True(XLConditionalFormat.NoRangeComparer.Equals(cf1, cf2));
+    }
+
+    [Test]
+    public void EqualFormats_have_same_hash_via_NoRangeComparer()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet");
+
+        var cf1 = new XLConditionalFormat((XLRange)ws.Range("A1:B2"));
+        cf1.ColorScale()
+            .LowestValue(XLColor.Red)
+            .HighestValue(XLColor.Green);
+
+        var cf2 = new XLConditionalFormat((XLRange)ws.Range("C3:D4"));
+        cf2.ColorScale()
+            .LowestValue(XLColor.Red)
+            .HighestValue(XLColor.Green);
+
+        // Equal formats (ignoring range) must produce the same hash
+        var comparer = XLConditionalFormat.NoRangeComparer;
+        Assert.That(comparer.GetHashCode(cf1), Is.EqualTo(comparer.GetHashCode(cf2)));
+
+        // HashSet dedup should treat them as one entry
+        var set = new HashSet<IXLConditionalFormat>(comparer) { cf1, cf2 };
+        Assert.That(set, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void DifferentFormats_not_equal_via_FullComparer()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet");
+
+        var cf1 = new XLConditionalFormat((XLRange)ws.Range("A1:B2"));
+        cf1.WhenEquals(5).Fill.SetBackgroundColor(XLColor.Blue);
+
+        var cf2 = new XLConditionalFormat((XLRange)ws.Range("A1:B2"));
+        cf2.WhenEquals(10).Fill.SetBackgroundColor(XLColor.Red);
+
+        var comparer = XLConditionalFormat.FullComparer;
+        Assert.That(comparer.Equals(cf1, cf2), Is.False);
+
+        // HashSet uses comparer.Equals to resolve collisions, so both are kept because Equals returns false
+        var set = new HashSet<IXLConditionalFormat>(comparer) { cf1, cf2 };
+        Assert.That(set, Has.Count.EqualTo(2));
     }
 
     private static void SetFormat1(IXLConditionalFormat format)

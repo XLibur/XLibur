@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using XLibur.Excel.ConditionalFormats;
 
 namespace XLibur.Excel;
 
@@ -20,10 +21,10 @@ internal sealed class XLPivotConditionalFormat
     internal XLPivotCfScope Scope { get; init; } = XLPivotCfScope.SelectedCells;
 
     /// <summary>
-    /// A rule that determines how should CF be applied to <see cref="Areas"/>.
+    /// A rule that determines how CF should be applied to <see cref="Areas"/>.
     /// </summary>
-    /// <remarks>Doesn't seem to work, Excel has no dialogue, nothing found on web and Excel tries
-    ///     to repair on row/column values. Avoid if possible.</remarks>
+    /// <remarks>Doesn't seem to work, Excel has no dialogue, nothing found on web, and Excel tries
+    /// to repair on row/column values. Avoid it if possible.</remarks>
     internal XLPivotCfRuleType Type { get; init; } = XLPivotCfRuleType.None;
 
     /// <summary>
@@ -36,8 +37,8 @@ internal sealed class XLPivotConditionalFormat
     /// Conditional format applied to the <see cref="Areas"/>.
     /// </summary>
     /// <remarks>
-    /// The <see cref="XLConditionalFormat.Priority"/> of the format is used as a identifier used
-    /// to connect pivot CF element and sheet CF element. Pivot CF is ultimately part of sheet CFs
+    /// The <see cref="XLConditionalFormat.Priority"/> of the format is used as an identifier used
+    /// to connect pivot CF element and sheet CF element. Pivot CF is ultimately part of sheet CFs,
     /// and the priority determines order of CF application (note that CF has
     /// <see cref="XLConditionalFormat.StopIfTrue"/> flag).
     /// </remarks>

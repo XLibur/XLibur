@@ -1,26 +1,26 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using XLibur.Extensions;
 
-namespace XLibur.Excel;
-
-using System.Collections;
+namespace XLibur.Excel.Rows;
 
 internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
 {
-    private readonly List<XLRow> _rowsCollection = new List<XLRow>();
+    private readonly List<XLRow> _rowsCollection = [];
     private readonly XLWorksheet? _worksheet;
 
     private bool IsMaterialized => _lazyEnumerable == null;
 
     private IEnumerable<XLRow>? _lazyEnumerable;
+
     private IEnumerable<XLRow> Rows => _lazyEnumerable ?? _rowsCollection.AsEnumerable();
 
     /// <summary>
     /// Create a new instance of <see cref="XLRows"/>.
     /// </summary>
     /// <param name="worksheet">If worksheet is specified it means that the created instance represents
-    /// all rows on a worksheet so changing its height will affect all rows.</param>
+    /// all rows on a worksheet, so changing its height will affect all rows.</param>
     /// <param name="defaultStyle">Default style to use when initializing child entries.</param>
     /// <param name="lazyEnumerable">A predefined enumerator of <see cref="XLRow"/> to support lazy initialization.</param>
     public XLRows(XLWorksheet? worksheet, XLStyleValue? defaultStyle = null, IEnumerable<XLRow>? lazyEnumerable = null)
@@ -65,20 +65,20 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
         else
         {
             var toDelete = new Dictionary<IXLWorksheet, List<int>>();
-            foreach (XLRow r in Rows)
+            foreach (var r in Rows)
             {
-                if (!toDelete.TryGetValue(r.Worksheet, out List<int>? list))
+                if (!toDelete.TryGetValue(r.Worksheet, out var list))
                 {
-                    list = new List<int>();
+                    list = [];
                     toDelete.Add(r.Worksheet, list);
                 }
 
                 list.Add(r.RowNumber());
             }
 
-            foreach (KeyValuePair<IXLWorksheet, List<int>> kp in toDelete)
+            foreach (var kp in toDelete)
             {
-                foreach (int r in kp.Value.OrderByDescending(r => r))
+                foreach (var r in kp.Value.OrderByDescending(r => r))
                     kp.Key.Row(r).Delete();
             }
         }
@@ -140,11 +140,6 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
         Group(outlineLevel, false);
     }
 
-    public void Ungroup()
-    {
-        Ungroup(false);
-    }
-
     public void Group(bool collapse)
     {
         Rows.ForEach(r => r.Group(collapse));
@@ -153,6 +148,11 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
     public void Group(int outlineLevel, bool collapse)
     {
         Rows.ForEach(r => r.Group(outlineLevel, collapse));
+    }
+
+    public void Ungroup()
+    {
+        Ungroup(false);
     }
 
     public void Ungroup(bool fromAll)
@@ -173,7 +173,7 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
     public IXLCells Cells()
     {
         var cells = new XLCells(false, XLCellsUsedOptions.AllContents);
-        foreach (XLRow container in Rows)
+        foreach (var container in Rows)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -181,7 +181,7 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
     public IXLCells CellsUsed()
     {
         var cells = new XLCells(true, XLCellsUsedOptions.AllContents);
-        foreach (XLRow container in Rows)
+        foreach (var container in Rows)
             cells.Add(container.RangeAddress);
         return cells;
     }
@@ -189,14 +189,14 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
     public IXLCells CellsUsed(XLCellsUsedOptions options)
     {
         var cells = new XLCells(true, options);
-        foreach (XLRow container in Rows)
+        foreach (var container in Rows)
             cells.Add(container.RangeAddress);
         return cells;
     }
 
     public IXLRows AddHorizontalPageBreaks()
     {
-        foreach (XLRow row in Rows)
+        foreach (var row in Rows)
             row.Worksheet.PageSetup.AddHorizontalPageBreak(row.RowNumber());
         return this;
     }
@@ -213,7 +213,7 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
                 yield return _worksheet;
             else
             {
-                foreach (XLRow row in Rows)
+                foreach (var row in Rows)
                     yield return row;
             }
         }

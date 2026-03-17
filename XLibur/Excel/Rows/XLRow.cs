@@ -1,10 +1,10 @@
-using XLibur.Graphics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Extensions;
+using XLibur.Graphics;
 
-namespace XLibur.Excel;
+namespace XLibur.Excel.Rows;
 
 internal sealed class XLRow : XLRangeBase, IXLRow
 {
@@ -47,18 +47,15 @@ internal sealed class XLRow : XLRangeBase, IXLRow
 
     public override XLWorksheet Worksheet => _worksheet;
 
-    public override XLRangeType RangeType
-    {
-        get { return XLRangeType.Row; }
-    }
+    public override XLRangeType RangeType => XLRangeType.Row;
 
     protected override IEnumerable<XLStylizedBase> Children
     {
         get
         {
-            int row = RowNumber();
+            var row = RowNumber();
 
-            foreach (XLCell cell in Worksheet.Internals.CellsCollection.GetCellsInRow(row))
+            foreach (var cell in Worksheet.Internals.CellsCollection.GetCellsInRow(row))
                 yield return cell;
         }
     }
@@ -82,7 +79,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     /// </summary>
     /// <remarks>
     /// If the attribute is set, it sets customHeight to true even if the customHeight is explicitly
-    /// set to false. Custom height means no auto-sizing by Excel on load, so if row has this
+    /// set to false. Custom height means no auto-sizing by Excel on load, so if a row has this
     /// attribute, it stops Excel from auto-sizing the height of a row to fit the content on load.
     /// </remarks>
     public double? DyDescent { get; set; }
@@ -90,8 +87,8 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     /// <summary>
     /// Should cells in the row display phonetic? This doesn't actually affect whether the phonetic are
     /// shown in the row, that depends entirely on the <see cref="IXLCell.ShowPhonetic"/> property
-    /// of a cell. This property determines whether a new cell in the row will have it's phonetic turned on
-    /// (and also the state of the "Show or hide phonetic" in Excel when whole row is selected).
+    /// of a cell. This property determines whether a new cell in the row will have its phonetic turned on
+    /// (and also the state of the "Show or hide phonetic" in Excel when the whole row is selected).
     /// Default is <c>false</c>.
     /// </summary>
     public bool ShowPhonetic
@@ -125,7 +122,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
 
     public double Height
     {
-        get { return _height; }
+        get => _height;
         set
         {
             HeightChanged = true;
@@ -154,14 +151,14 @@ internal sealed class XLRow : XLRangeBase, IXLRow
 
     public void Delete()
     {
-        int rowNumber = RowNumber();
+        var rowNumber = RowNumber();
         AsRange().Delete(XLShiftDeletedCells.ShiftCellsUp);
         Worksheet.DeleteRow(rowNumber);
     }
 
     public new IXLRows InsertRowsBelow(int numberOfRows)
     {
-        int rowNum = RowNumber();
+        var rowNum = RowNumber();
         Worksheet.Internals.RowsCollection.ShiftRowsDown(rowNum + 1, numberOfRows);
         var asRange = Worksheet.Row(rowNum).AsRange();
         asRange.InsertRowsBelowVoid(true, numberOfRows);
@@ -188,7 +185,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
 
     public new IXLRows InsertRowsAbove(int numberOfRows)
     {
-        int rowNum = RowNumber();
+        var rowNum = RowNumber();
         if (rowNum > 1)
         {
             return Worksheet.Row(rowNum - 1).InsertRowsBelow(numberOfRows);
@@ -252,6 +249,11 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     {
         return Cells(XLHelper.GetColumnNumberFromLetter(firstColumn) + ":"
                                                                      + XLHelper.GetColumnNumberFromLetter(lastColumn));
+    }
+
+    public IXLRow AdjustToContents()
+    {
+        return AdjustToContents(1);
     }
 
     public IXLRow AdjustToContents(int startColumn)
@@ -422,11 +424,6 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         return Group(outlineLevel, false);
     }
 
-    public IXLRow Ungroup()
-    {
-        return Ungroup(false);
-    }
-
     public IXLRow Group(bool collapse)
     {
         if (OutlineLevel < 8)
@@ -441,6 +438,11 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         OutlineLevel = outlineLevel;
         Collapsed = collapse;
         return this;
+    }
+
+    public IXLRow Ungroup()
+    {
+        return Ungroup(false);
     }
 
     public IXLRow Ungroup(bool fromAll)
@@ -525,7 +527,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     {
         var retVal = new XLRangeRows();
         var rowPairs = columns.Split(',');
-        foreach (string pair in rowPairs)
+        foreach (var pair in rowPairs)
             AsRange().Rows(pair.Trim()).ForEach(retVal.Add);
 
         return retVal;
@@ -576,8 +578,8 @@ internal sealed class XLRow : XLRangeBase, IXLRow
                 rangeAddressStr = rangeAddressStr.Replace('-', ':');
 
             var arrRange = rangeAddressStr.Split(':');
-            string firstPart = arrRange[0];
-            string secondPart = arrRange[1];
+            var firstPart = arrRange[0];
+            var secondPart = arrRange[1];
             rangeAddressToUse = FixRowAddress(firstPart) + ":" + FixRowAddress(secondPart);
         }
         else
@@ -587,17 +589,12 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         return Range(rangeAddress);
     }
 
-    public IXLRow AdjustToContents()
-    {
-        return AdjustToContents(1);
-    }
-
     internal void SetStyleNoColumns(IXLStyle value)
     {
         InnerStyle = value;
 
-        int row = RowNumber();
-        foreach (XLCell c in Worksheet.Internals.CellsCollection.GetCellsInRow(row))
+        var row = RowNumber();
+        foreach (var c in Worksheet.Internals.CellsCollection.GetCellsInRow(row))
             c.InnerStyle = value;
     }
 
@@ -679,7 +676,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     }
 
     /// <summary>
-    /// Flag enum to save space, instead of wasting byte for each flag.
+    /// Flag enum to save space instead of wasting byte for each flag.
     /// </summary>
     [Flags]
     private enum XlRowFlags : byte
