@@ -4,7 +4,7 @@ namespace XLibur.Excel;
 
 internal sealed class XLNumberFormatValue
 {
-    private static readonly XLNumberFormatRepository Repository = new XLNumberFormatRepository(key => new XLNumberFormatValue(key));
+    private static readonly XLRepositoryBase<XLNumberFormatKey, XLNumberFormatValue> Repository = new(key => new XLNumberFormatValue(key));
 
     public static XLNumberFormatValue FromKey(ref XLNumberFormatKey key)
     {

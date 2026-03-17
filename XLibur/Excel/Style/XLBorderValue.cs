@@ -4,7 +4,7 @@ namespace XLibur.Excel;
 
 internal sealed class XLBorderValue
 {
-    private static readonly XLBorderRepository Repository = new(key => new XLBorderValue(key));
+    private static readonly XLRepositoryBase<XLBorderKey, XLBorderValue> Repository = new(key => new XLBorderValue(key));
 
     public static XLBorderValue FromKey(ref XLBorderKey key)
     {

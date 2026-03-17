@@ -4,7 +4,7 @@ namespace XLibur.Excel;
 
 public class XLAlignmentValue
 {
-    private static readonly XLAlignmentRepository Repository = new(key => new XLAlignmentValue(key));
+    private static readonly XLRepositoryBase<XLAlignmentKey, XLAlignmentValue> Repository = new(key => new XLAlignmentValue(key));
 
     public static XLAlignmentValue FromKey(ref XLAlignmentKey key)
     {

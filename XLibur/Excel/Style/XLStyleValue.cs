@@ -8,7 +8,7 @@ namespace XLibur.Excel;
 /// </summary>
 internal sealed class XLStyleValue : IEquatable<XLStyleValue?>
 {
-    private static readonly XLStyleRepository Repository = new(key => new XLStyleValue(key));
+    private static readonly XLRepositoryBase<XLStyleKey, XLStyleValue> Repository = new(key => new XLStyleValue(key));
     private readonly int _hashCode;
 
     public static XLStyleValue FromKey(ref XLStyleKey key)

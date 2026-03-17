@@ -8,7 +8,7 @@ namespace XLibur.Excel;
 
 public sealed partial class XLColor
 {
-    private static readonly XLColorRepository Repository = new(key => new XLColor(key));
+    private static readonly XLRepositoryBase<XLColorKey, XLColor> Repository = new(key => new XLColor(key));
 
     /// <summary>
     /// VML palette entries from MS-OI29500. Excel uses a Windows system color scheme to determine the actual colors of a palette
