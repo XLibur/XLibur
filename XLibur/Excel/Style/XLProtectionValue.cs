@@ -4,7 +4,7 @@ namespace XLibur.Excel;
 
 internal sealed class XLProtectionValue
 {
-    private static readonly XLProtectionRepository Repository = new(key => new XLProtectionValue(key));
+    private static readonly XLRepositoryBase<XLProtectionKey, XLProtectionValue> Repository = new(key => new XLProtectionValue(key));
 
     public static XLProtectionValue FromKey(ref XLProtectionKey key)
     {

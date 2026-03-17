@@ -5,7 +5,7 @@ namespace XLibur.Excel;
 
 internal sealed class XLFontValue
 {
-    private static readonly XLFontRepository Repository = new(key => new XLFontValue(key));
+    private static readonly XLRepositoryBase<XLFontKey, XLFontValue> Repository = new(key => new XLFontValue(key));
 
     public static XLFontValue FromKey(ref XLFontKey key)
     {

@@ -11,7 +11,7 @@ internal abstract class XLRepositoryBase : IXLRepository
     public abstract void Clear();
 }
 
-internal abstract class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<Tkey, Tvalue>
+internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<Tkey, Tvalue>
     where Tkey : struct, IEquatable<Tkey>
     where Tvalue : class
 {
@@ -21,12 +21,12 @@ internal abstract class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRe
     private readonly ConcurrentDictionary<Tkey, WeakReference> _storage;
     private readonly Func<Tkey, Tvalue> _createNew;
 
-    protected XLRepositoryBase(Func<Tkey, Tvalue> createNew)
+    internal XLRepositoryBase(Func<Tkey, Tvalue> createNew)
         : this(createNew, EqualityComparer<Tkey>.Default)
     {
     }
 
-    protected XLRepositoryBase(Func<Tkey, Tvalue> createNew, IEqualityComparer<Tkey> comparer)
+    internal XLRepositoryBase(Func<Tkey, Tvalue> createNew, IEqualityComparer<Tkey> comparer)
     {
         _storage = new ConcurrentDictionary<Tkey, WeakReference>(CONCURRENCY_LEVEL, INITIAL_CAPACITY, comparer);
         _createNew = createNew;

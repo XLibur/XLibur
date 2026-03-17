@@ -5,7 +5,7 @@ namespace XLibur.Excel;
 
 internal sealed class XLFillValue
 {
-    private static readonly XLFillRepository Repository = new(key => new XLFillValue(key));
+    private static readonly XLRepositoryBase<XLFillKey, XLFillValue> Repository = new(key => new XLFillValue(key));
 
     public static XLFillValue FromKey(ref XLFillKey key)
     {
