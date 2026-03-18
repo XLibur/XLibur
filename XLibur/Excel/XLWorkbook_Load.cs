@@ -99,7 +99,14 @@ public partial class XLWorkbook
         var workbookPart = dSpreadsheet.WorkbookPart!;
         var shareStringPart = workbookPart.GetPartsOfType<SharedStringTablePart>().FirstOrDefault();
         if (shareStringPart is not null)
+        {
             sharedStrings = SharedStringReader.Read(shareStringPart);
+
+            // Pre-size the workbook's internal SST to avoid repeated resizing
+            // as cell values reference these strings during sheet loading.
+            if (sharedStrings.Length > 0)
+                SharedStringTable.EnsureCapacity(sharedStrings.Length);
+        }
 
         LoadWorkbookTheme(workbookPart.ThemePart, this);
 
