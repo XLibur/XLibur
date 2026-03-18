@@ -132,6 +132,33 @@ internal static class ChartReader
             primarySet = true;
         }
 
+        // Doughnut
+        var doughnutChart = plotArea.Elements<DoughnutChart>().FirstOrDefault();
+        if (doughnutChart != null && !primarySet)
+        {
+            xlChart.ChartType = XLChartType.Doughnut;
+            ReadSeriesFromElements<PieChartSeries>(doughnutChart, xlChart.Series);
+            primarySet = true;
+        }
+
+        // Area
+        var areaChart = plotArea.Elements<AreaChart>().FirstOrDefault();
+        if (areaChart != null)
+        {
+            var areaType = DetermineAreaChartType(areaChart);
+            if (!primarySet) { xlChart.ChartType = areaType; ReadSeriesFromElements<AreaChartSeries>(areaChart, xlChart.Series); primarySet = true; }
+            else { xlChart.SecondaryChartType = areaType; ReadSeriesFromElements<AreaChartSeries>(areaChart, xlChart.SecondarySeries); }
+        }
+
+        // Bubble
+        var bubbleChart = plotArea.Elements<BubbleChart>().FirstOrDefault();
+        if (bubbleChart != null && !primarySet)
+        {
+            xlChart.ChartType = XLChartType.Bubble;
+            ReadBubbleSeries(bubbleChart, xlChart.Series);
+            primarySet = true;
+        }
+
         // Line
         var lineChart = plotArea.Elements<LineChart>().FirstOrDefault();
         if (lineChart != null)
@@ -336,6 +363,37 @@ internal static class ChartReader
     private static XLChartType DetermineRadarChartType(RadarChart radarChart) =>
         radarChart.RadarStyle?.Val?.Value == RadarStyleValues.Filled
             ? XLChartType.RadarFilled : XLChartType.Radar;
+
+    private static XLChartType DetermineAreaChartType(AreaChart areaChart)
+    {
+        var grouping = areaChart.Grouping?.Val?.Value;
+        if (grouping == GroupingValues.Stacked) return XLChartType.AreaStacked;
+        if (grouping == GroupingValues.PercentStacked) return XLChartType.AreaStacked100Percent;
+        return XLChartType.Area;
+    }
+
+    private static void ReadBubbleSeries(BubbleChart bubbleChart, IXLChartSeriesCollection target)
+    {
+        foreach (var series in bubbleChart.Elements<BubbleChartSeries>())
+        {
+            var name = ExtractSeriesName(series.Elements<SeriesText>().FirstOrDefault());
+
+            string? xRef = null;
+            var xValues = series.Elements<XValues>().FirstOrDefault();
+            if (xValues != null)
+            {
+                xRef = xValues.Elements<NumberReference>().FirstOrDefault()?.Formula?.Text;
+                xRef ??= xValues.Elements<StringReference>().FirstOrDefault()?.Formula?.Text;
+            }
+
+            var yRef = string.Empty;
+            var yValues = series.Elements<YValues>().FirstOrDefault();
+            if (yValues != null)
+                yRef = yValues.Elements<NumberReference>().FirstOrDefault()?.Formula?.Text ?? string.Empty;
+
+            target.Add(name, yRef, xRef);
+        }
+    }
 
     private static XLChartType DetermineScatterChartType(ScatterChart scatterChart)
     {

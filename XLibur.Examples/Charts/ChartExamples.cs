@@ -447,6 +447,67 @@ public class ChartExamples : IXLExample
         chart16.Position.SetColumn(0).SetRow(11);
         chart16.SecondPosition.SetColumn(9).SetRow(26);
 
+        // --- Sheet 17: Area chart ---
+        var ws17 = wb.Worksheets.Add("Area");
+
+        ws17.Cell("A1").Value = "Month";
+        ws17.Cell("B1").Value = "Product A";
+        ws17.Cell("C1").Value = "Product B";
+
+        ws17.Cell("A2").Value = "Jan"; ws17.Cell("B2").Value = 30; ws17.Cell("C2").Value = 20;
+        ws17.Cell("A3").Value = "Feb"; ws17.Cell("B3").Value = 35; ws17.Cell("C3").Value = 25;
+        ws17.Cell("A4").Value = "Mar"; ws17.Cell("B4").Value = 28; ws17.Cell("C4").Value = 30;
+        ws17.Cell("A5").Value = "Apr"; ws17.Cell("B5").Value = 40; ws17.Cell("C5").Value = 28;
+        ws17.Cell("A6").Value = "May"; ws17.Cell("B6").Value = 45; ws17.Cell("C6").Value = 35;
+
+        ws17.Columns("A", "C").AdjustToContents();
+
+        var chart17 = ws17.Charts.Add(XLChartType.AreaStacked);
+        chart17.SetTitle("Stacked Area");
+        chart17.Series.Add("Product A", "Area!$B$2:$B$6", "Area!$A$2:$A$6");
+        chart17.Series.Add("Product B", "Area!$C$2:$C$6", "Area!$A$2:$A$6");
+        chart17.Position.SetColumn(0).SetRow(8);
+        chart17.SecondPosition.SetColumn(9).SetRow(24);
+
+        // --- Sheet 18: Doughnut chart ---
+        var ws18 = wb.Worksheets.Add("Doughnut");
+
+        ws18.Cell("A1").Value = "Source";
+        ws18.Cell("B1").Value = "Traffic";
+
+        ws18.Cell("A2").Value = "Organic"; ws18.Cell("B2").Value = 45;
+        ws18.Cell("A3").Value = "Direct";  ws18.Cell("B3").Value = 25;
+        ws18.Cell("A4").Value = "Social";  ws18.Cell("B4").Value = 20;
+        ws18.Cell("A5").Value = "Referral"; ws18.Cell("B5").Value = 10;
+
+        ws18.Columns("A", "B").AdjustToContents();
+
+        var chart18 = ws18.Charts.Add(XLChartType.Doughnut);
+        chart18.SetTitle("Traffic Sources");
+        chart18.Series.Add("Traffic", "Doughnut!$B$2:$B$5", "Doughnut!$A$2:$A$5");
+        chart18.Position.SetColumn(0).SetRow(7);
+        chart18.SecondPosition.SetColumn(9).SetRow(22);
+
+        // --- Sheet 19: Bubble chart ---
+        var ws19 = wb.Worksheets.Add("Bubble");
+
+        ws19.Cell("A1").Value = "X (Revenue)";
+        ws19.Cell("B1").Value = "Y (Profit)";
+
+        ws19.Cell("A2").Value = 100; ws19.Cell("B2").Value = 15;
+        ws19.Cell("A3").Value = 200; ws19.Cell("B3").Value = 30;
+        ws19.Cell("A4").Value = 150; ws19.Cell("B4").Value = 10;
+        ws19.Cell("A5").Value = 300; ws19.Cell("B5").Value = 50;
+        ws19.Cell("A6").Value = 250; ws19.Cell("B6").Value = 35;
+
+        ws19.Columns("A", "B").AdjustToContents();
+
+        var chart19 = ws19.Charts.Add(XLChartType.Bubble);
+        chart19.SetTitle("Revenue vs Profit");
+        chart19.Series.Add("Products", "Bubble!$B$2:$B$6", "Bubble!$A$2:$A$6");
+        chart19.Position.SetColumn(0).SetRow(8);
+        chart19.SecondPosition.SetColumn(9).SetRow(24);
+
         wb.SaveAs(filePath);
     }
 }

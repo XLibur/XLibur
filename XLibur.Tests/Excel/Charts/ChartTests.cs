@@ -630,4 +630,87 @@ public class ChartTests
             Assert.That(chart.Title, Is.EqualTo("BW"));
         }
     }
+
+    [Test]
+    public void CanSaveAndLoadAreaChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "Q1"; ws.Cell("B1").Value = 10; ws.Cell("C1").Value = 20;
+            ws.Cell("A2").Value = "Q2"; ws.Cell("B2").Value = 15; ws.Cell("C2").Value = 25;
+
+            var chart = ws.Charts.Add(XLChartType.AreaStacked);
+            chart.SetTitle("Area");
+            chart.Series.Add("S1", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Series.Add("S2", "Data!$C$1:$C$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.AreaStacked));
+            Assert.That(chart.Series.Count, Is.EqualTo(2));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadDoughnutChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "X"; ws.Cell("B1").Value = 60;
+            ws.Cell("A2").Value = "Y"; ws.Cell("B2").Value = 40;
+
+            var chart = ws.Charts.Add(XLChartType.Doughnut);
+            chart.SetTitle("Ring");
+            chart.Series.Add("Values", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Doughnut));
+            Assert.That(chart.Title, Is.EqualTo("Ring"));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadBubbleChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = 10; ws.Cell("B1").Value = 20;
+            ws.Cell("A2").Value = 30; ws.Cell("B2").Value = 40;
+
+            var chart = ws.Charts.Add(XLChartType.Bubble);
+            chart.SetTitle("Bubbles");
+            chart.Series.Add("Points", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Bubble));
+            Assert.That(chart.Title, Is.EqualTo("Bubbles"));
+            Assert.That(chart.Series.Count, Is.EqualTo(1));
+        }
+    }
 }

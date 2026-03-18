@@ -398,8 +398,11 @@ internal static class ChartWriter
 
     private static PlotArea BuildPlotArea(XLChart xlChart)
     {
-        if (IsPieType(xlChart.ChartType))
-            return BuildPiePlotArea(xlChart);
+        if (IsPieType(xlChart.ChartType) || IsDoughnutType(xlChart.ChartType))
+            return BuildNoAxesPlotArea(xlChart);
+
+        if (IsBubbleType(xlChart.ChartType))
+            return BuildBubblePlotArea(xlChart);
 
         const uint catAxisId = 1u;
         const uint valAxisId = 2u;
@@ -485,7 +488,9 @@ internal static class ChartWriter
         PlotArea plotArea, XLChartType chartType,
         IXLChartSeriesCollection seriesCollection, uint catAxisId, uint valAxisId, uint indexOffset)
     {
-        if (IsLineType(chartType))
+        if (IsAreaType(chartType))
+            AppendAreaChart(plotArea, chartType, seriesCollection, catAxisId, valAxisId, indexOffset);
+        else if (IsLineType(chartType))
             AppendLineChart(plotArea, chartType, seriesCollection, catAxisId, valAxisId, indexOffset);
         else if (IsRadarType(chartType))
             AppendRadarChart(plotArea, chartType, seriesCollection, catAxisId, valAxisId, indexOffset);
@@ -499,23 +504,129 @@ internal static class ChartWriter
             AppendBarChart(plotArea, chartType, seriesCollection, catAxisId, valAxisId, indexOffset);
     }
 
-    // ── Pie ──
+    // ── Pie / Doughnut (no axes) ──
 
-    private static PlotArea BuildPiePlotArea(XLChart xlChart)
+    private static PlotArea BuildNoAxesPlotArea(XLChart xlChart)
     {
-        var pieChart = new PieChart();
+        OpenXmlCompositeElement chartElement;
+
+        if (IsDoughnutType(xlChart.ChartType))
+        {
+            var doughnut = new DoughnutChart();
+            foreach (var s in xlChart.Series)
+            {
+                var series = new PieChartSeries
+                {
+                    Index = new C.Index { Val = s.Index },
+                    Order = new Order { Val = s.Order },
+                    SeriesText = BuildSeriesText(s)
+                };
+                AppendCatAndVal(series, s);
+                doughnut.Append(series);
+            }
+            chartElement = doughnut;
+        }
+        else
+        {
+            var pie = new PieChart();
+            foreach (var s in xlChart.Series)
+            {
+                var series = new PieChartSeries
+                {
+                    Index = new C.Index { Val = s.Index },
+                    Order = new Order { Val = s.Order },
+                    SeriesText = BuildSeriesText(s)
+                };
+                AppendCatAndVal(series, s);
+                pie.Append(series);
+            }
+            chartElement = pie;
+        }
+
+        return new PlotArea(new Layout(), chartElement);
+    }
+
+    // ── Area ──
+
+    private static void AppendAreaChart(
+        PlotArea plotArea, XLChartType chartType,
+        IXLChartSeriesCollection seriesCollection, uint catAxisId, uint valAxisId, uint indexOffset)
+    {
+        var areaChart = new AreaChart
+        {
+            Grouping = new Grouping { Val = GetAreaGrouping(chartType) }
+        };
+        foreach (var s in seriesCollection)
+        {
+            var series = new AreaChartSeries
+            {
+                Index = new C.Index { Val = s.Index + indexOffset },
+                Order = new Order { Val = s.Order + indexOffset },
+                SeriesText = BuildSeriesText(s)
+            };
+            AppendCatAndVal(series, s);
+            areaChart.Append(series);
+        }
+        areaChart.Append(new AxisId { Val = catAxisId });
+        areaChart.Append(new AxisId { Val = valAxisId });
+        plotArea.Append(areaChart);
+    }
+
+    // ── Bubble ──
+
+    private static PlotArea BuildBubblePlotArea(XLChart xlChart)
+    {
+        // Bubble charts use XValues + YValues + BubbleSize, and two ValueAxis (like scatter).
+        // CategoryReferences = X values, ValueReferences = Y values.
+        // For simplicity, bubble size defaults to the Y values if no separate size data.
+        const uint xAxisId = 1u;
+        const uint yAxisId = 2u;
+
+        var bubbleChart = new BubbleChart();
         foreach (var s in xlChart.Series)
         {
-            var series = new PieChartSeries
+            var series = new BubbleChartSeries
             {
                 Index = new C.Index { Val = s.Index },
                 Order = new Order { Val = s.Order },
                 SeriesText = BuildSeriesText(s)
             };
-            AppendCatAndVal(series, s);
-            pieChart.Append(series);
+            if (s.CategoryReferences != null)
+            {
+                series.Append(new XValues(
+                    new NumberReference { Formula = new C.Formula(s.CategoryReferences) }
+                ));
+            }
+            series.Append(new YValues(
+                new NumberReference { Formula = new C.Formula(s.ValueReferences) }
+            ));
+            series.Append(new BubbleSize(
+                new NumberReference { Formula = new C.Formula(s.ValueReferences) }
+            ));
+            bubbleChart.Append(series);
         }
-        return new PlotArea(new Layout(), pieChart);
+        bubbleChart.Append(new AxisId { Val = xAxisId });
+        bubbleChart.Append(new AxisId { Val = yAxisId });
+
+        var plotArea = new PlotArea(
+            new Layout(),
+            bubbleChart,
+            new ValueAxis(
+                new AxisId { Val = xAxisId },
+                new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
+                new Delete { Val = false },
+                new AxisPosition { Val = AxisPositionValues.Bottom },
+                new CrossingAxis { Val = yAxisId }
+            ),
+            new ValueAxis(
+                new AxisId { Val = yAxisId },
+                new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
+                new Delete { Val = false },
+                new AxisPosition { Val = AxisPositionValues.Left },
+                new CrossingAxis { Val = xAxisId }
+            )
+        );
+        return plotArea;
     }
 
     // ── Bar/Column ──
@@ -836,6 +947,17 @@ internal static class ChartWriter
             or XLChartType.Pie3D or XLChartType.PieExploded3D
             or XLChartType.PieToPie or XLChartType.PieToBar;
 
+    private static bool IsDoughnutType(XLChartType ct) =>
+        ct is XLChartType.Doughnut or XLChartType.DoughnutExploded;
+
+    private static bool IsAreaType(XLChartType ct) =>
+        ct is XLChartType.Area or XLChartType.Area3D
+            or XLChartType.AreaStacked or XLChartType.AreaStacked100Percent
+            or XLChartType.AreaStacked100Percent3D or XLChartType.AreaStacked3D;
+
+    private static bool IsBubbleType(XLChartType ct) =>
+        ct is XLChartType.Bubble or XLChartType.Bubble3D;
+
     private static bool IsLineType(XLChartType ct) =>
         ct is XLChartType.Line or XLChartType.Line3D
             or XLChartType.LineStacked or XLChartType.LineStacked100Percent
@@ -869,6 +991,11 @@ internal static class ChartWriter
     private static GroupingValues GetLineGrouping(XLChartType ct) =>
         ct is XLChartType.LineStacked or XLChartType.LineWithMarkersStacked ? GroupingValues.Stacked
         : ct is XLChartType.LineStacked100Percent or XLChartType.LineWithMarkersStacked100Percent ? GroupingValues.PercentStacked
+        : GroupingValues.Standard;
+
+    private static GroupingValues GetAreaGrouping(XLChartType ct) =>
+        ct is XLChartType.AreaStacked or XLChartType.AreaStacked3D ? GroupingValues.Stacked
+        : ct is XLChartType.AreaStacked100Percent or XLChartType.AreaStacked100Percent3D ? GroupingValues.PercentStacked
         : GroupingValues.Standard;
 
     private static ScatterStyleValues GetScatterStyle(XLChartType ct) => ct switch
