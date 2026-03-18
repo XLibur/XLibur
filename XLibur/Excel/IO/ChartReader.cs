@@ -404,17 +404,20 @@ internal static class ChartReader
         if (shape == ShapeValues.Cone || shape == ShapeValues.ConeToMax)
             return ResolveBar3DGrouping(isHorizontal, grouping,
                 horizontal: (XLChartType.ConeHorizontalClustered, XLChartType.ConeHorizontalStacked, XLChartType.ConeHorizontalStacked100Percent),
-                vertical: (XLChartType.ConeClustered, XLChartType.ConeStacked, XLChartType.ConeStacked100Percent));
+                vertical: (XLChartType.ConeClustered, XLChartType.ConeStacked, XLChartType.ConeStacked100Percent),
+                verticalStandard: XLChartType.Cone);
 
         if (shape == ShapeValues.Cylinder)
             return ResolveBar3DGrouping(isHorizontal, grouping,
                 horizontal: (XLChartType.CylinderHorizontalClustered, XLChartType.CylinderHorizontalStacked, XLChartType.CylinderHorizontalStacked100Percent),
-                vertical: (XLChartType.CylinderClustered, XLChartType.CylinderStacked, XLChartType.CylinderStacked100Percent));
+                vertical: (XLChartType.CylinderClustered, XLChartType.CylinderStacked, XLChartType.CylinderStacked100Percent),
+                verticalStandard: XLChartType.Cylinder);
 
         if (shape == ShapeValues.Pyramid || shape == ShapeValues.PyramidToMaximum)
             return ResolveBar3DGrouping(isHorizontal, grouping,
                 horizontal: (XLChartType.PyramidHorizontalClustered, XLChartType.PyramidHorizontalStacked, XLChartType.PyramidHorizontalStacked100Percent),
-                vertical: (XLChartType.PyramidClustered, XLChartType.PyramidStacked, XLChartType.PyramidStacked100Percent));
+                vertical: (XLChartType.PyramidClustered, XLChartType.PyramidStacked, XLChartType.PyramidStacked100Percent),
+                verticalStandard: XLChartType.Pyramid);
 
         // Default: Box shape = standard 3D bar/column
         return ResolveBar3DBoxGrouping(isHorizontal, grouping);
@@ -423,12 +426,20 @@ internal static class ChartReader
     private static XLChartType ResolveBar3DGrouping(
         bool isHorizontal, BarGroupingValues grouping,
         (XLChartType Clustered, XLChartType Stacked, XLChartType Stacked100) horizontal,
-        (XLChartType Clustered, XLChartType Stacked, XLChartType Stacked100) vertical)
+        (XLChartType Clustered, XLChartType Stacked, XLChartType Stacked100) vertical,
+        XLChartType verticalStandard)
     {
-        var types = isHorizontal ? horizontal : vertical;
-        if (grouping == BarGroupingValues.Stacked) return types.Stacked;
-        if (grouping == BarGroupingValues.PercentStacked) return types.Stacked100;
-        return types.Clustered;
+        if (isHorizontal)
+        {
+            if (grouping == BarGroupingValues.Stacked) return horizontal.Stacked;
+            if (grouping == BarGroupingValues.PercentStacked) return horizontal.Stacked100;
+            return horizontal.Clustered;
+        }
+
+        if (grouping == BarGroupingValues.Stacked) return vertical.Stacked;
+        if (grouping == BarGroupingValues.PercentStacked) return vertical.Stacked100;
+        if (grouping == BarGroupingValues.Standard) return verticalStandard;
+        return vertical.Clustered;
     }
 
     private static XLChartType ResolveBar3DBoxGrouping(bool isHorizontal, BarGroupingValues grouping)
