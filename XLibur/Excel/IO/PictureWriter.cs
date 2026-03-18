@@ -63,9 +63,9 @@ internal static class PictureWriter
             xlWorksheet.Pictures.Count == 0 && // and also no pictures.
             !hasCharts && // and no existing chart parts
             !hasNewCharts && // and no new charts pending write
-                          // Check for non-picture shapes (textboxes, rectangles, etc.) last to avoid
-                          // loading the DrawingsPart DOM unnecessarily — DOM loading causes re-serialization
-                          // that changes the XML even when no modifications are made.
+                             // Check for non-picture shapes (textboxes, rectangles, etc.) last to avoid
+                             // loading the DrawingsPart DOM unnecessarily — DOM loading causes re-serialization
+                             // that changes the XML even when no modifications are made.
             !(worksheetPart.DrawingsPart.WorksheetDrawing?.HasChildren ?? false))
         {
             var id = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart);

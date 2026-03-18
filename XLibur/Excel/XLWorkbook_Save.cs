@@ -149,6 +149,7 @@ public partial class XLWorkbook
     // Adds child parts and generates content of the specified part.
     private void CreateParts(SpreadsheetDocument document, SaveOptions options)
     {
+        ChartWriter.ResetExtendedChartCounter();
         var context = new SaveContext();
         var workbookPart = document.WorkbookPart ?? document.AddWorkbookPart();
         var worksheets = WorksheetsInternal;

@@ -4,11 +4,6 @@ using System.Linq;
 
 namespace XLibur.Excel;
 
-internal enum XLChartTypeCategory
-{
-    Bar3D
-}
-
 internal enum XLBarOrientation
 {
     Vertical,
@@ -101,25 +96,6 @@ internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
         ChartType = chartType;
         return this;
     }
-
-    /// <summary>
-    /// Gets the broad category of the chart type. Currently only supports Bar3D;
-    /// throws <see cref="NotImplementedException"/> for other categories.
-    /// </summary>
-    public XLChartTypeCategory ChartTypeCategory => Bar3DCharts.Contains(ChartType)
-        ? XLChartTypeCategory.Bar3D
-        : throw new NotImplementedException();
-
-    private readonly HashSet<XLChartType> Bar3DCharts =
-    [
-        XLChartType.BarClustered3D,
-        XLChartType.BarStacked100Percent3D,
-        XLChartType.BarStacked3D,
-        XLChartType.Column3D,
-        XLChartType.ColumnClustered3D,
-        XLChartType.ColumnStacked100Percent3D,
-        XLChartType.ColumnStacked3D
-    ];
 
     /// <summary>
     /// Gets whether this chart type renders bars horizontally or vertically,

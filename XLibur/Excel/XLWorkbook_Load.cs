@@ -80,6 +80,12 @@ public partial class XLWorkbook
 
             foreach (var table in ws.Tables.Cast<XLTable>())
                 table.RelId = null;
+
+            foreach (var chart in ws.Charts.Cast<XLChart>())
+            {
+                chart.RelId = null;
+                chart.IsNew = true;
+            }
         }
     }
 

@@ -74,12 +74,12 @@ public class ChartExamples : IXLExample
         var v1 = $"{sn}!$B$2:$B$5";
         var v2 = $"{sn}!$C$2:$C$5";
 
-        AddChart2S(ws1, XLChartType.ColumnClustered,          "ColumnClustered",          v1, v2, cat, 7,  0);
-        AddChart2S(ws1, XLChartType.ColumnStacked,            "ColumnStacked",            v1, v2, cat, 7,  6);
-        AddChart2S(ws1, XLChartType.ColumnStacked100Percent,  "ColumnStacked100%",        v1, v2, cat, 22, 0);
-        AddChart2S(ws1, XLChartType.BarClustered,             "BarClustered",             v1, v2, cat, 22, 6);
-        AddChart2S(ws1, XLChartType.BarStacked,               "BarStacked",               v1, v2, cat, 37, 0);
-        AddChart2S(ws1, XLChartType.BarStacked100Percent,     "BarStacked100%",           v1, v2, cat, 37, 6);
+        AddChart2S(ws1, XLChartType.ColumnClustered, "ColumnClustered", v1, v2, cat, 7, 0);
+        AddChart2S(ws1, XLChartType.ColumnStacked, "ColumnStacked", v1, v2, cat, 7, 6);
+        AddChart2S(ws1, XLChartType.ColumnStacked100Percent, "ColumnStacked100%", v1, v2, cat, 22, 0);
+        AddChart2S(ws1, XLChartType.BarClustered, "BarClustered", v1, v2, cat, 22, 6);
+        AddChart2S(ws1, XLChartType.BarStacked, "BarStacked", v1, v2, cat, 37, 0);
+        AddChart2S(ws1, XLChartType.BarStacked100Percent, "BarStacked100%", v1, v2, cat, 37, 6);
 
         // ════════════════════════════════════════════════════════════════
         // Sheet 2: Bar/Column 3D (7 types)
@@ -89,13 +89,13 @@ public class ChartExamples : IXLExample
         sn = "'" + ws2.Name + "'";
         cat = $"{sn}!$A$2:$A$5"; v1 = $"{sn}!$B$2:$B$5"; v2 = $"{sn}!$C$2:$C$5";
 
-        AddChart2S(ws2, XLChartType.ColumnClustered3D,          "ColumnClustered3D",          v1, v2, cat, 7,  0);
-        AddChart2S(ws2, XLChartType.ColumnStacked3D,            "ColumnStacked3D",            v1, v2, cat, 7,  6);
-        AddChart2S(ws2, XLChartType.ColumnStacked100Percent3D,  "ColumnStacked100%3D",        v1, v2, cat, 22, 0);
-        AddChart (ws2, XLChartType.Column3D,                    "Column3D",                   v1,     cat, 22, 6);
-        AddChart2S(ws2, XLChartType.BarClustered3D,             "BarClustered3D",             v1, v2, cat, 37, 0);
-        AddChart2S(ws2, XLChartType.BarStacked3D,               "BarStacked3D",               v1, v2, cat, 37, 6);
-        AddChart2S(ws2, XLChartType.BarStacked100Percent3D,     "BarStacked100%3D",           v1, v2, cat, 52, 0);
+        AddChart2S(ws2, XLChartType.ColumnClustered3D, "ColumnClustered3D", v1, v2, cat, 7, 0);
+        AddChart2S(ws2, XLChartType.ColumnStacked3D, "ColumnStacked3D", v1, v2, cat, 7, 6);
+        AddChart2S(ws2, XLChartType.ColumnStacked100Percent3D, "ColumnStacked100%3D", v1, v2, cat, 22, 0);
+        AddChart(ws2, XLChartType.Column3D, "Column3D", v1, cat, 22, 6);
+        AddChart2S(ws2, XLChartType.BarClustered3D, "BarClustered3D", v1, v2, cat, 37, 0);
+        AddChart2S(ws2, XLChartType.BarStacked3D, "BarStacked3D", v1, v2, cat, 37, 6);
+        AddChart2S(ws2, XLChartType.BarStacked100Percent3D, "BarStacked100%3D", v1, v2, cat, 52, 0);
 
         // ════════════════════════════════════════════════════════════════
         // Sheet 3: Line (7 types)
@@ -104,13 +104,13 @@ public class ChartExamples : IXLExample
         WriteData3Col(ws3, cats4, vals4a, vals4b);
         sn = ws3.Name; cat = $"{sn}!$A$2:$A$5"; v1 = $"{sn}!$B$2:$B$5"; v2 = $"{sn}!$C$2:$C$5";
 
-        AddChart2S(ws3, XLChartType.Line,                              "Line",                    v1, v2, cat, 7,  0);
-        AddChart2S(ws3, XLChartType.LineStacked,                       "LineStacked",             v1, v2, cat, 7,  6);
-        AddChart2S(ws3, XLChartType.LineStacked100Percent,             "LineStacked100%",         v1, v2, cat, 22, 0);
-        AddChart2S(ws3, XLChartType.LineWithMarkers,                   "LineWithMarkers",         v1, v2, cat, 22, 6);
-        AddChart2S(ws3, XLChartType.LineWithMarkersStacked,            "LineMarkersStacked",      v1, v2, cat, 37, 0);
-        AddChart2S(ws3, XLChartType.LineWithMarkersStacked100Percent,  "LineMarkers100%",         v1, v2, cat, 37, 6);
-        AddChart2S(ws3, XLChartType.Line3D,                            "Line3D",                  v1, v2, cat, 52, 0);
+        AddChart2S(ws3, XLChartType.Line, "Line", v1, v2, cat, 7, 0);
+        AddChart2S(ws3, XLChartType.LineStacked, "LineStacked", v1, v2, cat, 7, 6);
+        AddChart2S(ws3, XLChartType.LineStacked100Percent, "LineStacked100%", v1, v2, cat, 22, 0);
+        AddChart2S(ws3, XLChartType.LineWithMarkers, "LineWithMarkers", v1, v2, cat, 22, 6);
+        AddChart2S(ws3, XLChartType.LineWithMarkersStacked, "LineMarkersStacked", v1, v2, cat, 37, 0);
+        AddChart2S(ws3, XLChartType.LineWithMarkersStacked100Percent, "LineMarkers100%", v1, v2, cat, 37, 6);
+        AddChart2S(ws3, XLChartType.Line3D, "Line3D", v1, v2, cat, 52, 0);
 
         // ════════════════════════════════════════════════════════════════
         // Sheet 4: Area (6 types)
@@ -119,12 +119,12 @@ public class ChartExamples : IXLExample
         WriteData3Col(ws4, cats4, vals4a, vals4b);
         sn = ws4.Name; cat = $"{sn}!$A$2:$A$5"; v1 = $"{sn}!$B$2:$B$5"; v2 = $"{sn}!$C$2:$C$5";
 
-        AddChart2S(ws4, XLChartType.Area,                    "Area",               v1, v2, cat, 7,  0);
-        AddChart2S(ws4, XLChartType.AreaStacked,             "AreaStacked",        v1, v2, cat, 7,  6);
-        AddChart2S(ws4, XLChartType.AreaStacked100Percent,   "AreaStacked100%",    v1, v2, cat, 22, 0);
-        AddChart2S(ws4, XLChartType.Area3D,                  "Area3D",             v1, v2, cat, 22, 6);
-        AddChart2S(ws4, XLChartType.AreaStacked3D,           "AreaStacked3D",      v1, v2, cat, 37, 0);
-        AddChart2S(ws4, XLChartType.AreaStacked100Percent3D, "AreaStacked100%3D",  v1, v2, cat, 37, 6);
+        AddChart2S(ws4, XLChartType.Area, "Area", v1, v2, cat, 7, 0);
+        AddChart2S(ws4, XLChartType.AreaStacked, "AreaStacked", v1, v2, cat, 7, 6);
+        AddChart2S(ws4, XLChartType.AreaStacked100Percent, "AreaStacked100%", v1, v2, cat, 22, 0);
+        AddChart2S(ws4, XLChartType.Area3D, "Area3D", v1, v2, cat, 22, 6);
+        AddChart2S(ws4, XLChartType.AreaStacked3D, "AreaStacked3D", v1, v2, cat, 37, 0);
+        AddChart2S(ws4, XLChartType.AreaStacked100Percent3D, "AreaStacked100%3D", v1, v2, cat, 37, 6);
 
         // ════════════════════════════════════════════════════════════════
         // Sheet 5: Pie & Doughnut (8 types)
@@ -134,13 +134,13 @@ public class ChartExamples : IXLExample
         sn = "'" + ws5.Name + "'";
         cat = $"{sn}!$A$2:$A$5"; var v = $"{sn}!$B$2:$B$5";
 
-        AddChart(ws5, XLChartType.Pie,              "Pie",              v, cat, 7,  0);
-        AddChart(ws5, XLChartType.Pie3D,            "Pie3D",            v, cat, 7,  6);
-        AddChart(ws5, XLChartType.PieExploded,      "PieExploded",      v, cat, 22, 0);
-        AddChart(ws5, XLChartType.PieExploded3D,    "PieExploded3D",    v, cat, 22, 6);
-        AddChart(ws5, XLChartType.PieToPie,         "PieToPie",         v, cat, 37, 0);
-        AddChart(ws5, XLChartType.PieToBar,         "PieToBar",         v, cat, 37, 6);
-        AddChart(ws5, XLChartType.Doughnut,         "Doughnut",         v, cat, 52, 0);
+        AddChart(ws5, XLChartType.Pie, "Pie", v, cat, 7, 0);
+        AddChart(ws5, XLChartType.Pie3D, "Pie3D", v, cat, 7, 6);
+        AddChart(ws5, XLChartType.PieExploded, "PieExploded", v, cat, 22, 0);
+        AddChart(ws5, XLChartType.PieExploded3D, "PieExploded3D", v, cat, 22, 6);
+        AddChart(ws5, XLChartType.PieToPie, "PieToPie", v, cat, 37, 0);
+        AddChart(ws5, XLChartType.PieToBar, "PieToBar", v, cat, 37, 6);
+        AddChart(ws5, XLChartType.Doughnut, "Doughnut", v, cat, 52, 0);
         AddChart(ws5, XLChartType.DoughnutExploded, "DoughnutExploded", v, cat, 52, 6);
 
         // ════════════════════════════════════════════════════════════════
@@ -152,9 +152,9 @@ public class ChartExamples : IXLExample
         WriteData2Col(ws6, skills, skillVals);
         sn = ws6.Name; cat = $"{sn}!$A$2:$A$6"; v = $"{sn}!$B$2:$B$6";
 
-        AddChart(ws6, XLChartType.Radar,            "Radar",            v, cat, 8,  0);
-        AddChart(ws6, XLChartType.RadarWithMarkers, "RadarWithMarkers", v, cat, 8,  6);
-        AddChart(ws6, XLChartType.RadarFilled,      "RadarFilled",      v, cat, 23, 0);
+        AddChart(ws6, XLChartType.Radar, "Radar", v, cat, 8, 0);
+        AddChart(ws6, XLChartType.RadarWithMarkers, "RadarWithMarkers", v, cat, 8, 6);
+        AddChart(ws6, XLChartType.RadarFilled, "RadarFilled", v, cat, 23, 0);
 
         // ════════════════════════════════════════════════════════════════
         // Sheet 7: Scatter / XY (5 types)
@@ -166,11 +166,11 @@ public class ChartExamples : IXLExample
         ws7.Columns("A", "B").AdjustToContents();
         sn = ws7.Name; cat = $"{sn}!$A$2:$A$6"; v = $"{sn}!$B$2:$B$6";
 
-        AddChart(ws7, XLChartType.XYScatterMarkers,                  "ScatterMarkers",         v, cat, 8,  0);
-        AddChart(ws7, XLChartType.XYScatterStraightLinesWithMarkers, "StraightLinesMarkers",   v, cat, 8,  6);
-        AddChart(ws7, XLChartType.XYScatterStraightLinesNoMarkers,   "StraightLinesNoMarkers", v, cat, 23, 0);
-        AddChart(ws7, XLChartType.XYScatterSmoothLinesWithMarkers,   "SmoothLinesMarkers",     v, cat, 23, 6);
-        AddChart(ws7, XLChartType.XYScatterSmoothLinesNoMarkers,     "SmoothLinesNoMarkers",   v, cat, 38, 0);
+        AddChart(ws7, XLChartType.XYScatterMarkers, "ScatterMarkers", v, cat, 8, 0);
+        AddChart(ws7, XLChartType.XYScatterStraightLinesWithMarkers, "StraightLinesMarkers", v, cat, 8, 6);
+        AddChart(ws7, XLChartType.XYScatterStraightLinesNoMarkers, "StraightLinesNoMarkers", v, cat, 23, 0);
+        AddChart(ws7, XLChartType.XYScatterSmoothLinesWithMarkers, "SmoothLinesMarkers", v, cat, 23, 6);
+        AddChart(ws7, XLChartType.XYScatterSmoothLinesNoMarkers, "SmoothLinesNoMarkers", v, cat, 38, 0);
 
         // ════════════════════════════════════════════════════════════════
         // Sheet 8: Bubble (2 types)
@@ -184,8 +184,8 @@ public class ChartExamples : IXLExample
         ws8.Columns("A", "B").AdjustToContents();
         sn = ws8.Name; cat = $"{sn}!$A$2:$A$5"; v = $"{sn}!$B$2:$B$5";
 
-        AddChart(ws8, XLChartType.Bubble,   "Bubble",   v, cat, 7,  0);
-        AddChart(ws8, XLChartType.Bubble3D, "Bubble3D", v, cat, 7,  6);
+        AddChart(ws8, XLChartType.Bubble, "Bubble", v, cat, 7, 0);
+        AddChart(ws8, XLChartType.Bubble3D, "Bubble3D", v, cat, 7, 6);
 
         // ════════════════════════════════════════════════════════════════
         // Sheet 9: Stock (4 types)
@@ -267,13 +267,13 @@ public class ChartExamples : IXLExample
         WriteData3Col(ws12, cats4, vals4a, vals4b);
         sn = ws12.Name; cat = $"{sn}!$A$2:$A$5"; v1 = $"{sn}!$B$2:$B$5"; v2 = $"{sn}!$C$2:$C$5";
 
-        AddChart (ws12, XLChartType.Cone,                          "Cone",                   v1,     cat, 7,  0);
-        AddChart (ws12, XLChartType.ConeClustered,                 "ConeClustered",           v1,     cat, 7,  6);
-        AddChart (ws12, XLChartType.ConeStacked,                   "ConeStacked",             v1,     cat, 22, 0);
-        AddChart (ws12, XLChartType.ConeStacked100Percent,         "ConeStacked100%",         v1,     cat, 22, 6);
-        AddChart (ws12, XLChartType.ConeHorizontalClustered,       "ConeHorizClustered",      v1,     cat, 37, 0);
-        AddChart2S(ws12, XLChartType.ConeHorizontalStacked,        "ConeHorizStacked",        v1, v2, cat, 37, 6);
-        AddChart2S(ws12, XLChartType.ConeHorizontalStacked100Percent,"ConeHoriz100%",         v1, v2, cat, 52, 0);
+        AddChart(ws12, XLChartType.Cone, "Cone", v1, cat, 7, 0);
+        AddChart(ws12, XLChartType.ConeClustered, "ConeClustered", v1, cat, 7, 6);
+        AddChart(ws12, XLChartType.ConeStacked, "ConeStacked", v1, cat, 22, 0);
+        AddChart(ws12, XLChartType.ConeStacked100Percent, "ConeStacked100%", v1, cat, 22, 6);
+        AddChart(ws12, XLChartType.ConeHorizontalClustered, "ConeHorizClustered", v1, cat, 37, 0);
+        AddChart2S(ws12, XLChartType.ConeHorizontalStacked, "ConeHorizStacked", v1, v2, cat, 37, 6);
+        AddChart2S(ws12, XLChartType.ConeHorizontalStacked100Percent, "ConeHoriz100%", v1, v2, cat, 52, 0);
 
         // ════════════════════════════════════════════════════════════════
         // Sheet 13: Cylinder (7 types)
@@ -282,13 +282,13 @@ public class ChartExamples : IXLExample
         WriteData3Col(ws13, cats4, vals4a, vals4b);
         sn = ws13.Name; cat = $"{sn}!$A$2:$A$5"; v1 = $"{sn}!$B$2:$B$5"; v2 = $"{sn}!$C$2:$C$5";
 
-        AddChart (ws13, XLChartType.Cylinder,                          "Cylinder",                v1,     cat, 7,  0);
-        AddChart (ws13, XLChartType.CylinderClustered,                 "CylinderClustered",       v1,     cat, 7,  6);
-        AddChart (ws13, XLChartType.CylinderStacked,                   "CylinderStacked",         v1,     cat, 22, 0);
-        AddChart (ws13, XLChartType.CylinderStacked100Percent,         "CylinderStacked100%",     v1,     cat, 22, 6);
-        AddChart (ws13, XLChartType.CylinderHorizontalClustered,       "CylHorizClustered",       v1,     cat, 37, 0);
-        AddChart2S(ws13, XLChartType.CylinderHorizontalStacked,        "CylHorizStacked",         v1, v2, cat, 37, 6);
-        AddChart2S(ws13, XLChartType.CylinderHorizontalStacked100Percent,"CylHoriz100%",          v1, v2, cat, 52, 0);
+        AddChart(ws13, XLChartType.Cylinder, "Cylinder", v1, cat, 7, 0);
+        AddChart(ws13, XLChartType.CylinderClustered, "CylinderClustered", v1, cat, 7, 6);
+        AddChart(ws13, XLChartType.CylinderStacked, "CylinderStacked", v1, cat, 22, 0);
+        AddChart(ws13, XLChartType.CylinderStacked100Percent, "CylinderStacked100%", v1, cat, 22, 6);
+        AddChart(ws13, XLChartType.CylinderHorizontalClustered, "CylHorizClustered", v1, cat, 37, 0);
+        AddChart2S(ws13, XLChartType.CylinderHorizontalStacked, "CylHorizStacked", v1, v2, cat, 37, 6);
+        AddChart2S(ws13, XLChartType.CylinderHorizontalStacked100Percent, "CylHoriz100%", v1, v2, cat, 52, 0);
 
         // ════════════════════════════════════════════════════════════════
         // Sheet 14: Pyramid (7 types)
@@ -297,13 +297,13 @@ public class ChartExamples : IXLExample
         WriteData3Col(ws14, cats4, vals4a, vals4b);
         sn = ws14.Name; cat = $"{sn}!$A$2:$A$5"; v1 = $"{sn}!$B$2:$B$5"; v2 = $"{sn}!$C$2:$C$5";
 
-        AddChart (ws14, XLChartType.Pyramid,                          "Pyramid",                v1,     cat, 7,  0);
-        AddChart (ws14, XLChartType.PyramidClustered,                 "PyramidClustered",       v1,     cat, 7,  6);
-        AddChart (ws14, XLChartType.PyramidStacked,                   "PyramidStacked",         v1,     cat, 22, 0);
-        AddChart (ws14, XLChartType.PyramidStacked100Percent,         "PyramidStacked100%",     v1,     cat, 22, 6);
-        AddChart (ws14, XLChartType.PyramidHorizontalClustered,       "PyrHorizClustered",      v1,     cat, 37, 0);
-        AddChart2S(ws14, XLChartType.PyramidHorizontalStacked,        "PyrHorizStacked",        v1, v2, cat, 37, 6);
-        AddChart2S(ws14, XLChartType.PyramidHorizontalStacked100Percent,"PyrHoriz100%",         v1, v2, cat, 52, 0);
+        AddChart(ws14, XLChartType.Pyramid, "Pyramid", v1, cat, 7, 0);
+        AddChart(ws14, XLChartType.PyramidClustered, "PyramidClustered", v1, cat, 7, 6);
+        AddChart(ws14, XLChartType.PyramidStacked, "PyramidStacked", v1, cat, 22, 0);
+        AddChart(ws14, XLChartType.PyramidStacked100Percent, "PyramidStacked100%", v1, cat, 22, 6);
+        AddChart(ws14, XLChartType.PyramidHorizontalClustered, "PyrHorizClustered", v1, cat, 37, 0);
+        AddChart2S(ws14, XLChartType.PyramidHorizontalStacked, "PyrHorizStacked", v1, v2, cat, 37, 6);
+        AddChart2S(ws14, XLChartType.PyramidHorizontalStacked100Percent, "PyrHoriz100%", v1, v2, cat, 52, 0);
 
         // ════════════════════════════════════════════════════════════════
         // Sheet 15: Extended — Waterfall & Funnel

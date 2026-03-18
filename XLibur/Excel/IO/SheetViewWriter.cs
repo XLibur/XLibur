@@ -192,7 +192,7 @@ internal static class SheetViewWriter
                     : range.RangeAddress.ToStringRelative(false)));
 
             selection.SequenceOfReferences = new ListValue<StringValue>
-                { InnerText = string.Join(" ", seqRef.Distinct().ToArray()) };
+            { InnerText = string.Join(" ", seqRef.Distinct().ToArray()) };
 
             sheetView.InsertAfter(selection, svcm.GetPreviousElementFor(XLSheetViewContents.Selection));
             svcm.SetElement(XLSheetViewContents.Selection, selection);

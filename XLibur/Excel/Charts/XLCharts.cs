@@ -5,11 +5,7 @@ namespace XLibur.Excel;
 internal sealed class XLCharts : IXLCharts
 {
     private readonly List<IXLChart> _charts = [];
-    private readonly XLWorksheet? _worksheet;
-
-    internal XLCharts()
-    {
-    }
+    private readonly XLWorksheet _worksheet;
 
     internal XLCharts(XLWorksheet worksheet)
     {
@@ -35,7 +31,7 @@ internal sealed class XLCharts : IXLCharts
 
     public IXLChart Add(XLChartType chartType)
     {
-        var chart = new XLChart(_worksheet!)
+        var chart = new XLChart(_worksheet)
         {
             ChartType = chartType
         };

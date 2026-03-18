@@ -561,14 +561,14 @@ internal static class SheetDataWriter
                 WriteNumberValue(w, cellValue.GetNumber());
                 break;
             case XLDataType.DateTime:
-            {
-                var date = cellValue.GetDateTime();
-                if (use1904DateSystem)
-                    date = date.AddDays(-Date1904OffsetDays);
+                {
+                    var date = cellValue.GetDateTime();
+                    if (use1904DateSystem)
+                        date = date.AddDays(-Date1904OffsetDays);
 
-                WriteNumberValue(w, date.ToSerialDateTime());
-                break;
-            }
+                    WriteNumberValue(w, date.ToSerialDateTime());
+                    break;
+                }
             case XLDataType.Boolean:
                 WriteStringValue(w, cellValue.GetBoolean() ? TrueValue : FalseValue);
                 break;
@@ -629,15 +629,15 @@ internal static class SheetDataWriter
                 WriteNumberValue(w, xlCell.Value.GetNumber());
                 break;
             case XLDataType.DateTime:
-            {
-                // OpenXML SDK validator requires a specific format, in addition to the spec, but can read many more
-                var date = xlCell.GetDateTime();
-                if (xlCell.Worksheet.Workbook.Use1904DateSystem)
-                    date = date.AddDays(-Date1904OffsetDays);
+                {
+                    // OpenXML SDK validator requires a specific format, in addition to the spec, but can read many more
+                    var date = xlCell.GetDateTime();
+                    if (xlCell.Worksheet.Workbook.Use1904DateSystem)
+                        date = date.AddDays(-Date1904OffsetDays);
 
-                WriteNumberValue(w, date.ToSerialDateTime());
-                break;
-            }
+                    WriteNumberValue(w, date.ToSerialDateTime());
+                    break;
+                }
             case XLDataType.Boolean:
                 WriteStringValue(w, xlCell.GetBoolean() ? TrueValue : FalseValue);
                 break;

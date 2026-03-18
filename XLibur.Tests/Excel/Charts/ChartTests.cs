@@ -502,8 +502,8 @@ public class ChartTests
         {
             var ws = wb.AddWorksheet("Data");
             ws.Cell("A1").Value = "Start"; ws.Cell("B1").Value = 1000;
-            ws.Cell("A2").Value = "Add";   ws.Cell("B2").Value = 500;
-            ws.Cell("A3").Value = "End";   ws.Cell("B3").Value = 1500;
+            ws.Cell("A2").Value = "Add"; ws.Cell("B2").Value = 500;
+            ws.Cell("A3").Value = "End"; ws.Cell("B3").Value = 1500;
 
             var chart = ws.Charts.Add(XLChartType.Waterfall);
             chart.SetTitle("WF");

@@ -20,7 +20,8 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     public int Count
     {
-        [DebuggerStepThrough] get => _pictures.Count;
+        [DebuggerStepThrough]
+        get => _pictures.Count;
     }
 
     internal ICollection<string> Deleted { get; private set; }

@@ -363,9 +363,13 @@ internal static class ChartReader
     private static XLChartType DetermineLineChartType(LineChart lineChart)
     {
         var grouping = lineChart.Grouping?.Val?.Value;
-        if (grouping == GroupingValues.Stacked) return XLChartType.LineStacked;
-        if (grouping == GroupingValues.PercentStacked) return XLChartType.LineStacked100Percent;
         var hasMarkers = lineChart.Elements<LineChartSeries>().Any(s => s.Elements<Marker>().Any());
+
+        if (grouping == GroupingValues.Stacked)
+            return hasMarkers ? XLChartType.LineWithMarkersStacked : XLChartType.LineStacked;
+        if (grouping == GroupingValues.PercentStacked)
+            return hasMarkers ? XLChartType.LineWithMarkersStacked100Percent : XLChartType.LineStacked100Percent;
+
         return hasMarkers ? XLChartType.LineWithMarkers : XLChartType.Line;
     }
 
