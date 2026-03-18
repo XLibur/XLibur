@@ -144,6 +144,41 @@ internal sealed class ValueSlice : ISlice
         _values.Set(point, in modified);
     }
 
+    /// <summary>
+    /// Fast path for initial worksheet loading. The caller guarantees that the cell at
+    /// <paramref name="point"/> has never been written (original is blank), so we skip
+    /// the original-value lookup, SST dereference, and the default-equality check in the
+    /// underlying slice. The value must be non-blank.
+    /// </summary>
+    internal void SetCellValueDuringLoad(XLSheetPoint point, XLCellValue cellValue)
+    {
+        double value;
+        if (cellValue.Type == XLDataType.Text)
+        {
+            // Fresh cell — no existing text to dereference. Inline defaults to false.
+            value = _sst.IncreaseRef(cellValue.GetText(), inline: false);
+        }
+        else if (cellValue.IsUnifiedNumber)
+        {
+            value = cellValue.GetUnifiedNumber();
+        }
+        else if (cellValue.IsBoolean)
+        {
+            value = cellValue.GetBoolean() ? 1 : 0;
+        }
+        else if (cellValue.IsError)
+        {
+            value = (int)cellValue.GetError();
+        }
+        else
+        {
+            value = 0;
+        }
+
+        var modified = new XLValueSliceContent(value, cellValue.Type, inline: false);
+        _values.SetNonDefault(point, in modified);
+    }
+
     internal XLImmutableRichText? GetRichText(XLSheetPoint point)
     {
         ref readonly var cellValue = ref _values[point];
