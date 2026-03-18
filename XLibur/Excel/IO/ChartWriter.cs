@@ -2,28 +2,27 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing.Charts;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using System;
 using System.Linq;
 using XLibur.Excel.ContentManagers;
 using static XLibur.Excel.XLWorkbook;
 using A = DocumentFormat.OpenXml.Drawing;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
+using Cx = DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using Drawing = DocumentFormat.OpenXml.Spreadsheet.Drawing;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
 namespace XLibur.Excel.IO;
 
 /// <summary>
-/// Writes newly created charts to OpenXML. For each chart with <see cref="XLChart.IsNew"/> == <c>true</c>,
-/// creates a ChartPart containing the ChartSpace DOM and a TwoCellAnchor with a GraphicFrame
-/// referencing the chart. Ensures the worksheet's <c>&lt;drawing&gt;</c> element exists.
-/// Charts loaded from an existing file (<see cref="XLChart.IsNew"/> == <c>false</c>) are skipped
-/// and preserved untouched by OpenXML.
+/// Writes newly created charts to OpenXML. Supports standard chart types (bar, line, pie,
+/// scatter, stock, surface, radar) via ChartPart, and extended chart types (sunburst, treemap,
+/// waterfall, funnel, box &amp; whisker) via ExtendedChartPart.
 /// </summary>
 internal static class ChartWriter
 {
     /// <summary>
     /// Writes all new charts from the worksheet to the OpenXML worksheet part.
-    /// Skips charts that were loaded from an existing file.
     /// </summary>
     internal static void WriteCharts(
         Worksheet worksheet,
@@ -38,39 +37,689 @@ internal static class ChartWriter
             if (!xlChart.IsNew)
                 continue;
 
-            WriteChart(worksheet, cm, worksheetPart, xlChart, context);
+            if (IsExtendedType(xlChart.ChartType))
+                WriteExtendedChart(worksheet, cm, worksheetPart, xlChart, context);
+            else
+                WriteStandardChart(worksheet, cm, worksheetPart, xlChart, context);
+
+            xlChart.IsNew = false;
         }
     }
 
-    /// <summary>
-    /// Writes a single chart: creates the ChartPart, builds the ChartSpace DOM,
-    /// appends a TwoCellAnchor/GraphicFrame to the DrawingsPart, and ensures
-    /// the worksheet XML contains a <c>&lt;drawing&gt;</c> reference.
-    /// </summary>
-    private static void WriteChart(
+    // ── Standard chart writing ──────────────────────────────────────────
+
+    private static void WriteStandardChart(
         Worksheet worksheet,
         XLWorksheetContentManager cm,
         WorksheetPart worksheetPart,
         XLChart xlChart,
         SaveContext context)
     {
-        var drawingsPart = worksheetPart.DrawingsPart ??
-                           worksheetPart.AddNewPart<DrawingsPart>(context.RelIdGenerator.GetNext(RelType.Workbook));
-
-        drawingsPart.WorksheetDrawing ??= new Xdr.WorksheetDrawing();
-
-        var worksheetDrawing = drawingsPart.WorksheetDrawing;
-
+        var drawingsPart = EnsureDrawingsPart(worksheetPart, context);
+        var worksheetDrawing = drawingsPart.WorksheetDrawing!;
         EnsureNamespaces(worksheetDrawing);
 
-        // Create chart part
         var chartRelId = context.RelIdGenerator.GetNext(RelType.Workbook);
         var chartPart = drawingsPart.AddNewPart<ChartPart>(chartRelId);
-
-        // Build chart DOM
         chartPart.ChartSpace = BuildChartSpace(xlChart);
 
-        // Create TwoCellAnchor with GraphicFrame
+        AppendAnchor(worksheetDrawing, xlChart,
+            new A.GraphicData(new C.ChartReference { Id = chartRelId })
+            { Uri = "http://schemas.openxmlformats.org/drawingml/2006/chart" });
+
+        EnsureDrawingElement(worksheet, cm, worksheetPart, drawingsPart);
+    }
+
+    // ── Extended chart writing (Sunburst, Treemap, Waterfall, Funnel, BoxWhisker) ──
+
+    /// <summary>
+    /// Counter for generating unique extended chart part URIs.
+    /// Reset per save operation via the SaveContext lifecycle.
+    /// </summary>
+    [ThreadStatic]
+    private static int _extChartCounter;
+
+    internal static void ResetExtendedChartCounter() => _extChartCounter = 0;
+
+    private static void WriteExtendedChart(
+        Worksheet worksheet,
+        XLWorksheetContentManager cm,
+        WorksheetPart worksheetPart,
+        XLChart xlChart,
+        SaveContext context)
+    {
+        var drawingsPart = EnsureDrawingsPart(worksheetPart, context);
+        var worksheetDrawing = drawingsPart.WorksheetDrawing!;
+        EnsureNamespaces(worksheetDrawing);
+
+        var chartRelId = context.RelIdGenerator.GetNext(RelType.Workbook);
+
+        // The OpenXML SDK's AddNewPart<ExtendedChartPart> places the part under
+        // xl/drawings/extendedCharts/ which Excel rejects. Excel expects extended
+        // charts at xl/charts/chartExN.xml. Use the IPackageFeature to access the
+        // underlying System.IO.Packaging.Package and create the part at the correct URI.
+        _extChartCounter++;
+        var partUri = new Uri($"/xl/charts/chartEx{_extChartCounter}.xml", UriKind.Relative);
+
+#pragma warning disable OOXML0001 // Experimental API needed to place ExtendedChartPart at xl/charts/
+        var package = DocumentFormat.OpenXml.Experimental.PackageExtensions.GetPackage(worksheetPart.OpenXmlPackage);
+#pragma warning restore OOXML0001
+
+        var packagePart = package.CreatePart(
+            partUri,
+            "application/vnd.ms-office.chartex+xml",
+            System.IO.Packaging.CompressionOption.Normal);
+
+        // Write chart XML
+        var chartSpace = BuildExtendedChartSpace(xlChart);
+        using (var stream = packagePart.GetStream(System.IO.FileMode.Create, System.IO.FileAccess.Write))
+        {
+            chartSpace.Save(stream);
+        }
+
+        // Create relationship from DrawingsPart to the chart part using relative path
+        // Excel requires relative target URIs for extended chart relationships
+        var relativeTarget = new Uri("../charts/chartEx" + _extChartCounter + ".xml", UriKind.Relative);
+        var drawingsPackagePart = package.GetPart(drawingsPart.Uri);
+        drawingsPackagePart.Relationships.Create(
+            relativeTarget,
+            System.IO.Packaging.TargetMode.Internal,
+            "http://schemas.microsoft.com/office/2014/relationships/chartEx",
+            chartRelId);
+
+        // Excel requires chart style and color files for extended charts
+        WriteExtendedChartStyleAndColor(package, packagePart, _extChartCounter);
+
+        AppendExtendedAnchor(worksheetDrawing, xlChart, chartRelId);
+
+        EnsureDrawingElement(worksheet, cm, worksheetPart, drawingsPart);
+
+        // The SDK hoists mc/cx namespaces to the wsDr root element, which can confuse Excel.
+        // Write the drawing XML manually to control namespace placement.
+        SaveDrawingWithLocalNamespaces(drawingsPart);
+    }
+
+    /// <summary>
+    /// Creates the chart style and color files required by Excel for extended charts.
+    /// These are siblings of the chart part at xl/charts/ with their own content types and relationships.
+    /// </summary>
+#pragma warning disable OOXML0001
+    private static void WriteExtendedChartStyleAndColor(
+        DocumentFormat.OpenXml.Packaging.IPackage package,
+        DocumentFormat.OpenXml.Packaging.IPackagePart chartPart,
+        int chartIndex)
+#pragma warning restore OOXML0001
+    {
+        var colorsUri = new Uri($"/xl/charts/colors{chartIndex}.xml", UriKind.Relative);
+        var styleUri = new Uri($"/xl/charts/style{chartIndex}.xml", UriKind.Relative);
+
+        // Create color style part
+        var colorsPart = package.CreatePart(colorsUri,
+            "application/vnd.ms-office.chartcolorstyle+xml",
+            System.IO.Packaging.CompressionOption.Normal);
+        using (var stream = colorsPart.GetStream(System.IO.FileMode.Create, System.IO.FileAccess.Write))
+        {
+            var asm = typeof(ChartWriter).Assembly;
+            using var resStream = asm.GetManifestResourceStream("XLibur.Excel.IO.ChartExDefaultColors.xml")!;
+            resStream.CopyTo(stream);
+        }
+
+        // Create chart style part
+        var stylePart = package.CreatePart(styleUri,
+            "application/vnd.ms-office.chartstyle+xml",
+            System.IO.Packaging.CompressionOption.Normal);
+        using (var stream = stylePart.GetStream(System.IO.FileMode.Create, System.IO.FileAccess.Write))
+        {
+            var asm = typeof(ChartWriter).Assembly;
+            using var resStream = asm.GetManifestResourceStream("XLibur.Excel.IO.ChartExDefaultStyle.xml")!;
+            resStream.CopyTo(stream);
+        }
+
+        // Create relationships from chart part to style and color parts
+        var colorsRelTarget = new Uri($"colors{chartIndex}.xml", UriKind.Relative);
+        var styleRelTarget = new Uri($"style{chartIndex}.xml", UriKind.Relative);
+
+        chartPart.Relationships.Create(
+            styleRelTarget,
+            System.IO.Packaging.TargetMode.Internal,
+            "http://schemas.microsoft.com/office/2011/relationships/chartStyle",
+            "rId1");
+        chartPart.Relationships.Create(
+            colorsRelTarget,
+            System.IO.Packaging.TargetMode.Internal,
+            "http://schemas.microsoft.com/office/2011/relationships/chartColorStyle",
+            "rId2");
+    }
+
+    /// <summary>
+    /// Re-serializes the WorksheetDrawing to move mc/cx namespace declarations from the root
+    /// element to local elements where they are used. Excel is strict about namespace placement
+    /// on the wsDr root element for extended chart drawings.
+    /// </summary>
+    private static void SaveDrawingWithLocalNamespaces(DrawingsPart drawingsPart)
+    {
+        var xml = drawingsPart.WorksheetDrawing!.OuterXml;
+
+        // Remove mc, cx1, cx, a16 namespace declarations from the root wsDr element
+        // These will remain on the child elements where the SDK placed them originally
+        var prefixesToRemove = new[] { "mc", "cx1", "cx", "a16" };
+        foreach (var prefix in prefixesToRemove)
+        {
+            xml = System.Text.RegularExpressions.Regex.Replace(
+                xml,
+                $@"\s*xmlns:{prefix}=""[^""]*""",
+                "",
+                System.Text.RegularExpressions.RegexOptions.None,
+                System.TimeSpan.FromSeconds(1));
+        }
+
+        // Re-add the namespace declarations on the elements that use them
+        // mc: on mc:AlternateContent
+        xml = xml.Replace(
+            "<mc:AlternateContent>",
+            @"<mc:AlternateContent xmlns:mc=""http://schemas.openxmlformats.org/markup-compatibility/2006"">");
+
+        // cx1: on mc:Choice
+        xml = xml.Replace(
+            "<mc:Choice ",
+            @"<mc:Choice xmlns:cx1=""http://schemas.microsoft.com/office/drawing/2015/9/8/chartex"" ");
+
+        // cx: on cx:chart
+        xml = xml.Replace(
+            "<cx:chart ",
+            @"<cx:chart xmlns:cx=""http://schemas.microsoft.com/office/drawing/2014/chartex"" ");
+
+        // a16: on a16:creationId
+        xml = xml.Replace(
+            "<a16:creationId ",
+            @"<a16:creationId xmlns:a16=""http://schemas.microsoft.com/office/drawing/2014/main"" ");
+
+        // Re-parse the fixed XML back into the SDK DOM
+        drawingsPart.WorksheetDrawing = new Xdr.WorksheetDrawing(xml);
+    }
+
+    private static Cx.ChartSpace BuildExtendedChartSpace(XLChart xlChart)
+    {
+        var layoutId = xlChart.ChartType switch
+        {
+            XLChartType.Sunburst => Cx.SeriesLayout.Sunburst,
+            XLChartType.Treemap => Cx.SeriesLayout.Treemap,
+            XLChartType.Waterfall => Cx.SeriesLayout.Waterfall,
+            XLChartType.Funnel => Cx.SeriesLayout.Funnel,
+            XLChartType.BoxWhisker => Cx.SeriesLayout.BoxWhisker,
+            _ => throw new NotSupportedException($"Extended chart type {xlChart.ChartType} is not supported.")
+        };
+
+        var isSunburstOrTreemap = xlChart.ChartType is XLChartType.Sunburst or XLChartType.Treemap;
+
+        var plotAreaRegion = new Cx.PlotAreaRegion();
+        var chartData = new Cx.ChartData();
+        uint dataIdx = 0;
+
+        foreach (var s in xlChart.Series)
+        {
+            var cxSeries = new Cx.Series
+            {
+                LayoutId = layoutId,
+                FormatIdx = dataIdx,
+                UniqueId = "{" + System.Guid.NewGuid().ToString() + "}"
+            };
+
+            if (!string.IsNullOrEmpty(s.Name))
+            {
+                var tx = new Cx.Text();
+                var txData = new Cx.TextData();
+                txData.AppendChild(new Cx.VXsdstring(s.Name));
+                tx.AppendChild(txData);
+                cxSeries.AppendChild(tx);
+            }
+
+            cxSeries.AppendChild(new Cx.DataId { Val = dataIdx });
+
+            // Waterfall charts need layoutPr with subtotals element
+            if (xlChart.ChartType == XLChartType.Waterfall)
+            {
+                var layoutPr = new Cx.SeriesLayoutProperties();
+                layoutPr.AppendChild(new Cx.Subtotals());
+                cxSeries.AppendChild(layoutPr);
+            }
+
+            plotAreaRegion.AppendChild(cxSeries);
+
+            var data = new Cx.Data { Id = dataIdx };
+
+            if (s.CategoryReferences != null)
+            {
+                var strDim = new Cx.StringDimension { Type = Cx.StringDimensionType.Cat };
+                var catFormula = new Cx.Formula(s.CategoryReferences);
+                // Sunburst/Treemap with multi-column category ranges need dir="col"
+                // to indicate each column is a hierarchy level
+                if (isSunburstOrTreemap && s.CategoryReferences.Contains(":"))
+                    catFormula.SetAttribute(new OpenXmlAttribute("dir", string.Empty, "col"));
+                strDim.AppendChild(catFormula);
+                data.AppendChild(strDim);
+            }
+
+            // Sunburst/Treemap use "size" dimension type; others use "val"
+            var numDimType = isSunburstOrTreemap
+                ? Cx.NumericDimensionType.Size
+                : Cx.NumericDimensionType.Val;
+            var numDim = new Cx.NumericDimension { Type = numDimType };
+            numDim.AppendChild(new Cx.Formula(s.ValueReferences));
+            data.AppendChild(numDim);
+
+            chartData.AppendChild(data);
+            dataIdx++;
+        }
+
+        var plotArea = new Cx.PlotArea();
+        plotArea.AppendChild(plotAreaRegion);
+
+        // Sunburst/Treemap don't use axes (like pie charts); others need them
+        if (!isSunburstOrTreemap)
+        {
+            var catAxis = new Cx.Axis { Id = 0u };
+            catAxis.AppendChild(new Cx.CategoryAxisScaling());
+            catAxis.AppendChild(new Cx.TickLabels());
+            plotArea.AppendChild(catAxis);
+
+            var valAxis = new Cx.Axis { Id = 1u };
+            valAxis.AppendChild(new Cx.ValueAxisScaling());
+            valAxis.AppendChild(new Cx.MajorGridlinesGridlines());
+            valAxis.AppendChild(new Cx.TickLabels());
+            plotArea.AppendChild(valAxis);
+        }
+
+        var cxChart = new Cx.Chart();
+        if (xlChart.Title != null)
+        {
+            var title = new Cx.ChartTitle
+            {
+                Pos = Cx.SidePos.T,
+                Align = Cx.PosAlign.Ctr,
+                Overlay = false
+            };
+            var txTitle = new Cx.Text();
+            var rich = new Cx.RichTextBody(
+                new A.BodyProperties(),
+                new A.ListStyle(),
+                new A.Paragraph(
+                    new A.Run(
+                        new A.RunProperties { Language = "en-US" },
+                        new A.Text(xlChart.Title)
+                    )
+                )
+            );
+            txTitle.AppendChild(rich);
+            title.AppendChild(txTitle);
+            cxChart.AppendChild(title);
+        }
+        cxChart.AppendChild(plotArea);
+
+        var chartSpace = new Cx.ChartSpace();
+        chartSpace.AddNamespaceDeclaration("cx", "http://schemas.microsoft.com/office/drawing/2014/chartex");
+        chartSpace.AddNamespaceDeclaration("a", "http://schemas.openxmlformats.org/drawingml/2006/main");
+        chartSpace.AddNamespaceDeclaration("r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+        chartSpace.AppendChild(chartData);
+        chartSpace.AppendChild(cxChart);
+        return chartSpace;
+    }
+
+    // ── Standard ChartSpace building ────────────────────────────────────
+
+    private static ChartSpace BuildChartSpace(XLChart xlChart)
+    {
+        var chart = new C.Chart();
+
+        if (xlChart.Title != null)
+        {
+            chart.Title = new Title(
+                new ChartText(
+                    new C.RichText(
+                        new A.BodyProperties(),
+                        new A.ListStyle(),
+                        new A.Paragraph(
+                            new A.Run(
+                                new A.RunProperties { Language = "en-US" },
+                                new A.Text(xlChart.Title)
+                            )
+                        )
+                    )
+                ),
+                new Overlay { Val = false }
+            );
+        }
+
+        chart.Append(BuildPlotArea(xlChart));
+        chart.Append(new PlotVisibleOnly { Val = true });
+
+        return new ChartSpace(chart);
+    }
+
+    private static PlotArea BuildPlotArea(XLChart xlChart)
+    {
+        if (IsPieType(xlChart.ChartType))
+            return BuildPiePlotArea(xlChart);
+
+        const uint catAxisId = 1u;
+        const uint valAxisId = 2u;
+        const uint serAxisId = 3u;
+
+        var plotArea = new PlotArea();
+        plotArea.Append(new Layout());
+
+        AppendChartElement(plotArea, xlChart.ChartType, xlChart.Series, catAxisId, valAxisId, 0);
+
+        if (xlChart.SecondaryChartType.HasValue && xlChart.SecondarySeries.Count > 0)
+        {
+            // Secondary series indices must continue from primary to avoid conflicts
+            AppendChartElement(plotArea, xlChart.SecondaryChartType.Value, xlChart.SecondarySeries,
+                catAxisId, valAxisId, (uint)xlChart.Series.Count);
+        }
+
+        // Axes depend on primary chart type
+        if (IsScatterType(xlChart.ChartType))
+        {
+            // Scatter uses two ValueAxis (X and Y)
+            plotArea.Append(new ValueAxis(
+                new AxisId { Val = catAxisId },
+                new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
+                new Delete { Val = false },
+                new AxisPosition { Val = AxisPositionValues.Bottom },
+                new CrossingAxis { Val = valAxisId }
+            ));
+            plotArea.Append(new ValueAxis(
+                new AxisId { Val = valAxisId },
+                new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
+                new Delete { Val = false },
+                new AxisPosition { Val = AxisPositionValues.Left },
+                new CrossingAxis { Val = catAxisId }
+            ));
+        }
+        else if (IsSurfaceType(xlChart.ChartType))
+        {
+            plotArea.Append(new CategoryAxis(
+                new AxisId { Val = catAxisId },
+                new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
+                new Delete { Val = false },
+                new AxisPosition { Val = AxisPositionValues.Bottom },
+                new CrossingAxis { Val = valAxisId }
+            ));
+            plotArea.Append(new ValueAxis(
+                new AxisId { Val = valAxisId },
+                new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
+                new Delete { Val = false },
+                new AxisPosition { Val = AxisPositionValues.Left },
+                new CrossingAxis { Val = catAxisId }
+            ));
+            plotArea.Append(new SeriesAxis(
+                new AxisId { Val = serAxisId },
+                new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
+                new Delete { Val = false },
+                new AxisPosition { Val = AxisPositionValues.Bottom },
+                new CrossingAxis { Val = valAxisId }
+            ));
+        }
+        else
+        {
+            plotArea.Append(new CategoryAxis(
+                new AxisId { Val = catAxisId },
+                new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
+                new Delete { Val = false },
+                new AxisPosition { Val = AxisPositionValues.Bottom },
+                new CrossingAxis { Val = valAxisId }
+            ));
+            plotArea.Append(new ValueAxis(
+                new AxisId { Val = valAxisId },
+                new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
+                new Delete { Val = false },
+                new AxisPosition { Val = AxisPositionValues.Left },
+                new CrossingAxis { Val = catAxisId }
+            ));
+        }
+
+        return plotArea;
+    }
+
+    private static void AppendChartElement(
+        PlotArea plotArea, XLChartType chartType,
+        IXLChartSeriesCollection seriesCollection, uint catAxisId, uint valAxisId, uint indexOffset)
+    {
+        if (IsLineType(chartType))
+            AppendLineChart(plotArea, chartType, seriesCollection, catAxisId, valAxisId, indexOffset);
+        else if (IsRadarType(chartType))
+            AppendRadarChart(plotArea, chartType, seriesCollection, catAxisId, valAxisId, indexOffset);
+        else if (IsScatterType(chartType))
+            AppendScatterChart(plotArea, chartType, seriesCollection, catAxisId, valAxisId, indexOffset);
+        else if (IsStockType(chartType))
+            AppendStockChart(plotArea, seriesCollection, catAxisId, valAxisId, indexOffset);
+        else if (IsSurfaceType(chartType))
+            AppendSurfaceChart(plotArea, chartType, seriesCollection, catAxisId, valAxisId, indexOffset);
+        else
+            AppendBarChart(plotArea, chartType, seriesCollection, catAxisId, valAxisId, indexOffset);
+    }
+
+    // ── Pie ──
+
+    private static PlotArea BuildPiePlotArea(XLChart xlChart)
+    {
+        var pieChart = new PieChart();
+        foreach (var s in xlChart.Series)
+        {
+            var series = new PieChartSeries
+            {
+                Index = new C.Index { Val = s.Index },
+                Order = new Order { Val = s.Order },
+                SeriesText = BuildSeriesText(s)
+            };
+            AppendCatAndVal(series, s);
+            pieChart.Append(series);
+        }
+        return new PlotArea(new Layout(), pieChart);
+    }
+
+    // ── Bar/Column ──
+
+    private static void AppendBarChart(
+        PlotArea plotArea, XLChartType chartType,
+        IXLChartSeriesCollection seriesCollection, uint catAxisId, uint valAxisId, uint indexOffset)
+    {
+        var bp = new BarParams(chartType);
+        var barChart = new BarChart
+        {
+            BarDirection = new BarDirection { Val = bp.Direction },
+            BarGrouping = new BarGrouping { Val = bp.Grouping }
+        };
+        foreach (var s in seriesCollection)
+        {
+            var series = new BarChartSeries
+            {
+                Index = new C.Index { Val = s.Index + indexOffset },
+                Order = new Order { Val = s.Order + indexOffset },
+                SeriesText = BuildSeriesText(s)
+            };
+            AppendCatAndVal(series, s);
+            barChart.Append(series);
+        }
+        barChart.Append(new AxisId { Val = catAxisId });
+        barChart.Append(new AxisId { Val = valAxisId });
+        plotArea.Append(barChart);
+    }
+
+    // ── Line ──
+
+    private static void AppendLineChart(
+        PlotArea plotArea, XLChartType chartType,
+        IXLChartSeriesCollection seriesCollection, uint catAxisId, uint valAxisId, uint indexOffset)
+    {
+        var lineChart = new LineChart
+        {
+            Grouping = new Grouping { Val = GetLineGrouping(chartType) }
+        };
+        foreach (var s in seriesCollection)
+        {
+            var series = new LineChartSeries
+            {
+                Index = new C.Index { Val = s.Index + indexOffset },
+                Order = new Order { Val = s.Order + indexOffset },
+                SeriesText = BuildSeriesText(s)
+            };
+            AppendCatAndVal(series, s);
+            if (chartType is XLChartType.LineWithMarkers
+                or XLChartType.LineWithMarkersStacked
+                or XLChartType.LineWithMarkersStacked100Percent)
+            {
+                series.Append(new Marker { Symbol = new Symbol { Val = MarkerStyleValues.Auto } });
+            }
+            lineChart.Append(series);
+        }
+        lineChart.Append(new AxisId { Val = catAxisId });
+        lineChart.Append(new AxisId { Val = valAxisId });
+        plotArea.Append(lineChart);
+    }
+
+    // ── Radar ──
+
+    private static void AppendRadarChart(
+        PlotArea plotArea, XLChartType chartType,
+        IXLChartSeriesCollection seriesCollection, uint catAxisId, uint valAxisId, uint indexOffset)
+    {
+        var radarChart = new RadarChart
+        {
+            RadarStyle = new RadarStyle
+            {
+                Val = chartType == XLChartType.RadarFilled ? RadarStyleValues.Filled : RadarStyleValues.Marker
+            }
+        };
+        foreach (var s in seriesCollection)
+        {
+            var series = new RadarChartSeries
+            {
+                Index = new C.Index { Val = s.Index + indexOffset },
+                Order = new Order { Val = s.Order + indexOffset },
+                SeriesText = BuildSeriesText(s)
+            };
+            AppendCatAndVal(series, s);
+            radarChart.Append(series);
+        }
+        radarChart.Append(new AxisId { Val = catAxisId });
+        radarChart.Append(new AxisId { Val = valAxisId });
+        plotArea.Append(radarChart);
+    }
+
+    // ── Scatter ──
+
+    private static void AppendScatterChart(
+        PlotArea plotArea, XLChartType chartType,
+        IXLChartSeriesCollection seriesCollection, uint xAxisId, uint yAxisId, uint indexOffset)
+    {
+        var scatterChart = new ScatterChart
+        {
+            ScatterStyle = new ScatterStyle { Val = GetScatterStyle(chartType) }
+        };
+        foreach (var s in seriesCollection)
+        {
+            var series = new ScatterChartSeries
+            {
+                Index = new C.Index { Val = s.Index + indexOffset },
+                Order = new Order { Val = s.Order + indexOffset },
+                SeriesText = BuildSeriesText(s)
+            };
+            // Scatter uses XValues + YValues, not CategoryAxisData + Values
+            if (s.CategoryReferences != null)
+            {
+                series.Append(new XValues(
+                    new NumberReference { Formula = new C.Formula(s.CategoryReferences) }
+                ));
+            }
+            series.Append(new YValues(
+                new NumberReference { Formula = new C.Formula(s.ValueReferences) }
+            ));
+            scatterChart.Append(series);
+        }
+        scatterChart.Append(new AxisId { Val = xAxisId });
+        scatterChart.Append(new AxisId { Val = yAxisId });
+        plotArea.Append(scatterChart);
+    }
+
+    // ── Stock ──
+
+    private static void AppendStockChart(
+        PlotArea plotArea, IXLChartSeriesCollection seriesCollection,
+        uint catAxisId, uint valAxisId, uint indexOffset)
+    {
+        var stockChart = new StockChart();
+        foreach (var s in seriesCollection)
+        {
+            var series = new LineChartSeries
+            {
+                Index = new C.Index { Val = s.Index + indexOffset },
+                Order = new Order { Val = s.Order + indexOffset },
+                SeriesText = BuildSeriesText(s)
+            };
+            AppendCatAndVal(series, s);
+            stockChart.Append(series);
+        }
+        stockChart.Append(new AxisId { Val = catAxisId });
+        stockChart.Append(new AxisId { Val = valAxisId });
+        plotArea.Append(stockChart);
+    }
+
+    // ── Surface ──
+
+    private static void AppendSurfaceChart(
+        PlotArea plotArea, XLChartType chartType,
+        IXLChartSeriesCollection seriesCollection, uint catAxisId, uint valAxisId, uint indexOffset)
+    {
+        const uint serAxisId = 3u;
+        var wireframe = chartType is XLChartType.SurfaceWireframe or XLChartType.SurfaceContourWireframe;
+
+        var surfaceChart = new SurfaceChart();
+        if (wireframe)
+            surfaceChart.Append(new Wireframe { Val = true });
+
+        foreach (var s in seriesCollection)
+        {
+            var series = new SurfaceChartSeries
+            {
+                Index = new C.Index { Val = s.Index + indexOffset },
+                Order = new Order { Val = s.Order + indexOffset },
+                SeriesText = BuildSeriesText(s)
+            };
+            AppendCatAndVal(series, s);
+            surfaceChart.Append(series);
+        }
+        surfaceChart.Append(new AxisId { Val = catAxisId });
+        surfaceChart.Append(new AxisId { Val = valAxisId });
+        surfaceChart.Append(new AxisId { Val = serAxisId });
+        plotArea.Append(surfaceChart);
+    }
+
+    // ── Shared helpers ──────────────────────────────────────────────────
+
+    private static void AppendCatAndVal(OpenXmlCompositeElement series, IXLChartSeries s)
+    {
+        if (s.CategoryReferences != null)
+        {
+            series.Append(new CategoryAxisData(
+                new StringReference { Formula = new C.Formula(s.CategoryReferences) }
+            ));
+        }
+        series.Append(new C.Values(
+            new NumberReference { Formula = new C.Formula(s.ValueReferences) }
+        ));
+    }
+
+    private static SeriesText BuildSeriesText(IXLChartSeries s) =>
+        new(new StringReference(
+            new StringCache(
+                new PointCount { Val = 1 },
+                new StringPoint(new NumericValue(s.Name)) { Index = 0 }
+            )
+        ));
+
+    private static void AppendAnchor(Xdr.WorksheetDrawing worksheetDrawing, XLChart xlChart, A.GraphicData graphicData)
+    {
         var nvps = worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>();
         var nvpId = nvps.Any()
             ? (UInt32Value)nvps.Max(p => p.Id!.Value) + 1
@@ -103,318 +752,149 @@ internal static class ChartWriter
                     new A.Offset { X = 0, Y = 0 },
                     new A.Extents { Cx = 0, Cy = 0 }
                 ),
-                new A.Graphic(
-                    new A.GraphicData(
-                        new C.ChartReference { Id = chartRelId }
-                    )
-                    { Uri = "http://schemas.openxmlformats.org/drawingml/2006/chart" }
-                )
+                new A.Graphic(graphicData)
             ),
             new Xdr.ClientData()
         );
-
         worksheetDrawing.Append(anchor);
+    }
 
-        // Ensure <drawing> element in worksheet XML
+    /// <summary>
+    /// Appends a TwoCellAnchor for an extended chart, wrapping the GraphicFrame in mc:AlternateContent
+    /// as required by Excel for Office 2016+ chart types.
+    /// </summary>
+    private static void AppendExtendedAnchor(Xdr.WorksheetDrawing worksheetDrawing, XLChart xlChart, string chartRelId)
+    {
+        var nvps = worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>();
+        var nvpId = nvps.Any()
+            ? (UInt32Value)nvps.Max(p => p.Id!.Value) + 1
+            : 1U;
+
+        var chartName = string.IsNullOrEmpty(xlChart.Name) ? $"Chart {nvpId}" : xlChart.Name;
+        var fromPos = xlChart.Position;
+        var toPos = xlChart.SecondPosition;
+
+        var fromCol = fromPos.Column.ToString();
+        var fromRow = fromPos.Row.ToString();
+        var fromColOff = ((long)(fromPos.ColumnOffset * 9525)).ToString();
+        var fromRowOff = ((long)(fromPos.RowOffset * 9525)).ToString();
+        var toCol = toPos.Column.ToString();
+        var toRow = toPos.Row.ToString();
+        var toColOff = ((long)(toPos.ColumnOffset * 9525)).ToString();
+        var toRowOff = ((long)(toPos.RowOffset * 9525)).ToString();
+        var guid = System.Guid.NewGuid().ToString().ToUpperInvariant();
+
+        // Build the entire TwoCellAnchor as raw XML to ensure namespace declarations
+        // are exactly where Excel expects them (not hoisted to the root element).
+        var anchorXml = $@"<xdr:twoCellAnchor xmlns:xdr=""http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"" xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main"" xmlns:r=""http://schemas.openxmlformats.org/officeDocument/2006/relationships""><xdr:from><xdr:col>{fromCol}</xdr:col><xdr:colOff>{fromColOff}</xdr:colOff><xdr:row>{fromRow}</xdr:row><xdr:rowOff>{fromRowOff}</xdr:rowOff></xdr:from><xdr:to><xdr:col>{toCol}</xdr:col><xdr:colOff>{toColOff}</xdr:colOff><xdr:row>{toRow}</xdr:row><xdr:rowOff>{toRowOff}</xdr:rowOff></xdr:to><mc:AlternateContent xmlns:mc=""http://schemas.openxmlformats.org/markup-compatibility/2006""><mc:Choice xmlns:cx1=""http://schemas.microsoft.com/office/drawing/2015/9/8/chartex"" Requires=""cx1""><xdr:graphicFrame macro=""""><xdr:nvGraphicFramePr><xdr:cNvPr id=""{nvpId}"" name=""{chartName}""><a:extLst><a:ext uri=""{{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}}""><a16:creationId xmlns:a16=""http://schemas.microsoft.com/office/drawing/2014/main"" id=""{{{guid}}}""/></a:ext></a:extLst></xdr:cNvPr><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x=""0"" y=""0""/><a:ext cx=""0"" cy=""0""/></xdr:xfrm><a:graphic><a:graphicData uri=""http://schemas.microsoft.com/office/drawing/2014/chartex""><cx:chart xmlns:cx=""http://schemas.microsoft.com/office/drawing/2014/chartex"" r:id=""{chartRelId}""/></a:graphicData></a:graphic></xdr:graphicFrame></mc:Choice><mc:Fallback><xdr:sp macro="""" textlink=""""><xdr:nvSpPr><xdr:cNvPr id=""0"" name=""""/><xdr:cNvSpPr><a:spLocks noTextEdit=""1""/></xdr:cNvSpPr></xdr:nvSpPr><xdr:spPr><a:xfrm><a:off x=""0"" y=""0""/><a:ext cx=""4572000"" cy=""2743200""/></a:xfrm><a:prstGeom prst=""rect""><a:avLst/></a:prstGeom><a:solidFill><a:prstClr val=""white""/></a:solidFill><a:ln w=""1""><a:solidFill><a:prstClr val=""green""/></a:solidFill></a:ln></xdr:spPr><xdr:txBody><a:bodyPr vertOverflow=""clip"" horzOverflow=""clip""/><a:lstStyle/><a:p><a:r><a:rPr lang=""en-US"" sz=""1100""/><a:t>This chart isn't available in your version of Excel.</a:t></a:r></a:p></xdr:txBody></xdr:sp></mc:Fallback></mc:AlternateContent><xdr:clientData/></xdr:twoCellAnchor>";
+
+        var anchor = new Xdr.TwoCellAnchor(anchorXml);
+        worksheetDrawing.Append(anchor);
+    }
+
+    private static DrawingsPart EnsureDrawingsPart(WorksheetPart worksheetPart, SaveContext context)
+    {
+        var drawingsPart = worksheetPart.DrawingsPart ??
+                           worksheetPart.AddNewPart<DrawingsPart>(context.RelIdGenerator.GetNext(RelType.Workbook));
+        drawingsPart.WorksheetDrawing ??= new Xdr.WorksheetDrawing();
+        return drawingsPart;
+    }
+
+    private static void EnsureDrawingElement(
+        Worksheet worksheet, XLWorksheetContentManager cm,
+        WorksheetPart worksheetPart, DrawingsPart drawingsPart)
+    {
         if (!worksheet.OfType<Drawing>().Any())
         {
             var tableParts = worksheet.Elements<TableParts>().FirstOrDefault();
-            var worksheetDrawingRef = new Drawing { Id = worksheetPart.GetIdOfPart(drawingsPart) };
-            worksheetDrawingRef.AddNamespaceDeclaration("r",
+            var drawingRef = new Drawing { Id = worksheetPart.GetIdOfPart(drawingsPart) };
+            drawingRef.AddNamespaceDeclaration("r",
                 "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
-
             if (tableParts != null)
-                worksheet.InsertBefore(worksheetDrawingRef, tableParts);
+                worksheet.InsertBefore(drawingRef, tableParts);
             else
-                worksheet.AppendChild(worksheetDrawingRef);
-
+                worksheet.AppendChild(drawingRef);
             cm.SetElement(XLWorksheetContents.Drawing, worksheet.Elements<Drawing>().First());
         }
     }
 
-    /// <summary>
-    /// Builds the complete OpenXML ChartSpace DOM for a chart.
-    /// Dispatches to pie or bar/column chart builders based on the chart type.
-    /// </summary>
-    private static ChartSpace BuildChartSpace(XLChart xlChart)
+    private static void EnsureNamespaces(Xdr.WorksheetDrawing worksheetDrawing)
     {
-        var chart = new C.Chart();
-
-        if (xlChart.Title != null)
-        {
-            chart.Title = new Title(
-                new ChartText(
-                    new C.RichText(
-                        new A.BodyProperties(),
-                        new A.ListStyle(),
-                        new A.Paragraph(
-                            new A.Run(
-                                new A.RunProperties { Language = "en-US" },
-                                new A.Text(xlChart.Title)
-                            )
-                        )
-                    )
-                ),
-                new Overlay { Val = false }
-            );
-        }
-
-        chart.Append(BuildPlotArea(xlChart));
-        chart.Append(new PlotVisibleOnly { Val = true });
-
-        return new ChartSpace(chart);
+        if (!worksheetDrawing.NamespaceDeclarations.Any(nd =>
+                nd.Value.Equals("http://schemas.openxmlformats.org/drawingml/2006/main")))
+            worksheetDrawing.AddNamespaceDeclaration("a", "http://schemas.openxmlformats.org/drawingml/2006/main");
+        if (!worksheetDrawing.NamespaceDeclarations.Any(nd =>
+                nd.Value.Equals("http://schemas.openxmlformats.org/officeDocument/2006/relationships")))
+            worksheetDrawing.AddNamespaceDeclaration("r",
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
     }
 
-    private static bool IsPieType(XLChartType chartType) =>
-        chartType is XLChartType.Pie or XLChartType.PieExploded
+    // ── Type classification ─────────────────────────────────────────────
+
+    private static bool IsPieType(XLChartType ct) =>
+        ct is XLChartType.Pie or XLChartType.PieExploded
             or XLChartType.Pie3D or XLChartType.PieExploded3D
             or XLChartType.PieToPie or XLChartType.PieToBar;
 
-    private static bool IsLineType(XLChartType chartType) =>
-        chartType is XLChartType.Line or XLChartType.Line3D
+    private static bool IsLineType(XLChartType ct) =>
+        ct is XLChartType.Line or XLChartType.Line3D
             or XLChartType.LineStacked or XLChartType.LineStacked100Percent
             or XLChartType.LineWithMarkers or XLChartType.LineWithMarkersStacked
             or XLChartType.LineWithMarkersStacked100Percent;
 
-    private static bool IsRadarType(XLChartType chartType) =>
-        chartType is XLChartType.Radar or XLChartType.RadarFilled
-            or XLChartType.RadarWithMarkers;
+    private static bool IsRadarType(XLChartType ct) =>
+        ct is XLChartType.Radar or XLChartType.RadarFilled or XLChartType.RadarWithMarkers;
 
-    /// <summary>
-    /// Builds the PlotArea, dispatching to the appropriate chart element builder.
-    /// For combo charts, emits both a primary and secondary chart element sharing axes.
-    /// </summary>
-    private static PlotArea BuildPlotArea(XLChart xlChart)
+    private static bool IsScatterType(XLChartType ct) =>
+        ct is XLChartType.XYScatterMarkers or XLChartType.XYScatterSmoothLinesNoMarkers
+            or XLChartType.XYScatterSmoothLinesWithMarkers
+            or XLChartType.XYScatterStraightLinesNoMarkers
+            or XLChartType.XYScatterStraightLinesWithMarkers;
+
+    private static bool IsStockType(XLChartType ct) =>
+        ct is XLChartType.StockHighLowClose or XLChartType.StockOpenHighLowClose
+            or XLChartType.StockVolumeHighLowClose or XLChartType.StockVolumeOpenHighLowClose;
+
+    private static bool IsSurfaceType(XLChartType ct) =>
+        ct is XLChartType.Surface or XLChartType.SurfaceContour
+            or XLChartType.SurfaceContourWireframe or XLChartType.SurfaceWireframe;
+
+    internal static bool IsExtendedType(XLChartType ct) =>
+        ct is XLChartType.BoxWhisker or XLChartType.Funnel
+            or XLChartType.Sunburst or XLChartType.Treemap
+            or XLChartType.Waterfall;
+
+    // ── Mapping helpers ─────────────────────────────────────────────────
+
+    private static GroupingValues GetLineGrouping(XLChartType ct) =>
+        ct is XLChartType.LineStacked or XLChartType.LineWithMarkersStacked ? GroupingValues.Stacked
+        : ct is XLChartType.LineStacked100Percent or XLChartType.LineWithMarkersStacked100Percent ? GroupingValues.PercentStacked
+        : GroupingValues.Standard;
+
+    private static ScatterStyleValues GetScatterStyle(XLChartType ct) => ct switch
     {
-        if (IsPieType(xlChart.ChartType))
-            return BuildPiePlotArea(xlChart);
+        XLChartType.XYScatterMarkers => ScatterStyleValues.LineMarker,
+        XLChartType.XYScatterSmoothLinesNoMarkers => ScatterStyleValues.SmoothMarker,
+        XLChartType.XYScatterSmoothLinesWithMarkers => ScatterStyleValues.SmoothMarker,
+        XLChartType.XYScatterStraightLinesNoMarkers => ScatterStyleValues.LineMarker,
+        XLChartType.XYScatterStraightLinesWithMarkers => ScatterStyleValues.LineMarker,
+        _ => ScatterStyleValues.LineMarker
+    };
 
-        const uint catAxisId = 1u;
-        const uint valAxisId = 2u;
-
-        var plotArea = new PlotArea();
-        plotArea.Append(new Layout());
-
-        // Primary chart element
-        AppendChartElement(plotArea, xlChart.ChartType, xlChart.Series, catAxisId, valAxisId);
-
-        // Secondary chart element (combo charts)
-        if (xlChart.SecondaryChartType.HasValue && xlChart.SecondarySeries.Count > 0)
-        {
-            AppendChartElement(plotArea, xlChart.SecondaryChartType.Value, xlChart.SecondarySeries,
-                catAxisId, valAxisId);
-        }
-
-        // Shared axes
-        plotArea.Append(new CategoryAxis(
-            new AxisId { Val = catAxisId },
-            new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
-            new Delete { Val = false },
-            new AxisPosition { Val = AxisPositionValues.Bottom },
-            new CrossingAxis { Val = valAxisId }
-        ));
-        plotArea.Append(new ValueAxis(
-            new AxisId { Val = valAxisId },
-            new Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
-            new Delete { Val = false },
-            new AxisPosition { Val = AxisPositionValues.Left },
-            new CrossingAxis { Val = catAxisId }
-        ));
-
-        return plotArea;
-    }
-
-    /// <summary>
-    /// Appends a typed chart element (BarChart, LineChart, or RadarChart) with its series to the PlotArea.
-    /// </summary>
-    private static void AppendChartElement(
-        PlotArea plotArea,
-        XLChartType chartType,
-        IXLChartSeriesCollection seriesCollection,
-        uint catAxisId,
-        uint valAxisId)
-    {
-        if (IsLineType(chartType))
-        {
-            var lineChart = new LineChart
-            {
-                Grouping = new Grouping { Val = GetLineGrouping(chartType) }
-            };
-
-            foreach (var s in seriesCollection)
-            {
-                var series = new LineChartSeries
-                {
-                    Index = new Index { Val = s.Index },
-                    Order = new Order { Val = s.Order },
-                    SeriesText = BuildSeriesText(s)
-                };
-
-                if (s.CategoryReferences != null)
-                {
-                    series.Append(new CategoryAxisData(
-                        new StringReference { Formula = new C.Formula(s.CategoryReferences) }
-                    ));
-                }
-
-                series.Append(new C.Values(
-                    new NumberReference { Formula = new C.Formula(s.ValueReferences) }
-                ));
-
-                if (chartType is XLChartType.LineWithMarkers
-                    or XLChartType.LineWithMarkersStacked
-                    or XLChartType.LineWithMarkersStacked100Percent)
-                {
-                    series.Append(new Marker { Symbol = new Symbol { Val = MarkerStyleValues.Auto } });
-                }
-
-                lineChart.Append(series);
-            }
-
-            lineChart.Append(new AxisId { Val = catAxisId });
-            lineChart.Append(new AxisId { Val = valAxisId });
-            plotArea.Append(lineChart);
-        }
-        else if (IsRadarType(chartType))
-        {
-            var radarStyle = chartType == XLChartType.RadarFilled
-                ? RadarStyleValues.Filled
-                : RadarStyleValues.Marker;
-
-            var radarChart = new RadarChart
-            {
-                RadarStyle = new RadarStyle { Val = radarStyle }
-            };
-
-            foreach (var s in seriesCollection)
-            {
-                var series = new RadarChartSeries
-                {
-                    Index = new Index { Val = s.Index },
-                    Order = new Order { Val = s.Order },
-                    SeriesText = BuildSeriesText(s)
-                };
-
-                if (s.CategoryReferences != null)
-                {
-                    series.Append(new CategoryAxisData(
-                        new StringReference { Formula = new C.Formula(s.CategoryReferences) }
-                    ));
-                }
-
-                series.Append(new C.Values(
-                    new NumberReference { Formula = new C.Formula(s.ValueReferences) }
-                ));
-
-                radarChart.Append(series);
-            }
-
-            radarChart.Append(new AxisId { Val = catAxisId });
-            radarChart.Append(new AxisId { Val = valAxisId });
-            plotArea.Append(radarChart);
-        }
-        else
-        {
-            // Bar/Column chart
-            var xlChart = new XLChart_BarParams(chartType);
-            var barChart = new BarChart
-            {
-                BarDirection = new BarDirection { Val = xlChart.Direction },
-                BarGrouping = new BarGrouping { Val = xlChart.Grouping }
-            };
-
-            foreach (var s in seriesCollection)
-            {
-                var series = new BarChartSeries
-                {
-                    Index = new Index { Val = s.Index },
-                    Order = new Order { Val = s.Order },
-                    SeriesText = BuildSeriesText(s)
-                };
-
-                if (s.CategoryReferences != null)
-                {
-                    series.Append(new CategoryAxisData(
-                        new StringReference { Formula = new C.Formula(s.CategoryReferences) }
-                    ));
-                }
-
-                series.Append(new C.Values(
-                    new NumberReference { Formula = new C.Formula(s.ValueReferences) }
-                ));
-
-                barChart.Append(series);
-            }
-
-            barChart.Append(new AxisId { Val = catAxisId });
-            barChart.Append(new AxisId { Val = valAxisId });
-            plotArea.Append(barChart);
-        }
-    }
-
-    /// <summary>
-    /// Builds a PlotArea containing a PieChart. Pie charts have no axes.
-    /// </summary>
-    private static PlotArea BuildPiePlotArea(XLChart xlChart)
-    {
-        var pieChart = new PieChart();
-
-        foreach (var s in xlChart.Series)
-        {
-            var series = new PieChartSeries
-            {
-                Index = new Index { Val = s.Index },
-                Order = new Order { Val = s.Order },
-                SeriesText = BuildSeriesText(s)
-            };
-
-            if (s.CategoryReferences != null)
-            {
-                series.Append(new CategoryAxisData(
-                    new StringReference { Formula = new C.Formula(s.CategoryReferences) }
-                ));
-            }
-
-            series.Append(new C.Values(
-                new NumberReference { Formula = new C.Formula(s.ValueReferences) }
-            ));
-
-            pieChart.Append(series);
-        }
-
-        return new PlotArea(new Layout(), pieChart);
-    }
-
-    private static GroupingValues GetLineGrouping(XLChartType chartType) =>
-        chartType is XLChartType.LineStacked or XLChartType.LineWithMarkersStacked
-            ? GroupingValues.Stacked
-            : chartType is XLChartType.LineStacked100Percent or XLChartType.LineWithMarkersStacked100Percent
-                ? GroupingValues.PercentStacked
-                : GroupingValues.Standard;
-
-    /// <summary>
-    /// Lightweight helper that resolves bar direction/grouping from a chart type
-    /// without needing a full XLChart instance.
-    /// </summary>
-    private readonly struct XLChart_BarParams
+    private readonly struct BarParams
     {
         public BarDirectionValues Direction { get; }
         public BarGroupingValues Grouping { get; }
 
-        public XLChart_BarParams(XLChartType chartType)
+        public BarParams(XLChartType ct)
         {
-            Direction = IsHorizontalBarType(chartType) ? BarDirectionValues.Bar : BarDirectionValues.Column;
-            Grouping = GetBarGroupingForType(chartType);
-        }
-
-        private static bool IsHorizontalBarType(XLChartType ct) =>
-            ct is XLChartType.BarClustered or XLChartType.BarClustered3D
+            Direction = ct is XLChartType.BarClustered or XLChartType.BarClustered3D
                 or XLChartType.BarStacked or XLChartType.BarStacked100Percent
-                or XLChartType.BarStacked100Percent3D or XLChartType.BarStacked3D;
+                or XLChartType.BarStacked100Percent3D or XLChartType.BarStacked3D
+                ? BarDirectionValues.Bar : BarDirectionValues.Column;
 
-        private static BarGroupingValues GetBarGroupingForType(XLChartType ct) =>
-            ct is XLChartType.BarClustered or XLChartType.BarClustered3D
-                or XLChartType.ColumnClustered or XLChartType.ColumnClustered3D
+            Grouping = ct is XLChartType.BarClustered or XLChartType.BarClustered3D
+                    or XLChartType.ColumnClustered or XLChartType.ColumnClustered3D
                 ? BarGroupingValues.Clustered
                 : ct is XLChartType.BarStacked or XLChartType.BarStacked3D
                     or XLChartType.ColumnStacked or XLChartType.ColumnStacked3D
@@ -423,35 +903,6 @@ internal static class ChartWriter
                         or XLChartType.ColumnStacked100Percent or XLChartType.ColumnStacked100Percent3D
                         ? BarGroupingValues.PercentStacked
                         : BarGroupingValues.Clustered;
-    }
-
-    /// <summary>
-    /// Builds a SeriesText element containing the series name in a StringCache.
-    /// </summary>
-    private static SeriesText BuildSeriesText(IXLChartSeries s)
-    {
-        return new SeriesText(
-            new StringReference(
-                new StringCache(
-                    new PointCount { Val = 1 },
-                    new StringPoint(new NumericValue(s.Name)) { Index = 0 }
-                )
-            )
-        );
-    }
-
-    /// <summary>
-    /// Ensures the WorksheetDrawing element has the required DrawingML and relationships namespace declarations.
-    /// </summary>
-    private static void EnsureNamespaces(Xdr.WorksheetDrawing worksheetDrawing)
-    {
-        if (!worksheetDrawing.NamespaceDeclarations.Any(nd =>
-                nd.Value.Equals("http://schemas.openxmlformats.org/drawingml/2006/main")))
-            worksheetDrawing.AddNamespaceDeclaration("a", "http://schemas.openxmlformats.org/drawingml/2006/main");
-
-        if (!worksheetDrawing.NamespaceDeclarations.Any(nd =>
-                nd.Value.Equals("http://schemas.openxmlformats.org/officeDocument/2006/relationships")))
-            worksheetDrawing.AddNamespaceDeclaration("r",
-                "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+        }
     }
 }

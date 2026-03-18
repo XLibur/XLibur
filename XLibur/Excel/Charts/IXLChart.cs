@@ -74,7 +74,14 @@ public enum XLChartType
     XYScatterSmoothLinesNoMarkers,
     XYScatterSmoothLinesWithMarkers,
     XYScatterStraightLinesNoMarkers,
-    XYScatterStraightLinesWithMarkers
+    XYScatterStraightLinesWithMarkers,
+
+    // Extended chart types (Office 2016+, uses ExtendedChartPart / cx namespace)
+    BoxWhisker,
+    Funnel,
+    Sunburst,
+    Treemap,
+    Waterfall
 }
 /// <summary>
 /// Represents an Excel chart embedded in a worksheet.

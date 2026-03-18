@@ -27,6 +27,8 @@
         <EmbeddedResource Include="Graphics\Fonts\CarlitoBare-BoldItalic.ttf"/>
         <EmbeddedResource Include="Graphics\Fonts\CarlitoBare-Italic.ttf"/>
         <EmbeddedResource Include="Graphics\Fonts\CarlitoBare-Regular.ttf"/>
+        <EmbeddedResource Include="Excel\IO\ChartExDefaultColors.xml"/>
+        <EmbeddedResource Include="Excel\IO\ChartExDefaultStyle.xml"/>
     </ItemGroup>
 
     <ItemGroup>

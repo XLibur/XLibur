@@ -29,3 +29,8 @@ XLibur.Excel.IXLChartSeriesCollection
 XLibur.Excel.IXLChartSeriesCollection.Add(string! name, string! valueReferences, string? categoryReferences = null) -> XLibur.Excel.IXLChartSeries!
 XLibur.Excel.IXLChartSeriesCollection.Count.get -> int
 XLibur.Excel.IXLWorksheet.Charts.get -> XLibur.Excel.IXLCharts!
+XLibur.Excel.XLChartType.BoxWhisker = 73 -> XLibur.Excel.XLChartType
+XLibur.Excel.XLChartType.Funnel = 74 -> XLibur.Excel.XLChartType
+XLibur.Excel.XLChartType.Sunburst = 75 -> XLibur.Excel.XLChartType
+XLibur.Excel.XLChartType.Treemap = 76 -> XLibur.Excel.XLChartType
+XLibur.Excel.XLChartType.Waterfall = 77 -> XLibur.Excel.XLChartType

@@ -250,6 +250,203 @@ public class ChartExamples : IXLExample
         chart8.Position.SetColumn(0).SetRow(8);
         chart8.SecondPosition.SetColumn(9).SetRow(24);
 
+        // --- Sheet 9: Scatter (XY) chart ---
+        var ws9 = wb.Worksheets.Add("Scatter");
+
+        ws9.Cell("A1").Value = "X";
+        ws9.Cell("B1").Value = "Y";
+        ws9.Cell("A2").Value = 1.0;
+        ws9.Cell("A3").Value = 2.5;
+        ws9.Cell("A4").Value = 4.0;
+        ws9.Cell("A5").Value = 5.5;
+        ws9.Cell("A6").Value = 7.0;
+        ws9.Cell("B2").Value = 2.3;
+        ws9.Cell("B3").Value = 3.1;
+        ws9.Cell("B4").Value = 5.8;
+        ws9.Cell("B5").Value = 6.2;
+        ws9.Cell("B6").Value = 8.9;
+
+        ws9.Columns("A", "B").AdjustToContents();
+
+        var chart9 = ws9.Charts.Add(XLChartType.XYScatterMarkers);
+        chart9.SetTitle("Scatter Plot");
+        chart9.Series.Add("Measurements", "Scatter!$B$2:$B$6", "Scatter!$A$2:$A$6");
+        chart9.Position.SetColumn(0).SetRow(8);
+        chart9.SecondPosition.SetColumn(9).SetRow(24);
+
+        // --- Sheet 10: Stock (High-Low-Close) chart ---
+        var ws10 = wb.Worksheets.Add("Stock");
+
+        ws10.Cell("A1").Value = "Date";
+        ws10.Cell("B1").Value = "High";
+        ws10.Cell("C1").Value = "Low";
+        ws10.Cell("D1").Value = "Close";
+
+        ws10.Cell("A2").Value = "Mon";
+        ws10.Cell("A3").Value = "Tue";
+        ws10.Cell("A4").Value = "Wed";
+        ws10.Cell("A5").Value = "Thu";
+
+        ws10.Cell("B2").Value = 105; ws10.Cell("C2").Value = 98;  ws10.Cell("D2").Value = 102;
+        ws10.Cell("B3").Value = 108; ws10.Cell("C3").Value = 100; ws10.Cell("D3").Value = 104;
+        ws10.Cell("B4").Value = 110; ws10.Cell("C4").Value = 99;  ws10.Cell("D4").Value = 107;
+        ws10.Cell("B5").Value = 112; ws10.Cell("C5").Value = 103; ws10.Cell("D5").Value = 109;
+
+        ws10.Columns("A", "D").AdjustToContents();
+
+        var chart10 = ws10.Charts.Add(XLChartType.StockHighLowClose);
+        chart10.SetTitle("Stock Prices");
+        chart10.Series.Add("High", "Stock!$B$2:$B$5", "Stock!$A$2:$A$5");
+        chart10.Series.Add("Low", "Stock!$C$2:$C$5", "Stock!$A$2:$A$5");
+        chart10.Series.Add("Close", "Stock!$D$2:$D$5", "Stock!$A$2:$A$5");
+        chart10.Position.SetColumn(0).SetRow(7);
+        chart10.SecondPosition.SetColumn(9).SetRow(22);
+
+        // --- Sheet 11: Surface chart ---
+        var ws11 = wb.Worksheets.Add("Surface");
+
+        ws11.Cell("A1").Value = "";
+        ws11.Cell("B1").Value = "Col1";
+        ws11.Cell("C1").Value = "Col2";
+        ws11.Cell("D1").Value = "Col3";
+        ws11.Cell("A2").Value = "Row1";
+        ws11.Cell("A3").Value = "Row2";
+        ws11.Cell("A4").Value = "Row3";
+
+        ws11.Cell("B2").Value = 10; ws11.Cell("C2").Value = 20; ws11.Cell("D2").Value = 30;
+        ws11.Cell("B3").Value = 25; ws11.Cell("C3").Value = 15; ws11.Cell("D3").Value = 35;
+        ws11.Cell("B4").Value = 30; ws11.Cell("C4").Value = 40; ws11.Cell("D4").Value = 20;
+
+        ws11.Columns("A", "D").AdjustToContents();
+
+        var chart11 = ws11.Charts.Add(XLChartType.Surface);
+        chart11.SetTitle("Surface Data");
+        chart11.Series.Add("Col1", "Surface!$B$2:$B$4", "Surface!$A$2:$A$4");
+        chart11.Series.Add("Col2", "Surface!$C$2:$C$4", "Surface!$A$2:$A$4");
+        chart11.Series.Add("Col3", "Surface!$D$2:$D$4", "Surface!$A$2:$A$4");
+        chart11.Position.SetColumn(0).SetRow(6);
+        chart11.SecondPosition.SetColumn(9).SetRow(22);
+
+        // --- Sheet 12: Waterfall chart (extended) ---
+        var ws12 = wb.Worksheets.Add("Waterfall");
+
+        ws12.Cell("A1").Value = "Category";
+        ws12.Cell("B1").Value = "Amount";
+        ws12.Cell("A2").Value = "Start";
+        ws12.Cell("A3").Value = "Sales";
+        ws12.Cell("A4").Value = "Returns";
+        ws12.Cell("A5").Value = "Costs";
+        ws12.Cell("A6").Value = "End";
+        ws12.Cell("B2").Value = 1000;
+        ws12.Cell("B3").Value = 500;
+        ws12.Cell("B4").Value = -150;
+        ws12.Cell("B5").Value = -300;
+        ws12.Cell("B6").Value = 1050;
+
+        ws12.Columns("A", "B").AdjustToContents();
+
+        var chart12 = ws12.Charts.Add(XLChartType.Waterfall);
+        chart12.SetTitle("Waterfall Analysis");
+        chart12.Series.Add("Amount", "Waterfall!$B$2:$B$6", "Waterfall!$A$2:$A$6");
+        chart12.Position.SetColumn(0).SetRow(8);
+        chart12.SecondPosition.SetColumn(9).SetRow(24);
+
+        // --- Sheet 13: Funnel chart (extended) ---
+        var ws13 = wb.Worksheets.Add("Funnel");
+
+        ws13.Cell("A1").Value = "Stage";
+        ws13.Cell("B1").Value = "Count";
+        ws13.Cell("A2").Value = "Visitors";
+        ws13.Cell("A3").Value = "Leads";
+        ws13.Cell("A4").Value = "Qualified";
+        ws13.Cell("A5").Value = "Proposals";
+        ws13.Cell("A6").Value = "Closed";
+        ws13.Cell("B2").Value = 5000;
+        ws13.Cell("B3").Value = 2500;
+        ws13.Cell("B4").Value = 1200;
+        ws13.Cell("B5").Value = 600;
+        ws13.Cell("B6").Value = 200;
+
+        ws13.Columns("A", "B").AdjustToContents();
+
+        var chart13 = ws13.Charts.Add(XLChartType.Funnel);
+        chart13.SetTitle("Sales Funnel");
+        chart13.Series.Add("Count", "Funnel!$B$2:$B$6", "Funnel!$A$2:$A$6");
+        chart13.Position.SetColumn(0).SetRow(8);
+        chart13.SecondPosition.SetColumn(9).SetRow(24);
+
+        // --- Sheet 14: Sunburst chart (extended, hierarchical data) ---
+        var ws14 = wb.Worksheets.Add("Sunburst");
+
+        // Sunburst requires hierarchical data: multiple category columns define the ring levels
+        ws14.Cell("A1").Value = "Branch";
+        ws14.Cell("B1").Value = "Category";
+        ws14.Cell("C1").Value = "Item";
+        ws14.Cell("D1").Value = "Value";
+
+        ws14.Cell("A2").Value = "Food";  ws14.Cell("B2").Value = "Fruit";     ws14.Cell("C2").Value = "Apple";   ws14.Cell("D2").Value = 30;
+        ws14.Cell("A3").Value = "Food";  ws14.Cell("B3").Value = "Fruit";     ws14.Cell("C3").Value = "Banana";  ws14.Cell("D3").Value = 25;
+        ws14.Cell("A4").Value = "Food";  ws14.Cell("B4").Value = "Vegetable"; ws14.Cell("C4").Value = "Carrot";  ws14.Cell("D4").Value = 15;
+        ws14.Cell("A5").Value = "Food";  ws14.Cell("B5").Value = "Vegetable"; ws14.Cell("C5").Value = "Peas";    ws14.Cell("D5").Value = 10;
+        ws14.Cell("A6").Value = "Drink"; ws14.Cell("B6").Value = "Hot";       ws14.Cell("C6").Value = "Coffee";  ws14.Cell("D6").Value = 35;
+        ws14.Cell("A7").Value = "Drink"; ws14.Cell("B7").Value = "Hot";       ws14.Cell("C7").Value = "Tea";     ws14.Cell("D7").Value = 20;
+        ws14.Cell("A8").Value = "Drink"; ws14.Cell("B8").Value = "Cold";      ws14.Cell("C8").Value = "Juice";   ws14.Cell("D8").Value = 18;
+
+        ws14.Columns("A", "D").AdjustToContents();
+
+        // Category references span multiple columns (A:C) for hierarchy; dir="col" is set automatically
+        var chart14 = ws14.Charts.Add(XLChartType.Sunburst);
+        chart14.SetTitle("Food & Drink Breakdown");
+        chart14.Series.Add("Value", "Sunburst!$D$2:$D$8", "Sunburst!$A$2:$C$8");
+        chart14.Position.SetColumn(0).SetRow(10);
+        chart14.SecondPosition.SetColumn(10).SetRow(28);
+
+        // --- Sheet 15: Treemap chart (extended, hierarchical data) ---
+        var ws15 = wb.Worksheets.Add("Treemap");
+
+        // Treemap also requires hierarchical data
+        ws15.Cell("A1").Value = "Region";
+        ws15.Cell("B1").Value = "Country";
+        ws15.Cell("C1").Value = "Revenue";
+
+        ws15.Cell("A2").Value = "Americas"; ws15.Cell("B2").Value = "USA";       ws15.Cell("C2").Value = 400;
+        ws15.Cell("A3").Value = "Americas"; ws15.Cell("B3").Value = "Canada";    ws15.Cell("C3").Value = 100;
+        ws15.Cell("A4").Value = "Americas"; ws15.Cell("B4").Value = "Brazil";    ws15.Cell("C4").Value = 80;
+        ws15.Cell("A5").Value = "Europe";   ws15.Cell("B5").Value = "UK";        ws15.Cell("C5").Value = 200;
+        ws15.Cell("A6").Value = "Europe";   ws15.Cell("B6").Value = "Germany";   ws15.Cell("C6").Value = 150;
+        ws15.Cell("A7").Value = "Asia";     ws15.Cell("B7").Value = "Japan";     ws15.Cell("C7").Value = 180;
+        ws15.Cell("A8").Value = "Asia";     ws15.Cell("B8").Value = "Australia"; ws15.Cell("C8").Value = 100;
+
+        ws15.Columns("A", "C").AdjustToContents();
+
+        var chart15 = ws15.Charts.Add(XLChartType.Treemap);
+        chart15.SetTitle("Revenue by Region");
+        chart15.Series.Add("Revenue", "Treemap!$C$2:$C$8", "Treemap!$A$2:$B$8");
+        chart15.Position.SetColumn(0).SetRow(10);
+        chart15.SecondPosition.SetColumn(10).SetRow(28);
+
+        // --- Sheet 16: Box & Whisker chart (extended) ---
+        var ws16 = wb.Worksheets.Add("BoxWhisker");
+
+        ws16.Cell("A1").Value = "Group";
+        ws16.Cell("B1").Value = "Value";
+        ws16.Cell("A2").Value = "A"; ws16.Cell("B2").Value = 12;
+        ws16.Cell("A3").Value = "A"; ws16.Cell("B3").Value = 15;
+        ws16.Cell("A4").Value = "A"; ws16.Cell("B4").Value = 18;
+        ws16.Cell("A5").Value = "A"; ws16.Cell("B5").Value = 22;
+        ws16.Cell("A6").Value = "B"; ws16.Cell("B6").Value = 8;
+        ws16.Cell("A7").Value = "B"; ws16.Cell("B7").Value = 14;
+        ws16.Cell("A8").Value = "B"; ws16.Cell("B8").Value = 20;
+        ws16.Cell("A9").Value = "B"; ws16.Cell("B9").Value = 25;
+
+        ws16.Columns("A", "B").AdjustToContents();
+
+        var chart16 = ws16.Charts.Add(XLChartType.BoxWhisker);
+        chart16.SetTitle("Distribution by Group");
+        chart16.Series.Add("Value", "BoxWhisker!$B$2:$B$9", "BoxWhisker!$A$2:$A$9");
+        chart16.Position.SetColumn(0).SetRow(11);
+        chart16.SecondPosition.SetColumn(9).SetRow(26);
+
         wb.SaveAs(filePath);
     }
 }

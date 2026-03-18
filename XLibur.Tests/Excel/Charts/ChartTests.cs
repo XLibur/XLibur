@@ -406,4 +406,228 @@ public class ChartTests
             Assert.That(chart.SecondarySeries.First().Name, Is.EqualTo("Price"));
         }
     }
+
+    [Test]
+    public void CanSaveAndLoadScatterChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = 1.0; ws.Cell("B1").Value = 2.0;
+            ws.Cell("A2").Value = 3.0; ws.Cell("B2").Value = 4.0;
+
+            var chart = ws.Charts.Add(XLChartType.XYScatterMarkers);
+            chart.SetTitle("XY");
+            chart.Series.Add("Points", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.XYScatterMarkers));
+            Assert.That(chart.Title, Is.EqualTo("XY"));
+            Assert.That(chart.Series.Count, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadStockChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "Mon"; ws.Cell("B1").Value = 105; ws.Cell("C1").Value = 98; ws.Cell("D1").Value = 102;
+            ws.Cell("A2").Value = "Tue"; ws.Cell("B2").Value = 108; ws.Cell("C2").Value = 100; ws.Cell("D2").Value = 104;
+
+            var chart = ws.Charts.Add(XLChartType.StockHighLowClose);
+            chart.Series.Add("High", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Series.Add("Low", "Data!$C$1:$C$2", "Data!$A$1:$A$2");
+            chart.Series.Add("Close", "Data!$D$1:$D$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.StockHighLowClose));
+            Assert.That(chart.Series.Count, Is.EqualTo(3));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadSurfaceChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "R1"; ws.Cell("B1").Value = 10; ws.Cell("C1").Value = 20;
+            ws.Cell("A2").Value = "R2"; ws.Cell("B2").Value = 30; ws.Cell("C2").Value = 40;
+
+            var chart = ws.Charts.Add(XLChartType.Surface);
+            chart.SetTitle("Surface");
+            chart.Series.Add("S1", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Series.Add("S2", "Data!$C$1:$C$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Surface));
+            Assert.That(chart.Series.Count, Is.EqualTo(2));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadWaterfallChart()
+    {
+        // Also write to disk for manual Excel inspection
+        var filePath = Path.Combine(Path.GetTempPath(), "WaterfallTest.xlsx");
+
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "Start"; ws.Cell("B1").Value = 1000;
+            ws.Cell("A2").Value = "Add";   ws.Cell("B2").Value = 500;
+            ws.Cell("A3").Value = "End";   ws.Cell("B3").Value = 1500;
+
+            var chart = ws.Charts.Add(XLChartType.Waterfall);
+            chart.SetTitle("WF");
+            chart.Series.Add("Amount", "Data!$B$1:$B$3", "Data!$A$1:$A$3");
+            chart.Position.SetColumn(0).SetRow(5);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+            ms.Position = 0;
+            wb.SaveAs(filePath);
+        }
+        TestContext.Out.WriteLine($"Waterfall test file: {filePath}");
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Waterfall));
+            Assert.That(chart.Title, Is.EqualTo("WF"));
+            Assert.That(chart.Series.Count, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadFunnelChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "Stage1"; ws.Cell("B1").Value = 100;
+            ws.Cell("A2").Value = "Stage2"; ws.Cell("B2").Value = 60;
+
+            var chart = ws.Charts.Add(XLChartType.Funnel);
+            chart.Series.Add("Count", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Funnel));
+            Assert.That(chart.Series.Count, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadSunburstChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "A"; ws.Cell("B1").Value = 40;
+            ws.Cell("A2").Value = "B"; ws.Cell("B2").Value = 60;
+
+            var chart = ws.Charts.Add(XLChartType.Sunburst);
+            chart.SetTitle("SB");
+            chart.Series.Add("Values", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Sunburst));
+            Assert.That(chart.Title, Is.EqualTo("SB"));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadTreemapChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "X"; ws.Cell("B1").Value = 50;
+            ws.Cell("A2").Value = "Y"; ws.Cell("B2").Value = 30;
+
+            var chart = ws.Charts.Add(XLChartType.Treemap);
+            chart.Series.Add("Rev", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Treemap));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadBoxWhiskerChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "G"; ws.Cell("B1").Value = 10;
+            ws.Cell("A2").Value = "G"; ws.Cell("B2").Value = 20;
+
+            var chart = ws.Charts.Add(XLChartType.BoxWhisker);
+            chart.SetTitle("BW");
+            chart.Series.Add("Val", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.BoxWhisker));
+            Assert.That(chart.Title, Is.EqualTo("BW"));
+        }
+    }
 }
