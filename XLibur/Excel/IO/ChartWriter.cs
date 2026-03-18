@@ -251,6 +251,7 @@ internal static class ChartWriter
         };
 
         var isSunburstOrTreemap = xlChart.ChartType is XLChartType.Sunburst or XLChartType.Treemap;
+        var isWaterfall = xlChart.ChartType == XLChartType.Waterfall;
 
         var plotAreaRegion = new Cx.PlotAreaRegion();
         var chartData = new Cx.ChartData();
@@ -258,64 +259,91 @@ internal static class ChartWriter
 
         foreach (var s in xlChart.Series)
         {
-            var cxSeries = new Cx.Series
-            {
-                LayoutId = layoutId,
-                FormatIdx = dataIdx,
-                UniqueId = "{" + System.Guid.NewGuid().ToString() + "}"
-            };
-
-            if (!string.IsNullOrEmpty(s.Name))
-            {
-                var tx = new Cx.Text();
-                var txData = new Cx.TextData();
-                txData.AppendChild(new Cx.VXsdstring(s.Name));
-                tx.AppendChild(txData);
-                cxSeries.AppendChild(tx);
-            }
-
-            cxSeries.AppendChild(new Cx.DataId { Val = dataIdx });
-
-            // Waterfall charts need layoutPr with subtotals element
-            if (xlChart.ChartType == XLChartType.Waterfall)
-            {
-                var layoutPr = new Cx.SeriesLayoutProperties();
-                layoutPr.AppendChild(new Cx.Subtotals());
-                cxSeries.AppendChild(layoutPr);
-            }
-
-            plotAreaRegion.AppendChild(cxSeries);
-
-            var data = new Cx.Data { Id = dataIdx };
-
-            if (s.CategoryReferences != null)
-            {
-                var strDim = new Cx.StringDimension { Type = Cx.StringDimensionType.Cat };
-                var catFormula = new Cx.Formula(s.CategoryReferences);
-                // Sunburst/Treemap with multi-column category ranges need dir="col"
-                // to indicate each column is a hierarchy level
-                if (isSunburstOrTreemap && s.CategoryReferences.Contains(":"))
-                    catFormula.SetAttribute(new OpenXmlAttribute("dir", string.Empty, "col"));
-                strDim.AppendChild(catFormula);
-                data.AppendChild(strDim);
-            }
-
-            // Sunburst/Treemap use "size" dimension type; others use "val"
-            var numDimType = isSunburstOrTreemap
-                ? Cx.NumericDimensionType.Size
-                : Cx.NumericDimensionType.Val;
-            var numDim = new Cx.NumericDimension { Type = numDimType };
-            numDim.AppendChild(new Cx.Formula(s.ValueReferences));
-            data.AppendChild(numDim);
-
-            chartData.AppendChild(data);
+            plotAreaRegion.AppendChild(BuildExtendedSeries(s, layoutId, dataIdx, isWaterfall));
+            chartData.AppendChild(BuildExtendedData(s, dataIdx, isSunburstOrTreemap));
             dataIdx++;
         }
 
+        var plotArea = BuildExtendedPlotArea(plotAreaRegion, isSunburstOrTreemap);
+
+        var cxChart = new Cx.Chart();
+        if (xlChart.Title != null)
+            cxChart.AppendChild(BuildExtendedChartTitle(xlChart.Title));
+        cxChart.AppendChild(plotArea);
+
+        var chartSpace = new Cx.ChartSpace();
+        chartSpace.AddNamespaceDeclaration("cx", "http://schemas.microsoft.com/office/drawing/2014/chartex");
+        chartSpace.AddNamespaceDeclaration("a", "http://schemas.openxmlformats.org/drawingml/2006/main");
+        chartSpace.AddNamespaceDeclaration("r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+        chartSpace.AppendChild(chartData);
+        chartSpace.AppendChild(cxChart);
+        return chartSpace;
+    }
+
+    private static Cx.Series BuildExtendedSeries(
+        IXLChartSeries s, Cx.SeriesLayout layoutId, uint dataIdx, bool isWaterfall)
+    {
+        var cxSeries = new Cx.Series
+        {
+            LayoutId = layoutId,
+            FormatIdx = dataIdx,
+            UniqueId = "{" + System.Guid.NewGuid().ToString() + "}"
+        };
+
+        if (!string.IsNullOrEmpty(s.Name))
+        {
+            var txData = new Cx.TextData();
+            txData.AppendChild(new Cx.VXsdstring(s.Name));
+            var tx = new Cx.Text();
+            tx.AppendChild(txData);
+            cxSeries.AppendChild(tx);
+        }
+
+        cxSeries.AppendChild(new Cx.DataId { Val = dataIdx });
+
+        if (isWaterfall)
+        {
+            var layoutPr = new Cx.SeriesLayoutProperties();
+            layoutPr.AppendChild(new Cx.Subtotals());
+            cxSeries.AppendChild(layoutPr);
+        }
+
+        return cxSeries;
+    }
+
+    private static Cx.Data BuildExtendedData(
+        IXLChartSeries s, uint dataIdx, bool isSunburstOrTreemap)
+    {
+        var data = new Cx.Data { Id = dataIdx };
+
+        if (s.CategoryReferences != null)
+        {
+            var strDim = new Cx.StringDimension { Type = Cx.StringDimensionType.Cat };
+            var catFormula = new Cx.Formula(s.CategoryReferences);
+            // Sunburst/Treemap with multi-column category ranges need dir="col"
+            // to indicate each column is a hierarchy level
+            if (isSunburstOrTreemap && s.CategoryReferences.Contains(':'))
+                catFormula.SetAttribute(new OpenXmlAttribute("dir", string.Empty, "col"));
+            strDim.AppendChild(catFormula);
+            data.AppendChild(strDim);
+        }
+
+        var numDimType = isSunburstOrTreemap
+            ? Cx.NumericDimensionType.Size
+            : Cx.NumericDimensionType.Val;
+        var numDim = new Cx.NumericDimension { Type = numDimType };
+        numDim.AppendChild(new Cx.Formula(s.ValueReferences));
+        data.AppendChild(numDim);
+
+        return data;
+    }
+
+    private static Cx.PlotArea BuildExtendedPlotArea(
+        Cx.PlotAreaRegion plotAreaRegion, bool isSunburstOrTreemap)
+    {
         var plotArea = new Cx.PlotArea();
         plotArea.AppendChild(plotAreaRegion);
 
-        // Sunburst/Treemap don't use axes (like pie charts); others need them
         if (!isSunburstOrTreemap)
         {
             var catAxis = new Cx.Axis { Id = 0u };
@@ -330,39 +358,31 @@ internal static class ChartWriter
             plotArea.AppendChild(valAxis);
         }
 
-        var cxChart = new Cx.Chart();
-        if (xlChart.Title != null)
-        {
-            var title = new Cx.ChartTitle
-            {
-                Pos = Cx.SidePos.T,
-                Align = Cx.PosAlign.Ctr,
-                Overlay = false
-            };
-            var txTitle = new Cx.Text();
-            var rich = new Cx.RichTextBody(
-                new A.BodyProperties(),
-                new A.ListStyle(),
-                new A.Paragraph(
-                    new A.Run(
-                        new A.RunProperties { Language = "en-US" },
-                        new A.Text(xlChart.Title)
-                    )
-                )
-            );
-            txTitle.AppendChild(rich);
-            title.AppendChild(txTitle);
-            cxChart.AppendChild(title);
-        }
-        cxChart.AppendChild(plotArea);
+        return plotArea;
+    }
 
-        var chartSpace = new Cx.ChartSpace();
-        chartSpace.AddNamespaceDeclaration("cx", "http://schemas.microsoft.com/office/drawing/2014/chartex");
-        chartSpace.AddNamespaceDeclaration("a", "http://schemas.openxmlformats.org/drawingml/2006/main");
-        chartSpace.AddNamespaceDeclaration("r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
-        chartSpace.AppendChild(chartData);
-        chartSpace.AppendChild(cxChart);
-        return chartSpace;
+    private static Cx.ChartTitle BuildExtendedChartTitle(string titleText)
+    {
+        var title = new Cx.ChartTitle
+        {
+            Pos = Cx.SidePos.T,
+            Align = Cx.PosAlign.Ctr,
+            Overlay = false
+        };
+        var rich = new Cx.RichTextBody(
+            new A.BodyProperties(),
+            new A.ListStyle(),
+            new A.Paragraph(
+                new A.Run(
+                    new A.RunProperties { Language = "en-US" },
+                    new A.Text(titleText)
+                )
+            )
+        );
+        var txTitle = new Cx.Text();
+        txTitle.AppendChild(rich);
+        title.AppendChild(txTitle);
+        return title;
     }
 
     // ── Standard ChartSpace building ────────────────────────────────────
@@ -1036,33 +1056,39 @@ internal static class ChartWriter
 
     // ── Mapping helpers ─────────────────────────────────────────────────
 
-    private static GroupingValues GetLineGrouping(XLChartType ct) =>
-        ct is XLChartType.LineStacked or XLChartType.LineWithMarkersStacked ? GroupingValues.Stacked
-        : ct is XLChartType.LineStacked100Percent or XLChartType.LineWithMarkersStacked100Percent ? GroupingValues.PercentStacked
-        : GroupingValues.Standard;
+    private static GroupingValues GetLineGrouping(XLChartType ct) => ct switch
+    {
+        XLChartType.LineStacked or XLChartType.LineWithMarkersStacked => GroupingValues.Stacked,
+        XLChartType.LineStacked100Percent or XLChartType.LineWithMarkersStacked100Percent => GroupingValues.PercentStacked,
+        _ => GroupingValues.Standard
+    };
 
-    private static GroupingValues GetAreaGrouping(XLChartType ct) =>
-        ct is XLChartType.AreaStacked or XLChartType.AreaStacked3D ? GroupingValues.Stacked
-        : ct is XLChartType.AreaStacked100Percent or XLChartType.AreaStacked100Percent3D ? GroupingValues.PercentStacked
-        : GroupingValues.Standard;
+    private static GroupingValues GetAreaGrouping(XLChartType ct) => ct switch
+    {
+        XLChartType.AreaStacked or XLChartType.AreaStacked3D => GroupingValues.Stacked,
+        XLChartType.AreaStacked100Percent or XLChartType.AreaStacked100Percent3D => GroupingValues.PercentStacked,
+        _ => GroupingValues.Standard
+    };
 
-    private static ShapeValues GetBar3DShape(XLChartType ct) =>
-        ct is XLChartType.Cone or XLChartType.ConeClustered
+    private static ShapeValues GetBar3DShape(XLChartType ct) => ct switch
+    {
+        XLChartType.Cone or XLChartType.ConeClustered
             or XLChartType.ConeHorizontalClustered or XLChartType.ConeHorizontalStacked
             or XLChartType.ConeHorizontalStacked100Percent
             or XLChartType.ConeStacked or XLChartType.ConeStacked100Percent
-            ? ShapeValues.Cone
-        : ct is XLChartType.Cylinder or XLChartType.CylinderClustered
+            => ShapeValues.Cone,
+        XLChartType.Cylinder or XLChartType.CylinderClustered
             or XLChartType.CylinderHorizontalClustered or XLChartType.CylinderHorizontalStacked
             or XLChartType.CylinderHorizontalStacked100Percent
             or XLChartType.CylinderStacked or XLChartType.CylinderStacked100Percent
-            ? ShapeValues.Cylinder
-        : ct is XLChartType.Pyramid or XLChartType.PyramidClustered
+            => ShapeValues.Cylinder,
+        XLChartType.Pyramid or XLChartType.PyramidClustered
             or XLChartType.PyramidHorizontalClustered or XLChartType.PyramidHorizontalStacked
             or XLChartType.PyramidHorizontalStacked100Percent
             or XLChartType.PyramidStacked or XLChartType.PyramidStacked100Percent
-            ? ShapeValues.Pyramid
-        : ShapeValues.Box;
+            => ShapeValues.Pyramid,
+        _ => ShapeValues.Box
+    };
 
     private static ScatterStyleValues GetScatterStyle(XLChartType ct) => ct switch
     {
@@ -1096,25 +1122,27 @@ internal static class ChartWriter
                 or XLChartType.PyramidHorizontalClustered or XLChartType.PyramidHorizontalStacked
                 or XLChartType.PyramidHorizontalStacked100Percent;
 
-        private static BarGroupingValues GetGrouping(XLChartType ct) =>
-            ct is XLChartType.BarClustered or XLChartType.BarClustered3D
+        private static BarGroupingValues GetGrouping(XLChartType ct) => ct switch
+        {
+            XLChartType.BarClustered or XLChartType.BarClustered3D
                 or XLChartType.ColumnClustered or XLChartType.ColumnClustered3D
                 or XLChartType.ConeClustered or XLChartType.ConeHorizontalClustered
                 or XLChartType.CylinderClustered or XLChartType.CylinderHorizontalClustered
                 or XLChartType.PyramidClustered or XLChartType.PyramidHorizontalClustered
-                ? BarGroupingValues.Clustered
-            : ct is XLChartType.BarStacked or XLChartType.BarStacked3D
+                => BarGroupingValues.Clustered,
+            XLChartType.BarStacked or XLChartType.BarStacked3D
                 or XLChartType.ColumnStacked or XLChartType.ColumnStacked3D
                 or XLChartType.ConeStacked or XLChartType.ConeHorizontalStacked
                 or XLChartType.CylinderStacked or XLChartType.CylinderHorizontalStacked
                 or XLChartType.PyramidStacked or XLChartType.PyramidHorizontalStacked
-                ? BarGroupingValues.Stacked
-            : ct is XLChartType.BarStacked100Percent or XLChartType.BarStacked100Percent3D
+                => BarGroupingValues.Stacked,
+            XLChartType.BarStacked100Percent or XLChartType.BarStacked100Percent3D
                 or XLChartType.ColumnStacked100Percent or XLChartType.ColumnStacked100Percent3D
                 or XLChartType.ConeStacked100Percent or XLChartType.ConeHorizontalStacked100Percent
                 or XLChartType.CylinderStacked100Percent or XLChartType.CylinderHorizontalStacked100Percent
                 or XLChartType.PyramidStacked100Percent or XLChartType.PyramidHorizontalStacked100Percent
-                ? BarGroupingValues.PercentStacked
-            : BarGroupingValues.Standard;
+                => BarGroupingValues.PercentStacked,
+            _ => BarGroupingValues.Standard
+        };
     }
 }

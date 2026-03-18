@@ -23,55 +23,57 @@ internal static class ChartReader
 
         foreach (var anchor in drawingsPart.WorksheetDrawing.Elements<Xdr.TwoCellAnchor>())
         {
-            // GraphicFrame may be direct child or inside mc:AlternateContent > mc:Choice
-            var graphicFrame = anchor.Elements<Xdr.GraphicFrame>().FirstOrDefault()
-                ?? anchor.Descendants<Xdr.GraphicFrame>().FirstOrDefault();
-            if (graphicFrame == null)
-                continue;
-
-            var graphicData = graphicFrame.Graphic?.GraphicData;
-            if (graphicData == null)
-                continue;
-
-            // Try standard chart reference
-            var chartRef = graphicData.Elements<C.ChartReference>().FirstOrDefault();
-            if (chartRef?.Id?.Value != null)
+            var xlChart = TryLoadChartFromAnchor(drawingsPart, anchor, ws);
+            if (xlChart != null)
             {
-                var xlChart = LoadStandardChart(drawingsPart, chartRef.Id.Value, ws);
-                if (xlChart != null)
-                {
-                    ReadPositions(anchor, xlChart);
-                    ws.Charts.Add(xlChart);
-                }
-                continue;
-            }
-
-            // Try extended chart reference (cx namespace)
-            // GraphicData may deserialize cx:chart as OpenXmlUnknownElement, so also check by URI + r:id
-            var cxRef = graphicData.Elements<Cx.RelId>().FirstOrDefault();
-            var cxRefId = cxRef?.Id?.Value;
-
-            if (cxRefId == null && graphicData.Uri == "http://schemas.microsoft.com/office/drawing/2014/chartex")
-            {
-                // Fallback: find the cx:chart element as unknown element and extract r:id
-                var unknownEl = graphicData.ChildElements.FirstOrDefault();
-                if (unknownEl != null)
-                {
-                    cxRefId = unknownEl.GetAttribute("id",
-                        "http://schemas.openxmlformats.org/officeDocument/2006/relationships").Value;
-                }
-            }
-
-            if (cxRefId != null)
-            {
-                var xlChart = LoadExtendedChart(drawingsPart, cxRefId, ws);
-                if (xlChart != null)
-                {
-                    ReadPositions(anchor, xlChart);
-                    ws.Charts.Add(xlChart);
-                }
+                ReadPositions(anchor, xlChart);
+                ws.Charts.Add(xlChart);
             }
         }
+    }
+
+    private static XLChart? TryLoadChartFromAnchor(
+        DrawingsPart drawingsPart, Xdr.TwoCellAnchor anchor, XLWorksheet ws)
+    {
+        // GraphicFrame may be direct child or inside mc:AlternateContent > mc:Choice
+        var graphicFrame = anchor.Elements<Xdr.GraphicFrame>().FirstOrDefault()
+            ?? anchor.Descendants<Xdr.GraphicFrame>().FirstOrDefault();
+
+        var graphicData = graphicFrame?.Graphic?.GraphicData;
+        if (graphicData == null)
+            return null;
+
+        // Try standard chart reference
+        var chartRef = graphicData.Elements<C.ChartReference>().FirstOrDefault();
+        if (chartRef?.Id?.Value != null)
+            return LoadStandardChart(drawingsPart, chartRef.Id.Value, ws);
+
+        // Try extended chart reference (cx namespace)
+        var cxRefId = ResolveExtendedChartRelId(graphicData);
+        if (cxRefId != null)
+            return LoadExtendedChart(drawingsPart, cxRefId, ws);
+
+        return null;
+    }
+
+    private static string? ResolveExtendedChartRelId(A.GraphicData graphicData)
+    {
+        // GraphicData may deserialize cx:chart as OpenXmlUnknownElement, so also check by URI + r:id
+        var cxRef = graphicData.Elements<Cx.RelId>().FirstOrDefault();
+        var cxRefId = cxRef?.Id?.Value;
+
+        if (cxRefId == null && graphicData.Uri == "http://schemas.microsoft.com/office/drawing/2014/chartex")
+        {
+            // Fallback: find the cx:chart element as unknown element and extract r:id
+            var unknownEl = graphicData.ChildElements.Count > 0 ? graphicData.ChildElements[0] : null;
+            if (unknownEl != null)
+            {
+                cxRefId = unknownEl.GetAttribute("id",
+                    "http://schemas.openxmlformats.org/officeDocument/2006/relationships").Value;
+            }
+        }
+
+        return cxRefId;
     }
 
     // ── Standard chart loading ──────────────────────────────────────────
@@ -114,103 +116,108 @@ internal static class ChartReader
     {
         var primarySet = false;
 
-        // Bar/Column
-        var barChart = plotArea.Elements<BarChart>().FirstOrDefault();
-        if (barChart != null)
+        // Primary-only chart types (cannot be secondary in a combo chart)
+        primarySet |= TryReadPrimaryChart<BarChart, BarChartSeries>(plotArea, xlChart, ref primarySet, DetermineBarChartType);
+        primarySet |= TryReadPrimaryChart<Bar3DChart, BarChartSeries>(plotArea, xlChart, ref primarySet, DetermineBar3DChartType);
+        primarySet |= TryReadPrimaryChart<PieChart, PieChartSeries>(plotArea, xlChart, ref primarySet, _ => XLChartType.Pie);
+        primarySet |= TryReadPrimaryChart<DoughnutChart, PieChartSeries>(plotArea, xlChart, ref primarySet, _ => XLChartType.Doughnut);
+
+        // Chart types that can appear as primary or secondary (combo charts)
+        TryReadComboChart<AreaChart, AreaChartSeries>(plotArea, xlChart, ref primarySet, DetermineAreaChartType);
+        TryReadComboChart<LineChart, LineChartSeries>(plotArea, xlChart, ref primarySet, DetermineLineChartType);
+        TryReadComboChart<RadarChart, RadarChartSeries>(plotArea, xlChart, ref primarySet, DetermineRadarChartType);
+
+        // Primary-only chart types with custom series readers
+        TryReadPrimaryChartCustom(plotArea, xlChart, ref primarySet);
+    }
+
+    private static bool TryReadPrimaryChart<TChart, TSeries>(
+        PlotArea plotArea, XLChart xlChart, ref bool primarySet,
+        System.Func<TChart, XLChartType> determineType)
+        where TChart : OpenXmlCompositeElement
+        where TSeries : OpenXmlCompositeElement
+    {
+        if (primarySet) return false;
+        var chart = plotArea.Elements<TChart>().FirstOrDefault();
+        if (chart == null) return false;
+
+        xlChart.ChartType = determineType(chart);
+        ReadSeriesFromElements<TSeries>(chart, xlChart.Series);
+        return true;
+    }
+
+    private static void TryReadComboChart<TChart, TSeries>(
+        PlotArea plotArea, XLChart xlChart, ref bool primarySet,
+        System.Func<TChart, XLChartType> determineType)
+        where TChart : OpenXmlCompositeElement
+        where TSeries : OpenXmlCompositeElement
+    {
+        var chart = plotArea.Elements<TChart>().FirstOrDefault();
+        if (chart == null) return;
+
+        var chartType = determineType(chart);
+        if (!primarySet)
         {
-            xlChart.ChartType = DetermineBarChartType(barChart);
-            ReadSeriesFromElements<BarChartSeries>(barChart, xlChart.Series);
+            xlChart.ChartType = chartType;
+            ReadSeriesFromElements<TSeries>(chart, xlChart.Series);
             primarySet = true;
         }
-
-        // Bar3D (Cone, Cylinder, Pyramid, Column3D, 3D bar variants)
-        var bar3DChart = plotArea.Elements<Bar3DChart>().FirstOrDefault();
-        if (bar3DChart != null && !primarySet)
+        else
         {
-            xlChart.ChartType = DetermineBar3DChartType(bar3DChart);
-            ReadSeriesFromElements<BarChartSeries>(bar3DChart, xlChart.Series);
-            primarySet = true;
+            xlChart.SecondaryChartType = chartType;
+            ReadSeriesFromElements<TSeries>(chart, xlChart.SecondarySeries);
         }
+    }
 
-        // Pie
-        var pieChart = plotArea.Elements<PieChart>().FirstOrDefault();
-        if (pieChart != null && !primarySet)
-        {
-            xlChart.ChartType = XLChartType.Pie;
-            ReadSeriesFromElements<PieChartSeries>(pieChart, xlChart.Series);
-            primarySet = true;
-        }
-
-        // Doughnut
-        var doughnutChart = plotArea.Elements<DoughnutChart>().FirstOrDefault();
-        if (doughnutChart != null && !primarySet)
-        {
-            xlChart.ChartType = XLChartType.Doughnut;
-            ReadSeriesFromElements<PieChartSeries>(doughnutChart, xlChart.Series);
-            primarySet = true;
-        }
-
-        // Area
-        var areaChart = plotArea.Elements<AreaChart>().FirstOrDefault();
-        if (areaChart != null)
-        {
-            var areaType = DetermineAreaChartType(areaChart);
-            if (!primarySet) { xlChart.ChartType = areaType; ReadSeriesFromElements<AreaChartSeries>(areaChart, xlChart.Series); primarySet = true; }
-            else { xlChart.SecondaryChartType = areaType; ReadSeriesFromElements<AreaChartSeries>(areaChart, xlChart.SecondarySeries); }
-        }
-
+    private static void TryReadPrimaryChartCustom(
+        PlotArea plotArea, XLChart xlChart, ref bool primarySet)
+    {
         // Bubble
-        var bubbleChart = plotArea.Elements<BubbleChart>().FirstOrDefault();
-        if (bubbleChart != null && !primarySet)
+        if (!primarySet)
         {
-            xlChart.ChartType = XLChartType.Bubble;
-            ReadBubbleSeries(bubbleChart, xlChart.Series);
-            primarySet = true;
-        }
-
-        // Line
-        var lineChart = plotArea.Elements<LineChart>().FirstOrDefault();
-        if (lineChart != null)
-        {
-            var lineType = DetermineLineChartType(lineChart);
-            if (!primarySet) { xlChart.ChartType = lineType; ReadSeriesFromElements<LineChartSeries>(lineChart, xlChart.Series); primarySet = true; }
-            else { xlChart.SecondaryChartType = lineType; ReadSeriesFromElements<LineChartSeries>(lineChart, xlChart.SecondarySeries); }
-        }
-
-        // Radar
-        var radarChart = plotArea.Elements<RadarChart>().FirstOrDefault();
-        if (radarChart != null)
-        {
-            var radarType = DetermineRadarChartType(radarChart);
-            if (!primarySet) { xlChart.ChartType = radarType; ReadSeriesFromElements<RadarChartSeries>(radarChart, xlChart.Series); primarySet = true; }
-            else { xlChart.SecondaryChartType = radarType; ReadSeriesFromElements<RadarChartSeries>(radarChart, xlChart.SecondarySeries); }
+            var bubbleChart = plotArea.Elements<BubbleChart>().FirstOrDefault();
+            if (bubbleChart != null)
+            {
+                xlChart.ChartType = XLChartType.Bubble;
+                ReadBubbleSeries(bubbleChart, xlChart.Series);
+                primarySet = true;
+            }
         }
 
         // Scatter
-        var scatterChart = plotArea.Elements<ScatterChart>().FirstOrDefault();
-        if (scatterChart != null && !primarySet)
+        if (!primarySet)
         {
-            xlChart.ChartType = DetermineScatterChartType(scatterChart);
-            ReadScatterSeries(scatterChart, xlChart.Series);
-            primarySet = true;
+            var scatterChart = plotArea.Elements<ScatterChart>().FirstOrDefault();
+            if (scatterChart != null)
+            {
+                xlChart.ChartType = DetermineScatterChartType(scatterChart);
+                ReadScatterSeries(scatterChart, xlChart.Series);
+                primarySet = true;
+            }
         }
 
         // Stock
-        var stockChart = plotArea.Elements<StockChart>().FirstOrDefault();
-        if (stockChart != null && !primarySet)
+        if (!primarySet)
         {
-            xlChart.ChartType = XLChartType.StockHighLowClose;
-            ReadSeriesFromElements<LineChartSeries>(stockChart, xlChart.Series);
-            primarySet = true;
+            var stockChart = plotArea.Elements<StockChart>().FirstOrDefault();
+            if (stockChart != null)
+            {
+                xlChart.ChartType = XLChartType.StockHighLowClose;
+                ReadSeriesFromElements<LineChartSeries>(stockChart, xlChart.Series);
+                primarySet = true;
+            }
         }
 
         // Surface
-        var surfaceChart = plotArea.Elements<SurfaceChart>().FirstOrDefault();
-        if (surfaceChart != null && !primarySet)
+        if (!primarySet)
         {
-            var wireframe = surfaceChart.Elements<Wireframe>().FirstOrDefault()?.Val?.Value ?? false;
-            xlChart.ChartType = wireframe ? XLChartType.SurfaceWireframe : XLChartType.Surface;
-            ReadSeriesFromElements<SurfaceChartSeries>(surfaceChart, xlChart.Series);
+            var surfaceChart = plotArea.Elements<SurfaceChart>().FirstOrDefault();
+            if (surfaceChart != null)
+            {
+                var wireframe = surfaceChart.Elements<Wireframe>().FirstOrDefault()?.Val?.Value ?? false;
+                xlChart.ChartType = wireframe ? XLChartType.SurfaceWireframe : XLChartType.Surface;
+                ReadSeriesFromElements<SurfaceChartSeries>(surfaceChart, xlChart.Series);
+            }
         }
     }
 
@@ -272,73 +279,79 @@ internal static class ChartReader
 
         var xlChart = new XLChart(ws) { IsNew = false, RelId = relId };
 
-        // Read title from cx:chart > cx:title > cx:tx > cx:rich
-        var cxChart = chartSpace.Descendants<Cx.Chart>().FirstOrDefault();
-        if (cxChart != null)
-        {
-            var cxTitle = cxChart.Descendants<Cx.ChartTitle>().FirstOrDefault();
-            if (cxTitle != null)
-            {
-                var titleText = string.Join("", cxTitle.Descendants<A.Text>().Select(t => t.Text));
-                if (!string.IsNullOrEmpty(titleText))
-                    xlChart.Title = titleText;
-            }
-        }
-
-        // Read series layout to determine chart type
-        var firstSeries = chartSpace.Descendants<Cx.Series>().FirstOrDefault();
-        if (firstSeries != null)
-        {
-            var layoutId = firstSeries.GetAttribute("layoutId", string.Empty).Value ?? string.Empty;
-            xlChart.ChartType = layoutId switch
-            {
-                "sunburst" => XLChartType.Sunburst,
-                "treemap" => XLChartType.Treemap,
-                "waterfall" => XLChartType.Waterfall,
-                "funnel" => XLChartType.Funnel,
-                "boxWhisker" => XLChartType.BoxWhisker,
-                _ => XLChartType.Waterfall
-            };
-        }
-
-        // Read series data from cx:chartData
-        var chartData = chartSpace.Descendants<Cx.ChartData>().FirstOrDefault();
-        var seriesList = chartSpace.Descendants<Cx.Series>().ToList();
-
-        foreach (var cxSeries in seriesList)
-        {
-            var name = string.Empty;
-            var txData = cxSeries.Descendants<Cx.TextData>().FirstOrDefault();
-            if (txData != null)
-            {
-                var v = txData.Descendants<Cx.VXsdstring>().FirstOrDefault();
-                name = v?.Text ?? string.Empty;
-            }
-
-            string? catRef = null;
-            var valRef = string.Empty;
-
-            var dataId = cxSeries.Descendants<Cx.DataId>().FirstOrDefault();
-            if (dataId != null && chartData != null)
-            {
-                var data = chartData.Elements<Cx.Data>()
-                    .FirstOrDefault(d => d.Id?.Value == dataId.Val?.Value);
-                if (data != null)
-                {
-                    var strDim = data.Elements<Cx.StringDimension>().FirstOrDefault();
-                    if (strDim != null)
-                        catRef = strDim.Elements<Cx.Formula>().FirstOrDefault()?.Text;
-
-                    var numDim = data.Elements<Cx.NumericDimension>().FirstOrDefault();
-                    if (numDim != null)
-                        valRef = numDim.Elements<Cx.Formula>().FirstOrDefault()?.Text ?? string.Empty;
-                }
-            }
-
-            xlChart.Series.Add(name, valRef, catRef);
-        }
+        ReadExtendedTitle(chartSpace, xlChart);
+        ReadExtendedChartType(chartSpace, xlChart);
+        ReadExtendedSeries(chartSpace, xlChart);
 
         return xlChart;
+    }
+
+    private static void ReadExtendedTitle(Cx.ChartSpace chartSpace, XLChart xlChart)
+    {
+        var cxTitle = chartSpace.Descendants<Cx.ChartTitle>().FirstOrDefault();
+        if (cxTitle == null) return;
+
+        var titleText = string.Join("", cxTitle.Descendants<A.Text>().Select(t => t.Text));
+        if (!string.IsNullOrEmpty(titleText))
+            xlChart.Title = titleText;
+    }
+
+    private static void ReadExtendedChartType(Cx.ChartSpace chartSpace, XLChart xlChart)
+    {
+        var firstSeries = chartSpace.Descendants<Cx.Series>().FirstOrDefault();
+        if (firstSeries == null) return;
+
+        var layoutId = firstSeries.GetAttribute("layoutId", string.Empty).Value ?? string.Empty;
+        xlChart.ChartType = layoutId switch
+        {
+            "sunburst" => XLChartType.Sunburst,
+            "treemap" => XLChartType.Treemap,
+            "waterfall" => XLChartType.Waterfall,
+            "funnel" => XLChartType.Funnel,
+            "boxWhisker" => XLChartType.BoxWhisker,
+            _ => XLChartType.Waterfall
+        };
+    }
+
+    private static void ReadExtendedSeries(Cx.ChartSpace chartSpace, XLChart xlChart)
+    {
+        var chartData = chartSpace.Descendants<Cx.ChartData>().FirstOrDefault();
+
+        foreach (var cxSeries in chartSpace.Descendants<Cx.Series>())
+        {
+            var name = ReadExtendedSeriesName(cxSeries);
+            var (catRef, valRef) = ReadExtendedSeriesRefs(cxSeries, chartData);
+            xlChart.Series.Add(name, valRef, catRef);
+        }
+    }
+
+    private static string ReadExtendedSeriesName(Cx.Series cxSeries)
+    {
+        var txData = cxSeries.Descendants<Cx.TextData>().FirstOrDefault();
+        if (txData == null) return string.Empty;
+
+        return txData.Descendants<Cx.VXsdstring>().FirstOrDefault()?.Text ?? string.Empty;
+    }
+
+    private static (string? catRef, string valRef) ReadExtendedSeriesRefs(
+        Cx.Series cxSeries, Cx.ChartData? chartData)
+    {
+        var dataId = cxSeries.Descendants<Cx.DataId>().FirstOrDefault();
+        if (dataId == null || chartData == null)
+            return (null, string.Empty);
+
+        var data = chartData.Elements<Cx.Data>()
+            .FirstOrDefault(d => d.Id?.Value == dataId.Val?.Value);
+        if (data == null)
+            return (null, string.Empty);
+
+        var catRef = data.Elements<Cx.StringDimension>().FirstOrDefault()
+            ?.Elements<Cx.Formula>().FirstOrDefault()?.Text;
+
+        var valRef = data.Elements<Cx.NumericDimension>().FirstOrDefault()
+            ?.Elements<Cx.Formula>().FirstOrDefault()?.Text ?? string.Empty;
+
+        return (catRef, valRef);
     }
 
     // ── Type determination helpers ──────────────────────────────────────
@@ -382,54 +395,47 @@ internal static class ChartReader
         var direction = bar3DChart.BarDirection?.Val?.Value ?? BarDirectionValues.Column;
         var grouping = bar3DChart.BarGrouping?.Val?.Value ?? BarGroupingValues.Clustered;
         var shape = bar3DChart.Elements<Shape>().FirstOrDefault()?.Val?.Value;
+        var isHorizontal = direction == BarDirectionValues.Bar;
 
-        // Determine base type from shape
         if (shape == ShapeValues.Cone || shape == ShapeValues.ConeToMax)
-        {
-            if (direction == BarDirectionValues.Bar)
-            {
-                if (grouping == BarGroupingValues.Stacked) return XLChartType.ConeHorizontalStacked;
-                if (grouping == BarGroupingValues.PercentStacked) return XLChartType.ConeHorizontalStacked100Percent;
-                return XLChartType.ConeHorizontalClustered;
-            }
-            if (grouping == BarGroupingValues.Stacked) return XLChartType.ConeStacked;
-            if (grouping == BarGroupingValues.PercentStacked) return XLChartType.ConeStacked100Percent;
-            return XLChartType.ConeClustered;
-        }
+            return ResolveBar3DGrouping(isHorizontal, grouping,
+                horizontal: (XLChartType.ConeHorizontalClustered, XLChartType.ConeHorizontalStacked, XLChartType.ConeHorizontalStacked100Percent),
+                vertical: (XLChartType.ConeClustered, XLChartType.ConeStacked, XLChartType.ConeStacked100Percent));
 
         if (shape == ShapeValues.Cylinder)
-        {
-            if (direction == BarDirectionValues.Bar)
-            {
-                if (grouping == BarGroupingValues.Stacked) return XLChartType.CylinderHorizontalStacked;
-                if (grouping == BarGroupingValues.PercentStacked) return XLChartType.CylinderHorizontalStacked100Percent;
-                return XLChartType.CylinderHorizontalClustered;
-            }
-            if (grouping == BarGroupingValues.Stacked) return XLChartType.CylinderStacked;
-            if (grouping == BarGroupingValues.PercentStacked) return XLChartType.CylinderStacked100Percent;
-            return XLChartType.CylinderClustered;
-        }
+            return ResolveBar3DGrouping(isHorizontal, grouping,
+                horizontal: (XLChartType.CylinderHorizontalClustered, XLChartType.CylinderHorizontalStacked, XLChartType.CylinderHorizontalStacked100Percent),
+                vertical: (XLChartType.CylinderClustered, XLChartType.CylinderStacked, XLChartType.CylinderStacked100Percent));
 
         if (shape == ShapeValues.Pyramid || shape == ShapeValues.PyramidToMaximum)
-        {
-            if (direction == BarDirectionValues.Bar)
-            {
-                if (grouping == BarGroupingValues.Stacked) return XLChartType.PyramidHorizontalStacked;
-                if (grouping == BarGroupingValues.PercentStacked) return XLChartType.PyramidHorizontalStacked100Percent;
-                return XLChartType.PyramidHorizontalClustered;
-            }
-            if (grouping == BarGroupingValues.Stacked) return XLChartType.PyramidStacked;
-            if (grouping == BarGroupingValues.PercentStacked) return XLChartType.PyramidStacked100Percent;
-            return XLChartType.PyramidClustered;
-        }
+            return ResolveBar3DGrouping(isHorizontal, grouping,
+                horizontal: (XLChartType.PyramidHorizontalClustered, XLChartType.PyramidHorizontalStacked, XLChartType.PyramidHorizontalStacked100Percent),
+                vertical: (XLChartType.PyramidClustered, XLChartType.PyramidStacked, XLChartType.PyramidStacked100Percent));
 
         // Default: Box shape = standard 3D bar/column
-        if (direction == BarDirectionValues.Bar)
+        return ResolveBar3DBoxGrouping(isHorizontal, grouping);
+    }
+
+    private static XLChartType ResolveBar3DGrouping(
+        bool isHorizontal, BarGroupingValues grouping,
+        (XLChartType Clustered, XLChartType Stacked, XLChartType Stacked100) horizontal,
+        (XLChartType Clustered, XLChartType Stacked, XLChartType Stacked100) vertical)
+    {
+        var types = isHorizontal ? horizontal : vertical;
+        if (grouping == BarGroupingValues.Stacked) return types.Stacked;
+        if (grouping == BarGroupingValues.PercentStacked) return types.Stacked100;
+        return types.Clustered;
+    }
+
+    private static XLChartType ResolveBar3DBoxGrouping(bool isHorizontal, BarGroupingValues grouping)
+    {
+        if (isHorizontal)
         {
             if (grouping == BarGroupingValues.Stacked) return XLChartType.BarStacked3D;
             if (grouping == BarGroupingValues.PercentStacked) return XLChartType.BarStacked100Percent3D;
             return XLChartType.BarClustered3D;
         }
+
         if (grouping == BarGroupingValues.Stacked) return XLChartType.ColumnStacked3D;
         if (grouping == BarGroupingValues.PercentStacked) return XLChartType.ColumnStacked100Percent3D;
         if (grouping == BarGroupingValues.Standard) return XLChartType.Column3D;
