@@ -92,21 +92,56 @@ internal static class WorksheetSheetDataReader
     {
         Debug.Assert(reader.LocalName == "row");
 
+        // Parse all row attributes in a single pass instead of 8 separate linear scans.
+        // For data sheets where rows have only the 'r' attribute, this is ~8x less work.
         var attributes = reader.Attributes;
-        var rowIndexAttr = attributes.GetAttribute("r");
-        var rowIndex = string.IsNullOrEmpty(rowIndexAttr) ? ++state.LastRow : int.Parse(rowIndexAttr);
+        var rowIndex = 0;
+        double? height = null;
+        double? dyDescent = null;
+        bool hidden = false, collapsed = false, showPhonetic = false, customFormat = false;
+        int? outlineLevel = null;
+        int? styleIndex = null;
+        var count = attributes.Count;
+        for (var i = 0; i < count; i++)
+        {
+            var attr = attributes[i];
+            switch (attr.LocalName)
+            {
+                case "r" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    TryParseOoxmlNonNegativeInt(attr.Value!, out rowIndex);
+                    break;
+                case "ht" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    height = double.Parse(attr.Value!, NumberStyles.Float, XLHelper.ParseCulture);
+                    break;
+                case "dyDescent" when attr.NamespaceUri == OpenXmlConst.X14Ac2009SsNs:
+                    dyDescent = double.Parse(attr.Value!, NumberStyles.Float, XLHelper.ParseCulture);
+                    break;
+                case "hidden" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    hidden = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+                case "collapsed" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    collapsed = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+                case "outlineLevel" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    outlineLevel = int.Parse(attr.Value!);
+                    break;
+                case "ph" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    showPhonetic = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+                case "customFormat" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    customFormat = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+                case "s" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    styleIndex = int.Parse(attr.Value!);
+                    break;
+            }
+        }
+
+        if (rowIndex == 0)
+            rowIndex = ++state.LastRow;
         state.LastRow = rowIndex;
 
-        var rowProps = new RowProperties(
-            Height: attributes.GetDoubleAttribute("ht"),
-            DyDescent: attributes.GetDoubleAttribute("dyDescent", OpenXmlConst.X14Ac2009SsNs),
-            Hidden: attributes.GetBoolAttribute("hidden", false),
-            Collapsed: attributes.GetBoolAttribute("collapsed", false),
-            OutlineLevel: attributes.GetIntAttribute("outlineLevel"),
-            ShowPhonetic: attributes.GetBoolAttribute("ph", false),
-            CustomFormat: attributes.GetBoolAttribute("customFormat", false),
-            StyleIndex: attributes.GetIntAttribute("s"));
-
+        var rowProps = new RowProperties(height, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
         if (rowProps.HasCustomProps)
         {
             ApplyRowCustomProps(in rowProps, context.Worksheet, rowIndex, context.Styles);
@@ -144,11 +179,53 @@ internal static class WorksheetSheetDataReader
     {
         Debug.Assert(reader is { LocalName: "c", IsStartElement: true });
 
+        // Parse all cell attributes in a single pass instead of 3 separate lookups
+        // (r, s, t) plus a 4th pass for misc attributes (ph, cm, vm).
+        // For 3.75M cells this reduces ~15M linear scans to ~3.75M single passes.
         var attributes = reader.Attributes;
-        var styleIndex = attributes.GetIntAttribute("s") ?? 0;
-        var cellAddress = attributes.GetCellRefAttribute("r") ?? new XLSheetPoint(rowIndex, state.LastColumnNumber + 1);
+        int styleIndex = 0;
+        XLSheetPoint? cellRef = null;
+        string? typeAttr = null;
+        bool showPhonetic = false;
+        uint? cellMetaIndex = null;
+        uint? valueMetaIndex = null;
+        bool hasMisc = false;
+        var count = attributes.Count;
+        for (var i = 0; i < count; i++)
+        {
+            var attr = attributes[i];
+            if (!string.IsNullOrEmpty(attr.NamespaceUri))
+                continue;
+
+            switch (attr.LocalName)
+            {
+                case "r":
+                    cellRef = XLSheetPoint.Parse(attr.Value!);
+                    break;
+                case "s":
+                    TryParseOoxmlNonNegativeInt(attr.Value!, out styleIndex);
+                    break;
+                case "t":
+                    typeAttr = attr.Value;
+                    break;
+                case "ph":
+                    showPhonetic = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    if (showPhonetic) hasMisc = true;
+                    break;
+                case "cm":
+                    cellMetaIndex = uint.Parse(attr.Value!);
+                    hasMisc = true;
+                    break;
+                case "vm":
+                    valueMetaIndex = uint.Parse(attr.Value!);
+                    hasMisc = true;
+                    break;
+            }
+        }
+
+        var cellAddress = cellRef ?? new XLSheetPoint(rowIndex, state.LastColumnNumber + 1);
         state.LastColumnNumber = cellAddress.Column;
-        var dataType = ParseCellDataType(attributes.GetAttribute("t"));
+        var dataType = ParseCellDataType(typeAttr);
 
         var cellStyleValue = ResolveCachedStyleValue(styleIndex, context.Styles, context.StyleList);
 
@@ -163,7 +240,16 @@ internal static class WorksheetSheetDataReader
         if (!styleMatchesInherited)
             cellsCollection.StyleSlice.SetNonDefault(cellAddress.Row, cellAddress.Column, cellStyleValue);
 
-        LoadCellMisc(attributes, cellsCollection, cellAddress);
+        if (hasMisc)
+        {
+            var misc = new XLMiscSliceContent
+            {
+                HasPhonetic = showPhonetic,
+                CellMetaIndex = cellMetaIndex,
+                ValueMetaIndex = valueMetaIndex
+            };
+            cellsCollection.MiscSlice.Set(cellAddress, in misc);
+        }
 
         // Move from the cell start element onwards.
         reader.MoveAhead();
@@ -619,54 +705,6 @@ internal static class WorksheetSheetDataReader
         }
     }
 
-    private static void LoadCellMisc(ReadOnlyCollection<OpenXmlAttribute> attributes,
-        XLCellsCollection cellsCollection, XLSheetPoint cellAddress)
-    {
-        // The misc attributes (ph, cm, vm) are extremely rare on <c> elements. Instead of
-        // 3 separate linear scans through the attribute list, do a single pass that checks
-        // for all three and exits early when none are found.
-        bool showPhonetic = false;
-        uint? cellMetaIndex = null;
-        uint? valueMetaIndex = null;
-        var found = false;
-        var count = attributes.Count;
-        for (var i = 0; i < count; i++)
-        {
-            var attr = attributes[i];
-            if (!string.IsNullOrEmpty(attr.NamespaceUri))
-                continue;
-
-            switch (attr.LocalName)
-            {
-                case "ph":
-                    showPhonetic = attr.Value == "1"
-                        || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
-                    if (showPhonetic)
-                        found = true;
-                    break;
-                case "cm":
-                    cellMetaIndex = uint.Parse(attr.Value!);
-                    found = true;
-                    break;
-                case "vm":
-                    valueMetaIndex = uint.Parse(attr.Value!);
-                    found = true;
-                    break;
-            }
-        }
-
-        if (!found)
-            return;
-
-        var misc = new XLMiscSliceContent
-        {
-            HasPhonetic = showPhonetic,
-            CellMetaIndex = cellMetaIndex,
-            ValueMetaIndex = valueMetaIndex
-        };
-        cellsCollection.MiscSlice.Set(cellAddress, in misc);
-    }
-
     private static void LoadInlineString(CellValues dataType, XLCellsCollection cellsCollection,
         XLSheetPoint cellAddress, XLWorksheet ws, OpenXmlPartReader reader)
     {
@@ -1019,6 +1057,15 @@ internal static class WorksheetSheetDataReader
     /// Fast-path parser for non-negative integer strings as found in OOXML shared string
     /// indices. Only accepts pure ASCII digit sequences with no whitespace or signs.
     /// </summary>
+    /// <summary>
+    /// Parse a row index attribute value. Row indices in OOXML are always positive integers.
+    /// </summary>
+    private static int ParseRowIndex(string s)
+    {
+        TryParseOoxmlNonNegativeInt(s, out var result);
+        return result;
+    }
+
     private static bool TryParseOoxmlNonNegativeInt(string s, out int result)
     {
         result = 0;
