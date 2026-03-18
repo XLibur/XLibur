@@ -1,4 +1,4 @@
-namespace XLibur.Graphics;
+﻿namespace XLibur.Graphics;
 
 /// <summary>
 /// A DPI resolution.

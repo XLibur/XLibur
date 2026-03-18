@@ -1,4 +1,4 @@
-
+﻿
 using System.Drawing;
 
 namespace XLibur.Extensions;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Excel.CalcEngine.Functions;
@@ -10,8 +10,8 @@ internal static class SignatureAdapter
 {
     #region Signature adapters
     // Each method converts a more specific signature of a function into a generic formula function type.
-    // We have many functions with same signature and the adapters should be reusable. Convert parameters
-    // through value converters below. We can hopefully generate them at a later date, so try to keep them similar.
+    // We have many functions with the same signature, and the adapters should be reusable. Convert parameters
+    // through the value converters below. We can hopefully generate them at a later date, so try to keep them similar.
 
     public static CalcEngineFunction Adapt(Func<ScalarValue> f)
     {
@@ -816,7 +816,7 @@ internal static class SignatureAdapter
             if (!arg1Converted.TryPickT0(out var arg1, out var err1))
                 return err1;
 
-            // AnyValue to bool has different semantic than AnyValue to number, e.g. "0" is not valid for bool coercion
+            // AnyValue to bool has a different semantic than AnyValue to number, e.g. "0" is not valid for bool coercion
             var arg2Converted = args.Length > 2 ? args[2] : defaultValue2;
             if (!CoerceToLogical(arg2Converted, ctx).TryPickT0(out var arg2, out var err2))
                 return err2;
@@ -886,7 +886,8 @@ internal static class SignatureAdapter
     #endregion
 
     #region Value converters
-    // Each method is named ToSomething and it converts an argument into a desired type (e.g. for ToSomething it should be type Something).
+    // Each method is named ToSomething, and it converts an argument into a desired type
+    // (e.g., for ToSomething it should be type Something).
     // Return value is always OneOf<Something, Error>, if there is an error, return it as an error.
 
     internal static OneOf<bool, XLError> CoerceToLogical(in AnyValue value, CalcContext ctx)
@@ -1007,8 +1008,8 @@ internal static class SignatureAdapter
             var rangeArgIndex = 2 * i;
             var range = args[rangeArgIndex];
 
-            // Excel grammar requires even number of arguments. We can't
-            // do that, so use blank for missing pair value.
+            // Excel grammar requires an even number of arguments. We can't
+            // do that, so use blank for the missing pair value.
             var criteriaArgIndex = rangeArgIndex + 1;
             var criteriaArgConverted = criteriaArgIndex < args.Length
                 ? ToScalarValue(args[criteriaArgIndex], ctx)

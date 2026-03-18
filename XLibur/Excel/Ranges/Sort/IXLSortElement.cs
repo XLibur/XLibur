@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 public enum XLSortOrder { Ascending, Descending }
 public enum XLSortOrientation { TopToBottom, LeftToRight }

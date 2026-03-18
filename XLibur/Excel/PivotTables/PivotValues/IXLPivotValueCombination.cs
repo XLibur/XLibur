@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 /// <summary>
 /// An interface for fluent configuration of how to show <see cref="IXLPivotValue"/>,

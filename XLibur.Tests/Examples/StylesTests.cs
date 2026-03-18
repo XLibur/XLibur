@@ -1,4 +1,4 @@
-using XLibur.Examples.Styles;
+﻿using XLibur.Examples.Styles;
 using NUnit.Framework;
 
 namespace XLibur.Tests.Examples;

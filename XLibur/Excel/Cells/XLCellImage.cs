@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 /// <summary>
 /// Represents an in-cell image ("Place in Cell" feature in Excel 365+).

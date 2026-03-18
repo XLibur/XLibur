@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 public enum XLCustomPropertyType { Text, Number, Date, Boolean }
 public interface IXLCustomProperty

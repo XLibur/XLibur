@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
 
 #pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility

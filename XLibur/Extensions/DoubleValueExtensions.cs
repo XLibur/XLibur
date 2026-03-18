@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using DocumentFormat.OpenXml;
 
 namespace XLibur.Extensions;

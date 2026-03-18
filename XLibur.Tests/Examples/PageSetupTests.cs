@@ -1,4 +1,4 @@
-using XLibur.Examples.PageSetup;
+﻿using XLibur.Examples.PageSetup;
 using NUnit.Framework;
 
 namespace XLibur.Tests.Examples;

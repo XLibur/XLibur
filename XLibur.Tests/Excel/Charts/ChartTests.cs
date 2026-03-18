@@ -1,4 +1,4 @@
-using DocumentFormat.OpenXml.Drawing.Charts;
+﻿using DocumentFormat.OpenXml.Drawing.Charts;
 using DocumentFormat.OpenXml.Packaging;
 using NUnit.Framework;
 using System.IO;

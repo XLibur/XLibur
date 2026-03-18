@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Color = System.Drawing.Color;
 
 namespace XLibur.Utils;

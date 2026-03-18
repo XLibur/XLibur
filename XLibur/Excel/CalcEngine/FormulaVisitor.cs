@@ -1,4 +1,4 @@
-namespace XLibur.Excel.CalcEngine;
+﻿namespace XLibur.Excel.CalcEngine;
 
 internal interface IFormulaVisitor<in TContext, out TResult>
 {

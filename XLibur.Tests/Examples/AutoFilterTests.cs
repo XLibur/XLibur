@@ -1,4 +1,4 @@
-using XLibur.Examples;
+﻿using XLibur.Examples;
 using NUnit.Framework;
 using XLibur.Examples.AutoFilters;
 

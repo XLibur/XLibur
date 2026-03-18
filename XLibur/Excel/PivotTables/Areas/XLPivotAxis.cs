@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 /// <summary>
 /// Describes an axis of a pivot table. Used to determine which areas should be styled through

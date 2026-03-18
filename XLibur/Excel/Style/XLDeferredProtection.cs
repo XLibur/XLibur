@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 /// <summary>
 /// Lightweight <see cref="IXLProtection"/> that accumulates property changes into an <see cref="XLProtectionKey"/>

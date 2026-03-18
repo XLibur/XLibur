@@ -1,4 +1,4 @@
-namespace XLibur.Excel.IO;
+﻿namespace XLibur.Excel.IO;
 
 /// <summary>
 /// Constants used across writers.

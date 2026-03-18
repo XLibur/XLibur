@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 internal class XLDrawing<T> : IXLDrawing<T>
 {
