@@ -329,14 +329,10 @@ public partial class XLWorkbook
 
         using var reader = new OpenXmlPartReader(worksheetPart);
 
-        Type[] ignoredElements =
-        [
-            typeof(CustomSheetViews) // Custom sheet views contain their own auto filter data, and more, which should be ignored for now
-        ];
-
         while (reader.Read())
         {
-            while (ignoredElements.Contains(reader.ElementType))
+            // Custom sheet views contain their own auto filter data, and more, which should be ignored for now
+            while (reader.ElementType == typeof(CustomSheetViews))
                 reader.ReadNextSibling();
 
             if (reader.ElementType == typeof(Row))
