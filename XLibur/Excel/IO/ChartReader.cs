@@ -68,8 +68,10 @@ internal static class ChartReader
             var unknownEl = graphicData.ChildElements.Count > 0 ? graphicData.ChildElements[0] : null;
             if (unknownEl != null)
             {
-                cxRefId = unknownEl.GetAttribute("id",
-                    "http://schemas.openxmlformats.org/officeDocument/2006/relationships").Value;
+                var attr = unknownEl.GetAttribute("id",
+                    "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+                if (!string.IsNullOrWhiteSpace(attr.Value))
+                    cxRefId = attr.Value;
             }
         }
 
@@ -277,10 +279,12 @@ internal static class ChartReader
         var chartSpace = extPart.ChartSpace;
         if (chartSpace == null) return null;
 
-        var xlChart = new XLChart(ws) { IsNew = false, RelId = relId };
+        var chartType = ReadExtendedChartType(chartSpace);
+        if (chartType == null) return null;
+
+        var xlChart = new XLChart(ws) { IsNew = false, RelId = relId, ChartType = chartType.Value };
 
         ReadExtendedTitle(chartSpace, xlChart);
-        ReadExtendedChartType(chartSpace, xlChart);
         ReadExtendedSeries(chartSpace, xlChart);
 
         return xlChart;
@@ -296,20 +300,20 @@ internal static class ChartReader
             xlChart.Title = titleText;
     }
 
-    private static void ReadExtendedChartType(Cx.ChartSpace chartSpace, XLChart xlChart)
+    private static XLChartType? ReadExtendedChartType(Cx.ChartSpace chartSpace)
     {
         var firstSeries = chartSpace.Descendants<Cx.Series>().FirstOrDefault();
-        if (firstSeries == null) return;
+        if (firstSeries == null) return null;
 
         var layoutId = firstSeries.GetAttribute("layoutId", string.Empty).Value ?? string.Empty;
-        xlChart.ChartType = layoutId switch
+        return layoutId switch
         {
             "sunburst" => XLChartType.Sunburst,
             "treemap" => XLChartType.Treemap,
             "waterfall" => XLChartType.Waterfall,
             "funnel" => XLChartType.Funnel,
             "boxWhisker" => XLChartType.BoxWhisker,
-            _ => XLChartType.Waterfall
+            _ => null
         };
     }
 

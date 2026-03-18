@@ -316,7 +316,7 @@ internal static class ChartWriter
     {
         var data = new Cx.Data { Id = dataIdx };
 
-        if (s.CategoryReferences != null)
+        if (!string.IsNullOrWhiteSpace(s.CategoryReferences))
         {
             var strDim = new Cx.StringDimension { Type = Cx.StringDimensionType.Cat };
             var catFormula = new Cx.Formula(s.CategoryReferences);
@@ -613,7 +613,7 @@ internal static class ChartWriter
                 Order = new Order { Val = s.Order },
                 SeriesText = BuildSeriesText(s)
             };
-            if (s.CategoryReferences != null)
+            if (!string.IsNullOrWhiteSpace(s.CategoryReferences))
             {
                 series.Append(new XValues(
                     new NumberReference { Formula = new C.Formula(s.CategoryReferences) }
@@ -788,7 +788,7 @@ internal static class ChartWriter
                 SeriesText = BuildSeriesText(s)
             };
             // Scatter uses XValues + YValues, not CategoryAxisData + Values
-            if (s.CategoryReferences != null)
+            if (!string.IsNullOrWhiteSpace(s.CategoryReferences))
             {
                 series.Append(new XValues(
                     new NumberReference { Formula = new C.Formula(s.CategoryReferences) }
@@ -861,7 +861,7 @@ internal static class ChartWriter
 
     private static void AppendCatAndVal(OpenXmlCompositeElement series, IXLChartSeries s)
     {
-        if (s.CategoryReferences != null)
+        if (!string.IsNullOrWhiteSpace(s.CategoryReferences))
         {
             series.Append(new CategoryAxisData(
                 new StringReference { Formula = new C.Formula(s.CategoryReferences) }
