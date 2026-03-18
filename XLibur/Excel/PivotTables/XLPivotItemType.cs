@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 /// <summary>
 /// A categorization of <see cref="XLPivotFieldItem"/> or <see cref="XLPivotFieldAxisItem"/>.

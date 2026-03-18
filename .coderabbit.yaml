@@ -3,14 +3,20 @@ language: en-US
 reviews:
   request_changes_workflow: false
   high_level_summary: true
+  collapse_walkthrough: true
   poem: false
   review_status: true
+  sequence_diagrams: true
   auto_review:
     enabled: true
     drafts: false
   path_filters:
     - '!**/*.trx'
     - '!**/BenchmarkDotNet.Artifacts/**'
+    - '!**/obj/**'
+    - '!**/bin/**'
+    - '!**/PublicAPI.Shipped.txt'
+    - '!**/PublicAPI.Unshipped.txt'
   path_instructions:
     - path: 'XLibur/**/*.cs'
       instructions: |
@@ -25,6 +31,12 @@ reviews:
         - Proper assertions (prefer Assert.That constraint model)
         - Test isolation and determinism
         - Missing edge case coverage
+    - path: 'XLibur.Benchmarks/**/*.cs'
+      instructions: |
+        These are BenchmarkDotNet performance benchmarks. Focus on:
+        - Correct benchmark methodology (no side-effect elimination)
+        - Appropriate [Benchmark] and [GlobalSetup] usage
+        - Do not flag allocations or style in harness code
 
 chat:
   auto_reply: true

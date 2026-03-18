@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 /// <summary>
 /// An area of aspect of pivot table that is part of the <see cref="XLPivotArea.Type"/>.

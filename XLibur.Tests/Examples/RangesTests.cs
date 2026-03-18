@@ -1,4 +1,4 @@
-using XLibur.Examples;
+﻿using XLibur.Examples;
 using XLibur.Examples.Misc;
 using XLibur.Examples.Ranges;
 using NUnit.Framework;

@@ -1,4 +1,4 @@
-
+﻿
 namespace XLibur.Excel;
 
 public class XLWholeNumberCriteria : XLWholeNumberCriteriaBase

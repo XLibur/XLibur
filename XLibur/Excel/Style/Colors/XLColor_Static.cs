@@ -1,4 +1,4 @@
-using XLibur.Excel.Caching;
+﻿using XLibur.Excel.Caching;
 using XLibur.Utils;
 using System;
 using System.Collections.Generic;

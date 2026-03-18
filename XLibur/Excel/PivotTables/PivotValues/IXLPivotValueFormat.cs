@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 /// <summary>
 /// An API for manipulating a <see cref="IXLPivotValue.NumberFormat">format</see> of one

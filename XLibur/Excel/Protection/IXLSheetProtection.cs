@@ -1,4 +1,4 @@
-using static XLibur.Excel.XLProtectionAlgorithm;
+﻿using static XLibur.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Excel;
 

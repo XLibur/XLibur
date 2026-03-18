@@ -1,4 +1,4 @@
-namespace XLibur.Excel.CalcEngine.Functions;
+﻿namespace XLibur.Excel.CalcEngine.Functions;
 
 internal static class Database
 {

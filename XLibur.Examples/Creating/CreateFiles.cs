@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using XLibur.Examples.Charts;
 using XLibur.Examples.Columns;
 using XLibur.Examples.Comments;

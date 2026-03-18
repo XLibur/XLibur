@@ -3,10 +3,10 @@ using System.Collections.Generic;
 
 namespace XLibur.Excel.CalcEngine;
 
-/// <summary>Which parameters of a function allow ranges. That is important for implicit intersection.</summary>
+/// <summary>Which parameters of a function allow ranges? That is important for implicit intersection.</summary>
 internal enum AllowRange
 {
-    /// <summary>None of parameters allow ranges.</summary>
+    /// <summary>None of the parameters allow ranges.</summary>
     None,
 
     /// <summary>All parameters allow ranges.</summary>
@@ -34,11 +34,12 @@ internal sealed class FunctionRegistry
     /// <param name="functionName">Name of function in formulas.</param>
     /// <param name="minParams">Minimum number of parameters.</param>
     /// <param name="maxParams">Maximum number of parameters.</param>
-    /// <param name="fn">A delegate of a function that will be called when function is supposed to be evaluated.</param>
-    /// <param name="flags">Flags that indicate some additional info about function.</param>
-    /// <param name="allowRanges">Which parameters allow ranges to be argument. Useful for array formulas.</param>
+    /// <param name="fn">A delegate of a function that will be called when the function is supposed to be evaluated.</param>
+    /// <param name="flags">Flags that indicate some additional info about a function.</param>
+    /// <param name="allowRanges">Which parameters allow ranges to be argument? Useful for array formulas.</param>
     /// <param name="markedParams">Index of parameter that is marked, start from 0</param>
-    public void RegisterFunction(string functionName, int minParams, int maxParams, CalcEngineFunction fn, FunctionFlags flags, AllowRange allowRanges = AllowRange.None, params int[] markedParams)
+    public void RegisterFunction(string functionName, int minParams, int maxParams, CalcEngineFunction fn,
+        FunctionFlags flags, AllowRange allowRanges = AllowRange.None, params int[] markedParams)
     {
         _func.Add(functionName, new FunctionDefinition(minParams, maxParams, fn, flags, allowRanges, markedParams));
     }

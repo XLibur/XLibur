@@ -1,4 +1,4 @@
-using DocumentFormat.OpenXml.Packaging;
+﻿using DocumentFormat.OpenXml.Packaging;
 using System.Linq;
 
 namespace XLibur.Extensions;

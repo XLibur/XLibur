@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 public enum XLCFIconSetOperator { GreaterThan, EqualOrGreaterThan }
 public interface IXLCFIconSet

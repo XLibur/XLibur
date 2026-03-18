@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using XLibur.Excel;
 using NUnit.Framework;
 using XLibur.Extensions;

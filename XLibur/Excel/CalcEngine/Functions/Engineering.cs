@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
 

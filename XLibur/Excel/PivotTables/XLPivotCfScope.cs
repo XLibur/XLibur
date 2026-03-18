@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 /// <summary>
 /// Defines a scope of conditional formatting applied to <see cref="XLPivotTable"/>. The scope is

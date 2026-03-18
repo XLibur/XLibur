@@ -1,4 +1,4 @@
-namespace XLibur.Examples;
+﻿namespace XLibur.Examples;
 
 public interface IXLExample
 {

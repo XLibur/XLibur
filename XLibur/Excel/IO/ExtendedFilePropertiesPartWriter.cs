@@ -1,4 +1,4 @@
-using DocumentFormat.OpenXml.ExtendedProperties;
+﻿using DocumentFormat.OpenXml.ExtendedProperties;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.VariantTypes;
 using DocumentFormat.OpenXml;

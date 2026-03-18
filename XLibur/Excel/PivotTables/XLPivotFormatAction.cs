@@ -1,4 +1,4 @@
-namespace XLibur.Excel;
+﻿namespace XLibur.Excel;
 
 /// <summary>
 /// An enum describing if <see cref="XLPivotFormat"/> applies formatting to the cells of pivot

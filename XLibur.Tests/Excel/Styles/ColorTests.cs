@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Threading;
 using XLibur.Excel;
 using XLibur.Utils;

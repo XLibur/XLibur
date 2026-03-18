@@ -1,4 +1,4 @@
-using XLibur.Examples.Delete;
+﻿using XLibur.Examples.Delete;
 using NUnit.Framework;
 
 namespace XLibur.Tests.Examples;
