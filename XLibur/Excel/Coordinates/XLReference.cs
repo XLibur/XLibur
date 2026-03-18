@@ -26,6 +26,11 @@ internal readonly record struct XLReference
         return _reference.GetDisplayStringA1();
     }
 
+    internal XLSheetRange ToSheetRange(XLSheetPoint anchor)
+    {
+        return _reference.ToSheetRange(anchor);
+    }
+
     internal XLRangeAddress ToRangeAddress(XLWorksheet? sheet, XLSheetPoint anchor)
     {
         var area = _reference.ToSheetRange(anchor);

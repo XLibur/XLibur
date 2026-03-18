@@ -74,11 +74,18 @@ internal sealed class XLPivotSourceReference : IXLPivotSource
     {
         if (Name is not null)
         {
-            // TODO: Named ranges are currently unusable, so only check tables.
             if (workbook.TryGetTable(Name, out var table))
             {
                 sheet = table.Worksheet;
                 sheetArea = table.Area;
+                return true;
+            }
+
+            if (workbook.DefinedNamesInternal.TryGetScopedValue(Name, out var definedName)
+                && definedName.IsValid
+                && definedName.TryGetFirstSheetArea(workbook, out sheet, out var area))
+            {
+                sheetArea = area;
                 return true;
             }
 
