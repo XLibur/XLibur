@@ -387,7 +387,7 @@ public partial class XLWorkbook
         if (elementType == typeof(SheetFormatProperties))
             LoadSheetFormatProperties((SheetFormatProperties)reader.LoadCurrentElement()!, ws);
         else if (elementType == typeof(MergeCells))
-            LoadMergeCells((MergeCells)reader.LoadCurrentElement()!, ws);
+            LoadMergeCellsStreaming(reader, ws);
         else if (elementType == typeof(SheetViews))
             WorksheetElementReader.LoadSheetViews((SheetViews)reader.LoadCurrentElement()!, ws);
         else if (elementType == typeof(Columns))
@@ -456,10 +456,26 @@ public partial class XLWorkbook
             ws.ColumnWidth = CalculateColumnWidth(sfp.BaseColumnWidth.Value, ws.Style.Font, this);
     }
 
-    private static void LoadMergeCells(MergeCells mergedCells, XLWorksheet ws)
+    /// <summary>
+    /// Reads <c>&lt;mergeCells&gt;</c> using the streaming <see cref="OpenXmlPartReader"/>
+    /// instead of building the full DOM via <c>LoadCurrentElement()</c>. Each
+    /// <c>&lt;mergeCell ref="..."/&gt;</c> child has a single attribute, so streaming
+    /// avoids allocating the parent <see cref="MergeCells"/> collection and all
+    /// child <see cref="MergeCell"/> DOM objects.
+    /// </summary>
+    private static void LoadMergeCellsStreaming(OpenXmlPartReader reader, XLWorksheet ws)
     {
-        foreach (var mergeCell in mergedCells.Elements<MergeCell>())
-            ws.Range(mergeCell.Reference!)!.Merge(false);
+        // We're positioned at <mergeCells>. Move into children.
+        reader.MoveAhead();
+
+        while (reader.IsStartElement("mergeCell"))
+        {
+            var reference = reader.Attributes.GetAttribute("ref");
+            if (!string.IsNullOrEmpty(reference))
+                ws.Range(reference)!.Merge(false);
+
+            reader.Skip();
+        }
     }
 
     private static void LoadRichValueImages(LoadContext context, XLWorksheet ws)
