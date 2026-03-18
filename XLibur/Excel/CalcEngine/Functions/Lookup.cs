@@ -754,8 +754,9 @@ internal static class Lookup
         if (!firstMatch.Success)
             return XLError.CellReference;
 
-        var firstRow = int.Parse(firstMatch.Groups[1].Value);
-        var firstCol = int.Parse(firstMatch.Groups[2].Value);
+        if (!int.TryParse(firstMatch.Groups[1].Value, out var firstRow)
+            || !int.TryParse(firstMatch.Groups[2].Value, out var firstCol))
+            return XLError.CellReference;
 
         int lastRow, lastCol;
         if (parts.Length == 2)
@@ -764,8 +765,9 @@ internal static class Lookup
             if (!lastMatch.Success)
                 return XLError.CellReference;
 
-            lastRow = int.Parse(lastMatch.Groups[1].Value);
-            lastCol = int.Parse(lastMatch.Groups[2].Value);
+            if (!int.TryParse(lastMatch.Groups[1].Value, out lastRow)
+                || !int.TryParse(lastMatch.Groups[2].Value, out lastCol))
+                return XLError.CellReference;
         }
         else
         {

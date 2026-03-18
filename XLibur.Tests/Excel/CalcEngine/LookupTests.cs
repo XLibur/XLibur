@@ -1072,6 +1072,27 @@ public class LookupTests
     }
 
     [Test]
+    public void Indirect_QuotedSheetNameWithApostrophe()
+    {
+        using var wb = new XLWorkbook();
+        var sheet1 = wb.AddWorksheet("Main");
+        var sheet2 = wb.AddWorksheet("Bob's");
+        sheet2.Cell("A1").Value = 42;
+        Assert.AreEqual(42, sheet1.Evaluate("INDIRECT(\"'Bob''s'!A1\")"));
+    }
+
+    [Test]
+    public void Indirect_R1C1Range()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 1;
+        sheet.Cell("A2").Value = 2;
+        sheet.Cell("C3").Value = 10;
+        Assert.AreEqual(13.0, sheet.Evaluate("SUM(INDIRECT(\"R1C1:R3C3\", FALSE))"));
+    }
+
+    [Test]
     public void Indirect_NonExistentSheet_ReturnsCellReferenceError()
     {
         using var wb = new XLWorkbook();
