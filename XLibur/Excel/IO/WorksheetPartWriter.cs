@@ -44,7 +44,7 @@ internal static class WorksheetPartWriter
             // Accessing the worksheet through worksheetPart.Worksheet creates an attached DOM
             // worksheet that is tracked and later saved automatically to the part.
             // Using the reader, we get a detached DOM.
-            // The OpenXmlReader.Create method only reads xml declaration, but doesn't read content.
+            // The OpenXmlReader.Create method only reads XML declaration but doesn't read content.
             using var reader = OpenXmlReader.Create(worksheetPart);
             if (!reader.Read())
             {
@@ -61,7 +61,7 @@ internal static class WorksheetPartWriter
         if (worksheet.NamespaceDeclarations.All(ns => ns.Value != RelationshipsNs))
             worksheet.AddNamespaceDeclaration("r", RelationshipsNs);
 
-        // We store the x14ac:dyDescent attribute (if set by a xlRow) in a row element. It's an optional attribute and it
+        // We store the x14ac:dyDescent attribute (if set by a xlRow) in a row element. It's an optional attribute, and it
         // needs a declared namespace. To avoid writing namespace to each <x:row> element during streaming, write it to
         // every sheet part ahead of time. The namespace has to be marked as ignorable, because OpenXML SDK validator will
         // refuse to validate it because it's an optional extension (see ISO29500 part 3).
@@ -128,6 +128,7 @@ internal static class WorksheetPartWriter
         PopulateTablePartReferences(xlWorksheet.Tables, worksheet, cm);
 
         PictureWriter.WriteDrawings(worksheet, cm, xlWorksheet, worksheetPart, context);
+        ChartWriter.WriteCharts(worksheet, cm, xlWorksheet, worksheetPart, context);
         PictureWriter.WriteLegacyDrawing(worksheet, cm, xlWorksheet);
         HeaderFooterImageWriter.WriteHeaderFooterImages(worksheet, cm, xlWorksheet, worksheetPart, context);
 
@@ -148,9 +149,9 @@ internal static class WorksheetPartWriter
             cm.SetElement(XLWorksheetContents.MergeCells, mergeCells);
             mergeCells.RemoveAllChildren<MergeCell>();
 
-            foreach (var mergeCell in (xlWorksheet).Internals.MergedRanges
-                     .Select(m => m.RangeAddress.FirstAddress + ":" + m.RangeAddress.LastAddress)
-                     .Select(merged => new MergeCell { Reference = merged }))
+            foreach (var mergeCell in xlWorksheet.Internals.MergedRanges
+                         .Select(m => m.RangeAddress.FirstAddress + ":" + m.RangeAddress.LastAddress)
+                         .Select(merged => new MergeCell { Reference = merged }))
                 mergeCells.AppendChild(mergeCell);
 
             mergeCells.Count = (uint)mergeCells.ChildElements.Count;
@@ -200,7 +201,7 @@ internal static class WorksheetPartWriter
     private static void StreamToPart(Worksheet worksheet, WorksheetPart worksheetPart, XLWorksheet xlWorksheet,
         SaveContext context, SaveOptions options)
     {
-        // Worksheet part might have some data, but the writer truncates everything upon creation.
+        // The worksheet part might have some data, but the writer truncates everything upon creation.
         using var writer = OpenXmlWriter.Create(worksheetPart);
         using var reader = OpenXmlReader.Create(worksheet);
 
@@ -212,7 +213,7 @@ internal static class WorksheetPartWriter
             {
                 SheetDataWriter.StreamSheetData(writer, xlWorksheet, context, options);
 
-                // Skip whole SheetData elements from original file, already written
+                // Skip whole SheetData elements from the original file, already written
                 reader.Skip();
             }
 

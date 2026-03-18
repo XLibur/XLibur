@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
-using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
@@ -168,28 +167,6 @@ internal static class SheetViewWriter
     {
         var firstSelection = xlWorksheet.SelectedRanges.FirstOrDefault();
 
-        void PopulateSelection(Selection selection)
-        {
-            if (xlWorksheet.ActiveCell is not null)
-                selection.ActiveCell = xlWorksheet.ActiveCell.Value.ToString();
-            else if (firstSelection != null)
-                selection.ActiveCell = firstSelection.RangeAddress.FirstAddress.ToStringRelative(false);
-
-            var seqRef = new List<string> { selection.ActiveCell!.Value! };
-            seqRef.AddRange(xlWorksheet.SelectedRanges.Select(range =>
-            {
-                return range.RangeAddress.FirstAddress.Equals(range.RangeAddress.LastAddress)
-                    ? range.RangeAddress.FirstAddress.ToStringRelative(false)
-                    : range.RangeAddress.ToStringRelative(false);
-            }));
-
-            selection.SequenceOfReferences = new ListValue<StringValue>
-            { InnerText = string.Join(" ", seqRef.Distinct().ToArray()) };
-
-            sheetView.InsertAfter(selection, svcm.GetPreviousElementFor(XLSheetViewContents.Selection));
-            svcm.SetElement(XLSheetViewContents.Selection, selection);
-        }
-
         if (pane != null)
         {
             PopulateSelection(new Selection()
@@ -199,6 +176,27 @@ internal static class SheetViewWriter
         }
 
         PopulateSelection(new Selection());
+        return;
+
+        void PopulateSelection(Selection selection)
+        {
+            if (xlWorksheet.ActiveCell is not null)
+                selection.ActiveCell = xlWorksheet.ActiveCell.Value.ToString();
+            else if (firstSelection != null)
+                selection.ActiveCell = firstSelection.RangeAddress.FirstAddress.ToStringRelative(false);
+
+            var seqRef = new List<string> { selection.ActiveCell!.Value! };
+            seqRef.AddRange(xlWorksheet.SelectedRanges.Select(range =>
+                range.RangeAddress.FirstAddress.Equals(range.RangeAddress.LastAddress)
+                    ? range.RangeAddress.FirstAddress.ToStringRelative(false)
+                    : range.RangeAddress.ToStringRelative(false)));
+
+            selection.SequenceOfReferences = new ListValue<StringValue>
+            { InnerText = string.Join(" ", seqRef.Distinct().ToArray()) };
+
+            sheetView.InsertAfter(selection, svcm.GetPreviousElementFor(XLSheetViewContents.Selection));
+            svcm.SetElement(XLSheetViewContents.Selection, selection);
+        }
     }
 
     private static void SetZoomScales(SheetView sheetView, XLWorksheet xlWorksheet)
@@ -228,8 +226,7 @@ internal static class SheetViewWriter
         int maxOutlineRow,
         out double worksheetColumnWidth)
     {
-        if (worksheet.SheetFormatProperties == null)
-            worksheet.SheetFormatProperties = new SheetFormatProperties();
+        worksheet.SheetFormatProperties ??= new SheetFormatProperties();
 
         cm.SetElement(XLWorksheetContents.SheetFormatProperties,
             worksheet.SheetFormatProperties);

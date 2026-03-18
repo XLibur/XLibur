@@ -43,10 +43,10 @@ Solution uses `.slnx` format (modern MSBuild Solution Extension).
 
 ## Key Dependencies
 
-- **DocumentFormat.OpenXml** 3.4.1 - Core OpenXML implementation
-- **ExcelNumberFormat** 1.1.0 - Excel number formatting
+- **DocumentFormat.OpenXml** 3.4.1 - Core OpenXML implementation ([source](https://github.com/dotnet/Open-XML-SDK))
+- **ExcelNumberFormat** 1.1.0 - Excel number formatting ([source](https://github.com/andersnm/ExcelNumberFormat))
 - **SixLabors.Fonts** 1.0.1 - Font handling
-- **ClosedXML.Parser** 2.0.0 - Parser utilities
+- **ClosedXML.Parser** 2.0.0 - Parser utilities ([source](https://github.com/ClosedXML/ClosedXML.Parser))
 - **RBush.Signed** 4.0.0 - Spatial indexing
 
 ## Shell Commands

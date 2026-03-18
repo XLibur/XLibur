@@ -91,7 +91,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         XLHelper.ValidateSheetName(sheetName);
         _name = sheetName;
-        Charts = new XLCharts();
+        Charts = new XLCharts(this);
         ShowFormulas = workbook.ShowFormulas;
         ShowGridLines = workbook.ShowGridLines;
         ShowOutlineSymbols = workbook.ShowOutlineSymbols;

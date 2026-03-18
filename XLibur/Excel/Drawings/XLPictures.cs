@@ -9,7 +9,7 @@ namespace XLibur.Excel.Drawings;
 
 internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
 {
-    private readonly List<XLPicture> _pictures = new List<XLPicture>();
+    private readonly List<XLPicture> _pictures = [];
     private readonly XLWorksheet _worksheet;
 
     public XLPictures(XLWorksheet worksheet)
@@ -21,7 +21,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     public int Count
     {
         [DebuggerStepThrough]
-        get { return _pictures.Count; }
+        get => _pictures.Count;
     }
 
     internal ICollection<string> Deleted { get; private set; }
@@ -140,15 +140,16 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
             picture = match;
             return true;
         }
+
         picture = null;
         return false;
     }
 
-    internal IXLPicture Add(Stream stream, string name, int Id)
+    internal IXLPicture Add(Stream stream, string name, int id)
     {
         var picture = (XLPicture)Add(stream);
         picture.SetName(name);
-        picture.Id = Id;
+        picture.Id = id;
         return picture;
     }
 
@@ -159,6 +160,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         {
             pictureNumber++;
         }
+
         return $"Picture {pictureNumber}";
     }
 }

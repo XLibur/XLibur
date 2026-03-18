@@ -389,7 +389,7 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     IXLRange SortLeftToRight(XLSortOrder sortOrder = XLSortOrder.Ascending, bool matchCase = false,
         bool ignoreBlanks = true);
 
-    //IXLCharts Charts { get; }
+    IXLCharts Charts { get; }
 
     bool ShowFormulas { get; set; }
 

@@ -9,8 +9,11 @@ public static class LoadFiles
     {
         foreach (var file in Directory.GetFiles(Program.BaseCreatedDirectory))
         {
-            var fileInfo = new FileInfo(file);
-            var fileName = fileInfo.Name;
+            var ext = Path.GetExtension(file).ToLowerInvariant();
+            if (ext is not ".xlsx" and not ".xlsm" and not ".xltx" and not ".xltm")
+                continue;
+
+            var fileName = Path.GetFileName(file);
             LoadAndSaveFile(Path.Combine(Program.BaseCreatedDirectory, fileName), Path.Combine(Program.BaseModifiedDirectory, fileName));
         }
     }

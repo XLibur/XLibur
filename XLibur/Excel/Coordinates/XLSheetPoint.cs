@@ -11,7 +11,7 @@ namespace XLibur.Excel.Coordinates;
 /// equality, hashing, and row-major comparison.
 /// </summary>
 /// <remarks>Unlike the XLAddress, a sheet can never be invalid.</remarks>
-[DebuggerDisplay("{XLHelper.GetColumnLetterFromNumber(Column)+Row}")]
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
 internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XLSheetPoint>
 {
     internal const int ColumnBits = 14;
@@ -54,6 +54,9 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => (int)(PackedValue & ColumnMask) + 1;
     }
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    private string DebuggerDisplay => XLHelper.GetColumnLetterFromNumber(Column) + Row;
 
     public static implicit operator XLSheetRange(XLSheetPoint point)
     {
@@ -202,7 +205,7 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     {
         Span<char> text = stackalloc char[10];
         var len = Format(text);
-        return text.Slice(0, len).ToString();
+        return text[..len].ToString();
     }
 
     private static int GetDigitCount(int n)
@@ -263,7 +266,7 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     /// <summary>
     /// Return a new point that has its column coordinate shifted by <paramref name="columnShift"/>.
     /// </summary>
-    /// <param name="columnShift">How many columns will new point be shifted. Positive - new
+    /// <param name="columnShift">How many columns will the new point be shifted? Positive - new
     ///     point is to the right, negative - new point is to the left.</param>
     /// <returns>Shifted point.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
