@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.RegularExpressions;
 using XLibur.Excel.Coordinates;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
 
@@ -21,7 +22,7 @@ internal static class Lookup
         ce.RegisterFunction("HLOOKUP", 3, 4, AdaptLastOptional(Hlookup, true), FunctionFlags.Range, AllowRange.Only, 1); // Looks in the top row of an array and returns the value of the indicated cell
         ce.RegisterFunction("HYPERLINK", 1, 2, Adapt(Hyperlink), FunctionFlags.Scalar | FunctionFlags.SideEffect); // Creates a shortcut or jump that opens a document stored on a network server, an intranet, or the Internet
         ce.RegisterFunction("INDEX", 2, 4, AdaptIndex(Index), FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.Only, 0); // Uses an index to choose a value from a reference or array
-        //ce.RegisterFunction("INDIRECT", , Indirect); // Returns a reference indicated by a text value
+        ce.RegisterFunction("INDIRECT", 1, 2, Indirect, FunctionFlags.Range | FunctionFlags.Volatile); // Returns a reference indicated by a text value
         //ce.RegisterFunction("LOOKUP", , Lookup); // Looks up values in a vector or array
         ce.RegisterFunction("MATCH", 2, 3, AdaptMatch(Match), FunctionFlags.Range, AllowRange.Only, 1); // Looks up values in a reference or array
         //ce.RegisterFunction("OFFSET", , Offset); // Returns a reference offset from a given reference
@@ -679,5 +680,129 @@ internal static class Lookup
 
         // Only thing left, if reference has multiple areas
         return XLError.CellReference;
+    }
+
+    private static AnyValue Indirect(CalcContext ctx, Span<AnyValue> p)
+    {
+        var refTextResult = ToText(p[0], ctx);
+        if (!refTextResult.TryPickT0(out var refText, out var textError))
+            return textError;
+
+        // Optional second arg: TRUE = A1 style (default), FALSE = R1C1 style
+        var isA1 = true;
+        if (p.Length > 1 && !p[1].IsBlank)
+        {
+            var a1Result = CoerceToLogical(p[1], ctx);
+            if (!a1Result.TryPickT0(out isA1, out var a1Error))
+                return a1Error;
+        }
+
+        if (string.IsNullOrEmpty(refText))
+            return XLError.CellReference;
+
+        // Handle sheet prefix: "Sheet1!A1" or "'Sheet Name'!A1"
+        XLWorksheet? worksheet = ctx.Worksheet;
+        var addressText = refText;
+
+        var bangIndex = refText.LastIndexOf('!');
+        if (bangIndex >= 0)
+        {
+            var sheetName = refText[..bangIndex].Trim('\'');
+            addressText = refText[(bangIndex + 1)..];
+            if (!ctx.Workbook.TryGetWorksheet(sheetName, out worksheet))
+                return XLError.CellReference;
+        }
+
+        if (isA1)
+        {
+            // Check if it's a valid A1 cell or range address
+            if (!XLHelper.IsValidA1Address(addressText) && !XLHelper.IsValidRangeAddress(addressText))
+                return TryResolveDefinedName(ctx, worksheet, addressText);
+
+            try
+            {
+                var rangeAddress = new XLRangeAddress(worksheet, addressText);
+                if (!XLHelper.IsValidRangeAddress(rangeAddress))
+                    return XLError.CellReference;
+
+                return new Reference(rangeAddress.Normalize());
+            }
+            catch
+            {
+                return XLError.CellReference;
+            }
+        }
+        else
+        {
+            // R1C1 style: support absolute references (R1C1, R1C1:R5C3)
+            // Relative R1C1 (R[-1]C[2]) is not supported — return #REF!
+            return TryParseR1C1Reference(worksheet, addressText);
+        }
+    }
+
+    private static readonly Regex AbsoluteR1C1Regex = new(
+        @"^R(\d+)C(\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled, XLHelper.RegexTimeout);
+
+    private static AnyValue TryParseR1C1Reference(XLWorksheet? worksheet, string addressText)
+    {
+        // Support single cell (R1C1) and range (R1C1:R5C3)
+        var parts = addressText.Split(':');
+        if (parts.Length > 2)
+            return XLError.CellReference;
+
+        var firstMatch = AbsoluteR1C1Regex.Match(parts[0]);
+        if (!firstMatch.Success)
+            return XLError.CellReference;
+
+        if (!int.TryParse(firstMatch.Groups[1].Value, out var firstRow)
+            || !int.TryParse(firstMatch.Groups[2].Value, out var firstCol))
+            return XLError.CellReference;
+
+        int lastRow, lastCol;
+        if (parts.Length == 2)
+        {
+            var lastMatch = AbsoluteR1C1Regex.Match(parts[1]);
+            if (!lastMatch.Success)
+                return XLError.CellReference;
+
+            if (!int.TryParse(lastMatch.Groups[1].Value, out lastRow)
+                || !int.TryParse(lastMatch.Groups[2].Value, out lastCol))
+                return XLError.CellReference;
+        }
+        else
+        {
+            lastRow = firstRow;
+            lastCol = firstCol;
+        }
+
+        if (firstRow < 1 || firstCol < 1 || lastRow < 1 || lastCol < 1
+            || firstRow > XLHelper.MaxRowNumber || firstCol > XLHelper.MaxColumnNumber
+            || lastRow > XLHelper.MaxRowNumber || lastCol > XLHelper.MaxColumnNumber)
+            return XLError.CellReference;
+
+        var firstAddress = new XLAddress(worksheet, firstRow, firstCol, true, true);
+        var lastAddress = new XLAddress(lastRow, lastCol, true, true);
+        var rangeAddress = new XLRangeAddress(firstAddress, lastAddress);
+        return new Reference(rangeAddress.Normalize());
+    }
+
+    private static AnyValue TryResolveDefinedName(CalcContext ctx, XLWorksheet? worksheet, string name)
+    {
+        // Resolve in the target worksheet's scope first, then workbook-level
+        var ws = worksheet ?? ctx.Worksheet;
+        if (ws.DefinedNames.TryGetValue(name, out var sheetDefinedName))
+            return EvaluateDefinedName(ctx, sheetDefinedName);
+
+        if (ctx.Workbook.DefinedNamesInternal.TryGetValue(name, out var bookDefinedName))
+            return EvaluateDefinedName(ctx, bookDefinedName);
+
+        return XLError.CellReference;
+    }
+
+    private static AnyValue EvaluateDefinedName(CalcContext ctx, IXLDefinedName definedName)
+    {
+        var nameFormula = definedName.RefersTo;
+        nameFormula = nameFormula.StartsWith('=') ? nameFormula : "=" + nameFormula;
+        return ctx.CalcEngine.EvaluateName(nameFormula, ctx.Worksheet);
     }
 }

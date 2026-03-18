@@ -177,6 +177,14 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         if (XLHelper.FunctionComparer.Equals(node.Name, "CHOOSE"))
             return VisitChooseFunction(context, node);
 
+        if (XLHelper.FunctionComparer.Equals(node.Name, "INDIRECT"))
+        {
+            // INDIRECT references are dynamic — can't determine at parse time.
+            // The Volatile flag ensures recalculation. Accept args for their dependencies.
+            AcceptAndAddAllParameters(context, node);
+            return null;
+        }
+
         // All other functions can have references as arguments, but not as an output value.
         AcceptAndAddAllParameters(context, node);
         return null;
