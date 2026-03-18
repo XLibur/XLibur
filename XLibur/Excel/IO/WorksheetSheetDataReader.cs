@@ -299,7 +299,7 @@ internal static class WorksheetSheetDataReader
         if (formulaType == CellFormulaValues.Normal)
         {
             formula = XLCellFormula.NormalA1(formulaText);
-            formulaSlice.Set(cellAddress, formula);
+            formulaSlice.SetDuringLoad(cellAddress, formula);
         }
         else if (formulaType == CellFormulaValues.Array && attributes.GetRefAttribute("ref") is
         {
@@ -728,7 +728,7 @@ internal static class WorksheetSheetDataReader
         if (!sharedFormulasR1C1.TryGetValue(sharedIndex, out var sharedR1C1Formula))
         {
             formula = XLCellFormula.NormalA1(formulaText);
-            formulaSlice.Set(cellAddress, formula);
+            formulaSlice.SetDuringLoad(cellAddress, formula);
 
             var formulaR1C1 = FormulaTransformation.SafeToR1C1(formulaText, cellAddress.Row, cellAddress.Column);
             sharedFormulasR1C1.Add(sharedIndex, formulaR1C1);
@@ -738,7 +738,7 @@ internal static class WorksheetSheetDataReader
             var sharedFormulaA1 =
                 FormulaTransformation.SafeToA1(sharedR1C1Formula, cellAddress.Row, cellAddress.Column);
             formula = XLCellFormula.NormalA1(sharedFormulaA1);
-            formulaSlice.Set(cellAddress, formula);
+            formulaSlice.SetDuringLoad(cellAddress, formula);
         }
 
         return formula;
@@ -763,7 +763,7 @@ internal static class WorksheetSheetDataReader
             formula = XLCellFormula.DataTable1D(dataTableArea, input1, input1Deleted, isRowDataTable);
         }
 
-        formulaSlice.Set(cellAddress, formula);
+        formulaSlice.SetDuringLoad(cellAddress, formula);
 
         return formula;
     }
