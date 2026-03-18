@@ -508,6 +508,39 @@ public class ChartExamples : IXLExample
         chart19.Position.SetColumn(0).SetRow(8);
         chart19.SecondPosition.SetColumn(9).SetRow(24);
 
+        // --- Sheet 20: 3D shape charts (Cone, Cylinder, Pyramid) ---
+        var ws20 = wb.Worksheets.Add("3D Shapes");
+
+        ws20.Cell("A1").Value = "Item";
+        ws20.Cell("B1").Value = "Value";
+        ws20.Cell("A2").Value = "Alpha"; ws20.Cell("B2").Value = 45;
+        ws20.Cell("A3").Value = "Beta";  ws20.Cell("B3").Value = 30;
+        ws20.Cell("A4").Value = "Gamma"; ws20.Cell("B4").Value = 55;
+        ws20.Cell("A5").Value = "Delta"; ws20.Cell("B5").Value = 20;
+
+        ws20.Columns("A", "B").AdjustToContents();
+
+        // Cone chart
+        var chart20a = ws20.Charts.Add(XLChartType.ConeClustered);
+        chart20a.SetTitle("Cone");
+        chart20a.Series.Add("Value", "'3D Shapes'!$B$2:$B$5", "'3D Shapes'!$A$2:$A$5");
+        chart20a.Position.SetColumn(0).SetRow(7);
+        chart20a.SecondPosition.SetColumn(5).SetRow(20);
+
+        // Cylinder chart
+        var chart20b = ws20.Charts.Add(XLChartType.CylinderClustered);
+        chart20b.SetTitle("Cylinder");
+        chart20b.Series.Add("Value", "'3D Shapes'!$B$2:$B$5", "'3D Shapes'!$A$2:$A$5");
+        chart20b.Position.SetColumn(6).SetRow(7);
+        chart20b.SecondPosition.SetColumn(11).SetRow(20);
+
+        // Pyramid chart
+        var chart20c = ws20.Charts.Add(XLChartType.PyramidClustered);
+        chart20c.SetTitle("Pyramid");
+        chart20c.Series.Add("Value", "'3D Shapes'!$B$2:$B$5", "'3D Shapes'!$A$2:$A$5");
+        chart20c.Position.SetColumn(0).SetRow(22);
+        chart20c.SecondPosition.SetColumn(5).SetRow(35);
+
         wb.SaveAs(filePath);
     }
 }

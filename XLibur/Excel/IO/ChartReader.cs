@@ -123,6 +123,15 @@ internal static class ChartReader
             primarySet = true;
         }
 
+        // Bar3D (Cone, Cylinder, Pyramid, Column3D, 3D bar variants)
+        var bar3DChart = plotArea.Elements<Bar3DChart>().FirstOrDefault();
+        if (bar3DChart != null && !primarySet)
+        {
+            xlChart.ChartType = DetermineBar3DChartType(bar3DChart);
+            ReadSeriesFromElements<BarChartSeries>(bar3DChart, xlChart.Series);
+            primarySet = true;
+        }
+
         // Pie
         var pieChart = plotArea.Elements<PieChart>().FirstOrDefault();
         if (pieChart != null && !primarySet)
@@ -363,6 +372,65 @@ internal static class ChartReader
     private static XLChartType DetermineRadarChartType(RadarChart radarChart) =>
         radarChart.RadarStyle?.Val?.Value == RadarStyleValues.Filled
             ? XLChartType.RadarFilled : XLChartType.Radar;
+
+    private static XLChartType DetermineBar3DChartType(Bar3DChart bar3DChart)
+    {
+        var direction = bar3DChart.BarDirection?.Val?.Value ?? BarDirectionValues.Column;
+        var grouping = bar3DChart.BarGrouping?.Val?.Value ?? BarGroupingValues.Clustered;
+        var shape = bar3DChart.Elements<Shape>().FirstOrDefault()?.Val?.Value;
+
+        // Determine base type from shape
+        if (shape == ShapeValues.Cone || shape == ShapeValues.ConeToMax)
+        {
+            if (direction == BarDirectionValues.Bar)
+            {
+                if (grouping == BarGroupingValues.Stacked) return XLChartType.ConeHorizontalStacked;
+                if (grouping == BarGroupingValues.PercentStacked) return XLChartType.ConeHorizontalStacked100Percent;
+                return XLChartType.ConeHorizontalClustered;
+            }
+            if (grouping == BarGroupingValues.Stacked) return XLChartType.ConeStacked;
+            if (grouping == BarGroupingValues.PercentStacked) return XLChartType.ConeStacked100Percent;
+            return XLChartType.ConeClustered;
+        }
+
+        if (shape == ShapeValues.Cylinder)
+        {
+            if (direction == BarDirectionValues.Bar)
+            {
+                if (grouping == BarGroupingValues.Stacked) return XLChartType.CylinderHorizontalStacked;
+                if (grouping == BarGroupingValues.PercentStacked) return XLChartType.CylinderHorizontalStacked100Percent;
+                return XLChartType.CylinderHorizontalClustered;
+            }
+            if (grouping == BarGroupingValues.Stacked) return XLChartType.CylinderStacked;
+            if (grouping == BarGroupingValues.PercentStacked) return XLChartType.CylinderStacked100Percent;
+            return XLChartType.CylinderClustered;
+        }
+
+        if (shape == ShapeValues.Pyramid || shape == ShapeValues.PyramidToMaximum)
+        {
+            if (direction == BarDirectionValues.Bar)
+            {
+                if (grouping == BarGroupingValues.Stacked) return XLChartType.PyramidHorizontalStacked;
+                if (grouping == BarGroupingValues.PercentStacked) return XLChartType.PyramidHorizontalStacked100Percent;
+                return XLChartType.PyramidHorizontalClustered;
+            }
+            if (grouping == BarGroupingValues.Stacked) return XLChartType.PyramidStacked;
+            if (grouping == BarGroupingValues.PercentStacked) return XLChartType.PyramidStacked100Percent;
+            return XLChartType.PyramidClustered;
+        }
+
+        // Default: Box shape = standard 3D bar/column
+        if (direction == BarDirectionValues.Bar)
+        {
+            if (grouping == BarGroupingValues.Stacked) return XLChartType.BarStacked3D;
+            if (grouping == BarGroupingValues.PercentStacked) return XLChartType.BarStacked100Percent3D;
+            return XLChartType.BarClustered3D;
+        }
+        if (grouping == BarGroupingValues.Stacked) return XLChartType.ColumnStacked3D;
+        if (grouping == BarGroupingValues.PercentStacked) return XLChartType.ColumnStacked100Percent3D;
+        if (grouping == BarGroupingValues.Standard) return XLChartType.Column3D;
+        return XLChartType.ColumnClustered3D;
+    }
 
     private static XLChartType DetermineAreaChartType(AreaChart areaChart)
     {

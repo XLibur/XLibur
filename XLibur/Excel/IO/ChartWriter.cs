@@ -500,6 +500,8 @@ internal static class ChartWriter
             AppendStockChart(plotArea, seriesCollection, catAxisId, valAxisId, indexOffset);
         else if (IsSurfaceType(chartType))
             AppendSurfaceChart(plotArea, chartType, seriesCollection, catAxisId, valAxisId, indexOffset);
+        else if (IsBar3DType(chartType))
+            AppendBar3DChart(plotArea, chartType, seriesCollection, catAxisId, valAxisId, indexOffset);
         else
             AppendBarChart(plotArea, chartType, seriesCollection, catAxisId, valAxisId, indexOffset);
     }
@@ -655,6 +657,35 @@ internal static class ChartWriter
         barChart.Append(new AxisId { Val = catAxisId });
         barChart.Append(new AxisId { Val = valAxisId });
         plotArea.Append(barChart);
+    }
+
+    // ── Bar3D (Cone, Cylinder, Pyramid, Column3D, 3D Bar variants) ──
+
+    private static void AppendBar3DChart(
+        PlotArea plotArea, XLChartType chartType,
+        IXLChartSeriesCollection seriesCollection, uint catAxisId, uint valAxisId, uint indexOffset)
+    {
+        var bp = new BarParams(chartType);
+        var bar3DChart = new Bar3DChart
+        {
+            BarDirection = new BarDirection { Val = bp.Direction },
+            BarGrouping = new BarGrouping { Val = bp.Grouping }
+        };
+        foreach (var s in seriesCollection)
+        {
+            var series = new BarChartSeries
+            {
+                Index = new C.Index { Val = s.Index + indexOffset },
+                Order = new Order { Val = s.Order + indexOffset },
+                SeriesText = BuildSeriesText(s)
+            };
+            AppendCatAndVal(series, s);
+            bar3DChart.Append(series);
+        }
+        bar3DChart.Append(new Shape { Val = GetBar3DShape(chartType) });
+        bar3DChart.Append(new AxisId { Val = catAxisId });
+        bar3DChart.Append(new AxisId { Val = valAxisId });
+        plotArea.Append(bar3DChart);
     }
 
     // ── Line ──
@@ -958,6 +989,23 @@ internal static class ChartWriter
     private static bool IsBubbleType(XLChartType ct) =>
         ct is XLChartType.Bubble or XLChartType.Bubble3D;
 
+    private static bool IsBar3DType(XLChartType ct) =>
+        ct is XLChartType.BarClustered3D or XLChartType.BarStacked3D or XLChartType.BarStacked100Percent3D
+            or XLChartType.Column3D or XLChartType.ColumnClustered3D
+            or XLChartType.ColumnStacked3D or XLChartType.ColumnStacked100Percent3D
+            or XLChartType.Cone or XLChartType.ConeClustered
+            or XLChartType.ConeHorizontalClustered or XLChartType.ConeHorizontalStacked
+            or XLChartType.ConeHorizontalStacked100Percent
+            or XLChartType.ConeStacked or XLChartType.ConeStacked100Percent
+            or XLChartType.Cylinder or XLChartType.CylinderClustered
+            or XLChartType.CylinderHorizontalClustered or XLChartType.CylinderHorizontalStacked
+            or XLChartType.CylinderHorizontalStacked100Percent
+            or XLChartType.CylinderStacked or XLChartType.CylinderStacked100Percent
+            or XLChartType.Pyramid or XLChartType.PyramidClustered
+            or XLChartType.PyramidHorizontalClustered or XLChartType.PyramidHorizontalStacked
+            or XLChartType.PyramidHorizontalStacked100Percent
+            or XLChartType.PyramidStacked or XLChartType.PyramidStacked100Percent;
+
     private static bool IsLineType(XLChartType ct) =>
         ct is XLChartType.Line or XLChartType.Line3D
             or XLChartType.LineStacked or XLChartType.LineStacked100Percent
@@ -998,6 +1046,24 @@ internal static class ChartWriter
         : ct is XLChartType.AreaStacked100Percent or XLChartType.AreaStacked100Percent3D ? GroupingValues.PercentStacked
         : GroupingValues.Standard;
 
+    private static ShapeValues GetBar3DShape(XLChartType ct) =>
+        ct is XLChartType.Cone or XLChartType.ConeClustered
+            or XLChartType.ConeHorizontalClustered or XLChartType.ConeHorizontalStacked
+            or XLChartType.ConeHorizontalStacked100Percent
+            or XLChartType.ConeStacked or XLChartType.ConeStacked100Percent
+            ? ShapeValues.Cone
+        : ct is XLChartType.Cylinder or XLChartType.CylinderClustered
+            or XLChartType.CylinderHorizontalClustered or XLChartType.CylinderHorizontalStacked
+            or XLChartType.CylinderHorizontalStacked100Percent
+            or XLChartType.CylinderStacked or XLChartType.CylinderStacked100Percent
+            ? ShapeValues.Cylinder
+        : ct is XLChartType.Pyramid or XLChartType.PyramidClustered
+            or XLChartType.PyramidHorizontalClustered or XLChartType.PyramidHorizontalStacked
+            or XLChartType.PyramidHorizontalStacked100Percent
+            or XLChartType.PyramidStacked or XLChartType.PyramidStacked100Percent
+            ? ShapeValues.Pyramid
+        : ShapeValues.Box;
+
     private static ScatterStyleValues GetScatterStyle(XLChartType ct) => ct switch
     {
         XLChartType.XYScatterMarkers => ScatterStyleValues.LineMarker,
@@ -1015,21 +1081,40 @@ internal static class ChartWriter
 
         public BarParams(XLChartType ct)
         {
-            Direction = ct is XLChartType.BarClustered or XLChartType.BarClustered3D
+            Direction = IsHorizontal(ct) ? BarDirectionValues.Bar : BarDirectionValues.Column;
+            Grouping = GetGrouping(ct);
+        }
+
+        private static bool IsHorizontal(XLChartType ct) =>
+            ct is XLChartType.BarClustered or XLChartType.BarClustered3D
                 or XLChartType.BarStacked or XLChartType.BarStacked100Percent
                 or XLChartType.BarStacked100Percent3D or XLChartType.BarStacked3D
-                ? BarDirectionValues.Bar : BarDirectionValues.Column;
+                or XLChartType.ConeHorizontalClustered or XLChartType.ConeHorizontalStacked
+                or XLChartType.ConeHorizontalStacked100Percent
+                or XLChartType.CylinderHorizontalClustered or XLChartType.CylinderHorizontalStacked
+                or XLChartType.CylinderHorizontalStacked100Percent
+                or XLChartType.PyramidHorizontalClustered or XLChartType.PyramidHorizontalStacked
+                or XLChartType.PyramidHorizontalStacked100Percent;
 
-            Grouping = ct is XLChartType.BarClustered or XLChartType.BarClustered3D
-                    or XLChartType.ColumnClustered or XLChartType.ColumnClustered3D
+        private static BarGroupingValues GetGrouping(XLChartType ct) =>
+            ct is XLChartType.BarClustered or XLChartType.BarClustered3D
+                or XLChartType.ColumnClustered or XLChartType.ColumnClustered3D
+                or XLChartType.ConeClustered or XLChartType.ConeHorizontalClustered
+                or XLChartType.CylinderClustered or XLChartType.CylinderHorizontalClustered
+                or XLChartType.PyramidClustered or XLChartType.PyramidHorizontalClustered
                 ? BarGroupingValues.Clustered
-                : ct is XLChartType.BarStacked or XLChartType.BarStacked3D
-                    or XLChartType.ColumnStacked or XLChartType.ColumnStacked3D
-                    ? BarGroupingValues.Stacked
-                    : ct is XLChartType.BarStacked100Percent or XLChartType.BarStacked100Percent3D
-                        or XLChartType.ColumnStacked100Percent or XLChartType.ColumnStacked100Percent3D
-                        ? BarGroupingValues.PercentStacked
-                        : BarGroupingValues.Clustered;
-        }
+            : ct is XLChartType.BarStacked or XLChartType.BarStacked3D
+                or XLChartType.ColumnStacked or XLChartType.ColumnStacked3D
+                or XLChartType.ConeStacked or XLChartType.ConeHorizontalStacked
+                or XLChartType.CylinderStacked or XLChartType.CylinderHorizontalStacked
+                or XLChartType.PyramidStacked or XLChartType.PyramidHorizontalStacked
+                ? BarGroupingValues.Stacked
+            : ct is XLChartType.BarStacked100Percent or XLChartType.BarStacked100Percent3D
+                or XLChartType.ColumnStacked100Percent or XLChartType.ColumnStacked100Percent3D
+                or XLChartType.ConeStacked100Percent or XLChartType.ConeHorizontalStacked100Percent
+                or XLChartType.CylinderStacked100Percent or XLChartType.CylinderHorizontalStacked100Percent
+                or XLChartType.PyramidStacked100Percent or XLChartType.PyramidHorizontalStacked100Percent
+                ? BarGroupingValues.PercentStacked
+            : BarGroupingValues.Standard;
     }
 }

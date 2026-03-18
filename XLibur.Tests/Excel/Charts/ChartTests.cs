@@ -713,4 +713,79 @@ public class ChartTests
             Assert.That(chart.Series.Count, Is.EqualTo(1));
         }
     }
+
+    [Test]
+    public void CanSaveAndLoadConeChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "X"; ws.Cell("B1").Value = 10;
+            ws.Cell("A2").Value = "Y"; ws.Cell("B2").Value = 20;
+
+            var chart = ws.Charts.Add(XLChartType.ConeClustered);
+            chart.Series.Add("S1", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.ConeClustered));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadCylinderChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "X"; ws.Cell("B1").Value = 15;
+            ws.Cell("A2").Value = "Y"; ws.Cell("B2").Value = 25;
+
+            var chart = ws.Charts.Add(XLChartType.CylinderHorizontalStacked);
+            chart.Series.Add("S1", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.CylinderHorizontalStacked));
+        }
+    }
+
+    [Test]
+    public void CanSaveAndLoadPyramidChart()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "X"; ws.Cell("B1").Value = 30;
+            ws.Cell("A2").Value = "Y"; ws.Cell("B2").Value = 50;
+
+            var chart = ws.Charts.Add(XLChartType.PyramidStacked100Percent);
+            chart.Series.Add("S1", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(0).SetRow(4);
+            chart.SecondPosition.SetColumn(8).SetRow(18);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.PyramidStacked100Percent));
+        }
+    }
 }
