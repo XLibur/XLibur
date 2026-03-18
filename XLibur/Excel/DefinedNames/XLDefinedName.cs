@@ -95,6 +95,27 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     /// </summary>
     internal IReadOnlyList<string> GetSheetReferencesList() => _references.SheetReferences.Select(x => x.GetA1()).ToList();
 
+    /// <summary>
+    /// Try to resolve the first sheet reference in the formula to a worksheet and area.
+    /// Avoids materializing <see cref="XLRange"/> or <see cref="XLRanges"/> objects.
+    /// </summary>
+    internal bool TryGetFirstSheetArea(XLWorkbook workbook, out XLWorksheet? sheet, out XLSheetRange sheetArea)
+    {
+        var anchor = new XLSheetPoint(1, 1);
+        foreach (var reference in _references.SheetReferences)
+        {
+            if (workbook.TryGetWorksheet(reference.Sheet, out sheet))
+            {
+                sheetArea = reference.Reference.ToSheetRange(anchor);
+                return true;
+            }
+        }
+
+        sheet = null;
+        sheetArea = default;
+        return false;
+    }
+
     internal XLDefinedName CopyTo(XLWorksheet targetSheet)
     {
         var sheet = _container.Worksheet;
