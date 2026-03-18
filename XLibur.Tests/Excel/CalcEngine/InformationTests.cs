@@ -630,4 +630,29 @@ public class InformationTests
         ws.Cell("C1").FormulaA1 = "TYPE((A1,A1))";
         Assert.AreEqual(16.0, ws.Cell("C1").Value);
     }
+
+    [Test]
+    public void IsBlank_EmptyString_ReturnsFalse()
+    {
+        // ISBLANK("") should be false — an empty string is a text value, not blank.
+        Assert.AreEqual(false, XLWorkbook.EvaluateExpr("ISBLANK(\"\")"));
+    }
+
+    [Test]
+    public void IsBlank_BlankCell_ReturnsTrue()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        // A1 is never set, so it is blank.
+        Assert.AreEqual(true, ws.Evaluate("ISBLANK(A1)"));
+    }
+
+    [Test]
+    public void IsBlank_NonBlankValues_ReturnsFalse()
+    {
+        Assert.AreEqual(false, XLWorkbook.EvaluateExpr("ISBLANK(0)"));
+        Assert.AreEqual(false, XLWorkbook.EvaluateExpr("ISBLANK(FALSE)"));
+        Assert.AreEqual(false, XLWorkbook.EvaluateExpr("ISBLANK(\"hello\")"));
+    }
 }
