@@ -61,7 +61,7 @@ public static partial class XLHelper
     /// </summary>
     internal static readonly StringComparer FunctionComparer = StringComparer.OrdinalIgnoreCase;
 
-    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(150);
+    internal static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(150);
 
     internal static readonly Regex RCSimpleRegex = new(
         @"^(r(((-\d)?\d*)|\[(-\d)?\d*\]))?(c(((-\d)?\d*)|\[(-\d)?\d*\]))?$"

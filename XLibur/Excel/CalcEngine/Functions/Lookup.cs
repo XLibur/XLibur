@@ -741,7 +741,7 @@ internal static class Lookup
     }
 
     private static readonly Regex AbsoluteR1C1Regex = new(
-        @"^R(\d+)C(\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        @"^R(\d+)C(\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled, XLHelper.RegexTimeout);
 
     private static AnyValue TryParseR1C1Reference(XLWorksheet? worksheet, string addressText)
     {
