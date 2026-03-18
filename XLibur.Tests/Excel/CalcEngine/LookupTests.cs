@@ -840,4 +840,131 @@ public class LookupTests
     {
         Assert.AreEqual(2, XLWorkbook.EvaluateExpr("VLOOKUP(4, {1,2; 3,2; 5,3; 7,4}, 2)"));
     }
+
+    [Test]
+    public void Vlookup_Wildcard_AsteriskMatchesAnyCharacters()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = "Apple";
+        sheet.Cell("A2").Value = "Banana";
+        sheet.Cell("A3").Value = "Avocado";
+        sheet.Cell("B1").Value = 1;
+        sheet.Cell("B2").Value = 2;
+        sheet.Cell("B3").Value = 3;
+
+        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""A*"",A1:B3,2,FALSE)"));
+        Assert.AreEqual(2, sheet.Evaluate(@"VLOOKUP(""B*"",A1:B3,2,FALSE)"));
+        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""*pple"",A1:B3,2,FALSE)"));
+    }
+
+    [Test]
+    public void Vlookup_Wildcard_QuestionMarkMatchesSingleCharacter()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = "Ab";
+        sheet.Cell("A2").Value = "Abc";
+        sheet.Cell("A3").Value = "Abcd";
+        sheet.Cell("B1").Value = 1;
+        sheet.Cell("B2").Value = 2;
+        sheet.Cell("B3").Value = 3;
+
+        // A? matches exactly two characters starting with A
+        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""A?"",A1:B3,2,FALSE)"));
+
+        // A?? matches exactly three characters starting with A
+        Assert.AreEqual(2, sheet.Evaluate(@"VLOOKUP(""A??"",A1:B3,2,FALSE)"));
+    }
+
+    [Test]
+    public void Vlookup_Wildcard_EscapedWildcardMatchesLiteral()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = "A*B";
+        sheet.Cell("A2").Value = "AXB";
+        sheet.Cell("B1").Value = 1;
+        sheet.Cell("B2").Value = 2;
+
+        // ~* matches literal asterisk
+        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""A~*B"",A1:B2,2,FALSE)"));
+    }
+
+    [Test]
+    public void Vlookup_Wildcard_NoMatch_ReturnsNA()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = "Apple";
+        sheet.Cell("B1").Value = 1;
+
+        Assert.AreEqual(XLError.NoValueAvailable, sheet.Evaluate(@"VLOOKUP(""Z*"",A1:B1,2,FALSE)"));
+    }
+
+    [Test]
+    public void Vlookup_Wildcard_NonTextLookupStillWorks()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 10;
+        sheet.Cell("A2").Value = 20;
+        sheet.Cell("B1").Value = "ten";
+        sheet.Cell("B2").Value = "twenty";
+
+        Assert.AreEqual("ten", sheet.Evaluate("VLOOKUP(10,A1:B2,2,FALSE)"));
+    }
+
+    [Test]
+    public void Hlookup_Wildcard_AsteriskMatchesAnyCharacters()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = "Apple";
+        sheet.Cell("B1").Value = "Banana";
+        sheet.Cell("C1").Value = "Avocado";
+        sheet.Cell("A2").Value = 1;
+        sheet.Cell("B2").Value = 2;
+        sheet.Cell("C2").Value = 3;
+
+        Assert.AreEqual(1, sheet.Evaluate(@"HLOOKUP(""A*"",A1:C2,2,FALSE)"));
+        Assert.AreEqual(2, sheet.Evaluate(@"HLOOKUP(""B*"",A1:C2,2,FALSE)"));
+    }
+
+    [Test]
+    public void Hlookup_Wildcard_QuestionMarkMatchesSingleCharacter()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = "Ab";
+        sheet.Cell("B1").Value = "Abc";
+        sheet.Cell("A2").Value = 1;
+        sheet.Cell("B2").Value = 2;
+
+        Assert.AreEqual(1, sheet.Evaluate(@"HLOOKUP(""A?"",A1:B2,2,FALSE)"));
+    }
+
+    [Test]
+    public void Hlookup_Wildcard_EscapedWildcardMatchesLiteral()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = "A*B";
+        sheet.Cell("B1").Value = "AXB";
+        sheet.Cell("A2").Value = 1;
+        sheet.Cell("B2").Value = 2;
+
+        Assert.AreEqual(1, sheet.Evaluate(@"HLOOKUP(""A~*B"",A1:B2,2,FALSE)"));
+    }
+
+    [Test]
+    public void Hlookup_Wildcard_NoMatch_ReturnsNA()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = "Apple";
+        sheet.Cell("A2").Value = 1;
+
+        Assert.AreEqual(XLError.NoValueAvailable, sheet.Evaluate(@"HLOOKUP(""Z*"",A1:A2,2,FALSE)"));
+    }
 }

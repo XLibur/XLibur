@@ -82,7 +82,6 @@ internal static class Lookup
             return array[rowIndex, foundColumn].ToAnyValue();
         }
 
-        // TODO: Implement wildcard search
         var exactColumn = ExactSearchColumn(array, lookupValue);
         if (exactColumn == -1)
             return XLError.NoValueAvailable;
@@ -379,7 +378,6 @@ internal static class Lookup
             return array[foundRow, columnIdx].ToAnyValue();
         }
 
-        // TODO: Implement wildcard search
         var exactRow = ExactSearchRow(array, lookupValue);
         if (exactRow == -1)
             return XLError.NoValueAvailable;
@@ -427,9 +425,23 @@ internal static class Lookup
 
     /// <summary>
     /// Linear exact search across the first row of an array. Returns the column index or -1.
+    /// Supports wildcards (<c>*</c>, <c>?</c>, <c>~</c>) when the lookup value is text.
     /// </summary>
     private static int ExactSearchColumn(Array array, ScalarValue lookupValue)
     {
+        if (lookupValue.TryPickText(out var lookupText, out _) && ContainsWildcardChars(lookupText!))
+        {
+            var wildcard = new Wildcard(lookupText!);
+            for (var columnIndex = 0; columnIndex < array.Width; columnIndex++)
+            {
+                var currentValue = array[0, columnIndex];
+                if (currentValue.TryPickText(out var cellText, out _) && wildcard.Matches(cellText!.AsSpan()))
+                    return columnIndex;
+            }
+
+            return -1;
+        }
+
         for (var columnIndex = 0; columnIndex < array.Width; columnIndex++)
         {
             var currentValue = array[0, columnIndex];
@@ -443,9 +455,23 @@ internal static class Lookup
 
     /// <summary>
     /// Linear exact search down the first column of an array. Returns the row index or -1.
+    /// Supports wildcards (<c>*</c>, <c>?</c>, <c>~</c>) when the lookup value is text.
     /// </summary>
     private static int ExactSearchRow(Array array, ScalarValue lookupValue)
     {
+        if (lookupValue.TryPickText(out var lookupText, out _) && ContainsWildcardChars(lookupText!))
+        {
+            var wildcard = new Wildcard(lookupText!);
+            for (var rowIndex = 0; rowIndex < array.Height; rowIndex++)
+            {
+                var currentValue = array[rowIndex, 0];
+                if (currentValue.TryPickText(out var cellText, out _) && wildcard.Matches(cellText!.AsSpan()))
+                    return rowIndex;
+            }
+
+            return -1;
+        }
+
         for (var rowIndex = 0; rowIndex < array.Height; rowIndex++)
         {
             var currentValue = array[rowIndex, 0];
@@ -455,6 +481,24 @@ internal static class Lookup
         }
 
         return -1;
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> if the text contains wildcard syntax: unescaped <c>*</c> or <c>?</c>,
+    /// or <c>~</c> escape sequences (<c>~*</c>, <c>~?</c>, <c>~~</c>).
+    /// </summary>
+    private static bool ContainsWildcardChars(string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == '*' || c == '?')
+                return true;
+            if (c == '~')
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>
