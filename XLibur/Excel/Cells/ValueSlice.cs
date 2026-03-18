@@ -150,13 +150,19 @@ internal sealed class ValueSlice : ISlice
     /// the original-value lookup, SST dereference, and the default-equality check in the
     /// underlying slice. The value must be non-blank.
     /// </summary>
-    internal void SetCellValueDuringLoad(XLSheetPoint point, XLCellValue cellValue)
+    /// <param name="point">Cell address.</param>
+    /// <param name="cellValue">Non-blank value to write.</param>
+    /// <param name="inline">
+    /// <c>true</c> for formula result text (not in the shared string table);
+    /// <c>false</c> (default) for normal data cells.
+    /// </param>
+    internal void SetCellValueDuringLoad(XLSheetPoint point, XLCellValue cellValue, bool inline = false)
     {
         double value;
         if (cellValue.Type == XLDataType.Text)
         {
-            // Fresh cell — no existing text to dereference. Inline defaults to false.
-            value = _sst.IncreaseRef(cellValue.GetText(), inline: false);
+            // Fresh cell — no existing text to dereference.
+            value = _sst.IncreaseRef(cellValue.GetText(), inline);
         }
         else if (cellValue.IsUnifiedNumber)
         {
@@ -175,7 +181,7 @@ internal sealed class ValueSlice : ISlice
             value = 0;
         }
 
-        var modified = new XLValueSliceContent(value, cellValue.Type, inline: false);
+        var modified = new XLValueSliceContent(value, cellValue.Type, inline);
         _values.SetNonDefault(point, in modified);
     }
 

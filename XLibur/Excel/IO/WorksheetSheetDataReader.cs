@@ -230,25 +230,25 @@ internal static class WorksheetSheetDataReader
     {
         var formula = LoadCellFormula(ws, cellAddress, reader, context.SharedFormulasR1C1);
 
+        // Formula results are stored inline (not in the shared string table).
+        var formulaInline = formula is not null;
+
         var cellHasValue = reader.IsStartElement("v");
         if (cellHasValue)
         {
             SetCellValue(dataType, reader.GetText(), cellsCollection, cellAddress, cellStyleValue, ws,
-                context.SharedStrings, hasFormula: formula is not null);
+                context.SharedStrings, formulaInline);
             reader.Skip();
         }
         else if (dataType.Equals(CellValues.SharedString) || dataType.Equals(CellValues.String))
         {
-            if (formula is not null)
-                cellsCollection.ValueSlice.SetCellValue(cellAddress, string.Empty);
-            else
-                cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty);
+            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, formulaInline);
         }
 
         // If the cell doesn't contain a value, invalidate the formula so it recalculates.
         // Formula can be null for slave cells of array formulas.
-        if (formula is not null && !cellHasValue)
-            formula.IsDirty = true;
+        if (formulaInline && !cellHasValue)
+            formula!.IsDirty = true;
 
         if (reader.IsStartElement("is"))
             LoadInlineString(dataType, cellsCollection, cellAddress, ws, reader);
@@ -279,7 +279,6 @@ internal static class WorksheetSheetDataReader
     {
         var attributes = reader.Attributes;
         var formulaSlice = ws.Internals.CellsCollection.FormulaSlice;
-        var valueSlice = ws.Internals.CellsCollection.ValueSlice;
 
         // bx attribute of cell formula is not ever used, per MS-OI29500 2.1.620
         var formulaText = reader.GetText();
@@ -293,14 +292,14 @@ internal static class WorksheetSheetDataReader
             _ => throw new NotSupportedException("Unknown formula type.")
         };
 
-        // Always set the shareString flag to `false`, because the text result of
-        // the formula is stored directly in the sheet, not the shared string table.
+        // The inline flag (shareString=false) for formula results is now set directly
+        // by SetCellValueDuringLoad with inline=true in LoadCellContent, eliminating
+        // separate SetShareString calls and their per-cell slice lookups.
         XLCellFormula? formula = null;
         if (formulaType == CellFormulaValues.Normal)
         {
             formula = XLCellFormula.NormalA1(formulaText);
             formulaSlice.Set(cellAddress, formula);
-            valueSlice.SetShareString(cellAddress, false);
         }
         else if (formulaType == CellFormulaValues.Array && attributes.GetRefAttribute("ref") is
         {
@@ -312,24 +311,14 @@ internal static class WorksheetSheetDataReader
             // a formula yet. Also, Excel doesn't allow change of array data, only through the parent formula.
             formula = XLCellFormula.Array(formulaText, arrayArea, aca);
             formulaSlice.SetArray(arrayArea, formula);
-
-            for (var col = arrayArea.FirstPoint.Column; col <= arrayArea.LastPoint.Column; ++col)
-            {
-                for (var row = arrayArea.FirstPoint.Row; row <= arrayArea.LastPoint.Row; ++row)
-                {
-                    valueSlice.SetShareString(cellAddress, false);
-                }
-            }
         }
         else if (formulaType == CellFormulaValues.Shared && attributes.GetUintAttribute("si") is { } sharedIndex)
         {
             formula = LoadSharedFormula(formulaText, cellAddress, sharedIndex, sharedFormulasR1C1, formulaSlice);
-            valueSlice.SetShareString(cellAddress, false);
         }
         else if (formulaType == CellFormulaValues.DataTable && attributes.GetRefAttribute("ref") is { } dataTableArea)
         {
             formula = LoadDataTableFormula(attributes, cellAddress, dataTableArea, formulaSlice);
-            valueSlice.SetShareString(cellAddress, false);
         }
 
         // Go from the start of the 'f' element to the end of the 'f' element.
@@ -342,44 +331,31 @@ internal static class WorksheetSheetDataReader
     /// Write cell value directly to <see cref="ValueSlice"/> during loading,
     /// bypassing <see cref="XLCell"/> allocation and <c>CalcEngine.MarkDirty</c>.
     /// An <see cref="XLCell"/> is only created for the rare rich-text shared-string path.
-    /// When <paramref name="hasFormula"/> is <c>false</c> (the common case for data cells),
-    /// uses the faster <c>SetCellValueDuringLoad</c> path that skips equality checks.
     /// </summary>
     internal static void SetCellValue(CellValues dataType, string? cellValue,
         XLCellsCollection cellsCollection, XLSheetPoint cellAddress, XLStyleValue cellStyleValue,
-        XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool hasFormula)
+        XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline)
     {
         // Only String writes an empty value when v is null.
         if (cellValue is null)
         {
             if (dataType == CellValues.String)
-            {
-                if (hasFormula)
-                    cellsCollection.ValueSlice.SetCellValue(cellAddress, string.Empty);
-                else
-                    cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty);
-            }
-
+                cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, inline);
             return;
         }
 
         if (dataType == CellValues.Number)
-            SetNumberCellValue(cellValue, cellsCollection, cellAddress, cellStyleValue, hasFormula);
+            SetNumberCellValue(cellValue, cellsCollection, cellAddress, cellStyleValue, inline);
         else if (dataType == CellValues.SharedString)
-            SetSharedStringCellValue(cellValue, cellsCollection, cellAddress, ws, sharedStrings, hasFormula);
+            SetSharedStringCellValue(cellValue, cellsCollection, cellAddress, ws, sharedStrings, inline);
         else if (dataType == CellValues.String)
-        {
-            if (hasFormula)
-                cellsCollection.ValueSlice.SetCellValue(cellAddress, cellValue);
-            else
-                cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, cellValue);
-        }
+            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, cellValue, inline);
         else if (dataType == CellValues.Boolean)
-            SetBooleanCellValue(cellValue, cellsCollection, cellAddress, hasFormula);
+            SetBooleanCellValue(cellValue, cellsCollection, cellAddress, inline);
         else if (dataType == CellValues.Error)
-            SetErrorCellValue(cellValue, cellsCollection, cellAddress, hasFormula);
+            SetErrorCellValue(cellValue, cellsCollection, cellAddress, inline);
         else if (dataType == CellValues.Date)
-            SetDateCellValue(cellValue, cellsCollection, cellAddress, hasFormula);
+            SetDateCellValue(cellValue, cellsCollection, cellAddress, inline);
     }
 
     /// <summary>
@@ -793,7 +769,7 @@ internal static class WorksheetSheetDataReader
     }
 
     private static void SetNumberCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, XLStyleValue cellStyleValue, bool hasFormula)
+        XLSheetPoint cellAddress, XLStyleValue cellStyleValue, bool inline)
     {
         if (!TryParseOoxmlDouble(cellValue, out var number)) return;
         var numberDataType = GetNumberDataType(cellStyleValue.NumberFormat);
@@ -803,15 +779,11 @@ internal static class WorksheetSheetDataReader
             XLDataType.TimeSpan => XLCellValue.FromSerialTimeSpan(number),
             _ => number
         };
-
-        if (hasFormula)
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, cellNumber);
-        else
-            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, cellNumber);
+        cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, cellNumber, inline);
     }
 
     private static void SetSharedStringCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool hasFormula)
+        XLSheetPoint cellAddress, XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline)
     {
         if (TryParseOoxmlNonNegativeInt(cellValue, out var sharedStringId)
             && sharedStrings is not null && sharedStringId < sharedStrings.Length)
@@ -822,52 +794,35 @@ internal static class WorksheetSheetDataReader
                 var xlCell = new XLCell(ws, cellAddress);
                 SetCellText(xlCell, entry.RichText);
             }
-            else if (hasFormula)
-                cellsCollection.ValueSlice.SetCellValue(cellAddress, entry.PlainText);
             else
-                cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, entry.PlainText);
+                cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, entry.PlainText, inline);
         }
-        else if (hasFormula)
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, string.Empty);
         else
-            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty);
+            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, inline);
     }
 
     private static void SetBooleanCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, bool hasFormula)
+        XLSheetPoint cellAddress, bool inline)
     {
         var isTrue = string.Equals(cellValue, "1", StringComparison.Ordinal) ||
                      string.Equals(cellValue, "TRUE", StringComparison.OrdinalIgnoreCase);
-
-        if (hasFormula)
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, isTrue);
-        else
-            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, isTrue);
+        cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, isTrue, inline);
     }
 
     private static void SetErrorCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, bool hasFormula)
+        XLSheetPoint cellAddress, bool inline)
     {
         if (XLErrorParser.TryParseError(cellValue, out var error))
-        {
-            if (hasFormula)
-                cellsCollection.ValueSlice.SetCellValue(cellAddress, error);
-            else
-                cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, error);
-        }
+            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, error, inline);
     }
 
     private static void SetDateCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, bool hasFormula)
+        XLSheetPoint cellAddress, bool inline)
     {
         var date = DateTime.ParseExact(cellValue, DateCellFormats,
             XLHelper.ParseCulture,
             DateTimeStyles.AllowLeadingWhite | DateTimeStyles.AllowTrailingWhite);
-
-        if (hasFormula)
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, date);
-        else
-            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, date);
+        cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, date, inline);
     }
 
     private static void LoadPhonetics(XLCell xlCell, RstType element)
