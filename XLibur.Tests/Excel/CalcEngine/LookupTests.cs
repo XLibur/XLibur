@@ -986,4 +986,108 @@ public class LookupTests
 
         Assert.AreEqual(XLError.NoValueAvailable, sheet.Evaluate(@"HLOOKUP(""Z*"",A1:A2,2,FALSE)"));
     }
+
+    #region INDIRECT
+
+    [Test]
+    public void Indirect_BasicA1Reference()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 42;
+        Assert.AreEqual(42, sheet.Evaluate("INDIRECT(\"A1\")"));
+    }
+
+    [Test]
+    public void Indirect_AbsoluteReference()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("B2").Value = "Hello";
+        Assert.AreEqual("Hello", sheet.Evaluate("INDIRECT(\"$B$2\")"));
+    }
+
+    [Test]
+    public void Indirect_RangeReference_ReturnsReferenceUsableByOtherFunctions()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 1;
+        sheet.Cell("A2").Value = 2;
+        sheet.Cell("B1").Value = 3;
+        sheet.Cell("B2").Value = 4;
+        Assert.AreEqual(10.0, sheet.Evaluate("SUM(INDIRECT(\"A1:B2\"))"));
+    }
+
+    [Test]
+    public void Indirect_EmptyString_ReturnsCellReferenceError()
+    {
+        Assert.AreEqual(XLError.CellReference, XLWorkbook.EvaluateExpr("INDIRECT(\"\")"));
+    }
+
+    [Test]
+    public void Indirect_SheetPrefix()
+    {
+        using var wb = new XLWorkbook();
+        var sheet1 = wb.AddWorksheet("Sheet1");
+        var sheet2 = wb.AddWorksheet("Sheet2");
+        sheet2.Cell("A1").Value = 99;
+        Assert.AreEqual(99, sheet1.Evaluate("INDIRECT(\"Sheet2!A1\")"));
+    }
+
+    [Test]
+    public void Indirect_InvalidReference_ReturnsCellReferenceError()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDIRECT(\"XYZ\")"));
+    }
+
+    [Test]
+    public void Indirect_DefinedName()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("C3").Value = 77;
+        wb.DefinedNames.Add("MyRange", "Sheet1!$C$3");
+        Assert.AreEqual(77, sheet.Evaluate("INDIRECT(\"MyRange\")"));
+    }
+
+    [Test]
+    public void Indirect_A1FlagTrue_SameAsDefault()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 5;
+        Assert.AreEqual(5, sheet.Evaluate("INDIRECT(\"A1\", TRUE)"));
+    }
+
+    [Test]
+    public void Indirect_R1C1Style()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 123;
+        Assert.AreEqual(123, sheet.Evaluate("INDIRECT(\"R1C1\", FALSE)"));
+    }
+
+    [Test]
+    public void Indirect_NonExistentSheet_ReturnsCellReferenceError()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDIRECT(\"NoSuchSheet!A1\")"));
+    }
+
+    [Test]
+    public void Indirect_DynamicReference()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = "B2";
+        sheet.Cell("B2").Value = 100;
+        Assert.AreEqual(100, sheet.Evaluate("INDIRECT(A1)"));
+    }
+
+    #endregion
 }

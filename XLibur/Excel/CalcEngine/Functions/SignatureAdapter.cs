@@ -889,7 +889,7 @@ internal static class SignatureAdapter
     // Each method is named ToSomething and it converts an argument into a desired type (e.g. for ToSomething it should be type Something).
     // Return value is always OneOf<Something, Error>, if there is an error, return it as an error.
 
-    private static OneOf<bool, XLError> CoerceToLogical(in AnyValue value, CalcContext ctx)
+    internal static OneOf<bool, XLError> CoerceToLogical(in AnyValue value, CalcContext ctx)
     {
         if (!ToScalarValue(in value, ctx).TryPickT0(out var scalar, out var scalarError))
             return scalarError;
@@ -917,7 +917,7 @@ internal static class SignatureAdapter
         throw new NotImplementedException("Array formulas not implemented.");
     }
 
-    private static OneOf<string, XLError> ToText(in AnyValue value, CalcContext ctx)
+    internal static OneOf<string, XLError> ToText(in AnyValue value, CalcContext ctx)
     {
         if (value.TryPickScalar(out var scalar, out var collection))
             return scalar.ToText(ctx.Culture);
