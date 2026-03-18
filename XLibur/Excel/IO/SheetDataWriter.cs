@@ -232,10 +232,12 @@ internal static class SheetDataWriter
             return;
         }
 
-        var cellValue = ctx.CellsCollection.ValueSlice.GetCellValue(point);
+        // Single slice lookup for both value and share-string flag, avoiding a
+        // second Lut traversal that GetShareString would require separately.
+        var cellValue = ctx.CellsCollection.ValueSlice.GetCellValueAndShareString(point, out var shareString);
         if (cellValue.Type != XLDataType.Blank)
         {
-            WriteValueOnlyCell(xml, ref ctx, point, cellStyleId, cellValue);
+            WriteValueOnlyCell(xml, ref ctx, point, cellStyleId, cellValue, shareString);
         }
         else if (rowStyleId != cellStyleId)
         {
@@ -244,11 +246,10 @@ internal static class SheetDataWriter
     }
 
     private static void WriteValueOnlyCell(XmlWriter xml, ref CellWriteContext ctx,
-        XLSheetPoint point, uint cellStyleId, XLCellValue cellValue)
+        XLSheetPoint point, uint cellStyleId, XLCellValue cellValue, bool shareString)
     {
         Span<char> cellRefSpan = ctx.CellRef;
         var cellRefLen = point.Format(cellRefSpan);
-        var shareString = ctx.CellsCollection.ValueSlice.GetShareString(point);
         var dataType = GetCellValueTypeDirect(cellValue.Type, shareString);
         ref readonly var misc = ref ctx.CellsCollection.MiscSlice[point];
 

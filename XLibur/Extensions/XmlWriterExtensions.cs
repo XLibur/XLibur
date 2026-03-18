@@ -36,8 +36,10 @@ internal static class XmlWriterExtensions
 
         public void WriteAttribute(string attrName, uint value)
         {
+            // Cast to long to avoid boxing via XmlWriter.WriteValue(object).
+            // XmlWriter has a WriteValue(long) overload but not WriteValue(uint).
             w.WriteStartAttribute(attrName);
-            w.WriteValue(value);
+            w.WriteValue((long)value);
             w.WriteEndAttribute();
         }
 

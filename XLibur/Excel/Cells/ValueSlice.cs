@@ -214,6 +214,29 @@ internal sealed class ValueSlice : ISlice
         _values.Set(point, modified);
     }
 
+    /// <summary>
+    /// Get cell value and share-string flag in a single slice lookup, avoiding a
+    /// second Lut traversal when both are needed (e.g., during save).
+    /// </summary>
+    internal XLCellValue GetCellValueAndShareString(XLSheetPoint point, out bool shareString)
+    {
+        ref readonly var cellValue = ref _values[point];
+        shareString = !cellValue.Inline;
+        var type = cellValue.Type;
+        var value = cellValue.Value;
+        return type switch
+        {
+            XLDataType.Blank => Blank.Value,
+            XLDataType.Boolean => value != 0,
+            XLDataType.Number => value,
+            XLDataType.Text => _sst[(int)value],
+            XLDataType.Error => (XLError)value,
+            XLDataType.DateTime => XLCellValue.FromSerialDateTime(value),
+            XLDataType.TimeSpan => XLCellValue.FromSerialTimeSpan(value),
+            _ => throw new ArgumentOutOfRangeException(nameof(point), type, "Unexpected data type.")
+        };
+    }
+
     internal bool GetShareString(XLSheetPoint point)
     {
         return !_values[point].Inline;
