@@ -1054,6 +1054,17 @@ public class LookupTests
     }
 
     [Test]
+    public void Indirect_SheetScopedDefinedName()
+    {
+        using var wb = new XLWorkbook();
+        var sheet1 = wb.AddWorksheet("Sheet1");
+        var sheet2 = wb.AddWorksheet("Sheet2");
+        sheet2.Cell("B2").Value = 55;
+        sheet2.DefinedNames.Add("LocalName", "Sheet2!$B$2");
+        Assert.AreEqual(55, sheet1.Evaluate("INDIRECT(\"Sheet2!LocalName\")"));
+    }
+
+    [Test]
     public void Indirect_A1FlagTrue_SameAsDefault()
     {
         using var wb = new XLWorkbook();

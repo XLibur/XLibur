@@ -717,7 +717,7 @@ internal static class Lookup
         {
             // Check if it's a valid A1 cell or range address
             if (!XLHelper.IsValidA1Address(addressText) && !XLHelper.IsValidRangeAddress(addressText))
-                return TryResolveDefinedName(ctx, refText);
+                return TryResolveDefinedName(ctx, worksheet, addressText);
 
             try
             {
@@ -786,10 +786,11 @@ internal static class Lookup
         return new Reference(rangeAddress.Normalize());
     }
 
-    private static AnyValue TryResolveDefinedName(CalcContext ctx, string name)
+    private static AnyValue TryResolveDefinedName(CalcContext ctx, XLWorksheet? worksheet, string name)
     {
-        // Sheet-level first, then workbook-level (same order as NameNode.TryGetNameRange)
-        if (ctx.Worksheet.DefinedNames.TryGetValue(name, out var sheetDefinedName))
+        // Resolve in the target worksheet's scope first, then workbook-level
+        var ws = worksheet ?? ctx.Worksheet;
+        if (ws.DefinedNames.TryGetValue(name, out var sheetDefinedName))
             return EvaluateDefinedName(ctx, sheetDefinedName);
 
         if (ctx.Workbook.DefinedNamesInternal.TryGetValue(name, out var bookDefinedName))
