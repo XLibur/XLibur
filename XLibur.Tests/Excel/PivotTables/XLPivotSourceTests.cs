@@ -110,6 +110,7 @@ internal class XLPivotSourceTests
 
         Assert.That(result, Is.False);
         Assert.That(sheet, Is.Null);
+        Assert.That(sheetArea, Is.Null);
     }
 
     [Test]
