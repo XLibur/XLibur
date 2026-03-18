@@ -494,8 +494,12 @@ internal static class Lookup
             var c = text[i];
             if (c == '*' || c == '?')
                 return true;
-            if (c == '~')
-                return true;
+            if (c == '~' && i + 1 < text.Length)
+            {
+                var next = text[i + 1];
+                if (next == '*' || next == '?' || next == '~')
+                    return true;
+            }
         }
 
         return false;

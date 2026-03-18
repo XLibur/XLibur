@@ -859,6 +859,25 @@ public class LookupTests
     }
 
     [Test]
+    public void Vlookup_Wildcard_IsCaseInsensitive()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = "Apple";
+        sheet.Cell("A2").Value = "Banana";
+        sheet.Cell("B1").Value = 1;
+        sheet.Cell("B2").Value = 2;
+
+        // Lowercase pattern against uppercase cell value
+        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""a*"",A1:B2,2,FALSE)"));
+        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""*pple"",A1:B2,2,FALSE)"));
+
+        // Uppercase pattern against mixed-case cell value
+        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""*PPLE"",A1:B2,2,FALSE)"));
+        Assert.AreEqual(2, sheet.Evaluate(@"VLOOKUP(""BANANA"",A1:B2,2,FALSE)"));
+    }
+
+    [Test]
     public void Vlookup_Wildcard_QuestionMarkMatchesSingleCharacter()
     {
         using var wb = new XLWorkbook();
