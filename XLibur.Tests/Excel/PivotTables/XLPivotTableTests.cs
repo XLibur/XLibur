@@ -1269,6 +1269,232 @@ public class XLPivotTableTests
     }
 
     [Test]
+    public void AutoSortScope_survives_round_trip()
+    {
+        // Create an xlsx with a pivot field that has an autoSortScope child using raw OpenXML SDK.
+        using var inputStream = new MemoryStream();
+        CreateWorkbookWithAutoSortScope(inputStream);
+        inputStream.Position = 0;
+
+        // Load through XLibur and re-save.
+        using var wb = new XLWorkbook(inputStream);
+        using var outputStream = new MemoryStream();
+        wb.SaveAs(outputStream);
+
+        // Verify autoSortScope survived the round-trip.
+        outputStream.Position = 0;
+        using var doc = SpreadsheetDocument.Open(outputStream, false);
+        var pivotTablePart = doc.WorkbookPart!.WorksheetParts
+            .SelectMany(wsp => wsp.GetPartsOfType<PivotTablePart>())
+            .First();
+        var pivotFields = pivotTablePart.PivotTableDefinition.PivotFields!.Elements<PivotField>().ToList();
+
+        // Field 0 (Name) has sortType="descending" and autoSortScope
+        var nameField = pivotFields[0];
+        Assert.That(nameField.SortType?.Value, Is.EqualTo(FieldSortValues.Descending), "sortType should be preserved");
+
+        var autoSortScope = nameField.GetFirstChild<AutoSortScope>();
+        Assert.That(autoSortScope, Is.Not.Null, "autoSortScope element should survive round-trip");
+
+        var pivotArea = autoSortScope!.GetFirstChild<PivotArea>();
+        Assert.That(pivotArea, Is.Not.Null, "pivotArea inside autoSortScope should survive round-trip");
+        Assert.That(pivotArea!.DataOnly?.Value, Is.EqualTo(false), "dataOnly attribute should be preserved");
+        Assert.That(pivotArea.Outline?.Value, Is.EqualTo(false), "outline attribute should be preserved");
+        Assert.That(pivotArea.FieldPosition?.Value, Is.EqualTo(0U), "fieldPosition attribute should be preserved");
+
+        var references = pivotArea.PivotAreaReferences;
+        Assert.That(references, Is.Not.Null, "references should be preserved");
+        var refList = references!.Elements<PivotAreaReference>().ToList();
+        Assert.That(refList.Count, Is.EqualTo(1), "Should have 1 reference");
+        Assert.That(refList[0].Field?.Value, Is.EqualTo(4294967294U), "reference field should be data field sentinel");
+        Assert.That(refList[0].Selected?.Value, Is.EqualTo(false), "reference selected should be false");
+
+        var xItems = refList[0].Elements<FieldItem>().ToList();
+        Assert.That(xItems.Count, Is.EqualTo(1), "Should have 1 field item");
+        Assert.That(xItems[0].Val?.Value, Is.EqualTo(0U), "field item value should be 0");
+    }
+
+    [Test]
+    public void AutoSortScope_null_when_not_present()
+    {
+        // Create an xlsx with a pivot field that does NOT have autoSortScope.
+        using var inputStream = new MemoryStream();
+        CreateWorkbookWithCalculatedField(inputStream);
+        inputStream.Position = 0;
+
+        // Load through XLibur - pivot fields should not have AutoSortScope.
+        using var wb = new XLWorkbook(inputStream);
+        var pt = wb.Worksheet("PivotSheet").PivotTables.First();
+        var pivotTable = (XLPivotTable)pt;
+
+        for (var i = 0; i < pivotTable.PivotFields.Count; i++)
+        {
+            Assert.That(pivotTable.PivotFields[i].AutoSortScope, Is.Null,
+                $"Field at index {i} should not have AutoSortScope");
+        }
+    }
+
+    /// <summary>
+    /// Creates a minimal xlsx with a pivot field that has a descending sort with autoSortScope.
+    /// The autoSortScope references the data field (field=4294967294) to sort by the first value field.
+    /// </summary>
+    private static void CreateWorkbookWithAutoSortScope(Stream stream)
+    {
+        using var doc = SpreadsheetDocument.Create(stream, SpreadsheetDocumentType.Workbook);
+
+        // Workbook part
+        var workbookPart = doc.AddWorkbookPart();
+        workbookPart.Workbook = new Workbook();
+        var sheets = workbookPart.Workbook.AppendChild(new Sheets());
+
+        // Data worksheet
+        var dataSheetPart = workbookPart.AddNewPart<WorksheetPart>();
+        var dataSheetPartId = workbookPart.GetIdOfPart(dataSheetPart);
+        sheets.Append(new Sheet { Id = dataSheetPartId, SheetId = 1, Name = "Data" });
+
+        var sheetData = new SheetData();
+        sheetData.Append(CreateRow(1, "Name", "Revenue"));
+        sheetData.Append(CreateNumericRow(2, "Cookies", 500, 0));
+        sheetData.Append(CreateNumericRow(3, "Cake", 800, 0));
+        sheetData.Append(CreateNumericRow(4, "Pie", 300, 0));
+        dataSheetPart.Worksheet = new Worksheet(sheetData);
+
+        // Pivot table worksheet
+        var pivotSheetPart = workbookPart.AddNewPart<WorksheetPart>();
+        var pivotSheetPartId = workbookPart.GetIdOfPart(pivotSheetPart);
+        sheets.Append(new Sheet { Id = pivotSheetPartId, SheetId = 2, Name = "PivotSheet" });
+        pivotSheetPart.Worksheet = new Worksheet(new SheetData());
+
+        // Pivot cache definition
+        var cachePart = workbookPart.AddNewPart<PivotTableCacheDefinitionPart>();
+        var cachePartId = workbookPart.GetIdOfPart(cachePart);
+
+        var cacheDefinition = new PivotCacheDefinition
+        {
+            Id = "rId1",
+            RefreshOnLoad = true,
+            CreatedVersion = 5,
+            RefreshedVersion = 5,
+        };
+        cacheDefinition.AddNamespaceDeclaration("r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+
+        var cacheSource = new CacheSource { Type = SourceValues.Worksheet };
+        cacheSource.Append(new WorksheetSource { Sheet = "Data", Reference = "A1:B4" });
+        cacheDefinition.Append(cacheSource);
+
+        var cacheFields = new CacheFields();
+
+        // Field 0: Name (string)
+        var nameField = new CacheField { Name = "Name" };
+        var nameShared = new SharedItems { ContainsSemiMixedTypes = false, ContainsString = true, ContainsNumber = false, Count = 3 };
+        nameShared.Append(new StringItem { Val = "Cookies" });
+        nameShared.Append(new StringItem { Val = "Cake" });
+        nameShared.Append(new StringItem { Val = "Pie" });
+        nameField.SharedItems = nameShared;
+        cacheFields.Append(nameField);
+
+        // Field 1: Revenue (number)
+        var revenueField = new CacheField { Name = "Revenue" };
+        var revenueShared = new SharedItems { ContainsSemiMixedTypes = false, ContainsString = false, ContainsNumber = true, MinValue = 300, MaxValue = 800, Count = 3 };
+        revenueShared.Append(new NumberItem { Val = 500 });
+        revenueShared.Append(new NumberItem { Val = 800 });
+        revenueShared.Append(new NumberItem { Val = 300 });
+        revenueField.SharedItems = revenueShared;
+        cacheFields.Append(revenueField);
+
+        cacheFields.Count = 2;
+        cacheDefinition.Append(cacheFields);
+
+        // Cache records
+        var recordsPart = cachePart.AddNewPart<PivotTableCacheRecordsPart>();
+        var records = new PivotCacheRecords { Count = 3 };
+        records.Append(new PivotCacheRecord(new FieldItem { Val = 0 }, new NumberItem { Val = 500 }));
+        records.Append(new PivotCacheRecord(new FieldItem { Val = 1 }, new NumberItem { Val = 800 }));
+        records.Append(new PivotCacheRecord(new FieldItem { Val = 2 }, new NumberItem { Val = 300 }));
+        recordsPart.PivotCacheRecords = records;
+
+        cachePart.PivotCacheDefinition = cacheDefinition;
+
+        // Register cache
+        var pivotCaches = new PivotCaches();
+        pivotCaches.Append(new PivotCache { CacheId = 0, Id = cachePartId });
+        workbookPart.Workbook.Append(pivotCaches);
+
+        // Pivot table part
+        var pivotTablePart = pivotSheetPart.AddNewPart<PivotTablePart>();
+        pivotTablePart.CreateRelationshipToPart(cachePart);
+
+        var pivotTableDef = new PivotTableDefinition
+        {
+            Name = "PivotTable1",
+            CacheId = 0,
+            DataCaption = "Values",
+            CreatedVersion = 5,
+            UpdatedVersion = 5,
+        };
+
+        var location = new Location { Reference = "A1:B5", FirstHeaderRow = 1, FirstDataRow = 2, FirstDataColumn = 1 };
+        pivotTableDef.Append(location);
+
+        // Pivot fields
+        var pivotFields = new PivotFields { Count = 2 };
+
+        // Field 0: Name - row axis, sorted descending by data values via autoSortScope
+        var pf0 = new PivotField { Axis = PivotTableAxisValues.AxisRow, SortType = FieldSortValues.Descending, ShowAll = false };
+        var items0 = new Items { Count = 4 };
+        items0.Append(new Item { Index = 0 });
+        items0.Append(new Item { Index = 1 });
+        items0.Append(new Item { Index = 2 });
+        items0.Append(new Item { ItemType = ItemValues.Default });
+        pf0.Append(items0);
+
+        // Add autoSortScope: sort by data field (field=4294967294), first value (x v=0)
+        var autoSortScope = new AutoSortScope();
+        var sortPivotArea = new PivotArea { DataOnly = false, Outline = false, FieldPosition = 0U };
+        var sortReferences = new PivotAreaReferences { Count = 1 };
+        var sortRef = new PivotAreaReference { Field = 4294967294U, Count = 1U, Selected = false };
+        sortRef.Append(new FieldItem { Val = 0 });
+        sortReferences.Append(sortRef);
+        sortPivotArea.Append(sortReferences);
+        autoSortScope.Append(sortPivotArea);
+        pf0.Append(autoSortScope);
+
+        pivotFields.Append(pf0);
+
+        // Field 1: Revenue - data field
+        pivotFields.Append(new PivotField { DataField = true, ShowAll = false });
+
+        pivotTableDef.Append(pivotFields);
+
+        // Row fields
+        var rowFields = new RowFields { Count = 1 };
+        rowFields.Append(new Field { Index = 0 });
+        pivotTableDef.Append(rowFields);
+
+        // Row items
+        var rowItems = new RowItems { Count = 4 };
+        rowItems.Append(new RowItem(new MemberPropertyIndex { Val = 0 }));
+        rowItems.Append(new RowItem(new MemberPropertyIndex { Val = 1 }));
+        rowItems.Append(new RowItem(new MemberPropertyIndex { Val = 2 }));
+        rowItems.Append(new RowItem(new MemberPropertyIndex()) { ItemType = ItemValues.Grand });
+        pivotTableDef.Append(rowItems);
+
+        // Column items
+        var colItems = new ColumnItems { Count = 1 };
+        colItems.Append(new RowItem(new MemberPropertyIndex()) { ItemType = ItemValues.Grand });
+        pivotTableDef.Append(colItems);
+
+        // Data fields
+        var dataFields = new DataFields { Count = 1 };
+        dataFields.Append(new DataField { Name = "Sum of Revenue", Field = 1 });
+        pivotTableDef.Append(dataFields);
+
+        pivotTableDef.Append(new PivotTableStyle { Name = "PivotStyleLight16", ShowRowHeaders = true, ShowColumnHeaders = true });
+
+        pivotTablePart.PivotTableDefinition = pivotTableDef;
+    }
+
+    [Test]
     public void Deleting_sheet_with_pivot_table_does_not_throw_on_save()
     {
         // https://github.com/ClosedXML/ClosedXML/issues/2737
