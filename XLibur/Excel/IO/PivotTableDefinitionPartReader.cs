@@ -495,7 +495,13 @@ internal static class PivotTableDefinitionPartReader
             }
         }
 
-        // TODO: autoSortScope
+        var autoSortScope = pivotField.GetFirstChild<AutoSortScope>();
+        if (autoSortScope is not null)
+        {
+            var pivotAreaElement = autoSortScope.GetFirstChild<PivotArea>();
+            if (pivotAreaElement is not null)
+                xlField.AutoSortScope = LoadPivotArea(pivotAreaElement);
+        }
 
         // extLst
         var pivotFieldExtensionList = pivotField.GetFirstChild<PivotFieldExtensionList>();

@@ -213,7 +213,12 @@ internal static class PivotTableDefinitionPartWriter2
 
             WritePivotFieldItems(xml, pf);
 
-            // TODO: autoSortScope, but not yet represented.
+            if (pf.AutoSortScope is { } autoSortScope)
+            {
+                xml.WriteStartElement("autoSortScope", Main2006SsNs);
+                WritePivotArea(xml, autoSortScope);
+                xml.WriteEndElement(); // autoSortScope
+            }
 
             WritePivotFieldExtensions(xml, pf);
 

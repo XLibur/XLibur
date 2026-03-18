@@ -149,6 +149,11 @@ internal sealed class XLPivotTableField
 
     internal bool NonAutoSortDefault { get; init; } = false;
 
+    /// <summary>
+    /// Scope of automatic sorting. Only meaningful when <see cref="SortType"/> is ascending or descending.
+    /// </summary>
+    internal XLPivotArea? AutoSortScope { get; set; }
+
     internal uint? RankBy { get; init; }
 
     /// <summary>
