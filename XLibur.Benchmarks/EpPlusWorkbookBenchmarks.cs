@@ -8,6 +8,7 @@ using OfficeOpenXml.Style;
 namespace XLibur.Benchmarks;
 
 [MemoryDiagnoser]
+[Config(typeof(JoinSummaryConfig))]
 public class EpPlusWorkbookBenchmarks
 {
     private const int RowCount = 50_000;
@@ -55,6 +56,10 @@ public class EpPlusWorkbookBenchmarks
             worksheet.Cells[row, 2].Value = _numbers[i];
             worksheet.Cells[row, 3].Value = _dates[i];
         }
+
+        var sumRow = RowCount + 2;
+        worksheet.Cells[sumRow, 1].Value = "Total";
+        worksheet.Cells[sumRow, 2].Formula = $"SUM(B2:B{RowCount + 1})";
 
         using var stream = new MemoryStream();
         package.SaveAs(stream);
