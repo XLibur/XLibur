@@ -36,6 +36,15 @@ internal static class WorksheetSheetDataReader
         public readonly Dictionary<uint, string> SharedFormulasR1C1 = sharedFormulasR1C1;
         public readonly Dictionary<int, XLStyleValue> StyleList = styleList;
         public readonly bool Use1904DateSystem = use1904DateSystem;
+
+        /// <summary>
+        /// Whether the worksheet has any custom column styles. When <c>false</c>,
+        /// the inherited style for any cell equals the row-level style, avoiding
+        /// per-cell column dictionary lookups during loading.
+        /// Evaluated live (not snapshot) because <c>&lt;cols&gt;</c> is parsed
+        /// between context construction and the first <c>&lt;row&gt;</c>.
+        /// </summary>
+        public bool HasColumnStyles => Worksheet.Internals.ColumnsCollection.Count > 0;
     }
 
     /// <summary>
@@ -45,6 +54,13 @@ internal static class WorksheetSheetDataReader
     {
         public int LastRow;
         public int LastColumnNumber;
+
+        /// <summary>
+        /// Cached inherited style for the current row (combines sheet + row styles).
+        /// Recomputed once per row in <see cref="LoadRow"/> to avoid per-cell
+        /// dictionary lookups into <c>RowsCollection</c>.
+        /// </summary>
+        public XLStyleValue? CachedRowInheritedStyle;
     }
 
     /// <summary>
@@ -78,25 +94,69 @@ internal static class WorksheetSheetDataReader
     {
         Debug.Assert(reader.LocalName == "row");
 
+        // Parse all row attributes in a single pass instead of 8 separate linear scans.
+        // For data sheets where rows have only the 'r' attribute, this is ~8x less work.
         var attributes = reader.Attributes;
-        var rowIndexAttr = attributes.GetAttribute("r");
-        var rowIndex = string.IsNullOrEmpty(rowIndexAttr) ? ++state.LastRow : int.Parse(rowIndexAttr);
+        var rowIndex = 0;
+        double? height = null;
+        double? dyDescent = null;
+        bool hidden = false, collapsed = false, showPhonetic = false, customFormat = false;
+        int? outlineLevel = null;
+        int? styleIndex = null;
+        var count = attributes.Count;
+        for (var i = 0; i < count; i++)
+        {
+            var attr = attributes[i];
+            switch (attr.LocalName)
+            {
+                case "r" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    TryParseOoxmlNonNegativeInt(attr.Value!, out rowIndex);
+                    break;
+                case "ht" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    height = double.Parse(attr.Value!, NumberStyles.Float, XLHelper.ParseCulture);
+                    break;
+                case "dyDescent" when attr.NamespaceUri == OpenXmlConst.X14Ac2009SsNs:
+                    dyDescent = double.Parse(attr.Value!, NumberStyles.Float, XLHelper.ParseCulture);
+                    break;
+                case "hidden" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    hidden = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+                case "collapsed" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    collapsed = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+                case "outlineLevel" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    outlineLevel = int.Parse(attr.Value!);
+                    break;
+                case "ph" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    showPhonetic = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+                case "customFormat" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    customFormat = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+                case "s" when string.IsNullOrEmpty(attr.NamespaceUri):
+                    styleIndex = int.Parse(attr.Value!);
+                    break;
+            }
+        }
+
+        if (rowIndex == 0)
+            rowIndex = ++state.LastRow;
         state.LastRow = rowIndex;
 
-        var rowProps = new RowProperties(
-            Height: attributes.GetDoubleAttribute("ht"),
-            DyDescent: attributes.GetDoubleAttribute("dyDescent", OpenXmlConst.X14Ac2009SsNs),
-            Hidden: attributes.GetBoolAttribute("hidden", false),
-            Collapsed: attributes.GetBoolAttribute("collapsed", false),
-            OutlineLevel: attributes.GetIntAttribute("outlineLevel"),
-            ShowPhonetic: attributes.GetBoolAttribute("ph", false),
-            CustomFormat: attributes.GetBoolAttribute("customFormat", false),
-            StyleIndex: attributes.GetIntAttribute("s"));
-
+        var rowProps = new RowProperties(height, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
         if (rowProps.HasCustomProps)
         {
             ApplyRowCustomProps(in rowProps, context.Worksheet, rowIndex, context.Styles);
         }
+
+        // Cache the row-level inherited style (sheet + row) once per row.
+        // This avoids a RowsCollection dictionary lookup for every cell.
+        var ws = context.Worksheet;
+        var sheetStyle = ws.StyleValue;
+        var rowStyle = ws.Internals.RowsCollection.TryGetValue(rowIndex, out var r)
+            ? r.StyleValue
+            : sheetStyle;
+        state.CachedRowInheritedStyle = rowStyle;
 
         state.LastColumnNumber = 0;
 
@@ -105,7 +165,7 @@ internal static class WorksheetSheetDataReader
 
         while (reader.IsStartElement("c"))
         {
-            LoadCell(in context, reader, rowIndex, ref state.LastColumnNumber);
+            LoadCell(in context, reader, rowIndex, ref state);
 
             // Move from an end element of 'cell' either to next cell, extList start or end of row.
             reader.MoveAhead();
@@ -117,29 +177,81 @@ internal static class WorksheetSheetDataReader
     }
 
     private static void LoadCell(in SheetDataReadContext context, OpenXmlPartReader reader, int rowIndex,
-        ref int lastColumnNumber)
+        ref SheetDataReadState state)
     {
         Debug.Assert(reader is { LocalName: "c", IsStartElement: true });
 
+        // Parse all cell attributes in a single pass instead of 3 separate lookups
+        // (r, s, t) plus a 4th pass for misc attributes (ph, cm, vm).
+        // For 3.75M cells this reduces ~15M linear scans to ~3.75M single passes.
         var attributes = reader.Attributes;
-        var styleIndex = attributes.GetIntAttribute("s") ?? 0;
-        var cellAddress = attributes.GetCellRefAttribute("r") ?? new XLSheetPoint(rowIndex, lastColumnNumber + 1);
-        lastColumnNumber = cellAddress.Column;
-        var dataType = ParseCellDataType(attributes.GetAttribute("t"));
+        int styleIndex = 0;
+        XLSheetPoint? cellRef = null;
+        string? typeAttr = null;
+        bool showPhonetic = false;
+        uint? cellMetaIndex = null;
+        uint? valueMetaIndex = null;
+        bool hasMisc = false;
+        var count = attributes.Count;
+        for (var i = 0; i < count; i++)
+        {
+            var attr = attributes[i];
+            if (!string.IsNullOrEmpty(attr.NamespaceUri))
+                continue;
+
+            switch (attr.LocalName)
+            {
+                case "r":
+                    cellRef = XLSheetPoint.Parse(attr.Value!);
+                    break;
+                case "s":
+                    TryParseOoxmlNonNegativeInt(attr.Value!, out styleIndex);
+                    break;
+                case "t":
+                    typeAttr = attr.Value;
+                    break;
+                case "ph":
+                    showPhonetic = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    if (showPhonetic) hasMisc = true;
+                    break;
+                case "cm":
+                    cellMetaIndex = uint.Parse(attr.Value!);
+                    hasMisc = true;
+                    break;
+                case "vm":
+                    valueMetaIndex = uint.Parse(attr.Value!);
+                    hasMisc = true;
+                    break;
+            }
+        }
+
+        var cellAddress = cellRef ?? new XLSheetPoint(rowIndex, state.LastColumnNumber + 1);
+        state.LastColumnNumber = cellAddress.Column;
+        var dataType = ParseCellDataType(typeAttr);
 
         var cellStyleValue = ResolveCachedStyleValue(styleIndex, context.Styles, context.StyleList);
 
         // When the resolved style matches the inherited style AND the cell has data
         // in another slice, we skip the StyleSlice write — avoiding per-row Lut
         // allocation in the style slice for large data sheets.
+        // Use cached row style + column lookup to avoid per-cell RowsCollection lookup.
         var ws = context.Worksheet;
         var cellsCollection = ws.Internals.CellsCollection;
-        var inherited = ws.GetInheritedStyleValue(cellAddress.Row, cellAddress.Column);
+        var inherited = GetInheritedStyleFast(ws, state.CachedRowInheritedStyle!, cellAddress.Column, context.HasColumnStyles);
         var styleMatchesInherited = ReferenceEquals(cellStyleValue, inherited);
         if (!styleMatchesInherited)
-            cellsCollection.StyleSlice.Set(cellAddress.Row, cellAddress.Column, cellStyleValue);
+            cellsCollection.StyleSlice.SetNonDefault(cellAddress.Row, cellAddress.Column, cellStyleValue);
 
-        LoadCellMisc(attributes, cellsCollection, cellAddress);
+        if (hasMisc)
+        {
+            var misc = new XLMiscSliceContent
+            {
+                HasPhonetic = showPhonetic,
+                CellMetaIndex = cellMetaIndex,
+                ValueMetaIndex = valueMetaIndex
+            };
+            cellsCollection.MiscSlice.Set(cellAddress, in misc);
+        }
 
         // Move from the cell start element onwards.
         reader.MoveAhead();
@@ -148,6 +260,24 @@ internal static class WorksheetSheetDataReader
 
         if (styleMatchesInherited)
             EnsureStyleForBlankCell(cellsCollection, cellAddress, cellStyleValue);
+    }
+
+    /// <summary>
+    /// Fast inherited style lookup using pre-cached row style. When the worksheet has no
+    /// custom column styles (the common case for data sheets), returns the row style directly,
+    /// avoiding a per-cell dictionary lookup into <c>ColumnsCollection</c>.
+    /// </summary>
+    private static XLStyleValue GetInheritedStyleFast(XLWorksheet ws, XLStyleValue rowStyle, int column, bool hasColumnStyles)
+    {
+        if (!hasColumnStyles)
+            return rowStyle;
+
+        var sheetStyle = ws.StyleValue;
+        var colStyle = ws.Internals.ColumnsCollection.TryGetValue(column, out var c)
+            ? c.StyleValue
+            : sheetStyle;
+
+        return XLStyleValue.Combine(sheetStyle, rowStyle, colStyle);
     }
 
     private static CellValues ParseCellDataType(string? typeAttribute)
@@ -188,22 +318,25 @@ internal static class WorksheetSheetDataReader
     {
         var formula = LoadCellFormula(ws, cellAddress, reader, context.SharedFormulasR1C1);
 
+        // Formula results are stored inline (not in the shared string table).
+        var formulaInline = formula is not null;
+
         var cellHasValue = reader.IsStartElement("v");
         if (cellHasValue)
         {
             SetCellValue(dataType, reader.GetText(), cellsCollection, cellAddress, cellStyleValue, ws,
-                context.SharedStrings);
+                context.SharedStrings, formulaInline);
             reader.Skip();
         }
         else if (dataType.Equals(CellValues.SharedString) || dataType.Equals(CellValues.String))
         {
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, string.Empty);
+            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, formulaInline);
         }
 
         // If the cell doesn't contain a value, invalidate the formula so it recalculates.
         // Formula can be null for slave cells of array formulas.
-        if (formula is not null && !cellHasValue)
-            formula.IsDirty = true;
+        if (formulaInline && !cellHasValue)
+            formula!.IsDirty = true;
 
         if (reader.IsStartElement("is"))
             LoadInlineString(dataType, cellsCollection, cellAddress, ws, reader);
@@ -234,7 +367,6 @@ internal static class WorksheetSheetDataReader
     {
         var attributes = reader.Attributes;
         var formulaSlice = ws.Internals.CellsCollection.FormulaSlice;
-        var valueSlice = ws.Internals.CellsCollection.ValueSlice;
 
         // bx attribute of cell formula is not ever used, per MS-OI29500 2.1.620
         var formulaText = reader.GetText();
@@ -248,14 +380,14 @@ internal static class WorksheetSheetDataReader
             _ => throw new NotSupportedException("Unknown formula type.")
         };
 
-        // Always set the shareString flag to `false`, because the text result of
-        // the formula is stored directly in the sheet, not the shared string table.
+        // The inline flag (shareString=false) for formula results is now set directly
+        // by SetCellValueDuringLoad with inline=true in LoadCellContent, eliminating
+        // separate SetShareString calls and their per-cell slice lookups.
         XLCellFormula? formula = null;
         if (formulaType == CellFormulaValues.Normal)
         {
             formula = XLCellFormula.NormalA1(formulaText);
-            formulaSlice.Set(cellAddress, formula);
-            valueSlice.SetShareString(cellAddress, false);
+            formulaSlice.SetDuringLoad(cellAddress, formula);
         }
         else if (formulaType == CellFormulaValues.Array && attributes.GetRefAttribute("ref") is
         {
@@ -267,24 +399,14 @@ internal static class WorksheetSheetDataReader
             // a formula yet. Also, Excel doesn't allow change of array data, only through the parent formula.
             formula = XLCellFormula.Array(formulaText, arrayArea, aca);
             formulaSlice.SetArray(arrayArea, formula);
-
-            for (var col = arrayArea.FirstPoint.Column; col <= arrayArea.LastPoint.Column; ++col)
-            {
-                for (var row = arrayArea.FirstPoint.Row; row <= arrayArea.LastPoint.Row; ++row)
-                {
-                    valueSlice.SetShareString(cellAddress, false);
-                }
-            }
         }
         else if (formulaType == CellFormulaValues.Shared && attributes.GetUintAttribute("si") is { } sharedIndex)
         {
             formula = LoadSharedFormula(formulaText, cellAddress, sharedIndex, sharedFormulasR1C1, formulaSlice);
-            valueSlice.SetShareString(cellAddress, false);
         }
         else if (formulaType == CellFormulaValues.DataTable && attributes.GetRefAttribute("ref") is { } dataTableArea)
         {
             formula = LoadDataTableFormula(attributes, cellAddress, dataTableArea, formulaSlice);
-            valueSlice.SetShareString(cellAddress, false);
         }
 
         // Go from the start of the 'f' element to the end of the 'f' element.
@@ -300,28 +422,28 @@ internal static class WorksheetSheetDataReader
     /// </summary>
     internal static void SetCellValue(CellValues dataType, string? cellValue,
         XLCellsCollection cellsCollection, XLSheetPoint cellAddress, XLStyleValue cellStyleValue,
-        XLWorksheet ws, SharedStringEntry[]? sharedStrings)
+        XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline)
     {
         // Only String writes an empty value when v is null.
         if (cellValue is null)
         {
             if (dataType == CellValues.String)
-                cellsCollection.ValueSlice.SetCellValue(cellAddress, string.Empty);
+                cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, inline);
             return;
         }
 
         if (dataType == CellValues.Number)
-            SetNumberCellValue(cellValue, cellsCollection, cellAddress, cellStyleValue);
+            SetNumberCellValue(cellValue, cellsCollection, cellAddress, cellStyleValue, inline);
         else if (dataType == CellValues.SharedString)
-            SetSharedStringCellValue(cellValue, cellsCollection, cellAddress, ws, sharedStrings);
+            SetSharedStringCellValue(cellValue, cellsCollection, cellAddress, ws, sharedStrings, inline);
         else if (dataType == CellValues.String)
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, cellValue);
+            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, cellValue, inline);
         else if (dataType == CellValues.Boolean)
-            SetBooleanCellValue(cellValue, cellsCollection, cellAddress);
+            SetBooleanCellValue(cellValue, cellsCollection, cellAddress, inline);
         else if (dataType == CellValues.Error)
-            SetErrorCellValue(cellValue, cellsCollection, cellAddress);
+            SetErrorCellValue(cellValue, cellsCollection, cellAddress, inline);
         else if (dataType == CellValues.Date)
-            SetDateCellValue(cellValue, cellsCollection, cellAddress);
+            SetDateCellValue(cellValue, cellsCollection, cellAddress, inline);
     }
 
     /// <summary>
@@ -585,22 +707,6 @@ internal static class WorksheetSheetDataReader
         }
     }
 
-    private static void LoadCellMisc(ReadOnlyCollection<OpenXmlAttribute> attributes,
-        XLCellsCollection cellsCollection, XLSheetPoint cellAddress)
-    {
-        var showPhonetic = attributes.GetBoolAttribute("ph", false);
-        var cellMetaIndex = attributes.GetUintAttribute("cm");
-        var valueMetaIndex = attributes.GetUintAttribute("vm");
-        if (!showPhonetic && cellMetaIndex is null && valueMetaIndex is null) return;
-        var misc = new XLMiscSliceContent
-        {
-            HasPhonetic = showPhonetic,
-            CellMetaIndex = cellMetaIndex,
-            ValueMetaIndex = valueMetaIndex
-        };
-        cellsCollection.MiscSlice.Set(cellAddress, in misc);
-    }
-
     private static void LoadInlineString(CellValues dataType, XLCellsCollection cellsCollection,
         XLSheetPoint cellAddress, XLWorksheet ws, OpenXmlPartReader reader)
     {
@@ -652,7 +758,7 @@ internal static class WorksheetSheetDataReader
                            || cellsCollection.MiscSlice.IsUsed(cellAddress);
 
         if (!hasOtherData)
-            cellsCollection.StyleSlice.Set(cellAddress.Row, cellAddress.Column, cellStyleValue);
+            cellsCollection.StyleSlice.SetNonDefault(cellAddress.Row, cellAddress.Column, cellStyleValue);
     }
 
     private static XLCellFormula LoadSharedFormula(string formulaText, XLSheetPoint cellAddress,
@@ -662,7 +768,7 @@ internal static class WorksheetSheetDataReader
         if (!sharedFormulasR1C1.TryGetValue(sharedIndex, out var sharedR1C1Formula))
         {
             formula = XLCellFormula.NormalA1(formulaText);
-            formulaSlice.Set(cellAddress, formula);
+            formulaSlice.SetDuringLoad(cellAddress, formula);
 
             var formulaR1C1 = FormulaTransformation.SafeToR1C1(formulaText, cellAddress.Row, cellAddress.Column);
             sharedFormulasR1C1.Add(sharedIndex, formulaR1C1);
@@ -672,7 +778,7 @@ internal static class WorksheetSheetDataReader
             var sharedFormulaA1 =
                 FormulaTransformation.SafeToA1(sharedR1C1Formula, cellAddress.Row, cellAddress.Column);
             formula = XLCellFormula.NormalA1(sharedFormulaA1);
-            formulaSlice.Set(cellAddress, formula);
+            formulaSlice.SetDuringLoad(cellAddress, formula);
         }
 
         return formula;
@@ -697,15 +803,15 @@ internal static class WorksheetSheetDataReader
             formula = XLCellFormula.DataTable1D(dataTableArea, input1, input1Deleted, isRowDataTable);
         }
 
-        formulaSlice.Set(cellAddress, formula);
+        formulaSlice.SetDuringLoad(cellAddress, formula);
 
         return formula;
     }
 
     private static void SetNumberCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, XLStyleValue cellStyleValue)
+        XLSheetPoint cellAddress, XLStyleValue cellStyleValue, bool inline)
     {
-        if (!double.TryParse(cellValue, XLHelper.NumberStyle, XLHelper.ParseCulture, out var number)) return;
+        if (!TryParseOoxmlDouble(cellValue, out var number)) return;
         var numberDataType = GetNumberDataType(cellStyleValue.NumberFormat);
         var cellNumber = numberDataType switch
         {
@@ -713,14 +819,14 @@ internal static class WorksheetSheetDataReader
             XLDataType.TimeSpan => XLCellValue.FromSerialTimeSpan(number),
             _ => number
         };
-        cellsCollection.ValueSlice.SetCellValue(cellAddress, cellNumber);
+        cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, cellNumber, inline);
     }
 
     private static void SetSharedStringCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, XLWorksheet ws, SharedStringEntry[]? sharedStrings)
+        XLSheetPoint cellAddress, XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline)
     {
-        if (int.TryParse(cellValue, XLHelper.NumberStyle, XLHelper.ParseCulture, out var sharedStringId)
-            && sharedStrings is not null && sharedStringId >= 0 && sharedStringId < sharedStrings.Length)
+        if (TryParseOoxmlNonNegativeInt(cellValue, out var sharedStringId)
+            && sharedStrings is not null && sharedStringId < sharedStrings.Length)
         {
             var entry = sharedStrings[sharedStringId];
             if (entry.IsRichText)
@@ -729,34 +835,34 @@ internal static class WorksheetSheetDataReader
                 SetCellText(xlCell, entry.RichText);
             }
             else
-                cellsCollection.ValueSlice.SetCellValue(cellAddress, entry.PlainText);
+                cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, entry.PlainText, inline);
         }
         else
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, string.Empty);
+            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, inline);
     }
 
     private static void SetBooleanCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress)
+        XLSheetPoint cellAddress, bool inline)
     {
         var isTrue = string.Equals(cellValue, "1", StringComparison.Ordinal) ||
                      string.Equals(cellValue, "TRUE", StringComparison.OrdinalIgnoreCase);
-        cellsCollection.ValueSlice.SetCellValue(cellAddress, isTrue);
+        cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, isTrue, inline);
     }
 
     private static void SetErrorCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress)
+        XLSheetPoint cellAddress, bool inline)
     {
         if (XLErrorParser.TryParseError(cellValue, out var error))
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, error);
+            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, error, inline);
     }
 
     private static void SetDateCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress)
+        XLSheetPoint cellAddress, bool inline)
     {
         var date = DateTime.ParseExact(cellValue, DateCellFormats,
             XLHelper.ParseCulture,
             DateTimeStyles.AllowLeadingWhite | DateTimeStyles.AllowTrailingWhite);
-        cellsCollection.ValueSlice.SetCellValue(cellAddress, date);
+        cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, date, inline);
     }
 
     private static void LoadPhonetics(XLCell xlCell, RstType element)
@@ -869,6 +975,124 @@ internal static class WorksheetSheetDataReader
             xlNumberFormat = xlNumberFormat with { NumberFormatId = (int)numberFormatId!.Value };
 
         return xlStyle with { NumberFormat = xlNumberFormat };
+    }
+
+    // Exact power-of-10 divisors for up to 18 fraction digits. Using these instead of
+    // Math.Pow(10, -n) ensures bit-exact results matching double.TryParse for simple decimals.
+    private static readonly double[] Pow10 =
+    [
+        1E0, 1E1, 1E2, 1E3, 1E4, 1E5, 1E6, 1E7, 1E8, 1E9,
+        1E10, 1E11, 1E12, 1E13, 1E14, 1E15, 1E16, 1E17, 1E18
+    ];
+
+    /// <summary>
+    /// Fast-path double parser for OOXML numeric cell values. Handles the common forms
+    /// produced by Excel: optional minus, digits with optional decimal point.
+    /// Falls back to <see cref="double.TryParse(string, NumberStyles, IFormatProvider, out double)"/>
+    /// for exponents, leading whitespace, leading '+', overflow, or any non-standard format.
+    /// </summary>
+    private static bool TryParseOoxmlDouble(string s, out double result)
+    {
+        var len = s.Length;
+        if (len == 0)
+        {
+            result = 0;
+            return false;
+        }
+
+        var i = 0;
+        var first = s[0];
+
+        // Leading whitespace, '+', or exponent numbers → fall back (rare in OOXML).
+        if (first == ' ' || first == '+')
+            return double.TryParse(s, XLHelper.NumberStyle, XLHelper.ParseCulture, out result);
+
+        // Optional leading minus.
+        bool negative = false;
+        if (first == '-')
+        {
+            negative = true;
+            i++;
+            if (i >= len) { result = 0; return false; }
+        }
+
+        // Integer part — accumulate in long for exact precision.
+        long mantissa = 0;
+        int totalDigits = 0;
+        while (i < len && (uint)(s[i] - '0') <= 9)
+        {
+            mantissa = mantissa * 10 + (s[i] - '0');
+            totalDigits++;
+            i++;
+        }
+
+        int fractionDigits = 0;
+
+        // Fractional part.
+        if (i < len && s[i] == '.')
+        {
+            i++;
+            while (i < len && (uint)(s[i] - '0') <= 9)
+            {
+                mantissa = mantissa * 10 + (s[i] - '0');
+                fractionDigits++;
+                totalDigits++;
+                i++;
+            }
+        }
+
+        // Must have consumed at least one digit and ALL characters.
+        // Any remaining chars (exponent, whitespace, etc.) → fall back.
+        if (totalDigits == 0 || i != len || totalDigits > 18)
+            return double.TryParse(s, XLHelper.NumberStyle, XLHelper.ParseCulture, out result);
+
+        // Assemble the double using exact division.
+        double d = fractionDigits == 0
+            ? mantissa
+            : mantissa / Pow10[fractionDigits];
+
+        result = negative ? -d : d;
+        return true;
+    }
+
+    /// <summary>
+    /// Fast-path parser for non-negative integer strings as found in OOXML shared string
+    /// indices. Only accepts pure ASCII digit sequences with no whitespace or signs.
+    /// </summary>
+    /// <summary>
+    /// Parse a row index attribute value. Row indices in OOXML are always positive integers.
+    /// </summary>
+    private static int ParseRowIndex(string s)
+    {
+        TryParseOoxmlNonNegativeInt(s, out var result);
+        return result;
+    }
+
+    private static bool TryParseOoxmlNonNegativeInt(string s, out int result)
+    {
+        result = 0;
+        var len = s.Length;
+        if (len == 0)
+            return false;
+
+        // Guard: strings with >9 digits cannot fit in a non-negative int (max 2,147,483,647 = 10 digits).
+        // Fall back to the full parser which handles overflow correctly.
+        if (len > 9)
+            return int.TryParse(s, XLHelper.NumberStyle, XLHelper.ParseCulture, out result);
+
+        for (var i = 0; i < len; i++)
+        {
+            var digit = (uint)(s[i] - '0');
+            if (digit > 9)
+            {
+                // Not a pure digit string — fall back to full parser.
+                return int.TryParse(s, XLHelper.NumberStyle, XLHelper.ParseCulture, out result);
+            }
+
+            result = result * 10 + (int)digit;
+        }
+
+        return true;
     }
 
     private static XLDataType ResolveMonthOrMinute(string format, int i, int length)

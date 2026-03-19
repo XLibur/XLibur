@@ -95,6 +95,12 @@ internal static partial class XmlEncoder
     {
         if (string.IsNullOrEmpty(decodeStr)) return string.Empty;
 
+        // Fast-path: if the string contains no underscore it cannot have any
+        // _xHHHH_ or _XHHHH_ escape sequences, so return as-is.
+        // The vast majority of shared strings are plain text.
+        if (!decodeStr.Contains('_'))
+            return decodeStr;
+
         // Strings "escaped" with _X (capital X) should not be treated as escaped
         // Example: _Xceed_Something
         // https://github.com/XLibur/XLibur/issues/1154

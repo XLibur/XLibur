@@ -262,6 +262,44 @@ internal sealed partial class Slice<TElement> : ISlice
         }
     }
 
+    /// <summary>
+    /// Fast path for bulk-loading non-default values. The caller guarantees that <paramref name="value"/>
+    /// is not <c>default</c>, so we skip <see cref="EqualityComparer{T}"/> checks and the
+    /// "was-used-now-unused" bookkeeping that cannot happen during a load of non-default data.
+    /// </summary>
+    internal void SetNonDefault(XLSheetPoint point, in TElement value)
+        => SetNonDefault(point.Row, point.Column, in value);
+
+    /// <inheritdoc cref="SetNonDefault(XLSheetPoint, in TElement)"/>
+    internal void SetNonDefault(int row, int column, in TElement value)
+    {
+        ref readonly var existing = ref _data.Get(row - 1);
+        if (existing.IsEmpty)
+        {
+            var rowData = RowData.CreateForSet(column - 1, value);
+            _data.SetNonDefault(row - 1, rowData);
+            IncrementColumnUsage(column);
+            if (column > MaxColumn)
+                MaxColumn = column;
+            return;
+        }
+
+        // Copy the struct so we can mutate it.
+        var rd = existing;
+        var wasUsed = rd.IsUsed(column - 1);
+        rd.SetNonDefault(column - 1, value);
+
+        // Write back — value is non-default so RowData is always non-empty.
+        _data.SetNonDefault(row - 1, rd);
+
+        if (!wasUsed)
+        {
+            IncrementColumnUsage(column);
+            if (column > MaxColumn)
+                MaxColumn = column;
+        }
+    }
+
     private int CalculateMaxColumn()
     {
         var maxColIdx = -1;

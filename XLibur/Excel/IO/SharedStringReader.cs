@@ -1,4 +1,5 @@
-﻿using DocumentFormat.OpenXml.Packaging;
+﻿using System;
+using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System.Collections.Generic;
 using System.Linq;
@@ -44,26 +45,56 @@ internal static class SharedStringReader
         if (sst is null)
             return [];
 
-        var entries = new List<SharedStringEntry>();
-
-        foreach (var item in sst.Elements<SharedStringItem>())
+        // Pre-allocate from the SST's UniqueCount attribute to avoid
+        // List<T> resize+copy overhead for large shared string tables.
+        // Only use UniqueCount (number of unique <si> entries), not Count
+        // (total reference count including duplicates) which would over-allocate.
+        var uniqueCount = sst.UniqueCount?.Value;
+        if (uniqueCount is not null and > 0)
         {
-            // Schema: <si> contains either (t, rPh*, phoneticPr?) or (r+, rPh*, phoneticPr?).
-            // Pure plain text: a single <t> child with no runs and no phonetic data.
-            var text = item.Text;
-            if (text is not null && text == item.FirstChild && text == item.LastChild)
+            var entries = new SharedStringEntry[(int)uniqueCount.Value];
+            var idx = 0;
+            foreach (var item in sst.Elements<SharedStringItem>())
             {
-                // Decode _xHHHH_ escapes (e.g. _x0018_ → \u0018) matching the original
-                // SetCellText code path.
-                var decoded = XmlEncoder.DecodeString(text.InnerText);
-                entries.Add(SharedStringEntry.Plain(decoded));
+                var entry = ReadEntry(item);
+                if (idx < entries.Length)
+                    entries[idx++] = entry;
+                else
+                {
+                    // Count attribute was wrong — fall back to growing
+                    Array.Resize(ref entries, entries.Length * 2);
+                    entries[idx++] = entry;
+                }
             }
-            else
-            {
-                entries.Add(SharedStringEntry.Rich(item));
-            }
+
+            // Trim if the declared count was larger than actual entries
+            if (idx < entries.Length)
+                Array.Resize(ref entries, idx);
+
+            return entries;
         }
 
-        return entries.ToArray();
+        // Fallback: no count attribute, use list
+        var list = new List<SharedStringEntry>();
+        foreach (var item in sst.Elements<SharedStringItem>())
+            list.Add(ReadEntry(item));
+
+        return list.ToArray();
+    }
+
+    private static SharedStringEntry ReadEntry(SharedStringItem item)
+    {
+        // Schema: <si> contains either (t, rPh*, phoneticPr?) or (r+, rPh*, phoneticPr?).
+        // Pure plain text: a single <t> child with no runs and no phonetic data.
+        var text = item.Text;
+        if (text is not null && text == item.FirstChild && text == item.LastChild)
+        {
+            // Decode _xHHHH_ escapes (e.g. _x0018_ → \u0018) matching the original
+            // SetCellText code path.
+            var decoded = XmlEncoder.DecodeString(text.InnerText);
+            return SharedStringEntry.Plain(decoded);
+        }
+
+        return SharedStringEntry.Rich(item);
     }
 }

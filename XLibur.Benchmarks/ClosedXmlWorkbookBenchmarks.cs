@@ -6,6 +6,7 @@ using ClosedXML.Excel;
 namespace XLibur.Benchmarks;
 
 [MemoryDiagnoser]
+[Config(typeof(JoinSummaryConfig))]
 public class ClosedXmlWorkbookBenchmarks
 {
     private const int RowCount = 50_000;
@@ -51,6 +52,10 @@ public class ClosedXmlWorkbookBenchmarks
             worksheet.Cell(row, 2).Value = _numbers[i];
             worksheet.Cell(row, 3).Value = _dates[i];
         }
+
+        var sumRow = RowCount + 2;
+        worksheet.Cell(sumRow, 1).Value = "Total";
+        worksheet.Cell(sumRow, 2).FormulaA1 = $"SUM(B2:B{RowCount + 1})";
 
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);

@@ -94,7 +94,21 @@ internal sealed partial class Slice<TElement>
             if (_buckets[topIdx].Bitmap == 0)
                 _buckets[topIdx] = new LutBucket(null, 0);
 
-            RecalculateMaxIndex(index);
+            RecalculateMaxIndex(index, valueIsDefault);
+        }
+
+        /// <summary>
+        /// Fast path for setting a value that the caller guarantees is not <c>default</c>.
+        /// Skips the <see cref="EqualityComparer{T}"/> check and always sets the bitmap bit.
+        /// </summary>
+        internal void SetNonDefault(int index, T value)
+        {
+            var (topIdx, bottomIdx) = SplitIndex(index);
+            SetValue(value, topIdx, bottomIdx);
+            SetBitmap(topIdx, bottomIdx);
+
+            if (index > MaxUsedIndex)
+                MaxUsedIndex = index;
         }
 
         private void SetValue(T value, int topIdx, int bottomIdx)
@@ -156,10 +170,20 @@ internal sealed partial class Slice<TElement>
         private void ClearBitmap(int topIdx, int bottomIdx)
             => _buckets[topIdx] = new LutBucket(_buckets[topIdx].Nodes, _buckets[topIdx].Bitmap & ~((uint)1 << bottomIdx));
 
-        private void RecalculateMaxIndex(int index)
+        private void RecalculateMaxIndex(int index, bool valueIsDefault)
         {
-            if (MaxUsedIndex <= index)
-                MaxUsedIndex = CalculateMaxIndex();
+            if (!valueIsDefault)
+            {
+                // Setting a non-default value — max can only increase or stay the same.
+                if (index > MaxUsedIndex)
+                    MaxUsedIndex = index;
+            }
+            else
+            {
+                // Clearing a value — max may need to decrease if we cleared the current max.
+                if (index >= MaxUsedIndex)
+                    MaxUsedIndex = CalculateMaxIndex();
+            }
         }
 
         private int CalculateMaxIndex()
@@ -432,6 +456,48 @@ internal sealed partial class Slice<TElement>
 
             if (_bitmap == 0)
                 _storage = null;
+        }
+
+        /// <summary>
+        /// Fast path for setting a value that the caller guarantees is not <c>default</c>.
+        /// Skips the <see cref="EqualityComparer{TElement}"/> check and always sets the bitmap bit.
+        /// </summary>
+        internal void SetNonDefault(int columnIndex, TElement value)
+        {
+            if (_storage is Lut<TElement> lut)
+            {
+                lut.SetNonDefault(columnIndex, value);
+                return;
+            }
+
+            if (columnIndex >= 32)
+            {
+                UpgradeToWideAndSet(columnIndex, value);
+                return;
+            }
+
+            // Narrow mode
+            if (_storage is not TElement[] nodes)
+            {
+                var size = 4;
+                while (columnIndex >= size)
+                    size *= 2;
+
+                nodes = new TElement[size];
+                _storage = nodes;
+            }
+            else if (columnIndex >= nodes.Length)
+            {
+                var size = nodes.Length;
+                while (columnIndex >= size)
+                    size *= 2;
+
+                Array.Resize(ref nodes, size);
+                _storage = nodes;
+            }
+
+            nodes[columnIndex] = value;
+            _bitmap |= 1u << columnIndex;
         }
 
         private void UpgradeToWideAndSet(int columnIndex, TElement value)

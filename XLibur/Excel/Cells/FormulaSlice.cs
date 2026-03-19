@@ -98,6 +98,17 @@ internal sealed class FormulaSlice : ISlice
     }
 
     /// <summary>
+    /// Fast path for initial worksheet loading. The caller guarantees that the cell
+    /// has no existing formula (original is null) and that the calc engine's dependency
+    /// tree/chain are not yet initialized, so we skip the original-value lookup,
+    /// ReferenceEquals check, and calc engine registration.
+    /// </summary>
+    internal void SetDuringLoad(XLSheetPoint point, XLCellFormula formula)
+    {
+        _formulas.SetNonDefault(point, formula);
+    }
+
+    /// <summary>
     /// Set all cells in a <paramref name="range"/> to the array formula.
     /// </summary>
     /// <remarks>

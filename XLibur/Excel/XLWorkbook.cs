@@ -537,14 +537,10 @@ public partial class XLWorkbook : IXLWorkbook
 
     internal static void CopyStream(Stream input, Stream output)
     {
-        var buffer = new byte[8 * 1024];
-        int len;
-        // It is always a good idea to rewind the input stream, or not?
         if (input.CanSeek)
             input.Seek(0, SeekOrigin.Begin);
-        while ((len = input.Read(buffer, 0, buffer.Length)) > 0)
-            output.Write(buffer, 0, len);
-        // And flushing the output after writing
+
+        input.CopyTo(output);
         output.Flush();
     }
 

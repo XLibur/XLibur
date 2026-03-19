@@ -144,6 +144,47 @@ internal sealed class ValueSlice : ISlice
         _values.Set(point, in modified);
     }
 
+    /// <summary>
+    /// Fast path for initial worksheet loading. The caller guarantees that the cell at
+    /// <paramref name="point"/> has never been written (original is blank), so we skip
+    /// the original-value lookup, SST dereference, and the default-equality check in the
+    /// underlying slice. The value must be non-blank.
+    /// </summary>
+    /// <param name="point">Cell address.</param>
+    /// <param name="cellValue">Non-blank value to write.</param>
+    /// <param name="inline">
+    /// <c>true</c> for formula result text (not in the shared string table);
+    /// <c>false</c> (default) for normal data cells.
+    /// </param>
+    internal void SetCellValueDuringLoad(XLSheetPoint point, XLCellValue cellValue, bool inline = false)
+    {
+        double value;
+        if (cellValue.Type == XLDataType.Text)
+        {
+            // Fresh cell — no existing text to dereference.
+            value = _sst.IncreaseRef(cellValue.GetText(), inline);
+        }
+        else if (cellValue.IsUnifiedNumber)
+        {
+            value = cellValue.GetUnifiedNumber();
+        }
+        else if (cellValue.IsBoolean)
+        {
+            value = cellValue.GetBoolean() ? 1 : 0;
+        }
+        else if (cellValue.IsError)
+        {
+            value = (int)cellValue.GetError();
+        }
+        else
+        {
+            value = 0;
+        }
+
+        var modified = new XLValueSliceContent(value, cellValue.Type, inline);
+        _values.SetNonDefault(point, in modified);
+    }
+
     internal XLImmutableRichText? GetRichText(XLSheetPoint point)
     {
         ref readonly var cellValue = ref _values[point];
@@ -171,6 +212,29 @@ internal sealed class ValueSlice : ISlice
         var richTextId = _sst.IncreaseRef(richText, original.Inline);
         var modified = new XLValueSliceContent(richTextId, XLDataType.Text, original.Inline);
         _values.Set(point, modified);
+    }
+
+    /// <summary>
+    /// Get cell value and share-string flag in a single slice lookup, avoiding a
+    /// second Lut traversal when both are needed (e.g., during save).
+    /// </summary>
+    internal XLCellValue GetCellValueAndShareString(XLSheetPoint point, out bool shareString)
+    {
+        ref readonly var cellValue = ref _values[point];
+        shareString = !cellValue.Inline;
+        var type = cellValue.Type;
+        var value = cellValue.Value;
+        return type switch
+        {
+            XLDataType.Blank => Blank.Value,
+            XLDataType.Boolean => value != 0,
+            XLDataType.Number => value,
+            XLDataType.Text => _sst[(int)value],
+            XLDataType.Error => (XLError)value,
+            XLDataType.DateTime => XLCellValue.FromSerialDateTime(value),
+            XLDataType.TimeSpan => XLCellValue.FromSerialTimeSpan(value),
+            _ => throw new ArgumentOutOfRangeException(nameof(point), type, "Unexpected data type.")
+        };
     }
 
     internal bool GetShareString(XLSheetPoint point)
