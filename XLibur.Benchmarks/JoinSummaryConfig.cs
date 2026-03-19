@@ -27,6 +27,7 @@ public class LibraryNameColumn : IColumn
         {
             var n when n.Contains("ClosedXml") => "ClosedXML",
             var n when n.Contains("EpPlus") => "EPPlus",
+            var n when n.StartsWith("OpenXml") => "OpenXML SDK",
             var n when n.Contains("XLibur") => "XLibur",
             _ => typeName
         };
