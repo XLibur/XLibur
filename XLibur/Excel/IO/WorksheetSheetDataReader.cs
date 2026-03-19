@@ -41,8 +41,10 @@ internal static class WorksheetSheetDataReader
         /// Whether the worksheet has any custom column styles. When <c>false</c>,
         /// the inherited style for any cell equals the row-level style, avoiding
         /// per-cell column dictionary lookups during loading.
+        /// Evaluated live (not snapshot) because <c>&lt;cols&gt;</c> is parsed
+        /// between context construction and the first <c>&lt;row&gt;</c>.
         /// </summary>
-        public readonly bool HasColumnStyles = worksheet.Internals.ColumnsCollection.Count > 0;
+        public bool HasColumnStyles => Worksheet.Internals.ColumnsCollection.Count > 0;
     }
 
     /// <summary>
@@ -1072,6 +1074,11 @@ internal static class WorksheetSheetDataReader
         var len = s.Length;
         if (len == 0)
             return false;
+
+        // Guard: strings with >9 digits cannot fit in a non-negative int (max 2,147,483,647 = 10 digits).
+        // Fall back to the full parser which handles overflow correctly.
+        if (len > 9)
+            return int.TryParse(s, XLHelper.NumberStyle, XLHelper.ParseCulture, out result);
 
         for (var i = 0; i < len; i++)
         {
