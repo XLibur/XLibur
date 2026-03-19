@@ -45,9 +45,11 @@ internal static class SharedStringReader
         if (sst is null)
             return [];
 
-        // Pre-allocate from the SST's UniqueCount (or Count) attribute to avoid
+        // Pre-allocate from the SST's UniqueCount attribute to avoid
         // List<T> resize+copy overhead for large shared string tables.
-        var uniqueCount = sst.UniqueCount?.Value ?? sst.Count?.Value;
+        // Only use UniqueCount (number of unique <si> entries), not Count
+        // (total reference count including duplicates) which would over-allocate.
+        var uniqueCount = sst.UniqueCount?.Value;
         if (uniqueCount is not null and > 0)
         {
             var entries = new SharedStringEntry[(int)uniqueCount.Value];
