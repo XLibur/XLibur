@@ -35,3 +35,4 @@ _ReSharper*/
 *.DotSettings.user
 BenchmarkDotNet.Artifacts/
 /results/*
+/temp/*
