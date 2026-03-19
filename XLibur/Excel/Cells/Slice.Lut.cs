@@ -94,7 +94,7 @@ internal sealed partial class Slice<TElement>
             if (_buckets[topIdx].Bitmap == 0)
                 _buckets[topIdx] = new LutBucket(null, 0);
 
-            RecalculateMaxIndex(index);
+            RecalculateMaxIndex(index, valueIsDefault);
         }
 
         /// <summary>
@@ -170,10 +170,20 @@ internal sealed partial class Slice<TElement>
         private void ClearBitmap(int topIdx, int bottomIdx)
             => _buckets[topIdx] = new LutBucket(_buckets[topIdx].Nodes, _buckets[topIdx].Bitmap & ~((uint)1 << bottomIdx));
 
-        private void RecalculateMaxIndex(int index)
+        private void RecalculateMaxIndex(int index, bool valueIsDefault)
         {
-            if (MaxUsedIndex <= index)
-                MaxUsedIndex = CalculateMaxIndex();
+            if (!valueIsDefault)
+            {
+                // Setting a non-default value — max can only increase or stay the same.
+                if (index > MaxUsedIndex)
+                    MaxUsedIndex = index;
+            }
+            else
+            {
+                // Clearing a value — max may need to decrease if we cleared the current max.
+                if (index >= MaxUsedIndex)
+                    MaxUsedIndex = CalculateMaxIndex();
+            }
         }
 
         private int CalculateMaxIndex()
