@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -423,21 +423,51 @@ public class OpenXmlWorkbookBenchmarks
 
         var cellFormats = new CellFormats(
             new CellFormat(), // 0: default
-            new CellFormat { FontId = 1, FillId = 2, BorderId = 1, ApplyFont = true, ApplyFill = true, ApplyBorder = true,
-                             Alignment = new Alignment { Horizontal = HorizontalAlignmentValues.Center } }, // 1: header
+            new CellFormat
+            {
+                FontId = 1,
+                FillId = 2,
+                BorderId = 1,
+                ApplyFont = true,
+                ApplyFill = true,
+                ApplyBorder = true,
+                Alignment = new Alignment { Horizontal = HorizontalAlignmentValues.Center }
+            }, // 1: header
             new CellFormat { FontId = 2, FillId = 3, ApplyFont = true, ApplyFill = true }, // 2: name (bold, light blue)
             new CellFormat { FontId = 3, BorderId = 2, NumberFormatId = 164, ApplyFont = true, ApplyBorder = true, ApplyNumberFormat = true }, // 3: amount
             new CellFormat { FontId = 4, FillId = 4, NumberFormatId = 15, ApplyFont = true, ApplyFill = true, ApplyNumberFormat = true }, // 4: date
-            new CellFormat { FillId = 5, BorderId = 3, ApplyFill = true, ApplyBorder = true,
-                             Alignment = new Alignment { Horizontal = HorizontalAlignmentValues.Center } }, // 5: quantity
+            new CellFormat
+            {
+                FillId = 5,
+                BorderId = 3,
+                ApplyFill = true,
+                ApplyBorder = true,
+                Alignment = new Alignment { Horizontal = HorizontalAlignmentValues.Center }
+            }, // 5: quantity
             new CellFormat { FontId = 6, FillId = 6, NumberFormatId = 165, ApplyFont = true, ApplyFill = true, ApplyNumberFormat = true }, // 6: price
             new CellFormat { FontId = 7, BorderId = 4, NumberFormatId = 166, ApplyFont = true, ApplyBorder = true, ApplyNumberFormat = true }, // 7: total
             new CellFormat { FillId = 7, ApplyFill = true }, // 8: status
-            new CellFormat { FontId = 9, FillId = 8, BorderId = 5, ApplyFont = true, ApplyFill = true, ApplyBorder = true,
-                             Alignment = new Alignment { Horizontal = HorizontalAlignmentValues.Right } }, // 9: category
+            new CellFormat
+            {
+                FontId = 9,
+                FillId = 8,
+                BorderId = 5,
+                ApplyFont = true,
+                ApplyFill = true,
+                ApplyBorder = true,
+                Alignment = new Alignment { Horizontal = HorizontalAlignmentValues.Right }
+            }, // 9: category
             new CellFormat { FontId = 10, FillId = 9, BorderId = 6, ApplyFont = true, ApplyFill = true, ApplyBorder = true }, // 10: region
-            new CellFormat { FontId = 11, FillId = 10, BorderId = 7, ApplyFont = true, ApplyFill = true, ApplyBorder = true,
-                             Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } } // 11: notes
+            new CellFormat
+            {
+                FontId = 11,
+                FillId = 10,
+                BorderId = 7,
+                ApplyFont = true,
+                ApplyFill = true,
+                ApplyBorder = true,
+                Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top }
+            } // 11: notes
         );
 
         return new Stylesheet(numberFormats, fonts, fills, borders, cellFormats);
