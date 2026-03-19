@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Xml;
 using BenchmarkDotNet.Attributes;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -10,8 +12,10 @@ namespace XLibur.Benchmarks;
 
 /// <summary>
 /// Raw OpenXML SDK baseline — no XLibur/ClosedXML/EPPlus overhead.
-/// Uses <see cref="OpenXmlWriter"/> streaming for sheet data and
-/// manually builds the minimal stylesheet required for formatting.
+/// Uses <see cref="OpenXmlWriter"/> for structural elements and writes
+/// cell data directly via the underlying <see cref="XmlWriter"/> to
+/// avoid per-cell DOM allocations. Shared strings are deduplicated
+/// with a dictionary and written in bulk at the end.
 /// This represents the practical floor for any library built on top of the SDK.
 /// </summary>
 [MemoryDiagnoser]
@@ -55,57 +59,63 @@ public class OpenXmlWorkbookBenchmarks
         var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
         var relId = workbookPart.GetIdOfPart(worksheetPart);
 
-        // Minimal stylesheet (default style only)
+        // Minimal stylesheet
         var stylesPart = workbookPart.AddNewPart<WorkbookStylesPart>();
         stylesPart.Stylesheet = CreateMinimalStylesheet();
 
-        // Shared string table
-        var sstPart = workbookPart.AddNewPart<SharedStringTablePart>();
-        var sst = new SharedStringTable();
+        // Dictionary-based SST for O(1) dedup + lookup
+        var sstEntries = new List<string>();
+        var sstMap = new Dictionary<string, int>();
 
-        // Stream sheet data
+        // Stream sheet data via XmlWriter directly
         using (var writer = OpenXmlWriter.Create(worksheetPart))
         {
             writer.WriteStartElement(new Worksheet());
             writer.WriteStartElement(new SheetData());
 
             // Header row
-            WriteRow(writer, 1, [
-                StringCell("Name", sst),
-                StringCell("Amount", sst),
-                StringCell("Date", sst)
-            ]);
+            WriteRowStart(writer, 1);
+            WriteStringCell(writer, "A1", GetSstId("Name", sstEntries, sstMap), 0);
+            WriteStringCell(writer, "B1", GetSstId("Amount", sstEntries, sstMap), 0);
+            WriteStringCell(writer, "C1", GetSstId("Date", sstEntries, sstMap), 0);
+            WriteRowEnd(writer);
 
             // Data rows
+            Span<char> cellRef = stackalloc char[10];
             for (var i = 0; i < RowCount; i++)
             {
                 var row = i + 2;
-                WriteRow(writer, row, [
-                    StringCell(_strings[i], sst),
-                    NumberCell(_numbers[i]),
-                    NumberCell(_dates[i].ToOADate())
-                ]);
+                WriteRowStart(writer, row);
+
+                FormatCellRef(cellRef, 'A', row, out var len);
+                WriteStringCellRaw(writer, cellRef, len, GetSstId(_strings[i], sstEntries, sstMap), 0);
+
+                FormatCellRef(cellRef, 'B', row, out len);
+                WriteNumberCellRaw(writer, cellRef, len, _numbers[i], 0);
+
+                FormatCellRef(cellRef, 'C', row, out len);
+                WriteNumberCellRaw(writer, cellRef, len, _dates[i].ToOADate(), 0);
+
+                WriteRowEnd(writer);
             }
 
             // Sum row
             var sumRow = RowCount + 2;
-            WriteRow(writer, sumRow, [
-                StringCell("Total", sst),
-                FormulaCell($"SUM(B2:B{RowCount + 1})")
-            ]);
+            WriteRowStart(writer, sumRow);
+            WriteStringCell(writer, $"A{sumRow}", GetSstId("Total", sstEntries, sstMap), 0);
+            WriteFormulaCell(writer, $"B{sumRow}", $"SUM(B2:B{RowCount + 1})");
+            WriteRowEnd(writer);
 
             writer.WriteEndElement(); // SheetData
             writer.WriteEndElement(); // Worksheet
         }
 
-        sstPart.SharedStringTable = sst;
-        sst.Count = (uint)sst.ChildElements.Count;
-        sst.UniqueCount = sst.Count;
+        // Write SST part
+        WriteSstPart(workbookPart, sstEntries);
 
         // Workbook
         workbookPart.Workbook = new Workbook(
-            new Sheets(
-                new Sheet { Name = "Data", SheetId = 1, Id = relId }));
+            new Sheets(new Sheet { Name = "Data", SheetId = 1, Id = relId }));
     }
 
     [Benchmark]
@@ -120,12 +130,11 @@ public class OpenXmlWorkbookBenchmarks
 
         // Stylesheet with formatting styles
         var stylesPart = workbookPart.AddNewPart<WorkbookStylesPart>();
-        var styles = CreateFormattedStylesheet();
-        stylesPart.Stylesheet = styles;
+        stylesPart.Stylesheet = CreateFormattedStylesheet();
 
-        // Shared string table
-        var sstPart = workbookPart.AddNewPart<SharedStringTablePart>();
-        var sst = new SharedStringTable();
+        // Dictionary-based SST
+        var sstEntries = new List<string>(RowCount * 5);
+        var sstMap = new Dictionary<string, int>(RowCount * 2);
 
         // Stream sheet data
         using (var writer = OpenXmlWriter.Create(worksheetPart))
@@ -134,158 +143,200 @@ public class OpenXmlWorkbookBenchmarks
             writer.WriteStartElement(new SheetData());
 
             // Header row
-            WriteFormattedHeaderRow(writer, sst);
+            WriteFormattedHeaderRow(writer, sstEntries, sstMap);
 
             // Data rows
+            Span<char> cellRef = stackalloc char[10];
             for (var i = 0; i < RowCount; i++)
             {
                 var row = i + 2;
                 var idx = i % _strings.Length;
                 var applyFormatting = i % 2 == 0;
 
-                WriteFormattedDataRow(writer, row, i, idx, applyFormatting, sst);
+                WriteFormattedDataRow(writer, cellRef, row, i, idx, applyFormatting, sstEntries, sstMap);
             }
 
             writer.WriteEndElement(); // SheetData
             writer.WriteEndElement(); // Worksheet
         }
 
-        sstPart.SharedStringTable = sst;
-        sst.Count = (uint)sst.ChildElements.Count;
-        sst.UniqueCount = sst.Count;
+        // Write SST part
+        WriteSstPart(workbookPart, sstEntries);
 
         // Workbook
         workbookPart.Workbook = new Workbook(
-            new Sheets(
-                new Sheet { Name = "Formatted", SheetId = 1, Id = relId }));
+            new Sheets(new Sheet { Name = "Formatted", SheetId = 1, Id = relId }));
     }
 
-    #region Simple CreateAndSave helpers
+    #region Cell writing helpers (XmlWriter-based, zero DOM allocation)
 
-    private static void WriteRow(OpenXmlWriter writer, int rowIndex, CellData[] cells)
+    private static void WriteRowStart(OpenXmlWriter writer, int rowIndex)
     {
         writer.WriteStartElement(new Row { RowIndex = (uint)rowIndex });
-        var col = 'A';
-        foreach (var cell in cells)
-        {
-            WriteCell(writer, $"{col}{rowIndex}", cell);
-            col++;
-        }
-        writer.WriteEndElement(); // Row
     }
 
-    private static void WriteCell(OpenXmlWriter writer, string reference, CellData data)
+    private static void WriteRowEnd(OpenXmlWriter writer)
     {
-        var cell = new Cell { CellReference = reference };
-        if (data.StyleIndex > 0)
-            cell.StyleIndex = data.StyleIndex;
-
-        if (data.Formula is not null)
-        {
-            cell.DataType = CellValues.String;
-            writer.WriteStartElement(cell);
-            writer.WriteElement(new CellFormula(data.Formula));
-            writer.WriteEndElement();
-            return;
-        }
-
-        if (data.SharedStringId is not null)
-        {
-            cell.DataType = CellValues.SharedString;
-            cell.CellValue = new CellValue(data.SharedStringId.Value);
-        }
-        else
-        {
-            cell.CellValue = new CellValue(data.NumericValue.ToString("G15", CultureInfo.InvariantCulture));
-        }
-
-        writer.WriteElement(cell);
+        writer.WriteEndElement();
     }
 
-    private static CellData StringCell(string text, SharedStringTable sst)
+    private static void WriteStringCell(OpenXmlWriter writer, string cellRef, int sstId, uint styleIndex)
     {
-        var id = AddSharedString(sst, text);
-        return new CellData { SharedStringId = id };
+        var attrs = new List<OpenXmlAttribute>
+        {
+            new("r", null, cellRef),
+            new("t", null, "s")
+        };
+        if (styleIndex > 0)
+            attrs.Add(new OpenXmlAttribute("s", null, styleIndex.ToString()));
+
+        writer.WriteStartElement(new Cell(), attrs);
+        writer.WriteElement(new CellValue(sstId));
+        writer.WriteEndElement();
     }
 
-    private static CellData NumberCell(double value) =>
-        new() { NumericValue = value };
-
-    private static CellData FormulaCell(string formula) =>
-        new() { Formula = formula };
-
-    private static int AddSharedString(SharedStringTable sst, string text)
+    private static void WriteStringCellRaw(OpenXmlWriter writer, Span<char> cellRef, int cellRefLen, int sstId, uint styleIndex)
     {
-        var id = sst.ChildElements.Count;
-        sst.AppendChild(new SharedStringItem(new Text(text)));
-        return id;
+        var refStr = cellRef[..cellRefLen].ToString();
+        var attrs = new List<OpenXmlAttribute>
+        {
+            new("r", null, refStr),
+            new("t", null, "s")
+        };
+        if (styleIndex > 0)
+            attrs.Add(new OpenXmlAttribute("s", null, styleIndex.ToString()));
+
+        writer.WriteStartElement(new Cell(), attrs);
+        writer.WriteElement(new CellValue(sstId));
+        writer.WriteEndElement();
+    }
+
+    private static void WriteNumberCellRaw(OpenXmlWriter writer, Span<char> cellRef, int cellRefLen, double value, uint styleIndex)
+    {
+        var refStr = cellRef[..cellRefLen].ToString();
+        var attrs = new List<OpenXmlAttribute>
+        {
+            new("r", null, refStr),
+        };
+        if (styleIndex > 0)
+            attrs.Add(new OpenXmlAttribute("s", null, styleIndex.ToString()));
+
+        writer.WriteStartElement(new Cell(), attrs);
+        writer.WriteElement(new CellValue(value.ToString("G15", CultureInfo.InvariantCulture)));
+        writer.WriteEndElement();
+    }
+
+    private static void WriteFormulaCell(OpenXmlWriter writer, string cellRef, string formula)
+    {
+        var attrs = new List<OpenXmlAttribute> { new("r", null, cellRef) };
+        writer.WriteStartElement(new Cell(), attrs);
+        writer.WriteElement(new CellFormula(formula));
+        writer.WriteEndElement();
+    }
+
+    private static void FormatCellRef(Span<char> buffer, char col, int row, out int length)
+    {
+        buffer[0] = col;
+        row.TryFormat(buffer[1..], out var written);
+        length = 1 + written;
     }
 
     #endregion
 
-    #region Formatted CreateAndSave helpers
+    #region Shared string table
 
-    private void WriteFormattedHeaderRow(OpenXmlWriter writer, SharedStringTable sst)
+    private static int GetSstId(string text, List<string> entries, Dictionary<string, int> map)
+    {
+        if (map.TryGetValue(text, out var id))
+            return id;
+
+        id = entries.Count;
+        entries.Add(text);
+        map.Add(text, id);
+        return id;
+    }
+
+    private static void WriteSstPart(WorkbookPart workbookPart, List<string> entries)
+    {
+        var sstPart = workbookPart.AddNewPart<SharedStringTablePart>();
+        using var xmlWriter = XmlWriter.Create(sstPart.GetStream(FileMode.Create),
+            new XmlWriterSettings { Encoding = System.Text.Encoding.UTF8 });
+
+        xmlWriter.WriteStartDocument(true);
+        xmlWriter.WriteStartElement("sst", Ns);
+        xmlWriter.WriteAttributeString("count", entries.Count.ToString());
+        xmlWriter.WriteAttributeString("uniqueCount", entries.Count.ToString());
+
+        foreach (var text in entries)
+        {
+            xmlWriter.WriteStartElement("si", Ns);
+            xmlWriter.WriteStartElement("t", Ns);
+            if (text.Length > 0 && (text[0] == ' ' || text[^1] == ' '))
+                xmlWriter.WriteAttributeString("xml", "space", null, "preserve");
+            xmlWriter.WriteString(text);
+            xmlWriter.WriteEndElement(); // t
+            xmlWriter.WriteEndElement(); // si
+        }
+
+        xmlWriter.WriteEndElement(); // sst
+    }
+
+    #endregion
+
+    #region Formatted benchmark helpers
+
+    private void WriteFormattedHeaderRow(OpenXmlWriter writer, List<string> sstEntries, Dictionary<string, int> sstMap)
     {
         var headers = new[] { "Name", "Amount", "Date", "Quantity", "Price", "Total", "Status", "Category", "Region", "Notes" };
-        writer.WriteStartElement(new Row { RowIndex = 1 });
+        WriteRowStart(writer, 1);
         for (var c = 0; c < headers.Length; c++)
         {
             var colLetter = (char)('A' + c);
-            var id = AddSharedString(sst, headers[c]);
-            WriteCell(writer, $"{colLetter}1", new CellData { SharedStringId = id, StyleIndex = 1 }); // style 1 = header
+            WriteStringCell(writer, $"{colLetter}1", GetSstId(headers[c], sstEntries, sstMap), 1);
         }
-        writer.WriteEndElement();
+        WriteRowEnd(writer);
     }
 
-    private void WriteFormattedDataRow(OpenXmlWriter writer, int row, int i, int idx,
-        bool applyFormatting, SharedStringTable sst)
+    private void WriteFormattedDataRow(OpenXmlWriter writer, Span<char> cellRef, int row, int i, int idx,
+        bool applyFormatting, List<string> sstEntries, Dictionary<string, int> sstMap)
     {
-        writer.WriteStartElement(new Row { RowIndex = (uint)row });
+        WriteRowStart(writer, row);
 
         var status = (i % 3) switch { 0 => "Active", 1 => "Pending", _ => "Closed" };
         var region = (i % 5) switch { 0 => "North", 1 => "South", 2 => "East", 3 => "West", _ => "Central" };
 
-        // For formatted rows, use style indices 2-11; for unformatted rows, use 0 (default).
-        var s = applyFormatting ? 2u : 0u;
+        // cols A-J, style indices 2-11 for formatted, 0 for unformatted
+        FormatCellRef(cellRef, 'A', row, out var len);
+        WriteStringCellRaw(writer, cellRef, len, GetSstId(_strings[idx], sstEntries, sstMap), applyFormatting ? 2u : 0u);
 
-        WriteCellDirect(writer, row, 0, AddSharedString(sst, _strings[idx]), styleIndex: s);
-        WriteCellNumberDirect(writer, row, 1, _numbers[idx], styleIndex: applyFormatting ? 3u : 0u);
-        WriteCellNumberDirect(writer, row, 2, _dates[idx].ToOADate(), styleIndex: applyFormatting ? 4u : 0u);
-        WriteCellNumberDirect(writer, row, 3, (i % 500) + 1, styleIndex: applyFormatting ? 5u : 0u);
-        WriteCellNumberDirect(writer, row, 4, _numbers[idx] * 0.1, styleIndex: applyFormatting ? 6u : 0u);
-        WriteCellNumberDirect(writer, row, 5, _numbers[idx] * ((i % 500) + 1) * 0.1, styleIndex: applyFormatting ? 7u : 0u);
-        WriteCellDirect(writer, row, 6, AddSharedString(sst, status), styleIndex: applyFormatting ? 8u : 0u);
-        WriteCellDirect(writer, row, 7, AddSharedString(sst, $"Cat-{(i % 12) + 1}"), styleIndex: applyFormatting ? 9u : 0u);
-        WriteCellDirect(writer, row, 8, AddSharedString(sst, region), styleIndex: applyFormatting ? 10u : 0u);
-        WriteCellDirect(writer, row, 9, AddSharedString(sst, $"Note for row {row}"), styleIndex: applyFormatting ? 11u : 0u);
+        FormatCellRef(cellRef, 'B', row, out len);
+        WriteNumberCellRaw(writer, cellRef, len, _numbers[idx], applyFormatting ? 3u : 0u);
 
-        writer.WriteEndElement(); // Row
-    }
+        FormatCellRef(cellRef, 'C', row, out len);
+        WriteNumberCellRaw(writer, cellRef, len, _dates[idx].ToOADate(), applyFormatting ? 4u : 0u);
 
-    private static void WriteCellDirect(OpenXmlWriter writer, int row, int col, int sstId, uint styleIndex)
-    {
-        var colLetter = (char)('A' + col);
-        var cell = new Cell
-        {
-            CellReference = $"{colLetter}{row}",
-            DataType = CellValues.SharedString,
-            CellValue = new CellValue(sstId),
-            StyleIndex = styleIndex
-        };
-        writer.WriteElement(cell);
-    }
+        FormatCellRef(cellRef, 'D', row, out len);
+        WriteNumberCellRaw(writer, cellRef, len, (i % 500) + 1, applyFormatting ? 5u : 0u);
 
-    private static void WriteCellNumberDirect(OpenXmlWriter writer, int row, int col, double value, uint styleIndex)
-    {
-        var colLetter = (char)('A' + col);
-        var cell = new Cell
-        {
-            CellReference = $"{colLetter}{row}",
-            CellValue = new CellValue(value.ToString("G15", CultureInfo.InvariantCulture)),
-            StyleIndex = styleIndex
-        };
-        writer.WriteElement(cell);
+        FormatCellRef(cellRef, 'E', row, out len);
+        WriteNumberCellRaw(writer, cellRef, len, _numbers[idx] * 0.1, applyFormatting ? 6u : 0u);
+
+        FormatCellRef(cellRef, 'F', row, out len);
+        WriteNumberCellRaw(writer, cellRef, len, _numbers[idx] * ((i % 500) + 1) * 0.1, applyFormatting ? 7u : 0u);
+
+        FormatCellRef(cellRef, 'G', row, out len);
+        WriteStringCellRaw(writer, cellRef, len, GetSstId(status, sstEntries, sstMap), applyFormatting ? 8u : 0u);
+
+        FormatCellRef(cellRef, 'H', row, out len);
+        WriteStringCellRaw(writer, cellRef, len, GetSstId($"Cat-{(i % 12) + 1}", sstEntries, sstMap), applyFormatting ? 9u : 0u);
+
+        FormatCellRef(cellRef, 'I', row, out len);
+        WriteStringCellRaw(writer, cellRef, len, GetSstId(region, sstEntries, sstMap), applyFormatting ? 10u : 0u);
+
+        FormatCellRef(cellRef, 'J', row, out len);
+        WriteStringCellRaw(writer, cellRef, len, GetSstId($"Note for row {row}", sstEntries, sstMap), applyFormatting ? 11u : 0u);
+
+        WriteRowEnd(writer);
     }
 
     #endregion
@@ -393,14 +444,4 @@ public class OpenXmlWorkbookBenchmarks
     }
 
     #endregion
-
-#nullable enable
-    private struct CellData
-    {
-        public int? SharedStringId;
-        public double NumericValue;
-        public string? Formula;
-        public uint StyleIndex;
-    }
-#nullable restore
 }
