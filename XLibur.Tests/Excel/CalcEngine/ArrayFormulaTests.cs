@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using XLibur.Excel;
 using NUnit.Framework;
@@ -153,5 +154,64 @@ public class ArrayFormulaTests
         Assert.That(() => _ = ws.Cell("A2").Value,
             Throws.TypeOf<InvalidOperationException>()
                 .With.Message.EqualTo("Formula in a cell '$Sheet1'!$A1 is part of a cycle."));
+    }
+
+    [Test]
+    public void ArrayFormulaCachedValues_WrittenToXml()
+    {
+        // Verify that cached values for array formula cells (both master and child)
+        // are written to the XML even when EvaluateFormulasBeforeSaving is false.
+        using var ms = new MemoryStream();
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Range("A1:A3").FormulaArrayA1 = "TRANSPOSE({10,20,30})";
+
+        // Evaluate all cells so cached values are populated
+        Assert.AreEqual(10.0, ws.Cell("A1").Value);
+        Assert.AreEqual(20.0, ws.Cell("A2").Value);
+        Assert.AreEqual(30.0, ws.Cell("A3").Value);
+
+        wb.SaveAs(ms, validate: false);
+
+        // Extract and check the XML content
+        var bytes = ms.ToArray();
+        using var zip = new System.IO.Compression.ZipArchive(new MemoryStream(bytes), System.IO.Compression.ZipArchiveMode.Read);
+        var sheetEntry = zip.Entries.First(e => e.FullName.Contains("sheet1.xml", StringComparison.OrdinalIgnoreCase));
+        using var sr = new StreamReader(sheetEntry.Open());
+        var sheetXml = sr.ReadToEnd();
+
+        // All three cells should have their distinct cached values in the XML.
+        // Previously, only the master cell (A1) would have a value, and child cells
+        // (A2, A3) would be empty because cached values were only written when
+        // EvaluateFormulasBeforeSaving was true.
+        Assert.That(sheetXml, Does.Contain("<x:v>10</x:v>"), "Master cell A1 value missing from XML");
+        Assert.That(sheetXml, Does.Contain("<x:v>20</x:v>"), "Child cell A2 value missing from XML");
+        Assert.That(sheetXml, Does.Contain("<x:v>30</x:v>"), "Child cell A3 value missing from XML");
+    }
+
+    [Test]
+    public void NormalFormulaCachedValues_PreservedOnRoundTrip()
+    {
+        // Verify that non-array formula cells also preserve cached values
+        // without requiring EvaluateFormulasBeforeSaving.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = 10;
+            ws.Cell("B1").FormulaA1 = "A1*2";
+            // Evaluate to populate cached value
+            ws.Cell("B1").Value.ToString();
+
+            wb.SaveAs(ms, false);
+        }
+
+        ms.Position = 0;
+
+        using (var wb = new XLWorkbook(ms))
+        {
+            var ws = wb.Worksheets.First();
+            Assert.AreEqual(20.0, ws.Cell("B1").CachedValue);
+        }
     }
 }
