@@ -423,6 +423,12 @@ internal static class SheetDataWriter
             }
         }
 
+        // Even without evaluation, preserve the data type from the existing cached value.
+        // This ensures formula cells loaded from a file retain their type attribute (e.g. t="str").
+        var cachedValueType = xlCell.CachedValue.Type;
+        if (dataType is null && cachedValueType != XLDataType.Blank)
+            dataType = FormulaDataType[(int)cachedValueType];
+
         WriteStartCell(xml, xlCell, cellRef, cellRefLen, dataType, styleId, context);
 
         var xlFormula = xlCell.Formula!;
@@ -437,8 +443,12 @@ internal static class SheetDataWriter
             xml.WriteEndElement(); // f
         }
 
-        if (options.EvaluateFormulasBeforeSaving && xlCell.CachedValue.Type != XLDataType.Blank &&
-            !xlCell.NeedsRecalculation)
+        // Write cached value if it exists and the formula hasn't been dirtied.
+        // Previously this only wrote when EvaluateFormulasBeforeSaving was true,
+        // which dropped cached results for formulas XLibur can't evaluate (e.g.
+        // dynamic array functions like SORT, UNIQUE, FILTER) and also dropped
+        // cached values of spill (non-master) cells in array formulas.
+        if (cachedValueType != XLDataType.Blank && !xlCell.NeedsRecalculation)
         {
             WriteCellValue(xml, xlCell, context);
         }
