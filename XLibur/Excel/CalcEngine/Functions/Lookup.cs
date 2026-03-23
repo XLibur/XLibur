@@ -104,7 +104,7 @@ internal static class Lookup
         if (!value.IsReference && areaNumber > 1)
             return XLError.CellReference;
 
-        // There must be two paths, one for array and one for reference. Reference path
+        // There must be two paths, one for an array and one for reference. Reference path
         // must return reference, so it behaves correctly with implicit intersection.
         if (!ResolveIndexData(value, areaNumber).TryPickT0(out var data, out var dataError))
             return dataError;
@@ -127,7 +127,7 @@ internal static class Lookup
 
         static Reference IndexArea(XLRangeAddress area, int rowNumber, int colNumber)
         {
-            // Return whole area
+            // Return the whole area
             if (rowNumber == 0 && colNumber == 0)
                 return new Reference(area);
 
@@ -147,7 +147,7 @@ internal static class Lookup
                 return new Reference(new XLRangeAddress(leftCell, rightCell));
             }
 
-            // Return single cell reference.
+            // Return a single cell reference.
             var areaCorner = area.FirstAddress;
             var cellAddress = new XLAddress(area.Worksheet, areaCorner.RowNumber + rowNumber - 1, areaCorner.ColumnNumber + colNumber - 1, true, true);
             return new Reference(new XLRangeAddress(cellAddress, cellAddress));
@@ -167,7 +167,7 @@ internal static class Lookup
             if (colNumber == 0)
                 return new SlicedArray(array, rowNumber - 1, 1, 0, array.Width);
 
-            // Return single value
+            // Return a single value
             return array[rowNumber - 1, colNumber - 1].ToAnyValue();
         }
     }
@@ -209,7 +209,7 @@ internal static class Lookup
             if (index == -1)
                 return index;
 
-            // When there are multiple same elements, return position of the last one
+            // When there are multiple same elements, return the position of the last one
             while (index < data.Height - 1 && comparer.Compare(data[index + 1, 0], data[index, 0]) == 0)
                 index++;
 
@@ -269,8 +269,8 @@ internal static class Lookup
     /// <param name="target">Value to look for.</param>
     /// <param name="data">Data in ascending order.</param>
     /// <param name="comparer">A comparator for comparing two values.</param>
-    /// <returns>Index of found element. If the <paramref name="data"/> contains
-    ///   a sequence of <paramref name="target"/> values, it can be index of any of them.
+    /// <returns>Index of the found element. If the <paramref name="data"/> contains
+    ///   a sequence of <paramref name="target"/> values, it can be an index of them.
     /// </returns>
     private static int Bisection(ScalarValue target, Array data, IComparer<ScalarValue> comparer)
     {
@@ -293,7 +293,7 @@ internal static class Lookup
                 low = Math.Min(high, middle + 1);
         }
 
-        // Final index might point to an element greater than the lookup
+        // The final index might point to an element greater than the lookup
         // (e.g. { 1, 2 } with lookup 1.5). The data should be ascending,
         // so just go in the expected order.
         for (var i = low; i >= 0; --i)
@@ -493,13 +493,17 @@ internal static class Lookup
         for (var i = 0; i < text.Length; i++)
         {
             var c = text[i];
-            if (c == '*' || c == '?')
-                return true;
-            if (c == '~' && i + 1 < text.Length)
+            switch (c)
             {
-                var next = text[i + 1];
-                if (next == '*' || next == '?' || next == '~')
+                case '*' or '?':
                     return true;
+                case '~' when i + 1 < text.Length:
+                {
+                    var next = text[i + 1];
+                    if (next is '*' or '?' or '~')
+                        return true;
+                    break;
+                }
             }
         }
 
@@ -555,7 +559,7 @@ internal static class Lookup
 
     private static int Bisection(Array range, ScalarValue lookupValue)
     {
-        // Bisection is predicated on a fact that values of the same type are sorted.
+        // Bisection is predicated on the fact that values of the same type are sorted.
         // If they are not, results are unpredictable.
         // Invariants:
         // * Low row has a value that is less or equal than lookup value
@@ -572,13 +576,13 @@ internal static class Lookup
         var lowValue = range[lowRow, 0];
         var lowCompare = ScalarValueComparer.SortIgnoreCase.Compare(lowValue, lookupValue);
 
-        // Ensure invariants before main loop. If even lowest value in the range is greater than lookup value,
+        // Ensure invariants before the main loop. If even if the lowest value in the range is greater than lookup value,
         // then there can't be any row that matches lookup value/lower.
         if (lowCompare > 0)
             return -1;
 
-        // Since we already know that there is at least one element of same type as lookup value,
-        // high row will find something, though it might be same row as lowRow.
+        // Since we already know that there is at least one element of the same type as lookup value,
+        // high row will find something, though it might be the same row as lowRow.
         highRow = FindSameTypeRow(range, lowRow, -1, highRow, in lookupValue);
 
         // Sanity check for unsorted ranges. For bisection to work, highRow always
@@ -586,15 +590,15 @@ internal static class Lookup
         var highValue = range[highRow, 0];
         var highCompare = ScalarValueComparer.SortIgnoreCase.Compare(highValue, lookupValue);
 
-        // Ensure invariants before main loop. If the lookup value is greater/equal than
+        // Ensure invariants before the main loop. If the lookup value is greater/equal than
         // the greatest value of the range, it is the result.
         if (highCompare <= 0)
             return highRow;
 
-        // Now we have two borders with actual values and we know the lookup value is less than high and greater/equal to lower
+        // Now we have two borders with actual values, and we know the lookup value is less than high and greater/equal to lower
         while (true)
         {
-            // The FindMiddle method returns only values [lowRow, highRow)
+            // The FindMiddle method returns only values [lowRow, highRow),
             // so in each loop it decreases the interval. The lowRow value is
             // the last one checked during search of a middle.
             var middleRow = FindMiddle(range, lowRow, highRow, in lookupValue);
@@ -617,7 +621,7 @@ internal static class Lookup
     }
 
     /// <summary>
-    /// Find a row with a value of same type as <paramref name="lookupValue"/>
+    /// Find a row with a value of the same type as <paramref name="lookupValue"/>
     /// between values <paramref name="low"/> and <c><paramref name="high"/> - 1</c>.
     /// We know that both <paramref name="low"/> and <paramref name="high"/>
     /// contain value of the same type, so we always get a valid row.
@@ -627,7 +631,7 @@ internal static class Lookup
         Debug.Assert(low < high);
         var middleRow = (low + high) / 2;
 
-        // Since low is < high, it's always possible skip high row for determining middle row
+        // Since low is < high, it's always possible to skip high row for determining middle row
         var higherIndex = FindSameTypeRow(range, high - 1, 1, middleRow, in lookupValue);
         if (higherIndex != -1)
             return higherIndex;
@@ -639,7 +643,7 @@ internal static class Lookup
     }
 
     /// <summary>
-    /// Find row index of an element with same type as the lookup value. Go from
+    /// Find the row index of an element with the same type as the lookup value. Go from
     /// <paramref name="startRow"/> to the <paramref name="limitRow"/> by a step
     /// of <paramref name="delta"/>. If there isn't any such row, return <c>-1</c>.
     /// </summary>
@@ -701,7 +705,7 @@ internal static class Lookup
             return XLError.CellReference;
 
         // Handle sheet prefix: "Sheet1!A1" or "'Sheet Name'!A1"
-        XLWorksheet? worksheet = ctx.Worksheet;
+        var worksheet = ctx.Worksheet;
         var addressText = refText;
 
         var bangIndex = refText.LastIndexOf('!');
@@ -732,12 +736,10 @@ internal static class Lookup
                 return XLError.CellReference;
             }
         }
-        else
-        {
-            // R1C1 style: support absolute references (R1C1, R1C1:R5C3)
-            // Relative R1C1 (R[-1]C[2]) is not supported — return #REF!
-            return TryParseR1C1Reference(worksheet, addressText);
-        }
+
+        // R1C1 style: support absolute references (R1C1, R1C1:R5C3)
+        // Relative R1C1 (R[-1]C[2]) is not supported — return #REF!
+        return TryParseR1C1Reference(worksheet, addressText);
     }
 
     private static readonly Regex AbsoluteR1C1Regex = new(
@@ -762,10 +764,8 @@ internal static class Lookup
         if (parts.Length == 2)
         {
             var lastMatch = AbsoluteR1C1Regex.Match(parts[1]);
-            if (!lastMatch.Success)
-                return XLError.CellReference;
-
-            if (!int.TryParse(lastMatch.Groups[1].Value, out lastRow)
+            if (!lastMatch.Success
+                || !int.TryParse(lastMatch.Groups[1].Value, out lastRow)
                 || !int.TryParse(lastMatch.Groups[2].Value, out lastCol))
                 return XLError.CellReference;
         }
