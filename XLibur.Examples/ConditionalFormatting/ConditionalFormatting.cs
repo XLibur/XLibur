@@ -763,11 +763,13 @@ public class CFDataBarModify : IXLExample
         using var workbook = new XLWorkbook();
         var ws = workbook.AddWorksheet("Sheet1");
 
-        // Populate four columns with sample data
+        // Populate six columns with sample data
         ws.Cell("A1").Value = "Recolored";
         ws.Cell("B1").Value = "Unchanged";
         ws.Cell("C1").Value = "Removed";
         ws.Cell("D1").Value = "Flat Fill";
+        ws.Cell("E1").Value = "Axis Midpoint";
+        ws.Cell("F1").Value = "Axis Color";
 
         for (var row = 2; row <= 6; row++)
         {
@@ -777,7 +779,20 @@ public class CFDataBarModify : IXLExample
             ws.Cell(row, 4).Value = row - 1;
         }
 
-        // Create four data bars, keeping the returned references
+        // Negative values for axis examples
+        ws.Cell("E2").Value = -30;
+        ws.Cell("E3").Value = -10;
+        ws.Cell("E4").Value = 20;
+        ws.Cell("E5").Value = 40;
+        ws.Cell("E6").Value = 60;
+
+        ws.Cell("F2").Value = -50;
+        ws.Cell("F3").Value = -20;
+        ws.Cell("F4").Value = 10;
+        ws.Cell("F5").Value = 30;
+        ws.Cell("F6").Value = 70;
+
+        // Create six data bars, keeping the returned references
         var bar1 = ws.Range("A2:A6").AddConditionalFormat()
             .DataBar(XLColor.Red)
             .LowestValue()
@@ -798,6 +813,18 @@ public class CFDataBarModify : IXLExample
             .LowestValue()
             .HighestValue();
 
+        // Negative values with axis at cell midpoint
+        var bar5 = ws.Range("E2:E6").AddConditionalFormat()
+            .DataBar(XLColor.Green, XLColor.Red)
+            .LowestValue()
+            .HighestValue();
+
+        // Negative values with custom axis color
+        var bar6 = ws.Range("F2:F6").AddConditionalFormat()
+            .DataBar(XLColor.Blue, XLColor.Orange)
+            .LowestValue()
+            .HighestValue();
+
         // Change the color of the first bar from Red to Orange
         bar1.Colors[1] = XLColor.Orange;
 
@@ -806,6 +833,12 @@ public class CFDataBarModify : IXLExample
 
         // Switch the fourth bar from gradient to flat fill
         bar4.Gradient = false;
+
+        // Set axis position to cell midpoint for negative values
+        bar5.BarAxisPosition = XLDataBarAxisPosition.Middle;
+
+        // Change axis color to dark red
+        bar6.BarAxisColor = XLColor.DarkRed;
 
         workbook.SaveAs(filePath);
     }

@@ -73,6 +73,13 @@ public enum XLCFOperator
     EndsWith
 }
 
+public enum XLDataBarAxisPosition
+{
+    Automatic,
+    Middle,
+    None
+}
+
 public interface IXLConditionalFormat
 {
     IXLStyle Style { get; set; }
@@ -159,6 +166,10 @@ public interface IXLConditionalFormat
     bool ShowBarOnly { get; set; }
 
     bool Gradient { get; set; }
+
+    XLDataBarAxisPosition BarAxisPosition { get; set; }
+
+    XLColor BarAxisColor { get; set; }
 
     bool StopIfTrue { get; }
 

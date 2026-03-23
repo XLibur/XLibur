@@ -242,6 +242,13 @@ internal static class ConditionalFormatReader
                 .Descendants<DocumentFormat.OpenXml.Office2010.Excel.DataBar>().SingleOrDefault();
             if (x14DataBar?.Gradient != null)
                 xlConditionalFormat.Gradient = x14DataBar.Gradient.Value;
+            if (x14DataBar?.AxisPosition != null)
+                xlConditionalFormat.BarAxisPosition = x14DataBar.AxisPosition.Value.ToXLibur();
+
+            var barAxisColor = conditionalFormattingRule
+                .Descendants<DocumentFormat.OpenXml.Office2010.Excel.BarAxisColor>().SingleOrDefault();
+            if (barAxisColor != null)
+                xlConditionalFormat.BarAxisColor = barAxisColor.ToXLiburColor();
         }
     }
 

@@ -33,8 +33,11 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
             MinLength = 0,
             MaxLength = 100,
             Gradient = cf.Gradient,
-            ShowValue = !cf.ShowBarOnly
+            ShowValue = !cf.ShowBarOnly,
         };
+
+        if (cf.BarAxisPosition != XLDataBarAxisPosition.Automatic)
+            dataBar.AxisPosition = cf.BarAxisPosition.ToOpenXml();
 
         var cfMinType = cf.ContentTypes.TryGetValue(1, out var contentType1)
             ? GetCFType(contentType1.ToOpenXml())
@@ -56,7 +59,7 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
             cfMax.Append(new Formula() { Text = cf.Values[2].Value });
         }
 
-        var barAxisColor = new BarAxisColor { Rgb = XLColor.Black.Color.ToHex() };
+        var barAxisColor = new BarAxisColor { Rgb = cf.BarAxisColor.Color.ToHex() };
 
         var negativeFillColor = new NegativeFillColor { Rgb = cf.Colors[1].Color.ToHex() };
         if (cf.Colors.Count == 2)

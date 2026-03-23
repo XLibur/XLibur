@@ -358,6 +358,72 @@ public class ConditionalFormatTests
     }
 
     [Test]
+    public void DataBar_AxisPosition_Defaults_To_Automatic()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = 10;
+
+        var cf = ws.Range("A1:A1").AddConditionalFormat()
+            .DataBar(XLColor.Red)
+            .LowestValue()
+            .HighestValue();
+
+        Assert.That(cf.BarAxisPosition, Is.EqualTo(XLDataBarAxisPosition.Automatic));
+        Assert.That(cf.BarAxisColor, Is.EqualTo(XLColor.Black));
+    }
+
+    [TestCase(XLDataBarAxisPosition.Automatic)]
+    [TestCase(XLDataBarAxisPosition.Middle)]
+    [TestCase(XLDataBarAxisPosition.None)]
+    public void DataBar_AxisPosition_RoundTrips(XLDataBarAxisPosition position)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = -10;
+        ws.Cell("A2").Value = 20;
+
+        var cf = ws.Range("A1:A2").AddConditionalFormat()
+            .DataBar(XLColor.Red)
+            .LowestValue()
+            .HighestValue();
+
+        cf.BarAxisPosition = position;
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var wb2 = new XLWorkbook(ms);
+        var cf2 = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
+        Assert.That(cf2.BarAxisPosition, Is.EqualTo(position));
+    }
+
+    [Test]
+    public void DataBar_AxisColor_RoundTrips()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = -10;
+        ws.Cell("A2").Value = 20;
+
+        var cf = ws.Range("A1:A2").AddConditionalFormat()
+            .DataBar(XLColor.Red)
+            .LowestValue()
+            .HighestValue();
+
+        cf.BarAxisColor = XLColor.DarkBlue;
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var wb2 = new XLWorkbook(ms);
+        var cf2 = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
+        Assert.That(cf2.BarAxisColor.Color.ToHex(), Is.EqualTo(XLColor.DarkBlue.Color.ToHex()));
+    }
+
+    [Test]
     public void DataBar_Can_Be_Removed()
     {
         using var wb = new XLWorkbook();

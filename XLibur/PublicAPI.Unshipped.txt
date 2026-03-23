@@ -40,5 +40,13 @@ XLibur.Excel.XLChartType.Waterfall = 77 -> XLibur.Excel.XLChartType
 XLibur.Excel.IXLCFDataBarMax.HighestValue() -> XLibur.Excel.IXLConditionalFormat!
 XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, double value) -> XLibur.Excel.IXLConditionalFormat!
 XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, string! value) -> XLibur.Excel.IXLConditionalFormat!
+XLibur.Excel.IXLConditionalFormat.BarAxisColor.get -> XLibur.Excel.XLColor!
+XLibur.Excel.IXLConditionalFormat.BarAxisColor.set -> void
+XLibur.Excel.IXLConditionalFormat.BarAxisPosition.get -> XLibur.Excel.XLDataBarAxisPosition
+XLibur.Excel.IXLConditionalFormat.BarAxisPosition.set -> void
 XLibur.Excel.IXLConditionalFormat.Gradient.set -> void
 XLibur.Excel.IXLConditionalFormat.ShowBarOnly.set -> void
+XLibur.Excel.XLDataBarAxisPosition
+XLibur.Excel.XLDataBarAxisPosition.Automatic = 0 -> XLibur.Excel.XLDataBarAxisPosition
+XLibur.Excel.XLDataBarAxisPosition.Middle = 1 -> XLibur.Excel.XLDataBarAxisPosition
+XLibur.Excel.XLDataBarAxisPosition.None = 2 -> XLibur.Excel.XLDataBarAxisPosition
