@@ -23,7 +23,7 @@ public class ConditionalFormatTests
             return wb;
         }, @"Other\StyleReferenceFiles\ConditionalFormattingOrder\ConditionalFormattingOrder.xlsx");
     }
-    
+
 
     [TestCase(true, 7)]
     [TestCase(false, 8)]
