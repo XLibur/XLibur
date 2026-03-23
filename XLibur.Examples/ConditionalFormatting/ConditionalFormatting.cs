@@ -688,29 +688,27 @@ public class CFDatesOccurring : IXLExample
 {
     public void Create(string filePath)
     {
-        using (var workbook = new XLWorkbook())
-        {
-            var ws = workbook.AddWorksheet("Sheet1");
+        using var workbook = new XLWorkbook();
+        var ws = workbook.AddWorksheet("Sheet1");
 
-            var range = ws.Range("A1:A10");
-            range.AddConditionalFormat()
-                .WhenDateIs(XLTimePeriod.Tomorrow)
-                .Fill.SetBackgroundColor(XLColor.GrannySmithApple);
+        var range = ws.Range("A1:A10");
+        range.AddConditionalFormat()
+            .WhenDateIs(XLTimePeriod.Tomorrow)
+            .Fill.SetBackgroundColor(XLColor.GrannySmithApple);
 
-            range.AddConditionalFormat()
-                .WhenDateIs(XLTimePeriod.Yesterday)
-                .Fill.SetBackgroundColor(XLColor.Orange);
+        range.AddConditionalFormat()
+            .WhenDateIs(XLTimePeriod.Yesterday)
+            .Fill.SetBackgroundColor(XLColor.Orange);
 
-            range.AddConditionalFormat()
-                .WhenDateIs(XLTimePeriod.InTheLast7Days)
-                .Fill.SetBackgroundColor(XLColor.Blue);
+        range.AddConditionalFormat()
+            .WhenDateIs(XLTimePeriod.InTheLast7Days)
+            .Fill.SetBackgroundColor(XLColor.Blue);
 
-            range.AddConditionalFormat()
-                .WhenDateIs(XLTimePeriod.ThisMonth)
-                .Fill.SetBackgroundColor(XLColor.Red);
+        range.AddConditionalFormat()
+            .WhenDateIs(XLTimePeriod.ThisMonth)
+            .Fill.SetBackgroundColor(XLColor.Red);
 
-            workbook.SaveAs(filePath);
-        }
+        workbook.SaveAs(filePath);
     }
 }
 
@@ -753,6 +751,61 @@ public class CFDataBars : IXLExample
         ws.Range("F2:F6").AddConditionalFormat().DataBar(XLColor.Fandango)
             .Minimum(XLCFContentType.Percentile, 30)
             .Maximum(XLCFContentType.Percentile, 70);
+
+        workbook.SaveAs(filePath);
+    }
+}
+
+public class CFDataBarModify : IXLExample
+{
+    public void Create(string filePath)
+    {
+        using var workbook = new XLWorkbook();
+        var ws = workbook.AddWorksheet("Sheet1");
+
+        // Populate four columns with sample data
+        ws.Cell("A1").Value = "Recolored";
+        ws.Cell("B1").Value = "Unchanged";
+        ws.Cell("C1").Value = "Removed";
+        ws.Cell("D1").Value = "Flat Fill";
+
+        for (var row = 2; row <= 6; row++)
+        {
+            ws.Cell(row, 1).Value = row - 1;
+            ws.Cell(row, 2).Value = row - 1;
+            ws.Cell(row, 3).Value = row - 1;
+            ws.Cell(row, 4).Value = row - 1;
+        }
+
+        // Create four data bars, keeping the returned references
+        var bar1 = ws.Range("A2:A6").AddConditionalFormat()
+            .DataBar(XLColor.Red)
+            .LowestValue()
+            .HighestValue();
+
+        ws.Range("B2:B6").AddConditionalFormat()
+            .DataBar(XLColor.Green)
+            .LowestValue()
+            .HighestValue();
+
+        var bar3 = ws.Range("C2:C6").AddConditionalFormat()
+            .DataBar(XLColor.Blue)
+            .LowestValue()
+            .HighestValue();
+
+        var bar4 = ws.Range("D2:D6").AddConditionalFormat()
+            .DataBar(XLColor.Purple)
+            .LowestValue()
+            .HighestValue();
+
+        // Change the color of the first bar from Red to Orange
+        bar1.Colors[1] = XLColor.Orange;
+
+        // Remove the third bar by matching its reference
+        ws.ConditionalFormats.Remove(cf => cf == bar3);
+
+        // Switch the fourth bar from gradient to flat fill
+        bar4.Gradient = false;
 
         workbook.SaveAs(filePath);
     }

@@ -8,18 +8,19 @@ internal sealed class XLCFDataBarMax : IXLCFDataBarMax
         _conditionalFormat = conditionalFormat;
     }
 
-    public void Maximum(XLCFContentType type, string value)
+    public IXLConditionalFormat Maximum(XLCFContentType type, string value)
     {
         _conditionalFormat.ContentTypes.Add(type);
         _conditionalFormat.Values.Add(new XLFormula { Value = value });
+        return _conditionalFormat;
     }
-    public void Maximum(XLCFContentType type, double value)
+    public IXLConditionalFormat Maximum(XLCFContentType type, double value)
     {
-        Maximum(type, value.ToInvariantString());
+        return Maximum(type, value.ToInvariantString());
     }
 
-    public void HighestValue()
+    public IXLConditionalFormat HighestValue()
     {
-        Maximum(XLCFContentType.Maximum, "0");
+        return Maximum(XLCFContentType.Maximum, "0");
     }
 }

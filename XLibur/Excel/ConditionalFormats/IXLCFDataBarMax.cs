@@ -2,7 +2,7 @@
 
 public interface IXLCFDataBarMax
 {
-    void Maximum(XLCFContentType type, string value);
-    void Maximum(XLCFContentType type, double value);
-    void HighestValue();
+    IXLConditionalFormat Maximum(XLCFContentType type, string value);
+    IXLConditionalFormat Maximum(XLCFContentType type, double value);
+    IXLConditionalFormat HighestValue();
 }
