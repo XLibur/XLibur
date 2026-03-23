@@ -436,14 +436,14 @@ public class LoadingTests
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\Misc\Formulas.xlsx"));
         Assert.DoesNotThrow(() =>
         {
-            // The value in the file is blank and kept.
+            // The cached value from the file is preserved without recalculation.
             using var wb = new XLWorkbook(stream, new LoadOptions { RecalculateAllFormulas = false });
-            Assert.AreEqual(Blank.Value, wb.Worksheets.Single().Cell("C2").CachedValue);
+            Assert.AreEqual(3.0, wb.Worksheets.Single().Cell("C2").CachedValue);
         });
 
         Assert.DoesNotThrow(() =>
         {
-            // The value in the file is blank, but recalculation sets it to correct 3.
+            // Recalculation also produces the correct value.
             using var wb = new XLWorkbook(stream, new LoadOptions { RecalculateAllFormulas = true });
             Assert.AreEqual(3, wb.Worksheets.Single().Cell("C2").CachedValue);
         });

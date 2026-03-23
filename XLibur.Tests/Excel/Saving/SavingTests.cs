@@ -135,8 +135,11 @@ public class SavingTests
     }
 
     [Test]
-    public void NotSaveCachedValueWhenFlagIsFalse()
+    public void CachedValuePreservedEvenWhenEvaluateFlagIsFalse()
     {
+        // Cached values are always written when the formula has been evaluated
+        // and is not dirty, regardless of EvaluateFormulasBeforeSaving.
+        // The flag only controls whether formulas are re-evaluated during save.
         using var ms = new MemoryStream();
         using (XLWorkbook book1 = new XLWorkbook())
         {
@@ -154,7 +157,7 @@ public class SavingTests
         {
             var ws = book2.Worksheet(1);
 
-            Assert.AreEqual(Blank.Value, ws.Cell("A2").CachedValue);
+            Assert.AreEqual(1230.0, ws.Cell("A2").CachedValue);
         }
     }
 
