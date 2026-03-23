@@ -24,6 +24,7 @@ public class ConditionalFormatTests
         }, @"Other\StyleReferenceFiles\ConditionalFormattingOrder\ConditionalFormattingOrder.xlsx");
     }
 
+
     [TestCase(true, 7)]
     [TestCase(false, 8)]
     public void SaveOptionAffectsConsolidationConditionalFormatRanges(bool consolidateConditionalFormatRanges, int expectedCount)
@@ -234,5 +235,211 @@ public class ConditionalFormatTests
         var cf = ws.ConditionalFormats
             .Single(cf => cf.ConditionalFormatType == XLConditionalFormatType.ContainsText);
         Assert.That(cf.Values[1].Value, Is.EqualTo("70|"));
+    }
+
+    [Test]
+    public void DataBar_FluentChain_Returns_ConditionalFormat()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = 10;
+        ws.Cell("A2").Value = 20;
+
+        var cf = ws.Range("A1:A2").AddConditionalFormat()
+            .DataBar(XLColor.Red)
+            .LowestValue()
+            .HighestValue();
+
+        Assert.That(cf, Is.Not.Null);
+        Assert.That(cf.ConditionalFormatType, Is.EqualTo(XLConditionalFormatType.DataBar));
+        Assert.That(cf.Colors[1], Is.EqualTo(XLColor.Red));
+    }
+
+    [Test]
+    public void DataBar_Maximum_Returns_ConditionalFormat()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = 10;
+
+        var cf = ws.Range("A1:A1").AddConditionalFormat()
+            .DataBar(XLColor.Red)
+            .Minimum(XLCFContentType.Number, 0)
+            .Maximum(XLCFContentType.Number, 100);
+
+        Assert.That(cf, Is.Not.Null);
+        Assert.That(cf.ConditionalFormatType, Is.EqualTo(XLConditionalFormatType.DataBar));
+    }
+
+    [Test]
+    public void DataBar_Color_Can_Be_Changed_And_RoundTrips()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = 10;
+        ws.Cell("A2").Value = 20;
+
+        var cf = ws.Range("A1:A2").AddConditionalFormat()
+            .DataBar(XLColor.Red)
+            .LowestValue()
+            .HighestValue();
+
+        cf.Colors[1] = XLColor.Blue;
+        Assert.That(cf.Colors[1], Is.EqualTo(XLColor.Blue));
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var wb2 = new XLWorkbook(ms);
+        var cf2 = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
+        Assert.That(cf2.Colors[1].Color.ToHex(), Is.EqualTo(XLColor.Blue.Color.ToHex()));
+    }
+
+    [Test]
+    public void DataBar_ShowBarOnly_And_Gradient_Can_Be_Toggled_And_RoundTrip()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = 10;
+        ws.Cell("A2").Value = 20;
+
+        var cf = ws.Range("A1:A2").AddConditionalFormat()
+            .DataBar(XLColor.Red, showBarOnly: false, gradient: true)
+            .LowestValue()
+            .HighestValue();
+
+        Assert.That(cf.ShowBarOnly, Is.False);
+        Assert.That(cf.Gradient, Is.True);
+
+        cf.ShowBarOnly = true;
+        cf.Gradient = false;
+
+        Assert.That(cf.ShowBarOnly, Is.True);
+        Assert.That(cf.Gradient, Is.False);
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var wb2 = new XLWorkbook(ms);
+        var cf2 = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
+        Assert.That(cf2.ShowBarOnly, Is.True);
+        Assert.That(cf2.Gradient, Is.False);
+    }
+
+    [Test]
+    public void DataBar_Gradient_Changed_To_Flat_RoundTrips()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = 10;
+        ws.Cell("A2").Value = 20;
+        ws.Cell("A3").Value = 30;
+
+        var cf = ws.Range("A1:A3").AddConditionalFormat()
+            .DataBar(XLColor.FromArgb(0xFF638EC6), showBarOnly: false, gradient: true)
+            .LowestValue()
+            .HighestValue();
+
+        Assert.That(cf.Gradient, Is.True);
+
+        // Switch from gradient to flat fill
+        cf.Gradient = false;
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var wb2 = new XLWorkbook(ms);
+        var cf2 = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
+        Assert.That(cf2.Gradient, Is.False);
+        Assert.That(cf2.Colors[1].Color.ToHex(), Is.EqualTo("FF638EC6"));
+    }
+
+    [Test]
+    public void DataBar_AxisPosition_Defaults_To_Automatic()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = 10;
+
+        var cf = ws.Range("A1:A1").AddConditionalFormat()
+            .DataBar(XLColor.Red)
+            .LowestValue()
+            .HighestValue();
+
+        Assert.That(cf.BarAxisPosition, Is.EqualTo(XLDataBarAxisPosition.Automatic));
+        Assert.That(cf.BarAxisColor, Is.EqualTo(XLColor.Black));
+    }
+
+    [TestCase(XLDataBarAxisPosition.Automatic)]
+    [TestCase(XLDataBarAxisPosition.Middle)]
+    [TestCase(XLDataBarAxisPosition.None)]
+    public void DataBar_AxisPosition_RoundTrips(XLDataBarAxisPosition position)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = -10;
+        ws.Cell("A2").Value = 20;
+
+        var cf = ws.Range("A1:A2").AddConditionalFormat()
+            .DataBar(XLColor.Red)
+            .LowestValue()
+            .HighestValue();
+
+        cf.BarAxisPosition = position;
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var wb2 = new XLWorkbook(ms);
+        var cf2 = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
+        Assert.That(cf2.BarAxisPosition, Is.EqualTo(position));
+    }
+
+    [Test]
+    public void DataBar_AxisColor_RoundTrips()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = -10;
+        ws.Cell("A2").Value = 20;
+
+        var cf = ws.Range("A1:A2").AddConditionalFormat()
+            .DataBar(XLColor.Red)
+            .LowestValue()
+            .HighestValue();
+
+        cf.BarAxisColor = XLColor.DarkBlue;
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var wb2 = new XLWorkbook(ms);
+        var cf2 = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
+        Assert.That(cf2.BarAxisColor.Color.ToHex(), Is.EqualTo(XLColor.DarkBlue.Color.ToHex()));
+    }
+
+    [Test]
+    public void DataBar_Can_Be_Removed()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = 10;
+        ws.Cell("A2").Value = 20;
+
+        ws.Range("A1:A2").AddConditionalFormat()
+            .DataBar(XLColor.Red)
+            .LowestValue()
+            .HighestValue();
+
+        Assert.That(ws.ConditionalFormats.Count(), Is.EqualTo(1));
+
+        ws.ConditionalFormats.Remove(cf => cf.ConditionalFormatType == XLConditionalFormatType.DataBar);
+
+        Assert.That(ws.ConditionalFormats.Count(), Is.EqualTo(0));
     }
 }

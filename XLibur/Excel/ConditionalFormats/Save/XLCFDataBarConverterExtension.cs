@@ -33,8 +33,11 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
             MinLength = 0,
             MaxLength = 100,
             Gradient = cf.Gradient,
-            ShowValue = !cf.ShowBarOnly
+            ShowValue = !cf.ShowBarOnly,
         };
+
+        if (cf.BarAxisPosition != XLDataBarAxisPosition.Automatic)
+            dataBar.AxisPosition = cf.BarAxisPosition.ToOpenXml();
 
         var cfMinType = cf.ContentTypes.TryGetValue(1, out var contentType1)
             ? GetCFType(contentType1.ToOpenXml())
@@ -56,13 +59,12 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
             cfMax.Append(new Formula() { Text = cf.Values[2].Value });
         }
 
-        var barAxisColor = new BarAxisColor { Rgb = XLColor.Black.Color.ToHex() };
+        var barAxisColor = new BarAxisColor();
+        SetColorTypeProperties(barAxisColor, cf.BarAxisColor);
 
-        var negativeFillColor = new NegativeFillColor { Rgb = cf.Colors[1].Color.ToHex() };
-        if (cf.Colors.Count == 2)
-        {
-            negativeFillColor = new NegativeFillColor { Rgb = cf.Colors[2].Color.ToHex() };
-        }
+        var negativeColor = cf.Colors.Count == 2 ? cf.Colors[2] : cf.Colors[1];
+        var negativeFillColor = new NegativeFillColor();
+        SetColorTypeProperties(negativeFillColor, negativeColor);
 
         dataBar.Append(cfMin);
         dataBar.Append(cfMax);
@@ -78,5 +80,23 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
     private static ConditionalFormattingValueObjectTypeValues GetCFType(DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues value)
     {
         return CFValueToTypeMap[value];
+    }
+
+    private static void SetColorTypeProperties(DocumentFormat.OpenXml.Office2010.Excel.ColorType target, XLColor color)
+    {
+        switch (color.ColorType)
+        {
+            case XLColorType.Color:
+                target.Rgb = color.Color.ToHex();
+                break;
+            case XLColorType.Theme:
+                target.Theme = System.Convert.ToUInt32(color.ThemeColor);
+                if (color.ThemeTint != 0)
+                    target.Tint = color.ThemeTint;
+                break;
+            case XLColorType.Indexed:
+                target.Indexed = System.Convert.ToUInt32(color.Indexed);
+                break;
+        }
     }
 }

@@ -54,6 +54,8 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
                    && xx.ShowIconOnly == yy.ShowIconOnly
                    && xx.ShowBarOnly == yy.ShowBarOnly
                    && xx.Gradient == yy.Gradient
+                   && xx.BarAxisPosition == yy.BarAxisPosition
+                   && xx.BarAxisColor == yy.BarAxisColor
                    && _listComparer.Equals(xxValues, yyValues)
                    && _listComparer.Equals(xxFormulas, yyFormulas)
                    && _colorsComparer.Equals(xx.Colors, yy.Colors)
@@ -93,6 +95,8 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
                 hashCode = (hashCode * 397) ^ xx.ShowIconOnly.GetHashCode();
                 hashCode = (hashCode * 397) ^ xx.ShowBarOnly.GetHashCode();
                 hashCode = (hashCode * 397) ^ xx.Gradient.GetHashCode();
+                hashCode = (hashCode * 397) ^ (int)xx.BarAxisPosition;
+                hashCode = (hashCode * 397) ^ xx.BarAxisColor.GetHashCode();
                 hashCode = (hashCode * 397) ^ xx.StopIfTrue.GetHashCode();
                 return hashCode;
             }
@@ -221,6 +225,10 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
     public bool Gradient { get; set; } = true;
 
+    public XLDataBarAxisPosition BarAxisPosition { get; set; } = XLDataBarAxisPosition.Automatic;
+
+    public XLColor BarAxisColor { get; set; } = XLColor.Black;
+
     public bool StopIfTrue { get; set; }
 
     public IXLConditionalFormat SetStopIfTrue()
@@ -258,6 +266,8 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         ShowIconOnly = other.ShowIconOnly;
         ShowBarOnly = other.ShowBarOnly;
         Gradient = other.Gradient;
+        BarAxisPosition = other.BarAxisPosition;
+        BarAxisColor = other.BarAxisColor;
         StopIfTrue = other.StopIfTrue;
 
         Values.Clear();

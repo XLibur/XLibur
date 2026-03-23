@@ -688,29 +688,27 @@ public class CFDatesOccurring : IXLExample
 {
     public void Create(string filePath)
     {
-        using (var workbook = new XLWorkbook())
-        {
-            var ws = workbook.AddWorksheet("Sheet1");
+        using var workbook = new XLWorkbook();
+        var ws = workbook.AddWorksheet("Sheet1");
 
-            var range = ws.Range("A1:A10");
-            range.AddConditionalFormat()
-                .WhenDateIs(XLTimePeriod.Tomorrow)
-                .Fill.SetBackgroundColor(XLColor.GrannySmithApple);
+        var range = ws.Range("A1:A10");
+        range.AddConditionalFormat()
+            .WhenDateIs(XLTimePeriod.Tomorrow)
+            .Fill.SetBackgroundColor(XLColor.GrannySmithApple);
 
-            range.AddConditionalFormat()
-                .WhenDateIs(XLTimePeriod.Yesterday)
-                .Fill.SetBackgroundColor(XLColor.Orange);
+        range.AddConditionalFormat()
+            .WhenDateIs(XLTimePeriod.Yesterday)
+            .Fill.SetBackgroundColor(XLColor.Orange);
 
-            range.AddConditionalFormat()
-                .WhenDateIs(XLTimePeriod.InTheLast7Days)
-                .Fill.SetBackgroundColor(XLColor.Blue);
+        range.AddConditionalFormat()
+            .WhenDateIs(XLTimePeriod.InTheLast7Days)
+            .Fill.SetBackgroundColor(XLColor.Blue);
 
-            range.AddConditionalFormat()
-                .WhenDateIs(XLTimePeriod.ThisMonth)
-                .Fill.SetBackgroundColor(XLColor.Red);
+        range.AddConditionalFormat()
+            .WhenDateIs(XLTimePeriod.ThisMonth)
+            .Fill.SetBackgroundColor(XLColor.Red);
 
-            workbook.SaveAs(filePath);
-        }
+        workbook.SaveAs(filePath);
     }
 }
 
@@ -753,6 +751,94 @@ public class CFDataBars : IXLExample
         ws.Range("F2:F6").AddConditionalFormat().DataBar(XLColor.Fandango)
             .Minimum(XLCFContentType.Percentile, 30)
             .Maximum(XLCFContentType.Percentile, 70);
+
+        workbook.SaveAs(filePath);
+    }
+}
+
+public class CFDataBarModify : IXLExample
+{
+    public void Create(string filePath)
+    {
+        using var workbook = new XLWorkbook();
+        var ws = workbook.AddWorksheet("Sheet1");
+
+        // Populate six columns with sample data
+        ws.Cell("A1").Value = "Recolored";
+        ws.Cell("B1").Value = "Unchanged";
+        ws.Cell("C1").Value = "Removed";
+        ws.Cell("D1").Value = "Flat Fill";
+        ws.Cell("E1").Value = "Axis Midpoint";
+        ws.Cell("F1").Value = "Axis Color";
+
+        for (var row = 2; row <= 6; row++)
+        {
+            ws.Cell(row, 1).Value = row - 1;
+            ws.Cell(row, 2).Value = row - 1;
+            ws.Cell(row, 3).Value = row - 1;
+            ws.Cell(row, 4).Value = row - 1;
+        }
+
+        // Negative values for axis examples
+        ws.Cell("E2").Value = -30;
+        ws.Cell("E3").Value = -10;
+        ws.Cell("E4").Value = 20;
+        ws.Cell("E5").Value = 40;
+        ws.Cell("E6").Value = 60;
+
+        ws.Cell("F2").Value = -50;
+        ws.Cell("F3").Value = -20;
+        ws.Cell("F4").Value = 10;
+        ws.Cell("F5").Value = 30;
+        ws.Cell("F6").Value = 70;
+
+        // Create six data bars, keeping the returned references
+        var bar1 = ws.Range("A2:A6").AddConditionalFormat()
+            .DataBar(XLColor.Red)
+            .LowestValue()
+            .HighestValue();
+
+        ws.Range("B2:B6").AddConditionalFormat()
+            .DataBar(XLColor.Green)
+            .LowestValue()
+            .HighestValue();
+
+        var bar3 = ws.Range("C2:C6").AddConditionalFormat()
+            .DataBar(XLColor.Blue)
+            .LowestValue()
+            .HighestValue();
+
+        var bar4 = ws.Range("D2:D6").AddConditionalFormat()
+            .DataBar(XLColor.Purple)
+            .LowestValue()
+            .HighestValue();
+
+        // Negative values with axis at cell midpoint
+        var bar5 = ws.Range("E2:E6").AddConditionalFormat()
+            .DataBar(XLColor.Green, XLColor.Red)
+            .LowestValue()
+            .HighestValue();
+
+        // Negative values with custom axis color
+        var bar6 = ws.Range("F2:F6").AddConditionalFormat()
+            .DataBar(XLColor.Blue, XLColor.Orange)
+            .LowestValue()
+            .HighestValue();
+
+        // Change the color of the first bar from Red to Orange
+        bar1.Colors[1] = XLColor.Orange;
+
+        // Remove the third bar by matching its reference
+        ws.ConditionalFormats.Remove(cf => cf == bar3);
+
+        // Switch the fourth bar from gradient to flat fill
+        bar4.Gradient = false;
+
+        // Set axis position to cell midpoint for negative values
+        bar5.BarAxisPosition = XLDataBarAxisPosition.Middle;
+
+        // Change axis color to dark red
+        bar6.BarAxisColor = XLColor.DarkRed;
 
         workbook.SaveAs(filePath);
     }

@@ -526,6 +526,14 @@ internal static class EnumConverter
         _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
     };
 
+    public static X14.DataBarAxisPositionValues ToOpenXml(this XLDataBarAxisPosition value)
+    {
+        if (value == XLDataBarAxisPosition.Automatic) return X14.DataBarAxisPositionValues.Automatic;
+        if (value == XLDataBarAxisPosition.Middle) return X14.DataBarAxisPositionValues.Middle;
+        if (value == XLDataBarAxisPosition.None) return X14.DataBarAxisPositionValues.None;
+        throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
+    }
+
     #endregion To OpenXml
 
     #region To XLibur
@@ -1236,6 +1244,14 @@ internal static class EnumConverter
     internal static XLPivotCfRuleType ToXLibur(this RuleValues value)
     {
         return RuleMap[value];
+    }
+
+    public static XLDataBarAxisPosition ToXLibur(this X14.DataBarAxisPositionValues value)
+    {
+        if (value == X14.DataBarAxisPositionValues.Automatic) return XLDataBarAxisPosition.Automatic;
+        if (value == X14.DataBarAxisPositionValues.Middle) return XLDataBarAxisPosition.Middle;
+        if (value == X14.DataBarAxisPositionValues.None) return XLDataBarAxisPosition.None;
+        throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
     }
 
     #endregion To XLibur

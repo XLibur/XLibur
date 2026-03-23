@@ -2,6 +2,7 @@
 using XLibur.Examples.Charts;
 using XLibur.Examples.Columns;
 using XLibur.Examples.Comments;
+using XLibur.Examples.ConditionalFormatting;
 using XLibur.Examples.Loading;
 using XLibur.Examples.Misc;
 using XLibur.Examples.PageSetup;
@@ -65,7 +66,6 @@ public static class CreateFiles
         new BlankCells().Create(Path.Combine(path, "BlankCells.xlsx"));
         new TwoPages().Create(Path.Combine(path, "TwoPages.xlsx"));
         new UsingColors().Create(Path.Combine(path, "UsingColors.xlsx"));
-
         new ColumnCells().Create(Path.Combine(path, "ColumnCells.xlsx"));
         new RowCells().Create(Path.Combine(path, "RowCells.xlsx"));
         new FreezePanes().Create(Path.Combine(path, "FreezePanes.xlsx"));
@@ -96,5 +96,6 @@ public static class CreateFiles
         new PivotTables.PivotTables().Create(Path.Combine(path, "PivotTables.xlsx"));
         new SheetViews().Create(Path.Combine(path, "SheetViews.xlsx"));
         new ChartExamples().Create(Path.Combine(path, "ChartExamples.xlsx"));
+        new CFDataBarModify().Create(Path.Combine(path, "CFDataBarModify.xlsx"));
     }
 }

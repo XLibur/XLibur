@@ -57,7 +57,28 @@ public enum XLConditionalFormatType
     AboveAverage
 }
 
-public enum XLCFOperator { Equal, NotEqual, GreaterThan, LessThan, EqualOrGreaterThan, EqualOrLessThan, Between, NotBetween, Contains, NotContains, StartsWith, EndsWith }
+public enum XLCFOperator
+{
+    Equal,
+    NotEqual,
+    GreaterThan,
+    LessThan,
+    EqualOrGreaterThan,
+    EqualOrLessThan,
+    Between,
+    NotBetween,
+    Contains,
+    NotContains,
+    StartsWith,
+    EndsWith
+}
+
+public enum XLDataBarAxisPosition
+{
+    Automatic,
+    Middle,
+    None
+}
 
 public interface IXLConditionalFormat
 {
@@ -127,7 +148,8 @@ public interface IXLConditionalFormat
 
     IXLCFDataBarMin DataBar(XLColor color, bool showBarOnly = false, bool gradient = true);
 
-    IXLCFDataBarMin DataBar(XLColor positiveColor, XLColor negativeColor, bool showBarOnly = false, bool gradient = true);
+    IXLCFDataBarMin DataBar(XLColor positiveColor, XLColor negativeColor, bool showBarOnly = false,
+        bool gradient = true);
 
     IXLCFIconSet IconSet(XLIconSetStyle iconSetStyle, bool reverseIconOrder = false, bool showIconOnly = false);
 
@@ -141,9 +163,13 @@ public interface IXLConditionalFormat
 
     bool ShowIconOnly { get; }
 
-    bool ShowBarOnly { get; }
+    bool ShowBarOnly { get; set; }
 
-    bool Gradient { get; }
+    bool Gradient { get; set; }
+
+    XLDataBarAxisPosition BarAxisPosition { get; set; }
+
+    XLColor BarAxisColor { get; set; }
 
     bool StopIfTrue { get; }
 
