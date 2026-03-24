@@ -18,11 +18,11 @@ public class LibraryNameColumn : IColumn
 {
     public string Id => "Library";
     public string ColumnName => "Library";
-    public bool IsDefault(Summary summary, BenchmarkCase b) => false;
+    public bool IsDefault(Summary summary, BenchmarkCase benchmarkCase) => false;
 
-    public string GetValue(Summary summary, BenchmarkCase b)
+    public string GetValue(Summary summary, BenchmarkCase benchmarkCase)
     {
-        var typeName = b.Descriptor.Type.Name;
+        var typeName = benchmarkCase.Descriptor.Type.Name;
         return typeName switch
         {
             var n when n.Contains("ClosedXml") => "ClosedXML",
@@ -33,8 +33,8 @@ public class LibraryNameColumn : IColumn
         };
     }
 
-    public string GetValue(Summary s, BenchmarkCase b, SummaryStyle style) => GetValue(s, b);
-    public bool IsAvailable(Summary s) => true;
+    public string GetValue(Summary summary, BenchmarkCase benchmarkCase, SummaryStyle style) => GetValue(summary, benchmarkCase);
+    public bool IsAvailable(Summary summary) => true;
     public bool AlwaysShow => true;
     public ColumnCategory Category => ColumnCategory.Job;
     public int PriorityInCategory => -10;

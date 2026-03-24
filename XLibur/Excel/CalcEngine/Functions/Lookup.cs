@@ -231,21 +231,13 @@ internal static class Lookup
 
         static int MatchDescending(ScalarValue target, Array data, IComparer<ScalarValue> comparer)
         {
-            // Data should be in ascending order, but Excel doesn't use bisection.
+            // Data should be in descending order, but Excel doesn't use bisection.
             var found = -1;
-            var i = 0;
-            while (i < data.Height)
+            for (var i = 0; i < data.Height; i++)
             {
-                // Skip elements with different type
                 var value = data[i, 0];
-                while (!value.HaveSameType(target))
-                {
-                    if (i == data.Height - 1)
-                        return found;
-
-                    i++;
-                    value = data[i, 0];
-                }
+                if (!value.HaveSameType(target))
+                    continue;
 
                 var compare = comparer.Compare(target, value);
                 if (compare == 0)
@@ -254,9 +246,8 @@ internal static class Lookup
                 if (compare > 0) // target > value
                     return found;
 
-                // value > target, so there might an exact match later
+                // value > target, so there might be an exact match later
                 found = i;
-                i++;
             }
 
             return found;
@@ -717,29 +708,28 @@ internal static class Lookup
                 return XLError.CellReference;
         }
 
-        if (isA1)
+        return isA1
+            ? TryParseA1Reference(ctx, worksheet, addressText)
+            : TryParseR1C1Reference(worksheet, addressText);
+    }
+
+    private static AnyValue TryParseA1Reference(CalcContext ctx, XLWorksheet? worksheet, string addressText)
+    {
+        if (!XLHelper.IsValidA1Address(addressText) && !XLHelper.IsValidRangeAddress(addressText))
+            return TryResolveDefinedName(ctx, worksheet, addressText);
+
+        try
         {
-            // Check if it's a valid A1 cell or range address
-            if (!XLHelper.IsValidA1Address(addressText) && !XLHelper.IsValidRangeAddress(addressText))
-                return TryResolveDefinedName(ctx, worksheet, addressText);
-
-            try
-            {
-                var rangeAddress = new XLRangeAddress(worksheet, addressText);
-                if (!XLHelper.IsValidRangeAddress(rangeAddress))
-                    return XLError.CellReference;
-
-                return new Reference(rangeAddress.Normalize());
-            }
-            catch
-            {
+            var rangeAddress = new XLRangeAddress(worksheet, addressText);
+            if (!XLHelper.IsValidRangeAddress(rangeAddress))
                 return XLError.CellReference;
-            }
-        }
 
-        // R1C1 style: support absolute references (R1C1, R1C1:R5C3)
-        // Relative R1C1 (R[-1]C[2]) is not supported — return #REF!
-        return TryParseR1C1Reference(worksheet, addressText);
+            return new Reference(rangeAddress.Normalize());
+        }
+        catch
+        {
+            return XLError.CellReference;
+        }
     }
 
     private static readonly Regex AbsoluteR1C1Regex = new(
