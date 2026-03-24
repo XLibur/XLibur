@@ -498,12 +498,12 @@ internal static class Lookup
                 case '*' or '?':
                     return true;
                 case '~' when i + 1 < text.Length:
-                {
-                    var next = text[i + 1];
-                    if (next is '*' or '?' or '~')
-                        return true;
-                    break;
-                }
+                    {
+                        var next = text[i + 1];
+                        if (next is '*' or '?' or '~')
+                            return true;
+                        break;
+                    }
             }
         }
 
