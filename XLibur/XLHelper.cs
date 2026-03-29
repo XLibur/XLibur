@@ -459,7 +459,7 @@ public static partial class XLHelper
     /// <returns>Width in pixels.</returns>
     internal static int NoCToPixels(double noc, IXLFont font, XLWorkbook workbook)
     {
-        var mdw = workbook.GraphicEngine.GetMaxDigitWidth(font, workbook.DpiX).RoundToInt();
+        var mdw = workbook.FontEngine.GetMaxDigitWidth(font, workbook.DpiX).RoundToInt();
         return NoCToPixels(noc, mdw).RoundToInt();
     }
 
@@ -488,7 +488,7 @@ public static partial class XLHelper
     /// <returns>Width as a number of NoC.</returns>
     internal static double ConvertWidthToNoC(double width, IXLFont font, XLWorkbook workbook)
     {
-        var mdw = workbook.GraphicEngine.GetMaxDigitWidth(font, workbook.DpiX).RoundToInt();
+        var mdw = workbook.FontEngine.GetMaxDigitWidth(font, workbook.DpiX).RoundToInt();
         var pixelsWidth = WidthToPixels(width, mdw);
         var columnWidth = PixelToNoC(pixelsWidth, mdw);
         return columnWidth;

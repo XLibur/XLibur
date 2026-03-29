@@ -110,6 +110,45 @@ public class FontTests
         Assert.That(ws.Column(1).Width, Is.GreaterThan(0));
     }
 
+    [Test]
+    public void DefaultFontEngine_CanBeUsedDirectly()
+    {
+        var fontEngine = DefaultFontEngine.Instance.Value;
+        var textFont = new DummyFont("Calibri", 11);
+        var textWidthPx = fontEngine.GetMaxDigitWidth(textFont, 96);
+        Assert.That(textWidthPx, Is.EqualTo(7.43359375d));
+    }
+
+    [Test]
+    public void DefaultFontEngine_CanSpecifyFallbackFontWithoutFileSystem()
+    {
+        using var fallbackFontStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
+        var fontEngine = DefaultFontEngine.CreateOnlyWithFonts(fallbackFontStream);
+
+        var nonExistentFont = new DummyFont("Nonexistent Font", 20);
+        var widthOfLetterA = fontEngine.GetTextWidth("A", nonExistentFont, 120);
+
+        const double expectedWidthOfLetterA = 31.25d;
+        Assert.That(widthOfLetterA, Is.EqualTo(expectedWidthOfLetterA).Within(0.0001));
+    }
+
+    [Test]
+    public void FontEngine_CanBeInjectedViaLoadOptions()
+    {
+        using var fallbackFontStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
+        var customFontEngine = DefaultFontEngine.CreateOnlyWithFonts(fallbackFontStream);
+
+        var loadOptions = new LoadOptions { FontEngine = customFontEngine };
+        using var wb = new XLWorkbook(loadOptions);
+
+        // The workbook should use the custom font engine for text measurement
+        var ws = wb.AddWorksheet();
+        ws.Cell(1, 1).Value = "Test";
+        ws.Column(1).AdjustToContents();
+
+        Assert.That(ws.Column(1).Width, Is.GreaterThan(0));
+    }
+
     private class DummyFont : IXLFontBase
     {
         public DummyFont(string name, double size)

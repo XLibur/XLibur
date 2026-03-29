@@ -109,6 +109,8 @@ public partial class XLWorkbook : IXLWorkbook
 
     internal IXLGraphicEngine GraphicEngine { get; }
 
+    internal IXLFontEngine FontEngine { get; }
+
     internal double DpiX { get; }
 
     internal double DpiY { get; }
@@ -734,6 +736,10 @@ public partial class XLWorkbook : IXLWorkbook
         DpiY = loadOptions.Dpi.Y;
         GraphicEngine = loadOptions.GraphicEngine ??
                         LoadOptions.DefaultGraphicEngine ?? DefaultGraphicEngine.Instance.Value;
+        FontEngine = loadOptions.FontEngine
+                     ?? LoadOptions.DefaultFontEngine
+                     ?? GraphicEngine as IXLFontEngine
+                     ?? DefaultFontEngine.Instance.Value;
         Protection = new XLWorkbookProtection(DefaultProtectionAlgorithm);
         DefaultRowHeight = 15;
         DefaultColumnWidth = 8.43;

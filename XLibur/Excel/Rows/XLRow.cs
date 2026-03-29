@@ -278,7 +278,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
 
     public IXLRow AdjustToContents(int startColumn, int endColumn, double minHeightPt, double maxHeightPt)
     {
-        var engine = Worksheet.Workbook.GraphicEngine;
+        var engine = Worksheet.Workbook.FontEngine;
         var dpi = new Dpi(Worksheet.Workbook.DpiX, Worksheet.Workbook.DpiY);
 
         var rowHeightPx = CalculateMinRowHeight(startColumn, endColumn, engine, dpi);
@@ -298,7 +298,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         return this;
     }
 
-    private int CalculateMinRowHeight(int startColumn, int endColumn, IXLGraphicEngine engine, Dpi dpi)
+    private int CalculateMinRowHeight(int startColumn, int endColumn, IXLFontEngine engine, Dpi dpi)
     {
         var glyphs = new List<GlyphBox>();
         XLStyle? cellStyle = null;

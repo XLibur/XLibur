@@ -781,7 +781,7 @@ public partial class XLWorkbook
     private static double CalculateColumnWidth(double charWidth, IXLFont font, XLWorkbook workbook)
     {
         // Convert width as a number of characters and translate it into a given number of pixels.
-        var mdw = workbook.GraphicEngine.GetMaxDigitWidth(font, workbook.DpiX).RoundToInt();
+        var mdw = workbook.FontEngine.GetMaxDigitWidth(font, workbook.DpiX).RoundToInt();
         var defaultColWidthPx = XLHelper.NoCToPixels(charWidth, mdw).RoundToInt();
 
         // Excel then rounds this number up to the nearest multiple of 8 pixels so that

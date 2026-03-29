@@ -50,3 +50,23 @@ XLibur.Excel.XLDataBarAxisPosition
 XLibur.Excel.XLDataBarAxisPosition.Automatic = 0 -> XLibur.Excel.XLDataBarAxisPosition
 XLibur.Excel.XLDataBarAxisPosition.Middle = 1 -> XLibur.Excel.XLDataBarAxisPosition
 XLibur.Excel.XLDataBarAxisPosition.None = 2 -> XLibur.Excel.XLDataBarAxisPosition
+XLibur.Graphics.IXLFontEngine
+XLibur.Graphics.IXLFontEngine.GetDescent(XLibur.Excel.IXLFontBase! font, double dpiY) -> double
+XLibur.Graphics.IXLFontEngine.GetGlyphBox(System.ReadOnlySpan<int> graphemeCluster, XLibur.Excel.IXLFontBase! font, XLibur.Graphics.Dpi dpi) -> XLibur.Graphics.GlyphBox
+XLibur.Graphics.IXLFontEngine.GetMaxDigitWidth(XLibur.Excel.IXLFontBase! font, double dpiX) -> double
+XLibur.Graphics.IXLFontEngine.GetTextHeight(XLibur.Excel.IXLFontBase! font, double dpiY) -> double
+XLibur.Graphics.IXLFontEngine.GetTextWidth(string! text, XLibur.Excel.IXLFontBase! font, double dpiX) -> double
+XLibur.Graphics.DefaultFontEngine
+XLibur.Graphics.DefaultFontEngine.DefaultFontEngine(string! fallbackFont) -> void
+XLibur.Graphics.DefaultFontEngine.GetDescent(XLibur.Excel.IXLFontBase! font, double dpiY) -> double
+XLibur.Graphics.DefaultFontEngine.GetGlyphBox(System.ReadOnlySpan<int> graphemeCluster, XLibur.Excel.IXLFontBase! font, XLibur.Graphics.Dpi dpi) -> XLibur.Graphics.GlyphBox
+XLibur.Graphics.DefaultFontEngine.GetMaxDigitWidth(XLibur.Excel.IXLFontBase! fontBase, double dpiX) -> double
+XLibur.Graphics.DefaultFontEngine.GetTextHeight(XLibur.Excel.IXLFontBase! font, double dpiY) -> double
+XLibur.Graphics.DefaultFontEngine.GetTextWidth(string! text, XLibur.Excel.IXLFontBase! fontBase, double dpiX) -> double
+static XLibur.Graphics.DefaultFontEngine.CreateOnlyWithFonts(System.IO.Stream! fallbackFontStream, params System.IO.Stream![]! fontStreams) -> XLibur.Graphics.IXLFontEngine!
+static XLibur.Graphics.DefaultFontEngine.CreateWithFontsAndSystemFonts(System.IO.Stream! fallbackFontStream, params System.IO.Stream![]! fontStreams) -> XLibur.Graphics.IXLFontEngine!
+static XLibur.Graphics.DefaultFontEngine.Instance.get -> System.Lazy<XLibur.Graphics.DefaultFontEngine!>!
+XLibur.Graphics.DefaultGraphicEngine.DefaultGraphicEngine(XLibur.Graphics.IXLFontEngine! fontEngine) -> void
+XLibur.Excel.LoadOptions.FontEngine.get -> XLibur.Graphics.IXLFontEngine?
+XLibur.Excel.LoadOptions.FontEngine.set -> void
+static XLibur.Excel.LoadOptions.DefaultFontEngine.set -> void
