@@ -28,9 +28,8 @@ internal static class DefaultFontEngineFactory
     {
         return FromFallbackFont?.Invoke(fallbackFont)
                ?? throw new InvalidOperationException(
-                   "No font engine is registered. " +
-                   "Call SixLaborsV1FontBootstrap.Register() at application startup, " +
-                   "or set LoadOptions.DefaultFontEngine manually. " +
+                   "No font engine is registered. Register a font engine at application startup " +
+                   "or set LoadOptions.DefaultFontEngine. " +
                    "See https://github.com/XLibur/XLibur for setup instructions.");
     }
 
@@ -38,9 +37,8 @@ internal static class DefaultFontEngineFactory
     {
         return FromStreams?.Invoke(fallbackFontStream, useSystemFonts, fontStreams)
                ?? throw new InvalidOperationException(
-                   "No font engine is registered. " +
-                   "Call SixLaborsV1FontBootstrap.Register() at application startup, " +
-                   "or set LoadOptions.DefaultFontEngine manually. " +
+                   "No font engine is registered. Register a font engine at application startup " +
+                   "or set LoadOptions.DefaultFontEngine. " +
                    "See https://github.com/XLibur/XLibur for setup instructions.");
     }
 }
