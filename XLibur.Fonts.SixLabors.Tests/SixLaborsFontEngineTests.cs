@@ -287,7 +287,7 @@ public class SixLaborsFontEngineTests
     [Test]
     public void MaxDigitWidth_MatchesDefaultFontEngine()
     {
-        Assert.That(HasSystemFonts, Is.True, "Skipped: system fonts not available");
+        Assume.That(HasSystemFonts, Is.True, "System fonts not available");
 
         var defaultEngine = DefaultFontEngine.Instance.Value;
         var systemEngine = new SixLaborsFontEngine("Microsoft Sans Serif");
@@ -302,7 +302,7 @@ public class SixLaborsFontEngineTests
     [Test]
     public void TextWidth_MatchesDefaultFontEngine()
     {
-        Assert.That(HasSystemFonts, Is.True, "Skipped: system fonts not available");
+        Assume.That(HasSystemFonts, Is.True, "System fonts not available");
 
         var defaultEngine = DefaultFontEngine.Instance.Value;
         var systemEngine = new SixLaborsFontEngine("Microsoft Sans Serif");
@@ -318,7 +318,7 @@ public class SixLaborsFontEngineTests
     [Test]
     public void TextHeight_MatchesDefaultFontEngine()
     {
-        Assert.That(HasSystemFonts, Is.True, "Skipped: system fonts not available");
+        Assume.That(HasSystemFonts, Is.True, "System fonts not available");
 
         var defaultEngine = DefaultFontEngine.Instance.Value;
         var systemEngine = new SixLaborsFontEngine("Microsoft Sans Serif");
@@ -333,7 +333,7 @@ public class SixLaborsFontEngineTests
     [Test]
     public void Descent_MatchesDefaultFontEngine()
     {
-        Assert.That(HasSystemFonts, Is.True, "Skipped: system fonts not available");
+        Assume.That(HasSystemFonts, Is.True, "System fonts not available");
 
         var defaultEngine = DefaultFontEngine.Instance.Value;
         var systemEngine = new SixLaborsFontEngine("Microsoft Sans Serif");
@@ -348,7 +348,7 @@ public class SixLaborsFontEngineTests
     [Test]
     public void GlyphBox_MatchesDefaultFontEngine()
     {
-        Assert.That(HasSystemFonts, Is.True, "Skipped: system fonts not available");
+        Assume.That(HasSystemFonts, Is.True, "System fonts not available");
 
         var defaultEngine = DefaultFontEngine.Instance.Value;
         var systemEngine = new SixLaborsFontEngine("Microsoft Sans Serif");
