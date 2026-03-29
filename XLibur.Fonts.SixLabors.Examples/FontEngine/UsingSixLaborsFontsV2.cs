@@ -1,15 +1,15 @@
 ﻿using XLibur.Excel;
 using XLibur.Fonts.SixLabors;
 
-namespace XLibur.Examples.FontEngine;
+namespace XLibur.Fonts.SixLabors.Examples.FontEngine;
 
 /// <summary>
 /// Demonstrates using SixLabors.Fonts 2.x as the font engine for text measurement.
 /// Install the XLibur.Fonts.SixLabors NuGet package to use this.
 /// </summary>
-public class UsingSixLaborsFontsV2 : IXLExample
+public class UsingSixLaborsFontsV2
 {
-    public void Create(string filePath)
+    public static void Create(string filePath)
     {
         // Create a SixLabors.Fonts 2.x font engine with system fonts
         var fontEngine = new SixLaborsFontEngine("Microsoft Sans Serif");
