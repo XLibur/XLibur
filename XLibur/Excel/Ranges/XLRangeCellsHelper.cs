@@ -51,7 +51,7 @@ internal static class XLRangeCellsHelper
 
     internal static IEnumerable<IXLCell> CellsUsedInternal(XLRangeBase range, XLCellsUsedOptions options, Func<IXLRange, IXLCell> selector, Func<IXLCell, bool>? predicate)
     {
-        predicate ??= (t => true);
+        predicate ??= (_ => true);
 
         //To avoid unnecessary initialization of thousands of cells
         var opt = options

@@ -69,7 +69,7 @@ internal static class XLRangeConditionalFormatHelper
             return false;
 
         if (!mf.RowNumber.Between(f.RowNumber, l.RowNumber) && !ml.RowNumber.Between(f.RowNumber, l.RowNumber))
-            return true; // Spans full width, but no row overlap produces remainder — still counts as "by width"
+            return true; // Spans full width, but no row overlap produces a remainder — still counts as "by width"
 
         if (mf.RowNumber > f.RowNumber)
             format.Ranges.Add(worksheet.Range(f.RowNumber, f.ColumnNumber, mf.RowNumber - 1, l.ColumnNumber));
@@ -90,7 +90,7 @@ internal static class XLRangeConditionalFormatHelper
             return false;
 
         if (!mf.ColumnNumber.Between(f.ColumnNumber, l.ColumnNumber) && !ml.ColumnNumber.Between(f.ColumnNumber, l.ColumnNumber))
-            return true; // Spans full height but no column overlap produces remainder
+            return true; // Spans full height but no column overlap produces the remainder
 
         if (mf.ColumnNumber > f.ColumnNumber)
             format.Ranges.Add(worksheet.Range(f.RowNumber, f.ColumnNumber, l.RowNumber, mf.ColumnNumber - 1));
