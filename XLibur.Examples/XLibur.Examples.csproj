@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\XLibur\XLibur.csproj" />
+    <ProjectReference Include="..\XLibur.Fonts.SixLabors\XLibur.Fonts.SixLabors.csproj" />
     <PackageReference Include="morelinq" Version="4.4.0" />
   </ItemGroup>
 
