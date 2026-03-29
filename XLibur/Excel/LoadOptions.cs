@@ -31,9 +31,13 @@ public class LoadOptions
 
     /// <summary>
     /// Font engine used by the workbook for text measurement and font metrics.
-    /// When not set, falls back to the font engine of the graphic engine (if it implements
-    /// <see cref="IXLFontEngine"/>), or the built-in <see cref="DefaultFontEngine"/>.
     /// </summary>
+    /// <remarks>
+    /// Resolution order: <see cref="FontEngine"/> if set, then <see cref="DefaultFontEngine"/>,
+    /// then the workbook's <see cref="GraphicEngine"/> if it implements <see cref="IXLFontEngine"/>,
+    /// otherwise a <see cref="GraphicEngineFontAdapter"/> wrapping the graphic engine.
+    /// If no font engine or graphic engine is available, an <see cref="System.InvalidOperationException"/> is thrown.
+    /// </remarks>
     public IXLFontEngine? FontEngine { get; set; }
 
     /// <summary>
