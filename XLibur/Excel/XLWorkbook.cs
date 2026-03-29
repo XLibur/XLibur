@@ -738,8 +738,7 @@ public partial class XLWorkbook : IXLWorkbook
                         LoadOptions.DefaultGraphicEngine ?? DefaultGraphicEngine.Instance.Value;
         FontEngine = loadOptions.FontEngine
                      ?? LoadOptions.DefaultFontEngine
-                     ?? GraphicEngine as IXLFontEngine
-                     ?? DefaultFontEngine.Instance.Value;
+                     ?? (GraphicEngine as IXLFontEngine ?? new GraphicEngineFontAdapter(GraphicEngine));
         Protection = new XLWorkbookProtection(DefaultProtectionAlgorithm);
         DefaultRowHeight = 15;
         DefaultColumnWidth = 8.43;
