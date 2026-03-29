@@ -251,7 +251,7 @@ public class DefaultFontEngine : IXLFontEngine
     {
         var font = GetFont(metricId);
         var metrics = font.FontMetrics;
-        var maxWidth = int.MinValue;
+        var maxWidth = 0;
         for (var c = '0'; c <= '9'; ++c)
         {
             var containsMetrics = metrics.TryGetGlyphMetrics(
