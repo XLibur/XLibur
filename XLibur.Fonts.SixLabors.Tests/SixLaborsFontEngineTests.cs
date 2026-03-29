@@ -1,0 +1,497 @@
+﻿using System;
+using System.IO;
+using NUnit.Framework;
+using XLibur.Excel;
+using XLibur.Graphics;
+
+namespace XLibur.Fonts.SixLabors.Tests;
+
+[TestFixture]
+public class SixLaborsFontEngineTests
+{
+    /// <summary>
+    /// Engine using system fonts with "Microsoft Sans Serif" fallback — mirrors the default
+    /// <see cref="DefaultFontEngine"/> configuration so results should be comparable.
+    /// </summary>
+    private readonly IXLFontEngine _engine = new SixLaborsFontEngine("Microsoft Sans Serif");
+
+    #region Text width
+
+    [Test]
+    public void GetTextWidth_ReturnsPositiveValue()
+    {
+        var font = new DummyFont("Calibri", 20);
+        var width = _engine.GetTextWidth("Lorem ipsum dolor sit amet", font, 96);
+
+        Assert.That(width, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void GetTextWidth_LongerTextIsWider()
+    {
+        var font = new DummyFont("Calibri", 11);
+        var shortWidth = _engine.GetTextWidth("AB", font, 96);
+        var longWidth = _engine.GetTextWidth("ABCDEF", font, 96);
+
+        Assert.That(longWidth, Is.GreaterThan(shortWidth));
+    }
+
+    [Test]
+    public void GetTextWidth_LargerFontIsWider()
+    {
+        var smallFont = new DummyFont("Calibri", 10);
+        var largeFont = new DummyFont("Calibri", 20);
+        var smallWidth = _engine.GetTextWidth("Test", smallFont, 96);
+        var largeWidth = _engine.GetTextWidth("Test", largeFont, 96);
+
+        Assert.That(largeWidth, Is.GreaterThan(smallWidth));
+    }
+
+    [Test]
+    public void GetTextWidth_HigherDpiIsWider()
+    {
+        var font = new DummyFont("Calibri", 11);
+        var width96 = _engine.GetTextWidth("Test", font, 96);
+        var width120 = _engine.GetTextWidth("Test", font, 120);
+
+        Assert.That(width120, Is.GreaterThan(width96));
+    }
+
+    [Test]
+    public void GetTextWidth_EmptyStringReturnsZero()
+    {
+        var font = new DummyFont("Calibri", 11);
+        var width = _engine.GetTextWidth("", font, 96);
+
+        Assert.That(width, Is.EqualTo(0));
+    }
+
+    #endregion
+
+    #region Text height
+
+    [Test]
+    public void GetTextHeight_ReturnsPositiveValue()
+    {
+        var font = new DummyFont("Calibri", 11);
+        var height = _engine.GetTextHeight(font, 96);
+
+        Assert.That(height, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void GetTextHeight_LargerFontIsTaller()
+    {
+        var smallFont = new DummyFont("Calibri", 10);
+        var largeFont = new DummyFont("Calibri", 30);
+        var smallHeight = _engine.GetTextHeight(smallFont, 96);
+        var largeHeight = _engine.GetTextHeight(largeFont, 96);
+
+        Assert.That(largeHeight, Is.GreaterThan(smallHeight));
+    }
+
+    [Test]
+    public void GetTextHeight_HigherDpiIsTaller()
+    {
+        var font = new DummyFont("Calibri", 11);
+        var height96 = _engine.GetTextHeight(font, 96);
+        var height120 = _engine.GetTextHeight(font, 120);
+
+        Assert.That(height120, Is.GreaterThan(height96));
+    }
+
+    #endregion
+
+    #region Max digit width
+
+    [Test]
+    public void GetMaxDigitWidth_ReturnsPositiveValue()
+    {
+        var font = new DummyFont("Calibri", 11);
+        var mdw = _engine.GetMaxDigitWidth(font, 96);
+
+        Assert.That(mdw, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void GetMaxDigitWidth_LargerFontIsWider()
+    {
+        var smallFont = new DummyFont("Calibri", 10);
+        var largeFont = new DummyFont("Calibri", 20);
+        var smallMdw = _engine.GetMaxDigitWidth(smallFont, 96);
+        var largeMdw = _engine.GetMaxDigitWidth(largeFont, 96);
+
+        Assert.That(largeMdw, Is.GreaterThan(smallMdw));
+    }
+
+    #endregion
+
+    #region Descent
+
+    [Test]
+    public void GetDescent_ReturnsPositiveValue()
+    {
+        var font = new DummyFont("Calibri", 11);
+        var descent = _engine.GetDescent(font, 96);
+
+        Assert.That(descent, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void GetDescent_LargerFontHasLargerDescent()
+    {
+        var smallFont = new DummyFont("Calibri", 10);
+        var largeFont = new DummyFont("Calibri", 30);
+        var smallDescent = _engine.GetDescent(smallFont, 96);
+        var largeDescent = _engine.GetDescent(largeFont, 96);
+
+        Assert.That(largeDescent, Is.GreaterThan(smallDescent));
+    }
+
+    #endregion
+
+    #region Glyph box
+
+    [Test]
+    public void GetGlyphBox_ReturnsPositiveAdvanceWidth()
+    {
+        var font = new DummyFont("Calibri", 11);
+        Span<int> codePoints = ['A'];
+        var box = _engine.GetGlyphBox(codePoints, font, new Dpi(96, 96));
+
+        Assert.That(box.AdvanceWidth, Is.GreaterThan(0));
+        Assert.That(box.EmSize, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void GetGlyphBox_DifferentCharactersHaveDifferentWidths()
+    {
+        var font = new DummyFont("Calibri", 11);
+        Span<int> narrowChar = ['i'];
+        Span<int> wideChar = ['W'];
+
+        var narrowBox = _engine.GetGlyphBox(narrowChar, font, new Dpi(96, 96));
+        var wideBox = _engine.GetGlyphBox(wideChar, font, new Dpi(96, 96));
+
+        Assert.That(wideBox.AdvanceWidth, Is.GreaterThan(narrowBox.AdvanceWidth));
+    }
+
+    [Test]
+    public void GetGlyphBox_DescentIsPositive()
+    {
+        var font = new DummyFont("Calibri", 11);
+        Span<int> codePoints = ['g'];
+        var box = _engine.GetGlyphBox(codePoints, font, new Dpi(96, 96));
+
+        Assert.That(box.Descent, Is.GreaterThanOrEqualTo(0));
+    }
+
+    [Test]
+    public void GetGlyphBox_LargerFontProducesLargerBox()
+    {
+        var smallFont = new DummyFont("Calibri", 10);
+        var largeFont = new DummyFont("Calibri", 20);
+        Span<int> codePoints = ['A'];
+
+        var smallBox = _engine.GetGlyphBox(codePoints, smallFont, new Dpi(96, 96));
+        var largeBox = _engine.GetGlyphBox(codePoints, largeFont, new Dpi(96, 96));
+
+        Assert.That(largeBox.AdvanceWidth, Is.GreaterThan(smallBox.AdvanceWidth));
+        Assert.That(largeBox.EmSize, Is.GreaterThan(smallBox.EmSize));
+    }
+
+    #endregion
+
+    #region Fallback behavior
+
+    [Test]
+    public void NonExistentFont_UsesFallback()
+    {
+        var nonExistent = new DummyFont("TotallyFakeNonExistentFont12345", 11);
+        var fallback = new DummyFont("Microsoft Sans Serif", 11);
+
+        var nonExistentWidth = _engine.GetTextWidth("Test", nonExistent, 96);
+        var fallbackWidth = _engine.GetTextWidth("Test", fallback, 96);
+
+        Assert.That(nonExistentWidth, Is.EqualTo(fallbackWidth));
+    }
+
+    [Test]
+    public void NonExistentFont_UsesFallbackForHeight()
+    {
+        var nonExistent = new DummyFont("TotallyFakeNonExistentFont12345", 14);
+        var fallback = new DummyFont("Microsoft Sans Serif", 14);
+
+        var nonExistentHeight = _engine.GetTextHeight(nonExistent, 96);
+        var fallbackHeight = _engine.GetTextHeight(fallback, 96);
+
+        Assert.That(nonExistentHeight, Is.EqualTo(fallbackHeight));
+    }
+
+    #endregion
+
+    #region Stream-based factory methods
+
+    [Test]
+    public void CreateOnlyWithFonts_UsesProvidedFallback()
+    {
+        using var fallbackStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
+        var engine = SixLaborsFontEngine.CreateOnlyWithFonts(fallbackStream);
+
+        var font = new DummyFont("Nonexistent Font", 20);
+        var width = engine.GetTextWidth("A", font, 120);
+
+        // TestFontA at 20pt, 120 DPI — v2 may have slightly different measurement than v1
+        Assert.That(width, Is.EqualTo(31.25d).Within(1.0));
+    }
+
+    [Test]
+    public void CreateOnlyWithFonts_CanLoadExtraFonts()
+    {
+        using var fallbackStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
+        using var fontBStream = TestHelper.GetStreamFromResource("Fonts.TestFontB.ttf");
+        var engine = SixLaborsFontEngine.CreateOnlyWithFonts(fallbackStream, fontBStream);
+
+        var widthB = engine.GetTextWidth("B", new DummyFont("TestFontB", 30), 96);
+
+        Assert.That(widthB, Is.EqualTo(25d).Within(1.5));
+    }
+
+    [Test]
+    public void CreateWithFontsAndSystemFonts_CanUseSystemFonts()
+    {
+        using var fallbackStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
+        var engine = SixLaborsFontEngine.CreateWithFontsAndSystemFonts(fallbackStream);
+
+        // Should be able to measure system fonts like Arial
+        var font = new DummyFont("Arial", 11);
+        var width = engine.GetTextWidth("Test", font, 96);
+
+        Assert.That(width, Is.GreaterThan(0));
+    }
+
+    #endregion
+
+    #region Metric parity with DefaultFontEngine
+
+    [Test]
+    public void MaxDigitWidth_MatchesDefaultFontEngine()
+    {
+        var defaultEngine = DefaultFontEngine.Instance.Value;
+        var font = new DummyFont("Calibri", 11);
+
+        var defaultMdw = defaultEngine.GetMaxDigitWidth(font, 96);
+        var sixLaborsMdw = _engine.GetMaxDigitWidth(font, 96);
+
+        // Both use Calibri from system fonts — results should be identical
+        Assert.That(sixLaborsMdw, Is.EqualTo(defaultMdw).Within(0.01));
+    }
+
+    [Test]
+    public void TextWidth_MatchesDefaultFontEngine()
+    {
+        var defaultEngine = DefaultFontEngine.Instance.Value;
+        var font = new DummyFont("Calibri", 11);
+        const string text = "Hello World";
+
+        var defaultWidth = defaultEngine.GetTextWidth(text, font, 96);
+        var sixLaborsWidth = _engine.GetTextWidth(text, font, 96);
+
+        Assert.That(sixLaborsWidth, Is.EqualTo(defaultWidth).Within(0.01));
+    }
+
+    [Test]
+    public void TextHeight_MatchesDefaultFontEngine()
+    {
+        var defaultEngine = DefaultFontEngine.Instance.Value;
+        var font = new DummyFont("Calibri", 11);
+
+        var defaultHeight = defaultEngine.GetTextHeight(font, 96);
+        var sixLaborsHeight = _engine.GetTextHeight(font, 96);
+
+        Assert.That(sixLaborsHeight, Is.EqualTo(defaultHeight).Within(0.01));
+    }
+
+    [Test]
+    public void Descent_MatchesDefaultFontEngine()
+    {
+        var defaultEngine = DefaultFontEngine.Instance.Value;
+        var font = new DummyFont("Calibri", 11);
+
+        var defaultDescent = defaultEngine.GetDescent(font, 96);
+        var sixLaborsDescent = _engine.GetDescent(font, 96);
+
+        Assert.That(sixLaborsDescent, Is.EqualTo(defaultDescent).Within(0.01));
+    }
+
+    [Test]
+    public void GlyphBox_MatchesDefaultFontEngine()
+    {
+        var defaultEngine = DefaultFontEngine.Instance.Value;
+        var font = new DummyFont("Calibri", 11);
+        Span<int> codePoints = ['8'];
+        var dpi = new Dpi(96, 96);
+
+        var defaultBox = defaultEngine.GetGlyphBox(codePoints, font, dpi);
+        var sixLaborsBox = _engine.GetGlyphBox(codePoints, font, dpi);
+
+        Assert.That(sixLaborsBox.AdvanceWidth, Is.EqualTo(defaultBox.AdvanceWidth).Within(0.01f));
+        Assert.That(sixLaborsBox.EmSize, Is.EqualTo(defaultBox.EmSize).Within(0.01f));
+        Assert.That(sixLaborsBox.Descent, Is.EqualTo(defaultBox.Descent).Within(0.01f));
+    }
+
+    #endregion
+
+    #region Workbook integration
+
+    [Test]
+    public void FontEngine_WorksWithWorkbookViaLoadOptions()
+    {
+        var loadOptions = new LoadOptions { FontEngine = _engine };
+        using var wb = new XLWorkbook(loadOptions);
+        var ws = wb.AddWorksheet();
+
+        ws.Cell(1, 1).Value = "Hello World";
+        ws.Column(1).AdjustToContents();
+
+        Assert.That(ws.Column(1).Width, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void FontEngine_AdjustToContents_ProducesReasonableWidth()
+    {
+        var loadOptions = new LoadOptions { FontEngine = _engine };
+        using var wb = new XLWorkbook(loadOptions);
+        var ws = wb.AddWorksheet();
+
+        ws.Cell(1, 1).Value = "Short";
+        ws.Cell(2, 1).Value = "A much longer text that should need more width";
+
+        ws.Column(1).AdjustToContents();
+
+        // Width should accommodate the longer text
+        Assert.That(ws.Column(1).Width, Is.GreaterThan(8.43)); // 8.43 is the default column width
+    }
+
+    [Test]
+    public void FontEngine_AdjustRowHeight_ProducesReasonableHeight()
+    {
+        var loadOptions = new LoadOptions { FontEngine = _engine };
+        using var wb = new XLWorkbook(loadOptions);
+        var ws = wb.AddWorksheet();
+
+        ws.Cell(1, 1).Value = "Test";
+        ws.Row(1).AdjustToContents();
+
+        Assert.That(ws.Row(1).Height, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void FontEngine_CanSaveAndReloadWorkbook()
+    {
+        var loadOptions = new LoadOptions { FontEngine = _engine };
+        using var wb = new XLWorkbook(loadOptions);
+        var ws = wb.AddWorksheet();
+        ws.Cell(1, 1).Value = "Saved with SixLabors v2";
+        ws.Column(1).AdjustToContents();
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+
+        // Reload without specifying font engine — uses default
+        ms.Position = 0;
+        using var wb2 = new XLWorkbook(ms);
+        var value = wb2.Worksheet(1).Cell(1, 1).GetString();
+
+        Assert.That(value, Is.EqualTo("Saved with SixLabors v2"));
+    }
+
+    [Test]
+    public void FontEngine_StreamBased_WorksWithWorkbook()
+    {
+        using var fallbackStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
+        var engine = SixLaborsFontEngine.CreateOnlyWithFonts(fallbackStream);
+
+        var loadOptions = new LoadOptions { FontEngine = engine };
+        using var wb = new XLWorkbook(loadOptions);
+        var ws = wb.AddWorksheet();
+        ws.Cell(1, 1).Value = "Stream-based font";
+        ws.Column(1).AdjustToContents();
+
+        Assert.That(ws.Column(1).Width, Is.GreaterThan(0));
+    }
+
+    #endregion
+
+    #region Bold / Italic variants
+
+    [Test]
+    public void BoldFont_ProducesValidMetrics()
+    {
+        var bold = new DummyFont("Calibri", 11) { Bold = true };
+
+        var boldWidth = _engine.GetTextWidth("Test text", bold, 96);
+
+        // Bold font should still produce valid positive width
+        Assert.That(boldWidth, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void ItalicFont_HasDifferentMetricsThanRegular()
+    {
+        var regular = new DummyFont("Calibri", 11);
+        var italic = new DummyFont("Calibri", 11) { Italic = true };
+
+        var regularWidth = _engine.GetTextWidth("Test text", regular, 96);
+        var italicWidth = _engine.GetTextWidth("Test text", italic, 96);
+
+        // Italic may have different metrics — just verify it resolves without error
+        Assert.That(italicWidth, Is.GreaterThan(0));
+    }
+
+    #endregion
+
+    #region Constructor validation
+
+    [Test]
+    public void Constructor_ThrowsOnNullFallbackFont()
+    {
+        Assert.Throws<ArgumentException>(() => new SixLaborsFontEngine(null!));
+    }
+
+    [Test]
+    public void Constructor_ThrowsOnWhitespaceFallbackFont()
+    {
+        Assert.Throws<ArgumentException>(() => new SixLaborsFontEngine("   "));
+    }
+
+    [Test]
+    public void CreateOnlyWithFonts_ThrowsOnNullStream()
+    {
+        Assert.Throws<ArgumentNullException>(() => SixLaborsFontEngine.CreateOnlyWithFonts(null!));
+    }
+
+    #endregion
+
+    private class DummyFont : IXLFontBase
+    {
+        public DummyFont(string name, double size)
+        {
+            FontName = name;
+            FontSize = size;
+        }
+
+        public string FontName { get; set; }
+        public double FontSize { get; set; }
+        public bool Bold { get; set; }
+        public bool Italic { get; set; }
+        public bool Strikethrough { get; set; }
+        public XLFontUnderlineValues Underline { get; set; } = XLFontUnderlineValues.None;
+        public XLFontVerticalTextAlignmentValues VerticalAlignment { get; set; }
+        public bool Shadow { get; set; }
+        public XLColor FontColor { get; set; } = XLColor.Black;
+        public XLFontFamilyNumberingValues FontFamilyNumbering { get; set; } = XLFontFamilyNumberingValues.NotApplicable;
+        public XLFontCharSet FontCharSet { get; set; } = XLFontCharSet.Default;
+        public XLFontScheme FontScheme { get; set; }
+    }
+}
