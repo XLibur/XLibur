@@ -734,8 +734,11 @@ public partial class XLWorkbook : IXLWorkbook
 
         DpiX = loadOptions.Dpi.X;
         DpiY = loadOptions.Dpi.Y;
-        var fontEngine = loadOptions.FontEngine ?? LoadOptions.DefaultFontEngine;
-        GraphicEngine = loadOptions.GraphicEngine
+        var explicitGraphic = loadOptions.GraphicEngine;
+        var fontEngine = loadOptions.FontEngine
+                         ?? (explicitGraphic as IXLFontEngine)
+                         ?? LoadOptions.DefaultFontEngine;
+        GraphicEngine = explicitGraphic
                         ?? LoadOptions.DefaultGraphicEngine
                         ?? (fontEngine is not null
                             ? new DefaultGraphicEngine(fontEngine)
