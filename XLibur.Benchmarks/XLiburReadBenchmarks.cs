@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
+using XLibur.Fonts.SixLabors.V1;
 
 namespace XLibur.Benchmarks;
 
@@ -17,6 +18,7 @@ public class XLiburReadBenchmarks
     [GlobalSetup]
     public void Setup()
     {
+        SixLaborsV1FontBootstrap.Register();
         using var workbook = new XLWorkbook();
         var ws = workbook.AddWorksheet("Data");
 
