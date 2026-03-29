@@ -37,7 +37,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine, IXLFontEngine
     /// <param name="fallbackFont">A name of a font that is used when a font in a workbook is not available.</param>
     public DefaultGraphicEngine(string fallbackFont)
     {
-        _fontEngine = FontEngineProvider.CreateFromFallbackFont(fallbackFont);
+        _fontEngine = DefaultFontEngineFactory.CreateFromFallbackFont(fallbackFont);
         _readersByFormat = BuildReadersByFormat(_imageReaders);
     }
 
@@ -54,7 +54,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine, IXLFontEngine
 
     private DefaultGraphicEngine(Stream fallbackFontStream, bool useSystemFonts, Stream[] fontStreams)
     {
-        _fontEngine = FontEngineProvider.CreateFromStreams(fallbackFontStream, useSystemFonts, fontStreams);
+        _fontEngine = DefaultFontEngineFactory.CreateFromStreams(fallbackFontStream, useSystemFonts, fontStreams);
         _readersByFormat = BuildReadersByFormat(_imageReaders);
     }
 

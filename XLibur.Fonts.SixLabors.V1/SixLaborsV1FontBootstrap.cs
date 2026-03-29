@@ -18,7 +18,7 @@ namespace XLibur.Fonts.SixLabors.V1;
 public static class SixLaborsV1FontBootstrap
 {
     /// <summary>
-    /// Register the SixLabors.Fonts v1 engine factories with <see cref="FontEngineProvider"/>.
+    /// Register the SixLabors.Fonts v1 engine factories with <see cref="DefaultFontEngineFactory"/>.
     /// This enables <see cref="DefaultGraphicEngine"/> and <see cref="DefaultFontEngine"/> to be
     /// created without explicit font engine configuration.
     /// </summary>
@@ -29,8 +29,8 @@ public static class SixLaborsV1FontBootstrap
     /// </remarks>
     public static void Register()
     {
-        FontEngineProvider.FromFallbackFont ??= fallbackFont => new DefaultFontEngine(fallbackFont);
-        FontEngineProvider.FromStreams ??= (stream, useSystemFonts, fontStreams)
+        DefaultFontEngineFactory.FromFallbackFont ??= fallbackFont => new DefaultFontEngine(fallbackFont);
+        DefaultFontEngineFactory.FromStreams ??= (stream, useSystemFonts, fontStreams)
             => new DefaultFontEngine(stream, useSystemFonts, fontStreams);
     }
 }

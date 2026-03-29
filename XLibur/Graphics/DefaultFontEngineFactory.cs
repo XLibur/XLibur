@@ -19,7 +19,7 @@ namespace XLibur.Graphics;
 /// </code>
 /// </para>
 /// </remarks>
-public static class FontEngineProvider
+public static class DefaultFontEngineFactory
 {
     /// <summary>
     /// Factory that creates an <see cref="IXLFontEngine"/> from a fallback font name.
@@ -38,7 +38,7 @@ public static class FontEngineProvider
                ?? throw new InvalidOperationException(
                    "No font engine provider is registered. " +
                    "Call SixLaborsV1FontBootstrap.Register() at application startup, " +
-                   "or set FontEngineProvider.FromFallbackFont / LoadOptions.FontEngine manually. " +
+                   "or set DefaultFontEngineFactory.FromFallbackFont / LoadOptions.FontEngine manually. " +
                    "See https://github.com/XLibur/XLibur for setup instructions.");
     }
 
@@ -48,7 +48,7 @@ public static class FontEngineProvider
                ?? throw new InvalidOperationException(
                    "No font engine provider is registered. " +
                    "Call SixLaborsV1FontBootstrap.Register() at application startup, " +
-                   "or set FontEngineProvider.FromStreams / LoadOptions.FontEngine manually. " +
+                   "or set DefaultFontEngineFactory.FromStreams / LoadOptions.FontEngine manually. " +
                    "See https://github.com/XLibur/XLibur for setup instructions.");
     }
 }
