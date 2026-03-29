@@ -9,7 +9,7 @@ internal static class TestHelper
 
     public static Stream GetStreamFromResource(string resourceName)
     {
-        var fullName = $"XLibur.Fonts.SixLabors.Tests.Resource.{resourceName}";
+        var fullName = $"{typeof(TestHelper).Namespace}.Resource.{resourceName}";
         return Assembly.GetManifestResourceStream(fullName)
                ?? throw new FileNotFoundException($"Embedded resource '{fullName}' not found.");
     }

@@ -8,11 +8,13 @@
     <File Path="README.md" />
   </Folder>
   <Project Path="XLibur.Tests/XLibur.Tests.csproj" />
+  <Folder Name="/XLibur.Fonts.SixLabors/">
+    <Project Path="XLibur.Fonts.SixLabors.Examples/XLibur.Fonts.SixLabors.Examples.csproj" />
+    <Project Path="XLibur.Fonts.SixLabors.Tests/XLibur.Fonts.SixLabors.Tests.csproj" />
+    <Project Path="XLibur.Fonts.SixLabors/XLibur.Fonts.SixLabors.csproj" />
+  </Folder>
   <Project Path="XLibur.Benchmarks/XLibur.Benchmarks.csproj" />
   <Project Path="XLibur.Examples/XLibur.Examples.csproj" />
   <Project Path="XLibur/XLibur.csproj" />
   <Project Path="XLibur.Fonts.SixLabors.V1/XLibur.Fonts.SixLabors.V1.csproj" />
-  <Project Path="XLibur.Fonts.SixLabors/XLibur.Fonts.SixLabors.csproj" />
-  <Project Path="XLibur.Fonts.SixLabors.Examples/XLibur.Fonts.SixLabors.Examples.csproj" />
-  <Project Path="XLibur.Fonts.SixLabors.Tests/XLibur.Fonts.SixLabors.Tests.csproj" />
 </Solution>
