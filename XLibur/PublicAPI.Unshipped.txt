@@ -56,11 +56,6 @@ XLibur.Graphics.IXLFontEngine.GetGlyphBox(System.ReadOnlySpan<int> graphemeClust
 XLibur.Graphics.IXLFontEngine.GetMaxDigitWidth(XLibur.Excel.IXLFontBase! font, double dpiX) -> double
 XLibur.Graphics.IXLFontEngine.GetTextHeight(XLibur.Excel.IXLFontBase! font, double dpiY) -> double
 XLibur.Graphics.IXLFontEngine.GetTextWidth(string! text, XLibur.Excel.IXLFontBase! font, double dpiX) -> double
-XLibur.Graphics.DefaultFontEngineFactory
-static XLibur.Graphics.DefaultFontEngineFactory.FromFallbackFont.get -> System.Func<string!, XLibur.Graphics.IXLFontEngine!>?
-static XLibur.Graphics.DefaultFontEngineFactory.FromFallbackFont.set -> void
-static XLibur.Graphics.DefaultFontEngineFactory.FromStreams.get -> System.Func<System.IO.Stream!, bool, System.IO.Stream![]!, XLibur.Graphics.IXLFontEngine!>?
-static XLibur.Graphics.DefaultFontEngineFactory.FromStreams.set -> void
 XLibur.Graphics.DefaultGraphicEngine.DefaultGraphicEngine(XLibur.Graphics.IXLFontEngine! fontEngine) -> void
 XLibur.Excel.LoadOptions.FontEngine.get -> XLibur.Graphics.IXLFontEngine?
 XLibur.Excel.LoadOptions.FontEngine.set -> void

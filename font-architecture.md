@@ -31,7 +31,7 @@ XLibur (core)
 ├── IXLFontEngine               — font engine interface
 ├── IXLGraphicEngine            — graphic engine interface (unchanged)
 ├── DefaultGraphicEngine        — image handling + font delegation
-├── DefaultFontEngineFactory          — static registry for font engine factories
+├── DefaultFontEngineFactory          — internal factory delegates for DefaultGraphicEngine
 ├── GraphicEngineFontAdapter    — wraps legacy IXLGraphicEngine as IXLFontEngine
 └── LoadOptions.FontEngine      — injection point
 
@@ -57,7 +57,9 @@ The core cannot reference V1 (that would create a circular dependency). Instead,
 SixLaborsV1FontBootstrap.Register();
 ```
 
-This sets factory delegates on `DefaultFontEngineFactory` that `DefaultGraphicEngine` uses to create font engines. The V1 package also includes a `[ModuleInitializer]` that calls `Register()` automatically when the assembly is loaded — but explicit registration is preferred for clarity and predictability.
+This sets `LoadOptions.DefaultFontEngine` (the one user-facing global default) and registers internal factory delegates on `DefaultFontEngineFactory` that `DefaultGraphicEngine` uses when constructing font engines from parameters. The V1 package also includes a `[ModuleInitializer]` that calls `Register()` automatically when the assembly is loaded — but explicit registration is preferred for clarity and predictability.
+
+There is only one user-facing global default: `LoadOptions.DefaultFontEngine`. The internal `DefaultFontEngineFactory` is an implementation detail that `DefaultGraphicEngine`'s constructors use to create font engines from a fallback font name or streams — it is not visible to consumers.
 
 If no provider is registered and no `FontEngine` is configured, an `InvalidOperationException` is thrown with a clear message explaining what to do.
 
