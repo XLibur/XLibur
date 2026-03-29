@@ -38,19 +38,18 @@ public class ChartExamples : IXLExample
             ws.Columns("A", "C").AdjustToContents();
         }
 
-        IXLWorksheet ws = null!;
+        IXLWorksheet ws;
 
-        IXLChart AddChart(XLChartType type, string title, string valRef, string catRef, (int Row, int Col) pos)
+        void AddChart(XLChartType type, string title, string valRef, string catRef, (int Row, int Col) pos)
         {
             var c = ws.Charts.Add(type);
             c.SetTitle(title);
             c.Series.Add("Data", valRef, catRef);
             c.Position.SetColumn(pos.Col).SetRow(pos.Row);
             c.SecondPosition.SetColumn(pos.Col + 5).SetRow(pos.Row + 14);
-            return c;
         }
 
-        IXLChart AddChart2S(XLChartType type, string title,
+        void AddChart2S(XLChartType type, string title,
             string v1, string v2, string cat, (int Row, int Col) pos)
         {
             var c = ws.Charts.Add(type);
@@ -59,7 +58,6 @@ public class ChartExamples : IXLExample
             c.Series.Add("S2", v2, cat);
             c.Position.SetColumn(pos.Col).SetRow(pos.Row);
             c.SecondPosition.SetColumn(pos.Col + 5).SetRow(pos.Row + 14);
-            return c;
         }
 
         var cats4 = new[] { "Q1", "Q2", "Q3", "Q4" };

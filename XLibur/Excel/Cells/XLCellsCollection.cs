@@ -453,11 +453,11 @@ internal sealed class XLCellsCollection : IWorkbookListener
         using var enumerator = FormulaSlice.GetForwardEnumerator(XLSheetRange.Full);
         while (enumerator.MoveNext())
         {
-            ref readonly XLCellFormula cellFormula = ref enumerator.Current;
+            ref readonly var cellFormula = ref enumerator.Current;
             var currentPoint = enumerator.Point;
             if (cellFormula.Type != FormulaType.Normal)
             {
-                // Array or data formula. Only change name once, on master cell.
+                // Array or data formula. Only change the name once, on the master cell.
                 var isMasterCell = cellFormula.Range.FirstPoint == currentPoint;
                 if (!isMasterCell)
                 {

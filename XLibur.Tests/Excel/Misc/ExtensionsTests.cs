@@ -1,5 +1,4 @@
 ﻿using System;
-using XLibur.Excel;
 using DocumentFormat.OpenXml;
 using NUnit.Framework;
 using XLibur.Extensions;

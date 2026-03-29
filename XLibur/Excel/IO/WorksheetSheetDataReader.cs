@@ -1,15 +1,15 @@
-﻿using XLibur.Extensions;
-using XLibur.Excel.CalcEngine.Visitors;
-using XLibur.Utils;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Spreadsheet;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
+using XLibur.Extensions;
+using XLibur.Utils;
 using static XLibur.Excel.XLPredefinedFormat.DateTime;
 
 namespace XLibur.Excel.IO;
@@ -292,7 +292,7 @@ internal static class WorksheetSheetDataReader
             "inlineStr" => CellValues.InlineString,
             "d" => CellValues.Date,
             null => CellValues.Number,
-            _ => throw new FormatException($"Unknown cell type.")
+            _ => throw new FormatException("Unknown cell type.")
         };
     }
 

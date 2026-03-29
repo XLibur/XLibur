@@ -1,13 +1,15 @@
-﻿using XLibur.Excel.ContentManagers;
-using XLibur.Extensions;
+﻿using System;
+using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using System;
-using System.Linq;
+using XLibur.Excel.ContentManagers;
+using XLibur.Excel.Drawings;
+using XLibur.Extensions;
 using static XLibur.Excel.XLWorkbook;
 using Drawing = DocumentFormat.OpenXml.Spreadsheet.Drawing;
+using Point = System.Drawing.Point;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
 namespace XLibur.Excel.IO;
@@ -23,10 +25,10 @@ internal static class PictureWriter
     {
         if (worksheetPart.DrawingsPart != null)
         {
-            var xlPictures = (Drawings.XLPictures)xlWorksheet.Pictures;
+            var xlPictures = (XLPictures)xlWorksheet.Pictures;
             foreach (var removedPicture in xlPictures.Deleted)
             {
-                var anchor = XLWorkbook.GetAnchorFromImageId(worksheetPart.DrawingsPart, removedPicture);
+                var anchor = GetAnchorFromImageId(worksheetPart.DrawingsPart, removedPicture);
                 if (anchor is not null)
                     worksheetPart.DrawingsPart.WorksheetDrawing!.RemoveChild(anchor);
 
@@ -105,9 +107,9 @@ internal static class PictureWriter
         return Convert.ToInt64(914400L * pixels / resolution);
     }
 
-    private static void AddPictureAnchor(WorksheetPart worksheetPart, Drawings.IXLPicture picture, SaveContext context)
+    private static void AddPictureAnchor(WorksheetPart worksheetPart, IXLPicture picture, SaveContext context)
     {
-        var pic = (Drawings.XLPicture)picture;
+        var pic = (XLPicture)picture;
         var drawingsPart = worksheetPart.DrawingsPart ??
                            worksheetPart.AddNewPart<DrawingsPart>(context.RelIdGenerator.GetNext(RelType.Workbook));
 
@@ -139,7 +141,7 @@ internal static class PictureWriter
         imagePart.FeedData(pic.ImageStream);
 
         // Clear current anchors
-        var existingAnchor = XLWorkbook.GetAnchorFromImageId(drawingsPart, pic.RelId!);
+        var existingAnchor = GetAnchorFromImageId(drawingsPart, pic.RelId!);
 
         var wb = pic.Worksheet.Workbook;
         var extentsCx = ConvertToEnglishMetricUnits(pic.Width, wb.DpiX);
@@ -153,7 +155,7 @@ internal static class PictureWriter
         Xdr.FromMarker fMark;
         switch (pic.Placement)
         {
-            case Drawings.XLPicturePlacement.FreeFloating:
+            case XLPicturePlacement.FreeFloating:
                 var absoluteAnchor = new Xdr.AbsoluteAnchor(
                     new Xdr.Position
                     {
@@ -192,10 +194,10 @@ internal static class PictureWriter
                 AttachAnchor(absoluteAnchor, existingAnchor);
                 break;
 
-            case Drawings.XLPicturePlacement.MoveAndSize:
-                var moveAndSizeFromMarker = pic.Markers[Drawings.XLMarkerPosition.TopLeft];
+            case XLPicturePlacement.MoveAndSize:
+                var moveAndSizeFromMarker = pic.Markers[XLMarkerPosition.TopLeft];
                 if (moveAndSizeFromMarker == null)
-                    moveAndSizeFromMarker = new Drawings.XLMarker(picture.Worksheet.Cell("A1"));
+                    moveAndSizeFromMarker = new XLMarker(picture.Worksheet.Cell("A1"));
                 fMark = new Xdr.FromMarker
                 {
                     ColumnId = new Xdr.ColumnId((moveAndSizeFromMarker.ColumnNumber - 1).ToInvariantString()),
@@ -207,10 +209,10 @@ internal static class PictureWriter
                         .ToInvariantString())
                 };
 
-                var moveAndSizeToMarker = pic.Markers[Drawings.XLMarkerPosition.BottomRight];
+                var moveAndSizeToMarker = pic.Markers[XLMarkerPosition.BottomRight];
                 if (moveAndSizeToMarker == null)
-                    moveAndSizeToMarker = new Drawings.XLMarker(picture.Worksheet.Cell("A1"),
-                        new System.Drawing.Point(picture.Width, picture.Height));
+                    moveAndSizeToMarker = new XLMarker(picture.Worksheet.Cell("A1"),
+                        new Point(picture.Width, picture.Height));
                 var tMark = new Xdr.ToMarker
                 {
                     ColumnId = new Xdr.ColumnId((moveAndSizeToMarker.ColumnNumber - 1).ToInvariantString()),
@@ -252,9 +254,9 @@ internal static class PictureWriter
                 AttachAnchor(twoCellAnchor, existingAnchor);
                 break;
 
-            case Drawings.XLPicturePlacement.Move:
-                var moveFromMarker = pic.Markers[Drawings.XLMarkerPosition.TopLeft];
-                if (moveFromMarker == null) moveFromMarker = new Drawings.XLMarker(picture.Worksheet.Cell("A1"));
+            case XLPicturePlacement.Move:
+                var moveFromMarker = pic.Markers[XLMarkerPosition.TopLeft];
+                if (moveFromMarker == null) moveFromMarker = new XLMarker(picture.Worksheet.Cell("A1"));
                 fMark = new Xdr.FromMarker
                 {
                     ColumnId = new Xdr.ColumnId((moveFromMarker.ColumnNumber - 1).ToInvariantString()),

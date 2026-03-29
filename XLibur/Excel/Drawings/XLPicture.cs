@@ -39,7 +39,7 @@ internal sealed class XLPicture : IXLPicture
     {
         Worksheet = worksheet ?? throw new ArgumentNullException(nameof(worksheet));
         Placement = XLPicturePlacement.MoveAndSize;
-        Markers = new Dictionary<XLMarkerPosition, XLMarker?>()
+        Markers = new Dictionary<XLMarkerPosition, XLMarker?>
         {
             [XLMarkerPosition.TopLeft] = null,
             [XLMarkerPosition.BottomRight] = null

@@ -1,11 +1,12 @@
-﻿using XLibur.Excel.ContentManagers;
-using XLibur.Utils;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Spreadsheet;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.ContentManagers;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
+using XLibur.Utils;
 
 namespace XLibur.Excel.IO;
 
@@ -169,7 +170,7 @@ internal static class SheetViewWriter
 
         if (pane != null)
         {
-            PopulateSelection(new Selection()
+            PopulateSelection(new Selection
             {
                 Pane = pane.ActivePane
             });
@@ -203,19 +204,19 @@ internal static class SheetViewWriter
     {
         sheetView.ZoomScale = xlWorksheet.SheetView.ZoomScale == 100
             ? null
-            : (uint)System.Math.Max(10, System.Math.Min(400, xlWorksheet.SheetView.ZoomScale));
+            : (uint)Math.Max(10, Math.Min(400, xlWorksheet.SheetView.ZoomScale));
 
         sheetView.ZoomScaleNormal = xlWorksheet.SheetView.ZoomScaleNormal == 100
             ? null
-            : (uint)System.Math.Max(10, System.Math.Min(400, xlWorksheet.SheetView.ZoomScaleNormal));
+            : (uint)Math.Max(10, Math.Min(400, xlWorksheet.SheetView.ZoomScaleNormal));
 
         sheetView.ZoomScalePageLayoutView = xlWorksheet.SheetView.ZoomScalePageLayoutView == 100
             ? null
-            : (uint)System.Math.Max(10, System.Math.Min(400, xlWorksheet.SheetView.ZoomScalePageLayoutView));
+            : (uint)Math.Max(10, Math.Min(400, xlWorksheet.SheetView.ZoomScalePageLayoutView));
 
         sheetView.ZoomScaleSheetLayoutView = xlWorksheet.SheetView.ZoomScaleSheetLayoutView == 100
             ? null
-            : (uint)System.Math.Max(10, System.Math.Min(400, xlWorksheet.SheetView.ZoomScaleSheetLayoutView));
+            : (uint)Math.Max(10, Math.Min(400, xlWorksheet.SheetView.ZoomScaleSheetLayoutView));
     }
 
     internal static void WriteSheetFormatProperties(

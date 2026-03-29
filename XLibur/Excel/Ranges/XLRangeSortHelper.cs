@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using XLibur.Excel.Coordinates;
@@ -27,7 +28,7 @@ internal static class XLRangeSortHelper
         for (var i = 0; i < sortRange.Height; ++i)
             rows[i] = i + sortRange.TopRow;
 
-        System.Array.Sort(rows, comparer);
+        Array.Sort(rows, comparer);
 
         cellsCollection.RemapRows(rows, sortRange);
     }
@@ -48,7 +49,7 @@ internal static class XLRangeSortHelper
         for (var i = 0; i < sortRange.Width; ++i)
             columns[i] = i + sortRange.LeftColumn;
 
-        System.Array.Sort(columns, comparer);
+        Array.Sort(columns, comparer);
 
         cellsCollection.RemapColumns(columns, sortRange);
     }
@@ -64,7 +65,7 @@ internal static class XLRangeSortHelper
             {
                 var pair = sortColumn.Split(' ');
                 columnName = pair[0];
-                sortOrder = pair[1].Equals("ASC", System.StringComparison.OrdinalIgnoreCase) ? XLSortOrder.Ascending : XLSortOrder.Descending;
+                sortOrder = pair[1].Equals("ASC", StringComparison.OrdinalIgnoreCase) ? XLSortOrder.Ascending : XLSortOrder.Descending;
             }
             else
             {

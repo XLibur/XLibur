@@ -562,10 +562,10 @@ internal sealed partial class Slice<TElement>
         public readonly bool Equals(RowData other)
             => ReferenceEquals(_storage, other._storage) && _bitmap == other._bitmap;
 
-        public override readonly bool Equals(object? obj)
+        public readonly override bool Equals(object? obj)
             => obj is RowData other && Equals(other);
 
-        public override readonly int GetHashCode()
+        public readonly override int GetHashCode()
             => HashCode.Combine(_storage, _bitmap);
     }
 

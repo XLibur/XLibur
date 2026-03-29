@@ -1,14 +1,14 @@
-﻿using XLibur.Excel.Caching;
-using XLibur.Excel.CalcEngine;
-using XLibur.Excel.Drawings;
-using XLibur.Excel.Ranges.Index;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using XLibur.Excel.Caching;
+using XLibur.Excel.CalcEngine;
 using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.Coordinates;
+using XLibur.Excel.Drawings;
 using XLibur.Excel.InsertData;
+using XLibur.Excel.Ranges.Index;
 using XLibur.Excel.Rows;
 using XLibur.Excel.Tables;
 using XLibur.Extensions;
@@ -272,6 +272,11 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return FirstRowUsed(options);
     }
 
+    /// <summary>
+    /// Returns the last row used in the worksheet.
+    /// Can be null if the worksheet is empty;
+    /// </summary>
+    /// <returns></returns>
     IXLRow? IXLWorksheet.LastRowUsed()
     {
         return LastRowUsed();

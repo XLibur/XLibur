@@ -1,9 +1,9 @@
-﻿using XLibur.Extensions;
-using System;
+﻿using System;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using XLibur.Excel.Coordinates;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 

@@ -89,7 +89,7 @@ internal static class TextSerializer
         if (font.Underline != XLFontUnderlineValues.None)
             WriteRunProperty(w, "u", font.Underline.ToOpenXmlString());
 
-        WriteRunProperty(w, @"vertAlign", font.VerticalAlignment.ToOpenXmlString());
+        WriteRunProperty(w, "vertAlign", font.VerticalAlignment.ToOpenXmlString());
         WriteRunProperty(w, "sz", font.FontSize);
         w.WriteColor("color", font.FontColor);
         WriteRunProperty(w, "rFont", font.FontName);

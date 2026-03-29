@@ -1,6 +1,6 @@
-﻿using DocumentFormat.OpenXml;
+﻿using System.Linq;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
-using System.Linq;
 
 namespace XLibur.Excel.ContentManagers;
 

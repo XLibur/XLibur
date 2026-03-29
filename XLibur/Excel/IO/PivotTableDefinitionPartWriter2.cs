@@ -4,8 +4,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Xml;
-using XLibur.Extensions;
 using DocumentFormat.OpenXml.Packaging;
+using XLibur.Extensions;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;
 using Array = System.Array;
@@ -105,7 +105,7 @@ internal static class PivotTableDefinitionPartWriter2
         xml.WriteAttributeDefault("showItems", pt.DisplayItemLabels, true);
         xml.WriteAttributeDefault("editData", pt.EditData, false);
         xml.WriteAttributeDefault("disableFieldList", pt.DisableFieldList, false);
-        xml.WriteAttributeDefault(@"showCalcMbrs", pt.ShowCalculatedMembers, true);
+        xml.WriteAttributeDefault("showCalcMbrs", pt.ShowCalculatedMembers, true);
         xml.WriteAttributeDefault("visualTotals", pt.VisualTotals, true);
         xml.WriteAttributeDefault("showMultipleLabel", pt.ShowMultipleLabel, true);
         xml.WriteAttributeDefault("showDataDropDown", pt.ShowDataDropDown, true);
@@ -144,7 +144,7 @@ internal static class PivotTableDefinitionPartWriter2
         xml.WriteAttributeOptional("rowHeaderCaption", pt.RowHeaderCaption);
         xml.WriteAttributeOptional("colHeaderCaption", pt.ColumnHeaderCaption);
         xml.WriteAttributeDefault("fieldListSortAscending", pt.SortFieldsAtoZ, false);
-        xml.WriteAttributeDefault(@"mdxSubqueries", pt.MdxSubQueries, false);
+        xml.WriteAttributeDefault("mdxSubqueries", pt.MdxSubQueries, false);
         xml.WriteAttributeDefault("customListSort", pt.UseCustomListsForSorting, true);
     }
 

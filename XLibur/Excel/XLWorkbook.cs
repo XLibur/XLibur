@@ -1,17 +1,17 @@
-﻿using XLibur.Excel.CalcEngine;
-using XLibur.Graphics;
-using DocumentFormat.OpenXml;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using DocumentFormat.OpenXml;
+using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Rows;
 using XLibur.Excel.Tables;
 using XLibur.Extensions;
+using XLibur.Graphics;
 using static XLibur.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Excel;
@@ -127,7 +127,7 @@ public partial class XLWorkbook : IXLWorkbook
         New,
         File,
         Stream
-    };
+    }
 
     #endregion Nested Type : XLLoadSource
 

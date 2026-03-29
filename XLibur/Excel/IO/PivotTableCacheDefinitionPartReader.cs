@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using XLibur.Extensions;
-using XLibur.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.Coordinates;
+using XLibur.Extensions;
+using XLibur.Utils;
 
 namespace XLibur.Excel.IO;
 
@@ -314,7 +314,7 @@ internal static class PivotTableCacheDefinitionPartReader
         return sharedItems;
     }
 
-    private static void AddSharedItem(XLPivotCacheSharedItems sharedItems, DocumentFormat.OpenXml.OpenXmlElement item)
+    private static void AddSharedItem(XLPivotCacheSharedItems sharedItems, OpenXmlElement item)
     {
         switch (item)
         {
@@ -376,7 +376,7 @@ internal static class PivotTableCacheDefinitionPartReader
         }
     }
 
-    private static void AddRecordItem(XLPivotCacheValues fieldValues, DocumentFormat.OpenXml.OpenXmlElement recordItem)
+    private static void AddRecordItem(XLPivotCacheValues fieldValues, OpenXmlElement recordItem)
     {
         switch (recordItem)
         {

@@ -189,32 +189,32 @@ public class LookupTests
         });
 
         // Range lookup false = exact match
-        var value = sheet.Evaluate(@"HLOOKUP(3,B2:E3,2,FALSE)");
+        var value = sheet.Evaluate("HLOOKUP(3,B2:E3,2,FALSE)");
         Assert.AreEqual("B", value);
 
-        // Text values are looked up case insensitive.
+        // Text values are looked up case-insensitive.
         value = sheet.Evaluate(@"HLOOKUP(""c"",B3:E3,1,FALSE)");
         Assert.AreEqual("C", value);
 
-        // Value not present in the range for exact search
-        // Empty string is not same as blank.
+        // Value is not present in the range for exact search
+        // Empty string is not the same as blank.
         Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"HLOOKUP("""",A2:E2,1,FALSE)"));
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"HLOOKUP(50,B2:E3,1,FALSE)"));
+        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("HLOOKUP(50,B2:E3,1,FALSE)"));
 
-        // Value in approximate search that is lower than first element
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"HLOOKUP(-10,B2:E3,2,TRUE)"));
+        // Value in approximate search that is lower than the first element
+        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("HLOOKUP(-10,B2:E3,2,TRUE)"));
     }
 
     [Test]
     public void Hlookup_UnexpectedArguments()
     {
         // Lookup value can't be an error
-        Assert.AreEqual(XLError.DivisionByZero, XLWorkbook.EvaluateExpr(@"HLOOKUP(#DIV/0!,{1,2},1)"));
+        Assert.AreEqual(XLError.DivisionByZero, XLWorkbook.EvaluateExpr("HLOOKUP(#DIV/0!,{1,2},1)"));
 
         // Text value can't be over 255 chars
         Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr($"HLOOKUP(\"{new string('A', 256)}\",{{\"A\"}},1)"));
 
-        // Range can only be array or a reference. If other type, it returns the error #N/A
+        // Range can only be an array or a reference. If another type, it returns the error #N/A
         Assert.AreEqual(XLError.NoValueAvailable, XLWorkbook.EvaluateExpr(@"HLOOKUP(""value"",1,1)"));
         Assert.AreEqual(XLError.NoValueAvailable, XLWorkbook.EvaluateExpr(@"HLOOKUP(""value"",TRUE,1)"));
 
@@ -225,14 +225,14 @@ public class LookupTests
         Assert.AreEqual(XLError.CellReference, ws.Evaluate(@"HLOOKUP(""value"",B2:I5,5,FALSE)"));
 
         // The row index number must be at least 1. It is 0 here.
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr(@"HLOOKUP(1,{1,2},0,FALSE)"));
+        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("HLOOKUP(1,{1,2},0,FALSE)"));
     }
 
     [Test]
     public void Hlookup_truncates_row_index_number_parameter()
     {
-        // If row index number is not a whole number, it is truncated, so here 1.9 is truncated to 1
-        Assert.AreEqual(7, ws.Evaluate(@"HLOOKUP(7,{5,7,9},1.9)"));
+        // If the row index number is not a whole number, it is truncated, so here 1.9 is truncated to 1
+        Assert.AreEqual(7, ws.Evaluate("HLOOKUP(7,{5,7,9},1.9)"));
     }
 
     [Test]
@@ -452,20 +452,20 @@ public class LookupTests
     [TestCase(@"MATCH(""Rep"", B2:I2, 0)", 4)]
     [TestCase(@"MATCH(""Rep"", A2:Z2, 0)", 5)]
     [TestCase(@"MATCH(""REP"", B2:I2, 0)", 4)]
-    [TestCase(@"MATCH(95, B3:I3, 0)", 6)]
-    [TestCase(@"MATCH(DATE(2015,1,6), B3:I3, 0)", 2)]
-    [TestCase(@"MATCH(1.99, 3:3, 0)", 8)]
-    [TestCase(@"MATCH(43, B:B, 0)", 45)]
+    [TestCase("MATCH(95, B3:I3, 0)", 6)]
+    [TestCase("MATCH(DATE(2015,1,6), B3:I3, 0)", 2)]
+    [TestCase("MATCH(1.99, 3:3, 0)", 8)]
+    [TestCase("MATCH(43, B:B, 0)", 45)]
     [TestCase(@"MATCH(""cENtraL"", D3:D45, 0)", 2)]
-    [TestCase(@"MATCH(4.99, H:H, 0)", 5)]
+    [TestCase("MATCH(4.99, H:H, 0)", 5)]
     [TestCase(@"MATCH(""Rapture"", B2:I2, 1)", 2)]
-    [TestCase(@"MATCH(22.5, B3:B45, 1)", 22)]
+    [TestCase("MATCH(22.5, B3:B45, 1)", 22)]
     [TestCase(@"MATCH(""Rep"", B2:I2)", 4)]
     [TestCase(@"MATCH(""Rep"", B2:I2, 1)", 4)]
-    [TestCase(@"MATCH(40, G3:G6, -1)", 2)]
+    [TestCase("MATCH(40, G3:G6, -1)", 2)]
     [TestCase(@"MATCH(""Rep"", B2:I5)", XLError.NoValueAvailable)]
     [TestCase(@"MATCH(""Dummy"", B2:I2, 0)", XLError.NoValueAvailable)]
-    [TestCase(@"MATCH(4.5,B3:B45,-1)", XLError.NoValueAvailable)]
+    [TestCase("MATCH(4.5,B3:B45,-1)", XLError.NoValueAvailable)]
     public void Match_demo_sheet(string formula, object result)
     {
         var actual = ws.Evaluate(formula);
@@ -704,10 +704,10 @@ public class LookupTests
     {
         // Value not present in the range for exact search
         Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"=VLOOKUP("""",Data!$B$2:$I$71,3,FALSE)"));
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"=VLOOKUP(50,Data!$B$2:$I$71,3,FALSE)"));
+        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("=VLOOKUP(50,Data!$B$2:$I$71,3,FALSE)"));
 
         // Value in approximate search that is lower than first element
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"=VLOOKUP(-1,Data!$B$2:$I$71,2,TRUE)"));
+        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("=VLOOKUP(-1,Data!$B$2:$I$71,2,TRUE)"));
     }
 
     [Test]
@@ -739,7 +739,7 @@ public class LookupTests
         Assert.AreEqual(14.0, ws.Evaluate("=VLOOKUP(14,B2:I71,1.9)"));
 
         // Column index is evaluated using a VALUE semantic
-        Assert.AreEqual(@"Jardine", ws.Evaluate("=VLOOKUP(3,B2:I71,\"2 5/2\")"));
+        Assert.AreEqual("Jardine", ws.Evaluate("=VLOOKUP(3,B2:I71,\"2 5/2\")"));
     }
 
     [TestCase("\"TRUE\"")]

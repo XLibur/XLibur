@@ -1,7 +1,7 @@
-﻿using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Drawing.Charts;
-using DocumentFormat.OpenXml.Packaging;
+﻿using System;
 using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
 using A = DocumentFormat.OpenXml.Drawing;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
 using Cx = DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
@@ -64,7 +64,7 @@ internal static class ChartReader
 
         if (cxRefId == null && graphicData.Uri == "http://schemas.microsoft.com/office/drawing/2014/chartex")
         {
-            // Fallback: find the cx:chart element as unknown element and extract r:id
+            // Fallback: find the cx:chart element as an unknown element and extract r:id
             var unknownEl = graphicData.ChildElements.Count > 0 ? graphicData.ChildElements[0] : null;
             if (unknownEl != null)
             {
@@ -104,7 +104,7 @@ internal static class ChartReader
         var title = chart.Title;
         if (title == null) return;
 
-        var chartText = title.Elements<ChartText>().FirstOrDefault();
+        var chartText = title.Elements<C.ChartText>().FirstOrDefault();
         var richText = chartText?.Elements<C.RichText>().FirstOrDefault();
         if (richText != null)
         {
@@ -114,28 +114,28 @@ internal static class ChartReader
         }
     }
 
-    private static void ReadPlotArea(PlotArea plotArea, XLChart xlChart)
+    private static void ReadPlotArea(C.PlotArea plotArea, XLChart xlChart)
     {
         var primarySet = false;
 
         // Primary-only chart types (cannot be secondary in a combo chart)
-        primarySet |= TryReadPrimaryChart<BarChart, BarChartSeries>(plotArea, xlChart, ref primarySet, DetermineBarChartType);
-        primarySet |= TryReadPrimaryChart<Bar3DChart, BarChartSeries>(plotArea, xlChart, ref primarySet, DetermineBar3DChartType);
-        primarySet |= TryReadPrimaryChart<PieChart, PieChartSeries>(plotArea, xlChart, ref primarySet, _ => XLChartType.Pie);
-        primarySet |= TryReadPrimaryChart<DoughnutChart, PieChartSeries>(plotArea, xlChart, ref primarySet, _ => XLChartType.Doughnut);
+        primarySet |= TryReadPrimaryChart<C.BarChart, C.BarChartSeries>(plotArea, xlChart, ref primarySet, DetermineBarChartType);
+        primarySet |= TryReadPrimaryChart<C.Bar3DChart, C.BarChartSeries>(plotArea, xlChart, ref primarySet, DetermineBar3DChartType);
+        primarySet |= TryReadPrimaryChart<C.PieChart, C.PieChartSeries>(plotArea, xlChart, ref primarySet, _ => XLChartType.Pie);
+        primarySet |= TryReadPrimaryChart<C.DoughnutChart, C.PieChartSeries>(plotArea, xlChart, ref primarySet, _ => XLChartType.Doughnut);
 
         // Chart types that can appear as primary or secondary (combo charts)
-        TryReadComboChart<AreaChart, AreaChartSeries>(plotArea, xlChart, ref primarySet, DetermineAreaChartType);
-        TryReadComboChart<LineChart, LineChartSeries>(plotArea, xlChart, ref primarySet, DetermineLineChartType);
-        TryReadComboChart<RadarChart, RadarChartSeries>(plotArea, xlChart, ref primarySet, DetermineRadarChartType);
+        TryReadComboChart<C.AreaChart, C.AreaChartSeries>(plotArea, xlChart, ref primarySet, DetermineAreaChartType);
+        TryReadComboChart<C.LineChart, C.LineChartSeries>(plotArea, xlChart, ref primarySet, DetermineLineChartType);
+        TryReadComboChart<C.RadarChart, C.RadarChartSeries>(plotArea, xlChart, ref primarySet, DetermineRadarChartType);
 
         // Primary-only chart types with custom series readers
         TryReadPrimaryChartCustom(plotArea, xlChart, ref primarySet);
     }
 
     private static bool TryReadPrimaryChart<TChart, TSeries>(
-        PlotArea plotArea, XLChart xlChart, ref bool primarySet,
-        System.Func<TChart, XLChartType> determineType)
+        C.PlotArea plotArea, XLChart xlChart, ref bool primarySet,
+        Func<TChart, XLChartType> determineType)
         where TChart : OpenXmlCompositeElement
         where TSeries : OpenXmlCompositeElement
     {
@@ -149,8 +149,8 @@ internal static class ChartReader
     }
 
     private static void TryReadComboChart<TChart, TSeries>(
-        PlotArea plotArea, XLChart xlChart, ref bool primarySet,
-        System.Func<TChart, XLChartType> determineType)
+        C.PlotArea plotArea, XLChart xlChart, ref bool primarySet,
+        Func<TChart, XLChartType> determineType)
         where TChart : OpenXmlCompositeElement
         where TSeries : OpenXmlCompositeElement
     {
@@ -172,12 +172,12 @@ internal static class ChartReader
     }
 
     private static void TryReadPrimaryChartCustom(
-        PlotArea plotArea, XLChart xlChart, ref bool primarySet)
+        C.PlotArea plotArea, XLChart xlChart, ref bool primarySet)
     {
         // Bubble
         if (!primarySet)
         {
-            var bubbleChart = plotArea.Elements<BubbleChart>().FirstOrDefault();
+            var bubbleChart = plotArea.Elements<C.BubbleChart>().FirstOrDefault();
             if (bubbleChart != null)
             {
                 xlChart.ChartType = XLChartType.Bubble;
@@ -189,7 +189,7 @@ internal static class ChartReader
         // Scatter
         if (!primarySet)
         {
-            var scatterChart = plotArea.Elements<ScatterChart>().FirstOrDefault();
+            var scatterChart = plotArea.Elements<C.ScatterChart>().FirstOrDefault();
             if (scatterChart != null)
             {
                 xlChart.ChartType = DetermineScatterChartType(scatterChart);
@@ -201,11 +201,11 @@ internal static class ChartReader
         // Stock
         if (!primarySet)
         {
-            var stockChart = plotArea.Elements<StockChart>().FirstOrDefault();
+            var stockChart = plotArea.Elements<C.StockChart>().FirstOrDefault();
             if (stockChart != null)
             {
                 xlChart.ChartType = XLChartType.StockHighLowClose;
-                ReadSeriesFromElements<LineChartSeries>(stockChart, xlChart.Series);
+                ReadSeriesFromElements<C.LineChartSeries>(stockChart, xlChart.Series);
                 primarySet = true;
             }
         }
@@ -213,12 +213,12 @@ internal static class ChartReader
         // Surface
         if (!primarySet)
         {
-            var surfaceChart = plotArea.Elements<SurfaceChart>().FirstOrDefault();
+            var surfaceChart = plotArea.Elements<C.SurfaceChart>().FirstOrDefault();
             if (surfaceChart != null)
             {
-                var wireframe = surfaceChart.Elements<Wireframe>().FirstOrDefault()?.Val?.Value ?? false;
+                var wireframe = surfaceChart.Elements<C.Wireframe>().FirstOrDefault()?.Val?.Value ?? false;
                 xlChart.ChartType = wireframe ? XLChartType.SurfaceWireframe : XLChartType.Surface;
-                ReadSeriesFromElements<SurfaceChartSeries>(surfaceChart, xlChart.Series);
+                ReadSeriesFromElements<C.SurfaceChartSeries>(surfaceChart, xlChart.Series);
             }
         }
     }
@@ -233,37 +233,37 @@ internal static class ChartReader
         foreach (var series in parent.Elements<TSeries>())
         {
             var (name, catRef, valRef) = ExtractSeriesData(
-                series.Elements<SeriesText>().FirstOrDefault(),
-                series.Elements<CategoryAxisData>().FirstOrDefault(),
+                series.Elements<C.SeriesText>().FirstOrDefault(),
+                series.Elements<C.CategoryAxisData>().FirstOrDefault(),
                 series.Elements<C.Values>().FirstOrDefault());
             target.Add(name, valRef, catRef);
         }
     }
 
-    private static void ReadScatterSeries(ScatterChart scatterChart, IXLChartSeriesCollection target)
+    private static void ReadScatterSeries(C.ScatterChart scatterChart, IXLChartSeriesCollection target)
     {
-        foreach (var series in scatterChart.Elements<ScatterChartSeries>())
+        foreach (var series in scatterChart.Elements<C.ScatterChartSeries>())
         {
-            var name = ExtractSeriesName(series.Elements<SeriesText>().FirstOrDefault());
+            var name = ExtractSeriesName(series.Elements<C.SeriesText>().FirstOrDefault());
 
             string? xRef = null;
-            var xValues = series.Elements<XValues>().FirstOrDefault();
+            var xValues = series.Elements<C.XValues>().FirstOrDefault();
             if (xValues != null)
             {
-                var numRef = xValues.Elements<NumberReference>().FirstOrDefault();
+                var numRef = xValues.Elements<C.NumberReference>().FirstOrDefault();
                 xRef = numRef?.Formula?.Text;
                 if (xRef == null)
                 {
-                    var strRef = xValues.Elements<StringReference>().FirstOrDefault();
+                    var strRef = xValues.Elements<C.StringReference>().FirstOrDefault();
                     xRef = strRef?.Formula?.Text;
                 }
             }
 
             var yRef = string.Empty;
-            var yValues = series.Elements<YValues>().FirstOrDefault();
+            var yValues = series.Elements<C.YValues>().FirstOrDefault();
             if (yValues != null)
             {
-                var numRef = yValues.Elements<NumberReference>().FirstOrDefault();
+                var numRef = yValues.Elements<C.NumberReference>().FirstOrDefault();
                 yRef = numRef?.Formula?.Text ?? string.Empty;
             }
 
@@ -360,60 +360,60 @@ internal static class ChartReader
 
     // ── Type determination helpers ──────────────────────────────────────
 
-    private static XLChartType DetermineBarChartType(BarChart barChart)
+    private static XLChartType DetermineBarChartType(C.BarChart barChart)
     {
-        var direction = barChart.BarDirection?.Val?.Value ?? BarDirectionValues.Column;
-        var grouping = barChart.BarGrouping?.Val?.Value ?? BarGroupingValues.Clustered;
+        var direction = barChart.BarDirection?.Val?.Value ?? C.BarDirectionValues.Column;
+        var grouping = barChart.BarGrouping?.Val?.Value ?? C.BarGroupingValues.Clustered;
 
-        if (direction == BarDirectionValues.Bar)
+        if (direction == C.BarDirectionValues.Bar)
         {
-            if (grouping == BarGroupingValues.Stacked) return XLChartType.BarStacked;
-            if (grouping == BarGroupingValues.PercentStacked) return XLChartType.BarStacked100Percent;
+            if (grouping == C.BarGroupingValues.Stacked) return XLChartType.BarStacked;
+            if (grouping == C.BarGroupingValues.PercentStacked) return XLChartType.BarStacked100Percent;
             return XLChartType.BarClustered;
         }
 
-        if (grouping == BarGroupingValues.Stacked) return XLChartType.ColumnStacked;
-        if (grouping == BarGroupingValues.PercentStacked) return XLChartType.ColumnStacked100Percent;
+        if (grouping == C.BarGroupingValues.Stacked) return XLChartType.ColumnStacked;
+        if (grouping == C.BarGroupingValues.PercentStacked) return XLChartType.ColumnStacked100Percent;
         return XLChartType.ColumnClustered;
     }
 
-    private static XLChartType DetermineLineChartType(LineChart lineChart)
+    private static XLChartType DetermineLineChartType(C.LineChart lineChart)
     {
         var grouping = lineChart.Grouping?.Val?.Value;
-        var hasMarkers = lineChart.Elements<LineChartSeries>().Any(s => s.Elements<Marker>().Any());
+        var hasMarkers = lineChart.Elements<C.LineChartSeries>().Any(s => s.Elements<C.Marker>().Any());
 
-        if (grouping == GroupingValues.Stacked)
+        if (grouping == C.GroupingValues.Stacked)
             return hasMarkers ? XLChartType.LineWithMarkersStacked : XLChartType.LineStacked;
-        if (grouping == GroupingValues.PercentStacked)
+        if (grouping == C.GroupingValues.PercentStacked)
             return hasMarkers ? XLChartType.LineWithMarkersStacked100Percent : XLChartType.LineStacked100Percent;
 
         return hasMarkers ? XLChartType.LineWithMarkers : XLChartType.Line;
     }
 
-    private static XLChartType DetermineRadarChartType(RadarChart radarChart) =>
-        radarChart.RadarStyle?.Val?.Value == RadarStyleValues.Filled
+    private static XLChartType DetermineRadarChartType(C.RadarChart radarChart) =>
+        radarChart.RadarStyle?.Val?.Value == C.RadarStyleValues.Filled
             ? XLChartType.RadarFilled : XLChartType.Radar;
 
-    private static XLChartType DetermineBar3DChartType(Bar3DChart bar3DChart)
+    private static XLChartType DetermineBar3DChartType(C.Bar3DChart bar3DChart)
     {
-        var direction = bar3DChart.BarDirection?.Val?.Value ?? BarDirectionValues.Column;
-        var grouping = bar3DChart.BarGrouping?.Val?.Value ?? BarGroupingValues.Clustered;
-        var shape = bar3DChart.Elements<Shape>().FirstOrDefault()?.Val?.Value;
-        var isHorizontal = direction == BarDirectionValues.Bar;
+        var direction = bar3DChart.BarDirection?.Val?.Value ?? C.BarDirectionValues.Column;
+        var grouping = bar3DChart.BarGrouping?.Val?.Value ?? C.BarGroupingValues.Clustered;
+        var shape = bar3DChart.Elements<C.Shape>().FirstOrDefault()?.Val?.Value;
+        var isHorizontal = direction == C.BarDirectionValues.Bar;
 
-        if (shape == ShapeValues.Cone || shape == ShapeValues.ConeToMax)
+        if (shape == C.ShapeValues.Cone || shape == C.ShapeValues.ConeToMax)
             return ResolveBar3DGrouping(isHorizontal, grouping,
                 horizontal: (XLChartType.ConeHorizontalClustered, XLChartType.ConeHorizontalStacked, XLChartType.ConeHorizontalStacked100Percent),
                 vertical: (XLChartType.ConeClustered, XLChartType.ConeStacked, XLChartType.ConeStacked100Percent),
                 verticalStandard: XLChartType.Cone);
 
-        if (shape == ShapeValues.Cylinder)
+        if (shape == C.ShapeValues.Cylinder)
             return ResolveBar3DGrouping(isHorizontal, grouping,
                 horizontal: (XLChartType.CylinderHorizontalClustered, XLChartType.CylinderHorizontalStacked, XLChartType.CylinderHorizontalStacked100Percent),
                 vertical: (XLChartType.CylinderClustered, XLChartType.CylinderStacked, XLChartType.CylinderStacked100Percent),
                 verticalStandard: XLChartType.Cylinder);
 
-        if (shape == ShapeValues.Pyramid || shape == ShapeValues.PyramidToMaximum)
+        if (shape == C.ShapeValues.Pyramid || shape == C.ShapeValues.PyramidToMaximum)
             return ResolveBar3DGrouping(isHorizontal, grouping,
                 horizontal: (XLChartType.PyramidHorizontalClustered, XLChartType.PyramidHorizontalStacked, XLChartType.PyramidHorizontalStacked100Percent),
                 vertical: (XLChartType.PyramidClustered, XLChartType.PyramidStacked, XLChartType.PyramidStacked100Percent),
@@ -424,74 +424,74 @@ internal static class ChartReader
     }
 
     private static XLChartType ResolveBar3DGrouping(
-        bool isHorizontal, BarGroupingValues grouping,
+        bool isHorizontal, C.BarGroupingValues grouping,
         (XLChartType Clustered, XLChartType Stacked, XLChartType Stacked100) horizontal,
         (XLChartType Clustered, XLChartType Stacked, XLChartType Stacked100) vertical,
         XLChartType verticalStandard)
     {
         if (isHorizontal)
         {
-            if (grouping == BarGroupingValues.Stacked) return horizontal.Stacked;
-            if (grouping == BarGroupingValues.PercentStacked) return horizontal.Stacked100;
+            if (grouping == C.BarGroupingValues.Stacked) return horizontal.Stacked;
+            if (grouping == C.BarGroupingValues.PercentStacked) return horizontal.Stacked100;
             return horizontal.Clustered;
         }
 
-        if (grouping == BarGroupingValues.Stacked) return vertical.Stacked;
-        if (grouping == BarGroupingValues.PercentStacked) return vertical.Stacked100;
-        if (grouping == BarGroupingValues.Standard) return verticalStandard;
+        if (grouping == C.BarGroupingValues.Stacked) return vertical.Stacked;
+        if (grouping == C.BarGroupingValues.PercentStacked) return vertical.Stacked100;
+        if (grouping == C.BarGroupingValues.Standard) return verticalStandard;
         return vertical.Clustered;
     }
 
-    private static XLChartType ResolveBar3DBoxGrouping(bool isHorizontal, BarGroupingValues grouping)
+    private static XLChartType ResolveBar3DBoxGrouping(bool isHorizontal, C.BarGroupingValues grouping)
     {
         if (isHorizontal)
         {
-            if (grouping == BarGroupingValues.Stacked) return XLChartType.BarStacked3D;
-            if (grouping == BarGroupingValues.PercentStacked) return XLChartType.BarStacked100Percent3D;
+            if (grouping == C.BarGroupingValues.Stacked) return XLChartType.BarStacked3D;
+            if (grouping == C.BarGroupingValues.PercentStacked) return XLChartType.BarStacked100Percent3D;
             return XLChartType.BarClustered3D;
         }
 
-        if (grouping == BarGroupingValues.Stacked) return XLChartType.ColumnStacked3D;
-        if (grouping == BarGroupingValues.PercentStacked) return XLChartType.ColumnStacked100Percent3D;
-        if (grouping == BarGroupingValues.Standard) return XLChartType.Column3D;
+        if (grouping == C.BarGroupingValues.Stacked) return XLChartType.ColumnStacked3D;
+        if (grouping == C.BarGroupingValues.PercentStacked) return XLChartType.ColumnStacked100Percent3D;
+        if (grouping == C.BarGroupingValues.Standard) return XLChartType.Column3D;
         return XLChartType.ColumnClustered3D;
     }
 
-    private static XLChartType DetermineAreaChartType(AreaChart areaChart)
+    private static XLChartType DetermineAreaChartType(C.AreaChart areaChart)
     {
         var grouping = areaChart.Grouping?.Val?.Value;
-        if (grouping == GroupingValues.Stacked) return XLChartType.AreaStacked;
-        if (grouping == GroupingValues.PercentStacked) return XLChartType.AreaStacked100Percent;
+        if (grouping == C.GroupingValues.Stacked) return XLChartType.AreaStacked;
+        if (grouping == C.GroupingValues.PercentStacked) return XLChartType.AreaStacked100Percent;
         return XLChartType.Area;
     }
 
-    private static void ReadBubbleSeries(BubbleChart bubbleChart, IXLChartSeriesCollection target)
+    private static void ReadBubbleSeries(C.BubbleChart bubbleChart, IXLChartSeriesCollection target)
     {
-        foreach (var series in bubbleChart.Elements<BubbleChartSeries>())
+        foreach (var series in bubbleChart.Elements<C.BubbleChartSeries>())
         {
-            var name = ExtractSeriesName(series.Elements<SeriesText>().FirstOrDefault());
+            var name = ExtractSeriesName(series.Elements<C.SeriesText>().FirstOrDefault());
 
             string? xRef = null;
-            var xValues = series.Elements<XValues>().FirstOrDefault();
+            var xValues = series.Elements<C.XValues>().FirstOrDefault();
             if (xValues != null)
             {
-                xRef = xValues.Elements<NumberReference>().FirstOrDefault()?.Formula?.Text;
-                xRef ??= xValues.Elements<StringReference>().FirstOrDefault()?.Formula?.Text;
+                xRef = xValues.Elements<C.NumberReference>().FirstOrDefault()?.Formula?.Text;
+                xRef ??= xValues.Elements<C.StringReference>().FirstOrDefault()?.Formula?.Text;
             }
 
             var yRef = string.Empty;
-            var yValues = series.Elements<YValues>().FirstOrDefault();
+            var yValues = series.Elements<C.YValues>().FirstOrDefault();
             if (yValues != null)
-                yRef = yValues.Elements<NumberReference>().FirstOrDefault()?.Formula?.Text ?? string.Empty;
+                yRef = yValues.Elements<C.NumberReference>().FirstOrDefault()?.Formula?.Text ?? string.Empty;
 
             target.Add(name, yRef, xRef);
         }
     }
 
-    private static XLChartType DetermineScatterChartType(ScatterChart scatterChart)
+    private static XLChartType DetermineScatterChartType(C.ScatterChart scatterChart)
     {
         var style = scatterChart.ScatterStyle?.Val?.Value;
-        if (style == ScatterStyleValues.SmoothMarker)
+        if (style == C.ScatterStyleValues.SmoothMarker)
             return XLChartType.XYScatterSmoothLinesWithMarkers;
         return XLChartType.XYScatterMarkers;
     }
@@ -499,33 +499,33 @@ internal static class ChartReader
     // ── Shared extraction helpers ───────────────────────────────────────
 
     private static (string name, string? catRef, string valRef) ExtractSeriesData(
-        SeriesText? seriesText, CategoryAxisData? catData, C.Values? valData)
+        C.SeriesText? seriesText, C.CategoryAxisData? catData, C.Values? valData)
     {
         var name = ExtractSeriesName(seriesText);
 
         string? catRef = null;
         if (catData != null)
         {
-            catRef = catData.Elements<StringReference>().FirstOrDefault()?.Formula?.Text;
-            catRef ??= catData.Elements<NumberReference>().FirstOrDefault()?.Formula?.Text;
+            catRef = catData.Elements<C.StringReference>().FirstOrDefault()?.Formula?.Text;
+            catRef ??= catData.Elements<C.NumberReference>().FirstOrDefault()?.Formula?.Text;
         }
 
         var valRef = string.Empty;
         if (valData != null)
         {
-            valRef = valData.Elements<NumberReference>().FirstOrDefault()?.Formula?.Text ?? string.Empty;
+            valRef = valData.Elements<C.NumberReference>().FirstOrDefault()?.Formula?.Text ?? string.Empty;
         }
 
         return (name, catRef, valRef);
     }
 
-    private static string ExtractSeriesName(SeriesText? seriesText)
+    private static string ExtractSeriesName(C.SeriesText? seriesText)
     {
         if (seriesText == null) return string.Empty;
-        var strRef = seriesText.Elements<StringReference>().FirstOrDefault();
-        var strCache = strRef?.Elements<StringCache>().FirstOrDefault();
-        var pt = strCache?.Elements<StringPoint>().FirstOrDefault();
-        return pt?.Elements<NumericValue>().FirstOrDefault()?.Text ?? string.Empty;
+        var strRef = seriesText.Elements<C.StringReference>().FirstOrDefault();
+        var strCache = strRef?.Elements<C.StringCache>().FirstOrDefault();
+        var pt = strCache?.Elements<C.StringPoint>().FirstOrDefault();
+        return pt?.Elements<C.NumericValue>().FirstOrDefault()?.Text ?? string.Empty;
     }
 
     // ── Position reading ────────────────────────────────────────────────

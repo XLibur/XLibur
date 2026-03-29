@@ -1,11 +1,12 @@
-﻿using XLibur.Utils;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Spreadsheet;
-using DocumentFormat.OpenXml;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.AutoFilters;
 using XLibur.Excel.Tables;
+using XLibur.Utils;
 using static XLibur.Excel.XLWorkbook;
 using EnumerableExtensions = XLibur.Extensions.EnumerableExtensions;
 
@@ -354,7 +355,7 @@ internal static class WorkbookStylesPartWriter
         }
     }
 
-    private static DifferentialFormat CreateColorDifferentialFormat(AutoFilters.XLFilterColumn xlFilterColumn)
+    private static DifferentialFormat CreateColorDifferentialFormat(XLFilterColumn xlFilterColumn)
     {
         var differentialFormat = new DifferentialFormat();
         if (xlFilterColumn.FilterByCellColor)
@@ -1054,7 +1055,7 @@ internal static class WorkbookStylesPartWriter
         if (workbookStylesPart.Stylesheet!.NumberingFormats == null)
         {
             workbookStylesPart.Stylesheet!.NumberingFormats = new NumberingFormats();
-            workbookStylesPart.Stylesheet!.NumberingFormats.AppendChild(new NumberingFormat()
+            workbookStylesPart.Stylesheet!.NumberingFormats.AppendChild(new NumberingFormat
             {
                 NumberFormatId = 0,
                 FormatCode = ""

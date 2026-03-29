@@ -14,6 +14,7 @@
 ==================================================================== */
 
 using System;
+using System.Text;
 
 namespace XLibur.Excel;
 
@@ -50,7 +51,7 @@ public static partial class XLHelper
         }
         var length = Math.Min(MaxWorksheetNameCharsCount, nameProposal.Length);
         var shortenedName = nameProposal[..length];
-        var result = new System.Text.StringBuilder(shortenedName);
+        var result = new StringBuilder(shortenedName);
         for (var i = 0; i < length; i++)
         {
             var ch = result[i];

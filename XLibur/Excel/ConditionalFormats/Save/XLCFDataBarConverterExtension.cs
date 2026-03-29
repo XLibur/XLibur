@@ -1,34 +1,38 @@
-﻿using XLibur.Extensions;
-using DocumentFormat.OpenXml.Office.Excel;
-using DocumentFormat.OpenXml.Office2010.Excel;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using DocumentFormat.OpenXml.Office2010.Excel;
+using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ConditionalFormats;
+using XLibur.Extensions;
+using ColorType = DocumentFormat.OpenXml.Office2010.Excel.ColorType;
+using ConditionalFormattingRule = DocumentFormat.OpenXml.Office2010.Excel.ConditionalFormattingRule;
+using DataBar = DocumentFormat.OpenXml.Office2010.Excel.DataBar;
+using Formula = DocumentFormat.OpenXml.Office.Excel.Formula;
 
 namespace XLibur.Excel;
 
 internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
 {
-    private static readonly Dictionary<DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues, ConditionalFormattingValueObjectTypeValues> CFValueToTypeMap =
-        new Dictionary<DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues, ConditionalFormattingValueObjectTypeValues>
+    private static readonly Dictionary<ConditionalFormatValueObjectValues, ConditionalFormattingValueObjectTypeValues> CFValueToTypeMap =
+        new Dictionary<ConditionalFormatValueObjectValues, ConditionalFormattingValueObjectTypeValues>
         {
-            { DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues.Max, ConditionalFormattingValueObjectTypeValues.AutoMax },
-            { DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues.Min, ConditionalFormattingValueObjectTypeValues.AutoMin },
-            { DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues.Number, ConditionalFormattingValueObjectTypeValues.Numeric },
-            { DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues.Percent, ConditionalFormattingValueObjectTypeValues.Percent },
-            { DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues.Percentile, ConditionalFormattingValueObjectTypeValues.Percentile },
-            { DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues.Formula, ConditionalFormattingValueObjectTypeValues.Formula },
+            { ConditionalFormatValueObjectValues.Max, ConditionalFormattingValueObjectTypeValues.AutoMax },
+            { ConditionalFormatValueObjectValues.Min, ConditionalFormattingValueObjectTypeValues.AutoMin },
+            { ConditionalFormatValueObjectValues.Number, ConditionalFormattingValueObjectTypeValues.Numeric },
+            { ConditionalFormatValueObjectValues.Percent, ConditionalFormattingValueObjectTypeValues.Percent },
+            { ConditionalFormatValueObjectValues.Percentile, ConditionalFormattingValueObjectTypeValues.Percentile },
+            { ConditionalFormatValueObjectValues.Formula, ConditionalFormattingValueObjectTypeValues.Formula },
         };
 
     public ConditionalFormattingRule Convert(IXLConditionalFormat cf, XLWorkbook.SaveContext context)
     {
-        ConditionalFormattingRule conditionalFormattingRule = new ConditionalFormattingRule()
+        ConditionalFormattingRule conditionalFormattingRule = new ConditionalFormattingRule
         {
-            Type = DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValues.DataBar,
+            Type = ConditionalFormatValues.DataBar,
             Id = ((XLConditionalFormat)cf).Id.WrapInBraces()
         };
 
-        DataBar dataBar = new DataBar()
+        DataBar dataBar = new DataBar
         {
             MinLength = 0,
             MaxLength = 100,
@@ -46,7 +50,7 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
         if (cf.Values.Any() && cf.Values[1]?.Value != null)
         {
             cfMin.Type = ConditionalFormattingValueObjectTypeValues.Numeric;
-            cfMin.Append(new Formula() { Text = cf.Values[1].Value });
+            cfMin.Append(new Formula { Text = cf.Values[1].Value });
         }
 
         var cfMaxType = cf.ContentTypes.TryGetValue(2, out var contentType2)
@@ -56,7 +60,7 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
         if (cf.Values.Count >= 2 && cf.Values[2]?.Value != null)
         {
             cfMax.Type = ConditionalFormattingValueObjectTypeValues.Numeric;
-            cfMax.Append(new Formula() { Text = cf.Values[2].Value });
+            cfMax.Append(new Formula { Text = cf.Values[2].Value });
         }
 
         var barAxisColor = new BarAxisColor();
@@ -77,12 +81,12 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
         return conditionalFormattingRule;
     }
 
-    private static ConditionalFormattingValueObjectTypeValues GetCFType(DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatValueObjectValues value)
+    private static ConditionalFormattingValueObjectTypeValues GetCFType(ConditionalFormatValueObjectValues value)
     {
         return CFValueToTypeMap[value];
     }
 
-    private static void SetColorTypeProperties(DocumentFormat.OpenXml.Office2010.Excel.ColorType target, XLColor color)
+    private static void SetColorTypeProperties(ColorType target, XLColor color)
     {
         switch (color.ColorType)
         {

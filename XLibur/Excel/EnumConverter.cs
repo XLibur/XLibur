@@ -1,8 +1,8 @@
-﻿using XLibur.Excel.Drawings;
+﻿using System;
+using System.Collections.Generic;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using System;
-using System.Collections.Generic;
+using XLibur.Excel.Drawings;
 using Vml = DocumentFormat.OpenXml.Vml;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;

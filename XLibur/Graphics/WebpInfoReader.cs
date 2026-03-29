@@ -1,10 +1,9 @@
-﻿using XLibur.Utils;
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
-using XLibur.Excel;
 using XLibur.Excel.Drawings;
 using XLibur.Extensions;
+using XLibur.Utils;
 
 namespace XLibur.Graphics;
 

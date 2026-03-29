@@ -6,7 +6,6 @@ using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ContentManagers;
-using XLibur.Extensions;
 using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;

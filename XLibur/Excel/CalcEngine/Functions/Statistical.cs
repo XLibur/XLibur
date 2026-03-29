@@ -585,7 +585,7 @@ internal static class Statistical
         public LogSumState Tally(double number)
         {
             var logSum = LogSum + Math.Log(number);
-            return new(logSum, SampleCount + 1);
+            return new LogSumState(logSum, SampleCount + 1);
         }
     }
 

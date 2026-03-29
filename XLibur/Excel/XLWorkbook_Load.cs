@@ -1,25 +1,22 @@
-﻿using XLibur.Extensions;
-using XLibur.Utils;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Spreadsheet;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.Drawings;
 using XLibur.Excel.IO;
 using XLibur.Excel.Tables;
+using XLibur.Extensions;
+using XLibur.Utils;
 using Ap = DocumentFormat.OpenXml.ExtendedProperties;
 using Op = DocumentFormat.OpenXml.CustomProperties;
 using TC = DocumentFormat.OpenXml.Office2019.Excel.ThreadedComments;
 
 namespace XLibur.Excel;
-
-using Ap;
-using Drawings;
-using Op;
 
 // ReSharper disable once InconsistentNaming
 public partial class XLWorkbook
@@ -174,7 +171,7 @@ public partial class XLWorkbook
     {
         if (dSpreadsheet.CustomFilePropertiesPart != null)
         {
-            foreach (var m in dSpreadsheet.CustomFilePropertiesPart.Properties!.Elements<CustomDocumentProperty>())
+            foreach (var m in dSpreadsheet.CustomFilePropertiesPart.Properties!.Elements<Op.CustomDocumentProperty>())
             {
                 var name = m.Name?.Value;
 
@@ -226,11 +223,11 @@ public partial class XLWorkbook
         var efp = dSpreadsheet.ExtendedFilePropertiesPart;
         if (efp is { Properties: not null })
         {
-            if (efp.Properties.Elements<Company>().Any())
-                Properties.Company = efp.Properties.GetFirstChild<Company>()!.Text;
+            if (efp.Properties.Elements<Ap.Company>().Any())
+                Properties.Company = efp.Properties.GetFirstChild<Ap.Company>()!.Text;
 
-            if (efp.Properties.Elements<Manager>().Any())
-                Properties.Manager = efp.Properties.GetFirstChild<Manager>()!.Text;
+            if (efp.Properties.Elements<Ap.Manager>().Any())
+                Properties.Manager = efp.Properties.GetFirstChild<Ap.Manager>()!.Text;
         }
     }
 
@@ -240,7 +237,7 @@ public partial class XLWorkbook
         foreach (var dSheet in sheets.OfType<Sheet>())
         {
             position++;
-            string sheetName = dSheet.Name!.Value!;
+            var sheetName = dSheet.Name!.Value!;
             var sheetIdValue = dSheet.SheetId!.Value;
 
             if (string.IsNullOrEmpty(dSheet.Id))
@@ -292,7 +289,7 @@ public partial class XLWorkbook
             if (workbookPart.GetPartById(dSheet.Id!.Value!) is not WorksheetPart worksheetPart)
                 continue;
 
-            string sheetName = dSheet.Name!.Value!;
+            var sheetName = dSheet.Name!.Value!;
             if (!WorksheetsInternal.TryGetWorksheet(sheetName, out var ws))
             {
                 // This shouldn't be possible, as all worksheets should have already been added in the loop before this loop

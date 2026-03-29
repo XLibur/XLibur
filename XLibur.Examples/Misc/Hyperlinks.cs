@@ -46,7 +46,7 @@ public class Hyperlinks : IXLExample
         var ws = wb.Worksheets.Add("Hyperlinks");
         wb.Worksheets.Add("Second Sheet");
 
-        int ro = 0;
+        var ro = 0;
 
         // You can create a link with pretty much anything you can put on a
         // browser: http, ftp, mailto, gopher, news, nntp, etc.

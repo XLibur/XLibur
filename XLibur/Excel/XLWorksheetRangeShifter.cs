@@ -1,5 +1,4 @@
-﻿using XLibur.Excel.CalcEngine;
-using System;
+﻿using System;
 using System.Linq;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;

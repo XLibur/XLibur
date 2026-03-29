@@ -1,2 +1,4 @@
-﻿[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("XLibur.Tests")]
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("XLibur.Benchmarks")]
+﻿using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("XLibur.Tests")]
+[assembly: InternalsVisibleTo("XLibur.Benchmarks")]

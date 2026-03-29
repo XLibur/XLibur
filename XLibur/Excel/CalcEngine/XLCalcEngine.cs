@@ -1,8 +1,9 @@
-﻿using XLibur.Excel.CalcEngine.Functions;
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using XLibur.Excel.CalcEngine.Exceptions;
+using XLibur.Excel.CalcEngine.Functions;
 using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel.CalcEngine;
@@ -247,7 +248,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 
     private void RecalculateCurrentCell(
         XLCalculationChain chain,
-        System.Collections.Generic.Dictionary<uint, (XLWorksheet Sheet, ValueSlice ValueSlice, FormulaSlice FormulaSlice)> sheetIdMap,
+        Dictionary<uint, (XLWorksheet Sheet, ValueSlice ValueSlice, FormulaSlice FormulaSlice)> sheetIdMap,
         uint? recalculateSheetId)
     {
         while (true)

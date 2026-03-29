@@ -26,7 +26,7 @@ public class ChangingBasicTable : IXLExample
             var rngNumbers = ws.Range("F4:F6");
             foreach (var cell in rngNumbers.Cells())
             {
-                string formattedString = cell.GetFormattedString();
+                var formattedString = cell.GetFormattedString();
                 cell.SetValue(formattedString + " Dollars");
             }
 

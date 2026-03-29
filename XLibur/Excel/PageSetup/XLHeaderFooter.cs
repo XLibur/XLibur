@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using XLibur.Extensions;
 
 namespace XLibur.Excel;
-
-using System.Linq;
 
 internal sealed class XLHeaderFooter : IXLHeaderFooter
 {
@@ -40,7 +40,7 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
         var leftText = Left.GetText(occurrence);
         var centerText = Center.GetText(occurrence);
         var rightText = Right.GetText(occurrence);
-        var sb = new System.Text.StringBuilder();
+        var sb = new StringBuilder();
         if (leftText.Length > 0) sb.Append("&L").Append(leftText);
         if (centerText.Length > 0) sb.Append("&C").Append(centerText);
         if (rightText.Length > 0) sb.Append("&R").Append(rightText);
@@ -72,7 +72,7 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
 
     private static List<ParsedHeaderFooterElement> ParseFormattedHeaderFooterText(string text)
     {
-        Func<int, bool> IsAtPositionIndicator = i => i < text.Length - 1 && text[i] == '&' && SourceArray.Contains(text[i + 1]);
+        Func<int, bool> IsAtPositionIndicator = i => i < text.Length - 1 && text[i] == '&' && Enumerable.Contains(SourceArray, text[i + 1]);
 
         var parsedElements = new List<ParsedHeaderFooterElement>();
         var currentPosition = 'L'; // default is LEFT
@@ -83,7 +83,7 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
         {
             if (IsAtPositionIndicator(i))
             {
-                if (hfElement.Length > 0) parsedElements.Add(new ParsedHeaderFooterElement()
+                if (hfElement.Length > 0) parsedElements.Add(new ParsedHeaderFooterElement
                 {
                     Position = currentPosition,
                     Text = hfElement
@@ -100,7 +100,7 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
         }
 
         if (hfElement.Length > 0)
-            parsedElements.Add(new ParsedHeaderFooterElement()
+            parsedElements.Add(new ParsedHeaderFooterElement
             {
                 Position = currentPosition,
                 Text = hfElement

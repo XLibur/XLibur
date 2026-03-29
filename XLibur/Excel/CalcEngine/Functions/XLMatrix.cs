@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using System.Text.RegularExpressions;
 
 #pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility
@@ -28,9 +29,9 @@ internal sealed class XLMatrix
     {
         var roCount = arr.GetLength(0);
         var coCount = arr.GetLength(1);
-        for (int ro = 0; ro < roCount; ro++)
+        for (var ro = 0; ro < roCount; ro++)
         {
-            for (int co = 0; co < coCount; co++)
+            for (var co = 0; co < coCount; co++)
             {
                 Mat[ro, co] = arr[ro, co];
             }
@@ -39,8 +40,8 @@ internal sealed class XLMatrix
 
     public double this[int iRow, int iCol] // Access this matrix as a 2D array
     {
-        get { return Mat[iRow, iCol]; }
-        set { Mat[iRow, iCol] = value; }
+        get => Mat[iRow, iCol];
+        set => Mat[iRow, iCol] = value;
     }
 
     public bool IsSingular()
@@ -84,11 +85,9 @@ internal sealed class XLMatrix
         _pi = new int[_rows];
         for (var i = 0; i < _rows; i++) _pi[i] = i;
 
-        var k0 = 0;
-
         for (var k = 0; k < Cols - 1; k++)
         {
-            k0 = FindPivotRow(k);
+            var k0 = FindPivotRow(k);
 
             var pom1 = _pi[k];
             _pi[k] = _pi[k0];
@@ -117,9 +116,7 @@ internal sealed class XLMatrix
                 k0 = i;
             }
         }
-        if (p == 0)
-            throw new InvalidOperationException("The matrix is singular!");
-        return k0;
+        return p == 0 ? throw new InvalidOperationException("The matrix is singular!") : k0;
     }
 
     private void SwapLuRows(int k, int k0)
@@ -283,7 +280,7 @@ internal sealed class XLMatrix
 
     public override string ToString() // Function returns matrix as a string
     {
-        var sb = new System.Text.StringBuilder();
+        var sb = new StringBuilder();
         for (var i = 0; i < _rows; i++)
         {
             for (var j = 0; j < Cols; j++) sb.Append($"{Mat[i, j],5:0.00}").Append(' ');

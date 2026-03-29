@@ -1,5 +1,5 @@
-﻿using DocumentFormat.OpenXml.Packaging;
-using System.Linq;
+﻿using System.Linq;
+using DocumentFormat.OpenXml.Packaging;
 
 namespace XLibur.Extensions;
 

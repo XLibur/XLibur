@@ -1,10 +1,10 @@
-﻿using XLibur.Excel.ContentManagers;
-using XLibur.Excel.Exceptions;
+﻿using System;
+using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using System;
-using System.Linq;
+using XLibur.Excel.ContentManagers;
+using XLibur.Excel.Exceptions;
 using XLibur.Excel.Tables;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;

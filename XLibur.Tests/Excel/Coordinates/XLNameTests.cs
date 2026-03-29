@@ -1,5 +1,4 @@
-﻿using XLibur.Excel;
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using XLibur.Excel.Coordinates;
 
 namespace XLibur.Tests.Excel.Coordinates;

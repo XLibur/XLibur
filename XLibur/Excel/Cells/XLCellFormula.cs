@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.CalcEngine.Visitors;
-using ClosedXML.Parser;
 using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel;
@@ -20,7 +19,7 @@ internal enum FormulaConversionType
 {
     A1ToR1C1,
     R1C1ToA1
-};
+}
 
 /// <summary>
 /// A representation of a cell formula, not the formula itself (i.e. the tree).

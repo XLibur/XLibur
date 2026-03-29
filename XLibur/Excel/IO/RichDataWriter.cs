@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
-using XLibur.Excel.Drawings;
-using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
 
@@ -294,7 +293,7 @@ internal static class RichDataWriter
 
     private static XmlWriterSettings XmlSettings() => new()
     {
-        Encoding = System.Text.Encoding.UTF8,
+        Encoding = Encoding.UTF8,
         CloseOutput = true,
     };
 }

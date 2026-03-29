@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 
 namespace XLibur.Excel;
-
-using System.Linq;
 
 internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerable<XLCell>
 {

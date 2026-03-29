@@ -90,9 +90,9 @@ public class FunctionsTests
     public void Formula_from_another_sheet()
     {
         var wb = new XLWorkbook();
-        IXLWorksheet ws1 = wb.AddWorksheet("ws1");
+        var ws1 = wb.AddWorksheet("ws1");
         ws1.FirstCell().SetValue(1).CellRight().SetFormulaA1("A1 + 1");
-        IXLWorksheet ws2 = wb.AddWorksheet("ws2");
+        var ws2 = wb.AddWorksheet("ws2");
         ws2.FirstCell().SetFormulaA1("ws1!B1 + 1");
         object v = ws2.FirstCell().Value;
         Assert.AreEqual(3.0, v);
@@ -102,7 +102,7 @@ public class FunctionsTests
     public void TextConcat()
     {
         var wb = new XLWorkbook();
-        IXLWorksheet ws = wb.AddWorksheet("Sheet1");
+        var ws = wb.AddWorksheet("Sheet1");
         ws.Cell("A1").Value = 1;
         ws.Cell("A2").Value = 1;
         ws.Cell("B1").Value = 1;
@@ -128,7 +128,7 @@ public class FunctionsTests
     public void TestEmptyTallyOperations()
     {
         //In these test no values have been set
-        XLWorkbook wb = new XLWorkbook();
+        var wb = new XLWorkbook();
         wb.Worksheets.Add("TallyTests");
         var cell = wb.Worksheet(1).Cell(1, 1).SetFormulaA1("=MAX(D1,D2)");
         Assert.AreEqual(0, cell.Value);

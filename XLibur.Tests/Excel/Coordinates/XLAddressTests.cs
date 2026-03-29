@@ -10,7 +10,7 @@ public class XLAddressTests
     public void ToStringTest()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLAddress address = ws.Cell(1, 1).Address;
+        var address = ws.Cell(1, 1).Address;
 
         Assert.AreEqual("A1", address.ToString());
         Assert.AreEqual("A1", address.ToString(XLReferenceStyle.A1));
@@ -33,8 +33,8 @@ public class XLAddressTests
     [Test]
     public void ToStringTestWithSpace()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet 1");
-        IXLAddress address = ws.Cell(1, 1).Address;
+        var ws = new XLWorkbook().Worksheets.Add("Sheet 1");
+        var address = ws.Cell(1, 1).Address;
 
         Assert.AreEqual("A1", address.ToString());
         Assert.AreEqual("A1", address.ToString(XLReferenceStyle.A1));
@@ -163,7 +163,7 @@ public class XLAddressTests
 
     private static IXLAddress ProduceInvalidAddress()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet 1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet 1");
         var range = ws.Range("A1:B2");
 
         ws.Rows(1, 5).Delete();
@@ -172,7 +172,7 @@ public class XLAddressTests
 
     private static IXLAddress ProduceAddressOnDeletedWorksheet()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet 1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet 1");
         var address = ws.Cell("A1").Address;
 
         ws.Delete();

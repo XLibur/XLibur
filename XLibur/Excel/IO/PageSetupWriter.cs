@@ -1,8 +1,8 @@
-﻿using XLibur.Excel.ContentManagers;
+﻿using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using System.Linq;
+using XLibur.Excel.ContentManagers;
 using static XLibur.Excel.XLWorkbook;
 using Hyperlink = DocumentFormat.OpenXml.Spreadsheet.Hyperlink;
 using Break = DocumentFormat.OpenXml.Spreadsheet.Break;

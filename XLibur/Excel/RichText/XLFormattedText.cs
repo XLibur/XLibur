@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -176,7 +177,7 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
 
     IEnumerator<IXLRichString> IEnumerable<IXLRichString>.GetEnumerator() => GetEnumerator();
 
-    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
 #pragma warning disable S2376 // Write-only properties: intentional "apply to all runs" design
     public bool Bold

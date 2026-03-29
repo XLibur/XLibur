@@ -1,6 +1,5 @@
-﻿
+﻿using System.Globalization;
 using ExcelNumberFormat;
-using System.Globalization;
 
 namespace XLibur.Extensions;
 

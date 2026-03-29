@@ -34,8 +34,8 @@ public class ColorTests
     public void DefaultColorIndex64isTransparentWhite()
     {
         var wb = new XLWorkbook();
-        IXLWorksheet ws = wb.AddWorksheet("Sheet1");
-        XLColor color = ws.FirstCell().Style.Fill.BackgroundColor;
+        var ws = wb.AddWorksheet("Sheet1");
+        var color = ws.FirstCell().Style.Fill.BackgroundColor;
         Assert.AreEqual(XLColorType.Indexed, color.ColorType);
         Assert.AreEqual(64, color.Indexed);
         Assert.AreEqual(Color.Transparent, color.Color);

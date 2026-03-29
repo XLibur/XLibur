@@ -60,7 +60,7 @@ public class WildcardTests
     }
 
     [TestCase("abcd", "ab*cd", 0)]
-    [TestCase(@"aaab_____cd", "ab*cd", 2)]
+    [TestCase("aaab_____cd", "ab*cd", 2)]
     [TestCase("*abc*", "***a*b*c***", 0)]
 
     public void Star_Wildcard_Matches_Any_Number_Of_Chars(string text, string pattern, int index)
@@ -99,8 +99,8 @@ public class WildcardTests
     [TestCase("*c", "abc", true)]
     [TestCase("*a*a", "abc", false)]
     [TestCase("*a*a", "aba", true)]
-    [TestCase("*a*a", @"zaba", true)]
-    [TestCase("a*", @"zaba", false)]
+    [TestCase("*a*a", "zaba", true)]
+    [TestCase("a*", "zaba", false)]
     public void Matches(string pattern, string text, bool matches)
     {
         Assert.AreEqual(matches, new Wildcard(pattern).Matches(text.AsSpan()));

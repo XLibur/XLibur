@@ -11,16 +11,32 @@ internal sealed class XLDrawingMargins : IXLDrawingMargins
     public IXLDrawingStyle SetAutomatic() { Automatic = true; return _style; }
     public IXLDrawingStyle SetAutomatic(bool value) { Automatic = value; return _style; }
     double _left;
-    public double Left { get { return _left; } set { _left = value; Automatic = false; } }
+    public double Left
+    {
+        get => _left;
+        set { _left = value; Automatic = false; }
+    }
     public IXLDrawingStyle SetLeft(double value) { Left = value; return _style; }
     double _right;
-    public double Right { get { return _right; } set { _right = value; Automatic = false; } }
+    public double Right
+    {
+        get => _right;
+        set { _right = value; Automatic = false; }
+    }
     public IXLDrawingStyle SetRight(double value) { Right = value; return _style; }
     double _top;
-    public double Top { get { return _top; } set { _top = value; Automatic = false; } }
+    public double Top
+    {
+        get => _top;
+        set { _top = value; Automatic = false; }
+    }
     public IXLDrawingStyle SetTop(double value) { Top = value; return _style; }
     double _bottom;
-    public double Bottom { get { return _bottom; } set { _bottom = value; Automatic = false; } }
+    public double Bottom
+    {
+        get => _bottom;
+        set { _bottom = value; Automatic = false; }
+    }
     public IXLDrawingStyle SetBottom(double value) { Bottom = value; return _style; }
     // Write-only property: intentional design for setting all margins at once
 #pragma warning disable S2376

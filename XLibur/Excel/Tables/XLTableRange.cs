@@ -1,9 +1,8 @@
 ﻿using System;
+using System.Linq;
 using XLibur.Excel.Tables;
 
 namespace XLibur.Excel;
-
-using System.Linq;
 
 internal sealed class XLTableRange : XLRange, IXLTableRange
 {
@@ -27,9 +26,9 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
         if (predicate == null)
             return new XLTableRow(this, (_range.FirstRow()!));
 
-        int rowCount = _range.RowCount();
+        var rowCount = _range.RowCount();
 
-        for (int ro = 1; ro <= rowCount; ro++)
+        for (var ro = 1; ro <= rowCount; ro++)
         {
             var row = new XLTableRow(this, (_range.Row(ro)));
             if (predicate(row)) return row;
@@ -61,9 +60,9 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
             return row is null ? null : new XLTableRow(this, row);
         }
 
-        int rowCount = _range.RowCount();
+        var rowCount = _range.RowCount();
 
-        for (int ro = 1; ro <= rowCount; ro++)
+        for (var ro = 1; ro <= rowCount; ro++)
         {
             var row = new XLTableRow(this, (_range.Row(ro)));
 
@@ -84,9 +83,9 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
         if (predicate == null)
             return new XLTableRow(this, (_range.LastRow()!));
 
-        int rowCount = _range.RowCount();
+        var rowCount = _range.RowCount();
 
-        for (int ro = rowCount; ro >= 1; ro--)
+        for (var ro = rowCount; ro >= 1; ro--)
         {
             var row = new XLTableRow(this, (_range.Row(ro)));
             if (predicate(row)) return row;
@@ -117,9 +116,9 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
             return row is null ? null : new XLTableRow(this, row);
         }
 
-        int rowCount = _range.RowCount();
+        var rowCount = _range.RowCount();
 
-        for (int ro = rowCount; ro >= 1; ro--)
+        for (var ro = rowCount; ro >= 1; ro--)
         {
             var row = new XLTableRow(this, (_range.Row(ro)));
 
@@ -151,9 +150,9 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
     public IXLTableRows Rows(Func<IXLTableRow, bool>? predicate = null)
     {
         var retVal = new XLTableRows(Worksheet.Style);
-        int rowCount = _range.RowCount();
+        var rowCount = _range.RowCount();
 
-        for (int r = 1; r <= rowCount; r++)
+        for (var r = 1; r <= rowCount; r++)
         {
             var row = Row(r);
             if (predicate == null || predicate(row))
@@ -166,7 +165,7 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
     {
         var retVal = new XLTableRows(Worksheet.Style);
 
-        for (int rowNumber = firstRow; rowNumber <= lastRow; rowNumber++)
+        for (var rowNumber = firstRow; rowNumber <= lastRow; rowNumber++)
             retVal.Add(Row(rowNumber));
 
         return retVal;
@@ -176,7 +175,7 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
     {
         var retVal = new XLTableRows(Worksheet.Style);
         var rowPairs = rows.Split(',');
-        foreach (string tPair in rowPairs.Select(pair => pair.Trim()))
+        foreach (var tPair in rowPairs.Select(pair => pair.Trim()))
         {
             string firstRow;
             string lastRow;
@@ -192,7 +191,7 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
                 firstRow = tPair;
                 lastRow = tPair;
             }
-            foreach (IXLTableRow row in Rows(int.Parse(firstRow), int.Parse(lastRow)))
+            foreach (var row in Rows(int.Parse(firstRow), int.Parse(lastRow)))
                 retVal.Add(row);
         }
         return retVal;
@@ -206,9 +205,9 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
     internal XLTableRows RowsUsed(XLCellsUsedOptions options, Func<IXLTableRow, bool>? predicate = null)
     {
         var rows = new XLTableRows(Worksheet.Style);
-        int rowCount = RowCount();
+        var rowCount = RowCount();
 
-        for (int ro = 1; ro <= rowCount; ro++)
+        for (var ro = 1; ro <= rowCount; ro++)
         {
             var row = Row(ro);
 
@@ -246,7 +245,7 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
     {
         if (XLHelper.IsValidColumn(columnLetter))
         {
-            int coNum = XLHelper.GetColumnNumberFromLetter(columnLetter);
+            var coNum = XLHelper.GetColumnNumberFromLetter(columnLetter);
             return coNum > ColumnCount() ? Column(_table.GetFieldIndex(columnLetter) + 1) : Column(coNum);
         }
 

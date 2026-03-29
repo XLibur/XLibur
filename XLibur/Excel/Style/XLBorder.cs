@@ -92,7 +92,7 @@ internal sealed class XLBorder : IXLBorder
             }
             else
             {
-                foreach (IXLRange r in _container.RangesUsed)
+                foreach (var r in _container.RangesUsed)
                 {
                     r.FirstColumn()!.Style.Border.LeftBorder = value;
                     r.LastColumn()!.Style.Border.RightBorder = value;
@@ -119,7 +119,7 @@ internal sealed class XLBorder : IXLBorder
             }
             else
             {
-                foreach (IXLRange r in _container.RangesUsed)
+                foreach (var r in _container.RangesUsed)
                 {
                     r.FirstColumn()!.Style.Border.LeftBorderColor = value;
                     r.LastColumn()!.Style.Border.RightBorderColor = value;

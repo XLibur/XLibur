@@ -1,5 +1,4 @@
-﻿using XLibur.Examples;
-using XLibur.Examples.Columns;
+﻿using XLibur.Examples.Columns;
 using NUnit.Framework;
 
 namespace XLibur.Tests.Examples;

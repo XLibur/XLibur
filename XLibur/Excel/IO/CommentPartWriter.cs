@@ -1,7 +1,7 @@
-﻿using DocumentFormat.OpenXml.Packaging;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Xml;
+using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.RichText;
 using XLibur.Extensions;
 using static XLibur.Excel.IO.OpenXmlConst;

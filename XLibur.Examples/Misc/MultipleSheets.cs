@@ -10,10 +10,10 @@ public class MultipleSheets : IXLExample
         var wb = new XLWorkbook();
         foreach (var wsNum in Enumerable.Range(1, 5))
         {
-            wb.Worksheets.Add("Original Pos. is " + wsNum.ToString());
+            wb.Worksheets.Add("Original Pos. is " + wsNum);
         }
 
-        // Move first worksheet to the last position
+        // Move the first worksheet to the last position
         wb.Worksheet(1).Position = wb.Worksheets.Count + 1;
 
         // Delete worksheet on position 4 (in this case it's where original position = 5)

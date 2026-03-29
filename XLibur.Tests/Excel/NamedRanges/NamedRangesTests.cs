@@ -284,8 +284,8 @@ public class NamedRangesTests
     {
         var wb = new XLWorkbook();
 
-        IXLWorksheet sheet1 = wb.Worksheets.Add("Sheet1");
-        IXLWorksheet sheet2 = wb.Worksheets.Add("Sheet2");
+        var sheet1 = wb.Worksheets.Add("Sheet1");
+        var sheet2 = wb.Worksheets.Add("Sheet2");
 
         wb.DefinedNames.Add("wbNamedRange",
             "Sheet1!$B$2,Sheet1!$B$3:$C$3,Sheet2!$D$3:$D$4,Sheet1!$6:$7,Sheet1!$F:$G");
@@ -610,12 +610,12 @@ public class NamedRangesTests
         Assert.IsNotNull(wb.DefinedName("Sheet1!Name"));
         Assert.IsNull(wb.DefinedName("Sheet1!NameX"));
 
-        Boolean found1 = wb.DefinedNames.TryGetValue("Sheet1!Name", out var definedName1);
+        var found1 = wb.DefinedNames.TryGetValue("Sheet1!Name", out var definedName1);
         Assert.IsTrue(found1);
         Assert.IsNotNull(definedName1);
         Assert.AreEqual(XLNamedRangeScope.Worksheet, definedName1!.Scope);
 
-        Boolean found2 = wb.DefinedNames.TryGetValue("Sheet1!NameX", out var definedName2);
+        var found2 = wb.DefinedNames.TryGetValue("Sheet1!NameX", out var definedName2);
         Assert.IsFalse(found2);
         Assert.IsNull(definedName2);
     }
@@ -633,11 +633,11 @@ public class NamedRangesTests
         Assert.IsNotNull(wb.DefinedName("Name"));
         Assert.IsNull(wb.DefinedName("NameX"));
 
-        Boolean found1 = wb.DefinedNames.TryGetValue("Name", out var definedName1);
+        var found1 = wb.DefinedNames.TryGetValue("Name", out var definedName1);
         Assert.IsTrue(found1);
         Assert.IsNotNull(definedName1);
 
-        Boolean found2 = wb.DefinedNames.TryGetValue("NameX", out var definedName2);
+        var found2 = wb.DefinedNames.TryGetValue("NameX", out var definedName2);
         Assert.IsFalse(found2);
         Assert.IsNull(definedName2);
     }
@@ -655,11 +655,11 @@ public class NamedRangesTests
         Assert.IsNotNull(ws.DefinedName("Name"));
         Assert.Throws<KeyNotFoundException>(() => ws.DefinedName("NameX"));
 
-        Boolean found1 = ws.DefinedNames.TryGetValue("Name", out var definedName1);
+        var found1 = ws.DefinedNames.TryGetValue("Name", out var definedName1);
         Assert.IsTrue(found1);
         Assert.IsNotNull(definedName1);
 
-        Boolean found2 = ws.DefinedNames.TryGetValue("NameX", out var definedName2);
+        var found2 = ws.DefinedNames.TryGetValue("NameX", out var definedName2);
         Assert.IsFalse(found2);
         Assert.IsNull(definedName2);
     }

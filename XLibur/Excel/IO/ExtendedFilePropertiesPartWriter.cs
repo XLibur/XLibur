@@ -1,9 +1,9 @@
-﻿using DocumentFormat.OpenXml.ExtendedProperties;
+﻿using System.Collections.Generic;
+using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.ExtendedProperties;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.VariantTypes;
-using DocumentFormat.OpenXml;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace XLibur.Excel.IO;
 

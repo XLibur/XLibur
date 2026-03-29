@@ -51,7 +51,7 @@ internal static class CryptographicAlgorithms
         RandomNumberGenerator.Fill(salt);
         // Ensure no zero bytes (matching previous RNGCryptoServiceProvider.GetNonZeroBytes behavior)
         Span<byte> singleByte = stackalloc byte[1];
-        for (int i = 0; i < salt.Length; i++)
+        for (var i = 0; i < salt.Length; i++)
         {
             while (salt[i] == 0)
             {
@@ -84,11 +84,11 @@ internal static class CryptographicAlgorithms
         // http://kohei.us/2008/01/18/excel-sheet-protection-password-hash/
         // http://sc.openoffice.org/excelfileformat.pdf - 4.18.4
         // http://web.archive.org/web/20080906232341/http://blogs.infosupport.com/wouterv/archive/2006/11/21/Hashing-password-for-use-in-SpreadsheetML.aspx
-        byte[] passwordCharacters = Encoding.ASCII.GetBytes(password);
-        int hash = 0;
+        var passwordCharacters = Encoding.ASCII.GetBytes(password);
+        var hash = 0;
         if (passwordCharacters.Length > 0)
         {
-            int charIndex = passwordCharacters.Length;
+            var charIndex = passwordCharacters.Length;
 
             while (charIndex-- > 0)
             {

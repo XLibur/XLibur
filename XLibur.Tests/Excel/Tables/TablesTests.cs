@@ -208,7 +208,7 @@ public class TablesTests
     [Test]
     public void TableCreatedFromListOfObjectWithPropertyAttributes()
     {
-        var l = new List<TestObjectWithAttributes>()
+        var l = new List<TestObjectWithAttributes>
         {
             new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
             new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
@@ -428,7 +428,7 @@ public class TablesTests
     [Test]
     public void CanDeleteTableColumn()
     {
-        var l = new List<TestObjectWithAttributes>()
+        var l = new List<TestObjectWithAttributes>
         {
             new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
             new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
@@ -452,7 +452,7 @@ public class TablesTests
     [Test]
     public void TestFieldCellTypes()
     {
-        var l = new List<TestObjectWithAttributes>()
+        var l = new List<TestObjectWithAttributes>
         {
             new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
             new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
@@ -491,7 +491,7 @@ public class TablesTests
     [Test]
     public void CanDeleteTable()
     {
-        var l = new List<TestObjectWithAttributes>()
+        var l = new List<TestObjectWithAttributes>
         {
             new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
             new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
@@ -561,7 +561,7 @@ public class TablesTests
     [Test]
     public void CanDeleteTableField()
     {
-        var l = new List<TestObjectWithAttributes>()
+        var l = new List<TestObjectWithAttributes>
         {
             new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
             new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
@@ -589,7 +589,7 @@ public class TablesTests
     [Test]
     public void CanDeleteTableRows()
     {
-        var l = new List<TestObjectWithAttributes>()
+        var l = new List<TestObjectWithAttributes>
         {
             new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
             new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 },
@@ -692,7 +692,7 @@ public class TablesTests
     [Test]
     public void TableRenameTests()
     {
-        var l = new List<TestObjectWithAttributes>()
+        var l = new List<TestObjectWithAttributes>
         {
             new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
             new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
@@ -772,7 +772,7 @@ public class TablesTests
     [Test]
     public void TableAsDynamicEnumerable()
     {
-        var l = new List<TestObjectWithAttributes>()
+        var l = new List<TestObjectWithAttributes>
         {
             new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
             new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
@@ -797,7 +797,7 @@ public class TablesTests
     [Test]
     public void TableAsDotNetDataTable()
     {
-        var l = new List<TestObjectWithAttributes>()
+        var l = new List<TestObjectWithAttributes>
         {
             new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
             new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
@@ -860,7 +860,7 @@ public class TablesTests
     [Test]
     public void TotalsFunctionsOfHeadersWithWeirdCharacters()
     {
-        var l = new List<TestObjectWithAttributes>()
+        var l = new List<TestObjectWithAttributes>
         {
             new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
             new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
@@ -894,7 +894,7 @@ public class TablesTests
     [Test]
     public void CannotCreateDuplicateTablesOverSameRange()
     {
-        var l = new List<TestObjectWithAttributes>()
+        var l = new List<TestObjectWithAttributes>
         {
             new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
             new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
