@@ -6,8 +6,9 @@ using System.Reflection;
 using SixLabors.Fonts;
 using SixLabors.Fonts.Unicode;
 using XLibur.Excel;
+using XLibur.Graphics;
 
-namespace XLibur.Graphics;
+namespace XLibur.Fonts.SixLabors.V1;
 
 /// <summary>
 /// Default implementation of <see cref="IXLFontEngine"/> that uses SixLabors.Fonts for font metrics and text measurement.

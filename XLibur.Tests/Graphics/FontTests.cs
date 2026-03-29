@@ -2,6 +2,7 @@
 using XLibur.Excel;
 using XLibur.Graphics;
 using NUnit.Framework;
+using XLibur.Fonts.SixLabors.V1;
 
 namespace XLibur.Tests.Graphics;
 

@@ -3,7 +3,6 @@
     <PropertyGroup>
         <TargetFrameworks>net10.0;net8.0;net9.0</TargetFrameworks>
         <Nullable>enable</Nullable>
-        <RootNamespace>XLibur</RootNamespace>
         <MinVerTagPrefix>fonts-sixlabors-1-v</MinVerTagPrefix>
         <Description>Default IXLFontEngine implementation for XLibur using SixLabors.Fonts 1.x (Apache 2.0).</Description>
         <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>

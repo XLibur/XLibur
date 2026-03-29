@@ -6,7 +6,7 @@ namespace XLibur.Fonts.SixLabors.Examples;
 
 public static class Program
 {
-    public static string OutputDirectory
+    private static string OutputDirectory
     {
         get
         {
