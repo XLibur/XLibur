@@ -11,7 +11,7 @@ namespace XLibur.Excel.CalcEngine;
 internal abstract class AstNode
 {
     /// <summary>
-    /// Method to accept a visitor (=call a method of visitor with correct type of the node).
+    /// Method to accept a visitor (=call a method of a visitor with the correct type of the node).
     /// </summary>
     public abstract TResult Accept<TContext, TResult>(TContext context, IFormulaVisitor<TContext, TResult> visitor);
 }
@@ -226,12 +226,12 @@ internal sealed class PrefixNode : AstNode
     public string? Sheet { get; }
 
     /// <summary>
-    /// If the prefix is for 3D reference, name of first sheet. Empty otherwise.
+    /// If the prefix is for 3D reference, the name of the first sheet. Empty otherwise.
     /// </summary>
     public string? FirstSheet { get; }
 
     /// <summary>
-    /// If the prefix is for 3D reference, name of the last sheet. Empty otherwise.
+    /// If the prefix is for 3D reference, the name of the last sheet. Empty otherwise.
     /// </summary>
     public string? LastSheet { get; }
 
@@ -271,7 +271,7 @@ internal sealed class ReferenceNode : ValueNode
     public PrefixNode? Prefix { get; }
 
     /// <summary>
-    /// An address of a reference that corresponds to <see cref="Type"/>. Always without sheet (that is in the prefix).
+    /// An address of a reference that corresponds to <see cref="Type"/>. Always without a sheet (that is in the prefix).
     /// </summary>
     public string Address { get; }
 

@@ -13,7 +13,7 @@ public enum XLTopBottomPart { Top, Bottom }
 /// <para>
 /// Autofilter can sort and filter (hide) values in a non-empty area of a sheet. Each table can
 /// have autofilter and each worksheet can have at most one range with an autofilter. First row
-/// of the area contains headers, remaining rows contain sorted and filtered data.
+/// of the area contains headers, the remaining rows contain sorted and filtered data.
 /// </para>
 /// <para>
 /// Sorting of rows is done <see cref="Sort"/> method, using the passed parameters. The sort
@@ -22,8 +22,8 @@ public enum XLTopBottomPart { Top, Bottom }
 /// one column.
 /// </para>
 /// <para>
-/// Autofilter can filter rows through <see cref="Reapply"/> method. The filter evaluates
-/// conditions of the autofilter and leaves visible only rows that satisfy the conditions.
+/// Auto-filter can filter rows through <see cref="Reapply"/> method. The filter evaluates
+/// conditions of the auto-filter and leaves visible only rows that satisfy the conditions.
 /// Rows that don't satisfy filter conditions are marked as <see cref="IXLRow.IsHidden">hidden</see>.
 /// Filter conditions can be specified for each column (accessible through <see cref="Column(string)"/>
 /// methods), e.g. <c>sheet.AutoFilter.Column(1).Top(10, XLTopBottomType.Percent)</c>
@@ -43,7 +43,7 @@ public interface IXLAutoFilter
 
     /// <summary>
     /// Is autofilter enabled? When autofilter is enabled, it shows the arrow buttons and might
-    /// contain some filter that hide some rows. Disabled autofilter doesn't show arrow buttons
+    /// contain some filters that hide some rows. Disabled auto-filter doesn't show arrow buttons
     /// and all rows are visible.
     /// </summary>
     bool IsEnabled { get; set; }
@@ -108,7 +108,7 @@ public interface IXLAutoFilter
     IXLFilterColumn Column(int columnNumber);
 
     /// <summary>
-    /// Apply autofilter filters to the range and show every row that satisfies the conditions
+    /// Apply auto-filter filters to the range and show every row that satisfies the conditions
     /// and hide the ones that don't satisfy conditions.
     /// </summary>
     /// <remarks>
