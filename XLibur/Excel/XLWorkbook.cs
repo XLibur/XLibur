@@ -739,7 +739,9 @@ public partial class XLWorkbook : IXLWorkbook
                         ?? LoadOptions.DefaultGraphicEngine
                         ?? (fontEngine is not null
                             ? new DefaultGraphicEngine(fontEngine)
-                            : DefaultGraphicEngine.Instance.Value);
+                            : throw new InvalidOperationException(
+                                "No font engine is registered. Call SixLaborsV1FontBootstrap.Register() at application startup " +
+                                "or set LoadOptions.FontEngine / LoadOptions.DefaultFontEngine."));
         FontEngine = fontEngine
                      ?? (GraphicEngine as IXLFontEngine ?? new GraphicEngineFontAdapter(GraphicEngine));
         Protection = new XLWorkbookProtection(DefaultProtectionAlgorithm);

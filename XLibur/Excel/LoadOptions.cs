@@ -17,7 +17,7 @@ public class LoadOptions
     /// <summary>
     /// A font engine that will be used for workbooks without explicitly set font engine.
     /// </summary>
-    public static IXLFontEngine? DefaultFontEngine { internal get; set; }
+    public static IXLFontEngine? DefaultFontEngine { get; set; }
 
     /// <summary>
     /// Should all formulas in a workbook be recalculated during a load? Default value is <c>false</c>.

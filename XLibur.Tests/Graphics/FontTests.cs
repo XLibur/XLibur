@@ -9,7 +9,7 @@ namespace XLibur.Tests.Graphics;
 [TestFixture]
 public class FontTests
 {
-    private readonly IXLGraphicEngine _engine = DefaultGraphicEngine.Instance.Value;
+    private readonly IXLGraphicEngine _engine = new DefaultGraphicEngine(DefaultFontEngine.Instance.Value);
 
     [TestCase]
     public void CalculatedTextWidth()
@@ -64,10 +64,10 @@ public class FontTests
     public void UseEmbeddedFontWhenFallbackFontIsNotPresent()
     {
         var nonExistentFont = new DummyFont("SomeNonExistentFont", 11);
-        var engine = new DefaultGraphicEngine("NonExistentFallbackFont");
+        var fontEngine = new DefaultFontEngine("NonExistentFallbackFont");
         Span<int> text = ['8'];
 
-        var box = engine.GetGlyphBox(text, nonExistentFont, new Dpi(96, 96));
+        var box = fontEngine.GetGlyphBox(text, nonExistentFont, new Dpi(96, 96));
 
         // Max digit width of CarlitoBare is ~7.4 at 11pt, unlike MS Sans Serif which is ~8
         Assert.That(box.AdvanceWidth, Is.EqualTo(7.43359375f));
@@ -77,10 +77,10 @@ public class FontTests
     public void CanSpecifyFallbackFontWithoutFileSystem()
     {
         using var fallbackFontStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
-        var engine = DefaultGraphicEngine.CreateOnlyWithFonts(fallbackFontStream);
+        var fontEngine = DefaultFontEngine.CreateOnlyWithFonts(fallbackFontStream);
 
         var nonExistentFont = new DummyFont("Nonexistent Font", 20);
-        var widthOfLetterA = engine.GetTextWidth("A", nonExistentFont, 120);
+        var widthOfLetterA = fontEngine.GetTextWidth("A", nonExistentFont, 120);
 
         const double expectedWidthOfLetterA = 31.25d;
         Assert.AreEqual(expectedWidthOfLetterA, widthOfLetterA, 0.0001);
@@ -91,9 +91,9 @@ public class FontTests
     {
         using var fallbackFontStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
         var fontBStream = TestHelper.GetStreamFromResource("Fonts.TestFontB.ttf");
-        var engine = DefaultGraphicEngine.CreateOnlyWithFonts(fallbackFontStream, fontBStream);
+        var fontEngine = DefaultFontEngine.CreateOnlyWithFonts(fallbackFontStream, fontBStream);
 
-        var widthOfLetterB = engine.GetTextWidth("B", new DummyFont("TestFontB", 30), 96);
+        var widthOfLetterB = fontEngine.GetTextWidth("B", new DummyFont("TestFontB", 30), 96);
 
         const double expectedWidthOfLetterB = 25d;
         Assert.AreEqual(expectedWidthOfLetterB, widthOfLetterB, 0.0001);

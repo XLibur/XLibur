@@ -1,4 +1,4 @@
-﻿using XLibur.Excel;
+using XLibur.Excel;
 using XLibur.Graphics;
 
 namespace XLibur.Fonts.SixLabors.V1;
@@ -20,8 +20,8 @@ public static class SixLaborsV1FontBootstrap
 {
     /// <summary>
     /// Register the SixLabors.Fonts v1 engine as the default font engine.
-    /// Sets <see cref="LoadOptions.DefaultFontEngine"/> and registers internal factories
-    /// used by <see cref="DefaultGraphicEngine"/>.
+    /// Sets <see cref="LoadOptions.DefaultFontEngine"/> so all workbooks
+    /// created without an explicit font engine use the v1 SixLabors implementation.
     /// </summary>
     /// <remarks>
     /// Safe to call multiple times — subsequent calls are no-ops.
@@ -31,9 +31,5 @@ public static class SixLaborsV1FontBootstrap
     public static void Register()
     {
         LoadOptions.DefaultFontEngine ??= DefaultFontEngine.Instance.Value;
-
-        DefaultFontEngineFactory.FromFallbackFont ??= fallbackFont => new DefaultFontEngine(fallbackFont);
-        DefaultFontEngineFactory.FromStreams ??= (stream, useSystemFonts, fontStreams)
-            => new DefaultFontEngine(stream, useSystemFonts, fontStreams);
     }
 }

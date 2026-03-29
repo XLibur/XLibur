@@ -30,8 +30,7 @@ GetGlyphBox      — glyph bounding box for a grapheme cluster
 XLibur (core)
 ├── IXLFontEngine               — font engine interface
 ├── IXLGraphicEngine            — graphic engine interface (unchanged)
-├── DefaultGraphicEngine        — image handling + font delegation
-├── DefaultFontEngineFactory          — internal factory delegates for DefaultGraphicEngine
+├── DefaultGraphicEngine        — image handling + font delegation (requires IXLFontEngine)
 ├── GraphicEngineFontAdapter    — wraps legacy IXLGraphicEngine as IXLFontEngine
 └── LoadOptions.FontEngine      — injection point
 
@@ -57,11 +56,9 @@ The core cannot reference V1 (that would create a circular dependency). Instead,
 SixLaborsV1FontBootstrap.Register();
 ```
 
-This sets `LoadOptions.DefaultFontEngine` (the one user-facing global default) and registers internal factory delegates on `DefaultFontEngineFactory` that `DefaultGraphicEngine` uses when constructing font engines from parameters. The V1 package also includes a `[ModuleInitializer]` that calls `Register()` automatically when the assembly is loaded — but explicit registration is preferred for clarity and predictability.
+This sets `LoadOptions.DefaultFontEngine` — the single global default. `DefaultGraphicEngine` requires an `IXLFontEngine` as a constructor parameter; it has no factory-based or string-based constructors. The V1 package also includes a `[ModuleInitializer]` that calls `Register()` automatically when the assembly is loaded — but explicit registration is preferred for clarity and predictability.
 
-There is only one user-facing global default: `LoadOptions.DefaultFontEngine`. The internal `DefaultFontEngineFactory` is an implementation detail that `DefaultGraphicEngine`'s constructors use to create font engines from a fallback font name or streams — it is not visible to consumers.
-
-If no provider is registered and no `FontEngine` is configured, an `InvalidOperationException` is thrown with a clear message explaining what to do.
+If no font engine is registered and no `FontEngine` is configured, an `InvalidOperationException` is thrown with a clear message explaining what to do.
 
 ### Injection and Resolution
 
@@ -133,6 +130,15 @@ If both V1 (1.0.1) and V2 (2.1.3) packages exist and a consumer installs both, N
 
 **Why explicit bootstrap instead of automatic assembly scanning?**
 An earlier design had the core probing for V1's DLL at runtime via `AssemblyLoadContext.LoadFromAssemblyPath` and `RuntimeHelpers.RunModuleConstructor`. This was fragile — it relied on `AppContext.BaseDirectory` being correct, assembly probing paths, and forcing module initializers. The explicit `SixLaborsV1FontBootstrap.Register()` call is one line, obvious, stable, and gives consumers full control over initialization order. The module initializer remains as a convenience fallback but is not the primary design.
+
+**Why does `DefaultGraphicEngine` only accept `IXLFontEngine` (no string constructor)?**
+The original `DefaultGraphicEngine(string fallbackFont)` constructor, `Instance` singleton, and `CreateOnlyWithFonts`/`CreateWithFontsAndSystemFonts` factory methods all internally created a `DefaultFontEngine` — which lives in the V1 assembly. Since the core can't reference V1 (circular dependency), those constructors required an internal factory delegation system (`DefaultFontEngineFactory`) bridged via `InternalsVisibleTo`. This created two parallel global registration paths that could get out of sync. Removing the factory-dependent constructors eliminates the entire internal factory system. Consumers who need a `DefaultGraphicEngine` pass in the font engine explicitly: `new DefaultGraphicEngine(new DefaultFontEngine("Arial"))`. Most consumers don't create `DefaultGraphicEngine` directly — they call `SixLaborsV1FontBootstrap.Register()` and use `new XLWorkbook()`.
+
+**Breaking changes from shipped API:**
+- `DefaultGraphicEngine(string)` — removed (use `DefaultGraphicEngine(IXLFontEngine)`)
+- `DefaultGraphicEngine.Instance` — removed (use `SixLaborsV1FontBootstrap.Register()` + `new XLWorkbook()`)
+- `DefaultGraphicEngine.CreateOnlyWithFonts(...)` — removed (use `DefaultFontEngine.CreateOnlyWithFonts(...)` then `new DefaultGraphicEngine(fontEngine)`)
+- `DefaultGraphicEngine.CreateWithFontsAndSystemFonts(...)` — removed (same pattern)
 
 **Why `GraphicEngineFontAdapter`?**
 A user who implemented `IXLGraphicEngine` before `IXLFontEngine` existed has the same 5 font method signatures on their type — they just don't implement the new interface. The adapter wraps their graphic engine and delegates the font calls, preserving their measurement behavior without requiring them to change code.
