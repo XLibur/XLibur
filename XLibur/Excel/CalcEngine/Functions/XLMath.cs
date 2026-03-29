@@ -8,78 +8,78 @@ public static class XLMath
 {
     public static double DegreesToRadians(double degrees)
     {
-        return (Math.PI / 180.0) * degrees;
+        return Math.PI / 180.0 * degrees;
     }
 
     public static double RadiansToDegrees(double radians)
     {
-        return (180.0 / Math.PI) * radians;
+        return 180.0 / Math.PI * radians;
     }
 
     public static double GradsToRadians(double grads)
     {
-        return (grads / 200.0) * Math.PI;
+        return grads / 200.0 * Math.PI;
     }
 
     public static double RadiansToGrads(double radians)
     {
-        return (radians / Math.PI) * 200.0;
+        return radians / Math.PI * 200.0;
     }
 
     public static double DegreesToGrads(double degrees)
     {
-        return (degrees / 9.0) * 10.0;
+        return degrees / 9.0 * 10.0;
     }
 
     public static double GradsToDegrees(double grads)
     {
-        return (grads / 10.0) * 9.0;
+        return grads / 10.0 * 9.0;
     }
 
     public static double Asinh(double x)
     {
-        return (Math.Log(x + Math.Sqrt(x * x + 1.0)));
+        return Math.Log(x + Math.Sqrt(x * x + 1.0));
     }
 
     public static double ACosh(double x)
     {
-        return (Math.Log(x + Math.Sqrt((x * x) - 1.0)));
+        return Math.Log(x + Math.Sqrt(x * x - 1.0));
     }
 
     public static double ATanh(double x)
     {
-        return (Math.Log((1.0 + x) / (1.0 - x)) / 2.0);
+        return Math.Log((1.0 + x) / (1.0 - x)) / 2.0;
     }
 
     public static double ACoth(double x)
     {
         //return (Math.Log((x + 1.0) / (x - 1.0)) / 2.0);
-        return (ATanh(1.0 / x));
+        return ATanh(1.0 / x);
     }
 
     public static double ASech(double x)
     {
-        return (ACosh(1.0 / x));
+        return ACosh(1.0 / x);
     }
 
     public static double ACsch(double x)
     {
-        return (Asinh(1.0 / x));
+        return Asinh(1.0 / x);
     }
 
     public static double Sech(double x)
     {
-        return (1.0 / Math.Cosh(x));
+        return 1.0 / Math.Cosh(x);
     }
 
     public static double Csch(double x)
     {
-        return (1.0 / Math.Sinh(x));
+        return 1.0 / Math.Sinh(x);
     }
 
     public static double Coth(double x)
     {
-        return (Math.Cosh(x) / Math.Sinh(x));
+        return Math.Cosh(x) / Math.Sinh(x);
     }
 
     internal static OneOf<double, XLError> CombinChecked(double number, double numberChosen)
@@ -145,7 +145,7 @@ public static class XLMath
     {
         // Check the number doesn't have any fractions and that it is even.
         // Due to rounding after division, only checking for % 2 could fail
-        // for numbers really close to whole number.
+        // for numbers really close to a whole number.
         var hasNoFraction = value % 1 == 0;
         var isEven = value % 2 == 0;
         return hasNoFraction && isEven;
@@ -371,7 +371,7 @@ public static class XLMath
             if (pdf > 0)
             {
                 var newX = x - err / pdf;
-                x = (newX > lo && newX < hi) ? newX : (lo + hi) / 2.0;
+                x = newX > lo && newX < hi ? newX : (lo + hi) / 2.0;
             }
             else
             {

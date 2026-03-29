@@ -1,8 +1,8 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Collections;
 
 namespace XLibur.Excel.Caching;
 
@@ -36,12 +36,12 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
     /// Check if the specified key is presented in the repository.
     /// </summary>
     /// <param name="key">Key to look for.</param>
-    /// <param name="value">Value from the repository stored under specified key or null if key does
-    /// not exist or the entry under this key has already bee GCed.</param>
+    /// <param name="value">Value from the repository stored under the specified key or null if the key does
+    /// not exist or the entry under this key has already been GCed.</param>
     /// <returns>True if entry exists and alive, false otherwise.</returns>
     public bool ContainsKey(ref Tkey key, out Tvalue? value)
     {
-        if (_storage.TryGetValue(key, out var cachedReference))
+        if (_storage.TryGetValue(key, out WeakReference? cachedReference))
         {
             value = cachedReference.Target as Tvalue;
             return value != null;
@@ -66,7 +66,7 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
 
         do
         {
-            if (_storage.TryGetValue(key, out var cachedReference) &&
+            if (_storage.TryGetValue(key, out WeakReference? cachedReference) &&
                 cachedReference.Target is Tvalue storedValue)
             {
                 return storedValue;
@@ -78,20 +78,20 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
 
     public Tvalue GetOrCreate(ref Tkey key)
     {
-        if (_storage.TryGetValue(key, out var cachedReference) &&
+        if (_storage.TryGetValue(key, out WeakReference? cachedReference) &&
             cachedReference.Target is Tvalue storedValue)
         {
             return storedValue;
         }
 
-        _storage.TryRemove(key, out _);
+        _storage.TryRemove(key, out WeakReference? _);
         var value = _createNew(key);
         return Store(ref key, value)!;
     }
 
     public Tvalue? Replace(ref Tkey oldKey, ref Tkey newKey)
     {
-        if (_storage.TryRemove(oldKey, out var cachedReference) && cachedReference != null)
+        if (_storage.TryRemove(oldKey, out WeakReference? cachedReference) && cachedReference != null)
         {
             _storage.TryAdd(newKey, cachedReference);
             return GetOrCreate(ref newKey);
@@ -102,7 +102,7 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
 
     public void Remove(ref Tkey key)
     {
-        _storage.TryRemove(key, out var _);
+        _storage.TryRemove(key, out _);
     }
 
     public override void Clear()
@@ -111,7 +111,7 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
     }
 
     /// <summary>
-    /// Enumerate items in repository removing "dead" entries.
+    /// List items in the repository removing "dead" entries.
     /// </summary>
     public IEnumerator<Tvalue> GetEnumerator()
     {
@@ -121,7 +121,7 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
                 var val = pair.Value.Target as Tvalue;
                 if (val == null)
                 {
-                    _storage.TryRemove(pair.Key, out var _);
+                    _storage.TryRemove(pair.Key, out _);
                 }
                 return val;
             })

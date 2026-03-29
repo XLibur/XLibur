@@ -10,21 +10,21 @@ namespace XLibur.Excel.CalcEngine;
 /// <para>
 /// Visit each node and determine all ranges that might affect the formula.
 /// It uses concrete values (e.g. actual range for structured references) and
-/// should be refreshed when structured reference or name is changed in a workbook.
+/// should be refreshed when a structured reference or name is changed in a workbook.
 /// </para>
 /// <para>
 /// The areas found by the visitor shouldn't change when data on a worksheet changes,
 /// so the output is a superset of areas, if necessary.
 /// </para>
 /// <para>
-/// Precedents visitor is not completely accurate, in case of uncertainty, it uses
-/// a larger area. At worst the end result is unnecessary recalculation. For simple
+/// Precedents visitor is not completely accurate; in case of uncertainty, it uses
+/// a larger area. At worst, the end result is unnecessary recalculation. For simple
 /// cases, it works fine and freaks like <c>A1:IF(Other!B5,B7,Different!G3)</c>
 /// will be marked as dirty more often than strictly necessary.
 /// </para>
 /// <para>
-/// Each node visitor evaluates, if the output is a reference or a value/array. If
-/// the result is an array, it propagates to upper nodes, where can be things like
+/// Each node visitor evaluates if the output is a reference or a value/array. If
+/// the result is an array, it propagates to upper nodes, where there can be things like
 /// range operator.
 /// </para>
 /// </summary>
@@ -47,7 +47,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         var sheetAreas = node.Expression.Accept(context, this);
 
         // If the operand of unary node is not a reference -> end immediately,
-        // operator can't modify non-reference into a reference.
+        // the operator can't modify a non-reference into a reference.
         if (sheetAreas is null)
             return null;
 
@@ -55,8 +55,8 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         if (node.Operation is UnaryOp.ImplicitIntersection or UnaryOp.SpillRange)
         {
             // Both operators are ignored for now, because *spill* operators
-            // is part of dynamic arrays (=ignore until they are implemented)
-            // and *Implicit intersection* only makes area smaller and is pretty
+            // are part of dynamic arrays (=ignore until they are implemented)
+            // and *Implicit intersection* only makes the area smaller and is pretty
             // rare operators = also skip for now (won't affect correctness).
 
             // The reference must be propagated upward, because there could be
@@ -76,11 +76,11 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         var rightAreas = node.RightExpression.Accept(context, this);
 
         // Reference operation only makes sense if both sides are references.
-        // Otherwise reference operation results in an error.
+        // Otherwise, the reference operation results in an error.
         if (leftAreas is not null && rightAreas is not null)
             return VisitBinaryReferenceOp(context, node.Operation, leftAreas, rightAreas);
 
-        // Both children aren't references or only one is -> binary operation transforms it
+        // Both children aren't references, or only one is -> binary operation transforms it
         // to a non-reference, either value or #REF!
         AddAreasIfNotNull(context, leftAreas);
         AddAreasIfNotNull(context, rightAreas);
@@ -104,7 +104,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         if (operation == BinaryOp.Intersection)
             return IntersectAreas(leftAreas, rightAreas);
 
-        // Operand is not a reference one, so reference is turned to array of values.
+        // Operand is not a reference one, so the reference is turned to an array of values.
         context.AddAreas(leftAreas);
         context.AddAreas(rightAreas);
         return null;
@@ -115,16 +115,16 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         var rangeResult = new List<XLBookArea>();
 
         // Create a new range from both operands. It must deal with
-        // situation where there are multiple sheets for both operands,
+        // the situation where there are multiple sheets for both operands,
         // e.g. `IF(G4,Sheet1!A1,Sheet2!A2):IF(H3,Sheet2!C4,Sheet1!C5)`
         // that creates a valid range.
         var sheetGroups = leftAreas.Concat(rightAreas)
             .GroupBy(area => area.Name, XLHelper.SheetComparer);
 
         // There is no simple way to go through all paths, so try to find
-        // largest possible ranges that could be the result. For normal
-        // operands (A1:B2:C3), it will work fine and for freaks, it will
-        // find largest possible range that is a superset of actual result.
+        // the largest possible ranges that could be the result. For normal
+        // operands (A1:B2:C3), it will work fine, and for freaks, it will
+        // find the largest possible range that is a superset of the actual result.
         foreach (var sheetGroup in sheetGroups)
         {
             var sheetAreas = sheetGroup.ToList();
@@ -138,14 +138,14 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
             rangeResult.Add(new XLBookArea(sheetGroup.Key, rangeArea));
         }
 
-        // It's enough to return result of range operation. Operands can
-        // be discarded, because they are included in the result.
+        // It's enough to return the result of a range operation. Operands can
+        // be discarded because they are included in the result.
         return rangeResult;
     }
 
     private static List<XLBookArea>? IntersectAreas(List<XLBookArea> leftAreas, List<XLBookArea> rightAreas)
     {
-        // Intersection makes range smaller, so it's rather hard to optimize
+        // Intersection makes the range smaller, so it's rather hard to optimize
         // areas. We make a special case for the most frequent case.
         if (leftAreas.Count == 1 && rightAreas.Count == 1)
         {
@@ -166,7 +166,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
     {
         // According to grammar, ref functions are: CHOOSE, IF, INDEX, INDIRECT, OFFSET
         // Only these functions are allowed to return references, per grammar.
-        // However, OFFSET and INDIRECT are volatile function that always have to be
+        // However, OFFSET and INDIRECT are volatile functions that always have to be
         // recalculated (=are always marked dirty).
         if (XLHelper.FunctionComparer.Equals(node.Name, "IF"))
             return VisitIfFunction(context, node);
@@ -217,9 +217,9 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         for (var i = 1; i < node.Parameters.Count; ++i)
             AcceptAndAddParameter(context, node.Parameters[i]);
 
-        // If INDEX function indexes into an area, it returns reference,
-        // not a value. Either way, return whole reference that is indexed,
-        // even though it's larger than actual function result.
+        // If an INDEX function indexes into an area, it returns a reference,
+        // not a value. Either way, return the whole reference that is indexed,
+        // even though it's larger than the actual function result.
         return node.Parameters[0].Accept(context, this);
     }
 
