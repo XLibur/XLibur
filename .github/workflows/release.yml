@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ['v*', 'fonts-sixlabors-v1-v*', 'fonts-sixlabors-v*']
+    tags: ['v*', 'fonts-sixlabors-1-v*', 'fonts-sixlabors-v*']
 
 permissions:
   contents: write
