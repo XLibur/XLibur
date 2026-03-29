@@ -335,9 +335,9 @@ public class SixLaborsFontEngineTests
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
 
-        // Reload without specifying font engine — uses default
+        // Reload with same font engine
         ms.Position = 0;
-        using var wb2 = new XLWorkbook(ms);
+        using var wb2 = new XLWorkbook(ms, new LoadOptions { FontEngine = _engine });
         var value = wb2.Worksheet(1).Cell(1, 1).GetString();
 
         Assert.That(value, Is.EqualTo("Saved with SixLabors v2"));

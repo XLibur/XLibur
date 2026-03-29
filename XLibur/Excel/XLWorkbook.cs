@@ -734,10 +734,13 @@ public partial class XLWorkbook : IXLWorkbook
 
         DpiX = loadOptions.Dpi.X;
         DpiY = loadOptions.Dpi.Y;
-        GraphicEngine = loadOptions.GraphicEngine ??
-                        LoadOptions.DefaultGraphicEngine ?? DefaultGraphicEngine.Instance.Value;
-        FontEngine = loadOptions.FontEngine
-                     ?? LoadOptions.DefaultFontEngine
+        var fontEngine = loadOptions.FontEngine ?? LoadOptions.DefaultFontEngine;
+        GraphicEngine = loadOptions.GraphicEngine
+                        ?? LoadOptions.DefaultGraphicEngine
+                        ?? (fontEngine is not null
+                            ? new DefaultGraphicEngine(fontEngine)
+                            : DefaultGraphicEngine.Instance.Value);
+        FontEngine = fontEngine
                      ?? (GraphicEngine as IXLFontEngine ?? new GraphicEngineFontAdapter(GraphicEngine));
         Protection = new XLWorkbookProtection(DefaultProtectionAlgorithm);
         DefaultRowHeight = 15;

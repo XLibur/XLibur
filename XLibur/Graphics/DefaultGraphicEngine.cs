@@ -8,6 +8,7 @@ namespace XLibur.Graphics;
 
 public class DefaultGraphicEngine : IXLGraphicEngine, IXLFontEngine
 {
+
     private readonly ImageInfoReader[] _imageReaders =
     [
         new PngInfoReader(),
@@ -37,7 +38,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine, IXLFontEngine
     /// <param name="fallbackFont">A name of a font that is used when a font in a workbook is not available.</param>
     public DefaultGraphicEngine(string fallbackFont)
     {
-        _fontEngine = new DefaultFontEngine(fallbackFont);
+        _fontEngine = FontEngineProvider.CreateFromFallbackFont(fallbackFont);
         _readersByFormat = BuildReadersByFormat(_imageReaders);
     }
 
@@ -54,7 +55,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine, IXLFontEngine
 
     private DefaultGraphicEngine(Stream fallbackFontStream, bool useSystemFonts, Stream[] fontStreams)
     {
-        _fontEngine = new DefaultFontEngine(fallbackFontStream, useSystemFonts, fontStreams);
+        _fontEngine = FontEngineProvider.CreateFromStreams(fallbackFontStream, useSystemFonts, fontStreams);
         _readersByFormat = BuildReadersByFormat(_imageReaders);
     }
 
