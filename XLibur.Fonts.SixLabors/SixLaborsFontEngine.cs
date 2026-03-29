@@ -173,7 +173,7 @@ public class SixLaborsFontEngine : IXLFontEngine
             advanceFu = glyphs!.Aggregate(advanceFu, (current, glyph) => current + glyph.AdvanceWidth);
         }
 
-        var emInPx = font.FontSize / 72d * dpi.X;
+        var emInPx = font.FontSize / 72d * dpi.Y;
         var advancePx = PointsToPixels(advanceFu * font.FontSize / metric.UnitsPerEm, dpi.X);
         var descentPx = GetDescent(font, dpi.Y, metric);
         return new GlyphBox(
