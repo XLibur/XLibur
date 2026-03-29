@@ -833,7 +833,7 @@ public class DateAndTimeTests
     public void Workdays_MultipleHolidaysGiven()
     {
         var wb = new XLWorkbook();
-        IXLWorksheet ws = wb.AddWorksheet("Sheet1");
+        var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue("Date")
             .CellBelow().SetValue(new DateTime(2008, 10, 1, 0, 0, 0, DateTimeKind.Unspecified))
             .CellBelow().SetValue(151)

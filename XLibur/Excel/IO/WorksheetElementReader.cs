@@ -1,12 +1,12 @@
-﻿using XLibur.Excel.AutoFilters;
-using XLibur.Utils;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Spreadsheet;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.AutoFilters;
+using XLibur.Utils;
 
 namespace XLibur.Excel.IO;
 
@@ -78,7 +78,7 @@ internal static class WorksheetElementReader
         {
             if (pane!.HorizontalSplit != null)
                 ws.SheetView.SplitColumn = (int)pane.HorizontalSplit.Value;
-            if (pane!.VerticalSplit != null)
+            if (pane.VerticalSplit != null)
                 ws.SheetView.SplitRow = (int)pane.VerticalSplit.Value;
         }
     }

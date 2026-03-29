@@ -491,15 +491,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public virtual bool IsEmpty(XLCellsUsedOptions options)
     {
-        foreach (var cell in CellsUsed(options))
-        {
-            if (!cell.IsEmpty(options))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return CellsUsed(options).All(cell => cell.IsEmpty(options));
     }
 
     public virtual bool IsEntireRow()

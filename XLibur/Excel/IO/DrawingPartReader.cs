@@ -1,15 +1,16 @@
-﻿using XLibur.Extensions;
-using DocumentFormat.OpenXml.Packaging;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
-using XLibur.Excel.Drawings;
-using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
-using System.Drawing;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.Coordinates;
+using XLibur.Excel.Drawings;
+using XLibur.Extensions;
+using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
 namespace XLibur.Excel.IO;
 
@@ -336,7 +337,7 @@ internal static class DrawingPartReader
     }
 
     private static XLPicture LoadPictureFromAnchor(
-        DocumentFormat.OpenXml.OpenXmlElement anchor, string imgId,
+        OpenXmlElement anchor, string imgId,
         OpenXmlPart imagePart, XLWorksheet ws)
     {
         using var stream = imagePart.GetStream();
@@ -362,7 +363,7 @@ internal static class DrawingPartReader
     }
 
     private static void LoadPictureTransform(XLPicture picture,
-        DocumentFormat.OpenXml.OpenXmlElement anchor, XLWorksheet ws)
+        OpenXmlElement anchor, XLWorksheet ws)
     {
         var spPr = anchor.Descendants<Xdr.ShapeProperties>().First();
         picture.Placement = XLPicturePlacement.FreeFloating;
@@ -375,7 +376,7 @@ internal static class DrawingPartReader
     }
 
     private static void LoadPicturePlacement(XLPicture picture,
-        DocumentFormat.OpenXml.OpenXmlElement anchor, XLWorksheet ws)
+        OpenXmlElement anchor, XLWorksheet ws)
     {
         if (anchor is Xdr.AbsoluteAnchor absoluteAnchor)
         {

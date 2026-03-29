@@ -251,7 +251,7 @@ public class HeaderFooterImageTests
         var relsXml = XDocument.Load(relsStream);
         var ns = XNamespace.Get("http://schemas.openxmlformats.org/package/2006/relationships");
         var imageRels = relsXml.Root!.Elements(ns + "Relationship")
-            .Where(r => r.Attribute("Type")?.Value?.Contains("image") == true)
+            .Where(r => r.Attribute("Type")?.Value.Contains("image") == true)
             .ToList();
 
         Assert.That(imageRels, Has.Count.GreaterThanOrEqualTo(1), "VML should have image relationships");
@@ -400,7 +400,7 @@ public class HeaderFooterImageTests
 
         // Get sheet XML for header/footer text
         var sheetEntry = archive.Entries.First(e => e.FullName.Contains("worksheets/sheet"));
-        string headerText = "", footerText = "";
+        string headerText, footerText;
         using (var sheetStream = sheetEntry.Open())
         {
             var sheetXml = XDocument.Load(sheetStream);

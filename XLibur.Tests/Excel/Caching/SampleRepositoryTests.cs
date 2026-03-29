@@ -71,8 +71,8 @@ public class BaseRepositoryTests
 
         // Act
         sampleRepository.Replace(ref key1, ref key2);
-        var containsOld = sampleRepository.ContainsKey(ref key1, out var _);
-        var containsNew = sampleRepository.ContainsKey(ref key2, out var _);
+        var containsOld = sampleRepository.ContainsKey(ref key1, out _);
+        var containsNew = sampleRepository.ContainsKey(ref key2, out _);
         var storedEntity2 = sampleRepository.GetOrCreate(ref key2);
 
         // Assert

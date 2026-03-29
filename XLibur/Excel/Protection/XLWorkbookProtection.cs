@@ -1,4 +1,5 @@
 ﻿using System;
+using XLibur.Utils;
 using static XLibur.Excel.XLProtectionAlgorithm;
 
 namespace XLibur.Excel;
@@ -100,8 +101,8 @@ internal sealed class XLWorkbookProtection : IXLWorkbookProtection
         password ??= "";
 
         Algorithm = algorithm;
-        Base64EncodedSalt = Utils.CryptographicAlgorithms.GenerateNewSalt(Algorithm);
-        PasswordHash = Utils.CryptographicAlgorithms.GetPasswordHash(Algorithm, password, Base64EncodedSalt, SpinCount);
+        Base64EncodedSalt = CryptographicAlgorithms.GenerateNewSalt(Algorithm);
+        PasswordHash = CryptographicAlgorithms.GetPasswordHash(Algorithm, password, Base64EncodedSalt, SpinCount);
 
         AllowedElements = allowedElements;
 
@@ -120,7 +121,7 @@ internal sealed class XLWorkbookProtection : IXLWorkbookProtection
             if (PasswordHash.Length > 0 && string.IsNullOrEmpty(password))
                 throw new InvalidOperationException("The workbook structure is password protected");
 
-            var hash = Utils.CryptographicAlgorithms.GetPasswordHash(Algorithm, password, Base64EncodedSalt, SpinCount);
+            var hash = CryptographicAlgorithms.GetPasswordHash(Algorithm, password, Base64EncodedSalt, SpinCount);
             if (hash != PasswordHash)
                 throw new ArgumentException("Invalid password");
             IsProtected = false;

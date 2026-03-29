@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Drawing;
 using System.IO;
 using XLibur.Excel.Drawings;
 using XLibur.Graphics;

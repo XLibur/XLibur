@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using XLibur.Excel;
-using XLibur.Excel.Drawings;
 using SixLabors.Fonts;
 using SixLabors.Fonts.Unicode;
+using XLibur.Excel;
+using XLibur.Excel.Drawings;
 
 namespace XLibur.Graphics;
 
@@ -59,7 +59,7 @@ public class DefaultGraphicEngine : IXLGraphicEngine
     /// <summary>
     /// Get a singleton instance of the engine that uses <c>Microsoft Sans Serif</c> as a fallback font.
     /// </summary>
-    public static Lazy<DefaultGraphicEngine> Instance { get; } = new(() => new("Microsoft Sans Serif"));
+    public static Lazy<DefaultGraphicEngine> Instance { get; } = new(() => new DefaultGraphicEngine("Microsoft Sans Serif"));
 
     /// <summary>
     /// Initialize a new instance of the engine.

@@ -29,7 +29,7 @@ public class XLFormula
     internal string _value = string.Empty;
     public string Value
     {
-        get { return _value; }
+        get => _value;
         set
         {
             if (value == null)

@@ -52,7 +52,7 @@ internal static class TestHelper
 
         var example = new T();
         var pathParts = filePartName.Split(['\\']);
-        var filePath1 = Path.Combine(new List<string>() { ExampleTestsOutputDirectory }.Concat(pathParts).ToArray());
+        var filePath1 = Path.Combine(new List<string> { ExampleTestsOutputDirectory }.Concat(pathParts).ToArray());
 
         var extension = Path.GetExtension(filePath1);
         var directory = Path.GetDirectoryName(filePath1);

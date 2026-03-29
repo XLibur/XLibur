@@ -1,5 +1,4 @@
-﻿using XLibur.Excel;
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using System;
 using XLibur.Excel.Coordinates;
 

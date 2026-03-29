@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -169,8 +168,8 @@ internal sealed class XLPivotTableFilters : IXLPivotFields
 
         return order switch
         {
-            XLFilterAreaOrder.DownThenOver => new(dim1, dim2),
-            XLFilterAreaOrder.OverThenDown => new(dim2, dim1),
+            XLFilterAreaOrder.DownThenOver => new ValueTuple<int, int>(dim1, dim2),
+            XLFilterAreaOrder.OverThenDown => new ValueTuple<int, int>(dim2, dim1),
             _ => throw new UnreachableException(),
         };
     }

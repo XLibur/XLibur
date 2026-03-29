@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 
 namespace XLibur.Excel;
 
@@ -6,7 +7,7 @@ internal readonly struct XLColorKey : IEquatable<XLColorKey>
 {
     public XLColorType ColorType { get; init; }
 
-    public System.Drawing.Color Color { get; init; }
+    public Color Color { get; init; }
 
     public int Indexed { get; init; }
 

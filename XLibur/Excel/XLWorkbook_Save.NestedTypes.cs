@@ -1,8 +1,7 @@
-﻿using DocumentFormat.OpenXml.Packaging;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Tables;
 
@@ -180,7 +179,7 @@ public partial class XLWorkbook
     {
         public XLFontValue Font;
         public uint FontId;
-    };
+    }
 
     #endregion Nested type: FontInfo
 

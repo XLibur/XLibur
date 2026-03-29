@@ -135,7 +135,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
 
     public static implicit operator XLCellValue(Blank blank) => new(blank);
     public static implicit operator XLCellValue(bool logical) => new(logical);
-    public static implicit operator XLCellValue(string? text) => text is not null ? new(text) : new(Blank.Value);
+    public static implicit operator XLCellValue(string? text) => text is not null ? new XLCellValue(text) : new XLCellValue(Blank.Value);
     public static implicit operator XLCellValue(XLError error) => new(error);
     public static implicit operator XLCellValue(DateTime dateTime) => new(dateTime);
     public static implicit operator XLCellValue(TimeSpan timeSpan) => new(timeSpan);
@@ -247,7 +247,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
             DateTime date => date,
             DateTimeOffset dateOfs => dateOfs.DateTime,
             TimeSpan timeSpan => timeSpan,
-            _ => value!.ToString() ?? string.Empty // Other things, like chars ect are just turned to string
+            _ => value.ToString() ?? string.Empty // Other things, like chars etc. are just turned to string
         };
         return convertedValue;
     }

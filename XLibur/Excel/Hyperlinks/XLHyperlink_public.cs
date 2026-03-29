@@ -52,10 +52,7 @@ public partial class XLHyperlink
 
     public Uri? ExternalAddress
     {
-        get
-        {
-            return IsExternal ? _externalAddress : null;
-        }
+        get => IsExternal ? _externalAddress : null;
         set
         {
             _externalAddress = value;

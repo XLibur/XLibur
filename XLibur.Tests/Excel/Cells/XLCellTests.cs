@@ -36,17 +36,17 @@ public class XLCellTests
     [Test]
     public void CellsUsed()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Cell(1, 1);
         ws.Cell(2, 2);
-        int count = ws.Range("A1:B2").CellsUsed().Count();
+        var count = ws.Range("A1:B2").CellsUsed().Count();
         Assert.AreEqual(0, count);
     }
 
     [Test]
     public void CellsUsedIncludeStyles1()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Row(3).Style.Fill.BackgroundColor = XLColor.Red;
         ws.Column(3).Style.Fill.BackgroundColor = XLColor.Red;
         ws.Cell(2, 2).Value = "ASDF";
@@ -57,7 +57,7 @@ public class XLCellTests
     [Test]
     public void CellsUsedIncludeStyles2()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Row(2).Style.Fill.BackgroundColor = XLColor.Red;
         ws.Column(2).Style.Fill.BackgroundColor = XLColor.Red;
         ws.Cell(3, 3).Value = "ASDF";
@@ -68,7 +68,7 @@ public class XLCellTests
     [Test]
     public void CellsUsedIncludeStyles3()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var range = ws.RangeUsed(XLCellsUsedOptions.All);
         Assert.AreEqual(null, range);
     }
@@ -76,7 +76,7 @@ public class XLCellTests
     [Test]
     public void CellUsedIncludesSparklines()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Range("C3:E4").Value = 1;
         ws.SparklineGroups.Add("B2", "C3:E3");
         ws.SparklineGroups.Add("F5", "C4:E4");
@@ -100,24 +100,24 @@ public class XLCellTests
     [Test]
     public void InsertData1()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLRange range = ws.Cell(2, 2).InsertData(InsertDataStrings);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var range = ws.Cell(2, 2).InsertData(InsertDataStrings);
         Assert.AreEqual("Sheet1!B2:B4", range.ToString());
     }
 
     [Test]
     public void InsertData_DoesntTransposeDataOnFalseFlag()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLRange range = ws.Cell(2, 2).InsertData(InsertDataStrings, false);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var range = ws.Cell(2, 2).InsertData(InsertDataStrings, false);
         Assert.AreEqual("Sheet1!B2:B4", range.ToString());
     }
 
     [Test]
     public void InsertData_TransposesDataOnTrueFlag()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLRange range = ws.Cell(2, 2).InsertData(InsertDataStrings, true);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var range = ws.Cell(2, 2).InsertData(InsertDataStrings, true);
         Assert.AreEqual("Sheet1!B2:D2", range.ToString());
     }
 
@@ -178,7 +178,7 @@ public class XLCellTests
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
 
-        var dateTimeList = new List<DateTime?>()
+        var dateTimeList = new List<DateTime?>
         {
             new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Unspecified),
             new DateTime(2000, 1, 2, 0, 0, 0, DateTimeKind.Unspecified),
@@ -235,72 +235,72 @@ public class XLCellTests
     [Test]
     public void IsEmpty1()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell(1, 1);
-        bool actual = cell.IsEmpty();
-        bool expected = true;
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell(1, 1);
+        var actual = cell.IsEmpty();
+        var expected = true;
         Assert.AreEqual(expected, actual);
     }
 
     [Test]
     public void IsEmpty2()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell(1, 1);
-        bool actual = cell.IsEmpty(XLCellsUsedOptions.All);
-        bool expected = true;
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell(1, 1);
+        var actual = cell.IsEmpty(XLCellsUsedOptions.All);
+        var expected = true;
         Assert.AreEqual(expected, actual);
     }
 
     [Test]
     public void IsEmpty3()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell(1, 1);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell(1, 1);
         cell.Style.Fill.BackgroundColor = XLColor.Red;
-        bool actual = cell.IsEmpty();
-        bool expected = true;
+        var actual = cell.IsEmpty();
+        var expected = true;
         Assert.AreEqual(expected, actual);
     }
 
     [Test]
     public void IsEmpty4()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell(1, 1);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell(1, 1);
         cell.Style.Fill.BackgroundColor = XLColor.Red;
-        bool actual = cell.IsEmpty(XLCellsUsedOptions.AllContents);
-        bool expected = true;
+        var actual = cell.IsEmpty(XLCellsUsedOptions.AllContents);
+        var expected = true;
         Assert.AreEqual(expected, actual);
     }
 
     [Test]
     public void IsEmpty5()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell(1, 1);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell(1, 1);
         cell.Style.Fill.BackgroundColor = XLColor.Red;
-        bool actual = cell.IsEmpty(XLCellsUsedOptions.All);
-        bool expected = false;
+        var actual = cell.IsEmpty(XLCellsUsedOptions.All);
+        var expected = false;
         Assert.AreEqual(expected, actual);
     }
 
     [Test]
     public void IsEmpty6()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell(1, 1);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell(1, 1);
         cell.Value = "X";
-        bool actual = cell.IsEmpty();
-        bool expected = false;
+        var actual = cell.IsEmpty();
+        var expected = false;
         Assert.AreEqual(expected, actual);
     }
 
     [Test]
     public void NaN_is_not_a_number()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell("A1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell("A1");
         cell.Value = "NaN";
 
         Assert.AreNotEqual(XLDataType.Number, cell.DataType);
@@ -309,8 +309,8 @@ public class XLCellTests
     [Test]
     public void Nan_is_not_a_number()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell("A1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell("A1");
         cell.Value = "Nan";
 
         Assert.AreNotEqual(XLDataType.Number, cell.DataType);
@@ -319,18 +319,18 @@ public class XLCellTests
     [Test]
     public void TryGetValue_Boolean_Bad()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell("A1").SetValue("ABC");
-        bool success = cell.TryGetValue(out bool outValue);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell("A1").SetValue("ABC");
+        var success = cell.TryGetValue(out bool outValue);
         Assert.IsFalse(success);
     }
 
     [Test]
     public void TryGetValue_Boolean_False()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell("A1").SetValue(false);
-        bool success = cell.TryGetValue(out bool outValue);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell("A1").SetValue(false);
+        var success = cell.TryGetValue(out bool outValue);
         Assert.IsTrue(success);
         Assert.IsFalse(outValue);
     }
@@ -338,9 +338,9 @@ public class XLCellTests
     [Test]
     public void TryGetValue_Boolean_FalseText()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell("A1").SetValue("False");
-        var success = cell.TryGetValue(out Boolean outValue);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell("A1").SetValue("False");
+        var success = cell.TryGetValue(out bool outValue);
         Assert.IsTrue(success);
         Assert.IsFalse(outValue);
     }
@@ -348,9 +348,9 @@ public class XLCellTests
     [Test]
     public void TryGetValue_Boolean_True()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell("A1").SetValue(true);
-        bool success = cell.TryGetValue(out bool outValue);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell("A1").SetValue(true);
+        var success = cell.TryGetValue(out bool outValue);
         Assert.IsTrue(success);
         Assert.IsTrue(outValue);
     }
@@ -358,8 +358,8 @@ public class XLCellTests
     [Test]
     public void TryGetValue_Boolean_TrueText()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell("A1").SetValue("True");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell("A1").SetValue("True");
         var success = cell.TryGetValue(out bool outValue);
         Assert.IsTrue(success);
         Assert.IsTrue(outValue);
@@ -368,8 +368,8 @@ public class XLCellTests
     [Test]
     public void TryGetValue_DateTime_Good2()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        bool success = ws.Cell("A1").SetFormulaA1("=TODAY() + 10").TryGetValue(out DateTime outValue);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var success = ws.Cell("A1").SetFormulaA1("=TODAY() + 10").TryGetValue(out DateTime outValue);
         Assert.IsTrue(success);
         Assert.AreEqual(DateTime.Today.AddDays(10), outValue);
     }
@@ -377,8 +377,8 @@ public class XLCellTests
     [Test]
     public void TryGetValue_DateTime_BadButFormulaGood()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        bool success = ws.Cell("A1").SetFormulaA1("=\"44\"&\"020\"").TryGetValue(out DateTime outValue);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var success = ws.Cell("A1").SetFormulaA1("=\"44\"&\"020\"").TryGetValue(out DateTime outValue);
         Assert.IsFalse(success);
 
         ws.Cell("B1").SetFormulaA1("=A1+1");
@@ -391,19 +391,19 @@ public class XLCellTests
     [Test]
     public void TryGetValue_DateTime_BadString()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var date = "ABC";
-        bool success = ws.Cell("A1").SetValue(date).TryGetValue(out DateTime outValue);
+        var success = ws.Cell("A1").SetValue(date).TryGetValue(out DateTime outValue);
         Assert.IsFalse(success);
     }
 
     [Test]
     public void TryGetValue_DateTime_SerialDateTimeOutsideRange()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var serialDateTimeOutsideRange = 5545454;
         ws.FirstCell().SetValue(serialDateTimeOutsideRange);
-        bool success = ws.FirstCell().TryGetValue(out DateTime _);
+        var success = ws.FirstCell().TryGetValue(out DateTime _);
         Assert.IsFalse(success);
     }
 
@@ -430,18 +430,18 @@ public class XLCellTests
     [Test]
     public void TryGetValue_TimeSpan_BadString()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        string timeSpan = "ABC";
-        bool success = ws.Cell("A1").SetValue(timeSpan).TryGetValue(out TimeSpan outValue);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var timeSpan = "ABC";
+        var success = ws.Cell("A1").SetValue(timeSpan).TryGetValue(out TimeSpan outValue);
         Assert.IsFalse(success);
     }
 
     [Test]
     public void TryGetValue_TimeSpan_Good()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var timeSpan = new TimeSpan(1, 1, 1);
-        bool success = ws.Cell("A1").SetValue(timeSpan).TryGetValue(out TimeSpan outValue);
+        var success = ws.Cell("A1").SetValue(timeSpan).TryGetValue(out TimeSpan outValue);
         Assert.IsTrue(success);
         Assert.AreEqual(timeSpan, outValue);
     }
@@ -449,8 +449,8 @@ public class XLCellTests
     [Test]
     public void TryGetValue_TimeSpan_Good2()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        bool success = ws.Cell("A1").SetValue(0.0034722222222222199).TryGetValue(out TimeSpan outValue);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var success = ws.Cell("A1").SetValue(0.0034722222222222199).TryGetValue(out TimeSpan outValue);
         Assert.IsTrue(success);
         Assert.AreEqual(TimeSpan.FromMinutes(5), outValue);
     }
@@ -458,9 +458,9 @@ public class XLCellTests
     [Test]
     public void TryGetValue_TimeSpan_Good_Large()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var timeSpan = TimeSpan.FromMilliseconds((double)int.MaxValue + 1);
-        bool success = ws.Cell("A1").SetValue(timeSpan).TryGetValue(out TimeSpan outValue);
+        var success = ws.Cell("A1").SetValue(timeSpan).TryGetValue(out TimeSpan outValue);
         Assert.IsTrue(success);
         Assert.AreEqual(timeSpan, outValue);
     }
@@ -469,8 +469,8 @@ public class XLCellTests
     [SetCulture("en-US")]
     public void TryGetValue_TimeSpan_Good_FromText()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        bool success = ws.Cell("A1").SetValue("300:14:50.453").TryGetValue(out TimeSpan outValue);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var success = ws.Cell("A1").SetValue("300:14:50.453").TryGetValue(out TimeSpan outValue);
         Assert.IsTrue(success);
         Assert.AreEqual(new TimeSpan(12, 12, 14, 50, 453), outValue);
     }
@@ -478,18 +478,18 @@ public class XLCellTests
     [Test]
     public void TryGetValue_sbyte_Bad2()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell("A1").SetValue("255");
-        bool success = cell.TryGetValue(out sbyte outValue);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell("A1").SetValue("255");
+        var success = cell.TryGetValue(out sbyte outValue);
         Assert.IsFalse(success);
     }
 
     [Test]
     public void TryGetValue_sbyte_Good()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell("A1").SetValue(5);
-        bool success = cell.TryGetValue(out sbyte outValue);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell("A1").SetValue(5);
+        var success = cell.TryGetValue(out sbyte outValue);
         Assert.IsTrue(success);
         Assert.AreEqual(5, outValue);
     }
@@ -497,14 +497,11 @@ public class XLCellTests
     [Test]
     public void TryGetValue_Unicode_String()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
 
-        Boolean success;
-        String outValue;
-
-        success = ws.Cell("A1")
+        var success = ws.Cell("A1")
             .SetValue("Site_x0020_Column_x0020_Test")
-            .TryGetValue(out outValue);
+            .TryGetValue(out string outValue);
         Assert.IsTrue(success);
         Assert.AreEqual("Site Column Test", outValue);
 
@@ -556,12 +553,12 @@ public class XLCellTests
     [Test]
     public void ValueSetToEmptyString()
     {
-        string expected = String.Empty;
+        var expected = string.Empty;
 
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        IXLCell cell = ws.Cell(1, 1);
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var cell = ws.Cell(1, 1);
         cell.Value = new DateTime(2000, 1, 2, 0, 0, 0, DateTimeKind.Unspecified);
-        cell.Value = String.Empty;
+        cell.Value = string.Empty;
         Assert.AreEqual(expected, cell.GetText());
         Assert.AreEqual(expected, cell.Value);
 
@@ -602,8 +599,8 @@ public class XLCellTests
 
         ws.FirstCell().SetValue(new string('A', 32767));
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => ws.FirstCell().Value = new String('A', 32768));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ws.FirstCell().SetValue(new String('A', 32768)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ws.FirstCell().Value = new string('A', 32768));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ws.FirstCell().SetValue(new string('A', 32768)));
     }
 
     [Test]
@@ -715,7 +712,7 @@ public class XLCellTests
     [Test]
     public void ClearCellRemovesSparkline()
     {
-        IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.SparklineGroups.Add("B1:B3", "C1:E3");
 
         ws.Cell("B1").Clear();
@@ -964,9 +961,9 @@ public class XLCellTests
         A1.FormulaA1 = "A2 + 1";
         A2.FormulaA1 = "A1 + 1";
 
-        Assert.IsFalse(A1.TryGetValue(out String _));
-        Assert.IsFalse(A2.TryGetValue(out String _));
-        Assert.IsTrue(A3.TryGetValue(out String _));
+        Assert.IsFalse(A1.TryGetValue(out string _));
+        Assert.IsFalse(A2.TryGetValue(out string _));
+        Assert.IsTrue(A3.TryGetValue(out string _));
     }
 
     [Test]

@@ -63,14 +63,14 @@ internal readonly struct AnyValue
     {
         ArgumentNullException.ThrowIfNull(array);
 
-        return new(ArrayValue, false, 0, null, default, array, null);
+        return new AnyValue(ArrayValue, false, 0, null, default, array, null);
     }
 
     public static AnyValue From(Reference reference)
     {
         ArgumentNullException.ThrowIfNull(reference);
 
-        return new(ReferenceValue, false, 0, null, default, null, reference);
+        return new AnyValue(ReferenceValue, false, 0, null, default, null, reference);
     }
 
     public static implicit operator AnyValue(bool logical) => From(logical);
@@ -237,7 +237,7 @@ internal readonly struct AnyValue
             return false;
         }
 
-        if (reference!.TryGetSingleCellValue(out scalar, ctx))
+        if (reference.TryGetSingleCellValue(out scalar, ctx))
         {
             return true;
         }
@@ -290,7 +290,7 @@ internal readonly struct AnyValue
                 if (reference.IsSingleCell())
                     return reference;
 
-                return reference!
+                return reference
                     .ImplicitIntersection(context.FormulaAddress).Match<AnyValue>(
                         singleCellReference => singleCellReference!,
                         error => error);
@@ -310,7 +310,7 @@ internal readonly struct AnyValue
         if (!rightConversionResult.TryPickT0(out var rightReference, out var rightError))
             return rightError;
 
-        return Reference.RangeOp(leftReference!, rightReference!, ctx.Worksheet).Match<AnyValue>(
+        return Reference.RangeOp(leftReference, rightReference, ctx.Worksheet).Match<AnyValue>(
             reference => reference!,
             error => error);
     }
@@ -329,7 +329,7 @@ internal readonly struct AnyValue
         if (!rightConversionResult.TryPickT0(out var rightReference, out var rightError))
             return rightError;
 
-        return Reference.UnionOp(leftReference!, rightReference!);
+        return Reference.UnionOp(leftReference, rightReference);
     }
 
     private static OneOf<Reference, XLError> ConvertToReference(in AnyValue value)

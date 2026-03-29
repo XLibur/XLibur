@@ -20,7 +20,7 @@ public class XLImmutableRichTextTests
             .AddText("世界").SetFontSize(15); // world in kanji
         richText.Phonetics
             .SetAlignment(XLPhoneticAlignment.Distributed)
-            .Add(@"konnichi wa", 0, 6); // world in hiragana
+            .Add("konnichi wa", 0, 6); // world in hiragana
 
         // Assert equal
         var immutableRichText = XLImmutableRichText.Create(richText);

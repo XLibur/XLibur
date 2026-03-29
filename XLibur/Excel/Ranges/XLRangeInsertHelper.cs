@@ -1,4 +1,4 @@
-﻿using System.Linq;
+﻿using System;
 using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel;
@@ -12,7 +12,7 @@ internal static class XLRangeInsertHelper
     internal static IXLRangeColumns? InsertColumnsBefore(XLRangeBase range, bool onlyUsedCells, int numberOfColumns, bool formatFromLeft, bool nullReturn)
     {
         if (numberOfColumns <= 0 || numberOfColumns > XLHelper.MaxColumnNumber)
-            throw new System.ArgumentOutOfRangeException(nameof(numberOfColumns),
+            throw new ArgumentOutOfRangeException(nameof(numberOfColumns),
                 $"Number of columns to insert must be a positive number no more than {XLHelper.MaxColumnNumber}");
 
         ShiftFormulasForColumns(range, numberOfColumns);
@@ -85,10 +85,10 @@ internal static class XLRangeInsertHelper
 
     private static void ApplyColumnFormattingFromLeft(IXLRange rangeToReturn, XLCellsUsedOptions contentFlags)
     {
-        var firstColumnUsed = rangeToReturn!.FirstColumn()!;
-        var model = firstColumnUsed.ColumnLeft()!;
-        var modelFirstRow = ((IXLRangeBase)model).FirstCellUsed(contentFlags);
-        var modelLastRow = ((IXLRangeBase)model).LastCellUsed(contentFlags);
+        var firstColumnUsed = rangeToReturn.FirstColumn()!;
+        var model = firstColumnUsed.ColumnLeft();
+        var modelFirstRow = model.FirstCellUsed(contentFlags);
+        var modelLastRow = model.LastCellUsed(contentFlags);
         if (modelFirstRow == null || modelLastRow == null)
             return;
 
@@ -123,7 +123,7 @@ internal static class XLRangeInsertHelper
     internal static IXLRangeRows? InsertRowsAbove(XLRangeBase range, bool onlyUsedCells, int numberOfRows, bool formatFromAbove, bool nullReturn)
     {
         if (numberOfRows <= 0 || numberOfRows > XLHelper.MaxRowNumber)
-            throw new System.ArgumentOutOfRangeException(nameof(numberOfRows),
+            throw new ArgumentOutOfRangeException(nameof(numberOfRows),
                 $"Number of rows to insert must be a positive number no more than {XLHelper.MaxRowNumber}");
 
         ShiftFormulasForRows(range, numberOfRows);
@@ -197,10 +197,10 @@ internal static class XLRangeInsertHelper
 
     private static void ApplyRowFormattingFromAbove(IXLRange rangeToReturn, XLCellsUsedOptions contentFlags)
     {
-        var fr = rangeToReturn!.FirstRow()!;
-        var model = fr.RowAbove()!;
-        var modelFirstColumn = ((IXLRangeBase)model).FirstCellUsed(contentFlags);
-        var modelLastColumn = ((IXLRangeBase)model).LastCellUsed(contentFlags);
+        var fr = rangeToReturn.FirstRow()!;
+        var model = fr.RowAbove();
+        var modelFirstColumn = model.FirstCellUsed(contentFlags);
+        var modelLastColumn = model.LastCellUsed(contentFlags);
         if (modelFirstColumn == null || modelLastColumn == null)
             return;
 

@@ -95,7 +95,7 @@ internal sealed class XLTableRows : XLStylizedBase, IXLTableRows, IXLStylized
     public IXLCells CellsUsed(XLCellsUsedOptions options)
     {
         var cells = new XLCells(false, options);
-        foreach (XLTableRow container in _ranges)
+        foreach (var container in _ranges)
             cells.Add(container.RangeAddress);
         return cells;
     }

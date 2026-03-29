@@ -1,5 +1,5 @@
-﻿using DocumentFormat.OpenXml.Office2010.Excel;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Excel;
 
@@ -9,7 +9,7 @@ internal static class XLCFConvertersExtension
 
     static XLCFConvertersExtension()
     {
-        Converters = new Dictionary<XLConditionalFormatType, IXLCFConverterExtension>()
+        Converters = new Dictionary<XLConditionalFormatType, IXLCFConverterExtension>
         {
             { XLConditionalFormatType.DataBar, new XLCFDataBarConverterExtension() }
         };

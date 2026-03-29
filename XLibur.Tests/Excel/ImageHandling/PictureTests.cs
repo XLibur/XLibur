@@ -461,12 +461,12 @@ public class PictureTests
         Assert.AreEqual(XLPictureFormat.Emf, img2.Format);
     }
 
-    [TestCase(@"Picture:With:Colons")]
-    [TestCase(@"Picture/With/Slashes")]
+    [TestCase("Picture:With:Colons")]
+    [TestCase("Picture/With/Slashes")]
     [TestCase(@"Picture\With\Backslashes")]
-    [TestCase(@"Picture?With?Questions")]
-    [TestCase(@"Picture*With*Stars")]
-    [TestCase(@"Picture[With]Brackets")]
+    [TestCase("Picture?With?Questions")]
+    [TestCase("Picture*With*Stars")]
+    [TestCase("Picture[With]Brackets")]
     public void Picture_name_can_contain_special_characters(string name)
     {
         using var wb = new XLWorkbook();
@@ -543,7 +543,7 @@ public class PictureTests
     public void KeepOriginalDrawingShapesZOrder()
     {
         // File contains shapes and a picture in a mixed order.
-        using var stream = TestHelper.GetStreamFromResource(@"Other.Pictures.ImageShapeZOrder-Input.xlsx");
+        using var stream = TestHelper.GetStreamFromResource("Other.Pictures.ImageShapeZOrder-Input.xlsx");
         TestHelper.CreateAndCompare(
             () => new XLWorkbook(stream),
             @"Other\Pictures\ImageShapeZOrder-Output.xlsx");

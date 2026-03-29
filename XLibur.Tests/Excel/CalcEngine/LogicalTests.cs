@@ -1,6 +1,5 @@
 ﻿using XLibur.Excel;
 using NUnit.Framework;
-using System;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
@@ -66,7 +65,7 @@ public class LogicalTests
         ws.Cell("A1").Value = 0;
         Assert.AreEqual(false, ws.Evaluate("AND(TRUE,A1)"));
 
-        // false is a logical
+        // false is logical
         ws.Cell("A2").Value = false;
         Assert.AreEqual(false, ws.Evaluate("AND(TRUE,A2)"));
 
@@ -81,36 +80,35 @@ public class LogicalTests
     [Test]
     public void If_2_Params_true()
     {
-        Object actual = XLWorkbook.EvaluateExpr(@"if(1 = 1, ""T"")");
+        object actual = XLWorkbook.EvaluateExpr(@"if(1 = 1, ""T"")");
         Assert.AreEqual("T", actual);
     }
 
     [Test]
     public void If_2_Params_false()
     {
-        Object actual = XLWorkbook.EvaluateExpr(@"if(1 = 2, ""T"")");
+        object actual = XLWorkbook.EvaluateExpr(@"if(1 = 2, ""T"")");
         Assert.AreEqual(false, actual);
     }
 
     [Test]
     public void If_3_Params_true()
     {
-        Object actual = XLWorkbook.EvaluateExpr(@"if(1 = 1, ""T"", ""F"")");
+        object actual = XLWorkbook.EvaluateExpr(@"if(1 = 1, ""T"", ""F"")");
         Assert.AreEqual("T", actual);
     }
 
     [Test]
     public void If_3_Params_false()
     {
-        Object actual = XLWorkbook.EvaluateExpr(@"if(1 = 2, ""T"", ""F"")");
+        object actual = XLWorkbook.EvaluateExpr(@"if(1 = 2, ""T"", ""F"")");
         Assert.AreEqual("F", actual);
     }
 
     [Test]
     public void If_Comparing_Against_Empty_String()
     {
-        Object actual;
-        actual = XLWorkbook.EvaluateExpr(@"if(date(2016, 1, 1) = """", ""A"",""B"")");
+        object actual = XLWorkbook.EvaluateExpr(@"if(date(2016, 1, 1) = """", ""A"",""B"")");
         Assert.AreEqual("B", actual);
 
         actual = XLWorkbook.EvaluateExpr(@"if("""" = date(2016, 1, 1), ""A"",""B"")");
@@ -126,8 +124,7 @@ public class LogicalTests
     [Test]
     public void If_Case_Insensitivity()
     {
-        Object actual;
-        actual = XLWorkbook.EvaluateExpr(@"IF(""text""=""TEXT"", 1, 2)");
+        object actual = XLWorkbook.EvaluateExpr(@"IF(""text""=""TEXT"", 1, 2)");
         Assert.AreEqual(1, actual);
     }
 
@@ -151,7 +148,7 @@ public class LogicalTests
         for (var row = 1; row <= 4; ++row)
             ws.Cell(row, 4).FormulaA1 = "SUM(IF(C1:C3, A1:A3, B1:B3))";
 
-        // Condition is implicitely intersected, because it's a scalar parameter
+        // Condition is implicitly intersected because it's a scalar parameter
         Assert.AreEqual(6, ws.Cell("D1").Value);
         Assert.AreEqual(15, ws.Cell("D2").Value);
         Assert.AreEqual(6, ws.Cell("D3").Value);
@@ -182,8 +179,8 @@ public class LogicalTests
     [Test]
     public void If_MissingValues_ReturnBlank()
     {
-        Assert.AreEqual(true, XLWorkbook.EvaluateExpr(@"ISBLANK(IF(TRUE,,))"));
-        Assert.AreEqual(true, XLWorkbook.EvaluateExpr(@"ISBLANK(IF(FALSE,,))"));
+        Assert.AreEqual(true, XLWorkbook.EvaluateExpr("ISBLANK(IF(TRUE,,))"));
+        Assert.AreEqual(true, XLWorkbook.EvaluateExpr("ISBLANK(IF(FALSE,,))"));
     }
 
     [Test]
@@ -288,7 +285,7 @@ public class LogicalTests
         ws.Cell("A1").Value = 1;
         Assert.AreEqual(true, ws.Evaluate("OR(FALSE,A1)"));
 
-        // false is a logical
+        // false is logical
         ws.Cell("A2").Value = true;
         Assert.AreEqual(true, ws.Evaluate("OR(FALSE,A2)"));
 

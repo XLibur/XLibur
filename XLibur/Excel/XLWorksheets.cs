@@ -83,7 +83,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
         ArgumentNullException.ThrowIfNull(sheetName);
         sheetName = sheetName.UnescapeSheetName();
 
-        if (_worksheets.TryGetValue(sheetName, out XLWorksheet? w))
+        if (_worksheets.TryGetValue(sheetName, out var w))
             return w;
 
         throw new ArgumentException("There isn't a worksheet named '" + sheetName + "'.");
@@ -211,7 +211,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
     public void Rename(string oldSheetName, string newSheetName)
     {
-        if (string.IsNullOrWhiteSpace(oldSheetName) || !_worksheets.TryGetValue(oldSheetName, out XLWorksheet? ws)) return;
+        if (string.IsNullOrWhiteSpace(oldSheetName) || !_worksheets.TryGetValue(oldSheetName, out var ws)) return;
 
         if (!oldSheetName.Equals(newSheetName, StringComparison.OrdinalIgnoreCase)
             && _worksheets.ContainsKey(newSheetName))

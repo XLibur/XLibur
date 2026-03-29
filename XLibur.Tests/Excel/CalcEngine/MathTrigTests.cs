@@ -296,7 +296,7 @@ public class MathTrigTests
     [TestCase(6, 7, 0.86217005466723)]
     public void Atan2_ReturnsCorrectResults_EqualOnAllMultiplesOfFraction(double x, double y, double expectedResult)
     {
-        for (int i = 1; i < 5; i++)
+        for (var i = 1; i < 5; i++)
         {
             var actual = (double)XLWorkbook.EvaluateExpr($"ATAN2({x * i}, {y * i})");
             Assert.AreEqual(expectedResult, actual, tolerance);
@@ -1511,7 +1511,7 @@ public class MathTrigTests
     [TestCase("Text")]
     public void MMult_ThrowsWhenCellsContainInvalidInput(string invalidInput)
     {
-        IXLWorksheet ws = new XLWorkbook().AddWorksheet("Sheet1");
+        var ws = new XLWorkbook().AddWorksheet("Sheet1");
 
         // 2x3
         ws.Cell("A1").SetValue(1).CellRight().SetValue(3).CellRight().SetValue(invalidInput);
@@ -2387,8 +2387,8 @@ public class MathTrigTests
     [Test]
     public void Sum()
     {
-        IXLCell cell = new XLWorkbook().AddWorksheet("Sheet1").FirstCell();
-        IXLCell fCell = cell.SetValue(1).CellBelow().SetValue(2).CellBelow();
+        var cell = new XLWorkbook().AddWorksheet("Sheet1").FirstCell();
+        var fCell = cell.SetValue(1).CellBelow().SetValue(2).CellBelow();
         fCell.FormulaA1 = "sum(A1:A2)";
 
         Assert.AreEqual(3.0, fCell.Value);

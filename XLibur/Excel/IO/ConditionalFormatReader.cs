@@ -1,11 +1,11 @@
-﻿using XLibur.Extensions;
-using XLibur.Utils;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Spreadsheet;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ConditionalFormats;
+using XLibur.Extensions;
+using XLibur.Utils;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Excel.IO;
@@ -81,7 +81,7 @@ internal static class ConditionalFormatReader
 
         var nonEmptyFormulas = fr.Elements<Formula>()
             .Where(static f => !string.IsNullOrEmpty(f.Text))
-            .Select(f => GetFormula(f.Text!))
+            .Select(f => GetFormula(f.Text))
             .ToList();
         if (conditionalFormat.Operator is XLCFOperator.Between or XLCFOperator.NotBetween)
         {
@@ -110,7 +110,7 @@ internal static class ConditionalFormatReader
         if (formula is null)
             throw PartStructureException.IncorrectElementsCount();
 
-        conditionalFormat.Values.Add(GetFormula(formula.Text!));
+        conditionalFormat.Values.Add(GetFormula(formula.Text));
     }
 
     private static void LoadTop10OrTimePeriod(ConditionalFormattingRule fr, XLConditionalFormat conditionalFormat)
@@ -154,7 +154,7 @@ internal static class ConditionalFormatReader
         if (dataBar.ShowValue != null)
             conditionalFormat.ShowBarOnly = !dataBar.ShowValue.Value;
 
-        var id = fr.Descendants<DocumentFormat.OpenXml.Office2010.Excel.Id>().FirstOrDefault();
+        var id = fr.Descendants<X14.Id>().FirstOrDefault();
         if (id is { Text: not null } && !string.IsNullOrWhiteSpace(id.Text))
             conditionalFormat.Id = new Guid(id.Text.Substring(1, id.Text.Length - 2));
 
@@ -224,7 +224,7 @@ internal static class ConditionalFormatReader
     private static void LoadX14DataBarExtensions(WorksheetExtensionList extensions, XLWorksheet ws)
     {
         foreach (var conditionalFormattingRule in extensions
-                     .Descendants<DocumentFormat.OpenXml.Office2010.Excel.ConditionalFormattingRule>()
+                     .Descendants<X14.ConditionalFormattingRule>()
                      .Where(cf =>
                          cf.Type is { HasValue: true }
                          && cf.Type.Value == ConditionalFormatValues.DataBar))
@@ -235,18 +235,18 @@ internal static class ConditionalFormatReader
             if (xlConditionalFormat == null) continue;
 
             var negativeFillColor = conditionalFormattingRule
-                .Descendants<DocumentFormat.OpenXml.Office2010.Excel.NegativeFillColor>().SingleOrDefault();
+                .Descendants<X14.NegativeFillColor>().SingleOrDefault();
             xlConditionalFormat.Colors.Add(negativeFillColor!.ToXLiburColor());
 
             var x14DataBar = conditionalFormattingRule
-                .Descendants<DocumentFormat.OpenXml.Office2010.Excel.DataBar>().SingleOrDefault();
+                .Descendants<X14.DataBar>().SingleOrDefault();
             if (x14DataBar?.Gradient != null)
                 xlConditionalFormat.Gradient = x14DataBar.Gradient.Value;
             if (x14DataBar?.AxisPosition != null)
                 xlConditionalFormat.BarAxisPosition = x14DataBar.AxisPosition.Value.ToXLibur();
 
             var barAxisColor = conditionalFormattingRule
-                .Descendants<DocumentFormat.OpenXml.Office2010.Excel.BarAxisColor>().SingleOrDefault();
+                .Descendants<X14.BarAxisColor>().SingleOrDefault();
             if (barAxisColor != null)
                 xlConditionalFormat.BarAxisColor = barAxisColor.ToXLiburColor();
         }
@@ -269,7 +269,7 @@ internal static class ConditionalFormatReader
             LoadSparklineAxes(slg, xlSparklineGroup);
 
             slg.Descendants<X14.Sparklines>().SelectMany(sls => sls.Descendants<X14.Sparkline>())
-                .ForEach(sl => xlSparklineGroup.Add(sl.ReferenceSequence!.Text!, sl.Formula!.Text!));
+                .ForEach(sl => xlSparklineGroup.Add(sl.ReferenceSequence!.Text, sl.Formula!.Text));
         }
     }
 
@@ -353,7 +353,7 @@ internal static class ConditionalFormatReader
                 conditionalFormat.IconSetOperators.Add(XLCFIconSetOperator.EqualOrGreaterThan);
         }
 
-        foreach (var c in element.Elements<DocumentFormat.OpenXml.Spreadsheet.Color>())
+        foreach (var c in element.Elements<Color>())
         {
             conditionalFormat.Colors.Add(c.ToXLiburColor());
         }

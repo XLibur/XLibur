@@ -1,5 +1,4 @@
-﻿using XLibur.Examples;
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using XLibur.Examples.AutoFilters;
 
 namespace XLibur.Tests.Examples;

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -83,7 +84,7 @@ internal sealed class XLColumnsCollection : IDictionary<int, XLColumn>
 
     public IEnumerator<KeyValuePair<int, XLColumn>> GetEnumerator() => _dictionary.GetEnumerator();
 
-    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _dictionary.GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => _dictionary.GetEnumerator();
 
     public void RemoveAll(Func<XLColumn, bool> predicate)
     {

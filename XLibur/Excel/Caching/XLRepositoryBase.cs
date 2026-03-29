@@ -1,8 +1,8 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Collections;
 
 namespace XLibur.Excel.Caching;
 
@@ -41,7 +41,7 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
     /// <returns>True if entry exists and alive, false otherwise.</returns>
     public bool ContainsKey(ref Tkey key, out Tvalue? value)
     {
-        if (_storage.TryGetValue(key, out WeakReference? cachedReference))
+        if (_storage.TryGetValue(key, out var cachedReference))
         {
             value = cachedReference.Target as Tvalue;
             return value != null;
@@ -66,7 +66,7 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
 
         do
         {
-            if (_storage.TryGetValue(key, out WeakReference? cachedReference) &&
+            if (_storage.TryGetValue(key, out var cachedReference) &&
                 cachedReference.Target is Tvalue storedValue)
             {
                 return storedValue;
@@ -78,20 +78,20 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
 
     public Tvalue GetOrCreate(ref Tkey key)
     {
-        if (_storage.TryGetValue(key, out WeakReference? cachedReference) &&
+        if (_storage.TryGetValue(key, out var cachedReference) &&
             cachedReference.Target is Tvalue storedValue)
         {
             return storedValue;
         }
 
-        _storage.TryRemove(key, out WeakReference? _);
+        _storage.TryRemove(key, out _);
         var value = _createNew(key);
         return Store(ref key, value)!;
     }
 
     public Tvalue? Replace(ref Tkey oldKey, ref Tkey newKey)
     {
-        if (_storage.TryRemove(oldKey, out WeakReference? cachedReference) && cachedReference != null)
+        if (_storage.TryRemove(oldKey, out var cachedReference) && cachedReference != null)
         {
             _storage.TryAdd(newKey, cachedReference);
             return GetOrCreate(ref newKey);
@@ -102,7 +102,7 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
 
     public void Remove(ref Tkey key)
     {
-        _storage.TryRemove(key, out WeakReference? _);
+        _storage.TryRemove(key, out var _);
     }
 
     public override void Clear()
@@ -121,7 +121,7 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
                 var val = pair.Value.Target as Tvalue;
                 if (val == null)
                 {
-                    _storage.TryRemove(pair.Key, out WeakReference? _);
+                    _storage.TryRemove(pair.Key, out var _);
                 }
                 return val;
             })

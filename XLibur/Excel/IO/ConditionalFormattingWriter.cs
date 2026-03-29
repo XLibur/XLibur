@@ -1,12 +1,11 @@
-﻿using XLibur.Excel.ContentManagers;
-using XLibur.Extensions;
-using XLibur.Utils;
+﻿using System;
+using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using XLibur.Excel.ConditionalFormats;
+using XLibur.Excel.ContentManagers;
+using XLibur.Extensions;
+using XLibur.Utils;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 using OfficeExcel = DocumentFormat.OpenXml.Office.Excel;
 using static XLibur.Excel.IO.OpenXmlConst;
@@ -100,14 +99,14 @@ internal static class ConditionalFormattingWriter
             cm.SetElement(XLWorksheetContents.WorksheetExtensionList, worksheetExtensionList);
 
             var conditionalFormattings = worksheetExtensionList
-                .Descendants<DocumentFormat.OpenXml.Office2010.Excel.ConditionalFormattings>().SingleOrDefault();
+                .Descendants<X14.ConditionalFormattings>().SingleOrDefault();
             if (conditionalFormattings == null || !conditionalFormattings.Any())
             {
                 var worksheetExtension1 = new WorksheetExtension { Uri = "{78C0D931-6437-407d-A8EE-F0AAD7539E65}" };
                 worksheetExtension1.AddNamespaceDeclaration("x14", X14Main2009SsNs);
                 worksheetExtensionList.Append(worksheetExtension1);
 
-                conditionalFormattings = new DocumentFormat.OpenXml.Office2010.Excel.ConditionalFormattings();
+                conditionalFormattings = new X14.ConditionalFormattings();
                 worksheetExtension1.Append(conditionalFormattings);
             }
 
@@ -122,17 +121,17 @@ internal static class ConditionalFormattingWriter
                 foreach (var xlConditionalFormat in cfGroup.CfList.Cast<XLConditionalFormat>())
                 {
                     var conditionalFormattingRule = conditionalFormattings
-                        .Descendants<DocumentFormat.OpenXml.Office2010.Excel.ConditionalFormattingRule>()
+                        .Descendants<X14.ConditionalFormattingRule>()
                         .SingleOrDefault(r => r.Id == xlConditionalFormat.Id.WrapInBraces());
                     if (conditionalFormattingRule != null)
                     {
                         var conditionalFormat = conditionalFormattingRule
-                            .Ancestors<DocumentFormat.OpenXml.Office2010.Excel.ConditionalFormatting>()
+                            .Ancestors<X14.ConditionalFormatting>()
                             .SingleOrDefault();
                         conditionalFormattings.RemoveChild(conditionalFormat);
                     }
 
-                    var conditionalFormatting = new DocumentFormat.OpenXml.Office2010.Excel.ConditionalFormatting();
+                    var conditionalFormatting = new X14.ConditionalFormatting();
                     conditionalFormatting.AddNamespaceDeclaration("xm", XmMain2006);
                     conditionalFormatting.Append(XLCFConvertersExtension.Convert(xlConditionalFormat, context));
                     var referenceSequence = new OfficeExcel.ReferenceSequence
@@ -201,7 +200,7 @@ internal static class ConditionalFormattingWriter
 
         if (sparklineGroups == null || !sparklineGroups.Any())
         {
-            var worksheetExtension1 = new WorksheetExtension() { Uri = sparklineGroupsExtensionUri };
+            var worksheetExtension1 = new WorksheetExtension { Uri = sparklineGroupsExtensionUri };
             worksheetExtension1.AddNamespaceDeclaration("x14", X14Main2009SsNs);
             worksheetExtensionList.Append(worksheetExtension1);
 
@@ -291,7 +290,7 @@ internal static class ConditionalFormattingWriter
 
     private static void SetSparklineAxes(X14.SparklineGroup sparklineGroup, IXLSparklineGroup xlSparklineGroup)
     {
-        sparklineGroup.AxisColor = new X14.AxisColor()
+        sparklineGroup.AxisColor = new X14.AxisColor
         { Rgb = xlSparklineGroup.HorizontalAxis.Color.Color.ToHex() };
         sparklineGroup.DisplayXAxis = xlSparklineGroup.HorizontalAxis.IsVisible;
         sparklineGroup.RightToLeft = xlSparklineGroup.HorizontalAxis.RightToLeft;

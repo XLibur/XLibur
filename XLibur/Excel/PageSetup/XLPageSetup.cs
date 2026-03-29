@@ -133,10 +133,7 @@ internal sealed class XLPageSetup : IXLPageSetup
     private int _pagesTall;
     public int PagesTall
     {
-        get
-        {
-            return _pagesTall;
-        }
+        get => _pagesTall;
         set
         {
             _pagesTall = value;
@@ -148,10 +145,7 @@ internal sealed class XLPageSetup : IXLPageSetup
     private int _scale;
     public int Scale
     {
-        get
-        {
-            return _scale;
-        }
+        get => _scale;
         set
         {
             _scale = value;

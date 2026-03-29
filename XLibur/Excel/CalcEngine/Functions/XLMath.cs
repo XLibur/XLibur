@@ -262,12 +262,11 @@ public static class XLMath
         const double epsilon = 1e-15;
         const double tiny = 1e-30;
 
-        var f = 1.0;
         var c = 1.0;
         var d = 1.0 - (a + b) * x / (a + 1.0);
         if (Math.Abs(d) < tiny) d = tiny;
         d = 1.0 / d;
-        f = d;
+        var f = d;
 
         for (var m = 1; m <= maxIterations; m++)
         {

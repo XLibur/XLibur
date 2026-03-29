@@ -98,7 +98,7 @@ internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
 
     public IXLRangeColumn CopyTo(IXLCell target)
     {
-        base.CopyToCell((XLCell)target);
+        CopyToCell((XLCell)target);
         return BuildCopyResult(target.Worksheet, target.Address.RowNumber, target.Address.ColumnNumber);
     }
 

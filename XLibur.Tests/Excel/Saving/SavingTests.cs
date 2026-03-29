@@ -52,7 +52,7 @@ public class SavingTests
 
         wb.SaveAs(memoryStream, validate: true);
 
-        for (int i = 1; i <= 3; i++)
+        for (var i = 1; i <= 3; i++)
         {
             sheet.Cell(i, 1).Value = "test" + i;
             wb.SaveAs(memoryStream, validate: true);
@@ -141,7 +141,7 @@ public class SavingTests
         // and is not dirty, regardless of EvaluateFormulasBeforeSaving.
         // The flag only controls whether formulas are re-evaluated during save.
         using var ms = new MemoryStream();
-        using (XLWorkbook book1 = new XLWorkbook())
+        using (var book1 = new XLWorkbook())
         {
             var sheet = book1.AddWorksheet("sheet1");
             sheet.Cell("A1").Value = 123;
@@ -565,8 +565,8 @@ public class SavingTests
             var wb = new XLWorkbook(stream);
             var ws = wb.Worksheet(1);
 
-            var numericCells = ws.CellsUsed(c => double.TryParse(c.GetString(), out double _));
-            var textCells = ws.CellsUsed(c => !double.TryParse(c.GetString(), out double _));
+            var numericCells = ws.CellsUsed(c => double.TryParse(c.GetString(), out var _));
+            var textCells = ws.CellsUsed(c => !double.TryParse(c.GetString(), out var _));
 
             foreach (var cell in numericCells)
             {

@@ -9,7 +9,11 @@ internal sealed class XLDrawingSize : IXLDrawingSize
         _style = style;
     }
 
-    public bool AutomaticSize { get { return _style.Alignment.AutomaticSize; } set { _style.Alignment.AutomaticSize = value; } }
+    public bool AutomaticSize
+    {
+        get => _style.Alignment.AutomaticSize;
+        set => _style.Alignment.AutomaticSize = value;
+    }
     public IXLDrawingStyle SetAutomaticSize() { AutomaticSize = true; return _style; }
     public IXLDrawingStyle SetAutomaticSize(bool value) { AutomaticSize = value; return _style; }
     public double Height { get; set; }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -32,7 +33,7 @@ internal abstract class Array : IEnumerable<ScalarValue>
     /// </summary>
     public virtual IEnumerator<ScalarValue> GetEnumerator() => FlattenArray().GetEnumerator();
 
-    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     protected IEnumerable<ScalarValue> FlattenArray()
     {

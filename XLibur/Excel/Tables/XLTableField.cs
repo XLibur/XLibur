@@ -18,8 +18,8 @@ internal sealed class XLTableField : IXLTableField
 
     public XLTableField(XLTable table, string name)
     {
-        this._table = table;
-        this._name = name;
+        _table = table;
+        _name = name;
     }
 
     public IXLRangeColumn Column
@@ -159,7 +159,7 @@ internal sealed class XLTableField : IXLTableField
 
         var distinctDataTypes = dataTypes
             .GroupBy(dt => dt)
-            .Select(g => new { Key = g.Key, Count = g.Count() });
+            .Select(g => new { g.Key, Count = g.Count() });
 
         return distinctDataTypes.Count() == 1;
     }
@@ -176,7 +176,7 @@ internal sealed class XLTableField : IXLTableField
 
         var distinctFormulas = formulas
             .GroupBy(f => f)
-            .Select(g => new { Key = g.Key, Count = g.Count() });
+            .Select(g => new { g.Key, Count = g.Count() });
 
         return distinctFormulas.Count() == 1;
     }

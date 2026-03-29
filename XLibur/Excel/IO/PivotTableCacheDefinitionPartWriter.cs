@@ -1,11 +1,11 @@
-﻿using XLibur.Utils;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Spreadsheet;
-using DocumentFormat.OpenXml;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Extensions;
+using XLibur.Utils;
 using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
@@ -29,7 +29,7 @@ internal static class PivotTableCacheDefinitionPartWriter
 
         #region CreatedVersion
 
-        byte createdVersion = XLConstants.PivotTable.CreatedVersion;
+        var createdVersion = XLConstants.PivotTable.CreatedVersion;
 
         if (pivotCacheDefinition.CreatedVersion?.HasValue ?? false)
             pivotCacheDefinition.CreatedVersion = Math.Max(createdVersion, pivotCacheDefinition.CreatedVersion.Value);
@@ -40,7 +40,7 @@ internal static class PivotTableCacheDefinitionPartWriter
 
         #region RefreshedVersion
 
-        byte refreshedVersion = XLConstants.PivotTable.RefreshedVersion;
+        var refreshedVersion = XLConstants.PivotTable.RefreshedVersion;
         if (pivotCacheDefinition.RefreshedVersion?.HasValue ?? false)
             pivotCacheDefinition.RefreshedVersion = Math.Max(refreshedVersion, pivotCacheDefinition.RefreshedVersion.Value);
         else
@@ -323,8 +323,8 @@ internal static class PivotTableCacheDefinitionPartWriter
             long? minValueAsDateTime = stats.MinValue is not null ? DateTime.FromOADate(stats.MinValue.Value).Ticks : null;
             long? maxValueAsDateTime = stats.MaxValue is not null ? DateTime.FromOADate(stats.MaxValue.Value).Ticks : null;
 
-            long? minDateTicks = NullableMin(stats.MinDate?.Ticks, minValueAsDateTime);
-            long? maxDateTicks = NullableMax(stats.MaxDate?.Ticks, maxValueAsDateTime);
+            var minDateTicks = NullableMin(stats.MinDate?.Ticks, minValueAsDateTime);
+            var maxDateTicks = NullableMax(stats.MaxDate?.Ticks, maxValueAsDateTime);
 
             // @minDate/@maxDate can be present, only if at least one child is a d element.
             sharedItems.MinDate = minDateTicks is not null ? new DateTime(minDateTicks.Value, DateTimeKind.Unspecified) : null;

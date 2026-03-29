@@ -38,7 +38,7 @@ internal abstract class XLPivotFieldBase : IXLPivotField
     /// Get a value from the underlying field, or return a default when the field
     /// cannot provide one (e.g. data fields on an axis).
     /// </summary>
-    private protected virtual T GetFieldValue<T>(System.Func<XLPivotTableField, T> getter, T defaultValue)
+    private protected virtual T GetFieldValue<T>(Func<XLPivotTableField, T> getter, T defaultValue)
     {
         return getter(GetField());
     }

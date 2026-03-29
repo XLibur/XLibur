@@ -40,15 +40,15 @@ internal static partial class XLCellValueConverter
 
         var culture = CultureInfo.CurrentCulture;
         if (underlyingType.IsEnum)
-            return TryConvertEnum<T>(currentValue, underlyingType, culture, out value);
+            return TryConvertEnum(currentValue, underlyingType, culture, out value);
 
         var typeCode = Type.GetTypeCode(underlyingType);
 
         if (typeCode is >= TypeCode.Single and <= TypeCode.Decimal)
-            return TryConvertFloatingPoint<T>(currentValue, typeCode, culture, out value);
+            return TryConvertFloatingPoint(currentValue, typeCode, culture, out value);
 
         if (typeCode is >= TypeCode.SByte and <= TypeCode.UInt64)
-            return TryConvertInteger<T>(currentValue, typeCode, culture, out value);
+            return TryConvertInteger(currentValue, typeCode, culture, out value);
 
         return false;
     }

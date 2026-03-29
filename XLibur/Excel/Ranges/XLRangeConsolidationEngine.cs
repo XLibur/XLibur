@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace XLibur.Excel;
@@ -153,7 +154,7 @@ internal sealed class XLRangeConsolidationEngine
                 AddToBitMatrix(range.RangeAddress);
             }
 
-            System.Diagnostics.Debug.Assert(
+            Debug.Assert(
                 _bitMatrix.Values.All(r => !r[0] && !r[^1]));
         }
 

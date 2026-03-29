@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -6,8 +7,6 @@ using XLibur.Excel.Tables;
 using XLibur.Extensions;
 
 namespace XLibur.Excel;
-
-using System.Collections;
 
 internal sealed class XLTables : IXLTables, IEnumerable<XLTable>
 {

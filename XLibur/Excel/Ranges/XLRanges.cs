@@ -1,13 +1,12 @@
-﻿using XLibur.Excel.Ranges.Index;
-using System;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel.Coordinates;
+using XLibur.Excel.Ranges.Index;
 using XLibur.Extensions;
 
 namespace XLibur.Excel;
-
-using System.Collections;
 
 internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 {

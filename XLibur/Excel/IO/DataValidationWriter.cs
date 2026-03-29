@@ -1,9 +1,9 @@
-﻿using XLibur.Excel.ContentManagers;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Spreadsheet;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.ContentManagers;
 using XLibur.Extensions;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 using OfficeExcel = DocumentFormat.OpenXml.Office.Excel;
@@ -183,7 +183,7 @@ internal static class DataValidationWriter
 
         if (extensionDataValidations == null || !extensionDataValidations.Any())
         {
-            var worksheetExtension = new WorksheetExtension() { Uri = dataValidationsExtensionUri };
+            var worksheetExtension = new WorksheetExtension { Uri = dataValidationsExtensionUri };
             worksheetExtension.AddNamespaceDeclaration("x14", X14Main2009SsNs);
             worksheetExtensionList.Append(worksheetExtension);
 
@@ -218,7 +218,7 @@ internal static class DataValidationWriter
                 ShowInputMessage = dv.ShowInputMessage,
                 ErrorStyle = dv.ErrorStyle.ToOpenXml(),
                 Operator = HasOperator(dv.AllowedValues) ? dv.Operator.ToOpenXml() : null,
-                ReferenceSequence = new OfficeExcel.ReferenceSequence() { Text = sequence }
+                ReferenceSequence = new OfficeExcel.ReferenceSequence { Text = sequence }
             };
             extensionDataValidations.AppendChild(dataValidation);
         }

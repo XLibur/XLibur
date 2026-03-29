@@ -72,7 +72,7 @@ internal sealed class XLHFItem : IXLHFItem
 
     public IXLRichString AddImage(string imagePath, XLHFOccurrence occurrence = XLHFOccurrence.AllPages)
     {
-        var image = XLHFImage.FromFile(imagePath, (XLWorkbook)HeaderFooter.Worksheet.Workbook);
+        var image = XLHFImage.FromFile(imagePath, HeaderFooter.Worksheet.Workbook);
 
         if (occurrence == XLHFOccurrence.AllPages)
         {

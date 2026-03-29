@@ -36,10 +36,10 @@ public class XLCellValueTests
         Assert.AreEqual(14.0, number.GetNumber());
     }
 
-    [TestCase(Double.NaN)]
-    [TestCase(Double.PositiveInfinity)]
-    [TestCase(Double.NegativeInfinity)]
-    public void Creation_Number_CantBeNonNumber(Double nonNumber)
+    [TestCase(double.NaN)]
+    [TestCase(double.PositiveInfinity)]
+    [TestCase(double.NegativeInfinity)]
+    public void Creation_Number_CantBeNonNumber(double nonNumber)
     {
         Assert.Throws<ArgumentException>(() => _ = (XLCellValue)nonNumber);
     }
@@ -48,12 +48,12 @@ public class XLCellValueTests
     private static readonly object[] DecimalTestCases =
     [
         new object[] { 5.875m, 5.875d },
-        new object[] { Decimal.MaxValue, 7.922816251426434E+28 },
+        new object[] { decimal.MaxValue, 7.922816251426434E+28 },
         new object[] { 1.0E-28m, 1.0000000000000001E-28d }
     ];
 
     [TestCaseSource(nameof(DecimalTestCases))]
-    public void Creation_Decimal(Decimal decimalNumber, Double expectedNumber)
+    public void Creation_Decimal(decimal decimalNumber, double expectedNumber)
     {
         XLCellValue cellValue = decimalNumber;
         Assert.True(cellValue.IsNumber);
@@ -162,7 +162,7 @@ public class XLCellValueTests
             Assert.AreEqual(8d, ushortCellValue.GetNumber());
         }
         {
-            int intNumber = 9;
+            var intNumber = 9;
             XLCellValue intCellValue = intNumber;
             Assert.IsTrue(intCellValue.IsNumber);
             Assert.AreEqual(9d, intCellValue.GetNumber());
@@ -186,19 +186,19 @@ public class XLCellValueTests
             Assert.AreEqual(12d, ulongCellValue.GetNumber());
         }
         {
-            float floatNumber = 13.5f;
+            var floatNumber = 13.5f;
             XLCellValue floatCellValue = floatNumber;
             Assert.IsTrue(floatCellValue.IsNumber);
             Assert.AreEqual(13.5d, floatCellValue.GetNumber());
         }
         {
-            double doubleNumber = 14.5;
+            var doubleNumber = 14.5;
             XLCellValue doubleCellValue = doubleNumber;
             Assert.IsTrue(doubleCellValue.IsNumber);
             Assert.AreEqual(14.5d, doubleCellValue.GetNumber());
         }
         {
-            decimal decimalNumber = 15.75m;
+            var decimalNumber = 15.75m;
             XLCellValue decimalCellValue = decimalNumber;
             Assert.IsTrue(decimalCellValue.IsNumber);
             Assert.AreEqual(15.75d, decimalCellValue.GetNumber());
@@ -431,7 +431,7 @@ public class XLCellValueTests
     public void ToString_RespectsCulture()
     {
         XLCellValue v = Blank.Value;
-        Assert.AreEqual(String.Empty, v.ToString());
+        Assert.AreEqual(string.Empty, v.ToString());
 
         v = true;
         Assert.AreEqual("TRUE", v.ToString());
@@ -462,7 +462,7 @@ public class XLCellValueTests
         Assert.True(value.TryConvert(out Blank blank));
         Assert.AreEqual(Blank.Value, blank);
 
-        value = String.Empty;
+        value = string.Empty;
         Assert.True(value.TryConvert(out blank));
         Assert.AreEqual(Blank.Value, blank);
     }
@@ -471,7 +471,7 @@ public class XLCellValueTests
     public void TryConvert_Boolean()
     {
         XLCellValue value = true;
-        Assert.True(value.TryConvert(out Boolean boolean));
+        Assert.True(value.TryConvert(out bool boolean));
         Assert.True(boolean);
 
         value = "True";
@@ -496,7 +496,7 @@ public class XLCellValueTests
     {
         var c = CultureInfo.GetCultureInfo("cs-CZ");
         XLCellValue value = 5;
-        Assert.True(value.TryConvert(out Double number, c));
+        Assert.True(value.TryConvert(out double number, c));
         Assert.AreEqual(5.0, number);
 
         value = "1,5";

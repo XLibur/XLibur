@@ -1,8 +1,7 @@
-﻿using XLibur.Excel.Ranges;
+﻿using System.Linq;
+using XLibur.Excel.Ranges;
 
 namespace XLibur.Excel;
-
-using System.Linq;
 
 internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
 {
@@ -100,7 +99,7 @@ internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
 
     public IXLRangeRow CopyTo(IXLCell target)
     {
-        base.CopyToCell((XLCell)target);
+        CopyToCell((XLCell)target);
 
         var lastRowNumber = target.Address.RowNumber + RowCount() - 1;
         if (lastRowNumber > XLHelper.MaxRowNumber)

@@ -1,10 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using XLibur.Extensions;
 
 namespace XLibur.Excel;
-
-using System.Collections;
 
 internal sealed class XLRangeColumns : XLStylizedBase, IXLRangeColumns, IXLStylized
 {

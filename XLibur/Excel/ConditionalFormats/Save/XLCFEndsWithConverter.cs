@@ -15,7 +15,7 @@ internal sealed class XLCFEndsWithConverter : IXLCFConverter
         conditionalFormattingRule.Operator = ConditionalFormattingOperatorValues.EndsWith;
         conditionalFormattingRule.Text = val;
 
-        var formula = new Formula { Text = "RIGHT(" + cf.Range.RangeAddress.FirstAddress.ToStringRelative(false) + "," + val.Length.ToString() + ")=\"" + val + "\"" };
+        var formula = new Formula { Text = "RIGHT(" + cf.Range.RangeAddress.FirstAddress.ToStringRelative(false) + "," + val.Length + ")=\"" + val + "\"" };
 
         conditionalFormattingRule.Append(formula);
 

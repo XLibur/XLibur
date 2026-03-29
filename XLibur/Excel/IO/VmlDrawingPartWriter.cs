@@ -1,17 +1,17 @@
-﻿using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Vml.Office;
-using DocumentFormat.OpenXml.Vml.Spreadsheet;
-using DocumentFormat.OpenXml;
-using Anchor = DocumentFormat.OpenXml.Vml.Spreadsheet.Anchor;
-using Locked = DocumentFormat.OpenXml.Vml.Spreadsheet.Locked;
-using Vml = DocumentFormat.OpenXml.Vml;
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Vml.Office;
+using DocumentFormat.OpenXml.Vml.Spreadsheet;
 using XLibur.Extensions;
 using XLibur.Graphics;
+using Anchor = DocumentFormat.OpenXml.Vml.Spreadsheet.Anchor;
+using Locked = DocumentFormat.OpenXml.Vml.Spreadsheet.Locked;
+using Vml = DocumentFormat.OpenXml.Vml;
 
 namespace XLibur.Excel.IO;
 
@@ -272,7 +272,7 @@ internal static class VmlDrawingPartWriter
         if (availableWidth <= 0)
             return comment.Style.Size.Height;
 
-        IXLFontBase font = XLFont.DefaultCommentFont;
+        var font = XLFont.DefaultCommentFont;
         var firstRun = comment.FirstOrDefault();
         if (firstRun is not null)
             font = firstRun;

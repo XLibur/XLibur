@@ -292,7 +292,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
 
         var anchor = context.FormulaArea.Area.FirstPoint;
         var sheetRange = node.ReferenceArea.ToSheetRange(anchor);
-        return [new(sheetName, sheetRange)];
+        return [new XLBookArea(sheetName, sheetRange)];
     }
 
     public List<XLBookArea>? Visit(DependenciesContext context, NameNode node)

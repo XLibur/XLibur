@@ -67,10 +67,10 @@ public static class StreamHelper
         {
             length = dataLength;
         }
-        long rest = length;
+        var rest = length;
         while (rest > 0)
         {
-            int len1 = streamIn.Read(buf, 0, rest >= 512 ? 512 : (int)rest);
+            var len1 = streamIn.Read(buf, 0, rest >= 512 ? 512 : (int)rest);
             streamToWrite.Write(buf, 0, len1);
             rest -= len1;
         }

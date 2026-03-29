@@ -1,8 +1,8 @@
-﻿using XLibur.Excel.Patterns;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel.Coordinates;
+using XLibur.Excel.Patterns;
 using XLibur.Excel.Rows;
 using XLibur.Excel.Tables;
 
