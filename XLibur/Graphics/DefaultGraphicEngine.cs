@@ -8,7 +8,6 @@ namespace XLibur.Graphics;
 
 public class DefaultGraphicEngine : IXLGraphicEngine, IXLFontEngine
 {
-
     private readonly ImageInfoReader[] _imageReaders =
     [
         new PngInfoReader(),

@@ -36,41 +36,48 @@ XLibur (core)
 └── LoadOptions.FontEngine      — injection point
 
 XLibur.Fonts.SixLabors.V1
-├── DefaultFontEngine           — SixLabors.Fonts 1.0.1 implementation
-├── CarlitoBare embedded fonts  — Calibri-compatible metric-only fallback
-└── ModuleInit                  — auto-registers with FontEngineProvider
+├── DefaultFontEngine            — SixLabors.Fonts 1.0.1 implementation
+├── SixLaborsV1FontBootstrap     — explicit registration API
+├── CarlitoBare embedded fonts   — Calibri-compatible metric-only fallback
+└── ModuleInit                   — auto-registers if assembly is loaded
 
 XLibur.Fonts.SixLabors
-├── SixLaborsFontEngine         — SixLabors.Fonts 2.1.3 implementation
-└── (no embedded fonts)         — uses system fonts or stream-provided fonts
+├── SixLaborsFontEngine          — SixLabors.Fonts 2.1.3 implementation
+└── (no embedded fonts)          — uses system fonts or stream-provided fonts
 ```
 
 The core assembly has **zero dependency on SixLabors.Fonts**. Each font package depends only on XLibur core and its respective SixLabors.Fonts version. No circular dependencies.
 
-### Assembly Discovery
+### Registration
 
-The core cannot reference V1 (that would create a circular dependency). Instead:
+The core cannot reference V1 (that would create a circular dependency). Instead, each font engine package provides an explicit public bootstrap API that consumers call at application startup:
 
-1. **V1 registers itself** via `[ModuleInitializer]` which sets `FontEngineProvider.FromFallbackFont` and `FontEngineProvider.FromStreams` factory delegates.
-2. **FontEngineProvider lazily discovers V1** when first needed — it probes `AppContext.BaseDirectory` and `Assembly.Location` for `XLibur.Fonts.SixLabors.V1.dll`, loads it via `AssemblyLoadContext.Default.LoadFromAssemblyPath`, then calls `RuntimeHelpers.RunModuleConstructor` to trigger the module initializer.
-3. If V1 is not present and no `FontEngine` is configured, an `InvalidOperationException` is thrown with a clear message.
+```csharp
+// In Program.cs or application startup — register the V1 font engine:
+SixLaborsV1FontBootstrap.Register();
+```
+
+This sets factory delegates on `FontEngineProvider` that `DefaultGraphicEngine` uses to create font engines. The V1 package also includes a `[ModuleInitializer]` that calls `Register()` automatically when the assembly is loaded — but explicit registration is preferred for clarity and predictability.
+
+If no provider is registered and no `FontEngine` is configured, an `InvalidOperationException` is thrown with a clear message explaining what to do.
 
 ### Injection and Resolution
 
 Users configure font engines through `LoadOptions`:
 
 ```csharp
-// Use the default (V1 auto-discovered)
+// Register V1 at startup, then use XLibur normally
+SixLaborsV1FontBootstrap.Register();
 using var wb = new XLWorkbook();
 
-// Use SixLabors.Fonts 2.x
+// Or use SixLabors.Fonts 2.x explicitly
 var options = new LoadOptions
 {
     FontEngine = new SixLaborsFontEngine("Microsoft Sans Serif")
 };
 using var wb = new XLWorkbook(options);
 
-// Use stream-based fonts (Blazor, serverless)
+// Or use stream-based fonts (Blazor, serverless)
 var engine = SixLaborsFontEngine.CreateOnlyWithFonts(fontStream);
 var options = new LoadOptions { FontEngine = engine };
 ```
@@ -122,11 +129,8 @@ SixLabors.Fonts 1.0.1 is battle-tested, Apache 2.0 licensed, and provides accura
 **Why a separate V1 package instead of keeping SixLabors in core?**
 If both V1 (1.0.1) and V2 (2.1.3) packages exist and a consumer installs both, NuGet unifies to 2.1.3. With SixLabors in core, *every* consumer who adds the V2 package gets the unified version — the V1 code runs against V2 silently. By extracting V1, consumers choose one or the other. The core is version-agnostic.
 
-**Why module initializer + RuntimeHelpers instead of a direct reference?**
-XLibur core defines `IXLFontEngine`. V1 implements it. V1 must reference XLibur for the interface. If XLibur also referenced V1, that's a circular dependency MSBuild won't allow. The module initializer pattern breaks the cycle: V1 registers itself at load time, XLibur discovers it lazily.
-
-**Why `RuntimeHelpers.RunModuleConstructor`?**
-`Assembly.Load` and `AssemblyLoadContext.LoadFromAssemblyPath` load assembly metadata but don't execute the module initializer (the CLR's `.cctor` for `<Module>`). `RuntimeHelpers.RunModuleConstructor` explicitly invokes it, ensuring the factory delegates are registered before first use.
+**Why explicit bootstrap instead of automatic assembly scanning?**
+An earlier design had the core probing for V1's DLL at runtime via `AssemblyLoadContext.LoadFromAssemblyPath` and `RuntimeHelpers.RunModuleConstructor`. This was fragile — it relied on `AppContext.BaseDirectory` being correct, assembly probing paths, and forcing module initializers. The explicit `SixLaborsV1FontBootstrap.Register()` call is one line, obvious, stable, and gives consumers full control over initialization order. The module initializer remains as a convenience fallback but is not the primary design.
 
 **Why `GraphicEngineFontAdapter`?**
 A user who implemented `IXLGraphicEngine` before `IXLFontEngine` existed has the same 5 font method signatures on their type — they just don't implement the new interface. The adapter wraps their graphic engine and delegates the font calls, preserving their measurement behavior without requiring them to change code.
