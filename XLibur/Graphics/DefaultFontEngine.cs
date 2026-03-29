@@ -225,7 +225,7 @@ public class DefaultFontEngine : IXLFontEngine
             fontFamily = _fontCollection.Value.Get(EmbeddedFontName);
         }
 
-        return fontFamily.CreateFont(FontMetricSize); // Size is irrelevant for metric
+        return fontFamily.CreateFont(FontMetricSize, metricId.Style);
     }
 
     private static void AddEmbeddedFont(FontCollection fontCollection)
@@ -275,21 +275,21 @@ public class DefaultFontEngine : IXLFontEngine
 
     private readonly struct MetricId : IEquatable<MetricId>
     {
-        private readonly FontStyle _style;
-
         public MetricId(IXLFontBase fontBase)
         {
             Name = fontBase.FontName;
-            _style = GetFontStyle(fontBase);
+            Style = GetFontStyle(fontBase);
         }
 
         public string Name { get; }
 
-        public bool Equals(MetricId other) => Name == other.Name && _style == other._style;
+        public FontStyle Style { get; }
+
+        public bool Equals(MetricId other) => Name == other.Name && Style == other.Style;
 
         public override bool Equals(object? obj) => obj is MetricId other && Equals(other);
 
-        public override int GetHashCode() => (Name.GetHashCode() * 397) ^ (int)_style;
+        public override int GetHashCode() => (Name.GetHashCode() * 397) ^ (int)Style;
 
         private static FontStyle GetFontStyle(IXLFontBase fontBase)
         {
