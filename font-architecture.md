@@ -14,7 +14,7 @@ XLibur originally embedded all font operations (text measurement, glyph metrics,
 
 Font operations were extracted from `IXLGraphicEngine` into a new `IXLFontEngine` interface with five methods:
 
-```
+```text
 GetTextHeight    — text height in pixels (EMHeight + descent)
 GetTextWidth     — text width in pixels (no padding)
 GetMaxDigitWidth — widest 0-9 digit in pixels (OOXML column width unit)
@@ -26,7 +26,7 @@ GetGlyphBox      — glyph bounding box for a grapheme cluster
 
 ### Package Structure
 
-```
+```text
 XLibur (core)
 ├── IXLFontEngine               — font engine interface
 ├── IXLGraphicEngine            — graphic engine interface (unchanged)
