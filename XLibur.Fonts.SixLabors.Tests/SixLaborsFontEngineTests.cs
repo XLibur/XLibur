@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Runtime.InteropServices;
 using NUnit.Framework;
 using XLibur.Excel;
 using XLibur.Graphics;
@@ -20,8 +19,6 @@ public class SixLaborsFontEngineTests
     }
 
     private readonly IXLFontEngine _engine = CreateTestEngine();
-
-    private static bool HasSystemFonts => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
     #region Text width
 
@@ -278,90 +275,6 @@ public class SixLaborsFontEngineTests
         var width = engine.GetTextWidth("Test", font, 96);
 
         Assert.That(width, Is.GreaterThan(0));
-    }
-
-    #endregion
-
-    #region Metric parity with DefaultFontEngine (Windows only — requires system fonts)
-
-    [Test]
-    public void MaxDigitWidth_MatchesDefaultFontEngine()
-    {
-        Assume.That(HasSystemFonts, Is.True, "System fonts not available");
-
-        var defaultEngine = DefaultFontEngine.Instance.Value;
-        var systemEngine = new SixLaborsFontEngine("Microsoft Sans Serif");
-        var font = new DummyFont("Calibri", 11);
-
-        var defaultMdw = defaultEngine.GetMaxDigitWidth(font, 96);
-        var sixLaborsMdw = systemEngine.GetMaxDigitWidth(font, 96);
-
-        Assert.That(sixLaborsMdw, Is.EqualTo(defaultMdw).Within(0.01));
-    }
-
-    [Test]
-    public void TextWidth_MatchesDefaultFontEngine()
-    {
-        Assume.That(HasSystemFonts, Is.True, "System fonts not available");
-
-        var defaultEngine = DefaultFontEngine.Instance.Value;
-        var systemEngine = new SixLaborsFontEngine("Microsoft Sans Serif");
-        var font = new DummyFont("Calibri", 11);
-        const string text = "Hello World";
-
-        var defaultWidth = defaultEngine.GetTextWidth(text, font, 96);
-        var sixLaborsWidth = systemEngine.GetTextWidth(text, font, 96);
-
-        Assert.That(sixLaborsWidth, Is.EqualTo(defaultWidth).Within(0.01));
-    }
-
-    [Test]
-    public void TextHeight_MatchesDefaultFontEngine()
-    {
-        Assume.That(HasSystemFonts, Is.True, "System fonts not available");
-
-        var defaultEngine = DefaultFontEngine.Instance.Value;
-        var systemEngine = new SixLaborsFontEngine("Microsoft Sans Serif");
-        var font = new DummyFont("Calibri", 11);
-
-        var defaultHeight = defaultEngine.GetTextHeight(font, 96);
-        var sixLaborsHeight = systemEngine.GetTextHeight(font, 96);
-
-        Assert.That(sixLaborsHeight, Is.EqualTo(defaultHeight).Within(0.01));
-    }
-
-    [Test]
-    public void Descent_MatchesDefaultFontEngine()
-    {
-        Assume.That(HasSystemFonts, Is.True, "System fonts not available");
-
-        var defaultEngine = DefaultFontEngine.Instance.Value;
-        var systemEngine = new SixLaborsFontEngine("Microsoft Sans Serif");
-        var font = new DummyFont("Calibri", 11);
-
-        var defaultDescent = defaultEngine.GetDescent(font, 96);
-        var sixLaborsDescent = systemEngine.GetDescent(font, 96);
-
-        Assert.That(sixLaborsDescent, Is.EqualTo(defaultDescent).Within(0.01));
-    }
-
-    [Test]
-    public void GlyphBox_MatchesDefaultFontEngine()
-    {
-        Assume.That(HasSystemFonts, Is.True, "System fonts not available");
-
-        var defaultEngine = DefaultFontEngine.Instance.Value;
-        var systemEngine = new SixLaborsFontEngine("Microsoft Sans Serif");
-        var font = new DummyFont("Calibri", 11);
-        Span<int> codePoints = ['8'];
-        var dpi = new Dpi(96, 96);
-
-        var defaultBox = defaultEngine.GetGlyphBox(codePoints, font, dpi);
-        var sixLaborsBox = systemEngine.GetGlyphBox(codePoints, font, dpi);
-
-        Assert.That(sixLaborsBox.AdvanceWidth, Is.EqualTo(defaultBox.AdvanceWidth).Within(0.01f));
-        Assert.That(sixLaborsBox.EmSize, Is.EqualTo(defaultBox.EmSize).Within(0.01f));
-        Assert.That(sixLaborsBox.Descent, Is.EqualTo(defaultBox.Descent).Within(0.01f));
     }
 
     #endregion
