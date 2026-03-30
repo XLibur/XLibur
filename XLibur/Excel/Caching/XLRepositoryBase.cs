@@ -91,7 +91,7 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
 
     public Tvalue? Replace(ref Tkey oldKey, ref Tkey newKey)
     {
-        if (_storage.TryRemove(oldKey, out WeakReference? cachedReference) && cachedReference != null)
+        if (_storage.TryRemove(oldKey, out var cachedReference))
         {
             _storage.TryAdd(newKey, cachedReference);
             return GetOrCreate(ref newKey);

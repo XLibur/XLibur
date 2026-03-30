@@ -23,6 +23,6 @@ public interface IXLFilteredColumn
     /// Add another grouping to a set of allowed groupings. See <see cref="IXLFilterColumn.AddDateGroupFilter"/>
     /// for more details.
     /// </summary>
-    /// <returns>Fluent API allowing adding an additional date group filter.</returns>
+    /// <returns>Fluent API allowing you to add an additional date group filter.</returns>
     IXLFilteredColumn AddDateGroupFilter(DateTime date, XLDateTimeGrouping dateTimeGrouping, bool reapply = true);
 }
