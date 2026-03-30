@@ -174,7 +174,7 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
 
     public IXLColumn AdjustToContents(int startRow, int endRow, double minWidth, double maxWidth)
     {
-        var engine = Worksheet.Workbook.GraphicEngine;
+        var engine = Worksheet.Workbook.FontEngine;
         var dpi = new Dpi(Worksheet.Workbook.DpiX, Worksheet.Workbook.DpiY);
         var columnWidthPx = CalculateMinColumnWidth(startRow, endRow, engine, dpi);
 
@@ -207,7 +207,7 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
     /// <param name="endRow">Last row number whose content is used for determination.</param>
     /// <param name="engine">Engine to determine size of glyphs.</param>
     /// <param name="dpi">DPI of the worksheet.</param>
-    private int CalculateMinColumnWidth(int startRow, int endRow, IXLGraphicEngine engine, Dpi dpi)
+    private int CalculateMinColumnWidth(int startRow, int endRow, IXLFontEngine engine, Dpi dpi)
     {
         var autoFilterRows = new List<int>();
         if (Worksheet.AutoFilter is { Range: not null })

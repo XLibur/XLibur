@@ -18,7 +18,7 @@ internal static class XLCellGlyphHelper
     /// <param name="engine">Engine used to determine box size.</param>
     /// <param name="dpi">DPI used to determine the size of glyphs.</param>
     /// <param name="output">List where items are added.</param>
-    internal static void GetGlyphBoxes(XLCell cell, IXLGraphicEngine engine, Dpi dpi, List<GlyphBox> output)
+    internal static void GetGlyphBoxes(XLCell cell, IXLFontEngine engine, Dpi dpi, List<GlyphBox> output)
     {
         var richText = cell.RichText;
         if (richText is not null)
@@ -37,7 +37,7 @@ internal static class XLCellGlyphHelper
         }
     }
 
-    private static void AddGlyphs(string text, IXLFontBase font, IXLGraphicEngine engine, Dpi dpi, List<GlyphBox> output)
+    private static void AddGlyphs(string text, IXLFontBase font, IXLFontEngine engine, Dpi dpi, List<GlyphBox> output)
     {
         Span<int> zeroWidthJoiner = [0x200D];
         var prevWasNewLine = false;

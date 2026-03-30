@@ -45,13 +45,19 @@ jobs:
           echo "Pre-release label: ${{ inputs.prerelease-label }}"
 
       - name: Restore dependencies
-        run: dotnet restore XLibur/XLibur.csproj
+        run: dotnet restore XLibur.slnx
 
       - name: Build
-        run: dotnet build XLibur/XLibur.csproj --configuration Release --no-restore -p:MinVerDefaultPreReleaseIdentifiers=${{ inputs.prerelease-label }}
+        run: dotnet build XLibur.slnx --configuration Release --no-restore -p:MinVerDefaultPreReleaseIdentifiers=${{ inputs.prerelease-label }}
 
-      - name: Pack
+      - name: Pack XLibur
         run: dotnet pack XLibur/XLibur.csproj --configuration Release --no-build --output ./artifacts
+
+      - name: Pack XLibur.Fonts.SixLabors.V1
+        run: dotnet pack XLibur.Fonts.SixLabors.V1/XLibur.Fonts.SixLabors.V1.csproj --configuration Release --no-build --output ./artifacts
+
+      - name: Pack XLibur.Fonts.SixLabors
+        run: dotnet pack XLibur.Fonts.SixLabors/XLibur.Fonts.SixLabors.csproj --configuration Release --no-build --output ./artifacts
 
       - name: Show package version
         run: ls -la ./artifacts/

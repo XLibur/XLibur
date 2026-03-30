@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['v*', 'fonts-sixlabors-1-v*', 'fonts-sixlabors-v*']
 
 permissions:
   contents: write
@@ -26,13 +26,19 @@ jobs:
             10.0.x
 
       - name: Restore dependencies
-        run: dotnet restore XLibur/XLibur.csproj
+        run: dotnet restore XLibur.slnx
 
       - name: Build
-        run: dotnet build XLibur/XLibur.csproj --configuration Release --no-restore
+        run: dotnet build XLibur.slnx --configuration Release --no-restore
 
-      - name: Pack
+      - name: Pack XLibur
         run: dotnet pack XLibur/XLibur.csproj --configuration Release --no-build --output ./artifacts
+
+      - name: Pack XLibur.Fonts.SixLabors.V1
+        run: dotnet pack XLibur.Fonts.SixLabors.V1/XLibur.Fonts.SixLabors.V1.csproj --configuration Release --no-build --output ./artifacts
+
+      - name: Pack XLibur.Fonts.SixLabors
+        run: dotnet pack XLibur.Fonts.SixLabors/XLibur.Fonts.SixLabors.csproj --configuration Release --no-build --output ./artifacts
 
       - name: NuGet login
         uses: NuGet/login@d22cc5f58ff5b88bf9bd452535b4335137e24544 # v1

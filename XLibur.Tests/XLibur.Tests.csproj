@@ -33,6 +33,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\XLibur\XLibur.csproj" />
+    <ProjectReference Include="..\XLibur.Fonts.SixLabors.V1\XLibur.Fonts.SixLabors.V1.csproj" />
     <ProjectReference Include="..\XLibur.Examples\XLibur.Examples.csproj" />
   </ItemGroup>
 

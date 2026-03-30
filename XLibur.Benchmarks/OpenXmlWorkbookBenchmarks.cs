@@ -7,6 +7,7 @@ using BenchmarkDotNet.Attributes;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using SpreadsheetFonts = DocumentFormat.OpenXml.Spreadsheet.Fonts;
 
 namespace XLibur.Benchmarks;
 
@@ -346,7 +347,7 @@ public class OpenXmlWorkbookBenchmarks
     private static Stylesheet CreateMinimalStylesheet()
     {
         return new Stylesheet(
-            new Fonts(new Font()),
+            new SpreadsheetFonts(new Font()),
             new Fills(new Fill(new PatternFill { PatternType = PatternValues.None }),
                       new Fill(new PatternFill { PatternType = PatternValues.Gray125 })),
             new Borders(new Border()),
@@ -359,7 +360,7 @@ public class OpenXmlWorkbookBenchmarks
     /// </summary>
     private static Stylesheet CreateFormattedStylesheet()
     {
-        var fonts = new Fonts(
+        var fonts = new SpreadsheetFonts(
             new Font(), // 0: default
             new Font(new Bold(), new Color { Rgb = "FFFFFFFF" }), // 1: header (white bold)
             new Font(new Bold()), // 2: bold

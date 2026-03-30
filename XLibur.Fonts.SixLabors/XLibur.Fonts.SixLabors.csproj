@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net8.0;net9.0</TargetFrameworks>
+        <Nullable>enable</Nullable>
+        <RootNamespace>XLibur.Fonts.SixLabors</RootNamespace>
+        <MinVerTagPrefix>fonts-sixlabors-v</MinVerTagPrefix>
+        <Description>SixLabors.Fonts 2.x implementation of IXLFontEngine for XLibur.</Description>
+        <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>
+        <PackageTags>Excel OpenXml xlsx Font SixLabors</PackageTags>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <Optimize>true</Optimize>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <DebugType>Portable</DebugType>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <NoWarn>$(NoWarn);NU1605;CS1591</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\resources\logo\nuget-logo.png" Pack="true" PackagePath="\" />
+        <None Include="NUGET_README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\XLibur\XLibur.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
+        <PackageReference Include="SixLabors.Fonts" Version="2.1.3" />
+    </ItemGroup>
+
+</Project>

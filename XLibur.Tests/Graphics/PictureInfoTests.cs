@@ -1,6 +1,7 @@
 ﻿using System.Drawing;
 using System.Reflection;
 using XLibur.Excel.Drawings;
+using XLibur.Fonts.SixLabors.V1;
 using XLibur.Graphics;
 using NUnit.Framework;
 
@@ -137,7 +138,8 @@ public class PictureInfoTests
     private static void AssertImage(string imageName, XLPictureFormat expectedFormat, Size expectedPxSize, Size expectedHiMetricSize, double expectedDpiX, double expectedDpiY)
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"XLibur.Tests.Resource.Images.{imageName}");
-        var info = DefaultGraphicEngine.Instance.Value.GetPictureInfo(stream, XLPictureFormat.Unknown);
+        var engine = new DefaultGraphicEngine(DefaultFontEngine.Instance.Value);
+        var info = engine.GetPictureInfo(stream, XLPictureFormat.Unknown);
 
         Assert.AreEqual(expectedFormat, info.Format);
         Assert.AreEqual(expectedPxSize, info.SizePx);

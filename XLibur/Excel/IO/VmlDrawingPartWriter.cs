@@ -263,7 +263,7 @@ internal static class VmlDrawingPartWriter
     /// </summary>
     private static double EstimateAutoSizeHeight(XLCell cell, double widthPt, XLComment comment)
     {
-        var engine = cell.Worksheet.Workbook.GraphicEngine;
+        var engine = cell.Worksheet.Workbook.FontEngine;
         var margins = comment.Style.Margins;
 
         var (marginLeftPt, marginRightPt, marginTopPt, marginBottomPt) = GetMarginsPt(margins);
@@ -300,7 +300,7 @@ internal static class VmlDrawingPartWriter
         return (margins.Left * 72.0, margins.Right * 72.0, margins.Top * 72.0, margins.Bottom * 72.0);
     }
 
-    private static int CountWrappedLines(string line, IXLGraphicEngine engine, IXLFontBase font,
+    private static int CountWrappedLines(string line, IXLFontEngine engine, IXLFontBase font,
         double spaceWidth, double availableWidth)
     {
         if (line.Length == 0)

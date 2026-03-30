@@ -15,6 +15,11 @@ public class LoadOptions
     public static IXLGraphicEngine? DefaultGraphicEngine { internal get; set; }
 
     /// <summary>
+    /// A font engine that will be used for workbooks without explicitly set font engine.
+    /// </summary>
+    public static IXLFontEngine? DefaultFontEngine { get; set; }
+
+    /// <summary>
     /// Should all formulas in a workbook be recalculated during a load? Default value is <c>false</c>.
     /// </summary>
     public bool RecalculateAllFormulas { get; set; } = false;
@@ -23,6 +28,17 @@ public class LoadOptions
     /// Graphic engine used by the workbook.
     /// </summary>
     public IXLGraphicEngine? GraphicEngine { get; set; }
+
+    /// <summary>
+    /// Font engine used by the workbook for text measurement and font metrics.
+    /// </summary>
+    /// <remarks>
+    /// Resolution order: <see cref="FontEngine"/> if set, then <see cref="DefaultFontEngine"/>,
+    /// then the workbook's <see cref="GraphicEngine"/> if it implements <see cref="IXLFontEngine"/>,
+    /// otherwise a <see cref="GraphicEngineFontAdapter"/> wrapping the graphic engine.
+    /// If no font engine or graphic engine is available, an <see cref="System.InvalidOperationException"/> is thrown.
+    /// </remarks>
+    public IXLFontEngine? FontEngine { get; set; }
 
     /// <summary>
     /// DPI for the workbook. Default is 96.

@@ -3,6 +3,7 @@ using System.IO;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnostics.dotTrace;
 using XLibur.Excel;
+using XLibur.Fonts.SixLabors.V1;
 
 namespace XLibur.Benchmarks;
 
@@ -21,6 +22,7 @@ public class XLiburWorkbookBenchmarks
     [GlobalSetup]
     public void Setup()
     {
+        SixLaborsV1FontBootstrap.Register();
         _strings = new string[RowCount];
         _numbers = new double[RowCount];
         _dates = new DateTime[RowCount];

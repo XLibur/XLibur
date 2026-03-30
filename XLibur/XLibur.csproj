@@ -23,10 +23,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="Graphics\Fonts\CarlitoBare-Bold.ttf"/>
-        <EmbeddedResource Include="Graphics\Fonts\CarlitoBare-BoldItalic.ttf"/>
-        <EmbeddedResource Include="Graphics\Fonts\CarlitoBare-Italic.ttf"/>
-        <EmbeddedResource Include="Graphics\Fonts\CarlitoBare-Regular.ttf"/>
         <EmbeddedResource Include="Excel\IO\ChartExDefaultColors.xml"/>
         <EmbeddedResource Include="Excel\IO\ChartExDefaultStyle.xml"/>
     </ItemGroup>
@@ -48,7 +44,6 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="RBush.Signed" Version="4.0.0"/>
-        <PackageReference Include="SixLabors.Fonts" Version="1.0.1"/>
         <PackageReference Include="ClosedXML.Parser" Version="2.0.0"/>
         <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4">
             <PrivateAssets>all</PrivateAssets>

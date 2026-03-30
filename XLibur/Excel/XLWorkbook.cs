@@ -109,6 +109,8 @@ public partial class XLWorkbook : IXLWorkbook
 
     internal IXLGraphicEngine GraphicEngine { get; }
 
+    internal IXLFontEngine FontEngine { get; }
+
     internal double DpiX { get; }
 
     internal double DpiY { get; }
@@ -732,8 +734,19 @@ public partial class XLWorkbook : IXLWorkbook
 
         DpiX = loadOptions.Dpi.X;
         DpiY = loadOptions.Dpi.Y;
-        GraphicEngine = loadOptions.GraphicEngine ??
-                        LoadOptions.DefaultGraphicEngine ?? DefaultGraphicEngine.Instance.Value;
+        var explicitGraphic = loadOptions.GraphicEngine;
+        var fontEngine = loadOptions.FontEngine
+                         ?? (explicitGraphic as IXLFontEngine)
+                         ?? LoadOptions.DefaultFontEngine;
+        GraphicEngine = explicitGraphic
+                        ?? LoadOptions.DefaultGraphicEngine
+                        ?? (fontEngine is not null
+                            ? new DefaultGraphicEngine(fontEngine)
+                            : throw new InvalidOperationException(
+                                "No font engine is registered. Call SixLaborsV1FontBootstrap.Register() at application startup " +
+                                "or set LoadOptions.FontEngine / LoadOptions.DefaultFontEngine."));
+        FontEngine = fontEngine
+                     ?? (GraphicEngine as IXLFontEngine ?? new GraphicEngineFontAdapter(GraphicEngine));
         Protection = new XLWorkbookProtection(DefaultProtectionAlgorithm);
         DefaultRowHeight = 15;
         DefaultColumnWidth = 8.43;
