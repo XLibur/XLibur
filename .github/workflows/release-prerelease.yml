@@ -26,6 +26,9 @@ jobs:
   prerelease:
     runs-on: ubuntu-latest
 
+    env:
+      MinVerDefaultPreReleaseIdentifiers: ${{ inputs.prerelease-label }}
+
     steps:
       - uses: actions/checkout@v6
         with:
@@ -48,7 +51,7 @@ jobs:
         run: dotnet restore XLibur.slnx
 
       - name: Build
-        run: dotnet build XLibur.slnx --configuration Release --no-restore -p:MinVerDefaultPreReleaseIdentifiers=${{ inputs.prerelease-label }}
+        run: dotnet build XLibur.slnx --configuration Release --no-restore
 
       - name: Pack XLibur
         run: dotnet pack XLibur/XLibur.csproj --configuration Release --no-build --output ./artifacts
