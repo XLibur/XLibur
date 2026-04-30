@@ -15,6 +15,18 @@ internal sealed class CalcContext
 {
     private readonly bool _recursive;
 
+    /// <summary>
+    /// Per-evaluation cache for <see cref="GetCellValue"/>'s recursive branch. Lazily
+    /// allocated on the first store. Caching is gated on the <c>_recursive</c> flag (set for
+    /// <c>worksheet.Evaluate("...")</c>-style entry points) because that branch is the only
+    /// one where a miss does real work — it allocates an <see cref="XLCell"/> and triggers a
+    /// downstream formula recompute. The non-recursive path is already a couple of slice
+    /// indexer reads, so caching there adds Dictionary overhead with no return on the
+    /// canonical eval workloads (verified: ~150 MB allocation regression and no time
+    /// improvement on <c>LoadAndReadAllCells</c> when the cache covered every read).
+    /// </summary>
+    private Dictionary<XLBookPoint, ScalarValue>? _recursiveCellValueCache;
+
     public CalcContext(XLCalcEngine calcEngine, CultureInfo culture, XLCell cell)
         : this(calcEngine, culture, cell.Worksheet.Workbook, cell.Worksheet, cell.Address)
     {
@@ -111,13 +123,21 @@ internal sealed class CalcContext
         if (RecalculateSheetId is not null && sheet.SheetId != RecalculateSheetId.Value)
             return valueSlice.GetCellValue(point);
 
-        // A special branch for functions out of cells (e.g. worksheet.Evaluate("A1+2")).
-        // These functions are not a part of the calculation chain, and thus reordering a chain
-        // for them doesn't make sense.
+        // A special branch for functions out of cells (e.g. worksheet.Evaluate("A1+A1*B1")).
+        // These are not part of the calculation chain, so reordering a chain for them doesn't
+        // make sense — instead the dirty formula is evaluated recursively. Caching here saves
+        // a downstream formula recompute when the same cell appears more than once in the
+        // expression, not just a slice read.
         if (_recursive)
         {
+            var bookPoint = new XLBookPoint(sheet.SheetId, point);
+            if (_recursiveCellValueCache is { } cache && cache.TryGetValue(bookPoint, out var cached))
+                return cached;
+
             var cell = sheet.GetCell(point);
-            return cell?.Value ?? Blank.Value;
+            var value = cell?.Value ?? Blank.Value;
+            (_recursiveCellValueCache ??= new Dictionary<XLBookPoint, ScalarValue>()).Add(bookPoint, value);
+            return value;
         }
 
         throw new GettingDataException(new XLBookPoint(sheet.SheetId, new XLSheetPoint(rowNumber, columnNumber)));
