@@ -18,6 +18,8 @@ internal sealed class FormulaSlice : ISlice
 
     public bool IsEmpty => _formulas.IsEmpty;
 
+    public int Version => _formulas.Version;
+
     public int MaxColumn => _formulas.MaxColumn;
 
     public int MaxRow => _formulas.MaxRow;

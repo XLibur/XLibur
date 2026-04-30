@@ -14,6 +14,15 @@ internal interface ISlice
     bool IsEmpty { get; }
 
     /// <summary>
+    /// A monotonically-increasing counter that increments on every write to the slice.
+    /// Used by callers that cache derived values (e.g., an aggregated set of used columns
+    /// across multiple slices) to detect when their cache is stale. The absolute value is
+    /// not meaningful; only inequality between two snapshots indicates that the slice
+    /// changed in between.
+    /// </summary>
+    int Version { get; }
+
+    /// <summary>
     /// Get the maximum used column in the slice or 0, if no column is used.
     /// </summary>
     int MaxColumn { get; }

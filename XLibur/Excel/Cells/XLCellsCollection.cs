@@ -10,6 +10,14 @@ internal sealed class XLCellsCollection : IWorkbookListener
     private readonly XLWorksheet _ws;
     private readonly List<ISlice> _slices;
 
+    // Caches for ColumnsUsedKeys / RowsUsedKeys. Each cache is invalidated when the sum of
+    // slice versions changes (any slice mutation bumps its own version, which changes the sum).
+    // Allocates the result HashSet once per "snapshot" of slice state instead of once per call.
+    private HashSet<int>? _cachedColumnsUsedKeys;
+    private int _cachedColumnsUsedKeysVersionSum;
+    private HashSet<int>? _cachedRowsUsedKeys;
+    private int _cachedRowsUsedKeysVersionSum;
+
     public XLCellsCollection(XLWorksheet ws)
     {
         _ws = ws;
@@ -22,15 +30,38 @@ internal sealed class XLCellsCollection : IWorkbookListener
     {
         get
         {
-            var set = new HashSet<int>();
+            var versionSum = ValueSlice.Version + FormulaSlice.Version + StyleSlice.Version + MiscSlice.Version;
+            if (_cachedColumnsUsedKeys is { } cached && _cachedColumnsUsedKeysVersionSum == versionSum)
+                return cached;
+
+            var set = _cachedColumnsUsedKeys;
+            if (set is null)
+                set = new HashSet<int>();
+            else
+                set.Clear();
+
             foreach (var slice in _slices)
                 set.UnionWith(slice.UsedColumns);
 
+            _cachedColumnsUsedKeys = set;
+            _cachedColumnsUsedKeysVersionSum = versionSum;
             return set;
         }
     }
 
-    internal bool IsEmpty => _slices.All(slice => slice.IsEmpty);
+    internal bool IsEmpty
+    {
+        get
+        {
+            foreach (var slice in _slices)
+            {
+                if (!slice.IsEmpty)
+                    return false;
+            }
+
+            return true;
+        }
+    }
 
     internal int MaxColumnUsed
     {
@@ -60,10 +91,21 @@ internal sealed class XLCellsCollection : IWorkbookListener
     {
         get
         {
-            var set = new HashSet<int>();
+            var versionSum = ValueSlice.Version + FormulaSlice.Version + StyleSlice.Version + MiscSlice.Version;
+            if (_cachedRowsUsedKeys is { } cached && _cachedRowsUsedKeysVersionSum == versionSum)
+                return cached;
+
+            var set = _cachedRowsUsedKeys;
+            if (set is null)
+                set = new HashSet<int>();
+            else
+                set.Clear();
+
             foreach (var slice in _slices)
                 set.UnionWith(slice.UsedRows);
 
+            _cachedRowsUsedKeys = set;
+            _cachedRowsUsedKeysVersionSum = versionSum;
             return set;
         }
     }

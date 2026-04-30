@@ -32,10 +32,15 @@ internal sealed partial class Slice<TElement> : ISlice
     /// </summary>
     private readonly Dictionary<int, int> _columnUsage = new();
 
+    private int _version;
+
     internal Slice()
     {
         _data = new Lut<RowData>();
     }
+
+    /// <inheritdoc />
+    public int Version => _version;
 
     /// <summary>
     /// Get the slice value at the specified point of the sheet.
@@ -233,6 +238,7 @@ internal sealed partial class Slice<TElement> : ISlice
             IncrementColumnUsage(column);
             if (column > MaxColumn)
                 MaxColumn = column;
+            _version++;
             return;
         }
 
@@ -260,6 +266,8 @@ internal sealed partial class Slice<TElement> : ISlice
             if (column > MaxColumn)
                 MaxColumn = column;
         }
+
+        _version++;
     }
 
     /// <summary>
@@ -281,6 +289,7 @@ internal sealed partial class Slice<TElement> : ISlice
             IncrementColumnUsage(column);
             if (column > MaxColumn)
                 MaxColumn = column;
+            _version++;
             return;
         }
 
@@ -298,6 +307,8 @@ internal sealed partial class Slice<TElement> : ISlice
             if (column > MaxColumn)
                 MaxColumn = column;
         }
+
+        _version++;
     }
 
     private int CalculateMaxColumn()

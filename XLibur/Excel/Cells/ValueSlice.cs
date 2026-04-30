@@ -22,6 +22,8 @@ internal sealed class ValueSlice : ISlice
 
     public bool IsEmpty => _values.IsEmpty;
 
+    public int Version => _values.Version;
+
     public int MaxColumn => _values.MaxColumn;
 
     public int MaxRow => _values.MaxRow;
