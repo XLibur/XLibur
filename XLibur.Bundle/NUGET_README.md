@@ -6,7 +6,7 @@ This package contains no code of its own — it exists purely to pull both depen
 
 ## Install
 
-```
+```bash
 dotnet add package XLibur.Bundle
 ```
 
