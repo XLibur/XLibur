@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Xml;
-using DocumentFormat.OpenXml;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Rows;
 using XLibur.Excel.Tables;
@@ -19,12 +17,6 @@ internal static class SheetDataWriter
     /// Day offset between the 1900 and 1904 date systems used by Excel.
     /// </summary>
     private const int Date1904OffsetDays = 1462;
-
-    private static readonly FieldInfo XmlWriterFieldInfo =
-        typeof(OpenXmlPartWriter).GetField("_xmlWriter", BindingFlags.Instance | BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException(
-            "OpenXmlPartWriter no longer has a '_xmlWriter' field. " +
-            "The DocumentFormat.OpenXml version may have changed its internals.");
 
     /// <summary>
     /// An array to convert data type for a formula cell. Key is <see cref="XLDataType"/>.
@@ -56,14 +48,9 @@ internal static class SheetDataWriter
         null // timespan, saved as serialized date-time
     ];
 
-    internal static void StreamSheetData(OpenXmlWriter writer, XLWorksheet xlWorksheet, SaveContext context,
+    internal static void StreamSheetData(XmlWriter xml, XLWorksheet xlWorksheet, SaveContext context,
         SaveOptions options)
     {
-        // Steal through reflection for now, the whole OpenXmlPartWriter will be replaced by XmlWriter soon. OpenXmlPartWriter basically has
-        // no inner state, unless it is in a string leaf node. By writing SheetData through XmlWriter only, we bypass all that.
-        var untypedXmlWriter = XmlWriterFieldInfo.GetValue(writer);
-        var xml = (XmlWriter)untypedXmlWriter!;
-
         var maxColumn = GetMaxColumn(xlWorksheet);
 
         xml.WriteStartElement("sheetData", Main2006SsNs);
