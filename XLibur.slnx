@@ -16,5 +16,6 @@
   <Project Path="XLibur.Benchmarks/XLibur.Benchmarks.csproj" />
   <Project Path="XLibur.Examples/XLibur.Examples.csproj" />
   <Project Path="XLibur/XLibur.csproj" />
+  <Project Path="XLibur.Bundle/XLibur.Bundle.csproj" />
   <Project Path="XLibur.Fonts.SixLabors.V1/XLibur.Fonts.SixLabors.V1.csproj" />
 </Solution>
