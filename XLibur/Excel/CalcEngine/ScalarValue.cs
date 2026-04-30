@@ -41,6 +41,14 @@ internal readonly struct ScalarValue
     }
 
     /// <summary>
+    /// Internal accessor for the text payload. Callers must verify that <see cref="_index"/>
+    /// is <see cref="TextValue"/> before invoking; this property centralises the
+    /// null-forgiving cast in one place instead of sprinkling <c>_text!</c> through every
+    /// switch arm.
+    /// </summary>
+    private string Text => _text!;
+
+    /// <summary>
     /// A blank value of a scalar. It can behave as a 0 or empty string, depending on context.
     /// </summary>
     /// <example><c>A1+5</c> is a number 5, blank behaves as 0, <c>A1 &amp; "text"</c> is a "text", blank behaves as empty string.</example>
@@ -96,7 +104,7 @@ internal readonly struct ScalarValue
 
     public double GetNumber() => IsNumber ? _number : throw new InvalidCastException();
 
-    public string GetText() => IsText ? _text! : throw new InvalidCastException();
+    public string GetText() => IsText ? Text : throw new InvalidCastException();
 
     public XLError GetError() => IsError ? _error : throw new InvalidCastException();
 
@@ -107,7 +115,7 @@ internal readonly struct ScalarValue
             BlankValue => 0, // The result value of a formula calculation can be blank, but result of formula in a cell value is never blank, but 0.
             LogicalValue => _logical,
             NumberValue => _number,
-            TextValue => _text!,
+            TextValue => Text,
             ErrorValue => _error,
             _ => throw new InvalidOperationException()
         };
@@ -120,7 +128,7 @@ internal readonly struct ScalarValue
             BlankValue => transformBlank(),
             LogicalValue => transformLogical(_logical),
             NumberValue => transformNumber(_number),
-            TextValue => transformText(_text!),
+            TextValue => transformText(Text),
             ErrorValue => transformError(_error),
             _ => throw new InvalidOperationException()
         };
@@ -133,7 +141,7 @@ internal readonly struct ScalarValue
             BlankValue => transformBlank(param),
             LogicalValue => transformLogical(_logical, param),
             NumberValue => transformNumber(_number, param),
-            TextValue => transformText(_text!, param),
+            TextValue => transformText(Text, param),
             ErrorValue => transformError(_error, param),
             _ => throw new InvalidOperationException()
         };
@@ -146,7 +154,7 @@ internal readonly struct ScalarValue
             BlankValue => transformBlank(param1, param2),
             LogicalValue => transformLogical(_logical, param1, param2),
             NumberValue => transformNumber(_number, param1, param2),
-            TextValue => transformText(_text!, param1, param2),
+            TextValue => transformText(Text, param1, param2),
             ErrorValue => transformError(_error, param1, param2),
             _ => throw new InvalidOperationException()
         };
@@ -159,7 +167,7 @@ internal readonly struct ScalarValue
             BlankValue => AnyValue.Blank,
             LogicalValue => _logical,
             NumberValue => _number,
-            TextValue => _text!,
+            TextValue => Text,
             ErrorValue => _error,
             _ => throw new InvalidOperationException()
         };
@@ -175,7 +183,7 @@ internal readonly struct ScalarValue
             BlankValue => string.Empty,
             LogicalValue => _logical ? "TRUE" : "FALSE",
             NumberValue => _number.ToString(culture),
-            TextValue => _text!,
+            TextValue => Text,
             ErrorValue => _error,
             _ => throw new InvalidOperationException()
         };
@@ -191,7 +199,7 @@ internal readonly struct ScalarValue
             BlankValue => 0,
             LogicalValue => _logical ? 1.0 : 0.0,
             NumberValue => _number,
-            TextValue => TextToNumber(_text!, culture),
+            TextValue => TextToNumber(Text, culture),
             ErrorValue => _error,
             _ => throw new InvalidOperationException()
         };
@@ -448,7 +456,7 @@ internal readonly struct ScalarValue
         switch (_index)
         {
             case BlankValue:
-            case TextValue when (StringComparer.OrdinalIgnoreCase.Equals(_text!, "FALSE")):
+            case TextValue when (StringComparer.OrdinalIgnoreCase.Equals(Text, "FALSE")):
                 value = false;
                 error = default;
                 return true;
@@ -460,7 +468,7 @@ internal readonly struct ScalarValue
                 value = _number != 0;
                 error = default;
                 return true;
-            case TextValue when (StringComparer.OrdinalIgnoreCase.Equals(_text!, "TRUE")):
+            case TextValue when (StringComparer.OrdinalIgnoreCase.Equals(Text, "TRUE")):
                 value = true;
                 error = default;
                 return true;
@@ -482,7 +490,7 @@ internal readonly struct ScalarValue
             BlankValue => "Blank",
             LogicalValue => _logical.ToString().ToUpper(),
             NumberValue => _number.ToString(CultureInfo.InvariantCulture),
-            TextValue => _text!,
+            TextValue => Text,
             ErrorValue => _error.ToDisplayString(),
             _ => throw new InvalidOperationException("Invalid type of scalar value.")
         };

@@ -24,54 +24,63 @@ internal readonly struct AnyValue
     private readonly byte _index;
     private readonly bool _logical;
     private readonly double _number;
-    private readonly string? _text;
     private readonly XLError _error;
-    private readonly Array? _array;
-    private readonly Reference? _reference;
 
-    private AnyValue(byte index, bool logical, double number, string? text, XLError error, Array? array,
-        Reference? reference)
+    /// <summary>
+    /// Holds the reference-typed payload — <see cref="string"/> when <see cref="_index"/>
+    /// is <see cref="TextValue"/>, an <see cref="CalcEngine.Array"/> when it is
+    /// <see cref="ArrayValue"/>, and a <see cref="CalcEngine.Reference"/> when it is
+    /// <see cref="ReferenceValue"/>. <c>null</c> for the value-type cases. Collapsing the
+    /// three previously-separate nullable reference fields into one slot saves 16 bytes per
+    /// struct copy and confines the null-forgiving cast to the three accessor properties
+    /// below.
+    /// </summary>
+    private readonly object? _ref;
+
+    private AnyValue(byte index, bool logical, double number, XLError error, object? @ref)
     {
         _index = index;
         _logical = logical;
         _number = number;
-        _text = text;
         _error = error;
-        _array = array;
-        _reference = reference;
+        _ref = @ref;
     }
 
     /// <summary>
     /// A value of a blank cell or missing argument. Conversion methods mostly treat blank like 0 or an empty string.
     /// </summary>
-    public static readonly AnyValue Blank = new(BlankValue, false, 0, null, default, null, null);
+    public static readonly AnyValue Blank = new(BlankValue, false, 0, default, null);
 
-    public static AnyValue From(bool logical) => new(LogicalValue, logical, 0, null, default, null, null);
+    public static AnyValue From(bool logical) => new(LogicalValue, logical, 0, default, null);
 
-    public static AnyValue From(double number) => new(NumberValue, false, number, null, default, null, null);
+    public static AnyValue From(double number) => new(NumberValue, false, number, default, null);
 
     public static AnyValue From(string text)
     {
-        return text is null
-            ? throw new ArgumentNullException(nameof(text))
-            : new AnyValue(TextValue, false, 0, text, default, null, null);
+        ArgumentNullException.ThrowIfNull(text);
+        return new AnyValue(TextValue, false, 0, default, text);
     }
 
-    public static AnyValue From(XLError error) => new(ErrorValue, false, 0, null, error, null, null);
+    public static AnyValue From(XLError error) => new(ErrorValue, false, 0, error, null);
 
     public static AnyValue From(Array array)
     {
         ArgumentNullException.ThrowIfNull(array);
-
-        return new AnyValue(ArrayValue, false, 0, null, default, array, null);
+        return new AnyValue(ArrayValue, false, 0, default, array);
     }
 
     public static AnyValue From(Reference reference)
     {
         ArgumentNullException.ThrowIfNull(reference);
-
-        return new AnyValue(ReferenceValue, false, 0, null, default, null, reference);
+        return new AnyValue(ReferenceValue, false, 0, default, reference);
     }
+
+    // Internal accessors that centralize the null-forgiving cast. Each caller is responsible
+    // for verifying the matching tag in <see cref="_index"/> first; in exchange the cast is
+    // confined to one place per type instead of being scattered with a `!` at every use site.
+    private string RefAsText => (string)_ref!;
+    private Array RefAsArray => (Array)_ref!;
+    private Reference RefAsReference => (Reference)_ref!;
 
     public static implicit operator AnyValue(bool logical) => From(logical);
 
@@ -111,14 +120,14 @@ internal readonly struct AnyValue
             BlankValue => ScalarValue.Blank,
             LogicalValue => _logical,
             NumberValue => _number,
-            TextValue => _text!,
+            TextValue => RefAsText,
             ErrorValue => _error,
             _ => default
         };
         collection = _index switch
         {
-            ArrayValue => _array!,
-            ReferenceValue => _reference!,
+            ArrayValue => RefAsArray,
+            ReferenceValue => RefAsReference,
             _ => default
         };
         return _index <= ErrorValue;
@@ -140,7 +149,7 @@ internal readonly struct AnyValue
     {
         if (_index == ArrayValue)
         {
-            array = _array;
+            array = RefAsArray;
             return true;
         }
 
@@ -152,7 +161,7 @@ internal readonly struct AnyValue
     {
         if (_index == ReferenceValue)
         {
-            reference = _reference;
+            reference = RefAsReference;
             error = default;
             return true;
         }
@@ -177,14 +186,15 @@ internal readonly struct AnyValue
             return false;
         }
 
-        if (_reference!.Areas.Count > 1)
+        var reference = RefAsReference;
+        if (reference.Areas.Count > 1)
         {
             area = default;
             error = XLError.CellReference;
             return false;
         }
 
-        area = _reference!.Areas[0];
+        area = reference.Areas[0];
         error = default;
         return true;
     }
@@ -262,10 +272,10 @@ internal readonly struct AnyValue
             BlankValue => transformBlank(),
             LogicalValue => transformLogical(_logical),
             NumberValue => transformNumber(_number),
-            TextValue => transformText(_text!),
+            TextValue => transformText(RefAsText),
             ErrorValue => transformError(_error),
-            ArrayValue => transformArray(_array!),
-            ReferenceValue => transformReference(_reference!),
+            ArrayValue => transformArray(RefAsArray),
+            ReferenceValue => transformReference(RefAsReference),
             _ => throw new InvalidOperationException()
         };
     }
@@ -336,7 +346,7 @@ internal readonly struct AnyValue
     {
         return value._index switch
         {
-            ReferenceValue => value._reference!,
+            ReferenceValue => value.RefAsReference,
             ErrorValue => value._error,
             _ => XLError.IncompatibleValue
         };
@@ -619,11 +629,11 @@ internal readonly struct AnyValue
             BlankValue => "Blank",
             LogicalValue => $"Logical: {_logical.ToString().ToUpper()}",
             NumberValue => $"Number: {_number}",
-            TextValue => $"Text: {_text}",
+            TextValue => $"Text: {RefAsText}",
             ErrorValue => $"Error: {_error.ToDisplayString()}",
-            ArrayValue => $"Array{_array!.Height}x{_array.Width}",
+            ArrayValue => $"Array{RefAsArray.Height}x{RefAsArray.Width}",
             ReferenceValue =>
-                $"Reference: {string.Join(",", _reference!.Areas.Select(a => $"{a.FirstAddress}:{a.LastAddress}"))}",
+                $"Reference: {string.Join(",", RefAsReference.Areas.Select(a => $"{a.FirstAddress}:{a.LastAddress}"))}",
             _ => throw new InvalidOperationException()
         };
     }
@@ -651,7 +661,7 @@ internal readonly struct AnyValue
     /// Return the array value.
     /// </summary>
     /// <exception cref="InvalidCastException" />
-    public Array GetArray() => _index == ArrayValue ? _array! : throw new InvalidCastException();
+    public Array GetArray() => _index == ArrayValue ? RefAsArray : throw new InvalidCastException();
 
     private delegate OneOf<double, XLError> BinaryNumberFunc(double lhs, double rhs);
 }
