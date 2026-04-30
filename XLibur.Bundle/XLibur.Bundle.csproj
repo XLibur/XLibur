@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net8.0;net9.0</TargetFrameworks>
+        <Nullable>enable</Nullable>
+        <Description>Convenience meta-package for XLibur. Installs XLibur together with the default SixLabors.Fonts 1.x font engine (Apache 2.0). Equivalent to installing XLibur and XLibur.Fonts.SixLabors.V1 separately.</Description>
+        <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>
+        <PackageTags>Excel OpenXml xlsx Bundle</PackageTags>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <IncludeSymbols>false</IncludeSymbols>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);NU5128</NoWarn>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\resources\logo\nuget-logo.png" Pack="true" PackagePath="\" />
+        <None Include="NUGET_README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\XLibur\XLibur.csproj" />
+        <ProjectReference Include="..\XLibur.Fonts.SixLabors.V1\XLibur.Fonts.SixLabors.V1.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
+    </ItemGroup>
+
+</Project>

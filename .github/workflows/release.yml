@@ -37,6 +37,9 @@ jobs:
       - name: Pack XLibur.Fonts.SixLabors.V1
         run: dotnet pack XLibur.Fonts.SixLabors.V1/XLibur.Fonts.SixLabors.V1.csproj --configuration Release --no-build --output ./artifacts
 
+      - name: Pack XLibur.Bundle
+        run: dotnet pack XLibur.Bundle/XLibur.Bundle.csproj --configuration Release --no-build --output ./artifacts
+
       - name: Pack XLibur.Fonts.SixLabors
         run: dotnet pack XLibur.Fonts.SixLabors/XLibur.Fonts.SixLabors.csproj --configuration Release --no-build --output ./artifacts
 
