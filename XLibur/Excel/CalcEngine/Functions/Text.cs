@@ -588,7 +588,7 @@ internal static class Text
         if (collection.TryPickT0(out var array, out var reference))
             return TArray(ctx, array);
 
-        var area = reference.Areas[0];
+        var area = reference[0];
         var cellValue = ctx.GetCellValue(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber);
         if (cellValue.TryPickError(out var cellError))
             return cellError;

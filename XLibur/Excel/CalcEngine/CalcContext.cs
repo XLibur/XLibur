@@ -150,7 +150,7 @@ internal sealed class CalcContext
     /// </summary>
     internal IEnumerable<ScalarValue> GetNonBlankValues(Reference reference)
     {
-        foreach (var area in reference.Areas)
+        foreach (var area in reference)
         {
             var sheet = area.Worksheet ?? Worksheet;
             var range = XLSheetRange.FromRangeAddress(area);
@@ -208,7 +208,7 @@ internal sealed class CalcContext
     {
         // Allocate one per call, because visitor holds info whether function was found in a formula.
         var visitor = new FunctionVisitor(function);
-        foreach (var area in reference.Areas)
+        foreach (var area in reference)
         {
             var sheet = area.Worksheet ?? Worksheet;
             var range = XLSheetRange.FromRangeAddress(area);
@@ -305,7 +305,7 @@ internal sealed class CalcContext
 
     private IEnumerable<ScalarValue> GetAllCellValues(Reference reference)
     {
-        foreach (var area in reference.Areas)
+        foreach (var area in reference)
         {
             var sheet = area.Worksheet;
             foreach (var point in XLSheetRange.FromRangeAddress(area))

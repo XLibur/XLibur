@@ -117,7 +117,7 @@ internal static class Information
         if (collection.TryPickT0(out var array, out var reference))
             return array.Apply(static v => ToNumber(v));
 
-        var area = reference.Areas[0];
+        var area = reference[0];
         var referenceValue = ctx.GetCellValue(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber);
         return ToNumber(referenceValue).ToAnyValue();
 
@@ -146,7 +146,7 @@ internal static class Information
             var isArray = collection.TryPickT0(out _, out var reference);
             if (isArray)
                 return 64;
-            if (reference!.Areas.Count > 1)
+            if (reference!.AreaCount > 1)
                 return 16;
             if (!reference.TryGetSingleCellValue(out scalar, ctx))
                 return 64;

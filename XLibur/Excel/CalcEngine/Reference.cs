@@ -1,6 +1,5 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel.CalcEngine
@@ -9,59 +8,106 @@ namespace XLibur.Excel.CalcEngine
     /// Reference is a collection of cells in the workbook. It's used in formula evaluation.
     /// Every reference has at least one cell.
     /// </summary>
+    /// <remarks>
+    /// Inline-first storage: the typical reference has exactly one area, so the first area
+    /// lives on the instance directly and only multi-area references allocate the
+    /// <see cref="_additionalAreas"/> array. Saves the per-Reference list allocation that
+    /// previously cost ~64 bytes (List header + one-element backing array) for the common
+    /// single-area path.
+    /// </remarks>
     internal sealed class Reference
     {
+        private readonly XLRangeAddress _firstArea;
+        private readonly XLRangeAddress[]? _additionalAreas;
+
         public Reference(XLRangeAddress area)
         {
             if (!area.IsNormalized)
                 throw new ArgumentException("Range address must be normalized.", nameof(area));
 
-            Areas = new List<XLRangeAddress>(1) { area };
+            _firstArea = area;
         }
 
         /// <summary>
-        /// Ctor that reuses parameter to keep allocations low - don't modify the collection after it is passed to ctor.
+        /// Constructor that copies from a list. Pass a list with at least one normalized area.
         /// </summary>
         public Reference(List<XLRangeAddress> areas)
         {
             ArgumentNullException.ThrowIfNull(areas);
-
             if (areas.Count < 1)
                 throw new ArgumentException("Reference must contain at least one area.", nameof(areas));
 
-            Areas = areas;
+            _firstArea = areas[0];
+            if (areas.Count > 1)
+            {
+                _additionalAreas = new XLRangeAddress[areas.Count - 1];
+                for (var i = 1; i < areas.Count; i++)
+                    _additionalAreas[i - 1] = areas[i];
+            }
+        }
+
+        /// <summary>
+        /// Constructor for the inline-first storage. <paramref name="additionalAreas"/> may be
+        /// <c>null</c> or empty for a single-area reference; otherwise the array is taken
+        /// over verbatim (do not mutate after construction).
+        /// </summary>
+        internal Reference(XLRangeAddress firstArea, XLRangeAddress[]? additionalAreas)
+        {
+            _firstArea = firstArea;
+            _additionalAreas = additionalAreas is { Length: > 0 } ? additionalAreas : null;
         }
 
         public Reference(IXLRanges ranges)
         {
             ArgumentNullException.ThrowIfNull(ranges);
-
-            if (ranges.Count < 1)
+            var count = ranges.Count;
+            if (count < 1)
                 throw new ArgumentException("Reference must contain at least one range.", nameof(ranges));
 
-            var areas = new List<XLRangeAddress>(ranges.Count);
-            foreach (var range in ranges)
-                areas.Add((XLRangeAddress)range.RangeAddress);
+            using var enumerator = ranges.GetEnumerator();
+            enumerator.MoveNext();
+            _firstArea = (XLRangeAddress)enumerator.Current.RangeAddress;
 
-            Areas = areas;
+            if (count > 1)
+            {
+                _additionalAreas = new XLRangeAddress[count - 1];
+                for (var i = 0; i < count - 1; i++)
+                {
+                    enumerator.MoveNext();
+                    _additionalAreas[i] = (XLRangeAddress)enumerator.Current.RangeAddress;
+                }
+            }
         }
 
         /// <summary>
-        /// List of areas of the range (at least one). All areas are valid and normalized. Some areas have worksheet and some don't.
+        /// Number of areas in the reference (always at least 1).
         /// </summary>
-        internal IReadOnlyList<XLRangeAddress> Areas { get; }
+        public int AreaCount => _additionalAreas is null ? 1 : 1 + _additionalAreas.Length;
 
         /// <summary>
-        /// Get total number of cells coverted by all areas (double counts overlapping areas).
+        /// Get the area at the specified index. Index 0 is always valid.
+        /// </summary>
+        public XLRangeAddress this[int index] =>
+            index == 0 ? _firstArea : _additionalAreas![index - 1];
+
+        /// <summary>
+        /// Allocation-free struct enumerator over all areas.
+        /// </summary>
+        public Enumerator GetEnumerator() => new(this);
+
+        /// <summary>
+        /// Get total number of cells covered by all areas (double counts overlapping areas).
         /// </summary>
         internal int NumberOfCells
         {
             get
             {
-                var size = 0;
-                for (var i = 0; i < Areas.Count; ++i)
-                    size += Areas[i].NumberOfCells;
-
+                var size = _firstArea.NumberOfCells;
+                if (_additionalAreas is not null)
+                {
+                    foreach (var area in _additionalAreas)
+                        size += area.NumberOfCells;
+                }
                 return size;
             }
         }
@@ -72,7 +118,7 @@ namespace XLibur.Excel.CalcEngine
         /// </summary>
         public IEnumerable<ScalarValue> GetCellsValues(CalcContext ctx)
         {
-            foreach (var area in Areas)
+            foreach (var area in this)
             {
                 for (var row = area.FirstAddress.RowNumber; row <= area.LastAddress.RowNumber; ++row)
                 {
@@ -90,21 +136,15 @@ namespace XLibur.Excel.CalcEngine
 
         public static OneOf<Reference, XLError> RangeOp(Reference lhs, Reference rhs, XLWorksheet contextWorksheet)
         {
-            var lhsWorksheets = lhs.Areas.Count == 1
-                ? lhs.Areas.Select(a => a.Worksheet).Where(ws => ws is not null).ToList()!
-                : lhs.Areas.Select(a => a.Worksheet ?? contextWorksheet).Where(ws => ws is not null).Distinct().ToList();
-            if (lhsWorksheets.Count > 1)
+            // Resolve the unique non-null worksheet on each side via direct loops; the original
+            // Select/Where/Distinct/ToList chain allocated ~6 LINQ enumerators per binary op.
+            // For single-area references the worksheet defaults to the area's own (no fallback
+            // to context), preserving the previous behaviour of the lhs.Count == 1 branch.
+            if (!TryResolveSingleWorksheet(lhs, contextWorksheet, out var lhsWorksheet))
                 return XLError.IncompatibleValue;
 
-            var lhsWorksheet = lhsWorksheets.SingleOrDefault();
-
-            var rhsWorksheets = rhs.Areas.Count == 1
-                ? rhs.Areas.Select(a => a.Worksheet).Where(ws => ws is not null).ToList()!
-                : rhs.Areas.Select(a => a.Worksheet ?? contextWorksheet).Where(ws => ws is not null).Distinct().ToList();
-            if (rhsWorksheets.Count > 1)
+            if (!TryResolveSingleWorksheet(rhs, contextWorksheet, out var rhsWorksheet))
                 return XLError.IncompatibleValue;
-
-            var rhsWorksheet = rhsWorksheets.SingleOrDefault();
 
             if (rhsWorksheet is not null && (lhsWorksheet ?? contextWorksheet) != rhsWorksheet)
                 return XLError.IncompatibleValue;
@@ -113,51 +153,79 @@ namespace XLibur.Excel.CalcEngine
             var maxCol = 1;
             var minRow = XLHelper.MaxRowNumber;
             var maxRow = 1;
-            foreach (var area in lhs.Areas.Concat(rhs.Areas))
-            {
-                // Areas are normalized, so I don't have to check opposite corners
-                minRow = Math.Min(minRow, area.FirstAddress.RowNumber);
-                maxRow = Math.Max(maxRow, area.LastAddress.RowNumber);
-                minCol = Math.Min(minCol, area.FirstAddress.ColumnNumber);
-                maxCol = Math.Max(maxCol, area.LastAddress.ColumnNumber);
-            }
+            foreach (var area in lhs)
+                ExpandBoundingBox(area, ref minRow, ref maxRow, ref minCol, ref maxCol);
+            foreach (var area in rhs)
+                ExpandBoundingBox(area, ref minRow, ref maxRow, ref minCol, ref maxCol);
 
             var sheet = lhsWorksheet ?? rhsWorksheet;
             return new Reference(new XLRangeAddress(
                 new XLAddress(sheet, minRow, minCol, false, false),
                 new XLAddress(sheet, maxRow, maxCol, false, false)));
+
+            static void ExpandBoundingBox(in XLRangeAddress area,
+                ref int minRow, ref int maxRow, ref int minCol, ref int maxCol)
+            {
+                // Areas are normalized, so opposite corners don't have to be checked.
+                if (area.FirstAddress.RowNumber < minRow) minRow = area.FirstAddress.RowNumber;
+                if (area.LastAddress.RowNumber > maxRow) maxRow = area.LastAddress.RowNumber;
+                if (area.FirstAddress.ColumnNumber < minCol) minCol = area.FirstAddress.ColumnNumber;
+                if (area.LastAddress.ColumnNumber > maxCol) maxCol = area.LastAddress.ColumnNumber;
+            }
         }
 
         public static Reference UnionOp(Reference lhs, Reference rhs)
         {
-            return new Reference(lhs.Areas.Concat(rhs.Areas).ToList());
+            // Build the inline-storage form directly: first area inline, rest in a single array.
+            var totalCount = lhs.AreaCount + rhs.AreaCount;
+            var additional = new XLRangeAddress[totalCount - 1];
+            var index = 0;
+            for (var i = 1; i < lhs.AreaCount; i++)
+                additional[index++] = lhs[i];
+            foreach (var area in rhs)
+                additional[index++] = area;
+
+            return new Reference(lhs[0], additional);
         }
 
         public static OneOf<Reference, XLError> Intersect(Reference lhs, Reference rhs, CalcContext ctx)
         {
-            var sheets = lhs.Areas.Select(a => a.Worksheet ?? ctx.Worksheet)
-                .Concat(rhs.Areas.Select(a => a.Worksheet ?? ctx.Worksheet))
-                .Distinct().ToList();
-            if (sheets.Count != 1)
-                return XLError.IncompatibleValue;
-
-            var sheet = sheets.Single();
-            var intersections = new List<XLRangeAddress>();
-            foreach (var leftArea in lhs.Areas)
+            // The two references must share a single worksheet (default = context). Walk both
+            // sides with a direct loop instead of Concat/Distinct/ToList.
+            XLWorksheet? sheet = null;
+            foreach (var area in lhs)
             {
-                var intersectedArea = leftArea.WithWorksheet(sheet);
-                foreach (var rightArea in rhs.Areas)
+                var ws = area.Worksheet ?? ctx.Worksheet;
+                if (sheet is null) sheet = ws;
+                else if (sheet != ws) return XLError.IncompatibleValue;
+            }
+            foreach (var area in rhs)
+            {
+                var ws = area.Worksheet ?? ctx.Worksheet;
+                if (sheet is null) sheet = ws;
+                else if (sheet != ws) return XLError.IncompatibleValue;
+            }
+
+            // Sheet is non-null here because both references have at least one area and
+            // ctx.Worksheet throws MissingContextException rather than returning null —
+            // so each `area.Worksheet ?? ctx.Worksheet` resolves to a non-null value.
+            var resolvedSheet = sheet!;
+            List<XLRangeAddress>? intersections = null;
+            foreach (var leftArea in lhs)
+            {
+                var intersectedArea = leftArea.WithWorksheet(resolvedSheet);
+                foreach (var rightArea in rhs)
                 {
-                    intersectedArea = intersectedArea.Intersection(rightArea.WithWorksheet(sheet));
+                    intersectedArea = intersectedArea.Intersection(rightArea.WithWorksheet(resolvedSheet));
                     if (!intersectedArea.IsValid)
                         break;
                 }
 
                 if (intersectedArea.IsValid)
-                    intersections.Add(intersectedArea);
+                    (intersections ??= []).Add(intersectedArea);
             }
 
-            return intersections.Count > 0 ? new Reference(intersections) : XLError.NullValue;
+            return intersections is { Count: > 0 } ? new Reference(intersections) : XLError.NullValue;
         }
 
         /// <summary>
@@ -167,10 +235,10 @@ namespace XLibur.Excel.CalcEngine
         /// <returns>An address of the intersection or error if intersection failed.</returns>
         public OneOf<Reference, XLError> ImplicitIntersection(IXLAddress formulaAddress)
         {
-            if (Areas.Count != 1)
+            if (AreaCount != 1)
                 return XLError.IncompatibleValue;
 
-            var area = Areas.Single();
+            var area = _firstArea;
             if (area.RowSpan == 1 && area.ColumnSpan == 1)
                 return this;
 
@@ -194,7 +262,7 @@ namespace XLibur.Excel.CalcEngine
 
         internal bool IsSingleCell()
         {
-            return Areas.Count == 1 && Areas[0].IsSingleCell();
+            return AreaCount == 1 && _firstArea.IsSingleCell();
         }
 
         internal bool TryGetSingleCellValue(out ScalarValue value, CalcContext ctx)
@@ -205,27 +273,24 @@ namespace XLibur.Excel.CalcEngine
                 return false;
             }
 
-            var area = Areas.Single();
-            value = ctx.GetCellValue(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber);
+            value = ctx.GetCellValue(_firstArea.Worksheet, _firstArea.FirstAddress.RowNumber, _firstArea.FirstAddress.ColumnNumber);
             return true;
         }
 
         internal OneOf<Array, XLError> ToArray(CalcContext context)
         {
-            if (Areas.Count != 1)
+            if (AreaCount != 1)
                 return XLError.IncompatibleValue;
 
-            var area = Areas.Single();
-
-            return new ReferenceArray(area, context);
+            return new ReferenceArray(_firstArea, context);
         }
 
         public OneOf<Array, XLError> Apply(Func<ScalarValue, ScalarValue> op, CalcContext context)
         {
-            if (Areas.Count != 1)
+            if (AreaCount != 1)
                 return XLError.IncompatibleValue;
 
-            var area = Areas.Single();
+            var area = _firstArea;
             var width = area.ColumnSpan;
             var height = area.RowSpan;
             var startColumn = area.FirstAddress.ColumnNumber;
@@ -243,6 +308,57 @@ namespace XLibur.Excel.CalcEngine
             }
 
             return new ConstArray(data);
+        }
+
+        /// <summary>
+        /// Attempts to find a single non-null worksheet across all areas of <paramref name="reference"/>.
+        /// Returns false if more than one distinct worksheet is referenced.
+        /// </summary>
+        /// <remarks>
+        /// Single-area references skip the context-worksheet fallback (matching the original
+        /// special case for <c>Areas.Count == 1</c>); multi-area references substitute the
+        /// context worksheet for any null entries before deduplicating.
+        /// </remarks>
+        private static bool TryResolveSingleWorksheet(Reference reference, XLWorksheet contextWorksheet,
+            out XLWorksheet? worksheet)
+        {
+            worksheet = null;
+            if (reference.AreaCount == 1)
+            {
+                worksheet = reference._firstArea.Worksheet;
+                return true;
+            }
+
+            foreach (var area in reference)
+            {
+                var ws = area.Worksheet ?? contextWorksheet;
+                if (ws is null) continue;
+                if (worksheet is null) worksheet = ws;
+                else if (worksheet != ws) return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Allocation-free struct enumerator over the areas of a <see cref="Reference"/>.
+        /// </summary>
+        public struct Enumerator
+        {
+            private readonly Reference _reference;
+            private readonly int _count;
+            private int _index;
+
+            internal Enumerator(Reference reference)
+            {
+                _reference = reference;
+                _count = reference.AreaCount;
+                _index = -1;
+            }
+
+            public XLRangeAddress Current => _reference[_index];
+
+            public bool MoveNext() => ++_index < _count;
         }
     }
 }

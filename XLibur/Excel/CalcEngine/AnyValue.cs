@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Globalization;
-using System.Linq;
 using XLibur.Extensions;
 using CollectionValue = XLibur.Excel.CalcEngine.OneOf<XLibur.Excel.CalcEngine.Array, XLibur.Excel.CalcEngine.Reference>;
 
@@ -187,14 +186,14 @@ internal readonly struct AnyValue
         }
 
         var reference = RefAsReference;
-        if (reference.Areas.Count > 1)
+        if (reference.AreaCount > 1)
         {
             area = default;
             error = XLError.CellReference;
             return false;
         }
 
-        area = reference.Areas[0];
+        area = reference[0];
         error = default;
         return true;
     }
@@ -252,13 +251,13 @@ internal readonly struct AnyValue
             return true;
         }
 
-        if (reference.Areas.Count > 1)
+        if (reference.AreaCount > 1)
         {
             scalar = XLError.IncompatibleValue;
             return true;
         }
 
-        array = new ReferenceArray(reference.Areas[0], ctx);
+        array = new ReferenceArray(reference[0], ctx);
         return false;
     }
 
@@ -632,8 +631,7 @@ internal readonly struct AnyValue
             TextValue => $"Text: {RefAsText}",
             ErrorValue => $"Error: {_error.ToDisplayString()}",
             ArrayValue => $"Array{RefAsArray.Height}x{RefAsArray.Width}",
-            ReferenceValue =>
-                $"Reference: {string.Join(",", RefAsReference.Areas.Select(a => $"{a.FirstAddress}:{a.LastAddress}"))}",
+            ReferenceValue => FormatReference(RefAsReference),
             _ => throw new InvalidOperationException()
         };
     }
@@ -662,6 +660,19 @@ internal readonly struct AnyValue
     /// </summary>
     /// <exception cref="InvalidCastException" />
     public Array GetArray() => _index == ArrayValue ? RefAsArray : throw new InvalidCastException();
+
+    private static string FormatReference(Reference reference)
+    {
+        var sb = new System.Text.StringBuilder("Reference: ");
+        var first = true;
+        foreach (var a in reference)
+        {
+            if (!first) sb.Append(',');
+            sb.Append(a.FirstAddress).Append(':').Append(a.LastAddress);
+            first = false;
+        }
+        return sb.ToString();
+    }
 
     private delegate OneOf<double, XLError> BinaryNumberFunc(double lhs, double rhs);
 }
