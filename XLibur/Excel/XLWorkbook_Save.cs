@@ -163,7 +163,12 @@ public partial class XLWorkbook
         EnsureDynamicArrayMetadata(workbookPart, context);
         EnsureRichValueImageParts(workbookPart, context);
 
-        foreach (var worksheet in WorksheetsInternal.Cast<XLWorksheet>().OrderBy(w => w.Position))
+        var orderedWorksheets = new List<XLWorksheet>(WorksheetsInternal.Count);
+        foreach (var ws in WorksheetsInternal)
+            orderedWorksheets.Add(ws);
+        orderedWorksheets.Sort(static (a, b) => a.Position.CompareTo(b.Position));
+
+        foreach (var worksheet in orderedWorksheets)
         {
             var (worksheetPart, partIsEmpty) = GetOrCreateWorksheetPart(workbookPart, worksheet);
             GenerateCommentsAndVmlParts(worksheetPart, worksheet, context);
@@ -182,34 +187,56 @@ public partial class XLWorkbook
 
     private static void DeleteRemovedWorksheets(WorkbookPart workbookPart, XLWorksheets worksheets)
     {
-        var partsToRemove = workbookPart.Parts.Where(s => worksheets.Deleted.Contains(s.RelationshipId)).ToList();
+        var partsToRemove = new List<IdPartPair>();
+        foreach (var s in workbookPart.Parts)
+        {
+            if (worksheets.Deleted.Contains(s.RelationshipId))
+                partsToRemove.Add(s);
+        }
 
-        var pivotCacheDefinitionsToRemove = partsToRemove
-            .SelectMany(s =>
-                ((WorksheetPart)s.OpenXmlPart).PivotTableParts.Select(pt => pt.PivotTableCacheDefinitionPart))
-            .Where(c => c is not null)
-            .Select(c => c!)
-            .Distinct()
-            .ToList();
+        var pivotCacheDefinitionsToRemove = new List<PivotTableCacheDefinitionPart>();
+        var seenDefs = new HashSet<PivotTableCacheDefinitionPart>();
+        foreach (var s in partsToRemove)
+        {
+            foreach (var pt in ((WorksheetPart)s.OpenXmlPart).PivotTableParts)
+            {
+                var def = pt.PivotTableCacheDefinitionPart;
+                if (def is not null && seenDefs.Add(def))
+                    pivotCacheDefinitionsToRemove.Add(def);
+            }
+        }
+
         // Collect relationship IDs before deleting parts, because GetIdOfPart
         // throws after the part has been removed.
-        var pivotCacheRelIds = workbookPart.Workbook is { PivotCaches: not null }
-            ? pivotCacheDefinitionsToRemove.Select(workbookPart.GetIdOfPart).ToHashSet()
-            : null;
+        HashSet<string>? pivotCacheRelIds = null;
+        if (workbookPart.Workbook is { PivotCaches: not null })
+        {
+            pivotCacheRelIds = new HashSet<string>(pivotCacheDefinitionsToRemove.Count);
+            foreach (var def in pivotCacheDefinitionsToRemove)
+                pivotCacheRelIds.Add(workbookPart.GetIdOfPart(def));
+        }
 
-        pivotCacheDefinitionsToRemove.ForEach(c => workbookPart.DeletePart(c));
+        foreach (var c in pivotCacheDefinitionsToRemove)
+            workbookPart.DeletePart(c);
 
         if (pivotCacheRelIds is not null)
         {
-            var idList = pivotCacheRelIds;
-            var pivotCachesToRemove = workbookPart.Workbook!.PivotCaches!
-                .Where(pc => ((PivotCache)pc).Id?.Value is { } idVal && idList.Contains(idVal))
-                .Distinct()
-                .ToList();
-            pivotCachesToRemove.ForEach(c => workbookPart.Workbook.PivotCaches!.RemoveChild(c));
+            List<OpenXmlElement>? pivotCachesToRemove = null;
+            foreach (var pc in workbookPart.Workbook!.PivotCaches!)
+            {
+                if (((PivotCache)pc).Id?.Value is { } idVal && pivotCacheRelIds.Contains(idVal))
+                    (pivotCachesToRemove ??= []).Add(pc);
+            }
+
+            if (pivotCachesToRemove is not null)
+            {
+                foreach (var c in pivotCachesToRemove)
+                    workbookPart.Workbook.PivotCaches!.RemoveChild(c);
+            }
         }
 
-        worksheets.Deleted.ToList().ForEach(ws => DeleteSheetAndDependencies(workbookPart, ws));
+        foreach (var ws in worksheets.Deleted)
+            DeleteSheetAndDependencies(workbookPart, ws);
     }
 
     private void GenerateWorkbookLevelParts(SpreadsheetDocument document, WorkbookPart workbookPart,
@@ -565,21 +592,29 @@ public partial class XLWorkbook
 
     private void PreparePivotCaches(WorkbookPart workbookPart, SaveContext context)
     {
-        var cacheRelIds = PivotCachesInternal
-            .Select<XLPivotCache, string?>(ps => ps.WorkbookCacheRelId)
-            .Where(relId => !string.IsNullOrWhiteSpace(relId))
-            .Select(relId => relId!)
-            .Distinct();
-
-        foreach (var relId in cacheRelIds)
+        HashSet<string>? seenRelIds = null;
+        foreach (var cache in PivotCachesInternal)
         {
+            var relId = cache.WorkbookCacheRelId;
+            if (string.IsNullOrWhiteSpace(relId))
+                continue;
+
+            seenRelIds ??= new HashSet<string>(StringComparer.Ordinal);
+            if (!seenRelIds.Add(relId))
+                continue;
+
             // The part might have been removed when a worksheet with pivot tables was deleted.
             if (workbookPart.TryGetPartById(relId, out var part) &&
                 part is PivotTableCacheDefinitionPart pivotTableCacheDefinitionPart)
                 pivotTableCacheDefinitionPart.PivotCacheDefinition!.CacheFields!.RemoveAllChildren();
         }
 
-        var allPivotTables = WorksheetsInternal.SelectMany<XLWorksheet, IXLPivotTable>(ws => ws.PivotTables).ToList();
+        var allPivotTables = new List<IXLPivotTable>();
+        foreach (var ws in WorksheetsInternal)
+        {
+            foreach (var pt in ws.PivotTables)
+                allPivotTables.Add(pt);
+        }
 
         SynchronizePivotTableParts(workbookPart, allPivotTables, context);
 
@@ -773,28 +808,42 @@ public partial class XLWorkbook
     private static void RemoveUnusedPivotCacheDefinitionParts(WorkbookPart workbookPart,
         IReadOnlyList<IXLPivotTable> allPivotTables)
     {
-        var workbookCacheRelIds = allPivotTables
-            .Select(pt => pt.PivotCache.CastTo<XLPivotCache>().WorkbookCacheRelId)
-            .Distinct()
-            .ToList();
+        var workbookCacheRelIds = new HashSet<string?>();
+        foreach (var pt in allPivotTables)
+            workbookCacheRelIds.Add(pt.PivotCache.CastTo<XLPivotCache>().WorkbookCacheRelId);
 
-        var orphanedParts = workbookPart
-            .GetPartsOfType<PivotTableCacheDefinitionPart>()
-            .Where(pcdp => !workbookCacheRelIds.Contains(workbookPart.GetIdOfPart(pcdp)))
-            .ToList();
-
-        foreach (var orphanPart in orphanedParts)
+        // Materialize before deleting because DeletePart invalidates the GetPartsOfType enumerator.
+        List<PivotTableCacheDefinitionPart>? orphanedParts = null;
+        foreach (var pcdp in workbookPart.GetPartsOfType<PivotTableCacheDefinitionPart>())
         {
-            orphanPart.DeletePart(orphanPart.PivotTableCacheRecordsPart!);
-            workbookPart.DeletePart(orphanPart);
+            if (!workbookCacheRelIds.Contains(workbookPart.GetIdOfPart(pcdp)))
+                (orphanedParts ??= []).Add(pcdp);
+        }
+
+        if (orphanedParts is not null)
+        {
+            foreach (var orphanPart in orphanedParts)
+            {
+                orphanPart.DeletePart(orphanPart.PivotTableCacheRecordsPart!);
+                workbookPart.DeletePart(orphanPart);
+            }
         }
 
         if (workbookPart.Workbook!.PivotCaches is not null)
         {
-            workbookPart.Workbook.PivotCaches.Elements<PivotCache>()
-                .Where(pc => pc.Id is null || !workbookPart.HasPartWithId(pc.Id!.Value!))
-                .ToList()
-                .ForEach(pc => pc.Remove());
+            // Materialize before removing because Remove() mutates the iterated collection.
+            List<PivotCache>? orphanedCaches = null;
+            foreach (var pc in workbookPart.Workbook.PivotCaches.Elements<PivotCache>())
+            {
+                if (pc.Id is null || !workbookPart.HasPartWithId(pc.Id!.Value!))
+                    (orphanedCaches ??= []).Add(pc);
+            }
+
+            if (orphanedCaches is not null)
+            {
+                foreach (var pc in orphanedCaches)
+                    pc.Remove();
+            }
         }
     }
 
@@ -804,12 +853,17 @@ public partial class XLWorkbook
     private static void AddUsedPivotCacheDefinitionParts(WorkbookPart workbookPart,
         IReadOnlyList<IXLPivotTable> allPivotTables, SaveContext context)
     {
-        var newPivotSources = allPivotTables
-            .Select(pt => pt.PivotCache.CastTo<XLPivotCache>())
-            .Where(ps =>
-                string.IsNullOrEmpty(ps.WorkbookCacheRelId) || !workbookPart.HasPartWithId(ps.WorkbookCacheRelId))
-            .Distinct()
-            .ToList();
+        var newPivotSources = new List<XLPivotCache>();
+        var seenSources = new HashSet<XLPivotCache>();
+        foreach (var pt in allPivotTables)
+        {
+            var ps = pt.PivotCache.CastTo<XLPivotCache>();
+            if (!string.IsNullOrEmpty(ps.WorkbookCacheRelId) && workbookPart.HasPartWithId(ps.WorkbookCacheRelId))
+                continue;
+
+            if (seenSources.Add(ps))
+                newPivotSources.Add(ps);
+        }
 
         foreach (var pivotSource in newPivotSources)
         {
@@ -826,7 +880,13 @@ public partial class XLWorkbook
         IReadOnlyList<IXLPivotTable> allPivotTables, SaveContext context)
     {
         context.PivotSourceCacheId = 0;
-        var xlUsedCaches = allPivotTables.Select(pt => pt.PivotCache).Distinct().Cast<XLPivotCache>().ToList();
+        var xlUsedCaches = new List<XLPivotCache>();
+        var seenUsedCaches = new HashSet<IXLPivotCache>();
+        foreach (var pt in allPivotTables)
+        {
+            if (seenUsedCaches.Add(pt.PivotCache))
+                xlUsedCaches.Add((XLPivotCache)pt.PivotCache);
+        }
 
         if (xlUsedCaches.Count != 0)
         {
@@ -848,11 +908,14 @@ public partial class XLWorkbook
 
     private void GeneratePivotCaches(WorkbookPart workbookPart, SaveContext context)
     {
-        var pivotTables = WorksheetsInternal.SelectMany<XLWorksheet, XLPivotTable>(ws => ws.PivotTables);
-
-        var xlPivotCaches = pivotTables.Select(pt => pt.PivotCache).Distinct();
-        foreach (var xlPivotCache in xlPivotCaches)
+        var seenCaches = new HashSet<XLPivotCache>();
+        foreach (var ws in WorksheetsInternal)
+        foreach (var pt in ws.PivotTables)
         {
+            var xlPivotCache = pt.PivotCache;
+            if (!seenCaches.Add(xlPivotCache))
+                continue;
+
             Debug.Assert(workbookPart.Workbook!.PivotCaches is not null);
             Debug.Assert(!string.IsNullOrEmpty(xlPivotCache.WorkbookCacheRelId));
 
@@ -862,9 +925,8 @@ public partial class XLWorkbook
             PivotTableCacheDefinitionPartWriter.GenerateContent(pivotTableCacheDefinitionPart, xlPivotCache, context);
 
             var pivotTableCacheRecordsPart =
-                pivotTableCacheDefinitionPart.GetPartsOfType<PivotTableCacheRecordsPart>().Any()
-                    ? pivotTableCacheDefinitionPart.GetPartsOfType<PivotTableCacheRecordsPart>().Single()
-                    : pivotTableCacheDefinitionPart.AddNewPart<PivotTableCacheRecordsPart>("rId1");
+                pivotTableCacheDefinitionPart.GetPartsOfType<PivotTableCacheRecordsPart>().SingleOrDefault()
+                ?? pivotTableCacheDefinitionPart.AddNewPart<PivotTableCacheRecordsPart>("rId1");
 
             PivotTableCacheRecordsPartWriter.WriteContent(pivotTableCacheRecordsPart, xlPivotCache);
         }

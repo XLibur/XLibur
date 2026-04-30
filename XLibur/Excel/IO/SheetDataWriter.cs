@@ -129,13 +129,18 @@ internal static class SheetDataWriter
         if (xlWorksheet.Tables.Count == 0)
             return null;
 
-        return
-        [
-            ..xlWorksheet.Tables
-                .Where<XLTable>(table => table.ShowTotalsRow)
-                .SelectMany(table => table.TotalsRow()!.CellsUsed())
-                .Select(cell => ((XLCell)cell).SheetPoint)
-        ];
+        HashSet<XLSheetPoint>? cells = null;
+        foreach (var table in xlWorksheet.Tables)
+        {
+            if (!table.ShowTotalsRow)
+                continue;
+
+            cells ??= [];
+            foreach (var cell in table.TotalsRow()!.CellsUsed())
+                cells.Add(((XLCell)cell).SheetPoint);
+        }
+
+        return cells;
     }
 
     private static List<int> GetSortedRowNumbers(XLWorksheet xlWorksheet)
