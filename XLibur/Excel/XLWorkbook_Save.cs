@@ -824,7 +824,10 @@ public partial class XLWorkbook
         {
             foreach (var orphanPart in orphanedParts)
             {
-                orphanPart.DeletePart(orphanPart.PivotTableCacheRecordsPart!);
+                // PivotTableCacheRecordsPart is optional per ECMA-376 (caches with
+                // external data sources may have no records part).
+                if (orphanPart.PivotTableCacheRecordsPart is { } recordsPart)
+                    orphanPart.DeletePart(recordsPart);
                 workbookPart.DeletePart(orphanPart);
             }
         }
@@ -910,26 +913,26 @@ public partial class XLWorkbook
     {
         var seenCaches = new HashSet<XLPivotCache>();
         foreach (var ws in WorksheetsInternal)
-        foreach (var pt in ws.PivotTables)
-        {
-            var xlPivotCache = pt.PivotCache;
-            if (!seenCaches.Add(xlPivotCache))
-                continue;
+            foreach (var pt in ws.PivotTables)
+            {
+                var xlPivotCache = pt.PivotCache;
+                if (!seenCaches.Add(xlPivotCache))
+                    continue;
 
-            Debug.Assert(workbookPart.Workbook!.PivotCaches is not null);
-            Debug.Assert(!string.IsNullOrEmpty(xlPivotCache.WorkbookCacheRelId));
+                Debug.Assert(workbookPart.Workbook!.PivotCaches is not null);
+                Debug.Assert(!string.IsNullOrEmpty(xlPivotCache.WorkbookCacheRelId));
 
-            var pivotTableCacheDefinitionPart =
-                (PivotTableCacheDefinitionPart)workbookPart.GetPartById(xlPivotCache.WorkbookCacheRelId!);
+                var pivotTableCacheDefinitionPart =
+                    (PivotTableCacheDefinitionPart)workbookPart.GetPartById(xlPivotCache.WorkbookCacheRelId!);
 
-            PivotTableCacheDefinitionPartWriter.GenerateContent(pivotTableCacheDefinitionPart, xlPivotCache, context);
+                PivotTableCacheDefinitionPartWriter.GenerateContent(pivotTableCacheDefinitionPart, xlPivotCache, context);
 
-            var pivotTableCacheRecordsPart =
-                pivotTableCacheDefinitionPart.GetPartsOfType<PivotTableCacheRecordsPart>().SingleOrDefault()
-                ?? pivotTableCacheDefinitionPart.AddNewPart<PivotTableCacheRecordsPart>("rId1");
+                var pivotTableCacheRecordsPart =
+                    pivotTableCacheDefinitionPart.GetPartsOfType<PivotTableCacheRecordsPart>().SingleOrDefault()
+                    ?? pivotTableCacheDefinitionPart.AddNewPart<PivotTableCacheRecordsPart>("rId1");
 
-            PivotTableCacheRecordsPartWriter.WriteContent(pivotTableCacheRecordsPart, xlPivotCache);
-        }
+                PivotTableCacheRecordsPartWriter.WriteContent(pivotTableCacheRecordsPart, xlPivotCache);
+            }
     }
 
     private static void GeneratePivotTables(
