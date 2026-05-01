@@ -116,7 +116,7 @@ internal sealed class CalcContext
         if (formula is null)
             return valueSlice.GetCellValue(point);
 
-        if (!formula.IsDirty)
+        if (formula.IsClean(Workbook))
             return valueSlice.GetCellValue(point);
 
         // Used when only one sheet should be recalculated, leaving other sheets with their data.

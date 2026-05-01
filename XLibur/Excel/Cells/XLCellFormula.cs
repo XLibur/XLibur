@@ -38,10 +38,41 @@ internal sealed class XLCellFormula
     private FormulaFlags _flags;
 
     /// <summary>
-    /// Is this formula dirty, i.e. is it potentially out of date due to changes
-    /// to precedent cells?
+    /// Workbook edit epoch at which this formula was last successfully evaluated.
+    /// <c>0</c> means "never evaluated / explicitly dirty"; any positive value is
+    /// compared against <see cref="XLWorkbook.EditEpoch"/> to determine cleanliness.
     /// </summary>
-    internal bool IsDirty { get; set; }
+    private long _evalEpoch;
+
+    /// <summary>
+    /// Is this formula clean, i.e. evaluated against the workbook's current edit epoch?
+    /// </summary>
+    internal bool IsClean(XLWorkbook wb) => _evalEpoch == wb.EditEpoch;
+
+    /// <summary>
+    /// Is this formula dirty, i.e. potentially out of date due to changes to precedent cells?
+    /// </summary>
+    internal bool IsDirty(XLWorkbook wb) => _evalEpoch != wb.EditEpoch;
+
+    /// <summary>
+    /// Mark this formula as freshly evaluated against the workbook's current edit epoch.
+    /// </summary>
+    internal void MarkClean(XLWorkbook wb) => _evalEpoch = wb.EditEpoch;
+
+    /// <summary>
+    /// Mark this formula as explicitly dirty regardless of the workbook epoch. Used
+    /// when the formula text itself changed (rename, shift) and dependency-tree based
+    /// dirty propagation needs to flag a single formula without bumping the workbook
+    /// epoch.
+    /// </summary>
+    internal void MarkExplicitlyDirty() => _evalEpoch = 0;
+
+    /// <summary>
+    /// True if the formula is in the explicitly-dirty state (epoch <c>0</c>). Used
+    /// by dependency-tree cycle detection to avoid revisiting a formula already
+    /// flagged in the current MarkDirty walk.
+    /// </summary>
+    internal bool IsExplicitlyDirty => _evalEpoch == 0;
 
     /// <summary>
     /// Formula in A1 notation. Doesn't start with <c>=</c> sign.
@@ -333,7 +364,7 @@ internal sealed class XLCellFormula
         if (res != a1)
         {
             A1 = res;
-            IsDirty = true;
+            MarkExplicitlyDirty();
         }
     }
 
@@ -346,7 +377,7 @@ internal sealed class XLCellFormula
         var originR1C1 = FormulaTransformation.SafeToR1C1(A1, origin.Row, origin.Column);
         var targetA1 = FormulaTransformation.SafeToA1(originR1C1, destination.Row, destination.Column);
         var targetFormula = NormalA1(targetA1);
-        targetFormula.IsDirty = true;
+        targetFormula.MarkExplicitlyDirty();
         return targetFormula;
     }
 }

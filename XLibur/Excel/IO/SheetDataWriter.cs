@@ -253,7 +253,7 @@ internal static class SheetDataWriter
         var xlWorksheet = cellsCollection.Worksheet;
         var saveContext = ctx.SaveContext;
 
-        if (ctx.SaveOptions.EvaluateFormulasBeforeSaving && formula.IsDirty)
+        if (ctx.SaveOptions.EvaluateFormulasBeforeSaving && formula.IsDirty(xlWorksheet.Workbook))
         {
             try
             {
@@ -313,7 +313,7 @@ internal static class SheetDataWriter
 
         // Write cached value if present and the formula isn't dirty. Spilled (non-master)
         // array-formula cells also fall through here so their cached values round-trip.
-        if (cachedValueType != XLDataType.Blank && !formula.IsDirty)
+        if (cachedValueType != XLDataType.Blank && formula.IsClean(xlWorksheet.Workbook))
         {
             WriteCachedFormulaValue(xml, cachedValue, ctx.Use1904DateSystem);
         }

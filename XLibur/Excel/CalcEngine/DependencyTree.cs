@@ -175,7 +175,7 @@ internal sealed class DependencyTree
                 foreach (var dependent in area.Dependents)
                 {
                     // Ensure we don't end up in an infinite cycle
-                    if (dependent.IsDirty)
+                    if (dependent.IsExplicitlyDirty)
                         continue;
 
                     dependent.MarkDirty();
@@ -295,9 +295,9 @@ internal sealed class DependencyTree
         /// </summary>
         internal XLCellFormula Formula { get; }
 
-        internal bool IsDirty => Formula.IsDirty;
+        internal bool IsExplicitlyDirty => Formula.IsExplicitlyDirty;
 
-        internal bool MarkDirty() => Formula.IsDirty = true;
+        internal void MarkDirty() => Formula.MarkExplicitlyDirty();
     }
 
     /// <summary>

@@ -911,6 +911,17 @@ public partial class XLWorkbook : IXLWorkbook
         get { return _calcEngine ??= new XLCalcEngine(CultureInfo.CurrentCulture); }
     }
 
+    /// <summary>
+    /// Monotonic counter incremented on every workbook edit (cell value change, formula
+    /// change, structural change). Formulas record the epoch at which they were last
+    /// evaluated; a formula is dirty when its recorded epoch differs from this one.
+    /// </summary>
+    /// <remarks>Starts at 1 so that the default <c>0</c> on <see cref="XLCellFormula"/>
+    /// always reads as "never evaluated".</remarks>
+    internal long EditEpoch { get; private set; } = 1;
+
+    internal void BumpEditEpoch() => EditEpoch++;
+
     public XLCellValue Evaluate(string expression)
     {
         return CalcEngine.EvaluateFormula(expression, this).ToCellValue();
