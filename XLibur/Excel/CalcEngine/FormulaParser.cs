@@ -39,7 +39,7 @@ internal sealed class FormulaParser
     }
 
     /// <summary>
-    /// Factory to create abstract syntax tree for a formula in A1 notation.
+    /// Factory to create an abstract syntax tree for a formula in A1 notation.
     /// </summary>
     private sealed class AstFactory : IAstFactory<ScalarValue, ValueNode, string>
     {
@@ -175,7 +175,7 @@ internal sealed class FormulaParser
         public ValueNode CellFunction(string context, SymbolRange range, RowCol cell,
             IReadOnlyList<ValueNode> arguments)
         {
-            // Grammar technically allows to evaluate a function from a different cell. The intended
+            // Grammar technically allows evaluating a function from a different cell. The intended
             // usage is likely for lambda functions. Excel (as of 2022) doesn't do that, so use preference
             // as LOG10. Parser doesn't know about names of functions, so names such as LOG10 will always end up
             // here.
@@ -284,7 +284,7 @@ internal sealed class FormulaParser
         {
             var foundFunction = _functionRegistry.TryGetFunc(functionName, out var minParams, out var maxParams);
 
-            // If function is a future function, strip the prefix because all registration of functions
+            // If a function is a future function, strip the prefix because all registrations of functions
             // are without a prefix. That should change, but it's a reality for now.
             if (!foundFunction && functionName.StartsWith($"{DefaultFunctionNameSpace}."))
             {

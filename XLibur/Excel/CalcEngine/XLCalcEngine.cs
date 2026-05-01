@@ -47,7 +47,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// Parses a string into an <see cref="Formula"/>.
     /// </summary>
     /// <param name="expression">String to parse.</param>
-    /// <returns>An formula that can be evaluated.</returns>
+    /// <returns>A formula that can be evaluated.</returns>
     public Formula Parse(string expression)
     {
         return _parser.GetAst(expression, isA1: true);
