@@ -33,8 +33,6 @@ internal sealed class XLCellFormula
     /// </summary>
     private const string DataTableFormulaFormat = "{{TABLE({0},{1}}}";
 
-    private XLSheetPoint _input1;
-    private XLSheetPoint _input2;
     private FormulaFlags _flags;
 
     /// <summary>
@@ -43,6 +41,13 @@ internal sealed class XLCellFormula
     /// compared against <see cref="XLWorkbook.EditEpoch"/> to determine cleanliness.
     /// </summary>
     private long _evalEpoch;
+
+    /// <summary>
+    /// Lazily allocated holder for fields used only by Array/DataTable formulas
+    /// (Range, Input1, Input2). Null for Normal formulas — saves ~32 bytes per
+    /// instance on the dominant case where most cells in a workbook are non-array.
+    /// </summary>
+    private FormulaExtra? _extra;
 
     /// <summary>
     /// Is this formula clean, i.e. evaluated against the workbook's current edit epoch?
@@ -86,7 +91,11 @@ internal sealed class XLCellFormula
     /// </summary>
     /// <remarks>Doesn't contain sheet, so it doesn't have to deal with
     /// sheet renames and moving formula around.</remarks>
-    internal XLSheetRange Range { get; set; }
+    internal XLSheetRange Range
+    {
+        get => _extra?.Range ?? default;
+        set => (_extra ??= new FormulaExtra()).Range = value;
+    }
 
     /// <summary>
     /// True, if 1D data table formula is the row (the displayed formula in Excel is missing the second argument <c>{=TABLE(A1;)}</c>).
@@ -121,7 +130,11 @@ internal sealed class XLCellFormula
     /// and as row for 2D data table. Must be present, even if input marked as deleted.
     /// This property is meaningless, if called for non-data-table formula.
     /// </summary>
-    internal XLSheetPoint Input1 => _input1;
+    internal XLSheetPoint Input1
+    {
+        get => _extra?.Input1 ?? default;
+        init => (_extra ??= new FormulaExtra()).Input1 = value;
+    }
 
     /// <summary>
     /// Returns a cell that 2D data table formula uses as a variable to replace with values
@@ -129,7 +142,11 @@ internal sealed class XLCellFormula
     /// Must be present for 2D, even if input marked as deleted.
     /// This property is meaningless, if called for non-data-table formula.
     /// </summary>
-    internal XLSheetPoint Input2 => _input2;
+    internal XLSheetPoint Input2
+    {
+        get => _extra?.Input2 ?? default;
+        init => (_extra ??= new FormulaExtra()).Input2 = value;
+    }
 
     /// <summary>
     /// Returns true, if data table formula has its input1 deleted.
@@ -262,7 +279,7 @@ internal sealed class XLCellFormula
         {
             Range = range,
             Type = FormulaType.DataTable,
-            _input1 = input1Address,
+            Input1 = input1Address,
             _flags =
                 (isRowDataTable ? FormulaFlags.Is1DRow : FormulaFlags.None) |
                 (input1Deleted ? FormulaFlags.Input1Deleted : FormulaFlags.None)
@@ -291,8 +308,8 @@ internal sealed class XLCellFormula
         {
             Range = range,
             Type = FormulaType.DataTable,
-            _input1 = input1Address,
-            _input2 = input2Address,
+            Input1 = input1Address,
+            Input2 = input2Address,
             _flags = FormulaFlags.Is2D |
                      (input1Deleted ? FormulaFlags.Input1Deleted : FormulaFlags.None) |
                      (input2Deleted ? FormulaFlags.Input2Deleted : FormulaFlags.None)
@@ -379,5 +396,16 @@ internal sealed class XLCellFormula
         var targetFormula = NormalA1(targetA1);
         targetFormula.MarkExplicitlyDirty();
         return targetFormula;
+    }
+
+    /// <summary>
+    /// Holds fields used only by Array and DataTable formulas. Lazily allocated
+    /// so Normal formulas (the dominant case) avoid the per-instance overhead.
+    /// </summary>
+    private sealed class FormulaExtra
+    {
+        public XLSheetRange Range;
+        public XLSheetPoint Input1;
+        public XLSheetPoint Input2;
     }
 }
