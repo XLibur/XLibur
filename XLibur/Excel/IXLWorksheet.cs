@@ -486,6 +486,26 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     /// </summary>
     void RecalculateAllFormulas();
 
+    /// <summary>
+    /// Iterate every cell in the worksheet that holds a non-blank value, without
+    /// allocating a wrapper per cell. Designed for high-throughput read scenarios
+    /// (analytics, ETL) where the overhead of <see cref="IXLCells"/> wrapper
+    /// allocation and <c>IEnumerable</c> virtual dispatch is a bottleneck.
+    /// </summary>
+    /// <returns>
+    /// A <c>foreach</c>-compatible <see cref="XLUsedCellEnumerable"/>. Yields each used
+    /// cell as a <see cref="XLUsedCell"/> snapshot containing the cell's row, column,
+    /// and value. Mutating the worksheet during iteration is not supported.
+    /// </returns>
+    /// <remarks>
+    /// This method is the read-side counterpart to the slice-direct internal write
+    /// path used by <c>SheetDataWriter</c>. It surfaces the underlying value slice
+    /// directly, skipping the <see cref="IXLCells"/> materialisation pipeline. Use
+    /// <c>CellsUsed()</c> when you need the full <see cref="IXLCell"/> API
+    /// (style cascade, formula access, comments) or LINQ composition.
+    /// </remarks>
+    XLUsedCellEnumerable EnumerateUsedCells();
+
     string Author { get; set; }
 
     IXLPictures Pictures { get; }

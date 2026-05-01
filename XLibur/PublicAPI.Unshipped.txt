@@ -65,3 +65,17 @@ XLibur.Excel.LoadOptions.FontEngine.get -> XLibur.Graphics.IXLFontEngine?
 XLibur.Excel.LoadOptions.FontEngine.set -> void
 static XLibur.Excel.LoadOptions.DefaultFontEngine.get -> XLibur.Graphics.IXLFontEngine?
 static XLibur.Excel.LoadOptions.DefaultFontEngine.set -> void
+XLibur.Excel.IXLWorksheet.EnumerateUsedCells() -> XLibur.Excel.XLUsedCellEnumerable
+XLibur.Excel.XLUsedCell
+XLibur.Excel.XLUsedCell.Column.get -> int
+XLibur.Excel.XLUsedCell.Row.get -> int
+XLibur.Excel.XLUsedCell.Value.get -> XLibur.Excel.XLCellValue
+XLibur.Excel.XLUsedCell.XLUsedCell() -> void
+XLibur.Excel.XLUsedCellEnumerable
+XLibur.Excel.XLUsedCellEnumerable.GetEnumerator() -> XLibur.Excel.XLUsedCellEnumerator
+XLibur.Excel.XLUsedCellEnumerable.XLUsedCellEnumerable() -> void
+XLibur.Excel.XLUsedCellEnumerator
+XLibur.Excel.XLUsedCellEnumerator.Current.get -> XLibur.Excel.XLUsedCell
+XLibur.Excel.XLUsedCellEnumerator.Dispose() -> void
+XLibur.Excel.XLUsedCellEnumerator.MoveNext() -> bool
+XLibur.Excel.XLUsedCellEnumerator.XLUsedCellEnumerator() -> void
