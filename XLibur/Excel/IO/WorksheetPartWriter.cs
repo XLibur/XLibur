@@ -1,5 +1,7 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
+using System.Xml;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -198,44 +200,51 @@ internal static class WorksheetPartWriter
     /// Stream detached worksheet DOM to the worksheet part of the stream.
     /// Replaces the content of the part.
     /// </summary>
+    /// <remarks>
+    /// Writes directly via <see cref="XmlWriter"/> over the part's stream rather than going
+    /// through <c>OpenXmlPartWriter</c>. Walking the source DOM by top-level child and
+    /// substituting <see cref="SheetData"/> with the streaming writer lets us avoid the
+    /// element-wrapping ceremony of <c>OpenXmlPartWriter</c> in the SheetData hot path
+    /// without reaching into its private state via reflection.
+    /// </remarks>
     private static void StreamToPart(Worksheet worksheet, WorksheetPart worksheetPart, XLWorksheet xlWorksheet,
         SaveContext context, SaveOptions options)
     {
-        // The worksheet part might have some data, but the writer truncates everything upon creation.
-        using var writer = OpenXmlWriter.Create(worksheetPart);
-        using var reader = OpenXmlReader.Create(worksheet);
-
-        writer.WriteStartDocument(true);
-
-        while (reader.Read())
+        // The worksheet part might have stale content; opening with FileMode.Create truncates it.
+        var settings = new XmlWriterSettings
         {
-            if (reader.ElementType == typeof(SheetData))
-            {
-                SheetDataWriter.StreamSheetData(writer, xlWorksheet, context, options);
+            CloseOutput = true,
+            Encoding = XLHelper.NoBomUTF8,
+        };
+        var partStream = worksheetPart.GetStream(FileMode.Create);
+        using var xml = XmlWriter.Create(partStream, settings);
 
-                // Skip whole SheetData elements from the original file, already written
-                reader.Skip();
-            }
+        xml.WriteStartDocument(true);
 
-            if (reader.IsStartElement)
-            {
-                writer.WriteStartElement(reader);
-                var canContainText = typeof(OpenXmlLeafTextElement).IsAssignableFrom(reader.ElementType);
-                if (canContainText)
-                {
-                    var text = reader.GetText();
-                    if (text.Length > 0)
-                    {
-                        writer.WriteString(text);
-                    }
-                }
-            }
-            else if (reader.IsEndElement)
-            {
-                writer.WriteEndElement();
-            }
+        // Open <worksheet> with the same prefix/name/namespace and attributes/namespace
+        // declarations as the source DOM. The default-namespace declaration is emitted
+        // implicitly by WriteStartElement when the element is in that namespace, so it is
+        // skipped from the explicit declaration loop to avoid an "xmlns" duplicate.
+        xml.WriteStartElement(worksheet.Prefix, worksheet.LocalName, worksheet.NamespaceUri);
+        foreach (var ns in worksheet.NamespaceDeclarations)
+        {
+            if (string.IsNullOrEmpty(ns.Key))
+                continue;
+            xml.WriteAttributeString("xmlns", ns.Key, null, ns.Value);
         }
 
-        writer.Close();
+        foreach (var attr in worksheet.GetAttributes())
+            xml.WriteAttributeString(attr.Prefix, attr.LocalName, attr.NamespaceUri, attr.Value);
+
+        foreach (var child in worksheet.ChildElements)
+        {
+            if (child is SheetData)
+                SheetDataWriter.StreamSheetData(xml, xlWorksheet, context, options);
+            else
+                child.WriteTo(xml);
+        }
+
+        xml.WriteEndElement(); // worksheet
+        xml.WriteEndDocument();
     }
 }

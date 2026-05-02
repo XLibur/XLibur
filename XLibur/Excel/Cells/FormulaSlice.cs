@@ -18,6 +18,8 @@ internal sealed class FormulaSlice : ISlice
 
     public bool IsEmpty => _formulas.IsEmpty;
 
+    public int Version => _formulas.Version;
+
     public int MaxColumn => _formulas.MaxColumn;
 
     public int MaxRow => _formulas.MaxRow;
@@ -145,14 +147,14 @@ internal sealed class FormulaSlice : ISlice
     }
 
     /// <summary>
-    /// Mark all formulas in a range as dirty.
+    /// Mark all formulas in a range as explicitly dirty.
     /// </summary>
     internal void MarkDirty(XLSheetRange range)
     {
         using var enumerator = GetForwardEnumerator(range);
         while (enumerator.MoveNext())
         {
-            enumerator.Current.IsDirty = true;
+            enumerator.Current.MarkExplicitlyDirty();
         }
     }
 }

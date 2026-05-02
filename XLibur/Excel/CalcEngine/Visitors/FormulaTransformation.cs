@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -88,46 +89,60 @@ internal static class FormulaTransformation
     /// column name. Double-bracket references like <c>Table[[Col1]:[Col2]]</c> use the colon
     /// as a range separator and are left untouched.
     /// </para>
+    /// <para>
+    /// Single pass over a <see cref="ReadOnlySpan{T}"/>; the working buffer is leased from
+    /// <see cref="ArrayPool{T}"/> only after the first qualifying colon is found, so
+    /// formulas that have a colon outside any single-bracket reference (the common case
+    /// for plain ranges like <c>SUM(A1:A10)</c>) cost nothing beyond the scan.
+    /// </para>
     /// </summary>
     private static string ProtectStructuredRefColons(string formula, out bool wasProtected)
     {
         wasProtected = false;
 
-        // Quick check: if no colon, nothing to protect.
+        // Quick check: if no colon at all, nothing to protect.
         if (formula.IndexOf(':') < 0)
             return formula;
 
-        char[]? chars = null;
+        var input = formula.AsSpan();
+        char[]? rentedArray = null;
+        Span<char> buffer = default;
         var i = 0;
-        while (i < formula.Length)
+        while (i < input.Length)
         {
-            var c = formula[i];
+            var c = input[i];
 
             if (c == '"')
             {
-                i = SkipQuoted(formula, i, '"');
+                i = SkipQuoted(input, i, '"');
                 continue;
             }
 
             if (c == '\'')
             {
-                i = SkipQuoted(formula, i, '\'');
+                i = SkipQuoted(input, i, '\'');
                 continue;
             }
 
             if (c == '[')
             {
-                i = ProcessBracket(formula, i, ref chars, ref wasProtected);
+                i = ProcessBracket(formula, input, i, ref rentedArray, ref buffer);
                 continue;
             }
 
             i++;
         }
 
-        return wasProtected ? new string(chars!) : formula;
+        if (rentedArray is null)
+            return formula;
+
+        wasProtected = true;
+        var result = new string(buffer);
+        ArrayPool<char>.Shared.Return(rentedArray);
+        return result;
     }
 
-    private static int SkipQuoted(string formula, int i, char quoteChar)
+    private static int SkipQuoted(ReadOnlySpan<char> formula, int i, char quoteChar)
     {
         i++;
         while (i < formula.Length && formula[i] != quoteChar)
@@ -135,19 +150,25 @@ internal static class FormulaTransformation
         return i + 1;
     }
 
-    private static int ProcessBracket(string formula, int i, ref char[]? chars, ref bool wasProtected)
+    private static int ProcessBracket(string sourceFormula, ReadOnlySpan<char> input, int i,
+        ref char[]? rentedArray, ref Span<char> buffer)
     {
         var next = i + 1;
-        if (next < formula.Length && formula[next] != '[' && formula[next] != '#')
+        if (next < input.Length && input[next] != '[' && input[next] != '#')
         {
             var j = next;
-            while (j < formula.Length && formula[j] != ']')
+            while (j < input.Length && input[j] != ']')
             {
-                if (formula[j] == ':')
+                if (input[j] == ':')
                 {
-                    chars ??= formula.ToCharArray();
-                    chars[j] = ColonPlaceholder;
-                    wasProtected = true;
+                    if (rentedArray is null)
+                    {
+                        rentedArray = ArrayPool<char>.Shared.Rent(input.Length);
+                        buffer = rentedArray.AsSpan(0, input.Length);
+                        sourceFormula.AsSpan().CopyTo(buffer);
+                    }
+
+                    buffer[j] = ColonPlaceholder;
                 }
 
                 j++;

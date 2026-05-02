@@ -240,7 +240,7 @@ internal class DependencyTreeTests
         AddFormula(tree, ws, "A4", "=A3");
 
         // Mark the middle one dirty, but A4 is still clear
-        ((XLCell)ws.Cell("A3")).Formula.IsDirty = true;
+        ((XLCell)ws.Cell("A3")).Formula.MarkExplicitlyDirty();
 
         MarkDirty(tree, ws, "A1");
         AssertDirty(ws, "A2", "A3");
@@ -372,6 +372,11 @@ internal class DependencyTreeTests
         // Set directly, so the cell is not marked as a dirty.
         var cell = (XLCell)sheet.Cell(address);
         cell.Formula = XLCellFormula.NormalA1(formula);
+        // Pre-mark the formula as clean against the current workbook epoch so that the
+        // dependency-tree MarkDirty walk has a meaningful "started clean → became dirty"
+        // transition to assert against. A freshly-constructed XLCellFormula defaults to
+        // _evalEpoch=0 (explicitly dirty / never evaluated).
+        cell.Formula.MarkClean(((XLWorksheet)sheet).Workbook);
         var cellArea = new XLBookArea(sheet.Name, new XLSheetRange(cell.SheetPoint, cell.SheetPoint));
         tree.AddFormula(cellArea, cell.Formula, sheet.Workbook);
         return cell.Formula;
@@ -395,11 +400,12 @@ internal class DependencyTreeTests
     private static void AssertDirtyFlag(bool expectedDirtyFlag, IXLWorksheet sheet, params string[] dirtyRanges)
     {
         var ws = (XLWorksheet)sheet;
+        var wb = ws.Workbook;
         foreach (var dirtyRange in dirtyRanges)
         {
             foreach (var dirtyCell in ws.Cells(dirtyRange))
             {
-                Assert.AreEqual(expectedDirtyFlag, dirtyCell.Formula?.IsDirty);
+                Assert.AreEqual(expectedDirtyFlag, dirtyCell.Formula?.IsDirty(wb));
             }
         }
     }

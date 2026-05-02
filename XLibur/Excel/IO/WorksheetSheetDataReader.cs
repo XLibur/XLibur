@@ -322,6 +322,7 @@ internal static class WorksheetSheetDataReader
         var formulaInline = formula is not null;
 
         var cellHasValue = reader.IsStartElement("v");
+        var cellWasSetWithEmptyValue = false;
         if (cellHasValue)
         {
             SetCellValue(dataType, reader.GetText(), cellsCollection, cellAddress, cellStyleValue, ws,
@@ -331,12 +332,16 @@ internal static class WorksheetSheetDataReader
         else if (dataType.Equals(CellValues.SharedString) || dataType.Equals(CellValues.String))
         {
             cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, formulaInline);
+            cellWasSetWithEmptyValue = true;
         }
 
-        // If the cell doesn't contain a value, invalidate the formula so it recalculates.
+        // Formulas loaded with a cached <v> value (or a string-typed cell that we filled
+        // with an empty placeholder) are considered clean — their cached result is trusted
+        // until the workbook epoch bumps. Formulas without a cached value keep the default
+        // _evalEpoch (0), which reads as "explicitly dirty" so they recalculate on first read.
         // Formula can be null for slave cells of array formulas.
-        if (formulaInline && !cellHasValue)
-            formula!.IsDirty = true;
+        if (formulaInline && (cellHasValue || cellWasSetWithEmptyValue))
+            formula!.MarkClean(ws.Workbook);
 
         if (reader.IsStartElement("is"))
             LoadInlineString(dataType, cellsCollection, cellAddress, ws, reader);

@@ -1400,6 +1400,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         Workbook.CalcEngine.Recalculate(Workbook, SheetId);
     }
 
+    public XLUsedCellEnumerable EnumerateUsedCells() =>
+        new(Internals.CellsCollection.ValueSlice, XLSheetRange.Full);
+
     public string Author { get; set; }
 
     public override string ToString()

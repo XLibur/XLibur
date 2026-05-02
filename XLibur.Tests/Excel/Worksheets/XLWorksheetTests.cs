@@ -1287,4 +1287,87 @@ public class XLWorksheetTests
         Assert.Throws<ArgumentException>(() => _ = ws.Range("DEAD4:BEEF10"));
         Assert.Throws<ArgumentException>(() => _ = ws.Range("nonexistent_range"));
     }
+
+    [Test]
+    public void EnumerateUsedCells_yields_only_non_blank_value_cells_in_row_major_order()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = 1;
+        ws.Cell("C1").Value = "text";
+        ws.Cell("B2").Value = 3.14;
+        ws.Cell("E5").Value = true;
+        // Cells touched by style but with no value should not be yielded.
+        ws.Cell("D4").Style.Font.Bold = true;
+
+        var yielded = new System.Collections.Generic.List<(int Row, int Col, XLCellValue Value)>();
+        foreach (var cell in ws.EnumerateUsedCells())
+            yielded.Add((cell.Row, cell.Column, cell.Value));
+
+        Assert.AreEqual(4, yielded.Count);
+        Assert.AreEqual((1, 1), (yielded[0].Row, yielded[0].Col));
+        Assert.AreEqual(1, yielded[0].Value.GetNumber());
+        Assert.AreEqual((1, 3), (yielded[1].Row, yielded[1].Col));
+        Assert.AreEqual("text", yielded[1].Value.GetText());
+        Assert.AreEqual((2, 2), (yielded[2].Row, yielded[2].Col));
+        Assert.AreEqual(3.14, yielded[2].Value.GetNumber());
+        Assert.AreEqual((5, 5), (yielded[3].Row, yielded[3].Col));
+        Assert.AreEqual(true, yielded[3].Value.GetBoolean());
+    }
+
+    [Test]
+    public void EnumerateUsedCells_returns_formula_cached_value_after_evaluation()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = 5;
+        ws.Cell("B1").FormulaA1 = "=A1*10";
+        // Force the formula to evaluate so its cached value is populated.
+        _ = ws.Cell("B1").Value;
+
+        XLCellValue? formulaCellValue = null;
+        foreach (var cell in ws.EnumerateUsedCells())
+        {
+            if (cell.Row == 1 && cell.Column == 2)
+                formulaCellValue = cell.Value;
+        }
+
+        Assert.IsNotNull(formulaCellValue);
+        Assert.AreEqual(50, formulaCellValue!.Value.GetNumber());
+    }
+
+    [Test]
+    public void EnumerateUsedCells_on_empty_sheet_yields_nothing_and_does_not_throw()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        var count = 0;
+        foreach (var _ in ws.EnumerateUsedCells())
+            count++;
+
+        Assert.AreEqual(0, count);
+    }
+
+    [Test]
+    public void EnumerateUsedCells_matches_CellsUsed_value_set()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = "hello";
+        ws.Cell("B5").Value = 42;
+        ws.Cell("C10").Value = 3.14;
+        ws.Cell("D2").FormulaA1 = "=B5+1";
+        _ = ws.Cell("D2").Value; // populate cached value
+
+        var usedCellAddresses = ws.CellsUsed()
+            .Select(c => (c.Address.RowNumber, c.Address.ColumnNumber))
+            .OrderBy(t => t.RowNumber).ThenBy(t => t.ColumnNumber)
+            .ToArray();
+        var enumeratedAddresses = new System.Collections.Generic.List<(int, int)>();
+        foreach (var cell in ws.EnumerateUsedCells())
+            enumeratedAddresses.Add((cell.Row, cell.Column));
+
+        Assert.AreEqual(usedCellAddresses, enumeratedAddresses.ToArray());
+    }
 }

@@ -47,7 +47,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// Parses a string into an <see cref="Formula"/>.
     /// </summary>
     /// <param name="expression">String to parse.</param>
-    /// <returns>An formula that can be evaluated.</returns>
+    /// <returns>A formula that can be evaluated.</returns>
     public Formula Parse(string expression)
     {
         return _parser.GetAst(expression, isA1: true);
@@ -204,7 +204,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 }
             }
 
-            formula.IsDirty = false;
+            formula.MarkClean(sheet.Workbook);
             _needsDependencyTree = true;
             return true;
         }
@@ -269,13 +269,13 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             if (cellFormula is null)
                 throw new InvalidOperationException($"Calculation chain contains a '${sheetInfo.Sheet.Name}'!${current.Point}, but the cell doesn't contain formula.");
 
-            if (!cellFormula.IsDirty)
+            if (cellFormula.IsClean(sheetInfo.Sheet.Workbook))
                 break;
 
             try
             {
                 ApplyFormula(cellFormula, current.Point, sheetInfo.Sheet, sheetInfo.ValueSlice, recalculateSheetId);
-                cellFormula.IsDirty = false;
+                cellFormula.MarkClean(sheetInfo.Sheet.Workbook);
                 break;
             }
             catch (GettingDataException ex)

@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Xml;
-using DocumentFormat.OpenXml;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Rows;
 using XLibur.Excel.Tables;
@@ -19,12 +17,6 @@ internal static class SheetDataWriter
     /// Day offset between the 1900 and 1904 date systems used by Excel.
     /// </summary>
     private const int Date1904OffsetDays = 1462;
-
-    private static readonly FieldInfo XmlWriterFieldInfo =
-        typeof(OpenXmlPartWriter).GetField("_xmlWriter", BindingFlags.Instance | BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException(
-            "OpenXmlPartWriter no longer has a '_xmlWriter' field. " +
-            "The DocumentFormat.OpenXml version may have changed its internals.");
 
     /// <summary>
     /// An array to convert data type for a formula cell. Key is <see cref="XLDataType"/>.
@@ -56,14 +48,9 @@ internal static class SheetDataWriter
         null // timespan, saved as serialized date-time
     ];
 
-    internal static void StreamSheetData(OpenXmlWriter writer, XLWorksheet xlWorksheet, SaveContext context,
+    internal static void StreamSheetData(XmlWriter xml, XLWorksheet xlWorksheet, SaveContext context,
         SaveOptions options)
     {
-        // Steal through reflection for now, the whole OpenXmlPartWriter will be replaced by XmlWriter soon. OpenXmlPartWriter basically has
-        // no inner state, unless it is in a string leaf node. By writing SheetData through XmlWriter only, we bypass all that.
-        var untypedXmlWriter = XmlWriterFieldInfo.GetValue(writer);
-        var xml = (XmlWriter)untypedXmlWriter!;
-
         var maxColumn = GetMaxColumn(xlWorksheet);
 
         xml.WriteStartElement("sheetData", Main2006SsNs);
@@ -129,13 +116,18 @@ internal static class SheetDataWriter
         if (xlWorksheet.Tables.Count == 0)
             return null;
 
-        return
-        [
-            ..xlWorksheet.Tables
-                .Where<XLTable>(table => table.ShowTotalsRow)
-                .SelectMany(table => table.TotalsRow()!.CellsUsed())
-                .Select(cell => ((XLCell)cell).SheetPoint)
-        ];
+        HashSet<XLSheetPoint>? cells = null;
+        foreach (var table in xlWorksheet.Tables)
+        {
+            if (!table.ShowTotalsRow)
+                continue;
+
+            cells ??= [];
+            foreach (var cell in table.TotalsRow()!.CellsUsed())
+                cells.Add(((XLCell)cell).SheetPoint);
+        }
+
+        return cells;
     }
 
     private static List<int> GetSortedRowNumbers(XLWorksheet xlWorksheet)
@@ -223,12 +215,16 @@ internal static class SheetDataWriter
     private static void WriteCellAtPoint(XmlWriter xml, ref CellWriteContext ctx,
         XLSheetPoint point, uint rowStyleId, uint cellStyleId)
     {
-        var hasFormula = ctx.CellsCollection.FormulaSlice.IsUsed(point);
-        if (hasFormula || (ctx.TableTotalCells is not null && ctx.TableTotalCells.Contains(point)))
+        var formula = ctx.CellsCollection.FormulaSlice.Get(point);
+        if (formula is not null)
         {
-            var xlCell = ctx.CellsCollection.GetCell(point);
-            WriteCell(xml, xlCell, ctx.CellRef, ctx.SaveContext, ctx.SaveOptions, ctx.TableTotalCells, rowStyleId,
-                cellStyleId);
+            WriteFormulaCellDirect(xml, ref ctx, point, formula, cellStyleId);
+            return;
+        }
+
+        if (ctx.TableTotalCells is not null && ctx.TableTotalCells.Contains(point))
+        {
+            WriteTotalLabelCellDirect(xml, ref ctx, point, cellStyleId);
             return;
         }
 
@@ -242,6 +238,203 @@ internal static class SheetDataWriter
         else if (rowStyleId != cellStyleId)
         {
             WriteBlankStyledCell(xml, ctx.CellsCollection, point, ctx.CellRef, cellStyleId);
+        }
+    }
+
+    /// <summary>
+    /// Write a cell that has a formula directly from slice data, without allocating an
+    /// <see cref="XLCell"/> wrapper. Mirrors the legacy <c>WriteCellWithFormula</c> +
+    /// <c>WriteStartCell</c> path.
+    /// </summary>
+    private static void WriteFormulaCellDirect(XmlWriter xml, ref CellWriteContext ctx,
+        XLSheetPoint point, XLCellFormula formula, uint cellStyleId)
+    {
+        var cellsCollection = ctx.CellsCollection;
+        var xlWorksheet = cellsCollection.Worksheet;
+        var saveContext = ctx.SaveContext;
+
+        if (ctx.SaveOptions.EvaluateFormulasBeforeSaving && formula.IsDirty(xlWorksheet.Workbook))
+        {
+            try
+            {
+                var workbook = xlWorksheet.Workbook;
+                if (!workbook.CalcEngine.TryEvaluateSingleCell(formula, point, xlWorksheet))
+                    workbook.CalcEngine.Recalculate(workbook, null);
+            }
+            catch
+            {
+                // Match XLCell.Evaluate(false) tolerance: unimplemented features should not
+                // abort the save. The cell is left with whatever cached value (if any) it
+                // already has.
+            }
+        }
+
+        // Determine cell type from cached value (preserves type round-trip for formulas
+        // whose evaluation is unsupported).
+        var cachedValue = cellsCollection.ValueSlice.GetCellValue(point);
+        var cachedValueType = cachedValue.Type;
+        var dataType = cachedValueType != XLDataType.Blank ? FormulaDataType[(int)cachedValueType] : null;
+
+        Span<char> cellRefSpan = ctx.CellRef;
+        var cellRefLen = point.Format(cellRefSpan);
+        ref readonly var misc = ref cellsCollection.MiscSlice[point];
+
+        // Compute "cm" attribute: explicit MiscSlice override, or workbook-wide dynamic-array
+        // metadata index for dynamic-array formulas without an explicit override.
+        var cmIndex = misc.CellMetaIndex;
+        if (cmIndex is null && formula.IsDynamicArray && saveContext.DynamicArrayMetaIndex is not null)
+            cmIndex = saveContext.DynamicArrayMetaIndex.Value;
+
+        WriteStartFormulaCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId, in misc, cmIndex);
+
+        if (formula.Type == FormulaType.DataTable)
+        {
+            WriteDataTableFormula(xml, formula);
+        }
+        else if (formula.Type == FormulaType.Array)
+        {
+            var isMasterCell = formula.Range.FirstPoint == point;
+            if (isMasterCell)
+            {
+                xml.WriteStartElement("f", Main2006SsNs);
+                xml.WriteAttributeString("t", "array");
+                var rangeAddress = XLRangeAddress.FromSheetRange(xlWorksheet, formula.Range);
+                xml.WriteAttributeString("ref", rangeAddress.ToStringRelative());
+                xml.WriteString(formula.A1);
+                xml.WriteEndElement(); // f
+            }
+        }
+        else
+        {
+            xml.WriteStartElement("f", Main2006SsNs);
+            xml.WriteString(formula.A1);
+            xml.WriteEndElement(); // f
+        }
+
+        // Write cached value if present and the formula isn't dirty. Spilled (non-master)
+        // array-formula cells also fall through here so their cached values round-trip.
+        if (cachedValueType != XLDataType.Blank && formula.IsClean(xlWorksheet.Workbook))
+        {
+            WriteCachedFormulaValue(xml, cachedValue, ctx.Use1904DateSystem);
+        }
+
+        xml.WriteEndElement(); // cell
+    }
+
+    /// <summary>
+    /// Variant of <see cref="WriteStartCellDirect"/> that takes a pre-computed <c>cm</c>
+    /// attribute value. Needed for formula cells where the dynamic-array metadata index is
+    /// applied as a fallback when <see cref="XLMiscSliceContent.CellMetaIndex"/> is null.
+    /// </summary>
+    private static void WriteStartFormulaCellDirect(XmlWriter w, char[] reference, int referenceLength,
+        string? dataType, uint styleId, in XLMiscSliceContent misc, uint? cmIndex)
+    {
+        w.WriteStartElement("c", Main2006SsNs);
+
+        w.WriteStartAttribute("r");
+        w.WriteRaw(reference, 0, referenceLength);
+        w.WriteEndAttribute();
+
+        w.WriteAttribute("s", styleId);
+
+        if (dataType is not null)
+            w.WriteAttributeString("t", dataType);
+
+        if (misc.HasPhonetic)
+            w.WriteAttributeString("ph", TrueValue);
+
+        if (cmIndex is not null)
+            w.WriteAttribute("cm", cmIndex.Value);
+
+        if (misc.ValueMetaIndex is not null)
+            w.WriteAttribute("vm", misc.ValueMetaIndex.Value);
+    }
+
+    /// <summary>
+    /// Write the cached value of a formula cell. Text is emitted inline; formulas can only
+    /// store an inline-string text result, never a shared-string reference.
+    /// </summary>
+    private static void WriteCachedFormulaValue(XmlWriter w, XLCellValue cellValue, bool use1904DateSystem)
+    {
+        switch (cellValue.Type)
+        {
+            case XLDataType.Blank:
+                return;
+            case XLDataType.Text:
+                WriteStringValue(w, cellValue.GetText());
+                break;
+            case XLDataType.TimeSpan:
+                WriteNumberValue(w, cellValue.GetUnifiedNumber());
+                break;
+            case XLDataType.Number:
+                WriteNumberValue(w, cellValue.GetNumber());
+                break;
+            case XLDataType.DateTime:
+                {
+                    var date = cellValue.GetDateTime();
+                    if (use1904DateSystem)
+                        date = date.AddDays(-Date1904OffsetDays);
+
+                    WriteNumberValue(w, date.ToSerialDateTime());
+                    break;
+                }
+            case XLDataType.Boolean:
+                WriteStringValue(w, cellValue.GetBoolean() ? TrueValue : FalseValue);
+                break;
+            case XLDataType.Error:
+                WriteStringValue(w, cellValue.GetError().ToDisplayString());
+                break;
+            default:
+                throw new InvalidOperationException();
+        }
+    }
+
+    /// <summary>
+    /// Write a totals-row label cell directly from slice data. The cell is in
+    /// <see cref="CellWriteContext.TableTotalCells"/> but has no formula — it carries either
+    /// a label (e.g. "Total") or nothing.
+    /// </summary>
+    private static void WriteTotalLabelCellDirect(XmlWriter xml, ref CellWriteContext ctx,
+        XLSheetPoint point, uint cellStyleId)
+    {
+        var cellsCollection = ctx.CellsCollection;
+        var xlWorksheet = cellsCollection.Worksheet;
+
+        XLTable? containingTable = null;
+        foreach (var table in xlWorksheet.Tables)
+        {
+            if (table.Area.Contains(point))
+            {
+                containingTable = table;
+                break;
+            }
+        }
+
+        XLTableField? field = null;
+        if (containingTable is not null)
+        {
+            foreach (var f in containingTable.Fields)
+            {
+                if (f.Column.ColumnNumber() == point.Column)
+                {
+                    field = (XLTableField)f;
+                    break;
+                }
+            }
+        }
+
+        if (field is not null && !string.IsNullOrWhiteSpace(field.TotalsRowLabel))
+        {
+            var memorySstId = cellsCollection.ValueSlice.GetShareStringId(point);
+            var sharedStringId = ctx.SaveContext.GetSharedStringId(memorySstId, point);
+
+            Span<char> cellRefSpan = ctx.CellRef;
+            var cellRefLen = point.Format(cellRefSpan);
+            ref readonly var misc = ref cellsCollection.MiscSlice[point];
+
+            WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, "s", cellStyleId, in misc);
+            WriteValue(xml, sharedStringId);
+            xml.WriteEndElement(); // cell
         }
     }
 
@@ -350,112 +543,6 @@ internal static class SheetDataWriter
         // the thickBot/thickBot attributes.
     }
 
-    private static void WriteStartCell(XmlWriter w, XLCell xlCell, char[] reference, int referenceLength,
-        string? dataType, uint styleId, SaveContext context)
-    {
-        w.WriteStartElement("c", Main2006SsNs);
-
-        w.WriteStartAttribute("r");
-        w.WriteRaw(reference, 0, referenceLength);
-        w.WriteEndAttribute();
-
-        w.WriteAttribute("s", styleId);
-
-        if (dataType is not null)
-            w.WriteAttributeString("t", dataType);
-
-        if (xlCell.ShowPhonetic)
-            w.WriteAttributeString("ph", TrueValue);
-
-        var cmIndex = xlCell.CellMetaIndex;
-        if (cmIndex is null && xlCell.Formula is { IsDynamicArray: true } && context.DynamicArrayMetaIndex is not null)
-            cmIndex = context.DynamicArrayMetaIndex.Value;
-
-        if (cmIndex is not null)
-            w.WriteAttribute("cm", cmIndex.Value);
-
-        if (xlCell.ValueMetaIndex is not null)
-            w.WriteAttribute("vm", xlCell.ValueMetaIndex.Value);
-    }
-
-    private static void WriteCell(XmlWriter xml, XLCell xlCell, char[] cellRef, SaveContext context,
-        SaveOptions options, HashSet<XLSheetPoint>? tableTotalCells, uint rowStyleId, uint styleId)
-    {
-        Span<char> cellRefSpan = cellRef;
-        var cellRefLen = xlCell.SheetPoint.Format(cellRefSpan);
-
-        if (xlCell.HasFormula)
-        {
-            WriteCellWithFormula(xml, xlCell, cellRef, cellRefLen, context, options, styleId);
-        }
-        else if (tableTotalCells is not null && tableTotalCells.Contains(xlCell.SheetPoint))
-        {
-            WriteCellWithTotalLabel(xml, xlCell, cellRef, cellRefLen, context, styleId);
-        }
-        else if (xlCell.DataType != XLDataType.Blank)
-        {
-            var dataType = GetCellValueType(xlCell);
-            WriteStartCell(xml, xlCell, cellRef, cellRefLen, dataType, styleId, context);
-            WriteCellValue(xml, xlCell, context);
-            xml.WriteEndElement(); // cell
-        }
-        else if (rowStyleId != styleId)
-        {
-            WriteStartCell(xml, xlCell, cellRef, cellRefLen, null, styleId, context);
-            xml.WriteEndElement(); // cell
-        }
-    }
-
-    private static void WriteCellWithFormula(XmlWriter xml, XLCell xlCell, char[] cellRef, int cellRefLen,
-        SaveContext context, SaveOptions options, uint styleId)
-    {
-        string? dataType = null;
-        if (options.EvaluateFormulasBeforeSaving)
-        {
-            try
-            {
-                xlCell.Evaluate(false);
-                dataType = FormulaDataType[(int)xlCell.DataType];
-            }
-            catch
-            {
-                // Do nothing, cell will be left blank. Unimplemented features or functions would stop trying to save a file.
-            }
-        }
-
-        // Even without evaluation, preserve the data type from the existing cached value.
-        // This ensures formula cells loaded from a file retain their type attribute (e.g. t="str").
-        var cachedValueType = xlCell.CachedValue.Type;
-        if (dataType is null && cachedValueType != XLDataType.Blank)
-            dataType = FormulaDataType[(int)cachedValueType];
-
-        WriteStartCell(xml, xlCell, cellRef, cellRefLen, dataType, styleId, context);
-
-        var xlFormula = xlCell.Formula!;
-        if (xlFormula.Type == FormulaType.DataTable)
-            WriteDataTableFormula(xml, xlFormula);
-        else if (xlCell.HasArrayFormula)
-            WriteArrayFormula(xml, xlCell);
-        else
-        {
-            xml.WriteStartElement("f", Main2006SsNs);
-            xml.WriteString(xlCell.FormulaA1);
-            xml.WriteEndElement(); // f
-        }
-
-        // Write cached value if it exists and the formula hasn't been dirtied.
-        // Previously this only wrote when EvaluateFormulasBeforeSaving was true,
-        // which dropped cached results for formulas XLibur can't evaluate (e.g.
-        // dynamic array functions like SORT, UNIQUE, FILTER) and also dropped
-        // cached values of spill (non-master) cells in array formulas.
-        if (cachedValueType != XLDataType.Blank && !xlCell.NeedsRecalculation)
-        {
-            WriteCellValue(xml, xlCell, context);
-        }
-
-        xml.WriteEndElement(); // cell
-    }
-
     private static void WriteDataTableFormula(XmlWriter xml, XLCellFormula xlFormula)
     {
         xml.WriteStartElement("f", Main2006SsNs);
@@ -486,35 +573,6 @@ internal static class SheetDataWriter
         xml.WriteAttributeString("ca", TrueValue);
 
         xml.WriteEndElement(); // f
-    }
-
-    private static void WriteArrayFormula(XmlWriter xml, XLCell xlCell)
-    {
-        var isMasterCell = xlCell.Formula!.Range.FirstPoint == xlCell.SheetPoint;
-        if (isMasterCell)
-        {
-            xml.WriteStartElement("f", Main2006SsNs);
-            xml.WriteAttributeString("t", "array");
-            xml.WriteAttributeString("ref", xlCell.FormulaReference!.ToStringRelative());
-            xml.WriteString(xlCell.FormulaA1);
-            xml.WriteEndElement(); // f
-        }
-    }
-
-    private static void WriteCellWithTotalLabel(XmlWriter xml, XLCell xlCell, char[] cellRef, int cellRefLen,
-        SaveContext context, uint styleId)
-    {
-        var table = xlCell.Worksheet.Tables.First<XLTable>(t => t.AsRange().Contains(xlCell));
-        var field = (XLTableField)table.Fields.First(f => f.Column.ColumnNumber() == xlCell.SheetPoint.Column);
-
-        if (!string.IsNullOrWhiteSpace(field.TotalsRowLabel))
-        {
-            var sharedStringId = context.GetSharedStringId(xlCell, field.TotalsRowLabel);
-            WriteStartCell(xml, xlCell, cellRef, cellRefLen, "s", styleId, context);
-            WriteValue(xml, sharedStringId);
-        }
-
-        xml.WriteEndElement(); // cell
     }
 
     private static void WriteValue(XmlWriter xml, int sharedStringId)
@@ -623,81 +681,6 @@ internal static class SheetDataWriter
         }
     }
 
-    private static void WriteCellValue(XmlWriter w, XLCell xlCell, SaveContext context)
-    {
-        var dataType = xlCell.DataType;
-        switch (dataType)
-        {
-            case XLDataType.Blank:
-                return;
-            case XLDataType.Text:
-                WriteCellValueText(w, xlCell, context);
-                break;
-            case XLDataType.TimeSpan:
-                WriteNumberValue(w, xlCell.Value.GetUnifiedNumber());
-                break;
-            case XLDataType.Number:
-                WriteNumberValue(w, xlCell.Value.GetNumber());
-                break;
-            case XLDataType.DateTime:
-                {
-                    // OpenXML SDK validator requires a specific format, in addition to the spec, but can read many more
-                    var date = xlCell.GetDateTime();
-                    if (xlCell.Worksheet.Workbook.Use1904DateSystem)
-                        date = date.AddDays(-Date1904OffsetDays);
-
-                    WriteNumberValue(w, date.ToSerialDateTime());
-                    break;
-                }
-            case XLDataType.Boolean:
-                WriteStringValue(w, xlCell.GetBoolean() ? TrueValue : FalseValue);
-                break;
-            case XLDataType.Error:
-                WriteStringValue(w, xlCell.Value.GetError().ToDisplayString());
-                break;
-            default:
-                throw new InvalidOperationException();
-        }
-    }
-
-    private static void WriteCellValueText(XmlWriter w, XLCell xlCell, SaveContext context)
-    {
-        var text = xlCell.GetText();
-        if (xlCell.HasFormula)
-        {
-            WriteStringValue(w, text);
-            return;
-        }
-
-        if (xlCell.ShareString)
-        {
-            var sharedStringId = context.GetSharedStringId(xlCell, text);
-            w.WriteStartElement("v", Main2006SsNs);
-            w.WriteValue(sharedStringId);
-            w.WriteEndElement();
-        }
-        else
-        {
-            w.WriteStartElement("is", Main2006SsNs);
-            var richText = xlCell.RichText;
-            if (richText is not null)
-            {
-                TextSerializer.WriteRichTextElements(w, richText, context);
-            }
-            else
-            {
-                w.WriteStartElement("t", Main2006SsNs);
-                if (text.PreserveSpaces())
-                    w.WritePreserveSpaceAttr();
-
-                w.WriteString(text);
-                w.WriteEndElement();
-            }
-
-            w.WriteEndElement(); // is
-        }
-    }
-
     private static void WriteStringValue(XmlWriter w, string text)
     {
         w.WriteStartElement("v", Main2006SsNs);
@@ -710,14 +693,6 @@ internal static class SheetDataWriter
         w.WriteStartElement("v", Main2006SsNs);
         w.WriteNumberValue(value);
         w.WriteEndElement();
-    }
-
-    private static string? GetCellValueType(XLCell xlCell)
-    {
-        var dataType = xlCell.DataType;
-        if (dataType == XLDataType.Text && !xlCell.ShareString)
-            return "inlineStr";
-        return ValueDataType[(int)dataType];
     }
 
     private struct RowWriterState

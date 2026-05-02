@@ -85,4 +85,46 @@ public class XLiburReadBenchmarks
             }
         }
     }
+
+    /// <summary>
+    /// Baseline iteration via the existing <see cref="IXLCells"/> API. Allocates an
+    /// XLCell wrapper per yielded cell and walks an <c>IEnumerable&lt;IXLCell&gt;</c>
+    /// chain with virtual <c>MoveNext</c> dispatch.
+    /// </summary>
+    [Benchmark(Baseline = true)]
+    public long LoadAndIterateCellsUsed()
+    {
+        using var workbook = new XLWorkbook(new MemoryStream(_fileBytes));
+        var ws = workbook.Worksheets.First();
+
+        long checksum = 0;
+        foreach (var cell in ws.CellsUsed())
+        {
+            var value = cell.Value;
+            if (value.IsNumber) checksum += (long)value.GetNumber();
+            else if (value.IsText) checksum += value.GetText().Length;
+        }
+        return checksum;
+    }
+
+    /// <summary>
+    /// Slice-direct iteration via the new struct-enumerator overlay. Skips the
+    /// XLCell wrapper allocation per cell, the IEnumerable virtual dispatch, and
+    /// the LINQ chain inside <see cref="XLCells"/>'s <c>GetUsedCells</c>.
+    /// </summary>
+    [Benchmark]
+    public long LoadAndIterateEnumerateUsedCells()
+    {
+        using var workbook = new XLWorkbook(new MemoryStream(_fileBytes));
+        var ws = workbook.Worksheets.First();
+
+        long checksum = 0;
+        foreach (var cell in ws.EnumerateUsedCells())
+        {
+            var value = cell.Value;
+            if (value.IsNumber) checksum += (long)value.GetNumber();
+            else if (value.IsText) checksum += value.GetText().Length;
+        }
+        return checksum;
+    }
 }

@@ -406,10 +406,10 @@ internal static class Lookup
 
         if (!range.TryPickT0(out var array, out var reference))
         {
-            if (reference.Areas.Count > 1)
+            if (reference.AreaCount > 1)
                 return XLError.NoValueAvailable;
 
-            array = new ReferenceArray(reference.Areas.Single(), ctx);
+            array = new ReferenceArray(reference[0], ctx);
         }
 
         return array;
@@ -517,10 +517,10 @@ internal static class Lookup
         if (collection.TryPickT0(out var valueArray, out var reference))
             return (OneOf<XLRangeAddress, Array>)valueArray;
 
-        if (areaNumber > reference.Areas.Count)
+        if (areaNumber > reference.AreaCount)
             return XLError.CellReference;
 
-        return (OneOf<XLRangeAddress, Array>)reference.Areas[areaNumber - 1];
+        return (OneOf<XLRangeAddress, Array>)reference[areaNumber - 1];
     }
 
     /// <summary>

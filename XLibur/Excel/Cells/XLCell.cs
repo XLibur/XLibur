@@ -325,7 +325,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             return;
         }
 
-        Formula.IsDirty = true;
+        Formula.MarkExplicitlyDirty();
     }
 
     /// <summary>
@@ -676,7 +676,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     /// <summary>
     /// Flag indicating that previously calculated cell value may be not valid anymore and has to be re-evaluated.
     /// </summary>
-    public bool NeedsRecalculation => Formula is not null && Formula.IsDirty;
+    public bool NeedsRecalculation => Formula is not null && Formula.IsDirty(Worksheet.Workbook);
 
     public XLCellValue CachedValue => SliceCellValue;
 
