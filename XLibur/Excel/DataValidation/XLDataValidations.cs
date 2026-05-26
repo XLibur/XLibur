@@ -166,6 +166,13 @@ internal sealed class XLDataValidations : IXLDataValidations
 
     public void Consolidate()
     {
+        // Make sure the rule-range index reflects the current rule ranges before we
+        // start tearing down and rebuilding rules. After column/row shifts the
+        // address-keyed index can hold stale entries, and the split-on-add logic
+        // would otherwise interpret a rule's own out-of-date entry as a competing
+        // rule and wipe its ranges.
+        ReconcileIndex();
+
         Func<IXLDataValidation, IXLDataValidation, bool> areEqual = (dv1, dv2) =>
         {
             return
@@ -232,6 +239,26 @@ internal sealed class XLDataValidations : IXLDataValidations
         var entries = _dataValidationIndex.GetIntersectedRanges((XLRangeAddress)range.RangeAddress)
             .Where(e => Equals(e.RangeAddress, range.RangeAddress));
         entries.ToArray().ForEach(entry => _dataValidationIndex.Remove(entry.RangeAddress));
+    }
+
+    /// <summary>
+    /// Rebuild the internal rule-range spatial index from the current ranges of every
+    /// rule. Address-keyed index entries can fall out of sync with their backing
+    /// <see cref="XLRange"/> instances after column/row inserts that mutate addresses
+    /// in place (the shifter updates each <c>XLRange.RangeAddress</c> but does not
+    /// re-key the index entry). A stale index causes <see cref="SplitExistingRanges"/>
+    /// to split rules against their own outdated entries, wiping their range collection.
+    /// </summary>
+    internal void ReconcileIndex()
+    {
+        _dataValidationIndex.RemoveAll();
+        foreach (var dv in _dataValidations.OfType<XLDataValidation>())
+        {
+            foreach (var range in dv.Ranges)
+            {
+                _dataValidationIndex.Add(new XLDataValidationIndexEntry(range.RangeAddress, dv));
+            }
+        }
     }
 
     private void SplitExistingRanges(IXLRangeAddress rangeAddress)
