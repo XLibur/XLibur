@@ -249,7 +249,7 @@ public class SavingTests
             File.SetAttributes(existing.Path, FileAttributes.ReadOnly);
 
             // Act
-            TestDelegate saveAs = () =>
+            Action saveAs = () =>
             {
                 using var wb = new XLWorkbook();
                 var sheet = wb.Worksheets.Add("TestSheet");
@@ -391,7 +391,7 @@ public class SavingTests
         using var tf = new TemporaryFile("FileWithNoExtension");
         using var wb = new XLWorkbook();
         wb.Worksheets.Add("Sheet1");
-        TestDelegate action = () => wb.SaveAs(tf.Path);
+        Action action = () => wb.SaveAs(tf.Path);
 
         Assert.Throws<ArgumentException>(action);
     }
@@ -402,7 +402,7 @@ public class SavingTests
         using var tf = new TemporaryFile("FileWithBadExtension.bad");
         using var wb = new XLWorkbook();
         wb.Worksheets.Add("Sheet1");
-        TestDelegate action = () => wb.SaveAs(tf.Path);
+        Action action = () => wb.SaveAs(tf.Path);
 
         Assert.Throws<ArgumentException>(action);
     }

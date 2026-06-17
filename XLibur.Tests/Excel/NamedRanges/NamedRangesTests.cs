@@ -240,7 +240,7 @@ public class NamedRangesTests
         ws1.Range("B2:E6").AddToNamed("Named range", XLScope.Worksheet);
         var dn = ws1.DefinedName("Named range");
 
-        TestDelegate action = () => dn.CopyTo(ws1);
+        Action action = () => dn.CopyTo(ws1);
 
         Assert.Throws<InvalidOperationException>(action);
     }

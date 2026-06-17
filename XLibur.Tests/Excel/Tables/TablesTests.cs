@@ -932,7 +932,7 @@ public class TablesTests
 
         var table = ws1.Range("A1:C2").AsTable();
 
-        TestDelegate action = () => table.CopyTo(ws1);
+        Action action = () => table.CopyTo(ws1);
 
         Assert.Throws<InvalidOperationException>(action);
     }
