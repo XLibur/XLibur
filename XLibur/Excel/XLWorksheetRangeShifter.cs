@@ -34,6 +34,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         MoveDefinedNamesColumns(range, columnsShifted, worksheet.Workbook.DefinedNamesInternal);
         ShiftConditionalFormattingColumns(range, columnsShifted);
         ShiftDataValidationColumns(range, columnsShifted);
+        ShiftDataValidationFormulaColumns(range, columnsShifted);
         ShiftPageBreaksColumns(range, columnsShifted);
         RemoveInvalidSparklines();
 
@@ -76,6 +77,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         MoveDefinedNamesRows(range, rowsShifted, worksheet.Workbook.DefinedNamesInternal);
         ShiftConditionalFormattingRows(range, rowsShifted);
         ShiftDataValidationRows(range, rowsShifted);
+        ShiftDataValidationFormulaRows(range, rowsShifted);
         RemoveInvalidSparklines();
         ShiftPageBreaksRows(range, rowsShifted);
 
@@ -228,6 +230,53 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
             if (!dv.Ranges.Any())
                 worksheet.DataValidations.Delete(v => v == dv);
         }
+    }
+
+    /// <summary>
+    /// Shifts cell references inside data-validation criteria formulas (formula1/formula2,
+    /// stored in <see cref="IXLDataValidation.MinValue"/> / <see cref="IXLDataValidation.MaxValue"/>)
+    /// when columns are inserted or deleted. The validation <em>ranges</em> (sqref) are handled by
+    /// <see cref="ShiftDataValidationColumns"/>; this re-points list/custom/comparison rules
+    /// whose formula refers to other cells (e.g. dependent dropdowns built on OFFSET/MATCH),
+    /// mirroring <see cref="MoveDefinedNamesColumns"/>. Every worksheet's validations are visited
+    /// (not just the mutated sheet's) so a formula on one sheet that references the mutated sheet is
+    /// re-pointed too; <see cref="XLCellFormulaShifter.ShiftFormulaColumns"/> only touches references
+    /// to the sheet being shifted, so unrelated references pass through. Run unconditionally because
+    /// the range shifter short-circuits for first-column inserts.
+    /// </summary>
+    private void ShiftDataValidationFormulaColumns(XLRange range, int columnsShifted)
+    {
+        worksheet.Workbook.WorksheetsInternal.ForEach<XLWorksheet>(ws =>
+        {
+            foreach (var dv in ws.DataValidations.ToList())
+            {
+                if (!string.IsNullOrEmpty(dv.MinValue))
+                    dv.MinValue = XLCellFormulaShifter.ShiftFormulaColumns(dv.MinValue, ws, range, columnsShifted);
+                if (!string.IsNullOrEmpty(dv.MaxValue))
+                    dv.MaxValue = XLCellFormulaShifter.ShiftFormulaColumns(dv.MaxValue, ws, range, columnsShifted);
+            }
+        });
+    }
+
+    /// <summary>
+    /// Shifts cell references inside data-validation criteria formulas (formula1/formula2,
+    /// stored in <see cref="IXLDataValidation.MinValue"/> / <see cref="IXLDataValidation.MaxValue"/>)
+    /// when rows are inserted or deleted. The row counterpart of
+    /// <see cref="ShiftDataValidationFormulaColumns"/>; run unconditionally because the range
+    /// shifter short-circuits for first-row inserts.
+    /// </summary>
+    private void ShiftDataValidationFormulaRows(XLRange range, int rowsShifted)
+    {
+        worksheet.Workbook.WorksheetsInternal.ForEach<XLWorksheet>(ws =>
+        {
+            foreach (var dv in ws.DataValidations.ToList())
+            {
+                if (!string.IsNullOrEmpty(dv.MinValue))
+                    dv.MinValue = XLCellFormulaShifter.ShiftFormulaRows(dv.MinValue, ws, range, rowsShifted);
+                if (!string.IsNullOrEmpty(dv.MaxValue))
+                    dv.MaxValue = XLCellFormulaShifter.ShiftFormulaRows(dv.MaxValue, ws, range, rowsShifted);
+            }
+        });
     }
 
     private IXLRange ShiftRangeColumns(IXLRange range, IXLRange model, int firstCol, int columnsShifted)
