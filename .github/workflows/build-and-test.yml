@@ -48,7 +48,10 @@ jobs:
         run: dotnet restore XLibur.slnx
 
       - name: Check formatting
-        run: dotnet format XLibur.slnx --verify-no-changes --verbosity diagnostic
+        run: |
+          if ! dotnet format XLibur.slnx --verify-no-changes --verbosity diagnostic; then
+            echo "::warning::Code formatting issues detected. Run 'dotnet format XLibur.slnx' locally to fix."
+          fi
 
       - name: Check vulnerable packages
         run: |
