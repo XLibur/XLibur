@@ -1143,20 +1143,30 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     /// <summary>
     /// Relocates an array/data-table formula range when a same-sheet row insert/delete moves the
-    /// array's cells. The range moves only when it sits entirely within the shifted columns and
-    /// at or below the shifted row (Excel does not allow inserting/deleting through part of an
-    /// array), mirroring the physical cell move.
+    /// array's cells as a whole, mirroring the physical cell move. The range is relocated only
+    /// when the array sits entirely within the shifted columns AND entirely inside the region the
+    /// shift actually moves; if the operation cuts through the array (Excel does not allow editing
+    /// part of an array) the range is left unchanged rather than producing a torn or out-of-bounds
+    /// range — e.g. deleting rows that overlap the array must not push its top below row 1.
     /// </summary>
     private static XLSheetRange ShiftArrayRangeRows(XLSheetRange arrayRange, XLRange shiftedRange, int rowsShifted)
     {
         var addr = shiftedRange.RangeAddress;
-        var firstRow = addr.FirstAddress.RowNumber;
         var firstColumn = addr.FirstAddress.ColumnNumber;
         var lastColumn = addr.LastAddress.ColumnNumber;
 
-        if (arrayRange.TopRow < firstRow)
-            return arrayRange;
         if (arrayRange.LeftColumn < firstColumn || arrayRange.RightColumn > lastColumn)
+            return arrayRange;
+
+        // Rows at or below this threshold are physically relocated by the shift: the insertion row
+        // for an insert (rowsShifted > 0), or the first row after the deleted band for a delete
+        // (rowsShifted < 0). Requiring the whole array to start at/below it also guarantees the
+        // shifted coordinates stay >= 1 (for a delete, TopRow > lastRow implies TopRow - count >= firstRow).
+        var movedRegionTop = rowsShifted >= 0
+            ? addr.FirstAddress.RowNumber
+            : addr.LastAddress.RowNumber + 1;
+
+        if (arrayRange.TopRow < movedRegionTop)
             return arrayRange;
 
         return new XLSheetRange(
@@ -1170,13 +1180,17 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     private static XLSheetRange ShiftArrayRangeColumns(XLSheetRange arrayRange, XLRange shiftedRange, int columnsShifted)
     {
         var addr = shiftedRange.RangeAddress;
-        var firstColumn = addr.FirstAddress.ColumnNumber;
         var firstRow = addr.FirstAddress.RowNumber;
         var lastRow = addr.LastAddress.RowNumber;
 
-        if (arrayRange.LeftColumn < firstColumn)
-            return arrayRange;
         if (arrayRange.TopRow < firstRow || arrayRange.BottomRow > lastRow)
+            return arrayRange;
+
+        var movedRegionLeft = columnsShifted >= 0
+            ? addr.FirstAddress.ColumnNumber
+            : addr.LastAddress.ColumnNumber + 1;
+
+        if (arrayRange.LeftColumn < movedRegionLeft)
             return arrayRange;
 
         return new XLSheetRange(

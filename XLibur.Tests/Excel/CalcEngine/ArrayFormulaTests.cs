@@ -337,4 +337,52 @@ public class ArrayFormulaTests
         var metadataXml = metadataReader.ReadToEnd();
         Assert.That(metadataXml, Does.Contain("fDynamic=\"1\""), "Dynamic-array metadata missing");
     }
+
+    [Test]
+    public void DeletingRowsThroughArrayDoesNotCorruptRange()
+    {
+        // Deleting rows that overlap an array used to push the stored range past row 1, producing
+        // an out-of-bounds coordinate (e.g. A0:A2) via the unchecked XLSheetPoint constructor.
+        // Excel forbids editing part of an array; XLibur must at least keep a valid range and a
+        // saveable workbook rather than silently corrupting it.
+        using var ms = new MemoryStream();
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("S");
+        ws.Range("A2:A4").FormulaArrayA1 = "TRANSPOSE({1,2,3})";
+
+        Assert.That(() => ws.Rows(1, 2).Delete(), Throws.Nothing);
+
+        foreach (var cell in ws.CellsUsed(c => c.HasArrayFormula))
+        {
+            var reference = cell.FormulaReference!;
+            Assert.That(reference.FirstAddress.RowNumber, Is.GreaterThanOrEqualTo(1),
+                $"{cell.Address} array range has an out-of-bounds row: {reference.ToStringRelative()}");
+            Assert.That(reference.FirstAddress.ColumnNumber, Is.GreaterThanOrEqualTo(1),
+                $"{cell.Address} array range has an out-of-bounds column: {reference.ToStringRelative()}");
+        }
+
+        Assert.That(() => wb.SaveAs(ms, validate: false), Throws.Nothing);
+    }
+
+    [Test]
+    public void DeletingColumnsThroughArrayDoesNotCorruptRange()
+    {
+        using var ms = new MemoryStream();
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("S");
+        ws.Range("B1:D1").FormulaArrayA1 = "{1,2,3}";
+
+        Assert.That(() => ws.Columns(1, 2).Delete(), Throws.Nothing); // delete A:B, overlaps the array's left edge
+
+        foreach (var cell in ws.CellsUsed(c => c.HasArrayFormula))
+        {
+            var reference = cell.FormulaReference!;
+            Assert.That(reference.FirstAddress.ColumnNumber, Is.GreaterThanOrEqualTo(1),
+                $"{cell.Address} array range has an out-of-bounds column: {reference.ToStringRelative()}");
+            Assert.That(reference.FirstAddress.RowNumber, Is.GreaterThanOrEqualTo(1),
+                $"{cell.Address} array range has an out-of-bounds row: {reference.ToStringRelative()}");
+        }
+
+        Assert.That(() => wb.SaveAs(ms, validate: false), Throws.Nothing);
+    }
 }
