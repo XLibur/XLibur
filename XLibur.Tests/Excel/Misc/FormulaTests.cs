@@ -203,7 +203,7 @@ public class FormulaTests
         Assert.AreEqual(50, ws3.FirstCell().CellBelow().Value);
     }
 
-    [Test, Ignore("Shifting formulas is done by regexp that breaks array formula.")]
+    [Test]
     public void ShiftFormula()
     {
         using var wb = new XLWorkbook();

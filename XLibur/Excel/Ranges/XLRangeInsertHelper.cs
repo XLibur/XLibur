@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel;
@@ -50,10 +51,12 @@ internal static class XLRangeInsertHelper
 
     private static void ShiftFormulasForColumns(XLRangeBase range, int numberOfColumns)
     {
+        var asRange = range.AsRange();
+        var processedArrayFormulas = new HashSet<XLCellFormula>();
         foreach (var ws in range.Worksheet.Workbook.WorksheetsInternal)
         {
             foreach (var cell in ws.Internals.CellsCollection.GetCells(c => c.Formula is not null))
-                cell.ShiftFormulaColumns(range.AsRange(), numberOfColumns);
+                cell.ShiftFormulaColumns(asRange, numberOfColumns, processedArrayFormulas);
         }
     }
 
@@ -162,10 +165,11 @@ internal static class XLRangeInsertHelper
     private static void ShiftFormulasForRows(XLRangeBase range, int numberOfRows)
     {
         var asRange = range.AsRange();
+        var processedArrayFormulas = new HashSet<XLCellFormula>();
         foreach (var ws in range.Worksheet.Workbook.WorksheetsInternal)
         {
             foreach (var cell in ws.Internals.CellsCollection.GetCells(c => c.Formula is not null))
-                cell.ShiftFormulaRows(asRange, numberOfRows);
+                cell.ShiftFormulaRows(asRange, numberOfRows, processedArrayFormulas);
         }
     }
 

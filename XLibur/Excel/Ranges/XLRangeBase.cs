@@ -1066,6 +1066,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
             RangeAddress.LastAddress.ColumnNumber);
 
         // Shift formulas first
+        var processedArrayFormulas = new HashSet<XLCellFormula>();
         foreach (var cell in Worksheet
                      .Workbook
                      .Worksheets
@@ -1076,9 +1077,9 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
                          .GetCells(c => c.HasFormula)))
         {
             if (shiftDeleteCells == XLShiftDeletedCells.ShiftCellsUp)
-                cell.ShiftFormulaRows((XLRange)shiftedRangeFormula, numberOfRows * -1);
+                cell.ShiftFormulaRows((XLRange)shiftedRangeFormula, numberOfRows * -1, processedArrayFormulas);
             else
-                cell.ShiftFormulaColumns((XLRange)shiftedRangeFormula, numberOfColumns * -1);
+                cell.ShiftFormulaColumns((XLRange)shiftedRangeFormula, numberOfColumns * -1, processedArrayFormulas);
         }
 
         // Range to shift...

@@ -1062,11 +1062,112 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     internal void CopyDataValidation(XLCell otherCell, IXLDataValidation otherDv)
         => XLCellCopyHelper.CopyDataValidation(this, otherCell, otherDv);
 
-    internal void ShiftFormulaRows(XLRange shiftedRange, int rowsShifted)
-        => FormulaA1 = XLCellFormulaShifter.ShiftFormulaRows(FormulaA1, Worksheet, shiftedRange, rowsShifted);
+    internal void ShiftFormulaRows(XLRange shiftedRange, int rowsShifted, HashSet<XLCellFormula> processedArrayFormulas)
+    {
+        var formula = Formula;
+        if (formula is null)
+            return;
 
-    internal void ShiftFormulaColumns(XLRange shiftedRange, int columnsShifted)
-        => FormulaA1 = XLCellFormulaShifter.ShiftFormulaColumns(FormulaA1, Worksheet, shiftedRange, columnsShifted);
+        if (formula.Type == FormulaType.Normal)
+        {
+            var shiftedNormal = XLCellFormulaShifter.ShiftFormulaRows(formula.A1, Worksheet, shiftedRange, rowsShifted);
+            if (!string.Equals(shiftedNormal, formula.A1, StringComparison.Ordinal))
+                FormulaA1 = shiftedNormal;
+            return;
+        }
+
+        // Array / data-table formulas share a single XLCellFormula instance across every cell
+        // of their range. Process that instance exactly once — both the reference shift and the
+        // range relocation are position-independent — and never rebuild it as normal per-cell
+        // formulas, which would split a single spilled dynamic array (e.g. =UNIQUE(...)) into N
+        // implicit-intersection =@UNIQUE(...) cells.
+        if (!processedArrayFormulas.Add(formula))
+            return;
+
+        var shifted = XLCellFormulaShifter.ShiftFormulaRows(formula.A1, Worksheet, shiftedRange, rowsShifted);
+        formula.UpdateShiftedA1(shifted);
+
+        // When the array's own cells are relocated by a same-sheet row insert/delete, the
+        // physical cell move shifts the cells but not the formula's stored Range, leaving the
+        // master cell unidentifiable on save. Keep the Range in sync with the moved cells.
+        if (ReferenceEquals(Worksheet, shiftedRange.Worksheet))
+        {
+            var newRange = ShiftArrayRangeRows(formula.Range, shiftedRange, rowsShifted);
+            if (newRange != formula.Range)
+                formula.Range = newRange;
+        }
+    }
+
+    internal void ShiftFormulaColumns(XLRange shiftedRange, int columnsShifted, HashSet<XLCellFormula> processedArrayFormulas)
+    {
+        var formula = Formula;
+        if (formula is null)
+            return;
+
+        if (formula.Type == FormulaType.Normal)
+        {
+            var shiftedNormal = XLCellFormulaShifter.ShiftFormulaColumns(formula.A1, Worksheet, shiftedRange, columnsShifted);
+            if (!string.Equals(shiftedNormal, formula.A1, StringComparison.Ordinal))
+                FormulaA1 = shiftedNormal;
+            return;
+        }
+
+        if (!processedArrayFormulas.Add(formula))
+            return;
+
+        var shifted = XLCellFormulaShifter.ShiftFormulaColumns(formula.A1, Worksheet, shiftedRange, columnsShifted);
+        formula.UpdateShiftedA1(shifted);
+
+        if (ReferenceEquals(Worksheet, shiftedRange.Worksheet))
+        {
+            var newRange = ShiftArrayRangeColumns(formula.Range, shiftedRange, columnsShifted);
+            if (newRange != formula.Range)
+                formula.Range = newRange;
+        }
+    }
+
+    /// <summary>
+    /// Relocates an array/data-table formula range when a same-sheet row insert/delete moves the
+    /// array's cells. The range moves only when it sits entirely within the shifted columns and
+    /// at or below the shifted row (Excel does not allow inserting/deleting through part of an
+    /// array), mirroring the physical cell move.
+    /// </summary>
+    private static XLSheetRange ShiftArrayRangeRows(XLSheetRange arrayRange, XLRange shiftedRange, int rowsShifted)
+    {
+        var addr = shiftedRange.RangeAddress;
+        var firstRow = addr.FirstAddress.RowNumber;
+        var firstColumn = addr.FirstAddress.ColumnNumber;
+        var lastColumn = addr.LastAddress.ColumnNumber;
+
+        if (arrayRange.TopRow < firstRow)
+            return arrayRange;
+        if (arrayRange.LeftColumn < firstColumn || arrayRange.RightColumn > lastColumn)
+            return arrayRange;
+
+        return new XLSheetRange(
+            new XLSheetPoint(arrayRange.FirstPoint.Row + rowsShifted, arrayRange.FirstPoint.Column),
+            new XLSheetPoint(arrayRange.LastPoint.Row + rowsShifted, arrayRange.LastPoint.Column));
+    }
+
+    /// <summary>
+    /// Column-shift counterpart of <see cref="ShiftArrayRangeRows"/>.
+    /// </summary>
+    private static XLSheetRange ShiftArrayRangeColumns(XLSheetRange arrayRange, XLRange shiftedRange, int columnsShifted)
+    {
+        var addr = shiftedRange.RangeAddress;
+        var firstColumn = addr.FirstAddress.ColumnNumber;
+        var firstRow = addr.FirstAddress.RowNumber;
+        var lastRow = addr.LastAddress.RowNumber;
+
+        if (arrayRange.LeftColumn < firstColumn)
+            return arrayRange;
+        if (arrayRange.TopRow < firstRow || arrayRange.BottomRow > lastRow)
+            return arrayRange;
+
+        return new XLSheetRange(
+            new XLSheetPoint(arrayRange.FirstPoint.Row, arrayRange.FirstPoint.Column + columnsShifted),
+            new XLSheetPoint(arrayRange.LastPoint.Row, arrayRange.LastPoint.Column + columnsShifted));
+    }
 
     private XLCell CellShift(int rowsToShift, int columnsToShift)
     {
