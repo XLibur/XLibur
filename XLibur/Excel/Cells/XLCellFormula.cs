@@ -370,6 +370,22 @@ internal sealed class XLCellFormula
         return A1;
     }
 
+    /// <summary>
+    /// Replaces the stored A1 formula text in place and marks the formula dirty, keeping
+    /// the formula's <see cref="Type"/>, <see cref="Range"/> and <see cref="IsDynamicArray"/>
+    /// intact. Used when a row/column shift rewrites cell references inside an array or
+    /// data-table formula, which share a single instance across every cell of their range
+    /// and therefore must not be rebuilt as normal per-cell formulas.
+    /// </summary>
+    internal void UpdateShiftedA1(string newA1)
+    {
+        if (string.Equals(newA1, A1, StringComparison.Ordinal))
+            return;
+
+        A1 = newA1;
+        MarkExplicitlyDirty();
+    }
+
     public void RenameSheet(XLSheetPoint origin, string oldSheetName, string newSheetName)
     {
         var a1 = A1;

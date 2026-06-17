@@ -214,4 +214,127 @@ public class ArrayFormulaTests
             Assert.AreEqual(20.0, ws.Cell("B1").CachedValue);
         }
     }
+
+    [Test]
+    public void InsertingRowsInAnotherSheetKeepsArrayFormulaIntact()
+    {
+        // Regression: inserting rows/columns anywhere in the workbook used to route every
+        // formula cell through the FormulaA1 setter, rebuilding a *normal* formula per cell.
+        // For an array formula (which shares one instance across its whole range) this split a
+        // single spilled array (e.g. =UNIQUE(...)) into N implicit-intersection =@UNIQUE(...)
+        // cells, even when the insert happened on an unrelated sheet.
+        using var wb = new XLWorkbook();
+        var dataSheet = wb.AddWorksheet("Data");
+        var arraySheet = wb.AddWorksheet("Calc");
+        arraySheet.Range("A1:A3").FormulaArrayA1 = "TRANSPOSE({10,20,30})";
+
+        dataSheet.Row(1).InsertRowsAbove(5);
+
+        foreach (var cell in arraySheet.Range("A1:A3").Cells())
+        {
+            Assert.True(cell.HasArrayFormula, $"{cell.Address} lost its array formula");
+            Assert.AreEqual("A1:A3", cell.FormulaReference.ToStringRelative());
+        }
+    }
+
+    [Test]
+    public void InsertingRowsAboveShiftsArrayFormulaRange()
+    {
+        // A same-sheet insert above the array must relocate the array's spill range so the
+        // master cell is still identifiable (otherwise the formula vanishes on save).
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Range("B3:B5").FormulaArrayA1 = "TRANSPOSE({1,2,3})";
+
+        ws.Row(1).InsertRowsAbove(2);
+
+        foreach (var cell in ws.Range("B5:B7").Cells())
+        {
+            Assert.True(cell.HasArrayFormula, $"{cell.Address} lost its array formula");
+            Assert.AreEqual("B5:B7", cell.FormulaReference.ToStringRelative());
+        }
+    }
+
+    [Test]
+    public void InsertingColumnsBeforeShiftsArrayFormulaRange()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Range("B3:D3").FormulaArrayA1 = "{1,2,3}";
+
+        ws.Column(1).InsertColumnsBefore(1);
+
+        foreach (var cell in ws.Range("C3:E3").Cells())
+        {
+            Assert.True(cell.HasArrayFormula, $"{cell.Address} lost its array formula");
+            Assert.AreEqual("C3:E3", cell.FormulaReference.ToStringRelative());
+        }
+    }
+
+    [Test]
+    public void ArrayFormulaSurvivesInsertOnSaveAsSingleFormula()
+    {
+        // End-to-end: after an unrelated insert, the saved sheet must still contain exactly one
+        // array formula element (on the master cell), not one normal formula per cell.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var dataSheet = wb.AddWorksheet("Data");
+            var arraySheet = wb.AddWorksheet("Calc");
+            arraySheet.Range("A1:A3").FormulaArrayA1 = "TRANSPOSE({10,20,30})";
+
+            dataSheet.Row(1).InsertRowsAbove(3);
+
+            wb.SaveAs(ms, validate: false);
+        }
+
+        var bytes = ms.ToArray();
+        using var zip = new System.IO.Compression.ZipArchive(new MemoryStream(bytes), System.IO.Compression.ZipArchiveMode.Read);
+        var sheetEntry = zip.Entries.First(e => e.FullName.Contains("sheet2.xml", StringComparison.OrdinalIgnoreCase));
+        using var sr = new StreamReader(sheetEntry.Open());
+        var sheetXml = sr.ReadToEnd();
+
+        // Exactly one array-formula element, referencing the whole spill range.
+        var arrayCount = sheetXml.Split("t=\"array\"").Length - 1;
+        Assert.AreEqual(1, arrayCount, "Array formula was split into multiple per-cell formulas");
+        Assert.That(sheetXml, Does.Contain("ref=\"A1:A3\""));
+    }
+
+    [Test]
+    public void DynamicArrayFormulaKeepsDynamicFlagWhenShifted()
+    {
+        // A dynamic array is stored as a normal formula with the dynamic-array flag set.
+        // When a shift changes the referenced cells, the formula must stay dynamic so the
+        // saved cell keeps its cm metadata link and Excel does not apply implicit
+        // intersection (=@UNIQUE(...)).
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("S");
+            ws.Cell("A1").Value = 1;
+            ws.Cell("A2").Value = 2;
+            ws.Cell("A3").Value = 2;
+            ws.Cell("C1").SetDynamicFormulaA1("UNIQUE(A1:A3)");
+
+            ws.Row(1).InsertRowsAbove(1); // C1 -> C2, references A1:A3 -> A2:A4
+
+            wb.SaveAs(ms, validate: false);
+        }
+
+        using var zip = new System.IO.Compression.ZipArchive(new MemoryStream(ms.ToArray()), System.IO.Compression.ZipArchiveMode.Read);
+
+        var sheetEntry = zip.Entries.First(e => e.FullName.Contains("sheet1.xml", StringComparison.OrdinalIgnoreCase));
+        using var sheetReader = new StreamReader(sheetEntry.Open());
+        var sheetXml = sheetReader.ReadToEnd();
+
+        // The shifted formula still carries the dynamic-array cell-metadata link.
+        Assert.That(sheetXml, Does.Contain("_xlfn.UNIQUE(A2:A4)"), "Reference shift did not apply");
+        Assert.That(sheetXml, Does.Contain("cm=\"1\""), "Dynamic-array cell metadata (cm) was lost on shift");
+
+        // The dynamic-array metadata part is present.
+        var metadataEntry = zip.Entries.First(e => e.FullName.Contains("metadata", StringComparison.OrdinalIgnoreCase));
+        using var metadataReader = new StreamReader(metadataEntry.Open());
+        var metadataXml = metadataReader.ReadToEnd();
+        Assert.That(metadataXml, Does.Contain("fDynamic=\"1\""), "Dynamic-array metadata missing");
+    }
 }
