@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -30,8 +30,8 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.AreEqual("F3:F816", rule.Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("=$E3>0", rule.Value);
+        Assert.That(rule.Ranges.Single().RangeAddress.ToString(), Is.EqualTo("F3:F816"));
+        Assert.That(rule.Value, Is.EqualTo("=$E3>0"));
     }
 
     [Test]
@@ -45,8 +45,8 @@ public class DataValidationFormulaShiftTests
 
         ws.Row(1).InsertRowsAbove(1);
 
-        Assert.AreEqual("C4:Z4", rule.Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("=D$4>0", rule.Value);
+        Assert.That(rule.Ranges.Single().RangeAddress.ToString(), Is.EqualTo("C4:Z4"));
+        Assert.That(rule.Value, Is.EqualTo("=D$4>0"));
     }
 
     [Test]
@@ -61,8 +61,8 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(2).Delete();
 
-        Assert.AreEqual("G3:G10", rule.Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("=$F3>0", rule.Value);
+        Assert.That(rule.Ranges.Single().RangeAddress.ToString(), Is.EqualTo("G3:G10"));
+        Assert.That(rule.Value, Is.EqualTo("=$F3>0"));
     }
 
     [Test]
@@ -76,8 +76,8 @@ public class DataValidationFormulaShiftTests
 
         ws.Row(2).Delete();
 
-        Assert.AreEqual("C7:Z7", rule.Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("=D$7>0", rule.Value);
+        Assert.That(rule.Ranges.Single().RangeAddress.ToString(), Is.EqualTo("C7:Z7"));
+        Assert.That(rule.Value, Is.EqualTo("=D$7>0"));
     }
 
     [Test]
@@ -91,8 +91,8 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.AreEqual("$D3", rule.MinValue);
-        Assert.AreEqual("$E3", rule.MaxValue);
+        Assert.That(rule.MinValue, Is.EqualTo("$D3"));
+        Assert.That(rule.MaxValue, Is.EqualTo("$E3"));
     }
 
     [Test]
@@ -106,7 +106,7 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.AreEqual("=$E$3:$E$10", rule.Value);
+        Assert.That(rule.Value, Is.EqualTo("=$E$3:$E$10"));
     }
 
     [Test]
@@ -120,9 +120,9 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.AreEqual(
-            "=OFFSET(SubCategoryList,MATCH($E3,CategoryList,0)-1,0,COUNTIF(CategoryList,$E3),1)",
-            rule.Value);
+        Assert.That(
+            rule.Value,
+            Is.EqualTo("=OFFSET(SubCategoryList,MATCH($E3,CategoryList,0)-1,0,COUNTIF(CategoryList,$E3),1)"));
     }
 
     [Test]
@@ -138,8 +138,8 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.AreEqual("C3:C10", rule.Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("=$B3>0", rule.Value);
+        Assert.That(rule.Ranges.Single().RangeAddress.ToString(), Is.EqualTo("C3:C10"));
+        Assert.That(rule.Value, Is.EqualTo("=$B3>0"));
     }
 
     [Test]
@@ -153,8 +153,8 @@ public class DataValidationFormulaShiftTests
 
         ws.Row(1).InsertRowsAbove(1);
 
-        Assert.AreEqual("C3:Z3", rule.Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("=D$2>0", rule.Value);
+        Assert.That(rule.Ranges.Single().RangeAddress.ToString(), Is.EqualTo("C3:Z3"));
+        Assert.That(rule.Value, Is.EqualTo("=D$2>0"));
     }
 
     // ---- Negative cases (formula must NOT change) ----
@@ -170,8 +170,8 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.AreEqual("0", rule.MinValue);
-        Assert.AreEqual("1", rule.MaxValue);
+        Assert.That(rule.MinValue, Is.EqualTo("0"));
+        Assert.That(rule.MaxValue, Is.EqualTo("1"));
     }
 
     [Test]
@@ -185,7 +185,7 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.AreEqual("\"Yes,No,Maybe\"", rule.Value);
+        Assert.That(rule.Value, Is.EqualTo("\"Yes,No,Maybe\""));
     }
 
     [Test]
@@ -202,7 +202,7 @@ public class DataValidationFormulaShiftTests
         // the cross-sheet reference must be untouched.
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.AreEqual("='Other lookup'!$D$2:$D$9", rule.Value);
+        Assert.That(rule.Value, Is.EqualTo("='Other lookup'!$D$2:$D$9"));
     }
 
     [Test]
@@ -218,7 +218,7 @@ public class DataValidationFormulaShiftTests
         // Mutating the *referenced* sheet shifts the reference (D -> E).
         lookup.Column(1).InsertColumnsBefore(1);
 
-        Assert.AreEqual("='Other lookup'!$E$2:$E$9", rule.Value);
+        Assert.That(rule.Value, Is.EqualTo("='Other lookup'!$E$2:$E$9"));
     }
 
     [Test]
@@ -233,7 +233,7 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(6).InsertColumnsBefore(1);
 
-        Assert.AreEqual("=$B3>0", rule.Value);
+        Assert.That(rule.Value, Is.EqualTo("=$B3>0"));
     }
 
     // ---- Round-trip (save -> reopen with OpenXML) ----
@@ -257,7 +257,7 @@ public class DataValidationFormulaShiftTests
         var sheetPart = doc.WorkbookPart!.WorksheetParts.First();
         var dv = sheetPart.Worksheet.Descendants<DataValidation>().Single();
 
-        Assert.AreEqual("F3:F816", dv.SequenceOfReferences!.InnerText);
-        Assert.AreEqual("$E3>0", dv.Formula1!.InnerText.TrimStart('='));
+        Assert.That(dv.SequenceOfReferences!.InnerText, Is.EqualTo("F3:F816"));
+        Assert.That(dv.Formula1!.InnerText.TrimStart('='), Is.EqualTo("$E3>0"));
     }
 }

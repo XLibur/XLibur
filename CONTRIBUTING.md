@@ -9,6 +9,11 @@ Here are some tips.
 * Please submit pull requests that are based on the `main` branch.
 * Where possible, pull requests should include unit tests that cover as many uses cases as possible.
 
+## Test Conventions
+
+* Tests use [NUnit](https://nunit.org/) 4.x.
+* New tests should use the **constraint model** (`Assert.That(actual, Is.EqualTo(expected))`) rather than the legacy classic asserts (`Assert.AreEqual(expected, actual)`). The actual value goes first, the expectation inside the constraint. Much of the existing suite still uses the classic style; it is being migrated incrementally, so please don't add new classic asserts.
+
 ## Setting up the pre-commit hook
 
 The repository includes a pre-commit hook that automatically formats staged C# files with `dotnet format`. After cloning, enable it by running:
