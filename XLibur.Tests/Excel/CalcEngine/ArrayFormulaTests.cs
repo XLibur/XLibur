@@ -299,4 +299,42 @@ public class ArrayFormulaTests
         Assert.AreEqual(1, arrayCount, "Array formula was split into multiple per-cell formulas");
         Assert.That(sheetXml, Does.Contain("ref=\"A1:A3\""));
     }
+
+    [Test]
+    public void DynamicArrayFormulaKeepsDynamicFlagWhenShifted()
+    {
+        // A dynamic array is stored as a normal formula with the dynamic-array flag set.
+        // When a shift changes the referenced cells, the formula must stay dynamic so the
+        // saved cell keeps its cm metadata link and Excel does not apply implicit
+        // intersection (=@UNIQUE(...)).
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("S");
+            ws.Cell("A1").Value = 1;
+            ws.Cell("A2").Value = 2;
+            ws.Cell("A3").Value = 2;
+            ws.Cell("C1").SetDynamicFormulaA1("UNIQUE(A1:A3)");
+
+            ws.Row(1).InsertRowsAbove(1); // C1 -> C2, references A1:A3 -> A2:A4
+
+            wb.SaveAs(ms, validate: false);
+        }
+
+        using var zip = new System.IO.Compression.ZipArchive(new MemoryStream(ms.ToArray()), System.IO.Compression.ZipArchiveMode.Read);
+
+        var sheetEntry = zip.Entries.First(e => e.FullName.Contains("sheet1.xml", StringComparison.OrdinalIgnoreCase));
+        using var sheetReader = new StreamReader(sheetEntry.Open());
+        var sheetXml = sheetReader.ReadToEnd();
+
+        // The shifted formula still carries the dynamic-array cell-metadata link.
+        Assert.That(sheetXml, Does.Contain("_xlfn.UNIQUE(A2:A4)"), "Reference shift did not apply");
+        Assert.That(sheetXml, Does.Contain("cm=\"1\""), "Dynamic-array cell metadata (cm) was lost on shift");
+
+        // The dynamic-array metadata part is present.
+        var metadataEntry = zip.Entries.First(e => e.FullName.Contains("metadata", StringComparison.OrdinalIgnoreCase));
+        using var metadataReader = new StreamReader(metadataEntry.Open());
+        var metadataXml = metadataReader.ReadToEnd();
+        Assert.That(metadataXml, Does.Contain("fDynamic=\"1\""), "Dynamic-array metadata missing");
+    }
 }

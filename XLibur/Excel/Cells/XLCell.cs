@@ -1072,7 +1072,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         {
             var shiftedNormal = XLCellFormulaShifter.ShiftFormulaRows(formula.A1, Worksheet, shiftedRange, rowsShifted);
             if (!string.Equals(shiftedNormal, formula.A1, StringComparison.Ordinal))
-                FormulaA1 = shiftedNormal;
+                SetShiftedNormalFormula(formula, shiftedNormal);
             return;
         }
 
@@ -1108,7 +1108,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         {
             var shiftedNormal = XLCellFormulaShifter.ShiftFormulaColumns(formula.A1, Worksheet, shiftedRange, columnsShifted);
             if (!string.Equals(shiftedNormal, formula.A1, StringComparison.Ordinal))
-                FormulaA1 = shiftedNormal;
+                SetShiftedNormalFormula(formula, shiftedNormal);
             return;
         }
 
@@ -1124,6 +1124,21 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             if (newRange != formula.Range)
                 formula.Range = newRange;
         }
+    }
+
+    /// <summary>
+    /// Reassigns a shifted normal-formula text, preserving the dynamic-array designation.
+    /// A dynamic array is stored as a normal formula with <see cref="XLCellFormula.IsDynamicArray"/>
+    /// set; routing it through the plain <see cref="FormulaA1"/> setter would rebuild it as a
+    /// regular formula and drop that flag, so on save it would lose its <c>cm</c> dynamic-array
+    /// metadata and Excel would apply implicit intersection (e.g. <c>=@UNIQUE(...)</c>).
+    /// </summary>
+    private void SetShiftedNormalFormula(XLCellFormula formula, string shiftedA1)
+    {
+        if (formula.IsDynamicArray)
+            SetDynamicFormulaA1(shiftedA1);
+        else
+            FormulaA1 = shiftedA1;
     }
 
     /// <summary>
