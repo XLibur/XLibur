@@ -15,14 +15,14 @@ public class SparklinesTests
     [Test]
     public void CannotCreateSparklineGroupsWithoutWorksheet()
     {
-        TestDelegate action = () => _ = new XLSparklineGroups(null);
+        Action action = () => _ = new XLSparklineGroups(null);
         Assert.Throws<ArgumentNullException>(action);
     }
 
     [Test]
     public void CannotCreateSparklineGroupWithoutWorksheet()
     {
-        TestDelegate action = () => _ = new XLSparklineGroup(null);
+        Action action = () => _ = new XLSparklineGroup(null);
         Assert.Throws<ArgumentNullException>(action);
     }
 
@@ -30,7 +30,7 @@ public class SparklinesTests
     public void CannotCreateSparklineWithoutGroup()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
-        TestDelegate action = () => _ = new XLSparkline(null, ws.Cell("A1"), ws.Range("A2:A5"));
+        Action action = () => _ = new XLSparkline(null, ws.Cell("A1"), ws.Range("A2:A5"));
         Assert.Throws<ArgumentNullException>(action);
     }
 
@@ -39,7 +39,7 @@ public class SparklinesTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         var group = new XLSparklineGroup(ws);
-        TestDelegate action = () => _ = new XLSparkline(group, null, ws.Range("A2:A5"));
+        Action action = () => _ = new XLSparkline(group, null, ws.Range("A2:A5"));
         Assert.Throws<ArgumentNullException>(action);
     }
 
@@ -115,7 +115,7 @@ public class SparklinesTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
-        TestDelegate action = () => ws.SparklineGroups.Add(ws.Range("A1:C2"), ws.Range("A3:C4"));
+        Action action = () => ws.SparklineGroups.Add(ws.Range("A1:C2"), ws.Range("A3:C4"));
 
         var message = Assert.Throws<ArgumentException>(action).Message;
         Assert.AreEqual("locationRange must have either a single row or a single column", message);
@@ -126,7 +126,7 @@ public class SparklinesTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
-        TestDelegate action = () => ws.SparklineGroups.Add(ws.Range("A1:C1"), ws.Range("A3:D4"));
+        Action action = () => ws.SparklineGroups.Add(ws.Range("A1:C1"), ws.Range("A3:D4"));
 
         var message = Assert.Throws<ArgumentException>(action).Message;
         Assert.AreEqual("locationRange and sourceDataRange must have the same width", message);
@@ -137,7 +137,7 @@ public class SparklinesTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
-        TestDelegate action = () => ws.SparklineGroups.Add(ws.Range("A1:A3"), ws.Range("B1:B4"));
+        Action action = () => ws.SparklineGroups.Add(ws.Range("A1:A3"), ws.Range("B1:B4"));
 
         var message = Assert.Throws<ArgumentException>(action).Message;
         Assert.AreEqual("locationRange and sourceDataRange must have the same height", message);
@@ -148,7 +148,7 @@ public class SparklinesTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
-        TestDelegate action = () => ws.SparklineGroups.Add(ws.Range("A1:A1"), ws.Range("B1:C4"));
+        Action action = () => ws.SparklineGroups.Add(ws.Range("A1:A1"), ws.Range("B1:C4"));
 
         var message = Assert.Throws<ArgumentException>(action).Message;
         Assert.AreEqual("SourceData range must have either a single row or a single column", message);
@@ -183,7 +183,7 @@ public class SparklinesTests
 
         var group = new XLSparklineGroup(ws1);
 
-        TestDelegate action = () => ws2.SparklineGroups.Add(group);
+        Action action = () => ws2.SparklineGroups.Add(group);
 
         var message = Assert.Throws<ArgumentException>(action).Message;
         Assert.AreEqual("The specified sparkline group belongs to the different worksheet", message);
@@ -198,7 +198,7 @@ public class SparklinesTests
 
         var group = new XLSparklineGroup(ws1);
 
-        TestDelegate action = () => group.Add(ws2.Cell("A3"), ws1.Range("B3:E3"));
+        Action action = () => group.Add(ws2.Cell("A3"), ws1.Range("B3:E3"));
 
         var message = Assert.Throws<ArgumentException>(action).Message;
         Assert.AreEqual("The specified sparkline belongs to the different worksheet", message);
@@ -424,7 +424,7 @@ public class SparklinesTests
 
         var group = ws1.SparklineGroups.Add("A1:A2", "B1:Z2");
 
-        TestDelegate action = () => group.First().SetLocation(ws2.FirstCell());
+        Action action = () => group.First().SetLocation(ws2.FirstCell());
 
         var message = Assert.Throws<InvalidOperationException>(action).Message;
         Assert.AreEqual("Cannot move the sparkline to a different worksheet", message);
@@ -453,7 +453,7 @@ public class SparklinesTests
         var group = ws.SparklineGroups.Add("A1", "B1:Z1");
         var sparkline = group.Single();
 
-        TestDelegate action = () => sparkline.SetSourceData(ws.Range("B1:Z2"));
+        Action action = () => sparkline.SetSourceData(ws.Range("B1:Z2"));
 
         var message = Assert.Throws<ArgumentException>(action).Message;
         Assert.AreEqual("SourceData range must have either a single row or a single column", message);
@@ -495,7 +495,7 @@ public class SparklinesTests
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1", "B1:Z1");
 
-        TestDelegate action = () => group.Style = null;
+        Action action = () => group.Style = null;
 
         Assert.Throws<ArgumentNullException>(action);
     }
@@ -966,7 +966,7 @@ public class SparklinesTests
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1:A2", "B1:Z2");
 
-        TestDelegate action = () => group.DateRange = ws.Range("B3:Z4");
+        Action action = () => group.DateRange = ws.Range("B3:Z4");
 
         Assert.Throws<ArgumentException>(action);
     }

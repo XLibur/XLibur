@@ -310,7 +310,7 @@ public class XLWorksheetTests
     public void WorksheetNameCannotStartWithApostrophe()
     {
         var title = "'StartsWithApostrophe";
-        TestDelegate addWorksheet = () =>
+        Action addWorksheet = () =>
         {
             using var wb = new XLWorkbook();
             wb.Worksheets.Add(title);
@@ -323,7 +323,7 @@ public class XLWorksheetTests
     public void WorksheetNameCannotEndWithApostrophe()
     {
         var title = "EndsWithApostrophe'";
-        TestDelegate addWorksheet = () =>
+        Action addWorksheet = () =>
         {
             using var wb = new XLWorkbook();
             wb.Worksheets.Add(title);
@@ -350,7 +350,7 @@ public class XLWorksheetTests
     {
         var title = "With'Apostrophe";
         var savedTitle = "";
-        TestDelegate saveAndOpenWorkbook = () =>
+        Action saveAndOpenWorkbook = () =>
         {
             using var ms = new MemoryStream();
             using (var wb = new XLWorkbook())

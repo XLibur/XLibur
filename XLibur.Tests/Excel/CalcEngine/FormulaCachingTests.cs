@@ -207,10 +207,10 @@ public class FormulaCachingTests
         a4.FormulaA1 = "=A3*10";
         a1.FormulaA1 = "A2+A3+A4";
 
-        var getValueA1 = new TestDelegate(() => { _ = a1.Value; });
-        var getValueA2 = new TestDelegate(() => { _ = a2.Value; });
-        var getValueA3 = new TestDelegate(() => { _ = a3.Value; });
-        var getValueA4 = new TestDelegate(() => { _ = a4.Value; });
+        var getValueA1 = new Action(() => { _ = a1.Value; });
+        var getValueA2 = new Action(() => { _ = a2.Value; });
+        var getValueA3 = new Action(() => { _ = a3.Value; });
+        var getValueA4 = new Action(() => { _ = a4.Value; });
 
         Assert.Throws<InvalidOperationException>(getValueA1);
         Assert.Throws<InvalidOperationException>(getValueA2);
