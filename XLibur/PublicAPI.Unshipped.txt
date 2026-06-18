@@ -79,3 +79,13 @@ XLibur.Excel.XLUsedCellEnumerator.Current.get -> XLibur.Excel.XLUsedCell
 XLibur.Excel.XLUsedCellEnumerator.Dispose() -> void
 XLibur.Excel.XLUsedCellEnumerator.MoveNext() -> bool
 XLibur.Excel.XLUsedCellEnumerator.XLUsedCellEnumerator() -> void
+XLibur.Excel.Drawings.IXLPicture.Group.get -> XLibur.Excel.Drawings.IXLPictureGroup?
+XLibur.Excel.Drawings.IXLPicture.IsInGroup.get -> bool
+XLibur.Excel.Drawings.IXLPictureGroup
+XLibur.Excel.Drawings.IXLPictureGroup.Add(System.IO.Stream! stream) -> XLibur.Excel.Drawings.IXLPicture!
+XLibur.Excel.Drawings.IXLPictureGroup.Add(System.IO.Stream! stream, string! name) -> XLibur.Excel.Drawings.IXLPicture!
+XLibur.Excel.Drawings.IXLPictureGroup.Pictures.get -> System.Collections.Generic.IEnumerable<XLibur.Excel.Drawings.IXLPicture!>!
+XLibur.Excel.Drawings.IXLPictureGroup.Remove(XLibur.Excel.Drawings.IXLPicture! picture) -> void
+XLibur.Excel.Drawings.IXLPictureGroup.Worksheet.get -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.Drawings.IXLPictures.Group(params XLibur.Excel.Drawings.IXLPicture![]! pictures) -> XLibur.Excel.Drawings.IXLPictureGroup!
+XLibur.Excel.IXLWorksheet.PictureGroups.get -> System.Collections.Generic.IEnumerable<XLibur.Excel.Drawings.IXLPictureGroup!>!

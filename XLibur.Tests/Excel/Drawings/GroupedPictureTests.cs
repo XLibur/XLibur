@@ -1,8 +1,11 @@
+using System;
 using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using NUnit.Framework;
 using XLibur.Excel;
+using XLibur.Excel.Drawings;
+using XLibur.Excel.IO;
 using XLibur.Tests.Utils;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
@@ -13,59 +16,567 @@ public class GroupedPictureTests
 {
     private const string GroupedPicturesResource = @"Other\Drawings\GroupedPictures.xlsx";
 
-    // Regression test for pictures nested inside a group shape (xdr:grpSp).
-    // Previously, loading a worksheet whose drawing contained a group of pictures would read
-    // only the first picture and, on save, replace the whole group anchor with that single
-    // regenerated picture — silently dropping the sibling pictures, connectors and shapes
-    // (e.g. "Picture 2" vanished and "Picture 1" was resized). Such pictures are now skipped
-    // by the loader so the original drawing XML is preserved verbatim on round-trip.
+    // The fixture's "Map" sheet has a twoCellAnchor → grpSp containing two pictures
+    // (Picture 1: child ext 2_000_000 EMU, Picture 2: child ext 1_500_000 EMU) plus a
+    // connector. The group is scaled 2× (ext 10_000_000 vs chExt 5_000_000 horizontally,
+    // 8_000_000 vs 4_000_000 vertically), so the sheet-space sizes are the child extents × 2.
 
-    [Test]
-    public void GroupedPicturesAreNotLoadedIntoTheModel()
+    private static MemoryStream OpenFixture()
     {
-        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(GroupedPicturesResource));
-        using var wb = new XLWorkbook(stream);
-
-        var ws = wb.Worksheet("Map");
-
-        // The two pictures live inside a group shape and are intentionally not surfaced as
-        // editable pictures, because the model cannot round-trip them without data loss.
-        Assert.That(ws.Pictures.Count, Is.EqualTo(0));
+        var ms = new MemoryStream();
+        using var src = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(GroupedPicturesResource));
+        src.CopyTo(ms);
+        ms.Position = 0;
+        return ms;
     }
 
     [Test]
-    public void RoundTripPreservesGroupedPicturesAndShapes()
+    public void GroupedPicturesAreLoadedWithGroupScaledGeometry()
     {
-        using var input = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(GroupedPicturesResource));
-        using var output = new MemoryStream();
+        using var stream = OpenFixture();
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheet("Map");
 
-        using (var wb = new XLWorkbook(input))
+        Assert.That(ws.Pictures.Count, Is.EqualTo(2));
+
+        var picture1 = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 1");
+        var picture2 = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 2");
+
+        Assert.That(picture1.IsInGroup, Is.True);
+        Assert.That(picture2.IsInGroup, Is.True);
+
+        // Both pictures are scaled by the same group factor, so their relative sizes are preserved:
+        // Picture 1 (child 2_000_000) is larger than Picture 2 (child 1_500_000).
+        Assert.That(picture1.Width, Is.GreaterThan(0));
+        Assert.That(picture1.Width, Is.GreaterThan(picture2.Width));
+        Assert.That(picture1.Height, Is.GreaterThan(picture2.Height));
+
+        // Picture 1's sheet-space extent is twice its child extent (2_000_000 → 4_000_000 EMU).
+        var expectedPx1 = DrawingPartReader.ConvertFromEnglishMetricUnits(4_000_000, wb.DpiX);
+        Assert.That(picture1.Width, Is.EqualTo(expectedPx1));
+    }
+
+    [Test]
+    public void UneditedRoundTripPreservesGroupPicturesAndShapes()
+    {
+        using var output = new MemoryStream();
+        using (var stream = OpenFixture())
+        using (var wb = new XLWorkbook(stream))
         {
             wb.SaveAs(output);
         }
 
         output.Position = 0;
-
         using var package = SpreadsheetDocument.Open(output, false);
         var drawingsPart = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart;
         Assert.That(drawingsPart, Is.Not.Null);
-
         var drawing = drawingsPart!.WorksheetDrawing;
 
-        // The group and both of its pictures survive...
-        Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(1), "group shape should be preserved");
-        Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2), "both grouped pictures should be preserved");
+        var groups = drawing.Descendants<Xdr.GroupShape>().ToList();
+        Assert.That(groups.Count, Is.EqualTo(1), "group preserved");
 
-        // ...along with the connector inside the group...
-        Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1), "grouped connector should be preserved");
+        // Assert on the group node so the shapes are verified to remain *inside* the group rather
+        // than having been moved out to the top level during the round-trip.
+        var group = groups[0];
+        Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2), "both pictures preserved inside the group");
+        Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1), "connector preserved inside the group");
 
-        // ...and both image relationships still resolve to image parts.
-        var embeds = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
-            .Select(b => b.Embed?.Value)
-            .Where(v => v is not null)
+        // An unedited grouped picture must keep its exact child-space extent (no rounding drift).
+        var extents = group.Descendants<Xdr.Picture>()
+            .Select(p => p.ShapeProperties!.Transform2D!.Extents!)
+            .Select(e => (e.Cx!.Value, e.Cy!.Value))
+            .OrderByDescending(t => t.Item1)
             .ToList();
+        Assert.That(extents[0], Is.EqualTo((2_000_000L, 2_000_000L)));
+        Assert.That(extents[1], Is.EqualTo((1_500_000L, 1_500_000L)));
+
+        // Both image relationships still resolve to image parts.
+        var embeds = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
+            .Select(b => b.Embed?.Value).Where(v => v is not null).ToList();
         Assert.That(embeds.Count, Is.EqualTo(2));
         foreach (var embed in embeds)
             Assert.That(drawingsPart.GetPartById(embed!), Is.InstanceOf<ImagePart>());
+    }
+
+    [Test]
+    public void ResizingGroupedPictureRoundTrips()
+    {
+        using var output = new MemoryStream();
+        int newWidth, newHeight;
+
+        using (var stream = OpenFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var picture1 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 1");
+            newWidth = picture1.Width + 150;
+            newHeight = picture1.Height + 90;
+            picture1.Width = newWidth;
+            picture1.Height = newHeight;
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var picture1 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 1");
+
+            // Round-trips through the group transform involve EMU<->pixel conversions, so allow a
+            // small rounding tolerance.
+            Assert.That(picture1.Width, Is.EqualTo(newWidth).Within(2));
+            Assert.That(picture1.Height, Is.EqualTo(newHeight).Within(2));
+        }
+
+        // The group, the second picture and the connector all survive the edit.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+            var groups = drawing.Descendants<Xdr.GroupShape>().ToList();
+            Assert.That(groups.Count, Is.EqualTo(1));
+
+            // The picture stays inside the group after the resize, alongside its sibling and connector.
+            var group = groups[0];
+            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
+            Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void GroupedPictureLeftTopReflectSheetPosition()
+    {
+        using var stream = OpenFixture();
+        using var wb = new XLWorkbook(stream);
+
+        var picture1 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 1");
+
+        // Group off (1_000_000, 1_000_000), 2× scale, child off (1_000_000, 1_000_000):
+        // sheet pos = (off − chOff·scale) + childOff·scale = −1_000_000 + 1_000_000·2 = 1_000_000 EMU.
+        Assert.That(picture1.Left, Is.EqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(1_000_000, wb.DpiX)));
+        Assert.That(picture1.Top, Is.EqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(1_000_000, wb.DpiY)));
+    }
+
+    [Test]
+    public void MovingGroupedPictureRoundTrips()
+    {
+        using var output = new MemoryStream();
+        int newLeft, newTop;
+
+        using (var stream = OpenFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var picture1 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 1");
+            newLeft = picture1.Left + 200;
+            newTop = picture1.Top + 150;
+            picture1.Left = newLeft;
+            picture1.Top = newTop;
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var picture1 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 1");
+            Assert.That(picture1.Left, Is.EqualTo(newLeft).Within(2));
+            Assert.That(picture1.Top, Is.EqualTo(newTop).Within(2));
+        }
+
+        // The picture stays inside the group, and the sibling + connector are untouched.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var group = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing
+                .Descendants<Xdr.GroupShape>().Single();
+            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
+            Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void RemovingGroupedPictureKeepsTheRestOfTheGroup()
+    {
+        using var output = new MemoryStream();
+        using (var stream = OpenFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var ws = wb.Worksheet("Map");
+            ws.Pictures.Single(p => p.Name == "Picture 2").Delete();
+            Assert.That(ws.Pictures.Count, Is.EqualTo(1), "deleted picture removed from the collection");
+            wb.SaveAs(output);
+        }
+
+        // Reopening: only Picture 1 remains, still inside the group.
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var pictures = wb.Worksheet("Map").Pictures;
+            Assert.That(pictures.Count, Is.EqualTo(1));
+            Assert.That(pictures.Single().Name, Is.EqualTo("Picture 1"));
+        }
+
+        // Only the deleted xdr:pic is gone; the group, the surviving picture and the connector stay.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var drawingsPart = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!;
+            var drawing = drawingsPart.WorksheetDrawing;
+            var group = drawing.Descendants<Xdr.GroupShape>().Single();
+
+            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(1));
+            Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+
+            // The surviving picture's image part is kept; the removed picture's is dropped.
+            var embeds = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
+                .Select(b => b.Embed?.Value).Where(v => v is not null).ToList();
+            Assert.That(embeds.Count, Is.EqualTo(1));
+            Assert.That(drawingsPart.GetPartById(embeds[0]!), Is.InstanceOf<ImagePart>());
+            Assert.That(drawingsPart.Parts.Count(p => p.OpenXmlPart is ImagePart), Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void AddingPictureToGroupRoundTrips()
+    {
+        using var output = new MemoryStream();
+        int width, height, left, top;
+
+        using (var stream = OpenFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var ws = wb.Worksheet("Map");
+            var pictures = (XLPictures)ws.Pictures;
+            var sibling = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 1");
+            using var image = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Images\SampleImagePng.png"));
+
+            var added = pictures.AddToGroup(sibling, image, "Added Picture");
+            added.Width = 300;
+            added.Height = 200;
+            added.Left = 400;
+            added.Top = 250;
+            (width, height, left, top) = (added.Width, added.Height, added.Left, added.Top);
+
+            Assert.That(pictures.Count, Is.EqualTo(3));
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var pictures = wb.Worksheet("Map").Pictures;
+            Assert.That(pictures.Count, Is.EqualTo(3));
+
+            var added = (XLPicture)pictures.Single(p => p.Name == "Added Picture");
+            Assert.That(added.IsInGroup, Is.True);
+            Assert.That(added.Width, Is.EqualTo(width).Within(2));
+            Assert.That(added.Height, Is.EqualTo(height).Within(2));
+            Assert.That(added.Left, Is.EqualTo(left).Within(2));
+            Assert.That(added.Top, Is.EqualTo(top).Within(2));
+        }
+
+        // The new picture went inside the group with the two originals and the connector, and got its
+        // own image part.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var drawingsPart = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!;
+            var group = drawingsPart.WorksheetDrawing.Descendants<Xdr.GroupShape>().Single();
+            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(3));
+            Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+            Assert.That(drawingsPart.Parts.Count(p => p.OpenXmlPart is ImagePart), Is.EqualTo(3));
+        }
+    }
+
+    private static void AddFreeFloatingPicture(IXLWorksheet ws, string name, int left, int top)
+    {
+        using var image = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Images\SampleImagePng.png"));
+        ws.AddPicture(image, name).MoveTo(left, top);
+    }
+
+    [Test]
+    public void GroupingFreeFloatingPicturesCreatesAGroup()
+    {
+        // Build a workbook with two free-floating pictures and save, so they exist in the drawing.
+        using var seeded = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Map");
+            AddFreeFloatingPicture(ws, "Pic A", 100, 100);
+            AddFreeFloatingPicture(ws, "Pic B", 500, 300);
+            wb.SaveAs(seeded);
+        }
+
+        using var output = new MemoryStream();
+        seeded.Position = 0;
+        using (var wb = new XLWorkbook(seeded))
+        {
+            var ws = wb.Worksheet("Map");
+            var pictures = (XLPictures)ws.Pictures;
+            var a = (XLPicture)ws.Pictures.Single(p => p.Name == "Pic A");
+            var b = (XLPicture)ws.Pictures.Single(p => p.Name == "Pic B");
+            pictures.Group(a, b);
+            wb.SaveAs(output);
+        }
+
+        // Both pictures now live in a single group; no top-level picture anchors remain.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+            var group = drawing.Descendants<Xdr.GroupShape>().Single();
+            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
+            Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2), "no picture left outside the group");
+            Assert.That(drawing.Elements<Xdr.AbsoluteAnchor>().Count(), Is.EqualTo(1), "only the group's anchor remains");
+        }
+
+        // XLibur reloads them as grouped pictures with their positions preserved.
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var ws = wb.Worksheet("Map");
+            Assert.That(ws.Pictures.Count, Is.EqualTo(2));
+            var a = (XLPicture)ws.Pictures.Single(p => p.Name == "Pic A");
+            Assert.That(a.IsInGroup, Is.True);
+            Assert.That(a.Left, Is.EqualTo(100).Within(2));
+            Assert.That(a.Top, Is.EqualTo(100).Within(2));
+        }
+    }
+
+    [Test]
+    public void PublicGroupApiExposesMembershipAndMutation()
+    {
+        using var output = new MemoryStream();
+        using (var stream = OpenFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var ws = wb.Worksheet("Map");
+
+            // IXLWorksheet.PictureGroups and IXLPicture.Group expose the group.
+            Assert.That(ws.PictureGroups.Count(), Is.EqualTo(1));
+            var picture1 = ws.Pictures.Single(p => p.Name == "Picture 1");
+            Assert.That(picture1.IsInGroup, Is.True);
+
+            var group = picture1.Group;
+            Assert.That(group, Is.Not.Null);
+            Assert.That(group!.Worksheet, Is.SameAs(ws));
+            Assert.That(group.Pictures.Count(), Is.EqualTo(2));
+
+            // IXLPictureGroup.Add and Remove mutate membership.
+            using var image = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Images\SampleImagePng.png"));
+            var added = group.Add(image, "Group Added");
+            added.Width = 200;
+            added.Height = 150;
+            added.Left = 50;
+            added.Top = 60;
+            Assert.That(group.Pictures.Count(), Is.EqualTo(3));
+
+            group.Remove(ws.Pictures.Single(p => p.Name == "Picture 2"));
+            Assert.That(group.Pictures.Count(), Is.EqualTo(2));
+
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var ws = wb.Worksheet("Map");
+            Assert.That(ws.PictureGroups.Count(), Is.EqualTo(1));
+            var group = ws.PictureGroups.Single();
+            var names = group.Pictures.Select(p => p.Name).ToList();
+            Assert.That(names, Is.EquivalentTo(new[] { "Picture 1", "Group Added" }));
+        }
+    }
+
+    [Test]
+    public void AddingToANewlyCreatedGroupBeforeSaveIsNotDropped()
+    {
+        using var seeded = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Map");
+            AddFreeFloatingPicture(ws, "Pic A", 100, 100);
+            AddFreeFloatingPicture(ws, "Pic B", 500, 300);
+            wb.SaveAs(seeded);
+        }
+
+        using var output = new MemoryStream();
+        seeded.Position = 0;
+        using (var wb = new XLWorkbook(seeded))
+        {
+            var ws = wb.Worksheet("Map");
+            var a = (XLPicture)ws.Pictures.Single(p => p.Name == "Pic A");
+            var b = (XLPicture)ws.Pictures.Single(p => p.Name == "Pic B");
+
+            // Create the group and add a third picture to it, all before any save: the group's
+            // drawing id isn't assigned until save, so the added picture inherits a null id.
+            var group = ws.Pictures.Group(a, b);
+            using var image = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Images\SampleImagePng.png"));
+            var added = group.Add(image, "Pic C");
+            added.Width = 150;
+            added.Height = 120;
+            added.Left = 700;
+            added.Top = 200;
+
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var group = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing
+                .Descendants<Xdr.GroupShape>().Single();
+            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(3),
+                "the picture added to the group before its first save must not be dropped");
+        }
+    }
+
+    [Test]
+    public void GroupRejectsInvalidArguments()
+    {
+        using var seeded = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Map");
+            AddFreeFloatingPicture(ws, "Pic A", 100, 100);
+            wb.SaveAs(seeded);
+        }
+
+        seeded.Position = 0;
+        using var reopened = new XLWorkbook(seeded);
+        var pictures = reopened.Worksheet("Map").Pictures;
+        var a = pictures.Single(p => p.Name == "Pic A");
+
+        Assert.Throws<ArgumentNullException>(() => pictures.Group(null!));
+        Assert.Throws<ArgumentException>(() => pictures.Group(a, null!));
+        Assert.Throws<ArgumentException>(() => pictures.Group(a, a), "duplicates collapse to a single distinct picture");
+    }
+
+    // The nested fixture's "Map" sheet has an outer group (2× scale) containing Picture 1
+    // (child ext 2_000_000) and an inner group (a further 2× scale) containing Picture 2
+    // (child ext 500_000) and a connector. So Picture 1's sheet extent is 2_000_000 × 2 =
+    // 4_000_000 EMU, and Picture 2's is 500_000 × 2 × 2 = 2_000_000 EMU.
+    private const string NestedGroupPicturesResource = @"Other\Drawings\NestedGroupPictures.xlsx";
+
+    private static MemoryStream OpenNestedFixture()
+    {
+        var ms = new MemoryStream();
+        using var src = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(NestedGroupPicturesResource));
+        src.CopyTo(ms);
+        ms.Position = 0;
+        return ms;
+    }
+
+    [Test]
+    public void NestedGroupPicturesLoadWithComposedScale()
+    {
+        using var stream = OpenNestedFixture();
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheet("Map");
+
+        Assert.That(ws.Pictures.Count, Is.EqualTo(2), "pictures at both nesting levels are loaded");
+
+        var picture1 = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 1");
+        var picture2 = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 2");
+        Assert.That(picture1.IsInGroup, Is.True);
+        Assert.That(picture2.IsInGroup, Is.True);
+
+        // Composed scale: Picture 1 → 4_000_000 EMU, Picture 2 → 2_000_000 EMU (exactly 2:1).
+        Assert.That(picture1.Width, Is.EqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(4_000_000, wb.DpiX)));
+        Assert.That(picture2.Width, Is.EqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(2_000_000, wb.DpiX)));
+    }
+
+    [Test]
+    public void UneditedNestedRoundTripPreservesStructure()
+    {
+        using var output = new MemoryStream();
+        using (var stream = OpenNestedFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using var package = SpreadsheetDocument.Open(output, false);
+        var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+
+        Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(2), "outer + inner group preserved");
+        Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2), "both pictures preserved");
+        Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1), "nested connector preserved");
+
+        // Unedited pictures keep their exact child-space extents at their respective depths.
+        var extents = drawing.Descendants<Xdr.Picture>()
+            .Select(p => p.ShapeProperties!.Transform2D!.Extents!.Cx!.Value)
+            .OrderByDescending(cx => cx)
+            .ToList();
+        Assert.That(extents, Is.EqualTo(new[] { 2_000_000L, 500_000L }));
+    }
+
+    [Test]
+    public void ResizingDeeplyNestedPictureRoundTrips()
+    {
+        using var output = new MemoryStream();
+        int newWidth, newHeight;
+
+        using (var stream = OpenNestedFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var picture2 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 2");
+            newWidth = picture2.Width + 120;
+            newHeight = picture2.Height + 120;
+            picture2.Width = newWidth;
+            picture2.Height = newHeight;
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var picture2 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 2");
+            Assert.That(picture2.Width, Is.EqualTo(newWidth).Within(2));
+            Assert.That(picture2.Height, Is.EqualTo(newHeight).Within(2));
+        }
+
+        // Both groups, both pictures and the connector survive the deep edit.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+            Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(2));
+            Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
+            Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void MovingDeeplyNestedPictureRoundTrips()
+    {
+        using var output = new MemoryStream();
+        int newLeft, newTop;
+
+        using (var stream = OpenNestedFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var picture2 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 2");
+            newLeft = picture2.Left + 100;
+            newTop = picture2.Top + 80;
+            picture2.Left = newLeft;
+            picture2.Top = newTop;
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var picture2 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 2");
+            Assert.That(picture2.Left, Is.EqualTo(newLeft).Within(2));
+            Assert.That(picture2.Top, Is.EqualTo(newTop).Within(2));
+        }
+
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+            Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(2));
+            Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
+            Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+        }
     }
 }
