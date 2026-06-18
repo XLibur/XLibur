@@ -139,4 +139,100 @@ public class GroupedPictureTests
             Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
         }
     }
+
+    // The nested fixture's "Map" sheet has an outer group (2× scale) containing Picture 1
+    // (child ext 2_000_000) and an inner group (a further 2× scale) containing Picture 2
+    // (child ext 500_000) and a connector. So Picture 1's sheet extent is 2_000_000 × 2 =
+    // 4_000_000 EMU, and Picture 2's is 500_000 × 2 × 2 = 2_000_000 EMU.
+    private const string NestedGroupPicturesResource = @"Other\Drawings\NestedGroupPictures.xlsx";
+
+    private static MemoryStream OpenNestedFixture()
+    {
+        var ms = new MemoryStream();
+        using var src = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(NestedGroupPicturesResource));
+        src.CopyTo(ms);
+        ms.Position = 0;
+        return ms;
+    }
+
+    [Test]
+    public void NestedGroupPicturesLoadWithComposedScale()
+    {
+        using var stream = OpenNestedFixture();
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheet("Map");
+
+        Assert.That(ws.Pictures.Count, Is.EqualTo(2), "pictures at both nesting levels are loaded");
+
+        var picture1 = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 1");
+        var picture2 = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 2");
+        Assert.That(picture1.IsInGroup, Is.True);
+        Assert.That(picture2.IsInGroup, Is.True);
+
+        // Composed scale: Picture 1 → 4_000_000 EMU, Picture 2 → 2_000_000 EMU (exactly 2:1).
+        Assert.That(picture1.Width, Is.EqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(4_000_000, wb.DpiX)));
+        Assert.That(picture2.Width, Is.EqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(2_000_000, wb.DpiX)));
+    }
+
+    [Test]
+    public void UneditedNestedRoundTripPreservesStructure()
+    {
+        using var output = new MemoryStream();
+        using (var stream = OpenNestedFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using var package = SpreadsheetDocument.Open(output, false);
+        var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+
+        Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(2), "outer + inner group preserved");
+        Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2), "both pictures preserved");
+        Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1), "nested connector preserved");
+
+        // Unedited pictures keep their exact child-space extents at their respective depths.
+        var extents = drawing.Descendants<Xdr.Picture>()
+            .Select(p => p.ShapeProperties!.Transform2D!.Extents!.Cx!.Value)
+            .OrderByDescending(cx => cx)
+            .ToList();
+        Assert.That(extents, Is.EqualTo(new[] { 2_000_000L, 500_000L }));
+    }
+
+    [Test]
+    public void ResizingDeeplyNestedPictureRoundTrips()
+    {
+        using var output = new MemoryStream();
+        int newWidth, newHeight;
+
+        using (var stream = OpenNestedFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var picture2 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 2");
+            newWidth = picture2.Width + 120;
+            newHeight = picture2.Height + 120;
+            picture2.Width = newWidth;
+            picture2.Height = newHeight;
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var picture2 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 2");
+            Assert.That(picture2.Width, Is.EqualTo(newWidth).Within(2));
+            Assert.That(picture2.Height, Is.EqualTo(newHeight).Within(2));
+        }
+
+        // Both groups, both pictures and the connector survive the deep edit.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+            Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(2));
+            Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
+            Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+        }
+    }
 }

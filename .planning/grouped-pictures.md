@@ -42,10 +42,13 @@ Move/resize stay on `IXLPicture`. Promote internal metadata to public + update `
 
 Suggested order: 2.1 → 2.2 → 2.3 → 2.4 → 2.5 → 2.6. Each phase = its own branch/PR + fixture + tests.
 
-- [ ] **2.1 Nested groups (load + editable)** — branch `feat/grouped-pictures-nested`
-  - F1 util; recurse `grpSp` at any depth; load every nested `<xdr:pic>` with composed transform.
-  - Writer: `UpdateGroupedPicture` uses composed scale (resize correct at any depth).
-  - Tests: nested fixture; load count/geometry; resize round-trip; siblings/connectors preserved per level.
+- [x] **2.1 Nested groups (load + editable)** — branch `feat/grouped-pictures-nested` ✅
+  - F1: composed (nesting-aware) scale on `XLPictureGroup` (`ScaleX/ScaleY` now total scale; `GroupId` stored).
+  - Loader: `LoadGroupRecursive` walks `grpSp` at any depth, composing `ext/chExt` ratios.
+  - Writer: `UpdateGroupedPicture` already keys off composed scale + locates `<xdr:pic>` by id (depth-independent) — no change needed.
+  - Tests: `NestedGroupPictures.xlsx` fixture (outer 2× → inner 2×); load composed-scale geometry,
+    unedited round-trip preserves both groups/extents/connector, deeply-nested resize round-trips. 6 grouped
+    tests + 163 broader suite green.
 - [ ] **2.2 Moving grouped pictures**
   - Move within group (write child `<a:off>`, track baseline) and move whole group (anchor + `grpSpPr/off`).
   - Decide: auto-grow group bbox when a child moves out of bounds vs fixed (document).
