@@ -58,10 +58,18 @@ Suggested order: 2.1 → 2.2 → 2.3 → 2.4 → 2.5 → 2.6. Each phase = its o
   - Tests: Left/Top reflect sheet position; move round-trips single-level and deeply nested; group +
     sibling + connector preserved. 9 grouped tests + 166 broader suite green.
   - **Deferred:** moving the *whole group* (needs the group object) → folded into 2.6 public API.
-- [ ] **2.3 Removing a picture from a group**
-  - `IXLPictureGroup.Remove(pic)`; remove just the `<xdr:pic>` child (not the anchor); delete image part
-    only if no other pic shares the embed; optional bbox shrink. Replace the current preserve-only
-    deletion guard with per-picture removal.
+- [x] **2.3 Removing a picture from a group** — branch `feat/grouped-pictures-nested` ✅
+  - `pic.Delete()` / `ws.Pictures.Delete(name)` now removes a grouped picture for real. `XLPictures`
+    routes grouped deletions to `DeletedFromGroups` (keyed by drawing id + rel id) instead of the
+    rel-id-only `Deleted` set. `PictureWriter.RemoveGroupedPictures` removes just the matching
+    `<xdr:pic>` (by id) and drops the image part only if no remaining blip references it. Group/siblings
+    preserved; bbox fixed.
+  - Gotcha fixed: the remove pass must be guarded on `Count > 0` so it doesn't materialize (and thus
+    re-serialize) the drawing DOM for chart/form-control sheets — that briefly broke
+    `PreserveChartsWhenSaving`/`FormControlsArePreserved`.
+  - Tests: deleting a grouped picture leaves group + sibling + connector, drops only that image part,
+    `Pictures.Count` decremented. 10 grouped tests + 167 broader suite green.
+  - `IXLPictureGroup.Remove` alias arrives with the group API in 2.6.
 - [ ] **2.4 Adding a picture to a group**
   - `IXLPictureGroup.Add(stream/file, pos, size)`; new `cNvPr` id (drawing-wide max+1), new image part+rel,
     child off/ext via F1 inverse, insert `<xdr:pic>` into group; optional bbox grow.

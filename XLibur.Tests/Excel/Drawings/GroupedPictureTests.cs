@@ -190,6 +190,48 @@ public class GroupedPictureTests
         }
     }
 
+    [Test]
+    public void RemovingGroupedPictureKeepsTheRestOfTheGroup()
+    {
+        using var output = new MemoryStream();
+        using (var stream = OpenFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var ws = wb.Worksheet("Map");
+            ws.Pictures.Single(p => p.Name == "Picture 2").Delete();
+            Assert.That(ws.Pictures.Count, Is.EqualTo(1), "deleted picture removed from the collection");
+            wb.SaveAs(output);
+        }
+
+        // Reopening: only Picture 1 remains, still inside the group.
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var pictures = wb.Worksheet("Map").Pictures;
+            Assert.That(pictures.Count, Is.EqualTo(1));
+            Assert.That(pictures.Single().Name, Is.EqualTo("Picture 1"));
+        }
+
+        // Only the deleted xdr:pic is gone; the group, the surviving picture and the connector stay.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var drawingsPart = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!;
+            var drawing = drawingsPart.WorksheetDrawing;
+            var group = drawing.Descendants<Xdr.GroupShape>().Single();
+
+            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(1));
+            Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+
+            // The surviving picture's image part is kept; the removed picture's is dropped.
+            var embeds = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
+                .Select(b => b.Embed?.Value).Where(v => v is not null).ToList();
+            Assert.That(embeds.Count, Is.EqualTo(1));
+            Assert.That(drawingsPart.GetPartById(embeds[0]!), Is.InstanceOf<ImagePart>());
+            Assert.That(drawingsPart.Parts.Count(p => p.OpenXmlPart is ImagePart), Is.EqualTo(1));
+        }
+    }
+
     // The nested fixture's "Map" sheet has an outer group (2× scale) containing Picture 1
     // (child ext 2_000_000) and an inner group (a further 2× scale) containing Picture 2
     // (child ext 500_000) and a connector. So Picture 1's sheet extent is 2_000_000 × 2 =

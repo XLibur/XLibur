@@ -16,6 +16,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     {
         _worksheet = worksheet;
         Deleted = new HashSet<string>();
+        DeletedFromGroups = new List<(int Id, string? RelId)>();
     }
 
     public int Count
@@ -24,7 +25,15 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         get => _pictures.Count;
     }
 
+    /// <summary>Rel ids of deleted top-level pictures, whose whole anchor is removed on save.</summary>
     internal ICollection<string> Deleted { get; private set; }
+
+    /// <summary>
+    /// Deleted pictures that lived inside a group shape. Keyed by drawing id (to locate the exact
+    /// <c>xdr:pic</c>) plus rel id (to drop the image part if unreferenced). Removed in place on save
+    /// so the group and its other shapes survive.
+    /// </summary>
+    internal ICollection<(int Id, string? RelId)> DeletedFromGroups { get; }
 
     public IXLPicture Add(Stream stream)
     {
@@ -100,7 +109,9 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
         foreach (var picture in picturesToDelete)
         {
-            if (!string.IsNullOrEmpty(picture.RelId))
+            if (picture.IsInGroup)
+                DeletedFromGroups.Add((picture.Id, picture.RelId));
+            else if (!string.IsNullOrEmpty(picture.RelId))
                 Deleted.Add(picture.RelId);
 
             _pictures.Remove(picture);

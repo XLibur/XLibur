@@ -44,6 +44,15 @@ internal static class PictureWriter
             }
 
             xlPictures.Deleted.Clear();
+
+            // Pictures deleted from inside a group are removed in place so the group and its other
+            // shapes survive. Guard on Count so we don't materialize (and thus re-serialize) the
+            // drawing DOM for sheets that have nothing to remove.
+            if (xlPictures.DeletedFromGroups.Count > 0)
+            {
+                RemoveGroupedPictures(worksheetPart.DrawingsPart, xlPictures.DeletedFromGroups);
+                xlPictures.DeletedFromGroups.Clear();
+            }
         }
 
         var groupedPictures = new List<XLPicture>();
@@ -426,6 +435,45 @@ internal static class PictureWriter
             transform.Offset ??= new Offset();
             transform.Offset.X = childOffX;
             transform.Offset.Y = childOffY;
+        }
+    }
+
+    /// <summary>
+    /// Remove pictures that were deleted from inside a group. Only the matching <c>xdr:pic</c>
+    /// element is removed (located by drawing id) — the group and its remaining pictures, connectors
+    /// and shapes are left intact. The image part is deleted only when no other blip still references
+    /// it. The group's bounding box is kept fixed.
+    /// </summary>
+    private static void RemoveGroupedPictures(DrawingsPart drawingsPart,
+        ICollection<(int Id, string? RelId)> removed)
+    {
+        var worksheetDrawing = drawingsPart.WorksheetDrawing;
+        if (worksheetDrawing is null)
+            return;
+
+        foreach (var (id, relId) in removed)
+        {
+            Xdr.Picture? picElement = null;
+            foreach (var candidate in worksheetDrawing.Descendants<Xdr.Picture>())
+            {
+                var candidateId = candidate.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value;
+                if (candidateId == (uint)id && candidate.Ancestors<Xdr.GroupShape>().Any())
+                {
+                    picElement = candidate;
+                    break;
+                }
+            }
+
+            picElement?.Remove();
+
+            // Drop the image part only if nothing else references it any more.
+            if (!string.IsNullOrEmpty(relId) && drawingsPart.HasPartWithId(relId!))
+            {
+                var stillReferenced = worksheetDrawing.Descendants<Blip>()
+                    .Any(b => b.Embed?.Value == relId);
+                if (!stillReferenced)
+                    drawingsPart.DeletePart(relId!);
+            }
         }
     }
 
