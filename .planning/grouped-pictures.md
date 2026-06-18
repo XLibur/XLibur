@@ -70,9 +70,15 @@ Suggested order: 2.1 → 2.2 → 2.3 → 2.4 → 2.5 → 2.6. Each phase = its o
   - Tests: deleting a grouped picture leaves group + sibling + connector, drops only that image part,
     `Pictures.Count` decremented. 10 grouped tests + 167 broader suite green.
   - `IXLPictureGroup.Remove` alias arrives with the group API in 2.6.
-- [ ] **2.4 Adding a picture to a group**
-  - `IXLPictureGroup.Add(stream/file, pos, size)`; new `cNvPr` id (drawing-wide max+1), new image part+rel,
-    child off/ext via F1 inverse, insert `<xdr:pic>` into group; optional bbox grow.
+- [x] **2.4 Adding a picture to a group** — branch `feat/grouped-pictures-nested` ✅
+  - Internal entry point `XLPictures.AddToGroup(sibling, stream, name)` (full `IXLPictureGroup.Add`
+    in 2.6) creates a FreeFloating picture tagged with the target group's composed transform + GroupId,
+    marked `IsNew`. `PictureWriter.InsertGroupedPicture` allocates a drawing-wide id (max+1), a new
+    image part (rel id via the generator, which already registers the drawing's existing rels so no
+    collision), builds the `<xdr:pic>` with child `off`/`ext` from the requested sheet geometry via the
+    inverse affine, and appends it to the group. Model is reset to "existing" afterwards for multi-save.
+  - Tests: add a picture to a group, set size+position, save, reopen → 3 pictures in the group + 3
+    image parts, geometry round-trips, connector/originals intact. 11 grouped tests + 168 broader green.
 - [ ] **2.5 Creating new groups** (most invasive)
   - `ws.Pictures.Group(params IXLPicture[])`; bbox → group off/ext, chOff/chExt = off/ext (scale 1);
     convert members into group children; remove their original top-level anchors; build `grpSp` + anchor.

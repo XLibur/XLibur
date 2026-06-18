@@ -66,7 +66,12 @@ internal static class PictureWriter
         }
 
         foreach (var groupedPicture in groupedPictures)
-            UpdateGroupedPicture(worksheetPart, groupedPicture);
+        {
+            if (groupedPicture.GroupInfo!.IsNew)
+                InsertGroupedPicture(worksheetPart, groupedPicture, context);
+            else
+                UpdateGroupedPicture(worksheetPart, groupedPicture);
+        }
 
         // Rebasing renumbers every NonVisualDrawingProperties id. That would break connector
         // start/end connection references (a:stCxn/@id, a:endCxn/@id) inside a group, so only do
@@ -363,6 +368,93 @@ internal static class PictureWriter
     /// save DOM is an independent re-parse of the package and object references from load don't
     /// survive.
     /// </summary>
+    /// <summary>
+    /// Insert a newly added picture into its target group. Allocates a drawing-wide unique id and a
+    /// new image part, builds the <c>xdr:pic</c> with its child <c>off</c>/<c>ext</c> derived from the
+    /// requested sheet geometry via the inverse group transform, and appends it to the group element.
+    /// The model is then reset so a subsequent save treats it as an existing grouped picture.
+    /// </summary>
+    private static void InsertGroupedPicture(WorksheetPart worksheetPart, XLPicture pic, SaveContext context)
+    {
+        var drawingsPart = worksheetPart.DrawingsPart;
+        var group = pic.GroupInfo;
+        if (drawingsPart?.WorksheetDrawing is null || group?.GroupId is null)
+            return;
+
+        var worksheetDrawing = drawingsPart.WorksheetDrawing;
+
+        Xdr.GroupShape? groupElement = null;
+        foreach (var candidate in worksheetDrawing.Descendants<Xdr.GroupShape>())
+        {
+            if (candidate.NonVisualGroupShapeProperties?.NonVisualDrawingProperties?.Id?.Value == group.GroupId.Value)
+            {
+                groupElement = candidate;
+                break;
+            }
+        }
+
+        if (groupElement is null)
+            return;
+
+        // A drawing id must be unique across the whole drawing (pictures, connectors, shapes, groups).
+        uint maxId = 0;
+        foreach (var nvdpr in worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>())
+            maxId = Math.Max(maxId, nvdpr.Id?.Value ?? 0);
+        var newId = maxId + 1;
+
+        var relId = context.RelIdGenerator.GetNext(RelType.Workbook);
+        var imagePart = drawingsPart.AddImagePart(pic.Format.ToOpenXml(), relId);
+        pic.ImageStream.Position = 0;
+        imagePart.FeedData(pic.ImageStream);
+
+        var wb = pic.Worksheet.Workbook;
+        var sheetEmuCx = ConvertToEnglishMetricUnits(pic.Width, wb.DpiX);
+        var sheetEmuCy = ConvertToEnglishMetricUnits(pic.Height, wb.DpiY);
+        var sheetEmuX = ConvertToEnglishMetricUnits(pic.Left, wb.DpiX);
+        var sheetEmuY = ConvertToEnglishMetricUnits(pic.Top, wb.DpiY);
+
+        var childCx = group.ScaleX == 0 ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
+        var childCy = group.ScaleY == 0 ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
+        var childX = group.ScaleX == 0 ? sheetEmuX : (long)Math.Round((sheetEmuX - group.OffsetX) / group.ScaleX);
+        var childY = group.ScaleY == 0 ? sheetEmuY : (long)Math.Round((sheetEmuY - group.OffsetY) / group.ScaleY);
+
+        var picElement = new Xdr.Picture(
+            new Xdr.NonVisualPictureProperties(
+                new Xdr.NonVisualDrawingProperties { Id = newId, Name = pic.Name },
+                new Xdr.NonVisualPictureDrawingProperties(new PictureLocks { NoChangeAspect = true })
+            ),
+            new Xdr.BlipFill(
+                new Blip { Embed = relId },
+                new Stretch(new FillRectangle())
+            ),
+            new Xdr.ShapeProperties(
+                new Transform2D(
+                    new Offset { X = childX, Y = childY },
+                    new Extents { Cx = childCx, Cy = childCy }
+                ),
+                new PresetGeometry { Preset = ShapeTypeValues.Rectangle }
+            )
+        );
+
+        groupElement.Append(picElement);
+
+        // Reset the model so further edits/saves treat this as an existing grouped picture.
+        pic.Id = (int)newId;
+        pic.RelId = relId;
+        pic.GroupInfo = new XLPictureGroup
+        {
+            ScaleX = group.ScaleX,
+            ScaleY = group.ScaleY,
+            OffsetX = group.OffsetX,
+            OffsetY = group.OffsetY,
+            GroupId = group.GroupId,
+            LoadedWidthPx = pic.Width,
+            LoadedHeightPx = pic.Height,
+            LoadedLeftPx = pic.Left,
+            LoadedTopPx = pic.Top,
+        };
+    }
+
     private static void UpdateGroupedPicture(WorksheetPart worksheetPart, XLPicture pic)
     {
         var drawingsPart = worksheetPart.DrawingsPart;

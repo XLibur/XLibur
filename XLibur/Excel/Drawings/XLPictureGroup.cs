@@ -46,8 +46,15 @@ internal sealed class XLPictureGroup
 
     /// <summary>
     /// The <c>cNvPr</c> id of the immediate parent group shape. Used to locate the group element
-    /// when adding to or removing from a group (a later phase); the picture itself is still located
-    /// by its own id.
+    /// when adding to or removing from a group; the picture itself is still located by its own id.
     /// </summary>
     public uint? GroupId { get; init; }
+
+    /// <summary>
+    /// True for a picture that has been added to a group but not yet written: the writer must create
+    /// a new <c>xdr:pic</c> inside the group element rather than updating an existing one. The
+    /// composed transform (<see cref="ScaleX"/>/<see cref="ScaleY"/>/<see cref="OffsetX"/>/<see
+    /// cref="OffsetY"/>) is the target group's, copied from an existing member.
+    /// </summary>
+    public bool IsNew { get; init; }
 }

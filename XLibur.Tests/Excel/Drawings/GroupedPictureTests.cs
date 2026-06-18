@@ -232,6 +232,58 @@ public class GroupedPictureTests
         }
     }
 
+    [Test]
+    public void AddingPictureToGroupRoundTrips()
+    {
+        using var output = new MemoryStream();
+        int width, height, left, top;
+
+        using (var stream = OpenFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var ws = wb.Worksheet("Map");
+            var pictures = (XLPictures)ws.Pictures;
+            var sibling = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 1");
+            using var image = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Images\SampleImagePng.png"));
+
+            var added = pictures.AddToGroup(sibling, image, "Added Picture");
+            added.Width = 300;
+            added.Height = 200;
+            added.Left = 400;
+            added.Top = 250;
+            (width, height, left, top) = (added.Width, added.Height, added.Left, added.Top);
+
+            Assert.That(pictures.Count, Is.EqualTo(3));
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var pictures = wb.Worksheet("Map").Pictures;
+            Assert.That(pictures.Count, Is.EqualTo(3));
+
+            var added = (XLPicture)pictures.Single(p => p.Name == "Added Picture");
+            Assert.That(added.IsInGroup, Is.True);
+            Assert.That(added.Width, Is.EqualTo(width).Within(2));
+            Assert.That(added.Height, Is.EqualTo(height).Within(2));
+            Assert.That(added.Left, Is.EqualTo(left).Within(2));
+            Assert.That(added.Top, Is.EqualTo(top).Within(2));
+        }
+
+        // The new picture went inside the group with the two originals and the connector, and got its
+        // own image part.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var drawingsPart = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!;
+            var group = drawingsPart.WorksheetDrawing.Descendants<Xdr.GroupShape>().Single();
+            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(3));
+            Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+            Assert.That(drawingsPart.Parts.Count(p => p.OpenXmlPart is ImagePart), Is.EqualTo(3));
+        }
+    }
+
     // The nested fixture's "Map" sheet has an outer group (2× scale) containing Picture 1
     // (child ext 2_000_000) and an inner group (a further 2× scale) containing Picture 2
     // (child ext 500_000) and a connector. So Picture 1's sheet extent is 2_000_000 × 2 =

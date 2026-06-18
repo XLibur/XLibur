@@ -164,6 +164,31 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         return picture;
     }
 
+    /// <summary>
+    /// Add a picture as a new member of the same group as <paramref name="groupMember"/>. The new
+    /// picture inherits the group's composed transform, so its <c>Width</c>/<c>Height</c>/<c>Left</c>/
+    /// <c>Top</c> are interpreted in sheet-space; the writer creates the <c>xdr:pic</c> inside the
+    /// group on save. (A first-class group API is added in a later phase.)
+    /// </summary>
+    internal XLPicture AddToGroup(XLPicture groupMember, Stream stream, string? name = null)
+    {
+        var source = groupMember.GroupInfo
+                     ?? throw new ArgumentException("The picture is not part of a group.", nameof(groupMember));
+
+        var picture = (XLPicture)(name is null ? Add(stream) : Add(stream, name));
+        picture.Placement = XLPicturePlacement.FreeFloating;
+        picture.GroupInfo = new XLPictureGroup
+        {
+            ScaleX = source.ScaleX,
+            ScaleY = source.ScaleY,
+            OffsetX = source.OffsetX,
+            OffsetY = source.OffsetY,
+            GroupId = source.GroupId,
+            IsNew = true,
+        };
+        return picture;
+    }
+
     private string GetNextPictureName()
     {
         var pictureNumber = Count;
