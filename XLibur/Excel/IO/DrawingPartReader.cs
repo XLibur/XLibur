@@ -101,52 +101,58 @@ internal static class DrawingPartReader
     private static void LoadGroupedPictures(OpenXmlElement anchor, Xdr.GroupShape group,
         DrawingsPart drawingsPart, XLWorksheet ws)
     {
-        var topLeft = GetAnchorTopLeftMarker(anchor, ws);
-        LoadGroupRecursive(group, drawingsPart, ws, topLeft, scaleX: 1.0, scaleY: 1.0);
+        // The parent coordinate space of the top-level group is the sheet itself: identity transform.
+        LoadGroupRecursive(group, drawingsPart, ws, parentScaleX: 1.0, parentScaleY: 1.0,
+            parentOffsetX: 0.0, parentOffsetY: 0.0);
     }
 
     /// <summary>
     /// Recursively load the pictures of <paramref name="group"/> and its nested groups. The
-    /// <paramref name="scaleX"/>/<paramref name="scaleY"/> arguments carry the accumulated scale of
-    /// all ancestor groups; this group's own scale is multiplied in so a picture's sheet size is its
-    /// child extent times the product of every enclosing group's <c>ext/chExt</c> ratio.
+    /// <c>parent…</c> arguments are the affine transform mapping this group's <em>parent</em> child
+    /// coordinate space to the sheet; this group's own transform is composed in so a picture's sheet
+    /// geometry is <c>offset + child · scale</c>, where scale is the product of every enclosing
+    /// group's <c>ext/chExt</c> ratio.
     /// </summary>
-    private static void LoadGroupRecursive(Xdr.GroupShape group, DrawingsPart drawingsPart,
-        XLWorksheet ws, XLMarker? topLeft, double scaleX, double scaleY)
+    private static void LoadGroupRecursive(Xdr.GroupShape group, DrawingsPart drawingsPart, XLWorksheet ws,
+        double parentScaleX, double parentScaleY, double parentOffsetX, double parentOffsetY)
     {
         var xfrm = group.GroupShapeProperties?.TransformGroup;
         if (xfrm == null)
             return; // No transform — cannot map child coordinates; leave this group preserved as-is.
 
+        var gOffX = xfrm.Offset?.X?.Value ?? 0;
+        var gOffY = xfrm.Offset?.Y?.Value ?? 0;
         var gExtCx = xfrm.Extents?.Cx?.Value ?? 0;
         var gExtCy = xfrm.Extents?.Cy?.Value ?? 0;
+        var chOffX = xfrm.ChildOffset?.X?.Value ?? 0;
+        var chOffY = xfrm.ChildOffset?.Y?.Value ?? 0;
         var chExtCx = xfrm.ChildExtents?.Cx?.Value ?? 0;
         var chExtCy = xfrm.ChildExtents?.Cy?.Value ?? 0;
 
-        var composedX = scaleX * (chExtCx == 0 ? 1.0 : (double)gExtCx / chExtCx);
-        var composedY = scaleY * (chExtCy == 0 ? 1.0 : (double)gExtCy / chExtCy);
+        // This group's own transform maps its child space to its parent's child space:
+        //   parentSpace = (off - chOff·levelScale) + child·levelScale
+        var levelScaleX = chExtCx == 0 ? 1.0 : (double)gExtCx / chExtCx;
+        var levelScaleY = chExtCy == 0 ? 1.0 : (double)gExtCy / chExtCy;
+        var levelOffsetX = gOffX - chOffX * levelScaleX;
+        var levelOffsetY = gOffY - chOffY * levelScaleY;
+
+        // Compose with the parent transform to get child→sheet: scale multiplies, offset accumulates.
+        var scaleX = parentScaleX * levelScaleX;
+        var scaleY = parentScaleY * levelScaleY;
+        var offsetX = parentOffsetX + levelOffsetX * parentScaleX;
+        var offsetY = parentOffsetY + levelOffsetY * parentScaleY;
 
         var groupId = group.NonVisualGroupShapeProperties?.NonVisualDrawingProperties?.Id?.Value;
 
         foreach (var pic in group.Elements<Xdr.Picture>())
-            LoadGroupedPicture(pic, drawingsPart, ws, topLeft, composedX, composedY, groupId);
+            LoadGroupedPicture(pic, drawingsPart, ws, scaleX, scaleY, offsetX, offsetY, groupId);
 
         foreach (var nested in group.Elements<Xdr.GroupShape>())
-            LoadGroupRecursive(nested, drawingsPart, ws, topLeft, composedX, composedY);
-    }
-
-    private static XLMarker? GetAnchorTopLeftMarker(OpenXmlElement anchor, XLWorksheet ws)
-    {
-        return anchor switch
-        {
-            Xdr.TwoCellAnchor { FromMarker: { } from } => LoadMarker(ws, from),
-            Xdr.OneCellAnchor { FromMarker: { } from } => LoadMarker(ws, from),
-            _ => new XLMarker(ws.Cell(1, 1)),
-        };
+            LoadGroupRecursive(nested, drawingsPart, ws, scaleX, scaleY, offsetX, offsetY);
     }
 
     private static void LoadGroupedPicture(Xdr.Picture pic, DrawingsPart drawingsPart, XLWorksheet ws,
-        XLMarker? topLeft, double scaleX, double scaleY, uint? groupId)
+        double scaleX, double scaleY, double offsetX, double offsetY, uint? groupId)
     {
         var embed = pic.BlipFill?.Blip?.Embed?.Value;
         if (embed == null)
@@ -156,9 +162,13 @@ internal static class DrawingPartReader
         if (!drawingsPart.TryGetPartById(embed, out var imagePart))
             return;
 
-        var picExtents = pic.ShapeProperties?.Transform2D?.Extents;
-        var sheetEmuCx = (long)Math.Round((picExtents?.Cx?.Value ?? 0) * scaleX);
-        var sheetEmuCy = (long)Math.Round((picExtents?.Cy?.Value ?? 0) * scaleY);
+        var transform = pic.ShapeProperties?.Transform2D;
+        var picOffX = transform?.Offset?.X?.Value ?? 0;
+        var picOffY = transform?.Offset?.Y?.Value ?? 0;
+        var sheetEmuCx = (long)Math.Round((transform?.Extents?.Cx?.Value ?? 0) * scaleX);
+        var sheetEmuCy = (long)Math.Round((transform?.Extents?.Cy?.Value ?? 0) * scaleY);
+        var sheetEmuX = (long)Math.Round(offsetX + picOffX * scaleX);
+        var sheetEmuY = (long)Math.Round(offsetY + picOffY * scaleY);
 
         var xlPicture = AddGroupedPicture(pic, embed, imagePart, ws);
 
@@ -170,15 +180,22 @@ internal static class DrawingPartReader
         xlPicture.Width = widthPx;
         xlPicture.Height = heightPx;
 
-        if (topLeft != null)
-            xlPicture.Markers[XLMarkerPosition.TopLeft] = topLeft;
+        // Expose the picture's true sheet position via an A1-relative marker, so Left/Top read and
+        // set sheet-space coordinates (consistent with FreeFloating placement).
+        var leftPx = ConvertFromEnglishMetricUnits(sheetEmuX, ws.Workbook.DpiX);
+        var topPx = ConvertFromEnglishMetricUnits(sheetEmuY, ws.Workbook.DpiY);
+        xlPicture.Markers[XLMarkerPosition.TopLeft] = new XLMarker(ws.Cell(1, 1), new Point(leftPx, topPx));
 
         xlPicture.GroupInfo = new XLPictureGroup
         {
             ScaleX = scaleX,
             ScaleY = scaleY,
+            OffsetX = offsetX,
+            OffsetY = offsetY,
             LoadedWidthPx = widthPx,
             LoadedHeightPx = heightPx,
+            LoadedLeftPx = leftPx,
+            LoadedTopPx = topPx,
             GroupId = groupId,
         };
     }

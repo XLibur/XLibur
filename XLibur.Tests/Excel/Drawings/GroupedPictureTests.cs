@@ -140,6 +140,56 @@ public class GroupedPictureTests
         }
     }
 
+    [Test]
+    public void GroupedPictureLeftTopReflectSheetPosition()
+    {
+        using var stream = OpenFixture();
+        using var wb = new XLWorkbook(stream);
+
+        var picture1 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 1");
+
+        // Group off (1_000_000, 1_000_000), 2× scale, child off (1_000_000, 1_000_000):
+        // sheet pos = (off − chOff·scale) + childOff·scale = −1_000_000 + 1_000_000·2 = 1_000_000 EMU.
+        Assert.That(picture1.Left, Is.EqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(1_000_000, wb.DpiX)));
+        Assert.That(picture1.Top, Is.EqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(1_000_000, wb.DpiY)));
+    }
+
+    [Test]
+    public void MovingGroupedPictureRoundTrips()
+    {
+        using var output = new MemoryStream();
+        int newLeft, newTop;
+
+        using (var stream = OpenFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var picture1 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 1");
+            newLeft = picture1.Left + 200;
+            newTop = picture1.Top + 150;
+            picture1.Left = newLeft;
+            picture1.Top = newTop;
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var picture1 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 1");
+            Assert.That(picture1.Left, Is.EqualTo(newLeft).Within(2));
+            Assert.That(picture1.Top, Is.EqualTo(newTop).Within(2));
+        }
+
+        // The picture stays inside the group, and the sibling + connector are untouched.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var group = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing
+                .Descendants<Xdr.GroupShape>().Single();
+            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
+            Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+        }
+    }
+
     // The nested fixture's "Map" sheet has an outer group (2× scale) containing Picture 1
     // (child ext 2_000_000) and an inner group (a further 2× scale) containing Picture 2
     // (child ext 500_000) and a connector. So Picture 1's sheet extent is 2_000_000 × 2 =
@@ -226,6 +276,41 @@ public class GroupedPictureTests
         }
 
         // Both groups, both pictures and the connector survive the deep edit.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+            Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(2));
+            Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
+            Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void MovingDeeplyNestedPictureRoundTrips()
+    {
+        using var output = new MemoryStream();
+        int newLeft, newTop;
+
+        using (var stream = OpenNestedFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var picture2 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 2");
+            newLeft = picture2.Left + 100;
+            newTop = picture2.Top + 80;
+            picture2.Left = newLeft;
+            picture2.Top = newTop;
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var picture2 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 2");
+            Assert.That(picture2.Left, Is.EqualTo(newLeft).Within(2));
+            Assert.That(picture2.Top, Is.EqualTo(newTop).Within(2));
+        }
+
         output.Position = 0;
         using (var package = SpreadsheetDocument.Open(output, false))
         {

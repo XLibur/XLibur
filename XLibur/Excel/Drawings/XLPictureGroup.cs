@@ -22,11 +22,27 @@ internal sealed class XLPictureGroup
     /// <summary>Total vertical scale from the picture's child coordinate space to the sheet.</summary>
     public double ScaleY { get; init; } = 1.0;
 
+    /// <summary>
+    /// Composed horizontal offset (EMU) of the affine child→sheet mapping: a child x maps to the
+    /// sheet at <c>OffsetX + childX · ScaleX</c>. Used to convert a moved picture's sheet position
+    /// back to its child <c>a:off</c>.
+    /// </summary>
+    public double OffsetX { get; init; }
+
+    /// <summary>Composed vertical offset (EMU) of the affine child→sheet mapping.</summary>
+    public double OffsetY { get; init; }
+
     /// <summary>The picture's width in pixels as computed at load time (baseline for change detection).</summary>
     public int LoadedWidthPx { get; init; }
 
     /// <summary>The picture's height in pixels as computed at load time (baseline for change detection).</summary>
     public int LoadedHeightPx { get; init; }
+
+    /// <summary>The picture's left position in pixels as computed at load time (baseline for change detection).</summary>
+    public int LoadedLeftPx { get; init; }
+
+    /// <summary>The picture's top position in pixels as computed at load time (baseline for change detection).</summary>
+    public int LoadedTopPx { get; init; }
 
     /// <summary>
     /// The <c>cNvPr</c> id of the immediate parent group shape. Used to locate the group element

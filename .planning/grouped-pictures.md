@@ -49,10 +49,15 @@ Suggested order: 2.1 → 2.2 → 2.3 → 2.4 → 2.5 → 2.6. Each phase = its o
   - Tests: `NestedGroupPictures.xlsx` fixture (outer 2× → inner 2×); load composed-scale geometry,
     unedited round-trip preserves both groups/extents/connector, deeply-nested resize round-trips. 6 grouped
     tests + 163 broader suite green.
-- [ ] **2.2 Moving grouped pictures**
-  - Move within group (write child `<a:off>`, track baseline) and move whole group (anchor + `grpSpPr/off`).
-  - Decide: auto-grow group bbox when a child moves out of bounds vs fixed (document).
-  - Repurpose `MoveTo`/`Left`/`Top` to sheet-space for grouped pics.
+- [x] **2.2 Moving grouped pictures (within group)** — branch `feat/grouped-pictures-nested` ✅
+  - `XLPictureGroup` now carries the composed **affine** (`OffsetX/Y` EMU + `ScaleX/Y`) and load-time
+    `LoadedLeftPx/TopPx`. Loader sets an A1-relative `TopLeft` marker so `Left`/`Top`/`MoveTo(l,t)`
+    read & write **sheet-space** position for grouped pictures.
+  - Writer: `UpdateGroupedPicture` handles size and position independently; on a move it inverts the
+    affine to the child `a:off`. Group bbox (`ext`/`chExt`) kept **fixed** (documented decision).
+  - Tests: Left/Top reflect sheet position; move round-trips single-level and deeply nested; group +
+    sibling + connector preserved. 9 grouped tests + 166 broader suite green.
+  - **Deferred:** moving the *whole group* (needs the group object) → folded into 2.6 public API.
 - [ ] **2.3 Removing a picture from a group**
   - `IXLPictureGroup.Remove(pic)`; remove just the `<xdr:pic>` child (not the anchor); delete image part
     only if no other pic shares the embed; optional bbox shrink. Replace the current preserve-only

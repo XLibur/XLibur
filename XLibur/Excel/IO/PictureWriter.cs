@@ -386,24 +386,46 @@ internal static class PictureWriter
             imagePart.FeedData(pic.ImageStream);
         }
 
-        // Only rewrite geometry when the size actually changed, so an unedited picture round-trips
-        // without rounding drift.
-        if (pic.Width == group.LoadedWidthPx && pic.Height == group.LoadedHeightPx)
+        var sizeChanged = pic.Width != group.LoadedWidthPx || pic.Height != group.LoadedHeightPx;
+        var positionChanged = pic.Left != group.LoadedLeftPx || pic.Top != group.LoadedTopPx;
+
+        // Leave the geometry untouched when nothing changed, so an unedited picture round-trips
+        // without rounding drift. The group's own bounding box (ext/chExt) is kept fixed.
+        if (!sizeChanged && !positionChanged)
+            return;
+
+        var transform = picElement.ShapeProperties?.Transform2D;
+        if (transform is null)
             return;
 
         var wb = pic.Worksheet.Workbook;
-        var sheetEmuCx = ConvertToEnglishMetricUnits(pic.Width, wb.DpiX);
-        var sheetEmuCy = ConvertToEnglishMetricUnits(pic.Height, wb.DpiY);
 
-        // Convert the sheet-space size back to the group's child coordinate space.
-        var childCx = group.ScaleX == 0 ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
-        var childCy = group.ScaleY == 0 ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
-
-        var extents = picElement.ShapeProperties?.Transform2D?.Extents;
-        if (extents is not null)
+        if (sizeChanged)
         {
-            extents.Cx = childCx;
-            extents.Cy = childCy;
+            var sheetEmuCx = ConvertToEnglishMetricUnits(pic.Width, wb.DpiX);
+            var sheetEmuCy = ConvertToEnglishMetricUnits(pic.Height, wb.DpiY);
+
+            // Convert the sheet-space size back to the group's child coordinate space.
+            var childCx = group.ScaleX == 0 ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
+            var childCy = group.ScaleY == 0 ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
+
+            transform.Extents ??= new Extents();
+            transform.Extents.Cx = childCx;
+            transform.Extents.Cy = childCy;
+        }
+
+        if (positionChanged)
+        {
+            var sheetEmuX = ConvertToEnglishMetricUnits(pic.Left, wb.DpiX);
+            var sheetEmuY = ConvertToEnglishMetricUnits(pic.Top, wb.DpiY);
+
+            // Invert the composed affine (sheet = offset + child·scale) to get the child a:off.
+            var childOffX = group.ScaleX == 0 ? sheetEmuX : (long)Math.Round((sheetEmuX - group.OffsetX) / group.ScaleX);
+            var childOffY = group.ScaleY == 0 ? sheetEmuY : (long)Math.Round((sheetEmuY - group.OffsetY) / group.ScaleY);
+
+            transform.Offset ??= new Offset();
+            transform.Offset.X = childOffX;
+            transform.Offset.Y = childOffY;
         }
     }
 
