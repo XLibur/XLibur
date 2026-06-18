@@ -339,6 +339,51 @@ public class GroupedPictureTests
         }
     }
 
+    [Test]
+    public void PublicGroupApiExposesMembershipAndMutation()
+    {
+        using var output = new MemoryStream();
+        using (var stream = OpenFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var ws = wb.Worksheet("Map");
+
+            // IXLWorksheet.PictureGroups and IXLPicture.Group expose the group.
+            Assert.That(ws.PictureGroups.Count(), Is.EqualTo(1));
+            var picture1 = ws.Pictures.Single(p => p.Name == "Picture 1");
+            Assert.That(picture1.IsInGroup, Is.True);
+
+            var group = picture1.Group;
+            Assert.That(group, Is.Not.Null);
+            Assert.That(group!.Worksheet, Is.SameAs(ws));
+            Assert.That(group.Pictures.Count(), Is.EqualTo(2));
+
+            // IXLPictureGroup.Add and Remove mutate membership.
+            using var image = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Images\SampleImagePng.png"));
+            var added = group.Add(image, "Group Added");
+            added.Width = 200;
+            added.Height = 150;
+            added.Left = 50;
+            added.Top = 60;
+            Assert.That(group.Pictures.Count(), Is.EqualTo(3));
+
+            group.Remove(ws.Pictures.Single(p => p.Name == "Picture 2"));
+            Assert.That(group.Pictures.Count(), Is.EqualTo(2));
+
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var ws = wb.Worksheet("Map");
+            Assert.That(ws.PictureGroups.Count(), Is.EqualTo(1));
+            var group = ws.PictureGroups.Single();
+            var names = group.Pictures.Select(p => p.Name).ToList();
+            Assert.That(names, Is.EquivalentTo(new[] { "Picture 1", "Group Added" }));
+        }
+    }
+
     // The nested fixture's "Map" sheet has an outer group (2× scale) containing Picture 1
     // (child ext 2_000_000) and an inner group (a further 2× scale) containing Picture 2
     // (child ext 500_000) and a connector. So Picture 1's sheet extent is 2_000_000 × 2 =

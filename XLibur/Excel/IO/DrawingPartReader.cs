@@ -143,16 +143,17 @@ internal static class DrawingPartReader
         var offsetY = parentOffsetY + levelOffsetY * parentScaleY;
 
         var groupId = group.NonVisualGroupShapeProperties?.NonVisualDrawingProperties?.Id?.Value;
+        var groupKey = ((XLPictures)ws.Pictures).AllocateGroupKey();
 
         foreach (var pic in group.Elements<Xdr.Picture>())
-            LoadGroupedPicture(pic, drawingsPart, ws, scaleX, scaleY, offsetX, offsetY, groupId);
+            LoadGroupedPicture(pic, drawingsPart, ws, scaleX, scaleY, offsetX, offsetY, groupId, groupKey);
 
         foreach (var nested in group.Elements<Xdr.GroupShape>())
             LoadGroupRecursive(nested, drawingsPart, ws, scaleX, scaleY, offsetX, offsetY);
     }
 
     private static void LoadGroupedPicture(Xdr.Picture pic, DrawingsPart drawingsPart, XLWorksheet ws,
-        double scaleX, double scaleY, double offsetX, double offsetY, uint? groupId)
+        double scaleX, double scaleY, double offsetX, double offsetY, uint? groupId, long groupKey)
     {
         var embed = pic.BlipFill?.Blip?.Embed?.Value;
         if (embed == null)
@@ -197,6 +198,7 @@ internal static class DrawingPartReader
             LoadedLeftPx = leftPx,
             LoadedTopPx = topPx,
             GroupId = groupId,
+            GroupKey = groupKey,
         };
     }
 

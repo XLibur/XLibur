@@ -28,4 +28,11 @@ public interface IXLPictures : IEnumerable<IXLPicture>
     IXLPicture Picture(string pictureName);
 
     bool TryGetPicture(string pictureName, out IXLPicture? picture);
+
+    /// <summary>
+    /// Group two or more free-floating pictures on this worksheet into a new group shape. The
+    /// pictures keep their on-sheet positions and sizes. Pictures must already be saved and use
+    /// free-floating placement (call <see cref="IXLPicture.MoveTo(int, int)"/> first if needed).
+    /// </summary>
+    IXLPictureGroup Group(params IXLPicture[] pictures);
 }

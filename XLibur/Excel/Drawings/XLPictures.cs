@@ -11,6 +11,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
 {
     private readonly List<XLPicture> _pictures = [];
     private readonly XLWorksheet _worksheet;
+    private long _nextGroupKey = 1;
 
     public XLPictures(XLWorksheet worksheet)
     {
@@ -188,10 +189,14 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
             OffsetX = source.OffsetX,
             OffsetY = source.OffsetY,
             GroupId = source.GroupId,
+            GroupKey = source.GroupKey,
             IsNew = true,
         };
         return picture;
     }
+
+    /// <summary>Allocate a stable, per-worksheet identity for a group (see <see cref="XLPictureGroup.GroupKey"/>).</summary>
+    internal long AllocateGroupKey() => _nextGroupKey++;
 
     /// <summary>
     /// Group existing free-floating pictures into a new group shape. The group's bounding box is the
@@ -199,10 +204,14 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     /// (the group uses an identity child coordinate space). The group is built on the next save.
     /// (A first-class group API is added in a later phase.)
     /// </summary>
-    internal void Group(params XLPicture[] members)
+    public IXLPictureGroup Group(params IXLPicture[] pictures)
     {
-        if (members is null || members.Length < 2)
-            throw new ArgumentException("A group needs at least two pictures.", nameof(members));
+        if (pictures is null || pictures.Length < 2)
+            throw new ArgumentException("A group needs at least two pictures.", nameof(pictures));
+
+        var members = new XLPicture[pictures.Length];
+        for (var i = 0; i < pictures.Length; i++)
+            members[i] = (XLPicture)pictures[i];
 
         var wb = _worksheet.Workbook;
         long minX = long.MaxValue, minY = long.MaxValue, maxX = long.MinValue, maxY = long.MinValue;
@@ -210,9 +219,9 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         foreach (var member in members)
         {
             if (!ReferenceEquals(member.Worksheet, _worksheet))
-                throw new ArgumentException("All pictures must belong to this worksheet.", nameof(members));
+                throw new ArgumentException("All pictures must belong to this worksheet.", nameof(pictures));
             if (member.IsInGroup)
-                throw new ArgumentException($"Picture '{member.Name}' is already in a group.", nameof(members));
+                throw new ArgumentException($"Picture '{member.Name}' is already in a group.", nameof(pictures));
             if (member.Placement != XLPicturePlacement.FreeFloating)
                 throw new NotSupportedException(
                     $"Only free-floating pictures can be grouped; '{member.Name}' is '{member.Placement}'. Call MoveTo(left, top) first.");
@@ -227,6 +236,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
             maxY = Math.Max(maxY, y + ToEmu(member.Height, wb.DpiY));
         }
 
+        var groupKey = AllocateGroupKey();
         foreach (var member in members)
         {
             // Identity child space (chOff/chExt == off/ext), so a child's coordinates equal its
@@ -237,6 +247,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
                 ScaleY = 1.0,
                 OffsetX = 0.0,
                 OffsetY = 0.0,
+                GroupKey = groupKey,
                 LoadedWidthPx = member.Width,
                 LoadedHeightPx = member.Height,
                 LoadedLeftPx = member.Left,
@@ -245,6 +256,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         }
 
         PendingGroups.Add(new XLPendingGroup([.. members], minX, minY, maxX - minX, maxY - minY));
+        return new XLPictureGroupView(_worksheet, groupKey);
     }
 
     private static long ToEmu(int pixels, double dpi) => Convert.ToInt64(914400L * pixels / dpi);

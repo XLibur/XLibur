@@ -50,6 +50,12 @@ public interface IXLPicture : IDisposable
 
     IXLWorksheet Worksheet { get; }
 
+    /// <summary>Whether this picture is a member of a drawing group (<c>xdr:grpSp</c>).</summary>
+    bool IsInGroup { get; }
+
+    /// <summary>The group this picture belongs to, or <c>null</c> if it is not grouped.</summary>
+    IXLPictureGroup? Group { get; }
+
     /// <summary>
     /// Create a copy of the picture on a different worksheet.
     /// </summary>

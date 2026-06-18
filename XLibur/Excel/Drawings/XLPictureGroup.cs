@@ -47,8 +47,17 @@ internal sealed class XLPictureGroup
     /// <summary>
     /// The <c>cNvPr</c> id of the immediate parent group shape. Used to locate the group element
     /// when adding to or removing from a group; the picture itself is still located by its own id.
+    /// Null for a group created in this session that hasn't been saved yet.
     /// </summary>
     public uint? GroupId { get; init; }
+
+    /// <summary>
+    /// Stable per-worksheet identity of the group this picture belongs to. Unlike <see cref="GroupId"/>
+    /// (the drawing's <c>cNvPr</c> id, unknown until save for new groups), this is assigned when the
+    /// group is loaded or created and never changes, so the public <c>IXLPictureGroup</c> can identify
+    /// a group's members consistently before and after a save.
+    /// </summary>
+    public long GroupKey { get; init; }
 
     /// <summary>
     /// True for a picture that has been added to a group but not yet written: the writer must create

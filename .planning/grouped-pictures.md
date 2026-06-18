@@ -91,8 +91,14 @@ Suggested order: 2.1 → 2.2 → 2.3 → 2.4 → 2.5 → 2.6. Each phase = its o
   - **Limitation (follow-up):** only free-floating, already-saved pictures can be grouped. Cell-anchored
     members need cumulative column/row→EMU geometry (not yet available); grouping brand-new unsaved
     pictures needs element insertion. Group anchor is `absoluteAnchor` (doesn't move with cells).
-- [ ] **2.6 Public API + docs**
-  - Promote `IsInGroup`/`Group`/`IXLPictureGroup`/`ws.PictureGroups`; `PublicAPI.Unshipped.txt`; XML docs.
+- [x] **2.6 Public API + docs** — branch `feat/grouped-pictures-nested` ✅
+  - New public `IXLPictureGroup` (`Worksheet`, `Pictures`, `Add`, `Remove`). `IXLPicture` gains
+    `IsInGroup` and `Group`. `IXLPictures.Group(params IXLPicture[])` creates a group; `IXLWorksheet`
+    gains `PictureGroups`. Backed by `XLPictureGroupView` keyed by a stable per-worksheet
+    `XLPictureGroup.GroupKey` (assigned at load/create, survives save unlike the cNvPr id).
+  - `PublicAPI.Unshipped.txt` updated for all new symbols. XML docs on every new member.
+  - Tests: public API end-to-end (PictureGroups, pic.Group, group.Pictures/Add/Remove, round-trip).
+    13 grouped tests + 376 broader (2 pre-existing skips) green.
 
 ## Cross-cutting risks
 

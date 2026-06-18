@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using XLibur.Excel.CalcEngine.Exceptions;
 using XLibur.Excel.Drawings;
@@ -509,6 +510,9 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     string Author { get; set; }
 
     IXLPictures Pictures { get; }
+
+    /// <summary>The picture groups (<c>xdr:grpSp</c>) on this worksheet.</summary>
+    IEnumerable<IXLPictureGroup> PictureGroups { get; }
 
     IXLPicture Picture(string pictureName);
 

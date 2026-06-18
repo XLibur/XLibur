@@ -184,7 +184,11 @@ internal sealed class XLPicture : IXLPicture
     internal XLPictureGroup? GroupInfo { get; set; }
 
     /// <summary>Whether this picture is part of a drawing group shape.</summary>
-    internal bool IsInGroup => GroupInfo is not null;
+    public bool IsInGroup => GroupInfo is not null;
+
+    /// <summary>The group this picture belongs to, or <c>null</c> if it is not grouped.</summary>
+    public IXLPictureGroup? Group =>
+        GroupInfo is null ? null : new XLPictureGroupView((XLWorksheet)Worksheet, GroupInfo.GroupKey);
 
     /// <summary>
     /// Create a copy of the picture on a different worksheet.
