@@ -3,6 +3,8 @@ using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using NUnit.Framework;
 using XLibur.Excel;
+using XLibur.Excel.Drawings;
+using XLibur.Excel.IO;
 using XLibur.Tests.Utils;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
@@ -13,59 +15,119 @@ public class GroupedPictureTests
 {
     private const string GroupedPicturesResource = @"Other\Drawings\GroupedPictures.xlsx";
 
-    // Regression test for pictures nested inside a group shape (xdr:grpSp).
-    // Previously, loading a worksheet whose drawing contained a group of pictures would read
-    // only the first picture and, on save, replace the whole group anchor with that single
-    // regenerated picture — silently dropping the sibling pictures, connectors and shapes
-    // (e.g. "Picture 2" vanished and "Picture 1" was resized). Such pictures are now skipped
-    // by the loader so the original drawing XML is preserved verbatim on round-trip.
+    // The fixture's "Map" sheet has a twoCellAnchor → grpSp containing two pictures
+    // (Picture 1: child ext 2_000_000 EMU, Picture 2: child ext 1_500_000 EMU) plus a
+    // connector. The group is scaled 2× (ext 10_000_000 vs chExt 5_000_000 horizontally,
+    // 8_000_000 vs 4_000_000 vertically), so the sheet-space sizes are the child extents × 2.
 
-    [Test]
-    public void GroupedPicturesAreNotLoadedIntoTheModel()
+    private static MemoryStream OpenFixture()
     {
-        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(GroupedPicturesResource));
-        using var wb = new XLWorkbook(stream);
-
-        var ws = wb.Worksheet("Map");
-
-        // The two pictures live inside a group shape and are intentionally not surfaced as
-        // editable pictures, because the model cannot round-trip them without data loss.
-        Assert.That(ws.Pictures.Count, Is.EqualTo(0));
+        var ms = new MemoryStream();
+        using var src = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(GroupedPicturesResource));
+        src.CopyTo(ms);
+        ms.Position = 0;
+        return ms;
     }
 
     [Test]
-    public void RoundTripPreservesGroupedPicturesAndShapes()
+    public void GroupedPicturesAreLoadedWithGroupScaledGeometry()
     {
-        using var input = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(GroupedPicturesResource));
-        using var output = new MemoryStream();
+        using var stream = OpenFixture();
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheet("Map");
 
-        using (var wb = new XLWorkbook(input))
+        Assert.That(ws.Pictures.Count, Is.EqualTo(2));
+
+        var picture1 = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 1");
+        var picture2 = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 2");
+
+        Assert.That(picture1.IsInGroup, Is.True);
+        Assert.That(picture2.IsInGroup, Is.True);
+
+        // Both pictures are scaled by the same group factor, so their relative sizes are preserved:
+        // Picture 1 (child 2_000_000) is larger than Picture 2 (child 1_500_000).
+        Assert.That(picture1.Width, Is.GreaterThan(0));
+        Assert.That(picture1.Width, Is.GreaterThan(picture2.Width));
+        Assert.That(picture1.Height, Is.GreaterThan(picture2.Height));
+
+        // Picture 1's sheet-space extent is twice its child extent (2_000_000 → 4_000_000 EMU).
+        var expectedPx1 = DrawingPartReader.ConvertFromEnglishMetricUnits(4_000_000, wb.DpiX);
+        Assert.That(picture1.Width, Is.EqualTo(expectedPx1));
+    }
+
+    [Test]
+    public void UneditedRoundTripPreservesGroupPicturesAndShapes()
+    {
+        using var output = new MemoryStream();
+        using (var stream = OpenFixture())
+        using (var wb = new XLWorkbook(stream))
         {
             wb.SaveAs(output);
         }
 
         output.Position = 0;
-
         using var package = SpreadsheetDocument.Open(output, false);
         var drawingsPart = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart;
         Assert.That(drawingsPart, Is.Not.Null);
-
         var drawing = drawingsPart!.WorksheetDrawing;
 
-        // The group and both of its pictures survive...
-        Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(1), "group shape should be preserved");
-        Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2), "both grouped pictures should be preserved");
+        Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(1), "group preserved");
+        Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2), "both pictures preserved");
+        Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1), "connector preserved");
 
-        // ...along with the connector inside the group...
-        Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1), "grouped connector should be preserved");
-
-        // ...and both image relationships still resolve to image parts.
-        var embeds = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
-            .Select(b => b.Embed?.Value)
-            .Where(v => v is not null)
+        // An unedited grouped picture must keep its exact child-space extent (no rounding drift).
+        var extents = drawing.Descendants<Xdr.Picture>()
+            .Select(p => p.ShapeProperties!.Transform2D!.Extents!)
+            .Select(e => (e.Cx!.Value, e.Cy!.Value))
+            .OrderByDescending(t => t.Item1)
             .ToList();
+        Assert.That(extents[0], Is.EqualTo((2_000_000L, 2_000_000L)));
+        Assert.That(extents[1], Is.EqualTo((1_500_000L, 1_500_000L)));
+
+        // Both image relationships still resolve to image parts.
+        var embeds = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
+            .Select(b => b.Embed?.Value).Where(v => v is not null).ToList();
         Assert.That(embeds.Count, Is.EqualTo(2));
         foreach (var embed in embeds)
             Assert.That(drawingsPart.GetPartById(embed!), Is.InstanceOf<ImagePart>());
+    }
+
+    [Test]
+    public void ResizingGroupedPictureRoundTrips()
+    {
+        using var output = new MemoryStream();
+        int newWidth, newHeight;
+
+        using (var stream = OpenFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            var picture1 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 1");
+            newWidth = picture1.Width + 150;
+            newHeight = picture1.Height + 90;
+            picture1.Width = newWidth;
+            picture1.Height = newHeight;
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var picture1 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 1");
+
+            // Round-trips through the group transform involve EMU<->pixel conversions, so allow a
+            // small rounding tolerance.
+            Assert.That(picture1.Width, Is.EqualTo(newWidth).Within(2));
+            Assert.That(picture1.Height, Is.EqualTo(newHeight).Within(2));
+        }
+
+        // The group, the second picture and the connector all survive the edit.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+            Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(1));
+            Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
+            Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+        }
     }
 }

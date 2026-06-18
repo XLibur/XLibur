@@ -176,6 +176,17 @@ internal sealed class XLPicture : IXLPicture
     internal string? RelId { get; set; }
 
     /// <summary>
+    /// When set, this picture lives inside a drawing group shape (<c>xdr:grpSp</c>).
+    /// Grouped pictures are written back in place (their <c>xdr:pic</c> element is updated)
+    /// rather than re-anchored, so sibling pictures, connectors and shapes in the group are
+    /// preserved. See <see cref="XLPictureGroup"/>.
+    /// </summary>
+    internal XLPictureGroup? GroupInfo { get; set; }
+
+    /// <summary>Whether this picture is part of a drawing group shape.</summary>
+    internal bool IsInGroup => GroupInfo is not null;
+
+    /// <summary>
     /// Create a copy of the picture on a different worksheet.
     /// </summary>
     /// <param name="targetSheet">The worksheet to which the picture will be copied.</param>

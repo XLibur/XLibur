@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing;
@@ -29,6 +30,13 @@ internal static class PictureWriter
             foreach (var removedPicture in xlPictures.Deleted)
             {
                 var anchor = GetAnchorFromImageId(worksheetPart.DrawingsPart, removedPicture);
+
+                // Deleting a picture that lives in a group would otherwise dismantle the whole
+                // group (and its sibling shapes). Removing a single picture from a group is not
+                // supported yet, so leave the group — and its image part — intact.
+                if (anchor is not null && anchor.Descendants<Xdr.GroupShape>().Any())
+                    continue;
+
                 if (anchor is not null)
                     worksheetPart.DrawingsPart.WorksheetDrawing!.RemoveChild(anchor);
 
@@ -38,12 +46,24 @@ internal static class PictureWriter
             xlPictures.Deleted.Clear();
         }
 
+        var groupedPictures = new List<XLPicture>();
         foreach (var pic in xlWorksheet.Pictures)
         {
-            AddPictureAnchor(worksheetPart, pic, context);
+            var xlPic = (XLPicture)pic;
+            if (xlPic.IsInGroup)
+                groupedPictures.Add(xlPic);
+            else
+                AddPictureAnchor(worksheetPart, pic, context);
         }
 
-        if (xlWorksheet.Pictures.Count > 0)
+        foreach (var groupedPicture in groupedPictures)
+            UpdateGroupedPicture(worksheetPart, groupedPicture);
+
+        // Rebasing renumbers every NonVisualDrawingProperties id. That would break connector
+        // start/end connection references (a:stCxn/@id, a:endCxn/@id) inside a group, so only do
+        // it for the historical picture-only case where the drawing contains no group shapes.
+        if (xlWorksheet.Pictures.Count > 0 && groupedPictures.Count == 0 &&
+            !(worksheetPart.DrawingsPart?.WorksheetDrawing?.Descendants<Xdr.GroupShape>().Any() ?? false))
             RebaseNonVisualDrawingPropertiesIds(worksheetPart);
 
         var tableParts = worksheet.Elements<TableParts>().First();
@@ -323,6 +343,67 @@ internal static class PictureWriter
             {
                 worksheetDrawing.Append(pictureAnchor);
             }
+        }
+    }
+
+    /// <summary>
+    /// Update a picture that lives inside a group shape in place: re-feed its (possibly replaced)
+    /// image data and, if the picture was resized, write the new size back into its child-space
+    /// extent. The surrounding group — its other pictures, connectors and shapes — is left
+    /// untouched. The picture is matched to its <c>xdr:pic</c> element by drawing id, because the
+    /// save DOM is an independent re-parse of the package and object references from load don't
+    /// survive.
+    /// </summary>
+    private static void UpdateGroupedPicture(WorksheetPart worksheetPart, XLPicture pic)
+    {
+        var drawingsPart = worksheetPart.DrawingsPart;
+        var group = pic.GroupInfo;
+        if (drawingsPart?.WorksheetDrawing is null || group is null)
+            return;
+
+        var worksheetDrawing = drawingsPart.WorksheetDrawing;
+
+        Xdr.Picture? picElement = null;
+        foreach (var candidate in worksheetDrawing.Descendants<Xdr.Picture>())
+        {
+            var id = candidate.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value;
+            if (id == (uint)pic.Id && candidate.Ancestors<Xdr.GroupShape>().Any())
+            {
+                picElement = candidate;
+                break;
+            }
+        }
+
+        if (picElement is null)
+            return;
+
+        // Re-feed the image bytes into the existing part. If the image was not replaced these are
+        // the same bytes that were read, so the part is unchanged.
+        if (!string.IsNullOrEmpty(pic.RelId) && drawingsPart.HasPartWithId(pic.RelId!))
+        {
+            var imagePart = (ImagePart)drawingsPart.GetPartById(pic.RelId!);
+            pic.ImageStream.Position = 0;
+            imagePart.FeedData(pic.ImageStream);
+        }
+
+        // Only rewrite geometry when the size actually changed, so an unedited picture round-trips
+        // without rounding drift.
+        if (pic.Width == group.LoadedWidthPx && pic.Height == group.LoadedHeightPx)
+            return;
+
+        var wb = pic.Worksheet.Workbook;
+        var sheetEmuCx = ConvertToEnglishMetricUnits(pic.Width, wb.DpiX);
+        var sheetEmuCy = ConvertToEnglishMetricUnits(pic.Height, wb.DpiY);
+
+        // Convert the sheet-space size back to the group's child coordinate space.
+        var childCx = group.ScaleX == 0 ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
+        var childCy = group.ScaleY == 0 ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
+
+        var extents = picElement.ShapeProperties?.Transform2D?.Extents;
+        if (extents is not null)
+        {
+            extents.Cx = childCx;
+            extents.Cy = childCy;
         }
     }
 

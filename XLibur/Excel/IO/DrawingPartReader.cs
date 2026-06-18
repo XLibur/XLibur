@@ -60,18 +60,21 @@ internal static class DrawingPartReader
 
             foreach (var anchor in drawingsPart.WorksheetDrawing!.ChildElements)
             {
+                // Pictures nested inside a top-level group shape (xdr:grpSp) are laid out in the
+                // group's child coordinate space. Load each of them as an editable picture that
+                // remembers its group transform, so on save we can update the xdr:pic in place and
+                // leave the rest of the group (sibling pictures, connectors, shapes) intact.
+                var group = anchor.Elements<Xdr.GroupShape>().FirstOrDefault();
+                if (group != null)
+                {
+                    LoadGroupedPictures(anchor, group, drawingsPart, ws);
+                    continue;
+                }
+
                 var imgId = XLWorkbook.GetImageRelIdFromAnchor(anchor);
 
                 //If imgId is null, we're probably dealing with a TextBox (or another shape) instead of a picture
                 if (imgId == null) continue;
-
-                // Pictures nested inside a group shape (xdr:grpSp) are not representable by the
-                // flat XLPicture model: only the first picture of the group would be loaded, and
-                // saving it would replace the whole group anchor — silently dropping the sibling
-                // pictures, connectors and shapes. Skip these anchors so the original drawing XML
-                // is preserved verbatim on a load/save round-trip.
-                if (anchor.Descendants<Xdr.GroupShape>().Any())
-                    continue;
 
                 // Skip external image references (e.g. URLs) — they have no embedded part.
                 if (!drawingsPart.TryGetPartById(imgId, out var imagePart))
@@ -87,6 +90,118 @@ internal static class DrawingPartReader
     internal static int ConvertFromEnglishMetricUnits(long emu, double resolution)
     {
         return Convert.ToInt32(emu * resolution / 914400);
+    }
+
+    /// <summary>
+    /// Load the pictures that are direct children of a top-level group shape. Each picture is
+    /// added to the worksheet with its sheet-space size (the child-space extent scaled by the
+    /// group transform) and tagged with its <see cref="XLPictureGroup"/> so the writer can update
+    /// it in place. Non-picture children (connectors, shapes) and pictures inside nested groups
+    /// are left untouched and preserved verbatim on save.
+    /// </summary>
+    private static void LoadGroupedPictures(OpenXmlElement anchor, Xdr.GroupShape group,
+        DrawingsPart drawingsPart, XLWorksheet ws)
+    {
+        var xfrm = group.GroupShapeProperties?.TransformGroup;
+        if (xfrm == null)
+            return; // No transform — cannot map child coordinates; leave the group preserved as-is.
+
+        var gOffX = xfrm.Offset?.X?.Value ?? 0;
+        var gOffY = xfrm.Offset?.Y?.Value ?? 0;
+        var gExtCx = xfrm.Extents?.Cx?.Value ?? 0;
+        var gExtCy = xfrm.Extents?.Cy?.Value ?? 0;
+        var chOffX = xfrm.ChildOffset?.X?.Value ?? 0;
+        var chOffY = xfrm.ChildOffset?.Y?.Value ?? 0;
+        var chExtCx = xfrm.ChildExtents?.Cx?.Value ?? 0;
+        var chExtCy = xfrm.ChildExtents?.Cy?.Value ?? 0;
+
+        var scaleX = chExtCx == 0 ? 1.0 : (double)gExtCx / chExtCx;
+        var scaleY = chExtCy == 0 ? 1.0 : (double)gExtCy / chExtCy;
+
+        var topLeft = GetAnchorTopLeftMarker(anchor, ws);
+
+        foreach (var pic in group.Elements<Xdr.Picture>())
+        {
+            var embed = pic.BlipFill?.Blip?.Embed?.Value;
+            if (embed == null)
+                continue;
+
+            // External image references (e.g. URLs) have no embedded part.
+            if (!drawingsPart.TryGetPartById(embed, out var imagePart))
+                continue;
+
+            var picExtents = pic.ShapeProperties?.Transform2D?.Extents;
+            var picChildCx = picExtents?.Cx?.Value ?? 0;
+            var picChildCy = picExtents?.Cy?.Value ?? 0;
+
+            var sheetEmuCx = (long)Math.Round(picChildCx * scaleX);
+            var sheetEmuCy = (long)Math.Round(picChildCy * scaleY);
+
+            var xlPicture = LoadGroupedPicture(pic, embed, imagePart, ws);
+
+            // FreeFloating lets Width/Height/Left/Top be edited; placement does not drive the
+            // anchor for grouped pictures because they are written back in place.
+            xlPicture.Placement = XLPicturePlacement.FreeFloating;
+            var widthPx = ConvertFromEnglishMetricUnits(sheetEmuCx, ws.Workbook.DpiX);
+            var heightPx = ConvertFromEnglishMetricUnits(sheetEmuCy, ws.Workbook.DpiY);
+            xlPicture.Width = widthPx;
+            xlPicture.Height = heightPx;
+
+            if (topLeft != null)
+                xlPicture.Markers[XLMarkerPosition.TopLeft] = topLeft;
+
+            xlPicture.GroupInfo = new XLPictureGroup
+            {
+                GroupOffsetX = gOffX,
+                GroupOffsetY = gOffY,
+                GroupExtentCx = gExtCx,
+                GroupExtentCy = gExtCy,
+                ChildOffsetX = chOffX,
+                ChildOffsetY = chOffY,
+                ChildExtentCx = chExtCx,
+                ChildExtentCy = chExtCy,
+                PictureChildExtentCx = picChildCx,
+                PictureChildExtentCy = picChildCy,
+                LoadedWidthPx = widthPx,
+                LoadedHeightPx = heightPx,
+            };
+        }
+    }
+
+    private static XLMarker? GetAnchorTopLeftMarker(OpenXmlElement anchor, XLWorksheet ws)
+    {
+        return anchor switch
+        {
+            Xdr.TwoCellAnchor { FromMarker: { } from } => LoadMarker(ws, from),
+            Xdr.OneCellAnchor { FromMarker: { } from } => LoadMarker(ws, from),
+            _ => new XLMarker(ws.Cell(1, 1)),
+        };
+    }
+
+    private static XLPicture LoadGroupedPicture(Xdr.Picture pic, string embed, OpenXmlPart imagePart, XLWorksheet ws)
+    {
+        using var stream = imagePart.GetStream();
+        using var ms = new MemoryStream();
+        stream.CopyTo(ms);
+
+        var nvProps = pic.NonVisualPictureProperties?.NonVisualDrawingProperties;
+        var pictureName = nvProps?.Name?.Value;
+        var pictureId = Convert.ToInt32(nvProps?.Id?.Value ?? 0);
+
+        XLPicture picture;
+        if (string.IsNullOrWhiteSpace(pictureName))
+        {
+            picture = (XLPicture)ws.AddPicture(ms);
+            if (pictureId > 0)
+                picture.Id = pictureId;
+        }
+        else
+        {
+            picture = (XLPicture)ws.AddPicture(ms, pictureName, pictureId);
+        }
+
+        picture.RelId = embed;
+        return picture;
     }
 
     internal static XLMarker LoadMarker(XLWorksheet ws, Xdr.MarkerType marker)
