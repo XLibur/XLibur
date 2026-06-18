@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
@@ -382,6 +383,70 @@ public class GroupedPictureTests
             var names = group.Pictures.Select(p => p.Name).ToList();
             Assert.That(names, Is.EquivalentTo(new[] { "Picture 1", "Group Added" }));
         }
+    }
+
+    [Test]
+    public void AddingToANewlyCreatedGroupBeforeSaveIsNotDropped()
+    {
+        using var seeded = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Map");
+            AddFreeFloatingPicture(ws, "Pic A", 100, 100);
+            AddFreeFloatingPicture(ws, "Pic B", 500, 300);
+            wb.SaveAs(seeded);
+        }
+
+        using var output = new MemoryStream();
+        seeded.Position = 0;
+        using (var wb = new XLWorkbook(seeded))
+        {
+            var ws = wb.Worksheet("Map");
+            var a = (XLPicture)ws.Pictures.Single(p => p.Name == "Pic A");
+            var b = (XLPicture)ws.Pictures.Single(p => p.Name == "Pic B");
+
+            // Create the group and add a third picture to it, all before any save: the group's
+            // drawing id isn't assigned until save, so the added picture inherits a null id.
+            var group = ws.Pictures.Group(a, b);
+            using var image = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Images\SampleImagePng.png"));
+            var added = group.Add(image, "Pic C");
+            added.Width = 150;
+            added.Height = 120;
+            added.Left = 700;
+            added.Top = 200;
+
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var group = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing
+                .Descendants<Xdr.GroupShape>().Single();
+            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(3),
+                "the picture added to the group before its first save must not be dropped");
+        }
+    }
+
+    [Test]
+    public void GroupRejectsInvalidArguments()
+    {
+        using var seeded = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Map");
+            AddFreeFloatingPicture(ws, "Pic A", 100, 100);
+            wb.SaveAs(seeded);
+        }
+
+        seeded.Position = 0;
+        using var reopened = new XLWorkbook(seeded);
+        var pictures = reopened.Worksheet("Map").Pictures;
+        var a = pictures.Single(p => p.Name == "Pic A");
+
+        Assert.Throws<ArgumentNullException>(() => pictures.Group(null!));
+        Assert.Throws<ArgumentException>(() => pictures.Group(a, null!));
+        Assert.Throws<ArgumentException>(() => pictures.Group(a, a), "duplicates collapse to a single distinct picture");
     }
 
     // The nested fixture's "Map" sheet has an outer group (2× scale) containing Picture 1

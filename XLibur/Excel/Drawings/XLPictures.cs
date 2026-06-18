@@ -206,12 +206,21 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     /// </summary>
     public IXLPictureGroup Group(params IXLPicture[] pictures)
     {
-        if (pictures is null || pictures.Length < 2)
-            throw new ArgumentException("A group needs at least two pictures.", nameof(pictures));
+        ArgumentNullException.ThrowIfNull(pictures);
 
-        var members = new XLPicture[pictures.Length];
-        for (var i = 0; i < pictures.Length; i++)
-            members[i] = (XLPicture)pictures[i];
+        var members = new List<XLPicture>(pictures.Length);
+        foreach (var picture in pictures)
+        {
+            if (picture is null)
+                throw new ArgumentException("The pictures cannot contain a null element.", nameof(pictures));
+            if (picture is not XLPicture member)
+                throw new ArgumentException("The picture was not created by this library.", nameof(pictures));
+            if (!members.Contains(member))
+                members.Add(member);
+        }
+
+        if (members.Count < 2)
+            throw new ArgumentException("A group needs at least two distinct pictures.", nameof(pictures));
 
         var wb = _worksheet.Workbook;
         long minX = long.MaxValue, minY = long.MaxValue, maxX = long.MinValue, maxY = long.MinValue;

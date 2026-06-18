@@ -32,7 +32,9 @@ internal sealed class XLPictureGroupView : IXLPictureGroup, IEquatable<XLPicture
 
     public void Remove(IXLPicture picture)
     {
-        var member = (XLPicture)picture;
+        ArgumentNullException.ThrowIfNull(picture);
+        if (picture is not XLPicture member)
+            throw new ArgumentException("The picture was not created by this library.", nameof(picture));
         if (member.GroupInfo?.GroupKey != _groupKey)
             throw new ArgumentException("The picture is not a member of this group.", nameof(picture));
 

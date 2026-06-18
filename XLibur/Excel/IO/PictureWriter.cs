@@ -452,6 +452,19 @@ internal static class PictureWriter
                 };
             }
 
+            // Propagate the new group id to every member sharing this group's key — including
+            // pictures added to the group before its first save, which carry a null group id and
+            // would otherwise be skipped during insertion.
+            var groupKey = pending.Members.Count > 0 ? pending.Members[0].GroupInfo?.GroupKey : null;
+            if (groupKey is not null)
+            {
+                foreach (var pic in (IEnumerable<XLPicture>)(XLPictures)pending.Members[0].Worksheet.Pictures)
+                {
+                    if (pic.GroupInfo is { } info && info.GroupKey == groupKey && info.GroupId != groupId)
+                        pic.GroupInfo = info with { GroupId = groupId };
+                }
+            }
+
             var absoluteAnchor = new Xdr.AbsoluteAnchor(
                 new Xdr.Position { X = pending.OffsetX, Y = pending.OffsetY },
                 new Xdr.Extent { Cx = pending.ExtentCx, Cy = pending.ExtentCy },

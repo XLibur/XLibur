@@ -14,7 +14,7 @@ namespace XLibur.Excel.Drawings;
 /// re-parses of the package.
 /// </para>
 /// </summary>
-internal sealed class XLPictureGroup
+internal sealed record XLPictureGroup
 {
     /// <summary>Total horizontal scale from the picture's child coordinate space to the sheet.</summary>
     public double ScaleX { get; init; } = 1.0;
