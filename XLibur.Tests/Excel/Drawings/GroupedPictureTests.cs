@@ -71,12 +71,17 @@ public class GroupedPictureTests
         Assert.That(drawingsPart, Is.Not.Null);
         var drawing = drawingsPart!.WorksheetDrawing;
 
-        Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(1), "group preserved");
-        Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2), "both pictures preserved");
-        Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1), "connector preserved");
+        var groups = drawing.Descendants<Xdr.GroupShape>().ToList();
+        Assert.That(groups.Count, Is.EqualTo(1), "group preserved");
+
+        // Assert on the group node so the shapes are verified to remain *inside* the group rather
+        // than having been moved out to the top level during the round-trip.
+        var group = groups[0];
+        Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2), "both pictures preserved inside the group");
+        Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1), "connector preserved inside the group");
 
         // An unedited grouped picture must keep its exact child-space extent (no rounding drift).
-        var extents = drawing.Descendants<Xdr.Picture>()
+        var extents = group.Descendants<Xdr.Picture>()
             .Select(p => p.ShapeProperties!.Transform2D!.Extents!)
             .Select(e => (e.Cx!.Value, e.Cy!.Value))
             .OrderByDescending(t => t.Item1)
@@ -125,9 +130,13 @@ public class GroupedPictureTests
         using (var package = SpreadsheetDocument.Open(output, false))
         {
             var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
-            Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(1));
-            Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
-            Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+            var groups = drawing.Descendants<Xdr.GroupShape>().ToList();
+            Assert.That(groups.Count, Is.EqualTo(1));
+
+            // The picture stays inside the group after the resize, alongside its sibling and connector.
+            var group = groups[0];
+            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
+            Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
         }
     }
 }
