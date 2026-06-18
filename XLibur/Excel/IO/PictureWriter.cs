@@ -143,6 +143,13 @@ internal static class PictureWriter
         // Clear current anchors
         var existingAnchor = GetAnchorFromImageId(drawingsPart, pic.RelId!);
 
+        // Never overwrite an anchor that hosts a group shape (xdr:grpSp): replacing it with a
+        // single regenerated picture would discard the other pictures/connectors/shapes in the
+        // group. Such pictures are not loaded into the model (see DrawingPartReader.LoadDrawings),
+        // so this is a defensive guard to keep grouped drawings intact on save.
+        if (existingAnchor is not null && existingAnchor.Descendants<Xdr.GroupShape>().Any())
+            return;
+
         var wb = pic.Worksheet.Workbook;
         var extentsCx = ConvertToEnglishMetricUnits(pic.Width, wb.DpiX);
         var extentsCy = ConvertToEnglishMetricUnits(pic.Height, wb.DpiY);
