@@ -65,6 +65,14 @@ internal static class DrawingPartReader
                 //If imgId is null, we're probably dealing with a TextBox (or another shape) instead of a picture
                 if (imgId == null) continue;
 
+                // Pictures nested inside a group shape (xdr:grpSp) are not representable by the
+                // flat XLPicture model: only the first picture of the group would be loaded, and
+                // saving it would replace the whole group anchor — silently dropping the sibling
+                // pictures, connectors and shapes. Skip these anchors so the original drawing XML
+                // is preserved verbatim on a load/save round-trip.
+                if (anchor.Descendants<Xdr.GroupShape>().Any())
+                    continue;
+
                 // Skip external image references (e.g. URLs) — they have no embedded part.
                 if (!drawingsPart.TryGetPartById(imgId, out var imagePart))
                     continue;
