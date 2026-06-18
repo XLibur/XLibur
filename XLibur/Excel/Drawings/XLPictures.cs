@@ -17,6 +17,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         _worksheet = worksheet;
         Deleted = new HashSet<string>();
         DeletedFromGroups = new List<(int Id, string? RelId)>();
+        PendingGroups = new List<XLPendingGroup>();
     }
 
     public int Count
@@ -34,6 +35,9 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     /// so the group and its other shapes survive.
     /// </summary>
     internal ICollection<(int Id, string? RelId)> DeletedFromGroups { get; }
+
+    /// <summary>Groups to create on the next save (members are moved into a new group shape).</summary>
+    internal ICollection<XLPendingGroup> PendingGroups { get; }
 
     public IXLPicture Add(Stream stream)
     {
@@ -189,6 +193,62 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         return picture;
     }
 
+    /// <summary>
+    /// Group existing free-floating pictures into a new group shape. The group's bounding box is the
+    /// union of the members' sheet rectangles; the members keep their on-sheet positions and sizes
+    /// (the group uses an identity child coordinate space). The group is built on the next save.
+    /// (A first-class group API is added in a later phase.)
+    /// </summary>
+    internal void Group(params XLPicture[] members)
+    {
+        if (members is null || members.Length < 2)
+            throw new ArgumentException("A group needs at least two pictures.", nameof(members));
+
+        var wb = _worksheet.Workbook;
+        long minX = long.MaxValue, minY = long.MaxValue, maxX = long.MinValue, maxY = long.MinValue;
+
+        foreach (var member in members)
+        {
+            if (!ReferenceEquals(member.Worksheet, _worksheet))
+                throw new ArgumentException("All pictures must belong to this worksheet.", nameof(members));
+            if (member.IsInGroup)
+                throw new ArgumentException($"Picture '{member.Name}' is already in a group.", nameof(members));
+            if (member.Placement != XLPicturePlacement.FreeFloating)
+                throw new NotSupportedException(
+                    $"Only free-floating pictures can be grouped; '{member.Name}' is '{member.Placement}'. Call MoveTo(left, top) first.");
+            if (string.IsNullOrEmpty(member.RelId))
+                throw new NotSupportedException($"Picture '{member.Name}' must be saved before it can be grouped.");
+
+            var x = ToEmu(member.Left, wb.DpiX);
+            var y = ToEmu(member.Top, wb.DpiY);
+            minX = Math.Min(minX, x);
+            minY = Math.Min(minY, y);
+            maxX = Math.Max(maxX, x + ToEmu(member.Width, wb.DpiX));
+            maxY = Math.Max(maxY, y + ToEmu(member.Height, wb.DpiY));
+        }
+
+        foreach (var member in members)
+        {
+            // Identity child space (chOff/chExt == off/ext), so a child's coordinates equal its
+            // sheet coordinates: composed scale 1, composed offset 0.
+            member.GroupInfo = new XLPictureGroup
+            {
+                ScaleX = 1.0,
+                ScaleY = 1.0,
+                OffsetX = 0.0,
+                OffsetY = 0.0,
+                LoadedWidthPx = member.Width,
+                LoadedHeightPx = member.Height,
+                LoadedLeftPx = member.Left,
+                LoadedTopPx = member.Top,
+            };
+        }
+
+        PendingGroups.Add(new XLPendingGroup([.. members], minX, minY, maxX - minX, maxY - minY));
+    }
+
+    private static long ToEmu(int pixels, double dpi) => Convert.ToInt64(914400L * pixels / dpi);
+
     private string GetNextPictureName()
     {
         var pictureNumber = Count;
@@ -200,3 +260,14 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         return $"Picture {pictureNumber}";
     }
 }
+
+/// <summary>
+/// A group to be created on the next save: its member pictures and the group's bounding box in EMU
+/// (used for the group's <c>off</c>/<c>ext</c> and <c>chOff</c>/<c>chExt</c>).
+/// </summary>
+internal sealed record XLPendingGroup(
+    IReadOnlyList<XLPicture> Members,
+    long OffsetX,
+    long OffsetY,
+    long ExtentCx,
+    long ExtentCy);

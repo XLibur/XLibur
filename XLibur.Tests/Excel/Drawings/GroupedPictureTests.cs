@@ -284,6 +284,61 @@ public class GroupedPictureTests
         }
     }
 
+    private static void AddFreeFloatingPicture(IXLWorksheet ws, string name, int left, int top)
+    {
+        using var image = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Images\SampleImagePng.png"));
+        ws.AddPicture(image, name).MoveTo(left, top);
+    }
+
+    [Test]
+    public void GroupingFreeFloatingPicturesCreatesAGroup()
+    {
+        // Build a workbook with two free-floating pictures and save, so they exist in the drawing.
+        using var seeded = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Map");
+            AddFreeFloatingPicture(ws, "Pic A", 100, 100);
+            AddFreeFloatingPicture(ws, "Pic B", 500, 300);
+            wb.SaveAs(seeded);
+        }
+
+        using var output = new MemoryStream();
+        seeded.Position = 0;
+        using (var wb = new XLWorkbook(seeded))
+        {
+            var ws = wb.Worksheet("Map");
+            var pictures = (XLPictures)ws.Pictures;
+            var a = (XLPicture)ws.Pictures.Single(p => p.Name == "Pic A");
+            var b = (XLPicture)ws.Pictures.Single(p => p.Name == "Pic B");
+            pictures.Group(a, b);
+            wb.SaveAs(output);
+        }
+
+        // Both pictures now live in a single group; no top-level picture anchors remain.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+            var group = drawing.Descendants<Xdr.GroupShape>().Single();
+            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
+            Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2), "no picture left outside the group");
+            Assert.That(drawing.Elements<Xdr.AbsoluteAnchor>().Count(), Is.EqualTo(1), "only the group's anchor remains");
+        }
+
+        // XLibur reloads them as grouped pictures with their positions preserved.
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var ws = wb.Worksheet("Map");
+            Assert.That(ws.Pictures.Count, Is.EqualTo(2));
+            var a = (XLPicture)ws.Pictures.Single(p => p.Name == "Pic A");
+            Assert.That(a.IsInGroup, Is.True);
+            Assert.That(a.Left, Is.EqualTo(100).Within(2));
+            Assert.That(a.Top, Is.EqualTo(100).Within(2));
+        }
+    }
+
     // The nested fixture's "Map" sheet has an outer group (2× scale) containing Picture 1
     // (child ext 2_000_000) and an inner group (a further 2× scale) containing Picture 2
     // (child ext 500_000) and a connector. So Picture 1's sheet extent is 2_000_000 × 2 =

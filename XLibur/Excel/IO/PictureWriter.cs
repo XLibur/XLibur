@@ -53,6 +53,14 @@ internal static class PictureWriter
                 RemoveGroupedPictures(worksheetPart.DrawingsPart, xlPictures.DeletedFromGroups);
                 xlPictures.DeletedFromGroups.Clear();
             }
+
+            // Newly requested groups must be built before the picture loop, which then sees their
+            // members as ordinary grouped pictures.
+            if (xlPictures.PendingGroups.Count > 0)
+            {
+                CreateGroups(worksheetPart.DrawingsPart, xlPictures.PendingGroups);
+                xlPictures.PendingGroups.Clear();
+            }
         }
 
         var groupedPictures = new List<XLPicture>();
@@ -368,6 +376,91 @@ internal static class PictureWriter
     /// save DOM is an independent re-parse of the package and object references from load don't
     /// survive.
     /// </summary>
+    /// <summary>
+    /// Build the groups requested via <c>XLPictures.Group(...)</c>. For each pending group a new
+    /// group shape is created in an absolute anchor matching its bounding box, and every member's
+    /// existing top-level <c>xdr:pic</c> is moved into it (its child <c>off</c>/<c>ext</c> set to the
+    /// member's absolute sheet position/size, since the group uses an identity child coordinate
+    /// space). The members' now-empty top-level anchors are removed.
+    /// </summary>
+    private static void CreateGroups(DrawingsPart drawingsPart, ICollection<XLPendingGroup> pendingGroups)
+    {
+        var worksheetDrawing = drawingsPart.WorksheetDrawing;
+        if (worksheetDrawing is null)
+            return;
+
+        foreach (var pending in pendingGroups)
+        {
+            uint maxId = 0;
+            foreach (var nvdpr in worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>())
+                maxId = Math.Max(maxId, nvdpr.Id?.Value ?? 0);
+            var groupId = maxId + 1;
+
+            var groupShape = new Xdr.GroupShape(
+                new Xdr.NonVisualGroupShapeProperties(
+                    new Xdr.NonVisualDrawingProperties { Id = groupId, Name = $"Group {groupId}" },
+                    new Xdr.NonVisualGroupShapeDrawingProperties()
+                ),
+                new Xdr.GroupShapeProperties(
+                    new TransformGroup(
+                        new Offset { X = pending.OffsetX, Y = pending.OffsetY },
+                        new Extents { Cx = pending.ExtentCx, Cy = pending.ExtentCy },
+                        new ChildOffset { X = pending.OffsetX, Y = pending.OffsetY },
+                        new ChildExtents { Cx = pending.ExtentCx, Cy = pending.ExtentCy }
+                    )
+                )
+            );
+
+            foreach (var member in pending.Members)
+            {
+                var anchor = string.IsNullOrEmpty(member.RelId)
+                    ? null
+                    : GetAnchorFromImageId(drawingsPart, member.RelId!);
+                var picElement = anchor?.Descendants<Xdr.Picture>().FirstOrDefault();
+                if (anchor is null || picElement is null)
+                    continue;
+
+                var wb = member.Worksheet.Workbook;
+                var transform = picElement.ShapeProperties?.Transform2D;
+                if (transform is not null)
+                {
+                    // Identity child space: child coordinates are the member's absolute sheet EMU.
+                    transform.Offset ??= new Offset();
+                    transform.Offset.X = ConvertToEnglishMetricUnits(member.Left, wb.DpiX);
+                    transform.Offset.Y = ConvertToEnglishMetricUnits(member.Top, wb.DpiY);
+                    transform.Extents ??= new Extents();
+                    transform.Extents.Cx = ConvertToEnglishMetricUnits(member.Width, wb.DpiX);
+                    transform.Extents.Cy = ConvertToEnglishMetricUnits(member.Height, wb.DpiY);
+                }
+
+                picElement.Remove();
+                groupShape.Append(picElement);
+                anchor.Remove();
+
+                member.GroupInfo = new XLPictureGroup
+                {
+                    ScaleX = 1.0,
+                    ScaleY = 1.0,
+                    OffsetX = 0.0,
+                    OffsetY = 0.0,
+                    GroupId = groupId,
+                    LoadedWidthPx = member.Width,
+                    LoadedHeightPx = member.Height,
+                    LoadedLeftPx = member.Left,
+                    LoadedTopPx = member.Top,
+                };
+            }
+
+            var absoluteAnchor = new Xdr.AbsoluteAnchor(
+                new Xdr.Position { X = pending.OffsetX, Y = pending.OffsetY },
+                new Xdr.Extent { Cx = pending.ExtentCx, Cy = pending.ExtentCy },
+                groupShape,
+                new Xdr.ClientData()
+            );
+            worksheetDrawing.Append(absoluteAnchor);
+        }
+    }
+
     /// <summary>
     /// Insert a newly added picture into its target group. Allocates a drawing-wide unique id and a
     /// new image part, builds the <c>xdr:pic</c> with its child <c>off</c>/<c>ext</c> derived from the

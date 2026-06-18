@@ -79,9 +79,18 @@ Suggested order: 2.1 → 2.2 → 2.3 → 2.4 → 2.5 → 2.6. Each phase = its o
     inverse affine, and appends it to the group. Model is reset to "existing" afterwards for multi-save.
   - Tests: add a picture to a group, set size+position, save, reopen → 3 pictures in the group + 3
     image parts, geometry round-trips, connector/originals intact. 11 grouped tests + 168 broader green.
-- [ ] **2.5 Creating new groups** (most invasive)
-  - `ws.Pictures.Group(params IXLPicture[])`; bbox → group off/ext, chOff/chExt = off/ext (scale 1);
-    convert members into group children; remove their original top-level anchors; build `grpSp` + anchor.
+- [x] **2.5 Creating new groups** — branch `feat/grouped-pictures-nested` ✅
+  - Internal `XLPictures.Group(params XLPicture[])` (full API in 2.6) validates members are same-sheet,
+    free-floating, in-DOM, ≥2; computes the EMU bbox; tags members grouped (identity child space) and
+    records an `XLPendingGroup`. `PictureWriter.CreateGroups` (run before the picture loop) builds the
+    `grpSp` (id, `off`/`ext`/`chOff`/`chExt` = bbox) inside an `absoluteAnchor`, moves each member's
+    existing `<xdr:pic>` into it with child `off`/`ext` = absolute sheet EMU, and removes the old
+    top-level anchors.
+  - Tests: two free-floating pictures → save → group → save → reopen yields a single group containing
+    both, only the group's anchor at top level, positions preserved. 12 grouped tests + 169 broader green.
+  - **Limitation (follow-up):** only free-floating, already-saved pictures can be grouped. Cell-anchored
+    members need cumulative column/row→EMU geometry (not yet available); grouping brand-new unsaved
+    pictures needs element insertion. Group anchor is `absoluteAnchor` (doesn't move with cells).
 - [ ] **2.6 Public API + docs**
   - Promote `IsInGroup`/`Group`/`IXLPictureGroup`/`ws.PictureGroups`; `PublicAPI.Unshipped.txt`; XML docs.
 
