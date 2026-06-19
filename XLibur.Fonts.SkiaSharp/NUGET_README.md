@@ -4,7 +4,7 @@ An optional font engine for [XLibur](https://www.nuget.org/packages/XLibur) that
 
 ## Installation
 
-```
+```sh
 dotnet add package XLibur.Fonts.SkiaSharp
 ```
 

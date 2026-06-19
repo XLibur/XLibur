@@ -56,6 +56,8 @@ public class SkiaSharpFontEngine : IXLFontEngine
     {
         if (string.IsNullOrWhiteSpace(fallbackFont))
             throw new ArgumentException("Fallback font name must not be null or whitespace.", nameof(fallbackFont));
+        if (string.IsNullOrWhiteSpace(embeddedFontName))
+            throw new ArgumentException("Embedded font name must not be null or whitespace.", nameof(embeddedFontName));
         ArgumentNullException.ThrowIfNull(embeddedFontResourcePaths);
         ArgumentNullException.ThrowIfNull(assembly);
 
