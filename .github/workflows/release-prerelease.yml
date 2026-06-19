@@ -65,6 +65,9 @@ jobs:
       - name: Pack XLibur.Fonts.SixLabors
         run: dotnet pack XLibur.Fonts.SixLabors/XLibur.Fonts.SixLabors.csproj --configuration Release --no-build --output ./artifacts
 
+      - name: Pack XLibur.Fonts.SkiaSharp
+        run: dotnet pack XLibur.Fonts.SkiaSharp/XLibur.Fonts.SkiaSharp.csproj --configuration Release --no-build --output ./artifacts
+
       - name: Show package version
         run: ls -la ./artifacts/
 

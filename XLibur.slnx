@@ -13,6 +13,10 @@
     <Project Path="XLibur.Fonts.SixLabors.Tests/XLibur.Fonts.SixLabors.Tests.csproj" />
     <Project Path="XLibur.Fonts.SixLabors/XLibur.Fonts.SixLabors.csproj" />
   </Folder>
+  <Folder Name="/XLibur.Fonts.SkiaSharp/">
+    <Project Path="XLibur.Fonts.SkiaSharp.Tests/XLibur.Fonts.SkiaSharp.Tests.csproj" />
+    <Project Path="XLibur.Fonts.SkiaSharp/XLibur.Fonts.SkiaSharp.csproj" />
+  </Folder>
   <Project Path="XLibur.Benchmarks/XLibur.Benchmarks.csproj" />
   <Project Path="XLibur.Examples/XLibur.Examples.csproj" />
   <Project Path="XLibur/XLibur.csproj" />

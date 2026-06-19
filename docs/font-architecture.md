@@ -43,9 +43,27 @@ XLibur.Fonts.SixLabors.V1
 XLibur.Fonts.SixLabors
 ├── SixLaborsFontEngine          — SixLabors.Fonts 2.1.3 implementation
 └── (no embedded fonts)          — uses system fonts or stream-provided fonts
+
+XLibur.Fonts.SkiaSharp
+├── SkiaSharpFontEngine          — SkiaSharp (MIT) implementation
+└── (no embedded fonts)          — uses system fonts or stream-provided fonts
 ```
 
-The core assembly has **zero dependency on SixLabors.Fonts**. Each font package depends only on XLibur core and its respective SixLabors.Fonts version. No circular dependencies.
+The core assembly has **zero dependency on any font library**. Each font package depends only on XLibur core and its respective font library. No circular dependencies.
+
+### SkiaSharp engine (license-friendly alternative)
+
+`XLibur.Fonts.SkiaSharp` provides `SkiaSharpFontEngine`, a third `IXLFontEngine` implementation backed by [SkiaSharp](https://github.com/mono/SkiaSharp). It mirrors the public surface of `SixLaborsFontEngine` (fallback-name constructor, embedded-font constructor, `CreateOnlyWithFonts`, `CreateWithFontsAndSystemFonts`) and is selected the same way:
+
+```csharp
+using var wb = new XLWorkbook(new LoadOptions { FontEngine = new SkiaSharpFontEngine("Arial") });
+```
+
+**Why add it:** SkiaSharp is MIT-licensed (wrapping BSD-licensed Skia), with no commercial-revenue restrictions — unlike SixLabors.Fonts 2.x (Six Labors Split License). A measurement spike comparing the two libraries on Carlito (Calibri-compatible), TestFontA, and TestFontB found **0% metric drift** across width, descent, height, and max-digit-width: SkiaSharp's `SKFontMetrics.Ascent/Descent` resolves to the same vertical font units as SixLabors' `VerticalMetrics`, so parity comes for free without parsing the OS/2 table by hand.
+
+**Trade-off — native dependency:** Unlike the pure-managed SixLabors.Fonts engines, SkiaSharp wraps native Skia and ships per-platform native binaries. The package includes `SkiaSharp.NativeAssets.Linux.NoDependencies`, which needs no system `fontconfig`/`freetype`, so stream-loaded fonts work in headless and serverless environments. Consumers who do not reference this package take on no native dependency.
+
+**Implementation note:** SkiaSharp has no `FontCollection.TryGet(name)` equivalent, so the engine keeps its own `name → SKTypeface` dictionary for stream-loaded fonts and falls through to `SKFontManager.Default` for system fonts. Glyph metrics are read via `SKFont.MeasureText` and `SKFontMetrics`; the `SKTypeface.GetGlyph`/`SKFont.ContainsGlyph` lookup APIs proved unreliable for stream-loaded typefaces and are not used.
 
 ### Registration
 
@@ -104,6 +122,7 @@ Each package has independent MinVer versioning with distinct tag prefixes:
 | XLibur | `v` | `v0.106.0` |
 | XLibur.Fonts.SixLabors.V1 | `fonts-sixlabors-1-v` | `fonts-sixlabors-1-v1.0.0` |
 | XLibur.Fonts.SixLabors | `fonts-sixlabors-v` | `fonts-sixlabors-v0.1.0` |
+| XLibur.Fonts.SkiaSharp | `fonts-skiasharp-v` | `fonts-skiasharp-v0.1.0` |
 
 The release workflow triggers on any of these tag patterns. `--skip-duplicate` on NuGet push means unchanged packages are not re-published.
 
@@ -117,6 +136,7 @@ The release workflow triggers on any of these tag patterns. `--skip-duplicate` o
 |---|---|---|---|
 | XLibur.Tests | XLibur + V1 | 1.0.1 only | DefaultFontEngine, DefaultGraphicEngine, font injection via LoadOptions |
 | XLibur.Fonts.SixLabors.Tests | XLibur.Fonts.SixLabors (transitive XLibur) | 2.1.3 only | SixLaborsFontEngine with embedded test fonts (no system fonts needed for CI) |
+| XLibur.Fonts.SkiaSharp.Tests | XLibur.Fonts.SkiaSharp (transitive XLibur) | SkiaSharp 3.x | SkiaSharpFontEngine with embedded test fonts (no system fonts needed for CI) |
 
 The test projects never reference both V1 and the v2 package, eliminating DLL version conflicts entirely. The SixLabors test project uses stream-based `TestFontA.ttf` as its default engine so tests pass on Linux CI without system fonts.
 
