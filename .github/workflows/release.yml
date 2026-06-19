@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ['v*', 'fonts-sixlabors-1-v*', 'fonts-sixlabors-v*']
+    tags: ['v*', 'fonts-sixlabors-1-v*', 'fonts-sixlabors-v*', 'fonts-skiasharp-v*']
 
 permissions:
   contents: write
@@ -42,6 +42,9 @@ jobs:
 
       - name: Pack XLibur.Fonts.SixLabors
         run: dotnet pack XLibur.Fonts.SixLabors/XLibur.Fonts.SixLabors.csproj --configuration Release --no-build --output ./artifacts
+
+      - name: Pack XLibur.Fonts.SkiaSharp
+        run: dotnet pack XLibur.Fonts.SkiaSharp/XLibur.Fonts.SkiaSharp.csproj --configuration Release --no-build --output ./artifacts
 
       - name: NuGet login
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
