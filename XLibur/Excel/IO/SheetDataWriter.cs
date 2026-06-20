@@ -254,20 +254,7 @@ internal static class SheetDataWriter
         var saveContext = ctx.SaveContext;
 
         if (ctx.SaveOptions.EvaluateFormulasBeforeSaving && formula.IsDirty(xlWorksheet.Workbook))
-        {
-            try
-            {
-                var workbook = xlWorksheet.Workbook;
-                if (!workbook.CalcEngine.TryEvaluateSingleCell(formula, point, xlWorksheet))
-                    workbook.CalcEngine.Recalculate(workbook, null);
-            }
-            catch
-            {
-                // Match XLCell.Evaluate(false) tolerance: unimplemented features should not
-                // abort the save. The cell is left with whatever cached value (if any) it
-                // already has.
-            }
-        }
+            EvaluateFormulaForSave(xlWorksheet, formula, point);
 
         // Determine cell type from cached value (preserves type round-trip for formulas
         // whose evaluation is unsupported).
@@ -319,6 +306,22 @@ internal static class SheetDataWriter
         }
 
         xml.WriteEndElement(); // cell
+    }
+
+    private static void EvaluateFormulaForSave(XLWorksheet xlWorksheet, XLCellFormula formula, XLSheetPoint point)
+    {
+        try
+        {
+            var workbook = xlWorksheet.Workbook;
+            if (!workbook.CalcEngine.TryEvaluateSingleCell(formula, point, xlWorksheet))
+                workbook.CalcEngine.Recalculate(workbook, null);
+        }
+        catch
+        {
+            // Match XLCell.Evaluate(false) tolerance: unimplemented features should not
+            // abort the save. The cell is left with whatever cached value (if any) it
+            // already has.
+        }
     }
 
     /// <summary>

@@ -193,18 +193,8 @@ namespace XLibur.Excel.CalcEngine
             // The two references must share a single worksheet (default = context). Walk both
             // sides with a direct loop instead of Concat/Distinct/ToList.
             XLWorksheet? sheet = null;
-            foreach (var area in lhs)
-            {
-                var ws = area.Worksheet ?? ctx.Worksheet;
-                if (sheet is null) sheet = ws;
-                else if (sheet != ws) return XLError.IncompatibleValue;
-            }
-            foreach (var area in rhs)
-            {
-                var ws = area.Worksheet ?? ctx.Worksheet;
-                if (sheet is null) sheet = ws;
-                else if (sheet != ws) return XLError.IncompatibleValue;
-            }
+            if (!TryResolveSharedSheet(lhs, ctx, ref sheet) || !TryResolveSharedSheet(rhs, ctx, ref sheet))
+                return XLError.IncompatibleValue;
 
             // Sheet is non-null here because both references have at least one area and
             // ctx.Worksheet throws MissingContextException rather than returning null —
@@ -226,6 +216,23 @@ namespace XLibur.Excel.CalcEngine
             }
 
             return intersections is { Count: > 0 } ? new Reference(intersections) : XLError.NullValue;
+        }
+
+        /// <summary>
+        /// Resolve the single worksheet shared by all areas of <paramref name="reference"/> (areas
+        /// without an explicit worksheet default to the context worksheet), folding the result into
+        /// <paramref name="sheet"/>. Returns <c>false</c> if an area belongs to a different worksheet.
+        /// </summary>
+        private static bool TryResolveSharedSheet(Reference reference, CalcContext ctx, ref XLWorksheet? sheet)
+        {
+            foreach (var area in reference)
+            {
+                var ws = area.Worksheet ?? ctx.Worksheet;
+                if (sheet is null) sheet = ws;
+                else if (sheet != ws) return false;
+            }
+
+            return true;
         }
 
         /// <summary>

@@ -25,44 +25,79 @@ internal static class PictureWriter
         SaveContext context)
     {
         if (worksheetPart.DrawingsPart != null)
+            ProcessDeletedPicturesAndGroups(worksheetPart.DrawingsPart, (XLPictures)xlWorksheet.Pictures);
+
+        var groupedPictureCount = WritePictureAnchors(worksheetPart, xlWorksheet, context);
+
+        // Rebasing renumbers every NonVisualDrawingProperties id. That would break connector
+        // start/end connection references (a:stCxn/@id, a:endCxn/@id) inside a group, so only do
+        // it for the historical picture-only case where the drawing contains no group shapes.
+        if (xlWorksheet.Pictures.Count > 0 && groupedPictureCount == 0 &&
+            !(worksheetPart.DrawingsPart?.WorksheetDrawing?.Descendants<Xdr.GroupShape>().Any() ?? false))
+            RebaseNonVisualDrawingPropertiesIds(worksheetPart);
+
+        var tableParts = worksheet.Elements<TableParts>().First();
+        if (xlWorksheet.Pictures.Count > 0 && !worksheet.OfType<Drawing>().Any())
         {
-            var xlPictures = (XLPictures)xlWorksheet.Pictures;
-            foreach (var removedPicture in xlPictures.Deleted)
-            {
-                var anchor = GetAnchorFromImageId(worksheetPart.DrawingsPart, removedPicture);
-
-                // Deleting a picture that lives in a group would otherwise dismantle the whole
-                // group (and its sibling shapes). Removing a single picture from a group is not
-                // supported yet, so leave the group — and its image part — intact.
-                if (anchor is not null && anchor.Descendants<Xdr.GroupShape>().Any())
-                    continue;
-
-                if (anchor is not null)
-                    worksheetPart.DrawingsPart.WorksheetDrawing!.RemoveChild(anchor);
-
-                worksheetPart.DrawingsPart.DeletePart(removedPicture);
-            }
-
-            xlPictures.Deleted.Clear();
-
-            // Pictures deleted from inside a group are removed in place so the group and its other
-            // shapes survive. Guard on Count so we don't materialize (and thus re-serialize) the
-            // drawing DOM for sheets that have nothing to remove.
-            if (xlPictures.DeletedFromGroups.Count > 0)
-            {
-                RemoveGroupedPictures(worksheetPart.DrawingsPart, xlPictures.DeletedFromGroups);
-                xlPictures.DeletedFromGroups.Clear();
-            }
-
-            // Newly requested groups must be built before the picture loop, which then sees their
-            // members as ordinary grouped pictures.
-            if (xlPictures.PendingGroups.Count > 0)
-            {
-                CreateGroups(worksheetPart.DrawingsPart, xlPictures.PendingGroups);
-                xlPictures.PendingGroups.Clear();
-            }
+            var worksheetDrawing = new Drawing { Id = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart!) };
+            worksheetDrawing.AddNamespaceDeclaration("r",
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+            worksheet.InsertBefore(worksheetDrawing, tableParts);
+            cm.SetElement(XLWorksheetContents.Drawing, worksheet.Elements<Drawing>().First());
         }
 
+        RemoveEmptyDrawingPart(worksheet, cm, xlWorksheet, worksheetPart);
+    }
+
+    /// <summary>
+    /// Apply pending deletions and group requests to the drawing before the picture-writing pass:
+    /// remove deleted (non-grouped) pictures, remove pictures deleted from inside groups in place,
+    /// and build any newly requested groups so their members appear as ordinary grouped pictures.
+    /// </summary>
+    private static void ProcessDeletedPicturesAndGroups(DrawingsPart drawingsPart, XLPictures xlPictures)
+    {
+        foreach (var removedPicture in xlPictures.Deleted)
+        {
+            var anchor = GetAnchorFromImageId(drawingsPart, removedPicture);
+
+            // Deleting a picture that lives in a group would otherwise dismantle the whole
+            // group (and its sibling shapes). Removing a single picture from a group is not
+            // supported yet, so leave the group — and its image part — intact.
+            if (anchor is not null && anchor.Descendants<Xdr.GroupShape>().Any())
+                continue;
+
+            if (anchor is not null)
+                drawingsPart.WorksheetDrawing!.RemoveChild(anchor);
+
+            drawingsPart.DeletePart(removedPicture);
+        }
+
+        xlPictures.Deleted.Clear();
+
+        // Pictures deleted from inside a group are removed in place so the group and its other
+        // shapes survive. Guard on Count so we don't materialize (and thus re-serialize) the
+        // drawing DOM for sheets that have nothing to remove.
+        if (xlPictures.DeletedFromGroups.Count > 0)
+        {
+            RemoveGroupedPictures(drawingsPart, xlPictures.DeletedFromGroups);
+            xlPictures.DeletedFromGroups.Clear();
+        }
+
+        // Newly requested groups must be built before the picture loop, which then sees their
+        // members as ordinary grouped pictures.
+        if (xlPictures.PendingGroups.Count > 0)
+        {
+            CreateGroups(drawingsPart, xlPictures.PendingGroups);
+            xlPictures.PendingGroups.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Write every picture's anchor: free-floating pictures get a fresh anchor, grouped pictures are
+    /// inserted into or updated within their group. Returns the number of grouped pictures handled.
+    /// </summary>
+    private static int WritePictureAnchors(WorksheetPart worksheetPart, XLWorksheet xlWorksheet, SaveContext context)
+    {
         var groupedPictures = new List<XLPicture>();
         foreach (var pic in xlWorksheet.Pictures)
         {
@@ -81,24 +116,17 @@ internal static class PictureWriter
                 UpdateGroupedPicture(worksheetPart, groupedPicture);
         }
 
-        // Rebasing renumbers every NonVisualDrawingProperties id. That would break connector
-        // start/end connection references (a:stCxn/@id, a:endCxn/@id) inside a group, so only do
-        // it for the historical picture-only case where the drawing contains no group shapes.
-        if (xlWorksheet.Pictures.Count > 0 && groupedPictures.Count == 0 &&
-            !(worksheetPart.DrawingsPart?.WorksheetDrawing?.Descendants<Xdr.GroupShape>().Any() ?? false))
-            RebaseNonVisualDrawingPropertiesIds(worksheetPart);
+        return groupedPictures.Count;
+    }
 
-        var tableParts = worksheet.Elements<TableParts>().First();
-        if (xlWorksheet.Pictures.Count > 0 && !worksheet.OfType<Drawing>().Any())
-        {
-            var worksheetDrawing = new Drawing { Id = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart!) };
-            worksheetDrawing.AddNamespaceDeclaration("r",
-                "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
-            worksheet.InsertBefore(worksheetDrawing, tableParts);
-            cm.SetElement(XLWorksheetContents.Drawing, worksheet.Elements<Drawing>().First());
-        }
-
-        // Instead of saving a file with an empty Drawings.xml file, rather remove the .xml file
+    /// <summary>
+    /// Remove the sheet's DrawingsPart (and its workbook reference) when it would otherwise be saved
+    /// empty — no pictures, charts, legacy shapes, or other drawing children. Avoids writing an empty
+    /// Drawings.xml part.
+    /// </summary>
+    private static void RemoveEmptyDrawingPart(Worksheet worksheet, XLWorksheetContentManager cm,
+        XLWorksheet xlWorksheet, WorksheetPart worksheetPart)
+    {
         var hasCharts = worksheetPart.DrawingsPart is not null && worksheetPart.DrawingsPart.Parts.Any();
         var hasNewCharts = xlWorksheet.Charts.Any(c => ((XLChart)c).IsNew);
         if (worksheetPart.DrawingsPart is not null && // There is a drawing part for the sheet that could be deleted
@@ -155,6 +183,18 @@ internal static class PictureWriter
 
     private static bool IsDegenerateScale(double scale) => Math.Abs(scale) < DegenerateScaleEpsilon;
 
+    private static void EnsureDrawingNamespaces(Xdr.WorksheetDrawing worksheetDrawing)
+    {
+        if (!worksheetDrawing.NamespaceDeclarations.Any(nd =>
+                nd.Value.Equals("http://schemas.openxmlformats.org/drawingml/2006/main")))
+            worksheetDrawing.AddNamespaceDeclaration("a", "http://schemas.openxmlformats.org/drawingml/2006/main");
+
+        if (!worksheetDrawing.NamespaceDeclarations.Any(nd =>
+                nd.Value.Equals("http://schemas.openxmlformats.org/officeDocument/2006/relationships")))
+            worksheetDrawing.AddNamespaceDeclaration("r",
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+    }
+
     private static void AddPictureAnchor(WorksheetPart worksheetPart, IXLPicture picture, SaveContext context)
     {
         var pic = (XLPicture)picture;
@@ -165,15 +205,7 @@ internal static class PictureWriter
 
         var worksheetDrawing = drawingsPart.WorksheetDrawing;
 
-        // Add namespaces
-        if (!worksheetDrawing.NamespaceDeclarations.Any(nd =>
-                nd.Value.Equals("http://schemas.openxmlformats.org/drawingml/2006/main")))
-            worksheetDrawing.AddNamespaceDeclaration("a", "http://schemas.openxmlformats.org/drawingml/2006/main");
-
-        if (!worksheetDrawing.NamespaceDeclarations.Any(nd =>
-                nd.Value.Equals("http://schemas.openxmlformats.org/officeDocument/2006/relationships")))
-            worksheetDrawing.AddNamespaceDeclaration("r",
-                "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+        EnsureDrawingNamespaces(worksheetDrawing);
 
         // Overwrite actual image binary data
         ImagePart imagePart;
@@ -397,10 +429,7 @@ internal static class PictureWriter
 
         foreach (var pending in pendingGroups)
         {
-            uint maxId = 0;
-            foreach (var nvdpr in worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>())
-                maxId = Math.Max(maxId, nvdpr.Id?.Value ?? 0);
-            var groupId = maxId + 1;
+            var groupId = ComputeMaxDrawingId(worksheetDrawing) + 1;
 
             var groupShape = new Xdr.GroupShape(
                 new Xdr.NonVisualGroupShapeProperties(
@@ -417,59 +446,12 @@ internal static class PictureWriter
                 )
             );
 
-            foreach (var member in pending.Members)
-            {
-                var anchor = string.IsNullOrEmpty(member.RelId)
-                    ? null
-                    : GetAnchorFromImageId(drawingsPart, member.RelId!);
-                var picElement = anchor?.Descendants<Xdr.Picture>().FirstOrDefault();
-                if (anchor is null || picElement is null)
-                    continue;
-
-                var wb = member.Worksheet.Workbook;
-                var transform = picElement.ShapeProperties?.Transform2D;
-                if (transform is not null)
-                {
-                    // Identity child space: child coordinates are the member's absolute sheet EMU.
-                    transform.Offset ??= new Offset();
-                    transform.Offset.X = ConvertToEnglishMetricUnits(member.Left, wb.DpiX);
-                    transform.Offset.Y = ConvertToEnglishMetricUnits(member.Top, wb.DpiY);
-                    transform.Extents ??= new Extents();
-                    transform.Extents.Cx = ConvertToEnglishMetricUnits(member.Width, wb.DpiX);
-                    transform.Extents.Cy = ConvertToEnglishMetricUnits(member.Height, wb.DpiY);
-                }
-
-                picElement.Remove();
-                groupShape.Append(picElement);
-                anchor.Remove();
-
-                member.GroupInfo = new XLPictureGroup
-                {
-                    ScaleX = 1.0,
-                    ScaleY = 1.0,
-                    OffsetX = 0.0,
-                    OffsetY = 0.0,
-                    GroupId = groupId,
-                    GroupKey = member.GroupInfo?.GroupKey ?? 0,
-                    LoadedWidthPx = member.Width,
-                    LoadedHeightPx = member.Height,
-                    LoadedLeftPx = member.Left,
-                    LoadedTopPx = member.Top,
-                };
-            }
+            MoveMembersIntoGroup(drawingsPart, pending, groupShape, groupId);
 
             // Propagate the new group id to every member sharing this group's key — including
             // pictures added to the group before its first save, which carry a null group id and
             // would otherwise be skipped during insertion.
-            var groupKey = pending.Members.Count > 0 ? pending.Members[0].GroupInfo?.GroupKey : null;
-            if (groupKey is not null)
-            {
-                foreach (var pic in (IEnumerable<XLPicture>)(XLPictures)pending.Members[0].Worksheet.Pictures)
-                {
-                    if (pic.GroupInfo is { } info && info.GroupKey == groupKey && info.GroupId != groupId)
-                        pic.GroupInfo = info with { GroupId = groupId };
-                }
-            }
+            PropagateGroupIdToMembers(pending, groupId);
 
             var absoluteAnchor = new Xdr.AbsoluteAnchor(
                 new Xdr.Position { X = pending.OffsetX, Y = pending.OffsetY },
@@ -478,6 +460,82 @@ internal static class PictureWriter
                 new Xdr.ClientData()
             );
             worksheetDrawing.Append(absoluteAnchor);
+        }
+    }
+
+    /// <summary>The highest <c>NonVisualDrawingProperties</c> id currently present in the drawing (0 if none).</summary>
+    private static uint ComputeMaxDrawingId(Xdr.WorksheetDrawing worksheetDrawing)
+    {
+        uint maxId = 0;
+        foreach (var nvdpr in worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>())
+            maxId = Math.Max(maxId, nvdpr.Id?.Value ?? 0);
+        return maxId;
+    }
+
+    /// <summary>
+    /// Move each member's existing top-level <c>xdr:pic</c> into <paramref name="groupShape"/>, setting its
+    /// child <c>off</c>/<c>ext</c> to the member's absolute sheet geometry (identity child space) and removing
+    /// the now-empty top-level anchor.
+    /// </summary>
+    private static void MoveMembersIntoGroup(DrawingsPart drawingsPart, XLPendingGroup pending,
+        Xdr.GroupShape groupShape, uint groupId)
+    {
+        foreach (var member in pending.Members)
+        {
+            var anchor = string.IsNullOrEmpty(member.RelId)
+                ? null
+                : GetAnchorFromImageId(drawingsPart, member.RelId!);
+            var picElement = anchor?.Descendants<Xdr.Picture>().FirstOrDefault();
+            if (anchor is null || picElement is null)
+                continue;
+
+            var wb = member.Worksheet.Workbook;
+            var transform = picElement.ShapeProperties?.Transform2D;
+            if (transform is not null)
+            {
+                // Identity child space: child coordinates are the member's absolute sheet EMU.
+                transform.Offset ??= new Offset();
+                transform.Offset.X = ConvertToEnglishMetricUnits(member.Left, wb.DpiX);
+                transform.Offset.Y = ConvertToEnglishMetricUnits(member.Top, wb.DpiY);
+                transform.Extents ??= new Extents();
+                transform.Extents.Cx = ConvertToEnglishMetricUnits(member.Width, wb.DpiX);
+                transform.Extents.Cy = ConvertToEnglishMetricUnits(member.Height, wb.DpiY);
+            }
+
+            picElement.Remove();
+            groupShape.Append(picElement);
+            anchor.Remove();
+
+            member.GroupInfo = new XLPictureGroup
+            {
+                ScaleX = 1.0,
+                ScaleY = 1.0,
+                OffsetX = 0.0,
+                OffsetY = 0.0,
+                GroupId = groupId,
+                GroupKey = member.GroupInfo?.GroupKey ?? 0,
+                LoadedWidthPx = member.Width,
+                LoadedHeightPx = member.Height,
+                LoadedLeftPx = member.Left,
+                LoadedTopPx = member.Top,
+            };
+        }
+    }
+
+    /// <summary>
+    /// Propagate <paramref name="groupId"/> to every picture on the worksheet sharing the group's key,
+    /// including members added before the group's first save (which carry a null group id).
+    /// </summary>
+    private static void PropagateGroupIdToMembers(XLPendingGroup pending, uint groupId)
+    {
+        var groupKey = pending.Members.Count > 0 ? pending.Members[0].GroupInfo?.GroupKey : null;
+        if (groupKey is null)
+            return;
+
+        foreach (var pic in (IEnumerable<XLPicture>)(XLPictures)pending.Members[0].Worksheet.Pictures)
+        {
+            if (pic.GroupInfo is { } info && info.GroupKey == groupKey && info.GroupId != groupId)
+                pic.GroupInfo = info with { GroupId = groupId };
         }
     }
 
@@ -578,17 +636,7 @@ internal static class PictureWriter
 
         var worksheetDrawing = drawingsPart.WorksheetDrawing;
 
-        Xdr.Picture? picElement = null;
-        foreach (var candidate in worksheetDrawing.Descendants<Xdr.Picture>())
-        {
-            var id = candidate.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value;
-            if (id == (uint)pic.Id && candidate.Ancestors<Xdr.GroupShape>().Any())
-            {
-                picElement = candidate;
-                break;
-            }
-        }
-
+        var picElement = FindGroupedPictureById(worksheetDrawing, pic.Id);
         if (picElement is null)
             return;
 
@@ -616,32 +664,54 @@ internal static class PictureWriter
         var wb = pic.Worksheet.Workbook;
 
         if (sizeChanged)
-        {
-            var sheetEmuCx = ConvertToEnglishMetricUnits(pic.Width, wb.DpiX);
-            var sheetEmuCy = ConvertToEnglishMetricUnits(pic.Height, wb.DpiY);
-
-            // Convert the sheet-space size back to the group's child coordinate space.
-            var childCx = IsDegenerateScale(group.ScaleX) ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
-            var childCy = IsDegenerateScale(group.ScaleY) ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
-
-            transform.Extents ??= new Extents();
-            transform.Extents.Cx = childCx;
-            transform.Extents.Cy = childCy;
-        }
+            ApplyGroupedChildExtents(transform, pic, group, wb);
 
         if (positionChanged)
+            ApplyGroupedChildOffset(transform, pic, group, wb);
+    }
+
+    /// <summary>
+    /// Locate the <c>xdr:pic</c> inside a group shape that carries the given drawing id. The save DOM
+    /// is an independent re-parse, so the picture is matched by id rather than object reference.
+    /// </summary>
+    private static Xdr.Picture? FindGroupedPictureById(Xdr.WorksheetDrawing worksheetDrawing, int id)
+    {
+        foreach (var candidate in worksheetDrawing.Descendants<Xdr.Picture>())
         {
-            var sheetEmuX = ConvertToEnglishMetricUnits(pic.Left, wb.DpiX);
-            var sheetEmuY = ConvertToEnglishMetricUnits(pic.Top, wb.DpiY);
-
-            // Invert the composed affine (sheet = offset + child·scale) to get the child a:off.
-            var childOffX = IsDegenerateScale(group.ScaleX) ? sheetEmuX : (long)Math.Round((sheetEmuX - group.OffsetX) / group.ScaleX);
-            var childOffY = IsDegenerateScale(group.ScaleY) ? sheetEmuY : (long)Math.Round((sheetEmuY - group.OffsetY) / group.ScaleY);
-
-            transform.Offset ??= new Offset();
-            transform.Offset.X = childOffX;
-            transform.Offset.Y = childOffY;
+            var candidateId = candidate.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value;
+            if (candidateId == (uint)id && candidate.Ancestors<Xdr.GroupShape>().Any())
+                return candidate;
         }
+
+        return null;
+    }
+
+    private static void ApplyGroupedChildExtents(Transform2D transform, XLPicture pic, XLPictureGroup group, XLWorkbook wb)
+    {
+        var sheetEmuCx = ConvertToEnglishMetricUnits(pic.Width, wb.DpiX);
+        var sheetEmuCy = ConvertToEnglishMetricUnits(pic.Height, wb.DpiY);
+
+        // Convert the sheet-space size back to the group's child coordinate space.
+        var childCx = IsDegenerateScale(group.ScaleX) ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
+        var childCy = IsDegenerateScale(group.ScaleY) ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
+
+        transform.Extents ??= new Extents();
+        transform.Extents.Cx = childCx;
+        transform.Extents.Cy = childCy;
+    }
+
+    private static void ApplyGroupedChildOffset(Transform2D transform, XLPicture pic, XLPictureGroup group, XLWorkbook wb)
+    {
+        var sheetEmuX = ConvertToEnglishMetricUnits(pic.Left, wb.DpiX);
+        var sheetEmuY = ConvertToEnglishMetricUnits(pic.Top, wb.DpiY);
+
+        // Invert the composed affine (sheet = offset + child·scale) to get the child a:off.
+        var childOffX = IsDegenerateScale(group.ScaleX) ? sheetEmuX : (long)Math.Round((sheetEmuX - group.OffsetX) / group.ScaleX);
+        var childOffY = IsDegenerateScale(group.ScaleY) ? sheetEmuY : (long)Math.Round((sheetEmuY - group.OffsetY) / group.ScaleY);
+
+        transform.Offset ??= new Offset();
+        transform.Offset.X = childOffX;
+        transform.Offset.Y = childOffY;
     }
 
     /// <summary>

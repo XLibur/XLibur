@@ -532,22 +532,18 @@ internal static class ChartReader
 
     private static void ReadPositions(Xdr.TwoCellAnchor anchor, XLChart xlChart)
     {
-        var from = anchor.FromMarker;
-        if (from != null)
-        {
-            if (int.TryParse(from.ColumnId?.Text, out var col)) xlChart.Position.Column = col;
-            if (int.TryParse(from.RowId?.Text, out var row)) xlChart.Position.Row = row;
-            if (long.TryParse(from.ColumnOffset?.Text, out var colOff)) xlChart.Position.ColumnOffset = colOff / 9525.0;
-            if (long.TryParse(from.RowOffset?.Text, out var rowOff)) xlChart.Position.RowOffset = rowOff / 9525.0;
-        }
+        ReadMarker(anchor.FromMarker, xlChart.Position);
+        ReadMarker(anchor.ToMarker, xlChart.SecondPosition);
+    }
 
-        var to = anchor.ToMarker;
-        if (to != null)
-        {
-            if (int.TryParse(to.ColumnId?.Text, out var col)) xlChart.SecondPosition.Column = col;
-            if (int.TryParse(to.RowId?.Text, out var row)) xlChart.SecondPosition.Row = row;
-            if (long.TryParse(to.ColumnOffset?.Text, out var colOff)) xlChart.SecondPosition.ColumnOffset = colOff / 9525.0;
-            if (long.TryParse(to.RowOffset?.Text, out var rowOff)) xlChart.SecondPosition.RowOffset = rowOff / 9525.0;
-        }
+    private static void ReadMarker(Xdr.MarkerType? marker, IXLDrawingPosition position)
+    {
+        if (marker == null)
+            return;
+
+        if (int.TryParse(marker.ColumnId?.Text, out var col)) position.Column = col;
+        if (int.TryParse(marker.RowId?.Text, out var row)) position.Row = row;
+        if (long.TryParse(marker.ColumnOffset?.Text, out var colOff)) position.ColumnOffset = colOff / 9525.0;
+        if (long.TryParse(marker.RowOffset?.Text, out var rowOff)) position.RowOffset = rowOff / 9525.0;
     }
 }

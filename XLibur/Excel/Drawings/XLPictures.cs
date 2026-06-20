@@ -208,6 +208,26 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     {
         ArgumentNullException.ThrowIfNull(pictures);
 
+        var members = CollectDistinctMembers(pictures);
+        if (members.Count < 2)
+            throw new ArgumentException("A group needs at least two distinct pictures.", nameof(pictures));
+
+        var (minX, minY, maxX, maxY) = ValidateMembersAndComputeBounds(members);
+
+        var groupKey = AllocateGroupKey();
+        AssignIdentityGroupInfo(members, groupKey);
+
+        // members.Count >= 2 is guaranteed above, so the min/max sentinels are always
+        // overwritten in the loop, and minX <= maxX / minY <= maxY by construction (each
+        // member feeds x to minX and x+width to maxX). The subtraction cannot underflow.
+#pragma warning disable S3949 // Calculations should not overflow
+        PendingGroups.Add(new XLPendingGroup([.. members], minX, minY, maxX - minX, maxY - minY));
+#pragma warning restore S3949
+        return new XLPictureGroupView(_worksheet, groupKey);
+    }
+
+    private static List<XLPicture> CollectDistinctMembers(IXLPicture[] pictures)
+    {
         var members = new List<XLPicture>(pictures.Length);
         foreach (var picture in pictures)
         {
@@ -219,18 +239,20 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
                 members.Add(member);
         }
 
-        if (members.Count < 2)
-            throw new ArgumentException("A group needs at least two distinct pictures.", nameof(pictures));
+        return members;
+    }
 
+    private (long MinX, long MinY, long MaxX, long MaxY) ValidateMembersAndComputeBounds(List<XLPicture> members)
+    {
         var wb = _worksheet.Workbook;
         long minX = long.MaxValue, minY = long.MaxValue, maxX = long.MinValue, maxY = long.MinValue;
 
         foreach (var member in members)
         {
             if (!ReferenceEquals(member.Worksheet, _worksheet))
-                throw new ArgumentException("All pictures must belong to this worksheet.", nameof(pictures));
+                throw new ArgumentException("All pictures must belong to this worksheet.", "pictures");
             if (member.IsInGroup)
-                throw new ArgumentException($"Picture '{member.Name}' is already in a group.", nameof(pictures));
+                throw new ArgumentException($"Picture '{member.Name}' is already in a group.", "pictures");
             if (member.Placement != XLPicturePlacement.FreeFloating)
                 throw new NotSupportedException(
                     $"Only free-floating pictures can be grouped; '{member.Name}' is '{member.Placement}'. Call MoveTo(left, top) first.");
@@ -245,7 +267,11 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
             maxY = Math.Max(maxY, y + ToEmu(member.Height, wb.DpiY));
         }
 
-        var groupKey = AllocateGroupKey();
+        return (minX, minY, maxX, maxY);
+    }
+
+    private static void AssignIdentityGroupInfo(List<XLPicture> members, long groupKey)
+    {
         foreach (var member in members)
         {
             // Identity child space (chOff/chExt == off/ext), so a child's coordinates equal its
@@ -263,14 +289,6 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
                 LoadedTopPx = member.Top,
             };
         }
-
-        // members.Count >= 2 is guaranteed above, so the min/max sentinels are always
-        // overwritten in the loop, and minX <= maxX / minY <= maxY by construction (each
-        // member feeds x to minX and x+width to maxX). The subtraction cannot underflow.
-#pragma warning disable S3949 // Calculations should not overflow
-        PendingGroups.Add(new XLPendingGroup([.. members], minX, minY, maxX - minX, maxY - minY));
-#pragma warning restore S3949
-        return new XLPictureGroupView(_worksheet, groupKey);
     }
 
     private static long ToEmu(int pixels, double dpi) => Convert.ToInt64(914400L * pixels / dpi);
