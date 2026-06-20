@@ -35,7 +35,7 @@
     <ItemGroup>
         <PackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
         <PackageReference Include="SkiaSharp" Version="3.116.1" />
-        <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.116.1" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
     </ItemGroup>
 
 </Project>
