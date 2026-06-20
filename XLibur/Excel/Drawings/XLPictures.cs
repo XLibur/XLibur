@@ -264,7 +264,12 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
             };
         }
 
+        // members.Count >= 2 is guaranteed above, so the min/max sentinels are always
+        // overwritten in the loop, and minX <= maxX / minY <= maxY by construction (each
+        // member feeds x to minX and x+width to maxX). The subtraction cannot underflow.
+#pragma warning disable S3949 // Calculations should not overflow
         PendingGroups.Add(new XLPendingGroup([.. members], minX, minY, maxX - minX, maxY - minY));
+#pragma warning restore S3949
         return new XLPictureGroupView(_worksheet, groupKey);
     }
 
