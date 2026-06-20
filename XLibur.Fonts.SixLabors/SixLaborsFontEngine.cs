@@ -126,11 +126,11 @@ public class SixLaborsFontEngine : IXLFontEngine
         return PointsToPixels(-metrics.VerticalMetrics.Descender * font.FontSize / metrics.UnitsPerEm, dpiY);
     }
 
-    public double GetMaxDigitWidth(IXLFontBase fontBase, double dpiX)
+    public double GetMaxDigitWidth(IXLFontBase font, double dpiX)
     {
-        var metricId = new MetricId(fontBase);
+        var metricId = new MetricId(font);
         var maxDigitWidth = _maxDigitWidths.GetOrAdd(metricId, _calculateMaxDigitWidth);
-        return PointsToPixels(maxDigitWidth * fontBase.FontSize, dpiX);
+        return PointsToPixels(maxDigitWidth * font.FontSize, dpiX);
     }
 
     public double GetTextHeight(IXLFontBase font, double dpiY)
@@ -141,15 +141,15 @@ public class SixLaborsFontEngine : IXLFontEngine
             metrics.UnitsPerEm, dpiY);
     }
 
-    public double GetTextWidth(string text, IXLFontBase fontBase, double dpiX)
+    public double GetTextWidth(string text, IXLFontBase font, double dpiX)
     {
-        var fontInstance = GetFont(fontBase);
+        var fontInstance = GetFont(font);
         var dimensionsPx = TextMeasurer.MeasureAdvance(text, new TextOptions(fontInstance)
         {
             Dpi = 72, // Normalize DPI, so 1px is 1pt
             KerningMode = KerningMode.None
         });
-        return PointsToPixels(dimensionsPx.Width / FontMetricSize * fontBase.FontSize, dpiX);
+        return PointsToPixels(dimensionsPx.Width / FontMetricSize * font.FontSize, dpiX);
     }
 
     /// <inheritdoc />

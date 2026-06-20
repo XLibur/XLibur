@@ -128,11 +128,11 @@ public class SkiaSharpFontEngine : IXLFontEngine
         return PointsToPixels(entry.DescentFu * font.FontSize / entry.UnitsPerEm, dpiY);
     }
 
-    public double GetMaxDigitWidth(IXLFontBase fontBase, double dpiX)
+    public double GetMaxDigitWidth(IXLFontBase font, double dpiX)
     {
-        var metricId = new MetricId(fontBase);
+        var metricId = new MetricId(font);
         var maxDigitWidth = _maxDigitWidths.GetOrAdd(metricId, _calculateMaxDigitWidth);
-        return PointsToPixels(maxDigitWidth * fontBase.FontSize, dpiX);
+        return PointsToPixels(maxDigitWidth * font.FontSize, dpiX);
     }
 
     public double GetTextHeight(IXLFontBase font, double dpiY)
@@ -142,12 +142,12 @@ public class SkiaSharpFontEngine : IXLFontEngine
             (entry.AscentFu + 2 * entry.DescentFu) * font.FontSize / entry.UnitsPerEm, dpiY);
     }
 
-    public double GetTextWidth(string text, IXLFontBase fontBase, double dpiX)
+    public double GetTextWidth(string text, IXLFontBase font, double dpiX)
     {
-        var entry = GetFont(fontBase);
-        using var font = new SKFont(entry.Typeface, FontMetricSize);
-        var advance = font.MeasureText(text);
-        return PointsToPixels(advance / FontMetricSize * fontBase.FontSize, dpiX);
+        var entry = GetFont(font);
+        using var skFont = new SKFont(entry.Typeface, FontMetricSize);
+        var advance = skFont.MeasureText(text);
+        return PointsToPixels(advance / FontMetricSize * font.FontSize, dpiX);
     }
 
     /// <inheritdoc />
