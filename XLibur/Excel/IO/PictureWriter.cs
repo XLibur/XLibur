@@ -149,6 +149,12 @@ internal static class PictureWriter
         return Convert.ToInt64(914400L * pixels / resolution);
     }
 
+    // A group scale at or extremely near zero is degenerate: dividing by it would
+    // overflow the EMU long, so callers fall back to the untransformed sheet value.
+    private const double DegenerateScaleEpsilon = 1e-9;
+
+    private static bool IsDegenerateScale(double scale) => Math.Abs(scale) < DegenerateScaleEpsilon;
+
     private static void AddPictureAnchor(WorksheetPart worksheetPart, IXLPicture picture, SaveContext context)
     {
         var pic = (XLPicture)picture;
@@ -520,10 +526,10 @@ internal static class PictureWriter
         var sheetEmuX = ConvertToEnglishMetricUnits(pic.Left, wb.DpiX);
         var sheetEmuY = ConvertToEnglishMetricUnits(pic.Top, wb.DpiY);
 
-        var childCx = group.ScaleX == 0 ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
-        var childCy = group.ScaleY == 0 ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
-        var childX = group.ScaleX == 0 ? sheetEmuX : (long)Math.Round((sheetEmuX - group.OffsetX) / group.ScaleX);
-        var childY = group.ScaleY == 0 ? sheetEmuY : (long)Math.Round((sheetEmuY - group.OffsetY) / group.ScaleY);
+        var childCx = IsDegenerateScale(group.ScaleX) ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
+        var childCy = IsDegenerateScale(group.ScaleY) ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
+        var childX = IsDegenerateScale(group.ScaleX) ? sheetEmuX : (long)Math.Round((sheetEmuX - group.OffsetX) / group.ScaleX);
+        var childY = IsDegenerateScale(group.ScaleY) ? sheetEmuY : (long)Math.Round((sheetEmuY - group.OffsetY) / group.ScaleY);
 
         var picElement = new Xdr.Picture(
             new Xdr.NonVisualPictureProperties(
@@ -615,8 +621,8 @@ internal static class PictureWriter
             var sheetEmuCy = ConvertToEnglishMetricUnits(pic.Height, wb.DpiY);
 
             // Convert the sheet-space size back to the group's child coordinate space.
-            var childCx = group.ScaleX == 0 ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
-            var childCy = group.ScaleY == 0 ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
+            var childCx = IsDegenerateScale(group.ScaleX) ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
+            var childCy = IsDegenerateScale(group.ScaleY) ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
 
             transform.Extents ??= new Extents();
             transform.Extents.Cx = childCx;
@@ -629,8 +635,8 @@ internal static class PictureWriter
             var sheetEmuY = ConvertToEnglishMetricUnits(pic.Top, wb.DpiY);
 
             // Invert the composed affine (sheet = offset + child·scale) to get the child a:off.
-            var childOffX = group.ScaleX == 0 ? sheetEmuX : (long)Math.Round((sheetEmuX - group.OffsetX) / group.ScaleX);
-            var childOffY = group.ScaleY == 0 ? sheetEmuY : (long)Math.Round((sheetEmuY - group.OffsetY) / group.ScaleY);
+            var childOffX = IsDegenerateScale(group.ScaleX) ? sheetEmuX : (long)Math.Round((sheetEmuX - group.OffsetX) / group.ScaleX);
+            var childOffY = IsDegenerateScale(group.ScaleY) ? sheetEmuY : (long)Math.Round((sheetEmuY - group.OffsetY) / group.ScaleY);
 
             transform.Offset ??= new Offset();
             transform.Offset.X = childOffX;
