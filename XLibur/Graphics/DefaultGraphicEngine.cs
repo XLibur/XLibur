@@ -63,14 +63,14 @@ public class DefaultGraphicEngine : IXLGraphicEngine, IXLFontEngine
     double IXLGraphicEngine.GetMaxDigitWidth(IXLFontBase font, double dpiX)
         => GetMaxDigitWidth(font, dpiX);
 
-    public double GetMaxDigitWidth(IXLFontBase fontBase, double dpiX) => _fontEngine.GetMaxDigitWidth(fontBase, dpiX);
+    public double GetMaxDigitWidth(IXLFontBase font, double dpiX) => _fontEngine.GetMaxDigitWidth(font, dpiX);
 
     public double GetTextHeight(IXLFontBase font, double dpiY) => _fontEngine.GetTextHeight(font, dpiY);
 
     double IXLGraphicEngine.GetTextWidth(string text, IXLFontBase font, double dpiX)
         => GetTextWidth(text, font, dpiX);
 
-    public double GetTextWidth(string text, IXLFontBase fontBase, double dpiX) => _fontEngine.GetTextWidth(text, fontBase, dpiX);
+    public double GetTextWidth(string text, IXLFontBase font, double dpiX) => _fontEngine.GetTextWidth(text, font, dpiX);
 
     /// <inheritdoc />
     public GlyphBox GetGlyphBox(ReadOnlySpan<int> graphemeCluster, IXLFontBase font, Dpi dpi)

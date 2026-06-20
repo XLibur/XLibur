@@ -3548,10 +3548,10 @@ XLibur.Graphics.DefaultGraphicEngine
 XLibur.Graphics.DefaultGraphicEngine.DefaultGraphicEngine(string! fallbackFont) -> void
 XLibur.Graphics.DefaultGraphicEngine.GetDescent(XLibur.Excel.IXLFontBase! font, double dpiY) -> double
 XLibur.Graphics.DefaultGraphicEngine.GetGlyphBox(System.ReadOnlySpan<int> graphemeCluster, XLibur.Excel.IXLFontBase! font, XLibur.Graphics.Dpi dpi) -> XLibur.Graphics.GlyphBox
-XLibur.Graphics.DefaultGraphicEngine.GetMaxDigitWidth(XLibur.Excel.IXLFontBase! fontBase, double dpiX) -> double
+XLibur.Graphics.DefaultGraphicEngine.GetMaxDigitWidth(XLibur.Excel.IXLFontBase! font, double dpiX) -> double
 XLibur.Graphics.DefaultGraphicEngine.GetPictureInfo(System.IO.Stream! stream, XLibur.Excel.Drawings.XLPictureFormat expectedFormat) -> XLibur.Graphics.XLPictureInfo
 XLibur.Graphics.DefaultGraphicEngine.GetTextHeight(XLibur.Excel.IXLFontBase! font, double dpiY) -> double
-XLibur.Graphics.DefaultGraphicEngine.GetTextWidth(string! text, XLibur.Excel.IXLFontBase! fontBase, double dpiX) -> double
+XLibur.Graphics.DefaultGraphicEngine.GetTextWidth(string! text, XLibur.Excel.IXLFontBase! font, double dpiX) -> double
 XLibur.Graphics.Dpi
 XLibur.Graphics.Dpi.Dpi() -> void
 XLibur.Graphics.Dpi.Dpi(double dpiX, double dpiY) -> void
