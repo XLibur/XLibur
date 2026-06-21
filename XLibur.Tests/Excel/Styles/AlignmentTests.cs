@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
+using XLibur.Utils;
 using NUnit.Framework;
 
 namespace XLibur.Tests.Excel.Styles;
@@ -56,5 +59,51 @@ public class AlignmentTests
             var ws = wb.AddWorksheet();
             ws.FirstCell().Style.Alignment.TextRotation = textRotation;
         });
+    }
+
+    // Some third-party tools write spec-invalid upper-case alignment values
+    // (e.g. horizontal="Center"). XLibur tolerates the casing rather than failing the load.
+    [TestCase("center", XLAlignmentHorizontalValues.Center)]
+    [TestCase("Center", XLAlignmentHorizontalValues.Center)]
+    [TestCase("RIGHT", XLAlignmentHorizontalValues.Right)]
+    public void HorizontalAlignmentToleratesInvalidCasing(string raw, XLAlignmentHorizontalValues expected)
+    {
+        var source = new EnumValue<HorizontalAlignmentValues> { InnerText = raw };
+        Assert.AreEqual(expected, source.ToXLiburOrNull());
+    }
+
+    [TestCase("center", XLAlignmentVerticalValues.Center)]
+    [TestCase("Center", XLAlignmentVerticalValues.Center)]
+    [TestCase("TOP", XLAlignmentVerticalValues.Top)]
+    public void VerticalAlignmentToleratesInvalidCasing(string raw, XLAlignmentVerticalValues expected)
+    {
+        var source = new EnumValue<VerticalAlignmentValues> { InnerText = raw };
+        Assert.AreEqual(expected, source.ToXLiburOrNull());
+    }
+
+    [Test]
+    public void UnrecognizedAlignmentValueIsDiscarded()
+    {
+        var horizontal = new EnumValue<HorizontalAlignmentValues> { InnerText = "not-an-alignment" };
+        var vertical = new EnumValue<VerticalAlignmentValues> { InnerText = "not-an-alignment" };
+        Assert.IsNull(horizontal.ToXLiburOrNull());
+        Assert.IsNull(vertical.ToXLiburOrNull());
+    }
+
+    [Test]
+    public void AlignmentToXLiburKeepsDefaultWhenValueUnrecognized()
+    {
+        var defaultKey = XLAlignmentValue.Default.Key;
+        var alignment = new Alignment
+        {
+            Horizontal = new EnumValue<HorizontalAlignmentValues> { InnerText = "Center" },
+            Vertical = new EnumValue<VerticalAlignmentValues> { InnerText = "bogus" },
+        };
+
+        var result = OpenXmlHelper.AlignmentToXLibur(alignment, defaultKey);
+
+        // Bad casing is recovered; truly unknown values fall back to the default.
+        Assert.AreEqual(XLAlignmentHorizontalValues.Center, result.Horizontal);
+        Assert.AreEqual(defaultKey.Vertical, result.Vertical);
     }
 }
