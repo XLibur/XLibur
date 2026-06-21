@@ -92,10 +92,12 @@ internal static class OpenXmlHelper
     {
         if (alignmentSource is null) return;
 
-        if (alignmentSource.Horizontal?.Value is not null)
-            alignment.Horizontal = alignmentSource.Horizontal.Value.ToXLibur();
-        if (alignmentSource.Vertical?.Value is not null)
-            alignment.Vertical = alignmentSource.Vertical.Value.ToXLibur();
+        var horizontal = alignmentSource.Horizontal.ToXLiburOrNull();
+        if (horizontal is not null)
+            alignment.Horizontal = horizontal.Value;
+        var vertical = alignmentSource.Vertical.ToXLiburOrNull();
+        if (vertical is not null)
+            alignment.Vertical = vertical.Value;
         if (alignmentSource.Indent?.Value is not null)
             alignment.Indent = checked((int)alignmentSource.Indent.Value);
         if (alignmentSource.ReadingOrder?.Value is not null)
@@ -279,8 +281,8 @@ internal static class OpenXmlHelper
         return new XLAlignmentKey
         {
             Indent = checked((int?)alignment.Indent?.Value) ?? defaultAlignment.Indent,
-            Horizontal = alignment.Horizontal?.Value.ToXLibur() ?? defaultAlignment.Horizontal,
-            Vertical = alignment.Vertical?.Value.ToXLibur() ?? defaultAlignment.Vertical,
+            Horizontal = alignment.Horizontal.ToXLiburOrNull() ?? defaultAlignment.Horizontal,
+            Vertical = alignment.Vertical.ToXLiburOrNull() ?? defaultAlignment.Vertical,
             ReadingOrder = alignment.ReadingOrder?.Value.ToXLibur() ?? defaultAlignment.ReadingOrder,
             WrapText = alignment.WrapText?.Value ?? defaultAlignment.WrapText,
             TextRotation = alignment.TextRotation is not null

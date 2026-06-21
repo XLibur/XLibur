@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.Drawings;
@@ -1057,6 +1058,55 @@ internal static class EnumConverter
     public static XLAlignmentVerticalValues ToXLibur(this VerticalAlignmentValues value)
     {
         return VerticalAlignmentMap[value];
+    }
+
+    /// <summary>
+    /// Leniently converts a horizontal alignment attribute to its XLibur equivalent.
+    /// The OOXML spec requires lower-case values (e.g. <c>center</c>), but some third-party
+    /// tools emit invalid casing (e.g. <c>Center</c>). Such values are tolerated by retrying
+    /// the lookup with a lower-cased value. Values that remain unrecognized return
+    /// <c>null</c> so the offending alignment can be discarded and the file still loaded.
+    /// </summary>
+    public static XLAlignmentHorizontalValues? ToXLiburOrNull(this EnumValue<HorizontalAlignmentValues>? source)
+    {
+        if (source is null)
+            return null;
+
+        // HasValue parses without throwing; a valid (spec-compliant) value is always mapped.
+        if (source.HasValue)
+            return HorizontalAlignmentMap[source.Value];
+
+        return LenientAlignmentLookup(source.InnerText, HorizontalAlignmentMap, raw => new HorizontalAlignmentValues(raw));
+    }
+
+    /// <summary>
+    /// Leniently converts a vertical alignment attribute to its XLibur equivalent.
+    /// See <see cref="ToXLiburOrNull(EnumValue{HorizontalAlignmentValues})"/> for the casing
+    /// tolerance and discard-on-failure behavior.
+    /// </summary>
+    public static XLAlignmentVerticalValues? ToXLiburOrNull(this EnumValue<VerticalAlignmentValues>? source)
+    {
+        if (source is null)
+            return null;
+
+        if (source.HasValue)
+            return VerticalAlignmentMap[source.Value];
+
+        return LenientAlignmentLookup(source.InnerText, VerticalAlignmentMap, raw => new VerticalAlignmentValues(raw));
+    }
+
+    private static TValue? LenientAlignmentLookup<TKey, TValue>(
+        string? rawText,
+        Dictionary<TKey, TValue> map,
+        Func<string, TKey> factory)
+        where TKey : notnull
+        where TValue : struct
+    {
+        if (string.IsNullOrEmpty(rawText))
+            return null;
+
+        var lowered = factory(rawText!.ToLowerInvariant());
+        return map.TryGetValue(lowered, out var result) ? result : null;
     }
 
     public static XLPageOrderValues ToXLibur(this PageOrderValues value)
