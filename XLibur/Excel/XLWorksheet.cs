@@ -1386,7 +1386,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// </summary>
     internal XLSheetPoint? ActiveCell { get; set; }
 
-    public IXLWorksheet SetActiveCell(string address) => SetActiveCell(Cell(address)!);
+    public IXLWorksheet SetActiveCell(string address) => SetActiveCell(ResolveCell(address));
 
     public IXLWorksheet SetActiveCell(IXLCell cell)
     {
@@ -1400,7 +1400,10 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return this;
     }
 
-    public IXLWorksheet FocusCell(string address) => FocusCell(Cell(address)!);
+    public IXLWorksheet FocusCell(string address) => FocusCell(ResolveCell(address));
+
+    private XLCell ResolveCell(string address) =>
+        Cell(address) ?? throw new ArgumentException($"'{address}' is not a valid cell address.", nameof(address));
 
     public IXLWorksheet FocusCell(IXLCell cell)
     {

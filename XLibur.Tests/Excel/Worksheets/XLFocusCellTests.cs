@@ -167,6 +167,17 @@ public class XLFocusCellTests
             ws1.SheetView.PaneTopLeftCellAddress = ws2.Cell("A1").Address);
     }
 
+    // 4.10 - an unresolvable address throws a descriptive ArgumentException, not a NullReferenceException.
+    [Test]
+    public void SetActiveCellAndFocusCell_InvalidAddress_Throws()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        Assert.Throws<ArgumentException>(() => ws.SetActiveCell("NotAName"));
+        Assert.Throws<ArgumentException>(() => ws.FocusCell("NotAName"));
+    }
+
     private static MemoryStream Save(Action<IXLWorksheet> configure)
     {
         var ms = new MemoryStream();
