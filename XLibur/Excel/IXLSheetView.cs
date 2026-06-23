@@ -22,6 +22,21 @@ public interface IXLSheetView
     /// </value>
     IXLAddress TopLeftCellAddress { get; set; }
 
+    /// <summary>
+    /// Gets or sets the top-left visible cell of the scrollable region below/right of a
+    /// frozen split (maps to <c>&lt;pane topLeftCell&gt;</c>).
+    /// </summary>
+    /// <remarks>
+    /// When <c>null</c> (the default), XLibur anchors the pane to the first non-frozen cell
+    /// (<c>split + 1</c>), so a worksheet that has never set this value normalizes its
+    /// scrollable region to the top on save. When set, the value is honored on save. Has no
+    /// effect when the sheet has no frozen pane (no <c>&lt;pane&gt;</c> element is emitted).
+    /// </remarks>
+    /// <value>
+    /// The scrollable region's top left cell, or <c>null</c> to use the default anchor.
+    /// </value>
+    IXLAddress? PaneTopLeftCellAddress { get; set; }
+
     XLSheetViewOptions View { get; set; }
 
     IXLWorksheet Worksheet { get; }

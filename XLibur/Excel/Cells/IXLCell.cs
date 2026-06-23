@@ -473,6 +473,13 @@ public interface IXLCell
 
     IXLCell SetActive(bool value = true);
 
+    /// <summary>
+    /// Makes this cell the active cell, collapses the selection to it, and scrolls the sheet so
+    /// the cell is visible at the top-left of the scrollable region. Equivalent to
+    /// <see cref="IXLWorksheet.FocusCell(IXLCell)"/> for this cell.
+    /// </summary>
+    IXLCell Focus();
+
     IXLCell SetFormulaA1(string formula);
 
     /// <summary>

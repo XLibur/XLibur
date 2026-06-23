@@ -89,3 +89,10 @@ XLibur.Excel.Drawings.IXLPictureGroup.Remove(XLibur.Excel.Drawings.IXLPicture! p
 XLibur.Excel.Drawings.IXLPictureGroup.Worksheet.get -> XLibur.Excel.IXLWorksheet!
 XLibur.Excel.Drawings.IXLPictures.Group(params XLibur.Excel.Drawings.IXLPicture![]! pictures) -> XLibur.Excel.Drawings.IXLPictureGroup!
 XLibur.Excel.IXLWorksheet.PictureGroups.get -> System.Collections.Generic.IEnumerable<XLibur.Excel.Drawings.IXLPictureGroup!>!
+XLibur.Excel.IXLSheetView.PaneTopLeftCellAddress.get -> XLibur.Excel.IXLAddress?
+XLibur.Excel.IXLSheetView.PaneTopLeftCellAddress.set -> void
+XLibur.Excel.IXLWorksheet.SetActiveCell(string! address) -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.IXLWorksheet.SetActiveCell(XLibur.Excel.IXLCell! cell) -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.IXLWorksheet.FocusCell(string! address) -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.IXLWorksheet.FocusCell(XLibur.Excel.IXLCell! cell) -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.IXLCell.Focus() -> XLibur.Excel.IXLCell!

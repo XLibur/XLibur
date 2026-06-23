@@ -923,6 +923,12 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return this;
     }
 
+    public IXLCell Focus()
+    {
+        Worksheet.FocusCell(this);
+        return this;
+    }
+
     public bool HasHyperlink => Worksheet.Hyperlinks.TryGet(SheetPoint, out _);
 
     /// <inheritdoc />
