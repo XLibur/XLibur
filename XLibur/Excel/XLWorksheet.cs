@@ -1386,6 +1386,58 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// </summary>
     internal XLSheetPoint? ActiveCell { get; set; }
 
+    public IXLWorksheet SetActiveCell(string address) => SetActiveCell(ResolveCell(address));
+
+    public IXLWorksheet SetActiveCell(IXLCell cell)
+    {
+        if (!ReferenceEquals(cell.Worksheet, this))
+            throw new ArgumentException("The cell must belong to this worksheet.", nameof(cell));
+
+        // Collapse the selection to the single target cell, like clicking it.
+        SelectedRanges.RemoveAll();
+        cell.SetActive();
+        cell.Select();
+        return this;
+    }
+
+    public IXLWorksheet FocusCell(string address) => FocusCell(ResolveCell(address));
+
+    private XLCell ResolveCell(string address) =>
+        Cell(address) ?? throw new ArgumentException($"'{address}' is not a valid cell address.", nameof(address));
+
+    public IXLWorksheet FocusCell(IXLCell cell)
+    {
+        SetActiveCell(cell);
+        ScrollIntoView(cell.Address);
+        return this;
+    }
+
+    // Anchors the scroll so <paramref name="target"/> is at the top-left of the scrollable region.
+    // No frozen pane  -> set the view's top-left to the target.
+    // Frozen pane     -> set the pane's top-left to the target (clamped out of the frozen band),
+    //                    resetting any single-axis orthogonal scroll to its origin, and reset the
+    //                    overall view scroll to A1 so a residual sideways scroll is cleared.
+    private void ScrollIntoView(IXLAddress target)
+    {
+        var sr = SheetView.SplitRow;
+        var sc = SheetView.SplitColumn;
+
+        if (sr == 0 && sc == 0)
+        {
+            SheetView.TopLeftCellAddress = new XLAddress(this, target.RowNumber, target.ColumnNumber,
+                fixedRow: false, fixedColumn: false);
+            SheetView.PaneTopLeftCellAddress = null;
+            return;
+        }
+
+        var paneRow = sr > 0 ? (target.RowNumber <= sr ? sr + 1 : target.RowNumber) : 1;
+        var paneColumn = sc > 0 ? (target.ColumnNumber <= sc ? sc + 1 : target.ColumnNumber) : 1;
+
+        SheetView.PaneTopLeftCellAddress = new XLAddress(this, paneRow, paneColumn,
+            fixedRow: false, fixedColumn: false);
+        SheetView.TopLeftCellAddress = new XLAddress(this, 1, 1, fixedRow: false, fixedColumn: false);
+    }
+
     private XLCalcEngine CalcEngine => Workbook.CalcEngine;
 
     public XLCellValue Evaluate(string expression, string? formulaAddress = null)

@@ -475,6 +475,30 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     IXLCell? ActiveCell { get; set; }
 
     /// <summary>
+    /// Sets the active cell and collapses the selection to that single cell. Does NOT change
+    /// the scroll position. Use <see cref="FocusCell(string)"/> to also scroll the cell into view.
+    /// </summary>
+    /// <param name="address">The A1-style address of the cell to activate.</param>
+    IXLWorksheet SetActiveCell(string address);
+
+    /// <inheritdoc cref="SetActiveCell(string)"/>
+    /// <param name="cell">The cell to activate. Must belong to this worksheet.</param>
+    IXLWorksheet SetActiveCell(IXLCell cell);
+
+    /// <summary>
+    /// Sets the active cell and selection (like <see cref="SetActiveCell(string)"/>) and scrolls
+    /// the sheet so the cell is visible at the top-left of the scrollable region. On a frozen
+    /// sheet this sets <c>&lt;pane topLeftCell&gt;</c>; otherwise it sets <c>&lt;sheetView topLeftCell&gt;</c>.
+    /// The orthogonal scroll axis is reset to its origin so the cell is not parked off-screen sideways.
+    /// </summary>
+    /// <param name="address">The A1-style address of the cell to focus.</param>
+    IXLWorksheet FocusCell(string address);
+
+    /// <inheritdoc cref="FocusCell(string)"/>
+    /// <param name="cell">The cell to focus. Must belong to this worksheet.</param>
+    IXLWorksheet FocusCell(IXLCell cell);
+
+    /// <summary>
     /// Evaluate a formula and return a result.
     /// </summary>
     /// <param name="expression">Formula to evaluate.</param>

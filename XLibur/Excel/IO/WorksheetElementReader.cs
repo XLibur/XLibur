@@ -80,6 +80,11 @@ internal static class WorksheetElementReader
                 ws.SheetView.SplitColumn = (int)pane.HorizontalSplit.Value;
             if (pane.VerticalSplit != null)
                 ws.SheetView.SplitRow = (int)pane.VerticalSplit.Value;
+
+            // Intentionally NOT reading pane.TopLeftCell into PaneTopLeftCellAddress. Leaving it
+            // null keeps the normalize-to-top default: the writer re-anchors the pane to split+1
+            // on save, so a worksheet parked at a stray scroll position self-heals on round-trip.
+            // Consumers opt into an explicit pane scroll via PaneTopLeftCellAddress / FocusCell.
         }
     }
 

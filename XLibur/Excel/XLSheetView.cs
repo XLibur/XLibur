@@ -25,6 +25,10 @@ internal sealed class XLSheetView : IXLSheetView
         TopLeftCellAddress = new XLAddress(Worksheet, sheetView.TopLeftCellAddress.RowNumber,
             sheetView.TopLeftCellAddress.ColumnNumber, sheetView.TopLeftCellAddress.FixedRow,
             sheetView.TopLeftCellAddress.FixedColumn);
+
+        if (sheetView.PaneTopLeftCellAddress is { } pane)
+            PaneTopLeftCellAddress = new XLAddress(Worksheet, pane.RowNumber, pane.ColumnNumber,
+                pane.FixedRow, pane.FixedColumn);
     }
 
     public bool FreezePanes { get; set; }
@@ -45,6 +49,24 @@ internal sealed class XLSheetView : IXLSheetView
         set
         {
             if (value.HasWorksheet && !value.Worksheet!.Equals(Worksheet))
+                throw new ArgumentException("The value should be on the same worksheet as the sheet view.");
+
+            field = value;
+        }
+    }
+
+    IXLAddress? IXLSheetView.PaneTopLeftCellAddress
+    {
+        get => PaneTopLeftCellAddress;
+        set => PaneTopLeftCellAddress = (XLAddress?)value;
+    }
+
+    public XLAddress? PaneTopLeftCellAddress
+    {
+        get;
+        set
+        {
+            if (value is { HasWorksheet: true } addr && !addr.Worksheet!.Equals(Worksheet))
                 throw new ArgumentException("The value should be on the same worksheet as the sheet view.");
 
             field = value;

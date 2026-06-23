@@ -128,10 +128,13 @@ internal static class SheetViewWriter
         pane.HorizontalSplit = hSplit;
         pane.VerticalSplit = ySplit;
 
-        pane.ActivePane = GetActivePaneValue(hSplit, ySplit);
+        pane.ActivePane = GetActivePaneForActiveCell(xlWorksheet, hSplit, ySplit);
 
-        pane.TopLeftCell = XLHelper.GetColumnLetterFromNumber(xlWorksheet.SheetView.SplitColumn + 1)
-                           + (xlWorksheet.SheetView.SplitRow + 1);
+        var paneTopLeft = xlWorksheet.SheetView.PaneTopLeftCellAddress;
+        pane.TopLeftCell = paneTopLeft is { IsValid: true } p
+            ? p.ToStringRelative(false)
+            : XLHelper.GetColumnLetterFromNumber(xlWorksheet.SheetView.SplitColumn + 1)
+              + (xlWorksheet.SheetView.SplitRow + 1);
 
         if (hSplit == 0 && ySplit == 0)
         {
@@ -152,6 +155,25 @@ internal static class SheetViewWriter
         if (hSplit == 0)
             return PaneValues.BottomLeft;
         return PaneValues.BottomRight;
+    }
+
+    // The active pane (and therefore the selection's pane) must name the pane that actually
+    // owns the active cell. When no active cell is set, fall back to the split-derived default.
+    private static PaneValues GetActivePaneForActiveCell(XLWorksheet xlWorksheet, int hSplit, int ySplit)
+    {
+        if (xlWorksheet.ActiveCell is not { } active)
+            return GetActivePaneValue(hSplit, ySplit);
+
+        var bottom = ySplit > 0 && active.Row > ySplit;
+        var right = hSplit > 0 && active.Column > hSplit;
+
+        if (bottom && right)
+            return PaneValues.BottomRight;
+        if (bottom)
+            return PaneValues.BottomLeft;
+        if (right)
+            return PaneValues.TopRight;
+        return PaneValues.TopLeft;
     }
 
     private static void SetTopLeftCell(SheetView sheetView, XLWorksheet xlWorksheet)
