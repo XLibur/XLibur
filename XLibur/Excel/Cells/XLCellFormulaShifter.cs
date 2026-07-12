@@ -90,9 +90,44 @@ internal static partial class XLCellFormulaShifter
         if (A1RowRegex.IsMatch(rangeAddress))
             AppendShiftedRowOnlyRange(sb, rangeAddress, rowsShifted);
         else if (shiftedRange.RangeAddress.FirstAddress.RowNumber <= matchRange.RangeAddress.FirstAddress.RowNumber)
-            AppendShiftedRowCellRange(sb, worksheetInAction, matchRange, rangeAddress, rowsShifted);
+        {
+            if (IsTopBoundaryDeletion(shiftedRange, matchRange, rowsShifted))
+                AppendClampedTopRowShift(sb, worksheetInAction, shiftedRange, matchRange, rowsShifted);
+            else
+                AppendShiftedRowCellRange(sb, worksheetInAction, matchRange, rangeAddress, rowsShifted);
+        }
         else
             AppendPartialRowShift(sb, worksheetInAction, matchRange, rowsShifted);
+    }
+
+    /// <summary>
+    /// True when a row deletion removes the top boundary of <paramref name="matchRange"/> while some
+    /// rows below the deletion survive. Excel keeps the range's top row fixed at the deletion start and
+    /// shifts only the bottom up (shrink + shift), e.g. deleting row 3 turns A3:A4 into A3:A3. Shifting
+    /// both endpoints (as for a range that is entirely below the deletion) would instead expand the range
+    /// upward to A2:A3. See issue #2866.
+    /// </summary>
+    private static bool IsTopBoundaryDeletion(XLRange shiftedRange, IXLRange matchRange, int rowsShifted)
+    {
+        return rowsShifted < 0
+            && matchRange.RangeAddress.FirstAddress.RowNumber <= shiftedRange.RangeAddress.LastAddress.RowNumber
+            && matchRange.RangeAddress.LastAddress.RowNumber > shiftedRange.RangeAddress.LastAddress.RowNumber;
+    }
+
+    private static void AppendClampedTopRowShift(StringBuilder sb, XLWorksheet ws, XLRange shiftedRange,
+        IXLRange matchRange, int rowsShifted)
+    {
+        sb.Append(new XLAddress(ws,
+            XLHelper.TrimRowNumber(shiftedRange.RangeAddress.FirstAddress.RowNumber),
+            matchRange.RangeAddress.FirstAddress.ColumnLetter,
+            matchRange.RangeAddress.FirstAddress.FixedRow,
+            matchRange.RangeAddress.FirstAddress.FixedColumn));
+        sb.Append(':');
+        sb.Append(new XLAddress(ws,
+            XLHelper.TrimRowNumber(matchRange.RangeAddress.LastAddress.RowNumber + rowsShifted),
+            matchRange.RangeAddress.LastAddress.ColumnLetter,
+            matchRange.RangeAddress.LastAddress.FixedRow,
+            matchRange.RangeAddress.LastAddress.FixedColumn));
     }
 
     private static bool IsRowRangeWithinShiftedRange(XLRange shiftedRange, IXLRange matchRange)
@@ -210,9 +245,43 @@ internal static partial class XLCellFormulaShifter
         if (A1ColumnRegex.IsMatch(rangeAddress))
             AppendShiftedColumnOnlyRange(sb, rangeAddress, columnsShifted);
         else if (shiftedRange.RangeAddress.FirstAddress.ColumnNumber <= matchRange.RangeAddress.FirstAddress.ColumnNumber)
-            AppendShiftedColumnCellRange(sb, worksheetInAction, matchRange, rangeAddress, columnsShifted);
+        {
+            if (IsLeftBoundaryDeletion(shiftedRange, matchRange, columnsShifted))
+                AppendClampedLeftColumnShift(sb, worksheetInAction, shiftedRange, matchRange, columnsShifted);
+            else
+                AppendShiftedColumnCellRange(sb, worksheetInAction, matchRange, rangeAddress, columnsShifted);
+        }
         else
             AppendPartialColumnShift(sb, worksheetInAction, matchRange, columnsShifted);
+    }
+
+    /// <summary>
+    /// Column-wise counterpart of <see cref="IsTopBoundaryDeletion"/>: true when a column deletion removes
+    /// the left boundary of <paramref name="matchRange"/> while some columns to the right survive. Excel
+    /// keeps the range's left column fixed at the deletion start and shifts only the right edge left, e.g.
+    /// deleting column C turns C1:D1 into C1:C1 rather than expanding it to B1:C1. See issue #2866.
+    /// </summary>
+    private static bool IsLeftBoundaryDeletion(XLRange shiftedRange, IXLRange matchRange, int columnsShifted)
+    {
+        return columnsShifted < 0
+            && matchRange.RangeAddress.FirstAddress.ColumnNumber <= shiftedRange.RangeAddress.LastAddress.ColumnNumber
+            && matchRange.RangeAddress.LastAddress.ColumnNumber > shiftedRange.RangeAddress.LastAddress.ColumnNumber;
+    }
+
+    private static void AppendClampedLeftColumnShift(StringBuilder sb, XLWorksheet ws, XLRange shiftedRange,
+        IXLRange matchRange, int columnsShifted)
+    {
+        sb.Append(new XLAddress(ws,
+            matchRange.RangeAddress.FirstAddress.RowNumber,
+            XLHelper.TrimColumnNumber(shiftedRange.RangeAddress.FirstAddress.ColumnNumber),
+            matchRange.RangeAddress.FirstAddress.FixedRow,
+            matchRange.RangeAddress.FirstAddress.FixedColumn));
+        sb.Append(':');
+        sb.Append(new XLAddress(ws,
+            matchRange.RangeAddress.LastAddress.RowNumber,
+            XLHelper.TrimColumnNumber(matchRange.RangeAddress.LastAddress.ColumnNumber + columnsShifted),
+            matchRange.RangeAddress.LastAddress.FixedRow,
+            matchRange.RangeAddress.LastAddress.FixedColumn));
     }
 
     private static bool IsColumnRangeWithinShiftedRange(XLRange shiftedRange, IXLRange matchRange)
