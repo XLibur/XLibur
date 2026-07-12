@@ -221,12 +221,18 @@ internal sealed class XLTableField : IXLTableField
             var modifiedName = Name;
             QuotedTableFieldCharacters.ForEach(c => modifiedName = modifiedName.Replace(c, "'" + c));
 
-            if (modifiedName.StartsWith(' ') || modifiedName.EndsWith(' '))
+            // Excel requires a column name that contains a space (leading, trailing or
+            // interior) to be wrapped in an extra pair of brackets in a structured
+            // reference, e.g. Table1[[Feb 2023]]. Emitting the single-bracket form
+            // Table1[Feb 2023] yields a totals-row formula that Excel flags with a
+            // #NAME error and "repairs" on open (see issue #2864).
+            var hasSpace = modifiedName.Contains(' ');
+            if (hasSpace)
             {
                 modifiedName = "[" + modifiedName + "]";
             }
 
-            var prependTableName = modifiedName.Contains(' ');
+            var prependTableName = hasSpace;
 
             cell.FormulaA1 = $"SUBTOTAL({formulaCode},{(prependTableName ? _table.Name : string.Empty)}[{modifiedName}])";
             var lastCell = _table.LastRow()!.Cell(Index + 1);
