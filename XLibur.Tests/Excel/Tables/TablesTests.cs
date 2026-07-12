@@ -892,6 +892,42 @@ public class TablesTests
     }
 
     [Test]
+    public void TotalsFunctionsOfHeadersWithInteriorSpaces()
+    {
+        // Regression for issue #2864: column names with an interior space (e.g. dates
+        // like "Feb 2023") must be wrapped in an extra pair of brackets in the totals
+        // row structured reference. The single-bracket form Table1[Feb 2023] causes
+        // Excel to raise a #NAME error and repair the file on open.
+        var l = new List<TestObjectWithAttributes>
+        {
+            new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
+            new() { Column1 = "c", Column2 = "d", MyField = 5, UnOrderedColumn = 777 }
+        };
+
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.FirstCell().InsertTable(l, false);
+
+        ws.Cell("A1").Value = "Jan 2023";
+        ws.Cell("B1").Value = "Feb 2023";
+        ws.Cell("C1").Value = "Mar 2023";
+        ws.Cell("D1").Value = "Total";
+
+        var table = ws.RangeUsed()!.CreateTable();
+        table.ShowTotalsRow = true;
+        table.Field(0).TotalsRowFunction = XLTotalsRowFunction.Sum;
+        table.Field(1).TotalsRowFunction = XLTotalsRowFunction.Average;
+        table.Field(2).TotalsRowFunction = XLTotalsRowFunction.Count;
+        table.Field(3).TotalsRowFunction = XLTotalsRowFunction.Sum;
+
+        Assert.AreEqual("SUBTOTAL(109,Table1[[Jan 2023]])", table.Field(0).TotalsRowFormulaA1);
+        Assert.AreEqual("SUBTOTAL(101,Table1[[Feb 2023]])", table.Field(1).TotalsRowFormulaA1);
+        Assert.AreEqual("SUBTOTAL(103,Table1[[Mar 2023]])", table.Field(2).TotalsRowFormulaA1);
+        // No space => single-bracket, table name not prepended.
+        Assert.AreEqual("SUBTOTAL(109,[Total])", table.Field(3).TotalsRowFormulaA1);
+    }
+
+    [Test]
     public void CannotCreateDuplicateTablesOverSameRange()
     {
         var l = new List<TestObjectWithAttributes>
