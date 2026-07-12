@@ -96,3 +96,10 @@ XLibur.Excel.IXLWorksheet.SetActiveCell(XLibur.Excel.IXLCell! cell) -> XLibur.Ex
 XLibur.Excel.IXLWorksheet.FocusCell(string! address) -> XLibur.Excel.IXLWorksheet!
 XLibur.Excel.IXLWorksheet.FocusCell(XLibur.Excel.IXLCell! cell) -> XLibur.Excel.IXLWorksheet!
 XLibur.Excel.IXLCell.Focus() -> XLibur.Excel.IXLCell!
+~override XLibur.Excel.XLAlignmentKey.Equals(object obj) -> bool
+override XLibur.Excel.XLAlignmentKey.GetHashCode() -> int
+XLibur.Excel.XLAlignmentKey.Equals(XLibur.Excel.XLAlignmentKey other) -> bool
+static XLibur.Excel.XLAlignmentKey.operator ==(XLibur.Excel.XLAlignmentKey left, XLibur.Excel.XLAlignmentKey right) -> bool
+static XLibur.Excel.XLAlignmentKey.operator !=(XLibur.Excel.XLAlignmentKey left, XLibur.Excel.XLAlignmentKey right) -> bool
+static XLibur.AttributeExtensions.GetMethod<T>(this T instance, System.Linq.Expressions.Expression<System.Func<T, object!>!>! methodSelector) -> System.Reflection.MethodInfo!
+static XLibur.AttributeExtensions.GetMethod<T>(this T instance, System.Linq.Expressions.Expression<System.Action<T>!>! methodSelector) -> System.Reflection.MethodInfo!

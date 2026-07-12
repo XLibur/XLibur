@@ -1,4 +1,4 @@
-namespace XLibur.Excel.Drawings;
+﻿namespace XLibur.Excel.Drawings;
 
 /// <summary>
 /// Metadata describing a picture that lives inside a drawing group shape
