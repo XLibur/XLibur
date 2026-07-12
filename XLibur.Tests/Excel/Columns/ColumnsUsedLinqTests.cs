@@ -62,12 +62,15 @@ public class ColumnsUsedLinqTests
 
         var visited = ws.ColumnsUsed()
             .Where(c => c.ColumnNumber() != 1)
-            .Select(c => c.ColumnNumber())
+            .Select(c => (Number: c.ColumnNumber(), WidthBefore: c.Width))
             .ToList();
         foreach (var column in ws.ColumnsUsed().Where(c => c.ColumnNumber() != 1))
             column.AdjustToContents();
 
-        Assert.That(visited, Is.EqualTo(new[] { 2, 3 }));
+        Assert.That(visited.Select(v => v.Number), Is.EqualTo(new[] { 2, 3 }));
+        foreach (var v in visited)
+            Assert.That(ws.Column(v.Number).Width, Is.Not.EqualTo(v.WidthBefore),
+                $"Visited column {v.Number} should have been adjusted.");
         Assert.That(ws.Column(1).Width, Is.EqualTo(20).Within(1e-9), "Filtered-out first column must keep its width.");
     }
 
@@ -80,14 +83,23 @@ public class ColumnsUsedLinqTests
         ws.Cell("A2").Value = "row2";
         ws.Cell("A3").Value = "row3";
 
-        // Fix the first row height; skipping it must leave this untouched.
+        // Give every used row the same non-default height. Skipping row 1 must leave it untouched,
+        // while the visited rows must be adjusted back to fit their content.
         ws.Row(1).Height = 40;
+        ws.Row(2).Height = 40;
+        ws.Row(3).Height = 40;
 
-        var visited = ws.RowsUsed().Skip(1).Select(r => r.RowNumber()).ToList();
+        var visited = ws.RowsUsed()
+            .Skip(1)
+            .Select(r => (Number: r.RowNumber(), HeightBefore: r.Height))
+            .ToList();
         foreach (var row in ws.RowsUsed().Skip(1))
             row.AdjustToContents();
 
-        Assert.That(visited, Is.EqualTo(new[] { 2, 3 }), "Only the trailing rows should be visited.");
+        Assert.That(visited.Select(v => v.Number), Is.EqualTo(new[] { 2, 3 }), "Only the trailing rows should be visited.");
+        foreach (var v in visited)
+            Assert.That(ws.Row(v.Number).Height, Is.Not.EqualTo(v.HeightBefore),
+                $"Visited row {v.Number} should have been adjusted.");
         Assert.That(ws.Row(1).Height, Is.EqualTo(40).Within(1e-9), "Skipped first row must keep its height.");
     }
 }
