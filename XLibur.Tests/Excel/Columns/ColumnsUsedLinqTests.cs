@@ -6,7 +6,7 @@ namespace XLibur.Tests.Excel.Columns;
 
 /// <summary>
 /// Guards that standard LINQ operators (<c>Skip</c>, <c>Where</c>) over the enumerable returned by
-/// <see cref="IXLWorksheet.ColumnsUsed()"/> / <see cref="IXLWorksheet.RowsUsed()"/> behave as expected:
+/// <c>IXLWorksheet.ColumnsUsed()</c> / <c>IXLWorksheet.RowsUsed()</c> behave as expected:
 /// a filtered-out column/row must not be visited and therefore must not be adjusted. See
 /// ClosedXML/ClosedXML#2867, which reports the opposite behavior on the parent library.
 /// </summary>
