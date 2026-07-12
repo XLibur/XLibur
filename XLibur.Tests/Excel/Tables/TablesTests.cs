@@ -898,6 +898,10 @@ public class TablesTests
         // like "Feb 2023") must be wrapped in an extra pair of brackets in the totals
         // row structured reference. The single-bracket form Table1[Feb 2023] causes
         // Excel to raise a #NAME error and repair the file on open.
+        //
+        // Headers that combine an interior space with a quoted table-field character
+        // (' or #) must be both escaped (' -> '', # -> '#) and double-bracket wrapped,
+        // e.g. "Feb '23" -> Table1[[Feb ''23]].
         var l = new List<TestObjectWithAttributes>
         {
             new() { Column1 = "a", Column2 = "b", MyField = 4, UnOrderedColumn = 999 },
@@ -913,18 +917,31 @@ public class TablesTests
         ws.Cell("C1").Value = "Mar 2023";
         ws.Cell("D1").Value = "Total";
 
+        // Extra columns whose headers mix an interior space with quoted characters.
+        ws.Cell("E1").Value = "Feb '23";
+        ws.Cell("E2").Value = 1;
+        ws.Cell("E3").Value = 2;
+        ws.Cell("F1").Value = "Q1 #1";
+        ws.Cell("F2").Value = 3;
+        ws.Cell("F3").Value = 4;
+
         var table = ws.RangeUsed()!.CreateTable();
         table.ShowTotalsRow = true;
         table.Field(0).TotalsRowFunction = XLTotalsRowFunction.Sum;
         table.Field(1).TotalsRowFunction = XLTotalsRowFunction.Average;
         table.Field(2).TotalsRowFunction = XLTotalsRowFunction.Count;
         table.Field(3).TotalsRowFunction = XLTotalsRowFunction.Sum;
+        table.Field(4).TotalsRowFunction = XLTotalsRowFunction.Sum;
+        table.Field(5).TotalsRowFunction = XLTotalsRowFunction.Count;
 
-        Assert.AreEqual("SUBTOTAL(109,Table1[[Jan 2023]])", table.Field(0).TotalsRowFormulaA1);
-        Assert.AreEqual("SUBTOTAL(101,Table1[[Feb 2023]])", table.Field(1).TotalsRowFormulaA1);
-        Assert.AreEqual("SUBTOTAL(103,Table1[[Mar 2023]])", table.Field(2).TotalsRowFormulaA1);
+        Assert.That(table.Field(0).TotalsRowFormulaA1, Is.EqualTo("SUBTOTAL(109,Table1[[Jan 2023]])"));
+        Assert.That(table.Field(1).TotalsRowFormulaA1, Is.EqualTo("SUBTOTAL(101,Table1[[Feb 2023]])"));
+        Assert.That(table.Field(2).TotalsRowFormulaA1, Is.EqualTo("SUBTOTAL(103,Table1[[Mar 2023]])"));
         // No space => single-bracket, table name not prepended.
-        Assert.AreEqual("SUBTOTAL(109,[Total])", table.Field(3).TotalsRowFormulaA1);
+        Assert.That(table.Field(3).TotalsRowFormulaA1, Is.EqualTo("SUBTOTAL(109,[Total])"));
+        // Interior space + quoted character => escaped and double-bracket wrapped.
+        Assert.That(table.Field(4).TotalsRowFormulaA1, Is.EqualTo("SUBTOTAL(109,Table1[[Feb ''23]])"));
+        Assert.That(table.Field(5).TotalsRowFormulaA1, Is.EqualTo("SUBTOTAL(103,Table1[[Q1 '#1]])"));
     }
 
     [Test]
