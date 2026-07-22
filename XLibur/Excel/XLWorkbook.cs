@@ -737,14 +737,16 @@ public partial class XLWorkbook : IXLWorkbook
         var explicitGraphic = loadOptions.GraphicEngine;
         var fontEngine = loadOptions.FontEngine
                          ?? (explicitGraphic as IXLFontEngine)
-                         ?? LoadOptions.DefaultFontEngine;
+                         ?? LoadOptions.DefaultFontEngine
+                         ?? DefaultFontEngineProbe.TryResolveDefault();
         GraphicEngine = explicitGraphic
                         ?? LoadOptions.DefaultGraphicEngine
                         ?? (fontEngine is not null
                             ? new DefaultGraphicEngine(fontEngine)
                             : throw new InvalidOperationException(
-                                "No font engine is registered. Call SixLaborsV1FontBootstrap.Register() at application startup " +
-                                "or set LoadOptions.FontEngine / LoadOptions.DefaultFontEngine."));
+                                "No font engine is available. Install the XLibur.Fonts.SkiaSharp package (or XLibur.Bundle) " +
+                                "for the default engine, or register one explicitly by setting LoadOptions.FontEngine / " +
+                                "LoadOptions.DefaultFontEngine (e.g. SkiaSharpFontBootstrap.Register() or SixLaborsV1FontBootstrap.Register())."));
         FontEngine = fontEngine
                      ?? (GraphicEngine as IXLFontEngine ?? new GraphicEngineFontAdapter(GraphicEngine));
         Protection = new XLWorkbookProtection(DefaultProtectionAlgorithm);

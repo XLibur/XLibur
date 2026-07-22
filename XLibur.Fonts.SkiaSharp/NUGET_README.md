@@ -10,9 +10,28 @@ dotnet add package XLibur.Fonts.SkiaSharp
 
 ## Usage
 
+This is the **default** XLibur font engine. Once this package is referenced, XLibur core
+auto-registers it the first time you create a workbook — no startup call is required:
+
+```csharp
+using XLibur.Excel;
+
+// Zero-config: SkiaSharp is discovered and registered automatically.
+using var wb = new XLWorkbook();
+```
+
+The auto-registered default resolves system fonts and falls back to an embedded metric-only
+Calibri-compatible font (`CarlitoBare`), so text measurement works even in headless and serverless
+environments that have no system fonts installed.
+
+### Explicit / custom configuration
+
 ```csharp
 using XLibur.Excel;
 using XLibur.Fonts.SkiaSharp;
+
+// Register explicitly at startup (optional — overrides an earlier default):
+SkiaSharpFontBootstrap.Register();
 
 // Use system fonts with a named fallback
 var fontEngine = new SkiaSharpFontEngine("Arial");
