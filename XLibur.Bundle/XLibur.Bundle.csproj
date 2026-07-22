@@ -3,7 +3,7 @@
     <PropertyGroup>
         <TargetFrameworks>net10.0;net8.0;net9.0</TargetFrameworks>
         <Nullable>enable</Nullable>
-        <Description>Convenience meta-package for XLibur. Installs XLibur together with the default SixLabors.Fonts 1.x font engine (Apache 2.0). Equivalent to installing XLibur and XLibur.Fonts.SixLabors.V1 separately.</Description>
+        <Description>Convenience meta-package for XLibur. Installs XLibur together with the default SkiaSharp font engine (MIT). The engine auto-registers on first use — no startup call required. Equivalent to installing XLibur and XLibur.Fonts.SkiaSharp separately.</Description>
         <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>
         <PackageTags>Excel OpenXml xlsx Bundle</PackageTags>
     </PropertyGroup>
@@ -26,7 +26,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\XLibur\XLibur.csproj" />
-        <ProjectReference Include="..\XLibur.Fonts.SixLabors.V1\XLibur.Fonts.SixLabors.V1.csproj" />
+        <ProjectReference Include="..\XLibur.Fonts.SkiaSharp\XLibur.Fonts.SkiaSharp.csproj" />
     </ItemGroup>
 
     <ItemGroup>

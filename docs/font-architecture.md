@@ -44,9 +44,10 @@ XLibur.Fonts.SixLabors
 ├── SixLaborsFontEngine          — SixLabors.Fonts 2.1.3 implementation
 └── (no embedded fonts)          — uses system fonts or stream-provided fonts
 
-XLibur.Fonts.SkiaSharp
+XLibur.Fonts.SkiaSharp            — the default engine (auto-registered)
 ├── SkiaSharpFontEngine          — SkiaSharp (MIT) implementation
-└── (no embedded fonts)          — uses system fonts or stream-provided fonts
+├── SkiaSharpFontBootstrap       — Register() + CreateDefault() (reflective auto-reg entry point)
+└── CarlitoBare embedded fonts   — Calibri-compatible metric-only ultimate fallback
 ```
 
 The core assembly has **zero dependency on any font library**. Each font package depends only on XLibur core and its respective font library. No circular dependencies.
@@ -67,16 +68,21 @@ using var wb = new XLWorkbook(new LoadOptions { FontEngine = new SkiaSharpFontEn
 
 ### Registration
 
-The core cannot reference V1 (that would create a circular dependency). Instead, each font engine package provides an explicit public bootstrap API that consumers call at application startup:
+The core cannot reference any font package at compile time (that would create a circular dependency and reintroduce library lock-in). Registration therefore happens at runtime, and there are three layers, checked cheapest-first:
 
-```csharp
-// In Program.cs or application startup — register the V1 font engine:
-SixLaborsV1FontBootstrap.Register();
-```
+1. **Explicit per-workbook** — `LoadOptions.FontEngine`.
+2. **Explicit global** — `LoadOptions.DefaultFontEngine`, typically set by a package bootstrap such as `SkiaSharpFontBootstrap.Register()` or `SixLaborsV1FontBootstrap.Register()`. Each bootstrap uses `??=`, so the first registration wins.
+3. **Auto-registered default (zero-config)** — if nothing above is set, core reflectively locates the default engine package.
 
-This sets `LoadOptions.DefaultFontEngine` — the single global default. `DefaultGraphicEngine` requires an `IXLFontEngine` as a constructor parameter; it has no factory-based or string-based constructors. The V1 package also includes a `[ModuleInitializer]` that calls `Register()` automatically when the assembly is loaded — but explicit registration is preferred for clarity and predictability.
+**Auto-registration (the default path).** `XLibur.Fonts.SkiaSharp` is the default engine. When it (or the `XLibur.Bundle` meta-package) is referenced, a plain `new XLWorkbook()` just works with no startup call. This is handled by `DefaultFontEngineProbe` in core: on first workbook creation with no engine registered, it does `Assembly.Load("XLibur.Fonts.SkiaSharp")`, finds `SkiaSharpFontBootstrap.CreateDefault()`, invokes it, and caches the result. Because the probe is consulted *after* both explicit layers, any explicit registration always overrides the default.
 
-If no font engine is registered and no `FontEngine` is configured, an `InvalidOperationException` is thrown with a clear message explaining what to do.
+**Why a reflective probe and not a module initializer?** A `[ModuleInitializer]` in the font package only runs once the CLR loads that assembly, and an assembly is loaded lazily — only when the consumer first touches a type in it. Zero-config usage (`new XLWorkbook()`) touches only *core* types, so the font assembly is never loaded and its module initializer never fires. Core is the one assembly guaranteed to be loaded, so the discovery has to originate there. (This is also why an earlier attempt to auto-register purely via the Bundle package — which has no code of its own — did not work.)
+
+**Why this is not the fragile scanning that was previously rejected.** The earlier rejected approach used `AssemblyLoadContext.LoadFromAssemblyPath` + `AppContext.BaseDirectory` + `RunModuleConstructor` — hand-rolled path probing that depended on the base directory and probing paths being correct. `DefaultFontEngineProbe` instead uses `Assembly.Load(AssemblyName)`, which goes through the host's standard resolver (`deps.json` / default `AssemblyLoadContext`) and is robust in normal deployments. It hardcodes exactly one well-known package name — a soft, reflection-only coupling with no compile-time reference and no version pin. Consumers who trim/AOT and don't reference the engine explicitly should register it explicitly (or keep the package rooted), since the reflective load is invisible to the trimmer.
+
+`DefaultGraphicEngine` requires an `IXLFontEngine` as a constructor parameter; it has no factory-based or string-based constructors.
+
+If no font engine can be resolved by any of the three layers (e.g. bare `XLibur` with no engine package installed), an `InvalidOperationException` is thrown with a clear message explaining what to install or call.
 
 ### Injection and Resolution
 
@@ -102,10 +108,15 @@ var options = new LoadOptions { FontEngine = engine };
 Resolution order in `XLWorkbook` constructor:
 
 ```
+fontEngine =
+    loadOptions.FontEngine                          // explicit per-workbook
+    ?? (loadOptions.GraphicEngine as IXLFontEngine) // per-workbook graphic engine implements it
+    ?? LoadOptions.DefaultFontEngine                // global static default (explicit bootstrap)
+    ?? DefaultFontEngineProbe.TryResolveDefault()   // reflective zero-config default (SkiaSharp)
+
 FontEngine =
-    loadOptions.FontEngine                         // explicit per-workbook
-    ?? LoadOptions.DefaultFontEngine               // global static default
-    ?? (GraphicEngine as IXLFontEngine)            // if graphic engine implements it
+    fontEngine
+    ?? (GraphicEngine as IXLFontEngine)             // resolved graphic engine implements it
     ?? new GraphicEngineFontAdapter(GraphicEngine)  // wrap legacy graphic engine
 ```
 
@@ -148,8 +159,11 @@ SixLabors.Fonts 1.0.1 is battle-tested, Apache 2.0 licensed, and provides accura
 **Why a separate V1 package instead of keeping SixLabors in core?**
 If both V1 (1.0.1) and V2 (2.1.3) packages exist and a consumer installs both, NuGet unifies to 2.1.3. With SixLabors in core, *every* consumer who adds the V2 package gets the unified version — the V1 code runs against V2 silently. By extracting V1, consumers choose one or the other. The core is version-agnostic.
 
-**Why explicit bootstrap instead of automatic assembly scanning?**
-An earlier design had the core probing for V1's DLL at runtime via `AssemblyLoadContext.LoadFromAssemblyPath` and `RuntimeHelpers.RunModuleConstructor`. This was fragile — it relied on `AppContext.BaseDirectory` being correct, assembly probing paths, and forcing module initializers. The explicit `SixLaborsV1FontBootstrap.Register()` call is one line, obvious, stable, and gives consumers full control over initialization order. The module initializer remains as a convenience fallback but is not the primary design.
+**Why a reflective probe for the default, when explicit bootstrap was originally preferred?**
+The original design made explicit `SixLaborsV1FontBootstrap.Register()` the primary path and treated auto-registration as a fragile nice-to-have. In practice that meant every consumer had to add a startup call, and the "install the Bundle and it just works" promise was broken (the Bundle has no code, so nothing forced the engine assembly to load — see below). To deliver true zero-config while keeping the core font-library-agnostic, core now performs a single targeted reflective load of the default package (`DefaultFontEngineProbe`). This is deliberately narrower and more robust than the earlier rejected approach: it uses `Assembly.Load(AssemblyName)` through the host's standard resolver (not `LoadFromAssemblyPath` + `BaseDirectory` path guessing), hardcodes one well-known package name, and is consulted only after both explicit registration layers so it never overrides an explicit choice. Explicit `Register()` and `LoadOptions.FontEngine` remain fully supported and always win.
+
+**Why not rely on the font package's `[ModuleInitializer]`?**
+A module initializer only runs when the CLR loads that assembly's module, which happens lazily — the first time a type in it is touched. Zero-config usage (`new XLWorkbook()`) touches only core types, so the engine assembly is never loaded and its initializer never fires. Merely referencing the engine (directly or transitively via the Bundle) does not force a load. The core-side probe is the only mechanism that reliably runs for zero-config consumers, because core is always loaded. The V1 package retains its module initializer for backward compatibility; SkiaSharp relies on the core probe instead.
 
 **Why does `DefaultGraphicEngine` only accept `IXLFontEngine` (no string constructor)?**
 The original `DefaultGraphicEngine(string fallbackFont)` constructor, `Instance` singleton, and `CreateOnlyWithFonts`/`CreateWithFontsAndSystemFonts` factory methods all internally created a `DefaultFontEngine` — which lives in the V1 assembly. Since the core can't reference V1 (circular dependency), those constructors required an internal factory delegation system (`DefaultFontEngineFactory`) bridged via `InternalsVisibleTo`. This created two parallel global registration paths that could get out of sync. Removing the factory-dependent constructors eliminates the entire internal factory system. Consumers who need a `DefaultGraphicEngine` pass in the font engine explicitly: `new DefaultGraphicEngine(new DefaultFontEngine("Arial"))`. Most consumers don't create `DefaultGraphicEngine` directly — they call `SixLaborsV1FontBootstrap.Register()` and use `new XLWorkbook()`.
