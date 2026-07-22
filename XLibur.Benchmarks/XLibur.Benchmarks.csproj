@@ -22,7 +22,7 @@
     <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="EPPlus" Version="8.6.2" />
     <PackageReference Include="JetBrains.Profiler.SelfApi" Version="2.5.18" />
-    <PackageReference Include="System.Security.Cryptography.Xml" Version="8.0.4" Condition="'$(TargetFramework)' == 'net8.0'" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.10" />
   </ItemGroup>
 
 </Project>
