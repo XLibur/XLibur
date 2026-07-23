@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using XLibur.Excel.ConditionalFormats;
+using XLibur.Excel.Coordinates;
 using XLibur.Excel.Rows;
 
 namespace XLibur.Excel;
@@ -148,7 +149,8 @@ internal static class XLCellCopyHelper
             {
                 if (!cf.Ranges.GetIntersectedRanges(target).Any())
                 {
-                    cf.Ranges.Add(target);
+                    var xlCf = (XLConditionalFormat)cf;
+                    xlCf.SetAreas(xlCf.Areas.With(new XLSheetRange(target.SheetPoint)));
                 }
             }
             else
