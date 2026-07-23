@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 
 namespace XLibur.Excel.ConditionalFormats;
@@ -204,6 +205,26 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     }
 
     public IXLRanges Ranges { get; private set; }
+
+    /// <summary>
+    /// The conditional format's coverage projected onto a value-typed <see cref="XLAreaList"/>.
+    /// Used to run structural (row/column insert &amp; delete) shifts with the sqref transforms
+    /// instead of mutating aliased repository ranges — see <see cref="SetAreas"/> and
+    /// ClosedXML issue #2850. <see cref="Ranges"/> remains the stored source of truth.
+    /// </summary>
+    internal XLAreaList Areas => XLAreaList.FromRanges(Ranges);
+
+    /// <summary>
+    /// Replace the coverage with <paramref name="areas"/>, materialized as ranges on
+    /// <paramref name="worksheet"/>. Used by the range shifter to write back the result of a
+    /// value-typed area transform.
+    /// </summary>
+    internal void SetAreas(XLAreaList areas, XLWorksheet worksheet)
+    {
+        Ranges.RemoveAll();
+        foreach (var area in areas)
+            Ranges.Add(worksheet.Range(area.TopRow, area.LeftColumn, area.BottomRow, area.RightColumn));
+    }
 
     public XLConditionalFormatType ConditionalFormatType { get; set; }
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 
@@ -124,56 +125,59 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
 
     private void ShiftConditionalFormattingColumns(XLRange range, int columnsShifted)
     {
-        if (!worksheet.ConditionalFormats.Any()) return;
-        var firstCol = range.RangeAddress.FirstAddress.ColumnNumber;
-        if (firstCol == 1) return;
+        if (columnsShifted == 0 || !worksheet.ConditionalFormats.Any()) return;
+        var first = range.RangeAddress.FirstAddress;
+        // A first-column insert has no column to the left to extend into, so the explicit shift
+        // is skipped and the blanket auto-shift handles CF ranges (see XLWorksheet.NotifyRangeShiftedColumns).
+        if (first.ColumnNumber == 1) return;
 
-        var colNum = columnsShifted > 0 ? firstCol - 1 : firstCol;
-        var model = worksheet.Column(colNum).AsRange();
+        var last = range.RangeAddress.LastAddress;
+        // The affected region spans the range's rows and the inserted/deleted columns.
+        var affected = columnsShifted > 0
+            ? new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber + columnsShifted - 1)
+            : new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber - columnsShifted - 1);
 
         foreach (var cf in worksheet.ConditionalFormats.ToList())
         {
-            var cfRanges = cf.Ranges.ToList();
-            cf.Ranges.RemoveAll();
+            var xlCf = (XLConditionalFormat)cf;
+            var newAreas = columnsShifted > 0
+                ? xlCf.Areas.InsertAndShiftRight(affected)
+                : xlCf.Areas.DeleteAndShiftLeft(affected);
 
-            foreach (var cfRange in cfRanges)
-            {
-                var newRange = ShiftRangeColumns(cfRange, model, firstCol, columnsShifted);
-                if (newRange.RangeAddress.IsValid &&
-                    newRange.RangeAddress.FirstAddress.ColumnNumber <=
-                    newRange.RangeAddress.LastAddress.ColumnNumber)
-                    cf.Ranges.Add(newRange);
-            }
-
-            if (cf.Ranges.Count == 0)
+            if (newAreas.Count == 0)
                 worksheet.ConditionalFormats.Remove(f => f == cf);
+            else
+                xlCf.SetAreas(newAreas, worksheet);
         }
     }
 
     private void ShiftConditionalFormattingRows(XLRange range, int rowsShifted)
     {
-        if (!worksheet.ConditionalFormats.Any()) return;
-        var firstRow = range.RangeAddress.FirstAddress.RowNumber;
-        if (firstRow == 1) return;
+        if (rowsShifted == 0 || !worksheet.ConditionalFormats.Any()) return;
+        var first = range.RangeAddress.FirstAddress;
+        // A first-row insert has no row above to extend into, so the explicit shift is skipped and
+        // the blanket auto-shift handles CF ranges (see XLWorksheet.NotifyRangeShiftedRows).
+        if (first.RowNumber == 1) return;
 
-        var rowNum = rowsShifted > 0 ? firstRow - 1 : firstRow;
-        var model = worksheet.Row(rowNum).AsRange();
+        var last = range.RangeAddress.LastAddress;
+        // The affected region spans the range's columns and the inserted/deleted rows, mirroring
+        // the inserted range in XLRangeInsertHelper. Structural shifts run on the value-typed
+        // XLAreaList so overlapping/adjacent coverage can never alias or double-shift (issue #2850).
+        var affected = rowsShifted > 0
+            ? new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber + rowsShifted - 1, last.ColumnNumber)
+            : new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber - rowsShifted - 1, last.ColumnNumber);
 
         foreach (var cf in worksheet.ConditionalFormats.ToList())
         {
-            var cfRanges = cf.Ranges.ToList();
-            cf.Ranges.RemoveAll();
+            var xlCf = (XLConditionalFormat)cf;
+            var newAreas = rowsShifted > 0
+                ? xlCf.Areas.InsertAndShiftDown(affected)
+                : xlCf.Areas.DeleteAndShiftUp(affected);
 
-            foreach (var cfRange in cfRanges)
-            {
-                var newRange = ShiftRangeRows(cfRange, model, firstRow, rowsShifted);
-                if (newRange.RangeAddress.IsValid &&
-                    newRange.RangeAddress.FirstAddress.RowNumber <= newRange.RangeAddress.LastAddress.RowNumber)
-                    cf.Ranges.Add(newRange);
-            }
-
-            if (cf.Ranges.Count == 0)
+            if (newAreas.Count == 0)
                 worksheet.ConditionalFormats.Remove(f => f == cf);
+            else
+                xlCf.SetAreas(newAreas, worksheet);
         }
     }
 
