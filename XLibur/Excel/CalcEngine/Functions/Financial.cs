@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
 
 #pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility
@@ -32,25 +33,25 @@ internal static class Financial
         // FVSCHEDULE Returns the future value of an initial principal after applying a series of compound interest rates
         // INTRATE Returns the interest rate for a fully invested security
         ce.RegisterFunction("IPMT", 4, 6, AdaptLastTwoOptional(Ipmt, 0, 0), FunctionFlags.Scalar); // Returns the interest payment for an investment for a given period
-        // IRR Returns the internal rate of return for a series of cash flows
+        ce.RegisterFunction("IRR", 1, 2, Irr, FunctionFlags.Range, AllowRange.Only, 0); // Returns the internal rate of return for a series of cash flows
         // ISPMT Calculates the interest paid during a specific period of an investment
         // MDURATION Returns the Macauley modified duration for a security with an assumed par value of $100
         // MIRR Returns the internal rate of return where positive and negative cash flows are financed at different rates
         // NOMINAL Returns the annual nominal interest rate
-        // NPER Returns the number of periods for an investment
-        // NPV Returns the net present value of an investment based on a series of periodic cash flows and a discount rate
+        ce.RegisterFunction("NPER", 3, 5, AdaptLastTwoOptional(Nper, 0, 0), FunctionFlags.Scalar); // Returns the number of periods for an investment
+        ce.RegisterFunction("NPV", 2, 255, Npv, FunctionFlags.Range, AllowRange.Except, 0); // Returns the net present value of an investment based on a series of periodic cash flows and a discount rate
         // ODDFPRICE Returns the price per $100 face value of a security with an odd first period
         // ODDFYIELD Returns the yield of a security with an odd first period
         // ODDLPRICE Returns the price per $100 face value of a security with an odd last period
         // ODDLYIELD Returns the yield of a security with an odd last period
         // PDURATION Returns the number of periods required by an investment to reach a specified value
         ce.RegisterFunction("PMT", 3, 5, AdaptLastTwoOptional(Pmt, 0, 0), FunctionFlags.Scalar); // Returns the periodic payment for an annuity
-        // PPMT Returns the payment on the principal for an investment for a given period
+        ce.RegisterFunction("PPMT", 4, 6, AdaptLastTwoOptional(Ppmt, 0, 0), FunctionFlags.Scalar); // Returns the payment on the principal for an investment for a given period
         // PRICE Returns the price per $100 face value of a security that pays periodic interest
         // PRICEDISC Returns the price per $100 face value of a discounted security
         // PRICEMAT Returns the price per $100 face value of a security that pays interest at maturity
-        // PV Returns the present value of an investment
-        // RATE Returns the interest rate per period of an annuity
+        ce.RegisterFunction("PV", 3, 5, AdaptLastTwoOptional(Pv, 0, 0), FunctionFlags.Scalar); // Returns the present value of an investment
+        ce.RegisterFunction("RATE", 3, 6, Rate, FunctionFlags.Scalar); // Returns the interest rate per period of an annuity
         // RECEIVED Returns the amount received at maturity for a fully invested security
         // RRI Returns an equivalent interest rate for the growth of an investment
         // SLN Returns the straight-line depreciation of an asset for one period
@@ -122,5 +123,230 @@ internal static class Financial
 
         return (-futureValue - presentValue * Math.Pow(1.0 + rate, numberOfPayments)) /
                (1 + rate * timingOffset) / ((Math.Pow(1.0 + rate, numberOfPayments) - 1) / rate);
+    }
+
+    private static AnyValue Pv(double rate, double numberOfPayments, double pmt, double futureValue, double type)
+    {
+        if (rate == 0.0)
+            return -(futureValue + pmt * numberOfPayments);
+
+        var pow = Math.Pow(1 + rate, numberOfPayments);
+        return -(futureValue + pmt * (1 + rate * type) * (pow - 1) / rate) / pow;
+    }
+
+    private static AnyValue Nper(double rate, double pmt, double presentValue, double futureValue, double type)
+    {
+        if (rate == 0.0)
+        {
+            if (pmt == 0.0)
+                return XLError.NumberInvalid;
+
+            return -(presentValue + futureValue) / pmt;
+        }
+
+        var timing = pmt * (1 + rate * type);
+        var numerator = timing - futureValue * rate;
+        var denominator = presentValue * rate + timing;
+        if (denominator == 0.0 || numerator / denominator <= 0.0)
+            return XLError.NumberInvalid;
+
+        return Math.Log(numerator / denominator) / Math.Log(1 + rate);
+    }
+
+    private static AnyValue Ppmt(double rate, double period, double numberOfPayments, double presentValue, double futureValue, double type)
+    {
+        // Principal = total payment - interest payment. Ipmt validates period/nper/rate.
+        var ipmt = Ipmt(rate, period, numberOfPayments, presentValue, futureValue, type);
+        if (!ipmt.TryPickScalar(out var ipmtScalar, out _) || !ipmtScalar.TryPickNumber(out var ipmtValue))
+            return ipmt;
+
+        var pmt = PmtInternal(rate, numberOfPayments, presentValue, futureValue, type);
+        return pmt - ipmtValue;
+    }
+
+    private static AnyValue Npv(CalcContext ctx, Span<AnyValue> args)
+    {
+        // NPV(rate, value1, [value2], ...). rate is a scalar (marked param 0), values may be ranges.
+        if (!TryScalarNumber(ctx, args[0], out var rate, out var rateError))
+            return rateError;
+        if (rate <= -1)
+            return XLError.NumberInvalid;
+
+        double npv = 0;
+        var period = 1;
+        for (var i = 1; i < args.Length; i++)
+        {
+            foreach (var scalar in EnumerateScalars(ctx, args[i]))
+            {
+                if (scalar.IsError)
+                    return scalar.GetError();
+
+                // NPV ignores blanks, text and logicals in references; each number is discounted by
+                // its sequential position.
+                if (!scalar.IsNumber)
+                    continue;
+
+                npv += scalar.GetNumber() / Math.Pow(1 + rate, period);
+                period++;
+            }
+        }
+
+        return npv;
+    }
+
+    private static AnyValue Irr(CalcContext ctx, Span<AnyValue> args)
+    {
+        // IRR(values, [guess]). values is the cash-flow range (marked param 0), starting at period 0.
+        if (!TryCollectNumbers(ctx, args[..1], out var cashflows, out var valuesError))
+            return valuesError;
+        if (cashflows.Count < 2)
+            return XLError.NumberInvalid;
+
+        var guess = 0.1;
+        if (args.Length > 1 && !TryScalarNumber(ctx, args[1], out guess, out var guessError))
+            return guessError;
+
+        const int maxIterations = 50;
+        const double tolerance = 1e-7;
+        var rate = guess;
+        for (var iteration = 0; iteration < maxIterations; iteration++)
+        {
+            double npv = 0, derivative = 0;
+            for (var t = 0; t < cashflows.Count; t++)
+            {
+                var factor = Math.Pow(1 + rate, t);
+                npv += cashflows[t] / factor;
+                derivative -= t * cashflows[t] / (factor * (1 + rate));
+            }
+
+            if (Math.Abs(npv) < tolerance)
+                return rate;
+            if (derivative == 0.0)
+                break;
+
+            var nextRate = rate - npv / derivative;
+            if (Math.Abs(nextRate - rate) < tolerance)
+                return nextRate;
+
+            rate = nextRate;
+        }
+
+        return XLError.NumberInvalid;
+    }
+
+    private static AnyValue Rate(CalcContext ctx, Span<AnyValue> args)
+    {
+        // RATE(nper, pmt, pv, [fv], [type], [guess]) - solved iteratively. All arguments are scalars.
+        if (!TryScalarNumber(ctx, args[0], out var nper, out var nperError))
+            return nperError;
+        if (!TryScalarNumber(ctx, args[1], out var pmt, out var pmtError))
+            return pmtError;
+        if (!TryScalarNumber(ctx, args[2], out var pv, out var pvError))
+            return pvError;
+
+        double fv = 0, type = 0, guess = 0.1;
+        if (args.Length > 3 && !TryScalarNumber(ctx, args[3], out fv, out var fvError))
+            return fvError;
+        if (args.Length > 4 && !TryScalarNumber(ctx, args[4], out type, out var typeError))
+            return typeError;
+        if (args.Length > 5 && !TryScalarNumber(ctx, args[5], out guess, out var guessError))
+            return guessError;
+
+        const int maxIterations = 100;
+        const double tolerance = 1e-8;
+        const double delta = 1e-6;
+        var rate = guess;
+        for (var iteration = 0; iteration < maxIterations; iteration++)
+        {
+            var value = TvmEquation(rate, nper, pmt, pv, fv, type);
+            if (Math.Abs(value) < tolerance)
+                return rate;
+
+            var derivative = (TvmEquation(rate + delta, nper, pmt, pv, fv, type) - value) / delta;
+            if (derivative == 0.0)
+                break;
+
+            var nextRate = rate - value / derivative;
+            if (Math.Abs(nextRate - rate) < tolerance)
+                return nextRate;
+
+            rate = nextRate;
+        }
+
+        return XLError.NumberInvalid;
+    }
+
+    /// <summary>
+    /// The time-value-of-money residual: <c>pv·(1+rate)^nper + pmt·(1+rate·type)·((1+rate)^nper−1)/rate + fv</c>,
+    /// which is zero at the solved rate. Used by <see cref="Rate"/>.
+    /// </summary>
+    private static double TvmEquation(double rate, double nper, double pmt, double pv, double fv, double type)
+    {
+        if (rate == 0.0)
+            return pv + pmt * nper + fv;
+
+        var pow = Math.Pow(1 + rate, nper);
+        return pv * pow + pmt * (1 + rate * type) * (pow - 1) / rate + fv;
+    }
+
+    private static bool TryScalarNumber(CalcContext ctx, in AnyValue value, out double number, out XLError error)
+    {
+        error = default;
+        if (!value.TryPickScalar(out var scalar, out _))
+        {
+            number = 0;
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        return scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error);
+    }
+
+    private static bool TryCollectNumbers(CalcContext ctx, ReadOnlySpan<AnyValue> valueArgs, out List<double> numbers, out XLError error)
+    {
+        error = default;
+        var result = new List<double>();
+        foreach (var arg in valueArgs)
+        {
+            foreach (var scalar in EnumerateScalars(ctx, arg))
+            {
+                if (scalar.IsError)
+                {
+                    numbers = null!;
+                    error = scalar.GetError();
+                    return false;
+                }
+
+                if (scalar.IsNumber)
+                    result.Add(scalar.GetNumber());
+            }
+        }
+
+        numbers = result;
+        return true;
+    }
+
+    /// <summary>
+    /// Yield the scalar values of an argument in order, whether it's a single scalar, an array, or a
+    /// range reference. Mirrors how <see cref="Statistical"/> reads a data set.
+    /// </summary>
+    private static IEnumerable<ScalarValue> EnumerateScalars(CalcContext ctx, AnyValue value)
+    {
+        if (value.TryPickScalar(out var scalar, out var collection))
+        {
+            yield return scalar;
+            yield break;
+        }
+
+        if (collection.TryPickT0(out var array, out var reference))
+        {
+            foreach (var item in array)
+                yield return item;
+        }
+        else
+        {
+            foreach (var item in reference.GetCellsValues(ctx))
+                yield return item;
+        }
     }
 }
