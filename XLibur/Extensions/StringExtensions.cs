@@ -14,7 +14,7 @@ internal static partial class StringExtensions
     {
         public int CharCount(char c)
         {
-            return instance.Length - instance.Replace(c.ToString(), "").Length;
+            return instance.AsSpan().Count(c);
         }
 
         public string RemoveSpecialCharacters()
@@ -35,16 +35,20 @@ internal static partial class StringExtensions
                              XLHelper.IsValidA1Address(instance) ||
                              XLHelper.IsValidRCAddress(instance) ||
                              StartsLikeCellReference(instance) ||
-                             instance.Any(c => (char.IsPunctuation(c) && c != '.' && c != '_') ||
-                                               char.IsSeparator(c) ||
-                                               char.IsControl(c) ||
-                                               char.IsSymbol(c));
-            return needEscape ? string.Concat('\'', instance.Replace("'", "''"), '\'') : instance;
+                             ContainsCharacterRequiringEscape(instance);
+            if (!needEscape)
+                return instance;
+
+            var escaped = instance.Contains('\'') ? instance.Replace("'", "''") : instance;
+            return string.Concat("'", escaped, "'");
         }
 
         internal string FixNewLines()
         {
-            return RegexNewLine.Replace(instance, Environment.NewLine);
+            // The regex only ever matches sequences containing '\n'; skip its match machinery when there is none.
+            return instance.AsSpan().IndexOf('\n') < 0
+                ? instance
+                : RegexNewLine.Replace(instance, Environment.NewLine);
         }
 
         internal bool PreserveSpaces()
@@ -165,6 +169,24 @@ internal static partial class StringExtensions
     /// E.g. "C05A" starts with column "C" followed by digit "0", which is ambiguous
     /// to Excel's formula parser even though "C05A" isn't a complete valid A1 address.
     /// </summary>
+    /// <summary>
+    /// Does the name contain any character that forces the sheet name to be quoted in a formula
+    /// (punctuation other than '.'/'_', separators, control characters, or symbols)?
+    /// </summary>
+    private static bool ContainsCharacterRequiringEscape(string name)
+    {
+        foreach (var c in name.AsSpan())
+        {
+            if ((char.IsPunctuation(c) && c != '.' && c != '_') ||
+                char.IsSeparator(c) ||
+                char.IsControl(c) ||
+                char.IsSymbol(c))
+                return true;
+        }
+
+        return false;
+    }
+
     private static bool StartsLikeCellReference(string name)
     {
         var i = 0;

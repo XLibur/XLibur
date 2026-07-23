@@ -734,14 +734,27 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (options.HasFlag(XLCellsUsedOptions.DataValidation) && HasDataValidation)
             return false;
 
-        if (options.HasFlag(XLCellsUsedOptions.ConditionalFormats)
-            && Worksheet.ConditionalFormats.SelectMany(cf => cf.Ranges).Any(range => range.Contains(this)))
+        if (options.HasFlag(XLCellsUsedOptions.ConditionalFormats) && IsInsideConditionalFormat())
             return false;
 
         if (options.HasFlag(XLCellsUsedOptions.Sparklines) && HasSparkline)
             return false;
 
         return true;
+    }
+
+    private bool IsInsideConditionalFormat()
+    {
+        foreach (var conditionalFormat in Worksheet.ConditionalFormats)
+        {
+            foreach (var range in conditionalFormat.Ranges)
+            {
+                if (range.Contains(this))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private bool IsContentEmpty()

@@ -1,4 +1,4 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
 
 namespace XLibur.Excel.CalcEngine;
 
@@ -26,8 +26,27 @@ internal class DefaultFormulaVisitor<TContext> : IFormulaVisitor<TContext, AstNo
 
     public virtual AstNode Visit(TContext context, FunctionNode node)
     {
-        var acceptedParameters = node.Parameters.Select(p => p.Accept(context, this)).Cast<ValueNode>().ToList();
-        return node.Parameters.Zip(acceptedParameters, (param, acceptedParam) => !ReferenceEquals(param, acceptedParam)).Any()
+        var parameters = node.Parameters;
+
+        // Only materialize a new parameter list once a child actually changes; if every parameter
+        // is returned unchanged, reuse the original node (matching the Unary/Binary visitors).
+        List<ValueNode>? acceptedParameters = null;
+        for (var i = 0; i < parameters.Count; i++)
+        {
+            var parameter = parameters[i];
+            var acceptedParameter = (ValueNode)parameter.Accept(context, this);
+
+            if (acceptedParameters is null && !ReferenceEquals(acceptedParameter, parameter))
+            {
+                acceptedParameters = new List<ValueNode>(parameters.Count);
+                for (var j = 0; j < i; j++)
+                    acceptedParameters.Add(parameters[j]);
+            }
+
+            acceptedParameters?.Add(acceptedParameter);
+        }
+
+        return acceptedParameters is not null
             ? new FunctionNode(node.Prefix, node.Name, acceptedParameters)
             : node;
     }

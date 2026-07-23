@@ -1,4 +1,5 @@
-﻿
+
+using System;
 using System.Drawing;
 
 namespace XLibur.Extensions;
@@ -9,27 +10,17 @@ internal static class ColorExtensions
 
     public static string ToHex(this Color color)
     {
-        var bytes = new byte[4];
-
-        bytes[0] = color.A;
-
-        bytes[1] = color.R;
-
-        bytes[2] = color.G;
-
-        bytes[3] = color.B;
-
-        var chars = new char[bytes.Length * 2];
-
-        for (var i = 0; i < bytes.Length; i++)
-        {
-            int b = bytes[i];
-
-            chars[i * 2] = HexDigits[b >> 4];
-
-            chars[i * 2 + 1] = HexDigits[b & 0xF];
-        }
-
+        Span<char> chars = stackalloc char[8];
+        WriteHexByte(chars, 0, color.A);
+        WriteHexByte(chars, 2, color.R);
+        WriteHexByte(chars, 4, color.G);
+        WriteHexByte(chars, 6, color.B);
         return new string(chars);
+
+        static void WriteHexByte(Span<char> dest, int offset, byte b)
+        {
+            dest[offset] = HexDigits[b >> 4];
+            dest[offset + 1] = HexDigits[b & 0xF];
+        }
     }
 }
