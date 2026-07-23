@@ -253,11 +253,16 @@ internal static class PageSetupWriter
 
             rowBreaks.Count = (uint)rowBreakCount;
             rowBreaks.ManualBreakCount = (uint)rowBreakCount;
-            var lastRowNum = (uint)xlWorksheet.RangeAddress.LastAddress.RowNumber;
+            // brk@max on a row (horizontal) break is a COLUMN extent — how far the
+            // break spans across columns — not a row index. Excel writes the full
+            // sheet width (0-based XFD = 16383). Writing a row count here (e.g. the
+            // 1048576-row sheet extent) makes Excel render a bogus scrollbar.
+            // See ClosedXML issue #2842.
+            const uint lastColumn = XLHelper.MaxColumnNumber - 1;
             foreach (var break1 in rowBreaksToAdd.Select(rb => new Break
             {
                 Id = (uint)rb,
-                Max = lastRowNum,
+                Max = lastColumn,
                 ManualPageBreak = true
             }))
                 rowBreaks.AppendChild(break1);
@@ -302,11 +307,14 @@ internal static class PageSetupWriter
 
             columnBreaks.Count = (uint)columnBreakCount;
             columnBreaks.ManualBreakCount = (uint)columnBreakCount;
-            var maxColumnNumber = (uint)xlWorksheet.RangeAddress.LastAddress.ColumnNumber;
+            // brk@max on a column (vertical) break is a ROW extent — how far the
+            // break spans down rows — not a column index. Excel writes the full
+            // sheet height (0-based row 1048575). See ClosedXML issue #2842.
+            const uint lastRow = XLHelper.MaxRowNumber - 1;
             foreach (var break1 in columnBreaksToAdd.Select(cb => new Break
             {
                 Id = (uint)cb,
-                Max = maxColumnNumber,
+                Max = lastRow,
                 ManualPageBreak = true
             }))
                 columnBreaks.AppendChild(break1);
