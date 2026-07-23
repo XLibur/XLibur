@@ -27,7 +27,7 @@ internal sealed partial class SvgInfoReader : ImageInfoReader
     {
         // SVG files are XML. They may start with an XML declaration, BOM, or whitespace.
         // Look for '<svg' or '<?xml' within the first chunk of the file.
-        Span<byte> buffer = stackalloc byte[Math.Min(MaxHeaderBytes, (int)Math.Min(stream.Length, MaxHeaderBytes))];
+        Span<byte> buffer = stackalloc byte[(int)Math.Min(stream.Length, MaxHeaderBytes)];
         var bytesRead = stream.Read(buffer);
         if (bytesRead == 0)
             return false;
@@ -44,7 +44,7 @@ internal sealed partial class SvgInfoReader : ImageInfoReader
     protected override XLPictureInfo ReadInfo(Stream stream)
     {
         // Read enough of the SVG to find the <svg> element and its attributes.
-        var buffer = new byte[Math.Min(MaxHeaderBytes, (int)Math.Min(stream.Length, MaxHeaderBytes))];
+        var buffer = new byte[(int)Math.Min(stream.Length, MaxHeaderBytes)];
         var bytesRead = stream.Read(buffer, 0, buffer.Length);
         var text = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 

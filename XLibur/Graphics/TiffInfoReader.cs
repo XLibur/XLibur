@@ -100,7 +100,7 @@ internal sealed class TiffInfoReader : ImageInfoReader
         stream.Position = readU32(stream);
         var numerator = readU32(stream);
         var denominator = readU32(stream);
-        return (double)numerator / denominator;
+        return denominator == 0 ? 0 : (double)numerator / denominator;
     }
 
     private static double ToDpi(double resolution, uint resolutionUnit) =>
