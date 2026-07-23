@@ -412,6 +412,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         Statistical.Register(fr);
         DateAndTime.Register(fr);
         Financial.Register(fr);
+        DynamicArray.Register(fr);
 
         return fr;
     }
