@@ -1,4 +1,5 @@
 ﻿using System.Drawing;
+using System.IO;
 using System.Reflection;
 using XLibur.Excel.Drawings;
 using XLibur.Fonts.SixLabors.V1;
@@ -75,6 +76,50 @@ public class PictureInfoTests
     public void CanReadPcx()
     {
         AssertRasterImage("SampleImagePcx.pcx", XLPictureFormat.Pcx, new Size(100, 50), 96, 96);
+    }
+
+    [Test]
+    public void PcxWithValidWindowBoundsIsRead()
+    {
+        // Sanity check that a hand-built header with sensible bounds is accepted.
+        using var stream = new MemoryStream(BuildPcxHeader(xMin: 0, yMin: 0, xMax: 99, yMax: 49));
+        var read = new PcxInfoReader().TryGetInfo(stream, out var info);
+
+        Assert.IsTrue(read);
+        Assert.AreEqual(new Size(100, 50), info.SizePx);
+    }
+
+    [TestCase(99, 0, 0, 49, TestName = "PcxRejectsXMaxBelowXMin")]
+    [TestCase(0, 49, 99, 0, TestName = "PcxRejectsYMaxBelowYMin")]
+    public void PcxWithMalformedWindowBoundsIsRejected(int xMin, int yMin, int xMax, int yMax)
+    {
+        // Otherwise valid PCX signature, but Max < Min would yield a zero/negative size.
+        using var stream = new MemoryStream(BuildPcxHeader(xMin, yMin, xMax, yMax));
+        var read = new PcxInfoReader().TryGetInfo(stream, out _);
+
+        Assert.IsFalse(read);
+    }
+
+    private static byte[] BuildPcxHeader(int xMin, int yMin, int xMax, int yMax)
+    {
+        var header = new byte[16];
+        header[0] = 0x0A; // Manufacturer
+        header[1] = 5; // Version
+        header[2] = 1; // Encoding (RLE)
+        header[3] = 8; // BitsPerPixel
+        WriteU16LE(header, 4, xMin);
+        WriteU16LE(header, 6, yMin);
+        WriteU16LE(header, 8, xMax);
+        WriteU16LE(header, 10, yMax);
+        WriteU16LE(header, 12, 96); // HDpi
+        WriteU16LE(header, 14, 96); // VDpi
+        return header;
+    }
+
+    private static void WriteU16LE(byte[] buffer, int offset, int value)
+    {
+        buffer[offset] = (byte)(value & 0xFF);
+        buffer[offset + 1] = (byte)((value >> 8) & 0xFF);
     }
 
     [Test]
