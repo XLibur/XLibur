@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.Coordinates;
 using XLibur.Excel.Ranges.Index;
 using XLibur.Extensions;
 
@@ -64,11 +65,9 @@ internal sealed class XLDataValidations : IXLDataValidations
         var xlDataValidation = (XLDataValidation)dataValidation;
         xlDataValidation.RangeAdded -= OnRangeAdded;
         xlDataValidation.RangeRemoved -= OnRangeRemoved;
+        xlDataValidation.CoverageReplaced -= OnCoverageReplaced;
 
-        foreach (var range in dataValidation.Ranges)
-        {
-            ProcessRangeRemoved(range);
-        }
+        _dataValidationIndex.RemoveAll(e => ReferenceEquals(e.DataValidation, xlDataValidation));
     }
 
     public void Delete(IXLRange range)
@@ -151,6 +150,7 @@ internal sealed class XLDataValidations : IXLDataValidations
 
         xlDataValidation.RangeAdded += OnRangeAdded;
         xlDataValidation.RangeRemoved += OnRangeRemoved;
+        xlDataValidation.CoverageReplaced += OnCoverageReplaced;
 
         foreach (var range in xlDataValidation.Ranges)
         {
@@ -166,13 +166,6 @@ internal sealed class XLDataValidations : IXLDataValidations
 
     public void Consolidate()
     {
-        // Make sure the rule-range index reflects the current rule ranges before we
-        // start tearing down and rebuilding rules. After column/row shifts the
-        // address-keyed index can hold stale entries, and the split-on-add logic
-        // would otherwise interpret a rule's own out-of-date entry as a competing
-        // rule and wipe its ranges.
-        ReconcileIndex();
-
         Func<IXLDataValidation, IXLDataValidation, bool> areEqual = (dv1, dv2) =>
         {
             return
@@ -200,15 +193,13 @@ internal sealed class XLDataValidations : IXLDataValidations
             var similarRules = rules.Where(r => areEqual(rules[0], r)).ToList();
             rules.RemoveAll(similarRules.Contains);
 
-            var consRule = similarRules[0];
-            var ranges = similarRules.SelectMany(dv => dv.Ranges).ToList();
+            var consRule = (XLDataValidation)similarRules[0];
 
-            IXLRanges consolidatedRanges = new XLRanges();
-            ranges.ForEach(r => consolidatedRanges.Add(r));
-            consolidatedRanges = consolidatedRanges.Consolidate();
-
-            consRule.ClearRanges();
-            consRule.AddRanges(consolidatedRanges);
+            // Merge every similar rule's coverage and collapse adjacent/overlapping blocks with the
+            // value-typed area model (mirrors XLConditionalFormats.ConsolidateItem). Add() reindexes.
+            var mergedAreas = new XLAreaList(
+                similarRules.Cast<XLDataValidation>().SelectMany(dv => dv.Areas).ToList());
+            consRule.SetAreas(mergedAreas.GetConsolidated());
             Add(consRule);
         }
     }
@@ -221,6 +212,11 @@ internal sealed class XLDataValidations : IXLDataValidations
     private void OnRangeRemoved(object? sender, RangeEventArgs e)
     {
         ProcessRangeRemoved(e.Range);
+    }
+
+    private void OnCoverageReplaced(object? sender, EventArgs e)
+    {
+        ReindexRule((XLDataValidation)sender!);
     }
 
     private void ProcessRangeAdded(IXLRange range, XLDataValidation dataValidation, bool skipIntersectionCheck)
@@ -242,22 +238,20 @@ internal sealed class XLDataValidations : IXLDataValidations
     }
 
     /// <summary>
-    /// Rebuild the internal rule-range spatial index from the current ranges of every
-    /// rule. Address-keyed index entries can fall out of sync with their backing
-    /// <see cref="XLRange"/> instances after column/row inserts that mutate addresses
-    /// in place (the shifter updates each <c>XLRange.RangeAddress</c> but does not
-    /// re-key the index entry). A stale index causes <see cref="SplitExistingRanges"/>
-    /// to split rules against their own outdated entries, wiping their range collection.
+    /// Rebuild a single rule's spatial-index entries from its <see cref="XLDataValidation.Areas"/>.
+    /// Called when a rule replaces its whole coverage in one step (a structural shift or
+    /// consolidation via <see cref="XLDataValidation.SetAreas"/>, signalled by
+    /// <see cref="XLDataValidation.CoverageReplaced"/>). Entries are keyed off immutable area values
+    /// (never a live repository range), so a subsequent blanket range shift cannot desync them —
+    /// which is what let the old defensive full-index rebuild (ReconcileIndex) go.
     /// </summary>
-    internal void ReconcileIndex()
+    private void ReindexRule(XLDataValidation dataValidation)
     {
-        _dataValidationIndex.RemoveAll();
-        foreach (var dv in _dataValidations.OfType<XLDataValidation>())
+        _dataValidationIndex.RemoveAll(e => ReferenceEquals(e.DataValidation, dataValidation));
+        foreach (var area in dataValidation.Areas)
         {
-            foreach (var range in dv.Ranges)
-            {
-                _dataValidationIndex.Add(new XLDataValidationIndexEntry(range.RangeAddress, dv));
-            }
+            var address = XLRangeAddress.FromSheetRange(_worksheet, area);
+            _dataValidationIndex.Add(new XLDataValidationIndexEntry(address, dataValidation));
         }
     }
 

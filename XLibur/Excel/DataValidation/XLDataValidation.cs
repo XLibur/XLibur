@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 
 namespace XLibur.Excel;
@@ -17,7 +18,6 @@ internal sealed class RangeEventArgs : EventArgs
 
 internal sealed class XLDataValidation : IXLDataValidation
 {
-    private readonly XLRanges _ranges;
     private readonly XLWorksheet _worksheet;
 
     public XLDataValidation(IXLRange range)
@@ -36,13 +36,38 @@ internal sealed class XLDataValidation : IXLDataValidation
     private XLDataValidation(XLWorksheet worksheet)
     {
         _worksheet = worksheet ?? throw new ArgumentNullException(nameof(worksheet));
-        _ranges = new XLRanges();
+        Areas = XLAreaList.Empty;
         Initialize();
     }
 
+    /// <summary>
+    /// Raised when a single range is appended to the coverage. The container uses it to split any
+    /// pre-existing overlapping rule (one validation per cell) and add the matching index entry.
+    /// </summary>
     internal event EventHandler<RangeEventArgs>? RangeAdded;
 
+    /// <summary>
+    /// Raised when a single range is removed from the coverage. The container uses it to drop the
+    /// matching index entry.
+    /// </summary>
     internal event EventHandler<RangeEventArgs>? RangeRemoved;
+
+    /// <summary>
+    /// Raised when the whole coverage is replaced in one step (a structural shift or consolidation
+    /// writing back a value-typed area transform via <see cref="SetAreas"/>). The container reindexes
+    /// this rule from its <see cref="Areas"/>. Unlike <see cref="RangeAdded"/> it performs no
+    /// split-on-add: a shift preserves the disjointness the rules already had.
+    /// </summary>
+    internal event EventHandler? CoverageReplaced;
+
+    /// <summary>
+    /// The rule's coverage, as a value-typed <see cref="XLAreaList"/>. This is the source of truth:
+    /// coverage lives here rather than as live repository ranges, so structural (row/column insert
+    /// &amp; delete) shifts run as pure area transforms and can never alias or double-shift (ClosedXML
+    /// issue #2850). <see cref="Ranges"/> is a projection of it. Mirrors
+    /// <see cref="XLibur.Excel.ConditionalFormats.XLConditionalFormat.Areas"/>.
+    /// </summary>
+    internal XLAreaList Areas { get; private set; }
 
     internal XLWorksheet Worksheet => _worksheet;
 
@@ -55,7 +80,7 @@ internal sealed class XLDataValidation : IXLDataValidation
     {
         if (dataValidation == this) return;
 
-        if (_ranges.Count == 0)
+        if (Areas.Count == 0)
             AddRanges(dataValidation.Ranges);
 
         IgnoreBlanks = dataValidation.IgnoreBlanks;
@@ -83,15 +108,27 @@ internal sealed class XLDataValidation : IXLDataValidation
                 (!string.IsNullOrWhiteSpace(ErrorTitle) || !string.IsNullOrWhiteSpace(ErrorMessage)));
     }
 
+    /// <summary>
+    /// Carve <paramref name="rangeAddress"/> out of the coverage, keeping the non-overlapping
+    /// remainder. Each intersecting area is replaced by its remainder pieces one at a time (via
+    /// <see cref="RemoveRange"/> / <see cref="AddRange"/>) so the container maintains its index
+    /// incrementally — the same granular flow the range-based implementation used, which keeps the
+    /// index enumeration order (and therefore copy order) stable. Remainder pieces are emitted in
+    /// reading order (top-to-bottom, then left-to-right).
+    /// </summary>
     internal void SplitBy(IXLRangeAddress rangeAddress)
     {
-        var rangesToSplit = _ranges.GetIntersectedRanges(rangeAddress).ToList();
+        var excludedArea = XLSheetRange.FromRangeAddress(rangeAddress);
 
-        foreach (var rangeToSplit in rangesToSplit)
+        foreach (var area in Areas.IntersectingWith(excludedArea).ToList())
         {
-            var newRanges = ((XLRange)rangeToSplit).Split(rangeAddress, includeIntersection: false);
-            RemoveRange(rangeToSplit);
-            newRanges.ForEach(AddRange);
+            var pieces = new List<XLSheetRange>();
+            area.Exclude(excludedArea, pieces);
+            pieces.Sort((a, b) => a.TopRow != b.TopRow ? a.TopRow - b.TopRow : a.LeftColumn - b.LeftColumn);
+
+            RemoveRange(MaterializeRange(area));
+            foreach (var piece in pieces)
+                AddRange(MaterializeRange(piece));
         }
     }
 
@@ -147,7 +184,30 @@ internal sealed class XLDataValidation : IXLDataValidation
     public string MaxValue { get => maxValue; set => maxValue = value; }
     public string MinValue { get => minValue; set => minValue = value; }
     public XLOperator Operator { get; set; }
-    public IEnumerable<IXLRange> Ranges => _ranges.AsEnumerable();
+
+    /// <summary>
+    /// Coverage materialized as ranges on the owning worksheet, in reading order (top-to-bottom,
+    /// then left-to-right) — the same ordering the range-backed <see cref="XLRanges"/> collection
+    /// enumerated in, which callers (the sqref writer, copy) depend on. A fresh snapshot each call —
+    /// mutating a returned range has no effect on the rule; change coverage via <see cref="AddRange"/>,
+    /// <see cref="RemoveRange"/>, <see cref="ClearRanges"/>, or <see cref="SetAreas"/>. Projection of
+    /// <see cref="Areas"/>, the source of truth.
+    /// </summary>
+    public IEnumerable<IXLRange> Ranges =>
+        Areas.OrderBy(a => a.TopRow).ThenBy(a => a.LeftColumn).Select(MaterializeRange);
+
+    private XLRange MaterializeRange(XLSheetRange area)
+        => _worksheet.Range(area.TopRow, area.LeftColumn, area.BottomRow, area.RightColumn);
+
+    /// <summary>
+    /// Replace the coverage in one step. Used by the range shifter and consolidation to write back a
+    /// value-typed area transform. Signals <see cref="CoverageReplaced"/> so the container reindexes.
+    /// </summary>
+    internal void SetAreas(XLAreaList areas)
+    {
+        Areas = areas;
+        CoverageReplaced?.Invoke(this, EventArgs.Empty);
+    }
 
     public bool ShowErrorMessage { get; set; }
 
@@ -199,7 +259,7 @@ internal sealed class XLDataValidation : IXLDataValidation
         if (range.Worksheet != Worksheet)
             range = Worksheet.Range(((XLRangeAddress)range.RangeAddress).WithoutWorksheet());
 
-        _ranges.Add(range);
+        Areas = Areas.With(XLSheetRange.FromRangeAddress(range.RangeAddress));
 
         RangeAdded?.Invoke(this, new RangeEventArgs(range));
     }
@@ -225,10 +285,10 @@ internal sealed class XLDataValidation : IXLDataValidation
     /// </summary>
     public void ClearRanges()
     {
-        var allRanges = _ranges.ToList();
-        _ranges.RemoveAll();
+        var removedRanges = Ranges.ToList();
+        Areas = XLAreaList.Empty;
 
-        foreach (var range in allRanges)
+        foreach (var range in removedRanges)
         {
             RangeRemoved?.Invoke(this, new RangeEventArgs(range));
         }
@@ -286,14 +346,14 @@ internal sealed class XLDataValidation : IXLDataValidation
         if (range == null)
             return false;
 
-        var res = _ranges.Remove(range);
+        var area = XLSheetRange.FromRangeAddress(range.RangeAddress);
+        var newAreas = Areas.Without(area);
+        if (newAreas.Count == Areas.Count)
+            return false;
 
-        if (res)
-        {
-            RangeRemoved?.Invoke(this, new RangeEventArgs(range));
-        }
-
-        return res;
+        Areas = newAreas;
+        RangeRemoved?.Invoke(this, new RangeEventArgs(range));
+        return true;
     }
 
     #endregion IXLDataValidation Members
