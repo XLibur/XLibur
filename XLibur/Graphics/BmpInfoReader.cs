@@ -15,19 +15,37 @@ namespace XLibur.Graphics;
 /// </summary>
 internal sealed class BmpInfoReader : ImageInfoReader
 {
+    private const int BitmapFileHeaderSize = 14;
+    private const int BitmapArrayHeaderSize = 14;
+
     protected override bool CheckHeader(Stream stream)
     {
-        Span<byte> s = stackalloc byte[2];
+        Span<byte> s = stackalloc byte[16];
         if (stream.Read(s) != s.Length)
             return false;
 
-        // Excel can't read V1.x CI-Color Icon, CP-Color Pointer, IC-Icon or PT-Pointer for OS/2, so don't decode them.
-        return s[0] == 'B' && (s[1] == 'M' || s[0] == 'A');
+        if (s[0] != 'B')
+            return false;
+
+        // Plain Windows/OS_2 bitmap: BITMAPFILEHEADER starts at offset 0.
+        if (s[1] == 'M')
+            return true;
+
+        // OS/2 "BA" Bitmap Array: a 14-byte BITMAPARRAYHEADER wraps one or more bitmaps.
+        // Only decode arrays whose first entry is a plain "BM" bitmap; the icon/pointer
+        // variants (CI, CP, IC, PT) can't be read by Excel, so leave them undetected.
+        return s[1] == 'A' && s[BitmapArrayHeaderSize] == 'B' && s[BitmapArrayHeaderSize + 1] == 'M';
     }
 
     protected override XLPictureInfo ReadInfo(Stream stream)
     {
-        stream.Position += 14;
+        // OS/2 "BA" files prepend a BITMAPARRAYHEADER before the first BITMAPFILEHEADER;
+        // plain "BM" files start with the BITMAPFILEHEADER directly.
+        Span<byte> signature = stackalloc byte[2];
+        stream.ReadExactly(signature);
+        var fileHeaderStart = signature[1] == 'A' ? BitmapArrayHeaderSize : 0;
+
+        stream.Position = fileHeaderStart + BitmapFileHeaderSize;
         var infoHeaderSize = stream.ReadS32LE();
         // BMP Version 1.x, used by IBM OS/2 1.x and Win 2.0 and later
         return infoHeaderSize == 12 ? ReadBmpV1X(stream) :

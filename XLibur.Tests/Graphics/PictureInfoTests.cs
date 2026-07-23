@@ -61,6 +61,44 @@ public class PictureInfoTests
     }
 
     [Test]
+    public void CanReadOs2BitmapArray()
+    {
+        // OS/2 "BA" file: a 14-byte BITMAPARRAYHEADER wrapping a plain BM bitmap
+        // with a 12-byte BITMAPCOREHEADER (V1) reporting a 120x80 image.
+        using var stream = new MemoryStream(BuildBitmapArrayV1(width: 120, height: 80));
+        var read = new BmpInfoReader().TryGetInfo(stream, out var info);
+
+        Assert.IsTrue(read);
+        Assert.AreEqual(XLPictureFormat.Bmp, info.Format);
+        Assert.AreEqual(new Size(120, 80), info.SizePx);
+    }
+
+    [Test]
+    public void Os2IconArrayIsRejected()
+    {
+        // Same wrapper, but the inner entry is an OS/2 icon ("IC"), which Excel can't read.
+        var bytes = BuildBitmapArrayV1(width: 120, height: 80);
+        bytes[14] = (byte)'I';
+        bytes[15] = (byte)'C';
+        using var stream = new MemoryStream(bytes);
+
+        Assert.IsFalse(new BmpInfoReader().TryGetInfo(stream, out _));
+    }
+
+    private static byte[] BuildBitmapArrayV1(ushort width, ushort height)
+    {
+        var file = new byte[40];
+        file[0] = (byte)'B';
+        file[1] = (byte)'A'; // BITMAPARRAYHEADER (offsets 0..13)
+        file[14] = (byte)'B';
+        file[15] = (byte)'M'; // inner BITMAPFILEHEADER (offsets 14..27)
+        WriteU16LE(file, 28, 12); // BITMAPCOREHEADER size (low word), high word stays 0
+        WriteU16LE(file, 32, width);
+        WriteU16LE(file, 34, height);
+        return file;
+    }
+
+    [Test]
     public void CanReadTiffWithBigEndianEncoding()
     {
         AssertRasterImage("SampleImageTiffBigEndian.tiff", XLPictureFormat.Tiff, new Size(130, 45), 96, 96);
