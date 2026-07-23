@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using XLibur.Extensions;
 
@@ -42,15 +43,7 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
     public static XLAddress Create(XLWorksheet? worksheet, string cellAddressString)
     {
         var fixedColumn = cellAddressString[0] == '$';
-        int startPos;
-        if (fixedColumn)
-        {
-            startPos = 1;
-        }
-        else
-        {
-            startPos = 0;
-        }
+        var startPos = fixedColumn ? 1 : 0;
 
         var rowPos = startPos;
         while (cellAddressString[rowPos] > '9')
@@ -59,35 +52,13 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         }
 
         var fixedRow = cellAddressString[rowPos] == '$';
-        string columnLetter;
-        int rowNumber;
-        if (fixedRow)
-        {
-            if (fixedColumn)
-            {
-                columnLetter = cellAddressString.Substring(startPos, rowPos - 1);
-            }
-            else
-            {
-                columnLetter = cellAddressString.Substring(startPos, rowPos);
-            }
 
-            rowNumber = int.Parse(cellAddressString.AsSpan(rowPos + 1), XLHelper.NumberStyle, XLHelper.ParseCulture);
-        }
-        else
-        {
-            if (fixedColumn)
-            {
-                columnLetter = cellAddressString.Substring(startPos, rowPos - 1);
-            }
-            else
-            {
-                columnLetter = cellAddressString.Substring(startPos, rowPos);
-            }
+        // Column letters occupy [startPos, rowPos); decode them without allocating a substring.
+        var columnNumber = XLHelper.GetColumnNumberFromLetter(cellAddressString.AsSpan(startPos, rowPos - startPos));
+        var rowStart = fixedRow ? rowPos + 1 : rowPos;
+        var rowNumber = int.Parse(cellAddressString.AsSpan(rowStart), XLHelper.NumberStyle, XLHelper.ParseCulture);
 
-            rowNumber = int.Parse(cellAddressString.AsSpan(rowPos), XLHelper.NumberStyle, XLHelper.ParseCulture);
-        }
-        return new XLAddress(worksheet, rowNumber, columnLetter, fixedRow, fixedColumn);
+        return new XLAddress(worksheet, rowNumber, columnNumber, fixedRow, fixedColumn);
     }
 
     #endregion Static
@@ -222,17 +193,24 @@ internal struct XLAddress : IXLAddress, IEquatable<XLAddress>
         if (!IsValid)
             return InvalidRef;
 
-        var retVal = ColumnLetter;
+        var columnLetter = ColumnLetter;
+
+        // Max layout: '$' + 3 column letters + '$' + 7 row digits = 12 chars.
+        Span<char> buffer = stackalloc char[16];
+        var pos = 0;
         if (FixedColumn)
-        {
-            retVal = "$" + retVal;
-        }
+            buffer[pos++] = '$';
+
+        columnLetter.AsSpan().CopyTo(buffer[pos..]);
+        pos += columnLetter.Length;
+
         if (FixedRow)
-        {
-            retVal += "$";
-        }
-        retVal += RowNumber.ToInvariantString();
-        return retVal;
+            buffer[pos++] = '$';
+
+        RowNumber.TryFormat(buffer[pos..], out var written, provider: CultureInfo.InvariantCulture);
+        pos += written;
+
+        return new string(buffer[..pos]);
     }
 
     public string ToString(XLReferenceStyle referenceStyle)

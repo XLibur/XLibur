@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using XLibur.Excel.Coordinates;
@@ -25,11 +24,11 @@ internal static partial class XLCellFormulaShifter
         var lastIndex = 0;
         var shiftedWsName = shiftedRange.Worksheet.Name;
 
-        foreach (var match in A1SimpleRegex.Matches(value).Cast<Match>())
+        foreach (Match match in A1SimpleRegex.Matches(value))
         {
             var matchString = match.Value;
             var matchIndex = match.Index;
-            if (value.Substring(0, matchIndex).CharCount('"') % 2 == 0)
+            if (value.AsSpan(0, matchIndex).Count('"') % 2 == 0)
             {
                 sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex));
                 var (sheetName, useSheetName) = ExtractSheetName(matchString, worksheetInAction);
@@ -193,11 +192,11 @@ internal static partial class XLCellFormulaShifter
         var sb = new StringBuilder();
         var lastIndex = 0;
 
-        foreach (var match in A1SimpleRegex.Matches(value).Cast<Match>())
+        foreach (Match match in A1SimpleRegex.Matches(value))
         {
             var matchString = match.Value;
             var matchIndex = match.Index;
-            if (value.Substring(0, matchIndex).CharCount('"') % 2 == 0)
+            if (value.AsSpan(0, matchIndex).Count('"') % 2 == 0)
             {
                 sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex));
                 var (sheetName, useSheetName) = ExtractSheetName(matchString, worksheetInAction);

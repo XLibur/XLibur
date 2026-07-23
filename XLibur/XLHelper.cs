@@ -140,6 +140,33 @@ public static partial class XLHelper
     }
 
     /// <summary>
+    /// Gets the column number of a given column letter, without allocating a string for the letters.
+    /// The column letters are decoded as a bijective base-26 number (A=1, Z=26, AA=27, …).
+    /// </summary>
+    /// <param name="columnLetter"> The column letter(s) to translate into a column number. </param>
+    internal static int GetColumnNumberFromLetter(ReadOnlySpan<char> columnLetter)
+    {
+        if (columnLetter.IsEmpty) throw new ArgumentException("Column letter must not be empty.", nameof(columnLetter));
+
+        //Extra check because we allow users to pass row col positions in as strings
+        if (columnLetter[0] <= '9')
+            return int.Parse(columnLetter, NumberStyle, ParseCulture);
+
+        var result = 0;
+        foreach (var c in columnLetter)
+        {
+            // Uppercase ASCII letters only (matches the A1 addresses this decodes).
+            var upper = (char)(c & ~0x20);
+            if (upper is < 'A' or > 'Z')
+                throw new ArgumentOutOfRangeException(nameof(columnLetter), columnLetter.ToString() + " is not recognized as a column letter");
+
+            result = result * 26 + (upper - 'A' + 1);
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Gets the column letter of a given column number.
     /// </summary>
     /// <param name="columnNumber">The column number to translate into a column letter.</param>
