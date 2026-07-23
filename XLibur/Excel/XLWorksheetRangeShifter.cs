@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.Coordinates;
@@ -175,53 +176,61 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
 
     private void ShiftDataValidationColumns(XLRange range, int columnsShifted)
     {
-        if (!worksheet.DataValidations.Any()) return;
-        var firstCol = range.RangeAddress.FirstAddress.ColumnNumber;
-        if (firstCol == 1) return;
+        if (columnsShifted == 0 || !worksheet.DataValidations.Any()) return;
+        var first = range.RangeAddress.FirstAddress;
+        if (first.ColumnNumber == 1) return;
 
-        var colNum = columnsShifted > 0 ? firstCol - 1 : firstCol;
-        var model = worksheet.Column(colNum).AsRange();
+        var last = range.RangeAddress.LastAddress;
+        var affected = columnsShifted > 0
+            ? new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber + columnsShifted - 1)
+            : new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber - columnsShifted - 1);
 
-        foreach (var dv in worksheet.DataValidations.ToList())
+        ShiftDataValidations(dv =>
         {
-            var dvRanges = dv.Ranges.ToList();
-            dv.ClearRanges();
-
-            foreach (var dvRange in dvRanges)
-            {
-                var newRange = ShiftRangeColumns(dvRange, model, firstCol, columnsShifted);
-                if (newRange.RangeAddress.IsValid &&
-                    newRange.RangeAddress.FirstAddress.ColumnNumber <=
-                    newRange.RangeAddress.LastAddress.ColumnNumber)
-                    dv.AddRange(newRange);
-            }
-
-            if (!dv.Ranges.Any())
-                worksheet.DataValidations.Delete(v => v == dv);
-        }
+            var areas = XLAreaList.FromRanges(dv.Ranges);
+            return columnsShifted > 0 ? areas.InsertAndShiftRight(affected) : areas.DeleteAndShiftLeft(affected);
+        });
     }
 
     private void ShiftDataValidationRows(XLRange range, int rowsShifted)
     {
-        if (!worksheet.DataValidations.Any()) return;
-        var firstRow = range.RangeAddress.FirstAddress.RowNumber;
-        if (firstRow == 1) return;
+        if (rowsShifted == 0 || !worksheet.DataValidations.Any()) return;
+        var first = range.RangeAddress.FirstAddress;
+        if (first.RowNumber == 1) return;
 
-        var rowNum = rowsShifted > 0 ? firstRow - 1 : firstRow;
-        var model = worksheet.Row(rowNum).AsRange();
+        var last = range.RangeAddress.LastAddress;
+        var affected = rowsShifted > 0
+            ? new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber + rowsShifted - 1, last.ColumnNumber)
+            : new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber - rowsShifted - 1, last.ColumnNumber);
 
-        foreach (var dv in worksheet.DataValidations.ToList())
+        ShiftDataValidations(dv =>
         {
-            var dvRanges = dv.Ranges.ToList();
-            dv.ClearRanges();
+            var areas = XLAreaList.FromRanges(dv.Ranges);
+            return rowsShifted > 0 ? areas.InsertAndShiftDown(affected) : areas.DeleteAndShiftUp(affected);
+        });
+    }
 
-            foreach (var dvRange in dvRanges)
-            {
-                var newRange = ShiftRangeRows(dvRange, model, firstRow, rowsShifted);
-                if (newRange.RangeAddress.IsValid &&
-                    newRange.RangeAddress.FirstAddress.RowNumber <= newRange.RangeAddress.LastAddress.RowNumber)
-                    dv.AddRange(newRange);
-            }
+    /// <summary>
+    /// Applies a value-typed area transform to every data-validation rule in two phases: compute
+    /// each rule's new coverage and clear all rules first, then re-add. Interleaving clear and add
+    /// per rule would let an extended range split a not-yet-shifted rule it transiently overlaps,
+    /// wiping it (the data-validation drop-on-insert bug). Coverage is still materialized as ranges,
+    /// so validations remain in the shift skip-set (see XLWorksheet.NotifyRangeShiftedRows).
+    /// </summary>
+    private void ShiftDataValidations(Func<XLDataValidation, XLAreaList> transform)
+    {
+        var pending = new List<(XLDataValidation Dv, XLAreaList Areas)>();
+        foreach (var dv in worksheet.DataValidations.OfType<XLDataValidation>().ToList())
+        {
+            var newAreas = transform(dv);
+            dv.ClearRanges();
+            pending.Add((dv, newAreas));
+        }
+
+        foreach (var (dv, areas) in pending)
+        {
+            foreach (var area in areas)
+                dv.AddRange(worksheet.Range(area.TopRow, area.LeftColumn, area.BottomRow, area.RightColumn));
 
             if (!dv.Ranges.Any())
                 worksheet.DataValidations.Delete(v => v == dv);
@@ -273,50 +282,6 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
                     dv.MaxValue = XLCellFormulaShifter.ShiftFormulaRows(dv.MaxValue, ws, range, rowsShifted);
             }
         });
-    }
-
-    private IXLRange ShiftRangeColumns(IXLRange range, IXLRange model, int firstCol, int columnsShifted)
-    {
-        var address = range.RangeAddress;
-        if (range.Intersects(model))
-        {
-            return worksheet.Range(address.FirstAddress.RowNumber,
-                address.FirstAddress.ColumnNumber,
-                address.LastAddress.RowNumber,
-                Math.Min(XLHelper.MaxColumnNumber, address.LastAddress.ColumnNumber + columnsShifted));
-        }
-
-        if (address.FirstAddress.ColumnNumber >= firstCol)
-        {
-            return worksheet.Range(address.FirstAddress.RowNumber,
-                Math.Max(address.FirstAddress.ColumnNumber + columnsShifted, firstCol),
-                address.LastAddress.RowNumber,
-                Math.Min(XLHelper.MaxColumnNumber, address.LastAddress.ColumnNumber + columnsShifted));
-        }
-
-        return range;
-    }
-
-    private IXLRange ShiftRangeRows(IXLRange range, IXLRange model, int firstRow, int rowsShifted)
-    {
-        var address = range.RangeAddress;
-        if (range.Intersects(model))
-        {
-            return worksheet.Range(address.FirstAddress.RowNumber,
-                address.FirstAddress.ColumnNumber,
-                Math.Min(XLHelper.MaxRowNumber, address.LastAddress.RowNumber + rowsShifted),
-                address.LastAddress.ColumnNumber);
-        }
-
-        if (address.FirstAddress.RowNumber >= firstRow)
-        {
-            return worksheet.Range(Math.Max(address.FirstAddress.RowNumber + rowsShifted, firstRow),
-                address.FirstAddress.ColumnNumber,
-                Math.Min(XLHelper.MaxRowNumber, address.LastAddress.RowNumber + rowsShifted),
-                address.LastAddress.ColumnNumber);
-        }
-
-        return range;
     }
 
     private void RemoveInvalidSparklines()
