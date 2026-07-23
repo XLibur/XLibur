@@ -54,10 +54,11 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         // Operand is a reference
         if (node.Operation is UnaryOp.ImplicitIntersection or UnaryOp.SpillRange)
         {
-            // Both operators are ignored for now, because *spill* operators
-            // are part of dynamic arrays (=ignore until they are implemented)
-            // and *Implicit intersection* only makes the area smaller and is pretty
-            // rare operators = also skip for now (won't affect correctness).
+            // The operand's area is propagated as-is: for `#` that is the spill anchor cell,
+            // which is enough for dirty propagation because spilled cells only change when the
+            // anchor re-evaluates (and the anchor's whole footprint is registered as its formula
+            // area — see DependencyTree.CreateFrom). Implicit intersection only ever shrinks the
+            // area, so propagating the operand is a safe over-approximation there too.
 
             // The reference must be propagated upward, because there could be
             // a range operator (e.g. `B7:@A1:A5`)

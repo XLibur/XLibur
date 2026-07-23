@@ -170,6 +170,71 @@ public class SpillEvaluationTests
     }
 
     [Test]
+    public void SpillOperator_ReferencesWholeFootprint()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").SetDynamicFormulaA1("SEQUENCE(3)"); // spills A1:A3 = {1;2;3}
+            ws.Cell("C1").FormulaA1 = "SUM(A1#)";
+
+            wb.CalcEngine.Recalculate(wb, null);
+            Assert.AreEqual(6, ws.Cell("C1").Value);
+        }
+    }
+
+    [Test]
+    public void SpillOperator_NonAnchorCell_ReturnsRefError()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            // A1 holds no dynamic array, so A1# is #REF!.
+            Assert.AreEqual(XLError.CellReference, ws.Evaluate("A1#"));
+        }
+    }
+
+    [Test]
+    public void SpillOperator_TracksFootprintWhenItShrinks()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("D1").Value = 1;
+            ws.Cell("D2").Value = 2;
+            ws.Cell("D3").Value = 3;
+            ws.Cell("A1").SetDynamicFormulaA1("UNIQUE(D1:D3)"); // spills A1:A3
+            ws.Cell("C1").FormulaA1 = "SUM(A1#)";
+
+            wb.CalcEngine.Recalculate(wb, null);
+            Assert.AreEqual(6, ws.Cell("C1").Value); // 1+2+3
+
+            // Collapse to two distinct values: A1# now covers A1:A2 only.
+            ws.Cell("D3").Value = 1;
+            wb.CalcEngine.Recalculate(wb, null);
+            Assert.AreEqual(3, ws.Cell("C1").Value); // 1+2
+        }
+    }
+
+    [Test]
+    public void SpillOperator_EvaluatesAnchorFirst_EvenWhenDependentComesBefore()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            // The dependent A1=SUM(C1#) sits positionally BEFORE its anchor C1. Because the
+            // spill operator's range includes the anchor cell (which holds the dirty formula),
+            // reading it forces the anchor to evaluate first — so this orders correctly, unlike
+            // a plain read of a non-anchor spilled cell.
+            ws.Cell("C1").SetDynamicFormulaA1("SEQUENCE(3)"); // spills C1:C3
+            ws.Cell("A1").FormulaA1 = "SUM(C1#)";
+
+            wb.CalcEngine.Recalculate(wb, null);
+            Assert.AreEqual(6, ws.Cell("A1").Value);
+        }
+    }
+
+    [Test]
     public void Spill_PastSheetEdge_ProducesSpillError()
     {
         var ws = NewSheet(out var wb);
