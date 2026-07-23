@@ -88,9 +88,8 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats
 
         var similarFormats = FindSimilarFormats(formats, rangesToJoin, skippedRanges, IsSameFormat);
 
-        var consRanges = rangesToJoin.Consolidate();
-        item.Ranges.RemoveAll();
-        consRanges.ForEach(r => item.Ranges.Add(r));
+        var consAreas = XLAreaList.FromRanges(rangesToJoin).GetConsolidated();
+        ((XLConditionalFormat)item).SetAreas(consAreas);
 
         var targetCell = (XLCell)item.Ranges.First().FirstCell();
         ((XLConditionalFormat)item).AdjustFormulas(baseCell, targetCell);

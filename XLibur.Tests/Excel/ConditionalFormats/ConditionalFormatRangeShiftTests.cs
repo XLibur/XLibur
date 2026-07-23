@@ -1,5 +1,8 @@
 using XLibur.Excel;
+using XLibur.Excel.ConditionalFormats;
+using XLibur.Excel.Coordinates;
 using NUnit.Framework;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace XLibur.Tests.Excel.ConditionalFormats;
@@ -72,7 +75,12 @@ public class ConditionalFormatRangeShiftTests
         var ws = wb.AddWorksheet("Sheet1");
         var cf = ws.Range("A5:A7").AddConditionalFormat();
         cf.WhenGreaterThan(1).Fill.SetBackgroundColor(XLColor.Red);
-        cf.Ranges.Add(ws.Range("C10:C12"));
+        // Coverage is stored as an XLAreaList; extend it with a second disjoint area.
+        ((XLConditionalFormat)cf).SetAreas(new XLAreaList(new List<XLSheetRange>
+        {
+            XLSheetRange.Parse("A5:A7"),
+            XLSheetRange.Parse("C10:C12"),
+        }));
 
         ws.Row(6).InsertRowsAbove(3);
 

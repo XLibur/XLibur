@@ -130,11 +130,14 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
     #region Constructors
 
-    private XLConditionalFormat()
+    private readonly XLWorksheet _worksheet;
+
+    private XLConditionalFormat(XLWorksheet worksheet)
         : base(XLStyle.Default.Value)
     {
+        _worksheet = worksheet;
         Id = Guid.NewGuid();
-        Ranges = new XLRanges();
+        Areas = XLAreaList.Empty;
         Values = new XLDictionary<XLFormula>();
         Colors = new XLDictionary<XLColor>();
         ContentTypes = new XLDictionary<XLCFContentType>();
@@ -142,16 +145,16 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     }
 
     public XLConditionalFormat(XLRange range, bool copyDefaultModify = false)
-        : this()
+        : this((XLWorksheet)range.Worksheet)
     {
-        Ranges.Add(range);
+        Areas = new XLAreaList(XLSheetRange.FromRangeAddress(range.RangeAddress));
         CopyDefaultModify = copyDefaultModify;
     }
 
     public XLConditionalFormat(IEnumerable<XLRange> ranges, bool copyDefaultModify = false)
-        : this()
+        : this(WorksheetOf(ranges))
     {
-        ranges.ForEach(range => Ranges.Add(range));
+        Areas = XLAreaList.FromRanges(ranges);
         CopyDefaultModify = copyDefaultModify;
     }
 
@@ -161,10 +164,17 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     }
 
     public XLConditionalFormat(XLConditionalFormat conditionalFormat, IEnumerable<IXLRange> targetRanges)
-        : this()
+        : this(WorksheetOf(targetRanges))
     {
-        targetRanges.ForEach(range => Ranges.Add(range));
+        Areas = XLAreaList.FromRanges(targetRanges);
         CopyFrom(conditionalFormat);
+    }
+
+    private static XLWorksheet WorksheetOf(IEnumerable<IXLRange> ranges)
+    {
+        var first = ranges.FirstOrDefault()
+                    ?? throw new InvalidOperationException("XLConditionalFormat requires at least one range.");
+        return (XLWorksheet)first.Worksheet;
     }
 
     #endregion Constructors
@@ -196,35 +206,44 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
     public IXLRange Range
     {
-        get => Ranges.FirstOrDefault() ?? throw new InvalidOperationException("XLConditionalFormat requires at least one Range.");
-        set
+        get => Areas.Count > 0
+            ? MaterializeRange(Areas[0])
+            : throw new InvalidOperationException("XLConditionalFormat requires at least one Range.");
+        set => Areas = new XLAreaList(XLSheetRange.FromRangeAddress(value.RangeAddress));
+    }
+
+    /// <summary>
+    /// The conditional format's coverage, as a value-typed <see cref="XLAreaList"/>. This is the
+    /// source of truth: coverage lives here rather than as live repository ranges, so structural
+    /// (row/column insert &amp; delete) shifts run as pure area transforms and can never alias or
+    /// double-shift (ClosedXML issue #2850). <see cref="Ranges"/> and <see cref="Range"/> are
+    /// projections of it.
+    /// </summary>
+    internal XLAreaList Areas { get; private set; }
+
+    /// <summary>
+    /// Coverage materialized as ranges on the owning worksheet. A fresh snapshot each call —
+    /// mutating the returned collection has no effect; change coverage via <see cref="Range"/> or
+    /// <see cref="SetAreas"/>.
+    /// </summary>
+    public IXLRanges Ranges
+    {
+        get
         {
-            Ranges.RemoveAll();
-            Ranges.Add(value);
+            var ranges = new XLRanges();
+            foreach (var area in Areas)
+                ranges.Add(MaterializeRange(area));
+            return ranges;
         }
     }
 
-    public IXLRanges Ranges { get; private set; }
-
     /// <summary>
-    /// The conditional format's coverage projected onto a value-typed <see cref="XLAreaList"/>.
-    /// Used to run structural (row/column insert &amp; delete) shifts with the sqref transforms
-    /// instead of mutating aliased repository ranges — see <see cref="SetAreas"/> and
-    /// ClosedXML issue #2850. <see cref="Ranges"/> remains the stored source of truth.
+    /// Replace the coverage. Used by the range shifter to write back a value-typed area transform.
     /// </summary>
-    internal XLAreaList Areas => XLAreaList.FromRanges(Ranges);
+    internal void SetAreas(XLAreaList areas) => Areas = areas;
 
-    /// <summary>
-    /// Replace the coverage with <paramref name="areas"/>, materialized as ranges on
-    /// <paramref name="worksheet"/>. Used by the range shifter to write back the result of a
-    /// value-typed area transform.
-    /// </summary>
-    internal void SetAreas(XLAreaList areas, XLWorksheet worksheet)
-    {
-        Ranges.RemoveAll();
-        foreach (var area in areas)
-            Ranges.Add(worksheet.Range(area.TopRow, area.LeftColumn, area.BottomRow, area.RightColumn));
-    }
+    private XLRange MaterializeRange(XLSheetRange area)
+        => _worksheet.Range(area.TopRow, area.LeftColumn, area.BottomRow, area.RightColumn);
 
     public XLConditionalFormatType ConditionalFormatType { get; set; }
 

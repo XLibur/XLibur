@@ -1254,23 +1254,22 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     }
 
     /// <summary>
-    /// Collects the range instances currently owned by conditional formats and data validations.
-    /// These are repositioned explicitly during a row/column shift; because the range repository
-    /// deduplicates by address, an explicit replacement can be the very same instance the blanket
-    /// shift in <see cref="NotifyRangeShiftedRows"/> / <see cref="NotifyRangeShiftedColumns"/> is
-    /// about to move, which would double the offset (ClosedXML issue #2850). Callers use the
-    /// returned set to shift each range exactly once. Reference identity is required because
-    /// distinct range instances may share an address.
+    /// Collects the range instances currently owned by data validations. These are repositioned
+    /// explicitly during a row/column shift; because the range repository deduplicates by address,
+    /// an explicit replacement can be the very same instance the blanket shift in
+    /// <see cref="NotifyRangeShiftedRows"/> / <see cref="NotifyRangeShiftedColumns"/> is about to
+    /// move, which would double the offset (ClosedXML issue #2850). Callers use the returned set to
+    /// shift each range exactly once. Reference identity is required because distinct range
+    /// instances may share an address.
     /// </summary>
+    /// <remarks>
+    /// Conditional formats are no longer included: their coverage is stored as a value-typed
+    /// <c>XLAreaList</c> (not live repository ranges), so the shift can never alias — see
+    /// <see cref="XLibur.Excel.ConditionalFormats.XLConditionalFormat.Areas"/>.
+    /// </remarks>
     private HashSet<object> GetExplicitlyShiftedRanges()
     {
         var handled = new HashSet<object>(ReferenceEqualityComparer.Instance);
-
-        foreach (var cf in ConditionalFormats)
-        {
-            foreach (var cfRange in cf.Ranges)
-                handled.Add(cfRange);
-        }
 
         foreach (var dv in DataValidations)
         {

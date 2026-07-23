@@ -1,6 +1,7 @@
-﻿using System.Linq;
+using System.Collections.Generic;
+using System.Linq;
+using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.Coordinates;
-using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
@@ -8,98 +9,87 @@ namespace XLibur.Excel;
 /// Contains the conditional-format removal algorithm.
 /// <see cref="XLRangeBase"/> delegates <c>RemoveConditionalFormatting</c> here.
 /// </summary>
+/// <remarks>
+/// Coverage is only cut when the cleared range fully spans a format area's width or height;
+/// a partial (corner) overlap preserves the area unchanged. Operates on the value-typed
+/// <see cref="XLConditionalFormat.Areas"/> and writes results back via <see cref="XLConditionalFormat.SetAreas"/>.
+/// </remarks>
 internal static class XLRangeConditionalFormatHelper
 {
     internal static void RemoveConditionalFormatting(XLRangeBase range)
     {
+        var remove = XLSheetRange.FromRangeAddress(range.RangeAddress);
+
         var affectedFormats = range.Worksheet.ConditionalFormats
-            .Where(x => x.Ranges.GetIntersectedRanges(range.RangeAddress).Any())
+            .Cast<XLConditionalFormat>()
+            .Where(cf => cf.Areas.IntersectsWith(remove))
             .ToList();
 
         foreach (var format in affectedFormats)
         {
-            SplitFormatRanges(format, range);
-
-            if (format.Ranges.Count == 0)
-                range.Worksheet.ConditionalFormats.Remove(x => x == format);
-        }
-    }
-
-    private static void SplitFormatRanges(IXLConditionalFormat format, XLRangeBase removeRange)
-    {
-        var cfRanges = format.Ranges.ToList();
-        format.Ranges.RemoveAll();
-
-        foreach (var cfRange in cfRanges)
-        {
-            if (!cfRange.Intersects(removeRange))
+            var result = new List<XLSheetRange>();
+            foreach (var cfArea in format.Areas)
             {
-                format.Ranges.Add(cfRange);
-                continue;
+                if (cfArea.Intersect(remove) is null)
+                {
+                    result.Add(cfArea);
+                    continue;
+                }
+
+                AddRemainderAreas(result, cfArea, remove);
             }
 
-            AddRemainderRanges(format, cfRange, removeRange);
+            if (result.Count == 0)
+                range.Worksheet.ConditionalFormats.Remove(x => x == format);
+            else
+                format.SetAreas(new XLAreaList(result));
         }
     }
 
-    private static void AddRemainderRanges(
-        IXLConditionalFormat format,
-        IXLRange cfRange,
-        XLRangeBase removeRange)
+    private static void AddRemainderAreas(List<XLSheetRange> result, XLSheetRange cf, XLSheetRange remove)
     {
-        var mf = removeRange.RangeAddress.FirstAddress;
-        var ml = removeRange.RangeAddress.LastAddress;
-        var f = cfRange.RangeAddress.FirstAddress;
-        var l = cfRange.RangeAddress.LastAddress;
-
-        var splitByWidth = TrySplitByWidth(format, removeRange.Worksheet, mf, ml, f, l);
-        var splitByHeight = TrySplitByHeight(format, removeRange.Worksheet, mf, ml, f, l);
+        var splitByWidth = TrySplitByWidth(result, remove, cf);
+        var splitByHeight = TrySplitByHeight(result, remove, cf);
 
         if (!splitByWidth && !splitByHeight)
-            format.Ranges.Add(cfRange); // Not split, preserve original
+            result.Add(cf); // Not split, preserve original
     }
 
-    private static bool TrySplitByWidth(
-        IXLConditionalFormat format,
-        IXLWorksheet worksheet,
-        XLAddress mf, XLAddress ml,
-        IXLAddress f, IXLAddress l)
+    private static bool TrySplitByWidth(List<XLSheetRange> result, XLSheetRange remove, XLSheetRange cf)
     {
-        if (mf.ColumnNumber > f.ColumnNumber || ml.ColumnNumber < l.ColumnNumber)
+        if (remove.LeftColumn > cf.LeftColumn || remove.RightColumn < cf.RightColumn)
             return false;
 
-        if (!mf.RowNumber.Between(f.RowNumber, l.RowNumber) && !ml.RowNumber.Between(f.RowNumber, l.RowNumber))
-            return true; // Spans full width, but no row overlap produces a remainder — still counts as "by width"
+        // Spans full width, but no row overlap produces a remainder — still counts as "by width".
+        if (!Between(remove.TopRow, cf.TopRow, cf.BottomRow) && !Between(remove.BottomRow, cf.TopRow, cf.BottomRow))
+            return true;
 
-        if (mf.RowNumber > f.RowNumber)
-            format.Ranges.Add(worksheet.Range(f.RowNumber, f.ColumnNumber, mf.RowNumber - 1, l.ColumnNumber));
+        if (remove.TopRow > cf.TopRow)
+            result.Add(new XLSheetRange(cf.TopRow, cf.LeftColumn, remove.TopRow - 1, cf.RightColumn));
 
-        if (ml.RowNumber < l.RowNumber)
-            format.Ranges.Add(worksheet.Range(ml.RowNumber + 1, f.ColumnNumber, l.RowNumber, l.ColumnNumber));
+        if (remove.BottomRow < cf.BottomRow)
+            result.Add(new XLSheetRange(remove.BottomRow + 1, cf.LeftColumn, cf.BottomRow, cf.RightColumn));
 
         return true;
     }
 
-    private static bool TrySplitByHeight(
-        IXLConditionalFormat format,
-        IXLWorksheet worksheet,
-        XLAddress mf, XLAddress ml,
-        IXLAddress f, IXLAddress l)
+    private static bool TrySplitByHeight(List<XLSheetRange> result, XLSheetRange remove, XLSheetRange cf)
     {
-        if (mf.RowNumber > f.RowNumber || ml.RowNumber < l.RowNumber)
+        if (remove.TopRow > cf.TopRow || remove.BottomRow < cf.BottomRow)
             return false;
 
-        if (!mf.ColumnNumber.Between(f.ColumnNumber, l.ColumnNumber) && !ml.ColumnNumber.Between(f.ColumnNumber, l.ColumnNumber))
-            return true; // Spans full height but no column overlap produces the remainder
+        // Spans full height but no column overlap produces the remainder.
+        if (!Between(remove.LeftColumn, cf.LeftColumn, cf.RightColumn) && !Between(remove.RightColumn, cf.LeftColumn, cf.RightColumn))
+            return true;
 
-        if (mf.ColumnNumber > f.ColumnNumber)
-            format.Ranges.Add(worksheet.Range(f.RowNumber, f.ColumnNumber, l.RowNumber, mf.ColumnNumber - 1));
+        if (remove.LeftColumn > cf.LeftColumn)
+            result.Add(new XLSheetRange(cf.TopRow, cf.LeftColumn, cf.BottomRow, remove.LeftColumn - 1));
 
-        if (ml.ColumnNumber < l.ColumnNumber)
-        {
-            format.Ranges.Add(worksheet.Range(f.RowNumber, ml.ColumnNumber + 1, l.RowNumber, l.ColumnNumber));
-        }
+        if (remove.RightColumn < cf.RightColumn)
+            result.Add(new XLSheetRange(cf.TopRow, remove.RightColumn + 1, cf.BottomRow, cf.RightColumn));
 
         return true;
     }
+
+    private static bool Between(int value, int low, int high) => value >= low && value <= high;
 }

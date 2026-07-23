@@ -127,10 +127,6 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
     {
         if (columnsShifted == 0 || !worksheet.ConditionalFormats.Any()) return;
         var first = range.RangeAddress.FirstAddress;
-        // A first-column insert has no column to the left to extend into, so the explicit shift
-        // is skipped and the blanket auto-shift handles CF ranges (see XLWorksheet.NotifyRangeShiftedColumns).
-        if (first.ColumnNumber == 1) return;
-
         var last = range.RangeAddress.LastAddress;
         // The affected region spans the range's rows and the inserted/deleted columns.
         var affected = columnsShifted > 0
@@ -147,7 +143,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
             if (newAreas.Count == 0)
                 worksheet.ConditionalFormats.Remove(f => f == cf);
             else
-                xlCf.SetAreas(newAreas, worksheet);
+                xlCf.SetAreas(newAreas);
         }
     }
 
@@ -155,10 +151,6 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
     {
         if (rowsShifted == 0 || !worksheet.ConditionalFormats.Any()) return;
         var first = range.RangeAddress.FirstAddress;
-        // A first-row insert has no row above to extend into, so the explicit shift is skipped and
-        // the blanket auto-shift handles CF ranges (see XLWorksheet.NotifyRangeShiftedRows).
-        if (first.RowNumber == 1) return;
-
         var last = range.RangeAddress.LastAddress;
         // The affected region spans the range's columns and the inserted/deleted rows, mirroring
         // the inserted range in XLRangeInsertHelper. Structural shifts run on the value-typed
@@ -177,7 +169,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
             if (newAreas.Count == 0)
                 worksheet.ConditionalFormats.Remove(f => f == cf);
             else
-                xlCf.SetAreas(newAreas, worksheet);
+                xlCf.SetAreas(newAreas);
         }
     }
 
