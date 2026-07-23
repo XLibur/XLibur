@@ -8,11 +8,19 @@ namespace XLibur.Excel.CalcEngine;
 
 internal static class Statistical
 {
+    // Argument positions that may be ranges in *IFS functions that take a leading value range:
+    // the value range at position 0, then the criteria ranges at odd positions (criteria values,
+    // at even positions, are scalars). Mirrors MathTrig.SumIfsAllowedRangeParams.
+    private static readonly int[] ValueAndCriteriaRangeParams =
+        new[] { 0 }.Concat(Enumerable.Range(0, 128).Select(x => x * 2 + 1)).ToArray();
+
     public static void Register(FunctionRegistry ce)
     {
         //ce.RegisterFunction("AVEDEV", AveDev, 1, int.MaxValue);
         ce.RegisterFunction("AVERAGE", 1, int.MaxValue, Average, FunctionFlags.Range, AllowRange.All); // Returns the average (arithmetic mean) of the arguments
         ce.RegisterFunction("AVERAGEA", 1, int.MaxValue, AverageA, FunctionFlags.Range, AllowRange.All);
+        ce.RegisterFunction("AVERAGEIF", 2, 3, AdaptLastOptional(AverageIf), FunctionFlags.Range, AllowRange.Only, 0, 2); // Returns the average of cells that meet a criterion
+        ce.RegisterFunction("AVERAGEIFS", 3, 255, AdaptIfs(AverageIfs), FunctionFlags.Range, AllowRange.Only, ValueAndCriteriaRangeParams); // Returns the average of cells that meet multiple criteria
         //BETADIST	Returns the beta cumulative distribution function
         //BETAINV   Returns the inverse of the cumulative distribution function for a specified beta distribution
         ce.RegisterFunction("BINOMDIST", 4, 4, Adapt(BinomDist), FunctionFlags.Scalar); //BINOMDIST	Returns the individual term binomial distribution probability
@@ -55,9 +63,11 @@ internal static class Statistical
         //LOGNORMDIST	Returns the cumulative lognormal distribution
         ce.RegisterFunction("MAX", 1, 255, Max, FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("MAXA", 1, int.MaxValue, MaxA, FunctionFlags.Range, AllowRange.All);
+        ce.RegisterFunction("MAXIFS", 3, 255, AdaptIfs(MaxIfs), FunctionFlags.Range, AllowRange.Only, ValueAndCriteriaRangeParams); // Returns the maximum of cells that meet multiple criteria
         ce.RegisterFunction("MEDIAN", 1, int.MaxValue, Median, FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("MIN", 1, int.MaxValue, Min, FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("MINA", 1, int.MaxValue, MinA, FunctionFlags.Range, AllowRange.All);
+        ce.RegisterFunction("MINIFS", 3, 255, AdaptIfs(MinIfs), FunctionFlags.Range, AllowRange.Only, ValueAndCriteriaRangeParams); // Returns the minimum of cells that meet multiple criteria
         //MODE	Returns the most common value in a data set
         //NEGBINOMDIST	Returns the negative binomial distribution
         //NORMDIST	Returns the normal cumulative distribution
@@ -250,6 +260,95 @@ internal static class Statistical
             return error;
 
         return state.TallyCount;
+    }
+
+    private static AnyValue AverageIf(CalcContext ctx, AnyValue range, ScalarValue selectionCriteria, AnyValue averageRange)
+    {
+        // Average range is optional. If not specified, use the criteria range as the average range.
+        if (averageRange.IsBlank)
+            averageRange = range;
+
+        if (!range.TryPickArea(out var area, out var areaError))
+            return areaError;
+
+        if (!averageRange.TryPickArea(out _, out var averageAreaError))
+            return averageAreaError;
+
+        var tally = new TallyCriteria();
+        tally.Add(area, Criteria.Create(selectionCriteria, ctx.Culture));
+
+        // Average returns #DIV/0! when no cell satisfies the criterion, matching Excel.
+        return Average(ctx, new[] { averageRange }, tally);
+    }
+
+    private static AnyValue AverageIfs(CalcContext ctx, AnyValue averageRange, List<(AnyValue Range, ScalarValue Criteria)> criteriaRanges)
+    {
+        if (!TryBuildCriteriaTally(ctx, averageRange, criteriaRanges, out var tally, out var error))
+            return error;
+
+        // #DIV/0! when nothing matches, matching Excel.
+        return Average(ctx, new[] { averageRange }, tally);
+    }
+
+    private static AnyValue MaxIfs(CalcContext ctx, AnyValue maxRange, List<(AnyValue Range, ScalarValue Criteria)> criteriaRanges)
+    {
+        if (!TryBuildCriteriaTally(ctx, maxRange, criteriaRanges, out var tally, out var error))
+            return error;
+
+        // Max returns 0 when nothing matches, matching Excel.
+        return Max(ctx, new[] { maxRange }, tally);
+    }
+
+    private static AnyValue MinIfs(CalcContext ctx, AnyValue minRange, List<(AnyValue Range, ScalarValue Criteria)> criteriaRanges)
+    {
+        if (!TryBuildCriteriaTally(ctx, minRange, criteriaRanges, out var tally, out var error))
+            return error;
+
+        // Min returns 0 when nothing matches, matching Excel.
+        return Min(ctx, new[] { minRange }, tally);
+    }
+
+    /// <summary>
+    /// Build a <see cref="TallyCriteria"/> for the <c>{AVERAGE,MAX,MIN}IFS</c> family: every
+    /// criteria area must match the size of the leading value area (Excel invariant), unlike the
+    /// single-criteria <c>*IF</c> forms. Returns <c>false</c> with <paramref name="error"/> set when
+    /// an argument isn't an area or the sizes disagree.
+    /// </summary>
+    private static bool TryBuildCriteriaTally(
+        CalcContext ctx,
+        AnyValue valueRange,
+        List<(AnyValue Range, ScalarValue Criteria)> criteriaRanges,
+        out TallyCriteria tally,
+        out AnyValue error)
+    {
+        tally = new TallyCriteria();
+        error = default;
+
+        if (!valueRange.TryPickArea(out var valueArea, out var valueAreaError))
+        {
+            error = valueAreaError;
+            return false;
+        }
+
+        foreach (var (selectionRange, selectionCriteria) in criteriaRanges)
+        {
+            if (!selectionRange.TryPickArea(out var selectionArea, out var selectionAreaError))
+            {
+                error = selectionAreaError;
+                return false;
+            }
+
+            if (valueArea.RowSpan != selectionArea.RowSpan ||
+                valueArea.ColumnSpan != selectionArea.ColumnSpan)
+            {
+                error = XLError.IncompatibleValue;
+                return false;
+            }
+
+            tally.Add(selectionArea, Criteria.Create(selectionCriteria, ctx.Culture));
+        }
+
+        return true;
     }
 
     private static AnyValue DevSq(CalcContext ctx, Span<AnyValue> args)
