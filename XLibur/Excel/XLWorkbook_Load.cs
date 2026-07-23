@@ -109,6 +109,8 @@ public partial class XLWorkbook
 
         RichDataReader.LoadRichData(workbookPart, this, context);
 
+        context.LoadDynamicArrayMetadata(workbookPart.CellMetadataPart?.Metadata);
+
         LoadCustomFileProperties(dSpreadsheet);
 
         if (workbookPart.Workbook!.WorkbookProperties is { } wbProps)
@@ -328,7 +330,8 @@ public partial class XLWorkbook
         var styleList = new Dictionary<int, XLStyleValue>();
         PageSetupProperties? pageSetupProperties = null;
         var sheetDataContext = new WorksheetSheetDataReader.SheetDataReadContext(
-            styles, ws, sharedStrings, sharedFormulasR1C1, styleList, Use1904DateSystem);
+            styles, ws, sharedStrings, sharedFormulasR1C1, styleList, Use1904DateSystem,
+            context.DynamicArrayCmIndexes);
         var sheetDataState = new WorksheetSheetDataReader.SheetDataReadState();
 
         using var reader = new OpenXmlPartReader(worksheetPart);

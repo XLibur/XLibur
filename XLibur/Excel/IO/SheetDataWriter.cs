@@ -279,6 +279,21 @@ internal static class SheetDataWriter
         {
             WriteDataTableFormula(xml, formula);
         }
+        else if (formula.IsDynamicArray)
+        {
+            // A dynamic-array formula lives only in its anchor cell (spilled cells are
+            // formula-less and round-trip as plain cached values). Excel serialises it as an
+            // array formula whose ref is the spill footprint, paired with the cm dynamic-array
+            // metadata (written above). Before the first spill the footprint is unknown, so use
+            // the 1x1 anchor.
+            xml.WriteStartElement("f", Main2006SsNs);
+            xml.WriteAttributeString("t", "array");
+            var spillRange = formula.Range == default ? new XLSheetRange(point) : formula.Range;
+            var spillAddress = XLRangeAddress.FromSheetRange(xlWorksheet, spillRange);
+            xml.WriteAttributeString("ref", spillAddress.ToStringRelative());
+            xml.WriteString(formula.A1);
+            xml.WriteEndElement(); // f
+        }
         else if (formula.Type == FormulaType.Array)
         {
             var isMasterCell = formula.Range.FirstPoint == point;
