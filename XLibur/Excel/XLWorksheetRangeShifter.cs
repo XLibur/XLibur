@@ -134,18 +134,8 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
             ? new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber + columnsShifted - 1)
             : new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber - columnsShifted - 1);
 
-        foreach (var cf in worksheet.ConditionalFormats.ToList())
-        {
-            var xlCf = (XLConditionalFormat)cf;
-            var newAreas = columnsShifted > 0
-                ? xlCf.Areas.InsertAndShiftRight(affected)
-                : xlCf.Areas.DeleteAndShiftLeft(affected);
-
-            if (newAreas.Count == 0)
-                worksheet.ConditionalFormats.Remove(f => f == cf);
-            else
-                xlCf.SetAreas(newAreas);
-        }
+        ShiftConditionalFormats(cf =>
+            columnsShifted > 0 ? cf.Areas.InsertAndShiftRight(affected) : cf.Areas.DeleteAndShiftLeft(affected));
     }
 
     private void ShiftConditionalFormattingRows(XLRange range, int rowsShifted)
@@ -160,17 +150,26 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
             ? new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber + rowsShifted - 1, last.ColumnNumber)
             : new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber - rowsShifted - 1, last.ColumnNumber);
 
-        foreach (var cf in worksheet.ConditionalFormats.ToList())
-        {
-            var xlCf = (XLConditionalFormat)cf;
-            var newAreas = rowsShifted > 0
-                ? xlCf.Areas.InsertAndShiftDown(affected)
-                : xlCf.Areas.DeleteAndShiftUp(affected);
+        ShiftConditionalFormats(cf =>
+            rowsShifted > 0 ? cf.Areas.InsertAndShiftDown(affected) : cf.Areas.DeleteAndShiftUp(affected));
+    }
 
+    /// <summary>
+    /// Applies a value-typed area transform to every conditional-format rule and writes the result back
+    /// with <see cref="XLConditionalFormat.SetAreas"/>. Because coverage is the value-typed
+    /// <see cref="XLAreaList"/> (not live repository ranges) the shift is a pure transform that can never
+    /// alias or double-shift, even across overlapping/adjacent coverage (ClosedXML issue #2850). A rule
+    /// whose coverage transforms to nothing is removed. Mirrors <see cref="ShiftDataValidations"/>.
+    /// </summary>
+    private void ShiftConditionalFormats(Func<XLConditionalFormat, XLAreaList> transform)
+    {
+        foreach (var cf in worksheet.ConditionalFormats.OfType<XLConditionalFormat>().ToList())
+        {
+            var newAreas = transform(cf);
             if (newAreas.Count == 0)
                 worksheet.ConditionalFormats.Remove(f => f == cf);
             else
-                xlCf.SetAreas(newAreas);
+                cf.SetAreas(newAreas);
         }
     }
 
@@ -178,62 +177,51 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
     {
         if (columnsShifted == 0 || !worksheet.DataValidations.Any()) return;
         var first = range.RangeAddress.FirstAddress;
-        if (first.ColumnNumber == 1) return;
-
         var last = range.RangeAddress.LastAddress;
+        // The area model handles every insert, including a first-column insert. (The old range-based
+        // path short-circuited here and let the blanket range shifter move the validation ranges;
+        // area-based coverage is no longer a repository range, so it must be shifted here.)
         var affected = columnsShifted > 0
             ? new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber + columnsShifted - 1)
             : new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber - columnsShifted - 1);
 
         ShiftDataValidations(dv =>
-        {
-            var areas = XLAreaList.FromRanges(dv.Ranges);
-            return columnsShifted > 0 ? areas.InsertAndShiftRight(affected) : areas.DeleteAndShiftLeft(affected);
-        });
+            columnsShifted > 0 ? dv.Areas.InsertAndShiftRight(affected) : dv.Areas.DeleteAndShiftLeft(affected));
     }
 
     private void ShiftDataValidationRows(XLRange range, int rowsShifted)
     {
         if (rowsShifted == 0 || !worksheet.DataValidations.Any()) return;
         var first = range.RangeAddress.FirstAddress;
-        if (first.RowNumber == 1) return;
-
         var last = range.RangeAddress.LastAddress;
+        // The area model handles every insert, including a first-row insert. (The old range-based
+        // path short-circuited here and let the blanket range shifter move the validation ranges;
+        // area-based coverage is no longer a repository range, so it must be shifted here.)
         var affected = rowsShifted > 0
             ? new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber + rowsShifted - 1, last.ColumnNumber)
             : new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber - rowsShifted - 1, last.ColumnNumber);
 
         ShiftDataValidations(dv =>
-        {
-            var areas = XLAreaList.FromRanges(dv.Ranges);
-            return rowsShifted > 0 ? areas.InsertAndShiftDown(affected) : areas.DeleteAndShiftUp(affected);
-        });
+            rowsShifted > 0 ? dv.Areas.InsertAndShiftDown(affected) : dv.Areas.DeleteAndShiftUp(affected));
     }
 
     /// <summary>
-    /// Applies a value-typed area transform to every data-validation rule in two phases: compute
-    /// each rule's new coverage and clear all rules first, then re-add. Interleaving clear and add
-    /// per rule would let an extended range split a not-yet-shifted rule it transiently overlaps,
-    /// wiping it (the data-validation drop-on-insert bug). Coverage is still materialized as ranges,
-    /// so validations remain in the shift skip-set (see XLWorksheet.NotifyRangeShiftedRows).
+    /// Applies a value-typed area transform to every data-validation rule and writes the result back
+    /// with <see cref="XLDataValidation.SetAreas"/>. Because coverage is the area model (not live
+    /// repository ranges) the shift is a pure transform that can never alias or double-shift (ClosedXML
+    /// issue #2850), and the write-back reindexes without split-on-add — so an extended range can no
+    /// longer split a not-yet-shifted rule it transiently overlaps (the drop-on-insert bug). A rule
+    /// whose coverage transforms to nothing is deleted. Mirrors ShiftConditionalFormatting*.
     /// </summary>
     private void ShiftDataValidations(Func<XLDataValidation, XLAreaList> transform)
     {
-        var pending = new List<(XLDataValidation Dv, XLAreaList Areas)>();
         foreach (var dv in worksheet.DataValidations.OfType<XLDataValidation>().ToList())
         {
             var newAreas = transform(dv);
-            dv.ClearRanges();
-            pending.Add((dv, newAreas));
-        }
-
-        foreach (var (dv, areas) in pending)
-        {
-            foreach (var area in areas)
-                dv.AddRange(worksheet.Range(area.TopRow, area.LeftColumn, area.BottomRow, area.RightColumn));
-
-            if (!dv.Ranges.Any())
+            if (newAreas.Count == 0)
                 worksheet.DataValidations.Delete(v => v == dv);
+            else
+                dv.SetAreas(newAreas);
         }
     }
 
@@ -246,8 +234,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
     /// mirroring <see cref="MoveDefinedNamesColumns"/>. Every worksheet's validations are visited
     /// (not just the mutated sheet's) so a formula on one sheet that references the mutated sheet is
     /// re-pointed too; <see cref="XLCellFormulaShifter.ShiftFormulaColumns"/> only touches references
-    /// to the sheet being shifted, so unrelated references pass through. Run unconditionally because
-    /// the range shifter short-circuits for first-column inserts.
+    /// to the sheet being shifted, so unrelated references pass through.
     /// </summary>
     private void ShiftDataValidationFormulaColumns(XLRange range, int columnsShifted)
     {
@@ -267,8 +254,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
     /// Shifts cell references inside data-validation criteria formulas (formula1/formula2,
     /// stored in <see cref="IXLDataValidation.MinValue"/> / <see cref="IXLDataValidation.MaxValue"/>)
     /// when rows are inserted or deleted. The row counterpart of
-    /// <see cref="ShiftDataValidationFormulaColumns"/>; run unconditionally because the range
-    /// shifter short-circuits for first-row inserts.
+    /// <see cref="ShiftDataValidationFormulaColumns"/>.
     /// </summary>
     private void ShiftDataValidationFormulaRows(XLRange range, int rowsShifted)
     {

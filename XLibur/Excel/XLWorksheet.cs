@@ -1172,20 +1172,11 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         WorksheetRangeShiftedRows(range, rowsShifted);
 
-        // When the insertion is below row 1, the worksheet-level shift above already
-        // repositioned conditional-format and data-validation ranges
-        // (ShiftConditionalFormattingRows / ShiftDataValidationRows). Those handlers obtain
-        // replacement ranges through the range repository, which deduplicates by address — so
-        // when a shifted target lands on an address that already owns a stored range, they
-        // receive that pre-existing instance, which is also present in rangesToShift. Re-applying
-        // the blanket shift below would move it a second time (the "doubled" offset in ClosedXML
-        // issue #2850). Exclude those ranges so each is shifted exactly once. For a first-row
-        // insert the explicit handlers short-circuit and delegate to the blanket shift, so no
-        // exclusion applies.
-        var alreadyShifted = range.RangeAddress.FirstAddress.RowNumber != 1
-            ? GetExplicitlyShiftedRanges()
-            : null;
-
+        // Conditional-format and data-validation coverage was already repositioned by the
+        // worksheet-level shift above (ShiftConditionalFormattingRows / ShiftDataValidationRows).
+        // Both store coverage as the value-typed XLAreaList — not live repository ranges — so the
+        // blanket shift below can never alias and double-shift them (ClosedXML issue #2850); no
+        // skip-set is needed.
         var collapsed = false;
         foreach (var storedRange in rangesToShift)
         {
@@ -1193,9 +1184,6 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
                 continue;
 
             if (ReferenceEquals(range, storedRange))
-                continue;
-
-            if (alreadyShifted?.Contains(storedRange) == true)
                 continue;
 
             storedRange.WorksheetRangeShiftedRows(range, rowsShifted);
@@ -1220,14 +1208,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         WorksheetRangeShiftedColumns(range, columnsShifted);
 
-        // See NotifyRangeShiftedRows: for inserts past the first column, CF/DV ranges are
-        // repositioned explicitly and can alias a stored range at the shifted target address, so
-        // exclude them from the blanket shift to avoid the doubled offset (ClosedXML issue #2850).
-        // A first-column insert short-circuits the explicit handlers, so no exclusion applies.
-        var alreadyShifted = range.RangeAddress.FirstAddress.ColumnNumber != 1
-            ? GetExplicitlyShiftedRanges()
-            : null;
-
+        // See NotifyRangeShiftedRows: CF/DV coverage is the value-typed XLAreaList, not live
+        // repository ranges, so the blanket shift can never alias and double-shift it (ClosedXML
+        // issue #2850); no skip-set is needed.
         var collapsed = false;
         foreach (var storedRange in rangesToShift)
         {
@@ -1235,9 +1218,6 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
                 continue;
 
             if (ReferenceEquals(range, storedRange))
-                continue;
-
-            if (alreadyShifted?.Contains(storedRange) == true)
                 continue;
 
             storedRange.WorksheetRangeShiftedColumns(range, columnsShifted);
@@ -1251,33 +1231,6 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         {
             range.WorksheetRangeShiftedColumns(range, columnsShifted);
         }
-    }
-
-    /// <summary>
-    /// Collects the range instances currently owned by data validations. These are repositioned
-    /// explicitly during a row/column shift; because the range repository deduplicates by address,
-    /// an explicit replacement can be the very same instance the blanket shift in
-    /// <see cref="NotifyRangeShiftedRows"/> / <see cref="NotifyRangeShiftedColumns"/> is about to
-    /// move, which would double the offset (ClosedXML issue #2850). Callers use the returned set to
-    /// shift each range exactly once. Reference identity is required because distinct range
-    /// instances may share an address.
-    /// </summary>
-    /// <remarks>
-    /// Conditional formats are no longer included: their coverage is stored as a value-typed
-    /// <c>XLAreaList</c> (not live repository ranges), so the shift can never alias — see
-    /// <see cref="XLibur.Excel.ConditionalFormats.XLConditionalFormat.Areas"/>.
-    /// </remarks>
-    private HashSet<object> GetExplicitlyShiftedRanges()
-    {
-        var handled = new HashSet<object>(ReferenceEqualityComparer.Instance);
-
-        foreach (var dv in DataValidations)
-        {
-            foreach (var dvRange in dv.Ranges)
-                handled.Add(dvRange);
-        }
-
-        return handled;
     }
 
     public XLRow Row(int rowNumber, bool pingCells)
