@@ -8,10 +8,10 @@ namespace XLibur.Graphics;
 /// A bounding box for a glyph, in pixels.
 /// </summary>
 /// <remarks>
-/// In most cases, a glyph represents a single unicode code point. In some cases,
+/// In most cases, a glyph represents a single Unicode code point. In some cases,
 /// multiple code points are represented by a single glyph (emojis in most cases).
 /// AdvanceWidth is stored as an unrounded float to avoid accumulated rounding errors
-/// when summing widths across many glyphs (e.g. for column auto-fit). EmSize and
+/// when summing widths across many glyphs (e.g., for column auto-fit). EmSize and
 /// Descent are rounded to whole pixels to match Excel's row height behavior.
 /// </remarks>
 [DebuggerDisplay("{AdvanceWidth}x{LineHeight}")]
