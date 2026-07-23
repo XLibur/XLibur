@@ -309,6 +309,14 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
         return new XLAreaList(result);
     }
 
+    /// <summary>
+    /// Return an equivalent list with overlapping and adjacent areas merged into maximal blocks.
+    /// </summary>
+    internal XLAreaList GetConsolidated()
+    {
+        return XLAreaConsolidator.Consolidate(this);
+    }
+
     internal bool IntersectsWith(XLSheetRange otherArea)
     {
         foreach (var area in _areas)
