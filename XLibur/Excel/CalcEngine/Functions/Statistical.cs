@@ -68,24 +68,28 @@ internal static class Statistical
         ce.RegisterFunction("MIN", 1, int.MaxValue, Min, FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("MINA", 1, int.MaxValue, MinA, FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("MINIFS", 3, 255, AdaptIfs(MinIfs), FunctionFlags.Range, AllowRange.Only, ValueAndCriteriaRangeParams); // Returns the minimum of cells that meet multiple criteria
-        //MODE	Returns the most common value in a data set
+        ce.RegisterFunction("MODE", 1, 255, Mode, FunctionFlags.Range, AllowRange.All); // Returns the most common value in a data set
+        ce.RegisterFunction("MODE.SNGL", 1, 255, Mode, FunctionFlags.Range, AllowRange.All);
         //NEGBINOMDIST	Returns the negative binomial distribution
         //NORMDIST	Returns the normal cumulative distribution
         //NORMINV	Returns the inverse of the normal cumulative distribution
         //NORMSDIST	Returns the standard normal cumulative distribution
         //NORMSINV	Returns the inverse of the standard normal cumulative distribution
         //PEARSON	Returns the Pearson product moment correlation coefficient
-        //PERCENTILE	Returns the k-th percentile of values in a range
+        ce.RegisterFunction("PERCENTILE", 2, 2, Adapt(Percentile), FunctionFlags.Range, AllowRange.Only, 0); // Returns the k-th percentile of values in a range
+        ce.RegisterFunction("PERCENTILE.INC", 2, 2, Adapt(Percentile), FunctionFlags.Range, AllowRange.Only, 0);
         //PERCENTRANK	Returns the percentage rank of a value in a data set
         //PERMUT	Returns the number of permutations for a given number of objects
         //POISSON	Returns the Poisson distribution
         //PROB	Returns the probability that values in a range are between two limits
-        //QUARTILE	Returns the quartile of a data set
-        //RANK	Returns the rank of a number in a list of numbers
+        ce.RegisterFunction("QUARTILE", 2, 2, Adapt(Quartile), FunctionFlags.Range, AllowRange.Only, 0); // Returns the quartile of a data set
+        ce.RegisterFunction("QUARTILE.INC", 2, 2, Adapt(Quartile), FunctionFlags.Range, AllowRange.Only, 0);
+        ce.RegisterFunction("RANK", 2, 3, Rank, FunctionFlags.Range, AllowRange.Only, 1); // Returns the rank of a number in a list of numbers
+        ce.RegisterFunction("RANK.EQ", 2, 3, Rank, FunctionFlags.Range, AllowRange.Only, 1);
         //RSQ	Returns the square of the Pearson product moment correlation coefficient
         //SKEW	Returns the skewness of a distribution
         //SLOPE	Returns the slope of the linear regression line
-        //SMALL	Returns the k-th smallest value in a data set
+        ce.RegisterFunction("SMALL", 2, 2, Adapt(Small), FunctionFlags.Range, AllowRange.Only, 0); // Returns the k-th smallest value in a data set
         //STANDARDIZE	Returns a normalized value
         ce.RegisterFunction("STDEV", 1, int.MaxValue, StDev, FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("STDEVA", 1, int.MaxValue, StDevA, FunctionFlags.Range, AllowRange.All);
@@ -578,18 +582,164 @@ internal static class Statistical
             return XLError.NumberInvalid;
 
         var k = (int)Math.Ceiling(kParam);
+        if (!TryGetNumbers(ctx, arrayParam, out var total, out var error))
+            return error;
+
+        if (k > total.Count)
+            return XLError.NumberInvalid;
+
+        total.Sort();
+
+        // k-th largest.
+        return total[^k];
+    }
+
+    private static AnyValue Small(CalcContext ctx, AnyValue arrayParam, double kParam)
+    {
+        if (kParam < 1)
+            return XLError.NumberInvalid;
+
+        var k = (int)Math.Ceiling(kParam);
+        if (!TryGetNumbers(ctx, arrayParam, out var total, out var error))
+            return error;
+
+        if (k > total.Count)
+            return XLError.NumberInvalid;
+
+        total.Sort();
+
+        // k-th smallest.
+        return total[k - 1];
+    }
+
+    private static AnyValue Rank(CalcContext ctx, Span<AnyValue> args)
+    {
+        // RANK(number, ref, [order]). number/order are scalars (implicitly intersected); ref is the
+        // range/array (marked param 1). order = 0 or omitted ranks descending, non-zero ascending.
+        if (!args[0].TryPickScalar(out var numberScalar, out _))
+            return XLError.IncompatibleValue;
+        if (!numberScalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var numberError))
+            return numberError;
+
+        if (!TryGetNumbers(ctx, args[1], out var numbers, out var refError))
+            return refError;
+
+        var ascending = false;
+        if (args.Length > 2)
+        {
+            if (!args[2].TryPickScalar(out var orderScalar, out _))
+                return XLError.IncompatibleValue;
+            if (!orderScalar.ToNumber(ctx.Culture).TryPickT0(out var order, out var orderError))
+                return orderError;
+            ascending = order != 0;
+        }
+
+        if (!numbers.Contains(number))
+            return XLError.NoValueAvailable;
+
+        // Tied values share the top rank of their group.
+        var rank = ascending
+            ? numbers.Count(v => v < number) + 1
+            : numbers.Count(v => v > number) + 1;
+        return rank;
+    }
+
+    private static AnyValue Mode(CalcContext ctx, Span<AnyValue> args)
+    {
+        var result = TallyNumbers.Default.Tally(ctx, args, new ValuesState([]));
+        if (!result.TryPickT0(out var state, out var error))
+            return error;
+
+        var values = state.Values;
+        var counts = new Dictionary<double, int>();
+        var maxCount = 0;
+        foreach (var value in values)
+        {
+            var count = counts.GetValueOrDefault(value) + 1;
+            counts[value] = count;
+            if (count > maxCount)
+                maxCount = count;
+        }
+
+        // No value repeats (or there are no numbers) -> no mode.
+        if (maxCount <= 1)
+            return XLError.NoValueAvailable;
+
+        // Among the tied modes, return the one whose first occurrence is earliest (Excel order).
+        foreach (var value in values)
+        {
+            if (counts[value] == maxCount)
+                return value;
+        }
+
+        return XLError.NoValueAvailable;
+    }
+
+    private static AnyValue Percentile(CalcContext ctx, AnyValue arrayParam, double k)
+    {
+        if (!TryGetNumbers(ctx, arrayParam, out var numbers, out var error))
+            return error;
+
+        return PercentileInclusive(numbers, k);
+    }
+
+    private static AnyValue Quartile(CalcContext ctx, AnyValue arrayParam, double quartParam)
+    {
+        if (!TryGetNumbers(ctx, arrayParam, out var numbers, out var error))
+            return error;
+
+        // Excel truncates the quart argument toward zero and accepts only 0..4.
+        var quart = (int)quartParam;
+        if (quart < 0 || quart > 4)
+            return XLError.NumberInvalid;
+
+        return PercentileInclusive(numbers, quart * 0.25);
+    }
+
+    /// <summary>
+    /// PERCENTILE.INC over a materialized list: the <paramref name="k"/>-th percentile
+    /// (<c>k</c> in <c>[0, 1]</c>) with linear interpolation between the two closest ranks.
+    /// </summary>
+    private static AnyValue PercentileInclusive(List<double> numbers, double k)
+    {
+        if (numbers.Count == 0 || k < 0 || k > 1)
+            return XLError.NumberInvalid;
+
+        numbers.Sort();
+
+        var rank = k * (numbers.Count - 1);
+        var low = (int)Math.Floor(rank);
+        if (low + 1 >= numbers.Count)
+            return numbers[low];
+
+        var fraction = rank - low;
+        return numbers[low] + fraction * (numbers[low + 1] - numbers[low]);
+    }
+
+    /// <summary>
+    /// Collect the numeric values of an array/range/scalar argument (skipping blanks and text,
+    /// short-circuiting on an error value), mirroring how <see cref="Large"/> reads its data set.
+    /// </summary>
+    private static bool TryGetNumbers(CalcContext ctx, AnyValue arrayParam, out List<double> numbers, out XLError error)
+    {
+        error = default;
+
+        if (arrayParam.TryPickScalar(out var scalar, out var collection))
+        {
+            if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var scalarError))
+            {
+                numbers = null!;
+                error = scalarError;
+                return false;
+            }
+
+            numbers = new List<double>(1) { number };
+            return true;
+        }
 
         IEnumerable<ScalarValue> values;
         int size;
-        if (arrayParam.TryPickScalar(out var scalar, out var collection))
-        {
-            if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
-                return error;
-
-            values = [number];
-            size = 1;
-        }
-        else if (collection.TryPickT0(out var array, out var reference))
+        if (collection.TryPickT0(out var array, out var reference))
         {
             values = array;
             size = array.Width * array.Height;
@@ -600,23 +750,23 @@ internal static class Statistical
             size = reference.NumberOfCells;
         }
 
-        // Pre-allocate array to reduce allocations during doubling of buffer.
+        // Pre-allocate to reduce allocations during doubling of the buffer.
         var total = new List<double>(size);
         foreach (var value in values)
         {
             if (value.IsError)
-                return value.GetError();
+            {
+                numbers = null!;
+                error = value.GetError();
+                return false;
+            }
 
             if (value.IsNumber)
                 total.Add(value.GetNumber());
         }
 
-        if (k > total.Count)
-            return XLError.NumberInvalid;
-
-        total.Sort();
-
-        return total[^k];
+        numbers = total;
+        return true;
     }
 
     /// <summary>
