@@ -53,7 +53,7 @@ public interface IXLGraphicEngine
     /// <param name="graphemeCluster">
     /// A part of a string in code points (or runes in C# terminology, not UTF-16 code units) that together
     /// form a grapheme. Multiple Unicode codepoints can form a single glyph, e.g., family grapheme is a single
-    /// glyph created from 6 codepoints (man, zero-width-join, woman, zero-width-join, and a girl). A string
+    /// glyph created from 5 code points (man, zero-width-join, woman, zero-width-join, and a girl). A string
     /// can be split into a grapheme clusters through <see cref="StringInfo.GetTextElementEnumerator(string)"/>.
     /// </param>
     /// <param name="font">Font used to determine the size of a glyph for the grapheme cluster.</param>

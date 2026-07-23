@@ -17,8 +17,14 @@ internal sealed class PcxInfoReader : ImageInfoReader
         // Read through the window fields so malformed dimensions are rejected here
         // rather than producing a bogus XLPictureInfo in ReadInfo.
         Span<byte> header = stackalloc byte[12];
-        if (stream.Read(header) != header.Length)
+        try
+        {
+            stream.ReadExactly(header);
+        }
+        catch (EndOfStreamException)
+        {
             return false;
+        }
 
         if (header[0] != 0xA ||
             header[1] > 5 || // version must be 0..5

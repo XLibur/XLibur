@@ -21,8 +21,14 @@ internal sealed class BmpInfoReader : ImageInfoReader
     protected override bool CheckHeader(Stream stream)
     {
         Span<byte> s = stackalloc byte[16];
-        if (stream.Read(s) != s.Length)
+        try
+        {
+            stream.ReadExactly(s);
+        }
+        catch (EndOfStreamException)
+        {
             return false;
+        }
 
         if (s[0] != 'B')
             return false;

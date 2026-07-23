@@ -19,7 +19,16 @@ internal sealed class PngInfoReader : ImageInfoReader
     protected override bool CheckHeader(Stream stream)
     {
         Span<byte> header = stackalloc byte[8];
-        return stream.Read(header) == header.Length && header.SequenceEqual(MagicBytes);
+        try
+        {
+            stream.ReadExactly(header);
+        }
+        catch (EndOfStreamException)
+        {
+            return false;
+        }
+
+        return header.SequenceEqual(MagicBytes);
     }
 
     protected override XLPictureInfo ReadInfo(Stream stream)
