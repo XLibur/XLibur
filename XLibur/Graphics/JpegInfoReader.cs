@@ -52,7 +52,14 @@ internal sealed class JpegInfoReader : ImageInfoReader
 
         static bool IsIdentifier(Stream stream, byte[] identifer)
         {
-            return !(from t in identifer let b = stream.ReadByte() where b == -1 || (byte)b != t select t).Any();
+            foreach (var expected in identifer)
+            {
+                var b = stream.ReadByte();
+                if (b == -1 || (byte)b != expected)
+                    return false;
+            }
+
+            return true;
         }
     }
 

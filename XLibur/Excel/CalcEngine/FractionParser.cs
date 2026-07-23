@@ -15,7 +15,7 @@ internal static class FractionParser
 
     public static bool TryParse(string s, out double result)
     {
-        result = default;
+        result = 0;
         var match = FractionRegex.Match(s);
         if (!match.Success)
             return false;
@@ -32,7 +32,7 @@ internal static class FractionParser
         var wholeNumber = ParseInt(match.Groups[2]);
 
         var fraction = wholeNumber + numerator / (double)denominator;
-        var hasNegativeSign = sign.Success && sign.Value.Length > 0 && sign.Value[0] == '-';
+        var hasNegativeSign = sign is { Success: true, Value.Length: > 0 } && sign.Value[0] == '-';
         result = hasNegativeSign ? -fraction : fraction;
         return true;
 

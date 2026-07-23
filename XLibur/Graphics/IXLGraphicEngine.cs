@@ -33,13 +33,13 @@ public interface IXLGraphicEngine
     /// <summary>
     /// The width of the widest 0-9 digit in pixels.
     /// </summary>
-    /// <remarks>OOXML measures width of a column in multiples of widest 0-9 digit character in a normal style font.</remarks>
+    /// <remarks>OOXML measures the width of a column in multiples of the widest 0-9 digit character in a normal style font.</remarks>
     double GetMaxDigitWidth(IXLFontBase font, double dpiX);
 
     /// <summary>
     /// Get font descent in pixels (positive value).
     /// </summary>
-    /// <remarks>Excel is using OS/2 WinAscent/WinDescent for TrueType fonts (e.g. Calibri), not a correct font ascent/descent.</remarks>
+    /// <remarks>Excel is using OS/2 WinAscent/WinDescent for TrueType fonts (e.g., Calibri), not a correct font ascent/descent.</remarks>
     double GetDescent(IXLFontBase font, double dpiY);
 
     /// <summary>
@@ -52,8 +52,8 @@ public interface IXLGraphicEngine
     /// </remarks>
     /// <param name="graphemeCluster">
     /// A part of a string in code points (or runes in C# terminology, not UTF-16 code units) that together
-    /// form a grapheme. Multiple Unicode codepoints can form a single glyph, e.g. family grapheme is a single
-    /// glyph created from 6 codepoints (man, zero-width-join, woman, zero-width-join and a girl). A string
+    /// form a grapheme. Multiple Unicode codepoints can form a single glyph, e.g., family grapheme is a single
+    /// glyph created from 5 code points (man, zero-width-join, woman, zero-width-join, and a girl). A string
     /// can be split into a grapheme clusters through <see cref="StringInfo.GetTextElementEnumerator(string)"/>.
     /// </param>
     /// <param name="font">Font used to determine the size of a glyph for the grapheme cluster.</param>

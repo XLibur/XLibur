@@ -19,8 +19,8 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
 
     internal XLDefinedName(XLDefinedNames container, string name, bool validateName, string formula, string? comment)
     {
-        // Excel accepts invalid names per grammar (e.g. `[Foo]Bar`) as a valid name and they can
-        // encountered in existing workbooks. We shouldn't throw exception on load.
+        // Excel accepts invalid names per grammar (e.g. `[Foo]Bar`) as a valid name, and they can be
+        // encountered in existing workbooks. We shouldn't throw exception on a load.
         if (validateName && !XLHelper.ValidateName("named range", name, out var error))
             throw new ArgumentException(error, nameof(name));
 
@@ -89,7 +89,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     void IXLDefinedName.Delete() => _container.Delete(Name);
 
     /// <summary>
-    /// Get sheet references found in the formula in A1. Doesn't return tables or name references,
+    /// Get sheet references to found in the formula in A1. Doesn't return tables or name references,
     /// only what has col/row coordinates.
     /// </summary>
     internal IReadOnlyList<string> GetSheetReferencesList() => _references.SheetReferences.Select(x => x.GetA1()).ToList();

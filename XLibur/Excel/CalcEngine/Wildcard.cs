@@ -4,7 +4,8 @@ namespace XLibur.Excel.CalcEngine;
 
 /// <summary>
 /// A wildcard is at most 255 chars long text. It can contain <c>*</c> which indicates any number characters (including zero)
-/// and <c>?</c> which indicates any single character. If you need to find <c>*</c> or <c>?</c> in a text, prefix them with
+/// and <c>?</c> which indicates any single character.
+/// If you need to find <c>*</c> or <c>?</c> in a text, prefix them with
 /// an escape character <c>~</c>.
 /// </summary>
 internal readonly struct Wildcard
@@ -49,7 +50,7 @@ internal readonly struct Wildcard
     /// <summary>
     /// Match the pattern against input.
     /// </summary>
-    /// <returns>Pattern matches whole input.</returns>
+    /// <returns>Pattern matches the whole input.</returns>
     public bool Matches(ReadOnlySpan<char> input)
     {
         var pattern = _pattern.AsSpan();
@@ -66,7 +67,8 @@ internal readonly struct Wildcard
     /// <summary>
     /// Does the start of an input match the pattern?
     /// </summary>
-    private static (bool IsMatch, int InputEndIndex) MatchFromStart(ReadOnlySpan<char> pattern, ReadOnlySpan<char> input)
+    private static (bool IsMatch, int InputEndIndex) MatchFromStart(ReadOnlySpan<char> pattern,
+        ReadOnlySpan<char> input)
     {
         var inputIndex = 0;
         var patternIndex = 0;

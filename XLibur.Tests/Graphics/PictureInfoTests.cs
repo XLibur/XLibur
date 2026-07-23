@@ -1,4 +1,5 @@
 ﻿using System.Drawing;
+using System.IO;
 using System.Reflection;
 using XLibur.Excel.Drawings;
 using XLibur.Fonts.SixLabors.V1;
@@ -60,6 +61,44 @@ public class PictureInfoTests
     }
 
     [Test]
+    public void CanReadOs2BitmapArray()
+    {
+        // OS/2 "BA" file: a 14-byte BITMAPARRAYHEADER wrapping a plain BM bitmap
+        // with a 12-byte BITMAPCOREHEADER (V1) reporting a 120x80 image.
+        using var stream = new MemoryStream(BuildBitmapArrayV1(width: 120, height: 80));
+        var read = new BmpInfoReader().TryGetInfo(stream, out var info);
+
+        Assert.IsTrue(read);
+        Assert.AreEqual(XLPictureFormat.Bmp, info.Format);
+        Assert.AreEqual(new Size(120, 80), info.SizePx);
+    }
+
+    [Test]
+    public void Os2IconArrayIsRejected()
+    {
+        // Same wrapper, but the inner entry is an OS/2 icon ("IC"), which Excel can't read.
+        var bytes = BuildBitmapArrayV1(width: 120, height: 80);
+        bytes[14] = (byte)'I';
+        bytes[15] = (byte)'C';
+        using var stream = new MemoryStream(bytes);
+
+        Assert.IsFalse(new BmpInfoReader().TryGetInfo(stream, out _));
+    }
+
+    private static byte[] BuildBitmapArrayV1(ushort width, ushort height)
+    {
+        var file = new byte[40];
+        file[0] = (byte)'B';
+        file[1] = (byte)'A'; // BITMAPARRAYHEADER (offsets 0..13)
+        file[14] = (byte)'B';
+        file[15] = (byte)'M'; // inner BITMAPFILEHEADER (offsets 14..27)
+        WriteU16LE(file, 28, 12); // BITMAPCOREHEADER size (low word), high word stays 0
+        WriteU16LE(file, 32, width);
+        WriteU16LE(file, 34, height);
+        return file;
+    }
+
+    [Test]
     public void CanReadTiffWithBigEndianEncoding()
     {
         AssertRasterImage("SampleImageTiffBigEndian.tiff", XLPictureFormat.Tiff, new Size(130, 45), 96, 96);
@@ -75,6 +114,50 @@ public class PictureInfoTests
     public void CanReadPcx()
     {
         AssertRasterImage("SampleImagePcx.pcx", XLPictureFormat.Pcx, new Size(100, 50), 96, 96);
+    }
+
+    [Test]
+    public void PcxWithValidWindowBoundsIsRead()
+    {
+        // Sanity check that a hand-built header with sensible bounds is accepted.
+        using var stream = new MemoryStream(BuildPcxHeader(xMin: 0, yMin: 0, xMax: 99, yMax: 49));
+        var read = new PcxInfoReader().TryGetInfo(stream, out var info);
+
+        Assert.IsTrue(read);
+        Assert.AreEqual(new Size(100, 50), info.SizePx);
+    }
+
+    [TestCase(99, 0, 0, 49, TestName = "PcxRejectsXMaxBelowXMin")]
+    [TestCase(0, 49, 99, 0, TestName = "PcxRejectsYMaxBelowYMin")]
+    public void PcxWithMalformedWindowBoundsIsRejected(int xMin, int yMin, int xMax, int yMax)
+    {
+        // Otherwise valid PCX signature, but Max < Min would yield a zero/negative size.
+        using var stream = new MemoryStream(BuildPcxHeader(xMin, yMin, xMax, yMax));
+        var read = new PcxInfoReader().TryGetInfo(stream, out _);
+
+        Assert.IsFalse(read);
+    }
+
+    private static byte[] BuildPcxHeader(int xMin, int yMin, int xMax, int yMax)
+    {
+        var header = new byte[16];
+        header[0] = 0x0A; // Manufacturer
+        header[1] = 5; // Version
+        header[2] = 1; // Encoding (RLE)
+        header[3] = 8; // BitsPerPixel
+        WriteU16LE(header, 4, xMin);
+        WriteU16LE(header, 6, yMin);
+        WriteU16LE(header, 8, xMax);
+        WriteU16LE(header, 10, yMax);
+        WriteU16LE(header, 12, 96); // HDpi
+        WriteU16LE(header, 14, 96); // VDpi
+        return header;
+    }
+
+    private static void WriteU16LE(byte[] buffer, int offset, int value)
+    {
+        buffer[offset] = (byte)(value & 0xFF);
+        buffer[offset + 1] = (byte)((value >> 8) & 0xFF);
     }
 
     [Test]

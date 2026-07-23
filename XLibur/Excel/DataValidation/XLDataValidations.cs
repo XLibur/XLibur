@@ -198,7 +198,7 @@ internal sealed class XLDataValidations : IXLDataValidations
         while (rules.Count > 0)
         {
             var similarRules = rules.Where(r => areEqual(rules[0], r)).ToList();
-            similarRules.ForEach(r => rules.Remove(r));
+            rules.RemoveAll(similarRules.Contains);
 
             var consRule = similarRules[0];
             var ranges = similarRules.SelectMany(dv => dv.Ranges).ToList();
