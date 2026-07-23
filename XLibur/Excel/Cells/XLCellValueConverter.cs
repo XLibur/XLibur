@@ -14,6 +14,14 @@ internal static partial class XLCellValueConverter
     internal static bool TryConvert<T>(XLCellValue currentValue, out T value)
     {
         var targetType = typeof(T);
+
+        // Fast path for the most common read by far — GetValue<string>() / GetString(). Route
+        // straight to the string arm and skip the reflection-based known-type probing below
+        // (GetUnderlyingType + DateTime/TimeSpan/bool type compares and parse attempts). string is
+        // never a Nullable<T>, so the nullable-blank short-circuit never applies to it anyway.
+        if (targetType == typeof(string))
+            return TryGetStringValue(out value, currentValue);
+
         var isNullable = targetType.IsNullableType();
         if (isNullable && currentValue.TryConvert(out Blank _))
         {
@@ -182,11 +190,21 @@ internal static partial class XLCellValueConverter
         if (typeof(T) == typeof(string))
         {
             var s = currentValue.ToString(CultureInfo.CurrentCulture);
+
+            // The _xHHHH_ escape is rare; skip the regex scan entirely when the string cannot contain
+            // one. Every match includes the literal "_x", so its absence guarantees zero matches.
+            // T is exactly string here, so the direct cast is a no-op — no Convert.ChangeType boxing.
+            if (!s.Contains("_x", StringComparison.Ordinal))
+            {
+                value = (T)(object)s;
+                return true;
+            }
+
             var matches = UtfPattern.Matches(s);
 
             if (matches.Count == 0)
             {
-                value = (T)Convert.ChangeType(s, typeof(T));
+                value = (T)(object)s;
                 return true;
             }
 
@@ -207,7 +225,7 @@ internal static partial class XLCellValueConverter
             if (lastIndex < s.Length)
                 sb.Append(s.AsSpan(lastIndex));
 
-            value = (T)Convert.ChangeType(sb.ToString(), typeof(T));
+            value = (T)(object)sb.ToString();
             return true;
         }
 
