@@ -143,11 +143,7 @@ public class SpillEvaluationTests
     }
 
     [Test]
-    [Ignore("Recalc ordering when a dependent is positioned before the spill anchor is a known " +
-            "limitation. Spilled cells are formula-less, so a read of one does not trigger the calc " +
-            "chain to evaluate the anchor first; on the very first evaluation the footprint is also " +
-            "unknown until the anchor runs. Closing this needs the spill-owner lookup (B3/B5).")]
-    public void Spill_DependentBeforeAnchor_RecalcOrdering()
+    public void Spill_DependentBeforeAnchor_RecalculatesAfterInitialSpill()
     {
         var ws = NewSheet(out var wb);
         using (wb)
@@ -156,16 +152,40 @@ public class SpillEvaluationTests
             ws.Cell("D2").Value = 2;
             ws.Cell("D3").Value = 3;
             // Anchor at C1 spills C1:C3; the dependent at A1 sits positionally BEFORE the anchor
-            // and reads the spilled C3.
+            // and reads the spilled (non-anchor) C3 directly.
+            ws.Cell("C1").SetDynamicFormulaA1("UNIQUE(D1:D3)");
+            ws.Cell("A1").FormulaA1 = "C3*10";
+
+            // Establish the spill so the spill-owner lookup knows C3 belongs to C1.
+            wb.CalcEngine.Recalculate(wb, null);
+
+            // A later source change must recompute the dependent with the fresh spilled value:
+            // reading C3 now forces the dirty anchor C1 to evaluate first.
+            ws.Cell("D3").Value = 5;
+            wb.CalcEngine.Recalculate(wb, null);
+            Assert.AreEqual(50, ws.Cell("A1").Value);
+        }
+    }
+
+    [Test]
+    [Ignore("Remaining limitation: on the VERY FIRST evaluation the spill footprint is unknown " +
+            "until the anchor runs, so a dependent positioned before a not-yet-spilled anchor still " +
+            "reads a blank cell. Full ordering here needs a calc-chain pre-pass that sizes arrays " +
+            "before evaluation. Post-first-spill ordering is covered by " +
+            nameof(Spill_DependentBeforeAnchor_RecalculatesAfterInitialSpill) + ".")]
+    public void Spill_DependentBeforeAnchor_FirstEvaluationOrdering()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("D1").Value = 1;
+            ws.Cell("D2").Value = 2;
+            ws.Cell("D3").Value = 3;
             ws.Cell("C1").SetDynamicFormulaA1("UNIQUE(D1:D3)");
             ws.Cell("A1").FormulaA1 = "C3*10";
 
             wb.CalcEngine.Recalculate(wb, null);
             Assert.AreEqual(30, ws.Cell("A1").Value);
-
-            ws.Cell("D3").Value = 5;
-            wb.CalcEngine.Recalculate(wb, null);
-            Assert.AreEqual(50, ws.Cell("A1").Value);
         }
     }
 
@@ -231,6 +251,28 @@ public class SpillEvaluationTests
 
             wb.CalcEngine.Recalculate(wb, null);
             Assert.AreEqual(6, ws.Cell("A1").Value);
+        }
+    }
+
+    [Test]
+    public void Spill_SurvivesRowInsertAndReSpills()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").SetDynamicFormulaA1("SEQUENCE(3)"); // spills A1:A3
+            wb.RecalculateAllFormulas();
+            Assert.AreEqual(3, ws.Cell("A3").Value);
+
+            // A structural insert relocates the anchor A1 -> A2. It stays a dynamic array and
+            // re-spills over the shifted footprint A2:A4 after recalculation.
+            ws.Row(1).InsertRowsAbove(1);
+            wb.RecalculateAllFormulas();
+
+            Assert.IsTrue(ws.Cell("A2").HasFormula, "Anchor must stay dynamic after the shift");
+            Assert.AreEqual(1, ws.Cell("A2").Value);
+            Assert.AreEqual(3, ws.Cell("A4").Value);
+            Assert.IsFalse(ws.Cell("A3").HasFormula, "Spilled cell stays formula-less after the shift");
         }
     }
 

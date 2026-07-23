@@ -1090,8 +1090,16 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (formula.Type == FormulaType.Normal)
         {
             var shiftedNormal = XLCellFormulaShifter.ShiftFormulaRows(formula.A1, Worksheet, shiftedRange, rowsShifted);
+
+            if (formula.IsDynamicArray)
+            {
+                ShiftDynamicArrayFormula(formula, shiftedNormal, ReferenceEquals(Worksheet, shiftedRange.Worksheet),
+                    () => ShiftArrayRangeRows(formula.Range, shiftedRange, rowsShifted));
+                return;
+            }
+
             if (!string.Equals(shiftedNormal, formula.A1, StringComparison.Ordinal))
-                SetShiftedNormalFormula(formula, shiftedNormal);
+                FormulaA1 = shiftedNormal;
             return;
         }
 
@@ -1126,8 +1134,16 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (formula.Type == FormulaType.Normal)
         {
             var shiftedNormal = XLCellFormulaShifter.ShiftFormulaColumns(formula.A1, Worksheet, shiftedRange, columnsShifted);
+
+            if (formula.IsDynamicArray)
+            {
+                ShiftDynamicArrayFormula(formula, shiftedNormal, ReferenceEquals(Worksheet, shiftedRange.Worksheet),
+                    () => ShiftArrayRangeColumns(formula.Range, shiftedRange, columnsShifted));
+                return;
+            }
+
             if (!string.Equals(shiftedNormal, formula.A1, StringComparison.Ordinal))
-                SetShiftedNormalFormula(formula, shiftedNormal);
+                FormulaA1 = shiftedNormal;
             return;
         }
 
@@ -1146,18 +1162,26 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     }
 
     /// <summary>
-    /// Reassigns a shifted normal-formula text, preserving the dynamic-array designation.
-    /// A dynamic array is stored as a normal formula with <see cref="XLCellFormula.IsDynamicArray"/>
-    /// set; routing it through the plain <see cref="FormulaA1"/> setter would rebuild it as a
-    /// regular formula and drop that flag, so on save it would lose its <c>cm</c> dynamic-array
-    /// metadata and Excel would apply implicit intersection (e.g. <c>=@UNIQUE(...)</c>).
+    /// Applies a shift to a dynamic-array formula in place: updates the shifted formula text on
+    /// the existing instance and relocates its spill footprint. Recreating it through the plain
+    /// <see cref="FormulaA1"/> or <see cref="SetDynamicFormulaA1"/> setters would rebuild the
+    /// formula and reset its <see cref="XLCellFormula.Range"/> — a later re-spill would then see
+    /// the (already-moved) spilled values as a <c>#SPILL!</c> collision, and the plain setter
+    /// would also drop the dynamic-array flag (losing the <c>cm</c> metadata on save).
     /// </summary>
-    private void SetShiftedNormalFormula(XLCellFormula formula, string shiftedA1)
+    private static void ShiftDynamicArrayFormula(XLCellFormula formula, string shiftedA1, bool sameSheet, Func<XLSheetRange> shiftRange)
     {
-        if (formula.IsDynamicArray)
-            SetDynamicFormulaA1(shiftedA1);
-        else
-            FormulaA1 = shiftedA1;
+        if (!string.Equals(shiftedA1, formula.A1, StringComparison.Ordinal))
+            formula.UpdateShiftedA1(shiftedA1);
+
+        // Only a same-sheet insert/delete physically relocates the anchor and its spilled cells,
+        // so the stored footprint must move with them.
+        if (!sameSheet)
+            return;
+
+        var newRange = shiftRange();
+        if (newRange != formula.Range)
+            formula.Range = newRange;
     }
 
     /// <summary>
