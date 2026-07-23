@@ -12,7 +12,7 @@ namespace XLibur.Excel.CalcEngine
     /// Inline-first storage: the typical reference has exactly one area, so the first area
     /// lives on the instance directly and only multi-area references allocate the
     /// <see cref="_additionalAreas"/> array. Saves the per-Reference list allocation that
-    /// previously cost ~64 bytes (List header + one-element backing array) for the common
+    /// previously cost ~64 bytes (List header and one-element backing array) for the common
     /// single-area path.
     /// </remarks>
     internal sealed class Reference
@@ -96,7 +96,7 @@ namespace XLibur.Excel.CalcEngine
         public Enumerator GetEnumerator() => new(this);
 
         /// <summary>
-        /// Get total number of cells covered by all areas (double counts overlapping areas).
+        /// Get the total number of cells covered by all areas (double counts overlapping areas).
         /// </summary>
         internal int NumberOfCells
         {
@@ -114,7 +114,7 @@ namespace XLibur.Excel.CalcEngine
 
         /// <summary>
         /// An iterator over all nonblank cells of the range. Some cells can be iterated
-        /// over multiple times (e.g. a union of two ranges with overlapping cells).
+        /// over multiple times (e.g., a union of two ranges with overlapping cells).
         /// </summary>
         public IEnumerable<ScalarValue> GetCellsValues(CalcContext ctx)
         {
@@ -239,7 +239,7 @@ namespace XLibur.Excel.CalcEngine
         /// Do an implicit intersection of an address.
         /// </summary>
         /// <param name="formulaAddress"></param>
-        /// <returns>An address of the intersection or error if intersection failed.</returns>
+        /// <returns>An address of the intersection or error if the intersection failed.</returns>
         public OneOf<Reference, XLError> ImplicitIntersection(IXLAddress formulaAddress)
         {
             if (AreaCount != 1)

@@ -23,7 +23,7 @@ internal sealed class FormulaParser
     {
         // Equality sign at the beginning of formula is only visualization in the GUI, real formulas don't have it.
         if (formula.Length > 0 && formula[0] == '=')
-            formula = formula.Substring(1);
+            formula = formula[1..];
 
         try
         {

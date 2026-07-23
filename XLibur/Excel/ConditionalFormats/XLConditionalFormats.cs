@@ -64,7 +64,7 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats
             if (!CFTypesExcludedFromConsolidation.Contains(item.ConditionalFormatType))
             {
                 var similarFormats = ConsolidateItem(item, formats);
-                similarFormats.ForEach(cf => formats.Remove(cf));
+                formats.RemoveAll(similarFormats.Contains);
             }
 
             _conditionalFormats.Add(item);

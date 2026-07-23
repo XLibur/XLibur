@@ -9,12 +9,12 @@ namespace XLibur.Excel.CalcEngine;
 /// </summary>
 internal sealed class FormulaDependencies
 {
-    private readonly HashSet<XLBookArea> _areas = new();
-    private readonly HashSet<XLName> _names = new();
+    private readonly HashSet<XLBookArea> _areas = [];
+    private readonly HashSet<XLName> _names = [];
 
     /// <summary>
-    /// List of areas the formula depends on. It is likely a superset of accurate
-    /// result for unusual formulas, but if a value in an areas changes, the dependent
+    /// List of areas the formula depends on. It is likely a superset of an accurate
+    /// result for unusual formulas, but if a value in an area changes, the dependent
     /// formula should be marked as dirty.
     /// </summary>
     public IReadOnlyCollection<XLBookArea> Areas => _areas;
@@ -22,7 +22,7 @@ internal sealed class FormulaDependencies
     /// <summary>
     /// A collection of names in the formula. If a name changes (added, deleted),
     /// the formula dependencies should be refreshed, because new name might refer to
-    /// different references (e.g. a name previously referred to <c>A5</c> and is redefined
+    /// different references (e.g., a name previously referred to <c>A5</c> and is redefined
     /// to <c>B7</c> or just value <c>7</c> =&gt; formula no longer depends on <c>A5</c>).
     /// </summary>
     public IReadOnlyCollection<XLName> Names => _names;
@@ -46,17 +46,7 @@ internal sealed class FormulaDependencies
             if (XLHelper.SheetComparer.Equals(areaInFormula.Name, oldSheetName))
             {
                 var renamedArea = new XLBookArea(newSheetName, areaInFormula.Area);
-                areasToRename ??= new List<(XLBookArea Original, XLBookArea Replacement)>();
-                areasToRename.Add((areaInFormula, renamedArea));
-            }
-        }
-
-        if (areasToRename is not null)
-        {
-            foreach (var (original, replacement) in areasToRename)
-            {
-                _areas.Remove(original);
-                _areas.Add(replacement);
+                (areasToRename ??= []).Add((areaInFormula, renamedArea));
             }
         }
 
@@ -67,18 +57,29 @@ internal sealed class FormulaDependencies
                 XLHelper.SheetComparer.Equals(nameInFormula.SheetName, oldSheetName))
             {
                 var renamedName = new XLName(newSheetName, nameInFormula.Name);
-                namesToRename ??= new List<(XLName Original, XLName Replacement)>();
-                namesToRename.Add((nameInFormula, renamedName));
+                (namesToRename ??= []).Add((nameInFormula, renamedName));
             }
         }
 
-        if (namesToRename is not null)
+        ApplyRenames(_areas, areasToRename);
+        ApplyRenames(_names, namesToRename);
+    }
+
+    /// <summary>
+    /// Replaces each original item with its replacement in <paramref name="items"/>.
+    /// The caller buffers are renamed because a set cannot be mutated while enumerated.
+    /// </summary>
+    private static void ApplyRenames<T>(HashSet<T> items, List<(T Original, T Replacement)>? renames)
+    {
+        if (renames is null)
         {
-            foreach (var (original, replacement) in namesToRename)
-            {
-                _names.Remove(original);
-                _names.Add(replacement);
-            }
+            return;
+        }
+
+        foreach (var (original, replacement) in renames)
+        {
+            items.Remove(original);
+            items.Add(replacement);
         }
     }
 }
