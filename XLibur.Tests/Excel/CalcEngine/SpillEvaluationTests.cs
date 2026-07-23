@@ -118,6 +118,58 @@ public class SpillEvaluationTests
     }
 
     [Test]
+    public void Spill_DependentOfSpilledCell_RecalculatesWhenSourceChanges()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("D1").Value = 1;
+            ws.Cell("D2").Value = 2;
+            ws.Cell("D3").Value = 3;
+            ws.Cell("A1").SetDynamicFormulaA1("UNIQUE(D1:D3)"); // spills A1:A3 = {1;2;3}
+            ws.Cell("C1").FormulaA1 = "A3*10";                  // depends on the spilled A3
+
+            wb.CalcEngine.Recalculate(wb, null);
+            Assert.AreEqual(30, ws.Cell("C1").Value);
+
+            // Change a source cell so the spilled A3 becomes 5.
+            ws.Cell("D3").Value = 5;
+            Assert.IsTrue(ws.Cell("C1").NeedsRecalculation,
+                "A dependent of a spilled (non-anchor) cell must be invalidated when the array's source changes");
+
+            wb.CalcEngine.Recalculate(wb, null);
+            Assert.AreEqual(50, ws.Cell("C1").Value);
+        }
+    }
+
+    [Test]
+    [Ignore("Recalc ordering when a dependent is positioned before the spill anchor is a known " +
+            "limitation. Spilled cells are formula-less, so a read of one does not trigger the calc " +
+            "chain to evaluate the anchor first; on the very first evaluation the footprint is also " +
+            "unknown until the anchor runs. Closing this needs the spill-owner lookup (B3/B5).")]
+    public void Spill_DependentBeforeAnchor_RecalcOrdering()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("D1").Value = 1;
+            ws.Cell("D2").Value = 2;
+            ws.Cell("D3").Value = 3;
+            // Anchor at C1 spills C1:C3; the dependent at A1 sits positionally BEFORE the anchor
+            // and reads the spilled C3.
+            ws.Cell("C1").SetDynamicFormulaA1("UNIQUE(D1:D3)");
+            ws.Cell("A1").FormulaA1 = "C3*10";
+
+            wb.CalcEngine.Recalculate(wb, null);
+            Assert.AreEqual(30, ws.Cell("A1").Value);
+
+            ws.Cell("D3").Value = 5;
+            wb.CalcEngine.Recalculate(wb, null);
+            Assert.AreEqual(50, ws.Cell("A1").Value);
+        }
+    }
+
+    [Test]
     public void Spill_PastSheetEdge_ProducesSpillError()
     {
         var ws = NewSheet(out var wb);

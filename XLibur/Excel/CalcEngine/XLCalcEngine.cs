@@ -420,31 +420,42 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         var previousRange = formula.Range;
         var anchorRange = new XLSheetRange(anchor);
 
+        XLSheetRange newFootprint;
         var outOfBounds = lastRow > XLHelper.MaxRowNumber || lastColumn > XLHelper.MaxColumnNumber;
         if (outOfBounds || HasSpillCollision(anchor, lastRow, lastColumn, previousRange, valueSlice, formulaSlice))
         {
             ClearSpillFootprint(previousRange, anchorRange, valueSlice);
             valueSlice.SetCellValue(anchor, XLError.SpillRange);
-            formula.Range = anchorRange;
-            return;
+            newFootprint = anchorRange;
         }
-
-        var footprint = new XLSheetRange(anchor, new XLSheetPoint(lastRow, lastColumn));
-
-        // Erase any cell of the previous footprint that the new one no longer covers
-        // (the array shrank or moved) before writing the fresh result.
-        ClearSpillFootprint(previousRange, footprint, valueSlice);
-
-        for (var rowOffset = 0; rowOffset < array.Height; ++rowOffset)
+        else
         {
-            for (var colOffset = 0; colOffset < array.Width; ++colOffset)
+            newFootprint = new XLSheetRange(anchor, new XLSheetPoint(lastRow, lastColumn));
+
+            // Erase any cell of the previous footprint that the new one no longer covers
+            // (the array shrank or moved) before writing the fresh result.
+            ClearSpillFootprint(previousRange, newFootprint, valueSlice);
+
+            for (var rowOffset = 0; rowOffset < array.Height; ++rowOffset)
             {
-                var point = new XLSheetPoint(anchor.Row + rowOffset, anchor.Column + colOffset);
-                valueSlice.SetCellValue(point, array[rowOffset, colOffset].ToCellValue());
+                for (var colOffset = 0; colOffset < array.Width; ++colOffset)
+                {
+                    var point = new XLSheetPoint(anchor.Row + rowOffset, anchor.Column + colOffset);
+                    valueSlice.SetCellValue(point, array[rowOffset, colOffset].ToCellValue());
+                }
             }
         }
 
-        formula.Range = footprint;
+        formula.Range = newFootprint;
+
+        // Keep the dependency tree's area for this formula in sync with the footprint, so a
+        // later change to the array's precedents invalidates dependents of every spilled cell
+        // (not just the anchor). Only needed once the tree exists and the footprint changed.
+        if (_dependencyTree is not null && newFootprint != previousRange)
+        {
+            var formulaArea = new XLBookArea(sheet.Name, newFootprint);
+            _dependencyTree.UpdateSpillFootprint(formulaArea, formula, sheet.Workbook);
+        }
     }
 
     /// <summary>

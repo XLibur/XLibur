@@ -68,7 +68,19 @@ internal sealed class DependencyTree
             {
                 var formula = enumerator.Current;
                 var point = enumerator.Point;
-                if (formula.Type == FormulaType.Normal)
+                if (formula.IsDynamicArray)
+                {
+                    // A dynamic-array formula lives only in its anchor cell (spilled cells are
+                    // formula-less), so it appears exactly once. Register the whole spill
+                    // footprint so a change to the array's precedents invalidates dependents of
+                    // ANY spilled cell, not just the anchor. Before the first spill the footprint
+                    // is unknown (default) — register the 1x1 anchor; the spill re-registers the
+                    // formula once its size is known (see XLCalcEngine.SpillDynamicArray).
+                    var footprint = formula.Range == default ? new XLSheetRange(point, point) : formula.Range;
+                    var bookArea = new XLBookArea(sheet.Name, footprint);
+                    tree.AddFormula(bookArea, formula, workbook);
+                }
+                else if (formula.Type == FormulaType.Normal)
                 {
                     var bookArea = new XLBookArea(sheet.Name, new XLSheetRange(point, point));
                     tree.AddFormula(bookArea, formula, workbook);
@@ -118,6 +130,18 @@ internal sealed class DependencyTree
         }
 
         return precedents;
+    }
+
+    /// <summary>
+    /// Re-register a dynamic-array formula under a new spill footprint. Called after a spill
+    /// grows, shrinks, or collapses to a <c>#SPILL!</c> anchor so the tree keeps invalidating
+    /// dependents of every currently-spilled cell. Safe to call whether or not the formula is
+    /// already in the tree.
+    /// </summary>
+    internal void UpdateSpillFootprint(XLBookArea formulaArea, XLCellFormula formula, XLWorkbook workbook)
+    {
+        RemoveFormula(formula);
+        AddFormula(formulaArea, formula, workbook);
     }
 
     /// <summary>
