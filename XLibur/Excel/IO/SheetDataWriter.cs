@@ -80,7 +80,10 @@ internal static class SheetDataWriter
 
             WriteIntermediateRows(xml, xlWorksheet, rows, currentRowNumber, maxColumn, context, ref rowState);
 
-            if (IsBlankAndEmpty(cellCtx.CellsCollection, point))
+            // Resolve the value and its share-string flag once for both the blank-and-empty check
+            // and the value write below, avoiding a second ValueSlice traversal per cell.
+            var cellValue = cellCtx.CellsCollection.ValueSlice.GetCellValueAndShareString(point, out var shareString);
+            if (IsBlankAndEmpty(cellValue, cellCtx.CellsCollection, point))
                 continue;
 
             if (rowState.OpenedRowNumber != currentRowNumber)
@@ -100,7 +103,7 @@ internal static class SheetDataWriter
             var cellStyleId =
                 ResolveCellStyleId(xlWorksheet, point, ref lastCachedStyle, ref lastCachedStyleId, context);
 
-            WriteCellAtPoint(xml, ref cellCtx, point, rowStyleId, cellStyleId);
+            WriteCellAtPoint(xml, ref cellCtx, point, rowStyleId, cellStyleId, cellValue, shareString);
         }
 
         if (rowState.IsRowOpened)
@@ -175,9 +178,8 @@ internal static class SheetDataWriter
                xlRow.OutlineLevel > 0;
     }
 
-    private static bool IsBlankAndEmpty(XLCellsCollection cellsCollection, XLSheetPoint point)
+    private static bool IsBlankAndEmpty(XLCellValue cellValue, XLCellsCollection cellsCollection, XLSheetPoint point)
     {
-        var cellValue = cellsCollection.ValueSlice.GetCellValue(point);
         if (cellValue.Type != XLDataType.Blank)
             return false;
 
@@ -213,7 +215,7 @@ internal static class SheetDataWriter
     }
 
     private static void WriteCellAtPoint(XmlWriter xml, ref CellWriteContext ctx,
-        XLSheetPoint point, uint rowStyleId, uint cellStyleId)
+        XLSheetPoint point, uint rowStyleId, uint cellStyleId, XLCellValue cellValue, bool shareString)
     {
         var formula = ctx.CellsCollection.FormulaSlice.Get(point);
         if (formula is not null)
@@ -228,9 +230,8 @@ internal static class SheetDataWriter
             return;
         }
 
-        // Single slice lookup for both value and share-string flag, avoiding a
-        // second Lut traversal that GetShareString would require separately.
-        var cellValue = ctx.CellsCollection.ValueSlice.GetCellValueAndShareString(point, out var shareString);
+        // Value and share-string flag were already resolved by the caller (and reused for the
+        // blank-and-empty check), so no second ValueSlice traversal is needed here.
         if (cellValue.Type != XLDataType.Blank)
         {
             WriteValueOnlyCell(xml, ref ctx, point, cellStyleId, cellValue, shareString);
