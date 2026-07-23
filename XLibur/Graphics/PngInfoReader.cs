@@ -10,20 +10,16 @@ internal sealed class PngInfoReader : ImageInfoReader
     private const int CrcLength = 4;
     private const int SkippedHeaderLength = 5;
 
-    private int[] MagicBytes { get; } = [137, 80, 78, 71, 13, 10, 26, 10];
+    private static ReadOnlySpan<byte> MagicBytes => [137, 80, 78, 71, 13, 10, 26, 10];
 
     private const int HeaderType = 0x49484452; // IHDR
     private const int PhysicalDimensionType = 0x70485973; // pHYs
+    private const int ImageDataType = 0x49444154; // IDAT
 
     protected override bool CheckHeader(Stream stream)
     {
-        foreach (var magicByte in MagicBytes)
-        {
-            var streamByte = stream.ReadByte();
-            if (streamByte != magicByte || streamByte == -1)
-                return false;
-        }
-        return true;
+        Span<byte> header = stackalloc byte[8];
+        return stream.Read(header) == header.Length && header.SequenceEqual(MagicBytes);
     }
 
     protected override XLPictureInfo ReadInfo(Stream stream)
@@ -55,6 +51,11 @@ internal sealed class PngInfoReader : ImageInfoReader
 
                 break;
             }
+
+            // pHYs must precede the first IDAT chunk, so once image data starts there is
+            // nothing left worth scanning.
+            if (chunkType == ImageDataType)
+                break;
 
             stream.Position += chunkLength + CrcLength;
         }
