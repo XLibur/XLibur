@@ -134,18 +134,8 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
             ? new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber + columnsShifted - 1)
             : new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber - columnsShifted - 1);
 
-        foreach (var cf in worksheet.ConditionalFormats.ToList())
-        {
-            var xlCf = (XLConditionalFormat)cf;
-            var newAreas = columnsShifted > 0
-                ? xlCf.Areas.InsertAndShiftRight(affected)
-                : xlCf.Areas.DeleteAndShiftLeft(affected);
-
-            if (newAreas.Count == 0)
-                worksheet.ConditionalFormats.Remove(f => f == cf);
-            else
-                xlCf.SetAreas(newAreas);
-        }
+        ShiftConditionalFormats(cf =>
+            columnsShifted > 0 ? cf.Areas.InsertAndShiftRight(affected) : cf.Areas.DeleteAndShiftLeft(affected));
     }
 
     private void ShiftConditionalFormattingRows(XLRange range, int rowsShifted)
@@ -160,17 +150,26 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
             ? new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber + rowsShifted - 1, last.ColumnNumber)
             : new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber - rowsShifted - 1, last.ColumnNumber);
 
-        foreach (var cf in worksheet.ConditionalFormats.ToList())
-        {
-            var xlCf = (XLConditionalFormat)cf;
-            var newAreas = rowsShifted > 0
-                ? xlCf.Areas.InsertAndShiftDown(affected)
-                : xlCf.Areas.DeleteAndShiftUp(affected);
+        ShiftConditionalFormats(cf =>
+            rowsShifted > 0 ? cf.Areas.InsertAndShiftDown(affected) : cf.Areas.DeleteAndShiftUp(affected));
+    }
 
+    /// <summary>
+    /// Applies a value-typed area transform to every conditional-format rule and writes the result back
+    /// with <see cref="XLConditionalFormat.SetAreas"/>. Because coverage is the value-typed
+    /// <see cref="XLAreaList"/> (not live repository ranges) the shift is a pure transform that can never
+    /// alias or double-shift, even across overlapping/adjacent coverage (ClosedXML issue #2850). A rule
+    /// whose coverage transforms to nothing is removed. Mirrors <see cref="ShiftDataValidations"/>.
+    /// </summary>
+    private void ShiftConditionalFormats(Func<XLConditionalFormat, XLAreaList> transform)
+    {
+        foreach (var cf in worksheet.ConditionalFormats.OfType<XLConditionalFormat>().ToList())
+        {
+            var newAreas = transform(cf);
             if (newAreas.Count == 0)
                 worksheet.ConditionalFormats.Remove(f => f == cf);
             else
-                xlCf.SetAreas(newAreas);
+                cf.SetAreas(newAreas);
         }
     }
 
