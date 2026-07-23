@@ -289,6 +289,13 @@ internal sealed class FormulaParser
             if (!foundFunction && functionName.StartsWith($"{DefaultFunctionNameSpace}."))
             {
                 functionName = functionName.Substring(DefaultFunctionNameSpace.Length + 1);
+
+                // Worksheet-only future functions carry a further "_xlws." namespace
+                // (e.g. FILTER/SORT are stored as "_xlfn._xlws.FILTER"). Strip it too.
+                const string worksheetNameSpace = "_xlws.";
+                if (functionName.StartsWith(worksheetNameSpace, StringComparison.Ordinal))
+                    functionName = functionName.Substring(worksheetNameSpace.Length);
+
                 foundFunction = _functionRegistry.TryGetFunc(functionName, out minParams, out maxParams);
             }
 
