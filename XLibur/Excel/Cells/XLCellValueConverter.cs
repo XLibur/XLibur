@@ -5,6 +5,8 @@ using System.Text;
 using System.Text.RegularExpressions;
 using XLibur.Extensions;
 
+#pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility
+
 namespace XLibur.Excel;
 
 internal static partial class XLCellValueConverter
