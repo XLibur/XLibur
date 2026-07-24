@@ -51,9 +51,14 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
     /// </summary>
     private static AnyValue EvaluateSpillRange(CalcContext context, AnyValue operand)
     {
-        // The operand of `#` must resolve to a single-cell reference: the spill anchor.
+        // The operand of `#` must resolve to a single-cell reference: the spill anchor. A
+        // multi-cell area (e.g. A1:B3#) is not a valid anchor, so it is a #REF!.
         if (!operand.TryPickArea(out var anchorArea, out var error))
             return error;
+
+        if (anchorArea.FirstAddress.RowNumber != anchorArea.LastAddress.RowNumber ||
+            anchorArea.FirstAddress.ColumnNumber != anchorArea.LastAddress.ColumnNumber)
+            return XLError.CellReference;
 
         var sheet = anchorArea.Worksheet as XLWorksheet ?? context.Worksheet;
         var anchorRow = anchorArea.FirstAddress.RowNumber;

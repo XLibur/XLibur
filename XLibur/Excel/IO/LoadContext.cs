@@ -141,8 +141,17 @@ internal sealed class LoadContext
         foreach (var block in cellMetadata.Elements<MetadataBlock>())
         {
             cmIndex++;
-            if (block.GetFirstChild<MetadataRecord>()?.TypeIndex?.Value == xldaprTypeIndex)
-                (DynamicArrayCmIndexes ??= new HashSet<uint>()).Add(cmIndex);
+
+            // A block may hold several records; it is a dynamic-array cell if any of them
+            // references the XLDAPR type (add the block index at most once).
+            foreach (var record in block.Elements<MetadataRecord>())
+            {
+                if (record.TypeIndex?.Value == xldaprTypeIndex)
+                {
+                    (DynamicArrayCmIndexes ??= new HashSet<uint>()).Add(cmIndex);
+                    break;
+                }
+            }
         }
     }
 

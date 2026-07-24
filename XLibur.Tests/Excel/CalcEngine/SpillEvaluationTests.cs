@@ -215,6 +215,18 @@ public class SpillEvaluationTests
     }
 
     [Test]
+    public void SpillOperator_MultiCellOperand_ReturnsRefError()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            // The spill operator requires a single-cell anchor; a multi-cell operand is #REF!.
+            wb.DefinedNames.Add("Rng", "Sheet1!A1:B2");
+            Assert.AreEqual(XLError.CellReference, ws.Evaluate("Rng#"));
+        }
+    }
+
+    [Test]
     public void SpillOperator_TracksFootprintWhenItShrinks()
     {
         var ws = NewSheet(out var wb);

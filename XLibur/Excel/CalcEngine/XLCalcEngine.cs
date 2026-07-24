@@ -33,16 +33,27 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     private bool _needsDependencyTree;
 
     /// <summary>
-    /// Maps each spilled (non-anchor) cell of every dynamic-array formula to the anchor formula
-    /// that owns it. Spilled cells are formula-less, so this lets a read of one (during recalc)
-    /// force the owning anchor to evaluate first — see <see cref="TryGetDirtySpillOwner"/>.
-    /// Rebuilt when the dependency tree is (re)built and kept in sync by
-    /// <see cref="SpillDynamicArray"/>. Empty for workbooks without dynamic arrays.
+    /// The spill footprint of every dynamic-array formula, one entry per formula (a rectangle,
+    /// not one entry per spilled cell). Spilled cells are formula-less, so this lets a read of one
+    /// (during recalc) find the owning anchor and force it to evaluate first — see
+    /// <see cref="TryGetDirtySpillOwner"/>. Rebuilt when the dependency tree is (re)built and kept
+    /// in sync by <see cref="SpillDynamicArray"/>. Empty for workbooks without dynamic arrays.
     /// </summary>
-    private readonly Dictionary<XLBookPoint, XLCellFormula> _spillOwners = new();
+    private readonly List<SpillFootprint> _spillOwners = new();
 
     /// <summary>
-    /// Whether any dynamic-array formula currently has spilled cells. Used to keep the
+    /// A dynamic array's spill footprint (including the anchor at <see cref="Range"/>'s first
+    /// point) together with the owning formula.
+    /// </summary>
+    private readonly struct SpillFootprint(uint sheetId, XLSheetRange range, XLCellFormula owner)
+    {
+        internal readonly uint SheetId = sheetId;
+        internal readonly XLSheetRange Range = range;
+        internal readonly XLCellFormula Owner = owner;
+    }
+
+    /// <summary>
+    /// Whether any dynamic-array formula currently has a spill footprint. Used to keep the
     /// spill-owner lookup out of the hot cell-read path for the common no-dynamic-array case.
     /// </summary>
     internal bool HasSpillOwners => _spillOwners.Count > 0;
@@ -468,7 +479,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 
         // Keep the spill-owner lookup in sync so a read of any spilled cell can force this
         // anchor to evaluate first during recalc.
-        UpdateSpillOwners(sheet.SheetId, formula, previousRange, newFootprint);
+        SetSpillFootprint(sheet.SheetId, formula, newFootprint);
 
         // Keep the dependency tree's area for this formula in sync with the footprint, so a
         // later change to the array's precedents invalidates dependents of every spilled cell
@@ -495,49 +506,43 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             {
                 var formula = enumerator.Current;
                 if (formula.IsDynamicArray && formula.Range != default)
-                    RegisterSpillOwners(sheet.SheetId, formula, formula.Range);
+                    _spillOwners.Add(new SpillFootprint(sheet.SheetId, formula.Range, formula));
             }
         }
     }
 
     /// <summary>
-    /// Updates <see cref="_spillOwners"/> after a spill: unregisters cells the new footprint no
-    /// longer covers and registers the non-anchor cells of the new footprint.
+    /// Records a dynamic-array formula's current spill footprint, replacing any prior footprint
+    /// for the same formula (footprints never overlap, so one rectangle per formula is enough).
     /// </summary>
-    private void UpdateSpillOwners(uint sheetId, XLCellFormula formula, XLSheetRange previousRange, XLSheetRange newFootprint)
+    private void SetSpillFootprint(uint sheetId, XLCellFormula formula, XLSheetRange footprint)
     {
-        if (previousRange != default)
+        for (var i = 0; i < _spillOwners.Count; i++)
         {
-            foreach (var point in previousRange)
+            if (ReferenceEquals(_spillOwners[i].Owner, formula))
             {
-                if (!newFootprint.Contains(point))
-                    _spillOwners.Remove(new XLBookPoint(sheetId, point));
+                _spillOwners[i] = new SpillFootprint(sheetId, footprint, formula);
+                return;
             }
         }
 
-        RegisterSpillOwners(sheetId, formula, newFootprint);
-    }
-
-    private void RegisterSpillOwners(uint sheetId, XLCellFormula formula, XLSheetRange footprint)
-    {
-        var anchor = footprint.FirstPoint;
-        foreach (var point in footprint)
-        {
-            if (point != anchor)
-                _spillOwners[new XLBookPoint(sheetId, point)] = formula;
-        }
+        _spillOwners.Add(new SpillFootprint(sheetId, footprint, formula));
     }
 
     /// <summary>
     /// If <paramref name="point"/> is a spilled (non-anchor) cell of a dynamic array whose anchor
     /// is dirty, returns the anchor point so the caller can force the anchor to evaluate first.
+    /// The anchor cell itself holds a formula, so it never reaches this lookup.
     /// </summary>
     internal bool TryGetDirtySpillOwner(uint sheetId, XLSheetPoint point, XLWorkbook wb, out XLSheetPoint anchor)
     {
-        if (_spillOwners.TryGetValue(new XLBookPoint(sheetId, point), out var owner) && owner.IsDirty(wb))
+        foreach (var footprint in _spillOwners)
         {
-            anchor = owner.Range.FirstPoint;
-            return true;
+            if (footprint.SheetId == sheetId && footprint.Range.Contains(point) && footprint.Owner.IsDirty(wb))
+            {
+                anchor = footprint.Range.FirstPoint;
+                return true;
+            }
         }
 
         anchor = default;
