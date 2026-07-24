@@ -135,7 +135,12 @@ Run the test suite:
 dotnet test XLibur.Tests/XLibur.Tests.csproj
 ```
 
-Run benchmarks (XLibur vs ClosedXML comparison):
+Published benchmark results are available at
+[jafin.github.io/XLBench](https://jafin.github.io/XLBench/charts.html):
+
+[![XLibur benchmark results](docs/benchmark_snapshot.jpg)](https://jafin.github.io/XLBench/charts.html)
+
+Run benchmarks yourself (XLibur vs ClosedXML comparison):
 
 ```sh
 # List available benchmarks
