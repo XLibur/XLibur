@@ -140,6 +140,8 @@ Published benchmark results are available at
 
 [![XLibur benchmark results](docs/benchmark_snapshot.jpg)](https://jafin.github.io/XLBench/charts.html)
 
+[![XLibur benchmark memory results](docs/benchmark_snapshot_memory.jpg)](https://jafin.github.io/XLBench/charts.html)
+
 Run benchmarks yourself (XLibur vs ClosedXML comparison):
 
 ```sh
