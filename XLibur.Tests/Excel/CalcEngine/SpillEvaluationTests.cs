@@ -289,6 +289,28 @@ public class SpillEvaluationTests
     }
 
     [Test]
+    public void Spill_SurvivesRowDeleteAndReSpills()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A2").SetDynamicFormulaA1("SEQUENCE(3)"); // spills A2:A4
+            wb.RecalculateAllFormulas();
+            Assert.AreEqual(3, ws.Cell("A4").Value);
+
+            // Deleting the empty row above relocates the anchor A2 -> A1 (negative shift); it
+            // re-spills over A1:A3.
+            ws.Row(1).Delete();
+            wb.RecalculateAllFormulas();
+
+            Assert.IsTrue(ws.Cell("A1").HasFormula, "Anchor must stay dynamic after the delete");
+            Assert.AreEqual(1, ws.Cell("A1").Value);
+            Assert.AreEqual(3, ws.Cell("A3").Value);
+            Assert.IsFalse(ws.Cell("A2").HasFormula, "Spilled cell stays formula-less after the delete");
+        }
+    }
+
+    [Test]
     public void Spill_PastSheetEdge_ProducesSpillError()
     {
         var ws = NewSheet(out var wb);
@@ -396,6 +418,27 @@ public class SpillEvaluationTests
             Assert.IsTrue(ws.Cell("B1").HasFormula, "Anchor must stay dynamic after the shift");
             Assert.AreEqual(1, ws.Cell("B1").Value);
             Assert.AreEqual(3, ws.Cell("D1").Value);
+        }
+    }
+
+    [Test]
+    public void Spill_SurvivesColumnDeleteAndReSpills()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("B1").SetDynamicFormulaA1("SEQUENCE(1, 3)"); // spills B1:D1
+            wb.RecalculateAllFormulas();
+            Assert.AreEqual(3, ws.Cell("D1").Value);
+
+            // Deleting the empty column to the left relocates the anchor B1 -> A1 (negative
+            // shift); it re-spills over A1:C1.
+            ws.Column(1).Delete();
+            wb.RecalculateAllFormulas();
+
+            Assert.IsTrue(ws.Cell("A1").HasFormula, "Anchor must stay dynamic after the delete");
+            Assert.AreEqual(1, ws.Cell("A1").Value);
+            Assert.AreEqual(3, ws.Cell("C1").Value);
         }
     }
 
