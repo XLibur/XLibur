@@ -404,6 +404,62 @@ public class ArrayFormulaTests
     }
 
     [Test]
+    public void DynamicArrayAndCseArrayLoadDistinctly()
+    {
+        // A dynamic array (cm metadata) and a legacy CSE array (no cm) both serialise with
+        // t="array"; on load only the one whose cm references XLDAPR becomes dynamic.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("S");
+            ws.Cell("A1").SetDynamicFormulaA1("SEQUENCE(2)"); // dynamic, A1:A2
+            ws.Range("C1:C2").FormulaArrayA1 = "TRANSPOSE({10,20})"; // CSE array, C1:C2
+            wb.RecalculateAllFormulas();
+
+            wb.SaveAs(ms, validate: false);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var ws = wb.Worksheet("S");
+
+            Assert.IsTrue(((XLCell)ws.Cell("A1")).Formula!.IsDynamicArray, "SEQUENCE must load as a dynamic array");
+            Assert.IsFalse(((XLCell)ws.Cell("A2")).HasFormula, "Dynamic spill cell is formula-less");
+
+            Assert.IsFalse(((XLCell)ws.Cell("C1")).Formula!.IsDynamicArray, "CSE array must not load as dynamic");
+            Assert.IsTrue(ws.Cell("C1").HasArrayFormula, "CSE array keeps its array formula");
+            Assert.IsTrue(ws.Cell("C2").HasArrayFormula, "CSE array child keeps the shared array formula");
+        }
+    }
+
+    [Test]
+    public void DynamicArraySpillErrorRoundTrips()
+    {
+        // A blocked dynamic array (#SPILL! anchor) round-trips: the error value survives save/load
+        // (exercising the XLError.SpillRange save/parse path) and stays blocked after reload.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("S");
+            ws.Cell("A2").Value = "block";
+            ws.Cell("A1").SetDynamicFormulaA1("SEQUENCE(3)");
+            wb.RecalculateAllFormulas();
+            Assert.AreEqual(XLError.SpillRange, ws.Cell("A1").Value);
+
+            wb.SaveAs(ms, validate: false);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var ws = wb.Worksheet("S");
+            Assert.AreEqual("block", ws.Cell("A2").Value);
+            Assert.AreEqual(XLError.SpillRange, ws.Cell("A1").Value);
+        }
+    }
+
+    [Test]
     public void DeletingRowsThroughArrayDoesNotCorruptRange()
     {
         // Deleting rows that overlap an array used to push the stored range past row 1, producing

@@ -289,4 +289,124 @@ public class SpillEvaluationTests
             Assert.AreEqual(XLError.SpillRange, anchor.Value);
         }
     }
+
+    [Test]
+    public void Spill_HorizontalVector_FillsRow()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").SetDynamicFormulaA1("SEQUENCE(1, 3)"); // spills A1:C1
+
+            Assert.AreEqual(1, ws.Cell("A1").Value);
+            Assert.AreEqual(2, ws.Cell("B1").Value);
+            Assert.AreEqual(3, ws.Cell("C1").Value);
+        }
+    }
+
+    [Test]
+    public void Spill_GrowingResult_FillsNewCells()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("D1").Value = 1;
+            ws.Cell("D2").Value = 2;
+            ws.Cell("D3").Value = 2;
+            ws.Cell("A1").SetDynamicFormulaA1("UNIQUE(D1:D3)"); // {1;2} -> A1:A2
+
+            Assert.AreEqual(1, ws.Cell("A1").Value); // trigger the spill
+            Assert.AreEqual(2, ws.Cell("A2").Value);
+            Assert.IsTrue(ws.Cell("A3").IsEmpty(), "Only two distinct values initially");
+
+            // A third distinct value grows the footprint into the previously-empty A3.
+            ws.Cell("D3").Value = 3;
+            Assert.AreEqual(1, ws.Cell("A1").Value);
+            Assert.AreEqual(3, ws.Cell("A3").Value);
+        }
+    }
+
+    [Test]
+    public void Spill_ErrorIsReportedByErrorFunctions()
+    {
+        // A real #SPILL! cell reports through ERROR.TYPE (9) and ISERROR — exercising the
+        // XLError.SpillRange enum member end to end (the literal can't be parsed).
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A2").Value = "block";
+            ws.Cell("A1").SetDynamicFormulaA1("SEQUENCE(3)");
+            Assert.AreEqual(XLError.SpillRange, ws.Cell("A1").Value);
+
+            ws.Cell("C1").FormulaA1 = "ERROR.TYPE(A1)";
+            ws.Cell("C2").FormulaA1 = "ISERROR(A1)";
+            Assert.AreEqual(9, ws.Cell("C1").Value);
+            Assert.AreEqual(true, ws.Cell("C2").Value);
+        }
+    }
+
+    [Test]
+    public void Spill_RecoversAfterBlockerClearedAndAnchorReevaluates()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("D1").Value = 1;
+            ws.Cell("D2").Value = 2;
+            ws.Cell("D3").Value = 3;
+            ws.Cell("A2").Value = "block";
+            ws.Cell("A1").SetDynamicFormulaA1("UNIQUE(D1:D3)");
+            Assert.AreEqual(XLError.SpillRange, ws.Cell("A1").Value);
+
+            // Clear the blocker and change a source so the anchor re-evaluates: the spill recovers.
+            ws.Cell("A2").Value = Blank.Value;
+            ws.Cell("D3").Value = 4;
+            Assert.AreEqual(1, ws.Cell("A1").Value);
+            Assert.AreEqual(2, ws.Cell("A2").Value);
+            Assert.AreEqual(4, ws.Cell("A3").Value);
+        }
+    }
+
+    [Test]
+    public void Spill_SurvivesColumnInsertAndReSpills()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").SetDynamicFormulaA1("SEQUENCE(1, 3)"); // spills A1:C1
+            wb.RecalculateAllFormulas();
+            Assert.AreEqual(3, ws.Cell("C1").Value);
+
+            // A column insert relocates the anchor A1 -> B1; it re-spills over B1:D1.
+            ws.Column(1).InsertColumnsBefore(1);
+            wb.RecalculateAllFormulas();
+
+            Assert.IsTrue(ws.Cell("B1").HasFormula, "Anchor must stay dynamic after the shift");
+            Assert.AreEqual(1, ws.Cell("B1").Value);
+            Assert.AreEqual(3, ws.Cell("D1").Value);
+        }
+    }
+
+    [Test]
+    public void Spill_DependentBeforeAnchor_OrdersCorrectlyOnInteractiveRead()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("D1").Value = 1;
+            ws.Cell("D2").Value = 2;
+            ws.Cell("D3").Value = 3;
+            ws.Cell("C1").SetDynamicFormulaA1("UNIQUE(D1:D3)");
+            ws.Cell("A1").FormulaA1 = "C3*10";
+
+            // Establish the spill by reading the anchor, then the dependent.
+            Assert.AreEqual(1, ws.Cell("C1").Value);
+            Assert.AreEqual(30, ws.Cell("A1").Value);
+
+            // A plain .Value read of the dependent after a source change must order the dirty
+            // anchor first (via the fallback to a full, dependency-ordered recalculation).
+            ws.Cell("D3").Value = 5;
+            Assert.AreEqual(50, ws.Cell("A1").Value);
+        }
+    }
 }
