@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Xml;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.CalcEngine.Visitors;
@@ -28,6 +29,7 @@ internal static class WorksheetSheetDataReader
         SharedStringEntry[]? sharedStrings,
         Dictionary<uint, string> sharedFormulasR1C1,
         Dictionary<int, XLStyleValue> styleList,
+        Dictionary<XLNumberFormatValue, XLDataType> numberDataTypeCache,
         bool use1904DateSystem,
         HashSet<uint>? dynamicArrayCmIndexes = null)
     {
@@ -36,6 +38,15 @@ internal static class WorksheetSheetDataReader
         public readonly SharedStringEntry[]? SharedStrings = sharedStrings;
         public readonly Dictionary<uint, string> SharedFormulasR1C1 = sharedFormulasR1C1;
         public readonly Dictionary<int, XLStyleValue> StyleList = styleList;
+
+        /// <summary>
+        /// Memoizes the <see cref="XLDataType"/> derived from a cell's number format
+        /// (see <see cref="GetNumberDataType"/>). Keyed by the interned
+        /// <see cref="XLNumberFormatValue"/>, so it holds one entry per distinct format
+        /// rather than recomputing the format-string scan for every numeric cell.
+        /// </summary>
+        public readonly Dictionary<XLNumberFormatValue, XLDataType> NumberDataTypeCache = numberDataTypeCache;
+
         public readonly bool Use1904DateSystem = use1904DateSystem;
 
         /// <summary>
@@ -64,7 +75,7 @@ internal static class WorksheetSheetDataReader
 
         /// <summary>
         /// Cached inherited style for the current row (combines sheet + row styles).
-        /// Recomputed once per row in <see cref="LoadRow"/> to avoid per-cell
+        /// Recomputed once per row in <see cref="LoadRowXml"/> to avoid per-cell
         /// dictionary lookups into <c>RowsCollection</c>.
         /// </summary>
         public XLStyleValue? CachedRowInheritedStyle;
@@ -96,54 +107,94 @@ internal static class WorksheetSheetDataReader
         "yyyy-MM-ddTHH:mm", "yyyy-MM-dd" // Formats accepted by Excel.
     ];
 
-    internal static void LoadRow(in SheetDataReadContext context, OpenXmlPartReader reader,
+    // ---------------------------------------------------------------------------------------
+    // Raw System.Xml.XmlReader sheet-data reading path.
+    //
+    // The DocumentFormat.OpenXml OpenXmlPartReader rebuilds a ReadOnlyCollection<OpenXmlAttribute>
+    // for every <c>/<row>/<f> element and materializes text nodes through its object model, which
+    // dominates load time and allocations for large sheets (~4x slower / ~5x more garbage than a
+    // raw XmlReader doing the equivalent traversal). These methods read the <sheetData> hot path
+    // directly from a System.Xml.XmlReader while reusing the reader-agnostic value/style/formula
+    // helpers below. Structural elements (cols, merges, views, ...) still load via the SDK DOM
+    // path in XLWorkbook_Load, which reads them before this runs, so column styles are available.
+    //
+    // Positioning contract: each LoadXxxXml enters positioned on the element's start node and
+    // returns positioned on the node immediately after that element's end tag.
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Reads all <c>&lt;row&gt;</c> children of <c>&lt;sheetData&gt;</c> from a raw
+    /// <see cref="XmlReader"/>. The reader must be positioned on the first <c>&lt;row&gt;</c>
+    /// start element (or on <c>&lt;/sheetData&gt;</c> when there are no rows).
+    /// </summary>
+    internal static void LoadSheetDataRows(XmlReader reader, in SheetDataReadContext context,
         ref SheetDataReadState state)
     {
-        Debug.Assert(reader.LocalName == "row");
+        while (IsMainElement(reader, "row"))
+            LoadRowXml(reader, in context, ref state);
+    }
 
-        // Parse all row attributes in a single pass instead of 8 separate linear scans.
-        // For data sheets where rows have only the 'r' attribute, this is ~8x less work.
-        var attributes = reader.Attributes;
+    /// <summary>
+    /// Whether the reader is on a start element with the given local name in the SpreadsheetML
+    /// main namespace. Matches the namespace strictness of the SDK reader path so foreign-namespace
+    /// elements (e.g. markup-compatibility content) are never mistaken for cells/rows/values.
+    /// </summary>
+    private static bool IsMainElement(XmlReader reader, string localName)
+        => reader.NodeType == XmlNodeType.Element
+           && reader.LocalName == localName
+           && reader.NamespaceURI == OpenXmlConst.Main2006SsNs;
+
+    private static void LoadRowXml(XmlReader reader, in SheetDataReadContext context,
+        ref SheetDataReadState state)
+    {
+        Debug.Assert(reader is { NodeType: XmlNodeType.Element, LocalName: "row" });
+
         var rowIndex = 0;
         double? height = null;
         double? dyDescent = null;
         bool hidden = false, collapsed = false, showPhonetic = false, customFormat = false;
         int? outlineLevel = null;
         int? styleIndex = null;
-        var count = attributes.Count;
-        for (var i = 0; i < count; i++)
+        var isEmptyRow = reader.IsEmptyElement;
+
+        if (reader.HasAttributes)
         {
-            var attr = attributes[i];
-            switch (attr.LocalName)
+            while (reader.MoveToNextAttribute())
             {
-                case "r" when string.IsNullOrEmpty(attr.NamespaceUri):
-                    TryParseOoxmlNonNegativeInt(attr.Value!, out rowIndex);
-                    break;
-                case "ht" when string.IsNullOrEmpty(attr.NamespaceUri):
-                    height = double.Parse(attr.Value!, NumberStyles.Float, XLHelper.ParseCulture);
-                    break;
-                case "dyDescent" when attr.NamespaceUri == OpenXmlConst.X14Ac2009SsNs:
-                    dyDescent = double.Parse(attr.Value!, NumberStyles.Float, XLHelper.ParseCulture);
-                    break;
-                case "hidden" when string.IsNullOrEmpty(attr.NamespaceUri):
-                    hidden = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
-                    break;
-                case "collapsed" when string.IsNullOrEmpty(attr.NamespaceUri):
-                    collapsed = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
-                    break;
-                case "outlineLevel" when string.IsNullOrEmpty(attr.NamespaceUri):
-                    outlineLevel = int.Parse(attr.Value!);
-                    break;
-                case "ph" when string.IsNullOrEmpty(attr.NamespaceUri):
-                    showPhonetic = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
-                    break;
-                case "customFormat" when string.IsNullOrEmpty(attr.NamespaceUri):
-                    customFormat = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
-                    break;
-                case "s" when string.IsNullOrEmpty(attr.NamespaceUri):
-                    styleIndex = int.Parse(attr.Value!);
-                    break;
+                var ns = reader.NamespaceURI;
+                switch (reader.LocalName)
+                {
+                    case "r" when ns.Length == 0:
+                        TryParseOoxmlNonNegativeInt(reader.Value, out rowIndex);
+                        break;
+                    case "ht" when ns.Length == 0:
+                        height = double.Parse(reader.Value, NumberStyles.Float, XLHelper.ParseCulture);
+                        break;
+                    case "dyDescent" when ns == OpenXmlConst.X14Ac2009SsNs:
+                        dyDescent = double.Parse(reader.Value, NumberStyles.Float, XLHelper.ParseCulture);
+                        break;
+                    case "hidden" when ns.Length == 0:
+                        hidden = ParseXmlBool(reader.Value);
+                        break;
+                    case "collapsed" when ns.Length == 0:
+                        collapsed = ParseXmlBool(reader.Value);
+                        break;
+                    case "outlineLevel" when ns.Length == 0:
+                        outlineLevel = int.Parse(reader.Value);
+                        break;
+                    case "ph" when ns.Length == 0:
+                        showPhonetic = ParseXmlBool(reader.Value);
+                        break;
+                    case "customFormat" when ns.Length == 0:
+                        customFormat = ParseXmlBool(reader.Value);
+                        break;
+                    case "s" when ns.Length == 0:
+                        styleIndex = int.Parse(reader.Value);
+                        break;
+                }
             }
+
+            reader.MoveToElement();
         }
 
         if (rowIndex == 0)
@@ -152,46 +203,39 @@ internal static class WorksheetSheetDataReader
 
         var rowProps = new RowProperties(height, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
         if (rowProps.HasCustomProps)
-        {
             ApplyRowCustomProps(in rowProps, context.Worksheet, rowIndex, context.Styles);
-        }
 
-        // Cache the row-level inherited style (sheet + row) once per row.
-        // This avoids a RowsCollection dictionary lookup for every cell.
         var ws = context.Worksheet;
         var sheetStyle = ws.StyleValue;
         var rowStyle = ws.Internals.RowsCollection.TryGetValue(rowIndex, out var r)
             ? r.StyleValue
             : sheetStyle;
         state.CachedRowInheritedStyle = rowStyle;
-
         state.LastColumnNumber = 0;
 
-        // Move from the start element of 'row' forward. We can get cell, extList or end of row.
-        reader.MoveAhead();
-
-        while (reader.IsStartElement("c"))
+        if (isEmptyRow)
         {
-            LoadCell(in context, reader, rowIndex, ref state);
-
-            // Move from an end element of 'cell' either to next cell, extList start or end of row.
-            reader.MoveAhead();
+            reader.Read();
+            return;
         }
 
-        // In theory, row can also contain extList, just skip them.
-        while (reader.IsStartElement("extLst"))
+        reader.Read(); // Move into the row's children (first <c> or </row>).
+
+        while (IsMainElement(reader, "c"))
+            LoadCellXml(reader, in context, rowIndex, ref state);
+
+        // A row can also contain extLst; skip any remaining children.
+        while (reader.NodeType == XmlNodeType.Element)
             reader.Skip();
+
+        reader.Read(); // Move past </row>.
     }
 
-    private static void LoadCell(in SheetDataReadContext context, OpenXmlPartReader reader, int rowIndex,
+    private static void LoadCellXml(XmlReader reader, in SheetDataReadContext context, int rowIndex,
         ref SheetDataReadState state)
     {
-        Debug.Assert(reader is { LocalName: "c", IsStartElement: true });
+        Debug.Assert(reader is { NodeType: XmlNodeType.Element, LocalName: "c" });
 
-        // Parse all cell attributes in a single pass instead of 3 separate lookups
-        // (r, s, t) plus a 4th pass for misc attributes (ph, cm, vm).
-        // For 3.75M cells this reduces ~15M linear scans to ~3.75M single passes.
-        var attributes = reader.Attributes;
         int styleIndex = 0;
         XLSheetPoint? cellRef = null;
         string? typeAttr = null;
@@ -199,37 +243,42 @@ internal static class WorksheetSheetDataReader
         uint? cellMetaIndex = null;
         uint? valueMetaIndex = null;
         bool hasMisc = false;
-        var count = attributes.Count;
-        for (var i = 0; i < count; i++)
-        {
-            var attr = attributes[i];
-            if (!string.IsNullOrEmpty(attr.NamespaceUri))
-                continue;
+        var isEmptyCell = reader.IsEmptyElement;
 
-            switch (attr.LocalName)
+        if (reader.HasAttributes)
+        {
+            while (reader.MoveToNextAttribute())
             {
-                case "r":
-                    cellRef = XLSheetPoint.Parse(attr.Value!);
-                    break;
-                case "s":
-                    TryParseOoxmlNonNegativeInt(attr.Value!, out styleIndex);
-                    break;
-                case "t":
-                    typeAttr = attr.Value;
-                    break;
-                case "ph":
-                    showPhonetic = attr.Value == "1" || string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase);
-                    if (showPhonetic) hasMisc = true;
-                    break;
-                case "cm":
-                    cellMetaIndex = uint.Parse(attr.Value!);
-                    hasMisc = true;
-                    break;
-                case "vm":
-                    valueMetaIndex = uint.Parse(attr.Value!);
-                    hasMisc = true;
-                    break;
+                if (reader.NamespaceURI.Length != 0)
+                    continue;
+
+                switch (reader.LocalName)
+                {
+                    case "r":
+                        cellRef = XLSheetPoint.Parse(reader.Value);
+                        break;
+                    case "s":
+                        TryParseOoxmlNonNegativeInt(reader.Value, out styleIndex);
+                        break;
+                    case "t":
+                        typeAttr = reader.Value;
+                        break;
+                    case "ph":
+                        showPhonetic = ParseXmlBool(reader.Value);
+                        if (showPhonetic) hasMisc = true;
+                        break;
+                    case "cm":
+                        cellMetaIndex = uint.Parse(reader.Value);
+                        hasMisc = true;
+                        break;
+                    case "vm":
+                        valueMetaIndex = uint.Parse(reader.Value);
+                        hasMisc = true;
+                        break;
+                }
             }
+
+            reader.MoveToElement();
         }
 
         var cellAddress = cellRef ?? new XLSheetPoint(rowIndex, state.LastColumnNumber + 1);
@@ -238,10 +287,6 @@ internal static class WorksheetSheetDataReader
 
         var cellStyleValue = ResolveCachedStyleValue(styleIndex, context.Styles, context.StyleList);
 
-        // When the resolved style matches the inherited style AND the cell has data
-        // in another slice, we skip the StyleSlice write — avoiding per-row Lut
-        // allocation in the style slice for large data sheets.
-        // Use cached row style + column lookup to avoid per-cell RowsCollection lookup.
         var ws = context.Worksheet;
         var cellsCollection = ws.Internals.CellsCollection;
         var inherited = GetInheritedStyleFast(ws, state.CachedRowInheritedStyle!, cellAddress.Column, context.HasColumnStyles);
@@ -260,14 +305,206 @@ internal static class WorksheetSheetDataReader
             cellsCollection.MiscSlice.Set(cellAddress, in misc);
         }
 
-        // Move from the cell start element onwards.
-        reader.MoveAhead();
+        if (isEmptyCell)
+        {
+            // <c/> with no content. Only string-typed cells materialize an empty value.
+            if (dataType == CellValues.SharedString || dataType == CellValues.String)
+                cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, false);
 
-        LoadCellContent(in context, reader, dataType, cellAddress, cellStyleValue, ws, cellsCollection, cellMetaIndex);
+            if (styleMatchesInherited)
+                EnsureStyleForBlankCell(cellsCollection, cellAddress, cellStyleValue);
+
+            reader.Read(); // Move past <c/>.
+            return;
+        }
+
+        reader.Read(); // Move into the cell's children (first <f>/<v>/<is> or </c>).
+        LoadCellContentXml(reader, in context, dataType, cellAddress, cellStyleValue, ws, cellsCollection, cellMetaIndex);
 
         if (styleMatchesInherited)
             EnsureStyleForBlankCell(cellsCollection, cellAddress, cellStyleValue);
+
+        reader.Read(); // Move past </c>.
     }
+
+    private static void LoadCellContentXml(XmlReader reader, in SheetDataReadContext context,
+        CellValues dataType, XLSheetPoint cellAddress, XLStyleValue cellStyleValue,
+        XLWorksheet ws, XLCellsCollection cellsCollection, uint? cellMetaIndex)
+    {
+        // Positioned on the first child of <c> (an Element) or on </c> (an EndElement).
+        var formula = IsMainElement(reader, "f")
+            ? SetCellFormulaXml(reader, ws, cellAddress, context.SharedFormulasR1C1, cellMetaIndex, context.DynamicArrayCmIndexes)
+            : null;
+
+        var formulaInline = formula is not null;
+
+        var cellHasValue = IsMainElement(reader, "v");
+        var cellWasSetWithEmptyValue = false;
+        if (cellHasValue)
+        {
+            var text = reader.ReadElementContentAsString(); // Reads <v> text and moves past </v>.
+            SetCellValue(dataType, text, cellsCollection, cellAddress, cellStyleValue, ws,
+                context.SharedStrings, formulaInline, context.NumberDataTypeCache);
+        }
+        else if (dataType == CellValues.SharedString || dataType == CellValues.String)
+        {
+            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, formulaInline);
+            cellWasSetWithEmptyValue = true;
+        }
+
+        if (formulaInline && (cellHasValue || cellWasSetWithEmptyValue))
+            formula!.MarkClean(ws.Workbook);
+
+        if (IsMainElement(reader, "is"))
+            LoadInlineStringXml(reader, dataType, cellsCollection, cellAddress, ws);
+
+        if (context.Use1904DateSystem && dataType == CellValues.Number)
+            Adjust1904DateSystem(cellsCollection, cellAddress);
+
+        // Ensure we land on </c>: skip any unrecognized trailing child elements.
+        while (reader.NodeType == XmlNodeType.Element)
+            reader.Skip();
+    }
+
+    private static XLCellFormula? SetCellFormulaXml(XmlReader reader, XLWorksheet ws, XLSheetPoint cellAddress,
+        Dictionary<uint, string> sharedFormulasR1C1, uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes)
+    {
+        string? typeAttr = null;
+        string? refAttr = null;
+        string? r1Attr = null;
+        string? r2Attr = null;
+        bool aca = false, dt2D = false, del1 = false, del2 = false, dtr = false;
+        uint? sharedIndex = null;
+
+        if (reader.HasAttributes)
+        {
+            while (reader.MoveToNextAttribute())
+            {
+                if (reader.NamespaceURI.Length != 0)
+                    continue;
+
+                switch (reader.LocalName)
+                {
+                    // bx attribute of cell formula is never used, per MS-OI29500 2.1.620.
+                    case "t": typeAttr = reader.Value; break;
+                    case "ref": refAttr = reader.Value; break;
+                    case "si": sharedIndex = uint.Parse(reader.Value); break;
+                    case "aca": aca = ParseXmlBool(reader.Value); break;
+                    case "dt2D": dt2D = ParseXmlBool(reader.Value); break;
+                    case "del1": del1 = ParseXmlBool(reader.Value); break;
+                    case "del2": del2 = ParseXmlBool(reader.Value); break;
+                    case "r1": r1Attr = reader.Value; break;
+                    case "r2": r2Attr = reader.Value; break;
+                    case "dtr": dtr = ParseXmlBool(reader.Value); break;
+                }
+            }
+
+            reader.MoveToElement();
+        }
+
+        var formulaText = reader.ReadElementContentAsString(); // Reads <f> text and moves past </f>.
+
+        var formulaType = typeAttr switch
+        {
+            "normal" => CellFormulaValues.Normal,
+            "array" => CellFormulaValues.Array,
+            "dataTable" => CellFormulaValues.DataTable,
+            "shared" => CellFormulaValues.Shared,
+            null => CellFormulaValues.Normal,
+            _ => throw new NotSupportedException("Unknown formula type.")
+        };
+
+        var formulaSlice = ws.Internals.CellsCollection.FormulaSlice;
+        XLCellFormula? formula = null;
+        if (formulaType == CellFormulaValues.Normal)
+        {
+            formula = XLCellFormula.NormalA1(formulaText);
+            formulaSlice.SetDuringLoad(cellAddress, formula);
+        }
+        else if (formulaType == CellFormulaValues.Array && refAttr is not null)
+        {
+            // Child cells of an array may have an array type but no ref (reserved for the master cell).
+            var arrayArea = XLSheetRange.Parse(refAttr);
+            var isDynamicArray = cellMetaIndex is { } cm &&
+                                 dynamicArrayCmIndexes is not null &&
+                                 dynamicArrayCmIndexes.Contains(cm);
+            if (isDynamicArray)
+            {
+                formula = XLCellFormula.DynamicArrayA1(formulaText);
+                formula.Range = arrayArea;
+                formulaSlice.SetDuringLoad(cellAddress, formula);
+            }
+            else
+            {
+                formula = XLCellFormula.Array(formulaText, arrayArea, aca);
+                formulaSlice.SetArray(arrayArea, formula);
+            }
+        }
+        else if (formulaType == CellFormulaValues.Shared && sharedIndex is { } si)
+        {
+            formula = LoadSharedFormula(formulaText, cellAddress, si, sharedFormulasR1C1, formulaSlice);
+        }
+        else if (formulaType == CellFormulaValues.DataTable && refAttr is not null)
+        {
+            formula = LoadDataTableFormulaXml(refAttr, r1Attr, r2Attr, dt2D, del1, del2, dtr, cellAddress, formulaSlice);
+        }
+
+        return formula;
+    }
+
+    private static XLCellFormula LoadDataTableFormulaXml(string refAttr, string? r1Attr, string? r2Attr,
+        bool is2D, bool input1Deleted, bool input2Deleted, bool isRowDataTable,
+        XLSheetPoint cellAddress, FormulaSlice formulaSlice)
+    {
+        var dataTableArea = XLSheetRange.Parse(refAttr);
+        var input1 = r1Attr is not null ? XLSheetPoint.Parse(r1Attr) : throw MissingRequiredAttr("r1");
+        XLCellFormula formula;
+        if (is2D)
+        {
+            var input2 = r2Attr is not null ? XLSheetPoint.Parse(r2Attr) : throw MissingRequiredAttr("r2");
+            formula = XLCellFormula.DataTable2D(dataTableArea, input1, input1Deleted, input2, input2Deleted);
+        }
+        else
+        {
+            formula = XLCellFormula.DataTable1D(dataTableArea, input1, input1Deleted, isRowDataTable);
+        }
+
+        formulaSlice.SetDuringLoad(cellAddress, formula);
+        return formula;
+    }
+
+    private static void LoadInlineStringXml(XmlReader reader, CellValues dataType,
+        XLCellsCollection cellsCollection, XLSheetPoint cellAddress, XLWorksheet ws)
+    {
+        if (dataType != CellValues.InlineString)
+        {
+            reader.Skip(); // Moves past </is>.
+            return;
+        }
+
+        cellsCollection.ValueSlice.SetShareString(cellAddress, false);
+
+        // Rich text / phonetics are rare; reuse the SDK DOM parsing by materializing the <is>
+        // subtree. ReadOuterXml emits the in-scope default namespace, so the fragment parses in
+        // the spreadsheet-main namespace. ReadOuterXml also moves the reader past </is>.
+        var inlineString = new InlineString(reader.ReadOuterXml());
+        if (inlineString.Text is not null)
+        {
+            cellsCollection.ValueSlice.SetCellValue(cellAddress, inlineString.Text.Text.FixNewLines());
+        }
+        else if (inlineString.HasChildren)
+        {
+            var xlCell = new XLCell(ws, cellAddress);
+            SetCellText(xlCell, inlineString);
+        }
+        else
+        {
+            cellsCollection.ValueSlice.SetCellValue(cellAddress, string.Empty);
+        }
+    }
+
+    private static bool ParseXmlBool(string value)
+        => value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Fast inherited style lookup using pre-cached row style. When the worksheet has no
@@ -316,144 +553,14 @@ internal static class WorksheetSheetDataReader
     }
 
     /// <summary>
-    /// Reads formula, value, and inline string elements from the current reader position.
-    /// The reader must be positioned just after the cell start element's attributes.
-    /// </summary>
-    private static void LoadCellContent(in SheetDataReadContext context, OpenXmlPartReader reader,
-        CellValues dataType, XLSheetPoint cellAddress, XLStyleValue cellStyleValue,
-        XLWorksheet ws, XLCellsCollection cellsCollection, uint? cellMetaIndex)
-    {
-        var formula = LoadCellFormula(ws, cellAddress, reader, context.SharedFormulasR1C1,
-            cellMetaIndex, context.DynamicArrayCmIndexes);
-
-        // Formula results are stored inline (not in the shared string table).
-        var formulaInline = formula is not null;
-
-        var cellHasValue = reader.IsStartElement("v");
-        var cellWasSetWithEmptyValue = false;
-        if (cellHasValue)
-        {
-            SetCellValue(dataType, reader.GetText(), cellsCollection, cellAddress, cellStyleValue, ws,
-                context.SharedStrings, formulaInline);
-            reader.Skip();
-        }
-        else if (dataType.Equals(CellValues.SharedString) || dataType.Equals(CellValues.String))
-        {
-            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, formulaInline);
-            cellWasSetWithEmptyValue = true;
-        }
-
-        // Formulas loaded with a cached <v> value (or a string-typed cell that we filled
-        // with an empty placeholder) are considered clean — their cached result is trusted
-        // until the workbook epoch bumps. Formulas without a cached value keep the default
-        // _evalEpoch (0), which reads as "explicitly dirty" so they recalculate on first read.
-        // Formula can be null for slave cells of array formulas.
-        if (formulaInline && (cellHasValue || cellWasSetWithEmptyValue))
-            formula!.MarkClean(ws.Workbook);
-
-        if (reader.IsStartElement("is"))
-            LoadInlineString(dataType, cellsCollection, cellAddress, ws, reader);
-
-        // Only adjust for the 1904 date system when the cell contains a numeric serial
-        // date (t="n" or no type attribute, both parsed as CellValues.Number). ISO 8601
-        // date cells (t="d", parsed as CellValues.Date) are absolute and must not be shifted.
-        if (context.Use1904DateSystem && dataType == CellValues.Number)
-            Adjust1904DateSystem(cellsCollection, cellAddress);
-    }
-
-    /// <summary>
-    /// If the reader is positioned at an 'f' element, loads the formula and advances past it.
-    /// </summary>
-    private static XLCellFormula? LoadCellFormula(XLWorksheet ws, XLSheetPoint cellAddress,
-        OpenXmlPartReader reader, Dictionary<uint, string> sharedFormulasR1C1,
-        uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes)
-    {
-        if (!reader.IsStartElement("f"))
-            return null;
-
-        var formula = SetCellFormula(ws, cellAddress, reader, sharedFormulasR1C1, cellMetaIndex, dynamicArrayCmIndexes);
-        reader.MoveAhead();
-        return formula;
-    }
-
-    private static XLCellFormula? SetCellFormula(XLWorksheet ws, XLSheetPoint cellAddress, OpenXmlPartReader reader,
-        Dictionary<uint, string> sharedFormulasR1C1, uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes)
-    {
-        var attributes = reader.Attributes;
-        var formulaSlice = ws.Internals.CellsCollection.FormulaSlice;
-
-        // bx attribute of cell formula is not ever used, per MS-OI29500 2.1.620
-        var formulaText = reader.GetText();
-        var formulaType = attributes.GetAttribute("t") switch
-        {
-            "normal" => CellFormulaValues.Normal,
-            "array" => CellFormulaValues.Array,
-            "dataTable" => CellFormulaValues.DataTable,
-            "shared" => CellFormulaValues.Shared,
-            null => CellFormulaValues.Normal,
-            _ => throw new NotSupportedException("Unknown formula type.")
-        };
-
-        // The inline flag (shareString=false) for formula results is now set directly
-        // by SetCellValueDuringLoad with inline=true in LoadCellContent, eliminating
-        // separate SetShareString calls and their per-cell slice lookups.
-        XLCellFormula? formula = null;
-        if (formulaType == CellFormulaValues.Normal)
-        {
-            formula = XLCellFormula.NormalA1(formulaText);
-            formulaSlice.SetDuringLoad(cellAddress, formula);
-        }
-        else if (formulaType == CellFormulaValues.Array && attributes.GetRefAttribute("ref") is
-        {
-        } arrayArea) // Child cells of an array may have an array type, but not ref, that is reserved for the master cell
-        {
-            var isDynamicArray = cellMetaIndex is { } cm &&
-                                 dynamicArrayCmIndexes is not null &&
-                                 dynamicArrayCmIndexes.Contains(cm);
-            if (isDynamicArray)
-            {
-                // A dynamic array is serialised as an array formula whose ref is the spill
-                // footprint, marked by the cm XLDAPR metadata. Only the anchor holds the
-                // formula (spilled cells load as plain cached values); storing the footprint on
-                // Range marks those cells as owned so the first re-spill doesn't see them as a
-                // #SPILL! collision.
-                formula = XLCellFormula.DynamicArrayA1(formulaText);
-                formula.Range = arrayArea;
-                formulaSlice.SetDuringLoad(cellAddress, formula);
-            }
-            else
-            {
-                var aca = attributes.GetBoolAttribute("aca", false);
-
-                // Because cells are read from top-to-bottom, from left-to-right, none of child cells have
-                // a formula yet. Also, Excel doesn't allow change of array data, only through the parent formula.
-                formula = XLCellFormula.Array(formulaText, arrayArea, aca);
-                formulaSlice.SetArray(arrayArea, formula);
-            }
-        }
-        else if (formulaType == CellFormulaValues.Shared && attributes.GetUintAttribute("si") is { } sharedIndex)
-        {
-            formula = LoadSharedFormula(formulaText, cellAddress, sharedIndex, sharedFormulasR1C1, formulaSlice);
-        }
-        else if (formulaType == CellFormulaValues.DataTable && attributes.GetRefAttribute("ref") is { } dataTableArea)
-        {
-            formula = LoadDataTableFormula(attributes, cellAddress, dataTableArea, formulaSlice);
-        }
-
-        // Go from the start of the 'f' element to the end of the 'f' element.
-        reader.MoveAhead();
-
-        return formula;
-    }
-
-    /// <summary>
     /// Write cell value directly to <see cref="ValueSlice"/> during loading,
     /// bypassing <see cref="XLCell"/> allocation and <c>CalcEngine.MarkDirty</c>.
     /// An <see cref="XLCell"/> is only created for the rare rich-text shared-string path.
     /// </summary>
     internal static void SetCellValue(CellValues dataType, string? cellValue,
         XLCellsCollection cellsCollection, XLSheetPoint cellAddress, XLStyleValue cellStyleValue,
-        XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline)
+        XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline,
+        Dictionary<XLNumberFormatValue, XLDataType>? numberDataTypeCache = null)
     {
         // Only String writes an empty value when v is null.
         if (cellValue is null)
@@ -464,7 +571,7 @@ internal static class WorksheetSheetDataReader
         }
 
         if (dataType == CellValues.Number)
-            SetNumberCellValue(cellValue, cellsCollection, cellAddress, cellStyleValue, inline);
+            SetNumberCellValue(cellValue, cellsCollection, cellAddress, cellStyleValue, inline, numberDataTypeCache);
         else if (dataType == CellValues.SharedString)
             SetSharedStringCellValue(cellValue, cellsCollection, cellAddress, ws, sharedStrings, inline);
         else if (dataType == CellValues.String)
@@ -604,6 +711,28 @@ internal static class WorksheetSheetDataReader
             xlStyle = LoadStyleNumberFormat(cellFormat, numberingFormats, xlStyle);
     }
 
+    /// <summary>
+    /// Resolves the <see cref="XLDataType"/> for a numeric cell's number format, memoizing the
+    /// result per interned <see cref="XLNumberFormatValue"/>. <see cref="GetNumberDataType"/>
+    /// scans the format string, so caching avoids repeating that work for every numeric cell that
+    /// shares a format (the common case for data sheets). A <c>null</c> cache falls back to a
+    /// direct computation.
+    /// </summary>
+    private static XLDataType GetCachedNumberDataType(XLNumberFormatValue numberFormat,
+        Dictionary<XLNumberFormatValue, XLDataType>? cache)
+    {
+        if (cache is null)
+            return GetNumberDataType(numberFormat);
+
+        if (!cache.TryGetValue(numberFormat, out var dataType))
+        {
+            dataType = GetNumberDataType(numberFormat);
+            cache[numberFormat] = dataType;
+        }
+
+        return dataType;
+    }
+
     internal static XLDataType GetNumberDataType(XLNumberFormatValue numberFormat)
     {
         var numberFormatId = (XLPredefinedFormat.DateTime)numberFormat.NumberFormatId;
@@ -738,35 +867,6 @@ internal static class WorksheetSheetDataReader
         }
     }
 
-    private static void LoadInlineString(CellValues dataType, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, XLWorksheet ws, OpenXmlPartReader reader)
-    {
-        if (dataType == CellValues.InlineString)
-        {
-            cellsCollection.ValueSlice.SetShareString(cellAddress, false);
-            if (reader.LoadCurrentElement() is RstType inlineString)
-            {
-                if (inlineString.Text is not null)
-                    cellsCollection.ValueSlice.SetCellValue(cellAddress, inlineString.Text.Text.FixNewLines());
-                else
-                {
-                    var xlCell = new XLCell(ws, cellAddress);
-                    SetCellText(xlCell, inlineString);
-                }
-            }
-            else
-            {
-                cellsCollection.ValueSlice.SetCellValue(cellAddress, string.Empty);
-            }
-
-            reader.MoveAhead();
-        }
-        else
-        {
-            reader.Skip();
-        }
-    }
-
     /// <summary>
     /// Adjusts the cell value for the 1904 date system by adding 1462 days.
     /// Must only be called for numeric serial date cells (t="n" or absent type attribute).
@@ -815,35 +915,12 @@ internal static class WorksheetSheetDataReader
         return formula;
     }
 
-    private static XLCellFormula LoadDataTableFormula(ReadOnlyCollection<OpenXmlAttribute> attributes,
-        XLSheetPoint cellAddress, XLSheetRange dataTableArea, FormulaSlice formulaSlice)
-    {
-        var is2D = attributes.GetBoolAttribute("dt2D", false);
-        var input1Deleted = attributes.GetBoolAttribute("del1", false);
-        var input1 = attributes.GetCellRefAttribute("r1") ?? throw MissingRequiredAttr("r1");
-        XLCellFormula formula;
-        if (is2D)
-        {
-            var input2Deleted = attributes.GetBoolAttribute("del2", false);
-            var input2 = attributes.GetCellRefAttribute("r2") ?? throw MissingRequiredAttr("r2");
-            formula = XLCellFormula.DataTable2D(dataTableArea, input1, input1Deleted, input2, input2Deleted);
-        }
-        else
-        {
-            var isRowDataTable = attributes.GetBoolAttribute("dtr", false);
-            formula = XLCellFormula.DataTable1D(dataTableArea, input1, input1Deleted, isRowDataTable);
-        }
-
-        formulaSlice.SetDuringLoad(cellAddress, formula);
-
-        return formula;
-    }
-
     private static void SetNumberCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, XLStyleValue cellStyleValue, bool inline)
+        XLSheetPoint cellAddress, XLStyleValue cellStyleValue, bool inline,
+        Dictionary<XLNumberFormatValue, XLDataType>? numberDataTypeCache = null)
     {
         if (!TryParseOoxmlDouble(cellValue, out var number)) return;
-        var numberDataType = GetNumberDataType(cellStyleValue.NumberFormat);
+        var numberDataType = GetCachedNumberDataType(cellStyleValue.NumberFormat, numberDataTypeCache);
         var cellNumber = numberDataType switch
         {
             XLDataType.DateTime => XLCellValue.FromSerialDateTime(number),
