@@ -28,6 +28,7 @@ internal static class WorksheetSheetDataReader
         SharedStringEntry[]? sharedStrings,
         Dictionary<uint, string> sharedFormulasR1C1,
         Dictionary<int, XLStyleValue> styleList,
+        Dictionary<XLNumberFormatValue, XLDataType> numberDataTypeCache,
         bool use1904DateSystem,
         HashSet<uint>? dynamicArrayCmIndexes = null)
     {
@@ -36,6 +37,15 @@ internal static class WorksheetSheetDataReader
         public readonly SharedStringEntry[]? SharedStrings = sharedStrings;
         public readonly Dictionary<uint, string> SharedFormulasR1C1 = sharedFormulasR1C1;
         public readonly Dictionary<int, XLStyleValue> StyleList = styleList;
+
+        /// <summary>
+        /// Memoizes the <see cref="XLDataType"/> derived from a cell's number format
+        /// (see <see cref="GetNumberDataType"/>). Keyed by the interned
+        /// <see cref="XLNumberFormatValue"/>, so it holds one entry per distinct format
+        /// rather than recomputing the format-string scan for every numeric cell.
+        /// </summary>
+        public readonly Dictionary<XLNumberFormatValue, XLDataType> NumberDataTypeCache = numberDataTypeCache;
+
         public readonly bool Use1904DateSystem = use1904DateSystem;
 
         /// <summary>
@@ -334,7 +344,7 @@ internal static class WorksheetSheetDataReader
         if (cellHasValue)
         {
             SetCellValue(dataType, reader.GetText(), cellsCollection, cellAddress, cellStyleValue, ws,
-                context.SharedStrings, formulaInline);
+                context.SharedStrings, formulaInline, context.NumberDataTypeCache);
             reader.Skip();
         }
         else if (dataType.Equals(CellValues.SharedString) || dataType.Equals(CellValues.String))
@@ -453,7 +463,8 @@ internal static class WorksheetSheetDataReader
     /// </summary>
     internal static void SetCellValue(CellValues dataType, string? cellValue,
         XLCellsCollection cellsCollection, XLSheetPoint cellAddress, XLStyleValue cellStyleValue,
-        XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline)
+        XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline,
+        Dictionary<XLNumberFormatValue, XLDataType>? numberDataTypeCache = null)
     {
         // Only String writes an empty value when v is null.
         if (cellValue is null)
@@ -464,7 +475,7 @@ internal static class WorksheetSheetDataReader
         }
 
         if (dataType == CellValues.Number)
-            SetNumberCellValue(cellValue, cellsCollection, cellAddress, cellStyleValue, inline);
+            SetNumberCellValue(cellValue, cellsCollection, cellAddress, cellStyleValue, inline, numberDataTypeCache);
         else if (dataType == CellValues.SharedString)
             SetSharedStringCellValue(cellValue, cellsCollection, cellAddress, ws, sharedStrings, inline);
         else if (dataType == CellValues.String)
@@ -602,6 +613,28 @@ internal static class WorksheetSheetDataReader
 
         if (UInt32HasValue(cellFormat.NumberFormatId))
             xlStyle = LoadStyleNumberFormat(cellFormat, numberingFormats, xlStyle);
+    }
+
+    /// <summary>
+    /// Resolves the <see cref="XLDataType"/> for a numeric cell's number format, memoizing the
+    /// result per interned <see cref="XLNumberFormatValue"/>. <see cref="GetNumberDataType"/>
+    /// scans the format string, so caching avoids repeating that work for every numeric cell that
+    /// shares a format (the common case for data sheets). A <c>null</c> cache falls back to a
+    /// direct computation.
+    /// </summary>
+    private static XLDataType GetCachedNumberDataType(XLNumberFormatValue numberFormat,
+        Dictionary<XLNumberFormatValue, XLDataType>? cache)
+    {
+        if (cache is null)
+            return GetNumberDataType(numberFormat);
+
+        if (!cache.TryGetValue(numberFormat, out var dataType))
+        {
+            dataType = GetNumberDataType(numberFormat);
+            cache[numberFormat] = dataType;
+        }
+
+        return dataType;
     }
 
     internal static XLDataType GetNumberDataType(XLNumberFormatValue numberFormat)
@@ -840,10 +873,11 @@ internal static class WorksheetSheetDataReader
     }
 
     private static void SetNumberCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, XLStyleValue cellStyleValue, bool inline)
+        XLSheetPoint cellAddress, XLStyleValue cellStyleValue, bool inline,
+        Dictionary<XLNumberFormatValue, XLDataType>? numberDataTypeCache = null)
     {
         if (!TryParseOoxmlDouble(cellValue, out var number)) return;
-        var numberDataType = GetNumberDataType(cellStyleValue.NumberFormat);
+        var numberDataType = GetCachedNumberDataType(cellStyleValue.NumberFormat, numberDataTypeCache);
         var cellNumber = numberDataType switch
         {
             XLDataType.DateTime => XLCellValue.FromSerialDateTime(number),
