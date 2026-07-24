@@ -114,7 +114,27 @@ internal sealed class CalcContext
         var formula = sheet.Internals.CellsCollection.FormulaSlice.Get(point);
 
         if (formula is null)
+        {
+            // A formula-less cell may still be a spilled cell of a dynamic array. If its owning
+            // anchor is dirty, the stored value is stale — force the anchor to evaluate first.
+            if (CalcEngine.HasSpillOwners &&
+                CalcEngine.TryGetDirtySpillOwner(sheet.SheetId, point, Workbook, out var spillAnchor))
+            {
+                if (RecalculateSheetId is not null && sheet.SheetId != RecalculateSheetId.Value)
+                    return valueSlice.GetCellValue(point);
+
+                if (_recursive)
+                {
+                    // Evaluate the anchor recursively so it spills current values into this cell.
+                    _ = GetCellValue(sheet, spillAnchor.Row, spillAnchor.Column);
+                    return valueSlice.GetCellValue(point);
+                }
+
+                throw new GettingDataException(new XLBookPoint(sheet.SheetId, spillAnchor));
+            }
+
             return valueSlice.GetCellValue(point);
+        }
 
         if (formula.IsClean(Workbook))
             return valueSlice.GetCellValue(point);

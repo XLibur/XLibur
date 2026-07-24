@@ -33,6 +33,11 @@ internal static class Information
         if (!value.TryPickError(out var error))
             return XLError.NoValueAvailable;
 
+        // ERROR.TYPE numbering matches the enum order (off by one) up to #N/A, but the
+        // modern errors are non-contiguous in Excel: #SPILL! is 9, not 8.
+        if (error == XLError.SpillRange)
+            return 9;
+
         return (int)error + 1;
     }
 

@@ -16,6 +16,7 @@ internal static class XLErrorExtensions
             XLError.NoValueAvailable => "#N/A",
             XLError.NullValue => "#NULL!",
             XLError.NumberInvalid => "#NUM!",
+            XLError.SpillRange => "#SPILL!",
             _ => throw new ArgumentOutOfRangeException(nameof(error), error, "Unknown XLError value.")
         };
 }
@@ -30,7 +31,8 @@ internal static class XLErrorParser
         ["#NAME?"] = XLError.NameNotRecognized,
         ["#N/A"] = XLError.NoValueAvailable,
         ["#NULL!"] = XLError.NullValue,
-        ["#NUM!"] = XLError.NumberInvalid
+        ["#NUM!"] = XLError.NumberInvalid,
+        ["#SPILL!"] = XLError.SpillRange
     };
 
     public static bool TryParseError(string input, out XLError error)

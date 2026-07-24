@@ -61,7 +61,7 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
 
     private XLCellValue(XLError error) : this()
     {
-        if (error < XLError.NullValue || error > XLError.NoValueAvailable)
+        if (error < XLError.NullValue || error > XLError.SpillRange)
             throw new ArgumentOutOfRangeException(nameof(error));
 
         Type = XLDataType.Error;

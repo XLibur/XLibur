@@ -52,5 +52,16 @@ public enum XLError
     /// <c>#N/A</c> - Intended to indicate when a designated value is not available.
     /// </summary>
     /// <example>The value is used for extra cells of an array formula that is applied on an array of a smaller size that the array formula.</example>
-    NoValueAvailable = 6
+    NoValueAvailable = 6,
+
+    /// <summary>
+    /// <c>#SPILL!</c> - a dynamic array formula's result can't be written because the
+    /// spill range isn't empty (blocked by other content) or would fall outside the sheet.
+    /// </summary>
+    /// <remarks>
+    /// This member breaks the "value + 1 equals <c>ERROR.TYPE</c>" convention that holds for
+    /// the members above: <c>ERROR.TYPE(#SPILL!)</c> is <c>9</c>, not <c>8</c>, so the
+    /// <c>ERROR.TYPE</c> function special-cases it.
+    /// </remarks>
+    SpillRange = 7
 }

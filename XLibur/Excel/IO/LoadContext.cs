@@ -105,6 +105,56 @@ internal sealed class LoadContext
     /// </summary>
     internal Dictionary<uint, XLCellImage>? RichValueImages { get; set; }
 
+    /// <summary>
+    /// The set of 1-based cell-metadata (<c>cm</c>) indexes that reference the <c>XLDAPR</c>
+    /// dynamic-array future-metadata type. A cell whose <c>cm</c> is in this set carries a
+    /// dynamic-array formula (as opposed to a legacy CSE array). <c>null</c> when the workbook
+    /// has no dynamic-array metadata. Populated once from the cell-metadata part.
+    /// </summary>
+    internal HashSet<uint>? DynamicArrayCmIndexes { get; set; }
+
+    /// <summary>
+    /// Populate <see cref="DynamicArrayCmIndexes"/> from the workbook's cell-metadata part by
+    /// finding every cell-metadata record that references the <c>XLDAPR</c> type.
+    /// </summary>
+    internal void LoadDynamicArrayMetadata(Metadata? metadata)
+    {
+        if (metadata?.MetadataTypes is not { } metadataTypes)
+            return;
+
+        uint typeIndex = 0;
+        uint xldaprTypeIndex = 0;
+        foreach (var metadataType in metadataTypes.Elements<MetadataType>())
+        {
+            typeIndex++;
+            if (metadataType.Name?.Value == "XLDAPR")
+            {
+                xldaprTypeIndex = typeIndex;
+                break;
+            }
+        }
+
+        if (xldaprTypeIndex == 0 || metadata.GetFirstChild<CellMetadata>() is not { } cellMetadata)
+            return;
+
+        uint cmIndex = 0;
+        foreach (var block in cellMetadata.Elements<MetadataBlock>())
+        {
+            cmIndex++;
+
+            // A block may hold several records; it is a dynamic-array cell if any of them
+            // references the XLDAPR type (add the block index at most once).
+            foreach (var record in block.Elements<MetadataRecord>())
+            {
+                if (record.TypeIndex?.Value == xldaprTypeIndex)
+                {
+                    (DynamicArrayCmIndexes ??= new HashSet<uint>()).Add(cmIndex);
+                    break;
+                }
+            }
+        }
+    }
+
     private static Exception PivotCfNotFoundException(string sheetName, int priority)
     {
         return PartStructureException.ExpectedElementNotFound($"conditional formatting for pivot table in sheet {sheetName} with priority {priority}");

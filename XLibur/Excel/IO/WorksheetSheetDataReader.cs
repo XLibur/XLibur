@@ -28,7 +28,8 @@ internal static class WorksheetSheetDataReader
         SharedStringEntry[]? sharedStrings,
         Dictionary<uint, string> sharedFormulasR1C1,
         Dictionary<int, XLStyleValue> styleList,
-        bool use1904DateSystem)
+        bool use1904DateSystem,
+        HashSet<uint>? dynamicArrayCmIndexes = null)
     {
         public readonly StylesheetData Styles = styles;
         public readonly XLWorksheet Worksheet = worksheet;
@@ -36,6 +37,12 @@ internal static class WorksheetSheetDataReader
         public readonly Dictionary<uint, string> SharedFormulasR1C1 = sharedFormulasR1C1;
         public readonly Dictionary<int, XLStyleValue> StyleList = styleList;
         public readonly bool Use1904DateSystem = use1904DateSystem;
+
+        /// <summary>
+        /// 1-based cell-metadata (<c>cm</c>) indexes that mark a formula as a dynamic array.
+        /// <c>null</c> when the workbook has no dynamic-array metadata.
+        /// </summary>
+        public readonly HashSet<uint>? DynamicArrayCmIndexes = dynamicArrayCmIndexes;
 
         /// <summary>
         /// Whether the worksheet has any custom column styles. When <c>false</c>,
@@ -256,7 +263,7 @@ internal static class WorksheetSheetDataReader
         // Move from the cell start element onwards.
         reader.MoveAhead();
 
-        LoadCellContent(in context, reader, dataType, cellAddress, cellStyleValue, ws, cellsCollection);
+        LoadCellContent(in context, reader, dataType, cellAddress, cellStyleValue, ws, cellsCollection, cellMetaIndex);
 
         if (styleMatchesInherited)
             EnsureStyleForBlankCell(cellsCollection, cellAddress, cellStyleValue);
@@ -314,9 +321,10 @@ internal static class WorksheetSheetDataReader
     /// </summary>
     private static void LoadCellContent(in SheetDataReadContext context, OpenXmlPartReader reader,
         CellValues dataType, XLSheetPoint cellAddress, XLStyleValue cellStyleValue,
-        XLWorksheet ws, XLCellsCollection cellsCollection)
+        XLWorksheet ws, XLCellsCollection cellsCollection, uint? cellMetaIndex)
     {
-        var formula = LoadCellFormula(ws, cellAddress, reader, context.SharedFormulasR1C1);
+        var formula = LoadCellFormula(ws, cellAddress, reader, context.SharedFormulasR1C1,
+            cellMetaIndex, context.DynamicArrayCmIndexes);
 
         // Formula results are stored inline (not in the shared string table).
         var formulaInline = formula is not null;
@@ -357,18 +365,19 @@ internal static class WorksheetSheetDataReader
     /// If the reader is positioned at an 'f' element, loads the formula and advances past it.
     /// </summary>
     private static XLCellFormula? LoadCellFormula(XLWorksheet ws, XLSheetPoint cellAddress,
-        OpenXmlPartReader reader, Dictionary<uint, string> sharedFormulasR1C1)
+        OpenXmlPartReader reader, Dictionary<uint, string> sharedFormulasR1C1,
+        uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes)
     {
         if (!reader.IsStartElement("f"))
             return null;
 
-        var formula = SetCellFormula(ws, cellAddress, reader, sharedFormulasR1C1);
+        var formula = SetCellFormula(ws, cellAddress, reader, sharedFormulasR1C1, cellMetaIndex, dynamicArrayCmIndexes);
         reader.MoveAhead();
         return formula;
     }
 
     private static XLCellFormula? SetCellFormula(XLWorksheet ws, XLSheetPoint cellAddress, OpenXmlPartReader reader,
-        Dictionary<uint, string> sharedFormulasR1C1)
+        Dictionary<uint, string> sharedFormulasR1C1, uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes)
     {
         var attributes = reader.Attributes;
         var formulaSlice = ws.Internals.CellsCollection.FormulaSlice;
@@ -398,12 +407,29 @@ internal static class WorksheetSheetDataReader
         {
         } arrayArea) // Child cells of an array may have an array type, but not ref, that is reserved for the master cell
         {
-            var aca = attributes.GetBoolAttribute("aca", false);
+            var isDynamicArray = cellMetaIndex is { } cm &&
+                                 dynamicArrayCmIndexes is not null &&
+                                 dynamicArrayCmIndexes.Contains(cm);
+            if (isDynamicArray)
+            {
+                // A dynamic array is serialised as an array formula whose ref is the spill
+                // footprint, marked by the cm XLDAPR metadata. Only the anchor holds the
+                // formula (spilled cells load as plain cached values); storing the footprint on
+                // Range marks those cells as owned so the first re-spill doesn't see them as a
+                // #SPILL! collision.
+                formula = XLCellFormula.DynamicArrayA1(formulaText);
+                formula.Range = arrayArea;
+                formulaSlice.SetDuringLoad(cellAddress, formula);
+            }
+            else
+            {
+                var aca = attributes.GetBoolAttribute("aca", false);
 
-            // Because cells are read from top-to-bottom, from left-to-right, none of child cells have
-            // a formula yet. Also, Excel doesn't allow change of array data, only through the parent formula.
-            formula = XLCellFormula.Array(formulaText, arrayArea, aca);
-            formulaSlice.SetArray(arrayArea, formula);
+                // Because cells are read from top-to-bottom, from left-to-right, none of child cells have
+                // a formula yet. Also, Excel doesn't allow change of array data, only through the parent formula.
+                formula = XLCellFormula.Array(formulaText, arrayArea, aca);
+                formulaSlice.SetArray(arrayArea, formula);
+            }
         }
         else if (formulaType == CellFormulaValues.Shared && attributes.GetUintAttribute("si") is { } sharedIndex)
         {

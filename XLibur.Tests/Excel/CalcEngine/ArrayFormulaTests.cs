@@ -339,6 +339,127 @@ public class ArrayFormulaTests
     }
 
     [Test]
+    public void DynamicArrayFormulaSavesAsArrayFormulaWithSpillRef()
+    {
+        // A spilled dynamic array serialises as an array formula whose ref is the spill
+        // footprint, on the anchor cell, plus the cm dynamic-array metadata link.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("S");
+            ws.Cell("A1").SetDynamicFormulaA1("SEQUENCE(3)");
+            wb.RecalculateAllFormulas(); // spills A1:A3
+
+            wb.SaveAs(ms, validate: false);
+        }
+
+        using var zip = new System.IO.Compression.ZipArchive(new MemoryStream(ms.ToArray()), System.IO.Compression.ZipArchiveMode.Read);
+        var sheetEntry = zip.Entries.First(e => e.FullName.Contains("sheet1.xml", StringComparison.OrdinalIgnoreCase));
+        using var sheetReader = new StreamReader(sheetEntry.Open());
+        var sheetXml = sheetReader.ReadToEnd();
+
+        Assert.That(sheetXml, Does.Contain("t=\"array\""), "Dynamic array must serialise as an array formula");
+        Assert.That(sheetXml, Does.Contain("ref=\"A1:A3\""), "Spill footprint must be written as the array ref");
+        Assert.That(sheetXml, Does.Contain("cm=\"1\""), "Dynamic-array cell metadata (cm) missing");
+    }
+
+    [Test]
+    public void DynamicArrayFormulaRoundTripsAndReSpills()
+    {
+        // Full round-trip: save a spilled dynamic array, load it back, and confirm it is
+        // reconstructed as a dynamic array (not a legacy CSE array) that re-spills correctly.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("S");
+            ws.Cell("D1").Value = 5;
+            ws.Cell("D2").Value = 6;
+            ws.Cell("D3").Value = 7;
+            ws.Cell("A1").SetDynamicFormulaA1("UNIQUE(D1:D3)");
+            wb.RecalculateAllFormulas(); // spills A1:A3 = {5;6;7}
+
+            wb.SaveAs(ms, validate: false);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var ws = wb.Worksheet("S");
+            var anchor = (XLCell)ws.Cell("A1");
+
+            Assert.IsTrue(anchor.HasFormula);
+            Assert.IsTrue(anchor.Formula!.IsDynamicArray, "Loaded formula must be a dynamic array, not a CSE array");
+            Assert.IsFalse(((XLCell)ws.Cell("A2")).HasFormula, "Spilled cell must load formula-less");
+
+            // The spill re-evaluates and fills the footprint from the cached child values
+            // without a #SPILL! collision.
+            Assert.AreEqual(5, ws.Cell("A1").Value);
+            Assert.AreEqual(7, ws.Cell("A3").Value);
+
+            // Changing a source re-spills the loaded formula.
+            ws.Cell("D3").Value = 8;
+            wb.RecalculateAllFormulas();
+            Assert.AreEqual(8, ws.Cell("A3").Value);
+        }
+    }
+
+    [Test]
+    public void DynamicArrayAndCseArrayLoadDistinctly()
+    {
+        // A dynamic array (cm metadata) and a legacy CSE array (no cm) both serialise with
+        // t="array"; on load only the one whose cm references XLDAPR becomes dynamic.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("S");
+            ws.Cell("A1").SetDynamicFormulaA1("SEQUENCE(2)"); // dynamic, A1:A2
+            ws.Range("C1:C2").FormulaArrayA1 = "TRANSPOSE({10,20})"; // CSE array, C1:C2
+            wb.RecalculateAllFormulas();
+
+            wb.SaveAs(ms, validate: false);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var ws = wb.Worksheet("S");
+
+            Assert.IsTrue(((XLCell)ws.Cell("A1")).Formula!.IsDynamicArray, "SEQUENCE must load as a dynamic array");
+            Assert.IsFalse(((XLCell)ws.Cell("A2")).HasFormula, "Dynamic spill cell is formula-less");
+
+            Assert.IsFalse(((XLCell)ws.Cell("C1")).Formula!.IsDynamicArray, "CSE array must not load as dynamic");
+            Assert.IsTrue(ws.Cell("C1").HasArrayFormula, "CSE array keeps its array formula");
+            Assert.IsTrue(ws.Cell("C2").HasArrayFormula, "CSE array child keeps the shared array formula");
+        }
+    }
+
+    [Test]
+    public void DynamicArraySpillErrorRoundTrips()
+    {
+        // A blocked dynamic array (#SPILL! anchor) round-trips: the error value survives save/load
+        // (exercising the XLError.SpillRange save/parse path) and stays blocked after reload.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("S");
+            ws.Cell("A2").Value = "block";
+            ws.Cell("A1").SetDynamicFormulaA1("SEQUENCE(3)");
+            wb.RecalculateAllFormulas();
+            Assert.AreEqual(XLError.SpillRange, ws.Cell("A1").Value);
+
+            wb.SaveAs(ms, validate: false);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var ws = wb.Worksheet("S");
+            Assert.AreEqual("block", ws.Cell("A2").Value);
+            Assert.AreEqual(XLError.SpillRange, ws.Cell("A1").Value);
+        }
+    }
+
+    [Test]
     public void DeletingRowsThroughArrayDoesNotCorruptRange()
     {
         // Deleting rows that overlap an array used to push the stored range past row 1, producing

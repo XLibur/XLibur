@@ -32,6 +32,32 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </summary>
     private bool _needsDependencyTree;
 
+    /// <summary>
+    /// The spill footprint of every dynamic-array formula, one entry per formula (a rectangle,
+    /// not one entry per spilled cell). Spilled cells are formula-less, so this lets a read of one
+    /// (during recalc) find the owning anchor and force it to evaluate first — see
+    /// <see cref="TryGetDirtySpillOwner"/>. Rebuilt when the dependency tree is (re)built and kept
+    /// in sync by <see cref="SpillDynamicArray"/>. Empty for workbooks without dynamic arrays.
+    /// </summary>
+    private readonly List<SpillFootprint> _spillOwners = new();
+
+    /// <summary>
+    /// A dynamic array's spill footprint (including the anchor at <see cref="Range"/>'s first
+    /// point) together with the owning formula.
+    /// </summary>
+    private readonly struct SpillFootprint(uint sheetId, XLSheetRange range, XLCellFormula owner)
+    {
+        internal readonly uint SheetId = sheetId;
+        internal readonly XLSheetRange Range = range;
+        internal readonly XLCellFormula Owner = owner;
+    }
+
+    /// <summary>
+    /// Whether any dynamic-array formula currently has a spill footprint. Used to keep the
+    /// spill-owner lookup out of the hot cell-read path for the common no-dynamic-array case.
+    /// </summary>
+    internal bool HasSpillOwners => _spillOwners.Count > 0;
+
     public XLCalcEngine(CultureInfo culture)
     {
         _culture = culture;
@@ -129,6 +155,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         _dependencyTree = null;
         _chain = null;
         _needsDependencyTree = false;
+        _spillOwners.Clear();
 
         // Mark everything as dirty, because there can be stale values
         foreach (var sheet in sheets)
@@ -147,6 +174,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         if (_dependencyTree is null && _needsDependencyTree)
         {
             _dependencyTree = DependencyTree.CreateFrom(sheet.Workbook);
+            RebuildSpillOwners(sheet.Workbook);
         }
 
         if (_dependencyTree is not null)
@@ -175,7 +203,11 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         try
         {
             var valueSlice = sheet.Internals.CellsCollection.ValueSlice;
-            if (formula.Type == FormulaType.Normal)
+            if (formula.IsDynamicArray)
+            {
+                SpillDynamicArray(formula, point, sheet, recalculateSheetId: null);
+            }
+            else if (formula.Type == FormulaType.Normal)
             {
                 var result = EvaluateFormula(
                     formula.A1,
@@ -227,6 +259,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         {
             _chain = XLCalculationChain.CreateFrom(wb);
             _dependencyTree = DependencyTree.CreateFrom(wb);
+            RebuildSpillOwners(wb);
         }
 
         var sheetIdMap = wb.WorksheetsInternal
@@ -288,7 +321,13 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     private void ApplyFormula(XLCellFormula formula, XLSheetPoint appliedPoint, XLWorksheet sheet, ValueSlice valueSlice, uint? recalculateSheetId)
     {
         var formulaText = formula.A1;
-        if (formula.Type == FormulaType.Normal)
+        if (formula.IsDynamicArray)
+        {
+            // The formula lives only in the anchor cell (spilled cells are formula-less),
+            // so the applied point is always the anchor.
+            SpillDynamicArray(formula, appliedPoint, sheet, recalculateSheetId);
+        }
+        else if (formula.Type == FormulaType.Normal)
         {
             var single = EvaluateFormula(
                 formulaText,
@@ -381,6 +420,178 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             return new ScalarArray(single, 1, 1);
 
         return multi!;
+    }
+
+    /// <summary>
+    /// Evaluates a dynamic-array formula and spills its result across the anchor's
+    /// footprint. Only the anchor holds the <see cref="XLCellFormula"/>; the remaining
+    /// footprint cells receive values only. The computed footprint is stored back on
+    /// <see cref="XLCellFormula.Range"/> so a later evaluation can clear a stale region.
+    /// </summary>
+    /// <remarks>
+    /// The spill is blocked — the anchor gets <see cref="XLError.SpillRange"/> (<c>#SPILL!</c>)
+    /// and nothing is written to the footprint — when the result would run past the sheet
+    /// edge, or when any footprint cell (other than the anchor, and other than a cell owned by
+    /// this formula's previous footprint) already holds a formula or a non-blank value.
+    /// </remarks>
+    private void SpillDynamicArray(XLCellFormula formula, XLSheetPoint anchor, XLWorksheet sheet, uint? recalculateSheetId)
+    {
+        var cells = sheet.Internals.CellsCollection;
+        var valueSlice = cells.ValueSlice;
+        var formulaSlice = cells.FormulaSlice;
+
+        var masterCell = sheet.Cell(anchor.Row, anchor.Column);
+        var array = EvaluateArrayFormula(formula.A1, masterCell, recalculateSheetId);
+
+        var lastRow = anchor.Row + array.Height - 1;
+        var lastColumn = anchor.Column + array.Width - 1;
+
+        var previousRange = formula.Range;
+        var anchorRange = new XLSheetRange(anchor);
+
+        XLSheetRange newFootprint;
+        var outOfBounds = lastRow > XLHelper.MaxRowNumber || lastColumn > XLHelper.MaxColumnNumber;
+        if (outOfBounds || HasSpillCollision(anchor, lastRow, lastColumn, previousRange, valueSlice, formulaSlice))
+        {
+            ClearSpillFootprint(previousRange, anchorRange, valueSlice);
+            valueSlice.SetCellValue(anchor, XLError.SpillRange);
+            newFootprint = anchorRange;
+        }
+        else
+        {
+            newFootprint = new XLSheetRange(anchor, new XLSheetPoint(lastRow, lastColumn));
+
+            // Erase any cell of the previous footprint that the new one no longer covers
+            // (the array shrank or moved) before writing the fresh result.
+            ClearSpillFootprint(previousRange, newFootprint, valueSlice);
+
+            for (var rowOffset = 0; rowOffset < array.Height; ++rowOffset)
+            {
+                for (var colOffset = 0; colOffset < array.Width; ++colOffset)
+                {
+                    var point = new XLSheetPoint(anchor.Row + rowOffset, anchor.Column + colOffset);
+                    valueSlice.SetCellValue(point, array[rowOffset, colOffset].ToCellValue());
+                }
+            }
+        }
+
+        formula.Range = newFootprint;
+
+        // Keep the spill-owner lookup in sync so a read of any spilled cell can force this
+        // anchor to evaluate first during recalc.
+        SetSpillFootprint(sheet.SheetId, formula, newFootprint);
+
+        // Keep the dependency tree's area for this formula in sync with the footprint, so a
+        // later change to the array's precedents invalidates dependents of every spilled cell
+        // (not just the anchor). Only needed once the tree exists and the footprint changed.
+        if (_dependencyTree is not null && newFootprint != previousRange)
+        {
+            var formulaArea = new XLBookArea(sheet.Name, newFootprint);
+            _dependencyTree.UpdateSpillFootprint(formulaArea, formula, sheet.Workbook);
+        }
+    }
+
+    /// <summary>
+    /// Rebuilds <see cref="_spillOwners"/> from every dynamic-array formula's current footprint.
+    /// Called whenever the dependency tree is (re)built so the lookup reflects spills produced in
+    /// earlier sessions/recalcs or restored from a loaded file.
+    /// </summary>
+    private void RebuildSpillOwners(XLWorkbook wb)
+    {
+        _spillOwners.Clear();
+        foreach (var sheet in wb.WorksheetsInternal)
+        {
+            using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(XLSheetRange.Full);
+            while (enumerator.MoveNext())
+            {
+                var formula = enumerator.Current;
+                if (formula.IsDynamicArray && formula.Range != default)
+                    _spillOwners.Add(new SpillFootprint(sheet.SheetId, formula.Range, formula));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Records a dynamic-array formula's current spill footprint, replacing any prior footprint
+    /// for the same formula (footprints never overlap, so one rectangle per formula is enough).
+    /// </summary>
+    private void SetSpillFootprint(uint sheetId, XLCellFormula formula, XLSheetRange footprint)
+    {
+        for (var i = 0; i < _spillOwners.Count; i++)
+        {
+            if (ReferenceEquals(_spillOwners[i].Owner, formula))
+            {
+                _spillOwners[i] = new SpillFootprint(sheetId, footprint, formula);
+                return;
+            }
+        }
+
+        _spillOwners.Add(new SpillFootprint(sheetId, footprint, formula));
+    }
+
+    /// <summary>
+    /// If <paramref name="point"/> is a spilled (non-anchor) cell of a dynamic array whose anchor
+    /// is dirty, returns the anchor point so the caller can force the anchor to evaluate first.
+    /// The anchor cell itself holds a formula, so it never reaches this lookup.
+    /// </summary>
+    internal bool TryGetDirtySpillOwner(uint sheetId, XLSheetPoint point, XLWorkbook wb, out XLSheetPoint anchor)
+    {
+        foreach (var footprint in _spillOwners)
+        {
+            if (footprint.SheetId == sheetId && footprint.Range.Contains(point) && footprint.Owner.IsDirty(wb))
+            {
+                anchor = footprint.Range.FirstPoint;
+                return true;
+            }
+        }
+
+        anchor = default;
+        return false;
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> if any cell of the prospective footprint blocks the spill.
+    /// The anchor itself and any cell within <paramref name="ownedRange"/> (this formula's
+    /// previous footprint, which will be overwritten) never block; any other cell holding a
+    /// formula or a non-blank value does.
+    /// </summary>
+    private static bool HasSpillCollision(XLSheetPoint anchor, int lastRow, int lastColumn, XLSheetRange ownedRange, ValueSlice valueSlice, FormulaSlice formulaSlice)
+    {
+        for (var row = anchor.Row; row <= lastRow; ++row)
+        {
+            for (var column = anchor.Column; column <= lastColumn; ++column)
+            {
+                var point = new XLSheetPoint(row, column);
+                if (point == anchor || ownedRange.Contains(point))
+                    continue;
+
+                if (formulaSlice.Get(point) is not null)
+                    return true;
+
+                if (!valueSlice.GetCellValue(point).IsBlank)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Blanks every cell of <paramref name="previousRange"/> that falls outside
+    /// <paramref name="keepRange"/>. Used to erase a stale footprint when a dynamic array
+    /// shrinks, moves, or collapses to a <c>#SPILL!</c> anchor. A <c>default</c> previous
+    /// range (never spilled) clears nothing.
+    /// </summary>
+    private static void ClearSpillFootprint(XLSheetRange previousRange, XLSheetRange keepRange, ValueSlice valueSlice)
+    {
+        if (previousRange == default)
+            return;
+
+        foreach (var point in previousRange)
+        {
+            if (!keepRange.Contains(point))
+                valueSlice.SetCellValue(point, Blank.Value);
+        }
     }
 
     internal AnyValue EvaluateName(string nameFormula, XLWorksheet ws)

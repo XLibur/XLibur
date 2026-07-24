@@ -288,7 +288,12 @@ public class FormulaParserTests
     [TestCase]
     public void Reference_function_call_can_be_reference_with_spill_range_operator()
     {
-        AssertCanParseButNotEvaluate("=A1#", "Evaluation of spill range operator is not implemented.");
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        // A1 is not a spill anchor, so the spill-range operator resolves to a #REF! error
+        // (it parses and evaluates rather than throwing).
+        Assert.AreEqual(XLError.CellReference, ws.Evaluate("=A1#"));
     }
 
     #endregion

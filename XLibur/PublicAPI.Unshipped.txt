@@ -103,3 +103,4 @@ static XLibur.Excel.XLAlignmentKey.operator ==(XLibur.Excel.XLAlignmentKey left,
 static XLibur.Excel.XLAlignmentKey.operator !=(XLibur.Excel.XLAlignmentKey left, XLibur.Excel.XLAlignmentKey right) -> bool
 static XLibur.AttributeExtensions.GetMethod<T>(this T instance, System.Linq.Expressions.Expression<System.Func<T, object!>!>! methodSelector) -> System.Reflection.MethodInfo!
 static XLibur.AttributeExtensions.GetMethod<T>(this T instance, System.Linq.Expressions.Expression<System.Action<T>!>! methodSelector) -> System.Reflection.MethodInfo!
+XLibur.Excel.XLError.SpillRange = 7 -> XLibur.Excel.XLError
