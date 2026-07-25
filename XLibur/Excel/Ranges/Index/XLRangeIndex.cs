@@ -57,13 +57,21 @@ internal abstract class XLRangeIndex : IXLRangeIndex
     {
         CheckWorksheet(address.Worksheet);
 
+        // Deliberately not LINQ: this is the merged-range test that runs on every cell write, and
+        // the Any(closure) form cost a display class, a Where iterator and an enumerator per call
+        // on top of the boxing inside the predicate.
         if (_quadTree == null)
         {
-            var addr = address;
-            return _rangeList.Any(r => r.RangeAddress.Contains(addr));
+            foreach (var range in _rangeList)
+            {
+                if (XLAddressableHelper.Contains(range, in address))
+                    return true;
+            }
+
+            return false;
         }
 
-        return _quadTree.GetIntersectedRanges(address).Any();
+        return _quadTree.CoversAnyRange(in address);
     }
 
     public IEnumerable<IXLAddressable> GetAll()

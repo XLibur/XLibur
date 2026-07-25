@@ -114,7 +114,18 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 
     public bool Contains(IXLCell cell)
     {
-        return GetIntersectedRanges((XLAddress)cell.Address).Any();
+        var address = (XLAddress)cell.Address;
+        return Contains(in address);
+    }
+
+    /// <summary>
+    /// Whether any range in the collection covers the address. Non-boxing counterpart of
+    /// <see cref="Contains(IXLCell)"/>, which has to reach the address through
+    /// <see cref="IXLCell.Address"/> and therefore boxes the struct.
+    /// </summary>
+    internal bool Contains(in XLAddress address)
+    {
+        return GetRangeIndex(address.Worksheet!).Contains(in address);
     }
 
     public bool Contains(IXLRange range)

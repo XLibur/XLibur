@@ -705,7 +705,12 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         // common case is a sheet with no merged ranges at all — where Contains cannot be true,
         // but still costs a boxed address plus an iterator chain to establish that.
         var mergedRanges = Worksheet.Internals.MergedRanges;
-        return mergedRanges.Count > 0 && mergedRanges.Contains(this);
+        if (mergedRanges.Count == 0)
+            return false;
+
+        // Pass the address as a struct: the IXLCell overload would box it.
+        var address = Address;
+        return mergedRanges.Contains(in address);
     }
 
     public IXLRange? MergedRange()
