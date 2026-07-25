@@ -4,7 +4,8 @@
 **Effort:** M (1–2 weeks; Task 1 is a one-liner, the rest are independent)
 **Dependencies:** None for Tasks 1–3. Task 4 overlaps Spec 05 (bulk styling); Task 5 changes an
 internal object-vending pattern, so land it after 1–4 and re-measure first.
-**Status:** Proposed
+**Status:** ✅ Tasks 1–3 implemented — see [Results](#results). Task 4 deferred to Spec 05 with
+measurements; Task 5 out of scope by design.
 
 ## Summary
 
@@ -184,3 +185,82 @@ per invocation (~28 bytes/op at this scale) and will show up in the result. Subt
   cost is `System.IO.Packaging`, not XLibur code.
 - Spec 05 (structural-edit & bulk-style scalability) — overlapping territory for Task 4.
 - PR #179 — introduced the `profile alloc` harness this spec measures with.
+
+## Results
+
+`profile alloc`, 50K rows, net10.0, Release. Three runs per side; allocation stable to ±1 MB,
+elapsed reported min–max.
+
+| Scenario | Create | Save | Total | Elapsed |
+|---|---:|---:|---:|---|
+| `CreateAndSave` — before | 58.3 MB | 34.9 MB | 93.2 MB | 285–302 ms |
+| `CreateAndSave` — after | **25.1 MB** | 34.9 MB | **60.1 MB** (−35.5%) | 274–285 ms |
+| `CreateFormattedAndSave` — before | 305.5 MB | 118.0 MB | 423.4 MB | 1117–1175 ms |
+| `CreateFormattedAndSave` — after | **183.6 MB** (−39.9%) | 117.6 MB | **301.3 MB** (−28.8%) | 994–1080 ms |
+
+`profile create`, per-operation, no merged ranges / tables / formulas:
+
+| Probe | Before | After |
+|---|---:|---:|
+| `ws.Cell(r,c).Value = double` | 375.5 B | **103.6 B** |
+| `ws.Cell(r,c).Value = string` | 375.5 B | **103.6 B** |
+| `ws.Cell(r,c).Value = DateTime` | 408.6 B | **136.6 B** |
+| `...Value = double`, sheet has 1 merged range | 487.6 B (net8) / 457.7 B (net10) | **103.6 B** (both) |
+| `ws.Cell(r,c).Style` (unmutated) | 128.2 B | 128.2 B — see below |
+
+6325 tests pass on net8.0 and net10.0.
+
+### What landed
+
+- **Task 1** — `IsMerged` short-circuits on `MergedRanges.Count`. Done inside `IsMerged` rather than
+  at the two call sites the spec named, which covers every caller for the same one line. Worth
+  111 MB on the benchmark by itself.
+- **Task 2** — bigger than the spec estimated. A sheet *with* a merged range was **worse** than one
+  without (487.6 vs 375.5 bytes/op), because the predicate then actually ran and boxed
+  `RangeAddress` per range on top of everything else. A merged title row is a very common layout,
+  and it took every subsequent cell write off Task 1's fast path. Now identical to the unmerged
+  case on both TFMs.
+- **Task 3** — implemented as specified after the reference-identity audit came back clean (nothing
+  in the codebase compares `XLCell` instances by reference; the wrapper's only instance state is
+  the derived `_cachedStyle`, which `InnerStyle` re-syncs). Worth 11.5 MB.
+
+### Task 3 does not move acceptance criterion 2
+
+The criterion asked for `ws.Cell(r,c).Style` ≤ 60 bytes/op. It is still 128.2, and **no cache keyed
+by cell address can change that** — the probe visits every point exactly once, so the first access
+to a cell must build the wrapper and its `XLStyle`. The 11.5 MB Task 3 does deliver comes from real
+workloads re-touching the same cells (populate pass, then style pass), which the probe deliberately
+does not model. Getting the single-access number down needs Task 5, which is out of scope here.
+**The criterion was mis-stated, not missed** — a future revision should express it as a workload
+number rather than a per-op one.
+
+### Task 4 deferred to Spec 05, with measurements
+
+Bulk styling — `ws.Range(...).Style.Font.Bold = true` — costs **~206 bytes per cell** (measured:
+289.4 bytes/op for a probe that also populates the cells at 55.6, over 500K cells). That is worth
+fixing, but:
+
+1. It contributes **nothing** to this spec's acceptance criteria. `CreateFormattedAndSave` styles
+   cells individually and never goes through the bulk path.
+2. The cost is not the `GroupBy` the spec's Task 4 pointed at. Replacing the group-by with a
+   last-value memo — the contained part of the change — moved it only 289.4 → 272.6 bytes/op (6%).
+   That change was written, measured, and reverted rather than banked, because a 6% sliver is not
+   worth putting a second author into the file Spec 05 is going to rewrite.
+3. The remaining 94% is `XLStylizedBase.ModifyStyle` materialising every child cell into a
+   `HashSet<XLStylizedBase>` via `Children`. Removing that means writing the `StyleSlice` by point
+   and never building an `XLCell` — which is exactly Spec 05's "materialize-everything patterns for
+   style propagation", and carries semantics this spec did not scope (whether bulk styling pings
+   currently-empty cells, dedup across overlapping ranges in `XLRanges`, propagation order).
+
+The `ws.Range(all).Style.Font.Bold = true` probe is checked in so Spec 05 starts with a baseline.
+
+### Remaining create-phase cost
+
+183.6 MB, down from 305.5:
+
+- **~52 MB** — cell population at 103.6 bytes/op. Of that, 48.2 is the `XLCell` wrapper and ~55 is
+  the actual slice write (`ws.SetCellValue` costs 55.6 and does the same work). Only Task 5 reaches
+  the wrapper.
+- **~118 MB** — styling, at 473.2 bytes/op for the four-mutation pattern the benchmark uses. Each
+  mutation still walks `XLStyle` → sub-wrapper → repository.
+- The rest is benchmark-side strings.

@@ -64,7 +64,24 @@ public static class CreatePhaseProbe
         ("ws.Cell(r,c).Style discarded", StyleWrapperOnly),
         ("ws.Cell(r,c).Style + 1 font mutation", StyleOneMutation),
         ("ws.Cell(r,c).Style + 4 mutations", StyleFourMutations),
+        ("ws.Range(all).Style.Font.Bold = true", RangeBulkStyle),
     ];
+
+    /// <summary>
+    /// Bulk styling goes through <c>XLStylizedBase.ModifyStyle</c>, which materialises every child
+    /// cell into a HashSet and groups it. Measured over the same cell count as the per-cell probes
+    /// so the two are directly comparable — note this is one statement, not 500,000.
+    /// </summary>
+    private static void RangeBulkStyle()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("s");
+        for (var r = 1; r <= Rows; r++)
+        for (var c = 1; c <= Cols; c++)
+            ws.SetCellValue(r, c, r);
+
+        ws.Range(1, 1, Rows, Cols).Style.Font.Bold = true;
+    }
 
     private static void CellWrapperOnly()
     {
