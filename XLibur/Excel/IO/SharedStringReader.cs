@@ -1,5 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Utils;
@@ -31,69 +34,214 @@ internal readonly struct SharedStringEntry
 }
 
 /// <summary>
-/// Reads the shared string table from an SST part. For plain text entries (the vast majority),
-/// only the decoded text string is retained and the DOM element is released for GC. For rich
-/// text entries (with runs or phonetic data), the <see cref="SharedStringItem"/> is kept for
-/// later formatting extraction via <see cref="WorksheetSheetDataReader.SetCellText"/>.
+/// Reads the shared string table from an SST part with a raw <see cref="XmlReader"/>.
+/// <para>
+/// The overwhelmingly common entry is a plain <c>&lt;si&gt;&lt;t&gt;text&lt;/t&gt;&lt;/si&gt;</c>, for which only
+/// the decoded string is retained — no DOM node is ever built. Materializing the whole
+/// <see cref="SharedStringTablePart.SharedStringTable"/> DOM instead costs two OpenXml elements plus an
+/// attribute collection per entry, all of which become garbage immediately after the text is extracted;
+/// for a string-heavy workbook the table can hold hundreds of thousands of entries.
+/// </para>
+/// <para>
+/// Entries with runs or phonetic data are rare and still need the DOM for formatting extraction via
+/// <see cref="WorksheetSheetDataReader.SetCellText"/>, so their subtree is rebuilt into a
+/// <see cref="SharedStringItem"/>. Richness can only be established after the first child has been consumed
+/// (a leading <c>&lt;t&gt;</c> may be followed by <c>&lt;rPh&gt;</c>), hence the re-serialization in
+/// <see cref="ReadRichItem"/> rather than a plain <c>ReadOuterXml</c>.
+/// </para>
 /// </summary>
 internal static class SharedStringReader
 {
+    private const string XmlNs = "http://www.w3.org/XML/1998/namespace";
+
     internal static SharedStringEntry[] Read(SharedStringTablePart part)
     {
-        var sst = part.SharedStringTable;
-        if (sst is null)
-            return [];
-
-        // Pre-allocate from the SST's UniqueCount attribute to avoid
-        // List<T> resize+copy overhead for large shared string tables.
-        // Only use UniqueCount (number of unique <si> entries), not Count
-        // (total reference count including duplicates) which would over-allocate.
-        var uniqueCount = sst.UniqueCount?.Value;
-        if (uniqueCount is not null and > 0)
+        using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
+        using var reader = XmlReader.Create(stream, new XmlReaderSettings
         {
-            var entries = new SharedStringEntry[(int)uniqueCount.Value];
-            var idx = 0;
-            foreach (var item in sst.Elements<SharedStringItem>())
+            // Whitespace must NOT be ignored: a <t> holding only spaces is legitimate text content.
+            IgnoreWhitespace = false,
+            IgnoreComments = true,
+            IgnoreProcessingInstructions = true,
+            CloseInput = false
+        });
+
+        while (reader.Read())
+        {
+            if (reader.NodeType == XmlNodeType.Element
+                && reader.LocalName == "sst"
+                && reader.NamespaceURI == OpenXmlConst.Main2006SsNs)
             {
-                var entry = ReadEntry(item);
-                if (idx < entries.Length)
-                    entries[idx++] = entry;
-                else
-                {
-                    // Count attribute was wrong — fall back to growing
-                    Array.Resize(ref entries, entries.Length * 2);
-                    entries[idx++] = entry;
-                }
+                return ReadSst(reader);
             }
-
-            // Trim if the declared count was larger than actual entries
-            if (idx < entries.Length)
-                Array.Resize(ref entries, idx);
-
-            return entries;
         }
 
-        // Fallback: no count attribute, use list
-        var list = new List<SharedStringEntry>();
-        foreach (var item in sst.Elements<SharedStringItem>())
-            list.Add(ReadEntry(item));
-
-        return list.ToArray();
+        return [];
     }
 
-    private static SharedStringEntry ReadEntry(SharedStringItem item)
+    private static SharedStringEntry[] ReadSst(XmlReader reader)
     {
-        // Schema: <si> contains either (t, rPh*, phoneticPr?) or (r+, rPh*, phoneticPr?).
-        // Pure plain text: a single <t> child with no runs and no phonetic data.
-        var text = item.Text;
-        if (text is not null && text == item.FirstChild && text == item.LastChild)
+        // Pre-allocate from the sst's uniqueCount attribute to avoid resize+copy for large tables.
+        // Only uniqueCount (number of unique <si> entries) is usable here, not count (total reference
+        // count including duplicates), which would over-allocate.
+        var uniqueCount = ReadUniqueCount(reader);
+
+        if (reader.IsEmptyElement)
+            return [];
+
+        var entries = uniqueCount > 0 ? new SharedStringEntry[uniqueCount] : [];
+        var count = 0;
+
+        reader.Read(); // Move into <sst> (first child or </sst>).
+
+        while (true)
         {
-            // Decode _xHHHH_ escapes (e.g. _x0018_ → \u0018) matching the original
-            // SetCellText code path.
-            var decoded = XmlEncoder.DecodeString(text.InnerText);
-            return SharedStringEntry.Plain(decoded);
+            if (reader.NodeType == XmlNodeType.Element)
+            {
+                if (reader.LocalName == "si" && reader.NamespaceURI == OpenXmlConst.Main2006SsNs)
+                {
+                    var entry = ReadSharedStringItem(reader); // Leaves reader after </si>.
+
+                    if (count == entries.Length)
+                    {
+                        // uniqueCount was absent or understated — grow geometrically.
+                        Array.Resize(ref entries, entries.Length == 0 ? 16 : entries.Length * 2);
+                    }
+
+                    entries[count++] = entry;
+                    continue;
+                }
+
+                reader.Skip(); // Unknown element (e.g. <extLst>).
+                continue;
+            }
+
+            if (reader.NodeType == XmlNodeType.EndElement || reader.EOF)
+                break;
+
+            if (!reader.Read())
+                break;
         }
 
-        return SharedStringEntry.Rich(item);
+        if (count != entries.Length)
+            Array.Resize(ref entries, count);
+
+        return entries;
+    }
+
+    private static int ReadUniqueCount(XmlReader reader)
+    {
+        var uniqueCount = 0;
+        if (reader.HasAttributes)
+        {
+            var value = reader.GetAttribute("uniqueCount");
+            if (value is not null && int.TryParse(value, out var parsed) && parsed > 0)
+                uniqueCount = parsed;
+
+            reader.MoveToElement();
+        }
+
+        return uniqueCount;
+    }
+
+    /// <summary>
+    /// Reads a single <c>&lt;si&gt;</c>. The reader enters positioned on the start element and returns
+    /// positioned on the node immediately after <c>&lt;/si&gt;</c>.
+    /// </summary>
+    private static SharedStringEntry ReadSharedStringItem(XmlReader reader)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read(); // Move past <si/>.
+            return SharedStringEntry.Plain(string.Empty);
+        }
+
+        reader.Read(); // Move into <si> (first child or </si>).
+        SkipToContent(reader);
+
+        string? plainText = null;
+        if (IsMainElement(reader, "t"))
+        {
+            plainText = reader.ReadElementContentAsString(); // Reads <t> text and moves past </t>.
+            SkipToContent(reader);
+        }
+
+        // A lone <t> is the plain case; anything left before </si> means runs or phonetic data.
+        if (reader.NodeType != XmlNodeType.Element)
+        {
+            reader.Read(); // Move past </si>.
+
+            // Decode _xHHHH_ escapes (e.g. _x0018_ → ), matching the SetCellText path.
+            return SharedStringEntry.Plain(XmlEncoder.DecodeString(plainText ?? string.Empty));
+        }
+
+        var rich = ReadRichItem(reader, plainText);
+        reader.Read(); // Move past </si>.
+        return rich;
+    }
+
+    /// <summary>
+    /// Rebuilds the remainder of an <c>&lt;si&gt;</c> subtree (plus any <c>&lt;t&gt;</c> already consumed)
+    /// into a <see cref="SharedStringItem"/> DOM element. The reader enters on the first remaining child
+    /// element and returns on <c>&lt;/si&gt;</c>.
+    /// </summary>
+    private static SharedStringEntry ReadRichItem(XmlReader reader, string? leadingText)
+    {
+        var sb = new StringBuilder();
+        using (var writer = XmlWriter.Create(sb, new XmlWriterSettings
+        {
+            OmitXmlDeclaration = true,
+            ConformanceLevel = ConformanceLevel.Fragment,
+            CheckCharacters = false
+        }))
+        {
+            writer.WriteStartElement("si", OpenXmlConst.Main2006SsNs);
+
+            if (leadingText is not null)
+            {
+                writer.WriteStartElement("t", OpenXmlConst.Main2006SsNs);
+                writer.WriteAttributeString("space", XmlNs, "preserve");
+                writer.WriteString(leadingText);
+                writer.WriteEndElement();
+            }
+
+            while (true)
+            {
+                if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // ReadOuterXml emits the in-scope default namespace and moves past the child.
+                    writer.WriteRaw(reader.ReadOuterXml());
+                    continue;
+                }
+
+                if (reader.NodeType == XmlNodeType.EndElement || reader.EOF)
+                    break;
+
+                if (!reader.Read())
+                    break;
+            }
+
+            writer.WriteEndElement();
+        }
+
+        return SharedStringEntry.Rich(new SharedStringItem(sb.ToString()));
+    }
+
+    private static bool IsMainElement(XmlReader reader, string localName)
+        => reader.NodeType == XmlNodeType.Element
+           && reader.LocalName == localName
+           && reader.NamespaceURI == OpenXmlConst.Main2006SsNs;
+
+    /// <summary>
+    /// Advances over whitespace and other non-structural nodes so the reader lands on the next
+    /// element start or end tag.
+    /// </summary>
+    private static void SkipToContent(XmlReader reader)
+    {
+        while (reader.NodeType is not (XmlNodeType.Element or XmlNodeType.EndElement))
+        {
+            if (reader.EOF || !reader.Read())
+                return;
+        }
     }
 }

@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Xml;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -28,7 +29,7 @@ internal static class WorksheetSheetDataReader
         XLWorksheet worksheet,
         SharedStringEntry[]? sharedStrings,
         Dictionary<uint, string> sharedFormulasR1C1,
-        Dictionary<int, XLStyleValue> styleList,
+        StyleValueCache styleCache,
         Dictionary<XLNumberFormatValue, XLDataType> numberDataTypeCache,
         bool use1904DateSystem,
         HashSet<uint>? dynamicArrayCmIndexes = null)
@@ -37,7 +38,7 @@ internal static class WorksheetSheetDataReader
         public readonly XLWorksheet Worksheet = worksheet;
         public readonly SharedStringEntry[]? SharedStrings = sharedStrings;
         public readonly Dictionary<uint, string> SharedFormulasR1C1 = sharedFormulasR1C1;
-        public readonly Dictionary<int, XLStyleValue> StyleList = styleList;
+        public readonly StyleValueCache StyleCache = styleCache;
 
         /// <summary>
         /// Memoizes the <see cref="XLDataType"/> derived from a cell's number format
@@ -63,6 +64,14 @@ internal static class WorksheetSheetDataReader
         /// between context construction and the first <c>&lt;row&gt;</c>.
         /// </summary>
         public bool HasColumnStyles => Worksheet.Internals.ColumnsCollection.Count > 0;
+
+        /// <summary>
+        /// Scratch buffer for reading cell attribute values and <c>&lt;v&gt;</c> content as characters
+        /// rather than strings. Every cell carries an <c>r</c> attribute and most carry a value, so
+        /// materializing them would cost several short-lived strings per cell — millions on a large
+        /// sheet — that are parsed to a number or point and immediately discarded.
+        /// </summary>
+        public readonly char[] ValueBuffer = new char[ValueBufferLength];
     }
 
     /// <summary>
@@ -100,6 +109,14 @@ internal static class WorksheetSheetDataReader
             Height is not null || DyDescent is not null || Hidden || Collapsed
             || OutlineLevel > 0 || ShowPhonetic || CustomFormat;
     }
+
+    /// <summary>
+    /// Capacity of <see cref="SheetDataReadContext.ValueBuffer"/>. Comfortably exceeds every value
+    /// read through it: a cell reference is at most 10 characters (<c>XFD1048576</c>), a style or
+    /// metadata index at most 10 digits, and a round-tripped double at most 24. Longer content still
+    /// reads correctly — it just falls back to a materialized string.
+    /// </summary>
+    private const int ValueBufferLength = 64;
 
     private static readonly string[] DateCellFormats =
     [
@@ -159,37 +176,52 @@ internal static class WorksheetSheetDataReader
 
         if (reader.HasAttributes)
         {
+            var buffer = context.ValueBuffer;
             while (reader.MoveToNextAttribute())
             {
                 var ns = reader.NamespaceURI;
-                switch (reader.LocalName)
+                var localName = reader.LocalName;
+
+                var isKnown = ns.Length == 0
+                    ? localName is "r" or "ht" or "hidden" or "collapsed" or "outlineLevel"
+                        or "ph" or "customFormat" or "s"
+                    : localName == "dyDescent" && ns == OpenXmlConst.X14Ac2009SsNs;
+
+                if (!isKnown)
+                    continue;
+
+                // Read as characters — none of these attributes is retained as a string.
+                var length = ReadValueIntoBuffer(reader, buffer, out var overflow);
+                var value = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
+
+                switch (localName)
                 {
-                    case "r" when ns.Length == 0:
-                        TryParseOoxmlNonNegativeInt(reader.Value, out rowIndex);
+                    case "r":
+                        TryParseOoxmlNonNegativeInt(value, out rowIndex);
                         break;
-                    case "ht" when ns.Length == 0:
-                        height = double.Parse(reader.Value, NumberStyles.Float, XLHelper.ParseCulture);
+                    case "ht":
+                        height = double.Parse(value, NumberStyles.Float, XLHelper.ParseCulture);
                         break;
-                    case "dyDescent" when ns == OpenXmlConst.X14Ac2009SsNs:
-                        dyDescent = double.Parse(reader.Value, NumberStyles.Float, XLHelper.ParseCulture);
+                    case "dyDescent":
+                        dyDescent = double.Parse(value, NumberStyles.Float, XLHelper.ParseCulture);
                         break;
-                    case "hidden" when ns.Length == 0:
-                        hidden = ParseXmlBool(reader.Value);
+                    case "hidden":
+                        hidden = ParseXmlBool(value);
                         break;
-                    case "collapsed" when ns.Length == 0:
-                        collapsed = ParseXmlBool(reader.Value);
+                    case "collapsed":
+                        collapsed = ParseXmlBool(value);
                         break;
-                    case "outlineLevel" when ns.Length == 0:
-                        outlineLevel = int.Parse(reader.Value);
+                    case "outlineLevel":
+                        outlineLevel = int.Parse(value, CultureInfo.InvariantCulture);
                         break;
-                    case "ph" when ns.Length == 0:
-                        showPhonetic = ParseXmlBool(reader.Value);
+                    case "ph":
+                        showPhonetic = ParseXmlBool(value);
                         break;
-                    case "customFormat" when ns.Length == 0:
-                        customFormat = ParseXmlBool(reader.Value);
+                    case "customFormat":
+                        customFormat = ParseXmlBool(value);
                         break;
-                    case "s" when ns.Length == 0:
-                        styleIndex = int.Parse(reader.Value);
+                    case "s":
+                        styleIndex = int.Parse(value, CultureInfo.InvariantCulture);
                         break;
                 }
             }
@@ -238,7 +270,7 @@ internal static class WorksheetSheetDataReader
 
         int styleIndex = 0;
         XLSheetPoint? cellRef = null;
-        string? typeAttr = null;
+        var dataType = CellValues.Number; // Matches an absent t attribute.
         bool showPhonetic = false;
         uint? cellMetaIndex = null;
         uint? valueMetaIndex = null;
@@ -247,32 +279,42 @@ internal static class WorksheetSheetDataReader
 
         if (reader.HasAttributes)
         {
+            var buffer = context.ValueBuffer;
             while (reader.MoveToNextAttribute())
             {
                 if (reader.NamespaceURI.Length != 0)
                     continue;
 
-                switch (reader.LocalName)
+                // LocalName comes from the reader's name table, so it costs nothing; the value is
+                // read as characters because none of these attributes is retained as a string.
+                var localName = reader.LocalName;
+                if (localName is not ("r" or "s" or "t" or "ph" or "cm" or "vm"))
+                    continue;
+
+                var length = ReadValueIntoBuffer(reader, buffer, out var overflow);
+                var value = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
+
+                switch (localName)
                 {
                     case "r":
-                        cellRef = XLSheetPoint.Parse(reader.Value);
+                        cellRef = XLSheetPoint.Parse(value);
                         break;
                     case "s":
-                        TryParseOoxmlNonNegativeInt(reader.Value, out styleIndex);
+                        TryParseOoxmlNonNegativeInt(value, out styleIndex);
                         break;
                     case "t":
-                        typeAttr = reader.Value;
+                        dataType = ParseCellDataType(value);
                         break;
                     case "ph":
-                        showPhonetic = ParseXmlBool(reader.Value);
+                        showPhonetic = ParseXmlBool(value);
                         if (showPhonetic) hasMisc = true;
                         break;
                     case "cm":
-                        cellMetaIndex = uint.Parse(reader.Value);
+                        cellMetaIndex = uint.Parse(value, CultureInfo.InvariantCulture);
                         hasMisc = true;
                         break;
                     case "vm":
-                        valueMetaIndex = uint.Parse(reader.Value);
+                        valueMetaIndex = uint.Parse(value, CultureInfo.InvariantCulture);
                         hasMisc = true;
                         break;
                 }
@@ -283,9 +325,8 @@ internal static class WorksheetSheetDataReader
 
         var cellAddress = cellRef ?? new XLSheetPoint(rowIndex, state.LastColumnNumber + 1);
         state.LastColumnNumber = cellAddress.Column;
-        var dataType = ParseCellDataType(typeAttr);
 
-        var cellStyleValue = ResolveCachedStyleValue(styleIndex, context.Styles, context.StyleList);
+        var cellStyleValue = context.StyleCache.Resolve(styleIndex);
 
         var ws = context.Worksheet;
         var cellsCollection = ws.Internals.CellsCollection;
@@ -342,7 +383,12 @@ internal static class WorksheetSheetDataReader
         var cellWasSetWithEmptyValue = false;
         if (cellHasValue)
         {
-            var text = reader.ReadElementContentAsString(); // Reads <v> text and moves past </v>.
+            // Reads <v> content and moves past </v>, without a string for the numeric and
+            // shared-string cases that dominate a sheet.
+            var buffer = context.ValueBuffer;
+            var length = ReadElementContentIntoBuffer(reader, buffer, out var overflow);
+            var text = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
+
             SetCellValue(dataType, text, cellsCollection, cellAddress, cellStyleValue, ws,
                 context.SharedStrings, formulaInline, context.NumberDataTypeCache);
         }
@@ -503,8 +549,91 @@ internal static class WorksheetSheetDataReader
         }
     }
 
-    private static bool ParseXmlBool(string value)
-        => value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+    private static bool ParseXmlBool(ReadOnlySpan<char> value)
+        => value.SequenceEqual("1") || value.Equals("true", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Copies the value of the node the reader is positioned on (an attribute or a text node) into
+    /// <paramref name="buffer"/> without materializing a string, returning the number of characters
+    /// written. When the value does not fit, the whole value is materialized into
+    /// <paramref name="overflow"/> instead and -1 is returned; the reader is fully drained either
+    /// way, so callers must never fall back to <see cref="XmlReader.Value"/>.
+    /// </summary>
+    private static int ReadValueIntoBuffer(XmlReader reader, char[] buffer, out string? overflow)
+    {
+        overflow = null;
+
+        var length = 0;
+        int read;
+        while ((read = reader.ReadValueChunk(buffer, length, buffer.Length - length)) > 0)
+        {
+            length += read;
+            if (length < buffer.Length)
+                continue;
+
+            var builder = new StringBuilder(buffer.Length * 2).Append(buffer, 0, length);
+            while ((read = reader.ReadValueChunk(buffer, 0, buffer.Length)) > 0)
+                builder.Append(buffer, 0, read);
+
+            overflow = builder.ToString();
+            return -1;
+        }
+
+        return length;
+    }
+
+    /// <summary>
+    /// Reads the text content of the element the reader is positioned on into
+    /// <paramref name="buffer"/>, following the same contract as
+    /// <see cref="ReadValueIntoBuffer"/>. This is the allocation-free counterpart of
+    /// <see cref="XmlReader.ReadElementContentAsString()"/>. The reader returns positioned on the
+    /// node immediately after the element's end tag.
+    /// </summary>
+    private static int ReadElementContentIntoBuffer(XmlReader reader, char[] buffer, out string? overflow)
+    {
+        overflow = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read(); // Move past <v/>.
+            return 0;
+        }
+
+        reader.Read(); // Move into the element's content.
+
+        var length = 0;
+        StringBuilder? builder = null;
+
+        while (reader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA
+               or XmlNodeType.SignificantWhitespace or XmlNodeType.Whitespace)
+        {
+            int read;
+            while ((read = reader.ReadValueChunk(buffer, length, buffer.Length - length)) > 0)
+            {
+                length += read;
+                if (length < buffer.Length)
+                    continue;
+
+                // Content longer than the scratch buffer: spill into a builder and keep going.
+                builder ??= new StringBuilder(buffer.Length * 2);
+                builder.Append(buffer, 0, length);
+                length = 0;
+            }
+
+            reader.Read(); // Move past the text node.
+        }
+
+        reader.Read(); // Move past the element's end tag.
+
+        if (builder is null)
+            return length;
+
+        if (length > 0)
+            builder.Append(buffer, 0, length);
+
+        overflow = builder.ToString();
+        return -1;
+    }
 
     /// <summary>
     /// Fast inherited style lookup using pre-cached row style. When the worksheet has no
@@ -524,32 +653,39 @@ internal static class WorksheetSheetDataReader
         return XLStyleValue.Combine(sheetStyle, rowStyle, colStyle);
     }
 
-    private static CellValues ParseCellDataType(string? typeAttribute)
+    /// <summary>
+    /// Maps the <c>t</c> attribute to a data type. Dispatches on length first so the single-character
+    /// forms — which is all Excel writes for the bulk of a sheet — avoid any sequence comparison.
+    /// An absent attribute is handled by the caller's <see cref="CellValues.Number"/> default.
+    /// </summary>
+    private static CellValues ParseCellDataType(ReadOnlySpan<char> typeAttribute)
     {
-        return typeAttribute switch
+        switch (typeAttribute.Length)
         {
-            "b" => CellValues.Boolean,
-            "n" => CellValues.Number,
-            "e" => CellValues.Error,
-            "s" => CellValues.SharedString,
-            "str" => CellValues.String,
-            "inlineStr" => CellValues.InlineString,
-            "d" => CellValues.Date,
-            null => CellValues.Number,
-            _ => throw new FormatException("Unknown cell type.")
-        };
-    }
+            case 1:
+                switch (typeAttribute[0])
+                {
+                    case 's': return CellValues.SharedString;
+                    case 'n': return CellValues.Number;
+                    case 'b': return CellValues.Boolean;
+                    case 'e': return CellValues.Error;
+                    case 'd': return CellValues.Date;
+                }
 
-    private static XLStyleValue ResolveCachedStyleValue(int styleIndex, StylesheetData styles,
-        Dictionary<int, XLStyleValue> styleList)
-    {
-        if (!styleList.TryGetValue(styleIndex, out var cellStyleValue))
-        {
-            cellStyleValue = ResolveStyleValue(styleIndex, styles);
-            styleList[styleIndex] = cellStyleValue;
+                break;
+
+            case 3:
+                if (typeAttribute.SequenceEqual("str"))
+                    return CellValues.String;
+                break;
+
+            case 9:
+                if (typeAttribute.SequenceEqual("inlineStr"))
+                    return CellValues.InlineString;
+                break;
         }
 
-        return cellStyleValue;
+        throw new FormatException("Unknown cell type.");
     }
 
     /// <summary>
@@ -557,31 +693,26 @@ internal static class WorksheetSheetDataReader
     /// bypassing <see cref="XLCell"/> allocation and <c>CalcEngine.MarkDirty</c>.
     /// An <see cref="XLCell"/> is only created for the rare rich-text shared-string path.
     /// </summary>
-    internal static void SetCellValue(CellValues dataType, string? cellValue,
+    internal static void SetCellValue(CellValues dataType, ReadOnlySpan<char> cellValue,
         XLCellsCollection cellsCollection, XLSheetPoint cellAddress, XLStyleValue cellStyleValue,
         XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline,
         Dictionary<XLNumberFormatValue, XLDataType>? numberDataTypeCache = null)
     {
-        // Only String writes an empty value when v is null.
-        if (cellValue is null)
-        {
-            if (dataType == CellValues.String)
-                cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, inline);
-            return;
-        }
-
+        // Number and SharedString are the bulk of any sheet and parse straight from the characters.
+        // String keeps the text, so it materializes one either way. Error and Date are rare enough
+        // that materializing a string for them is not worth a span-based parser.
         if (dataType == CellValues.Number)
             SetNumberCellValue(cellValue, cellsCollection, cellAddress, cellStyleValue, inline, numberDataTypeCache);
         else if (dataType == CellValues.SharedString)
             SetSharedStringCellValue(cellValue, cellsCollection, cellAddress, ws, sharedStrings, inline);
         else if (dataType == CellValues.String)
-            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, cellValue, inline);
+            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, cellValue.ToString(), inline);
         else if (dataType == CellValues.Boolean)
             SetBooleanCellValue(cellValue, cellsCollection, cellAddress, inline);
         else if (dataType == CellValues.Error)
-            SetErrorCellValue(cellValue, cellsCollection, cellAddress, inline);
+            SetErrorCellValue(cellValue.ToString(), cellsCollection, cellAddress, inline);
         else if (dataType == CellValues.Date)
-            SetDateCellValue(cellValue, cellsCollection, cellAddress, inline);
+            SetDateCellValue(cellValue.ToString(), cellsCollection, cellAddress, inline);
     }
 
     /// <summary>
@@ -915,7 +1046,7 @@ internal static class WorksheetSheetDataReader
         return formula;
     }
 
-    private static void SetNumberCellValue(string cellValue, XLCellsCollection cellsCollection,
+    private static void SetNumberCellValue(ReadOnlySpan<char> cellValue, XLCellsCollection cellsCollection,
         XLSheetPoint cellAddress, XLStyleValue cellStyleValue, bool inline,
         Dictionary<XLNumberFormatValue, XLDataType>? numberDataTypeCache = null)
     {
@@ -930,7 +1061,7 @@ internal static class WorksheetSheetDataReader
         cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, cellNumber, inline);
     }
 
-    private static void SetSharedStringCellValue(string cellValue, XLCellsCollection cellsCollection,
+    private static void SetSharedStringCellValue(ReadOnlySpan<char> cellValue, XLCellsCollection cellsCollection,
         XLSheetPoint cellAddress, XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline)
     {
         if (TryParseOoxmlNonNegativeInt(cellValue, out var sharedStringId)
@@ -949,11 +1080,11 @@ internal static class WorksheetSheetDataReader
             cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, inline);
     }
 
-    private static void SetBooleanCellValue(string cellValue, XLCellsCollection cellsCollection,
+    private static void SetBooleanCellValue(ReadOnlySpan<char> cellValue, XLCellsCollection cellsCollection,
         XLSheetPoint cellAddress, bool inline)
     {
-        var isTrue = string.Equals(cellValue, "1", StringComparison.Ordinal) ||
-                     string.Equals(cellValue, "TRUE", StringComparison.OrdinalIgnoreCase);
+        var isTrue = cellValue.SequenceEqual("1") ||
+                     cellValue.Equals("TRUE", StringComparison.OrdinalIgnoreCase);
         cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, isTrue, inline);
     }
 
@@ -1099,7 +1230,7 @@ internal static class WorksheetSheetDataReader
     /// Falls back to <see cref="double.TryParse(string, NumberStyles, IFormatProvider, out double)"/>
     /// for exponents, leading whitespace, leading '+', overflow, or any non-standard format.
     /// </summary>
-    private static bool TryParseOoxmlDouble(string s, out double result)
+    private static bool TryParseOoxmlDouble(ReadOnlySpan<char> s, out double result)
     {
         var len = s.Length;
         if (len == 0)
@@ -1158,7 +1289,7 @@ internal static class WorksheetSheetDataReader
     /// <paramref name="mantissa"/>. Advances <paramref name="i"/> past the digits and returns the
     /// number of digits consumed.
     /// </summary>
-    private static int ScanDigits(string s, ref int i, ref long mantissa)
+    private static int ScanDigits(ReadOnlySpan<char> s, ref int i, ref long mantissa)
     {
         var start = i;
         var len = s.Length;
@@ -1178,13 +1309,13 @@ internal static class WorksheetSheetDataReader
     /// <summary>
     /// Parse a row index attribute value. Row indices in OOXML are always positive integers.
     /// </summary>
-    private static int ParseRowIndex(string s)
+    private static int ParseRowIndex(ReadOnlySpan<char> s)
     {
         TryParseOoxmlNonNegativeInt(s, out var result);
         return result;
     }
 
-    private static bool TryParseOoxmlNonNegativeInt(string s, out int result)
+    private static bool TryParseOoxmlNonNegativeInt(ReadOnlySpan<char> s, out int result)
     {
         result = 0;
         var len = s.Length;

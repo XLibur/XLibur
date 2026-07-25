@@ -94,10 +94,18 @@ internal sealed class LoadContext
         return XLNumberFormatValue.FromKey(ref predefinedFormatKey);
     }
 
+    private StyleValueCache? _styleCache;
+
     /// <summary>
     /// The stylesheet and its sub-collections, populated once from the workbook styles part.
     /// </summary>
     internal StylesheetData Styles { get; set; } = null!;
+
+    /// <summary>
+    /// Per-workbook cache of style values resolved from <c>cellXfs</c> indexes. Shared by every
+    /// worksheet because <see cref="Styles"/> is workbook-global.
+    /// </summary>
+    internal StyleValueCache StyleCache => _styleCache ??= new StyleValueCache(Styles);
 
     /// <summary>
     /// Maps 1-based vm (value metadata) index to cell image info loaded from rich data parts.

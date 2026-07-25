@@ -328,11 +328,10 @@ public partial class XLWorkbook
     {
         var styles = context.Styles;
         var sharedFormulasR1C1 = new Dictionary<uint, string>();
-        var styleList = new Dictionary<int, XLStyleValue>();
         var numberDataTypeCache = new Dictionary<XLNumberFormatValue, XLDataType>();
         PageSetupProperties? pageSetupProperties = null;
         var sheetDataContext = new WorksheetSheetDataReader.SheetDataReadContext(
-            styles, ws, sharedStrings, sharedFormulasR1C1, styleList, numberDataTypeCache,
+            styles, ws, sharedStrings, sharedFormulasR1C1, context.StyleCache, numberDataTypeCache,
             Use1904DateSystem, context.DynamicArrayCmIndexes);
         var sheetDataState = new WorksheetSheetDataReader.SheetDataReadState();
 
