@@ -29,21 +29,32 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Must precede setup-node: `cache: pnpm` needs the pnpm binary on PATH to
+      # resolve the store path. The version comes from packageManager in package.json.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          # There is no root package.json — the field lives in the docs project.
+          package_json_file: docs-website/package.json
+
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: docs-website/package-lock.json
+          cache: pnpm
+          cache-dependency-path: docs-website/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: npm ci
+        # No dependency needs a lifecycle script to build the site: only core-js
+        # (a donation banner) and fsevents (macOS-only) declare one. pnpm 10 also
+        # blocks dependency scripts by default, so this is belt and braces.
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Type check
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: Build
-        run: npm run build
+        run: pnpm run build
 
       - name: Upload Pages artifact
         # Only the production deploy needs the artifact; PRs just verify the build.

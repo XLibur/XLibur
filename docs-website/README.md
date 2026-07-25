@@ -5,19 +5,23 @@ Published to GitHub Pages at <https://xlibur.github.io/XLibur/>.
 
 ## Local development
 
+This project uses [pnpm](https://pnpm.io/). The version is pinned by the
+`packageManager` field in [`package.json`](package.json), so `corepack enable` is
+enough to get the right one.
+
 ```sh
-npm install
-npm start
+pnpm install
+pnpm start
 ```
 
-`npm start` serves the site at <http://localhost:3000/XLibur/> with hot reload.
+`pnpm start` serves the site at <http://localhost:3000/XLibur/> with hot reload.
 
 ## Build
 
 ```sh
-npm run build      # static output in ./build
-npm run serve      # serve the built output locally
-npm run typecheck  # type check the config/sidebars
+pnpm run build      # static output in ./build
+pnpm run serve      # serve the built output locally
+pnpm run typecheck  # type check the config/sidebars
 ```
 
 ## Content
