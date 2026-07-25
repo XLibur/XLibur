@@ -66,9 +66,11 @@ Releases are one click, from the Actions tab:
 Pre-release builds go through the **Pre-release** workflow instead (alpha/beta/rc, also with a
 dry-run option).
 
-The font engine packages version independently of the core packages. Release one by pushing
-its own tag — `fonts-skiasharp-v*`, `fonts-sixlabors-v*`, or `fonts-sixlabors-1-v*` — which
-runs the same **Release** workflow for just that package.
+All five packages — `XLibur`, `XLibur.Bundle`, and the three font engines — version in lockstep
+from the `v*` tag and are published together. `XLibur.Bundle` references the font engine by
+project, so its published dependency is whatever version the font package was packed at; keeping
+one version across the set is what guarantees that dependency is a version that actually exists
+on NuGet.
 
 ## Test Conventions
 

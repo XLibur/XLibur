@@ -126,16 +126,18 @@ When a `FontEngine` is explicitly provided but no `GraphicEngine` is set, the wo
 
 ### Versioning
 
-Each package has independent MinVer versioning with distinct tag prefixes:
+All packages version in lockstep from the `v` MinVer tag prefix, so a single `v0.106.0` tag
+releases `XLibur`, `XLibur.Bundle`, and all three font engine packages at `0.106.0`.
 
-| Package | Tag prefix | Example |
-|---------|-----------|---------|
-| XLibur | `v` | `v0.106.0` |
-| XLibur.Fonts.SixLabors.V1 | `fonts-sixlabors-1-v` | `fonts-sixlabors-1-v1.0.0` |
-| XLibur.Fonts.SixLabors | `fonts-sixlabors-v` | `fonts-sixlabors-v0.1.0` |
-| XLibur.Fonts.SkiaSharp | `fonts-skiasharp-v` | `fonts-skiasharp-v0.1.0` |
+The font packages originally had their own tag prefixes (`fonts-skiasharp-v`,
+`fonts-sixlabors-v`, `fonts-sixlabors-1-v`) for independent versioning. Those tags were never
+created, so MinVer fell back to `0.0.0` and the font packages published as `0.0.0-rc.*` — and
+because `XLibur.Bundle` references the font engine by project, the published bundle depended on
+`XLibur.Fonts.SkiaSharp 0.0.0-rc.2250`. Lockstep versioning removes that class of mismatch:
+whatever version the bundle is packed at, its font dependency is the same version, packed and
+published in the same run. The release workflow verifies this before pushing to NuGet.
 
-The release workflow triggers on any of these tag patterns. `--skip-duplicate` on NuGet push means unchanged packages are not re-published.
+`--skip-duplicate` on NuGet push means unchanged packages are not re-published.
 
 ### Bold/Italic Font Style
 

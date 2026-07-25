@@ -8,8 +8,8 @@ name: Publish Release
 #   4. calls release.yml, which packs, publishes to NuGet, and publishes the
 #      draft release notes with contributor attribution
 #
-# Font packages version independently — release those by pushing their own tag
-# (fonts-skiasharp-v*, fonts-sixlabors-v*, fonts-sixlabors-1-v*).
+# All five packages version in lockstep from the tag, so this releases the whole
+# set: XLibur, XLibur.Bundle, and the three font engine packages.
 
 on:
   workflow_dispatch:

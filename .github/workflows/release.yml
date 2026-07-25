@@ -1,8 +1,10 @@
 name: Release
 
+# All packages version in lockstep from the `v*` tag, so one tag releases the
+# whole set: XLibur, XLibur.Bundle, and the three font engine packages.
 on:
   push:
-    tags: ['v*', 'fonts-sixlabors-1-v*', 'fonts-sixlabors-v*', 'fonts-skiasharp-v*']
+    tags: ['v*']
   # Called by release-publish.yml, which creates the tag and then invokes this
   # workflow directly. A tag pushed with GITHUB_TOKEN does not trigger the
   # `push: tags` trigger above, so the call has to be explicit.
@@ -32,38 +34,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      # A font tag releases only that font package. A core `v*` tag releases the
-      # core packages together, because XLibur.Bundle references the font engine
-      # by project and must be published alongside it.
-      - name: Resolve release scope
-        id: scope
-        run: |
-          case "$TAG" in
-            fonts-sixlabors-1-v*)
-              projects='XLibur.Fonts.SixLabors.V1'
-              core=false ;;
-            fonts-sixlabors-v*)
-              projects='XLibur.Fonts.SixLabors'
-              core=false ;;
-            fonts-skiasharp-v*)
-              projects='XLibur.Fonts.SkiaSharp'
-              core=false ;;
-            v*)
-              projects='XLibur XLibur.Fonts.SixLabors.V1 XLibur.Bundle XLibur.Fonts.SixLabors XLibur.Fonts.SkiaSharp'
-              core=true ;;
-            *)
-              echo "::error::Unrecognised release tag: $TAG"
-              exit 1 ;;
-          esac
-          echo "projects=$projects" >> "$GITHUB_OUTPUT"
-          echo "core=$core" >> "$GITHUB_OUTPUT"
-          echo "Releasing from tag $TAG: $projects"
-
       # Captured before publishing, because once this release is published it
       # becomes "latest" and can no longer serve as the previous tag.
       - name: Resolve previous release tag
         id: previous
-        if: steps.scope.outputs.core == 'true'
         run: |
           prev=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases \
                    --limit 1 --json tagName --jq '.[0].tagName // ""')
@@ -85,12 +59,32 @@ jobs:
 
       - name: Pack
         run: |
-          for project in ${{ steps.scope.outputs.projects }}; do
+          for project in XLibur XLibur.Fonts.SixLabors.V1 XLibur.Bundle XLibur.Fonts.SixLabors XLibur.Fonts.SkiaSharp; do
             echo "::group::Pack $project"
             dotnet pack "$project/$project.csproj" --configuration Release --no-build --output ./artifacts
             echo "::endgroup::"
           done
           ls -la ./artifacts/
+
+      # Every package must carry the tag's version. A mismatch means MinVer did
+      # not see the tag, which would publish a prerelease-versioned package and
+      # leave XLibur.Bundle depending on a version that was never released.
+      - name: Verify package versions match the tag
+        run: |
+          expected=${TAG#v}
+          status=0
+          for package in ./artifacts/*.nupkg; do
+            name=$(basename "$package" .nupkg)
+            if [ "${name%.$expected}" = "$name" ]; then
+              echo "::error::$name is not version $expected"
+              status=1
+            fi
+          done
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Package versions do not match tag $TAG — refusing to publish"
+            exit 1
+          fi
+          echo "All packages are version $expected"
 
       - name: NuGet login
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
@@ -104,10 +98,9 @@ jobs:
       - name: Push symbols to NuGet
         run: dotnet nuget push ./artifacts/*.snupkg --source https://api.nuget.org/v3/index.json --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --skip-duplicate
 
-      # Core releases publish the rolling draft that Release Drafter has been
-      # accumulating from merged PRs, so any manual edits made to it are kept.
-      - name: Publish GitHub Release (core)
-        if: steps.scope.outputs.core == 'true'
+      # Publishes the rolling draft that Release Drafter has been accumulating
+      # from merged PRs, so any manual edits made to it are kept.
+      - name: Publish GitHub Release
         uses: release-drafter/release-drafter@v7
         with:
           publish: true
@@ -119,7 +112,6 @@ jobs:
       # Release Drafter has no first-time-contributor detection, so borrow
       # GitHub's own and append its "New Contributors" section to the notes.
       - name: Append new contributors
-        if: steps.scope.outputs.core == 'true'
         run: |
           prev='${{ steps.previous.outputs.tag }}'
           if [ -n "$prev" ]; then
@@ -143,12 +135,6 @@ jobs:
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
           echo "Appended:"
           cat new-contributors.md
-
-      # Font packages version independently and have no rolling draft, so their
-      # notes come from GitHub's generated comparison against the previous tag.
-      - name: Publish GitHub Release (font package)
-        if: steps.scope.outputs.core == 'false'
-        run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v3
