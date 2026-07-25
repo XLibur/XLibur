@@ -153,6 +153,16 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         }
     }
 
+    /// <summary>
+    /// A worksheet styles its used rows and columns, which then style their own cells — not the
+    /// whole 16,384 × 1,048,576 rectangle its <c>RangeAddress</c> spans. Opt out of the fast path
+    /// <see cref="XLRangeBase"/> provides and keep walking <see cref="Children"/>.
+    /// </summary>
+    private protected override bool TryApplyToCellStyles(Func<XLStyleValue, XLStyleValue> transform)
+    {
+        return false;
+    }
+
     internal bool RowHeightChanged { get; set; }
 
     internal bool ColumnWidthChanged { get; set; }

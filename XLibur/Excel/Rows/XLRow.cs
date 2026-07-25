@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 using XLibur.Graphics;
 
@@ -58,6 +59,18 @@ internal sealed class XLRow : XLRangeBase, IXLRow
             foreach (var cell in Worksheet.Internals.CellsCollection.GetCellsInRow(row))
                 yield return cell;
         }
+    }
+
+    /// <summary>
+    /// A row styles only its <em>used</em> cells, not all 16,384 columns — so the inherited
+    /// rectangle walk from <see cref="XLRangeBase"/> would be wrong here, not merely slower.
+    /// </summary>
+    private protected override bool TryApplyToCellStyles(Func<XLStyleValue, XLStyleValue> transform)
+    {
+        var worksheet = Worksheet;
+        var range = new XLSheetRange(RowNumber(), 1, RowNumber(), XLHelper.MaxColumnNumber);
+        ApplyToCellStyles(worksheet, UsedPoints(worksheet, range), transform);
+        return true;
     }
 
     public bool Collapsed

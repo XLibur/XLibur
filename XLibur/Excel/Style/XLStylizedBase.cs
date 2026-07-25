@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 
 namespace XLibur.Excel;
@@ -89,28 +90,112 @@ internal abstract class XLStylizedBase : IXLStylized
     private void SetStyle(XLStyleValue value, bool propagate = false)
     {
         StyleValue = value;
-        if (propagate)
-        {
-            Children.ForEach(child => child.SetStyle(StyleValue, true));
-        }
+        if (!propagate)
+            return;
+
+        // The value is absolute, so the container's own style having already been written cannot
+        // affect what the cells resolve to — the fast path is free to run afterwards.
+        if (TryApplyToCellStyles(_ => value))
+            return;
+
+        Children.ForEach(child => child.SetStyle(StyleValue, true));
     }
 
     private static readonly ReferenceEqualityComparer<XLStyleValue> Comparer = new();
 
     void IXLStylized.ModifyStyle(Func<XLStyleKey, XLStyleKey> modification)
     {
+        // Snapshot before touching anything. The slow path collects every child up front and
+        // groups by the *original* style, so no child may observe another's new style; a row or
+        // column writing its own style early would change what its unstyled cells inherit.
+        var ownSource = StyleValue;
+
+        if (TryApplyToCellStyles(source => Modify(source, modification)))
+        {
+            StyleValue = Modify(ownSource, modification);
+            return;
+        }
+
         var children = GetChildrenRecursively(this)
             .GroupBy(child => child.StyleValue, Comparer);
 
         foreach (var group in children)
         {
-            var styleKey = modification(group.Key.Key);
-            var styleValue = XLStyleValue.FromKey(ref styleKey);
+            var styleValue = Modify(group.Key, modification);
             foreach (var child in group)
             {
                 child.StyleValue = styleValue;
             }
         }
+    }
+
+    private static XLStyleValue Modify(XLStyleValue source, Func<XLStyleKey, XLStyleKey> modification)
+    {
+        var styleKey = modification(source.Key);
+        return XLStyleValue.FromKey(ref styleKey);
+    }
+
+    /// <summary>
+    /// Apply <paramref name="transform"/> to the style of every cell this container styles, writing
+    /// the style slice directly instead of materialising an <see cref="XLCell"/> per cell.
+    /// </summary>
+    /// <returns>
+    /// <c>true</c> if the container handled its cells; <c>false</c> to fall back to walking
+    /// <see cref="Children"/>. The default is <c>false</c> — a container only opts in when it can
+    /// enumerate exactly the same cells its <see cref="Children"/> would have yielded.
+    /// </returns>
+    /// <remarks>
+    /// Implementations must not write the container's own style: <c>ModifyStyle</c> applies that
+    /// afterwards, from a value snapshotted before any cell was touched.
+    /// </remarks>
+    private protected virtual bool TryApplyToCellStyles(Func<XLStyleValue, XLStyleValue> transform)
+    {
+        return false;
+    }
+
+    /// <summary>
+    /// Shared body of the fast path: walk points, resolve each cell's current effective style, and
+    /// write the transformed value back. A last-value memo keeps the transform off runs of cells
+    /// that share a style, which is the normal case for bulk styling.
+    /// </summary>
+    private protected static void ApplyToCellStyles(
+        XLWorksheet worksheet,
+        IEnumerable<XLSheetPoint> points,
+        Func<XLStyleValue, XLStyleValue> transform)
+    {
+        var styleSlice = worksheet.Internals.CellsCollection.StyleSlice;
+        XLStyleValue? memoSource = null;
+        XLStyleValue? memoResult = null;
+
+        foreach (var point in points)
+        {
+            var source = worksheet.GetStyleValue(point);
+            if (!ReferenceEquals(source, memoSource))
+            {
+                memoSource = source;
+                memoResult = transform(source);
+            }
+
+            styleSlice.Set(point, memoResult!);
+        }
+    }
+
+    /// <summary>
+    /// The points of cells that are actually used within <paramref name="range"/>, matching what
+    /// <c>XLCellsCollection.GetCells</c> would have yielded — without the wrapper per cell.
+    /// </summary>
+    /// <remarks>
+    /// Materialised into a list rather than streamed: the caller writes the style slice as it goes,
+    /// and the slice enumerator must not be walked while the slice it reads is being mutated.
+    /// </remarks>
+    private protected static List<XLSheetPoint> UsedPoints(XLWorksheet worksheet, XLSheetRange range)
+    {
+        var points = new List<XLSheetPoint>();
+        var enumerator = new XLCellsCollection.SlicesEnumerator(range, worksheet.Internals.CellsCollection);
+        while (enumerator.MoveNext())
+            points.Add(enumerator.Current);
+
+        return points;
     }
 
     private static HashSet<XLStylizedBase> GetChildrenRecursively(XLStylizedBase parent)

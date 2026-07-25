@@ -167,6 +167,31 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         }
     }
 
+    /// <summary>
+    /// <see cref="Children"/> for a range is <c>Cells()</c>, which yields every point in the
+    /// rectangle — used or not — so the style slice can be written point by point instead.
+    /// </summary>
+    private protected override bool TryApplyToCellStyles(Func<XLStyleValue, XLStyleValue> transform)
+    {
+        if (!RangeAddress.IsValid)
+            return false;
+
+        ApplyToCellStyles(Worksheet, EnumeratePoints(SheetRange), transform);
+        return true;
+    }
+
+    private static IEnumerable<XLSheetPoint> EnumeratePoints(XLSheetRange range)
+    {
+        var firstPoint = range.FirstPoint;
+        var lastPoint = range.LastPoint;
+
+        for (var row = firstPoint.Row; row <= lastPoint.Row; row++)
+        {
+            for (var column = firstPoint.Column; column <= lastPoint.Column; column++)
+                yield return new XLSheetPoint(row, column);
+        }
+    }
+
     #endregion IXLStylized Members
 
     #endregion Public properties
