@@ -18,6 +18,11 @@ Grounding: these were derived from a July 2026 survey of the codebase (architect
 | 08 | [LET / LAMBDA](08-let-lambda.md) | Feature | L | Proposed | Single owner (engine core) |
 | 09 | [Threaded comments + round-trip fidelity](09-threaded-comments-roundtrip.md) | Feature · Compat | M | Proposed | Comments vs fidelity-audit split |
 | 10 | [Chart formatting depth](10-chart-formatting-depth.md) | Feature | L | Proposed | 4 PRs, 2–3 independent |
+| 11 | [Create-path allocation reduction](11-create-path-allocations.md) | Perf (write) | M | Proposed | Task 1 standalone, then 3 workstreams |
+
+Spec 11 was added after spec 03 landed: 03 halved the *save* phase and showed the rest of it is
+`System.IO.Packaging`, leaving the *create* phase as 72% of the write benchmark. It is a follow-on,
+not part of the original ten.
 
 Spec 02 delivered **−16.5% load time and −61.5% allocations** (4.750 s / 1020.92 MB → 3.968 s /
 392.88 MB on the 250K×15 benchmark). It also produced two findings that change other specs: a
@@ -39,8 +44,10 @@ for the IO layer. Both are recorded in spec 02's Results section.
 ```
 Wave 1 (independent, start anytime):
   02 load allocations ✅ done · 03 save allocations · 07 function waves A–F · 09 threaded comments
+  11 Task 1 (one-line merged-range guard — worth 111 MB, land it immediately)
 Wave 2 (after 03 lands, or coordinated):
   01 streaming write (Phase 1 seam shared with 03's territory) · 06 encryption · 10 charts PR1
+  11 Tasks 2–4 (Task 4 overlaps 05 — don't run concurrently)
 Wave 3 (single-owner, correctness-critical — don't parallelize internally):
   04 demand-driven eval · 05 structural edits · 08 LET/LAMBDA (08 after or alongside 04)
 ```
@@ -48,7 +55,7 @@ Wave 3 (single-owner, correctness-critical — don't parallelize internally):
 **Read spec 02's Results section before starting 03** — it corrects 03's number-formatting task
 and describes an allocation technique that applies to the rest of the IO layer.
 
-Conflict map: 01↔03 (`SheetDataWriter`), 04↔08 (evaluation stack / `CalcContext`), 07 waves B↔C (`Statistical.cs`). Everything else is disjoint.
+Conflict map: 01↔03 (`SheetDataWriter`), 04↔08 (evaluation stack / `CalcContext`), 07 waves B↔C (`Statistical.cs`), 05↔11 Task 4 (bulk style propagation). Everything else is disjoint.
 
 ## Ground rules for implementing agents
 
