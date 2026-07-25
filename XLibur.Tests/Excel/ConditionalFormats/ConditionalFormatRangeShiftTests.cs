@@ -1,4 +1,4 @@
-using XLibur.Excel;
+﻿using XLibur.Excel;
 using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.Coordinates;
 using NUnit.Framework;
