@@ -9,6 +9,67 @@ Here are some tips.
 * Please submit pull requests that are based on the `main` branch.
 * Where possible, pull requests should include unit tests that cover as many uses cases as possible.
 
+## Pull request titles
+
+**The PR title becomes the release note**, so write it as a short imperative summary of the
+change. Titles follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat: add SMALL, RANK, PERCENTILE, QUARTILE and MODE functions
+fix: shift conditional-format ranges once on row/column insert
+perf: read sheetData with a raw XmlReader
+```
+
+The prefix is what labels the PR, and the label decides both which section of the release
+notes the change lands in and how the version is bumped:
+
+| Prefix | Label | Release notes section | Version bump |
+|---|---|---|---|
+| `feat:` | `enhancement` | New Features | minor |
+| `fix:` | `bug` | Bug Fixes | patch |
+| `perf:` | `performance` | Performance | patch |
+| `docs:` | `documentation` | Documentation | patch |
+| `chore:` `build:` `ci:` `style:` `refactor:` `test:` | `chore` | Other Changes | patch |
+| any prefix with `!`, e.g. `feat!:` | `breaking` | Breaking Changes | minor (pre-1.0) |
+
+Labelling is automatic — the **PR Autolabel** workflow applies the label from the title when
+the PR is opened or edited. You can override it by changing the label by hand; the label
+always wins over the title.
+
+Contributors are credited automatically: every entry is attributed to its author, and
+first-time contributors get a "New Contributors" section in the release.
+
+## Changelog
+
+User-visible changes belong in `CHANGELOG.md` under `## Unreleased`, in the appropriate
+`###` section (`Added`, `Fixed`, `Performance`, `Upgrade Guide`, …). This is written by
+hand — it is the place for the detail that a one-line release note can't carry: why the
+change matters, migration steps, before/after examples.
+
+Don't add a version heading yourself. The release workflow rolls `## Unreleased` into a
+dated version heading when the release is published.
+
+## Releasing
+
+Releases are one click, from the Actions tab:
+
+1. **Publish Release** workflow → *Run workflow*. Leave *version* empty to take the version
+   Release Drafter resolved from the merged PRs, or set it explicitly.
+2. Run it once with **dry-run** ticked (the default). It resolves the version and prints the
+   changelog roll without changing anything.
+3. Before the real run, open the release draft and edit the notes if you want — the draft is
+   published as-is, so manual edits survive.
+4. Re-run with **dry-run** unticked. The workflow rolls the changelog, commits and tags it on
+   `main`, packs the packages, pushes them to NuGet, publishes the release notes, and attaches
+   the `.nupkg`/`.snupkg` files.
+
+Pre-release builds go through the **Pre-release** workflow instead (alpha/beta/rc, also with a
+dry-run option).
+
+The font engine packages version independently of the core packages. Release one by pushing
+its own tag — `fonts-skiasharp-v*`, `fonts-sixlabors-v*`, or `fonts-sixlabors-1-v*` — which
+runs the same **Release** workflow for just that package.
+
 ## Test Conventions
 
 * Tests use [NUnit](https://nunit.org/) 4.x.

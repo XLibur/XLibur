@@ -1,0 +1,124 @@
+name: Publish Release
+
+# One-click stable release for the core packages:
+#
+#   1. resolves the version from the release draft (or the version input)
+#   2. rolls CHANGELOG.md's Unreleased section into a dated version heading
+#   3. commits that to main and tags it
+#   4. calls release.yml, which packs, publishes to NuGet, and publishes the
+#      draft release notes with contributor attribution
+#
+# Font packages version independently — release those by pushing their own tag
+# (fonts-skiasharp-v*, fonts-sixlabors-v*, fonts-sixlabors-1-v*).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, e.g. 0.106.0. Leave empty to use the drafted version.'
+        required: false
+        type: string
+      dry-run:
+        description: 'Dry run — resolve the version and show the changelog roll without tagging or publishing'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Check branch
+        run: |
+          if [ "$GITHUB_REF_NAME" != "main" ]; then
+            echo "::error::Releases must be published from main (got $GITHUB_REF_NAME)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve version
+        id: resolve
+        run: |
+          version='${{ inputs.version }}'
+
+          if [ -z "$version" ]; then
+            version=$(gh api "repos/$GITHUB_REPOSITORY/releases" \
+              --jq '[.[] | select(.draft)] | .[0].tag_name // ""')
+            if [ -z "$version" ]; then
+              echo "::error::No release draft found — pass an explicit version input"
+              exit 1
+            fi
+            echo "Resolved from release draft: $version"
+          fi
+
+          version=${version#v}
+
+          if ! printf '%s' "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::'$version' is not a stable MAJOR.MINOR.PATCH version. Pre-releases go through the Pre-release workflow."
+            exit 1
+          fi
+
+          tag="v$version"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::error::Tag $tag already exists"
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Releasing $tag"
+
+      - name: Roll changelog
+        run: bash .github/scripts/roll-changelog.sh "${{ steps.resolve.outputs.version }}"
+
+      - name: Show changelog diff
+        run: git --no-pager diff -- CHANGELOG.md
+
+      - name: Dry run summary
+        if: ${{ inputs.dry-run }}
+        run: |
+          {
+            echo "### Dry run — nothing was published"
+            echo
+            echo "Would release **${{ steps.resolve.outputs.tag }}** with the changelog roll shown in the job log."
+            echo
+            echo "Re-run with **dry-run** unchecked to tag and publish."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit and tag
+        if: ${{ !inputs.dry-run }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add CHANGELOG.md
+          git commit -m "chore: roll changelog for ${{ steps.resolve.outputs.tag }}"
+          git tag -a "${{ steps.resolve.outputs.tag }}" -m "Release ${{ steps.resolve.outputs.tag }}"
+          git push origin HEAD:main
+          git push origin "${{ steps.resolve.outputs.tag }}"
+
+  release:
+    name: Release
+    needs: prepare
+    if: ${{ !inputs.dry-run }}
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+    permissions:
+      contents: write
+      id-token: write
+    secrets: inherit

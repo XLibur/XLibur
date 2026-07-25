@@ -16,5 +16,8 @@ jobs:
 
     steps:
       - uses: release-drafter/release-drafter@v7
+        with:
+          # Labelling happens in pr-autolabel.yml while the PR is open.
+          disable-autolabeler: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

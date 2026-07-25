@@ -3,6 +3,15 @@ name: Release
 on:
   push:
     tags: ['v*', 'fonts-sixlabors-1-v*', 'fonts-sixlabors-v*', 'fonts-skiasharp-v*']
+  # Called by release-publish.yml, which creates the tag and then invokes this
+  # workflow directly. A tag pushed with GITHUB_TOKEN does not trigger the
+  # `push: tags` trigger above, so the call has to be explicit.
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Tag to release'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,11 +21,54 @@ jobs:
   release:
     runs-on: ubuntu-latest
 
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
           fetch-tags: true
+
+      # A font tag releases only that font package. A core `v*` tag releases the
+      # core packages together, because XLibur.Bundle references the font engine
+      # by project and must be published alongside it.
+      - name: Resolve release scope
+        id: scope
+        run: |
+          case "$TAG" in
+            fonts-sixlabors-1-v*)
+              projects='XLibur.Fonts.SixLabors.V1'
+              core=false ;;
+            fonts-sixlabors-v*)
+              projects='XLibur.Fonts.SixLabors'
+              core=false ;;
+            fonts-skiasharp-v*)
+              projects='XLibur.Fonts.SkiaSharp'
+              core=false ;;
+            v*)
+              projects='XLibur XLibur.Fonts.SixLabors.V1 XLibur.Bundle XLibur.Fonts.SixLabors XLibur.Fonts.SkiaSharp'
+              core=true ;;
+            *)
+              echo "::error::Unrecognised release tag: $TAG"
+              exit 1 ;;
+          esac
+          echo "projects=$projects" >> "$GITHUB_OUTPUT"
+          echo "core=$core" >> "$GITHUB_OUTPUT"
+          echo "Releasing from tag $TAG: $projects"
+
+      # Captured before publishing, because once this release is published it
+      # becomes "latest" and can no longer serve as the previous tag.
+      - name: Resolve previous release tag
+        id: previous
+        if: steps.scope.outputs.core == 'true'
+        run: |
+          prev=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases \
+                   --limit 1 --json tagName --jq '.[0].tagName // ""')
+          echo "tag=$prev" >> "$GITHUB_OUTPUT"
+          echo "Previous release tag: ${prev:-<none>}"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
@@ -31,20 +83,14 @@ jobs:
       - name: Build
         run: dotnet build XLibur.slnx --configuration Release --no-restore
 
-      - name: Pack XLibur
-        run: dotnet pack XLibur/XLibur.csproj --configuration Release --no-build --output ./artifacts
-
-      - name: Pack XLibur.Fonts.SixLabors.V1
-        run: dotnet pack XLibur.Fonts.SixLabors.V1/XLibur.Fonts.SixLabors.V1.csproj --configuration Release --no-build --output ./artifacts
-
-      - name: Pack XLibur.Bundle
-        run: dotnet pack XLibur.Bundle/XLibur.Bundle.csproj --configuration Release --no-build --output ./artifacts
-
-      - name: Pack XLibur.Fonts.SixLabors
-        run: dotnet pack XLibur.Fonts.SixLabors/XLibur.Fonts.SixLabors.csproj --configuration Release --no-build --output ./artifacts
-
-      - name: Pack XLibur.Fonts.SkiaSharp
-        run: dotnet pack XLibur.Fonts.SkiaSharp/XLibur.Fonts.SkiaSharp.csproj --configuration Release --no-build --output ./artifacts
+      - name: Pack
+        run: |
+          for project in ${{ steps.scope.outputs.projects }}; do
+            echo "::group::Pack $project"
+            dotnet pack "$project/$project.csproj" --configuration Release --no-build --output ./artifacts
+            echo "::endgroup::"
+          done
+          ls -la ./artifacts/
 
       - name: NuGet login
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
@@ -58,17 +104,56 @@ jobs:
       - name: Push symbols to NuGet
         run: dotnet nuget push ./artifacts/*.snupkg --source https://api.nuget.org/v3/index.json --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --skip-duplicate
 
-      - name: Publish GitHub Release
+      # Core releases publish the rolling draft that Release Drafter has been
+      # accumulating from merged PRs, so any manual edits made to it are kept.
+      - name: Publish GitHub Release (core)
+        if: steps.scope.outputs.core == 'true'
         uses: release-drafter/release-drafter@v7
         with:
           publish: true
-          tag: ${{ github.ref_name }}
+          tag: ${{ env.TAG }}
+          name: ${{ env.TAG }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Release Drafter has no first-time-contributor detection, so borrow
+      # GitHub's own and append its "New Contributors" section to the notes.
+      - name: Append new contributors
+        if: steps.scope.outputs.core == 'true'
+        run: |
+          prev='${{ steps.previous.outputs.tag }}'
+          if [ -n "$prev" ]; then
+            generated=$(gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+              -f tag_name="$TAG" -f previous_tag_name="$prev" --jq .body)
+          else
+            generated=$(gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+              -f tag_name="$TAG" --jq .body)
+          fi
+
+          printf '%s\n' "$generated" | awk '/^## New Contributors/ { found = 1 } found { print }' > new-contributors.md
+
+          if [ ! -s new-contributors.md ]; then
+            echo "No new contributors in this release."
+            exit 0
+          fi
+
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
+          printf '\n' >> notes.md
+          cat new-contributors.md >> notes.md
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+          echo "Appended:"
+          cat new-contributors.md
+
+      # Font packages version independently and have no rolling draft, so their
+      # notes come from GitHub's generated comparison against the previous tag.
+      - name: Publish GitHub Release (font package)
+        if: steps.scope.outputs.core == 'false'
+        run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ env.TAG }}
           files: |
             ./artifacts/*.nupkg
             ./artifacts/*.snupkg

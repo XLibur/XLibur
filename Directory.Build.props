@@ -20,8 +20,7 @@
     <PackageProjectUrl>https://github.com/XLibur/XLibur</PackageProjectUrl>
     <PackageIcon>nuget-logo.png</PackageIcon>
     <PackageTags>Excel OpenXml xlsx</PackageTags>
-    <Description>See release notes https://github.com/XLibur/XLibur/releases/tag/$(Version) XLibur is a .NET library for reading, manipulating and writing Excel 2007+ (.xlsx, .xlsm) files. It aims to provide an intuitive and user-friendly interface to dealing with the underlying OpenXML API.</Description>
-    <PackageReleaseNotes>See https://github.com/XLibur/XLibur/releases/tag/$(Version)</PackageReleaseNotes>
+    <Description>XLibur is a .NET library for reading, manipulating and writing Excel 2007+ (.xlsx, .xlsm) files. It aims to provide an intuitive and user-friendly interface to dealing with the underlying OpenXML API.</Description>
     <RepositoryUrl>https://github.com/XLibur/XLibur</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
 
@@ -41,5 +40,18 @@
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' != ''">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
+
+  <!--
+    MinVer computes the version inside a target, so the release-notes link has to be
+    built after that target runs. Setting these as ordinary properties above would
+    interpolate an empty version (which shipped a broken "releases/tag/" link).
+  -->
+  <Target Name="SetPackageReleaseNotesFromVersion" DependsOnTargets="MinVer" BeforeTargets="GenerateNuspec">
+    <PropertyGroup>
+      <_XLiburReleaseUrl>https://github.com/XLibur/XLibur/releases/tag/$(MinVerTagPrefix)$(MinVerVersion)</_XLiburReleaseUrl>
+      <PackageReleaseNotes>See $(_XLiburReleaseUrl)</PackageReleaseNotes>
+      <PackageDescription>See release notes $(_XLiburReleaseUrl) $(Description)</PackageDescription>
+    </PropertyGroup>
+  </Target>
 
 </Project>

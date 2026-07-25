@@ -1,5 +1,5 @@
-name-template: 'Next Release'
-tag-template: ''
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
 
 categories:
   - title: 'Breaking Changes'
@@ -8,33 +8,76 @@ categories:
   - title: 'New Features'
     labels:
       - 'enhancement'
-      - 'feature'
   - title: 'Bug Fixes'
     labels:
       - 'bug'
-      - 'fix'
   - title: 'Performance'
     labels:
       - 'performance'
-      - 'perf'
   - title: 'Documentation'
     labels:
       - 'documentation'
-      - 'docs'
   - title: 'Dependencies'
     labels:
       - 'dependencies'
   - title: 'Other Changes'
     labels:
-      - 'refactor'
       - 'chore'
-      - 'test'
 
 change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
 change-title-escapes: '\<*_&'
 no-changes-template: 'No changes.'
 
+# While the project is pre-1.0, a breaking change is still a minor bump.
+version-resolver:
+  minor:
+    labels:
+      - 'breaking'
+      - 'enhancement'
+  patch:
+    labels:
+      - 'bug'
+      - 'performance'
+      - 'documentation'
+      - 'dependencies'
+      - 'chore'
+  default: patch
+
+# Bots don't get a thank-you line.
+exclude-contributors:
+  - 'dependabot'
+  - 'dependabot[bot]'
+  - 'github-actions'
+  - 'github-actions[bot]'
+no-contributors-template: ''
+
+# PR titles follow Conventional Commits, so the label — and therefore the release
+# note category and the version bump — is derived from the title automatically.
+# Labels referenced here must already exist in the repository; the autolabeler
+# cannot create them.
+autolabeler:
+  - label: 'breaking'
+    title:
+      - '/^[a-z]+(\(.+\))?!:/'
+  - label: 'enhancement'
+    title:
+      - '/^feat(\(.+\))?!?:/'
+  - label: 'bug'
+    title:
+      - '/^fix(\(.+\))?!?:/'
+  - label: 'performance'
+    title:
+      - '/^perf(\(.+\))?!?:/'
+  - label: 'documentation'
+    title:
+      - '/^docs(\(.+\))?!?:/'
+  - label: 'chore'
+    title:
+      - '/^(chore|build|ci|style|refactor|test)(\(.+\))?!?:/'
+
 template: |
   ## What's Changed
 
   $CHANGES
+
+  Thanks to $CONTRIBUTORS for contributing to this release.

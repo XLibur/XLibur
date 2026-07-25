@@ -8,6 +8,10 @@
 # C# files: normalize + enable language-aware diffs.
 *.cs text diff=csharp eol=crlf
 
+# Shell scripts must keep LF even on Windows checkouts — CI runs them on Linux,
+# where CRLF line endings break the interpreter.
+*.sh text eol=lf
+
 # Binary files: never normalize or convert line endings.
 *.png binary
 *.jpg binary
