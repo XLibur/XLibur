@@ -47,6 +47,23 @@ const config: Config = {
     ],
   ],
 
+  themes: [
+    [
+      '@easyops-cn/docusaurus-search-local',
+      {
+        // Offline search: the index is built at compile time and served as
+        // static assets, so it works on GitHub Pages with no search backend.
+        hashed: true,
+        // The site runs in docs-only mode (docs.routeBasePath === '/'), so the
+        // indexer has to be pointed at the root too — it defaults to '/docs'
+        // and would otherwise index nothing.
+        docsRouteBasePath: '/',
+        indexBlog: false,
+        highlightSearchTermsOnTargetPage: true,
+      },
+    ],
+  ],
+
   themeConfig: {
     image: 'img/logo.png',
     colorMode: {
