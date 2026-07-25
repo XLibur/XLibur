@@ -15,9 +15,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Labelling happens in pr-autolabel.yml while the PR is open — in v7 the
+      # autolabeler is a separate sub-action, so this only drafts the release.
       - uses: release-drafter/release-drafter@v7
-        with:
-          # Labelling happens in pr-autolabel.yml while the PR is open.
-          disable-autolabeler: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

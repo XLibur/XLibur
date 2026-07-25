@@ -1,47 +1,49 @@
 name-template: 'v$RESOLVED_VERSION'
 tag-template: 'v$RESOLVED_VERSION'
 
+# Categories double as version resolvers: `semver-increment` on a category bumps
+# that part of the version when any PR lands in it. The highest matching
+# increment wins, and the trailing `type: version-resolver` entry with no `when`
+# is the fallback for anything uncategorised.
+#
+# While the project is pre-1.0, a breaking change is still a minor bump.
 categories:
   - title: 'Breaking Changes'
-    labels:
-      - 'breaking'
+    semver-increment: 'minor'
+    when:
+      labels:
+        - 'breaking'
   - title: 'New Features'
-    labels:
-      - 'enhancement'
+    semver-increment: 'minor'
+    when:
+      labels:
+        - 'enhancement'
   - title: 'Bug Fixes'
-    labels:
-      - 'bug'
+    when:
+      labels:
+        - 'bug'
   - title: 'Performance'
-    labels:
-      - 'performance'
+    when:
+      labels:
+        - 'performance'
   - title: 'Documentation'
-    labels:
-      - 'documentation'
+    when:
+      labels:
+        - 'documentation'
   - title: 'Dependencies'
-    labels:
-      - 'dependencies'
+    when:
+      labels:
+        - 'dependencies'
   - title: 'Other Changes'
-    labels:
-      - 'chore'
+    when:
+      labels:
+        - 'chore'
+  - type: 'version-resolver'
+    semver-increment: 'patch'
 
 change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
 change-title-escapes: '\<*_&'
 no-changes-template: 'No changes.'
-
-# While the project is pre-1.0, a breaking change is still a minor bump.
-version-resolver:
-  minor:
-    labels:
-      - 'breaking'
-      - 'enhancement'
-  patch:
-    labels:
-      - 'bug'
-      - 'performance'
-      - 'documentation'
-      - 'dependencies'
-      - 'chore'
-  default: patch
 
 # Bots don't get a thank-you line.
 exclude-contributors:
@@ -53,6 +55,7 @@ no-contributors-template: ''
 
 # PR titles follow Conventional Commits, so the label — and therefore the release
 # note category and the version bump — is derived from the title automatically.
+# Applied by the PR Autolabel workflow, which runs the autolabeler sub-action.
 # Labels referenced here must already exist in the repository; the autolabeler
 # cannot create them.
 autolabeler:

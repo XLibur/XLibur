@@ -55,6 +55,12 @@ Releases are one click, from the Actions tab:
 
 1. **Publish Release** workflow → *Run workflow*. Leave *version* empty to take the version
    Release Drafter resolved from the merged PRs, or set it explicitly.
+
+   > **The first release must set *version* explicitly.** Release Drafter resolves the previous
+   > version from published GitHub Releases, not from git tags. Until one exists it sees none
+   > and drafts `v0.0.1`. The workflow refuses any version that isn't an increase over the
+   > highest existing tag, so this fails safe — but you have to supply the real version once.
+   > After the first release is published, resolution is automatic.
 2. Run it once with **dry-run** ticked (the default). It resolves the version and prints the
    changelog roll without changing anything.
 3. Before the real run, open the release draft and edit the notes if you want — the draft is
