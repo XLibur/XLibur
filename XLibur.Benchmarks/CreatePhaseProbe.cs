@@ -51,6 +51,8 @@ public static class CreatePhaseProbe
 
         Console.WriteLine();
         Console.WriteLine("Bytes/op is exact. ns/op is single-shot — use BenchmarkDotNet for time claims.");
+        Console.WriteLine("The bulk-style row is a total: subtract the ws.SetCellValue row, which populates");
+        Console.WriteLine("identically, to get the styling-only cost per cell.");
     }
 
     private static (string Name, Action Action)[] Probes() =>
@@ -64,21 +66,28 @@ public static class CreatePhaseProbe
         ("ws.Cell(r,c).Style discarded", StyleWrapperOnly),
         ("ws.Cell(r,c).Style + 1 font mutation", StyleOneMutation),
         ("ws.Cell(r,c).Style + 4 mutations", StyleFourMutations),
-        ("ws.Range(all).Style.Font.Bold = true", RangeBulkStyle),
+        ("ws.Range(all).Style.Bold + populate", RangeBulkStyle),
     ];
 
     /// <summary>
-    /// Bulk styling goes through <c>XLStylizedBase.ModifyStyle</c>, which materialises every child
-    /// cell into a HashSet and groups it. Measured over the same cell count as the per-cell probes
-    /// so the two are directly comparable — note this is one statement, not 500,000.
+    /// Bulk styling goes through <c>XLStylizedBase.ModifyStyle</c>. Measured over the same cell
+    /// count as the per-cell probes so the two are directly comparable — note the styling itself is
+    /// one statement, not 500,000.
     /// </summary>
+    /// <remarks>
+    /// The range has to be populated first, so this row is a <em>total</em>: it includes the same
+    /// work as the <c>ws.SetCellValue(r,c, double)</c> probe, which populates identically and is
+    /// therefore the matched baseline. Styling-only cost is this row minus that one.
+    /// </remarks>
     private static void RangeBulkStyle()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("s");
+
+        // Identical to SetCellValueDouble, so subtracting that probe isolates the styling.
         for (var r = 1; r <= Rows; r++)
         for (var c = 1; c <= Cols; c++)
-            ws.SetCellValue(r, c, r);
+            ws.SetCellValue(r, c, r * 1.5);
 
         ws.Range(1, 1, Rows, Cols).Style.Font.Bold = true;
     }

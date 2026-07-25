@@ -197,11 +197,16 @@ internal class Quadrant
             }
         }
 
-        if (Children is null)
+        var children = Children;
+        if (children is null)
             return false;
 
-        foreach (var childQuadrant in Children)
+        // Indexed rather than foreach: Children is typed as IReadOnlyList<Quadrant>, so a foreach
+        // would allocate an interface enumerator at every level of the recursion — which is the
+        // one thing this method exists to avoid.
+        for (var i = 0; i < children.Count; i++)
         {
+            var childQuadrant = children[i];
             if (childQuadrant.Covers(in address) && childQuadrant.CoversAnyRange(in address))
                 return true;
         }

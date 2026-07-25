@@ -121,9 +121,14 @@ Allocation totals: `dotnet run -c Release --project XLibur.Benchmarks --framewor
 ±0.5 MB. Wall time from that harness is single-shot and noisy — quote a min–max over three runs, or
 use BenchmarkDotNet for any time claim.
 
-Per-operation attribution: add a probe to `XLibur.Benchmarks` shaped like the following, which is
-what produced the table above. It is deliberately not checked in — it is a bisection tool, not a
-benchmark.
+Per-operation attribution: `dotnet run -c Release --project XLibur.Benchmarks --framework net10.0 -- profile create`,
+backed by `XLibur.Benchmarks/CreatePhaseProbe.cs`. **Use that to reproduce the tables in this
+document** — it is checked in precisely so the acceptance criteria below, which are stated in bytes
+per operation, can be verified.
+
+The numbers were originally obtained from a throwaway snippet of the shape below, which was *not*
+checked in — it was a one-off bisection tool. It is kept here because the shape is the thing worth
+copying when bisecting some other path:
 
 ```csharp
 // 500_000 operations; call each probe once to warm up, then measure.
@@ -197,7 +202,8 @@ elapsed reported min–max.
 | `CreateFormattedAndSave` — before | 305.5 MB | 118.0 MB | 423.4 MB | 1117–1175 ms |
 | `CreateFormattedAndSave` — after | **183.6 MB** (−39.9%) | 117.6 MB | **301.3 MB** (−28.8%) | 994–1080 ms |
 
-`profile create`, per-operation, no merged ranges / tables / formulas:
+`profile create`, per-operation. Sheets have no tables and no formulas; they also have no merged
+ranges **except** where the row says otherwise:
 
 | Probe | Before | After |
 |---|---:|---:|
@@ -206,7 +212,8 @@ elapsed reported min–max.
 | `ws.Cell(r,c).Value = DateTime` | 408.6 B | **136.6 B** |
 | `...Value = double`, sheet has 1 merged range | 487.6 B (net8) / 457.7 B (net10) | **103.6 B** (both) |
 | `ws.Cell(r,c).Style` (unmutated) | 128.2 B | 128.2 B — see below |
-| `ws.Range(all).Style.Font.Bold = true` (per cell) | ~234 B | **~33 B** |
+| `ws.Range(all).Style.Bold + populate` | 289.4 B | **88.7 B** |
+| └ styling only, minus the 55.6 B populate baseline | ~233.8 B | **~33.1 B** |
 
 6333 tests pass on net8.0 and net10.0.
 
@@ -237,15 +244,23 @@ does not model. Getting the single-access number down needs Task 5, which is out
 **The criterion was mis-stated, not missed** — a future revision should express it as a workload
 number rather than a per-op one.
 
-### Task 4 — bulk styling, ~234 → ~33 bytes per cell
+### Task 4 — bulk styling, ~233.8 → ~33.1 bytes per cell
 
 `XLStylizedBase.ModifyStyle` collected every child into a `HashSet<XLStylizedBase>` — one `XLCell`
 wrapper per cell — grouped by original style, then wrote back. Containers that can enumerate exactly
 the cells their `Children` would have yielded now walk points and write the style slice directly,
 with a last-value memo across runs of identically styled cells.
 
-The `GroupBy` was **not** the cost. Replacing it alone moved 289.4 → 272.6 bytes/op (6%); the
-`HashSet` of `XLCell` wrappers was the other 94%.
+The probe has to populate the range before styling it, so its figure is a total. Subtracting the
+`ws.SetCellValue(r,c, double)` probe, which populates identically, isolates the styling:
+
+| | Probe total | − populate | = styling only |
+|---|---:|---:|---:|
+| Before | 289.4 B | 55.6 B | **233.8 B** |
+| After | 88.7 B | 55.6 B | **33.1 B** |
+
+The `GroupBy` was **not** the cost. Replacing it alone moved the total 289.4 → 272.6 bytes/op
+(233.8 → 217.0 styling-only, 7%); the `HashSet` of `XLCell` wrappers was the other 93%.
 
 Which cells a container owns differs per type, and getting it wrong is a correctness bug rather
 than a slowdown, so each opts in explicitly rather than inheriting:
@@ -270,7 +285,7 @@ Two ordering constraints the slow path satisfied implicitly, now explicit:
 never takes the bulk path. The eight new tests are characterisation tests — they pass against the
 previous implementation too, which is what makes them worth having.
 
-The remaining ~33 bytes/cell is the style slice growing to hold the new values, i.e. storage rather
+The remaining ~33.1 bytes/cell is the style slice growing to hold the new values, i.e. storage rather
 than waste.
 
 ### Remaining create-phase cost
