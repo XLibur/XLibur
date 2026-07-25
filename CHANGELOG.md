@@ -4,17 +4,103 @@
 
 ## v0.106.0 - 2026-07-25
 
+First XLibur release since forking [ClosedXML v0.105.0](https://github.com/ClosedXML/ClosedXML/)
+(May 2025). Everything below is relative to that baseline.
+
+### Added
+
+- **Charts — all 78 `XLChartType` values**: End-to-end chart creation, saving, loading and round-tripping. Covers bar/column (clustered, stacked, percent, 2D and 3D), the 21 Bar3D cone/cylinder/pyramid shapes, line, area, pie/doughnut (including pie-to-pie and pie-to-bar), radar, scatter/XY, bubble, and surface types, plus data series, chart titles, combo charts and positioning. The previous `IXLChart`/`XLChart` stubs are now backed by a real implementation.
+
+- **Dynamic arrays**: Modern array functions — `SEQUENCE`, `UNIQUE`, `SORT`, `SORTBY`, `FILTER`, `XLOOKUP` and `XMATCH` — together with a **spill engine**. A dynamic-array formula written into a single cell now auto-fills its computed footprint into the neighbouring cells, grows and shrinks as the result changes, and round-trips through save/load. Only the anchor cell holds the formula; spilled cells stay formula-less, matching Excel. A footprint blocked by existing content, or one that would run past the sheet edge, collapses to the new `#SPILL!` error (`XLError.SpillRange`) on the anchor.
+
+- **New worksheet functions**:
+  - Conditional aggregates: `AVERAGEIF`, `AVERAGEIFS`, `MAXIFS`, `MINIFS`
+  - Logical: `IFS`, `SWITCH`
+  - Statistical: `SMALL`, `RANK`, `PERCENTILE`, `QUARTILE`, `MODE`
+  - Financial: `PV`, `NPV`, `IRR`, `RATE`, `NPER`, `PPMT`
+  - Reference: `INDIRECT`
+
+- **Wildcard support in `HLOOKUP` and `VLOOKUP`**: `*` and `?` patterns now match in lookup values, as they do in Excel.
+
+- **Swappable font engine, and a font-library-free core**: Text measurement (column auto-fit, row heights, glyph metrics) moved behind `IXLFontEngine`, and the font library ships as a separate package rather than being compiled into the core assembly. The MIT-licensed SkiaSharp engine is the default and auto-registers the first time a workbook is created, so no startup call is needed. This lets you choose a font library whose licence suits you, and stops library authors inheriting a font dependency they don't need. See the Upgrade Guide below.
+
+- **`XLibur.Bundle` meta-package**: Installs the core library together with the default font engine, so a single package reference behaves like ClosedXML out of the box.
+
+- **Editable pictures inside group shapes**: Pictures nested in `xdr:grpSp` groups — at any nesting depth — can be read, resized, moved, added, removed and grouped through a first-class public API. Geometry is computed through the composed group transform, and moves operate in sheet space.
+
+- **DataBar conditional formats can be modified after creation**, including axis settings, rather than being write-once at creation time.
+
+- **Pivot table improvements**: Named ranges resolve as a pivot cache source, and `autoSortScope` on pivot fields round-trips through load/save.
+
 ### Fixed
 
 - **Array and dynamic-array formulas no longer break on row/column shifts**: Inserting or deleting rows/columns anywhere in a workbook used to rebuild every formula cell through the `FormulaA1` setter, which turned a single array formula (shared across its whole range) into one *normal* formula per cell. For dynamic arrays this split a single spilled formula such as `=UNIQUE(...)` into multiple implicit-intersection `=@UNIQUE(...)` cells, even when the edit happened on an unrelated sheet. Shifts now update the shared formula instance in place — preserving its array/dynamic-array nature — and relocate the spill range for same-sheet inserts/deletes.
 
+- **Deleting through an array no longer corrupts its stored range**: When a delete overlapped an array formula, relocating the array's top edge could drive the coordinate below 1. `XLSheetPoint` does not bounds-check, so the value silently overflowed and corrupted the stored range.
+
+- **Data-validation formulas are shifted with the sheet**: Inserting or deleting rows/columns relocated each rule's ranges (`sqref`) but left cell references *inside* the criteria formulas (`formula1`/`formula2`) pointing at the pre-shift location. Any `List`, `Custom` or comparison rule referencing other cells silently broke — most visibly dependent dropdown pairs driven by `OFFSET`/`MATCH`. The in-memory value was wrong immediately after the shift, before any save.
+
+- **Data validations no longer vanish when inserting at row 1 or column 1**: The data-validation index was keyed by address at insert time and never re-keyed, so an insert at the first row/column left it stale. At save time the split logic then treated a rule's own out-of-date entry as a competing rule and stripped its ranges, emitting `<dataValidation sqref="">`. Excel rejected the file on open with *"Removed Records: Data validation"*. The index is now reconciled before consolidation.
+
+- **Conditional-format ranges shift once, not twice** ([ClosedXML #2850](https://github.com/ClosedXML/ClosedXML/issues/2850)): Inserting rows or columns below the first line doubled the shift for any rule whose shifted target address collided with another rule's existing range. A rule at `K13` that should move to `K23` landed at `K33`, while rules whose targets happened to be empty shifted correctly.
+
+- **Page breaks no longer inflate the used range** ([ClosedXML #2842](https://github.com/ClosedXML/ClosedXML/issues/2842)): `AddHorizontalPageBreak()`/`AddVerticalPageBreak()` wrote `brk@max` as the sheet's full row/column count. Excel read that as a huge used range, so a file with ~2000 rows of data rendered with a scrollbar spanning all 1,048,576.
+
+- **Named ranges shrink correctly when their first row or column is deleted**: Deleting the first row of a named range shifted both endpoints up instead of removing the deleted row and shifting the survivors, so `A3:A4` became `A2:A3` — expanding the range to include a row that was never part of it. Excel produces `A3:A3`.
+
+- **Totals-row formulas escape column names containing spaces**: Structured references for headers such as `Feb 2023` used the single-bracket form, producing a formula Excel could not parse.
+
+- **Grouped pictures and shapes survive a load/save round-trip** instead of being dropped.
+
+- **Cached formula values are preserved on save**: Cached values are now written whenever they exist and the formula has not been dirtied, regardless of `EvaluateFormulasBeforeSaving`, and the data-type attribute is preserved. This fixes round-trip loss of dynamic-array results (`SORT`, `UNIQUE`, `FILTER`) and spill cell values.
+
+- **Pivot table alignment formatting round-trips**: Alignment in pivot table differential formats (DXF) was silently lost on load/save.
+
 ### Performance
+
+- **61% fewer allocations and 16.5% less wall time on load** (250K rows x 15 columns benchmark), from removing per-cell and per-entry garbage in the shared-string reader, cell value/attribute reads, and a new style cache.
+
+- **`<sheetData>` is read with a raw `XmlReader`**: Worksheet loading — the dominant cost when opening a workbook — no longer goes through the OpenXML SDK's `OpenXmlPartReader`, which rebuilt a `ReadOnlyCollection<OpenXmlAttribute>` and materialized text through its object model for every `<c>`, `<row>` and `<f>` element. Measured in isolation on a 250K x 15 sheet (3.75M cells), that reader accounted for ~67% of load time and ~80% of load allocations — roughly 4x slower and 5x more garbage than an equivalent raw `XmlReader` traversal.
+
+- **Faster string cell reads**: `GetValue<string>()`/`GetString()` — the most common cell read — no longer runs a compiled regex over the whole string (allocating a `MatchCollection`) to find the rare `_xHHHH_` escape sequence.
+
+- **Reduced allocations in 10 per-cell, per-formula and per-address hot-path methods**, with no public API or behaviour change.
+
+- **Load and save hot paths**: The shared-string reader is pre-allocated from the SST count, merged cells stream instead of building a full DOM, worksheet attributes are parsed in a single pass, calc-engine overhead is skipped for formula cells during load, and `uint` boxing was removed from the XML writer.
 
 - **`XmlEncoder.EncodeString` fast-path**: Added a character scan that short-circuits before the `Regex` and `StringBuilder` when a string contains no characters that need encoding (the common case for plain text). For workbooks with ~50K unique shared strings this eliminates ~50K `StringBuilder` allocations, ~50K regex evaluations, and ~50K string copies on save.
 
 - **`IXLWorksheet.SetCellValue(int row, int column, XLCellValue value)`** (new API): Sets a cell value directly on the worksheet's internal storage without allocating an intermediate `XLCell` object. For bulk data population (e.g. 50K rows x 3 columns) this eliminates ~150K object allocations that the `Cell(row, col).SetValue(...)` pattern would create.
 
 ### Upgrade Guide
+
+#### Migrating from ClosedXML
+
+The public API surface is largely unchanged from ClosedXML 0.105. To migrate:
+
+1. Install `XLibur.Bundle` from NuGet.
+2. Replace `using ClosedXML` namespace references with `using XLibur`.
+
+Namespaces are prefixed with `XLibur` so both libraries can be referenced in the same project.
+
+#### Font engine packaging
+
+This is the one area where XLibur's packaging differs from ClosedXML. ClosedXML compiles
+[SixLabors.Fonts](https://github.com/SixLabors/Fonts) into its core assembly; XLibur keeps the core
+assembly free of any font library and ships the engine as a separate, swappable package.
+
+- **Installing `XLibur.Bundle` (or `XLibur` + `XLibur.Fonts.SkiaSharp`) requires no code changes.**
+  The default SkiaSharp engine auto-registers on first workbook creation. It resolves system fonts
+  and falls back to an embedded, metric-only Calibri-compatible font, so text measurement works in
+  headless and serverless environments with no system fonts installed.
+- **Installing the bare `XLibur` package with no font engine** throws an `InvalidOperationException`
+  when a workbook is created, telling you to add a font engine package. This is intentional — it is
+  how the core stays font-library-agnostic.
+- **To keep ClosedXML 0.105's exact engine**, install `XLibur.Fonts.SixLabors.V1` and call
+  `SixLaborsV1FontBootstrap.Register()` at startup.
+
+See [docs/font-architecture.md](docs/font-architecture.md) for the full design and the list of
+available engines.
 
 #### Using `SetCellValue` for bulk writes
 
