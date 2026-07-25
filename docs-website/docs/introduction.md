@@ -1,12 +1,23 @@
+---
+id: introduction
+title: Introduction
+sidebar_label: Introduction
+sidebar_position: 1
+slug: /
+description: XLibur is a .NET 8+ library for reading, manipulating, and writing Excel 2007+ (.xlsx, .xlsm) files.
+---
+
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 # XLibur
 
-<img src="resources/logo/logo.png" alt="XLibur logo" width="512" />
+<img src={useBaseUrl('/img/logo.png')} alt="XLibur logo" width="512" />
 
 [![Build and Test](https://github.com/XLibur/XLibur/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/XLibur/XLibur/actions/workflows/build-and-test.yml)
 [![NuGet](https://img.shields.io/nuget/v/XLibur.svg)](https://www.nuget.org/packages/XLibur)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/XLibur.svg)](https://www.nuget.org/packages/XLibur)
 [![SonarCloud Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=XLibur_XLibur&metric=alert_status)](https://sonarcloud.io/dashboard?id=XLibur_XLibur)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/XLibur/XLibur/blob/main/LICENSE)
 
 ## About
 
@@ -22,38 +33,45 @@ are referenced in the same project.
 ## Should I use this?
 
 **Stick with ClosedXML** if:
-- A library with developers who have had experience with the library over many years.
-- A longer term focus on the product.
-- You need support for dotnet <8 (net standard, or NET472)
+
+- You want a library with developers who have had experience with the library over many years.
+- You want a longer term focus on the product.
+- You need support for dotnet &lt;8 (.NET Standard, or .NET Framework 4.7.2).
 
 **Consider XLibur if** you want any of the following changes over ClosedXML 0.105:
 
-- **Reduced memory usage and performance gains** - particularly for workbooks with many formatted cells
+- **Reduced memory usage and performance gains** — particularly for workbooks with many formatted cells
 - **Bug fixes** — several outstanding community issues resolved that are pending upstream
-- **Community PR/enhancements** - several community contriubtions or requests have been merged in to this codebase.
+- **Community PR/enhancements** — several community contributions or requests have been merged into this codebase
 
-> ⚠️ XLibur has limited real-world production history. Use in critical systems at your own discretion.
+:::warning
+XLibur has limited real-world production history. Use in critical systems at your own discretion.
+:::
+
+## Usage
+
+XLibur lets you create and manipulate Excel files without Excel installed — a common
+use case is generating reports on a web server.
+
+```csharp
+using (var workbook = new XLWorkbook())
+{
+    var worksheet = workbook.Worksheets.Add("Sample Sheet");
+    worksheet.Cell("A1").Value = "Hello World!";
+    worksheet.Cell("A2").FormulaA1 = "=MID(A1, 7, 5)";
+    workbook.SaveAs("HelloWorld.xlsx");
+}
+```
+
+Head to [Getting Started](./getting-started.md) for installation and a tour of the
+common read/write operations.
 
 ## Migration from ClosedXML
 
 The public API surface is largely unchanged from ClosedXML 0.105. To migrate:
 
-1. Install the NuGet package (see below)
-2. Replace `using ClosedXML` namespace references with `using XLibur`
-
-### Install XLibur via NuGet
-
-The recommended package is **`XLibur.Bundle`**, which installs the core library together with the
-default font engine and behaves like ClosedXML out of the box:
-
-```sh
-PM> Install-Package XLibur.Bundle
-```
-
-Or via the .NET CLI:
-```sh
-dotnet add package XLibur.Bundle
-```
+1. Install the NuGet package (see [Getting Started](./getting-started.md#installation)).
+2. Replace `using ClosedXML` namespace references with `using XLibur`.
 
 ### Font engine configuration (different from ClosedXML)
 
@@ -101,29 +119,14 @@ What this means when migrating:
 
 Resolution order for the font engine is: `LoadOptions.FontEngine` (per workbook) →
 `LoadOptions.DefaultFontEngine` (explicitly registered global) → the auto-registered default engine.
-See [docs/font-architecture.md](docs/font-architecture.md) for the full design.
+See [docs/font-architecture.md](https://github.com/XLibur/XLibur/blob/main/docs/font-architecture.md)
+for the full design.
 
 ## User Guide
 
-XLibur documentation lives at [xlibur.github.io/XLibur](https://xlibur.github.io/XLibur/) — start with
-the [Getting Started](https://xlibur.github.io/XLibur/getting-started) guide. The site sources are in
-[docs-website/](docs-website).
-
-Beyond that, as the library is largely the same as ClosedXML, the [ClosedXML documentation](https://closedxml.github.io/ClosedXML/) is still *mostly* valid for this library.
-
-
-## Usage
-
-XLibur lets you create and manipulate Excel files without Excel installed — a common use case is generating reports on a web server.
-```csharp
-using (var workbook = new XLWorkbook())
-{
-    var worksheet = workbook.Worksheets.Add("Sample Sheet");
-    worksheet.Cell("A1").Value = "Hello World!";
-    worksheet.Cell("A2").FormulaA1 = "=MID(A1, 7, 5)";
-    workbook.SaveAs("HelloWorld.xlsx");
-}
-```
+As the library is largely the same as ClosedXML, the
+[ClosedXML documentation](https://closedxml.github.io/ClosedXML/) is still *mostly* valid
+for this library.
 
 ## Building, Testing, and Benchmarks
 
@@ -140,9 +143,7 @@ dotnet test XLibur.Tests/XLibur.Tests.csproj
 ```
 
 Published benchmark results are available at
-[jafin.github.io/XLBench](https://jafin.github.io/XLBench/charts.html):
-
-[![XLibur benchmark results](docs/benchmark_snapshot.jpg)](https://jafin.github.io/XLBench/charts.html)
+[jafin.github.io/XLBench](https://jafin.github.io/XLBench/charts.html).
 
 Run benchmarks yourself (XLibur vs ClosedXML comparison):
 
@@ -160,11 +161,11 @@ dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --
 
 ## Developer guidelines
 
-Please read the [full developer guidelines](CONTRIBUTING.md).
+Please read the [full developer guidelines](https://github.com/XLibur/XLibur/blob/main/CONTRIBUTING.md).
 
 ## Credits
 
-* ClosedXML originally created by [Manuel de Leon](https://github.com/mdeleone)
-* ClosedXML maintainer: [Jan Havlíček](https://github.com/jahav)
-* Former ClosedXML maintainer and lead developer: [Francois Botha](https://github.com/igitur)
-* Master of Computing Patterns: [Aleksei Pankratev](https://github.com/Pankraty)
+- ClosedXML originally created by [Manuel de Leon](https://github.com/mdeleone)
+- ClosedXML maintainer: [Jan Havlíček](https://github.com/jahav)
+- Former ClosedXML maintainer and lead developer: [Francois Botha](https://github.com/igitur)
+- Master of Computing Patterns: [Aleksei Pankratev](https://github.com/Pankraty)
