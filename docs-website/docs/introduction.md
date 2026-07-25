@@ -25,28 +25,10 @@ XLibur is a .NET 8+ library for reading, manipulating, and writing Excel 2007+
 (.xlsx, .xlsm) files. It provides an intuitive interface over the underlying
 [OpenXML](https://github.com/OfficeDev/Open-XML-SDK) API.
 
-XLibur is a fork of [ClosedXML v0.105.0](https://github.com/ClosedXML/ClosedXML/)
+XLibur was forked from [ClosedXML v0.105.0](https://github.com/ClosedXML/ClosedXML/)
 (May 2025), created to ship patches and improvements that didn't land upstream.
 Namespaces are prefixed with `XLibur` to avoid conflicts with ClosedXML if both
 are referenced in the same project.
-
-## Should I use this?
-
-**Stick with ClosedXML** if:
-
-- You want a library with developers who have had experience with the library over many years.
-- You want a longer term focus on the product.
-- You need support for dotnet &lt;8 (.NET Standard, or .NET Framework 4.7.2).
-
-**Consider XLibur if** you want any of the following changes over ClosedXML 0.105:
-
-- **Reduced memory usage and performance gains** — particularly for workbooks with many formatted cells
-- **Bug fixes** — several outstanding community issues resolved that are pending upstream
-- **Community PR/enhancements** — several community contributions or requests have been merged into this codebase
-
-:::warning
-XLibur has limited real-world production history. Use in critical systems at your own discretion.
-:::
 
 ## Usage
 
@@ -122,50 +104,3 @@ Resolution order for the font engine is: `LoadOptions.FontEngine` (per workbook)
 See [docs/font-architecture.md](https://github.com/XLibur/XLibur/blob/main/docs/font-architecture.md)
 for the full design.
 
-## User Guide
-
-As the library is largely the same as ClosedXML, the
-[ClosedXML documentation](https://closedxml.github.io/ClosedXML/) is still *mostly* valid
-for this library.
-
-## Building, Testing, and Benchmarks
-
-Build the solution:
-
-```sh
-dotnet build XLibur.slnx
-```
-
-Run the test suite:
-
-```sh
-dotnet test XLibur.Tests/XLibur.Tests.csproj
-```
-
-Published benchmark results are available at
-[jafin.github.io/XLBench](https://jafin.github.io/XLBench/charts.html).
-
-Run benchmarks yourself (XLibur vs ClosedXML comparison):
-
-```sh
-# List available benchmarks
-dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --list flat
-
-# Run all benchmarks
-dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --filter *
-
-# Run a specific benchmark class
-dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --filter '*XLiburWorkbookBenchmarks*'
-dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- --filter '*ClosedXmlWorkbookBenchmarks*'
-```
-
-## Developer guidelines
-
-Please read the [full developer guidelines](https://github.com/XLibur/XLibur/blob/main/CONTRIBUTING.md).
-
-## Credits
-
-- ClosedXML originally created by [Manuel de Leon](https://github.com/mdeleone)
-- ClosedXML maintainer: [Jan Havlíček](https://github.com/jahav)
-- Former ClosedXML maintainer and lead developer: [Francois Botha](https://github.com/igitur)
-- Master of Computing Patterns: [Aleksei Pankratev](https://github.com/Pankraty)
