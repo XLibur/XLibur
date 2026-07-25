@@ -4,8 +4,7 @@
 **Effort:** M (1–2 weeks; Task 1 is a one-liner, the rest are independent)
 **Dependencies:** None for Tasks 1–3. Task 4 overlaps Spec 05 (bulk styling); Task 5 changes an
 internal object-vending pattern, so land it after 1–4 and re-measure first.
-**Status:** ✅ Tasks 1–3 implemented — see [Results](#results). Task 4 deferred to Spec 05 with
-measurements; Task 5 out of scope by design.
+**Status:** ✅ Tasks 1–4 implemented — see [Results](#results). Task 5 out of scope by design.
 
 ## Summary
 
@@ -207,8 +206,9 @@ elapsed reported min–max.
 | `ws.Cell(r,c).Value = DateTime` | 408.6 B | **136.6 B** |
 | `...Value = double`, sheet has 1 merged range | 487.6 B (net8) / 457.7 B (net10) | **103.6 B** (both) |
 | `ws.Cell(r,c).Style` (unmutated) | 128.2 B | 128.2 B — see below |
+| `ws.Range(all).Style.Font.Bold = true` (per cell) | ~234 B | **~33 B** |
 
-6325 tests pass on net8.0 and net10.0.
+6333 tests pass on net8.0 and net10.0.
 
 ### What landed
 
@@ -223,6 +223,9 @@ elapsed reported min–max.
 - **Task 3** — implemented as specified after the reference-identity audit came back clean (nothing
   in the codebase compares `XLCell` instances by reference; the wrapper's only instance state is
   the derived `_cachedStyle`, which `InnerStyle` re-syncs). Worth 11.5 MB.
+- **Task 4** — implemented here rather than deferred into Spec 05; see below. It does not move the
+  headline benchmark, which never uses bulk styling. **Spec 05 must rebase**: this changes
+  `XLStylizedBase.ModifyStyle` / `SetStyle`, the same style-propagation code it owns.
 
 ### Task 3 does not move acceptance criterion 2
 
@@ -234,25 +237,41 @@ does not model. Getting the single-access number down needs Task 5, which is out
 **The criterion was mis-stated, not missed** — a future revision should express it as a workload
 number rather than a per-op one.
 
-### Task 4 deferred to Spec 05, with measurements
+### Task 4 — bulk styling, ~234 → ~33 bytes per cell
 
-Bulk styling — `ws.Range(...).Style.Font.Bold = true` — costs **~206 bytes per cell** (measured:
-289.4 bytes/op for a probe that also populates the cells at 55.6, over 500K cells). That is worth
-fixing, but:
+`XLStylizedBase.ModifyStyle` collected every child into a `HashSet<XLStylizedBase>` — one `XLCell`
+wrapper per cell — grouped by original style, then wrote back. Containers that can enumerate exactly
+the cells their `Children` would have yielded now walk points and write the style slice directly,
+with a last-value memo across runs of identically styled cells.
 
-1. It contributes **nothing** to this spec's acceptance criteria. `CreateFormattedAndSave` styles
-   cells individually and never goes through the bulk path.
-2. The cost is not the `GroupBy` the spec's Task 4 pointed at. Replacing the group-by with a
-   last-value memo — the contained part of the change — moved it only 289.4 → 272.6 bytes/op (6%).
-   That change was written, measured, and reverted rather than banked, because a 6% sliver is not
-   worth putting a second author into the file Spec 05 is going to rewrite.
-3. The remaining 94% is `XLStylizedBase.ModifyStyle` materialising every child cell into a
-   `HashSet<XLStylizedBase>` via `Children`. Removing that means writing the `StyleSlice` by point
-   and never building an `XLCell` — which is exactly Spec 05's "materialize-everything patterns for
-   style propagation", and carries semantics this spec did not scope (whether bulk styling pings
-   currently-empty cells, dedup across overlapping ranges in `XLRanges`, propagation order).
+The `GroupBy` was **not** the cost. Replacing it alone moved 289.4 → 272.6 bytes/op (6%); the
+`HashSet` of `XLCell` wrappers was the other 94%.
 
-The `ws.Range(all).Style.Font.Bold = true` probe is checked in so Spec 05 starts with a baseline.
+Which cells a container owns differs per type, and getting it wrong is a correctness bug rather
+than a slowdown, so each opts in explicitly rather than inheriting:
+
+| Container | Cells it styles | Fast path |
+|---|---|---|
+| `XLRangeBase` | the whole rectangle — `Cells()` yields every point, used or not | rectangle walk |
+| `XLRow` / `XLColumn` | **used cells only** (`GetCellsInRow`/`Column`) | slice enumerator |
+| `XLWorksheet` | its used rows and columns, *not* its address rectangle | opts out |
+| every collection (`XLRanges`, `XLRows`, `XLCells`, …) | derives from `XLStylizedBase` directly | default opt-out |
+
+Two ordering constraints the slow path satisfied implicitly, now explicit:
+
+- **Container style last.** Unstyled cells inherit the row/column style, and the slow path read
+  every child before writing any. The container's own style is snapshotted first, cells applied,
+  container written last — otherwise a row's cells would resolve against the row's *new* style.
+- **Row/column points materialised before writing.** Setting a style on an unused point makes that
+  point used, so the slice enumerator cannot be walked while the slice it reads is being mutated.
+  The rectangle walk needs no such care — it is pure index arithmetic.
+
+`CreateFormattedAndSave` is unchanged by this task, as expected: it styles cells individually and
+never takes the bulk path. The eight new tests are characterisation tests — they pass against the
+previous implementation too, which is what makes them worth having.
+
+The remaining ~33 bytes/cell is the style slice growing to hold the new values, i.e. storage rather
+than waste.
 
 ### Remaining create-phase cost
 
