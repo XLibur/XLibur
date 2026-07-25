@@ -17,6 +17,6 @@ jobs:
     steps:
       # Labelling happens in pr-autolabel.yml while the PR is open — in v7 the
       # autolabeler is a separate sub-action, so this only drafts the release.
-      - uses: release-drafter/release-drafter@v7
+      - uses: release-drafter/release-drafter@eada3c96a64734dd381cfbda23511034e328ddb0 # v7.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -101,7 +101,7 @@ jobs:
       # Publishes the rolling draft that Release Drafter has been accumulating
       # from merged PRs, so any manual edits made to it are kept.
       - name: Publish GitHub Release
-        uses: release-drafter/release-drafter@v7
+        uses: release-drafter/release-drafter@eada3c96a64734dd381cfbda23511034e328ddb0 # v7.6.0
         with:
           publish: true
           tag: ${{ env.TAG }}
@@ -137,7 +137,7 @@ jobs:
           cat new-contributors.md
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: ${{ env.TAG }}
           files: |
