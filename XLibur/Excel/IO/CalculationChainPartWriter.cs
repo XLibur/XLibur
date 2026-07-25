@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.Coordinates;
 using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
@@ -19,9 +20,17 @@ internal static class CalculationChainPartWriter
 
         foreach (var worksheet in workbook.WorksheetsInternal)
         {
-            foreach (var c in worksheet.Internals.CellsCollection.GetCells().Where(c => c.HasFormula))
+            // Enumerate the formula slice instead of every used cell: only formula cells need an
+            // XLCell wrapper here, and on a large sheet they are a tiny fraction of the total.
+            var cellsCollection = worksheet.Internals.CellsCollection;
+            var formulas = cellsCollection.FormulaSlice;
+            if (formulas.IsEmpty)
+                continue;
+
+            using var formulaEnumerator = formulas.GetForwardEnumerator(XLSheetRange.Full);
+            while (formulaEnumerator.MoveNext())
             {
-                AppendFormulaCell(calculationChain, c, worksheet);
+                AppendFormulaCell(calculationChain, cellsCollection.GetCell(formulaEnumerator.Point), worksheet);
             }
         }
 

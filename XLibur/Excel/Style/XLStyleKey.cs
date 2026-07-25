@@ -1,22 +1,98 @@
-﻿namespace XLibur.Excel;
+namespace XLibur.Excel;
 
+/// <summary>
+/// The composite key of a style. Instances are only ever produced through object initialisers
+/// (every member is <c>required</c>) or <c>with</c> expressions, so each component's hash code is
+/// computed once in the corresponding <c>init</c> accessor and reused afterwards.
+/// </summary>
+/// <remarks>
+/// The style repository hashes and compares this key on every style mutation, and the components
+/// are large structs whose hashes are expensive (the border alone carries five colours, and the
+/// number format hashes a string). Re-deriving all of that on every dictionary probe dominated
+/// the cost of styling a sheet, so the per-component hashes are memoised in the key itself and
+/// <see cref="GetHashCode"/> just folds seven ints together. The memoised hashes also give
+/// <see cref="Equals(XLStyleKey)"/> a cheap way to reject non-matching keys before touching the
+/// components.
+/// </remarks>
 internal readonly record struct XLStyleKey
 {
     private const string DefaultLabel = "Default";
 
-    public required XLAlignmentKey Alignment { get; init; }
+    private readonly XLAlignmentKey _alignment;
+    private readonly XLBorderKey _border;
+    private readonly XLFillKey _fill;
+    private readonly XLFontKey _font;
+    private readonly XLNumberFormatKey _numberFormat;
+    private readonly XLProtectionKey _protection;
 
-    public required XLBorderKey Border { get; init; }
+    private readonly int _alignmentHash;
+    private readonly int _borderHash;
+    private readonly int _fillHash;
+    private readonly int _fontHash;
+    private readonly int _numberFormatHash;
+    private readonly int _protectionHash;
 
-    public required XLFillKey Fill { get; init; }
+    public required XLAlignmentKey Alignment
+    {
+        get => _alignment;
+        init
+        {
+            _alignment = value;
+            _alignmentHash = value.GetHashCode();
+        }
+    }
 
-    public required XLFontKey Font { get; init; }
+    public required XLBorderKey Border
+    {
+        get => _border;
+        init
+        {
+            _border = value;
+            _borderHash = value.GetHashCode();
+        }
+    }
+
+    public required XLFillKey Fill
+    {
+        get => _fill;
+        init
+        {
+            _fill = value;
+            _fillHash = value.GetHashCode();
+        }
+    }
+
+    public required XLFontKey Font
+    {
+        get => _font;
+        init
+        {
+            _font = value;
+            _fontHash = value.GetHashCode();
+        }
+    }
 
     public required bool IncludeQuotePrefix { get; init; }
 
-    public required XLNumberFormatKey NumberFormat { get; init; }
+    public required XLNumberFormatKey NumberFormat
+    {
+        get => _numberFormat;
+        init
+        {
+            _numberFormat = value;
+            _numberFormatHash = value.GetHashCode();
+        }
+    }
 
-    public required XLProtectionKey Protection { get; init; }
+    public required XLProtectionKey Protection
+    {
+        get => _protection;
+        init
+        {
+            _protection = value;
+            _protectionHash = value.GetHashCode();
+        }
+    }
 
     public override string ToString()
     {
@@ -40,27 +116,39 @@ internal readonly record struct XLStyleKey
     {
         unchecked
         {
-            var hash = Alignment.GetHashCode();
-            hash = (hash * 397) ^ Border.GetHashCode();
-            hash = (hash * 397) ^ Fill.GetHashCode();
-            hash = (hash * 397) ^ Font.GetHashCode();
-            hash = (hash * 397) ^ IncludeQuotePrefix.GetHashCode();
-            hash = (hash * 397) ^ NumberFormat.GetHashCode();
-            hash = (hash * 397) ^ Protection.GetHashCode();
+            var hash = _alignmentHash;
+            hash = (hash * 397) ^ _borderHash;
+            hash = (hash * 397) ^ _fillHash;
+            hash = (hash * 397) ^ _fontHash;
+            hash = (hash * 397) ^ (IncludeQuotePrefix ? 1 : 0);
+            hash = (hash * 397) ^ _numberFormatHash;
+            hash = (hash * 397) ^ _protectionHash;
             return hash;
         }
     }
 
     public bool Equals(XLStyleKey other)
     {
+        // Reject on the memoised component hashes first: a mismatch there is proof of inequality
+        // (each component's hash is consistent with its Equals) and costs a single int compare.
+        if (_fontHash != other._fontHash
+            || _fillHash != other._fillHash
+            || _borderHash != other._borderHash
+            || _numberFormatHash != other._numberFormatHash
+            || _alignmentHash != other._alignmentHash
+            || _protectionHash != other._protectionHash
+            || IncludeQuotePrefix != other.IncludeQuotePrefix)
+        {
+            return false;
+        }
+
         // Order by discrimination power: font/fill/border vary most, protection/alignment least.
-        return Font.Equals(other.Font)
-               && Fill.Equals(other.Fill)
-               && Border.Equals(other.Border)
-               && NumberFormat.Equals(other.NumberFormat)
-               && Alignment.Equals(other.Alignment)
-               && IncludeQuotePrefix == other.IncludeQuotePrefix
-               && Protection.Equals(other.Protection);
+        return _font.Equals(other._font)
+               && _fill.Equals(other._fill)
+               && _border.Equals(other._border)
+               && _numberFormat.Equals(other._numberFormat)
+               && _alignment.Equals(other._alignment)
+               && _protection.Equals(other._protection);
     }
 
     public void Deconstruct(
@@ -72,12 +160,12 @@ internal readonly record struct XLStyleKey
         out XLNumberFormatKey numberFormat,
         out XLProtectionKey protection)
     {
-        alignment = Alignment;
-        border = Border;
-        fill = Fill;
-        font = Font;
+        alignment = _alignment;
+        border = _border;
+        fill = _fill;
+        font = _font;
         includeQuotePrefix = IncludeQuotePrefix;
-        numberFormat = NumberFormat;
-        protection = Protection;
+        numberFormat = _numberFormat;
+        protection = _protection;
     }
 }

@@ -10,6 +10,12 @@ namespace XLibur.Extensions;
 
 internal static class XmlWriterExtensions
 {
+    /// <summary>
+    /// Enough for any <c>double</c> in "G15" form (longest is 22 chars, e.g.
+    /// <c>-1.23456789012345E-308</c>) and for any <c>int</c>/<c>uint</c>.
+    /// </summary>
+    private const int NumberBufferLength = 32;
+
     [ThreadStatic] private static char[]? _tNumberBuffer;
 
     extension(XmlWriter w)
@@ -30,16 +36,14 @@ internal static class XmlWriterExtensions
         public void WriteAttribute(string attrName, int value)
         {
             w.WriteStartAttribute(attrName);
-            w.WriteValue(value);
+            w.WriteNumberValue(value);
             w.WriteEndAttribute();
         }
 
         public void WriteAttribute(string attrName, uint value)
         {
-            // Cast to long to avoid boxing via XmlWriter.WriteValue(object).
-            // XmlWriter has a WriteValue(long) overload but not WriteValue(uint).
             w.WriteStartAttribute(attrName);
-            w.WriteValue(value);
+            w.WriteNumberValue(value);
             w.WriteEndAttribute();
         }
 
@@ -110,10 +114,54 @@ internal static class XmlWriterExtensions
             w.WriteEndAttribute();
         }
 
+        /// <summary>
+        /// Write a double using the same "G15" invariant representation as
+        /// <see cref="ObjectExtensions.ToInvariantString{T}"/>, but formatted into a reusable
+        /// buffer instead of allocating a string per value.
+        /// </summary>
         public void WriteNumberValue(double value)
         {
-            var buffer = _tNumberBuffer ??= new char[32];
-            value.TryFormat(buffer, out var charsWritten, "G15", CultureInfo.InvariantCulture);
+            var buffer = _tNumberBuffer ??= new char[NumberBufferLength];
+            if (!value.TryFormat(buffer, out var charsWritten, "G15", CultureInfo.InvariantCulture))
+            {
+                // Unreachable for double with "G15" (longest output is ~22 chars), but a silent
+                // empty attribute would corrupt the file, so fall back rather than trust it.
+                w.WriteString(value.ToString("G15", CultureInfo.InvariantCulture));
+                return;
+            }
+
+            w.WriteRaw(buffer, 0, charsWritten);
+        }
+
+        /// <summary>
+        /// Write an <see cref="int"/> without going through <see cref="XmlWriter.WriteValue(int)"/>,
+        /// which allocates a string for every value.
+        /// </summary>
+        public void WriteNumberValue(int value)
+        {
+            var buffer = _tNumberBuffer ??= new char[NumberBufferLength];
+            if (!value.TryFormat(buffer, out var charsWritten, default, CultureInfo.InvariantCulture))
+            {
+                w.WriteString(value.ToString(CultureInfo.InvariantCulture));
+                return;
+            }
+
+            w.WriteRaw(buffer, 0, charsWritten);
+        }
+
+        /// <summary>
+        /// Write a <see cref="uint"/> without going through <c>XmlWriter.WriteValue</c>,
+        /// which allocates a string for every value.
+        /// </summary>
+        public void WriteNumberValue(uint value)
+        {
+            var buffer = _tNumberBuffer ??= new char[NumberBufferLength];
+            if (!value.TryFormat(buffer, out var charsWritten, default, CultureInfo.InvariantCulture))
+            {
+                w.WriteString(value.ToString(CultureInfo.InvariantCulture));
+                return;
+            }
+
             w.WriteRaw(buffer, 0, charsWritten);
         }
 

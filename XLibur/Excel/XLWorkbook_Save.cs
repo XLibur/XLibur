@@ -12,6 +12,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Validation;
+using XLibur.Excel.Coordinates;
 using XLibur.Excel.IO;
 using XLibur.Extensions;
 using Path = System.IO.Path;
@@ -290,15 +291,32 @@ public partial class XLWorkbook
     /// <c>@</c> operator. Sets <see cref="SaveContext.DynamicArrayMetaIndex"/> so
     /// the sheet writer can emit the <c>cm</c> attribute on those cells.
     /// </summary>
+    /// <summary>
+    /// Walk the formula slices directly rather than <c>GetCells()</c>, which would materialise an
+    /// <c>XLCell</c> for every used cell in the workbook just to test a formula flag.
+    /// </summary>
+    private bool AnyDynamicArrayFormula()
+    {
+        foreach (var worksheet in WorksheetsInternal)
+        {
+            var formulas = worksheet.Internals.CellsCollection.FormulaSlice;
+            if (formulas.IsEmpty)
+                continue;
+
+            using var formulaEnumerator = formulas.GetForwardEnumerator(XLSheetRange.Full);
+            while (formulaEnumerator.MoveNext())
+            {
+                if (formulaEnumerator.Current.IsDynamicArray)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
     private void EnsureDynamicArrayMetadata(WorkbookPart workbookPart, SaveContext context)
     {
-        var hasDynamicArray = WorksheetsInternal
-            .Cast<XLWorksheet>()
-            .Any(ws => ws.Internals.CellsCollection
-                .GetCells(c => c.HasFormula && c.Formula!.IsDynamicArray)
-                .Any());
-
-        if (!hasDynamicArray)
+        if (!AnyDynamicArrayFormula())
             return;
 
         // The XLDAPR metadata structure in metadata.xml consists of three parts:
@@ -472,8 +490,10 @@ public partial class XLWorkbook
         var cellsWithImages = new List<(XLCell Cell, XLCellImage Image)>();
         foreach (var ws in WorksheetsInternal.Cast<XLWorksheet>())
         {
-            foreach (var cell in ws.Internals.CellsCollection.GetCells(c => c.CellImage is not null))
+            var cellsCollection = ws.Internals.CellsCollection;
+            foreach (var point in cellsCollection.GetCellImagePoints())
             {
+                var cell = cellsCollection.GetCell(point);
                 cellsWithImages.Add((cell, cell.CellImage!));
             }
         }
@@ -658,7 +678,7 @@ public partial class XLWorkbook
     private static void GenerateCommentsAndVmlParts(WorksheetPart worksheetPart, XLWorksheet worksheet,
         SaveContext context)
     {
-        var worksheetHasComments = worksheet.Internals.CellsCollection.GetCells(c => c.HasComment).Any();
+        var worksheetHasComments = worksheet.Internals.CellsCollection.HasAnyComment();
 
         // VML part is the source of truth for shapes of comments, form controls and likely others.
         // Excel won't display any shape without VML. The drawing part is always present but is likely

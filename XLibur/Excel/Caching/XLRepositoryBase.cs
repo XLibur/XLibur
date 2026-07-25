@@ -1,8 +1,8 @@
-﻿using System;
+using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
-using System.Collections;
+using System.Threading;
 
 namespace XLibur.Excel.Caching;
 
@@ -18,8 +18,17 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
     const int CONCURRENCY_LEVEL = 4;
     const int INITIAL_CAPACITY = 1000;
 
-    private readonly ConcurrentDictionary<Tkey, WeakReference> _storage;
+    /// <summary>
+    /// Number of lookups that found a collected entry before an opportunistic prune is triggered.
+    /// The repositories are process-wide and hold one entry per distinct key ever seen, so without
+    /// pruning a long-lived process that builds many workbooks accumulates dead shells forever.
+    /// Sweeping is O(n), hence the counter rather than sweeping on every miss.
+    /// </summary>
+    private const int DeadEntriesBeforePrune = 512;
+
+    private readonly ConcurrentDictionary<Tkey, WeakReference<Tvalue>> _storage;
     private readonly Func<Tkey, Tvalue> _createNew;
+    private int _deadEntriesSeen;
 
     internal XLRepositoryBase(Func<Tkey, Tvalue> createNew)
         : this(createNew, EqualityComparer<Tkey>.Default)
@@ -28,7 +37,7 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
 
     internal XLRepositoryBase(Func<Tkey, Tvalue> createNew, IEqualityComparer<Tkey> comparer)
     {
-        _storage = new ConcurrentDictionary<Tkey, WeakReference>(CONCURRENCY_LEVEL, INITIAL_CAPACITY, comparer);
+        _storage = new ConcurrentDictionary<Tkey, WeakReference<Tvalue>>(CONCURRENCY_LEVEL, INITIAL_CAPACITY, comparer);
         _createNew = createNew;
     }
 
@@ -41,11 +50,17 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
     /// <returns>True if entry exists and alive, false otherwise.</returns>
     public bool ContainsKey(ref Tkey key, out Tvalue? value)
     {
-        if (_storage.TryGetValue(key, out WeakReference? cachedReference))
+        if (_storage.TryGetValue(key, out var cachedReference))
         {
-            value = cachedReference.Target as Tvalue;
-            return value != null;
+            if (cachedReference.TryGetTarget(out var target))
+            {
+                value = target;
+                return true;
+            }
+
+            NoteDeadEntry();
         }
+
         value = null;
         return false;
     }
@@ -64,27 +79,37 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
         if (value is null)
             return null;
 
-        do
+        while (true)
         {
-            if (_storage.TryGetValue(key, out WeakReference? cachedReference) &&
-                cachedReference.Target is Tvalue storedValue)
+            if (_storage.TryGetValue(key, out var cachedReference))
             {
-                return storedValue;
-            }
-        } while (!_storage.TryAdd(key, new WeakReference(value)));
+                if (cachedReference.TryGetTarget(out var storedValue))
+                    return storedValue;
 
-        return value;
+                // The entry is a collected shell. Swap it atomically so that a racing reviver or
+                // a concurrent prune cannot make two callers walk away with different instances
+                // for the same key: whoever loses the swap loops and picks up the winner's value.
+                if (_storage.TryUpdate(key, new WeakReference<Tvalue>(value), cachedReference))
+                    return value;
+
+                continue;
+            }
+
+            if (_storage.TryAdd(key, new WeakReference<Tvalue>(value)))
+                return value;
+        }
     }
 
     public Tvalue GetOrCreate(ref Tkey key)
     {
-        if (_storage.TryGetValue(key, out WeakReference? cachedReference) &&
-            cachedReference.Target is Tvalue storedValue)
+        if (_storage.TryGetValue(key, out var cachedReference))
         {
-            return storedValue;
+            if (cachedReference.TryGetTarget(out var storedValue))
+                return storedValue;
+
+            NoteDeadEntry();
         }
 
-        _storage.TryRemove(key, out WeakReference? _);
         var value = _createNew(key);
         return Store(ref key, value)!;
     }
@@ -108,6 +133,7 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
     public override void Clear()
     {
         _storage.Clear();
+        _deadEntriesSeen = 0;
     }
 
     /// <summary>
@@ -115,22 +141,52 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
     /// </summary>
     public IEnumerator<Tvalue> GetEnumerator()
     {
-        return _storage
-            .Select(pair =>
-            {
-                var val = pair.Value.Target as Tvalue;
-                if (val == null)
-                {
-                    _storage.TryRemove(pair.Key, out _);
-                }
-                return val;
-            })
-            .Where(val => val != null)
-            .GetEnumerator()!;
+        foreach (var pair in _storage)
+        {
+            if (pair.Value.TryGetTarget(out var value))
+                yield return value;
+            else
+                RemoveIfDead(pair.Key, pair.Value);
+        }
     }
 
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();
+    }
+
+    /// <summary>
+    /// Count a lookup that hit a collected entry and sweep the whole repository once enough of
+    /// them have accumulated.
+    /// </summary>
+    private void NoteDeadEntry()
+    {
+        if (Interlocked.Increment(ref _deadEntriesSeen) < DeadEntriesBeforePrune)
+            return;
+
+        Interlocked.Exchange(ref _deadEntriesSeen, 0);
+        Prune();
+    }
+
+    private void Prune()
+    {
+        foreach (var pair in _storage)
+        {
+            if (!pair.Value.TryGetTarget(out _))
+                RemoveIfDead(pair.Key, pair.Value);
+        }
+    }
+
+    /// <summary>
+    /// Remove an entry only if it is still the same collected shell we observed, so a value
+    /// stored concurrently under that key is never dropped.
+    /// </summary>
+    private void RemoveIfDead(Tkey key, WeakReference<Tvalue> observed)
+    {
+        if (observed.TryGetTarget(out _))
+            return;
+
+        ((ICollection<KeyValuePair<Tkey, WeakReference<Tvalue>>>)_storage)
+            .Remove(new KeyValuePair<Tkey, WeakReference<Tvalue>>(key, observed));
     }
 }

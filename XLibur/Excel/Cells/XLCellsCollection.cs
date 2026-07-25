@@ -190,6 +190,45 @@ internal sealed class XLCellsCollection : IWorkbookListener
         }
     }
 
+    /// <summary>
+    /// Whether any cell in the sheet has a comment. Scans the misc slice directly, so it costs
+    /// nothing on sheets that never touched comments, phonetics or metadata.
+    /// </summary>
+    internal bool HasAnyComment()
+    {
+        if (MiscSlice.IsEmpty)
+            return false;
+
+        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, XLSheetRange.Full);
+        while (enumerator.MoveNext())
+        {
+            if (enumerator.Current.Comment is not null)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Points of all cells that carry an in-cell image, in row-major order. Scans the misc slice
+    /// directly rather than materialising an <see cref="XLCell"/> per used cell.
+    /// </summary>
+    internal List<XLSheetPoint> GetCellImagePoints()
+    {
+        var points = new List<XLSheetPoint>();
+        if (MiscSlice.IsEmpty)
+            return points;
+
+        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, XLSheetRange.Full);
+        while (enumerator.MoveNext())
+        {
+            if (enumerator.Current.CellImage is not null)
+                points.Add(enumerator.Point);
+        }
+
+        return points;
+    }
+
     internal IEnumerable<XLCell> GetCellsInColumn(int column)
     {
         return GetCells(1, column, XLHelper.MaxRowNumber, column);

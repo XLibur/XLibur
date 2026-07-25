@@ -5,6 +5,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.AutoFilters;
+using XLibur.Excel.Coordinates;
 using XLibur.Excel.Tables;
 using XLibur.Utils;
 using static XLibur.Excel.XLWorkbook;
@@ -128,8 +129,13 @@ internal static class WorkbookStylesPartWriter
             foreach (var s in worksheet.Internals.RowsCollection.Select(r => r.Value.StyleValue))
                 styles.Add(s);
 
-            foreach (var c in worksheet.Internals.CellsCollection.GetCells())
-                styles.Add(c.StyleValue);
+            // Read the effective style straight from the slices. Going through GetCells() would
+            // materialise an XLCell wrapper for every used cell just to read one property, which
+            // on a large sheet is the single biggest allocation of the whole save.
+            var cellsCollection = worksheet.Internals.CellsCollection;
+            var cells = new XLCellsCollection.SlicesEnumerator(XLSheetRange.Full, cellsCollection);
+            while (cells.MoveNext())
+                styles.Add(worksheet.GetStyleValue(cells.Current));
 
             var xlPivotTableDataFieldFormats = worksheet.PivotTables
                 .SelectMany<XLPivotTable, XLPivotDataField>(pt => pt.DataFields)

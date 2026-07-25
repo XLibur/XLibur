@@ -10,7 +10,13 @@ SixLaborsV1FontBootstrap.Register();
 
 if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreCase))
 {
-    MemoryProfile.Run(args);
+    // "profile alloc" is a fast, GC-exact allocation report for the save path, split into
+    // create/save phases. The other modes attach dotMemory and target the load path.
+    if (args.Length > 1 && args[1].Equals("alloc", StringComparison.OrdinalIgnoreCase))
+        SaveAllocationProfile.Run();
+    else
+        MemoryProfile.Run(args);
+
     return;
 }
 

@@ -504,14 +504,14 @@ internal static class SheetDataWriter
         w.WriteStartElement("row", Main2006SsNs);
 
         w.WriteStartAttribute("r");
-        w.WriteValue(rowNumber);
+        w.WriteNumberValue(rowNumber);
         w.WriteEndAttribute();
 
         if (maxColumn > 0)
         {
             w.WriteStartAttribute("spans");
             w.WriteString("1:");
-            w.WriteValue(maxColumn);
+            w.WriteNumberValue(maxColumn);
             w.WriteEndAttribute();
         }
 
@@ -597,7 +597,7 @@ internal static class SheetDataWriter
     private static void WriteValue(XmlWriter xml, int sharedStringId)
     {
         xml.WriteStartElement("v", Main2006SsNs);
-        xml.WriteValue(sharedStringId);
+        xml.WriteNumberValue(sharedStringId);
         xml.WriteEndElement();
     }
 
