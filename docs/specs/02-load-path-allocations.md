@@ -3,7 +3,64 @@
 **Area:** Performance (read time + memory)
 **Effort:** M (1–2 weeks, three independent sub-tasks)
 **Dependencies:** None. Builds on PR #171 (raw `XmlReader` sheetData pass).
-**Status:** Proposed
+**Status:** ✅ Implemented in PR #175 — Tasks A, C1, C2 landed; Task B deferred (see Results)
+
+## Results
+
+`XLiburReadBenchmarks.LoadWorkbook`, 250K×15, net8.0, `InProcessEmitToolchain`, Ryzen 9 5950X:
+
+| Stage | Mean | Allocated |
+|---|---:|---:|
+| Baseline | 4.750 s | 1020.92 MB |
+| + Task A (SST raw reader) + C1 (dense style cache) | 3.897 s | 775.78 MB |
+| + Task C2 (chunked attribute/value reads) | **3.968 s** | **392.88 MB** |
+
+**−16.5% wall time, −61.5% allocations**, against acceptance targets of ≥15% and ≥35%. The
+allocation target was beaten comfortably; the time target was met but only just. The final time is
+within noise of the intermediate reading (Error ±0.03 s) — Task C2 buys allocation, not CPU. The
+"≤ 3.2 s" aspiration in the Summary was **not** reached: after these three tasks, load time is no
+longer dominated by garbage, so further gains need a different lever (see Follow-ups).
+
+### What shipped
+
+- **Task A** — `SharedStringReader` streams `<si>` entries with a raw `XmlReader`. Rich/phonetic
+  entries still need the DOM, and richness is only knowable after the first child is consumed (a
+  leading `<t>` may be followed by `<rPh>`), so their subtree is re-serialized rather than read via
+  a plain `ReadOuterXml`.
+- **Task C1** — `StyleValueCache`: flat array indexed by `cellXfs` index, scoped to the *workbook*
+  rather than per-worksheet, since `styles.xml` is workbook-global and resolution is a pure
+  function of the index.
+- **Task C2** — `XmlReader.ReadValueChunk` into a reusable 64-char buffer for cell *and row*
+  attributes and `<v>` content, parsing from the span, with a `StringBuilder` fallback for content
+  wider than the buffer. `String`, `Error` and `Date` values still materialize a string, either
+  because the text *is* the value or because the type is too rare to justify a span parser.
+
+### Task B was deferred, deliberately
+
+The remap targets the `Dictionary<Text,int>` probe in `SharedStringTable.IncreaseRef`: ~750K probes
+at ~25–30 ns on the benchmark sheet, i.e. **under 1% of load time and zero allocations**. That does
+not justify the risk to shared-string reference counting, which drives `DecreaseRef`, free-list
+reuse, and what gets written back to the SST on save. Revisit only if a string-dominated workload
+profiles as probe-bound.
+
+### Findings for other specs
+
+1. **`ReadValueChunk` works on attribute nodes**, not just text, and removed 99.8% of the
+   allocation for that work (103.8 → 0.2 bytes/cell) when measured in isolation. This was verified
+   with a throwaway probe before being built on. The technique generalizes to any `XmlReader` hot
+   path in the IO layer.
+2. **Doubles are saved with `"G15"`** by deliberate policy in `ObjectExtensions.ToInvariantString`,
+   so values wider than 15 significant digits already lose precision on save today. **Spec 03's
+   span-based `TryFormat` rewrite must target `G15`, not `"R"`/shortest-round-trip**, or it will
+   silently change output for every workbook. Spec 03 task 1 currently says "R"/G17 — treat this
+   as the correction.
+
+### Follow-ups this opened
+
+- Formula cells still allocate: `<f>` content is retained (unavoidable) but the `f` element's
+  attributes (`t`, `ref`, `si`, `aca`, …) still go through `reader.Value`. Same technique applies.
+- Load remains single-threaded; with garbage no longer dominant, per-sheet parallelism is the
+  next structural lever rather than further allocation trimming.
 
 ## Summary
 

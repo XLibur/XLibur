@@ -6,18 +6,23 @@ Grounding: these were derived from a July 2026 survey of the codebase (architect
 
 ## The list
 
-| # | Spec | Area | Effort | Parallelizable? |
-|---|------|------|--------|-----------------|
-| 01 | [Streaming write API](01-streaming-write-api.md) | Feature · Arch · Memory | L | Phase 1 refactor first, then independent |
-| 02 | [Load-path allocation elimination](02-load-path-allocations.md) | Perf (read) | M | 3 independent sub-tasks |
-| 03 | [Save-path allocation reduction](03-save-path-allocations.md) | Perf (write) | M | 7 small independent PRs |
-| 04 | [Demand-driven formula evaluation](04-demand-driven-formula-eval.md) | Perf · Arch | L | Single owner (correctness-critical) |
-| 05 | [Structural-edit & bulk-style scalability](05-structural-edit-scalability.md) | Arch · Perf | L | 3 independent workstreams |
-| 06 | [Workbook encryption (password files)](06-workbook-encryption.md) | Feature · Compat | L | Container/crypto layers in parallel |
-| 07 | [Formula function coverage (257→~420)](07-formula-function-coverage.md) | Feature | L | **6 fully independent waves** |
-| 08 | [LET / LAMBDA](08-let-lambda.md) | Feature | L | Single owner (engine core) |
-| 09 | [Threaded comments + round-trip fidelity](09-threaded-comments-roundtrip.md) | Feature · Compat | M | Comments vs fidelity-audit split |
-| 10 | [Chart formatting depth](10-chart-formatting-depth.md) | Feature | L | 4 PRs, 2–3 independent |
+| # | Spec | Area | Effort | Status | Parallelizable? |
+|---|------|------|--------|--------|-----------------|
+| 01 | [Streaming write API](01-streaming-write-api.md) | Feature · Arch · Memory | L | Proposed | Phase 1 refactor first, then independent |
+| 02 | [Load-path allocation elimination](02-load-path-allocations.md) | Perf (read) | M | ✅ **Done** (#175) | 3 independent sub-tasks |
+| 03 | [Save-path allocation reduction](03-save-path-allocations.md) | Perf (write) | M | Proposed | 7 small independent PRs |
+| 04 | [Demand-driven formula evaluation](04-demand-driven-formula-eval.md) | Perf · Arch | L | Proposed | Single owner (correctness-critical) |
+| 05 | [Structural-edit & bulk-style scalability](05-structural-edit-scalability.md) | Arch · Perf | L | Proposed | 3 independent workstreams |
+| 06 | [Workbook encryption (password files)](06-workbook-encryption.md) | Feature · Compat | L | Proposed | Container/crypto layers in parallel |
+| 07 | [Formula function coverage (257→~420)](07-formula-function-coverage.md) | Feature | L | Proposed | **6 fully independent waves** |
+| 08 | [LET / LAMBDA](08-let-lambda.md) | Feature | L | Proposed | Single owner (engine core) |
+| 09 | [Threaded comments + round-trip fidelity](09-threaded-comments-roundtrip.md) | Feature · Compat | M | Proposed | Comments vs fidelity-audit split |
+| 10 | [Chart formatting depth](10-chart-formatting-depth.md) | Feature | L | Proposed | 4 PRs, 2–3 independent |
+
+Spec 02 delivered **−16.5% load time and −61.5% allocations** (4.750 s / 1020.92 MB → 3.968 s /
+392.88 MB on the 250K×15 benchmark). It also produced two findings that change other specs: a
+correction to spec 03's number-formatting task, and a reusable `XmlReader.ReadValueChunk` technique
+for the IO layer. Both are recorded in spec 02's Results section.
 
 ## Why these ten
 
@@ -33,12 +38,15 @@ Grounding: these were derived from a July 2026 survey of the codebase (architect
 
 ```
 Wave 1 (independent, start anytime):
-  02 load allocations · 03 save allocations · 07 function waves A–F · 09 threaded comments
+  02 load allocations ✅ done · 03 save allocations · 07 function waves A–F · 09 threaded comments
 Wave 2 (after 03 lands, or coordinated):
   01 streaming write (Phase 1 seam shared with 03's territory) · 06 encryption · 10 charts PR1
 Wave 3 (single-owner, correctness-critical — don't parallelize internally):
   04 demand-driven eval · 05 structural edits · 08 LET/LAMBDA (08 after or alongside 04)
 ```
+
+**Read spec 02's Results section before starting 03** — it corrects 03's number-formatting task
+and describes an allocation technique that applies to the rest of the IO layer.
 
 Conflict map: 01↔03 (`SheetDataWriter`), 04↔08 (evaluation stack / `CalcContext`), 07 waves B↔C (`Statistical.cs`). Everything else is disjoint.
 

@@ -22,7 +22,7 @@ The 50K-row formatted save (`CreateFormattedAndSave`) allocates ~543 MB and has 
 
 | # | Task | Detail | Size |
 |---|------|--------|------|
-| 1 | Span-based number write | In `WriteNumberValue`: `Span<char> buf = stackalloc char[24]; value.TryFormat(buf, out int len, "R"/G17-equivalent, CultureInfo.InvariantCulture)` then `WriteRaw(char[], ...)` via a reusable `char[]` (XmlWriter.WriteRaw has no span overload — reuse a cached buffer). **Must produce byte-identical output** to `ToInvariantString` for round-trip stability — add a property-based test comparing both formatters over random doubles, ints, dates. | S |
+| 1 | Span-based number write | In `WriteNumberValue`: `Span<char> buf = stackalloc char[32]; value.TryFormat(buf, out int len, "G15", CultureInfo.InvariantCulture)` then `WriteRaw(char[], ...)` via a reusable `char[]` (XmlWriter.WriteRaw has no span overload — reuse a cached buffer). **The format specifier is `G15`, not `"R"`/G17** — see the note below. **Must produce byte-identical output** to `ToInvariantString` for round-trip stability — add a property-based test comparing both formatters over random doubles, ints, dates. | S |
 | 2 | Inherited-style memo | In the save loop, memoize `GetStyleValue` results per (row-style, column-style) pair — for a typical sheet most cells inherit the same worksheet/column style. Cache last row's resolved inherited value; invalidate on row change. Profile first to confirm this is the hot allocation (dotMemory `profile` harness). | M |
 | 3 | StyleKey hash caching | `XLStyleValue` is immutable — compute the full hash once in the constructor and store it (`_cachedHashCode`), or fix `XLStyleKey.GetHashCode` to combine pre-computed component hashes instead of re-hashing all fields. Verify with `StyleKeyHashCodeBenchmarks`. | S |
 | 4 | Table-totals guard | Skip `CollectTableTotalCells` + per-cell `Contains` entirely when `worksheet.Tables.All(t => !t.ShowTotalsRow)` (or count == 0). | XS |
@@ -43,7 +43,14 @@ Same as Spec 02: BenchmarkDotNet filter `'*XLiburWorkbookBenchmarks*'` + dotMemo
 
 ## Risks
 
-- Task 1 formatting parity: `double.ToInvariantString` may use shortest-round-trip ("R"-like) semantics — match exactly; Excel files store shortest-round-trip doubles. The property test is mandatory, not optional.
+- Task 1 formatting parity — **resolved while implementing Spec 02, do not re-derive**:
+  `ObjectExtensions.ToInvariantString` formats `double` with **`"G15"`** and `float` with `"G7"`,
+  annotated "Specify precision explicitly for backward compatibility". So the current output is
+  *not* shortest-round-trip: values wider than 15 significant digits already lose precision on
+  save (e.g. `1234567890.123456` is written as `1234567890.12346` and reads back as
+  `1234567890.1234601`). Matching `"R"`/G17 would change the bytes of essentially every workbook
+  and look like a regression in diffs. Use `G15`. The property test is still mandatory — it is
+  what pins this behaviour down.
 - Task 2 can add complexity for marginal gain if the profile doesn't confirm — profile first, implement second.
 
 ## References
