@@ -10,12 +10,6 @@ description: Add column, line, pie, scatter, stock, surface, combo, and modern E
 XLibur can embed charts in a worksheet. You choose a chart type, add one or more series that
 point at ranges of data, and anchor the chart to a rectangle of cells.
 
-:::note
-Chart support here is substantially wider than in ClosedXML 0.105, which could not create
-charts at all. Over 70 chart types are available, including combo charts and the Office 2016+
-"extended" types (Waterfall, Funnel, Treemap, Sunburst, Box &amp; Whisker).
-:::
-
 ## A first chart
 
 ```csharp
