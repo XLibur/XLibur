@@ -143,9 +143,33 @@ internal sealed class XLCellsCollection : IWorkbookListener
             slice.DeleteAreaAndShiftUp(rangeToDelete);
     }
 
+    /// <summary>
+    /// Direct-mapped cache of recently vended cell wrappers. An <see cref="XLCell"/> is a stateless
+    /// handle over (collection, point) — all cell data lives in the slices — so returning the same
+    /// instance twice for the same point is equivalent to returning two, and lets the caller reuse
+    /// the <c>XLStyle</c> that <see cref="XLStylizedBase.InnerStyle"/> caches on it.
+    /// </summary>
+    /// <remarks>
+    /// Thread-safety: entries are single reference reads/writes, and the point is read back off the
+    /// cached cell rather than from a parallel array, so a racing writer can only cause a miss —
+    /// never a cell for the wrong point.
+    /// </remarks>
+    private const int CellCacheSize = 16;
+
+    private const int CellCacheMask = CellCacheSize - 1;
+
+    private readonly XLCell?[] _cellCache = new XLCell?[CellCacheSize];
+
     internal XLCell GetCell(XLSheetPoint address)
     {
-        return new XLCell(_ws, address);
+        var slot = (int)address.PackedValue & CellCacheMask;
+        var cached = _cellCache[slot];
+        if (cached is not null && cached.SheetPoint.Equals(address))
+            return cached;
+
+        var cell = new XLCell(_ws, address);
+        _cellCache[slot] = cell;
+        return cell;
     }
 
     /// <summary>

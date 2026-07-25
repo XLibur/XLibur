@@ -1096,4 +1096,75 @@ public class XLCellTests
             Assert.AreEqual(prefixedName + "()", cell.FormulaA1);
         }
     }
+
+    /// <summary>
+    /// Cell wrappers are vended from a small direct-mapped cache, so two requests for the same
+    /// address can hand back the same instance. That is only sound while the wrapper carries no
+    /// cell state of its own — everything must round-trip through the slices.
+    /// </summary>
+    [Test]
+    public void Repeated_cell_access_sees_writes_made_through_an_earlier_handle()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        var first = ws.Cell(3, 4);
+        first.Value = "hello";
+        first.Style.Font.Bold = true;
+
+        var second = ws.Cell(3, 4);
+        Assert.AreEqual("hello", second.GetString());
+        Assert.IsTrue(second.Style.Font.Bold);
+
+        // ...and a write through the second handle is visible through the first.
+        second.Value = 42;
+        Assert.AreEqual(42, first.GetDouble());
+    }
+
+    /// <summary>
+    /// Distinct addresses must never collide in the wrapper cache, including addresses that share
+    /// a cache slot. The cache is 16-wide and keyed off the packed point, so stepping the column
+    /// by 16 lands repeatedly on one slot.
+    /// </summary>
+    [Test]
+    public void Cells_that_share_a_wrapper_cache_slot_stay_independent()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        for (var i = 0; i < 8; i++)
+            ws.Cell(1, 1 + i * 16).Value = i;
+
+        for (var i = 0; i < 8; i++)
+        {
+            var cell = ws.Cell(1, 1 + i * 16);
+            Assert.AreEqual(1, cell.Address.RowNumber);
+            Assert.AreEqual(1 + i * 16, cell.Address.ColumnNumber);
+            Assert.AreEqual(i, cell.GetDouble(), $"column {1 + i * 16}");
+        }
+    }
+
+    /// <summary>
+    /// A handle held across an eviction must keep pointing at its own address.
+    /// </summary>
+    [Test]
+    public void A_held_cell_handle_survives_wrapper_cache_eviction()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        var held = ws.Cell(5, 5);
+        held.Value = "kept";
+
+        // Touch far more cells than the cache can hold.
+        for (var c = 1; c <= 200; c++)
+            ws.Cell(9, c).Value = c;
+
+        Assert.AreEqual(5, held.Address.RowNumber);
+        Assert.AreEqual(5, held.Address.ColumnNumber);
+        Assert.AreEqual("kept", held.GetString());
+
+        held.Value = "still mine";
+        Assert.AreEqual("still mine", ws.Cell(5, 5).GetString());
+    }
 }
