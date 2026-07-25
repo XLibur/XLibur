@@ -431,4 +431,72 @@ public class MergedRangesTests
         Assert.IsFalse(range.IsMerged());
         Assert.AreEqual(0, ws.MergedRanges.Count);
     }
+
+    /// <summary>
+    /// <c>IsMerged</c> short-circuits on the merged-range count before consulting the range index,
+    /// because it runs on every value and formula assignment. The short-circuit is only sound while
+    /// the count tracks the index exactly, so pin the transitions: none → merged → unmerged →
+    /// merged again.
+    /// </summary>
+    [Test]
+    public void IsMerged_tracks_merge_and_unmerge_transitions()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        Assert.AreEqual(0, ws.MergedRanges.Count);
+        Assert.IsFalse(ws.Cell("A1").IsMerged());
+        Assert.IsFalse(ws.Cell("A2").IsMerged());
+
+        ws.Range("A1:A3").Merge();
+        Assert.AreEqual(1, ws.MergedRanges.Count);
+        Assert.IsTrue(ws.Cell("A1").IsMerged());
+        Assert.IsTrue(ws.Cell("A2").IsMerged());
+        Assert.IsFalse(ws.Cell("B1").IsMerged());
+
+        ws.Range("A1:A3").Unmerge();
+        Assert.AreEqual(0, ws.MergedRanges.Count);
+        Assert.IsFalse(ws.Cell("A1").IsMerged());
+        Assert.IsFalse(ws.Cell("A2").IsMerged());
+
+        ws.Range("A1:A3").Merge();
+        Assert.AreEqual(1, ws.MergedRanges.Count);
+        Assert.IsTrue(ws.Cell("A2").IsMerged());
+    }
+
+    /// <summary>
+    /// The guarded path must keep ignoring writes to inferior merged cells, and the unguarded path
+    /// must keep accepting them once the merge is gone.
+    /// </summary>
+    [Test]
+    public void Inferior_merged_cell_writes_are_ignored_only_while_merged()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        // No merges: every write lands.
+        ws.Cell("A2").Value = 1;
+        ws.Cell("A3").FormulaA1 = "=1";
+        Assert.AreEqual(1, ws.Cell("A2").GetDouble());
+        Assert.AreEqual("=1", "=" + ws.Cell("A3").FormulaA1);
+
+        ws.Cell("A2").Clear();
+        ws.Cell("A3").Clear();
+        ws.Range("A1:A3").Merge();
+
+        // Merged: writes to the inferior cells are silently dropped.
+        ws.Cell("A2").Value = 42;
+        ws.Cell("A3").FormulaA1 = "=99";
+        Assert.AreEqual(XLDataType.Blank, ws.Cell("A2").DataType);
+        Assert.AreEqual(string.Empty, ws.Cell("A3").FormulaA1);
+
+        // The superior cell still accepts them.
+        ws.Cell("A1").Value = 7;
+        Assert.AreEqual(7, ws.Cell("A1").GetDouble());
+
+        // Unmerged: the inferior cells accept writes again.
+        ws.Range("A1:A3").Unmerge();
+        ws.Cell("A2").Value = 42;
+        Assert.AreEqual(42, ws.Cell("A2").GetDouble());
+    }
 }
