@@ -274,3 +274,4 @@ workbook.SaveAs("Tasks.xlsx");
 
 - [Styling](./styling.md) — the style API these rules produce
 - [Data Validation](./data-validation.md) — constraining what users may enter
+- [Sparklines](./sparklines.md) — in-cell trend charts, where a data bar is not enough

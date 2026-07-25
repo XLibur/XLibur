@@ -284,7 +284,8 @@ The value of a merged region lives in its top-left cell; the others read as blan
 ## Named ranges
 
 Defined names make formulas readable and are the cleanest way to hand a region to a formula
-that lives elsewhere:
+that lives elsewhere. The essentials are below; see [Defined Names](./defined-names.md) for
+scoping, named constants, and auditing broken references.
 
 ```csharp
 // Workbook scope (default)
@@ -363,6 +364,8 @@ ws.Rows(3, 8).Group();
 ws.Rows(3, 8).Collapse();
 ```
 
+Grouping has its own page — see [Grouping and Outlines](./grouping-and-outlines.md).
+
 ## Hyperlinks and comments
 
 ```csharp
@@ -374,13 +377,16 @@ ws.Cell("A2").Value = "Go to Summary";
 ws.Cell("A2").SetHyperlink(new XLHyperlink("Summary!A1"));
 
 // Comment
-ws.Cell("B1").CreateComment()
+ws.Cell("B1").GetComment()
   .AddText("Reviewed 2026-01-21")
   .SetBold();
 ```
+
+Both are covered in full on [Comments and Hyperlinks](./comments-and-hyperlinks.md).
 
 ## Where to next
 
 - [Styling](./styling.md) — fonts, fills, borders, alignment, and number formats
 - [Formulas](./formulas.md) — normal, array, and dynamic array formulas
+- [Defined Names](./defined-names.md) — named ranges, scoping, and named constants
 - [Importing and Exporting Data](./importing-exporting.md) — bulk-loading collections and `DataTable`s

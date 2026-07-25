@@ -286,7 +286,9 @@ ws.Unprotect("s3cret");
 
 :::note
 Sheet protection is a UI convenience, not a security feature — the data is not encrypted and
-any tool (including XLibur) can read it.
+any tool (including XLibur) can read it. To lock the *structure* of the workbook (adding,
+deleting, or reordering sheets), see
+[Workbook Settings](./workbook-settings.md#workbook-structure).
 :::
 
 ## Default sizing and styling
@@ -306,4 +308,6 @@ ws.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 
 - [Cells and Ranges](./cells-and-ranges.md) — addressing, reading, and writing content
 - [Styling](./styling.md) — fonts, fills, borders, and alignment
+- [Grouping and Outlines](./grouping-and-outlines.md) — collapsible sections of rows and columns
+- [Workbook Settings](./workbook-settings.md) — document properties, protection, and save options
 - [Page Setup and Printing](./page-setup.md) — print areas, headers, and scaling

@@ -11,7 +11,9 @@ const sidebars: SidebarsConfig = {
       items: [
         'worksheets',
         'cells-and-ranges',
+        'defined-names',
         'importing-exporting',
+        'workbook-settings',
       ],
     },
     {
@@ -34,6 +36,7 @@ const sidebars: SidebarsConfig = {
         'autofilter',
         'pivot-tables',
         'data-validation',
+        'grouping-and-outlines',
       ],
     },
     {
@@ -43,6 +46,17 @@ const sidebars: SidebarsConfig = {
       items: [
         'formulas',
         'functions',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Visuals',
+      collapsed: false,
+      items: [
+        'charts',
+        'sparklines',
+        'images',
+        'comments-and-hyperlinks',
       ],
     },
     {

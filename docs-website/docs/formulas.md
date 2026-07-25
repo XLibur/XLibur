@@ -334,3 +334,4 @@ for (var r = 0; r < terms.Length; r++)
 
 - [Functions](./functions.md) — what the calculation engine supports, with examples
 - [Cells and Ranges](./cells-and-ranges.md) — reading typed results back out
+- [Workbook Settings](./workbook-settings.md#calculation) — calculation mode and save options

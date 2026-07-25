@@ -364,4 +364,5 @@ workbook.SaveAs("PastrySales.xlsx");
 ## Where to next
 
 - [Tables](./tables.md) — the recommended pivot source
+- [Charts](./charts.md) — plotting the data a pivot summarises
 - [Theming](./theming.md) — pivot styles follow the workbook theme colours
