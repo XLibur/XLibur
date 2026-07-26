@@ -51,6 +51,10 @@ Solution uses `.slnx` format (modern MSBuild Solution Extension).
 - **Coverage:** Coverlet is incompatible with MTP. Use
   `Microsoft.Testing.Extensions.CodeCoverage` (`--coverage --coverage-output-format xml`),
   which SonarCloud reads via `sonar.cs.vscoveragexml.reportsPaths`.
+- **Mutation testing is currently blocked.** Stryker.NET drives tests through VsTest and
+  does not support Microsoft.Testing.Platform, so `dotnet stryker` aborts test discovery and
+  finds 0 tests. Tracked upstream at stryker-mutator/stryker-net#3094. `stryker-config.json`
+  and the tool manifest are left in place for when support lands.
 
 ## Key Dependencies
 
