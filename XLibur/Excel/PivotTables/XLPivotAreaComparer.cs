@@ -36,6 +36,34 @@ internal sealed class XLPivotAreaComparer : IEqualityComparer<XLPivotArea>
                x.FieldPosition == y.FieldPosition;
     }
 
+    /// <summary>
+    /// Whether two areas select the same region of the pivot table, ignoring how much of that region
+    /// they take in: <see cref="XLPivotArea.DataOnly"/> and <see cref="XLPivotArea.LabelOnly"/> pick
+    /// the data cells, the label cells or both, and <see cref="XLPivotArea.FieldPosition"/> is the
+    /// position Excel records next to that choice. Used when reading a style, where a format that
+    /// takes in more than the caller asked about still styles what the caller asked about. Writing a
+    /// style has to identify one exact area and uses <see cref="Equals(XLPivotArea, XLPivotArea)"/>.
+    /// </summary>
+    public bool EqualsIgnoringScope(XLPivotArea? x, XLPivotArea? y)
+    {
+        if (ReferenceEquals(x, y))
+            return true;
+
+        if (x is null || y is null)
+            return false;
+
+        return x.References.SequenceEqual(y.References, _referenceComparer) &&
+               Nullable.Equals(x.Field, y.Field) &&
+               x.Type == y.Type &&
+               x.GrandRow == y.GrandRow &&
+               x.GrandCol == y.GrandCol &&
+               x.CacheIndex == y.CacheIndex &&
+               x.Outline == y.Outline &&
+               Nullable.Equals(x.Offset, y.Offset) &&
+               x.CollapsedLevelsAreSubtotals == y.CollapsedLevelsAreSubtotals &&
+               x.Axis == y.Axis;
+    }
+
     public int GetHashCode(XLPivotArea obj)
     {
         var hashCode = new HashCode();

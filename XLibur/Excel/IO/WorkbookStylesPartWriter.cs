@@ -292,8 +292,12 @@ internal static class WorkbookStylesPartWriter
     {
         foreach (var pt in ws.PivotTables)
         {
-            AddPivotTableStyleFormatDxfs(differentialFormats, pt, context);
+            // Formats first: a style format reads its style from the format that covers it, so both
+            // of the first two calls see the same styles and whichever runs first decides the order
+            // the differential formats are written in. Going through pt.Formats keeps that order the
+            // same as the order the formats themselves are written in.
             AddPivotTableFormatDxfs(differentialFormats, pt, context);
+            AddPivotTableStyleFormatDxfs(differentialFormats, pt, context);
             AddPivotTableConditionalFormatDxfs(differentialFormats, pt, context);
         }
     }

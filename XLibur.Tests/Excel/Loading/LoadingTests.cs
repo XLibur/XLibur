@@ -245,7 +245,6 @@ public class LoadingTests
     }
 
     [Test]
-    [Skip("Pivot table style formats are not implemented, so the border is not read back.")]
     public async Task CanLoadPivotTableWithBorder()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\PivotTableWithBorder.xlsx"));
@@ -256,6 +255,26 @@ public class LoadingTests
         await Assert.That(border.LeftBorder).IsEqualTo(XLBorderStyleValues.Thin);
         await Assert.That(border.TopBorder).IsEqualTo(XLBorderStyleValues.Thin);
         await Assert.That(border.RightBorder).IsEqualTo(XLBorderStyleValues.Thin);
+        await Assert.That(border.BottomBorder).IsEqualTo(XLBorderStyleValues.Thin);
+    }
+
+    [Test]
+    public async Task PivotTableBorderSurvivesRoundTrip()
+    {
+        using var ms = new MemoryStream();
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\PivotTableWithBorder.xlsx")))
+        using (var wb = new XLWorkbook(stream))
+        {
+            wb.SaveAs(ms, true);
+        }
+
+        ms.Seek(0, SeekOrigin.Begin);
+
+        using var reloaded = new XLWorkbook(ms);
+        var pt = reloaded.Worksheet(1).PivotTables.PivotTable("PivotTable1");
+        var border = pt.RowLabels.Single().StyleFormats.DataValuesFormat.Style.Border;
+
+        await Assert.That(border.LeftBorder).IsEqualTo(XLBorderStyleValues.Thin);
         await Assert.That(border.BottomBorder).IsEqualTo(XLBorderStyleValues.Thin);
     }
 

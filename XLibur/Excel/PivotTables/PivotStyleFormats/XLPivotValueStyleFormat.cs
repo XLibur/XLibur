@@ -87,5 +87,17 @@ internal sealed class XLPivotValueStyleFormat : XLPivotStyleFormatBase, IXLPivot
         return XLPivotAreaComparer.Instance.Equals(area, currentArea);
     }
 
+    internal override bool Covers(XLPivotArea area)
+    {
+        // Styling a field's cells in Excel writes one area for the labels and the data together
+        // (dataOnly="0", with a fieldPosition), not the data-only area this class writes. The data
+        // cells still carry that style, so it counts when reading. An area that took in the labels
+        // alone would not.
+        if (area.LabelOnly)
+            return false;
+
+        return XLPivotAreaComparer.Instance.EqualsIgnoringScope(area, GetCurrentArea());
+    }
+
     private sealed record FieldReference(FieldIndex FieldIndex, IReadOnlyList<uint>? Items = null);
 }
