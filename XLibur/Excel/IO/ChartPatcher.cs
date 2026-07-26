@@ -1,0 +1,106 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using C = DocumentFormat.OpenXml.Drawing.Charts;
+
+namespace XLibur.Excel.IO;
+
+/// <summary>
+/// Applies model changes to a chart that already exists in the package.
+/// </summary>
+/// <remarks>
+/// <para>
+/// XLibur never regenerates the XML of a chart it read from a file: <see cref="ChartWriter"/> only
+/// emits charts created through <see cref="IXLCharts.Add(XLChartType)"/>, so everything an existing
+/// chart part contains — trendlines, error bars, gradient fills, per-point formatting, the chart
+/// style and colour parts next to it — survives a load/save round trip untouched.
+/// </para>
+/// <para>
+/// The price of that guarantee is that edits to an existing chart have to be patched into the DOM
+/// the reader loaded. This class does exactly that, and only for the properties the caller actually
+/// assigned (see <see cref="XLChartSeries.AssignedFormat"/>): a chart nobody edited is not modified
+/// at all.
+/// </para>
+/// </remarks>
+internal static class ChartPatcher
+{
+    /// <summary>
+    /// Writes the pending series formatting of a loaded chart back into its chart part.
+    /// </summary>
+    internal static void PatchChart(WorksheetPart worksheetPart, XLChart xlChart)
+    {
+        if (!HasPendingChanges(xlChart))
+            return;
+
+        // Extended (ChartEx) charts model their series in the cx namespace and do not support the
+        // series formatting properties, so there is nothing to patch.
+        var chartPart = ResolveChartPart(worksheetPart, xlChart);
+        var plotArea = chartPart?.ChartSpace?.Elements<C.Chart>().FirstOrDefault()?.PlotArea;
+        if (plotArea == null)
+            return;
+
+        var groups = ChartPlotAreaScanner.Scan(plotArea);
+        var primaryKind = ChartPlotAreaScanner.ChoosePrimaryKind(groups);
+        if (primaryKind == null)
+            return;
+
+        // The reader walked the same groups in the same order, so the n-th series element of the
+        // primary kind is the n-th series of the model collection.
+        var primaryElements = new List<(OpenXmlCompositeElement Element, XLChartGroupKind Kind)>();
+        var secondaryElements = new List<(OpenXmlCompositeElement Element, XLChartGroupKind Kind)>();
+        foreach (var group in groups)
+        {
+            var target = group.Kind == primaryKind.Value ? primaryElements : secondaryElements;
+            foreach (var seriesElement in group.SeriesElements)
+                target.Add((seriesElement, group.Kind));
+        }
+
+        PatchSeries(xlChart.SeriesInternal, primaryElements);
+        PatchSeries(xlChart.SecondarySeriesInternal, secondaryElements);
+    }
+
+    private static bool HasPendingChanges(XLChart xlChart) =>
+        HasPendingChanges(xlChart.SeriesInternal) || HasPendingChanges(xlChart.SecondarySeriesInternal);
+
+    private static bool HasPendingChanges(XLChartSeriesCollection series)
+    {
+        foreach (var s in series.Items)
+        {
+            if (s.AssignedFormat != XLChartSeriesFormat.None)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static void PatchSeries(
+        XLChartSeriesCollection series,
+        List<(OpenXmlCompositeElement Element, XLChartGroupKind Kind)> seriesElements)
+    {
+        var count = Math.Min(series.Count, seriesElements.Count);
+        for (var i = 0; i < count; i++)
+        {
+            var (element, kind) = seriesElements[i];
+            ChartFormatting.PatchSeriesFormat(element, series.Items[i], kind);
+        }
+    }
+
+    private static ChartPart? ResolveChartPart(WorksheetPart worksheetPart, XLChart xlChart)
+    {
+        if (xlChart.RelId == null)
+            return null;
+
+        var drawingsPart = worksheetPart.DrawingsPart;
+        if (drawingsPart == null)
+            return null;
+
+        // GetPartById throws for an unknown id, and the relationship can be missing when the chart
+        // was created in a workbook that has not been saved through this package yet.
+        if (!drawingsPart.Parts.Any(p => p.RelationshipId == xlChart.RelId))
+            return null;
+
+        return drawingsPart.GetPartById(xlChart.RelId) as ChartPart;
+    }
+}

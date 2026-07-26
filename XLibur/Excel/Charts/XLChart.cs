@@ -39,8 +39,8 @@ internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
         ZOrder = zOrder;
         ShapeId = worksheet.Workbook.ShapeIdManager.GetNext();
         RightAngleAxes = true;
-        Series = new XLChartSeriesCollection();
-        SecondarySeries = new XLChartSeriesCollection();
+        Series = new XLChartSeriesCollection(this);
+        SecondarySeries = new XLChartSeriesCollection(this);
         SecondPosition = new XLDrawingPosition();
     }
 
@@ -73,6 +73,23 @@ internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
     /// ChartWriter only writes charts where this is <c>true</c>.
     /// </summary>
     internal bool IsNew { get; set; } = true;
+
+    /// <summary>
+    /// Whether this chart came out of an existing file. Unlike <see cref="IsNew"/> — which the writer
+    /// clears once a new chart has been emitted — this stays <c>true</c> for the lifetime of the chart
+    /// and gates the operations that would require regenerating the chart XML from scratch.
+    /// </summary>
+    internal bool LoadedFromFile { get; set; }
+
+    /// <summary>
+    /// The primary series collection, typed for internal use.
+    /// </summary>
+    internal XLChartSeriesCollection SeriesInternal => (XLChartSeriesCollection)Series;
+
+    /// <summary>
+    /// The secondary (combo) series collection, typed for internal use.
+    /// </summary>
+    internal XLChartSeriesCollection SecondarySeriesInternal => (XLChartSeriesCollection)SecondarySeries;
 
     public bool RightAngleAxes { get; set; }
 

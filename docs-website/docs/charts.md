@@ -179,6 +179,100 @@ combo.SecondPosition.SetColumn(10).SetRow(24);
 
 Set `SecondaryChartType` back to `null` to turn a combo chart into a single-type chart.
 
+## Series formatting
+
+Each series carries its own fill, outline and marker. Every property is optional: leave it alone
+and Excel picks the automatic colour from the workbook theme, which is usually what you want for
+all but one or two highlighted series.
+
+```csharp
+var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+var revenue = chart.Series.Add("Revenue", "Sales!$B$2:$B$5", "Sales!$A$2:$A$5");
+
+revenue.FillColor = XLColor.FromHtml("#4472C4");     // bar interior
+revenue.LineColor = XLColor.FromHtml("#203864");     // bar border
+revenue.LineWidthPt = 1.5;
+```
+
+For a line or scatter series the same two colours mean the line and — with `MarkerStyle` — the
+symbol drawn at each point:
+
+```csharp
+var trend = chart.SecondarySeries.Add("Margin %", "Sales!$D$2:$D$5", "Sales!$A$2:$A$5");
+
+trend.LineColor = XLColor.FromTheme(XLThemeColor.Accent2);
+trend.LineWidthPt = 2.25;
+trend.MarkerStyle = XLMarkerStyle.Circle;
+trend.MarkerSize = 7;                                 // 2 to 72 points
+trend.MarkerFillColor = XLColor.FromHtml("#70AD47");
+trend.Smooth = true;                                  // curve rather than straight segments
+```
+
+| Property | Applies to | Default |
+|---|---|---|
+| `FillColor` | bar, column, area, pie interiors; scatter markers | automatic (theme) |
+| `LineColor` | line and scatter lines; borders elsewhere | automatic (theme) |
+| `LineWidthPt` | any outline, 0 to 1584 points | Excel's own |
+| `MarkerStyle` | line, scatter, radar | `Auto` |
+| `MarkerSize` | line, scatter, radar, 2 to 72 points | Excel's own |
+| `MarkerFillColor` | line, scatter, radar | automatic (theme) |
+| `Smooth` | line, scatter | the chart type's default |
+
+`XLMarkerStyle` offers `Auto`, `None`, `Circle`, `Dash`, `Diamond`, `Dot`, `Plus`, `Square`,
+`Star`, `Triangle` and `X`. `Auto` — the default — writes nothing, so the chart type decides:
+the `LineWithMarkers*` types draw markers, plain `Line` does not.
+
+:::note
+Setting a colour to `null` clears it back to automatic; it never writes an explicit black. A
+theme colour is written as a DrawingML scheme colour, but its `ThemeTint` is not applied — pass an
+RGB colour if you need a specific tint.
+
+The extended (Office 2016+) types — Waterfall, Funnel, Treemap, Sunburst, Box &amp; Whisker —
+ignore series formatting.
+:::
+
+### Secondary value axis
+
+`UseSecondaryAxis` moves a series onto a second value axis drawn on the right, which is what
+makes a two-scale chart readable — units in the thousands next to a percentage, say:
+
+```csharp
+var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+chart.Series.Add("Units", "Sales!$B$2:$B$5", "Sales!$A$2:$A$5");
+
+chart.SecondaryChartType = XLChartType.LineWithMarkers;
+var margin = chart.SecondarySeries.Add("Margin %", "Sales!$D$2:$D$5", "Sales!$A$2:$A$5");
+margin.UseSecondaryAxis = true;
+```
+
+It works on any series of a chart type that has a category and a value axis — bar, column, line,
+area, radar, stock and surface — including series of the primary chart type. Pie and doughnut
+charts have no value axis and scatter and bubble charts already have two, so they ignore it.
+
+:::caution
+`UseSecondaryAxis` can only be set on charts you create. Moving a series of a chart **loaded from
+a file** onto a secondary axis would mean regrouping the chart's XML, which XLibur does not do, so
+the setter throws `NotSupportedException`. The colour and marker properties have no such limit.
+:::
+
+### Editing charts loaded from a file
+
+XLibur never regenerates the XML of a chart it read from a file — it patches in just the
+properties you assign. Everything it does not model stays exactly as Excel wrote it: trendlines,
+error bars, gradient and picture fills, per-point colours, data labels, the chart's style and
+colour parts.
+
+```csharp
+using var workbook = new XLWorkbook("Report.xlsx");
+var chart = workbook.Worksheet("Data").Charts.First();
+
+chart.Series.First().FillColor = XLColor.FromHtml("#C00000");
+workbook.Save();   // only the fill changes; the trendline stays
+```
+
+Chart type, title and series references are settable on charts you create, but on a loaded chart
+only the series formatting is written back.
+
 ## Chart types
 
 `XLChartType` covers the full Excel catalogue. Pick by data shape:
@@ -278,9 +372,9 @@ chart.Title = null;               // remove the title
 
 ## What is not covered
 
-The chart API is deliberately narrow: type, title, series, and placement. Axis titles, legend
-placement, gridlines, data labels, per-series colours, and trend lines are not exposed. If you
-need that level of control, the usual approach is to build a template workbook in Excel with
+The chart API is deliberately narrow: type, title, series, series formatting, and placement. Axis
+titles and scaling, legend placement, gridlines, data labels, and trend lines are not exposed. If
+you need that level of control, the usual approach is to build a template workbook in Excel with
 the chart formatted exactly as you want it, then use XLibur to write the source data the chart
 already points at:
 
@@ -340,20 +434,29 @@ ws.Columns().AdjustToContents();
 const string sheet = "Quarterly";
 var categories = $"{sheet}!$A$2:$A${last}";
 
-// Chart 1: revenue vs cost
+// Chart 1: revenue vs cost, with cost played down
 var bars = ws.Charts.Add(XLChartType.ColumnClustered);
 bars.SetTitle("Revenue vs cost");
-bars.Series.Add("Revenue", $"{sheet}!$B$2:$B${last}", categories);
-bars.Series.Add("Cost", $"{sheet}!$C$2:$C${last}", categories);
+bars.Series.Add("Revenue", $"{sheet}!$B$2:$B${last}", categories).FillColor =
+    XLColor.FromHtml("#4472C4");
+bars.Series.Add("Cost", $"{sheet}!$C$2:$C${last}", categories).FillColor =
+    XLColor.FromHtml("#A5A5A5");
 bars.Position.SetColumn(5).SetRow(1);
 bars.SecondPosition.SetColumn(13).SetRow(16);
 
-// Chart 2: combo — revenue bars with the margin line over them
+// Chart 2: combo — revenue bars with the margin line on its own axis
 var combo = ws.Charts.Add(XLChartType.ColumnClustered);
 combo.SetTitle("Revenue and margin");
 combo.Series.Add("Revenue", $"{sheet}!$B$2:$B${last}", categories);
 combo.SecondaryChartType = XLChartType.LineWithMarkers;
-combo.SecondarySeries.Add("Margin %", $"{sheet}!$D$2:$D${last}", categories);
+
+var margin = combo.SecondarySeries.Add("Margin %", $"{sheet}!$D$2:$D${last}", categories);
+margin.UseSecondaryAxis = true;
+margin.LineColor = XLColor.FromHtml("#ED7D31");
+margin.LineWidthPt = 2.25;
+margin.MarkerStyle = XLMarkerStyle.Circle;
+margin.MarkerSize = 7;
+
 combo.Position.SetColumn(5).SetRow(18);
 combo.SecondPosition.SetColumn(13).SetRow(33);
 

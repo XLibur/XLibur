@@ -104,3 +104,31 @@ static XLibur.Excel.XLAlignmentKey.operator !=(XLibur.Excel.XLAlignmentKey left,
 static XLibur.AttributeExtensions.GetMethod<T>(this T instance, System.Linq.Expressions.Expression<System.Func<T, object!>!>! methodSelector) -> System.Reflection.MethodInfo!
 static XLibur.AttributeExtensions.GetMethod<T>(this T instance, System.Linq.Expressions.Expression<System.Action<T>!>! methodSelector) -> System.Reflection.MethodInfo!
 XLibur.Excel.XLError.SpillRange = 7 -> XLibur.Excel.XLError
+XLibur.Excel.IXLChartSeries.FillColor.get -> XLibur.Excel.XLColor?
+XLibur.Excel.IXLChartSeries.FillColor.set -> void
+XLibur.Excel.IXLChartSeries.LineColor.get -> XLibur.Excel.XLColor?
+XLibur.Excel.IXLChartSeries.LineColor.set -> void
+XLibur.Excel.IXLChartSeries.LineWidthPt.get -> double?
+XLibur.Excel.IXLChartSeries.LineWidthPt.set -> void
+XLibur.Excel.IXLChartSeries.MarkerFillColor.get -> XLibur.Excel.XLColor?
+XLibur.Excel.IXLChartSeries.MarkerFillColor.set -> void
+XLibur.Excel.IXLChartSeries.MarkerSize.get -> double?
+XLibur.Excel.IXLChartSeries.MarkerSize.set -> void
+XLibur.Excel.IXLChartSeries.MarkerStyle.get -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.IXLChartSeries.MarkerStyle.set -> void
+XLibur.Excel.IXLChartSeries.Smooth.get -> bool
+XLibur.Excel.IXLChartSeries.Smooth.set -> void
+XLibur.Excel.IXLChartSeries.UseSecondaryAxis.get -> bool
+XLibur.Excel.IXLChartSeries.UseSecondaryAxis.set -> void
+XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Auto = 0 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.None = 1 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Circle = 2 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Dash = 3 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Diamond = 4 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Dot = 5 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Plus = 6 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Square = 7 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Star = 8 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Triangle = 9 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.X = 10 -> XLibur.Excel.XLMarkerStyle

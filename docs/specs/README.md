@@ -19,7 +19,7 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 07 | [Formula function coverage (257→~420)](07-formula-function-coverage.md) | Feature | L | Proposed | **6 fully independent waves** |
 | 08 | [LET / LAMBDA](08-let-lambda.md) | Feature | L | Proposed | Single owner (engine core) |
 | 09 | [Threaded comments + round-trip fidelity](09-threaded-comments-roundtrip.md) | Feature · Compat | M | Proposed | Comments vs fidelity-audit split |
-| 10 | [Chart formatting depth](10-chart-formatting-depth.md) | Feature | L | Proposed | 4 PRs, 2–3 independent |
+| 10 | [Chart formatting depth](10-chart-formatting-depth.md) | Feature | L | 🚧 **PR 1 done** | 4 PRs, 2–3 independent |
 | 11 | [Create-path allocation reduction](11-create-path-allocations.md) | Perf (write) | M | ✅ **Tasks 1–4 done** | Task 4 lands in 11; 05 rebases |
 
 Spec 11 was added after spec 03 landed: 03 halved the *save* phase and showed the rest of it is
@@ -30,6 +30,12 @@ Spec 02 delivered **−16.5% load time and −61.5% allocations** (4.750 s / 102
 392.88 MB on the 250K×15 benchmark). It also produced two findings that change other specs: a
 correction to spec 03's number-formatting task, and a reusable `XmlReader.ReadValueChunk` technique
 for the IO layer. Both are recorded in spec 02's Results section.
+
+Spec 10's PR 1 settled the question the spec flagged as its own hard part: the chart writer never
+regenerates a chart it loaded, so unmodeled chart XML round-trips byte for byte, and edits are
+patched into the existing part instead. **PRs 2–4 should extend that patcher rather than add a second
+write path** — see spec 10's Results section. Turning the OpenXML validator on for the new chart
+tests also surfaced three long-standing schema violations in the chart writer, now fixed.
 
 ## Why these ten (01–10)
 
@@ -48,7 +54,8 @@ Wave 1 (independent, start anytime):
   02 load allocations ✅ done · 03 save allocations · 07 function waves A–F · 09 threaded comments
   11 Tasks 1–4 ✅ done (−28.8% on the write benchmark; bulk styling −86% per cell)
 Wave 2 (after 03 lands, or coordinated):
-  01 streaming write (Phase 1 seam shared with 03's territory) · 06 encryption · 10 charts PR1
+  01 streaming write (Phase 1 seam shared with 03's territory) · 06 encryption
+  10 charts PR1 ✅ done (series formatting, secondary axis, preservation groundwork) · PRs 2–4 open
 Wave 3 (single-owner, correctness-critical — don't parallelize internally):
   04 demand-driven eval · 05 structural edits · 08 LET/LAMBDA (08 after or alongside 04)
 ```

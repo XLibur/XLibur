@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Added
+
+- **Chart series formatting**: `IXLChartSeries` gained `FillColor`, `LineColor`, `LineWidthPt`, `MarkerStyle` (new `XLMarkerStyle` enum), `MarkerSize`, `MarkerFillColor` and `Smooth`, so a generated chart can be styled instead of relying on Excel's automatic theme colours. Leaving a property `null` omits its element, which keeps the automatic colour — nothing is ever written as an explicit black.
+
+- **Secondary value axis per series**: `IXLChartSeries.UseSecondaryAxis` plots a series against a value axis on the right, so a percentage can share a chart with values in the thousands. It applies to series of the primary chart type as well as to a combo chart's `SecondarySeries`.
+
+- **Charts loaded from a file can be restyled**: setting the series formatting on a loaded chart now writes back on save. Only the properties actually assigned are patched into the existing chart part, so trendlines, error bars, gradient fills, per-point colours, data labels and the chart's style/colour parts are all preserved — and a chart nobody edited is left byte for byte as it was.
+
+### Fixed
+
+- **Chart XML now passes OpenXML schema validation.** Three long-standing violations in the chart writer are fixed: series names were written as a `c:strRef` with no required `c:f` (a literal name now uses `<c:tx><c:v>`, and both forms are read back), `c:doughnutChart` omitted the required `c:holeSize`, and `c:marker` was written after `c:cat`/`c:val` instead of before. Excel tolerated all three, but stricter readers and `SaveOptions.ValidatePackage` did not.
+
+- **A `Line` chart whose markers are switched off no longer reads back as `LineWithMarkers`.** The reader treated the presence of a `c:marker` element as "has markers", even when it held `<c:symbol val="none"/>`.
+
+- **Charts with more than one plot group of the same type now read all of their series.** The reader took only the first `c:barChart` (or `c:lineChart`, …) of a plot area, so the series of a second group — which is how Excel stores a secondary axis — were dropped.
+
 ## v0.106.0 - 2026-07-25
 
 First XLibur release since forking [ClosedXML v0.105.0](https://github.com/ClosedXML/ClosedXML/)

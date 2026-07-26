@@ -96,6 +96,7 @@ public static class CreateFiles
         new PivotTables.PivotTables().Create(Path.Combine(path, "PivotTables.xlsx"));
         new SheetViews().Create(Path.Combine(path, "SheetViews.xlsx"));
         new ChartExamples().Create(Path.Combine(path, "ChartExamples.xlsx"));
+        new FormattedChartExamples().Create(Path.Combine(path, "FormattedChartExamples.xlsx"));
         new CFDataBarModify().Create(Path.Combine(path, "CFDataBarModify.xlsx"));
     }
 }

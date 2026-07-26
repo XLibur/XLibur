@@ -3,7 +3,7 @@
 **Area:** Feature (flagship differentiator — upstream ClosedXML has no charts at all)
 **Effort:** L total, but splits into 4 independent PRs
 **Dependencies:** None.
-**Status:** Proposed
+**Status:** In progress — PR 1 implemented; see [Results](#results-pr-1). PRs 2–4 open.
 
 ## Summary
 
@@ -99,3 +99,98 @@ PRs 2 and 3 are independent of each other once PR 1's groundwork lands.
 
 - DrawingML defaulting is subtle (automatic colors come from the theme); `null` must mean "omit element" (Excel default), never "emit black". Test against Excel-authored files, not assumptions.
 - If the writer regenerates chart XML from the model on save (rather than patching), preservation of unmodeled properties is the hard part — resolve this in PR 1 before building on top.
+
+## Results (PR 1)
+
+Series formatting, secondary-axis binding and the round-trip-preservation groundwork landed.
+`IXLChartSeries` gained `FillColor`, `LineColor`, `LineWidthPt`, `MarkerStyle` (new `XLMarkerStyle`
+enum), `MarkerSize`, `MarkerFillColor`, `Smooth` and `UseSecondaryAxis`. `DataLabels` is left to
+PR 2. 6360 tests pass on net8.0 and net10.0.
+
+### The preservation question is answered: the writer does not regenerate
+
+`ChartWriter.WriteCharts` only ever emitted charts with `IsNew == true`, i.e. charts created through
+`Charts.Add`. A chart read from a file was skipped entirely, and because `SaveAs` copies the original
+package bytes to the target and then patches it, its chart part passed through **byte for byte** —
+trendlines, error bars, gradient fills, per-point formatting and the sibling chart style/colour parts
+included. Acceptance criterion 3 was therefore already met before this PR, and there is no need to
+stash raw XML for unmodeled properties.
+
+The flip side is that edits to a loaded chart were silently dropped. PR 1 keeps the
+never-regenerate rule and adds `ChartPatcher`, which writes back **only** the properties the caller
+actually assigned:
+
+- `XLChartSeries` tracks assignments in an `XLChartSeriesFormat` flag set. The reader seeds values
+  through `SeedLoadedFormat`, which does not set the flags, so a chart nobody edited is not touched
+  at all (`LoadAndSaveWithoutEditsLeavesTheChartPartUntouched` asserts byte equality).
+- A patched `c:spPr` / `c:marker` / `c:smooth` replaces just its own child; `cap="rnd"`, `a:round`,
+  `a:effectLst`, `c:gapWidth`, `c:trendline` and the neighbouring untouched series all survive.
+- `ChartPlotAreaScanner` is shared by the reader and the patcher, so the n-th model series still maps
+  to the n-th `c:ser` element on save.
+
+### Secondary axis
+
+`UseSecondaryAxis` splits a chart's series into plot groups: series bound to the secondary axis get
+their own chart group referencing a second axis pair (hidden `c:catAx`, right-hand `c:valAx` with
+`c:crosses val="max"`). It works for the primary chart type as well as the combo `SecondarySeries`,
+which is more than the spec asked for — the spec assumed generalising the existing combo plumbing,
+but the combo path plotted both types against the *same* axis pair, so the grouping had to be built
+from scratch either way.
+
+Two deliberate limits, both documented on the interface:
+
+- Chart types without a single value axis ignore it — pie and doughnut have none, scatter and bubble
+  have two, surface has a series axis.
+- Setting it on a chart **loaded from a file** throws `NotSupportedException`. Honouring it would mean
+  moving a `c:ser` into a newly created chart group, i.e. regenerating the structure the patch
+  approach exists to avoid. Colour and marker properties have no such limit.
+
+### Three pre-existing writer bugs found by switching validation on
+
+The new tests save with `SaveAs(stream, validate: true)`, which runs `OpenXmlValidator`. No chart
+test had done that before, and it failed immediately on output the writer had always produced:
+
+1. **Series names were schema-invalid.** `c:tx` held a `c:strRef` with a `c:strCache` but no `c:f`,
+   which `CT_StrRef` requires. A literal name belongs in `<c:tx><c:v>` instead, which is what the
+   writer now emits; the reader accepts both forms, so files written by earlier versions and by Excel
+   (where the name does come from a cell) still read correctly.
+2. **`c:doughnutChart` was missing the required `c:holeSize`.** Now written as 75%, Excel's own
+   default for a new doughnut chart.
+3. **Markers were emitted after `c:cat`/`c:val`.** `CT_LineSer` puts `c:marker` before them. The
+   `LineWithMarkers*` types had been writing an out-of-order child all along.
+
+Excel tolerated all three, which is why they went unnoticed. Every chart family is now round-tripped
+through the validator by `FormattingSurvivesEveryStandardChartFamily`.
+
+### Reader restructure
+
+`ReadPlotArea` no longer takes the first element of each chart-group type. It scans every group in
+the plot area, picks the primary kind by the same precedence the old code implied (bar, bar3D, pie,
+doughnut, area, line, radar, bubble, scatter, stock, surface), and merges every group of that kind
+into `Series` — which is what makes a two-group secondary-axis chart read back correctly. Groups of
+another kind become `SecondaryChartType` / `SecondarySeries` as before. Also fixed:
+`DetermineLineChartType` treated `<c:marker><c:symbol val="none"/></c:marker>` as "has markers" and
+reported a plain `Line` chart as `LineWithMarkers`.
+
+### Acceptance criteria
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | Set via API → save → reload reads the same value | ✅ automated per property |
+| 1 | Set via API → save → **renders in Excel** | ⚠️ not executed — no Excel in this environment. The test suite leaves `FormattedChartExamples.xlsx` in the test output directory for a manual pass |
+| 2 | Excel-authored charts load with correct values | ⚠️ approximated — `ChartRoundTripPreservationTests` reads a hand-written fixture shaped like Excel's own output (scheme colour, `c:strRef` name cache, `cap`/`a:round`/`a:effectLst`, marker `c:spPr`, secondary axis pair, trendline). No file could be authored in Excel in CI; `XLibur.Tests/Resource/Charts/` is still empty |
+| 3 | Round-trip of unsupported features loses nothing | ✅ guaranteed by construction, asserted both ways |
+| 4 | Existing chart tests green; ChartEx unaffected | ✅ extended charts ignore series formatting and are not patched |
+| 5 | `XLibur.Examples` gains a formatted-chart sample | ✅ `FormattedChartExamples` — four sheets, validated by a test |
+
+### Notes for PRs 2–4
+
+- Build data labels, legend and axes on `ChartPatcher`/`ChartFormatting`, not on a second mechanism:
+  add flags to the assignment set and a patch step per element. The "only write what was assigned"
+  rule is what keeps preservation free.
+- `ChartPlotAreaScanner` is the place to add group kinds the reader still ignores: `c:pie3DChart`,
+  `c:line3DChart`, `c:area3DChart`, `c:surface3DChart`, `c:ofPieChart`. Today a chart built from
+  those reads as zero series with a default chart type — worth folding into PR 3 or 4.
+- Title, chart type and series references are still write-only for new charts; editing them on a
+  loaded chart does nothing. If PR 3 wants `chart.Title` to work on loaded charts, that is another
+  patch step.
