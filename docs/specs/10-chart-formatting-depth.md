@@ -3,7 +3,7 @@
 **Area:** Feature (flagship differentiator — upstream ClosedXML has no charts at all)
 **Effort:** L total, but splits into 4 independent PRs
 **Dependencies:** None.
-**Status:** In progress — PRs 1, 2 and 3 implemented; see [Results](#results-pr-1). PR 4 open.
+**Status:** ✅ All four PRs implemented — see [Results](#results-pr-1) per PR.
 
 ## Summary
 
@@ -183,14 +183,12 @@ reported a plain `Line` chart as `LineWithMarkers`.
 | 4 | Existing chart tests green; ChartEx unaffected | ✅ extended charts ignore series formatting and are not patched |
 | 5 | `XLibur.Examples` gains a formatted-chart sample | ✅ `FormattedChartExamples` — four sheets, validated by a test |
 
-### Notes for PR 4
+### Left for later
 
-- `ChartPlotAreaScanner` is the place to add group kinds the reader still ignores: `c:pie3DChart`,
-  `c:line3DChart`, `c:area3DChart`, `c:surface3DChart`, `c:ofPieChart`. Today a chart built from
-  those reads as zero series with a default chart type.
 - Title, chart type and series references are still write-only for new charts; editing them on a
   loaded chart does nothing. Making `chart.Title` work on a loaded chart is one more patch step on
   `ChartFormatting`.
+- Chart sheets still land in `UnsupportedSheets` (spec 09's territory).
 
 ## Results (PR 2)
 
@@ -279,3 +277,49 @@ editing the legend keeps its layout and text properties. `Legend.Visible = false
 what the writer did before this PR. Excel's own new charts do have value axis gridlines, so this is a
 plausible thing to change, but doing it silently would alter the output of every existing caller. Left
 as a deliberate decision to revisit, not an oversight.
+
+## Results (PR 4)
+
+Both reader gaps closed. 6416 tests pass on net8.0 and net10.0.
+
+### Anchors
+
+`ChartReader.LoadCharts` iterated `Elements<Xdr.TwoCellAnchor>()`, so a chart Excel had anchored with
+`xdr:oneCellAnchor` or `xdr:absoluteAnchor` never reached `ws.Charts` — invisible to the API, though
+its XML did survive a save because the writer never touches a loaded chart. It now walks every anchor
+child.
+
+Following the picture pattern the spec pointed at, the anchor kind is exposed as
+`IXLChart.Anchor` of the already-public `XLDrawingAnchor` enum, whose three values line up exactly
+with the three anchor elements, plus `Width`, `Height`, `Left` and `Top` in pixels — the same unit and
+the same 9525 EMU conversion `IXLPicture` uses. `XLPicturePlacement` would have been the closer
+analogue by name, but it lives in `XLibur.Excel.Drawings` and reads oddly on a chart;
+`XLDrawingAnchor` is in `XLibur.Excel` and was already public.
+
+The writer emits whichever anchor `Anchor` asks for. It defaults to `MoveAndSizeWithCells`, so charts
+built by existing callers are byte-identical to before.
+
+### Trendlines and error bars
+
+Preservation-only, as specified, and it needed no code: PR 1's patch approach never rewrites a series
+element wholesale. The fixture in `ChartRoundTripPreservationTests` now carries both a `c:trendline`
+and a `c:errBars`, and the test that edits the series' fill and line width asserts they are still
+there afterwards.
+
+### Also closed: the 3D and of-pie group kinds
+
+Not in the spec's PR 4 list, but the same class of bug and one line of the spec's "Current state":
+`c:pie3DChart`, `c:line3DChart`, `c:area3DChart`, `c:surface3DChart` and `c:ofPieChart` were not
+recognised by the plot-area scan, so an Excel-authored chart using one produced a chart object with no
+series and whatever `XLChartType` happens to be zero. They are now scanned like the 2D groups, their
+series and series formatting read the same way, `c:ofPieType` tells pie-of-pie from bar-of-pie, and
+`c:grouping` on `c:area3DChart` picks the stacked variants.
+
+**The writer is still asymmetric here** and this PR deliberately did not change it: XLibur writes
+`Pie3D` as a plain `c:pieChart`, `Line3D` as `c:lineChart`, `Area3D` as `c:areaChart` and every surface
+type as `c:surfaceChart`. Its own 3D charts therefore round-trip as their 2D equivalents. Fixing the
+writer would change the output of existing callers and is a separate, larger job — the 3D groups carry
+`c:view3D`, `c:floor`, `c:sideWall` and `c:backWall` on the chart, none of which is modelled. For the
+same reason `c:surfaceChart` is still read back as `Surface` rather than the `SurfaceContour` it
+strictly means: the writer emits it for `Surface`, and matching the reader to the spec's semantics
+would break XLibur's own round trip.

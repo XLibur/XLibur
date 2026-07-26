@@ -57,6 +57,13 @@ public class ChartRoundTripPreservationTests
                     <c:showBubbleSize val="0"/>
                   </c:dLbls>
                   <c:trendline><c:trendlineType val="linear"/></c:trendline>
+                  <c:errBars>
+                    <c:errDir val="y"/>
+                    <c:errBarType val="both"/>
+                    <c:errValType val="percentage"/>
+                    <c:noEndCap val="0"/>
+                    <c:val val="5"/>
+                  </c:errBars>
                   <c:cat><c:strRef><c:f>Data!$A$1:$A$2</c:f></c:strRef></c:cat>
                   <c:val><c:numRef><c:f>Data!$B$1:$B$2</c:f></c:numRef></c:val>
                 </c:ser>
@@ -268,6 +275,8 @@ public class ChartRoundTripPreservationTests
 
         // Everything XLibur does not model survived.
         Assert.That(xml, Does.Contain("<c:trendline>"));
+        Assert.That(xml, Does.Contain("<c:errBars>"));
+        Assert.That(xml, Does.Contain("<c:errValType val=\"percentage\""));
         Assert.That(xml, Does.Contain("cap=\"rnd\""));
         Assert.That(xml, Does.Contain("<a:round"));
         Assert.That(xml, Does.Contain("<a:effectLst"));

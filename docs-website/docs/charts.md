@@ -153,6 +153,30 @@ PlaceChart(revenueChart, row: 1, column: 4);
 PlaceChart(marginChart, row: 17, column: 4);
 ```
 
+### Anchoring
+
+By default a chart spans the rectangle between `Position` and `SecondPosition`, so inserting rows or
+columns moves and resizes it. `Anchor` picks a different rule:
+
+```csharp
+// Keep the size, move with the cell underneath the top-left corner
+chart.Anchor = XLDrawingAnchor.MoveWithCells;
+chart.Position.SetColumn(4).SetRow(3);
+chart.Width = 480;    // pixels
+chart.Height = 288;
+
+// Pin to a spot on the sheet, ignoring the grid
+chart.Anchor = XLDrawingAnchor.Absolute;
+chart.Left = 200;     // pixels from the left edge
+chart.Top = 120;
+chart.Width = 480;
+chart.Height = 288;
+```
+
+`SecondPosition` is only used by the default `MoveAndSizeWithCells`; `Width`/`Height` are only used
+by the other two, and `Left`/`Top` only by `Absolute`. All four are read back from a file, whichever
+anchor the chart came with.
+
 ## Combo charts
 
 Set `SecondaryChartType` and add series to `SecondarySeries`. Both types share one plot area —
@@ -477,6 +501,9 @@ foreach (var chart in ws.Charts)
     Console.WriteLine($"{chart.Title} ({chart.ChartType}), {chart.Series.Count} series");
 }
 ```
+
+Charts anchored any of the three ways are listed, as are the chart types XLibur reads but does not
+write itself: 3D pie, line, area and surface groups, and pie-of-pie / bar-of-pie.
 
 Chart type and title are settable after creation:
 

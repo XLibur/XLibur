@@ -22,19 +22,25 @@ internal static class ChartReader
         if (drawingsPart?.WorksheetDrawing == null)
             return;
 
-        foreach (var anchor in drawingsPart.WorksheetDrawing.Elements<Xdr.TwoCellAnchor>())
+        // Excel writes a chart under any of the three anchor kinds. A one-cell or absolute anchored
+        // chart used to be skipped here, which left it out of ws.Charts entirely.
+        foreach (var anchor in drawingsPart.WorksheetDrawing.ChildElements)
         {
-            var xlChart = TryLoadChartFromAnchor(drawingsPart, anchor, ws);
-            if (xlChart != null)
-            {
-                ReadPositions(anchor, xlChart);
-                ws.Charts.Add(xlChart);
-            }
+            if (anchor is not (Xdr.TwoCellAnchor or Xdr.OneCellAnchor or Xdr.AbsoluteAnchor))
+                continue;
+
+            var composite = (OpenXmlCompositeElement)anchor;
+            var xlChart = TryLoadChartFromAnchor(drawingsPart, composite, ws);
+            if (xlChart == null)
+                continue;
+
+            ReadAnchor(composite, xlChart);
+            ws.Charts.Add(xlChart);
         }
     }
 
     private static XLChart? TryLoadChartFromAnchor(
-        DrawingsPart drawingsPart, Xdr.TwoCellAnchor anchor, XLWorksheet ws)
+        DrawingsPart drawingsPart, OpenXmlCompositeElement anchor, XLWorksheet ws)
     {
         // GraphicFrame may be direct child or inside mc:AlternateContent > mc:Choice
         var graphicFrame = anchor.Elements<Xdr.GraphicFrame>().FirstOrDefault()
@@ -191,14 +197,19 @@ internal static class ChartReader
         XLChartGroupKind.Bar => DetermineBarChartType((C.BarChart)group.Element),
         XLChartGroupKind.Bar3D => DetermineBar3DChartType((C.Bar3DChart)group.Element),
         XLChartGroupKind.Pie => XLChartType.Pie,
+        XLChartGroupKind.Pie3D => XLChartType.Pie3D,
+        XLChartGroupKind.OfPie => DetermineOfPieChartType((C.OfPieChart)group.Element),
         XLChartGroupKind.Doughnut => XLChartType.Doughnut,
         XLChartGroupKind.Area => DetermineAreaChartType((C.AreaChart)group.Element),
+        XLChartGroupKind.Area3D => DetermineArea3DChartType((C.Area3DChart)group.Element),
         XLChartGroupKind.Line => DetermineLineChartType((C.LineChart)group.Element),
+        XLChartGroupKind.Line3D => XLChartType.Line3D,
         XLChartGroupKind.Radar => DetermineRadarChartType((C.RadarChart)group.Element),
         XLChartGroupKind.Bubble => XLChartType.Bubble,
         XLChartGroupKind.Scatter => DetermineScatterChartType((C.ScatterChart)group.Element),
         XLChartGroupKind.Stock => XLChartType.StockHighLowClose,
         XLChartGroupKind.Surface => DetermineSurfaceChartType((C.SurfaceChart)group.Element),
+        XLChartGroupKind.Surface3D => DetermineSurface3DChartType((C.Surface3DChart)group.Element),
         _ => XLChartType.ColumnClustered
     };
 
@@ -432,10 +443,39 @@ internal static class ChartReader
         return XLChartType.Area;
     }
 
+    /// <summary>
+    /// A <c>c:surfaceChart</c> is strictly the flat contour variant, but XLibur's writer emits every
+    /// surface type as one, so it is read back as the plain surface type its own writer meant.
+    /// </summary>
     private static XLChartType DetermineSurfaceChartType(C.SurfaceChart surfaceChart)
     {
         var wireframe = surfaceChart.Elements<C.Wireframe>().FirstOrDefault()?.Val?.Value ?? false;
         return wireframe ? XLChartType.SurfaceWireframe : XLChartType.Surface;
+    }
+
+    private static XLChartType DetermineSurface3DChartType(C.Surface3DChart surfaceChart)
+    {
+        var wireframe = surfaceChart.Elements<C.Wireframe>().FirstOrDefault()?.Val?.Value ?? false;
+        return wireframe ? XLChartType.SurfaceWireframe : XLChartType.Surface;
+    }
+
+    /// <summary>
+    /// A <c>c:ofPieChart</c> is either pie-of-pie or bar-of-pie, told apart by <c>c:ofPieType</c>.
+    /// </summary>
+    private static XLChartType DetermineOfPieChartType(C.OfPieChart ofPieChart)
+    {
+        var type = ofPieChart.Elements<C.OfPieType>().FirstOrDefault()?.Val;
+        return type != null && type.Value == C.OfPieValues.Bar
+            ? XLChartType.PieToBar
+            : XLChartType.PieToPie;
+    }
+
+    private static XLChartType DetermineArea3DChartType(C.Area3DChart areaChart)
+    {
+        var grouping = areaChart.Grouping?.Val?.Value;
+        if (grouping == C.GroupingValues.Stacked) return XLChartType.AreaStacked3D;
+        if (grouping == C.GroupingValues.PercentStacked) return XLChartType.AreaStacked100Percent3D;
+        return XLChartType.Area3D;
     }
 
     private static XLChartType DetermineScatterChartType(C.ScatterChart scatterChart)
@@ -507,11 +547,49 @@ internal static class ChartReader
 
     // ── Position reading ────────────────────────────────────────────────
 
-    private static void ReadPositions(Xdr.TwoCellAnchor anchor, XLChart xlChart)
+    /// <summary>EMU per pixel, the unit the drawing markers and extents are stored in.</summary>
+    private const double EmuPerPixel = 9525;
+
+    private static void ReadAnchor(OpenXmlCompositeElement anchor, XLChart xlChart)
     {
-        ReadMarker(anchor.FromMarker, xlChart.Position);
-        ReadMarker(anchor.ToMarker, xlChart.SecondPosition);
+        switch (anchor)
+        {
+            case Xdr.TwoCellAnchor twoCell:
+                xlChart.Anchor = XLDrawingAnchor.MoveAndSizeWithCells;
+                ReadMarker(twoCell.FromMarker, xlChart.Position);
+                ReadMarker(twoCell.ToMarker, xlChart.SecondPosition);
+                break;
+
+            case Xdr.OneCellAnchor oneCell:
+                xlChart.Anchor = XLDrawingAnchor.MoveWithCells;
+                ReadMarker(oneCell.FromMarker, xlChart.Position);
+                ReadExtent(oneCell.Extent, xlChart);
+                break;
+
+            case Xdr.AbsoluteAnchor absolute:
+                xlChart.Anchor = XLDrawingAnchor.Absolute;
+                if (absolute.Position != null)
+                {
+                    xlChart.Left = ToPixels(absolute.Position.X?.Value);
+                    xlChart.Top = ToPixels(absolute.Position.Y?.Value);
+                }
+
+                ReadExtent(absolute.Extent, xlChart);
+                break;
+        }
     }
+
+    private static void ReadExtent(Xdr.Extent? extent, XLChart xlChart)
+    {
+        if (extent == null)
+            return;
+
+        xlChart.Width = ToPixels(extent.Cx?.Value);
+        xlChart.Height = ToPixels(extent.Cy?.Value);
+    }
+
+    private static int ToPixels(long? emu) =>
+        emu == null ? 0 : (int)System.Math.Round(emu.Value / EmuPerPixel);
 
     private static void ReadMarker(Xdr.MarkerType? marker, IXLDrawingPosition position)
     {

@@ -201,3 +201,13 @@ XLibur.Excel.IXLChartAxis.LogBase.set -> void
 XLibur.Excel.XLAxisOrientation
 XLibur.Excel.XLAxisOrientation.MinMax = 0 -> XLibur.Excel.XLAxisOrientation
 XLibur.Excel.XLAxisOrientation.MaxMin = 1 -> XLibur.Excel.XLAxisOrientation
+XLibur.Excel.IXLChart.Anchor.get -> XLibur.Excel.XLDrawingAnchor
+XLibur.Excel.IXLChart.Anchor.set -> void
+XLibur.Excel.IXLChart.Width.get -> int
+XLibur.Excel.IXLChart.Width.set -> void
+XLibur.Excel.IXLChart.Height.get -> int
+XLibur.Excel.IXLChart.Height.set -> void
+XLibur.Excel.IXLChart.Left.get -> int
+XLibur.Excel.IXLChart.Left.set -> void
+XLibur.Excel.IXLChart.Top.get -> int
+XLibur.Excel.IXLChart.Top.set -> void

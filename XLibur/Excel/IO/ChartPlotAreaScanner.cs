@@ -14,14 +14,21 @@ internal enum XLChartGroupKind
     Bar,
     Bar3D,
     Pie,
+    Pie3D,
+
+    /// <summary>A pie-of-pie or bar-of-pie chart (<c>c:ofPieChart</c>).</summary>
+    OfPie,
     Doughnut,
     Area,
+    Area3D,
     Line,
+    Line3D,
     Radar,
     Bubble,
     Scatter,
     Stock,
-    Surface
+    Surface,
+    Surface3D
 }
 
 /// <summary>
@@ -67,6 +74,10 @@ internal sealed class XLChartGroup
     /// values (<c>c:cat</c>/<c>c:val</c>).
     /// </summary>
     internal bool IsXyBased => Kind is XLChartGroupKind.Scatter or XLChartGroupKind.Bubble;
+
+    /// <summary>Whether this is one of the 3D group types, which XLibur reads but never writes.</summary>
+    internal bool Is3D => Kind is XLChartGroupKind.Bar3D or XLChartGroupKind.Pie3D
+        or XLChartGroupKind.Area3D or XLChartGroupKind.Line3D or XLChartGroupKind.Surface3D;
 }
 
 /// <summary>
@@ -87,14 +98,19 @@ internal static class ChartPlotAreaScanner
         XLChartGroupKind.Bar,
         XLChartGroupKind.Bar3D,
         XLChartGroupKind.Pie,
+        XLChartGroupKind.Pie3D,
+        XLChartGroupKind.OfPie,
         XLChartGroupKind.Doughnut,
         XLChartGroupKind.Area,
+        XLChartGroupKind.Area3D,
         XLChartGroupKind.Line,
+        XLChartGroupKind.Line3D,
         XLChartGroupKind.Radar,
         XLChartGroupKind.Bubble,
         XLChartGroupKind.Scatter,
         XLChartGroupKind.Stock,
-        XLChartGroupKind.Surface
+        XLChartGroupKind.Surface,
+        XLChartGroupKind.Surface3D
     ];
 
     /// <summary>
@@ -117,14 +133,26 @@ internal static class ChartPlotAreaScanner
                 case C.PieChart pie:
                     groups.Add(Build(XLChartGroupKind.Pie, pie, pie.Elements<C.PieChartSeries>()));
                     break;
+                case C.Pie3DChart pie3D:
+                    groups.Add(Build(XLChartGroupKind.Pie3D, pie3D, pie3D.Elements<C.PieChartSeries>()));
+                    break;
+                case C.OfPieChart ofPie:
+                    groups.Add(Build(XLChartGroupKind.OfPie, ofPie, ofPie.Elements<C.PieChartSeries>()));
+                    break;
                 case C.DoughnutChart doughnut:
                     groups.Add(Build(XLChartGroupKind.Doughnut, doughnut, doughnut.Elements<C.PieChartSeries>()));
                     break;
                 case C.AreaChart area:
                     groups.Add(Build(XLChartGroupKind.Area, area, area.Elements<C.AreaChartSeries>()));
                     break;
+                case C.Area3DChart area3D:
+                    groups.Add(Build(XLChartGroupKind.Area3D, area3D, area3D.Elements<C.AreaChartSeries>()));
+                    break;
                 case C.LineChart line:
                     groups.Add(Build(XLChartGroupKind.Line, line, line.Elements<C.LineChartSeries>()));
+                    break;
+                case C.Line3DChart line3D:
+                    groups.Add(Build(XLChartGroupKind.Line3D, line3D, line3D.Elements<C.LineChartSeries>()));
                     break;
                 case C.RadarChart radar:
                     groups.Add(Build(XLChartGroupKind.Radar, radar, radar.Elements<C.RadarChartSeries>()));
@@ -140,6 +168,10 @@ internal static class ChartPlotAreaScanner
                     break;
                 case C.SurfaceChart surface:
                     groups.Add(Build(XLChartGroupKind.Surface, surface, surface.Elements<C.SurfaceChartSeries>()));
+                    break;
+                case C.Surface3DChart surface3D:
+                    groups.Add(Build(XLChartGroupKind.Surface3D, surface3D,
+                        surface3D.Elements<C.SurfaceChartSeries>()));
                     break;
             }
         }

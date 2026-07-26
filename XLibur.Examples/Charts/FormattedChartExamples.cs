@@ -18,6 +18,7 @@ public class FormattedChartExamples : IXLExample
         HighlightOneSeries(wb);
         Labels(wb);
         LegendAndAxes(wb);
+        Anchoring(wb);
 
         wb.SaveAs(filePath);
     }
@@ -251,6 +252,39 @@ public class FormattedChartExamples : IXLExample
         growth.CategoryAxis.Title = "Quarter";
         growth.Position.SetColumn(6).SetRow(24);
         growth.SecondPosition.SetColumn(16).SetRow(42);
+    }
+
+    /// <summary>
+    /// The three ways a chart can be tied to the grid. Insert a row above row 5 in Excel to see the
+    /// difference: the first chart resizes, the second slides down, the third does not move.
+    /// </summary>
+    private static void Anchoring(XLWorkbook wb)
+    {
+        var ws = wb.Worksheets.Add("Anchoring");
+        WriteQuarterlyData(ws);
+
+        var moveAndSize = ws.Charts.Add(XLChartType.ColumnClustered);
+        moveAndSize.SetTitle("Moves and resizes");
+        moveAndSize.Series.Add("Revenue", "Anchoring!$B$2:$B$5", "Anchoring!$A$2:$A$5");
+        moveAndSize.Position.SetColumn(5).SetRow(1);
+        moveAndSize.SecondPosition.SetColumn(12).SetRow(15);
+
+        var move = ws.Charts.Add(XLChartType.ColumnClustered);
+        move.SetTitle("Keeps its size");
+        move.Series.Add("Revenue", "Anchoring!$B$2:$B$5", "Anchoring!$A$2:$A$5");
+        move.Anchor = XLDrawingAnchor.MoveWithCells;
+        move.Position.SetColumn(5).SetRow(17);
+        move.Width = 460;
+        move.Height = 260;
+
+        var pinned = ws.Charts.Add(XLChartType.ColumnClustered);
+        pinned.SetTitle("Pinned to the sheet");
+        pinned.Series.Add("Revenue", "Anchoring!$B$2:$B$5", "Anchoring!$A$2:$A$5");
+        pinned.Anchor = XLDrawingAnchor.Absolute;
+        pinned.Left = 960;
+        pinned.Top = 16;
+        pinned.Width = 460;
+        pinned.Height = 260;
     }
 
     private static void WriteQuarterlyData(IXLWorksheet ws)

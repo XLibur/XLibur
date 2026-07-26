@@ -1033,6 +1033,9 @@ internal static class ChartWriter
     private static C.SeriesText BuildSeriesText(IXLChartSeries s) =>
         new(new C.NumericValue(s.Name));
 
+    /// <summary>EMU per pixel, the unit the drawing markers and extents are stored in.</summary>
+    private const double EmuPerPixel = 9525;
+
     private static void AppendAnchor(Xdr.WorksheetDrawing worksheetDrawing, XLChart xlChart, A.GraphicData graphicData)
     {
         var nvps = worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>();
@@ -1040,39 +1043,69 @@ internal static class ChartWriter
             ? (UInt32Value)nvps.Max(p => p.Id!.Value) + 1
             : 1U;
 
-        var fromPos = xlChart.Position;
-        var toPos = xlChart.SecondPosition;
-
-        var anchor = new Xdr.TwoCellAnchor(
-            new Xdr.FromMarker
-            {
-                ColumnId = new Xdr.ColumnId(fromPos.Column.ToString()),
-                RowId = new Xdr.RowId(fromPos.Row.ToString()),
-                ColumnOffset = new Xdr.ColumnOffset(((long)(fromPos.ColumnOffset * 9525)).ToString()),
-                RowOffset = new Xdr.RowOffset(((long)(fromPos.RowOffset * 9525)).ToString())
-            },
-            new Xdr.ToMarker
-            {
-                ColumnId = new Xdr.ColumnId(toPos.Column.ToString()),
-                RowId = new Xdr.RowId(toPos.Row.ToString()),
-                ColumnOffset = new Xdr.ColumnOffset(((long)(toPos.ColumnOffset * 9525)).ToString()),
-                RowOffset = new Xdr.RowOffset(((long)(toPos.RowOffset * 9525)).ToString())
-            },
-            new Xdr.GraphicFrame(
-                new Xdr.NonVisualGraphicFrameProperties(
-                    new Xdr.NonVisualDrawingProperties { Id = nvpId, Name = xlChart.Name },
-                    new Xdr.NonVisualGraphicFrameDrawingProperties()
-                ),
-                new Xdr.Transform(
-                    new A.Offset { X = 0, Y = 0 },
-                    new A.Extents { Cx = 0, Cy = 0 }
-                ),
-                new A.Graphic(graphicData)
+        var graphicFrame = new Xdr.GraphicFrame(
+            new Xdr.NonVisualGraphicFrameProperties(
+                new Xdr.NonVisualDrawingProperties { Id = nvpId, Name = xlChart.Name },
+                new Xdr.NonVisualGraphicFrameDrawingProperties()
             ),
-            new Xdr.ClientData()
+            new Xdr.Transform(
+                new A.Offset { X = 0, Y = 0 },
+                new A.Extents { Cx = 0, Cy = 0 }
+            ),
+            new A.Graphic(graphicData)
         );
+
+        OpenXmlCompositeElement anchor = xlChart.Anchor switch
+        {
+            XLDrawingAnchor.MoveWithCells => new Xdr.OneCellAnchor(
+                BuildFromMarker(xlChart.Position),
+                BuildExtent(xlChart),
+                graphicFrame,
+                new Xdr.ClientData()),
+
+            XLDrawingAnchor.Absolute => new Xdr.AbsoluteAnchor(
+                new Xdr.Position
+                {
+                    X = ToEmu(xlChart.Left),
+                    Y = ToEmu(xlChart.Top)
+                },
+                BuildExtent(xlChart),
+                graphicFrame,
+                new Xdr.ClientData()),
+
+            _ => new Xdr.TwoCellAnchor(
+                BuildFromMarker(xlChart.Position),
+                BuildToMarker(xlChart.SecondPosition),
+                graphicFrame,
+                new Xdr.ClientData())
+        };
+
         worksheetDrawing.Append(anchor);
     }
+
+    private static Xdr.FromMarker BuildFromMarker(IXLDrawingPosition position) => new()
+    {
+        ColumnId = new Xdr.ColumnId(position.Column.ToString()),
+        RowId = new Xdr.RowId(position.Row.ToString()),
+        ColumnOffset = new Xdr.ColumnOffset(ToEmu(position.ColumnOffset).ToString()),
+        RowOffset = new Xdr.RowOffset(ToEmu(position.RowOffset).ToString())
+    };
+
+    private static Xdr.ToMarker BuildToMarker(IXLDrawingPosition position) => new()
+    {
+        ColumnId = new Xdr.ColumnId(position.Column.ToString()),
+        RowId = new Xdr.RowId(position.Row.ToString()),
+        ColumnOffset = new Xdr.ColumnOffset(ToEmu(position.ColumnOffset).ToString()),
+        RowOffset = new Xdr.RowOffset(ToEmu(position.RowOffset).ToString())
+    };
+
+    private static Xdr.Extent BuildExtent(XLChart xlChart) => new()
+    {
+        Cx = ToEmu(xlChart.Width),
+        Cy = ToEmu(xlChart.Height)
+    };
+
+    private static long ToEmu(double pixels) => (long)(pixels * EmuPerPixel);
 
     /// <summary>
     /// Appends a TwoCellAnchor for an extended chart, wrapping the GraphicFrame in mc:AlternateContent
