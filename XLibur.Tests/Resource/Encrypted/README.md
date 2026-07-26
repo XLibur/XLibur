@@ -10,25 +10,23 @@ paths. Those tests need nothing from this folder.
 
 ## Status
 
-**The corpus is not populated yet.** Acceptance criteria 1 and 2 of
-`docs/specs/06-workbook-encryption.md` stay open until it is, and the file-backed tests below stay
-unwritten. This is recorded rather than quietly skipped, because "the tests pass" currently means
-"XLibur agrees with itself".
+One file, covering agile encryption as current Excel writes it. That is the common case and it is
+now genuinely proven rather than assumed.
 
-## What is needed
+Still open: standard encryption, which no file here exercises. XLibur reads it and never writes it,
+so nothing in the suite touches that path — it is the least trusted code in the feature.
 
-Every file uses the password `xlibur-test` unless its row says otherwise. Add a row per file.
+## Contents
 
 | File | Produced by | Encryption | Password | Notes |
 |---|---|---|---|---|
-| _(none yet)_ | | | | |
+| `Encrypted_XL365.xlsx` | Excel 365 | Agile, `EncryptionInfo` 4.4 | `Password` | One sheet, `Sheet1!A1` = `PROTECTED FILE`. Covered by `RealWorldEncryptedFileTests`. |
 
 Wanted, in rough order of value:
 
 | Producer | Why it matters |
 |---|---|
-| Excel 2016 or later, default settings | Agile AES-256 + SHA-512. The overwhelmingly common case. |
-| Excel 2007 | Standard encryption. The only way to exercise that path against a real file. |
+| Excel 2007 | Standard encryption. The only way to exercise that path against a real file, and nothing exercises it today. |
 | LibreOffice Calc | Writes agile encryption with its own parameter choices, so it catches assumptions baked in from Excel's defaults. |
 | Excel, non-ASCII password | Confirms the UTF-16LE password encoding on a real file rather than only in a round trip. |
 | Excel, empty-ish or very long password | Boundary cases in key derivation. |
