@@ -1,9 +1,10 @@
+﻿using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
-using NUnit.Framework;
 using XLibur.Excel;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.RichText;
 
@@ -12,7 +13,6 @@ namespace XLibur.Tests.Excel.RichText;
 /// can't be produced through the <see cref="XLWorkbook"/> API — the writer would normalise it
 /// before it were ever saved — so these tests build a minimal spec-valid package in memory.
 /// </summary>
-[TestFixture]
 public class RichTextColorRoundTripTests
 {
     // si[0] - rich-text runs whose rPr has NO <color> element, plus a run with no rPr at all.
@@ -35,33 +35,31 @@ public class RichTextColorRoundTripTests
         """;
 
     [Test]
-    public void ColorlessRuns_AreNotSerializedAsExplicitBlack()
+    public async Task ColorlessRuns_AreNotSerializedAsExplicitBlack()
     {
         var savedSharedStrings = RoundTripSharedStrings(SharedStrings);
 
         // The source had no <color> anywhere; the round-trip must not invent black.
-        Assert.That(savedSharedStrings, Does.Not.Contain("FF000000").IgnoreCase,
-            $"No explicit black colour was present in the source, but the save injected one.\n\n{savedSharedStrings}");
+        await Assert.That(savedSharedStrings).DoesNotContain("FF000000", StringComparison.OrdinalIgnoreCase).Because($"No explicit black colour was present in the source, but the save injected one.\n\n{savedSharedStrings}");
     }
 
     [Test]
-    public void PhoneticOnlyString_IsNotPromotedToRun()
+    public async Task PhoneticOnlyString_IsNotPromotedToRun()
     {
         var savedSharedStrings = RoundTripSharedStrings(SharedStrings);
 
-        Assert.Multiple(() =>
+        using (Assert.Multiple())
         {
-            Assert.That(savedSharedStrings, Does.Contain("rPh"), "Phonetic run (rPh) should be preserved.");
-            Assert.That(savedSharedStrings, Does.Contain("漢字"), "Phonetic base text should be preserved.");
+            await Assert.That(savedSharedStrings).Contains("rPh").Because("Phonetic run (rPh) should be preserved.");
+            await Assert.That(savedSharedStrings).Contains("漢字").Because("Phonetic base text should be preserved.");
 
             // Two <si> entries, only the first of which is rich text, so exactly two runs.
-            Assert.That(CountOccurrences(savedSharedStrings, "<x:r>"), Is.EqualTo(2),
-                $"Plain text with a phonetic guide must not be promoted to a rich-text run.\n\n{savedSharedStrings}");
-        });
+            await Assert.That(CountOccurrences(savedSharedStrings, "<x:r>")).IsEqualTo(2).Because($"Plain text with a phonetic guide must not be promoted to a rich-text run.\n\n{savedSharedStrings}");
+        }
     }
 
     [Test]
-    public void ExplicitRunColor_IsPreserved()
+    public async Task ExplicitRunColor_IsPreserved()
     {
         // The counterpart of the above: a colour that *was* written must survive the round-trip,
         // so the fix can't just drop every run colour.
@@ -77,12 +75,11 @@ public class RichTextColorRoundTripTests
 
         var savedSharedStrings = RoundTripSharedStrings(coloredSharedStrings, siCount: 1);
 
-        Assert.That(savedSharedStrings, Does.Contain("FFFF0000").IgnoreCase,
-            $"Explicitly written run colour was lost.\n\n{savedSharedStrings}");
+        await Assert.That(savedSharedStrings).Contains("FFFF0000", StringComparison.OrdinalIgnoreCase).Because($"Explicitly written run colour was lost.\n\n{savedSharedStrings}");
     }
 
     [Test]
-    public void PhoneticOnlyString_RoundTripsEscapedControlCharacters()
+    public async Task PhoneticOnlyString_RoundTripsEscapedControlCharacters()
     {
         // The reader decodes _xHHHH_ escapes for a runless string, so the writer has to re-encode
         // them. Writing the decoded control character raw is not valid XML and the text would not
@@ -100,26 +97,25 @@ public class RichTextColorRoundTripTests
             """;
 
         string savedSharedStrings = null!;
-        Assert.DoesNotThrow(() => savedSharedStrings = RoundTripSharedStrings(escapedSharedStrings, siCount: 1),
-            "Saving a runless string holding a decoded control character must not fail.");
+        await Assert.That(() => savedSharedStrings = RoundTripSharedStrings(escapedSharedStrings, siCount: 1),
+            "Saving a runless string holding a decoded control character must not fail.").ThrowsNothing();
 
-        Assert.That(savedSharedStrings, Does.Contain("_x0018_"),
-            $"The escape was not written back, so the control character was lost.\n\n{savedSharedStrings}");
+        await Assert.That(savedSharedStrings).Contains("_x0018_").Because($"The escape was not written back, so the control character was lost.\n\n{savedSharedStrings}");
     }
 
     [Test]
-    public void ColorlessRunText_IsStillReadable()
+    public async Task ColorlessRunText_IsStillReadable()
     {
         var input = BuildWorkbook(SharedStrings, siCount: 2);
 
         using var wb = new XLWorkbook(new MemoryStream(input));
         var ws = wb.Worksheets.First();
 
-        Assert.Multiple(() =>
+        using (Assert.Multiple())
         {
-            Assert.That(ws.Cell("A1").GetString(), Is.EqualTo("Bold plain"));
-            Assert.That(ws.Cell("A2").GetString(), Is.EqualTo("漢字"));
-        });
+            await Assert.That(ws.Cell("A1").GetString()).IsEqualTo("Bold plain");
+            await Assert.That(ws.Cell("A2").GetString()).IsEqualTo("漢字");
+        }
     }
 
     // A run with no rPr states no formatting of its own; per ECMA-376 CT_RElt it inherits the cell
@@ -146,20 +142,19 @@ public class RichTextColorRoundTripTests
         """;
 
     [Test]
-    public void RunWithoutRunProperties_IsWrittenBackWithoutRunProperties()
+    public async Task RunWithoutRunProperties_IsWrittenBackWithoutRunProperties()
     {
         var savedSharedStrings = RoundTripSharedStrings(BareRunSharedStrings, siCount: 1, styles: GreenFontStyles);
 
-        Assert.Multiple(() =>
+        using (Assert.Multiple())
         {
-            Assert.That(savedSharedStrings, Does.Not.Contain("rPr"),
-                $"A run that had no rPr must not gain one.\n\n{savedSharedStrings}");
-            Assert.That(savedSharedStrings, Does.Contain("Inherited"), "Run text was lost.");
-        });
+            await Assert.That(savedSharedStrings).DoesNotContain("rPr").Because($"A run that had no rPr must not gain one.\n\n{savedSharedStrings}");
+            await Assert.That(savedSharedStrings).Contains("Inherited").Because("Run text was lost.");
+        }
     }
 
     [Test]
-    public void RunWithoutRunProperties_StillReadsTheInheritedCellFont()
+    public async Task RunWithoutRunProperties_StillReadsTheInheritedCellFont()
     {
         // Writing no rPr must not mean the run has no font in the object model - reading and
         // measuring it still needs the inherited cell font.
@@ -168,11 +163,11 @@ public class RichTextColorRoundTripTests
         using var wb = new XLWorkbook(new MemoryStream(input));
         var run = wb.Worksheets.First().Cell("A1").GetRichText().First();
 
-        Assert.That(run.FontColor, Is.EqualTo(XLColor.FromArgb(0xFF, 0x00, 0xFF, 0x00)));
+        await Assert.That(run.FontColor).IsEqualTo(XLColor.FromArgb(0xFF, 0x00, 0xFF, 0x00));
     }
 
     [Test]
-    public void EditingRunWithoutRunProperties_MakesTheFormattingItsOwn()
+    public async Task EditingRunWithoutRunProperties_MakesTheFormattingItsOwn()
     {
         // Once the caller sets a font property the run does state its own formatting, so it must be
         // written back with a full rPr - otherwise the edit would be silently dropped.
@@ -187,17 +182,16 @@ public class RichTextColorRoundTripTests
 
         var savedSharedStrings = ReadPart(outMs.ToArray(), "xl/sharedStrings.xml");
 
-        Assert.Multiple(() =>
+        using (Assert.Multiple())
         {
-            Assert.That(savedSharedStrings, Does.Contain("rPr"), "An edited run must state its formatting.");
-            Assert.That(savedSharedStrings, Does.Contain("<x:b "), "Bold was lost.");
-            Assert.That(savedSharedStrings, Does.Contain("FF00FF00").IgnoreCase,
-                $"The inherited color must be materialized once the run owns its formatting.\n\n{savedSharedStrings}");
-        });
+            await Assert.That(savedSharedStrings).Contains("rPr").Because("An edited run must state its formatting.");
+            await Assert.That(savedSharedStrings).Contains("<x:b ").Because("Bold was lost.");
+            await Assert.That(savedSharedStrings).Contains("FF00FF00", StringComparison.OrdinalIgnoreCase).Because($"The inherited color must be materialized once the run owns its formatting.\n\n{savedSharedStrings}");
+        }
     }
 
     [Test]
-    public void SubstringOfInheritedRun_DoesNotMaterializeTheDefaultBlack()
+    public async Task SubstringOfInheritedRun_DoesNotMaterializeTheDefaultBlack()
     {
         // Splitting a run that states no formatting must yield runs that also state none - the
         // sub-runs carry the same font, so re-materializing it would reintroduce the very
@@ -213,12 +207,11 @@ public class RichTextColorRoundTripTests
 
         var savedSharedStrings = ReadPart(outMs.ToArray(), "xl/sharedStrings.xml");
 
-        Assert.That(savedSharedStrings, Does.Not.Contain("FF000000").IgnoreCase,
-            $"Splitting an inherited run re-materialized the ambiguous black.\n\n{savedSharedStrings}");
+        await Assert.That(savedSharedStrings).DoesNotContain("FF000000", StringComparison.OrdinalIgnoreCase).Because($"Splitting an inherited run re-materialized the ambiguous black.\n\n{savedSharedStrings}");
     }
 
     [Test]
-    public void EditingPhoneticOnlyString_MaterializesARunWithoutLosingText()
+    public async Task EditingPhoneticOnlyString_MaterializesARunWithoutLosingText()
     {
         // The stored rich text has no runs, but the mutable API is run-based. Touching it must
         // materialize a run rather than write back an empty cell.
@@ -228,19 +221,19 @@ public class RichTextColorRoundTripTests
         var cell = wb.Worksheets.First().Cell("A2");
 
         var richText = cell.GetRichText();
-        Assert.That(richText.Text, Is.EqualTo("漢字"), "Runless rich text lost its text on the mutable path.");
+        await Assert.That(richText.Text).IsEqualTo("漢字").Because("Runless rich text lost its text on the mutable path.");
 
         richText.AddText("!");
 
-        Assert.Multiple(() =>
+        using (Assert.Multiple())
         {
-            Assert.That(cell.GetString(), Is.EqualTo("漢字!"));
-            Assert.That(richText.Phonetics.Count, Is.EqualTo(1), "Phonetics were lost when a run was materialized.");
-        });
+            await Assert.That(cell.GetString()).IsEqualTo("漢字!");
+            await Assert.That(richText.Phonetics.Count).IsEqualTo(1).Because("Phonetics were lost when a run was materialized.");
+        }
     }
 
     [Test]
-    public void PhoneticOnlyString_IsMeasuredWhenAdjustingToContents()
+    public async Task PhoneticOnlyString_IsMeasuredWhenAdjustingToContents()
     {
         // Column sizing walks the rich text runs; a runless rich text must fall back to the plain
         // text and cell font instead of measuring as empty.
@@ -252,8 +245,7 @@ public class RichTextColorRoundTripTests
 
         ws.Column(1).AdjustToContents();
 
-        Assert.That(ws.Column(1).Width, Is.GreaterThan(defaultWidth),
-            "A phonetic-only cell was measured as if it had no text.");
+        await Assert.That(ws.Column(1).Width).IsGreaterThan(defaultWidth).Because("A phonetic-only cell was measured as if it had no text.");
     }
 
     private static string RoundTripSharedStrings(string sharedStrings, int siCount = 2, string styles = "")
@@ -283,7 +275,7 @@ public class RichTextColorRoundTripTests
     private static string ReadPart(byte[] xlsx, string partPath)
     {
         using var zip = new ZipArchive(new MemoryStream(xlsx), ZipArchiveMode.Read);
-        var entry = zip.GetEntry(partPath) ?? throw new AssertionException($"Missing part: {partPath}");
+        var entry = zip.GetEntry(partPath) ?? throw new InvalidOperationException($"Missing part: {partPath}");
         using var r = new StreamReader(entry.Open());
         return r.ReadToEnd();
     }

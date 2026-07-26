@@ -1,7 +1,8 @@
-using NUnit.Framework;
-using System;
+﻿using System;
 using System.Linq;
 using XLibur.Excel;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.Charts;
 
@@ -10,7 +11,6 @@ namespace XLibur.Tests.Excel.Charts;
 /// to do. XLibur's writer always emits the primary group first, but nothing in the schema requires it,
 /// so the reader must not decide by document order alone.
 /// </summary>
-[TestFixture]
 public class ChartPrimaryAxisReaderTests
 {
     /// <summary>
@@ -51,35 +51,34 @@ public class ChartPrimaryAxisReaderTests
         """;
 
     [Test]
-    public void SecondaryAxisBindingDoesNotDependOnGroupOrder()
+    public async Task SecondaryAxisBindingDoesNotDependOnGroupOrder()
     {
         var chart = ChartPartFixture.LoadChart(SecondaryGroupFirst, out var wb);
         using (wb)
         {
             var series = chart.Series.ToList();
-            Assert.That(series.Select(s => s.Name), Is.EqualTo(new[] { "Right", "Left" }));
+            await Assert.That(series.Select(s => s.Name)).IsEquivalentTo(new[] { "Right", "Left" }, CollectionOrdering.Matching);
 
             // The group written first hangs off the axis that crosses at the maximum, so it is the
             // secondary one however early it appears.
-            Assert.That(series[0].UseSecondaryAxis, Is.True);
-            Assert.That(series[1].UseSecondaryAxis, Is.False);
+            await Assert.That(series[0].UseSecondaryAxis).IsTrue();
+            await Assert.That(series[1].UseSecondaryAxis).IsFalse();
         }
     }
 
     [Test]
-    public void TheAxisModelsFollowTheSameBinding()
+    public async Task TheAxisModelsFollowTheSameBinding()
     {
         var chart = ChartPartFixture.LoadChart(SecondaryGroupFirst, out var wb);
         using (wb)
         {
-            Assert.That(chart.ValueAxis.MajorUnit, Is.EqualTo(10),
-                "The left-hand axis of the primary group is IXLChart.ValueAxis.");
-            Assert.That(chart.SecondaryValueAxis.MajorUnit, Is.EqualTo(25));
+            await Assert.That(chart.ValueAxis.MajorUnit).IsEqualTo(10).Because("The left-hand axis of the primary group is IXLChart.ValueAxis.");
+            await Assert.That(chart.SecondaryValueAxis.MajorUnit).IsEqualTo(25);
         }
     }
 
     [Test]
-    public void AddingASeriesToALoadedChartThrows()
+    public async Task AddingASeriesToALoadedChartThrows()
     {
         var chart = ChartPartFixture.LoadChart(
             $"<c:barChart><c:barDir val=\"col\"/><c:grouping val=\"clustered\"/>{ChartPartFixture.CategoryAndValueSeries("Sales")}<c:axId val=\"1\"/><c:axId val=\"2\"/></c:barChart>{ChartPartFixture.CategoryAndValueAxes}",
@@ -88,11 +87,9 @@ public class ChartPrimaryAxisReaderTests
         {
             // A new series has nowhere to go: the chart part is patched, never regenerated. Silently
             // dropping it on save would be worse than saying so.
-            Assert.Throws<NotSupportedException>(
-                () => chart.Series.Add("New", "Data!$B$1:$B$2", "Data!$A$1:$A$2"));
-            Assert.Throws<NotSupportedException>(
-                () => chart.SecondarySeries.Add("New", "Data!$B$1:$B$2", "Data!$A$1:$A$2"));
-            Assert.That(chart.Series, Has.Exactly(1).Items);
+            await Assert.That(() => chart.Series.Add("New", "Data!$B$1:$B$2", "Data!$A$1:$A$2")).Throws<NotSupportedException>();
+            await Assert.That(() => chart.SecondarySeries.Add("New", "Data!$B$1:$B$2", "Data!$A$1:$A$2")).Throws<NotSupportedException>();
+            await Assert.That(chart.Series.Count()).IsEqualTo(1);
         }
     }
 }

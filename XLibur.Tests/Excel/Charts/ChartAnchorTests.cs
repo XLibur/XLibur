@@ -1,16 +1,16 @@
-using DocumentFormat.OpenXml.Packaging;
-using NUnit.Framework;
+﻿using DocumentFormat.OpenXml.Packaging;
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.Charts;
 
 /// <summary>
 /// The three ways a chart can be anchored to the sheet: two-cell, one-cell and absolute.
 /// </summary>
-[TestFixture]
 public class ChartAnchorTests
 {
     private static IXLWorksheet AddDataSheet(XLWorkbook wb)
@@ -40,7 +40,7 @@ public class ChartAnchorTests
     }
 
     [Test]
-    public void TwoCellAnchorIsStillTheDefault()
+    public async Task TwoCellAnchorIsStillTheDefault()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
@@ -49,16 +49,16 @@ public class ChartAnchorTests
         chart.Position.SetColumn(3).SetRow(2);
         chart.SecondPosition.SetColumn(10).SetRow(16);
 
-        Assert.That(chart.Anchor, Is.EqualTo(XLDrawingAnchor.MoveAndSizeWithCells));
+        await Assert.That(chart.Anchor).IsEqualTo(XLDrawingAnchor.MoveAndSizeWithCells);
 
         using var ms = SaveValidated(wb);
         var drawing = DrawingOf(ms);
-        Assert.That(drawing.Elements<Xdr.TwoCellAnchor>().Count(), Is.EqualTo(1));
-        Assert.That(drawing.Elements<Xdr.OneCellAnchor>(), Is.Empty);
+        await Assert.That(drawing.Elements<Xdr.TwoCellAnchor>().Count()).IsEqualTo(1);
+        await Assert.That(drawing.Elements<Xdr.OneCellAnchor>()).IsEmpty();
     }
 
     [Test]
-    public void OneCellAnchoredChartRoundTrips()
+    public async Task OneCellAnchoredChartRoundTrips()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -73,7 +73,7 @@ public class ChartAnchorTests
 
             using var saved = SaveValidated(wb);
             var drawing = DrawingOf(saved);
-            Assert.That(drawing.Elements<Xdr.OneCellAnchor>().Count(), Is.EqualTo(1));
+            await Assert.That(drawing.Elements<Xdr.OneCellAnchor>().Count()).IsEqualTo(1);
 
             saved.Position = 0;
             saved.CopyTo(ms);
@@ -83,17 +83,17 @@ public class ChartAnchorTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.Single();
-            Assert.That(chart.Anchor, Is.EqualTo(XLDrawingAnchor.MoveWithCells));
-            Assert.That(chart.Position.Column, Is.EqualTo(4));
-            Assert.That(chart.Position.Row, Is.EqualTo(3));
-            Assert.That(chart.Width, Is.EqualTo(480));
-            Assert.That(chart.Height, Is.EqualTo(288));
-            Assert.That(chart.Series.Single().Name, Is.EqualTo("Sales"));
+            await Assert.That(chart.Anchor).IsEqualTo(XLDrawingAnchor.MoveWithCells);
+            await Assert.That(chart.Position.Column).IsEqualTo(4);
+            await Assert.That(chart.Position.Row).IsEqualTo(3);
+            await Assert.That(chart.Width).IsEqualTo(480);
+            await Assert.That(chart.Height).IsEqualTo(288);
+            await Assert.That(chart.Series.Single().Name).IsEqualTo("Sales");
         }
     }
 
     [Test]
-    public void AbsolutelyAnchoredChartRoundTrips()
+    public async Task AbsolutelyAnchoredChartRoundTrips()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -110,7 +110,7 @@ public class ChartAnchorTests
 
             using var saved = SaveValidated(wb);
             var drawing = DrawingOf(saved);
-            Assert.That(drawing.Elements<Xdr.AbsoluteAnchor>().Count(), Is.EqualTo(1));
+            await Assert.That(drawing.Elements<Xdr.AbsoluteAnchor>().Count()).IsEqualTo(1);
 
             saved.Position = 0;
             saved.CopyTo(ms);
@@ -120,17 +120,17 @@ public class ChartAnchorTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.Single();
-            Assert.That(chart.Anchor, Is.EqualTo(XLDrawingAnchor.Absolute));
-            Assert.That(chart.Title, Is.EqualTo("Pinned"));
-            Assert.That(chart.Left, Is.EqualTo(200));
-            Assert.That(chart.Top, Is.EqualTo(120));
-            Assert.That(chart.Width, Is.EqualTo(400));
-            Assert.That(chart.Height, Is.EqualTo(250));
+            await Assert.That(chart.Anchor).IsEqualTo(XLDrawingAnchor.Absolute);
+            await Assert.That(chart.Title).IsEqualTo("Pinned");
+            await Assert.That(chart.Left).IsEqualTo(200);
+            await Assert.That(chart.Top).IsEqualTo(120);
+            await Assert.That(chart.Width).IsEqualTo(400);
+            await Assert.That(chart.Height).IsEqualTo(250);
         }
     }
 
     [Test]
-    public void ChartsUnderEveryAnchorKindAreFoundOnOneSheet()
+    public async Task ChartsUnderEveryAnchorKindAreFoundOnOneSheet()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -168,21 +168,19 @@ public class ChartAnchorTests
         using (var wb = new XLWorkbook(ms))
         {
             var charts = wb.Worksheet("Data").Charts.ToList();
-            Assert.That(charts, Has.Count.EqualTo(3),
-                "A one-cell or absolute anchored chart used to be skipped on read.");
-            Assert.That(charts.Select(c => c.Title),
-                Is.EquivalentTo(new[] { "Two cell", "One cell", "Absolute" }));
-            Assert.That(charts.Select(c => c.Anchor), Is.EquivalentTo(new[]
+            await Assert.That(charts.Count).IsEqualTo(3).Because("A one-cell or absolute anchored chart used to be skipped on read.");
+            await Assert.That(charts.Select(c => c.Title)).IsEquivalentTo(new[] { "Two cell", "One cell", "Absolute" }, CollectionOrdering.Matching);
+            await Assert.That(charts.Select(c => c.Anchor)).IsEquivalentTo(new[]
             {
                 XLDrawingAnchor.MoveAndSizeWithCells,
                 XLDrawingAnchor.MoveWithCells,
                 XLDrawingAnchor.Absolute
-            }));
+            }, CollectionOrdering.Matching);
         }
     }
 
     [Test]
-    public void FormattingAnAnchorlessChartStillReachesItsChartPart()
+    public async Task FormattingAnAnchorlessChartStillReachesItsChartPart()
     {
         // The patcher finds the chart part through its relationship id, not through the anchor, so
         // editing a one-cell anchored chart has to work the same way.
@@ -213,8 +211,8 @@ public class ChartAnchorTests
         using (var wb = new XLWorkbook(edited))
         {
             var chart = wb.Worksheet("Data").Charts.Single();
-            Assert.That(chart.Anchor, Is.EqualTo(XLDrawingAnchor.MoveWithCells));
-            Assert.That(chart.Series.Single().FillColor, Is.EqualTo(XLColor.FromHtml("#C00000")));
+            await Assert.That(chart.Anchor).IsEqualTo(XLDrawingAnchor.MoveWithCells);
+            await Assert.That(chart.Series.Single().FillColor).IsEqualTo(XLColor.FromHtml("#C00000"));
         }
     }
 }

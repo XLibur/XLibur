@@ -1,17 +1,16 @@
-using DocumentFormat.OpenXml.Packaging;
-using NUnit.Framework;
+﻿using DocumentFormat.OpenXml.Packaging;
 using System;
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Charts;
 
 /// <summary>
 /// Data labels, per series and chart-wide.
 /// </summary>
-[TestFixture]
 public class ChartDataLabelTests
 {
     private static IXLWorksheet AddDataSheet(XLWorkbook wb)
@@ -53,7 +52,7 @@ public class ChartDataLabelTests
     // ── Writing and reading back ────────────────────────────────────────
 
     [Test]
-    public void SeriesDataLabelsRoundTrip()
+    public async Task SeriesDataLabelsRoundTrip()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -74,17 +73,17 @@ public class ChartDataLabelTests
         using (var wb = new XLWorkbook(ms))
         {
             var labels = wb.Worksheet("Data").Charts.First().Series.First().DataLabels;
-            Assert.That(labels.ShowValue, Is.True);
-            Assert.That(labels.ShowCategoryName, Is.True);
-            Assert.That(labels.ShowSeriesName, Is.False);
-            Assert.That(labels.ShowPercentage, Is.False);
-            Assert.That(labels.NumberFormat, Is.EqualTo("#,##0"));
-            Assert.That(labels.Position, Is.EqualTo(XLDataLabelPosition.OutsideEnd));
+            await Assert.That(labels.ShowValue).IsTrue();
+            await Assert.That(labels.ShowCategoryName).IsTrue();
+            await Assert.That(labels.ShowSeriesName).IsFalse();
+            await Assert.That(labels.ShowPercentage).IsFalse();
+            await Assert.That(labels.NumberFormat).IsEqualTo("#,##0");
+            await Assert.That(labels.Position).IsEqualTo(XLDataLabelPosition.OutsideEnd);
         }
     }
 
     [Test]
-    public void ChartWideDataLabelsRoundTrip()
+    public async Task ChartWideDataLabelsRoundTrip()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -104,16 +103,16 @@ public class ChartDataLabelTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.DataLabels.ShowValue, Is.True);
-            Assert.That(chart.DataLabels.Position, Is.EqualTo(XLDataLabelPosition.InsideEnd));
+            await Assert.That(chart.DataLabels.ShowValue).IsTrue();
+            await Assert.That(chart.DataLabels.Position).IsEqualTo(XLDataLabelPosition.InsideEnd);
 
             // Nothing was set per series, so the series labels stay at their defaults.
-            Assert.That(chart.Series.First().DataLabels.ShowValue, Is.False);
+            await Assert.That(chart.Series.First().DataLabels.ShowValue).IsFalse();
         }
     }
 
     [Test]
-    public void ChartWideLabelsAreWrittenOnTheChartGroupAndSeriesLabelsOnTheSeries()
+    public async Task ChartWideLabelsAreWrittenOnTheChartGroupAndSeriesLabelsOnTheSeries()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
@@ -127,21 +126,21 @@ public class ChartDataLabelTests
         var barChart = chartSpace.Descendants<C.BarChart>().Single();
 
         var groupLabels = barChart.Elements<C.DataLabels>().Single();
-        Assert.That(groupLabels.Elements<C.ShowValue>().Single().Val!.Value, Is.True);
+        await Assert.That(groupLabels.Elements<C.ShowValue>().Single().Val!.Value).IsTrue();
 
         var seriesElements = barChart.Elements<C.BarChartSeries>().ToList();
-        Assert.That(seriesElements[0].Elements<C.DataLabels>(), Is.Empty);
-        Assert.That(seriesElements[1].Elements<C.DataLabels>().Single()
-            .Elements<C.ShowSeriesName>().Single().Val!.Value, Is.True);
+        await Assert.That(seriesElements[0].Elements<C.DataLabels>()).IsEmpty();
+        await Assert.That(seriesElements[1].Elements<C.DataLabels>().Single()
+            .Elements<C.ShowSeriesName>().Single().Val!.Value).IsTrue();
 
         // c:dLbls sits after the last c:ser and before the axis ids.
         var children = barChart.ChildElements.Select(e => e.LocalName).ToList();
-        Assert.That(children.LastIndexOf("ser"), Is.LessThan(children.IndexOf("dLbls")));
-        Assert.That(children.IndexOf("dLbls"), Is.LessThan(children.IndexOf("axId")));
+        await Assert.That(children.LastIndexOf("ser")).IsLessThan(children.IndexOf("dLbls"));
+        await Assert.That(children.IndexOf("dLbls")).IsLessThan(children.IndexOf("axId"));
     }
 
     [Test]
-    public void NoDataLabelsAreWrittenWhenNothingIsAsked()
+    public async Task NoDataLabelsAreWrittenWhenNothingIsAsked()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
@@ -149,11 +148,11 @@ public class ChartDataLabelTests
         chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
 
         using var ms = SaveValidated(wb);
-        Assert.That(ChartSpaceOf(ms).Descendants<C.DataLabels>(), Is.Empty);
+        await Assert.That(ChartSpaceOf(ms).Descendants<C.DataLabels>()).IsEmpty();
     }
 
     [Test]
-    public void EveryShowFlagIsWrittenSoTheResultDoesNotDependOnTheChartStyle()
+    public async Task EveryShowFlagIsWrittenSoTheResultDoesNotDependOnTheChartStyle()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
@@ -163,16 +162,16 @@ public class ChartDataLabelTests
         using var ms = SaveValidated(wb);
         var labels = ChartSpaceOf(ms).Descendants<C.DataLabels>().Single();
 
-        Assert.That(labels.Elements<C.ShowLegendKey>().Single().Val!.Value, Is.False);
-        Assert.That(labels.Elements<C.ShowValue>().Single().Val!.Value, Is.True);
-        Assert.That(labels.Elements<C.ShowCategoryName>().Single().Val!.Value, Is.False);
-        Assert.That(labels.Elements<C.ShowSeriesName>().Single().Val!.Value, Is.False);
-        Assert.That(labels.Elements<C.ShowPercent>().Single().Val!.Value, Is.False);
-        Assert.That(labels.Elements<C.ShowBubbleSize>().Single().Val!.Value, Is.False);
+        await Assert.That(labels.Elements<C.ShowLegendKey>().Single().Val!.Value).IsFalse();
+        await Assert.That(labels.Elements<C.ShowValue>().Single().Val!.Value).IsTrue();
+        await Assert.That(labels.Elements<C.ShowCategoryName>().Single().Val!.Value).IsFalse();
+        await Assert.That(labels.Elements<C.ShowSeriesName>().Single().Val!.Value).IsFalse();
+        await Assert.That(labels.Elements<C.ShowPercent>().Single().Val!.Value).IsFalse();
+        await Assert.That(labels.Elements<C.ShowBubbleSize>().Single().Val!.Value).IsFalse();
     }
 
     [Test]
-    public void PercentageLabelsOnAPieChartRoundTrip()
+    public async Task PercentageLabelsOnAPieChartRoundTrip()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -191,13 +190,13 @@ public class ChartDataLabelTests
         using (var wb = new XLWorkbook(ms))
         {
             var labels = wb.Worksheet("Data").Charts.First().Series.First().DataLabels;
-            Assert.That(labels.ShowPercentage, Is.True);
-            Assert.That(labels.Position, Is.EqualTo(XLDataLabelPosition.BestFit));
+            await Assert.That(labels.ShowPercentage).IsTrue();
+            await Assert.That(labels.Position).IsEqualTo(XLDataLabelPosition.BestFit);
         }
     }
 
     [Test]
-    public void LabelsSurviveEveryChartFamilyThatSupportsThem()
+    public async Task LabelsSurviveEveryChartFamilyThatSupportsThem()
     {
         XLChartType[] types =
         [
@@ -223,15 +222,15 @@ public class ChartDataLabelTests
 
             chart.DataLabels.ShowCategoryName = true;
 
-            Assert.DoesNotThrow(() =>
+            await Assert.That(() =>
             {
                 using var ms = SaveValidated(wb);
-            }, $"{type} produced invalid chart XML.");
+            }).ThrowsNothing().Because($"{type} produced invalid chart XML.");
         }
     }
 
     [Test]
-    public void SurfaceChartsDoNotGetDataLabels()
+    public async Task SurfaceChartsDoNotGetDataLabels()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
@@ -240,52 +239,51 @@ public class ChartDataLabelTests
         chart.DataLabels.ShowValue = true;
 
         using var ms = SaveValidated(wb);
-        Assert.That(ChartSpaceOf(ms).Descendants<C.DataLabels>(), Is.Empty,
-            "Neither CT_SurfaceChart nor CT_SurfaceSer has a dLbls child.");
+        await Assert.That(ChartSpaceOf(ms).Descendants<C.DataLabels>()).IsEmpty().Because("Neither CT_SurfaceChart nor CT_SurfaceSer has a dLbls child.");
     }
 
     // ── Position validation ─────────────────────────────────────────────
 
     [Test]
-    public void OutsideEndIsRejectedOnAStackedColumnChart()
+    public async Task OutsideEndIsRejectedOnAStackedColumnChart()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
         var chart = AddChart(ws, XLChartType.ColumnStacked);
         var labels = chart.Series.Add("S", "Data!$B$1:$B$2").DataLabels;
 
-        var ex = Assert.Throws<ArgumentException>(() => labels.Position = XLDataLabelPosition.OutsideEnd);
-        Assert.That(ex!.Message, Does.Contain("ColumnStacked"));
-        Assert.That(ex.Message, Does.Contain("InsideBase"), "The message lists what Excel does offer.");
+        var ex = await Assert.That(() => labels.Position = XLDataLabelPosition.OutsideEnd).Throws<ArgumentException>();
+        await Assert.That(ex!.Message).Contains("ColumnStacked");
+        await Assert.That(ex.Message).Contains("InsideBase").Because("The message lists what Excel does offer.");
 
-        Assert.DoesNotThrow(() => labels.Position = XLDataLabelPosition.InsideEnd);
+        await Assert.That(() => labels.Position = XLDataLabelPosition.InsideEnd).ThrowsNothing();
     }
 
     [Test]
-    public void MarkerPositionsAreRejectedOnAColumnChart()
+    public async Task MarkerPositionsAreRejectedOnAColumnChart()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
         var labels = AddChart(ws, XLChartType.ColumnClustered)
             .Series.Add("S", "Data!$B$1:$B$2").DataLabels;
 
-        Assert.Throws<ArgumentException>(() => labels.Position = XLDataLabelPosition.Above);
-        Assert.Throws<ArgumentException>(() => labels.Position = XLDataLabelPosition.BestFit);
+        await Assert.That(() => labels.Position = XLDataLabelPosition.Above).Throws<ArgumentException>();
+        await Assert.That(() => labels.Position = XLDataLabelPosition.BestFit).Throws<ArgumentException>();
     }
 
     [Test]
-    public void BarPositionsAreRejectedOnALineChart()
+    public async Task BarPositionsAreRejectedOnALineChart()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
         var labels = AddChart(ws, XLChartType.Line).Series.Add("S", "Data!$B$1:$B$2").DataLabels;
 
-        Assert.Throws<ArgumentException>(() => labels.Position = XLDataLabelPosition.OutsideEnd);
-        Assert.DoesNotThrow(() => labels.Position = XLDataLabelPosition.Above);
+        await Assert.That(() => labels.Position = XLDataLabelPosition.OutsideEnd).Throws<ArgumentException>();
+        await Assert.That(() => labels.Position = XLDataLabelPosition.Above).ThrowsNothing();
     }
 
     [Test]
-    public void ChartTypesWithoutPositionsAcceptOnlyAuto()
+    public async Task ChartTypesWithoutPositionsAcceptOnlyAuto()
     {
         XLChartType[] types =
         [
@@ -299,14 +297,13 @@ public class ChartDataLabelTests
             var ws = AddDataSheet(wb);
             var labels = AddChart(ws, type).Series.Add("S", "Data!$B$1:$B$2").DataLabels;
 
-            var ex = Assert.Throws<ArgumentException>(
-                () => labels.Position = XLDataLabelPosition.Center, $"{type} should refuse a position.");
-            Assert.That(ex!.Message, Does.Contain("only Auto"));
+            var ex = await Assert.That(() => labels.Position = XLDataLabelPosition.Center).Throws<ArgumentException>().Because($"{type} should refuse a position.");
+            await Assert.That(ex!.Message).Contains("only Auto");
         }
     }
 
     [Test]
-    public void AComboChartsSecondarySeriesIsValidatedAgainstTheSecondaryChartType()
+    public async Task AComboChartsSecondarySeriesIsValidatedAgainstTheSecondaryChartType()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
@@ -316,18 +313,18 @@ public class ChartDataLabelTests
         var line = chart.SecondarySeries.Add("Price", "Data!$C$1:$C$2", "Data!$A$1:$A$2");
 
         // Above is a line position, which the primary column type would refuse.
-        Assert.DoesNotThrow(() => line.DataLabels.Position = XLDataLabelPosition.Above);
-        Assert.Throws<ArgumentException>(() => line.DataLabels.Position = XLDataLabelPosition.OutsideEnd);
+        await Assert.That(() => line.DataLabels.Position = XLDataLabelPosition.Above).ThrowsNothing();
+        await Assert.That(() => line.DataLabels.Position = XLDataLabelPosition.OutsideEnd).Throws<ArgumentException>();
 
         line.DataLabels.ShowValue = true;
-        Assert.DoesNotThrow(() =>
+        await Assert.That(() =>
         {
             using var ms = SaveValidated(wb);
-        });
+        }).ThrowsNothing();
     }
 
     [Test]
-    public void APositionThatBecomesInvalidWhenTheChartTypeChangesIsDropped()
+    public async Task APositionThatBecomesInvalidWhenTheChartTypeChangesIsDropped()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
@@ -342,7 +339,7 @@ public class ChartDataLabelTests
 
         using var ms = SaveValidated(wb);
         var labels = ChartSpaceOf(ms).Descendants<C.DataLabels>().Single();
-        Assert.That(labels.Elements<C.DataLabelPosition>(), Is.Empty);
-        Assert.That(labels.Elements<C.ShowValue>().Single().Val!.Value, Is.True);
+        await Assert.That(labels.Elements<C.DataLabelPosition>()).IsEmpty();
+        await Assert.That(labels.Elements<C.ShowValue>().Single().Val!.Value).IsTrue();
     }
 }

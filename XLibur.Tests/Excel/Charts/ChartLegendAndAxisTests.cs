@@ -1,18 +1,18 @@
-using DocumentFormat.OpenXml.Packaging;
-using NUnit.Framework;
+﻿using DocumentFormat.OpenXml.Packaging;
 using System;
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
 using A = DocumentFormat.OpenXml.Drawing;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.Charts;
 
 /// <summary>
 /// The legend, and the axis title, scale, number format, gridlines and orientation.
 /// </summary>
-[TestFixture]
 public class ChartLegendAndAxisTests
 {
     private static IXLWorksheet AddDataSheet(XLWorkbook wb)
@@ -54,7 +54,7 @@ public class ChartLegendAndAxisTests
     // ── Legend ──────────────────────────────────────────────────────────
 
     [Test]
-    public void NoLegendIsWrittenUntilItIsAskedFor()
+    public async Task NoLegendIsWrittenUntilItIsAskedFor()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
@@ -62,11 +62,11 @@ public class ChartLegendAndAxisTests
         chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
 
         using var ms = SaveValidated(wb);
-        Assert.That(ChartSpaceOf(ms).Descendants<C.Legend>(), Is.Empty);
+        await Assert.That(ChartSpaceOf(ms).Descendants<C.Legend>()).IsEmpty();
     }
 
     [Test]
-    public void LegendRoundTrips()
+    public async Task LegendRoundTrips()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -86,14 +86,14 @@ public class ChartLegendAndAxisTests
         using (var wb = new XLWorkbook(ms))
         {
             var legend = wb.Worksheet("Data").Charts.First().Legend;
-            Assert.That(legend.Visible, Is.True);
-            Assert.That(legend.Position, Is.EqualTo(XLLegendPosition.Bottom));
-            Assert.That(legend.Overlay, Is.True);
+            await Assert.That(legend.Visible).IsTrue();
+            await Assert.That(legend.Position).IsEqualTo(XLLegendPosition.Bottom);
+            await Assert.That(legend.Overlay).IsTrue();
         }
     }
 
     [Test]
-    public void LegendSitsBetweenThePlotAreaAndPlotVisibleOnly()
+    public async Task LegendSitsBetweenThePlotAreaAndPlotVisibleOnly()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
@@ -105,12 +105,12 @@ public class ChartLegendAndAxisTests
         var chartElement = ChartSpaceOf(ms).Elements<C.Chart>().Single();
         var children = chartElement.ChildElements.Select(e => e.LocalName).ToList();
 
-        Assert.That(children.IndexOf("plotArea"), Is.LessThan(children.IndexOf("legend")));
-        Assert.That(children.IndexOf("legend"), Is.LessThan(children.IndexOf("plotVisOnly")));
+        await Assert.That(children.IndexOf("plotArea")).IsLessThan(children.IndexOf("legend"));
+        await Assert.That(children.IndexOf("legend")).IsLessThan(children.IndexOf("plotVisOnly"));
     }
 
     [Test]
-    public void HidingTheLegendOfALoadedChartRemovesIt()
+    public async Task HidingTheLegendOfALoadedChartRemovesIt()
     {
         using var withLegend = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -128,16 +128,16 @@ public class ChartLegendAndAxisTests
         using (var wb = new XLWorkbook(withLegend))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.Legend.Visible, Is.True);
+            await Assert.That(chart.Legend.Visible).IsTrue();
             chart.Legend.Visible = false;
             wb.SaveAs(withoutLegend, validate: true);
         }
 
-        Assert.That(ChartSpaceOf(withoutLegend).Descendants<C.Legend>(), Is.Empty);
+        await Assert.That(ChartSpaceOf(withoutLegend).Descendants<C.Legend>()).IsEmpty();
     }
 
     [Test]
-    public void PositioningALegendThatIsNotThereDoesNotCreateOne()
+    public async Task PositioningALegendThatIsNotThereDoesNotCreateOne()
     {
         using var original = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -156,17 +156,17 @@ public class ChartLegendAndAxisTests
             // Position is documented as ignored while the legend is hidden, and a new chart gets no
             // legend from it either. A loaded one must behave the same way.
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.Legend.Visible, Is.False);
+            await Assert.That(chart.Legend.Visible).IsFalse();
             chart.Legend.Position = XLLegendPosition.Bottom;
             chart.Legend.Overlay = true;
             wb.SaveAs(edited, validate: true);
         }
 
-        Assert.That(ChartSpaceOf(edited).Descendants<C.Legend>(), Is.Empty);
+        await Assert.That(ChartSpaceOf(edited).Descendants<C.Legend>()).IsEmpty();
     }
 
     [Test]
-    public void ShowingALegendOnALoadedChartStillHonoursThePositionSetWithIt()
+    public async Task ShowingALegendOnALoadedChartStillHonoursThePositionSetWithIt()
     {
         using var original = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -192,15 +192,15 @@ public class ChartLegendAndAxisTests
         using (var wb = new XLWorkbook(edited))
         {
             var legend = wb.Worksheet("Data").Charts.First().Legend;
-            Assert.That(legend.Visible, Is.True);
-            Assert.That(legend.Position, Is.EqualTo(XLLegendPosition.Left));
+            await Assert.That(legend.Visible).IsTrue();
+            await Assert.That(legend.Position).IsEqualTo(XLLegendPosition.Left);
         }
     }
 
     // ── Axes ────────────────────────────────────────────────────────────
 
     [Test]
-    public void AxisTitleAndNumberFormatRoundTrip()
+    public async Task AxisTitleAndNumberFormatRoundTrip()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -220,15 +220,15 @@ public class ChartLegendAndAxisTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.CategoryAxis.Title, Is.EqualTo("Quarter"));
-            Assert.That(chart.ValueAxis.Title, Is.EqualTo("Revenue"));
-            Assert.That(chart.ValueAxis.NumberFormat, Is.EqualTo("$ #,##0"));
-            Assert.That(chart.CategoryAxis.NumberFormat, Is.Null);
+            await Assert.That(chart.CategoryAxis.Title).IsEqualTo("Quarter");
+            await Assert.That(chart.ValueAxis.Title).IsEqualTo("Revenue");
+            await Assert.That(chart.ValueAxis.NumberFormat).IsEqualTo("$ #,##0");
+            await Assert.That(chart.CategoryAxis.NumberFormat).IsNull();
         }
     }
 
     [Test]
-    public void AxisScaleRoundTrips()
+    public async Task AxisScaleRoundTrips()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -250,16 +250,16 @@ public class ChartLegendAndAxisTests
         using (var wb = new XLWorkbook(ms))
         {
             var axis = wb.Worksheet("Data").Charts.First().ValueAxis;
-            Assert.That(axis.Min, Is.EqualTo(0));
-            Assert.That(axis.Max, Is.EqualTo(250));
-            Assert.That(axis.MajorUnit, Is.EqualTo(50));
-            Assert.That(axis.MinorUnit, Is.EqualTo(10));
-            Assert.That(axis.MajorGridlines, Is.True);
+            await Assert.That(axis.Min).IsEqualTo(0);
+            await Assert.That(axis.Max).IsEqualTo(250);
+            await Assert.That(axis.MajorUnit).IsEqualTo(50);
+            await Assert.That(axis.MinorUnit).IsEqualTo(10);
+            await Assert.That(axis.MajorGridlines).IsTrue();
         }
     }
 
     [Test]
-    public void ScalingChildrenAreWrittenInSchemaOrder()
+    public async Task ScalingChildrenAreWrittenInSchemaOrder()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
@@ -275,15 +275,13 @@ public class ChartLegendAndAxisTests
         var valueAxis = ChartSpaceOf(ms).Descendants<C.ValueAxis>().Single();
         var scaling = valueAxis.Elements<C.Scaling>().Single();
 
-        Assert.That(scaling.ChildElements.Select(e => e.LocalName),
-            Is.EqualTo(new[] { "logBase", "orientation", "max", "min" }));
-        Assert.That(scaling.Elements<C.LogBase>().Single().Val!.Value, Is.EqualTo(2));
-        Assert.That(scaling.Elements<C.Orientation>().Single().Val!.Value,
-            Is.EqualTo(C.OrientationValues.MaxMin));
+        await Assert.That(scaling.ChildElements.Select(e => e.LocalName)).IsEquivalentTo(new[] { "logBase", "orientation", "max", "min" }, CollectionOrdering.Matching);
+        await Assert.That(scaling.Elements<C.LogBase>().Single().Val!.Value).IsEqualTo(2);
+        await Assert.That(scaling.Elements<C.Orientation>().Single().Val!.Value).IsEqualTo(C.OrientationValues.MaxMin);
     }
 
     [Test]
-    public void LogScaleRoundTrips()
+    public async Task LogScaleRoundTrips()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -302,13 +300,13 @@ public class ChartLegendAndAxisTests
         using (var wb = new XLWorkbook(ms))
         {
             var axis = wb.Worksheet("Data").Charts.First().ValueAxis;
-            Assert.That(axis.LogScale, Is.True);
-            Assert.That(axis.LogBase, Is.EqualTo(2));
+            await Assert.That(axis.LogScale).IsTrue();
+            await Assert.That(axis.LogBase).IsEqualTo(2);
         }
     }
 
     [Test]
-    public void ValueAxisOnlyPropertiesAreSkippedOnTheCategoryAxis()
+    public async Task ValueAxisOnlyPropertiesAreSkippedOnTheCategoryAxis()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
@@ -322,12 +320,12 @@ public class ChartLegendAndAxisTests
         using var ms = SaveValidated(wb);
         var categoryAxis = ChartSpaceOf(ms).Descendants<C.CategoryAxis>().Single();
 
-        Assert.That(categoryAxis.Elements<C.MajorUnit>(), Is.Empty);
-        Assert.That(categoryAxis.Elements<C.Scaling>().Single().Elements<C.LogBase>(), Is.Empty);
+        await Assert.That(categoryAxis.Elements<C.MajorUnit>()).IsEmpty();
+        await Assert.That(categoryAxis.Elements<C.Scaling>().Single().Elements<C.LogBase>()).IsEmpty();
     }
 
     [Test]
-    public void HiddenAxisRoundTrips()
+    public async Task HiddenAxisRoundTrips()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -345,13 +343,13 @@ public class ChartLegendAndAxisTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ValueAxis.Visible, Is.False);
-            Assert.That(chart.CategoryAxis.Visible, Is.True);
+            await Assert.That(chart.ValueAxis.Visible).IsFalse();
+            await Assert.That(chart.CategoryAxis.Visible).IsTrue();
         }
     }
 
     [Test]
-    public void SecondaryValueAxisCanBeTitledAndScaled()
+    public async Task SecondaryValueAxisCanBeTitledAndScaled()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -373,14 +371,14 @@ public class ChartLegendAndAxisTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ValueAxis.Title, Is.EqualTo("Units"));
-            Assert.That(chart.SecondaryValueAxis.Title, Is.EqualTo("Price"));
-            Assert.That(chart.SecondaryValueAxis.Max, Is.EqualTo(10));
+            await Assert.That(chart.ValueAxis.Title).IsEqualTo("Units");
+            await Assert.That(chart.SecondaryValueAxis.Title).IsEqualTo("Price");
+            await Assert.That(chart.SecondaryValueAxis.Max).IsEqualTo(10);
         }
     }
 
     [Test]
-    public void ScatterChartsTakeANumberFormatOnBothAxes()
+    public async Task ScatterChartsTakeANumberFormatOnBothAxes()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -400,15 +398,14 @@ public class ChartLegendAndAxisTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.CategoryAxis.Title, Is.EqualTo("X"));
-            Assert.That(chart.CategoryAxis.MajorUnit, Is.EqualTo(25),
-                "The horizontal axis of a scatter chart is a value axis, so it takes units.");
-            Assert.That(chart.ValueAxis.Title, Is.EqualTo("Y"));
+            await Assert.That(chart.CategoryAxis.Title).IsEqualTo("X");
+            await Assert.That(chart.CategoryAxis.MajorUnit).IsEqualTo(25).Because("The horizontal axis of a scatter chart is a value axis, so it takes units.");
+            await Assert.That(chart.ValueAxis.Title).IsEqualTo("Y");
         }
     }
 
     [Test]
-    public void AxisTitleTextIsWrittenAsRichText()
+    public async Task AxisTitleTextIsWrittenAsRichText()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
@@ -420,16 +417,16 @@ public class ChartLegendAndAxisTests
         var valueAxis = ChartSpaceOf(ms).Descendants<C.ValueAxis>().Single();
         var title = valueAxis.Elements<C.Title>().Single();
 
-        Assert.That(title.Descendants<A.Text>().Single().Text, Is.EqualTo("Revenue"));
+        await Assert.That(title.Descendants<A.Text>().Single().Text).IsEqualTo("Revenue");
 
         // c:title has to follow c:axPos and precede c:crossAx.
         var children = valueAxis.ChildElements.Select(e => e.LocalName).ToList();
-        Assert.That(children.IndexOf("axPos"), Is.LessThan(children.IndexOf("title")));
-        Assert.That(children.IndexOf("title"), Is.LessThan(children.IndexOf("crossAx")));
+        await Assert.That(children.IndexOf("axPos")).IsLessThan(children.IndexOf("title"));
+        await Assert.That(children.IndexOf("title")).IsLessThan(children.IndexOf("crossAx"));
     }
 
     [Test]
-    public void AxesSurviveEveryChartFamilyThatHasThem()
+    public async Task AxesSurviveEveryChartFamilyThatHasThem()
     {
         XLChartType[] types =
         [
@@ -458,36 +455,36 @@ public class ChartLegendAndAxisTests
             chart.ValueAxis.MajorUnit = 50;
             chart.ValueAxis.Orientation = XLAxisOrientation.MaxMin;
 
-            Assert.DoesNotThrow(() =>
+            await Assert.That(() =>
             {
                 using var ms = SaveValidated(wb);
-            }, $"{type} produced invalid chart XML.");
+            }).ThrowsNothing().Because($"{type} produced invalid chart XML.");
         }
     }
 
     // ── Validation ──────────────────────────────────────────────────────
 
     [Test]
-    public void AxisUnitsMustBePositive()
+    public async Task AxisUnitsMustBePositive()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
         var axis = AddChart(ws, XLChartType.ColumnClustered).ValueAxis;
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => axis.MajorUnit = 0);
-        Assert.Throws<ArgumentOutOfRangeException>(() => axis.MinorUnit = -1);
-        Assert.DoesNotThrow(() => axis.MajorUnit = null);
+        await Assert.That(() => axis.MajorUnit = 0).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(() => axis.MinorUnit = -1).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(() => axis.MajorUnit = null).ThrowsNothing();
     }
 
     [Test]
-    public void LogBaseOutsideExcelsRangeIsRejected()
+    public async Task LogBaseOutsideExcelsRangeIsRejected()
     {
         using var wb = new XLWorkbook();
         var ws = AddDataSheet(wb);
         var axis = AddChart(ws, XLChartType.ColumnClustered).ValueAxis;
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => axis.LogBase = 1);
-        Assert.Throws<ArgumentOutOfRangeException>(() => axis.LogBase = 1001);
-        Assert.DoesNotThrow(() => axis.LogBase = 1000);
+        await Assert.That(() => axis.LogBase = 1).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(() => axis.LogBase = 1001).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(() => axis.LogBase = 1000).ThrowsNothing();
     }
 }

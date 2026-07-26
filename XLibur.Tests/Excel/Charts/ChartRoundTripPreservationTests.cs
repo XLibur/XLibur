@@ -1,10 +1,10 @@
-using DocumentFormat.OpenXml.Packaging;
-using NUnit.Framework;
+﻿using DocumentFormat.OpenXml.Packaging;
 using System;
 using System.IO;
 using System.Linq;
 using System.Text;
 using XLibur.Excel;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Charts;
 
@@ -18,7 +18,6 @@ namespace XLibur.Tests.Excel.Charts;
 /// <c>c:strRef</c> cache, a trendline, and a secondary axis pair — because no Excel is available to
 /// author a resource file in CI.
 /// </remarks>
-[TestFixture]
 public class ChartRoundTripPreservationTests
 {
     private const string ExcelShapedChartXml = """
@@ -175,69 +174,67 @@ public class ChartRoundTripPreservationTests
     // ── Reading Excel-shaped XML ────────────────────────────────────────
 
     [Test]
-    public void ExcelShapedSeriesFormattingIsRead()
+    public async Task ExcelShapedSeriesFormattingIsRead()
     {
         using var ms = CreateWorkbookWithExcelShapedChart();
         using var wb = new XLWorkbook(ms);
         var chart = wb.Worksheet("Data").Charts.First();
 
-        Assert.That(chart.Title, Is.EqualTo("Units and price"));
-        Assert.That(chart.ChartType, Is.EqualTo(XLChartType.ColumnClustered));
-        Assert.That(chart.SecondaryChartType, Is.EqualTo(XLChartType.LineWithMarkers));
+        await Assert.That(chart.Title).IsEqualTo("Units and price");
+        await Assert.That(chart.ChartType).IsEqualTo(XLChartType.ColumnClustered);
+        await Assert.That(chart.SecondaryChartType).IsEqualTo(XLChartType.LineWithMarkers);
 
         var bar = chart.Series.Single();
-        Assert.That(bar.Name, Is.EqualTo("Units"), "The name lives in the c:strRef cache.");
-        Assert.That(bar.FillColor, Is.EqualTo(XLColor.FromHtml("#ED7D31")));
-        Assert.That(bar.LineColor, Is.EqualTo(XLColor.FromHtml("#203864")));
-        Assert.That(bar.LineWidthPt, Is.EqualTo(1.5));
-        Assert.That(bar.UseSecondaryAxis, Is.False);
+        await Assert.That(bar.Name).IsEqualTo("Units").Because("The name lives in the c:strRef cache.");
+        await Assert.That(bar.FillColor).IsEqualTo(XLColor.FromHtml("#ED7D31"));
+        await Assert.That(bar.LineColor).IsEqualTo(XLColor.FromHtml("#203864"));
+        await Assert.That(bar.LineWidthPt).IsEqualTo(1.5);
+        await Assert.That(bar.UseSecondaryAxis).IsFalse();
 
-        Assert.That(bar.DataLabels.ShowValue, Is.True);
-        Assert.That(bar.DataLabels.ShowCategoryName, Is.False);
-        Assert.That(bar.DataLabels.NumberFormat, Is.EqualTo("#,##0"));
-        Assert.That(bar.DataLabels.Position, Is.EqualTo(XLDataLabelPosition.OutsideEnd));
+        await Assert.That(bar.DataLabels.ShowValue).IsTrue();
+        await Assert.That(bar.DataLabels.ShowCategoryName).IsFalse();
+        await Assert.That(bar.DataLabels.NumberFormat).IsEqualTo("#,##0");
+        await Assert.That(bar.DataLabels.Position).IsEqualTo(XLDataLabelPosition.OutsideEnd);
 
         var line = chart.SecondarySeries.Single();
-        Assert.That(line.Name, Is.EqualTo("Price"), "The name is a literal c:v.");
-        Assert.That(line.LineColor!.ColorType, Is.EqualTo(XLColorType.Theme));
-        Assert.That(line.LineColor.ThemeColor, Is.EqualTo(XLThemeColor.Accent2));
-        Assert.That(line.LineWidthPt, Is.EqualTo(2.25));
-        Assert.That(line.MarkerStyle, Is.EqualTo(XLMarkerStyle.Circle));
-        Assert.That(line.MarkerSize, Is.EqualTo(7));
-        Assert.That(line.MarkerFillColor, Is.EqualTo(XLColor.FromHtml("#70AD47")));
-        Assert.That(line.Smooth, Is.True);
-        Assert.That(line.UseSecondaryAxis, Is.True,
-            "The line group is plotted against the value axis on the right.");
+        await Assert.That(line.Name).IsEqualTo("Price").Because("The name is a literal c:v.");
+        await Assert.That(line.LineColor!.ColorType).IsEqualTo(XLColorType.Theme);
+        await Assert.That(line.LineColor.ThemeColor).IsEqualTo(XLThemeColor.Accent2);
+        await Assert.That(line.LineWidthPt).IsEqualTo(2.25);
+        await Assert.That(line.MarkerStyle).IsEqualTo(XLMarkerStyle.Circle);
+        await Assert.That(line.MarkerSize).IsEqualTo(7);
+        await Assert.That(line.MarkerFillColor).IsEqualTo(XLColor.FromHtml("#70AD47"));
+        await Assert.That(line.Smooth).IsTrue();
+        await Assert.That(line.UseSecondaryAxis).IsTrue().Because("The line group is plotted against the value axis on the right.");
     }
 
     [Test]
-    public void ExcelShapedLegendAndAxesAreRead()
+    public async Task ExcelShapedLegendAndAxesAreRead()
     {
         using var ms = CreateWorkbookWithExcelShapedChart();
         using var wb = new XLWorkbook(ms);
         var chart = wb.Worksheet("Data").Charts.First();
 
-        Assert.That(chart.Legend.Visible, Is.True);
-        Assert.That(chart.Legend.Position, Is.EqualTo(XLLegendPosition.Bottom));
-        Assert.That(chart.Legend.Overlay, Is.False);
+        await Assert.That(chart.Legend.Visible).IsTrue();
+        await Assert.That(chart.Legend.Position).IsEqualTo(XLLegendPosition.Bottom);
+        await Assert.That(chart.Legend.Overlay).IsFalse();
 
-        Assert.That(chart.CategoryAxis.Visible, Is.True);
-        Assert.That(chart.CategoryAxis.Title, Is.Null);
+        await Assert.That(chart.CategoryAxis.Visible).IsTrue();
+        await Assert.That(chart.CategoryAxis.Title).IsNull();
 
-        Assert.That(chart.ValueAxis.Title, Is.EqualTo("Units"));
-        Assert.That(chart.ValueAxis.NumberFormat, Is.EqualTo("#,##0"));
-        Assert.That(chart.ValueAxis.MajorGridlines, Is.True);
-        Assert.That(chart.ValueAxis.Visible, Is.True);
-        Assert.That(chart.ValueAxis.LogScale, Is.False);
+        await Assert.That(chart.ValueAxis.Title).IsEqualTo("Units");
+        await Assert.That(chart.ValueAxis.NumberFormat).IsEqualTo("#,##0");
+        await Assert.That(chart.ValueAxis.MajorGridlines).IsTrue();
+        await Assert.That(chart.ValueAxis.Visible).IsTrue();
+        await Assert.That(chart.ValueAxis.LogScale).IsFalse();
 
-        Assert.That(chart.SecondaryValueAxis.Visible, Is.True,
-            "The fixture's line group hangs off a second value axis.");
+        await Assert.That(chart.SecondaryValueAxis.Visible).IsTrue().Because("The fixture's line group hangs off a second value axis.");
     }
 
     // ── Preservation ────────────────────────────────────────────────────
 
     [Test]
-    public void LoadAndSaveWithoutEditsLeavesTheChartPartUntouched()
+    public async Task LoadAndSaveWithoutEditsLeavesTheChartPartUntouched()
     {
         using var original = CreateWorkbookWithExcelShapedChart();
         var before = ReadChartXml(original);
@@ -249,11 +246,11 @@ public class ChartRoundTripPreservationTests
             wb.SaveAs(saved);
         }
 
-        Assert.That(ReadChartXml(saved), Is.EqualTo(before));
+        await Assert.That(ReadChartXml(saved)).IsEqualTo(before);
     }
 
     [Test]
-    public void EditingOneSeriesKeepsEverythingElseInTheChartPart()
+    public async Task EditingOneSeriesKeepsEverythingElseInTheChartPart()
     {
         using var original = CreateWorkbookWithExcelShapedChart();
         using var saved = new MemoryStream();
@@ -269,28 +266,28 @@ public class ChartRoundTripPreservationTests
         var xml = ReadChartXml(saved);
 
         // The edits landed.
-        Assert.That(xml, Does.Contain("00B050"));
-        Assert.That(xml, Does.Not.Contain("ED7D31"), "The old fill colour must be replaced, not doubled up.");
-        Assert.That(xml, Does.Contain("w=\"38100\""), "3 pt is 38100 EMU.");
+        await Assert.That(xml).Contains("00B050");
+        await Assert.That(xml).DoesNotContain("ED7D31").Because("The old fill colour must be replaced, not doubled up.");
+        await Assert.That(xml).Contains("w=\"38100\"").Because("3 pt is 38100 EMU.");
 
         // Everything XLibur does not model survived.
-        Assert.That(xml, Does.Contain("<c:trendline>"));
-        Assert.That(xml, Does.Contain("<c:errBars>"));
-        Assert.That(xml, Does.Contain("<c:errValType val=\"percentage\""));
-        Assert.That(xml, Does.Contain("cap=\"rnd\""));
-        Assert.That(xml, Does.Contain("<a:round"));
-        Assert.That(xml, Does.Contain("<a:effectLst"));
-        Assert.That(xml, Does.Contain("<c:gapWidth val=\"219\""));
-        Assert.That(xml, Does.Contain("<c:legend>"));
+        await Assert.That(xml).Contains("<c:trendline>");
+        await Assert.That(xml).Contains("<c:errBars>");
+        await Assert.That(xml).Contains("<c:errValType val=\"percentage\"");
+        await Assert.That(xml).Contains("cap=\"rnd\"");
+        await Assert.That(xml).Contains("<a:round");
+        await Assert.That(xml).Contains("<a:effectLst");
+        await Assert.That(xml).Contains("<c:gapWidth val=\"219\"");
+        await Assert.That(xml).Contains("<c:legend>");
 
         // The untouched line series kept its own formatting.
-        Assert.That(xml, Does.Contain("accent2"));
-        Assert.That(xml, Does.Contain("<c:size val=\"7\""));
-        Assert.That(xml, Does.Contain("70AD47"));
+        await Assert.That(xml).Contains("accent2");
+        await Assert.That(xml).Contains("<c:size val=\"7\"");
+        await Assert.That(xml).Contains("70AD47");
     }
 
     [Test]
-    public void EditedSeriesFormattingReloadsWithTheNewValues()
+    public async Task EditedSeriesFormattingReloadsWithTheNewValues()
     {
         using var original = CreateWorkbookWithExcelShapedChart();
         using var saved = new MemoryStream();
@@ -311,19 +308,18 @@ public class ChartRoundTripPreservationTests
         using (var wb = new XLWorkbook(saved))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.Series.Single().FillColor, Is.EqualTo(XLColor.FromHtml("#00B050")));
+            await Assert.That(chart.Series.Single().FillColor).IsEqualTo(XLColor.FromHtml("#00B050"));
 
             var line = chart.SecondarySeries.Single();
-            Assert.That(line.MarkerStyle, Is.EqualTo(XLMarkerStyle.Square));
-            Assert.That(line.MarkerSize, Is.EqualTo(10));
-            Assert.That(line.Smooth, Is.False);
-            Assert.That(line.MarkerFillColor, Is.EqualTo(XLColor.FromHtml("#70AD47")),
-                "A property that was not assigned keeps the value from the file.");
+            await Assert.That(line.MarkerStyle).IsEqualTo(XLMarkerStyle.Square);
+            await Assert.That(line.MarkerSize).IsEqualTo(10);
+            await Assert.That(line.Smooth).IsFalse();
+            await Assert.That(line.MarkerFillColor).IsEqualTo(XLColor.FromHtml("#70AD47")).Because("A property that was not assigned keeps the value from the file.");
         }
     }
 
     [Test]
-    public void ClearingAColorRemovesTheFillRatherThanWritingBlack()
+    public async Task ClearingAColorRemovesTheFillRatherThanWritingBlack()
     {
         using var original = CreateWorkbookWithExcelShapedChart();
         using var saved = new MemoryStream();
@@ -335,18 +331,18 @@ public class ChartRoundTripPreservationTests
         }
 
         var xml = ReadChartXml(saved);
-        Assert.That(xml, Does.Not.Contain("ED7D31"));
-        Assert.That(xml, Does.Not.Contain("<a:solidFill><a:srgbClr val=\"000000\"/></a:solidFill>"));
+        await Assert.That(xml).DoesNotContain("ED7D31");
+        await Assert.That(xml).DoesNotContain("<a:solidFill><a:srgbClr val=\"000000\"/></a:solidFill>");
 
         saved.Position = 0;
         using (var wb = new XLWorkbook(saved))
         {
-            Assert.That(wb.Worksheet("Data").Charts.First().Series.Single().FillColor, Is.Null);
+            await Assert.That(wb.Worksheet("Data").Charts.First().Series.Single().FillColor).IsNull();
         }
     }
 
     [Test]
-    public void EditingDataLabelsKeepsTheirTextAndPerPointOverrides()
+    public async Task EditingDataLabelsKeepsTheirTextAndPerPointOverrides()
     {
         using var original = CreateWorkbookWithExcelShapedChart();
         using var saved = new MemoryStream();
@@ -361,20 +357,20 @@ public class ChartRoundTripPreservationTests
 
         var xml = ReadChartXml(saved);
 
-        Assert.That(xml, Does.Contain("val=\"inEnd\""));
-        Assert.That(xml, Does.Not.Contain("val=\"outEnd\""));
-        Assert.That(xml, Does.Contain("<c:showCatName val=\"1\""));
-        Assert.That(xml, Does.Contain("<c:showVal val=\"1\""), "A flag nobody touched keeps its value.");
+        await Assert.That(xml).Contains("val=\"inEnd\"");
+        await Assert.That(xml).DoesNotContain("val=\"outEnd\"");
+        await Assert.That(xml).Contains("<c:showCatName val=\"1\"");
+        await Assert.That(xml).Contains("<c:showVal val=\"1\"").Because("A flag nobody touched keeps its value.");
 
         // Label formatting XLibur does not model, and the hidden first point, are still there.
-        Assert.That(xml, Does.Contain("<c:txPr>"));
-        Assert.That(xml, Does.Contain("sz=\"900\""));
-        Assert.That(xml, Does.Contain("<c:dLbl>"));
-        Assert.That(xml, Does.Contain("formatCode=\"#,##0\""), "The number format was not touched either.");
+        await Assert.That(xml).Contains("<c:txPr>");
+        await Assert.That(xml).Contains("sz=\"900\"");
+        await Assert.That(xml).Contains("<c:dLbl>");
+        await Assert.That(xml).Contains("formatCode=\"#,##0\"").Because("The number format was not touched either.");
     }
 
     [Test]
-    public void DataLabelsCanBeAddedToASeriesThatHadNone()
+    public async Task DataLabelsCanBeAddedToASeriesThatHadNone()
     {
         using var original = CreateWorkbookWithExcelShapedChart();
         using var saved = new MemoryStream();
@@ -392,13 +388,13 @@ public class ChartRoundTripPreservationTests
         using (var wb = new XLWorkbook(saved))
         {
             var labels = wb.Worksheet("Data").Charts.First().SecondarySeries.Single().DataLabels;
-            Assert.That(labels.ShowValue, Is.True);
-            Assert.That(labels.Position, Is.EqualTo(XLDataLabelPosition.Above));
+            await Assert.That(labels.ShowValue).IsTrue();
+            await Assert.That(labels.Position).IsEqualTo(XLDataLabelPosition.Above);
         }
     }
 
     [Test]
-    public void ChartWideLabelsReachEveryGroupOfALoadedComboChart()
+    public async Task ChartWideLabelsReachEveryGroupOfALoadedComboChart()
     {
         using var original = CreateWorkbookWithExcelShapedChart();
         using var saved = new MemoryStream();
@@ -412,20 +408,16 @@ public class ChartRoundTripPreservationTests
         }
 
         var xml = ReadChartXml(saved);
-        var barChart = xml[xml.IndexOf("<c:barChart>", StringComparison.Ordinal)..
-                           xml.IndexOf("</c:barChart>", StringComparison.Ordinal)];
-        var lineChart = xml[xml.IndexOf("<c:lineChart>", StringComparison.Ordinal)..
-                            xml.IndexOf("</c:lineChart>", StringComparison.Ordinal)];
+        var barChart = xml[xml.IndexOf("<c:barChart>", StringComparison.Ordinal)..xml.IndexOf("</c:barChart>", StringComparison.Ordinal)];
+        var lineChart = xml[xml.IndexOf("<c:lineChart>", StringComparison.Ordinal)..xml.IndexOf("</c:lineChart>", StringComparison.Ordinal)];
 
         // The group-level c:dLbls follows the last c:ser, so it is what comes after </c:ser>.
-        Assert.That(barChart[barChart.LastIndexOf("</c:ser>", StringComparison.Ordinal)..],
-            Does.Contain("<c:showVal val=\"1\""));
-        Assert.That(lineChart[lineChart.LastIndexOf("</c:ser>", StringComparison.Ordinal)..],
-            Does.Contain("<c:showVal val=\"1\""));
+        await Assert.That(barChart[barChart.LastIndexOf("</c:ser>", StringComparison.Ordinal)..]).Contains("<c:showVal val=\"1\"");
+        await Assert.That(lineChart[lineChart.LastIndexOf("</c:ser>", StringComparison.Ordinal)..]).Contains("<c:showVal val=\"1\"");
     }
 
     [Test]
-    public void TurningLabelsOnClearsAnExistingDeleteFlag()
+    public async Task TurningLabelsOnClearsAnExistingDeleteFlag()
     {
         // Excel writes <c:dLbls><c:delete val="1"/></c:dLbls> for a series whose labels are switched
         // off. A c:delete left in place overrides every show flag next to it.
@@ -445,14 +437,13 @@ public class ChartRoundTripPreservationTests
         }
 
         var xml = ReadChartXml(saved);
-        var labels = xml[xml.IndexOf("<c:dLbls>", StringComparison.Ordinal)..
-                         xml.IndexOf("</c:dLbls>", StringComparison.Ordinal)];
-        Assert.That(labels, Does.Contain("<c:showVal val=\"1\""));
-        Assert.That(labels, Does.Not.Contain("<c:delete"));
+        var labels = xml[xml.IndexOf("<c:dLbls>", StringComparison.Ordinal)..xml.IndexOf("</c:dLbls>", StringComparison.Ordinal)];
+        await Assert.That(labels).Contains("<c:showVal val=\"1\"");
+        await Assert.That(labels).DoesNotContain("<c:delete");
     }
 
     [Test]
-    public void EditingAnAxisKeepsItsTickMarksAndTextFormatting()
+    public async Task EditingAnAxisKeepsItsTickMarksAndTextFormatting()
     {
         using var original = CreateWorkbookWithExcelShapedChart();
         using var saved = new MemoryStream();
@@ -471,23 +462,23 @@ public class ChartRoundTripPreservationTests
         var xml = ReadChartXml(saved);
 
         // The edits landed.
-        Assert.That(xml, Does.Contain("Units sold"));
-        Assert.That(xml, Does.Not.Contain("<a:t>Units</a:t>"));
-        Assert.That(xml, Does.Contain("<c:max val=\"250\""));
-        Assert.That(xml, Does.Contain("<c:min val=\"0\""));
-        Assert.That(xml, Does.Not.Contain("<c:majorGridlines"));
-        Assert.That(xml, Does.Contain("<c:legendPos val=\"r\""));
+        await Assert.That(xml).Contains("Units sold");
+        await Assert.That(xml).DoesNotContain("<a:t>Units</a:t>");
+        await Assert.That(xml).Contains("<c:max val=\"250\"");
+        await Assert.That(xml).Contains("<c:min val=\"0\"");
+        await Assert.That(xml).DoesNotContain("<c:majorGridlines");
+        await Assert.That(xml).Contains("<c:legendPos val=\"r\"");
 
         // Everything on the axis that XLibur does not model is untouched.
-        Assert.That(xml, Does.Contain("<c:majorTickMark val=\"out\""));
-        Assert.That(xml, Does.Contain("<c:tickLblPos val=\"nextTo\""));
-        Assert.That(xml, Does.Contain("<c:crossBetween val=\"between\""));
-        Assert.That(xml, Does.Contain("spcFirstLastPara=\"1\""));
-        Assert.That(xml, Does.Contain("formatCode=\"#,##0\""), "The number format was not touched.");
+        await Assert.That(xml).Contains("<c:majorTickMark val=\"out\"");
+        await Assert.That(xml).Contains("<c:tickLblPos val=\"nextTo\"");
+        await Assert.That(xml).Contains("<c:crossBetween val=\"between\"");
+        await Assert.That(xml).Contains("spcFirstLastPara=\"1\"");
+        await Assert.That(xml).Contains("formatCode=\"#,##0\"").Because("The number format was not touched.");
     }
 
     [Test]
-    public void EditedAxisAndLegendReloadWithTheNewValues()
+    public async Task EditedAxisAndLegendReloadWithTheNewValues()
     {
         using var original = CreateWorkbookWithExcelShapedChart();
         using var saved = new MemoryStream();
@@ -507,17 +498,17 @@ public class ChartRoundTripPreservationTests
         using (var wb = new XLWorkbook(saved))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.CategoryAxis.Title, Is.EqualTo("Quarter"));
-            Assert.That(chart.ValueAxis.Orientation, Is.EqualTo(XLAxisOrientation.MaxMin));
-            Assert.That(chart.ValueAxis.MajorUnit, Is.EqualTo(25));
-            Assert.That(chart.ValueAxis.Title, Is.EqualTo("Units"), "An untouched property is kept.");
-            Assert.That(chart.SecondaryValueAxis.Title, Is.EqualTo("Price"));
-            Assert.That(chart.Legend.Visible, Is.False);
+            await Assert.That(chart.CategoryAxis.Title).IsEqualTo("Quarter");
+            await Assert.That(chart.ValueAxis.Orientation).IsEqualTo(XLAxisOrientation.MaxMin);
+            await Assert.That(chart.ValueAxis.MajorUnit).IsEqualTo(25);
+            await Assert.That(chart.ValueAxis.Title).IsEqualTo("Units").Because("An untouched property is kept.");
+            await Assert.That(chart.SecondaryValueAxis.Title).IsEqualTo("Price");
+            await Assert.That(chart.Legend.Visible).IsFalse();
         }
     }
 
     [Test]
-    public void MarkerAndSmoothAreNotPatchedIntoASeriesTypeThatCannotHoldThem()
+    public async Task MarkerAndSmoothAreNotPatchedIntoASeriesTypeThatCannotHoldThem()
     {
         using var original = CreateWorkbookWithExcelShapedChart();
         using var saved = new MemoryStream();
@@ -535,11 +526,10 @@ public class ChartRoundTripPreservationTests
         }
 
         var xml = ReadChartXml(saved);
-        var barSeries = xml[xml.IndexOf("<c:barChart>", StringComparison.Ordinal)..
-                            xml.IndexOf("<c:lineChart>", StringComparison.Ordinal)];
-        Assert.That(barSeries, Does.Not.Contain("<c:marker"));
-        Assert.That(barSeries, Does.Not.Contain("<c:smooth"));
-        Assert.That(barSeries, Does.Contain("00B050"), "The fill still applies.");
+        var barSeries = xml[xml.IndexOf("<c:barChart>", StringComparison.Ordinal)..xml.IndexOf("<c:lineChart>", StringComparison.Ordinal)];
+        await Assert.That(barSeries).DoesNotContain("<c:marker");
+        await Assert.That(barSeries).DoesNotContain("<c:smooth");
+        await Assert.That(barSeries).Contains("00B050").Because("The fill still applies.");
     }
 
     /// <summary>
@@ -556,7 +546,7 @@ public class ChartRoundTripPreservationTests
     }
 
     [Test]
-    public void MarkerAndSmoothCanBeAddedToASeriesThatHadNeither()
+    public async Task MarkerAndSmoothCanBeAddedToASeriesThatHadNeither()
     {
         using var original = CreateWorkbookWithExcelShapedChart(ChartXmlWithPlainLineSeries());
         using var saved = new MemoryStream();
@@ -564,8 +554,8 @@ public class ChartRoundTripPreservationTests
         using (var wb = new XLWorkbook(original))
         {
             var line = wb.Worksheet("Data").Charts.First().SecondarySeries.Single();
-            Assert.That(line.MarkerStyle, Is.EqualTo(XLMarkerStyle.Auto));
-            Assert.That(line.Smooth, Is.False);
+            await Assert.That(line.MarkerStyle).IsEqualTo(XLMarkerStyle.Auto);
+            await Assert.That(line.Smooth).IsFalse();
 
             line.MarkerStyle = XLMarkerStyle.Triangle;
             line.MarkerSize = 9;
@@ -578,17 +568,16 @@ public class ChartRoundTripPreservationTests
         using (var wb = new XLWorkbook(saved))
         {
             var line = wb.Worksheet("Data").Charts.First().SecondarySeries.Single();
-            Assert.That(line.MarkerStyle, Is.EqualTo(XLMarkerStyle.Triangle));
-            Assert.That(line.MarkerSize, Is.EqualTo(9));
-            Assert.That(line.MarkerFillColor, Is.EqualTo(XLColor.FromHtml("#FFC000")));
-            Assert.That(line.Smooth, Is.True);
-            Assert.That(line.LineColor!.ThemeColor, Is.EqualTo(XLThemeColor.Accent2),
-                "The outline the series came with is untouched.");
+            await Assert.That(line.MarkerStyle).IsEqualTo(XLMarkerStyle.Triangle);
+            await Assert.That(line.MarkerSize).IsEqualTo(9);
+            await Assert.That(line.MarkerFillColor).IsEqualTo(XLColor.FromHtml("#FFC000"));
+            await Assert.That(line.Smooth).IsTrue();
+            await Assert.That(line.LineColor!.ThemeColor).IsEqualTo(XLThemeColor.Accent2).Because("The outline the series came with is untouched.");
         }
     }
 
     [Test]
-    public void ClearingEveryMarkerPropertyLeavesNoEmptyMarkerBehind()
+    public async Task ClearingEveryMarkerPropertyLeavesNoEmptyMarkerBehind()
     {
         using var original = CreateWorkbookWithExcelShapedChart(ChartXmlWithPlainLineSeries());
         using var saved = new MemoryStream();
@@ -605,21 +594,19 @@ public class ChartRoundTripPreservationTests
         // turn the chart type into LineWithMarkers. The group-level c:marker flag is a different
         // element and is left alone.
         var xml = ReadChartXml(saved);
-        var lineSeries = xml[xml.IndexOf("<c:lineChart>", StringComparison.Ordinal)..
-                             xml.IndexOf("</c:ser>", xml.IndexOf("<c:lineChart>", StringComparison.Ordinal),
+        var lineSeries = xml[xml.IndexOf("<c:lineChart>", StringComparison.Ordinal)..xml.IndexOf("</c:ser>", xml.IndexOf("<c:lineChart>", StringComparison.Ordinal),
                                  StringComparison.Ordinal)];
-        Assert.That(lineSeries, Does.Not.Contain("<c:marker"));
+        await Assert.That(lineSeries).DoesNotContain("<c:marker");
 
         saved.Position = 0;
         using (var wb = new XLWorkbook(saved))
         {
-            Assert.That(wb.Worksheet("Data").Charts.First().SecondaryChartType,
-                Is.EqualTo(XLChartType.Line));
+            await Assert.That(wb.Worksheet("Data").Charts.First().SecondaryChartType).IsEqualTo(XLChartType.Line);
         }
     }
 
     [Test]
-    public void SmoothingCanBeTurnedOffOnASeriesThatHadIt()
+    public async Task SmoothingCanBeTurnedOffOnASeriesThatHadIt()
     {
         using var original = CreateWorkbookWithExcelShapedChart();
         using var saved = new MemoryStream();
@@ -627,7 +614,7 @@ public class ChartRoundTripPreservationTests
         using (var wb = new XLWorkbook(original))
         {
             var line = wb.Worksheet("Data").Charts.First().SecondarySeries.Single();
-            Assert.That(line.Smooth, Is.True);
+            await Assert.That(line.Smooth).IsTrue();
             line.Smooth = false;
             wb.SaveAs(saved, validate: true);
         }
@@ -635,12 +622,12 @@ public class ChartRoundTripPreservationTests
         saved.Position = 0;
         using (var wb = new XLWorkbook(saved))
         {
-            Assert.That(wb.Worksheet("Data").Charts.First().SecondarySeries.Single().Smooth, Is.False);
+            await Assert.That(wb.Worksheet("Data").Charts.First().SecondarySeries.Single().Smooth).IsFalse();
         }
     }
 
     [Test]
-    public void AnOutlineCanBeAddedToASeriesThatOnlyHadAFill()
+    public async Task AnOutlineCanBeAddedToASeriesThatOnlyHadAFill()
     {
         // The bar series' spPr carries a solidFill and an a:ln; strip the a:ln so the patcher has to
         // insert one, in the right place, next to the fill and the effect list.
@@ -654,29 +641,28 @@ public class ChartRoundTripPreservationTests
         using (var wb = new XLWorkbook(original))
         {
             var bar = wb.Worksheet("Data").Charts.First().Series.Single();
-            Assert.That(bar.LineColor, Is.Null);
+            await Assert.That(bar.LineColor).IsNull();
             bar.LineColor = XLColor.FromHtml("#203864");
             bar.LineWidthPt = 2;
             wb.SaveAs(saved, validate: true);
         }
 
         var xml = ReadChartXml(saved);
-        Assert.That(xml, Does.Contain("w=\"25400\""));
-        Assert.That(xml, Does.Contain("<a:effectLst"), "The effect list is still after the outline.");
+        await Assert.That(xml).Contains("w=\"25400\"");
+        await Assert.That(xml).Contains("<a:effectLst").Because("The effect list is still after the outline.");
 
         saved.Position = 0;
         using (var wb = new XLWorkbook(saved))
         {
             var bar = wb.Worksheet("Data").Charts.First().Series.Single();
-            Assert.That(bar.LineColor, Is.EqualTo(XLColor.FromHtml("#203864")));
-            Assert.That(bar.LineWidthPt, Is.EqualTo(2));
-            Assert.That(bar.FillColor, Is.EqualTo(XLColor.FromHtml("#ED7D31")),
-                "The fill it came with is untouched.");
+            await Assert.That(bar.LineColor).IsEqualTo(XLColor.FromHtml("#203864"));
+            await Assert.That(bar.LineWidthPt).IsEqualTo(2);
+            await Assert.That(bar.FillColor).IsEqualTo(XLColor.FromHtml("#ED7D31")).Because("The fill it came with is untouched.");
         }
     }
 
     [Test]
-    public void ClearingTheOutlineWidthLeavesTheColourAlone()
+    public async Task ClearingTheOutlineWidthLeavesTheColourAlone()
     {
         using var original = CreateWorkbookWithExcelShapedChart();
         using var saved = new MemoryStream();
@@ -692,13 +678,13 @@ public class ChartRoundTripPreservationTests
         using (var wb = new XLWorkbook(saved))
         {
             var bar = wb.Worksheet("Data").Charts.First().Series.Single();
-            Assert.That(bar.LineWidthPt, Is.Null);
-            Assert.That(bar.LineColor, Is.EqualTo(XLColor.FromHtml("#203864")));
+            await Assert.That(bar.LineWidthPt).IsNull();
+            await Assert.That(bar.LineColor).IsEqualTo(XLColor.FromHtml("#203864"));
         }
     }
 
     [Test]
-    public void EveryMarkerStyleRoundTrips()
+    public async Task EveryMarkerStyleRoundTrips()
     {
         XLMarkerStyle[] styles =
         [
@@ -726,14 +712,13 @@ public class ChartRoundTripPreservationTests
             ms.Position = 0;
             using (var wb = new XLWorkbook(ms))
             {
-                Assert.That(wb.Worksheet("Data").Charts.First().Series.Single().MarkerStyle,
-                    Is.EqualTo(style), $"{style} did not round-trip.");
+                await Assert.That(wb.Worksheet("Data").Charts.First().Series.Single().MarkerStyle).IsEqualTo(style).Because($"{style} did not round-trip.");
             }
         }
     }
 
     [Test]
-    public void SavingANewChartTwiceDoesNotDuplicateIt()
+    public async Task SavingANewChartTwiceDoesNotDuplicateIt()
     {
         using var first = new MemoryStream();
         using var second = new MemoryStream();
@@ -759,8 +744,8 @@ public class ChartRoundTripPreservationTests
         using (var wb = new XLWorkbook(second))
         {
             var ws = wb.Worksheet("Data");
-            Assert.That(ws.Charts.Count, Is.EqualTo(1));
-            Assert.That(ws.Charts.First().Series.Single().FillColor, Is.EqualTo(XLColor.FromHtml("#00B050")));
+            await Assert.That(ws.Charts.Count).IsEqualTo(1);
+            await Assert.That(ws.Charts.First().Series.Single().FillColor).IsEqualTo(XLColor.FromHtml("#00B050"));
         }
     }
 }
