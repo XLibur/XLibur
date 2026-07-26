@@ -158,3 +158,46 @@ XLibur.Excel.XLDataLabelPosition.Left = 6 -> XLibur.Excel.XLDataLabelPosition
 XLibur.Excel.XLDataLabelPosition.Right = 7 -> XLibur.Excel.XLDataLabelPosition
 XLibur.Excel.XLDataLabelPosition.Above = 8 -> XLibur.Excel.XLDataLabelPosition
 XLibur.Excel.XLDataLabelPosition.Below = 9 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.IXLChart.Legend.get -> XLibur.Excel.IXLChartLegend!
+XLibur.Excel.IXLChart.CategoryAxis.get -> XLibur.Excel.IXLChartAxis!
+XLibur.Excel.IXLChart.ValueAxis.get -> XLibur.Excel.IXLChartAxis!
+XLibur.Excel.IXLChart.SecondaryValueAxis.get -> XLibur.Excel.IXLChartAxis!
+XLibur.Excel.IXLChartLegend
+XLibur.Excel.IXLChartLegend.Visible.get -> bool
+XLibur.Excel.IXLChartLegend.Visible.set -> void
+XLibur.Excel.IXLChartLegend.Position.get -> XLibur.Excel.XLLegendPosition
+XLibur.Excel.IXLChartLegend.Position.set -> void
+XLibur.Excel.IXLChartLegend.Overlay.get -> bool
+XLibur.Excel.IXLChartLegend.Overlay.set -> void
+XLibur.Excel.XLLegendPosition
+XLibur.Excel.XLLegendPosition.Right = 0 -> XLibur.Excel.XLLegendPosition
+XLibur.Excel.XLLegendPosition.Bottom = 1 -> XLibur.Excel.XLLegendPosition
+XLibur.Excel.XLLegendPosition.Left = 2 -> XLibur.Excel.XLLegendPosition
+XLibur.Excel.XLLegendPosition.Top = 3 -> XLibur.Excel.XLLegendPosition
+XLibur.Excel.XLLegendPosition.TopRight = 4 -> XLibur.Excel.XLLegendPosition
+XLibur.Excel.IXLChartAxis
+XLibur.Excel.IXLChartAxis.Title.get -> string?
+XLibur.Excel.IXLChartAxis.Title.set -> void
+XLibur.Excel.IXLChartAxis.NumberFormat.get -> string?
+XLibur.Excel.IXLChartAxis.NumberFormat.set -> void
+XLibur.Excel.IXLChartAxis.Min.get -> double?
+XLibur.Excel.IXLChartAxis.Min.set -> void
+XLibur.Excel.IXLChartAxis.Max.get -> double?
+XLibur.Excel.IXLChartAxis.Max.set -> void
+XLibur.Excel.IXLChartAxis.MajorUnit.get -> double?
+XLibur.Excel.IXLChartAxis.MajorUnit.set -> void
+XLibur.Excel.IXLChartAxis.MinorUnit.get -> double?
+XLibur.Excel.IXLChartAxis.MinorUnit.set -> void
+XLibur.Excel.IXLChartAxis.Visible.get -> bool
+XLibur.Excel.IXLChartAxis.Visible.set -> void
+XLibur.Excel.IXLChartAxis.MajorGridlines.get -> bool
+XLibur.Excel.IXLChartAxis.MajorGridlines.set -> void
+XLibur.Excel.IXLChartAxis.Orientation.get -> XLibur.Excel.XLAxisOrientation
+XLibur.Excel.IXLChartAxis.Orientation.set -> void
+XLibur.Excel.IXLChartAxis.LogScale.get -> bool
+XLibur.Excel.IXLChartAxis.LogScale.set -> void
+XLibur.Excel.IXLChartAxis.LogBase.get -> double
+XLibur.Excel.IXLChartAxis.LogBase.set -> void
+XLibur.Excel.XLAxisOrientation
+XLibur.Excel.XLAxisOrientation.MinMax = 0 -> XLibur.Excel.XLAxisOrientation
+XLibur.Excel.XLAxisOrientation.MaxMin = 1 -> XLibur.Excel.XLAxisOrientation

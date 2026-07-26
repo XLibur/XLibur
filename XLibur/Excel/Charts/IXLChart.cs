@@ -164,4 +164,26 @@ public interface IXLChart : IXLDrawing<IXLChart>
     /// through <see cref="IXLChartSeries.DataLabels"/>.
     /// </summary>
     IXLDataLabels DataLabels { get; }
+
+    /// <summary>
+    /// Gets the chart's legend.
+    /// </summary>
+    IXLChartLegend Legend { get; }
+
+    /// <summary>
+    /// Gets the horizontal axis — the category axis, or the X value axis of a scatter or bubble chart.
+    /// Pie and doughnut charts have no axes and ignore it.
+    /// </summary>
+    IXLChartAxis CategoryAxis { get; }
+
+    /// <summary>
+    /// Gets the vertical value axis. Pie and doughnut charts have no axes and ignore it.
+    /// </summary>
+    IXLChartAxis ValueAxis { get; }
+
+    /// <summary>
+    /// Gets the value axis on the right, which exists only while at least one series has
+    /// <see cref="IXLChartSeries.UseSecondaryAxis"/> set.
+    /// </summary>
+    IXLChartAxis SecondaryValueAxis { get; }
 }

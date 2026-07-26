@@ -90,7 +90,22 @@ public class ChartRoundTripPreservationTests
                 <c:axId val="444444444"/>
               </c:lineChart>
               <c:catAx><c:axId val="111111111"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222222222"/></c:catAx>
-              <c:valAx><c:axId val="222222222"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111111111"/></c:valAx>
+              <c:valAx>
+                <c:axId val="222222222"/>
+                <c:scaling><c:orientation val="minMax"/></c:scaling>
+                <c:delete val="0"/>
+                <c:axPos val="l"/>
+                <c:majorGridlines/>
+                <c:title><c:tx><c:rich><a:bodyPr rot="-5400000" vert="horz"/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>Units</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title>
+                <c:numFmt formatCode="#,##0" sourceLinked="0"/>
+                <c:majorTickMark val="out"/>
+                <c:minorTickMark val="none"/>
+                <c:tickLblPos val="nextTo"/>
+                <c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>
+                <c:txPr><a:bodyPr rot="-60000000" spcFirstLastPara="1"/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="en-US"/></a:p></c:txPr>
+                <c:crossAx val="111111111"/>
+                <c:crossBetween val="between"/>
+              </c:valAx>
               <c:valAx><c:axId val="444444444"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="r"/><c:crossAx val="333333333"/><c:crosses val="max"/></c:valAx>
               <c:catAx><c:axId val="333333333"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="1"/><c:axPos val="b"/><c:crossAx val="444444444"/></c:catAx>
             </c:plotArea>
@@ -186,6 +201,30 @@ public class ChartRoundTripPreservationTests
         Assert.That(line.Smooth, Is.True);
         Assert.That(line.UseSecondaryAxis, Is.True,
             "The line group is plotted against the value axis on the right.");
+    }
+
+    [Test]
+    public void ExcelShapedLegendAndAxesAreRead()
+    {
+        using var ms = CreateWorkbookWithExcelShapedChart();
+        using var wb = new XLWorkbook(ms);
+        var chart = wb.Worksheet("Data").Charts.First();
+
+        Assert.That(chart.Legend.Visible, Is.True);
+        Assert.That(chart.Legend.Position, Is.EqualTo(XLLegendPosition.Bottom));
+        Assert.That(chart.Legend.Overlay, Is.False);
+
+        Assert.That(chart.CategoryAxis.Visible, Is.True);
+        Assert.That(chart.CategoryAxis.Title, Is.Null);
+
+        Assert.That(chart.ValueAxis.Title, Is.EqualTo("Units"));
+        Assert.That(chart.ValueAxis.NumberFormat, Is.EqualTo("#,##0"));
+        Assert.That(chart.ValueAxis.MajorGridlines, Is.True);
+        Assert.That(chart.ValueAxis.Visible, Is.True);
+        Assert.That(chart.ValueAxis.LogScale, Is.False);
+
+        Assert.That(chart.SecondaryValueAxis.Visible, Is.True,
+            "The fixture's line group hangs off a second value axis.");
     }
 
     // ── Preservation ────────────────────────────────────────────────────
@@ -374,6 +413,71 @@ public class ChartRoundTripPreservationTests
                          xml.IndexOf("</c:dLbls>", StringComparison.Ordinal)];
         Assert.That(labels, Does.Contain("<c:showVal val=\"1\""));
         Assert.That(labels, Does.Not.Contain("<c:delete"));
+    }
+
+    [Test]
+    public void EditingAnAxisKeepsItsTickMarksAndTextFormatting()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart();
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            chart.ValueAxis.Title = "Units sold";
+            chart.ValueAxis.Min = 0;
+            chart.ValueAxis.Max = 250;
+            chart.ValueAxis.MajorGridlines = false;
+            chart.Legend.Position = XLLegendPosition.Right;
+            wb.SaveAs(saved, validate: true);
+        }
+
+        var xml = ReadChartXml(saved);
+
+        // The edits landed.
+        Assert.That(xml, Does.Contain("Units sold"));
+        Assert.That(xml, Does.Not.Contain("<a:t>Units</a:t>"));
+        Assert.That(xml, Does.Contain("<c:max val=\"250\""));
+        Assert.That(xml, Does.Contain("<c:min val=\"0\""));
+        Assert.That(xml, Does.Not.Contain("<c:majorGridlines"));
+        Assert.That(xml, Does.Contain("<c:legendPos val=\"r\""));
+
+        // Everything on the axis that XLibur does not model is untouched.
+        Assert.That(xml, Does.Contain("<c:majorTickMark val=\"out\""));
+        Assert.That(xml, Does.Contain("<c:tickLblPos val=\"nextTo\""));
+        Assert.That(xml, Does.Contain("<c:crossBetween val=\"between\""));
+        Assert.That(xml, Does.Contain("spcFirstLastPara=\"1\""));
+        Assert.That(xml, Does.Contain("formatCode=\"#,##0\""), "The number format was not touched.");
+    }
+
+    [Test]
+    public void EditedAxisAndLegendReloadWithTheNewValues()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart();
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            chart.CategoryAxis.Title = "Quarter";
+            chart.ValueAxis.Orientation = XLAxisOrientation.MaxMin;
+            chart.ValueAxis.MajorUnit = 25;
+            chart.SecondaryValueAxis.Title = "Price";
+            chart.Legend.Visible = false;
+            wb.SaveAs(saved, validate: true);
+        }
+
+        saved.Position = 0;
+        using (var wb = new XLWorkbook(saved))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.CategoryAxis.Title, Is.EqualTo("Quarter"));
+            Assert.That(chart.ValueAxis.Orientation, Is.EqualTo(XLAxisOrientation.MaxMin));
+            Assert.That(chart.ValueAxis.MajorUnit, Is.EqualTo(25));
+            Assert.That(chart.ValueAxis.Title, Is.EqualTo("Units"), "An untouched property is kept.");
+            Assert.That(chart.SecondaryValueAxis.Title, Is.EqualTo("Price"));
+            Assert.That(chart.Legend.Visible, Is.False);
+        }
     }
 
     [Test]

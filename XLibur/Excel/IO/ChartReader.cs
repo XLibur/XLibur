@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -91,6 +92,7 @@ internal static class ChartReader
 
         var xlChart = new XLChart(ws) { IsNew = false, RelId = relId };
         ReadTitle(chart, xlChart);
+        ChartFormatting.ReadLegend(chart.Elements<C.Legend>().FirstOrDefault(), xlChart.LegendInternal);
 
         var plotArea = chart.PlotArea;
         if (plotArea != null)
@@ -124,6 +126,7 @@ internal static class ChartReader
             return;
 
         var primaryValueAxisId = ChartPlotAreaScanner.PrimaryValueAxisId(groups, primaryKind.Value);
+        ReadAxes(plotArea, groups, primaryKind.Value, primaryValueAxisId, xlChart);
         var primarySet = false;
 
         foreach (var group in groups)
@@ -153,6 +156,33 @@ internal static class ChartReader
                 xlChart.SecondaryChartType ??= chartType;
                 ReadGroupSeries(group, xlChart.SecondarySeriesInternal, useSecondaryAxis);
             }
+        }
+    }
+
+    /// <summary>
+    /// Reads the horizontal axis, the value axis and — when a group hangs off a different value axis —
+    /// the secondary value axis into the model.
+    /// </summary>
+    private static void ReadAxes(
+        C.PlotArea plotArea, List<XLChartGroup> groups, XLChartGroupKind primaryKind,
+        uint? primaryValueAxisId, XLChart xlChart)
+    {
+        var primaryGroup = groups.First(g => g.Kind == primaryKind);
+
+        ChartFormatting.ReadAxis(
+            ChartPlotAreaScanner.FindAxis(plotArea, primaryGroup.CategoryAxisId),
+            xlChart.CategoryAxisInternal);
+        ChartFormatting.ReadAxis(
+            ChartPlotAreaScanner.FindAxis(plotArea, primaryValueAxisId),
+            xlChart.ValueAxisInternal);
+
+        var secondaryGroup = groups.Find(g =>
+            g.ValueAxisId != null && primaryValueAxisId != null && g.ValueAxisId != primaryValueAxisId);
+        if (secondaryGroup != null)
+        {
+            ChartFormatting.ReadAxis(
+                ChartPlotAreaScanner.FindAxis(plotArea, secondaryGroup.ValueAxisId),
+                xlChart.SecondaryValueAxisInternal);
         }
     }
 

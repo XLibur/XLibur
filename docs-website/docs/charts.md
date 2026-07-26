@@ -316,23 +316,79 @@ and ignore these properties. If a chart type change makes an already-set positio
 position is dropped on save rather than written — the alternative is a file Excel refuses to open.
 :::
 
+## Legend
+
+A chart XLibur creates has no legend until you ask for one:
+
+```csharp
+chart.Legend.Visible = true;
+chart.Legend.Position = XLLegendPosition.Bottom;   // Right (default), Bottom, Left, Top, TopRight
+chart.Legend.Overlay = true;                       // draw over the plot area rather than beside it
+```
+
+Setting `Visible = false` on a chart read from a file removes the legend it came with.
+
+## Axes
+
+`CategoryAxis` is the horizontal axis and `ValueAxis` the vertical one. `SecondaryValueAxis` is the
+one on the right, which exists while a series has `UseSecondaryAxis` set:
+
+```csharp
+chart.CategoryAxis.Title = "Quarter";
+
+chart.ValueAxis.Title = "Revenue";
+chart.ValueAxis.NumberFormat = "$ #,##0";
+chart.ValueAxis.Min = 0;
+chart.ValueAxis.Max = 60_000;
+chart.ValueAxis.MajorUnit = 10_000;
+chart.ValueAxis.MajorGridlines = true;
+
+chart.SecondaryValueAxis.Title = "Margin";
+chart.SecondaryValueAxis.NumberFormat = "0%";
+```
+
+| Property | Meaning | Default |
+|---|---|---|
+| `Title` | axis title text | `null` — no title |
+| `NumberFormat` | format code for the labels | from the source cells |
+| `Min` / `Max` | ends of the scale | chosen from the data |
+| `MajorUnit` / `MinorUnit` | tick intervals | chosen by Excel |
+| `Visible` | whether the axis is drawn | `true` |
+| `MajorGridlines` | gridlines across the plot | `false` |
+| `Orientation` | `MinMax`, or `MaxMin` to reverse the axis | `MinMax` |
+| `LogScale` / `LogBase` | logarithmic scale, base 2 to 1000 | `false` / `10` |
+
+A log scale is what makes values spanning orders of magnitude readable:
+
+```csharp
+chart.ValueAxis.LogScale = true;
+chart.ValueAxis.LogBase = 10;
+```
+
+:::note
+`MajorUnit`, `MinorUnit` and `LogScale` belong to a value axis in the file format and are skipped on
+a category axis — except on a scatter or bubble chart, where the horizontal axis holds numbers and
+takes them too. Pie and doughnut charts have no axes at all and ignore everything here.
+:::
+
 ### Editing charts loaded from a file
 
 XLibur never regenerates the XML of a chart it read from a file — it patches in just the
 properties you assign. Everything it does not model stays exactly as Excel wrote it: trendlines,
-error bars, gradient and picture fills, per-point colours and label overrides, label fonts, the
-chart's style and colour parts.
+error bars, gradient and picture fills, per-point colours and label overrides, label and axis fonts,
+tick marks, the chart's style and colour parts.
 
 ```csharp
 using var workbook = new XLWorkbook("Report.xlsx");
 var chart = workbook.Worksheet("Data").Charts.First();
 
 chart.Series.First().FillColor = XLColor.FromHtml("#C00000");
-workbook.Save();   // only the fill changes; the trendline stays
+chart.ValueAxis.Max = 60_000;
+workbook.Save();   // only the fill and the scale change; the trendline stays
 ```
 
 Chart type, title and series references are settable on charts you create, but on a loaded chart
-only the series formatting is written back.
+only the series formatting, data labels, legend and axes are written back.
 
 ## Chart types
 
@@ -433,11 +489,12 @@ chart.Title = null;               // remove the title
 
 ## What is not covered
 
-The chart API is deliberately narrow: type, title, series, series formatting, data labels, and
-placement. Axis titles and scaling, legend placement, gridlines, and trend lines are not exposed. If
-you need that level of control, the usual approach is to build a template workbook in Excel with
-the chart formatted exactly as you want it, then use XLibur to write the source data the chart
-already points at:
+The chart API covers type, title, series, series formatting, data labels, legend, axes and placement.
+Fonts, fills and borders of the chart furniture, gradient and picture fills, per-data-point
+formatting, trend lines and error bars are not exposed — though a chart read from a file keeps all of
+them. If you need that level of control over a chart you are creating, the usual approach is to build
+a template workbook in Excel with the chart formatted exactly as you want it, then use XLibur to write
+the source data the chart already points at:
 
 ```csharp
 using var workbook = new XLWorkbook("ChartTemplate.xlsx");
@@ -521,10 +578,21 @@ margin.MarkerSize = 7;
 combo.Position.SetColumn(5).SetRow(18);
 combo.SecondPosition.SetColumn(13).SetRow(33);
 
+combo.Legend.Visible = true;
+combo.Legend.Position = XLLegendPosition.Bottom;
+combo.ValueAxis.Title = "Currency";
+combo.ValueAxis.NumberFormat = "$ #,##0";
+combo.ValueAxis.MajorGridlines = true;
+combo.SecondaryValueAxis.Title = "Margin";
+combo.SecondaryValueAxis.NumberFormat = "0%";
+
 // Chart 3: share of annual revenue
 var pie = ws.Charts.Add(XLChartType.Pie);
 pie.SetTitle("Share of annual revenue");
-pie.Series.Add("Revenue", $"{sheet}!$B$2:$B${last}", categories);
+var share = pie.Series.Add("Revenue", $"{sheet}!$B$2:$B${last}", categories);
+share.DataLabels.ShowCategoryName = true;
+share.DataLabels.ShowPercentage = true;
+share.DataLabels.Position = XLDataLabelPosition.BestFit;
 pie.Position.SetColumn(14).SetRow(1);
 pie.SecondPosition.SetColumn(21).SetRow(16);
 

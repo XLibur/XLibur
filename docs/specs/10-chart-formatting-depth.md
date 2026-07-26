@@ -3,7 +3,7 @@
 **Area:** Feature (flagship differentiator — upstream ClosedXML has no charts at all)
 **Effort:** L total, but splits into 4 independent PRs
 **Dependencies:** None.
-**Status:** In progress — PRs 1 and 2 implemented; see [Results](#results-pr-1). PRs 3–4 open.
+**Status:** In progress — PRs 1, 2 and 3 implemented; see [Results](#results-pr-1). PR 4 open.
 
 ## Summary
 
@@ -183,17 +183,14 @@ reported a plain `Line` chart as `LineWithMarkers`.
 | 4 | Existing chart tests green; ChartEx unaffected | ✅ extended charts ignore series formatting and are not patched |
 | 5 | `XLibur.Examples` gains a formatted-chart sample | ✅ `FormattedChartExamples` — four sheets, validated by a test |
 
-### Notes for PRs 3–4
+### Notes for PR 4
 
-- Build legend and axes on `ChartPatcher`/`ChartFormatting`, not on a second mechanism: add flags to
-  the assignment set and a patch step per element, as PR 2 did. The "only write what was assigned"
-  rule is what keeps preservation free.
 - `ChartPlotAreaScanner` is the place to add group kinds the reader still ignores: `c:pie3DChart`,
   `c:line3DChart`, `c:area3DChart`, `c:surface3DChart`, `c:ofPieChart`. Today a chart built from
-  those reads as zero series with a default chart type — worth folding into PR 3 or 4.
+  those reads as zero series with a default chart type.
 - Title, chart type and series references are still write-only for new charts; editing them on a
-  loaded chart does nothing. If PR 3 wants `chart.Title` to work on loaded charts, that is another
-  patch step.
+  loaded chart does nothing. Making `chart.Title` work on a loaded chart is one more patch step on
+  `ChartFormatting`.
 
 ## Results (PR 2)
 
@@ -237,3 +234,48 @@ assigned. Excel treats a missing flag as "inherit from the chart style", which m
 result depend on the style part; writing them out makes what the caller asked for unambiguous.
 `c:delete` — how Excel records "labels switched off" — is removed when a flag is turned on, otherwise
 it would override everything next to it.
+
+## Results (PR 3)
+
+`IXLChartLegend` and `IXLChartAxis` landed as specified, reachable through `IXLChart.Legend`,
+`CategoryAxis`, `ValueAxis` and `SecondaryValueAxis`. 6402 tests pass on net8.0 and net10.0.
+
+### The writer now parameterises the axes it already emitted
+
+`BuildCategoryAxis`/`BuildValueAxis` take the axis model and fill in `c:scaling`
+(`logBase`/`orientation`/`max`/`min`, in that order), `c:delete`, `c:majorGridlines`, `c:title`,
+`c:numFmt` and — after `c:crossAx` — `c:majorUnit`/`c:minorUnit`. The defaults reproduce exactly what
+the writer emitted before this PR, so an unformatted chart's XML is unchanged: `delete` false,
+`orientation` minMax, nothing else. `c:legend` is emitted between `c:plotArea` and `c:plotVisOnly`
+only when `Legend.Visible` is set.
+
+### Three places the file format is narrower than one shared axis interface
+
+- **`CT_CatAx` has no unit elements and no room for `c:logBase`.** `MajorUnit`, `MinorUnit` and
+  `LogScale` are therefore skipped on a category axis rather than written — Excel refuses a file that
+  has them. The spec put all of them on one `IXLChartAxis`, which is the right shape for callers; the
+  narrowing is documented on the interface and in the docs.
+- **Except on scatter and bubble charts.** There the horizontal axis is a `c:valAx` holding numbers,
+  so the same properties do apply. `XLChartAxis` asks the chart for its type to decide, which is why
+  the axis models are constructed with a back-reference to the chart rather than standing alone.
+- **The hidden helper category axis of a secondary group has no public counterpart.** It exists only
+  to give the secondary value axis something to cross, so `BuildCategoryAxis` accepts a null model for
+  it. `SecondaryValueAxis` maps to the visible right-hand axis, which is the one callers mean.
+
+### Patching
+
+The legend and both axes follow PR 2's pattern: their own assignment flag sets, seeded (not assigned)
+by the reader, patched element by element. `ChartPlotAreaScanner` gained `CategoryAxisId` and a
+`FindAxis` helper so the reader and the patcher locate the same axis element by the identifier the
+chart group points at — the axis elements themselves carry no marker saying which is which.
+
+Editing an axis keeps its tick marks, tick label position, `c:crossBetween`, line and text formatting;
+editing the legend keeps its layout and text properties. `Legend.Visible = false` removes the
+`c:legend` element, which is how Excel records a chart without a legend.
+
+### Gridlines are still off by default
+
+`MajorGridlines` defaults to false, so a chart XLibur creates has no gridlines unless asked — which is
+what the writer did before this PR. Excel's own new charts do have value axis gridlines, so this is a
+plausible thing to change, but doing it silently would alter the output of every existing caller. Left
+as a deliberate decision to revisit, not an oversight.

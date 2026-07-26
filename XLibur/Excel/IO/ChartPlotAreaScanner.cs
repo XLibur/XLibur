@@ -34,11 +34,13 @@ internal sealed class XLChartGroup
         XLChartGroupKind kind,
         OpenXmlCompositeElement element,
         List<OpenXmlCompositeElement> seriesElements,
+        uint? categoryAxisId,
         uint? valueAxisId)
     {
         Kind = kind;
         Element = element;
         SeriesElements = seriesElements;
+        CategoryAxisId = categoryAxisId;
         ValueAxisId = valueAxisId;
     }
 
@@ -47,6 +49,12 @@ internal sealed class XLChartGroup
     internal OpenXmlCompositeElement Element { get; }
 
     internal List<OpenXmlCompositeElement> SeriesElements { get; }
+
+    /// <summary>
+    /// The identifier of the horizontal axis this group is plotted against — the first <c>c:axId</c>
+    /// of the group — or <c>null</c> for the axis-less pie and doughnut groups.
+    /// </summary>
+    internal uint? CategoryAxisId { get; }
 
     /// <summary>
     /// The identifier of the value axis this group is plotted against — the second <c>c:axId</c> of
@@ -161,12 +169,36 @@ internal static class ChartPlotAreaScanner
     internal static uint? PrimaryValueAxisId(List<XLChartGroup> groups, XLChartGroupKind primaryKind) =>
         groups.First(g => g.Kind == primaryKind).ValueAxisId;
 
+    /// <summary>
+    /// Finds the axis element of a plot area carrying the given <c>c:axId</c>, whichever axis type it
+    /// happens to be.
+    /// </summary>
+    internal static OpenXmlCompositeElement? FindAxis(C.PlotArea plotArea, uint? axisId)
+    {
+        if (axisId == null)
+            return null;
+
+        foreach (var child in plotArea.ChildElements)
+        {
+            if (child is not (C.CategoryAxis or C.ValueAxis or C.DateAxis or C.SeriesAxis))
+                continue;
+
+            var composite = (OpenXmlCompositeElement)child;
+            if (composite.Elements<C.AxisId>().FirstOrDefault()?.Val?.Value == axisId)
+                return composite;
+        }
+
+        return null;
+    }
+
     private static XLChartGroup Build<TSeries>(
         XLChartGroupKind kind, OpenXmlCompositeElement element, IEnumerable<TSeries> seriesElements)
         where TSeries : OpenXmlCompositeElement
     {
         var axisIds = element.Elements<C.AxisId>().ToList();
+        var categoryAxisId = axisIds.Count >= 1 ? axisIds[0].Val?.Value : null;
         var valueAxisId = axisIds.Count >= 2 ? axisIds[1].Val?.Value : null;
-        return new XLChartGroup(kind, element, seriesElements.Cast<OpenXmlCompositeElement>().ToList(), valueAxisId);
+        return new XLChartGroup(kind, element, seriesElements.Cast<OpenXmlCompositeElement>().ToList(),
+            categoryAxisId, valueAxisId);
     }
 }

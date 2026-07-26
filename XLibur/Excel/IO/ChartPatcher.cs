@@ -37,7 +37,13 @@ internal static class ChartPatcher
         // Extended (ChartEx) charts model their series in the cx namespace and do not support the
         // series formatting properties, so there is nothing to patch.
         var chartPart = ResolveChartPart(worksheetPart, xlChart);
-        var plotArea = chartPart?.ChartSpace?.Elements<C.Chart>().FirstOrDefault()?.PlotArea;
+        var chart = chartPart?.ChartSpace?.Elements<C.Chart>().FirstOrDefault();
+        if (chart == null)
+            return;
+
+        ChartFormatting.PatchLegend(chart, xlChart.LegendInternal);
+
+        var plotArea = chart.PlotArea;
         if (plotArea == null)
             return;
 
@@ -62,6 +68,34 @@ internal static class ChartPatcher
             xlChart.SecondaryChartType ?? xlChart.ChartType);
 
         PatchGroupDataLabels(groups, primaryKind.Value, xlChart);
+        PatchAxes(plotArea, groups, primaryKind.Value, xlChart);
+    }
+
+    /// <summary>
+    /// Writes the pending axis properties back. The axes are found by the identifiers the chart groups
+    /// point at, the same way the reader found them.
+    /// </summary>
+    private static void PatchAxes(
+        C.PlotArea plotArea, List<XLChartGroup> groups, XLChartGroupKind primaryKind, XLChart xlChart)
+    {
+        var primaryGroup = groups.First(g => g.Kind == primaryKind);
+        var primaryValueAxisId = primaryGroup.ValueAxisId;
+
+        ChartFormatting.PatchAxis(
+            ChartPlotAreaScanner.FindAxis(plotArea, primaryGroup.CategoryAxisId),
+            xlChart.CategoryAxisInternal);
+        ChartFormatting.PatchAxis(
+            ChartPlotAreaScanner.FindAxis(plotArea, primaryValueAxisId),
+            xlChart.ValueAxisInternal);
+
+        var secondaryGroup = groups.Find(g =>
+            g.ValueAxisId != null && primaryValueAxisId != null && g.ValueAxisId != primaryValueAxisId);
+        if (secondaryGroup != null)
+        {
+            ChartFormatting.PatchAxis(
+                ChartPlotAreaScanner.FindAxis(plotArea, secondaryGroup.ValueAxisId),
+                xlChart.SecondaryValueAxisInternal);
+        }
     }
 
     /// <summary>
@@ -84,6 +118,10 @@ internal static class ChartPatcher
 
     private static bool HasPendingChanges(XLChart xlChart) =>
         xlChart.DataLabelsInternal.AssignedFormat != XLDataLabelsFormat.None
+        || xlChart.LegendInternal.AssignedFormat != XLChartLegendFormat.None
+        || xlChart.CategoryAxisInternal.AssignedFormat != XLChartAxisFormat.None
+        || xlChart.ValueAxisInternal.AssignedFormat != XLChartAxisFormat.None
+        || xlChart.SecondaryValueAxisInternal.AssignedFormat != XLChartAxisFormat.None
         || HasPendingChanges(xlChart.SeriesInternal)
         || HasPendingChanges(xlChart.SecondarySeriesInternal);
 

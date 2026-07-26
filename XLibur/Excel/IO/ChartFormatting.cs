@@ -167,6 +167,351 @@ internal static class ChartFormatting
         return XLDataLabelPosition.Auto;
     }
 
+    // ── Legend ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Builds the <c>c:legend</c> element, or returns <c>null</c> when the chart has no legend.
+    /// </summary>
+    internal static C.Legend? BuildLegend(XLChartLegend legend)
+    {
+        if (legend.AssignedFormat == XLChartLegendFormat.None || !legend.Visible)
+            return null;
+
+        var element = new C.Legend();
+        element.Append(new C.LegendPosition { Val = MapLegendPosition(legend.Position) });
+        element.Append(new C.Overlay { Val = legend.Overlay });
+        return element;
+    }
+
+    /// <summary>
+    /// Reads a <c>c:legend</c> element into the model. A chart with no legend element seeds
+    /// <see cref="IXLChartLegend.Visible"/> as <c>false</c>.
+    /// </summary>
+    internal static void ReadLegend(C.Legend? element, XLChartLegend legend)
+    {
+        if (element == null)
+        {
+            legend.SeedLoaded(visible: false, XLLegendPosition.Right, overlay: false);
+            return;
+        }
+
+        legend.SeedLoaded(
+            visible: true,
+            position: ReadLegendPosition(element),
+            overlay: element.Elements<C.Overlay>().FirstOrDefault()?.Val?.Value ?? false);
+    }
+
+    /// <summary>
+    /// Applies the assigned legend properties to a <c>c:chart</c> element, adding or removing the
+    /// <c>c:legend</c> child as needed. The legend's own text and shape properties are left alone.
+    /// </summary>
+    internal static void PatchLegend(C.Chart chart, XLChartLegend legend)
+    {
+        var assigned = legend.AssignedFormat;
+        if (assigned == XLChartLegendFormat.None)
+            return;
+
+        var element = chart.Elements<C.Legend>().FirstOrDefault();
+
+        if ((assigned & XLChartLegendFormat.Visible) != 0 && !legend.Visible)
+        {
+            element?.Remove();
+            return;
+        }
+
+        if (element == null)
+        {
+            element = new C.Legend();
+            element.Append(new C.LegendPosition { Val = MapLegendPosition(legend.Position) });
+            element.Append(new C.Overlay { Val = legend.Overlay });
+            InsertOrdered(chart, element, ChartChildOrder);
+            return;
+        }
+
+        if ((assigned & XLChartLegendFormat.Position) != 0)
+        {
+            foreach (var existing in element.Elements<C.LegendPosition>().ToList())
+                existing.Remove();
+            InsertOrdered(element, new C.LegendPosition { Val = MapLegendPosition(legend.Position) },
+                LegendChildOrder);
+        }
+
+        if ((assigned & XLChartLegendFormat.Overlay) != 0)
+        {
+            foreach (var existing in element.Elements<C.Overlay>().ToList())
+                existing.Remove();
+            InsertOrdered(element, new C.Overlay { Val = legend.Overlay }, LegendChildOrder);
+        }
+    }
+
+    private static XLLegendPosition ReadLegendPosition(C.Legend element)
+    {
+        var position = element.Elements<C.LegendPosition>().FirstOrDefault()?.Val;
+        if (position == null)
+            return XLLegendPosition.Right;
+
+        var value = position.Value;
+        if (value == C.LegendPositionValues.Bottom) return XLLegendPosition.Bottom;
+        if (value == C.LegendPositionValues.Left) return XLLegendPosition.Left;
+        if (value == C.LegendPositionValues.Top) return XLLegendPosition.Top;
+        if (value == C.LegendPositionValues.TopRight) return XLLegendPosition.TopRight;
+        return XLLegendPosition.Right;
+    }
+
+    private static C.LegendPositionValues MapLegendPosition(XLLegendPosition position) => position switch
+    {
+        XLLegendPosition.Right => C.LegendPositionValues.Right,
+        XLLegendPosition.Bottom => C.LegendPositionValues.Bottom,
+        XLLegendPosition.Left => C.LegendPositionValues.Left,
+        XLLegendPosition.Top => C.LegendPositionValues.Top,
+        XLLegendPosition.TopRight => C.LegendPositionValues.TopRight,
+        _ => throw new ArgumentOutOfRangeException(nameof(position), position, "Unknown legend position.")
+    };
+
+    // ── Axes ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Appends the optional children an axis model asks for to a freshly built <c>c:catAx</c> or
+    /// <c>c:valAx</c>, in schema order. The caller has already added <c>c:axId</c>, <c>c:scaling</c>,
+    /// <c>c:delete</c> and <c>c:axPos</c>; <c>c:crossAx</c> and what follows it come afterwards.
+    /// </summary>
+    internal static void AppendAxisBody(OpenXmlCompositeElement axis, XLChartAxis model)
+    {
+        if (model.MajorGridlines)
+            axis.Append(new C.MajorGridlines());
+
+        if (model.Title != null)
+            axis.Append(BuildAxisTitle(model.Title));
+
+        if (model.NumberFormat != null)
+            axis.Append(new C.NumberingFormat { FormatCode = model.NumberFormat, SourceLinked = false });
+    }
+
+    /// <summary>
+    /// Appends the children that follow <c>c:crossAx</c> on a value axis. Skipped for a category axis,
+    /// where <c>CT_CatAx</c> has no unit elements.
+    /// </summary>
+    internal static void AppendAxisUnits(OpenXmlCompositeElement axis, XLChartAxis model)
+    {
+        if (!model.IsValueAxis)
+            return;
+
+        if (model.MajorUnit != null)
+            axis.Append(new C.MajorUnit { Val = model.MajorUnit.Value });
+
+        if (model.MinorUnit != null)
+            axis.Append(new C.MinorUnit { Val = model.MinorUnit.Value });
+    }
+
+    /// <summary>
+    /// Builds the <c>c:scaling</c> element for an axis. Its children are ordered
+    /// <c>logBase</c>, <c>orientation</c>, <c>max</c>, <c>min</c>.
+    /// </summary>
+    internal static C.Scaling BuildScaling(XLChartAxis model)
+    {
+        var scaling = new C.Scaling();
+
+        // c:logBase belongs to a value axis; Excel rejects it on a category axis.
+        if (model.LogScale && model.IsValueAxis)
+            scaling.Append(new C.LogBase { Val = model.LogBase });
+
+        scaling.Append(new C.Orientation
+        {
+            Val = model.Orientation == XLAxisOrientation.MaxMin
+                ? C.OrientationValues.MaxMin
+                : C.OrientationValues.MinMax
+        });
+
+        if (model.Max != null)
+            scaling.Append(new C.MaxAxisValue { Val = model.Max.Value });
+        if (model.Min != null)
+            scaling.Append(new C.MinAxisValue { Val = model.Min.Value });
+
+        return scaling;
+    }
+
+    /// <summary>
+    /// Reads a <c>c:catAx</c> or <c>c:valAx</c> element into the model.
+    /// </summary>
+    internal static void ReadAxis(OpenXmlCompositeElement? axis, XLChartAxis model)
+    {
+        if (axis == null)
+            return;
+
+        var scaling = axis.Elements<C.Scaling>().FirstOrDefault();
+        var logBase = scaling?.Elements<C.LogBase>().FirstOrDefault()?.Val?.Value;
+        var orientation = scaling?.Elements<C.Orientation>().FirstOrDefault()?.Val;
+
+        model.SeedLoaded(
+            title: ReadAxisTitle(axis),
+            numberFormat: axis.Elements<C.NumberingFormat>().FirstOrDefault()?.FormatCode?.Value,
+            min: scaling?.Elements<C.MinAxisValue>().FirstOrDefault()?.Val?.Value,
+            max: scaling?.Elements<C.MaxAxisValue>().FirstOrDefault()?.Val?.Value,
+            majorUnit: axis.Elements<C.MajorUnit>().FirstOrDefault()?.Val?.Value,
+            minorUnit: axis.Elements<C.MinorUnit>().FirstOrDefault()?.Val?.Value,
+            // c:delete says the axis is hidden, and defaults to false when absent.
+            visible: !(axis.Elements<C.Delete>().FirstOrDefault()?.Val?.Value ?? false),
+            majorGridlines: axis.Elements<C.MajorGridlines>().Any(),
+            orientation: orientation != null && orientation.Value == C.OrientationValues.MaxMin
+                ? XLAxisOrientation.MaxMin
+                : XLAxisOrientation.MinMax,
+            logScale: logBase != null,
+            logBase: logBase ?? 10);
+    }
+
+    /// <summary>
+    /// Applies the assigned axis properties onto an existing <c>c:catAx</c> or <c>c:valAx</c>, leaving
+    /// its tick marks, label positions, line and text formatting as they were.
+    /// </summary>
+    internal static void PatchAxis(OpenXmlCompositeElement? axis, XLChartAxis model)
+    {
+        var assigned = model.AssignedFormat;
+        if (axis == null || assigned == XLChartAxisFormat.None)
+            return;
+
+        if ((assigned & XLChartAxisFormat.Visible) != 0)
+        {
+            foreach (var existing in axis.Elements<C.Delete>().ToList())
+                existing.Remove();
+            InsertOrdered(axis, new C.Delete { Val = !model.Visible }, AxisChildOrder);
+        }
+
+        if ((assigned & XLChartAxisFormat.MajorGridlines) != 0)
+        {
+            foreach (var existing in axis.Elements<C.MajorGridlines>().ToList())
+                existing.Remove();
+            if (model.MajorGridlines)
+                InsertOrdered(axis, new C.MajorGridlines(), AxisChildOrder);
+        }
+
+        if ((assigned & XLChartAxisFormat.Title) != 0)
+        {
+            foreach (var existing in axis.Elements<C.Title>().ToList())
+                existing.Remove();
+            if (model.Title != null)
+                InsertOrdered(axis, BuildAxisTitle(model.Title), AxisChildOrder);
+        }
+
+        if ((assigned & XLChartAxisFormat.NumberFormat) != 0)
+        {
+            foreach (var existing in axis.Elements<C.NumberingFormat>().ToList())
+                existing.Remove();
+            if (model.NumberFormat != null)
+            {
+                InsertOrdered(axis,
+                    new C.NumberingFormat { FormatCode = model.NumberFormat, SourceLinked = false },
+                    AxisChildOrder);
+            }
+        }
+
+        if ((assigned & (XLChartAxisFormat.Min | XLChartAxisFormat.Max
+                         | XLChartAxisFormat.Orientation | XLChartAxisFormat.LogScale
+                         | XLChartAxisFormat.LogBase)) != 0)
+        {
+            PatchScaling(axis, model, assigned);
+        }
+
+        if (model.IsValueAxis)
+            PatchAxisUnits(axis, model, assigned);
+    }
+
+    private static void PatchScaling(
+        OpenXmlCompositeElement axis, XLChartAxis model, XLChartAxisFormat assigned)
+    {
+        var scaling = axis.Elements<C.Scaling>().FirstOrDefault();
+        if (scaling == null)
+        {
+            scaling = new C.Scaling();
+            InsertOrdered(axis, scaling, AxisChildOrder);
+        }
+
+        if ((assigned & (XLChartAxisFormat.LogScale | XLChartAxisFormat.LogBase)) != 0)
+        {
+            foreach (var existing in scaling.Elements<C.LogBase>().ToList())
+                existing.Remove();
+            if (model.LogScale && model.IsValueAxis)
+                InsertOrdered(scaling, new C.LogBase { Val = model.LogBase }, ScalingChildOrder);
+        }
+
+        if ((assigned & XLChartAxisFormat.Orientation) != 0)
+        {
+            foreach (var existing in scaling.Elements<C.Orientation>().ToList())
+                existing.Remove();
+            InsertOrdered(scaling, new C.Orientation
+            {
+                Val = model.Orientation == XLAxisOrientation.MaxMin
+                    ? C.OrientationValues.MaxMin
+                    : C.OrientationValues.MinMax
+            }, ScalingChildOrder);
+        }
+
+        if ((assigned & XLChartAxisFormat.Max) != 0)
+        {
+            foreach (var existing in scaling.Elements<C.MaxAxisValue>().ToList())
+                existing.Remove();
+            if (model.Max != null)
+                InsertOrdered(scaling, new C.MaxAxisValue { Val = model.Max.Value }, ScalingChildOrder);
+        }
+
+        if ((assigned & XLChartAxisFormat.Min) != 0)
+        {
+            foreach (var existing in scaling.Elements<C.MinAxisValue>().ToList())
+                existing.Remove();
+            if (model.Min != null)
+                InsertOrdered(scaling, new C.MinAxisValue { Val = model.Min.Value }, ScalingChildOrder);
+        }
+    }
+
+    private static void PatchAxisUnits(
+        OpenXmlCompositeElement axis, XLChartAxis model, XLChartAxisFormat assigned)
+    {
+        if ((assigned & XLChartAxisFormat.MajorUnit) != 0)
+        {
+            foreach (var existing in axis.Elements<C.MajorUnit>().ToList())
+                existing.Remove();
+            if (model.MajorUnit != null)
+                InsertOrdered(axis, new C.MajorUnit { Val = model.MajorUnit.Value }, AxisChildOrder);
+        }
+
+        if ((assigned & XLChartAxisFormat.MinorUnit) != 0)
+        {
+            foreach (var existing in axis.Elements<C.MinorUnit>().ToList())
+                existing.Remove();
+            if (model.MinorUnit != null)
+                InsertOrdered(axis, new C.MinorUnit { Val = model.MinorUnit.Value }, AxisChildOrder);
+        }
+    }
+
+    /// <summary>
+    /// Builds the <c>c:title</c> of an axis: a rich text run holding the literal title.
+    /// </summary>
+    private static C.Title BuildAxisTitle(string title) =>
+        new(
+            new C.ChartText(
+                new C.RichText(
+                    new A.BodyProperties(),
+                    new A.ListStyle(),
+                    new A.Paragraph(
+                        new A.Run(
+                            new A.RunProperties { Language = "en-US" },
+                            new A.Text(title)
+                        )
+                    )
+                )
+            ),
+            new C.Overlay { Val = false }
+        );
+
+    private static string? ReadAxisTitle(OpenXmlCompositeElement axis)
+    {
+        var title = axis.Elements<C.Title>().FirstOrDefault();
+        if (title == null)
+            return null;
+
+        var text = string.Concat(title.Descendants<A.Text>().Select(t => t.Text));
+        return string.IsNullOrEmpty(text) ? null : text;
+    }
+
     private static A.SolidFill? BuildSolidFill(XLColor? color) =>
         color == null || !color.HasValue ? null : new A.SolidFill(BuildColor(color));
 
@@ -420,6 +765,41 @@ internal static class ChartFormatting
         typeof(C.Index), typeof(C.Order), typeof(C.SeriesText), typeof(C.ChartShapeProperties),
         typeof(C.Marker), typeof(C.DataLabels), typeof(C.CategoryAxisData), typeof(C.XValues),
         typeof(C.Values), typeof(C.YValues), typeof(C.Smooth), typeof(C.ExtensionList)
+    ];
+
+    /// <summary>The schema order of the children of <c>c:chart</c> that this class touches.</summary>
+    private static readonly Type[] ChartChildOrder =
+    [
+        typeof(C.Title), typeof(C.AutoTitleDeleted), typeof(C.PlotArea), typeof(C.Legend),
+        typeof(C.PlotVisibleOnly), typeof(C.DisplayBlanksAs), typeof(C.ExtensionList)
+    ];
+
+    /// <summary>The schema order of the children of <c>c:legend</c>.</summary>
+    private static readonly Type[] LegendChildOrder =
+    [
+        typeof(C.LegendPosition), typeof(C.LegendEntry), typeof(C.Layout), typeof(C.Overlay),
+        typeof(C.ChartShapeProperties), typeof(C.TextProperties), typeof(C.ExtensionList)
+    ];
+
+    /// <summary>
+    /// The schema order of the children of <c>c:catAx</c> and <c>c:valAx</c> that this class touches.
+    /// The two types agree on the elements they share; the unit elements exist on <c>c:valAx</c> only.
+    /// </summary>
+    private static readonly Type[] AxisChildOrder =
+    [
+        typeof(C.AxisId), typeof(C.Scaling), typeof(C.Delete), typeof(C.AxisPosition),
+        typeof(C.MajorGridlines), typeof(C.MinorGridlines), typeof(C.Title),
+        typeof(C.NumberingFormat), typeof(C.MajorTickMark), typeof(C.MinorTickMark),
+        typeof(C.TickLabelPosition), typeof(C.ChartShapeProperties), typeof(C.TextProperties),
+        typeof(C.CrossingAxis), typeof(C.Crosses), typeof(C.CrossesAt), typeof(C.CrossBetween),
+        typeof(C.MajorUnit), typeof(C.MinorUnit), typeof(C.DisplayUnits), typeof(C.ExtensionList)
+    ];
+
+    /// <summary>The schema order of the children of <c>c:scaling</c>.</summary>
+    private static readonly Type[] ScalingChildOrder =
+    [
+        typeof(C.LogBase), typeof(C.Orientation), typeof(C.MaxAxisValue), typeof(C.MinAxisValue),
+        typeof(C.ExtensionList)
     ];
 
     /// <summary>The schema order of the children of <c>c:dLbls</c>.</summary>

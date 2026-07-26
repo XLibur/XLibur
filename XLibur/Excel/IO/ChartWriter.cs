@@ -423,6 +423,11 @@ internal static class ChartWriter
         }
 
         chart.Append(BuildPlotArea(xlChart));
+
+        var legend = ChartFormatting.BuildLegend(xlChart.LegendInternal);
+        if (legend != null)
+            chart.Append(legend);
+
         chart.Append(new C.PlotVisibleOnly { Val = true });
 
         return new C.ChartSpace(chart);
@@ -470,7 +475,7 @@ internal static class ChartWriter
             AppendChartElement(plotArea, group);
 
         // Every chart group has to precede every axis in CT_PlotArea.
-        AppendAxes(plotArea, xlChart.ChartType, groups.Exists(g => g.SecondaryAxis));
+        AppendAxes(plotArea, xlChart, groups.Exists(g => g.SecondaryAxis));
 
         return plotArea;
     }
@@ -526,18 +531,22 @@ internal static class ChartWriter
         !IsScatterType(ct) && !IsBubbleType(ct) && !IsSurfaceType(ct)
         && !IsPieType(ct) && !IsDoughnutType(ct);
 
-    private static void AppendAxes(C.PlotArea plotArea, XLChartType primaryChartType, bool hasSecondaryAxis)
+    private static void AppendAxes(C.PlotArea plotArea, XLChart xlChart, bool hasSecondaryAxis)
     {
+        var primaryChartType = xlChart.ChartType;
+        var horizontal = xlChart.CategoryAxisInternal;
+        var vertical = xlChart.ValueAxisInternal;
+
         if (IsScatterType(primaryChartType))
         {
             // Scatter uses two ValueAxis (X and Y)
-            plotArea.Append(BuildValueAxis(CatAxisId, ValAxisId, C.AxisPositionValues.Bottom));
-            plotArea.Append(BuildValueAxis(ValAxisId, CatAxisId, C.AxisPositionValues.Left));
+            plotArea.Append(BuildValueAxis(CatAxisId, ValAxisId, C.AxisPositionValues.Bottom, horizontal));
+            plotArea.Append(BuildValueAxis(ValAxisId, CatAxisId, C.AxisPositionValues.Left, vertical));
         }
         else if (IsSurfaceType(primaryChartType))
         {
-            plotArea.Append(BuildCategoryAxis(CatAxisId, ValAxisId));
-            plotArea.Append(BuildValueAxis(ValAxisId, CatAxisId, C.AxisPositionValues.Left));
+            plotArea.Append(BuildCategoryAxis(CatAxisId, ValAxisId, horizontal));
+            plotArea.Append(BuildValueAxis(ValAxisId, CatAxisId, C.AxisPositionValues.Left, vertical));
             plotArea.Append(new C.SeriesAxis(
                 new C.AxisId { Val = SerAxisId },
                 new C.Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
@@ -548,8 +557,8 @@ internal static class ChartWriter
         }
         else
         {
-            plotArea.Append(BuildCategoryAxis(CatAxisId, ValAxisId));
-            plotArea.Append(BuildValueAxis(ValAxisId, CatAxisId, C.AxisPositionValues.Left));
+            plotArea.Append(BuildCategoryAxis(CatAxisId, ValAxisId, horizontal));
+            plotArea.Append(BuildValueAxis(ValAxisId, CatAxisId, C.AxisPositionValues.Left, vertical));
         }
 
         if (!hasSecondaryAxis)
@@ -557,35 +566,58 @@ internal static class ChartWriter
 
         // The secondary group needs its own axis pair. Excel hides the extra category axis and puts
         // the extra value axis on the right, crossing the category axis at its maximum.
-        plotArea.Append(BuildCategoryAxis(SecondaryCatAxisId, SecondaryValAxisId, deleted: true));
+        plotArea.Append(BuildCategoryAxis(SecondaryCatAxisId, SecondaryValAxisId,
+            model: null, deleted: true));
         plotArea.Append(BuildValueAxis(SecondaryValAxisId, SecondaryCatAxisId,
-            C.AxisPositionValues.Right, crossesMaximum: true));
+            C.AxisPositionValues.Right, xlChart.SecondaryValueAxisInternal, crossesMaximum: true));
     }
 
-    private static C.CategoryAxis BuildCategoryAxis(uint axisId, uint crossingAxisId, bool deleted = false)
+    /// <summary>
+    /// Builds a <c>c:catAx</c>. Its children follow the CT_CatAx order: identity and position first,
+    /// then the optional gridlines, title and number format, then the crossing axis.
+    /// </summary>
+    /// <param name="axisId">The identifier this axis is known by.</param>
+    /// <param name="crossingAxisId">The identifier of the axis this one crosses.</param>
+    /// <param name="model">
+    /// The axis model to take the optional properties from, or <c>null</c> for the hidden helper axis
+    /// of a secondary group, which has no public counterpart.
+    /// </param>
+    /// <param name="deleted">Whether the axis is hidden regardless of what the model says.</param>
+    private static C.CategoryAxis BuildCategoryAxis(
+        uint axisId, uint crossingAxisId, XLChartAxis? model, bool deleted = false)
     {
-        var axis = new C.CategoryAxis(
-            new C.AxisId { Val = axisId },
-            new C.Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
-            new C.Delete { Val = deleted },
-            new C.AxisPosition { Val = C.AxisPositionValues.Bottom },
-            new C.CrossingAxis { Val = crossingAxisId }
-        );
+        var axis = new C.CategoryAxis();
+        axis.Append(new C.AxisId { Val = axisId });
+        axis.Append(model == null
+            ? new C.Scaling(new C.Orientation { Val = C.OrientationValues.MinMax })
+            : ChartFormatting.BuildScaling(model));
+        axis.Append(new C.Delete { Val = deleted || model is { Visible: false } });
+        axis.Append(new C.AxisPosition { Val = C.AxisPositionValues.Bottom });
+
+        if (model != null)
+            ChartFormatting.AppendAxisBody(axis, model);
+
+        axis.Append(new C.CrossingAxis { Val = crossingAxisId });
         return axis;
     }
 
     private static C.ValueAxis BuildValueAxis(
-        uint axisId, uint crossingAxisId, C.AxisPositionValues position, bool crossesMaximum = false)
+        uint axisId, uint crossingAxisId, C.AxisPositionValues position, XLChartAxis model,
+        bool crossesMaximum = false)
     {
-        var axis = new C.ValueAxis(
-            new C.AxisId { Val = axisId },
-            new C.Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
-            new C.Delete { Val = false },
-            new C.AxisPosition { Val = position },
-            new C.CrossingAxis { Val = crossingAxisId }
-        );
+        var axis = new C.ValueAxis();
+        axis.Append(new C.AxisId { Val = axisId });
+        axis.Append(ChartFormatting.BuildScaling(model));
+        axis.Append(new C.Delete { Val = !model.Visible });
+        axis.Append(new C.AxisPosition { Val = position });
+
+        ChartFormatting.AppendAxisBody(axis, model);
+
+        axis.Append(new C.CrossingAxis { Val = crossingAxisId });
         if (crossesMaximum)
             axis.Append(new C.Crosses { Val = C.CrossesValues.Maximum });
+
+        ChartFormatting.AppendAxisUnits(axis, model);
         return axis;
     }
 
@@ -703,20 +735,8 @@ internal static class ChartWriter
         var plotArea = new C.PlotArea(
             new C.Layout(),
             bubbleChart,
-            new C.ValueAxis(
-                new C.AxisId { Val = xAxisId },
-                new C.Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
-                new C.Delete { Val = false },
-                new C.AxisPosition { Val = C.AxisPositionValues.Bottom },
-                new C.CrossingAxis { Val = yAxisId }
-            ),
-            new C.ValueAxis(
-                new C.AxisId { Val = yAxisId },
-                new C.Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }),
-                new C.Delete { Val = false },
-                new C.AxisPosition { Val = C.AxisPositionValues.Left },
-                new C.CrossingAxis { Val = xAxisId }
-            )
+            BuildValueAxis(xAxisId, yAxisId, C.AxisPositionValues.Bottom, xlChart.CategoryAxisInternal),
+            BuildValueAxis(yAxisId, xAxisId, C.AxisPositionValues.Left, xlChart.ValueAxisInternal)
         );
         return plotArea;
     }

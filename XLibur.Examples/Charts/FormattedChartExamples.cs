@@ -17,6 +17,7 @@ public class FormattedChartExamples : IXLExample
         TwoScales(wb);
         HighlightOneSeries(wb);
         Labels(wb);
+        LegendAndAxes(wb);
 
         wb.SaveAs(filePath);
     }
@@ -189,6 +190,67 @@ public class FormattedChartExamples : IXLExample
 
         pie.Position.SetColumn(6).SetRow(21);
         pie.SecondPosition.SetColumn(15).SetRow(39);
+    }
+
+    /// <summary>
+    /// A titled, scaled chart with a legend — roughly what you would set by hand in Excel before
+    /// putting a chart in front of anyone.
+    /// </summary>
+    private static void LegendAndAxes(XLWorkbook wb)
+    {
+        var ws = wb.Worksheets.Add("Legend and axes");
+        WriteQuarterlyData(ws);
+        ws.Cell("D1").Value = "Margin %";
+        for (var row = 2; row <= 5; row++)
+            ws.Cell(row, 4).FormulaA1 = $"=(B{row}-C{row})/B{row}";
+        ws.Range("D2:D5").Style.NumberFormat.Format = "0.0%";
+
+        var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+        chart.SetTitle("Revenue, cost and margin");
+        chart.Series.Add("Revenue", "'Legend and axes'!$B$2:$B$5", "'Legend and axes'!$A$2:$A$5");
+        chart.Series.Add("Cost", "'Legend and axes'!$C$2:$C$5", "'Legend and axes'!$A$2:$A$5");
+
+        chart.SecondaryChartType = XLChartType.LineWithMarkers;
+        var margin = chart.SecondarySeries.Add(
+            "Margin %", "'Legend and axes'!$D$2:$D$5", "'Legend and axes'!$A$2:$A$5");
+        margin.UseSecondaryAxis = true;
+        margin.MarkerStyle = XLMarkerStyle.Circle;
+        margin.MarkerSize = 7;
+
+        chart.Legend.Visible = true;
+        chart.Legend.Position = XLLegendPosition.Bottom;
+
+        chart.CategoryAxis.Title = "Quarter";
+
+        chart.ValueAxis.Title = "Currency";
+        chart.ValueAxis.NumberFormat = "$ #,##0";
+        chart.ValueAxis.Min = 0;
+        chart.ValueAxis.MajorUnit = 10_000;
+        chart.ValueAxis.MajorGridlines = true;
+
+        chart.SecondaryValueAxis.Title = "Margin";
+        chart.SecondaryValueAxis.NumberFormat = "0%";
+        chart.SecondaryValueAxis.Min = 0;
+        chart.SecondaryValueAxis.Max = 0.5;
+
+        chart.Position.SetColumn(6).SetRow(1);
+        chart.SecondPosition.SetColumn(16).SetRow(22);
+
+        // A log scale is worth having when the values span orders of magnitude.
+        ws.Cell("F1").Value = "Users";
+        double[] users = [12, 340, 9_800, 210_000];
+        for (var i = 0; i < users.Length; i++)
+            ws.Cell(i + 2, 6).Value = users[i];
+
+        var growth = ws.Charts.Add(XLChartType.Line);
+        growth.SetTitle("Users, log scale");
+        growth.Series.Add("Users", "'Legend and axes'!$F$2:$F$5", "'Legend and axes'!$A$2:$A$5");
+        growth.ValueAxis.LogScale = true;
+        growth.ValueAxis.LogBase = 10;
+        growth.ValueAxis.MajorGridlines = true;
+        growth.CategoryAxis.Title = "Quarter";
+        growth.Position.SetColumn(6).SetRow(24);
+        growth.SecondPosition.SetColumn(16).SetRow(42);
     }
 
     private static void WriteQuarterlyData(IXLWorksheet ws)
