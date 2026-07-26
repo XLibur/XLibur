@@ -398,6 +398,33 @@ public class ChartRoundTripPreservationTests
     }
 
     [Test]
+    public void ChartWideLabelsReachEveryGroupOfALoadedComboChart()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart();
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            // Chart-wide labels apply to the whole chart, and the writer puts them on each group of a
+            // new combo chart. A loaded one used to get them on the c:barChart only.
+            wb.Worksheet("Data").Charts.First().DataLabels.ShowValue = true;
+            wb.SaveAs(saved, validate: true);
+        }
+
+        var xml = ReadChartXml(saved);
+        var barChart = xml[xml.IndexOf("<c:barChart>", StringComparison.Ordinal)..
+                           xml.IndexOf("</c:barChart>", StringComparison.Ordinal)];
+        var lineChart = xml[xml.IndexOf("<c:lineChart>", StringComparison.Ordinal)..
+                            xml.IndexOf("</c:lineChart>", StringComparison.Ordinal)];
+
+        // The group-level c:dLbls follows the last c:ser, so it is what comes after </c:ser>.
+        Assert.That(barChart[barChart.LastIndexOf("</c:ser>", StringComparison.Ordinal)..],
+            Does.Contain("<c:showVal val=\"1\""));
+        Assert.That(lineChart[lineChart.LastIndexOf("</c:ser>", StringComparison.Ordinal)..],
+            Does.Contain("<c:showVal val=\"1\""));
+    }
+
+    [Test]
     public void TurningLabelsOnClearsAnExistingDeleteFlag()
     {
         // Excel writes <c:dLbls><c:delete val="1"/></c:dLbls> for a series whose labels are switched

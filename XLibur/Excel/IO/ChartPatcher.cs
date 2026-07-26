@@ -99,7 +99,9 @@ internal static class ChartPatcher
     }
 
     /// <summary>
-    /// Writes the chart-wide data labels into every group of the primary chart type.
+    /// Writes the chart-wide data labels into every group that accepts them. They apply to the whole
+    /// chart, and <see cref="ChartWriter"/> puts them on each group of a new combo chart, so a loaded
+    /// combo chart is patched the same way rather than only on its primary group.
     /// </summary>
     private static void PatchGroupDataLabels(
         List<XLChartGroup> groups, XLChartGroupKind primaryKind, XLChart xlChart)
@@ -109,10 +111,16 @@ internal static class ChartPatcher
 
         foreach (var group in groups)
         {
-            if (group.Kind != primaryKind || !ChartFormatting.SupportsDataLabels(group.Kind))
+            if (!ChartFormatting.SupportsDataLabels(group.Kind))
                 continue;
 
-            ChartFormatting.PatchGroupDataLabels(group.Element, xlChart.DataLabelsInternal, xlChart.ChartType);
+            // A position Excel does not offer for a group's own type degrades to automatic, so each
+            // group is patched against its type — the same mapping PatchSeries uses.
+            var chartType = group.Kind == primaryKind
+                ? xlChart.ChartType
+                : xlChart.SecondaryChartType ?? xlChart.ChartType;
+
+            ChartFormatting.PatchGroupDataLabels(group.Element, xlChart.DataLabelsInternal, chartType);
         }
     }
 
