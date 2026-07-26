@@ -60,7 +60,7 @@ body:
     attributes:
       label: Reproducible Test Case
       description: |
-        Please provide a self-contained NUnit test that reproduces the issue.
+        Please provide a self-contained TUnit test that reproduces the issue.
 
         Ideally, the test should **not** depend on an external .xlsx file — create the workbook in code so anyone can run the test immediately. If the bug can only be reproduced with a specific .xlsx file, attach it below and write a test that loads it.
 
