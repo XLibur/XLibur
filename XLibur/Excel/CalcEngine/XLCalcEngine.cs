@@ -621,6 +621,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         MathTrig.Register(fr);
         Text.Register(fr);
         Statistical.Register(fr);
+        Distributions.Register(fr);
         DateAndTime.Register(fr);
         Financial.Register(fr);
         DynamicArray.Register(fr);

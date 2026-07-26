@@ -31,6 +31,10 @@
 
 #### Formula functions
 
+- **The statistical distributions — 69 functions**. The modern dotted set (`NORM.DIST`, `NORM.INV`, `NORM.S.DIST`, `NORM.S.INV`, `LOGNORM.*`, `CHISQ.*`, `F.*`, `T.DIST*`, `EXPON.DIST`, `POISSON.DIST`, `WEIBULL.DIST`, `GAMMA`, `GAMMA.DIST`, `GAMMA.INV`, `GAMMALN(.PRECISE)`, `BETA.DIST`, `BETA.INV`, `HYPGEOM.DIST`, `NEGBINOM.DIST`, `BINOM.INV`, `CONFIDENCE.NORM`, `CONFIDENCE.T`, `PERCENTILE.EXC`, `QUARTILE.EXC`, `RANK.AVG`, `MODE.MULT`, `PERCENTRANK(.INC/.EXC)`), the hypothesis tests (`CHISQ.TEST`, `F.TEST`, `T.TEST`, `Z.TEST`) and the 26 pre-2010 names (`NORMDIST`, `CHIDIST`, `FINV`, `TDIST`, `CRITBINOM`, …), which are registered against the same implementations rather than copies of them.
+
+  `MODE.MULT` spills. Everything reduces to one of four special functions — the regularized incomplete gamma, the regularized incomplete beta, the error function, or elementary functions — so the inverses invert their own distributions to full double precision rather than to the accuracy of a rational approximation. `T.TEST` with unequal variances truncates the Welch degrees of freedom, as the rest of the `T.DIST` family truncates its own. ([#256](https://github.com/XLibur/XLibur/pull/256) by [@jafin](https://github.com/jafin))
+
 - **`AGGREGATE`, `NETWORKDAYS.INTL` and `WORKDAY.INTL`**. `AGGREGATE` covers all nineteen function numbers — including `PERCENTILE.EXC` and `QUARTILE.EXC`, which have no standalone registration yet — and all eight option values, so ignoring hidden rows and error values both work rather than being documented limitations. The `.INTL` date functions take a weekend as either one of Excel's numbered codes or a seven-character Monday-to-Sunday mask. ([#255](https://github.com/XLibur/XLibur/pull/255) by [@jafin](https://github.com/jafin))
 
 - **20 modern text and array-shaping functions**: `TEXTSPLIT`, `TEXTBEFORE`, `TEXTAFTER`, `VALUETOTEXT`, `ARRAYTOTEXT`, `UNICHAR`, `UNICODE`, `DBCS`, `ENCODEURL`, and the array-shaping set `VSTACK`, `HSTACK`, `TOROW`, `TOCOL`, `WRAPROWS`, `WRAPCOLS`, `CHOOSEROWS`, `CHOOSECOLS`, `TAKE`, `DROP`, `EXPAND`. The array-shaping functions and `TEXTSPLIT` spill.

@@ -970,6 +970,131 @@ internal static class SignatureAdapter
         };
     }
 
+    public static CalcEngineFunction Adapt(Func<CalcContext, double, double, double, bool, ScalarValue> f)
+    {
+        return (ctx, args) =>
+        {
+            var arg0Converted = ToNumber(args[0], ctx);
+            if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+                return err0;
+
+            var arg1Converted = ToNumber(args[1], ctx);
+            if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+                return err1;
+
+            var arg2Converted = ToNumber(args[2], ctx);
+            if (!arg2Converted.TryPickT0(out var arg2, out var err2))
+                return err2;
+
+            var arg3Converted = CoerceToLogical(args[3], ctx);
+            if (!arg3Converted.TryPickT0(out var arg3, out var err3))
+                return err3;
+
+            return f(ctx, arg0, arg1, arg2, arg3).ToAnyValue();
+        };
+    }
+
+    public static CalcEngineFunction AdaptLastTwoOptional(Func<CalcContext, double, double, double, double, double, ScalarValue> f, double defaultValue0, double defaultValue1)
+    {
+        return (ctx, args) =>
+        {
+            var arg0Converted = ToNumber(args[0], ctx);
+            if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+                return err0;
+
+            var arg1Converted = ToNumber(args[1], ctx);
+            if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+                return err1;
+
+            var arg2Converted = ToNumber(args[2], ctx);
+            if (!arg2Converted.TryPickT0(out var arg2, out var err2))
+                return err2;
+
+            if (!ToOptionalNumber(args, 3, defaultValue0, ctx).TryPickT0(out var arg3, out var err3))
+                return err3;
+
+            if (!ToOptionalNumber(args, 4, defaultValue1, ctx).TryPickT0(out var arg4, out var err4))
+                return err4;
+
+            return f(ctx, arg0, arg1, arg2, arg3, arg4).ToAnyValue();
+        };
+    }
+
+    public static CalcEngineFunction Adapt(Func<CalcContext, double, bool, ScalarValue> f)
+    {
+        return (ctx, args) =>
+        {
+            var arg0Converted = ToNumber(args[0], ctx);
+            if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+                return err0;
+
+            var arg1Converted = CoerceToLogical(args[1], ctx);
+            if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+                return err1;
+
+            return f(ctx, arg0, arg1).ToAnyValue();
+        };
+    }
+
+    public static CalcEngineFunction Adapt(Func<CalcContext, double, double, double, double, bool, ScalarValue> f)
+    {
+        return (ctx, args) =>
+        {
+            var arg0Converted = ToNumber(args[0], ctx);
+            if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+                return err0;
+
+            var arg1Converted = ToNumber(args[1], ctx);
+            if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+                return err1;
+
+            var arg2Converted = ToNumber(args[2], ctx);
+            if (!arg2Converted.TryPickT0(out var arg2, out var err2))
+                return err2;
+
+            var arg3Converted = ToNumber(args[3], ctx);
+            if (!arg3Converted.TryPickT0(out var arg3, out var err3))
+                return err3;
+
+            var arg4Converted = CoerceToLogical(args[4], ctx);
+            if (!arg4Converted.TryPickT0(out var arg4, out var err4))
+                return err4;
+
+            return f(ctx, arg0, arg1, arg2, arg3, arg4).ToAnyValue();
+        };
+    }
+
+    /// <summary>Three numbers and a flag, then two optional numbers — the shape of BETA.DIST.</summary>
+    public static CalcEngineFunction AdaptLastTwoOptional(Func<CalcContext, double, double, double, bool, double, double, ScalarValue> f, double defaultValue0, double defaultValue1)
+    {
+        return (ctx, args) =>
+        {
+            var arg0Converted = ToNumber(args[0], ctx);
+            if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+                return err0;
+
+            var arg1Converted = ToNumber(args[1], ctx);
+            if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+                return err1;
+
+            var arg2Converted = ToNumber(args[2], ctx);
+            if (!arg2Converted.TryPickT0(out var arg2, out var err2))
+                return err2;
+
+            var arg3Converted = CoerceToLogical(args[3], ctx);
+            if (!arg3Converted.TryPickT0(out var arg3, out var err3))
+                return err3;
+
+            if (!ToOptionalNumber(args, 4, defaultValue0, ctx).TryPickT0(out var arg4, out var err4))
+                return err4;
+
+            if (!ToOptionalNumber(args, 5, defaultValue1, ctx).TryPickT0(out var arg5, out var err5))
+                return err5;
+
+            return f(ctx, arg0, arg1, arg2, arg3, arg4, arg5).ToAnyValue();
+        };
+    }
+
     public static CalcEngineFunction Adapt(Func<CalcContext, double, string, string, ScalarValue> f)
     {
         return (ctx, args) =>

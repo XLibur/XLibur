@@ -222,6 +222,143 @@ public static class XLMath
     }
 
     /// <summary>
+    /// The gamma function Γ(x). Negative arguments go through the reflection formula, which is
+    /// undefined at the non-positive integers — the poles of the function.
+    /// </summary>
+    internal static double Gamma(double x)
+    {
+        if (x > 0)
+            return Math.Exp(LnGamma(x));
+
+        if (x == Math.Floor(x))
+            return double.NaN;
+
+        // Γ(x)·Γ(1−x) = π / sin(πx).
+        return Math.PI / (Math.Sin(Math.PI * x) * Math.Exp(LnGamma(1 - x)));
+    }
+
+    /// <summary>
+    /// Inverse of the standard normal CDF: the z with P(Z ≤ z) = <paramref name="p"/>.
+    /// <para>
+    /// Acklam's rational approximation gets within about 1e-9 relative, and a single Halley step
+    /// against the true CDF — which <see cref="Erfc"/> gives to full precision — takes it the rest
+    /// of the way. Doing it in two stages is what keeps NORM.S.INV accurate deep in the tails,
+    /// where the rational form alone starts to drift.
+    /// </para>
+    /// </summary>
+    internal static double NormalSInv(double p)
+    {
+        if (p <= 0)
+            return double.NegativeInfinity;
+        if (p >= 1)
+            return double.PositiveInfinity;
+
+        ReadOnlySpan<double> a = [
+            -3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
+            1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+        ReadOnlySpan<double> b = [
+            -5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
+            6.680131188771972e+01, -1.328068155288572e+01];
+        ReadOnlySpan<double> c = [
+            -7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
+            -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+        ReadOnlySpan<double> d = [
+            7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00,
+            3.754408661907416e+00];
+
+        const double lowerBreak = 0.02425;
+        double x;
+        if (p < lowerBreak)
+        {
+            var q = Math.Sqrt(-2 * Math.Log(p));
+            x = (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+                ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+        }
+        else if (p <= 1 - lowerBreak)
+        {
+            var q = p - 0.5;
+            var r = q * q;
+            x = (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q /
+                (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+        }
+        else
+        {
+            var q = Math.Sqrt(-2 * Math.Log(1 - p));
+            x = -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+                ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+        }
+
+        var error = NormalSDist(x) - p;
+        var correction = error * Math.Sqrt(2 * Math.PI) * Math.Exp(x * x / 2);
+        return x - correction / (1 + x * correction / 2);
+    }
+
+    /// <summary>Standard normal CDF, P(Z ≤ z).</summary>
+    internal static double NormalSDist(double z) => 0.5 * Erfc(-z / Math.Sqrt(2));
+
+    /// <summary>Standard normal probability density.</summary>
+    internal static double NormalSPdf(double z) => Math.Exp(-z * z / 2) / Math.Sqrt(2 * Math.PI);
+
+    /// <summary>
+    /// Inverse of <see cref="GammaP"/>: the x with P(a, x) = <paramref name="p"/>. Newton's method
+    /// on the CDF, with the bracket it has narrowed so far as a fallback whenever a step would jump
+    /// outside it — the density vanishes in both tails, where Newton alone would run away.
+    /// </summary>
+    internal static double InverseGammaP(double p, double a)
+    {
+        if (p <= 0)
+            return 0;
+        if (p >= 1)
+            return double.PositiveInfinity;
+
+        var x = InverseGammaInitialGuess(p, a);
+        var lo = 0.0;
+        var hi = double.PositiveInfinity;
+        var lnGammaA = LnGamma(a);
+
+        for (var i = 0; i < 200; i++)
+        {
+            var error = GammaP(a, x) - p;
+            if (error < 0)
+                lo = x;
+            else
+                hi = x;
+
+            if (Math.Abs(error) < 1e-15)
+                break;
+
+            var pdf = Math.Exp((a - 1) * Math.Log(x) - x - lnGammaA);
+            var next = pdf > 0 ? x - error / pdf : double.NaN;
+
+            // Outside the bracket the step is not trusted: bisect, or double when there is still no
+            // upper bound to bisect against.
+            if (double.IsNaN(next) || next <= lo || next >= hi)
+                next = double.IsPositiveInfinity(hi) ? x * 2 : (lo + hi) / 2;
+
+            if (Math.Abs(next - x) < 1e-15 * Math.Abs(x))
+                return next;
+
+            x = next;
+        }
+
+        return x;
+    }
+
+    private static double InverseGammaInitialGuess(double p, double a)
+    {
+        if (a > 1)
+        {
+            // Wilson–Hilferty: the cube root of a gamma variate is nearly normal.
+            var z = NormalSInv(p);
+            var guess = a * Math.Pow(1 - 1.0 / (9 * a) + z / (3 * Math.Sqrt(a)), 3);
+            return Math.Max(guess, 1e-8);
+        }
+
+        var t = 1 - a * (0.253 + a * 0.12);
+        return p < t ? Math.Pow(p / t, 1 / a) : 1 - Math.Log(1 - (p - t) / (1 - t));
+    }
+
+    /// <summary>
     /// Regularized lower incomplete gamma function P(a, x) = γ(a, x) / Γ(a). Evaluated by its power
     /// series below the transition point and as 1 − Q(a, x) above it, where each is convergent.
     /// </summary>

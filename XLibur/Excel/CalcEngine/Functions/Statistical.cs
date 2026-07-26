@@ -70,6 +70,7 @@ internal static class Statistical
         ce.RegisterFunction("MINIFS", 3, 255, AdaptIfs(MinIfs), FunctionFlags.Range, AllowRange.Only, ValueAndCriteriaRangeParams); // Returns the minimum of cells that meet multiple criteria
         ce.RegisterFunction("MODE", 1, 255, Mode, FunctionFlags.Range, AllowRange.All); // Returns the most common value in a data set
         ce.RegisterFunction("MODE.SNGL", 1, 255, Mode, FunctionFlags.Range, AllowRange.All);
+        ce.RegisterFunction("MODE.MULT", 1, 255, ModeMult, FunctionFlags.Range | FunctionFlags.Future | FunctionFlags.ReturnsArray, AllowRange.All); // Returns every value tied for most common
         //NEGBINOMDIST	Returns the negative binomial distribution
         //NORMDIST	Returns the normal cumulative distribution
         //NORMINV	Returns the inverse of the normal cumulative distribution
@@ -78,14 +79,19 @@ internal static class Statistical
         //PEARSON	Returns the Pearson product moment correlation coefficient
         ce.RegisterFunction("PERCENTILE", 2, 2, Adapt(Percentile), FunctionFlags.Range, AllowRange.Only, 0); // Returns the k-th percentile of values in a range
         ce.RegisterFunction("PERCENTILE.INC", 2, 2, Adapt(Percentile), FunctionFlags.Range, AllowRange.Only, 0);
-        //PERCENTRANK	Returns the percentage rank of a value in a data set
+        ce.RegisterFunction("PERCENTILE.EXC", 2, 2, Adapt(PercentileExc), FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 0); // The k-th percentile, exclusive of the endpoints
+        ce.RegisterFunction("PERCENTRANK", 2, 3, PercentRankInc, FunctionFlags.Range, AllowRange.Only, 0); // Returns the percentage rank of a value in a data set
+        ce.RegisterFunction("PERCENTRANK.INC", 2, 3, PercentRankInc, FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 0);
+        ce.RegisterFunction("PERCENTRANK.EXC", 2, 3, PercentRankExc, FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 0);
         //PERMUT	Returns the number of permutations for a given number of objects
         //POISSON	Returns the Poisson distribution
         //PROB	Returns the probability that values in a range are between two limits
         ce.RegisterFunction("QUARTILE", 2, 2, Adapt(Quartile), FunctionFlags.Range, AllowRange.Only, 0); // Returns the quartile of a data set
         ce.RegisterFunction("QUARTILE.INC", 2, 2, Adapt(Quartile), FunctionFlags.Range, AllowRange.Only, 0);
+        ce.RegisterFunction("QUARTILE.EXC", 2, 2, Adapt(QuartileExc), FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 0); // The quartile, exclusive of the endpoints
         ce.RegisterFunction("RANK", 2, 3, Rank, FunctionFlags.Range, AllowRange.Only, 1); // Returns the rank of a number in a list of numbers
         ce.RegisterFunction("RANK.EQ", 2, 3, Rank, FunctionFlags.Range, AllowRange.Only, 1);
+        ce.RegisterFunction("RANK.AVG", 2, 3, RankAvg, FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 1); // Rank, with tied values sharing the average of the ranks they span
         //RSQ	Returns the square of the Pearson product moment correlation coefficient
         //SKEW	Returns the skewness of a distribution
         //SLOPE	Returns the slope of the linear regression line
@@ -641,6 +647,16 @@ internal static class Statistical
 
     private static AnyValue Rank(CalcContext ctx, Span<AnyValue> args)
     {
+        return Rank(ctx, args, averageTies: false);
+    }
+
+    private static AnyValue RankAvg(CalcContext ctx, Span<AnyValue> args)
+    {
+        return Rank(ctx, args, averageTies: true);
+    }
+
+    private static AnyValue Rank(CalcContext ctx, Span<AnyValue> args, bool averageTies)
+    {
         // RANK(number, ref, [order]). number/order are scalars (implicitly intersected); ref is the
         // range/array (marked param 1). order = 0 or omitted ranks descending, non-zero ascending.
         if (!args[0].TryPickScalar(out var numberScalar, out _))
@@ -668,7 +684,14 @@ internal static class Statistical
         var rank = ascending
             ? numbers.Count(v => v < number) + 1
             : numbers.Count(v => v > number) + 1;
-        return rank;
+
+        if (!averageTies)
+            return rank;
+
+        // RANK.AVG spreads the ranks a tied group occupies evenly across its members: a pair tied
+        // for third takes ranks three and four, so both are reported as 3.5.
+        var tied = numbers.Count(v => v == number);
+        return rank + (tied - 1) / 2.0;
     }
 
     private static AnyValue Mode(CalcContext ctx, Span<AnyValue> args)
@@ -707,12 +730,130 @@ internal static class Statistical
         return XLError.NoValueAvailable;
     }
 
+    /// <summary>
+    /// MODE.MULT — every value tied for most common, as a column. MODE.SNGL returns only the first
+    /// of them, which is the whole difference between the two.
+    /// </summary>
+    private static AnyValue ModeMult(CalcContext ctx, Span<AnyValue> args)
+    {
+        var result = TallyNumbers.Default.Tally(ctx, args, new ValuesState([]));
+        if (!result.TryPickT0(out var state, out var error))
+            return error;
+
+        var values = state.Values;
+        var counts = new Dictionary<double, int>();
+        var maxCount = 0;
+        foreach (var value in values)
+        {
+            var count = counts.GetValueOrDefault(value) + 1;
+            counts[value] = count;
+            if (count > maxCount)
+                maxCount = count;
+        }
+
+        if (maxCount <= 1)
+            return XLError.NoValueAvailable;
+
+        // Report them in order of first appearance, which is the order Excel uses.
+        var modes = new List<double>();
+        var seen = new HashSet<double>();
+        foreach (var value in values)
+        {
+            if (counts[value] == maxCount && seen.Add(value))
+                modes.Add(value);
+        }
+
+        var data = new ScalarValue[modes.Count, 1];
+        for (var i = 0; i < modes.Count; i++)
+            data[i, 0] = modes[i];
+
+        return new ConstArray(data);
+    }
+
     private static AnyValue Percentile(CalcContext ctx, AnyValue arrayParam, double k)
     {
         if (!TryGetNumbers(ctx, arrayParam, out var numbers, out var error))
             return error;
 
         return PercentileInclusive(numbers, k);
+    }
+
+    private static AnyValue PercentileExc(CalcContext ctx, AnyValue arrayParam, double k)
+    {
+        if (!TryGetNumbers(ctx, arrayParam, out var numbers, out var error))
+            return error;
+
+        return PercentileExclusive(numbers, k);
+    }
+
+    private static AnyValue QuartileExc(CalcContext ctx, AnyValue arrayParam, double quartParam)
+    {
+        if (!TryGetNumbers(ctx, arrayParam, out var numbers, out var error))
+            return error;
+
+        return QuartileExclusive(numbers, quartParam);
+    }
+
+    private static AnyValue PercentRankInc(CalcContext ctx, Span<AnyValue> args)
+        => PercentRank(ctx, args, exclusive: false);
+
+    private static AnyValue PercentRankExc(CalcContext ctx, Span<AnyValue> args)
+        => PercentRank(ctx, args, exclusive: true);
+
+    /// <summary>
+    /// PERCENTRANK(array, x, [significance]) — where <c>x</c> sits within the data set, as a
+    /// fraction between 0 and 1. It is the inverse of PERCENTILE, and comes in the same inclusive
+    /// and exclusive flavours: inclusive spreads the n values over 0…1, exclusive over
+    /// 1/(n+1)…n/(n+1). The result is truncated, not rounded, to <c>significance</c> decimals.
+    /// </summary>
+    private static AnyValue PercentRank(CalcContext ctx, Span<AnyValue> args, bool exclusive)
+    {
+        if (!TryGetNumbers(ctx, args[0], out var numbers, out var arrayError))
+            return arrayError;
+
+        if (!args[1].TryPickScalar(out var xScalar, out _))
+            return XLError.IncompatibleValue;
+        if (!xScalar.ToNumber(ctx.Culture).TryPickT0(out var x, out var xError))
+            return xError;
+
+        var significance = 3d;
+        if (args.Length > 2)
+        {
+            if (!args[2].TryPickScalar(out var significanceScalar, out _))
+                return XLError.IncompatibleValue;
+            if (!significanceScalar.ToNumber(ctx.Culture).TryPickT0(out significance, out var significanceError))
+                return significanceError;
+
+            significance = Math.Truncate(significance);
+            if (significance < 1)
+                return XLError.NumberInvalid;
+        }
+
+        if (numbers.Count == 0)
+            return XLError.NumberInvalid;
+
+        numbers.Sort();
+        if (x < numbers[0] || x > numbers[^1])
+            return XLError.NoValueAvailable;
+
+        // Position within the sorted values, interpolating between the two that straddle x.
+        var below = 0;
+        while (below + 1 < numbers.Count && numbers[below + 1] <= x)
+            below++;
+
+        var position = (double)below;
+        if (numbers[below] < x && below + 1 < numbers.Count)
+            position += (x - numbers[below]) / (numbers[below + 1] - numbers[below]);
+
+        var rank = exclusive
+            ? (position + 1) / (numbers.Count + 1)
+            : numbers.Count > 1 ? position / (numbers.Count - 1) : 1d;
+
+        if (exclusive && (rank <= 0 || rank >= 1))
+            return XLError.NoValueAvailable;
+
+        var scale = Math.Pow(10, significance);
+        return Math.Truncate(rank * scale) / scale;
     }
 
     private static AnyValue Quartile(CalcContext ctx, AnyValue arrayParam, double quartParam)
@@ -796,7 +937,7 @@ internal static class Statistical
     /// Collect the numeric values of an array/range/scalar argument (skipping blanks and text,
     /// short-circuiting on an error value), mirroring how <see cref="Large"/> reads its data set.
     /// </summary>
-    private static bool TryGetNumbers(CalcContext ctx, AnyValue arrayParam, out List<double> numbers, out XLError error)
+    internal static bool TryGetNumbers(CalcContext ctx, AnyValue arrayParam, out List<double> numbers, out XLError error)
     {
         error = default;
 
