@@ -10,8 +10,9 @@ paths. Those tests need nothing from this folder.
 
 ## Status
 
-One file, covering agile encryption as current Excel writes it. That is the common case and it is
-now genuinely proven rather than assumed.
+One file, covering agile encryption as current Excel writes it. That is the common case, and
+together with the manual check recorded at the bottom of this file it means agile encryption is
+proven in both directions: XLibur reads what Excel writes, and Excel reads what XLibur writes.
 
 Still open: standard encryption, which no file here exercises. XLibur reads it and never writes it,
 so nothing in the suite touches that path — it is the least trusted code in the feature.
@@ -35,6 +36,24 @@ Also worth capturing, since the error paths are as much a part of the contract a
 
 - a file truncated mid-`EncryptedPackage`
 - a file whose `EncryptedPackage` has had a byte flipped, to fail the HMAC
+
+## Manual verification: Excel opens what XLibur writes
+
+Acceptance criterion 2 of `docs/specs/06-workbook-encryption.md` cannot be automated here, because
+nothing in CI can drive Excel. It is recorded instead.
+
+**2026-07-26 — passed.** A workbook written by XLibur with `SaveOptions.Password` (agile AES-256,
+SHA-512, spin count 100,000) was opened in Excel by the maintainer. Excel prompted for the password
+and opened the file.
+
+The sample deliberately carried more than a single string, so that a pass meant the whole package
+survived rather than only that the container parsed: bold and sized fonts, a number with a
+`#,##0.00` format, a date with a date format, a formula with a cached value, a fill and a border,
+and a second worksheet.
+
+Re-run this check whenever the container or the descriptor changes: the round-trip tests cannot
+catch a file that XLibur reads happily and Excel rejects, which is the exact failure this criterion
+exists to rule out.
 
 ## Producing a file
 
