@@ -39,9 +39,10 @@ public interface IXLChartSeries
     uint Order { get; }
 
     /// <summary>
-    /// Gets or sets the solid fill colour of the series (bar/column/area/pie interior, marker
-    /// interior for scatter). <c>null</c> — the default — omits the fill, so Excel applies the
-    /// automatic colour from the workbook theme.
+    /// Gets or sets the solid fill colour of the series interior — the bar, column, area or pie
+    /// body. Line and scatter series have no interior; use <see cref="MarkerFillColor"/> for their
+    /// markers. <c>null</c> — the default — omits the fill, so Excel applies the automatic colour
+    /// from the workbook theme.
     /// </summary>
     /// <remarks>
     /// A theme colour (<see cref="XLColor.FromTheme(XLThemeColor)"/>) is written as a DrawingML
@@ -99,9 +100,9 @@ public interface IXLChartSeries
     /// right-hand side of the plot area.
     /// </summary>
     /// <remarks>
-    /// Honoured for chart types that have a category and a value axis (bar, column, line, area,
-    /// radar, stock and surface). Chart types without a value axis (pie, doughnut) and the
-    /// two-value-axis types (scatter, bubble) ignore it.
+    /// Honoured for chart types with one category and one value axis (bar, column, line, area,
+    /// radar and stock). Chart types without a value axis (pie, doughnut), the two-value-axis types
+    /// (scatter, bubble) and surface — which adds a series axis — ignore it.
     /// </remarks>
     /// <exception cref="System.NotSupportedException">
     /// The chart was loaded from a file. Moving a series of an existing chart onto a secondary

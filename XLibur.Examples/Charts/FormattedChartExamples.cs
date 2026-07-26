@@ -103,8 +103,9 @@ public class FormattedChartExamples : IXLExample
     }
 
     /// <summary>
-    /// Series on the primary chart type can go on the secondary axis too — here one quarter is
-    /// picked out in a strong colour while the rest stay automatic.
+    /// Series on the primary chart type can go on the secondary axis too: the two currency series
+    /// share the left axis while the growth percentage gets the right one, without the chart needing
+    /// a secondary chart type. Only the series worth looking at first is given an explicit colour.
     /// </summary>
     private static void HighlightOneSeries(XLWorkbook wb)
     {

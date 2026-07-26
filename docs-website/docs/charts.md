@@ -194,10 +194,11 @@ revenue.LineColor = XLColor.FromHtml("#203864");     // bar border
 revenue.LineWidthPt = 1.5;
 ```
 
-For a line or scatter series the same two colours mean the line and — with `MarkerStyle` — the
-symbol drawn at each point:
+On a line or scatter series `LineColor` and `LineWidthPt` draw the line itself. The marker is a
+separate thing: `MarkerStyle` picks the symbol and `MarkerFillColor` fills it.
 
 ```csharp
+chart.SecondaryChartType = XLChartType.LineWithMarkers;
 var trend = chart.SecondarySeries.Add("Margin %", "Sales!$D$2:$D$5", "Sales!$A$2:$A$5");
 
 trend.LineColor = XLColor.FromTheme(XLThemeColor.Accent2);
@@ -210,7 +211,7 @@ trend.Smooth = true;                                  // curve rather than strai
 
 | Property | Applies to | Default |
 |---|---|---|
-| `FillColor` | bar, column, area, pie interiors; scatter markers | automatic (theme) |
+| `FillColor` | bar, column, area and pie interiors | automatic (theme) |
 | `LineColor` | line and scatter lines; borders elsewhere | automatic (theme) |
 | `LineWidthPt` | any outline, 0 to 1584 points | Excel's own |
 | `MarkerStyle` | line, scatter, radar | `Auto` |
@@ -245,9 +246,10 @@ var margin = chart.SecondarySeries.Add("Margin %", "Sales!$D$2:$D$5", "Sales!$A$
 margin.UseSecondaryAxis = true;
 ```
 
-It works on any series of a chart type that has a category and a value axis — bar, column, line,
-area, radar, stock and surface — including series of the primary chart type. Pie and doughnut
-charts have no value axis and scatter and bubble charts already have two, so they ignore it.
+It works on any series of a chart type that has one category and one value axis — bar, column, line,
+area, radar and stock — including series of the primary chart type. Pie and doughnut charts have no
+value axis, scatter and bubble charts already have two, and surface charts add a series axis, so all
+of those ignore it.
 
 :::caution
 `UseSecondaryAxis` can only be set on charts you create. Moving a series of a chart **loaded from
