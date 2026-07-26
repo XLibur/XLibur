@@ -133,6 +133,86 @@ public class EngineeringConvertTests
     }
 
     [Test]
+    // The order-zero and order-one values at x = 1, as published in Abramowitz & Stegun's tables.
+    [Arguments("BESSELJ(1, 0)", 0.7651976865579666d)]
+    [Arguments("BESSELJ(1, 1)", 0.44005058574493355d)]
+    [Arguments("BESSELY(1, 0)", 0.08825696421567696d)]
+    [Arguments("BESSELY(1, 1)", -0.7812128213002887d)]
+    [Arguments("BESSELI(1, 0)", 1.2660658777520084d)]
+    [Arguments("BESSELI(1, 1)", 0.565159103992485d)]
+    [Arguments("BESSELK(1, 0)", 0.42102443824070834d)]
+    [Arguments("BESSELK(1, 1)", 0.6019072301972346d)]
+    public async Task Bessel_TabulatedValuesAtUnity(string formula, double expected)
+    {
+        await Assert.That((double)XLWorkbook.EvaluateExpr(formula)).IsEqualTo(expected).Within(1e-7);
+    }
+
+    [Test]
+    // The Wronskian identities hold exactly, whichever branch of the approximation is in play:
+    // below the crossover (x = 1), between the two (x = 5, where I and K have switched but J and Y
+    // have not), and above it (x = 12).
+    [Arguments(1d)]
+    [Arguments(5d)]
+    [Arguments(12d)]
+    public async Task Bessel_SatisfiesTheWronskianIdentities(double x)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = x;
+
+        // J0·Y1 - J1·Y0 = -2/(pi*x).
+        ws.Cell("B1").FormulaA1 = "BESSELJ(A1,0)*BESSELY(A1,1) - BESSELJ(A1,1)*BESSELY(A1,0) + 2/(PI()*A1)";
+        // I0·K1 + I1·K0 = 1/x.
+        ws.Cell("B2").FormulaA1 = "BESSELI(A1,0)*BESSELK(A1,1) + BESSELI(A1,1)*BESSELK(A1,0) - 1/A1";
+
+        await Assert.That((double)ws.Cell("B1").Value).IsEqualTo(0d).Within(1e-7);
+        await Assert.That((double)ws.Cell("B2").Value).IsEqualTo(0d).Within(1e-7);
+    }
+
+    [Test]
+    // The modified functions have their own recurrences, with the signs the other way round:
+    // I(n-1) - I(n+1) = (2n/x)·I(n) and K(n+1) - K(n-1) = (2n/x)·K(n).
+    [Arguments(1.5d)]
+    [Arguments(9d)]
+    public async Task Bessel_ModifiedFunctionsSatisfyTheirRecurrences(double x)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = x;
+
+        ws.Cell("B1").FormulaA1 = "(BESSELI(A1,2) - BESSELI(A1,4) - 6/A1*BESSELI(A1,3)) / BESSELI(A1,2)";
+        ws.Cell("B2").FormulaA1 = "(BESSELK(A1,4) - BESSELK(A1,2) - 6/A1*BESSELK(A1,3)) / BESSELK(A1,4)";
+        // And the first order still follows from the zeroth and second.
+        ws.Cell("B3").FormulaA1 = "(BESSELI(A1,0) - BESSELI(A1,2) - 2/A1*BESSELI(A1,1)) / BESSELI(A1,0)";
+
+        await Assert.That((double)ws.Cell("B1").Value).IsEqualTo(0d).Within(1e-6);
+        await Assert.That((double)ws.Cell("B2").Value).IsEqualTo(0d).Within(1e-6);
+        await Assert.That((double)ws.Cell("B3").Value).IsEqualTo(0d).Within(1e-6);
+    }
+
+    [Test]
+    public async Task Bessel_HandlesNegativeArgumentsAndHighOrders()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        // J and I are even in x at even order and odd at odd order.
+        ws.Cell("A1").FormulaA1 = "BESSELJ(-2, 2) - BESSELJ(2, 2)";
+        ws.Cell("A2").FormulaA1 = "BESSELJ(-2, 3) + BESSELJ(2, 3)";
+        ws.Cell("A3").FormulaA1 = "BESSELI(-2, 2) - BESSELI(2, 2)";
+        ws.Cell("A4").FormulaA1 = "BESSELI(-2, 5) + BESSELI(2, 5)";
+        // A high order against a small argument drives the downward recurrence through its
+        // rescaling step, and the answer is a very small positive number.
+        ws.Cell("A5").FormulaA1 = "BESSELJ(1, 30)";
+
+        foreach (var address in new[] { "A1", "A2", "A3", "A4" })
+            await Assert.That((double)ws.Cell(address).Value).IsEqualTo(0d).Within(1e-12);
+
+        await Assert.That((double)ws.Cell("A5").Value).IsGreaterThan(0d);
+        await Assert.That((double)ws.Cell("A5").Value).IsLessThan(1e-30d);
+    }
+
+    [Test]
     public async Task Bessel_SatisfiesItsRecurrenceRelation()
     {
         // J(n-1, x) + J(n+1, x) = 2n/x · J(n, x) holds for every kind, which exercises both the

@@ -433,6 +433,109 @@ public class ArrayShapingTests
     }
 
     [Test]
+    public async Task Shaping_RejectsArgumentsItCannotRead()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            SeedGrid(ws);
+            ws.Cell("E1").FormulaA1 = "TOCOL(A1:C2, 4)"; // Only ignore modes 0..3 exist.
+            ws.Cell("E2").FormulaA1 = "TOCOL(A1:C2, -1)";
+            ws.Cell("E3").FormulaA1 = "WRAPROWS({1,2,3}, \"x\")"; // Not a count.
+            ws.Cell("E4").FormulaA1 = "CHOOSEROWS(A1:C2, \"x\")";
+            ws.Cell("E5").FormulaA1 = "TAKE(A1:C2, \"x\")";
+            ws.Cell("E6").FormulaA1 = "EXPAND(A1:C2, \"x\")";
+            ws.Cell("E7").FormulaA1 = "TOCOL(5)"; // A bare scalar is not an array.
+
+            foreach (var address in new[] { "E1", "E2", "E7" })
+                await Assert.That(ws.Cell(address).Value).IsEqualTo(XLError.IncompatibleValue);
+
+            foreach (var address in new[] { "E3", "E4", "E5", "E6" })
+                await Assert.That(ws.Cell(address).Value).IsEqualTo(XLError.IncompatibleValue);
+        }
+    }
+
+    [Test]
+    public async Task ToCol_ScansByColumnWhileIgnoringValues()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = 1;
+            ws.Cell("B1").FormulaA1 = "1/0";
+            // A2 left blank.
+            ws.Cell("B2").Value = 4;
+
+            // Column order over the block is 1, blank, error, 4; ignoring both leaves 1 and 4.
+            ws.Range("D1:D2").FormulaArrayA1 = "TOCOL(A1:B2, 3, TRUE)";
+
+            await Assert.That((double)ws.Cell("D1").Value).IsEqualTo(1d);
+            await Assert.That((double)ws.Cell("D2").Value).IsEqualTo(4d);
+        }
+    }
+
+    [Test]
+    public async Task Take_AskingForEverythingReturnsTheArrayUnchanged()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            SeedGrid(ws);
+            ws.Range("E1:G2").FormulaArrayA1 = "TAKE(A1:C2, 2, 3)";
+            ws.Range("E4:G5").FormulaArrayA1 = "DROP(A1:C2, 0, 0)";
+
+            await Assert.That((double)ws.Cell("E1").Value).IsEqualTo(1d);
+            await Assert.That((double)ws.Cell("G2").Value).IsEqualTo(6d);
+            await Assert.That((double)ws.Cell("E4").Value).IsEqualTo(1d);
+            await Assert.That((double)ws.Cell("G5").Value).IsEqualTo(6d);
+        }
+    }
+
+    [Test]
+    public async Task Expand_RefusesASizeBeyondTheSheet()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            SeedGrid(ws);
+            ws.Cell("E1").FormulaA1 = "EXPAND(A1:C2, 2000000)";
+            ws.Cell("E2").FormulaA1 = "EXPAND(A1:C2, 3, 20000)";
+
+            await Assert.That(ws.Cell("E1").Value).IsEqualTo(XLError.NumberInvalid);
+            await Assert.That(ws.Cell("E2").Value).IsEqualTo(XLError.NumberInvalid);
+        }
+    }
+
+    [Test]
+    public async Task ChooseCols_AcceptsAnArrayOfIndicesAndRejectsBadOnes()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            SeedGrid(ws);
+            ws.Range("E1:F2").FormulaArrayA1 = "CHOOSECOLS(A1:C2, {3,-3})";
+            ws.Cell("E4").FormulaA1 = "CHOOSECOLS(A1:C2, {1,9})";
+
+            await Assert.That((double)ws.Cell("E1").Value).IsEqualTo(3d);
+            await Assert.That((double)ws.Cell("F1").Value).IsEqualTo(1d); // -3 is the first of three.
+            await Assert.That(ws.Cell("E4").Value).IsEqualTo(XLError.IncompatibleValue);
+        }
+    }
+
+    [Test]
+    public async Task Stack_RejectsAScalarArgument()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            SeedGrid(ws);
+            ws.Cell("E1").FormulaA1 = "VSTACK(A1:C2, 5)";
+
+            await Assert.That(ws.Cell("E1").Value).IsEqualTo(XLError.IncompatibleValue);
+        }
+    }
+
+    [Test]
     public async Task ShapingFunctionsCompose()
     {
         var ws = NewSheet(out var wb);

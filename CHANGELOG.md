@@ -33,7 +33,7 @@
 
 - **Regression and descriptive statistics — 23 functions**: `LINEST`, `LOGEST`, `TREND`, `GROWTH`, `FREQUENCY`, `FORECAST`, `FORECAST.LINEAR`, `CORREL`, `PEARSON`, `COVARIANCE.P`, `COVARIANCE.S`, `COVAR`, `SLOPE`, `INTERCEPT`, `RSQ`, `STEYX`, `SKEW`, `SKEW.P`, `KURT`, `PROB`, `TRIMMEAN`, `HARMEAN` and `AVEDEV`. The five array-returning ones spill.
 
-  `LINEST` handles several predictors, not just one, and reports the full five-row statistics block on request. Both orientations work — y down a column with each predictor in its own column, or y across a row with each in its own row.
+  `LINEST` handles several predictors, not just one, and reports the full five-row statistics block on request. Both orientations work — y down a column with each predictor in its own column, or y across a row with each in its own row. ([#257](https://github.com/XLibur/XLibur/pull/257) by [@jafin](https://github.com/jafin))
 
 - **The statistical distributions — 69 functions**. The modern dotted set (`NORM.DIST`, `NORM.INV`, `NORM.S.DIST`, `NORM.S.INV`, `LOGNORM.*`, `CHISQ.*`, `F.*`, `T.DIST*`, `EXPON.DIST`, `POISSON.DIST`, `WEIBULL.DIST`, `GAMMA`, `GAMMA.DIST`, `GAMMA.INV`, `GAMMALN(.PRECISE)`, `BETA.DIST`, `BETA.INV`, `HYPGEOM.DIST`, `NEGBINOM.DIST`, `BINOM.INV`, `CONFIDENCE.NORM`, `CONFIDENCE.T`, `PERCENTILE.EXC`, `QUARTILE.EXC`, `RANK.AVG`, `MODE.MULT`, `PERCENTRANK(.INC/.EXC)`), the hypothesis tests (`CHISQ.TEST`, `F.TEST`, `T.TEST`, `Z.TEST`) and the 26 pre-2010 names (`NORMDIST`, `CHIDIST`, `FINV`, `TDIST`, `CRITBINOM`, …), which are registered against the same implementations rather than copies of them.
 
