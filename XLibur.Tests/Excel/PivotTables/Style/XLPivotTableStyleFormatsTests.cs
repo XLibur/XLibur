@@ -83,12 +83,12 @@ internal class XLPivotTableStyleFormatsTests
             var alignment = format.DxfStyleValue.Alignment;
             await Assert.That(alignment.Horizontal).IsEqualTo(XLAlignmentHorizontalValues.Center);
             await Assert.That(alignment.Vertical).IsEqualTo(XLAlignmentVerticalValues.Top);
-            await Assert.That(alignment.WrapText).IsEqualTo(true);
+            await Assert.That(alignment.WrapText).IsTrue();
             await Assert.That(alignment.TextRotation).IsEqualTo(45);
 
             // Non-set properties remain at defaults
             await Assert.That(alignment.Indent).IsEqualTo(0);
-            await Assert.That(alignment.ShrinkToFit).IsEqualTo(false);
+            await Assert.That(alignment.ShrinkToFit).IsFalse();
             await Assert.That(alignment.ReadingOrder).IsEqualTo(XLAlignmentReadingOrderValues.ContextDependent);
         }
     }

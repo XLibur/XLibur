@@ -1,4 +1,9 @@
-﻿using System;
+﻿// The test project does not enable nullable reference types, but this file annotates the two
+// members below. Opting just this file in keeps the annotations legal (CS8632) without turning
+// null analysis on for the whole suite.
+#nullable enable
+
+using System;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;

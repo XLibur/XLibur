@@ -108,10 +108,10 @@ public class AppendingAndReplacingTableDataTests
 
         IEnumerable<Person> personEnumerable = [];
 
-        await Assert.That(table.AppendData(personEnumerable)).IsEqualTo(null);
+        await Assert.That(table.AppendData(personEnumerable)).IsNull();
 
         IEnumerable enumerable = Array.Empty<Person>();
-        await Assert.That(table.AppendData(enumerable)).IsEqualTo(null);
+        await Assert.That(table.AppendData(enumerable)).IsNull();
     }
 
     [Test]
@@ -484,8 +484,8 @@ public class AppendingAndReplacingTableDataTests
 
             await Assert.That(table.Worksheet.Cell("J5").FormulaA1).IsEqualTo("G5>=40");
             await Assert.That(table.Worksheet.Cell("J6").FormulaA1).IsEqualTo("G6>=40");
-            await Assert.That(table.Worksheet.Cell("J5").Value).IsEqualTo(false);
-            await Assert.That(table.Worksheet.Cell("J6").Value).IsEqualTo(false);
+            await Assert.That(table.Worksheet.Cell("J5").Value).IsEqualTo(ExpectedCellValue.From(false));
+            await Assert.That(table.Worksheet.Cell("J6").Value).IsEqualTo(ExpectedCellValue.From(false));
 
             await Assert.That(table.Worksheet.Cell("K5").Value).IsEqualTo("40 is not old!");
             await Assert.That(table.Worksheet.Cell("K6").Value).IsEqualTo("40 is not old!");
@@ -530,8 +530,8 @@ public class AppendingAndReplacingTableDataTests
 
             await Assert.That(table.Worksheet.Cell("J5").FormulaA1).IsEqualTo("G5>=40");
             await Assert.That(table.Worksheet.Cell("J6").FormulaA1).IsEqualTo("G6>=40");
-            await Assert.That(table.Worksheet.Cell("J5").Value).IsEqualTo(false);
-            await Assert.That(table.Worksheet.Cell("J6").Value).IsEqualTo(false);
+            await Assert.That(table.Worksheet.Cell("J5").Value).IsEqualTo(ExpectedCellValue.From(false));
+            await Assert.That(table.Worksheet.Cell("J6").Value).IsEqualTo(ExpectedCellValue.From(false));
 
             await Assert.That(table.Worksheet.Cell("K5").Value).IsEqualTo("40 is not old!");
             await Assert.That(table.Worksheet.Cell("K6").Value).IsEqualTo("40 is not old!");
@@ -614,8 +614,8 @@ public class AppendingAndReplacingTableDataTests
 
             await Assert.That(table.Worksheet.Cell("J8").FormulaA1).IsEqualTo("G8>=40");
             await Assert.That(table.Worksheet.Cell("J9").FormulaA1).IsEqualTo("G9>=40");
-            await Assert.That(table.Worksheet.Cell("J8").Value).IsEqualTo(false);
-            await Assert.That(table.Worksheet.Cell("J9").Value).IsEqualTo(false);
+            await Assert.That(table.Worksheet.Cell("J8").Value).IsEqualTo(ExpectedCellValue.From(false));
+            await Assert.That(table.Worksheet.Cell("J9").Value).IsEqualTo(ExpectedCellValue.From(false));
 
             await Assert.That(table.Worksheet.Cell("K8").Value).IsEqualTo("40 is not old!");
             await Assert.That(table.Worksheet.Cell("K9").Value).IsEqualTo("40 is not old!");
@@ -665,8 +665,8 @@ public class AppendingAndReplacingTableDataTests
 
             await Assert.That(table.Worksheet.Cell("J10").FormulaA1).IsEqualTo("G10>=40");
             await Assert.That(table.Worksheet.Cell("J11").FormulaA1).IsEqualTo("G11>=40");
-            await Assert.That(table.Worksheet.Cell("J10").Value).IsEqualTo(false);
-            await Assert.That(table.Worksheet.Cell("J11").Value).IsEqualTo(false);
+            await Assert.That(table.Worksheet.Cell("J10").Value).IsEqualTo(ExpectedCellValue.From(false));
+            await Assert.That(table.Worksheet.Cell("J11").Value).IsEqualTo(ExpectedCellValue.From(false));
 
             await Assert.That(table.Worksheet.Cell("K10").Value).IsEqualTo("40 is not old!");
             await Assert.That(table.Worksheet.Cell("K11").Value).IsEqualTo("40 is not old!");

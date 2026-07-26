@@ -105,7 +105,7 @@ public class StylesTests
         {
             await Assert.That(ws.Cell("A1").Style.Font.FontSize).IsEqualTo(8);
             await Assert.That(ws.Cell("B1").Style.Font.FontColor).IsEqualTo(XLColor.Green);
-            await Assert.That(ws.Cell("C1").Style.Font.Bold).IsEqualTo(true);
+            await Assert.That(ws.Cell("C1").Style.Font.Bold).IsTrue();
         }
     }
 }

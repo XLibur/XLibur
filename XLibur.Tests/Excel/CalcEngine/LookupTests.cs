@@ -362,7 +362,7 @@ public class LookupTests
             await Assert.That(sheet.Evaluate($"INDEX({formula},1,1)")).IsEqualTo(value);
             await Assert.That(sheet.Evaluate($"ROWS({formula})")).IsEqualTo(rows);
             await Assert.That(sheet.Evaluate($"COLUMNS({formula})")).IsEqualTo(cols);
-            await Assert.That(sheet.Evaluate($"ISREF({formula})")).IsEqualTo(true);
+            await Assert.That(sheet.Evaluate($"ISREF({formula})")).IsEqualTo(ExpectedCellValue.From(true));
         }
     }
 
@@ -415,7 +415,7 @@ public class LookupTests
             await Assert.That(XLWorkbook.EvaluateExpr(formula)).IsEqualTo(value);
             await Assert.That(XLWorkbook.EvaluateExpr($"ROWS({formula})")).IsEqualTo(rows);
             await Assert.That(XLWorkbook.EvaluateExpr($"COLUMNS({formula})")).IsEqualTo(cols);
-            await Assert.That(XLWorkbook.EvaluateExpr($"ISREF({formula})")).IsEqualTo(false);
+            await Assert.That(XLWorkbook.EvaluateExpr($"ISREF({formula})")).IsEqualTo(ExpectedCellValue.From(false));
         }
     }
 

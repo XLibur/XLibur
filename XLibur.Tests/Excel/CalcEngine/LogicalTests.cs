@@ -12,15 +12,15 @@ public class LogicalTests
     [Test]
     public async Task And_IsLogicalConjunction()
     {
-        await Assert.That(XLWorkbook.EvaluateExpr("AND(TRUE)")).IsEqualTo(true);
-        await Assert.That(XLWorkbook.EvaluateExpr("AND(TRUE, TRUE)")).IsEqualTo(true);
-        await Assert.That(XLWorkbook.EvaluateExpr("AND(TRUE, TRUE, TRUE)")).IsEqualTo(true);
-        await Assert.That(XLWorkbook.EvaluateExpr("AND({TRUE, TRUE}, TRUE)")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("AND(TRUE)")).IsEqualTo(ExpectedCellValue.From(true));
+        await Assert.That(XLWorkbook.EvaluateExpr("AND(TRUE, TRUE)")).IsEqualTo(ExpectedCellValue.From(true));
+        await Assert.That(XLWorkbook.EvaluateExpr("AND(TRUE, TRUE, TRUE)")).IsEqualTo(ExpectedCellValue.From(true));
+        await Assert.That(XLWorkbook.EvaluateExpr("AND({TRUE, TRUE}, TRUE)")).IsEqualTo(ExpectedCellValue.From(true));
 
-        await Assert.That(XLWorkbook.EvaluateExpr("AND(FALSE)")).IsEqualTo(false);
-        await Assert.That(XLWorkbook.EvaluateExpr("AND(TRUE, FALSE)")).IsEqualTo(false);
-        await Assert.That(XLWorkbook.EvaluateExpr("AND({TRUE, FALSE})")).IsEqualTo(false);
-        await Assert.That(XLWorkbook.EvaluateExpr("AND(TRUE, {TRUE, FALSE})")).IsEqualTo(false);
+        await Assert.That(XLWorkbook.EvaluateExpr("AND(FALSE)")).IsEqualTo(ExpectedCellValue.From(false));
+        await Assert.That(XLWorkbook.EvaluateExpr("AND(TRUE, FALSE)")).IsEqualTo(ExpectedCellValue.From(false));
+        await Assert.That(XLWorkbook.EvaluateExpr("AND({TRUE, FALSE})")).IsEqualTo(ExpectedCellValue.From(false));
+        await Assert.That(XLWorkbook.EvaluateExpr("AND(TRUE, {TRUE, FALSE})")).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     [Test]
@@ -38,21 +38,21 @@ public class LogicalTests
     public async Task And_ScalarArgumentsCoercedFromBlankOrTextOrNumber()
     {
         // Blank evaluated to false
-        await Assert.That(XLWorkbook.EvaluateExpr("AND(IF(TRUE,,))")).IsEqualTo(false);
+        await Assert.That(XLWorkbook.EvaluateExpr("AND(IF(TRUE,,))")).IsEqualTo(ExpectedCellValue.From(false));
 
         // Number coerced to logical
-        await Assert.That(XLWorkbook.EvaluateExpr("AND(0)")).IsEqualTo(false);
-        await Assert.That(XLWorkbook.EvaluateExpr("AND(0.1)")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("AND(0)")).IsEqualTo(ExpectedCellValue.From(false));
+        await Assert.That(XLWorkbook.EvaluateExpr("AND(0.1)")).IsEqualTo(ExpectedCellValue.From(true));
 
         // Text coerced to logical
-        await Assert.That(XLWorkbook.EvaluateExpr("AND(\"FALSE\")")).IsEqualTo(false);
-        await Assert.That(XLWorkbook.EvaluateExpr("AND(\"TRUE\")")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("AND(\"FALSE\")")).IsEqualTo(ExpectedCellValue.From(false));
+        await Assert.That(XLWorkbook.EvaluateExpr("AND(\"TRUE\")")).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
     public async Task And_UnconvertableScalarArgumentsSkipped()
     {
-        await Assert.That(XLWorkbook.EvaluateExpr("AND(TRUE,\"z\")")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("AND(TRUE,\"z\")")).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -63,18 +63,18 @@ public class LogicalTests
 
         // 0 is a number and is converted to logical
         ws.Cell("A1").Value = 0;
-        await Assert.That(ws.Evaluate("AND(TRUE,A1)")).IsEqualTo(false);
+        await Assert.That(ws.Evaluate("AND(TRUE,A1)")).IsEqualTo(ExpectedCellValue.From(false));
 
         // false is logical
         ws.Cell("A2").Value = false;
-        await Assert.That(ws.Evaluate("AND(TRUE,A2)")).IsEqualTo(false);
+        await Assert.That(ws.Evaluate("AND(TRUE,A2)")).IsEqualTo(ExpectedCellValue.From(false));
 
         // Text is not converted and thus skipped for evaluation
         ws.Cell("A3").Value = "FALSE";
-        await Assert.That(ws.Evaluate("AND(TRUE,A3)")).IsEqualTo(true);
+        await Assert.That(ws.Evaluate("AND(TRUE,A3)")).IsEqualTo(ExpectedCellValue.From(true));
 
         ws.Cell("A4").Value = "some text";
-        await Assert.That(ws.Evaluate("AND(TRUE,A4)")).IsEqualTo(true);
+        await Assert.That(ws.Evaluate("AND(TRUE,A4)")).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -133,8 +133,8 @@ public class LogicalTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        await Assert.That(ws.Evaluate("ISREF(IF(TRUE, A1))")).IsEqualTo(true);
-        await Assert.That(ws.Evaluate("ISREF(IF(FALSE,, A1))")).IsEqualTo(true);
+        await Assert.That(ws.Evaluate("ISREF(IF(TRUE, A1))")).IsEqualTo(ExpectedCellValue.From(true));
+        await Assert.That(ws.Evaluate("ISREF(IF(FALSE,, A1))")).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -179,17 +179,17 @@ public class LogicalTests
     [Test]
     public async Task If_MissingValues_ReturnBlank()
     {
-        await Assert.That(XLWorkbook.EvaluateExpr("ISBLANK(IF(TRUE,,))")).IsEqualTo(true);
-        await Assert.That(XLWorkbook.EvaluateExpr("ISBLANK(IF(FALSE,,))")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("ISBLANK(IF(TRUE,,))")).IsEqualTo(ExpectedCellValue.From(true));
+        await Assert.That(XLWorkbook.EvaluateExpr("ISBLANK(IF(FALSE,,))")).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
     public async Task IfError_FirstArgumentNonError_ReturnFirstArgument()
     {
-        await Assert.That(XLWorkbook.EvaluateExpr("ISBLANK(IFERROR(IF(TRUE,), 5))")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("ISBLANK(IFERROR(IF(TRUE,), 5))")).IsEqualTo(ExpectedCellValue.From(true));
 
-        await Assert.That(XLWorkbook.EvaluateExpr("IFERROR(FALSE, 5)")).IsEqualTo(false);
-        await Assert.That(XLWorkbook.EvaluateExpr("IFERROR(TRUE, 5)")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("IFERROR(FALSE, 5)")).IsEqualTo(ExpectedCellValue.From(false));
+        await Assert.That(XLWorkbook.EvaluateExpr("IFERROR(TRUE, 5)")).IsEqualTo(ExpectedCellValue.From(true));
 
         await Assert.That(XLWorkbook.EvaluateExpr("IFERROR(0, 5)")).IsEqualTo(0.0);
         await Assert.That(XLWorkbook.EvaluateExpr("IFERROR(-2, 5)")).IsEqualTo(-2.0);
@@ -204,8 +204,8 @@ public class LogicalTests
         await Assert.That(XLWorkbook.EvaluateExpr("IFERROR(1/0, \"text\")")).IsEqualTo("text");
 
         await Assert.That(XLWorkbook.EvaluateExpr("IFERROR(#REF!, #NAME?)")).IsEqualTo(XLError.NameNotRecognized);
-        await Assert.That(XLWorkbook.EvaluateExpr("IFERROR(#NULL!, TRUE)")).IsEqualTo(true);
-        await Assert.That(XLWorkbook.EvaluateExpr("ISBLANK(IFERROR(#VALUE!,IF(TRUE,)))")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("IFERROR(#NULL!, TRUE)")).IsEqualTo(ExpectedCellValue.From(true));
+        await Assert.That(XLWorkbook.EvaluateExpr("ISBLANK(IFERROR(#VALUE!,IF(TRUE,)))")).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -214,7 +214,7 @@ public class LogicalTests
         // Unlike IF, IFERROR doesn't return reference
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        await Assert.That(ws.Evaluate("ISREF(IFERROR(#VALUE!, A1))")).IsEqualTo(false);
+        await Assert.That(ws.Evaluate("ISREF(IFERROR(#VALUE!, A1))")).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     [Test]
@@ -234,15 +234,15 @@ public class LogicalTests
     [Test]
     public async Task Or_IsLogicalDisjunction()
     {
-        await Assert.That(XLWorkbook.EvaluateExpr("OR(TRUE)")).IsEqualTo(true);
-        await Assert.That(XLWorkbook.EvaluateExpr("OR(TRUE, TRUE)")).IsEqualTo(true);
-        await Assert.That(XLWorkbook.EvaluateExpr("OR(TRUE, FALSE, TRUE)")).IsEqualTo(true);
-        await Assert.That(XLWorkbook.EvaluateExpr("OR({FALSE, TRUE}, FALSE)")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("OR(TRUE)")).IsEqualTo(ExpectedCellValue.From(true));
+        await Assert.That(XLWorkbook.EvaluateExpr("OR(TRUE, TRUE)")).IsEqualTo(ExpectedCellValue.From(true));
+        await Assert.That(XLWorkbook.EvaluateExpr("OR(TRUE, FALSE, TRUE)")).IsEqualTo(ExpectedCellValue.From(true));
+        await Assert.That(XLWorkbook.EvaluateExpr("OR({FALSE, TRUE}, FALSE)")).IsEqualTo(ExpectedCellValue.From(true));
 
-        await Assert.That(XLWorkbook.EvaluateExpr("OR(FALSE)")).IsEqualTo(false);
-        await Assert.That(XLWorkbook.EvaluateExpr("OR(FALSE, FALSE)")).IsEqualTo(false);
-        await Assert.That(XLWorkbook.EvaluateExpr("OR({FALSE, FALSE})")).IsEqualTo(false);
-        await Assert.That(XLWorkbook.EvaluateExpr("OR(FALSE, {FALSE, FALSE})")).IsEqualTo(false);
+        await Assert.That(XLWorkbook.EvaluateExpr("OR(FALSE)")).IsEqualTo(ExpectedCellValue.From(false));
+        await Assert.That(XLWorkbook.EvaluateExpr("OR(FALSE, FALSE)")).IsEqualTo(ExpectedCellValue.From(false));
+        await Assert.That(XLWorkbook.EvaluateExpr("OR({FALSE, FALSE})")).IsEqualTo(ExpectedCellValue.From(false));
+        await Assert.That(XLWorkbook.EvaluateExpr("OR(FALSE, {FALSE, FALSE})")).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     [Test]
@@ -260,21 +260,21 @@ public class LogicalTests
     public async Task Or_ScalarArgumentsCoercedFromBlankOrTextOrNumber()
     {
         // Blank evaluated to false
-        await Assert.That(XLWorkbook.EvaluateExpr("OR(IF(TRUE,,))")).IsEqualTo(false);
+        await Assert.That(XLWorkbook.EvaluateExpr("OR(IF(TRUE,,))")).IsEqualTo(ExpectedCellValue.From(false));
 
         // Number coerced to logical
-        await Assert.That(XLWorkbook.EvaluateExpr("OR(0)")).IsEqualTo(false);
-        await Assert.That(XLWorkbook.EvaluateExpr("OR(0.1)")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("OR(0)")).IsEqualTo(ExpectedCellValue.From(false));
+        await Assert.That(XLWorkbook.EvaluateExpr("OR(0.1)")).IsEqualTo(ExpectedCellValue.From(true));
 
         // Text coerced to logical
-        await Assert.That(XLWorkbook.EvaluateExpr("OR(\"FALSE\")")).IsEqualTo(false);
-        await Assert.That(XLWorkbook.EvaluateExpr("OR(\"TRUE\")")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("OR(\"FALSE\")")).IsEqualTo(ExpectedCellValue.From(false));
+        await Assert.That(XLWorkbook.EvaluateExpr("OR(\"TRUE\")")).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
     public async Task Or_UnconvertableScalarArgumentsSkipped()
     {
-        await Assert.That(XLWorkbook.EvaluateExpr("OR(TRUE,\"z\")")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("OR(TRUE,\"z\")")).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -285,17 +285,17 @@ public class LogicalTests
 
         // 1 is a number and is converted to logical
         ws.Cell("A1").Value = 1;
-        await Assert.That(ws.Evaluate("OR(FALSE,A1)")).IsEqualTo(true);
+        await Assert.That(ws.Evaluate("OR(FALSE,A1)")).IsEqualTo(ExpectedCellValue.From(true));
 
         // false is logical
         ws.Cell("A2").Value = true;
-        await Assert.That(ws.Evaluate("OR(FALSE,A2)")).IsEqualTo(true);
+        await Assert.That(ws.Evaluate("OR(FALSE,A2)")).IsEqualTo(ExpectedCellValue.From(true));
 
         // Text is not converted and thus skipped for evaluation
         ws.Cell("A3").Value = "TRUE";
-        await Assert.That(ws.Evaluate("OR(FALSE,A3)")).IsEqualTo(false);
+        await Assert.That(ws.Evaluate("OR(FALSE,A3)")).IsEqualTo(ExpectedCellValue.From(false));
 
         ws.Cell("A4").Value = "some text";
-        await Assert.That(ws.Evaluate("OR(FALSE,A4)")).IsEqualTo(false);
+        await Assert.That(ws.Evaluate("OR(FALSE,A4)")).IsEqualTo(ExpectedCellValue.From(false));
     }
 }

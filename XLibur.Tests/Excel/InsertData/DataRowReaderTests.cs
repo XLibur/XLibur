@@ -20,6 +20,9 @@ public class DataRowReaderTests
         _data.Rows.Add("Ivanova", "Olga", 25);
     }
 
+    [After(HookType.Test)]
+    public void DisposeData() => _data.Dispose();
+
     [Test]
     public async Task CanGetPropertyName()
     {

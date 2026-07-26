@@ -19,8 +19,10 @@ public class XLColorAutomaticTests
     public async Task Automatic_IsTheFirstColorType()
     {
         // Deliberately ordinal 0 so a default XLColorKey describes itself as automatic instead of
-        // masquerading as a fully transparent RGB black.
-        await Assert.That((int)XLColorType.Automatic).IsEqualTo(0);
+        // masquerading as a fully transparent RGB black. Read through a local so the cast is not
+        // constant-folded into the assertion, which TUnitAssertions0005 rejects.
+        var ordinal = (int)XLColorType.Automatic;
+        await Assert.That(ordinal).IsEqualTo(0);
     }
 
     [Test]

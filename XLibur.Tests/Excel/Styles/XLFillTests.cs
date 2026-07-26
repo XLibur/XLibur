@@ -87,15 +87,15 @@ public class XLFillTests
             .Border.SetOutsideBorder(XLBorderStyleValues.Thick)
             .Border.SetOutsideBorderColor(XLColor.Blue);
 
-        await Assert.That(XLBorderStyleValues.Thick).IsEqualTo(style.Border.BottomBorder);
-        await Assert.That(XLBorderStyleValues.Thick).IsEqualTo(style.Border.TopBorder);
-        await Assert.That(XLBorderStyleValues.Thick).IsEqualTo(style.Border.LeftBorder);
-        await Assert.That(XLBorderStyleValues.Thick).IsEqualTo(style.Border.RightBorder);
+        await Assert.That(style.Border.BottomBorder).IsEqualTo(XLBorderStyleValues.Thick);
+        await Assert.That(style.Border.TopBorder).IsEqualTo(XLBorderStyleValues.Thick);
+        await Assert.That(style.Border.LeftBorder).IsEqualTo(XLBorderStyleValues.Thick);
+        await Assert.That(style.Border.RightBorder).IsEqualTo(XLBorderStyleValues.Thick);
 
-        await Assert.That(XLColor.Blue).IsEqualTo(style.Border.BottomBorderColor);
-        await Assert.That(XLColor.Blue).IsEqualTo(style.Border.TopBorderColor);
-        await Assert.That(XLColor.Blue).IsEqualTo(style.Border.LeftBorderColor);
-        await Assert.That(XLColor.Blue).IsEqualTo(style.Border.RightBorderColor);
+        await Assert.That(style.Border.BottomBorderColor).IsEqualTo(XLColor.Blue);
+        await Assert.That(style.Border.TopBorderColor).IsEqualTo(XLColor.Blue);
+        await Assert.That(style.Border.LeftBorderColor).IsEqualTo(XLColor.Blue);
+        await Assert.That(style.Border.RightBorderColor).IsEqualTo(XLColor.Blue);
     }
 
     [Test]

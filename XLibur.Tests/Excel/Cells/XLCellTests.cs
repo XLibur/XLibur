@@ -68,7 +68,7 @@ public class XLCellTests
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var range = ws.RangeUsed(XLCellsUsedOptions.All);
-        await Assert.That(range).IsEqualTo(null);
+        await Assert.That(range).IsNull();
     }
 
     [Test]
@@ -131,7 +131,7 @@ public class XLCellTests
         await Assert.That(ws.FirstCell().GetString()).IsEqualTo("Text");
         await Assert.That(ws.Cell("A2").GetDouble()).IsEqualTo(45);
         await Assert.That(ws.Cell("A3").GetDateTime()).IsEqualTo(DateTime.Today);
-        await Assert.That(ws.Cell("A4").GetBoolean()).IsEqualTo(true);
+        await Assert.That(ws.Cell("A4").GetBoolean()).IsTrue();
         await Assert.That(ws.Cell("A5").GetString()).IsEqualTo("More text");
         await Assert.That(ws.Cell("A6").IsEmpty()).IsTrue();
     }

@@ -9,19 +9,19 @@ public class XLHelperTests
     [Test]
     public async Task IsValidColumnTest()
     {
-        await Assert.That(XLHelper.IsValidColumn("")).IsEqualTo(false);
-        await Assert.That(XLHelper.IsValidColumn("1")).IsEqualTo(false);
-        await Assert.That(XLHelper.IsValidColumn("A1")).IsEqualTo(false);
-        await Assert.That(XLHelper.IsValidColumn("AA1")).IsEqualTo(false);
-        await Assert.That(XLHelper.IsValidColumn("A")).IsEqualTo(true);
-        await Assert.That(XLHelper.IsValidColumn("AA")).IsEqualTo(true);
-        await Assert.That(XLHelper.IsValidColumn("AAA")).IsEqualTo(true);
-        await Assert.That(XLHelper.IsValidColumn("Z")).IsEqualTo(true);
-        await Assert.That(XLHelper.IsValidColumn("ZZ")).IsEqualTo(true);
-        await Assert.That(XLHelper.IsValidColumn("XFD")).IsEqualTo(true);
-        await Assert.That(XLHelper.IsValidColumn("ZAA")).IsEqualTo(false);
-        await Assert.That(XLHelper.IsValidColumn("XZA")).IsEqualTo(false);
-        await Assert.That(XLHelper.IsValidColumn("XFZ")).IsEqualTo(false);
+        await Assert.That(XLHelper.IsValidColumn("")).IsFalse();
+        await Assert.That(XLHelper.IsValidColumn("1")).IsFalse();
+        await Assert.That(XLHelper.IsValidColumn("A1")).IsFalse();
+        await Assert.That(XLHelper.IsValidColumn("AA1")).IsFalse();
+        await Assert.That(XLHelper.IsValidColumn("A")).IsTrue();
+        await Assert.That(XLHelper.IsValidColumn("AA")).IsTrue();
+        await Assert.That(XLHelper.IsValidColumn("AAA")).IsTrue();
+        await Assert.That(XLHelper.IsValidColumn("Z")).IsTrue();
+        await Assert.That(XLHelper.IsValidColumn("ZZ")).IsTrue();
+        await Assert.That(XLHelper.IsValidColumn("XFD")).IsTrue();
+        await Assert.That(XLHelper.IsValidColumn("ZAA")).IsFalse();
+        await Assert.That(XLHelper.IsValidColumn("XZA")).IsFalse();
+        await Assert.That(XLHelper.IsValidColumn("XFZ")).IsFalse();
     }
 
     [Test]

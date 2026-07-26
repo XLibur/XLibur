@@ -53,8 +53,8 @@ public class XLPivotCacheTests
         pivotCache.Refresh();
 
         await Assert.That(pivotCache.ItemsToRetainPerField).IsEqualTo(XLItemsToRetain.None);
-        await Assert.That(pivotCache.SaveSourceData).IsEqualTo(false);
-        await Assert.That(pivotCache.RefreshDataOnOpen).IsEqualTo(true);
+        await Assert.That(pivotCache.SaveSourceData).IsFalse();
+        await Assert.That(pivotCache.RefreshDataOnOpen).IsTrue();
     }
 
     [Test]

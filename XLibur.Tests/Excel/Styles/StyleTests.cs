@@ -157,9 +157,9 @@ public class StyleTests
         await Assert.That(crossCellStyle.Alignment.Horizontal).IsEqualTo(XLAlignmentHorizontalValues.Center);
         await Assert.That(crossCellStyle.Border.BottomBorder).IsEqualTo(XLBorderStyleValues.Double);
         await Assert.That(crossCellStyle.Fill.BackgroundColor).IsEqualTo(XLColor.Blue);
-        await Assert.That(crossCellStyle.IncludeQuotePrefix).IsEqualTo(true);
+        await Assert.That(crossCellStyle.IncludeQuotePrefix).IsTrue();
         await Assert.That(crossCellStyle.NumberFormat.NumberFormatId).IsEqualTo((int)XLPredefinedFormat.Number.Precision2);
-        await Assert.That(crossCellStyle.Protection.Locked).IsEqualTo(true);
+        await Assert.That(crossCellStyle.Protection.Locked).IsTrue();
 
         var rowCellStyle = ws.Cell(4, 3).Style;
         await Assert.That(rowCellStyle).IsEqualTo(rowStyle);

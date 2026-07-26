@@ -44,7 +44,7 @@ public class InformationTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var actual = ws.Evaluate("IsBlank(A1)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -54,7 +54,7 @@ public class InformationTests
         var ws = wb.AddWorksheet();
         ws.Cell("A1").Value = "1";
         var actual = ws.Evaluate("IsBlank(A1)");
-        await Assert.That(actual).IsEqualTo(false);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     [Test]
@@ -67,14 +67,14 @@ public class InformationTests
     public async Task IsBlank_NonEmptyValue_False(string value)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsBlank({value})");
-        await Assert.That(actual).IsEqualTo(false);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     [Test]
     public async Task IsBlank_InlineBlank_True()
     {
         var actual = XLWorkbook.EvaluateExpr("IsBlank(IF(TRUE,,))");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     #endregion IsBlank Tests
@@ -88,7 +88,7 @@ public class InformationTests
     public async Task IsErr_NonErrorValues_False(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsErr({valueFormula})");
-        await Assert.That(actual).IsEqualTo(false);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     [Test]
@@ -101,14 +101,14 @@ public class InformationTests
     public async Task IsErr_ErrorsExceptNA_True(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsErr({valueFormula})");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
     public async Task IsErr_NA_False()
     {
         var actual = XLWorkbook.EvaluateExpr("IsErr(#N/A)");
-        await Assert.That(actual).IsEqualTo(false);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     [Test]
@@ -122,7 +122,7 @@ public class InformationTests
     public async Task IsError_Errors_True(string error)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsError({error})");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -134,7 +134,7 @@ public class InformationTests
     public async Task IsError_NonErrors_False(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsError({valueFormula})");
-        await Assert.That(actual).IsEqualTo(false);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     #region IsEven Tests
@@ -148,7 +148,7 @@ public class InformationTests
     public async Task IsEven_NumberLikeValue_ConvertedThroughValueSemantic(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsEven({valueFormula})");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -162,16 +162,16 @@ public class InformationTests
         ws.Cell("A3").Value = -2.9;
 
         var actual = ws.Evaluate("=IsEven(A1)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
 
         actual = ws.Evaluate("=IsEven(A2)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
 
         actual = ws.Evaluate("=IsEven(A3)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
 
         actual = ws.Evaluate("=IsEven(A4)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -212,7 +212,7 @@ public class InformationTests
     public async Task IsLogical_OnlyLogical_True(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsLogical({valueFormula})");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -228,7 +228,7 @@ public class InformationTests
     public async Task IsLogical_NonLogicalValue_False(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsLogical({valueFormula})");
-        await Assert.That(actual).IsEqualTo(false);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     [Test]
@@ -240,7 +240,7 @@ public class InformationTests
         ws.Cell("A1").Value = true;
 
         var actual = ws.Evaluate("IsLogical(A1)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     #endregion IsLogical Tests
@@ -249,7 +249,7 @@ public class InformationTests
     public async Task IsNA_NA_True()
     {
         var actual = XLWorkbook.EvaluateExpr("ISNA(#N/A)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -262,7 +262,7 @@ public class InformationTests
     public async Task IsNA_NonNotAvailableValue_False(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"ISNA({valueFormula})");
-        await Assert.That(actual).IsEqualTo(false);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     #region IsNotText Tests
@@ -273,7 +273,7 @@ public class InformationTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var actual = ws.Evaluate("IsNonText(A1)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -286,7 +286,7 @@ public class InformationTests
         var ws = wb.AddWorksheet();
         ws.Cell("A1").Value = text;
         var actual = ws.Evaluate("IsNonText(A1)");
-        await Assert.That(actual).IsEqualTo(false);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     [Test]
@@ -300,13 +300,13 @@ public class InformationTests
         ws.Cell("A4").Value = XLError.IncompatibleValue; //Error value
 
         var actual = ws.Evaluate("IsNonText(A1)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
         actual = ws.Evaluate("IsNonText(A2)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
         actual = ws.Evaluate("IsNonText(A3)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
         actual = ws.Evaluate("IsNonText(A4)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     #endregion IsNotText Tests
@@ -322,9 +322,9 @@ public class InformationTests
         ws.Cell("A2").Value = true; //Bool Value
 
         var actual = ws.Evaluate("IsNumber(A1)");
-        await Assert.That(actual).IsEqualTo(false);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(false));
         actual = ws.Evaluate("IsNumber(A2)");
-        await Assert.That(actual).IsEqualTo(false);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     [Test]
@@ -337,11 +337,11 @@ public class InformationTests
         ws.Cell("A3").Value = new TimeSpan(2, 30, 50); //TimeSpan Value
 
         var actual = ws.Evaluate("=IsNumber(A1)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
         actual = ws.Evaluate("=IsNumber(A2)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
         actual = ws.Evaluate("=IsNumber(A3)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -355,7 +355,7 @@ public class InformationTests
     public async Task IsNumber_NonNumber_False(string nonNumberValue)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsNumber({nonNumberValue})");
-        await Assert.That(actual).IsEqualTo(false);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     #endregion IsNumber Tests
@@ -372,7 +372,7 @@ public class InformationTests
     public async Task IsOdd_SingleValue_ConvertedThroughValueSemantic(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsOdd({valueFormula})");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -386,16 +386,16 @@ public class InformationTests
         ws.Cell("A3").Value = -5.9;
 
         var actual = ws.Evaluate("=IsOdd(A1)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
 
         actual = ws.Evaluate("=IsOdd(A2)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
 
         actual = ws.Evaluate("=IsOdd(A3)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
 
         actual = ws.Evaluate("=IsOdd(A4)");
-        await Assert.That(actual).IsEqualTo(false);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     [SetCulture("en-US")]
@@ -440,7 +440,7 @@ public class InformationTests
 
         ws.Cell("B1").FormulaA1 = $"ISREF({reference})";
 
-        await Assert.That(ws.Cell("B1").Value).IsEqualTo(true);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
@@ -458,7 +458,7 @@ public class InformationTests
 
         ws.Cell("B1").FormulaA1 = $"ISREF({nonReference})";
 
-        await Assert.That(ws.Cell("B1").Value).IsEqualTo(false);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     #region IsText Tests
@@ -470,7 +470,7 @@ public class InformationTests
         var ws = wb.AddWorksheet();
         ws.Cell("B1").FormulaA1 = "ISTEXT(A1)";
 
-        await Assert.That(ws.Cell("B1").Value).IsEqualTo(false);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     [Test]
@@ -482,7 +482,7 @@ public class InformationTests
     public async Task IsText_NonText_False(string nonText)
     {
         var actual = XLWorkbook.EvaluateExpr($"ISTEXT({nonText})");
-        await Assert.That(actual).IsEqualTo(false);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(false));
     }
 
     [Test]
@@ -496,7 +496,7 @@ public class InformationTests
         ws.Cell("A1").Value = textValue;
 
         var actual = ws.Evaluate("IsText(A1)");
-        await Assert.That(actual).IsEqualTo(true);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     #endregion IsText Tests

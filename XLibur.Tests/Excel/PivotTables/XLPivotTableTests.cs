@@ -118,42 +118,42 @@ public class XLPivotTableTests
         await Assert.That(ptassert).IsNotEqualTo(null).Because("name save failure");
         await Assert.That(ptassert.ColumnHeaderCaption).IsEqualTo("clmn header").Because("ColumnHeaderCaption save failure");
         await Assert.That(ptassert.RowHeaderCaption).IsEqualTo("row header").Because("RowHeaderCaption save failure");
-        await Assert.That(ptassert.MergeAndCenterWithLabels).IsEqualTo(true).Because("MergeAndCenterWithLabels save failure");
+        await Assert.That(ptassert.MergeAndCenterWithLabels).IsTrue().Because("MergeAndCenterWithLabels save failure");
         await Assert.That(ptassert.RowLabelIndent).IsEqualTo(12).Because("RowLabelIndent save failure");
         await Assert.That(ptassert.FilterAreaOrder).IsEqualTo(XLFilterAreaOrder.OverThenDown).Because("FilterAreaOrder save failure");
         await Assert.That(ptassert.FilterFieldsPageWrap).IsEqualTo(14).Because("FilterFieldsPageWrap save failure");
         await Assert.That(ptassert.ErrorValueReplacement).IsEqualTo("error test").Because("ErrorValueReplacement save failure");
         await Assert.That(ptassert.EmptyCellReplacement).IsEqualTo("empty test").Because("EmptyCellReplacement save failure");
-        await Assert.That(ptassert.AutofitColumns).IsEqualTo(true).Because("AutofitColumns save failure");
-        await Assert.That(ptassert.PreserveCellFormatting).IsEqualTo(false).Because("PreserveCellFormatting save failure");
-        await Assert.That(ptassert.ShowGrandTotalsRows).IsEqualTo(true).Because("ShowGrandTotalsRows save failure");
-        await Assert.That(ptassert.ShowGrandTotalsColumns).IsEqualTo(true).Because("ShowGrandTotalsColumns save failure");
-        await Assert.That(ptassert.FilteredItemsInSubtotals).IsEqualTo(true).Because("FilteredItemsInSubtotals save failure");
-        await Assert.That(ptassert.AllowMultipleFilters).IsEqualTo(false).Because("AllowMultipleFilters save failure");
-        await Assert.That(ptassert.UseCustomListsForSorting).IsEqualTo(false).Because("UseCustomListsForSorting save failure");
-        await Assert.That(ptassert.ShowExpandCollapseButtons).IsEqualTo(false).Because("ShowExpandCollapseButtons save failure");
-        await Assert.That(ptassert.ShowContextualTooltips).IsEqualTo(false).Because("ShowContextualTooltips save failure");
-        await Assert.That(ptassert.ShowPropertiesInTooltips).IsEqualTo(false).Because("ShowPropertiesInTooltips save failure");
-        await Assert.That(ptassert.DisplayCaptionsAndDropdowns).IsEqualTo(false).Because("DisplayCaptionsAndDropdowns save failure");
-        await Assert.That(ptassert.ClassicPivotTableLayout).IsEqualTo(true).Because("ClassicPivotTableLayout save failure");
-        await Assert.That(ptassert.ShowEmptyItemsOnRows).IsEqualTo(true).Because("ShowEmptyItemsOnRows save failure");
-        await Assert.That(ptassert.ShowEmptyItemsOnColumns).IsEqualTo(true).Because("ShowEmptyItemsOnColumns save failure");
-        await Assert.That(ptassert.DisplayItemLabels).IsEqualTo(false).Because("DisplayItemLabels save failure");
-        await Assert.That(ptassert.SortFieldsAtoZ).IsEqualTo(true).Because("SortFieldsAtoZ save failure");
-        await Assert.That(ptassert.PrintExpandCollapsedButtons).IsEqualTo(true).Because("PrintExpandCollapsedButtons save failure");
-        await Assert.That(ptassert.RepeatRowLabels).IsEqualTo(true).Because("RepeatRowLabels save failure");
-        await Assert.That(ptassert.PrintTitles).IsEqualTo(true).Because("PrintTitles save failure");
-        await Assert.That(ptassert.PivotCache.SaveSourceData).IsEqualTo(false).Because("SaveSourceData save failure");
-        await Assert.That(ptassert.EnableShowDetails).IsEqualTo(false).Because("EnableShowDetails save failure");
-        await Assert.That(ptassert.PivotCache.RefreshDataOnOpen).IsEqualTo(false).Because("RefreshDataOnOpen save failure");
+        await Assert.That(ptassert.AutofitColumns).IsTrue().Because("AutofitColumns save failure");
+        await Assert.That(ptassert.PreserveCellFormatting).IsFalse().Because("PreserveCellFormatting save failure");
+        await Assert.That(ptassert.ShowGrandTotalsRows).IsTrue().Because("ShowGrandTotalsRows save failure");
+        await Assert.That(ptassert.ShowGrandTotalsColumns).IsTrue().Because("ShowGrandTotalsColumns save failure");
+        await Assert.That(ptassert.FilteredItemsInSubtotals).IsTrue().Because("FilteredItemsInSubtotals save failure");
+        await Assert.That(ptassert.AllowMultipleFilters).IsFalse().Because("AllowMultipleFilters save failure");
+        await Assert.That(ptassert.UseCustomListsForSorting).IsFalse().Because("UseCustomListsForSorting save failure");
+        await Assert.That(ptassert.ShowExpandCollapseButtons).IsFalse().Because("ShowExpandCollapseButtons save failure");
+        await Assert.That(ptassert.ShowContextualTooltips).IsFalse().Because("ShowContextualTooltips save failure");
+        await Assert.That(ptassert.ShowPropertiesInTooltips).IsFalse().Because("ShowPropertiesInTooltips save failure");
+        await Assert.That(ptassert.DisplayCaptionsAndDropdowns).IsFalse().Because("DisplayCaptionsAndDropdowns save failure");
+        await Assert.That(ptassert.ClassicPivotTableLayout).IsTrue().Because("ClassicPivotTableLayout save failure");
+        await Assert.That(ptassert.ShowEmptyItemsOnRows).IsTrue().Because("ShowEmptyItemsOnRows save failure");
+        await Assert.That(ptassert.ShowEmptyItemsOnColumns).IsTrue().Because("ShowEmptyItemsOnColumns save failure");
+        await Assert.That(ptassert.DisplayItemLabels).IsFalse().Because("DisplayItemLabels save failure");
+        await Assert.That(ptassert.SortFieldsAtoZ).IsTrue().Because("SortFieldsAtoZ save failure");
+        await Assert.That(ptassert.PrintExpandCollapsedButtons).IsTrue().Because("PrintExpandCollapsedButtons save failure");
+        await Assert.That(ptassert.RepeatRowLabels).IsTrue().Because("RepeatRowLabels save failure");
+        await Assert.That(ptassert.PrintTitles).IsTrue().Because("PrintTitles save failure");
+        await Assert.That(ptassert.PivotCache.SaveSourceData).IsFalse().Because("SaveSourceData save failure");
+        await Assert.That(ptassert.EnableShowDetails).IsFalse().Because("EnableShowDetails save failure");
+        await Assert.That(ptassert.PivotCache.RefreshDataOnOpen).IsFalse().Because("RefreshDataOnOpen save failure");
         await Assert.That(ptassert.PivotCache.ItemsToRetainPerField).IsEqualTo(XLItemsToRetain.Max).Because("ItemsToRetainPerField save failure");
-        await Assert.That(ptassert.EnableCellEditing).IsEqualTo(true).Because("EnableCellEditing save failure");
+        await Assert.That(ptassert.EnableCellEditing).IsTrue().Because("EnableCellEditing save failure");
         await Assert.That(ptassert.Theme).IsEqualTo(XLPivotTableTheme.PivotStyleDark13).Because("Theme save failure");
-        await Assert.That(ptassert.ShowValuesRow).IsEqualTo(true).Because("ShowValuesRow save failure");
-        await Assert.That(ptassert.ShowRowHeaders).IsEqualTo(false).Because("ShowRowHeaders save failure");
-        await Assert.That(ptassert.ShowColumnHeaders).IsEqualTo(false).Because("ShowColumnHeaders save failure");
-        await Assert.That(ptassert.ShowRowStripes).IsEqualTo(true).Because("ShowRowStripes save failure");
-        await Assert.That(ptassert.ShowColumnStripes).IsEqualTo(true).Because("ShowColumnStripes save failure");
+        await Assert.That(ptassert.ShowValuesRow).IsTrue().Because("ShowValuesRow save failure");
+        await Assert.That(ptassert.ShowRowHeaders).IsFalse().Because("ShowRowHeaders save failure");
+        await Assert.That(ptassert.ShowColumnHeaders).IsFalse().Because("ShowColumnHeaders save failure");
+        await Assert.That(ptassert.ShowRowStripes).IsTrue().Because("ShowRowStripes save failure");
+        await Assert.That(ptassert.ShowColumnStripes).IsTrue().Because("ShowColumnStripes save failure");
     }
 
     [Test]
@@ -1298,8 +1298,8 @@ public class XLPivotTableTests
 
         var pivotArea = autoSortScope!.GetFirstChild<PivotArea>();
         await Assert.That(pivotArea).IsNotNull().Because("pivotArea inside autoSortScope should survive round-trip");
-        await Assert.That(pivotArea!.DataOnly?.Value).IsEqualTo(false).Because("dataOnly attribute should be preserved");
-        await Assert.That(pivotArea.Outline?.Value).IsEqualTo(false).Because("outline attribute should be preserved");
+        await Assert.That(pivotArea!.DataOnly?.Value).IsFalse().Because("dataOnly attribute should be preserved");
+        await Assert.That(pivotArea.Outline?.Value).IsFalse().Because("outline attribute should be preserved");
         await Assert.That(pivotArea.FieldPosition?.Value).IsEqualTo(0U).Because("fieldPosition attribute should be preserved");
 
         var references = pivotArea.PivotAreaReferences;
@@ -1307,7 +1307,7 @@ public class XLPivotTableTests
         var refList = references!.Elements<PivotAreaReference>().ToList();
         await Assert.That(refList.Count).IsEqualTo(1).Because("Should have 1 reference");
         await Assert.That(refList[0].Field?.Value).IsEqualTo(4294967294U).Because("reference field should be data field sentinel");
-        await Assert.That(refList[0].Selected?.Value).IsEqualTo(false).Because("reference selected should be false");
+        await Assert.That(refList[0].Selected?.Value).IsFalse().Because("reference selected should be false");
 
         var xItems = refList[0].Elements<FieldItem>().ToList();
         await Assert.That(xItems.Count).IsEqualTo(1).Because("Should have 1 field item");

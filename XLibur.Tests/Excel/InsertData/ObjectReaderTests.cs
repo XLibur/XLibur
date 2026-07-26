@@ -1,4 +1,5 @@
 ﻿using XLibur.Excel.InsertData;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -75,23 +76,23 @@ public class ObjectReaderTests
         await Assert.That(reader.GetPropertyName(propertyIndex)).IsEqualTo(expected);
     }
 
-    public static IEnumerable<(IEnumerable Data, int PropertyIndex, string Expected)> ObjectSourceNames()
+    public static IEnumerable<Func<(IEnumerable Data, int PropertyIndex, string Expected)>> ObjectSourceNames()
     {
-        yield return (ObjectWithoutAttributes, 0, "Column1");
-        yield return (ObjectWithoutAttributes, 1, "Column2");
+        yield return () => (ObjectWithoutAttributes, 0, "Column1");
+        yield return () => (ObjectWithoutAttributes, 1, "Column2");
 
-        yield return (ObjectWithAttributes, 0, "FirstColumn");
-        yield return (ObjectWithAttributes, 1, "SecondColumn");
-        yield return (ObjectWithAttributes, 2, "SomeFieldNotProperty");
-        yield return (ObjectWithAttributes, 3, "UnOrderedColumn");
+        yield return () => (ObjectWithAttributes, 0, "FirstColumn");
+        yield return () => (ObjectWithAttributes, 1, "SecondColumn");
+        yield return () => (ObjectWithAttributes, 2, "SomeFieldNotProperty");
+        yield return () => (ObjectWithAttributes, 3, "UnOrderedColumn");
 
-        yield return (Structs, 0, "X");
-        yield return (Structs, 1, "Y");
-        yield return (Structs, 2, "Z");
+        yield return () => (Structs, 0, "X");
+        yield return () => (Structs, 1, "Y");
+        yield return () => (Structs, 2, "Z");
 
-        yield return (NullableStructs, 0, "X");
-        yield return (NullableStructs, 1, "Y");
-        yield return (NullableStructs, 2, "Z");
+        yield return () => (NullableStructs, 0, "X");
+        yield return () => (NullableStructs, 1, "Y");
+        yield return () => (NullableStructs, 2, "Z");
     }
 
     [Test]
@@ -102,12 +103,12 @@ public class ObjectReaderTests
         await Assert.That(reader.GetPropertiesCount()).IsEqualTo(expected);
     }
 
-    public static IEnumerable<(IEnumerable Data, int Expected)> PropertyCounts()
+    public static IEnumerable<Func<(IEnumerable Data, int Expected)>> PropertyCounts()
     {
-        yield return (ObjectWithoutAttributes, 2);
-        yield return (ObjectWithAttributes, 4);
-        yield return (Structs, 3);
-        yield return (NullableStructs, 3);
+        yield return () => (ObjectWithoutAttributes, 2);
+        yield return () => (ObjectWithAttributes, 4);
+        yield return () => (Structs, 3);
+        yield return () => (NullableStructs, 3);
     }
 
     [Test]

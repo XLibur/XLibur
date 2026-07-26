@@ -105,7 +105,7 @@ public class StyleChangeTests
 
         style.Protection.Hidden = true;
 
-        await Assert.That(style.Protection.Hidden).IsEqualTo(true);
+        await Assert.That(style.Protection.Hidden).IsTrue();
     }
 
     [Test]

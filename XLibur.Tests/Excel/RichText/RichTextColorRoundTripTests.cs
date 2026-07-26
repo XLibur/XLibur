@@ -97,8 +97,9 @@ public class RichTextColorRoundTripTests
             """;
 
         string savedSharedStrings = null!;
-        await Assert.That(() => savedSharedStrings = RoundTripSharedStrings(escapedSharedStrings, siCount: 1),
-            "Saving a runless string holding a decoded control character must not fail.").ThrowsNothing();
+        await Assert.That(() => savedSharedStrings = RoundTripSharedStrings(escapedSharedStrings, siCount: 1))
+            .ThrowsNothing()
+            .Because("Saving a runless string holding a decoded control character must not fail.");
 
         await Assert.That(savedSharedStrings).Contains("_x0018_").Because($"The escape was not written back, so the control character was lost.\n\n{savedSharedStrings}");
     }

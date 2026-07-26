@@ -372,7 +372,7 @@ public class SpillEvaluationTests
             ws.Cell("C1").FormulaA1 = "ERROR.TYPE(A1)";
             ws.Cell("C2").FormulaA1 = "ISERROR(A1)";
             await Assert.That(ws.Cell("C1").Value).IsEqualTo(9);
-            await Assert.That(ws.Cell("C2").Value).IsEqualTo(true);
+            await Assert.That(ws.Cell("C2").Value).IsEqualTo(ExpectedCellValue.From(true));
         }
     }
 

@@ -54,9 +54,9 @@ public class ClearingTests
         await Assert.That(ws.Cell("A2").Value.Type).IsEqualTo(XLDataType.Text);
         await Assert.That(ws.Cell("A3").Value.Type).IsEqualTo(XLDataType.DateTime);
 
-        await Assert.That(ws.Cell("A1").HasFormula).IsEqualTo(false);
-        await Assert.That(ws.Cell("A2").HasFormula).IsEqualTo(true);
-        await Assert.That(ws.Cell("A1").HasFormula).IsEqualTo(false);
+        await Assert.That(ws.Cell("A1").HasFormula).IsFalse();
+        await Assert.That(ws.Cell("A2").HasFormula).IsTrue();
+        await Assert.That(ws.Cell("A1").HasFormula).IsFalse();
 
         foreach (var cell in ws.Range("A1:A3").Cells())
         {

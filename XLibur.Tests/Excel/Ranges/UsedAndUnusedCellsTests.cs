@@ -21,6 +21,9 @@ public class UsedAndUnusedCellsTests
         ws.Cell(6, 2).Style.Fill.BackgroundColor = XLColor.Red;
     }
 
+    [After(HookType.Test)]
+    public void DisposeWorkbook() => workbook.Dispose();
+
     [Test]
     public async Task CountUsedCellsInRow()
     {

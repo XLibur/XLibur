@@ -22,7 +22,7 @@ public class RangeRowCopyToTests
 
         await Assert.That(ws.Cell("A3").Value).IsEqualTo((XLCellValue)"Hello");
         await Assert.That(ws.Cell("B3").Value).IsEqualTo((XLCellValue)42);
-        await Assert.That(ws.Cell("C3").Value).IsEqualTo((XLCellValue)true);
+        await Assert.That(ws.Cell("C3").Value).IsEqualTo(ExpectedCellValue.From(true));
         await Assert.That(ws.Cell("A3").Style.Font.Bold).IsTrue();
         await Assert.That(ws.Cell("B3").Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 

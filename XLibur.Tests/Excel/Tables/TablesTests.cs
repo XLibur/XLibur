@@ -348,7 +348,7 @@ public class TablesTests
         await Assert.That(table.Fields.First().Name).IsEqualTo("Categories");
 
         await Assert.That(ws.Cell(1, 1).IsEmpty(XLCellsUsedOptions.All)).IsTrue();
-        await Assert.That(table.HeadersRow()).IsEqualTo(null);
+        await Assert.That(table.HeadersRow()).IsNull();
         await Assert.That(table.DataRange!.FirstRow()!.Field("Categories").GetText()).IsEqualTo("A");
         await Assert.That(table.DataRange.LastRow()!.Field("Categories").GetText()).IsEqualTo("C");
         await Assert.That(table.DataRange.FirstCell().GetText()).IsEqualTo("A");

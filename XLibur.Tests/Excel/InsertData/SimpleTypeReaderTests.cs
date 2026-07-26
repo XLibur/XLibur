@@ -31,14 +31,14 @@ public class SimpleTypeReaderTests
         await Assert.That(reader.GetPropertyName(0)).IsEqualTo(expected);
     }
 
-    public static IEnumerable<(IEnumerable Data, string Expected)> SimpleSourceNames()
+    public static IEnumerable<Func<(IEnumerable Data, string Expected)>> SimpleSourceNames()
     {
-        yield return (IntData, "Int32");
-        yield return (DoubleData, "Double");
-        yield return (DecimalData, "Decimal");
-        yield return (StringData, "String");
-        yield return (CharData, "Char");
-        yield return (DateTimeData, "DateTime");
+        yield return () => (IntData, "Int32");
+        yield return () => (DoubleData, "Double");
+        yield return () => (DecimalData, "Decimal");
+        yield return () => (StringData, "String");
+        yield return () => (CharData, "Char");
+        yield return () => (DateTimeData, "DateTime");
     }
 
     [Test]

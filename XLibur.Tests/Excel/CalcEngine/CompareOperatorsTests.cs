@@ -158,7 +158,7 @@ public class CompareOperatorsTests
     [Arguments("A1=\"\"")]
     public async Task Comparison_BlankIsEqualToFalseOrZeroOrEmptyString(string formula)
     {
-        await Assert.That(Evaluate(formula)).IsEqualTo(true);
+        await Assert.That(Evaluate(formula)).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     private static XLCellValue Evaluate(string formula)

@@ -43,7 +43,7 @@ public class XLRichStringTests
         richString.AddText(text).SetBold().SetFontColor(XLColor.Red);
 
         await Assert.That(text).IsEqualTo(cell.GetText());
-        await Assert.That(true).IsEqualTo(cell.GetRichText().First().Bold);
+        await Assert.That(cell.GetRichText().First().Bold).IsTrue();
         await Assert.That(XLColor.Red).IsEqualTo(cell.GetRichText().First().FontColor);
 
         await Assert.That(richString.Count).IsEqualTo(1);
@@ -66,7 +66,7 @@ public class XLRichStringTests
         var text = number.ToString();
 
         await Assert.That(text).IsEqualTo(cell.GetRichText().ToString());
-        await Assert.That(true).IsEqualTo(cell.GetRichText().First().Bold);
+        await Assert.That(cell.GetRichText().First().Bold).IsTrue();
         await Assert.That(XLColor.Red).IsEqualTo(cell.GetRichText().First().FontColor);
 
         await Assert.That(cell.GetRichText().Count).IsEqualTo(1);
@@ -89,7 +89,7 @@ public class XLRichStringTests
         var text = number.ToString();
 
         await Assert.That(text).IsEqualTo(cell.GetRichText().ToString());
-        await Assert.That(true).IsEqualTo(cell.GetRichText().First().Bold);
+        await Assert.That(cell.GetRichText().First().Bold).IsTrue();
         await Assert.That(XLColor.Red).IsEqualTo(cell.GetRichText().First().FontColor);
 
         await Assert.That(cell.GetRichText().Count).IsEqualTo(1);
@@ -139,27 +139,27 @@ public class XLRichStringTests
         var cell = ws.Cell(1, 1);
         cell.GetRichText().AddText("123");
 
-        await Assert.That(cell.HasRichText).IsEqualTo(true);
+        await Assert.That(cell.HasRichText).IsTrue();
 
         cell.Value = "123";
 
-        await Assert.That(cell.HasRichText).IsEqualTo(false);
+        await Assert.That(cell.HasRichText).IsFalse();
 
         cell.GetRichText().AddText("123");
 
-        await Assert.That(cell.HasRichText).IsEqualTo(true);
+        await Assert.That(cell.HasRichText).IsTrue();
 
         cell.Value = 123;
 
-        await Assert.That(cell.HasRichText).IsEqualTo(false);
+        await Assert.That(cell.HasRichText).IsFalse();
 
         cell.GetRichText().AddText("123");
 
-        await Assert.That(cell.HasRichText).IsEqualTo(true);
+        await Assert.That(cell.HasRichText).IsTrue();
 
         cell.SetValue("123");
 
-        await Assert.That(cell.HasRichText).IsEqualTo(false);
+        await Assert.That(cell.HasRichText).IsFalse();
     }
 
     /// <summary>
@@ -181,7 +181,7 @@ public class XLRichStringTests
 
         actual.First().SetBold();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsTrue();
     }
 
     [Test]
@@ -205,9 +205,9 @@ public class XLRichStringTests
 
         actual.First().SetBold();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsEqualTo(true);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsTrue();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Bold).IsFalse();
     }
 
     [Test]
@@ -231,15 +231,15 @@ public class XLRichStringTests
 
         actual.First().SetBold();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Bold).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Bold).IsTrue();
 
         richString.Last().SetItalic();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().First().Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Italic).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Italic).IsTrue();
 
-        await Assert.That(actual.First().Italic).IsEqualTo(true);
+        await Assert.That(actual.First().Italic).IsTrue();
 
         richString.SetFontSize(20);
 
@@ -271,17 +271,17 @@ public class XLRichStringTests
 
         actual.First().SetBold();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsEqualTo(true);
-        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsTrue();
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Bold).IsFalse();
 
         richString.Last().SetItalic();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().First().Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Italic).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Italic).IsTrue();
 
-        await Assert.That(actual.First().Italic).IsEqualTo(false);
+        await Assert.That(actual.First().Italic).IsFalse();
 
         richString.SetFontSize(20);
 
@@ -313,15 +313,15 @@ public class XLRichStringTests
 
         actual.First().SetBold();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsEqualTo(true);
-        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsTrue();
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Bold).IsFalse();
 
         richString.Last().SetItalic();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().First().Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Italic).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Italic).IsTrue();
 
-        await Assert.That(actual.First().Italic).IsEqualTo(false);
+        await Assert.That(actual.First().Italic).IsFalse();
 
         richString.SetFontSize(20);
 
@@ -356,19 +356,19 @@ public class XLRichStringTests
 
         actual.First().SetBold();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Bold).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Bold).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Bold).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Bold).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Bold).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Bold).IsTrue();
 
         richString.Last().SetItalic();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Italic).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Italic).IsTrue();
 
-        await Assert.That(actual.First().Italic).IsEqualTo(true);
+        await Assert.That(actual.First().Italic).IsTrue();
 
         richString.SetFontSize(20);
 
@@ -406,20 +406,20 @@ public class XLRichStringTests
 
         actual.ElementAt(1).SetBold();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Bold).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Bold).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Bold).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Bold).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Bold).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Bold).IsTrue();
 
         richString.Last().SetItalic();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Italic).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Italic).IsTrue();
 
-        await Assert.That(actual.ElementAt(0).Italic).IsEqualTo(false);
-        await Assert.That(actual.ElementAt(1).Italic).IsEqualTo(true);
+        await Assert.That(actual.ElementAt(0).Italic).IsFalse();
+        await Assert.That(actual.ElementAt(1).Italic).IsTrue();
 
         richString.SetFontSize(20);
 
@@ -510,19 +510,19 @@ public class XLRichStringTests
 
         actual.First().SetBold();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Bold).IsEqualTo(true);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Bold).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Bold).IsTrue();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Bold).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Bold).IsFalse();
 
         richString.First().SetItalic();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Italic).IsEqualTo(true);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Italic).IsTrue();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Italic).IsFalse();
 
-        await Assert.That(actual.First().Italic).IsEqualTo(true);
+        await Assert.That(actual.First().Italic).IsTrue();
 
         richString.SetFontSize(20);
 
@@ -560,20 +560,20 @@ public class XLRichStringTests
 
         actual.ElementAt(1).SetBold();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Bold).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsEqualTo(true);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Bold).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Bold).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsTrue();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Bold).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Bold).IsFalse();
 
         richString.First().SetItalic();
 
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Italic).IsEqualTo(true);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Italic).IsEqualTo(false);
-        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Italic).IsTrue();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Italic).IsFalse();
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Italic).IsFalse();
 
-        await Assert.That(actual.ElementAt(0).Italic).IsEqualTo(true);
-        await Assert.That(actual.ElementAt(1).Italic).IsEqualTo(false);
+        await Assert.That(actual.ElementAt(0).Italic).IsTrue();
+        await Assert.That(actual.ElementAt(1).Italic).IsFalse();
 
         richString.SetFontSize(20);
 

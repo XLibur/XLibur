@@ -22,13 +22,13 @@ public class SimpleNullableTypeReaderTests
         await Assert.That(reader.GetPropertyName(0)).IsEqualTo(expected);
     }
 
-    public static IEnumerable<(IEnumerable Data, string Expected)> SimpleNullableSourceNames()
+    public static IEnumerable<Func<(IEnumerable Data, string Expected)>> SimpleNullableSourceNames()
     {
-        yield return (new int?[] { 1, 2, null }, "Int32");
-        yield return (new List<double?> { 1.0, 2.0, null }, "Double");
-        yield return (new decimal?[] { 1.0m, 2.0m, null }, "Decimal");
-        yield return (new char?[] { 'A', 'B', null }, "Char");
-        yield return (new DateTime?[] { new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), null }, "DateTime");
+        yield return () => (new int?[] { 1, 2, null }, "Int32");
+        yield return () => (new List<double?> { 1.0, 2.0, null }, "Double");
+        yield return () => (new decimal?[] { 1.0m, 2.0m, null }, "Decimal");
+        yield return () => (new char?[] { 'A', 'B', null }, "Char");
+        yield return () => (new DateTime?[] { new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), null }, "DateTime");
     }
 
     [Test]

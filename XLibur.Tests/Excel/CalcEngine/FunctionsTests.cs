@@ -53,15 +53,15 @@ public class FunctionsTests
     [Test]
     public async Task Exact_converts_values_to_text()
     {
-        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(TRUE, \"true\")")).IsEqualTo(false);
-        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(TRUE, \"TRUE\")")).IsEqualTo(true);
-        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(1, \"1\")")).IsEqualTo(true);
-        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(IF(TRUE,), \"\")")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(TRUE, \"true\")")).IsEqualTo(ExpectedCellValue.From(false));
+        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(TRUE, \"TRUE\")")).IsEqualTo(ExpectedCellValue.From(true));
+        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(1, \"1\")")).IsEqualTo(ExpectedCellValue.From(true));
+        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(IF(TRUE,), \"\")")).IsEqualTo(ExpectedCellValue.From(true));
 
         // Check blank cell
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        await Assert.That(ws.Evaluate("EXACT(A1, \"\")")).IsEqualTo(true);
+        await Assert.That(ws.Evaluate("EXACT(A1, \"\")")).IsEqualTo(ExpectedCellValue.From(true));
     }
 
     [Test]
