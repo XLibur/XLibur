@@ -448,9 +448,14 @@ internal static class Statistical
 
     private static AnyValue Median(CalcContext ctx, Span<AnyValue> args)
     {
+        return Median(ctx, args, TallyNumbers.Default);
+    }
+
+    internal static AnyValue Median(CalcContext ctx, Span<AnyValue> args, ITally tally)
+    {
         // There is a better median algorithm that uses two heaps, but NetFx
         // doesn't have heap structure.
-        var result = TallyNumbers.Default.Tally(ctx, args, new ValuesState([]));
+        var result = tally.Tally(ctx, args, new ValuesState([]));
         if (!result.TryPickT0(out var state, out var error))
             return error;
 
@@ -578,38 +583,60 @@ internal static class Statistical
 
     private static AnyValue Large(CalcContext ctx, AnyValue arrayParam, double kParam)
     {
-        if (kParam < 1)
-            return XLError.NumberInvalid;
-
-        var k = (int)Math.Ceiling(kParam);
         if (!TryGetNumbers(ctx, arrayParam, out var total, out var error))
             return error;
 
-        if (k > total.Count)
-            return XLError.NumberInvalid;
-
-        total.Sort();
-
-        // k-th largest.
-        return total[^k];
+        return NthLargest(total, kParam);
     }
 
     private static AnyValue Small(CalcContext ctx, AnyValue arrayParam, double kParam)
+    {
+        if (!TryGetNumbers(ctx, arrayParam, out var total, out var error))
+            return error;
+
+        return NthSmallest(total, kParam);
+    }
+
+    /// <summary>
+    /// Materialize every number a tally would see. The order statistics need the whole data set in
+    /// hand rather than a running total, and AGGREGATE needs them read through its own tally so
+    /// that its ignore options apply.
+    /// </summary>
+    internal static OneOf<List<double>, XLError> CollectNumbers(CalcContext ctx, Span<AnyValue> args, ITally tally)
+    {
+        var result = tally.Tally(ctx, args, new ValuesState([]));
+        if (!result.TryPickT0(out var state, out var error))
+            return error;
+
+        return state.Values;
+    }
+
+    /// <summary>The k-th largest of a materialized list, as LARGE and AGGREGATE function 14 return it.</summary>
+    internal static AnyValue NthLargest(List<double> numbers, double kParam)
     {
         if (kParam < 1)
             return XLError.NumberInvalid;
 
         var k = (int)Math.Ceiling(kParam);
-        if (!TryGetNumbers(ctx, arrayParam, out var total, out var error))
-            return error;
-
-        if (k > total.Count)
+        if (k > numbers.Count)
             return XLError.NumberInvalid;
 
-        total.Sort();
+        numbers.Sort();
+        return numbers[^k];
+    }
 
-        // k-th smallest.
-        return total[k - 1];
+    /// <summary>The k-th smallest of a materialized list, as SMALL and AGGREGATE function 15 return it.</summary>
+    internal static AnyValue NthSmallest(List<double> numbers, double kParam)
+    {
+        if (kParam < 1)
+            return XLError.NumberInvalid;
+
+        var k = (int)Math.Ceiling(kParam);
+        if (k > numbers.Count)
+            return XLError.NumberInvalid;
+
+        numbers.Sort();
+        return numbers[k - 1];
     }
 
     private static AnyValue Rank(CalcContext ctx, Span<AnyValue> args)
@@ -646,7 +673,12 @@ internal static class Statistical
 
     private static AnyValue Mode(CalcContext ctx, Span<AnyValue> args)
     {
-        var result = TallyNumbers.Default.Tally(ctx, args, new ValuesState([]));
+        return Mode(ctx, args, TallyNumbers.Default);
+    }
+
+    internal static AnyValue Mode(CalcContext ctx, Span<AnyValue> args, ITally tally)
+    {
+        var result = tally.Tally(ctx, args, new ValuesState([]));
         if (!result.TryPickT0(out var state, out var error))
             return error;
 
@@ -688,19 +720,14 @@ internal static class Statistical
         if (!TryGetNumbers(ctx, arrayParam, out var numbers, out var error))
             return error;
 
-        // Excel truncates the quart argument toward zero and accepts only 0..4.
-        var quart = (int)quartParam;
-        if (quart < 0 || quart > 4)
-            return XLError.NumberInvalid;
-
-        return PercentileInclusive(numbers, quart * 0.25);
+        return QuartileInclusive(numbers, quartParam);
     }
 
     /// <summary>
     /// PERCENTILE.INC over a materialized list: the <paramref name="k"/>-th percentile
     /// (<c>k</c> in <c>[0, 1]</c>) with linear interpolation between the two closest ranks.
     /// </summary>
-    private static AnyValue PercentileInclusive(List<double> numbers, double k)
+    internal static AnyValue PercentileInclusive(List<double> numbers, double k)
     {
         if (numbers.Count == 0 || k < 0 || k > 1)
             return XLError.NumberInvalid;
@@ -714,6 +741,55 @@ internal static class Statistical
 
         var fraction = rank - low;
         return numbers[low] + fraction * (numbers[low + 1] - numbers[low]);
+    }
+
+    /// <summary>
+    /// PERCENTILE.EXC over a materialized list. The exclusive variant places the n values at ranks
+    /// 1/(n+1) … n/(n+1) rather than at 0 … 1, so the extremes of the range are not attainable and
+    /// a <paramref name="k"/> outside them is a domain error rather than the smallest or largest value.
+    /// </summary>
+    internal static AnyValue PercentileExclusive(List<double> numbers, double k)
+    {
+        var count = numbers.Count;
+        if (count == 0)
+            return XLError.NumberInvalid;
+
+        var rank = k * (count + 1);
+        if (rank < 1 || rank > count)
+            return XLError.NumberInvalid;
+
+        numbers.Sort();
+
+        var low = (int)Math.Floor(rank);
+        if (low >= count)
+            return numbers[count - 1];
+
+        var fraction = rank - low;
+        return numbers[low - 1] + fraction * (numbers[low] - numbers[low - 1]);
+    }
+
+    /// <summary>QUARTILE.INC — the quartile as a percentile of 0, 0.25, 0.5, 0.75 or 1.</summary>
+    internal static AnyValue QuartileInclusive(List<double> numbers, double quartParam)
+    {
+        // Excel truncates the quart argument toward zero and accepts only 0..4.
+        var quart = (int)quartParam;
+        if (quart < 0 || quart > 4)
+            return XLError.NumberInvalid;
+
+        return PercentileInclusive(numbers, quart * 0.25);
+    }
+
+    /// <summary>
+    /// QUARTILE.EXC — only the three inner quartiles exist, since the exclusive percentile cannot
+    /// reach 0 or 1.
+    /// </summary>
+    internal static AnyValue QuartileExclusive(List<double> numbers, double quartParam)
+    {
+        var quart = (int)quartParam;
+        if (quart < 1 || quart > 3)
+            return XLError.NumberInvalid;
+
+        return PercentileExclusive(numbers, quart * 0.25);
     }
 
     /// <summary>

@@ -30,6 +30,7 @@ internal static class DateAndTime
         ce.RegisterFunction("MINUTE", 1, 1, Adapt(Minute), FunctionFlags.Scalar); // Converts a serial number to a minute
         ce.RegisterFunction("MONTH", 1, 1, Adapt(GetMonth), FunctionFlags.Scalar); // Converts a serial number to a month
         ce.RegisterFunction("NETWORKDAYS", 2, 3, AdaptLastOptional(NetWorkDays), FunctionFlags.Range, AllowRange.Only, 2); // Returns the number of whole workdays between two dates
+        ce.RegisterFunction("NETWORKDAYS.INTL", 2, 4, NetWorkDaysIntl, FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 3); // Whole workdays between two dates, with a configurable weekend
         ce.RegisterFunction("NOW", 0, 0, Adapt(Now), FunctionFlags.Scalar | FunctionFlags.Volatile); // Returns the serial number of the current date and time
         ce.RegisterFunction("SECOND", 1, 1, Adapt(Second), FunctionFlags.Scalar); // Converts a serial number to a second
         ce.RegisterFunction("TIME", 3, 3, Adapt(Time), FunctionFlags.Scalar); // Returns the serial number of a particular time
@@ -38,6 +39,7 @@ internal static class DateAndTime
         ce.RegisterFunction("WEEKDAY", 1, 2, AdaptLastOptional(Weekday), FunctionFlags.Scalar); // Converts a serial number to a day of the week
         ce.RegisterFunction("WEEKNUM", 1, 2, AdaptLastOptional(WeekNum, 1), FunctionFlags.Scalar); // Converts a serial number to a number representing where the week falls numerically with a year
         ce.RegisterFunction("WORKDAY", 2, 3, AdaptLastOptional(Workday), FunctionFlags.Range, AllowRange.Only, 2); // Returns the serial number of the date before or after a specified number of workdays
+        ce.RegisterFunction("WORKDAY.INTL", 2, 4, WorkdayIntl, FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 3); // The date a number of workdays away, with a configurable weekend
         ce.RegisterFunction("YEAR", 1, 1, Adapt(GetYear), FunctionFlags.Scalar); // Converts a serial number to a year
         ce.RegisterFunction("YEARFRAC", 2, 3, AdaptLastOptional(YearFrac, 0), FunctionFlags.Scalar); // Returns the year fraction representing the number of whole days between start_date and end_date
     }
@@ -377,6 +379,237 @@ internal static class DateAndTime
 
         return BusinessDaysUntil(startSerialDate, endSerialDate, allHolidays);
     }
+
+    #region Configurable weekends
+
+    /// <summary>
+    /// Every day of the week is a weekend — the one mask Excel rejects, since it would leave no
+    /// working day for NETWORKDAYS.INTL to count or WORKDAY.INTL to land on.
+    /// </summary>
+    private const int AllDaysWeekend = 0b111_1111;
+
+    /// <summary>
+    /// The numbered weekend codes, as bitmasks over the days of the week with bit 0 = Monday.
+    /// 1..7 are the two-day weekends, sliding one day later each time from Saturday+Sunday; 11..17
+    /// are the single-day weekends, from Sunday to Saturday.
+    /// </summary>
+    private static bool TryGetWeekendMaskFromCode(int code, out int mask)
+    {
+        mask = 0;
+        if (code is >= 1 and <= 7)
+        {
+            // Code 1 is Sat+Sun (bits 5 and 6); each later code slides the pair one day on.
+            var first = (5 + code - 1) % 7;
+            mask = (1 << first) | (1 << ((first + 1) % 7));
+            return true;
+        }
+
+        if (code is >= 11 and <= 17)
+        {
+            // Code 11 is Sunday alone (bit 6), 12 is Monday (bit 0), and so on.
+            mask = 1 << ((code - 11 + 6) % 7);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Read the <c>weekend</c> argument of the .INTL functions: either one of the numbered codes, or
+    /// a seven-character string of 0s and 1s running Monday to Sunday where 1 marks a weekend day.
+    /// </summary>
+    private static bool TryGetWeekendMask(CalcContext ctx, in AnyValue value, out int mask, out XLError error)
+    {
+        mask = 0;
+        error = XLError.NumberInvalid;
+
+        var scalar = ToScalar(ctx, value);
+        if (scalar.TryPickError(out var scalarError))
+        {
+            error = scalarError;
+            return false;
+        }
+
+        // An omitted weekend is the ordinary Saturday and Sunday.
+        if (scalar.IsBlank)
+        {
+            mask = (1 << 5) | (1 << 6);
+            error = default;
+            return true;
+        }
+
+        if (scalar.TryPickText(out var pattern, out _))
+        {
+            if (pattern!.Length != 7)
+                return false;
+
+            for (var day = 0; day < 7; day++)
+            {
+                switch (pattern[day])
+                {
+                    case '1':
+                        mask |= 1 << day;
+                        break;
+                    case '0':
+                        break;
+                    default:
+                        return false;
+                }
+            }
+        }
+        else
+        {
+            if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var numberError))
+            {
+                error = numberError;
+                return false;
+            }
+
+            if (!TryGetWeekendMaskFromCode((int)Math.Truncate(number), out mask))
+                return false;
+        }
+
+        // A week with no working day in it has no answer.
+        if (mask == AllDaysWeekend)
+            return false;
+
+        error = default;
+        return true;
+    }
+
+    /// <summary>Day of the week of a serial date as a bit index, 0 = Monday … 6 = Sunday.</summary>
+    private static int WeekdayBit(int serialDate) => (WeekdayCalc(serialDate) + 5) % 7;
+
+    private static bool IsWeekend(int serialDate, int mask) => (mask & (1 << WeekdayBit(serialDate))) != 0;
+
+    /// <summary>
+    /// Collect the holidays argument into distinct serial dates, dropping the ones that already
+    /// fall on a weekend — they are not working days to begin with, so they must not be subtracted
+    /// twice.
+    /// </summary>
+    private static bool TryGetHolidays(CalcContext ctx, in AnyValue holidays, int mask, out HashSet<int> dates, out XLError error)
+    {
+        dates = [];
+        error = default;
+        foreach (var holidayValue in ctx.GetNonBlankValues(holidays))
+        {
+            if (!TryGetDate(ctx, holidayValue, out var holidayDate, out error))
+                return false;
+
+            if (!IsWeekend(holidayDate, mask))
+                dates.Add(holidayDate);
+        }
+
+        return true;
+    }
+
+    private static AnyValue NetWorkDaysIntl(CalcContext ctx, Span<AnyValue> args)
+    {
+        if (!TryGetDate(ctx, ToScalar(ctx, args[0]), out var startDate, out var startError))
+            return startError;
+
+        if (!TryGetDate(ctx, ToScalar(ctx, args[1]), out var endDate, out var endError))
+            return endError;
+
+        if (!TryGetWeekendMask(ctx, args.Length > 2 ? args[2] : ScalarValue.Blank.ToAnyValue(), out var mask, out var maskError))
+            return maskError;
+
+        if (!TryGetHolidays(ctx, args.Length > 3 ? args[3] : ScalarValue.Blank.ToAnyValue(), mask, out var holidays, out var holidayError))
+            return holidayError;
+
+        // Counting backwards gives the same magnitude with the opposite sign.
+        var reversed = startDate > endDate;
+        if (reversed)
+            (startDate, endDate) = (endDate, startDate);
+
+        var total = CountWorkdays(startDate, endDate, mask);
+        foreach (var holiday in holidays)
+        {
+            if (holiday >= startDate && holiday <= endDate)
+                total--;
+        }
+
+        return reversed ? -total : total;
+    }
+
+    /// <summary>
+    /// Working days in an inclusive date range. Whole weeks contribute a fixed number, so only the
+    /// days that spill past the last whole week have to be looked at one by one.
+    /// </summary>
+    private static int CountWorkdays(int startDate, int endDate, int mask)
+    {
+        var weekendDaysPerWeek = System.Numerics.BitOperations.PopCount((uint)mask);
+        var days = endDate - startDate + 1;
+        var wholeWeeks = days / 7;
+
+        var total = days - wholeWeeks * weekendDaysPerWeek;
+        for (var day = startDate + wholeWeeks * 7; day <= endDate; day++)
+        {
+            if (IsWeekend(day, mask))
+                total--;
+        }
+
+        return total;
+    }
+
+    private static AnyValue WorkdayIntl(CalcContext ctx, Span<AnyValue> args)
+    {
+        if (!TryGetDate(ctx, ToScalar(ctx, args[0]), out var startDate, out var startError))
+            return startError;
+
+        if (!ToScalar(ctx, args[1]).ToNumber(ctx.Culture).TryPickT0(out var offsetNumber, out var offsetError))
+            return offsetError;
+
+        if (!TryGetWeekendMask(ctx, args.Length > 2 ? args[2] : ScalarValue.Blank.ToAnyValue(), out var mask, out var maskError))
+            return maskError;
+
+        if (!TryGetHolidays(ctx, args.Length > 3 ? args[3] : ScalarValue.Blank.ToAnyValue(), mask, out var holidays, out var holidayError))
+            return holidayError;
+
+        var offset = (int)Math.Truncate(offsetNumber);
+
+        // A zero offset returns the start date untouched, weekend or not.
+        if (offset == 0)
+            return startDate;
+
+        var step = offset > 0 ? 1 : -1;
+        var remaining = Math.Abs(offset);
+        var date = startDate;
+        while (remaining > 0)
+        {
+            date += step;
+            if (date < 0 || date > Year10K)
+                return XLError.NumberInvalid;
+
+            if (!IsWeekend(date, mask) && !holidays.Contains(date))
+                remaining--;
+        }
+
+        return date;
+    }
+
+    /// <summary>
+    /// Reduce an argument of the .INTL functions to the single value it expects. Only the holidays
+    /// parameter is marked as taking a range, so the others arrive unreduced and a reference to one
+    /// cell has to be unwrapped here.
+    /// </summary>
+    private static ScalarValue ToScalar(CalcContext ctx, in AnyValue value)
+    {
+        if (value.TryPickScalar(out var scalar, out var collection))
+            return scalar;
+
+        if (collection.TryPickT0(out var array, out var reference))
+            return array[0, 0];
+
+        if (reference.TryGetSingleCellValue(out var single, ctx))
+            return single;
+
+        return value.ImplicitIntersection(ctx).TryPickScalar(out var intersected, out _)
+            ? intersected
+            : XLError.IncompatibleValue;
+    }
+
+    #endregion
 
     private static ScalarValue Now()
     {

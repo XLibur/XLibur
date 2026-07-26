@@ -243,11 +243,16 @@ internal sealed class CalcContext
         }
     }
 
-    internal IEnumerable<ScalarValue> GetFilteredNonBlankValues(Reference reference, string function,
+    /// <summary>
+    /// Values of a reference, skipping blanks and any cell whose own formula calls one of
+    /// <paramref name="functions"/> — which is how SUBTOTAL and AGGREGATE avoid counting a nested
+    /// subtotal twice. AGGREGATE has to skip both function names, so more than one may be given.
+    /// </summary>
+    internal IEnumerable<ScalarValue> GetFilteredNonBlankValues(Reference reference, string[] functions,
         bool skipHiddenRows = false)
     {
         // Allocate one per call, because visitor holds info whether function was found in a formula.
-        var visitor = new FunctionVisitor(function);
+        var visitor = new FunctionVisitor(functions);
         foreach (var area in reference)
         {
             var sheet = area.Worksheet ?? Worksheet;
@@ -279,7 +284,7 @@ internal sealed class CalcContext
             if (formula is null)
                 return false;
 
-            if (!formula.A1.Contains(visitor.FunctionName, StringComparison.OrdinalIgnoreCase))
+            if (!visitor.MightBeCalledBy(formula.A1))
                 return false;
 
             FormulaParser<object?, object?, FunctionVisitor>.CellFormulaA1(formula.A1, visitor, visitor);
@@ -337,22 +342,59 @@ internal sealed class CalcContext
 
     private sealed class FunctionVisitor : CollectVisitor<FunctionVisitor>
     {
-        public FunctionVisitor(string function)
-        {
-            FunctionName = function;
-        }
+        private readonly string[] _functionNames;
 
-        internal string FunctionName { get; }
+        public FunctionVisitor(string[] functionNames)
+        {
+            _functionNames = functionNames;
+        }
 
         public bool Found { get; private set; }
 
         public void Clear() => Found = false;
 
+        /// <summary>
+        /// A cheap substring test that rules out most formulas before the parser is involved. A
+        /// false positive only costs a parse; a false negative would be wrong, so this must stay
+        /// at least as permissive as <see cref="Function"/>.
+        /// </summary>
+        public bool MightBeCalledBy(string formula)
+        {
+            foreach (var name in _functionNames)
+            {
+                if (formula.Contains(name, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
         public override object? Function(FunctionVisitor context, SymbolRange range, ReadOnlySpan<char> functionName,
             IReadOnlyList<object?> arguments)
         {
-            Found = Found || functionName.Equals(FunctionName.AsSpan(), StringComparison.OrdinalIgnoreCase);
+            var bareName = StripNameSpace(functionName);
+            foreach (var name in _functionNames)
+                Found = Found || bareName.Equals(name.AsSpan(), StringComparison.OrdinalIgnoreCase);
+
             return null;
+        }
+
+        /// <summary>
+        /// Drop the namespace a post-2007 function is stored under. AGGREGATE is one of them, so a
+        /// cell holding it reads back as <c>_xlfn.AGGREGATE(…)</c> and would not match its own name.
+        /// </summary>
+        private static ReadOnlySpan<char> StripNameSpace(ReadOnlySpan<char> functionName)
+        {
+            const string futureNameSpace = "_xlfn.";
+            const string worksheetNameSpace = "_xlws.";
+
+            if (functionName.StartsWith(futureNameSpace, StringComparison.OrdinalIgnoreCase))
+                functionName = functionName[futureNameSpace.Length..];
+
+            if (functionName.StartsWith(worksheetNameSpace, StringComparison.OrdinalIgnoreCase))
+                functionName = functionName[worksheetNameSpace.Length..];
+
+            return functionName;
         }
     }
 }

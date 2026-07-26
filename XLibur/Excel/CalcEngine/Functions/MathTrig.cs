@@ -47,6 +47,7 @@ internal static class MathTrig
         ce.RegisterFunction("ACOSH", 1, 1, Adapt(Acosh), FunctionFlags.Scalar);
         ce.RegisterFunction("ACOT", 1, 1, Adapt(Acot), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("ACOTH", 1, 1, Adapt(Acoth), FunctionFlags.Scalar | FunctionFlags.Future);
+        ce.RegisterFunction("AGGREGATE", 3, 255, Aggregate, FunctionFlags.Range | FunctionFlags.Future, AllowRange.Except, 0, 1); // Applies one of nineteen aggregates, with control over what is ignored
         ce.RegisterFunction("ARABIC", 1, 1, Adapt(Arabic), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("ASIN", 1, 1, Adapt(Asin), FunctionFlags.Scalar);
         ce.RegisterFunction("ASINH", 1, 1, Adapt(Asinh), FunctionFlags.Scalar);
@@ -1011,6 +1012,98 @@ internal static class MathTrig
             111 => Statistical.VarP(ctx, args, TallyNumbers.Subtotal100),
             _ => throw new UnreachableException(),
         };
+    }
+
+    /// <summary>
+    /// AGGREGATE(function_num, options, …) — one of nineteen aggregates over the remaining
+    /// arguments, with the <c>options</c> argument choosing what is left out of the data set.
+    /// Functions 1..13 take any number of ranges; 14..19 take one array and a k, because they pick
+    /// a position within a single ordered set.
+    /// </summary>
+    private static AnyValue Aggregate(CalcContext ctx, Span<AnyValue> args)
+    {
+        if (!TryGetAggregateArgument(ctx, args[0], out var functionArgument, out var functionError))
+            return functionError;
+        if (!TryGetAggregateArgument(ctx, args[1], out var optionsArgument, out var optionsError))
+            return optionsError;
+
+        var functionNumber = Math.Truncate(functionArgument);
+        var options = Math.Truncate(optionsArgument);
+        if (functionNumber is < 1 or > 19 || options is < 0 or > 7)
+            return XLError.IncompatibleValue;
+
+        // Options 1, 3, 5 and 7 hide rows; 2, 3, 6 and 7 ignore errors. Nested SUBTOTAL and
+        // AGGREGATE are skipped under every option — the "ignore nothing" of option 4 is about
+        // hidden rows and errors, not about double counting.
+        var skipHiddenRows = options is 1 or 3 or 5 or 7;
+        var ignoreErrors = options is 2 or 3 or 6 or 7;
+        var tally = TallyNumbers.Aggregate(skipHiddenRows, ignoreErrors);
+
+        var values = args[2..];
+        if (functionNumber <= 13)
+        {
+            return functionNumber switch
+            {
+                1 => Statistical.Average(ctx, values, tally),
+                2 => Statistical.Count(ctx, values, tally),
+                3 => Statistical.Count(ctx, values, skipHiddenRows ? TallyAll.AggregateCountAVisible : TallyAll.AggregateCountA),
+                4 => Statistical.Max(ctx, values, tally),
+                5 => Statistical.Min(ctx, values, tally),
+                6 => Product(ctx, values, tally),
+                7 => Statistical.StDev(ctx, values, tally),
+                8 => Statistical.StDevP(ctx, values, tally),
+                9 => Sum(ctx, values, tally),
+                10 => Statistical.Var(ctx, values, tally),
+                11 => Statistical.VarP(ctx, values, tally),
+                12 => Statistical.Median(ctx, values, tally),
+                _ => Statistical.Mode(ctx, values, tally),
+            };
+        }
+
+        // The order statistics need the whole data set materialized, and a k to index it with.
+        if (args.Length < 4)
+            return XLError.IncompatibleValue;
+
+        if (!TryGetAggregateArgument(ctx, args[3], out var k, out var kError))
+            return kError;
+
+        if (!Statistical.CollectNumbers(ctx, args[2..3], tally).TryPickT0(out var numbers, out var valuesError))
+            return valuesError;
+
+        return functionNumber switch
+        {
+            14 => Statistical.NthLargest(numbers, k),
+            15 => Statistical.NthSmallest(numbers, k),
+            16 => Statistical.PercentileInclusive(numbers, k),
+            17 => Statistical.QuartileInclusive(numbers, k),
+            18 => Statistical.PercentileExclusive(numbers, k),
+            _ => Statistical.QuartileExclusive(numbers, k),
+        };
+    }
+
+    /// <summary>Read one of AGGREGATE's scalar arguments — the function number, the options or the k.</summary>
+    private static bool TryGetAggregateArgument(CalcContext ctx, in AnyValue value, out double number, out XLError error)
+    {
+        number = 0;
+        error = default;
+
+        // Only the data parameters are marked as taking a range, so these arrive unreduced and a
+        // reference to a single cell has to be unwrapped here.
+        if (!value.TryPickScalar(out var scalar, out var collection))
+        {
+            if (collection.TryPickT0(out var array, out var reference))
+            {
+                scalar = array[0, 0];
+            }
+            else if (!reference.TryGetSingleCellValue(out scalar, ctx)
+                     && !value.ImplicitIntersection(ctx).TryPickScalar(out scalar, out _))
+            {
+                error = XLError.IncompatibleValue;
+                return false;
+            }
+        }
+
+        return scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error);
     }
 
     private static AnyValue Sum(CalcContext ctx, Span<AnyValue> args)

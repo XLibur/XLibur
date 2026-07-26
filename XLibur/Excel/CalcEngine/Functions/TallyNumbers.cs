@@ -19,15 +19,36 @@ internal sealed class TallyNumbers : ITally
     /// </summary>
     internal static readonly TallyNumbers WithoutScalarBlank = new(ignoreScalarBlank: true);
 
+    /// <summary>A nested SUBTOTAL is not counted again by the SUBTOTAL that contains it.</summary>
+    internal static readonly string[] SubtotalOnly = ["SUBTOTAL"];
+
+    /// <summary>AGGREGATE skips nested SUBTOTAL and nested AGGREGATE alike.</summary>
+    internal static readonly string[] SubtotalAndAggregate = ["SUBTOTAL", "AGGREGATE"];
+
     /// <summary>
     /// Tally algorithm for <c>SUBTOTAL</c> functions 1..11.
     /// </summary>
-    internal static readonly TallyNumbers Subtotal10 = new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, "SUBTOTAL"));
+    internal static readonly TallyNumbers Subtotal10 = new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, SubtotalOnly));
 
     /// <summary>
     /// Tally algorithm for <c>SUBTOTAL</c> functions 101..111.
     /// </summary>
-    internal static readonly TallyNumbers Subtotal100 = new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, "SUBTOTAL", skipHiddenRows: true));
+    internal static readonly TallyNumbers Subtotal100 = new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, SubtotalOnly, skipHiddenRows: true));
+
+    /// <summary>
+    /// The four tally algorithms <c>AGGREGATE</c> needs, indexed by whether its options ask for
+    /// hidden rows to be skipped and for errors to be ignored.
+    /// </summary>
+    private static readonly TallyNumbers[] AggregateVariants =
+    [
+        new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, SubtotalAndAggregate)),
+        new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, SubtotalAndAggregate), ignoreErrors: true),
+        new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, SubtotalAndAggregate, skipHiddenRows: true)),
+        new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, SubtotalAndAggregate, skipHiddenRows: true), ignoreErrors: true),
+    ];
+
+    internal static TallyNumbers Aggregate(bool skipHiddenRows, bool ignoreErrors)
+        => AggregateVariants[(skipHiddenRows ? 2 : 0) + (ignoreErrors ? 1 : 0)];
 
     /// <summary>
     /// Tally numbers. Any error (including conversion), logical, text is ignored and not tallied.

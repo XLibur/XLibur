@@ -31,6 +31,8 @@
 
 #### Formula functions
 
+- **`AGGREGATE`, `NETWORKDAYS.INTL` and `WORKDAY.INTL`**. `AGGREGATE` covers all nineteen function numbers — including `PERCENTILE.EXC` and `QUARTILE.EXC`, which have no standalone registration yet — and all eight option values, so ignoring hidden rows and error values both work rather than being documented limitations. The `.INTL` date functions take a weekend as either one of Excel's numbered codes or a seven-character Monday-to-Sunday mask. ([#255](https://github.com/XLibur/XLibur/pull/255) by [@jafin](https://github.com/jafin))
+
 - **20 modern text and array-shaping functions**: `TEXTSPLIT`, `TEXTBEFORE`, `TEXTAFTER`, `VALUETOTEXT`, `ARRAYTOTEXT`, `UNICHAR`, `UNICODE`, `DBCS`, `ENCODEURL`, and the array-shaping set `VSTACK`, `HSTACK`, `TOROW`, `TOCOL`, `WRAPROWS`, `WRAPCOLS`, `CHOOSEROWS`, `CHOOSECOLS`, `TAKE`, `DROP`, `EXPAND`. The array-shaping functions and `TEXTSPLIT` spill.
 
   `DBCS` derives its mapping by inverting `ASC`'s, so the two are exact inverses. Where Excel would report `#CALC!` — a `DROP` that leaves nothing, a `TOCOL` that ignores every value — XLibur reports `#VALUE!` instead, because the value model has no `#CALC!`. ([#254](https://github.com/XLibur/XLibur/pull/254) by [@jafin](https://github.com/jafin))
@@ -88,6 +90,8 @@
 ### 🐛 Bug Fixes
 
 #### Formulas and references
+
+- **`SUBTOTAL` no longer counts a nested post-2007 function twice.** The check that stops a subtotal counting a subtotal inside its own range compared the function name as the formula stores it, and Excel stores every function added after 2007 under an `_xlfn.` namespace — so a nested `AGGREGATE` was never recognised. The namespace is now stripped before the comparison. ([#255](https://github.com/XLibur/XLibur/pull/255) by [@jafin](https://github.com/jafin))
 
 - **A reference whose rows or columns are all deleted becomes `#REF!`** ([ClosedXML #880](https://github.com/ClosedXML/ClosedXML/issues/880)): endpoints were shifted by the deleted height and clamped to row 1, so deleting rows 1–5 turned `Sheet1!$A$1:$B$2` into `Sheet1!$A$1:$B$1` — a phantom one-row range over whatever data had moved up into it. The same shifter serves cell formulas, so `=SUM(A1:A2)` with those rows deleted now reads `SUM(#REF!)` rather than quietly summing the wrong cells. Deleting the sheet afterwards drops the stale sheet prefix instead of leaving a defined name pointing at a sheet that no longer exists. ([#243](https://github.com/XLibur/XLibur/pull/243) by [@jafin](https://github.com/jafin))
 

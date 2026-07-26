@@ -46,12 +46,18 @@ internal sealed class TallyAll : ITally
     /// <summary>
     /// Tally algorithm for <c>SUBTOTAL</c> functions 1..11.
     /// </summary>
-    internal static readonly ITally Subtotal10 = new TallyAll(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, "SUBTOTAL"));
+    internal static readonly ITally Subtotal10 = new TallyAll(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.SubtotalOnly));
 
     /// <summary>
     /// Tally algorithm for <c>SUBTOTAL</c> functions 101..111.
     /// </summary>
-    internal static readonly ITally Subtotal100 = new TallyAll(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, "SUBTOTAL", skipHiddenRows: true));
+    internal static readonly ITally Subtotal100 = new TallyAll(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.SubtotalOnly, skipHiddenRows: true));
+
+    /// <summary>Tally algorithm for <c>AGGREGATE</c> function 3 (COUNTA).</summary>
+    internal static readonly ITally AggregateCountA = new TallyAll(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.SubtotalAndAggregate));
+
+    /// <summary>Tally algorithm for <c>AGGREGATE</c> function 3 with an option that hides rows.</summary>
+    internal static readonly ITally AggregateCountAVisible = new TallyAll(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.SubtotalAndAggregate, skipHiddenRows: true));
 
     private TallyAll(bool ignoreArrayText = true, bool includeErrors = false, Func<CalcContext, Reference, IEnumerable<ScalarValue>>? getNonBlankValues = null)
     {
