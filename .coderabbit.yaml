@@ -7,8 +7,9 @@ reviews:
   poem: false
   review_status: true
   sequence_diagrams: true
+  # Reviews are triggered manually by commenting `@coderabbitai review` on a PR.
   auto_review:
-    enabled: true
+    enabled: false
     drafts: false
   path_filters:
     - '!**/*.trx'
