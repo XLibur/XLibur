@@ -105,7 +105,7 @@ PRs 2 and 3 are independent of each other once PR 1's groundwork lands.
 Series formatting, secondary-axis binding and the round-trip-preservation groundwork landed.
 `IXLChartSeries` gained `FillColor`, `LineColor`, `LineWidthPt`, `MarkerStyle` (new `XLMarkerStyle`
 enum), `MarkerSize`, `MarkerFillColor`, `Smooth` and `UseSecondaryAxis`. `DataLabels` is left to
-PR 2. 6360 tests pass on net8.0 and net10.0.
+PR 2. 6366 tests pass on net8.0 and net10.0.
 
 ### The preservation question is answered: the writer does not regenerate
 

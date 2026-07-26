@@ -90,7 +90,13 @@ public class ChartRoundTripPreservationTests
     /// <summary>
     /// Produces a workbook whose single chart part holds <see cref="ExcelShapedChartXml"/>.
     /// </summary>
-    private static MemoryStream CreateWorkbookWithExcelShapedChart()
+    private static MemoryStream CreateWorkbookWithExcelShapedChart() =>
+        CreateWorkbookWithExcelShapedChart(ExcelShapedChartXml);
+
+    /// <summary>
+    /// Produces a workbook whose single chart part holds the given XML.
+    /// </summary>
+    private static MemoryStream CreateWorkbookWithExcelShapedChart(string chartXml)
     {
         var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -114,7 +120,7 @@ public class ChartRoundTripPreservationTests
         using (var doc = SpreadsheetDocument.Open(ms, true))
         {
             var chartPart = doc.WorkbookPart!.WorksheetParts.First().DrawingsPart!.ChartParts.First();
-            using var source = new MemoryStream(Encoding.UTF8.GetBytes(ExcelShapedChartXml));
+            using var source = new MemoryStream(Encoding.UTF8.GetBytes(chartXml));
             chartPart.FeedData(source);
         }
 
@@ -297,6 +303,196 @@ public class ChartRoundTripPreservationTests
         Assert.That(barSeries, Does.Not.Contain("<c:marker"));
         Assert.That(barSeries, Does.Not.Contain("<c:smooth"));
         Assert.That(barSeries, Does.Contain("00B050"), "The fill still applies.");
+    }
+
+    /// <summary>
+    /// The fixture's line series without its <c>c:marker</c> and <c>c:smooth</c>, so the patcher has
+    /// to add them rather than update them.
+    /// </summary>
+    private static string ChartXmlWithPlainLineSeries()
+    {
+        var marker = ExcelShapedChartXml.IndexOf("<c:marker>", StringComparison.Ordinal);
+        var afterMarker = ExcelShapedChartXml.IndexOf("</c:marker>", StringComparison.Ordinal)
+                          + "</c:marker>".Length;
+        var withoutMarker = ExcelShapedChartXml[..marker] + ExcelShapedChartXml[afterMarker..];
+        return withoutMarker.Replace("<c:smooth val=\"1\"/>", string.Empty);
+    }
+
+    [Test]
+    public void MarkerAndSmoothCanBeAddedToASeriesThatHadNeither()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart(ChartXmlWithPlainLineSeries());
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            var line = wb.Worksheet("Data").Charts.First().SecondarySeries.Single();
+            Assert.That(line.MarkerStyle, Is.EqualTo(XLMarkerStyle.Auto));
+            Assert.That(line.Smooth, Is.False);
+
+            line.MarkerStyle = XLMarkerStyle.Triangle;
+            line.MarkerSize = 9;
+            line.MarkerFillColor = XLColor.FromHtml("#FFC000");
+            line.Smooth = true;
+            wb.SaveAs(saved, validate: true);
+        }
+
+        saved.Position = 0;
+        using (var wb = new XLWorkbook(saved))
+        {
+            var line = wb.Worksheet("Data").Charts.First().SecondarySeries.Single();
+            Assert.That(line.MarkerStyle, Is.EqualTo(XLMarkerStyle.Triangle));
+            Assert.That(line.MarkerSize, Is.EqualTo(9));
+            Assert.That(line.MarkerFillColor, Is.EqualTo(XLColor.FromHtml("#FFC000")));
+            Assert.That(line.Smooth, Is.True);
+            Assert.That(line.LineColor!.ThemeColor, Is.EqualTo(XLThemeColor.Accent2),
+                "The outline the series came with is untouched.");
+        }
+    }
+
+    [Test]
+    public void ClearingEveryMarkerPropertyLeavesNoEmptyMarkerBehind()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart(ChartXmlWithPlainLineSeries());
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            var line = wb.Worksheet("Data").Charts.First().SecondarySeries.Single();
+            line.MarkerSize = null;
+            line.MarkerFillColor = null;
+            wb.SaveAs(saved, validate: true);
+        }
+
+        // An empty c:marker on the series would read back as "this series has markers", which would
+        // turn the chart type into LineWithMarkers. The group-level c:marker flag is a different
+        // element and is left alone.
+        var xml = ReadChartXml(saved);
+        var lineSeries = xml[xml.IndexOf("<c:lineChart>", StringComparison.Ordinal)..
+                             xml.IndexOf("</c:ser>", xml.IndexOf("<c:lineChart>", StringComparison.Ordinal),
+                                 StringComparison.Ordinal)];
+        Assert.That(lineSeries, Does.Not.Contain("<c:marker"));
+
+        saved.Position = 0;
+        using (var wb = new XLWorkbook(saved))
+        {
+            Assert.That(wb.Worksheet("Data").Charts.First().SecondaryChartType,
+                Is.EqualTo(XLChartType.Line));
+        }
+    }
+
+    [Test]
+    public void SmoothingCanBeTurnedOffOnASeriesThatHadIt()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart();
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            var line = wb.Worksheet("Data").Charts.First().SecondarySeries.Single();
+            Assert.That(line.Smooth, Is.True);
+            line.Smooth = false;
+            wb.SaveAs(saved, validate: true);
+        }
+
+        saved.Position = 0;
+        using (var wb = new XLWorkbook(saved))
+        {
+            Assert.That(wb.Worksheet("Data").Charts.First().SecondarySeries.Single().Smooth, Is.False);
+        }
+    }
+
+    [Test]
+    public void AnOutlineCanBeAddedToASeriesThatOnlyHadAFill()
+    {
+        // The bar series' spPr carries a solidFill and an a:ln; strip the a:ln so the patcher has to
+        // insert one, in the right place, next to the fill and the effect list.
+        var chartXml = ExcelShapedChartXml.Replace(
+            "<a:ln w=\"19050\" cap=\"rnd\"><a:solidFill><a:srgbClr val=\"203864\"/></a:solidFill><a:round/></a:ln>",
+            string.Empty);
+
+        using var original = CreateWorkbookWithExcelShapedChart(chartXml);
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            var bar = wb.Worksheet("Data").Charts.First().Series.Single();
+            Assert.That(bar.LineColor, Is.Null);
+            bar.LineColor = XLColor.FromHtml("#203864");
+            bar.LineWidthPt = 2;
+            wb.SaveAs(saved, validate: true);
+        }
+
+        var xml = ReadChartXml(saved);
+        Assert.That(xml, Does.Contain("w=\"25400\""));
+        Assert.That(xml, Does.Contain("<a:effectLst"), "The effect list is still after the outline.");
+
+        saved.Position = 0;
+        using (var wb = new XLWorkbook(saved))
+        {
+            var bar = wb.Worksheet("Data").Charts.First().Series.Single();
+            Assert.That(bar.LineColor, Is.EqualTo(XLColor.FromHtml("#203864")));
+            Assert.That(bar.LineWidthPt, Is.EqualTo(2));
+            Assert.That(bar.FillColor, Is.EqualTo(XLColor.FromHtml("#ED7D31")),
+                "The fill it came with is untouched.");
+        }
+    }
+
+    [Test]
+    public void ClearingTheOutlineWidthLeavesTheColourAlone()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart();
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            var bar = wb.Worksheet("Data").Charts.First().Series.Single();
+            bar.LineWidthPt = null;
+            wb.SaveAs(saved, validate: true);
+        }
+
+        saved.Position = 0;
+        using (var wb = new XLWorkbook(saved))
+        {
+            var bar = wb.Worksheet("Data").Charts.First().Series.Single();
+            Assert.That(bar.LineWidthPt, Is.Null);
+            Assert.That(bar.LineColor, Is.EqualTo(XLColor.FromHtml("#203864")));
+        }
+    }
+
+    [Test]
+    public void EveryMarkerStyleRoundTrips()
+    {
+        XLMarkerStyle[] styles =
+        [
+            XLMarkerStyle.None, XLMarkerStyle.Circle, XLMarkerStyle.Dash, XLMarkerStyle.Diamond,
+            XLMarkerStyle.Dot, XLMarkerStyle.Plus, XLMarkerStyle.Square, XLMarkerStyle.Star,
+            XLMarkerStyle.Triangle, XLMarkerStyle.X
+        ];
+
+        foreach (var style in styles)
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet("Data");
+                ws.Cell("A1").Value = "Q1";
+                ws.Cell("B1").Value = 100;
+
+                var chart = ws.Charts.Add(XLChartType.LineWithMarkers);
+                chart.Series.Add("Sales", "Data!$B$1:$B$1", "Data!$A$1:$A$1").MarkerStyle = style;
+                chart.Position.SetColumn(5).SetRow(1);
+                chart.SecondPosition.SetColumn(12).SetRow(15);
+                wb.SaveAs(ms, validate: true);
+            }
+
+            ms.Position = 0;
+            using (var wb = new XLWorkbook(ms))
+            {
+                Assert.That(wb.Worksheet("Data").Charts.First().Series.Single().MarkerStyle,
+                    Is.EqualTo(style), $"{style} did not round-trip.");
+            }
+        }
     }
 
     [Test]
