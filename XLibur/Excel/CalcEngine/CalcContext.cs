@@ -25,7 +25,7 @@ internal sealed class CalcContext
     /// canonical eval workloads (verified: ~150 MB allocation regression and no time
     /// improvement on <c>LoadAndReadAllCells</c> when the cache covered every read).
     /// </summary>
-    private Dictionary<XLBookPoint, ScalarValue>? _recursiveCellValueCache;
+    private Dictionary<SheetPoint, ScalarValue>? _recursiveCellValueCache;
 
     public CalcContext(XLCalcEngine calcEngine, CultureInfo culture, XLCell cell)
         : this(calcEngine, culture, cell.Worksheet.Workbook, cell.Worksheet, cell.Address)
@@ -130,7 +130,7 @@ internal sealed class CalcContext
                     return valueSlice.GetCellValue(point);
                 }
 
-                throw new GettingDataException(new XLBookPoint(sheet.SheetId, spillAnchor));
+                throw new GettingDataException(new SheetPoint(sheet.SheetId, spillAnchor));
             }
 
             return valueSlice.GetCellValue(point);
@@ -150,17 +150,17 @@ internal sealed class CalcContext
         // expression, not just a slice read.
         if (_recursive)
         {
-            var bookPoint = new XLBookPoint(sheet.SheetId, point);
+            var bookPoint = new SheetPoint(sheet.SheetId, point);
             if (_recursiveCellValueCache is { } cache && cache.TryGetValue(bookPoint, out var cached))
                 return cached;
 
             var cell = sheet.GetCell(point);
             var value = cell?.Value ?? Blank.Value;
-            (_recursiveCellValueCache ??= new Dictionary<XLBookPoint, ScalarValue>()).Add(bookPoint, value);
+            (_recursiveCellValueCache ??= new Dictionary<SheetPoint, ScalarValue>()).Add(bookPoint, value);
             return value;
         }
 
-        throw new GettingDataException(new XLBookPoint(sheet.SheetId, new Point(rowNumber, columnNumber)));
+        throw new GettingDataException(new SheetPoint(sheet.SheetId, new Point(rowNumber, columnNumber)));
     }
 
     /// <summary>

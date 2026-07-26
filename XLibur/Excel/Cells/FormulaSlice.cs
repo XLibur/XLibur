@@ -91,7 +91,7 @@ internal sealed class FormulaSlice : ISlice
 
         // Remove first, so calc chain doesn't choke on two formulas
         // in one cell when changing a formula of a cell.
-        var bookPoint = new XLBookPoint(_sheet.SheetId, point);
+        var bookPoint = new SheetPoint(_sheet.SheetId, point);
         if (original is not null)
             _engine.RemoveFormula(bookPoint, original);
 
@@ -131,7 +131,7 @@ internal sealed class FormulaSlice : ISlice
                 // (the number of cells formula affects doesn't matter) and also
                 // removes point from the calc chain. Therefore, it works for
                 // array and normal formulas.
-                var bookPoint = new XLBookPoint(_sheet.SheetId, point);
+                var bookPoint = new SheetPoint(_sheet.SheetId, point);
                 if (original is not null)
                     _engine.RemoveFormula(bookPoint, original);
             }

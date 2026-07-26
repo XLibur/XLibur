@@ -15,7 +15,7 @@ namespace XLibur.Excel.Coordinates;
 /// and gives single-instruction equality, hashing, and comparison.
 /// </remarks>
 [DebuggerDisplay("[{SheetId}] R{Row}C{Column}")]
-internal readonly struct XLBookPoint : IEquatable<XLBookPoint>
+internal readonly struct SheetPoint : IEquatable<SheetPoint>
 {
     private const int PointBits = Point.ColumnBits + 20; // 34
     private const ulong PointMask = (1UL << PointBits) - 1;
@@ -28,18 +28,18 @@ internal readonly struct XLBookPoint : IEquatable<XLBookPoint>
     private readonly ulong _value;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal XLBookPoint(XLWorksheet sheet, Point point)
+    internal SheetPoint(XLWorksheet sheet, Point point)
         : this(sheet.SheetId, point)
     {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal XLBookPoint(uint sheetId, Point point)
+    internal SheetPoint(uint sheetId, Point point)
     {
         _value = ((ulong)sheetId << PointBits) | point.PackedValue;
     }
 
-    internal XLBookPoint(uint sheetId, int row, int column)
+    internal SheetPoint(uint sheetId, int row, int column)
         : this(sheetId, new Point(row, column))
     {
     }
@@ -84,20 +84,20 @@ internal readonly struct XLBookPoint : IEquatable<XLBookPoint>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool operator ==(XLBookPoint lhs, XLBookPoint rhs) => lhs._value == rhs._value;
+    public static bool operator ==(SheetPoint lhs, SheetPoint rhs) => lhs._value == rhs._value;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool operator !=(XLBookPoint lhs, XLBookPoint rhs) => lhs._value != rhs._value;
+    public static bool operator !=(SheetPoint lhs, SheetPoint rhs) => lhs._value != rhs._value;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Equals(XLBookPoint other)
+    public bool Equals(SheetPoint other)
     {
         return _value == other._value;
     }
 
     public override bool Equals(object? obj)
     {
-        return obj is XLBookPoint other && Equals(other);
+        return obj is SheetPoint other && Equals(other);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

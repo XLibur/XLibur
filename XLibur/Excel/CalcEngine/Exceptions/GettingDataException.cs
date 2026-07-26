@@ -11,10 +11,10 @@ namespace XLibur.Excel.CalcEngine.Exceptions;
 internal sealed class GettingDataException : Exception
 #pragma warning restore S3871
 {
-    public GettingDataException(XLBookPoint point)
+    public GettingDataException(SheetPoint point)
     {
         Point = point;
     }
 
-    public XLBookPoint Point { get; }
+    public SheetPoint Point { get; }
 }
