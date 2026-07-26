@@ -131,8 +131,9 @@ internal static class ChartReader
         if (primaryKind == null)
             return;
 
-        var primaryValueAxisId = ChartPlotAreaScanner.PrimaryValueAxisId(groups, primaryKind.Value);
-        ReadAxes(plotArea, groups, primaryKind.Value, primaryValueAxisId, xlChart);
+        var primaryGroup = ChartPlotAreaScanner.PrimaryGroup(plotArea, groups, primaryKind.Value);
+        var primaryValueAxisId = primaryGroup.ValueAxisId;
+        ReadAxes(plotArea, groups, primaryGroup, primaryValueAxisId, xlChart);
         var primarySet = false;
 
         foreach (var group in groups)
@@ -159,6 +160,9 @@ internal static class ChartReader
             }
             else
             {
+                // The model carries two chart types. A plot area may hold more, in which case the
+                // series of the third and later groups still land in the secondary collection but are
+                // reported under the second group's type — see IXLChart.SecondaryChartType.
                 xlChart.SecondaryChartType ??= chartType;
                 ReadGroupSeries(group, xlChart.SecondarySeriesInternal, useSecondaryAxis);
             }
@@ -170,11 +174,9 @@ internal static class ChartReader
     /// the secondary value axis into the model.
     /// </summary>
     private static void ReadAxes(
-        C.PlotArea plotArea, List<XLChartGroup> groups, XLChartGroupKind primaryKind,
+        C.PlotArea plotArea, List<XLChartGroup> groups, XLChartGroup primaryGroup,
         uint? primaryValueAxisId, XLChart xlChart)
     {
-        var primaryGroup = groups.First(g => g.Kind == primaryKind);
-
         ChartFormatting.ReadAxis(
             ChartPlotAreaScanner.FindAxis(plotArea, primaryGroup.CategoryAxisId),
             xlChart.CategoryAxisInternal);

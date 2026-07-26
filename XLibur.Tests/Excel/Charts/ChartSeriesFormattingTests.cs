@@ -282,6 +282,36 @@ public class ChartSeriesFormattingTests
     }
 
     [Test]
+    public void StockSeriesAreSmoothedToo()
+    {
+        // A stock chart is built from CT_LineSer, which takes c:smooth. The writer used to leave it
+        // out, so Smooth was honoured on a stock chart read from a file but not on a new one.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = AddDataSheet(wb);
+            var chart = AddChart(ws, XLChartType.StockHighLowClose);
+            foreach (var name in new[] { "High", "Low", "Close" })
+                chart.Series.Add(name, "Data!$B$1:$B$2", "Data!$A$1:$A$2").Smooth = true;
+
+            using var saved = SaveValidated(wb);
+            var chartSpace = ChartSpaceOf(saved);
+            Assert.That(chartSpace.Descendants<C.Smooth>().Select(s => s.Val!.Value),
+                Is.EqualTo(new[] { true, true, true }));
+
+            saved.Position = 0;
+            saved.CopyTo(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            Assert.That(wb.Worksheet("Data").Charts.First().Series.Select(s => s.Smooth),
+                Is.EqualTo(new[] { true, true, true }));
+        }
+    }
+
+    [Test]
     public void FormattingSurvivesEveryStandardChartFamily()
     {
         // The formatting is appended by each chart family's own builder, so every family gets a

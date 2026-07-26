@@ -195,11 +195,41 @@ internal static class ChartPlotAreaScanner
     }
 
     /// <summary>
-    /// The value axis of the first group of the primary kind. Groups plotted against a different
-    /// value axis are on a secondary axis.
+    /// The group that carries the chart's primary axis pair. Groups plotted against a different value
+    /// axis are on a secondary axis.
     /// </summary>
-    internal static uint? PrimaryValueAxisId(List<XLChartGroup> groups, XLChartGroupKind primaryKind) =>
-        groups.First(g => g.Kind == primaryKind).ValueAxisId;
+    /// <remarks>
+    /// A plot area may hold several groups of the primary kind — two <c>c:barChart</c> elements, say,
+    /// one per axis pair — and nothing in the schema says the primary one comes first. So rather than
+    /// trust document order, a group whose value axis crosses the category axis at its maximum is
+    /// passed over: that is how a secondary value axis ends up drawn on the right, and Excel writes it
+    /// on every secondary axis it creates. When every candidate looks secondary — or none does —
+    /// document order decides after all.
+    /// </remarks>
+    internal static XLChartGroup PrimaryGroup(
+        C.PlotArea plotArea, List<XLChartGroup> groups, XLChartGroupKind primaryKind)
+    {
+        XLChartGroup? firstOfKind = null;
+
+        foreach (var group in groups)
+        {
+            if (group.Kind != primaryKind)
+                continue;
+
+            firstOfKind ??= group;
+            if (!CrossesAtMaximum(FindAxis(plotArea, group.ValueAxisId)))
+                return group;
+        }
+
+        // ChoosePrimaryKind only ever returns a kind that is present, so there is always a candidate.
+        return firstOfKind!;
+    }
+
+    /// <summary>
+    /// Whether an axis element carries <c>c:crosses val="max"</c>, the mark of a secondary value axis.
+    /// </summary>
+    private static bool CrossesAtMaximum(OpenXmlCompositeElement? axis) =>
+        axis?.Elements<C.Crosses>().FirstOrDefault()?.Val?.Value == C.CrossesValues.Maximum;
 
     /// <summary>
     /// Finds the axis element of a plot area carrying the given <c>c:axId</c>, whichever axis type it

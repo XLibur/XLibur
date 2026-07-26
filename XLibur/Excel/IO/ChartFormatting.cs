@@ -221,6 +221,11 @@ internal static class ChartFormatting
 
         if (element == null)
         {
+            // Position and Overlay are ignored while the legend is hidden, so assigning one of them on
+            // a chart that has no legend must not conjure one — BuildLegend does not either.
+            if (!legend.Visible)
+                return;
+
             element = new C.Legend();
             element.Append(new C.LegendPosition { Val = MapLegendPosition(legend.Position) });
             element.Append(new C.Overlay { Val = legend.Overlay });
