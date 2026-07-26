@@ -241,7 +241,7 @@ internal readonly struct ScalarValue
         //        4 '#,##0.00'
         //       11 '0.00E+00'
         //       48 '##0.0E+0'
-        if (double.TryParse(text, NumberStyles.Any, culture, out var number))
+        if (NumberParser.TryParse(text, culture, out var number))
             return number;
 
         // Excel allows whitespace between the sign and the number ('- 100 %'), .NET parse methods
@@ -415,6 +415,20 @@ internal readonly struct ScalarValue
             return ToSerialDate(dateFormat16, out serialDateTime);
         }
 
+        // Excel has an extra 'mmm-dd' pattern ahead of 'mmm-yy' in cultures that write the month
+        // before the day, so under en-US 'jan-02' is the second of January of the current year rather
+        // than January 2002. Cultures that write the day first only have the year reading, which is
+        // why cs-CZ reads 'led-5' as January 2005. Parsing happens in year 1 (NoCurrentDateDefault),
+        // so a number that isn't a valid day falls through to the year reading below, and so does
+        // 'feb-29', which no year 1 can hold.
+        if (!hasLeadingWhitespace &&
+            IsMonthBeforeDay(culture) &&
+            DateTime.TryParseExact(text, ["MMM-d", "MMMM-d"], culture, dateStyle, out var dateFormat17AsDay))
+        {
+            var dayInCurrentYear = dateFormat17AsDay.AddYears(DateTime.Now.Year - dateFormat17AsDay.Year);
+            return ToSerialDate(dayInCurrentYear, out serialDateTime);
+        }
+
         // Month and a number. In some cultures, the culture date parsing will interpret this pattern as MMM-dd, but
         // that depends on culture date patterns above. Use MMM and MMMM to encompass both abbreviation and full name.
         // Format 17 'mmm-yy'
@@ -479,6 +493,15 @@ internal readonly struct ScalarValue
             }
 
             return false;
+        }
+
+        // Whether the culture writes '3/1' as the first of March or the third of January.
+        static bool IsMonthBeforeDay(CultureInfo c)
+        {
+            var shortDatePattern = c.DateTimeFormat.ShortDatePattern;
+            var monthIndex = shortDatePattern.IndexOf('M');
+            var dayIndex = shortDatePattern.IndexOf('d');
+            return monthIndex >= 0 && dayIndex >= 0 && monthIndex < dayIndex;
         }
 
         static bool ToSerialDate(DateTime dateTime, out double serialDate)

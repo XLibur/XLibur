@@ -138,8 +138,6 @@ public class TextToNumberCoercionTests
     // In en locale, there should be an extra pattern MMM-dd that is before the standard MMM-yy, but .NET Framework doesn't have it.
     // To overcome missing locale, use numbers over 31 for year (otherwise they should be interpreted as days)
     [Test]
-    [Arguments("jan-02", 44563, Skip = ".NET misses culture, en interprets it as MMM-dd, but czech as MMM-yy, so the MMM-dd is the extra culture for en.")] // interpreted as 2022-01-02
-    [Arguments("jan-31", 44592, Skip = "Missing excel culture mapping")] // 2022-01-02
     [Arguments("jan-32", 11689)] // 1932-01-01
     [Arguments("feb-29", 47150)] // 2029-02-01
     [Arguments("feb-30", 10990)] // 1930-02-01
@@ -149,12 +147,26 @@ public class TextToNumberCoercionTests
     [Arguments(" aug-55", null)] // starting spaces not allowed
     [Arguments("aug-55 ", 20302)] // trailing spaces allowed
     [Arguments("MaR-42", 15401)] // case-insensitive
-    [Arguments("marc-2", 44622, Skip = ".NET parser recognizes only abbreviation or full name of a month.")] // name can be more than three long abbr
     [Arguments("march-55", 20149)]
     [Arguments("ma-2", null)] // Name of month must be at least three chars long
     public async Task Date_Format17(string text, double? expectedValue) // Format 17 'mmm-yy'
     {
         await AssertCoercion(text, expectedValue);
+    }
+
+    // Cultures that write the month before the day have an extra 'mmm-dd' pattern ahead of 'mmm-yy',
+    // so a number that is a valid day of the month is read as a day of the current year rather than
+    // as a year. Numbers that are not ('jan-32', 'feb-29') stay in Date_Format17 above.
+    [Test]
+    [Arguments("jan-02", 44563)] // 2022-01-02
+    [Arguments("jan-31", 44592)] // 2022-01-31
+    [Arguments("marc-2", 44622)] // 2022-03-02, a month name can be any prefix at least three letters long
+    public async Task Date_Format17_DayOfCurrentYear(string text, double expectedValue) // Format 17 'mmm-dd'
+    {
+        var date = DateTime.FromOADate(expectedValue);
+        var inCurrentYear = new DateTime(DateTime.Now.Year, date.Month, date.Day, 0, 0, 0, DateTimeKind.Unspecified);
+
+        await AssertCoercion(text, inCurrentYear.ToOADate());
     }
 
     [Test]
@@ -257,9 +269,9 @@ public class TextToNumberCoercionTests
 
     [Test]
     [Arguments("1,000", 1000)]
-    [Arguments("1,00", null, Skip = ".NET parse methods ignores thousands separator, but excel enforces them.")]
+    [Arguments("1,00", null)]
     [Arguments("1,000,000", 1000000)]
-    [Arguments("1,00,000", null, Skip = ".NET parse methods ignores thousands separator, but excel enforces them.")]
+    [Arguments("1,00,000", null)]
     [Arguments("(1,000)", -1000)]
     [Arguments("(100)", -100)]
     [Arguments("(-1)", null)]
@@ -294,7 +306,7 @@ public class TextToNumberCoercionTests
 
     [Test]
     [Arguments("$1", 1)]
-    [Arguments("1$", null, Skip = ".NET parser allows currency symbol at the start or end, but Excel requires correct placement.")]
+    [Arguments("1$", null)]
     [Arguments("($1)", -1)]
     [Arguments("-($1)", null)]
     [Arguments("$100.5", 100.5)]
@@ -308,7 +320,7 @@ public class TextToNumberCoercionTests
     [Test]
     [SetCulture("cs-CZ")]
     [Arguments("$1", null)] // Fallback currency doesn't work nor it should
-    [Arguments("Kč 1", null, Skip = "Excel requires correct placement of currency symbol, while .NET parser accepts any position.")] // incorrect placement
+    [Arguments("Kč 1", null)] // incorrect placement
     [Arguments("100.5", null)] // incorrect decimal placement
     [Arguments("10e2 Kč", 1000)]
     [Arguments("30-apr-2000", null)]
