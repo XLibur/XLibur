@@ -138,6 +138,14 @@ workbook.SaveAs("Report.xlsx");   // evaluateFormulae defaults to false
 The following functions are implemented by XLibur's calculation engine. Function names are
 case-insensitive in formulas.
 
+:::tip
+XLibur implements Excel's semantics, so Microsoft's own reference is the authority on what each
+function does and what arguments it takes — for example
+[ABS](https://support.microsoft.com/en-us/excel/functions/abs-function). Any function below has a
+page at `https://support.microsoft.com/en-us/excel/functions/<name>-function`, lower-cased and with
+dots replaced by hyphens (`CEILING.MATH` → `ceiling-math-function`).
+:::
+
 ### Math and trigonometry
 
 `ABS` · `ACOS` · `ACOSH` · `ACOT` · `ACOTH` · `ARABIC` · `ASIN` · `ASINH` · `ATAN` · `ATAN2` ·
@@ -209,3 +217,5 @@ case-insensitive in formulas.
 
 - [Formulas](./formulas.md) — writing, evaluating, and clearing formulas
 - [Tables](./tables.md) — structured references like `SalesTable[Amount]`
+- [Microsoft Excel function reference](https://support.microsoft.com/en-us/excel/functions/abs-function)
+  — official documentation for each function's syntax, arguments, and behaviour

@@ -4,6 +4,7 @@ const sidebars: SidebarsConfig = {
   docsSidebar: [
     'introduction',
     'getting-started',
+    'migration',
     {
       type: 'category',
       label: 'Working with workbooks',

@@ -40,8 +40,8 @@ which is auto-registered the first time you create a workbook.
 
 If you install the bare `XLibur` package with no font engine, creating a workbook throws an
 `InvalidOperationException` telling you to add a font engine package. See the
-[Introduction](./introduction.md#font-engine-configuration-different-from-closedxml) for the
-list of available engines.
+[Migration from ClosedXML](./migration.md#font-engine-configuration-different-from-closedxml) for
+the list of available engines.
 
 </details>
 
@@ -259,4 +259,4 @@ using (var workbook = new XLWorkbook(path))
 - The [`XLibur.Examples`](https://github.com/XLibur/XLibur/tree/main/XLibur.Examples) project in
   the repository contains runnable samples for most features.
 - Migrating an existing ClosedXML project? See
-  [Migration from ClosedXML](./introduction.md#migration-from-closedxml).
+  [Migration from ClosedXML](./migration.md).
