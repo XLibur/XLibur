@@ -103,6 +103,103 @@ public class NamedRangeDeletionTests
     }
 
     /// <summary>
+    /// Deleting every row a named range covers invalidates it (ClosedXML/ClosedXML#880). Excel replaces the
+    /// address with #REF! and keeps the sheet prefix; previously the shifted endpoints went negative and
+    /// were clamped back to row 1, leaving the name pointing at a surviving row it never covered.
+    /// </summary>
+    [Test]
+    public async Task DeletingAllRowsOfNamedRange_BecomesRefError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Range("A1:B2").AddToNamed("Gone", XLScope.Workbook);
+
+        ws.Rows(1, 5).Delete();
+
+        await Assert.That(RefersTo(wb, "Gone")).IsEqualTo("Sheet1!#REF!");
+        await Assert.That(wb.DefinedNames.ValidNamedRanges()).IsEmpty();
+    }
+
+    /// <summary>
+    /// The deletion need not extend past the range: deleting exactly the rows it covers also leaves #REF!.
+    /// </summary>
+    [Test]
+    public async Task DeletingExactlyTheRowsOfNamedRange_BecomesRefError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Range("A3:A4").AddToNamed("Exact", XLScope.Workbook);
+
+        ws.Rows(3, 4).Delete();
+
+        await Assert.That(RefersTo(wb, "Exact")).IsEqualTo("Sheet1!#REF!");
+    }
+
+    /// <summary>
+    /// The same for a single cell: deleting the row it sits on leaves #REF!, not a neighbouring cell.
+    /// </summary>
+    [Test]
+    public async Task DeletingRowOfSingleCellNamedRange_BecomesRefError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A3").AddToNamed("Cell", XLScope.Workbook);
+
+        ws.Row(3).Delete();
+
+        await Assert.That(RefersTo(wb, "Cell")).IsEqualTo("Sheet1!#REF!");
+    }
+
+    /// <summary>
+    /// A row-only reference is invalidated the same way: rows 3:4 with those rows deleted become #REF!.
+    /// </summary>
+    [Test]
+    public async Task DeletingAllRowsOfRowOnlyNamedRange_BecomesRefError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Rows", "Sheet1!$3:$4");
+
+        ws.Rows(1, 5).Delete();
+
+        await Assert.That(RefersTo(wb, "Rows")).IsEqualTo("Sheet1!#REF!");
+    }
+
+    /// <summary>
+    /// A cell formula goes through the same shifter, so deleting every row it reads leaves #REF! rather
+    /// than silently repointing the formula at whatever moved up into those rows.
+    /// </summary>
+    [Test]
+    public async Task DeletingAllRowsReferencedByFormula_BecomesRefError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Range("A1:A2").Value = 1;
+        ws.Cell("D10").FormulaA1 = "=SUM(A1:A2)";
+
+        ws.Rows(1, 5).Delete();
+
+        await Assert.That(ws.Cell("D5").FormulaA1).IsEqualTo("SUM(#REF!)");
+    }
+
+    /// <summary>
+    /// Column counterpart of the invalidation: deleting every column a named range covers leaves #REF!
+    /// instead of clamping the endpoints back to column A.
+    /// </summary>
+    [Test]
+    public async Task DeletingAllColumnsOfNamedRange_BecomesRefError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Range("A1:B2").AddToNamed("GoneCols", XLScope.Workbook);
+
+        ws.Columns(1, 5).Delete();
+
+        await Assert.That(RefersTo(wb, "GoneCols")).IsEqualTo("Sheet1!#REF!");
+        await Assert.That(wb.DefinedNames.ValidNamedRanges()).IsEmpty();
+    }
+
+    /// <summary>
     /// Column counterpart of the top-row bug: deleting the left column of a named range removes it and
     /// shifts survivors left (C1:D1 -> C1:C1) rather than expanding to B1:C1.
     /// </summary>

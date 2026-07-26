@@ -8,6 +8,8 @@ namespace XLibur.Excel;
 
 internal static partial class XLCellFormulaShifter
 {
+    private const string RefError = "#REF!";
+
     private static readonly Regex A1SimpleRegex = A1SimpleRegexGenerated();
 
     private static readonly Regex A1RowRegex = A1RowRegexGenerated();
@@ -86,7 +88,9 @@ internal static partial class XLCellFormulaShifter
             sb.Append('!');
         }
 
-        if (A1RowRegex.IsMatch(rangeAddress))
+        if (IsDeletedEntirelyByRowShift(shiftedRange, matchRange, rowsShifted))
+            sb.Append(RefError);
+        else if (A1RowRegex.IsMatch(rangeAddress))
             AppendShiftedRowOnlyRange(sb, rangeAddress, rowsShifted);
         else if (shiftedRange.RangeAddress.FirstAddress.RowNumber <= matchRange.RangeAddress.FirstAddress.RowNumber)
         {
@@ -97,6 +101,21 @@ internal static partial class XLCellFormulaShifter
         }
         else
             AppendPartialRowShift(sb, worksheetInAction, matchRange, rowsShifted);
+    }
+
+    /// <summary>
+    /// True when a row deletion removes every row of <paramref name="matchRange"/>. Excel replaces such
+    /// a reference with <c>#REF!</c> rather than repointing it, so deleting rows 1-5 turns <c>A1:B2</c>
+    /// into <c>#REF!</c>. Without this the shifted endpoints would be negative and
+    /// <see cref="XLHelper.TrimRowNumber"/> would clamp them back to row 1, leaving the reference
+    /// pointing at a surviving row it never covered (<c>A1:B1</c>). See ClosedXML/ClosedXML#880.
+    /// </summary>
+    private static bool IsDeletedEntirelyByRowShift(XLRange shiftedRange, IXLRange matchRange, int rowsShifted)
+    {
+        return rowsShifted < 0
+            && matchRange.RangeAddress.FirstAddress.RowNumber >= shiftedRange.RangeAddress.FirstAddress.RowNumber
+            && matchRange.RangeAddress.LastAddress.RowNumber + rowsShifted <
+               shiftedRange.RangeAddress.FirstAddress.RowNumber;
     }
 
     /// <summary>
@@ -241,7 +260,9 @@ internal static partial class XLCellFormulaShifter
             sb.Append('!');
         }
 
-        if (A1ColumnRegex.IsMatch(rangeAddress))
+        if (IsDeletedEntirelyByColumnShift(shiftedRange, matchRange, columnsShifted))
+            sb.Append(RefError);
+        else if (A1ColumnRegex.IsMatch(rangeAddress))
             AppendShiftedColumnOnlyRange(sb, rangeAddress, columnsShifted);
         else if (shiftedRange.RangeAddress.FirstAddress.ColumnNumber <= matchRange.RangeAddress.FirstAddress.ColumnNumber)
         {
@@ -252,6 +273,20 @@ internal static partial class XLCellFormulaShifter
         }
         else
             AppendPartialColumnShift(sb, worksheetInAction, matchRange, columnsShifted);
+    }
+
+    /// <summary>
+    /// Column-wise counterpart of <see cref="IsDeletedEntirelyByRowShift"/>: true when a column deletion
+    /// removes every column of <paramref name="matchRange"/>, so the reference becomes <c>#REF!</c> instead
+    /// of being clamped back to column A by <see cref="XLHelper.TrimColumnNumber"/>.
+    /// </summary>
+    private static bool IsDeletedEntirelyByColumnShift(XLRange shiftedRange, IXLRange matchRange, int columnsShifted)
+    {
+        return columnsShifted < 0
+            && matchRange.RangeAddress.FirstAddress.ColumnNumber >=
+               shiftedRange.RangeAddress.FirstAddress.ColumnNumber
+            && matchRange.RangeAddress.LastAddress.ColumnNumber + columnsShifted <
+               shiftedRange.RangeAddress.FirstAddress.ColumnNumber;
     }
 
     /// <summary>

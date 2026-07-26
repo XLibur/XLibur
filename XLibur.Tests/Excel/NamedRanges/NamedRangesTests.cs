@@ -317,11 +317,7 @@ public class NamedRangesTests
         }
     }
 
-    // Deleting rows doesn't invalidate the addresses of a named range (ClosedXML/ClosedXML#880).
-    // The assertions below are also self-contradictory: the last two both read ElementAt(0) but
-    // expect different values, so the second one is presumably meant to read ElementAt(1). Both
-    // need fixing before this test can be un-skipped.
-    [Test, Skip("Addresses in named ranges don't become invalid when the range is deleted (ClosedXML/ClosedXML#880).")]
+    [Test]
     public async Task NamedRangeBecomesInvalidOnRangeAndWorksheetDeleting()
     {
         using var wb = new XLWorkbook();
@@ -339,14 +335,15 @@ public class NamedRangesTests
 
         await Assert.That(wb.DefinedNames.Count()).IsEqualTo(2);
         await Assert.That(wb.DefinedNames.ValidNamedRanges().Count()).IsEqualTo(0);
-        await Assert.That(wb.DefinedNames.ElementAt(0).RefersTo).IsEqualTo("#REF!#REF!");
-        await Assert.That(wb.DefinedNames.ElementAt(0).RefersTo).IsEqualTo("#REF!#REF!,'Sheet 2'!A10:D15");
+
+        // The row deletion reduces both Sheet 1 references to 'Sheet 1'!#REF!, and deleting the sheet
+        // then drops the prefix, matching how a reference to a deleted sheet is stored elsewhere
+        // (see NamedRangesFromDeletedSheetAreSavedWithoutAddress). Sheet 2 is untouched by either.
+        await Assert.That(wb.DefinedNames.ElementAt(0).RefersTo).IsEqualTo("#REF!");
+        await Assert.That(wb.DefinedNames.ElementAt(1).RefersTo).IsEqualTo("#REF!,'Sheet 2'!$A$10:$D$15");
     }
 
-    // Same two problems as NamedRangeBecomesInvalidOnRangeAndWorksheetDeleting: the behaviour is
-    // unimplemented, and the last two assertions both read ElementAt(0) while expecting different
-    // values, so they can never both hold.
-    [Test, Skip("Addresses in named ranges don't become invalid when the range is deleted (ClosedXML/ClosedXML#880).")]
+    [Test]
     public async Task NamedRangeBecomesInvalidOnRangeDeleting()
     {
         using var wb = new XLWorkbook();
@@ -362,8 +359,9 @@ public class NamedRangesTests
 
         await Assert.That(wb.DefinedNames.Count()).IsEqualTo(2);
         await Assert.That(wb.DefinedNames.ValidNamedRanges().Count()).IsEqualTo(0);
+        // Simple is deleted outright; Compound loses C1:D2 and keeps A10:D15, shifted up five rows.
         await Assert.That(wb.DefinedNames.ElementAt(0).RefersTo).IsEqualTo("'Sheet 1'!#REF!");
-        await Assert.That(wb.DefinedNames.ElementAt(0).RefersTo).IsEqualTo("'Sheet 1'!#REF!,'Sheet 1'!A5:D10");
+        await Assert.That(wb.DefinedNames.ElementAt(1).RefersTo).IsEqualTo("'Sheet 1'!#REF!,'Sheet 1'!$A$5:$D$10");
     }
 
     [Test]

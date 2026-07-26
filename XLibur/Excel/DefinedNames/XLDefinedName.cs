@@ -12,6 +12,8 @@ namespace XLibur.Excel;
 [DebuggerDisplay("{_name}:{_formula}")]
 internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
 {
+    private const string RefError = "#REF!";
+
     private readonly XLDefinedNames _container;
     private string _name;
     private string _formula = null!;
@@ -184,6 +186,24 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     internal void OnWorksheetDeleted(string worksheetName)
     {
         RenameFormulaSheet(worksheetName, null);
+        DropSheetPrefixOfRefError(worksheetName);
+    }
+
+    /// <summary>
+    /// A reference that a row or column deletion has already reduced to <c>#REF!</c> keeps its sheet
+    /// prefix (<c>'Sheet 1'!#REF!</c>), which is what Excel does while the sheet still exists. The
+    /// parser reports that prefix as part of an error node rather than as a sheet reference, so
+    /// <see cref="RenameFormulaSheet"/> never sees it and the prefix would outlive the sheet it names.
+    /// Excel treats a defined name pointing at an absent sheet as a broken file, so drop the prefix and
+    /// leave the bare <c>#REF!</c> that the rest of the deleted-sheet handling produces.
+    /// </summary>
+    private void DropSheetPrefixOfRefError(string worksheetName)
+    {
+        var prefixedRefError = worksheetName.EscapeSheetName() + "!" + RefError;
+        if (!_formula.Contains(prefixedRefError, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        RefersTo = _formula.Replace(prefixedRefError, RefError, StringComparison.OrdinalIgnoreCase);
     }
 
     private void RenameFormulaSheet(string oldSheetName, string? newSheetName)
