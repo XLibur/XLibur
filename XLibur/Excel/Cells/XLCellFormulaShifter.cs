@@ -158,23 +158,27 @@ internal static partial class XLCellFormulaShifter
     /// <summary>
     /// A row-only reference (<c>3:5</c>) obeys the same rules as a cell range but renders as bare row
     /// numbers. Both boundaries are decided here rather than shifted blindly: the top only moves when the
-    /// deletion starts at or above it, and a deletion that removes the top boundary leaves the top pinned
-    /// at the deletion start. Shifting both endpoints regardless (as this did) walked the reference onto
-    /// rows it never covered -- 3:5 with row 4 deleted became 2:4 -- and kept it from ever shrinking to
-    /// nothing, so <see cref="IsDeletedEntirelyByRowShift"/> never saw the fully deleted case.
+    /// shift starts at or above it, and a deletion that removes the top boundary leaves the top pinned at
+    /// the deletion start; the bottom always shifts.
+    /// <para>
+    /// Shifting both endpoints regardless (as this did) walked the reference onto rows it never covered.
+    /// Deleting row 4 turned 3:5 into 2:4, and it kept the reference from ever shrinking to nothing, so
+    /// <see cref="IsDeletedEntirelyByRowShift"/> never saw the fully deleted case. The same applied to
+    /// insertions: inserting two rows at row 4 turned 3:5 into 5:7 instead of expanding it to 3:7.
+    /// </para>
     /// </summary>
     private static void AppendShiftedRowOnlyRange(StringBuilder sb, string rangeAddress, XLRange shiftedRange,
         IXLRange matchRange, int rowsShifted)
     {
         var firstRow = matchRange.RangeAddress.FirstAddress.RowNumber;
         var lastRow = matchRange.RangeAddress.LastAddress.RowNumber;
-        var deletionStart = shiftedRange.RangeAddress.FirstAddress.RowNumber;
+        var shiftStart = shiftedRange.RangeAddress.FirstAddress.RowNumber;
 
         var newFirstRow = firstRow;
-        if (deletionStart <= firstRow)
+        if (shiftStart <= firstRow)
         {
             newFirstRow = IsTopBoundaryDeletion(shiftedRange, matchRange, rowsShifted)
-                ? deletionStart
+                ? shiftStart
                 : firstRow + rowsShifted;
         }
 
@@ -348,21 +352,21 @@ internal static partial class XLCellFormulaShifter
 
     /// <summary>
     /// Column-wise counterpart of <see cref="AppendShiftedRowOnlyRange"/>: a column-only reference
-    /// (<c>C:E</c>) keeps its left boundary unless the deletion starts at or to the left of it, and pins
-    /// that boundary at the deletion start when the deletion removes it.
+    /// (<c>C:E</c>) keeps its left boundary unless the shift starts at or to the left of it, and pins that
+    /// boundary at the deletion start when a deletion removes it.
     /// </summary>
     private static void AppendShiftedColumnOnlyRange(StringBuilder sb, string rangeAddress, XLRange shiftedRange,
         IXLRange matchRange, int columnsShifted)
     {
         var firstColumn = matchRange.RangeAddress.FirstAddress.ColumnNumber;
         var lastColumn = matchRange.RangeAddress.LastAddress.ColumnNumber;
-        var deletionStart = shiftedRange.RangeAddress.FirstAddress.ColumnNumber;
+        var shiftStart = shiftedRange.RangeAddress.FirstAddress.ColumnNumber;
 
         var newFirstColumn = firstColumn;
-        if (deletionStart <= firstColumn)
+        if (shiftStart <= firstColumn)
         {
             newFirstColumn = IsLeftBoundaryDeletion(shiftedRange, matchRange, columnsShifted)
-                ? deletionStart
+                ? shiftStart
                 : firstColumn + columnsShifted;
         }
 

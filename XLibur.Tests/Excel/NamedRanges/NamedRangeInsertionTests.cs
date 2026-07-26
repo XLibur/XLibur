@@ -7,6 +7,11 @@ namespace XLibur.Tests.Excel.NamedRanges;
 
 public class NamedRangeInsertionTests
 {
+    private static string RefersTo(XLWorkbook wb, string name)
+    {
+        return wb.DefinedNames.First(dn => dn.Name == name).RefersTo;
+    }
+
     /// <summary>
     /// When rows are inserted inside a named range by shifting cells down,
     /// the named range should expand to include the new rows,
@@ -150,6 +155,68 @@ public class NamedRangeInsertionTests
             var range = ranges.First();
             await Assert.That(range.RangeAddress.ToString()).IsEqualTo("$A$1:$B$14");
         }
+    }
+
+    /// <summary>
+    /// A row-only reference expands the same way a cell range does: rows 3:5 with two rows inserted at
+    /// row 4 becomes 3:7. The row-only branch used to shift both endpoints regardless of where the insert
+    /// landed, giving 5:7 -- a reference that had moved off the rows it covered.
+    /// </summary>
+    [Test]
+    public async Task InsertingRowsInsideRowOnlyNamedRange_ExpandsRange()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Rows", "Sheet1!$3:$5");
+
+        ws.Row(4).InsertRowsAbove(2);
+
+        await Assert.That(RefersTo(wb, "Rows")).IsEqualTo("Sheet1!$3:$7");
+    }
+
+    /// <summary>
+    /// Inserting above a row-only reference shifts it down without expanding, as for a cell range.
+    /// </summary>
+    [Test]
+    public async Task InsertingRowsAboveRowOnlyNamedRange_ShiftsRangeDown()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Rows", "Sheet1!$3:$5");
+
+        ws.Row(1).InsertRowsAbove(2);
+
+        await Assert.That(RefersTo(wb, "Rows")).IsEqualTo("Sheet1!$5:$7");
+    }
+
+    /// <summary>
+    /// Column-only counterpart: columns C:E with two columns inserted before D becomes C:G.
+    /// </summary>
+    [Test]
+    public async Task InsertingColumnsInsideColumnOnlyNamedRange_ExpandsRange()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Cols", "Sheet1!$C:$E");
+
+        ws.Column(4).InsertColumnsBefore(2);
+
+        await Assert.That(RefersTo(wb, "Cols")).IsEqualTo("Sheet1!$C:$G");
+    }
+
+    /// <summary>
+    /// Inserting to the left of a column-only reference shifts it right without expanding.
+    /// </summary>
+    [Test]
+    public async Task InsertingColumnsLeftOfColumnOnlyNamedRange_ShiftsRangeRight()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Cols", "Sheet1!$C:$E");
+
+        ws.Column(1).InsertColumnsBefore(2);
+
+        await Assert.That(RefersTo(wb, "Cols")).IsEqualTo("Sheet1!$E:$G");
     }
 
     /// <summary>
