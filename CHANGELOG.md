@@ -1,44 +1,137 @@
 # Changelog
 
+## Contents
+
+- [Unreleased](#unreleased)
+- [v0.106.0](#v01060---2026-07-25)
+
 ## Unreleased
 
-### Added
+### ⚠️ Breaking Changes
 
-- **Chart series formatting**: `IXLChartSeries` gained `FillColor`, `LineColor`, `LineWidthPt`, `MarkerStyle` (new `XLMarkerStyle` enum), `MarkerSize`, `MarkerFillColor` and `Smooth`, so a generated chart can be styled instead of relying on Excel's automatic theme colours. Leaving a property `null` omits its element, which keeps the automatic colour — nothing is ever written as an explicit black.
+#### Colours and styles
 
-- **Secondary value axis per series**: `IXLChartSeries.UseSecondaryAxis` plots a series against a value axis on the right, so a percentage can share a chart with values in the thousands. It applies to series of the primary chart type as well as to a combo chart's `SecondarySeries`.
+- **`XLColorType` members are renumbered.** `Automatic` takes ordinal 0, so `Color` moves 0 → 1, `Theme` 1 → 2 and `Indexed` 2 → 3. This is source compatible but binary breaking, and breaks anything that persists the numeric value — stored settings or serialised styles written by an earlier version need remapping. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
 
-- **Chart data labels**: `IXLDataLabels` on both `IXLChart.DataLabels` (chart-wide) and `IXLChartSeries.DataLabels` (per series, overriding the chart's), with `ShowValue`, `ShowCategoryName`, `ShowSeriesName`, `ShowPercentage`, `NumberFormat` and `Position`. `Position` is validated against the chart type — Excel refuses to open a file that uses a position it does not offer for that type, so the setter throws with the allowed values listed rather than producing a workbook Excel has to repair.
+- **`XLColor.NoColor.Color` (and `.Indexed`/`.ThemeColor`) now throw** instead of returning a meaningless all-zero ARGB. Test with `IsAutomatic` before reading a colour component. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
 
-- **Chart legend**: `IXLChart.Legend` with `Visible`, `Position` (right, bottom, left, top, top-right) and `Overlay`. Charts XLibur creates still have no legend unless one is asked for; setting `Visible = false` on a chart read from a file removes the legend it came with.
+  ```csharp
+  // Before — returned Color.FromArgb(0, 0, 0, 0) for an automatic colour
+  var rgb = cell.Style.Font.FontColor.Color;
 
-- **Chart axes**: `IXLChart.CategoryAxis`, `ValueAxis` and `SecondaryValueAxis`, each with `Title`, `NumberFormat`, `Min`, `Max`, `MajorUnit`, `MinorUnit`, `Visible`, `MajorGridlines`, `Orientation` (reversed axes) and `LogScale`/`LogBase`. The unit and log-scale properties belong to a value axis in the file format and are skipped on a category axis — except on scatter and bubble charts, whose horizontal axis holds numbers.
+  // After
+  var colour = cell.Style.Font.FontColor;
+  var rgb = colour.IsAutomatic ? defaultRgb : colour.Color;
+  ```
 
-- **Charts loaded from a file can be restyled**: setting the series formatting, data labels, legend or axes on a loaded chart now writes back on save. Only the properties actually assigned are patched into the existing chart part, so trendlines, error bars, gradient fills, per-point colours and label overrides, label and axis fonts, tick marks and the chart's style/colour parts are all preserved — and a chart nobody edited is left byte for byte as it was.
+  There is no ARGB that means "automatic", which is why the property now throws rather than
+  inventing one — decide what your code should render for a colour Excel resolves at display time.
 
-- **Chart anchoring**: `IXLChart.Anchor` (`MoveAndSizeWithCells`, `MoveWithCells`, `Absolute`) with `Width`, `Height`, `Left` and `Top` in pixels, so a chart can keep its size as rows are inserted or be pinned to a spot on the sheet. Two-cell anchoring via `Position`/`SecondPosition` remains the default.
+### ✨ New Features
 
-### Fixed
+#### Security and encryption
 
-- **Charts anchored with a one-cell or absolute anchor are no longer dropped on load.** The reader only looked at `xdr:twoCellAnchor`, so a chart Excel had anchored either of the other two ways was missing from `IXLWorksheet.Charts` entirely (its XML survived a round trip, but the chart was invisible to the API).
+- **Password-protected workbooks (ECMA-376 encryption)**: `LoadOptions.Password` opens an encrypted workbook and `SaveOptions.Password` writes one. Reading covers both schemes in the wild — agile encryption (Office 2010 and later) and standard encryption (Office 2007); writing uses agile encryption with the parameters Excel itself writes (AES-256-CBC, SHA-512, 100,000 spins and a fresh random key per save). Previously an encrypted file could not be opened at all and failed opaquely.
 
-- **3D and of-pie chart groups are read.** `c:pie3DChart`, `c:line3DChart`, `c:area3DChart`, `c:surface3DChart` and `c:ofPieChart` were not recognised, so an Excel-authored chart using one loaded with no series and the wrong chart type. Their series and series formatting now read the same as the 2D groups', and pie-of-pie and bar-of-pie are told apart.
+  A wrong or missing password throws `XLInvalidPasswordException`, which is what a caller re-prompts on; an altered package whose HMAC fails throws `XLEncryptionException`, because there the password was right. A legacy `.xls` is detected and named rather than mistaken for an encrypted workbook. The password is never carried from load to save — a plain `SaveAs` cannot silently produce a file the caller can no longer open. ([#245](https://github.com/XLibur/XLibur/pull/245) by [@jafin](https://github.com/jafin))
 
-- **Chart XML now passes OpenXML schema validation.** Three long-standing violations in the chart writer are fixed: series names were written as a `c:strRef` with no required `c:f` (a literal name now uses `<c:tx><c:v>`, and both forms are read back), `c:doughnutChart` omitted the required `c:holeSize`, and `c:marker` was written after `c:cat`/`c:val` instead of before. Excel tolerated all three, but stricter readers and `SaveOptions.ValidatePackage` did not.
+#### Charts
 
-- **A `Line` chart whose markers are switched off no longer reads back as `LineWithMarkers`.** The reader treated the presence of a `c:marker` element as "has markers", even when it held `<c:symbol val="none"/>`.
+- **Chart series formatting**: `IXLChartSeries` gained `FillColor`, `LineColor`, `LineWidthPt`, `MarkerStyle` (new `XLMarkerStyle` enum), `MarkerSize`, `MarkerFillColor` and `Smooth`, so a generated chart can be styled instead of relying on Excel's automatic theme colours. Leaving a property `null` omits its element, which keeps the automatic colour — nothing is ever written as an explicit black. ([#220](https://github.com/XLibur/XLibur/pull/220) by [@jafin](https://github.com/jafin))
 
-- **Charts with more than one plot group of the same type now read all of their series.** The reader took only the first `c:barChart` (or `c:lineChart`, …) of a plot area, so the series of a second group — which is how Excel stores a secondary axis — were dropped.
+- **Secondary value axis per series**: `IXLChartSeries.UseSecondaryAxis` plots a series against a value axis on the right, so a percentage can share a chart with values in the thousands. It applies to series of the primary chart type as well as to a combo chart's `SecondarySeries`. ([#220](https://github.com/XLibur/XLibur/pull/220) by [@jafin](https://github.com/jafin))
 
-- **Which of those groups is on the secondary axis no longer depends on the order they appear in the file.** The primary axis pair was taken from whichever group came first, so a file that wrote its secondary group ahead of the primary one read back with `UseSecondaryAxis` inverted on every series and the two axis models swapped. The group whose value axis crosses at the maximum — how a secondary axis comes to be drawn on the right — is now passed over instead.
+- **Chart data labels**: `IXLDataLabels` on both `IXLChart.DataLabels` (chart-wide) and `IXLChartSeries.DataLabels` (per series, overriding the chart's), with `ShowValue`, `ShowCategoryName`, `ShowSeriesName`, `ShowPercentage`, `NumberFormat` and `Position`. `Position` is validated against the chart type — Excel refuses to open a file that uses a position it does not offer for that type, so the setter throws with the allowed values listed rather than producing a workbook Excel has to repair. ([#221](https://github.com/XLibur/XLibur/pull/221) by [@jafin](https://github.com/jafin))
 
-- **`Smooth` is honoured on a new stock chart.** A stock chart's series are `CT_LineSer` and take `c:smooth`, but the writer never emitted it, so the property worked on a stock chart read from a file and was silently dropped on one XLibur created.
+- **Chart legend**: `IXLChart.Legend` with `Visible`, `Position` (right, bottom, left, top, top-right) and `Overlay`. Charts XLibur creates still have no legend unless one is asked for; setting `Visible = false` on a chart read from a file removes the legend it came with. ([#222](https://github.com/XLibur/XLibur/pull/222) by [@jafin](https://github.com/jafin))
 
-- **Positioning a legend that is not there no longer creates one.** `IXLChartLegend.Position` and `Overlay` are documented as ignored while `Visible` is `false`, and a new chart gets no legend from them — but assigning one of them on a *loaded* chart that had no legend added one.
+- **Chart axes**: `IXLChart.CategoryAxis`, `ValueAxis` and `SecondaryValueAxis`, each with `Title`, `NumberFormat`, `Min`, `Max`, `MajorUnit`, `MinorUnit`, `Visible`, `MajorGridlines`, `Orientation` (reversed axes) and `LogScale`/`LogBase`. The unit and log-scale properties belong to a value axis in the file format and are skipped on a category axis — except on scatter and bubble charts, whose horizontal axis holds numbers. ([#222](https://github.com/XLibur/XLibur/pull/222) by [@jafin](https://github.com/jafin))
 
-- **Chart-wide data labels reach every group of a loaded combo chart.** `IXLChart.DataLabels` applies to the whole chart, and a new combo chart gets them on both of its plot groups, but a loaded one was patched on the primary group only — so turning labels on left the secondary series unlabelled.
+- **Charts loaded from a file can be restyled**: setting the series formatting, data labels, legend or axes on a loaded chart now writes back on save. Only the properties actually assigned are patched into the existing chart part, so trendlines, error bars, gradient fills, per-point colours and label overrides, label and axis fonts, tick marks and the chart's style/colour parts are all preserved — and a chart nobody edited is left byte for byte as it was. ([#220](https://github.com/XLibur/XLibur/pull/220), [#221](https://github.com/XLibur/XLibur/pull/221), [#222](https://github.com/XLibur/XLibur/pull/222) by [@jafin](https://github.com/jafin))
 
-- **`Series.Add(...)` on a chart loaded from a file throws instead of being discarded on save.** A loaded chart is patched, not regenerated, so a new series had nowhere to be written and vanished without a word. It now throws `NotSupportedException`, as `UseSecondaryAxis` already did.
+- **Chart anchoring**: `IXLChart.Anchor` (`MoveAndSizeWithCells`, `MoveWithCells`, `Absolute`) with `Width`, `Height`, `Left` and `Top` in pixels, so a chart can keep its size as rows are inserted or be pinned to a spot on the sheet. Two-cell anchoring via `Position`/`SecondPosition` remains the default. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
+
+#### Colours and styles
+
+- **`XLColorType.Automatic`**, with `XLColor.Automatic` and `XLColor.IsAutomatic`. OOXML has four kinds of colour and XLibur modelled three; the automatic colour (ECMA-376 `CT_Color/@auto`, what Excel's font colour picker labels "Automatic") was disguised as a fully transparent black. `auto="1"` is now read and written explicitly. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
+
+### ⚡ Performance
+
+#### Workbook creation
+
+- **40% fewer allocations building a workbook** (create phase of the 50K x 10 benchmark, 305.5 → 183.6 MB; whole benchmark 423.4 → 301.3 MB). Every `cell.Value = x` ran a merged-range membership test that allocated ~250 bytes even on a sheet with no merged ranges at all, boxing the address and building a LINQ iterator chain over an empty list. That test is now skipped outright when the sheet has no merges, and made allocation-free when it does — a merged title row is a common layout and used to cost *more* than no merge at all, because the predicate then actually ran. A cell write drops 375.5 → 103.6 bytes on both paths. ([#185](https://github.com/XLibur/XLibur/pull/185) by [@jafin](https://github.com/jafin))
+
+- **Repeated access to the same cell is cheaper**: `ws.Cell(r, c)` minted a fresh `XLCell` every call, so the per-object style cache never hit and a `.Style` access threw away an 80-byte `XLStyle` one statement later. A small direct-mapped cache now hands back the same wrapper for the same address. ([#185](https://github.com/XLibur/XLibur/pull/185) by [@jafin](https://github.com/jafin))
+
+#### Styling
+
+- **86% fewer allocations styling a range, row or column in bulk** (~234 → ~33 bytes per cell): setting a style on a container collected every child cell into a `HashSet` of wrappers before writing anything. Containers that can enumerate exactly those cells now walk the addresses and write the style slice directly. ([#185](https://github.com/XLibur/XLibur/pull/185) by [@jafin](https://github.com/jafin))
+
+#### Saving
+
+- **50% fewer allocations on save** (237.1 → 117.9 MB for the same benchmark), with wall time improving from 1187–1290 ms to 1051–1167 ms. Four save helpers materialised a cell wrapper for every used cell just to read one property and now read the underlying storage directly; `int`/`uint` cell values are formatted into a span instead of allocating a string each; style-key hashes are memoised, cutting `StyleKey.GetHashCode` by 95% over 100K styles. Saved output is byte-identical to before. ([#179](https://github.com/XLibur/XLibur/pull/179) by [@jafin](https://github.com/jafin))
+
+### 🐛 Bug Fixes
+
+#### Formulas and references
+
+- **A reference whose rows or columns are all deleted becomes `#REF!`** ([ClosedXML #880](https://github.com/ClosedXML/ClosedXML/issues/880)): endpoints were shifted by the deleted height and clamped to row 1, so deleting rows 1–5 turned `Sheet1!$A$1:$B$2` into `Sheet1!$A$1:$B$1` — a phantom one-row range over whatever data had moved up into it. The same shifter serves cell formulas, so `=SUM(A1:A2)` with those rows deleted now reads `SUM(#REF!)` rather than quietly summing the wrong cells. Deleting the sheet afterwards drops the stale sheet prefix instead of leaving a defined name pointing at a sheet that no longer exists. ([#243](https://github.com/XLibur/XLibur/pull/243) by [@jafin](https://github.com/jafin))
+
+- **Row-only and column-only references are positioned correctly when rows or columns are inserted or deleted**: `3:5` with row 4 deleted became `2:4` — a reference that had walked onto row 2, which it never covered, while losing row 5, which survived. Because a multi-row delete is applied one row at a time, the reference kept drifting up instead of shrinking and never became small enough for the `#REF!` check to fire. Insertions had the mirror problem: inserting two rows at row 4 moved `3:5` to `5:7` rather than expanding it to `3:7`. Both axes now follow the same boundary rules as an equivalent cell range. ([#244](https://github.com/XLibur/XLibur/pull/244) by [@jafin](https://github.com/jafin))
+
+- **Copying a worksheet repoints the copy's self-references at the copy** ([ClosedXML #836](https://github.com/ClosedXML/ClosedXML/issues/836)): copying a sheet named `Original` holding `Original!A1 * 3` produced a sheet whose formula still pointed back at the original. References to *other* sheets are left alone, as they should be. ([#241](https://github.com/XLibur/XLibur/pull/241) by [@jafin](https://github.com/jafin))
+
+#### Text and number parsing
+
+- **Text-to-number and text-to-date coercion matches Excel much more closely.** The date-time patterns had no seconds component, so `8/22/2008 3:30:45 PM` failed to coerce at all. Beyond that: time components that overflow their range now carry into the date (`11/30/2022 24:59` is one minute to one in the morning of December 1st); parenthesised, spaced and sign-separated numbers such as `(100%)`, `(   1,000.54  )` and `- 100 %` are read as negative; a month is matched by any prefix from three letters up, as Excel does; a shortened or dot-suffixed AM/PM designator is accepted. In the other direction, group-separator and currency placement are now enforced the way Excel enforces them — `1,00`, `1,00,000` and `1$` are rejected under en-US where the underlying BCL parse accepted them. ([#241](https://github.com/XLibur/XLibur/pull/241) by [@jafin](https://github.com/jafin))
+
+#### Rich text and shared strings
+
+- **Rich-text runs keep their automatic or absent colour through a round-trip**: a plain load → `SaveAs` wrote every colour-less run back with an explicit `<color rgb="FF000000"/>`, and promoted a plain string carrying a phonetic guide (`<t>` + `<rPh>`, common in Japanese workbooks) into a synthetic run that inherited the same injection. An explicit black cannot be overridden by a theme colour change or by conditional formatting, where the automatic colour it replaced can. A run that was read with no `<rPr>` is now written back without one, so inheritance stays inheritance; splitting such a run keeps that property rather than materialising the cell font as explicit formatting. ([#225](https://github.com/XLibur/XLibur/pull/225), [#227](https://github.com/XLibur/XLibur/pull/227) by [@jafin](https://github.com/jafin))
+
+- **Saving a plain shared string that carries a phonetic guide no longer throws.** Its text is decoded on the way in, so a decoded `_xHHHH_` escape is a literal control character — not valid XML content — and the writer emitted it raw, failing with an `ArgumentException` naming the invalid character. ([#225](https://github.com/XLibur/XLibur/pull/225), [#227](https://github.com/XLibur/XLibur/pull/227) by [@jafin](https://github.com/jafin))
+
+#### Colours and conditional formatting
+
+- **An automatic colour is no longer written as an explicit `rgb="00000000"`.** Colour writers switch on the colour type, and the automatic colour fell into the RGB arm — pinning down a colour the source deliberately left for the application to resolve. The three conditional-format colour converters gained explicit automatic arms too, where they would otherwise have dropped the colour silently. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
+
+#### Charts
+
+- **Charts anchored with a one-cell or absolute anchor are no longer dropped on load.** The reader only looked at `xdr:twoCellAnchor`, so a chart Excel had anchored either of the other two ways was missing from `IXLWorksheet.Charts` entirely (its XML survived a round trip, but the chart was invisible to the API). ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
+
+- **3D and of-pie chart groups are read.** `c:pie3DChart`, `c:line3DChart`, `c:area3DChart`, `c:surface3DChart` and `c:ofPieChart` were not recognised, so an Excel-authored chart using one loaded with no series and the wrong chart type. Their series and series formatting now read the same as the 2D groups', and pie-of-pie and bar-of-pie are told apart. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
+
+- **Chart XML now passes OpenXML schema validation.** Three long-standing violations in the chart writer are fixed: series names were written as a `c:strRef` with no required `c:f` (a literal name now uses `<c:tx><c:v>`, and both forms are read back), `c:doughnutChart` omitted the required `c:holeSize`, and `c:marker` was written after `c:cat`/`c:val` instead of before. Excel tolerated all three, but stricter readers and `SaveOptions.ValidatePackage` did not. ([#220](https://github.com/XLibur/XLibur/pull/220) by [@jafin](https://github.com/jafin))
+
+- **A `Line` chart whose markers are switched off no longer reads back as `LineWithMarkers`.** The reader treated the presence of a `c:marker` element as "has markers", even when it held `<c:symbol val="none"/>`. ([#220](https://github.com/XLibur/XLibur/pull/220) by [@jafin](https://github.com/jafin))
+
+- **Charts with more than one plot group of the same type now read all of their series.** The reader took only the first `c:barChart` (or `c:lineChart`, …) of a plot area, so the series of a second group — which is how Excel stores a secondary axis — were dropped. ([#220](https://github.com/XLibur/XLibur/pull/220) by [@jafin](https://github.com/jafin))
+
+- **Which of those groups is on the secondary axis no longer depends on the order they appear in the file.** The primary axis pair was taken from whichever group came first, so a file that wrote its secondary group ahead of the primary one read back with `UseSecondaryAxis` inverted on every series and the two axis models swapped. The group whose value axis crosses at the maximum — how a secondary axis comes to be drawn on the right — is now passed over instead. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
+
+- **`Smooth` is honoured on a new stock chart.** A stock chart's series are `CT_LineSer` and take `c:smooth`, but the writer never emitted it, so the property worked on a stock chart read from a file and was silently dropped on one XLibur created. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
+
+- **Positioning a legend that is not there no longer creates one.** `IXLChartLegend.Position` and `Overlay` are documented as ignored while `Visible` is `false`, and a new chart gets no legend from them — but assigning one of them on a *loaded* chart that had no legend added one. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
+
+- **Chart-wide data labels reach every group of a loaded combo chart.** `IXLChart.DataLabels` applies to the whole chart, and a new combo chart gets them on both of its plot groups, but a loaded one was patched on the primary group only — so turning labels on left the secondary series unlabelled. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
+
+- **`Series.Add(...)` on a chart loaded from a file throws instead of being discarded on save.** A loaded chart is patched, not regenerated, so a new series had nowhere to be written and vanished without a word. It now throws `NotSupportedException`, as `UseSecondaryAxis` already did. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
+
+### 🗑️ Deprecations
+
+#### Colours and styles
+
+- **`XLColor.NoColor` is deprecated in favour of `XLColor.Automatic`.** Some Excel pickers (sheet tab, fill background) label the same value "No Color" — that is a GUI convention, not a different value. `NoColor` still compiles but now warns, which is an error for consumers building with `TreatWarningsAsErrors`. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
+
+  ```csharp
+  // Before
+  cell.Style.Font.FontColor = XLColor.NoColor;
+
+  // After
+  cell.Style.Font.FontColor = XLColor.Automatic;
+  ```
+
+  A straight rename — `NoColor` returns `Automatic`, so the two are the same value.
 
 ## v0.106.0 - 2026-07-25
 
