@@ -15,16 +15,368 @@ namespace XLibur.Excel.CalcEngine;
 /// </summary>
 internal static class DynamicArray
 {
+    /// <summary>
+    /// What Excel reports as <c>#CALC!</c> when a dynamic-array function would produce nothing at
+    /// all — every row dropped, every value ignored. XLibur's value model has no <c>#CALC!</c>, so
+    /// these cases report <c>#VALUE!</c> instead; the argument was of the right shape, it just left
+    /// no result behind.
+    /// </summary>
+    private const XLError EmptyResult = XLError.IncompatibleValue;
+
+    private const FunctionFlags Spilling = FunctionFlags.Range | FunctionFlags.ReturnsArray;
+
     public static void Register(FunctionRegistry ce)
     {
-        ce.RegisterFunction("SEQUENCE", 1, 4, Sequence, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Generates a list of sequential numbers
-        ce.RegisterFunction("UNIQUE", 1, 3, Unique, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Returns the distinct values from a range or array
-        ce.RegisterFunction("SORT", 1, 4, Sort, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Sorts the contents of a range or array
-        ce.RegisterFunction("SORTBY", 2, 255, SortBy, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Sorts a range or array based on the values in a corresponding range or array
-        ce.RegisterFunction("FILTER", 2, 3, Filter, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Filters a range or array based on criteria
-        ce.RegisterFunction("XLOOKUP", 3, 6, XLookup, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Searches a range or array and returns the matching item(s)
+        ce.RegisterFunction("CHOOSECOLS", 2, 255, ChooseCols, Spilling, AllowRange.All); // Returns the specified columns from an array
+        ce.RegisterFunction("CHOOSEROWS", 2, 255, ChooseRows, Spilling, AllowRange.All); // Returns the specified rows from an array
+        ce.RegisterFunction("DROP", 2, 3, Drop, Spilling, AllowRange.All); // Drops rows or columns from the start or end of an array
+        ce.RegisterFunction("EXPAND", 2, 4, Expand, Spilling, AllowRange.All); // Expands an array to the given dimensions
+        ce.RegisterFunction("FILTER", 2, 3, Filter, Spilling, AllowRange.All); // Filters a range or array based on criteria
+        ce.RegisterFunction("HSTACK", 1, 255, HStack, Spilling, AllowRange.All); // Appends arrays side by side
+        ce.RegisterFunction("SEQUENCE", 1, 4, Sequence, Spilling, AllowRange.All); // Generates a list of sequential numbers
+        ce.RegisterFunction("SORT", 1, 4, Sort, Spilling, AllowRange.All); // Sorts the contents of a range or array
+        ce.RegisterFunction("SORTBY", 2, 255, SortBy, Spilling, AllowRange.All); // Sorts a range or array based on the values in a corresponding range or array
+        ce.RegisterFunction("TAKE", 2, 3, Take, Spilling, AllowRange.All); // Takes rows or columns from the start or end of an array
+        ce.RegisterFunction("TOCOL", 1, 3, ToCol, Spilling, AllowRange.All); // Returns the array as one column
+        ce.RegisterFunction("TOROW", 1, 3, ToRow, Spilling, AllowRange.All); // Returns the array as one row
+        ce.RegisterFunction("UNIQUE", 1, 3, Unique, Spilling, AllowRange.All); // Returns the distinct values from a range or array
+        ce.RegisterFunction("VSTACK", 1, 255, VStack, Spilling, AllowRange.All); // Appends arrays one below another
+        ce.RegisterFunction("WRAPCOLS", 2, 3, WrapCols, Spilling, AllowRange.All); // Wraps a vector into columns of a given length
+        ce.RegisterFunction("WRAPROWS", 2, 3, WrapRows, Spilling, AllowRange.All); // Wraps a vector into rows of a given length
+        ce.RegisterFunction("XLOOKUP", 3, 6, XLookup, Spilling, AllowRange.All); // Searches a range or array and returns the matching item(s)
         ce.RegisterFunction("XMATCH", 2, 4, XMatch, FunctionFlags.Range, AllowRange.All); // Returns the relative position of an item in a range or array
     }
+
+    #region Stacking
+
+    private static AnyValue VStack(CalcContext ctx, Span<AnyValue> args)
+        => Stack(ctx, args, vertically: true);
+
+    private static AnyValue HStack(CalcContext ctx, Span<AnyValue> args)
+        => Stack(ctx, args, vertically: false);
+
+    /// <summary>
+    /// Append the arguments along one axis. The other axis grows to the widest (or tallest)
+    /// argument, and the arguments that fall short are padded with <c>#N/A</c>.
+    /// </summary>
+    private static AnyValue Stack(CalcContext ctx, Span<AnyValue> args, bool vertically)
+    {
+        var parts = new List<Array>(args.Length);
+        foreach (var arg in args)
+        {
+            if (!arg.TryPickCollectionArray(out var array, ctx))
+                return XLError.IncompatibleValue;
+
+            parts.Add(vertically ? array! : new TransposedArray(array!));
+        }
+
+        var width = 0;
+        var height = 0;
+        foreach (var part in parts)
+        {
+            width = Math.Max(width, part.Width);
+            height += part.Height;
+        }
+
+        var data = new ScalarValue[height, width];
+        var row = 0;
+        foreach (var part in parts)
+        {
+            for (var y = 0; y < part.Height; y++, row++)
+            {
+                for (var x = 0; x < width; x++)
+                    data[row, x] = x < part.Width ? part[y, x] : XLError.NoValueAvailable;
+            }
+        }
+
+        return Orient(new ConstArray(data), !vertically);
+    }
+
+    #endregion
+
+    #region Flattening and wrapping
+
+    private static AnyValue ToRow(CalcContext ctx, Span<AnyValue> args)
+        => Flatten(ctx, args, intoRow: true);
+
+    private static AnyValue ToCol(CalcContext ctx, Span<AnyValue> args)
+        => Flatten(ctx, args, intoRow: false);
+
+    /// <summary>
+    /// TOROW/TOCOL(array, [ignore], [scan_by_column]) — read every value in scan order, optionally
+    /// skipping blanks (1), errors (2) or both (3), and lay the result out along a single axis.
+    /// </summary>
+    private static AnyValue Flatten(CalcContext ctx, Span<AnyValue> args, bool intoRow)
+    {
+        if (!args[0].TryPickCollectionArray(out var array, ctx))
+            return XLError.IncompatibleValue;
+
+        var ignore = 0;
+        if (args.Length > 1 && !TryIntArg(ctx, args[1], out ignore, out var ignoreError))
+            return ignoreError;
+        if (ignore is < 0 or > 3)
+            return XLError.IncompatibleValue;
+
+        var byColumn = false;
+        if (args.Length > 2 && !TryBoolArg(ctx, args[2], out byColumn, out var byColumnError))
+            return byColumnError;
+
+        var skipBlanks = (ignore & 1) != 0;
+        var skipErrors = (ignore & 2) != 0;
+
+        // Scanning by column is the same walk over the transpose.
+        var source = byColumn ? new TransposedArray(array!) : array!;
+        var kept = new List<ScalarValue>(source.Height * source.Width);
+        foreach (var value in source)
+        {
+            if (skipBlanks && value.IsBlank)
+                continue;
+            if (skipErrors && value.IsError)
+                continue;
+
+            kept.Add(value);
+        }
+
+        if (kept.Count == 0)
+            return EmptyResult;
+
+        var data = intoRow ? new ScalarValue[1, kept.Count] : new ScalarValue[kept.Count, 1];
+        for (var i = 0; i < kept.Count; i++)
+        {
+            if (intoRow)
+                data[0, i] = kept[i];
+            else
+                data[i, 0] = kept[i];
+        }
+
+        return new ConstArray(data);
+    }
+
+    private static AnyValue WrapRows(CalcContext ctx, Span<AnyValue> args)
+        => Wrap(ctx, args, intoRows: true);
+
+    private static AnyValue WrapCols(CalcContext ctx, Span<AnyValue> args)
+        => Wrap(ctx, args, intoRows: false);
+
+    /// <summary>
+    /// WRAPROWS/WRAPCOLS(vector, wrap_count, [pad_with]) — cut a one-dimensional vector into pieces
+    /// of <c>wrap_count</c> values. Only the last piece can be short, and it is padded.
+    /// </summary>
+    private static AnyValue Wrap(CalcContext ctx, Span<AnyValue> args, bool intoRows)
+    {
+        if (!args[0].TryPickCollectionArray(out var array, ctx))
+            return XLError.IncompatibleValue;
+
+        // The input has to be a vector; a rectangle has no unambiguous reading order to wrap.
+        if (array!.Width != 1 && array.Height != 1)
+            return XLError.IncompatibleValue;
+
+        if (!TryIntArg(ctx, args[1], out var wrapCount, out var wrapCountError))
+            return wrapCountError;
+        if (wrapCount < 1)
+            return XLError.NumberInvalid;
+
+        var padding = args.Length > 2 ? ScalarOf(ctx, args[2]) : XLError.NoValueAvailable;
+
+        var values = new List<ScalarValue>(array.Height * array.Width);
+        foreach (var value in array)
+            values.Add(value);
+
+        var pieces = (values.Count + wrapCount - 1) / wrapCount;
+        var data = intoRows ? new ScalarValue[pieces, wrapCount] : new ScalarValue[wrapCount, pieces];
+        for (var piece = 0; piece < pieces; piece++)
+        {
+            for (var offset = 0; offset < wrapCount; offset++)
+            {
+                var index = piece * wrapCount + offset;
+                var value = index < values.Count ? values[index] : padding;
+                if (intoRows)
+                    data[piece, offset] = value;
+                else
+                    data[offset, piece] = value;
+            }
+        }
+
+        return new ConstArray(data);
+    }
+
+    #endregion
+
+    #region Selecting rows and columns
+
+    private static AnyValue ChooseRows(CalcContext ctx, Span<AnyValue> args)
+        => Choose(ctx, args, byRow: true);
+
+    private static AnyValue ChooseCols(CalcContext ctx, Span<AnyValue> args)
+        => Choose(ctx, args, byRow: false);
+
+    /// <summary>
+    /// CHOOSEROWS/CHOOSECOLS(array, num1, …) — pick lines out of the array in the order asked for,
+    /// repeats included. A negative index counts back from the end.
+    /// </summary>
+    private static AnyValue Choose(CalcContext ctx, Span<AnyValue> args, bool byRow)
+    {
+        if (!args[0].TryPickCollectionArray(out var array, ctx))
+            return XLError.IncompatibleValue;
+
+        var source = byRow ? array! : new TransposedArray(array!);
+        var count = source.Height;
+
+        var selected = new List<int>();
+        for (var i = 1; i < args.Length; i++)
+        {
+            // An argument is usually a single index, but Excel also accepts a whole array of them,
+            // as in CHOOSEROWS(A1:C5, {1,3}).
+            IEnumerable<ScalarValue> indices;
+            if (args[i].TryPickScalar(out var scalar, out _))
+                indices = [scalar];
+            else if (args[i].TryPickCollectionArray(out var indexArray, ctx))
+                indices = indexArray!;
+            else
+                return XLError.IncompatibleValue;
+
+            foreach (var index in indices)
+            {
+                if (!index.ToNumber(ctx.Culture).TryPickT0(out var number, out var indexError))
+                    return indexError;
+
+                var line = (int)Math.Truncate(number);
+
+                // A negative index counts back from the end: -1 is the last line.
+                if (line < 0)
+                    line = count + line + 1;
+
+                if (line < 1 || line > count)
+                    return XLError.IncompatibleValue;
+
+                selected.Add(line - 1);
+            }
+        }
+
+        if (selected.Count == 0)
+            return EmptyResult;
+
+        return Orient(BuildRows(source, selected), !byRow);
+    }
+
+    #endregion
+
+    #region Slicing and padding
+
+    private static AnyValue Take(CalcContext ctx, Span<AnyValue> args)
+        => Slice(ctx, args, dropping: false);
+
+    private static AnyValue Drop(CalcContext ctx, Span<AnyValue> args)
+        => Slice(ctx, args, dropping: true);
+
+    /// <summary>
+    /// TAKE/DROP(array, rows, [columns]) — keep (or discard) that many lines from the start of each
+    /// axis, or from the end when the count is negative. An omitted or blank count leaves the axis
+    /// alone.
+    /// </summary>
+    private static AnyValue Slice(CalcContext ctx, Span<AnyValue> args, bool dropping)
+    {
+        if (!args[0].TryPickCollectionArray(out var array, ctx))
+            return XLError.IncompatibleValue;
+
+        if (!TryOptionalIntArg(ctx, args, 1, out var rows, out var rowsError))
+            return rowsError;
+        if (!TryOptionalIntArg(ctx, args, 2, out var columns, out var columnsError))
+            return columnsError;
+
+        if (!TrySliceAxis(array!.Height, rows, dropping, out var rowOffset, out var rowCount) ||
+            !TrySliceAxis(array.Width, columns, dropping, out var columnOffset, out var columnCount))
+        {
+            return EmptyResult;
+        }
+
+        if (rowOffset == 0 && rowCount == array.Height && columnOffset == 0 && columnCount == array.Width)
+            return array;
+
+        return new SlicedArray(array, rowOffset, rowCount, columnOffset, columnCount);
+    }
+
+    /// <summary>Resolve one axis of TAKE/DROP into an offset and a length, or false if nothing is left.</summary>
+    private static bool TrySliceAxis(int length, int? count, bool dropping, out int offset, out int result)
+    {
+        offset = 0;
+        result = length;
+        if (count is null)
+            return true;
+
+        var requested = count.Value;
+        var magnitude = Math.Min(Math.Abs(requested), length);
+
+        // DROP(n) keeps what TAKE(-(length - n)) would; both directions collapse to "how many
+        // lines survive, counted from which end".
+        var kept = dropping ? length - magnitude : magnitude;
+        if (kept <= 0)
+            return false;
+
+        var fromEnd = requested < 0 ? !dropping : dropping;
+        offset = fromEnd ? length - kept : 0;
+        result = kept;
+        return true;
+    }
+
+    /// <summary>
+    /// EXPAND(array, rows, [columns], [pad_with]) — grow the array to the given size, filling the
+    /// new cells. Shrinking is not expansion, so a smaller size is rejected.
+    /// </summary>
+    private static AnyValue Expand(CalcContext ctx, Span<AnyValue> args)
+    {
+        if (!args[0].TryPickCollectionArray(out var array, ctx))
+            return XLError.IncompatibleValue;
+
+        if (!TryOptionalIntArg(ctx, args, 1, out var rows, out var rowsError))
+            return rowsError;
+        if (!TryOptionalIntArg(ctx, args, 2, out var columns, out var columnsError))
+            return columnsError;
+
+        var height = rows ?? array!.Height;
+        var width = columns ?? array!.Width;
+        if (height < array!.Height || width < array.Width)
+            return XLError.IncompatibleValue;
+        if (height > XLHelper.MaxRowNumber || width > XLHelper.MaxColumnNumber)
+            return XLError.NumberInvalid;
+
+        var padding = args.Length > 3 ? ScalarOf(ctx, args[3]) : XLError.NoValueAvailable;
+
+        var data = new ScalarValue[height, width];
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+                data[y, x] = y < array.Height && x < array.Width ? array[y, x] : padding;
+        }
+
+        return new ConstArray(data);
+    }
+
+    #endregion
+
+    /// <summary>
+    /// Read an argument that may be left out entirely or written as an empty placeholder, as in
+    /// <c>TAKE(A1:C3,,2)</c>. Both mean "leave this axis alone".
+    /// </summary>
+    private static bool TryOptionalIntArg(CalcContext ctx, Span<AnyValue> args, int index, out int? value, out XLError error)
+    {
+        value = null;
+        error = default;
+        if (args.Length <= index)
+            return true;
+
+        if (args[index].TryPickScalar(out var scalar, out _) && scalar.IsBlank)
+            return true;
+
+        if (!TryIntArg(ctx, args[index], out var number, out error))
+            return false;
+
+        value = number;
+        return true;
+    }
+
+    private static ScalarValue ScalarOf(CalcContext ctx, in AnyValue value)
+        => TryScalarArg(ctx, value, out var scalar) ? scalar : XLError.NoValueAvailable;
 
     private static AnyValue Sequence(CalcContext ctx, Span<AnyValue> args)
     {

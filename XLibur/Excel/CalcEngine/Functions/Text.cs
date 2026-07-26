@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using ExcelNumberFormat;
+using XLibur.Extensions;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
 
 #pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility
@@ -36,6 +37,8 @@ internal static class Text
 
     public static void Register(FunctionRegistry ce)
     {
+        ce.RegisterFunction("ARRAYTOTEXT", 1, 2, ArrayToText, FunctionFlags.Range | FunctionFlags.Future,
+            AllowRange.Only, 0); // Renders a range or array as text
         ce.RegisterFunction("ASC", 1, 1, Adapt(Asc),
             FunctionFlags
                 .Scalar); // Changes full-width (double-byte) English letters or katakana within a character string to half-width (single-byte) characters
@@ -50,8 +53,12 @@ internal static class Text
             AllowRange.All); // Joins several text items into one text item
         ce.RegisterFunction("CONCATENATE", 1, 255, Adapt(Concatenate),
             FunctionFlags.Scalar); //	Joins several text items into one text item
+        ce.RegisterFunction("DBCS", 1, 1, Adapt(Dbcs),
+            FunctionFlags.Scalar); // Changes half-width (single-byte) characters to full-width (double-byte) characters
         ce.RegisterFunction("DOLLAR", 1, 2, AdaptLastOptional(Dollar, 2),
             FunctionFlags.Scalar); // Converts a number to text, using the $ (dollar) currency format
+        ce.RegisterFunction("ENCODEURL", 1, 1, Adapt(EncodeUrl),
+            FunctionFlags.Scalar | FunctionFlags.Future); // Percent-encodes a string for use in a URL
         ce.RegisterFunction("EXACT", 2, 2, Adapt(Exact),
             FunctionFlags.Scalar); // Checks to see if two text values are identical
         ce.RegisterFunction("FIND", 2, 3, AdaptLastOptional(Find),
@@ -85,14 +92,539 @@ internal static class Text
             AllowRange.All); // Converts its arguments to text
         ce.RegisterFunction("TEXT", 2, 2, Adapt(_Text),
             FunctionFlags.Scalar); // Formats a number and converts it to text
+        ce.RegisterFunction("TEXTAFTER", 2, 6, TextAfter, FunctionFlags.Range | FunctionFlags.Future,
+            AllowRange.Only, 1); // Returns the text after a delimiter
+        ce.RegisterFunction("TEXTBEFORE", 2, 6, TextBefore, FunctionFlags.Range | FunctionFlags.Future,
+            AllowRange.Only, 1); // Returns the text before a delimiter
         ce.RegisterFunction("TEXTJOIN", 3, 255, Adapt(TextJoin), FunctionFlags.Range | FunctionFlags.Future,
             AllowRange.Except, 0, 1); // Joins text via delimiter
+        // AllowRange.All keeps the array-formula engine from broadcasting the arguments element by
+        // element: TEXTSPLIT produces the array itself, and reduces its own arguments.
+        ce.RegisterFunction("TEXTSPLIT", 2, 6, TextSplit,
+            FunctionFlags.Range | FunctionFlags.Future | FunctionFlags.ReturnsArray,
+            AllowRange.All); // Splits text into a grid on column and row delimiters
         ce.RegisterFunction("TRIM", 1, 1, Adapt(Trim), FunctionFlags.Scalar); // Removes spaces from text
+        ce.RegisterFunction("UNICHAR", 1, 1, Adapt(UniChar),
+            FunctionFlags.Scalar | FunctionFlags.Future); // Returns the character for a Unicode code point
+        ce.RegisterFunction("UNICODE", 1, 1, Adapt(Unicode),
+            FunctionFlags.Scalar | FunctionFlags.Future); // Returns the Unicode code point of the first character
         ce.RegisterFunction("UPPER", 1, 1, Adapt(Upper), FunctionFlags.Scalar); // Converts text to uppercase
         ce.RegisterFunction("VALUE", 1, 1, Adapt(Value), FunctionFlags.Scalar); // Converts a text argument to a number
+        ce.RegisterFunction("VALUETOTEXT", 1, 2, ValueToText, FunctionFlags.Range | FunctionFlags.Future,
+            AllowRange.Only, 0); // Renders any value as text
     }
 
-    private static ScalarValue Asc(CalcContext ctx, string text)
+    #region Unicode and URL encoding
+
+    private static ScalarValue UniChar(CalcContext ctx, double number)
+    {
+        var codePoint = (int)Math.Truncate(number);
+        if (codePoint < 1 || codePoint > 0x10FFFF)
+            return XLError.IncompatibleValue;
+
+        // Lone surrogates are not valid code points, but Excel hands them back as the raw UTF-16
+        // unit rather than refusing, and a formula can use that to build a pair by hand.
+        if (codePoint is >= 0xD800 and <= 0xDFFF)
+            return ((char)codePoint).ToString();
+
+        return char.ConvertFromUtf32(codePoint);
+    }
+
+    private static ScalarValue Unicode(CalcContext ctx, string text)
+    {
+        if (text.Length == 0)
+            return XLError.IncompatibleValue;
+
+        // A surrogate pair is one character to Excel, and its code point is the combined value.
+        if (char.IsHighSurrogate(text[0]) && text.Length > 1 && char.IsLowSurrogate(text[1]))
+            return (double)char.ConvertToUtf32(text[0], text[1]);
+
+        return (double)text[0];
+    }
+
+    /// <summary>
+    /// Percent-encode for use in a URL. Everything outside the RFC 3986 unreserved set is escaped
+    /// as the uppercase hex of its UTF-8 bytes, so "/" and ":" are encoded too — Excel escapes a
+    /// whole URL, not just the part after the host.
+    /// </summary>
+    private static ScalarValue EncodeUrl(CalcContext ctx, string text)
+    {
+        var sb = new StringBuilder(text.Length);
+        foreach (var b in Encoding.UTF8.GetBytes(text))
+        {
+            var c = (char)b;
+            if (c is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9' or '-' or '_' or '.' or '~')
+                sb.Append(c);
+            else
+                sb.Append('%').Append(b.ToString("X2", CultureInfo.InvariantCulture));
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// The inverse of <see cref="Asc"/>: half-width ASCII and katakana become their full-width
+    /// forms. Like ASC, real Excel only does this when the authoring language is East Asian; the
+    /// mapping is applied unconditionally here, which is what makes DBCS(ASC(x)) an identity.
+    /// </summary>
+    private static ScalarValue Dbcs(CalcContext ctx, string text)
+    {
+        const char dakuten = 'ﾞ';
+        const char handakuten = 'ﾟ';
+        var inverse = HalfToFullKatakana.Value;
+
+        var sb = new StringBuilder(text.Length);
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+
+            // A voiced katakana is written half-width as a base plus a combining mark, so the two
+            // have to be recombined into one full-width character before the base is translated.
+            if (i + 1 < text.Length)
+            {
+                var marked = text[i + 1] switch
+                {
+                    dakuten => inverse.Voiced,
+                    handakuten => inverse.SemiVoiced,
+                    _ => null,
+                };
+
+                if (marked is not null && marked.TryGetValue(c, out var composed))
+                {
+                    sb.Append(composed);
+                    i++;
+                    continue;
+                }
+            }
+
+            if (c is >= '!' and <= '~')
+                sb.Append((char)(c - 0x0021 + 0xFF01));
+            else if (c == ' ')
+                sb.Append('　');
+            else if (inverse.Plain.TryGetValue(c, out var katakana))
+                sb.Append(katakana);
+            else
+                sb.Append(c);
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// The half-width to full-width katakana mapping, derived by running every full-width katakana
+    /// through <see cref="ToHalfWidth"/> and inverting what comes back. Deriving it rather than
+    /// writing a second table by hand is what keeps DBCS and ASC exact inverses of each other.
+    /// </summary>
+    private static readonly Lazy<KatakanaInverse> HalfToFullKatakana = new(static () =>
+    {
+        var plain = new Dictionary<char, string>();
+        var voiced = new Dictionary<char, string>();
+        var semiVoiced = new Dictionary<char, string>();
+
+        for (var codePoint = 0x30A1; codePoint <= 0x30FC; codePoint++)
+        {
+            var full = ((char)codePoint).ToString();
+            var half = ToHalfWidth(full);
+            switch (half.Length)
+            {
+                case 1 when half[0] != codePoint:
+                    plain.TryAdd(half[0], full);
+                    break;
+                case 2:
+                    var target = half[1] == 'ﾟ' ? semiVoiced : voiced;
+                    target.TryAdd(half[0], full);
+                    break;
+            }
+        }
+
+        return new KatakanaInverse(plain, voiced, semiVoiced);
+    });
+
+    private sealed record KatakanaInverse(
+        Dictionary<char, string> Plain,
+        Dictionary<char, string> Voiced,
+        Dictionary<char, string> SemiVoiced);
+
+    #endregion
+
+    #region Splitting on delimiters
+
+    private static AnyValue TextBefore(CalcContext ctx, Span<AnyValue> args)
+        => TextAround(ctx, args, before: true);
+
+    private static AnyValue TextAfter(CalcContext ctx, Span<AnyValue> args)
+        => TextAround(ctx, args, before: false);
+
+    /// <summary>
+    /// TEXTBEFORE/TEXTAFTER(text, delimiter, [instance_num], [match_mode], [match_end],
+    /// [if_not_found]) — cut the text at the nth occurrence of a delimiter and return one side of
+    /// it. A negative instance counts occurrences from the end.
+    /// </summary>
+    private static AnyValue TextAround(CalcContext ctx, Span<AnyValue> args, bool before)
+    {
+        if (!TryGetText(ctx, args[0], out var text, out var textError))
+            return textError;
+
+        if (!TryGetDelimiters(ctx, args[1], out var delimiters, out var delimiterError))
+            return delimiterError;
+
+        var instance = 1;
+        if (args.Length > 2 && !TryOptionalInt(ctx, args[2], 1, out instance, out var instanceError))
+            return instanceError;
+        if (instance == 0)
+            return XLError.IncompatibleValue;
+
+        var ignoreCase = false;
+        if (args.Length > 3 && !TryOptionalFlag(ctx, args[3], out ignoreCase, out var matchModeError))
+            return matchModeError;
+
+        var endCounts = false;
+        if (args.Length > 4 && !TryOptionalFlag(ctx, args[4], out endCounts, out var matchEndError))
+            return matchEndError;
+
+        var notFound = args.Length > 5 ? args[5] : AnyValue.From(XLError.NoValueAvailable);
+
+        var matches = FindDelimiters(text, delimiters, ignoreCase);
+
+        // With match_end set, the very end of the text counts as one more delimiter, which is how
+        // TEXTBEFORE(text, delim, -1, , 1) returns the whole text when there is no trailing delimiter.
+        if (endCounts)
+            matches.Add((text.Length, 0));
+
+        var index = instance > 0 ? instance - 1 : matches.Count + instance;
+        if (index < 0 || index >= matches.Count)
+            return notFound;
+
+        var (start, length) = matches[index];
+        return before ? text[..start] : text[(start + length)..];
+    }
+
+    /// <summary>
+    /// TEXTSPLIT(text, col_delimiter, [row_delimiter], [ignore_empty], [match_mode], [pad_with]) —
+    /// split into a grid, rows first and then columns within each row, and pad the short rows.
+    /// </summary>
+    private static AnyValue TextSplit(CalcContext ctx, Span<AnyValue> args)
+    {
+        if (!TryGetText(ctx, args[0], out var text, out var textError))
+            return textError;
+
+        var hasColumnDelimiters = !IsOmitted(args, 1);
+        List<string> columnDelimiters = [];
+        if (hasColumnDelimiters && !TryGetDelimiters(ctx, args[1], out columnDelimiters, out var columnError))
+            return columnError;
+
+        var hasRowDelimiters = !IsOmitted(args, 2);
+        List<string> rowDelimiters = [];
+        if (hasRowDelimiters && !TryGetDelimiters(ctx, args[2], out rowDelimiters, out var rowError))
+            return rowError;
+
+        if (!hasColumnDelimiters && !hasRowDelimiters)
+            return XLError.IncompatibleValue;
+
+        var ignoreEmpty = false;
+        if (args.Length > 3 && !TryOptionalFlag(ctx, args[3], out ignoreEmpty, out var ignoreError))
+            return ignoreError;
+
+        var ignoreCase = false;
+        if (args.Length > 4 && !TryOptionalFlag(ctx, args[4], out ignoreCase, out var matchModeError))
+            return matchModeError;
+
+        var padding = args.Length > 5 && !IsOmitted(args, 5)
+            ? ToScalar(ctx, args[5])
+            : ScalarValue.From(XLError.NoValueAvailable);
+
+        var rows = new List<List<string>>();
+        foreach (var line in Split(text, rowDelimiters, ignoreCase, ignoreEmpty))
+            rows.Add(Split(line, columnDelimiters, ignoreCase, ignoreEmpty));
+
+        if (ignoreEmpty)
+            rows.RemoveAll(static row => row.Count == 0);
+
+        if (rows.Count == 0)
+            return XLError.IncompatibleValue;
+
+        var width = 0;
+        foreach (var row in rows)
+            width = Math.Max(width, row.Count);
+
+        var data = new ScalarValue[rows.Count, Math.Max(width, 1)];
+        for (var y = 0; y < rows.Count; y++)
+        {
+            for (var x = 0; x < data.GetLength(1); x++)
+                data[y, x] = x < rows[y].Count ? rows[y][x] : padding;
+        }
+
+        return new ConstArray(data);
+    }
+
+    /// <summary>Split on any of the delimiters; no delimiters at all leaves the text in one piece.</summary>
+    private static List<string> Split(string text, List<string> delimiters, bool ignoreCase, bool ignoreEmpty)
+    {
+        var pieces = new List<string>();
+        if (delimiters.Count == 0)
+        {
+            pieces.Add(text);
+            return pieces;
+        }
+
+        var position = 0;
+        foreach (var (start, length) in FindDelimiters(text, delimiters, ignoreCase))
+        {
+            pieces.Add(text[position..start]);
+            position = start + length;
+        }
+
+        pieces.Add(text[position..]);
+
+        if (ignoreEmpty)
+            pieces.RemoveAll(string.IsNullOrEmpty);
+
+        return pieces;
+    }
+
+    /// <summary>
+    /// Every non-overlapping occurrence of any delimiter, left to right. When two delimiters could
+    /// match at the same place the longer one wins, so splitting on both "&lt;br&gt;" and "&lt;b&gt;"
+    /// does not leave a stray "r&gt;".
+    /// </summary>
+    private static List<(int Start, int Length)> FindDelimiters(string text, List<string> delimiters, bool ignoreCase)
+    {
+        var comparison = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var matches = new List<(int Start, int Length)>();
+
+        var position = 0;
+        while (position <= text.Length)
+        {
+            var bestStart = -1;
+            var bestLength = 0;
+            foreach (var delimiter in delimiters)
+            {
+                if (delimiter.Length == 0)
+                    continue;
+
+                var found = text.IndexOf(delimiter, position, comparison);
+                if (found < 0)
+                    continue;
+
+                if (bestStart < 0 || found < bestStart || (found == bestStart && delimiter.Length > bestLength))
+                {
+                    bestStart = found;
+                    bestLength = delimiter.Length;
+                }
+            }
+
+            if (bestStart < 0)
+                break;
+
+            matches.Add((bestStart, bestLength));
+            position = bestStart + bestLength;
+        }
+
+        return matches;
+    }
+
+    /// <summary>Read a delimiter argument, which Excel lets you write as an array of alternatives.</summary>
+    private static bool TryGetDelimiters(CalcContext ctx, in AnyValue value, out List<string> delimiters, out XLError error)
+    {
+        delimiters = [];
+        error = default;
+
+        if (value.TryPickScalar(out var scalar, out _))
+        {
+            if (!scalar.ToText(ctx.Culture).TryPickT0(out var single, out error))
+                return false;
+
+            delimiters.Add(single);
+            return true;
+        }
+
+        if (!value.TryPickCollectionArray(out var array, ctx))
+        {
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        foreach (var item in array!)
+        {
+            if (item.IsBlank)
+                continue;
+
+            if (!item.ToText(ctx.Culture).TryPickT0(out var text, out error))
+                return false;
+
+            delimiters.Add(text);
+        }
+
+        return true;
+    }
+
+    private static bool IsOmitted(Span<AnyValue> args, int index)
+        => args.Length <= index || (args[index].TryPickScalar(out var scalar, out _) && scalar.IsBlank);
+
+    private static bool TryOptionalInt(CalcContext ctx, in AnyValue value, int fallback, out int result, out XLError error)
+    {
+        result = fallback;
+        error = default;
+        if (!value.TryPickScalar(out var scalar, out _))
+        {
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        if (scalar.IsBlank)
+            return true;
+
+        if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out error))
+            return false;
+
+        result = (int)Math.Truncate(number);
+        return true;
+    }
+
+    /// <summary>Read one of the 0/1 mode arguments the modern text functions use as booleans.</summary>
+    private static bool TryOptionalFlag(CalcContext ctx, in AnyValue value, out bool flag, out XLError error)
+    {
+        if (!TryOptionalInt(ctx, value, 0, out var mode, out error))
+        {
+            flag = false;
+            return false;
+        }
+
+        if (mode is not (0 or 1))
+        {
+            flag = false;
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        flag = mode == 1;
+        return true;
+    }
+
+    /// <summary>
+    /// Reduce an argument to the single value a scalar parameter wants. Registering a function with
+    /// <see cref="AllowRange.All"/> stops the engine from doing this, which these functions need so
+    /// that the array-formula path hands them their arguments whole rather than one element at a
+    /// time — so they have to do the reduction themselves.
+    /// </summary>
+    private static ScalarValue ToScalar(CalcContext ctx, in AnyValue value)
+    {
+        if (value.TryPickScalar(out var scalar, out var collection))
+            return scalar;
+
+        if (collection.TryPickT0(out var array, out var reference))
+            return array[0, 0];
+
+        if (reference.TryGetSingleCellValue(out var single, ctx))
+            return single;
+
+        return value.ImplicitIntersection(ctx).TryPickScalar(out var intersected, out _)
+            ? intersected
+            : XLError.IncompatibleValue;
+    }
+
+    private static bool TryGetText(CalcContext ctx, in AnyValue value, out string text, out XLError error)
+    {
+        return ToScalar(ctx, value).ToText(ctx.Culture).TryPickT0(out text!, out error);
+    }
+
+    #endregion
+
+    #region Value rendering
+
+    private static AnyValue ValueToText(CalcContext ctx, Span<AnyValue> args)
+    {
+        if (!TryGetFormat(ctx, args, 1, out var strict, out var formatError))
+            return formatError;
+
+        return Render(ctx, ToScalar(ctx, args[0]), strict);
+    }
+
+    private static AnyValue ArrayToText(CalcContext ctx, Span<AnyValue> args)
+    {
+        if (!TryGetFormat(ctx, args, 1, out var strict, out var formatError))
+            return formatError;
+
+        if (!args[0].TryPickCollectionArray(out var array, ctx))
+            return Render(ctx, ToScalar(ctx, args[0]), strict);
+
+        // Concise form is a flat comma-separated list; strict form reproduces the array literal,
+        // with commas between columns and semicolons between rows.
+        var sb = new StringBuilder();
+        if (strict)
+            sb.Append('{');
+
+        for (var y = 0; y < array!.Height; y++)
+        {
+            if (y > 0)
+                sb.Append(strict ? ";" : ", ");
+
+            for (var x = 0; x < array.Width; x++)
+            {
+                if (x > 0)
+                    sb.Append(strict ? "," : ", ");
+
+                sb.Append(Render(ctx, array[y, x], strict));
+            }
+        }
+
+        if (strict)
+            sb.Append('}');
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Read the shared <c>format</c> argument of VALUETOTEXT and ARRAYTOTEXT: 0 is the concise form
+    /// a cell would display, 1 the strict form that could be pasted back into a formula.
+    /// </summary>
+    private static bool TryGetFormat(CalcContext ctx, Span<AnyValue> args, int index, out bool strict, out XLError error)
+    {
+        strict = false;
+        error = default;
+        if (args.Length <= index)
+            return true;
+
+        if (!args[index].TryPickScalar(out var scalar, out _))
+        {
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        if (scalar.IsBlank)
+            return true;
+
+        if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out error))
+            return false;
+
+        var format = (int)Math.Truncate(number);
+        if (format is not (0 or 1))
+        {
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        strict = format == 1;
+        return true;
+    }
+
+    private static string Render(CalcContext ctx, in ScalarValue value, bool strict)
+    {
+        if (value.TryPickError(out var error))
+            return error.ToDisplayString();
+
+        if (value.TryPickText(out var text, out _))
+            return strict ? "\"" + text!.Replace("\"", "\"\"") + "\"" : text!;
+
+        // Numbers, logicals and blanks read the same either way.
+        return value.ToText(ctx.Culture).Match(t => t!, e => e.ToDisplayString());
+    }
+
+    #endregion
+
+    private static ScalarValue Asc(CalcContext ctx, string text) => ToHalfWidth(text);
+
+    private static string ToHalfWidth(string text)
     {
         // Excel version only works when the authoring language is set to specific languages (e.g., Japanese).
         // Function doesn't do anything when Excel is set to most locales (e.g., English). There is no further
