@@ -1,12 +1,11 @@
 ﻿using System;
 using System.IO;
-using NUnit.Framework;
 using XLibur.Excel;
 using XLibur.Graphics;
+using System.Threading.Tasks;
 
 namespace XLibur.Fonts.SixLabors.Tests;
 
-[TestFixture]
 public class SixLaborsFontEngineTests
 {
     /// <summary>
@@ -23,52 +22,52 @@ public class SixLaborsFontEngineTests
     #region Text width
 
     [Test]
-    public void GetTextWidth_ReturnsPositiveValue()
+    public async Task GetTextWidth_ReturnsPositiveValue()
     {
         var font = new DummyFont("TestFontA", 20);
         var width = _engine.GetTextWidth("Lorem ipsum dolor sit amet", font, 96);
 
-        Assert.That(width, Is.GreaterThan(0));
+        await Assert.That(width).IsGreaterThan(0);
     }
 
     [Test]
-    public void GetTextWidth_LongerTextIsWider()
+    public async Task GetTextWidth_LongerTextIsWider()
     {
         var font = new DummyFont("TestFontA", 11);
         var shortWidth = _engine.GetTextWidth("AB", font, 96);
         var longWidth = _engine.GetTextWidth("ABCDEF", font, 96);
 
-        Assert.That(longWidth, Is.GreaterThan(shortWidth));
+        await Assert.That(longWidth).IsGreaterThan(shortWidth);
     }
 
     [Test]
-    public void GetTextWidth_LargerFontIsWider()
+    public async Task GetTextWidth_LargerFontIsWider()
     {
         var smallFont = new DummyFont("TestFontA", 10);
         var largeFont = new DummyFont("TestFontA", 20);
         var smallWidth = _engine.GetTextWidth("Test", smallFont, 96);
         var largeWidth = _engine.GetTextWidth("Test", largeFont, 96);
 
-        Assert.That(largeWidth, Is.GreaterThan(smallWidth));
+        await Assert.That(largeWidth).IsGreaterThan(smallWidth);
     }
 
     [Test]
-    public void GetTextWidth_HigherDpiIsWider()
+    public async Task GetTextWidth_HigherDpiIsWider()
     {
         var font = new DummyFont("TestFontA", 11);
         var width96 = _engine.GetTextWidth("Test", font, 96);
         var width120 = _engine.GetTextWidth("Test", font, 120);
 
-        Assert.That(width120, Is.GreaterThan(width96));
+        await Assert.That(width120).IsGreaterThan(width96);
     }
 
     [Test]
-    public void GetTextWidth_EmptyStringReturnsZero()
+    public async Task GetTextWidth_EmptyStringReturnsZero()
     {
         var font = new DummyFont("TestFontA", 11);
         var width = _engine.GetTextWidth("", font, 96);
 
-        Assert.That(width, Is.EqualTo(0));
+        await Assert.That(width).IsEqualTo(0);
     }
 
     #endregion
@@ -76,33 +75,33 @@ public class SixLaborsFontEngineTests
     #region Text height
 
     [Test]
-    public void GetTextHeight_ReturnsPositiveValue()
+    public async Task GetTextHeight_ReturnsPositiveValue()
     {
         var font = new DummyFont("TestFontA", 11);
         var height = _engine.GetTextHeight(font, 96);
 
-        Assert.That(height, Is.GreaterThan(0));
+        await Assert.That(height).IsGreaterThan(0);
     }
 
     [Test]
-    public void GetTextHeight_LargerFontIsTaller()
+    public async Task GetTextHeight_LargerFontIsTaller()
     {
         var smallFont = new DummyFont("TestFontA", 10);
         var largeFont = new DummyFont("TestFontA", 30);
         var smallHeight = _engine.GetTextHeight(smallFont, 96);
         var largeHeight = _engine.GetTextHeight(largeFont, 96);
 
-        Assert.That(largeHeight, Is.GreaterThan(smallHeight));
+        await Assert.That(largeHeight).IsGreaterThan(smallHeight);
     }
 
     [Test]
-    public void GetTextHeight_HigherDpiIsTaller()
+    public async Task GetTextHeight_HigherDpiIsTaller()
     {
         var font = new DummyFont("TestFontA", 11);
         var height96 = _engine.GetTextHeight(font, 96);
         var height120 = _engine.GetTextHeight(font, 120);
 
-        Assert.That(height120, Is.GreaterThan(height96));
+        await Assert.That(height120).IsGreaterThan(height96);
     }
 
     #endregion
@@ -110,23 +109,23 @@ public class SixLaborsFontEngineTests
     #region Max digit width
 
     [Test]
-    public void GetMaxDigitWidth_ReturnsPositiveValue()
+    public async Task GetMaxDigitWidth_ReturnsPositiveValue()
     {
         var font = new DummyFont("TestFontA", 11);
         var mdw = _engine.GetMaxDigitWidth(font, 96);
 
-        Assert.That(mdw, Is.GreaterThan(0));
+        await Assert.That(mdw).IsGreaterThan(0);
     }
 
     [Test]
-    public void GetMaxDigitWidth_LargerFontIsWider()
+    public async Task GetMaxDigitWidth_LargerFontIsWider()
     {
         var smallFont = new DummyFont("TestFontA", 10);
         var largeFont = new DummyFont("TestFontA", 20);
         var smallMdw = _engine.GetMaxDigitWidth(smallFont, 96);
         var largeMdw = _engine.GetMaxDigitWidth(largeFont, 96);
 
-        Assert.That(largeMdw, Is.GreaterThan(smallMdw));
+        await Assert.That(largeMdw).IsGreaterThan(smallMdw);
     }
 
     #endregion
@@ -134,23 +133,23 @@ public class SixLaborsFontEngineTests
     #region Descent
 
     [Test]
-    public void GetDescent_ReturnsPositiveValue()
+    public async Task GetDescent_ReturnsPositiveValue()
     {
         var font = new DummyFont("TestFontA", 11);
         var descent = _engine.GetDescent(font, 96);
 
-        Assert.That(descent, Is.GreaterThan(0));
+        await Assert.That(descent).IsGreaterThan(0);
     }
 
     [Test]
-    public void GetDescent_LargerFontHasLargerDescent()
+    public async Task GetDescent_LargerFontHasLargerDescent()
     {
         var smallFont = new DummyFont("TestFontA", 10);
         var largeFont = new DummyFont("TestFontA", 30);
         var smallDescent = _engine.GetDescent(smallFont, 96);
         var largeDescent = _engine.GetDescent(largeFont, 96);
 
-        Assert.That(largeDescent, Is.GreaterThan(smallDescent));
+        await Assert.That(largeDescent).IsGreaterThan(smallDescent);
     }
 
     #endregion
@@ -158,18 +157,18 @@ public class SixLaborsFontEngineTests
     #region Glyph box
 
     [Test]
-    public void GetGlyphBox_ReturnsPositiveAdvanceWidth()
+    public async Task GetGlyphBox_ReturnsPositiveAdvanceWidth()
     {
         var font = new DummyFont("TestFontA", 11);
         Span<int> codePoints = ['A'];
         var box = _engine.GetGlyphBox(codePoints, font, new Dpi(96, 96));
 
-        Assert.That(box.AdvanceWidth, Is.GreaterThan(0));
-        Assert.That(box.EmSize, Is.GreaterThan(0));
+        await Assert.That(box.AdvanceWidth).IsGreaterThan(0);
+        await Assert.That(box.EmSize).IsGreaterThan(0);
     }
 
     [Test]
-    public void GetGlyphBox_MultipleCharactersProduceValidWidths()
+    public async Task GetGlyphBox_MultipleCharactersProduceValidWidths()
     {
         var font = new DummyFont("TestFontA", 11);
         Span<int> charA = ['A'];
@@ -178,22 +177,22 @@ public class SixLaborsFontEngineTests
         var boxA = _engine.GetGlyphBox(charA, font, new Dpi(96, 96));
         var boxB = _engine.GetGlyphBox(charB, font, new Dpi(96, 96));
 
-        Assert.That(boxA.AdvanceWidth, Is.GreaterThan(0));
-        Assert.That(boxB.AdvanceWidth, Is.GreaterThan(0));
+        await Assert.That(boxA.AdvanceWidth).IsGreaterThan(0);
+        await Assert.That(boxB.AdvanceWidth).IsGreaterThan(0);
     }
 
     [Test]
-    public void GetGlyphBox_DescentIsPositive()
+    public async Task GetGlyphBox_DescentIsPositive()
     {
         var font = new DummyFont("TestFontA", 11);
         Span<int> codePoints = ['g'];
         var box = _engine.GetGlyphBox(codePoints, font, new Dpi(96, 96));
 
-        Assert.That(box.Descent, Is.GreaterThanOrEqualTo(0));
+        await Assert.That(box.Descent).IsGreaterThanOrEqualTo(0);
     }
 
     [Test]
-    public void GetGlyphBox_LargerFontProducesLargerBox()
+    public async Task GetGlyphBox_LargerFontProducesLargerBox()
     {
         var smallFont = new DummyFont("TestFontA", 10);
         var largeFont = new DummyFont("TestFontA", 20);
@@ -202,8 +201,8 @@ public class SixLaborsFontEngineTests
         var smallBox = _engine.GetGlyphBox(codePoints, smallFont, new Dpi(96, 96));
         var largeBox = _engine.GetGlyphBox(codePoints, largeFont, new Dpi(96, 96));
 
-        Assert.That(largeBox.AdvanceWidth, Is.GreaterThan(smallBox.AdvanceWidth));
-        Assert.That(largeBox.EmSize, Is.GreaterThan(smallBox.EmSize));
+        await Assert.That(largeBox.AdvanceWidth).IsGreaterThan(smallBox.AdvanceWidth);
+        await Assert.That(largeBox.EmSize).IsGreaterThan(smallBox.EmSize);
     }
 
     #endregion
@@ -211,7 +210,7 @@ public class SixLaborsFontEngineTests
     #region Fallback behavior
 
     [Test]
-    public void NonExistentFont_UsesFallback()
+    public async Task NonExistentFont_UsesFallback()
     {
         // With stream-based engine, non-existent fonts fall back to the provided fallback font
         var nonExistent = new DummyFont("TotallyFakeNonExistentFont12345", 11);
@@ -220,11 +219,11 @@ public class SixLaborsFontEngineTests
         var nonExistentWidth = _engine.GetTextWidth("Test", nonExistent, 96);
         var fallbackWidth = _engine.GetTextWidth("Test", fallback, 96);
 
-        Assert.That(nonExistentWidth, Is.EqualTo(fallbackWidth));
+        await Assert.That(nonExistentWidth).IsEqualTo(fallbackWidth);
     }
 
     [Test]
-    public void NonExistentFont_UsesFallbackForHeight()
+    public async Task NonExistentFont_UsesFallbackForHeight()
     {
         var nonExistent = new DummyFont("TotallyFakeNonExistentFont12345", 14);
         var fallback = new DummyFont("TestFontA", 14);
@@ -232,7 +231,7 @@ public class SixLaborsFontEngineTests
         var nonExistentHeight = _engine.GetTextHeight(nonExistent, 96);
         var fallbackHeight = _engine.GetTextHeight(fallback, 96);
 
-        Assert.That(nonExistentHeight, Is.EqualTo(fallbackHeight));
+        await Assert.That(nonExistentHeight).IsEqualTo(fallbackHeight);
     }
 
     #endregion
@@ -240,7 +239,7 @@ public class SixLaborsFontEngineTests
     #region Stream-based factory methods
 
     [Test]
-    public void CreateOnlyWithFonts_UsesProvidedFallback()
+    public async Task CreateOnlyWithFonts_UsesProvidedFallback()
     {
         using var fallbackStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
         var engine = SixLaborsFontEngine.CreateOnlyWithFonts(fallbackStream);
@@ -249,11 +248,11 @@ public class SixLaborsFontEngineTests
         var width = engine.GetTextWidth("A", font, 120);
 
         // TestFontA at 20pt, 120 DPI — v2 may have slightly different measurement than v1
-        Assert.That(width, Is.EqualTo(31.25d).Within(1.0));
+        await Assert.That(width).IsEqualTo(31.25d).Within(1.0);
     }
 
     [Test]
-    public void CreateOnlyWithFonts_CanLoadExtraFonts()
+    public async Task CreateOnlyWithFonts_CanLoadExtraFonts()
     {
         using var fallbackStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
         using var fontBStream = TestHelper.GetStreamFromResource("Fonts.TestFontB.ttf");
@@ -261,11 +260,11 @@ public class SixLaborsFontEngineTests
 
         var widthB = engine.GetTextWidth("B", new DummyFont("TestFontB", 30), 96);
 
-        Assert.That(widthB, Is.EqualTo(25d).Within(1.5));
+        await Assert.That(widthB).IsEqualTo(25d).Within(1.5);
     }
 
     [Test]
-    public void CreateWithFontsAndSystemFonts_CanUseFallbackFont()
+    public async Task CreateWithFontsAndSystemFonts_CanUseFallbackFont()
     {
         using var fallbackStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
         var engine = SixLaborsFontEngine.CreateWithFontsAndSystemFonts(fallbackStream);
@@ -274,7 +273,7 @@ public class SixLaborsFontEngineTests
         var font = new DummyFont("NonexistentFont", 11);
         var width = engine.GetTextWidth("Test", font, 96);
 
-        Assert.That(width, Is.GreaterThan(0));
+        await Assert.That(width).IsGreaterThan(0);
     }
 
     #endregion
@@ -282,7 +281,7 @@ public class SixLaborsFontEngineTests
     #region Workbook integration
 
     [Test]
-    public void FontEngine_WorksWithWorkbookViaLoadOptions()
+    public async Task FontEngine_WorksWithWorkbookViaLoadOptions()
     {
         var loadOptions = new LoadOptions { FontEngine = _engine };
         using var wb = new XLWorkbook(loadOptions);
@@ -291,11 +290,11 @@ public class SixLaborsFontEngineTests
         ws.Cell(1, 1).Value = "Hello World";
         ws.Column(1).AdjustToContents();
 
-        Assert.That(ws.Column(1).Width, Is.GreaterThan(0));
+        await Assert.That(ws.Column(1).Width).IsGreaterThan(0);
     }
 
     [Test]
-    public void FontEngine_AdjustToContents_ProducesReasonableWidth()
+    public async Task FontEngine_AdjustToContents_ProducesReasonableWidth()
     {
         var loadOptions = new LoadOptions { FontEngine = _engine };
         using var wb = new XLWorkbook(loadOptions);
@@ -307,11 +306,11 @@ public class SixLaborsFontEngineTests
         ws.Column(1).AdjustToContents();
 
         // Width should accommodate the longer text
-        Assert.That(ws.Column(1).Width, Is.GreaterThan(8.43)); // 8.43 is the default column width
+        await Assert.That(ws.Column(1).Width).IsGreaterThan(8.43); // 8.43 is the default column width
     }
 
     [Test]
-    public void FontEngine_AdjustRowHeight_ProducesReasonableHeight()
+    public async Task FontEngine_AdjustRowHeight_ProducesReasonableHeight()
     {
         var loadOptions = new LoadOptions { FontEngine = _engine };
         using var wb = new XLWorkbook(loadOptions);
@@ -320,11 +319,11 @@ public class SixLaborsFontEngineTests
         ws.Cell(1, 1).Value = "Test";
         ws.Row(1).AdjustToContents();
 
-        Assert.That(ws.Row(1).Height, Is.GreaterThan(0));
+        await Assert.That(ws.Row(1).Height).IsGreaterThan(0);
     }
 
     [Test]
-    public void FontEngine_CanSaveAndReloadWorkbook()
+    public async Task FontEngine_CanSaveAndReloadWorkbook()
     {
         var loadOptions = new LoadOptions { FontEngine = _engine };
         using var wb = new XLWorkbook(loadOptions);
@@ -340,11 +339,11 @@ public class SixLaborsFontEngineTests
         using var wb2 = new XLWorkbook(ms, new LoadOptions { FontEngine = _engine });
         var value = wb2.Worksheet(1).Cell(1, 1).GetString();
 
-        Assert.That(value, Is.EqualTo("Saved with SixLabors v2"));
+        await Assert.That(value).IsEqualTo("Saved with SixLabors v2");
     }
 
     [Test]
-    public void FontEngine_StreamBased_WorksWithWorkbook()
+    public async Task FontEngine_StreamBased_WorksWithWorkbook()
     {
         using var fallbackStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
         var engine = SixLaborsFontEngine.CreateOnlyWithFonts(fallbackStream);
@@ -355,7 +354,7 @@ public class SixLaborsFontEngineTests
         ws.Cell(1, 1).Value = "Stream-based font";
         ws.Column(1).AdjustToContents();
 
-        Assert.That(ws.Column(1).Width, Is.GreaterThan(0));
+        await Assert.That(ws.Column(1).Width).IsGreaterThan(0);
     }
 
     #endregion
@@ -363,25 +362,25 @@ public class SixLaborsFontEngineTests
     #region Bold / Italic variants
 
     [Test]
-    public void BoldFont_ProducesValidMetrics()
+    public async Task BoldFont_ProducesValidMetrics()
     {
         var bold = new DummyFont("TestFontA", 11) { Bold = true };
 
         var boldWidth = _engine.GetTextWidth("Test text", bold, 96);
 
         // Bold font should still produce valid positive width
-        Assert.That(boldWidth, Is.GreaterThan(0));
+        await Assert.That(boldWidth).IsGreaterThan(0);
     }
 
     [Test]
-    public void ItalicFont_ProducesValidMetrics()
+    public async Task ItalicFont_ProducesValidMetrics()
     {
         var italic = new DummyFont("TestFontA", 11) { Italic = true };
 
         var italicWidth = _engine.GetTextWidth("Test text", italic, 96);
 
         // Italic may have different metrics — just verify it resolves without error
-        Assert.That(italicWidth, Is.GreaterThan(0));
+        await Assert.That(italicWidth).IsGreaterThan(0);
     }
 
     #endregion
@@ -389,21 +388,21 @@ public class SixLaborsFontEngineTests
     #region Constructor validation
 
     [Test]
-    public void Constructor_ThrowsOnNullFallbackFont()
+    public async Task Constructor_ThrowsOnNullFallbackFont()
     {
-        Assert.Throws<ArgumentException>(() => new SixLaborsFontEngine(null!));
+        await Assert.That(() => new SixLaborsFontEngine(null!)).Throws<ArgumentException>();
     }
 
     [Test]
-    public void Constructor_ThrowsOnWhitespaceFallbackFont()
+    public async Task Constructor_ThrowsOnWhitespaceFallbackFont()
     {
-        Assert.Throws<ArgumentException>(() => new SixLaborsFontEngine("   "));
+        await Assert.That(() => new SixLaborsFontEngine("   ")).Throws<ArgumentException>();
     }
 
     [Test]
-    public void CreateOnlyWithFonts_ThrowsOnNullStream()
+    public async Task CreateOnlyWithFonts_ThrowsOnNullStream()
     {
-        Assert.Throws<ArgumentNullException>(() => SixLaborsFontEngine.CreateOnlyWithFonts(null!));
+        await Assert.That(() => SixLaborsFontEngine.CreateOnlyWithFonts(null!)).Throws<ArgumentNullException>();
     }
 
     #endregion

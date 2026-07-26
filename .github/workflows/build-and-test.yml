@@ -90,11 +90,12 @@ jobs:
 
       - name: Test Fonts.SixLabors
         run: >
-          dotnet test XLibur.Fonts.SixLabors.Tests/XLibur.Fonts.SixLabors.Tests.csproj
+          dotnet run --project XLibur.Fonts.SixLabors.Tests/XLibur.Fonts.SixLabors.Tests.csproj
           --configuration Release
           --no-build
           --framework net10.0
-          --logger "trx;LogFileName=fonts-test-results.trx"
+          --
+          --report-trx --report-trx-filename fonts-test-results.trx
 
       # Migrated to TUnit, which runs on Microsoft.Testing.Platform rather than VSTest.
       # `dotnet test` cannot drive MTP projects until the repo-wide global.json opt-in is
@@ -121,5 +122,5 @@ jobs:
           name: test-results
           path: |
             XLibur.Tests/TestResults/*.trx
-            XLibur.Fonts.SixLabors.Tests/TestResults/*.trx
+            XLibur.Fonts.SixLabors.Tests/bin/Release/net10.0/TestResults/*.trx
             XLibur.Fonts.SkiaSharp.Tests/bin/Release/net10.0/TestResults/*.trx
