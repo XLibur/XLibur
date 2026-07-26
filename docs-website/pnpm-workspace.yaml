@@ -1,0 +1,24 @@
+# pnpm 10+ reads these settings from here rather than from package.json. An "overrides" block under
+# "pnpm" in package.json is silently ignored, so this file has to be committed for the pins below to
+# reach CI.
+
+# core-js's install script only prints a funding banner. CI already installs with --ignore-scripts,
+# so declining it here just makes local installs match.
+allowBuilds:
+  core-js: false
+
+# Security overrides for transitive dependencies.
+#
+# Each of these reaches us through @docusaurus/core and has no direct dependent in this project, so
+# pinning them as devDependencies does nothing — that only adds a second, unused copy alongside the
+# vulnerable one the dependency tree actually resolves. Overrides rewrite the version every
+# dependent gets, which is what the advisories need.
+#
+# Drop an entry once the upstream dependent has moved past it on its own:
+#   serialize-javascript  @docusaurus/bundler > copy-webpack-plugin   GHSA-5c6j-r48x-rmvq, GHSA-qj8w-gfj5-8c6v
+#   brace-expansion       serve-handler > minimatch                   GHSA-mh99-v99m-4gvg
+#   uuid                  webpack-dev-server > sockjs                 GHSA-w5hq-g745-h8pq
+overrides:
+  serialize-javascript: '>=7.0.5'
+  brace-expansion: '>=5.0.8'
+  uuid: '>=11.1.1'
