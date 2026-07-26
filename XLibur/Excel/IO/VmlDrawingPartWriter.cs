@@ -48,13 +48,12 @@ internal static class VmlDrawingPartWriter
         }
             .WriteTo(writer);
 
-        var cellWithComments = xlWorksheet.Internals.CellsCollection.GetCells(c => c.HasComment);
-
         var hasAnyVmlElements = false;
 
-        foreach (var c in cellWithComments)
+        // Threads get a shape too: Excel draws the fallback note, and a note without VML is invisible.
+        foreach (var entry in CommentWriteSource.Collect(xlWorksheet))
         {
-            GenerateCommentShape(c).WriteTo(writer);
+            GenerateCommentShape(entry.Cell, entry.Comment).WriteTo(writer);
             hasAnyVmlElements = true;
         }
 
@@ -74,12 +73,11 @@ internal static class VmlDrawingPartWriter
     }
 
     // VML Shape for Comment
-    private static Vml.Shape GenerateCommentShape(XLCell c)
+    private static Vml.Shape GenerateCommentShape(XLCell c, XLComment comment)
     {
         var rowNumber = c.Address.RowNumber;
         var columnNumber = c.Address.ColumnNumber;
 
-        var comment = c.GetComment();
         var shapeId = string.Concat("_x0000_s", comment.ShapeId);
 
         // When AutomaticSize is enabled, calculate dimensions that fit the text.
@@ -93,13 +91,13 @@ internal static class VmlDrawingPartWriter
         }
 
         // Unique per cell (workbook?), e.g.: "_x0000_s1026"
-        var anchor = GetAnchor(c, effectiveWidth, effectiveHeight);
+        var anchor = GetAnchor(c, comment, effectiveWidth, effectiveHeight);
         var textBox = GetTextBox(comment.Style);
         var fill = new Vml.Fill { Color2 = string.Concat("#", comment.Style.ColorsAndLines.FillColor.Color.ToHex().AsSpan(2)) };
         if (comment.Style.ColorsAndLines.FillTransparency < 1)
             fill.Opacity =
                 Math.Round(Convert.ToDouble(comment.Style.ColorsAndLines.FillTransparency), 2).ToInvariantString();
-        var stroke = GetStroke(c);
+        var stroke = GetStroke(comment);
         var shape = new Vml.Shape(
             fill,
             stroke,
@@ -128,7 +126,7 @@ internal static class VmlDrawingPartWriter
         {
             Id = shapeId,
             Type = "#" + XLConstants.Comment.ShapeTypeId,
-            Style = GetCommentStyle(c, effectiveWidth, effectiveHeight),
+            Style = GetCommentStyle(comment, effectiveWidth, effectiveHeight),
             FillColor = string.Concat("#", comment.Style.ColorsAndLines.FillColor.Color.ToHex().AsSpan(2)),
             StrokeColor = string.Concat("#", comment.Style.ColorsAndLines.LineColor.Color.ToHex().AsSpan(2)),
             StrokeWeight = string.Concat(comment.Style.ColorsAndLines.LineWeight.ToInvariantString(), "pt"),
@@ -140,12 +138,12 @@ internal static class VmlDrawingPartWriter
         return shape;
     }
 
-    private static Vml.Stroke GetStroke(XLCell c)
+    private static Vml.Stroke GetStroke(XLComment comment)
     {
-        var lineDash = c.GetComment().Style.ColorsAndLines.LineDash;
+        var lineDash = comment.Style.ColorsAndLines.LineDash;
         var stroke = new Vml.Stroke
         {
-            LineStyle = c.GetComment().Style.ColorsAndLines.LineStyle.ToOpenXml(),
+            LineStyle = comment.Style.ColorsAndLines.LineStyle.ToOpenXml(),
             DashStyle =
                 lineDash == XLDashStyle.RoundDot || lineDash == XLDashStyle.SquareDot
                     ? "shortDot"
@@ -153,9 +151,9 @@ internal static class VmlDrawingPartWriter
         };
         if (lineDash == XLDashStyle.RoundDot)
             stroke.EndCap = Vml.StrokeEndCapValues.Round;
-        if (c.GetComment().Style.ColorsAndLines.LineTransparency < 1)
+        if (comment.Style.ColorsAndLines.LineTransparency < 1)
             stroke.Opacity =
-                Math.Round(Convert.ToDouble(c.GetComment().Style.ColorsAndLines.LineTransparency), 2).ToInvariantString();
+                Math.Round(Convert.ToDouble(comment.Style.ColorsAndLines.LineTransparency), 2).ToInvariantString();
         return stroke;
     }
 
@@ -196,9 +194,8 @@ internal static class VmlDrawingPartWriter
         return tb;
     }
 
-    private static Anchor GetAnchor(XLCell cell, double cWidth, double cHeight)
+    private static Anchor GetAnchor(XLCell cell, XLComment c, double cWidth, double cHeight)
     {
-        var c = cell.GetComment();
         var fcNumber = c.Position.Column - 1;
         var fcOffset = Convert.ToInt32(c.Position.ColumnOffset * 7.5);
         var widthFromColumns = cell.Worksheet.Column(c.Position.Column).Width - c.Position.ColumnOffset;
@@ -235,9 +232,8 @@ internal static class VmlDrawingPartWriter
         };
     }
 
-    private static StringValue GetCommentStyle(XLCell cell, double widthInColumns, double heightPt)
+    private static StringValue GetCommentStyle(XLComment c, double widthInColumns, double heightPt)
     {
-        var c = cell.GetComment();
         var sb = new StringBuilder("position:absolute; ");
 
         sb.Append("visibility:");

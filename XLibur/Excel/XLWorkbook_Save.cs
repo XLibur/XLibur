@@ -678,7 +678,11 @@ public partial class XLWorkbook
     private static void GenerateCommentsAndVmlParts(WorksheetPart worksheetPart, XLWorksheet worksheet,
         SaveContext context)
     {
+        // Counts threads too: each is written with a paired legacy note, so a sheet holding only
+        // threads still needs the comments and VML parts.
         var worksheetHasComments = worksheet.Internals.CellsCollection.HasAnyComment();
+
+        GenerateThreadedCommentsPart(worksheetPart, worksheet, context);
 
         // VML part is the source of truth for shapes of comments, form controls and likely others.
         // Excel won't display any shape without VML. The drawing part is always present but is likely
@@ -711,6 +715,34 @@ public partial class XLWorkbook
 
         CommentPartWriter.GenerateWorksheetCommentsPartContent(commentsPart, worksheet);
         return VmlDrawingPartWriter.GenerateContent(vmlDrawingPart, worksheet);
+    }
+
+    /// <summary>
+    /// Synchronises the sheet's threaded comments part with the model: written when the sheet has
+    /// threads, deleted when it no longer does. A sheet needs at most one part, so any extras a
+    /// producer left behind are removed.
+    /// </summary>
+    private static void GenerateThreadedCommentsPart(WorksheetPart worksheetPart, XLWorksheet worksheet,
+        SaveContext context)
+    {
+        var existing = worksheetPart.WorksheetThreadedCommentsParts.ToList();
+        if (!worksheet.Internals.CellsCollection.HasAnyThreadedComment())
+        {
+            foreach (var part in existing)
+                worksheetPart.DeletePart(part);
+
+            return;
+        }
+
+        for (var i = 1; i < existing.Count; i++)
+            worksheetPart.DeletePart(existing[i]);
+
+        var threadedCommentsPart = existing.Count > 0
+            ? existing[0]
+            : worksheetPart.AddNewPart<WorksheetThreadedCommentsPart>(
+                context.RelIdGenerator.GetNext(RelType.Workbook));
+
+        ThreadedCommentPartWriter.GenerateContent(threadedCommentsPart, worksheet);
     }
 
     private static void RemoveCommentsPartIfPresent(WorksheetPart worksheetPart)
@@ -773,7 +805,35 @@ public partial class XLWorkbook
                 document.DeletePart(document.CustomFilePropertiesPart);
         }
 
+        GeneratePersonPart(workbookPart, context);
+
         SetPackageProperties(document);
+    }
+
+    /// <summary>
+    /// Synchronises <c>xl/persons/person.xml</c> with the workbook's person list. An unreferenced
+    /// person is still written out rather than pruned, matching Excel, which keeps the list around
+    /// after the last comment by someone is deleted.
+    /// </summary>
+    private void GeneratePersonPart(WorkbookPart workbookPart, SaveContext context)
+    {
+        var existing = workbookPart.GetPartsOfType<WorkbookPersonPart>().ToList();
+        if (PersonsInternal.Count == 0)
+        {
+            foreach (var part in existing)
+                workbookPart.DeletePart(part);
+
+            return;
+        }
+
+        for (var i = 1; i < existing.Count; i++)
+            workbookPart.DeletePart(existing[i]);
+
+        var personPart = existing.Count > 0
+            ? existing[0]
+            : workbookPart.AddNewPart<WorkbookPersonPart>(context.RelIdGenerator.GetNext(RelType.Workbook));
+
+        PersonPartWriter.GenerateContent(personPart, this);
     }
 
     private static bool DeleteExistingCommentsShapes(VmlDrawingPart? vmlDrawingPart)

@@ -97,6 +97,21 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         }
     }
 
+    internal XLThreadedComment? SliceThreadedComment
+    {
+        get => _cellsCollection.MiscSlice[_point].ThreadedComment;
+        set
+        {
+            ref readonly var original = ref _cellsCollection.MiscSlice[_point];
+            if (original.ThreadedComment != value)
+            {
+                var modified = original;
+                modified.ThreadedComment = value;
+                _cellsCollection.MiscSlice.Set(_point, in modified);
+            }
+        }
+    }
+
     internal uint? CellMetaIndex
     {
         get => _cellsCollection.MiscSlice[_point].CellMetaIndex;
@@ -170,7 +185,31 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     internal XLComment CreateComment(int? shapeId = null)
     {
+        if (SliceThreadedComment is not null)
+        {
+            throw new InvalidOperationException(
+                $"Cell {Address} has a threaded comment. A cell cannot have both a threaded comment " +
+                "and a note; delete the threaded comment first.");
+        }
+
         return SliceComment = new XLComment(this, shapeId: shapeId);
+    }
+
+    internal XLThreadedComment CreateThreadedComment(IXLPerson author, string text)
+    {
+        ArgumentNullException.ThrowIfNull(author);
+        ArgumentNullException.ThrowIfNull(text);
+
+        if (SliceComment is not null)
+        {
+            throw new InvalidOperationException(
+                $"Cell {Address} has a note. A cell cannot have both a threaded comment and a note; " +
+                "delete the note first.");
+        }
+
+        var mapped = Worksheet.Workbook.PersonsInternal.Map(author);
+        return SliceThreadedComment = new XLThreadedComment(this, Guid.NewGuid(), mapped, text,
+            XLThreadedComment.UtcNowForFile());
     }
 
     public XLRichText GetRichText()
@@ -526,7 +565,10 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             AsRange().RemoveConditionalFormatting();
 
         if (clearOptions.HasFlag(XLClearOptions.Comments))
+        {
             SliceComment = null;
+            SliceThreadedComment = null;
+        }
 
         if (clearOptions.HasFlag(XLClearOptions.Sparklines))
             AsRange().RemoveSparklines();
@@ -698,6 +740,13 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return CreateComment(shapeId: null);
     }
 
+    IXLThreadedComment? IXLCell.GetThreadedComment() => SliceThreadedComment;
+
+    IXLThreadedComment IXLCell.CreateThreadedComment(IXLPerson author, string text)
+        => CreateThreadedComment(author, text);
+
+    public bool HasThreadedComment => SliceThreadedComment is not null;
+
     public bool IsMerged()
     {
         // Short-circuit on the count before touching the range index. This runs on every
@@ -738,7 +787,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (options.HasFlag(XLCellsUsedOptions.MergedRanges) && IsMerged())
             return false;
 
-        if (options.HasFlag(XLCellsUsedOptions.Comments) && HasComment)
+        if (options.HasFlag(XLCellsUsedOptions.Comments) && (HasComment || HasThreadedComment))
             return false;
 
         if (options.HasFlag(XLCellsUsedOptions.DataValidation) && HasDataValidation)

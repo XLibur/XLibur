@@ -156,6 +156,10 @@ public partial class XLWorkbook
         // We do this mainly because it skips a very costly calculation invalidation step, but it also make things more consistent,
         // e.g. when reading calculations that reference other sheets, we know that those sheets always already exist.
         // That consistency point isn't required yet but could be taken advantage of in the future.
+        // Persons are workbook level and referenced by the threaded comments of every sheet, so they
+        // have to be in place before the sheets are read.
+        LoadPersons(workbookPart);
+
         var sheets = workbookPart.Workbook!.Sheets;
         LoadSheetsPass1(workbookPart, sheets!);
 
@@ -732,55 +736,170 @@ public partial class XLWorkbook
         }
     }
 
-    private static void LoadThreadedComments(WorksheetPart worksheetPart, XLWorksheet ws)
+    /// <summary>
+    /// Reads <c>xl/persons/person.xml</c>, the workbook-level list of identities that threaded
+    /// comments are attributed to.
+    /// </summary>
+    private void LoadPersons(WorkbookPart workbookPart)
     {
-        // Modern Excel stores threaded comments in a separate part. The legacy
-        // comments1.xml file contains only a placeholder ("[Threaded comment] ...").
-        // When the threaded comments part is present, replace the placeholder
-        // text with the actual comment text from the threaded comments.
-        foreach (var threadedComments in worksheetPart.WorksheetThreadedCommentsParts
-            .Select(p => p.ThreadedComments)
-            .Where(tc => tc is not null))
+        foreach (var personPart in workbookPart.GetPartsOfType<WorkbookPersonPart>())
         {
-            // Group threaded comments by cell reference. Root comments have no
-            // ParentId; replies reference the root via ParentId. Order: root
-            // first (no ParentId), then replies sorted by timestamp.
-            var byRef = threadedComments!.Elements<TC.ThreadedComment>()
-                .GroupBy(tc => tc.Ref?.Value ?? string.Empty);
+            var personList = personPart.PersonList;
+            if (personList is null)
+                continue;
 
-            foreach (var group in byRef)
+            foreach (var person in personList.Elements<TC.Person>())
             {
-                ApplyThreadedCommentsToCell(group, ws);
+                // A person without a parsable id cannot be referenced by a threaded comment, so
+                // there is nothing meaningful to attach it to.
+                if (!TryParseGuid(person.Id?.Value, out var id))
+                    continue;
+
+                PersonsInternal.AddOrGet(
+                    id,
+                    person.DisplayName?.Value ?? string.Empty,
+                    person.UserId?.Value,
+                    person.ProviderId?.Value);
             }
         }
     }
 
-    private static void ApplyThreadedCommentsToCell(
-        IGrouping<string, TC.ThreadedComment> group, XLWorksheet ws)
+    /// <summary>
+    /// Reads the threaded comments of a sheet into the cell model. Excel pairs every thread with a
+    /// legacy note carrying "[Threaded comment]" boilerplate so that older versions show something;
+    /// that note is taken off the cell here and kept only for its shape, because the thread is what
+    /// the user model exposes.
+    /// </summary>
+    private void LoadThreadedComments(WorksheetPart worksheetPart, XLWorksheet ws)
     {
-        if (string.IsNullOrEmpty(group.Key))
-            return;
-
-        var cell = ws.Cell(group.Key);
-        if (cell?.SliceComment is null)
-            return;
-
-        var ordered = group
-            .OrderBy(tc => tc.ParentId is not null ? 1 : 0)
-            .ThenBy(tc => tc.DT?.Value)
-            .ToList();
-
-        var texts = ordered
-            .Select(tc => tc.ThreadedCommentText?.InnerText)
-            .Where(t => !string.IsNullOrEmpty(t))
-            .ToList();
-
-        if (texts.Count > 0)
+        foreach (var threadedComments in worksheetPart.WorksheetThreadedCommentsParts
+            .Select(p => p.ThreadedComments)
+            .Where(tc => tc is not null))
         {
-            var xlComment = cell.SliceComment;
-            xlComment.ClearText();
-            xlComment.AddText(string.Join("\n", texts));
+            // Roots have no parentId; replies point at their root through it. A file may list them
+            // in any order, so roots are created first and replies attached afterwards.
+            var all = threadedComments!.Elements<TC.ThreadedComment>().ToList();
+            var rootsById = new Dictionary<Guid, XLThreadedComment>();
+
+            foreach (var tc in all)
+            {
+                if (tc.ParentId is not null)
+                    continue;
+
+                if (LoadThreadRoot(tc, ws) is { } root)
+                    rootsById[root.Id] = root;
+            }
+
+            LoadThreadReplies(all, rootsById);
         }
+    }
+
+    private XLThreadedComment? LoadThreadRoot(TC.ThreadedComment tc, XLWorksheet ws)
+    {
+        var reference = tc.Ref?.Value;
+        if (string.IsNullOrEmpty(reference) || !TryParseGuid(tc.Id?.Value, out var id))
+            return null;
+
+        var cell = ws.Cell(reference);
+        if (cell is null)
+            return null;
+
+        var author = ResolvePerson(tc.PersonId?.Value);
+
+        // The paired fallback note was loaded moments ago by LoadComments. Move it onto the thread
+        // so that its position and size survive a round trip, and take it off the cell so that
+        // HasComment reports what the user actually sees.
+        var fallbackNote = cell.SliceComment;
+        cell.SliceComment = null;
+
+        var root = new XLThreadedComment(cell, id, author, tc.ThreadedCommentText?.InnerText ?? string.Empty,
+            ParseThreadedCommentDate(tc.DT?.Value))
+        {
+            LegacyNote = fallbackNote,
+            MentionsXml = tc.ThreadedCommentMentions?.OuterXml
+        };
+
+        if (tc.Done?.Value == true)
+            root.Resolved = true;
+
+        cell.SliceThreadedComment = root;
+        return root;
+    }
+
+    private void LoadThreadReplies(List<TC.ThreadedComment> all, Dictionary<Guid, XLThreadedComment> rootsById)
+    {
+        // Excel writes replies in thread order, but the schema does not guarantee it, so sort by
+        // timestamp to get a deterministic order regardless of producer.
+        foreach (var tc in all
+            .Where(tc => tc.ParentId is not null)
+            .OrderBy(tc => ParseThreadedCommentDate(tc.DT?.Value)))
+        {
+            if (!TryParseGuid(tc.ParentId?.Value, out var parentId) ||
+                !rootsById.TryGetValue(parentId, out var root))
+            {
+                // A reply whose root is missing has nothing to attach to. Excel does not produce
+                // this, but a damaged or hand-edited file can.
+                continue;
+            }
+
+            if (!TryParseGuid(tc.Id?.Value, out var id))
+                continue;
+
+            var reply = root.AddLoadedReply(
+                id,
+                ResolvePerson(tc.PersonId?.Value),
+                tc.ThreadedCommentText?.InnerText ?? string.Empty,
+                ParseThreadedCommentDate(tc.DT?.Value));
+
+            reply.MentionsXml = tc.ThreadedCommentMentions?.OuterXml;
+        }
+    }
+
+    /// <summary>
+    /// Returns the person a threaded comment is attributed to, inventing a placeholder when the
+    /// file references an id that <c>person.xml</c> does not define. Losing the comment over a
+    /// dangling reference would be worse than showing it without a real author.
+    /// </summary>
+    private XLPerson ResolvePerson(string? personId)
+    {
+        if (TryParseGuid(personId, out var id))
+        {
+            if (PersonsInternal.Get(id) is XLPerson known)
+                return known;
+
+            return PersonsInternal.AddOrGet(id, string.Empty, userId: null, providerId: null);
+        }
+
+        return PersonsInternal.AddOrGet(Guid.NewGuid(), string.Empty, userId: null, providerId: null);
+    }
+
+    /// <summary>
+    /// Parses the <c>{XXXXXXXX-XXXX-...}</c> braced GUIDs Excel writes for person and comment ids.
+    /// </summary>
+    private static bool TryParseGuid(string? value, out Guid guid)
+    {
+        if (!string.IsNullOrEmpty(value))
+            return Guid.TryParse(value, out guid);
+
+        guid = default;
+        return false;
+    }
+
+    /// <summary>
+    /// Excel writes the timestamp without a time zone designator and means UTC by it, so a parsed
+    /// value has to be pinned to UTC rather than left as Unspecified or shifted by the local zone.
+    /// </summary>
+    private static DateTime ParseThreadedCommentDate(DateTime? value)
+    {
+        if (value is not { } dt)
+            return default;
+
+        return dt.Kind switch
+        {
+            DateTimeKind.Utc => dt,
+            DateTimeKind.Local => dt.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(dt, DateTimeKind.Utc)
+        };
     }
 
     private void LoadActiveTab(Workbook workbook)

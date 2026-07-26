@@ -200,9 +200,32 @@ public partial class CommentsTests
         var ws = wb.Worksheets.First();
         var c = ws.FirstCellUsed()!;
 
-        // Threaded comment text is loaded from the threadedComments part,
-        // replacing the legacy placeholder from comments1.xml.
-        await Assert.That(c.GetComment().Text).IsEqualTo("This is a threaded comment.\nThis is a reply.");
+        // The thread is the user-visible annotation; the "[Threaded comment]" note Excel pairs with
+        // it is a fallback for older versions and must not surface as a note.
+        await Assert.That(c.HasThreadedComment).IsTrue();
+        await Assert.That(c.HasComment).IsFalse();
+
+        var thread = c.GetThreadedComment()!;
+        await Assert.That(thread.Text).IsEqualTo("This is a threaded comment.");
+        await Assert.That(thread.Author.DisplayName).IsEqualTo("Herzog, Bernd");
+        await Assert.That(thread.Author.ProviderId).IsEqualTo("AD");
+        await Assert.That(thread.Author.UserId).IsEqualTo("S-1-5-21-2931304574-606859833-1339073683-15873");
+        await Assert.That(thread.Id).IsEqualTo(Guid.Parse("{9E032651-3A03-49E4-A15E-A90318F086F4}"));
+        await Assert.That(thread.Parent).IsNull();
+        await Assert.That(thread.Resolved).IsFalse();
+        await Assert.That(thread.CreatedUtc)
+            .IsEqualTo(new DateTime(2020, 7, 1, 6, 20, 6, 20, DateTimeKind.Utc));
+
+        await Assert.That(thread.Replies.Count).IsEqualTo(1);
+        var reply = thread.Replies[0];
+        await Assert.That(reply.Text).IsEqualTo("This is a reply.");
+        await Assert.That(reply.Parent).IsEqualTo(thread);
+        await Assert.That(reply.Author).IsEqualTo(thread.Author);
+        await Assert.That(reply.CreatedUtc)
+            .IsEqualTo(new DateTime(2020, 7, 1, 6, 20, 22, 880, DateTimeKind.Utc));
+
+        // The person is registered once at workbook level, not once per comment.
+        await Assert.That(wb.Persons.Count).IsEqualTo(1);
     }
 
     [Test]
@@ -213,8 +236,13 @@ public partial class CommentsTests
         var ws = wb.Worksheets.First();
         var c = ws.Cell("B2");
 
-        await Assert.That(c.HasComment).IsTrue();
-        await Assert.That(c.GetComment().Text).IsEqualTo("This is the comment in b2");
+        // A thread with no replies is still a thread, not a note.
+        await Assert.That(c.HasThreadedComment).IsTrue();
+        await Assert.That(c.HasComment).IsFalse();
+
+        var thread = c.GetThreadedComment()!;
+        await Assert.That(thread.Text).IsEqualTo("This is the comment in b2");
+        await Assert.That(thread.Replies.Count).IsEqualTo(0);
     }
 
     [Test]

@@ -247,6 +247,10 @@ public partial class XLWorkbook : IXLWorkbook
 
     public IXLFileSharing FileSharing { get; } = new XLFileSharing();
 
+    public IXLPersons Persons => PersonsInternal;
+
+    internal XLPersons PersonsInternal { get; } = new();
+
     public bool DefaultRightToLeft => false;
 
     private void InitializeTheme()

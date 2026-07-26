@@ -45,6 +45,12 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
 
     IXLFileSharing FileSharing { get; }
 
+    /// <summary>
+    /// The identities that author threaded comments in this workbook, stored in
+    /// <c>xl/persons/person.xml</c>.
+    /// </summary>
+    IXLPersons Persons { get; }
+
     bool ForceFullCalculation { get; set; }
 
     bool FullCalculationOnLoad { get; set; }

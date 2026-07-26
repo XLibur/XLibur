@@ -215,8 +215,10 @@ internal sealed class XLCellsCollection : IWorkbookListener
     }
 
     /// <summary>
-    /// Whether any cell in the sheet has a comment. Scans the misc slice directly, so it costs
-    /// nothing on sheets that never touched comments, phonetics or metadata.
+    /// Whether any cell in the sheet has a note or a comment thread. Both count, because a thread is
+    /// written out with a paired legacy note and so needs the same comments and VML parts. Scans the
+    /// misc slice directly, so it costs nothing on sheets that never touched comments, phonetics or
+    /// metadata.
     /// </summary>
     internal bool HasAnyComment()
     {
@@ -226,7 +228,26 @@ internal sealed class XLCellsCollection : IWorkbookListener
         var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, Area.Full);
         while (enumerator.MoveNext())
         {
-            if (enumerator.Current.Comment is not null)
+            if (enumerator.Current.Comment is not null || enumerator.Current.ThreadedComment is not null)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether any cell in the sheet has a comment thread, i.e. whether the sheet needs a
+    /// <c>threadedComment</c> part.
+    /// </summary>
+    internal bool HasAnyThreadedComment()
+    {
+        if (MiscSlice.IsEmpty)
+            return false;
+
+        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, Area.Full);
+        while (enumerator.MoveNext())
+        {
+            if (enumerator.Current.ThreadedComment is not null)
                 return true;
         }
 

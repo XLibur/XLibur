@@ -77,6 +77,12 @@ public interface IXLCell
 
     bool HasComment { get; }
 
+    /// <summary>
+    /// Returns <c>true</c> if the cell carries an Office 365 style comment thread. Mutually
+    /// exclusive with <see cref="HasComment"/>.
+    /// </summary>
+    bool HasThreadedComment { get; }
+
     bool HasDataValidation { get; }
 
     bool HasFormula { get; }
@@ -250,6 +256,25 @@ public interface IXLCell
     /// Returns the comment for the cell or create a new instance if there is no comment on the cell.
     /// </summary>
     IXLComment GetComment();
+
+    /// <summary>
+    /// Returns the root of the cell's comment thread, or null when the cell has none. Unlike
+    /// <see cref="GetComment"/> this never creates one — use <see cref="CreateThreadedComment"/>.
+    /// </summary>
+    IXLThreadedComment? GetThreadedComment();
+
+    /// <summary>
+    /// Starts a comment thread on the cell, replacing any thread already there.
+    /// </summary>
+    /// <param name="author">
+    /// The thread author. A person from another workbook is matched against this workbook's
+    /// <see cref="IXLWorkbook.Persons"/> by display name and identity provider, and added when absent.
+    /// </param>
+    /// <param name="text">The text of the first comment in the thread.</param>
+    /// <exception cref="InvalidOperationException">
+    /// When the cell already has a legacy note. A cell cannot carry both.
+    /// </exception>
+    IXLThreadedComment CreateThreadedComment(IXLPerson author, string text);
 
     /// <summary>
     /// Returns a data validation rule assigned to the cell, if any, or creates a new instance of data validation rule if no rule exists.

@@ -18,9 +18,20 @@ internal static class XLCellCopyHelper
             target.SliceRichText = sourceRichText;
 
         target.FormulaR1C1 = source.FormulaR1C1;
-        target.SliceComment = source.SliceComment == null
-            ? null
-            : new XLComment(target, source.SliceComment, source.Style.Font, source.SliceComment.Style);
+        // Clear both annotation kinds before assigning, because a note and a thread cannot coexist
+        // and the target may currently hold the other kind.
+        target.SliceComment = null;
+        target.SliceThreadedComment = null;
+
+        if (source.SliceComment is { } sourceComment)
+        {
+            target.SliceComment =
+                new XLComment(target, sourceComment, source.Style.Font, sourceComment.Style);
+        }
+        else if (source.SliceThreadedComment is { } sourceThread)
+        {
+            target.SliceThreadedComment = sourceThread.CopyTo(target);
+        }
 
         if (source.Worksheet.Hyperlinks.TryGet(source.SheetPoint, out var sourceHyperlink))
         {

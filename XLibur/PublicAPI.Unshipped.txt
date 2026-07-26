@@ -1,111 +1,116 @@
 #nullable enable
+*REMOVED*static XLibur.Graphics.DefaultGraphicEngine.CreateOnlyWithFonts(System.IO.Stream! fallbackFontStream, params System.IO.Stream![]! fontStreams) -> XLibur.Graphics.IXLGraphicEngine!
+*REMOVED*static XLibur.Graphics.DefaultGraphicEngine.CreateWithFontsAndSystemFonts(System.IO.Stream! fallbackFontStream, params System.IO.Stream![]! fontStreams) -> XLibur.Graphics.IXLGraphicEngine!
+*REMOVED*static XLibur.Graphics.DefaultGraphicEngine.Instance.get -> System.Lazy<XLibur.Graphics.DefaultGraphicEngine!>!
+*REMOVED*XLibur.Excel.IXLCFDataBarMax.HighestValue() -> void
+*REMOVED*XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, double value) -> void
+*REMOVED*XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, string! value) -> void
+*REMOVED*XLibur.Excel.XLColorType.Color = 0 -> XLibur.Excel.XLColorType
+*REMOVED*XLibur.Excel.XLColorType.Indexed = 2 -> XLibur.Excel.XLColorType
+*REMOVED*XLibur.Excel.XLColorType.Theme = 1 -> XLibur.Excel.XLColorType
+*REMOVED*XLibur.Graphics.DefaultGraphicEngine.DefaultGraphicEngine(string! fallbackFont) -> void
+~override XLibur.Excel.XLAlignmentKey.Equals(object obj) -> bool
+override XLibur.Excel.XLAlignmentKey.GetHashCode() -> int
+static XLibur.AttributeExtensions.GetMethod<T>(this T instance, System.Linq.Expressions.Expression<System.Action<T>!>! methodSelector) -> System.Reflection.MethodInfo!
+static XLibur.AttributeExtensions.GetMethod<T>(this T instance, System.Linq.Expressions.Expression<System.Func<T, object!>!>! methodSelector) -> System.Reflection.MethodInfo!
 static XLibur.Excel.IO.PartStructureException.IncorrectElementFormat(string! elementName) -> XLibur.Excel.IO.PartStructureException!
 static XLibur.Excel.IO.PartStructureException.RequiredElementIsMissing() -> XLibur.Excel.IO.PartStructureException!
-static XLibur.Excel.XLCellValue.operator ==(XLibur.Excel.XLCellValue left, XLibur.Excel.XLCellValue right) -> bool
+static XLibur.Excel.LoadOptions.DefaultFontEngine.get -> XLibur.Graphics.IXLFontEngine?
+static XLibur.Excel.LoadOptions.DefaultFontEngine.set -> void
+static XLibur.Excel.XLAlignmentKey.operator !=(XLibur.Excel.XLAlignmentKey left, XLibur.Excel.XLAlignmentKey right) -> bool
+static XLibur.Excel.XLAlignmentKey.operator ==(XLibur.Excel.XLAlignmentKey left, XLibur.Excel.XLAlignmentKey right) -> bool
 static XLibur.Excel.XLCellValue.operator !=(XLibur.Excel.XLCellValue left, XLibur.Excel.XLCellValue right) -> bool
+static XLibur.Excel.XLCellValue.operator ==(XLibur.Excel.XLCellValue left, XLibur.Excel.XLCellValue right) -> bool
+static XLibur.Excel.XLColor.Automatic.get -> XLibur.Excel.XLColor!
 virtual XLibur.Excel.XLWorkbook.Dispose(bool disposing) -> void
+XLibur.Excel.Drawings.IXLPicture.Group.get -> XLibur.Excel.Drawings.IXLPictureGroup?
+XLibur.Excel.Drawings.IXLPicture.IsInGroup.get -> bool
+XLibur.Excel.Drawings.IXLPictureGroup
+XLibur.Excel.Drawings.IXLPictureGroup.Add(System.IO.Stream! stream, string! name) -> XLibur.Excel.Drawings.IXLPicture!
+XLibur.Excel.Drawings.IXLPictureGroup.Add(System.IO.Stream! stream) -> XLibur.Excel.Drawings.IXLPicture!
+XLibur.Excel.Drawings.IXLPictureGroup.Pictures.get -> System.Collections.Generic.IEnumerable<XLibur.Excel.Drawings.IXLPicture!>!
+XLibur.Excel.Drawings.IXLPictureGroup.Remove(XLibur.Excel.Drawings.IXLPicture! picture) -> void
+XLibur.Excel.Drawings.IXLPictureGroup.Worksheet.get -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.Drawings.IXLPictures.Group(params XLibur.Excel.Drawings.IXLPicture![]! pictures) -> XLibur.Excel.Drawings.IXLPictureGroup!
+XLibur.Excel.Exceptions.XLEncryptionException
+XLibur.Excel.Exceptions.XLEncryptionException.XLEncryptionException() -> void
+XLibur.Excel.Exceptions.XLEncryptionException.XLEncryptionException(string! message, System.Exception! inner) -> void
+XLibur.Excel.Exceptions.XLEncryptionException.XLEncryptionException(string! message) -> void
+XLibur.Excel.Exceptions.XLInvalidPasswordException
+XLibur.Excel.Exceptions.XLInvalidPasswordException.XLInvalidPasswordException() -> void
+XLibur.Excel.Exceptions.XLInvalidPasswordException.XLInvalidPasswordException(string! message, System.Exception! inner) -> void
+XLibur.Excel.Exceptions.XLInvalidPasswordException.XLInvalidPasswordException(string! message) -> void
 XLibur.Excel.IO.PartStructureException
+XLibur.Excel.IXLCell.CreateThreadedComment(XLibur.Excel.IXLPerson! author, string! text) -> XLibur.Excel.IXLThreadedComment!
+XLibur.Excel.IXLCell.Focus() -> XLibur.Excel.IXLCell!
+XLibur.Excel.IXLCell.GetThreadedComment() -> XLibur.Excel.IXLThreadedComment?
+XLibur.Excel.IXLCell.HasThreadedComment.get -> bool
+XLibur.Excel.IXLCFDataBarMax.HighestValue() -> XLibur.Excel.IXLConditionalFormat!
+XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, double value) -> XLibur.Excel.IXLConditionalFormat!
+XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, string! value) -> XLibur.Excel.IXLConditionalFormat!
+XLibur.Excel.IXLChart.Anchor.get -> XLibur.Excel.XLDrawingAnchor
+XLibur.Excel.IXLChart.Anchor.set -> void
+XLibur.Excel.IXLChart.CategoryAxis.get -> XLibur.Excel.IXLChartAxis!
+XLibur.Excel.IXLChart.DataLabels.get -> XLibur.Excel.IXLDataLabels!
+XLibur.Excel.IXLChart.Height.get -> int
+XLibur.Excel.IXLChart.Height.set -> void
+XLibur.Excel.IXLChart.Left.get -> int
+XLibur.Excel.IXLChart.Left.set -> void
+XLibur.Excel.IXLChart.Legend.get -> XLibur.Excel.IXLChartLegend!
 XLibur.Excel.IXLChart.SecondaryChartType.get -> XLibur.Excel.XLChartType?
 XLibur.Excel.IXLChart.SecondaryChartType.set -> void
 XLibur.Excel.IXLChart.SecondarySeries.get -> XLibur.Excel.IXLChartSeriesCollection!
+XLibur.Excel.IXLChart.SecondaryValueAxis.get -> XLibur.Excel.IXLChartAxis!
 XLibur.Excel.IXLChart.SecondPosition.get -> XLibur.Excel.IXLDrawingPosition!
 XLibur.Excel.IXLChart.Series.get -> XLibur.Excel.IXLChartSeriesCollection!
 XLibur.Excel.IXLChart.SetTitle(string? title) -> XLibur.Excel.IXLChart!
 XLibur.Excel.IXLChart.Title.get -> string?
 XLibur.Excel.IXLChart.Title.set -> void
+XLibur.Excel.IXLChart.Top.get -> int
+XLibur.Excel.IXLChart.Top.set -> void
+XLibur.Excel.IXLChart.ValueAxis.get -> XLibur.Excel.IXLChartAxis!
+XLibur.Excel.IXLChart.Width.get -> int
+XLibur.Excel.IXLChart.Width.set -> void
 XLibur.Excel.IXLChart.Worksheet.get -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.IXLChartAxis
+XLibur.Excel.IXLChartAxis.LogBase.get -> double
+XLibur.Excel.IXLChartAxis.LogBase.set -> void
+XLibur.Excel.IXLChartAxis.LogScale.get -> bool
+XLibur.Excel.IXLChartAxis.LogScale.set -> void
+XLibur.Excel.IXLChartAxis.MajorGridlines.get -> bool
+XLibur.Excel.IXLChartAxis.MajorGridlines.set -> void
+XLibur.Excel.IXLChartAxis.MajorUnit.get -> double?
+XLibur.Excel.IXLChartAxis.MajorUnit.set -> void
+XLibur.Excel.IXLChartAxis.Max.get -> double?
+XLibur.Excel.IXLChartAxis.Max.set -> void
+XLibur.Excel.IXLChartAxis.Min.get -> double?
+XLibur.Excel.IXLChartAxis.Min.set -> void
+XLibur.Excel.IXLChartAxis.MinorUnit.get -> double?
+XLibur.Excel.IXLChartAxis.MinorUnit.set -> void
+XLibur.Excel.IXLChartAxis.NumberFormat.get -> string?
+XLibur.Excel.IXLChartAxis.NumberFormat.set -> void
+XLibur.Excel.IXLChartAxis.Orientation.get -> XLibur.Excel.XLAxisOrientation
+XLibur.Excel.IXLChartAxis.Orientation.set -> void
+XLibur.Excel.IXLChartAxis.Title.get -> string?
+XLibur.Excel.IXLChartAxis.Title.set -> void
+XLibur.Excel.IXLChartAxis.Visible.get -> bool
+XLibur.Excel.IXLChartAxis.Visible.set -> void
+XLibur.Excel.IXLChartLegend
+XLibur.Excel.IXLChartLegend.Overlay.get -> bool
+XLibur.Excel.IXLChartLegend.Overlay.set -> void
+XLibur.Excel.IXLChartLegend.Position.get -> XLibur.Excel.XLLegendPosition
+XLibur.Excel.IXLChartLegend.Position.set -> void
+XLibur.Excel.IXLChartLegend.Visible.get -> bool
+XLibur.Excel.IXLChartLegend.Visible.set -> void
 XLibur.Excel.IXLCharts.Add(XLibur.Excel.XLChartType chartType) -> XLibur.Excel.IXLChart!
 XLibur.Excel.IXLCharts.Count.get -> int
 XLibur.Excel.IXLChartSeries
 XLibur.Excel.IXLChartSeries.CategoryReferences.get -> string?
 XLibur.Excel.IXLChartSeries.CategoryReferences.set -> void
-XLibur.Excel.IXLChartSeries.Index.get -> uint
-XLibur.Excel.IXLChartSeries.Name.get -> string!
-XLibur.Excel.IXLChartSeries.Name.set -> void
-XLibur.Excel.IXLChartSeries.Order.get -> uint
-XLibur.Excel.IXLChartSeries.ValueReferences.get -> string!
-XLibur.Excel.IXLChartSeries.ValueReferences.set -> void
-XLibur.Excel.IXLChartSeriesCollection
-XLibur.Excel.IXLChartSeriesCollection.Add(string! name, string! valueReferences, string? categoryReferences = null) -> XLibur.Excel.IXLChartSeries!
-XLibur.Excel.IXLChartSeriesCollection.Count.get -> int
-XLibur.Excel.IXLWorksheet.Charts.get -> XLibur.Excel.IXLCharts!
-XLibur.Excel.XLChartType.BoxWhisker = 73 -> XLibur.Excel.XLChartType
-XLibur.Excel.XLChartType.Funnel = 74 -> XLibur.Excel.XLChartType
-XLibur.Excel.XLChartType.Sunburst = 75 -> XLibur.Excel.XLChartType
-XLibur.Excel.XLChartType.Treemap = 76 -> XLibur.Excel.XLChartType
-XLibur.Excel.XLChartType.Waterfall = 77 -> XLibur.Excel.XLChartType
-*REMOVED*XLibur.Excel.IXLCFDataBarMax.HighestValue() -> void
-*REMOVED*XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, double value) -> void
-*REMOVED*XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, string! value) -> void
-XLibur.Excel.IXLCFDataBarMax.HighestValue() -> XLibur.Excel.IXLConditionalFormat!
-XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, double value) -> XLibur.Excel.IXLConditionalFormat!
-XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, string! value) -> XLibur.Excel.IXLConditionalFormat!
-XLibur.Excel.IXLConditionalFormat.BarAxisColor.get -> XLibur.Excel.XLColor!
-XLibur.Excel.IXLConditionalFormat.BarAxisColor.set -> void
-XLibur.Excel.IXLConditionalFormat.BarAxisPosition.get -> XLibur.Excel.XLDataBarAxisPosition
-XLibur.Excel.IXLConditionalFormat.BarAxisPosition.set -> void
-XLibur.Excel.IXLConditionalFormat.Gradient.set -> void
-XLibur.Excel.IXLConditionalFormat.ShowBarOnly.set -> void
-XLibur.Excel.XLDataBarAxisPosition
-XLibur.Excel.XLDataBarAxisPosition.Automatic = 0 -> XLibur.Excel.XLDataBarAxisPosition
-XLibur.Excel.XLDataBarAxisPosition.Middle = 1 -> XLibur.Excel.XLDataBarAxisPosition
-XLibur.Excel.XLDataBarAxisPosition.None = 2 -> XLibur.Excel.XLDataBarAxisPosition
-XLibur.Graphics.IXLFontEngine
-XLibur.Graphics.IXLFontEngine.GetDescent(XLibur.Excel.IXLFontBase! font, double dpiY) -> double
-XLibur.Graphics.IXLFontEngine.GetGlyphBox(System.ReadOnlySpan<int> graphemeCluster, XLibur.Excel.IXLFontBase! font, XLibur.Graphics.Dpi dpi) -> XLibur.Graphics.GlyphBox
-XLibur.Graphics.IXLFontEngine.GetMaxDigitWidth(XLibur.Excel.IXLFontBase! font, double dpiX) -> double
-XLibur.Graphics.IXLFontEngine.GetTextHeight(XLibur.Excel.IXLFontBase! font, double dpiY) -> double
-XLibur.Graphics.IXLFontEngine.GetTextWidth(string! text, XLibur.Excel.IXLFontBase! font, double dpiX) -> double
-XLibur.Graphics.DefaultGraphicEngine.DefaultGraphicEngine(XLibur.Graphics.IXLFontEngine! fontEngine) -> void
-*REMOVED*XLibur.Graphics.DefaultGraphicEngine.DefaultGraphicEngine(string! fallbackFont) -> void
-*REMOVED*static XLibur.Graphics.DefaultGraphicEngine.Instance.get -> System.Lazy<XLibur.Graphics.DefaultGraphicEngine!>!
-*REMOVED*static XLibur.Graphics.DefaultGraphicEngine.CreateOnlyWithFonts(System.IO.Stream! fallbackFontStream, params System.IO.Stream![]! fontStreams) -> XLibur.Graphics.IXLGraphicEngine!
-*REMOVED*static XLibur.Graphics.DefaultGraphicEngine.CreateWithFontsAndSystemFonts(System.IO.Stream! fallbackFontStream, params System.IO.Stream![]! fontStreams) -> XLibur.Graphics.IXLGraphicEngine!
-XLibur.Excel.LoadOptions.FontEngine.get -> XLibur.Graphics.IXLFontEngine?
-XLibur.Excel.LoadOptions.FontEngine.set -> void
-static XLibur.Excel.LoadOptions.DefaultFontEngine.get -> XLibur.Graphics.IXLFontEngine?
-static XLibur.Excel.LoadOptions.DefaultFontEngine.set -> void
-XLibur.Excel.IXLWorksheet.EnumerateUsedCells() -> XLibur.Excel.XLUsedCellEnumerable
-XLibur.Excel.XLUsedCell
-XLibur.Excel.XLUsedCell.Column.get -> int
-XLibur.Excel.XLUsedCell.Row.get -> int
-XLibur.Excel.XLUsedCell.Value.get -> XLibur.Excel.XLCellValue
-XLibur.Excel.XLUsedCell.XLUsedCell() -> void
-XLibur.Excel.XLUsedCellEnumerable
-XLibur.Excel.XLUsedCellEnumerable.GetEnumerator() -> XLibur.Excel.XLUsedCellEnumerator
-XLibur.Excel.XLUsedCellEnumerable.XLUsedCellEnumerable() -> void
-XLibur.Excel.XLUsedCellEnumerator
-XLibur.Excel.XLUsedCellEnumerator.Current.get -> XLibur.Excel.XLUsedCell
-XLibur.Excel.XLUsedCellEnumerator.Dispose() -> void
-XLibur.Excel.XLUsedCellEnumerator.MoveNext() -> bool
-XLibur.Excel.XLUsedCellEnumerator.XLUsedCellEnumerator() -> void
-XLibur.Excel.Drawings.IXLPicture.Group.get -> XLibur.Excel.Drawings.IXLPictureGroup?
-XLibur.Excel.Drawings.IXLPicture.IsInGroup.get -> bool
-XLibur.Excel.Drawings.IXLPictureGroup
-XLibur.Excel.Drawings.IXLPictureGroup.Add(System.IO.Stream! stream) -> XLibur.Excel.Drawings.IXLPicture!
-XLibur.Excel.Drawings.IXLPictureGroup.Add(System.IO.Stream! stream, string! name) -> XLibur.Excel.Drawings.IXLPicture!
-XLibur.Excel.Drawings.IXLPictureGroup.Pictures.get -> System.Collections.Generic.IEnumerable<XLibur.Excel.Drawings.IXLPicture!>!
-XLibur.Excel.Drawings.IXLPictureGroup.Remove(XLibur.Excel.Drawings.IXLPicture! picture) -> void
-XLibur.Excel.Drawings.IXLPictureGroup.Worksheet.get -> XLibur.Excel.IXLWorksheet!
-XLibur.Excel.Drawings.IXLPictures.Group(params XLibur.Excel.Drawings.IXLPicture![]! pictures) -> XLibur.Excel.Drawings.IXLPictureGroup!
-XLibur.Excel.IXLWorksheet.PictureGroups.get -> System.Collections.Generic.IEnumerable<XLibur.Excel.Drawings.IXLPictureGroup!>!
-XLibur.Excel.IXLSheetView.PaneTopLeftCellAddress.get -> XLibur.Excel.IXLAddress?
-XLibur.Excel.IXLSheetView.PaneTopLeftCellAddress.set -> void
-XLibur.Excel.IXLWorksheet.SetActiveCell(string! address) -> XLibur.Excel.IXLWorksheet!
-XLibur.Excel.IXLWorksheet.SetActiveCell(XLibur.Excel.IXLCell! cell) -> XLibur.Excel.IXLWorksheet!
-XLibur.Excel.IXLWorksheet.FocusCell(string! address) -> XLibur.Excel.IXLWorksheet!
-XLibur.Excel.IXLWorksheet.FocusCell(XLibur.Excel.IXLCell! cell) -> XLibur.Excel.IXLWorksheet!
-XLibur.Excel.IXLCell.Focus() -> XLibur.Excel.IXLCell!
-~override XLibur.Excel.XLAlignmentKey.Equals(object obj) -> bool
-override XLibur.Excel.XLAlignmentKey.GetHashCode() -> int
-XLibur.Excel.XLAlignmentKey.Equals(XLibur.Excel.XLAlignmentKey other) -> bool
-static XLibur.Excel.XLAlignmentKey.operator ==(XLibur.Excel.XLAlignmentKey left, XLibur.Excel.XLAlignmentKey right) -> bool
-static XLibur.Excel.XLAlignmentKey.operator !=(XLibur.Excel.XLAlignmentKey left, XLibur.Excel.XLAlignmentKey right) -> bool
-static XLibur.AttributeExtensions.GetMethod<T>(this T instance, System.Linq.Expressions.Expression<System.Func<T, object!>!>! methodSelector) -> System.Reflection.MethodInfo!
-static XLibur.AttributeExtensions.GetMethod<T>(this T instance, System.Linq.Expressions.Expression<System.Action<T>!>! methodSelector) -> System.Reflection.MethodInfo!
-XLibur.Excel.XLError.SpillRange = 7 -> XLibur.Excel.XLError
+XLibur.Excel.IXLChartSeries.DataLabels.get -> XLibur.Excel.IXLDataLabels!
 XLibur.Excel.IXLChartSeries.FillColor.get -> XLibur.Excel.XLColor?
 XLibur.Excel.IXLChartSeries.FillColor.set -> void
+XLibur.Excel.IXLChartSeries.Index.get -> uint
 XLibur.Excel.IXLChartSeries.LineColor.get -> XLibur.Excel.XLColor?
 XLibur.Excel.IXLChartSeries.LineColor.set -> void
 XLibur.Excel.IXLChartSeries.LineWidthPt.get -> double?
@@ -116,24 +121,24 @@ XLibur.Excel.IXLChartSeries.MarkerSize.get -> double?
 XLibur.Excel.IXLChartSeries.MarkerSize.set -> void
 XLibur.Excel.IXLChartSeries.MarkerStyle.get -> XLibur.Excel.XLMarkerStyle
 XLibur.Excel.IXLChartSeries.MarkerStyle.set -> void
+XLibur.Excel.IXLChartSeries.Name.get -> string!
+XLibur.Excel.IXLChartSeries.Name.set -> void
+XLibur.Excel.IXLChartSeries.Order.get -> uint
 XLibur.Excel.IXLChartSeries.Smooth.get -> bool
 XLibur.Excel.IXLChartSeries.Smooth.set -> void
 XLibur.Excel.IXLChartSeries.UseSecondaryAxis.get -> bool
 XLibur.Excel.IXLChartSeries.UseSecondaryAxis.set -> void
-XLibur.Excel.XLMarkerStyle
-XLibur.Excel.XLMarkerStyle.Auto = 0 -> XLibur.Excel.XLMarkerStyle
-XLibur.Excel.XLMarkerStyle.None = 1 -> XLibur.Excel.XLMarkerStyle
-XLibur.Excel.XLMarkerStyle.Circle = 2 -> XLibur.Excel.XLMarkerStyle
-XLibur.Excel.XLMarkerStyle.Dash = 3 -> XLibur.Excel.XLMarkerStyle
-XLibur.Excel.XLMarkerStyle.Diamond = 4 -> XLibur.Excel.XLMarkerStyle
-XLibur.Excel.XLMarkerStyle.Dot = 5 -> XLibur.Excel.XLMarkerStyle
-XLibur.Excel.XLMarkerStyle.Plus = 6 -> XLibur.Excel.XLMarkerStyle
-XLibur.Excel.XLMarkerStyle.Square = 7 -> XLibur.Excel.XLMarkerStyle
-XLibur.Excel.XLMarkerStyle.Star = 8 -> XLibur.Excel.XLMarkerStyle
-XLibur.Excel.XLMarkerStyle.Triangle = 9 -> XLibur.Excel.XLMarkerStyle
-XLibur.Excel.XLMarkerStyle.X = 10 -> XLibur.Excel.XLMarkerStyle
-XLibur.Excel.IXLChart.DataLabels.get -> XLibur.Excel.IXLDataLabels!
-XLibur.Excel.IXLChartSeries.DataLabels.get -> XLibur.Excel.IXLDataLabels!
+XLibur.Excel.IXLChartSeries.ValueReferences.get -> string!
+XLibur.Excel.IXLChartSeries.ValueReferences.set -> void
+XLibur.Excel.IXLChartSeriesCollection
+XLibur.Excel.IXLChartSeriesCollection.Add(string! name, string! valueReferences, string? categoryReferences = null) -> XLibur.Excel.IXLChartSeries!
+XLibur.Excel.IXLChartSeriesCollection.Count.get -> int
+XLibur.Excel.IXLConditionalFormat.BarAxisColor.get -> XLibur.Excel.XLColor!
+XLibur.Excel.IXLConditionalFormat.BarAxisColor.set -> void
+XLibur.Excel.IXLConditionalFormat.BarAxisPosition.get -> XLibur.Excel.XLDataBarAxisPosition
+XLibur.Excel.IXLConditionalFormat.BarAxisPosition.set -> void
+XLibur.Excel.IXLConditionalFormat.Gradient.set -> void
+XLibur.Excel.IXLConditionalFormat.ShowBarOnly.set -> void
 XLibur.Excel.IXLDataLabels
 XLibur.Excel.IXLDataLabels.NumberFormat.get -> string?
 XLibur.Excel.IXLDataLabels.NumberFormat.set -> void
@@ -147,88 +152,112 @@ XLibur.Excel.IXLDataLabels.ShowSeriesName.get -> bool
 XLibur.Excel.IXLDataLabels.ShowSeriesName.set -> void
 XLibur.Excel.IXLDataLabels.ShowValue.get -> bool
 XLibur.Excel.IXLDataLabels.ShowValue.set -> void
-XLibur.Excel.XLDataLabelPosition
-XLibur.Excel.XLDataLabelPosition.Auto = 0 -> XLibur.Excel.XLDataLabelPosition
-XLibur.Excel.XLDataLabelPosition.Center = 1 -> XLibur.Excel.XLDataLabelPosition
-XLibur.Excel.XLDataLabelPosition.InsideEnd = 2 -> XLibur.Excel.XLDataLabelPosition
-XLibur.Excel.XLDataLabelPosition.InsideBase = 3 -> XLibur.Excel.XLDataLabelPosition
-XLibur.Excel.XLDataLabelPosition.OutsideEnd = 4 -> XLibur.Excel.XLDataLabelPosition
-XLibur.Excel.XLDataLabelPosition.BestFit = 5 -> XLibur.Excel.XLDataLabelPosition
-XLibur.Excel.XLDataLabelPosition.Left = 6 -> XLibur.Excel.XLDataLabelPosition
-XLibur.Excel.XLDataLabelPosition.Right = 7 -> XLibur.Excel.XLDataLabelPosition
-XLibur.Excel.XLDataLabelPosition.Above = 8 -> XLibur.Excel.XLDataLabelPosition
-XLibur.Excel.XLDataLabelPosition.Below = 9 -> XLibur.Excel.XLDataLabelPosition
-XLibur.Excel.IXLChart.Legend.get -> XLibur.Excel.IXLChartLegend!
-XLibur.Excel.IXLChart.CategoryAxis.get -> XLibur.Excel.IXLChartAxis!
-XLibur.Excel.IXLChart.ValueAxis.get -> XLibur.Excel.IXLChartAxis!
-XLibur.Excel.IXLChart.SecondaryValueAxis.get -> XLibur.Excel.IXLChartAxis!
-XLibur.Excel.IXLChartLegend
-XLibur.Excel.IXLChartLegend.Visible.get -> bool
-XLibur.Excel.IXLChartLegend.Visible.set -> void
-XLibur.Excel.IXLChartLegend.Position.get -> XLibur.Excel.XLLegendPosition
-XLibur.Excel.IXLChartLegend.Position.set -> void
-XLibur.Excel.IXLChartLegend.Overlay.get -> bool
-XLibur.Excel.IXLChartLegend.Overlay.set -> void
-XLibur.Excel.XLLegendPosition
-XLibur.Excel.XLLegendPosition.Right = 0 -> XLibur.Excel.XLLegendPosition
-XLibur.Excel.XLLegendPosition.Bottom = 1 -> XLibur.Excel.XLLegendPosition
-XLibur.Excel.XLLegendPosition.Left = 2 -> XLibur.Excel.XLLegendPosition
-XLibur.Excel.XLLegendPosition.Top = 3 -> XLibur.Excel.XLLegendPosition
-XLibur.Excel.XLLegendPosition.TopRight = 4 -> XLibur.Excel.XLLegendPosition
-XLibur.Excel.IXLChartAxis
-XLibur.Excel.IXLChartAxis.Title.get -> string?
-XLibur.Excel.IXLChartAxis.Title.set -> void
-XLibur.Excel.IXLChartAxis.NumberFormat.get -> string?
-XLibur.Excel.IXLChartAxis.NumberFormat.set -> void
-XLibur.Excel.IXLChartAxis.Min.get -> double?
-XLibur.Excel.IXLChartAxis.Min.set -> void
-XLibur.Excel.IXLChartAxis.Max.get -> double?
-XLibur.Excel.IXLChartAxis.Max.set -> void
-XLibur.Excel.IXLChartAxis.MajorUnit.get -> double?
-XLibur.Excel.IXLChartAxis.MajorUnit.set -> void
-XLibur.Excel.IXLChartAxis.MinorUnit.get -> double?
-XLibur.Excel.IXLChartAxis.MinorUnit.set -> void
-XLibur.Excel.IXLChartAxis.Visible.get -> bool
-XLibur.Excel.IXLChartAxis.Visible.set -> void
-XLibur.Excel.IXLChartAxis.MajorGridlines.get -> bool
-XLibur.Excel.IXLChartAxis.MajorGridlines.set -> void
-XLibur.Excel.IXLChartAxis.Orientation.get -> XLibur.Excel.XLAxisOrientation
-XLibur.Excel.IXLChartAxis.Orientation.set -> void
-XLibur.Excel.IXLChartAxis.LogScale.get -> bool
-XLibur.Excel.IXLChartAxis.LogScale.set -> void
-XLibur.Excel.IXLChartAxis.LogBase.get -> double
-XLibur.Excel.IXLChartAxis.LogBase.set -> void
-XLibur.Excel.XLAxisOrientation
-XLibur.Excel.XLAxisOrientation.MinMax = 0 -> XLibur.Excel.XLAxisOrientation
-XLibur.Excel.XLAxisOrientation.MaxMin = 1 -> XLibur.Excel.XLAxisOrientation
-XLibur.Excel.IXLChart.Anchor.get -> XLibur.Excel.XLDrawingAnchor
-XLibur.Excel.IXLChart.Anchor.set -> void
-XLibur.Excel.IXLChart.Width.get -> int
-XLibur.Excel.IXLChart.Width.set -> void
-XLibur.Excel.IXLChart.Height.get -> int
-XLibur.Excel.IXLChart.Height.set -> void
-XLibur.Excel.IXLChart.Left.get -> int
-XLibur.Excel.IXLChart.Left.set -> void
-XLibur.Excel.IXLChart.Top.get -> int
-XLibur.Excel.IXLChart.Top.set -> void
-*REMOVED*XLibur.Excel.XLColorType.Color = 0 -> XLibur.Excel.XLColorType
-*REMOVED*XLibur.Excel.XLColorType.Theme = 1 -> XLibur.Excel.XLColorType
-*REMOVED*XLibur.Excel.XLColorType.Indexed = 2 -> XLibur.Excel.XLColorType
-XLibur.Excel.XLColorType.Automatic = 0 -> XLibur.Excel.XLColorType
-XLibur.Excel.XLColorType.Color = 1 -> XLibur.Excel.XLColorType
-XLibur.Excel.XLColorType.Theme = 2 -> XLibur.Excel.XLColorType
-XLibur.Excel.XLColorType.Indexed = 3 -> XLibur.Excel.XLColorType
-XLibur.Excel.XLColor.IsAutomatic.get -> bool
-static XLibur.Excel.XLColor.Automatic.get -> XLibur.Excel.XLColor!
-XLibur.Excel.Exceptions.XLEncryptionException
-XLibur.Excel.Exceptions.XLEncryptionException.XLEncryptionException() -> void
-XLibur.Excel.Exceptions.XLEncryptionException.XLEncryptionException(string! message) -> void
-XLibur.Excel.Exceptions.XLEncryptionException.XLEncryptionException(string! message, System.Exception! inner) -> void
-XLibur.Excel.Exceptions.XLInvalidPasswordException
-XLibur.Excel.Exceptions.XLInvalidPasswordException.XLInvalidPasswordException() -> void
-XLibur.Excel.Exceptions.XLInvalidPasswordException.XLInvalidPasswordException(string! message) -> void
-XLibur.Excel.Exceptions.XLInvalidPasswordException.XLInvalidPasswordException(string! message, System.Exception! inner) -> void
+XLibur.Excel.IXLPerson
+XLibur.Excel.IXLPerson.DisplayName.get -> string!
+XLibur.Excel.IXLPerson.Id.get -> System.Guid
+XLibur.Excel.IXLPerson.ProviderId.get -> string?
+XLibur.Excel.IXLPerson.UserId.get -> string?
+XLibur.Excel.IXLPersons
+XLibur.Excel.IXLPersons.Add(string! displayName, string? userId, string? providerId) -> XLibur.Excel.IXLPerson!
+XLibur.Excel.IXLPersons.Add(string! displayName) -> XLibur.Excel.IXLPerson!
+XLibur.Excel.IXLPersons.Count.get -> int
+XLibur.Excel.IXLPersons.Get(System.Guid id) -> XLibur.Excel.IXLPerson?
+XLibur.Excel.IXLPersons.GetByDisplayName(string! displayName) -> XLibur.Excel.IXLPerson?
+XLibur.Excel.IXLPersons.Remove(System.Guid id) -> bool
+XLibur.Excel.IXLSheetView.PaneTopLeftCellAddress.get -> XLibur.Excel.IXLAddress?
+XLibur.Excel.IXLSheetView.PaneTopLeftCellAddress.set -> void
+XLibur.Excel.IXLThreadedComment
+XLibur.Excel.IXLThreadedComment.AddReply(XLibur.Excel.IXLPerson! author, string! text) -> XLibur.Excel.IXLThreadedComment!
+XLibur.Excel.IXLThreadedComment.Author.get -> XLibur.Excel.IXLPerson!
+XLibur.Excel.IXLThreadedComment.CreatedUtc.get -> System.DateTime
+XLibur.Excel.IXLThreadedComment.Delete() -> void
+XLibur.Excel.IXLThreadedComment.Id.get -> System.Guid
+XLibur.Excel.IXLThreadedComment.Parent.get -> XLibur.Excel.IXLThreadedComment?
+XLibur.Excel.IXLThreadedComment.Replies.get -> System.Collections.Generic.IReadOnlyList<XLibur.Excel.IXLThreadedComment!>!
+XLibur.Excel.IXLThreadedComment.Resolved.get -> bool
+XLibur.Excel.IXLThreadedComment.Resolved.set -> void
+XLibur.Excel.IXLThreadedComment.Text.get -> string!
+XLibur.Excel.IXLThreadedComment.Text.set -> void
+XLibur.Excel.IXLWorkbook.Persons.get -> XLibur.Excel.IXLPersons!
+XLibur.Excel.IXLWorksheet.Charts.get -> XLibur.Excel.IXLCharts!
+XLibur.Excel.IXLWorksheet.EnumerateUsedCells() -> XLibur.Excel.XLUsedCellEnumerable
+XLibur.Excel.IXLWorksheet.FocusCell(string! address) -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.IXLWorksheet.FocusCell(XLibur.Excel.IXLCell! cell) -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.IXLWorksheet.PictureGroups.get -> System.Collections.Generic.IEnumerable<XLibur.Excel.Drawings.IXLPictureGroup!>!
+XLibur.Excel.IXLWorksheet.SetActiveCell(string! address) -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.IXLWorksheet.SetActiveCell(XLibur.Excel.IXLCell! cell) -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.LoadOptions.FontEngine.get -> XLibur.Graphics.IXLFontEngine?
+XLibur.Excel.LoadOptions.FontEngine.set -> void
 XLibur.Excel.LoadOptions.Password.get -> string?
 XLibur.Excel.LoadOptions.Password.set -> void
 XLibur.Excel.SaveOptions.Password.get -> string?
 XLibur.Excel.SaveOptions.Password.set -> void
+XLibur.Excel.XLAlignmentKey.Equals(XLibur.Excel.XLAlignmentKey other) -> bool
+XLibur.Excel.XLAxisOrientation
+XLibur.Excel.XLAxisOrientation.MaxMin = 1 -> XLibur.Excel.XLAxisOrientation
+XLibur.Excel.XLAxisOrientation.MinMax = 0 -> XLibur.Excel.XLAxisOrientation
+XLibur.Excel.XLChartType.BoxWhisker = 73 -> XLibur.Excel.XLChartType
+XLibur.Excel.XLChartType.Funnel = 74 -> XLibur.Excel.XLChartType
+XLibur.Excel.XLChartType.Sunburst = 75 -> XLibur.Excel.XLChartType
+XLibur.Excel.XLChartType.Treemap = 76 -> XLibur.Excel.XLChartType
+XLibur.Excel.XLChartType.Waterfall = 77 -> XLibur.Excel.XLChartType
+XLibur.Excel.XLColor.IsAutomatic.get -> bool
+XLibur.Excel.XLColorType.Automatic = 0 -> XLibur.Excel.XLColorType
+XLibur.Excel.XLColorType.Color = 1 -> XLibur.Excel.XLColorType
+XLibur.Excel.XLColorType.Indexed = 3 -> XLibur.Excel.XLColorType
+XLibur.Excel.XLColorType.Theme = 2 -> XLibur.Excel.XLColorType
+XLibur.Excel.XLDataBarAxisPosition
+XLibur.Excel.XLDataBarAxisPosition.Automatic = 0 -> XLibur.Excel.XLDataBarAxisPosition
+XLibur.Excel.XLDataBarAxisPosition.Middle = 1 -> XLibur.Excel.XLDataBarAxisPosition
+XLibur.Excel.XLDataBarAxisPosition.None = 2 -> XLibur.Excel.XLDataBarAxisPosition
+XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.Above = 8 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.Auto = 0 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.Below = 9 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.BestFit = 5 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.Center = 1 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.InsideBase = 3 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.InsideEnd = 2 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.Left = 6 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.OutsideEnd = 4 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.Right = 7 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLError.SpillRange = 7 -> XLibur.Excel.XLError
+XLibur.Excel.XLLegendPosition
+XLibur.Excel.XLLegendPosition.Bottom = 1 -> XLibur.Excel.XLLegendPosition
+XLibur.Excel.XLLegendPosition.Left = 2 -> XLibur.Excel.XLLegendPosition
+XLibur.Excel.XLLegendPosition.Right = 0 -> XLibur.Excel.XLLegendPosition
+XLibur.Excel.XLLegendPosition.Top = 3 -> XLibur.Excel.XLLegendPosition
+XLibur.Excel.XLLegendPosition.TopRight = 4 -> XLibur.Excel.XLLegendPosition
+XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Auto = 0 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Circle = 2 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Dash = 3 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Diamond = 4 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Dot = 5 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.None = 1 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Plus = 6 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Square = 7 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Star = 8 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.Triangle = 9 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLMarkerStyle.X = 10 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLUsedCell
+XLibur.Excel.XLUsedCell.Column.get -> int
+XLibur.Excel.XLUsedCell.Row.get -> int
+XLibur.Excel.XLUsedCell.Value.get -> XLibur.Excel.XLCellValue
+XLibur.Excel.XLUsedCell.XLUsedCell() -> void
+XLibur.Excel.XLUsedCellEnumerable
+XLibur.Excel.XLUsedCellEnumerable.GetEnumerator() -> XLibur.Excel.XLUsedCellEnumerator
+XLibur.Excel.XLUsedCellEnumerable.XLUsedCellEnumerable() -> void
+XLibur.Excel.XLUsedCellEnumerator
+XLibur.Excel.XLUsedCellEnumerator.Current.get -> XLibur.Excel.XLUsedCell
+XLibur.Excel.XLUsedCellEnumerator.Dispose() -> void
+XLibur.Excel.XLUsedCellEnumerator.MoveNext() -> bool
+XLibur.Excel.XLUsedCellEnumerator.XLUsedCellEnumerator() -> void
+XLibur.Excel.XLWorkbook.Persons.get -> XLibur.Excel.IXLPersons!
+XLibur.Graphics.DefaultGraphicEngine.DefaultGraphicEngine(XLibur.Graphics.IXLFontEngine! fontEngine) -> void
+XLibur.Graphics.IXLFontEngine
+XLibur.Graphics.IXLFontEngine.GetDescent(XLibur.Excel.IXLFontBase! font, double dpiY) -> double
+XLibur.Graphics.IXLFontEngine.GetGlyphBox(System.ReadOnlySpan<int> graphemeCluster, XLibur.Excel.IXLFontBase! font, XLibur.Graphics.Dpi dpi) -> XLibur.Graphics.GlyphBox
+XLibur.Graphics.IXLFontEngine.GetMaxDigitWidth(XLibur.Excel.IXLFontBase! font, double dpiX) -> double
+XLibur.Graphics.IXLFontEngine.GetTextHeight(XLibur.Excel.IXLFontBase! font, double dpiY) -> double
+XLibur.Graphics.IXLFontEngine.GetTextWidth(string! text, XLibur.Excel.IXLFontBase! font, double dpiX) -> double
