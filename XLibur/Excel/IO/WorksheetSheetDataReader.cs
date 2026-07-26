@@ -723,6 +723,7 @@ internal static class WorksheetSheetDataReader
     {
         var runs = element.Elements<Run>();
         var hasRuns = false;
+        XLFont? colorlessCellFont = null;
         foreach (var run in runs)
         {
             hasRuns = true;
@@ -730,10 +731,25 @@ internal static class WorksheetSheetDataReader
             var text = run.Text!.InnerText.FixNewLines();
 
             if (runProperties == null)
-                xlCell.GetRichText().AddText(text, xlCell.Style.Font);
+            {
+                // No rPr at all: the run inherits the cell font (ECMA-376 CT_RElt), so materializing
+                // that font is faithful - except for a color the cell font only carries because it
+                // was itself defaulted to black, which would invent a color the source never had.
+                var cellFont = xlCell.Style.Font;
+                var font = cellFont.FontColor.Key == XLFontValue.Default.Key.FontColor
+                    ? ColorlessFont(cellFont, ref colorlessCellFont)
+                    : cellFont;
+
+                xlCell.GetRichText().AddText(text, font);
+            }
             else
             {
-                var rt = xlCell.GetRichText().AddText(text);
+                // Start from the cell font with the color stripped: an rPr that omits <color> means
+                // automatic, so inheriting the cell's color here would be wrong and would materialize
+                // an explicit one on save. LoadFont puts a color back whenever the rPr carries one.
+                var colorless = ColorlessFont(xlCell.Style.Font, ref colorlessCellFont);
+                var rt = xlCell.GetRichText().AddText(text, colorless);
+
                 var fontScheme = runProperties.Elements<FontScheme>().FirstOrDefault();
                 if (fontScheme is { Val: not null })
                     rt.SetFontScheme(fontScheme.Val.Value.ToXLibur());
@@ -746,6 +762,33 @@ internal static class WorksheetSheetDataReader
             xlCell.SetOnlyValue(XmlEncoder.DecodeString(element.Text?.InnerText));
 
         LoadPhonetics(xlCell, element);
+
+        if (!hasRuns)
+            DemoteSyntheticRun(xlCell);
+    }
+
+    /// <summary>
+    /// <paramref name="cellFont"/> with its color left unset, cached for the lifetime of one shared
+    /// string. Runs are seeded with this rather than being recolored after the fact, because every
+    /// mutation of a run re-interns the whole rich text in the shared string table.
+    /// </summary>
+    private static XLFont ColorlessFont(IXLFontBase cellFont, ref XLFont? cached)
+    {
+        return cached ??= new XLFont(XLFont.GenerateKey(cellFont) with { FontColor = XLColor.NoColor.Key });
+    }
+
+    /// <summary>
+    /// A string that is plain text but carries a phonetic guide (<c>&lt;t&gt;</c> + <c>&lt;rPh&gt;</c>,
+    /// common in Japanese workbooks) has no rich-text runs. Reading its phonetics goes through the
+    /// mutable rich text API, which promotes the text into a synthetic run carrying the cell font.
+    /// Drop that run again so the runless shape - and with it the absence of any run formatting -
+    /// survives the round-trip.
+    /// </summary>
+    private static void DemoteSyntheticRun(XLCell xlCell)
+    {
+        var richText = xlCell.SliceRichText;
+        if (richText is not null)
+            xlCell.SliceRichText = richText.WithoutRuns();
     }
 
     internal static void LoadColumns(StylesheetData styles, XLWorksheet ws, Columns columns)

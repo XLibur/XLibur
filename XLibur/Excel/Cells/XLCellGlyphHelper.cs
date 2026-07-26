@@ -21,7 +21,10 @@ internal static class XLCellGlyphHelper
     internal static void GetGlyphBoxes(XLCell cell, IXLFontEngine engine, Dpi dpi, List<GlyphBox> output)
     {
         var richText = cell.RichText;
-        if (richText is not null)
+
+        // Runless rich text (plain text with a phonetic guide) carries no per-run font, so it is
+        // measured with the cell font just like a non-rich cell.
+        if (richText is { Runs.Count: > 0 })
         {
             foreach (var richTextRun in richText.Runs)
             {

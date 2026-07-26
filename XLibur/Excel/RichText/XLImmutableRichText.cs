@@ -30,6 +30,12 @@ internal sealed class XLImmutableRichText : IEquatable<XLImmutableRichText>
 
     /// <summary>
     /// Individual rich text runs that make up the <see cref="Text"/>, in ascending order, non-overlapping.
+    /// <para>
+    /// Can be empty while <see cref="Text"/> is not: a shared string that is plain text but carries a
+    /// phonetic guide has no runs at all, and inventing one would attach run formatting the source
+    /// never had. Consumers that render or measure the text must fall back to <see cref="Text"/> and
+    /// the containing cell's font when this is empty.
+    /// </para>
     /// </summary>
     public IReadOnlyList<RichTextRun> Runs => _runs;
 
@@ -79,6 +85,18 @@ internal sealed class XLImmutableRichText : IEquatable<XLImmutableRichText>
     }
 
     internal string GetRunText(RichTextRun run) => Text.Substring(run.StartIndex, run.Length);
+
+    /// <summary>
+    /// Same text and phonetics, but without any rich text runs. Used to undo the synthetic run the
+    /// mutable API creates for a plain string that only has a phonetic guide.
+    /// </summary>
+    internal XLImmutableRichText WithoutRuns()
+    {
+        if (_runs.Length == 0)
+            return this;
+
+        return new XLImmutableRichText(Text, [], _phoneticRuns, PhoneticsProperties);
+    }
 
     /// <summary>
     /// Create an immutable rich text with same content as the original <paramref name="formattedText"/>.

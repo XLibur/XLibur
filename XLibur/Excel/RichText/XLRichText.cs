@@ -17,6 +17,14 @@ internal sealed class XLRichText : XLFormattedText<IXLRichText>, IXLRichText
     public XLRichText(XLCell cell, XLImmutableRichText original)
         : base(cell.Style.Font)
     {
+        if (original.Runs.Count == 0 && original.Text.Length > 0)
+        {
+            // The stored text has no runs (plain text with a phonetic guide). The mutable API is
+            // run-based, so materialize one from the cell font - otherwise the first edit would
+            // write back an empty cell.
+            AddText(original.Text);
+        }
+
         foreach (var originalRun in original.Runs)
         {
             var runText = original.GetRunText(originalRun);

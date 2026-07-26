@@ -254,8 +254,18 @@ public sealed partial class XLColor
 
     internal static bool IsTransparent(in XLColorKey colorKey)
     {
-        return colorKey == NoColor.Key
+        return IsUnset(colorKey)
                || colorKey is { ColorType: XLColorType.Indexed, Indexed: 64 };
+    }
+
+    /// <summary>
+    /// True when the key is the <see cref="NoColor"/> sentinel, i.e. no color was ever set.
+    /// Unlike <see cref="IsTransparent"/> this does not match indexed color 64, which is an
+    /// explicitly written value and must round-trip as such.
+    /// </summary>
+    internal static bool IsUnset(in XLColorKey colorKey)
+    {
+        return colorKey == NoColor.Key;
     }
 
     public static XLColor NoColor { get; } = new();
