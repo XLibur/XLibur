@@ -94,12 +94,30 @@ The repository includes a pre-commit hook that automatically formats staged C# f
 git config core.hooksPath .githooks
 ```
 
+## Local tools
+
+Repository tooling is pinned in `.config/dotnet-tools.json` rather than installed globally, so
+everyone runs the same versions. Restore them once after cloning:
+
+```sh
+dotnet tool restore
+```
+
+| Tool | Command | Used for |
+|---|---|---|
+| `dotnet-stryker` | `dotnet stryker` | Mutation testing — see below |
+| `roslynmcp.server` | `dotnet tool run roslyn-mcp` | Roslyn refactoring MCP server, wired up in `.mcp.json` for agent tooling |
+
+The MCP server in `.mcp.json` is launched as `dotnet tool run roslyn-mcp`, so it resolves through
+this manifest. If your editor or agent reports that the `roslyn-refactor` server failed to start,
+run `dotnet tool restore` — that is almost always the cause.
+
 ## Mutation Testing
 
 [Stryker.NET](https://stryker-mutator.io/docs/stryker-net/introduction/) runs daily in CI to measure test effectiveness. To run locally:
 
 ```sh
-# Restore the Stryker tool (first time only)
+# Restore the tools (first time only)
 dotnet tool restore
 
 # Set StrykerEnabled to disable TreatWarningsAsErrors so mutants can compile

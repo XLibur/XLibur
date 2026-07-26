@@ -8,6 +8,13 @@
         "dotnet-stryker"
       ],
       "rollForward": false
+    },
+    "roslynmcp.server": {
+      "version": "0.4.0",
+      "commands": [
+        "roslyn-mcp"
+      ],
+      "rollForward": false
     }
   }
 }
