@@ -29,6 +29,12 @@
 
 ### ✨ New Features
 
+#### Formula functions
+
+- **24 more financial functions**: depreciation (`SLN`, `SYD`, `DB`, `DDB`, `VDB`), rate conversion and growth (`EFFECT`, `NOMINAL`, `RRI`, `PDURATION`), fractional dollar notation (`DOLLARDE`, `DOLLARFR`), loan schedules (`ISPMT`, `CUMIPMT`, `CUMPRINC`), discount securities (`TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DISC`, `INTRATE`, `RECEIVED`) and irregular cash flows (`FVSCHEDULE`, `MIRR`, `XNPV`, `XIRR`). `XIRR` solves with Newton–Raphson and falls back to bisection when that wanders off, so a poor guess still converges.
+
+  Two deliberate limitations. The day-count-basis bond family (`PRICE`, `YIELD`, `DURATION`, `MDURATION`, `ACCRINT`, `COUP*`, `ODD*`, `AMOR*`) is not included — it needs a coupon-period engine rather than another day-count fraction. And `DISC`/`INTRATE`/`RECEIVED` take their year fraction from the same code as `YEARFRAC`, so basis 1 (actual/actual) uses `YEARFRAC`'s average-year-length rule. ([#252](https://github.com/XLibur/XLibur/pull/252) by [@jafin](https://github.com/jafin))
+
 #### Security and encryption
 
 - **Password-protected workbooks (ECMA-376 encryption)**: `LoadOptions.Password` opens an encrypted workbook and `SaveOptions.Password` writes one. Reading covers both schemes in the wild — agile encryption (Office 2010 and later) and standard encryption (Office 2007); writing uses agile encryption with the parameters Excel itself writes (AES-256-CBC, SHA-512, 100,000 spins and a fresh random key per save). Previously an encrypted file could not be opened at all and failed opaquely.

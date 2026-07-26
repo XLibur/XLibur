@@ -657,7 +657,12 @@ internal static class DateAndTime
         return DateParts.From(ctx, serialDate).Year;
     }
 
-    private static ScalarValue YearFrac(CalcContext ctx, double startDateTime, double endDateTime, double basis = 0)
+    /// <summary>
+    /// Day-count fraction between two dates for one of Excel's five bases. Also used by the
+    /// security functions in <see cref="Financial"/> (DISC, INTRATE, RECEIVED), which are defined
+    /// in terms of "days between settlement and maturity / days in a year, per basis".
+    /// </summary>
+    internal static ScalarValue YearFrac(CalcContext ctx, double startDateTime, double endDateTime, double basis = 0)
     {
         if (!TryGetDate(ctx, startDateTime, out var startDate))
             return XLError.NumberInvalid;
