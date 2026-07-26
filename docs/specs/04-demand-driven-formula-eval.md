@@ -14,7 +14,7 @@ Reading `cell.Value` on a dirty formula cell can trigger **full-workbook recalcu
 - `XLibur/Excel/CalcEngine/XLCalcEngine.cs` (670 lines) — `TryEvaluateSingleCell` (single-cell fast path, no tree), `Recalculate` (full chain), `MarkDirty` (builds `DependencyTree` lazily when `_needsDependencyTree`).
 - `XLibur/Excel/Cells/XLCell.cs` — `Evaluate(force)` (~line 338): clean-check via `Formula.IsDirty(workbook)` is cheap (epoch compare); dirty → `TryEvaluateSingleCell` → fallback `Recalculate(wb, null)`.
 - `XLibur/Excel/CalcEngine/DependencyTree.cs` (404 lines) — real dependency graph; per-sheet `RBush<AreaDependents>` R-trees; built by full workbook scan in `CreateFrom`.
-- `XLibur/Excel/CalcEngine/XLCalculationChain.cs` (411 lines) — intrusive linked chain + `Dictionary<XLBookPoint, Link>`; uses `GettingDataException` to reorder evaluation when a formula reads a dirty precedent.
+- `XLibur/Excel/CalcEngine/XLCalculationChain.cs` (411 lines) — intrusive linked chain + `Dictionary<SheetPoint, Link>`; uses `GettingDataException` to reorder evaluation when a formula reads a dirty precedent.
 - Dirty tracking is epoch-based: `XLCellFormula._evalEpoch` vs `XLWorkbook.EditEpoch` — any edit conceptually dirties the whole book; RBush + explicit-dirty flags refine it.
 - Known history: an earlier attempt to lazily build the tree inside `MarkDirty` failed on unparseable formulas (external workbook refs, legacy TABLE) and unexpected build timing (`Mark_dirty_wont_crash_on_cycle`). Design around this: **the demand-driven path must not require the tree at all.**
 
@@ -36,7 +36,7 @@ EvaluateOnDemand(cell):
 
 This is textbook demand-driven recalc (what `GettingDataException` + chain-reordering approximates globally, done locally). Concretely:
 
-1. Add an evaluation-stack (reused `List<XLBookPoint>` + `HashSet<XLBookPoint>` on the engine, cleared per top-level call) for cycle detection. On cycle: match Excel semantics already implemented for the chain (see how `XLCalculationChain` + cycle tests handle it — `Mark_dirty_wont_crash_on_cycle` and friends define expected behavior).
+1. Add an evaluation-stack (reused `List<SheetPoint>` + `HashSet<SheetPoint>` on the engine, cleared per top-level call) for cycle detection. On cycle: match Excel semantics already implemented for the chain (see how `XLCalculationChain` + cycle tests handle it — `Mark_dirty_wont_crash_on_cycle` and friends define expected behavior).
 2. The hook point is where `CalculationVisitor`/`CalcContext` dereferences a cell value and currently throws `GettingDataException` for dirty cells. Instead of throwing, call back into demand evaluation. Keep the exception path intact for the full-`Recalculate` chain mode — add a mode flag on `CalcContext` rather than changing global behavior.
 3. Depth limit (e.g. 10_000) to avoid stack issues on pathological chains — it's an explicit iterative stack, not CPU recursion, so the limit is about runaway work, not StackOverflow. On hitting the limit, fall back to full `Recalculate` (current behavior) — correctness is preserved.
 4. **Unparseable formulas** (external refs, TABLE): if a precedent's formula can't be parsed, treat as current behavior (its cached value is used / full-recalc fallback). Never let demand evaluation crash where full recalc wouldn't.

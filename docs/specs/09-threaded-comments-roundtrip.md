@@ -51,7 +51,7 @@ IXLPersons Persons { get; }   // Add(displayName), lookup by id
 
 Design rules:
 - A cell has *either* a legacy note *or* a threaded comment as its user-visible annotation; creating a threaded comment on a cell with a legacy note throws (or converts — decide and document; **recommend throw** for v1, explicit `ConvertToThread()` later).
-- Storage: extend the comment slot in the misc slice area. `XLMiscSliceContent` (`XLibur/Excel/Cells/XLMiscSliceContent.cs`) holds `XLComment?` today; either widen the type to a shared base/`object` holding note-or-thread, or add a per-worksheet side dictionary keyed by `XLSheetPoint` (threads are rare — a side dictionary avoids fattening the misc struct for every cell; **recommend side dictionary**, consistent with how rare data should be stored per the architecture's slice philosophy).
+- Storage: extend the comment slot in the misc slice area. `XLMiscSliceContent` (`XLibur/Excel/Cells/XLMiscSliceContent.cs`) holds `XLComment?` today; either widen the type to a shared base/`object` holding note-or-thread, or add a per-worksheet side dictionary keyed by `Point` (threads are rare — a side dictionary avoids fattening the misc struct for every cell; **recommend side dictionary**, consistent with how rare data should be stored per the architecture's slice philosophy).
 - Mentions (`<mention>` runs): **out of scope v1** — preserve raw XML for round-trip (store the original `<text>` payload when unmodified) but no mention API.
 
 ### Read path rework

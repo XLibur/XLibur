@@ -27,7 +27,7 @@ Excel), which preserves the "only the anchor has `<f>`" serialization model.
   `ApplyFormula` were the template for the new `SpillDynamicArray` path.
 - **Formula model.** `XLCellFormula` stores no cached value; cleanliness is an epoch. A dynamic array
   is `Type = Normal` **plus** `IsDynamicArray = true` (`DynamicArrayA1` factory), with a settable
-  `Range` (`XLSheetRange`) used to hold the computed footprint.
+  `Range` (`Area`) used to hold the computed footprint.
 - **Public entry point.** `XLCell.SetDynamicFormulaA1` → `DynamicArrayA1`.
 - **Save metadata plumbing.** `XLWorkbook_Save.EnsureDynamicArrayMetadata`,
   `SaveContext.DynamicArrayMetaIndex`, and the `cm` attribute in `SheetDataWriter`.

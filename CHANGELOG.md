@@ -74,7 +74,7 @@ First XLibur release since forking [ClosedXML v0.105.0](https://github.com/Close
 
 - **Array and dynamic-array formulas no longer break on row/column shifts**: Inserting or deleting rows/columns anywhere in a workbook used to rebuild every formula cell through the `FormulaA1` setter, which turned a single array formula (shared across its whole range) into one *normal* formula per cell. For dynamic arrays this split a single spilled formula such as `=UNIQUE(...)` into multiple implicit-intersection `=@UNIQUE(...)` cells, even when the edit happened on an unrelated sheet. Shifts now update the shared formula instance in place — preserving its array/dynamic-array nature — and relocate the spill range for same-sheet inserts/deletes.
 
-- **Deleting through an array no longer corrupts its stored range**: When a delete overlapped an array formula, relocating the array's top edge could drive the coordinate below 1. `XLSheetPoint` does not bounds-check, so the value silently overflowed and corrupted the stored range.
+- **Deleting through an array no longer corrupts its stored range**: When a delete overlapped an array formula, relocating the array's top edge could drive the coordinate below 1. `Point` does not bounds-check, so the value silently overflowed and corrupted the stored range.
 
 - **Data-validation formulas are shifted with the sheet**: Inserting or deleting rows/columns relocated each rule's ranges (`sqref`) but left cell references *inside* the criteria formulas (`formula1`/`formula2`) pointing at the pre-shift location. Any `List`, `Custom` or comparison rule referencing other cells silently broke — most visibly dependent dropdown pairs driven by `OFFSET`/`MATCH`. The in-memory value was wrong immediately after the shift, before any save.
 

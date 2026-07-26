@@ -167,12 +167,12 @@ inserting or deleting rows and columns is consistent across all four slices.
 
 | Type              | Description                                               | Packing                                   |
 |-------------------|-----------------------------------------------------------|-------------------------------------------|
-| `XLSheetPoint`    | A point in a worksheet (row + column). Used everywhere internally. | `ulong`: bits 0-13 = column (0-based), bits 14-33 = row (0-based) |
+| `Point`           | A point in a worksheet (row + column). Used everywhere internally. | `ulong`: bits 0-13 = column (0-based), bits 14-33 = row (0-based) |
 | `XLAddress`       | Cell address with optional worksheet, `$` flags, and cached string. | `ulong`: bits 0-14 = column+1, bits 15-35 = row+1, bit 36 = fixedRow, bit 37 = fixedColumn |
-| `XLSheetRange`    | A rectangular range within a sheet (two `XLSheetPoint`s). | Two packed `ulong` values |
+| `Area`            | A rectangular range within a sheet (two `Point`s).        | Two packed `ulong` values |
 | `XLRangeAddress`  | A range address that can span worksheets, with validity flag. | Holds worksheet reference + two `XLAddress` |
-| `XLBookArea`      | Sheet name + `XLSheetRange`. For cross-sheet references.   | `string Name` + `XLSheetRange Area` |
-| `XLBookPoint`     | Sheet name + `XLSheetPoint`. For cross-sheet cell references. | `string Name` + `XLSheetPoint Point` |
+| `SheetArea`       | Sheet name + `Area`. For cross-sheet references.           | `string Name` + `Area Area` |
+| `SheetPoint`      | Sheet name + `Point`. For cross-sheet cell references.     | `string Name` + `Point Point` |
 
 Bit-packing avoids alignment padding and enables fast equality checks and
 row-major sorting via a single `ulong` comparison.
@@ -591,7 +591,7 @@ Pivot tables have their own reader/writer pairs:
    raw XML via `XmlWriter` for the `<sheetData>` element (the largest part of a
    worksheet). Reusable `char[]` buffers avoid per-cell string allocations.
 
-5. **Bit-packed structs** — `XLSheetPoint` and `XLAddress` pack row, column,
+5. **Bit-packed structs** — `Point` and `XLAddress` pack row, column,
    and flags into a single `ulong` for fast equality, hashing, and comparison.
 
 6. **Spatial indexing** — `DependencyTree` uses `RBush` R-trees for O(log n)
@@ -630,7 +630,7 @@ XLibur/
     ├── Comments/              — XLComment, XLComments
     ├── ConditionalFormats/    — Color scales, data bars, icon sets
     ├── ContentManagers/       — Part relationship management
-    ├── Coordinates/           — XLAddress, XLSheetPoint, XLBookArea, etc.
+    ├── Coordinates/           — XLAddress, Point, SheetArea, etc.
     ├── CustomProperties/      — Document custom properties
     ├── DataValidation/        — Validation criteria (whole, decimal, date, time, text)
     ├── DefinedNames/          — Named ranges (workbook + worksheet scope)

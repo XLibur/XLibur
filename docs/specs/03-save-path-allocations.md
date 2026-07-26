@@ -13,7 +13,7 @@ The 50K-row formatted save (`CreateFormattedAndSave`) allocates ~543 MB and has 
 
 - `XLibur/Extensions/XmlWriterExtensions.cs` — `WriteNumberValue` formats doubles via `double.ToInvariantString()`, one string per numeric/date cell (~100K+ per benchmark save).
 - `XLibur/Excel/XLWorksheet.cs` (~line 1671) — `GetStyleValue(point)` falls through to `GetInheritedStyleValue` for every cell without an explicit style; runs **before** `SheetDataWriter.ResolveCellStyleId`'s last-value memo can help.
-- `XLibur/Excel/IO/SheetDataWriter.cs` — `CollectTableTotalCells` allocates a `HashSet<XLSheetPoint>` and probes it per cell whenever any table has a totals row.
+- `XLibur/Excel/IO/SheetDataWriter.cs` — `CollectTableTotalCells` allocates a `HashSet<Point>` and probes it per cell whenever any table has a totals row.
 - `XLibur/Excel/Style/XLStyleKey.cs` — `StyleKey_GetHashCode` benchmark: 40.7 ms/100K vs 12.0 ms for its worst component (`BorderKey`), 4.6/4.2/1.2 for Fill/Font/Color. The composite hash does redundant work.
 - `XLibur/Excel/Cells/SharedStringTable.cs` — no `EnsureCapacity`; 50K unique strings rehash the dictionary repeatedly during save/populate.
 - Benchmarks: `XLibur.Benchmarks/XLiburWorkbookBenchmarks.cs` (`CreateAndSave`, `CreateFormattedAndSave`), `StyleKeyHashCodeBenchmarks.cs`, `AllocationBenchmarks.cs`.
