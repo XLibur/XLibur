@@ -13,9 +13,9 @@ internal sealed class XLThreadedComment : IXLThreadedComment
 
     private bool _resolved;
 
-    internal XLThreadedComment(XLCell cell, Guid id, XLPerson author, string text, DateTime createdUtc)
+    internal XLThreadedComment(XLWorksheet worksheet, Guid id, XLPerson author, string text, DateTime createdUtc)
     {
-        Cell = cell;
+        Worksheet = worksheet;
         Id = id;
         AuthorInternal = author;
         _text = text;
@@ -65,9 +65,12 @@ internal sealed class XLThreadedComment : IXLThreadedComment
     }
 
     /// <summary>
-    /// The cell the thread belongs to. Replies share the root's cell.
+    /// The sheet the thread belongs to. Deliberately not the cell: shifting rows or columns moves
+    /// the thread's entry within the misc slice without telling the thread, so a cell back-reference
+    /// would go stale and <see cref="Delete"/> would clear the address the thread used to be at. A
+    /// thread never changes sheet — copying builds a new one — so this reference cannot go stale.
     /// </summary>
-    internal XLCell Cell { get; private set; }
+    internal XLWorksheet Worksheet { get; }
 
     internal XLPerson AuthorInternal { get; private set; }
 
@@ -99,8 +102,8 @@ internal sealed class XLThreadedComment : IXLThreadedComment
         ArgumentNullException.ThrowIfNull(text);
 
         var root = Root;
-        var mapped = root.Cell.Worksheet.Workbook.PersonsInternal.Map(author);
-        var reply = new XLThreadedComment(root.Cell, Guid.NewGuid(), mapped, text, UtcNowForFile())
+        var mapped = root.Worksheet.Workbook.PersonsInternal.Map(author);
+        var reply = new XLThreadedComment(root.Worksheet, Guid.NewGuid(), mapped, text, UtcNowForFile())
         {
             ParentInternal = root
         };
@@ -112,9 +115,22 @@ internal sealed class XLThreadedComment : IXLThreadedComment
     public void Delete()
     {
         if (ParentInternal is { } parent)
+        {
             parent._replies?.Remove(this);
-        else
-            Cell.SliceThreadedComment = null;
+            return;
+        }
+
+        // Look the thread up by identity rather than trusting a remembered address: rows and columns
+        // may have shifted since it was created, which moves the slice entry silently. Threads are
+        // rare, so this only walks the handful of cells that have one.
+        foreach (var cell in Worksheet.Internals.CellsCollection.GetCells(c => c.HasThreadedComment))
+        {
+            if (ReferenceEquals(cell.SliceThreadedComment, this))
+            {
+                cell.SliceThreadedComment = null;
+                return;
+            }
+        }
     }
 
     internal XLThreadedComment Root => ParentInternal ?? this;
@@ -130,7 +146,7 @@ internal sealed class XLThreadedComment : IXLThreadedComment
     /// </summary>
     internal XLThreadedComment AddLoadedReply(Guid id, XLPerson author, string text, DateTime createdUtc)
     {
-        var reply = new XLThreadedComment(Cell, id, author, text, createdUtc)
+        var reply = new XLThreadedComment(Worksheet, id, author, text, createdUtc)
         {
             ParentInternal = this
         };
@@ -151,8 +167,8 @@ internal sealed class XLThreadedComment : IXLThreadedComment
 
         // A copy always lands on a different cell, so it is a different thread and needs its own id
         // even inside one workbook — the id is what the fallback note's xr:uid points at.
-        var copy = new XLThreadedComment(targetCell, Guid.NewGuid(), targetPersons.Map(AuthorInternal), _text,
-            CreatedUtc)
+        var copy = new XLThreadedComment(targetCell.Worksheet, Guid.NewGuid(),
+            targetPersons.Map(AuthorInternal), _text, CreatedUtc)
         {
             _resolved = _resolved,
             MentionsXml = MentionsXml
@@ -168,7 +184,7 @@ internal sealed class XLThreadedComment : IXLThreadedComment
             copy._replies = new List<XLThreadedComment>(_replies.Count);
             foreach (var reply in _replies)
             {
-                copy._replies.Add(new XLThreadedComment(targetCell, Guid.NewGuid(),
+                copy._replies.Add(new XLThreadedComment(targetCell.Worksheet, Guid.NewGuid(),
                     targetPersons.Map(reply.AuthorInternal), reply._text, reply.CreatedUtc)
                 {
                     ParentInternal = copy,
@@ -178,18 +194,5 @@ internal sealed class XLThreadedComment : IXLThreadedComment
         }
 
         return copy;
-    }
-
-    /// <summary>
-    /// Re-points the thread and its replies at another cell after the thread has been moved.
-    /// </summary>
-    internal void Rehome(XLCell cell)
-    {
-        Cell = cell;
-        if (_replies is null)
-            return;
-
-        foreach (var reply in _replies)
-            reply.Cell = cell;
     }
 }

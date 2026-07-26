@@ -79,15 +79,27 @@ internal sealed class XLPersons : IXLPersons
         if (_persons.TryGetValue(source.Id, out var byId) && IsSameIdentity(byId, source))
             return byId;
 
-        foreach (var id in _order)
+        // Only match on identity when there is an identity provider to match on. Two persons with no
+        // userId and no providerId who happen to share a display name are indistinguishable in the
+        // file yet may well be different people, and merging them would reattribute one person's
+        // comments to the other.
+        if (HasProviderIdentity(source))
         {
-            var candidate = _persons[id];
-            if (IsSameIdentity(candidate, source))
-                return candidate;
+            foreach (var id in _order)
+            {
+                var candidate = _persons[id];
+                if (IsSameIdentity(candidate, source))
+                    return candidate;
+            }
         }
 
         var newId = _persons.ContainsKey(source.Id) ? Guid.NewGuid() : source.Id;
         return AddCore(newId, source.DisplayName, source.UserId, source.ProviderId);
+    }
+
+    private static bool HasProviderIdentity(IXLPerson person)
+    {
+        return !string.IsNullOrEmpty(person.UserId) || !string.IsNullOrEmpty(person.ProviderId);
     }
 
     private static bool IsSameIdentity(IXLPerson left, IXLPerson right)

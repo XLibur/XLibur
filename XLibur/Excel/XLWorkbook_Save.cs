@@ -818,7 +818,10 @@ public partial class XLWorkbook
     private void GeneratePersonPart(WorkbookPart workbookPart, SaveContext context)
     {
         var existing = workbookPart.GetPartsOfType<WorkbookPersonPart>().ToList();
-        if (PersonsInternal.Count == 0)
+
+        // Counts authors a thread still references, not just the workbook list, so that removing a
+        // person who has commented does not delete the part their comments point at.
+        if (PersonPartWriter.CollectReferencedPersons(this).Count == 0)
         {
             foreach (var part in existing)
                 workbookPart.DeletePart(part);

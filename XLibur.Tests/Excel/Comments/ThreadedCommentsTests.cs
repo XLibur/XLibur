@@ -362,6 +362,8 @@ public class ThreadedCommentsTests
         return FindEntry(archive, partPathPrefix) is not null;
     }
 
+    // Not annotated ZipArchiveEntry? even though FirstOrDefault can return null: this project has
+    // no <Nullable>enable</Nullable>, so the annotation only earns a CS8632. Both callers handle null.
     private static ZipArchiveEntry FindEntry(ZipArchive archive, string partPathPrefix)
     {
         return archive.Entries.FirstOrDefault(e =>

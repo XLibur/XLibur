@@ -208,7 +208,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         }
 
         var mapped = Worksheet.Workbook.PersonsInternal.Map(author);
-        return SliceThreadedComment = new XLThreadedComment(this, Guid.NewGuid(), mapped, text,
+        return SliceThreadedComment = new XLThreadedComment(Worksheet, Guid.NewGuid(), mapped, text,
             XLThreadedComment.UtcNowForFile());
     }
 

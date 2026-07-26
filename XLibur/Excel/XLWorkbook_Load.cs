@@ -812,7 +812,7 @@ public partial class XLWorkbook
         var fallbackNote = cell.SliceComment;
         cell.SliceComment = null;
 
-        var root = new XLThreadedComment(cell, id, author, tc.ThreadedCommentText?.InnerText ?? string.Empty,
+        var root = new XLThreadedComment(ws, id, author, tc.ThreadedCommentText?.InnerText ?? string.Empty,
             ParseThreadedCommentDate(tc.DT?.Value))
         {
             LegacyNote = fallbackNote,
@@ -891,8 +891,10 @@ public partial class XLWorkbook
     /// </summary>
     private static DateTime ParseThreadedCommentDate(DateTime? value)
     {
+        // Kind matters even with no value to convert: CreatedUtc promises UTC, and a bare default
+        // would hand back an Unspecified DateTime that silently shifts if anyone converts it.
         if (value is not { } dt)
-            return default;
+            return DateTime.SpecifyKind(default, DateTimeKind.Utc);
 
         return dt.Kind switch
         {
