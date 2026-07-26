@@ -197,6 +197,27 @@ public class RichTextColorRoundTripTests
     }
 
     [Test]
+    public void SubstringOfInheritedRun_DoesNotMaterializeTheDefaultBlack()
+    {
+        // Splitting a run that states no formatting must yield runs that also state none - the
+        // sub-runs carry the same font, so re-materializing it would reintroduce the very
+        // rgb="FF000000" this whole fix removes.
+        var input = BuildWorkbook(BareRunSharedStrings, siCount: 1);
+
+        using var outMs = new MemoryStream();
+        using (var wb = new XLWorkbook(new MemoryStream(input)))
+        {
+            wb.Worksheets.First().Cell("A1").GetRichText().Substring(0, 3);
+            wb.SaveAs(outMs);
+        }
+
+        var savedSharedStrings = ReadPart(outMs.ToArray(), "xl/sharedStrings.xml");
+
+        Assert.That(savedSharedStrings, Does.Not.Contain("FF000000").IgnoreCase,
+            $"Splitting an inherited run re-materialized the ambiguous black.\n\n{savedSharedStrings}");
+    }
+
+    [Test]
     public void EditingPhoneticOnlyString_MaterializesARunWithoutLosingText()
     {
         // The stored rich text has no runs, but the mutable API is run-based. Touching it must
