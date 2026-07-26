@@ -678,6 +678,11 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         Internals.RowsCollection.ForEach(kp => kp.Value.CopyTo(targetSheet.Row(kp.Key)));
         Internals.CellsCollection.GetCells().ForEach(c =>
             targetSheet.Cell(c.Address).CopyFrom(c, XLCellCopyOptions.Values | XLCellCopyOptions.Styles));
+
+        // A formula that referred to this sheet by name must refer to the copy instead, the same way
+        // Excel repoints a copied sheet's self-references. References to any other sheet are left
+        // alone, because those still mean the sheet they name.
+        targetSheet.Internals.CellsCollection.RenameSheetInFormulas(Name, newSheetName);
         DataValidations.ForEach(dv => targetSheet.DataValidations.Add(new XLDataValidation(dv, this)));
         targetSheet.Visibility = Visibility;
         targetSheet.ColumnWidth = ColumnWidth;

@@ -555,6 +555,19 @@ internal sealed class XLCellsCollection : IWorkbookListener
 
     void IWorkbookListener.OnSheetRenamed(string oldSheetName, string newSheetName)
     {
+        RenameSheetInFormulas(oldSheetName, newSheetName);
+    }
+
+    /// <summary>
+    /// Rewrites every reference to <paramref name="oldSheetName"/> in the formulas of this collection
+    /// to <paramref name="newSheetName"/>. Used both when a sheet is renamed and when one is copied,
+    /// where the copy's references to the original must follow the copy.
+    /// </summary>
+    internal void RenameSheetInFormulas(string oldSheetName, string newSheetName)
+    {
+        if (XLHelper.SheetComparer.Equals(oldSheetName, newSheetName))
+            return;
+
         using var enumerator = FormulaSlice.GetForwardEnumerator(XLSheetRange.Full);
         while (enumerator.MoveNext())
         {

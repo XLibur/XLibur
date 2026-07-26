@@ -927,7 +927,7 @@ public class XLWorksheetTests
         await Assert.That(copy.VerticalAxis.MinAxisType).IsEqualTo(original.VerticalAxis.MinAxisType);
     }
 
-    [Test, Skip("Sheet references are not updated when a worksheet is copied (ClosedXML/ClosedXML#836).")]
+    [Test]
     public async Task CopyWorksheetChangesAbsoluteReferencesInFormulae()
     {
         using var wb1 = new XLWorkbook();
@@ -940,6 +940,73 @@ public class XLWorksheetTests
         var ws2 = ws1.CopyTo(wb2, "Copy");
 
         await Assert.That(ws2.Cell("A2").FormulaA1).IsEqualTo("Copy!A1 * 3");
+    }
+
+    [Test]
+    public async Task CopyWorksheetWithinWorkbookChangesReferencesOnlyInTheCopy()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Original");
+
+        ws.Cell("A1").Value = 100;
+        ws.Cell("A2").FormulaA1 = "Original!A1 * 3";
+
+        var copy = ws.CopyTo("Copy");
+
+        await Assert.That(copy.Cell("A2").FormulaA1).IsEqualTo("Copy!A1 * 3");
+        await Assert.That(copy.Cell("A2").Value).IsEqualTo(300);
+
+        // The original keeps pointing at itself.
+        await Assert.That(ws.Cell("A2").FormulaA1).IsEqualTo("Original!A1 * 3");
+    }
+
+    [Test]
+    public async Task CopyWorksheetKeepsReferencesToOtherSheets()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Original");
+        var other = wb.Worksheets.Add("Other");
+        other.Cell("A1").Value = 7;
+
+        ws.Cell("A1").Value = 100;
+        ws.Cell("A2").FormulaA1 = "Original!A1 + Other!A1";
+
+        var copy = ws.CopyTo("Copy");
+
+        // Only the self-reference follows the copy, 'Other' still means the sheet it names.
+        await Assert.That(copy.Cell("A2").FormulaA1).IsEqualTo("Copy!A1 + Other!A1");
+        await Assert.That(copy.Cell("A2").Value).IsEqualTo(107);
+    }
+
+    [Test]
+    public async Task CopyWorksheetChangesQuotedSheetReferences()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("My Sheet");
+
+        ws.Cell("A1").Value = 100;
+        ws.Cell("A2").FormulaA1 = "'My Sheet'!A1 * 3";
+
+        var copy = ws.CopyTo("The Copy");
+
+        await Assert.That(copy.Cell("A2").FormulaA1).IsEqualTo("'The Copy'!A1 * 3");
+        await Assert.That(copy.Cell("A2").Value).IsEqualTo(300);
+    }
+
+    [Test]
+    public async Task CopyWorksheetToSameNameInOtherWorkbookKeepsReferences()
+    {
+        using var wb1 = new XLWorkbook();
+        using var wb2 = new XLWorkbook();
+        var ws1 = wb1.Worksheets.Add("Original");
+
+        ws1.Cell("A1").Value = 100;
+        ws1.Cell("A2").FormulaA1 = "Original!A1 * 3";
+
+        var ws2 = ws1.CopyTo(wb2);
+
+        await Assert.That(ws2.Name).IsEqualTo("Original");
+        await Assert.That(ws2.Cell("A2").FormulaA1).IsEqualTo("Original!A1 * 3");
     }
 
     [Test]
