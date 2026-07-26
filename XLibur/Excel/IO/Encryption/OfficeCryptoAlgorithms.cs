@@ -50,25 +50,6 @@ internal static class OfficeCryptoAlgorithms
         _ => throw new XLEncryptionException($"Unsupported hash algorithm '{algorithm}'."),
     };
 
-    /// <summary>
-    /// Computes an HMAC over a stream without materialising it, for the data integrity check over an
-    /// encrypted package that may be far larger than a comfortable byte array.
-    /// </summary>
-    public static byte[] HmacStream(this OfficeHashAlgorithm algorithm, byte[] key, System.IO.Stream stream)
-    {
-        using var hmac = CreateHmac(algorithm, key);
-        return hmac.ComputeHash(stream);
-    }
-
-    private static HMAC CreateHmac(OfficeHashAlgorithm algorithm, byte[] key) => algorithm switch
-    {
-        OfficeHashAlgorithm.Sha1 => new HMACSHA1(key),
-        OfficeHashAlgorithm.Sha256 => new HMACSHA256(key),
-        OfficeHashAlgorithm.Sha384 => new HMACSHA384(key),
-        OfficeHashAlgorithm.Sha512 => new HMACSHA512(key),
-        _ => throw new XLEncryptionException($"Unsupported hash algorithm '{algorithm}'."),
-    };
-
     public static OfficeHashAlgorithm ParseHashAlgorithm(string? name) => name switch
     {
         "SHA1" or "SHA-1" => OfficeHashAlgorithm.Sha1,
