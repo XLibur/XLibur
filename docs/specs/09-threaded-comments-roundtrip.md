@@ -3,7 +3,7 @@
 **Area:** Feature + Compatibility
 **Effort:** M (1–2 weeks)
 **Dependencies:** None.
-**Status:** Proposed
+**Status:** Implemented — see [Implementation notes](#implementation-notes)
 
 ## Summary
 
@@ -89,3 +89,44 @@ New `ThreadedCommentPartWriter` + `PersonPartWriter` in `XLibur/Excel/IO/`:
 
 - Excel is picky about person/thread GUID and relationship wiring — the manual open-in-Excel check is the gate, automate reopen-via-XLibur for CI.
 - The legacy-fallback pairing is underdocumented; copy exactly what current Excel emits (author a sample file, inspect parts, mirror it).
+
+## Implementation notes
+
+All six tasks landed. Full suite green (6650 tests, 0 failures) across net8.0/net9.0/net10.0.
+
+### Manual verification (acceptance criteria 2 and 3)
+
+Four workbooks were generated and opened in Excel 365 — all four opened cleanly with no repair
+prompt: threads created from scratch via the API (including replies from multiple authors, a
+resolved thread and a non-ASCII display name, across two sheets); an Excel-authored file
+round-tripped unchanged; the same file with its root text edited and a reply appended; and a sheet
+mixing a legacy note with a thread.
+
+### Deviations from the design above
+
+1. **Storage: misc slice, not a side dictionary.** The design recommended a per-worksheet side
+   dictionary keyed by `Point`. It went into `XLMiscSliceContent` instead, because row/column
+   shifting, `Swap` and area-clear all iterate `XLCellsCollection._slices` — a side dictionary would
+   have needed every one of those reimplemented by hand. The slice is sparse, so the cost is 8 bytes
+   per cell that already holds misc content. All 20 editing-semantics tests passed on the first run
+   with no additional code, which is the payoff.
+2. **The fallback note omits `shapeId`.** Excel writes `shapeId="0"` on a thread's fallback comment,
+   but the schema the OpenXML SDK validates against does not declare the attribute, so every
+   `validate: true` save failed with it present. It is optional and Excel ignores it; the pairing is
+   carried by the `tc={rootId}` author and the `xr:uid`.
+3. **`done` is written only on the thread root**, matching Excel, so `Resolved` reads through from a
+   reply but throws when set on one.
+
+### Correction to the current-state analysis
+
+Two claims in this spec turned out not to match the code:
+
+- **Threaded comment parts were already surviving a round trip.** Saving reopens the original package
+  and rewrites only modelled parts, so `threadedComments/` and `persons/` were carried through — but
+  `comments1.xml` was regenerated without the `tc={rootId}` author or `xr:uid`, so the result was an
+  *inconsistent pairing* rather than a clean downgrade to a note.
+- **Chartsheets are not dropped on save.** `WorkbookPartWriter` reorders modelled sheets around the
+  unsupported ones rather than rewriting the `<sheets>` list, so both the `<sheet>` entry and the
+  part survive. Task 6 therefore found no pass-through work to do; its deliverable is
+  `docs/round-trip-fidelity.md` plus regression tests locking the behaviour in. Slicers remain
+  unverified — the repo has no fixture containing `xl/slicers/`.
