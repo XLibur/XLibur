@@ -423,6 +423,13 @@ internal static class OpenXmlHelper
     private static XLColor ConvertToXLiburColor(IColorTypeAdapter openXMLColor)
     {
         XLColor? retVal = null;
+
+        // auto="1" is the explicit spelling of the automatic color (ECMA-376 CT_Color/@auto). It is
+        // checked first because it wins over any other attribute present on the same element, and
+        // the fall-through at the end resolves to the same color for an element that states nothing.
+        if (openXMLColor.Auto?.Value == true)
+            return XLColor.Automatic;
+
         if (openXMLColor.Rgb?.Value is not null)
         {
             var thisColor = ColorStringParser.ParseFromArgb(openXMLColor.Rgb.Value.AsSpan());
@@ -436,7 +443,8 @@ internal static class OpenXmlHelper
                 ? XLColor.FromTheme((XLThemeColor)openXMLColor.Theme.Value, openXMLColor.Tint.Value)
                 : XLColor.FromTheme((XLThemeColor)openXMLColor.Theme.Value);
         }
-        return retVal ?? XLColor.NoColor;
+        // An element stating none of rgb/indexed/theme is automatic, same as auto="1".
+        return retVal ?? XLColor.Automatic;
     }
 
     /// <summary>
@@ -455,6 +463,10 @@ internal static class OpenXmlHelper
 
         switch (xlColor.ColorType)
         {
+            case XLColorType.Automatic:
+                openXMLColor.Auto = true;
+                break;
+
             case XLColorType.Color:
                 openXMLColor.Rgb = xlColor.Color.ToHex();
                 break;

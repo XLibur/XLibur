@@ -28,6 +28,10 @@ internal sealed class XLCFColorScaleConverter : IXLCFConverter
             var color = new Color();
             switch (xlColor.ColorType)
             {
+                case XLColorType.Automatic:
+                    color.Auto = true;
+                    break;
+
                 case XLColorType.Color:
                     color.Rgb = xlColor.Color.ToHex();
                     break;

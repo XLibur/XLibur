@@ -100,7 +100,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         ShowWhiteSpace = workbook.ShowWhiteSpace;
         ShowZeros = workbook.ShowZeros;
         RightToLeft = workbook.RightToLeft;
-        TabColor = XLColor.NoColor;
+        TabColor = XLColor.Automatic;
         _selectedRanges = new XLRanges();
 
         Author = workbook.Author;

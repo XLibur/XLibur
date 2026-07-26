@@ -7,8 +7,33 @@ namespace XLibur.Excel;
 
 public enum XLColorType
 {
+    /// <summary>
+    /// Automatic color, serialized as <c>&lt;color auto="1"/&gt;</c> or by omitting the color
+    /// element entirely. The actual color is chosen by the application from the context it is used
+    /// in - generally black for a font or border, white for a fill. <see cref="XLColor.Color"/> has
+    /// no bearing on the resolved color and must not be read.
+    /// <para>
+    /// Deliberately the first member so that a default <c>XLColorKey</c> is automatic rather than a
+    /// fully transparent RGB black, which is not a color any Excel file means to express.
+    /// </para>
+    /// </summary>
+    Automatic,
+
+    /// <summary>
+    /// An RGB color, stored directly in <see cref="XLColor.Color"/>. It can carry an alpha
+    /// component, but Excel ignores it and treats every color as fully opaque.
+    /// </summary>
     Color,
+
+    /// <summary>
+    /// A theme color. The value depends on the workbook theme.
+    /// </summary>
     Theme,
+
+    /// <summary>
+    /// An indexed color into the legacy palette, from the days when a fixed palette was the norm.
+    /// The only semi-current uses are the system foreground (64) and background (65) colors.
+    /// </summary>
     Indexed
 }
 
@@ -34,17 +59,23 @@ public sealed partial class XLColor : IEquatable<XLColor>
 
     public XLColorType ColorType => Key.ColorType;
 
+    /// <summary>
+    /// Whether this is the <see cref="XLColorType.Automatic"/> color, i.e. no color was stated and
+    /// the application resolves one from context.
+    /// </summary>
+    public bool IsAutomatic => ColorType == XLColorType.Automatic;
+
     public Color Color
     {
         get
         {
-            if (ColorType == XLColorType.Theme)
-                throw new InvalidOperationException("Cannot convert theme color to Color.");
+            if (ColorType == XLColorType.Color)
+                return Key.Color;
 
             if (ColorType == XLColorType.Indexed)
                 return IndexedColors[Indexed].Color;
 
-            return Key.Color;
+            throw new InvalidOperationException($"Cannot convert {ColorType} color to Color.");
         }
     }
 
@@ -52,13 +83,10 @@ public sealed partial class XLColor : IEquatable<XLColor>
     {
         get
         {
-            if (ColorType == XLColorType.Theme)
-                throw new InvalidOperationException("Cannot convert theme color to indexed color.");
-
             if (ColorType == XLColorType.Indexed)
                 return Key.Indexed;
 
-            throw new InvalidOperationException("Cannot convert Color to indexed color.");
+            throw new InvalidOperationException($"Cannot convert {ColorType} color to indexed color.");
         }
     }
 
@@ -69,10 +97,7 @@ public sealed partial class XLColor : IEquatable<XLColor>
             if (ColorType == XLColorType.Theme)
                 return Key.ThemeColor;
 
-            if (ColorType == XLColorType.Indexed)
-                throw new InvalidOperationException("Cannot convert indexed color to theme color.");
-
-            throw new InvalidOperationException("Cannot convert Color to theme color.");
+            throw new InvalidOperationException($"Cannot convert {ColorType} color to theme color.");
         }
     }
 
@@ -114,6 +139,9 @@ public sealed partial class XLColor : IEquatable<XLColor>
 
     public override string ToString()
     {
+        if (ColorType == XLColorType.Automatic)
+            return "Automatic";
+
         if (ColorType == XLColorType.Color)
             return Color.ToHex();
 

@@ -17,7 +17,7 @@ public class XLFillTests
     [Test]
     public void BackgroundNoColorSetsPatternNone()
     {
-        var fill = new XLFill { BackgroundColor = XLColor.NoColor };
+        var fill = new XLFill { BackgroundColor = XLColor.Automatic };
         Assert.AreEqual(XLFillPatternValues.None, fill.PatternType);
     }
 
@@ -45,7 +45,7 @@ public class XLFillTests
         var fill1 = new XLFill { BackgroundColor = XLColor.ElectricUltramarine, PatternType = XLFillPatternValues.None };
         var fill2 = new XLFill { BackgroundColor = XLColor.EtonBlue, PatternType = XLFillPatternValues.None };
         var fill3 = new XLFill { BackgroundColor = XLColor.FromIndex(64) };
-        var fill4 = new XLFill { BackgroundColor = XLColor.NoColor };
+        var fill4 = new XLFill { BackgroundColor = XLColor.Automatic };
 
         Assert.IsTrue(fill1.Equals(fill2));
         Assert.IsTrue(fill1.Equals(fill3));

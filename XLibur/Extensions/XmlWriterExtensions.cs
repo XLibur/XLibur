@@ -181,6 +181,13 @@ internal static class XmlWriterExtensions
             w.WriteStartElement(elName, OpenXmlConst.Main2006SsNs);
             switch (xlColor.ColorType)
             {
+                case XLColorType.Automatic:
+                    // Only reached where the element itself is required. Callers that may omit the
+                    // element - a font colour, say - should skip writing it at all for an automatic
+                    // colour rather than emit auto="1".
+                    w.WriteAttribute("auto", 1);
+                    break;
+
                 case XLColorType.Color:
                     w.WriteAttributeString("rgb", xlColor.Color.ToHex());
                     break;

@@ -22,6 +22,10 @@ internal sealed class XLCFDataBarConverter : IXLCFConverter
         var color = new Color();
         switch (cf.Colors[1].ColorType)
         {
+            case XLColorType.Automatic:
+                color.Auto = true;
+                break;
+
             case XLColorType.Color:
                 color.Rgb = cf.Colors[1].Color.ToHex();
                 break;

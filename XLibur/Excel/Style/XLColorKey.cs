@@ -15,6 +15,13 @@ internal readonly struct XLColorKey : IEquatable<XLColorKey>
 
     public double ThemeTint { get; init; }
 
+    /// <summary>
+    /// True when no color was stated and the application resolves one from context. Unlike
+    /// <see cref="XLColor.IsTransparent"/> this does not match indexed color 64, which is an
+    /// explicitly written value and must round-trip as such.
+    /// </summary>
+    public bool IsAutomatic => ColorType == XLColorType.Automatic;
+
     public override int GetHashCode()
     {
         unchecked
@@ -23,6 +30,10 @@ internal readonly struct XLColorKey : IEquatable<XLColorKey>
 
             switch (ColorType)
             {
+                case XLColorType.Automatic:
+                    // Carries no value of its own - the color type alone identifies it.
+                    break;
+
                 case XLColorType.Indexed:
                     hash = (hash * 397) ^ Indexed;
                     break;
@@ -50,6 +61,10 @@ internal readonly struct XLColorKey : IEquatable<XLColorKey>
         if (ColorType != other.ColorType) return false;
         switch (ColorType)
         {
+            case XLColorType.Automatic:
+                // Carries no value of its own - matching color types is the whole comparison.
+                return true;
+
             case XLColorType.Color:
                 return Color.ToArgb() == other.Color.ToArgb();
             case XLColorType.Theme:
@@ -79,6 +94,7 @@ internal readonly struct XLColorKey : IEquatable<XLColorKey>
     {
         return ColorType switch
         {
+            XLColorType.Automatic => "Automatic",
             XLColorType.Color => Color.ToString(),
             XLColorType.Theme => $"{ThemeColor} ({ThemeTint})",
             XLColorType.Indexed => $"Indexed: {Indexed}",

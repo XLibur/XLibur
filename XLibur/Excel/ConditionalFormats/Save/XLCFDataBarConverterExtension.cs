@@ -90,6 +90,10 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
     {
         switch (color.ColorType)
         {
+            case XLColorType.Automatic:
+                target.Auto = true;
+                break;
+
             case XLColorType.Color:
                 target.Rgb = color.Color.ToHex();
                 break;

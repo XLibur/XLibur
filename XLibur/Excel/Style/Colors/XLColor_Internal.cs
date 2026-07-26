@@ -10,6 +10,11 @@ public sealed partial class XLColor
     {
     }
 
+    /// <summary>
+    /// The automatic color. <see cref="XLColorType.Automatic"/> is the first enum member, so a
+    /// default <see cref="XLColorKey"/> already describes itself as automatic - no sentinel value
+    /// smuggled into an RGB component.
+    /// </summary>
     private XLColor() : this(new XLColorKey())
     {
         HasValue = false;

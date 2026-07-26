@@ -259,16 +259,30 @@ public sealed partial class XLColor
     }
 
     /// <summary>
-    /// True when the key is the <see cref="NoColor"/> sentinel, i.e. no color was ever set.
-    /// Unlike <see cref="IsTransparent"/> this does not match indexed color 64, which is an
+    /// True when no color was ever set, i.e. the key is <see cref="Automatic"/>. Unlike
+    /// <see cref="IsTransparent"/> this does not match indexed color 64, which is an
     /// explicitly written value and must round-trip as such.
     /// </summary>
     internal static bool IsUnset(in XLColorKey colorKey)
     {
-        return colorKey == NoColor.Key;
+        return colorKey.IsAutomatic;
     }
 
-    public static XLColor NoColor { get; } = new();
+    /// <summary>
+    /// The automatic color: the application picks the actual color from the context it is used in,
+    /// generally black for a font or border and white for a fill. This is what Excel's font color
+    /// picker calls "Automatic", and what <c>&lt;color auto="1"/&gt;</c> - or the absence of a color
+    /// element - means in a file.
+    /// </summary>
+    public static XLColor Automatic { get; } = new();
+
+    /// <summary>
+    /// An alias for <see cref="Automatic"/>. Some Excel color pickers (sheet tab color, fill
+    /// background) label the same value "No Color" rather than "Automatic"; that is only a GUI
+    /// convention, the stored value is the automatic color.
+    /// </summary>
+    [Obsolete($"Use {nameof(Automatic)} instead. NoColor is the label some Excel pickers use for the same value.")]
+    public static XLColor NoColor => Automatic;
 
     public static XLColor AliceBlue => FromColor(Color.AliceBlue);
 

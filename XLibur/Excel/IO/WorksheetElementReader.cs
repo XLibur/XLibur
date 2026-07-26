@@ -549,11 +549,11 @@ internal static class WorksheetElementReader
                 return bgColor.ToXLiburColor();
             if (patternFill?.ForegroundColor is { } fgColor)
                 return fgColor.ToXLiburColor();
-            return XLColor.NoColor;
+            return XLColor.Automatic;
         }
 
         var fontColor = dxf.Font?.Color;
-        return fontColor is not null ? fontColor.ToXLiburColor() : XLColor.NoColor;
+        return fontColor is not null ? fontColor.ToXLiburColor() : XLColor.Automatic;
     }
 
     internal static void LoadAutoFilterSort(AutoFilter af, XLWorksheet ws, XLAutoFilter autoFilter)

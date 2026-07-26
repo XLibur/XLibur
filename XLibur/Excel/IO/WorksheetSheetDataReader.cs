@@ -770,7 +770,7 @@ internal static class WorksheetSheetDataReader
     /// </summary>
     private static XLFont ColorlessFont(IXLFontBase cellFont, ref XLFont? cached)
     {
-        return cached ??= new XLFont(XLFont.GenerateKey(cellFont) with { FontColor = XLColor.NoColor.Key });
+        return cached ??= new XLFont(XLFont.GenerateKey(cellFont) with { FontColor = XLColor.Automatic.Key });
     }
 
     /// <summary>

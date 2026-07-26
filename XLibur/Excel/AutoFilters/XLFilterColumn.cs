@@ -154,7 +154,7 @@ internal sealed class XLFilterColumn : IXLFilterColumn, IXLFilteredColumn, IEnum
     /// </summary>
     public double DynamicValue { get; set; } = double.NaN;
 
-    public XLColor FilterColor { get; set; } = XLColor.NoColor;
+    public XLColor FilterColor { get; set; } = XLColor.Automatic;
 
     public bool FilterByCellColor { get; set; }
 

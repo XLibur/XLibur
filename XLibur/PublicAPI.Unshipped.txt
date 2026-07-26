@@ -211,3 +211,12 @@ XLibur.Excel.IXLChart.Left.get -> int
 XLibur.Excel.IXLChart.Left.set -> void
 XLibur.Excel.IXLChart.Top.get -> int
 XLibur.Excel.IXLChart.Top.set -> void
+*REMOVED*XLibur.Excel.XLColorType.Color = 0 -> XLibur.Excel.XLColorType
+*REMOVED*XLibur.Excel.XLColorType.Theme = 1 -> XLibur.Excel.XLColorType
+*REMOVED*XLibur.Excel.XLColorType.Indexed = 2 -> XLibur.Excel.XLColorType
+XLibur.Excel.XLColorType.Automatic = 0 -> XLibur.Excel.XLColorType
+XLibur.Excel.XLColorType.Color = 1 -> XLibur.Excel.XLColorType
+XLibur.Excel.XLColorType.Theme = 2 -> XLibur.Excel.XLColorType
+XLibur.Excel.XLColorType.Indexed = 3 -> XLibur.Excel.XLColorType
+XLibur.Excel.XLColor.IsAutomatic.get -> bool
+static XLibur.Excel.XLColor.Automatic.get -> XLibur.Excel.XLColor!
