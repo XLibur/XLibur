@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
-using NUnit.Framework;
 using XLibur.Excel;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Styles;
 
@@ -13,49 +13,46 @@ namespace XLibur.Tests.Excel.Styles;
 /// picker. The application resolves the actual color from the context it is used in, so it must not
 /// be pinned to a concrete value on save.
 /// </summary>
-[TestFixture]
 public class XLColorAutomaticTests
 {
     [Test]
-    public void Automatic_IsTheFirstColorType()
+    public async Task Automatic_IsTheFirstColorType()
     {
         // Deliberately ordinal 0 so a default XLColorKey describes itself as automatic instead of
         // masquerading as a fully transparent RGB black.
-        Assert.That((int)XLColorType.Automatic, Is.Zero);
+        await Assert.That((int)XLColorType.Automatic).IsEqualTo(0);
     }
 
     [Test]
-    public void Automatic_AndNoColor_AreTheSameValue()
+    public async Task Automatic_AndNoColor_AreTheSameValue()
     {
-        Assert.Multiple(() =>
+        using (Assert.Multiple())
         {
 #pragma warning disable CS0618 // NoColor is deprecated; this test exists to pin the alias.
-            Assert.That(XLColor.NoColor, Is.SameAs(XLColor.Automatic),
-                "NoColor is only the GUI label some Excel pickers use for the automatic color.");
+            await Assert.That(XLColor.NoColor).IsSameReferenceAs(XLColor.Automatic).Because("NoColor is only the GUI label some Excel pickers use for the automatic color.");
 #pragma warning restore CS0618
-            Assert.That(XLColor.Automatic.ColorType, Is.EqualTo(XLColorType.Automatic));
-            Assert.That(XLColor.Automatic.IsAutomatic, Is.True);
-            Assert.That(XLColor.FromArgb(0, 0, 0).IsAutomatic, Is.False,
-                "An explicit black is a stated color, not an automatic one.");
-        });
+            await Assert.That(XLColor.Automatic.ColorType).IsEqualTo(XLColorType.Automatic);
+            await Assert.That(XLColor.Automatic.IsAutomatic).IsTrue();
+            await Assert.That(XLColor.FromArgb(0, 0, 0).IsAutomatic).IsFalse().Because("An explicit black is a stated color, not an automatic one.");
+        }
     }
 
     [Test]
-    public void Automatic_ToString_IsNotAnRgbValue()
+    public async Task Automatic_ToString_IsNotAnRgbValue()
     {
-        Assert.That(XLColor.Automatic.ToString(), Is.EqualTo("Automatic"));
+        await Assert.That(XLColor.Automatic.ToString()).IsEqualTo("Automatic");
     }
 
     [Test]
-    public void Automatic_HasNoRgbValueToRead()
+    public async Task Automatic_HasNoRgbValueToRead()
     {
         // The automatic color carries no color value; reading one would silently hand back the
         // meaningless all-zero ARGB that used to leak into saved files.
-        Assert.Throws<InvalidOperationException>(() => _ = XLColor.Automatic.Color);
+        await Assert.That(() => _ = XLColor.Automatic.Color).Throws<InvalidOperationException>();
     }
 
     [Test]
-    public void AutomaticFontColor_IsWrittenAsAutoRatherThanTransparentBlack()
+    public async Task AutomaticFontColor_IsWrittenAsAutoRatherThanTransparentBlack()
     {
         // The automatic color has no rgb/indexed/theme, so it used to fall through to the RGB branch
         // on save and be written as rgb="00000000" - a fully transparent black that no Excel file
@@ -73,17 +70,15 @@ public class XLColorAutomaticTests
         // which would make a whole-document match pass for the wrong reason.
         var fonts = FontsBlock(ReadPart(ms.ToArray(), "xl/styles.xml"));
 
-        Assert.Multiple(() =>
+        using (Assert.Multiple())
         {
-            Assert.That(fonts, Does.Not.Contain("00000000"),
-                $"The automatic font color was written as a transparent black.\n\n{fonts}");
-            Assert.That(fonts, Does.Contain("auto=\"1\""),
-                $"The automatic font color was not written.\n\n{fonts}");
-        });
+            await Assert.That(fonts).DoesNotContain("00000000").Because($"The automatic font color was written as a transparent black.\n\n{fonts}");
+            await Assert.That(fonts).Contains("auto=\"1\"").Because($"The automatic font color was not written.\n\n{fonts}");
+        }
     }
 
     [Test]
-    public void AutomaticFontColor_SurvivesARoundTrip()
+    public async Task AutomaticFontColor_SurvivesARoundTrip()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -97,33 +92,32 @@ public class XLColorAutomaticTests
         ms.Position = 0;
         using var reloaded = new XLWorkbook(ms);
 
-        Assert.That(reloaded.Worksheets.First().Cell("A1").Style.Font.FontColor.IsAutomatic, Is.True,
-            "The automatic font color did not survive a save/load round-trip.");
+        await Assert.That(reloaded.Worksheets.First().Cell("A1").Style.Font.FontColor.IsAutomatic).IsTrue().Because("The automatic font color did not survive a save/load round-trip.");
     }
 
-    private static string FontsBlock(string stylesXml)
+    private static async Task<string> FontsBlock(string stylesXml)
     {
         var match = System.Text.RegularExpressions.Regex.Match(stylesXml, "<x:fonts.*?</x:fonts>",
             System.Text.RegularExpressions.RegexOptions.Singleline);
-        Assert.That(match.Success, Is.True, $"No <fonts> block in styles.xml.\n\n{stylesXml}");
+        await Assert.That(match.Success).IsTrue().Because($"No <fonts> block in styles.xml.\n\n{stylesXml}");
         return match.Value;
     }
 
     [Test]
-    public void FontWithAutoColor_LoadsAsAutomatic()
+    public async Task FontWithAutoColor_LoadsAsAutomatic()
     {
         var input = BuildWorkbook();
 
         using var wb = new XLWorkbook(new MemoryStream(input));
         var color = wb.Worksheets.First().Cell("A1").Style.Font.FontColor;
 
-        Assert.That(color.IsAutomatic, Is.True, "auto=\"1\" should load as the automatic color.");
+        await Assert.That(color.IsAutomatic).IsTrue().Because("auto=\"1\" should load as the automatic color.");
     }
 
     private static string ReadPart(byte[] xlsx, string partPath)
     {
         using var zip = new ZipArchive(new MemoryStream(xlsx), ZipArchiveMode.Read);
-        var entry = zip.GetEntry(partPath) ?? throw new AssertionException($"Missing part: {partPath}");
+        var entry = zip.GetEntry(partPath) ?? throw new InvalidOperationException($"Missing part: {partPath}");
         using var r = new StreamReader(entry.Open());
         return r.ReadToEnd();
     }
