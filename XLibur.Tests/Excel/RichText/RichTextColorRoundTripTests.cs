@@ -122,35 +122,78 @@ public class RichTextColorRoundTripTests
         });
     }
 
+    // A run with no rPr states no formatting of its own; per ECMA-376 CT_RElt it inherits the cell
+    // font. The cell font here is explicitly green, so nothing about this run is ambiguous - the
+    // only faithful output is a run with no rPr at all.
+    private const string GreenFontStyles =
+        """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+          <fonts count="1"><font><sz val="11"/><color rgb="FF00FF00"/><name val="Calibri"/></font></fonts>
+          <fills count="1"><fill><patternFill patternType="none"/></fill></fills>
+          <borders count="1"><border/></borders>
+          <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+          <cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>
+        </styleSheet>
+        """;
+
+    private const string BareRunSharedStrings =
+        """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="1" uniqueCount="1">
+          <si><r><t>Inherited</t></r></si>
+        </sst>
+        """;
+
     [Test]
-    public void RunWithoutRunProperties_StillInheritsAnExplicitCellFontColor()
+    public void RunWithoutRunProperties_IsWrittenBackWithoutRunProperties()
     {
-        // A run with no rPr inherits the cell font (ECMA-376 CT_RElt). Dropping the color is only
-        // correct when it is the ambiguous black default - an explicitly styled cell font must
-        // still be materialized onto the run.
-        const string greenFontStyles =
-            """
-            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-            <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-              <fonts count="1"><font><sz val="11"/><color rgb="FF00FF00"/><name val="Calibri"/></font></fonts>
-              <fills count="1"><fill><patternFill patternType="none"/></fill></fills>
-              <borders count="1"><border/></borders>
-              <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-              <cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>
-            </styleSheet>
-            """;
-        const string bareRun =
-            """
-            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-            <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="1" uniqueCount="1">
-              <si><r><t>Inherited</t></r></si>
-            </sst>
-            """;
+        var savedSharedStrings = RoundTripSharedStrings(BareRunSharedStrings, siCount: 1, styles: GreenFontStyles);
 
-        var savedSharedStrings = RoundTripSharedStrings(bareRun, siCount: 1, styles: greenFontStyles);
+        Assert.Multiple(() =>
+        {
+            Assert.That(savedSharedStrings, Does.Not.Contain("rPr"),
+                $"A run that had no rPr must not gain one.\n\n{savedSharedStrings}");
+            Assert.That(savedSharedStrings, Does.Contain("Inherited"), "Run text was lost.");
+        });
+    }
 
-        Assert.That(savedSharedStrings, Does.Contain("FF00FF00").IgnoreCase,
-            $"A run without rPr must keep the cell font's explicit color.\n\n{savedSharedStrings}");
+    [Test]
+    public void RunWithoutRunProperties_StillReadsTheInheritedCellFont()
+    {
+        // Writing no rPr must not mean the run has no font in the object model - reading and
+        // measuring it still needs the inherited cell font.
+        var input = BuildWorkbook(BareRunSharedStrings, siCount: 1, styles: GreenFontStyles);
+
+        using var wb = new XLWorkbook(new MemoryStream(input));
+        var run = wb.Worksheets.First().Cell("A1").GetRichText().First();
+
+        Assert.That(run.FontColor, Is.EqualTo(XLColor.FromArgb(0xFF, 0x00, 0xFF, 0x00)));
+    }
+
+    [Test]
+    public void EditingRunWithoutRunProperties_MakesTheFormattingItsOwn()
+    {
+        // Once the caller sets a font property the run does state its own formatting, so it must be
+        // written back with a full rPr - otherwise the edit would be silently dropped.
+        var input = BuildWorkbook(BareRunSharedStrings, siCount: 1, styles: GreenFontStyles);
+
+        using var outMs = new MemoryStream();
+        using (var wb = new XLWorkbook(new MemoryStream(input)))
+        {
+            wb.Worksheets.First().Cell("A1").GetRichText().First().SetBold();
+            wb.SaveAs(outMs);
+        }
+
+        var savedSharedStrings = ReadPart(outMs.ToArray(), "xl/sharedStrings.xml");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(savedSharedStrings, Does.Contain("rPr"), "An edited run must state its formatting.");
+            Assert.That(savedSharedStrings, Does.Contain("<x:b "), "Bold was lost.");
+            Assert.That(savedSharedStrings, Does.Contain("FF00FF00").IgnoreCase,
+                $"The inherited color must be materialized once the run owns its formatting.\n\n{savedSharedStrings}");
+        });
     }
 
     [Test]

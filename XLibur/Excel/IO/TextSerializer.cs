@@ -27,7 +27,7 @@ internal static class TextSerializer
                 var text = richText.GetRunText(textRun);
                 if (text.Length > 0)
                 {
-                    WriteRun(w, text, textRun.Font);
+                    WriteRun(w, text, textRun.Font, textRun.InheritsCellFont);
                 }
             }
         }
@@ -73,12 +73,26 @@ internal static class TextSerializer
     internal static void WriteRun(XmlWriter w, XLImmutableRichText richText, XLImmutableRichText.RichTextRun run)
     {
         var runText = richText.GetRunText(run);
-        WriteRun(w, runText, run.Font);
+        WriteRun(w, runText, run.Font, run.InheritsCellFont);
     }
 
-    private static void WriteRun(XmlWriter w, string text, XLFontValue font)
+    /// <summary>
+    /// Writes one <c>&lt;r&gt;</c>. When <paramref name="inheritsCellFont"/> the run stated no
+    /// formatting of its own, so no <c>&lt;rPr&gt;</c> is written and the run keeps inheriting the
+    /// cell font on the way back in - writing the inherited font out would turn it into formatting
+    /// the source never asked for.
+    /// </summary>
+    private static void WriteRun(XmlWriter w, string text, XLFontValue font, bool inheritsCellFont)
     {
         w.WriteStartElement("r", Main2006SsNs);
+
+        if (inheritsCellFont)
+        {
+            WriteText(w, text);
+            w.WriteEndElement(); // r
+            return;
+        }
+
         w.WriteStartElement("rPr", Main2006SsNs);
 
         if (font.Bold)

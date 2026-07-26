@@ -153,17 +153,26 @@ internal sealed class XLImmutableRichText : IEquatable<XLImmutableRichText>
         internal readonly int Length;
         internal readonly XLFontValue Font;
 
+        /// <summary>
+        /// The run states no formatting of its own: <see cref="Font"/> is the cell font it inherits,
+        /// not something the source asked for, so it must be written back without an
+        /// <c>&lt;rPr&gt;</c>. See <see cref="XLRichString.InheritsContainerFont"/>.
+        /// </summary>
+        internal readonly bool InheritsCellFont;
+
         internal RichTextRun(XLRichString richString, int startIndex, int length)
         {
             var key = XLFont.GenerateKey(richString);
             Font = XLFontValue.FromKey(ref key);
             StartIndex = startIndex;
             Length = length;
+            InheritsCellFont = richString.InheritsContainerFont;
         }
 
         public bool Equals(RichTextRun other)
         {
-            return StartIndex == other.StartIndex && Length == other.Length && Font.Equals(other.Font);
+            return StartIndex == other.StartIndex && Length == other.Length && Font.Equals(other.Font)
+                   && InheritsCellFont == other.InheritsCellFont;
         }
 
         public override bool Equals(object? obj)
@@ -178,6 +187,7 @@ internal sealed class XLImmutableRichText : IEquatable<XLImmutableRichText>
                 var hashCode = StartIndex;
                 hashCode = (hashCode * 397) ^ Length;
                 hashCode = (hashCode * 397) ^ Font.GetHashCode();
+                hashCode = (hashCode * 397) ^ (InheritsCellFont ? 1 : 0);
                 return hashCode;
             }
         }

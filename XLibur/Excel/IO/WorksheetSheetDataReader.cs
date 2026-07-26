@@ -732,15 +732,11 @@ internal static class WorksheetSheetDataReader
 
             if (runProperties == null)
             {
-                // No rPr at all: the run inherits the cell font (ECMA-376 CT_RElt), so materializing
-                // that font is faithful - except for a color the cell font only carries because it
-                // was itself defaulted to black, which would invent a color the source never had.
-                var cellFont = xlCell.Style.Font;
-                var font = cellFont.FontColor.Key == XLFontValue.Default.Key.FontColor
-                    ? ColorlessFont(cellFont, ref colorlessCellFont)
-                    : cellFont;
-
-                xlCell.GetRichText().AddText(text, font);
+                // No rPr at all: the run inherits the cell font (ECMA-376 CT_RElt). Record it as
+                // stating no formatting of its own, so the save writes it back without an rPr rather
+                // than materializing the inherited font - including a color the cell font may only
+                // carry because it was itself defaulted to black.
+                xlCell.GetRichText().AddInheritedText(text);
             }
             else
             {

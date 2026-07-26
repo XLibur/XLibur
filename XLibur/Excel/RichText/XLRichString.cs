@@ -11,13 +11,25 @@ internal sealed class XLRichString : IXLRichString
     private readonly Action _onChange;
     private string _text;
 
-    public XLRichString(string text, IXLFontBase font, IXLWithRichString withRichString, Action? onChange)
+    public XLRichString(string text, IXLFontBase font, IXLWithRichString withRichString, Action? onChange,
+        bool inheritsContainerFont = false)
     {
         _text = text;
         _font = new XLFont(font);
         _withRichString = withRichString;
         _onChange = onChange ?? (() => { });
+        InheritsContainerFont = inheritsContainerFont;
     }
+
+    /// <summary>
+    /// The run carries no formatting of its own and merely reflects the font of its container - it
+    /// was read from an <c>&lt;r&gt;</c> with no <c>&lt;rPr&gt;</c>, which per ECMA-376 CT_RElt
+    /// inherits the cell font. <see cref="_font"/> holds that inherited font so the run can still be
+    /// read and measured, but nothing about it was ever stated by the source, so it must be written
+    /// back without an <c>&lt;rPr&gt;</c>. Any change to the font makes the formatting the run's own
+    /// and clears this.
+    /// </summary>
+    internal bool InheritsContainerFont { get; private set; }
 
     public string Text
     {
@@ -27,6 +39,16 @@ internal sealed class XLRichString : IXLRichString
             _text = value;
             _onChange();
         }
+    }
+
+    /// <summary>
+    /// Signals a change to this run's font. Distinct from a text-only change, because setting any
+    /// font property means the run now states its own formatting.
+    /// </summary>
+    private void OnFontChanged()
+    {
+        InheritsContainerFont = false;
+        _onChange();
     }
 
     public IXLRichString AddText(string text)
@@ -45,7 +67,7 @@ internal sealed class XLRichString : IXLRichString
         set
         {
             _font.Bold = value;
-            _onChange();
+            OnFontChanged();
         }
     }
 
@@ -55,7 +77,7 @@ internal sealed class XLRichString : IXLRichString
         set
         {
             _font.Italic = value;
-            _onChange();
+            OnFontChanged();
         }
     }
 
@@ -65,7 +87,7 @@ internal sealed class XLRichString : IXLRichString
         set
         {
             _font.Underline = value;
-            _onChange();
+            OnFontChanged();
         }
     }
 
@@ -75,7 +97,7 @@ internal sealed class XLRichString : IXLRichString
         set
         {
             _font.Strikethrough = value;
-            _onChange();
+            OnFontChanged();
         }
     }
 
@@ -85,7 +107,7 @@ internal sealed class XLRichString : IXLRichString
         set
         {
             _font.VerticalAlignment = value;
-            _onChange();
+            OnFontChanged();
         }
     }
 
@@ -95,7 +117,7 @@ internal sealed class XLRichString : IXLRichString
         set
         {
             _font.Shadow = value;
-            _onChange();
+            OnFontChanged();
         }
     }
 
@@ -105,7 +127,7 @@ internal sealed class XLRichString : IXLRichString
         set
         {
             _font.FontSize = value;
-            _onChange();
+            OnFontChanged();
         }
     }
 
@@ -115,7 +137,7 @@ internal sealed class XLRichString : IXLRichString
         set
         {
             _font.FontColor = value;
-            _onChange();
+            OnFontChanged();
         }
     }
 
@@ -125,7 +147,7 @@ internal sealed class XLRichString : IXLRichString
         set
         {
             _font.FontName = value;
-            _onChange();
+            OnFontChanged();
         }
     }
 
@@ -135,7 +157,7 @@ internal sealed class XLRichString : IXLRichString
         set
         {
             _font.FontFamilyNumbering = value;
-            _onChange();
+            OnFontChanged();
         }
     }
 
@@ -145,7 +167,7 @@ internal sealed class XLRichString : IXLRichString
         set
         {
             _font.FontCharSet = value;
-            _onChange();
+            OnFontChanged();
         }
     }
 
@@ -155,7 +177,7 @@ internal sealed class XLRichString : IXLRichString
         set
         {
             _font.FontScheme = value;
-            _onChange();
+            OnFontChanged();
         }
     }
 

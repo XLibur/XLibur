@@ -28,7 +28,8 @@ internal sealed class XLRichText : XLFormattedText<IXLRichText>, IXLRichText
         foreach (var originalRun in original.Runs)
         {
             var runText = original.GetRunText(originalRun);
-            AddText(new XLRichString(runText, new XLFont(originalRun.Font.Key), this, OnContentChanged));
+            AddText(new XLRichString(runText, new XLFont(originalRun.Font.Key), this, OnContentChanged,
+                originalRun.InheritsCellFont));
         }
 
         var hasPhonetics = original.PhoneticRuns.Any() || original.PhoneticsProperties.HasValue;
