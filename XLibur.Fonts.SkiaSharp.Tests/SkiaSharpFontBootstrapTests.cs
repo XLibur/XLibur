@@ -1,40 +1,38 @@
 ﻿using System.Collections.Generic;
 using System.IO;
-using NUnit.Framework;
 using XLibur.Excel;
 using XLibur.Graphics;
+using System.Threading.Tasks;
 
 namespace XLibur.Fonts.SkiaSharp.Tests;
-
 /// <summary>
 /// Tests for auto-registration of the SkiaSharp engine as the default font engine.
 /// These mutate the process-wide <see cref="LoadOptions.DefaultFontEngine"/>, so the fixture is
 /// non-parallelizable and each test restores the previous value.
 /// </summary>
-[TestFixture]
-[NonParallelizable]
+[NotInParallel]
 public class SkiaSharpFontBootstrapTests
 {
     private IXLFontEngine? _previousDefault;
 
-    [SetUp]
+    [Before(HookType.Test)]
     public void SaveDefault() => _previousDefault = LoadOptions.DefaultFontEngine;
 
-    [TearDown]
+    [After(HookType.Test)]
     public void RestoreDefault() => LoadOptions.DefaultFontEngine = _previousDefault;
 
     [Test]
-    public void CreateDefault_ReturnsWorkingEngine()
+    public async Task CreateDefault_ReturnsWorkingEngine()
     {
         var engine = SkiaSharpFontBootstrap.CreateDefault();
 
         var width = engine.GetTextWidth("Hello", new DummyFont("Arial", 11), 96);
 
-        Assert.That(width, Is.GreaterThan(0));
+        await Assert.That(width).IsGreaterThan(0);
     }
 
     [Test]
-    public void CreateDefault_UnknownFont_FallsBackAndMeasures()
+    public async Task CreateDefault_UnknownFont_FallsBackAndMeasures()
     {
         var engine = SkiaSharpFontBootstrap.CreateDefault();
 
@@ -42,32 +40,32 @@ public class SkiaSharpFontBootstrapTests
         // (this is the path exercised on headless Linux/serverless with no system fonts).
         var width = engine.GetTextWidth("Hello", new DummyFont("TotallyFakeNonExistentFont12345", 11), 96);
 
-        Assert.That(width, Is.GreaterThan(0));
+        await Assert.That(width).IsGreaterThan(0);
     }
 
     [Test]
-    public void Register_SetsDefaultFontEngineWhenNoneRegistered()
+    public async Task Register_SetsDefaultFontEngineWhenNoneRegistered()
     {
         LoadOptions.DefaultFontEngine = null;
 
         SkiaSharpFontBootstrap.Register();
 
-        Assert.That(LoadOptions.DefaultFontEngine, Is.Not.Null);
+        await Assert.That(LoadOptions.DefaultFontEngine).IsNotNull();
     }
 
     [Test]
-    public void Register_DoesNotOverrideAnExistingDefault()
+    public async Task Register_DoesNotOverrideAnExistingDefault()
     {
         var existing = SkiaSharpFontBootstrap.CreateDefault();
         LoadOptions.DefaultFontEngine = existing;
 
         SkiaSharpFontBootstrap.Register();
 
-        Assert.That(LoadOptions.DefaultFontEngine, Is.SameAs(existing));
+        await Assert.That(LoadOptions.DefaultFontEngine).IsSameReferenceAs(existing);
     }
 
     [Test]
-    public void ZeroConfig_Workbook_AutoRegistersDefaultEngineViaProbe()
+    public async Task ZeroConfig_Workbook_AutoRegistersDefaultEngineViaProbe()
     {
         // No explicit font engine anywhere: the core probe must reflectively discover this package.
         LoadOptions.DefaultFontEngine = null;
@@ -77,11 +75,11 @@ public class SkiaSharpFontBootstrapTests
         ws.Cell(1, 1).Value = "Hello World";
         ws.Column(1).AdjustToContents();
 
-        Assert.That(ws.Column(1).Width, Is.GreaterThan(0));
+        await Assert.That(ws.Column(1).Width).IsGreaterThan(0);
     }
 
     [Test]
-    public void ZeroConfig_InsertDataSample_JustWorks()
+    public async Task ZeroConfig_InsertDataSample_JustWorks()
     {
         // Verbatim README-style sample: no font engine configured anywhere.
         LoadOptions.DefaultFontEngine = null;
@@ -110,13 +108,14 @@ public class SkiaSharpFontBootstrapTests
         using var reloaded = new XLWorkbook(ms);
         var sheet = reloaded.Worksheet("Cool cheesecake stuff");
 
-        Assert.Multiple(() =>
+        using (Assert.Multiple())
         {
-            Assert.That(sheet.Cell("B3").GetString(), Is.EqualTo("Cheesecake"));
-            Assert.That(sheet.Cell("C3").GetValue<int>(), Is.EqualTo(14));
-            Assert.That(sheet.Cell("B5").GetString(), Is.EqualTo("Muffin"));
-            Assert.That(sheet.Cell("C5").GetValue<int>(), Is.EqualTo(10));
-        });
+            await Assert.That(sheet.Cell("B3").GetString()).IsEqualTo("Cheesecake");
+            await Assert.That(sheet.Cell("C3").GetValue<int>()).IsEqualTo(14);
+            await Assert.That(sheet.Cell("B5").GetString()).IsEqualTo("Muffin");
+            await Assert.That(sheet.Cell("C5").GetValue<int>()).IsEqualTo(10);
+
+        }
     }
 
     private sealed class DummyFont : IXLFontBase

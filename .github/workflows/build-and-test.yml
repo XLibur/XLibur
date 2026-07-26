@@ -96,13 +96,17 @@ jobs:
           --framework net10.0
           --logger "trx;LogFileName=fonts-test-results.trx"
 
+      # Migrated to TUnit, which runs on Microsoft.Testing.Platform rather than VSTest.
+      # `dotnet test` cannot drive MTP projects until the repo-wide global.json opt-in is
+      # flipped, which has to wait until XLibur.Tests is migrated too, so run it directly.
       - name: Test Fonts.SkiaSharp
         run: >
-          dotnet test XLibur.Fonts.SkiaSharp.Tests/XLibur.Fonts.SkiaSharp.Tests.csproj
+          dotnet run --project XLibur.Fonts.SkiaSharp.Tests/XLibur.Fonts.SkiaSharp.Tests.csproj
           --configuration Release
           --no-build
           --framework net10.0
-          --logger "trx;LogFileName=fonts-skiasharp-test-results.trx"
+          --
+          --report-trx --report-trx-filename fonts-skiasharp-test-results.trx
 
       - name: End SonarCloud analysis
         if: env.SONAR_TOKEN != ''
@@ -118,4 +122,4 @@ jobs:
           path: |
             XLibur.Tests/TestResults/*.trx
             XLibur.Fonts.SixLabors.Tests/TestResults/*.trx
-            XLibur.Fonts.SkiaSharp.Tests/TestResults/*.trx
+            XLibur.Fonts.SkiaSharp.Tests/bin/Release/net10.0/TestResults/*.trx
