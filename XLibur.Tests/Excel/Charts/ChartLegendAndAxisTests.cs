@@ -136,6 +136,67 @@ public class ChartLegendAndAxisTests
         Assert.That(ChartSpaceOf(withoutLegend).Descendants<C.Legend>(), Is.Empty);
     }
 
+    [Test]
+    public void PositioningALegendThatIsNotThereDoesNotCreateOne()
+    {
+        using var original = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = AddDataSheet(wb);
+            AddChart(ws, XLChartType.ColumnClustered)
+                .Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            using var saved = SaveValidated(wb);
+            saved.CopyTo(original);
+        }
+
+        using var edited = new MemoryStream();
+        original.Position = 0;
+        using (var wb = new XLWorkbook(original))
+        {
+            // Position is documented as ignored while the legend is hidden, and a new chart gets no
+            // legend from it either. A loaded one must behave the same way.
+            var chart = wb.Worksheet("Data").Charts.First();
+            Assert.That(chart.Legend.Visible, Is.False);
+            chart.Legend.Position = XLLegendPosition.Bottom;
+            chart.Legend.Overlay = true;
+            wb.SaveAs(edited, validate: true);
+        }
+
+        Assert.That(ChartSpaceOf(edited).Descendants<C.Legend>(), Is.Empty);
+    }
+
+    [Test]
+    public void ShowingALegendOnALoadedChartStillHonoursThePositionSetWithIt()
+    {
+        using var original = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = AddDataSheet(wb);
+            AddChart(ws, XLChartType.ColumnClustered)
+                .Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            using var saved = SaveValidated(wb);
+            saved.CopyTo(original);
+        }
+
+        using var edited = new MemoryStream();
+        original.Position = 0;
+        using (var wb = new XLWorkbook(original))
+        {
+            var legend = wb.Worksheet("Data").Charts.First().Legend;
+            legend.Visible = true;
+            legend.Position = XLLegendPosition.Left;
+            wb.SaveAs(edited, validate: true);
+        }
+
+        edited.Position = 0;
+        using (var wb = new XLWorkbook(edited))
+        {
+            var legend = wb.Worksheet("Data").Charts.First().Legend;
+            Assert.That(legend.Visible, Is.True);
+            Assert.That(legend.Position, Is.EqualTo(XLLegendPosition.Left));
+        }
+    }
+
     // ── Axes ────────────────────────────────────────────────────────────
 
     [Test]
