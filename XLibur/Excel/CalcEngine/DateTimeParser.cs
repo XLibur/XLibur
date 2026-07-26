@@ -24,7 +24,7 @@ internal static class DateTimeParser
 
     private static readonly string[] TimeOfDayPatterns = ["h:m tt", "h:m t", "h:m:s tt", "h:m:s t"];
 
-    private static readonly string[] TimePatterns = ["h:m tt", "H:m", "h:m"];
+    private static readonly string[] TimePatterns = ["h:m:s tt", "h:m tt", "H:m:s", "H:m", "h:m:s", "h:m"];
 
     public static bool TryParseCultureDate(string s, CultureInfo culture, out DateTime date)
     {

@@ -298,7 +298,9 @@ internal readonly struct ScalarValue
 
         // Date with names of months. The names of months differ across cultures.
         // Format 15 'd-mmm-yy'
-        if (DateTime.TryParseExact(text, ["d-MMM-yyyy", "d-MMMM-yyyy", "d-MMM-yy", "d-MMMM-yy"], culture, dateStyle, out var dateFormat15))
+        if (DateTime.TryParseExact(text, ["d-MMM-yyyy", "d-MMMM-yyyy", "d-MMM-yy", "d-MMMM-yy",
+                                          "d-MMM-yyyy h:m", "d-MMMM-yyyy h:m", "d-MMM-yy h:m", "d-MMMM-yy h:m",
+                                          "d-MMM-yyyy h:m:s", "d-MMMM-yyyy h:m:s", "d-MMM-yy h:m:s", "d-MMMM-yy h:m:s"], culture, dateStyle, out var dateFormat15))
         {
             return ToSerialDate(dateFormat15, out serialDateTime);
         }
