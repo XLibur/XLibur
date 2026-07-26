@@ -43,6 +43,19 @@ public class ChartRoundTripPreservationTests
                     <a:effectLst/>
                   </c:spPr>
                   <c:invertIfNegative val="0"/>
+                  <c:dLbls>
+                    <c:dLbl><c:idx val="0"/><c:delete val="1"/></c:dLbl>
+                    <c:numFmt formatCode="#,##0" sourceLinked="0"/>
+                    <c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>
+                    <c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="en-US"/></a:p></c:txPr>
+                    <c:dLblPos val="outEnd"/>
+                    <c:showLegendKey val="0"/>
+                    <c:showVal val="1"/>
+                    <c:showCatName val="0"/>
+                    <c:showSerName val="0"/>
+                    <c:showPercent val="0"/>
+                    <c:showBubbleSize val="0"/>
+                  </c:dLbls>
                   <c:trendline><c:trendlineType val="linear"/></c:trendline>
                   <c:cat><c:strRef><c:f>Data!$A$1:$A$2</c:f></c:strRef></c:cat>
                   <c:val><c:numRef><c:f>Data!$B$1:$B$2</c:f></c:numRef></c:val>
@@ -156,6 +169,11 @@ public class ChartRoundTripPreservationTests
         Assert.That(bar.LineColor, Is.EqualTo(XLColor.FromHtml("#203864")));
         Assert.That(bar.LineWidthPt, Is.EqualTo(1.5));
         Assert.That(bar.UseSecondaryAxis, Is.False);
+
+        Assert.That(bar.DataLabels.ShowValue, Is.True);
+        Assert.That(bar.DataLabels.ShowCategoryName, Is.False);
+        Assert.That(bar.DataLabels.NumberFormat, Is.EqualTo("#,##0"));
+        Assert.That(bar.DataLabels.Position, Is.EqualTo(XLDataLabelPosition.OutsideEnd));
 
         var line = chart.SecondarySeries.Single();
         Assert.That(line.Name, Is.EqualTo("Price"), "The name is a literal c:v.");
@@ -277,6 +295,85 @@ public class ChartRoundTripPreservationTests
         {
             Assert.That(wb.Worksheet("Data").Charts.First().Series.Single().FillColor, Is.Null);
         }
+    }
+
+    [Test]
+    public void EditingDataLabelsKeepsTheirTextAndPerPointOverrides()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart();
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            var labels = wb.Worksheet("Data").Charts.First().Series.Single().DataLabels;
+            labels.ShowCategoryName = true;
+            labels.Position = XLDataLabelPosition.InsideEnd;
+            wb.SaveAs(saved, validate: true);
+        }
+
+        var xml = ReadChartXml(saved);
+
+        Assert.That(xml, Does.Contain("val=\"inEnd\""));
+        Assert.That(xml, Does.Not.Contain("val=\"outEnd\""));
+        Assert.That(xml, Does.Contain("<c:showCatName val=\"1\""));
+        Assert.That(xml, Does.Contain("<c:showVal val=\"1\""), "A flag nobody touched keeps its value.");
+
+        // Label formatting XLibur does not model, and the hidden first point, are still there.
+        Assert.That(xml, Does.Contain("<c:txPr>"));
+        Assert.That(xml, Does.Contain("sz=\"900\""));
+        Assert.That(xml, Does.Contain("<c:dLbl>"));
+        Assert.That(xml, Does.Contain("formatCode=\"#,##0\""), "The number format was not touched either.");
+    }
+
+    [Test]
+    public void DataLabelsCanBeAddedToASeriesThatHadNone()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart();
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            // The line series in the fixture carries no c:dLbls at all.
+            var labels = wb.Worksheet("Data").Charts.First().SecondarySeries.Single().DataLabels;
+            labels.ShowValue = true;
+            labels.Position = XLDataLabelPosition.Above;
+            wb.SaveAs(saved, validate: true);
+        }
+
+        saved.Position = 0;
+        using (var wb = new XLWorkbook(saved))
+        {
+            var labels = wb.Worksheet("Data").Charts.First().SecondarySeries.Single().DataLabels;
+            Assert.That(labels.ShowValue, Is.True);
+            Assert.That(labels.Position, Is.EqualTo(XLDataLabelPosition.Above));
+        }
+    }
+
+    [Test]
+    public void TurningLabelsOnClearsAnExistingDeleteFlag()
+    {
+        // Excel writes <c:dLbls><c:delete val="1"/></c:dLbls> for a series whose labels are switched
+        // off. A c:delete left in place overrides every show flag next to it.
+        var start = ExcelShapedChartXml.IndexOf("<c:dLbls>", StringComparison.Ordinal);
+        var end = ExcelShapedChartXml.IndexOf("</c:dLbls>", StringComparison.Ordinal) + "</c:dLbls>".Length;
+        var chartXml = ExcelShapedChartXml[..start]
+                       + "<c:dLbls><c:delete val=\"1\"/></c:dLbls>"
+                       + ExcelShapedChartXml[end..];
+
+        using var original = CreateWorkbookWithExcelShapedChart(chartXml);
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            wb.Worksheet("Data").Charts.First().Series.Single().DataLabels.ShowValue = true;
+            wb.SaveAs(saved, validate: true);
+        }
+
+        var xml = ReadChartXml(saved);
+        var labels = xml[xml.IndexOf("<c:dLbls>", StringComparison.Ordinal)..
+                         xml.IndexOf("</c:dLbls>", StringComparison.Ordinal)];
+        Assert.That(labels, Does.Contain("<c:showVal val=\"1\""));
+        Assert.That(labels, Does.Not.Contain("<c:delete"));
     }
 
     [Test]

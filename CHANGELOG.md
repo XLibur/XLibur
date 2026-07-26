@@ -8,7 +8,9 @@
 
 - **Secondary value axis per series**: `IXLChartSeries.UseSecondaryAxis` plots a series against a value axis on the right, so a percentage can share a chart with values in the thousands. It applies to series of the primary chart type as well as to a combo chart's `SecondarySeries`.
 
-- **Charts loaded from a file can be restyled**: setting the series formatting on a loaded chart now writes back on save. Only the properties actually assigned are patched into the existing chart part, so trendlines, error bars, gradient fills, per-point colours, data labels and the chart's style/colour parts are all preserved — and a chart nobody edited is left byte for byte as it was.
+- **Chart data labels**: `IXLDataLabels` on both `IXLChart.DataLabels` (chart-wide) and `IXLChartSeries.DataLabels` (per series, overriding the chart's), with `ShowValue`, `ShowCategoryName`, `ShowSeriesName`, `ShowPercentage`, `NumberFormat` and `Position`. `Position` is validated against the chart type — Excel refuses to open a file that uses a position it does not offer for that type, so the setter throws with the allowed values listed rather than producing a workbook Excel has to repair.
+
+- **Charts loaded from a file can be restyled**: setting the series formatting or data labels on a loaded chart now writes back on save. Only the properties actually assigned are patched into the existing chart part, so trendlines, error bars, gradient fills, per-point colours and label overrides, label fonts and the chart's style/colour parts are all preserved — and a chart nobody edited is left byte for byte as it was.
 
 ### Fixed
 

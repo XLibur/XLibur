@@ -110,4 +110,10 @@ public interface IXLChartSeries
     /// <see cref="IXLCharts.Add(XLChartType)"/> instead.
     /// </exception>
     bool UseSecondaryAxis { get; set; }
+
+    /// <summary>
+    /// Gets the data labels of this series. Anything left untouched here falls back to the
+    /// chart-wide <see cref="IXLChart.DataLabels"/>.
+    /// </summary>
+    IXLDataLabels DataLabels { get; }
 }

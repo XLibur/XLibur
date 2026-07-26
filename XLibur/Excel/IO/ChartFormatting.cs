@@ -89,6 +89,84 @@ internal static class ChartFormatting
         return smoothByChartType ? new C.Smooth { Val = true } : null;
     }
 
+    /// <summary>
+    /// Builds the <c>c:dLbls</c> element, or returns <c>null</c> when nothing has been asked for.
+    /// </summary>
+    /// <param name="labels">The labels to write.</param>
+    /// <param name="chartType">
+    /// The chart type the labels belong to, which decides whether an explicit position can be
+    /// written at all.
+    /// </param>
+    internal static C.DataLabels? BuildDataLabels(XLChartDataLabels labels, XLChartType chartType)
+    {
+        if (labels.AssignedFormat == XLDataLabelsFormat.None)
+            return null;
+
+        var dataLabels = new C.DataLabels();
+
+        if (labels.NumberFormat != null)
+        {
+            dataLabels.Append(new C.NumberingFormat
+            {
+                FormatCode = labels.NumberFormat,
+                SourceLinked = false
+            });
+        }
+
+        var position = MapLabelPosition(labels.EffectivePosition(chartType));
+        if (position != null)
+            dataLabels.Append(new C.DataLabelPosition { Val = position });
+
+        // Excel writes all of the show flags whenever it writes c:dLbls at all, and reads a missing
+        // one as "inherit", which makes the result depend on the chart style. Writing them out keeps
+        // what the caller asked for unambiguous.
+        dataLabels.Append(new C.ShowLegendKey { Val = false });
+        dataLabels.Append(new C.ShowValue { Val = labels.ShowValue });
+        dataLabels.Append(new C.ShowCategoryName { Val = labels.ShowCategoryName });
+        dataLabels.Append(new C.ShowSeriesName { Val = labels.ShowSeriesName });
+        dataLabels.Append(new C.ShowPercent { Val = labels.ShowPercentage });
+        dataLabels.Append(new C.ShowBubbleSize { Val = false });
+
+        return dataLabels;
+    }
+
+    /// <summary>
+    /// Reads a <c>c:dLbls</c> element into the model, seeding the values without marking them as
+    /// assigned by the caller.
+    /// </summary>
+    internal static void ReadDataLabels(C.DataLabels? dataLabels, XLChartDataLabels labels)
+    {
+        if (dataLabels == null)
+            return;
+
+        labels.SeedLoaded(
+            showValue: dataLabels.Elements<C.ShowValue>().FirstOrDefault()?.Val?.Value ?? false,
+            showCategoryName: dataLabels.Elements<C.ShowCategoryName>().FirstOrDefault()?.Val?.Value ?? false,
+            showSeriesName: dataLabels.Elements<C.ShowSeriesName>().FirstOrDefault()?.Val?.Value ?? false,
+            showPercentage: dataLabels.Elements<C.ShowPercent>().FirstOrDefault()?.Val?.Value ?? false,
+            numberFormat: dataLabels.Elements<C.NumberingFormat>().FirstOrDefault()?.FormatCode?.Value,
+            position: ReadLabelPosition(dataLabels));
+    }
+
+    private static XLDataLabelPosition ReadLabelPosition(C.DataLabels dataLabels)
+    {
+        var position = dataLabels.Elements<C.DataLabelPosition>().FirstOrDefault()?.Val;
+        if (position == null)
+            return XLDataLabelPosition.Auto;
+
+        var value = position.Value;
+        if (value == C.DataLabelPositionValues.Center) return XLDataLabelPosition.Center;
+        if (value == C.DataLabelPositionValues.InsideEnd) return XLDataLabelPosition.InsideEnd;
+        if (value == C.DataLabelPositionValues.InsideBase) return XLDataLabelPosition.InsideBase;
+        if (value == C.DataLabelPositionValues.OutsideEnd) return XLDataLabelPosition.OutsideEnd;
+        if (value == C.DataLabelPositionValues.BestFit) return XLDataLabelPosition.BestFit;
+        if (value == C.DataLabelPositionValues.Left) return XLDataLabelPosition.Left;
+        if (value == C.DataLabelPositionValues.Right) return XLDataLabelPosition.Right;
+        if (value == C.DataLabelPositionValues.Top) return XLDataLabelPosition.Above;
+        if (value == C.DataLabelPositionValues.Bottom) return XLDataLabelPosition.Below;
+        return XLDataLabelPosition.Auto;
+    }
+
     private static A.SolidFill? BuildSolidFill(XLColor? color) =>
         color == null || !color.HasValue ? null : new A.SolidFill(BuildColor(color));
 
@@ -209,12 +287,12 @@ internal static class ChartFormatting
     /// The kind of chart group the series belongs to. Only some series types accept a marker or a
     /// smoothing flag, so the kind decides which properties can be written at all.
     /// </param>
+    /// <param name="chartType">The chart type of the group, which constrains the data label position.</param>
     internal static void PatchSeriesFormat(
-        OpenXmlCompositeElement seriesElement, XLChartSeries series, XLChartGroupKind kind)
+        OpenXmlCompositeElement seriesElement, XLChartSeries series, XLChartGroupKind kind,
+        XLChartType chartType)
     {
         var assigned = series.AssignedFormat;
-        if (assigned == XLChartSeriesFormat.None)
-            return;
 
         if ((assigned & (XLChartSeriesFormat.Fill | XLChartSeriesFormat.Line | XLChartSeriesFormat.LineWidth)) != 0)
             PatchShapeProperties(seriesElement, series, assigned);
@@ -226,6 +304,10 @@ internal static class ChartFormatting
 
         if ((assigned & XLChartSeriesFormat.Smooth) != 0 && SupportsSmooth(kind))
             PatchSmooth(seriesElement, series);
+
+        // Not gated on `assigned`: the labels track their own assignments.
+        if (SupportsDataLabels(kind))
+            PatchSeriesDataLabels(seriesElement, series.DataLabelsInternal, chartType);
     }
 
     /// <summary>Whether the series type of a chart group accepts a <c>c:marker</c> child.</summary>
@@ -235,6 +317,159 @@ internal static class ChartFormatting
     /// <summary>Whether the series type of a chart group accepts a <c>c:smooth</c> child.</summary>
     private static bool SupportsSmooth(XLChartGroupKind kind) => kind is XLChartGroupKind.Line
         or XLChartGroupKind.Scatter or XLChartGroupKind.Stock;
+
+    /// <summary>
+    /// Whether a chart group and its series accept a <c>c:dLbls</c> child. Only the surface types do
+    /// not: neither <c>CT_SurfaceChart</c> nor <c>CT_SurfaceSer</c> has one.
+    /// </summary>
+    internal static bool SupportsDataLabels(XLChartGroupKind kind) => kind != XLChartGroupKind.Surface;
+
+    /// <summary>
+    /// Applies the assigned data label properties onto an existing <c>c:dLbls</c> element, or adds one
+    /// when there is something to say. Individual point overrides (<c>c:dLbl</c>), label text and
+    /// shape properties, and the separator are left alone.
+    /// </summary>
+    internal static void PatchSeriesDataLabels(
+        OpenXmlCompositeElement seriesElement, XLChartDataLabels labels, XLChartType chartType) =>
+        PatchDataLabels(seriesElement, labels, chartType, groupLevel: false);
+
+    /// <summary>
+    /// Applies the chart-wide data labels onto a chart group element (<c>c:barChart</c> and friends),
+    /// where <c>c:dLbls</c> follows the last <c>c:ser</c>.
+    /// </summary>
+    internal static void PatchGroupDataLabels(
+        OpenXmlCompositeElement groupElement, XLChartDataLabels labels, XLChartType chartType) =>
+        PatchDataLabels(groupElement, labels, chartType, groupLevel: true);
+
+    private static void PatchDataLabels(
+        OpenXmlCompositeElement parent, XLChartDataLabels labels, XLChartType chartType, bool groupLevel)
+    {
+        var assigned = labels.AssignedFormat;
+        if (assigned == XLDataLabelsFormat.None)
+            return;
+
+        var dataLabels = parent.Elements<C.DataLabels>().FirstOrDefault();
+        if (dataLabels == null)
+        {
+            dataLabels = BuildDataLabels(labels, chartType)!;
+            if (groupLevel)
+                InsertAfterLastSeries(parent, dataLabels);
+            else
+                InsertOrdered(parent, dataLabels, SeriesChildOrder);
+            return;
+        }
+
+        // A c:delete of the whole label set would override every flag below it.
+        foreach (var deleted in dataLabels.Elements<C.Delete>().ToList())
+            deleted.Remove();
+
+        if ((assigned & XLDataLabelsFormat.NumberFormat) != 0)
+        {
+            foreach (var existing in dataLabels.Elements<C.NumberingFormat>().ToList())
+                existing.Remove();
+
+            if (labels.NumberFormat != null)
+            {
+                InsertOrdered(dataLabels,
+                    new C.NumberingFormat { FormatCode = labels.NumberFormat, SourceLinked = false },
+                    DataLabelsChildOrder);
+            }
+        }
+
+        if ((assigned & XLDataLabelsFormat.Position) != 0)
+        {
+            foreach (var existing in dataLabels.Elements<C.DataLabelPosition>().ToList())
+                existing.Remove();
+
+            var position = MapLabelPosition(labels.EffectivePosition(chartType));
+            if (position != null)
+                InsertOrdered(dataLabels, new C.DataLabelPosition { Val = position }, DataLabelsChildOrder);
+        }
+
+        if ((assigned & XLDataLabelsFormat.ShowValue) != 0)
+            SetLabelFlag<C.ShowValue>(dataLabels, labels.ShowValue);
+        if ((assigned & XLDataLabelsFormat.ShowCategoryName) != 0)
+            SetLabelFlag<C.ShowCategoryName>(dataLabels, labels.ShowCategoryName);
+        if ((assigned & XLDataLabelsFormat.ShowSeriesName) != 0)
+            SetLabelFlag<C.ShowSeriesName>(dataLabels, labels.ShowSeriesName);
+        if ((assigned & XLDataLabelsFormat.ShowPercentage) != 0)
+            SetLabelFlag<C.ShowPercent>(dataLabels, labels.ShowPercentage);
+    }
+
+    private static void SetLabelFlag<TFlag>(C.DataLabels dataLabels, bool value)
+        where TFlag : OpenXmlLeafElement, new()
+    {
+        var existing = dataLabels.Elements<TFlag>().FirstOrDefault();
+        if (existing != null)
+        {
+            existing.SetAttribute(new OpenXmlAttribute("val", string.Empty, value ? "1" : "0"));
+            return;
+        }
+
+        var flag = new TFlag();
+        flag.SetAttribute(new OpenXmlAttribute("val", string.Empty, value ? "1" : "0"));
+        InsertOrdered(dataLabels, flag, DataLabelsChildOrder);
+    }
+
+    /// <summary>
+    /// The schema order of the children of <c>c:ser</c> that this class writes. Only the elements it
+    /// touches need to be listed; anything else keeps its place.
+    /// </summary>
+    private static readonly Type[] SeriesChildOrder =
+    [
+        typeof(C.Index), typeof(C.Order), typeof(C.SeriesText), typeof(C.ChartShapeProperties),
+        typeof(C.Marker), typeof(C.DataLabels), typeof(C.CategoryAxisData), typeof(C.XValues),
+        typeof(C.Values), typeof(C.YValues), typeof(C.Smooth), typeof(C.ExtensionList)
+    ];
+
+    /// <summary>The schema order of the children of <c>c:dLbls</c>.</summary>
+    private static readonly Type[] DataLabelsChildOrder =
+    [
+        typeof(C.DataLabel), typeof(C.Delete), typeof(C.NumberingFormat),
+        typeof(C.ChartShapeProperties), typeof(C.TextProperties), typeof(C.DataLabelPosition),
+        typeof(C.ShowLegendKey), typeof(C.ShowValue), typeof(C.ShowCategoryName),
+        typeof(C.ShowSeriesName), typeof(C.ShowPercent), typeof(C.ShowBubbleSize),
+        typeof(C.Separator), typeof(C.ExtensionList)
+    ];
+
+    /// <summary>
+    /// Inserts <paramref name="element"/> directly after the last <c>c:ser</c> of a chart group, which
+    /// is where <c>c:dLbls</c> belongs in every group type that has one.
+    /// </summary>
+    private static void InsertAfterLastSeries(OpenXmlCompositeElement groupElement, OpenXmlElement element)
+    {
+        var lastSeries = groupElement.ChildElements.LastOrDefault(e => e.LocalName == "ser");
+        if (lastSeries != null)
+            groupElement.InsertAfter(element, lastSeries);
+        else
+            groupElement.InsertAt(element, 0);
+    }
+
+    /// <summary>
+    /// Inserts <paramref name="element"/> at the position the schema order gives it: before the first
+    /// child that must come after it, or at the end when there is none.
+    /// </summary>
+    private static void InsertOrdered(OpenXmlCompositeElement parent, OpenXmlElement element, Type[] order)
+    {
+        var rank = Array.IndexOf(order, element.GetType());
+        if (rank < 0)
+        {
+            parent.Append(element);
+            return;
+        }
+
+        foreach (var child in parent.ChildElements)
+        {
+            var childRank = Array.IndexOf(order, child.GetType());
+            if (childRank > rank)
+            {
+                parent.InsertBefore(element, child);
+                return;
+            }
+        }
+
+        parent.Append(element);
+    }
 
     private static void PatchShapeProperties(
         OpenXmlCompositeElement seriesElement, XLChartSeries series, XLChartSeriesFormat assigned)
@@ -450,6 +685,21 @@ internal static class ChartFormatting
         XLMarkerStyle.Triangle => C.MarkerStyleValues.Triangle,
         XLMarkerStyle.X => C.MarkerStyleValues.X,
         _ => throw new ArgumentOutOfRangeException(nameof(style), style, "Unknown marker style.")
+    };
+
+    private static C.DataLabelPositionValues? MapLabelPosition(XLDataLabelPosition position) => position switch
+    {
+        XLDataLabelPosition.Auto => null,
+        XLDataLabelPosition.Center => C.DataLabelPositionValues.Center,
+        XLDataLabelPosition.InsideEnd => C.DataLabelPositionValues.InsideEnd,
+        XLDataLabelPosition.InsideBase => C.DataLabelPositionValues.InsideBase,
+        XLDataLabelPosition.OutsideEnd => C.DataLabelPositionValues.OutsideEnd,
+        XLDataLabelPosition.BestFit => C.DataLabelPositionValues.BestFit,
+        XLDataLabelPosition.Left => C.DataLabelPositionValues.Left,
+        XLDataLabelPosition.Right => C.DataLabelPositionValues.Right,
+        XLDataLabelPosition.Above => C.DataLabelPositionValues.Top,
+        XLDataLabelPosition.Below => C.DataLabelPositionValues.Bottom,
+        _ => throw new ArgumentOutOfRangeException(nameof(position), position, "Unknown data label position.")
     };
 
     private static A.SchemeColorValues MapSchemeColor(XLThemeColor themeColor) => themeColor switch

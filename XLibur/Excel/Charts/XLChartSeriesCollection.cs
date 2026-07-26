@@ -7,10 +7,17 @@ internal sealed class XLChartSeriesCollection : IXLChartSeriesCollection
 {
     private readonly List<XLChartSeries> _series = [];
     private readonly XLChart _chart;
+    private readonly bool _secondary;
 
-    internal XLChartSeriesCollection(XLChart chart)
+    /// <param name="chart">The chart the series belong to.</param>
+    /// <param name="secondary">
+    /// <c>true</c> for the combo chart's secondary collection, whose series follow
+    /// <see cref="IXLChart.SecondaryChartType"/>.
+    /// </param>
+    internal XLChartSeriesCollection(XLChart chart, bool secondary = false)
     {
         _chart = chart;
+        _secondary = secondary;
     }
 
     public int Count => _series.Count;
@@ -22,7 +29,7 @@ internal sealed class XLChartSeriesCollection : IXLChartSeriesCollection
 
     public IXLChartSeries Add(string name, string valueReferences, string? categoryReferences = null)
     {
-        var series = new XLChartSeries(_chart)
+        var series = new XLChartSeries(_chart, _secondary)
         {
             Name = name,
             ValueReferences = valueReferences,

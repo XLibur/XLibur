@@ -40,9 +40,15 @@ internal sealed class XLChartSeries : IXLChartSeries
     private bool _smooth;
     private bool _useSecondaryAxis;
 
-    internal XLChartSeries(XLChart chart)
+    /// <param name="chart">The chart this series belongs to.</param>
+    /// <param name="secondary">
+    /// <c>true</c> when the series sits in the combo chart's secondary collection, which decides
+    /// which chart type's rules its data labels follow.
+    /// </param>
+    internal XLChartSeries(XLChart chart, bool secondary)
     {
         _chart = chart;
+        DataLabelsInternal = new XLChartDataLabels(chart, secondary);
     }
 
     public string Name { get; set; } = string.Empty;
@@ -121,6 +127,13 @@ internal sealed class XLChartSeries : IXLChartSeries
             _useSecondaryAxis = value;
         }
     }
+
+    public IXLDataLabels DataLabels => DataLabelsInternal;
+
+    /// <summary>
+    /// The data labels of this series, typed for internal use.
+    /// </summary>
+    internal XLChartDataLabels DataLabelsInternal { get; }
 
     /// <summary>
     /// The formatting properties that have been explicitly assigned through the public API.

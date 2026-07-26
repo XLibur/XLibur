@@ -439,8 +439,10 @@ internal static class ChartWriter
     /// whether those series hang off the secondary value axis.
     /// </summary>
     private readonly struct PlotGroup(
-        XLChartType chartType, List<XLChartSeries> series, bool secondaryAxis, uint indexOffset)
+        XLChart chart, XLChartType chartType, List<XLChartSeries> series,
+        bool secondaryAxis, uint indexOffset)
     {
+        internal XLChart Chart { get; } = chart;
         internal XLChartType ChartType { get; } = chartType;
         internal List<XLChartSeries> Series { get; } = series;
         internal bool SecondaryAxis { get; } = secondaryAxis;
@@ -480,11 +482,11 @@ internal static class ChartWriter
     private static List<PlotGroup> BuildPlotGroups(XLChart xlChart)
     {
         var groups = new List<PlotGroup>(4);
-        AddPlotGroups(groups, xlChart.ChartType, xlChart.SeriesInternal.Items, 0);
+        AddPlotGroups(groups, xlChart, xlChart.ChartType, xlChart.SeriesInternal.Items, 0);
 
         if (xlChart.SecondaryChartType.HasValue && xlChart.SecondarySeries.Count > 0)
         {
-            AddPlotGroups(groups, xlChart.SecondaryChartType.Value,
+            AddPlotGroups(groups, xlChart, xlChart.SecondaryChartType.Value,
                 xlChart.SecondarySeriesInternal.Items, (uint)xlChart.Series.Count);
         }
 
@@ -492,14 +494,15 @@ internal static class ChartWriter
     }
 
     private static void AddPlotGroups(
-        List<PlotGroup> groups, XLChartType chartType, IReadOnlyList<XLChartSeries> series, uint indexOffset)
+        List<PlotGroup> groups, XLChart xlChart, XLChartType chartType,
+        IReadOnlyList<XLChartSeries> series, uint indexOffset)
     {
         if (series.Count == 0)
             return;
 
         if (!SupportsSecondaryAxis(chartType))
         {
-            groups.Add(new PlotGroup(chartType, [.. series], secondaryAxis: false, indexOffset));
+            groups.Add(new PlotGroup(xlChart, chartType, [.. series], secondaryAxis: false, indexOffset));
             return;
         }
 
@@ -509,9 +512,9 @@ internal static class ChartWriter
             (s.UseSecondaryAxis ? secondary : primary).Add(s);
 
         if (primary.Count > 0)
-            groups.Add(new PlotGroup(chartType, primary, secondaryAxis: false, indexOffset));
+            groups.Add(new PlotGroup(xlChart, chartType, primary, secondaryAxis: false, indexOffset));
         if (secondary.Count > 0)
-            groups.Add(new PlotGroup(chartType, secondary, secondaryAxis: true, indexOffset));
+            groups.Add(new PlotGroup(xlChart, chartType, secondary, secondaryAxis: true, indexOffset));
     }
 
     /// <summary>
@@ -626,9 +629,12 @@ internal static class ChartWriter
                 SeriesText = BuildSeriesText(s)
             };
             AppendShapeProperties(series, s);
+            AppendSeriesDataLabels(series, s, xlChart.ChartType);
             AppendCatAndVal(series, s);
             chartElement.Append(series);
         }
+
+        AppendGroupDataLabels(chartElement, xlChart, xlChart.ChartType);
 
         // c:holeSize is required by CT_DoughnutChart; 75% is the size Excel gives a new doughnut.
         if (isDoughnut)
@@ -654,9 +660,11 @@ internal static class ChartWriter
                 SeriesText = BuildSeriesText(s)
             };
             AppendShapeProperties(series, s);
+            AppendSeriesDataLabels(series, s, group.ChartType);
             AppendCatAndVal(series, s);
             areaChart.Append(series);
         }
+        AppendGroupDataLabels(areaChart, group.Chart, group.ChartType);
         AppendAxisIds(areaChart, group);
         plotArea.Append(areaChart);
     }
@@ -681,12 +689,14 @@ internal static class ChartWriter
                 SeriesText = BuildSeriesText(s)
             };
             AppendShapeProperties(series, s);
+            AppendSeriesDataLabels(series, s, xlChart.ChartType);
             AppendXAndY(series, s);
             series.Append(new C.BubbleSize(
                 new C.NumberReference { Formula = new C.Formula(s.ValueReferences) }
             ));
             bubbleChart.Append(series);
         }
+        AppendGroupDataLabels(bubbleChart, xlChart, xlChart.ChartType);
         bubbleChart.Append(new C.AxisId { Val = xAxisId });
         bubbleChart.Append(new C.AxisId { Val = yAxisId });
 
@@ -730,9 +740,11 @@ internal static class ChartWriter
                 SeriesText = BuildSeriesText(s)
             };
             AppendShapeProperties(series, s);
+            AppendSeriesDataLabels(series, s, group.ChartType);
             AppendCatAndVal(series, s);
             barChart.Append(series);
         }
+        AppendGroupDataLabels(barChart, group.Chart, group.ChartType);
         AppendAxisIds(barChart, group);
         plotArea.Append(barChart);
     }
@@ -756,9 +768,11 @@ internal static class ChartWriter
                 SeriesText = BuildSeriesText(s)
             };
             AppendShapeProperties(series, s);
+            AppendSeriesDataLabels(series, s, group.ChartType);
             AppendCatAndVal(series, s);
             bar3DChart.Append(series);
         }
+        AppendGroupDataLabels(bar3DChart, group.Chart, group.ChartType);
         bar3DChart.Append(new C.Shape { Val = GetBar3DShape(group.ChartType) });
         AppendAxisIds(bar3DChart, group);
         plotArea.Append(bar3DChart);
@@ -786,10 +800,12 @@ internal static class ChartWriter
             };
             AppendShapeProperties(series, s);
             AppendMarker(series, s, markersByChartType);
+            AppendSeriesDataLabels(series, s, group.ChartType);
             AppendCatAndVal(series, s);
             AppendSmooth(series, s, smoothByChartType: false);
             lineChart.Append(series);
         }
+        AppendGroupDataLabels(lineChart, group.Chart, group.ChartType);
         AppendAxisIds(lineChart, group);
         plotArea.Append(lineChart);
     }
@@ -817,9 +833,11 @@ internal static class ChartWriter
             };
             AppendShapeProperties(series, s);
             AppendMarker(series, s, autoSymbol: false);
+            AppendSeriesDataLabels(series, s, group.ChartType);
             AppendCatAndVal(series, s);
             radarChart.Append(series);
         }
+        AppendGroupDataLabels(radarChart, group.Chart, group.ChartType);
         AppendAxisIds(radarChart, group);
         plotArea.Append(radarChart);
     }
@@ -845,11 +863,13 @@ internal static class ChartWriter
             };
             AppendShapeProperties(series, s);
             AppendMarker(series, s, autoSymbol: false);
+            AppendSeriesDataLabels(series, s, group.ChartType);
             // Scatter uses XValues + YValues, not CategoryAxisData + Values
             AppendXAndY(series, s);
             AppendSmooth(series, s, smoothByChartType);
             scatterChart.Append(series);
         }
+        AppendGroupDataLabels(scatterChart, group.Chart, group.ChartType);
         AppendAxisIds(scatterChart, group);
         plotArea.Append(scatterChart);
     }
@@ -869,9 +889,11 @@ internal static class ChartWriter
             };
             AppendShapeProperties(series, s);
             AppendMarker(series, s, autoSymbol: false);
+            AppendSeriesDataLabels(series, s, group.ChartType);
             AppendCatAndVal(series, s);
             stockChart.Append(series);
         }
+        AppendGroupDataLabels(stockChart, group.Chart, group.ChartType);
         AppendAxisIds(stockChart, group);
         plotArea.Append(stockChart);
     }
@@ -957,6 +979,30 @@ internal static class ChartWriter
         var smooth = ChartFormatting.BuildSmooth(s, smoothByChartType);
         if (smooth != null)
             series.Append(smooth);
+    }
+
+    /// <summary>
+    /// Appends the series' own <c>c:dLbls</c>. Must be called after <c>c:marker</c> and before
+    /// <c>c:cat</c>/<c>c:val</c>.
+    /// </summary>
+    private static void AppendSeriesDataLabels(
+        OpenXmlCompositeElement series, XLChartSeries s, XLChartType chartType)
+    {
+        var dataLabels = ChartFormatting.BuildDataLabels(s.DataLabelsInternal, chartType);
+        if (dataLabels != null)
+            series.Append(dataLabels);
+    }
+
+    /// <summary>
+    /// Appends the chart-wide <c>c:dLbls</c> to a chart group. Must be called after every
+    /// <c>c:ser</c> and before the group's remaining children.
+    /// </summary>
+    private static void AppendGroupDataLabels(
+        OpenXmlCompositeElement chartElement, XLChart xlChart, XLChartType chartType)
+    {
+        var dataLabels = ChartFormatting.BuildDataLabels(xlChart.DataLabelsInternal, chartType);
+        if (dataLabels != null)
+            chartElement.Append(dataLabels);
     }
 
     /// <summary>

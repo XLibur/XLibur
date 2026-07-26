@@ -16,6 +16,7 @@ public class FormattedChartExamples : IXLExample
         LineStyles(wb);
         TwoScales(wb);
         HighlightOneSeries(wb);
+        Labels(wb);
 
         wb.SaveAs(filePath);
     }
@@ -149,6 +150,45 @@ public class FormattedChartExamples : IXLExample
 
         chart.Position.SetColumn(6).SetRow(1);
         chart.SecondPosition.SetColumn(15).SetRow(19);
+    }
+
+    /// <summary>
+    /// Data labels: chart-wide defaults, a per-series override, and the percentage labels a pie chart
+    /// usually wants.
+    /// </summary>
+    private static void Labels(XLWorkbook wb)
+    {
+        var ws = wb.Worksheets.Add("Labels");
+        WriteQuarterlyData(ws);
+
+        var columns = ws.Charts.Add(XLChartType.ColumnClustered);
+        columns.SetTitle("Labelled columns");
+        columns.Series.Add("Revenue", "Labels!$B$2:$B$5", "Labels!$A$2:$A$5");
+        var cost = columns.Series.Add("Cost", "Labels!$C$2:$C$5", "Labels!$A$2:$A$5");
+
+        // Every series gets a value above its column...
+        columns.DataLabels.ShowValue = true;
+        columns.DataLabels.NumberFormat = "$ #,##0";
+        columns.DataLabels.Position = XLDataLabelPosition.OutsideEnd;
+
+        // ...except this one, which puts its label inside and names the series as well.
+        cost.DataLabels.ShowValue = true;
+        cost.DataLabels.ShowSeriesName = true;
+        cost.DataLabels.NumberFormat = "$ #,##0";
+        cost.DataLabels.Position = XLDataLabelPosition.InsideEnd;
+
+        columns.Position.SetColumn(6).SetRow(1);
+        columns.SecondPosition.SetColumn(15).SetRow(19);
+
+        var pie = ws.Charts.Add(XLChartType.Pie);
+        pie.SetTitle("Revenue share");
+        var share = pie.Series.Add("Revenue", "Labels!$B$2:$B$5", "Labels!$A$2:$A$5");
+        share.DataLabels.ShowCategoryName = true;
+        share.DataLabels.ShowPercentage = true;
+        share.DataLabels.Position = XLDataLabelPosition.BestFit;
+
+        pie.Position.SetColumn(6).SetRow(21);
+        pie.SecondPosition.SetColumn(15).SetRow(39);
     }
 
     private static void WriteQuarterlyData(IXLWorksheet ws)

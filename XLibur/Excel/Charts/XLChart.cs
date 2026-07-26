@@ -40,8 +40,9 @@ internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
         ShapeId = worksheet.Workbook.ShapeIdManager.GetNext();
         RightAngleAxes = true;
         Series = new XLChartSeriesCollection(this);
-        SecondarySeries = new XLChartSeriesCollection(this);
+        SecondarySeries = new XLChartSeriesCollection(this, secondary: true);
         SecondPosition = new XLDrawingPosition();
+        DataLabelsInternal = new XLChartDataLabels(this);
     }
 
     public string? Title { get; set; }
@@ -61,6 +62,13 @@ internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
     public XLChartType? SecondaryChartType { get; set; }
 
     public IXLChartSeriesCollection SecondarySeries { get; }
+
+    public IXLDataLabels DataLabels => DataLabelsInternal;
+
+    /// <summary>
+    /// The chart-wide data labels, typed for internal use.
+    /// </summary>
+    internal XLChartDataLabels DataLabelsInternal { get; }
 
     /// <summary>
     /// The relationship ID linking this chart to its ChartPart within the DrawingsPart.

@@ -57,18 +57,42 @@ internal static class ChartPatcher
                 target.Add((seriesElement, group.Kind));
         }
 
-        PatchSeries(xlChart.SeriesInternal, primaryElements);
-        PatchSeries(xlChart.SecondarySeriesInternal, secondaryElements);
+        PatchSeries(xlChart.SeriesInternal, primaryElements, xlChart.ChartType);
+        PatchSeries(xlChart.SecondarySeriesInternal, secondaryElements,
+            xlChart.SecondaryChartType ?? xlChart.ChartType);
+
+        PatchGroupDataLabels(groups, primaryKind.Value, xlChart);
+    }
+
+    /// <summary>
+    /// Writes the chart-wide data labels into every group of the primary chart type.
+    /// </summary>
+    private static void PatchGroupDataLabels(
+        List<XLChartGroup> groups, XLChartGroupKind primaryKind, XLChart xlChart)
+    {
+        if (xlChart.DataLabelsInternal.AssignedFormat == XLDataLabelsFormat.None)
+            return;
+
+        foreach (var group in groups)
+        {
+            if (group.Kind != primaryKind || !ChartFormatting.SupportsDataLabels(group.Kind))
+                continue;
+
+            ChartFormatting.PatchGroupDataLabels(group.Element, xlChart.DataLabelsInternal, xlChart.ChartType);
+        }
     }
 
     private static bool HasPendingChanges(XLChart xlChart) =>
-        HasPendingChanges(xlChart.SeriesInternal) || HasPendingChanges(xlChart.SecondarySeriesInternal);
+        xlChart.DataLabelsInternal.AssignedFormat != XLDataLabelsFormat.None
+        || HasPendingChanges(xlChart.SeriesInternal)
+        || HasPendingChanges(xlChart.SecondarySeriesInternal);
 
     private static bool HasPendingChanges(XLChartSeriesCollection series)
     {
         foreach (var s in series.Items)
         {
-            if (s.AssignedFormat != XLChartSeriesFormat.None)
+            if (s.AssignedFormat != XLChartSeriesFormat.None
+                || s.DataLabelsInternal.AssignedFormat != XLDataLabelsFormat.None)
                 return true;
         }
 
@@ -77,13 +101,14 @@ internal static class ChartPatcher
 
     private static void PatchSeries(
         XLChartSeriesCollection series,
-        List<(OpenXmlCompositeElement Element, XLChartGroupKind Kind)> seriesElements)
+        List<(OpenXmlCompositeElement Element, XLChartGroupKind Kind)> seriesElements,
+        XLChartType chartType)
     {
         var count = Math.Min(series.Count, seriesElements.Count);
         for (var i = 0; i < count; i++)
         {
             var (element, kind) = seriesElements[i];
-            ChartFormatting.PatchSeriesFormat(element, series.Items[i], kind);
+            ChartFormatting.PatchSeriesFormat(element, series.Items[i], kind, chartType);
         }
     }
 

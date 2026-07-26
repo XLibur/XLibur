@@ -3,7 +3,7 @@
 **Area:** Feature (flagship differentiator — upstream ClosedXML has no charts at all)
 **Effort:** L total, but splits into 4 independent PRs
 **Dependencies:** None.
-**Status:** In progress — PR 1 implemented; see [Results](#results-pr-1). PRs 2–4 open.
+**Status:** In progress — PRs 1 and 2 implemented; see [Results](#results-pr-1). PRs 3–4 open.
 
 ## Summary
 
@@ -183,10 +183,10 @@ reported a plain `Line` chart as `LineWithMarkers`.
 | 4 | Existing chart tests green; ChartEx unaffected | ✅ extended charts ignore series formatting and are not patched |
 | 5 | `XLibur.Examples` gains a formatted-chart sample | ✅ `FormattedChartExamples` — four sheets, validated by a test |
 
-### Notes for PRs 2–4
+### Notes for PRs 3–4
 
-- Build data labels, legend and axes on `ChartPatcher`/`ChartFormatting`, not on a second mechanism:
-  add flags to the assignment set and a patch step per element. The "only write what was assigned"
+- Build legend and axes on `ChartPatcher`/`ChartFormatting`, not on a second mechanism: add flags to
+  the assignment set and a patch step per element, as PR 2 did. The "only write what was assigned"
   rule is what keeps preservation free.
 - `ChartPlotAreaScanner` is the place to add group kinds the reader still ignores: `c:pie3DChart`,
   `c:line3DChart`, `c:area3DChart`, `c:surface3DChart`, `c:ofPieChart`. Today a chart built from
@@ -194,3 +194,46 @@ reported a plain `Line` chart as `LineWithMarkers`.
 - Title, chart type and series references are still write-only for new charts; editing them on a
   loaded chart does nothing. If PR 3 wants `chart.Title` to work on loaded charts, that is another
   patch step.
+
+## Results (PR 2)
+
+`IXLDataLabels` landed on both `IXLChartSeries.DataLabels` (per series, `c:dLbls` under `c:ser`) and
+`IXLChart.DataLabels` (chart-wide, `c:dLbls` on the primary chart group), with `ShowValue`,
+`ShowCategoryName`, `ShowSeriesName`, `ShowPercentage`, `NumberFormat` and `Position`. 6383 tests pass
+on net8.0 and net10.0.
+
+### It reuses PR 1's machinery, as intended
+
+`XLChartDataLabels` carries its own `XLDataLabelsFormat` assignment flags, the reader seeds values
+through `SeedLoaded` without setting them, and `ChartPatcher` patches element by element. A chart
+whose labels nobody touched is still not modified; editing one keeps the label font (`c:txPr`), the
+label fill, the per-point overrides (`c:dLbl`) and the separator. Two bugs the tests caught, both
+from bolting a second concern onto the same code path:
+
+- `ChartPatcher.HasPendingChanges` and `ChartFormatting.PatchSeriesFormat` both bailed out on
+  `XLChartSeriesFormat.None`, so a chart where *only* labels had been set was never patched. The
+  label step is now outside that gate — worth remembering when PR 3 adds legend and axis flags.
+- Data label positions are validated against the chart type, and a series in `SecondarySeries` follows
+  `SecondaryChartType`, not `ChartType`. `XLChartSeriesCollection` now knows which of the two it is
+  and passes that down, so a line series over columns takes the line positions.
+
+### Position validation
+
+The spec asked for Excel's rules for bar, line and pie, and "others accept Center". The rules landed
+as specified for those three families, but **"others" accept only `Auto`, not `Center`** — Excel does
+not merely ignore `c:dLblPos` on an area, doughnut, bubble, stock or 3D chart, it refuses to open the
+file. Accepting `Center` there would have produced workbooks Excel repairs, which is a worse outcome
+than a clear exception. The setter throws `ArgumentException` naming the chart type, the rejected
+position and the allowed set; on save an already-set position that a later chart type change
+invalidated is dropped rather than written.
+
+`c:dLblPos` is also not the only thing the file format withholds: neither `CT_SurfaceChart` nor
+`CT_SurfaceSer` has a `c:dLbls` child at all, so surface charts ignore data labels entirely.
+
+### Emission detail worth knowing
+
+When any label property is set, all six `show*` flags are written, not just the ones that were
+assigned. Excel treats a missing flag as "inherit from the chart style", which makes the rendered
+result depend on the style part; writing them out makes what the caller asked for unambiguous.
+`c:delete` — how Excel records "labels switched off" — is removed when a flag is turned on, otherwise
+it would override everything next to it.

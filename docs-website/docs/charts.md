@@ -251,12 +251,77 @@ a file** onto a secondary axis would mean regrouping the chart's XML, which XLib
 the setter throws `NotSupportedException`. The colour and marker properties have no such limit.
 :::
 
+## Data labels
+
+`DataLabels` exists on the chart and on each series. Set it on the chart to label every series the
+same way, then override the odd series that needs something different:
+
+```csharp
+var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+chart.Series.Add("Revenue", "Sales!$B$2:$B$5", "Sales!$A$2:$A$5");
+var cost = chart.Series.Add("Cost", "Sales!$C$2:$C$5", "Sales!$A$2:$A$5");
+
+chart.DataLabels.ShowValue = true;
+chart.DataLabels.NumberFormat = "$ #,##0";
+chart.DataLabels.Position = XLDataLabelPosition.OutsideEnd;
+
+cost.DataLabels.ShowValue = true;
+cost.DataLabels.ShowSeriesName = true;
+cost.DataLabels.Position = XLDataLabelPosition.InsideEnd;
+```
+
+Pie and doughnut charts usually want the share rather than the number:
+
+```csharp
+var pie = ws.Charts.Add(XLChartType.Pie);
+var share = pie.Series.Add("Revenue", "Sales!$B$2:$B$5", "Sales!$A$2:$A$5");
+share.DataLabels.ShowCategoryName = true;
+share.DataLabels.ShowPercentage = true;
+share.DataLabels.Position = XLDataLabelPosition.BestFit;
+```
+
+| Property | Meaning | Default |
+|---|---|---|
+| `ShowValue` | the point's value | `false` |
+| `ShowCategoryName` | the category axis label | `false` |
+| `ShowSeriesName` | the series name | `false` |
+| `ShowPercentage` | share of the total, pie and doughnut only | `false` |
+| `NumberFormat` | format code for the label, e.g. `"0.0%"` | from the source cells |
+| `Position` | where the label sits | `Auto` |
+
+Nothing is written to the file until one of these is set, so an untouched chart keeps Excel's own
+defaults.
+
+### Label positions
+
+What Excel offers depends on the chart type, and it refuses to open a file that uses a position it
+does not offer — so the setter throws `ArgumentException` for a combination Excel would reject, with
+the allowed values in the message:
+
+| Chart type | Positions |
+|---|---|
+| clustered bar and column | `Center`, `InsideEnd`, `InsideBase`, `OutsideEnd` |
+| stacked bar and column | `Center`, `InsideEnd`, `InsideBase` |
+| line, scatter, radar | `Center`, `Left`, `Right`, `Above`, `Below` |
+| pie | `BestFit`, `Center`, `InsideEnd`, `OutsideEnd` |
+| area, doughnut, bubble, stock, every 3D type | `Auto` only |
+
+`Auto` — the default — writes no position and lets Excel place the label. In a combo chart, a
+secondary series is judged against `SecondaryChartType`, so a line series over columns takes the line
+positions.
+
+:::note
+Surface charts and the extended (Office 2016+) types have no data label support in the file format
+and ignore these properties. If a chart type change makes an already-set position invalid, the
+position is dropped on save rather than written — the alternative is a file Excel refuses to open.
+:::
+
 ### Editing charts loaded from a file
 
 XLibur never regenerates the XML of a chart it read from a file — it patches in just the
 properties you assign. Everything it does not model stays exactly as Excel wrote it: trendlines,
-error bars, gradient and picture fills, per-point colours, data labels, the chart's style and
-colour parts.
+error bars, gradient and picture fills, per-point colours and label overrides, label fonts, the
+chart's style and colour parts.
 
 ```csharp
 using var workbook = new XLWorkbook("Report.xlsx");
@@ -368,8 +433,8 @@ chart.Title = null;               // remove the title
 
 ## What is not covered
 
-The chart API is deliberately narrow: type, title, series, series formatting, and placement. Axis
-titles and scaling, legend placement, gridlines, data labels, and trend lines are not exposed. If
+The chart API is deliberately narrow: type, title, series, series formatting, data labels, and
+placement. Axis titles and scaling, legend placement, gridlines, and trend lines are not exposed. If
 you need that level of control, the usual approach is to build a template workbook in Excel with
 the chart formatted exactly as you want it, then use XLibur to write the source data the chart
 already points at:

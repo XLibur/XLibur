@@ -465,7 +465,7 @@ public class ChartSeriesFormattingTests
         // back and that what it wrote is schema-valid.
         using var wb = new XLWorkbook(path);
         using var ms = SaveValidated(wb);
-        Assert.That(wb.Worksheets.Count, Is.EqualTo(4));
+        Assert.That(wb.Worksheets.Count, Is.EqualTo(5));
     }
 
     [Test]

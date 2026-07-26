@@ -132,3 +132,29 @@ XLibur.Excel.XLMarkerStyle.Square = 7 -> XLibur.Excel.XLMarkerStyle
 XLibur.Excel.XLMarkerStyle.Star = 8 -> XLibur.Excel.XLMarkerStyle
 XLibur.Excel.XLMarkerStyle.Triangle = 9 -> XLibur.Excel.XLMarkerStyle
 XLibur.Excel.XLMarkerStyle.X = 10 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.IXLChart.DataLabels.get -> XLibur.Excel.IXLDataLabels!
+XLibur.Excel.IXLChartSeries.DataLabels.get -> XLibur.Excel.IXLDataLabels!
+XLibur.Excel.IXLDataLabels
+XLibur.Excel.IXLDataLabels.NumberFormat.get -> string?
+XLibur.Excel.IXLDataLabels.NumberFormat.set -> void
+XLibur.Excel.IXLDataLabels.Position.get -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.IXLDataLabels.Position.set -> void
+XLibur.Excel.IXLDataLabels.ShowCategoryName.get -> bool
+XLibur.Excel.IXLDataLabels.ShowCategoryName.set -> void
+XLibur.Excel.IXLDataLabels.ShowPercentage.get -> bool
+XLibur.Excel.IXLDataLabels.ShowPercentage.set -> void
+XLibur.Excel.IXLDataLabels.ShowSeriesName.get -> bool
+XLibur.Excel.IXLDataLabels.ShowSeriesName.set -> void
+XLibur.Excel.IXLDataLabels.ShowValue.get -> bool
+XLibur.Excel.IXLDataLabels.ShowValue.set -> void
+XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.Auto = 0 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.Center = 1 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.InsideEnd = 2 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.InsideBase = 3 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.OutsideEnd = 4 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.BestFit = 5 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.Left = 6 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.Right = 7 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.Above = 8 -> XLibur.Excel.XLDataLabelPosition
+XLibur.Excel.XLDataLabelPosition.Below = 9 -> XLibur.Excel.XLDataLabelPosition

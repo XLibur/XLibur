@@ -158,4 +158,10 @@ public interface IXLChart : IXLDrawing<IXLChart>
     /// Only used when <see cref="SecondaryChartType"/> is set.
     /// </summary>
     IXLChartSeriesCollection SecondarySeries { get; }
+
+    /// <summary>
+    /// Gets the data labels that apply to every series of the chart. A series can override them
+    /// through <see cref="IXLChartSeries.DataLabels"/>.
+    /// </summary>
+    IXLDataLabels DataLabels { get; }
 }
