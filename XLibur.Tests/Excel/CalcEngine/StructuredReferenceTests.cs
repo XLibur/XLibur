@@ -196,7 +196,7 @@ internal class StructuredReferenceTests
             return;
         }
 
-        var expected = XLSheetRange.Parse(expectedArea);
+        var expected = Area.Parse(expectedArea);
         await Assert.That(ws.Evaluate($"COLUMN({structureReference})", formulaAddress)).IsEqualTo(expected.LeftColumn);
         await Assert.That(ws.Evaluate($"ROW({structureReference})", formulaAddress)).IsEqualTo(expected.TopRow);
         await Assert.That(ws.Evaluate($"ROWS({structureReference})", formulaAddress)).IsEqualTo(expected.Height);

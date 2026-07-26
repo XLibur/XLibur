@@ -18,11 +18,11 @@ internal static class XLRangeInsertHelper
 
         ShiftFormulasForColumns(range, numberOfColumns);
 
-        range.Worksheet.SparklineGroupsInternal.ShiftColumns(XLSheetRange.FromRangeAddress(range.RangeAddress), numberOfColumns);
+        range.Worksheet.SparklineGroupsInternal.ShiftColumns(Area.FromRangeAddress(range.RangeAddress), numberOfColumns);
 
         ShiftColumnWidths(range, onlyUsedCells, numberOfColumns);
 
-        var insertedRange = new XLSheetRange(
+        var insertedRange = new Area(
             Point.FromAddress(range.RangeAddress.FirstAddress),
             new Point(range.RangeAddress.LastAddress.RowNumber, range.RangeAddress.FirstAddress.ColumnNumber + numberOfColumns - 1));
 
@@ -131,11 +131,11 @@ internal static class XLRangeInsertHelper
 
         ShiftFormulasForRows(range, numberOfRows);
 
-        range.Worksheet.SparklineGroupsInternal.ShiftRows(XLSheetRange.FromRangeAddress(range.RangeAddress), numberOfRows);
+        range.Worksheet.SparklineGroupsInternal.ShiftRows(Area.FromRangeAddress(range.RangeAddress), numberOfRows);
 
         ShiftRowHeights(range, onlyUsedCells, numberOfRows);
 
-        var insertedRange = new XLSheetRange(
+        var insertedRange = new Area(
             Point.FromAddress(range.RangeAddress.FirstAddress),
             new Point(range.RangeAddress.FirstAddress.RowNumber + numberOfRows - 1, range.RangeAddress.LastAddress.ColumnNumber));
         range.Worksheet.Internals.CellsCollection.InsertAreaAndShiftDown(insertedRange);

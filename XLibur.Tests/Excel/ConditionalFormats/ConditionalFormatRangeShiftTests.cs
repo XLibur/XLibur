@@ -75,10 +75,10 @@ public class ConditionalFormatRangeShiftTests
         var cf = ws.Range("A5:A7").AddConditionalFormat();
         cf.WhenGreaterThan(1).Fill.SetBackgroundColor(XLColor.Red);
         // Coverage is stored as an XLAreaList; extend it with a second disjoint area.
-        ((XLConditionalFormat)cf).SetAreas(new XLAreaList(new List<XLSheetRange>
+        ((XLConditionalFormat)cf).SetAreas(new XLAreaList(new List<Area>
         {
-            XLSheetRange.Parse("A5:A7"),
-            XLSheetRange.Parse("C10:C12"),
+            Area.Parse("A5:A7"),
+            Area.Parse("C10:C12"),
         }));
 
         ws.Row(6).InsertRowsAbove(3);

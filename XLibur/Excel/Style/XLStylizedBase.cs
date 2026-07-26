@@ -188,7 +188,7 @@ internal abstract class XLStylizedBase : IXLStylized
     /// Materialised into a list rather than streamed: the caller writes the style slice as it goes,
     /// and the slice enumerator must not be walked while the slice it reads is being mutated.
     /// </remarks>
-    private protected static List<Point> UsedPoints(XLWorksheet worksheet, XLSheetRange range)
+    private protected static List<Point> UsedPoints(XLWorksheet worksheet, Area range)
     {
         var points = new List<Point>();
         var enumerator = new XLCellsCollection.SlicesEnumerator(range, worksheet.Internals.CellsCollection);

@@ -16,7 +16,7 @@ internal static class ReferenceAreaExtensions
     /// <param name="area">Area to convert</param>
     /// <param name="anchor">An anchor address that is the centre of R1C1 relative address.</param>
     /// <returns>Converted absolute range.</returns>
-    public static XLSheetRange ToSheetRange(this ReferenceArea area, Point anchor)
+    public static Area ToSheetRange(this ReferenceArea area, Point anchor)
     {
         int col1, row1, col2, row2;
         if (area.First.IsA1)
@@ -40,7 +40,7 @@ internal static class ReferenceAreaExtensions
         var colEnd = Math.Max(col1, col2);
         var rowStart = Math.Min(row1, row2);
         var rowEnd = Math.Max(row1, row2);
-        return new XLSheetRange(rowStart, colStart, rowEnd, colEnd);
+        return new Area(rowStart, colStart, rowEnd, colEnd);
     }
 
     private static int A1ToPosition(ReferenceAxisType axisType, int position, int defaultPosition)

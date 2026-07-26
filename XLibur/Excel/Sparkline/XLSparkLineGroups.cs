@@ -175,7 +175,7 @@ internal sealed class XLSparklineGroups : IXLSparklineGroups
     /// </summary>
     /// <param name="shiftedRange">Range before which will the columns be inserted. Has same worksheet.</param>
     /// <param name="numberOfColumns">How many columns, can be positive or negative number.</param>
-    internal void ShiftColumns(XLSheetRange shiftedRange, int numberOfColumns)
+    internal void ShiftColumns(Area shiftedRange, int numberOfColumns)
     {
         foreach (var group in _sparklineGroups)
         {
@@ -199,7 +199,7 @@ internal sealed class XLSparklineGroups : IXLSparklineGroups
     /// </summary>
     /// <param name="shiftedRange">Range before which will the rows be inserted. Has same worksheet.</param>
     /// <param name="numberOfRows">How many rows, can be positive or negative number.</param>
-    internal void ShiftRows(XLSheetRange shiftedRange, int numberOfRows)
+    internal void ShiftRows(Area shiftedRange, int numberOfRows)
     {
         foreach (var group in _sparklineGroups)
         {

@@ -43,7 +43,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         ISheetListener hyperlinks = worksheet.Hyperlinks;
         if (columnsShifted > 0)
         {
-            var area = XLSheetRange
+            var area = Area
                 .FromRangeAddress(range.RangeAddress)
                 .ExtendRight(columnsShifted - 1);
             worksheet.Workbook.CalcEngine.OnInsertAreaAndShiftRight(range.Worksheet, area);
@@ -51,7 +51,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         }
         else if (columnsShifted < 0)
         {
-            var area = XLSheetRange.FromRangeAddress(range.RangeAddress);
+            var area = Area.FromRangeAddress(range.RangeAddress);
             worksheet.Workbook.CalcEngine.OnDeleteAreaAndShiftLeft(range.Worksheet, area);
             hyperlinks.OnDeleteAreaAndShiftLeft(range.Worksheet, area);
         }
@@ -86,7 +86,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         ISheetListener hyperlinks = worksheet.Hyperlinks;
         if (rowsShifted > 0)
         {
-            var area = XLSheetRange
+            var area = Area
                 .FromRangeAddress(range.RangeAddress)
                 .ExtendBelow(rowsShifted - 1);
             worksheet.Workbook.CalcEngine.OnInsertAreaAndShiftDown(range.Worksheet, area);
@@ -94,7 +94,7 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         }
         else if (rowsShifted < 0)
         {
-            var area = XLSheetRange.FromRangeAddress(range.RangeAddress);
+            var area = Area.FromRangeAddress(range.RangeAddress);
             worksheet.Workbook.CalcEngine.OnDeleteAreaAndShiftUp(range.Worksheet, area);
             hyperlinks.OnDeleteAreaAndShiftUp(range.Worksheet, area);
         }
@@ -131,8 +131,8 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         var last = range.RangeAddress.LastAddress;
         // The affected region spans the range's rows and the inserted/deleted columns.
         var affected = columnsShifted > 0
-            ? new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber + columnsShifted - 1)
-            : new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber - columnsShifted - 1);
+            ? new Area(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber + columnsShifted - 1)
+            : new Area(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber - columnsShifted - 1);
 
         ShiftConditionalFormats(cf =>
             columnsShifted > 0 ? cf.Areas.InsertAndShiftRight(affected) : cf.Areas.DeleteAndShiftLeft(affected));
@@ -147,8 +147,8 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         // the inserted range in XLRangeInsertHelper. Structural shifts run on the value-typed
         // XLAreaList so overlapping/adjacent coverage can never alias or double-shift (issue #2850).
         var affected = rowsShifted > 0
-            ? new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber + rowsShifted - 1, last.ColumnNumber)
-            : new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber - rowsShifted - 1, last.ColumnNumber);
+            ? new Area(first.RowNumber, first.ColumnNumber, first.RowNumber + rowsShifted - 1, last.ColumnNumber)
+            : new Area(first.RowNumber, first.ColumnNumber, first.RowNumber - rowsShifted - 1, last.ColumnNumber);
 
         ShiftConditionalFormats(cf =>
             rowsShifted > 0 ? cf.Areas.InsertAndShiftDown(affected) : cf.Areas.DeleteAndShiftUp(affected));
@@ -182,8 +182,8 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         // path short-circuited here and let the blanket range shifter move the validation ranges.
         // Area-based coverage is no longer a repository range, so it must be shifted here.)
         var affected = columnsShifted > 0
-            ? new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber + columnsShifted - 1)
-            : new XLSheetRange(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber - columnsShifted - 1);
+            ? new Area(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber + columnsShifted - 1)
+            : new Area(first.RowNumber, first.ColumnNumber, last.RowNumber, first.ColumnNumber - columnsShifted - 1);
 
         ShiftDataValidations(dv =>
             columnsShifted > 0 ? dv.Areas.InsertAndShiftRight(affected) : dv.Areas.DeleteAndShiftLeft(affected));
@@ -198,8 +198,8 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         // path short-circuited here and let the blanket range shifter move the validation ranges.
         // Area-based coverage is no longer a repository range, so it must be shifted here.)
         var affected = rowsShifted > 0
-            ? new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber + rowsShifted - 1, last.ColumnNumber)
-            : new XLSheetRange(first.RowNumber, first.ColumnNumber, first.RowNumber - rowsShifted - 1, last.ColumnNumber);
+            ? new Area(first.RowNumber, first.ColumnNumber, first.RowNumber + rowsShifted - 1, last.ColumnNumber)
+            : new Area(first.RowNumber, first.ColumnNumber, first.RowNumber - rowsShifted - 1, last.ColumnNumber);
 
         ShiftDataValidations(dv =>
             rowsShifted > 0 ? dv.Areas.InsertAndShiftDown(affected) : dv.Areas.DeleteAndShiftUp(affected));

@@ -27,7 +27,7 @@ internal static class CalculationChainPartWriter
             if (formulas.IsEmpty)
                 continue;
 
-            using var formulaEnumerator = formulas.GetForwardEnumerator(XLSheetRange.Full);
+            using var formulaEnumerator = formulas.GetForwardEnumerator(Area.Full);
             while (formulaEnumerator.MoveNext())
             {
                 AppendFormulaCell(calculationChain, cellsCollection.GetCell(formulaEnumerator.Point), worksheet);

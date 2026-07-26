@@ -10,9 +10,9 @@ namespace XLibur.Excel;
 internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
 {
     private readonly XLWorksheet _worksheet;
-    private readonly Dictionary<XLSheetRange, XLHyperlink> _hyperlinks = new();
+    private readonly Dictionary<Area, XLHyperlink> _hyperlinks = new();
 
-    private delegate (bool Success, XLSheetRange? RepositionedArea) RepositionFunc(XLSheetRange hyperlinkArea);
+    private delegate (bool Success, Area? RepositionedArea) RepositionFunc(Area hyperlinkArea);
 
     internal XLHyperlinks(XLWorksheet worksheet)
     {
@@ -23,7 +23,7 @@ internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
 
     #region ISheetListener
 
-    void ISheetListener.OnInsertAreaAndShiftDown(XLWorksheet sheet, XLSheetRange area)
+    void ISheetListener.OnInsertAreaAndShiftDown(XLWorksheet sheet, Area area)
     {
         RepositionOnChange(sheet, hyperlinkArea =>
         {
@@ -32,7 +32,7 @@ internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
         });
     }
 
-    void ISheetListener.OnInsertAreaAndShiftRight(XLWorksheet sheet, XLSheetRange area)
+    void ISheetListener.OnInsertAreaAndShiftRight(XLWorksheet sheet, Area area)
     {
         RepositionOnChange(sheet, hyperlinkArea =>
         {
@@ -41,7 +41,7 @@ internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
         });
     }
 
-    void ISheetListener.OnDeleteAreaAndShiftLeft(XLWorksheet sheet, XLSheetRange deletedRange)
+    void ISheetListener.OnDeleteAreaAndShiftLeft(XLWorksheet sheet, Area deletedRange)
     {
         RepositionOnChange(sheet, hyperlinkArea =>
         {
@@ -50,7 +50,7 @@ internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
         });
     }
 
-    void ISheetListener.OnDeleteAreaAndShiftUp(XLWorksheet sheet, XLSheetRange deletedRange)
+    void ISheetListener.OnDeleteAreaAndShiftUp(XLWorksheet sheet, Area deletedRange)
     {
         RepositionOnChange(sheet, hyperlinkArea =>
         {
@@ -131,7 +131,7 @@ internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
     /// <summary>
     /// Add a hyperlink. Doesn't modify style, unlike public API.
     /// </summary>
-    internal void Add(XLSheetRange range, XLHyperlink hyperlink)
+    internal void Add(Area range, XLHyperlink hyperlink)
     {
         if (hyperlink.Container is not null && hyperlink.Container != this)
         {
@@ -143,7 +143,7 @@ internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
         hyperlink.Container = this;
     }
 
-    internal bool TryGet(XLSheetRange range, [NotNullWhen(true)] out XLHyperlink? hyperlink)
+    internal bool TryGet(Area range, [NotNullWhen(true)] out XLHyperlink? hyperlink)
     {
         return _hyperlinks.TryGetValue(range, out hyperlink);
     }
@@ -151,7 +151,7 @@ internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
     /// <summary>
     /// Remove a hyperlink. Doesn't modify style, unlike public API.
     /// </summary>
-    internal bool Clear(XLSheetRange range)
+    internal bool Clear(Area range)
     {
         if (_hyperlinks.Remove(range, out var hyperlink))
         {
@@ -170,7 +170,7 @@ internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
         return new XLCell(_worksheet, range.Value.FirstPoint);
     }
 
-    private bool TryGet(XLHyperlink hyperlink, [NotNullWhen(true)] out XLSheetRange? range)
+    private bool TryGet(XLHyperlink hyperlink, [NotNullWhen(true)] out Area? range)
     {
         var ranges = _hyperlinks
             .Where(x => x.Value == hyperlink)
@@ -186,7 +186,7 @@ internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
         return true;
     }
 
-    private void ClearHyperlinkStyle(XLSheetRange range)
+    private void ClearHyperlinkStyle(Area range)
     {
         var sheetColor = _worksheet.StyleValue.Font.FontColor;
         var sheetUnderline = _worksheet.StyleValue.Font.Underline;

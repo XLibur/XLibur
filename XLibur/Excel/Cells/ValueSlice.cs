@@ -32,27 +32,27 @@ internal sealed class ValueSlice : ISlice
 
     public IEnumerable<int> UsedRows => _values.UsedRows;
 
-    public void Clear(XLSheetRange range)
+    public void Clear(Area range)
     {
         DereferenceTextInRange(range);
         _values.Clear(range);
     }
 
-    public void DeleteAreaAndShiftLeft(XLSheetRange rangeToDelete)
+    public void DeleteAreaAndShiftLeft(Area rangeToDelete)
     {
         DereferenceTextInRange(rangeToDelete);
         _values.DeleteAreaAndShiftLeft(rangeToDelete);
     }
 
-    public void DeleteAreaAndShiftUp(XLSheetRange rangeToDelete)
+    public void DeleteAreaAndShiftUp(Area rangeToDelete)
     {
         DereferenceTextInRange(rangeToDelete);
         _values.DeleteAreaAndShiftUp(rangeToDelete);
     }
 
-    public IEnumerator<Point> GetEnumerator(XLSheetRange range, bool reverse = false) => _values.GetEnumerator(range, reverse);
+    public IEnumerator<Point> GetEnumerator(Area range, bool reverse = false) => _values.GetEnumerator(range, reverse);
 
-    public void InsertAreaAndShiftDown(XLSheetRange range)
+    public void InsertAreaAndShiftDown(Area range)
     {
         // Only pushed out references have to be dereferenced, other text references just move.
         if (range.BottomRow < XLHelper.MaxRowNumber)
@@ -66,7 +66,7 @@ internal sealed class ValueSlice : ISlice
         _values.InsertAreaAndShiftDown(range);
     }
 
-    public void InsertAreaAndShiftRight(XLSheetRange range)
+    public void InsertAreaAndShiftRight(Area range)
     {
         // Only pushed out references have to be dereferenced, other text references just move.
         if (range.RightColumn < XLHelper.MaxColumnNumber)
@@ -288,9 +288,9 @@ internal sealed class ValueSlice : ISlice
     /// <summary>
     /// Prepare for worksheet removal, dereference all tests in a slice.
     /// </summary>
-    internal void DereferenceSlice() => DereferenceTextInRange(XLSheetRange.Full);
+    internal void DereferenceSlice() => DereferenceTextInRange(Area.Full);
 
-    private void DereferenceTextInRange(XLSheetRange range)
+    private void DereferenceTextInRange(Area range)
     {
         // Dereference all texts in the range, so the ref count is kept correct.
         using var e = _values.GetEnumerator(range);

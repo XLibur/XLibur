@@ -163,7 +163,7 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
     private static bool TryResolveStructuredReference(
         CalcContext context,
         StructuredReferenceNode node,
-        out XLSheetRange range,
+        out Area range,
         out XLError error)
     {
         // We don't support external links.
@@ -190,7 +190,7 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
             return false;
         }
 
-        range = new XLSheetRange(rowStart, colStart, rowEnd, colEnd);
+        range = new Area(rowStart, colStart, rowEnd, colEnd);
         error = default;
         return true;
     }

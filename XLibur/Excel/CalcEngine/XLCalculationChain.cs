@@ -83,7 +83,7 @@ internal sealed class XLCalculationChain
         foreach (var sheet in wb.WorksheetsInternal)
         {
             var formulaSlice = sheet.Internals.CellsCollection.FormulaSlice;
-            using var e = formulaSlice.GetForwardEnumerator(XLSheetRange.Full);
+            using var e = formulaSlice.GetForwardEnumerator(Area.Full);
             while (e.MoveNext())
                 chain.AddLast(new SheetPoint(sheet.SheetId, e.Point));
         }
@@ -113,7 +113,7 @@ internal sealed class XLCalculationChain
     /// Add all cells from the area to the end of the chain.
     /// </summary>
     /// <exception cref="ArgumentException">If chain already contains a cell from the area.</exception>
-    internal void AppendArea(uint sheetId, XLSheetRange range)
+    internal void AppendArea(uint sheetId, Area range)
     {
         for (var row = range.TopRow; row <= range.BottomRow; ++row)
         {

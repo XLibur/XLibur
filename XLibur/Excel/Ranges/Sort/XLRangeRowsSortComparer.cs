@@ -21,7 +21,7 @@ internal sealed class XLRangeRowsSortComparer : IComparer<int>
     private readonly List<(int ColumnNumber, XLCellValueSortComparer Comparer)> _columnComparers;
     private readonly ValueSlice _valueSlice;
 
-    internal XLRangeRowsSortComparer(XLWorksheet sheet, XLSheetRange sortRange, IXLSortElements sortColumns)
+    internal XLRangeRowsSortComparer(XLWorksheet sheet, Area sortRange, IXLSortElements sortColumns)
     {
         if (!sortColumns.Any())
             throw new ArgumentException("Empty sort specification.");

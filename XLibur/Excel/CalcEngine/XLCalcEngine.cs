@@ -45,10 +45,10 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// A dynamic array's spill footprint (including the anchor at <see cref="Range"/>'s first
     /// point) together with the owning formula.
     /// </summary>
-    private readonly struct SpillFootprint(uint sheetId, XLSheetRange range, XLCellFormula owner)
+    private readonly struct SpillFootprint(uint sheetId, Area range, XLCellFormula owner)
     {
         internal readonly uint SheetId = sheetId;
-        internal readonly XLSheetRange Range = range;
+        internal readonly Area Range = range;
         internal readonly XLCellFormula Owner = owner;
     }
 
@@ -82,7 +82,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// <summary>
     /// Add an array formula to the calc engine to manage dirty tracking and evaluation.
     /// </summary>
-    internal void AddArrayFormula(XLSheetRange range, XLCellFormula arrayFormula, XLWorksheet sheet)
+    internal void AddArrayFormula(Area range, XLCellFormula arrayFormula, XLWorksheet sheet)
     {
         if (_chain is not null && _dependencyTree is not null)
         {
@@ -98,7 +98,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     {
         if (_chain is not null && _dependencyTree is not null)
         {
-            var pointArea = new XLBookArea(sheetName, new XLSheetRange(point.Point, point.Point));
+            var pointArea = new XLBookArea(sheetName, new Area(point.Point, point.Point));
             _dependencyTree.AddFormula(pointArea, formula, workbook);
             _chain.AddLast(point);
         }
@@ -130,22 +130,22 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         Purge(sheet.Workbook.WorksheetsInternal);
     }
 
-    public void OnInsertAreaAndShiftDown(XLWorksheet sheet, XLSheetRange area)
+    public void OnInsertAreaAndShiftDown(XLWorksheet sheet, Area area)
     {
         Purge(sheet.Workbook.WorksheetsInternal);
     }
 
-    public void OnInsertAreaAndShiftRight(XLWorksheet sheet, XLSheetRange area)
+    public void OnInsertAreaAndShiftRight(XLWorksheet sheet, Area area)
     {
         Purge(sheet.Workbook.WorksheetsInternal);
     }
 
-    public void OnDeleteAreaAndShiftLeft(XLWorksheet sheet, XLSheetRange deletedRange)
+    public void OnDeleteAreaAndShiftLeft(XLWorksheet sheet, Area deletedRange)
     {
         Purge(sheet.Workbook.WorksheetsInternal);
     }
 
-    public void OnDeleteAreaAndShiftUp(XLWorksheet sheet, XLSheetRange deletedRange)
+    public void OnDeleteAreaAndShiftUp(XLWorksheet sheet, Area deletedRange)
     {
         Purge(sheet.Workbook.WorksheetsInternal);
     }
@@ -160,16 +160,16 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         // Mark everything as dirty, because there can be stale values
         foreach (var sheet in sheets)
         {
-            sheet.Internals.CellsCollection.FormulaSlice.MarkDirty(XLSheetRange.Full);
+            sheet.Internals.CellsCollection.FormulaSlice.MarkDirty(Area.Full);
         }
     }
 
     internal void MarkDirty(XLWorksheet sheet, Point point)
     {
-        MarkDirty(sheet, new XLSheetRange(point, point));
+        MarkDirty(sheet, new Area(point, point));
     }
 
-    internal void MarkDirty(XLWorksheet sheet, XLSheetRange area)
+    internal void MarkDirty(XLWorksheet sheet, Area area)
     {
         if (_dependencyTree is null && _needsDependencyTree)
         {
@@ -447,9 +447,9 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         var lastColumn = anchor.Column + array.Width - 1;
 
         var previousRange = formula.Range;
-        var anchorRange = new XLSheetRange(anchor);
+        var anchorRange = new Area(anchor);
 
-        XLSheetRange newFootprint;
+        Area newFootprint;
         var outOfBounds = lastRow > XLHelper.MaxRowNumber || lastColumn > XLHelper.MaxColumnNumber;
         if (outOfBounds || HasSpillCollision(anchor, lastRow, lastColumn, previousRange, valueSlice, formulaSlice))
         {
@@ -459,7 +459,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         }
         else
         {
-            newFootprint = new XLSheetRange(anchor, new Point(lastRow, lastColumn));
+            newFootprint = new Area(anchor, new Point(lastRow, lastColumn));
 
             // Erase any cell of the previous footprint that the new one no longer covers
             // (the array shrank or moved) before writing the fresh result.
@@ -501,7 +501,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         _spillOwners.Clear();
         foreach (var sheet in wb.WorksheetsInternal)
         {
-            using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(XLSheetRange.Full);
+            using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
             while (enumerator.MoveNext())
             {
                 var formula = enumerator.Current;
@@ -515,7 +515,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// Records a dynamic-array formula's current spill footprint, replacing any prior footprint
     /// for the same formula (footprints never overlap, so one rectangle per formula is enough).
     /// </summary>
-    private void SetSpillFootprint(uint sheetId, XLCellFormula formula, XLSheetRange footprint)
+    private void SetSpillFootprint(uint sheetId, XLCellFormula formula, Area footprint)
     {
         for (var i = 0; i < _spillOwners.Count; i++)
         {
@@ -555,7 +555,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// previous footprint, which will be overwritten) never block; any other cell holding a
     /// formula or a non-blank value does.
     /// </summary>
-    private static bool HasSpillCollision(Point anchor, int lastRow, int lastColumn, XLSheetRange ownedRange, ValueSlice valueSlice, FormulaSlice formulaSlice)
+    private static bool HasSpillCollision(Point anchor, int lastRow, int lastColumn, Area ownedRange, ValueSlice valueSlice, FormulaSlice formulaSlice)
     {
         for (var row = anchor.Row; row <= lastRow; ++row)
         {
@@ -582,7 +582,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// shrinks, moves, or collapses to a <c>#SPILL!</c> anchor. A <c>default</c> previous
     /// range (never spilled) clears nothing.
     /// </summary>
-    private static void ClearSpillFootprint(XLSheetRange previousRange, XLSheetRange keepRange, ValueSlice valueSlice)
+    private static void ClearSpillFootprint(Area previousRange, Area keepRange, ValueSlice valueSlice)
     {
         if (previousRange == default)
             return;

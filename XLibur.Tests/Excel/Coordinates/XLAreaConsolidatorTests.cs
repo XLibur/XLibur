@@ -35,9 +35,9 @@ internal class XLAreaConsolidatorTests
         if (spaceList.Length == 0)
             return XLAreaList.Empty;
 
-        var list = new List<XLSheetRange>();
+        var list = new List<Area>();
         foreach (var reference in spaceList.Split(' '))
-            list.Add(XLSheetRange.Parse(reference));
+            list.Add(Area.Parse(reference));
 
         return new XLAreaList(list);
     }

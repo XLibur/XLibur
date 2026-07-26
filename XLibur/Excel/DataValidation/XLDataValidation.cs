@@ -118,11 +118,11 @@ internal sealed class XLDataValidation : IXLDataValidation
     /// </summary>
     internal void SplitBy(IXLRangeAddress rangeAddress)
     {
-        var excludedArea = XLSheetRange.FromRangeAddress(rangeAddress);
+        var excludedArea = Area.FromRangeAddress(rangeAddress);
 
         foreach (var area in Areas.IntersectingWith(excludedArea).ToList())
         {
-            var pieces = new List<XLSheetRange>();
+            var pieces = new List<Area>();
             area.Exclude(excludedArea, pieces);
             pieces.Sort((a, b) => a.TopRow != b.TopRow ? a.TopRow - b.TopRow : a.LeftColumn - b.LeftColumn);
 
@@ -196,7 +196,7 @@ internal sealed class XLDataValidation : IXLDataValidation
     public IEnumerable<IXLRange> Ranges =>
         Areas.OrderBy(a => a.TopRow).ThenBy(a => a.LeftColumn).Select(MaterializeRange);
 
-    private XLRange MaterializeRange(XLSheetRange area)
+    private XLRange MaterializeRange(Area area)
         => _worksheet.Range(area.TopRow, area.LeftColumn, area.BottomRow, area.RightColumn);
 
     /// <summary>
@@ -259,7 +259,7 @@ internal sealed class XLDataValidation : IXLDataValidation
         if (range.Worksheet != Worksheet)
             range = Worksheet.Range(((XLRangeAddress)range.RangeAddress).WithoutWorksheet());
 
-        Areas = Areas.With(XLSheetRange.FromRangeAddress(range.RangeAddress));
+        Areas = Areas.With(Area.FromRangeAddress(range.RangeAddress));
 
         RangeAdded?.Invoke(this, new RangeEventArgs(range));
     }
@@ -346,7 +346,7 @@ internal sealed class XLDataValidation : IXLDataValidation
         if (range == null)
             return false;
 
-        var area = XLSheetRange.FromRangeAddress(range.RangeAddress);
+        var area = Area.FromRangeAddress(range.RangeAddress);
         var newAreas = Areas.Without(area);
         if (newAreas.Count == Areas.Count)
             return false;

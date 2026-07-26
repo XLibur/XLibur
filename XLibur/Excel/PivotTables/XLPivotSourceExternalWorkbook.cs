@@ -43,7 +43,7 @@ internal sealed class XLPivotSourceExternalWorkbook : IXLPivotSource
         TableOrName = tableOrName;
     }
 
-    public bool TryGetSource(XLWorkbook workbook, out XLWorksheet? sheet, out XLSheetRange? sheetArea)
+    public bool TryGetSource(XLWorkbook workbook, out XLWorksheet? sheet, out Area? sheetArea)
     {
         throw new NotImplementedException("External workbook source is not supported.");
     }

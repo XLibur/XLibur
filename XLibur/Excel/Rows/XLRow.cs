@@ -68,7 +68,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     private protected override bool TryApplyToCellStyles(Func<XLStyleValue, XLStyleValue> transform)
     {
         var worksheet = Worksheet;
-        var range = new XLSheetRange(RowNumber(), 1, RowNumber(), XLHelper.MaxColumnNumber);
+        var range = new Area(RowNumber(), 1, RowNumber(), XLHelper.MaxColumnNumber);
         ApplyToCellStyles(worksheet, UsedPoints(worksheet, range), transform);
         return true;
     }

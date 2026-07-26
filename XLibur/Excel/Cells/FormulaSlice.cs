@@ -28,32 +28,32 @@ internal sealed class FormulaSlice : ISlice
 
     public IEnumerable<int> UsedRows => _formulas.UsedRows;
 
-    public void Clear(XLSheetRange range)
+    public void Clear(Area range)
     {
         _formulas.Clear(range);
     }
 
-    public void DeleteAreaAndShiftLeft(XLSheetRange rangeToDelete)
+    public void DeleteAreaAndShiftLeft(Area rangeToDelete)
     {
         _formulas.DeleteAreaAndShiftLeft(rangeToDelete);
     }
 
-    public void DeleteAreaAndShiftUp(XLSheetRange rangeToDelete)
+    public void DeleteAreaAndShiftUp(Area rangeToDelete)
     {
         _formulas.DeleteAreaAndShiftUp(rangeToDelete);
     }
 
-    public IEnumerator<Point> GetEnumerator(XLSheetRange range, bool reverse = false)
+    public IEnumerator<Point> GetEnumerator(Area range, bool reverse = false)
     {
         return _formulas.GetEnumerator(range, reverse);
     }
 
-    public void InsertAreaAndShiftDown(XLSheetRange range)
+    public void InsertAreaAndShiftDown(Area range)
     {
         _formulas.InsertAreaAndShiftDown(range);
     }
 
-    public void InsertAreaAndShiftRight(XLSheetRange range)
+    public void InsertAreaAndShiftRight(Area range)
     {
         _formulas.InsertAreaAndShiftRight(range);
     }
@@ -116,7 +116,7 @@ internal sealed class FormulaSlice : ISlice
     /// <remarks>
     /// This method doesn't check that the formula doesn't damage other array formulas.
     /// </remarks>
-    internal void SetArray(XLSheetRange range, XLCellFormula? arrayFormula)
+    internal void SetArray(Area range, XLCellFormula? arrayFormula)
     {
         for (var row = range.TopRow; row <= range.BottomRow; ++row)
         {
@@ -141,7 +141,7 @@ internal sealed class FormulaSlice : ISlice
             _engine.AddArrayFormula(range, arrayFormula, _sheet);
     }
 
-    internal Slice<XLCellFormula>.Enumerator GetForwardEnumerator(XLSheetRange range)
+    internal Slice<XLCellFormula>.Enumerator GetForwardEnumerator(Area range)
     {
         return new Slice<XLCellFormula>.Enumerator(_formulas!, range);
     }
@@ -149,7 +149,7 @@ internal sealed class FormulaSlice : ISlice
     /// <summary>
     /// Mark all formulas in a range as explicitly dirty.
     /// </summary>
-    internal void MarkDirty(XLSheetRange range)
+    internal void MarkDirty(Area range)
     {
         using var enumerator = GetForwardEnumerator(range);
         while (enumerator.MoveNext())

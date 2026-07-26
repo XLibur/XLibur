@@ -58,9 +58,9 @@ internal readonly struct Point : IEquatable<Point>, IComparable<Point>
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private string DebuggerDisplay => XLHelper.GetColumnLetterFromNumber(Column) + Row;
 
-    public static implicit operator XLSheetRange(Point point)
+    public static implicit operator Area(Point point)
     {
-        return new XLSheetRange(point);
+        return new Area(point);
     }
 
     public override bool Equals(object? obj)
@@ -234,7 +234,7 @@ internal readonly struct Point : IEquatable<Point>, IComparable<Point>
     /// <summary>
     /// Is the point within the range or below the range?
     /// </summary>
-    internal bool InRangeOrBelow(in XLSheetRange range)
+    internal bool InRangeOrBelow(in Area range)
     {
         return Row >= range.FirstPoint.Row &&
                Column >= range.FirstPoint.Column &&
@@ -244,7 +244,7 @@ internal readonly struct Point : IEquatable<Point>, IComparable<Point>
     /// <summary>
     /// Is the point within the range or to the left of the range?
     /// </summary>
-    internal bool InRangeOrToLeft(in XLSheetRange range)
+    internal bool InRangeOrToLeft(in Area range)
     {
         return Column >= range.FirstPoint.Column &&
                Row >= range.FirstPoint.Row &&

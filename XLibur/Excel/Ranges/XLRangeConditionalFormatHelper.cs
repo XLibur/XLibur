@@ -18,7 +18,7 @@ internal static class XLRangeConditionalFormatHelper
 {
     internal static void RemoveConditionalFormatting(XLRangeBase range)
     {
-        var remove = XLSheetRange.FromRangeAddress(range.RangeAddress);
+        var remove = Area.FromRangeAddress(range.RangeAddress);
 
         var affectedFormats = range.Worksheet.ConditionalFormats
             .Cast<XLConditionalFormat>()
@@ -27,7 +27,7 @@ internal static class XLRangeConditionalFormatHelper
 
         foreach (var format in affectedFormats)
         {
-            var result = new List<XLSheetRange>();
+            var result = new List<Area>();
             foreach (var cfArea in format.Areas)
             {
                 if (cfArea.Intersect(remove) is null)
@@ -46,7 +46,7 @@ internal static class XLRangeConditionalFormatHelper
         }
     }
 
-    private static void AddRemainderAreas(List<XLSheetRange> result, XLSheetRange cf, XLSheetRange remove)
+    private static void AddRemainderAreas(List<Area> result, Area cf, Area remove)
     {
         var splitByWidth = TrySplitByWidth(result, remove, cf);
         var splitByHeight = TrySplitByHeight(result, remove, cf);
@@ -55,7 +55,7 @@ internal static class XLRangeConditionalFormatHelper
             result.Add(cf); // Not split, preserve original
     }
 
-    private static bool TrySplitByWidth(List<XLSheetRange> result, XLSheetRange remove, XLSheetRange cf)
+    private static bool TrySplitByWidth(List<Area> result, Area remove, Area cf)
     {
         if (remove.LeftColumn > cf.LeftColumn || remove.RightColumn < cf.RightColumn)
             return false;
@@ -65,15 +65,15 @@ internal static class XLRangeConditionalFormatHelper
             return true;
 
         if (remove.TopRow > cf.TopRow)
-            result.Add(new XLSheetRange(cf.TopRow, cf.LeftColumn, remove.TopRow - 1, cf.RightColumn));
+            result.Add(new Area(cf.TopRow, cf.LeftColumn, remove.TopRow - 1, cf.RightColumn));
 
         if (remove.BottomRow < cf.BottomRow)
-            result.Add(new XLSheetRange(remove.BottomRow + 1, cf.LeftColumn, cf.BottomRow, cf.RightColumn));
+            result.Add(new Area(remove.BottomRow + 1, cf.LeftColumn, cf.BottomRow, cf.RightColumn));
 
         return true;
     }
 
-    private static bool TrySplitByHeight(List<XLSheetRange> result, XLSheetRange remove, XLSheetRange cf)
+    private static bool TrySplitByHeight(List<Area> result, Area remove, Area cf)
     {
         if (remove.TopRow > cf.TopRow || remove.BottomRow < cf.BottomRow)
             return false;
@@ -83,10 +83,10 @@ internal static class XLRangeConditionalFormatHelper
             return true;
 
         if (remove.LeftColumn > cf.LeftColumn)
-            result.Add(new XLSheetRange(cf.TopRow, cf.LeftColumn, cf.BottomRow, remove.LeftColumn - 1));
+            result.Add(new Area(cf.TopRow, cf.LeftColumn, cf.BottomRow, remove.LeftColumn - 1));
 
         if (remove.RightColumn < cf.RightColumn)
-            result.Add(new XLSheetRange(cf.TopRow, remove.RightColumn + 1, cf.BottomRow, cf.RightColumn));
+            result.Add(new Area(cf.TopRow, remove.RightColumn + 1, cf.BottomRow, cf.RightColumn));
 
         return true;
     }

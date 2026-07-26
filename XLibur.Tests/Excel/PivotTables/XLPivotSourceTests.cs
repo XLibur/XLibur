@@ -51,7 +51,7 @@ internal class XLPivotSourceTests
 
         await Assert.That(result).IsTrue();
         await Assert.That(sheet!.Name).IsEqualTo("Data");
-        await Assert.That(sheetArea).IsEqualTo(new XLSheetRange(1, 1, 2, 2));
+        await Assert.That(sheetArea).IsEqualTo(new Area(1, 1, 2, 2));
     }
 
     [Test]
@@ -118,13 +118,13 @@ internal class XLPivotSourceTests
         var ws = wb.AddWorksheet("Sheet1");
         ws.Cell("A1").Value = "Header";
 
-        var area = new XLBookArea("Sheet1", new XLSheetRange(1, 1, 5, 3));
+        var area = new XLBookArea("Sheet1", new Area(1, 1, 5, 3));
         var source = new XLPivotSourceReference(area);
         var result = source.TryGetSource(wb, out var sheet, out var sheetArea);
 
         await Assert.That(result).IsTrue();
         await Assert.That(sheet!.Name).IsEqualTo("Sheet1");
-        await Assert.That(sheetArea).IsEqualTo(new XLSheetRange(1, 1, 5, 3));
+        await Assert.That(sheetArea).IsEqualTo(new Area(1, 1, 5, 3));
     }
 
     [Test]
@@ -133,7 +133,7 @@ internal class XLPivotSourceTests
         using var wb = new XLWorkbook();
         wb.AddWorksheet("Sheet1");
 
-        var area = new XLBookArea("NonExistent", new XLSheetRange(1, 1, 5, 3));
+        var area = new XLBookArea("NonExistent", new Area(1, 1, 5, 3));
         var source = new XLPivotSourceReference(area);
         var result = source.TryGetSource(wb, out var sheet, out var sheetArea);
 

@@ -40,9 +40,9 @@ public readonly struct XLUsedCell
 public ref struct XLUsedCellEnumerable
 {
     private readonly ValueSlice _valueSlice;
-    private readonly XLSheetRange _range;
+    private readonly Area _range;
 
-    internal XLUsedCellEnumerable(ValueSlice valueSlice, XLSheetRange range)
+    internal XLUsedCellEnumerable(ValueSlice valueSlice, Area range)
     {
         _valueSlice = valueSlice;
         _range = range;
@@ -59,11 +59,11 @@ public ref struct XLUsedCellEnumerable
 public ref struct XLUsedCellEnumerator
 {
     private readonly ValueSlice _valueSlice;
-    private readonly XLSheetRange _range;
+    private readonly Area _range;
     private IEnumerator<Point>? _inner;
     private XLUsedCell _current;
 
-    internal XLUsedCellEnumerator(ValueSlice valueSlice, XLSheetRange range)
+    internal XLUsedCellEnumerator(ValueSlice valueSlice, Area range)
     {
         _valueSlice = valueSlice;
         _range = range;

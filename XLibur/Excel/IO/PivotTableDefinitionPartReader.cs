@@ -71,7 +71,7 @@ internal static class PivotTableDefinitionPartReader
             throw PartStructureException.ExpectedElementNotFound();
 
         var referenceText = location.Reference?.Value ?? throw PartStructureException.MissingAttribute();
-        xlPivotTable.Area = XLSheetRange.Parse(referenceText);
+        xlPivotTable.Area = Area.Parse(referenceText);
         xlPivotTable.FirstHeaderRow = location.FirstHeaderRow?.Value ?? throw PartStructureException.MissingAttribute();
         xlPivotTable.FirstDataRow = location.FirstDataRow?.Value ?? throw PartStructureException.MissingAttribute();
         xlPivotTable.FirstDataCol = location.FirstDataColumn?.Value ?? throw PartStructureException.MissingAttribute();
@@ -562,8 +562,8 @@ internal static class PivotTableDefinitionPartReader
         var cacheIndex = pivotArea.CacheIndex?.Value ?? false;
         var outline = pivotArea.Outline?.Value ?? true;
         var offset = pivotArea.Offset?.Value is { } offsetRefText
-            ? XLSheetRange.Parse(offsetRefText)
-            : (XLSheetRange?)null;
+            ? Area.Parse(offsetRefText)
+            : (Area?)null;
         var collapsedLevelsAreSubtotals = pivotArea.CollapsedLevelsAreSubtotals?.Value ?? false;
         var axis = pivotArea.Axis?.Value.ToXLibur();
         var fieldPosition = pivotArea.FieldPosition?.Value;

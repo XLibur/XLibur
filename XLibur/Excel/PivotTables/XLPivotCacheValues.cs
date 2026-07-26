@@ -44,7 +44,7 @@ internal sealed class XLPivotCacheValues
 
     private long? _maxDateTicks;
 
-    internal XLPivotCacheValues(ValueSlice valueSlice, int column, XLSheetRange area)
+    internal XLPivotCacheValues(ValueSlice valueSlice, int column, Area area)
     {
         _sharedItems = new XLPivotCacheSharedItems();
         _values = new List<XLPivotCacheValue>();
@@ -218,7 +218,7 @@ internal sealed class XLPivotCacheValues
     }
 
 
-    private void Initialize(ValueSlice valueSlice, int column, XLSheetRange area)
+    private void Initialize(ValueSlice valueSlice, int column, Area area)
     {
         var uniqueItems = new HashSet<XLCellValue>(XLCellValueComparer.OrdinalIgnoreCase);
         for (var row = area.TopRow + 1; row <= area.BottomRow; ++row)

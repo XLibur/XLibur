@@ -36,7 +36,7 @@ public class ValueSliceTests
         ws.Cell("C2").Value = "Single referenced text";
 
         await Assert.That(sst.Count).IsEqualTo(2);
-        ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.Clear(new XLSheetRange(2, 2, 2, 3));
+        ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.Clear(new Area(2, 2, 2, 3));
         await Assert.That(sst.Count).IsEqualTo(1);
         await Assert.That(ws.Cell("A1").Value).IsEqualTo("Double referenced text");
     }
@@ -52,7 +52,7 @@ public class ValueSliceTests
         ws.Cell("B1").Value = "Kept Double Reference"; // id 2
         ws.Cell("C3").Value = "Kept Double Reference"; // id 2
 
-        ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.DeleteAreaAndShiftLeft(new XLSheetRange(2, 2, 3, 3));
+        ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.DeleteAreaAndShiftLeft(new Area(2, 2, 3, 3));
 
         await Assert.That(sst.Count).IsEqualTo(2);
         await Assert.That(sst[1]).IsEqualTo("Kept Single Reference");
@@ -70,7 +70,7 @@ public class ValueSliceTests
         ws.Cell("A2").Value = "Kept Double Reference"; // id 2
         ws.Cell("C3").Value = "Kept Double Reference"; // id 2
 
-        ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.DeleteAreaAndShiftLeft(new XLSheetRange(2, 2, 3, 3));
+        ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.DeleteAreaAndShiftLeft(new Area(2, 2, 3, 3));
 
         await Assert.That(sst.Count).IsEqualTo(2);
         await Assert.That(sst[1]).IsEqualTo("Kept Single Reference");
@@ -88,7 +88,7 @@ public class ValueSliceTests
         ws.Cell("C1048576").Value = "Deleted Single Reference"; // id 1
         ws.Cell("B1048574").Value = "Kept Double Reference"; // id 2
         ws.Cell("B1048576").Value = "Kept Double Reference"; // id 2
-        ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.InsertAreaAndShiftDown(new XLSheetRange(3, 2, 4, 3));
+        ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.InsertAreaAndShiftDown(new Area(3, 2, 4, 3));
 
         await Assert.That(sst.Count).IsEqualTo(2);
         await Assert.That(sst[0]).IsEqualTo("Kept Single Reference");
@@ -106,7 +106,7 @@ public class ValueSliceTests
         ws.Cell("XFD2").Value = "Deleted Single Reference"; // id 1
         ws.Cell("XFD3").Value = "Kept Double Reference"; // id 2
         ws.Cell("XFB3").Value = "Kept Double Reference"; // id 2
-        ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.InsertAreaAndShiftRight(new XLSheetRange(2, 3, 3, 4));
+        ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.InsertAreaAndShiftRight(new Area(2, 3, 3, 4));
 
         await Assert.That(sst.Count).IsEqualTo(2);
         await Assert.That(sst[0]).IsEqualTo("Kept Single Reference");

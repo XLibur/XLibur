@@ -111,7 +111,7 @@ internal static class PivotTableCacheDefinitionPartReader
 
         if (sheetSource.Sheet?.Value is { } sheetName &&
             sheetSource.Reference?.Value is { } areaRef &&
-            XLSheetRange.TryParse(areaRef.AsSpan(), out var sheetArea))
+            Area.TryParse(areaRef.AsSpan(), out var sheetArea))
         {
             var area = new XLBookArea(sheetName, sheetArea);
             if (sheetSource.Id?.Value is { } externalWorkbookRelId)
@@ -189,7 +189,7 @@ internal static class PivotTableCacheDefinitionPartReader
 
         if (rangeSet.Sheet?.Value is { } sheet &&
             rangeSet.Reference?.Value is { } reference &&
-            XLSheetRange.TryParse(reference.AsSpan(), out var area))
+            Area.TryParse(reference.AsSpan(), out var area))
         {
             return new XLPivotCacheSourceConsolidationRangeSet
             {

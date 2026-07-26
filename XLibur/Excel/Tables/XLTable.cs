@@ -52,7 +52,7 @@ internal sealed class XLTable : XLRange, IXLTable
     /// <summary>
     /// Area of the range, including headings and totals, if the table has them.
     /// </summary>
-    internal XLSheetRange Area => XLSheetRange.FromRangeAddress(RangeAddress);
+    internal Area Area => Area.FromRangeAddress(RangeAddress);
 
     private void RescanFieldNames()
     {
@@ -1097,7 +1097,7 @@ internal sealed class XLTable : XLRange, IXLTable
     /// Update headers fields and totals fields by data from the cells. Do not add new fields or names.
     /// </summary>
     /// <param name="refreshArea">Area that contains cells with changed values that might affect header and totals fields.</param>
-    internal void RefreshFieldsFromCells(XLSheetRange refreshArea)
+    internal void RefreshFieldsFromCells(Area refreshArea)
     {
         var tableArea = Area;
 
@@ -1115,7 +1115,7 @@ internal sealed class XLTable : XLRange, IXLTable
     /// reads the cell value and applies it as text to the corresponding field via <paramref name="applyValue"/>.
     /// Excel always stores header and totals row values as text, so the string conversion is intentional.
     /// </summary>
-    private void RefreshFieldsInRow(XLSheetRange row, XLSheetRange refreshArea,
+    private void RefreshFieldsInRow(Area row, Area refreshArea,
         Action<IXLTableField, string> applyValue)
     {
         var intersection = row.Intersect(refreshArea);

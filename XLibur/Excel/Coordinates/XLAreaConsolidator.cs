@@ -8,7 +8,7 @@ namespace XLibur.Excel.Coordinates;
 /// <summary>
 /// Consolidates an <see cref="XLAreaList"/> into an equivalent list of non-overlapping areas,
 /// merging overlapping and adjacent rectangles into maximal blocks (rows first, then columns).
-/// Operates purely on <see cref="XLSheetRange"/> value structs via a sparse bit matrix keyed by
+/// Operates purely on <see cref="Area"/> value structs via a sparse bit matrix keyed by
 /// the boundary rows of the input areas. Separate from the <see cref="XLibur.Excel.Ranges"/>
 /// <c>XLRangeConsolidationEngine</c>, which works on live <see cref="IXLRanges"/>.
 /// </summary>
@@ -39,7 +39,7 @@ internal static class XLAreaConsolidator
             FillBitMatrix(areas);
         }
 
-        public IEnumerable<XLSheetRange> GetConsolidatedRanges()
+        public IEnumerable<Area> GetConsolidatedRanges()
         {
             var rowNumbers = _bitMatrix.Keys.OrderBy(k => k).ToArray();
             for (var i = 0; i < rowNumbers.Length; i++)
@@ -56,7 +56,7 @@ internal static class XLAreaConsolidator
                     var startColumn = starting.Item1 + _minColumn - 1;
                     var endColumn = starting.Item2 + _minColumn - 1;
 
-                    yield return new XLSheetRange(startRow, startColumn, endRow, endColumn);
+                    yield return new Area(startRow, startColumn, endRow, endColumn);
 
                     while (j > i)
                     {
@@ -67,7 +67,7 @@ internal static class XLAreaConsolidator
             }
         }
 
-        private void AddToBitMatrix(XLSheetRange area)
+        private void AddToBitMatrix(Area area)
         {
             var rows = _bitMatrix.Keys
                 .Where(k => k >= area.TopRow && k <= area.BottomRow);
@@ -92,7 +92,7 @@ internal static class XLAreaConsolidator
             }
         }
 
-        private void FillBitMatrix(IEnumerable<XLSheetRange> areas)
+        private void FillBitMatrix(IEnumerable<Area> areas)
         {
             foreach (var area in areas)
             {

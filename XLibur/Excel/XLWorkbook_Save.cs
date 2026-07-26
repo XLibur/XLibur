@@ -303,7 +303,7 @@ public partial class XLWorkbook
             if (formulas.IsEmpty)
                 continue;
 
-            using var formulaEnumerator = formulas.GetForwardEnumerator(XLSheetRange.Full);
+            using var formulaEnumerator = formulas.GetForwardEnumerator(Area.Full);
             while (formulaEnumerator.MoveNext())
             {
                 if (formulaEnumerator.Current.IsDynamicArray)

@@ -86,7 +86,7 @@ internal sealed partial class Slice<TElement> : ISlice
     public Dictionary<int, int>.KeyCollection UsedColumns => _columnUsage.Keys;
 
     /// <inheritdoc />
-    public void Clear(XLSheetRange range)
+    public void Clear(Area range)
     {
         var enumerator = new Enumerator(this, range);
         while (enumerator.MoveNext())
@@ -96,7 +96,7 @@ internal sealed partial class Slice<TElement> : ISlice
     }
 
     /// <inheritdoc />
-    public void DeleteAreaAndShiftLeft(XLSheetRange rangeToDelete)
+    public void DeleteAreaAndShiftLeft(Area rangeToDelete)
     {
         Clear(rangeToDelete);
 
@@ -117,7 +117,7 @@ internal sealed partial class Slice<TElement> : ISlice
     }
 
     /// <inheritdoc />
-    public void DeleteAreaAndShiftUp(XLSheetRange rangeToDelete)
+    public void DeleteAreaAndShiftUp(Area rangeToDelete)
     {
         Clear(rangeToDelete);
 
@@ -140,13 +140,13 @@ internal sealed partial class Slice<TElement> : ISlice
     /// <summary>
     /// Get enumerator over used values of the range.
     /// </summary>
-    public IEnumerator<Point> GetEnumerator(XLSheetRange range, bool reverse = false)
+    public IEnumerator<Point> GetEnumerator(Area range, bool reverse = false)
     {
         return !reverse ? new Enumerator(this, range) : new ReverseEnumerator(this, range);
     }
 
     /// <inheritdoc />
-    public void InsertAreaAndShiftDown(XLSheetRange range)
+    public void InsertAreaAndShiftDown(Area range)
     {
         var hasSpaceBelow = range.LastPoint.Row < XLHelper.MaxRowNumber;
         if (!hasSpaceBelow)
@@ -158,12 +158,12 @@ internal sealed partial class Slice<TElement> : ISlice
         var shiftDistance = range.Height;
 
         // Purged range might contain some cells that wouldn't be overwritten during shift => clear.
-        var purgedRange = new XLSheetRange(
+        var purgedRange = new Area(
             new Point(XLHelper.MaxRowNumber - shiftDistance + 1, range.FirstPoint.Column),
             new Point(XLHelper.MaxRowNumber, range.LastPoint.Column));
         Clear(purgedRange);
 
-        var shiftedRange = new XLSheetRange(
+        var shiftedRange = new Area(
             range.FirstPoint,
             new Point(XLHelper.MaxRowNumber - shiftDistance, range.LastPoint.Column));
         var cellEnumerator = new ReverseEnumerator(this, shiftedRange);
@@ -177,7 +177,7 @@ internal sealed partial class Slice<TElement> : ISlice
     }
 
     /// <inheritdoc />
-    public void InsertAreaAndShiftRight(XLSheetRange range)
+    public void InsertAreaAndShiftRight(Area range)
     {
         var hasSpaceRight = range.LastPoint.Column < XLHelper.MaxColumnNumber;
         if (!hasSpaceRight)
@@ -189,12 +189,12 @@ internal sealed partial class Slice<TElement> : ISlice
         var shiftDistance = range.Width;
 
         // Purged range might contain some cells that wouldn't be overwritten during shift => clear.
-        var purgedRange = new XLSheetRange(
+        var purgedRange = new Area(
             new Point(range.FirstPoint.Row, XLHelper.MaxColumnNumber - shiftDistance + 1),
             new Point(range.LastPoint.Row, XLHelper.MaxColumnNumber));
         Clear(purgedRange);
 
-        var shiftedRange = new XLSheetRange(
+        var shiftedRange = new Area(
             range.FirstPoint,
             new Point(range.LastPoint.Row, XLHelper.MaxColumnNumber - shiftDistance));
         var enumerator = new ReverseEnumerator(this, shiftedRange);
@@ -347,11 +347,11 @@ internal sealed partial class Slice<TElement> : ISlice
     [DebuggerDisplay("{Point}:{Current}")]
     internal sealed class Enumerator : IEnumerator<Point>
     {
-        private readonly XLSheetRange _range;
+        private readonly Area _range;
         private ColumnEnumerator _columnsEnumerator;
         private Lut<RowData>.LutEnumerator _rowsEnumerator;
 
-        internal Enumerator(Slice<TElement> slice, XLSheetRange range)
+        internal Enumerator(Slice<TElement> slice, Area range)
         {
             _range = range;
 
@@ -396,11 +396,11 @@ internal sealed partial class Slice<TElement> : ISlice
     [DebuggerDisplay("{Point}:{Current}")]
     private sealed class ReverseEnumerator : IEnumerator<Point>
     {
-        private readonly XLSheetRange _range;
+        private readonly Area _range;
         private ReverseColumnEnumerator _columnsEnumerator;
         private Lut<RowData>.ReverseLutEnumerator _rowsEnumerator;
 
-        internal ReverseEnumerator(Slice<TElement> slice, XLSheetRange range)
+        internal ReverseEnumerator(Slice<TElement> slice, Area range)
         {
             _range = range;
             _columnsEnumerator = default;

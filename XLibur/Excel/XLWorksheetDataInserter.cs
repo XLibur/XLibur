@@ -55,7 +55,7 @@ internal sealed class XLWorksheetDataInserter(XLWorksheet worksheet)
         }
 
         var lastRow = Math.Max(rowNumber - 1, origin.Row);
-        var insertedArea = new XLSheetRange(origin, new Point(lastRow, maximumColumn));
+        var insertedArea = new Area(origin, new Point(lastRow, maximumColumn));
 
         foreach (var table in worksheet.Tables)
             table.RefreshFieldsFromCells(insertedArea);

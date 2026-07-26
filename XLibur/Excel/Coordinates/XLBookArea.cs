@@ -15,9 +15,9 @@ internal readonly struct XLBookArea : IEquatable<XLBookArea>
     /// <summary>
     /// An area in the sheet.
     /// </summary>
-    public readonly XLSheetRange Area;
+    public readonly Area Area;
 
-    public XLBookArea(string name, XLSheetRange area)
+    public XLBookArea(string name, Area area)
     {
         if (string.IsNullOrEmpty(name))
             throw new ArgumentException("Name must not be null or empty.", nameof(name));
@@ -34,7 +34,7 @@ internal readonly struct XLBookArea : IEquatable<XLBookArea>
     {
         return range.Worksheet is null
             ? throw new ArgumentException("Range doesn't contain sheet.", nameof(range))
-            : new XLBookArea(range.Worksheet.Name, XLSheetRange.FromRangeAddress(range.RangeAddress));
+            : new XLBookArea(range.Worksheet.Name, Area.FromRangeAddress(range.RangeAddress));
     }
 
     public bool Equals(XLBookArea other)

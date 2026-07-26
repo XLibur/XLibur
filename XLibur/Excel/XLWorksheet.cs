@@ -1471,12 +1471,12 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     public void RecalculateAllFormulas()
     {
-        Internals.CellsCollection.FormulaSlice.MarkDirty(XLSheetRange.Full);
+        Internals.CellsCollection.FormulaSlice.MarkDirty(Area.Full);
         Workbook.CalcEngine.Recalculate(Workbook, SheetId);
     }
 
     public XLUsedCellEnumerable EnumerateUsedCells() =>
-        new(Internals.CellsCollection.ValueSlice, XLSheetRange.Full);
+        new(Internals.CellsCollection.ValueSlice, Area.Full);
 
     public string Author { get; set; }
 

@@ -63,7 +63,7 @@ internal sealed class DependencyTree
 
         foreach (var sheet in workbook.WorksheetsInternal)
         {
-            using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(XLSheetRange.Full);
+            using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
             while (enumerator.MoveNext())
             {
                 var formula = enumerator.Current;
@@ -76,13 +76,13 @@ internal sealed class DependencyTree
                     // ANY spilled cell, not just the anchor. Before the first spill the footprint
                     // is unknown (default) — register the 1x1 anchor; the spill re-registers the
                     // formula once its size is known (see XLCalcEngine.SpillDynamicArray).
-                    var footprint = formula.Range == default ? new XLSheetRange(point, point) : formula.Range;
+                    var footprint = formula.Range == default ? new Area(point, point) : formula.Range;
                     var bookArea = new XLBookArea(sheet.Name, footprint);
                     tree.AddFormula(bookArea, formula, workbook);
                 }
                 else if (formula.Type == FormulaType.Normal)
                 {
-                    var bookArea = new XLBookArea(sheet.Name, new XLSheetRange(point, point));
+                    var bookArea = new XLBookArea(sheet.Name, new Area(point, point));
                     tree.AddFormula(bookArea, formula, workbook);
                 }
                 else if (formula.Type == FormulaType.Array)
@@ -340,17 +340,17 @@ internal sealed class DependencyTree
         /// <remarks>
         /// Not sure extra memory (at least 32 bytes per formula) is worth less CPU: O(1) vs O(log N)....
         /// </remarks>
-        private readonly Dictionary<XLSheetRange, AreaDependents> _precedentAreas;
+        private readonly Dictionary<Area, AreaDependents> _precedentAreas;
 
         internal SheetDependencyTree()
         {
             _tree = new RBush<AreaDependents>();
-            _precedentAreas = new Dictionary<XLSheetRange, AreaDependents>();
+            _precedentAreas = new Dictionary<Area, AreaDependents>();
         }
 
         internal bool IsEmpty => _tree.Count == 0;
 
-        internal void AddDependent(XLSheetRange precedentRange, Dependent dependent)
+        internal void AddDependent(Area precedentRange, Dependent dependent)
         {
             if (!_precedentAreas.TryGetValue(precedentRange, out var precedentArea))
             {
@@ -364,7 +364,7 @@ internal sealed class DependencyTree
             }
         }
 
-        internal IReadOnlyList<AreaDependents> FindDependentsAreas(XLSheetRange dirtyRange)
+        internal IReadOnlyList<AreaDependents> FindDependentsAreas(Area dirtyRange)
         {
             return _tree.Search(ToEnvelope(dirtyRange));
         }
@@ -375,7 +375,7 @@ internal sealed class DependencyTree
         /// </summary>
         /// <param name="precedentRange">A precedent area in the sheet.</param>
         /// <param name="formula">Formula depending on the <paramref name="precedentRange"/>.</param>
-        internal void RemoveDependent(XLSheetRange precedentRange, XLCellFormula formula)
+        internal void RemoveDependent(Area precedentRange, XLCellFormula formula)
         {
             if (!_precedentAreas.TryGetValue(precedentRange, out var precedentArea))
                 return;
@@ -396,7 +396,7 @@ internal sealed class DependencyTree
                 areaDependents.RenameSheet(oldSheetName, newSheetName);
         }
 
-        private static Envelope ToEnvelope(XLSheetRange range)
+        private static Envelope ToEnvelope(Area range)
         {
             return new Envelope(range.LeftColumn, range.TopRow, range.RightColumn, range.BottomRow);
         }

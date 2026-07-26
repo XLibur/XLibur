@@ -45,38 +45,38 @@ internal interface ISlice
     /// <summary>
     /// Clear all values in the range and mark them as unused.
     /// </summary>
-    void Clear(XLSheetRange range);
+    void Clear(Area range);
 
     /// <summary>
     /// Clear all values in the <paramref name="rangeToDelete"/> and shift all values right of the deleted area to the deleted place.
     /// </summary>
-    void DeleteAreaAndShiftLeft(XLSheetRange rangeToDelete);
+    void DeleteAreaAndShiftLeft(Area rangeToDelete);
 
     /// <summary>
     /// Clear all values in the <paramref name="rangeToDelete"/> and shift all values below the deleted area to the deleted place.
     /// </summary>
-    void DeleteAreaAndShiftUp(XLSheetRange rangeToDelete);
+    void DeleteAreaAndShiftUp(Area rangeToDelete);
 
     /// <summary>
     /// Get all used points in a slice.
     /// </summary>
     /// <param name="range">Range to iterate over.</param>
     /// <param name="reverse"><c>false</c> = left to right, top to bottom. <c>true</c> = right to left, bottom to top.</param>
-    IEnumerator<Point> GetEnumerator(XLSheetRange range, bool reverse = false);
+    IEnumerator<Point> GetEnumerator(Area range, bool reverse = false);
 
     /// <summary>
     /// Shift all values at the <paramref name="range"/> and all cells below it
-    /// down by <see cref="XLSheetRange.Height"/> of the <paramref name="range"/>.
+    /// down by <see cref="Area.Height"/> of the <paramref name="range"/>.
     /// The insert area is cleared.
     /// </summary>
-    void InsertAreaAndShiftDown(XLSheetRange range);
+    void InsertAreaAndShiftDown(Area range);
 
     /// <summary>
     /// Shift all values at the <paramref name="range"/> and all cells right of it
-    /// to the right by <see cref="XLSheetRange.Width"/> of the <paramref name="range"/>.
+    /// to the right by <see cref="Area.Width"/> of the <paramref name="range"/>.
     /// The insert area is cleared.
     /// </summary>
-    void InsertAreaAndShiftRight(XLSheetRange range);
+    void InsertAreaAndShiftRight(Area range);
 
     /// <summary>
     /// Does a slice contain a non-default value at a specified point?

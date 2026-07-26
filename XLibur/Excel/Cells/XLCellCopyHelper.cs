@@ -150,7 +150,7 @@ internal static class XLCellCopyHelper
                 if (!cf.Ranges.GetIntersectedRanges(target).Any())
                 {
                     var xlCf = (XLConditionalFormat)cf;
-                    xlCf.SetAreas(xlCf.Areas.With(new XLSheetRange(target.SheetPoint)));
+                    xlCf.SetAreas(xlCf.Areas.With(new Area(target.SheetPoint)));
                 }
             }
             else

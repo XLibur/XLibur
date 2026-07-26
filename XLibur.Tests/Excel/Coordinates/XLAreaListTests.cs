@@ -4,7 +4,7 @@ using XLibur.Excel.Coordinates;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Coordinates;
-// Ported from ClosedXML's XLAreaListTests, adapted to XLibur's XLSheetRange/Point.
+// Ported from ClosedXML's XLAreaListTests, adapted to XLibur's Area/Point.
 // Covers the value-typed sqref transforms that back conditional-format / data-validation
 // coverage (see XLAreaList). Resource-file baseline comparisons are intentionally omitted.
 internal class XLAreaListTests
@@ -32,8 +32,8 @@ internal class XLAreaListTests
     [Arguments("A1:A1048576", "A1", "A1:A1048576")] // Columns are not changed
     public async Task InsertAndShiftDown(string areaList, string insertedArea, string expected)
     {
-        var list = new XLAreaList(XLSheetRange.Parse(areaList));
-        var result = list.InsertAndShiftDown(XLSheetRange.Parse(insertedArea));
+        var list = new XLAreaList(Area.Parse(areaList));
+        var result = list.InsertAndShiftDown(Area.Parse(insertedArea));
 
         await Assert.That(result.ToSpaceList()).IsEqualTo(expected);
     }
@@ -59,8 +59,8 @@ internal class XLAreaListTests
     [Arguments("A1:XFD1", "A1", "A1:XFD1")] // Rows are not changed
     public async Task InsertAndShiftRight(string areaList, string insertedArea, string expected)
     {
-        var list = new XLAreaList(XLSheetRange.Parse(areaList));
-        var result = list.InsertAndShiftRight(XLSheetRange.Parse(insertedArea));
+        var list = new XLAreaList(Area.Parse(areaList));
+        var result = list.InsertAndShiftRight(Area.Parse(insertedArea));
 
         await Assert.That(result.ToSpaceList()).IsEqualTo(expected);
     }
@@ -83,8 +83,8 @@ internal class XLAreaListTests
     [Arguments("A1:A1048576", "A1", "A1:A1048576")] // Columns are not changed
     public async Task DeleteAndShiftUp(string areaList, string deletedArea, string expected)
     {
-        var list = new XLAreaList(XLSheetRange.Parse(areaList));
-        var result = list.DeleteAndShiftUp(XLSheetRange.Parse(deletedArea));
+        var list = new XLAreaList(Area.Parse(areaList));
+        var result = list.DeleteAndShiftUp(Area.Parse(deletedArea));
 
         await Assert.That(result.ToSpaceList()).IsEqualTo(expected);
     }
@@ -107,8 +107,8 @@ internal class XLAreaListTests
     [Arguments("A1:XFD1", "A1", "A1:XFD1")] // Rows are not changed
     public async Task DeleteAndShiftLeft(string areaList, string deletedArea, string expected)
     {
-        var list = new XLAreaList(XLSheetRange.Parse(areaList));
-        var result = list.DeleteAndShiftLeft(XLSheetRange.Parse(deletedArea));
+        var list = new XLAreaList(Area.Parse(areaList));
+        var result = list.DeleteAndShiftLeft(Area.Parse(deletedArea));
 
         await Assert.That(result.ToSpaceList()).IsEqualTo(expected);
     }
@@ -121,7 +121,7 @@ internal class XLAreaListTests
     public async Task IntersectsWith_determines_intersection_with_any_area(string areaListText, string areaText, bool expected)
     {
         var areaList = Parse(areaListText);
-        var area = XLSheetRange.Parse(areaText);
+        var area = Area.Parse(areaText);
         await Assert.That(areaList.IntersectsWith(area)).IsEqualTo(expected);
     }
 
@@ -135,7 +135,7 @@ internal class XLAreaListTests
     public async Task IntersectingWith_returns_areas_intersecting_with_the_other_area(string areaListText, string areaText, string expected)
     {
         var areaList = Parse(areaListText);
-        var area = XLSheetRange.Parse(areaText);
+        var area = Area.Parse(areaText);
         await Assert.That(new XLAreaList(areaList.IntersectingWith(area).ToList()).ToSpaceList()).IsEqualTo(expected);
     }
 
@@ -146,7 +146,7 @@ internal class XLAreaListTests
     public async Task Excluding_returns_area_list_without_excluded(string areaListText, string excludedAreaText, string expected)
     {
         var areaList = Parse(areaListText);
-        var excludedArea = XLSheetRange.Parse(excludedAreaText);
+        var excludedArea = Area.Parse(excludedAreaText);
         await Assert.That(areaList.Excluding(excludedArea).ToSpaceList()).IsEqualTo(expected);
     }
 
@@ -160,15 +160,15 @@ internal class XLAreaListTests
     {
         var areaList = Parse(areaListText);
         var targetPoint = Point.Parse(targetPointText);
-        var areaToCopy = XLSheetRange.Parse(areaToCopyText);
+        var areaToCopy = Area.Parse(areaToCopyText);
         await Assert.That(areaList.TryCopyAreaTo(targetPoint, areaToCopy, out var result) ? result.ToSpaceList() : null).IsEqualTo(expected);
     }
 
     private static XLAreaList Parse(string spaceList)
     {
-        var list = new List<XLSheetRange>();
+        var list = new List<Area>();
         foreach (var reference in spaceList.Split(' '))
-            list.Add(XLSheetRange.Parse(reference));
+            list.Add(Area.Parse(reference));
 
         return new XLAreaList(list);
     }

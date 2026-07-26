@@ -15,7 +15,7 @@ public class XLSheetRangeTests
     [Arguments("XFD1048576:XFD1048576", 1048576, 16384, 1048576, 16384)]
     public async Task ParseCellRefsAccordingToGrammar(string refText, int firstRow, int firstCol, int lastRow, int lastCol)
     {
-        var reference = XLSheetRange.Parse(refText);
+        var reference = Area.Parse(refText);
         await Assert.That(reference.FirstPoint.Row).IsEqualTo(firstRow);
         await Assert.That(reference.FirstPoint.Column).IsEqualTo(firstCol);
         await Assert.That(reference.LastPoint.Row).IsEqualTo(lastRow);
@@ -33,7 +33,7 @@ public class XLSheetRangeTests
     [Arguments("A2:A1")]
     public async Task InvalidInputsAreNotParsed(string invalidRef)
     {
-        await Assert.That(() => XLSheetRange.Parse(invalidRef)).Throws<FormatException>();
+        await Assert.That(() => Area.Parse(invalidRef)).Throws<FormatException>();
     }
 
     [Test]
@@ -43,7 +43,7 @@ public class XLSheetRangeTests
     [Arguments("XFD1048575:XFD1048576", "XFD1048575:XFD1048576")]
     public async Task CanFormatToString(string cellRef, string expected)
     {
-        var r = XLSheetRange.Parse(cellRef);
+        var r = Area.Parse(cellRef);
         await Assert.That(r.ToString()).IsEqualTo(expected);
     }
 
@@ -56,9 +56,9 @@ public class XLSheetRangeTests
     [Arguments("B2:C3", "E5:F6", "B2:F6")]
     public async Task RangeOperation(string leftOperand, string rightOperand, string expectedRange)
     {
-        var left = XLSheetRange.Parse(leftOperand);
-        var right = XLSheetRange.Parse(rightOperand);
-        var expected = XLSheetRange.Parse(expectedRange);
+        var left = Area.Parse(leftOperand);
+        var right = Area.Parse(rightOperand);
+        var expected = Area.Parse(expectedRange);
 
         await Assert.That(left.Range(right)).IsEqualTo(expected);
     }
@@ -72,9 +72,9 @@ public class XLSheetRangeTests
     [Arguments("A1:C6", "B4:E10", "B4:C6")]
     public async Task IntersectOperation(string leftOperand, string rightOperand, string expectedRange)
     {
-        var left = XLSheetRange.Parse(leftOperand);
-        var right = XLSheetRange.Parse(rightOperand);
-        var expected = expectedRange is null ? (XLSheetRange?)null : XLSheetRange.Parse(expectedRange);
+        var left = Area.Parse(leftOperand);
+        var right = Area.Parse(rightOperand);
+        var expected = expectedRange is null ? (Area?)null : Area.Parse(expectedRange);
 
         await Assert.That(left.Intersect(right)).IsEqualTo(expected);
     }
@@ -88,8 +88,8 @@ public class XLSheetRangeTests
     [Arguments("A1:C6", "B4:E10", true)]
     public async Task Intersects_checks_whether_the_range_has_intersection_with_another(string leftOperand, string rightOperand, bool expected)
     {
-        var left = XLSheetRange.Parse(leftOperand);
-        var right = XLSheetRange.Parse(rightOperand);
+        var left = Area.Parse(leftOperand);
+        var right = Area.Parse(rightOperand);
 
         await Assert.That(left.Intersects(right)).IsEqualTo(expected);
     }
@@ -102,8 +102,8 @@ public class XLSheetRangeTests
     [Arguments("A2:C2", "B2:C3", false)]
     public async Task Overlaps_checks_whether_left_fully_overlaps_right(string leftOperand, string rightOperand, bool expected)
     {
-        var left = XLSheetRange.Parse(leftOperand);
-        var right = XLSheetRange.Parse(rightOperand);
+        var left = Area.Parse(leftOperand);
+        var right = Area.Parse(rightOperand);
 
         await Assert.That(left.Overlaps(right)).IsEqualTo(expected);
     }
@@ -122,9 +122,9 @@ public class XLSheetRangeTests
     [Arguments("XFA1:XFD1", "XFB1:XFC1", "XFA1:XFD1")] // Extend below last row
     public async Task TryInsertAreaAndShiftRight_without_partial_cover(string original, string inserted, string repositioned)
     {
-        var originalArea = XLSheetRange.Parse(original);
-        var insertedArea = XLSheetRange.Parse(inserted);
-        var repositionedArea = repositioned is not null ? XLSheetRange.Parse(repositioned) : (XLSheetRange?)null;
+        var originalArea = Area.Parse(original);
+        var insertedArea = Area.Parse(inserted);
+        var repositionedArea = repositioned is not null ? Area.Parse(repositioned) : (Area?)null;
 
         var success = originalArea.TryInsertAreaAndShiftRight(insertedArea, out var result);
 
@@ -138,8 +138,8 @@ public class XLSheetRangeTests
     [Arguments("C4:F8", "A5:B9")] // Partially below
     public async Task TryInsertAreaAndShiftRight_with_partial_cover(string original, string inserted)
     {
-        var originalArea = XLSheetRange.Parse(original);
-        var insertedArea = XLSheetRange.Parse(inserted);
+        var originalArea = Area.Parse(original);
+        var insertedArea = Area.Parse(inserted);
 
         await Assert.That(originalArea.TryInsertAreaAndShiftRight(insertedArea, out var result)).IsFalse();
     }
@@ -158,9 +158,9 @@ public class XLSheetRangeTests
     [Arguments("A1048570:A1048572", "A1048571:A1048576", "A1048570:A1048576")] // Extend below last row
     public async Task TryInsertAreaAndShiftDown_without_partial_cover(string original, string inserted, string repositioned)
     {
-        var originalArea = XLSheetRange.Parse(original);
-        var insertedArea = XLSheetRange.Parse(inserted);
-        var repositionedArea = repositioned is not null ? XLSheetRange.Parse(repositioned) : (XLSheetRange?)null;
+        var originalArea = Area.Parse(original);
+        var insertedArea = Area.Parse(inserted);
+        var repositionedArea = repositioned is not null ? Area.Parse(repositioned) : (Area?)null;
 
         var success = originalArea.TryInsertAreaAndShiftDown(insertedArea, out var result);
 
@@ -174,8 +174,8 @@ public class XLSheetRangeTests
     [Arguments("D6:G10", "E7:H15")] // Right
     public async Task TryInsertAreaAndShiftDown_with_partial_cover(string original, string inserted)
     {
-        var originalArea = XLSheetRange.Parse(original);
-        var insertedArea = XLSheetRange.Parse(inserted);
+        var originalArea = Area.Parse(original);
+        var insertedArea = Area.Parse(inserted);
 
         await Assert.That(originalArea.TryInsertAreaAndShiftDown(insertedArea, out var result)).IsFalse();
     }
@@ -193,9 +193,9 @@ public class XLSheetRangeTests
     [Arguments("D4:E4", "A5:F10", "D4:E4")] // Partial deletion is below -> not affected
     public async Task TryDeleteAreaAndShiftLeft_without_partial_cover(string original, string deleted, string repositioned)
     {
-        var originalArea = XLSheetRange.Parse(original);
-        var deletedArea = XLSheetRange.Parse(deleted);
-        var repositionedArea = repositioned is not null ? XLSheetRange.Parse(repositioned) : (XLSheetRange?)null;
+        var originalArea = Area.Parse(original);
+        var deletedArea = Area.Parse(deleted);
+        var repositionedArea = repositioned is not null ? Area.Parse(repositioned) : (Area?)null;
 
         var success = originalArea.TryDeleteAreaAndShiftLeft(deletedArea, out var result);
 
@@ -209,8 +209,8 @@ public class XLSheetRangeTests
     [Arguments("D4:E8", "C4:D6")] // Partial left and inside
     public async Task TryDeleteAreaAndShiftLeft_with_partial_cover(string original, string deleted)
     {
-        var originalArea = XLSheetRange.Parse(original);
-        var deletedArea = XLSheetRange.Parse(deleted);
+        var originalArea = Area.Parse(original);
+        var deletedArea = Area.Parse(deleted);
         var success = originalArea.TryDeleteAreaAndShiftLeft(deletedArea, out var result);
 
         await Assert.That(success).IsFalse();
@@ -230,9 +230,9 @@ public class XLSheetRangeTests
     [Arguments("B5:D8", "B9:C10", "B5:D8")] // Partial deletion is below -> not affected
     public async Task TryDeleteAreaAndShiftUp_without_partial_cover(string leftOperand, string deleted, string expected)
     {
-        var originalArea = XLSheetRange.Parse(leftOperand);
-        var deletedArea = XLSheetRange.Parse(deleted);
-        var expectedResult = expected is not null ? XLSheetRange.Parse(expected) : (XLSheetRange?)null;
+        var originalArea = Area.Parse(leftOperand);
+        var deletedArea = Area.Parse(deleted);
+        var expectedResult = expected is not null ? Area.Parse(expected) : (Area?)null;
 
         var success = originalArea.TryDeleteAreaAndShiftUp(deletedArea, out var result);
 
@@ -246,8 +246,8 @@ public class XLSheetRangeTests
     [Arguments("B5:D8", "B1:B6")] // Partial above and inside
     public async Task TryDeleteAreaAndShiftUp_with_partial_cover(string leftOperand, string deleted)
     {
-        var originalArea = XLSheetRange.Parse(leftOperand);
-        var deletedArea = XLSheetRange.Parse(deleted);
+        var originalArea = Area.Parse(leftOperand);
+        var deletedArea = Area.Parse(deleted);
         var success = originalArea.TryDeleteAreaAndShiftUp(deletedArea, out var result);
 
         await Assert.That(success).IsFalse();

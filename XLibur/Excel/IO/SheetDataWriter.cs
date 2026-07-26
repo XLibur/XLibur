@@ -72,7 +72,7 @@ internal static class SheetDataWriter
         uint rowStyleId = 0;
         XLStyleValue? lastCachedStyle = null;
         uint lastCachedStyleId = 0;
-        var enumerator = new XLCellsCollection.SlicesEnumerator(XLSheetRange.Full, cellCtx.CellsCollection);
+        var enumerator = new XLCellsCollection.SlicesEnumerator(Area.Full, cellCtx.CellsCollection);
         while (enumerator.MoveNext())
         {
             var point = enumerator.Current;
@@ -288,7 +288,7 @@ internal static class SheetDataWriter
             // the 1x1 anchor.
             xml.WriteStartElement("f", Main2006SsNs);
             xml.WriteAttributeString("t", "array");
-            var spillRange = formula.Range == default ? new XLSheetRange(point) : formula.Range;
+            var spillRange = formula.Range == default ? new Area(point) : formula.Range;
             var spillAddress = XLRangeAddress.FromSheetRange(xlWorksheet, spillRange);
             xml.WriteAttributeString("ref", spillAddress.ToStringRelative());
             xml.WriteString(formula.A1);

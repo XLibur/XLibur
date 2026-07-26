@@ -112,11 +112,11 @@ internal static class OpenXmlPartReaderExtensions
         /// <summary>
         /// Get value of attribute with type <c>ST_Ref</c>.
         /// </summary>
-        internal XLSheetRange? GetRefAttribute(string name)
+        internal Area? GetRefAttribute(string name)
         {
             var attribute = attributes.GetAttribute(name);
             if (!string.IsNullOrEmpty(attribute))
-                return XLSheetRange.Parse(attribute);
+                return Area.Parse(attribute);
 
             return null;
         }

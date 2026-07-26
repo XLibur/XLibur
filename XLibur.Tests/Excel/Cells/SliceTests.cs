@@ -132,7 +132,7 @@ public class SliceTests
         var lastCorner = new Point(60, 30);
         slice.Set(lastCorner, 1);
 
-        slice.Clear(new XLSheetRange(firstCorner, lastCorner));
+        slice.Clear(new Area(firstCorner, lastCorner));
         await Assert.That(slice[outsideAddress]).IsEqualTo(1);
         await Assert.That(slice[firstCorner]).IsEqualTo(0);
         await Assert.That(slice[insideAddress]).IsEqualTo(0);
@@ -151,7 +151,7 @@ public class SliceTests
         var outsideAddress = new Point(1, 3);
         slice.Set(outsideAddress, 4);
 
-        slice.InsertAreaAndShiftDown(new XLSheetRange(new Point(1, 1), new Point(2, 2)));
+        slice.InsertAreaAndShiftDown(new Area(new Point(1, 1), new Point(2, 2)));
 
         await Assert.That(slice[3, 1]).IsEqualTo(1);
         await Assert.That(slice[5, 1]).IsEqualTo(2);
@@ -171,7 +171,7 @@ public class SliceTests
         var outsideAddress = new Point(3, 1);
         slice.Set(outsideAddress, 4);
 
-        slice.InsertAreaAndShiftRight(new XLSheetRange(new Point(1, 1), new Point(2, 2)));
+        slice.InsertAreaAndShiftRight(new Area(new Point(1, 1), new Point(2, 2)));
 
         await Assert.That(slice[1, 3]).IsEqualTo(1);
         await Assert.That(slice[1, 5]).IsEqualTo(2);
@@ -196,7 +196,7 @@ public class SliceTests
         var leftAddress = new Point(3, 1);
         slice.Set(leftAddress, 6);
 
-        var deleteArea = new XLSheetRange(firstCorner, secondCorner);
+        var deleteArea = new Area(firstCorner, secondCorner);
         slice.DeleteAreaAndShiftUp(deleteArea);
         await Assert.That(slice[firstCorner]).IsEqualTo(0);
         await Assert.That(slice[secondCorner]).IsEqualTo(0);
@@ -223,7 +223,7 @@ public class SliceTests
         var aboveAddress = new Point(1, 3);
         slice.Set(aboveAddress, 6);
 
-        var deleteArea = new XLSheetRange(firstCorner, secondCorner);
+        var deleteArea = new Area(firstCorner, secondCorner);
         slice.DeleteAreaAndShiftLeft(deleteArea);
         await Assert.That(slice[firstCorner]).IsEqualTo(0);
         await Assert.That(slice[secondCorner]).IsEqualTo(0);

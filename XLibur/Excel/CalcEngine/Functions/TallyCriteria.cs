@@ -61,7 +61,7 @@ internal sealed class TallyCriteria : ITally
         {
             // This is a lazy IEnumerable, it's not yet evaluated.
             var areaCriteriaPoints = ctx.GetCriteriaPoints(area, criteria);
-            var origin = XLSheetRange.FromRangeAddress(area).FirstPoint;
+            var origin = Area.FromRangeAddress(area).FirstPoint;
             criteriaPoints.Add((origin, areaCriteriaPoints));
         }
 

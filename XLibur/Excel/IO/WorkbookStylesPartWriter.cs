@@ -133,7 +133,7 @@ internal static class WorkbookStylesPartWriter
             // materialise an XLCell wrapper for every used cell just to read one property, which
             // on a large sheet is the single biggest allocation of the whole save.
             var cellsCollection = worksheet.Internals.CellsCollection;
-            var cells = new XLCellsCollection.SlicesEnumerator(XLSheetRange.Full, cellsCollection);
+            var cells = new XLCellsCollection.SlicesEnumerator(Area.Full, cellsCollection);
             while (cells.MoveNext())
                 styles.Add(worksheet.GetStyleValue(cells.Current));
 

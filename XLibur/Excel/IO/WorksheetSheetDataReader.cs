@@ -492,7 +492,7 @@ internal static class WorksheetSheetDataReader
         Point cellAddress, uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes,
         FormulaSlice formulaSlice)
     {
-        var arrayArea = XLSheetRange.Parse(refAttr);
+        var arrayArea = Area.Parse(refAttr);
         var isDynamicArray = cellMetaIndex is { } cm &&
                              dynamicArrayCmIndexes is not null &&
                              dynamicArrayCmIndexes.Contains(cm);
@@ -513,7 +513,7 @@ internal static class WorksheetSheetDataReader
         bool is2D, bool input1Deleted, bool input2Deleted, bool isRowDataTable,
         Point cellAddress, FormulaSlice formulaSlice)
     {
-        var dataTableArea = XLSheetRange.Parse(refAttr);
+        var dataTableArea = Area.Parse(refAttr);
         var input1 = r1Attr is not null ? Point.Parse(r1Attr) : throw MissingRequiredAttr("r1");
         XLCellFormula formula;
         if (is2D)

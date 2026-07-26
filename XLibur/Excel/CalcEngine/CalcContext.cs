@@ -173,7 +173,7 @@ internal sealed class CalcContext
         foreach (var area in reference)
         {
             var sheet = area.Worksheet ?? Worksheet;
-            var range = XLSheetRange.FromRangeAddress(area);
+            var range = Area.FromRangeAddress(area);
 
             // A value can be either in a non-empty value slice or an empty cell with a formula.
             var enumerator = sheet.Internals.CellsCollection.ForValuesAndFormulas(range);
@@ -213,7 +213,7 @@ internal sealed class CalcContext
     internal IEnumerable<Point> GetCriteriaPoints(XLRangeAddress areaReference, Criteria criteria)
     {
         var sheet = areaReference.Worksheet ?? Worksheet;
-        var area = XLSheetRange.FromRangeAddress(areaReference);
+        var area = Area.FromRangeAddress(areaReference);
 
         // This is a performance optimization when a user specifies a whole column
         // in the tally function (e.g. SUMIF(A:B, "5", C:D)).
@@ -251,7 +251,7 @@ internal sealed class CalcContext
         foreach (var area in reference)
         {
             var sheet = area.Worksheet ?? Worksheet;
-            var range = XLSheetRange.FromRangeAddress(area);
+            var range = Area.FromRangeAddress(area);
             var hiddenRowTracker = new HiddenRowTracker(sheet);
 
             // A value can be either in a non-empty value slice or an empty cell with a formula.
@@ -328,7 +328,7 @@ internal sealed class CalcContext
         foreach (var area in reference)
         {
             var sheet = area.Worksheet;
-            foreach (var point in XLSheetRange.FromRangeAddress(area))
+            foreach (var point in Area.FromRangeAddress(area))
             {
                 yield return GetCellValue(sheet, point.Row, point.Column);
             }

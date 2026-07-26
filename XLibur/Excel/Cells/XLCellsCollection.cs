@@ -122,22 +122,22 @@ internal sealed class XLCellsCollection : IWorkbookListener
 
     internal void Clear()
     {
-        Clear(XLSheetRange.Full);
+        Clear(Area.Full);
     }
 
-    internal void Clear(XLSheetRange clearRange)
+    internal void Clear(Area clearRange)
     {
         foreach (var slice in _slices)
             slice.Clear(clearRange);
     }
 
-    internal void DeleteAreaAndShiftLeft(XLSheetRange rangeToDelete)
+    internal void DeleteAreaAndShiftLeft(Area rangeToDelete)
     {
         foreach (var slice in _slices)
             slice.DeleteAreaAndShiftLeft(rangeToDelete);
     }
 
-    internal void DeleteAreaAndShiftUp(XLSheetRange rangeToDelete)
+    internal void DeleteAreaAndShiftUp(Area rangeToDelete)
     {
         foreach (var slice in _slices)
             slice.DeleteAreaAndShiftUp(rangeToDelete);
@@ -177,7 +177,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
     /// </summary>
     internal IEnumerable<XLCell> GetCells()
     {
-        return GetCells(XLSheetRange.Full);
+        return GetCells(Area.Full);
     }
 
     /// <summary>
@@ -185,7 +185,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
     /// </summary>
     internal IEnumerable<XLCell> GetCells(Func<XLCell, bool> predicate)
     {
-        return GetCells(XLSheetRange.Full, predicate);
+        return GetCells(Area.Full, predicate);
     }
 
     /// <summary>
@@ -195,13 +195,13 @@ internal sealed class XLCellsCollection : IWorkbookListener
         int rowEnd, int columnEnd,
         Func<XLCell, bool>? predicate = null)
     {
-        return GetCells(new XLSheetRange(rowStart, columnStart, rowEnd, columnEnd), predicate);
+        return GetCells(new Area(rowStart, columnStart, rowEnd, columnEnd), predicate);
     }
 
     /// <summary>
     /// Get all used cells in the range that satisfy the predicate.
     /// </summary>
-    internal IEnumerable<XLCell> GetCells(XLSheetRange range, Func<XLCell, bool>? predicate = null)
+    internal IEnumerable<XLCell> GetCells(Area range, Func<XLCell, bool>? predicate = null)
     {
         var enumerator = new SlicesEnumerator(range, this);
 
@@ -223,7 +223,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
         if (MiscSlice.IsEmpty)
             return false;
 
-        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, XLSheetRange.Full);
+        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, Area.Full);
         while (enumerator.MoveNext())
         {
             if (enumerator.Current.Comment is not null)
@@ -243,7 +243,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
         if (MiscSlice.IsEmpty)
             return points;
 
-        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, XLSheetRange.Full);
+        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, Area.Full);
         while (enumerator.MoveNext())
         {
             if (enumerator.Current.CellImage is not null)
@@ -274,34 +274,34 @@ internal sealed class XLCellsCollection : IWorkbookListener
         return GetCell(address);
     }
 
-    internal int FirstColumnUsed(XLSheetRange searchRange, XLCellsUsedOptions options, Func<IXLCell, bool>? predicate = null)
+    internal int FirstColumnUsed(Area searchRange, XLCellsUsedOptions options, Func<IXLCell, bool>? predicate = null)
     {
         return FindUsedColumn(searchRange, options, predicate, false);
     }
 
-    internal int FirstRowUsed(XLSheetRange searchRange, XLCellsUsedOptions options, Func<IXLCell, bool>? predicate = null)
+    internal int FirstRowUsed(Area searchRange, XLCellsUsedOptions options, Func<IXLCell, bool>? predicate = null)
     {
         return FindUsedRow(searchRange, options, predicate, false);
     }
 
-    internal void InsertAreaAndShiftDown(XLSheetRange insertedRange)
+    internal void InsertAreaAndShiftDown(Area insertedRange)
     {
         foreach (var slice in _slices)
             slice.InsertAreaAndShiftDown(insertedRange);
     }
 
-    internal void InsertAreaAndShiftRight(XLSheetRange insertedRange)
+    internal void InsertAreaAndShiftRight(Area insertedRange)
     {
         foreach (var slice in _slices)
             slice.InsertAreaAndShiftRight(insertedRange);
     }
 
-    internal int LastColumnUsed(XLSheetRange searchRange, XLCellsUsedOptions options, Func<IXLCell, bool>? predicate = null)
+    internal int LastColumnUsed(Area searchRange, XLCellsUsedOptions options, Func<IXLCell, bool>? predicate = null)
     {
         return FindUsedColumn(searchRange, options, predicate, true);
     }
 
-    internal int LastRowUsed(XLSheetRange searchRange, XLCellsUsedOptions options, Func<IXLCell, bool>? predicate = null)
+    internal int LastRowUsed(Area searchRange, XLCellsUsedOptions options, Func<IXLCell, bool>? predicate = null)
     {
         return FindUsedRow(searchRange, options, predicate, true);
     }
@@ -311,16 +311,16 @@ internal sealed class XLCellsCollection : IWorkbookListener
     /// </summary>
     /// <param name="map">A sorted map of rows. The values must be resorted row numbers from <paramref name="sheetRange"/>.</param>
     /// <param name="sheetRange">Sheet that should have its rows rearranged.</param>
-    internal void RemapRows(IList<int> map, XLSheetRange sheetRange)
+    internal void RemapRows(IList<int> map, Area sheetRange)
     {
         RemapRanges(map, sheetRange.TopRow, SwapRows);
 
         void SwapRows(int prevRowNumber, int currentRowNumber)
         {
-            var prevRowRange = new XLSheetRange(
+            var prevRowRange = new Area(
                 new Point(prevRowNumber, sheetRange.LeftColumn),
                 new Point(prevRowNumber, sheetRange.RightColumn));
-            var currentRowRange = new XLSheetRange(
+            var currentRowRange = new Area(
                 new Point(currentRowNumber, sheetRange.LeftColumn),
                 new Point(currentRowNumber, sheetRange.RightColumn));
             SwapRanges(prevRowRange, currentRowRange);
@@ -332,16 +332,16 @@ internal sealed class XLCellsCollection : IWorkbookListener
     /// </summary>
     /// <param name="map">A sorted map of columns. The values must be resorted columns numbers from <paramref name="sheetRange"/>.</param>
     /// <param name="sheetRange">Sheet that should have its columns rearranged.</param>
-    internal void RemapColumns(IList<int> map, XLSheetRange sheetRange)
+    internal void RemapColumns(IList<int> map, Area sheetRange)
     {
         RemapRanges(map, sheetRange.LeftColumn, SwapColumns);
 
         void SwapColumns(int prevColNumber, int currentColNumber)
         {
-            var prevRowRange = new XLSheetRange(
+            var prevRowRange = new Area(
                 new Point(sheetRange.TopRow, prevColNumber),
                 new Point(sheetRange.BottomRow, prevColNumber));
-            var currentRowRange = new XLSheetRange(
+            var currentRowRange = new Area(
                 new Point(sheetRange.TopRow, currentColNumber),
                 new Point(sheetRange.BottomRow, currentColNumber));
             SwapRanges(prevRowRange, currentRowRange);
@@ -384,7 +384,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
         }
     }
 
-    private void SwapRanges(XLSheetRange sheetRange1, XLSheetRange sheetRange2)
+    private void SwapRanges(Area sheetRange1, Area sheetRange2)
     {
         var rowCount = sheetRange1.LastPoint.Row - sheetRange1.FirstPoint.Row + 1;
         var columnCount = sheetRange1.LastPoint.Column - sheetRange1.FirstPoint.Column + 1;
@@ -400,7 +400,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
         }
     }
 
-    private int FindUsedColumn(XLSheetRange range, XLCellsUsedOptions options, Func<IXLCell, bool>? predicate, bool descending)
+    private int FindUsedColumn(Area range, XLCellsUsedOptions options, Func<IXLCell, bool>? predicate, bool descending)
     {
         var usedColumns = Enumerable.Empty<int>();
         foreach (var slice in _slices)
@@ -415,7 +415,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
 
         foreach (var columnNumber in usedColumns)
         {
-            var enumerator = new SlicesEnumerator(new XLSheetRange(range.FirstPoint.Row, columnNumber, range.LastPoint.Row, columnNumber), this);
+            var enumerator = new SlicesEnumerator(new Area(range.FirstPoint.Row, columnNumber, range.LastPoint.Row, columnNumber), this);
             while (enumerator.MoveNext())
             {
                 var cell = new XLCell(_ws, enumerator.Current);
@@ -430,7 +430,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
         return 0;
     }
 
-    private int FindUsedRow(XLSheetRange searchRange, XLCellsUsedOptions options, Func<IXLCell, bool>? predicate, bool reverse)
+    private int FindUsedRow(Area searchRange, XLCellsUsedOptions options, Func<IXLCell, bool>? predicate, bool reverse)
     {
         var enumerator = new SlicesEnumerator(searchRange, this, reverse);
 
@@ -470,7 +470,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
     /// <summary>
     /// Gets used points in the range.
     /// </summary>
-    internal SlicesEnumerator ForValuesAndFormulas(XLSheetRange range)
+    internal SlicesEnumerator ForValuesAndFormulas(Area range)
     {
         var valueEnumerator = ValueSlice.GetEnumerator(range);
         var formulaEnumerator = FormulaSlice.GetEnumerator(range);
@@ -488,7 +488,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
         private int _count;
         private readonly bool _reverse;
 
-        public SlicesEnumerator(XLSheetRange range, XLCellsCollection cellsCollection, bool reverse = false)
+        public SlicesEnumerator(Area range, XLCellsCollection cellsCollection, bool reverse = false)
             : this(
                 reverse,
                 cellsCollection.ValueSlice.GetEnumerator(range, reverse),
@@ -568,7 +568,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
         if (XLHelper.SheetComparer.Equals(oldSheetName, newSheetName))
             return;
 
-        using var enumerator = FormulaSlice.GetForwardEnumerator(XLSheetRange.Full);
+        using var enumerator = FormulaSlice.GetForwardEnumerator(Area.Full);
         while (enumerator.MoveNext())
         {
             ref readonly var cellFormula = ref enumerator.Current;

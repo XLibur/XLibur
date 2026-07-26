@@ -12,35 +12,35 @@ namespace XLibur.Excel.Coordinates;
 /// <c>sqref</c>). Structural operations — <see cref="InsertAndShiftDown"/>,
 /// <see cref="InsertAndShiftRight"/>, <see cref="DeleteAndShiftUp"/>,
 /// <see cref="DeleteAndShiftLeft"/> — return a new list, transformed by pure functions on
-/// <see cref="XLSheetRange"/>. Because areas are plain structs (not shared, repository-backed
+/// <see cref="Area"/>. Because areas are plain structs (not shared, repository-backed
 /// range objects), a shift can never alias or double-apply — the failure mode behind
 /// ClosedXML issue #2850. Intended to back conditional-format and data-validation coverage.
 /// </summary>
-internal sealed class XLAreaList : IEnumerable<XLSheetRange>
+internal sealed class XLAreaList : IEnumerable<Area>
 {
-    internal static readonly XLAreaList Empty = new(new List<XLSheetRange>());
+    internal static readonly XLAreaList Empty = new(new List<Area>());
 
-    private readonly List<XLSheetRange> _areas;
+    private readonly List<Area> _areas;
 
-    internal XLAreaList(XLSheetRange area)
+    internal XLAreaList(Area area)
     {
-        _areas = new List<XLSheetRange>(1) { area };
+        _areas = new List<Area>(1) { area };
     }
 
-    internal XLAreaList(List<XLSheetRange> areas)
+    internal XLAreaList(List<Area> areas)
     {
         _areas = areas;
     }
 
     internal int Count => _areas.Count;
 
-    internal XLSheetRange this[int idx] => _areas[idx];
+    internal Area this[int idx] => _areas[idx];
 
     internal static XLAreaList FromRanges(IEnumerable<IXLRange> ranges)
     {
-        var areas = new List<XLSheetRange>();
+        var areas = new List<Area>();
         foreach (var range in ranges)
-            areas.Add(XLSheetRange.FromRangeAddress(range.RangeAddress));
+            areas.Add(Area.FromRangeAddress(range.RangeAddress));
 
         return new XLAreaList(areas);
     }
@@ -48,27 +48,27 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
     /// <summary>
     /// Return a new list with an additional area appended.
     /// </summary>
-    internal XLAreaList With(XLSheetRange area)
+    internal XLAreaList With(Area area)
     {
-        return new XLAreaList(new List<XLSheetRange>(_areas) { area });
+        return new XLAreaList(new List<Area>(_areas) { area });
     }
 
     /// <summary>
     /// Return a new list with the first occurrence of <paramref name="area"/> removed.
     /// </summary>
-    internal XLAreaList Without(XLSheetRange area)
+    internal XLAreaList Without(Area area)
     {
-        var newList = new List<XLSheetRange>(_areas);
+        var newList = new List<Area>(_areas);
         newList.Remove(area);
         return new XLAreaList(newList);
     }
 
-    internal XLAreaList InsertAndShiftDown(XLSheetRange insertedArea)
+    internal XLAreaList InsertAndShiftDown(Area insertedArea)
     {
         // Method is not symmetrical with InsertAndShiftRight, because Excel doesn't produce
         // symmetrical results (e.g. original C3:E5 and insert down at C3 produces asymmetrical
         // results from insert right at E3).
-        var result = new List<XLSheetRange>(_areas.Count);
+        var result = new List<Area>(_areas.Count);
         foreach (var originalArea in _areas)
         {
             if (originalArea.HasFullColumnHeight)
@@ -98,7 +98,7 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
                 continue;
             }
 
-            XLSheetRange? left = null, right = null;
+            Area? left = null, right = null;
             if (remaining is not null)
                 remaining.Value.SplitBefore(insertedArea.LeftColumn, out left, out remaining);
 
@@ -126,7 +126,7 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
                 {
                     // Partial cover attaching at the bottom of the original area, e.g. insert to
                     // B2 with original A1:C1.
-                    var cutToWidth = new XLSheetRange(
+                    var cutToWidth = new Area(
                         insertedArea.TopRow,
                         Math.Max(insertedArea.LeftColumn, originalArea.LeftColumn),
                         insertedArea.BottomRow,
@@ -148,9 +148,9 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
         return new XLAreaList(result);
     }
 
-    internal XLAreaList InsertAndShiftRight(XLSheetRange insertedArea)
+    internal XLAreaList InsertAndShiftRight(Area insertedArea)
     {
-        var result = new List<XLSheetRange>(_areas.Count);
+        var result = new List<Area>(_areas.Count);
         foreach (var originalArea in _areas)
         {
             if (originalArea.HasFullRowWidth)
@@ -179,7 +179,7 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
                 else
                 {
                     // Attaches at the right of the original area, e.g. insert to B2 with original A1:C1.
-                    var cutToHeight = new XLSheetRange(
+                    var cutToHeight = new Area(
                         Math.Max(insertedArea.TopRow, originalArea.TopRow),
                         insertedArea.LeftColumn,
                         Math.Min(insertedArea.BottomRow, originalArea.BottomRow),
@@ -191,7 +191,7 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
                 continue;
             }
 
-            XLSheetRange? below = null, left = null;
+            Area? below = null, left = null;
             originalArea.SplitAbove(insertedArea.TopRow, out var above, out var remaining);
 
             if (remaining is not null)
@@ -228,10 +228,10 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
         return new XLAreaList(result);
     }
 
-    internal XLAreaList DeleteAndShiftUp(XLSheetRange deletedArea)
+    internal XLAreaList DeleteAndShiftUp(Area deletedArea)
     {
         var groove = deletedArea.ExtendBelow(XLHelper.MaxRowNumber);
-        var result = new List<XLSheetRange>(_areas.Count);
+        var result = new List<Area>(_areas.Count);
         foreach (var originalArea in _areas)
         {
             if (originalArea.HasFullColumnHeight)
@@ -264,10 +264,10 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
         return new XLAreaList(result);
     }
 
-    internal XLAreaList DeleteAndShiftLeft(XLSheetRange deletedArea)
+    internal XLAreaList DeleteAndShiftLeft(Area deletedArea)
     {
         var groove = deletedArea.ExtendRight(XLHelper.MaxColumnNumber);
-        var result = new List<XLSheetRange>(_areas.Count);
+        var result = new List<Area>(_areas.Count);
         foreach (var originalArea in _areas)
         {
             if (originalArea.HasFullRowWidth)
@@ -300,9 +300,9 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
         return new XLAreaList(result);
     }
 
-    internal XLAreaList DeleteWithoutShift(XLSheetRange deletedArea)
+    internal XLAreaList DeleteWithoutShift(Area deletedArea)
     {
-        var result = new List<XLSheetRange>(_areas.Count);
+        var result = new List<Area>(_areas.Count);
         foreach (var originalArea in _areas)
             originalArea.Exclude(deletedArea, result);
 
@@ -317,7 +317,7 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
         return XLAreaConsolidator.Consolidate(this);
     }
 
-    internal bool IntersectsWith(XLSheetRange otherArea)
+    internal bool IntersectsWith(Area otherArea)
     {
         foreach (var area in _areas)
         {
@@ -331,7 +331,7 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
     /// <summary>
     /// Return the areas in the list (at their original size) intersecting <paramref name="otherArea"/>.
     /// </summary>
-    internal IEnumerable<XLSheetRange> IntersectingWith(XLSheetRange otherArea)
+    internal IEnumerable<Area> IntersectingWith(Area otherArea)
     {
         foreach (var area in _areas)
         {
@@ -344,11 +344,11 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
     /// Take the areas, intersect them with <paramref name="areaToCopy"/> and shift the pieces to
     /// <paramref name="target"/>. Used mostly in copy&amp;paste.
     /// </summary>
-    internal bool TryCopyAreaTo(Point target, XLSheetRange areaToCopy, [NotNullWhen(true)] out XLAreaList? result)
+    internal bool TryCopyAreaTo(Point target, Area areaToCopy, [NotNullWhen(true)] out XLAreaList? result)
     {
         var rowShift = target.Row - areaToCopy.FirstPoint.Row;
         var columnShift = target.Column - areaToCopy.FirstPoint.Column;
-        List<XLSheetRange>? copyList = null;
+        List<Area>? copyList = null;
         foreach (var area in _areas)
         {
             if (area.Intersect(areaToCopy) is not { } intersection)
@@ -358,7 +358,7 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
             if (intersection.ShiftAndClip(rowShift, columnShift) is not { } shiftedArea)
                 continue;
 
-            copyList ??= new List<XLSheetRange>();
+            copyList ??= new List<Area>();
             copyList.Add(shiftedArea);
         }
 
@@ -375,19 +375,19 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
     /// <summary>
     /// Return a new list with <paramref name="excludedArea"/> cut out of every area.
     /// </summary>
-    internal XLAreaList Excluding(XLSheetRange excludedArea)
+    internal XLAreaList Excluding(Area excludedArea)
     {
         if (!IntersectsWith(excludedArea))
             return this;
 
-        var list = new List<XLSheetRange>();
+        var list = new List<Area>();
         foreach (var area in _areas)
             area.Exclude(excludedArea, list);
 
         return new XLAreaList(list);
     }
 
-    public IEnumerator<XLSheetRange> GetEnumerator()
+    public IEnumerator<Area> GetEnumerator()
     {
         return _areas.GetEnumerator();
     }

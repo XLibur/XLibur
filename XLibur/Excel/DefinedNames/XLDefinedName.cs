@@ -100,7 +100,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     /// Try to resolve the first sheet reference in the formula to a worksheet and area.
     /// Avoids materializing <see cref="XLRange"/> or <see cref="XLRanges"/> objects.
     /// </summary>
-    internal bool TryGetFirstSheetArea(XLWorkbook workbook, out XLWorksheet? sheet, out XLSheetRange sheetArea)
+    internal bool TryGetFirstSheetArea(XLWorkbook workbook, out XLWorksheet? sheet, out Area sheetArea)
     {
         var anchor = new Point(1, 1);
         foreach (var reference in _references.SheetReferences)
@@ -126,7 +126,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
         if (sheet is null)
             throw new InvalidOperationException("Cannot copy workbook scoped defined name.");
 
-        var targetTables = targetSheet.Tables.ToDictionary<XLTable, XLSheetRange>(x => x.SheetRange);
+        var targetTables = targetSheet.Tables.ToDictionary<XLTable, Area>(x => x.SheetRange);
         var tableRenames = new Dictionary<string, string>();
         foreach (var table in sheet.Tables)
         {

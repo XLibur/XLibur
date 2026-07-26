@@ -147,7 +147,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     public XLConditionalFormat(XLRange range, bool copyDefaultModify = false)
         : this((XLWorksheet)range.Worksheet)
     {
-        Areas = new XLAreaList(XLSheetRange.FromRangeAddress(range.RangeAddress));
+        Areas = new XLAreaList(Area.FromRangeAddress(range.RangeAddress));
         CopyDefaultModify = copyDefaultModify;
     }
 
@@ -209,7 +209,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         get => Areas.Count > 0
             ? MaterializeRange(Areas[0])
             : throw new InvalidOperationException("XLConditionalFormat requires at least one Range.");
-        set => Areas = new XLAreaList(XLSheetRange.FromRangeAddress(value.RangeAddress));
+        set => Areas = new XLAreaList(Area.FromRangeAddress(value.RangeAddress));
     }
 
     /// <summary>
@@ -242,7 +242,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     /// </summary>
     internal void SetAreas(XLAreaList areas) => Areas = areas;
 
-    private XLRange MaterializeRange(XLSheetRange area)
+    private XLRange MaterializeRange(Area area)
         => _worksheet.Range(area.TopRow, area.LeftColumn, area.BottomRow, area.RightColumn);
 
     public XLConditionalFormatType ConditionalFormatType { get; set; }
