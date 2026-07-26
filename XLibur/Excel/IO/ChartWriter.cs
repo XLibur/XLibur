@@ -911,6 +911,7 @@ internal static class ChartWriter
             AppendMarker(series, s, autoSymbol: false);
             AppendSeriesDataLabels(series, s, group.ChartType);
             AppendCatAndVal(series, s);
+            AppendSmooth(series, s, smoothByChartType: false);
             stockChart.Append(series);
         }
         AppendGroupDataLabels(stockChart, group.Chart, group.ChartType);

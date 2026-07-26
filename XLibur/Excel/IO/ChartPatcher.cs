@@ -78,7 +78,7 @@ internal static class ChartPatcher
     private static void PatchAxes(
         C.PlotArea plotArea, List<XLChartGroup> groups, XLChartGroupKind primaryKind, XLChart xlChart)
     {
-        var primaryGroup = groups.First(g => g.Kind == primaryKind);
+        var primaryGroup = ChartPlotAreaScanner.PrimaryGroup(plotArea, groups, primaryKind);
         var primaryValueAxisId = primaryGroup.ValueAxisId;
 
         ChartFormatting.PatchAxis(

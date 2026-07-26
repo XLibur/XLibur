@@ -199,6 +199,14 @@ public interface IXLChart : IXLDrawing<IXLChart>
     /// When set, the chart renders both <see cref="ChartType"/> and this type
     /// in the same plot area, each with its own series. Set to <c>null</c> for single-type charts.
     /// </summary>
+    /// <remarks>
+    /// The model holds two chart types, which is all XLibur writes. A chart read from a file may mix
+    /// more: Excel allows a plot area to combine any number of chart groups. In that case
+    /// <see cref="ChartType"/> and this property name the first two, every series outside the primary
+    /// group lands in <see cref="SecondarySeries"/>, and the series belonging to a third or later
+    /// group are reported under this type rather than their own. Saving is unaffected — a loaded chart
+    /// keeps its original XML — but the model understates such a chart.
+    /// </remarks>
     XLChartType? SecondaryChartType { get; set; }
 
     /// <summary>

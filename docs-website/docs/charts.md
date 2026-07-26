@@ -414,6 +414,10 @@ workbook.Save();   // only the fill and the scale change; the trendline stays
 Chart type, title and series references are settable on charts you create, but on a loaded chart
 only the series formatting, data labels, legend and axes are written back.
 
+The two things that would need a rebuilt plot area rather than a patch throw `NotSupportedException`
+instead of quietly doing nothing: `Series.Add(...)` and moving a series with `UseSecondaryAxis`.
+Recreate the chart with `ws.Charts.Add(type)` if you need either.
+
 ## Chart types
 
 `XLChartType` covers the full Excel catalogue. Pick by data shape:

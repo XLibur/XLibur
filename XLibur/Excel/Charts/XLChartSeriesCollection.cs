@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -29,6 +30,14 @@ internal sealed class XLChartSeriesCollection : IXLChartSeriesCollection
 
     public IXLChartSeries Add(string name, string valueReferences, string? categoryReferences = null)
     {
+        if (_chart.LoadedFromFile)
+        {
+            throw new NotSupportedException(
+                "Cannot add a series to a chart loaded from a file. XLibur patches the properties of "
+                + "an existing chart rather than regenerating its XML, so a new series has nowhere to "
+                + "be written; recreate the chart with IXLCharts.Add(XLChartType) instead.");
+        }
+
         var series = new XLChartSeries(_chart, _secondary)
         {
             Name = name,
