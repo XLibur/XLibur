@@ -91,7 +91,7 @@ internal static partial class XLCellFormulaShifter
         if (IsDeletedEntirelyByRowShift(shiftedRange, matchRange, rowsShifted))
             sb.Append(RefError);
         else if (A1RowRegex.IsMatch(rangeAddress))
-            AppendShiftedRowOnlyRange(sb, rangeAddress, rowsShifted);
+            AppendShiftedRowOnlyRange(sb, rangeAddress, shiftedRange, matchRange, rowsShifted);
         else if (shiftedRange.RangeAddress.FirstAddress.RowNumber <= matchRange.RangeAddress.FirstAddress.RowNumber)
         {
             if (IsTopBoundaryDeletion(shiftedRange, matchRange, rowsShifted))
@@ -155,20 +155,41 @@ internal static partial class XLCellFormulaShifter
             && shiftedRange.RangeAddress.LastAddress.ColumnNumber >= matchRange.RangeAddress.LastAddress.ColumnNumber;
     }
 
-    private static string ShiftRowString(string rowString, int rowsShifted)
+    /// <summary>
+    /// A row-only reference (<c>3:5</c>) obeys the same rules as a cell range but renders as bare row
+    /// numbers. Both boundaries are decided here rather than shifted blindly: the top only moves when the
+    /// deletion starts at or above it, and a deletion that removes the top boundary leaves the top pinned
+    /// at the deletion start. Shifting both endpoints regardless (as this did) walked the reference onto
+    /// rows it never covered -- 3:5 with row 4 deleted became 2:4 -- and kept it from ever shrinking to
+    /// nothing, so <see cref="IsDeletedEntirelyByRowShift"/> never saw the fully deleted case.
+    /// </summary>
+    private static void AppendShiftedRowOnlyRange(StringBuilder sb, string rangeAddress, XLRange shiftedRange,
+        IXLRange matchRange, int rowsShifted)
     {
-        if (rowString[0] == '$')
-            return "$" + XLHelper.TrimRowNumber(int.Parse(rowString.Substring(1)) + rowsShifted).ToInvariantString();
+        var firstRow = matchRange.RangeAddress.FirstAddress.RowNumber;
+        var lastRow = matchRange.RangeAddress.LastAddress.RowNumber;
+        var deletionStart = shiftedRange.RangeAddress.FirstAddress.RowNumber;
 
-        return XLHelper.TrimRowNumber(int.Parse(rowString) + rowsShifted).ToInvariantString();
+        var newFirstRow = firstRow;
+        if (deletionStart <= firstRow)
+        {
+            newFirstRow = IsTopBoundaryDeletion(shiftedRange, matchRange, rowsShifted)
+                ? deletionStart
+                : firstRow + rowsShifted;
+        }
+
+        var rows = rangeAddress.Split(':');
+        AppendRowBoundary(sb, rows[0], newFirstRow);
+        sb.Append(':');
+        AppendRowBoundary(sb, rows[1], lastRow + rowsShifted);
     }
 
-    private static void AppendShiftedRowOnlyRange(StringBuilder sb, string rangeAddress, int rowsShifted)
+    private static void AppendRowBoundary(StringBuilder sb, string rowToken, int rowNumber)
     {
-        var rows = rangeAddress.Split(':');
-        sb.Append(ShiftRowString(rows[0], rowsShifted));
-        sb.Append(':');
-        sb.Append(ShiftRowString(rows[1], rowsShifted));
+        if (rowToken[0] == '$')
+            sb.Append('$');
+
+        sb.Append(XLHelper.TrimRowNumber(rowNumber).ToInvariantString());
     }
 
     private static void AppendShiftedRowCellRange(StringBuilder sb, XLWorksheet ws, IXLRange matchRange,
@@ -263,7 +284,7 @@ internal static partial class XLCellFormulaShifter
         if (IsDeletedEntirelyByColumnShift(shiftedRange, matchRange, columnsShifted))
             sb.Append(RefError);
         else if (A1ColumnRegex.IsMatch(rangeAddress))
-            AppendShiftedColumnOnlyRange(sb, rangeAddress, columnsShifted);
+            AppendShiftedColumnOnlyRange(sb, rangeAddress, shiftedRange, matchRange, columnsShifted);
         else if (shiftedRange.RangeAddress.FirstAddress.ColumnNumber <= matchRange.RangeAddress.FirstAddress.ColumnNumber)
         {
             if (IsLeftBoundaryDeletion(shiftedRange, matchRange, columnsShifted))
@@ -325,22 +346,38 @@ internal static partial class XLCellFormulaShifter
             && shiftedRange.RangeAddress.LastAddress.RowNumber >= matchRange.RangeAddress.LastAddress.RowNumber;
     }
 
-    private static string ShiftColumnString(string columnString, int columnsShifted)
+    /// <summary>
+    /// Column-wise counterpart of <see cref="AppendShiftedRowOnlyRange"/>: a column-only reference
+    /// (<c>C:E</c>) keeps its left boundary unless the deletion starts at or to the left of it, and pins
+    /// that boundary at the deletion start when the deletion removes it.
+    /// </summary>
+    private static void AppendShiftedColumnOnlyRange(StringBuilder sb, string rangeAddress, XLRange shiftedRange,
+        IXLRange matchRange, int columnsShifted)
     {
-        if (columnString[0] == '$')
-            return "$" + XLHelper.GetColumnLetterFromNumber(
-                XLHelper.GetColumnNumberFromLetter(columnString.Substring(1)) + columnsShifted, true);
+        var firstColumn = matchRange.RangeAddress.FirstAddress.ColumnNumber;
+        var lastColumn = matchRange.RangeAddress.LastAddress.ColumnNumber;
+        var deletionStart = shiftedRange.RangeAddress.FirstAddress.ColumnNumber;
 
-        return XLHelper.GetColumnLetterFromNumber(
-            XLHelper.GetColumnNumberFromLetter(columnString) + columnsShifted, true);
+        var newFirstColumn = firstColumn;
+        if (deletionStart <= firstColumn)
+        {
+            newFirstColumn = IsLeftBoundaryDeletion(shiftedRange, matchRange, columnsShifted)
+                ? deletionStart
+                : firstColumn + columnsShifted;
+        }
+
+        var columns = rangeAddress.Split(':');
+        AppendColumnBoundary(sb, columns[0], newFirstColumn);
+        sb.Append(':');
+        AppendColumnBoundary(sb, columns[1], lastColumn + columnsShifted);
     }
 
-    private static void AppendShiftedColumnOnlyRange(StringBuilder sb, string rangeAddress, int columnsShifted)
+    private static void AppendColumnBoundary(StringBuilder sb, string columnToken, int columnNumber)
     {
-        var columns = rangeAddress.Split(':');
-        sb.Append(ShiftColumnString(columns[0], columnsShifted));
-        sb.Append(':');
-        sb.Append(ShiftColumnString(columns[1], columnsShifted));
+        if (columnToken[0] == '$')
+            sb.Append('$');
+
+        sb.Append(XLHelper.GetColumnLetterFromNumber(columnNumber, true));
     }
 
     private static void AppendShiftedColumnCellRange(StringBuilder sb, XLWorksheet ws, IXLRange matchRange,

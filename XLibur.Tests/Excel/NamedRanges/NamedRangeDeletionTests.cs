@@ -183,6 +183,163 @@ public class NamedRangeDeletionTests
     }
 
     /// <summary>
+    /// Row-only counterpart of DeletingExactlyTheRowsOfNamedRange_BecomesRefError. A multi-row delete is
+    /// applied one row at a time, so the reference has to shrink correctly on the way down for the last
+    /// pass to see it as fully deleted.
+    /// </summary>
+    [Test]
+    public async Task DeletingExactlyTheRowsOfRowOnlyNamedRange_BecomesRefError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Rows", "Sheet1!$3:$4");
+
+        ws.Rows(3, 4).Delete();
+
+        await Assert.That(RefersTo(wb, "Rows")).IsEqualTo("Sheet1!#REF!");
+    }
+
+    /// <summary>
+    /// Row-only counterpart of the #2866 top-boundary shrink: rows 3:5 with row 3 deleted becomes 3:4, not
+    /// 2:4. The row-only branch shifted both endpoints regardless of where the deletion started.
+    /// </summary>
+    [Test]
+    public async Task DeletingTopRowOfRowOnlyNamedRange_ShrinksAndShifts()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Rows", "Sheet1!$3:$5");
+
+        ws.Row(3).Delete();
+
+        await Assert.That(RefersTo(wb, "Rows")).IsEqualTo("Sheet1!$3:$4");
+    }
+
+    /// <summary>
+    /// Deleting a row inside a row-only reference shrinks it from within, leaving the top fixed.
+    /// </summary>
+    [Test]
+    public async Task DeletingMiddleRowOfRowOnlyNamedRange_ShrinksFromWithin()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Rows", "Sheet1!$3:$5");
+
+        ws.Row(4).Delete();
+
+        await Assert.That(RefersTo(wb, "Rows")).IsEqualTo("Sheet1!$3:$4");
+    }
+
+    /// <summary>
+    /// A deletion that starts above a row-only reference and ends inside it keeps the surviving top row
+    /// where it is: rows 2:5 with rows 3:4 deleted becomes 2:3.
+    /// </summary>
+    [Test]
+    public async Task DeletingRowsInsideRowOnlyNamedRange_KeepsSurvivingTop()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Rows", "Sheet1!$2:$5");
+
+        ws.Rows(3, 4).Delete();
+
+        await Assert.That(RefersTo(wb, "Rows")).IsEqualTo("Sheet1!$2:$3");
+    }
+
+    /// <summary>
+    /// A row-only reference entirely below the deletion shifts up whole: rows 3:4 with row 1 deleted
+    /// becomes 2:3. This case was already correct and must not regress.
+    /// </summary>
+    [Test]
+    public async Task DeletingRowAboveRowOnlyNamedRange_ShiftsWholeRangeUp()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Rows", "Sheet1!$3:$4");
+
+        ws.Row(1).Delete();
+
+        await Assert.That(RefersTo(wb, "Rows")).IsEqualTo("Sheet1!$2:$3");
+    }
+
+    /// <summary>
+    /// A deletion overshooting the top of a row-only reference leaves only what survived, moved up:
+    /// rows 3:6 with rows 1:5 deleted becomes 1:1. This case was already correct and must not regress.
+    /// </summary>
+    [Test]
+    public async Task DeletingRowsOvershootingRowOnlyNamedRange_KeepsSurvivor()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Rows", "Sheet1!$3:$6");
+
+        ws.Rows(1, 5).Delete();
+
+        await Assert.That(RefersTo(wb, "Rows")).IsEqualTo("Sheet1!$1:$1");
+    }
+
+    /// <summary>
+    /// Column-only reference, exact cover: columns C:D with those columns deleted become #REF!.
+    /// </summary>
+    [Test]
+    public async Task DeletingExactlyTheColumnsOfColumnOnlyNamedRange_BecomesRefError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Cols", "Sheet1!$C:$D");
+
+        ws.Columns(3, 4).Delete();
+
+        await Assert.That(RefersTo(wb, "Cols")).IsEqualTo("Sheet1!#REF!");
+    }
+
+    /// <summary>
+    /// Column-only counterpart of the left-boundary shrink: columns C:E with column C deleted become C:D.
+    /// </summary>
+    [Test]
+    public async Task DeletingLeftColumnOfColumnOnlyNamedRange_ShrinksAndShifts()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Cols", "Sheet1!$C:$E");
+
+        ws.Column(3).Delete();
+
+        await Assert.That(RefersTo(wb, "Cols")).IsEqualTo("Sheet1!$C:$D");
+    }
+
+    /// <summary>
+    /// Column-only counterpart of the surviving-left case: columns B:E with columns C:D deleted become B:C.
+    /// </summary>
+    [Test]
+    public async Task DeletingColumnsInsideColumnOnlyNamedRange_KeepsSurvivingLeft()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Cols", "Sheet1!$B:$E");
+
+        ws.Columns(3, 4).Delete();
+
+        await Assert.That(RefersTo(wb, "Cols")).IsEqualTo("Sheet1!$B:$C");
+    }
+
+    /// <summary>
+    /// A column-only reference entirely to the right of the deletion shifts left whole: columns C:D with
+    /// column A deleted become B:C. This case was already correct and must not regress.
+    /// </summary>
+    [Test]
+    public async Task DeletingColumnLeftOfColumnOnlyNamedRange_ShiftsWholeRangeLeft()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Cols", "Sheet1!$C:$D");
+
+        ws.Column(1).Delete();
+
+        await Assert.That(RefersTo(wb, "Cols")).IsEqualTo("Sheet1!$B:$C");
+    }
+
+    /// <summary>
     /// Column counterpart of the invalidation: deleting every column a named range covers leaves #REF!
     /// instead of clamping the endpoints back to column A.
     /// </summary>
