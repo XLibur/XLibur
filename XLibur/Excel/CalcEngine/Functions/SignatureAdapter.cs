@@ -935,7 +935,9 @@ internal static class SignatureAdapter
             if (!arg5Converted.TryPickT0(out var arg5, out var err5))
                 return err5;
 
+#pragma warning disable S2234 // Adapter forwards positionally; the delegate names its own parameters
             return f(ctx, arg0, arg1, arg2, arg3, arg4, arg5).ToAnyValue();
+#pragma warning restore S2234
         };
     }
 
@@ -962,7 +964,9 @@ internal static class SignatureAdapter
             if (!ToOptionalNumber(args, 4, lastDefault, ctx).TryPickT0(out var arg4, out var err4))
                 return err4;
 
+#pragma warning disable S2234 // Adapter forwards positionally; the delegate names its own parameters
             return f(ctx, arg0, arg1, arg2, arg3, arg4).ToAnyValue();
+#pragma warning restore S2234
         };
     }
 
@@ -1059,7 +1063,9 @@ internal static class SignatureAdapter
             if (args.Length > 6 && !CoerceToLogical(args[6], ctx).TryPickT0(out arg6, out var err6))
                 return err6;
 
+#pragma warning disable S2234 // Adapter forwards positionally; the delegate names its own parameters
             return f(ctx, arg0, arg1, arg2, arg3, arg4, arg5, arg6).ToAnyValue();
+#pragma warning restore S2234
         };
     }
 
