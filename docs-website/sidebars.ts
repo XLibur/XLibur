@@ -15,6 +15,7 @@ const sidebars: SidebarsConfig = {
         'defined-names',
         'importing-exporting',
         'workbook-settings',
+        'encryption',
       ],
     },
     {

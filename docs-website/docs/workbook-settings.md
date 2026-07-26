@@ -184,8 +184,8 @@ workbook.Protect("s3cret", XLProtectionAlgorithm.Algorithm.SHA512);
 :::warning
 Neither workbook nor sheet protection encrypts anything. The data is stored in plain text
 inside the `.xlsx` and any tool — including XLibur — can read it without the password. Treat it
-as a guard against accidental edits, not as security. To genuinely protect contents, encrypt
-the file at rest or restrict access to it.
+as a guard against accidental edits, not as security. To genuinely protect contents, see
+[Encryption](./encryption.md) — or restrict access to the file.
 :::
 
 ### Read-only recommendation
@@ -219,6 +219,7 @@ using var fresh = new XLWorkbook(options);
 | `Dpi` | Resolution assumed for text measurement and images; default 96×96 |
 | `FontEngine` | Per-workbook font engine — see [Fonts](./fonts.md) |
 | `GraphicEngine` | Per-workbook image handling engine |
+| `Password` | Decrypts a password-protected workbook — see [Encryption](./encryption.md) |
 
 Two static members set global defaults for every workbook that does not specify its own:
 
@@ -253,6 +254,7 @@ workbook.SaveAs("Report.xlsx", options);
 | `ConsolidateDataValidationRanges` | `true` | Same, for data validation |
 | `GenerateCalculationChain` | `true` | Write the calc chain part Excel uses to order recalculation |
 | `FilterPrivacy` | `null` | Set the privacy flag; `null` leaves it unchanged |
+| `Password` | `null` | Encrypt the saved file — see [Encryption](./encryption.md) |
 
 The shorthand overloads cover the two common cases:
 
