@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Coordinates;
 
-public class XLSheetAreaTests
+public class SheetAreaTests
 {
     [Test]
     public async Task Sheet_name_is_compared_case_insensitive()

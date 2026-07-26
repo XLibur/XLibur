@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Coordinates;
 
-public class XLSheetRangeTests
+public class AreaTests
 {
     [Test]
     [Arguments("A1", 1, 1, 1, 1)]
