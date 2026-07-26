@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using XLibur.Excel.CalcEngine.Functions;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
 
+#pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility
+
 namespace XLibur.Excel.CalcEngine;
 
 /// <summary>
@@ -157,8 +159,15 @@ internal static class Distributions
         if (cumulative)
             return XLMath.GammaP(df / 2, x / 2);
 
+        // At the origin the density diverges below two degrees of freedom, is exactly a half at
+        // two, and vanishes above.
         if (x == 0)
-            return df < 2 ? XLError.NumberInvalid : df == 2 ? 0.5 : 0d;
+        {
+            if (df < 2)
+                return XLError.NumberInvalid;
+
+            return df == 2 ? 0.5 : 0d;
+        }
 
         var logDensity = (df / 2 - 1) * Math.Log(x) - x / 2 - df / 2 * Math.Log(2) - XLMath.LnGamma(df / 2);
         return Math.Exp(logDensity);
@@ -251,8 +260,15 @@ internal static class Distributions
         if (cumulative)
             return XLMath.BetaRegularized(d1 * x / (d1 * x + d2), d1 / 2, d2 / 2);
 
+        // As for chi-squared, the origin is a special case governed by the numerator's degrees of
+        // freedom alone.
         if (x == 0)
-            return d1 < 2 ? XLError.NumberInvalid : d1 == 2 ? 1d : 0d;
+        {
+            if (d1 < 2)
+                return XLError.NumberInvalid;
+
+            return d1 == 2 ? 1d : 0d;
+        }
 
         var logDensity = d1 / 2 * Math.Log(d1) + d2 / 2 * Math.Log(d2)
             + (d1 / 2 - 1) * Math.Log(x)
@@ -418,61 +434,82 @@ internal static class Distributions
         if (tails is not (1 or 2) || type is not (1 or 2 or 3))
             return XLError.NumberInvalid;
 
-        double t, degreesOfFreedom;
-        if (type == 1)
+        var statistic = type switch
         {
-            if (first.Count != second.Count)
-                return XLError.NoValueAvailable;
-            if (first.Count < 2)
-                return XLError.DivisionByZero;
+            1 => PairedStatistic(first, second),
+            2 => PooledStatistic(first, second),
+            _ => WelchStatistic(first, second),
+        };
 
-            var differences = new List<double>(first.Count);
-            for (var i = 0; i < first.Count; i++)
-                differences.Add(first[i] - second[i]);
+        if (!statistic.TryPickT0(out var test, out var statisticError))
+            return statisticError;
 
-            var standardError = Math.Sqrt(SampleVariance(differences) / differences.Count);
-            if (standardError == 0)
-                return XLError.DivisionByZero;
-
-            t = Mean(differences) / standardError;
-            degreesOfFreedom = differences.Count - 1;
-        }
-        else if (type == 2)
-        {
-            if (first.Count < 2 || second.Count < 2)
-                return XLError.DivisionByZero;
-
-            var n1 = first.Count;
-            var n2 = second.Count;
-            var pooled = ((n1 - 1) * SampleVariance(first) + (n2 - 1) * SampleVariance(second)) / (n1 + n2 - 2);
-            var standardError = Math.Sqrt(pooled * (1.0 / n1 + 1.0 / n2));
-            if (standardError == 0)
-                return XLError.DivisionByZero;
-
-            t = (Mean(first) - Mean(second)) / standardError;
-            degreesOfFreedom = n1 + n2 - 2;
-        }
-        else
-        {
-            if (first.Count < 2 || second.Count < 2)
-                return XLError.DivisionByZero;
-
-            var a = SampleVariance(first) / first.Count;
-            var b = SampleVariance(second) / second.Count;
-            if (a + b == 0)
-                return XLError.DivisionByZero;
-
-            t = (Mean(first) - Mean(second)) / Math.Sqrt(a + b);
-
-            // Welch–Satterthwaite: the variance of the difference behaves like a chi-squared with
-            // this many degrees of freedom, which is generally not a whole number. Excel truncates
-            // it, as every other function in the T.DIST family truncates its own — which is what
-            // lets T.TEST(…, 3) be reproduced from T.DIST.2T and the Welch formula in a worksheet.
-            degreesOfFreedom = Math.Truncate((a + b) * (a + b) / (a * a / (first.Count - 1) + b * b / (second.Count - 1)));
-        }
-
-        var rightTail = 1 - StudentTCdf(Math.Abs(t), degreesOfFreedom);
+        var rightTail = 1 - StudentTCdf(Math.Abs(test.T), test.DegreesOfFreedom);
         return Math.Min(tails * rightTail, 1);
+    }
+
+    /// <summary>A t statistic and the degrees of freedom to read it against.</summary>
+    private readonly record struct TStatistic(double T, double DegreesOfFreedom);
+
+    /// <summary>Type 1 — the observations are paired, so the test is a one-sample test of their differences.</summary>
+    private static OneOf<TStatistic, XLError> PairedStatistic(List<double> first, List<double> second)
+    {
+        if (first.Count != second.Count)
+            return XLError.NoValueAvailable;
+        if (first.Count < 2)
+            return XLError.DivisionByZero;
+
+        var differences = new List<double>(first.Count);
+        for (var i = 0; i < first.Count; i++)
+            differences.Add(first[i] - second[i]);
+
+        var standardError = Math.Sqrt(SampleVariance(differences) / differences.Count);
+        if (standardError == 0)
+            return XLError.DivisionByZero;
+
+        return new TStatistic(Mean(differences) / standardError, differences.Count - 1);
+    }
+
+    /// <summary>Type 2 — the two populations are assumed to share a variance, which is pooled from both samples.</summary>
+    private static OneOf<TStatistic, XLError> PooledStatistic(List<double> first, List<double> second)
+    {
+        if (first.Count < 2 || second.Count < 2)
+            return XLError.DivisionByZero;
+
+        var n1 = first.Count;
+        var n2 = second.Count;
+        var pooled = ((n1 - 1) * SampleVariance(first) + (n2 - 1) * SampleVariance(second)) / (n1 + n2 - 2);
+        var standardError = Math.Sqrt(pooled * (1.0 / n1 + 1.0 / n2));
+        if (standardError == 0)
+            return XLError.DivisionByZero;
+
+        return new TStatistic((Mean(first) - Mean(second)) / standardError, n1 + n2 - 2);
+    }
+
+    /// <summary>
+    /// Type 3 — the variances are not assumed equal, so each sample contributes its own and the
+    /// degrees of freedom are adjusted to match.
+    /// </summary>
+    private static OneOf<TStatistic, XLError> WelchStatistic(List<double> first, List<double> second)
+    {
+        if (first.Count < 2 || second.Count < 2)
+            return XLError.DivisionByZero;
+
+        var a = SampleVariance(first) / first.Count;
+        var b = SampleVariance(second) / second.Count;
+        if (a + b == 0)
+            return XLError.DivisionByZero;
+
+        var t = (Mean(first) - Mean(second)) / Math.Sqrt(a + b);
+
+        // Welch–Satterthwaite: the variance of the difference behaves like a chi-squared with this
+        // many degrees of freedom, which is generally not a whole number. Excel truncates it, as
+        // every other function in the T.DIST family truncates its own — which is what lets
+        // T.TEST(…, 3) be reproduced from T.DIST.2T and the Welch formula in a worksheet.
+        var degreesOfFreedom = Math.Truncate(
+            (a + b) * (a + b) / (a * a / (first.Count - 1) + b * b / (second.Count - 1)));
+
+        return new TStatistic(t, degreesOfFreedom);
     }
 
     /// <summary>
