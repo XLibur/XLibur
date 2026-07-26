@@ -62,6 +62,16 @@ internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
 
     public IXLDrawingPosition SecondPosition { get; }
 
+    public XLDrawingAnchor Anchor { get; set; } = XLDrawingAnchor.MoveAndSizeWithCells;
+
+    public int Width { get; set; }
+
+    public int Height { get; set; }
+
+    public int Left { get; set; }
+
+    public int Top { get; set; }
+
     public XLChartType? SecondaryChartType { get; set; }
 
     public IXLChartSeriesCollection SecondarySeries { get; }

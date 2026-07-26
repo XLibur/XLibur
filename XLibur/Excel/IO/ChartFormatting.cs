@@ -657,17 +657,19 @@ internal static class ChartFormatting
 
     /// <summary>Whether the series type of a chart group accepts a <c>c:marker</c> child.</summary>
     private static bool SupportsMarker(XLChartGroupKind kind) => kind is XLChartGroupKind.Line
-        or XLChartGroupKind.Scatter or XLChartGroupKind.Radar or XLChartGroupKind.Stock;
+        or XLChartGroupKind.Line3D or XLChartGroupKind.Scatter or XLChartGroupKind.Radar
+        or XLChartGroupKind.Stock;
 
     /// <summary>Whether the series type of a chart group accepts a <c>c:smooth</c> child.</summary>
     private static bool SupportsSmooth(XLChartGroupKind kind) => kind is XLChartGroupKind.Line
-        or XLChartGroupKind.Scatter or XLChartGroupKind.Stock;
+        or XLChartGroupKind.Line3D or XLChartGroupKind.Scatter or XLChartGroupKind.Stock;
 
     /// <summary>
     /// Whether a chart group and its series accept a <c>c:dLbls</c> child. Only the surface types do
     /// not: neither <c>CT_SurfaceChart</c> nor <c>CT_SurfaceSer</c> has one.
     /// </summary>
-    internal static bool SupportsDataLabels(XLChartGroupKind kind) => kind != XLChartGroupKind.Surface;
+    internal static bool SupportsDataLabels(XLChartGroupKind kind) =>
+        kind is not (XLChartGroupKind.Surface or XLChartGroupKind.Surface3D);
 
     /// <summary>
     /// Applies the assigned data label properties onto an existing <c>c:dLbls</c> element, or adds one

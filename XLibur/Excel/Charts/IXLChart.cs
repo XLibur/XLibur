@@ -143,8 +143,56 @@ public interface IXLChart : IXLDrawing<IXLChart>
     /// <summary>
     /// Gets the bottom-right anchor position of the chart's two-cell anchor.
     /// Use together with <see cref="IXLDrawing{T}.Position"/> (top-left) to define the chart's size and location.
+    /// Only used while <see cref="Anchor"/> is <see cref="XLDrawingAnchor.MoveAndSizeWithCells"/>.
     /// </summary>
     IXLDrawingPosition SecondPosition { get; }
+
+    /// <summary>
+    /// Gets or sets how the chart is tied to the grid.
+    /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    /// <item>
+    /// <see cref="XLDrawingAnchor.MoveAndSizeWithCells"/> — the default — spans the rectangle between
+    /// <see cref="IXLDrawing{T}.Position"/> and <see cref="SecondPosition"/>, so inserting rows or
+    /// columns moves and resizes the chart.
+    /// </item>
+    /// <item>
+    /// <see cref="XLDrawingAnchor.MoveWithCells"/> keeps <see cref="Width"/> and <see cref="Height"/>
+    /// and hangs the top-left corner off <see cref="IXLDrawing{T}.Position"/>.
+    /// </item>
+    /// <item>
+    /// <see cref="XLDrawingAnchor.Absolute"/> pins the chart to <see cref="Left"/>/<see cref="Top"/>
+    /// with <see cref="Width"/> and <see cref="Height"/>, ignoring the grid entirely.
+    /// </item>
+    /// </list>
+    /// </remarks>
+    XLDrawingAnchor Anchor { get; set; }
+
+    /// <summary>
+    /// Gets or sets the chart width in pixels. Used when <see cref="Anchor"/> is
+    /// <see cref="XLDrawingAnchor.MoveWithCells"/> or <see cref="XLDrawingAnchor.Absolute"/>; a
+    /// two-cell anchored chart takes its width from <see cref="SecondPosition"/> instead.
+    /// </summary>
+    int Width { get; set; }
+
+    /// <summary>
+    /// Gets or sets the chart height in pixels. Used when <see cref="Anchor"/> is
+    /// <see cref="XLDrawingAnchor.MoveWithCells"/> or <see cref="XLDrawingAnchor.Absolute"/>.
+    /// </summary>
+    int Height { get; set; }
+
+    /// <summary>
+    /// Gets or sets the distance in pixels from the left edge of the sheet. Used only when
+    /// <see cref="Anchor"/> is <see cref="XLDrawingAnchor.Absolute"/>.
+    /// </summary>
+    int Left { get; set; }
+
+    /// <summary>
+    /// Gets or sets the distance in pixels from the top edge of the sheet. Used only when
+    /// <see cref="Anchor"/> is <see cref="XLDrawingAnchor.Absolute"/>.
+    /// </summary>
+    int Top { get; set; }
 
     /// <summary>
     /// Gets or sets the secondary chart type for combo charts.
