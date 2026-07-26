@@ -25,7 +25,7 @@ public class TextToNumberCoercionTests
     [Arguments("1%", 0.01)]
     [Arguments("+1%", 0.01)]
     [Arguments(" -75 % ", -0.75)]
-    [Arguments(" - 100 % ", -1, Skip = ".NET parser doesn't allow whitespace between sign and number.")]
+    [Arguments(" - 100 % ", -1)]
     public async Task Percent_Format9(string percent, double? expectedValue) // Format 9 '0%'
     {
         await AssertCoercion(percent, expectedValue);
@@ -34,7 +34,7 @@ public class TextToNumberCoercionTests
     [Test]
     [Arguments("100.5%", 1.005)]
     [Arguments("100 . 5%", null)]
-    [Arguments(" - 100.59 % ", -1.0059, Skip = ".NET parser doesn't allow whitespace between sign and number.")]
+    [Arguments(" - 100.59 % ", -1.0059)]
     [Arguments("0.123456%", 0.00123456)]
     [Arguments(".5%", 0.005)]
     [Arguments("  -.375 % ", -0.00375)]
@@ -45,11 +45,11 @@ public class TextToNumberCoercionTests
     }
 
     [Test]
-    [Arguments("(100%)", -1, Skip = ".NET parser doesn't parse percents.")]
+    [Arguments("(100%)", -1)]
     [Arguments("(-100%)", null)] // Can't have minus sign inside the brackets
     [Arguments("-(100%)", null)] // Can't have minus sign outside the brackets
     [Arguments("1,000.00%", 10)]
-    [Arguments("(1,000.00%)", -10, Skip = ".NET parser doesn't parse percents.")]
+    [Arguments("(1,000.00%)", -10)]
     [Arguments(" % 100", 1)] // Percents can be at start or end, position doesn't matter
     public async Task Percent_UnlistedFormats(string percent, double? expectedValue) //
     {
@@ -97,7 +97,7 @@ public class TextToNumberCoercionTests
     [Arguments("31-dec-9999", 2958465)]
     [Arguments("1-jan-10000", null)]
     [Arguments("1 - jan - 2022  ", 44562)] // Can have whitespace in the date
-    [Arguments(" 1-jan-2022", null, Skip = ".NET parser doesn't respect the whitespace styles of a date during parsing.")] // Can't have whitespaces at the start
+    [Arguments(" 1-jan-2022", null)] // Can't have whitespaces at the start
     [Arguments("31-dec-1899", null)] // Check 1900 "leap" year issue...
     [Arguments("1-jan-1900", 1)]
     [Arguments("28-feb-1900", 59)]
@@ -110,7 +110,7 @@ public class TextToNumberCoercionTests
     [Test]
     [Arguments("0-mar", null)] // Zero day not accepted
     [Arguments("1-mar", 44621)]
-    [Arguments("1-marc", 44621, Skip = ".NET parser recognizes only abbreviation or full name of a month.")]
+    [Arguments("1-marc", 44621)]
     [Arguments("1-march", 44621)]
     [Arguments(" 1 - apr  ", 44652)] // Unlike many others, this format also allows space at the start, not just inside and at the end
     [Arguments("31-apr", null)] // April has only 30 days
@@ -146,7 +146,7 @@ public class TextToNumberCoercionTests
     [Arguments("feb-31", 11355)] // 1931-02-01
     [Arguments("feb-003", null)] // three digits not allowed
     [Arguments("aug   -   55", 20302)] // spaces are allowed inside the pattern
-    [Arguments(" aug-55", null, Skip = ".NET allow whitespaces even without specified DateTimeStyle.AllowLeadingWhite")] // starting spaces not allowed
+    [Arguments(" aug-55", null)] // starting spaces not allowed
     [Arguments("aug-55 ", 20302)] // trailing spaces allowed
     [Arguments("MaR-42", 15401)] // case-insensitive
     [Arguments("marc-2", 44622, Skip = ".NET parser recognizes only abbreviation or full name of a month.")] // name can be more than three long abbr
@@ -193,10 +193,10 @@ public class TextToNumberCoercionTests
     [Arguments("13/5/2022 0:0", null)] // Month outside of range
     [Arguments("11/030/2022 0:0", null)]
     [Arguments("11/30/02022 0:0", null)] // Extra zero before year not allowed
-    [Arguments("11/30/2022 24:59", 44896.04097)]
+    [Arguments("11/30/2022 24:59", 44896.040972222225d)] // Hours overflow into the next day
     [Arguments("11/30/2022 24:60", null)] // Both parts are out of range
-    [Arguments("11/30/2022 23:160", 44896.06944, Skip = "Excel can have one of of range part, but .NET parser can't.")]
-    [Arguments("11/30/2022 9999:59", 45311.66597, Skip = "Excel parser accepts numbers over limit for hours.")]
+    [Arguments("11/30/2022 23:160", 44896.069444444445d)] // Minutes overflow into the next day
+    [Arguments("11/30/2022 9999:59", 45311.665972222225d)] // Hours can reach 9999
     [Arguments("11/30/2022 10000:59", null)] // Hours can't be over 9999
     [Arguments("aug 10, 2022 14:10", 44783.590277777781d)]
     [Arguments("august 10, 2022 14:10", 44783.590277777781d)]
@@ -271,7 +271,7 @@ public class TextToNumberCoercionTests
     [Test]
     [Arguments("1,000.15", 1000.15)]
     [Arguments("(1,000.54)", -1000.54)]
-    [Arguments("  (   1,000.54  )  ", -1000.54, Skip = "Excel can parse spaces within braces, but .NET parse method can't.")]
+    [Arguments("  (   1,000.54  )  ", -1000.54)]
     public async Task Number_Format39_40(string number, double? expectedValue) // Format 39+40 '#,##0.00;(#,##0.00)'  '#,##0.00;[Red](#,##0.00)'
     {
         await AssertCoercion(number, expectedValue);
@@ -320,8 +320,8 @@ public class TextToNumberCoercionTests
     [Arguments("led-5", 38353)]
     [Arguments("12:0:18 odp.", 0.50020833333333337d)]
     [Arguments("12:0:18 PM", 0.50020833333333337d)]
-    [Arguments("12:0:18 odp", 0.50020833333333337d, Skip = "Excel can parse even partial PM designator, but .NET requires a full PM designator including the dot at the end.")]
-    [Arguments("12:0:18 PM.", 0.50020833333333337d, Skip = "Excel allows PM designator with a dot at the end.")]
+    [Arguments("12:0:18 odp", 0.50020833333333337d)]
+    [Arguments("12:0:18 PM.", 0.50020833333333337d)]
     [Arguments("11/30/2022 25:59", null)]
     [Arguments("25:70,05", 0.018171875)] // For min:sec fraction timespan, both can be over limit, also note use of decimal separator
     public async Task ParsingTokensAndFormatsDependOnCulture(string currency, double? expectedValue)

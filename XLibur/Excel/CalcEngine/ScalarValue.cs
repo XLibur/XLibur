@@ -244,6 +244,23 @@ internal readonly struct ScalarValue
         if (double.TryParse(text, NumberStyles.Any, culture, out var number))
             return number;
 
+        // Excel allows whitespace between the sign and the number ('- 100 %'), .NET parse methods
+        // don't. Only reached once the parse above has already refused the text as it stands.
+        var withoutSignWhitespace = RemoveWhitespaceAfterLeadingSign(text, culture);
+        if (withoutSignWhitespace is not null)
+            return TextToNumber(withoutSignWhitespace, culture);
+
+        // Excel reads a value in braces as negative even when the braces contain whitespace or a
+        // percent sign, neither of which NumberStyles.AllowParentheses accepts.
+        var bracketedValue = RemoveNegatingBraces(text, culture);
+        if (bracketedValue is not null)
+        {
+            return TextToNumber(bracketedValue, culture)
+                .TryPickT0(out var bracketedNumber, out var bracketedError)
+                ? -bracketedNumber
+                : bracketedError;
+        }
+
         // Percents. Percent sign can be at both sides.
         // Format 9 '0%'
         //       10 '0.00%'
@@ -282,9 +299,80 @@ internal readonly struct ScalarValue
             // other formats don't use '%' sign, but text has it, so just stop for invalid inputs like 'hundred%'
             return XLError.IncompatibleValue;
         }
+
+        // Returns the text with the whitespace between a leading sign and the value removed, or null
+        // when there is no leading sign or no whitespace behind it.
+        static string? RemoveWhitespaceAfterLeadingSign(string text, CultureInfo c)
+        {
+            var signStart = SkipSpaces(text, 0);
+            var signLength = MatchSign(text, signStart, c);
+            if (signLength == 0)
+                return null;
+
+            var valueStart = SkipSpaces(text, signStart + signLength);
+            return valueStart == signStart + signLength
+                ? null
+                : text.Substring(0, signStart + signLength) + text.Substring(valueStart);
+        }
+
+        // Returns the content of the braces, or null when the text isn't braced. A sign inside the
+        // braces is rejected, because in Excel the braces themselves are the sign ('(-1)' is not a
+        // number, neither is '-(1)').
+        static string? RemoveNegatingBraces(string text, CultureInfo c)
+        {
+            var start = SkipSpaces(text, 0);
+            var end = text.Length - 1;
+            while (end >= 0 && text[end] == ' ')
+                end--;
+
+            if (start >= end || text[start] != '(' || text[end] != ')')
+                return null;
+
+            var content = text.Substring(start + 1, end - start - 1);
+            return MatchSign(content, SkipSpaces(content, 0), c) != 0 ? null : content;
+        }
+
+        static int SkipSpaces(string text, int index)
+        {
+            while (index < text.Length && text[index] == ' ')
+                index++;
+
+            return index;
+        }
+
+        // Length of the culture's positive or negative sign at the index, or 0 if neither is there.
+        static int MatchSign(string text, int index, CultureInfo c)
+        {
+            var negativeSign = c.NumberFormat.NegativeSign;
+            if (MatchesAt(text, index, negativeSign))
+                return negativeSign.Length;
+
+            var positiveSign = c.NumberFormat.PositiveSign;
+            return MatchesAt(text, index, positiveSign) ? positiveSign.Length : 0;
+        }
+
+        static bool MatchesAt(string text, int index, string value)
+        {
+            return value.Length > 0 &&
+                   index + value.Length <= text.Length &&
+                   string.CompareOrdinal(text, index, value, 0, value.Length) == 0;
+        }
     }
 
     public static bool ToSerialDateTime(string text, CultureInfo culture, out double serialDateTime)
+    {
+        if (TryParseDatePatterns(text, culture, out serialDateTime))
+            return true;
+
+        // Excel accepts a month name of anything from three letters up to the full name ('1-marc'),
+        // while .NET recognizes only the exact abbreviation or the exact full name. Expand the prefix
+        // to a name .NET knows and try once more. Done as a second pass so that every input the
+        // patterns already handle keeps taking the untouched path above.
+        var expandedMonthName = DateTimeParser.ExpandMonthNamePrefix(text, culture);
+        return expandedMonthName is not null && TryParseDatePatterns(expandedMonthName, culture, out serialDateTime);
+    }
+
+    private static bool TryParseDatePatterns(string text, CultureInfo culture, out double serialDateTime)
     {
         const DateTimeStyles dateStyle = DateTimeStyles.NoCurrentDateDefault | DateTimeStyles.AllowInnerWhite | DateTimeStyles.AllowTrailingWhite;
 
@@ -305,9 +393,15 @@ internal readonly struct ScalarValue
             return true;
         }
 
+        // Whether a leading space is allowed is a property of the individual format, not of the
+        // parser: format 16 accepts ' 1 - apr  ', while formats 15 and 17 reject the same space.
+        // .NET makes no such distinction and allows it everywhere, so the strict formats are guarded.
+        var hasLeadingWhitespace = text.Length > 0 && char.IsWhiteSpace(text[0]);
+
         // Date with names of months. The names of months differ across cultures.
         // Format 15 'd-mmm-yy'
-        if (DateTime.TryParseExact(text, ["d-MMM-yyyy", "d-MMMM-yyyy", "d-MMM-yy", "d-MMMM-yy",
+        if (!hasLeadingWhitespace &&
+            DateTime.TryParseExact(text, ["d-MMM-yyyy", "d-MMMM-yyyy", "d-MMM-yy", "d-MMMM-yy",
                                           "d-MMM-yyyy h:m", "d-MMMM-yyyy h:m", "d-MMM-yy h:m", "d-MMMM-yy h:m",
                                           "d-MMM-yyyy h:m:s", "d-MMMM-yyyy h:m:s", "d-MMM-yy h:m:s", "d-MMMM-yy h:m:s"], culture, dateStyle, out var dateFormat15))
         {
@@ -324,7 +418,8 @@ internal readonly struct ScalarValue
         // Month and a number. In some cultures, the culture date parsing will interpret this pattern as MMM-dd, but
         // that depends on culture date patterns above. Use MMM and MMMM to encompass both abbreviation and full name.
         // Format 17 'mmm-yy'
-        if (DateTime.TryParseExact(text, ["MMM-y", "MMMM-y"], culture, dateStyle, out var dateFormat17))
+        if (!hasLeadingWhitespace &&
+            DateTime.TryParseExact(text, ["MMM-y", "MMMM-y"], culture, dateStyle, out var dateFormat17))
         {
             if (dateFormat17.Year != DateTime.Now.Year && dateFormat17.Year >= 2030)
                 dateFormat17 = dateFormat17.AddYears(-100);

@@ -61,6 +61,18 @@ internal static class DateTimeParser
 
     public static bool TryParseTimeOfDay(string s, CultureInfo c, out DateTime timeOfDay)
     {
+        if (TryParseTimeOfDayExact(s, c, out timeOfDay))
+            return true;
+
+        // Excel accepts a shortened AM/PM designator ('12:0:18 odp' for the cs-CZ 'odp.') and tolerates
+        // a trailing dot the designator doesn't have ('12:0:18 PM.'). Neither is a pattern .NET can
+        // express, so canonicalize the designator and try once more.
+        var canonicalDesignator = CanonicalizeDesignator(s, c);
+        return canonicalDesignator is not null && TryParseTimeOfDayExact(canonicalDesignator, c, out timeOfDay);
+    }
+
+    private static bool TryParseTimeOfDayExact(string s, CultureInfo c, out DateTime timeOfDay)
+    {
         if (DateTime.TryParseExact(s, TimeOfDayPatterns, c, Style, out timeOfDay))
             return true;
 
@@ -68,5 +80,102 @@ internal static class DateTimeParser
             return true;
 
         return false;
+    }
+
+    /// <summary>
+    /// Replaces a trailing AM/PM designator that is a prefix of a real designator, optionally with a
+    /// superfluous trailing dot, by the designator itself. Returns <c>null</c> when the last token
+    /// isn't such a designator, in which case there is nothing to retry.
+    /// </summary>
+    private static string? CanonicalizeDesignator(string s, CultureInfo c)
+    {
+        var end = s.Length;
+        while (end > 0 && s[end - 1] == ' ')
+            end--;
+
+        var start = end;
+        while (start > 0 && s[start - 1] != ' ')
+            start--;
+
+        if (start == end)
+            return null;
+
+        var token = s.Substring(start, end - start);
+        var withoutTrailingDot = token.TrimEnd('.');
+        if (withoutTrailingDot.Length == 0)
+            return null;
+
+        ReadOnlySpan<string> designators =
+        [
+            c.DateTimeFormat.AMDesignator,
+            c.DateTimeFormat.PMDesignator,
+            CultureInfo.InvariantCulture.DateTimeFormat.AMDesignator,
+            CultureInfo.InvariantCulture.DateTimeFormat.PMDesignator
+        ];
+
+        foreach (var designator in designators)
+        {
+            // An exact match already had its chance in the pass before this one.
+            if (designator.Length == 0 || string.Equals(token, designator, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (designator.StartsWith(withoutTrailingDot, StringComparison.OrdinalIgnoreCase))
+                return string.Concat(s.AsSpan(0, start), designator, s.AsSpan(end));
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Excel matches a month by any prefix of its name at least three letters long, .NET only by the
+    /// exact abbreviation or full name. Replaces the first such prefix in <paramref name="s"/> with
+    /// the culture's abbreviated month name, or returns <c>null</c> when there is nothing to expand
+    /// or the prefix is ambiguous between months.
+    /// </summary>
+    public static string? ExpandMonthNamePrefix(string s, CultureInfo c)
+    {
+        var start = 0;
+        while (start < s.Length && !char.IsLetter(s[start]))
+            start++;
+
+        var end = start;
+        while (end < s.Length && char.IsLetter(s[end]))
+            end++;
+
+        // Excel requires at least three letters, so 'ma' stays ambiguous between March and May.
+        var prefix = s.Substring(start, end - start);
+        if (prefix.Length < 3)
+            return null;
+
+        var format = c.DateTimeFormat;
+        int? matchedMonth = null;
+        for (var month = 1; month <= 12; month++)
+        {
+            var abbreviated = format.GetAbbreviatedMonthName(month);
+            var full = format.GetMonthName(month);
+
+            // An exact name needs no expansion and must keep whatever meaning it already has.
+            if (string.Equals(abbreviated, prefix, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(full, prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            if (!abbreviated.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+                !full.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // Ambiguous between two months, so Excel couldn't have resolved it either.
+            if (matchedMonth is not null)
+                return null;
+
+            matchedMonth = month;
+        }
+
+        return matchedMonth is null
+            ? null
+            : string.Concat(s.AsSpan(0, start), format.GetAbbreviatedMonthName(matchedMonth.Value), s.AsSpan(end));
     }
 }
