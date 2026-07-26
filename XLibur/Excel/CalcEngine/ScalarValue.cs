@@ -296,6 +296,15 @@ internal readonly struct ScalarValue
             return ToSerialDate(dateFormat14Or22, out serialDateTime);
         }
 
+        // Excel lets one component of the time overflow its normal range and carries the excess into
+        // the date, e.g. '11/30/2022 24:59' is one minute to one in the morning of December 1st. No
+        // DateTime pattern can express that, so split the text and let TimeSpanParser, which already
+        // models Excel's overflow rules, handle the time half.
+        if (TryParseDateWithOverflowTime(text, culture, out serialDateTime))
+        {
+            return true;
+        }
+
         // Date with names of months. The names of months differ across cultures.
         // Format 15 'd-mmm-yy'
         if (DateTime.TryParseExact(text, ["d-MMM-yyyy", "d-MMMM-yyyy", "d-MMM-yy", "d-MMMM-yy",
@@ -343,6 +352,39 @@ internal readonly struct ScalarValue
 
         serialDateTime = default;
         return false;
+
+        static bool TryParseDateWithOverflowTime(string text, CultureInfo culture, out double serialDateTime)
+        {
+            serialDateTime = default;
+
+            // The date and the time are separated by a space, but the date itself may contain spaces
+            // ('aug 10, 2022 14:10'), so every split point has to be tried. Search from the end,
+            // where the time is far more likely to start.
+            for (var i = text.Length - 1; i > 0; i--)
+            {
+                if (text[i] != ' ')
+                    continue;
+
+                var datePart = text.Substring(0, i);
+                var timePart = text.Substring(i + 1);
+                if (timePart.Length == 0)
+                    continue;
+
+                if (!DateTimeParser.TryParseCultureDate(datePart, culture, out var date))
+                    continue;
+
+                if (!TimeSpanParser.TryParseTime(timePart, culture, out var time))
+                    continue;
+
+                if (!ToSerialDate(date, out var serialDate))
+                    return false;
+
+                serialDateTime = serialDate + time.ToSerialDateTime();
+                return true;
+            }
+
+            return false;
+        }
 
         static bool ToSerialDate(DateTime dateTime, out double serialDate)
         {

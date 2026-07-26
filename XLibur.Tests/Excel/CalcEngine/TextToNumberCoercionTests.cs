@@ -148,7 +148,7 @@ public class TextToNumberCoercionTests
     [Arguments("aug   -   55", 20302)] // spaces are allowed inside the pattern
     [Arguments(" aug-55", null, Skip = ".NET allow whitespaces even without specified DateTimeStyle.AllowLeadingWhite")] // starting spaces not allowed
     [Arguments("aug-55 ", 20302)] // trailing spaces allowed
-    [Arguments("MaR-42", 15401)] // case insensitive
+    [Arguments("MaR-42", 15401)] // case-insensitive
     [Arguments("marc-2", 44622, Skip = ".NET parser recognizes only abbreviation or full name of a month.")] // name can be more than three long abbr
     [Arguments("march-55", 20149)]
     [Arguments("ma-2", null)] // Name of month must be at least three chars long
@@ -172,12 +172,12 @@ public class TextToNumberCoercionTests
 
     [Test]
     [Arguments("12:0:0 PM", 0.5)]
-    [Arguments("12:0:18 aM", 0.00020833333333333335d)] // case insensitive AM designator
-    [Arguments("13:0:0 PM", null)] // hours can't be outside of 0-12, unlike other format
+    [Arguments("12:0:18 aM", 0.00020833333333333335d)] // case-insensitive AM designator
+    [Arguments("13:0:0 PM", null)] // hours can't be outside 0-12, unlike other format
     [Arguments("13:0:0 AM", null)]
-    [Arguments("00:60:00 AM", null)] // minutes can't be outside of 0-59, unlike other format
+    [Arguments("00:60:00 AM", null)] // minutes can't be outside 0-59, unlike other format
     [Arguments("00:59:00 AM", 0.040972222222222222d)]
-    [Arguments("00:00:60 AM", null)] // seconds can't be outside of 0-59, unlike other format
+    [Arguments("00:00:60 AM", null)] // seconds can't be outside 0-59, unlike other format
     [Arguments("00:00:59 AM", 0.00068287037037037036d)]
     [Arguments("00:00: AM", null)] // can't omit second part (differs from time span).
     [Arguments("1:2:3 AM", 0.043090277777777776d)]
@@ -193,13 +193,14 @@ public class TextToNumberCoercionTests
     [Arguments("13/5/2022 0:0", null)] // Month outside of range
     [Arguments("11/030/2022 0:0", null)]
     [Arguments("11/30/02022 0:0", null)] // Extra zero before year not allowed
-    [Arguments("11/30/2022 24:59", 44896.04097, Skip = "Excel can have out of range parts, but .NET parsers can't.")]
+    [Arguments("11/30/2022 24:59", 44896.04097)]
     [Arguments("11/30/2022 24:60", null)] // Both parts are out of range
     [Arguments("11/30/2022 23:160", 44896.06944, Skip = "Excel can have one of of range part, but .NET parser can't.")]
     [Arguments("11/30/2022 9999:59", 45311.66597, Skip = "Excel parser accepts numbers over limit for hours.")]
     [Arguments("11/30/2022 10000:59", null)] // Hours can't be over 9999
     [Arguments("aug 10, 2022 14:10", 44783.590277777781d)]
     [Arguments("august 10, 2022 14:10", 44783.590277777781d)]
+    // ReSharper disable once GrammarMistakeInComment
     public async Task DateTime_Format22(string text, double? expectedValue) // Format 22 'm/d/yyyy h:mm'. Specification incorrectly states 'm/d/yy h:mm', but fixed per MS errata.
     {
         await AssertCoercion(text, expectedValue);
@@ -207,15 +208,15 @@ public class TextToNumberCoercionTests
 
     [Test]
     [Arguments("00:00", 0)] // Can parse zero
-    [Arguments("90:00", 3.75)] // Minutes can be can be over 60
-    [Arguments("59:59", 2.499305556)] // Even if looks like mm:ss, it is actually parsed as h:mm
+    [Arguments("90:00", 3.75)] // Minutes can be over 60
+    [Arguments("59:59", 2.499305556)] // Even if it looks like mm:ss, it is actually parsed as h:mm
     [Arguments("10:", 0.416666667)] // Last part can be omitted and zero is used
     [Arguments("9999:", 416.625)] // Upper limit of first part is parseable
     [Arguments("10000:", null)] // Part value over a limit is not parseable
     [Arguments(":5", null)] // Can't omit first part
     [Arguments("24:60", null)] // Only one part can be outside of limit, here are both
     [Arguments("30:59", 1.290972222)] // Hour part can be over 23
-    [Arguments("23:300", 1.166666667)] // Minute part over over 59
+    [Arguments("23:300", 1.166666667)] // Minute part over 59
     public async Task TimeSpan_Format20(string timeSpan, double? expectedValue) // 'h:mm'
     {
         await AssertCoercion(timeSpan, expectedValue, Tolerance);
