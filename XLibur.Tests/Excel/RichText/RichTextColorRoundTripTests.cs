@@ -82,6 +82,32 @@ public class RichTextColorRoundTripTests
     }
 
     [Test]
+    public void PhoneticOnlyString_RoundTripsEscapedControlCharacters()
+    {
+        // The reader decodes _xHHHH_ escapes for a runless string, so the writer has to re-encode
+        // them. Writing the decoded control character raw is not valid XML and the text would not
+        // survive the round-trip.
+        const string escapedSharedStrings =
+            """
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="1" uniqueCount="1">
+              <si>
+                <t>A_x0018_B</t>
+                <rPh sb="0" eb="1"><t>&#12363;</t></rPh>
+                <phoneticPr fontId="0" type="Hiragana"/>
+              </si>
+            </sst>
+            """;
+
+        string savedSharedStrings = null!;
+        Assert.DoesNotThrow(() => savedSharedStrings = RoundTripSharedStrings(escapedSharedStrings, siCount: 1),
+            "Saving a runless string holding a decoded control character must not fail.");
+
+        Assert.That(savedSharedStrings, Does.Contain("_x0018_"),
+            $"The escape was not written back, so the control character was lost.\n\n{savedSharedStrings}");
+    }
+
+    [Test]
     public void ColorlessRunText_IsStillReadable()
     {
         var input = BuildWorkbook(SharedStrings, siCount: 2);

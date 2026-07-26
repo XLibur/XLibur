@@ -1,6 +1,7 @@
 ﻿using System.Xml;
 using XLibur.Excel.RichText;
 using XLibur.Extensions;
+using XLibur.Utils;
 using static XLibur.Excel.XLWorkbook;
 using static XLibur.Excel.IO.OpenXmlConst;
 
@@ -13,9 +14,11 @@ internal static class TextSerializer
         if (richText.Runs.Count == 0)
         {
             // Plain text carrying only a phonetic guide - it never had runs, so write it back as a
-            // bare <t> rather than wrapping it in a run with invented formatting.
+            // bare <t> rather than wrapping it in a run with invented formatting. This text was
+            // decoded on the way in (unlike run text, which is not), so it has to be re-encoded:
+            // a decoded _xHHHH_ escape is a raw control character that is not valid XML content.
             if (richText.Text.Length > 0)
-                WriteText(w, richText.Text);
+                WriteText(w, XmlEncoder.EncodeString(richText.Text));
         }
         else
         {
