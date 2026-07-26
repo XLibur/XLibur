@@ -344,7 +344,7 @@ internal sealed class XLAreaList : IEnumerable<XLSheetRange>
     /// Take the areas, intersect them with <paramref name="areaToCopy"/> and shift the pieces to
     /// <paramref name="target"/>. Used mostly in copy&amp;paste.
     /// </summary>
-    internal bool TryCopyAreaTo(XLSheetPoint target, XLSheetRange areaToCopy, [NotNullWhen(true)] out XLAreaList? result)
+    internal bool TryCopyAreaTo(Point target, XLSheetRange areaToCopy, [NotNullWhen(true)] out XLAreaList? result)
     {
         var rowShift = target.Row - areaToCopy.FirstPoint.Row;
         var columnShift = target.Column - areaToCopy.FirstPoint.Column;

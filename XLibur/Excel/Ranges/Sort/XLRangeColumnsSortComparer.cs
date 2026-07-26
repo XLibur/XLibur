@@ -26,8 +26,8 @@ internal sealed class XLRangeColumnsSortComparer : IComparer<int>
     {
         foreach (var (rowNumber, comparer) in _rowComparers)
         {
-            var col1 = _valueSlice.GetCellValue(new XLSheetPoint(rowNumber, colNumber1));
-            var col2 = _valueSlice.GetCellValue(new XLSheetPoint(rowNumber, colNumber2));
+            var col1 = _valueSlice.GetCellValue(new Point(rowNumber, colNumber1));
+            var col2 = _valueSlice.GetCellValue(new Point(rowNumber, colNumber2));
             var comparison = comparer.Compare(col1, col2);
             if (comparison != 0)
                 return comparison;

@@ -26,12 +26,12 @@ internal readonly record struct XLReference
         return _reference.GetDisplayStringA1();
     }
 
-    internal XLSheetRange ToSheetRange(XLSheetPoint anchor)
+    internal XLSheetRange ToSheetRange(Point anchor)
     {
         return _reference.ToSheetRange(anchor);
     }
 
-    internal XLRangeAddress ToRangeAddress(XLWorksheet? sheet, XLSheetPoint anchor)
+    internal XLRangeAddress ToRangeAddress(XLWorksheet? sheet, Point anchor)
     {
         var area = _reference.ToSheetRange(anchor);
         var firstColAbs = _reference.First.ColumnType == ReferenceAxisType.Absolute;

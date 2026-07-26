@@ -269,7 +269,7 @@ internal static class WorksheetSheetDataReader
         Debug.Assert(reader is { NodeType: XmlNodeType.Element, LocalName: "c" });
 
         int styleIndex = 0;
-        XLSheetPoint? cellRef = null;
+        Point? cellRef = null;
         var dataType = CellValues.Number; // Matches an absent t attribute.
         bool showPhonetic = false;
         uint? cellMetaIndex = null;
@@ -297,7 +297,7 @@ internal static class WorksheetSheetDataReader
                 switch (localName)
                 {
                     case "r":
-                        cellRef = XLSheetPoint.Parse(value);
+                        cellRef = Point.Parse(value);
                         break;
                     case "s":
                         TryParseOoxmlNonNegativeInt(value, out styleIndex);
@@ -323,7 +323,7 @@ internal static class WorksheetSheetDataReader
             reader.MoveToElement();
         }
 
-        var cellAddress = cellRef ?? new XLSheetPoint(rowIndex, state.LastColumnNumber + 1);
+        var cellAddress = cellRef ?? new Point(rowIndex, state.LastColumnNumber + 1);
         state.LastColumnNumber = cellAddress.Column;
 
         var cellStyleValue = context.StyleCache.Resolve(styleIndex);
@@ -369,7 +369,7 @@ internal static class WorksheetSheetDataReader
     }
 
     private static void LoadCellContentXml(XmlReader reader, in SheetDataReadContext context,
-        CellValues dataType, XLSheetPoint cellAddress, XLStyleValue cellStyleValue,
+        CellValues dataType, Point cellAddress, XLStyleValue cellStyleValue,
         XLWorksheet ws, XLCellsCollection cellsCollection, uint? cellMetaIndex)
     {
         // Positioned on the first child of <c> (an Element) or on </c> (an EndElement).
@@ -412,7 +412,7 @@ internal static class WorksheetSheetDataReader
             reader.Skip();
     }
 
-    private static XLCellFormula? SetCellFormulaXml(XmlReader reader, XLWorksheet ws, XLSheetPoint cellAddress,
+    private static XLCellFormula? SetCellFormulaXml(XmlReader reader, XLWorksheet ws, Point cellAddress,
         Dictionary<uint, string> sharedFormulasR1C1, uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes)
     {
         string? typeAttr = null;
@@ -489,7 +489,7 @@ internal static class WorksheetSheetDataReader
     /// callers only invoke this when <c>ref</c> is present.
     /// </summary>
     private static XLCellFormula LoadArrayFormulaXml(string formulaText, string refAttr, bool aca,
-        XLSheetPoint cellAddress, uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes,
+        Point cellAddress, uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes,
         FormulaSlice formulaSlice)
     {
         var arrayArea = XLSheetRange.Parse(refAttr);
@@ -511,14 +511,14 @@ internal static class WorksheetSheetDataReader
 
     private static XLCellFormula LoadDataTableFormulaXml(string refAttr, string? r1Attr, string? r2Attr,
         bool is2D, bool input1Deleted, bool input2Deleted, bool isRowDataTable,
-        XLSheetPoint cellAddress, FormulaSlice formulaSlice)
+        Point cellAddress, FormulaSlice formulaSlice)
     {
         var dataTableArea = XLSheetRange.Parse(refAttr);
-        var input1 = r1Attr is not null ? XLSheetPoint.Parse(r1Attr) : throw MissingRequiredAttr("r1");
+        var input1 = r1Attr is not null ? Point.Parse(r1Attr) : throw MissingRequiredAttr("r1");
         XLCellFormula formula;
         if (is2D)
         {
-            var input2 = r2Attr is not null ? XLSheetPoint.Parse(r2Attr) : throw MissingRequiredAttr("r2");
+            var input2 = r2Attr is not null ? Point.Parse(r2Attr) : throw MissingRequiredAttr("r2");
             formula = XLCellFormula.DataTable2D(dataTableArea, input1, input1Deleted, input2, input2Deleted);
         }
         else
@@ -531,7 +531,7 @@ internal static class WorksheetSheetDataReader
     }
 
     private static void LoadInlineStringXml(XmlReader reader, CellValues dataType,
-        XLCellsCollection cellsCollection, XLSheetPoint cellAddress, XLWorksheet ws)
+        XLCellsCollection cellsCollection, Point cellAddress, XLWorksheet ws)
     {
         if (dataType != CellValues.InlineString)
         {
@@ -705,7 +705,7 @@ internal static class WorksheetSheetDataReader
     /// An <see cref="XLCell"/> is only created for the rare rich-text shared-string path.
     /// </summary>
     internal static void SetCellValue(CellValues dataType, ReadOnlySpan<char> cellValue,
-        XLCellsCollection cellsCollection, XLSheetPoint cellAddress, XLStyleValue cellStyleValue,
+        XLCellsCollection cellsCollection, Point cellAddress, XLStyleValue cellStyleValue,
         XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline,
         Dictionary<XLNumberFormatValue, XLDataType>? numberDataTypeCache = null)
     {
@@ -1053,7 +1053,7 @@ internal static class WorksheetSheetDataReader
     /// Must only be called for numeric serial date cells (t="n" or absent type attribute).
     /// ISO 8601 date cells (t="d") are absolute and must not be adjusted.
     /// </summary>
-    private static void Adjust1904DateSystem(XLCellsCollection cellsCollection, XLSheetPoint cellAddress)
+    private static void Adjust1904DateSystem(XLCellsCollection cellsCollection, Point cellAddress)
     {
         var cellValue = cellsCollection.ValueSlice.GetCellValue(cellAddress);
         if (cellValue.Type == XLDataType.DateTime)
@@ -1062,7 +1062,7 @@ internal static class WorksheetSheetDataReader
         }
     }
 
-    private static void EnsureStyleForBlankCell(XLCellsCollection cellsCollection, XLSheetPoint cellAddress,
+    private static void EnsureStyleForBlankCell(XLCellsCollection cellsCollection, Point cellAddress,
         XLStyleValue cellStyleValue)
     {
         var hasOtherData = cellsCollection.ValueSlice.IsUsed(cellAddress)
@@ -1073,7 +1073,7 @@ internal static class WorksheetSheetDataReader
             cellsCollection.StyleSlice.SetNonDefault(cellAddress.Row, cellAddress.Column, cellStyleValue);
     }
 
-    private static XLCellFormula LoadSharedFormula(string formulaText, XLSheetPoint cellAddress,
+    private static XLCellFormula LoadSharedFormula(string formulaText, Point cellAddress,
         uint sharedIndex, Dictionary<uint, string> sharedFormulasR1C1, FormulaSlice formulaSlice)
     {
         XLCellFormula formula;
@@ -1097,7 +1097,7 @@ internal static class WorksheetSheetDataReader
     }
 
     private static void SetNumberCellValue(ReadOnlySpan<char> cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, XLStyleValue cellStyleValue, bool inline,
+        Point cellAddress, XLStyleValue cellStyleValue, bool inline,
         Dictionary<XLNumberFormatValue, XLDataType>? numberDataTypeCache = null)
     {
         if (!TryParseOoxmlDouble(cellValue, out var number)) return;
@@ -1112,7 +1112,7 @@ internal static class WorksheetSheetDataReader
     }
 
     private static void SetSharedStringCellValue(ReadOnlySpan<char> cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline)
+        Point cellAddress, XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline)
     {
         if (TryParseOoxmlNonNegativeInt(cellValue, out var sharedStringId)
             && sharedStrings is not null && sharedStringId < sharedStrings.Length)
@@ -1131,7 +1131,7 @@ internal static class WorksheetSheetDataReader
     }
 
     private static void SetBooleanCellValue(ReadOnlySpan<char> cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, bool inline)
+        Point cellAddress, bool inline)
     {
         var isTrue = cellValue.SequenceEqual("1") ||
                      cellValue.Equals("TRUE", StringComparison.OrdinalIgnoreCase);
@@ -1139,14 +1139,14 @@ internal static class WorksheetSheetDataReader
     }
 
     private static void SetErrorCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, bool inline)
+        Point cellAddress, bool inline)
     {
         if (XLErrorParser.TryParseError(cellValue, out var error))
             cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, error, inline);
     }
 
     private static void SetDateCellValue(string cellValue, XLCellsCollection cellsCollection,
-        XLSheetPoint cellAddress, bool inline)
+        Point cellAddress, bool inline)
     {
         var date = DateTime.ParseExact(cellValue, DateCellFormats,
             XLHelper.ParseCulture,

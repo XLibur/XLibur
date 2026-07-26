@@ -56,7 +56,7 @@ internal sealed class TallyCriteria : ITally
         }
 
         // For each selection area and its criteria, get list of points that satisfy the criteria.
-        var criteriaPoints = new List<(XLSheetPoint Origin, IEnumerable<XLSheetPoint> Enumerable)>();
+        var criteriaPoints = new List<(Point Origin, IEnumerable<Point> Enumerable)>();
         foreach (var (area, criteria) in _criteriaRanges)
         {
             // This is a lazy IEnumerable, it's not yet evaluated.
@@ -74,7 +74,7 @@ internal sealed class TallyCriteria : ITally
             foreach (var area in talliedAreas)
             {
                 var origin = area.FirstAddress;
-                var shifted = new XLSheetPoint(origin.RowNumber + rowOfs, origin.ColumnNumber + colOfs);
+                var shifted = new Point(origin.RowNumber + rowOfs, origin.ColumnNumber + colOfs);
                 var cellValue = ctx.GetCellValue(area.Worksheet, shifted.Row, shifted.Column);
                 var number = _toNumber(cellValue);
                 if (number is not null)
@@ -85,7 +85,7 @@ internal sealed class TallyCriteria : ITally
         return state;
     }
 
-    private static IEnumerable<XLSheetOffset> GetCombinedCoordinates(List<(XLSheetPoint Origin, IEnumerable<XLSheetPoint> Enumerable)> enumerables)
+    private static IEnumerable<XLSheetOffset> GetCombinedCoordinates(List<(Point Origin, IEnumerable<Point> Enumerable)> enumerables)
     {
         var enumerators = enumerables.Select(e => e.Enumerable.GetEnumerator()).ToList();
         try
@@ -121,8 +121,8 @@ internal sealed class TallyCriteria : ITally
     }
 
     private static (XLSheetOffset MinOffset, bool AllSame) FindMinimumOffset(
-        List<(XLSheetPoint Origin, IEnumerable<XLSheetPoint> Enumerable)> enumerables,
-        List<IEnumerator<XLSheetPoint>> enumerators)
+        List<(Point Origin, IEnumerable<Point> Enumerable)> enumerables,
+        List<IEnumerator<Point>> enumerators)
     {
         var allSame = true;
         var minOfs = GetOffset(enumerables, enumerators, 0);
@@ -140,8 +140,8 @@ internal sealed class TallyCriteria : ITally
     }
 
     private static bool AdvanceMinimumEnumerators(
-        List<(XLSheetPoint Origin, IEnumerable<XLSheetPoint> Enumerable)> enumerables,
-        List<IEnumerator<XLSheetPoint>> enumerators,
+        List<(Point Origin, IEnumerable<Point> Enumerable)> enumerables,
+        List<IEnumerator<Point>> enumerators,
         XLSheetOffset minOfs)
     {
         for (var i = 0; i < enumerables.Count; ++i)
@@ -155,8 +155,8 @@ internal sealed class TallyCriteria : ITally
     }
 
     private static XLSheetOffset GetOffset(
-        List<(XLSheetPoint Origin, IEnumerable<XLSheetPoint> Enumerable)> enumerables,
-        List<IEnumerator<XLSheetPoint>> enumerators,
+        List<(Point Origin, IEnumerable<Point> Enumerable)> enumerables,
+        List<IEnumerator<Point>> enumerators,
         int i)
     {
         var origin = enumerables[i].Origin;

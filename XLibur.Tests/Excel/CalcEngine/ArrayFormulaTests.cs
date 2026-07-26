@@ -463,7 +463,7 @@ public class ArrayFormulaTests
     public async Task DeletingRowsThroughArrayDoesNotCorruptRange()
     {
         // Deleting rows that overlap an array used to push the stored range past row 1, producing
-        // an out-of-bounds coordinate (e.g. A0:A2) via the unchecked XLSheetPoint constructor.
+        // an out-of-bounds coordinate (e.g. A0:A2) via the unchecked Point constructor.
         // Excel forbids editing part of an array; XLibur must at least keep a valid range and a
         // saveable workbook rather than silently corrupting it.
         using var ms = new MemoryStream();

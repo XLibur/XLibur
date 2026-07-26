@@ -9,21 +9,21 @@ namespace XLibur.Excel.Coordinates;
 /// <summary>
 /// A representation of a <c>ST_Ref</c>, i.e., an area in a sheet (no reference to the sheet).
 /// </summary>
-internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XLSheetPoint>
+internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<Point>
 {
-    internal XLSheetRange(XLSheetPoint point)
+    internal XLSheetRange(Point point)
         : this(point, point)
     {
     }
 
-    internal XLSheetRange(XLSheetPoint firstPoint, XLSheetPoint lastPoint)
+    internal XLSheetRange(Point firstPoint, Point lastPoint)
     {
         FirstPoint = firstPoint;
         LastPoint = lastPoint;
     }
 
     public XLSheetRange(int rowStart, int columnStart, int rowEnd, int columnEnd)
-        : this(new XLSheetPoint(rowStart, columnStart), new XLSheetPoint(rowEnd, columnEnd))
+        : this(new Point(rowStart, columnStart), new Point(rowEnd, columnEnd))
     {
     }
 
@@ -31,18 +31,18 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
     /// A range that covers whole worksheet.
     /// </summary>
     public static readonly XLSheetRange Full = new(
-        new XLSheetPoint(XLHelper.MinRowNumber, XLHelper.MinColumnNumber),
-        new XLSheetPoint(XLHelper.MaxRowNumber, XLHelper.MaxColumnNumber));
+        new Point(XLHelper.MinRowNumber, XLHelper.MinColumnNumber),
+        new Point(XLHelper.MaxRowNumber, XLHelper.MaxColumnNumber));
 
     /// <summary>
     /// Top-left point of the sheet range.
     /// </summary>
-    public readonly XLSheetPoint FirstPoint;
+    public readonly Point FirstPoint;
 
     /// <summary>
     /// Bottom-right point of the sheet range.
     /// </summary>
-    public readonly XLSheetPoint LastPoint;
+    public readonly Point LastPoint;
 
     public int Width => LastPoint.Column - FirstPoint.Column + 1;
 
@@ -127,7 +127,7 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
         var separatorIndex = input.IndexOf(':');
         if (separatorIndex == -1)
         {
-            if (!XLSheetPoint.TryParse(input, out var sheetPoint))
+            if (!Point.TryParse(input, out var sheetPoint))
             {
                 area = default;
                 return false;
@@ -137,8 +137,8 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
             return true;
         }
 
-        if (!XLSheetPoint.TryParse(input[..separatorIndex], out var first) ||
-            !XLSheetPoint.TryParse(input[(separatorIndex + 1)..], out var second) ||
+        if (!Point.TryParse(input[..separatorIndex], out var first) ||
+            !Point.TryParse(input[(separatorIndex + 1)..], out var second) ||
             first.Column > second.Column || first.Row > second.Row)
         {
             area = default;
@@ -193,8 +193,8 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
 
         rows = Math.Min(rows, XLHelper.MaxRowNumber - LastPoint.Row);
         return new XLSheetRange(
-            new XLSheetPoint(LastPoint.Row + 1, FirstPoint.Column),
-            new XLSheetPoint(LastPoint.Row + rows, LastPoint.Column));
+            new Point(LastPoint.Row + 1, FirstPoint.Column),
+            new Point(LastPoint.Row + rows, LastPoint.Column));
     }
 
     /// <summary>
@@ -207,8 +207,8 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
             throw new InvalidOperationException("No cells to the left.");
 
         return new XLSheetRange(
-            new XLSheetPoint(FirstPoint.Row, LastPoint.Column + 1),
-            new XLSheetPoint(LastPoint.Row, XLHelper.MaxColumnNumber));
+            new Point(FirstPoint.Row, LastPoint.Column + 1),
+            new Point(LastPoint.Row, XLHelper.MaxColumnNumber));
     }
 
     /// <summary>
@@ -218,7 +218,7 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
     {
         Debug.Assert(rows >= 0);
         var row = Math.Min(LastPoint.Row + rows, XLHelper.MaxRowNumber);
-        return new XLSheetRange(FirstPoint, new XLSheetPoint(row, LastPoint.Column));
+        return new XLSheetRange(FirstPoint, new Point(row, LastPoint.Column));
     }
 
     /// <summary>
@@ -228,21 +228,21 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
     {
         Debug.Assert(columns >= 0);
         var column = Math.Min(LastPoint.Column + columns, XLHelper.MaxColumnNumber);
-        return new XLSheetRange(FirstPoint, new XLSheetPoint(LastPoint.Row, column));
+        return new XLSheetRange(FirstPoint, new Point(LastPoint.Row, column));
     }
 
     internal static XLSheetRange FromRangeAddress<T>(T address)
         where T : IXLRangeAddress
     {
-        var firstPoint = XLSheetPoint.FromAddress(address.FirstAddress);
-        var lastPoint = XLSheetPoint.FromAddress(address.LastAddress);
+        var firstPoint = Point.FromAddress(address.FirstAddress);
+        var lastPoint = Point.FromAddress(address.LastAddress);
         if (firstPoint.Row > lastPoint.Row || firstPoint.Column > lastPoint.Column)
             return new XLSheetRange(lastPoint, firstPoint);
 
         return new XLSheetRange(firstPoint, lastPoint);
     }
 
-    public bool Contains(XLSheetPoint point)
+    public bool Contains(Point point)
     {
         return
             point.Row >= FirstPoint.Row && point.Row <= LastPoint.Row &&
@@ -257,7 +257,7 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(rows, 1);
 
-        return new XLSheetRange(new XLSheetPoint(BottomRow - rows + 1, FirstPoint.Column), LastPoint);
+        return new XLSheetRange(new Point(BottomRow - rows + 1, FirstPoint.Column), LastPoint);
     }
 
     /// <summary>
@@ -268,7 +268,7 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(rows, 1);
 
-        return new XLSheetRange(FirstPoint, new XLSheetPoint(TopRow + rows - 1, LastPoint.Column));
+        return new XLSheetRange(FirstPoint, new Point(TopRow + rows - 1, LastPoint.Column));
     }
 
     /// <summary>
@@ -279,7 +279,7 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(columns, 1);
 
-        return new XLSheetRange(FirstPoint, new XLSheetPoint(FirstPoint.Row, LeftColumn + columns - 1));
+        return new XLSheetRange(FirstPoint, new Point(FirstPoint.Row, LeftColumn + columns - 1));
     }
 
     /// <summary>
@@ -290,7 +290,7 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(columns, 1);
 
-        return new XLSheetRange(new XLSheetPoint(FirstPoint.Row, RightColumn - columns + 1), LastPoint);
+        return new XLSheetRange(new Point(FirstPoint.Row, RightColumn - columns + 1), LastPoint);
     }
 
     /// <summary>
@@ -367,7 +367,7 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
     /// </summary>
     /// <param name="topLeftCorner">New top left coordinate of returned range.</param>
     /// <returns>New range.</returns>
-    internal XLSheetRange At(XLSheetPoint topLeftCorner)
+    internal XLSheetRange At(Point topLeftCorner)
     {
         var bottomRightCorner = topLeftCorner.ShiftColumn(Width - 1).ShiftRow(Height - 1);
         return new XLSheetRange(topLeftCorner, bottomRightCorner);
@@ -397,13 +397,13 @@ internal readonly struct XLSheetRange : IEquatable<XLSheetRange>, IEnumerable<XL
         return new XLSheetRange(topLeftCorner, bottomRightCorner);
     }
 
-    public IEnumerator<XLSheetPoint> GetEnumerator()
+    public IEnumerator<Point> GetEnumerator()
     {
         for (var row = TopRow; row <= BottomRow; ++row)
         {
             for (var col = LeftColumn; col <= RightColumn; ++col)
             {
-                yield return new XLSheetPoint(row, col);
+                yield return new Point(row, col);
             }
         }
     }

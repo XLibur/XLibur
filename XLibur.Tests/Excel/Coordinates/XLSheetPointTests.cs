@@ -18,7 +18,7 @@ public class XLSheetPointTests
     [Arguments("XFD1048576", 16384, 1048576)]
     public async Task ParseCellRefsAccordingToGrammar(string cellRef, int columnNumber, int rowNumber)
     {
-        var sheetPoint = XLSheetPoint.Parse(cellRef.AsSpan());
+        var sheetPoint = Point.Parse(cellRef.AsSpan());
         await Assert.That(sheetPoint.Column).IsEqualTo(columnNumber);
         await Assert.That(sheetPoint.Row).IsEqualTo(rowNumber);
     }
@@ -49,7 +49,7 @@ public class XLSheetPointTests
     [Arguments("A-1")]
     public async Task InvalidInputsAreNotParsed(string cellRef)
     {
-        await Assert.That(() => XLSheetPoint.Parse(cellRef.AsSpan())).Throws<FormatException>();
+        await Assert.That(() => Point.Parse(cellRef.AsSpan())).Throws<FormatException>();
     }
 
     [Test]
@@ -59,7 +59,7 @@ public class XLSheetPointTests
     [Arguments("XFD1048576")]
     public async Task CanFormatToString(string cellRef)
     {
-        var r = XLSheetPoint.Parse(cellRef);
+        var r = Point.Parse(cellRef);
         await Assert.That(r.ToString()).IsEqualTo(cellRef);
     }
 }

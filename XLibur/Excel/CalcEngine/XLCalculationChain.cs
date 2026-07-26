@@ -119,7 +119,7 @@ internal sealed class XLCalculationChain
         {
             for (var col = range.LeftColumn; col <= range.RightColumn; ++col)
             {
-                AddLast(new XLBookPoint(sheetId, new XLSheetPoint(row, col)));
+                AddLast(new XLBookPoint(sheetId, new Point(row, col)));
             }
         }
     }

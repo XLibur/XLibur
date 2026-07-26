@@ -164,7 +164,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         }
     }
 
-    internal void MarkDirty(XLWorksheet sheet, XLSheetPoint point)
+    internal void MarkDirty(XLWorksheet sheet, Point point)
     {
         MarkDirty(sheet, new XLSheetRange(point, point));
     }
@@ -191,7 +191,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// to full workbook recalculation which handles dependency ordering.
     /// </summary>
     /// <returns><c>true</c> if single-cell eval succeeded, <c>false</c> if full recalculate was used.</returns>
-    internal bool TryEvaluateSingleCell(XLCellFormula formula, XLSheetPoint point, XLWorksheet sheet)
+    internal bool TryEvaluateSingleCell(XLCellFormula formula, Point point, XLWorksheet sheet)
     {
         // DataTable formulas need the full chain for correct evaluation.
         if (formula.Type == FormulaType.DataTable)
@@ -231,7 +231,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                         var cellValue = result[rowIdx, colIdx];
                         var row = range.FirstPoint.Row + rowIdx;
                         var column = range.FirstPoint.Column + colIdx;
-                        valueSlice.SetCellValue(new XLSheetPoint(row, column), cellValue.ToCellValue());
+                        valueSlice.SetCellValue(new Point(row, column), cellValue.ToCellValue());
                     }
                 }
             }
@@ -318,7 +318,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         }
     }
 
-    private void ApplyFormula(XLCellFormula formula, XLSheetPoint appliedPoint, XLWorksheet sheet, ValueSlice valueSlice, uint? recalculateSheetId)
+    private void ApplyFormula(XLCellFormula formula, Point appliedPoint, XLWorksheet sheet, ValueSlice valueSlice, uint? recalculateSheetId)
     {
         var formulaText = formula.A1;
         if (formula.IsDynamicArray)
@@ -357,7 +357,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                     var cellValue = result[rowIdx, colIdx];
                     var row = range.FirstPoint.Row + rowIdx;
                     var column = range.FirstPoint.Column + colIdx;
-                    valueSlice.SetCellValue(new XLSheetPoint(row, column), cellValue.ToCellValue());
+                    valueSlice.SetCellValue(new Point(row, column), cellValue.ToCellValue());
                 }
             }
         }
@@ -434,7 +434,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// edge, or when any footprint cell (other than the anchor, and other than a cell owned by
     /// this formula's previous footprint) already holds a formula or a non-blank value.
     /// </remarks>
-    private void SpillDynamicArray(XLCellFormula formula, XLSheetPoint anchor, XLWorksheet sheet, uint? recalculateSheetId)
+    private void SpillDynamicArray(XLCellFormula formula, Point anchor, XLWorksheet sheet, uint? recalculateSheetId)
     {
         var cells = sheet.Internals.CellsCollection;
         var valueSlice = cells.ValueSlice;
@@ -459,7 +459,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         }
         else
         {
-            newFootprint = new XLSheetRange(anchor, new XLSheetPoint(lastRow, lastColumn));
+            newFootprint = new XLSheetRange(anchor, new Point(lastRow, lastColumn));
 
             // Erase any cell of the previous footprint that the new one no longer covers
             // (the array shrank or moved) before writing the fresh result.
@@ -469,7 +469,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             {
                 for (var colOffset = 0; colOffset < array.Width; ++colOffset)
                 {
-                    var point = new XLSheetPoint(anchor.Row + rowOffset, anchor.Column + colOffset);
+                    var point = new Point(anchor.Row + rowOffset, anchor.Column + colOffset);
                     valueSlice.SetCellValue(point, array[rowOffset, colOffset].ToCellValue());
                 }
             }
@@ -534,7 +534,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// is dirty, returns the anchor point so the caller can force the anchor to evaluate first.
     /// The anchor cell itself holds a formula, so it never reaches this lookup.
     /// </summary>
-    internal bool TryGetDirtySpillOwner(uint sheetId, XLSheetPoint point, XLWorkbook wb, out XLSheetPoint anchor)
+    internal bool TryGetDirtySpillOwner(uint sheetId, Point point, XLWorkbook wb, out Point anchor)
     {
         foreach (var footprint in _spillOwners)
         {
@@ -555,13 +555,13 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// previous footprint, which will be overwritten) never block; any other cell holding a
     /// formula or a non-blank value does.
     /// </summary>
-    private static bool HasSpillCollision(XLSheetPoint anchor, int lastRow, int lastColumn, XLSheetRange ownedRange, ValueSlice valueSlice, FormulaSlice formulaSlice)
+    private static bool HasSpillCollision(Point anchor, int lastRow, int lastColumn, XLSheetRange ownedRange, ValueSlice valueSlice, FormulaSlice formulaSlice)
     {
         for (var row = anchor.Row; row <= lastRow; ++row)
         {
             for (var column = anchor.Column; column <= lastColumn; ++column)
             {
-                var point = new XLSheetPoint(row, column);
+                var point = new Point(row, column);
                 if (point == anchor || ownedRange.Contains(point))
                     continue;
 

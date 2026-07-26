@@ -100,11 +100,11 @@ internal static class OpenXmlPartReaderExtensions
         /// <summary>
         /// Get value of attribute with type <c>ST_CellRef</c>.
         /// </summary>
-        internal XLSheetPoint? GetCellRefAttribute(string name)
+        internal Point? GetCellRefAttribute(string name)
         {
             var attribute = attributes.GetAttribute(name);
             if (!string.IsNullOrEmpty(attribute))
-                return XLSheetPoint.Parse(attribute);
+                return Point.Parse(attribute);
 
             return null;
         }

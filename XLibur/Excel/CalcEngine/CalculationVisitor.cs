@@ -146,7 +146,7 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
         // updating its Range) before this formula. The returned value itself is unused.
         _ = context.GetCellValue(sheet, anchorRow, anchorColumn);
 
-        var formula = sheet.Internals.CellsCollection.FormulaSlice.Get(new XLSheetPoint(anchorRow, anchorColumn));
+        var formula = sheet.Internals.CellsCollection.FormulaSlice.Get(new Point(anchorRow, anchorColumn));
         if (formula is null || !formula.IsDynamicArray)
             return XLError.CellReference; // #REF! — the cell is not a spill anchor.
 

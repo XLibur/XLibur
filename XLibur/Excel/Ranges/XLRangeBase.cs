@@ -112,7 +112,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
             {
                 for (var col = range.LeftColumn; col <= range.RightColumn; ++col)
                 {
-                    valueSlice.SetShareString(new XLSheetPoint(row, col), false);
+                    valueSlice.SetShareString(new Point(row, col), false);
                 }
             }
 
@@ -180,7 +180,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         return true;
     }
 
-    private static IEnumerable<XLSheetPoint> EnumeratePoints(XLSheetRange range)
+    private static IEnumerable<Point> EnumeratePoints(XLSheetRange range)
     {
         var firstPoint = range.FirstPoint;
         var lastPoint = range.LastPoint;
@@ -188,7 +188,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         for (var row = firstPoint.Row; row <= lastPoint.Row; row++)
         {
             for (var column = firstPoint.Column; column <= lastPoint.Column; column++)
-                yield return new XLSheetPoint(row, column);
+                yield return new Point(row, column);
         }
     }
 
@@ -658,7 +658,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
             );
         }
 
-        var cell = Worksheet.Internals.CellsCollection.GetCell(new XLSheetPoint(absRow, absColumn));
+        var cell = Worksheet.Internals.CellsCollection.GetCell(new Point(absRow, absColumn));
         return cell;
     }
 

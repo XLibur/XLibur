@@ -12,7 +12,7 @@ namespace XLibur.Excel.Coordinates;
 /// </summary>
 /// <remarks>Unlike the XLAddress, a sheet can never be invalid.</remarks>
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
-internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XLSheetPoint>
+internal readonly struct Point : IEquatable<Point>, IComparable<Point>
 {
     internal const int ColumnBits = 14;
     private const ulong ColumnMask = (1UL << ColumnBits) - 1; // 0x3FFF
@@ -26,13 +26,13 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     internal readonly ulong PackedValue;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public XLSheetPoint(int row, int column)
+    public Point(int row, int column)
     {
         PackedValue = ((ulong)(uint)(row - 1) << ColumnBits) | (uint)(column - 1);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private XLSheetPoint(ulong packed)
+    private Point(ulong packed)
     {
         PackedValue = packed;
     }
@@ -58,18 +58,18 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private string DebuggerDisplay => XLHelper.GetColumnLetterFromNumber(Column) + Row;
 
-    public static implicit operator XLSheetRange(XLSheetPoint point)
+    public static implicit operator XLSheetRange(Point point)
     {
         return new XLSheetRange(point);
     }
 
     public override bool Equals(object? obj)
     {
-        return obj is XLSheetPoint point && Equals(point);
+        return obj is Point point && Equals(point);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Equals(XLSheetPoint other)
+    public bool Equals(Point other)
     {
         return PackedValue == other.PackedValue;
     }
@@ -81,13 +81,13 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool operator ==(XLSheetPoint a, XLSheetPoint b)
+    public static bool operator ==(Point a, Point b)
     {
         return a.PackedValue == b.PackedValue;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool operator !=(XLSheetPoint a, XLSheetPoint b)
+    public static bool operator !=(Point a, Point b)
     {
         return a.PackedValue != b.PackedValue;
     }
@@ -95,13 +95,13 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     /// <summary>
     /// Get offset that must be added to <paramref name="origin"/> so we can get <paramref name="target"/>.
     /// </summary>
-    public static XLSheetOffset operator -(XLSheetPoint target, XLSheetPoint origin)
+    public static XLSheetOffset operator -(Point target, Point origin)
     {
         return new XLSheetOffset(target.Row - origin.Row, target.Column - origin.Column);
     }
 
     /// <inheritdoc cref="Parse(ReadOnlySpan{char})"/>
-    public static XLSheetPoint Parse(string text) => Parse(text.AsSpan());
+    public static Point Parse(string text) => Parse(text.AsSpan());
 
     /// <summary>
     /// Parse point per type <c>ST_CellRef</c> from
@@ -109,7 +109,7 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     /// </summary>
     /// <param name="input">Input text</param>
     /// <exception cref="FormatException">If the input doesn't match expected grammar.</exception>
-    public static XLSheetPoint Parse(ReadOnlySpan<char> input)
+    public static Point Parse(ReadOnlySpan<char> input)
     {
         if (!TryParse(input, out var point))
             throw new FormatException($"Sheet point doesn't have correct format: '{input.ToString()}'.");
@@ -121,7 +121,7 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     /// Try to parse sheet point. Doesn't accept any extra whitespace anywhere in the input.
     /// Letters must be upper case.
     /// </summary>
-    public static bool TryParse(ReadOnlySpan<char> input, out XLSheetPoint point)
+    public static bool TryParse(ReadOnlySpan<char> input, out Point point)
     {
         point = default;
 
@@ -169,7 +169,7 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
         if (rowIndex > XLHelper.MaxRowNumber || columnIndex > XLHelper.MaxColumnNumber)
             return false;
 
-        point = new XLSheetPoint(rowIndex, columnIndex);
+        point = new Point(rowIndex, columnIndex);
         return true;
 
         static bool IsLetter(char c) => c is >= 'A' and <= 'Z';
@@ -222,11 +222,11 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     /// <summary>
     /// Create a sheet point from the address. Workbook is ignored.
     /// </summary>
-    public static XLSheetPoint FromAddress(IXLAddress address)
+    public static Point FromAddress(IXLAddress address)
         => new(address.RowNumber, address.ColumnNumber);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int CompareTo(XLSheetPoint other)
+    public int CompareTo(Point other)
     {
         return PackedValue.CompareTo(other.PackedValue);
     }
@@ -258,9 +258,9 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     ///     is downwards, negative - new point is upwards relative to the current point.</param>
     /// <returns>Shifted point.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal XLSheetPoint ShiftRow(int rowShift)
+    internal Point ShiftRow(int rowShift)
     {
-        return new XLSheetPoint(Row + rowShift, Column);
+        return new Point(Row + rowShift, Column);
     }
 
     /// <summary>
@@ -270,8 +270,8 @@ internal readonly struct XLSheetPoint : IEquatable<XLSheetPoint>, IComparable<XL
     ///     point is to the right, negative - new point is to the left.</param>
     /// <returns>Shifted point.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal XLSheetPoint ShiftColumn(int columnShift)
+    internal Point ShiftColumn(int columnShift)
     {
-        return new XLSheetPoint(Row, Column + columnShift);
+        return new Point(Row, Column + columnShift);
     }
 }

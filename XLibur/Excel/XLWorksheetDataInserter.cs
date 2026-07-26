@@ -12,7 +12,7 @@ namespace XLibur.Excel;
 /// </summary>
 internal sealed class XLWorksheetDataInserter(XLWorksheet worksheet)
 {
-    public IXLTable InsertTable(XLSheetPoint origin, IInsertDataReader reader, string? tableName, bool createTable, bool addHeadings, bool transpose)
+    public IXLTable InsertTable(Point origin, IInsertDataReader reader, string? tableName, bool createTable, bool addHeadings, bool transpose)
     {
         if (createTable && worksheet.Tables.Any<XLTable>(t => t.Area.Contains(origin)))
             throw new InvalidOperationException($"This cell '{origin}' is already part of a table.");
@@ -26,7 +26,7 @@ internal sealed class XLWorksheetDataInserter(XLWorksheet worksheet)
         return tableName == null ? range.AsTable() : range.AsTable(tableName);
     }
 
-    public XLRange InsertData(XLSheetPoint origin, IInsertDataReader reader, bool addHeadings, bool transpose)
+    public XLRange InsertData(Point origin, IInsertDataReader reader, bool addHeadings, bool transpose)
     {
         var rows = PrepareRows(reader, addHeadings, transpose);
         var propCount = reader.GetPropertiesCount();
@@ -55,7 +55,7 @@ internal sealed class XLWorksheetDataInserter(XLWorksheet worksheet)
         }
 
         var lastRow = Math.Max(rowNumber - 1, origin.Row);
-        var insertedArea = new XLSheetRange(origin, new XLSheetPoint(lastRow, maximumColumn));
+        var insertedArea = new XLSheetRange(origin, new Point(lastRow, maximumColumn));
 
         foreach (var table in worksheet.Tables)
             table.RefreshFieldsFromCells(insertedArea);
@@ -95,7 +95,7 @@ internal sealed class XLWorksheetDataInserter(XLWorksheet worksheet)
         foreach (var t in rowBuffer)
         {
             var value = t;
-            var point = new XLSheetPoint(rowNumber, column);
+            var point = new Point(rowNumber, column);
             var modifiedStyle = worksheet.GetStyleForValue(value, point);
             if (modifiedStyle is not null)
             {

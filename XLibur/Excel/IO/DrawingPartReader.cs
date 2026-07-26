@@ -184,7 +184,7 @@ internal static class DrawingPartReader
         // set sheet-space coordinates (consistent with FreeFloating placement).
         var leftPx = ConvertFromEnglishMetricUnits(sheetEmuX, ws.Workbook.DpiX);
         var topPx = ConvertFromEnglishMetricUnits(sheetEmuY, ws.Workbook.DpiY);
-        xlPicture.Markers[XLMarkerPosition.TopLeft] = new XLMarker(ws.Cell(1, 1), new Point(leftPx, topPx));
+        xlPicture.Markers[XLMarkerPosition.TopLeft] = new XLMarker(ws.Cell(1, 1), new System.Drawing.Point(leftPx, topPx));
 
         xlPicture.GroupInfo = new XLPictureGroup
         {
@@ -233,7 +233,7 @@ internal static class DrawingPartReader
         var column = Math.Min(XLHelper.MaxColumnNumber, Math.Max(1, Convert.ToInt32(marker.ColumnId!.InnerText) + 1));
         return new XLMarker(
             ws.Cell(row, column),
-            new Point(
+            new System.Drawing.Point(
                 ConvertFromEnglishMetricUnits(Convert.ToInt32(marker.ColumnOffset!.InnerText), ws.Workbook.DpiX),
                 ConvertFromEnglishMetricUnits(Convert.ToInt32(marker.RowOffset!.InnerText), ws.Workbook.DpiY)
             )

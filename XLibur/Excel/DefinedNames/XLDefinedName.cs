@@ -55,7 +55,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
         }
     }
 
-    public IXLRanges Ranges => _references.GetExternalRanges(_container.Workbook, new XLSheetPoint(1, 1));
+    public IXLRanges Ranges => _references.GetExternalRanges(_container.Workbook, new Point(1, 1));
 
     public string? Comment { get; set; }
 
@@ -102,7 +102,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     /// </summary>
     internal bool TryGetFirstSheetArea(XLWorkbook workbook, out XLWorksheet? sheet, out XLSheetRange sheetArea)
     {
-        var anchor = new XLSheetPoint(1, 1);
+        var anchor = new Point(1, 1);
         foreach (var reference in _references.SheetReferences)
         {
             if (workbook.TryGetWorksheet(reference.Sheet, out sheet))

@@ -106,7 +106,7 @@ internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
     /// <inheritdoc />
     public bool Delete(IXLAddress address)
     {
-        var point = XLSheetPoint.FromAddress(address);
+        var point = Point.FromAddress(address);
         if (Clear(point))
         {
             ClearHyperlinkStyle(point);
@@ -119,13 +119,13 @@ internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
     /// <inheritdoc />
     public XLHyperlink Get(IXLAddress address)
     {
-        return _hyperlinks[XLSheetPoint.FromAddress(address)];
+        return _hyperlinks[Point.FromAddress(address)];
     }
 
     /// <inheritdoc />
     public bool TryGet(IXLAddress address, out XLHyperlink hyperlink)
     {
-        return _hyperlinks.TryGetValue(XLSheetPoint.FromAddress(address), out hyperlink!);
+        return _hyperlinks.TryGetValue(Point.FromAddress(address), out hyperlink!);
     }
 
     /// <summary>

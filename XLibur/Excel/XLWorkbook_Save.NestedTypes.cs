@@ -65,7 +65,7 @@ public partial class XLWorkbook
             return GetSharedStringId(xlCell.MemorySstId, xlCell.SheetPoint);
         }
 
-        internal int GetSharedStringId(int memorySstId, XLSheetPoint point)
+        internal int GetSharedStringId(int memorySstId, Point point)
         {
             var sharedStringId = SstMap[memorySstId];
             if (sharedStringId < 0)

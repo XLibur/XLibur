@@ -83,7 +83,7 @@ internal sealed class CalcContext
     /// </summary>
     public uint? RecalculateSheetId { get; set; }
 
-    internal XLSheetPoint FormulaSheetPoint => new(FormulaAddress.RowNumber, FormulaAddress.ColumnNumber);
+    internal Point FormulaSheetPoint => new(FormulaAddress.RowNumber, FormulaAddress.ColumnNumber);
 
     /// <summary>
     /// What date system should be used in calculation. Either 1900 or 1904.
@@ -110,7 +110,7 @@ internal sealed class CalcContext
     {
         sheet ??= Worksheet;
         var valueSlice = sheet.Internals.CellsCollection.ValueSlice;
-        var point = new XLSheetPoint(rowNumber, columnNumber);
+        var point = new Point(rowNumber, columnNumber);
         var formula = sheet.Internals.CellsCollection.FormulaSlice.Get(point);
 
         if (formula is null)
@@ -160,7 +160,7 @@ internal sealed class CalcContext
             return value;
         }
 
-        throw new GettingDataException(new XLBookPoint(sheet.SheetId, new XLSheetPoint(rowNumber, columnNumber)));
+        throw new GettingDataException(new XLBookPoint(sheet.SheetId, new Point(rowNumber, columnNumber)));
     }
 
     /// <summary>
@@ -210,7 +210,7 @@ internal sealed class CalcContext
     /// <summary>
     /// Return all points in the <paramref name="areaReference" /> that satisfy the <paramref name="criteria" />.
     /// </summary>
-    internal IEnumerable<XLSheetPoint> GetCriteriaPoints(XLRangeAddress areaReference, Criteria criteria)
+    internal IEnumerable<Point> GetCriteriaPoints(XLRangeAddress areaReference, Criteria criteria)
     {
         var sheet = areaReference.Worksheet ?? Worksheet;
         var area = XLSheetRange.FromRangeAddress(areaReference);

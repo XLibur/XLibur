@@ -13,9 +13,9 @@ namespace XLibur.Excel;
 /// </remarks>
 public readonly struct XLUsedCell
 {
-    private readonly XLSheetPoint _point;
+    private readonly Point _point;
 
-    internal XLUsedCell(XLSheetPoint point, XLCellValue value)
+    internal XLUsedCell(Point point, XLCellValue value)
     {
         _point = point;
         Value = value;
@@ -60,7 +60,7 @@ public ref struct XLUsedCellEnumerator
 {
     private readonly ValueSlice _valueSlice;
     private readonly XLSheetRange _range;
-    private IEnumerator<XLSheetPoint>? _inner;
+    private IEnumerator<Point>? _inner;
     private XLUsedCell _current;
 
     internal XLUsedCellEnumerator(ValueSlice valueSlice, XLSheetRange range)

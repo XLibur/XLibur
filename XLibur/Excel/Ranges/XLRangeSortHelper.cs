@@ -20,7 +20,7 @@ internal static class XLRangeSortHelper
         {
             // If we're dealing with the entire column, we're not interested in the unused cells
             var lastRowUsed = cellsCollection.LastRowUsed(XLSheetRange.Full, XLCellsUsedOptions.Contents);
-            sortRange = new XLSheetRange(sortRange.FirstPoint, new XLSheetPoint(lastRowUsed, sortRange.RightColumn));
+            sortRange = new XLSheetRange(sortRange.FirstPoint, new Point(lastRowUsed, sortRange.RightColumn));
         }
 
         var comparer = new XLRangeRowsSortComparer(range.Worksheet, sortRange, sortColumns);
@@ -41,7 +41,7 @@ internal static class XLRangeSortHelper
         {
             // If we're dealing with the entire row, we're not interested in the unused cells
             var lastColumnCell = cellsCollection.LastColumnUsed(XLSheetRange.Full, XLCellsUsedOptions.Contents);
-            sortRange = new XLSheetRange(sortRange.FirstPoint, new XLSheetPoint(sortRange.BottomRow, lastColumnCell));
+            sortRange = new XLSheetRange(sortRange.FirstPoint, new Point(sortRange.BottomRow, lastColumnCell));
         }
 
         var comparer = new XLRangeColumnsSortComparer(range.Worksheet, sortRange, sortRows);

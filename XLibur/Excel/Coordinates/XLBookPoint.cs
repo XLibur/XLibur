@@ -17,7 +17,7 @@ namespace XLibur.Excel.Coordinates;
 [DebuggerDisplay("[{SheetId}] R{Row}C{Column}")]
 internal readonly struct XLBookPoint : IEquatable<XLBookPoint>
 {
-    private const int PointBits = XLSheetPoint.ColumnBits + 20; // 34
+    private const int PointBits = Point.ColumnBits + 20; // 34
     private const ulong PointMask = (1UL << PointBits) - 1;
 
     /// <summary>
@@ -28,19 +28,19 @@ internal readonly struct XLBookPoint : IEquatable<XLBookPoint>
     private readonly ulong _value;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal XLBookPoint(XLWorksheet sheet, XLSheetPoint point)
+    internal XLBookPoint(XLWorksheet sheet, Point point)
         : this(sheet.SheetId, point)
     {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal XLBookPoint(uint sheetId, XLSheetPoint point)
+    internal XLBookPoint(uint sheetId, Point point)
     {
         _value = ((ulong)sheetId << PointBits) | point.PackedValue;
     }
 
     internal XLBookPoint(uint sheetId, int row, int column)
-        : this(sheetId, new XLSheetPoint(row, column))
+        : this(sheetId, new Point(row, column))
     {
     }
 
@@ -56,14 +56,14 @@ internal readonly struct XLBookPoint : IEquatable<XLBookPoint>
         get => (uint)(_value >> PointBits);
     }
 
-    /// <inheritdoc cref="XLSheetPoint.Row"/>
+    /// <inheritdoc cref="Point.Row"/>
     public int Row
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => Point.Row;
     }
 
-    /// <inheritdoc cref="XLSheetPoint.Column"/>
+    /// <inheritdoc cref="Point.Column"/>
     public int Column
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -73,13 +73,13 @@ internal readonly struct XLBookPoint : IEquatable<XLBookPoint>
     /// <summary>
     /// A point in the sheet (without the sheet identifier).
     /// </summary>
-    public XLSheetPoint Point
+    public Point Point
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
             var pointPacked = _value & PointMask;
-            return Unsafe.As<ulong, XLSheetPoint>(ref pointPacked);
+            return Unsafe.As<ulong, Point>(ref pointPacked);
         }
     }
 

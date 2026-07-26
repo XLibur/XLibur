@@ -10,7 +10,7 @@ public class SliceTests
     public async Task Stores_Values()
     {
         var slice = new Slice<int>();
-        var point = new XLSheetPoint(574, 241);
+        var point = new Point(574, 241);
         slice.Set(point, 1);
         await Assert.That(slice[point]).IsEqualTo(1);
     }
@@ -19,7 +19,7 @@ public class SliceTests
     public async Task Setting_Value_To_Default_Clears_Element()
     {
         var slice = new Slice<int>();
-        var point = new XLSheetPoint(574, 241);
+        var point = new Point(574, 241);
         slice.Set(point, 1);
         await Assert.That(slice.MaxRow).IsEqualTo(574);
         await Assert.That(slice.MaxColumn).IsEqualTo(241);
@@ -63,28 +63,28 @@ public class SliceTests
         var slice = new Slice<int>();
         await Assert.That(slice.UsedRows).IsEmpty();
 
-        slice.Set(new XLSheetPoint(1, 1), 1);
+        slice.Set(new Point(1, 1), 1);
         await Assert.That(slice.UsedRows).IsEquivalentTo([1]);
 
-        slice.Set(new XLSheetPoint(70, 1), 1);
+        slice.Set(new Point(70, 1), 1);
         await Assert.That(slice.UsedRows).IsEquivalentTo([1, 70]);
 
-        slice.Set(new XLSheetPoint(35, 1), 1);
+        slice.Set(new Point(35, 1), 1);
         await Assert.That(slice.UsedRows).IsEquivalentTo([1, 35, 70]);
 
-        slice.Set(new XLSheetPoint(35, 2), 1);
+        slice.Set(new Point(35, 2), 1);
         await Assert.That(slice.UsedRows).IsEquivalentTo([1, 35, 70]);
 
-        slice.Set(new XLSheetPoint(35, 1), 0);
+        slice.Set(new Point(35, 1), 0);
         await Assert.That(slice.UsedRows).IsEquivalentTo([1, 35, 70]);
 
-        slice.Set(new XLSheetPoint(35, 2), 0);
+        slice.Set(new Point(35, 2), 0);
         await Assert.That(slice.UsedRows).IsEquivalentTo([1, 70]);
 
-        slice.Set(new XLSheetPoint(1, 1), 0);
+        slice.Set(new Point(1, 1), 0);
         await Assert.That(slice.UsedRows).IsEquivalentTo([70]);
 
-        slice.Set(new XLSheetPoint(70, 1), 0);
+        slice.Set(new Point(70, 1), 0);
         await Assert.That(slice.UsedRows).IsEmpty();
     }
 
@@ -94,28 +94,28 @@ public class SliceTests
         var slice = new Slice<int>();
         await Assert.That(slice.UsedColumns).IsEmpty();
 
-        slice.Set(new XLSheetPoint(1, 5), 1);
+        slice.Set(new Point(1, 5), 1);
         await Assert.That(slice.UsedColumns).IsEquivalentTo([5]);
 
-        slice.Set(new XLSheetPoint(1, 750), 1);
+        slice.Set(new Point(1, 750), 1);
         await Assert.That(slice.UsedColumns).IsEquivalentTo([5, 750]);
 
-        slice.Set(new XLSheetPoint(1, 90), 1);
+        slice.Set(new Point(1, 90), 1);
         await Assert.That(slice.UsedColumns).IsEquivalentTo([5, 90, 750]);
 
-        slice.Set(new XLSheetPoint(2, 5), 1);
+        slice.Set(new Point(2, 5), 1);
         await Assert.That(slice.UsedColumns).IsEquivalentTo([5, 90, 750]);
 
-        slice.Set(new XLSheetPoint(1, 5), 0);
+        slice.Set(new Point(1, 5), 0);
         await Assert.That(slice.UsedColumns).IsEquivalentTo([5, 90, 750]);
 
-        slice.Set(new XLSheetPoint(2, 5), 0);
+        slice.Set(new Point(2, 5), 0);
         await Assert.That(slice.UsedColumns).IsEquivalentTo([90, 750]);
 
-        slice.Set(new XLSheetPoint(1, 750), 0);
+        slice.Set(new Point(1, 750), 0);
         await Assert.That(slice.UsedColumns).IsEquivalentTo([90]);
 
-        slice.Set(new XLSheetPoint(1, 90), 0);
+        slice.Set(new Point(1, 90), 0);
         await Assert.That(slice.UsedColumns).IsEmpty();
     }
 
@@ -123,13 +123,13 @@ public class SliceTests
     public async Task Clear_Range_Sets_Values_To_Default()
     {
         var slice = new Slice<int>();
-        var outsideAddress = new XLSheetPoint(1, 1);
+        var outsideAddress = new Point(1, 1);
         slice.Set(outsideAddress, 1);
-        var firstCorner = new XLSheetPoint(50, 20);
+        var firstCorner = new Point(50, 20);
         slice.Set(firstCorner, 1);
-        var insideAddress = new XLSheetPoint(55, 22);
+        var insideAddress = new Point(55, 22);
         slice.Set(insideAddress, 1);
-        var lastCorner = new XLSheetPoint(60, 30);
+        var lastCorner = new Point(60, 30);
         slice.Set(lastCorner, 1);
 
         slice.Clear(new XLSheetRange(firstCorner, lastCorner));
@@ -145,13 +145,13 @@ public class SliceTests
         var slice = new Slice<int>();
         slice.Set(1, 1, 1);
         slice.Set(3, 1, 2);
-        var purgedAddress = new XLSheetPoint(XLHelper.MaxRowNumber, 2);
+        var purgedAddress = new Point(XLHelper.MaxRowNumber, 2);
         slice.Set(purgedAddress, 3);
 
-        var outsideAddress = new XLSheetPoint(1, 3);
+        var outsideAddress = new Point(1, 3);
         slice.Set(outsideAddress, 4);
 
-        slice.InsertAreaAndShiftDown(new XLSheetRange(new XLSheetPoint(1, 1), new XLSheetPoint(2, 2)));
+        slice.InsertAreaAndShiftDown(new XLSheetRange(new Point(1, 1), new Point(2, 2)));
 
         await Assert.That(slice[3, 1]).IsEqualTo(1);
         await Assert.That(slice[5, 1]).IsEqualTo(2);
@@ -165,13 +165,13 @@ public class SliceTests
         var slice = new Slice<int>();
         slice.Set(1, 1, 1);
         slice.Set(1, 3, 2);
-        var purgedAddress = new XLSheetPoint(2, XLHelper.MaxColumnNumber);
+        var purgedAddress = new Point(2, XLHelper.MaxColumnNumber);
         slice.Set(purgedAddress, 3);
 
-        var outsideAddress = new XLSheetPoint(3, 1);
+        var outsideAddress = new Point(3, 1);
         slice.Set(outsideAddress, 4);
 
-        slice.InsertAreaAndShiftRight(new XLSheetRange(new XLSheetPoint(1, 1), new XLSheetPoint(2, 2)));
+        slice.InsertAreaAndShiftRight(new XLSheetRange(new Point(1, 1), new Point(2, 2)));
 
         await Assert.That(slice[1, 3]).IsEqualTo(1);
         await Assert.That(slice[1, 5]).IsEqualTo(2);
@@ -183,17 +183,17 @@ public class SliceTests
     public async Task DeleteAreaAndShiftUp_Moves_Area_Cells_Up()
     {
         var slice = new Slice<int>();
-        var aboveAddress = new XLSheetPoint(1, 3);
+        var aboveAddress = new Point(1, 3);
         slice.Set(aboveAddress, 1);
-        var firstCorner = new XLSheetPoint(2, 2);
+        var firstCorner = new Point(2, 2);
         slice.Set(firstCorner, 2);
-        var secondCorner = new XLSheetPoint(4, 5);
+        var secondCorner = new Point(4, 5);
         slice.Set(secondCorner, 3);
-        var rightAddress = new XLSheetPoint(3, 6);
+        var rightAddress = new Point(3, 6);
         slice.Set(rightAddress, 4);
-        var belowAddress = new XLSheetPoint(5, 3);
+        var belowAddress = new Point(5, 3);
         slice.Set(belowAddress, 5);
-        var leftAddress = new XLSheetPoint(3, 1);
+        var leftAddress = new Point(3, 1);
         slice.Set(leftAddress, 6);
 
         var deleteArea = new XLSheetRange(firstCorner, secondCorner);
@@ -210,17 +210,17 @@ public class SliceTests
     public async Task DeleteAreaAndShiftLeft_Moves_Area_Cells_Left()
     {
         var slice = new Slice<int>();
-        var leftAddress = new XLSheetPoint(3, 1);
+        var leftAddress = new Point(3, 1);
         slice.Set(leftAddress, 1);
-        var firstCorner = new XLSheetPoint(2, 2);
+        var firstCorner = new Point(2, 2);
         slice.Set(firstCorner, 2);
-        var secondCorner = new XLSheetPoint(5, 4);
+        var secondCorner = new Point(5, 4);
         slice.Set(secondCorner, 3);
-        var belowAddress = new XLSheetPoint(6, 3);
+        var belowAddress = new Point(6, 3);
         slice.Set(belowAddress, 4);
-        var rightAddress = new XLSheetPoint(3, 5);
+        var rightAddress = new Point(3, 5);
         slice.Set(rightAddress, 5);
-        var aboveAddress = new XLSheetPoint(1, 3);
+        var aboveAddress = new Point(1, 3);
         slice.Set(aboveAddress, 6);
 
         var deleteArea = new XLSheetRange(firstCorner, secondCorner);

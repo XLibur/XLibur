@@ -23,8 +23,8 @@ internal static class XLRangeInsertHelper
         ShiftColumnWidths(range, onlyUsedCells, numberOfColumns);
 
         var insertedRange = new XLSheetRange(
-            XLSheetPoint.FromAddress(range.RangeAddress.FirstAddress),
-            new XLSheetPoint(range.RangeAddress.LastAddress.RowNumber, range.RangeAddress.FirstAddress.ColumnNumber + numberOfColumns - 1));
+            Point.FromAddress(range.RangeAddress.FirstAddress),
+            new Point(range.RangeAddress.LastAddress.RowNumber, range.RangeAddress.FirstAddress.ColumnNumber + numberOfColumns - 1));
 
         range.Worksheet.Internals.CellsCollection.InsertAreaAndShiftRight(insertedRange);
 
@@ -136,8 +136,8 @@ internal static class XLRangeInsertHelper
         ShiftRowHeights(range, onlyUsedCells, numberOfRows);
 
         var insertedRange = new XLSheetRange(
-            XLSheetPoint.FromAddress(range.RangeAddress.FirstAddress),
-            new XLSheetPoint(range.RangeAddress.FirstAddress.RowNumber + numberOfRows - 1, range.RangeAddress.LastAddress.ColumnNumber));
+            Point.FromAddress(range.RangeAddress.FirstAddress),
+            new Point(range.RangeAddress.FirstAddress.RowNumber + numberOfRows - 1, range.RangeAddress.LastAddress.ColumnNumber));
         range.Worksheet.Internals.CellsCollection.InsertAreaAndShiftDown(insertedRange);
 
         var firstRowReturn = range.RangeAddress.FirstAddress.RowNumber;

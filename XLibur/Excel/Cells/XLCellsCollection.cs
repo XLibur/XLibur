@@ -160,7 +160,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
 
     private readonly XLCell?[] _cellCache = new XLCell?[CellCacheSize];
 
-    internal XLCell GetCell(XLSheetPoint address)
+    internal XLCell GetCell(Point address)
     {
         var slot = (int)address.PackedValue & CellCacheMask;
         var cached = _cellCache[slot];
@@ -237,9 +237,9 @@ internal sealed class XLCellsCollection : IWorkbookListener
     /// Points of all cells that carry an in-cell image, in row-major order. Scans the misc slice
     /// directly rather than materialising an <see cref="XLCell"/> per used cell.
     /// </summary>
-    internal List<XLSheetPoint> GetCellImagePoints()
+    internal List<Point> GetCellImagePoints()
     {
-        var points = new List<XLSheetPoint>();
+        var points = new List<Point>();
         if (MiscSlice.IsEmpty)
             return points;
 
@@ -266,7 +266,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
     /// <summary>
     /// Get cell or null, if cell is not used.
     /// </summary>
-    internal XLCell? GetUsedCell(XLSheetPoint address)
+    internal XLCell? GetUsedCell(Point address)
     {
         if (!IsUsed(address))
             return null;
@@ -318,11 +318,11 @@ internal sealed class XLCellsCollection : IWorkbookListener
         void SwapRows(int prevRowNumber, int currentRowNumber)
         {
             var prevRowRange = new XLSheetRange(
-                new XLSheetPoint(prevRowNumber, sheetRange.LeftColumn),
-                new XLSheetPoint(prevRowNumber, sheetRange.RightColumn));
+                new Point(prevRowNumber, sheetRange.LeftColumn),
+                new Point(prevRowNumber, sheetRange.RightColumn));
             var currentRowRange = new XLSheetRange(
-                new XLSheetPoint(currentRowNumber, sheetRange.LeftColumn),
-                new XLSheetPoint(currentRowNumber, sheetRange.RightColumn));
+                new Point(currentRowNumber, sheetRange.LeftColumn),
+                new Point(currentRowNumber, sheetRange.RightColumn));
             SwapRanges(prevRowRange, currentRowRange);
         }
     }
@@ -339,11 +339,11 @@ internal sealed class XLCellsCollection : IWorkbookListener
         void SwapColumns(int prevColNumber, int currentColNumber)
         {
             var prevRowRange = new XLSheetRange(
-                new XLSheetPoint(sheetRange.TopRow, prevColNumber),
-                new XLSheetPoint(sheetRange.BottomRow, prevColNumber));
+                new Point(sheetRange.TopRow, prevColNumber),
+                new Point(sheetRange.BottomRow, prevColNumber));
             var currentRowRange = new XLSheetRange(
-                new XLSheetPoint(sheetRange.TopRow, currentColNumber),
-                new XLSheetPoint(sheetRange.BottomRow, currentColNumber));
+                new Point(sheetRange.TopRow, currentColNumber),
+                new Point(sheetRange.BottomRow, currentColNumber));
             SwapRanges(prevRowRange, currentRowRange);
         }
     }
@@ -392,8 +392,8 @@ internal sealed class XLCellsCollection : IWorkbookListener
         {
             for (var column = 0; column < columnCount; column++)
             {
-                var sp1 = new XLSheetPoint(sheetRange1.FirstPoint.Row + row, sheetRange1.FirstPoint.Column + column);
-                var sp2 = new XLSheetPoint(sheetRange2.FirstPoint.Row + row, sheetRange2.FirstPoint.Column + column);
+                var sp1 = new Point(sheetRange1.FirstPoint.Row + row, sheetRange1.FirstPoint.Column + column);
+                var sp2 = new Point(sheetRange2.FirstPoint.Row + row, sheetRange2.FirstPoint.Column + column);
 
                 SwapCellsContent(sp1, sp2);
             }
@@ -446,7 +446,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
         return 0;
     }
 
-    private bool IsUsed(XLSheetPoint address)
+    private bool IsUsed(Point address)
     {
         // This is different from XLCellUsedOptions, which uses a business logic (e.g. empty string is considered not-used).
         // Here, we ask whether any slice contains a used elements which might differ from cell used logic.
@@ -459,7 +459,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
         return false;
     }
 
-    internal void SwapCellsContent(XLSheetPoint sp1, XLSheetPoint sp2)
+    internal void SwapCellsContent(Point sp1, Point sp2)
     {
         ValueSlice.Swap(sp1, sp2);
         FormulaSlice.Swap(sp1, sp2);
@@ -479,12 +479,12 @@ internal sealed class XLCellsCollection : IWorkbookListener
 
     /// <summary>
     /// Enumerator that combines several other slice enumerators and enumerates
-    /// <see cref="XLSheetPoint"/> in any of them.
+    /// <see cref="Point"/> in any of them.
     /// </summary>
     internal struct SlicesEnumerator
     {
         // Fixed-size array to avoid List overhead; max 4 slices (value, formula, style, misc).
-        private readonly IEnumerator<XLSheetPoint>[] _enumerators;
+        private readonly IEnumerator<Point>[] _enumerators;
         private int _count;
         private readonly bool _reverse;
 
@@ -498,11 +498,11 @@ internal sealed class XLCellsCollection : IWorkbookListener
         {
         }
 
-        public SlicesEnumerator(bool reverse, params IEnumerator<XLSheetPoint>[] enumerators)
+        public SlicesEnumerator(bool reverse, params IEnumerator<Point>[] enumerators)
         {
-            Current = new XLSheetPoint(1, 1);
+            Current = new Point(1, 1);
             _reverse = reverse;
-            _enumerators = new IEnumerator<XLSheetPoint>[enumerators.Length];
+            _enumerators = new IEnumerator<Point>[enumerators.Length];
             _count = 0;
             foreach (var enumerator in enumerators)
             {
@@ -511,7 +511,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
             }
         }
 
-        public XLSheetPoint Current { get; private set; }
+        public Point Current { get; private set; }
 
         public bool MoveNext()
         {
@@ -524,7 +524,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
             return true;
         }
 
-        private XLSheetPoint FindNextPoint()
+        private Point FindNextPoint()
         {
             var current = _enumerators[0].Current;
             for (var i = 1; i < _count; i++)
@@ -538,7 +538,7 @@ internal sealed class XLCellsCollection : IWorkbookListener
             return current;
         }
 
-        private void AdvanceMatchingEnumerators(XLSheetPoint current)
+        private void AdvanceMatchingEnumerators(Point current)
         {
             for (var i = _count - 1; i >= 0; --i)
             {

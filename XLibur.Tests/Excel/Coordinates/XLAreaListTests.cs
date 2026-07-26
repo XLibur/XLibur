@@ -4,7 +4,7 @@ using XLibur.Excel.Coordinates;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Coordinates;
-// Ported from ClosedXML's XLAreaListTests, adapted to XLibur's XLSheetRange/XLSheetPoint.
+// Ported from ClosedXML's XLAreaListTests, adapted to XLibur's XLSheetRange/Point.
 // Covers the value-typed sqref transforms that back conditional-format / data-validation
 // coverage (see XLAreaList). Resource-file baseline comparisons are intentionally omitted.
 internal class XLAreaListTests
@@ -159,7 +159,7 @@ internal class XLAreaListTests
     public async Task TryCopyAreaTo_return_list_of_intersecting_areas_shifted_to_target(string areaListText, string targetPointText, string areaToCopyText, string expected)
     {
         var areaList = Parse(areaListText);
-        var targetPoint = XLSheetPoint.Parse(targetPointText);
+        var targetPoint = Point.Parse(targetPointText);
         var areaToCopy = XLSheetRange.Parse(areaToCopyText);
         await Assert.That(areaList.TryCopyAreaTo(targetPoint, areaToCopy, out var result) ? result.ToSpaceList() : null).IsEqualTo(expected);
     }

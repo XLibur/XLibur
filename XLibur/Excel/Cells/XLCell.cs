@@ -22,14 +22,14 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 {
     private readonly XLCellsCollection _cellsCollection;
 
-    private readonly XLSheetPoint _point;
+    private readonly Point _point;
 
     internal XLCell(XLWorksheet worksheet, int row, int column)
-        : this(worksheet, new XLSheetPoint(row, column))
+        : this(worksheet, new Point(row, column))
     {
     }
 
-    internal XLCell(XLWorksheet worksheet, XLSheetPoint point)
+    internal XLCell(XLWorksheet worksheet, Point point)
     {
         _cellsCollection = worksheet.Internals.CellsCollection;
         _point = point;
@@ -39,7 +39,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     public XLAddress Address => new(Worksheet, _point.Row, _point.Column, false, false);
 
-    internal XLSheetPoint SheetPoint => _point;
+    internal Point SheetPoint => _point;
 
     #region Slice fields
 
@@ -233,7 +233,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     /// Set value of a cell and its format (if necessary) from the passed value.
     /// It doesn't clear formulas or checks merged cells or tables.
     /// </summary>
-    private void SetValueAndStyle(XLCellValue value, XLSheetPoint point)
+    private void SetValueAndStyle(XLCellValue value, Point point)
     {
         var modifiedStyleValue = Worksheet.GetStyleForValue(value, point);
         if (modifiedStyleValue is not null)
@@ -1223,8 +1223,8 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             return arrayRange;
 
         return new XLSheetRange(
-            new XLSheetPoint(arrayRange.FirstPoint.Row + rowsShifted, arrayRange.FirstPoint.Column),
-            new XLSheetPoint(arrayRange.LastPoint.Row + rowsShifted, arrayRange.LastPoint.Column));
+            new Point(arrayRange.FirstPoint.Row + rowsShifted, arrayRange.FirstPoint.Column),
+            new Point(arrayRange.LastPoint.Row + rowsShifted, arrayRange.LastPoint.Column));
     }
 
     /// <summary>
@@ -1247,8 +1247,8 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             return arrayRange;
 
         return new XLSheetRange(
-            new XLSheetPoint(arrayRange.FirstPoint.Row, arrayRange.FirstPoint.Column + columnsShifted),
-            new XLSheetPoint(arrayRange.LastPoint.Row, arrayRange.LastPoint.Column + columnsShifted));
+            new Point(arrayRange.FirstPoint.Row, arrayRange.FirstPoint.Column + columnsShifted),
+            new Point(arrayRange.LastPoint.Row, arrayRange.LastPoint.Column + columnsShifted));
     }
 
     private XLCell CellShift(int rowsToShift, int columnsToShift)

@@ -28,7 +28,7 @@ public class XLCalculationChainTests
         var expectedPoints = new List<XLBookPoint>();
         for (var i = 0; i < chainLength; ++i)
         {
-            var point = new XLBookPoint(1, new XLSheetPoint(1, i));
+            var point = new XLBookPoint(1, new Point(1, i));
             chain.AddLast(point);
             expectedPoints.Add(point);
         }
@@ -41,17 +41,17 @@ public class XLCalculationChainTests
     {
         var chain = new XLCalculationChain();
 
-        await Assert.That(() => chain.Remove(new XLBookPoint(1, new XLSheetPoint(1, 1)))).Throws<InvalidOperationException>();
+        await Assert.That(() => chain.Remove(new XLBookPoint(1, new Point(1, 1)))).Throws<InvalidOperationException>();
     }
 
     [Test]
     public async Task Remove_link_from_chain()
     {
         var chain = new XLCalculationChain();
-        var a1 = new XLBookPoint(1, new XLSheetPoint(1, 1));
-        var b1 = new XLBookPoint(1, new XLSheetPoint(1, 2));
-        var c1 = new XLBookPoint(1, new XLSheetPoint(1, 3));
-        var d1 = new XLBookPoint(1, new XLSheetPoint(1, 4));
+        var a1 = new XLBookPoint(1, new Point(1, 1));
+        var b1 = new XLBookPoint(1, new Point(1, 2));
+        var c1 = new XLBookPoint(1, new Point(1, 3));
+        var d1 = new XLBookPoint(1, new Point(1, 4));
 
         chain.AddLast(a1);
         chain.AddLast(b1);
@@ -79,21 +79,21 @@ public class XLCalculationChainTests
     public async Task AddAfter_adds_point()
     {
         var chain = new XLCalculationChain();
-        var a1 = new XLBookPoint(1, new XLSheetPoint(1, 1));
+        var a1 = new XLBookPoint(1, new Point(1, 1));
         chain.AddLast(a1);
 
         // Add as tail for single link chain
-        var b1 = new XLBookPoint(1, new XLSheetPoint(1, 2));
+        var b1 = new XLBookPoint(1, new Point(1, 2));
         chain.AddAfter(a1, b1, 0);
         await Assert.That(GetPoints(chain)).IsEquivalentTo([a1, b1], CollectionOrdering.Matching);
 
         // Add as tail for multi link chain
-        var c1 = new XLBookPoint(1, new XLSheetPoint(1, 3));
+        var c1 = new XLBookPoint(1, new Point(1, 3));
         chain.AddAfter(b1, c1, 0);
         await Assert.That(GetPoints(chain)).IsEquivalentTo([a1, b1, c1], CollectionOrdering.Matching);
 
         // Add somewhere in the middle
-        var d1 = new XLBookPoint(1, new XLSheetPoint(1, 4));
+        var d1 = new XLBookPoint(1, new Point(1, 4));
         chain.AddAfter(b1, d1, 0);
         await Assert.That(GetPoints(chain)).IsEquivalentTo([a1, b1, d1, c1], CollectionOrdering.Matching);
     }
@@ -102,13 +102,13 @@ public class XLCalculationChainTests
     public async Task MoveToFront_moves_the_point_to_the_front()
     {
         var chain = new XLCalculationChain();
-        var a1 = new XLBookPoint(1, new XLSheetPoint(1, 1));
+        var a1 = new XLBookPoint(1, new Point(1, 1));
         chain.AddLast(a1);
-        var b1 = new XLBookPoint(1, new XLSheetPoint(1, 2));
+        var b1 = new XLBookPoint(1, new Point(1, 2));
         chain.AddLast(b1);
-        var c1 = new XLBookPoint(1, new XLSheetPoint(1, 3));
+        var c1 = new XLBookPoint(1, new Point(1, 3));
         chain.AddLast(c1);
-        var d1 = new XLBookPoint(1, new XLSheetPoint(1, 4));
+        var d1 = new XLBookPoint(1, new Point(1, 4));
         chain.AddLast(d1);
 
         await Assert.That(chain.MoveAhead()).IsTrue();
@@ -170,13 +170,13 @@ public class XLCalculationChainTests
     {
         var chain = new XLCalculationChain();
         // `=C1+B1`
-        var a1 = new XLBookPoint(1, new XLSheetPoint(1, 1));
+        var a1 = new XLBookPoint(1, new Point(1, 1));
         chain.AddLast(a1);
         // `=A1`
-        var b1 = new XLBookPoint(1, new XLSheetPoint(1, 2));
+        var b1 = new XLBookPoint(1, new Point(1, 2));
         chain.AddLast(b1);
         // `=A1`
-        var c1 = new XLBookPoint(1, new XLSheetPoint(1, 3));
+        var c1 = new XLBookPoint(1, new Point(1, 3));
         chain.AddLast(c1);
 
         // Move to the first link.
@@ -240,11 +240,11 @@ public class XLCalculationChainTests
     public async Task Reset_clears_positions_ahead_of_current()
     {
         var chain = new XLCalculationChain();
-        var a1 = new XLBookPoint(1, new XLSheetPoint(1, 1));
+        var a1 = new XLBookPoint(1, new Point(1, 1));
         chain.AddLast(a1);
-        var b1 = new XLBookPoint(1, new XLSheetPoint(1, 2));
+        var b1 = new XLBookPoint(1, new Point(1, 2));
         chain.AddLast(b1);
-        var c1 = new XLBookPoint(1, new XLSheetPoint(1, 3));
+        var c1 = new XLBookPoint(1, new Point(1, 3));
         chain.AddLast(c1);
 
         await Assert.That(chain.MoveAhead()).IsTrue();

@@ -181,7 +181,7 @@ internal sealed class XLSparklineGroups : IXLSparklineGroups
         {
             foreach (var sparkline in group.ToList())
             {
-                var originalAddress = XLSheetPoint.FromAddress(sparkline.Location.Address);
+                var originalAddress = Point.FromAddress(sparkline.Location.Address);
                 if (!originalAddress.InRangeOrToLeft(shiftedRange))
                     continue;
 
@@ -205,7 +205,7 @@ internal sealed class XLSparklineGroups : IXLSparklineGroups
         {
             foreach (var sparkline in group.ToList())
             {
-                var originalAddress = XLSheetPoint.FromAddress(sparkline.Location.Address);
+                var originalAddress = Point.FromAddress(sparkline.Location.Address);
                 if (!originalAddress.InRangeOrBelow(shiftedRange))
                     continue;
 

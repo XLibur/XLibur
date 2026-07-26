@@ -50,7 +50,7 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
         }
     }
 
-    private static IEnumerable<XLSheetPoint> GetAllCellsInRange(IXLRangeAddress rangeAddress)
+    private static IEnumerable<Point> GetAllCellsInRange(IXLRangeAddress rangeAddress)
     {
         if (!rangeAddress.IsValid)
             yield break;
@@ -65,7 +65,7 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
         {
             for (var co = minColumn; co <= maxColumn; co++)
             {
-                yield return new XLSheetPoint(ro, co);
+                yield return new Point(ro, co);
             }
         }
     }
@@ -95,7 +95,7 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
         }
     }
 
-    private IEnumerable<XLCell> GetUsedCellsInRange(XLRangeAddress rangeAddress, XLWorksheet worksheet, IEnumerable<XLSheetPoint> usedCellsCandidates)
+    private IEnumerable<XLCell> GetUsedCellsInRange(XLRangeAddress rangeAddress, XLWorksheet worksheet, IEnumerable<Point> usedCellsCandidates)
     {
         if (!rangeAddress.IsValid)
             yield break;
@@ -127,9 +127,9 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
         }
     }
 
-    private IEnumerable<XLSheetPoint> GetUsedCellsCandidates(XLWorksheet worksheet)
+    private IEnumerable<Point> GetUsedCellsCandidates(XLWorksheet worksheet)
     {
-        var candidates = Enumerable.Empty<XLSheetPoint>();
+        var candidates = Enumerable.Empty<Point>();
 
         if (_options == XLCellsUsedOptions.AllContents)
         {
@@ -150,7 +150,7 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
 
         if (_options.HasFlag(XLCellsUsedOptions.Sparklines))
             candidates = candidates.Union(
-                worksheet.SparklineGroups.SelectMany(sg => sg).Select(sl => XLSheetPoint.FromAddress(sl.Location.Address)));
+                worksheet.SparklineGroups.SelectMany(sg => sg).Select(sl => Point.FromAddress(sl.Location.Address)));
 
         return candidates.Distinct();
     }

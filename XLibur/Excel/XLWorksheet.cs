@@ -1401,13 +1401,13 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     IXLCell? IXLWorksheet.ActiveCell
     {
         get => ActiveCell is not null ? new XLCell(this, ActiveCell.Value) : null;
-        set => ActiveCell = value is not null ? XLSheetPoint.FromAddress(value.Address) : null;
+        set => ActiveCell = value is not null ? Point.FromAddress(value.Address) : null;
     }
 
     /// <summary>
     /// Address of the active cell / cursor in the worksheet.
     /// </summary>
-    internal XLSheetPoint? ActiveCell { get; set; }
+    internal Point? ActiveCell { get; set; }
 
     public IXLWorksheet SetActiveCell(string address) => SetActiveCell(ResolveCell(address));
 
@@ -1553,13 +1553,13 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return true;
     }
 
-    internal IXLTable InsertTable(XLSheetPoint origin, IInsertDataReader reader, string? tableName, bool createTable,
+    internal IXLTable InsertTable(Point origin, IInsertDataReader reader, string? tableName, bool createTable,
         bool addHeadings, bool transpose)
     {
         return _dataInserter.InsertTable(origin, reader, tableName, createTable, addHeadings, transpose);
     }
 
-    internal XLRange InsertData(XLSheetPoint origin, IInsertDataReader reader, bool addHeadings, bool transpose)
+    internal XLRange InsertData(Point origin, IInsertDataReader reader, bool addHeadings, bool transpose)
     {
         return _dataInserter.InsertData(origin, reader, addHeadings, transpose);
     }
@@ -1567,7 +1567,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// <summary>
     /// Get cell or null if the cell doesn't exist.
     /// </summary>
-    internal XLCell? GetCell(XLSheetPoint point)
+    internal XLCell? GetCell(Point point)
     {
         return Worksheet.Internals.CellsCollection.GetUsedCell(point);
     }
@@ -1683,7 +1683,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// <summary>
     /// Get the actual style for a point in the sheet.
     /// </summary>
-    internal XLStyleValue GetStyleValue(XLSheetPoint point)
+    internal XLStyleValue GetStyleValue(Point point)
     {
         var styleValue = Internals.CellsCollection.StyleSlice[point];
         if (styleValue is not null)
@@ -1721,7 +1721,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// <inheritdoc />
     public void SetCellValue(int row, int column, XLCellValue value)
     {
-        var point = new XLSheetPoint(row, column);
+        var point = new Point(row, column);
 
         // Apply style changes for date/time/text values (number format, quote prefix, wrap text).
         var modifiedStyle = GetStyleForValue(value, point);
@@ -1746,7 +1746,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// if the value is set to the <paramref name="point"/>.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException"></exception>
-    internal XLStyleValue? GetStyleForValue(XLCellValue value, XLSheetPoint point)
+    internal XLStyleValue? GetStyleForValue(XLCellValue value, Point point)
     {
         // Because StyleValue property retrieves value from a slice, access it only if necessary.
         // This happens during every cell of modification and thus is performance-critical.
@@ -1770,7 +1770,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return null;
     }
 
-    private XLStyleValue? GetStyleForDateTime(XLCellValue value, XLSheetPoint point)
+    private XLStyleValue? GetStyleForDateTime(XLCellValue value, Point point)
     {
         var onlyDatePart = value.GetUnifiedNumber() % 1 == 0;
         var styleValue = GetStyleValue(point);
@@ -1801,7 +1801,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         }
     }
 
-    private XLStyleValue? GetStyleForTimeSpan(XLSheetPoint point)
+    private XLStyleValue? GetStyleForTimeSpan(Point point)
     {
         var styleValue = GetStyleValue(point);
         if (styleValue.NumberFormat.Format.Length != 0 || styleValue.NumberFormat.NumberFormatId != 0)
@@ -1817,7 +1817,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return result;
     }
 
-    private XLStyleValue? GetStyleForText(XLCellValue value, XLSheetPoint point)
+    private XLStyleValue? GetStyleForText(XLCellValue value, Point point)
     {
         var text = value.GetText();
         XLStyleValue? styleValue = null;

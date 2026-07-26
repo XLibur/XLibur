@@ -114,12 +114,12 @@ internal static class SheetDataWriter
         xml.WriteEndElement(); // SheetData
     }
 
-    private static HashSet<XLSheetPoint>? CollectTableTotalCells(XLWorksheet xlWorksheet)
+    private static HashSet<Point>? CollectTableTotalCells(XLWorksheet xlWorksheet)
     {
         if (xlWorksheet.Tables.Count == 0)
             return null;
 
-        HashSet<XLSheetPoint>? cells = null;
+        HashSet<Point>? cells = null;
         foreach (var table in xlWorksheet.Tables)
         {
             if (!table.ShowTotalsRow)
@@ -178,7 +178,7 @@ internal static class SheetDataWriter
                xlRow.OutlineLevel > 0;
     }
 
-    private static bool IsBlankAndEmpty(XLCellValue cellValue, XLCellsCollection cellsCollection, XLSheetPoint point)
+    private static bool IsBlankAndEmpty(XLCellValue cellValue, XLCellsCollection cellsCollection, Point point)
     {
         if (cellValue.Type != XLDataType.Blank)
             return false;
@@ -202,7 +202,7 @@ internal static class SheetDataWriter
         return 0;
     }
 
-    private static uint ResolveCellStyleId(XLWorksheet xlWorksheet, XLSheetPoint point,
+    private static uint ResolveCellStyleId(XLWorksheet xlWorksheet, Point point,
         ref XLStyleValue? lastCachedStyle, ref uint lastCachedStyleId, SaveContext context)
     {
         var cellStyleValue = xlWorksheet.GetStyleValue(point);
@@ -215,7 +215,7 @@ internal static class SheetDataWriter
     }
 
     private static void WriteCellAtPoint(XmlWriter xml, ref CellWriteContext ctx,
-        XLSheetPoint point, uint rowStyleId, uint cellStyleId, XLCellValue cellValue, bool shareString)
+        Point point, uint rowStyleId, uint cellStyleId, XLCellValue cellValue, bool shareString)
     {
         var formula = ctx.CellsCollection.FormulaSlice.Get(point);
         if (formula is not null)
@@ -248,7 +248,7 @@ internal static class SheetDataWriter
     /// <c>WriteStartCell</c> path.
     /// </summary>
     private static void WriteFormulaCellDirect(XmlWriter xml, ref CellWriteContext ctx,
-        XLSheetPoint point, XLCellFormula formula, uint cellStyleId)
+        Point point, XLCellFormula formula, uint cellStyleId)
     {
         var cellsCollection = ctx.CellsCollection;
         var xlWorksheet = cellsCollection.Worksheet;
@@ -324,7 +324,7 @@ internal static class SheetDataWriter
         xml.WriteEndElement(); // cell
     }
 
-    private static void EvaluateFormulaForSave(XLWorksheet xlWorksheet, XLCellFormula formula, XLSheetPoint point)
+    private static void EvaluateFormulaForSave(XLWorksheet xlWorksheet, XLCellFormula formula, Point point)
     {
         try
         {
@@ -414,7 +414,7 @@ internal static class SheetDataWriter
     /// a label (e.g. "Total") or nothing.
     /// </summary>
     private static void WriteTotalLabelCellDirect(XmlWriter xml, ref CellWriteContext ctx,
-        XLSheetPoint point, uint cellStyleId)
+        Point point, uint cellStyleId)
     {
         var cellsCollection = ctx.CellsCollection;
         var xlWorksheet = cellsCollection.Worksheet;
@@ -458,7 +458,7 @@ internal static class SheetDataWriter
     }
 
     private static void WriteValueOnlyCell(XmlWriter xml, ref CellWriteContext ctx,
-        XLSheetPoint point, uint cellStyleId, XLCellValue cellValue, bool shareString)
+        Point point, uint cellStyleId, XLCellValue cellValue, bool shareString)
     {
         Span<char> cellRefSpan = ctx.CellRef;
         var cellRefLen = point.Format(cellRefSpan);
@@ -472,7 +472,7 @@ internal static class SheetDataWriter
     }
 
     private static void WriteBlankStyledCell(XmlWriter xml, XLCellsCollection cellsCollection,
-        XLSheetPoint point, char[] cellRef, uint cellStyleId)
+        Point point, char[] cellRef, uint cellStyleId)
     {
         Span<char> cellRefSpan = cellRef;
         var cellRefLen = point.Format(cellRefSpan);
@@ -633,7 +633,7 @@ internal static class SheetDataWriter
     }
 
     private static void WriteCellValueDirect(XmlWriter w, XLCellValue cellValue, bool shareString,
-        XLSheetPoint point, XLCellsCollection cellsCollection, bool use1904DateSystem, SaveContext context)
+        Point point, XLCellsCollection cellsCollection, bool use1904DateSystem, SaveContext context)
     {
         switch (cellValue.Type)
         {
@@ -669,7 +669,7 @@ internal static class SheetDataWriter
     }
 
     private static void WriteCellValueDirectText(XmlWriter w, XLCellValue cellValue, bool shareString,
-        XLSheetPoint point, XLCellsCollection cellsCollection, SaveContext context)
+        Point point, XLCellsCollection cellsCollection, SaveContext context)
     {
         if (shareString)
         {
@@ -727,7 +727,7 @@ internal static class SheetDataWriter
         public char[] CellRef;
         public SaveContext SaveContext;
         public SaveOptions SaveOptions;
-        public HashSet<XLSheetPoint>? TableTotalCells;
+        public HashSet<Point>? TableTotalCells;
         public bool Use1904DateSystem;
     }
 

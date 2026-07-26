@@ -1127,7 +1127,7 @@ internal sealed class XLTable : XLRange, IXLTable
         {
             var fieldIndex = column - row.LeftColumn;
             var field = Field(fieldIndex);
-            var value = valueSlice.GetCellValue(new XLSheetPoint(rowNumber, column));
+            var value = valueSlice.GetCellValue(new Point(rowNumber, column));
             applyValue(field, value.ToString(CultureInfo.CurrentCulture));
         }
     }

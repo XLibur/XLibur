@@ -43,7 +43,7 @@ internal sealed class FormulaSlice : ISlice
         _formulas.DeleteAreaAndShiftUp(rangeToDelete);
     }
 
-    public IEnumerator<XLSheetPoint> GetEnumerator(XLSheetRange range, bool reverse = false)
+    public IEnumerator<Point> GetEnumerator(XLSheetRange range, bool reverse = false)
     {
         return _formulas.GetEnumerator(range, reverse);
     }
@@ -58,12 +58,12 @@ internal sealed class FormulaSlice : ISlice
         _formulas.InsertAreaAndShiftRight(range);
     }
 
-    public bool IsUsed(XLSheetPoint address)
+    public bool IsUsed(Point address)
     {
         return _formulas.IsUsed(address);
     }
 
-    public void Swap(XLSheetPoint sp1, XLSheetPoint sp2)
+    public void Swap(Point sp1, Point sp2)
     {
         var value1 = _formulas[sp1];
         var value2 = _formulas[sp2];
@@ -75,12 +75,12 @@ internal sealed class FormulaSlice : ISlice
         Set(sp2, value1);
     }
 
-    internal XLCellFormula? Get(XLSheetPoint point)
+    internal XLCellFormula? Get(Point point)
     {
         return _formulas[point];
     }
 
-    internal void Set(XLSheetPoint point, XLCellFormula? formula)
+    internal void Set(Point point, XLCellFormula? formula)
     {
         // Can't ref, because it is an alias for a memory and thus wouldn't hold old formula.
         var original = _formulas[point];
@@ -105,7 +105,7 @@ internal sealed class FormulaSlice : ISlice
     /// tree/chain are not yet initialized, so we skip the original-value lookup,
     /// ReferenceEquals check, and calc engine registration.
     /// </summary>
-    internal void SetDuringLoad(XLSheetPoint point, XLCellFormula formula)
+    internal void SetDuringLoad(Point point, XLCellFormula formula)
     {
         _formulas.SetNonDefault(point, formula);
     }
@@ -122,7 +122,7 @@ internal sealed class FormulaSlice : ISlice
         {
             for (var col = range.LeftColumn; col <= range.RightColumn; ++col)
             {
-                var point = new XLSheetPoint(row, col);
+                var point = new Point(row, col);
                 var original = _formulas[point];
 
                 _formulas.Set(point, arrayFormula);
