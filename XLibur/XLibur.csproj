@@ -23,28 +23,29 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="Excel\IO\ChartExDefaultColors.xml"/>
-        <EmbeddedResource Include="Excel\IO\ChartExDefaultStyle.xml"/>
+        <EmbeddedResource Include="Excel\IO\ChartExDefaultColors.xml" />
+        <EmbeddedResource Include="Excel\IO\ChartExDefaultStyle.xml" />
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="..\.editorconfig" Link=".editorconfig"/>
-        <None Include="..\resources\logo\nuget-logo.png" Pack="true" PackagePath="\"/>
-        <None Include="NUGET_README.md" Pack="true" PackagePath="\"/>
+        <None Include="..\.editorconfig" Link=".editorconfig" />
+        <None Include="..\resources\logo\nuget-logo.png" Pack="true" PackagePath="\" />
+        <None Include="NUGET_README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1"/>
-        <PackageReference Include="ExcelNumberFormat" Version="1.1.0"/>
-        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0"/>
+        <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
+        <PackageReference Include="ExcelNumberFormat" Version="1.1.0" />
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" />
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.301" PrivateAssets="All" />
-        <PackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All"/>
+        <PackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
+        <PackageReference Include="OpenMcdf" Version="3.1.4" />
         <PackageReference Include="Polyfill" Version="11.0.1">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="RBush.Signed" Version="4.0.0"/>
-        <PackageReference Include="ClosedXML.Parser" Version="2.0.0"/>
+        <PackageReference Include="RBush.Signed" Version="4.0.0" />
+        <PackageReference Include="ClosedXML.Parser" Version="2.0.0" />
         <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

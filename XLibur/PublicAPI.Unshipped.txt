@@ -220,3 +220,15 @@ XLibur.Excel.XLColorType.Theme = 2 -> XLibur.Excel.XLColorType
 XLibur.Excel.XLColorType.Indexed = 3 -> XLibur.Excel.XLColorType
 XLibur.Excel.XLColor.IsAutomatic.get -> bool
 static XLibur.Excel.XLColor.Automatic.get -> XLibur.Excel.XLColor!
+XLibur.Excel.Exceptions.XLEncryptionException
+XLibur.Excel.Exceptions.XLEncryptionException.XLEncryptionException() -> void
+XLibur.Excel.Exceptions.XLEncryptionException.XLEncryptionException(string! message) -> void
+XLibur.Excel.Exceptions.XLEncryptionException.XLEncryptionException(string! message, System.Exception! inner) -> void
+XLibur.Excel.Exceptions.XLInvalidPasswordException
+XLibur.Excel.Exceptions.XLInvalidPasswordException.XLInvalidPasswordException() -> void
+XLibur.Excel.Exceptions.XLInvalidPasswordException.XLInvalidPasswordException(string! message) -> void
+XLibur.Excel.Exceptions.XLInvalidPasswordException.XLInvalidPasswordException(string! message, System.Exception! inner) -> void
+XLibur.Excel.LoadOptions.Password.get -> string?
+XLibur.Excel.LoadOptions.Password.set -> void
+XLibur.Excel.SaveOptions.Password.get -> string?
+XLibur.Excel.SaveOptions.Password.set -> void

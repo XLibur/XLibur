@@ -413,6 +413,18 @@ public partial class XLWorkbook : IXLWorkbook
         var directoryName = Path.GetDirectoryName(file);
         if (!string.IsNullOrWhiteSpace(directoryName)) Directory.CreateDirectory(directoryName);
 
+        if (!string.IsNullOrEmpty(options.Password))
+        {
+            using var package = BuildPackageInMemory(options);
+            using var destination = File.Create(file);
+            IO.Encryption.WorkbookEncryption.Encrypt(destination, package.ToArray(), options.Password);
+
+            // The load source is deliberately left alone. What is on disk now is a compound file,
+            // so pointing the workbook at it would break the next save, which expects to reopen and
+            // patch a package.
+            return;
+        }
+
         if (_loadSource == XLLoadSource.New)
         {
             if (File.Exists(file))
@@ -468,6 +480,17 @@ public partial class XLWorkbook : IXLWorkbook
     public void SaveAs(Stream stream, SaveOptions options)
     {
         CheckForWorksheetsPresent();
+
+        if (!string.IsNullOrEmpty(options.Password))
+        {
+            using var package = BuildPackageInMemory(options);
+            IO.Encryption.WorkbookEncryption.Encrypt(stream, package.ToArray(), options.Password);
+
+            // As with the file overload, the load source keeps pointing at the unencrypted package
+            // this workbook was built from rather than at the compound file just written.
+            return;
+        }
+
         if (_loadSource == XLLoadSource.New)
         {
             // This method or better the method SpreadsheetDocument.Create which is called
@@ -511,6 +534,38 @@ public partial class XLWorkbook : IXLWorkbook
         _loadSource = XLLoadSource.Stream;
         _originalStream = stream;
         _originalFile = null;
+    }
+
+    /// <summary>
+    /// Builds the complete unencrypted package in memory so it can be encrypted as a whole. Mirrors
+    /// what the stream overload of <see cref="SaveAs(Stream, SaveOptions)"/> does per load source,
+    /// but leaves the workbook's own load source untouched, because the caller is writing a
+    /// compound file that this workbook could not later reopen as a package.
+    /// </summary>
+    private MemoryStream BuildPackageInMemory(SaveOptions options)
+    {
+        var package = new MemoryStream();
+
+        if (_loadSource == XLLoadSource.New)
+        {
+            CreatePackage(package, true, _spreadsheetDocumentType, options);
+        }
+        else if (_loadSource == XLLoadSource.File)
+        {
+            using (var fileStream = new FileStream(_originalFile!, FileMode.Open, FileAccess.Read))
+                CopyStream(fileStream, package);
+
+            CreatePackage(package, false, _spreadsheetDocumentType, options);
+        }
+        else if (_loadSource == XLLoadSource.Stream)
+        {
+            _originalStream!.Position = 0;
+            CopyStream(_originalStream!, package);
+            CreatePackage(package, false, _spreadsheetDocumentType, options);
+        }
+
+        package.Position = 0;
+        return package;
     }
 
     private static SpreadsheetDocumentType GetSpreadsheetDocumentType(string filePath)
@@ -696,14 +751,40 @@ public partial class XLWorkbook : IXLWorkbook
         : this(loadOptions)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(file);
-        _loadSource = XLLoadSource.File;
-        _originalFile = file;
-        _spreadsheetDocumentType = GetSpreadsheetDocumentType(_originalFile);
-        Load(file);
+        _spreadsheetDocumentType = GetSpreadsheetDocumentType(file);
+
+        var decrypted = OpenDecryptedIfEncrypted(file, loadOptions.Password);
+        if (decrypted is not null)
+        {
+            // The workbook is backed by the decrypted package rather than by the file on disk. The
+            // file is a compound file, not a package, so the save path could not copy and patch it.
+            _loadSource = XLLoadSource.Stream;
+            _originalStream = decrypted;
+            Load(decrypted);
+        }
+        else
+        {
+            _loadSource = XLLoadSource.File;
+            _originalFile = file;
+            Load(file);
+        }
+
         SharedStringTable.TrimExcess();
 
         if (loadOptions.RecalculateAllFormulas)
             RecalculateAllFormulas();
+    }
+
+    /// <summary>
+    /// Returns the decrypted package when <paramref name="file"/> is an encrypted workbook, or
+    /// <c>null</c> when it is an ordinary one and should be loaded straight from disk.
+    /// </summary>
+    private static MemoryStream? OpenDecryptedIfEncrypted(string file, string? password)
+    {
+        using var stream = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return IO.Encryption.EncryptedPackageContainer.IsCompoundFile(stream)
+            ? IO.Encryption.WorkbookEncryption.Decrypt(stream, password)
+            : null;
     }
 
     /// <summary>
@@ -720,8 +801,16 @@ public partial class XLWorkbook : IXLWorkbook
     {
         ArgumentNullException.ThrowIfNull(stream);
         _loadSource = XLLoadSource.Stream;
-        _originalStream = stream;
-        Load(stream);
+
+        // A seekable stream can be sniffed for the compound file signature that marks an encrypted
+        // workbook. One that isn't can only be an ordinary package, and is passed straight through
+        // so that callers streaming a plain .xlsx keep working exactly as before.
+        var isEncrypted = stream.CanSeek && IO.Encryption.EncryptedPackageContainer.IsCompoundFile(stream);
+        _originalStream = isEncrypted
+            ? IO.Encryption.WorkbookEncryption.Decrypt(stream, loadOptions.Password)
+            : stream;
+
+        Load(_originalStream);
         SharedStringTable.TrimExcess();
 
         if (loadOptions.RecalculateAllFormulas)

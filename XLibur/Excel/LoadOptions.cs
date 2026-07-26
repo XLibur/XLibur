@@ -25,6 +25,19 @@ public class LoadOptions
     public bool RecalculateAllFormulas { get; set; } = false;
 
     /// <summary>
+    /// Password used to decrypt a password-protected workbook. Default value is <c>null</c>, which
+    /// is correct for the unencrypted files that make up nearly all input.
+    /// </summary>
+    /// <remarks>
+    /// Only consulted when the file turns out to be encrypted, so setting it for a file that isn't
+    /// encrypted is harmless and setting it wrongly for one that is throws
+    /// <see cref="Exceptions.XLInvalidPasswordException"/>. This is the password that encrypts the
+    /// whole file, unrelated to workbook and sheet protection, which control edit permissions
+    /// inside a file that anyone can open.
+    /// </remarks>
+    public string? Password { get; set; }
+
+    /// <summary>
     /// Graphic engine used by the workbook.
     /// </summary>
     public IXLGraphicEngine? GraphicEngine { get; set; }

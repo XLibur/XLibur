@@ -32,5 +32,18 @@ public class SaveOptions
 
     public bool GenerateCalculationChain { get; set; } = true;
 
+    /// <summary>
+    /// Password used to encrypt the saved workbook. Default value is <c>null</c>, which saves an
+    /// ordinary unencrypted file. When set, the file is written with agile encryption
+    /// (AES-256-CBC, SHA-512), the profile Excel itself writes.
+    /// </summary>
+    /// <remarks>
+    /// A workbook opened with <see cref="LoadOptions.Password"/> is <em>not</em> re-encrypted
+    /// automatically on save; the password has to be given here again. Carrying it over implicitly
+    /// would mean a plain <c>SaveAs</c> silently produced a file the caller could not open without
+    /// a password they never mentioned.
+    /// </remarks>
+    public string? Password { get; set; }
+
     public bool ValidatePackage { get; set; }
 }
