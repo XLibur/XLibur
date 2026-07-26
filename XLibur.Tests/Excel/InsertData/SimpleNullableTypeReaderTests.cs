@@ -1,9 +1,10 @@
 ﻿using XLibur.Excel.InsertData;
-using NUnit.Framework;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.InsertData;
 
@@ -11,47 +12,47 @@ public class SimpleNullableTypeReaderTests
 {
     private readonly int?[] _data = [1, 2, null];
 
-    [TestCaseSource(nameof(SimpleNullableSourceNames))]
-    public string CanGetPropertyName<T>(IEnumerable<T> data)
+    [Test]
+    [MethodDataSource(nameof(SimpleNullableSourceNames))]
+    // See SimpleTypeReaderTests.CanGetPropertyName for why dropping the generic parameter
+    // preserves the original overload binding.
+    public async Task CanGetPropertyName(IEnumerable data, string expected)
     {
         var reader = InsertDataReaderFactory.CreateReader(data);
-        return reader.GetPropertyName(0);
+        await Assert.That(reader.GetPropertyName(0)).IsEqualTo(expected);
     }
 
-    private static IEnumerable<TestCaseData> SimpleNullableSourceNames
+    public static IEnumerable<(IEnumerable Data, string Expected)> SimpleNullableSourceNames()
     {
-        get
-        {
-            yield return new TestCaseData(new int?[] { 1, 2, null }).Returns("Int32");
-            yield return new TestCaseData(new List<double?> { 1.0, 2.0, null }).Returns("Double");
-            yield return new TestCaseData(new decimal?[] { 1.0m, 2.0m, null }).Returns("Decimal");
-            yield return new TestCaseData(new char?[] { 'A', 'B', null }).Returns("Char");
-            yield return new TestCaseData(new DateTime?[] { new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), null }).Returns("DateTime");
-        }
+        yield return (new int?[] { 1, 2, null }, "Int32");
+        yield return (new List<double?> { 1.0, 2.0, null }, "Double");
+        yield return (new decimal?[] { 1.0m, 2.0m, null }, "Decimal");
+        yield return (new char?[] { 'A', 'B', null }, "Char");
+        yield return (new DateTime?[] { new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), null }, "DateTime");
     }
 
     [Test]
-    public void CanGetPropertiesCount()
+    public async Task CanGetPropertiesCount()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
-        Assert.AreEqual(1, reader.GetPropertiesCount());
+        await Assert.That(reader.GetPropertiesCount()).IsEqualTo(1);
     }
 
     [Test]
-    public void CanGetRecordsCount()
+    public async Task CanGetRecordsCount()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
-        Assert.AreEqual(3, reader.GetRecords().Count());
+        await Assert.That(reader.GetRecords().Count()).IsEqualTo(3);
     }
 
     [Test]
-    public void CanReadValues()
+    public async Task CanReadValues()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
         var result = reader.GetRecords();
 
         var enumerable = result.ToList();
-        Assert.AreEqual(1, enumerable.First().Single());
-        Assert.AreEqual(Blank.Value, enumerable.Last().Single());
+        await Assert.That(enumerable.First().Single()).IsEqualTo(1);
+        await Assert.That(enumerable.Last().Single()).IsEqualTo(Blank.Value);
     }
 }

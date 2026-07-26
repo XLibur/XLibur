@@ -1,99 +1,98 @@
 ﻿using System;
 using System.Collections.Generic;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Misc;
 
-[TestFixture]
 public class XlHelperTests
 {
-    private static void CheckColumnNumber(int column)
+    private static async Task CheckColumnNumber(int column)
     {
-        Assert.AreEqual(column, XLHelper.GetColumnNumberFromLetter(XLHelper.GetColumnLetterFromNumber(column)));
+        await Assert.That(XLHelper.GetColumnNumberFromLetter(XLHelper.GetColumnLetterFromNumber(column))).IsEqualTo(column);
     }
 
     [Test]
-    public void InvalidA1Addresses()
+    public async Task InvalidA1Addresses()
     {
-        Assert.IsFalse(XLHelper.IsValidA1Address(""));
-        Assert.IsFalse(XLHelper.IsValidA1Address("A"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("a"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("1"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("-1"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("AAAA1"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("XFG1"));
+        await Assert.That(XLHelper.IsValidA1Address("")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("a")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("-1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("AAAA1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("XFG1")).IsFalse();
 
-        Assert.IsFalse(XLHelper.IsValidA1Address("@A1"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("@AA1"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("@AAA1"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("[A1"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("[AA1"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("[AAA1"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("{A1"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("{AA1"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("{AAA1"));
+        await Assert.That(XLHelper.IsValidA1Address("@A1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("@AA1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("@AAA1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("[A1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("[AA1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("[AAA1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("{A1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("{AA1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("{AAA1")).IsFalse();
 
-        Assert.IsFalse(XLHelper.IsValidA1Address("A1@"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("AA1@"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("AAA1@"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("A1["));
-        Assert.IsFalse(XLHelper.IsValidA1Address("AA1["));
-        Assert.IsFalse(XLHelper.IsValidA1Address("AAA1["));
-        Assert.IsFalse(XLHelper.IsValidA1Address("A1{"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("AA1{"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("AAA1{"));
+        await Assert.That(XLHelper.IsValidA1Address("A1@")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("AA1@")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("AAA1@")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A1[")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("AA1[")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("AAA1[")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A1{")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("AA1{")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("AAA1{")).IsFalse();
 
-        Assert.IsFalse(XLHelper.IsValidA1Address("@A1@"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("@AA1@"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("@AAA1@"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("[A1["));
-        Assert.IsFalse(XLHelper.IsValidA1Address("[AA1["));
-        Assert.IsFalse(XLHelper.IsValidA1Address("[AAA1["));
-        Assert.IsFalse(XLHelper.IsValidA1Address("{A1{"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("{AA1{"));
-        Assert.IsFalse(XLHelper.IsValidA1Address("{AAA1{"));
+        await Assert.That(XLHelper.IsValidA1Address("@A1@")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("@AA1@")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("@AAA1@")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("[A1[")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("[AA1[")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("[AAA1[")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("{A1{")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("{AA1{")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("{AAA1{")).IsFalse();
     }
 
     [Test]
-    public void PlusAA1_Is_Not_an_address()
+    public async Task PlusAA1_Is_Not_an_address()
     {
-        Assert.IsFalse(XLHelper.IsValidA1Address("+AA1"));
+        await Assert.That(XLHelper.IsValidA1Address("+AA1")).IsFalse();
     }
 
     [Test]
-    public void TestConvertColumnLetterToNumberAnd()
+    public async Task TestConvertColumnLetterToNumberAnd()
     {
-        CheckColumnNumber(1);
-        CheckColumnNumber(27);
-        CheckColumnNumber(28);
-        CheckColumnNumber(52);
-        CheckColumnNumber(53);
-        CheckColumnNumber(1000);
-        CheckColumnNumber(1353);
+        await CheckColumnNumber(1);
+        await CheckColumnNumber(27);
+        await CheckColumnNumber(28);
+        await CheckColumnNumber(52);
+        await CheckColumnNumber(53);
+        await CheckColumnNumber(1000);
+        await CheckColumnNumber(1353);
     }
 
     [Test]
-    public void ValidA1Addresses()
+    public async Task ValidA1Addresses()
     {
-        Assert.IsTrue(XLHelper.IsValidA1Address("A1"));
-        Assert.IsTrue(XLHelper.IsValidA1Address("A" + XLHelper.MaxRowNumber));
-        Assert.IsTrue(XLHelper.IsValidA1Address("Z1"));
-        Assert.IsTrue(XLHelper.IsValidA1Address("Z" + XLHelper.MaxRowNumber));
+        await Assert.That(XLHelper.IsValidA1Address("A1")).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address("A" + XLHelper.MaxRowNumber)).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address("Z1")).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address("Z" + XLHelper.MaxRowNumber)).IsTrue();
 
-        Assert.IsTrue(XLHelper.IsValidA1Address("AA1"));
-        Assert.IsTrue(XLHelper.IsValidA1Address("AA" + XLHelper.MaxRowNumber));
-        Assert.IsTrue(XLHelper.IsValidA1Address("ZZ1"));
-        Assert.IsTrue(XLHelper.IsValidA1Address("ZZ" + XLHelper.MaxRowNumber));
+        await Assert.That(XLHelper.IsValidA1Address("AA1")).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address("AA" + XLHelper.MaxRowNumber)).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address("ZZ1")).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address("ZZ" + XLHelper.MaxRowNumber)).IsTrue();
 
-        Assert.IsTrue(XLHelper.IsValidA1Address("AAA1"));
-        Assert.IsTrue(XLHelper.IsValidA1Address("AAA" + XLHelper.MaxRowNumber));
-        Assert.IsTrue(XLHelper.IsValidA1Address(XLHelper.MaxColumnLetter + "1"));
-        Assert.IsTrue(XLHelper.IsValidA1Address(XLHelper.MaxColumnLetter + XLHelper.MaxRowNumber));
+        await Assert.That(XLHelper.IsValidA1Address("AAA1")).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address("AAA" + XLHelper.MaxRowNumber)).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address(XLHelper.MaxColumnLetter + "1")).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address(XLHelper.MaxColumnLetter + XLHelper.MaxRowNumber)).IsTrue();
     }
 
     [Test]
-    public void TestColumnLetterLookup()
+    public async Task TestColumnLetterLookup()
     {
         var columnLetters = new List<string>();
         for (var c = 1; c <= XLHelper.MaxColumnNumber; c++)
@@ -101,40 +100,42 @@ public class XlHelperTests
             var columnLetter = NaiveGetColumnLetterFromNumber(c);
             columnLetters.Add(columnLetter);
 
-            Assert.AreEqual(columnLetter, XLHelper.GetColumnLetterFromNumber(c));
+            await Assert.That(XLHelper.GetColumnLetterFromNumber(c)).IsEqualTo(columnLetter);
         }
 
         foreach (var cl in columnLetters)
         {
             var columnNumber = NaiveGetColumnNumberFromLetter(cl);
-            Assert.AreEqual(columnNumber, XLHelper.GetColumnNumberFromLetter(cl));
+            await Assert.That(XLHelper.GetColumnNumberFromLetter(cl)).IsEqualTo(columnNumber);
         }
     }
 
-    [TestCase("R")]
-    [TestCase("C")]
-    [TestCase("RC")]
-    [TestCase("R111C222")]
-    [TestCase("R[]C")]
-    [TestCase("RC[]")]
-    [TestCase("R[]C[]")]
-    [TestCase("R[111]C222")]
-    [TestCase("R111C[222]")]
-    [TestCase("R[111]C[222]")]
-    [TestCase("R[-111]C[-222]")]
-    public void ValidRCAddresses(string address)
+    [Test]
+    [Arguments("R")]
+    [Arguments("C")]
+    [Arguments("RC")]
+    [Arguments("R111C222")]
+    [Arguments("R[]C")]
+    [Arguments("RC[]")]
+    [Arguments("R[]C[]")]
+    [Arguments("R[111]C222")]
+    [Arguments("R111C[222]")]
+    [Arguments("R[111]C[222]")]
+    [Arguments("R[-111]C[-222]")]
+    public async Task ValidRCAddresses(string address)
     {
-        Assert.IsTrue(XLHelper.IsValidRCAddress(address));
+        await Assert.That(XLHelper.IsValidRCAddress(address)).IsTrue();
     }
 
-    [TestCase("RD")]
-    [TestCase("CC")]
-    [TestCase("R[-]C222")]
-    [TestCase("R[]C[-]")]
-    [TestCase("_R111C222")]
-    public void InvalidRCAddresses(string address)
+    [Test]
+    [Arguments("RD")]
+    [Arguments("CC")]
+    [Arguments("R[-]C222")]
+    [Arguments("R[]C[-]")]
+    [Arguments("_R111C222")]
+    public async Task InvalidRCAddresses(string address)
     {
-        Assert.IsFalse(XLHelper.IsValidRCAddress(address));
+        await Assert.That(XLHelper.IsValidRCAddress(address)).IsFalse();
     }
 
     #region Old XLHelper methods

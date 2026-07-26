@@ -1,190 +1,190 @@
 ﻿using System;
 using XLibur.Excel;
-using NUnit.Framework;
 using XLibur.Excel.Coordinates;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Ranges;
 
-[TestFixture]
 public class XLRangeAddressTests
 {
     [Test]
-    public void ToStringTest()
+    public async Task ToStringTest()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var address = ws.Cell(1, 1).AsRange().RangeAddress;
 
-        Assert.AreEqual("A1:A1", address.ToString());
-        Assert.AreEqual("Sheet1!R1C1:R1C1", address.ToString(XLReferenceStyle.R1C1, true));
+        await Assert.That(address.ToString()).IsEqualTo("A1:A1");
+        await Assert.That(address.ToString(XLReferenceStyle.R1C1, true)).IsEqualTo("Sheet1!R1C1:R1C1");
 
-        Assert.AreEqual("A1:A1", address.ToStringRelative());
-        Assert.AreEqual("Sheet1!A1:A1", address.ToStringRelative(true));
+        await Assert.That(address.ToStringRelative()).IsEqualTo("A1:A1");
+        await Assert.That(address.ToStringRelative(true)).IsEqualTo("Sheet1!A1:A1");
 
-        Assert.AreEqual("$A$1:$A$1", address.ToStringFixed());
-        Assert.AreEqual("$A$1:$A$1", address.ToStringFixed(XLReferenceStyle.A1));
-        Assert.AreEqual("R1C1:R1C1", address.ToStringFixed(XLReferenceStyle.R1C1));
-        Assert.AreEqual("$A$1:$A$1", address.ToStringFixed(XLReferenceStyle.Default));
-        Assert.AreEqual("Sheet1!$A$1:$A$1", address.ToStringFixed(XLReferenceStyle.A1, true));
-        Assert.AreEqual("Sheet1!R1C1:R1C1", address.ToStringFixed(XLReferenceStyle.R1C1, true));
-        Assert.AreEqual("Sheet1!$A$1:$A$1", address.ToStringFixed(XLReferenceStyle.Default, true));
+        await Assert.That(address.ToStringFixed()).IsEqualTo("$A$1:$A$1");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.A1)).IsEqualTo("$A$1:$A$1");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.R1C1)).IsEqualTo("R1C1:R1C1");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.Default)).IsEqualTo("$A$1:$A$1");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.A1, true)).IsEqualTo("Sheet1!$A$1:$A$1");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.R1C1, true)).IsEqualTo("Sheet1!R1C1:R1C1");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.Default, true)).IsEqualTo("Sheet1!$A$1:$A$1");
     }
 
     [Test]
-    public void ToStringTestWithSpace()
+    public async Task ToStringTestWithSpace()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet 1");
         var address = ws.Cell(1, 1).AsRange().RangeAddress;
 
-        Assert.AreEqual("A1:A1", address.ToString());
-        Assert.AreEqual("'Sheet 1'!R1C1:R1C1", address.ToString(XLReferenceStyle.R1C1, true));
+        await Assert.That(address.ToString()).IsEqualTo("A1:A1");
+        await Assert.That(address.ToString(XLReferenceStyle.R1C1, true)).IsEqualTo("'Sheet 1'!R1C1:R1C1");
 
-        Assert.AreEqual("A1:A1", address.ToStringRelative());
-        Assert.AreEqual("'Sheet 1'!A1:A1", address.ToStringRelative(true));
+        await Assert.That(address.ToStringRelative()).IsEqualTo("A1:A1");
+        await Assert.That(address.ToStringRelative(true)).IsEqualTo("'Sheet 1'!A1:A1");
 
-        Assert.AreEqual("$A$1:$A$1", address.ToStringFixed());
-        Assert.AreEqual("$A$1:$A$1", address.ToStringFixed(XLReferenceStyle.A1));
-        Assert.AreEqual("R1C1:R1C1", address.ToStringFixed(XLReferenceStyle.R1C1));
-        Assert.AreEqual("$A$1:$A$1", address.ToStringFixed(XLReferenceStyle.Default));
-        Assert.AreEqual("'Sheet 1'!$A$1:$A$1", address.ToStringFixed(XLReferenceStyle.A1, true));
-        Assert.AreEqual("'Sheet 1'!R1C1:R1C1", address.ToStringFixed(XLReferenceStyle.R1C1, true));
-        Assert.AreEqual("'Sheet 1'!$A$1:$A$1", address.ToStringFixed(XLReferenceStyle.Default, true));
+        await Assert.That(address.ToStringFixed()).IsEqualTo("$A$1:$A$1");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.A1)).IsEqualTo("$A$1:$A$1");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.R1C1)).IsEqualTo("R1C1:R1C1");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.Default)).IsEqualTo("$A$1:$A$1");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 1'!$A$1:$A$1");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.R1C1, true)).IsEqualTo("'Sheet 1'!R1C1:R1C1");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.Default, true)).IsEqualTo("'Sheet 1'!$A$1:$A$1");
     }
 
-    [TestCase("B2:E5", "B2:E5")]
-    [TestCase("E5:B2", "B2:E5")]
-    [TestCase("B5:E2", "B2:E5")]
-    [TestCase("B2:E$5", "B2:E$5")]
-    [TestCase("B2:$E$5", "B2:$E$5")]
-    [TestCase("B$2:$E$5", "B$2:$E$5")]
-    [TestCase("$B$2:$E$5", "$B$2:$E$5")]
-    [TestCase("B5:E$2", "B$2:E5")]
-    [TestCase("$B$5:E2", "$B2:E$5")]
-    [TestCase("$B$5:E$2", "$B$2:E$5")]
-    [TestCase("$B$5:$E$2", "$B$2:$E$5")]
-    public void RangeAddressNormalizeTest(string inputAddress, string expectedAddress)
+    [Test]
+    [Arguments("B2:E5", "B2:E5")]
+    [Arguments("E5:B2", "B2:E5")]
+    [Arguments("B5:E2", "B2:E5")]
+    [Arguments("B2:E$5", "B2:E$5")]
+    [Arguments("B2:$E$5", "B2:$E$5")]
+    [Arguments("B$2:$E$5", "B$2:$E$5")]
+    [Arguments("$B$2:$E$5", "$B$2:$E$5")]
+    [Arguments("B5:E$2", "B$2:E5")]
+    [Arguments("$B$5:E2", "$B2:E$5")]
+    [Arguments("$B$5:E$2", "$B$2:E$5")]
+    [Arguments("$B$5:$E$2", "$B$2:$E$5")]
+    public async Task RangeAddressNormalizeTest(string inputAddress, string expectedAddress)
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet 1") as XLWorksheet;
         var rangeAddress = new XLRangeAddress(ws, inputAddress);
 
         var normalizedAddress = rangeAddress.Normalize();
 
-        Assert.AreSame(ws, rangeAddress.Worksheet);
-        Assert.AreEqual(expectedAddress, normalizedAddress.ToString());
+        await Assert.That(rangeAddress.Worksheet).IsSameReferenceAs(ws);
+        await Assert.That(normalizedAddress.ToString()).IsEqualTo(expectedAddress);
     }
 
     [Test]
-    public void InvalidRangeAddressToStringTest()
+    public async Task InvalidRangeAddressToStringTest()
     {
         var address = ProduceInvalidAddress();
 
-        Assert.AreEqual("#REF!", address.ToString());
-        Assert.AreEqual("#REF!", address.ToString(XLReferenceStyle.A1));
-        Assert.AreEqual("#REF!", address.ToString(XLReferenceStyle.Default));
-        Assert.AreEqual("'Sheet 1'!#REF!", address.ToString(XLReferenceStyle.R1C1));
-        Assert.AreEqual("'Sheet 1'!#REF!", address.ToString(XLReferenceStyle.A1, true));
-        Assert.AreEqual("'Sheet 1'!#REF!", address.ToString(XLReferenceStyle.Default, true));
-        Assert.AreEqual("'Sheet 1'!#REF!", address.ToString(XLReferenceStyle.R1C1, true));
+        await Assert.That(address.ToString()).IsEqualTo("#REF!");
+        await Assert.That(address.ToString(XLReferenceStyle.A1)).IsEqualTo("#REF!");
+        await Assert.That(address.ToString(XLReferenceStyle.Default)).IsEqualTo("#REF!");
+        await Assert.That(address.ToString(XLReferenceStyle.R1C1)).IsEqualTo("'Sheet 1'!#REF!");
+        await Assert.That(address.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 1'!#REF!");
+        await Assert.That(address.ToString(XLReferenceStyle.Default, true)).IsEqualTo("'Sheet 1'!#REF!");
+        await Assert.That(address.ToString(XLReferenceStyle.R1C1, true)).IsEqualTo("'Sheet 1'!#REF!");
     }
 
     [Test]
-    public void InvalidRangeAddressToStringFixedTest()
+    public async Task InvalidRangeAddressToStringFixedTest()
     {
         var address = ProduceInvalidAddress();
 
-        Assert.AreEqual("#REF!", address.ToStringFixed());
-        Assert.AreEqual("#REF!", address.ToStringFixed(XLReferenceStyle.A1));
-        Assert.AreEqual("#REF!", address.ToStringFixed(XLReferenceStyle.Default));
-        Assert.AreEqual("#REF!", address.ToStringFixed(XLReferenceStyle.R1C1));
-        Assert.AreEqual("'Sheet 1'!#REF!", address.ToStringFixed(XLReferenceStyle.A1, true));
-        Assert.AreEqual("'Sheet 1'!#REF!", address.ToStringFixed(XLReferenceStyle.Default, true));
-        Assert.AreEqual("'Sheet 1'!#REF!", address.ToStringFixed(XLReferenceStyle.R1C1, true));
+        await Assert.That(address.ToStringFixed()).IsEqualTo("#REF!");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.A1)).IsEqualTo("#REF!");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.Default)).IsEqualTo("#REF!");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.R1C1)).IsEqualTo("#REF!");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 1'!#REF!");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.Default, true)).IsEqualTo("'Sheet 1'!#REF!");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.R1C1, true)).IsEqualTo("'Sheet 1'!#REF!");
     }
 
     [Test]
-    public void InvalidRangeAddressToStringRelativeTest()
+    public async Task InvalidRangeAddressToStringRelativeTest()
     {
         var address = ProduceInvalidAddress();
 
-        Assert.AreEqual("#REF!", address.ToStringRelative());
-        Assert.AreEqual("'Sheet 1'!#REF!", address.ToStringRelative(true));
+        await Assert.That(address.ToStringRelative()).IsEqualTo("#REF!");
+        await Assert.That(address.ToStringRelative(true)).IsEqualTo("'Sheet 1'!#REF!");
     }
 
     [Test]
-    public void RangeAddressOnDeletedWorksheetToStringTest()
+    public async Task RangeAddressOnDeletedWorksheetToStringTest()
     {
         var address = ProduceAddressOnDeletedWorksheet();
 
-        Assert.AreEqual("#REF!A1:B2", address.ToString());
-        Assert.AreEqual("#REF!A1:B2", address.ToString(XLReferenceStyle.A1));
-        Assert.AreEqual("#REF!A1:B2", address.ToString(XLReferenceStyle.Default));
-        Assert.AreEqual("#REF!R1C1:R2C2", address.ToString(XLReferenceStyle.R1C1));
-        Assert.AreEqual("#REF!A1:B2", address.ToString(XLReferenceStyle.A1, true));
-        Assert.AreEqual("#REF!A1:B2", address.ToString(XLReferenceStyle.Default, true));
-        Assert.AreEqual("#REF!R1C1:R2C2", address.ToString(XLReferenceStyle.R1C1, true));
+        await Assert.That(address.ToString()).IsEqualTo("#REF!A1:B2");
+        await Assert.That(address.ToString(XLReferenceStyle.A1)).IsEqualTo("#REF!A1:B2");
+        await Assert.That(address.ToString(XLReferenceStyle.Default)).IsEqualTo("#REF!A1:B2");
+        await Assert.That(address.ToString(XLReferenceStyle.R1C1)).IsEqualTo("#REF!R1C1:R2C2");
+        await Assert.That(address.ToString(XLReferenceStyle.A1, true)).IsEqualTo("#REF!A1:B2");
+        await Assert.That(address.ToString(XLReferenceStyle.Default, true)).IsEqualTo("#REF!A1:B2");
+        await Assert.That(address.ToString(XLReferenceStyle.R1C1, true)).IsEqualTo("#REF!R1C1:R2C2");
     }
 
     [Test]
-    public void RangeAddressOnDeletedWorksheetToStringFixedTest()
+    public async Task RangeAddressOnDeletedWorksheetToStringFixedTest()
     {
         var address = ProduceAddressOnDeletedWorksheet();
 
-        Assert.AreEqual("#REF!$A$1:$B$2", address.ToStringFixed());
-        Assert.AreEqual("#REF!$A$1:$B$2", address.ToStringFixed(XLReferenceStyle.A1));
-        Assert.AreEqual("#REF!$A$1:$B$2", address.ToStringFixed(XLReferenceStyle.Default));
-        Assert.AreEqual("#REF!R1C1:R2C2", address.ToStringFixed(XLReferenceStyle.R1C1));
-        Assert.AreEqual("#REF!$A$1:$B$2", address.ToStringFixed(XLReferenceStyle.A1, true));
-        Assert.AreEqual("#REF!$A$1:$B$2", address.ToStringFixed(XLReferenceStyle.Default, true));
-        Assert.AreEqual("#REF!R1C1:R2C2", address.ToStringFixed(XLReferenceStyle.R1C1, true));
+        await Assert.That(address.ToStringFixed()).IsEqualTo("#REF!$A$1:$B$2");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.A1)).IsEqualTo("#REF!$A$1:$B$2");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.Default)).IsEqualTo("#REF!$A$1:$B$2");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.R1C1)).IsEqualTo("#REF!R1C1:R2C2");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.A1, true)).IsEqualTo("#REF!$A$1:$B$2");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.Default, true)).IsEqualTo("#REF!$A$1:$B$2");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.R1C1, true)).IsEqualTo("#REF!R1C1:R2C2");
     }
 
     [Test]
-    public void RangeAddressOnDeletedWorksheetToStringRelativeTest()
+    public async Task RangeAddressOnDeletedWorksheetToStringRelativeTest()
     {
         var address = ProduceAddressOnDeletedWorksheet();
 
-        Assert.AreEqual("#REF!A1:B2", address.ToStringRelative());
-        Assert.AreEqual("#REF!A1:B2", address.ToStringRelative(true));
+        await Assert.That(address.ToStringRelative()).IsEqualTo("#REF!A1:B2");
+        await Assert.That(address.ToStringRelative(true)).IsEqualTo("#REF!A1:B2");
     }
 
     [Test]
-    public void InvalidRangeAddressOnDeletedWorksheetToStringTest()
+    public async Task InvalidRangeAddressOnDeletedWorksheetToStringTest()
     {
         var address = ProduceInvalidAddressOnDeletedWorksheet();
 
-        Assert.AreEqual("#REF!#REF!", address.ToString());
-        Assert.AreEqual("#REF!#REF!", address.ToString(XLReferenceStyle.A1));
-        Assert.AreEqual("#REF!#REF!", address.ToString(XLReferenceStyle.Default));
-        Assert.AreEqual("#REF!#REF!", address.ToString(XLReferenceStyle.R1C1));
-        Assert.AreEqual("#REF!#REF!", address.ToString(XLReferenceStyle.A1, true));
-        Assert.AreEqual("#REF!#REF!", address.ToString(XLReferenceStyle.Default, true));
-        Assert.AreEqual("#REF!#REF!", address.ToString(XLReferenceStyle.R1C1, true));
+        await Assert.That(address.ToString()).IsEqualTo("#REF!#REF!");
+        await Assert.That(address.ToString(XLReferenceStyle.A1)).IsEqualTo("#REF!#REF!");
+        await Assert.That(address.ToString(XLReferenceStyle.Default)).IsEqualTo("#REF!#REF!");
+        await Assert.That(address.ToString(XLReferenceStyle.R1C1)).IsEqualTo("#REF!#REF!");
+        await Assert.That(address.ToString(XLReferenceStyle.A1, true)).IsEqualTo("#REF!#REF!");
+        await Assert.That(address.ToString(XLReferenceStyle.Default, true)).IsEqualTo("#REF!#REF!");
+        await Assert.That(address.ToString(XLReferenceStyle.R1C1, true)).IsEqualTo("#REF!#REF!");
     }
 
     [Test]
-    public void InvalidRangeAddressOnDeletedWorksheetToStringFixedTest()
+    public async Task InvalidRangeAddressOnDeletedWorksheetToStringFixedTest()
     {
         var address = ProduceInvalidAddressOnDeletedWorksheet();
 
-        Assert.AreEqual("#REF!#REF!", address.ToStringFixed());
-        Assert.AreEqual("#REF!#REF!", address.ToStringFixed(XLReferenceStyle.A1));
-        Assert.AreEqual("#REF!#REF!", address.ToStringFixed(XLReferenceStyle.Default));
-        Assert.AreEqual("#REF!#REF!", address.ToStringFixed(XLReferenceStyle.R1C1));
-        Assert.AreEqual("#REF!#REF!", address.ToStringFixed(XLReferenceStyle.A1, true));
-        Assert.AreEqual("#REF!#REF!", address.ToStringFixed(XLReferenceStyle.Default, true));
-        Assert.AreEqual("#REF!#REF!", address.ToStringFixed(XLReferenceStyle.R1C1, true));
+        await Assert.That(address.ToStringFixed()).IsEqualTo("#REF!#REF!");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.A1)).IsEqualTo("#REF!#REF!");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.Default)).IsEqualTo("#REF!#REF!");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.R1C1)).IsEqualTo("#REF!#REF!");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.A1, true)).IsEqualTo("#REF!#REF!");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.Default, true)).IsEqualTo("#REF!#REF!");
+        await Assert.That(address.ToStringFixed(XLReferenceStyle.R1C1, true)).IsEqualTo("#REF!#REF!");
     }
 
     [Test]
-    public void InvalidRangeAddressOnDeletedWorksheetToStringRelativeTest()
+    public async Task InvalidRangeAddressOnDeletedWorksheetToStringRelativeTest()
     {
         var address = ProduceInvalidAddressOnDeletedWorksheet();
 
-        Assert.AreEqual("#REF!#REF!", address.ToStringRelative());
-        Assert.AreEqual("#REF!#REF!", address.ToStringRelative(true));
+        await Assert.That(address.ToStringRelative()).IsEqualTo("#REF!#REF!");
+        await Assert.That(address.ToStringRelative(true)).IsEqualTo("#REF!#REF!");
     }
 
     [Test]
-    public void FullSpanAddressCannotChange()
+    public async Task FullSpanAddressCannotChange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -193,49 +193,49 @@ public class XLRangeAddressTests
         var row = ws.FirstRow().RowBelow(4).AsRange();
         var column = ws.FirstColumn().ColumnRight(4).AsRange();
 
-        Assert.AreEqual($"1:{XLHelper.MaxRowNumber}", wsRange.RangeAddress.ToString());
-        Assert.AreEqual("5:5", row.RangeAddress.ToString());
-        Assert.AreEqual("E:E", column.RangeAddress.ToString());
+        await Assert.That(wsRange.RangeAddress.ToString()).IsEqualTo($"1:{XLHelper.MaxRowNumber}");
+        await Assert.That(row.RangeAddress.ToString()).IsEqualTo("5:5");
+        await Assert.That(column.RangeAddress.ToString()).IsEqualTo("E:E");
 
         ws.Columns("Y:Z").Delete();
         ws.Rows("9:10").Delete();
 
-        Assert.AreEqual($"1:{XLHelper.MaxRowNumber}", wsRange.RangeAddress.ToString());
-        Assert.AreEqual("5:5", row.RangeAddress.ToString());
-        Assert.AreEqual("E:E", column.RangeAddress.ToString());
+        await Assert.That(wsRange.RangeAddress.ToString()).IsEqualTo($"1:{XLHelper.MaxRowNumber}");
+        await Assert.That(row.RangeAddress.ToString()).IsEqualTo("5:5");
+        await Assert.That(column.RangeAddress.ToString()).IsEqualTo("E:E");
     }
 
     [Test]
-    public void RangeAddressIsNormalized()
+    public async Task RangeAddressIsNormalized()
     {
         var ws = new XLWorkbook().AddWorksheet();
 
         XLRangeAddress rangeAddress;
 
         rangeAddress = (XLRangeAddress)ws.Range(ws.Cell("A1"), ws.Cell("C3")).RangeAddress;
-        Assert.IsTrue(rangeAddress.IsNormalized);
+        await Assert.That(rangeAddress.IsNormalized).IsTrue();
 
         rangeAddress = (XLRangeAddress)ws.Range(ws.Cell("C3"), ws.Cell("A1")).RangeAddress;
-        Assert.IsFalse(rangeAddress.IsNormalized);
+        await Assert.That(rangeAddress.IsNormalized).IsFalse();
 
         rangeAddress = (XLRangeAddress)ws.Range("B2:B1").RangeAddress;
-        Assert.IsFalse(rangeAddress.IsNormalized);
+        await Assert.That(rangeAddress.IsNormalized).IsFalse();
 
         rangeAddress = (XLRangeAddress)ws.Range("B2:B10").RangeAddress;
-        Assert.IsTrue(rangeAddress.IsNormalized);
+        await Assert.That(rangeAddress.IsNormalized).IsTrue();
 
         rangeAddress = (XLRangeAddress)ws.Range("B:B").RangeAddress;
-        Assert.IsTrue(rangeAddress.IsNormalized);
+        await Assert.That(rangeAddress.IsNormalized).IsTrue();
 
         rangeAddress = (XLRangeAddress)ws.Range("2:2").RangeAddress;
-        Assert.IsTrue(rangeAddress.IsNormalized);
+        await Assert.That(rangeAddress.IsNormalized).IsTrue();
 
         rangeAddress = (XLRangeAddress)ws.RangeAddress;
-        Assert.IsTrue(rangeAddress.IsNormalized);
+        await Assert.That(rangeAddress.IsNormalized).IsTrue();
     }
 
     [Test]
-    public void AsRangeTests()
+    public async Task AsRangeTests()
     {
         XLRangeAddress rangeAddress;
         rangeAddress = new XLRangeAddress
@@ -244,9 +244,9 @@ public class XLRangeAddressTests
             new XLAddress(5, 5, false, false)
         );
 
-        Assert.IsTrue(rangeAddress.IsValid);
-        Assert.IsTrue(rangeAddress.IsNormalized);
-        Assert.Throws<InvalidOperationException>(() => rangeAddress.AsRange());
+        await Assert.That(rangeAddress.IsValid).IsTrue();
+        await Assert.That(rangeAddress.IsNormalized).IsTrue();
+        await Assert.That(() => rangeAddress.AsRange()).Throws<InvalidOperationException>();
 
         var ws = new XLWorkbook().AddWorksheet() as XLWorksheet;
         rangeAddress = new XLRangeAddress
@@ -255,65 +255,65 @@ public class XLRangeAddressTests
             new XLAddress(ws, 5, 5, false, false)
         );
 
-        Assert.IsTrue(rangeAddress.IsValid);
-        Assert.IsTrue(rangeAddress.IsNormalized);
-        Assert.DoesNotThrow(() => rangeAddress.AsRange());
+        await Assert.That(rangeAddress.IsValid).IsTrue();
+        await Assert.That(rangeAddress.IsNormalized).IsTrue();
+        await Assert.That(() => rangeAddress.AsRange()).ThrowsNothing();
     }
 
     [Test]
-    public void RelativeRanges()
+    public async Task RelativeRanges()
     {
         var ws = new XLWorkbook().AddWorksheet();
 
         IXLRangeAddress rangeAddress;
 
         rangeAddress = ws.Range("D4:E4").RangeAddress.Relative(ws.Range("A1:E4").RangeAddress, ws.Range("B10:F14").RangeAddress);
-        Assert.IsTrue(rangeAddress.IsValid);
-        Assert.AreEqual("E13:F13", rangeAddress.ToString());
+        await Assert.That(rangeAddress.IsValid).IsTrue();
+        await Assert.That(rangeAddress.ToString()).IsEqualTo("E13:F13");
 
         rangeAddress = ws.Range("D4:E4").RangeAddress.Relative(ws.Range("B10:F14").RangeAddress, ws.Range("A1:E4").RangeAddress);
-        Assert.IsFalse(rangeAddress.IsValid);
-        Assert.AreEqual("#REF!", rangeAddress.ToString());
+        await Assert.That(rangeAddress.IsValid).IsFalse();
+        await Assert.That(rangeAddress.ToString()).IsEqualTo("#REF!");
 
         rangeAddress = ws.Range("C3").RangeAddress.Relative(ws.Range("A1:B2").RangeAddress, ws.Range("C3").RangeAddress);
-        Assert.IsTrue(rangeAddress.IsValid);
-        Assert.AreEqual("E5:E5", rangeAddress.ToString());
+        await Assert.That(rangeAddress.IsValid).IsTrue();
+        await Assert.That(rangeAddress.ToString()).IsEqualTo("E5:E5");
 
         rangeAddress = ws.Range("B2").RangeAddress.Relative(ws.Range("A1").RangeAddress, ws.Range("C3").RangeAddress);
-        Assert.IsTrue(rangeAddress.IsValid);
-        Assert.AreEqual("D4:D4", rangeAddress.ToString());
+        await Assert.That(rangeAddress.IsValid).IsTrue();
+        await Assert.That(rangeAddress.ToString()).IsEqualTo("D4:D4");
 
         rangeAddress = ws.Range("A1").RangeAddress.Relative(ws.Range("B2").RangeAddress, ws.Range("A1").RangeAddress);
-        Assert.IsFalse(rangeAddress.IsValid);
-        Assert.AreEqual("#REF!", rangeAddress.ToString());
+        await Assert.That(rangeAddress.IsValid).IsFalse();
+        await Assert.That(rangeAddress.ToString()).IsEqualTo("#REF!");
     }
 
     [Test]
-    public void TestSpanProperties()
+    public async Task TestSpanProperties()
     {
         var ws = new XLWorkbook().AddWorksheet() as XLWorksheet;
 
         var range = ws.Range("B3:E5");
         var rangeAddress = range.RangeAddress as IXLRangeAddress;
-        Assert.AreEqual(4, rangeAddress.ColumnSpan);
-        Assert.AreEqual(3, rangeAddress.RowSpan);
-        Assert.AreEqual(12, rangeAddress.NumberOfCells);
+        await Assert.That(rangeAddress.ColumnSpan).IsEqualTo(4);
+        await Assert.That(rangeAddress.RowSpan).IsEqualTo(3);
+        await Assert.That(rangeAddress.NumberOfCells).IsEqualTo(12);
 
         range = ws.Range("E5:B3");
         rangeAddress = range.RangeAddress;
-        Assert.AreEqual(4, rangeAddress.ColumnSpan);
-        Assert.AreEqual(3, rangeAddress.RowSpan);
-        Assert.AreEqual(12, rangeAddress.NumberOfCells);
+        await Assert.That(rangeAddress.ColumnSpan).IsEqualTo(4);
+        await Assert.That(rangeAddress.RowSpan).IsEqualTo(3);
+        await Assert.That(rangeAddress.NumberOfCells).IsEqualTo(12);
 
         rangeAddress = ProduceAddressOnDeletedWorksheet();
-        Assert.AreEqual(2, rangeAddress.ColumnSpan);
-        Assert.AreEqual(2, rangeAddress.RowSpan);
-        Assert.AreEqual(4, rangeAddress.NumberOfCells);
+        await Assert.That(rangeAddress.ColumnSpan).IsEqualTo(2);
+        await Assert.That(rangeAddress.RowSpan).IsEqualTo(2);
+        await Assert.That(rangeAddress.NumberOfCells).IsEqualTo(4);
 
         rangeAddress = ProduceInvalidAddress();
-        Assert.Throws<InvalidOperationException>(() => { var x = rangeAddress.ColumnSpan; });
-        Assert.Throws<InvalidOperationException>(() => { var x = rangeAddress.RowSpan; });
-        Assert.Throws<InvalidOperationException>(() => { var x = rangeAddress.NumberOfCells; });
+        await Assert.That(() => { var x = rangeAddress.ColumnSpan; }).Throws<InvalidOperationException>();
+        await Assert.That(() => { var x = rangeAddress.RowSpan; }).Throws<InvalidOperationException>();
+        await Assert.That(() => { var x = rangeAddress.NumberOfCells; }).Throws<InvalidOperationException>();
     }
 
     #region Private Methods

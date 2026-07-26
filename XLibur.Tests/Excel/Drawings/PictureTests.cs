@@ -4,24 +4,24 @@ using System.Reflection;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using NUnit.Framework;
 using XLibur.Excel;
 using A = DocumentFormat.OpenXml.Drawing;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Drawings;
 
-[TestFixture]
 public class PictureTests
 {
-    [TestCase("Other.Drawings.picture-webp.xlsx")]
-    public void Can_load_and_save_workbook_with_image_type(string resourceWithImageType)
+    [Test]
+    [Arguments("Other.Drawings.picture-webp.xlsx")]
+    public async Task Can_load_and_save_workbook_with_image_type(string resourceWithImageType)
     {
-        Assert.DoesNotThrow(() => TestHelper.LoadSaveAndCompare(resourceWithImageType, resourceWithImageType));
+        await Assert.That(() => TestHelper.LoadSaveAndCompare(resourceWithImageType, resourceWithImageType)).ThrowsNothing();
     }
 
     [Test]
-    public void Can_load_picture_with_empty_name()
+    public async Task Can_load_picture_with_empty_name()
     {
         // Empty name attribute on cNvPr is valid per ECMA-376 (xsd:string, no minLength).
         // Excel can produce such files. Verify they load without throwing.
@@ -29,14 +29,14 @@ public class PictureTests
         using var wb = new XLWorkbook(xlsxStream);
 
         var ws = wb.Worksheets.First();
-        Assert.That(ws.Pictures.Count, Is.EqualTo(1));
+        await Assert.That(ws.Pictures.Count).IsEqualTo(1);
 
         var pic = ws.Pictures.First();
-        Assert.That(pic.Name, Does.StartWith("Picture"));
+        await Assert.That(pic.Name).StartsWith("Picture");
     }
 
     [Test]
-    public void Non_picture_shapes_are_preserved_after_roundtrip()
+    public async Task Non_picture_shapes_are_preserved_after_roundtrip()
     {
         // Issue #2377: textboxes and shapes (non-picture anchors) were lost after load/save
         // because the DrawingsPart was deleted when there were no pictures.
@@ -50,23 +50,23 @@ public class PictureTests
         ms.Position = 0;
         using var savedDoc = SpreadsheetDocument.Open(ms, false);
         var worksheetPart = savedDoc.WorkbookPart!.WorksheetParts.First();
-        Assert.That(worksheetPart.DrawingsPart, Is.Not.Null, "DrawingsPart should be preserved");
+        await Assert.That(worksheetPart.DrawingsPart).IsNotNull().Because("DrawingsPart should be preserved");
 
         var drawing = worksheetPart.DrawingsPart!.WorksheetDrawing!;
         var twoCellAnchors = drawing.Elements<Xdr.TwoCellAnchor>().ToList();
         var oneCellAnchors = drawing.Elements<Xdr.OneCellAnchor>().ToList();
 
-        Assert.That(twoCellAnchors, Has.Count.EqualTo(1), "TwoCellAnchor (rectangle shape) should be preserved");
-        Assert.That(oneCellAnchors, Has.Count.EqualTo(1), "OneCellAnchor (textbox) should be preserved");
+        await Assert.That(twoCellAnchors).Count().IsEqualTo(1).Because("TwoCellAnchor (rectangle shape) should be preserved");
+        await Assert.That(oneCellAnchors).Count().IsEqualTo(1).Because("OneCellAnchor (textbox) should be preserved");
 
         // Verify the shape text content is preserved
         var shapeText = twoCellAnchors[0].Descendants<Xdr.Shape>().First()
             .Descendants<Xdr.TextBody>().First().InnerText;
-        Assert.That(shapeText, Is.EqualTo("SHAPE"));
+        await Assert.That(shapeText).IsEqualTo("SHAPE");
 
         var textboxText = oneCellAnchors[0].Descendants<Xdr.Shape>().First()
             .Descendants<Xdr.TextBody>().First().InnerText;
-        Assert.That(textboxText, Is.EqualTo("TEXTBOX"));
+        await Assert.That(textboxText).IsEqualTo("TEXTBOX");
     }
 
     /// <summary>
@@ -89,7 +89,7 @@ public class PictureTests
             worksheetPart.Worksheet.Append(new Drawing { Id = worksheetPart.GetIdOfPart(drawingsPart) });
 
             // Add an image part with a real PNG
-            using var imageStream = Assembly.GetExecutingAssembly()
+            using var imageStream = System.Reflection.Assembly.GetExecutingAssembly()
                 .GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png");
             var imagePart = drawingsPart.AddImagePart(ImagePartType.Png);
             imagePart.FeedData(imageStream);

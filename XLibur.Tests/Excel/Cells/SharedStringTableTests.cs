@@ -1,121 +1,121 @@
 ﻿using System;
 using System.Text;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Cells;
 
-[TestFixture]
 public class SharedStringTableTests
 {
     [Test]
-    public void SameStringIsNotStoredTwice()
+    public async Task SameStringIsNotStoredTwice()
     {
         using var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet();
         var ws2 = wb.AddWorksheet();
         const string txt1 = "Hello";
         var txt2 = new StringBuilder("Hel").Append("lo").ToString();
-        Assert.AreNotSame(txt1, txt2);
+        await Assert.That(txt2).IsNotSameReferenceAs(txt1);
 
         ws1.Cell(1, 1).Value = txt1;
         ws2.Cell(1, 1).Value = txt2;
 
-        Assert.AreSame(ws1.Cell(1, 1).Value.GetText(), ws2.Cell(1, 1).Value.GetText());
+        await Assert.That(ws2.Cell(1, 1).Value.GetText()).IsSameReferenceAs(ws1.Cell(1, 1).Value.GetText());
     }
 
     [Test]
-    public void CanAccessTextThroughId()
+    public async Task CanAccessTextThroughId()
     {
         var sst = new SharedStringTable();
         var id = sst.IncreaseRef("test", false);
-        Assert.AreEqual("test", sst[id]);
-        Assert.AreEqual(1, sst.Count);
+        await Assert.That(sst[id]).IsEqualTo("test");
+        await Assert.That(sst.Count).IsEqualTo(1);
     }
 
     [Test]
-    public void TextsWithoutReferenceAreRemoved()
+    public async Task TextsWithoutReferenceAreRemoved()
     {
         var sst = new SharedStringTable();
         var id = sst.IncreaseRef("test", false);
         sst.DecreaseRef(id);
 
-        Assert.AreEqual(0, sst.Count);
-        Assert.That(() => _ = sst[id], Throws.ArgumentException.With.Message.EqualTo("Id 0 has no text."));
+        await Assert.That(sst.Count).IsEqualTo(0);
+        var ex = await Assert.That(() => _ = sst[id]).Throws<ArgumentException>();
+        await Assert.That(ex!.Message).IsEqualTo("Id 0 has no text.");
     }
 
     [Test]
-    public void TextReferencedByMultipleThingsIsNotFreedUntilAllAreRelease()
+    public async Task TextReferencedByMultipleThingsIsNotFreedUntilAllAreRelease()
     {
         const string text = "test";
         var sst = new SharedStringTable();
         var id = sst.IncreaseRef(text, false);
 
         sst.IncreaseRef(text, false);
-        Assert.AreEqual(text, sst[id]);
-        Assert.AreEqual(1, sst.Count);
+        await Assert.That(sst[id]).IsEqualTo(text);
+        await Assert.That(sst.Count).IsEqualTo(1);
 
         sst.DecreaseRef(id);
-        Assert.AreEqual(text, sst[id]);
-        Assert.AreEqual(1, sst.Count);
+        await Assert.That(sst[id]).IsEqualTo(text);
+        await Assert.That(sst.Count).IsEqualTo(1);
 
         sst.IncreaseRef(text, false);
-        Assert.AreEqual(text, sst[id]);
-        Assert.AreEqual(1, sst.Count);
+        await Assert.That(sst[id]).IsEqualTo(text);
+        await Assert.That(sst.Count).IsEqualTo(1);
 
         sst.DecreaseRef(id);
-        Assert.AreEqual(text, sst[id]);
-        Assert.AreEqual(1, sst.Count);
+        await Assert.That(sst[id]).IsEqualTo(text);
+        await Assert.That(sst.Count).IsEqualTo(1);
 
         sst.DecreaseRef(id);
-        Assert.Throws<ArgumentException>(() => _ = sst[id]);
+        await Assert.That(() => _ = sst[id]).Throws<ArgumentException>();
     }
 
     [Test]
-    public void FreedIdCanBeReusedForDifferentText()
+    public async Task FreedIdCanBeReusedForDifferentText()
     {
         var sst = new SharedStringTable();
         sst.IncreaseRef("zero", false);
         var originalId = sst.IncreaseRef("original", false);
         var laterId = sst.IncreaseRef("two", false);
 
-        Assert.That(laterId, Is.GreaterThan(originalId));
+        await Assert.That(laterId).IsGreaterThan(originalId);
 
         sst.DecreaseRef(originalId);
-        Assert.Throws<ArgumentException>(() => _ = sst[originalId]);
+        await Assert.That(() => _ = sst[originalId]).Throws<ArgumentException>();
 
         var replacementId = sst.IncreaseRef("replacement", false);
-        Assert.AreEqual(originalId, replacementId);
-        Assert.AreEqual("replacement", sst[replacementId]);
+        await Assert.That(replacementId).IsEqualTo(originalId);
+        await Assert.That(sst[replacementId]).IsEqualTo("replacement");
     }
 
     [Test]
-    public void DereferencingFreedIdThrows()
+    public async Task DereferencingFreedIdThrows()
     {
         var sst = new SharedStringTable();
         var id = sst.IncreaseRef("test", false);
         sst.DecreaseRef(id);
-        Assert.Throws<InvalidOperationException>(() => sst.DecreaseRef(id));
+        await Assert.That(() => sst.DecreaseRef(id)).Throws<InvalidOperationException>();
     }
 
     [Test]
-    public void StringItem_without_text_is_loaded_as_empty_text()
+    public async Task StringItem_without_text_is_loaded_as_empty_text()
     {
         // PR#2218: A text cell that references self-closed <si/> tag in SST is loaded without
         // an error and is loaded as type TEXT. Although it's not very common, an empty string is
         // a valid value of a cell.
-        TestHelper.LoadAndAssert((_, ws) =>
+        await TestHelper.LoadAndAssert(async (_, ws) =>
         {
             // Check that type is an empty string, just like in Excel.
-            Assert.AreEqual(2, ws.Evaluate("TYPE(B2)"));
-            Assert.IsEmpty(ws.Cell("B2").GetText());
+            await Assert.That(ws.Evaluate("TYPE(B2)")).IsEqualTo(2);
+            await Assert.That(ws.Cell("B2").GetText()).IsEmpty();
         }, @"Other\Cells\EmptySi.xlsx");
     }
 
     [Test]
-    public void Empty_text_is_written_and_loaded_to_sst()
+    public async Task Empty_text_is_written_and_loaded_to_sst()
     {
-        TestHelper.CreateSaveLoadAssert(
+        await TestHelper.CreateSaveLoadAssert(
             (_, ws) =>
             {
                 ws.Cell("A1").Value = "Empty text cell (B1):";
@@ -124,10 +124,10 @@ public class SharedStringTableTests
                 ws.Cell("A2").Value = "Empty rich text";
                 ws.Cell("B2").CreateRichText().AddText(string.Empty);
             },
-            (_, ws) =>
+            async (_, ws) =>
             {
-                Assert.AreEqual("", ws.Cell("B1").CachedValue);
-                Assert.AreEqual("", ws.Cell("B2").GetRichText().Text);
+                await Assert.That(ws.Cell("B1").CachedValue).IsEqualTo("");
+                await Assert.That(ws.Cell("B2").GetRichText().Text).IsEqualTo("");
             },
             @"Other\Cells\EmptyText.xlsx");
     }

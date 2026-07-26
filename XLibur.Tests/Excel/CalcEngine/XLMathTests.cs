@@ -1,22 +1,21 @@
 ﻿using XLibur.Excel.CalcEngine.Functions;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
-[TestFixture]
 public class XLMathTests
 {
     [Test]
-    public void IsEven()
+    public async Task IsEven()
     {
-        Assert.IsTrue(XLMath.IsEven(2));
-        Assert.IsFalse(XLMath.IsEven(3));
+        await Assert.That(XLMath.IsEven(2)).IsTrue();
+        await Assert.That(XLMath.IsEven(3)).IsFalse();
     }
 
     [Test]
-    public void IsOdd()
+    public async Task IsOdd()
     {
-        Assert.IsTrue(XLMath.IsOdd(3));
-        Assert.IsFalse(XLMath.IsOdd(2));
+        await Assert.That(XLMath.IsOdd(3)).IsTrue();
+        await Assert.That(XLMath.IsOdd(2)).IsFalse();
     }
 }

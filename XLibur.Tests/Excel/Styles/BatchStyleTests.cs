@@ -1,13 +1,12 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Styles;
 
-[TestFixture]
 public class BatchStyleTests
 {
     [Test]
-    public void Batch_SetMultipleProperties_AppliesAllAtOnce()
+    public async Task Batch_SetMultipleProperties_AppliesAllAtOnce()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -22,15 +21,15 @@ public class BatchStyleTests
             s.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
         });
 
-        Assert.IsTrue(cell.Style.Font.Bold);
-        Assert.IsTrue(cell.Style.Font.Italic);
-        Assert.AreEqual(14, cell.Style.Font.FontSize);
-        Assert.AreEqual(XLColor.Red, cell.Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLAlignmentHorizontalValues.Center, cell.Style.Alignment.Horizontal);
+        await Assert.That(cell.Style.Font.Bold).IsTrue();
+        await Assert.That(cell.Style.Font.Italic).IsTrue();
+        await Assert.That(cell.Style.Font.FontSize).IsEqualTo(14);
+        await Assert.That(cell.Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(cell.Style.Alignment.Horizontal).IsEqualTo(XLAlignmentHorizontalValues.Center);
     }
 
     [Test]
-    public void Batch_NoChanges_DoesNotModifyStyle()
+    public async Task Batch_NoChanges_DoesNotModifyStyle()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -43,11 +42,11 @@ public class BatchStyleTests
         });
 
         // Style should remain default
-        Assert.AreEqual(XLStyle.Default.Key, ((XLStyle)cell.Style).Key);
+        await Assert.That(((XLStyle)cell.Style).Key).IsEqualTo(XLStyle.Default.Key);
     }
 
     [Test]
-    public void Batch_ReturnsSameStyleInstance()
+    public async Task Batch_ReturnsSameStyleInstance()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -56,11 +55,11 @@ public class BatchStyleTests
 
         var result = style.Batch(s => s.Font.Bold = true);
 
-        Assert.AreSame(style, result);
+        await Assert.That(result).IsSameReferenceAs(style);
     }
 
     [Test]
-    public void Batch_SetBorderProperties()
+    public async Task Batch_SetBorderProperties()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -74,14 +73,14 @@ public class BatchStyleTests
             s.Border.RightBorder = XLBorderStyleValues.Double;
         });
 
-        Assert.AreEqual(XLBorderStyleValues.Thin, cell.Style.Border.TopBorder);
-        Assert.AreEqual(XLBorderStyleValues.Thick, cell.Style.Border.BottomBorder);
-        Assert.AreEqual(XLBorderStyleValues.Dashed, cell.Style.Border.LeftBorder);
-        Assert.AreEqual(XLBorderStyleValues.Double, cell.Style.Border.RightBorder);
+        await Assert.That(cell.Style.Border.TopBorder).IsEqualTo(XLBorderStyleValues.Thin);
+        await Assert.That(cell.Style.Border.BottomBorder).IsEqualTo(XLBorderStyleValues.Thick);
+        await Assert.That(cell.Style.Border.LeftBorder).IsEqualTo(XLBorderStyleValues.Dashed);
+        await Assert.That(cell.Style.Border.RightBorder).IsEqualTo(XLBorderStyleValues.Double);
     }
 
     [Test]
-    public void Batch_SetNumberFormatAndProtection()
+    public async Task Batch_SetNumberFormatAndProtection()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -94,13 +93,13 @@ public class BatchStyleTests
             s.Protection.Hidden = true;
         });
 
-        Assert.AreEqual("#,##0.00", cell.Style.NumberFormat.Format);
-        Assert.IsFalse(cell.Style.Protection.Locked);
-        Assert.IsTrue(cell.Style.Protection.Hidden);
+        await Assert.That(cell.Style.NumberFormat.Format).IsEqualTo("#,##0.00");
+        await Assert.That(cell.Style.Protection.Locked).IsFalse();
+        await Assert.That(cell.Style.Protection.Hidden).IsTrue();
     }
 
     [Test]
-    public void Batch_FluentSetters_Work()
+    public async Task Batch_FluentSetters_Work()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -111,13 +110,13 @@ public class BatchStyleTests
             s.Font.SetBold().Font.SetItalic().Font.SetFontSize(16);
         });
 
-        Assert.IsTrue(cell.Style.Font.Bold);
-        Assert.IsTrue(cell.Style.Font.Italic);
-        Assert.AreEqual(16, cell.Style.Font.FontSize);
+        await Assert.That(cell.Style.Font.Bold).IsTrue();
+        await Assert.That(cell.Style.Font.Italic).IsTrue();
+        await Assert.That(cell.Style.Font.FontSize).IsEqualTo(16);
     }
 
     [Test]
-    public void Batch_OnRange_FallsBackToNormalBehavior()
+    public async Task Batch_OnRange_FallsBackToNormalBehavior()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -132,13 +131,13 @@ public class BatchStyleTests
         // All cells in range should have the style applied
         foreach (var cell in range.Cells())
         {
-            Assert.IsTrue(cell.Style.Font.Bold);
-            Assert.AreEqual(XLColor.Blue, cell.Style.Fill.BackgroundColor);
+            await Assert.That(cell.Style.Font.Bold).IsTrue();
+            await Assert.That(cell.Style.Fill.BackgroundColor).IsEqualTo(XLColor.Blue);
         }
     }
 
     [Test]
-    public void Batch_MatchesIndividualPropertySets()
+    public async Task Batch_MatchesIndividualPropertySets()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -164,11 +163,11 @@ public class BatchStyleTests
         // Both cells should have identical style keys
         var keyA = ((XLStyle)ws.Cell("A1").Style).Key;
         var keyB = ((XLStyle)ws.Cell("B1").Style).Key;
-        Assert.AreEqual(keyA, keyB);
+        await Assert.That(keyB).IsEqualTo(keyA);
     }
 
     [Test]
-    public void BatchModify_WithKeyLambda_Works()
+    public async Task BatchModify_WithKeyLambda_Works()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -180,13 +179,13 @@ public class BatchStyleTests
             Alignment = k.Alignment with { WrapText = true },
         });
 
-        Assert.IsTrue(cell.Style.Font.Bold);
-        Assert.AreEqual(12.0, cell.Style.Font.FontSize);
-        Assert.IsTrue(cell.Style.Alignment.WrapText);
+        await Assert.That(cell.Style.Font.Bold).IsTrue();
+        await Assert.That(cell.Style.Font.FontSize).IsEqualTo(12.0);
+        await Assert.That(cell.Style.Alignment.WrapText).IsTrue();
     }
 
     [Test]
-    public void Batch_IncludeQuotePrefix()
+    public async Task Batch_IncludeQuotePrefix()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -198,7 +197,7 @@ public class BatchStyleTests
             s.Font.Bold = true;
         });
 
-        Assert.IsTrue(cell.Style.IncludeQuotePrefix);
-        Assert.IsTrue(cell.Style.Font.Bold);
+        await Assert.That(cell.Style.IncludeQuotePrefix).IsTrue();
+        await Assert.That(cell.Style.Font.Bold).IsTrue();
     }
 }

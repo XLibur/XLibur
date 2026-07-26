@@ -1,16 +1,14 @@
 ﻿using XLibur.Excel.Caching;
-using NUnit.Framework;
 using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Extensions;
 
 namespace XLibur.Tests.Excel.Caching;
 
-[TestFixture]
 public class BaseRepositoryTests
 {
     [Test]
-    public void DifferentEntitiesWithSameKeyStoredOnce()
+    public async Task DifferentEntitiesWithSameKeyStoredOnce()
     {
         // Arrange
         var key = 12345;
@@ -23,13 +21,13 @@ public class BaseRepositoryTests
         var storedEntity2 = sampleRepository.Store(ref key, entity2);
 
         // Assert
-        Assert.AreSame(entity1, storedEntity1);
-        Assert.AreSame(entity1, storedEntity2);
-        Assert.AreNotSame(entity2, storedEntity2);
+        await Assert.That(storedEntity1).IsSameReferenceAs(entity1);
+        await Assert.That(storedEntity2).IsSameReferenceAs(entity1);
+        await Assert.That(storedEntity2).IsNotSameReferenceAs(entity2);
     }
 
     [Test]
-    public void ConcurrentAddingCausesNoDuplication()
+    public async Task ConcurrentAddingCausesNoDuplication()
     {
         // Arrange
         const int countUnique = 30;
@@ -55,12 +53,12 @@ public class BaseRepositoryTests
         var storedEntries = sampleRepository.ToList();
 
         // Assert
-        Assert.AreEqual(countUnique, storedEntries.Count);
-        Assert.NotNull(entities); // To protect them from GC
+        await Assert.That(storedEntries.Count).IsEqualTo(countUnique);
+        await Assert.That(entities).IsNotNull(); // To protect them from GC
     }
 
     [Test]
-    public void ReplaceKeyInRepository()
+    public async Task ReplaceKeyInRepository()
     {
         // Arrange
         var key1 = 12345;
@@ -76,30 +74,38 @@ public class BaseRepositoryTests
         var storedEntity2 = sampleRepository.GetOrCreate(ref key2);
 
         // Assert
-        Assert.IsFalse(containsOld);
-        Assert.IsTrue(containsNew);
-        Assert.AreSame(entity, storedEntity1);
-        Assert.AreSame(entity, storedEntity2);
+        await Assert.That(containsOld).IsFalse();
+        await Assert.That(containsNew).IsTrue();
+        await Assert.That(storedEntity1).IsSameReferenceAs(entity);
+        await Assert.That(storedEntity2).IsSameReferenceAs(entity);
     }
 
     [Test]
-    public void ConcurrentReplaceKeyInRepository()
+    public async Task ConcurrentReplaceKeyInRepository()
     {
         var sampleRepository = new EditableRepository();
         var keys = Enumerable.Range(0, 1000).ToArray();
         keys.ForEach(key => sampleRepository.GetOrCreate(ref key));
 
+        // Parallel.ForEach takes an Action, and `ref` arguments are not allowed in an async
+        // lambda, so mismatches are collected here and asserted once the loop completes.
+        var mismatchedKeys = new System.Collections.Concurrent.ConcurrentBag<int>();
         Parallel.ForEach(keys, key =>
         {
             var modifiedKey = key + 2000;
             var val1 = sampleRepository.Replace(ref key, ref modifiedKey);
             var val2 = sampleRepository.GetOrCreate(ref modifiedKey);
-            Assert.AreSame(val1, val2);
+            if (!ReferenceEquals(val2, val1))
+            {
+                mismatchedKeys.Add(key);
+            }
         });
+
+        await Assert.That(mismatchedKeys).IsEmpty();
     }
 
     [Test]
-    public void ReplaceNonExistingKeyInRepository()
+    public async Task ReplaceNonExistingKeyInRepository()
     {
         var key1 = 100;
         var key2 = 200;
@@ -111,8 +117,8 @@ public class BaseRepositoryTests
         sampleRepository.Replace(ref key2, ref key3);
         var all = sampleRepository.ToList();
 
-        Assert.AreEqual(1, all.Count);
-        Assert.AreSame(entity, all.First());
+        await Assert.That(all.Count).IsEqualTo(1);
+        await Assert.That(all.First()).IsSameReferenceAs(entity);
     }
 
     private static SampleRepository CreateSampleRepository()

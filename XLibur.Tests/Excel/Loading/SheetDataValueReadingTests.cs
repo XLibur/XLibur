@@ -1,17 +1,15 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
-using NUnit.Framework;
 using XLibur.Excel;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Loading;
-
 /// <summary>
 /// Covers reading of cell attribute and <c>&lt;v&gt;</c> content that does not fit the fixed-size
 /// scratch buffer the sheet-data reader uses to avoid a string allocation per cell. Well-formed
 /// files never exceed it, so without these tests the fallback path would be unexercised.
 /// </summary>
-[TestFixture]
 public class SheetDataValueReadingTests
 {
     private static XLWorkbook SaveAndReload(XLWorkbook workbook)
@@ -30,13 +28,14 @@ public class SheetDataValueReadingTests
         return new XLWorkbook(ms);
     }
 
-    [TestCase(10)]
-    [TestCase(63)]
-    [TestCase(64)]
-    [TestCase(65)]
-    [TestCase(200)]
-    [TestCase(5000)]
-    public void Text_of_any_length_round_trips(int length)
+    [Test]
+    [Arguments(10)]
+    [Arguments(63)]
+    [Arguments(64)]
+    [Arguments(65)]
+    [Arguments(200)]
+    [Arguments(5000)]
+    public async Task Text_of_any_length_round_trips(int length)
     {
         var text = string.Concat(Enumerable.Repeat("abcdefghij", (length / 10) + 1))[..length];
 
@@ -46,11 +45,11 @@ public class SheetDataValueReadingTests
 
         using var reloaded = SaveAndReload(original);
 
-        Assert.That(reloaded.Worksheet("Sheet1").Cell("A1").GetString(), Is.EqualTo(text));
+        await Assert.That(reloaded.Worksheet("Sheet1").Cell("A1").GetString()).IsEqualTo(text);
     }
 
     [Test]
-    public void Formula_string_result_longer_than_the_scratch_buffer_round_trips()
+    public async Task Formula_string_result_longer_than_the_scratch_buffer_round_trips()
     {
         // A cached formula result is written as t="str" with the text inline in <v>, so it goes
         // through the same buffered read as a normal value but is not a shared string.
@@ -65,7 +64,7 @@ public class SheetDataValueReadingTests
         // formula cell would carry no <v> and the t="str" read path would not be exercised.
         using var reloaded = SaveAndReload(original, new SaveOptions { EvaluateFormulasBeforeSaving = true });
 
-        Assert.That(reloaded.Worksheet("Sheet1").Cell("A2").CachedValue.GetText(), Is.EqualTo(text));
+        await Assert.That(reloaded.Worksheet("Sheet1").Cell("A2").CachedValue.GetText()).IsEqualTo(text);
     }
 
     /// <remarks>
@@ -76,7 +75,7 @@ public class SheetDataValueReadingTests
     /// what was written.
     /// </remarks>
     [Test]
-    public void High_precision_numbers_round_trip()
+    public async Task High_precision_numbers_round_trip()
     {
         double[] numbers =
         [
@@ -98,13 +97,12 @@ public class SheetDataValueReadingTests
         var loaded = reloaded.Worksheet("Sheet1");
         for (var i = 0; i < numbers.Length; i++)
         {
-            Assert.That(loaded.Cell(i + 1, 1).GetDouble(), Is.EqualTo(numbers[i]),
-                $"number at row {i + 1} did not round-trip");
+            await Assert.That(loaded.Cell(i + 1, 1).GetDouble()).IsEqualTo(numbers[i]).Because($"number at row {i + 1} did not round-trip");
         }
     }
 
     [Test]
-    public void Shared_string_indexes_beyond_the_scratch_buffer_width_round_trip()
+    public async Task Shared_string_indexes_beyond_the_scratch_buffer_width_round_trip()
     {
         // Forces six-digit shared string indexes, so the <v> content of later cells is longer
         // than a short value but still well inside the buffer — guards the index parse path.
@@ -118,16 +116,16 @@ public class SheetDataValueReadingTests
         using var reloaded = SaveAndReload(original);
 
         var loaded = reloaded.Worksheet("Sheet1");
-        Assert.Multiple(() =>
+        using (Assert.Multiple())
         {
-            Assert.That(loaded.Cell(1, 1).GetString(), Is.EqualTo("s0"));
-            Assert.That(loaded.Cell(count / 2, 1).GetString(), Is.EqualTo("s" + (count / 2 - 1)));
-            Assert.That(loaded.Cell(count, 1).GetString(), Is.EqualTo("s" + (count - 1)));
-        });
+            await Assert.That(loaded.Cell(1, 1).GetString()).IsEqualTo("s0");
+            await Assert.That(loaded.Cell(count / 2, 1).GetString()).IsEqualTo("s" + (count / 2 - 1));
+            await Assert.That(loaded.Cell(count, 1).GetString()).IsEqualTo("s" + (count - 1));
+        }
     }
 
     [Test]
-    public void Whitespace_only_and_padded_text_is_preserved()
+    public async Task Whitespace_only_and_padded_text_is_preserved()
     {
         // <t xml:space="preserve"> content must survive the shared-string reader verbatim.
         string[] texts = ["   ", " leading", "trailing ", " both ", "\ttab\t", new string(' ', 100)];
@@ -142,13 +140,12 @@ public class SheetDataValueReadingTests
         var loaded = reloaded.Worksheet("Sheet1");
         for (var i = 0; i < texts.Length; i++)
         {
-            Assert.That(loaded.Cell(i + 1, 1).GetString(), Is.EqualTo(texts[i]),
-                $"text at row {i + 1} was not preserved");
+            await Assert.That(loaded.Cell(i + 1, 1).GetString()).IsEqualTo(texts[i]).Because($"text at row {i + 1} was not preserved");
         }
     }
 
     [Test]
-    public void Escaped_control_characters_are_decoded_once()
+    public async Task Escaped_control_characters_are_decoded_once()
     {
         // _xHHHH_ escapes are decoded by the shared-string reader; a literal underscore run
         // must not be mistaken for an escape.
@@ -164,13 +161,12 @@ public class SheetDataValueReadingTests
         var loaded = reloaded.Worksheet("Sheet1");
         for (var i = 0; i < texts.Length; i++)
         {
-            Assert.That(loaded.Cell(i + 1, 1).GetString(), Is.EqualTo(texts[i]),
-                $"text at row {i + 1} was not decoded correctly");
+            await Assert.That(loaded.Cell(i + 1, 1).GetString()).IsEqualTo(texts[i]).Because($"text at row {i + 1} was not decoded correctly");
         }
     }
 
     [Test]
-    public void Rich_text_and_plain_text_can_share_one_table()
+    public async Task Rich_text_and_plain_text_can_share_one_table()
     {
         using var original = new XLWorkbook();
         var ws = original.AddWorksheet("Sheet1");
@@ -185,15 +181,15 @@ public class SheetDataValueReadingTests
         using var reloaded = SaveAndReload(original);
 
         var loaded = reloaded.Worksheet("Sheet1");
-        Assert.Multiple(() =>
+        using (Assert.Multiple())
         {
-            Assert.That(loaded.Cell("A1").GetString(), Is.EqualTo("plain before"));
-            Assert.That(loaded.Cell("A3").GetString(), Is.EqualTo("plain after"));
-            Assert.That(loaded.Cell("A2").GetString(), Is.EqualTo("bold" + new string('n', 120)));
+            await Assert.That(loaded.Cell("A1").GetString()).IsEqualTo("plain before");
+            await Assert.That(loaded.Cell("A3").GetString()).IsEqualTo("plain after");
+            await Assert.That(loaded.Cell("A2").GetString()).IsEqualTo("bold" + new string('n', 120));
 
             var loadedRich = loaded.Cell("A2").GetRichText();
-            Assert.That(loadedRich.Count, Is.EqualTo(2));
-            Assert.That(loadedRich.First().Bold, Is.True);
-        });
+            await Assert.That(loadedRich.Count).IsEqualTo(2);
+            await Assert.That(loadedRich.First().Bold).IsTrue();
+        }
     }
 }

@@ -1,37 +1,36 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Ranges;
 
-[TestFixture]
 public class XLRangeBaseTests
 {
     [Test]
-    public void IsEmpty1()
+    public async Task IsEmpty1()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
         var range = ws.Range("A1:B2");
         var actual = range.IsEmpty();
         var expected = true;
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void IsEmpty2()
+    public async Task IsEmpty2()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
         var range = ws.Range("A1:B2");
         var actual = range.IsEmpty(XLCellsUsedOptions.All);
         var expected = true;
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void IsEmpty3()
+    public async Task IsEmpty3()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
@@ -39,11 +38,11 @@ public class XLRangeBaseTests
         var range = ws.Range("A1:B2");
         var actual = range.IsEmpty();
         var expected = true;
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void IsEmpty4()
+    public async Task IsEmpty4()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
@@ -51,11 +50,11 @@ public class XLRangeBaseTests
         var range = ws.Range("A1:B2");
         var actual = range.IsEmpty(XLCellsUsedOptions.AllContents);
         var expected = true;
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void IsEmpty5()
+    public async Task IsEmpty5()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
@@ -63,11 +62,11 @@ public class XLRangeBaseTests
         var range = ws.Range("A1:B2");
         var actual = range.IsEmpty(XLCellsUsedOptions.All);
         var expected = false;
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void IsEmpty6()
+    public async Task IsEmpty6()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
@@ -75,23 +74,23 @@ public class XLRangeBaseTests
         var range = ws.Range("A1:B2");
         var actual = range.IsEmpty();
         var expected = false;
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void SingleCell()
+    public async Task SingleCell()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell(1, 1).Value = "Hello World!";
         wb.DefinedNames.Add("SingleCell", "Sheet1!$A$1");
         var range = wb.Range("SingleCell");
-        Assert.AreEqual(1, range.CellsUsed().Count());
-        Assert.AreEqual("Hello World!", range.CellsUsed().Single().GetText());
+        await Assert.That(range.CellsUsed().Count()).IsEqualTo(1);
+        await Assert.That(range.CellsUsed().Single().GetText()).IsEqualTo("Hello World!");
     }
 
     [Test]
-    public void TableRange()
+    public async Task TableRange()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -104,34 +103,33 @@ public class XLRangeBaseTests
         wb.DefinedNames.Add("FNameColumn", $"{table.Name}[FName]");
 
         var namedRange = wb.Range("FNameColumn");
-        Assert.AreEqual(3, namedRange.Cells().Count());
-        Assert.IsTrue(
-            namedRange.CellsUsed().Select(cell => cell.GetText()).SequenceEqual(["John", "Hank", "Dagny"]));
+        await Assert.That(namedRange.Cells().Count()).IsEqualTo(3);
+        await Assert.That(namedRange.CellsUsed().Select(cell => cell.GetText()).SequenceEqual(["John", "Hank", "Dagny"])).IsTrue();
     }
 
     [Test]
-    public void WsNamedCell()
+    public async Task WsNamedCell()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell(1, 1).SetValue("Test").AddToNamed("TestCell", XLScope.Worksheet);
-        Assert.AreEqual("Test", ws.Cell("TestCell").GetText());
+        await Assert.That(ws.Cell("TestCell").GetText()).IsEqualTo("Test");
     }
 
     [Test]
-    public void WsNamedCells()
+    public async Task WsNamedCells()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell(1, 1).SetValue("Test").AddToNamed("TestCell", XLScope.Worksheet);
         ws.Cell(2, 1).SetValue("B");
         var cells = ws.Cells("TestCell, A2");
-        Assert.AreEqual("Test", cells.First().GetText());
-        Assert.AreEqual("B", cells.Last().GetText());
+        await Assert.That(cells.First().GetText()).IsEqualTo("Test");
+        await Assert.That(cells.Last().GetText()).IsEqualTo("B");
     }
 
     [Test]
-    public void WsNamedRange()
+    public async Task WsNamedRange()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -140,11 +138,11 @@ public class XLRangeBaseTests
         var original = ws.Range("A1:A2");
         original.AddToNamed("TestRange", XLScope.Worksheet);
         var named = ws.Range("TestRange");
-        Assert.AreEqual(original.RangeAddress.ToStringFixed(), named.RangeAddress.ToString());
+        await Assert.That(named.RangeAddress.ToString()).IsEqualTo(original.RangeAddress.ToStringFixed());
     }
 
     [Test]
-    public void WsNamedRanges()
+    public async Task WsNamedRanges()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -154,20 +152,20 @@ public class XLRangeBaseTests
         var original = ws.Range("A1:A2");
         original.AddToNamed("TestRange", XLScope.Worksheet);
         var namedRanges = ws.Ranges("TestRange, A3");
-        Assert.AreEqual(original.RangeAddress.ToStringFixed(), namedRanges.First().RangeAddress.ToString());
-        Assert.AreEqual("$A$3:$A$3", namedRanges.Last().RangeAddress.ToStringFixed());
+        await Assert.That(namedRanges.First().RangeAddress.ToString()).IsEqualTo(original.RangeAddress.ToStringFixed());
+        await Assert.That(namedRanges.Last().RangeAddress.ToStringFixed()).IsEqualTo("$A$3:$A$3");
     }
 
     [Test]
-    public void WsNamedRangesOneString()
+    public async Task WsNamedRangesOneString()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
         ws.DefinedNames.Add("TestRange", "Sheet1!$A$1,Sheet1!$A$3");
         var namedRanges = ws.Ranges("TestRange");
 
-        Assert.AreEqual("$A$1:$A$1", namedRanges.First().RangeAddress.ToStringFixed());
-        Assert.AreEqual("$A$3:$A$3", namedRanges.Last().RangeAddress.ToStringFixed());
+        await Assert.That(namedRanges.First().RangeAddress.ToStringFixed()).IsEqualTo("$A$1:$A$1");
+        await Assert.That(namedRanges.Last().RangeAddress.ToStringFixed()).IsEqualTo("$A$3:$A$3");
     }
 
     //[Test]
@@ -187,202 +185,202 @@ public class XLRangeBaseTests
     //}
 
     [Test]
-    public void GrowRange()
+    public async Task GrowRange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
-        Assert.AreEqual("A1:B2", ws.Cell("A1").AsRange().Grow().RangeAddress.ToString());
-        Assert.AreEqual("A1:B3", ws.Cell("A2").AsRange().Grow().RangeAddress.ToString());
-        Assert.AreEqual("A1:C2", ws.Cell("B1").AsRange().Grow().RangeAddress.ToString());
+        await Assert.That(ws.Cell("A1").AsRange().Grow().RangeAddress.ToString()).IsEqualTo("A1:B2");
+        await Assert.That(ws.Cell("A2").AsRange().Grow().RangeAddress.ToString()).IsEqualTo("A1:B3");
+        await Assert.That(ws.Cell("B1").AsRange().Grow().RangeAddress.ToString()).IsEqualTo("A1:C2");
 
-        Assert.AreEqual("E4:G6", ws.Cell("F5").AsRange().Grow().RangeAddress.ToString());
-        Assert.AreEqual("D3:H7", ws.Cell("F5").AsRange().Grow(2).RangeAddress.ToString());
-        Assert.AreEqual("A1:DB105", ws.Cell("F5").AsRange().Grow(100).RangeAddress.ToString());
+        await Assert.That(ws.Cell("F5").AsRange().Grow().RangeAddress.ToString()).IsEqualTo("E4:G6");
+        await Assert.That(ws.Cell("F5").AsRange().Grow(2).RangeAddress.ToString()).IsEqualTo("D3:H7");
+        await Assert.That(ws.Cell("F5").AsRange().Grow(100).RangeAddress.ToString()).IsEqualTo("A1:DB105");
     }
 
     [Test]
-    public void ShrinkRange()
+    public async Task ShrinkRange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
-        Assert.Null(ws.Cell("A1").AsRange().Shrink());
-        Assert.Null(ws.Range("B2:C3").Shrink());
-        Assert.AreEqual("C3:C3", ws.Range("B2:D4").Shrink().RangeAddress.ToString());
-        Assert.AreEqual("K11:P16", ws.Range("A1:Z26").Shrink(10).RangeAddress.ToString());
+        await Assert.That(ws.Cell("A1").AsRange().Shrink()).IsNull();
+        await Assert.That(ws.Range("B2:C3").Shrink()).IsNull();
+        await Assert.That(ws.Range("B2:D4").Shrink().RangeAddress.ToString()).IsEqualTo("C3:C3");
+        await Assert.That(ws.Range("A1:Z26").Shrink(10).RangeAddress.ToString()).IsEqualTo("K11:P16");
 
         // Grow and shrink back
-        Assert.AreEqual("Z26:Z26", ws.Cell("Z26").AsRange().Grow(10).Shrink(10).RangeAddress.ToString());
+        await Assert.That(ws.Cell("Z26").AsRange().Grow(10).Shrink(10).RangeAddress.ToString()).IsEqualTo("Z26:Z26");
     }
 
     [Test]
-    public void Intersection()
+    public async Task Intersection()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
-        Assert.AreEqual("D9:G11", ws.Range("B9:I11").Intersection(ws.Range("D4:G16")).ToString());
-        Assert.AreEqual("E9:G11", ws.Range("E9:I11").Intersection(ws.Range("D4:G16")).ToString());
-        Assert.AreEqual("E9:E9", ws.Cell("E9").AsRange().Intersection(ws.Range("D4:G16")).ToString());
-        Assert.AreEqual("E9:E9", ws.Range("D4:G16").Intersection(ws.Cell("E9").AsRange()).ToString());
+        await Assert.That(ws.Range("B9:I11").Intersection(ws.Range("D4:G16")).ToString()).IsEqualTo("D9:G11");
+        await Assert.That(ws.Range("E9:I11").Intersection(ws.Range("D4:G16")).ToString()).IsEqualTo("E9:G11");
+        await Assert.That(ws.Cell("E9").AsRange().Intersection(ws.Range("D4:G16")).ToString()).IsEqualTo("E9:E9");
+        await Assert.That(ws.Range("D4:G16").Intersection(ws.Cell("E9").AsRange()).ToString()).IsEqualTo("E9:E9");
 
         var rangeAddress = (XLRangeAddress)ws.Cell("C3").AsRange().Intersection(ws.Cell("A1").AsRange());
-        Assert.IsFalse(rangeAddress.IsValid);
+        await Assert.That(rangeAddress.IsValid).IsFalse();
 
         rangeAddress = (XLRangeAddress)ws.Cell("A1").AsRange().Intersection(ws.Cell("C3").AsRange());
-        Assert.IsFalse(rangeAddress.IsValid);
+        await Assert.That(rangeAddress.IsValid).IsFalse();
 
-        Assert.Null(ws.Range("A1:C3").Intersection(null));
+        await Assert.That(ws.Range("A1:C3").Intersection(null)).IsNull();
 
         var otherWs = wb.AddWorksheet("Sheet2");
-        Assert.Null(ws.Intersection(otherWs));
-        Assert.Null(ws.Cell("A1").AsRange().Intersection(otherWs.Cell("A2").AsRange()));
+        await Assert.That(ws.Intersection(otherWs)).IsNull();
+        await Assert.That(ws.Cell("A1").AsRange().Intersection(otherWs.Cell("A2").AsRange())).IsNull();
     }
 
     [Test]
-    public void Union()
+    public async Task Union()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
-        Assert.AreEqual(64, ws.Range("B9:I11").Union(ws.Range("D4:G16")).Count());
-        Assert.AreEqual(58, ws.Range("E9:I11").Union(ws.Range("D4:G16")).Count());
-        Assert.AreEqual(52, ws.Cell("E9").AsRange().Union(ws.Range("D4:G16")).Count());
-        Assert.AreEqual(52, ws.Range("D4:G16").Union(ws.Cell("E9").AsRange()).Count());
+        await Assert.That(ws.Range("B9:I11").Union(ws.Range("D4:G16")).Count()).IsEqualTo(64);
+        await Assert.That(ws.Range("E9:I11").Union(ws.Range("D4:G16")).Count()).IsEqualTo(58);
+        await Assert.That(ws.Cell("E9").AsRange().Union(ws.Range("D4:G16")).Count()).IsEqualTo(52);
+        await Assert.That(ws.Range("D4:G16").Union(ws.Cell("E9").AsRange()).Count()).IsEqualTo(52);
 
-        Assert.AreEqual(2, ws.Cell("A1").AsRange().Union(ws.Cell("C3").AsRange()).Count());
+        await Assert.That(ws.Cell("A1").AsRange().Union(ws.Cell("C3").AsRange()).Count()).IsEqualTo(2);
 
-        Assert.AreEqual(9, ws.Range("A1:C3").Union(null).Count());
+        await Assert.That(ws.Range("A1:C3").Union(null).Count()).IsEqualTo(9);
 
         var otherWs = wb.AddWorksheet("Sheet2");
-        Assert.False(ws.Union(otherWs).Any());
-        Assert.False(ws.Cell("A1").AsRange().Union(otherWs.Cell("A2").AsRange()).Any());
+        await Assert.That(ws.Union(otherWs).Any()).IsFalse();
+        await Assert.That(ws.Cell("A1").AsRange().Union(otherWs.Cell("A2").AsRange()).Any()).IsFalse();
     }
 
     [Test]
-    public void Difference()
+    public async Task Difference()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
-        Assert.AreEqual(12, ws.Range("B9:I11").Difference(ws.Range("D4:G16")).Count());
-        Assert.AreEqual(6, ws.Range("E9:I11").Difference(ws.Range("D4:G16")).Count());
-        Assert.AreEqual(0, ws.Cell("E9").AsRange().Difference(ws.Range("D4:G16")).Count());
-        Assert.AreEqual(51, ws.Range("D4:G16").Difference(ws.Cell("E9").AsRange()).Count());
+        await Assert.That(ws.Range("B9:I11").Difference(ws.Range("D4:G16")).Count()).IsEqualTo(12);
+        await Assert.That(ws.Range("E9:I11").Difference(ws.Range("D4:G16")).Count()).IsEqualTo(6);
+        await Assert.That(ws.Cell("E9").AsRange().Difference(ws.Range("D4:G16")).Count()).IsEqualTo(0);
+        await Assert.That(ws.Range("D4:G16").Difference(ws.Cell("E9").AsRange()).Count()).IsEqualTo(51);
 
-        Assert.AreEqual(1, ws.Cell("A1").AsRange().Difference(ws.Cell("C3").AsRange()).Count());
+        await Assert.That(ws.Cell("A1").AsRange().Difference(ws.Cell("C3").AsRange()).Count()).IsEqualTo(1);
 
-        Assert.AreEqual(9, ws.Range("A1:C3").Difference(null).Count());
+        await Assert.That(ws.Range("A1:C3").Difference(null).Count()).IsEqualTo(9);
 
         var otherWs = wb.AddWorksheet("Sheet2");
-        Assert.False(ws.Difference(otherWs).Any());
-        Assert.False(ws.Cell("A1").AsRange().Difference(otherWs.Cell("A2").AsRange()).Any());
+        await Assert.That(ws.Difference(otherWs).Any()).IsFalse();
+        await Assert.That(ws.Cell("A1").AsRange().Difference(otherWs.Cell("A2").AsRange()).Any()).IsFalse();
     }
 
     [Test]
-    public void SurroundingCells()
+    public async Task SurroundingCells()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
-        Assert.AreEqual(3, ws.FirstCell().AsRange().SurroundingCells().Count());
-        Assert.AreEqual(8, ws.Cell("C3").AsRange().SurroundingCells().Count());
-        Assert.AreEqual(16, ws.Range("C3:D6").AsRange().SurroundingCells().Count());
+        await Assert.That(ws.FirstCell().AsRange().SurroundingCells().Count()).IsEqualTo(3);
+        await Assert.That(ws.Cell("C3").AsRange().SurroundingCells().Count()).IsEqualTo(8);
+        await Assert.That(ws.Range("C3:D6").AsRange().SurroundingCells().Count()).IsEqualTo(16);
 
-        Assert.AreEqual(0, ws.Range("C3:D6").AsRange().SurroundingCells(c => !c.IsEmpty()).Count());
+        await Assert.That(ws.Range("C3:D6").AsRange().SurroundingCells(c => !c.IsEmpty()).Count()).IsEqualTo(0);
     }
 
     [Test]
-    public void ClearConditionalFormattingsWhenRangeAbove1()
+    public async Task ClearConditionalFormattingsWhenRangeAbove1()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Range("C3:D7").AddConditionalFormat();
         ws.Range("B2:E3").Clear(XLClearOptions.ConditionalFormats);
 
-        Assert.AreEqual(1, ws.ConditionalFormats.Count());
-        Assert.AreEqual("C4:D7", ws.ConditionalFormats.Single().Range.RangeAddress.ToStringRelative());
+        await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(1);
+        await Assert.That(ws.ConditionalFormats.Single().Range.RangeAddress.ToStringRelative()).IsEqualTo("C4:D7");
     }
 
     [Test]
-    public void ClearConditionalFormattingsWhenRangeAbove2()
+    public async Task ClearConditionalFormattingsWhenRangeAbove2()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Range("C3:D7").AddConditionalFormat();
         ws.Range("C3:D3").Clear(XLClearOptions.ConditionalFormats);
 
-        Assert.AreEqual(1, ws.ConditionalFormats.Count());
-        Assert.AreEqual("C4:D7", ws.ConditionalFormats.Single().Range.RangeAddress.ToStringRelative());
+        await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(1);
+        await Assert.That(ws.ConditionalFormats.Single().Range.RangeAddress.ToStringRelative()).IsEqualTo("C4:D7");
     }
 
     [Test]
-    public void ClearConditionalFormattingsWhenRangeBelow1()
+    public async Task ClearConditionalFormattingsWhenRangeBelow1()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Range("C3:D7").AddConditionalFormat();
         ws.Range("B7:E8").Clear(XLClearOptions.ConditionalFormats);
 
-        Assert.AreEqual(1, ws.ConditionalFormats.Count());
-        Assert.AreEqual("C3:D6", ws.ConditionalFormats.Single().Range.RangeAddress.ToStringRelative());
+        await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(1);
+        await Assert.That(ws.ConditionalFormats.Single().Range.RangeAddress.ToStringRelative()).IsEqualTo("C3:D6");
     }
 
     [Test]
-    public void ClearConditionalFormattingsWhenRangeBelow2()
+    public async Task ClearConditionalFormattingsWhenRangeBelow2()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Range("C3:D7").AddConditionalFormat();
         ws.Range("C7:D7").Clear(XLClearOptions.ConditionalFormats);
 
-        Assert.AreEqual(1, ws.ConditionalFormats.Count());
-        Assert.AreEqual("C3:D6", ws.ConditionalFormats.Single().Range.RangeAddress.ToStringRelative());
+        await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(1);
+        await Assert.That(ws.ConditionalFormats.Single().Range.RangeAddress.ToStringRelative()).IsEqualTo("C3:D6");
     }
 
     [Test]
-    public void ClearConditionalFormattingsWhenRangeRowInMiddle()
+    public async Task ClearConditionalFormattingsWhenRangeRowInMiddle()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Range("C3:D7").AddConditionalFormat();
         ws.Range("C5:E5").Clear(XLClearOptions.ConditionalFormats);
 
-        Assert.AreEqual(1, ws.ConditionalFormats.Count());
-        Assert.AreEqual("C3:D4", ws.ConditionalFormats.First().Ranges.First().RangeAddress.ToStringRelative());
-        Assert.AreEqual("C6:D7", ws.ConditionalFormats.First().Ranges.Last().RangeAddress.ToStringRelative());
+        await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(1);
+        await Assert.That(ws.ConditionalFormats.First().Ranges.First().RangeAddress.ToStringRelative()).IsEqualTo("C3:D4");
+        await Assert.That(ws.ConditionalFormats.First().Ranges.Last().RangeAddress.ToStringRelative()).IsEqualTo("C6:D7");
     }
 
     [Test]
-    public void ClearConditionalFormattingsWhenRangeColumnInMiddle()
+    public async Task ClearConditionalFormattingsWhenRangeColumnInMiddle()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Range("C3:G4").AddConditionalFormat();
         ws.Range("E2:E4").Clear(XLClearOptions.ConditionalFormats);
 
-        Assert.AreEqual(1, ws.ConditionalFormats.Count());
-        Assert.AreEqual("C3:D4", ws.ConditionalFormats.First().Ranges.First().RangeAddress.ToStringRelative());
-        Assert.AreEqual("F3:G4", ws.ConditionalFormats.First().Ranges.Last().RangeAddress.ToStringRelative());
+        await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(1);
+        await Assert.That(ws.ConditionalFormats.First().Ranges.First().RangeAddress.ToStringRelative()).IsEqualTo("C3:D4");
+        await Assert.That(ws.ConditionalFormats.First().Ranges.Last().RangeAddress.ToStringRelative()).IsEqualTo("F3:G4");
     }
 
     [Test]
-    public void ClearConditionalFormattingsWhenRangeContainsFormatWhole()
+    public async Task ClearConditionalFormattingsWhenRangeContainsFormatWhole()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Range("C3:G4").AddConditionalFormat();
         ws.Range("B2:G4").Clear(XLClearOptions.ConditionalFormats);
 
-        Assert.AreEqual(0, ws.ConditionalFormats.Count());
+        await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(0);
     }
 
     [Test]
-    public void NoClearConditionalFormattingsWhenRangePartiallySuperimposed()
+    public async Task NoClearConditionalFormattingsWhenRangePartiallySuperimposed()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Range("C3:G4").AddConditionalFormat();
         ws.Range("C2:D3").Clear(XLClearOptions.ConditionalFormats);
 
-        Assert.AreEqual(1, ws.ConditionalFormats.Count());
-        Assert.AreEqual(1, ws.ConditionalFormats.Single().Ranges.Count);
-        Assert.AreEqual("C3:G4", ws.ConditionalFormats.Single().Ranges.Single().RangeAddress.ToStringRelative());
+        await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(1);
+        await Assert.That(ws.ConditionalFormats.Single().Ranges.Count).IsEqualTo(1);
+        await Assert.That(ws.ConditionalFormats.Single().Ranges.Single().RangeAddress.ToStringRelative()).IsEqualTo("C3:G4");
     }
 
     [Test]
-    public void RangesRemoveAllWithoutDispose()
+    public async Task RangesRemoveAllWithoutDispose()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var ranges = new XLRanges
@@ -395,14 +393,14 @@ public class XLRangeBaseTests
         ranges.RemoveAll(null, false);
         ws.FirstColumn().InsertColumnsBefore(1);
 
-        Assert.AreEqual(0, ranges.Count);
+        await Assert.That(ranges.Count).IsEqualTo(0);
         // if ranges were not disposed they addresses should change
-        Assert.AreEqual("B1:B2", rangesCopy.First().RangeAddress.ToString());
-        Assert.AreEqual("C1:C2", rangesCopy.Last().RangeAddress.ToString());
+        await Assert.That(rangesCopy.First().RangeAddress.ToString()).IsEqualTo("B1:B2");
+        await Assert.That(rangesCopy.Last().RangeAddress.ToString()).IsEqualTo("C1:C2");
     }
 
     [Test]
-    public void RangesRemoveAllByCriteria()
+    public async Task RangesRemoveAllByCriteria()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var ranges = new XLRanges
@@ -415,12 +413,12 @@ public class XLRangeBaseTests
 
         ranges.RemoveAll(r => r.Intersects(otherRange));
 
-        Assert.AreEqual(1, ranges.Count);
-        Assert.AreEqual("A1:A2", ranges.Single().RangeAddress.ToString());
+        await Assert.That(ranges.Count).IsEqualTo(1);
+        await Assert.That(ranges.Single().RangeAddress.ToString()).IsEqualTo("A1:A2");
     }
 
     [Test]
-    public void XLRangesReturnsRangesInDeterministicOrder()
+    public async Task XLRangesReturnsRangesInDeterministicOrder()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.Worksheets.Add("Sheet1");
@@ -453,15 +451,15 @@ public class XLRangeBaseTests
 
         var actualRanges = ranges.ToList();
 
-        Assert.AreEqual(expectedRanges.Count, actualRanges.Count);
+        await Assert.That(actualRanges.Count).IsEqualTo(expectedRanges.Count);
         for (var i = 0; i < actualRanges.Count; i++)
         {
-            Assert.AreEqual(expectedRanges[i], actualRanges[i]);
+            await Assert.That(actualRanges[i]).IsEqualTo(expectedRanges[i]);
         }
     }
 
     [Test]
-    public void ClearRangeRemovesSparklines()
+    public async Task ClearRangeRemovesSparklines()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.SparklineGroups.Add("B1:B3", "C1:E3");
@@ -469,29 +467,30 @@ public class XLRangeBaseTests
         ws.Range("B1:C1").Clear();
         ws.Range("B2:C2").Clear(XLClearOptions.Sparklines);
 
-        Assert.AreEqual(1, ws.SparklineGroups.Single().Count());
-        Assert.IsFalse(ws.Cell("B1").HasSparkline);
-        Assert.IsFalse(ws.Cell("B2").HasSparkline);
-        Assert.IsTrue(ws.Cell("B3").HasSparkline);
+        await Assert.That(ws.SparklineGroups.Single().Count()).IsEqualTo(1);
+        await Assert.That(ws.Cell("B1").HasSparkline).IsFalse();
+        await Assert.That(ws.Cell("B2").HasSparkline).IsFalse();
+        await Assert.That(ws.Cell("B3").HasSparkline).IsTrue();
     }
 
-    [TestCase("B2:G7", "D4:E5", true, "B2:G3,B4:C5,D4:E5,F4:G5,B6:G7")]
-    [TestCase("B2:G7", "D4:E5", false, "B2:G3,B4:C5,F4:G5,B6:G7")]
-    [TestCase("B2:G7", "B2:G7", true, "B2:G7")]
-    [TestCase("B2:G7", "B2:G7", false, "")]
-    [TestCase("B2:G7", "A1:H8", true, "B2:G7")]
-    [TestCase("B2:G7", "A1:H8", false, "")]
-    [TestCase("B2:G7", "A1:B2", true, "B2:B2,C2:G2,B3:G7")]
-    [TestCase("B2:G7", "A1:B2", false, "C2:G2,B3:G7")]
-    [TestCase("B2:G7", "E4:J5", true, "B2:G3,B4:D5,E4:G5,B6:G7")]
-    [TestCase("B2:G7", "E4:J5", false, "B2:G3,B4:D5,B6:G7")]
-    [TestCase("B2:G7", "A11:H18", true, "B2:G7")]
-    [TestCase("B2:G7", "A11:H18", false, "B2:G7")]
-    [TestCase("B2:G7", "A1:H1", true, "B2:G7")]
-    [TestCase("B2:G7", "A1:A12", true, "B2:G7")]
-    [TestCase("B2:G7", "A8:H8", true, "B2:G7")]
-    [TestCase("B2:G7", "H1:H8", true, "B2:G7")]
-    public void CanSplitRange(string rangeAddress, string splitBy, bool includeIntersection, string expectedResult)
+    [Test]
+    [Arguments("B2:G7", "D4:E5", true, "B2:G3,B4:C5,D4:E5,F4:G5,B6:G7")]
+    [Arguments("B2:G7", "D4:E5", false, "B2:G3,B4:C5,F4:G5,B6:G7")]
+    [Arguments("B2:G7", "B2:G7", true, "B2:G7")]
+    [Arguments("B2:G7", "B2:G7", false, "")]
+    [Arguments("B2:G7", "A1:H8", true, "B2:G7")]
+    [Arguments("B2:G7", "A1:H8", false, "")]
+    [Arguments("B2:G7", "A1:B2", true, "B2:B2,C2:G2,B3:G7")]
+    [Arguments("B2:G7", "A1:B2", false, "C2:G2,B3:G7")]
+    [Arguments("B2:G7", "E4:J5", true, "B2:G3,B4:D5,E4:G5,B6:G7")]
+    [Arguments("B2:G7", "E4:J5", false, "B2:G3,B4:D5,B6:G7")]
+    [Arguments("B2:G7", "A11:H18", true, "B2:G7")]
+    [Arguments("B2:G7", "A11:H18", false, "B2:G7")]
+    [Arguments("B2:G7", "A1:H1", true, "B2:G7")]
+    [Arguments("B2:G7", "A1:A12", true, "B2:G7")]
+    [Arguments("B2:G7", "A8:H8", true, "B2:G7")]
+    [Arguments("B2:G7", "H1:H8", true, "B2:G7")]
+    public async Task CanSplitRange(string rangeAddress, string splitBy, bool includeIntersection, string expectedResult)
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -502,11 +501,11 @@ public class XLRangeBaseTests
 
         var actualAddresses = string.Join(",", result.Select(r => r.RangeAddress.ToString()));
 
-        Assert.AreEqual(expectedResult, actualAddresses);
+        await Assert.That(actualAddresses).IsEqualTo(expectedResult);
     }
 
     [Test]
-    public void Sorting_moves_values_and_fixes_formula_references()
+    public async Task Sorting_moves_values_and_fixes_formula_references()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -529,32 +528,33 @@ public class XLRangeBaseTests
 
         range.Sort("3 DESC");
 
-        Assert.AreEqual(32, ws.Cell("A2").Value);
-        Assert.AreEqual(6, ws.Cell("A3").Value);
-        Assert.AreEqual(7, ws.Cell("A4").Value);
-        Assert.AreEqual(2, ws.Cell("A5").Value);
+        await Assert.That(ws.Cell("A2").Value).IsEqualTo(32);
+        await Assert.That(ws.Cell("A3").Value).IsEqualTo(6);
+        await Assert.That(ws.Cell("A4").Value).IsEqualTo(7);
+        await Assert.That(ws.Cell("A5").Value).IsEqualTo(2);
 
-        Assert.AreEqual(2, ws.Cell("B2").Value);
-        Assert.AreEqual(9, ws.Cell("B3").Value);
-        Assert.AreEqual(5, ws.Cell("B4").Value);
-        Assert.AreEqual(14, ws.Cell("B5").Value);
+        await Assert.That(ws.Cell("B2").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("B3").Value).IsEqualTo(9);
+        await Assert.That(ws.Cell("B4").Value).IsEqualTo(5);
+        await Assert.That(ws.Cell("B5").Value).IsEqualTo(14);
 
         // Formulas has been moved around and their coordinates fixed after move
-        Assert.AreEqual("A2*B2 & \"(Waffle)\"", ws.Cell("C2").FormulaA1);
-        Assert.AreEqual("A3*B3 & \"(Shortcake)\"", ws.Cell("C3").FormulaA1);
-        Assert.AreEqual("A4*B4 & \"(Cake)\"", ws.Cell("C4").FormulaA1);
-        Assert.AreEqual("A5*B5 & \"(Pie)\"", ws.Cell("C5").FormulaA1);
+        await Assert.That(ws.Cell("C2").FormulaA1).IsEqualTo("A2*B2 & \"(Waffle)\"");
+        await Assert.That(ws.Cell("C3").FormulaA1).IsEqualTo("A3*B3 & \"(Shortcake)\"");
+        await Assert.That(ws.Cell("C4").FormulaA1).IsEqualTo("A4*B4 & \"(Cake)\"");
+        await Assert.That(ws.Cell("C5").FormulaA1).IsEqualTo("A5*B5 & \"(Pie)\"");
     }
 
-    [TestCase("PY(4)", "_xlfn._xlws.PY(4)")]
-    [TestCase("2 + CHISQ.INV(0.6,2)", "2 + _xlfn.CHISQ.INV(0.6,2)")]
-    [TestCase("2 + _xlfn.CHISQ.INV(0.6,2)", "2 + _xlfn.CHISQ.INV(0.6,2)")]
-    public void FormulaArrayA1_adds_prefix_to_future_functions(string formula, string expected)
+    [Test]
+    [Arguments("PY(4)", "_xlfn._xlws.PY(4)")]
+    [Arguments("2 + CHISQ.INV(0.6,2)", "2 + _xlfn.CHISQ.INV(0.6,2)")]
+    [Arguments("2 + _xlfn.CHISQ.INV(0.6,2)", "2 + _xlfn.CHISQ.INV(0.6,2)")]
+    public async Task FormulaArrayA1_adds_prefix_to_future_functions(string formula, string expected)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Range("A1:B2").FormulaArrayA1 = formula;
         var masterCellFormula = ws.Cell("A1").FormulaA1;
-        Assert.AreEqual(expected, masterCellFormula);
+        await Assert.That(masterCellFormula).IsEqualTo(expected);
     }
 }

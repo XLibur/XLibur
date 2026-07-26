@@ -1,13 +1,12 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Ranges;
 
-[TestFixture]
 public class SortTests
 {
     [Test]
-    public void Values_are_sorted_by_type_first()
+    public async Task Values_are_sorted_by_type_first()
     {
         // The values in asc order are number, text, logical, error, blanks.
         using var wb = new XLWorkbook();
@@ -34,13 +33,14 @@ public class SortTests
         for (var row = 1; row <= values.Length; ++row)
         {
             var sortedValue = ws.Cell(row, 1).Value;
-            Assert.AreEqual(values[row - 1], sortedValue);
+            await Assert.That(sortedValue).IsEqualTo(values[row - 1]);
         }
     }
 
-    [TestCase(XLSortOrder.Ascending)]
-    [TestCase(XLSortOrder.Descending)]
-    public void Blanks_are_always_last(XLSortOrder sortOrder)
+    [Test]
+    [Arguments(XLSortOrder.Ascending)]
+    [Arguments(XLSortOrder.Descending)]
+    public async Task Blanks_are_always_last(XLSortOrder sortOrder)
     {
         // When range contains blank, it is always last, no matter
         // if the sort order is ascending or descending
@@ -57,11 +57,11 @@ public class SortTests
 
         ws.Range(1, 1, values.Length, 1).Sort("1", sortOrder);
 
-        Assert.AreEqual(Blank.Value, ws.Cell(3, 1).Value);
+        await Assert.That(ws.Cell(3, 1).Value).IsEqualTo(Blank.Value);
     }
 
     [Test]
-    public void IgnoreBlanks_set_to_false_treats_blanks_as_empty_strings()
+    public async Task IgnoreBlanks_set_to_false_treats_blanks_as_empty_strings()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -73,15 +73,16 @@ public class SortTests
         ws.Range("A1:A3").Sort(1, ignoreBlanks: false);
 
         // Since blank is treated as empty string, it is not shuffled to the end.
-        Assert.AreEqual(Blank.Value, ws.Cell("A1").Value);
-        Assert.AreEqual(string.Empty, ws.Cell("A2").Value);
-        Assert.AreEqual("Text", ws.Cell("A3").Value);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(Blank.Value);
+        await Assert.That(ws.Cell("A2").Value).IsEqualTo(string.Empty);
+        await Assert.That(ws.Cell("A3").Value).IsEqualTo("Text");
     }
 
-    [TestCase(true, "a", "A")]
-    [TestCase(false, "A", "a")]
+    [Test]
+    [Arguments(true, "a", "A")]
+    [Arguments(false, "A", "a")]
     [Culture("en-US")]
-    public void MatchCase_flag_determines_if_texts_are_compared_case_sensitive(bool matchCase, string expectedFirst,
+    public async Task MatchCase_flag_determines_if_texts_are_compared_case_sensitive(bool matchCase, string expectedFirst,
         string expectedSecond)
     {
         using var wb = new XLWorkbook();
@@ -93,12 +94,12 @@ public class SortTests
 
         ws.Range("A1:A2").Sort(1, matchCase: matchCase);
 
-        Assert.AreEqual(expectedFirst, ws.Cell("A1").Value);
-        Assert.AreEqual(expectedSecond, ws.Cell("A2").Value);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(expectedFirst);
+        await Assert.That(ws.Cell("A2").Value).IsEqualTo(expectedSecond);
     }
 
     [Test]
-    public void Sort_can_use_multiple_columns()
+    public async Task Sort_can_use_multiple_columns()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -111,12 +112,12 @@ public class SortTests
 
         ws.Range("A1:B4").Sort("2 ASC, 1 DESC");
 
-        Assert.AreEqual(1, ws.Cell("A1").Value);
-        Assert.AreEqual(1, ws.Cell("B1").Value);
-        Assert.AreEqual(2, ws.Cell("A2").Value);
-        Assert.AreEqual(2, ws.Cell("B2").Value);
-        Assert.AreEqual(1, ws.Cell("A3").Value);
-        Assert.AreEqual(2, ws.Cell("B3").Value);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(1);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(1);
+        await Assert.That(ws.Cell("A2").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("B2").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("A3").Value).IsEqualTo(1);
+        await Assert.That(ws.Cell("B3").Value).IsEqualTo(2);
     }
 
     private static readonly int[] Data = [2, 2, 1];
@@ -126,7 +127,7 @@ public class SortTests
     private static readonly int[] SortRow3 = [1, 1];
 
     [Test]
-    public void Sort_columns_in_range_by_rows()
+    public async Task Sort_columns_in_range_by_rows()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -139,11 +140,11 @@ public class SortTests
         // Doesn't have parameters, so it is first rows ASC, second row ASC.
         ws.Range("A1:C2").SortLeftToRight();
 
-        Assert.AreEqual(1, ws.Cell("A1").Value);
-        Assert.AreEqual(1, ws.Cell("A2").Value);
-        Assert.AreEqual(2, ws.Cell("B1").Value);
-        Assert.AreEqual(1, ws.Cell("B2").Value);
-        Assert.AreEqual(2, ws.Cell("C1").Value);
-        Assert.AreEqual(2, ws.Cell("C2").Value);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(1);
+        await Assert.That(ws.Cell("A2").Value).IsEqualTo(1);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("B2").Value).IsEqualTo(1);
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("C2").Value).IsEqualTo(2);
     }
 }

@@ -1,152 +1,151 @@
-﻿using NUnit.Framework;
-using XLibur.Examples.ConditionalFormatting;
+﻿using XLibur.Examples.ConditionalFormatting;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;
 
-[TestFixture]
 public class ConditionalFormattingTests
 {
     [Test]
-    public void CFColorScaleLowHigh()
+    public async Task CFColorScaleLowHigh()
     {
-        TestHelper.RunTestExample<CFColorScaleLowHigh>(@"ConditionalFormatting\CFColorScaleLowHigh.xlsx");
+        await TestHelper.RunTestExample<CFColorScaleLowHigh>(@"ConditionalFormatting\CFColorScaleLowHigh.xlsx");
     }
 
     [Test]
-    public void CFColorScaleLowMidHigh()
+    public async Task CFColorScaleLowMidHigh()
     {
-        TestHelper.RunTestExample<CFColorScaleLowMidHigh>(@"ConditionalFormatting\CFColorScaleLowMidHigh.xlsx");
+        await TestHelper.RunTestExample<CFColorScaleLowMidHigh>(@"ConditionalFormatting\CFColorScaleLowMidHigh.xlsx");
     }
 
     [Test]
-    public void CFColorScaleMinimumMaximum()
+    public async Task CFColorScaleMinimumMaximum()
     {
-        TestHelper.RunTestExample<CFColorScaleMinimumMaximum>(@"ConditionalFormatting\CFColorScaleMinimumMaximum.xlsx");
+        await TestHelper.RunTestExample<CFColorScaleMinimumMaximum>(@"ConditionalFormatting\CFColorScaleMinimumMaximum.xlsx");
     }
 
     [Test]
-    public void CFContains()
+    public async Task CFContains()
     {
-        TestHelper.RunTestExample<CFContains>(@"ConditionalFormatting\CFContains.xlsx");
+        await TestHelper.RunTestExample<CFContains>(@"ConditionalFormatting\CFContains.xlsx");
     }
 
     [Test]
-    public void CFDataBar()
+    public async Task CFDataBar()
     {
-        TestHelper.RunTestExample<CFDataBar>(@"ConditionalFormatting\CFDataBar.xlsx");
+        await TestHelper.RunTestExample<CFDataBar>(@"ConditionalFormatting\CFDataBar.xlsx");
     }
 
     [Test]
-    public void CFDataBarNegative()
+    public async Task CFDataBarNegative()
     {
-        TestHelper.RunTestExample<CFDataBarNegative>(@"ConditionalFormatting\CFDataBarNegative.xlsx");
+        await TestHelper.RunTestExample<CFDataBarNegative>(@"ConditionalFormatting\CFDataBarNegative.xlsx");
     }
 
     [Test]
-    public void CFEndsWith()
+    public async Task CFEndsWith()
     {
-        TestHelper.RunTestExample<CFEndsWith>(@"ConditionalFormatting\CFEndsWith.xlsx");
+        await TestHelper.RunTestExample<CFEndsWith>(@"ConditionalFormatting\CFEndsWith.xlsx");
     }
 
     [Test]
-    public void CFEqualsNumber()
+    public async Task CFEqualsNumber()
     {
-        TestHelper.RunTestExample<CFEqualsNumber>(@"ConditionalFormatting\CFEqualsNumber.xlsx");
+        await TestHelper.RunTestExample<CFEqualsNumber>(@"ConditionalFormatting\CFEqualsNumber.xlsx");
     }
 
     [Test]
-    public void CFEqualsString()
+    public async Task CFEqualsString()
     {
-        TestHelper.RunTestExample<CFEqualsString>(@"ConditionalFormatting\CFEqualsString.xlsx");
+        await TestHelper.RunTestExample<CFEqualsString>(@"ConditionalFormatting\CFEqualsString.xlsx");
     }
 
     [Test]
-    public void CFIconSet()
+    public async Task CFIconSet()
     {
-        TestHelper.RunTestExample<CFIconSet>(@"ConditionalFormatting\CFIconSet.xlsx");
+        await TestHelper.RunTestExample<CFIconSet>(@"ConditionalFormatting\CFIconSet.xlsx");
     }
 
     [Test]
-    public void CFIsBlank()
+    public async Task CFIsBlank()
     {
-        TestHelper.RunTestExample<CFIsBlank>(@"ConditionalFormatting\CFIsBlank.xlsx");
+        await TestHelper.RunTestExample<CFIsBlank>(@"ConditionalFormatting\CFIsBlank.xlsx");
     }
 
     [Test]
-    public void CFIsError()
+    public async Task CFIsError()
     {
-        TestHelper.RunTestExample<CFIsError>(@"ConditionalFormatting\CFIsError.xlsx");
+        await TestHelper.RunTestExample<CFIsError>(@"ConditionalFormatting\CFIsError.xlsx");
     }
 
     [Test]
-    public void CFNotBlank()
+    public async Task CFNotBlank()
     {
-        TestHelper.RunTestExample<CFNotBlank>(@"ConditionalFormatting\CFNotBlank.xlsx");
+        await TestHelper.RunTestExample<CFNotBlank>(@"ConditionalFormatting\CFNotBlank.xlsx");
     }
 
     [Test]
-    public void CFNotContains()
+    public async Task CFNotContains()
     {
-        TestHelper.RunTestExample<CFNotContains>(@"ConditionalFormatting\CFNotContains.xlsx");
+        await TestHelper.RunTestExample<CFNotContains>(@"ConditionalFormatting\CFNotContains.xlsx");
     }
 
     [Test]
-    public void CFNotEqualsNumber()
+    public async Task CFNotEqualsNumber()
     {
-        TestHelper.RunTestExample<CFNotEqualsNumber>(@"ConditionalFormatting\CFNotEqualsNumber.xlsx");
+        await TestHelper.RunTestExample<CFNotEqualsNumber>(@"ConditionalFormatting\CFNotEqualsNumber.xlsx");
     }
 
     [Test]
-    public void CFNotEqualsString()
+    public async Task CFNotEqualsString()
     {
-        TestHelper.RunTestExample<CFNotEqualsString>(@"ConditionalFormatting\CFNotEqualsString.xlsx");
+        await TestHelper.RunTestExample<CFNotEqualsString>(@"ConditionalFormatting\CFNotEqualsString.xlsx");
     }
 
     [Test]
-    public void CFNotError()
+    public async Task CFNotError()
     {
-        TestHelper.RunTestExample<CFNotError>(@"ConditionalFormatting\CFNotError.xlsx");
+        await TestHelper.RunTestExample<CFNotError>(@"ConditionalFormatting\CFNotError.xlsx");
     }
 
     [Test]
-    public void CFStartsWith()
+    public async Task CFStartsWith()
     {
-        TestHelper.RunTestExample<CFStartsWith>(@"ConditionalFormatting\CFStartsWith.xlsx");
+        await TestHelper.RunTestExample<CFStartsWith>(@"ConditionalFormatting\CFStartsWith.xlsx");
     }
 
     [Test]
-    public void CFMultipleConditions()
+    public async Task CFMultipleConditions()
     {
-        TestHelper.RunTestExample<CFMultipleConditions>(@"ConditionalFormatting\CFMultipleConditions.xlsx");
+        await TestHelper.RunTestExample<CFMultipleConditions>(@"ConditionalFormatting\CFMultipleConditions.xlsx");
     }
 
     [Test]
-    public void CFStopIfTrue()
+    public async Task CFStopIfTrue()
     {
-        TestHelper.RunTestExample<CFStopIfTrue>(@"ConditionalFormatting\CFStopIfTrue.xlsx");
+        await TestHelper.RunTestExample<CFStopIfTrue>(@"ConditionalFormatting\CFStopIfTrue.xlsx");
     }
 
     [Test]
-    public void CFTop()
+    public async Task CFTop()
     {
-        TestHelper.RunTestExample<CFTop>(@"ConditionalFormatting\CFTop.xlsx");
+        await TestHelper.RunTestExample<CFTop>(@"ConditionalFormatting\CFTop.xlsx");
     }
 
     [Test]
-    public void CFBottom()
+    public async Task CFBottom()
     {
-        TestHelper.RunTestExample<CFBottom>(@"ConditionalFormatting\CFBottom.xlsx");
+        await TestHelper.RunTestExample<CFBottom>(@"ConditionalFormatting\CFBottom.xlsx");
     }
 
     [Test]
-    public void CFDatesOccurring()
+    public async Task CFDatesOccurring()
     {
-        TestHelper.RunTestExample<CFDatesOccurring>(@"ConditionalFormatting\CFDatesOccurring.xlsx");
+        await TestHelper.RunTestExample<CFDatesOccurring>(@"ConditionalFormatting\CFDatesOccurring.xlsx");
     }
 
     [Test]
-    public void CFDataBars()
+    public async Task CFDataBars()
     {
-        TestHelper.RunTestExample<CFDataBars>(@"ConditionalFormatting\CFDataBars.xlsx");
+        await TestHelper.RunTestExample<CFDataBars>(@"ConditionalFormatting\CFDataBars.xlsx");
     }
 }

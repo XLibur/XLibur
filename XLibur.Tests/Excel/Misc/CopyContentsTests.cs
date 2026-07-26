@@ -1,11 +1,10 @@
 ﻿using System;
 using XLibur.Excel;
-using NUnit.Framework;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Misc;
 
-[TestFixture]
 public class CopyContentsTests
 {
     private static void CopyRowAsRange(IXLWorksheet originalSheet, int originalRowNumber, IXLWorksheet destSheet,
@@ -23,17 +22,17 @@ public class CopyContentsTests
     }
 
     [Test]
-    public void CopyConditionalFormatsCount()
+    public async Task CopyConditionalFormatsCount()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().AddConditionalFormat().WhenContains("1").Fill.SetBackgroundColor(XLColor.Blue);
         ws.Cell("A2").CopyFrom(ws.FirstCell().AsRange());
-        Assert.AreEqual(2, ws.ConditionalFormats.Count());
+        await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(2);
     }
 
     [Test]
-    public void CopyConditionalFormatsFixedNum()
+    public async Task CopyConditionalFormatsFixedNum()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -41,12 +40,12 @@ public class CopyContentsTests
         ws.Cell("B1").Value = "1";
         ws.Cell("A1").AddConditionalFormat().WhenEquals(1).Fill.SetBackgroundColor(XLColor.Blue);
         ws.Cell("A2").CopyFrom(ws.Cell("A1").AsRange());
-        Assert.IsTrue(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "1" && !v.Value.IsFormula)));
-        Assert.IsTrue(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "1" && !v.Value.IsFormula)));
+        await Assert.That(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "1" && !v.Value.IsFormula))).IsTrue();
+        await Assert.That(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "1" && !v.Value.IsFormula))).IsTrue();
     }
 
     [Test]
-    public void CopyConditionalFormatsFixedString()
+    public async Task CopyConditionalFormatsFixedString()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -54,12 +53,12 @@ public class CopyContentsTests
         ws.Cell("B1").Value = "B";
         ws.Cell("A1").AddConditionalFormat().WhenEquals("A").Fill.SetBackgroundColor(XLColor.Blue);
         ws.Cell("A2").CopyFrom(ws.Cell("A1").AsRange());
-        Assert.IsTrue(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "A" && !v.Value.IsFormula)));
-        Assert.IsTrue(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "A" && !v.Value.IsFormula)));
+        await Assert.That(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "A" && !v.Value.IsFormula))).IsTrue();
+        await Assert.That(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "A" && !v.Value.IsFormula))).IsTrue();
     }
 
     [Test]
-    public void CopyConditionalFormatsFixedStringNum()
+    public async Task CopyConditionalFormatsFixedStringNum()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -67,12 +66,12 @@ public class CopyContentsTests
         ws.Cell("B1").Value = "1";
         ws.Cell("A1").AddConditionalFormat().WhenEquals("1").Fill.SetBackgroundColor(XLColor.Blue);
         ws.Cell("A2").CopyFrom(ws.Cell("A1").AsRange());
-        Assert.IsTrue(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "1" && !v.Value.IsFormula)));
-        Assert.IsTrue(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "1" && !v.Value.IsFormula)));
+        await Assert.That(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "1" && !v.Value.IsFormula))).IsTrue();
+        await Assert.That(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "1" && !v.Value.IsFormula))).IsTrue();
     }
 
     [Test]
-    public void CopyConditionalFormatsRelative()
+    public async Task CopyConditionalFormatsRelative()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -80,12 +79,12 @@ public class CopyContentsTests
         ws.Cell("B1").Value = "1";
         ws.Cell("A1").AddConditionalFormat().WhenEquals("=B1").Fill.SetBackgroundColor(XLColor.Blue);
         ws.Cell("A2").CopyFrom(ws.Cell("A1").AsRange());
-        Assert.IsTrue(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "B1" && v.Value.IsFormula)));
-        Assert.IsTrue(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "B2" && v.Value.IsFormula)));
+        await Assert.That(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "B1" && v.Value.IsFormula))).IsTrue();
+        await Assert.That(ws.ConditionalFormats.Any(cf => cf.Values.Any(v => v.Value.Value == "B2" && v.Value.IsFormula))).IsTrue();
     }
 
     [Test]
-    public void TestRowCopyContents()
+    public async Task TestRowCopyContents()
     {
         var workbook = new XLWorkbook();
         var originalSheet = workbook.Worksheets.Add("original");
@@ -111,15 +110,15 @@ public class CopyContentsTests
         }
         TestHelper.SaveWorkbook(workbook, "Misc", "CopyRowContents.xlsx");
 
-        Assert.That(copyRangeSheet.Cell("A2").Value, Is.EqualTo((XLCellValue)"test value"));
-        Assert.That(copyRowSheet.Cell("A2").Value, Is.EqualTo((XLCellValue)"test value"));
-        Assert.That(copyRangeSheet.Range("A2:E2").IsMerged(), Is.True);
-        Assert.That(copyRowAsRangeSheet.Cell("A3").Value, Is.EqualTo((XLCellValue)"test value"));
-        Assert.That(copyRowAsRangeSheet.Range("A3:E3").IsMerged(), Is.True);
+        await Assert.That(copyRangeSheet.Cell("A2").Value).IsEqualTo((XLCellValue)"test value");
+        await Assert.That(copyRowSheet.Cell("A2").Value).IsEqualTo((XLCellValue)"test value");
+        await Assert.That(copyRangeSheet.Range("A2:E2").IsMerged()).IsTrue();
+        await Assert.That(copyRowAsRangeSheet.Cell("A3").Value).IsEqualTo((XLCellValue)"test value");
+        await Assert.That(copyRowAsRangeSheet.Range("A3:E3").IsMerged()).IsTrue();
     }
 
     [Test]
-    public void UpdateCellsWorksheetTest()
+    public async Task UpdateCellsWorksheetTest()
     {
         using var wb = new XLWorkbook();
         var ws1 = wb.Worksheets.Add("Sheet1");
@@ -127,12 +126,12 @@ public class CopyContentsTests
 
         var ws2 = ws1.CopyTo("Sheet2");
 
-        Assert.AreEqual("Sheet1", ws1.FirstCell().Address.Worksheet.Name);
-        Assert.AreEqual("Sheet2", ws2.FirstCell().Address.Worksheet.Name);
+        await Assert.That(ws1.FirstCell().Address.Worksheet.Name).IsEqualTo("Sheet1");
+        await Assert.That(ws2.FirstCell().Address.Worksheet.Name).IsEqualTo("Sheet2");
     }
 
     [Test]
-    public void CopyHyperlinksAmongSheets()
+    public async Task CopyHyperlinksAmongSheets()
     {
         using var wb = new XLWorkbook();
         var source = wb.AddWorksheet();
@@ -145,9 +144,9 @@ public class CopyContentsTests
         source.Cell("A1").AsRange().CopyTo(target.Cell("B7"));
 
         var cell = target.Cell("B7");
-        Assert.True(cell.HasHyperlink);
-        Assert.True(cell.GetHyperlink().IsExternal);
-        Assert.AreEqual(new Uri("https://example.com"), cell.GetHyperlink().ExternalAddress);
-        Assert.AreEqual("Test tooltip", cell.GetHyperlink().Tooltip);
+        await Assert.That(cell.HasHyperlink).IsTrue();
+        await Assert.That(cell.GetHyperlink().IsExternal).IsTrue();
+        await Assert.That(cell.GetHyperlink().ExternalAddress).IsEqualTo(new Uri("https://example.com"));
+        await Assert.That(cell.GetHyperlink().Tooltip).IsEqualTo("Test tooltip");
     }
 }

@@ -1,26 +1,25 @@
 ﻿
 using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
-[TestFixture]
 [SetCulture("en-US")]
 public class LookupTests
 {
-    private IXLWorksheet ws;
+    private static IXLWorksheet ws;
 
     #region Setup and teardown
 
-    [OneTimeTearDown]
-    public void Dispose()
+    [After(HookType.Class)]
+    public static void Dispose()
     {
         ws.Workbook.Dispose();
     }
 
-    [SetUp]
+    [Before(HookType.Test)]
     public void Init()
     {
         ws = SetupWorkbook();
@@ -87,97 +86,100 @@ public class LookupTests
     #endregion Setup and teardown
 
     [Test]
-    public void Column()
+    public async Task Column()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Data");
         wb.AddWorksheet("Other");
 
         // If no argument, function uses the address of the cell that contains the formula
-        Assert.AreEqual(4, ws.Cell("D1").SetFormulaA1("COLUMN()").Value);
+        await Assert.That(ws.Cell("D1").SetFormulaA1("COLUMN()").Value).IsEqualTo(4);
 
         // With a reference, it returns the column number
-        Assert.AreEqual(26, ws.Cell("A1").SetFormulaA1("COLUMN(Z14)").Value);
+        await Assert.That(ws.Cell("A1").SetFormulaA1("COLUMN(Z14)").Value).IsEqualTo(26);
 
         // If a single column is used, return the column number
-        Assert.AreEqual(3, ws.Cell("A2").SetFormulaA1("COLUMN(C:C)").Value);
+        await Assert.That(ws.Cell("A2").SetFormulaA1("COLUMN(C:C)").Value).IsEqualTo(3);
 
         // Return a horizontal array for multiple columns. Use SUM to verify content of an array since ROWS/COLUMNS don't work yet.
-        Assert.AreEqual(3 + 4, ws.Cell("A3").SetFormulaA1("SUM(COLUMN(C:D))").Value);
-        Assert.AreEqual(5 + 6 + 7, ws.Cell("A3").SetFormulaA1("SUM(COLUMN(E1:G10))").Value);
+        await Assert.That(ws.Cell("A3").SetFormulaA1("SUM(COLUMN(C:D))").Value).IsEqualTo(3 + 4);
+        await Assert.That(ws.Cell("A3").SetFormulaA1("SUM(COLUMN(E1:G10))").Value).IsEqualTo(5 + 6 + 7);
 
         // Not contiguous range (multiple areas) returns #REF!
-        Assert.AreEqual(XLError.CellReference, ws.Cell("A4").SetFormulaA1("COLUMN((D5:G10,I8:K12))").Value);
+        await Assert.That(ws.Cell("A4").SetFormulaA1("COLUMN((D5:G10,I8:K12))").Value).IsEqualTo(XLError.CellReference);
 
         // Invalid references return #REF!
-        Assert.AreEqual(XLError.CellReference, ws.Cell("A5").SetFormulaA1("COLUMN(NonExistent!F10)").Value);
+        await Assert.That(ws.Cell("A5").SetFormulaA1("COLUMN(NonExistent!F10)").Value).IsEqualTo(XLError.CellReference);
 
         // Return column number even for different worksheet
-        Assert.AreEqual(5, ws.Cell("A6").SetFormulaA1("COLUMN(Other!E7)").Value);
+        await Assert.That(ws.Cell("A6").SetFormulaA1("COLUMN(Other!E7)").Value).IsEqualTo(5);
 
         // Unexpected types return error
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Cell("A8").SetFormulaA1("COLUMN(TRUE)").Value);
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Cell("A7").SetFormulaA1("COLUMN(5)").Value);
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Cell("A8").SetFormulaA1("COLUMN(\"C5\")").Value);
-        Assert.AreEqual(XLError.DivisionByZero, ws.Cell("A9").SetFormulaA1("COLUMN(#DIV/0!)").Value);
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Cell("A10").SetFormulaA1("COLUMN(\"C5\")").Value);
+        await Assert.That(ws.Cell("A8").SetFormulaA1("COLUMN(TRUE)").Value).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(ws.Cell("A7").SetFormulaA1("COLUMN(5)").Value).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(ws.Cell("A8").SetFormulaA1("COLUMN(\"C5\")").Value).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(ws.Cell("A9").SetFormulaA1("COLUMN(#DIV/0!)").Value).IsEqualTo(XLError.DivisionByZero);
+        await Assert.That(ws.Cell("A10").SetFormulaA1("COLUMN(\"C5\")").Value).IsEqualTo(XLError.IncompatibleValue);
     }
 
     [Test]
-    public void Columns_Blank_ReturnsValueError()
+    public async Task Columns_Blank_ReturnsValueError()
     {
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("COLUMNS(IF(TRUE,,))"));
-    }
-
-    [TestCase("0")]
-    [TestCase("1")]
-    [TestCase("99")]
-    [TestCase("-10")]
-    [TestCase("TRUE")]
-    [TestCase("FALSE")]
-    [TestCase("\"\"")]
-    [TestCase("\"A\"")]
-    [TestCase("\"Hello World\"")]
-    public void Columns_ScalarValues_ReturnsOne(string value)
-    {
-        Assert.AreEqual(1, XLWorkbook.EvaluateExpr($"COLUMNS({value})"));
+        await Assert.That(XLWorkbook.EvaluateExpr("COLUMNS(IF(TRUE,,))")).IsEqualTo(XLError.IncompatibleValue);
     }
 
     [Test]
-    public void Columns_Error_ReturnsError()
+    [Arguments("0")]
+    [Arguments("1")]
+    [Arguments("99")]
+    [Arguments("-10")]
+    [Arguments("TRUE")]
+    [Arguments("FALSE")]
+    [Arguments("\"\"")]
+    [Arguments("\"A\"")]
+    [Arguments("\"Hello World\"")]
+    public async Task Columns_ScalarValues_ReturnsOne(string value)
     {
-        Assert.AreEqual(XLError.DivisionByZero, XLWorkbook.EvaluateExpr("COLUMNS(#DIV/0!)"));
+        await Assert.That(XLWorkbook.EvaluateExpr($"COLUMNS({value})")).IsEqualTo(1);
     }
 
-    [TestCase("{1}", 1)]
-    [TestCase("{1;2;3}", 1)]
-    [TestCase("{1,2,3,4;5,6,7,8}", 4)]
-    [TestCase("{TRUE,\"Z\";#DIV/0!,4}", 2)]
-    public void Columns_Arrays_ReturnsNumberOfColumns(string array, int expectedColumnCount)
+    [Test]
+    public async Task Columns_Error_ReturnsError()
     {
-        Assert.AreEqual(expectedColumnCount, XLWorkbook.EvaluateExpr($"COLUMNS({array})"));
+        await Assert.That(XLWorkbook.EvaluateExpr("COLUMNS(#DIV/0!)")).IsEqualTo(XLError.DivisionByZero);
     }
 
-    [TestCase("A1", 1)]
-    [TestCase("A1:A6", 1)]
-    [TestCase("B2:D6", 3)]
-    [TestCase("E7:AA14", 23)]
-    public void Columns_References_ReturnsNumberOfColumns(string range, int expectedColumnCount)
+    [Test]
+    [Arguments("{1}", 1)]
+    [Arguments("{1;2;3}", 1)]
+    [Arguments("{1,2,3,4;5,6,7,8}", 4)]
+    [Arguments("{TRUE,\"Z\";#DIV/0!,4}", 2)]
+    public async Task Columns_Arrays_ReturnsNumberOfColumns(string array, int expectedColumnCount)
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr($"COLUMNS({array})")).IsEqualTo(expectedColumnCount);
+    }
+
+    [Test]
+    [Arguments("A1", 1)]
+    [Arguments("A1:A6", 1)]
+    [Arguments("B2:D6", 3)]
+    [Arguments("E7:AA14", 23)]
+    public async Task Columns_References_ReturnsNumberOfColumns(string range, int expectedColumnCount)
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
-        Assert.AreEqual(expectedColumnCount, sheet.Evaluate($"COLUMNS({range})"));
+        await Assert.That(sheet.Evaluate($"COLUMNS({range})")).IsEqualTo(expectedColumnCount);
     }
 
     [Test]
-    public void Columns_NonContiguousReferences_ReturnsReferenceError()
+    public async Task Columns_NonContiguousReferences_ReturnsReferenceError()
     {
         // Spec says #NULL!, but Excel says #REF!
-        Assert.AreEqual(XLError.CellReference, XLWorkbook.EvaluateExpr("COLUMNS((A1,C3))"));
+        await Assert.That(XLWorkbook.EvaluateExpr("COLUMNS((A1,C3))")).IsEqualTo(XLError.CellReference);
     }
 
     [Test]
-    public void Hlookup()
+    public async Task Hlookup()
     {
         // Since HLOOKUP requires values to be sorted, we can't use created data.
         using var wb = new XLWorkbook();
@@ -190,53 +192,53 @@ public class LookupTests
 
         // Range lookup false = exact match
         var value = sheet.Evaluate("HLOOKUP(3,B2:E3,2,FALSE)");
-        Assert.AreEqual("B", value);
+        await Assert.That(value).IsEqualTo("B");
 
         // Text values are looked up case-insensitive.
         value = sheet.Evaluate(@"HLOOKUP(""c"",B3:E3,1,FALSE)");
-        Assert.AreEqual("C", value);
+        await Assert.That(value).IsEqualTo("C");
 
         // Value is not present in the range for exact search
         // Empty string is not the same as blank.
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"HLOOKUP("""",A2:E2,1,FALSE)"));
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("HLOOKUP(50,B2:E3,1,FALSE)"));
+        await Assert.That(ws.Evaluate(@"HLOOKUP("""",A2:E2,1,FALSE)")).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(ws.Evaluate("HLOOKUP(50,B2:E3,1,FALSE)")).IsEqualTo(XLError.NoValueAvailable);
 
         // Value in approximate search that is lower than the first element
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("HLOOKUP(-10,B2:E3,2,TRUE)"));
+        await Assert.That(ws.Evaluate("HLOOKUP(-10,B2:E3,2,TRUE)")).IsEqualTo(XLError.NoValueAvailable);
     }
 
     [Test]
-    public void Hlookup_UnexpectedArguments()
+    public async Task Hlookup_UnexpectedArguments()
     {
         // Lookup value can't be an error
-        Assert.AreEqual(XLError.DivisionByZero, XLWorkbook.EvaluateExpr("HLOOKUP(#DIV/0!,{1,2},1)"));
+        await Assert.That(XLWorkbook.EvaluateExpr("HLOOKUP(#DIV/0!,{1,2},1)")).IsEqualTo(XLError.DivisionByZero);
 
         // Text value can't be over 255 chars
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr($"HLOOKUP(\"{new string('A', 256)}\",{{\"A\"}},1)"));
+        await Assert.That(XLWorkbook.EvaluateExpr($"HLOOKUP(\"{new string('A', 256)}\",{{\"A\"}},1)")).IsEqualTo(XLError.IncompatibleValue);
 
         // Range can only be an array or a reference. If another type, it returns the error #N/A
-        Assert.AreEqual(XLError.NoValueAvailable, XLWorkbook.EvaluateExpr(@"HLOOKUP(""value"",1,1)"));
-        Assert.AreEqual(XLError.NoValueAvailable, XLWorkbook.EvaluateExpr(@"HLOOKUP(""value"",TRUE,1)"));
+        await Assert.That(XLWorkbook.EvaluateExpr(@"HLOOKUP(""value"",1,1)")).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(XLWorkbook.EvaluateExpr(@"HLOOKUP(""value"",TRUE,1)")).IsEqualTo(XLError.NoValueAvailable);
 
         // If range is a non-contiguous range, #N/A
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"HLOOKUP(""Units"",(B2:I5,B6:I10),1)"));
+        await Assert.That(ws.Evaluate(@"HLOOKUP(""Units"",(B2:I5,B6:I10),1)")).IsEqualTo(XLError.NoValueAvailable);
 
         // The row index number must be at most the same as height of the range. It is 5 here, but range is 4 cell high.
-        Assert.AreEqual(XLError.CellReference, ws.Evaluate(@"HLOOKUP(""value"",B2:I5,5,FALSE)"));
+        await Assert.That(ws.Evaluate(@"HLOOKUP(""value"",B2:I5,5,FALSE)")).IsEqualTo(XLError.CellReference);
 
         // The row index number must be at least 1. It is 0 here.
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("HLOOKUP(1,{1,2},0,FALSE)"));
+        await Assert.That(XLWorkbook.EvaluateExpr("HLOOKUP(1,{1,2},0,FALSE)")).IsEqualTo(XLError.IncompatibleValue);
     }
 
     [Test]
-    public void Hlookup_truncates_row_index_number_parameter()
+    public async Task Hlookup_truncates_row_index_number_parameter()
     {
         // If the row index number is not a whole number, it is truncated, so here 1.9 is truncated to 1
-        Assert.AreEqual(7, ws.Evaluate("HLOOKUP(7,{5,7,9},1.9)"));
+        await Assert.That(ws.Evaluate("HLOOKUP(7,{5,7,9},1.9)")).IsEqualTo(7);
     }
 
     [Test]
-    public void Hlookup_converts_blank_lookup_value_to_number_zero()
+    public async Task Hlookup_converts_blank_lookup_value_to_number_zero()
     {
         using var wb = new XLWorkbook();
         var worksheet = wb.AddWorksheet();
@@ -248,11 +250,11 @@ public class LookupTests
 
         var actual = worksheet.Evaluate("HLOOKUP(IF(TRUE,,),A1:C2,2)");
 
-        Assert.AreEqual("zero", actual);
+        await Assert.That(actual).IsEqualTo("zero");
     }
 
     [Test]
-    public void Hlookup_approximate_search_omits_values_with_different_type()
+    public async Task Hlookup_approximate_search_omits_values_with_different_type()
     {
         using var wb = new XLWorkbook();
         var worksheet = wb.AddWorksheet();
@@ -266,20 +268,20 @@ public class LookupTests
         worksheet.Cell("A2").InsertData(Enumerable.Range(1, 7).Select(x => $"Column {x}"), true);
 
         var actual = worksheet.Evaluate("HLOOKUP(1.9,A1:G2,2,TRUE)");
-        Assert.AreEqual("Column 3", actual);
+        await Assert.That(actual).IsEqualTo("Column 3");
     }
 
     [Test]
-    public void Hlookup_with_range_containing_only_cells_with_different_type_returns_NA_error()
+    public async Task Hlookup_with_range_containing_only_cells_with_different_type_returns_NA_error()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
         sheet.Cell("A1").Value = "text";
-        Assert.AreEqual(XLError.NoValueAvailable, sheet.Evaluate("HLOOKUP(1,A1,1,TRUE)"));
+        await Assert.That(sheet.Evaluate("HLOOKUP(1,A1,1,TRUE)")).IsEqualTo(XLError.NoValueAvailable);
     }
 
     [Test]
-    public void Hlookup_approximate_search_returns_last_column_for_multiple_equal_values()
+    public async Task Hlookup_approximate_search_returns_last_column_for_multiple_equal_values()
     {
         var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
@@ -291,37 +293,37 @@ public class LookupTests
 
         // If there is a section of values with same value, return the value at the highest column
         var actual = sheet.Evaluate("HLOOKUP(3, A1:H2, 2, TRUE)");
-        Assert.AreEqual("G", actual);
+        await Assert.That(actual).IsEqualTo("G");
 
         // If the last value is in the highest column, just return value outright
         actual = sheet.Evaluate("HLOOKUP(3, B1:G2, 2, TRUE)");
-        Assert.AreEqual("G", actual);
+        await Assert.That(actual).IsEqualTo("G");
     }
 
     [Test]
-    public void Hyperlink()
+    public async Task Hyperlink()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
 
         var cell = sheet.Cell("B3");
         cell.FormulaA1 = "HYPERLINK(\"http://github.com/XLibur/XLibur\")";
-        Assert.AreEqual("http://github.com/XLibur/XLibur", cell.Value);
-        Assert.False(cell.HasHyperlink);
+        await Assert.That(cell.Value).IsEqualTo("http://github.com/XLibur/XLibur");
+        await Assert.That(cell.HasHyperlink).IsFalse();
 
         cell = sheet.Cell("B4");
         cell.FormulaA1 = "HYPERLINK(\"mailto:jsmith@github.com\", \"jsmith@github.com\")";
-        Assert.AreEqual("jsmith@github.com", cell.Value);
-        Assert.False(cell.HasHyperlink);
+        await Assert.That(cell.Value).IsEqualTo("jsmith@github.com");
+        await Assert.That(cell.HasHyperlink).IsFalse();
 
         cell = sheet.Cell("B5");
         cell.FormulaA1 = "HYPERLINK(\"[Test.xlsx]Sheet1!A5\", \"Cell A5\")";
-        Assert.AreEqual("Cell A5", cell.Value);
-        Assert.False(cell.HasHyperlink);
+        await Assert.That(cell.Value).IsEqualTo("Cell A5");
+        await Assert.That(cell.HasHyperlink).IsFalse();
     }
 
     [Test]
-    public void Index_reference()
+    public async Task Index_reference()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
@@ -332,152 +334,153 @@ public class LookupTests
         sheet.Cell("E4").Value = "E4";
 
         // A single cell
-        AssertIndex("INDEX(B2:J12, 3, 4)", 1, 1, "E4");
+        await AssertIndex("INDEX(B2:J12, 3, 4)", 1, 1, "E4");
 
         // Row number is omitted, so take all rows from the range. The result is a column E2:E12
-        AssertIndex("INDEX(B2:J12, 0, 4)", 11, 1, "E2");
-        AssertIndex("INDEX(B2:J12, , 4)", 11, 1, "E2");
+        await AssertIndex("INDEX(B2:J12, 0, 4)", 11, 1, "E2");
+        await AssertIndex("INDEX(B2:J12, , 4)", 11, 1, "E2");
 
         // Column number is omitted, so take all column from the range. The result is a column B4:J4
-        AssertIndex("INDEX(B2:J12, 3, 0)", 1, 9, "B4");
-        AssertIndex("INDEX(B2:J12, 3, )", 1, 9, "B4");
+        await AssertIndex("INDEX(B2:J12, 3, 0)", 1, 9, "B4");
+        await AssertIndex("INDEX(B2:J12, 3, )", 1, 9, "B4");
 
         // The range is a row and there is only one parameter. Take the index from the row.
-        AssertIndex("INDEX(B2:I2, 4)", 1, 1, "E2");
+        await AssertIndex("INDEX(B2:I2, 4)", 1, 1, "E2");
 
         // The range is a column and there is only one parameter. Take the index from the column.
-        AssertIndex("INDEX(B2:B12, 4)", 1, 1, "B5");
+        await AssertIndex("INDEX(B2:B12, 4)", 1, 1, "B5");
 
         // Take whole range.
-        AssertIndex("INDEX(B2:J12, 0, 0)", 11, 9, "B2");
+        await AssertIndex("INDEX(B2:J12, 0, 0)", 11, 9, "B2");
 
         // Select second area from multi-area reference
-        AssertIndex("INDEX((H4:J10, B2:J12, A1), 1, 1, 2)", 1, 1, "B2");
+        await AssertIndex("INDEX((H4:J10, B2:J12, A1), 1, 1, 2)", 1, 1, "B2");
         return;
 
-        void AssertIndex(string formula, int rows, int cols, XLCellValue value)
+        async Task AssertIndex(string formula, int rows, int cols, XLCellValue value)
         {
-            Assert.AreEqual(value, sheet.Evaluate($"INDEX({formula},1,1)"));
-            Assert.AreEqual(rows, sheet.Evaluate($"ROWS({formula})"));
-            Assert.AreEqual(cols, sheet.Evaluate($"COLUMNS({formula})"));
-            Assert.AreEqual(true, sheet.Evaluate($"ISREF({formula})"));
+            await Assert.That(sheet.Evaluate($"INDEX({formula},1,1)")).IsEqualTo(value);
+            await Assert.That(sheet.Evaluate($"ROWS({formula})")).IsEqualTo(rows);
+            await Assert.That(sheet.Evaluate($"COLUMNS({formula})")).IsEqualTo(cols);
+            await Assert.That(sheet.Evaluate($"ISREF({formula})")).IsEqualTo(true);
         }
     }
 
     [Test]
-    public void Index_reference_errors()
+    public async Task Index_reference_errors()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
 
         // Row bounds
-        Assert.AreEqual(XLError.IncompatibleValue, sheet.Evaluate("INDEX(A1, -1, 1)"));
-        Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDEX(B3:C5, 4, 1)"));
+        await Assert.That(sheet.Evaluate("INDEX(A1, -1, 1)")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(sheet.Evaluate("INDEX(B3:C5, 4, 1)")).IsEqualTo(XLError.CellReference);
 
         // Column bounds
-        Assert.AreEqual(XLError.IncompatibleValue, sheet.Evaluate("INDEX(A1, 1, -1)"));
-        Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDEX(B3:C5, 1, 3)"));
+        await Assert.That(sheet.Evaluate("INDEX(A1, 1, -1)")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(sheet.Evaluate("INDEX(B3:C5, 1, 3)")).IsEqualTo(XLError.CellReference);
 
         // Area bounds
-        Assert.AreEqual(XLError.IncompatibleValue, sheet.Evaluate("INDEX((A1, B1, C1), 1, 1, 0)"));
-        Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDEX((A1, B1, C1),1, 1, 4)"));
+        await Assert.That(sheet.Evaluate("INDEX((A1, B1, C1), 1, 1, 0)")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(sheet.Evaluate("INDEX((A1, B1, C1),1, 1, 4)")).IsEqualTo(XLError.CellReference);
     }
 
     [Test]
-    public void Index_array()
+    public async Task Index_array()
     {
         // A single element
-        AssertIndex("INDEX({1,2,3;4,5,6}, 2, 3)", 1, 1, 6);
+        await AssertIndex("INDEX({1,2,3;4,5,6}, 2, 3)", 1, 1, 6);
 
         // Row number is omitted, so take all rows from the array at third column. The result is a column {3;6}
-        AssertIndex("INDEX({1,2,3;4,5,6}, 0, 3)", 2, 1, 3);
-        AssertIndex("INDEX({1,2,3;4,5,6}, , 3)", 2, 1, 3);
+        await AssertIndex("INDEX({1,2,3;4,5,6}, 0, 3)", 2, 1, 3);
+        await AssertIndex("INDEX({1,2,3;4,5,6}, , 3)", 2, 1, 3);
 
         // Column number is omitted, so take all columns from the array at second row. The result is a row {4,5,6}
-        AssertIndex("INDEX({1,2,3;4,5,6}, 2, 0)", 1, 3, 4);
-        AssertIndex("INDEX({1,2,3;4,5,6}, 2, )", 1, 3, 4);
+        await AssertIndex("INDEX({1,2,3;4,5,6}, 2, 0)", 1, 3, 4);
+        await AssertIndex("INDEX({1,2,3;4,5,6}, 2, )", 1, 3, 4);
 
         // The array is a row and there is only one parameter. Take the index from the row.
-        AssertIndex("INDEX({1,2,3,4,5,6,7}, 5)", 1, 1, 5);
+        await AssertIndex("INDEX({1,2,3,4,5,6,7}, 5)", 1, 1, 5);
 
         // The array is a column and there is only one parameter. Take the index from the column.
-        AssertIndex("INDEX({1;2;3;4;5;6;7}, 6)", 1, 1, 6);
+        await AssertIndex("INDEX({1;2;3;4;5;6;7}, 6)", 1, 1, 6);
 
         // Take whole range.
-        AssertIndex("INDEX({1,2,3;4,5,6}, 0, 0)", 2, 3, 1);
+        await AssertIndex("INDEX({1,2,3;4,5,6}, 0, 0)", 2, 3, 1);
 
         return;
 
-        void AssertIndex(string formula, int rows, int cols, XLCellValue value)
+        async Task AssertIndex(string formula, int rows, int cols, XLCellValue value)
         {
-            Assert.AreEqual(value, XLWorkbook.EvaluateExpr(formula));
-            Assert.AreEqual(rows, XLWorkbook.EvaluateExpr($"ROWS({formula})"));
-            Assert.AreEqual(cols, XLWorkbook.EvaluateExpr($"COLUMNS({formula})"));
-            Assert.AreEqual(false, XLWorkbook.EvaluateExpr($"ISREF({formula})"));
+            await Assert.That(XLWorkbook.EvaluateExpr(formula)).IsEqualTo(value);
+            await Assert.That(XLWorkbook.EvaluateExpr($"ROWS({formula})")).IsEqualTo(rows);
+            await Assert.That(XLWorkbook.EvaluateExpr($"COLUMNS({formula})")).IsEqualTo(cols);
+            await Assert.That(XLWorkbook.EvaluateExpr($"ISREF({formula})")).IsEqualTo(false);
         }
     }
 
     [Test]
-    public void Index_array_errors()
+    public async Task Index_array_errors()
     {
         // Row bounds
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("INDEX({1}, -1, 1)"));
-        Assert.AreEqual(XLError.CellReference, XLWorkbook.EvaluateExpr("INDEX({1,2;3,4;5,6}, 4, 1)"));
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX({1}, -1, 1)")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX({1,2;3,4;5,6}, 4, 1)")).IsEqualTo(XLError.CellReference);
 
         // Column bounds
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("INDEX({1}, 1, -1)"));
-        Assert.AreEqual(XLError.CellReference, XLWorkbook.EvaluateExpr("INDEX({1,2;3,4;5,6}, 1, 3)"));
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX({1}, 1, -1)")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX({1,2;3,4;5,6}, 1, 3)")).IsEqualTo(XLError.CellReference);
 
         // Area bounds
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("INDEX({1}, 1, 1, 0)"));
-        Assert.AreEqual(XLError.CellReference, XLWorkbook.EvaluateExpr("INDEX({1}, 1, 1, 2)"));
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX({1}, 1, 1, 0)")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX({1}, 1, 1, 2)")).IsEqualTo(XLError.CellReference);
     }
 
     [Test]
-    public void Index_scalar()
+    public async Task Index_scalar()
     {
-        Assert.AreEqual("Text", XLWorkbook.EvaluateExpr("INDEX(\"Text\", 1, 1)"));
-        Assert.AreEqual("Text", XLWorkbook.EvaluateExpr("INDEX(\"Text\", 0, 0)"));
-        Assert.AreEqual(2, XLWorkbook.EvaluateExpr("TYPE(INDEX(\"Text\", 1, 1))"));
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("INDEX(IF(TRUE,), 1, 1)"));
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX(\"Text\", 1, 1)")).IsEqualTo("Text");
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX(\"Text\", 0, 0)")).IsEqualTo("Text");
+        await Assert.That(XLWorkbook.EvaluateExpr("TYPE(INDEX(\"Text\", 1, 1))")).IsEqualTo(2);
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX(IF(TRUE,), 1, 1)")).IsEqualTo(XLError.IncompatibleValue);
 
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("INDEX(\"Text\", -1, 1)"));
-        Assert.AreEqual(XLError.CellReference, XLWorkbook.EvaluateExpr("INDEX(\"Text\", 2, 1)"));
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("INDEX(\"Text\", 1, -1)"));
-        Assert.AreEqual(XLError.CellReference, XLWorkbook.EvaluateExpr("INDEX(\"Text\", 1, 2)"));
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("INDEX(\"Text\", 1, 1, 0)"));
-        Assert.AreEqual(XLError.CellReference, XLWorkbook.EvaluateExpr("INDEX(\"Text\", 1, 1, 2)"));
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX(\"Text\", -1, 1)")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX(\"Text\", 2, 1)")).IsEqualTo(XLError.CellReference);
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX(\"Text\", 1, -1)")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX(\"Text\", 1, 2)")).IsEqualTo(XLError.CellReference);
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX(\"Text\", 1, 1, 0)")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(XLWorkbook.EvaluateExpr("INDEX(\"Text\", 1, 1, 2)")).IsEqualTo(XLError.CellReference);
     }
 
-    [TestCase(@"MATCH(""Rep"", B2:I2, 0)", 4)]
-    [TestCase(@"MATCH(""Rep"", A2:Z2, 0)", 5)]
-    [TestCase(@"MATCH(""REP"", B2:I2, 0)", 4)]
-    [TestCase("MATCH(95, B3:I3, 0)", 6)]
-    [TestCase("MATCH(DATE(2015,1,6), B3:I3, 0)", 2)]
-    [TestCase("MATCH(1.99, 3:3, 0)", 8)]
-    [TestCase("MATCH(43, B:B, 0)", 45)]
-    [TestCase(@"MATCH(""cENtraL"", D3:D45, 0)", 2)]
-    [TestCase("MATCH(4.99, H:H, 0)", 5)]
-    [TestCase(@"MATCH(""Rapture"", B2:I2, 1)", 2)]
-    [TestCase("MATCH(22.5, B3:B45, 1)", 22)]
-    [TestCase(@"MATCH(""Rep"", B2:I2)", 4)]
-    [TestCase(@"MATCH(""Rep"", B2:I2, 1)", 4)]
-    [TestCase("MATCH(40, G3:G6, -1)", 2)]
-    [TestCase(@"MATCH(""Rep"", B2:I5)", XLError.NoValueAvailable)]
-    [TestCase(@"MATCH(""Dummy"", B2:I2, 0)", XLError.NoValueAvailable)]
-    [TestCase("MATCH(4.5,B3:B45,-1)", XLError.NoValueAvailable)]
-    public void Match_demo_sheet(string formula, object result)
+    [Test]
+    [Arguments(@"MATCH(""Rep"", B2:I2, 0)", 4)]
+    [Arguments(@"MATCH(""Rep"", A2:Z2, 0)", 5)]
+    [Arguments(@"MATCH(""REP"", B2:I2, 0)", 4)]
+    [Arguments("MATCH(95, B3:I3, 0)", 6)]
+    [Arguments("MATCH(DATE(2015,1,6), B3:I3, 0)", 2)]
+    [Arguments("MATCH(1.99, 3:3, 0)", 8)]
+    [Arguments("MATCH(43, B:B, 0)", 45)]
+    [Arguments(@"MATCH(""cENtraL"", D3:D45, 0)", 2)]
+    [Arguments("MATCH(4.99, H:H, 0)", 5)]
+    [Arguments(@"MATCH(""Rapture"", B2:I2, 1)", 2)]
+    [Arguments("MATCH(22.5, B3:B45, 1)", 22)]
+    [Arguments(@"MATCH(""Rep"", B2:I2)", 4)]
+    [Arguments(@"MATCH(""Rep"", B2:I2, 1)", 4)]
+    [Arguments("MATCH(40, G3:G6, -1)", 2)]
+    [Arguments(@"MATCH(""Rep"", B2:I5)", XLError.NoValueAvailable)]
+    [Arguments(@"MATCH(""Dummy"", B2:I2, 0)", XLError.NoValueAvailable)]
+    [Arguments("MATCH(4.5,B3:B45,-1)", XLError.NoValueAvailable)]
+    public async Task Match_demo_sheet(string formula, object result)
     {
         var actual = ws.Evaluate(formula);
-        Assert.AreEqual(result, actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(result));
     }
 
     [Test]
-    public void Match_examples()
+    public async Task Match_examples()
     {
         // Examples from specification
-        Assert.AreEqual(2, XLWorkbook.EvaluateExpr("MATCH(39,{25,38,40,41},1)"));
-        Assert.AreEqual(4, XLWorkbook.EvaluateExpr("MATCH(41,{25,38,40,41},0)"));
+        await Assert.That(XLWorkbook.EvaluateExpr("MATCH(39,{25,38,40,41},1)")).IsEqualTo(2);
+        await Assert.That(XLWorkbook.EvaluateExpr("MATCH(41,{25,38,40,41},0)")).IsEqualTo(4);
 
         // Example from office website
         using var wb = new XLWorkbook();
@@ -491,267 +494,276 @@ public class LookupTests
             ("Pears", 41),
         });
 
-        Assert.AreEqual(2, sheet.Evaluate("MATCH(39,B2:B5,1)"));
-        Assert.AreEqual(4, sheet.Evaluate("MATCH(41,B2:B5,0)"));
-        Assert.AreEqual(XLError.NoValueAvailable, sheet.Evaluate("MATCH(40,B2:B5,-1)"));
+        await Assert.That(sheet.Evaluate("MATCH(39,B2:B5,1)")).IsEqualTo(2);
+        await Assert.That(sheet.Evaluate("MATCH(41,B2:B5,0)")).IsEqualTo(4);
+        await Assert.That(sheet.Evaluate("MATCH(40,B2:B5,-1)")).IsEqualTo(XLError.NoValueAvailable);
     }
 
-    [TestCase("MATCH(5, {10,5,4,5,5,5,5,5}, -1)", 2)] // Doesn't use bisection, otherwise it would pick later position
-    [TestCase("MATCH(5, {10,4,5}, -1)", 1)] // Because 4 is less than the target, search stops. Values should be descending.
-    [TestCase("MATCH(5, {\"5\",10,\"4\",FALSE,TRUE,#DIV/0!,5,3}, -1)", 7)] // Non-target values are ignored
-    [TestCase("MATCH(6, {\"4\",10,\"4\",FALSE,TRUE,#DIV/0!,5,3}, -1)", 2)] // Returned position is of the correct type, not just before less than target.
-    [TestCase("MATCH(5, {\"5\"}, -1)", XLError.NoValueAvailable)] // String values are not converted to numbers
-    [TestCase("MATCH(5, {4}, -1)", XLError.NoValueAvailable)]
-    [TestCase("MATCH(5, {10}, -1)", 1)]
-    [TestCase("MATCH(5, {TRUE}, -1)", XLError.NoValueAvailable)]
-    [TestCase("MATCH(\"c\", {\"E\",4,\"D\",\"B\"}, -1)", 3)]
-    [TestCase("MATCH(FALSE, {TRUE,TRUE,\"FALSE\",0,FALSE,FALSE}, -1)", 5)]
-    public void Match_from_descending(string formula, object result)
+    [Test]
+    [Arguments("MATCH(5, {10,5,4,5,5,5,5,5}, -1)", 2)] // Doesn't use bisection, otherwise it would pick later position
+    [Arguments("MATCH(5, {10,4,5}, -1)", 1)] // Because 4 is less than the target, search stops. Values should be descending.
+    [Arguments("MATCH(5, {\"5\",10,\"4\",FALSE,TRUE,#DIV/0!,5,3}, -1)", 7)] // Non-target values are ignored
+    [Arguments("MATCH(6, {\"4\",10,\"4\",FALSE,TRUE,#DIV/0!,5,3}, -1)", 2)] // Returned position is of the correct type, not just before less than target.
+    [Arguments("MATCH(5, {\"5\"}, -1)", XLError.NoValueAvailable)] // String values are not converted to numbers
+    [Arguments("MATCH(5, {4}, -1)", XLError.NoValueAvailable)]
+    [Arguments("MATCH(5, {10}, -1)", 1)]
+    [Arguments("MATCH(5, {TRUE}, -1)", XLError.NoValueAvailable)]
+    [Arguments("MATCH(\"c\", {\"E\",4,\"D\",\"B\"}, -1)", 3)]
+    [Arguments("MATCH(FALSE, {TRUE,TRUE,\"FALSE\",0,FALSE,FALSE}, -1)", 5)]
+    public async Task Match_from_descending(string formula, object result)
     {
         var actual = XLWorkbook.EvaluateExpr(formula);
-        Assert.AreEqual(result, actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(result));
     }
 
-    [TestCase("MATCH(35,{25,38,24,35,70},0)", 4)] // Finds value even in unsorted
-    [TestCase("MATCH(35,{\"35\",38,24,35,70},0)", 4)] // String values are not converted, must match type
-    [TestCase("MATCH(1,{5},0)", XLError.NoValueAvailable)] // Nothing found
-    [TestCase("MATCH(\"35\",{35,38,24,\"35\",70},0)", 4)] // String target is not converted, must match type
-    [TestCase("MATCH(\"c*\",{\"a\",\"cd\"},0)", 2)] // Consider string targets wildcards
-    [TestCase("MATCH(TRUE, {0,\"TRUE\",FALSE,TRUE,1},0)", 4)]
-    public void Match_from_unsorted(string formula, object result)
+    [Test]
+    [Arguments("MATCH(35,{25,38,24,35,70},0)", 4)] // Finds value even in unsorted
+    [Arguments("MATCH(35,{\"35\",38,24,35,70},0)", 4)] // String values are not converted, must match type
+    [Arguments("MATCH(1,{5},0)", XLError.NoValueAvailable)] // Nothing found
+    [Arguments("MATCH(\"35\",{35,38,24,\"35\",70},0)", 4)] // String target is not converted, must match type
+    [Arguments("MATCH(\"c*\",{\"a\",\"cd\"},0)", 2)] // Consider string targets wildcards
+    [Arguments("MATCH(TRUE, {0,\"TRUE\",FALSE,TRUE,1},0)", 4)]
+    public async Task Match_from_unsorted(string formula, object result)
     {
         var actual = XLWorkbook.EvaluateExpr(formula);
-        Assert.AreEqual(result, actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(result));
     }
 
-    [TestCase("MATCH(39,{25,38,38,38,40,41},1)", 4)] // When there is a sequence of target values, return last one
-    [TestCase("MATCH(20,{25,38,40},1)", XLError.NoValueAvailable)] // Nothing found, even smallest value is greater than target
-    [TestCase("MATCH(25,{20,TRUE,FALSE,38,40},1)", 1)] // If found value is <= target, return position of value, not subsequent types that are ignored
-    [TestCase("MATCH(8, {FALSE;FALSE}, 1)", XLError.NoValueAvailable)] // Not even one value of target type
-    [TestCase("MATCH(5, {1,2,3}, 1)", 3)] // If target value is greater than the last element of same type, return the position of the last element
-    public void Match_from_ascending(string formula, object result)
+    [Test]
+    [Arguments("MATCH(39,{25,38,38,38,40,41},1)", 4)] // When there is a sequence of target values, return last one
+    [Arguments("MATCH(20,{25,38,40},1)", XLError.NoValueAvailable)] // Nothing found, even smallest value is greater than target
+    [Arguments("MATCH(25,{20,TRUE,FALSE,38,40},1)", 1)] // If found value is <= target, return position of value, not subsequent types that are ignored
+    [Arguments("MATCH(8, {FALSE;FALSE}, 1)", XLError.NoValueAvailable)] // Not even one value of target type
+    [Arguments("MATCH(5, {1,2,3}, 1)", 3)] // If target value is greater than the last element of same type, return the position of the last element
+    public async Task Match_from_ascending(string formula, object result)
     {
         var actual = XLWorkbook.EvaluateExpr(formula);
-        Assert.AreEqual(result, actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(result));
     }
 
-    [TestCase("MATCH(17, {14;5;3;5;11;12;11;13;13;4})", 10)]
-    [TestCase("MATCH(12, {5;15;18;18;11;1;15;17})", 1)]
-    [TestCase("MATCH(4, {10,3,FALSE, FALSE,FALSE})", XLError.NoValueAvailable)]
-    [TestCase("MATCH(8, {14;0;17;FALSE;8})", XLError.NoValueAvailable)]
-    public void Match_from_ascending_matches_excel(string formula, object result)
+    [Test]
+    [Arguments("MATCH(17, {14;5;3;5;11;12;11;13;13;4})", 10)]
+    [Arguments("MATCH(12, {5;15;18;18;11;1;15;17})", 1)]
+    [Arguments("MATCH(4, {10,3,FALSE, FALSE,FALSE})", XLError.NoValueAvailable)]
+    [Arguments("MATCH(8, {14;0;17;FALSE;8})", XLError.NoValueAvailable)]
+    public async Task Match_from_ascending_matches_excel(string formula, object result)
     {
         // The bisection algorithm should match Excel. That is checked by supplying
         // non-ascending data and checking the result against Excel result. Use random
         // generator to generate formulas + compare with Excel when modifying the algorithm.
         var actual = XLWorkbook.EvaluateExpr(formula);
-        Assert.AreEqual(result, actual);
-    }
-
-    [TestCase("MATCH(#DIV/0!,{1,2,3},1)", XLError.DivisionByZero)] // Scalar argument is error -> propagate
-    [TestCase("MATCH(IF(TRUE,),{1,2,3},1)", XLError.NoValueAvailable)] // Return not found for blank value
-    [TestCase("MATCH(1,{1,2;3,4},1)", XLError.NoValueAvailable)] // Must be either row or column, the array is 2x2
-    [TestCase("MATCH(1,{3,2,1},-2)", 3)] // Match type can be negative for match type -1
-    [TestCase("MATCH(1,{1,2,3}, 2)", 1)] // Match type can be positive for match type 1
-    [TestCase("MATCH(2,{1;2;3}, 2)", 2)] // Match returns position from start both in row or column
-    [TestCase("MATCH(2,{1,2,3}, 2)", 2)] // Match returns position from start both in row or column
-    [TestCase("MATCH(3,{1,2,3,4,5})", 3)] // Default match type is 1 (ascending bisection)
-    [TestCase("MATCH(3,3)", XLError.NoValueAvailable)] // Scalar values are not converted to 1x1 array
-    public void Match_edge_conditions(string formula, object result)
-    {
-        var actual = XLWorkbook.EvaluateExpr(formula);
-        Assert.AreEqual(result, actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(result));
     }
 
     [Test]
-    public void Match_accepts_single_cell_as_values()
+    [Arguments("MATCH(#DIV/0!,{1,2,3},1)", XLError.DivisionByZero)] // Scalar argument is error -> propagate
+    [Arguments("MATCH(IF(TRUE,),{1,2,3},1)", XLError.NoValueAvailable)] // Return not found for blank value
+    [Arguments("MATCH(1,{1,2;3,4},1)", XLError.NoValueAvailable)] // Must be either row or column, the array is 2x2
+    [Arguments("MATCH(1,{3,2,1},-2)", 3)] // Match type can be negative for match type -1
+    [Arguments("MATCH(1,{1,2,3}, 2)", 1)] // Match type can be positive for match type 1
+    [Arguments("MATCH(2,{1;2;3}, 2)", 2)] // Match returns position from start both in row or column
+    [Arguments("MATCH(2,{1,2,3}, 2)", 2)] // Match returns position from start both in row or column
+    [Arguments("MATCH(3,{1,2,3,4,5})", 3)] // Default match type is 1 (ascending bisection)
+    [Arguments("MATCH(3,3)", XLError.NoValueAvailable)] // Scalar values are not converted to 1x1 array
+    public async Task Match_edge_conditions(string formula, object result)
+    {
+        var actual = XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(result));
+    }
+
+    [Test]
+    public async Task Match_accepts_single_cell_as_values()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
         sheet.Cell("A1").Value = 5;
-        Assert.AreEqual(1, sheet.Evaluate("MATCH(5, A1)"));
+        await Assert.That(sheet.Evaluate("MATCH(5, A1)")).IsEqualTo(1);
     }
 
     [Test]
-    public void Row()
+    public async Task Row()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Data");
         wb.AddWorksheet("Other");
 
         // If no argument, function uses the address of the cell that contains the formula
-        Assert.AreEqual(60, ws.Cell("M60").SetFormulaA1("ROW()").Value);
+        await Assert.That(ws.Cell("M60").SetFormulaA1("ROW()").Value).IsEqualTo(60);
 
         // With a reference, it returns the row number
-        Assert.AreEqual(12, ws.Cell("A1").SetFormulaA1("ROW(C12)").Value);
+        await Assert.That(ws.Cell("A1").SetFormulaA1("ROW(C12)").Value).IsEqualTo(12);
 
         // If a full row reference to a single row is used, return the row number
-        Assert.AreEqual(40, ws.Cell("A2").SetFormulaA1("ROW(40:40)").Value);
+        await Assert.That(ws.Cell("A2").SetFormulaA1("ROW(40:40)").Value).IsEqualTo(40);
 
         // Return a vertical array for multiple rows. Use SUM to verify content of an array since ROWS/COLUMNS don't work yet.
-        Assert.AreEqual(4 + 5 + 6 + 7, ws.Cell("A3").SetFormulaA1("SUM(ROW(4:7))").Value);
-        Assert.AreEqual(2 + 3 + 4, ws.Cell("A4").SetFormulaA1("SUM(ROW(C2:Z4))").Value);
+        await Assert.That(ws.Cell("A3").SetFormulaA1("SUM(ROW(4:7))").Value).IsEqualTo(4 + 5 + 6 + 7);
+        await Assert.That(ws.Cell("A4").SetFormulaA1("SUM(ROW(C2:Z4))").Value).IsEqualTo(2 + 3 + 4);
 
         // Not contiguous range (multiple areas) returns #REF!
-        Assert.AreEqual(XLError.CellReference, ws.Cell("A5").SetFormulaA1("ROW((D5:G10,I8:K12))").Value);
+        await Assert.That(ws.Cell("A5").SetFormulaA1("ROW((D5:G10,I8:K12))").Value).IsEqualTo(XLError.CellReference);
 
         // Invalid references return #REF!
-        Assert.AreEqual(XLError.CellReference, ws.Cell("A6").SetFormulaA1("ROW(NonExistent!F10)").Value);
+        await Assert.That(ws.Cell("A6").SetFormulaA1("ROW(NonExistent!F10)").Value).IsEqualTo(XLError.CellReference);
 
         // Return row number even for different worksheet
-        Assert.AreEqual(14, ws.Cell("A7").SetFormulaA1("ROW(Other!E14)").Value);
+        await Assert.That(ws.Cell("A7").SetFormulaA1("ROW(Other!E14)").Value).IsEqualTo(14);
 
         // Unexpected types return error
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Cell("A8").SetFormulaA1("ROW(IF(TRUE,TRUE))").Value);
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Cell("A9").SetFormulaA1("ROW(IF(TRUE,5))").Value);
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Cell("A10").SetFormulaA1("ROW(IF(TRUE,\"G15\"))").Value);
-        Assert.AreEqual(XLError.DivisionByZero, ws.Cell("A11").SetFormulaA1("ROW(#DIV/0!)").Value);
+        await Assert.That(ws.Cell("A8").SetFormulaA1("ROW(IF(TRUE,TRUE))").Value).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(ws.Cell("A9").SetFormulaA1("ROW(IF(TRUE,5))").Value).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(ws.Cell("A10").SetFormulaA1("ROW(IF(TRUE,\"G15\"))").Value).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(ws.Cell("A11").SetFormulaA1("ROW(#DIV/0!)").Value).IsEqualTo(XLError.DivisionByZero);
 
         // Properly works even in array formulas, where border between references and arrays blurs.
         ws.Range("A12:A13").FormulaArrayA1 = "ROW(2:3)";
-        Assert.AreEqual(2, ws.Cell("A12").Value);
-        Assert.AreEqual(3, ws.Cell("A13").Value);
+        await Assert.That(ws.Cell("A12").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("A13").Value).IsEqualTo(3);
     }
 
     [Test]
-    public void Rows_Blank_ReturnsValueError()
+    public async Task Rows_Blank_ReturnsValueError()
     {
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("ROWS(IF(TRUE,,))"));
-    }
-
-    [TestCase("0")]
-    [TestCase("1")]
-    [TestCase("99")]
-    [TestCase("-10")]
-    [TestCase("TRUE")]
-    [TestCase("FALSE")]
-    [TestCase("\"\"")]
-    [TestCase("\"A\"")]
-    [TestCase("\"Hello World\"")]
-    public void Rows_ScalarValues_ReturnsOne(string value)
-    {
-        Assert.AreEqual(1, XLWorkbook.EvaluateExpr($"ROWS({value})"));
+        await Assert.That(XLWorkbook.EvaluateExpr("ROWS(IF(TRUE,,))")).IsEqualTo(XLError.IncompatibleValue);
     }
 
     [Test]
-    public void Rows_Error_ReturnsError()
+    [Arguments("0")]
+    [Arguments("1")]
+    [Arguments("99")]
+    [Arguments("-10")]
+    [Arguments("TRUE")]
+    [Arguments("FALSE")]
+    [Arguments("\"\"")]
+    [Arguments("\"A\"")]
+    [Arguments("\"Hello World\"")]
+    public async Task Rows_ScalarValues_ReturnsOne(string value)
     {
-        Assert.AreEqual(XLError.DivisionByZero, XLWorkbook.EvaluateExpr("ROWS(#DIV/0!)"));
+        await Assert.That(XLWorkbook.EvaluateExpr($"ROWS({value})")).IsEqualTo(1);
     }
 
-    [TestCase("{1}", 1)]
-    [TestCase("{1;2;3}", 3)]
-    [TestCase("{1,2,3,4;5,6,7,8;9,10,11,12}", 3)]
-    [TestCase("{TRUE;#DIV/0!}", 2)]
-    public void Rows_Arrays_ReturnsNumberOfRows(string array, int expectedColumnCount)
+    [Test]
+    public async Task Rows_Error_ReturnsError()
     {
-        Assert.AreEqual(expectedColumnCount, XLWorkbook.EvaluateExpr($"ROWS({array})"));
+        await Assert.That(XLWorkbook.EvaluateExpr("ROWS(#DIV/0!)")).IsEqualTo(XLError.DivisionByZero);
     }
 
-    [TestCase("C3", 1)]
-    [TestCase("B3:E12", 10)]
-    [TestCase("AA21:AC400", 380)]
-    public void Rows_References_ReturnsNumberOfColumns(string range, int expectedColumnCount)
+    [Test]
+    [Arguments("{1}", 1)]
+    [Arguments("{1;2;3}", 3)]
+    [Arguments("{1,2,3,4;5,6,7,8;9,10,11,12}", 3)]
+    [Arguments("{TRUE;#DIV/0!}", 2)]
+    public async Task Rows_Arrays_ReturnsNumberOfRows(string array, int expectedColumnCount)
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr($"ROWS({array})")).IsEqualTo(expectedColumnCount);
+    }
+
+    [Test]
+    [Arguments("C3", 1)]
+    [Arguments("B3:E12", 10)]
+    [Arguments("AA21:AC400", 380)]
+    public async Task Rows_References_ReturnsNumberOfColumns(string range, int expectedColumnCount)
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
-        Assert.AreEqual(expectedColumnCount, sheet.Evaluate($"ROWS({range})"));
+        await Assert.That(sheet.Evaluate($"ROWS({range})")).IsEqualTo(expectedColumnCount);
     }
 
     [Test]
-    public void Rows_NonContiguousReferences_ReturnsReferenceError()
+    public async Task Rows_NonContiguousReferences_ReturnsReferenceError()
     {
         // Spec says #NULL!, but Excel says #REF!
-        Assert.AreEqual(XLError.CellReference, XLWorkbook.EvaluateExpr("ROWS((A1,C3))"));
+        await Assert.That(XLWorkbook.EvaluateExpr("ROWS((A1,C3))")).IsEqualTo(XLError.CellReference);
     }
 
     [Test]
-    public void Vlookup()
+    public async Task Vlookup()
     {
         // Range lookup false = exact match
         var value = ws.Evaluate("=VLOOKUP(3,Data!$B$2:$I$71,3,FALSE)");
-        Assert.AreEqual("Central", value);
+        await Assert.That(value).IsEqualTo("Central");
 
         value = ws.Evaluate("=VLOOKUP(DATE(2015,5,22),Data!C:I,7,FALSE)");
-        Assert.AreEqual(63.68, value);
+        await Assert.That(value).IsEqualTo(63.68);
 
         value = ws.Evaluate(@"=VLOOKUP(""Central"",Data!D:E,2,FALSE)");
-        Assert.AreEqual("Kivell", value);
+        await Assert.That(value).IsEqualTo("Kivell");
 
         // Case insensitive lookup
         value = ws.Evaluate(@"=VLOOKUP(""central"",Data!D:E,2,FALSE)");
-        Assert.AreEqual("Kivell", value);
+        await Assert.That(value).IsEqualTo("Kivell");
 
         // Range lookup true = approximate match
         value = ws.Evaluate("=VLOOKUP(3,Data!$B$2:$I$71,8,TRUE)");
-        Assert.AreEqual(179.64, value);
+        await Assert.That(value).IsEqualTo(179.64);
 
         value = ws.Evaluate("=VLOOKUP(3,Data!$B$2:$I$71,8)");
-        Assert.AreEqual(179.64, value);
+        await Assert.That(value).IsEqualTo(179.64);
 
         value = ws.Evaluate("=VLOOKUP(3,Data!$B$2:$I$71,8,)");
-        Assert.AreEqual(179.64, value);
+        await Assert.That(value).IsEqualTo(179.64);
 
         value = ws.Evaluate("=VLOOKUP(14.5,Data!$B$2:$I$71,8,TRUE)");
-        Assert.AreEqual(174.65, value);
+        await Assert.That(value).IsEqualTo(174.65);
 
         value = ws.Evaluate("=VLOOKUP(50,Data!$B$2:$I$71,8,TRUE)");
-        Assert.AreEqual(139.72, value);
+        await Assert.That(value).IsEqualTo(139.72);
     }
 
     [Test]
-    public void Vlookup_ElementNotFound_ReturnsNotAvailableError()
+    public async Task Vlookup_ElementNotFound_ReturnsNotAvailableError()
     {
         // Value not present in the range for exact search
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"=VLOOKUP("""",Data!$B$2:$I$71,3,FALSE)"));
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("=VLOOKUP(50,Data!$B$2:$I$71,3,FALSE)"));
+        await Assert.That(ws.Evaluate(@"=VLOOKUP("""",Data!$B$2:$I$71,3,FALSE)")).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(ws.Evaluate("=VLOOKUP(50,Data!$B$2:$I$71,3,FALSE)")).IsEqualTo(XLError.NoValueAvailable);
 
         // Value in approximate search that is lower than first element
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("=VLOOKUP(-1,Data!$B$2:$I$71,2,TRUE)"));
+        await Assert.That(ws.Evaluate("=VLOOKUP(-1,Data!$B$2:$I$71,2,TRUE)")).IsEqualTo(XLError.NoValueAvailable);
     }
 
     [Test]
-    public void Vlookup_UnexpectedArguments()
+    public async Task Vlookup_UnexpectedArguments()
     {
         // Lookup value can't be an error
-        Assert.AreEqual(XLError.DivisionByZero, ws.Evaluate("=VLOOKUP(#DIV/0!,B2:I71,1)"));
+        await Assert.That(ws.Evaluate("=VLOOKUP(#DIV/0!,B2:I71,1)")).IsEqualTo(XLError.DivisionByZero);
 
         // Text value can't be over 255 chars
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate($"=VLOOKUP(\"{new string('A', 256)}\",B2:I71,1)"));
+        await Assert.That(ws.Evaluate($"=VLOOKUP(\"{new string('A', 256)}\",B2:I71,1)")).IsEqualTo(XLError.IncompatibleValue);
 
         // Range can only be array or a reference. If other type, it returns the error #N/A
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("=VLOOKUP(1,1,1)"));
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("=VLOOKUP(1,TRUE,1)"));
+        await Assert.That(ws.Evaluate("=VLOOKUP(1,1,1)")).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(ws.Evaluate("=VLOOKUP(1,TRUE,1)")).IsEqualTo(XLError.NoValueAvailable);
 
         // If range is a non-contiguous range, #N/A
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("=VLOOKUP(1,(B2:I5,B6:I10),1)"));
+        await Assert.That(ws.Evaluate("=VLOOKUP(1,(B2:I5,B6:I10),1)")).IsEqualTo(XLError.NoValueAvailable);
 
         // The column index must be at most the same as width of the range. It is 9 here, but range is 8 cell wide.
-        Assert.AreEqual(XLError.CellReference, ws.Evaluate("=VLOOKUP(20,B2:I71,9,FALSE)"));
+        await Assert.That(ws.Evaluate("=VLOOKUP(20,B2:I71,9,FALSE)")).IsEqualTo(XLError.CellReference);
         // The column index must be at least 1. It is 0 here.
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate("=VLOOKUP(20,B2:I71,0,FALSE)"));
+        await Assert.That(ws.Evaluate("=VLOOKUP(20,B2:I71,0,FALSE)")).IsEqualTo(XLError.IncompatibleValue);
     }
 
     [Test]
-    public void Vlookup_ColumnIndexParameter_UsesValueSemantic()
+    public async Task Vlookup_ColumnIndexParameter_UsesValueSemantic()
     {
         // If column index is not a whole number, it is truncated, so here 1.9 is truncated to 1
-        Assert.AreEqual(14.0, ws.Evaluate("=VLOOKUP(14,B2:I71,1.9)"));
+        await Assert.That(ws.Evaluate("=VLOOKUP(14,B2:I71,1.9)")).IsEqualTo(14.0);
 
         // Column index is evaluated using a VALUE semantic
-        Assert.AreEqual("Jardine", ws.Evaluate("=VLOOKUP(3,B2:I71,\"2 5/2\")"));
-    }
-
-    [TestCase("\"TRUE\"")]
-    [TestCase("1")]
-    [TestCase("TRUE")]
-    public void Vlookup_FlagParameter_CoercedToBoolean(string flagValue)
-    {
-        Assert.AreEqual(5.0, ws.Evaluate($"VLOOKUP(5,B2:I71,1,{flagValue})"));
+        await Assert.That(ws.Evaluate("=VLOOKUP(3,B2:I71,\"2 5/2\")")).IsEqualTo("Jardine");
     }
 
     [Test]
-    public void Vlookup_BlankLookupValue_BehavesAsZero()
+    [Arguments("\"TRUE\"")]
+    [Arguments("1")]
+    [Arguments("TRUE")]
+    public async Task Vlookup_FlagParameter_CoercedToBoolean(string flagValue)
+    {
+        await Assert.That(ws.Evaluate($"VLOOKUP(5,B2:I71,1,{flagValue})")).IsEqualTo(5.0);
+    }
+
+    [Test]
+    public async Task Vlookup_BlankLookupValue_BehavesAsZero()
     {
         using var wb = new XLWorkbook();
         var worksheet = wb.AddWorksheet();
@@ -759,11 +771,11 @@ public class LookupTests
 
         var actual = worksheet.Evaluate("VLOOKUP(IF(TRUE,,),A1:B10,2)");
 
-        Assert.AreEqual("Row with value 0", actual);
+        await Assert.That(actual).IsEqualTo("Row with value 0");
     }
 
     [Test]
-    public void Vlookup_ApproximateSearch_OmitsValuesWithDifferentType()
+    public async Task Vlookup_ApproximateSearch_OmitsValuesWithDifferentType()
     {
         using var wb = new XLWorkbook();
         var worksheet = wb.AddWorksheet();
@@ -777,29 +789,29 @@ public class LookupTests
         worksheet.Cell("B1").InsertData(Enumerable.Range(1, 7).Select(x => $"Row {x}"));
 
         var actual = worksheet.Evaluate("VLOOKUP(1.9,A1:B7,2,TRUE)");
-        Assert.AreEqual("Row 3", actual);
+        await Assert.That(actual).IsEqualTo("Row 3");
     }
 
     [Test]
-    public void Vlookup_OnlyCellsWithDifferentType_ReturnsNotAvailable()
+    public async Task Vlookup_OnlyCellsWithDifferentType_ReturnsNotAvailable()
     {
         using var wb = new XLWorkbook();
         var worksheet = wb.AddWorksheet();
-        Assert.AreEqual(XLError.NoValueAvailable, worksheet.Evaluate("VLOOKUP(1,A1,1,TRUE)"));
+        await Assert.That(worksheet.Evaluate("VLOOKUP(1,A1,1,TRUE)")).IsEqualTo(XLError.NoValueAvailable);
     }
 
     [Test]
-    public void Vlookup_OnlyOneValueSurroundedByIgnoredTypes()
+    public async Task Vlookup_OnlyOneValueSurroundedByIgnoredTypes()
     {
         using var wb = new XLWorkbook();
         var worksheet = wb.AddWorksheet();
         worksheet.Cell("A3").Value = 5;
 
-        Assert.AreEqual(5, worksheet.Evaluate("VLOOKUP(6,A1:A5,1,TRUE)"));
+        await Assert.That(worksheet.Evaluate("VLOOKUP(6,A1:A5,1,TRUE)")).IsEqualTo(5);
     }
 
     [Test]
-    public void Vlookup_ResultAtTheHighestCellWithTrailingDifferentTypeAtTheEnd()
+    public async Task Vlookup_ResultAtTheHighestCellWithTrailingDifferentTypeAtTheEnd()
     {
         using var wb = new XLWorkbook();
         var worksheet = wb.AddWorksheet();
@@ -808,11 +820,11 @@ public class LookupTests
         worksheet.Cell("A3").Value = 3;
         worksheet.Cell("A4").Value = Blank.Value;
 
-        Assert.AreEqual(3, worksheet.Evaluate("VLOOKUP(3,A1:A4,1,TRUE)"));
+        await Assert.That(worksheet.Evaluate("VLOOKUP(3,A1:A4,1,TRUE)")).IsEqualTo(3);
     }
 
     [Test]
-    public void Vlookup_ApproximateSearch_ReturnsLastRowForMultipleEqualValues()
+    public async Task Vlookup_ApproximateSearch_ReturnsLastRowForMultipleEqualValues()
     {
         var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
@@ -828,21 +840,21 @@ public class LookupTests
 
         // If there is a section of values with same value, return the value at the highest row
         var actual = sheet.Evaluate("VLOOKUP(3, A1:B8, 2, TRUE)");
-        Assert.AreEqual(7, actual);
+        await Assert.That(actual).IsEqualTo(7);
 
         // If the last value is in the highest row, just return value outright
         actual = sheet.Evaluate("VLOOKUP(3, A2:B7, 2, TRUE)");
-        Assert.AreEqual(7, actual);
+        await Assert.That(actual).IsEqualTo(7);
     }
 
     [Test]
-    public void Vlookup_CanSearchArrays()
+    public async Task Vlookup_CanSearchArrays()
     {
-        Assert.AreEqual(2, XLWorkbook.EvaluateExpr("VLOOKUP(4, {1,2; 3,2; 5,3; 7,4}, 2)"));
+        await Assert.That(XLWorkbook.EvaluateExpr("VLOOKUP(4, {1,2; 3,2; 5,3; 7,4}, 2)")).IsEqualTo(2);
     }
 
     [Test]
-    public void Vlookup_Wildcard_AsteriskMatchesAnyCharacters()
+    public async Task Vlookup_Wildcard_AsteriskMatchesAnyCharacters()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
@@ -853,13 +865,13 @@ public class LookupTests
         sheet.Cell("B2").Value = 2;
         sheet.Cell("B3").Value = 3;
 
-        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""A*"",A1:B3,2,FALSE)"));
-        Assert.AreEqual(2, sheet.Evaluate(@"VLOOKUP(""B*"",A1:B3,2,FALSE)"));
-        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""*pple"",A1:B3,2,FALSE)"));
+        await Assert.That(sheet.Evaluate(@"VLOOKUP(""A*"",A1:B3,2,FALSE)")).IsEqualTo(1);
+        await Assert.That(sheet.Evaluate(@"VLOOKUP(""B*"",A1:B3,2,FALSE)")).IsEqualTo(2);
+        await Assert.That(sheet.Evaluate(@"VLOOKUP(""*pple"",A1:B3,2,FALSE)")).IsEqualTo(1);
     }
 
     [Test]
-    public void Vlookup_Wildcard_IsCaseInsensitive()
+    public async Task Vlookup_Wildcard_IsCaseInsensitive()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
@@ -869,16 +881,16 @@ public class LookupTests
         sheet.Cell("B2").Value = 2;
 
         // Lowercase pattern against uppercase cell value
-        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""a*"",A1:B2,2,FALSE)"));
-        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""*pple"",A1:B2,2,FALSE)"));
+        await Assert.That(sheet.Evaluate(@"VLOOKUP(""a*"",A1:B2,2,FALSE)")).IsEqualTo(1);
+        await Assert.That(sheet.Evaluate(@"VLOOKUP(""*pple"",A1:B2,2,FALSE)")).IsEqualTo(1);
 
         // Uppercase pattern against mixed-case cell value
-        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""*PPLE"",A1:B2,2,FALSE)"));
-        Assert.AreEqual(2, sheet.Evaluate(@"VLOOKUP(""BANANA"",A1:B2,2,FALSE)"));
+        await Assert.That(sheet.Evaluate(@"VLOOKUP(""*PPLE"",A1:B2,2,FALSE)")).IsEqualTo(1);
+        await Assert.That(sheet.Evaluate(@"VLOOKUP(""BANANA"",A1:B2,2,FALSE)")).IsEqualTo(2);
     }
 
     [Test]
-    public void Vlookup_Wildcard_QuestionMarkMatchesSingleCharacter()
+    public async Task Vlookup_Wildcard_QuestionMarkMatchesSingleCharacter()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
@@ -890,14 +902,14 @@ public class LookupTests
         sheet.Cell("B3").Value = 3;
 
         // A? matches exactly two characters starting with A
-        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""A?"",A1:B3,2,FALSE)"));
+        await Assert.That(sheet.Evaluate(@"VLOOKUP(""A?"",A1:B3,2,FALSE)")).IsEqualTo(1);
 
         // A?? matches exactly three characters starting with A
-        Assert.AreEqual(2, sheet.Evaluate(@"VLOOKUP(""A??"",A1:B3,2,FALSE)"));
+        await Assert.That(sheet.Evaluate(@"VLOOKUP(""A??"",A1:B3,2,FALSE)")).IsEqualTo(2);
     }
 
     [Test]
-    public void Vlookup_Wildcard_EscapedWildcardMatchesLiteral()
+    public async Task Vlookup_Wildcard_EscapedWildcardMatchesLiteral()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
@@ -907,22 +919,22 @@ public class LookupTests
         sheet.Cell("B2").Value = 2;
 
         // ~* matches literal asterisk
-        Assert.AreEqual(1, sheet.Evaluate(@"VLOOKUP(""A~*B"",A1:B2,2,FALSE)"));
+        await Assert.That(sheet.Evaluate(@"VLOOKUP(""A~*B"",A1:B2,2,FALSE)")).IsEqualTo(1);
     }
 
     [Test]
-    public void Vlookup_Wildcard_NoMatch_ReturnsNA()
+    public async Task Vlookup_Wildcard_NoMatch_ReturnsNA()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
         sheet.Cell("A1").Value = "Apple";
         sheet.Cell("B1").Value = 1;
 
-        Assert.AreEqual(XLError.NoValueAvailable, sheet.Evaluate(@"VLOOKUP(""Z*"",A1:B1,2,FALSE)"));
+        await Assert.That(sheet.Evaluate(@"VLOOKUP(""Z*"",A1:B1,2,FALSE)")).IsEqualTo(XLError.NoValueAvailable);
     }
 
     [Test]
-    public void Vlookup_Wildcard_NonTextLookupStillWorks()
+    public async Task Vlookup_Wildcard_NonTextLookupStillWorks()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
@@ -931,11 +943,11 @@ public class LookupTests
         sheet.Cell("B1").Value = "ten";
         sheet.Cell("B2").Value = "twenty";
 
-        Assert.AreEqual("ten", sheet.Evaluate("VLOOKUP(10,A1:B2,2,FALSE)"));
+        await Assert.That(sheet.Evaluate("VLOOKUP(10,A1:B2,2,FALSE)")).IsEqualTo("ten");
     }
 
     [Test]
-    public void Hlookup_Wildcard_AsteriskMatchesAnyCharacters()
+    public async Task Hlookup_Wildcard_AsteriskMatchesAnyCharacters()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
@@ -946,12 +958,12 @@ public class LookupTests
         sheet.Cell("B2").Value = 2;
         sheet.Cell("C2").Value = 3;
 
-        Assert.AreEqual(1, sheet.Evaluate(@"HLOOKUP(""A*"",A1:C2,2,FALSE)"));
-        Assert.AreEqual(2, sheet.Evaluate(@"HLOOKUP(""B*"",A1:C2,2,FALSE)"));
+        await Assert.That(sheet.Evaluate(@"HLOOKUP(""A*"",A1:C2,2,FALSE)")).IsEqualTo(1);
+        await Assert.That(sheet.Evaluate(@"HLOOKUP(""B*"",A1:C2,2,FALSE)")).IsEqualTo(2);
     }
 
     [Test]
-    public void Hlookup_Wildcard_QuestionMarkMatchesSingleCharacter()
+    public async Task Hlookup_Wildcard_QuestionMarkMatchesSingleCharacter()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
@@ -960,11 +972,11 @@ public class LookupTests
         sheet.Cell("A2").Value = 1;
         sheet.Cell("B2").Value = 2;
 
-        Assert.AreEqual(1, sheet.Evaluate(@"HLOOKUP(""A?"",A1:B2,2,FALSE)"));
+        await Assert.That(sheet.Evaluate(@"HLOOKUP(""A?"",A1:B2,2,FALSE)")).IsEqualTo(1);
     }
 
     [Test]
-    public void Hlookup_Wildcard_EscapedWildcardMatchesLiteral()
+    public async Task Hlookup_Wildcard_EscapedWildcardMatchesLiteral()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
@@ -973,42 +985,42 @@ public class LookupTests
         sheet.Cell("A2").Value = 1;
         sheet.Cell("B2").Value = 2;
 
-        Assert.AreEqual(1, sheet.Evaluate(@"HLOOKUP(""A~*B"",A1:B2,2,FALSE)"));
+        await Assert.That(sheet.Evaluate(@"HLOOKUP(""A~*B"",A1:B2,2,FALSE)")).IsEqualTo(1);
     }
 
     [Test]
-    public void Hlookup_Wildcard_NoMatch_ReturnsNA()
+    public async Task Hlookup_Wildcard_NoMatch_ReturnsNA()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
         sheet.Cell("A1").Value = "Apple";
         sheet.Cell("A2").Value = 1;
 
-        Assert.AreEqual(XLError.NoValueAvailable, sheet.Evaluate(@"HLOOKUP(""Z*"",A1:A2,2,FALSE)"));
+        await Assert.That(sheet.Evaluate(@"HLOOKUP(""Z*"",A1:A2,2,FALSE)")).IsEqualTo(XLError.NoValueAvailable);
     }
 
     #region INDIRECT
 
     [Test]
-    public void Indirect_BasicA1Reference()
+    public async Task Indirect_BasicA1Reference()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
         sheet.Cell("A1").Value = 42;
-        Assert.AreEqual(42, sheet.Evaluate("INDIRECT(\"A1\")"));
+        await Assert.That(sheet.Evaluate("INDIRECT(\"A1\")")).IsEqualTo(42);
     }
 
     [Test]
-    public void Indirect_AbsoluteReference()
+    public async Task Indirect_AbsoluteReference()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
         sheet.Cell("B2").Value = "Hello";
-        Assert.AreEqual("Hello", sheet.Evaluate("INDIRECT(\"$B$2\")"));
+        await Assert.That(sheet.Evaluate("INDIRECT(\"$B$2\")")).IsEqualTo("Hello");
     }
 
     [Test]
-    public void Indirect_RangeReference_ReturnsReferenceUsableByOtherFunctions()
+    public async Task Indirect_RangeReference_ReturnsReferenceUsableByOtherFunctions()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
@@ -1016,109 +1028,109 @@ public class LookupTests
         sheet.Cell("A2").Value = 2;
         sheet.Cell("B1").Value = 3;
         sheet.Cell("B2").Value = 4;
-        Assert.AreEqual(10.0, sheet.Evaluate("SUM(INDIRECT(\"A1:B2\"))"));
+        await Assert.That(sheet.Evaluate("SUM(INDIRECT(\"A1:B2\"))")).IsEqualTo(10.0);
     }
 
     [Test]
-    public void Indirect_EmptyString_ReturnsCellReferenceError()
+    public async Task Indirect_EmptyString_ReturnsCellReferenceError()
     {
-        Assert.AreEqual(XLError.CellReference, XLWorkbook.EvaluateExpr("INDIRECT(\"\")"));
+        await Assert.That(XLWorkbook.EvaluateExpr("INDIRECT(\"\")")).IsEqualTo(XLError.CellReference);
     }
 
     [Test]
-    public void Indirect_SheetPrefix()
+    public async Task Indirect_SheetPrefix()
     {
         using var wb = new XLWorkbook();
         var sheet1 = wb.AddWorksheet("Sheet1");
         var sheet2 = wb.AddWorksheet("Sheet2");
         sheet2.Cell("A1").Value = 99;
-        Assert.AreEqual(99, sheet1.Evaluate("INDIRECT(\"Sheet2!A1\")"));
+        await Assert.That(sheet1.Evaluate("INDIRECT(\"Sheet2!A1\")")).IsEqualTo(99);
     }
 
     [Test]
-    public void Indirect_InvalidReference_ReturnsCellReferenceError()
+    public async Task Indirect_InvalidReference_ReturnsCellReferenceError()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
-        Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDIRECT(\"XYZ\")"));
+        await Assert.That(sheet.Evaluate("INDIRECT(\"XYZ\")")).IsEqualTo(XLError.CellReference);
     }
 
     [Test]
-    public void Indirect_DefinedName()
+    public async Task Indirect_DefinedName()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
         sheet.Cell("C3").Value = 77;
         wb.DefinedNames.Add("MyRange", "Sheet1!$C$3");
-        Assert.AreEqual(77, sheet.Evaluate("INDIRECT(\"MyRange\")"));
+        await Assert.That(sheet.Evaluate("INDIRECT(\"MyRange\")")).IsEqualTo(77);
     }
 
     [Test]
-    public void Indirect_SheetScopedDefinedName()
+    public async Task Indirect_SheetScopedDefinedName()
     {
         using var wb = new XLWorkbook();
         var sheet1 = wb.AddWorksheet("Sheet1");
         var sheet2 = wb.AddWorksheet("Sheet2");
         sheet2.Cell("B2").Value = 55;
         sheet2.DefinedNames.Add("LocalName", "Sheet2!$B$2");
-        Assert.AreEqual(55, sheet1.Evaluate("INDIRECT(\"Sheet2!LocalName\")"));
+        await Assert.That(sheet1.Evaluate("INDIRECT(\"Sheet2!LocalName\")")).IsEqualTo(55);
     }
 
     [Test]
-    public void Indirect_A1FlagTrue_SameAsDefault()
+    public async Task Indirect_A1FlagTrue_SameAsDefault()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
         sheet.Cell("A1").Value = 5;
-        Assert.AreEqual(5, sheet.Evaluate("INDIRECT(\"A1\", TRUE)"));
+        await Assert.That(sheet.Evaluate("INDIRECT(\"A1\", TRUE)")).IsEqualTo(5);
     }
 
     [Test]
-    public void Indirect_R1C1Style()
+    public async Task Indirect_R1C1Style()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
         sheet.Cell("A1").Value = 123;
-        Assert.AreEqual(123, sheet.Evaluate("INDIRECT(\"R1C1\", FALSE)"));
+        await Assert.That(sheet.Evaluate("INDIRECT(\"R1C1\", FALSE)")).IsEqualTo(123);
     }
 
     [Test]
-    public void Indirect_QuotedSheetNameWithApostrophe()
+    public async Task Indirect_QuotedSheetNameWithApostrophe()
     {
         using var wb = new XLWorkbook();
         var sheet1 = wb.AddWorksheet("Main");
         var sheet2 = wb.AddWorksheet("Bob's");
         sheet2.Cell("A1").Value = 42;
-        Assert.AreEqual(42, sheet1.Evaluate("INDIRECT(\"'Bob''s'!A1\")"));
+        await Assert.That(sheet1.Evaluate("INDIRECT(\"'Bob''s'!A1\")")).IsEqualTo(42);
     }
 
     [Test]
-    public void Indirect_R1C1Range()
+    public async Task Indirect_R1C1Range()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
         sheet.Cell("A1").Value = 1;
         sheet.Cell("A2").Value = 2;
         sheet.Cell("C3").Value = 10;
-        Assert.AreEqual(13.0, sheet.Evaluate("SUM(INDIRECT(\"R1C1:R3C3\", FALSE))"));
+        await Assert.That(sheet.Evaluate("SUM(INDIRECT(\"R1C1:R3C3\", FALSE))")).IsEqualTo(13.0);
     }
 
     [Test]
-    public void Indirect_NonExistentSheet_ReturnsCellReferenceError()
+    public async Task Indirect_NonExistentSheet_ReturnsCellReferenceError()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
-        Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDIRECT(\"NoSuchSheet!A1\")"));
+        await Assert.That(sheet.Evaluate("INDIRECT(\"NoSuchSheet!A1\")")).IsEqualTo(XLError.CellReference);
     }
 
     [Test]
-    public void Indirect_DynamicReference()
+    public async Task Indirect_DynamicReference()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
         sheet.Cell("A1").Value = "B2";
         sheet.Cell("B2").Value = 100;
-        Assert.AreEqual(100, sheet.Evaluate("INDIRECT(A1)"));
+        await Assert.That(sheet.Evaluate("INDIRECT(A1)")).IsEqualTo(100);
     }
 
     #endregion

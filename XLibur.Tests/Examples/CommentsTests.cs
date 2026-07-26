@@ -1,15 +1,15 @@
-﻿using NUnit.Framework;
-using XLibur.Examples.Comments;
+﻿using XLibur.Examples.Comments;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;
 
-[TestFixture]
 public class CommentsTests
 {
     [Test]
-    [Platform("Win", Reason = "VML drawing comparison is platform-dependent: XDocument serialization produces different XML formatting on Linux vs Windows")]
-    public void AddingComments()
+    // Windows-only: VML drawing comparison is platform-dependent: XDocument serialization produces different XML formatting on Linux vs Windows
+    [RunOn(TUnit.Core.Enums.OS.Windows)]
+    public async Task AddingComments()
     {
-        TestHelper.RunTestExample<AddingComments>(@"Comments\AddingComments.xlsx");
+        await TestHelper.RunTestExample<AddingComments>(@"Comments\AddingComments.xlsx");
     }
 }

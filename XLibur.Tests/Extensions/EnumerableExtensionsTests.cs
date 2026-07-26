@@ -1,10 +1,11 @@
-﻿using NUnit.Framework;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Extensions;
 using XLibur.Tests.Excel.Tables;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Extensions;
 
@@ -14,23 +15,23 @@ public class EnumerableExtensionsTests
     private static readonly int[] SkipLastTwo = [1, 2];
 
     [Test]
-    public void CanGetItemType()
+    public async Task CanGetItemType()
     {
         var array = Array.Empty<int>();
-        Assert.AreEqual(typeof(int), array.GetItemType());
+        await Assert.That(array.GetItemType()).IsEqualTo(typeof(int));
 
         var list = new List<double>();
-        Assert.AreEqual(typeof(double), list.GetItemType());
-        Assert.AreEqual(typeof(double), list.AsEnumerable().GetItemType());
+        await Assert.That(list.GetItemType()).IsEqualTo(typeof(double));
+        await Assert.That(list.AsEnumerable().GetItemType()).IsEqualTo(typeof(double));
 
         IEnumerable<IEnumerable> enumerable = new List<string>();
-        Assert.AreEqual(typeof(string), enumerable.GetItemType());
+        await Assert.That(enumerable.GetItemType()).IsEqualTo(typeof(string));
 
         enumerable = new List<List<string>>();
-        Assert.AreEqual(typeof(List<string>), enumerable.GetItemType());
+        await Assert.That(enumerable.GetItemType()).IsEqualTo(typeof(List<string>));
 
         enumerable = new List<int[]>();
-        Assert.AreEqual(typeof(int[]), enumerable.GetItemType());
+        await Assert.That(enumerable.GetItemType()).IsEqualTo(typeof(int[]));
 
         var anonymousIterator = new List<TablesTests.TestObjectWithoutAttributes>()
             .Select(o => new { FirstName = o.Column1, LastName = o.Column2 });
@@ -41,35 +42,35 @@ public class EnumerableExtensionsTests
         var expectedTypeStart = "<>f__AnonymousType";
         var expectedTypeEnd = "`2[System.String,System.String]";
         var actualType = anonymousIterator.GetItemType().ToString();
-        Assert.True(actualType.StartsWith(expectedTypeStart));
-        Assert.True(actualType.EndsWith(expectedTypeEnd));
+        await Assert.That(actualType.StartsWith(expectedTypeStart)).IsTrue();
+        await Assert.That(actualType.EndsWith(expectedTypeEnd)).IsTrue();
 
         IEnumerable<object> obj = anonymousIterator;
         actualType = obj.GetItemType().ToString();
-        Assert.True(actualType.StartsWith(expectedTypeStart));
-        Assert.True(actualType.EndsWith(expectedTypeEnd));
+        await Assert.That(actualType.StartsWith(expectedTypeStart)).IsTrue();
+        await Assert.That(actualType.EndsWith(expectedTypeEnd)).IsTrue();
     }
 
     [Test]
-    public void SkipLast_skips_last_element_of_enumerable()
+    public async Task SkipLast_skips_last_element_of_enumerable()
     {
         var empty = Array.Empty<int>().SkipLast();
-        Assert.That(empty, Is.Empty);
+        await Assert.That(empty).IsEmpty();
 
         var oneElement = SkipLastSingle.SkipLast();
-        Assert.That(oneElement, Is.Empty);
+        await Assert.That(oneElement).IsEmpty();
 
         var twoElements = SkipLastTwo.SkipLast();
-        Assert.That(twoElements, Is.EqualTo([1]));
+        await Assert.That(twoElements).IsEquivalentTo([1], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void WhereNotNull_removes_null_elements()
+    public async Task WhereNotNull_removes_null_elements()
     {
         var source = new int?[] { 1, null, 2 };
 
         var result = source.WhereNotNull(x => x);
 
-        Assert.That(result, Is.EqualTo([1, 2]));
+        await Assert.That(result).IsEquivalentTo([1, 2], CollectionOrdering.Matching);
     }
 }

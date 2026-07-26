@@ -1,69 +1,68 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Misc;
 
-[TestFixture]
 public class SearchTests
 {
     [Test]
-    public void TestSearch()
+    public async Task TestSearch()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\Misc\CellValues.xlsx"));
         using var wb = new XLWorkbook(stream);
         var ws = wb.Worksheets.First();
 
         var foundCells = ws.Search("Initial Value");
-        Assert.AreEqual(1, foundCells.Count());
-        Assert.AreEqual("B2", foundCells.Single().Address.ToString());
-        Assert.AreEqual("Initial Value", foundCells.Single().GetText());
+        await Assert.That(foundCells.Count()).IsEqualTo(1);
+        await Assert.That(foundCells.Single().Address.ToString()).IsEqualTo("B2");
+        await Assert.That(foundCells.Single().GetText()).IsEqualTo("Initial Value");
 
         foundCells = ws.Search("Using");
-        Assert.AreEqual(2, foundCells.Count());
-        Assert.AreEqual("D2", foundCells.First().Address.ToString());
-        Assert.AreEqual("Using Get...()", foundCells.First().GetText());
-        Assert.AreEqual(2, foundCells.Count());
-        Assert.AreEqual("E2", foundCells.Last().Address.ToString());
-        Assert.AreEqual("Using GetValue<T>()", foundCells.Last().GetText());
+        await Assert.That(foundCells.Count()).IsEqualTo(2);
+        await Assert.That(foundCells.First().Address.ToString()).IsEqualTo("D2");
+        await Assert.That(foundCells.First().GetText()).IsEqualTo("Using Get...()");
+        await Assert.That(foundCells.Count()).IsEqualTo(2);
+        await Assert.That(foundCells.Last().Address.ToString()).IsEqualTo("E2");
+        await Assert.That(foundCells.Last().GetText()).IsEqualTo("Using GetValue<T>()");
 
         foundCells = ws.Search("1234");
-        Assert.AreEqual(5, foundCells.Count());
-        Assert.AreEqual("B5,C5,D5,E5,F5", string.Join(",", foundCells.Select(c => c.Address.ToString()).ToArray()));
+        await Assert.That(foundCells.Count()).IsEqualTo(5);
+        await Assert.That(string.Join(",", foundCells.Select(c => c.Address.ToString()).ToArray())).IsEqualTo("B5,C5,D5,E5,F5");
 
         foundCells = ws.Search("Sep");
-        Assert.AreEqual(1, foundCells.Count());
-        Assert.AreEqual("G3", string.Join(",", foundCells.Select(c => c.Address.ToString()).ToArray()));
+        await Assert.That(foundCells.Count()).IsEqualTo(1);
+        await Assert.That(string.Join(",", foundCells.Select(c => c.Address.ToString()).ToArray())).IsEqualTo("G3");
 
         foundCells = ws.Search("1234", CompareOptions.Ordinal, true);
-        Assert.AreEqual(5, foundCells.Count());
-        Assert.AreEqual("B5,C5,D5,E5,F5", string.Join(",", foundCells.Select(c => c.Address.ToString()).ToArray()));
+        await Assert.That(foundCells.Count()).IsEqualTo(5);
+        await Assert.That(string.Join(",", foundCells.Select(c => c.Address.ToString()).ToArray())).IsEqualTo("B5,C5,D5,E5,F5");
 
         foundCells = ws.Search("test case");
-        Assert.AreEqual(0, foundCells.Count());
+        await Assert.That(foundCells.Count()).IsEqualTo(0);
 
         foundCells = ws.Search("test case", CompareOptions.OrdinalIgnoreCase);
-        Assert.AreEqual(6, foundCells.Count());
+        await Assert.That(foundCells.Count()).IsEqualTo(6);
     }
 
     [Test]
-    public void TestSearch2()
+    public async Task TestSearch2()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\Misc\Formulas.xlsx"));
         using var wb = new XLWorkbook(stream);
         var ws = wb.Worksheets.First();
 
         var foundCells = ws.Search("3");
-        Assert.AreEqual(10, foundCells.Count());
-        Assert.AreEqual("C2", foundCells.First().Address.ToString());
+        await Assert.That(foundCells.Count()).IsEqualTo(10);
+        await Assert.That(foundCells.First().Address.ToString()).IsEqualTo("C2");
 
         foundCells = ws.Search("A2", CompareOptions.Ordinal, true);
-        Assert.AreEqual(6, foundCells.Count());
-        Assert.AreEqual("C2,D2,B6,C6,D6,A11", string.Join(",", foundCells.Select(c => c.Address.ToString()).ToArray()));
+        await Assert.That(foundCells.Count()).IsEqualTo(6);
+        await Assert.That(string.Join(",", foundCells.Select(c => c.Address.ToString()).ToArray())).IsEqualTo("C2,D2,B6,C6,D6,A11");
 
         foundCells = ws.Search("RC", CompareOptions.Ordinal, true);
-        Assert.AreEqual(3, foundCells.Count());
-        Assert.AreEqual("E2,E3,E4", string.Join(",", foundCells.Select(c => c.Address.ToString()).ToArray()));
+        await Assert.That(foundCells.Count()).IsEqualTo(3);
+        await Assert.That(string.Join(",", foundCells.Select(c => c.Address.ToString()).ToArray())).IsEqualTo("E2,E3,E4");
     }
 }

@@ -1,10 +1,9 @@
 ﻿using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.NamedRanges;
 
-[TestFixture]
 public class NamedRangeDeletionTests
 {
     private static string RefersTo(XLWorkbook wb, string name)
@@ -18,7 +17,7 @@ public class NamedRangeDeletionTests
     /// expanding the range to A2:A3 and including a row that was never part of it.
     /// </summary>
     [Test]
-    public void DeletingTopRowOfNamedRange_ShrinksAndShifts()
+    public async Task DeletingTopRowOfNamedRange_ShrinksAndShifts()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -28,7 +27,7 @@ public class NamedRangeDeletionTests
 
         ws.Row(3).Delete();
 
-        Assert.That(RefersTo(wb, "TopDelete"), Is.EqualTo("Sheet1!$A$3:$A$3"));
+        await Assert.That(RefersTo(wb, "TopDelete")).IsEqualTo("Sheet1!$A$3:$A$3");
     }
 
     /// <summary>
@@ -36,7 +35,7 @@ public class NamedRangeDeletionTests
     /// shifts the surviving bottom up: A3:A5 with rows 2:3 deleted becomes A2:A3.
     /// </summary>
     [Test]
-    public void DeletingRowsOverlappingTopBoundary_ClampsFirstRow()
+    public async Task DeletingRowsOverlappingTopBoundary_ClampsFirstRow()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -47,7 +46,7 @@ public class NamedRangeDeletionTests
 
         ws.Rows(2, 3).Delete();
 
-        Assert.That(RefersTo(wb, "OverlapTop"), Is.EqualTo("Sheet1!$A$2:$A$3"));
+        await Assert.That(RefersTo(wb, "OverlapTop")).IsEqualTo("Sheet1!$A$2:$A$3");
     }
 
     /// <summary>
@@ -55,7 +54,7 @@ public class NamedRangeDeletionTests
     /// fixed: A3:A5 with row 4 deleted becomes A3:A4. This case was already correct and must not regress.
     /// </summary>
     [Test]
-    public void DeletingMiddleRowOfNamedRange_ShrinksFromWithin()
+    public async Task DeletingMiddleRowOfNamedRange_ShrinksFromWithin()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -66,7 +65,7 @@ public class NamedRangeDeletionTests
 
         ws.Row(4).Delete();
 
-        Assert.That(RefersTo(wb, "MidDelete"), Is.EqualTo("Sheet1!$A$3:$A$4"));
+        await Assert.That(RefersTo(wb, "MidDelete")).IsEqualTo("Sheet1!$A$3:$A$4");
     }
 
     /// <summary>
@@ -74,7 +73,7 @@ public class NamedRangeDeletionTests
     /// A3:A4 with row 1 deleted becomes A2:A3. This case was already correct and must not regress.
     /// </summary>
     [Test]
-    public void DeletingRowAboveNamedRange_ShiftsWholeRangeUp()
+    public async Task DeletingRowAboveNamedRange_ShiftsWholeRangeUp()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -84,14 +83,14 @@ public class NamedRangeDeletionTests
 
         ws.Row(1).Delete();
 
-        Assert.That(RefersTo(wb, "AboveDelete"), Is.EqualTo("Sheet1!$A$2:$A$3"));
+        await Assert.That(RefersTo(wb, "AboveDelete")).IsEqualTo("Sheet1!$A$2:$A$3");
     }
 
     /// <summary>
     /// The top-boundary shrink also applies across multiple columns: B3:D4 with row 3 deleted becomes B3:D3.
     /// </summary>
     [Test]
-    public void DeletingTopRowOfMultiColumnNamedRange_ShrinksAndShifts()
+    public async Task DeletingTopRowOfMultiColumnNamedRange_ShrinksAndShifts()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -100,7 +99,7 @@ public class NamedRangeDeletionTests
 
         ws.Row(3).Delete();
 
-        Assert.That(RefersTo(wb, "Block"), Is.EqualTo("Sheet1!$B$3:$D$3"));
+        await Assert.That(RefersTo(wb, "Block")).IsEqualTo("Sheet1!$B$3:$D$3");
     }
 
     /// <summary>
@@ -108,7 +107,7 @@ public class NamedRangeDeletionTests
     /// shifts survivors left (C1:D1 -> C1:C1) rather than expanding to B1:C1.
     /// </summary>
     [Test]
-    public void DeletingLeftColumnOfNamedRange_ShrinksAndShifts()
+    public async Task DeletingLeftColumnOfNamedRange_ShrinksAndShifts()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -118,7 +117,7 @@ public class NamedRangeDeletionTests
 
         ws.Column(3).Delete();
 
-        Assert.That(RefersTo(wb, "LeftDelete"), Is.EqualTo("Sheet1!$C$1:$C$1"));
+        await Assert.That(RefersTo(wb, "LeftDelete")).IsEqualTo("Sheet1!$C$1:$C$1");
     }
 
     /// <summary>
@@ -126,7 +125,7 @@ public class NamedRangeDeletionTests
     /// C1:D1 with column A deleted becomes B1:C1. Guards against over-clamping the column path.
     /// </summary>
     [Test]
-    public void DeletingColumnLeftOfNamedRange_ShiftsWholeRangeLeft()
+    public async Task DeletingColumnLeftOfNamedRange_ShiftsWholeRangeLeft()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -136,6 +135,6 @@ public class NamedRangeDeletionTests
 
         ws.Column(1).Delete();
 
-        Assert.That(RefersTo(wb, "ColAbove"), Is.EqualTo("Sheet1!$B$1:$C$1"));
+        await Assert.That(RefersTo(wb, "ColAbove")).IsEqualTo("Sheet1!$B$1:$C$1");
     }
 }

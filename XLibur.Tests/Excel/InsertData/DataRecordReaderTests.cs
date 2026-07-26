@@ -1,9 +1,9 @@
 ﻿using XLibur.Excel.InsertData;
-using NUnit.Framework;
 using System.Collections.Generic;
 using System.Data;
 using Microsoft.Data.SqlClient;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.InsertData;
 
@@ -28,7 +28,7 @@ public class DataRecordReaderTests
         }
         catch
         {
-            Assert.Ignore("Could not connect to localdb");
+            Skip.Test("Could not connect to localdb");
         }
 
         using var reader = command.ExecuteReader();
@@ -39,36 +39,36 @@ public class DataRecordReaderTests
     }
 
     [Test]
-    public void CanGetPropertyName()
+    public async Task CanGetPropertyName()
     {
         var reader = InsertDataReaderFactory.CreateReader(GetData());
-        Assert.AreEqual("StringValue", reader.GetPropertyName(0));
-        Assert.AreEqual("NumericValue", reader.GetPropertyName(1));
+        await Assert.That(reader.GetPropertyName(0)).IsEqualTo("StringValue");
+        await Assert.That(reader.GetPropertyName(1)).IsEqualTo("NumericValue");
     }
 
     [Test]
-    public void CanGetPropertiesCount()
+    public async Task CanGetPropertiesCount()
     {
         var reader = InsertDataReaderFactory.CreateReader(GetData());
-        Assert.AreEqual(2, reader.GetPropertiesCount());
+        await Assert.That(reader.GetPropertiesCount()).IsEqualTo(2);
     }
 
     [Test]
-    public void CanGetRecordsCount()
+    public async Task CanGetRecordsCount()
     {
         var reader = InsertDataReaderFactory.CreateReader(GetData());
-        Assert.AreEqual(3, reader.GetRecords().Count());
+        await Assert.That(reader.GetRecords().Count()).IsEqualTo(3);
     }
 
     [Test]
-    public void CanGetData()
+    public async Task CanGetData()
     {
         var reader = InsertDataReaderFactory.CreateReader(GetData());
         var result = reader.GetRecords().ToArray();
 
-        Assert.AreEqual("Value 1", result.First().First());
-        Assert.AreEqual(100, result.First().Last());
-        Assert.AreEqual("Value 3", result.Last().First());
-        Assert.AreEqual(300, result.Last().Last());
+        await Assert.That(result.First().First()).IsEqualTo("Value 1");
+        await Assert.That(result.First().Last()).IsEqualTo(100);
+        await Assert.That(result.Last().First()).IsEqualTo("Value 3");
+        await Assert.That(result.Last().Last()).IsEqualTo(300);
     }
 }

@@ -1,13 +1,12 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using System;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
-[TestFixture]
 public class FunctionsTests
 {
-    [SetUp]
+    [Before(HookType.Test)]
     public void Init()
     {
         // Make sure tests run on a deterministic culture
@@ -15,79 +14,80 @@ public class FunctionsTests
     }
 
     [Test]
-    public void Asc()
+    public async Task Asc()
     {
         Object actual;
 
         actual = XLWorkbook.EvaluateExpr(@"Asc(""Text"")");
-        Assert.AreEqual("Text", actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From("Text"));
     }
 
     [Test]
-    public void Clean()
+    public async Task Clean()
     {
         object actual = XLWorkbook.EvaluateExpr($@"Clean(""A{Environment.NewLine}B"")");
-        Assert.AreEqual("AB", actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From("AB"));
     }
 
     [Test]
-    public void Dollar()
+    public async Task Dollar()
     {
         using var wb = new XLWorkbook();
         object actual = wb.Evaluate("DOLLAR(12345.123)");
-        Assert.AreEqual(TestHelper.CurrencySymbol + "12,345.12", actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(TestHelper.CurrencySymbol + "12,345.12"));
 
         actual = wb.Evaluate("DOLLAR(12345.123, 1)");
-        Assert.AreEqual(TestHelper.CurrencySymbol + "12,345.1", actual);
-    }
-
-    [TestCase("A", "A", true)]
-    [TestCase("A", "a", false)]
-    [TestCase("", "", true)]
-    public void Exact(string lhs, string rhs, bool result)
-    {
-        var actual = XLWorkbook.EvaluateExpr($"EXACT(\"{lhs}\", \"{rhs}\")");
-        Assert.AreEqual(result, actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(TestHelper.CurrencySymbol + "12,345.1"));
     }
 
     [Test]
-    public void Exact_converts_values_to_text()
+    [Arguments("A", "A", true)]
+    [Arguments("A", "a", false)]
+    [Arguments("", "", true)]
+    public async Task Exact(string lhs, string rhs, bool result)
     {
-        Assert.AreEqual(false, XLWorkbook.EvaluateExpr("EXACT(TRUE, \"true\")"));
-        Assert.AreEqual(true, XLWorkbook.EvaluateExpr("EXACT(TRUE, \"TRUE\")"));
-        Assert.AreEqual(true, XLWorkbook.EvaluateExpr("EXACT(1, \"1\")"));
-        Assert.AreEqual(true, XLWorkbook.EvaluateExpr("EXACT(IF(TRUE,), \"\")"));
+        var actual = XLWorkbook.EvaluateExpr($"EXACT(\"{lhs}\", \"{rhs}\")");
+        await Assert.That(actual).IsEqualTo(result);
+    }
+
+    [Test]
+    public async Task Exact_converts_values_to_text()
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(TRUE, \"true\")")).IsEqualTo(false);
+        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(TRUE, \"TRUE\")")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(1, \"1\")")).IsEqualTo(true);
+        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(IF(TRUE,), \"\")")).IsEqualTo(true);
 
         // Check blank cell
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        Assert.AreEqual(true, ws.Evaluate("EXACT(A1, \"\")"));
+        await Assert.That(ws.Evaluate("EXACT(A1, \"\")")).IsEqualTo(true);
     }
 
     [Test]
-    public void Exact_propagates_errors()
+    public async Task Exact_propagates_errors()
     {
-        Assert.AreEqual(XLError.DivisionByZero, XLWorkbook.EvaluateExpr("EXACT(#DIV/0!, \"A\")"));
-        Assert.AreEqual(XLError.DivisionByZero, XLWorkbook.EvaluateExpr("EXACT(\"A\", #DIV/0!)"));
+        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(#DIV/0!, \"A\")")).IsEqualTo(XLError.DivisionByZero);
+        await Assert.That(XLWorkbook.EvaluateExpr("EXACT(\"A\", #DIV/0!)")).IsEqualTo(XLError.DivisionByZero);
     }
 
     [Test]
-    public void Fixed()
+    public async Task Fixed()
     {
         Object actual;
 
         actual = XLWorkbook.EvaluateExpr("Fixed(12345.123)");
-        Assert.AreEqual("12,345.12", actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From("12,345.12"));
 
         actual = XLWorkbook.EvaluateExpr("Fixed(12345.123, 1)");
-        Assert.AreEqual("12,345.1", actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From("12,345.1"));
 
         actual = XLWorkbook.EvaluateExpr("Fixed(12345.123, 1, TRUE)");
-        Assert.AreEqual("12345.1", actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From("12345.1"));
     }
 
     [Test]
-    public void Formula_from_another_sheet()
+    public async Task Formula_from_another_sheet()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet("ws1");
@@ -95,11 +95,11 @@ public class FunctionsTests
         var ws2 = wb.AddWorksheet("ws2");
         ws2.FirstCell().SetFormulaA1("ws1!B1 + 1");
         object v = ws2.FirstCell().Value;
-        Assert.AreEqual(3.0, v);
+        await Assert.That(v).IsEqualTo(ExpectedCellValue.From(3.0));
     }
 
     [Test]
-    public void TextConcat()
+    public async Task TextConcat()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -111,103 +111,106 @@ public class FunctionsTests
         ws.Cell("C1").FormulaA1 = "\"The total value is: \" & SUM(A1:B2)";
 
         object r = ws.Cell("C1").Value;
-        Assert.AreEqual("The total value is: 4", r);
+        await Assert.That(r).IsEqualTo(ExpectedCellValue.From("The total value is: 4"));
     }
 
     [Test]
-    public void Trim()
+    public async Task Trim()
     {
-        Assert.AreEqual("Test", XLWorkbook.EvaluateExpr("Trim(\"Test    \")"));
+        await Assert.That(XLWorkbook.EvaluateExpr("Trim(\"Test    \")")).IsEqualTo("Test");
 
         //Should not trim non breaking space
         //See http://office.microsoft.com/en-us/excel-help/trim-function-HP010062581.aspx
-        Assert.AreEqual("Test\u00A0", XLWorkbook.EvaluateExpr("Trim(\"Test\u00A0 \")"));
+        await Assert.That(XLWorkbook.EvaluateExpr("Trim(\"Test\u00A0 \")")).IsEqualTo("Test\u00A0");
     }
 
     [Test]
-    public void TestEmptyTallyOperations()
+    public async Task TestEmptyTallyOperations()
     {
         //In these test no values have been set
         var wb = new XLWorkbook();
         wb.Worksheets.Add("TallyTests");
         var cell = wb.Worksheet(1).Cell(1, 1).SetFormulaA1("=MAX(D1,D2)");
-        Assert.AreEqual(0, cell.Value);
+        await Assert.That(cell.Value).IsEqualTo(0);
         cell = wb.Worksheet(1).Cell(2, 1).SetFormulaA1("=MIN(D1,D2)");
-        Assert.AreEqual(0, cell.Value);
+        await Assert.That(cell.Value).IsEqualTo(0);
         cell = wb.Worksheet(1).Cell(3, 1).SetFormulaA1("=SUM(D1,D2)");
-        Assert.AreEqual(0, cell.Value);
+        await Assert.That(cell.Value).IsEqualTo(0);
     }
 
     [Test]
-    public void TestOmittedParameters()
+    public async Task TestOmittedParameters()
     {
         using var wb = new XLWorkbook();
         object value = wb.Evaluate("=IF(TRUE,1)");
-        Assert.AreEqual(1, value);
+        await Assert.That(value).IsEqualTo(ExpectedCellValue.From(1));
 
         value = wb.Evaluate("=IF(TRUE,1,)");
-        Assert.AreEqual(1, value);
+        await Assert.That(value).IsEqualTo(ExpectedCellValue.From(1));
 
         value = wb.Evaluate("=ISBLANK(IF(FALSE,1,))");
-        Assert.AreEqual(true, value);
+        await Assert.That(value).IsEqualTo(ExpectedCellValue.From(true));
 
         value = wb.Evaluate("=IF(FALSE,,2)");
-        Assert.AreEqual(2, value);
+        await Assert.That(value).IsEqualTo(ExpectedCellValue.From(2));
     }
 
     [Test]
-    public void TestDefaultExcelFunctionNamespace()
+    public async Task TestDefaultExcelFunctionNamespace()
     {
-        Assert.DoesNotThrow(() => XLWorkbook.EvaluateExpr("TODAY()"));
-        Assert.DoesNotThrow(() => XLWorkbook.EvaluateExpr("_xlfn.TODAY()"));
-        Assert.IsTrue((bool)XLWorkbook.EvaluateExpr("_xlfn.TODAY() = TODAY()"));
+        await Assert.That(() => XLWorkbook.EvaluateExpr("TODAY()")).ThrowsNothing();
+        await Assert.That(() => XLWorkbook.EvaluateExpr("_xlfn.TODAY()")).ThrowsNothing();
+        await Assert.That((bool)XLWorkbook.EvaluateExpr("_xlfn.TODAY() = TODAY()")).IsTrue();
     }
 
-    [TestCase("=1234%", 12.34)]
-    [TestCase("=1234%%", 0.1234)]
-    [TestCase("=100+200%", 102.0)]
-    [TestCase("=100%+200", 201.0)]
-    [TestCase("=(100+200)%", 3.0)]
-    [TestCase("=200%^5", 32.0)]
-    [TestCase("=200%^400%", 16.0)]
-    [TestCase("=SUM(100,200,300)%", 6.0)]
-    public void PercentOperator(string formula, double expectedResult)
-    {
-        var res = (double)XLWorkbook.EvaluateExpr(formula);
-
-        Assert.AreEqual(expectedResult, res, XLHelper.Epsilon);
-    }
-
-    [TestCase("=--1", 1)]
-    [TestCase("=++1", 1)]
-    [TestCase("=-+-+-1", -1)]
-    [TestCase("=2^---2", 0.25)]
-    public void MultipleUnaryOperators(string formula, double expectedResult)
+    [Test]
+    [Arguments("=1234%", 12.34)]
+    [Arguments("=1234%%", 0.1234)]
+    [Arguments("=100+200%", 102.0)]
+    [Arguments("=100%+200", 201.0)]
+    [Arguments("=(100+200)%", 3.0)]
+    [Arguments("=200%^5", 32.0)]
+    [Arguments("=200%^400%", 16.0)]
+    [Arguments("=SUM(100,200,300)%", 6.0)]
+    public async Task PercentOperator(string formula, double expectedResult)
     {
         var res = (double)XLWorkbook.EvaluateExpr(formula);
 
-        Assert.AreEqual(expectedResult, res, XLHelper.Epsilon);
+        await Assert.That(res).IsEqualTo(expectedResult).Within(XLHelper.Epsilon);
     }
 
-    [TestCase("RIGHT(\"2020\", 2) + 1", 21)]
-    [TestCase("LEFT(\"20.2020\", 6) + 1", 21.202)]
-    [TestCase("2 + (\"3\" & \"4\")", 36)]
-    [TestCase("2 + \"3\" & \"4\"", "54")]
-    [TestCase("\"7\" & \"4\"", "74")]
-    public void TestStringSubExpression(string formula, object expectedResult)
+    [Test]
+    [Arguments("=--1", 1)]
+    [Arguments("=++1", 1)]
+    [Arguments("=-+-+-1", -1)]
+    [Arguments("=2^---2", 0.25)]
+    public async Task MultipleUnaryOperators(string formula, double expectedResult)
+    {
+        var res = (double)XLWorkbook.EvaluateExpr(formula);
+
+        await Assert.That(res).IsEqualTo(expectedResult).Within(XLHelper.Epsilon);
+    }
+
+    [Test]
+    [Arguments("RIGHT(\"2020\", 2) + 1", 21)]
+    [Arguments("LEFT(\"20.2020\", 6) + 1", 21.202)]
+    [Arguments("2 + (\"3\" & \"4\")", 36)]
+    [Arguments("2 + \"3\" & \"4\"", "54")]
+    [Arguments("\"7\" & \"4\"", "74")]
+    public async Task TestStringSubExpression(string formula, object expectedResult)
     {
         var actual = XLWorkbook.EvaluateExpr(formula);
 
-        Assert.AreEqual(expectedResult, actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(expectedResult));
     }
 
     [Test]
-    public void Cell_function_is_evaluated_to_reference_error()
+    public async Task Cell_function_is_evaluated_to_reference_error()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").FormulaA1 = "$B$4(5)";
 
-        Assert.AreEqual(XLError.CellReference, ws.Cell("A1").Value);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(XLError.CellReference);
     }
 }

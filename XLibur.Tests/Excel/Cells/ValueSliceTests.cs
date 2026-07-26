@@ -1,14 +1,13 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using XLibur.Excel.Coordinates;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Cells;
 
-[TestFixture]
 public class ValueSliceTests
 {
     [Test]
-    public void Deleting_worksheet_dereferences_all_texts_in_its_value_slice()
+    public async Task Deleting_worksheet_dereferences_all_texts_in_its_value_slice()
     {
         using var wb = new XLWorkbook();
         var sst = wb.SharedStringTable;
@@ -18,16 +17,16 @@ public class ValueSliceTests
         removedWs.Cell("A1").Value = "Double referenced text";
         removedWs.Cell("B1").Value = "Single referenced text";
 
-        Assert.AreEqual(2, sst.Count);
+        await Assert.That(sst.Count).IsEqualTo(2);
 
         wb.Worksheets.Delete(removedWs.Name);
 
-        Assert.AreEqual(1, sst.Count);
-        Assert.AreEqual("Double referenced text", keptWs.Cell(1, 1).Value);
+        await Assert.That(sst.Count).IsEqualTo(1);
+        await Assert.That(keptWs.Cell(1, 1).Value).IsEqualTo("Double referenced text");
     }
 
     [Test]
-    public void Clear_dereferences_texts_in_the_range()
+    public async Task Clear_dereferences_texts_in_the_range()
     {
         using var wb = new XLWorkbook();
         var sst = wb.SharedStringTable;
@@ -36,14 +35,14 @@ public class ValueSliceTests
         ws.Cell("B2").Value = "Double referenced text";
         ws.Cell("C2").Value = "Single referenced text";
 
-        Assert.AreEqual(2, sst.Count);
+        await Assert.That(sst.Count).IsEqualTo(2);
         ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.Clear(new XLSheetRange(2, 2, 2, 3));
-        Assert.AreEqual(1, sst.Count);
-        Assert.AreEqual("Double referenced text", ws.Cell("A1").Value);
+        await Assert.That(sst.Count).IsEqualTo(1);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo("Double referenced text");
     }
 
     [Test]
-    public void DeleteAreaAndShiftLeft_dereferences_all_texts_deleted_area()
+    public async Task DeleteAreaAndShiftLeft_dereferences_all_texts_deleted_area()
     {
         using var wb = new XLWorkbook();
         var sst = wb.SharedStringTable;
@@ -55,13 +54,13 @@ public class ValueSliceTests
 
         ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.DeleteAreaAndShiftLeft(new XLSheetRange(2, 2, 3, 3));
 
-        Assert.AreEqual(2, sst.Count);
-        Assert.AreEqual("Kept Single Reference", sst[1]);
-        Assert.AreEqual("Kept Double Reference", sst[2]);
+        await Assert.That(sst.Count).IsEqualTo(2);
+        await Assert.That(sst[1]).IsEqualTo("Kept Single Reference");
+        await Assert.That(sst[2]).IsEqualTo("Kept Double Reference");
     }
 
     [Test]
-    public void DeleteAreaAndShiftUp_dereferences_all_texts_deleted_area()
+    public async Task DeleteAreaAndShiftUp_dereferences_all_texts_deleted_area()
     {
         using var wb = new XLWorkbook();
         var sst = wb.SharedStringTable;
@@ -73,13 +72,13 @@ public class ValueSliceTests
 
         ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.DeleteAreaAndShiftLeft(new XLSheetRange(2, 2, 3, 3));
 
-        Assert.AreEqual(2, sst.Count);
-        Assert.AreEqual("Kept Single Reference", sst[1]);
-        Assert.AreEqual("Kept Double Reference", sst[2]);
+        await Assert.That(sst.Count).IsEqualTo(2);
+        await Assert.That(sst[1]).IsEqualTo("Kept Single Reference");
+        await Assert.That(sst[2]).IsEqualTo("Kept Double Reference");
     }
 
     [Test]
-    public void InsertAreaAndShiftDown_dereferences_all_texts_in_pushed_out_range()
+    public async Task InsertAreaAndShiftDown_dereferences_all_texts_in_pushed_out_range()
     {
         using var wb = new XLWorkbook();
         var sst = wb.SharedStringTable;
@@ -91,13 +90,13 @@ public class ValueSliceTests
         ws.Cell("B1048576").Value = "Kept Double Reference"; // id 2
         ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.InsertAreaAndShiftDown(new XLSheetRange(3, 2, 4, 3));
 
-        Assert.AreEqual(2, sst.Count);
-        Assert.AreEqual("Kept Single Reference", sst[0]);
-        Assert.AreEqual("Kept Double Reference", sst[2]);
+        await Assert.That(sst.Count).IsEqualTo(2);
+        await Assert.That(sst[0]).IsEqualTo("Kept Single Reference");
+        await Assert.That(sst[2]).IsEqualTo("Kept Double Reference");
     }
 
     [Test]
-    public void InsertAreaAndShiftRight_dereferences_all_texts_in_pushed_out_range()
+    public async Task InsertAreaAndShiftRight_dereferences_all_texts_in_pushed_out_range()
     {
         using var wb = new XLWorkbook();
         var sst = wb.SharedStringTable;
@@ -109,8 +108,8 @@ public class ValueSliceTests
         ws.Cell("XFB3").Value = "Kept Double Reference"; // id 2
         ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice.InsertAreaAndShiftRight(new XLSheetRange(2, 3, 3, 4));
 
-        Assert.AreEqual(2, sst.Count);
-        Assert.AreEqual("Kept Single Reference", sst[0]);
-        Assert.AreEqual("Kept Double Reference", sst[2]);
+        await Assert.That(sst.Count).IsEqualTo(2);
+        await Assert.That(sst[0]).IsEqualTo("Kept Single Reference");
+        await Assert.That(sst[2]).IsEqualTo("Kept Double Reference");
     }
 }

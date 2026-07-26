@@ -1,38 +1,37 @@
 ﻿using XLibur.Examples.Columns;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;
 
-[TestFixture]
 public class ColumnsTests
 {
     [Test]
-    public void ColumnCells()
+    public async Task ColumnCells()
     {
-        TestHelper.RunTestExample<ColumnCells>(@"Columns\ColumnCells.xlsx");
+        await TestHelper.RunTestExample<ColumnCells>(@"Columns\ColumnCells.xlsx");
     }
 
     [Test]
-    public void ColumnCollections()
+    public async Task ColumnCollections()
     {
-        TestHelper.RunTestExample<ColumnCollection>(@"Columns\ColumnCollection.xlsx");
+        await TestHelper.RunTestExample<ColumnCollection>(@"Columns\ColumnCollection.xlsx");
     }
 
     [Test]
-    public void ColumnSettings()
+    public async Task ColumnSettings()
     {
-        TestHelper.RunTestExample<ColumnSettings>(@"Columns\ColumnSettings.xlsx");
+        await TestHelper.RunTestExample<ColumnSettings>(@"Columns\ColumnSettings.xlsx");
     }
 
     [Test]
-    public void DeletingColumns()
+    public async Task DeletingColumns()
     {
-        TestHelper.RunTestExample<DeletingColumns>(@"Columns\DeletingColumns.xlsx");
+        await TestHelper.RunTestExample<DeletingColumns>(@"Columns\DeletingColumns.xlsx");
     }
 
     //[Test] // Not working yet
-    public static void InsertColumns()
+    public static async Task InsertColumns()
     {
-        TestHelper.RunTestExample<InsertColumns>(@"Columns\InsertColumns.xlsx");
+        await TestHelper.RunTestExample<InsertColumns>(@"Columns\InsertColumns.xlsx");
     }
 }

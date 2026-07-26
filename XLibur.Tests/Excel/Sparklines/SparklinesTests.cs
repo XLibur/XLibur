@@ -1,59 +1,58 @@
 ﻿using XLibur.Examples.Sparklines;
 using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Sparklines;
 
-[TestFixture]
 public class SparklinesTests
 {
     #region Add sparklines
 
     [Test]
-    public void CannotCreateSparklineGroupsWithoutWorksheet()
+    public async Task CannotCreateSparklineGroupsWithoutWorksheet()
     {
         Action action = () => _ = new XLSparklineGroups(null);
-        Assert.Throws<ArgumentNullException>(action);
+        await Assert.That(action).Throws<ArgumentNullException>();
     }
 
     [Test]
-    public void CannotCreateSparklineGroupWithoutWorksheet()
+    public async Task CannotCreateSparklineGroupWithoutWorksheet()
     {
         Action action = () => _ = new XLSparklineGroup(null);
-        Assert.Throws<ArgumentNullException>(action);
+        await Assert.That(action).Throws<ArgumentNullException>();
     }
 
     [Test]
-    public void CannotCreateSparklineWithoutGroup()
+    public async Task CannotCreateSparklineWithoutGroup()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         Action action = () => _ = new XLSparkline(null, ws.Cell("A1"), ws.Range("A2:A5"));
-        Assert.Throws<ArgumentNullException>(action);
+        await Assert.That(action).Throws<ArgumentNullException>();
     }
 
     [Test]
-    public void CannotCreateSparklineWithoutLocation()
+    public async Task CannotCreateSparklineWithoutLocation()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         var group = new XLSparklineGroup(ws);
         Action action = () => _ = new XLSparkline(group, null, ws.Range("A2:A5"));
-        Assert.Throws<ArgumentNullException>(action);
+        await Assert.That(action).Throws<ArgumentNullException>();
     }
 
     [Test]
-    public void CanCreateInvalidSparklineWithoutSourceData()
+    public async Task CanCreateInvalidSparklineWithoutSourceData()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         var group = new XLSparklineGroup(ws);
         var sparkline = new XLSparkline(group, ws.FirstCell(), null);
-        Assert.IsFalse(sparkline.IsValid);
+        await Assert.That(sparkline.IsValid).IsFalse();
     }
 
     [Test]
-    public void CanAddSparklineGroupForSingleCell()
+    public async Task CanAddSparklineGroupForSingleCell()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
@@ -61,101 +60,101 @@ public class SparklinesTests
         ws.SparklineGroups.Add("A2", "B2:E2");
         ws.SparklineGroups.Add(ws.Cell("A3"), ws.Range("B3:E3"));
 
-        Assert.AreEqual(3, ws.SparklineGroups.Count());
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(3);
 
-        Assert.AreEqual("A1", ws.SparklineGroups.ElementAt(0).Single().Location.Address.ToString());
-        Assert.AreEqual("A2", ws.SparklineGroups.ElementAt(1).Single().Location.Address.ToString());
-        Assert.AreEqual("A3", ws.SparklineGroups.ElementAt(2).Single().Location.Address.ToString());
+        await Assert.That(ws.SparklineGroups.ElementAt(0).Single().Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(ws.SparklineGroups.ElementAt(1).Single().Location.Address.ToString()).IsEqualTo("A2");
+        await Assert.That(ws.SparklineGroups.ElementAt(2).Single().Location.Address.ToString()).IsEqualTo("A3");
 
-        Assert.AreEqual("B1:E1", ws.SparklineGroups.ElementAt(0).Single().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B2:E2", ws.SparklineGroups.ElementAt(1).Single().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B3:E3", ws.SparklineGroups.ElementAt(2).Single().SourceData.RangeAddress.ToString());
+        await Assert.That(ws.SparklineGroups.ElementAt(0).Single().SourceData.RangeAddress.ToString()).IsEqualTo("B1:E1");
+        await Assert.That(ws.SparklineGroups.ElementAt(1).Single().SourceData.RangeAddress.ToString()).IsEqualTo("B2:E2");
+        await Assert.That(ws.SparklineGroups.ElementAt(2).Single().SourceData.RangeAddress.ToString()).IsEqualTo("B3:E3");
 
-        Assert.IsTrue(ws.SparklineGroups.All(g => g.Worksheet == ws));
+        await Assert.That(ws.SparklineGroups.All(g => g.Worksheet == ws)).IsTrue();
     }
 
     [Test]
-    public void CanAddSparklineGroupForVerticalRange()
+    public async Task CanAddSparklineGroupForVerticalRange()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         ws.SparklineGroups.Add(ws.Range("A1:A3"), ws.Range("B1:E3"));
 
-        Assert.AreEqual(1, ws.SparklineGroups.Count());
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(1);
 
-        Assert.AreEqual("A1", ws.SparklineGroups.Single().ElementAt(0).Location.Address.ToString());
-        Assert.AreEqual("A2", ws.SparklineGroups.Single().ElementAt(1).Location.Address.ToString());
-        Assert.AreEqual("A3", ws.SparklineGroups.Single().ElementAt(2).Location.Address.ToString());
+        await Assert.That(ws.SparklineGroups.Single().ElementAt(0).Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(ws.SparklineGroups.Single().ElementAt(1).Location.Address.ToString()).IsEqualTo("A2");
+        await Assert.That(ws.SparklineGroups.Single().ElementAt(2).Location.Address.ToString()).IsEqualTo("A3");
 
-        Assert.AreEqual("B1:E1", ws.SparklineGroups.Single().ElementAt(0).SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B2:E2", ws.SparklineGroups.Single().ElementAt(1).SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B3:E3", ws.SparklineGroups.Single().ElementAt(2).SourceData.RangeAddress.ToString());
+        await Assert.That(ws.SparklineGroups.Single().ElementAt(0).SourceData.RangeAddress.ToString()).IsEqualTo("B1:E1");
+        await Assert.That(ws.SparklineGroups.Single().ElementAt(1).SourceData.RangeAddress.ToString()).IsEqualTo("B2:E2");
+        await Assert.That(ws.SparklineGroups.Single().ElementAt(2).SourceData.RangeAddress.ToString()).IsEqualTo("B3:E3");
     }
 
     [Test]
-    public void CanAddSparklineGroupForHorizontalRange()
+    public async Task CanAddSparklineGroupForHorizontalRange()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         ws.SparklineGroups.Add(ws.Range("A1:C1"), ws.Range("A2:C4"));
 
-        Assert.AreEqual(1, ws.SparklineGroups.Count());
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(1);
 
-        Assert.AreEqual("A1", ws.SparklineGroups.Single().ElementAt(0).Location.Address.ToString());
-        Assert.AreEqual("B1", ws.SparklineGroups.Single().ElementAt(1).Location.Address.ToString());
-        Assert.AreEqual("C1", ws.SparklineGroups.Single().ElementAt(2).Location.Address.ToString());
+        await Assert.That(ws.SparklineGroups.Single().ElementAt(0).Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(ws.SparklineGroups.Single().ElementAt(1).Location.Address.ToString()).IsEqualTo("B1");
+        await Assert.That(ws.SparklineGroups.Single().ElementAt(2).Location.Address.ToString()).IsEqualTo("C1");
 
-        Assert.AreEqual("A2:A4", ws.SparklineGroups.Single().ElementAt(0).SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B2:B4", ws.SparklineGroups.Single().ElementAt(1).SourceData.RangeAddress.ToString());
-        Assert.AreEqual("C2:C4", ws.SparklineGroups.Single().ElementAt(2).SourceData.RangeAddress.ToString());
+        await Assert.That(ws.SparklineGroups.Single().ElementAt(0).SourceData.RangeAddress.ToString()).IsEqualTo("A2:A4");
+        await Assert.That(ws.SparklineGroups.Single().ElementAt(1).SourceData.RangeAddress.ToString()).IsEqualTo("B2:B4");
+        await Assert.That(ws.SparklineGroups.Single().ElementAt(2).SourceData.RangeAddress.ToString()).IsEqualTo("C2:C4");
     }
 
     [Test]
-    public void CannotAddSparklineForNonLinearRange()
+    public async Task CannotAddSparklineForNonLinearRange()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         Action action = () => ws.SparklineGroups.Add(ws.Range("A1:C2"), ws.Range("A3:C4"));
 
-        var message = Assert.Throws<ArgumentException>(action).Message;
-        Assert.AreEqual("locationRange must have either a single row or a single column", message);
+        var message = (await Assert.That(action).Throws<ArgumentException>())!.Message;
+        await Assert.That(message).IsEqualTo("locationRange must have either a single row or a single column");
     }
 
     [Test]
-    public void CannotAddSparklineWhenRangesHaveDifferentWidths()
+    public async Task CannotAddSparklineWhenRangesHaveDifferentWidths()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         Action action = () => ws.SparklineGroups.Add(ws.Range("A1:C1"), ws.Range("A3:D4"));
 
-        var message = Assert.Throws<ArgumentException>(action).Message;
-        Assert.AreEqual("locationRange and sourceDataRange must have the same width", message);
+        var message = (await Assert.That(action).Throws<ArgumentException>())!.Message;
+        await Assert.That(message).IsEqualTo("locationRange and sourceDataRange must have the same width");
     }
 
     [Test]
-    public void CannotAddSparklineWhenRangesHaveDifferentHeights()
+    public async Task CannotAddSparklineWhenRangesHaveDifferentHeights()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         Action action = () => ws.SparklineGroups.Add(ws.Range("A1:A3"), ws.Range("B1:B4"));
 
-        var message = Assert.Throws<ArgumentException>(action).Message;
-        Assert.AreEqual("locationRange and sourceDataRange must have the same height", message);
+        var message = (await Assert.That(action).Throws<ArgumentException>())!.Message;
+        await Assert.That(message).IsEqualTo("locationRange and sourceDataRange must have the same height");
     }
 
     [Test]
-    public void CannotAddSparklineForCellWhenDataRangeIsNotLinear()
+    public async Task CannotAddSparklineForCellWhenDataRangeIsNotLinear()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         Action action = () => ws.SparklineGroups.Add(ws.Range("A1:A1"), ws.Range("B1:C4"));
 
-        var message = Assert.Throws<ArgumentException>(action).Message;
-        Assert.AreEqual("SourceData range must have either a single row or a single column", message);
+        var message = (await Assert.That(action).Throws<ArgumentException>())!.Message;
+        await Assert.That(message).IsEqualTo("SourceData range must have either a single row or a single column");
     }
 
     [Test]
-    public void CanAddSparklineToExistingGroup()
+    public async Task CanAddSparklineToExistingGroup()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
@@ -165,17 +164,17 @@ public class SparklinesTests
             { ws.Cell("A3"), ws.Range("B3:E3") }
         };
 
-        Assert.AreEqual(0, ws.SparklineGroups.Count());
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(0);
 
-        Assert.AreEqual("A2", group.ElementAt(0).Location.Address.ToString());
-        Assert.AreEqual("A3", group.ElementAt(1).Location.Address.ToString());
+        await Assert.That(group.ElementAt(0).Location.Address.ToString()).IsEqualTo("A2");
+        await Assert.That(group.ElementAt(1).Location.Address.ToString()).IsEqualTo("A3");
 
-        Assert.AreEqual("B2:E2", group.ElementAt(0).SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B3:E3", group.ElementAt(1).SourceData.RangeAddress.ToString());
+        await Assert.That(group.ElementAt(0).SourceData.RangeAddress.ToString()).IsEqualTo("B2:E2");
+        await Assert.That(group.ElementAt(1).SourceData.RangeAddress.ToString()).IsEqualTo("B3:E3");
     }
 
     [Test]
-    public void CannotAddSparklineGroupFromDifferentWorksheet()
+    public async Task CannotAddSparklineGroupFromDifferentWorksheet()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet("Sheet 1");
@@ -185,12 +184,12 @@ public class SparklinesTests
 
         Action action = () => ws2.SparklineGroups.Add(group);
 
-        var message = Assert.Throws<ArgumentException>(action).Message;
-        Assert.AreEqual("The specified sparkline group belongs to the different worksheet", message);
+        var message = (await Assert.That(action).Throws<ArgumentException>())!.Message;
+        await Assert.That(message).IsEqualTo("The specified sparkline group belongs to the different worksheet");
     }
 
     [Test]
-    public void CannotAddSparklineFromDifferentWorksheet()
+    public async Task CannotAddSparklineFromDifferentWorksheet()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet("Sheet 1");
@@ -200,40 +199,40 @@ public class SparklinesTests
 
         Action action = () => group.Add(ws2.Cell("A3"), ws1.Range("B3:E3"));
 
-        var message = Assert.Throws<ArgumentException>(action).Message;
-        Assert.AreEqual("The specified sparkline belongs to the different worksheet", message);
+        var message = (await Assert.That(action).Throws<ArgumentException>())!.Message;
+        await Assert.That(message).IsEqualTo("The specified sparkline belongs to the different worksheet");
     }
 
     [Test]
-    public void AddSparklineToSameCellOverwritesItWhenSameGroup()
+    public async Task AddSparklineToSameCellOverwritesItWhenSameGroup()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         var group = ws.SparklineGroups.Add("A1", "B1:E1");
         group.Add("A1", "B2:E2");
 
-        Assert.AreEqual(1, group.Count());
+        await Assert.That(group.Count()).IsEqualTo(1);
 
-        Assert.AreEqual("A1", group.Single().Location.Address.ToString());
-        Assert.AreEqual("B2:E2", group.Single().SourceData.RangeAddress.ToString());
+        await Assert.That(group.Single().Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(group.Single().SourceData.RangeAddress.ToString()).IsEqualTo("B2:E2");
     }
 
     [Test]
-    public void AddSparklineToSameCellOverwritesItWhenDifferentGroup()
+    public async Task AddSparklineToSameCellOverwritesItWhenDifferentGroup()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         ws.SparklineGroups.Add("A1", "B1:E1");
         ws.SparklineGroups.Add("A1", "B2:E2");
 
-        Assert.AreEqual(2, ws.SparklineGroups.Count());
-        Assert.IsFalse(ws.SparklineGroups.First().Any());
-        Assert.AreEqual("A1", ws.SparklineGroups.Last().Single().Location.Address.ToString());
-        Assert.AreEqual("B2:E2", ws.SparklineGroups.Last().Single().SourceData.RangeAddress.ToString());
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(2);
+        await Assert.That(ws.SparklineGroups.First().Any()).IsFalse();
+        await Assert.That(ws.SparklineGroups.Last().Single().Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(ws.SparklineGroups.Last().Single().SourceData.RangeAddress.ToString()).IsEqualTo("B2:E2");
     }
 
     [Test]
-    public void CanAddSparklineReferringToDifferentWorksheet()
+    public async Task CanAddSparklineReferringToDifferentWorksheet()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet("Sheet 1");
@@ -241,20 +240,21 @@ public class SparklinesTests
 
         var group = ws1.SparklineGroups.Add("A1", "'Sheet 3'!B1:F1");
 
-        Assert.AreSame(ws3, group.Single().SourceData.Worksheet);
+        await Assert.That(group.Single().SourceData.Worksheet).IsSameReferenceAs(ws3);
     }
 
     #endregion Add sparklines
 
     #region Get sparklines
 
-    [TestCase("A2", "B2:Z2")]
-    [TestCase("A50", "B50:Z50")]
-    [TestCase("A100", "B100:Z100")]
-    [TestCase("B1", "B2:B100")]
-    [TestCase("K1", "K2:K100")]
-    [TestCase("Z1", "Z2:Z100")]
-    public void CanGetSparklineForExistingCell(string cellAddress, string expectedSourceDataRange)
+    [Test]
+    [Arguments("A2", "B2:Z2")]
+    [Arguments("A50", "B50:Z50")]
+    [Arguments("A100", "B100:Z100")]
+    [Arguments("B1", "B2:B100")]
+    [Arguments("K1", "K2:K100")]
+    [Arguments("Z1", "Z2:Z100")]
+    public async Task CanGetSparklineForExistingCell(string cellAddress, string expectedSourceDataRange)
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
@@ -262,28 +262,29 @@ public class SparklinesTests
         ws.SparklineGroups.Add("B1:Z1", "B2:Z100");
 
         var sp = ws.SparklineGroups.GetSparkline(ws.Cell(cellAddress));
-        Assert.IsNotNull(sp);
-        Assert.AreEqual(cellAddress, sp.Location.Address.ToString());
-        Assert.AreEqual(expectedSourceDataRange, sp.SourceData.RangeAddress.ToString());
-    }
-
-    [TestCase("A1")]
-    [TestCase("B2")]
-    [TestCase("A101")]
-    [TestCase("AA1")]
-    public void CannotGetSparklineForNonExistingCell(string cellAddress)
-    {
-        var ws = new XLWorkbook().AddWorksheet("Sheet 1");
-
-        ws.SparklineGroups.Add("A2:A100", "B2:Z100");
-        ws.SparklineGroups.Add("B1:Z1", "B2:Z100");
-
-        var sp = ws.SparklineGroups.GetSparkline(ws.Cell(cellAddress));
-        Assert.IsNull(sp);
+        await Assert.That(sp).IsNotNull();
+        await Assert.That(sp.Location.Address.ToString()).IsEqualTo(cellAddress);
+        await Assert.That(sp.SourceData.RangeAddress.ToString()).IsEqualTo(expectedSourceDataRange);
     }
 
     [Test]
-    public void CanGetSparklinesForRange()
+    [Arguments("A1")]
+    [Arguments("B2")]
+    [Arguments("A101")]
+    [Arguments("AA1")]
+    public async Task CannotGetSparklineForNonExistingCell(string cellAddress)
+    {
+        var ws = new XLWorkbook().AddWorksheet("Sheet 1");
+
+        ws.SparklineGroups.Add("A2:A100", "B2:Z100");
+        ws.SparklineGroups.Add("B1:Z1", "B2:Z100");
+
+        var sp = ws.SparklineGroups.GetSparkline(ws.Cell(cellAddress));
+        await Assert.That(sp).IsNull();
+    }
+
+    [Test]
+    public async Task CanGetSparklinesForRange()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
@@ -296,16 +297,16 @@ public class SparklinesTests
         var sparklines4 = ws.SparklineGroups.GetSparklines(ws.Range("A:A"));
         var sparklines5 = ws.SparklineGroups.GetSparklines(ws.Range("1:1"));
 
-        Assert.AreEqual(2, sparklines1.Count());
-        Assert.AreEqual(0, sparklines2.Count());
-        Assert.AreEqual(99 + 25, sparklines3.Count());
-        Assert.AreEqual(99, sparklines4.Count());
-        Assert.AreEqual(25, sparklines5.Count());
+        await Assert.That(sparklines1.Count()).IsEqualTo(2);
+        await Assert.That(sparklines2.Count()).IsEqualTo(0);
+        await Assert.That(sparklines3.Count()).IsEqualTo(99 + 25);
+        await Assert.That(sparklines4.Count()).IsEqualTo(99);
+        await Assert.That(sparklines5.Count()).IsEqualTo(25);
 
-        Assert.AreEqual("A2", sparklines1.First().Location.Address.ToString());
-        Assert.AreEqual("B1", sparklines1.Last().Location.Address.ToString());
-        Assert.AreEqual("B2:Z2", sparklines1.First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B2:B100", sparklines1.Last().SourceData.RangeAddress.ToString());
+        await Assert.That(sparklines1.First().Location.Address.ToString()).IsEqualTo("A2");
+        await Assert.That(sparklines1.Last().Location.Address.ToString()).IsEqualTo("B1");
+        await Assert.That(sparklines1.First().SourceData.RangeAddress.ToString()).IsEqualTo("B2:Z2");
+        await Assert.That(sparklines1.Last().SourceData.RangeAddress.ToString()).IsEqualTo("B2:B100");
     }
 
     #endregion Get sparklines
@@ -313,51 +314,51 @@ public class SparklinesTests
     #region Remove sparklines
 
     [Test]
-    public void CanRemoveSparklineFromCell()
+    public async Task CanRemoveSparklineFromCell()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         ws.SparklineGroups.Add("A1:A3", "B1:Z3");
         ws.SparklineGroups.Remove(ws.Cell("A2"));
 
-        Assert.AreEqual(1, ws.SparklineGroups.Count());
-        Assert.AreEqual(2, ws.SparklineGroups.Single().Count());
-        Assert.AreEqual("A1", ws.SparklineGroups.Single().First().Location.Address.ToString());
-        Assert.AreEqual("A3", ws.SparklineGroups.Single().Last().Location.Address.ToString());
-        Assert.AreEqual("B1:Z1", ws.SparklineGroups.Single().First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B3:Z3", ws.SparklineGroups.Single().Last().SourceData.RangeAddress.ToString());
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(1);
+        await Assert.That(ws.SparklineGroups.Single().Count()).IsEqualTo(2);
+        await Assert.That(ws.SparklineGroups.Single().First().Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(ws.SparklineGroups.Single().Last().Location.Address.ToString()).IsEqualTo("A3");
+        await Assert.That(ws.SparklineGroups.Single().First().SourceData.RangeAddress.ToString()).IsEqualTo("B1:Z1");
+        await Assert.That(ws.SparklineGroups.Single().Last().SourceData.RangeAddress.ToString()).IsEqualTo("B3:Z3");
     }
 
     [Test]
-    public void CanRemoveSparklineFromRange()
+    public async Task CanRemoveSparklineFromRange()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         ws.SparklineGroups.Add("A1:A5", "B1:Z5");
         ws.SparklineGroups.Remove(ws.Range("A2:D4"));
 
-        Assert.AreEqual(1, ws.SparklineGroups.Count());
-        Assert.AreEqual(2, ws.SparklineGroups.Single().Count());
-        Assert.AreEqual("A1", ws.SparklineGroups.Single().First().Location.Address.ToString());
-        Assert.AreEqual("A5", ws.SparklineGroups.Single().Last().Location.Address.ToString());
-        Assert.AreEqual("B1:Z1", ws.SparklineGroups.Single().First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B5:Z5", ws.SparklineGroups.Single().Last().SourceData.RangeAddress.ToString());
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(1);
+        await Assert.That(ws.SparklineGroups.Single().Count()).IsEqualTo(2);
+        await Assert.That(ws.SparklineGroups.Single().First().Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(ws.SparklineGroups.Single().Last().Location.Address.ToString()).IsEqualTo("A5");
+        await Assert.That(ws.SparklineGroups.Single().First().SourceData.RangeAddress.ToString()).IsEqualTo("B1:Z1");
+        await Assert.That(ws.SparklineGroups.Single().Last().SourceData.RangeAddress.ToString()).IsEqualTo("B5:Z5");
     }
 
     [Test]
-    public void RemoveSparklineFromEmptyCellDoesNothing()
+    public async Task RemoveSparklineFromEmptyCellDoesNothing()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         ws.SparklineGroups.Add("A1:A2", "B1:Z2");
         ws.SparklineGroups.Remove(ws.Cell("F2"));
 
-        Assert.AreEqual(1, ws.SparklineGroups.Count());
-        Assert.AreEqual(2, ws.SparklineGroups.Single().Count());
-        Assert.AreEqual("A1", ws.SparklineGroups.Single().First().Location.Address.ToString());
-        Assert.AreEqual("A2", ws.SparklineGroups.Single().Last().Location.Address.ToString());
-        Assert.AreEqual("B1:Z1", ws.SparklineGroups.Single().First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B2:Z2", ws.SparklineGroups.Single().Last().SourceData.RangeAddress.ToString());
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(1);
+        await Assert.That(ws.SparklineGroups.Single().Count()).IsEqualTo(2);
+        await Assert.That(ws.SparklineGroups.Single().First().Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(ws.SparklineGroups.Single().Last().Location.Address.ToString()).IsEqualTo("A2");
+        await Assert.That(ws.SparklineGroups.Single().First().SourceData.RangeAddress.ToString()).IsEqualTo("B1:Z1");
+        await Assert.That(ws.SparklineGroups.Single().Last().SourceData.RangeAddress.ToString()).IsEqualTo("B2:Z2");
     }
 
     #endregion Remove sparklines
@@ -365,40 +366,40 @@ public class SparklinesTests
     #region Change sparklines
 
     [Test]
-    public void CanChangeSparklineLocationInsideWorksheet()
+    public async Task CanChangeSparklineLocationInsideWorksheet()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         ws.SparklineGroups.Add("A1:A2", "B1:Z2");
         ws.SparklineGroups.Single().Last().SetLocation(ws.Cell("F2"));
 
-        Assert.AreEqual(1, ws.SparklineGroups.Count());
-        Assert.AreEqual(2, ws.SparklineGroups.Single().Count());
-        Assert.AreEqual("A1", ws.SparklineGroups.Single().First().Location.Address.ToString());
-        Assert.AreEqual("F2", ws.SparklineGroups.Single().Last().Location.Address.ToString());
-        Assert.AreEqual("B1:Z1", ws.SparklineGroups.Single().First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B2:Z2", ws.SparklineGroups.Single().Last().SourceData.RangeAddress.ToString());
-        Assert.IsTrue(ws.Cell("A1").HasSparkline);
-        Assert.IsFalse(ws.Cell("A2").HasSparkline);
-        Assert.IsTrue(ws.Cell("F2").HasSparkline);
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(1);
+        await Assert.That(ws.SparklineGroups.Single().Count()).IsEqualTo(2);
+        await Assert.That(ws.SparklineGroups.Single().First().Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(ws.SparklineGroups.Single().Last().Location.Address.ToString()).IsEqualTo("F2");
+        await Assert.That(ws.SparklineGroups.Single().First().SourceData.RangeAddress.ToString()).IsEqualTo("B1:Z1");
+        await Assert.That(ws.SparklineGroups.Single().Last().SourceData.RangeAddress.ToString()).IsEqualTo("B2:Z2");
+        await Assert.That(ws.Cell("A1").HasSparkline).IsTrue();
+        await Assert.That(ws.Cell("A2").HasSparkline).IsFalse();
+        await Assert.That(ws.Cell("F2").HasSparkline).IsTrue();
     }
 
     [Test]
-    public void ChangeSparklineLocationOverwritesExistingSparklineSameGroup()
+    public async Task ChangeSparklineLocationOverwritesExistingSparklineSameGroup()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         ws.SparklineGroups.Add("A1:A2", "B1:Z2");
         ws.SparklineGroups.Single().Last().SetLocation(ws.Cell("A1"));
 
-        Assert.AreEqual(1, ws.SparklineGroups.Count());
-        Assert.AreEqual(1, ws.SparklineGroups.Single().Count());
-        Assert.AreEqual("A1", ws.SparklineGroups.Single().Single().Location.Address.ToString());
-        Assert.AreEqual("B2:Z2", ws.SparklineGroups.Single().Single().SourceData.RangeAddress.ToString());
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(1);
+        await Assert.That(ws.SparklineGroups.Single().Count()).IsEqualTo(1);
+        await Assert.That(ws.SparklineGroups.Single().Single().Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(ws.SparklineGroups.Single().Single().SourceData.RangeAddress.ToString()).IsEqualTo("B2:Z2");
     }
 
     [Test]
-    public void ChangeSparklineLocationOverwritesExistingSparklineDifferentGroups()
+    public async Task ChangeSparklineLocationOverwritesExistingSparklineDifferentGroups()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
@@ -406,17 +407,17 @@ public class SparklinesTests
         ws.SparklineGroups.Add("A3", "B3:Z3");
         ws.SparklineGroups.Last().Single().SetLocation(ws.Cell("A2"));
 
-        Assert.AreEqual(2, ws.SparklineGroups.Count());
-        Assert.AreEqual(1, ws.SparklineGroups.First().Count());
-        Assert.AreEqual("A1", ws.SparklineGroups.First().Single().Location.Address.ToString());
-        Assert.AreEqual("B1:Z1", ws.SparklineGroups.First().Single().SourceData.RangeAddress.ToString());
-        Assert.AreEqual(1, ws.SparklineGroups.Last().Count());
-        Assert.AreEqual("A2", ws.SparklineGroups.Last().Single().Location.Address.ToString());
-        Assert.AreEqual("B3:Z3", ws.SparklineGroups.Last().Single().SourceData.RangeAddress.ToString());
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(2);
+        await Assert.That(ws.SparklineGroups.First().Count()).IsEqualTo(1);
+        await Assert.That(ws.SparklineGroups.First().Single().Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(ws.SparklineGroups.First().Single().SourceData.RangeAddress.ToString()).IsEqualTo("B1:Z1");
+        await Assert.That(ws.SparklineGroups.Last().Count()).IsEqualTo(1);
+        await Assert.That(ws.SparklineGroups.Last().Single().Location.Address.ToString()).IsEqualTo("A2");
+        await Assert.That(ws.SparklineGroups.Last().Single().SourceData.RangeAddress.ToString()).IsEqualTo("B3:Z3");
     }
 
     [Test]
-    public void CannotChangeSparklineLocationToAnotherWorksheet()
+    public async Task CannotChangeSparklineLocationToAnotherWorksheet()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet("Sheet 1");
@@ -426,28 +427,28 @@ public class SparklinesTests
 
         Action action = () => group.First().SetLocation(ws2.FirstCell());
 
-        var message = Assert.Throws<InvalidOperationException>(action).Message;
-        Assert.AreEqual("Cannot move the sparkline to a different worksheet", message);
+        var message = (await Assert.That(action).Throws<InvalidOperationException>())!.Message;
+        await Assert.That(message).IsEqualTo("Cannot move the sparkline to a different worksheet");
     }
 
     [Test]
-    public void CanChangeSparklineSourceDataInsideWorksheet()
+    public async Task CanChangeSparklineSourceDataInsideWorksheet()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
 
         ws.SparklineGroups.Add("A1:A2", "B1:Z2");
         ws.SparklineGroups.Single().Last().SetSourceData(ws.Range("D4:D50"));
 
-        Assert.AreEqual(1, ws.SparklineGroups.Count());
-        Assert.AreEqual(2, ws.SparklineGroups.Single().Count());
-        Assert.AreEqual("A1", ws.SparklineGroups.Single().First().Location.Address.ToString());
-        Assert.AreEqual("A2", ws.SparklineGroups.Single().Last().Location.Address.ToString());
-        Assert.AreEqual("B1:Z1", ws.SparklineGroups.Single().First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("D4:D50", ws.SparklineGroups.Single().Last().SourceData.RangeAddress.ToString());
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(1);
+        await Assert.That(ws.SparklineGroups.Single().Count()).IsEqualTo(2);
+        await Assert.That(ws.SparklineGroups.Single().First().Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(ws.SparklineGroups.Single().Last().Location.Address.ToString()).IsEqualTo("A2");
+        await Assert.That(ws.SparklineGroups.Single().First().SourceData.RangeAddress.ToString()).IsEqualTo("B1:Z1");
+        await Assert.That(ws.SparklineGroups.Single().Last().SourceData.RangeAddress.ToString()).IsEqualTo("D4:D50");
     }
 
     [Test]
-    public void CannotChangeSparklineSourceDataToNonLinearRange()
+    public async Task CannotChangeSparklineSourceDataToNonLinearRange()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1", "B1:Z1");
@@ -455,29 +456,29 @@ public class SparklinesTests
 
         Action action = () => sparkline.SetSourceData(ws.Range("B1:Z2"));
 
-        var message = Assert.Throws<ArgumentException>(action).Message;
-        Assert.AreEqual("SourceData range must have either a single row or a single column", message);
+        var message = (await Assert.That(action).Throws<ArgumentException>())!.Message;
+        await Assert.That(message).IsEqualTo("SourceData range must have either a single row or a single column");
     }
 
     [Test]
-    public void CanChangeSparklineStyle()
+    public async Task CanChangeSparklineStyle()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1", "B1:Z1");
 
         group.Style = XLSparklineTheme.Colorful1;
 
-        Assert.AreEqual(XLColor.FromHtml("FF5F5F5F"), group.Style.SeriesColor);
-        Assert.AreEqual(XLColor.FromHtml("FFFFB620"), group.Style.NegativeColor);
-        Assert.AreEqual(XLColor.FromHtml("FFD70077"), group.Style.MarkersColor);
-        Assert.AreEqual(XLColor.FromHtml("FF56BE79"), group.Style.HighMarkerColor);
-        Assert.AreEqual(XLColor.FromHtml("FFFF5055"), group.Style.LowMarkerColor);
-        Assert.AreEqual(XLColor.FromHtml("FF5687C2"), group.Style.FirstMarkerColor);
-        Assert.AreEqual(XLColor.FromHtml("FF359CEB"), group.Style.LastMarkerColor);
+        await Assert.That(group.Style.SeriesColor).IsEqualTo(XLColor.FromHtml("FF5F5F5F"));
+        await Assert.That(group.Style.NegativeColor).IsEqualTo(XLColor.FromHtml("FFFFB620"));
+        await Assert.That(group.Style.MarkersColor).IsEqualTo(XLColor.FromHtml("FFD70077"));
+        await Assert.That(group.Style.HighMarkerColor).IsEqualTo(XLColor.FromHtml("FF56BE79"));
+        await Assert.That(group.Style.LowMarkerColor).IsEqualTo(XLColor.FromHtml("FFFF5055"));
+        await Assert.That(group.Style.FirstMarkerColor).IsEqualTo(XLColor.FromHtml("FF5687C2"));
+        await Assert.That(group.Style.LastMarkerColor).IsEqualTo(XLColor.FromHtml("FF359CEB"));
     }
 
     [Test]
-    public void ChangeSparklineStyleDoesNotAffectOriginal()
+    public async Task ChangeSparklineStyleDoesNotAffectOriginal()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1", "B1:Z1");
@@ -485,23 +486,23 @@ public class SparklinesTests
 
         group.Style.NegativeColor = XLColor.Red;
 
-        Assert.AreEqual(XLColor.Red, group.Style.NegativeColor);
-        Assert.AreNotEqual(XLColor.Red, XLSparklineTheme.Colorful1.NegativeColor);
+        await Assert.That(group.Style.NegativeColor).IsEqualTo(XLColor.Red);
+        await Assert.That(XLSparklineTheme.Colorful1.NegativeColor).IsNotEqualTo(XLColor.Red);
     }
 
     [Test]
-    public void CannotSetSparklineStyleToNull()
+    public async Task CannotSetSparklineStyleToNull()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1", "B1:Z1");
 
         Action action = () => group.Style = null;
 
-        Assert.Throws<ArgumentNullException>(action);
+        await Assert.That(action).Throws<ArgumentNullException>();
     }
 
     [Test]
-    public void SparklinesShiftOnRowInsert()
+    public async Task SparklinesShiftOnRowInsert()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group1 = ws.SparklineGroups.Add("B2", "D4:F4");
@@ -510,16 +511,16 @@ public class SparklinesTests
 
         ws.Row(2).InsertRowsBelow(3);
 
-        Assert.AreEqual("B2", group1.First().Location.Address.ToString());
-        Assert.AreEqual("D7:F7", group1.First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B6", group2.First().Location.Address.ToString());
-        Assert.AreEqual("D7:D11", group2.First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B7", group3.First().Location.Address.ToString());
-        Assert.AreEqual("E1:E11", group3.First().SourceData.RangeAddress.ToString());
+        await Assert.That(group1.First().Location.Address.ToString()).IsEqualTo("B2");
+        await Assert.That(group1.First().SourceData.RangeAddress.ToString()).IsEqualTo("D7:F7");
+        await Assert.That(group2.First().Location.Address.ToString()).IsEqualTo("B6");
+        await Assert.That(group2.First().SourceData.RangeAddress.ToString()).IsEqualTo("D7:D11");
+        await Assert.That(group3.First().Location.Address.ToString()).IsEqualTo("B7");
+        await Assert.That(group3.First().SourceData.RangeAddress.ToString()).IsEqualTo("E1:E11");
     }
 
     [Test]
-    public void SparklinesShiftOnRowDelete()
+    public async Task SparklinesShiftOnRowDelete()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group1 = ws.SparklineGroups.Add("B2", "D7:F7");
@@ -528,16 +529,16 @@ public class SparklinesTests
 
         ws.Rows(3, 5).Delete();
 
-        Assert.AreEqual("B2", group1.First().Location.Address.ToString());
-        Assert.AreEqual("D4:F4", group1.First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B3", group2.First().Location.Address.ToString());
-        Assert.AreEqual("D4:D8", group2.First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B4", group3.First().Location.Address.ToString());
-        Assert.AreEqual("E1:E8", group3.First().SourceData.RangeAddress.ToString());
+        await Assert.That(group1.First().Location.Address.ToString()).IsEqualTo("B2");
+        await Assert.That(group1.First().SourceData.RangeAddress.ToString()).IsEqualTo("D4:F4");
+        await Assert.That(group2.First().Location.Address.ToString()).IsEqualTo("B3");
+        await Assert.That(group2.First().SourceData.RangeAddress.ToString()).IsEqualTo("D4:D8");
+        await Assert.That(group3.First().Location.Address.ToString()).IsEqualTo("B4");
+        await Assert.That(group3.First().SourceData.RangeAddress.ToString()).IsEqualTo("E1:E8");
     }
 
     [Test]
-    public void SparklinesShiftOnColumnInsert()
+    public async Task SparklinesShiftOnColumnInsert()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group1 = ws.SparklineGroups.Add("B2", "D4:F4");
@@ -546,16 +547,16 @@ public class SparklinesTests
 
         ws.Column(2).InsertColumnsAfter(3);
 
-        Assert.AreEqual("B2", group1.First().Location.Address.ToString());
-        Assert.AreEqual("G4:I4", group1.First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("F3", group2.First().Location.Address.ToString());
-        Assert.AreEqual("G4:G8", group2.First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("G4", group3.First().Location.Address.ToString());
-        Assert.AreEqual("A4:H4", group3.First().SourceData.RangeAddress.ToString());
+        await Assert.That(group1.First().Location.Address.ToString()).IsEqualTo("B2");
+        await Assert.That(group1.First().SourceData.RangeAddress.ToString()).IsEqualTo("G4:I4");
+        await Assert.That(group2.First().Location.Address.ToString()).IsEqualTo("F3");
+        await Assert.That(group2.First().SourceData.RangeAddress.ToString()).IsEqualTo("G4:G8");
+        await Assert.That(group3.First().Location.Address.ToString()).IsEqualTo("G4");
+        await Assert.That(group3.First().SourceData.RangeAddress.ToString()).IsEqualTo("A4:H4");
     }
 
     [Test]
-    public void SparklinesShiftOnColumnDelete()
+    public async Task SparklinesShiftOnColumnDelete()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group1 = ws.SparklineGroups.Add("B2", "G4:I4");
@@ -564,75 +565,75 @@ public class SparklinesTests
 
         ws.Columns(3, 5).Delete();
 
-        Assert.AreEqual("B2", group1.First().Location.Address.ToString());
-        Assert.AreEqual("D4:F4", group1.First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("C3", group2.First().Location.Address.ToString());
-        Assert.AreEqual("D4:D8", group2.First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("D4", group3.First().Location.Address.ToString());
-        Assert.AreEqual("A4:E4", group3.First().SourceData.RangeAddress.ToString());
+        await Assert.That(group1.First().Location.Address.ToString()).IsEqualTo("B2");
+        await Assert.That(group1.First().SourceData.RangeAddress.ToString()).IsEqualTo("D4:F4");
+        await Assert.That(group2.First().Location.Address.ToString()).IsEqualTo("C3");
+        await Assert.That(group2.First().SourceData.RangeAddress.ToString()).IsEqualTo("D4:D8");
+        await Assert.That(group3.First().Location.Address.ToString()).IsEqualTo("D4");
+        await Assert.That(group3.First().SourceData.RangeAddress.ToString()).IsEqualTo("A4:E4");
     }
 
     [Test]
-    public void SparklineRemovedWhenColumnDeleted()
+    public async Task SparklineRemovedWhenColumnDeleted()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1:B1", "C2:D6");
 
         ws.Column(2).Delete();
 
-        Assert.AreEqual(1, group.Count());
-        Assert.AreEqual("A1", group.Single().Location.Address.ToString());
-        Assert.AreEqual("B2:B6", group.Single().SourceData.RangeAddress.ToString());
+        await Assert.That(group.Count()).IsEqualTo(1);
+        await Assert.That(group.Single().Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(group.Single().SourceData.RangeAddress.ToString()).IsEqualTo("B2:B6");
     }
 
     [Test]
-    public void SparklineRemovedWhenRowDeleted()
+    public async Task SparklineRemovedWhenRowDeleted()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1:A2", "C3:F4");
 
         ws.Row(2).Delete();
 
-        Assert.AreEqual(1, group.Count());
-        Assert.AreEqual("A1", group.Single().Location.Address.ToString());
-        Assert.AreEqual("C2:F2", group.Single().SourceData.RangeAddress.ToString());
+        await Assert.That(group.Count()).IsEqualTo(1);
+        await Assert.That(group.Single().Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(group.Single().SourceData.RangeAddress.ToString()).IsEqualTo("C2:F2");
     }
 
     [Test]
-    public void SparklineRemovedWhenShiftedTooFarRight()
+    public async Task SparklineRemovedWhenShiftedTooFarRight()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("XFD1", "A1:Z1");
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.AreEqual(0, group.Count());
+        await Assert.That(group.Count()).IsEqualTo(0);
     }
 
     [Test]
-    public void SparklineRemovedWhenShiftedTooFarDown()
+    public async Task SparklineRemovedWhenShiftedTooFarDown()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1048576", "A1:Z1");
 
         ws.Row(1).InsertRowsAbove(1);
 
-        Assert.AreEqual(0, group.Count());
+        await Assert.That(group.Count()).IsEqualTo(0);
     }
 
     [Test]
-    public void SparklineRangeInvalidatedWhenDeleted()
+    public async Task SparklineRangeInvalidatedWhenDeleted()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1:B1", "C2:D6");
 
         ws.Column(4).Delete();
 
-        Assert.AreEqual(2, group.Count());
-        Assert.AreEqual("A1", group.First().Location.Address.ToString());
-        Assert.AreEqual("C2:C6", group.First().SourceData.RangeAddress.ToString());
-        Assert.AreEqual("B1", group.Last().Location.Address.ToString());
-        Assert.IsFalse(group.Last().SourceData.RangeAddress.IsValid);
+        await Assert.That(group.Count()).IsEqualTo(2);
+        await Assert.That(group.First().Location.Address.ToString()).IsEqualTo("A1");
+        await Assert.That(group.First().SourceData.RangeAddress.ToString()).IsEqualTo("C2:C6");
+        await Assert.That(group.Last().Location.Address.ToString()).IsEqualTo("B1");
+        await Assert.That(group.Last().SourceData.RangeAddress.IsValid).IsFalse();
     }
 
     #endregion Change sparklines
@@ -640,7 +641,7 @@ public class SparklinesTests
     #region Load and save sparkline groups
 
     [Test]
-    public void CanChangeSaveAndLoadSparklineGroup()
+    public async Task CanChangeSaveAndLoadSparklineGroup()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -676,7 +677,7 @@ public class SparklinesTests
                 .SetNegativeColor(XLColor.AmberSaeEce)
                 .SetSeriesColor(XLColor.AmericanRose);
 
-            AssertGroupIsValid(originalGroup);
+            await AssertGroupIsValid(originalGroup);
             wb.SaveAs(ms);
         }
 
@@ -684,107 +685,108 @@ public class SparklinesTests
         {
             var ws = wb.Worksheets.First();
 
-            Assert.AreEqual(1, ws.SparklineGroups.Count());
-            AssertGroupIsValid(ws.SparklineGroups.Single());
+            await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(1);
+            await AssertGroupIsValid(ws.SparklineGroups.Single());
         }
 
-        void AssertGroupIsValid(IXLSparklineGroup group)
+        async Task AssertGroupIsValid(IXLSparklineGroup group)
         {
-            Assert.AreEqual(3, group.Count());
+            await Assert.That(group.Count()).IsEqualTo(3);
 
-            Assert.AreEqual("A1", group.ElementAt(0).Location.Address.ToString());
-            Assert.AreEqual("A2", group.ElementAt(1).Location.Address.ToString());
-            Assert.AreEqual("A3", group.ElementAt(2).Location.Address.ToString());
+            await Assert.That(group.ElementAt(0).Location.Address.ToString()).IsEqualTo("A1");
+            await Assert.That(group.ElementAt(1).Location.Address.ToString()).IsEqualTo("A2");
+            await Assert.That(group.ElementAt(2).Location.Address.ToString()).IsEqualTo("A3");
 
-            Assert.AreEqual("B1:Z1", group.ElementAt(0).SourceData.RangeAddress.ToString());
-            Assert.AreEqual("B2:Z2", group.ElementAt(1).SourceData.RangeAddress.ToString());
-            Assert.AreEqual("B3:Z3", group.ElementAt(2).SourceData.RangeAddress.ToString());
+            await Assert.That(group.ElementAt(0).SourceData.RangeAddress.ToString()).IsEqualTo("B1:Z1");
+            await Assert.That(group.ElementAt(1).SourceData.RangeAddress.ToString()).IsEqualTo("B2:Z2");
+            await Assert.That(group.ElementAt(2).SourceData.RangeAddress.ToString()).IsEqualTo("B3:Z3");
 
-            Assert.AreEqual("B4:Z4", group.DateRange.RangeAddress.ToString());
+            await Assert.That(group.DateRange.RangeAddress.ToString()).IsEqualTo("B4:Z4");
 
-            Assert.AreEqual(XLColor.AliceBlue, group.Style.FirstMarkerColor);
-            Assert.AreEqual(XLColor.Alizarin, group.Style.HighMarkerColor);
-            Assert.AreEqual(XLColor.Almond, group.Style.LastMarkerColor);
-            Assert.AreEqual(XLColor.Amaranth, group.Style.LowMarkerColor);
-            Assert.AreEqual(XLColor.Amber, group.Style.MarkersColor);
-            Assert.AreEqual(XLColor.AmberSaeEce, group.Style.NegativeColor);
-            Assert.AreEqual(XLColor.AmericanRose, group.Style.SeriesColor);
-            Assert.IsTrue(group.DisplayHidden);
-            Assert.AreEqual(5.5, group.LineWeight, XLHelper.Epsilon);
-            Assert.AreEqual(XLDisplayBlanksAsValues.Zero, group.DisplayEmptyCellsAs);
-            Assert.AreEqual(XLSparklineType.Stacked, group.Type);
+            await Assert.That(group.Style.FirstMarkerColor).IsEqualTo(XLColor.AliceBlue);
+            await Assert.That(group.Style.HighMarkerColor).IsEqualTo(XLColor.Alizarin);
+            await Assert.That(group.Style.LastMarkerColor).IsEqualTo(XLColor.Almond);
+            await Assert.That(group.Style.LowMarkerColor).IsEqualTo(XLColor.Amaranth);
+            await Assert.That(group.Style.MarkersColor).IsEqualTo(XLColor.Amber);
+            await Assert.That(group.Style.NegativeColor).IsEqualTo(XLColor.AmberSaeEce);
+            await Assert.That(group.Style.SeriesColor).IsEqualTo(XLColor.AmericanRose);
+            await Assert.That(group.DisplayHidden).IsTrue();
+            await Assert.That(group.LineWeight).IsEqualTo(5.5).Within(XLHelper.Epsilon);
+            await Assert.That(group.DisplayEmptyCellsAs).IsEqualTo(XLDisplayBlanksAsValues.Zero);
+            await Assert.That(group.Type).IsEqualTo(XLSparklineType.Stacked);
 
-            Assert.IsTrue(group.ShowMarkers.HasFlag(XLSparklineMarkers.FirstPoint));
-            Assert.IsTrue(group.ShowMarkers.HasFlag(XLSparklineMarkers.LastPoint));
-            Assert.IsTrue(group.ShowMarkers.HasFlag(XLSparklineMarkers.HighPoint));
-            Assert.IsTrue(group.ShowMarkers.HasFlag(XLSparklineMarkers.LowPoint));
-            Assert.IsTrue(group.ShowMarkers.HasFlag(XLSparklineMarkers.NegativePoints));
-            Assert.IsTrue(group.ShowMarkers.HasFlag(XLSparklineMarkers.Markers));
+            await Assert.That(group.ShowMarkers.HasFlag(XLSparklineMarkers.FirstPoint)).IsTrue();
+            await Assert.That(group.ShowMarkers.HasFlag(XLSparklineMarkers.LastPoint)).IsTrue();
+            await Assert.That(group.ShowMarkers.HasFlag(XLSparklineMarkers.HighPoint)).IsTrue();
+            await Assert.That(group.ShowMarkers.HasFlag(XLSparklineMarkers.LowPoint)).IsTrue();
+            await Assert.That(group.ShowMarkers.HasFlag(XLSparklineMarkers.NegativePoints)).IsTrue();
+            await Assert.That(group.ShowMarkers.HasFlag(XLSparklineMarkers.Markers)).IsTrue();
 
-            Assert.AreEqual(XLColor.AirForceBlue, group.HorizontalAxis.Color);
-            Assert.IsTrue(group.HorizontalAxis.IsVisible);
-            Assert.IsTrue(group.HorizontalAxis.RightToLeft);
-            Assert.IsTrue(group.HorizontalAxis.DateAxis);
+            await Assert.That(group.HorizontalAxis.Color).IsEqualTo(XLColor.AirForceBlue);
+            await Assert.That(group.HorizontalAxis.IsVisible).IsTrue();
+            await Assert.That(group.HorizontalAxis.RightToLeft).IsTrue();
+            await Assert.That(group.HorizontalAxis.DateAxis).IsTrue();
 
-            Assert.AreEqual(6.6, group.VerticalAxis.ManualMax!.Value, XLHelper.Epsilon);
-            Assert.AreEqual(1.2, group.VerticalAxis.ManualMin!.Value, XLHelper.Epsilon);
-            Assert.AreEqual(XLSparklineAxisMinMax.Custom, group.VerticalAxis.MaxAxisType);
-            Assert.AreEqual(XLSparklineAxisMinMax.Custom, group.VerticalAxis.MinAxisType);
+            await Assert.That(group.VerticalAxis.ManualMax!.Value).IsEqualTo(6.6).Within(XLHelper.Epsilon);
+            await Assert.That(group.VerticalAxis.ManualMin!.Value).IsEqualTo(1.2).Within(XLHelper.Epsilon);
+            await Assert.That(group.VerticalAxis.MaxAxisType).IsEqualTo(XLSparklineAxisMinMax.Custom);
+            await Assert.That(group.VerticalAxis.MinAxisType).IsEqualTo(XLSparklineAxisMinMax.Custom);
         }
     }
 
     [Test]
-    public void CanLoadSparklines()
+    public async Task CanLoadSparklines()
     {
         using var ms = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Sparklines\SparklineThemes\inputfile.xlsx"));
         using var wb = new XLWorkbook(ms);
-        Assert.IsTrue(wb.Worksheets.All(ws => ws.SparklineGroups.Count() == 6));
+        await Assert.That(wb.Worksheets.All(ws => ws.SparklineGroups.Count() == 6)).IsTrue();
     }
 
-    [TestCase("Accent!B1", nameof(XLSparklineTheme.Accent1))]
-    [TestCase("Accent!B2", nameof(XLSparklineTheme.Accent2))]
-    [TestCase("Accent!B3", nameof(XLSparklineTheme.Accent3))]
-    [TestCase("Accent!B4", nameof(XLSparklineTheme.Accent4))]
-    [TestCase("Accent!B5", nameof(XLSparklineTheme.Accent5))]
-    [TestCase("Accent!B6", nameof(XLSparklineTheme.Accent6))]
-    [TestCase("'Accent Darker 25%'!B1", nameof(XLSparklineTheme.Accent1Darker25))]
-    [TestCase("'Accent Darker 25%'!B2", nameof(XLSparklineTheme.Accent2Darker25))]
-    [TestCase("'Accent Darker 25%'!B3", nameof(XLSparklineTheme.Accent3Darker25))]
-    [TestCase("'Accent Darker 25%'!B4", nameof(XLSparklineTheme.Accent4Darker25))]
-    [TestCase("'Accent Darker 25%'!B5", nameof(XLSparklineTheme.Accent5Darker25))]
-    [TestCase("'Accent Darker 25%'!B6", nameof(XLSparklineTheme.Accent6Darker25))]
-    [TestCase("'Accent Darker 50%'!B1", nameof(XLSparklineTheme.Accent1Darker50))]
-    [TestCase("'Accent Darker 50%'!B2", nameof(XLSparklineTheme.Accent2Darker50))]
-    [TestCase("'Accent Darker 50%'!B3", nameof(XLSparklineTheme.Accent3Darker50))]
-    [TestCase("'Accent Darker 50%'!B4", nameof(XLSparklineTheme.Accent4Darker50))]
-    [TestCase("'Accent Darker 50%'!B5", nameof(XLSparklineTheme.Accent5Darker50))]
-    [TestCase("'Accent Darker 50%'!B6", nameof(XLSparklineTheme.Accent6Darker50))]
-    [TestCase("'Accent Lighter 40%'!B1", nameof(XLSparklineTheme.Accent1Lighter40))]
-    [TestCase("'Accent Lighter 40%'!B2", nameof(XLSparklineTheme.Accent2Lighter40))]
-    [TestCase("'Accent Lighter 40%'!B3", nameof(XLSparklineTheme.Accent3Lighter40))]
-    [TestCase("'Accent Lighter 40%'!B4", nameof(XLSparklineTheme.Accent4Lighter40))]
-    [TestCase("'Accent Lighter 40%'!B5", nameof(XLSparklineTheme.Accent5Lighter40))]
-    [TestCase("'Accent Lighter 40%'!B6", nameof(XLSparklineTheme.Accent6Lighter40))]
-    [TestCase("Dark!B1", nameof(XLSparklineTheme.Dark1))]
-    [TestCase("Dark!B2", nameof(XLSparklineTheme.Dark2))]
-    [TestCase("Dark!B3", nameof(XLSparklineTheme.Dark3))]
-    [TestCase("Dark!B4", nameof(XLSparklineTheme.Dark4))]
-    [TestCase("Dark!B5", nameof(XLSparklineTheme.Dark5))]
-    [TestCase("Dark!B6", nameof(XLSparklineTheme.Dark6))]
-    [TestCase("Colorful!B1", nameof(XLSparklineTheme.Colorful1))]
-    [TestCase("Colorful!B2", nameof(XLSparklineTheme.Colorful2))]
-    [TestCase("Colorful!B3", nameof(XLSparklineTheme.Colorful3))]
-    [TestCase("Colorful!B4", nameof(XLSparklineTheme.Colorful4))]
-    [TestCase("Colorful!B5", nameof(XLSparklineTheme.Colorful5))]
-    [TestCase("Colorful!B6", nameof(XLSparklineTheme.Colorful6))]
-    public void SparklineThemesAreIdenticalToExcel(string cellAddress, string expectedThemeName)
+    [Test]
+    [Arguments("Accent!B1", nameof(XLSparklineTheme.Accent1))]
+    [Arguments("Accent!B2", nameof(XLSparklineTheme.Accent2))]
+    [Arguments("Accent!B3", nameof(XLSparklineTheme.Accent3))]
+    [Arguments("Accent!B4", nameof(XLSparklineTheme.Accent4))]
+    [Arguments("Accent!B5", nameof(XLSparklineTheme.Accent5))]
+    [Arguments("Accent!B6", nameof(XLSparklineTheme.Accent6))]
+    [Arguments("'Accent Darker 25%'!B1", nameof(XLSparklineTheme.Accent1Darker25))]
+    [Arguments("'Accent Darker 25%'!B2", nameof(XLSparklineTheme.Accent2Darker25))]
+    [Arguments("'Accent Darker 25%'!B3", nameof(XLSparklineTheme.Accent3Darker25))]
+    [Arguments("'Accent Darker 25%'!B4", nameof(XLSparklineTheme.Accent4Darker25))]
+    [Arguments("'Accent Darker 25%'!B5", nameof(XLSparklineTheme.Accent5Darker25))]
+    [Arguments("'Accent Darker 25%'!B6", nameof(XLSparklineTheme.Accent6Darker25))]
+    [Arguments("'Accent Darker 50%'!B1", nameof(XLSparklineTheme.Accent1Darker50))]
+    [Arguments("'Accent Darker 50%'!B2", nameof(XLSparklineTheme.Accent2Darker50))]
+    [Arguments("'Accent Darker 50%'!B3", nameof(XLSparklineTheme.Accent3Darker50))]
+    [Arguments("'Accent Darker 50%'!B4", nameof(XLSparklineTheme.Accent4Darker50))]
+    [Arguments("'Accent Darker 50%'!B5", nameof(XLSparklineTheme.Accent5Darker50))]
+    [Arguments("'Accent Darker 50%'!B6", nameof(XLSparklineTheme.Accent6Darker50))]
+    [Arguments("'Accent Lighter 40%'!B1", nameof(XLSparklineTheme.Accent1Lighter40))]
+    [Arguments("'Accent Lighter 40%'!B2", nameof(XLSparklineTheme.Accent2Lighter40))]
+    [Arguments("'Accent Lighter 40%'!B3", nameof(XLSparklineTheme.Accent3Lighter40))]
+    [Arguments("'Accent Lighter 40%'!B4", nameof(XLSparklineTheme.Accent4Lighter40))]
+    [Arguments("'Accent Lighter 40%'!B5", nameof(XLSparklineTheme.Accent5Lighter40))]
+    [Arguments("'Accent Lighter 40%'!B6", nameof(XLSparklineTheme.Accent6Lighter40))]
+    [Arguments("Dark!B1", nameof(XLSparklineTheme.Dark1))]
+    [Arguments("Dark!B2", nameof(XLSparklineTheme.Dark2))]
+    [Arguments("Dark!B3", nameof(XLSparklineTheme.Dark3))]
+    [Arguments("Dark!B4", nameof(XLSparklineTheme.Dark4))]
+    [Arguments("Dark!B5", nameof(XLSparklineTheme.Dark5))]
+    [Arguments("Dark!B6", nameof(XLSparklineTheme.Dark6))]
+    [Arguments("Colorful!B1", nameof(XLSparklineTheme.Colorful1))]
+    [Arguments("Colorful!B2", nameof(XLSparklineTheme.Colorful2))]
+    [Arguments("Colorful!B3", nameof(XLSparklineTheme.Colorful3))]
+    [Arguments("Colorful!B4", nameof(XLSparklineTheme.Colorful4))]
+    [Arguments("Colorful!B5", nameof(XLSparklineTheme.Colorful5))]
+    [Arguments("Colorful!B6", nameof(XLSparklineTheme.Colorful6))]
+    public async Task SparklineThemesAreIdenticalToExcel(string cellAddress, string expectedThemeName)
     {
         using var ms = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Sparklines\SparklineThemes\inputfile.xlsx"));
         using var wb = new XLWorkbook(ms);
         var expectedStyle = GetThemeByName(expectedThemeName);
         var actualStyle = wb.Cell(cellAddress).Sparkline.SparklineGroup.Style;
 
-        Assert.AreEqual(expectedStyle, actualStyle);
+        await Assert.That(actualStyle).IsEqualTo(expectedStyle);
         return;
 
         IXLSparklineStyle GetThemeByName(string themeName)
@@ -796,7 +798,7 @@ public class SparklinesTests
     }
 
     [Test]
-    public void DeletedSparklinesRemovedFromFile()
+    public async Task DeletedSparklinesRemovedFromFile()
     {
         using var input = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Sparklines\SparklineThemes\inputfile.xlsx"));
         using var output = new MemoryStream();
@@ -812,17 +814,17 @@ public class SparklinesTests
 
         using (var wb = new XLWorkbook(output))
         {
-            Assert.AreEqual(0, wb.Worksheet(1).SparklineGroups.Count());
-            Assert.AreEqual(5, wb.Worksheet(2).SparklineGroups.Count());
-            Assert.AreEqual(1, wb.Worksheet(3).SparklineGroups.Count());
-            Assert.AreEqual(5, wb.Worksheet(4).SparklineGroups.Count());
-            Assert.AreEqual(6, wb.Worksheet(5).SparklineGroups.Count());
-            Assert.AreEqual(6, wb.Worksheet(6).SparklineGroups.Count());
+            await Assert.That(wb.Worksheet(1).SparklineGroups.Count()).IsEqualTo(0);
+            await Assert.That(wb.Worksheet(2).SparklineGroups.Count()).IsEqualTo(5);
+            await Assert.That(wb.Worksheet(3).SparklineGroups.Count()).IsEqualTo(1);
+            await Assert.That(wb.Worksheet(4).SparklineGroups.Count()).IsEqualTo(5);
+            await Assert.That(wb.Worksheet(5).SparklineGroups.Count()).IsEqualTo(6);
+            await Assert.That(wb.Worksheet(6).SparklineGroups.Count()).IsEqualTo(6);
         }
     }
 
     [Test]
-    public void EmptySparklineGroupsSkippedOnSaving()
+    public async Task EmptySparklineGroupsSkippedOnSaving()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -837,12 +839,12 @@ public class SparklinesTests
 
         using (var wb = new XLWorkbook(ms))
         {
-            Assert.AreEqual(0, wb.Worksheets.First().SparklineGroups.Count());
+            await Assert.That(wb.Worksheets.First().SparklineGroups.Count()).IsEqualTo(0);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadSparklineWithInvalidRange()
+    public async Task CanSaveAndLoadSparklineWithInvalidRange()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -862,10 +864,10 @@ public class SparklinesTests
         {
             var ws = wb.Worksheets.Single();
 
-            Assert.AreEqual(2, ws.SparklineGroups.Count());
-            Assert.IsFalse(ws.Cell("A2").Sparkline.IsValid);
-            Assert.AreEqual("B5:F5", ws.Cell("A5").Sparkline.SourceData.RangeAddress.ToString());
-            Assert.IsNull(ws.Cell("A5").Sparkline.SparklineGroup.DateRange);
+            await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(2);
+            await Assert.That(ws.Cell("A2").Sparkline.IsValid).IsFalse();
+            await Assert.That(ws.Cell("A5").Sparkline.SourceData.RangeAddress.ToString()).IsEqualTo("B5:F5");
+            await Assert.That(ws.Cell("A5").Sparkline.SparklineGroup.DateRange).IsNull();
         }
     }
 
@@ -874,7 +876,7 @@ public class SparklinesTests
     #region Change sparkline groups
 
     [Test]
-    public void SetManualMinChangesAxisTypeToCustom()
+    public async Task SetManualMinChangesAxisTypeToCustom()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var axis = ws.SparklineGroups.Add("A1:A2", "B1:Z2")
@@ -883,12 +885,12 @@ public class SparklinesTests
 
         axis.ManualMin = 100;
 
-        Assert.AreEqual(100, axis.ManualMin!.Value, XLHelper.Epsilon);
-        Assert.AreEqual(XLSparklineAxisMinMax.Custom, axis.MinAxisType);
+        await Assert.That(axis.ManualMin!.Value).IsEqualTo(100).Within(XLHelper.Epsilon);
+        await Assert.That(axis.MinAxisType).IsEqualTo(XLSparklineAxisMinMax.Custom);
     }
 
     [Test]
-    public void SetManualMaxChangesAxisTypeToCustom()
+    public async Task SetManualMaxChangesAxisTypeToCustom()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var axis = ws.SparklineGroups.Add("A1:A2", "B1:Z2")
@@ -897,14 +899,15 @@ public class SparklinesTests
 
         axis.ManualMax = 100;
 
-        Assert.AreEqual(100, axis.ManualMax!.Value, XLHelper.Epsilon);
-        Assert.AreEqual(XLSparklineAxisMinMax.Custom, axis.MaxAxisType);
+        await Assert.That(axis.ManualMax!.Value).IsEqualTo(100).Within(XLHelper.Epsilon);
+        await Assert.That(axis.MaxAxisType).IsEqualTo(XLSparklineAxisMinMax.Custom);
     }
 
-    [TestCase(XLSparklineAxisMinMax.Custom, 100)]
-    [TestCase(XLSparklineAxisMinMax.SameForAll, null)]
-    [TestCase(XLSparklineAxisMinMax.Automatic, null)]
-    public void SetAxisTypeToNonCustomSetsManualMinToNull(XLSparklineAxisMinMax axisType, double? expectedManualMin)
+    [Test]
+    [Arguments(XLSparklineAxisMinMax.Custom, 100)]
+    [Arguments(XLSparklineAxisMinMax.SameForAll, null)]
+    [Arguments(XLSparklineAxisMinMax.Automatic, null)]
+    public async Task SetAxisTypeToNonCustomSetsManualMinToNull(XLSparklineAxisMinMax axisType, double? expectedManualMin)
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var axis = ws.SparklineGroups.Add("A1", "B1:Z1")
@@ -914,15 +917,16 @@ public class SparklinesTests
         axis.MinAxisType = axisType;
 
         if (expectedManualMin.HasValue)
-            Assert.AreEqual(expectedManualMin.Value, axis.ManualMin.Value, XLHelper.Epsilon);
+            await Assert.That(axis.ManualMin.Value).IsEqualTo(expectedManualMin.Value).Within(XLHelper.Epsilon);
         else
-            Assert.IsNull(axis.ManualMin);
+            await Assert.That(axis.ManualMin).IsNull();
     }
 
-    [TestCase(XLSparklineAxisMinMax.Custom, 100)]
-    [TestCase(XLSparklineAxisMinMax.SameForAll, null)]
-    [TestCase(XLSparklineAxisMinMax.Automatic, null)]
-    public void SetAxisTypeToNonCustomSetsManualMaxToNull(XLSparklineAxisMinMax axisType, double? expectedManualMax)
+    [Test]
+    [Arguments(XLSparklineAxisMinMax.Custom, 100)]
+    [Arguments(XLSparklineAxisMinMax.SameForAll, null)]
+    [Arguments(XLSparklineAxisMinMax.Automatic, null)]
+    public async Task SetAxisTypeToNonCustomSetsManualMaxToNull(XLSparklineAxisMinMax axisType, double? expectedManualMax)
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var axis = ws.SparklineGroups.Add("A1", "B1:Z1")
@@ -932,24 +936,24 @@ public class SparklinesTests
         axis.MaxAxisType = axisType;
 
         if (expectedManualMax.HasValue)
-            Assert.AreEqual(expectedManualMax.Value, axis.ManualMax.Value, XLHelper.Epsilon);
+            await Assert.That(axis.ManualMax.Value).IsEqualTo(expectedManualMax.Value).Within(XLHelper.Epsilon);
         else
-            Assert.IsNull(axis.ManualMax);
+            await Assert.That(axis.ManualMax).IsNull();
     }
 
     [Test]
-    public void SetDateRangeChangesAxisType()
+    public async Task SetDateRangeChangesAxisType()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1:A2", "B1:Z2");
 
         group.DateRange = ws.Range("B3:Z3");
 
-        Assert.IsTrue(group.HorizontalAxis.DateAxis);
+        await Assert.That(group.HorizontalAxis.DateAxis).IsTrue();
     }
 
     [Test]
-    public void SetDateRangeToNullChangesAxisType()
+    public async Task SetDateRangeToNullChangesAxisType()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1:A2", "B1:Z2");
@@ -957,18 +961,18 @@ public class SparklinesTests
 
         group.DateRange = null;
 
-        Assert.IsFalse(group.HorizontalAxis.DateAxis);
+        await Assert.That(group.HorizontalAxis.DateAxis).IsFalse();
     }
 
     [Test]
-    public void CannotSetNonLinearDateRange()
+    public async Task CannotSetNonLinearDateRange()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1:A2", "B1:Z2");
 
         Action action = () => group.DateRange = ws.Range("B3:Z4");
 
-        Assert.Throws<ArgumentException>(action);
+        await Assert.That(action).Throws<ArgumentException>();
     }
 
     #endregion Change sparkline groups
@@ -976,7 +980,7 @@ public class SparklinesTests
     #region Copy sparkline groups
 
     [Test]
-    public void CopyCellToSameWorksheetCopiesSparkline()
+    public async Task CopyCellToSameWorksheetCopiesSparkline()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         ws.SparklineGroups.Add("A1:A3", "B1:F3");
@@ -984,14 +988,14 @@ public class SparklinesTests
 
         ws.Cell("A2").CopyTo(target);
 
-        Assert.AreEqual(1, ws.SparklineGroups.Count());
-        Assert.IsTrue(target.HasSparkline);
-        Assert.AreSame(ws.Cell("A2").Sparkline.SparklineGroup, target.Sparkline.SparklineGroup);
-        Assert.AreEqual("E4:I4", target.Sparkline.SourceData.RangeAddress.ToString());
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(1);
+        await Assert.That(target.HasSparkline).IsTrue();
+        await Assert.That(target.Sparkline.SparklineGroup).IsSameReferenceAs(ws.Cell("A2").Sparkline.SparklineGroup);
+        await Assert.That(target.Sparkline.SourceData.RangeAddress.ToString()).IsEqualTo("E4:I4");
     }
 
     [Test]
-    public void CopyCellToDifferentWorksheetCopiesSparklineGroup()
+    public async Task CopyCellToDifferentWorksheetCopiesSparklineGroup()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet("Sheet 1");
@@ -1005,16 +1009,16 @@ public class SparklinesTests
         ws1.Cell("A2").CopyTo(target1);
         ws1.Cell("A5").CopyTo(target2);
 
-        Assert.AreEqual(2, ws1.SparklineGroups.Count());
-        Assert.AreEqual(2, ws2.SparklineGroups.Count());
-        Assert.IsTrue(target1.HasSparkline);
-        Assert.IsTrue(target2.HasSparkline);
-        Assert.AreEqual("'Sheet 2'!E4:I4", target1.Sparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true));
-        Assert.AreEqual("'Sheet 3'!E5:I5", target2.Sparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true));
+        await Assert.That(ws1.SparklineGroups.Count()).IsEqualTo(2);
+        await Assert.That(ws2.SparklineGroups.Count()).IsEqualTo(2);
+        await Assert.That(target1.HasSparkline).IsTrue();
+        await Assert.That(target2.HasSparkline).IsTrue();
+        await Assert.That(target1.Sparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 2'!E4:I4");
+        await Assert.That(target2.Sparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 3'!E5:I5");
     }
 
     [Test]
-    public void CopySparklineIfDateRangeOnSameWorksheet()
+    public async Task CopySparklineIfDateRangeOnSameWorksheet()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet("Sheet 1");
@@ -1025,14 +1029,14 @@ public class SparklinesTests
 
         ws1.Cell("A2").CopyTo(target);
 
-        Assert.AreEqual(1, ws1.SparklineGroups.Count());
-        Assert.AreEqual(1, ws2.SparklineGroups.Count());
-        Assert.IsTrue(target.HasSparkline);
-        Assert.AreEqual("'Sheet 2'!D6:H6", target.Sparkline.SparklineGroup.DateRange.RangeAddress.ToString(XLReferenceStyle.A1, true));
+        await Assert.That(ws1.SparklineGroups.Count()).IsEqualTo(1);
+        await Assert.That(ws2.SparklineGroups.Count()).IsEqualTo(1);
+        await Assert.That(target.HasSparkline).IsTrue();
+        await Assert.That(target.Sparkline.SparklineGroup.DateRange.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 2'!D6:H6");
     }
 
     [Test]
-    public void CopySparklineIfDateRangeSourceOnDifferentWorksheet()
+    public async Task CopySparklineIfDateRangeSourceOnDifferentWorksheet()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet("Sheet 1");
@@ -1044,10 +1048,10 @@ public class SparklinesTests
 
         ws1.Cell("A2").CopyTo(target);
 
-        Assert.AreEqual(1, ws1.SparklineGroups.Count());
-        Assert.AreEqual(1, ws2.SparklineGroups.Count());
-        Assert.IsTrue(target.HasSparkline);
-        Assert.AreEqual("'Sheet 3'!D6:H6", target.Sparkline.SparklineGroup.DateRange.RangeAddress.ToString(XLReferenceStyle.A1, true));
+        await Assert.That(ws1.SparklineGroups.Count()).IsEqualTo(1);
+        await Assert.That(ws2.SparklineGroups.Count()).IsEqualTo(1);
+        await Assert.That(target.HasSparkline).IsTrue();
+        await Assert.That(target.Sparkline.SparklineGroup.DateRange.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 3'!D6:H6");
     }
 
     #endregion Copy sparkline groups
@@ -1055,9 +1059,9 @@ public class SparklinesTests
     #region Test Examples
 
     [Test]
-    public void CreateSampleSparklines()
+    public async Task CreateSampleSparklines()
     {
-        TestHelper.RunTestExample<SampleSparklines>(@"Sparklines\SampleSparklines.xlsx");
+        await TestHelper.RunTestExample<SampleSparklines>(@"Sparklines\SampleSparklines.xlsx");
     }
 
     #endregion Test Examples

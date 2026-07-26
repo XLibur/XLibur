@@ -1,38 +1,37 @@
-﻿using NUnit.Framework;
-using XLibur.Examples.AutoFilters;
+﻿using XLibur.Examples.AutoFilters;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;
 
-[TestFixture]
 public class AutoFilterTests
 {
     [Test]
-    public void CustomAutoFilter()
+    public async Task CustomAutoFilter()
     {
-        TestHelper.RunTestExample<CustomAutoFilter>(@"AutoFilter\CustomAutoFilter.xlsx");
+        await TestHelper.RunTestExample<CustomAutoFilter>(@"AutoFilter\CustomAutoFilter.xlsx");
     }
 
     [Test]
-    public void DynamicAutoFilter()
+    public async Task DynamicAutoFilter()
     {
-        TestHelper.RunTestExample<DynamicAutoFilter>(@"AutoFilter\DynamicAutoFilter.xlsx");
+        await TestHelper.RunTestExample<DynamicAutoFilter>(@"AutoFilter\DynamicAutoFilter.xlsx");
     }
 
     [Test]
-    public void RegularAutoFilter()
+    public async Task RegularAutoFilter()
     {
-        TestHelper.RunTestExample<RegularAutoFilter>(@"AutoFilter\RegularAutoFilter.xlsx");
+        await TestHelper.RunTestExample<RegularAutoFilter>(@"AutoFilter\RegularAutoFilter.xlsx");
     }
 
     [Test]
-    public void TopBottomAutoFilter()
+    public async Task TopBottomAutoFilter()
     {
-        TestHelper.RunTestExample<TopBottomAutoFilter>(@"AutoFilter\TopBottomAutoFilter.xlsx");
+        await TestHelper.RunTestExample<TopBottomAutoFilter>(@"AutoFilter\TopBottomAutoFilter.xlsx");
     }
 
     [Test]
-    public void DateTimeGroupAutoFilter()
+    public async Task DateTimeGroupAutoFilter()
     {
-        TestHelper.RunTestExample<DateTimeGroupAutoFilter>(@"AutoFilter\DateTimeGroupAutoFilter.xlsx");
+        await TestHelper.RunTestExample<DateTimeGroupAutoFilter>(@"AutoFilter\DateTimeGroupAutoFilter.xlsx");
     }
 }

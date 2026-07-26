@@ -1,14 +1,13 @@
-﻿using NUnit.Framework;
-using XLibur.Examples.Loading;
+﻿using XLibur.Examples.Loading;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;
 
-[TestFixture]
 public class LoadingTests
 {
     [Test]
-    public void ChangingBasicTable()
+    public async Task ChangingBasicTable()
     {
-        TestHelper.RunTestExample<ChangingBasicTable>(@"Loading\ChangingBasicTable.xlsx");
+        await TestHelper.RunTestExample<ChangingBasicTable>(@"Loading\ChangingBasicTable.xlsx");
     }
 }

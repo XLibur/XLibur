@@ -1,16 +1,15 @@
 ﻿using System.IO;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.PivotTables.Style;
 
-[TestFixture]
 internal class XLPivotTableStyleFormatsTests
 {
     [Test]
-    public void Add_grand_row_total_styles()
+    public async Task Add_grand_row_total_styles()
     {
-        TestHelper.CreateAndCompare(wb =>
+        await TestHelper.CreateAndCompare(wb =>
         {
             var dataSheet = wb.AddWorksheet();
             var dataRange = dataSheet.Cell("A1").InsertData(new object[]
@@ -42,7 +41,7 @@ internal class XLPivotTableStyleFormatsTests
     }
 
     [Test]
-    public void Alignment_in_pivot_format_survives_round_trip()
+    public async Task Alignment_in_pivot_format_survives_round_trip()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -82,22 +81,22 @@ internal class XLPivotTableStyleFormatsTests
             // that proves alignment round-tripped through the DXF record.
             var format = pt.Formats[0];
             var alignment = format.DxfStyleValue.Alignment;
-            Assert.AreEqual(XLAlignmentHorizontalValues.Center, alignment.Horizontal);
-            Assert.AreEqual(XLAlignmentVerticalValues.Top, alignment.Vertical);
-            Assert.AreEqual(true, alignment.WrapText);
-            Assert.AreEqual(45, alignment.TextRotation);
+            await Assert.That(alignment.Horizontal).IsEqualTo(XLAlignmentHorizontalValues.Center);
+            await Assert.That(alignment.Vertical).IsEqualTo(XLAlignmentVerticalValues.Top);
+            await Assert.That(alignment.WrapText).IsEqualTo(true);
+            await Assert.That(alignment.TextRotation).IsEqualTo(45);
 
             // Non-set properties remain at defaults
-            Assert.AreEqual(0, alignment.Indent);
-            Assert.AreEqual(false, alignment.ShrinkToFit);
-            Assert.AreEqual(XLAlignmentReadingOrderValues.ContextDependent, alignment.ReadingOrder);
+            await Assert.That(alignment.Indent).IsEqualTo(0);
+            await Assert.That(alignment.ShrinkToFit).IsEqualTo(false);
+            await Assert.That(alignment.ReadingOrder).IsEqualTo(XLAlignmentReadingOrderValues.ContextDependent);
         }
     }
 
     [Test]
-    public void Add_grand_column_total_styles()
+    public async Task Add_grand_column_total_styles()
     {
-        TestHelper.CreateAndCompare(wb =>
+        await TestHelper.CreateAndCompare(wb =>
         {
             var dataSheet = wb.AddWorksheet();
             var dataRange = dataSheet.Cell("A1").InsertData(new object[]
@@ -132,4 +131,3 @@ internal class XLPivotTableStyleFormatsTests
         }, @"Other\PivotTable\Style\Add_grand_column_total_styles.xlsx");
     }
 }
-

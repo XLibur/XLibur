@@ -1,50 +1,49 @@
 ﻿using System;
 using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Sparklines;
 
-[TestFixture]
 public class SparklineShiftTests
 {
     [Test]
-    public void SparklineAreShiftedOnColumnInsert()
+    public async Task SparklineAreShiftedOnColumnInsert()
     {
-        AssertSparklinePosition("D2", ws => ws.Column("C").InsertColumnsAfter(2), "F2");
+        await AssertSparklinePosition("D2", ws => ws.Column("C").InsertColumnsAfter(2), "F2");
     }
 
     [Test]
-    public void SparklineAreShiftedOnColumnDelete()
+    public async Task SparklineAreShiftedOnColumnDelete()
     {
-        AssertSparklinePosition("F2", ws => ws.Column("C").Delete(), "E2");
+        await AssertSparklinePosition("F2", ws => ws.Column("C").Delete(), "E2");
     }
 
     [Test]
-    public void SparklineColumnShiftedOutOfSheetAreRemoved()
+    public async Task SparklineColumnShiftedOutOfSheetAreRemoved()
     {
-        AssertSparklinePosition("XFD1", ws => ws.Column("C").InsertColumnsAfter(1), null);
+        await AssertSparklinePosition("XFD1", ws => ws.Column("C").InsertColumnsAfter(1), null);
     }
 
     [Test]
-    public void SparklineAreShiftedOnRowInsert()
+    public async Task SparklineAreShiftedOnRowInsert()
     {
-        AssertSparklinePosition("B3", ws => ws.Row(2).InsertRowsBelow(3), "B6");
+        await AssertSparklinePosition("B3", ws => ws.Row(2).InsertRowsBelow(3), "B6");
     }
 
     [Test]
-    public void SparklineAreShiftedOnRowDelete()
+    public async Task SparklineAreShiftedOnRowDelete()
     {
-        AssertSparklinePosition("F8", ws => ws.Rows(4, 6).Delete(), "F5");
+        await AssertSparklinePosition("F8", ws => ws.Rows(4, 6).Delete(), "F5");
     }
 
     [Test]
-    public void SparklineRowShiftedOutOfSheetAreRemoved()
+    public async Task SparklineRowShiftedOutOfSheetAreRemoved()
     {
-        AssertSparklinePosition($"A{XLHelper.MaxRowNumber}", ws => ws.Row(2).InsertRowsBelow(1), null);
+        await AssertSparklinePosition($"A{XLHelper.MaxRowNumber}", ws => ws.Row(2).InsertRowsBelow(1), null);
     }
 
-    private static void AssertSparklinePosition(string sparklineAddress, Action<IXLWorksheet> insertAction, string expectedAddress)
+    private static async Task AssertSparklinePosition(string sparklineAddress, Action<IXLWorksheet> insertAction, string expectedAddress)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -52,8 +51,8 @@ public class SparklineShiftTests
         ws.Cell("C2").Value = 2;
         var sparklineGroup = ws.SparklineGroups.Add(sparklineAddress, "B2:C2");
         insertAction(ws);
-        Assert.AreEqual(expectedAddress, sparklineGroup.SingleOrDefault()?.Location.Address.ToString());
+        await Assert.That(sparklineGroup.SingleOrDefault()?.Location.Address.ToString()).IsEqualTo(expectedAddress);
         if (expectedAddress is null)
-            Assert.IsEmpty(sparklineGroup);
+            await Assert.That(sparklineGroup).IsEmpty();
     }
 }

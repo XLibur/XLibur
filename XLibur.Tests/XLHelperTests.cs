@@ -1,161 +1,161 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using System;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests;
-
-[TestFixture]
 // ReSharper disable once InconsistentNaming
 public class XLHelperTests
 {
     [Test]
-    public void IsValidColumnTest()
+    public async Task IsValidColumnTest()
     {
-        Assert.AreEqual(false, XLHelper.IsValidColumn(""));
-        Assert.AreEqual(false, XLHelper.IsValidColumn("1"));
-        Assert.AreEqual(false, XLHelper.IsValidColumn("A1"));
-        Assert.AreEqual(false, XLHelper.IsValidColumn("AA1"));
-        Assert.AreEqual(true, XLHelper.IsValidColumn("A"));
-        Assert.AreEqual(true, XLHelper.IsValidColumn("AA"));
-        Assert.AreEqual(true, XLHelper.IsValidColumn("AAA"));
-        Assert.AreEqual(true, XLHelper.IsValidColumn("Z"));
-        Assert.AreEqual(true, XLHelper.IsValidColumn("ZZ"));
-        Assert.AreEqual(true, XLHelper.IsValidColumn("XFD"));
-        Assert.AreEqual(false, XLHelper.IsValidColumn("ZAA"));
-        Assert.AreEqual(false, XLHelper.IsValidColumn("XZA"));
-        Assert.AreEqual(false, XLHelper.IsValidColumn("XFZ"));
+        await Assert.That(XLHelper.IsValidColumn("")).IsEqualTo(false);
+        await Assert.That(XLHelper.IsValidColumn("1")).IsEqualTo(false);
+        await Assert.That(XLHelper.IsValidColumn("A1")).IsEqualTo(false);
+        await Assert.That(XLHelper.IsValidColumn("AA1")).IsEqualTo(false);
+        await Assert.That(XLHelper.IsValidColumn("A")).IsEqualTo(true);
+        await Assert.That(XLHelper.IsValidColumn("AA")).IsEqualTo(true);
+        await Assert.That(XLHelper.IsValidColumn("AAA")).IsEqualTo(true);
+        await Assert.That(XLHelper.IsValidColumn("Z")).IsEqualTo(true);
+        await Assert.That(XLHelper.IsValidColumn("ZZ")).IsEqualTo(true);
+        await Assert.That(XLHelper.IsValidColumn("XFD")).IsEqualTo(true);
+        await Assert.That(XLHelper.IsValidColumn("ZAA")).IsEqualTo(false);
+        await Assert.That(XLHelper.IsValidColumn("XZA")).IsEqualTo(false);
+        await Assert.That(XLHelper.IsValidColumn("XFZ")).IsEqualTo(false);
     }
 
     [Test]
-    public void ReplaceRelative1()
+    public async Task ReplaceRelative1()
     {
         var result = XLHelper.ReplaceRelative("A1", 2, "B");
-        Assert.AreEqual("B2", result);
+        await Assert.That(result).IsEqualTo("B2");
     }
 
     [Test]
-    public void ReplaceRelative2()
+    public async Task ReplaceRelative2()
     {
         var result = XLHelper.ReplaceRelative("$A1", 2, "B");
-        Assert.AreEqual("$A2", result);
+        await Assert.That(result).IsEqualTo("$A2");
     }
 
     [Test]
-    public void ReplaceRelative3()
+    public async Task ReplaceRelative3()
     {
         var result = XLHelper.ReplaceRelative("A$1", 2, "B");
-        Assert.AreEqual("B$1", result);
+        await Assert.That(result).IsEqualTo("B$1");
     }
 
     [Test]
-    public void ReplaceRelative4()
+    public async Task ReplaceRelative4()
     {
         var result = XLHelper.ReplaceRelative("$A$1", 2, "B");
-        Assert.AreEqual("$A$1", result);
+        await Assert.That(result).IsEqualTo("$A$1");
     }
 
     [Test]
-    public void ReplaceRelative5()
+    public async Task ReplaceRelative5()
     {
         var result = XLHelper.ReplaceRelative("1:1", 2, "B");
-        Assert.AreEqual("2:2", result);
+        await Assert.That(result).IsEqualTo("2:2");
     }
 
     [Test]
-    public void ReplaceRelative6()
+    public async Task ReplaceRelative6()
     {
         var result = XLHelper.ReplaceRelative("$1:1", 2, "B");
-        Assert.AreEqual("$1:2", result);
+        await Assert.That(result).IsEqualTo("$1:2");
     }
 
     [Test]
-    public void ReplaceRelative7()
+    public async Task ReplaceRelative7()
     {
         var result = XLHelper.ReplaceRelative("1:$1", 2, "B");
-        Assert.AreEqual("2:$1", result);
+        await Assert.That(result).IsEqualTo("2:$1");
     }
 
     [Test]
-    public void ReplaceRelative8()
+    public async Task ReplaceRelative8()
     {
         var result = XLHelper.ReplaceRelative("$1:$1", 2, "B");
-        Assert.AreEqual("$1:$1", result);
+        await Assert.That(result).IsEqualTo("$1:$1");
     }
 
     [Test]
-    public void ReplaceRelative9()
+    public async Task ReplaceRelative9()
     {
         var result = XLHelper.ReplaceRelative("A:A", 2, "B");
-        Assert.AreEqual("B:B", result);
+        await Assert.That(result).IsEqualTo("B:B");
     }
 
     [Test]
-    public void ReplaceRelativeA()
+    public async Task ReplaceRelativeA()
     {
         var result = XLHelper.ReplaceRelative("$A:A", 2, "B");
-        Assert.AreEqual("$A:B", result);
+        await Assert.That(result).IsEqualTo("$A:B");
     }
 
     [Test]
-    public void ReplaceRelativeB()
+    public async Task ReplaceRelativeB()
     {
         var result = XLHelper.ReplaceRelative("A:$A", 2, "B");
-        Assert.AreEqual("B:$A", result);
+        await Assert.That(result).IsEqualTo("B:$A");
     }
 
     [Test]
-    public void ReplaceRelativeC()
+    public async Task ReplaceRelativeC()
     {
         var result = XLHelper.ReplaceRelative("$A:$A", 2, "B");
-        Assert.AreEqual("$A:$A", result);
-    }
-
-    [TestCase("Sheet1", "Sheet1")]
-    [TestCase("O'Brien's sales", "O'Brien's sales")]
-    [TestCase(" data # ", " data # ")]
-    [TestCase("data $1.00", "data $1.00")]
-    [TestCase("data ", "data?")]
-    [TestCase("abc def", "abc/def")]
-    [TestCase("data 0 ", "data[0]")]
-    [TestCase("data ", "data*")]
-    [TestCase("abc def", "abc\\def")]
-    [TestCase(" data", "'data")]
-    [TestCase("data ", "data'")]
-    [TestCase("d'at'a", "d'at'a")]
-    [TestCase("sheet a4", "sheet:a4")]
-    [TestCase("null", null)]
-    [TestCase("empty", "")]
-    [TestCase("1234567890123456789012345678901", "1234567890123456789012345678901TOOLONG")]
-    public void CreateSafeSheetNames(string expected, string input)
-    {
-        var actual = XLHelper.CreateSafeSheetName(input);
-        Assert.AreEqual(expected, actual);
-    }
-
-    [TestCase("Sheet1", ExpectedResult = "Sheet1")]
-    [TestCase("O'Brien's sales", ExpectedResult = "O'Brien's sales")]
-    [TestCase(" data # ", ExpectedResult = " data # ")]
-    [TestCase("data $1.00", ExpectedResult = "data $1.00")]
-    [TestCase("data?", ExpectedResult = "data_")]
-    [TestCase("abc/def", ExpectedResult = "abc_def")]
-    [TestCase("data[0]", ExpectedResult = "data_0_")]
-    [TestCase("data*", ExpectedResult = "data_")]
-    [TestCase("abc\\def", ExpectedResult = "abc_def")]
-    [TestCase("'data", ExpectedResult = "_data")]
-    [TestCase("data'", ExpectedResult = "data_")]
-    [TestCase("d'at'a", ExpectedResult = "d'at'a")]
-    [TestCase("sheet:a4", ExpectedResult = "sheet_a4")]
-    [TestCase(null, ExpectedResult = "null")]
-    [TestCase("", ExpectedResult = "empty")]
-    [TestCase("1234567890123456789012345678901TOOLONG", ExpectedResult = "1234567890123456789012345678901")]
-    public string CreateSafeSheetNamesWithUnderscore(string input)
-    {
-        return XLHelper.CreateSafeSheetName(input, replaceChar: '_');
+        await Assert.That(result).IsEqualTo("$A:$A");
     }
 
     [Test]
-    public void CreateSafeSheetNamesInvalidReplacementChar()
+    [Arguments("Sheet1", "Sheet1")]
+    [Arguments("O'Brien's sales", "O'Brien's sales")]
+    [Arguments(" data # ", " data # ")]
+    [Arguments("data $1.00", "data $1.00")]
+    [Arguments("data ", "data?")]
+    [Arguments("abc def", "abc/def")]
+    [Arguments("data 0 ", "data[0]")]
+    [Arguments("data ", "data*")]
+    [Arguments("abc def", "abc\\def")]
+    [Arguments(" data", "'data")]
+    [Arguments("data ", "data'")]
+    [Arguments("d'at'a", "d'at'a")]
+    [Arguments("sheet a4", "sheet:a4")]
+    [Arguments("null", null)]
+    [Arguments("empty", "")]
+    [Arguments("1234567890123456789012345678901", "1234567890123456789012345678901TOOLONG")]
+    public async Task CreateSafeSheetNames(string expected, string input)
     {
-        Assert.Throws<ArgumentException>(() => XLHelper.CreateSafeSheetName("abc\\def", replaceChar: ':'));
+        var actual = XLHelper.CreateSafeSheetName(input);
+        await Assert.That(actual).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments("Sheet1", "Sheet1")]
+    [Arguments("O'Brien's sales", "O'Brien's sales")]
+    [Arguments(" data # ", " data # ")]
+    [Arguments("data $1.00", "data $1.00")]
+    [Arguments("data?", "data_")]
+    [Arguments("abc/def", "abc_def")]
+    [Arguments("data[0]", "data_0_")]
+    [Arguments("data*", "data_")]
+    [Arguments("abc\\def", "abc_def")]
+    [Arguments("'data", "_data")]
+    [Arguments("data'", "data_")]
+    [Arguments("d'at'a", "d'at'a")]
+    [Arguments("sheet:a4", "sheet_a4")]
+    [Arguments(null, "null")]
+    [Arguments("", "empty")]
+    [Arguments("1234567890123456789012345678901TOOLONG", "1234567890123456789012345678901")]
+    public async Task CreateSafeSheetNamesWithUnderscore(string input, string expected)
+    {
+        await Assert.That(XLHelper.CreateSafeSheetName(input, replaceChar: '_')).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task CreateSafeSheetNamesInvalidReplacementChar()
+    {
+        await Assert.That(() => XLHelper.CreateSafeSheetName("abc\\def", replaceChar: ':')).Throws<ArgumentException>();
     }
 }

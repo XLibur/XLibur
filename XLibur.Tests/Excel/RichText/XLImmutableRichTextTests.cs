@@ -1,15 +1,14 @@
 ﻿using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
 using XLibur.Excel.RichText;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.RichText;
 
-[TestFixture]
 public class XLImmutableRichTextTests
 {
     [Test]
-    public void Equals_compares_text_runs_phonetic_runs_and_properties()
+    public async Task Equals_compares_text_runs_phonetic_runs_and_properties()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -25,23 +24,23 @@ public class XLImmutableRichTextTests
         // Assert equal
         var immutableRichText = XLImmutableRichText.Create(richText);
         var equalImmutableRichText = XLImmutableRichText.Create(richText);
-        Assert.AreEqual(immutableRichText, equalImmutableRichText);
+        await Assert.That(equalImmutableRichText).IsEqualTo(immutableRichText);
 
         // Different font of a first run
         richText.ElementAt(0).SetBold(false);
         var withDifferentTextRunFont = XLImmutableRichText.Create(richText);
-        Assert.AreNotEqual(immutableRichText, withDifferentTextRunFont);
+        await Assert.That(withDifferentTextRunFont).IsNotEqualTo(immutableRichText);
         richText.ElementAt(0).SetBold(true);
 
         // Different phonetic properties
         richText.Phonetics.SetAlignment(XLPhoneticAlignment.Left);
         var withDifferentPhoneticsProps = XLImmutableRichText.Create(richText);
-        Assert.AreNotEqual(immutableRichText, withDifferentPhoneticsProps);
+        await Assert.That(withDifferentPhoneticsProps).IsNotEqualTo(immutableRichText);
         richText.Phonetics.SetAlignment(XLPhoneticAlignment.Distributed);
 
         // Different phonetic runs
         richText.Phonetics.Add("せかい", 6, 8);
         var withDifferentTextPhonetics = XLImmutableRichText.Create(richText);
-        Assert.AreNotEqual(immutableRichText, withDifferentTextPhonetics);
+        await Assert.That(withDifferentTextPhonetics).IsNotEqualTo(immutableRichText);
     }
 }

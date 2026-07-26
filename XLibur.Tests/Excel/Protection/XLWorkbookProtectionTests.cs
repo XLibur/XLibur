@@ -3,22 +3,24 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
 using XLibur.Extensions;
 using static XLibur.Excel.XLProtectionAlgorithm;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Protection;
 
 public class XLWorkbookProtectionTests
 {
+    public static IEnumerable<Algorithm> AllAlgorithms() => Enum.GetValues<Algorithm>();
+
     [Test]
-    public void CanChangeProtectionAlgorithm()
+    public async Task CanChangeProtectionAlgorithm()
     {
         using var ms = new MemoryStream();
         using (var stream = GetProtectedWorkbookStreamWithPassword())
         using (var wb = new XLWorkbook(stream))
         {
-            Assert.AreEqual(Algorithm.SHA512, wb.Protection.Algorithm);
+            await Assert.That(wb.Protection.Algorithm).IsEqualTo(Algorithm.SHA512);
             wb.Unprotect("12345");
             wb.Protect("12345");
 
@@ -29,13 +31,13 @@ public class XLWorkbookProtectionTests
 
         using (var wb = new XLWorkbook(ms))
         {
-            Assert.IsTrue(wb.IsPasswordProtected);
-            Assert.AreEqual(Algorithm.SimpleHash, wb.Protection.Algorithm);
+            await Assert.That(wb.IsPasswordProtected).IsTrue();
+            await Assert.That(wb.Protection.Algorithm).IsEqualTo(Algorithm.SimpleHash);
         }
     }
 
     [Test]
-    public void CanChangeToPasswordProtected()
+    public async Task CanChangeToPasswordProtected()
     {
         using var ms = new MemoryStream();
         using (var stream = GetProtectedWorkbookStreamWithoutPassword())
@@ -45,7 +47,7 @@ public class XLWorkbookProtectionTests
             wb.Unprotect();
             wb.Protection.Protect("12345");
 
-            Assert.IsTrue(wb.Protection.IsPasswordProtected);
+            await Assert.That(wb.Protection.IsPasswordProtected).IsTrue();
 
             wb.SaveAs(ms);
         }
@@ -54,14 +56,14 @@ public class XLWorkbookProtectionTests
 
         using (var wb = new XLWorkbook(ms))
         {
-            Assert.IsTrue(wb.Protection.IsPasswordProtected);
-            Assert.AreEqual(Algorithm.SimpleHash, wb.Protection.Algorithm);
-            Assert.AreNotEqual("", wb.Protection.PasswordHash);
+            await Assert.That(wb.Protection.IsPasswordProtected).IsTrue();
+            await Assert.That(wb.Protection.Algorithm).IsEqualTo(Algorithm.SimpleHash);
+            await Assert.That(wb.Protection.PasswordHash).IsNotEqualTo("");
         }
     }
 
     [Test]
-    public void CanChangeToProtectedWithoutPassword()
+    public async Task CanChangeToProtectedWithoutPassword()
     {
         using var ms = new MemoryStream();
         using (var stream = GetProtectedWorkbookStreamWithPassword())
@@ -71,8 +73,8 @@ public class XLWorkbookProtectionTests
             wb.Unprotect("12345");
             wb.Protection.Protect();
 
-            Assert.IsFalse(wb.Protection.IsPasswordProtected);
-            Assert.IsTrue(wb.Protection.IsProtected);
+            await Assert.That(wb.Protection.IsPasswordProtected).IsFalse();
+            await Assert.That(wb.Protection.IsProtected).IsTrue();
 
             wb.SaveAs(ms);
         }
@@ -81,47 +83,49 @@ public class XLWorkbookProtectionTests
 
         using (var wb = new XLWorkbook(ms))
         {
-            Assert.IsFalse(wb.Protection.IsPasswordProtected);
-            Assert.IsTrue(wb.Protection.IsProtected);
-            Assert.AreEqual(Algorithm.SimpleHash, wb.Protection.Algorithm);
-            Assert.AreEqual("", wb.Protection.PasswordHash);
+            await Assert.That(wb.Protection.IsPasswordProtected).IsFalse();
+            await Assert.That(wb.Protection.IsProtected).IsTrue();
+            await Assert.That(wb.Protection.Algorithm).IsEqualTo(Algorithm.SimpleHash);
+            await Assert.That(wb.Protection.PasswordHash).IsEqualTo("");
         }
     }
 
     [Test]
-    public void CannotUnprotectIfNoPassword()
+    public async Task CannotUnprotectIfNoPassword()
     {
         using var stream = GetProtectedWorkbookStreamWithoutPassword();
         using var wb = new XLWorkbook(stream);
-        var ex = Assert.Throws<ArgumentException>(() => wb.Unprotect("dummy password"));
-        Assert.AreEqual("Invalid password", ex!.Message);
+        var ex = await Assert.That(() => wb.Unprotect("dummy password")).Throws<ArgumentException>();
+        await Assert.That(ex!.Message).IsEqualTo("Invalid password");
     }
 
     [Test]
-    public void CannotUnprotectWithoutPassword()
+    public async Task CannotUnprotectWithoutPassword()
     {
         using var stream = GetProtectedWorkbookStreamWithPassword();
         using var wb = new XLWorkbook(stream);
-        var ex = Assert.Throws<InvalidOperationException>(() => wb.Unprotect());
-        Assert.AreEqual("The workbook structure is password protected", ex!.Message);
+        var ex = await Assert.That(() => wb.Unprotect()).Throws<InvalidOperationException>();
+        await Assert.That(ex!.Message).IsEqualTo("The workbook structure is password protected");
     }
 
+    // NUnit's [Theory] fed this from the Algorithm enum automatically; TUnit needs the
+    // values supplied explicitly.
     [Test]
-    [Theory]
-    public void CanProtectWithPassword(Algorithm algorithm)
+    [MethodDataSource(nameof(AllAlgorithms))]
+    public async Task CanProtectWithPassword(Algorithm algorithm)
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
         {
             wb.AddWorksheet();
 
-            Assert.IsFalse(wb.Protection.IsProtected);
+            await Assert.That(wb.Protection.IsProtected).IsFalse();
 
             wb.Protection.Protect("12345", algorithm);
 
             wb.Protection.AllowNone();
-            Assert.IsFalse(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Structure));
-            Assert.IsFalse(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Windows));
+            await Assert.That(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Structure)).IsFalse();
+            await Assert.That(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Windows)).IsFalse();
 
             wb.SaveAs(ms);
         }
@@ -130,17 +134,17 @@ public class XLWorkbookProtectionTests
 
         using (var wb = new XLWorkbook(ms))
         {
-            Assert.IsTrue(wb.Protection.IsPasswordProtected);
-            Assert.IsTrue(wb.Protection.IsProtected);
+            await Assert.That(wb.Protection.IsPasswordProtected).IsTrue();
+            await Assert.That(wb.Protection.IsProtected).IsTrue();
 
-            Assert.AreEqual(algorithm, wb.Protection.Algorithm);
-            Assert.AreNotEqual("", wb.Protection.PasswordHash);
+            await Assert.That(wb.Protection.Algorithm).IsEqualTo(algorithm);
+            await Assert.That(wb.Protection.PasswordHash).IsNotEqualTo("");
 
-            Assert.IsFalse(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Structure));
-            Assert.IsFalse(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Windows));
+            await Assert.That(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Structure)).IsFalse();
+            await Assert.That(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Windows)).IsFalse();
 
-            var ex = Assert.Throws<ArgumentException>(() => wb.Unprotect("dummy password"));
-            Assert.AreEqual("Invalid password", ex!.Message);
+            var ex = await Assert.That(() => wb.Unprotect("dummy password")).Throws<ArgumentException>();
+            await Assert.That(ex!.Message).IsEqualTo("Invalid password");
 
             wb.Protection.Unprotect("12345");
 
@@ -149,7 +153,7 @@ public class XLWorkbookProtectionTests
     }
 
     [Test]
-    public void CanUnprotectWithoutPassword()
+    public async Task CanUnprotectWithoutPassword()
     {
         using var ms = new MemoryStream();
         using (var stream = GetProtectedWorkbookStreamWithoutPassword())
@@ -158,7 +162,7 @@ public class XLWorkbookProtectionTests
             // Unprotect without password
             wb.Unprotect();
 
-            Assert.IsFalse(wb.Protection.IsProtected);
+            await Assert.That(wb.Protection.IsProtected).IsFalse();
 
             wb.SaveAs(ms);
         }
@@ -167,12 +171,12 @@ public class XLWorkbookProtectionTests
 
         using (var wb = new XLWorkbook(ms))
         {
-            Assert.IsFalse(wb.Protection.IsProtected);
+            await Assert.That(wb.Protection.IsProtected).IsFalse();
         }
     }
 
     [Test]
-    public void CanUnprotectWithPassword()
+    public async Task CanUnprotectWithPassword()
     {
         using var ms = new MemoryStream();
         using (var stream = GetProtectedWorkbookStreamWithPassword())
@@ -181,7 +185,7 @@ public class XLWorkbookProtectionTests
             // Unprotect with password
             wb.Unprotect("12345");
 
-            Assert.IsFalse(wb.Protection.IsProtected);
+            await Assert.That(wb.Protection.IsProtected).IsFalse();
 
             wb.SaveAs(ms);
         }
@@ -190,12 +194,12 @@ public class XLWorkbookProtectionTests
 
         using (var wb = new XLWorkbook(ms))
         {
-            Assert.IsFalse(wb.Protection.IsProtected);
+            await Assert.That(wb.Protection.IsProtected).IsFalse();
         }
     }
 
     [Test]
-    public void CopyProtectionFromAnotherWorkbook()
+    public async Task CopyProtectionFromAnotherWorkbook()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\Misc\WorkbookProtection.xlsx"));
         using var wb1 = new XLWorkbook(stream);
@@ -203,27 +207,27 @@ public class XLWorkbookProtectionTests
         wb2.AddWorksheet();
 
         var p1 = wb1.Protection.CastTo<XLWorkbookProtection>();
-        Assert.IsTrue(p1.IsProtected);
+        await Assert.That(p1.IsProtected).IsTrue();
 
-        Assert.IsFalse(wb2.Protection.IsProtected);
+        await Assert.That(wb2.Protection.IsProtected).IsFalse();
         var p2 = wb2.Protection.CopyFrom(wb1.Protection).CastTo<XLWorkbookProtection>();
 
-        Assert.IsTrue(p2.IsProtected);
-        Assert.IsTrue(p2.IsPasswordProtected);
-        Assert.AreEqual(p1.Algorithm, p2.Algorithm);
-        Assert.AreEqual(p1.PasswordHash, p2.PasswordHash);
-        Assert.AreEqual(p1.Base64EncodedSalt, p2.Base64EncodedSalt);
-        Assert.AreEqual(p1.SpinCount, p2.SpinCount);
+        await Assert.That(p2.IsProtected).IsTrue();
+        await Assert.That(p2.IsPasswordProtected).IsTrue();
+        await Assert.That(p2.Algorithm).IsEqualTo(p1.Algorithm);
+        await Assert.That(p2.PasswordHash).IsEqualTo(p1.PasswordHash);
+        await Assert.That(p2.Base64EncodedSalt).IsEqualTo(p1.Base64EncodedSalt);
+        await Assert.That(p2.SpinCount).IsEqualTo(p1.SpinCount);
 
-        Assert.IsTrue(p2.AllowedElements.HasFlag(XLWorkbookProtectionElements.Windows));
-        Assert.IsFalse(p2.AllowedElements.HasFlag(XLWorkbookProtectionElements.Structure));
+        await Assert.That(p2.AllowedElements.HasFlag(XLWorkbookProtectionElements.Windows)).IsTrue();
+        await Assert.That(p2.AllowedElements.HasFlag(XLWorkbookProtectionElements.Structure)).IsFalse();
 
-        Assert.Throws<InvalidOperationException>(() => wb2.Unprotect());
+        await Assert.That(() => wb2.Unprotect()).Throws<InvalidOperationException>();
         wb2.Unprotect("Abc@123");
     }
 
     [Test]
-    public void IXLProtectableTests()
+    public async Task IXLProtectableTests()
     {
         using var wb = new XLWorkbook();
         Enumerable.Range(1, 5).ForEach(_ => wb.AddWorksheet());
@@ -231,52 +235,67 @@ public class XLWorkbookProtectionTests
         var list = new List<IXLProtectable> { wb };
         list.AddRange(wb.Worksheets);
 
+        // The assertions were List.ForEach(el => Assert...) under NUnit. TUnit assertions
+        // must be awaited, and List.ForEach only accepts an Action -- an async lambda there
+        // would be async void and the assertion would be swallowed. Hence explicit loops.
         list.ForEach(el => el.Protect());
 
-        list.ForEach(el => Assert.IsTrue(el.IsProtected));
-        list.ForEach(el => Assert.IsFalse(el.IsPasswordProtected));
+        foreach (var el in list)
+        {
+            await Assert.That(el.IsProtected).IsTrue();
+            await Assert.That(el.IsPasswordProtected).IsFalse();
+        }
 
         list.ForEach(el => el.Unprotect());
 
-        list.ForEach(el => Assert.IsFalse(el.IsProtected));
-        list.ForEach(el => Assert.IsFalse(el.IsPasswordProtected));
+        foreach (var el in list)
+        {
+            await Assert.That(el.IsProtected).IsFalse();
+            await Assert.That(el.IsPasswordProtected).IsFalse();
+        }
 
         list.ForEach(el => el.Protect("password"));
 
-        list.ForEach(el => Assert.IsTrue(el.IsProtected));
-        list.ForEach(el => Assert.IsTrue(el.IsPasswordProtected));
+        foreach (var el in list)
+        {
+            await Assert.That(el.IsProtected).IsTrue();
+            await Assert.That(el.IsPasswordProtected).IsTrue();
+        }
 
         list.ForEach(el => el.Unprotect("password"));
 
-        list.ForEach(el => Assert.IsFalse(el.IsProtected));
-        list.ForEach(el => Assert.IsFalse(el.IsPasswordProtected));
+        foreach (var el in list)
+        {
+            await Assert.That(el.IsProtected).IsFalse();
+            await Assert.That(el.IsPasswordProtected).IsFalse();
+        }
     }
 
     [Test]
-    public void LoadProtectionWithoutPasswordFromFile()
+    public async Task LoadProtectionWithoutPasswordFromFile()
     {
         using var stream = GetProtectedWorkbookStreamWithoutPassword();
         using var wb = new XLWorkbook(stream);
-        Assert.IsFalse(wb.Protection.IsPasswordProtected);
-        Assert.IsTrue(wb.Protection.IsProtected);
-        Assert.AreEqual("", wb.Protection.PasswordHash);
-        Assert.IsTrue(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Windows));
-        Assert.IsFalse(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Structure));
+        await Assert.That(wb.Protection.IsPasswordProtected).IsFalse();
+        await Assert.That(wb.Protection.IsProtected).IsTrue();
+        await Assert.That(wb.Protection.PasswordHash).IsEqualTo("");
+        await Assert.That(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Windows)).IsTrue();
+        await Assert.That(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Structure)).IsFalse();
     }
 
     [Test]
-    public void LoadProtectionWithPasswordFromFile()
+    public async Task LoadProtectionWithPasswordFromFile()
     {
         using var stream = GetProtectedWorkbookStreamWithPassword();
         using var wb = new XLWorkbook(stream);
-        Assert.IsTrue(wb.Protection.IsPasswordProtected);
-        Assert.AreNotEqual("", wb.Protection.PasswordHash);
-        Assert.IsTrue(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Windows));
-        Assert.IsFalse(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Structure));
+        await Assert.That(wb.Protection.IsPasswordProtected).IsTrue();
+        await Assert.That(wb.Protection.PasswordHash).IsNotEqualTo("");
+        await Assert.That(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Windows)).IsTrue();
+        await Assert.That(wb.Protection.AllowedElements.HasFlag(XLWorkbookProtectionElements.Structure)).IsFalse();
     }
 
     [Test]
-    public void SetWorkbookProtectionCloning()
+    public async Task SetWorkbookProtectionCloning()
     {
         var wb1 = new XLWorkbook();
         var wb2 = new XLWorkbook();
@@ -288,16 +307,16 @@ public class XLWorkbookProtectionTests
             .AllowElement(XLWorkbookProtectionElements.Windows)
             .DisallowElement(XLWorkbookProtectionElements.Structure);
 
-        Assert.IsTrue(wb1.Protection.IsProtected);
+        await Assert.That(wb1.Protection.IsProtected).IsTrue();
 
-        Assert.AreEqual(XLWorkbookProtectionElements.Windows, wb1.Protection.AllowedElements);
+        await Assert.That(wb1.Protection.AllowedElements).IsEqualTo(XLWorkbookProtectionElements.Windows);
 
         wb2.Protection = wb1.Protection;
 
-        Assert.IsFalse(ReferenceEquals(wb1.Protection, wb2.Protection));
-        Assert.IsTrue(wb2.Protection.IsProtected);
-        Assert.AreEqual(XLWorkbookProtectionElements.Windows, wb2.Protection.AllowedElements);
-        Assert.AreEqual(wb1.Protection.PasswordHash, wb2.Protection.PasswordHash);
+        await Assert.That(ReferenceEquals(wb1.Protection, wb2.Protection)).IsFalse();
+        await Assert.That(wb2.Protection.IsProtected).IsTrue();
+        await Assert.That(wb2.Protection.AllowedElements).IsEqualTo(XLWorkbookProtectionElements.Windows);
+        await Assert.That(wb2.Protection.PasswordHash).IsEqualTo(wb1.Protection.PasswordHash);
     }
 
     private static Stream GetProtectedWorkbookStreamWithoutPassword() => TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Protection\protectstructurewithoutpassword.xlsx"));

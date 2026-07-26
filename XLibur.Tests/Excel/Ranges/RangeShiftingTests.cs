@@ -1,12 +1,12 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Ranges;
 
 public class RangeShiftingTests
 {
     [Test]
-    public void CellsContentShiftedAfterColumnDeleted()
+    public async Task CellsContentShiftedAfterColumnDeleted()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -14,11 +14,11 @@ public class RangeShiftingTests
 
         ws.Column("C").Delete();
 
-        AssertContent(ws.Cell("C4"), "D4");
+        await AssertContent(ws.Cell("C4"), "D4");
     }
 
     [Test]
-    public void CellsContentShiftedAfterRowDeleted()
+    public async Task CellsContentShiftedAfterRowDeleted()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -26,11 +26,11 @@ public class RangeShiftingTests
 
         ws.Row(3).Delete();
 
-        AssertContent(ws.Cell("D3"), "D4");
+        await AssertContent(ws.Cell("D3"), "D4");
     }
 
     [Test]
-    public void CellsContentShiftedAfterColumnInserted()
+    public async Task CellsContentShiftedAfterColumnInserted()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -38,11 +38,11 @@ public class RangeShiftingTests
 
         ws.Column("C").InsertColumnsBefore(1);
 
-        AssertContent(ws.Cell("E4"), "D4");
+        await AssertContent(ws.Cell("E4"), "D4");
     }
 
     [Test]
-    public void CellsContentShiftedAfterRowInserted()
+    public async Task CellsContentShiftedAfterRowInserted()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -50,11 +50,11 @@ public class RangeShiftingTests
 
         ws.Row(3).InsertRowsAbove(1);
 
-        AssertContent(ws.Cell("D5"), "D4");
+        await AssertContent(ws.Cell("D5"), "D4");
     }
 
     [Test]
-    public void CellsContentShiftAfterRangeDeleted()
+    public async Task CellsContentShiftAfterRangeDeleted()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -64,14 +64,14 @@ public class RangeShiftingTests
         ws.Range("B2:C5").Delete(XLShiftDeletedCells.ShiftCellsLeft);
         ws.Range("E5:F7").Delete(XLShiftDeletedCells.ShiftCellsUp);
 
-        AssertContent(ws.Cell("B4"), "D4");
-        AssertContent(ws.Cell("F5"), "F8");
+        await AssertContent(ws.Cell("B4"), "D4");
+        await AssertContent(ws.Cell("F5"), "F8");
     }
 
-    [Theory]
-    [TestCase("A5:F5")]
-    [TestCase("A5:F6")]
-    public void RangesBelowStayMergedAfterRangeDeleted(string deletedRangeAddress)
+    [Test]
+    [Arguments("A5:F5")]
+    [Arguments("A5:F6")]
+    public async Task RangesBelowStayMergedAfterRangeDeleted(string deletedRangeAddress)
     {
         //There is an edge case when a merged range of same size as the deleted range got unmerged (see #2358)
         using var wb = new XLWorkbook();
@@ -88,14 +88,14 @@ public class RangeShiftingTests
 
         deletedRange.Delete(XLShiftDeletedCells.ShiftCellsUp);
 
-        Assert.IsTrue(mergedRange.IsMerged());
-        Assert.AreEqual(deletedRangeAddress, mergedRange.RangeAddress.ToString());
+        await Assert.That(mergedRange.IsMerged()).IsTrue();
+        await Assert.That(mergedRange.RangeAddress.ToString()).IsEqualTo(deletedRangeAddress);
     }
 
-    [Theory]
-    [TestCase("A5:A8")]
-    [TestCase("A5:B8")]
-    public void RangesToTheRightStayMergedAfterRangeDeleted(string deletedRangeAddress)
+    [Test]
+    [Arguments("A5:A8")]
+    [Arguments("A5:B8")]
+    public async Task RangesToTheRightStayMergedAfterRangeDeleted(string deletedRangeAddress)
     {
         //There is an edge case when a merged range of same size as the deleted range got unmerged (see #2358)
         using var wb = new XLWorkbook();
@@ -112,8 +112,8 @@ public class RangeShiftingTests
 
         deletedRange.Delete(XLShiftDeletedCells.ShiftCellsLeft);
 
-        Assert.IsTrue(mergedRange.IsMerged());
-        Assert.AreEqual(deletedRangeAddress, mergedRange.RangeAddress.ToString());
+        await Assert.That(mergedRange.IsMerged()).IsTrue();
+        await Assert.That(mergedRange.RangeAddress.ToString()).IsEqualTo(deletedRangeAddress);
     }
 
     private static void SetContent(IXLCell cell)
@@ -123,11 +123,11 @@ public class RangeShiftingTests
         cell.CreateComment().AddText("Some comment " + cell.Address);
     }
 
-    private static void AssertContent(IXLCell cell, string originalAddress)
+    private static async Task AssertContent(IXLCell cell, string originalAddress)
     {
-        Assert.AreEqual($"\"Formula \" & \"{originalAddress}\"", cell.FormulaA1);
-        Assert.AreEqual(XLColor.Green, cell.Style.Fill.BackgroundColor);
-        Assert.True(cell.HasComment);
-        Assert.AreEqual($"Some comment {originalAddress}", cell.GetComment().Text);
+        await Assert.That(cell.FormulaA1).IsEqualTo($"\"Formula \" & \"{originalAddress}\"");
+        await Assert.That(cell.Style.Fill.BackgroundColor).IsEqualTo(XLColor.Green);
+        await Assert.That(cell.HasComment).IsTrue();
+        await Assert.That(cell.GetComment().Text).IsEqualTo($"Some comment {originalAddress}");
     }
 }

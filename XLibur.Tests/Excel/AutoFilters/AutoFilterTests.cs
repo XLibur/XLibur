@@ -4,17 +4,16 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using NUnit.Framework;
 using XLibur.Excel;
 using XLibur.Extensions;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.AutoFilters;
 
-[TestFixture]
 public class AutoFilterTests
 {
     [Test]
-    public void AutoFilterExpandsWithTable()
+    public async Task AutoFilterExpandsWithTable()
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -36,12 +35,12 @@ public class AutoFilterTests
         table.DataRange!.InsertRowsBelow(listOfArr.Count - table.DataRange.RowCount());
         table.DataRange.FirstCell().InsertData(listOfArr);
 
-        Assert.AreEqual("A1:A5", table.AutoFilter.Range.RangeAddress.ToStringRelative());
-        Assert.AreEqual(5, table.AutoFilter.VisibleRows.Count());
+        await Assert.That(table.AutoFilter.Range.RangeAddress.ToStringRelative()).IsEqualTo("A1:A5");
+        await Assert.That(table.AutoFilter.VisibleRows.Count()).IsEqualTo(5);
     }
 
     [Test]
-    public void AutoFilterSortWhenNotInFirstRow()
+    public async Task AutoFilterSortWhenNotInFirstRow()
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -51,11 +50,11 @@ public class AutoFilterTests
             .CellBelow().SetValue("Carlos")
             .CellBelow().SetValue("Dominic");
         ws.RangeUsed()!.SetAutoFilter().Sort();
-        Assert.AreEqual("Carlos", ws.Cell(4, 3).GetText());
+        await Assert.That(ws.Cell(4, 3).GetText()).IsEqualTo("Carlos");
     }
 
     [Test]
-    public void CanClearAutoFilter()
+    public async Task CanClearAutoFilter()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("AutoFilter");
@@ -65,17 +64,17 @@ public class AutoFilterTests
         ws.Cell("A4").Value = "Dagny";
 
         ws.AutoFilter.Clear(); // We should be able to clear a filter even if it hasn't been set.
-        Assert.That(!ws.AutoFilter.IsEnabled);
+        await Assert.That(!ws.AutoFilter.IsEnabled).IsTrue();
 
         ws.RangeUsed()!.SetAutoFilter();
-        Assert.That(ws.AutoFilter.IsEnabled);
+        await Assert.That(ws.AutoFilter.IsEnabled).IsTrue();
 
         ws.AutoFilter.Clear();
-        Assert.That(!ws.AutoFilter.IsEnabled);
+        await Assert.That(!ws.AutoFilter.IsEnabled).IsTrue();
     }
 
     [Test]
-    public void CanClearAutoFilter2()
+    public async Task CanClearAutoFilter2()
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("AutoFilter");
@@ -85,17 +84,17 @@ public class AutoFilterTests
         ws.Cell("A4").Value = "Dagny";
 
         ws.SetAutoFilter(false);
-        Assert.That(!ws.AutoFilter.IsEnabled);
+        await Assert.That(!ws.AutoFilter.IsEnabled).IsTrue();
 
         ws.RangeUsed()!.SetAutoFilter();
-        Assert.That(ws.AutoFilter.IsEnabled);
+        await Assert.That(ws.AutoFilter.IsEnabled).IsTrue();
 
         ws.RangeUsed()!.SetAutoFilter(false);
-        Assert.That(!ws.AutoFilter.IsEnabled);
+        await Assert.That(!ws.AutoFilter.IsEnabled).IsTrue();
     }
 
     [Test]
-    public void CanCopyAutoFilterToNewSheetOnNewWorkbook()
+    public async Task CanCopyAutoFilterToNewSheetOnNewWorkbook()
     {
         using var ms1 = new MemoryStream();
         using var ms2 = new MemoryStream();
@@ -118,12 +117,12 @@ public class AutoFilterTests
 
         using (var wb2 = new XLWorkbook(ms2))
         {
-            Assert.IsTrue(wb2.Worksheets.First().AutoFilter.IsEnabled);
+            await Assert.That(wb2.Worksheets.First().AutoFilter.IsEnabled).IsTrue();
         }
     }
 
     [Test]
-    public void CannotAddAutoFilterOverExistingTable()
+    public async Task CannotAddAutoFilterOverExistingTable()
     {
         using var wb = new XLWorkbook();
 
@@ -136,14 +135,14 @@ public class AutoFilterTests
         var ws = wb.AddWorksheet();
         ws.FirstCell().InsertTable(data);
 
-        Assert.Throws<InvalidOperationException>(() => ws.RangeUsed()!.SetAutoFilter());
+        await Assert.That(() => ws.RangeUsed()!.SetAutoFilter()).Throws<InvalidOperationException>();
     }
 
     [Test]
-    [TestCase("A1:A4")]
-    [TestCase("A1:B4")]
-    [TestCase("A1:C4")]
-    public void AutoFilterRangeRemainsValidOnInsertColumn(string rangeAddress)
+    [Arguments("A1:A4")]
+    [Arguments("A1:B4")]
+    [Arguments("A1:C4")]
+    public async Task AutoFilterRangeRemainsValidOnInsertColumn(string rangeAddress)
     {
         // Arrange
         using var ms1 = new MemoryStream();
@@ -163,11 +162,11 @@ public class AutoFilterTests
         range.InsertColumnsBefore(1);
 
         // Assert
-        Assert.IsTrue(ws.AutoFilter.Range.RangeAddress.IsValid);
+        await Assert.That(ws.AutoFilter.Range.RangeAddress.IsValid).IsTrue();
     }
 
     [Test]
-    public void AutoFilterVisibleRows()
+    public async Task AutoFilterVisibleRows()
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -181,14 +180,14 @@ public class AutoFilterTests
 
         autoFilter.Column(1).AddFilter("Carlos");
 
-        Assert.AreEqual("Carlos", ws.Cell(5, 3).GetText());
-        Assert.AreEqual(2, autoFilter.VisibleRows.Count());
-        Assert.AreEqual(3, autoFilter.VisibleRows.First().WorksheetRow().RowNumber());
-        Assert.AreEqual(5, autoFilter.VisibleRows.Last().WorksheetRow().RowNumber());
+        await Assert.That(ws.Cell(5, 3).GetText()).IsEqualTo("Carlos");
+        await Assert.That(autoFilter.VisibleRows.Count()).IsEqualTo(2);
+        await Assert.That(autoFilter.VisibleRows.First().WorksheetRow().RowNumber()).IsEqualTo(3);
+        await Assert.That(autoFilter.VisibleRows.Last().WorksheetRow().RowNumber()).IsEqualTo(5);
     }
 
     [Test]
-    public void ReapplyAutoFilter()
+    public async Task ReapplyAutoFilter()
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -204,18 +203,18 @@ public class AutoFilterTests
 
         autoFilter.Column(1).AddFilter("Carlos");
 
-        Assert.AreEqual(3, autoFilter.HiddenRows.Count());
+        await Assert.That(autoFilter.HiddenRows.Count()).IsEqualTo(3);
 
         // Unhide the rows so that the table is out of sync with the filter
         autoFilter.HiddenRows.ForEach(r => r.WorksheetRow().Unhide());
-        Assert.False(autoFilter.HiddenRows.Any());
+        await Assert.That(autoFilter.HiddenRows.Any()).IsFalse();
 
         autoFilter.Reapply();
-        Assert.AreEqual(3, autoFilter.HiddenRows.Count());
+        await Assert.That(autoFilter.HiddenRows.Count()).IsEqualTo(3);
     }
 
     [Test]
-    public void CanLoadAutoFilterWithThousandsSeparator()
+    public async Task CanLoadAutoFilterWithThousandsSeparator()
     {
         var backupCulture = Thread.CurrentThread.CurrentCulture;
 
@@ -243,11 +242,11 @@ public class AutoFilterTests
 
                 // Regular filter compares values as strings, doesn't convert to XLCellValue,
                 // so the value is read from the file as a text despite looking like a number.
-                Assert.AreEqual("10 000.00", ((XLAutoFilter)ws.AutoFilter).Column(1).Single().Value);
-                Assert.AreEqual(2, ws.AutoFilter.VisibleRows.Count());
+                await Assert.That(((XLAutoFilter)ws.AutoFilter).Column(1).Single().Value).IsEqualTo("10 000.00");
+                await Assert.That(ws.AutoFilter.VisibleRows.Count()).IsEqualTo(2);
 
                 ws.AutoFilter.Reapply();
-                Assert.AreEqual(2, ws.AutoFilter.VisibleRows.Count());
+                await Assert.That(ws.AutoFilter.VisibleRows.Count()).IsEqualTo(2);
             }
 
             Thread.CurrentThread.CurrentCulture = CultureInfo.CreateSpecificCulture("en-US");
@@ -258,13 +257,13 @@ public class AutoFilterTests
             using (var wb = new XLWorkbook(stream))
             {
                 var ws = wb.Worksheets.First();
-                Assert.AreEqual("10 000.00", ((XLAutoFilter)ws.AutoFilter).Column(1).Single().Value);
+                await Assert.That(((XLAutoFilter)ws.AutoFilter).Column(1).Single().Value).IsEqualTo("10 000.00");
 
                 var unused = ws.AutoFilter.VisibleRows.Select(r => r.FirstCell().Value).ToList();
-                Assert.AreEqual(2, ws.AutoFilter.VisibleRows.Count());
+                await Assert.That(ws.AutoFilter.VisibleRows.Count()).IsEqualTo(2);
 
                 ws.AutoFilter.Reapply();
-                Assert.AreEqual(1, ws.AutoFilter.VisibleRows.Count());
+                await Assert.That(ws.AutoFilter.VisibleRows.Count()).IsEqualTo(1);
             }
         }
         finally
@@ -274,7 +273,7 @@ public class AutoFilterTests
     }
 
     [Test]
-    public void Issue1917NotContainsFilter()
+    public async Task Issue1917NotContainsFilter()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -291,7 +290,7 @@ public class AutoFilterTests
                 .SetAutoFilter();
 
             autoFilter.Column(1).NotContains("String3");
-            Assert.AreEqual(1, autoFilter.HiddenRows.Count());
+            await Assert.That(autoFilter.HiddenRows.Count()).IsEqualTo(1);
 
             wb.SaveAs(ms);
         }
@@ -303,16 +302,16 @@ public class AutoFilterTests
             var autoFilter = ws.AutoFilter;
 
             autoFilter.Reapply();
-            Assert.AreEqual(1, autoFilter.HiddenRows.Count());
+            await Assert.That(autoFilter.HiddenRows.Count()).IsEqualTo(1);
         }
     }
 
     [Test]
-    [TestCase("ends")]
-    [TestCase("begins")]
-    [TestCase("equal")]
-    [TestCase("contains")]
-    public void NotStringFilter(string type)
+    [Arguments("ends")]
+    [Arguments("begins")]
+    [Arguments("equal")]
+    [Arguments("contains")]
+    public async Task NotStringFilter(string type)
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -345,7 +344,7 @@ public class AutoFilterTests
                     break;
             }
 
-            Assert.AreEqual(1, autoFilter.HiddenRows.Count());
+            await Assert.That(autoFilter.HiddenRows.Count()).IsEqualTo(1);
 
             wb.SaveAs(ms);
         }
@@ -357,21 +356,21 @@ public class AutoFilterTests
             var autoFilter = ws.AutoFilter;
 
             autoFilter.Reapply();
-            Assert.AreEqual(1, autoFilter.HiddenRows.Count());
+            await Assert.That(autoFilter.HiddenRows.Count()).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void AutoFilterReapplyShouldNotThrowNullReferenceError()
+    public async Task AutoFilterReapplyShouldNotThrowNullReferenceError()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.Worksheets.Add("Test");
 
-        Assert.DoesNotThrow(() => { sheet.AutoFilter.Reapply(); });
+        await Assert.That(() => { sheet.AutoFilter.Reapply(); }).ThrowsNothing();
     }
 
     [Test]
-    public void ReapplyExpandsRangeToIncludeNewDataRows()
+    public async Task ReapplyExpandsRangeToIncludeNewDataRows()
     {
         // Bug #2812: When new rows are added below the autofilter range and
         // Reapply() is called, the range should expand to include the new data
@@ -391,8 +390,8 @@ public class AutoFilterTests
         autoFilter.Column(1).AddFilter("34");
 
         // Verify initial state: only row with 34 visible (+ header)
-        Assert.AreEqual(1, autoFilter.HiddenRows.Count());
-        Assert.AreEqual("A1:B3", autoFilter.Range.RangeAddress.ToStringRelative());
+        await Assert.That(autoFilter.HiddenRows.Count()).IsEqualTo(1);
+        await Assert.That(autoFilter.Range.RangeAddress.ToStringRelative()).IsEqualTo("A1:B3");
 
         // Add a new row beyond the filter range
         ws.Cell("A4").SetValue(35);
@@ -401,14 +400,14 @@ public class AutoFilterTests
         // Reapply should expand range and hide the new row (35 != 34)
         autoFilter.Reapply();
 
-        Assert.AreEqual("A1:B4", autoFilter.Range.RangeAddress.ToStringRelative());
-        Assert.AreEqual(2, autoFilter.HiddenRows.Count());
+        await Assert.That(autoFilter.Range.RangeAddress.ToStringRelative()).IsEqualTo("A1:B4");
+        await Assert.That(autoFilter.HiddenRows.Count()).IsEqualTo(2);
         // Visible = header row + the row matching filter "34"
-        Assert.AreEqual(2, autoFilter.VisibleRows.Count());
+        await Assert.That(autoFilter.VisibleRows.Count()).IsEqualTo(2);
     }
 
     [Test]
-    public void ReapplyDoesNotExpandRangeAcrossGap()
+    public async Task ReapplyDoesNotExpandRangeAcrossGap()
     {
         // Range should only expand to contiguous data, not jump over empty rows.
         using var wb = new XLWorkbook();
@@ -427,11 +426,11 @@ public class AutoFilterTests
         autoFilter.Reapply();
 
         // Range should NOT expand past the empty row
-        Assert.AreEqual("A1:A3", autoFilter.Range.RangeAddress.ToStringRelative());
+        await Assert.That(autoFilter.Range.RangeAddress.ToStringRelative()).IsEqualTo("A1:A3");
     }
 
     [Test]
-    public void ReapplyExpandsRangeAndFiltersFromLoadedFile()
+    public async Task ReapplyExpandsRangeAndFiltersFromLoadedFile()
     {
         // Test with the actual bug report file
         using var stream = TestHelper.GetStreamFromResource(
@@ -452,14 +451,14 @@ public class AutoFilterTests
 
         // Range should have expanded
         var newRange = ws.AutoFilter.Range.RangeAddress.ToStringRelative();
-        Assert.AreNotEqual(originalRange, newRange);
+        await Assert.That(newRange).IsNotEqualTo(originalRange);
 
         // The last row of the range should now include the new data
-        Assert.AreEqual(newRow, ws.AutoFilter.Range.RangeAddress.LastAddress.RowNumber);
+        await Assert.That(ws.AutoFilter.Range.RangeAddress.LastAddress.RowNumber).IsEqualTo(newRow);
     }
 
     [Test]
-    public void SaveAutoFilterWithClearedColumnDoesNotThrow()
+    public async Task SaveAutoFilterWithClearedColumnDoesNotThrow()
     {
         // When a filter column is added and then cleared, it remains in the
         // internal dictionary with FilterType.None. Saving should skip it
@@ -476,6 +475,6 @@ public class AutoFilterTests
         autoFilter.Column(1).AddFilter("Value1");
         autoFilter.Column(1).Clear();
 
-        Assert.DoesNotThrow(() => wb.SaveAs(ms));
+        await Assert.That(() => wb.SaveAs(ms)).ThrowsNothing();
     }
 }

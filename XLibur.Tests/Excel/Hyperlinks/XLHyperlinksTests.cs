@@ -2,15 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Hyperlinks;
 
-[TestFixture]
 public class XLHyperlinksTests
 {
-    [TestCaseSource(nameof(StructuralChangeCases))]
-    public void Hyperlink_is_moved_on_sheet_structure_change(string hyperlinkPosition, Action<IXLWorksheet> structuralChange, string expectedPosition)
+    [Test]
+    [MethodDataSource(nameof(StructuralChangeCases))]
+    public async Task Hyperlink_is_moved_on_sheet_structure_change(string hyperlinkPosition, Action<IXLWorksheet> structuralChange, string expectedPosition)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -19,8 +19,8 @@ public class XLHyperlinksTests
 
         structuralChange(ws);
 
-        Assert.False(ws.Cell(hyperlinkPosition).HasHyperlink);
-        Assert.AreSame(ws.Cell(expectedPosition).GetHyperlink(), hyperlink);
+        await Assert.That(ws.Cell(hyperlinkPosition).HasHyperlink).IsFalse();
+        await Assert.That(hyperlink).IsSameReferenceAs(ws.Cell(expectedPosition).GetHyperlink());
     }
 
     public static IEnumerable<object[]> StructuralChangeCases

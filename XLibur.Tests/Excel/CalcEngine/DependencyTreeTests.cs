@@ -2,91 +2,90 @@
 using System.Collections.Generic;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
-using NUnit.Framework;
 using XLibur.Excel.Coordinates;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
-[TestFixture]
 internal class DependencyTreeTests
 {
     #region Add formula to dependency tree
 
     [Test]
-    [TestCaseSource(nameof(AreaDependenciesTestCases))]
-    public void Area_dependencies_are_extracted_from_formula(string formula, IReadOnlyList<XLBookArea> expectedAreas)
+    [MethodDataSource(nameof(AreaDependenciesTestCases))]
+    public async Task Area_dependencies_are_extracted_from_formula(string formula, IReadOnlyList<XLBookArea> expectedAreas)
     {
         var dependencies = GetDependencies(formula);
-        Assert.That(dependencies.Areas, Is.EquivalentTo(expectedAreas));
+        await Assert.That(dependencies.Areas).IsEquivalentTo(expectedAreas);
     }
 
     [Test]
-    [TestCaseSource(nameof(NameDependenciesTestCases))]
-    public void Name_dependencies_are_kept_for_dependencies_update(string formula, IReadOnlyList<XLName> expectedNames)
+    [MethodDataSource(nameof(NameDependenciesTestCases))]
+    public async Task Name_dependencies_are_kept_for_dependencies_update(string formula, IReadOnlyList<XLName> expectedNames)
     {
         var dependencies = GetDependencies(formula);
-        Assert.That(dependencies.Names, Is.EquivalentTo(expectedNames));
+        await Assert.That(dependencies.Names).IsEquivalentTo(expectedNames);
     }
 
     [Test]
-    public void Name_range_is_added_to_dependencies_of_formula()
+    public async Task Name_range_is_added_to_dependencies_of_formula()
     {
         var dependencies = GetDependencies("name + D2", init: wb =>
         {
             wb.DefinedNames.Add("name", "Sheet!$B$4+Sheet!$C$6");
         });
-        Assert.That(dependencies.Areas, Is.EquivalentTo(new XLBookArea[]
+        await Assert.That(dependencies.Areas).IsEquivalentTo(new XLBookArea[]
         {
             new("Sheet", XLSheetRange.Parse("D2")),
             new("Sheet", XLSheetRange.Parse("B4")),
             new("Sheet", XLSheetRange.Parse("C6"))
-        }));
-        Assert.That(dependencies.Names, Is.EquivalentTo([new XLName("name")]));
+        });
+        await Assert.That(dependencies.Names).IsEquivalentTo([new XLName("name")]);
     }
 
     [Test]
-    public void Name_range_that_is_reference_is_propagated_to_formula()
+    public async Task Name_range_that_is_reference_is_propagated_to_formula()
     {
         var dependencies = GetDependencies("B3:name", init: wb =>
         {
             wb.DefinedNames.Add("name", "Sheet!$D$7");
         });
-        Assert.That(dependencies.Areas, Is.EquivalentTo(new XLBookArea[]
+        await Assert.That(dependencies.Areas).IsEquivalentTo(new XLBookArea[]
         {
             new("Sheet", XLSheetRange.Parse("B3:D7")),
-        }));
-        Assert.That(dependencies.Names, Is.EquivalentTo([new XLName("name")]));
+        });
+        await Assert.That(dependencies.Names).IsEquivalentTo([new XLName("name")]);
     }
 
     [Test]
-    public void Name_range_can_used_another_name_range()
+    public async Task Name_range_can_used_another_name_range()
     {
         var dependencies = GetDependencies("outer", init: wb =>
         {
             wb.DefinedNames.Add("outer", "Sheet!$D$7 + inner");
             wb.DefinedNames.Add("inner", "Sheet!$B$1");
         });
-        Assert.That(dependencies.Areas, Is.EquivalentTo(new XLBookArea[]
+        await Assert.That(dependencies.Areas).IsEquivalentTo(new XLBookArea[]
         {
             new("Sheet", XLSheetRange.Parse("D7")),
             new("Sheet", XLSheetRange.Parse("B1")),
-        }));
-        Assert.That(dependencies.Names, Is.EquivalentTo([new XLName("outer"), new XLName("inner")]));
+        });
+        await Assert.That(dependencies.Names).IsEquivalentTo([new XLName("outer"), new XLName("inner")]);
     }
 
     [Test]
-    public void Name_range_that_is_not_a_reference_can_be_added_to_dependency_tree_without_exception()
+    public async Task Name_range_that_is_not_a_reference_can_be_added_to_dependency_tree_without_exception()
     {
         var dependencies = GetDependencies("name", init: wb =>
         {
             wb.DefinedNames.Add("name", "1+3");
         });
-        Assert.That(dependencies.Areas, Is.Empty);
-        Assert.That(dependencies.Names, Is.EquivalentTo([new XLName("name")]));
+        await Assert.That(dependencies.Areas).IsEmpty();
+        await Assert.That(dependencies.Names).IsEquivalentTo([new XLName("name")]);
     }
 
     [Test]
-    public void Name_range_can_be_sheet_scoped_even_without_specified_sheet()
+    public async Task Name_range_can_be_sheet_scoped_even_without_specified_sheet()
     {
         // Formula that references a name that is ambiguous between workbook and worksheet scoped one.
         const string formula = "name";
@@ -96,26 +95,26 @@ internal class DependencyTreeTests
             wb.Worksheet("Sheet").DefinedNames.Add("name", "Sheet!$A$1");
             wb.DefinedNames.Add("name", "Sheet!$B$10");
         });
-        Assert.That(dependencies.Areas, Is.EquivalentTo(new XLBookArea[]
+        await Assert.That(dependencies.Areas).IsEquivalentTo(new XLBookArea[]
         {
             new("Sheet", XLSheetRange.Parse("A1"))
-        }));
-        Assert.That(dependencies.Names, Is.EquivalentTo([new XLName("name")]));
+        });
+        await Assert.That(dependencies.Names).IsEquivalentTo([new XLName("name")]);
     }
 
     [Test]
-    [Ignore("A1 to R1C1 conversion not yet implemented and the name formula must be parsed")]
-    public void Name_range_that_uses_relative_reference_determines_actual_precedent_areas_through_cell_location()
+    [Skip("A1 to R1C1 conversion not yet implemented and the name formula must be parsed")]
+    public async Task Name_range_that_uses_relative_reference_determines_actual_precedent_areas_through_cell_location()
     {
         var dependencies = GetDependencies("name", "D8", init: wb =>
         {
             wb.DefinedNames.Add("name", "Sheet!B4"); // equivalent of R[3]C[2]
         });
-        Assert.That(dependencies.Areas, Is.EquivalentTo(new XLBookArea[]
+        await Assert.That(dependencies.Areas).IsEquivalentTo(new XLBookArea[]
         {
             new("Sheet", XLSheetRange.Parse("F7")), // D4 (formula cell) + R[3]C[2] (name relative reference) = F7
-        }));
-        Assert.That(dependencies.Names, Is.EquivalentTo([new XLName("name")]));
+        });
+        await Assert.That(dependencies.Names).IsEquivalentTo([new XLName("name")]);
     }
 
     #endregion
@@ -123,27 +122,27 @@ internal class DependencyTreeTests
     #region Remove formula from dependency tree
 
     [Test]
-    public void Remove_formula_from_dependency_tree()
+    public async Task Remove_formula_from_dependency_tree()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var tree = new DependencyTree();
         tree.AddSheetTree(ws);
         var cellFormula = AddFormula(tree, ws, "B3", "=C4");
-        Assert.False(tree.IsEmpty);
+        await Assert.That(tree.IsEmpty).IsFalse();
 
         // Remove inserted formula removes the dependent and also removes the precedent
         // area from the tree because there is no formula depending on it.
         tree.RemoveFormula(cellFormula);
-        Assert.True(tree.IsEmpty);
+        await Assert.That(tree.IsEmpty).IsTrue();
 
         // Removing already removed formula doesn't throw.
-        Assert.DoesNotThrow(() => tree.RemoveFormula(cellFormula));
-        Assert.True(tree.IsEmpty);
+        await Assert.That(() => tree.RemoveFormula(cellFormula)).ThrowsNothing();
+        await Assert.That(tree.IsEmpty).IsTrue();
     }
 
     [Test]
-    public void Removing_formula_doesnt_remove_precedent_area_from_tree_when_another_formula_depends_on_the_area()
+    public async Task Removing_formula_doesnt_remove_precedent_area_from_tree_when_another_formula_depends_on_the_area()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -151,16 +150,16 @@ internal class DependencyTreeTests
         tree.AddSheetTree(ws);
         var cellFormulaA1 = AddFormula(tree, ws, "A1", "=C4 + B1");
         var cellFormulaA2 = AddFormula(tree, ws, "A2", "=B1 / C4");
-        Assert.False(tree.IsEmpty);
+        await Assert.That(tree.IsEmpty).IsFalse();
 
         // Remove first formula, but the precedent area is still used
         // by second formula so it is not removed.
         tree.RemoveFormula(cellFormulaA1);
-        Assert.False(tree.IsEmpty);
+        await Assert.That(tree.IsEmpty).IsFalse();
 
         // Remove second formula
         tree.RemoveFormula(cellFormulaA2);
-        Assert.True(tree.IsEmpty);
+        await Assert.That(tree.IsEmpty).IsTrue();
     }
 
     #endregion
@@ -168,7 +167,7 @@ internal class DependencyTreeTests
     #region Mark dirty
 
     [Test]
-    public void Mark_dirty_single_chain_is_fully_marked()
+    public async Task Mark_dirty_single_chain_is_fully_marked()
     {
         using var wb = new XLWorkbook();
         var tree = new DependencyTree();
@@ -179,11 +178,11 @@ internal class DependencyTreeTests
         AddFormula(tree, ws, "A4", "=A3");
 
         MarkDirty(tree, ws, "A1");
-        AssertDirty(ws, "A2", "A3", "A4");
+        await AssertDirty(ws, "A2", "A3", "A4");
     }
 
     [Test]
-    public void Mark_dirty_split_and_join_is_fully_marked()
+    public async Task Mark_dirty_split_and_join_is_fully_marked()
     {
         using var wb = new XLWorkbook();
         var tree = new DependencyTree();
@@ -195,11 +194,11 @@ internal class DependencyTreeTests
         AddFormula(tree, ws, "D2", "=C1 + C3");
 
         MarkDirty(tree, ws, "B1");
-        AssertDirty(ws, "B2", "C1", "C3", "D2");
+        await AssertDirty(ws, "B2", "C1", "C3", "D2");
     }
 
     [Test]
-    public void Mark_dirty_uses_correct_sheet()
+    public async Task Mark_dirty_uses_correct_sheet()
     {
         using var wb = new XLWorkbook();
         var tree = new DependencyTree();
@@ -221,15 +220,15 @@ internal class DependencyTreeTests
         AddFormula(tree, ws1, "E1", "=Sheet2!D1");
 
         MarkDirty(tree, ws2, "A1");
-        AssertDirty(ws1, "B1", "D1");
-        AssertDirty(ws2, "C1", "E1");
+        await AssertDirty(ws1, "B1", "D1");
+        await AssertDirty(ws2, "C1", "E1");
 
-        AssertNotDirty(ws1, "C1", "E1");
-        AssertNotDirty(ws2, "B1", "D1");
+        await AssertNotDirty(ws1, "C1", "E1");
+        await AssertNotDirty(ws2, "B1", "D1");
     }
 
     [Test]
-    public void Mark_dirty_stops_at_dirty_cell()
+    public async Task Mark_dirty_stops_at_dirty_cell()
     {
         using var wb = new XLWorkbook();
         var tree = new DependencyTree();
@@ -243,12 +242,12 @@ internal class DependencyTreeTests
         ((XLCell)ws.Cell("A3")).Formula.MarkExplicitlyDirty();
 
         MarkDirty(tree, ws, "A1");
-        AssertDirty(ws, "A2", "A3");
-        AssertNotDirty(ws, "A4"); // Propagation stopped at the dirty cell A3.
+        await AssertDirty(ws, "A2", "A3");
+        await AssertNotDirty(ws, "A4"); // Propagation stopped at the dirty cell A3.
     }
 
     [Test]
-    public void Mark_dirty_wont_crash_on_cycle()
+    public async Task Mark_dirty_wont_crash_on_cycle()
     {
         using var wb = new XLWorkbook();
         var tree = new DependencyTree();
@@ -262,11 +261,11 @@ internal class DependencyTreeTests
         AddFormula(tree, ws, "E1", "=D1");
 
         MarkDirty(tree, ws, "A1");
-        AssertDirty(ws, "B1", "C1", "D1", "E1");
+        await AssertDirty(ws, "B1", "C1", "D1", "E1");
     }
 
     [Test]
-    public void Mark_dirty_affects_precedents_with_partial_overlap()
+    public async Task Mark_dirty_affects_precedents_with_partial_overlap()
     {
         using var wb = new XLWorkbook();
         var tree = new DependencyTree();
@@ -276,11 +275,11 @@ internal class DependencyTreeTests
 
         // B3:D4 overlaps with A1:B3 in B3
         MarkDirty(tree, ws, "B3:D4");
-        AssertDirty(ws, "D1");
+        await AssertDirty(ws, "D1");
     }
 
     [Test]
-    public void Mark_dirty_can_affect_multiple_chains_at_once()
+    public async Task Mark_dirty_can_affect_multiple_chains_at_once()
     {
         using var wb = new XLWorkbook();
         var tree = new DependencyTree();
@@ -291,8 +290,8 @@ internal class DependencyTreeTests
         AddFormula(tree, ws, "B3", "=A3");
 
         MarkDirty(tree, ws, "A2:A3");
-        AssertDirty(ws, "B2", "B3");
-        AssertNotDirty(ws, "B1");
+        await AssertDirty(ws, "B2", "B3");
+        await AssertNotDirty(ws, "B1");
     }
 
     #endregion
@@ -300,7 +299,7 @@ internal class DependencyTreeTests
     #region Rename sheet
 
     [Test]
-    public void Sheet_rename_keeps_tree_same_only_with_changed_sheet_name()
+    public async Task Sheet_rename_keeps_tree_same_only_with_changed_sheet_name()
     {
         using var wb = new XLWorkbook();
         var renamedSheet = wb.AddWorksheet("Original");
@@ -318,44 +317,44 @@ internal class DependencyTreeTests
 
         renamedSheet.Name = "Renamed";
 
-        Assert.AreEqual("SUM(Renamed!A1:A2, A3, Unchanged!A1:A2)", renamedSheet.Cell("A4").FormulaA1);
-        Assert.AreEqual("SUM(Unchanged!A1:A2, A3, Renamed!A1:A2)", unchangedSheet.Cell("A4").FormulaA1);
+        await Assert.That(renamedSheet.Cell("A4").FormulaA1).IsEqualTo("SUM(Renamed!A1:A2, A3, Unchanged!A1:A2)");
+        await Assert.That(unchangedSheet.Cell("A4").FormulaA1).IsEqualTo("SUM(Unchanged!A1:A2, A3, Renamed!A1:A2)");
 
         Recalculate();
-        Assert.False(renamedSheet.Cell("A4").NeedsRecalculation);
-        Assert.False(unchangedSheet.Cell("A4").NeedsRecalculation);
+        await Assert.That(renamedSheet.Cell("A4").NeedsRecalculation).IsFalse();
+        await Assert.That(unchangedSheet.Cell("A4").NeedsRecalculation).IsFalse();
 
         // Both depend on Unchanged!A1
         unchangedSheet.Cell("A1").Value = 110;
-        Assert.True(renamedSheet.Cell("A4").NeedsRecalculation);
-        Assert.True(unchangedSheet.Cell("A4").NeedsRecalculation);
+        await Assert.That(renamedSheet.Cell("A4").NeedsRecalculation).IsTrue();
+        await Assert.That(unchangedSheet.Cell("A4").NeedsRecalculation).IsTrue();
         Recalculate();
-        Assert.AreEqual(136, renamedSheet.Cell("A4").CachedValue);
-        Assert.AreEqual(163, unchangedSheet.Cell("A4").CachedValue);
+        await Assert.That(renamedSheet.Cell("A4").CachedValue).IsEqualTo(136);
+        await Assert.That(unchangedSheet.Cell("A4").CachedValue).IsEqualTo(163);
 
         // Both depend on Renamed!A1
         renamedSheet.Cell("A1").Value = 201;
-        Assert.True(renamedSheet.Cell("A4").NeedsRecalculation);
-        Assert.True(unchangedSheet.Cell("A4").NeedsRecalculation);
+        await Assert.That(renamedSheet.Cell("A4").NeedsRecalculation).IsTrue();
+        await Assert.That(unchangedSheet.Cell("A4").NeedsRecalculation).IsTrue();
         Recalculate();
-        Assert.AreEqual(336, renamedSheet.Cell("A4").CachedValue);
-        Assert.AreEqual(363, unchangedSheet.Cell("A4").CachedValue);
+        await Assert.That(renamedSheet.Cell("A4").CachedValue).IsEqualTo(336);
+        await Assert.That(unchangedSheet.Cell("A4").CachedValue).IsEqualTo(363);
 
         // Only unchanged depends on Unchanged!A3. The renamed formula keeps value.
         unchangedSheet.Cell("A3").Value = 330;
-        Assert.False(renamedSheet.Cell("A4").NeedsRecalculation);
-        Assert.True(unchangedSheet.Cell("A4").NeedsRecalculation);
+        await Assert.That(renamedSheet.Cell("A4").NeedsRecalculation).IsFalse();
+        await Assert.That(unchangedSheet.Cell("A4").NeedsRecalculation).IsTrue();
         Recalculate();
-        Assert.AreEqual(336, renamedSheet.Cell("A4").CachedValue);
-        Assert.AreEqual(663, unchangedSheet.Cell("A4").CachedValue);
+        await Assert.That(renamedSheet.Cell("A4").CachedValue).IsEqualTo(336);
+        await Assert.That(unchangedSheet.Cell("A4").CachedValue).IsEqualTo(663);
 
         // Only renamed depends on Renamed!A3. The unchanged formula keeps value.
         renamedSheet.Cell("A3").Value = 403;
-        Assert.True(renamedSheet.Cell("A4").NeedsRecalculation);
-        Assert.False(unchangedSheet.Cell("A4").NeedsRecalculation);
+        await Assert.That(renamedSheet.Cell("A4").NeedsRecalculation).IsTrue();
+        await Assert.That(unchangedSheet.Cell("A4").NeedsRecalculation).IsFalse();
         Recalculate();
-        Assert.AreEqual(736, renamedSheet.Cell("A4").CachedValue);
-        Assert.AreEqual(663, unchangedSheet.Cell("A4").CachedValue);
+        await Assert.That(renamedSheet.Cell("A4").CachedValue).IsEqualTo(736);
+        await Assert.That(unchangedSheet.Cell("A4").CachedValue).IsEqualTo(663);
 
         void Recalculate()
         {
@@ -388,16 +387,16 @@ internal class DependencyTreeTests
         tree.MarkDirty(area);
     }
 
-    private static void AssertDirty(IXLWorksheet sheet, params string[] dirtyRanges)
+    private static async Task AssertDirty(IXLWorksheet sheet, params string[] dirtyRanges)
     {
-        AssertDirtyFlag(true, sheet, dirtyRanges);
+        await AssertDirtyFlag(true, sheet, dirtyRanges);
     }
-    private static void AssertNotDirty(IXLWorksheet sheet, params string[] dirtyRanges)
+    private static async Task AssertNotDirty(IXLWorksheet sheet, params string[] dirtyRanges)
     {
-        AssertDirtyFlag(false, sheet, dirtyRanges);
+        await AssertDirtyFlag(false, sheet, dirtyRanges);
     }
 
-    private static void AssertDirtyFlag(bool expectedDirtyFlag, IXLWorksheet sheet, params string[] dirtyRanges)
+    private static async Task AssertDirtyFlag(bool expectedDirtyFlag, IXLWorksheet sheet, params string[] dirtyRanges)
     {
         var ws = (XLWorksheet)sheet;
         var wb = ws.Workbook;
@@ -405,7 +404,7 @@ internal class DependencyTreeTests
         {
             foreach (var dirtyCell in ws.Cells(dirtyRange))
             {
-                Assert.AreEqual(expectedDirtyFlag, dirtyCell.Formula?.IsDirty(wb));
+                await Assert.That(dirtyCell.Formula?.IsDirty(wb)).IsEqualTo(expectedDirtyFlag);
             }
         }
     }

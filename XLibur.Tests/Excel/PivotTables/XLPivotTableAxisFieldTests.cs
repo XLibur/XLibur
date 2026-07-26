@@ -1,17 +1,15 @@
 ﻿using System;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.PivotTables;
-
 /// <summary>
 /// Tests methods of interface <see cref="IXLPivotField"/> implemented through <see cref="XLPivotTableAxisField"/>.
 /// </summary>
-[TestFixture]
 internal class XLPivotTableAxisFieldTests
 {
     [Test]
-    public void CustomName_can_be_changed()
+    public async Task CustomName_can_be_changed()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -25,11 +23,11 @@ internal class XLPivotTableAxisFieldTests
 
         colorField.SetCustomName("Changed color");
 
-        Assert.AreEqual("Changed color", pt.RowLabels.Get(0).CustomName);
+        await Assert.That(pt.RowLabels.Get(0).CustomName).IsEqualTo("Changed color");
     }
 
     [Test]
-    public void CustomName_throws_exception_when_name_is_already_used()
+    public async Task CustomName_throws_exception_when_name_is_already_used()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -42,9 +40,9 @@ internal class XLPivotTableAxisFieldTests
         var idField = pt.RowLabels.Add("ID", "Custom ID");
         var colorField = pt.RowLabels.Add("Color");
 
-        var ex1 = Assert.Throws<ArgumentException>(() => idField.SetCustomName("Color"))!;
-        Assert.AreEqual("Custom name 'Color' is already used by another field.", ex1.Message);
-        var ex2 = Assert.Throws<ArgumentException>(() => colorField.SetCustomName("Custom ID"));
-        Assert.AreEqual("Custom name 'Custom ID' is already used by another field.", ex2.Message);
+        var ex1 = await Assert.That(() => idField.SetCustomName("Color")).Throws<ArgumentException>()!;
+        await Assert.That(ex1.Message).IsEqualTo("Custom name 'Color' is already used by another field.");
+        var ex2 = await Assert.That(() => colorField.SetCustomName("Custom ID")).Throws<ArgumentException>();
+        await Assert.That(ex2.Message).IsEqualTo("Custom name 'Custom ID' is already used by another field.");
     }
 }

@@ -1,50 +1,49 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using System.Globalization;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
-[TestFixture]
 public class CalcEngineExceptionTests
 {
-    [OneTimeSetUp]
-    public void SetCultureInfo()
+    [Before(HookType.Class)]
+    public static void SetCultureInfo()
     {
         Thread.CurrentThread.CurrentCulture = CultureInfo.CreateSpecificCulture("en-US");
     }
 
     [Test]
-    public void InvalidCharNumber()
+    public async Task InvalidCharNumber()
     {
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("CHAR(-2)"));
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("CHAR(270)"));
+        await Assert.That(XLWorkbook.EvaluateExpr("CHAR(-2)")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(XLWorkbook.EvaluateExpr("CHAR(270)")).IsEqualTo(XLError.IncompatibleValue);
     }
 
     [Test]
-    public void DivisionByZero()
+    public async Task DivisionByZero()
     {
-        Assert.AreEqual(XLError.DivisionByZero, XLWorkbook.EvaluateExpr("0/0"));
-        Assert.AreEqual(XLError.DivisionByZero, new XLWorkbook().AddWorksheet().Evaluate("0/0"));
+        await Assert.That(XLWorkbook.EvaluateExpr("0/0")).IsEqualTo(XLError.DivisionByZero);
+        await Assert.That(new XLWorkbook().AddWorksheet().Evaluate("0/0")).IsEqualTo(XLError.DivisionByZero);
     }
 
     [Test]
-    public void InvalidFunction()
+    public async Task InvalidFunction()
     {
-        Assert.AreEqual(XLError.NameNotRecognized, XLWorkbook.EvaluateExpr("XXX(A1:A2)"));
+        await Assert.That(XLWorkbook.EvaluateExpr("XXX(A1:A2)")).IsEqualTo(XLError.NameNotRecognized);
 
         var ws = new XLWorkbook().AddWorksheet();
-        Assert.AreEqual(XLError.NameNotRecognized, ws.Evaluate("XXX(A1:A2)"));
+        await Assert.That(ws.Evaluate("XXX(A1:A2)")).IsEqualTo(XLError.NameNotRecognized);
     }
 
     [Test]
-    public void NestedNameNotRecognizedException()
+    public async Task NestedNameNotRecognizedException()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").SetFormulaA1("=XXX");
         ws.Cell("A2").SetFormulaA1(@"=IFERROR(A1, ""Success"")");
 
-        Assert.AreEqual("Success", ws.Cell("A2").Value);
+        await Assert.That(ws.Cell("A2").Value).IsEqualTo("Success");
     }
 }

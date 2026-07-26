@@ -1,13 +1,12 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
-[TestFixture]
 public class ArrayFormulaCalculationTests
 {
     [Test]
-    public void ScalarResultOfArrayFormulaIsCopiedAcrossCellGroup()
+    public async Task ScalarResultOfArrayFormulaIsCopiedAcrossCellGroup()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -17,12 +16,12 @@ public class ArrayFormulaCalculationTests
 
         foreach (var arrayFormulaCell in range.Cells())
         {
-            Assert.AreEqual(1, arrayFormulaCell.Value);
+            await Assert.That(arrayFormulaCell.Value).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void SameShapeResultCausesEachCellOfCellGroupToUseCorrespondingValue()
+    public async Task SameShapeResultCausesEachCellOfCellGroupToUseCorrespondingValue()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -30,12 +29,12 @@ public class ArrayFormulaCalculationTests
 
         range.FormulaArrayA1 = "TRANSPOSE({1,2})";
 
-        Assert.AreEqual(1, ws.Cell("A1").Value);
-        Assert.AreEqual(2, ws.Cell("A2").Value);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(1);
+        await Assert.That(ws.Cell("A2").Value).IsEqualTo(2);
     }
 
     [Test]
-    public void OnlyLeftmostValuesAreUsedWhenCellGroupHasFewerColumnsThanValue()
+    public async Task OnlyLeftmostValuesAreUsedWhenCellGroupHasFewerColumnsThanValue()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -43,14 +42,14 @@ public class ArrayFormulaCalculationTests
 
         range.FormulaArrayA1 = "{1,2,3,4,5}";
 
-        Assert.AreEqual(1, ws.Cell("A1").Value);
-        Assert.AreEqual(2, ws.Cell("B1").Value);
-        Assert.AreEqual(3, ws.Cell("C1").Value);
-        Assert.AreEqual(Blank.Value, ws.Cell("D1").Value);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(1);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(3);
+        await Assert.That(ws.Cell("D1").Value).IsEqualTo(Blank.Value);
     }
 
     [Test]
-    public void OnlyTopmostValuesAreUsedWhenCellGroupHasFewerRowsThanValue()
+    public async Task OnlyTopmostValuesAreUsedWhenCellGroupHasFewerRowsThanValue()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -58,14 +57,14 @@ public class ArrayFormulaCalculationTests
 
         range.FormulaArrayA1 = "{1;2;3;4;5}";
 
-        Assert.AreEqual(1, ws.Cell("A1").Value);
-        Assert.AreEqual(2, ws.Cell("A2").Value);
-        Assert.AreEqual(3, ws.Cell("A3").Value);
-        Assert.AreEqual(Blank.Value, ws.Cell("A4").Value);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(1);
+        await Assert.That(ws.Cell("A2").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("A3").Value).IsEqualTo(3);
+        await Assert.That(ws.Cell("A4").Value).IsEqualTo(Blank.Value);
     }
 
     [Test]
-    public void SingleColumnValueIsClonedAcrossCellGroup()
+    public async Task SingleColumnValueIsClonedAcrossCellGroup()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -75,14 +74,14 @@ public class ArrayFormulaCalculationTests
 
         for (var column = 1; column <= 3; column++)
         {
-            Assert.AreEqual(1, ws.Cell(1, column).Value);
-            Assert.AreEqual(2, ws.Cell(2, column).Value);
-            Assert.AreEqual(XLError.NoValueAvailable, ws.Cell(3, column).Value);
+            await Assert.That(ws.Cell(1, column).Value).IsEqualTo(1);
+            await Assert.That(ws.Cell(2, column).Value).IsEqualTo(2);
+            await Assert.That(ws.Cell(3, column).Value).IsEqualTo(XLError.NoValueAvailable);
         }
     }
 
     [Test]
-    public void SingleRowValueIsClonedAcrossCellGroup()
+    public async Task SingleRowValueIsClonedAcrossCellGroup()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -92,14 +91,14 @@ public class ArrayFormulaCalculationTests
 
         for (var row = 1; row <= 3; row++)
         {
-            Assert.AreEqual(1, ws.Cell(row, 1).Value);
-            Assert.AreEqual(2, ws.Cell(row, 2).Value);
-            Assert.AreEqual(XLError.NoValueAvailable, ws.Cell(row, 3).Value);
+            await Assert.That(ws.Cell(row, 1).Value).IsEqualTo(1);
+            await Assert.That(ws.Cell(row, 2).Value).IsEqualTo(2);
+            await Assert.That(ws.Cell(row, 3).Value).IsEqualTo(XLError.NoValueAvailable);
         }
     }
 
     [Test]
-    public void ExcessColumnsAndRowsOfCellGroupTakeOnNoValueAvailable()
+    public async Task ExcessColumnsAndRowsOfCellGroupTakeOnNoValueAvailable()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -107,27 +106,27 @@ public class ArrayFormulaCalculationTests
 
         range.FormulaArrayA1 = "{1,2;3,4}";
 
-        Assert.AreEqual(1, ws.Cell("A1").Value);
-        Assert.AreEqual(2, ws.Cell("B1").Value);
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Cell("C1").Value);
-        Assert.AreEqual(3, ws.Cell("A2").Value);
-        Assert.AreEqual(4, ws.Cell("B2").Value);
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Cell("C2").Value);
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Cell("A3").Value);
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Cell("B3").Value);
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Cell("C3").Value);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(1);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(ws.Cell("A2").Value).IsEqualTo(3);
+        await Assert.That(ws.Cell("B2").Value).IsEqualTo(4);
+        await Assert.That(ws.Cell("C2").Value).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(ws.Cell("A3").Value).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(ws.Cell("B3").Value).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(ws.Cell("C3").Value).IsEqualTo(XLError.NoValueAvailable);
     }
 
     [Test]
-    public void Array_argument_for_scalar_function_in_array_formula_uses_only_first_value_of_array()
+    public async Task Array_argument_for_scalar_function_in_array_formula_uses_only_first_value_of_array()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Range("B1:B3").FormulaArrayA1 = "SIGN({-1,2,0})";
 
         // Uses only -1 for all values
-        Assert.AreEqual(-1, ws.Cell("B1").Value);
-        Assert.AreEqual(-1, ws.Cell("B2").Value);
-        Assert.AreEqual(-1, ws.Cell("B3").Value);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(-1);
+        await Assert.That(ws.Cell("B2").Value).IsEqualTo(-1);
+        await Assert.That(ws.Cell("B3").Value).IsEqualTo(-1);
     }
 }

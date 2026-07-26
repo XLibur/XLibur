@@ -1,15 +1,13 @@
 ﻿using DocumentFormat.OpenXml.Packaging;
-using NUnit.Framework;
 using System.IO;
 
 namespace XLibur.Tests;
 
-[TestFixture]
 public class OpenXmlTests
 {
     [Test]
-    [Ignore("Workaround has been included in XLibur")]
-    public static void SetPackagePropertiesEntryToNullWithOpenXml()
+    [Skip("Workaround has been included in XLibur")]
+    public void SetPackagePropertiesEntryToNullWithOpenXml()
     {
         // Fixed in .NET Standard 2.1
         // See:

@@ -4,19 +4,17 @@ using System.Linq;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
 using XLibur.Excel.IO;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.RichText;
-
 /// <summary>
 ///     This is a test class for XLRichStringTests and is intended
 ///     to contain all XLRichStringTests Unit Tests
 /// </summary>
-[TestFixture]
 public class XLRichStringTests
 {
     [Test]
-    public void AccessRichTextTest1()
+    public async Task AccessRichTextTest1()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
@@ -24,18 +22,18 @@ public class XLRichStringTests
 
         var richText = cell.GetRichText();
 
-        Assert.AreEqual("12", richText.ToString());
+        await Assert.That(richText.ToString()).IsEqualTo("12");
 
         richText.AddText("34");
 
-        Assert.AreEqual("1234", cell.GetText());
+        await Assert.That(cell.GetText()).IsEqualTo("1234");
     }
 
     /// <summary>
     ///     A test for AddText
     /// </summary>
     [Test]
-    public void AddTextTest1()
+    public async Task AddTextTest1()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
@@ -44,18 +42,18 @@ public class XLRichStringTests
         const string text = "Hello";
         richString.AddText(text).SetBold().SetFontColor(XLColor.Red);
 
-        Assert.AreEqual(cell.GetText(), text);
-        Assert.AreEqual(cell.GetRichText().First().Bold, true);
-        Assert.AreEqual(cell.GetRichText().First().FontColor, XLColor.Red);
+        await Assert.That(text).IsEqualTo(cell.GetText());
+        await Assert.That(true).IsEqualTo(cell.GetRichText().First().Bold);
+        await Assert.That(XLColor.Red).IsEqualTo(cell.GetRichText().First().FontColor);
 
-        Assert.AreEqual(1, richString.Count);
+        await Assert.That(richString.Count).IsEqualTo(1);
 
         richString.AddText("World");
-        Assert.AreEqual(richString.First().Text, text, "Item in collection is not the same as the one returned");
+        await Assert.That(text).IsEqualTo(richString.First().Text).Because("Item in collection is not the same as the one returned");
     }
 
     [Test]
-    public void AddTextTest2()
+    public async Task AddTextTest2()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
@@ -67,18 +65,18 @@ public class XLRichStringTests
 
         var text = number.ToString();
 
-        Assert.AreEqual(cell.GetRichText().ToString(), text);
-        Assert.AreEqual(cell.GetRichText().First().Bold, true);
-        Assert.AreEqual(cell.GetRichText().First().FontColor, XLColor.Red);
+        await Assert.That(text).IsEqualTo(cell.GetRichText().ToString());
+        await Assert.That(true).IsEqualTo(cell.GetRichText().First().Bold);
+        await Assert.That(XLColor.Red).IsEqualTo(cell.GetRichText().First().FontColor);
 
-        Assert.AreEqual(1, cell.GetRichText().Count);
+        await Assert.That(cell.GetRichText().Count).IsEqualTo(1);
 
         cell.GetRichText().AddText("World");
-        Assert.AreEqual(cell.GetRichText().First().Text, text, "Item in collection is not the same as the one returned");
+        await Assert.That(text).IsEqualTo(cell.GetRichText().First().Text).Because("Item in collection is not the same as the one returned");
     }
 
     [Test]
-    public void AddTextTest3()
+    public async Task AddTextTest3()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
@@ -90,21 +88,21 @@ public class XLRichStringTests
 
         var text = number.ToString();
 
-        Assert.AreEqual(cell.GetRichText().ToString(), text);
-        Assert.AreEqual(cell.GetRichText().First().Bold, true);
-        Assert.AreEqual(cell.GetRichText().First().FontColor, XLColor.Red);
+        await Assert.That(text).IsEqualTo(cell.GetRichText().ToString());
+        await Assert.That(true).IsEqualTo(cell.GetRichText().First().Bold);
+        await Assert.That(XLColor.Red).IsEqualTo(cell.GetRichText().First().FontColor);
 
-        Assert.AreEqual(1, cell.GetRichText().Count);
+        await Assert.That(cell.GetRichText().Count).IsEqualTo(1);
 
         cell.GetRichText().AddText("World");
-        Assert.AreEqual(cell.GetRichText().First().Text, text, "Item in collection is not the same as the one returned");
+        await Assert.That(text).IsEqualTo(cell.GetRichText().First().Text).Because("Item in collection is not the same as the one returned");
     }
 
     /// <summary>
     /// A test for Clear
     /// </summary>
     [Test]
-    public void ClearTest()
+    public async Task ClearTest()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -116,13 +114,13 @@ public class XLRichStringTests
         richString.ClearText();
         var expected = String.Empty;
         var actual = richString.ToString();
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
 
-        Assert.AreEqual(0, richString.Count);
+        await Assert.That(richString.Count).IsEqualTo(0);
     }
 
     [Test]
-    public void CountTest()
+    public async Task CountTest()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -131,44 +129,44 @@ public class XLRichStringTests
         richString.AddText(" ");
         richString.AddText("World!");
 
-        Assert.AreEqual(3, richString.Count);
+        await Assert.That(richString.Count).IsEqualTo(3);
     }
 
     [Test]
-    public void HasRichTextTest1()
+    public async Task HasRichTextTest1()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
         cell.GetRichText().AddText("123");
 
-        Assert.AreEqual(true, cell.HasRichText);
+        await Assert.That(cell.HasRichText).IsEqualTo(true);
 
         cell.Value = "123";
 
-        Assert.AreEqual(false, cell.HasRichText);
+        await Assert.That(cell.HasRichText).IsEqualTo(false);
 
         cell.GetRichText().AddText("123");
 
-        Assert.AreEqual(true, cell.HasRichText);
+        await Assert.That(cell.HasRichText).IsEqualTo(true);
 
         cell.Value = 123;
 
-        Assert.AreEqual(false, cell.HasRichText);
+        await Assert.That(cell.HasRichText).IsEqualTo(false);
 
         cell.GetRichText().AddText("123");
 
-        Assert.AreEqual(true, cell.HasRichText);
+        await Assert.That(cell.HasRichText).IsEqualTo(true);
 
         cell.SetValue("123");
 
-        Assert.AreEqual(false, cell.HasRichText);
+        await Assert.That(cell.HasRichText).IsEqualTo(false);
     }
 
     /// <summary>
     ///     A test for Characters
     /// </summary>
     [Test]
-    public void Substring_All_From_OneString()
+    public async Task Substring_All_From_OneString()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -177,17 +175,17 @@ public class XLRichStringTests
 
         var actual = richString.Substring(0);
 
-        Assert.AreEqual(richString.First(), actual.First());
+        await Assert.That(actual.First()).IsEqualTo(richString.First());
 
-        Assert.AreEqual(1, actual.Count);
+        await Assert.That(actual.Count).IsEqualTo(1);
 
         actual.First().SetBold();
 
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().First().Bold);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsEqualTo(true);
     }
 
     [Test]
-    public void Substring_All_From_ThreeStrings()
+    public async Task Substring_All_From_ThreeStrings()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -198,22 +196,22 @@ public class XLRichStringTests
 
         var actual = richString.Substring(0);
 
-        Assert.AreEqual(richString.ElementAt(0), actual.ElementAt(0));
-        Assert.AreEqual(richString.ElementAt(1), actual.ElementAt(1));
-        Assert.AreEqual(richString.ElementAt(2), actual.ElementAt(2));
+        await Assert.That(actual.ElementAt(0)).IsEqualTo(richString.ElementAt(0));
+        await Assert.That(actual.ElementAt(1)).IsEqualTo(richString.ElementAt(1));
+        await Assert.That(actual.ElementAt(2)).IsEqualTo(richString.ElementAt(2));
 
-        Assert.AreEqual(3, actual.Count);
-        Assert.AreEqual(3, richString.Count);
+        await Assert.That(actual.Count).IsEqualTo(3);
+        await Assert.That(richString.Count).IsEqualTo(3);
 
         actual.First().SetBold();
 
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().First().Bold);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(1).Bold);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().Last().Bold);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Bold).IsEqualTo(false);
     }
 
     [Test]
-    public void Substring_From_OneString_End()
+    public async Task Substring_From_OneString_End()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -222,37 +220,37 @@ public class XLRichStringTests
 
         var actual = richString.Substring(2);
 
-        Assert.AreEqual(1, actual.Count); // substring was in one piece
+        await Assert.That(actual.Count).IsEqualTo(1); // substring was in one piece
 
-        Assert.AreEqual(2, richString.Count); // The text was split because of the substring
+        await Assert.That(richString.Count).IsEqualTo(2); // The text was split because of the substring
 
-        Assert.AreEqual("llo", actual.First().Text);
+        await Assert.That(actual.First().Text).IsEqualTo("llo");
 
-        Assert.AreEqual("He", richString.First().Text);
-        Assert.AreEqual("llo", richString.Last().Text);
+        await Assert.That(richString.First().Text).IsEqualTo("He");
+        await Assert.That(richString.Last().Text).IsEqualTo("llo");
 
         actual.First().SetBold();
 
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().First().Bold);
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().Last().Bold);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Bold).IsEqualTo(true);
 
         richString.Last().SetItalic();
 
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().First().Italic);
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().Last().Italic);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Italic).IsEqualTo(true);
 
-        Assert.AreEqual(true, actual.First().Italic);
+        await Assert.That(actual.First().Italic).IsEqualTo(true);
 
         richString.SetFontSize(20);
 
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().First().FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().Last().FontSize);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().FontSize).IsEqualTo(20);
 
-        Assert.AreEqual(20, actual.First().FontSize);
+        await Assert.That(actual.First().FontSize).IsEqualTo(20);
     }
 
     [Test]
-    public void Substring_From_OneString_Middle()
+    public async Task Substring_From_OneString_Middle()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -261,41 +259,41 @@ public class XLRichStringTests
 
         var actual = richString.Substring(2, 2);
 
-        Assert.AreEqual(1, actual.Count); // substring was in one piece
+        await Assert.That(actual.Count).IsEqualTo(1); // substring was in one piece
 
-        Assert.AreEqual(3, richString.Count); // The text was split because of the substring
+        await Assert.That(richString.Count).IsEqualTo(3); // The text was split because of the substring
 
-        Assert.AreEqual("ll", actual.First().Text);
+        await Assert.That(actual.First().Text).IsEqualTo("ll");
 
-        Assert.AreEqual("He", richString.First().Text);
-        Assert.AreEqual("ll", richString.ElementAt(1).Text);
-        Assert.AreEqual("o", richString.Last().Text);
+        await Assert.That(richString.First().Text).IsEqualTo("He");
+        await Assert.That(richString.ElementAt(1).Text).IsEqualTo("ll");
+        await Assert.That(richString.Last().Text).IsEqualTo("o");
 
         actual.First().SetBold();
 
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().First().Bold);
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().ElementAt(1).Bold);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().Last().Bold);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Bold).IsEqualTo(false);
 
         richString.Last().SetItalic();
 
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().First().Italic);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(1).Italic);
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().Last().Italic);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Italic).IsEqualTo(true);
 
-        Assert.AreEqual(false, actual.First().Italic);
+        await Assert.That(actual.First().Italic).IsEqualTo(false);
 
         richString.SetFontSize(20);
 
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().First().FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(1).FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().Last().FontSize);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().FontSize).IsEqualTo(20);
 
-        Assert.AreEqual(20, actual.First().FontSize);
+        await Assert.That(actual.First().FontSize).IsEqualTo(20);
     }
 
     [Test]
-    public void Substring_From_OneString_Start()
+    public async Task Substring_From_OneString_Start()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -304,37 +302,37 @@ public class XLRichStringTests
 
         var actual = richString.Substring(0, 2);
 
-        Assert.AreEqual(1, actual.Count); // substring was in one piece
+        await Assert.That(actual.Count).IsEqualTo(1); // substring was in one piece
 
-        Assert.AreEqual(2, richString.Count); // The text was split because of the substring
+        await Assert.That(richString.Count).IsEqualTo(2); // The text was split because of the substring
 
-        Assert.AreEqual("He", actual.First().Text);
+        await Assert.That(actual.First().Text).IsEqualTo("He");
 
-        Assert.AreEqual("He", richString.First().Text);
-        Assert.AreEqual("llo", richString.Last().Text);
+        await Assert.That(richString.First().Text).IsEqualTo("He");
+        await Assert.That(richString.Last().Text).IsEqualTo("llo");
 
         actual.First().SetBold();
 
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().First().Bold);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().Last().Bold);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Bold).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Bold).IsEqualTo(false);
 
         richString.Last().SetItalic();
 
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().First().Italic);
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().Last().Italic);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().Italic).IsEqualTo(true);
 
-        Assert.AreEqual(false, actual.First().Italic);
+        await Assert.That(actual.First().Italic).IsEqualTo(false);
 
         richString.SetFontSize(20);
 
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().First().FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().Last().FontSize);
+        await Assert.That(ws.Cell(1, 1).GetRichText().First().FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().Last().FontSize).IsEqualTo(20);
 
-        Assert.AreEqual(20, actual.First().FontSize);
+        await Assert.That(actual.First().FontSize).IsEqualTo(20);
     }
 
     [Test]
-    public void Substring_From_ThreeStrings_End1()
+    public async Task Substring_From_ThreeStrings_End1()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -345,45 +343,45 @@ public class XLRichStringTests
 
         var actual = richString.Substring(21);
 
-        Assert.AreEqual(1, actual.Count); // substring was in one piece
+        await Assert.That(actual.Count).IsEqualTo(1); // substring was in one piece
 
-        Assert.AreEqual(4, richString.Count); // The text was split because of the substring
+        await Assert.That(richString.Count).IsEqualTo(4); // The text was split because of the substring
 
-        Assert.AreEqual("bors!", actual.First().Text);
+        await Assert.That(actual.First().Text).IsEqualTo("bors!");
 
-        Assert.AreEqual("Good Morning", richString.ElementAt(0).Text);
-        Assert.AreEqual(" my ", richString.ElementAt(1).Text);
-        Assert.AreEqual("neigh", richString.ElementAt(2).Text);
-        Assert.AreEqual("bors!", richString.ElementAt(3).Text);
+        await Assert.That(richString.ElementAt(0).Text).IsEqualTo("Good Morning");
+        await Assert.That(richString.ElementAt(1).Text).IsEqualTo(" my ");
+        await Assert.That(richString.ElementAt(2).Text).IsEqualTo("neigh");
+        await Assert.That(richString.ElementAt(3).Text).IsEqualTo("bors!");
 
         actual.First().SetBold();
 
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(0).Bold);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(1).Bold);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(2).Bold);
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().ElementAt(3).Bold);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Bold).IsEqualTo(true);
 
         richString.Last().SetItalic();
 
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(0).Italic);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(1).Italic);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(2).Italic);
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().ElementAt(3).Italic);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Italic).IsEqualTo(true);
 
-        Assert.AreEqual(true, actual.First().Italic);
+        await Assert.That(actual.First().Italic).IsEqualTo(true);
 
         richString.SetFontSize(20);
 
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(0).FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(1).FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(2).FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(3).FontSize);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).FontSize).IsEqualTo(20);
 
-        Assert.AreEqual(20, actual.First().FontSize);
+        await Assert.That(actual.First().FontSize).IsEqualTo(20);
     }
 
     [Test]
-    public void Substring_From_ThreeStrings_End2()
+    public async Task Substring_From_ThreeStrings_End2()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -394,48 +392,48 @@ public class XLRichStringTests
 
         var actual = richString.Substring(13);
 
-        Assert.AreEqual(2, actual.Count);
+        await Assert.That(actual.Count).IsEqualTo(2);
 
-        Assert.AreEqual(4, richString.Count); // The text was split because of the substring
+        await Assert.That(richString.Count).IsEqualTo(4); // The text was split because of the substring
 
-        Assert.AreEqual("my ", actual.ElementAt(0).Text);
-        Assert.AreEqual("neighbors!", actual.ElementAt(1).Text);
+        await Assert.That(actual.ElementAt(0).Text).IsEqualTo("my ");
+        await Assert.That(actual.ElementAt(1).Text).IsEqualTo("neighbors!");
 
-        Assert.AreEqual("Good Morning", richString.ElementAt(0).Text);
-        Assert.AreEqual(" ", richString.ElementAt(1).Text);
-        Assert.AreEqual("my ", richString.ElementAt(2).Text);
-        Assert.AreEqual("neighbors!", richString.ElementAt(3).Text);
+        await Assert.That(richString.ElementAt(0).Text).IsEqualTo("Good Morning");
+        await Assert.That(richString.ElementAt(1).Text).IsEqualTo(" ");
+        await Assert.That(richString.ElementAt(2).Text).IsEqualTo("my ");
+        await Assert.That(richString.ElementAt(3).Text).IsEqualTo("neighbors!");
 
         actual.ElementAt(1).SetBold();
 
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(0).Bold);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(1).Bold);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(2).Bold);
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().ElementAt(3).Bold);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Bold).IsEqualTo(true);
 
         richString.Last().SetItalic();
 
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(0).Italic);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(1).Italic);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(2).Italic);
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().ElementAt(3).Italic);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Italic).IsEqualTo(true);
 
-        Assert.AreEqual(false, actual.ElementAt(0).Italic);
-        Assert.AreEqual(true, actual.ElementAt(1).Italic);
+        await Assert.That(actual.ElementAt(0).Italic).IsEqualTo(false);
+        await Assert.That(actual.ElementAt(1).Italic).IsEqualTo(true);
 
         richString.SetFontSize(20);
 
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(0).FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(1).FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(2).FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(3).FontSize);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).FontSize).IsEqualTo(20);
 
-        Assert.AreEqual(20, actual.ElementAt(0).FontSize);
-        Assert.AreEqual(20, actual.ElementAt(1).FontSize);
+        await Assert.That(actual.ElementAt(0).FontSize).IsEqualTo(20);
+        await Assert.That(actual.ElementAt(1).FontSize).IsEqualTo(20);
     }
 
     [Test]
-    public void Substring_From_ThreeStrings_Mid1()
+    public async Task Substring_From_ThreeStrings_Mid1()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -446,22 +444,22 @@ public class XLRichStringTests
 
         var actual = richString.Substring(5, 10);
 
-        Assert.AreEqual(2, actual.Count);
+        await Assert.That(actual.Count).IsEqualTo(2);
 
-        Assert.AreEqual(5, richString.Count); // The text was split because of the substring
+        await Assert.That(richString.Count).IsEqualTo(5); // The text was split because of the substring
 
-        Assert.AreEqual("Morning", actual.ElementAt(0).Text);
-        Assert.AreEqual(" my", actual.ElementAt(1).Text);
+        await Assert.That(actual.ElementAt(0).Text).IsEqualTo("Morning");
+        await Assert.That(actual.ElementAt(1).Text).IsEqualTo(" my");
 
-        Assert.AreEqual("Good ", richString.ElementAt(0).Text);
-        Assert.AreEqual("Morning", richString.ElementAt(1).Text);
-        Assert.AreEqual(" my", richString.ElementAt(2).Text);
-        Assert.AreEqual(" ", richString.ElementAt(3).Text);
-        Assert.AreEqual("neighbors!", richString.ElementAt(4).Text);
+        await Assert.That(richString.ElementAt(0).Text).IsEqualTo("Good ");
+        await Assert.That(richString.ElementAt(1).Text).IsEqualTo("Morning");
+        await Assert.That(richString.ElementAt(2).Text).IsEqualTo(" my");
+        await Assert.That(richString.ElementAt(3).Text).IsEqualTo(" ");
+        await Assert.That(richString.ElementAt(4).Text).IsEqualTo("neighbors!");
     }
 
     [Test]
-    public void Substring_From_ThreeStrings_Mid2()
+    public async Task Substring_From_ThreeStrings_Mid2()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -472,23 +470,23 @@ public class XLRichStringTests
 
         var actual = richString.Substring(5, 15);
 
-        Assert.AreEqual(3, actual.Count);
+        await Assert.That(actual.Count).IsEqualTo(3);
 
-        Assert.AreEqual(5, richString.Count); // The text was split because of the substring
+        await Assert.That(richString.Count).IsEqualTo(5); // The text was split because of the substring
 
-        Assert.AreEqual("Morning", actual.ElementAt(0).Text);
-        Assert.AreEqual(" my ", actual.ElementAt(1).Text);
-        Assert.AreEqual("neig", actual.ElementAt(2).Text);
+        await Assert.That(actual.ElementAt(0).Text).IsEqualTo("Morning");
+        await Assert.That(actual.ElementAt(1).Text).IsEqualTo(" my ");
+        await Assert.That(actual.ElementAt(2).Text).IsEqualTo("neig");
 
-        Assert.AreEqual("Good ", richString.ElementAt(0).Text);
-        Assert.AreEqual("Morning", richString.ElementAt(1).Text);
-        Assert.AreEqual(" my ", richString.ElementAt(2).Text);
-        Assert.AreEqual("neig", richString.ElementAt(3).Text);
-        Assert.AreEqual("hbors!", richString.ElementAt(4).Text);
+        await Assert.That(richString.ElementAt(0).Text).IsEqualTo("Good ");
+        await Assert.That(richString.ElementAt(1).Text).IsEqualTo("Morning");
+        await Assert.That(richString.ElementAt(2).Text).IsEqualTo(" my ");
+        await Assert.That(richString.ElementAt(3).Text).IsEqualTo("neig");
+        await Assert.That(richString.ElementAt(4).Text).IsEqualTo("hbors!");
     }
 
     [Test]
-    public void Substring_From_ThreeStrings_Start1()
+    public async Task Substring_From_ThreeStrings_Start1()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -499,45 +497,45 @@ public class XLRichStringTests
 
         var actual = richString.Substring(0, 4);
 
-        Assert.AreEqual(1, actual.Count); // substring was in one piece
+        await Assert.That(actual.Count).IsEqualTo(1); // substring was in one piece
 
-        Assert.AreEqual(4, richString.Count); // The text was split because of the substring
+        await Assert.That(richString.Count).IsEqualTo(4); // The text was split because of the substring
 
-        Assert.AreEqual("Good", actual.First().Text);
+        await Assert.That(actual.First().Text).IsEqualTo("Good");
 
-        Assert.AreEqual("Good", richString.ElementAt(0).Text);
-        Assert.AreEqual(" Morning", richString.ElementAt(1).Text);
-        Assert.AreEqual(" my ", richString.ElementAt(2).Text);
-        Assert.AreEqual("neighbors!", richString.ElementAt(3).Text);
+        await Assert.That(richString.ElementAt(0).Text).IsEqualTo("Good");
+        await Assert.That(richString.ElementAt(1).Text).IsEqualTo(" Morning");
+        await Assert.That(richString.ElementAt(2).Text).IsEqualTo(" my ");
+        await Assert.That(richString.ElementAt(3).Text).IsEqualTo("neighbors!");
 
         actual.First().SetBold();
 
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().ElementAt(0).Bold);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(1).Bold);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(2).Bold);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(3).Bold);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Bold).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Bold).IsEqualTo(false);
 
         richString.First().SetItalic();
 
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().ElementAt(0).Italic);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(1).Italic);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(2).Italic);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(3).Italic);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Italic).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Italic).IsEqualTo(false);
 
-        Assert.AreEqual(true, actual.First().Italic);
+        await Assert.That(actual.First().Italic).IsEqualTo(true);
 
         richString.SetFontSize(20);
 
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(0).FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(1).FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(2).FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(3).FontSize);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).FontSize).IsEqualTo(20);
 
-        Assert.AreEqual(20, actual.First().FontSize);
+        await Assert.That(actual.First().FontSize).IsEqualTo(20);
     }
 
     [Test]
-    public void Substring_From_ThreeStrings_Start2()
+    public async Task Substring_From_ThreeStrings_Start2()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -548,82 +546,59 @@ public class XLRichStringTests
 
         var actual = richString.Substring(0, 15);
 
-        Assert.AreEqual(2, actual.Count);
+        await Assert.That(actual.Count).IsEqualTo(2);
 
-        Assert.AreEqual(4, richString.Count); // The text was split because of the substring
+        await Assert.That(richString.Count).IsEqualTo(4); // The text was split because of the substring
 
-        Assert.AreEqual("Good Morning", actual.ElementAt(0).Text);
-        Assert.AreEqual(" my", actual.ElementAt(1).Text);
+        await Assert.That(actual.ElementAt(0).Text).IsEqualTo("Good Morning");
+        await Assert.That(actual.ElementAt(1).Text).IsEqualTo(" my");
 
-        Assert.AreEqual("Good Morning", richString.ElementAt(0).Text);
-        Assert.AreEqual(" my", richString.ElementAt(1).Text);
-        Assert.AreEqual(" ", richString.ElementAt(2).Text);
-        Assert.AreEqual("neighbors!", richString.ElementAt(3).Text);
+        await Assert.That(richString.ElementAt(0).Text).IsEqualTo("Good Morning");
+        await Assert.That(richString.ElementAt(1).Text).IsEqualTo(" my");
+        await Assert.That(richString.ElementAt(2).Text).IsEqualTo(" ");
+        await Assert.That(richString.ElementAt(3).Text).IsEqualTo("neighbors!");
 
         actual.ElementAt(1).SetBold();
 
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(0).Bold);
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().ElementAt(1).Bold);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(2).Bold);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(3).Bold);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Bold).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Bold).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Bold).IsEqualTo(false);
 
         richString.First().SetItalic();
 
-        Assert.AreEqual(true, ws.Cell(1, 1).GetRichText().ElementAt(0).Italic);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(1).Italic);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(2).Italic);
-        Assert.AreEqual(false, ws.Cell(1, 1).GetRichText().ElementAt(3).Italic);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).Italic).IsEqualTo(true);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).Italic).IsEqualTo(false);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).Italic).IsEqualTo(false);
 
-        Assert.AreEqual(true, actual.ElementAt(0).Italic);
-        Assert.AreEqual(false, actual.ElementAt(1).Italic);
+        await Assert.That(actual.ElementAt(0).Italic).IsEqualTo(true);
+        await Assert.That(actual.ElementAt(1).Italic).IsEqualTo(false);
 
         richString.SetFontSize(20);
 
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(0).FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(1).FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(2).FontSize);
-        Assert.AreEqual(20, ws.Cell(1, 1).GetRichText().ElementAt(3).FontSize);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(0).FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(1).FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(2).FontSize).IsEqualTo(20);
+        await Assert.That(ws.Cell(1, 1).GetRichText().ElementAt(3).FontSize).IsEqualTo(20);
 
-        Assert.AreEqual(20, actual.ElementAt(0).FontSize);
-        Assert.AreEqual(20, actual.ElementAt(1).FontSize);
+        await Assert.That(actual.ElementAt(0).FontSize).IsEqualTo(20);
+        await Assert.That(actual.ElementAt(1).FontSize).IsEqualTo(20);
     }
 
     [Test]
-    public void Substring_IndexOutsideRange1()
+    public async Task Substring_IndexOutsideRange1()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
 
         richString.AddText("Hello");
 
-        Assert.That(() => richString.Substring(50), Throws.TypeOf<ArgumentOutOfRangeException>());
+        await Assert.That(() => richString.Substring(50)).Throws<ArgumentOutOfRangeException>();
     }
 
     [Test]
-    public void Substring_IndexOutsideRange2()
-    {
-        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        var richString = ws.Cell(1, 1).GetRichText();
-
-        richString.AddText("Hello");
-        richString.AddText("World");
-
-        Assert.That(() => richString.Substring(50), Throws.TypeOf<ArgumentOutOfRangeException>());
-    }
-
-    [Test]
-    public void Substring_IndexOutsideRange3()
-    {
-        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
-        var richString = ws.Cell(1, 1).GetRichText();
-
-        richString.AddText("Hello");
-
-        Assert.That(() => richString.Substring(1, 10), Throws.TypeOf<ArgumentOutOfRangeException>());
-    }
-
-    [Test]
-    public void Substring_IndexOutsideRange4()
+    public async Task Substring_IndexOutsideRange2()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -631,11 +606,34 @@ public class XLRichStringTests
         richString.AddText("Hello");
         richString.AddText("World");
 
-        Assert.That(() => richString.Substring(5, 20), Throws.TypeOf<ArgumentOutOfRangeException>());
+        await Assert.That(() => richString.Substring(50)).Throws<ArgumentOutOfRangeException>();
     }
 
     [Test]
-    public void CopyFrom_DoesCopy()
+    public async Task Substring_IndexOutsideRange3()
+    {
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var richString = ws.Cell(1, 1).GetRichText();
+
+        richString.AddText("Hello");
+
+        await Assert.That(() => richString.Substring(1, 10)).Throws<ArgumentOutOfRangeException>();
+    }
+
+    [Test]
+    public async Task Substring_IndexOutsideRange4()
+    {
+        var ws = new XLWorkbook().Worksheets.Add("Sheet1");
+        var richString = ws.Cell(1, 1).GetRichText();
+
+        richString.AddText("Hello");
+        richString.AddText("World");
+
+        await Assert.That(() => richString.Substring(5, 20)).Throws<ArgumentOutOfRangeException>();
+    }
+
+    [Test]
+    public async Task CopyFrom_DoesCopy()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -648,17 +646,17 @@ public class XLRichStringTests
         var otherRichText = otherCell.GetRichText();
         otherRichText.CopyFrom(original);
 
-        Assert.AreEqual("HelloWorld", otherCell.Value);
-        Assert.AreEqual(2, otherRichText.Count);
-        Assert.AreEqual(XLColor.Red, otherRichText.First().FontColor);
-        Assert.AreEqual(XLColor.Blue, otherRichText.Last().FontColor);
+        await Assert.That(otherCell.Value).IsEqualTo("HelloWorld");
+        await Assert.That(otherRichText.Count).IsEqualTo(2);
+        await Assert.That(otherRichText.First().FontColor).IsEqualTo(XLColor.Red);
+        await Assert.That(otherRichText.Last().FontColor).IsEqualTo(XLColor.Blue);
     }
 
     /// <summary>
     ///     A test for ToString
     /// </summary>
     [Test]
-    public void ToStringTest()
+    public async Task ToStringTest()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var richString = ws.Cell(1, 1).GetRichText();
@@ -668,21 +666,22 @@ public class XLRichStringTests
         richString.AddText("World");
         var expected = "Hello World";
         var actual = richString.ToString();
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
 
         richString.AddText("!");
         expected = "Hello World!";
         actual = richString.ToString();
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
 
         richString.ClearText();
         expected = String.Empty;
         actual = richString.ToString();
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
-    [Test(Description = "See #1361")]
-    public void CanClearInlinedRichText()
+    [Test]
+    [Property("Description", "See #1361")]
+    public async Task CanClearInlinedRichText()
     {
         using var outputStream = new MemoryStream();
         using (var inputStream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\InlinedRichText\ChangeRichText\inputfile.xlsx")))
@@ -694,19 +693,19 @@ public class XLRichStringTests
 
         using (var wb = new XLWorkbook(outputStream))
         {
-            Assert.AreEqual("", wb.Worksheets.First().Cell("A1").Value);
+            await Assert.That(wb.Worksheets.First().Cell("A1").Value).IsEqualTo("");
         }
     }
 
     [Test]
-    public void CanChangeInlinedRichText()
+    public async Task CanChangeInlinedRichText()
     {
-        static void AssertRichText(IXLRichText richText)
+        static async Task AssertRichText(IXLRichText richText)
         {
-            Assert.IsNotNull(richText);
-            Assert.IsTrue(richText.Any());
-            Assert.AreEqual("3", richText.ElementAt(2).Text);
-            Assert.AreEqual(XLColor.Red, richText.ElementAt(2).FontColor);
+            await Assert.That(richText).IsNotNull();
+            await Assert.That(richText.Any()).IsTrue();
+            await Assert.That(richText.ElementAt(2).Text).IsEqualTo("3");
+            await Assert.That(richText.ElementAt(2).FontColor).IsEqualTo(XLColor.Red);
         }
 
         using var outputStream = new MemoryStream();
@@ -714,7 +713,7 @@ public class XLRichStringTests
         using (var workbook = new XLWorkbook(inputStream))
         {
             var richText = workbook.Worksheets.First().Cell("A1").GetRichText();
-            AssertRichText(richText);
+            await AssertRichText(richText);
             richText.AddText(" - changed");
             workbook.SaveAs(outputStream);
         }
@@ -722,19 +721,19 @@ public class XLRichStringTests
         using (var wb = new XLWorkbook(outputStream))
         {
             var cell = wb.Worksheets.First().Cell("A1");
-            Assert.IsFalse(cell.ShareString);
-            Assert.IsTrue(cell.HasRichText);
+            await Assert.That(cell.ShareString).IsFalse();
+            await Assert.That(cell.HasRichText).IsTrue();
             var rt = cell.GetRichText();
-            Assert.AreEqual("Year (range: 3 yrs) - changed", rt.ToString());
-            AssertRichText(rt);
+            await Assert.That(rt.ToString()).IsEqualTo("Year (range: 3 yrs) - changed");
+            await AssertRichText(rt);
         }
     }
 
     [Test]
-    public void ClearInlineRichTextWhenRelevant()
+    public async Task ClearInlineRichTextWhenRelevant()
     {
         using var ms = new MemoryStream();
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             using (var wb = new XLWorkbook())
             {
@@ -765,31 +764,31 @@ public class XLRichStringTests
     }
 
     [Test]
-    public void RichTextChangesContentOfItsCell()
+    public async Task RichTextChangesContentOfItsCell()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var cell = ws.Cell(1, 1);
         var richText = cell.GetRichText();
 
-        Assert.AreEqual(cell.Value, richText.Text);
+        await Assert.That(richText.Text).IsEqualTo(cell.Value);
 
         richText.AddText("Hello");
-        Assert.AreEqual(cell.Value, "Hello");
+        await Assert.That("Hello").IsEqualTo(cell.Value);
 
         var world = richText.AddText(" World");
-        Assert.AreEqual(cell.Value, "Hello World");
+        await Assert.That("Hello World").IsEqualTo(cell.Value);
 
         world.Text = " World!";
-        Assert.AreEqual(cell.Value, "Hello World!");
-        Assert.AreEqual(cell.GetRichText().Text, "Hello World!");
+        await Assert.That("Hello World!").IsEqualTo(cell.Value);
+        await Assert.That("Hello World!").IsEqualTo(cell.GetRichText().Text);
 
         richText.ClearText();
-        Assert.AreEqual(cell.Value, string.Empty);
+        await Assert.That(string.Empty).IsEqualTo(cell.Value);
     }
 
     [Test]
-    public void RemovedRichTextFromCellCantBeChanged()
+    public async Task RemovedRichTextFromCellCantBeChanged()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -797,11 +796,11 @@ public class XLRichStringTests
         var richText = cell.GetRichText();
         cell.Value = 4;
 
-        Assert.Throws<InvalidOperationException>(() => richText.AddText("Hello"), "The rich text isn't a content of a cell.");
+        await Assert.That(() => richText.AddText("Hello")).Throws<InvalidOperationException>();
     }
 
     [Test]
-    public void MaintainWhitespaces()
+    public async Task MaintainWhitespaces()
     {
         const string textWithSpaces = "  元  気  ";
         const string phoneticsWithSpace = "  げ  ん  ";
@@ -823,13 +822,13 @@ public class XLRichStringTests
         {
             var ws = wb.Worksheets.First();
             var richText = ws.Cell(1, 1).GetRichText();
-            Assert.AreEqual(textWithSpaces, richText.First().Text);
-            Assert.AreEqual(phoneticsWithSpace, richText.Phonetics.First().Text);
+            await Assert.That(richText.First().Text).IsEqualTo(textWithSpaces);
+            await Assert.That(richText.Phonetics.First().Text).IsEqualTo(phoneticsWithSpace);
         }
     }
 
     [Test]
-    public void Empty_phonetic_run_in_shared_string_is_skipped()
+    public async Task Empty_phonetic_run_in_shared_string_is_skipped()
     {
         // Some versions of Excel produce <rPh sb="0" eb="0"><t/></rPh> elements
         // in sharedStrings.xml for Japanese text. These have empty text and equal
@@ -845,12 +844,12 @@ public class XLRichStringTests
 
         WorksheetSheetDataReader.SetCellText(xlCell, sharedString);
 
-        Assert.AreEqual("日本語テスト", xlCell.GetRichText().Text);
-        Assert.AreEqual(0, xlCell.GetRichText().Phonetics.Count);
+        await Assert.That(xlCell.GetRichText().Text).IsEqualTo("日本語テスト");
+        await Assert.That(xlCell.GetRichText().Phonetics.Count).IsEqualTo(0);
     }
 
     [Test]
-    public void Preserve_end_of_line_in_xml()
+    public async Task Preserve_end_of_line_in_xml()
     {
         // When text run in a rich text contains end of line (regardless if CR, LF or CRLF),
         // the written element must be marked with xml:space="preserve". Excel would process
@@ -862,8 +861,8 @@ public class XLRichStringTests
         // contains phonetic run for the kanji in the text that would be out-of-bounds if space
         // attribute there. The input is from Excel, output is by XLibur. Output must contain
         // the space attribute.
-        Assert.DoesNotThrow(() => TestHelper.LoadSaveAndCompare(
+        await Assert.That(() => TestHelper.LoadSaveAndCompare(
             @"Other\RichText\kanji-with-new-line-input.xlsx",
-            @"Other\RichText\kanji-with-new-line-output.xlsx"));
+            @"Other\RichText\kanji-with-new-line-output.xlsx")).ThrowsNothing();
     }
 }

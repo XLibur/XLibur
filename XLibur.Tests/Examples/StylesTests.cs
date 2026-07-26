@@ -1,86 +1,85 @@
 ﻿using XLibur.Examples.Styles;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;
 
-[TestFixture]
 public class StylesTests
 {
     [Test]
-    public void DefaultStyles()
+    public async Task DefaultStyles()
     {
-        TestHelper.RunTestExample<DefaultStyles>(@"Styles\DefaultStyles.xlsx");
+        await TestHelper.RunTestExample<DefaultStyles>(@"Styles\DefaultStyles.xlsx");
     }
 
     [Test]
-    public void PurpleWorksheet()
+    public async Task PurpleWorksheet()
     {
-        TestHelper.RunTestExample<PurpleWorksheet>(@"Styles\PurpleWorksheet.xlsx");
+        await TestHelper.RunTestExample<PurpleWorksheet>(@"Styles\PurpleWorksheet.xlsx");
     }
 
     [Test]
-    public void StyleAlignment()
+    public async Task StyleAlignment()
     {
-        TestHelper.RunTestExample<StyleAlignment>(@"Styles\StyleAlignment.xlsx");
+        await TestHelper.RunTestExample<StyleAlignment>(@"Styles\StyleAlignment.xlsx");
     }
 
     [Test]
-    public void StyleBorder()
+    public async Task StyleBorder()
     {
-        TestHelper.RunTestExample<StyleBorder>(@"Styles\StyleBorder.xlsx");
+        await TestHelper.RunTestExample<StyleBorder>(@"Styles\StyleBorder.xlsx");
     }
 
     [Test]
-    public void StyleFill()
+    public async Task StyleFill()
     {
-        TestHelper.RunTestExample<StyleFill>(@"Styles\StyleFill.xlsx");
+        await TestHelper.RunTestExample<StyleFill>(@"Styles\StyleFill.xlsx");
     }
 
     [Test]
-    public void StyleFont()
+    public async Task StyleFont()
     {
-        TestHelper.RunTestExample<StyleFont>(@"Styles\StyleFont.xlsx");
+        await TestHelper.RunTestExample<StyleFont>(@"Styles\StyleFont.xlsx");
     }
 
     [Test]
-    public void StyleNumberFormat()
+    public async Task StyleNumberFormat()
     {
-        TestHelper.RunTestExample<StyleNumberFormat>(@"Styles\StyleNumberFormat.xlsx");
+        await TestHelper.RunTestExample<StyleNumberFormat>(@"Styles\StyleNumberFormat.xlsx");
     }
 
     [Test]
-    public void StyleIncludeQuotePrefix()
+    public async Task StyleIncludeQuotePrefix()
     {
-        TestHelper.RunTestExample<StyleIncludeQuotePrefix>(@"Styles\StyleIncludeQuotePrefix.xlsx");
+        await TestHelper.RunTestExample<StyleIncludeQuotePrefix>(@"Styles\StyleIncludeQuotePrefix.xlsx");
     }
 
     [Test]
-    public void StyleRowsColumns()
+    public async Task StyleRowsColumns()
     {
-        TestHelper.RunTestExample<StyleRowsColumns>(@"Styles\StyleRowsColumns.xlsx");
+        await TestHelper.RunTestExample<StyleRowsColumns>(@"Styles\StyleRowsColumns.xlsx");
     }
 
     [Test]
-    public void StyleWorksheet()
+    public async Task StyleWorksheet()
     {
-        TestHelper.RunTestExample<StyleWorksheet>(@"Styles\StyleWorksheet.xlsx");
+        await TestHelper.RunTestExample<StyleWorksheet>(@"Styles\StyleWorksheet.xlsx");
     }
 
     [Test]
-    public void UsingColors()
+    public async Task UsingColors()
     {
-        TestHelper.RunTestExample<UsingColors>(@"Styles\UsingColors.xlsx");
+        await TestHelper.RunTestExample<UsingColors>(@"Styles\UsingColors.xlsx");
     }
 
     [Test]
-    public void UsingPhonetics()
+    public async Task UsingPhonetics()
     {
-        TestHelper.RunTestExample<UsingPhonetics>(@"Styles\UsingPhonetics.xlsx");
+        await TestHelper.RunTestExample<UsingPhonetics>(@"Styles\UsingPhonetics.xlsx");
     }
 
     [Test]
-    public void UsingRichText()
+    public async Task UsingRichText()
     {
-        TestHelper.RunTestExample<UsingRichText>(@"Styles\UsingRichText.xlsx");
+        await TestHelper.RunTestExample<UsingRichText>(@"Styles\UsingRichText.xlsx");
     }
 }

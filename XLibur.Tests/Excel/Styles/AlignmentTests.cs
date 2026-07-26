@@ -4,17 +4,16 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
 using XLibur.Utils;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Styles;
 
-[TestFixture]
 public class AlignmentTests
 {
     [Test]
-    public void TextRotationCanBeFromMinus90To90DegreesAnd255ForVerticalLayout()
+    public async Task TextRotationCanBeFromMinus90To90DegreesAnd255ForVerticalLayout()
     {
-        TestHelper.CreateAndCompare(wb =>
+        await TestHelper.CreateAndCompare(wb =>
         {
             var ws = wb.AddWorksheet();
             ws.ColumnWidth = 10;
@@ -33,65 +32,68 @@ public class AlignmentTests
     }
 
     [Test]
-    public void TextRotationIsConvertedOnLoadToMinus90To90Degrees()
+    public async Task TextRotationIsConvertedOnLoadToMinus90To90Degrees()
     {
-        TestHelper.LoadAndAssert(wb =>
+        await TestHelper.LoadAndAssert(async wb =>
         {
             var ws = wb.Worksheets.Single();
-            Assert.AreEqual(255, ws.Cell(1, 1).Style.Alignment.TextRotation);
+            await Assert.That(ws.Cell(1, 1).Style.Alignment.TextRotation).IsEqualTo(255);
             for (var column = 2; column < 21; ++column)
             {
                 var expectedAngle = (column - 2) * 10 - 90;
-                Assert.AreEqual(expectedAngle, ws.Cell(1, column).Style.Alignment.TextRotation);
+                await Assert.That(ws.Cell(1, column).Style.Alignment.TextRotation).IsEqualTo(expectedAngle);
             }
         }, @"Other\Styles\Alignment\TextRotation.xlsx");
     }
 
-    [TestCase(91)]
-    [TestCase(-91)]
-    [TestCase(254)]
-    [TestCase(256)]
-    public void TextRotationOutsideBoundsThrowsException(int textRotation)
+    [Test]
+    [Arguments(91)]
+    [Arguments(-91)]
+    [Arguments(254)]
+    [Arguments(256)]
+    public async Task TextRotationOutsideBoundsThrowsException(int textRotation)
     {
-        Assert.Throws<ArgumentException>(() =>
+        await Assert.That(() =>
         {
             using var wb = new XLWorkbook();
             var ws = wb.AddWorksheet();
             ws.FirstCell().Style.Alignment.TextRotation = textRotation;
-        });
+        }).Throws<ArgumentException>();
     }
 
     // Some third-party tools write spec-invalid upper-case alignment values
     // (e.g. horizontal="Center"). XLibur tolerates the casing rather than failing the load.
-    [TestCase("center", XLAlignmentHorizontalValues.Center)]
-    [TestCase("Center", XLAlignmentHorizontalValues.Center)]
-    [TestCase("RIGHT", XLAlignmentHorizontalValues.Right)]
-    public void HorizontalAlignmentToleratesInvalidCasing(string raw, XLAlignmentHorizontalValues expected)
+    [Test]
+    [Arguments("center", XLAlignmentHorizontalValues.Center)]
+    [Arguments("Center", XLAlignmentHorizontalValues.Center)]
+    [Arguments("RIGHT", XLAlignmentHorizontalValues.Right)]
+    public async Task HorizontalAlignmentToleratesInvalidCasing(string raw, XLAlignmentHorizontalValues expected)
     {
         var source = new EnumValue<HorizontalAlignmentValues> { InnerText = raw };
-        Assert.AreEqual(expected, source.ToXLiburOrNull());
-    }
-
-    [TestCase("center", XLAlignmentVerticalValues.Center)]
-    [TestCase("Center", XLAlignmentVerticalValues.Center)]
-    [TestCase("TOP", XLAlignmentVerticalValues.Top)]
-    public void VerticalAlignmentToleratesInvalidCasing(string raw, XLAlignmentVerticalValues expected)
-    {
-        var source = new EnumValue<VerticalAlignmentValues> { InnerText = raw };
-        Assert.AreEqual(expected, source.ToXLiburOrNull());
+        await Assert.That(source.ToXLiburOrNull()).IsEqualTo(expected);
     }
 
     [Test]
-    public void UnrecognizedAlignmentValueIsDiscarded()
+    [Arguments("center", XLAlignmentVerticalValues.Center)]
+    [Arguments("Center", XLAlignmentVerticalValues.Center)]
+    [Arguments("TOP", XLAlignmentVerticalValues.Top)]
+    public async Task VerticalAlignmentToleratesInvalidCasing(string raw, XLAlignmentVerticalValues expected)
+    {
+        var source = new EnumValue<VerticalAlignmentValues> { InnerText = raw };
+        await Assert.That(source.ToXLiburOrNull()).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task UnrecognizedAlignmentValueIsDiscarded()
     {
         var horizontal = new EnumValue<HorizontalAlignmentValues> { InnerText = "not-an-alignment" };
         var vertical = new EnumValue<VerticalAlignmentValues> { InnerText = "not-an-alignment" };
-        Assert.IsNull(horizontal.ToXLiburOrNull());
-        Assert.IsNull(vertical.ToXLiburOrNull());
+        await Assert.That(horizontal.ToXLiburOrNull()).IsNull();
+        await Assert.That(vertical.ToXLiburOrNull()).IsNull();
     }
 
     [Test]
-    public void AlignmentToXLiburKeepsDefaultWhenValueUnrecognized()
+    public async Task AlignmentToXLiburKeepsDefaultWhenValueUnrecognized()
     {
         var defaultKey = XLAlignmentValue.Default.Key;
         var alignment = new Alignment
@@ -103,7 +105,7 @@ public class AlignmentTests
         var result = OpenXmlHelper.AlignmentToXLibur(alignment, defaultKey);
 
         // Bad casing is recovered; truly unknown values fall back to the default.
-        Assert.AreEqual(XLAlignmentHorizontalValues.Center, result.Horizontal);
-        Assert.AreEqual(defaultKey.Vertical, result.Vertical);
+        await Assert.That(result.Horizontal).IsEqualTo(XLAlignmentHorizontalValues.Center);
+        await Assert.That(result.Vertical).IsEqualTo(defaultKey.Vertical);
     }
 }

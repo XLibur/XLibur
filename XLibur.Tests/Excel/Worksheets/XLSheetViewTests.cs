@@ -1,17 +1,16 @@
 ﻿
 using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Worksheets;
 
-[TestFixture]
 public class XLSheetViewTests
 {
     [Test]
-    public void CopyWorksheetSheetViews()
+    public async Task CopyWorksheetSheetViews()
     {
         using var wb1 = new XLWorkbook();
         using var wb2 = new XLWorkbook();
@@ -21,22 +20,22 @@ public class XLSheetViewTests
 
         var ws2 = ws1.CopyTo(wb2, "WS2");
 
-        Assert.AreEqual(ws2, ws2.SheetView.Worksheet);
-        Assert.AreEqual("AZ2000", ws2.SheetView.TopLeftCellAddress.ToString());
+        await Assert.That(ws2.SheetView.Worksheet).IsEqualTo(ws2);
+        await Assert.That(ws2.SheetView.TopLeftCellAddress.ToString()).IsEqualTo("AZ2000");
     }
 
     [Test]
-    public void InvalidTopLeftCell()
+    public async Task InvalidTopLeftCell()
     {
         using var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet();
         var ws2 = wb.AddWorksheet();
 
-        Assert.Throws<ArgumentException>(() => ws1.SheetView.TopLeftCellAddress = ws2.Cell("A1").Address);
+        await Assert.That(() => ws1.SheetView.TopLeftCellAddress = ws2.Cell("A1").Address).Throws<ArgumentException>();
     }
 
     [Test]
-    public void SheetViews()
+    public async Task SheetViews()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -51,7 +50,7 @@ public class XLSheetViewTests
         using (var wb = new XLWorkbook(ms))
         {
             var ws = wb.Worksheets.First();
-            Assert.AreEqual("AZ2000", ws.SheetView.TopLeftCellAddress.ToString());
+            await Assert.That(ws.SheetView.TopLeftCellAddress.ToString()).IsEqualTo("AZ2000");
 
             ws.SheetView.TopLeftCellAddress = ws.Cell("AZ2000")
                 .CellBelow()
@@ -66,7 +65,7 @@ public class XLSheetViewTests
         using (var wb = new XLWorkbook(ms))
         {
             var ws = wb.Worksheets.First();
-            Assert.AreEqual("BA2001", ws.SheetView.TopLeftCellAddress.ToString());
+            await Assert.That(ws.SheetView.TopLeftCellAddress.ToString()).IsEqualTo("BA2001");
         }
     }
 }

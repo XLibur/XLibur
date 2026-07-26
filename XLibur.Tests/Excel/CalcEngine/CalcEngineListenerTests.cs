@@ -1,35 +1,33 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
-
 /// <summary>
 /// Tests that calc engine adjusts its internal state in response to changes of workbook structure.
 /// </summary>
-[TestFixture]
 internal class CalcEngineListenerTests
 {
     [Test]
-    public void Formulas_dependent_on_specific_sheet_are_dirty_after_sheet_addition()
+    public async Task Formulas_dependent_on_specific_sheet_are_dirty_after_sheet_addition()
     {
         using var wb = new XLWorkbook();
         var sutWs = wb.AddWorksheet();
         sutWs.Cell("A1").FormulaA1 = "new!A1";
-        Assert.AreEqual(XLError.CellReference, sutWs.Cell("A1").Value);
+        await Assert.That(sutWs.Cell("A1").Value).IsEqualTo(XLError.CellReference);
 
         var newWs = wb.AddWorksheet("new");
         newWs.Cell("A1").Value = 5;
 
         // Cell contains last calculated value
-        Assert.AreEqual(XLError.CellReference, sutWs.Cell("A1").CachedValue);
+        await Assert.That(sutWs.Cell("A1").CachedValue).IsEqualTo(XLError.CellReference);
 
         // But once asked for real value, it calculates it.
-        Assert.True(sutWs.Cell("A1").NeedsRecalculation);
-        Assert.AreEqual(5.0, sutWs.Cell("A1").Value);
+        await Assert.That(sutWs.Cell("A1").NeedsRecalculation).IsTrue();
+        await Assert.That(sutWs.Cell("A1").Value).IsEqualTo(5.0);
     }
 
     [Test]
-    public void Formulas_dependent_on_specific_sheet_are_dirty_after_sheet_deletion()
+    public async Task Formulas_dependent_on_specific_sheet_are_dirty_after_sheet_deletion()
     {
         using var wb = new XLWorkbook();
         var keptWs = wb.AddWorksheet();
@@ -37,20 +35,20 @@ internal class CalcEngineListenerTests
 
         deletedWs.Cell("A1").Value = 5;
         keptWs.Cell("A1").FormulaA1 = "deleted!A1";
-        Assert.AreEqual(5.0, keptWs.Cell("A1").Value);
+        await Assert.That(keptWs.Cell("A1").Value).IsEqualTo(5.0);
 
         deletedWs.Delete();
 
         // Cell contains last calculated value
-        Assert.AreEqual(5.0, keptWs.Cell("A1").CachedValue);
+        await Assert.That(keptWs.Cell("A1").CachedValue).IsEqualTo(5.0);
 
         // But once asked for real value, it calculates it.
-        Assert.True(keptWs.Cell("A1").NeedsRecalculation);
-        Assert.AreEqual(XLError.CellReference, keptWs.Cell("A1").Value);
+        await Assert.That(keptWs.Cell("A1").NeedsRecalculation).IsTrue();
+        await Assert.That(keptWs.Cell("A1").Value).IsEqualTo(XLError.CellReference);
     }
 
     [Test]
-    public void Formulas_are_shifted_when_area_is_added_and_cells_shifted_down()
+    public async Task Formulas_are_shifted_when_area_is_added_and_cells_shifted_down()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -62,19 +60,19 @@ internal class CalcEngineListenerTests
 
         ws.Range("A1:B1").InsertRowsAbove(2);
 
-        Assert.AreEqual(12.0, ws.Cell("A3").Value);
-        Assert.False(ws.Cell("A3").NeedsRecalculation);
-        Assert.False(ws.Cell("B3").NeedsRecalculation);
+        await Assert.That(ws.Cell("A3").Value).IsEqualTo(12.0);
+        await Assert.That(ws.Cell("A3").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("B3").NeedsRecalculation).IsFalse();
 
         // Dependency tree should pick up the change
         ws.Cell("C1").FormulaA1 = "2+2";
-        Assert.True(ws.Cell("A3").NeedsRecalculation);
-        Assert.True(ws.Cell("B3").NeedsRecalculation);
-        Assert.AreEqual(16.0, ws.Cell("A3").Value);
+        await Assert.That(ws.Cell("A3").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("B3").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("A3").Value).IsEqualTo(16.0);
     }
 
     [Test]
-    public void Formulas_are_shifted_when_area_is_added_and_cells_shifted_right()
+    public async Task Formulas_are_shifted_when_area_is_added_and_cells_shifted_right()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -86,18 +84,18 @@ internal class CalcEngineListenerTests
 
         ws.Cell("A2").InsertCellsBefore(4);
 
-        Assert.AreEqual(12.0, ws.Cell("A1").Value);
-        Assert.False(ws.Cell("E2").NeedsRecalculation);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(12.0);
+        await Assert.That(ws.Cell("E2").NeedsRecalculation).IsFalse();
 
         // Dependency tree should pick up the change
         ws.Cell("A3").FormulaA1 = "2+2";
-        Assert.True(ws.Cell("E2").NeedsRecalculation);
-        Assert.True(ws.Cell("A1").NeedsRecalculation);
-        Assert.AreEqual(16.0, ws.Cell("A1").Value);
+        await Assert.That(ws.Cell("E2").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("A1").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(16.0);
     }
 
     [Test]
-    public void Formulas_are_shifted_when_area_is_deleted_and_cells_shifted_up()
+    public async Task Formulas_are_shifted_when_area_is_deleted_and_cells_shifted_up()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -109,19 +107,19 @@ internal class CalcEngineListenerTests
 
         ws.Range("B2:C4").Delete(XLShiftDeletedCells.ShiftCellsUp);
 
-        Assert.AreEqual(12.0, ws.Cell("C2").Value);
-        Assert.False(ws.Cell("B2").NeedsRecalculation);
-        Assert.False(ws.Cell("A2").NeedsRecalculation);
+        await Assert.That(ws.Cell("C2").Value).IsEqualTo(12.0);
+        await Assert.That(ws.Cell("B2").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("A2").NeedsRecalculation).IsFalse();
 
         // Dependency tree should pick up the change
         ws.Cell("A5").FormulaA1 = "2+2";
-        Assert.True(ws.Cell("B2").NeedsRecalculation);
-        Assert.True(ws.Cell("C2").NeedsRecalculation);
-        Assert.AreEqual(16.0, ws.Cell("C2").Value);
+        await Assert.That(ws.Cell("B2").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("C2").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("C2").Value).IsEqualTo(16.0);
     }
 
     [Test]
-    public void Formulas_are_shifted_when_area_is_deleted_and_cells_shifted_left()
+    public async Task Formulas_are_shifted_when_area_is_deleted_and_cells_shifted_left()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -133,14 +131,14 @@ internal class CalcEngineListenerTests
 
         ws.Range("A1:C5").Delete(XLShiftDeletedCells.ShiftCellsLeft);
 
-        Assert.AreEqual(12.0, ws.Cell("A3").Value);
-        Assert.False(ws.Cell("B2").NeedsRecalculation);
-        Assert.False(ws.Cell("A1").NeedsRecalculation);
+        await Assert.That(ws.Cell("A3").Value).IsEqualTo(12.0);
+        await Assert.That(ws.Cell("B2").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("A1").NeedsRecalculation).IsFalse();
 
         // Dependency tree should pick up the change
         ws.Cell("A1").FormulaA1 = "2+2";
-        Assert.True(ws.Cell("B2").NeedsRecalculation);
-        Assert.True(ws.Cell("A3").NeedsRecalculation);
-        Assert.AreEqual(16.0, ws.Cell("A3").Value);
+        await Assert.That(ws.Cell("B2").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("A3").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("A3").Value).IsEqualTo(16.0);
     }
 }

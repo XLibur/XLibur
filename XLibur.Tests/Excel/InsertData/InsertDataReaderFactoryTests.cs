@@ -1,33 +1,34 @@
 ﻿using XLibur.Excel.InsertData;
-using NUnit.Framework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.InsertData;
 
 public class InsertDataReaderFactoryTests
 {
     [Test]
-    public void CanInstantiateFactory()
+    public async Task CanInstantiateFactory()
     {
         var factory = InsertDataReaderFactory.Instance;
 
-        Assert.IsNotNull(factory);
-        Assert.AreSame(factory, InsertDataReaderFactory.Instance);
+        await Assert.That(factory).IsNotNull();
+        await Assert.That(InsertDataReaderFactory.Instance).IsSameReferenceAs(factory);
     }
 
-    [TestCaseSource(nameof(SimpleSources))]
-    public void CanCreateSimpleReader(IEnumerable data)
+    [Test]
+    [MethodDataSource(nameof(SimpleSources))]
+    public async Task CanCreateSimpleReader(IEnumerable data)
     {
         var reader = InsertDataReaderFactory.CreateReader(data);
 
-        Assert.IsInstanceOf<SimpleTypeReader>(reader);
+        await Assert.That(reader).IsAssignableTo<SimpleTypeReader>();
     }
 
-    private static IEnumerable<object> SimpleSources
+    public static IEnumerable<object> SimpleSources
     {
         get
         {
@@ -39,15 +40,16 @@ public class InsertDataReaderFactoryTests
         }
     }
 
-    [TestCaseSource(nameof(SimpleNullableSources))]
-    public void CanCreateSimpleNullableReader(IEnumerable data)
+    [Test]
+    [MethodDataSource(nameof(SimpleNullableSources))]
+    public async Task CanCreateSimpleNullableReader(IEnumerable data)
     {
         var reader = InsertDataReaderFactory.CreateReader(data);
 
-        Assert.IsInstanceOf<SimpleNullableTypeReader>(reader);
+        await Assert.That(reader).IsAssignableTo<SimpleNullableTypeReader>();
     }
 
-    private static IEnumerable<object> SimpleNullableSources
+    public static IEnumerable<object> SimpleNullableSources
     {
         get
         {
@@ -58,15 +60,21 @@ public class InsertDataReaderFactoryTests
         }
     }
 
-    [TestCaseSource(nameof(ArraySources))]
-    public void CanCreateArrayReader<T>(IEnumerable<T> data)
+    [Test]
+    [MethodDataSource(nameof(ArraySources))]
+    // Was generic. TUnit's source generator could not resolve the type argument for a
+    // generic test fed by this data source and silently produced no test cases at all, so
+    // the four cases disappeared from the run. The generic parameter was never load-bearing:
+    // with an unconstrained T, IEnumerable<T> only converts to the non-generic
+    // CreateReader(IEnumerable) overload, which is what this bound to before.
+    public async Task CanCreateArrayReader(IEnumerable data)
     {
         var reader = InsertDataReaderFactory.CreateReader(data);
 
-        Assert.IsInstanceOf<ArrayReader>(reader);
+        await Assert.That(reader).IsAssignableTo<ArrayReader>();
     }
 
-    private static IEnumerable<object[]> ArraySources
+    public static IEnumerable<object[]> ArraySources
     {
         get
         {
@@ -102,7 +110,7 @@ public class InsertDataReaderFactoryTests
     private static readonly double[] SourceArray0 = [1.0, 2.0, 3.0];
 
     [Test]
-    public void CanCreateArrayReaderFromIEnumerableOfIEnumerables()
+    public async Task CanCreateArrayReaderFromIEnumerableOfIEnumerables()
     {
         IEnumerable<IEnumerable> data = new List<IEnumerable>
         {
@@ -111,11 +119,11 @@ public class InsertDataReaderFactoryTests
         };
         var reader = InsertDataReaderFactory.CreateReader(data);
 
-        Assert.IsInstanceOf<ArrayReader>(reader);
+        await Assert.That(reader).IsAssignableTo<ArrayReader>();
     }
 
     [Test]
-    public void CanCreateSimpleReaderFromIEnumerableOfString()
+    public async Task CanCreateSimpleReaderFromIEnumerableOfString()
     {
         IEnumerable<string> data = new[]
         {
@@ -124,44 +132,44 @@ public class InsertDataReaderFactoryTests
         };
         var reader = InsertDataReaderFactory.CreateReader(data);
 
-        Assert.IsInstanceOf<SimpleTypeReader>(reader);
+        await Assert.That(reader).IsAssignableTo<SimpleTypeReader>();
     }
 
     [Test]
-    public void CanCreateDataTableReader()
+    public async Task CanCreateDataTableReader()
     {
         var dt = new DataTable();
         var reader = InsertDataReaderFactory.CreateReader(dt);
 
-        Assert.IsInstanceOf<XLibur.Excel.InsertData.DataTableReader>(reader);
+        await Assert.That(reader).IsAssignableTo<XLibur.Excel.InsertData.DataTableReader>();
     }
 
     [Test]
-    public void CanCreateDataRecordReader()
+    public async Task CanCreateDataRecordReader()
     {
         var dataRecords = Array.Empty<IDataRecord>();
         var reader = InsertDataReaderFactory.CreateReader(dataRecords);
-        Assert.IsInstanceOf<DataRecordReader>(reader);
+        await Assert.That(reader).IsAssignableTo<DataRecordReader>();
     }
 
     [Test]
-    public void CanCreateObjectReader()
+    public async Task CanCreateObjectReader()
     {
         var entities = Array.Empty<TestEntity>();
         var reader = InsertDataReaderFactory.CreateReader(entities);
-        Assert.IsInstanceOf<ObjectReader>(reader);
+        await Assert.That(reader).IsAssignableTo<ObjectReader>();
     }
 
     [Test]
-    public void CanCreateObjectReaderForStruct()
+    public async Task CanCreateObjectReaderForStruct()
     {
         var entities = Array.Empty<TestStruct>();
         var reader = InsertDataReaderFactory.CreateReader(entities);
-        Assert.IsInstanceOf<ObjectReader>(reader);
+        await Assert.That(reader).IsAssignableTo<ObjectReader>();
     }
 
     [Test]
-    public void CanCreateUntypedObjectReader()
+    public async Task CanCreateUntypedObjectReader()
     {
         var entities = new ArrayList(new object[]
         {
@@ -169,7 +177,7 @@ public class InsertDataReaderFactoryTests
             "123",
         });
         var reader = InsertDataReaderFactory.CreateReader(entities);
-        Assert.IsInstanceOf<UntypedObjectReader>(reader);
+        await Assert.That(reader).IsAssignableTo<UntypedObjectReader>();
     }
 
     private class TestEntity;

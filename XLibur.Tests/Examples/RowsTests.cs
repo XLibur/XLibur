@@ -1,32 +1,31 @@
 ﻿using XLibur.Examples.Rows;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;
 
-[TestFixture]
 public class RowsTests
 {
     [Test]
-    public void RowCells()
+    public async Task RowCells()
     {
-        TestHelper.RunTestExample<RowCells>(@"Rows\RowCells.xlsx");
+        await TestHelper.RunTestExample<RowCells>(@"Rows\RowCells.xlsx");
     }
 
     [Test]
-    public void RowCollection()
+    public async Task RowCollection()
     {
-        TestHelper.RunTestExample<RowCollection>(@"Rows\RowCollection.xlsx");
+        await TestHelper.RunTestExample<RowCollection>(@"Rows\RowCollection.xlsx");
     }
 
     [Test]
-    public void RowSettings()
+    public async Task RowSettings()
     {
-        TestHelper.RunTestExample<RowSettings>(@"Rows\RowSettings.xlsx");
+        await TestHelper.RunTestExample<RowSettings>(@"Rows\RowSettings.xlsx");
     }
 
     //[Test] // Not working yet
-    public static void InsertRows()
+    public static async Task InsertRows()
     {
-        TestHelper.RunTestExample<InsertRows>(@"Rows\InsertRows.xlsx");
+        await TestHelper.RunTestExample<InsertRows>(@"Rows\InsertRows.xlsx");
     }
 }

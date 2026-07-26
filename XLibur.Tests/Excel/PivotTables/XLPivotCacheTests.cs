@@ -1,9 +1,9 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.PivotTables;
 
-[TestFixture]
 public class XLPivotCacheTests
 {
     private static readonly string[] PivotCacheFieldNamePie = ["Name", "Pie"];
@@ -11,7 +11,7 @@ public class XLPivotCacheTests
     private static readonly string[] PivotCacheFieldPastry = ["Pastry"];
 
     [Test]
-    public void FieldNames_KeepNamesEvenWhenSourceChange()
+    public async Task FieldNames_KeepNamesEvenWhenSourceChange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -20,11 +20,11 @@ public class XLPivotCacheTests
         var pivotCache = wb.PivotCaches.Add(range);
         ws.Cell("A1").Value = "Pastry";
 
-        Assert.AreEqual(PivotCacheFieldNameOnly, pivotCache.FieldNames);
+        await Assert.That(pivotCache.FieldNames).IsEquivalentTo(PivotCacheFieldNameOnly, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Refresh_UpdatesFieldNames()
+    public async Task Refresh_UpdatesFieldNames()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -34,11 +34,11 @@ public class XLPivotCacheTests
         ws.Cell("A1").Value = "Pastry";
         pivotCache.Refresh();
 
-        Assert.AreEqual(PivotCacheFieldPastry, pivotCache.FieldNames);
+        await Assert.That(pivotCache.FieldNames).IsEquivalentTo(PivotCacheFieldPastry, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Refresh_RetainsSetOptions()
+    public async Task Refresh_RetainsSetOptions()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -52,16 +52,16 @@ public class XLPivotCacheTests
 
         pivotCache.Refresh();
 
-        Assert.AreEqual(XLItemsToRetain.None, pivotCache.ItemsToRetainPerField);
-        Assert.AreEqual(false, pivotCache.SaveSourceData);
-        Assert.AreEqual(true, pivotCache.RefreshDataOnOpen);
+        await Assert.That(pivotCache.ItemsToRetainPerField).IsEqualTo(XLItemsToRetain.None);
+        await Assert.That(pivotCache.SaveSourceData).IsEqualTo(false);
+        await Assert.That(pivotCache.RefreshDataOnOpen).IsEqualTo(true);
     }
 
     [Test]
-    public void Refresh_RenamedFieldIsRemovedFromPivotTable()
+    public async Task Refresh_RenamedFieldIsRemovedFromPivotTable()
     {
         // Pivot table has only field for Pastry, the dough is no longer in the pivot table after refresh
-        TestHelper.CreateAndCompare(wb =>
+        await TestHelper.CreateAndCompare(wb =>
         {
             var ws = wb.AddWorksheet();
             var range = ws.FirstCell().InsertData(new object[]
@@ -83,19 +83,19 @@ public class XLPivotCacheTests
     }
 
     [Test]
-    public void Preserve_field_statistics_even_without_source_data()
+    public async Task Preserve_field_statistics_even_without_source_data()
     {
         // Even though the pivot table cache has no records in the workbook, it does contain
         // statistics about each field (e.g. types and min/max values). These are preserved
         // through load/save.
         // The cache fields in the file don't have any shared values or records, only stats,
         // and load/save preserves all Contains* flags and Min/Max values.
-        TestHelper.LoadAndAssert(wb =>
+        await TestHelper.LoadAndAssert(async wb =>
         {
-            Assert.That(wb.Worksheets.Count, Is.GreaterThan(0));
+            await Assert.That(wb.Worksheets.Count).IsGreaterThan(0);
         }, @"Other\PivotTableReferenceFiles\PivotCacheWithoutSourceData-input.xlsx");
 
-        TestHelper.LoadSaveAndCompare(
+        await TestHelper.LoadSaveAndCompare(
             @"Other\PivotTableReferenceFiles\PivotCacheWithoutSourceData-input.xlsx",
             @"Other\PivotTableReferenceFiles\PivotCacheWithoutSourceData-output.xlsx");
     }

@@ -1,13 +1,12 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Styles;
 
-[TestFixture]
 public class StyleChangeTests
 {
     [Test]
-    public void ChangeFontColorDoesNotAffectOtherProperties()
+    public async Task ChangeFontColorDoesNotAffectOtherProperties()
     {
         using var wb = new XLWorkbook();
         // Arrange
@@ -33,84 +32,84 @@ public class StyleChangeTests
         ws.Range("A1:B2").Style.Font.FontColor = XLColor.PowderBlue;
 
         // Assert
-        Assert.AreEqual(XLColor.Red, ws.Cell("A1").Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Green, ws.Cell("A2").Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Blue, ws.Cell("B1").Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Pink, ws.Cell("B2").Style.Fill.BackgroundColor);
+        await Assert.That(ws.Cell("A1").Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Cell("A2").Style.Fill.BackgroundColor).IsEqualTo(XLColor.Green);
+        await Assert.That(ws.Cell("B1").Style.Fill.BackgroundColor).IsEqualTo(XLColor.Blue);
+        await Assert.That(ws.Cell("B2").Style.Fill.BackgroundColor).IsEqualTo(XLColor.Pink);
 
-        Assert.AreEqual("Arial", ws.Cell("A1").Style.Font.FontName);
-        Assert.AreEqual("Times New Roman", ws.Cell("A2").Style.Font.FontName);
-        Assert.AreEqual("Calibri", ws.Cell("B1").Style.Font.FontName);
-        Assert.AreEqual("Cambria", ws.Cell("B2").Style.Font.FontName);
+        await Assert.That(ws.Cell("A1").Style.Font.FontName).IsEqualTo("Arial");
+        await Assert.That(ws.Cell("A2").Style.Font.FontName).IsEqualTo("Times New Roman");
+        await Assert.That(ws.Cell("B1").Style.Font.FontName).IsEqualTo("Calibri");
+        await Assert.That(ws.Cell("B2").Style.Font.FontName).IsEqualTo("Cambria");
 
-        Assert.AreEqual(XLColor.PowderBlue, ws.Cell("A1").Style.Font.FontColor);
-        Assert.AreEqual(XLColor.PowderBlue, ws.Cell("A2").Style.Font.FontColor);
-        Assert.AreEqual(XLColor.PowderBlue, ws.Cell("B1").Style.Font.FontColor);
-        Assert.AreEqual(XLColor.PowderBlue, ws.Cell("B2").Style.Font.FontColor);
+        await Assert.That(ws.Cell("A1").Style.Font.FontColor).IsEqualTo(XLColor.PowderBlue);
+        await Assert.That(ws.Cell("A2").Style.Font.FontColor).IsEqualTo(XLColor.PowderBlue);
+        await Assert.That(ws.Cell("B1").Style.Font.FontColor).IsEqualTo(XLColor.PowderBlue);
+        await Assert.That(ws.Cell("B2").Style.Font.FontColor).IsEqualTo(XLColor.PowderBlue);
     }
 
     [Test]
-    public void ChangeDetachedStyleAlignment()
+    public async Task ChangeDetachedStyleAlignment()
     {
         var style = XLStyle.Default;
 
         style.Alignment.Horizontal = XLAlignmentHorizontalValues.Justify;
 
-        Assert.AreEqual(XLAlignmentHorizontalValues.Justify, style.Alignment.Horizontal);
+        await Assert.That(style.Alignment.Horizontal).IsEqualTo(XLAlignmentHorizontalValues.Justify);
     }
 
     [Test]
-    public void ChangeDetachedStyleBorder()
+    public async Task ChangeDetachedStyleBorder()
     {
         var style = XLStyle.Default;
 
         style.Border.DiagonalBorder = XLBorderStyleValues.Double;
 
-        Assert.AreEqual(XLBorderStyleValues.Double, style.Border.DiagonalBorder);
+        await Assert.That(style.Border.DiagonalBorder).IsEqualTo(XLBorderStyleValues.Double);
     }
 
     [Test]
-    public void ChangeDetachedStyleFill()
+    public async Task ChangeDetachedStyleFill()
     {
         var style = XLStyle.Default;
 
         style.Fill.BackgroundColor = XLColor.Red;
 
-        Assert.AreEqual(XLColor.Red, style.Fill.BackgroundColor);
+        await Assert.That(style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
     }
 
     [Test]
-    public void ChangeDetachedStyleFont()
+    public async Task ChangeDetachedStyleFont()
     {
         var style = XLStyle.Default;
 
         style.Font.FontSize = 50;
 
-        Assert.AreEqual(50, style.Font.FontSize);
+        await Assert.That(style.Font.FontSize).IsEqualTo(50);
     }
 
     [Test]
-    public void ChangeDetachedStyleNumberFormat()
+    public async Task ChangeDetachedStyleNumberFormat()
     {
         var style = XLStyle.Default;
 
         style.NumberFormat.Format = "YYYY";
 
-        Assert.AreEqual("YYYY", style.NumberFormat.Format);
+        await Assert.That(style.NumberFormat.Format).IsEqualTo("YYYY");
     }
 
     [Test]
-    public void ChangeDetachedStyleProtection()
+    public async Task ChangeDetachedStyleProtection()
     {
         var style = XLStyle.Default;
 
         style.Protection.Hidden = true;
 
-        Assert.AreEqual(true, style.Protection.Hidden);
+        await Assert.That(style.Protection.Hidden).IsEqualTo(true);
     }
 
     [Test]
-    public void ChangeAttachedStyleAlignment()
+    public async Task ChangeAttachedStyleAlignment()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -118,6 +117,6 @@ public class StyleChangeTests
 
         a1.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Justify;
 
-        Assert.AreEqual(XLAlignmentHorizontalValues.Justify, a1.Style.Alignment.Horizontal);
+        await Assert.That(a1.Style.Alignment.Horizontal).IsEqualTo(XLAlignmentHorizontalValues.Justify);
     }
 }

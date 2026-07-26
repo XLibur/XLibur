@@ -1,12 +1,10 @@
-﻿using NUnit.Framework;
-using XLibur.Excel;
+﻿using XLibur.Excel;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
-
 // SEQUENCE / UNIQUE / SORT / SORTBY / FILTER / XLOOKUP / XMATCH.
 // Array results are exercised through legacy CSE array formulas (FormulaArrayA1) over a correctly
 // sized range; scalar results (and the top-left collapse) through ws.Evaluate.
-[TestFixture]
 public class DynamicArrayFunctionTests
 {
     private static XLWorksheet NewSheet(out XLWorkbook wb)
@@ -16,39 +14,39 @@ public class DynamicArrayFunctionTests
     }
 
     [Test]
-    public void Sequence_FillsRowMajor()
+    public async Task Sequence_FillsRowMajor()
     {
         var ws = NewSheet(out var wb);
         using (wb)
         {
             ws.Range("A1:B3").FormulaArrayA1 = "SEQUENCE(3, 2)";
-            Assert.AreEqual(1, ws.Cell("A1").Value);
-            Assert.AreEqual(2, ws.Cell("B1").Value);
-            Assert.AreEqual(3, ws.Cell("A2").Value);
-            Assert.AreEqual(4, ws.Cell("B2").Value);
-            Assert.AreEqual(5, ws.Cell("A3").Value);
-            Assert.AreEqual(6, ws.Cell("B3").Value);
+            await Assert.That(ws.Cell("A1").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("B1").Value).IsEqualTo(2);
+            await Assert.That(ws.Cell("A2").Value).IsEqualTo(3);
+            await Assert.That(ws.Cell("B2").Value).IsEqualTo(4);
+            await Assert.That(ws.Cell("A3").Value).IsEqualTo(5);
+            await Assert.That(ws.Cell("B3").Value).IsEqualTo(6);
 
             // Start and step.
             ws.Range("D1:D3").FormulaArrayA1 = "SEQUENCE(3, 1, 10, 5)";
-            Assert.AreEqual(10, ws.Cell("D1").Value);
-            Assert.AreEqual(15, ws.Cell("D2").Value);
-            Assert.AreEqual(20, ws.Cell("D3").Value);
+            await Assert.That(ws.Cell("D1").Value).IsEqualTo(10);
+            await Assert.That(ws.Cell("D2").Value).IsEqualTo(15);
+            await Assert.That(ws.Cell("D3").Value).IsEqualTo(20);
         }
     }
 
     [Test]
-    public void Sequence_ScalarContext_ReturnsTopLeft()
+    public async Task Sequence_ScalarContext_ReturnsTopLeft()
     {
         var ws = NewSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(1, ws.Evaluate("SEQUENCE(3, 2)"));
+            await Assert.That(ws.Evaluate("SEQUENCE(3, 2)")).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void Unique_ReturnsDistinctValuesInOrder()
+    public async Task Unique_ReturnsDistinctValuesInOrder()
     {
         var ws = NewSheet(out var wb);
         using (wb)
@@ -60,14 +58,14 @@ public class DynamicArrayFunctionTests
             ws.Cell("A5").Value = 1;
 
             ws.Range("C1:C3").FormulaArrayA1 = "UNIQUE(A1:A5)";
-            Assert.AreEqual(1, ws.Cell("C1").Value);
-            Assert.AreEqual(2, ws.Cell("C2").Value);
-            Assert.AreEqual(3, ws.Cell("C3").Value);
+            await Assert.That(ws.Cell("C1").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("C2").Value).IsEqualTo(2);
+            await Assert.That(ws.Cell("C3").Value).IsEqualTo(3);
         }
     }
 
     [Test]
-    public void Unique_ExactlyOnce_KeepsValuesAppearingOnce()
+    public async Task Unique_ExactlyOnce_KeepsValuesAppearingOnce()
     {
         var ws = NewSheet(out var wb);
         using (wb)
@@ -79,13 +77,13 @@ public class DynamicArrayFunctionTests
 
             // by_col FALSE, exactly_once TRUE -> only 1 and 3.
             ws.Range("C1:C2").FormulaArrayA1 = "UNIQUE(A1:A4, FALSE, TRUE)";
-            Assert.AreEqual(1, ws.Cell("C1").Value);
-            Assert.AreEqual(3, ws.Cell("C2").Value);
+            await Assert.That(ws.Cell("C1").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("C2").Value).IsEqualTo(3);
         }
     }
 
     [Test]
-    public void Sort_OrdersRows()
+    public async Task Sort_OrdersRows()
     {
         var ws = NewSheet(out var wb);
         using (wb)
@@ -96,22 +94,22 @@ public class DynamicArrayFunctionTests
             ws.Cell("A4").Value = 1;
 
             ws.Range("C1:C4").FormulaArrayA1 = "SORT(A1:A4)";
-            Assert.AreEqual(1, ws.Cell("C1").Value);
-            Assert.AreEqual(1, ws.Cell("C2").Value);
-            Assert.AreEqual(3, ws.Cell("C3").Value);
-            Assert.AreEqual(4, ws.Cell("C4").Value);
+            await Assert.That(ws.Cell("C1").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("C2").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("C3").Value).IsEqualTo(3);
+            await Assert.That(ws.Cell("C4").Value).IsEqualTo(4);
 
             // Descending.
             ws.Range("D1:D4").FormulaArrayA1 = "SORT(A1:A4, 1, -1)";
-            Assert.AreEqual(4, ws.Cell("D1").Value);
-            Assert.AreEqual(3, ws.Cell("D2").Value);
-            Assert.AreEqual(1, ws.Cell("D3").Value);
-            Assert.AreEqual(1, ws.Cell("D4").Value);
+            await Assert.That(ws.Cell("D1").Value).IsEqualTo(4);
+            await Assert.That(ws.Cell("D2").Value).IsEqualTo(3);
+            await Assert.That(ws.Cell("D3").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("D4").Value).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void SortBy_OrdersBySeparateKey()
+    public async Task SortBy_OrdersBySeparateKey()
     {
         var ws = NewSheet(out var wb);
         using (wb)
@@ -124,14 +122,14 @@ public class DynamicArrayFunctionTests
             ws.Cell("B3").Value = 2;
 
             ws.Range("C1:C3").FormulaArrayA1 = "SORTBY(A1:A3, B1:B3)";
-            Assert.AreEqual("a", ws.Cell("C1").Value);
-            Assert.AreEqual("b", ws.Cell("C2").Value);
-            Assert.AreEqual("c", ws.Cell("C3").Value);
+            await Assert.That(ws.Cell("C1").Value).IsEqualTo("a");
+            await Assert.That(ws.Cell("C2").Value).IsEqualTo("b");
+            await Assert.That(ws.Cell("C3").Value).IsEqualTo("c");
         }
     }
 
     [Test]
-    public void Filter_KeepsMatchingRows()
+    public async Task Filter_KeepsMatchingRows()
     {
         var ws = NewSheet(out var wb);
         using (wb)
@@ -142,25 +140,25 @@ public class DynamicArrayFunctionTests
             ws.Cell("A4").Value = 40;
 
             ws.Range("C1:C2").FormulaArrayA1 = "FILTER(A1:A4, A1:A4>25)";
-            Assert.AreEqual(30, ws.Cell("C1").Value);
-            Assert.AreEqual(40, ws.Cell("C2").Value);
+            await Assert.That(ws.Cell("C1").Value).IsEqualTo(30);
+            await Assert.That(ws.Cell("C2").Value).IsEqualTo(40);
         }
     }
 
     [Test]
-    public void Filter_NoMatch_ReturnsIfEmpty()
+    public async Task Filter_NoMatch_ReturnsIfEmpty()
     {
         var ws = NewSheet(out var wb);
         using (wb)
         {
             ws.Cell("A1").Value = 1;
             ws.Cell("A2").Value = 2;
-            Assert.AreEqual("none", ws.Evaluate("FILTER(A1:A2, A1:A2>9, \"none\")"));
+            await Assert.That(ws.Evaluate("FILTER(A1:A2, A1:A2>9, \"none\")")).IsEqualTo("none");
         }
     }
 
     [Test]
-    public void XLookup_ExactMatch()
+    public async Task XLookup_ExactMatch()
     {
         var ws = NewSheet(out var wb);
         using (wb)
@@ -172,16 +170,16 @@ public class DynamicArrayFunctionTests
             ws.Cell("B2").Value = 20;
             ws.Cell("B3").Value = 30;
 
-            Assert.AreEqual(20, ws.Evaluate("XLOOKUP(\"banana\", A1:A3, B1:B3)"));
+            await Assert.That(ws.Evaluate("XLOOKUP(\"banana\", A1:A3, B1:B3)")).IsEqualTo(20);
             // Not found with a provided fallback.
-            Assert.AreEqual("missing", ws.Evaluate("XLOOKUP(\"kiwi\", A1:A3, B1:B3, \"missing\")"));
+            await Assert.That(ws.Evaluate("XLOOKUP(\"kiwi\", A1:A3, B1:B3, \"missing\")")).IsEqualTo("missing");
             // Not found without fallback -> #N/A.
-            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("XLOOKUP(\"kiwi\", A1:A3, B1:B3)"));
+            await Assert.That(ws.Evaluate("XLOOKUP(\"kiwi\", A1:A3, B1:B3)")).IsEqualTo(XLError.NoValueAvailable);
         }
     }
 
     [Test]
-    public void XLookup_NextSmallerMatchMode()
+    public async Task XLookup_NextSmallerMatchMode()
     {
         var ws = NewSheet(out var wb);
         using (wb)
@@ -194,12 +192,12 @@ public class DynamicArrayFunctionTests
             ws.Cell("B3").Value = "high";
 
             // 4 has no exact match; match mode -1 falls back to the next smaller (3 -> "mid").
-            Assert.AreEqual("mid", ws.Evaluate("XLOOKUP(4, A1:A3, B1:B3, , -1)"));
+            await Assert.That(ws.Evaluate("XLOOKUP(4, A1:A3, B1:B3, , -1)")).IsEqualTo("mid");
         }
     }
 
     [Test]
-    public void XMatch_ReturnsPosition()
+    public async Task XMatch_ReturnsPosition()
     {
         var ws = NewSheet(out var wb);
         using (wb)
@@ -208,14 +206,14 @@ public class DynamicArrayFunctionTests
             ws.Cell("A2").Value = "banana";
             ws.Cell("A3").Value = "cherry";
 
-            Assert.AreEqual(2, ws.Evaluate("XMATCH(\"banana\", A1:A3)"));
-            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("XMATCH(\"kiwi\", A1:A3)"));
+            await Assert.That(ws.Evaluate("XMATCH(\"banana\", A1:A3)")).IsEqualTo(2);
+            await Assert.That(ws.Evaluate("XMATCH(\"kiwi\", A1:A3)")).IsEqualTo(XLError.NoValueAvailable);
 
             ws.Cell("D1").Value = 1;
             ws.Cell("D2").Value = 3;
             ws.Cell("D3").Value = 5;
             // Next-smaller: 4 -> position of 3.
-            Assert.AreEqual(2, ws.Evaluate("XMATCH(4, D1:D3, -1)"));
+            await Assert.That(ws.Evaluate("XMATCH(4, D1:D3, -1)")).IsEqualTo(2);
         }
     }
 }

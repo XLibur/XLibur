@@ -1,10 +1,11 @@
-﻿using XLibur.Excel;
-using NUnit.Framework;
+﻿using System;
+using System.Collections.Generic;
+using XLibur.Excel;
 using XLibur.Extensions;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Misc;
 
-[TestFixture]
 public class StylesTests
 {
     private static void SetupBorders(IXLRange range)
@@ -27,7 +28,7 @@ public class StylesTests
     }
 
     [Test]
-    public void InsideBorderTest()
+    public async Task InsideBorderTest()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -40,49 +41,53 @@ public class StylesTests
 
         var center = range.Cell(2, 2);
 
-        Assert.AreEqual(XLColor.Red, center.Style.Border.TopBorderColor);
-        Assert.AreEqual(XLColor.Red, center.Style.Border.BottomBorderColor);
-        Assert.AreEqual(XLColor.Red, center.Style.Border.LeftBorderColor);
-        Assert.AreEqual(XLColor.Red, center.Style.Border.RightBorderColor);
+        await Assert.That(center.Style.Border.TopBorderColor).IsEqualTo(XLColor.Red);
+        await Assert.That(center.Style.Border.BottomBorderColor).IsEqualTo(XLColor.Red);
+        await Assert.That(center.Style.Border.LeftBorderColor).IsEqualTo(XLColor.Red);
+        await Assert.That(center.Style.Border.RightBorderColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual(XLBorderStyleValues.None, range.FirstRow().Cell(1).Style.Border.TopBorder);
-        Assert.AreEqual(XLBorderStyleValues.Thick, range.FirstRow().Cell(2).Style.Border.TopBorder);
-        Assert.AreEqual(XLBorderStyleValues.Double, range.FirstRow().Cell(3).Style.Border.TopBorder);
+        await Assert.That(range.FirstRow().Cell(1).Style.Border.TopBorder).IsEqualTo(XLBorderStyleValues.None);
+        await Assert.That(range.FirstRow().Cell(2).Style.Border.TopBorder).IsEqualTo(XLBorderStyleValues.Thick);
+        await Assert.That(range.FirstRow().Cell(3).Style.Border.TopBorder).IsEqualTo(XLBorderStyleValues.Double);
 
-        Assert.AreEqual(XLBorderStyleValues.None, range.LastRow().Cell(1).Style.Border.BottomBorder);
-        Assert.AreEqual(XLBorderStyleValues.Thick, range.LastRow().Cell(2).Style.Border.BottomBorder);
-        Assert.AreEqual(XLBorderStyleValues.Double, range.LastRow().Cell(3).Style.Border.BottomBorder);
+        await Assert.That(range.LastRow().Cell(1).Style.Border.BottomBorder).IsEqualTo(XLBorderStyleValues.None);
+        await Assert.That(range.LastRow().Cell(2).Style.Border.BottomBorder).IsEqualTo(XLBorderStyleValues.Thick);
+        await Assert.That(range.LastRow().Cell(3).Style.Border.BottomBorder).IsEqualTo(XLBorderStyleValues.Double);
 
-        Assert.AreEqual(XLBorderStyleValues.None, range.FirstColumn().Cell(1).Style.Border.LeftBorder);
-        Assert.AreEqual(XLBorderStyleValues.Thick, range.FirstColumn().Cell(2).Style.Border.LeftBorder);
-        Assert.AreEqual(XLBorderStyleValues.Double, range.FirstColumn().Cell(3).Style.Border.LeftBorder);
+        await Assert.That(range.FirstColumn().Cell(1).Style.Border.LeftBorder).IsEqualTo(XLBorderStyleValues.None);
+        await Assert.That(range.FirstColumn().Cell(2).Style.Border.LeftBorder).IsEqualTo(XLBorderStyleValues.Thick);
+        await Assert.That(range.FirstColumn().Cell(3).Style.Border.LeftBorder).IsEqualTo(XLBorderStyleValues.Double);
 
-        Assert.AreEqual(XLBorderStyleValues.None, range.LastColumn().Cell(1).Style.Border.RightBorder);
-        Assert.AreEqual(XLBorderStyleValues.Thick, range.LastColumn().Cell(2).Style.Border.RightBorder);
-        Assert.AreEqual(XLBorderStyleValues.Double, range.LastColumn().Cell(3).Style.Border.RightBorder);
+        await Assert.That(range.LastColumn().Cell(1).Style.Border.RightBorder).IsEqualTo(XLBorderStyleValues.None);
+        await Assert.That(range.LastColumn().Cell(2).Style.Border.RightBorder).IsEqualTo(XLBorderStyleValues.Thick);
+        await Assert.That(range.LastColumn().Cell(3).Style.Border.RightBorder).IsEqualTo(XLBorderStyleValues.Double);
     }
 
     [Test]
-    public void ResolveThemeColors()
+    public async Task ResolveThemeColors()
     {
         using var wb = new XLWorkbook();
         var color = wb.Theme.ResolveThemeColor(XLThemeColor.Accent1).Color.ToHex();
-        Assert.AreEqual("FF4F81BD", color);
+        await Assert.That(color).IsEqualTo("FF4F81BD");
 
         color = wb.Theme.ResolveThemeColor(XLThemeColor.Background1).Color.ToHex();
-        Assert.AreEqual("FFFFFFFF", color);
+        await Assert.That(color).IsEqualTo("FFFFFFFF");
     }
 
-    [Theory]
-    public void CanResolveAllThemeColors(XLThemeColor themeColor)
+    // NUnit's [Theory] fed this from the enum automatically; TUnit needs it explicit.
+    public static IEnumerable<XLThemeColor> AllThemeColors() => Enum.GetValues<XLThemeColor>();
+
+    [Test]
+    [MethodDataSource(nameof(AllThemeColors))]
+    public async Task CanResolveAllThemeColors(XLThemeColor themeColor)
     {
         var theme = new XLWorkbook().Theme;
         var color = theme.ResolveThemeColor(themeColor);
-        Assert.IsNotNull(color);
+        await Assert.That(color).IsNotNull();
     }
 
     [Test]
-    public void SetStyleViaRowReference()
+    public async Task SetStyleViaRowReference()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -98,9 +103,9 @@ public class StylesTests
 
         foreach (var cell in ws.CellsUsed())
         {
-            Assert.AreEqual(8, ws.Cell("A1").Style.Font.FontSize);
-            Assert.AreEqual(XLColor.Green, ws.Cell("B1").Style.Font.FontColor);
-            Assert.AreEqual(true, ws.Cell("C1").Style.Font.Bold);
+            await Assert.That(ws.Cell("A1").Style.Font.FontSize).IsEqualTo(8);
+            await Assert.That(ws.Cell("B1").Style.Font.FontColor).IsEqualTo(XLColor.Green);
+            await Assert.That(ws.Cell("C1").Style.Font.Bold).IsEqualTo(true);
         }
     }
 }

@@ -38,8 +38,19 @@ Solution uses `.slnx` format (modern MSBuild Solution Extension).
 
 ## Testing
 
-- **Framework:** NUnit 4.x with NUnit3TestAdapter
-- **Culture:** Tests default to en-US via SetCultureAttribute
+- **Framework:** TUnit 1.x, running on Microsoft.Testing.Platform (not VSTest).
+  `global.json` opts `dotnet test` into the MTP runner, so runner options are passed
+  directly (`--coverage`, `--report-trx`) rather than via VSTest data collectors.
+- **Assertions are awaitable** — `await Assert.That(actual).IsEqualTo(expected)`. A missing
+  `await` means the assertion never runs and the test passes regardless, so CS4014 should be
+  treated as an error, not a warning.
+- **Execution:** serial. `[assembly: NotInParallel]` in `TestInfrastructure.cs` preserves the
+  NUnit behaviour; the suite shares temp files, the calc engine, the font engine and culture.
+- **Culture:** en-US by default, applied per test by `TestDefaults.ApplyCulture`. Override a
+  single test or class with `[SetCulture("cs-CZ")]` (a local shim, not a TUnit attribute).
+- **Coverage:** Coverlet is incompatible with MTP. Use
+  `Microsoft.Testing.Extensions.CodeCoverage` (`--coverage --coverage-output-format xml`),
+  which SonarCloud reads via `sonar.cs.vscoveragexml.reportsPaths`.
 
 ## Key Dependencies
 

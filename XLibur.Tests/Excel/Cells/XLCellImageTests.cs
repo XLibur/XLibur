@@ -1,11 +1,10 @@
 ﻿using System.IO;
-using NUnit.Framework;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Cells;
 
-[TestFixture]
 public class XLCellImageTests
 {
     /// <summary>
@@ -29,7 +28,7 @@ public class XLCellImageTests
     }
 
     [Test]
-    public void SetCellImage_StoresImageInWorkbook()
+    public async Task SetCellImage_StoresImageInWorkbook()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -38,12 +37,12 @@ public class XLCellImageTests
         using var imgStream = new MemoryStream(CreateTestPng());
         cell.SetCellImage(imgStream, XLPictureFormat.Png);
 
-        Assert.That(wb.InCellImages.Count, Is.EqualTo(1));
-        Assert.That(cell.HasCellImage, Is.True);
+        await Assert.That(wb.InCellImages.Count).IsEqualTo(1);
+        await Assert.That(cell.HasCellImage).IsTrue();
     }
 
     [Test]
-    public void SetCellImage_DeduplicatesSameImage()
+    public async Task SetCellImage_DeduplicatesSameImage()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -55,26 +54,26 @@ public class XLCellImageTests
         using (var s2 = new MemoryStream(pngBytes))
             ws.Cell("B1").SetCellImage(s2, XLPictureFormat.Png);
 
-        Assert.That(wb.InCellImages.Count, Is.EqualTo(1));
+        await Assert.That(wb.InCellImages.Count).IsEqualTo(1);
     }
 
     [Test]
-    public void HasCellImage_ReturnsTrueAfterSet()
+    public async Task HasCellImage_ReturnsTrueAfterSet()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var cell = ws.Cell("A1");
 
-        Assert.That(cell.HasCellImage, Is.False);
+        await Assert.That(cell.HasCellImage).IsFalse();
 
         using var imgStream = new MemoryStream(CreateTestPng());
         cell.SetCellImage(imgStream, XLPictureFormat.Png);
 
-        Assert.That(cell.HasCellImage, Is.True);
+        await Assert.That(cell.HasCellImage).IsTrue();
     }
 
     [Test]
-    public void RemoveCellImage_ClearsImage()
+    public async Task RemoveCellImage_ClearsImage()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -84,11 +83,11 @@ public class XLCellImageTests
         cell.SetCellImage(imgStream, XLPictureFormat.Png);
         cell.RemoveCellImage();
 
-        Assert.That(cell.HasCellImage, Is.False);
+        await Assert.That(cell.HasCellImage).IsFalse();
     }
 
     [Test]
-    public void Clear_Contents_RemovesCellImage()
+    public async Task Clear_Contents_RemovesCellImage()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -98,11 +97,11 @@ public class XLCellImageTests
         cell.SetCellImage(imgStream, XLPictureFormat.Png);
         cell.Clear(XLClearOptions.Contents);
 
-        Assert.That(cell.HasCellImage, Is.False);
+        await Assert.That(cell.HasCellImage).IsFalse();
     }
 
     [Test]
-    public void CopyCell_CopiesCellImage()
+    public async Task CopyCell_CopiesCellImage()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -114,48 +113,48 @@ public class XLCellImageTests
         var target = ws.Cell("B1");
         target.CopyFrom(source);
 
-        Assert.That(target.HasCellImage, Is.True);
+        await Assert.That(target.HasCellImage).IsTrue();
     }
 
     [Test]
-    public void IsEmpty_FalseWhenHasImage()
+    public async Task IsEmpty_FalseWhenHasImage()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var cell = ws.Cell("A1");
 
-        Assert.That(cell.IsEmpty(), Is.True);
+        await Assert.That(cell.IsEmpty()).IsTrue();
 
         using var imgStream = new MemoryStream(CreateTestPng());
         cell.SetCellImage(imgStream, XLPictureFormat.Png);
 
-        Assert.That(cell.IsEmpty(), Is.False);
+        await Assert.That(cell.IsEmpty()).IsFalse();
     }
 
     [Test]
-    public void SaveAndReload_PreservesCellImage()
+    public async Task SaveAndReload_PreservesCellImage()
     {
-        TestHelper.CreateSaveLoadAssert(
+        await TestHelper.CreateSaveLoadAssert(
             (wb, ws) =>
             {
                 using var imgStream = new MemoryStream(CreateTestPng());
                 ws.Cell("A1").SetCellImage(imgStream, XLPictureFormat.Png, "red pixel");
             },
-            (wb, ws) =>
+            async (wb, ws) =>
             {
                 var cell = ws.Cell("A1");
-                Assert.That(cell.HasCellImage, Is.True);
-                Assert.That(wb.InCellImages.Count, Is.EqualTo(1));
+                await Assert.That(cell.HasCellImage).IsTrue();
+                await Assert.That(wb.InCellImages.Count).IsEqualTo(1);
             },
             validate: false);
     }
 
     [Test]
-    public void SaveAndReload_MultipleCellsSameImage()
+    public async Task SaveAndReload_MultipleCellsSameImage()
     {
         var pngBytes = CreateTestPng();
 
-        TestHelper.CreateSaveLoadAssert(
+        await TestHelper.CreateSaveLoadAssert(
             (wb, ws) =>
             {
                 using (var s1 = new MemoryStream(pngBytes))
@@ -163,18 +162,18 @@ public class XLCellImageTests
                 using (var s2 = new MemoryStream(pngBytes))
                     ws.Cell("B1").SetCellImage(s2, XLPictureFormat.Png, "img2");
             },
-            (wb, ws) =>
+            async (wb, ws) =>
             {
-                Assert.That(ws.Cell("A1").HasCellImage, Is.True);
-                Assert.That(ws.Cell("B1").HasCellImage, Is.True);
+                await Assert.That(ws.Cell("A1").HasCellImage).IsTrue();
+                await Assert.That(ws.Cell("B1").HasCellImage).IsTrue();
             },
             validate: false);
     }
 
     [Test]
-    public void SaveAndReload_CellStyleSurvives()
+    public async Task SaveAndReload_CellStyleSurvives()
     {
-        TestHelper.CreateSaveLoadAssert(
+        await TestHelper.CreateSaveLoadAssert(
             (wb, ws) =>
             {
                 var cell = ws.Cell("A1");
@@ -182,11 +181,11 @@ public class XLCellImageTests
                 using var imgStream = new MemoryStream(CreateTestPng());
                 cell.SetCellImage(imgStream, XLPictureFormat.Png);
             },
-            (wb, ws) =>
+            async (wb, ws) =>
             {
                 var cell = ws.Cell("A1");
-                Assert.That(cell.HasCellImage, Is.True);
-                Assert.That(cell.Style.Font.Bold, Is.True);
+                await Assert.That(cell.HasCellImage).IsTrue();
+                await Assert.That(cell.Style.Font.Bold).IsTrue();
             },
             validate: false);
     }

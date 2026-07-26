@@ -1,17 +1,15 @@
-﻿using NUnit.Framework;
-using XLibur.Excel;
+﻿using XLibur.Excel;
 using XLibur.Excel.Coordinates;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.PivotTables;
-
 /// <summary>
 /// Tests for classes that implement <c>IXLPivotSource</c>.
 /// </summary>
-[TestFixture]
 internal class XLPivotSourceTests
 {
     [Test]
-    public void Can_load_and_save_all_source_types()
+    public async Task Can_load_and_save_all_source_types()
     {
         // The test files contains all possible pivot cache sources. The output is mangled, but
         // Excel can open it and use refresh on each pivot table. External workbook is in the same
@@ -24,12 +22,12 @@ internal class XLPivotSourceTests
         //
         // Open the workbook and click Pivot Table Analyze - Refresh - Refresh All. It shouldn't
         // report an error.
-        TestHelper.LoadAndAssert(wb =>
+        await TestHelper.LoadAndAssert(async wb =>
         {
-            Assert.That(wb.Worksheets.Count, Is.GreaterThan(0));
+            await Assert.That(wb.Worksheets.Count).IsGreaterThan(0);
         }, @"Other\PivotTable\Sources\PivotTable-AllSources-input.xlsx");
 
-        TestHelper.LoadSaveAndCompare(
+        await TestHelper.LoadSaveAndCompare(
             @"Other\PivotTable\Sources\PivotTable-AllSources-input.xlsx",
             @"Other\PivotTable\Sources\PivotTable-AllSources-output.xlsx");
     }
@@ -37,7 +35,7 @@ internal class XLPivotSourceTests
     #region TryGetSource - named range resolution
 
     [Test]
-    public void TryGetSource_resolves_workbook_scoped_named_range()
+    public async Task TryGetSource_resolves_workbook_scoped_named_range()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Data");
@@ -51,13 +49,13 @@ internal class XLPivotSourceTests
         var source = new XLPivotSourceReference("PivotData");
         var result = source.TryGetSource(wb, out var sheet, out var sheetArea);
 
-        Assert.That(result, Is.True);
-        Assert.That(sheet!.Name, Is.EqualTo("Data"));
-        Assert.That(sheetArea, Is.EqualTo(new XLSheetRange(1, 1, 2, 2)));
+        await Assert.That(result).IsTrue();
+        await Assert.That(sheet!.Name).IsEqualTo("Data");
+        await Assert.That(sheetArea).IsEqualTo(new XLSheetRange(1, 1, 2, 2));
     }
 
     [Test]
-    public void TryGetSource_prefers_table_over_named_range_with_same_name()
+    public async Task TryGetSource_prefers_table_over_named_range_with_same_name()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Data");
@@ -73,15 +71,15 @@ internal class XLPivotSourceTests
         var source = new XLPivotSourceReference("Source");
         var result = source.TryGetSource(wb, out var sheet, out var sheetArea);
 
-        Assert.That(result, Is.True);
-        Assert.That(sheet!.Name, Is.EqualTo("Data"));
+        await Assert.That(result).IsTrue();
+        await Assert.That(sheet!.Name).IsEqualTo("Data");
         // Should resolve to table area (A1:A2), not defined name area (B1:B5)
-        Assert.That(sheetArea!.Value.LeftColumn, Is.EqualTo(1));
-        Assert.That(sheetArea!.Value.RightColumn, Is.EqualTo(1));
+        await Assert.That(sheetArea!.Value.LeftColumn).IsEqualTo(1);
+        await Assert.That(sheetArea!.Value.RightColumn).IsEqualTo(1);
     }
 
     [Test]
-    public void TryGetSource_returns_false_for_nonexistent_name()
+    public async Task TryGetSource_returns_false_for_nonexistent_name()
     {
         using var wb = new XLWorkbook();
         wb.AddWorksheet("Data");
@@ -89,13 +87,13 @@ internal class XLPivotSourceTests
         var source = new XLPivotSourceReference("NoSuchName");
         var result = source.TryGetSource(wb, out var sheet, out var sheetArea);
 
-        Assert.That(result, Is.False);
-        Assert.That(sheet, Is.Null);
-        Assert.That(sheetArea, Is.Null);
+        await Assert.That(result).IsFalse();
+        await Assert.That(sheet).IsNull();
+        await Assert.That(sheetArea).IsNull();
     }
 
     [Test]
-    public void TryGetSource_returns_false_for_named_range_referencing_deleted_sheet()
+    public async Task TryGetSource_returns_false_for_named_range_referencing_deleted_sheet()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Data");
@@ -108,13 +106,13 @@ internal class XLPivotSourceTests
         var source = new XLPivotSourceReference("PivotData");
         var result = source.TryGetSource(wb, out var sheet, out var sheetArea);
 
-        Assert.That(result, Is.False);
-        Assert.That(sheet, Is.Null);
-        Assert.That(sheetArea, Is.Null);
+        await Assert.That(result).IsFalse();
+        await Assert.That(sheet).IsNull();
+        await Assert.That(sheetArea).IsNull();
     }
 
     [Test]
-    public void TryGetSource_resolves_area_based_source()
+    public async Task TryGetSource_resolves_area_based_source()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -124,13 +122,13 @@ internal class XLPivotSourceTests
         var source = new XLPivotSourceReference(area);
         var result = source.TryGetSource(wb, out var sheet, out var sheetArea);
 
-        Assert.That(result, Is.True);
-        Assert.That(sheet!.Name, Is.EqualTo("Sheet1"));
-        Assert.That(sheetArea, Is.EqualTo(new XLSheetRange(1, 1, 5, 3)));
+        await Assert.That(result).IsTrue();
+        await Assert.That(sheet!.Name).IsEqualTo("Sheet1");
+        await Assert.That(sheetArea).IsEqualTo(new XLSheetRange(1, 1, 5, 3));
     }
 
     [Test]
-    public void TryGetSource_area_returns_false_for_nonexistent_sheet()
+    public async Task TryGetSource_area_returns_false_for_nonexistent_sheet()
     {
         using var wb = new XLWorkbook();
         wb.AddWorksheet("Sheet1");
@@ -139,9 +137,9 @@ internal class XLPivotSourceTests
         var source = new XLPivotSourceReference(area);
         var result = source.TryGetSource(wb, out var sheet, out var sheetArea);
 
-        Assert.That(result, Is.False);
-        Assert.That(sheet, Is.Null);
-        Assert.That(sheetArea, Is.Null);
+        await Assert.That(result).IsFalse();
+        await Assert.That(sheet).IsNull();
+        await Assert.That(sheetArea).IsNull();
     }
 
     #endregion

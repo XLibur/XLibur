@@ -1,83 +1,81 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Styles;
 
-[TestFixture]
 public class XLStyleValueTests
 {
     [Test]
-    public void GetHashCode_SameKey_SameHash()
+    public async Task GetHashCode_SameKey_SameHash()
     {
         var key = XLStyleValue.Default.Key;
         var a = XLStyleValue.FromKey(ref key);
         var b = XLStyleValue.FromKey(ref key);
 
-        Assert.AreEqual(a.GetHashCode(), b.GetHashCode());
+        await Assert.That(b.GetHashCode()).IsEqualTo(a.GetHashCode());
     }
 
     [Test]
-    public void GetHashCode_EqualKeys_ProduceSameInstance()
+    public async Task GetHashCode_EqualKeys_ProduceSameInstance()
     {
         // The repository interns equal keys, so equal styles must be the same instance.
         var key = XLStyleValue.Default.Key;
         var a = XLStyleValue.FromKey(ref key);
         var b = XLStyleValue.FromKey(ref key);
 
-        Assert.IsTrue(ReferenceEquals(a, b));
+        await Assert.That(ReferenceEquals(a, b)).IsTrue();
     }
 
     [Test]
-    public void Equals_DifferentHash_ReturnsFalse()
+    public async Task Equals_DifferentHash_ReturnsFalse()
     {
         var key1 = XLStyleValue.Default.Key with { IncludeQuotePrefix = false };
         var key2 = XLStyleValue.Default.Key with { IncludeQuotePrefix = true };
         var a = XLStyleValue.FromKey(ref key1);
         var b = XLStyleValue.FromKey(ref key2);
 
-        Assert.IsFalse(a.Equals(b));
-        Assert.AreNotEqual(a.GetHashCode(), b.GetHashCode());
+        await Assert.That(a.Equals(b)).IsFalse();
+        await Assert.That(b.GetHashCode()).IsNotEqualTo(a.GetHashCode());
     }
 
     [Test]
-    public void Equals_DefaultStyle_IsSymmetricAndReflexive()
+    public async Task Equals_DefaultStyle_IsSymmetricAndReflexive()
     {
         var s = XLStyleValue.Default;
 
-        Assert.IsTrue(s.Equals(s));
-        Assert.IsTrue(s.Equals(XLStyleValue.Default));
-        Assert.IsTrue(XLStyleValue.Default.Equals(s));
+        await Assert.That(s.Equals(s)).IsTrue();
+        await Assert.That(s.Equals(XLStyleValue.Default)).IsTrue();
+        await Assert.That(XLStyleValue.Default.Equals(s)).IsTrue();
     }
 
     [Test]
-    public void Equals_Null_ReturnsFalse()
+    public async Task Equals_Null_ReturnsFalse()
     {
-        Assert.IsFalse(XLStyleValue.Default.Equals(null));
+        await Assert.That(XLStyleValue.Default.Equals(null)).IsFalse();
     }
 
     [Test]
-    public void ToString_DefaultKey_ReturnsDefault()
+    public async Task ToString_DefaultKey_ReturnsDefault()
     {
         var key = XLStyleValue.Default.Key;
-        Assert.That(key.ToString(), Is.EqualTo("Default"));
+        await Assert.That(key.ToString()).IsEqualTo("Default");
     }
 
     [Test]
-    public void ToString_NonDefaultKey_ShowsChangedComponents()
+    public async Task ToString_NonDefaultKey_ShowsChangedComponents()
     {
         var key = XLStyleValue.Default.Key with { IncludeQuotePrefix = true };
         var result = key.ToString();
 
         // Changed component should not say "Default"
-        Assert.That(result, Does.Contain("IncludeQuotePrefix: True"));
+        await Assert.That(result).Contains("IncludeQuotePrefix: True");
 
         // Unchanged components should say "Default"
-        Assert.That(result, Does.Contain("Alignment: Default"));
-        Assert.That(result, Does.Contain("Border: Default"));
-        Assert.That(result, Does.Contain("Fill: Default"));
-        Assert.That(result, Does.Contain("Font: Default"));
-        Assert.That(result, Does.Contain("NumberFormat: Default"));
-        Assert.That(result, Does.Contain("Protection: Default"));
+        await Assert.That(result).Contains("Alignment: Default");
+        await Assert.That(result).Contains("Border: Default");
+        await Assert.That(result).Contains("Fill: Default");
+        await Assert.That(result).Contains("Font: Default");
+        await Assert.That(result).Contains("NumberFormat: Default");
+        await Assert.That(result).Contains("Protection: Default");
     }
 }
-

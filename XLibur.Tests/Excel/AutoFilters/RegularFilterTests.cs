@@ -1,20 +1,20 @@
 ﻿using System;
 using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.AutoFilters;
 
-[TestFixture]
 public class RegularFilterTests
 {
     [Test]
-    public void DateTimeGrouping_and_regular_values_can_be_used_together()
+    public async Task DateTimeGrouping_and_regular_values_can_be_used_together()
     {
         // OpenXML SDK validator considers filter and dateTimeGroup filter elements together to
         // be an error, but it isn't (XSD allows and Excel reads). Therefore, disable
         // validation for the test.
-        TestHelper.CreateSaveLoadAssert(
+        await TestHelper.CreateSaveLoadAssert(
             (_, ws) =>
             {
                 var autoFilter = ws.Cell("A1").InsertData(new object[]
@@ -28,19 +28,19 @@ public class RegularFilterTests
                     .AddFilter(1)
                     .AddDateGroupFilter(new DateTime(2015, 8, 1, 0, 0, 0, DateTimeKind.Unspecified), XLDateTimeGrouping.Month);
             },
-            (_, ws) =>
+            async (_, ws) =>
             {
                 ws.AutoFilter.Reapply();
                 var dataVisibility = ws.Rows("2:5").Select(row => !row.IsHidden);
-                Assert.That(dataVisibility, Is.EqualTo([true, false, false, true]));
+                await Assert.That(dataVisibility).IsEquivalentTo([true, false, false, true], CollectionOrdering.Matching);
             }, false);
     }
 
     [Test]
     [SetCulture("cs-CZ")]
-    public void Regular_number_value_is_compared_as_text_against_formatted_text()
+    public async Task Regular_number_value_is_compared_as_text_against_formatted_text()
     {
-        new AutoFilterTester(f => f.AddFilter(1.5))
+        await new AutoFilterTester(f => f.AddFilter(1.5))
             .Add(1.5, true)
             .Add("1.5", false)
             .Add("1,5", true)
@@ -52,9 +52,9 @@ public class RegularFilterTests
 
     [Test]
     [SetCulture("cs-CZ")]
-    public void Regular_logical_value_is_compared_as_text_against_formatted_text()
+    public async Task Regular_logical_value_is_compared_as_text_against_formatted_text()
     {
-        new AutoFilterTester(f => f.AddFilter(false))
+        await new AutoFilterTester(f => f.AddFilter(false))
             .Add(false, true)
             .Add(0, false)
             .Add("FALSE", true)
@@ -66,9 +66,9 @@ public class RegularFilterTests
 
     [Test]
     [SetCulture("cs-CZ")]
-    public void Regular_error_value_is_compared_as_text_against_formatted_text()
+    public async Task Regular_error_value_is_compared_as_text_against_formatted_text()
     {
-        new AutoFilterTester(f => f.AddFilter("#VALUE!"))
+        await new AutoFilterTester(f => f.AddFilter("#VALUE!"))
             .Add(XLError.IncompatibleValue, true)
             .Add(2, false)
             .Add("#VALUE!", true)
@@ -76,9 +76,9 @@ public class RegularFilterTests
     }
 
     [Test]
-    public void Pattern_is_not_interpreted_as_wildcard()
+    public async Task Pattern_is_not_interpreted_as_wildcard()
     {
-        new AutoFilterTester(f => f.AddFilter("A*"))
+        await new AutoFilterTester(f => f.AddFilter("A*"))
             .Add("A*", true)
             .Add("A", false)
             .Add("A something", false)

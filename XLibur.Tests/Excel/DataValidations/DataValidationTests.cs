@@ -1,19 +1,18 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.DataValidations;
 
-[TestFixture]
 public class DataValidationTests
 {
     [Test]
-    public void Validation_Reference_List_Values_From_Separate_Sheet()
+    public async Task Validation_Reference_List_Values_From_Separate_Sheet()
     {
         var wb = new XLWorkbook();
         var valuesSheet = wb.Worksheets.Add("ValuesSheet");
@@ -31,12 +30,12 @@ public class DataValidationTests
         cell = uiSheet.Cell("A2");
         cell.GetDataValidation().List(valuesSheet.Range("ValuesSheet!$E$1:$E$4"));
 
-        Assert.AreEqual(XLAllowedValues.List, cell.GetDataValidation().AllowedValues);
-        Assert.AreEqual("ValuesSheet!$E$1:$E$4", cell.GetDataValidation().Value);
+        await Assert.That(cell.GetDataValidation().AllowedValues).IsEqualTo(XLAllowedValues.List);
+        await Assert.That(cell.GetDataValidation().Value).IsEqualTo("ValuesSheet!$E$1:$E$4");
     }
 
     [Test]
-    public void Validation_1()
+    public async Task Validation_1()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Data Validation Issue");
@@ -58,18 +57,18 @@ public class DataValidationTests
         cell.GetDataValidation().List(ws.Range("$E$1:$E$4"));
         cell.GetDataValidation().InputTitle = "Title for B2";
 
-        Assert.AreEqual(XLAllowedValues.List, cell.GetDataValidation().AllowedValues);
-        Assert.AreEqual("'Data Validation Issue'!$E$1:$E$4", cell.GetDataValidation().Value);
-        Assert.AreEqual("Title for B2", cell.GetDataValidation().InputTitle);
+        await Assert.That(cell.GetDataValidation().AllowedValues).IsEqualTo(XLAllowedValues.List);
+        await Assert.That(cell.GetDataValidation().Value).IsEqualTo("'Data Validation Issue'!$E$1:$E$4");
+        await Assert.That(cell.GetDataValidation().InputTitle).IsEqualTo("Title for B2");
 
         ws.Cell("C1").SetValue("Cell below has Validation with a message.");
         cell = ws.Cell("C2");
         cell.GetDataValidation().List(ws.Range("$E$1:$E$4"));
         cell.GetDataValidation().InputMessage = "Message for C2";
 
-        Assert.AreEqual(XLAllowedValues.List, cell.GetDataValidation().AllowedValues);
-        Assert.AreEqual("'Data Validation Issue'!$E$1:$E$4", cell.GetDataValidation().Value);
-        Assert.AreEqual("Message for C2", cell.GetDataValidation().InputMessage);
+        await Assert.That(cell.GetDataValidation().AllowedValues).IsEqualTo(XLAllowedValues.List);
+        await Assert.That(cell.GetDataValidation().Value).IsEqualTo("'Data Validation Issue'!$E$1:$E$4");
+        await Assert.That(cell.GetDataValidation().InputMessage).IsEqualTo("Message for C2");
 
         ws.Cell("D1").SetValue("Cell below has Validation with title and message.");
         cell = ws.Cell("D2");
@@ -77,14 +76,14 @@ public class DataValidationTests
         cell.GetDataValidation().InputTitle = "Title for D2";
         cell.GetDataValidation().InputMessage = "Message for D2";
 
-        Assert.AreEqual(XLAllowedValues.List, cell.GetDataValidation().AllowedValues);
-        Assert.AreEqual("'Data Validation Issue'!$E$1:$E$4", cell.GetDataValidation().Value);
-        Assert.AreEqual("Title for D2", cell.GetDataValidation().InputTitle);
-        Assert.AreEqual("Message for D2", cell.GetDataValidation().InputMessage);
+        await Assert.That(cell.GetDataValidation().AllowedValues).IsEqualTo(XLAllowedValues.List);
+        await Assert.That(cell.GetDataValidation().Value).IsEqualTo("'Data Validation Issue'!$E$1:$E$4");
+        await Assert.That(cell.GetDataValidation().InputTitle).IsEqualTo("Title for D2");
+        await Assert.That(cell.GetDataValidation().InputMessage).IsEqualTo("Message for D2");
     }
 
     [Test]
-    public void Validation_2()
+    public async Task Validation_2()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -95,11 +94,11 @@ public class DataValidationTests
         ws2.Cell("A1").SetValue("B");
         ws.Cell("B1").CopyTo(ws2.Cell("B1"));
 
-        Assert.AreEqual("Sheet1!A1", ws2.Cell("B1").GetDataValidation().Value);
+        await Assert.That(ws2.Cell("B1").GetDataValidation().Value).IsEqualTo("Sheet1!A1");
     }
 
-    [Test, Ignore("Wait for proper formula shifting (#686)")]
-    public void Validation_3()
+    [Test, Skip("Wait for proper formula shifting (#686)")]
+    public async Task Validation_3()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -107,22 +106,22 @@ public class DataValidationTests
         ws.Cell("B1").CreateDataValidation().Custom("A1");
         ws.FirstRow().InsertRowsAbove(1);
 
-        Assert.AreEqual("A2", ws.Cell("B2").GetDataValidation().Value);
+        await Assert.That(ws.Cell("B2").GetDataValidation().Value).IsEqualTo("A2");
     }
 
     [Test]
-    public void Validation_4()
+    public async Task Validation_4()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell("A1").SetValue("A");
         ws.Cell("B1").CreateDataValidation().Custom("A1");
         ws.Cell("B1").CopyTo(ws.Cell("B2"));
-        Assert.AreEqual("A2", ws.Cell("B2").GetDataValidation().Value);
+        await Assert.That(ws.Cell("B2").GetDataValidation().Value).IsEqualTo("A2");
     }
 
-    [Test, Ignore("Wait for proper formula shifting (#686)")]
-    public void Validation_5()
+    [Test, Skip("Wait for proper formula shifting (#686)")]
+    public async Task Validation_5()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -130,22 +129,22 @@ public class DataValidationTests
         ws.Cell("B1").CreateDataValidation().Custom("A1");
         ws.FirstColumn().InsertColumnsBefore(1);
 
-        Assert.AreEqual("B1", ws.Cell("C1").GetDataValidation().Value);
+        await Assert.That(ws.Cell("C1").GetDataValidation().Value).IsEqualTo("B1");
     }
 
     [Test]
-    public void Validation_6()
+    public async Task Validation_6()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell("A1").SetValue("A");
         ws.Cell("B1").CreateDataValidation().Custom("A1");
         ws.Cell("B1").CopyTo(ws.Cell("C1"));
-        Assert.AreEqual("B1", ws.Cell("C1").GetDataValidation().Value);
+        await Assert.That(ws.Cell("C1").GetDataValidation().Value).IsEqualTo("B1");
     }
 
     [Test]
-    public void Validation_persists_on_Cell_DataValidation()
+    public async Task Validation_persists_on_Cell_DataValidation()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("People");
@@ -159,11 +158,11 @@ public class DataValidationTests
         var dv = table.DataRange.CreateDataValidation();
         dv.ErrorTitle = "Error";
 
-        Assert.AreEqual("Error", table.DataRange.FirstCell().GetDataValidation().ErrorTitle);
+        await Assert.That(table.DataRange.FirstCell().GetDataValidation().ErrorTitle).IsEqualTo("Error");
     }
 
     [Test]
-    public void Validation_persists_on_Worksheet_DataValidations()
+    public async Task Validation_persists_on_Worksheet_DataValidations()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("People");
@@ -176,17 +175,17 @@ public class DataValidationTests
         var dv = table.DataRange.CreateDataValidation();
         dv.ErrorTitle = "Error";
 
-        Assert.AreEqual("Error", ws.DataValidations.Single().ErrorTitle);
+        await Assert.That(ws.DataValidations.Single().ErrorTitle).IsEqualTo("Error");
     }
 
     [Test]
-    [TestCase("A1:C3", 5, false, "A1:C3")]
-    [TestCase("A1:C3", 2, false, "A1:C4")]
-    [TestCase("A1:C3", 1, false, "A2:C4")]
-    [TestCase("A1:C3", 5, true, "A1:C3")]
-    [TestCase("A1:C3", 2, true, "A1:C4")]
-    [TestCase("A1:C3", 1, true, "A2:C4")]
-    public void DataValidationShiftedOnRowInsert(string initialAddress, int rowNum, bool setValue,
+    [Arguments("A1:C3", 5, false, "A1:C3")]
+    [Arguments("A1:C3", 2, false, "A1:C4")]
+    [Arguments("A1:C3", 1, false, "A2:C4")]
+    [Arguments("A1:C3", 5, true, "A1:C3")]
+    [Arguments("A1:C3", 2, true, "A1:C4")]
+    [Arguments("A1:C3", 1, true, "A2:C4")]
+    public async Task DataValidationShiftedOnRowInsert(string initialAddress, int rowNum, bool setValue,
         string expectedAddress)
     {
         // Arrange
@@ -201,19 +200,19 @@ public class DataValidationTests
         ws.Row(rowNum).InsertRowsAbove(1);
 
         // Assert
-        Assert.AreEqual(1, ws.DataValidations.Count());
-        Assert.AreEqual(1, ws.DataValidations.First().Ranges.Count());
-        Assert.AreEqual(expectedAddress, ws.DataValidations.First().Ranges.First().RangeAddress.ToString());
+        await Assert.That(ws.DataValidations.Count()).IsEqualTo(1);
+        await Assert.That(ws.DataValidations.First().Ranges.Count()).IsEqualTo(1);
+        await Assert.That(ws.DataValidations.First().Ranges.First().RangeAddress.ToString()).IsEqualTo(expectedAddress);
     }
 
     [Test]
-    [TestCase("A1:C3", 5, false, "A1:C3")]
-    [TestCase("A1:C3", 2, false, "A1:D3")]
-    [TestCase("A1:C3", 1, false, "B1:D3")]
-    [TestCase("A1:C3", 5, true, "A1:C3")]
-    [TestCase("A1:C3", 2, true, "A1:D3")]
-    [TestCase("A1:C3", 1, true, "B1:D3")]
-    public void DataValidationShiftedOnColumnInsert(string initialAddress, int columnNum, bool setValue,
+    [Arguments("A1:C3", 5, false, "A1:C3")]
+    [Arguments("A1:C3", 2, false, "A1:D3")]
+    [Arguments("A1:C3", 1, false, "B1:D3")]
+    [Arguments("A1:C3", 5, true, "A1:C3")]
+    [Arguments("A1:C3", 2, true, "A1:D3")]
+    [Arguments("A1:C3", 1, true, "B1:D3")]
+    public async Task DataValidationShiftedOnColumnInsert(string initialAddress, int columnNum, bool setValue,
         string expectedAddress)
     {
         // Arrange
@@ -228,13 +227,13 @@ public class DataValidationTests
         ws.Column(columnNum).InsertColumnsBefore(1);
 
         // Assert
-        Assert.AreEqual(1, ws.DataValidations.Count());
-        Assert.AreEqual(1, ws.DataValidations.First().Ranges.Count());
-        Assert.AreEqual(expectedAddress, ws.DataValidations.First().Ranges.First().RangeAddress.ToString());
+        await Assert.That(ws.DataValidations.Count()).IsEqualTo(1);
+        await Assert.That(ws.DataValidations.First().Ranges.Count()).IsEqualTo(1);
+        await Assert.That(ws.DataValidations.First().Ranges.First().RangeAddress.ToString()).IsEqualTo(expectedAddress);
     }
 
     [Test]
-    public void DataValidationClearSplitsRange()
+    public async Task DataValidationClearSplitsRange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("DataValidation");
@@ -245,12 +244,12 @@ public class DataValidationTests
         ws.Cell("B2").Clear(XLClearOptions.DataValidation);
 
         // Assert
-        Assert.IsFalse(ws.Cell("B2").HasDataValidation);
-        Assert.IsTrue(ws.Range("A1:C3").Cells().Where(c => c.Address.ToString() != "B2").All(c => c.HasDataValidation));
+        await Assert.That(ws.Cell("B2").HasDataValidation).IsFalse();
+        await Assert.That(ws.Range("A1:C3").Cells().Where(c => c.Address.ToString() != "B2").All(c => c.HasDataValidation)).IsTrue();
     }
 
     [Test]
-    public void NewDataValidationSplitsRange()
+    public async Task NewDataValidationSplitsRange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("DataValidation");
@@ -261,25 +260,25 @@ public class DataValidationTests
         ws.Cell("B2").CreateDataValidation().WholeNumber.Between(-100, -0);
 
         // Assert
-        Assert.AreEqual("-100", ws.Cell("B2").GetDataValidation().MinValue);
-        Assert.IsTrue(ws.Range("A1:C3").Cells().Where(c => c.Address.ToString() != "B2").All(c => c.HasDataValidation));
-        Assert.IsTrue(ws.Range("A1:C3").Cells().Where(c => c.Address.ToString() != "B2")
-            .All(c => c.GetDataValidation().MinValue == "10"));
+        await Assert.That(ws.Cell("B2").GetDataValidation().MinValue).IsEqualTo("-100");
+        await Assert.That(ws.Range("A1:C3").Cells().Where(c => c.Address.ToString() != "B2").All(c => c.HasDataValidation)).IsTrue();
+        await Assert.That(ws.Range("A1:C3").Cells().Where(c => c.Address.ToString() != "B2")
+            .All(c => c.GetDataValidation().MinValue == "10")).IsTrue();
     }
 
     [Test]
-    public void LongListValue_SavedViaExtensionFormat()
+    public async Task LongListValue_SavedViaExtensionFormat()
     {
         var values = string.Join(",", Enumerable.Range(1, 20)
             .Select(i => Guid.NewGuid().ToString("N")));
 
-        Assert.That(values.Length, Is.GreaterThan(255));
+        await Assert.That(values.Length).IsGreaterThan(255);
 
         using var wb = new XLWorkbook();
         var dv = wb.AddWorksheet("Sheet 1").Cell(1, 1).GetDataValidation();
         dv.List(values);
 
-        Assert.That(dv.Value, Is.EqualTo("\"" + values + "\""));
+        await Assert.That(dv.Value).IsEqualTo("\"" + values + "\"");
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
@@ -287,17 +286,17 @@ public class DataValidationTests
         ms.Position = 0;
         using var wb2 = new XLWorkbook(ms);
         var dv2 = wb2.Worksheet(1).Cell(1, 1).GetDataValidation();
-        Assert.That(dv2.Value, Is.EqualTo("\"" + values + "\""));
+        await Assert.That(dv2.Value).IsEqualTo("\"" + values + "\"");
     }
 
     [Test]
-    public void CannotCreateDataValidationWithoutRange()
+    public async Task CannotCreateDataValidationWithoutRange()
     {
-        Assert.Throws<ArgumentNullException>(() => new XLDataValidation(null));
+        await Assert.That(() => new XLDataValidation(null)).Throws<ArgumentNullException>();
     }
 
     [Test]
-    public void DataValidationHasWorksheetAndRangesWhenCreated()
+    public async Task DataValidationHasWorksheetAndRangesWhenCreated()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -305,12 +304,12 @@ public class DataValidationTests
 
         var dv = new XLDataValidation(range);
 
-        Assert.AreSame(ws, dv.Worksheet);
-        Assert.AreSame(range, dv.Ranges.Single());
+        await Assert.That(dv.Worksheet).IsSameReferenceAs(ws);
+        await Assert.That(dv.Ranges.Single()).IsSameReferenceAs(range);
     }
 
     [Test]
-    public void CanAddRangeFromSameWorksheet()
+    public async Task CanAddRangeFromSameWorksheet()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -322,14 +321,14 @@ public class DataValidationTests
         dv.AddRange(range2);
         dv.AddRanges(ranges3);
 
-        Assert.IsTrue(dv.Ranges.Any(r => r == range1));
-        Assert.IsTrue(dv.Ranges.Any(r => r == range2));
-        Assert.IsTrue(dv.Ranges.Any(r => r == ranges3.First()));
-        Assert.IsTrue(dv.Ranges.Any(r => r == ranges3.Last()));
+        await Assert.That(dv.Ranges.Any(r => r == range1)).IsTrue();
+        await Assert.That(dv.Ranges.Any(r => r == range2)).IsTrue();
+        await Assert.That(dv.Ranges.Any(r => r == ranges3.First())).IsTrue();
+        await Assert.That(dv.Ranges.Any(r => r == ranges3.Last())).IsTrue();
     }
 
     [Test]
-    public void CanAddRangeFromAnotherWorksheet()
+    public async Task CanAddRangeFromAnotherWorksheet()
     {
         using var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet();
@@ -340,11 +339,11 @@ public class DataValidationTests
 
         dv.AddRange(range2);
 
-        Assert.IsTrue(dv.Ranges.Any(r => r != range2 && r.RangeAddress.ToString() == range2.RangeAddress.ToString()));
+        await Assert.That(dv.Ranges.Any(r => r != range2 && r.RangeAddress.ToString() == range2.RangeAddress.ToString())).IsTrue();
     }
 
     [Test]
-    public void CanClearRanges()
+    public async Task CanClearRanges()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -357,11 +356,11 @@ public class DataValidationTests
 
         dv.ClearRanges();
 
-        Assert.IsEmpty(dv.Ranges);
+        await Assert.That(dv.Ranges).IsEmpty();
     }
 
     [Test]
-    public void CanRemoveExistingRange()
+    public async Task CanRemoveExistingRange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -373,11 +372,11 @@ public class DataValidationTests
 
         dv.RemoveRange(range1);
 
-        Assert.AreSame(range2, dv.Ranges.Single());
+        await Assert.That(dv.Ranges.Single()).IsSameReferenceAs(range2);
     }
 
     [Test]
-    public void RemovingExistingRangeDoesNoFail()
+    public async Task RemovingExistingRangeDoesNoFail()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -389,11 +388,11 @@ public class DataValidationTests
         dv.RemoveRange(range2);
         dv.RemoveRange(null);
 
-        Assert.AreSame(range1, dv.Ranges.Single());
+        await Assert.That(dv.Ranges.Single()).IsSameReferenceAs(range1);
     }
 
     [Test]
-    public void AddRangeFiresEvent()
+    public async Task AddRangeFiresEvent()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -407,13 +406,14 @@ public class DataValidationTests
 
         dv.AddRange(range2);
 
-        Assert.AreSame(range2, addedRange);
+        await Assert.That(addedRange).IsSameReferenceAs(range2);
     }
 
-    [TestCase(XLAllowedValues.List)]
-    [TestCase(XLAllowedValues.Custom)]
-    [TestCase(XLAllowedValues.AnyValue)]
-    public void DataValidation_DoesNotWriteOperatorAttribute_ForTypesWithoutOperator(XLAllowedValues allowedValues)
+    [Test]
+    [Arguments(XLAllowedValues.List)]
+    [Arguments(XLAllowedValues.Custom)]
+    [Arguments(XLAllowedValues.AnyValue)]
+    public async Task DataValidation_DoesNotWriteOperatorAttribute_ForTypesWithoutOperator(XLAllowedValues allowedValues)
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -452,11 +452,11 @@ public class DataValidationTests
             .Descendants<DataValidation>()
             .First();
 
-        Assert.IsNull(dataValidation.Operator);
+        await Assert.That(dataValidation.Operator).IsNull();
     }
 
     [Test]
-    public void AddRangesFiresMultipleEvents()
+    public async Task AddRangesFiresMultipleEvents()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -470,11 +470,11 @@ public class DataValidationTests
 
         dv.AddRanges(ranges);
 
-        Assert.AreEqual(2, addedRanges.Count);
+        await Assert.That(addedRanges.Count).IsEqualTo(2);
     }
 
     [Test]
-    public void RemoveRangeFiresEvent()
+    public async Task RemoveRangeFiresEvent()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -487,11 +487,11 @@ public class DataValidationTests
 
         dv.RemoveRange(range2);
 
-        Assert.AreSame(range2, removedRange);
+        await Assert.That(removedRange).IsSameReferenceAs(range2);
     }
 
     [Test]
-    public void RemoveNonExistingRangeDoesNotFireEvent()
+    public async Task RemoveNonExistingRangeDoesNotFireEvent()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -499,13 +499,16 @@ public class DataValidationTests
         var range2 = ws.Range("C1:C3");
         var dv = new XLDataValidation(range1);
 
-        dv.RangeRemoved += (s, e) => Assert.Fail("Expected not to fire event");
+        var fired = false;
+        dv.RangeRemoved += (_, _) => fired = true;
 
         dv.RemoveRange(range2);
+
+        await Assert.That(fired).IsFalse().Because("Expected not to fire event");
     }
 
     [Test]
-    public void ClearRangesFiresMultipleEvents()
+    public async Task ClearRangesFiresMultipleEvents()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -520,21 +523,31 @@ public class DataValidationTests
 
         dv.ClearRanges();
 
-        Assert.AreEqual(2, removedRanges.Count);
+        await Assert.That(removedRanges.Count).IsEqualTo(2);
     }
 
     [Test]
-    [TestCase("$F$2:$F$8", "$F$2:$F$8", Description = "Cell reference stored verbatim")]
-    [TestCase("Sheet1!$A$1:$A$10", "Sheet1!$A$1:$A$10", Description = "Sheet-qualified reference stored verbatim")]
-    [TestCase("\"foobar\"", "\"foobar\"", Description = "Already quoted string stored verbatim")]
-    [TestCase("\"foo,bar,baz\"", "\"foo,bar,baz\"", Description = "Already quoted CSV stored verbatim")]
-    [TestCase("=YesNo", "=YesNo", Description = "Formula reference stored verbatim")]
-    [TestCase("=Sheet1!$A$1:$A$10", "=Sheet1!$A$1:$A$10", Description = "Formula with sheet reference stored verbatim")]
-    [TestCase("foobar", "\"foobar\"", Description = "Literal string gets quoted")]
-    [TestCase("foo,bar,baz", "\"foo,bar,baz\"", Description = "Literal CSV list gets quoted")]
-    [TestCase("123abc", "\"123abc\"", Description = "String starting with number gets quoted")]
-    [TestCase("MyNamedRange", "\"MyNamedRange\"", Description = "Non-existent named range gets quoted")]
-    public void List_String_AutoQuotesLiteralStrings(string input, string expectedValue)
+    [Arguments("$F$2:$F$8", "$F$2:$F$8")]
+    [Property("Description", "Cell reference stored verbatim")]
+    [Arguments("Sheet1!$A$1:$A$10", "Sheet1!$A$1:$A$10")]
+    [Property("Description", "Sheet-qualified reference stored verbatim")]
+    [Arguments("\"foobar\"", "\"foobar\"")]
+    [Property("Description", "Already quoted string stored verbatim")]
+    [Arguments("\"foo,bar,baz\"", "\"foo,bar,baz\"")]
+    [Property("Description", "Already quoted CSV stored verbatim")]
+    [Arguments("=YesNo", "=YesNo")]
+    [Property("Description", "Formula reference stored verbatim")]
+    [Arguments("=Sheet1!$A$1:$A$10", "=Sheet1!$A$1:$A$10")]
+    [Property("Description", "Formula with sheet reference stored verbatim")]
+    [Arguments("foobar", "\"foobar\"")]
+    [Property("Description", "Literal string gets quoted")]
+    [Arguments("foo,bar,baz", "\"foo,bar,baz\"")]
+    [Property("Description", "Literal CSV list gets quoted")]
+    [Arguments("123abc", "\"123abc\"")]
+    [Property("Description", "String starting with number gets quoted")]
+    [Arguments("MyNamedRange", "\"MyNamedRange\"")]
+    [Property("Description", "Non-existent named range gets quoted")]
+    public async Task List_String_AutoQuotesLiteralStrings(string input, string expectedValue)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -542,12 +555,12 @@ public class DataValidationTests
 
         dv.List(input);
 
-        Assert.AreEqual(XLAllowedValues.List, dv.AllowedValues);
-        Assert.AreEqual(expectedValue, dv.Value);
+        await Assert.That(dv.AllowedValues).IsEqualTo(XLAllowedValues.List);
+        await Assert.That(dv.Value).IsEqualTo(expectedValue);
     }
 
     [Test]
-    public void List_String_ExistingNamedRangeStoredVerbatim()
+    public async Task List_String_ExistingNamedRangeStoredVerbatim()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -558,11 +571,11 @@ public class DataValidationTests
         var dv = ws.Cell("A1").CreateDataValidation();
         dv.List("MyNamedRange");
 
-        Assert.AreEqual("MyNamedRange", dv.Value);
+        await Assert.That(dv.Value).IsEqualTo("MyNamedRange");
     }
 
     [Test]
-    public void List_String_WorksheetScopedNamedRangeStoredVerbatim()
+    public async Task List_String_WorksheetScopedNamedRangeStoredVerbatim()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -573,11 +586,11 @@ public class DataValidationTests
         var dv = ws.Cell("A1").CreateDataValidation();
         dv.List("LocalRange");
 
-        Assert.AreEqual("LocalRange", dv.Value);
+        await Assert.That(dv.Value).IsEqualTo("LocalRange");
     }
 
     [Test]
-    public void Issue1711_ListWithPreQuotedString_AndAutoFilter()
+    public async Task Issue1711_ListWithPreQuotedString_AndAutoFilter()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -605,7 +618,7 @@ public class DataValidationTests
         dv.List(errors, true);
 
         // Pre-quoted string should be stored verbatim
-        Assert.AreEqual("\"New,Backdated,Old,Other\"", dv.Value);
+        await Assert.That(dv.Value).IsEqualTo("\"New,Backdated,Old,Other\"");
     }
 
 

@@ -80,8 +80,11 @@ on NuGet.
 
 ## Test Conventions
 
-* Tests use [NUnit](https://nunit.org/) 4.x.
-* New tests should use the **constraint model** (`Assert.That(actual, Is.EqualTo(expected))`) rather than the legacy classic asserts (`Assert.AreEqual(expected, actual)`). The actual value goes first, the expectation inside the constraint. Much of the existing suite still uses the classic style; it is being migrated incrementally, so please don't add new classic asserts.
+* Tests use [TUnit](https://tunit.dev/) 1.x, which runs on Microsoft.Testing.Platform rather than VSTest. `global.json` opts `dotnet test` into that runner, so runner options are passed directly (for example `dotnet test XLibur.Tests/XLibur.Tests.csproj --report-trx`).
+* **Assertions must be awaited**: `await Assert.That(actual).IsEqualTo(expected)`. This matters more than it looks — an un-awaited assertion never executes and the test passes no matter what. The compiler flags it as CS4014; never suppress it.
+* Data-driven tests use `[Arguments(...)]` for inline cases and `[MethodDataSource(nameof(Source))]` for generated ones. Anything a data source points at must be **public**, because TUnit generates test metadata into a separate file. Avoid generic test methods with data sources: the generator can fail to resolve the type argument and silently emit no cases at all.
+* The suite runs **serially** (`[assembly: NotInParallel]`) because it shares temp files, the calc engine, the font engine and the current culture. Tests default to en-US; override with `[SetCulture("cs-CZ")]`, a local shim in `TestInfrastructure.cs`.
+* When comparing collections use `IsEquivalentTo(expected, CollectionOrdering.Matching)`. `IsEqualTo` compares collections by reference and will fail even when contents match.
 
 ## Setting up the pre-commit hook
 

@@ -1,14 +1,13 @@
-﻿using NUnit.Framework;
-using XLibur.Examples.PivotTables;
+﻿using XLibur.Examples.PivotTables;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;
 
-[TestFixture]
 public class PivotTableTests
 {
     [Test]
-    public void PivotTables()
+    public async Task PivotTables()
     {
-        TestHelper.RunTestExample<PivotTables>(@"PivotTables\PivotTables.xlsx");
+        await TestHelper.RunTestExample<PivotTables>(@"PivotTables\PivotTables.xlsx");
     }
 }

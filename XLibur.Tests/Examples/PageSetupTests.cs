@@ -1,44 +1,43 @@
 ﻿using XLibur.Examples.PageSetup;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;
 
-[TestFixture]
 public class PageSetupTests
 {
     [Test]
-    public void HeaderFooters()
+    public async Task HeaderFooters()
     {
-        TestHelper.RunTestExample<HeaderFooters>(@"PageSetup\HeaderFooters.xlsx");
+        await TestHelper.RunTestExample<HeaderFooters>(@"PageSetup\HeaderFooters.xlsx");
     }
 
     [Test]
-    public void Margins()
+    public async Task Margins()
     {
-        TestHelper.RunTestExample<Margins>(@"PageSetup\Margins.xlsx");
+        await TestHelper.RunTestExample<Margins>(@"PageSetup\Margins.xlsx");
     }
 
     [Test]
-    public void Page()
+    public async Task Page()
     {
-        TestHelper.RunTestExample<Page>(@"PageSetup\Page.xlsx");
+        await TestHelper.RunTestExample<Page>(@"PageSetup\Page.xlsx");
     }
 
     [Test]
-    public void SheetTab()
+    public async Task SheetTab()
     {
-        TestHelper.RunTestExample<SheetTab>(@"PageSetup\SheetTab.xlsx");
+        await TestHelper.RunTestExample<SheetTab>(@"PageSetup\SheetTab.xlsx");
     }
 
     [Test]
-    public void Sheets()
+    public async Task Sheets()
     {
-        TestHelper.RunTestExample<Sheets>(@"PageSetup\Sheets.xlsx");
+        await TestHelper.RunTestExample<Sheets>(@"PageSetup\Sheets.xlsx");
     }
 
     [Test]
-    public void TwoPages()
+    public async Task TwoPages()
     {
-        TestHelper.RunTestExample<TwoPages>(@"PageSetup\TwoPages.xlsx");
+        await TestHelper.RunTestExample<TwoPages>(@"PageSetup\TwoPages.xlsx");
     }
 }

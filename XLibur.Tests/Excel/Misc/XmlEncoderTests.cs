@@ -1,34 +1,33 @@
 ﻿using System.IO;
 using XLibur.Excel;
 using XLibur.Utils;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Misc;
 
-[TestFixture]
 public class XmlEncoderTest
 {
     [Test]
-    public void TestControlChars()
+    public async Task TestControlChars()
     {
-        Assert.AreEqual("_x0001_ _x0002_ _x0003_ _x0004_", XmlEncoder.EncodeString("\u0001 \u0002 \u0003 \u0004"));
-        Assert.AreEqual("_x0005_ _x0006_ _x0007_ _x0008_", XmlEncoder.EncodeString("\u0005 \u0006 \u0007 \u0008"));
+        await Assert.That(XmlEncoder.EncodeString("\u0001 \u0002 \u0003 \u0004")).IsEqualTo("_x0001_ _x0002_ _x0003_ _x0004_");
+        await Assert.That(XmlEncoder.EncodeString("\u0005 \u0006 \u0007 \u0008")).IsEqualTo("_x0005_ _x0006_ _x0007_ _x0008_");
 
-        Assert.AreEqual("\u0001 \u0002 \u0003 \u0004", XmlEncoder.DecodeString("_x0001_ _x0002_ _x0003_ _x0004_"));
-        Assert.AreEqual("\u0005 \u0006 \u0007 \u0008", XmlEncoder.DecodeString("_x0005_ _x0006_ _x0007_ _x0008_"));
-        Assert.AreEqual("\uAABB \uAABB", XmlEncoder.DecodeString("_xaaBB_ _xAAbb_"));
+        await Assert.That(XmlEncoder.DecodeString("_x0001_ _x0002_ _x0003_ _x0004_")).IsEqualTo("\u0001 \u0002 \u0003 \u0004");
+        await Assert.That(XmlEncoder.DecodeString("_x0005_ _x0006_ _x0007_ _x0008_")).IsEqualTo("\u0005 \u0006 \u0007 \u0008");
+        await Assert.That(XmlEncoder.DecodeString("_xaaBB_ _xAAbb_")).IsEqualTo("\uAABB \uAABB");
 
         // https://github.com/XLibur/XLibur/issues/1154
-        Assert.AreEqual("_Xceed_Something", XmlEncoder.DecodeString("_Xceed_Something"));
+        await Assert.That(XmlEncoder.DecodeString("_Xceed_Something")).IsEqualTo("_Xceed_Something");
     }
 
     [Test]
-    public void AstralUnicodeCharsAreWrittenWithoutOpenXmlEncoding()
+    public async Task AstralUnicodeCharsAreWrittenWithoutOpenXmlEncoding()
     {
         using var sr = new StreamReader(TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Unicode\let_it_go_in_emoji.txt")));
         var surrogateEmoji = sr.ReadToEnd();
 
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             var wb = new XLWorkbook();
             var ws = wb.AddWorksheet();

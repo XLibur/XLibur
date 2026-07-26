@@ -1,25 +1,25 @@
 ﻿using System.Collections.Generic;
 using XLibur.Excel.Coordinates;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Coordinates;
 
-[TestFixture]
 internal class XLAreaConsolidatorTests
 {
-    [TestCase("", ExpectedResult = "")] // Empty stays empty
-    [TestCase("B2:C3", ExpectedResult = "B2:C3")] // Single area passes through
-    [TestCase("A1:B2 A3:B4", ExpectedResult = "A1:B4")] // Vertically adjacent, same columns - merge
-    [TestCase("A1:B2 C1:D2", ExpectedResult = "A1:D2")] // Horizontally adjacent, same rows - merge
-    [TestCase("A1:C2 B1:D2", ExpectedResult = "A1:D2")] // Overlapping - merge
-    [TestCase("A1:C1 E1:G1 A3:C3 E3:G3", ExpectedResult = "A1:C1 E1:G1 A3:C3 E3:G3")] // Sparse - no merge
-    public string Consolidate_merges_overlapping_and_adjacent_areas(string areaListText)
+    [Test]
+    [Arguments("", "")] // Empty stays empty
+    [Arguments("B2:C3", "B2:C3")] // Single area passes through
+    [Arguments("A1:B2 A3:B4", "A1:B4")] // Vertically adjacent, same columns - merge
+    [Arguments("A1:B2 C1:D2", "A1:D2")] // Horizontally adjacent, same rows - merge
+    [Arguments("A1:C2 B1:D2", "A1:D2")] // Overlapping - merge
+    [Arguments("A1:C1 E1:G1 A3:C3 E3:G3", "A1:C1 E1:G1 A3:C3 E3:G3")] // Sparse - no merge
+    public async Task Consolidate_merges_overlapping_and_adjacent_areas(string areaListText, string expected)
     {
-        return Parse(areaListText).GetConsolidated().ToSpaceList();
+        await Assert.That(Parse(areaListText).GetConsolidated().ToSpaceList()).IsEqualTo(expected);
     }
 
     [Test]
-    public void Consolidate_matches_ClosedXML_baseline()
+    public async Task Consolidate_matches_ClosedXML_baseline()
     {
         // Ported from ClosedXML RangesConsolidationTests.ConsolidateRangesSameWorksheet, whose
         // IXLRanges engine runs the same bitmask algorithm as XLAreaConsolidator.
@@ -27,7 +27,7 @@ internal class XLAreaConsolidatorTests
 
         var result = input.GetConsolidated().ToSpaceList();
 
-        Assert.AreEqual("A1:E9 F2:F12 G6:I9 A10:B10 E10:E12 I10:I13", result);
+        await Assert.That(result).IsEqualTo("A1:E9 F2:F12 G6:I9 A10:B10 E10:E12 I10:I13");
     }
 
     private static XLAreaList Parse(string spaceList)

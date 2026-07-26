@@ -1,8 +1,8 @@
 ﻿using XLibur.Extensions;
-using NUnit.Framework;
 using System;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Extensions;
 
@@ -39,26 +39,28 @@ public class ReflectionExtensionTests
     }
 #pragma warning restore CS0067
 
-    [TestCase(nameof(TestClass.StaticProperty), true)]
-    [TestCase(nameof(TestClass.StaticField), true)]
-    [TestCase(nameof(TestClass.StaticEvent), true)]
-    [TestCase(nameof(TestClass.StaticMethod), true)]
-    [TestCase(nameof(TestClass.Const), true)]
-    [TestCase(nameof(TestClass.InstanceProperty), false)]
-    [TestCase(nameof(TestClass.InstanceField), false)]
-    [TestCase(nameof(TestClass.InstanceEvent), false)]
-    [TestCase(nameof(TestClass.InstanceMethod), false)]
-    public void IsStatic(string memberName, bool expectedIsStatic)
+    [Test]
+    [Arguments(nameof(TestClass.StaticProperty), true)]
+    [Arguments(nameof(TestClass.StaticField), true)]
+    [Arguments(nameof(TestClass.StaticEvent), true)]
+    [Arguments(nameof(TestClass.StaticMethod), true)]
+    [Arguments(nameof(TestClass.Const), true)]
+    [Arguments(nameof(TestClass.InstanceProperty), false)]
+    [Arguments(nameof(TestClass.InstanceField), false)]
+    [Arguments(nameof(TestClass.InstanceEvent), false)]
+    [Arguments(nameof(TestClass.InstanceMethod), false)]
+    public async Task IsStatic(string memberName, bool expectedIsStatic)
     {
         var member = typeof(TestClass).GetMember(memberName).Single();
-        Assert.AreEqual(expectedIsStatic, member.IsStatic());
+        await Assert.That(member.IsStatic()).IsEqualTo(expectedIsStatic);
     }
 
-    [TestCase(BindingFlags.Static | BindingFlags.NonPublic, true)]
-    [TestCase(BindingFlags.Instance | BindingFlags.Public, false)]
-    public void ConstructorIsStatic(BindingFlags flag, bool expectedIsStatic)
+    [Test]
+    [Arguments(BindingFlags.Static | BindingFlags.NonPublic, true)]
+    [Arguments(BindingFlags.Instance | BindingFlags.Public, false)]
+    public async Task ConstructorIsStatic(BindingFlags flag, bool expectedIsStatic)
     {
         var constructors = typeof(TestClass).GetConstructors(flag);
-        Assert.AreEqual(expectedIsStatic, constructors.Single().IsStatic());
+        await Assert.That(constructors.Single().IsStatic()).IsEqualTo(expectedIsStatic);
     }
 }

@@ -1,10 +1,10 @@
 ﻿using XLibur.Excel.InsertData;
-using NUnit.Framework;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel;
 using XLibur.Tests.Excel.Tables;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.InsertData;
 
@@ -65,73 +65,60 @@ public class ObjectReaderTests
         null
     ];
 
-    [TestCaseSource(nameof(ObjectSourceNames))]
-    public string CanGetPropertyName<T>(IEnumerable<T> data, int propertyIndex)
+    [Test]
+    [MethodDataSource(nameof(ObjectSourceNames))]
+    // The data source already handed these over as non-generic IEnumerable, so the generic
+    // parameter was decorative; TUnit data sources return tuples instead of TestCaseData.
+    public async Task CanGetPropertyName(IEnumerable data, int propertyIndex, string expected)
     {
         var reader = InsertDataReaderFactory.CreateReader(data);
-        return reader.GetPropertyName(propertyIndex);
+        await Assert.That(reader.GetPropertyName(propertyIndex)).IsEqualTo(expected);
     }
 
-    private static IEnumerable<TestCaseData> ObjectSourceNames
+    public static IEnumerable<(IEnumerable Data, int PropertyIndex, string Expected)> ObjectSourceNames()
     {
-        get
-        {
-            IEnumerable data = ObjectWithoutAttributes;
-            yield return new TestCaseData(data, 0).Returns("Column1");
-            yield return new TestCaseData(data, 1).Returns("Column2");
+        yield return (ObjectWithoutAttributes, 0, "Column1");
+        yield return (ObjectWithoutAttributes, 1, "Column2");
 
-            data = ObjectWithAttributes;
-            yield return new TestCaseData(data, 0).Returns("FirstColumn");
-            yield return new TestCaseData(data, 1).Returns("SecondColumn");
-            yield return new TestCaseData(data, 2).Returns("SomeFieldNotProperty");
-            yield return new TestCaseData(data, 3).Returns("UnOrderedColumn");
+        yield return (ObjectWithAttributes, 0, "FirstColumn");
+        yield return (ObjectWithAttributes, 1, "SecondColumn");
+        yield return (ObjectWithAttributes, 2, "SomeFieldNotProperty");
+        yield return (ObjectWithAttributes, 3, "UnOrderedColumn");
 
-            data = Structs;
-            yield return new TestCaseData(data, 0).Returns("X");
-            yield return new TestCaseData(data, 1).Returns("Y");
-            yield return new TestCaseData(data, 2).Returns("Z");
+        yield return (Structs, 0, "X");
+        yield return (Structs, 1, "Y");
+        yield return (Structs, 2, "Z");
 
-            data = NullableStructs;
-            yield return new TestCaseData(data, 0).Returns("X");
-            yield return new TestCaseData(data, 1).Returns("Y");
-            yield return new TestCaseData(data, 2).Returns("Z");
-        }
-    }
-
-    [TestCaseSource(nameof(PropertyCounts))]
-    public int CanGetPropertiesCount(IEnumerable data)
-    {
-        var reader = InsertDataReaderFactory.CreateReader(data);
-        return reader.GetPropertiesCount();
-    }
-
-    private static IEnumerable<TestCaseData> PropertyCounts
-    {
-        get
-        {
-            IEnumerable data = ObjectWithoutAttributes;
-            yield return new TestCaseData(data).Returns(2);
-
-            data = ObjectWithAttributes;
-            yield return new TestCaseData(data).Returns(4);
-
-            data = Structs;
-            yield return new TestCaseData(data).Returns(3);
-
-            data = NullableStructs;
-            yield return new TestCaseData(data).Returns(3);
-        }
+        yield return (NullableStructs, 0, "X");
+        yield return (NullableStructs, 1, "Y");
+        yield return (NullableStructs, 2, "Z");
     }
 
     [Test]
-    public void CanGetRecordsCount()
+    [MethodDataSource(nameof(PropertyCounts))]
+    public async Task CanGetPropertiesCount(IEnumerable data, int expected)
+    {
+        var reader = InsertDataReaderFactory.CreateReader(data);
+        await Assert.That(reader.GetPropertiesCount()).IsEqualTo(expected);
+    }
+
+    public static IEnumerable<(IEnumerable Data, int Expected)> PropertyCounts()
+    {
+        yield return (ObjectWithoutAttributes, 2);
+        yield return (ObjectWithAttributes, 4);
+        yield return (Structs, 3);
+        yield return (NullableStructs, 3);
+    }
+
+    [Test]
+    public async Task CanGetRecordsCount()
     {
         var reader = InsertDataReaderFactory.CreateReader(ObjectWithAttributes);
-        Assert.AreEqual(2, reader.GetRecords().Count());
+        await Assert.That(reader.GetRecords().Count()).IsEqualTo(2);
     }
 
     [Test]
-    public void CanReadValues_FromObject()
+    public async Task CanReadValues_FromObject()
     {
         var reader = InsertDataReaderFactory.CreateReader(ObjectWithAttributes);
         var result = reader.GetRecords();
@@ -140,19 +127,19 @@ public class ObjectReaderTests
         var firstRecord = enumerable.First().ToArray();
         var lastRecord = enumerable.Last().ToArray();
 
-        Assert.AreEqual("Value 2", firstRecord[0]);
-        Assert.AreEqual("Value 1", firstRecord[1]);
-        Assert.AreEqual(4, firstRecord[2]);
-        Assert.AreEqual(3, firstRecord[3]);
+        await Assert.That(firstRecord[0]).IsEqualTo("Value 2");
+        await Assert.That(firstRecord[1]).IsEqualTo("Value 1");
+        await Assert.That(firstRecord[2]).IsEqualTo(4);
+        await Assert.That(firstRecord[3]).IsEqualTo(3);
 
-        Assert.AreEqual("Value 6", lastRecord[0]);
-        Assert.AreEqual("Value 5", lastRecord[1]);
-        Assert.AreEqual(8, lastRecord[2]);
-        Assert.AreEqual(7, lastRecord[3]);
+        await Assert.That(lastRecord[0]).IsEqualTo("Value 6");
+        await Assert.That(lastRecord[1]).IsEqualTo("Value 5");
+        await Assert.That(lastRecord[2]).IsEqualTo(8);
+        await Assert.That(lastRecord[3]).IsEqualTo(7);
     }
 
     [Test]
-    public void CanReadValues_FromStruct()
+    public async Task CanReadValues_FromStruct()
     {
         var reader = InsertDataReaderFactory.CreateReader(Structs);
         var result = reader.GetRecords();
@@ -161,17 +148,17 @@ public class ObjectReaderTests
         var firstRecord = enumerable.First().ToArray();
         var lastRecord = enumerable.Last().ToArray();
 
-        Assert.AreEqual(1, firstRecord[0]);
-        Assert.AreEqual(2, firstRecord[1]);
-        Assert.AreEqual(3, firstRecord[2]);
+        await Assert.That(firstRecord[0]).IsEqualTo(1);
+        await Assert.That(firstRecord[1]).IsEqualTo(2);
+        await Assert.That(firstRecord[2]).IsEqualTo(3);
 
-        Assert.AreEqual(0, lastRecord[0]);
-        Assert.AreEqual(0, lastRecord[1]);
-        Assert.AreEqual(Blank.Value, lastRecord[2]);
+        await Assert.That(lastRecord[0]).IsEqualTo(0);
+        await Assert.That(lastRecord[1]).IsEqualTo(0);
+        await Assert.That(lastRecord[2]).IsEqualTo(Blank.Value);
     }
 
     [Test]
-    public void CanReadValues_FromNullableStruct()
+    public async Task CanReadValues_FromNullableStruct()
     {
         var reader = InsertDataReaderFactory.CreateReader(NullableStructs);
         var result = reader.GetRecords();
@@ -180,23 +167,23 @@ public class ObjectReaderTests
         var firstRecord = enumerable.First().ToArray();
         var lastRecord = enumerable.Last().ToArray();
 
-        Assert.AreEqual(1, firstRecord[0]);
-        Assert.AreEqual(2, firstRecord[1]);
-        Assert.AreEqual(3, firstRecord[2]);
+        await Assert.That(firstRecord[0]).IsEqualTo(1);
+        await Assert.That(firstRecord[1]).IsEqualTo(2);
+        await Assert.That(firstRecord[2]).IsEqualTo(3);
 
-        Assert.AreEqual(Blank.Value, lastRecord[0]);
-        Assert.AreEqual(Blank.Value, lastRecord[1]);
-        Assert.AreEqual(Blank.Value, lastRecord[2]);
+        await Assert.That(lastRecord[0]).IsEqualTo(Blank.Value);
+        await Assert.That(lastRecord[1]).IsEqualTo(Blank.Value);
+        await Assert.That(lastRecord[2]).IsEqualTo(Blank.Value);
     }
 
     [Test]
-    public void IgnoresIndexers()
+    public async Task IgnoresIndexers()
     {
         var data = new[] { new TestClassWithIndexer() };
         var reader = InsertDataReaderFactory.CreateReader(data);
 
-        Assert.AreEqual(1, reader.GetPropertiesCount());
-        Assert.AreEqual(nameof(TestClassWithIndexer.Value), reader.GetPropertyName(0));
+        await Assert.That(reader.GetPropertiesCount()).IsEqualTo(1);
+        await Assert.That(reader.GetPropertyName(0)).IsEqualTo(nameof(TestClassWithIndexer.Value));
     }
 
     private record TestClassWithIndexer

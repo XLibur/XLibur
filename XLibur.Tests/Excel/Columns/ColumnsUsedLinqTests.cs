@@ -1,20 +1,19 @@
 ﻿using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.Columns;
-
 /// <summary>
 /// Guards that standard LINQ operators (<c>Skip</c>, <c>Where</c>) over the enumerable returned by
 /// <c>IXLWorksheet.ColumnsUsed()</c> / <c>IXLWorksheet.RowsUsed()</c> behave as expected:
 /// a filtered-out column/row must not be visited and therefore must not be adjusted. See
 /// ClosedXML/ClosedXML#2867, which reports the opposite behavior on the parent library.
 /// </summary>
-[TestFixture]
 public class ColumnsUsedLinqTests
 {
     [Test]
-    public void ColumnsUsed_EnumeratesInAscendingColumnOrder()
+    public async Task ColumnsUsed_EnumeratesInAscendingColumnOrder()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -24,11 +23,11 @@ public class ColumnsUsedLinqTests
 
         var order = ws.ColumnsUsed().Select(c => c.ColumnNumber()).ToList();
 
-        Assert.That(order, Is.EqualTo(new[] { 1, 2, 3 }));
+        await Assert.That(order).IsEquivalentTo(new[] { 1, 2, 3 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void ColumnsUsed_Skip_DoesNotAdjustSkippedColumn()
+    public async Task ColumnsUsed_Skip_DoesNotAdjustSkippedColumn()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -45,13 +44,13 @@ public class ColumnsUsedLinqTests
         foreach (var column in ws.ColumnsUsed().Skip(1))
             column.AdjustToContents();
 
-        Assert.That(visited, Is.EqualTo(new[] { 2 }), "Only the second column should be visited.");
-        Assert.That(ws.Column(1).Width, Is.EqualTo(20).Within(1e-9), "Skipped first column must keep its width.");
-        Assert.That(ws.Column(2).Width, Is.Not.EqualTo(defaultBWidth), "Second column should have been adjusted.");
+        await Assert.That(visited).IsEquivalentTo(new[] { 2 }, CollectionOrdering.Matching).Because("Only the second column should be visited.");
+        await Assert.That(ws.Column(1).Width).IsEqualTo(20).Within(1e-9).Because("Skipped first column must keep its width.");
+        await Assert.That(ws.Column(2).Width).IsNotEqualTo(defaultBWidth).Because("Second column should have been adjusted.");
     }
 
     [Test]
-    public void ColumnsUsed_Where_DoesNotAdjustFilteredColumn()
+    public async Task ColumnsUsed_Where_DoesNotAdjustFilteredColumn()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -67,15 +66,14 @@ public class ColumnsUsedLinqTests
         foreach (var column in ws.ColumnsUsed().Where(c => c.ColumnNumber() != 1))
             column.AdjustToContents();
 
-        Assert.That(visited.Select(v => v.Number), Is.EqualTo(new[] { 2, 3 }));
+        await Assert.That(visited.Select(v => v.Number)).IsEquivalentTo(new[] { 2, 3 }, CollectionOrdering.Matching);
         foreach (var v in visited)
-            Assert.That(ws.Column(v.Number).Width, Is.Not.EqualTo(v.WidthBefore),
-                $"Visited column {v.Number} should have been adjusted.");
-        Assert.That(ws.Column(1).Width, Is.EqualTo(20).Within(1e-9), "Filtered-out first column must keep its width.");
+            await Assert.That(ws.Column(v.Number).Width).IsNotEqualTo(v.WidthBefore).Because($"Visited column {v.Number} should have been adjusted.");
+        await Assert.That(ws.Column(1).Width).IsEqualTo(20).Within(1e-9).Because("Filtered-out first column must keep its width.");
     }
 
     [Test]
-    public void RowsUsed_Skip_DoesNotAdjustSkippedRow()
+    public async Task RowsUsed_Skip_DoesNotAdjustSkippedRow()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -96,10 +94,9 @@ public class ColumnsUsedLinqTests
         foreach (var row in ws.RowsUsed().Skip(1))
             row.AdjustToContents();
 
-        Assert.That(visited.Select(v => v.Number), Is.EqualTo(new[] { 2, 3 }), "Only the trailing rows should be visited.");
+        await Assert.That(visited.Select(v => v.Number)).IsEquivalentTo(new[] { 2, 3 }, CollectionOrdering.Matching).Because("Only the trailing rows should be visited.");
         foreach (var v in visited)
-            Assert.That(ws.Row(v.Number).Height, Is.Not.EqualTo(v.HeightBefore),
-                $"Visited row {v.Number} should have been adjusted.");
-        Assert.That(ws.Row(1).Height, Is.EqualTo(40).Within(1e-9), "Skipped first row must keep its height.");
+            await Assert.That(ws.Row(v.Number).Height).IsNotEqualTo(v.HeightBefore).Because($"Visited row {v.Number} should have been adjusted.");
+        await Assert.That(ws.Row(1).Height).IsEqualTo(40).Within(1e-9).Because("Skipped first row must keep its height.");
     }
 }

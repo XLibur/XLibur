@@ -3,24 +3,23 @@ using XLibur.Excel.Drawings;
 using XLibur.Tests.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
-using NUnit.Framework;
 using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Saving;
 
-[TestFixture]
 public class SavingTests
 {
     [Test]
-    public void BooleanValueSavesAsZeroOrOne()
+    public async Task BooleanValueSavesAsZeroOrOne()
     {
         // When a cell evaluates to a boolean value, the text in the XML has to be true/false (lowercase only) or 0/1
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             var wb = new XLWorkbook();
             var ws = wb.AddWorksheet();
@@ -30,18 +29,18 @@ public class SavingTests
     }
 
     [Test]
-    public void CanSaveEmptyFile()
+    public async Task CanSaveEmptyFile()
     {
         using var ms = new MemoryStream();
         using var wb = new XLWorkbook();
         wb.AddWorksheet("Sheet1");
         wb.SaveAs(ms);
 
-        Assert.That(ms.Length, Is.GreaterThan(0));
+        await Assert.That(ms.Length).IsGreaterThan(0);
     }
 
     [Test]
-    public void CanSuccessfullySaveFileMultipleTimes()
+    public async Task CanSuccessfullySaveFileMultipleTimes()
     {
         using var memoryStream = new MemoryStream();
         using var wb = new XLWorkbook();
@@ -58,12 +57,12 @@ public class SavingTests
             wb.SaveAs(memoryStream, validate: true);
         }
 
-        Assert.AreEqual("test3", sheet.Cell(3, 1).Value);
-        Assert.That(memoryStream.Length, Is.GreaterThan(0));
+        await Assert.That(sheet.Cell(3, 1).Value).IsEqualTo("test3");
+        await Assert.That(memoryStream.Length).IsGreaterThan(0);
     }
 
     [Test]
-    public void CanEscape_xHHHH_Correctly()
+    public async Task CanEscape_xHHHH_Correctly()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -78,12 +77,12 @@ public class SavingTests
         using (var wb = new XLWorkbook(ms))
         {
             var ws = wb.Worksheets.First();
-            Assert.AreEqual("Reserve_TT_A_BLOCAGE_CAG_x6904_2", ws.FirstCell().Value);
+            await Assert.That(ws.FirstCell().Value).IsEqualTo("Reserve_TT_A_BLOCAGE_CAG_x6904_2");
         }
     }
 
     [Test]
-    public void CanSaveFileMultipleTimesAfterDeletingWorksheet()
+    public async Task CanSaveFileMultipleTimesAfterDeletingWorksheet()
     {
         // https://github.com/XLibur/XLibur/issues/435
 
@@ -100,7 +99,7 @@ public class SavingTests
         using (var book2 = new XLWorkbook(ms))
         {
             var ws = book2.Worksheet(1);
-            Assert.AreEqual("sheet1", ws.Name);
+            await Assert.That(ws.Name).IsEqualTo("sheet1");
             ws.Delete();
             book2.Save();
             book2.Save();
@@ -108,7 +107,7 @@ public class SavingTests
     }
 
     [Test]
-    public void CanSaveAndValidateFileInAnotherCulture()
+    public async Task CanSaveAndValidateFileInAnotherCulture()
     {
         string[] cultures = ["it", "de-AT"];
 
@@ -125,7 +124,7 @@ public class SavingTests
 
                 wb.SaveAs(memoryStream, true);
 
-                Assert.That(memoryStream.Length, Is.GreaterThan(0), $"Failed for culture {culture}");
+                await Assert.That(memoryStream.Length).IsGreaterThan(0).Because($"Failed for culture {culture}");
             }
         }
         finally
@@ -135,7 +134,7 @@ public class SavingTests
     }
 
     [Test]
-    public void CachedValuePreservedEvenWhenEvaluateFlagIsFalse()
+    public async Task CachedValuePreservedEvenWhenEvaluateFlagIsFalse()
     {
         // Cached values are always written when the formula has been evaluated
         // and is not dirty, regardless of EvaluateFormulasBeforeSaving.
@@ -157,12 +156,12 @@ public class SavingTests
         {
             var ws = book2.Worksheet(1);
 
-            Assert.AreEqual(1230.0, ws.Cell("A2").CachedValue);
+            await Assert.That(ws.Cell("A2").CachedValue).IsEqualTo(1230.0);
         }
     }
 
     [Test]
-    public void SaveCachedValueWhenFlagIsTrue()
+    public async Task SaveCachedValueWhenFlagIsTrue()
     {
         using var ms = new MemoryStream();
         using (var book1 = new XLWorkbook())
@@ -181,13 +180,13 @@ public class SavingTests
         {
             var ws = book2.Worksheet(1);
 
-            Assert.AreEqual(1230, ws.Cell("A2").CachedValue);
-            Assert.AreEqual("1 230", ws.Cell("A3").CachedValue);
+            await Assert.That(ws.Cell("A2").CachedValue).IsEqualTo(1230);
+            await Assert.That(ws.Cell("A3").CachedValue).IsEqualTo("1 230");
         }
     }
 
     [Test]
-    public void CanSaveAsCopyReadOnlyFile()
+    public async Task CanSaveAsCopyReadOnlyFile()
     {
         using var original = new TemporaryFile();
         try
@@ -208,8 +207,8 @@ public class SavingTests
             }
 
             // Assert
-            Assert.IsTrue(File.Exists(copy.Path));
-            Assert.IsFalse(File.GetAttributes(copy.Path).HasFlag(FileAttributes.ReadOnly));
+            await Assert.That(File.Exists(copy.Path)).IsTrue();
+            await Assert.That(File.GetAttributes(copy.Path).HasFlag(FileAttributes.ReadOnly)).IsFalse();
         }
         finally
         {
@@ -219,7 +218,7 @@ public class SavingTests
     }
 
     [Test]
-    public void CanSaveAsOverwriteExistingFile()
+    public async Task CanSaveAsOverwriteExistingFile()
     {
         using var existing = new TemporaryFile();
         // Arrange
@@ -233,13 +232,14 @@ public class SavingTests
         }
 
         // Assert
-        Assert.IsTrue(File.Exists(existing.Path));
-        Assert.Greater(new FileInfo(existing.Path).Length, 0);
+        await Assert.That(File.Exists(existing.Path)).IsTrue();
+        await Assert.That(new FileInfo(existing.Path).Length).IsGreaterThan(0);
     }
 
     [Test]
-    [Platform("Win", Reason = "FileAttributes.ReadOnly does not prevent writes on Linux/macOS")]
-    public void CannotSaveAsOverwriteExistingReadOnlyFile()
+    // Windows-only: FileAttributes.ReadOnly does not prevent writes on Linux/macOS
+    [RunOn(TUnit.Core.Enums.OS.Windows)]
+    public async Task CannotSaveAsOverwriteExistingReadOnlyFile()
     {
         using var existing = new TemporaryFile();
         try
@@ -257,7 +257,7 @@ public class SavingTests
             };
 
             // Assert
-            Assert.Throws<UnauthorizedAccessException>(saveAs);
+            await Assert.That(saveAs).Throws<UnauthorizedAccessException>();
         }
         finally
         {
@@ -267,7 +267,7 @@ public class SavingTests
     }
 
     [Test]
-    public void PageBreaksDontDuplicateAtSaving()
+    public async Task PageBreaksDontDuplicateAtSaving()
     {
         // https://github.com/XLibur/XLibur/issues/666
 
@@ -285,17 +285,17 @@ public class SavingTests
         {
             var ws = wb2.Worksheets.First();
 
-            Assert.AreEqual(1, ws.PageSetup.ColumnBreaks.Count);
-            Assert.AreEqual(1, ws.PageSetup.RowBreaks.Count);
+            await Assert.That(ws.PageSetup.ColumnBreaks.Count).IsEqualTo(1);
+            await Assert.That(ws.PageSetup.RowBreaks.Count).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void CanSaveFileWithPictureAndComment()
+    public async Task CanSaveFileWithPictureAndComment()
     {
         using var ms = new MemoryStream();
         using var wb = new XLWorkbook();
-        using var imageStream = Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable)).GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg");
+        using var imageStream = System.Reflection.Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable)).GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg");
         var ws = wb.AddWorksheet("Sheet1");
         ws.Cell("D4").Value = "Hello world.";
 
@@ -308,17 +308,17 @@ public class SavingTests
 
         wb.SaveAs(ms);
 
-        Assert.That(ms.Length, Is.GreaterThan(0));
-        Assert.AreEqual(1, ws.Pictures.Count);
-        Assert.IsTrue(ws.Cell("D4").HasComment);
+        await Assert.That(ms.Length).IsGreaterThan(0);
+        await Assert.That(ws.Pictures.Count).IsEqualTo(1);
+        await Assert.That(ws.Cell("D4").HasComment).IsTrue();
     }
 
     [Test]
-    public void PreserveChartsWhenSaving()
+    public async Task PreserveChartsWhenSaving()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Charts\PreserveCharts\inputfile.xlsx"));
         using var ms = new MemoryStream();
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             var wb = new XLWorkbook(stream);
             wb.SaveAs(ms);
@@ -327,9 +327,9 @@ public class SavingTests
     }
 
     [Test]
-    public void DeletingAllPicturesRemovesDrawingPart()
+    public async Task DeletingAllPicturesRemovesDrawingPart()
     {
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\ImageHandling\ImageAnchors.xlsx"));
             var wb = new XLWorkbook(stream);
@@ -345,11 +345,11 @@ public class SavingTests
     }
 
     [Test]
-    [TestCase("xlsx", SpreadsheetDocumentType.Workbook)]
-    [TestCase("xlsm", SpreadsheetDocumentType.MacroEnabledWorkbook)]
-    [TestCase("xltx", SpreadsheetDocumentType.Template)]
-    [TestCase("xltm", SpreadsheetDocumentType.MacroEnabledTemplate)]
-    public void SavesAsProperSpreadsheetDocumentType(string extension, SpreadsheetDocumentType expectedType)
+    [Arguments("xlsx", SpreadsheetDocumentType.Workbook)]
+    [Arguments("xlsm", SpreadsheetDocumentType.MacroEnabledWorkbook)]
+    [Arguments("xltx", SpreadsheetDocumentType.Template)]
+    [Arguments("xltm", SpreadsheetDocumentType.MacroEnabledTemplate)]
+    public async Task SavesAsProperSpreadsheetDocumentType(string extension, SpreadsheetDocumentType expectedType)
     {
         using var tf = new TemporaryFile(Path.ChangeExtension(Path.GetTempFileName(), extension));
         using (var wb = new XLWorkbook())
@@ -360,12 +360,12 @@ public class SavingTests
 
         using (var package = SpreadsheetDocument.Open(tf.Path, false))
         {
-            Assert.AreEqual(expectedType, package.DocumentType);
+            await Assert.That(package.DocumentType).IsEqualTo(expectedType);
         }
     }
 
     [Test]
-    public void CanSaveTemplateAsWorkbook()
+    public async Task CanSaveTemplateAsWorkbook()
     {
         // See #1375
         using var template = new TemporaryFile(Path.ChangeExtension(Path.GetTempFileName(), "xltx"));
@@ -381,34 +381,34 @@ public class SavingTests
         }
         using (var package = SpreadsheetDocument.Open(workbook.Path, false))
         {
-            Assert.AreEqual(SpreadsheetDocumentType.Workbook, package.DocumentType);
+            await Assert.That(package.DocumentType).IsEqualTo(SpreadsheetDocumentType.Workbook);
         }
     }
 
     [Test]
-    public void SaveAsWithNoExtensionFails()
+    public async Task SaveAsWithNoExtensionFails()
     {
         using var tf = new TemporaryFile("FileWithNoExtension");
         using var wb = new XLWorkbook();
         wb.Worksheets.Add("Sheet1");
         Action action = () => wb.SaveAs(tf.Path);
 
-        Assert.Throws<ArgumentException>(action);
+        await Assert.That(action).Throws<ArgumentException>();
     }
 
     [Test]
-    public void SaveAsWithUnsupportedExtensionFails()
+    public async Task SaveAsWithUnsupportedExtensionFails()
     {
         using var tf = new TemporaryFile("FileWithBadExtension.bad");
         using var wb = new XLWorkbook();
         wb.Worksheets.Add("Sheet1");
         Action action = () => wb.SaveAs(tf.Path);
 
-        Assert.Throws<ArgumentException>(action);
+        await Assert.That(action).Throws<ArgumentException>();
     }
 
     [Test]
-    public void SaveCellValueWithLeadingQuotationMarkCorrectly()
+    public async Task SaveCellValueWithLeadingQuotationMarkCorrectly()
     {
         var formulaValue = "=IF(TRUE, 1, 0)";
         var quotedFormulaValue = '\'' + formulaValue;
@@ -418,10 +418,10 @@ public class SavingTests
             var ws = wb.AddWorksheet("Sheet1");
             var cell = ws.FirstCell();
             cell.SetValue(quotedFormulaValue);
-            Assert.IsFalse(cell.HasFormula);
-            Assert.AreEqual(formulaValue, cell.Value);
-            Assert.AreEqual(XLDataType.Text, cell.DataType);
-            Assert.True(cell.Style.IncludeQuotePrefix);
+            await Assert.That(cell.HasFormula).IsFalse();
+            await Assert.That(cell.Value).IsEqualTo(formulaValue);
+            await Assert.That(cell.DataType).IsEqualTo(XLDataType.Text);
+            await Assert.That(cell.Style.IncludeQuotePrefix).IsTrue();
 
             wb.SaveAs(ms);
         }
@@ -432,16 +432,16 @@ public class SavingTests
         {
             var ws = wb.Worksheets.First();
             var cell = ws.FirstCell();
-            Assert.IsFalse(cell.HasFormula);
-            Assert.IsFalse(cell.HasFormula);
-            Assert.AreEqual(formulaValue, cell.Value);
-            Assert.AreEqual(XLDataType.Text, cell.DataType);
-            Assert.True(cell.Style.IncludeQuotePrefix);
+            await Assert.That(cell.HasFormula).IsFalse();
+            await Assert.That(cell.HasFormula).IsFalse();
+            await Assert.That(cell.Value).IsEqualTo(formulaValue);
+            await Assert.That(cell.DataType).IsEqualTo(XLDataType.Text);
+            await Assert.That(cell.Style.IncludeQuotePrefix).IsTrue();
         }
     }
 
     [Test]
-    public void PreserveHeightOfEmptyRowsOnSaving()
+    public async Task PreserveHeightOfEmptyRowsOnSaving()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -464,16 +464,16 @@ public class SavingTests
             {
                 var ws = wb.Worksheet(sheetName);
 
-                Assert.AreEqual(50, ws.Row(1).Height);
-                Assert.AreEqual(0, ws.Row(2).Height);
-                Assert.AreEqual(20, ws.Row(3).Height);
-                Assert.AreEqual(100, ws.Row(4).Height);
+                await Assert.That(ws.Row(1).Height).IsEqualTo(50);
+                await Assert.That(ws.Row(2).Height).IsEqualTo(0);
+                await Assert.That(ws.Row(3).Height).IsEqualTo(20);
+                await Assert.That(ws.Row(4).Height).IsEqualTo(100);
             }
         }
     }
 
     [Test]
-    public void PreserveWidthOfEmptyColumnsOnSaving()
+    public async Task PreserveWidthOfEmptyColumnsOnSaving()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -495,16 +495,16 @@ public class SavingTests
             {
                 var ws = wb.Worksheet(sheetName);
 
-                Assert.AreEqual(ws.ColumnWidth, ws.Column(1).Width);
-                Assert.AreEqual(0, ws.Column(2).Width);
-                Assert.AreEqual(20, ws.Column(3).Width);
-                Assert.AreEqual(100, ws.Column(4).Width);
+                await Assert.That(ws.Column(1).Width).IsEqualTo(ws.ColumnWidth);
+                await Assert.That(ws.Column(2).Width).IsEqualTo(0);
+                await Assert.That(ws.Column(3).Width).IsEqualTo(20);
+                await Assert.That(ws.Column(4).Width).IsEqualTo(100);
             }
         }
     }
 
     [Test]
-    public void PreserveAlignmentOnSaving()
+    public async Task PreserveAlignmentOnSaving()
     {
         using var input = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\HorizontalAlignment.xlsx"));
         using var output = new MemoryStream();
@@ -515,12 +515,12 @@ public class SavingTests
 
         using (var wb = new XLWorkbook(output))
         {
-            Assert.AreEqual(XLAlignmentHorizontalValues.Center, wb.Worksheets.First().Cell("B1").Style.Alignment.Horizontal);
+            await Assert.That(wb.Worksheets.First().Cell("B1").Style.Alignment.Horizontal).IsEqualTo(XLAlignmentHorizontalValues.Center);
         }
     }
 
     [Test]
-    public void PreserveMultipleColorScalesOnSaving()
+    public async Task PreserveMultipleColorScalesOnSaving()
     {
         using var output = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -541,26 +541,26 @@ public class SavingTests
             var cf = sheet.ConditionalFormats
                 .OrderBy(x => x.Range.RangeAddress.FirstAddress.ColumnNumber)
                 .ToArray();
-            Assert.AreEqual(2, cf.Length);
-            Assert.AreEqual(XLConditionalFormatType.ColorScale, cf[0].ConditionalFormatType);
-            Assert.AreEqual(XLColor.Red, cf[0].Colors[1]);
-            Assert.AreEqual(XLCFContentType.Minimum, cf[0].ContentTypes[1]);
-            Assert.AreEqual(XLColor.Green, cf[0].Colors[2]);
-            Assert.AreEqual(XLCFContentType.Maximum, cf[0].ContentTypes[2]);
-            Assert.AreEqual(XLConditionalFormatType.ColorScale, cf[1].ConditionalFormatType);
-            Assert.AreEqual(XLColor.Alizarin, cf[1].Colors[1]);
-            Assert.AreEqual(XLCFContentType.Minimum, cf[1].ContentTypes[1]);
-            Assert.AreEqual(XLColor.Blue, cf[1].Colors[2]);
-            Assert.AreEqual(XLCFContentType.Maximum, cf[1].ContentTypes[2]);
+            await Assert.That(cf.Length).IsEqualTo(2);
+            await Assert.That(cf[0].ConditionalFormatType).IsEqualTo(XLConditionalFormatType.ColorScale);
+            await Assert.That(cf[0].Colors[1]).IsEqualTo(XLColor.Red);
+            await Assert.That(cf[0].ContentTypes[1]).IsEqualTo(XLCFContentType.Minimum);
+            await Assert.That(cf[0].Colors[2]).IsEqualTo(XLColor.Green);
+            await Assert.That(cf[0].ContentTypes[2]).IsEqualTo(XLCFContentType.Maximum);
+            await Assert.That(cf[1].ConditionalFormatType).IsEqualTo(XLConditionalFormatType.ColorScale);
+            await Assert.That(cf[1].Colors[1]).IsEqualTo(XLColor.Alizarin);
+            await Assert.That(cf[1].ContentTypes[1]).IsEqualTo(XLCFContentType.Minimum);
+            await Assert.That(cf[1].Colors[2]).IsEqualTo(XLColor.Blue);
+            await Assert.That(cf[1].ContentTypes[2]).IsEqualTo(XLCFContentType.Maximum);
         }
     }
 
     [Test]
-    public void RemoveExistingInlineStringsIfRequired()
+    public async Task RemoveExistingInlineStringsIfRequired()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\InlineStrings\inputfile.xlsx"));
         using var ms = new MemoryStream();
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             var wb = new XLWorkbook(stream);
             var ws = wb.Worksheet(1);
@@ -571,7 +571,15 @@ public class SavingTests
             foreach (var cell in numericCells)
             {
                 cell.Clear(XLClearOptions.AllFormats);
-                Assert.True(cell.Value.TryConvert(out double val, CultureInfo.CurrentCulture));
+
+                // This lambda builds the workbook and must return IXLWorkbook, so it cannot
+                // be async and cannot await an assertion. Throwing fails the test the same way.
+                if (!cell.Value.TryConvert(out double val, CultureInfo.CurrentCulture))
+                {
+                    throw new InvalidOperationException(
+                        $"Cell {cell.Address} was selected as numeric but did not convert to a number.");
+                }
+
                 cell.Value = val;
             }
 
@@ -587,27 +595,27 @@ public class SavingTests
     }
 
     [Test]
-    public void CanSaveFileWithEmptyFill()
+    public async Task CanSaveFileWithEmptyFill()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\EmptyFill.xlsx"));
         using var wb = new XLWorkbook(stream);
         using var ms = new MemoryStream();
-        Assert.DoesNotThrow(() => wb.SaveAs(ms, false));
+        await Assert.That(() => wb.SaveAs(ms, false)).ThrowsNothing();
     }
 
     [Test]
-    public void CanSaveSingleRowAutoFilter()
+    public async Task CanSaveSingleRowAutoFilter()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\SingleRowAutoFilter.xlsx"));
         using var wb = new XLWorkbook(stream);
         using var ms = new MemoryStream();
-        Assert.DoesNotThrow(() => wb.SaveAs(ms, false));
+        await Assert.That(() => wb.SaveAs(ms, false)).ThrowsNothing();
     }
 
     [Test]
-    public void PivotTableWithVeryLongField()
+    public async Task PivotTableWithVeryLongField()
     {
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             var wb = new XLWorkbook();
             var ws = wb.AddWorksheet();
@@ -631,17 +639,17 @@ public class SavingTests
     }
 
     [Test]
-    public void CanSaveFileWithVml_NoComments()
+    public async Task CanSaveFileWithVml_NoComments()
     {
         //See #1285
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\FileWithButton.xlsm"));
         using var wb = new XLWorkbook(stream);
         using var ms = new MemoryStream();
-        Assert.DoesNotThrow(() => wb.SaveAs(ms));
+        await Assert.That(() => wb.SaveAs(ms)).ThrowsNothing();
     }
 
     [Test]
-    public void CanEnableWorkbookFilterPrivacyAndSaveInWorkbook()
+    public async Task CanEnableWorkbookFilterPrivacyAndSaveInWorkbook()
     {
         using var ms = new MemoryStream();
 
@@ -655,12 +663,12 @@ public class SavingTests
 
         using (var wb = SpreadsheetDocument.Open(ms, false))
         {
-            Assert.IsTrue(wb.WorkbookPart.Workbook.WorkbookProperties.FilterPrivacy);
+            await Assert.That(wb.WorkbookPart.Workbook.WorkbookProperties.FilterPrivacy!.Value).IsTrue();
         }
     }
 
     [Test]
-    public void WorkbookFilterPrivacyIsNotSetByDefault()
+    public async Task WorkbookFilterPrivacyIsNotSetByDefault()
     {
         using var ms = new MemoryStream();
 
@@ -674,20 +682,20 @@ public class SavingTests
 
         using (var wb = SpreadsheetDocument.Open(ms, false))
         {
-            Assert.IsNull(wb.WorkbookPart.Workbook.WorkbookProperties.FilterPrivacy);
+            await Assert.That(wb.WorkbookPart.Workbook.WorkbookProperties.FilterPrivacy).IsNull();
         }
     }
 
     [Test]
-    public void WorkbookFilterPrivacyIsReadCorrectly()
+    public async Task WorkbookFilterPrivacyIsReadCorrectly()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\FilterPrivacyEnabledWorkbook.xlsx"));
         using var wb = SpreadsheetDocument.Open(stream, false);
-        Assert.IsTrue(wb.WorkbookPart.Workbook.WorkbookProperties.FilterPrivacy);
+        await Assert.That(wb.WorkbookPart.Workbook.WorkbookProperties.FilterPrivacy!.Value).IsTrue();
     }
 
     [Test]
-    public void CanSaveAsWithDataValidationAfterInsertFirstRowsAboveAndInsertFirstColumnsBefore()
+    public async Task CanSaveAsWithDataValidationAfterInsertFirstRowsAboveAndInsertFirstColumnsBefore()
     {
         using var wb = new XLWorkbook();
         using var ms = new MemoryStream();
@@ -696,40 +704,40 @@ public class SavingTests
 
         ws.Row(1).InsertRowsAbove(1);
         var dv = ws.DataValidations.ToArray();
-        Assert.AreEqual(1, dv.Length);
-        Assert.AreEqual("B5:B5", dv[0].Ranges.Single().RangeAddress.ToString());
+        await Assert.That(dv.Length).IsEqualTo(1);
+        await Assert.That(dv[0].Ranges.Single().RangeAddress.ToString()).IsEqualTo("B5:B5");
 
-        Assert.DoesNotThrow(() => wb.SaveAs(ms));
+        await Assert.That(() => wb.SaveAs(ms)).ThrowsNothing();
 
         ws.Column(1).InsertColumnsBefore(1);
         dv = ws.DataValidations.ToArray();
-        Assert.AreEqual(1, dv.Length);
-        Assert.AreEqual("C5:C5", dv[0].Ranges.Single().RangeAddress.ToString());
+        await Assert.That(dv.Length).IsEqualTo(1);
+        await Assert.That(dv[0].Ranges.Single().RangeAddress.ToString()).IsEqualTo("C5:C5");
 
-        Assert.DoesNotThrow(() => wb.SaveAs(ms));
+        await Assert.That(() => wb.SaveAs(ms)).ThrowsNothing();
     }
 
     // https://github.com/XLibur/XLibur/issues/1606
     [Test]
-    public void CanSaveGSheetsFileWithNewComment()
+    public async Task CanSaveGSheetsFileWithNewComment()
     {
         using var ms = new MemoryStream();
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\GoogleSheets\file1.xlsx"));
         using var wb = new XLWorkbook(stream);
         var ws = wb.Worksheets.First();
         ws.Cell(1, 1).CreateComment().AddText("Test");
-        Assert.DoesNotThrow(() => wb.SaveAs(ms));
+        await Assert.That(() => wb.SaveAs(ms)).ThrowsNothing();
     }
 
     [Test]
-    public void CanSaveFileToDefaultDirectory()
+    public async Task CanSaveFileToDefaultDirectory()
     {
         var filename = $"test-{Guid.NewGuid()}.xlsx";
         try
         {
             using var wb = new XLWorkbook();
             wb.AddWorksheet().FirstCell().SetValue("Hello, world!");
-            Assert.DoesNotThrow(() => wb.SaveAs(filename));
+            await Assert.That(() => wb.SaveAs(filename)).ThrowsNothing();
         }
         finally
         {
@@ -738,24 +746,24 @@ public class SavingTests
     }
 
     [Test]
-    public void CanAddNewPartsInWorkbookWithDuplicateRelIds()
+    public async Task CanAddNewPartsInWorkbookWithDuplicateRelIds()
     {
         // Both Sheet1 and drawing have same relIds: rId2
         // We can add a new worksheet even when there are parts with same relId
-        TestHelper.LoadModifyAndCompare(
+        await TestHelper.LoadModifyAndCompare(
             @"Other\Parts\MultiplePartsHaveNonUniqueRelId-input.xlsx",
             wb => wb.AddWorksheet(),
             @"Other\Parts\MultiplePartsHaveNonUniqueRelId-output.xlsx");
     }
 
     [Test]
-    public void WorksheetWithDrawingCanBeModified()
+    public async Task WorksheetWithDrawingCanBeModified()
     {
         // Issue 2080: Drawing was loading the workbook DOM from the worksheet part and
         // the OpenXML SDK was ignoring worksheet changes saved through streaming, but used
         // the eager loaded DOM instead.
         // Shapes are now preserved across load/save (#2377)
-        TestHelper.LoadModifyAndCompare(
+        await TestHelper.LoadModifyAndCompare(
             @"Other\Parts\WorksheetWithDrawingCanBeModified-input.xlsx",
             wb =>
             {
@@ -766,7 +774,7 @@ public class SavingTests
     }
 
     [Test]
-    public void CorrectlySaveValidationWithSheetReference()
+    public async Task CorrectlySaveValidationWithSheetReference()
     {
         // When validation with sheet reference loading was first implemented, there was a
         // disconnect between where those validations were being loaded from and where they
@@ -782,19 +790,19 @@ public class SavingTests
             using var stream = TestHelper.GetStreamFromResource(path);
 
             using var originalWorkbook = new XLWorkbook(stream);
-            Assert.DoesNotThrow(() => originalWorkbook.SaveAs(filename1));
+            await Assert.That(() => originalWorkbook.SaveAs(filename1)).ThrowsNothing();
 
             using var workbook1 = new XLWorkbook(filename1);
-            Assert.DoesNotThrow(() => workbook1.SaveAs(filename2));
+            await Assert.That(() => workbook1.SaveAs(filename2)).ThrowsNothing();
 
             using var workbook2 = new XLWorkbook(filename2);
             var ws = workbook2.Worksheet("UI Sheet");
             var B2 = ws.Cell("B2");
-            Assert.AreEqual(XLAllowedValues.List, B2.GetDataValidation().AllowedValues);
-            Assert.AreEqual("$E$1:$E$4", B2.GetDataValidation().Value);
+            await Assert.That(B2.GetDataValidation().AllowedValues).IsEqualTo(XLAllowedValues.List);
+            await Assert.That(B2.GetDataValidation().Value).IsEqualTo("$E$1:$E$4");
             var A2 = ws.Cell("A2");
-            Assert.AreEqual(XLAllowedValues.List, A2.GetDataValidation().AllowedValues);
-            Assert.AreEqual("ValuesSheet!$A$1:$A$4", A2.GetDataValidation().Value);
+            await Assert.That(A2.GetDataValidation().AllowedValues).IsEqualTo(XLAllowedValues.List);
+            await Assert.That(A2.GetDataValidation().Value).IsEqualTo("ValuesSheet!$A$1:$A$4");
         }
         finally
         {
@@ -804,8 +812,9 @@ public class SavingTests
     }
 
     [Test]
-    [Platform("Win", Reason = "VML round-trip comparison is platform-dependent: XDocument serialization produces different XML formatting on Linux vs Windows")]
-    public void FormControlsArePreserved()
+    // Windows-only: VML round-trip comparison is platform-dependent: XDocument serialization produces different XML formatting on Linux vs Windows
+    [RunOn(TUnit.Core.Enums.OS.Windows)]
+    public async Task FormControlsArePreserved()
     {
         // The sheet contains three form controls: two radio buttons and group box.
         // Form controls are rather complex and this test ensures that the saved
@@ -813,12 +822,12 @@ public class SavingTests
         // (likely a replacement in a decade or two) and three control parts.
         //
         // Also check that custom text of the form controls is preserved (stored in VML).
-        TestHelper.LoadAndAssert(wb =>
+        await TestHelper.LoadAndAssert(async wb =>
         {
-            Assert.That(wb.Worksheets.Count, Is.GreaterThan(0));
+            await Assert.That(wb.Worksheets.Count).IsGreaterThan(0);
         }, @"Other\Shapes\sheet-with-form-controls-input.xlsx");
 
-        TestHelper.LoadSaveAndCompare(
+        await TestHelper.LoadSaveAndCompare(
             @"Other\Shapes\sheet-with-form-controls-input.xlsx",
             @"Other\Shapes\sheet-with-form-controls-output.xlsx");
     }

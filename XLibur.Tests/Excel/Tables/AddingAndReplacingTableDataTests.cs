@@ -1,16 +1,15 @@
 ﻿using XLibur.Attributes;
 using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using XLibur.Extensions;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Tables;
 
-[TestFixture]
 public class AppendingAndReplacingTableDataTests
 {
     public class Person
@@ -100,7 +99,7 @@ public class AppendingAndReplacingTableDataTests
     private static readonly string[] Data = ["CumulativeAge", "NameLength", "IsOld", "HardCodedValue"];
 
     [Test]
-    public void AddingEmptyEnumerables()
+    public async Task AddingEmptyEnumerables()
     {
         using var wb = PrepareWorkbook();
         var ws = wb.Worksheets.First();
@@ -109,14 +108,14 @@ public class AppendingAndReplacingTableDataTests
 
         IEnumerable<Person> personEnumerable = [];
 
-        Assert.AreEqual(null, table.AppendData(personEnumerable));
+        await Assert.That(table.AppendData(personEnumerable)).IsEqualTo(null);
 
         IEnumerable enumerable = Array.Empty<Person>();
-        Assert.AreEqual(null, table.AppendData(enumerable));
+        await Assert.That(table.AppendData(enumerable)).IsEqualTo(null);
     }
 
     [Test]
-    public void ReplaceWithEmptyEnumerables()
+    public async Task ReplaceWithEmptyEnumerables()
     {
         using var wb = PrepareWorkbook();
         var ws = wb.Worksheets.First();
@@ -124,14 +123,14 @@ public class AppendingAndReplacingTableDataTests
         var table = ws.Tables.First();
 
         IEnumerable<Person> personEnumerable = [];
-        Assert.Throws<InvalidOperationException>(() => table.ReplaceData(personEnumerable));
+        await Assert.That(() => table.ReplaceData(personEnumerable)).Throws<InvalidOperationException>();
 
         IEnumerable enumerable = Array.Empty<Person>();
-        Assert.Throws<InvalidOperationException>(() => table.ReplaceData(enumerable));
+        await Assert.That(() => table.ReplaceData(enumerable)).Throws<InvalidOperationException>();
     }
 
     [Test]
-    public void CanAppendTypedEnumerable()
+    public async Task CanAppendTypedEnumerable()
     {
         using var ms = new MemoryStream();
         using (var wb = PrepareWorkbook())
@@ -143,7 +142,7 @@ public class AppendingAndReplacingTableDataTests
             IEnumerable<Person> personEnumerable = NewData;
             var addedRange = table.AppendData(personEnumerable);
 
-            Assert.AreEqual("B6:G7", addedRange.RangeAddress.ToString());
+            await Assert.That(addedRange.RangeAddress.ToString()).IsEqualTo("B6:G7");
             ws.Columns().AdjustToContents();
 
             wb.SaveAs(ms);
@@ -153,13 +152,13 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(5, table.DataRange.RowCount());
-            Assert.AreEqual(6, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(5);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
     [Test]
-    public void CanAppendToTableWithTotalsRow()
+    public async Task CanAppendToTableWithTotalsRow()
     {
         using var ms = new MemoryStream();
         using (var wb = PrepareWorkbook())
@@ -173,7 +172,7 @@ public class AppendingAndReplacingTableDataTests
             IEnumerable<Person> personEnumerable = NewData;
             var addedRange = table.AppendData(personEnumerable);
 
-            Assert.AreEqual("B6:G7", addedRange.RangeAddress.ToString());
+            await Assert.That(addedRange.RangeAddress.ToString()).IsEqualTo("B6:G7");
             ws.Columns().AdjustToContents();
 
             wb.SaveAs(ms);
@@ -183,13 +182,13 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(5, table.DataRange.RowCount());
-            Assert.AreEqual(6, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(5);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
     [Test]
-    public void CanAppendTypedEnumerableAndPushDownCellsBelowTable()
+    public async Task CanAppendTypedEnumerableAndPushDownCellsBelowTable()
     {
         using var ms = new MemoryStream();
         const string value = "Some value that will be overwritten";
@@ -207,7 +206,7 @@ public class AppendingAndReplacingTableDataTests
             IEnumerable<Person> personEnumerable = NewData;
             var addedRange = table.AppendData(personEnumerable);
 
-            Assert.AreEqual("B6:G7", addedRange.RangeAddress.ToString());
+            await Assert.That(addedRange.RangeAddress.ToString()).IsEqualTo("B6:G7");
             ws.Columns().AdjustToContents();
 
             wb.SaveAs(ms);
@@ -220,16 +219,16 @@ public class AppendingAndReplacingTableDataTests
             var table = ws.Tables.First();
 
             var cell = ws.Cell(address);
-            Assert.AreEqual("de Beer", cell.Value);
-            Assert.AreEqual(5, table.DataRange.RowCount());
-            Assert.AreEqual(6, table.DataRange.ColumnCount());
+            await Assert.That(cell.Value).IsEqualTo("de Beer");
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(5);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
 
-            Assert.AreEqual(value, cell.CellBelow(NewData.Length).Value);
+            await Assert.That(cell.CellBelow(NewData.Length).Value).IsEqualTo(value);
         }
     }
 
     [Test]
-    public void CanAppendUntypedEnumerable()
+    public async Task CanAppendUntypedEnumerable()
     {
         using var ms = new MemoryStream();
         using (var wb = PrepareWorkbook())
@@ -243,7 +242,7 @@ public class AppendingAndReplacingTableDataTests
 
             var addedRange = table.AppendData(list);
 
-            Assert.AreEqual("B6:G7", addedRange.RangeAddress.ToString());
+            await Assert.That(addedRange.RangeAddress.ToString()).IsEqualTo("B6:G7");
 
             ws.Columns().AdjustToContents();
 
@@ -254,13 +253,13 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(5, table.DataRange.RowCount());
-            Assert.AreEqual(6, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(5);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
     [Test]
-    public void CanAppendDataTable()
+    public async Task CanAppendDataTable()
     {
         using var ms = new MemoryStream();
         using (var wb = PrepareWorkbook())
@@ -276,7 +275,7 @@ public class AppendingAndReplacingTableDataTests
 
             var addedRange = table.AppendData(dataTable);
 
-            Assert.AreEqual("B6:G7", addedRange.RangeAddress.ToString());
+            await Assert.That(addedRange.RangeAddress.ToString()).IsEqualTo("B6:G7");
             ws.Columns().AdjustToContents();
 
             wb.SaveAs(ms);
@@ -286,13 +285,13 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(5, table.DataRange.RowCount());
-            Assert.AreEqual(6, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(5);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
     [Test]
-    public void CanReplaceWithTypedEnumerable()
+    public async Task CanReplaceWithTypedEnumerable()
     {
         using var ms = new MemoryStream();
         using (var wb = PrepareWorkbook())
@@ -304,7 +303,7 @@ public class AppendingAndReplacingTableDataTests
             IEnumerable<Person> personEnumerable = NewData;
             var replacedRange = table.ReplaceData(personEnumerable);
 
-            Assert.AreEqual("B3:G4", replacedRange.RangeAddress.ToString());
+            await Assert.That(replacedRange.RangeAddress.ToString()).IsEqualTo("B3:G4");
             ws.Columns().AdjustToContents();
 
             wb.SaveAs(ms);
@@ -314,13 +313,13 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(2, table.DataRange.RowCount());
-            Assert.AreEqual(6, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(2);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
     [Test]
-    public void CanReplaceWithUntypedEnumerable()
+    public async Task CanReplaceWithUntypedEnumerable()
     {
         using var ms = new MemoryStream();
         using (var wb = PrepareWorkbook())
@@ -334,7 +333,7 @@ public class AppendingAndReplacingTableDataTests
 
             var replacedRange = table.ReplaceData(list);
 
-            Assert.AreEqual("B3:G4", replacedRange.RangeAddress.ToString());
+            await Assert.That(replacedRange.RangeAddress.ToString()).IsEqualTo("B3:G4");
 
             ws.Columns().AdjustToContents();
 
@@ -345,13 +344,13 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(2, table.DataRange.RowCount());
-            Assert.AreEqual(6, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(2);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
     [Test]
-    public void CanReplaceWithDataTable()
+    public async Task CanReplaceWithDataTable()
     {
         using var ms = new MemoryStream();
         using (var wb = PrepareWorkbook())
@@ -367,7 +366,7 @@ public class AppendingAndReplacingTableDataTests
 
             var replacedRange = table.ReplaceData(dataTable);
 
-            Assert.AreEqual("B3:G4", replacedRange.RangeAddress.ToString());
+            await Assert.That(replacedRange.RangeAddress.ToString()).IsEqualTo("B3:G4");
             ws.Columns().AdjustToContents();
 
             wb.SaveAs(ms);
@@ -377,13 +376,13 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(2, table.DataRange.RowCount());
-            Assert.AreEqual(6, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(2);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
     [Test]
-    public void CanReplaceToTableWithTablesRow1()
+    public async Task CanReplaceToTableWithTablesRow1()
     {
         using var ms = new MemoryStream();
         using (var wb = PrepareWorkbook())
@@ -398,7 +397,7 @@ public class AppendingAndReplacingTableDataTests
             var personEnumerable = NewData.Union(NewData).Union(NewData);
             var replacedRange = table.ReplaceData(personEnumerable);
 
-            Assert.AreEqual("B3:G8", replacedRange.RangeAddress.ToString());
+            await Assert.That(replacedRange.RangeAddress.ToString()).IsEqualTo("B3:G8");
             ws.Columns().AdjustToContents();
 
             wb.SaveAs(ms);
@@ -408,13 +407,13 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(6, table.DataRange.RowCount());
-            Assert.AreEqual(6, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(6);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
     [Test]
-    public void CanReplaceToTableWithTablesRow2()
+    public async Task CanReplaceToTableWithTablesRow2()
     {
         using var ms = new MemoryStream();
         using (var wb = PrepareWorkbook())
@@ -429,7 +428,7 @@ public class AppendingAndReplacingTableDataTests
             var personEnumerable = NewData.Take(1);
             var replacedRange = table.ReplaceData(personEnumerable);
 
-            Assert.AreEqual("B3:G3", replacedRange.RangeAddress.ToString());
+            await Assert.That(replacedRange.RangeAddress.ToString()).IsEqualTo("B3:G3");
             ws.Columns().AdjustToContents();
 
             wb.SaveAs(ms);
@@ -439,13 +438,13 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(1, table.DataRange.RowCount());
-            Assert.AreEqual(6, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(1);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
     [Test]
-    public void CanReplaceWithUntypedEnumerableAndPropagateExtraColumns()
+    public async Task CanReplaceWithUntypedEnumerableAndPropagateExtraColumns()
     {
         using var ms = new MemoryStream();
         using (var wb = PrepareWorkbookWithAdditionalColumns())
@@ -459,7 +458,7 @@ public class AppendingAndReplacingTableDataTests
 
             var replacedRange = table.ReplaceData(list, propagateExtraColumns: true);
 
-            Assert.AreEqual("B3:G6", replacedRange.RangeAddress.ToString());
+            await Assert.That(replacedRange.RangeAddress.ToString()).IsEqualTo("B3:G6");
 
             ws.Columns().AdjustToContents();
 
@@ -470,31 +469,31 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(4, table.DataRange.RowCount());
-            Assert.AreEqual(10, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(4);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(10);
 
-            Assert.AreEqual("SUM($G$3:G5)", table.Worksheet.Cell("H5").FormulaA1);
-            Assert.AreEqual("SUM($G$3:G6)", table.Worksheet.Cell("H6").FormulaA1);
-            Assert.AreEqual(100, table.Worksheet.Cell("H5").Value);
-            Assert.AreEqual(130, table.Worksheet.Cell("H6").Value);
+            await Assert.That(table.Worksheet.Cell("H5").FormulaA1).IsEqualTo("SUM($G$3:G5)");
+            await Assert.That(table.Worksheet.Cell("H6").FormulaA1).IsEqualTo("SUM($G$3:G6)");
+            await Assert.That(table.Worksheet.Cell("H5").Value).IsEqualTo(100);
+            await Assert.That(table.Worksheet.Cell("H6").Value).IsEqualTo(130);
 
-            Assert.AreEqual("LEN(B5)", table.Worksheet.Cell("I5").FormulaA1);
-            Assert.AreEqual("LEN(B6)", table.Worksheet.Cell("I6").FormulaA1);
-            Assert.AreEqual(16, table.Worksheet.Cell("I5").Value);
-            Assert.AreEqual(21, table.Worksheet.Cell("I6").Value);
+            await Assert.That(table.Worksheet.Cell("I5").FormulaA1).IsEqualTo("LEN(B5)");
+            await Assert.That(table.Worksheet.Cell("I6").FormulaA1).IsEqualTo("LEN(B6)");
+            await Assert.That(table.Worksheet.Cell("I5").Value).IsEqualTo(16);
+            await Assert.That(table.Worksheet.Cell("I6").Value).IsEqualTo(21);
 
-            Assert.AreEqual("G5>=40", table.Worksheet.Cell("J5").FormulaA1);
-            Assert.AreEqual("G6>=40", table.Worksheet.Cell("J6").FormulaA1);
-            Assert.AreEqual(false, table.Worksheet.Cell("J5").Value);
-            Assert.AreEqual(false, table.Worksheet.Cell("J6").Value);
+            await Assert.That(table.Worksheet.Cell("J5").FormulaA1).IsEqualTo("G5>=40");
+            await Assert.That(table.Worksheet.Cell("J6").FormulaA1).IsEqualTo("G6>=40");
+            await Assert.That(table.Worksheet.Cell("J5").Value).IsEqualTo(false);
+            await Assert.That(table.Worksheet.Cell("J6").Value).IsEqualTo(false);
 
-            Assert.AreEqual("40 is not old!", table.Worksheet.Cell("K5").Value);
-            Assert.AreEqual("40 is not old!", table.Worksheet.Cell("K6").Value);
+            await Assert.That(table.Worksheet.Cell("K5").Value).IsEqualTo("40 is not old!");
+            await Assert.That(table.Worksheet.Cell("K6").Value).IsEqualTo("40 is not old!");
         }
     }
 
     [Test]
-    public void CanReplaceWithTypedEnumerableAndPropagateExtraColumns()
+    public async Task CanReplaceWithTypedEnumerableAndPropagateExtraColumns()
     {
         using var ms = new MemoryStream();
         using (var wb = PrepareWorkbookWithAdditionalColumns())
@@ -506,7 +505,7 @@ public class AppendingAndReplacingTableDataTests
             IEnumerable<Person> personEnumerable = NewData.Concat(NewData).OrderBy(p => p.Age);
             var replacedRange = table.ReplaceData(personEnumerable, propagateExtraColumns: true);
 
-            Assert.AreEqual("B3:G6", replacedRange.RangeAddress.ToString());
+            await Assert.That(replacedRange.RangeAddress.ToString()).IsEqualTo("B3:G6");
             ws.Columns().AdjustToContents();
 
             wb.SaveAs(ms);
@@ -516,32 +515,33 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(4, table.DataRange.RowCount());
-            Assert.AreEqual(10, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(4);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(10);
 
-            Assert.AreEqual("SUM($G$3:G5)", table.Worksheet.Cell("H5").FormulaA1);
-            Assert.AreEqual("SUM($G$3:G6)", table.Worksheet.Cell("H6").FormulaA1);
-            Assert.AreEqual(95, table.Worksheet.Cell("H5").Value);
-            Assert.AreEqual(130, table.Worksheet.Cell("H6").Value);
+            await Assert.That(table.Worksheet.Cell("H5").FormulaA1).IsEqualTo("SUM($G$3:G5)");
+            await Assert.That(table.Worksheet.Cell("H6").FormulaA1).IsEqualTo("SUM($G$3:G6)");
+            await Assert.That(table.Worksheet.Cell("H5").Value).IsEqualTo(95);
+            await Assert.That(table.Worksheet.Cell("H6").Value).IsEqualTo(130);
 
-            Assert.AreEqual("LEN(B5)", table.Worksheet.Cell("I5").FormulaA1);
-            Assert.AreEqual("LEN(B6)", table.Worksheet.Cell("I6").FormulaA1);
-            Assert.AreEqual(16, table.Worksheet.Cell("I5").Value);
-            Assert.AreEqual(16, table.Worksheet.Cell("I6").Value);
+            await Assert.That(table.Worksheet.Cell("I5").FormulaA1).IsEqualTo("LEN(B5)");
+            await Assert.That(table.Worksheet.Cell("I6").FormulaA1).IsEqualTo("LEN(B6)");
+            await Assert.That(table.Worksheet.Cell("I5").Value).IsEqualTo(16);
+            await Assert.That(table.Worksheet.Cell("I6").Value).IsEqualTo(16);
 
-            Assert.AreEqual("G5>=40", table.Worksheet.Cell("J5").FormulaA1);
-            Assert.AreEqual("G6>=40", table.Worksheet.Cell("J6").FormulaA1);
-            Assert.AreEqual(false, table.Worksheet.Cell("J5").Value);
-            Assert.AreEqual(false, table.Worksheet.Cell("J6").Value);
+            await Assert.That(table.Worksheet.Cell("J5").FormulaA1).IsEqualTo("G5>=40");
+            await Assert.That(table.Worksheet.Cell("J6").FormulaA1).IsEqualTo("G6>=40");
+            await Assert.That(table.Worksheet.Cell("J5").Value).IsEqualTo(false);
+            await Assert.That(table.Worksheet.Cell("J6").Value).IsEqualTo(false);
 
-            Assert.AreEqual("40 is not old!", table.Worksheet.Cell("K5").Value);
-            Assert.AreEqual("40 is not old!", table.Worksheet.Cell("K6").Value);
+            await Assert.That(table.Worksheet.Cell("K5").Value).IsEqualTo("40 is not old!");
+            await Assert.That(table.Worksheet.Cell("K6").Value).IsEqualTo("40 is not old!");
         }
     }
 
-    [TestCase("ListOfPeople[Age]")] // Defined name formula without a A1 reference
-    [TestCase("ListOfPeople!A1")] // Defined name formula with an A1 reference
-    public void CanReplaceTableDataWhenWorksheetHasDefinedNames(string nameFormula)
+    [Test]
+    [Arguments("ListOfPeople[Age]")] // Defined name formula without a A1 reference
+    [Arguments("ListOfPeople!A1")] // Defined name formula with an A1 reference
+    public async Task CanReplaceTableDataWhenWorksheetHasDefinedNames(string nameFormula)
     {
         // When table data are replaced, the size of a table is modified. That
         // means rows below it are shifted up/down and defined names should be
@@ -559,7 +559,7 @@ public class AppendingAndReplacingTableDataTests
             IEnumerable<Person> personEnumerable = NewData;
             var replacedRange = table.ReplaceData(personEnumerable);
 
-            Assert.AreEqual("B3:G4", replacedRange.RangeAddress.ToString());
+            await Assert.That(replacedRange.RangeAddress.ToString()).IsEqualTo("B3:G4");
 
             wb.SaveAs(ms);
         }
@@ -568,13 +568,13 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(2, table.DataRange.RowCount());
-            Assert.AreEqual(6, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(2);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
     [Test]
-    public void CanAppendWithUntypedEnumerableAndPropagateExtraColumns()
+    public async Task CanAppendWithUntypedEnumerableAndPropagateExtraColumns()
     {
         using var ms = new MemoryStream();
         using (var wb = PrepareWorkbookWithAdditionalColumns())
@@ -588,7 +588,7 @@ public class AppendingAndReplacingTableDataTests
 
             var appendedRange = table.AppendData(list, propagateExtraColumns: true);
 
-            Assert.AreEqual("B6:G9", appendedRange.RangeAddress.ToString());
+            await Assert.That(appendedRange.RangeAddress.ToString()).IsEqualTo("B6:G9");
 
             ws.Columns().AdjustToContents();
 
@@ -599,31 +599,31 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(7, table.DataRange.RowCount());
-            Assert.AreEqual(10, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(7);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(10);
 
-            Assert.AreEqual("SUM($G$3:G8)", table.Worksheet.Cell("H8").FormulaA1);
-            Assert.AreEqual("SUM($G$3:G9)", table.Worksheet.Cell("H9").FormulaA1);
-            Assert.AreEqual(220, table.Worksheet.Cell("H8").Value);
-            Assert.AreEqual(250, table.Worksheet.Cell("H9").Value);
+            await Assert.That(table.Worksheet.Cell("H8").FormulaA1).IsEqualTo("SUM($G$3:G8)");
+            await Assert.That(table.Worksheet.Cell("H9").FormulaA1).IsEqualTo("SUM($G$3:G9)");
+            await Assert.That(table.Worksheet.Cell("H8").Value).IsEqualTo(220);
+            await Assert.That(table.Worksheet.Cell("H9").Value).IsEqualTo(250);
 
-            Assert.AreEqual("LEN(B8)", table.Worksheet.Cell("I8").FormulaA1);
-            Assert.AreEqual("LEN(B9)", table.Worksheet.Cell("I9").FormulaA1);
-            Assert.AreEqual(16, table.Worksheet.Cell("I8").Value);
-            Assert.AreEqual(21, table.Worksheet.Cell("I9").Value);
+            await Assert.That(table.Worksheet.Cell("I8").FormulaA1).IsEqualTo("LEN(B8)");
+            await Assert.That(table.Worksheet.Cell("I9").FormulaA1).IsEqualTo("LEN(B9)");
+            await Assert.That(table.Worksheet.Cell("I8").Value).IsEqualTo(16);
+            await Assert.That(table.Worksheet.Cell("I9").Value).IsEqualTo(21);
 
-            Assert.AreEqual("G8>=40", table.Worksheet.Cell("J8").FormulaA1);
-            Assert.AreEqual("G9>=40", table.Worksheet.Cell("J9").FormulaA1);
-            Assert.AreEqual(false, table.Worksheet.Cell("J8").Value);
-            Assert.AreEqual(false, table.Worksheet.Cell("J9").Value);
+            await Assert.That(table.Worksheet.Cell("J8").FormulaA1).IsEqualTo("G8>=40");
+            await Assert.That(table.Worksheet.Cell("J9").FormulaA1).IsEqualTo("G9>=40");
+            await Assert.That(table.Worksheet.Cell("J8").Value).IsEqualTo(false);
+            await Assert.That(table.Worksheet.Cell("J9").Value).IsEqualTo(false);
 
-            Assert.AreEqual("40 is not old!", table.Worksheet.Cell("K8").Value);
-            Assert.AreEqual("40 is not old!", table.Worksheet.Cell("K9").Value);
+            await Assert.That(table.Worksheet.Cell("K8").Value).IsEqualTo("40 is not old!");
+            await Assert.That(table.Worksheet.Cell("K9").Value).IsEqualTo("40 is not old!");
         }
     }
 
     [Test]
-    public void CanAppendTypedEnumerableAndPropagateExtraColumns()
+    public async Task CanAppendTypedEnumerableAndPropagateExtraColumns()
     {
         using var ms = new MemoryStream();
         using (var wb = PrepareWorkbookWithAdditionalColumns())
@@ -640,7 +640,7 @@ public class AppendingAndReplacingTableDataTests
 
             var addedRange = table.AppendData(personEnumerable);
 
-            Assert.AreEqual("B6:G11", addedRange.RangeAddress.ToString());
+            await Assert.That(addedRange.RangeAddress.ToString()).IsEqualTo("B6:G11");
             ws.Columns().AdjustToContents();
 
             wb.SaveAs(ms);
@@ -650,26 +650,26 @@ public class AppendingAndReplacingTableDataTests
         {
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
-            Assert.AreEqual(9, table.DataRange.RowCount());
-            Assert.AreEqual(10, table.DataRange.ColumnCount());
+            await Assert.That(table.DataRange.RowCount()).IsEqualTo(9);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(10);
 
-            Assert.AreEqual("SUM($G$3:G10)", table.Worksheet.Cell("H10").FormulaA1);
-            Assert.AreEqual("SUM($G$3:G11)", table.Worksheet.Cell("H11").FormulaA1);
-            Assert.AreEqual(280, table.Worksheet.Cell("H10").Value);
-            Assert.AreEqual(315, table.Worksheet.Cell("H11").Value);
+            await Assert.That(table.Worksheet.Cell("H10").FormulaA1).IsEqualTo("SUM($G$3:G10)");
+            await Assert.That(table.Worksheet.Cell("H11").FormulaA1).IsEqualTo("SUM($G$3:G11)");
+            await Assert.That(table.Worksheet.Cell("H10").Value).IsEqualTo(280);
+            await Assert.That(table.Worksheet.Cell("H11").Value).IsEqualTo(315);
 
-            Assert.AreEqual("LEN(B10)", table.Worksheet.Cell("I10").FormulaA1);
-            Assert.AreEqual("LEN(B11)", table.Worksheet.Cell("I11").FormulaA1);
-            Assert.AreEqual(16, table.Worksheet.Cell("I10").Value);
-            Assert.AreEqual(16, table.Worksheet.Cell("I11").Value);
+            await Assert.That(table.Worksheet.Cell("I10").FormulaA1).IsEqualTo("LEN(B10)");
+            await Assert.That(table.Worksheet.Cell("I11").FormulaA1).IsEqualTo("LEN(B11)");
+            await Assert.That(table.Worksheet.Cell("I10").Value).IsEqualTo(16);
+            await Assert.That(table.Worksheet.Cell("I11").Value).IsEqualTo(16);
 
-            Assert.AreEqual("G10>=40", table.Worksheet.Cell("J10").FormulaA1);
-            Assert.AreEqual("G11>=40", table.Worksheet.Cell("J11").FormulaA1);
-            Assert.AreEqual(false, table.Worksheet.Cell("J10").Value);
-            Assert.AreEqual(false, table.Worksheet.Cell("J11").Value);
+            await Assert.That(table.Worksheet.Cell("J10").FormulaA1).IsEqualTo("G10>=40");
+            await Assert.That(table.Worksheet.Cell("J11").FormulaA1).IsEqualTo("G11>=40");
+            await Assert.That(table.Worksheet.Cell("J10").Value).IsEqualTo(false);
+            await Assert.That(table.Worksheet.Cell("J11").Value).IsEqualTo(false);
 
-            Assert.AreEqual("40 is not old!", table.Worksheet.Cell("K10").Value);
-            Assert.AreEqual("40 is not old!", table.Worksheet.Cell("K11").Value);
+            await Assert.That(table.Worksheet.Cell("K10").Value).IsEqualTo("40 is not old!");
+            await Assert.That(table.Worksheet.Cell("K11").Value).IsEqualTo("40 is not old!");
         }
     }
 }

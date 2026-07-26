@@ -1,19 +1,17 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
-
 /// <summary>
 /// Tests that structured table references with colons in column names are preserved
 /// during formula rewriting and save/load round trips.
 /// </summary>
-[TestFixture]
 internal class StructuredReferenceColonTests
 {
     [Test]
-    public void Formula_with_colon_in_column_name_is_preserved_on_set()
+    public async Task Formula_with_colon_in_column_name_is_preserved_on_set()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -32,14 +30,12 @@ internal class StructuredReferenceColonTests
             "=_xlfn.XLOOKUP(A1,Table2[Week Date],Table2[Some Header: Other])";
 
         var formula = ws.Cell("B1").FormulaA1;
-        Assert.That(formula, Does.Contain("Table2[Some Header: Other]"),
-            "Structured reference with colon in column name must be preserved");
-        Assert.That(formula, Does.Not.Contain("#REF!"),
-            "Formula must not contain #REF! error");
+        await Assert.That(formula).Contains("Table2[Some Header: Other]").Because("Structured reference with colon in column name must be preserved");
+        await Assert.That(formula).DoesNotContain("#REF!").Because("Formula must not contain #REF! error");
     }
 
     [Test]
-    public void Formula_with_colon_in_column_name_survives_save_and_load()
+    public async Task Formula_with_colon_in_column_name_survives_save_and_load()
     {
         using var ms = new MemoryStream();
 
@@ -68,14 +64,13 @@ internal class StructuredReferenceColonTests
         using (var wb = new XLWorkbook(ms))
         {
             var formula = wb.Worksheet("Sheet1").Cell("B1").FormulaA1;
-            Assert.That(formula, Does.Contain("Table2[Some Header: Other]"),
-                "Structured reference with colon in column name must survive save/load round trip");
-            Assert.That(formula, Does.Not.Contain("#REF!"));
+            await Assert.That(formula).Contains("Table2[Some Header: Other]").Because("Structured reference with colon in column name must survive save/load round trip");
+            await Assert.That(formula).DoesNotContain("#REF!");
         }
     }
 
     [Test]
-    public void Normal_range_formula_is_not_affected()
+    public async Task Normal_range_formula_is_not_affected()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -83,12 +78,12 @@ internal class StructuredReferenceColonTests
         ws.Cell("B1").Value = 2;
         ws.Cell("C1").FormulaA1 = "=SUM(A1:B1)";
 
-        Assert.That(ws.Cell("C1").FormulaA1, Is.EqualTo("SUM(A1:B1)"));
-        Assert.That(ws.Cell("C1").Value, Is.EqualTo(3));
+        await Assert.That(ws.Cell("C1").FormulaA1).IsEqualTo("SUM(A1:B1)");
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(3);
     }
 
     [Test]
-    public void Structured_reference_without_colon_still_works()
+    public async Task Structured_reference_without_colon_still_works()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -105,12 +100,12 @@ internal class StructuredReferenceColonTests
         ws.Cell("A1").FormulaA1 = "=Table2[Value]";
 
         var formula = ws.Cell("A1").FormulaA1;
-        Assert.That(formula, Does.Contain("Table2[Value]"));
-        Assert.That(formula, Does.Not.Contain("#REF!"));
+        await Assert.That(formula).Contains("Table2[Value]");
+        await Assert.That(formula).DoesNotContain("#REF!");
     }
 
     [Test]
-    public void Multiple_structured_references_in_one_formula()
+    public async Task Multiple_structured_references_in_one_formula()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -128,15 +123,13 @@ internal class StructuredReferenceColonTests
             "=_xlfn.XLOOKUP(\"x\",MyTable[Key],MyTable[Col: A])+_xlfn.XLOOKUP(\"x\",MyTable[Key],MyTable[Col: B])";
 
         var formula = ws.Cell("A1").FormulaA1;
-        Assert.That(formula, Does.Contain("MyTable[Col: A]"),
-            "First structured reference with colon must be preserved");
-        Assert.That(formula, Does.Contain("MyTable[Col: B]"),
-            "Second structured reference with colon must be preserved");
-        Assert.That(formula, Does.Not.Contain("#REF!"));
+        await Assert.That(formula).Contains("MyTable[Col: A]").Because("First structured reference with colon must be preserved");
+        await Assert.That(formula).Contains("MyTable[Col: B]").Because("Second structured reference with colon must be preserved");
+        await Assert.That(formula).DoesNotContain("#REF!");
     }
 
     [Test]
-    public void Multiple_headers_with_colons()
+    public async Task Multiple_headers_with_colons()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -155,9 +148,9 @@ internal class StructuredReferenceColonTests
         ws.Cell("B1").FormulaA1 =
             "=_xlfn.XLOOKUP(1,Dates[ID],Dates[End: Date])";
 
-        Assert.That(ws.Cell("A1").FormulaA1, Does.Contain("Dates[Start: Date]"));
-        Assert.That(ws.Cell("B1").FormulaA1, Does.Contain("Dates[End: Date]"));
-        Assert.That(ws.Cell("A1").FormulaA1, Does.Not.Contain("#REF!"));
-        Assert.That(ws.Cell("B1").FormulaA1, Does.Not.Contain("#REF!"));
+        await Assert.That(ws.Cell("A1").FormulaA1).Contains("Dates[Start: Date]");
+        await Assert.That(ws.Cell("B1").FormulaA1).Contains("Dates[End: Date]");
+        await Assert.That(ws.Cell("A1").FormulaA1).DoesNotContain("#REF!");
+        await Assert.That(ws.Cell("B1").FormulaA1).DoesNotContain("#REF!");
     }
 }

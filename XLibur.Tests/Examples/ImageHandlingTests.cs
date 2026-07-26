@@ -1,20 +1,19 @@
-﻿using NUnit.Framework;
-using XLibur.Examples.ImageHandling;
+﻿using XLibur.Examples.ImageHandling;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;
 
-[TestFixture]
 public class ImageHandlingTests
 {
     [Test]
-    public void ImageAnchors()
+    public async Task ImageAnchors()
     {
-        TestHelper.RunTestExample<ImageAnchors>(@"ImageHandling\ImageAnchors.xlsx");
+        await TestHelper.RunTestExample<ImageAnchors>(@"ImageHandling\ImageAnchors.xlsx");
     }
 
     [Test]
-    public void ImageFormats()
+    public async Task ImageFormats()
     {
-        TestHelper.RunTestExample<ImageFormats>(@"ImageHandling\ImageFormats.xlsx");
+        await TestHelper.RunTestExample<ImageFormats>(@"ImageHandling\ImageFormats.xlsx");
     }
 }

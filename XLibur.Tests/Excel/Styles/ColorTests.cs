@@ -3,46 +3,45 @@ using System.Threading;
 using XLibur.Excel;
 using XLibur.Utils;
 using DocumentFormat.OpenXml.Spreadsheet;
-using NUnit.Framework;
 using Color = System.Drawing.Color;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Styles;
 
-[TestFixture]
 public class ColorTests
 {
     [Test]
-    public void ColorEqualOperatorInPlace()
+    public async Task ColorEqualOperatorInPlace()
     {
-        Assert.IsTrue(XLColor.Black == XLColor.Black);
+        await Assert.That(XLColor.Black == XLColor.Black).IsTrue();
     }
 
     [Test]
-    public void ColorNotEqualOperatorInPlace()
+    public async Task ColorNotEqualOperatorInPlace()
     {
-        Assert.IsFalse(XLColor.Black != XLColor.Black);
+        await Assert.That(XLColor.Black != XLColor.Black).IsFalse();
     }
 
     [Test]
-    public void ColorNamedVsHTML()
+    public async Task ColorNamedVsHTML()
     {
-        Assert.IsTrue(XLColor.Black == XLColor.FromHtml("#000000"));
+        await Assert.That(XLColor.Black == XLColor.FromHtml("#000000")).IsTrue();
     }
 
     [Test]
-    public void DefaultColorIndex64isTransparentWhite()
+    public async Task DefaultColorIndex64isTransparentWhite()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         var color = ws.FirstCell().Style.Fill.BackgroundColor;
-        Assert.AreEqual(XLColorType.Indexed, color.ColorType);
-        Assert.AreEqual(64, color.Indexed);
-        Assert.AreEqual(Color.Transparent, color.Color);
+        await Assert.That(color.ColorType).IsEqualTo(XLColorType.Indexed);
+        await Assert.That(color.Indexed).IsEqualTo(64);
+        await Assert.That(color.Color).IsEqualTo(Color.Transparent);
     }
 
     [Test]
-    public void CanConvertXLColorToColorType()
+    public async Task CanConvertXLColorToColorType()
     {
         var xlColor1 = XLColor.Red;
         var xlColor2 = XLColor.FromIndex(20);
@@ -54,29 +53,29 @@ public class ColorTests
         var color3 = new BackgroundColor().FromXLiburColor<BackgroundColor>(xlColor3);
         var color4 = new BackgroundColor().FromXLiburColor<BackgroundColor>(xlColor4);
 
-        Assert.AreEqual("FFFF0000", color1.Rgb.Value);
-        Assert.IsNull(color1.Indexed);
-        Assert.IsNull(color1.Theme);
-        Assert.IsNull(color1.Tint);
+        await Assert.That(color1.Rgb.Value).IsEqualTo("FFFF0000");
+        await Assert.That(color1.Indexed).IsNull();
+        await Assert.That(color1.Theme).IsNull();
+        await Assert.That(color1.Tint).IsNull();
 
-        Assert.IsNull(color2.Rgb);
-        Assert.AreEqual(20, color2.Indexed.Value);
-        Assert.IsNull(color2.Theme);
-        Assert.IsNull(color2.Tint);
+        await Assert.That(color2.Rgb).IsNull();
+        await Assert.That(color2.Indexed.Value).IsEqualTo(20u);
+        await Assert.That(color2.Theme).IsNull();
+        await Assert.That(color2.Tint).IsNull();
 
-        Assert.IsNull(color3.Rgb);
-        Assert.IsNull(color3.Indexed);
-        Assert.AreEqual(4, color3.Theme.Value);
-        Assert.IsNull(color3.Tint);
+        await Assert.That(color3.Rgb).IsNull();
+        await Assert.That(color3.Indexed).IsNull();
+        await Assert.That(color3.Theme.Value).IsEqualTo(4u);
+        await Assert.That(color3.Tint).IsNull();
 
-        Assert.IsNull(color4.Rgb);
-        Assert.IsNull(color4.Indexed);
-        Assert.AreEqual(5, color4.Theme.Value);
-        Assert.AreEqual(0.4, color4.Tint.Value);
+        await Assert.That(color4.Rgb).IsNull();
+        await Assert.That(color4.Indexed).IsNull();
+        await Assert.That(color4.Theme.Value).IsEqualTo(5u);
+        await Assert.That(color4.Tint.Value).IsEqualTo(0.4);
     }
 
     [Test]
-    public void CanConvertXlColorToX14ColorType()
+    public async Task CanConvertXlColorToX14ColorType()
     {
         var xlColor1 = XLColor.Red;
         var xlColor2 = XLColor.FromIndex(20);
@@ -88,29 +87,29 @@ public class ColorTests
         var color3 = new X14.FillColor().FromXLiburColor<X14.FillColor>(xlColor3);
         var color4 = new X14.HighMarkerColor().FromXLiburColor<X14.HighMarkerColor>(xlColor4);
 
-        Assert.AreEqual("FFFF0000", color1.Rgb.Value);
-        Assert.IsNull(color1.Indexed);
-        Assert.IsNull(color1.Theme);
-        Assert.IsNull(color1.Tint);
+        await Assert.That(color1.Rgb.Value).IsEqualTo("FFFF0000");
+        await Assert.That(color1.Indexed).IsNull();
+        await Assert.That(color1.Theme).IsNull();
+        await Assert.That(color1.Tint).IsNull();
 
-        Assert.IsNull(color2.Rgb);
-        Assert.AreEqual(20, color2.Indexed.Value);
-        Assert.IsNull(color2.Theme);
-        Assert.IsNull(color2.Tint);
+        await Assert.That(color2.Rgb).IsNull();
+        await Assert.That(color2.Indexed.Value).IsEqualTo(20u);
+        await Assert.That(color2.Theme).IsNull();
+        await Assert.That(color2.Tint).IsNull();
 
-        Assert.IsNull(color3.Rgb);
-        Assert.IsNull(color3.Indexed);
-        Assert.AreEqual(4, color3.Theme.Value);
-        Assert.IsNull(color3.Tint);
+        await Assert.That(color3.Rgb).IsNull();
+        await Assert.That(color3.Indexed).IsNull();
+        await Assert.That(color3.Theme.Value).IsEqualTo(4u);
+        await Assert.That(color3.Tint).IsNull();
 
-        Assert.IsNull(color4.Rgb);
-        Assert.IsNull(color4.Indexed);
-        Assert.AreEqual(5, color4.Theme.Value);
-        Assert.AreEqual(0.4, color4.Tint.Value);
+        await Assert.That(color4.Rgb).IsNull();
+        await Assert.That(color4.Indexed).IsNull();
+        await Assert.That(color4.Theme.Value).IsEqualTo(5u);
+        await Assert.That(color4.Tint.Value).IsEqualTo(0.4);
     }
 
     [Test]
-    public void CanConvertColorTypeToXlColor()
+    public async Task CanConvertColorTypeToXlColor()
     {
         var color1 = new ForegroundColor { Rgb = new DocumentFormat.OpenXml.HexBinaryValue("FFFF0000") };
         var color2 = new ForegroundColor { Indexed = new DocumentFormat.OpenXml.UInt32Value((uint)20) };
@@ -126,23 +125,23 @@ public class ColorTests
         var xlColor3 = color3.ToXLiburColor();
         var xlColor4 = color4.ToXLiburColor();
 
-        Assert.AreEqual(XLColorType.Color, xlColor1.ColorType);
-        Assert.AreEqual(XLColor.Red.Color, xlColor1.Color);
+        await Assert.That(xlColor1.ColorType).IsEqualTo(XLColorType.Color);
+        await Assert.That(xlColor1.Color).IsEqualTo(XLColor.Red.Color);
 
-        Assert.AreEqual(XLColorType.Indexed, xlColor2.ColorType);
-        Assert.AreEqual(20, xlColor2.Indexed);
+        await Assert.That(xlColor2.ColorType).IsEqualTo(XLColorType.Indexed);
+        await Assert.That(xlColor2.Indexed).IsEqualTo(20);
 
-        Assert.AreEqual(XLColorType.Theme, xlColor3.ColorType);
-        Assert.AreEqual(XLThemeColor.Accent1, xlColor3.ThemeColor);
-        Assert.AreEqual(0, xlColor3.ThemeTint, XLHelper.Epsilon);
+        await Assert.That(xlColor3.ColorType).IsEqualTo(XLColorType.Theme);
+        await Assert.That(xlColor3.ThemeColor).IsEqualTo(XLThemeColor.Accent1);
+        await Assert.That(xlColor3.ThemeTint).IsEqualTo(0).Within(XLHelper.Epsilon);
 
-        Assert.AreEqual(XLColorType.Theme, xlColor4.ColorType);
-        Assert.AreEqual(XLThemeColor.Accent1, xlColor4.ThemeColor);
-        Assert.AreEqual(0.4, xlColor4.ThemeTint, XLHelper.Epsilon);
+        await Assert.That(xlColor4.ColorType).IsEqualTo(XLColorType.Theme);
+        await Assert.That(xlColor4.ThemeColor).IsEqualTo(XLThemeColor.Accent1);
+        await Assert.That(xlColor4.ThemeTint).IsEqualTo(0.4).Within(XLHelper.Epsilon);
     }
 
     [Test]
-    public void CanConvertX14ColorTypeToXlColor()
+    public async Task CanConvertX14ColorTypeToXlColor()
     {
         var color1 = new X14.AxisColor { Rgb = new DocumentFormat.OpenXml.HexBinaryValue("FFFF0000") };
         var color2 = new X14.BorderColor { Indexed = new DocumentFormat.OpenXml.UInt32Value((uint)20) };
@@ -158,29 +157,29 @@ public class ColorTests
         var xlColor3 = color3.ToXLiburColor();
         var xlColor4 = color4.ToXLiburColor();
 
-        Assert.AreEqual(XLColorType.Color, xlColor1.ColorType);
-        Assert.AreEqual(XLColor.Red.Color, xlColor1.Color);
+        await Assert.That(xlColor1.ColorType).IsEqualTo(XLColorType.Color);
+        await Assert.That(xlColor1.Color).IsEqualTo(XLColor.Red.Color);
 
-        Assert.AreEqual(XLColorType.Indexed, xlColor2.ColorType);
-        Assert.AreEqual(20, xlColor2.Indexed);
+        await Assert.That(xlColor2.ColorType).IsEqualTo(XLColorType.Indexed);
+        await Assert.That(xlColor2.Indexed).IsEqualTo(20);
 
-        Assert.AreEqual(XLColorType.Theme, xlColor3.ColorType);
-        Assert.AreEqual(XLThemeColor.Accent1, xlColor3.ThemeColor);
-        Assert.AreEqual(0, xlColor3.ThemeTint, XLHelper.Epsilon);
+        await Assert.That(xlColor3.ColorType).IsEqualTo(XLColorType.Theme);
+        await Assert.That(xlColor3.ThemeColor).IsEqualTo(XLThemeColor.Accent1);
+        await Assert.That(xlColor3.ThemeTint).IsEqualTo(0).Within(XLHelper.Epsilon);
 
-        Assert.AreEqual(XLColorType.Theme, xlColor4.ColorType);
-        Assert.AreEqual(XLThemeColor.Accent1, xlColor4.ThemeColor);
-        Assert.AreEqual(0.4, xlColor4.ThemeTint, XLHelper.Epsilon);
+        await Assert.That(xlColor4.ColorType).IsEqualTo(XLColorType.Theme);
+        await Assert.That(xlColor4.ThemeColor).IsEqualTo(XLThemeColor.Accent1);
+        await Assert.That(xlColor4.ThemeTint).IsEqualTo(0.4).Within(XLHelper.Epsilon);
     }
 
     [Test]
-    public void CanParseColorWithHashAsCultureLineSeparator()
+    public async Task CanParseColorWithHashAsCultureLineSeparator()
     {
         // https://github.com/XLibur/XLibur/issues/675
         var culture = CultureInfo.CreateSpecificCulture("en-US");
         culture.TextInfo.ListSeparator = "#";
         Thread.CurrentThread.CurrentCulture = culture;
         var color = XLColor.FromHtml("#FF008000");
-        Assert.AreEqual(XLColor.Green, color);
+        await Assert.That(color).IsEqualTo(XLColor.Green);
     }
 }

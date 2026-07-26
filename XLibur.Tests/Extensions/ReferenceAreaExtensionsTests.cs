@@ -2,28 +2,27 @@
 using XLibur.Excel;
 using XLibur.Extensions;
 using ClosedXML.Parser;
-using NUnit.Framework;
 using XLibur.Excel.Coordinates;
 using static ClosedXML.Parser.ReferenceAxisType;
 using static ClosedXML.Parser.ReferenceStyle;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Extensions;
 
-[TestFixture]
 internal class ReferenceAreaExtensionsTests
 {
     [Test]
-    [TestCaseSource(nameof(A1TestCases))]
-    public void ToSheetPoint_converts_a1_reference_to_sheet_range(ReferenceArea tokenArea, XLSheetRange expectedRange)
+    [MethodDataSource(nameof(A1TestCases))]
+    public async Task ToSheetPoint_converts_a1_reference_to_sheet_range(ReferenceArea tokenArea, XLSheetRange expectedRange)
     {
-        Assert.AreEqual(expectedRange, tokenArea.ToSheetRange(default));
+        await Assert.That(tokenArea.ToSheetRange(default)).IsEqualTo(expectedRange);
     }
 
     [Test]
-    [TestCaseSource(nameof(R1C1TestCases))]
-    public void ToSheetPoint_converts_r1c1_reference_to_sheet_range(XLSheetPoint anchor, ReferenceArea tokenArea, XLSheetRange expectedRange)
+    [MethodDataSource(nameof(R1C1TestCases))]
+    public async Task ToSheetPoint_converts_r1c1_reference_to_sheet_range(XLSheetPoint anchor, ReferenceArea tokenArea, XLSheetRange expectedRange)
     {
-        Assert.AreEqual(expectedRange, tokenArea.ToSheetRange(anchor));
+        await Assert.That(tokenArea.ToSheetRange(anchor)).IsEqualTo(expectedRange);
     }
 
     public static IEnumerable<object[]> A1TestCases()

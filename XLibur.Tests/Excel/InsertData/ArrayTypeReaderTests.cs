@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 using XLibur.Excel.InsertData;
-using NUnit.Framework;
 using System.Linq;
 using XLibur.Excel;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.InsertData;
 
@@ -15,36 +15,36 @@ public class ArrayTypeReaderTests
     };
 
     [Test]
-    public void GetPropertyNameReturnsNull()
+    public async Task GetPropertyNameReturnsNull()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
-        Assert.IsNull(reader.GetPropertyName(0));
+        await Assert.That(reader.GetPropertyName(0)).IsNull();
     }
 
     [Test]
-    public void CanGetPropertiesCount()
+    public async Task CanGetPropertiesCount()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
-        Assert.AreEqual(3, reader.GetPropertiesCount());
+        await Assert.That(reader.GetPropertiesCount()).IsEqualTo(3);
     }
 
     [Test]
-    public void CanGetRecordsCount()
+    public async Task CanGetRecordsCount()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
-        Assert.AreEqual(2, reader.GetRecords().Count());
+        await Assert.That(reader.GetRecords().Count()).IsEqualTo(2);
     }
 
     [Test]
-    public void CanReadValues()
+    public async Task CanReadValues()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
         var result = reader.GetRecords();
         var enumerable = result as IEnumerable<XLCellValue>[] ?? result.ToArray();
 
-        Assert.AreEqual(1, enumerable.First().First());
-        Assert.AreEqual(3, enumerable.First().Last());
-        Assert.AreEqual(4, enumerable.Last().First());
-        Assert.AreEqual(6, enumerable.Last().Last());
+        await Assert.That(enumerable.First().First()).IsEqualTo(1);
+        await Assert.That(enumerable.First().Last()).IsEqualTo(3);
+        await Assert.That(enumerable.Last().First()).IsEqualTo(4);
+        await Assert.That(enumerable.Last().Last()).IsEqualTo(6);
     }
 }

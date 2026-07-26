@@ -1,14 +1,13 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.ConditionalFormats;
 
-[TestFixture]
 public class ConditionalFormatShiftTests
 {
     [Test]
-    public void CFShiftedOnColumnInsert()
+    public async Task CFShiftedOnColumnInsert()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("CFShift");
@@ -22,16 +21,16 @@ public class ConditionalFormatShiftTests
         ws.Column(2).InsertColumnsAfter(2);
         var cf = ws.ConditionalFormats.ToArray();
 
-        Assert.AreEqual(5, cf.Length);
-        Assert.AreEqual("A1:A1", cf[0].Range.RangeAddress.ToString());
-        Assert.AreEqual("A2:D2", cf[1].Range.RangeAddress.ToString());
-        Assert.AreEqual("A3:E3", cf[2].Range.RangeAddress.ToString());
-        Assert.AreEqual("B4:D6", cf[3].Range.RangeAddress.ToString());
-        Assert.AreEqual("E7:F7", cf[4].Range.RangeAddress.ToString());
+        await Assert.That(cf.Length).IsEqualTo(5);
+        await Assert.That(cf[0].Range.RangeAddress.ToString()).IsEqualTo("A1:A1");
+        await Assert.That(cf[1].Range.RangeAddress.ToString()).IsEqualTo("A2:D2");
+        await Assert.That(cf[2].Range.RangeAddress.ToString()).IsEqualTo("A3:E3");
+        await Assert.That(cf[3].Range.RangeAddress.ToString()).IsEqualTo("B4:D6");
+        await Assert.That(cf[4].Range.RangeAddress.ToString()).IsEqualTo("E7:F7");
     }
 
     [Test]
-    public void CFShiftedOnRowInsert()
+    public async Task CFShiftedOnRowInsert()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("CFShift");
@@ -45,16 +44,16 @@ public class ConditionalFormatShiftTests
         ws.Row(2).InsertRowsBelow(2);
         var cf = ws.ConditionalFormats.ToArray();
 
-        Assert.AreEqual(5, cf.Length);
-        Assert.AreEqual("A1:A1", cf[0].Range.RangeAddress.ToString());
-        Assert.AreEqual("B1:B4", cf[1].Range.RangeAddress.ToString());
-        Assert.AreEqual("C1:C5", cf[2].Range.RangeAddress.ToString());
-        Assert.AreEqual("D2:F4", cf[3].Range.RangeAddress.ToString());
-        Assert.AreEqual("G6:G7", cf[4].Range.RangeAddress.ToString());
+        await Assert.That(cf.Length).IsEqualTo(5);
+        await Assert.That(cf[0].Range.RangeAddress.ToString()).IsEqualTo("A1:A1");
+        await Assert.That(cf[1].Range.RangeAddress.ToString()).IsEqualTo("B1:B4");
+        await Assert.That(cf[2].Range.RangeAddress.ToString()).IsEqualTo("C1:C5");
+        await Assert.That(cf[3].Range.RangeAddress.ToString()).IsEqualTo("D2:F4");
+        await Assert.That(cf[4].Range.RangeAddress.ToString()).IsEqualTo("G6:G7");
     }
 
     [Test]
-    public void CFShiftedOnColumnDelete()
+    public async Task CFShiftedOnColumnDelete()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("CFShift");
@@ -68,15 +67,15 @@ public class ConditionalFormatShiftTests
         ws.Column(2).Delete();
         var cf = ws.ConditionalFormats.ToArray();
 
-        Assert.AreEqual(4, cf.Length);
-        Assert.AreEqual("A1:A1", cf[0].Range.RangeAddress.ToString());
-        Assert.AreEqual("A2:A2", cf[1].Range.RangeAddress.ToString());
-        Assert.AreEqual("A3:B3", cf[2].Range.RangeAddress.ToString());
-        Assert.AreEqual("B7:C7", cf[3].Range.RangeAddress.ToString());
+        await Assert.That(cf.Length).IsEqualTo(4);
+        await Assert.That(cf[0].Range.RangeAddress.ToString()).IsEqualTo("A1:A1");
+        await Assert.That(cf[1].Range.RangeAddress.ToString()).IsEqualTo("A2:A2");
+        await Assert.That(cf[2].Range.RangeAddress.ToString()).IsEqualTo("A3:B3");
+        await Assert.That(cf[3].Range.RangeAddress.ToString()).IsEqualTo("B7:C7");
     }
 
     [Test]
-    public void CFShiftedOnRowDelete()
+    public async Task CFShiftedOnRowDelete()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("CFShift");
@@ -90,15 +89,15 @@ public class ConditionalFormatShiftTests
         ws.Row(2).Delete();
         var cf = ws.ConditionalFormats.ToArray();
 
-        Assert.AreEqual(4, cf.Length);
-        Assert.AreEqual("A1:A1", cf[0].Range.RangeAddress.ToString());
-        Assert.AreEqual("B1:B1", cf[1].Range.RangeAddress.ToString());
-        Assert.AreEqual("C1:C2", cf[2].Range.RangeAddress.ToString());
-        Assert.AreEqual("G3:G4", cf[3].Range.RangeAddress.ToString());
+        await Assert.That(cf.Length).IsEqualTo(4);
+        await Assert.That(cf[0].Range.RangeAddress.ToString()).IsEqualTo("A1:A1");
+        await Assert.That(cf[1].Range.RangeAddress.ToString()).IsEqualTo("B1:B1");
+        await Assert.That(cf[2].Range.RangeAddress.ToString()).IsEqualTo("C1:C2");
+        await Assert.That(cf[3].Range.RangeAddress.ToString()).IsEqualTo("G3:G4");
     }
 
     [Test]
-    public void CFShiftedTruncateRange()
+    public async Task CFShiftedTruncateRange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("CFShift");
@@ -106,11 +105,11 @@ public class ConditionalFormatShiftTests
         var cf = ws.ConditionalFormats.Single();
 
         ws.Row(2).InsertRowsAbove(1);
-        Assert.IsTrue(cf.Range.RangeAddress.IsValid);
-        Assert.AreEqual($"1:{XLHelper.MaxRowNumber}", cf.Range.RangeAddress.ToString());
+        await Assert.That(cf.Range.RangeAddress.IsValid).IsTrue();
+        await Assert.That(cf.Range.RangeAddress.ToString()).IsEqualTo($"1:{XLHelper.MaxRowNumber}");
 
         ws.Column(2).InsertColumnsAfter(1);
-        Assert.IsTrue(cf.Range.RangeAddress.IsValid);
-        Assert.AreEqual($"1:{XLHelper.MaxRowNumber}", cf.Range.RangeAddress.ToString());
+        await Assert.That(cf.Range.RangeAddress.IsValid).IsTrue();
+        await Assert.That(cf.Range.RangeAddress.ToString()).IsEqualTo($"1:{XLHelper.MaxRowNumber}");
     }
 }

@@ -1,9 +1,10 @@
 ﻿using XLibur.Excel.InsertData;
-using NUnit.Framework;
 using System.Collections;
 using System.Linq;
 using XLibur.Excel;
 using XLibur.Tests.Excel.Tables;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.InsertData;
 
@@ -33,46 +34,47 @@ public class UntypedObjectReaderTests
         },
     });
 
-    [TestCase(0, "FirstColumn")]
-    [TestCase(1, "SecondColumn")]
-    [TestCase(2, "SomeFieldNotProperty")]
-    [TestCase(3, "UnOrderedColumn")]
-    public void CanGetPropertyName(int propertyIndex, string expectedPropertyName)
+    [Test]
+    [Arguments(0, "FirstColumn")]
+    [Arguments(1, "SecondColumn")]
+    [Arguments(2, "SomeFieldNotProperty")]
+    [Arguments(3, "UnOrderedColumn")]
+    public async Task CanGetPropertyName(int propertyIndex, string expectedPropertyName)
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
         var actualPropertyName = reader.GetPropertyName(propertyIndex);
-        Assert.AreEqual(expectedPropertyName, actualPropertyName);
+        await Assert.That(actualPropertyName).IsEqualTo(expectedPropertyName);
     }
 
     [Test]
-    public void CanGetPropertiesCount()
+    public async Task CanGetPropertiesCount()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
-        Assert.AreEqual(4, reader.GetPropertiesCount());
+        await Assert.That(reader.GetPropertiesCount()).IsEqualTo(4);
     }
 
     [Test]
-    public void CanGetRecordsCount()
+    public async Task CanGetRecordsCount()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
-        Assert.AreEqual(9, reader.GetRecords().Count());
+        await Assert.That(reader.GetRecords().Count()).IsEqualTo(9);
     }
 
     [Test]
-    public void CanGetData()
+    public async Task CanGetData()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
 
         var result = reader.GetRecords().ToArray();
 
-        Assert.AreEqual(new XLCellValue[] { Blank.Value }, result[0]);
-        Assert.AreEqual(new XLCellValue[] { "Value 2", "Value 1", 4, 3 }, result[1]);
-        Assert.AreEqual(new XLCellValue[] { Blank.Value }, result[2]);
-        Assert.AreEqual(new XLCellValue[] { Blank.Value }, result[3]);
-        Assert.AreEqual(new XLCellValue[] { Blank.Value }, result[4]);
-        Assert.AreEqual(new XLCellValue[] { 1, 2, 3 }, result[5]);
-        Assert.AreEqual(new XLCellValue[] { 4, 5, 6, 7 }, result[6]);
-        Assert.AreEqual(new XLCellValue[] { "Separator" }, result[7]);
-        Assert.AreEqual(new XLCellValue[] { "Value 9", "Value 10" }, result[8]);
+        await Assert.That(result[0]).IsEquivalentTo(new XLCellValue[] { Blank.Value }, CollectionOrdering.Matching);
+        await Assert.That(result[1]).IsEquivalentTo(new XLCellValue[] { "Value 2", "Value 1", 4, 3 }, CollectionOrdering.Matching);
+        await Assert.That(result[2]).IsEquivalentTo(new XLCellValue[] { Blank.Value }, CollectionOrdering.Matching);
+        await Assert.That(result[3]).IsEquivalentTo(new XLCellValue[] { Blank.Value }, CollectionOrdering.Matching);
+        await Assert.That(result[4]).IsEquivalentTo(new XLCellValue[] { Blank.Value }, CollectionOrdering.Matching);
+        await Assert.That(result[5]).IsEquivalentTo(new XLCellValue[] { 1, 2, 3 }, CollectionOrdering.Matching);
+        await Assert.That(result[6]).IsEquivalentTo(new XLCellValue[] { 4, 5, 6, 7 }, CollectionOrdering.Matching);
+        await Assert.That(result[7]).IsEquivalentTo(new XLCellValue[] { "Separator" }, CollectionOrdering.Matching);
+        await Assert.That(result[8]).IsEquivalentTo(new XLCellValue[] { "Value 9", "Value 10" }, CollectionOrdering.Matching);
     }
 }

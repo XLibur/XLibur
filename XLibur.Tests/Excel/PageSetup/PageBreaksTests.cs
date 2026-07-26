@@ -3,15 +3,15 @@ using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.PageSetup;
 
-[TestFixture]
 public class PageBreaksTests
 {
     [Test]
-    public void RowBreaksShouldBeSorted()
+    public async Task RowBreaksShouldBeSorted()
     {
         var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet("Sheet1");
@@ -19,11 +19,11 @@ public class PageBreaksTests
         sheet.PageSetup.AddHorizontalPageBreak(10);
         sheet.PageSetup.AddHorizontalPageBreak(12);
         sheet.PageSetup.AddHorizontalPageBreak(5);
-        Assert.That(sheet.PageSetup.RowBreaks, Is.EqualTo([5, 10, 12]));
+        await Assert.That(sheet.PageSetup.RowBreaks).IsEquivalentTo([5, 10, 12], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void ColumnBreaksShouldBeSorted()
+    public async Task ColumnBreaksShouldBeSorted()
     {
         var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet("Sheet1");
@@ -31,55 +31,55 @@ public class PageBreaksTests
         sheet.PageSetup.AddVerticalPageBreak(10);
         sheet.PageSetup.AddVerticalPageBreak(12);
         sheet.PageSetup.AddVerticalPageBreak(5);
-        Assert.That(sheet.PageSetup.ColumnBreaks, Is.EqualTo([5, 10, 12]));
+        await Assert.That(sheet.PageSetup.ColumnBreaks).IsEquivalentTo([5, 10, 12], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void RowBreaksShiftWhenInsertedRowAbove()
+    public async Task RowBreaksShiftWhenInsertedRowAbove()
     {
         var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet("Sheet1");
 
         sheet.PageSetup.AddHorizontalPageBreak(10);
         sheet.Row(5).InsertRowsAbove(1);
-        Assert.AreEqual(11, sheet.PageSetup.RowBreaks[0]);
+        await Assert.That(sheet.PageSetup.RowBreaks[0]).IsEqualTo(11);
     }
 
     [Test]
-    public void RowBreaksNotShiftWhenInsertedRowBelow()
+    public async Task RowBreaksNotShiftWhenInsertedRowBelow()
     {
         var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet("Sheet1");
 
         sheet.PageSetup.AddHorizontalPageBreak(10);
         sheet.Row(15).InsertRowsAbove(1);
-        Assert.AreEqual(10, sheet.PageSetup.RowBreaks[0]);
+        await Assert.That(sheet.PageSetup.RowBreaks[0]).IsEqualTo(10);
     }
 
     [Test]
-    public void ColumnBreaksShiftWhenInsertedColumnBefore()
+    public async Task ColumnBreaksShiftWhenInsertedColumnBefore()
     {
         var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet("Sheet1");
 
         sheet.PageSetup.AddVerticalPageBreak(10);
         sheet.Column(5).InsertColumnsBefore(1);
-        Assert.AreEqual(11, sheet.PageSetup.ColumnBreaks[0]);
+        await Assert.That(sheet.PageSetup.ColumnBreaks[0]).IsEqualTo(11);
     }
 
     [Test]
-    public void ColumnBreaksNotShiftWhenInsertedColumnAfter()
+    public async Task ColumnBreaksNotShiftWhenInsertedColumnAfter()
     {
         var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet("Sheet1");
 
         sheet.PageSetup.AddVerticalPageBreak(10);
         sheet.Column(15).InsertColumnsBefore(1);
-        Assert.AreEqual(10, sheet.PageSetup.ColumnBreaks[0]);
+        await Assert.That(sheet.PageSetup.ColumnBreaks[0]).IsEqualTo(10);
     }
 
     [Test]
-    public void PageBreaksWritePerpendicularAxisAsMax()
+    public async Task PageBreaksWritePerpendicularAxisAsMax()
     {
         // brk@max is the extent perpendicular to the break: a row (horizontal) break
         // spans the full column width, a column (vertical) break spans the full row
@@ -101,11 +101,11 @@ public class PageBreaksTests
         var worksheet = doc.WorkbookPart!.WorksheetParts.Single().Worksheet;
 
         var rowBreak = worksheet.GetFirstChild<RowBreaks>()!.Elements<Break>().Single();
-        Assert.That(rowBreak.Id!.Value, Is.EqualTo(32u));
-        Assert.That(rowBreak.Max!.Value, Is.EqualTo(16383u)); // last column, 0-based XFD
+        await Assert.That(rowBreak.Id!.Value).IsEqualTo(32u);
+        await Assert.That(rowBreak.Max!.Value).IsEqualTo(16383u); // last column, 0-based XFD
 
         var columnBreak = worksheet.GetFirstChild<ColumnBreaks>()!.Elements<Break>().Single();
-        Assert.That(columnBreak.Id!.Value, Is.EqualTo(4u));
-        Assert.That(columnBreak.Max!.Value, Is.EqualTo(1048575u)); // last row, 0-based
+        await Assert.That(columnBreak.Id!.Value).IsEqualTo(4u);
+        await Assert.That(columnBreak.Max!.Value).IsEqualTo(1048575u); // last row, 0-based
     }
 }

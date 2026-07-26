@@ -1,22 +1,22 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using XLibur.Extensions;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.ConditionalFormats;
 
-[TestFixture]
 public class ConditionalFormatTests
 {
     [Test]
-    public void MaintainConditionalFormattingOrder()
+    public async Task MaintainConditionalFormattingOrder()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\StyleReferenceFiles\ConditionalFormattingOrder\inputfile.xlsx"));
         using var ms = new MemoryStream();
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             var wb = new XLWorkbook(stream);
             wb.SaveAs(ms);
@@ -25,9 +25,10 @@ public class ConditionalFormatTests
     }
 
 
-    [TestCase(true, 7)]
-    [TestCase(false, 8)]
-    public void SaveOptionAffectsConsolidationConditionalFormatRanges(bool consolidateConditionalFormatRanges, int expectedCount)
+    [Test]
+    [Arguments(true, 7)]
+    [Arguments(false, 8)]
+    public async Task SaveOptionAffectsConsolidationConditionalFormatRanges(bool consolidateConditionalFormatRanges, int expectedCount)
     {
         var options = new SaveOptions
         {
@@ -48,12 +49,13 @@ public class ConditionalFormatTests
         using var ms = new MemoryStream();
         wb.SaveAs(ms, options);
         var wb_saved = new XLWorkbook(ms);
-        Assert.AreEqual(expectedCount, wb_saved.Worksheet("Sheet").ConditionalFormats.Count());
+        await Assert.That(wb_saved.Worksheet("Sheet").ConditionalFormats.Count()).IsEqualTo(expectedCount);
     }
 
-    [TestCase(true, 1)]
-    [TestCase(false, 2)]
-    public void SaveOptionAffectsConsolidationDataValidationRanges(bool consolidateDataValidationRanges, int expectedCount)
+    [Test]
+    [Arguments(true, 1)]
+    [Arguments(false, 2)]
+    public async Task SaveOptionAffectsConsolidationDataValidationRanges(bool consolidateDataValidationRanges, int expectedCount)
     {
         var options = new SaveOptions
         {
@@ -68,13 +70,14 @@ public class ConditionalFormatTests
         using var ms = new MemoryStream();
         wb.SaveAs(ms, options);
         var wb_saved = new XLWorkbook(ms);
-        Assert.AreEqual(expectedCount, wb_saved.Worksheet("Sheet").DataValidations.Count());
+        await Assert.That(wb_saved.Worksheet("Sheet").DataValidations.Count()).IsEqualTo(expectedCount);
     }
 
-    [TestCase("en-US")]
-    [TestCase("fr-FR")]
-    [TestCase("ru-RU")]
-    public void SaveConditionalFormat_CultureIndependent(string culture)
+    [Test]
+    [Arguments("en-US")]
+    [Arguments("fr-FR")]
+    [Arguments("ru-RU")]
+    public async Task SaveConditionalFormat_CultureIndependent(string culture)
     {
         using var ms = new MemoryStream();
         var expectedValue = 1.5;
@@ -105,37 +108,37 @@ public class ConditionalFormatTests
                 .Select(v => v.Value)
                 .Distinct();
 
-            Assert.AreEqual(1, conditionalFormatValues.Count());
-            Assert.AreEqual("1.5", conditionalFormatValues.Single());
+            await Assert.That(conditionalFormatValues.Count()).IsEqualTo(1);
+            await Assert.That(conditionalFormatValues.Single()).IsEqualTo("1.5");
         }
     }
 
     [Test]
-    public void CellIs_type_reads_only_required_formula_arguments()
+    public async Task CellIs_type_reads_only_required_formula_arguments()
     {
         // The CellIs uses formula tags as arguments. Some producers generate extra empty
         // formula tags and XLibur should be able to load CellIs conditional formatting
         // with such extra tags without an exception. The test file has been modified to
         // include extra formula tags and test checks that extra tags are ignored.
-        TestHelper.LoadAndAssert((_, ws) =>
+        await TestHelper.LoadAndAssert(async (_, ws) =>
         {
-            AssertFormulaArgs(ws, XLCFOperator.Between, "$D$2", "$E$2");
-            AssertFormulaArgs(ws, XLCFOperator.NotBetween, "$D$3", "$E$3");
-            AssertFormulaArgs(ws, XLCFOperator.GreaterThan, "$D$4");
-            AssertFormulaArgs(ws, XLCFOperator.LessThan, "$D$5");
-            AssertFormulaArgs(ws, XLCFOperator.Equal, "$D$6");
+            await AssertFormulaArgs(ws, XLCFOperator.Between, "$D$2", "$E$2");
+            await AssertFormulaArgs(ws, XLCFOperator.NotBetween, "$D$3", "$E$3");
+            await AssertFormulaArgs(ws, XLCFOperator.GreaterThan, "$D$4");
+            await AssertFormulaArgs(ws, XLCFOperator.LessThan, "$D$5");
+            await AssertFormulaArgs(ws, XLCFOperator.Equal, "$D$6");
         }, @"Other\ConditionalFormats\Extra_formulas_CellIs_type.xlsx");
 
-        static void AssertFormulaArgs(IXLWorksheet ws, XLCFOperator cfOperator, params string[] expectedFormulas)
+        static async Task AssertFormulaArgs(IXLWorksheet ws, XLCFOperator cfOperator, params string[] expectedFormulas)
         {
             var cf = ws.ConditionalFormats.Single(cf => cf.ConditionalFormatType == XLConditionalFormatType.CellIs && cf.Operator == cfOperator);
-            Assert.AreEqual(expectedFormulas.Length, cf.Values.Count);
-            Assert.That(cf.Values.Select(v => v.Value.Value), Is.EqualTo(expectedFormulas));
+            await Assert.That(cf.Values.Count).IsEqualTo(expectedFormulas.Length);
+            await Assert.That(cf.Values.Select(v => v.Value.Value)).IsEquivalentTo(expectedFormulas, CollectionOrdering.Matching);
         }
     }
 
     [Test]
-    public void DataBar_Gradient_RoundTrips()
+    public async Task DataBar_Gradient_RoundTrips()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -155,12 +158,12 @@ public class ConditionalFormatTests
         using var wb2 = new XLWorkbook(ms);
         var cf = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
 
-        Assert.That(cf.Gradient, Is.True);
-        Assert.That(cf.Colors[1].Color.ToHex(), Is.EqualTo("FF638EC6"));
+        await Assert.That(cf.Gradient).IsTrue();
+        await Assert.That(cf.Colors[1].Color.ToHex()).IsEqualTo("FF638EC6");
     }
 
     [Test]
-    public void DataBar_SolidFill_RoundTrips()
+    public async Task DataBar_SolidFill_RoundTrips()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -180,46 +183,46 @@ public class ConditionalFormatTests
         using var wb2 = new XLWorkbook(ms);
         var cf = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
 
-        Assert.That(cf.Gradient, Is.False);
-        Assert.That(cf.Colors[1].Color.ToHex(), Is.EqualTo("FF638EC6"));
+        await Assert.That(cf.Gradient).IsFalse();
+        await Assert.That(cf.Colors[1].Color.ToHex()).IsEqualTo("FF638EC6");
     }
 
     [Test]
-    public void Expression_type_skips_empty_formula_tags()
+    public async Task Expression_type_skips_empty_formula_tags()
     {
         // The Expression uses formula tag as arguments. Some producers generate extra empty
         // formula tags and XLibur should be able to load Expression conditional formatting
         // with such extra tags without an exception. The test file has been modified to
         // include extra formula tags and test checks that extra tags are ignored.
-        TestHelper.LoadAndAssert((_, ws) =>
+        await TestHelper.LoadAndAssert(async (_, ws) =>
         {
-            AssertFormulaArgs(ws, "A1:A1", "$C$1=5");
-            AssertFormulaArgs(ws, "A2:A2", "$C$2=4");
+            await AssertFormulaArgs(ws, "A1:A1", "$C$1=5");
+            await AssertFormulaArgs(ws, "A2:A2", "$C$2=4");
         }, @"Other\ConditionalFormats\Extra_formulas_Expression_type.xlsx");
 
-        static void AssertFormulaArgs(IXLWorksheet ws, string range, string expectedFormula)
+        static async Task AssertFormulaArgs(IXLWorksheet ws, string range, string expectedFormula)
         {
             var cf = ws.ConditionalFormats.Single(cf => cf.ConditionalFormatType == XLConditionalFormatType.Expression && cf.Range.RangeAddress.ToString() == range);
-            Assert.AreEqual(1, cf.Values.Count);
-            Assert.That(cf.Values[1].Value, Is.EqualTo(expectedFormula));
+            await Assert.That(cf.Values.Count).IsEqualTo(1);
+            await Assert.That(cf.Values[1].Value).IsEqualTo(expectedFormula);
         }
     }
 
     [Test]
-    public void ContainsText_with_pipe_in_value_can_be_loaded()
+    public async Task ContainsText_with_pipe_in_value_can_be_loaded()
     {
         // Issue #2754: conditional format with pipe character in cell value
         // should load without parsing errors.
-        TestHelper.LoadAndAssert((_, ws) =>
+        await TestHelper.LoadAndAssert(async (_, ws) =>
         {
             var cf = ws.ConditionalFormats
                 .Single(cf => cf.ConditionalFormatType == XLConditionalFormatType.ContainsText);
-            Assert.That(cf.Values[1].Value, Is.EqualTo("70|"));
+            await Assert.That(cf.Values[1].Value).IsEqualTo("70|");
         }, @"Other\ConditionalFormats\ConditionalFormat_cellvalueequal_2754.xlsx");
     }
 
     [Test]
-    public void ContainsText_with_pipe_in_value_round_trips()
+    public async Task ContainsText_with_pipe_in_value_round_trips()
     {
         // Issue #2754: conditional format with pipe character in value
         // should survive save and reload.
@@ -234,11 +237,11 @@ public class ConditionalFormatTests
         var ws = wb2.Worksheets.First();
         var cf = ws.ConditionalFormats
             .Single(cf => cf.ConditionalFormatType == XLConditionalFormatType.ContainsText);
-        Assert.That(cf.Values[1].Value, Is.EqualTo("70|"));
+        await Assert.That(cf.Values[1].Value).IsEqualTo("70|");
     }
 
     [Test]
-    public void DataBar_FluentChain_Returns_ConditionalFormat()
+    public async Task DataBar_FluentChain_Returns_ConditionalFormat()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -250,13 +253,13 @@ public class ConditionalFormatTests
             .LowestValue()
             .HighestValue();
 
-        Assert.That(cf, Is.Not.Null);
-        Assert.That(cf.ConditionalFormatType, Is.EqualTo(XLConditionalFormatType.DataBar));
-        Assert.That(cf.Colors[1], Is.EqualTo(XLColor.Red));
+        await Assert.That(cf).IsNotNull();
+        await Assert.That(cf.ConditionalFormatType).IsEqualTo(XLConditionalFormatType.DataBar);
+        await Assert.That(cf.Colors[1]).IsEqualTo(XLColor.Red);
     }
 
     [Test]
-    public void DataBar_Maximum_Returns_ConditionalFormat()
+    public async Task DataBar_Maximum_Returns_ConditionalFormat()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -267,12 +270,12 @@ public class ConditionalFormatTests
             .Minimum(XLCFContentType.Number, 0)
             .Maximum(XLCFContentType.Number, 100);
 
-        Assert.That(cf, Is.Not.Null);
-        Assert.That(cf.ConditionalFormatType, Is.EqualTo(XLConditionalFormatType.DataBar));
+        await Assert.That(cf).IsNotNull();
+        await Assert.That(cf.ConditionalFormatType).IsEqualTo(XLConditionalFormatType.DataBar);
     }
 
     [Test]
-    public void DataBar_Color_Can_Be_Changed_And_RoundTrips()
+    public async Task DataBar_Color_Can_Be_Changed_And_RoundTrips()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -285,7 +288,7 @@ public class ConditionalFormatTests
             .HighestValue();
 
         cf.Colors[1] = XLColor.Blue;
-        Assert.That(cf.Colors[1], Is.EqualTo(XLColor.Blue));
+        await Assert.That(cf.Colors[1]).IsEqualTo(XLColor.Blue);
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
@@ -293,11 +296,11 @@ public class ConditionalFormatTests
 
         using var wb2 = new XLWorkbook(ms);
         var cf2 = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
-        Assert.That(cf2.Colors[1].Color.ToHex(), Is.EqualTo(XLColor.Blue.Color.ToHex()));
+        await Assert.That(cf2.Colors[1].Color.ToHex()).IsEqualTo(XLColor.Blue.Color.ToHex());
     }
 
     [Test]
-    public void DataBar_ShowBarOnly_And_Gradient_Can_Be_Toggled_And_RoundTrip()
+    public async Task DataBar_ShowBarOnly_And_Gradient_Can_Be_Toggled_And_RoundTrip()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -309,14 +312,14 @@ public class ConditionalFormatTests
             .LowestValue()
             .HighestValue();
 
-        Assert.That(cf.ShowBarOnly, Is.False);
-        Assert.That(cf.Gradient, Is.True);
+        await Assert.That(cf.ShowBarOnly).IsFalse();
+        await Assert.That(cf.Gradient).IsTrue();
 
         cf.ShowBarOnly = true;
         cf.Gradient = false;
 
-        Assert.That(cf.ShowBarOnly, Is.True);
-        Assert.That(cf.Gradient, Is.False);
+        await Assert.That(cf.ShowBarOnly).IsTrue();
+        await Assert.That(cf.Gradient).IsFalse();
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
@@ -324,12 +327,12 @@ public class ConditionalFormatTests
 
         using var wb2 = new XLWorkbook(ms);
         var cf2 = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
-        Assert.That(cf2.ShowBarOnly, Is.True);
-        Assert.That(cf2.Gradient, Is.False);
+        await Assert.That(cf2.ShowBarOnly).IsTrue();
+        await Assert.That(cf2.Gradient).IsFalse();
     }
 
     [Test]
-    public void DataBar_Gradient_Changed_To_Flat_RoundTrips()
+    public async Task DataBar_Gradient_Changed_To_Flat_RoundTrips()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -342,7 +345,7 @@ public class ConditionalFormatTests
             .LowestValue()
             .HighestValue();
 
-        Assert.That(cf.Gradient, Is.True);
+        await Assert.That(cf.Gradient).IsTrue();
 
         // Switch from gradient to flat fill
         cf.Gradient = false;
@@ -353,12 +356,12 @@ public class ConditionalFormatTests
 
         using var wb2 = new XLWorkbook(ms);
         var cf2 = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
-        Assert.That(cf2.Gradient, Is.False);
-        Assert.That(cf2.Colors[1].Color.ToHex(), Is.EqualTo("FF638EC6"));
+        await Assert.That(cf2.Gradient).IsFalse();
+        await Assert.That(cf2.Colors[1].Color.ToHex()).IsEqualTo("FF638EC6");
     }
 
     [Test]
-    public void DataBar_AxisPosition_Defaults_To_Automatic()
+    public async Task DataBar_AxisPosition_Defaults_To_Automatic()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -369,14 +372,15 @@ public class ConditionalFormatTests
             .LowestValue()
             .HighestValue();
 
-        Assert.That(cf.BarAxisPosition, Is.EqualTo(XLDataBarAxisPosition.Automatic));
-        Assert.That(cf.BarAxisColor, Is.EqualTo(XLColor.Black));
+        await Assert.That(cf.BarAxisPosition).IsEqualTo(XLDataBarAxisPosition.Automatic);
+        await Assert.That(cf.BarAxisColor).IsEqualTo(XLColor.Black);
     }
 
-    [TestCase(XLDataBarAxisPosition.Automatic)]
-    [TestCase(XLDataBarAxisPosition.Middle)]
-    [TestCase(XLDataBarAxisPosition.None)]
-    public void DataBar_AxisPosition_RoundTrips(XLDataBarAxisPosition position)
+    [Test]
+    [Arguments(XLDataBarAxisPosition.Automatic)]
+    [Arguments(XLDataBarAxisPosition.Middle)]
+    [Arguments(XLDataBarAxisPosition.None)]
+    public async Task DataBar_AxisPosition_RoundTrips(XLDataBarAxisPosition position)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -396,11 +400,11 @@ public class ConditionalFormatTests
 
         using var wb2 = new XLWorkbook(ms);
         var cf2 = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
-        Assert.That(cf2.BarAxisPosition, Is.EqualTo(position));
+        await Assert.That(cf2.BarAxisPosition).IsEqualTo(position);
     }
 
     [Test]
-    public void DataBar_AxisColor_RoundTrips()
+    public async Task DataBar_AxisColor_RoundTrips()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -420,11 +424,11 @@ public class ConditionalFormatTests
 
         using var wb2 = new XLWorkbook(ms);
         var cf2 = wb2.Worksheet("Sheet1").ConditionalFormats.Single();
-        Assert.That(cf2.BarAxisColor.Color.ToHex(), Is.EqualTo(XLColor.DarkBlue.Color.ToHex()));
+        await Assert.That(cf2.BarAxisColor.Color.ToHex()).IsEqualTo(XLColor.DarkBlue.Color.ToHex());
     }
 
     [Test]
-    public void DataBar_Can_Be_Removed()
+    public async Task DataBar_Can_Be_Removed()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -436,10 +440,10 @@ public class ConditionalFormatTests
             .LowestValue()
             .HighestValue();
 
-        Assert.That(ws.ConditionalFormats.Count(), Is.EqualTo(1));
+        await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(1);
 
         ws.ConditionalFormats.Remove(cf => cf.ConditionalFormatType == XLConditionalFormatType.DataBar);
 
-        Assert.That(ws.ConditionalFormats.Count(), Is.EqualTo(0));
+        await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(0);
     }
 }

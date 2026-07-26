@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.AutoFilters;
 
@@ -48,7 +48,7 @@ internal class AutoFilterTester
         return this;
     }
 
-    internal void AssertVisibility()
+    internal async Task AssertVisibility()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -70,7 +70,7 @@ internal class AutoFilterTester
             var formattedString = ((XLCell)ws.Cell(row, 1)).GetFormattedString(value);
             var actualVisible = !ws.Row(row).IsHidden;
             var expectedVisibility = _values[i].ExpectedVisibility;
-            Assert.AreEqual(expectedVisibility, actualVisible, $"Visibility differs at index {i} for value {value} (formatted '{formattedString}')");
+            await Assert.That(actualVisible).IsEqualTo(expectedVisibility).Because($"Visibility differs at index {i} for value {value} (formatted '{formattedString}')");
         }
     }
 }

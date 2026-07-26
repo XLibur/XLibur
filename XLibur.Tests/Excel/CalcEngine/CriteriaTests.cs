@@ -3,27 +3,26 @@ using System.Globalization;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.CalcEngine.Functions;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
-[TestFixture]
 internal class CriteriaTests
 {
     [Test]
     [SetCulture("cs-CZ")] // cs-CZ has ',' as a decimal separator (e.g. '1,2' is one point two).
-    [TestCaseSource(nameof(CriteriaTestCases))]
-    public void Selection_criteria_uses_type_and_comparator_to_match_values(ScalarValue selectionCriteria, XLCellValue value, bool expectedResult)
+    [MethodDataSource(nameof(CriteriaTestCases))]
+    public async Task Selection_criteria_uses_type_and_comparator_to_match_values(ScalarValue selectionCriteria, XLCellValue value, bool expectedResult)
     {
         var criteria = Criteria.Create(selectionCriteria, CultureInfo.CurrentCulture);
         var matchResult = criteria.Match(value);
-        Assert.AreEqual(expectedResult, matchResult);
+        await Assert.That(matchResult).IsEqualTo(expectedResult);
 
         // TallyCriteria skips unused (=blank) cells as an optimization (e.g. SUMIF over whole column/sheet),
         // unless it's possible that blanks will match the criteria. Assert that when tested value matches and
         // is blank, teh TallyCriteria will include blank cells.
         if (matchResult && value.IsBlank)
-            Assert.True(criteria.CanBlankValueMatch);
+            await Assert.That(criteria.CanBlankValueMatch).IsTrue();
     }
 
     public static IEnumerable<object> CriteriaTestCases

@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
 using XLibur.Excel.PivotTables.Areas;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.PivotTables;
 
@@ -16,7 +16,7 @@ internal class XLPivotDataFieldsTests
     #region Add
 
     [Test]
-    public void Add_source_name_must_be_from_pivot_cache_field_names()
+    public async Task Add_source_name_must_be_from_pivot_cache_field_names()
     {
         using var wb = new XLWorkbook();
         var data = wb.AddWorksheet();
@@ -28,10 +28,10 @@ internal class XLPivotDataFieldsTests
         var ptSheet = wb.AddWorksheet();
         var pt = ptSheet.PivotTables.Add("pt", ptSheet.Cell("A1"), range);
 
-        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => pt.Values.Add("Wrong field name"));
+        var ex = await Assert.That(() => pt.Values.Add("Wrong field name")).Throws<ArgumentOutOfRangeException>();
 
-        Assert.NotNull(ex);
-        Assert.That(ex.Message, Does.StartWith("Field 'Wrong field name' is not in the fields of a pivot cache. Should be one of 'Name','Price'."));
+        await Assert.That(ex).IsNotNull();
+        await Assert.That(ex.Message).StartsWith("Field 'Wrong field name' is not in the fields of a pivot cache. Should be one of 'Name','Price'.");
     }
 
     #endregion
@@ -39,7 +39,7 @@ internal class XLPivotDataFieldsTests
     #region Clear
 
     [Test]
-    public void Clear_removes_all_data_fields_from_pivot_table()
+    public async Task Clear_removes_all_data_fields_from_pivot_table()
     {
         using var wb = new XLWorkbook();
         var data = wb.AddWorksheet();
@@ -53,17 +53,17 @@ internal class XLPivotDataFieldsTests
         pt.Values.Add("Price");
         pt.Values.Add("Qty");
 
-        Assert.That(pt.Values.Count(), Is.EqualTo(2));
+        await Assert.That(pt.Values.Count()).IsEqualTo(2);
 
         pt.Values.Clear();
 
-        Assert.That(pt.Values.Count(), Is.EqualTo(0));
-        Assert.That(pt.Values.Contains("Price"), Is.False);
-        Assert.That(pt.Values.Contains("Qty"), Is.False);
+        await Assert.That(pt.Values.Count()).IsEqualTo(0);
+        await Assert.That(pt.Values.Contains("Price")).IsFalse();
+        await Assert.That(pt.Values.Contains("Qty")).IsFalse();
     }
 
     [Test]
-    public void Clear_on_empty_values_does_not_throw()
+    public async Task Clear_on_empty_values_does_not_throw()
     {
         using var wb = new XLWorkbook();
         var data = wb.AddWorksheet();
@@ -75,11 +75,11 @@ internal class XLPivotDataFieldsTests
         var ptSheet = wb.AddWorksheet();
         var pt = ptSheet.PivotTables.Add("pt", ptSheet.Cell("A1"), range);
 
-        Assert.That(() => pt.Values.Clear(), Throws.Nothing);
+        await Assert.That(() => pt.Values.Clear()).ThrowsNothing();
     }
 
     [Test]
-    public void Clear_allows_re_adding_same_fields()
+    public async Task Clear_allows_re_adding_same_fields()
     {
         using var wb = new XLWorkbook();
         var data = wb.AddWorksheet();
@@ -95,8 +95,8 @@ internal class XLPivotDataFieldsTests
         pt.Values.Clear();
         var reAdded = pt.Values.Add("Price");
 
-        Assert.That(reAdded, Is.Not.Null);
-        Assert.That(pt.Values.Count(), Is.EqualTo(1));
+        await Assert.That(reAdded).IsNotNull();
+        await Assert.That(pt.Values.Count()).IsEqualTo(1);
     }
 
     #endregion
@@ -104,7 +104,7 @@ internal class XLPivotDataFieldsTests
     #region Remove
 
     [Test]
-    public void Remove_removes_specific_data_field()
+    public async Task Remove_removes_specific_data_field()
     {
         using var wb = new XLWorkbook();
         var data = wb.AddWorksheet();
@@ -120,13 +120,13 @@ internal class XLPivotDataFieldsTests
 
         pt.Values.Remove("Price");
 
-        Assert.That(pt.Values.Count(), Is.EqualTo(1));
-        Assert.That(pt.Values.Contains("Price"), Is.False);
-        Assert.That(pt.Values.Contains("Qty"), Is.True);
+        await Assert.That(pt.Values.Count()).IsEqualTo(1);
+        await Assert.That(pt.Values.Contains("Price")).IsFalse();
+        await Assert.That(pt.Values.Contains("Qty")).IsTrue();
     }
 
     [Test]
-    public void Remove_nonexistent_field_does_not_throw()
+    public async Task Remove_nonexistent_field_does_not_throw()
     {
         using var wb = new XLWorkbook();
         var data = wb.AddWorksheet();
@@ -138,7 +138,7 @@ internal class XLPivotDataFieldsTests
         var ptSheet = wb.AddWorksheet();
         var pt = ptSheet.PivotTables.Add("pt", ptSheet.Cell("A1"), range);
 
-        Assert.That(() => pt.Values.Remove("NonExistent"), Throws.Nothing);
+        await Assert.That(() => pt.Values.Remove("NonExistent")).ThrowsNothing();
     }
 
     #endregion

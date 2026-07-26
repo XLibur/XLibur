@@ -4,12 +4,11 @@ using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Xml.Linq;
-using NUnit.Framework;
 using XLibur.Excel;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.PageSetup;
 
-[TestFixture]
 public class HeaderFooterImageTests
 {
     private static readonly string[] ShapeIdsLH = ["LH"];
@@ -17,12 +16,12 @@ public class HeaderFooterImageTests
     private static readonly string[] ShapeIdsRH = ["RH"];
     private static readonly string[] ShapeIdsLF = ["LF"];
 
-    private string _pngPath = null!;
-    private string _jpegPath = null!;
-    private string _tempDir = null!;
+    private static string _pngPath = null!;
+    private static string _jpegPath = null!;
+    private static string _tempDir = null!;
 
-    [OneTimeSetUp]
-    public void Setup()
+    [Before(HookType.Class)]
+    public static async Task Setup()
     {
         _tempDir = Path.Combine(Path.GetTempPath(), "XLibur_HFImageTests_" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(_tempDir);
@@ -30,19 +29,19 @@ public class HeaderFooterImageTests
         _pngPath = Path.Combine(_tempDir, "test.png");
         _jpegPath = Path.Combine(_tempDir, "test.jpg");
 
-        ExtractResource("XLibur.Tests.Resource.Images.SampleImagePng.png", _pngPath);
-        ExtractResource("XLibur.Tests.Resource.Images.SampleImageExif.jpg", _jpegPath);
+        await ExtractResource("XLibur.Tests.Resource.Images.SampleImagePng.png", _pngPath);
+        await ExtractResource("XLibur.Tests.Resource.Images.SampleImageExif.jpg", _jpegPath);
     }
 
-    [OneTimeTearDown]
-    public void Cleanup()
+    [After(HookType.Class)]
+    public static void Cleanup()
     {
         try { Directory.Delete(_tempDir, true); }
         catch { /* best effort cleanup */ }
     }
 
     [Test]
-    public void AddImage_LeftHeader_EmitsGraphicMarkerAndVml()
+    public async Task AddImage_LeftHeader_EmitsGraphicMarkerAndVml()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -52,11 +51,11 @@ public class HeaderFooterImageTests
         wb.SaveAs(ms, true);
 
         ms.Position = 0;
-        AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsLH, expectedHeaderText: "&L&G");
+        await AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsLH, expectedHeaderText: "&L&G");
     }
 
     [Test]
-    public void AddImage_CenterHeader_Works()
+    public async Task AddImage_CenterHeader_Works()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -66,11 +65,11 @@ public class HeaderFooterImageTests
         wb.SaveAs(ms, true);
 
         ms.Position = 0;
-        AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsCH, expectedHeaderText: "&C&G");
+        await AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsCH, expectedHeaderText: "&C&G");
     }
 
     [Test]
-    public void AddImage_RightHeader_Works()
+    public async Task AddImage_RightHeader_Works()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -80,11 +79,11 @@ public class HeaderFooterImageTests
         wb.SaveAs(ms, true);
 
         ms.Position = 0;
-        AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsRH, expectedHeaderText: "&R&G");
+        await AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsRH, expectedHeaderText: "&R&G");
     }
 
     [Test]
-    public void AddImage_LeftFooter_Works()
+    public async Task AddImage_LeftFooter_Works()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -94,11 +93,11 @@ public class HeaderFooterImageTests
         wb.SaveAs(ms, true);
 
         ms.Position = 0;
-        AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsLF, expectedFooterText: "&L&G");
+        await AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsLF, expectedFooterText: "&L&G");
     }
 
     [Test]
-    public void AddImage_MixedTextAndImage_PreservesOrdering()
+    public async Task AddImage_MixedTextAndImage_PreservesOrdering()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -110,11 +109,11 @@ public class HeaderFooterImageTests
         wb.SaveAs(ms, true);
 
         ms.Position = 0;
-        AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsLH, expectedHeaderText: "&LBefore:&G:After");
+        await AssertPackageContainsHFImage(ms, expectedShapeIds: ShapeIdsLH, expectedHeaderText: "&LBefore:&G:After");
     }
 
     [Test]
-    public void AddImage_MultipleSections_HeaderAndFooter()
+    public async Task AddImage_MultipleSections_HeaderAndFooter()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -129,44 +128,44 @@ public class HeaderFooterImageTests
         ms.Position = 0;
         var (vmlXml, headerText, footerText, contentTypes, mediaFiles) = ExtractPackageInfo(ms);
 
-        Assert.That(headerText, Is.EqualTo("&L&G&CTitle&R&G"));
-        Assert.That(footerText, Is.EqualTo("&C&G"));
+        await Assert.That(headerText).IsEqualTo("&L&G&CTitle&R&G");
+        await Assert.That(footerText).IsEqualTo("&C&G");
 
         // VML should have shapes LH, RH, CF
         var shapeIds = GetVmlShapeIds(vmlXml);
-        Assert.That(shapeIds, Does.Contain("LH"));
-        Assert.That(shapeIds, Does.Contain("RH"));
-        Assert.That(shapeIds, Does.Contain("CF"));
+        await Assert.That(shapeIds).Contains("LH");
+        await Assert.That(shapeIds).Contains("RH");
+        await Assert.That(shapeIds).Contains("CF");
 
         // Should have image media files
-        Assert.That(mediaFiles.Count, Is.GreaterThanOrEqualTo(2));
+        await Assert.That(mediaFiles.Count).IsGreaterThanOrEqualTo(2);
     }
 
     [Test]
-    public void AddImage_InvalidPath_ThrowsFileNotFound()
+    public async Task AddImage_InvalidPath_ThrowsFileNotFound()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
-        Assert.Throws<FileNotFoundException>(() =>
-            ws.PageSetup.Header.Left.AddImage(@"C:\nonexistent\image.png"));
+        await Assert.That(() =>
+            ws.PageSetup.Header.Left.AddImage(@"C:\nonexistent\image.png")).Throws<FileNotFoundException>();
     }
 
     [Test]
-    public void AddImage_NullOrEmptyPath_ThrowsArgumentException()
+    public async Task AddImage_NullOrEmptyPath_ThrowsArgumentException()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
-        Assert.Throws<ArgumentException>(() =>
-            ws.PageSetup.Header.Left.AddImage(""));
+        await Assert.That(() =>
+            ws.PageSetup.Header.Left.AddImage("")).Throws<ArgumentException>();
 
-        Assert.Throws<ArgumentException>(() =>
-            ws.PageSetup.Header.Left.AddImage("   "));
+        await Assert.That(() =>
+            ws.PageSetup.Header.Left.AddImage("   ")).Throws<ArgumentException>();
     }
 
     [Test]
-    public void AddImage_UnsupportedFormat_ThrowsArgumentException()
+    public async Task AddImage_UnsupportedFormat_ThrowsArgumentException()
     {
         var svgPath = Path.Combine(_tempDir, "test.svg");
         File.WriteAllText(svgPath, "<svg></svg>");
@@ -174,12 +173,12 @@ public class HeaderFooterImageTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
-        Assert.Throws<ArgumentException>(() =>
-            ws.PageSetup.Header.Left.AddImage(svgPath));
+        await Assert.That(() =>
+            ws.PageSetup.Header.Left.AddImage(svgPath)).Throws<ArgumentException>();
     }
 
     [Test]
-    public void AddImage_ScalingPreservesAspectRatio_DoesNotUpscale()
+    public async Task AddImage_ScalingPreservesAspectRatio_DoesNotUpscale()
     {
         // SampleImagePng.png is 252x152 at 96dpi => 2.625" x 1.583"
         // Max: 2.5" x 0.6"
@@ -203,16 +202,16 @@ public class HeaderFooterImageTests
         var shape = shapes.First(s => s.id == "LH");
 
         // The width should be less than or equal to 2.5" = 180pt
-        Assert.That(shape.widthPt, Is.LessThanOrEqualTo(180.1));
+        await Assert.That(shape.widthPt).IsLessThanOrEqualTo(180.1);
         // The height should be less than or equal to 0.6" = 43.2pt
-        Assert.That(shape.heightPt, Is.LessThanOrEqualTo(43.3));
+        await Assert.That(shape.heightPt).IsLessThanOrEqualTo(43.3);
         // Both should be > 0
-        Assert.That(shape.widthPt, Is.GreaterThan(0));
-        Assert.That(shape.heightPt, Is.GreaterThan(0));
+        await Assert.That(shape.widthPt).IsGreaterThan(0);
+        await Assert.That(shape.heightPt).IsGreaterThan(0);
     }
 
     [Test]
-    public void AddImage_PackageHasCorrectContentTypes()
+    public async Task AddImage_PackageHasCorrectContentTypes()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -225,12 +224,12 @@ public class HeaderFooterImageTests
         var (_, _, _, contentTypes, _) = ExtractPackageInfo(ms);
 
         // Should have vml and png content types
-        Assert.That(contentTypes, Does.Contain("application/vnd.openxmlformats-officedocument.vmlDrawing"));
-        Assert.That(contentTypes, Does.Contain("image/png"));
+        await Assert.That(contentTypes).Contains("application/vnd.openxmlformats-officedocument.vmlDrawing");
+        await Assert.That(contentTypes).Contains("image/png");
     }
 
     [Test]
-    public void AddImage_VmlHasImageRelationships()
+    public async Task AddImage_VmlHasImageRelationships()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -245,7 +244,7 @@ public class HeaderFooterImageTests
         // Find VML rels file
         var vmlRelsEntry = archive.Entries.FirstOrDefault(e =>
             e.FullName.Contains("drawings/_rels/") && e.FullName.EndsWith(".rels"));
-        Assert.That(vmlRelsEntry, Is.Not.Null, "VML rels file should exist");
+        await Assert.That(vmlRelsEntry).IsNotNull().Because("VML rels file should exist");
 
         using var relsStream = vmlRelsEntry!.Open();
         var relsXml = XDocument.Load(relsStream);
@@ -254,11 +253,11 @@ public class HeaderFooterImageTests
             .Where(r => r.Attribute("Type")?.Value.Contains("image") == true)
             .ToList();
 
-        Assert.That(imageRels, Has.Count.GreaterThanOrEqualTo(1), "VML should have image relationships");
+        await Assert.That(imageRels.Count).IsGreaterThanOrEqualTo(1).Because("VML should have image relationships");
     }
 
     [Test]
-    public void AddImage_SheetHasLegacyDrawingHFElement()
+    public async Task AddImage_SheetHasLegacyDrawingHFElement()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -274,11 +273,11 @@ public class HeaderFooterImageTests
         var sheetXml = XDocument.Load(sheetStream);
         var ssNs = XNamespace.Get("http://schemas.openxmlformats.org/spreadsheetml/2006/main");
         var legacyDrawingHF = sheetXml.Root!.Element(ssNs + "legacyDrawingHF");
-        Assert.That(legacyDrawingHF, Is.Not.Null, "Sheet should contain <legacyDrawingHF> element");
+        await Assert.That(legacyDrawingHF).IsNotNull().Because("Sheet should contain <legacyDrawingHF> element");
     }
 
     [Test]
-    public void AddImage_Png_CanSaveAndReopen()
+    public async Task AddImage_Png_CanSaveAndReopen()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -292,11 +291,11 @@ public class HeaderFooterImageTests
         ms.Position = 0;
         using var wb2 = new XLWorkbook(ms);
         var ws2 = wb2.Worksheets.First();
-        Assert.That(ws2.Cell("A1").Value.GetText(), Is.EqualTo("Test"));
+        await Assert.That(ws2.Cell("A1").Value.GetText()).IsEqualTo("Test");
     }
 
     [Test]
-    public void AddImage_Jpeg_CanSaveAndReopen()
+    public async Task AddImage_Jpeg_CanSaveAndReopen()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -309,11 +308,11 @@ public class HeaderFooterImageTests
         ms.Position = 0;
         using var wb2 = new XLWorkbook(ms);
         var ws2 = wb2.Worksheets.First();
-        Assert.That(ws2.Cell("A1").Value.GetText(), Is.EqualTo("Test"));
+        await Assert.That(ws2.Cell("A1").Value.GetText()).IsEqualTo("Test");
     }
 
     [Test]
-    public void AddImage_NoImages_NoLegacyDrawingHFElement()
+    public async Task AddImage_NoImages_NoLegacyDrawingHFElement()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -330,11 +329,11 @@ public class HeaderFooterImageTests
         var sheetXml = XDocument.Load(sheetStream);
         var ssNs = XNamespace.Get("http://schemas.openxmlformats.org/spreadsheetml/2006/main");
         var legacyDrawingHF = sheetXml.Root!.Element(ssNs + "legacyDrawingHF");
-        Assert.That(legacyDrawingHF, Is.Null, "Sheet should NOT contain <legacyDrawingHF> when no images");
+        await Assert.That(legacyDrawingHF).IsNull().Because("Sheet should NOT contain <legacyDrawingHF> when no images");
     }
 
     [Test]
-    public void AddImage_WithComments_BothVmlPartsCoexist()
+    public async Task AddImage_WithComments_BothVmlPartsCoexist()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -350,8 +349,7 @@ public class HeaderFooterImageTests
         // Should have at least 2 VML drawing parts (one for comments, one for HF images)
         var vmlParts = archive.Entries.Where(e =>
             e.FullName.Contains("drawings/") && e.FullName.EndsWith(".vml")).ToList();
-        Assert.That(vmlParts.Count, Is.GreaterThanOrEqualTo(2),
-            "Should have separate VML parts for comments and HF images");
+        await Assert.That(vmlParts.Count).IsGreaterThanOrEqualTo(2).Because("Should have separate VML parts for comments and HF images");
 
         // Should have both legacyDrawing and legacyDrawingHF
         var sheetEntry = archive.Entries.First(e => e.FullName.Contains("worksheets/sheet"));
@@ -359,21 +357,21 @@ public class HeaderFooterImageTests
         var sheetXml = XDocument.Load(sheetStream);
         var ssNs = XNamespace.Get("http://schemas.openxmlformats.org/spreadsheetml/2006/main");
 
-        Assert.That(sheetXml.Root!.Element(ssNs + "legacyDrawing"), Is.Not.Null);
-        Assert.That(sheetXml.Root!.Element(ssNs + "legacyDrawingHF"), Is.Not.Null);
+        await Assert.That(sheetXml.Root!.Element(ssNs + "legacyDrawing")).IsNotNull();
+        await Assert.That(sheetXml.Root!.Element(ssNs + "legacyDrawingHF")).IsNotNull();
     }
 
     #region Helpers
 
-    private static void ExtractResource(string resourceName, string filePath)
+    private static async Task ExtractResource(string resourceName, string filePath)
     {
-        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
-        Assert.That(stream, Is.Not.Null, $"Resource {resourceName} not found");
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
+        await Assert.That(stream).IsNotNull().Because($"Resource {resourceName} not found");
         using var fs = File.Create(filePath);
         stream!.CopyTo(fs);
     }
 
-    private static void AssertPackageContainsHFImage(
+    private static async Task AssertPackageContainsHFImage(
         Stream packageStream,
         string[] expectedShapeIds,
         string expectedHeaderText = "",
@@ -382,14 +380,14 @@ public class HeaderFooterImageTests
         var (vmlXml, headerText, footerText, _, _) = ExtractPackageInfo(packageStream);
 
         if (expectedHeaderText.Length > 0)
-            Assert.That(headerText, Is.EqualTo(expectedHeaderText));
+            await Assert.That(headerText).IsEqualTo(expectedHeaderText);
 
         if (expectedFooterText.Length > 0)
-            Assert.That(footerText, Is.EqualTo(expectedFooterText));
+            await Assert.That(footerText).IsEqualTo(expectedFooterText);
 
         var shapeIds = GetVmlShapeIds(vmlXml);
         foreach (var expected in expectedShapeIds)
-            Assert.That(shapeIds, Does.Contain(expected), $"VML should contain shape with id '{expected}'");
+            await Assert.That(shapeIds).Contains(expected).Because($"VML should contain shape with id '{expected}'");
     }
 
     private static (string vmlXml, string headerText, string footerText, string[] contentTypes, string[] mediaFiles)

@@ -3,36 +3,36 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using NUnit.Framework;
 using XLibur.Excel;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.PageSetup;
 
-[TestFixture]
 public class PrintAreaTests
 {
     [Test]
-    [TestCase("A1:B2")]
-    [TestCase("A1:B2", "D3:D5")]
-    public void CanLoadWorksheetWithMultiplePrintAreas(params string[] printAreaRangeAddresses)
+    [Arguments("A1:B2")]
+    [Arguments("A1:B2", "D3:D5")]
+    public async Task CanLoadWorksheetWithMultiplePrintAreas(params string[] printAreaRangeAddresses)
     {
-        TestHelper.CreateSaveLoadAssert(
+        await TestHelper.CreateSaveLoadAssert(
             (_, ws) =>
             {
                 foreach (var printAreaRangeAddress in printAreaRangeAddresses)
                     ws.PageSetup.PrintAreas.Add(printAreaRangeAddress);
             },
-            (_, ws) =>
+            async (_, ws) =>
             {
                 var actualPrintAddresses = ws.PageSetup.PrintAreas.Select(pa => pa.RangeAddress.ToStringRelative());
-                Assert.That(actualPrintAddresses, Is.EqualTo(printAreaRangeAddresses));
+                await Assert.That(actualPrintAddresses).IsEquivalentTo(printAreaRangeAddresses, CollectionOrdering.Matching);
             });
     }
 
     [Test]
-    [TestCase("OFFSET(Sheet1!$A$1,0,0,10,5)")]
-    [TestCase("OFFSET(Sheet1!$A$1,0,0,COUNTA(Sheet1!$A:$A),3)")]
-    public void LoadWorkbook_PrintAreaWithFormula_DoesNotThrow(string formula)
+    [Arguments("OFFSET(Sheet1!$A$1,0,0,10,5)")]
+    [Arguments("OFFSET(Sheet1!$A$1,0,0,COUNTA(Sheet1!$A:$A),3)")]
+    public async Task LoadWorkbook_PrintAreaWithFormula_DoesNotThrow(string formula)
     {
         using var ms = new MemoryStream();
 
@@ -63,14 +63,14 @@ public class PrintAreaTests
         ms.Position = 0;
 
         // Loading should not throw
-        Assert.DoesNotThrow(() =>
+        await Assert.That(() =>
         {
             using var wb = new XLWorkbook(ms);
-        });
+        }).ThrowsNothing();
     }
 
     [Test]
-    public void LoadAndSave_PrintAreaWithFormula_RoundTrips()
+    public async Task LoadAndSave_PrintAreaWithFormula_RoundTrips()
     {
         var formula = "OFFSET(Sheet1!$A$1,0,0,10,5)";
         using var ms = new MemoryStream();
@@ -113,14 +113,14 @@ public class PrintAreaTests
         using (var doc = SpreadsheetDocument.Open(saved, false))
         {
             var definedNames = doc.WorkbookPart!.Workbook.DefinedNames;
-            Assert.That(definedNames, Is.Not.Null);
+            await Assert.That(definedNames).IsNotNull();
 
             var printArea = definedNames!
                 .OfType<DefinedName>()
                 .FirstOrDefault(dn => dn.Name == "_xlnm.Print_Area");
 
-            Assert.That(printArea, Is.Not.Null, "Print area defined name should be preserved after round trip");
-            Assert.That(printArea!.Text, Is.EqualTo(formula));
+            await Assert.That(printArea).IsNotNull().Because("Print area defined name should be preserved after round trip");
+            await Assert.That(printArea!.Text).IsEqualTo(formula);
         }
     }
 }

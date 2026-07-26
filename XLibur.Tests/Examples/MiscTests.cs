@@ -1,234 +1,236 @@
 ﻿using XLibur.Examples;
 using XLibur.Examples.Misc;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;
 
-[TestFixture]
 public class MiscTests
 {
     [Test]
-    public void AddingDataSet()
+    public async Task AddingDataSet()
     {
-        TestHelper.RunTestExample<AddingDataSet>(@"Misc\AddingDataSet.xlsx");
+        await TestHelper.RunTestExample<AddingDataSet>(@"Misc\AddingDataSet.xlsx");
     }
 
     [Test]
-    public void AddingDataTableAsWorksheet()
+    public async Task AddingDataTableAsWorksheet()
     {
-        TestHelper.RunTestExample<AddingDataTableAsWorksheet>(@"Misc\AddingDataTableAsWorksheet.xlsx");
+        await TestHelper.RunTestExample<AddingDataTableAsWorksheet>(@"Misc\AddingDataTableAsWorksheet.xlsx");
     }
 
     [Test]
-    [Platform("Win", Reason = "AdjustToContents produces font-dependent column widths; reference xlsx was generated on Windows with Calibri")]
-    public void AdjustToContents()
+    // Windows-only: AdjustToContents produces font-dependent column widths; reference xlsx was generated on Windows with Calibri
+    [RunOn(TUnit.Core.Enums.OS.Windows)]
+    public async Task AdjustToContents()
     {
-        TestHelper.RunTestExample<AdjustToContents>(@"Misc\AdjustToContents.xlsx");
+        await TestHelper.RunTestExample<AdjustToContents>(@"Misc\AdjustToContents.xlsx");
     }
 
     [Test]
-    public void AdjustToContentsWithAutoFilter()
+    public async Task AdjustToContentsWithAutoFilter()
     {
-        TestHelper.RunTestExample<AdjustToContentsWithAutoFilter>(@"Misc\AdjustToContentsWithAutoFilter.xlsx");
+        await TestHelper.RunTestExample<AdjustToContentsWithAutoFilter>(@"Misc\AdjustToContentsWithAutoFilter.xlsx");
     }
 
     [Test]
-    public void AutoFilter()
+    public async Task AutoFilter()
     {
-        TestHelper.RunTestExample<AutoFilter>(@"Misc\AutoFilter.xlsx");
+        await TestHelper.RunTestExample<AutoFilter>(@"Misc\AutoFilter.xlsx");
     }
 
     [Test]
-    public void BasicTable()
+    public async Task BasicTable()
     {
-        TestHelper.RunTestExample<BasicTable>(@"Misc\BasicTable.xlsx");
+        await TestHelper.RunTestExample<BasicTable>(@"Misc\BasicTable.xlsx");
     }
 
     [Test]
-    public void BlankCells()
+    public async Task BlankCells()
     {
-        TestHelper.RunTestExample<BlankCells>(@"Misc\BlankCells.xlsx");
+        await TestHelper.RunTestExample<BlankCells>(@"Misc\BlankCells.xlsx");
     }
 
     [Test]
-    [Platform("Win", Reason = "SharedStrings differ on Linux due to platform-specific double-to-string formatting")]
-    public void CellValues()
+    // Windows-only: SharedStrings differ on Linux due to platform-specific double-to-string formatting
+    [RunOn(TUnit.Core.Enums.OS.Windows)]
+    public async Task CellValues()
     {
-        TestHelper.RunTestExample<CellValues>(@"Misc\CellValues.xlsx", true);
+        await TestHelper.RunTestExample<CellValues>(@"Misc\CellValues.xlsx", true);
     }
 
     [Test]
-    public void Collections()
+    public async Task Collections()
     {
-        TestHelper.RunTestExample<Collections>(@"Misc\Collections.xlsx");
+        await TestHelper.RunTestExample<Collections>(@"Misc\Collections.xlsx");
     }
 
     [Test]
-    public void CopyingRowsAndColumns()
+    public async Task CopyingRowsAndColumns()
     {
-        TestHelper.RunTestExample<CopyingRowsAndColumns>(@"Misc\CopyingRowsAndColumns.xlsx");
+        await TestHelper.RunTestExample<CopyingRowsAndColumns>(@"Misc\CopyingRowsAndColumns.xlsx");
     }
 
     [Test]
-    public void CopyingWorksheets()
+    public async Task CopyingWorksheets()
     {
-        TestHelper.RunTestExample<CopyingWorksheets>(@"Misc\CopyingWorksheets.xlsx");
+        await TestHelper.RunTestExample<CopyingWorksheets>(@"Misc\CopyingWorksheets.xlsx");
     }
 
     [Test]
-    [Platform("Win", Reason = "AdjustToContents produces font-dependent column widths; reference xlsx was generated on Windows with Calibri")]
-    public void DataTypes()
+    // Windows-only: AdjustToContents produces font-dependent column widths; reference xlsx was generated on Windows with Calibri
+    [RunOn(TUnit.Core.Enums.OS.Windows)]
+    public async Task DataTypes()
     {
-        TestHelper.RunTestExample<DataTypes>(@"Misc\DataTypes.xlsx");
+        await TestHelper.RunTestExample<DataTypes>(@"Misc\DataTypes.xlsx");
     }
 
     [Test]
-    public void DataValidation()
+    public async Task DataValidation()
     {
-        TestHelper.RunTestExample<DataValidation>(@"Misc\DataValidation.xlsx");
+        await TestHelper.RunTestExample<DataValidation>(@"Misc\DataValidation.xlsx");
     }
 
     [Test]
-    public void DataValidationDecimal()
+    public async Task DataValidationDecimal()
     {
-        TestHelper.RunTestExample<DataValidationDecimal>(@"Misc\DataValidationDecimal.xlsx");
+        await TestHelper.RunTestExample<DataValidationDecimal>(@"Misc\DataValidationDecimal.xlsx");
     }
 
     [Test]
-    public void DataValidationWholeNumber()
+    public async Task DataValidationWholeNumber()
     {
-        TestHelper.RunTestExample<DataValidationWholeNumber>(@"Misc\DataValidationWholeNumber.xlsx");
+        await TestHelper.RunTestExample<DataValidationWholeNumber>(@"Misc\DataValidationWholeNumber.xlsx");
     }
 
     [Test]
-    public void DataValidationTextLength()
+    public async Task DataValidationTextLength()
     {
-        TestHelper.RunTestExample<DataValidationTextLength>(@"Misc\DataValidationTextLength.xlsx");
+        await TestHelper.RunTestExample<DataValidationTextLength>(@"Misc\DataValidationTextLength.xlsx");
     }
 
     [Test]
-    public void DataValidationDate()
+    public async Task DataValidationDate()
     {
-        TestHelper.RunTestExample<DataValidationDate>(@"Misc\DataValidationDate.xlsx");
+        await TestHelper.RunTestExample<DataValidationDate>(@"Misc\DataValidationDate.xlsx");
     }
 
     [Test]
-    public void DataValidationTime()
+    public async Task DataValidationTime()
     {
-        TestHelper.RunTestExample<DataValidationTime>(@"Misc\DataValidationTime.xlsx");
+        await TestHelper.RunTestExample<DataValidationTime>(@"Misc\DataValidationTime.xlsx");
     }
 
     [Test]
-    public void Formulas()
+    public async Task Formulas()
     {
-        TestHelper.RunTestExample<Formulas>(@"Misc\Formulas.xlsx");
+        await TestHelper.RunTestExample<Formulas>(@"Misc\Formulas.xlsx");
     }
 
     [Test]
-    public void FormulasWithEvaluation()
+    public async Task FormulasWithEvaluation()
     {
-        TestHelper.RunTestExample<FormulasWithEvaluation>(@"Misc\FormulasWithEvaluation.xlsx", true);
+        await TestHelper.RunTestExample<FormulasWithEvaluation>(@"Misc\FormulasWithEvaluation.xlsx", true);
     }
 
     [Test]
-    public void FreezePanes()
+    public async Task FreezePanes()
     {
-        TestHelper.RunTestExample<FreezePanes>(@"Misc\FreezePanes.xlsx");
+        await TestHelper.RunTestExample<FreezePanes>(@"Misc\FreezePanes.xlsx");
     }
 
     [Test]
-    public void HideSheets()
+    public async Task HideSheets()
     {
-        TestHelper.RunTestExample<HideSheets>(@"Misc\HideSheets.xlsx");
+        await TestHelper.RunTestExample<HideSheets>(@"Misc\HideSheets.xlsx");
     }
 
     [Test]
-    public void HideUnhide()
+    public async Task HideUnhide()
     {
-        TestHelper.RunTestExample<HideUnhide>(@"Misc\HideUnhide.xlsx");
+        await TestHelper.RunTestExample<HideUnhide>(@"Misc\HideUnhide.xlsx");
     }
 
     [Test]
-    public void Hyperlinks()
+    public async Task Hyperlinks()
     {
-        TestHelper.RunTestExample<Hyperlinks>(@"Misc\Hyperlinks.xlsx");
+        await TestHelper.RunTestExample<Hyperlinks>(@"Misc\Hyperlinks.xlsx");
     }
 
     [Test]
-    public void InsertingData()
+    public async Task InsertingData()
     {
-        TestHelper.RunTestExample<InsertingData>(@"Misc\InsertingData.xlsx");
+        await TestHelper.RunTestExample<InsertingData>(@"Misc\InsertingData.xlsx");
     }
 
     [Test]
-    public void LambdaExpressions()
+    public async Task LambdaExpressions()
     {
-        TestHelper.RunTestExample<LambdaExpressions>(@"Misc\LambdaExpressions.xlsx");
+        await TestHelper.RunTestExample<LambdaExpressions>(@"Misc\LambdaExpressions.xlsx");
     }
 
     [Test]
-    public void MergeCells()
+    public async Task MergeCells()
     {
-        TestHelper.RunTestExample<MergeCells>(@"Misc\MergeCells.xlsx");
+        await TestHelper.RunTestExample<MergeCells>(@"Misc\MergeCells.xlsx");
     }
 
     [Test]
-    public void MergeMoves()
+    public async Task MergeMoves()
     {
-        TestHelper.RunTestExample<MergeMoves>(@"Misc\MergeMoves.xlsx");
+        await TestHelper.RunTestExample<MergeMoves>(@"Misc\MergeMoves.xlsx");
     }
 
     [Test]
-    public void Outline()
+    public async Task Outline()
     {
-        TestHelper.RunTestExample<Outline>(@"Misc\Outline.xlsx");
+        await TestHelper.RunTestExample<Outline>(@"Misc\Outline.xlsx");
     }
 
     [Test]
-    public void RightToLeft()
+    public async Task RightToLeft()
     {
-        TestHelper.RunTestExample<RightToLeft>(@"Misc\RightToLeft.xlsx");
+        await TestHelper.RunTestExample<RightToLeft>(@"Misc\RightToLeft.xlsx");
     }
 
     [Test]
-    public void SheetProtection()
+    public async Task SheetProtection()
     {
-        TestHelper.RunTestExample<SheetProtection>(@"Misc\SheetProtection.xlsx");
+        await TestHelper.RunTestExample<SheetProtection>(@"Misc\SheetProtection.xlsx");
     }
 
     [Test]
-    public void SheetViews()
+    public async Task SheetViews()
     {
-        TestHelper.RunTestExample<SheetViews>(@"Misc\SheetViews.xlsx");
+        await TestHelper.RunTestExample<SheetViews>(@"Misc\SheetViews.xlsx");
     }
 
     [Test]
-    public void ShiftingFormulas()
+    public async Task ShiftingFormulas()
     {
-        TestHelper.RunTestExample<ShiftingFormulas>(@"Misc\ShiftingFormulas.xlsx");
+        await TestHelper.RunTestExample<ShiftingFormulas>(@"Misc\ShiftingFormulas.xlsx");
     }
 
     [Test]
-    public void ShowCase()
+    public async Task ShowCase()
     {
-        TestHelper.RunTestExample<ShowCase>(@"Misc\ShowCase.xlsx");
+        await TestHelper.RunTestExample<ShowCase>(@"Misc\ShowCase.xlsx");
     }
 
     [Test]
-    public void TabColors()
+    public async Task TabColors()
     {
-        TestHelper.RunTestExample<TabColors>(@"Misc\TabColors.xlsx");
+        await TestHelper.RunTestExample<TabColors>(@"Misc\TabColors.xlsx");
     }
 
     [Test]
-    public void WorkbookProperties()
+    public async Task WorkbookProperties()
     {
-        TestHelper.RunTestExample<WorkbookProperties>(@"Misc\WorkbookProperties.xlsx");
+        await TestHelper.RunTestExample<WorkbookProperties>(@"Misc\WorkbookProperties.xlsx");
     }
 
     [Test]
-    public void WorkbookProtection()
+    public async Task WorkbookProtection()
     {
-        TestHelper.RunTestExample<WorkbookProtection>(@"Misc\WorkbookProtection.xlsx");
+        await TestHelper.RunTestExample<WorkbookProtection>(@"Misc\WorkbookProtection.xlsx");
     }
 }

@@ -7,11 +7,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Cells;
-
-[TestFixture]
 // ReSharper disable once InconsistentNaming
 public class XLCellTests
 {
@@ -34,47 +32,47 @@ public class XLCellTests
     private static readonly string[] InsertDataStrings = ["a", "b", "c"];
 
     [Test]
-    public void CellsUsed()
+    public async Task CellsUsed()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Cell(1, 1);
         ws.Cell(2, 2);
         var count = ws.Range("A1:B2").CellsUsed().Count();
-        Assert.AreEqual(0, count);
+        await Assert.That(count).IsEqualTo(0);
     }
 
     [Test]
-    public void CellsUsedIncludeStyles1()
+    public async Task CellsUsedIncludeStyles1()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Row(3).Style.Fill.BackgroundColor = XLColor.Red;
         ws.Column(3).Style.Fill.BackgroundColor = XLColor.Red;
         ws.Cell(2, 2).Value = "ASDF";
         var range = ws.RangeUsed(XLCellsUsedOptions.All).RangeAddress.ToString();
-        Assert.AreEqual("B2:C3", range);
+        await Assert.That(range).IsEqualTo("B2:C3");
     }
 
     [Test]
-    public void CellsUsedIncludeStyles2()
+    public async Task CellsUsedIncludeStyles2()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Row(2).Style.Fill.BackgroundColor = XLColor.Red;
         ws.Column(2).Style.Fill.BackgroundColor = XLColor.Red;
         ws.Cell(3, 3).Value = "ASDF";
         var range = ws.RangeUsed(XLCellsUsedOptions.All).RangeAddress.ToString();
-        Assert.AreEqual("B2:C3", range);
+        await Assert.That(range).IsEqualTo("B2:C3");
     }
 
     [Test]
-    public void CellsUsedIncludeStyles3()
+    public async Task CellsUsedIncludeStyles3()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var range = ws.RangeUsed(XLCellsUsedOptions.All);
-        Assert.AreEqual(null, range);
+        await Assert.That(range).IsEqualTo(null);
     }
 
     [Test]
-    public void CellUsedIncludesSparklines()
+    public async Task CellUsedIncludesSparklines()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.Range("C3:E4").Value = 1;
@@ -82,47 +80,47 @@ public class XLCellTests
         ws.SparklineGroups.Add("F5", "C4:E4");
 
         var range = ws.RangeUsed(XLCellsUsedOptions.All).RangeAddress.ToString();
-        Assert.AreEqual("B2:F5", range);
+        await Assert.That(range).IsEqualTo("B2:F5");
     }
 
     [Test]
-    public void GetValue_Nullable()
+    public async Task GetValue_Nullable()
     {
         var cell = new XLWorkbook().AddWorksheet().FirstCell();
 
-        Assert.IsNull(cell.Clear().GetValue<double?>());
-        Assert.AreEqual(1.5, cell.SetValue(1.5).GetValue<double?>());
-        Assert.AreEqual(2, cell.SetValue(2).GetValue<int?>());
-        Assert.IsNull(cell.SetValue(Blank.Value).GetValue<double?>());
-        Assert.Throws<InvalidCastException>(() => cell.SetValue("text").GetValue<double?>());
+        await Assert.That(cell.Clear().GetValue<double?>()).IsNull();
+        await Assert.That(cell.SetValue(1.5).GetValue<double?>()).IsEqualTo(1.5);
+        await Assert.That(cell.SetValue(2).GetValue<int?>()).IsEqualTo(2);
+        await Assert.That(cell.SetValue(Blank.Value).GetValue<double?>()).IsNull();
+        await Assert.That(() => cell.SetValue("text").GetValue<double?>()).Throws<InvalidCastException>();
     }
 
     [Test]
-    public void InsertData1()
+    public async Task InsertData1()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var range = ws.Cell(2, 2).InsertData(InsertDataStrings);
-        Assert.AreEqual("Sheet1!B2:B4", range.ToString());
+        await Assert.That(range.ToString()).IsEqualTo("Sheet1!B2:B4");
     }
 
     [Test]
-    public void InsertData_DoesntTransposeDataOnFalseFlag()
+    public async Task InsertData_DoesntTransposeDataOnFalseFlag()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var range = ws.Cell(2, 2).InsertData(InsertDataStrings, false);
-        Assert.AreEqual("Sheet1!B2:B4", range.ToString());
+        await Assert.That(range.ToString()).IsEqualTo("Sheet1!B2:B4");
     }
 
     [Test]
-    public void InsertData_TransposesDataOnTrueFlag()
+    public async Task InsertData_TransposesDataOnTrueFlag()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var range = ws.Cell(2, 2).InsertData(InsertDataStrings, true);
-        Assert.AreEqual("Sheet1!B2:D2", range.ToString());
+        await Assert.That(range.ToString()).IsEqualTo("Sheet1!B2:D2");
     }
 
     [Test]
-    public void InsertData_DifferentTypes()
+    public async Task InsertData_DifferentTypes()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -130,26 +128,26 @@ public class XLCellTests
 
         ws.FirstCell().InsertData(values);
 
-        Assert.AreEqual("Text", ws.FirstCell().GetString());
-        Assert.AreEqual(45, ws.Cell("A2").GetDouble());
-        Assert.AreEqual(DateTime.Today, ws.Cell("A3").GetDateTime());
-        Assert.AreEqual(true, ws.Cell("A4").GetBoolean());
-        Assert.AreEqual("More text", ws.Cell("A5").GetString());
-        Assert.IsTrue(ws.Cell("A6").IsEmpty());
+        await Assert.That(ws.FirstCell().GetString()).IsEqualTo("Text");
+        await Assert.That(ws.Cell("A2").GetDouble()).IsEqualTo(45);
+        await Assert.That(ws.Cell("A3").GetDateTime()).IsEqualTo(DateTime.Today);
+        await Assert.That(ws.Cell("A4").GetBoolean()).IsEqualTo(true);
+        await Assert.That(ws.Cell("A5").GetString()).IsEqualTo("More text");
+        await Assert.That(ws.Cell("A6").IsEmpty()).IsTrue();
     }
 
     [Test]
-    public void InsertData_with_Guids()
+    public async Task InsertData_with_Guids()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.FirstCell().InsertData(Enumerable.Range(1, 20).Select(i => new { Guid = Guid.NewGuid() }));
 
-        Assert.AreEqual(XLDataType.Text, ws.FirstCell().DataType);
-        Assert.AreEqual(Guid.NewGuid().ToString().Length, ws.FirstCell().GetText().Length);
+        await Assert.That(ws.FirstCell().DataType).IsEqualTo(XLDataType.Text);
+        await Assert.That(ws.FirstCell().GetText().Length).IsEqualTo(Guid.NewGuid().ToString().Length);
     }
 
     [Test]
-    public void InsertData_with_Nulls()
+    public async Task InsertData_with_Nulls()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
 
@@ -168,13 +166,13 @@ public class XLCellTests
 
         ws.FirstCell().InsertData(table);
 
-        Assert.AreEqual(25, ws.Cell("A1").Value);
-        Assert.IsTrue(ws.Cell("C4").Value.IsBlank);
-        Assert.IsTrue(ws.Cell("D5").Value.IsBlank);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(25);
+        await Assert.That(ws.Cell("C4").Value.IsBlank).IsTrue();
+        await Assert.That(ws.Cell("D5").Value.IsBlank).IsTrue();
     }
 
     [Test]
-    public void InsertData_with_Nulls_IEnumerable()
+    public async Task InsertData_with_Nulls_IEnumerable()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
 
@@ -189,12 +187,12 @@ public class XLCellTests
 
         ws.FirstCell().InsertData(dateTimeList);
 
-        Assert.AreEqual(new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), ws.Cell("A1").GetDateTime());
-        Assert.AreEqual(Blank.Value, ws.Cell("A5").Value);
+        await Assert.That(ws.Cell("A1").GetDateTime()).IsEqualTo(new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Unspecified));
+        await Assert.That(ws.Cell("A5").Value).IsEqualTo(Blank.Value);
     }
 
     [Test]
-    public void InsertData_AllNumberTypes_AreInsertedAsNumbers()
+    public async Task InsertData_AllNumberTypes_AreInsertedAsNumbers()
     {
         var ws = new XLWorkbook().Worksheets.Add();
 
@@ -204,12 +202,12 @@ public class XLCellTests
         {
             var expectedValue = Convert.ChangeType(AllNumberTypes[row - 1], typeof(double));
             var actualValue = ws.Cell(row, 1).Value;
-            Assert.AreEqual(expectedValue, actualValue);
+            await Assert.That(actualValue).IsEqualTo(ExpectedCellValue.From(expectedValue));
         }
     }
 
     [Test]
-    public void InsertTable_AllNumberTypes_AreInsertedAsNumbers()
+    public async Task InsertTable_AllNumberTypes_AreInsertedAsNumbers()
     {
         var ws = new XLWorkbook().Worksheets.Add();
 
@@ -228,293 +226,293 @@ public class XLCellTests
         {
             var expectedValue = Convert.ChangeType(AllNumberTypes[column - 1], typeof(double));
             var actualValue = ws.Cell(2, column).Value;
-            Assert.AreEqual(expectedValue, actualValue);
+            await Assert.That(actualValue).IsEqualTo(ExpectedCellValue.From(expectedValue));
         }
     }
 
     [Test]
-    public void IsEmpty1()
+    public async Task IsEmpty1()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
         var actual = cell.IsEmpty();
         var expected = true;
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void IsEmpty2()
+    public async Task IsEmpty2()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
         var actual = cell.IsEmpty(XLCellsUsedOptions.All);
         var expected = true;
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void IsEmpty3()
+    public async Task IsEmpty3()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
         cell.Style.Fill.BackgroundColor = XLColor.Red;
         var actual = cell.IsEmpty();
         var expected = true;
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void IsEmpty4()
+    public async Task IsEmpty4()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
         cell.Style.Fill.BackgroundColor = XLColor.Red;
         var actual = cell.IsEmpty(XLCellsUsedOptions.AllContents);
         var expected = true;
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void IsEmpty5()
+    public async Task IsEmpty5()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
         cell.Style.Fill.BackgroundColor = XLColor.Red;
         var actual = cell.IsEmpty(XLCellsUsedOptions.All);
         var expected = false;
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void IsEmpty6()
+    public async Task IsEmpty6()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell(1, 1);
         cell.Value = "X";
         var actual = cell.IsEmpty();
         var expected = false;
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void NaN_is_not_a_number()
+    public async Task NaN_is_not_a_number()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell("A1");
         cell.Value = "NaN";
 
-        Assert.AreNotEqual(XLDataType.Number, cell.DataType);
+        await Assert.That(cell.DataType).IsNotEqualTo(XLDataType.Number);
     }
 
     [Test]
-    public void Nan_is_not_a_number()
+    public async Task Nan_is_not_a_number()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell("A1");
         cell.Value = "Nan";
 
-        Assert.AreNotEqual(XLDataType.Number, cell.DataType);
+        await Assert.That(cell.DataType).IsNotEqualTo(XLDataType.Number);
     }
 
     [Test]
-    public void TryGetValue_Boolean_Bad()
+    public async Task TryGetValue_Boolean_Bad()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell("A1").SetValue("ABC");
         var success = cell.TryGetValue(out bool outValue);
-        Assert.IsFalse(success);
+        await Assert.That(success).IsFalse();
     }
 
     [Test]
-    public void TryGetValue_Boolean_False()
+    public async Task TryGetValue_Boolean_False()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell("A1").SetValue(false);
         var success = cell.TryGetValue(out bool outValue);
-        Assert.IsTrue(success);
-        Assert.IsFalse(outValue);
+        await Assert.That(success).IsTrue();
+        await Assert.That(outValue).IsFalse();
     }
 
     [Test]
-    public void TryGetValue_Boolean_FalseText()
+    public async Task TryGetValue_Boolean_FalseText()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell("A1").SetValue("False");
         var success = cell.TryGetValue(out bool outValue);
-        Assert.IsTrue(success);
-        Assert.IsFalse(outValue);
+        await Assert.That(success).IsTrue();
+        await Assert.That(outValue).IsFalse();
     }
 
     [Test]
-    public void TryGetValue_Boolean_True()
+    public async Task TryGetValue_Boolean_True()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell("A1").SetValue(true);
         var success = cell.TryGetValue(out bool outValue);
-        Assert.IsTrue(success);
-        Assert.IsTrue(outValue);
+        await Assert.That(success).IsTrue();
+        await Assert.That(outValue).IsTrue();
     }
 
     [Test]
-    public void TryGetValue_Boolean_TrueText()
+    public async Task TryGetValue_Boolean_TrueText()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell("A1").SetValue("True");
         var success = cell.TryGetValue(out bool outValue);
-        Assert.IsTrue(success);
-        Assert.IsTrue(outValue);
+        await Assert.That(success).IsTrue();
+        await Assert.That(outValue).IsTrue();
     }
 
     [Test]
-    public void TryGetValue_DateTime_Good2()
+    public async Task TryGetValue_DateTime_Good2()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var success = ws.Cell("A1").SetFormulaA1("=TODAY() + 10").TryGetValue(out DateTime outValue);
-        Assert.IsTrue(success);
-        Assert.AreEqual(DateTime.Today.AddDays(10), outValue);
+        await Assert.That(success).IsTrue();
+        await Assert.That(outValue).IsEqualTo(DateTime.Today.AddDays(10));
     }
 
     [Test]
-    public void TryGetValue_DateTime_BadButFormulaGood()
+    public async Task TryGetValue_DateTime_BadButFormulaGood()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var success = ws.Cell("A1").SetFormulaA1("=\"44\"&\"020\"").TryGetValue(out DateTime outValue);
-        Assert.IsFalse(success);
+        await Assert.That(success).IsFalse();
 
         ws.Cell("B1").SetFormulaA1("=A1+1");
 
         success = ws.Cell("B1").TryGetValue(out outValue);
-        Assert.IsTrue(success);
-        Assert.AreEqual(new DateTime(2020, 07, 09, 0, 0, 0, DateTimeKind.Unspecified), outValue);
+        await Assert.That(success).IsTrue();
+        await Assert.That(outValue).IsEqualTo(new DateTime(2020, 07, 09, 0, 0, 0, DateTimeKind.Unspecified));
     }
 
     [Test]
-    public void TryGetValue_DateTime_BadString()
+    public async Task TryGetValue_DateTime_BadString()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var date = "ABC";
         var success = ws.Cell("A1").SetValue(date).TryGetValue(out DateTime outValue);
-        Assert.IsFalse(success);
+        await Assert.That(success).IsFalse();
     }
 
     [Test]
-    public void TryGetValue_DateTime_SerialDateTimeOutsideRange()
+    public async Task TryGetValue_DateTime_SerialDateTimeOutsideRange()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var serialDateTimeOutsideRange = 5545454;
         ws.FirstCell().SetValue(serialDateTimeOutsideRange);
         var success = ws.FirstCell().TryGetValue(out DateTime _);
-        Assert.IsFalse(success);
+        await Assert.That(success).IsFalse();
     }
 
     [Test]
-    public void TryGetValue_Enum_Good()
+    public async Task TryGetValue_Enum_Good()
     {
         var ws = new XLWorkbook().AddWorksheet();
-        Assert.IsTrue(ws.FirstCell().SetValue(nameof(NumberStyles.AllowCurrencySymbol)).TryGetValue(out NumberStyles value));
-        Assert.AreEqual(NumberStyles.AllowCurrencySymbol, value);
+        await Assert.That(ws.FirstCell().SetValue(nameof(NumberStyles.AllowCurrencySymbol)).TryGetValue(out NumberStyles value)).IsTrue();
+        await Assert.That(value).IsEqualTo(NumberStyles.AllowCurrencySymbol);
 
         // Nullable alternative
-        Assert.IsTrue(ws.FirstCell().SetValue(nameof(NumberStyles.AllowCurrencySymbol)).TryGetValue(out NumberStyles? value2));
-        Assert.AreEqual(NumberStyles.AllowCurrencySymbol, value2);
+        await Assert.That(ws.FirstCell().SetValue(nameof(NumberStyles.AllowCurrencySymbol)).TryGetValue(out NumberStyles? value2)).IsTrue();
+        await Assert.That(value2).IsEqualTo(NumberStyles.AllowCurrencySymbol);
     }
 
     [Test]
-    public void TryGetValue_Enum_BadString()
+    public async Task TryGetValue_Enum_BadString()
     {
         var ws = new XLWorkbook().AddWorksheet();
-        Assert.IsFalse(ws.FirstCell().SetValue("ABC").TryGetValue(out NumberStyles value));
-        Assert.IsFalse(ws.FirstCell().SetValue("ABC").TryGetValue(out NumberStyles? value2));
+        await Assert.That(ws.FirstCell().SetValue("ABC").TryGetValue(out NumberStyles value)).IsFalse();
+        await Assert.That(ws.FirstCell().SetValue("ABC").TryGetValue(out NumberStyles? value2)).IsFalse();
     }
 
     [Test]
-    public void TryGetValue_TimeSpan_BadString()
+    public async Task TryGetValue_TimeSpan_BadString()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var timeSpan = "ABC";
         var success = ws.Cell("A1").SetValue(timeSpan).TryGetValue(out TimeSpan outValue);
-        Assert.IsFalse(success);
+        await Assert.That(success).IsFalse();
     }
 
     [Test]
-    public void TryGetValue_TimeSpan_Good()
+    public async Task TryGetValue_TimeSpan_Good()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var timeSpan = new TimeSpan(1, 1, 1);
         var success = ws.Cell("A1").SetValue(timeSpan).TryGetValue(out TimeSpan outValue);
-        Assert.IsTrue(success);
-        Assert.AreEqual(timeSpan, outValue);
+        await Assert.That(success).IsTrue();
+        await Assert.That(outValue).IsEqualTo(timeSpan);
     }
 
     [Test]
-    public void TryGetValue_TimeSpan_Good2()
+    public async Task TryGetValue_TimeSpan_Good2()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var success = ws.Cell("A1").SetValue(0.0034722222222222199).TryGetValue(out TimeSpan outValue);
-        Assert.IsTrue(success);
-        Assert.AreEqual(TimeSpan.FromMinutes(5), outValue);
+        await Assert.That(success).IsTrue();
+        await Assert.That(outValue).IsEqualTo(TimeSpan.FromMinutes(5));
     }
 
     [Test]
-    public void TryGetValue_TimeSpan_Good_Large()
+    public async Task TryGetValue_TimeSpan_Good_Large()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var timeSpan = TimeSpan.FromMilliseconds((double)int.MaxValue + 1);
         var success = ws.Cell("A1").SetValue(timeSpan).TryGetValue(out TimeSpan outValue);
-        Assert.IsTrue(success);
-        Assert.AreEqual(timeSpan, outValue);
+        await Assert.That(success).IsTrue();
+        await Assert.That(outValue).IsEqualTo(timeSpan);
     }
 
     [Test]
     [SetCulture("en-US")]
-    public void TryGetValue_TimeSpan_Good_FromText()
+    public async Task TryGetValue_TimeSpan_Good_FromText()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var success = ws.Cell("A1").SetValue("300:14:50.453").TryGetValue(out TimeSpan outValue);
-        Assert.IsTrue(success);
-        Assert.AreEqual(new TimeSpan(12, 12, 14, 50, 453), outValue);
+        await Assert.That(success).IsTrue();
+        await Assert.That(outValue).IsEqualTo(new TimeSpan(12, 12, 14, 50, 453));
     }
 
     [Test]
-    public void TryGetValue_sbyte_Bad2()
+    public async Task TryGetValue_sbyte_Bad2()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell("A1").SetValue("255");
         var success = cell.TryGetValue(out sbyte outValue);
-        Assert.IsFalse(success);
+        await Assert.That(success).IsFalse();
     }
 
     [Test]
-    public void TryGetValue_sbyte_Good()
+    public async Task TryGetValue_sbyte_Good()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var cell = ws.Cell("A1").SetValue(5);
         var success = cell.TryGetValue(out sbyte outValue);
-        Assert.IsTrue(success);
-        Assert.AreEqual(5, outValue);
+        await Assert.That(success).IsTrue();
+        await Assert.That(outValue).IsEqualTo(ExpectedCellValue.From(5));
     }
 
     [Test]
-    public void TryGetValue_Unicode_String()
+    public async Task TryGetValue_Unicode_String()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
 
         var success = ws.Cell("A1")
             .SetValue("Site_x0020_Column_x0020_Test")
             .TryGetValue(out string outValue);
-        Assert.IsTrue(success);
-        Assert.AreEqual("Site Column Test", outValue);
+        await Assert.That(success).IsTrue();
+        await Assert.That(outValue).IsEqualTo("Site Column Test");
 
         success = ws.Cell("A1")
             .SetValue("Site_x005F_x0020_Column_x005F_x0020_Test")
             .TryGetValue(out outValue);
 
-        Assert.IsTrue(success);
-        Assert.AreEqual("Site_x005F_x0020_Column_x005F_x0020_Test", outValue);
+        await Assert.That(success).IsTrue();
+        await Assert.That(outValue).IsEqualTo("Site_x005F_x0020_Column_x005F_x0020_Test");
     }
 
     [Test]
-    public void TryGetValue_Nullable()
+    public async Task TryGetValue_Nullable()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -524,14 +522,14 @@ public class XLCellTests
         ws.Cell("A3").SetValue(2.5.ToString(CultureInfo.CurrentCulture));
         ws.Cell("A4").SetValue("text");
 
-        Assert.IsTrue(ws.Cell("A1").TryGetValue(out double? _));
-        Assert.IsTrue(ws.Cell("A2").TryGetValue(out double? _));
-        Assert.IsTrue(ws.Cell("A3").TryGetValue(out double? _));
-        Assert.IsFalse(ws.Cell("A4").TryGetValue(out double? _));
+        await Assert.That(ws.Cell("A1").TryGetValue(out double? _)).IsTrue();
+        await Assert.That(ws.Cell("A2").TryGetValue(out double? _)).IsTrue();
+        await Assert.That(ws.Cell("A3").TryGetValue(out double? _)).IsTrue();
+        await Assert.That(ws.Cell("A4").TryGetValue(out double? _)).IsFalse();
     }
 
     [Test]
-    public void CopyRangeAtCellAddress()
+    public async Task CopyRangeAtCellAddress()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
 
@@ -544,14 +542,14 @@ public class XLCellTests
 
         ws.Cell("B2").CopyFrom(range);
 
-        Assert.AreEqual(2, ws.Cell("B2").Value);
-        Assert.AreEqual(3, ws.Cell("C2").Value);
-        Assert.AreEqual(5, ws.Cell("D2").Value);
-        Assert.AreEqual(7, ws.Cell("E2").Value);
+        await Assert.That(ws.Cell("B2").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("C2").Value).IsEqualTo(3);
+        await Assert.That(ws.Cell("D2").Value).IsEqualTo(5);
+        await Assert.That(ws.Cell("E2").Value).IsEqualTo(7);
     }
 
     [Test]
-    public void ValueSetToEmptyString()
+    public async Task ValueSetToEmptyString()
     {
         var expected = string.Empty;
 
@@ -559,17 +557,17 @@ public class XLCellTests
         var cell = ws.Cell(1, 1);
         cell.Value = new DateTime(2000, 1, 2, 0, 0, 0, DateTimeKind.Unspecified);
         cell.Value = string.Empty;
-        Assert.AreEqual(expected, cell.GetText());
-        Assert.AreEqual(expected, cell.Value);
+        await Assert.That(cell.GetText()).IsEqualTo(expected);
+        await Assert.That(cell.Value).IsEqualTo(expected);
 
         cell.Value = new DateTime(2000, 1, 2, 0, 0, 0, DateTimeKind.Unspecified);
         cell.SetValue(string.Empty);
-        Assert.AreEqual(expected, cell.GetText());
-        Assert.AreEqual(expected, cell.Value);
+        await Assert.That(cell.GetText()).IsEqualTo(expected);
+        await Assert.That(cell.Value).IsEqualTo(expected);
     }
 
     [Test]
-    public void ValueSetDateWithShortUserDateFormat()
+    public async Task ValueSetDateWithShortUserDateFormat()
     {
         // For this test to make sense, user's local date format should be dd/MM/yy (note without the 2 century digits)
         // What happened previously was that the century digits got lost in .ToString() conversion and wrong century was sometimes returned.
@@ -586,11 +584,11 @@ public class XLCellTests
         var expected = DateTime.Today.AddYears(20);
         cell.Value = expected;
         var actual = (DateTime)cell.Value;
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void SetStringValueTooLong()
+    public async Task SetStringValueTooLong()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -599,12 +597,12 @@ public class XLCellTests
 
         ws.FirstCell().SetValue(new string('A', 32767));
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => ws.FirstCell().Value = new string('A', 32768));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ws.FirstCell().SetValue(new string('A', 32768)));
+        await Assert.That(() => ws.FirstCell().Value = new string('A', 32768)).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(() => ws.FirstCell().SetValue(new string('A', 32768))).Throws<ArgumentOutOfRangeException>();
     }
 
     [Test]
-    public void Load_InlineString_entities_decoded_text_is_at_limit()
+    public async Task Load_InlineString_entities_decoded_text_is_at_limit()
     {
         // Inline string XML contains &#xA; entities making raw XML > 32767 chars,
         // but decoded text is exactly 32767 characters. Should load without error.
@@ -615,47 +613,47 @@ public class XLCellTests
         var ws = wb.Worksheets.First();
         var text = ws.Cell(1, 1).Value.GetText();
         var excelLength = text.Length - text.AsSpan().Count('\r');
-        Assert.That(excelLength, Is.EqualTo(32767));
+        await Assert.That(excelLength).IsEqualTo(32767);
     }
 
     [Test]
-    public void SetCellValueWipesFormulas()
+    public async Task SetCellValueWipesFormulas()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
         ws.FirstCell().FormulaA1 = "=TODAY()";
         ws.FirstCell().Value = "hello world";
-        Assert.IsFalse(ws.FirstCell().HasFormula);
+        await Assert.That(ws.FirstCell().HasFormula).IsFalse();
 
         ws.FirstCell().FormulaA1 = "=TODAY()";
         ws.FirstCell().SetValue("hello world");
-        Assert.IsFalse(ws.FirstCell().HasFormula);
+        await Assert.That(ws.FirstCell().HasFormula).IsFalse();
     }
 
     [Test]
-    public void CellValueLineWrapping()
+    public async Task CellValueLineWrapping()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
         ws.FirstCell().Value = "hello world";
-        Assert.IsFalse(ws.FirstCell().Style.Alignment.WrapText);
+        await Assert.That(ws.FirstCell().Style.Alignment.WrapText).IsFalse();
 
         ws.FirstCell().Value = "hello\r\nworld";
-        Assert.IsTrue(ws.FirstCell().Style.Alignment.WrapText);
+        await Assert.That(ws.FirstCell().Style.Alignment.WrapText).IsTrue();
 
         ws.FirstCell().Style.Alignment.WrapText = false;
 
         ws.FirstCell().SetValue("hello world");
-        Assert.IsFalse(ws.FirstCell().Style.Alignment.WrapText);
+        await Assert.That(ws.FirstCell().Style.Alignment.WrapText).IsFalse();
 
         ws.FirstCell().SetValue("hello\r\nworld");
-        Assert.IsTrue(ws.FirstCell().Style.Alignment.WrapText);
+        await Assert.That(ws.FirstCell().Style.Alignment.WrapText).IsTrue();
     }
 
     [Test]
-    public void TestInvalidXmlCharacters()
+    public async Task TestInvalidXmlCharacters()
     {
         byte[] data;
 
@@ -670,12 +668,12 @@ public class XLCellTests
         using (var stream = new MemoryStream(data))
         {
             var wb = new XLWorkbook(stream);
-            Assert.AreEqual("\u0018", wb.Worksheets.First().FirstCell().Value);
+            await Assert.That(wb.Worksheets.First().FirstCell().Value).IsEqualTo("\u0018");
         }
     }
 
     [Test]
-    public void CanClearDateTimeCellValue()
+    public async Task CanClearDateTimeCellValue()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -683,8 +681,8 @@ public class XLCellTests
             var ws = wb.AddWorksheet("Sheet1");
             var c = ws.FirstCell();
             c.SetValue(new DateTime(2017, 10, 08, 0, 0, 0, DateTimeKind.Unspecified));
-            Assert.AreEqual(XLDataType.DateTime, c.DataType);
-            Assert.AreEqual(new DateTime(2017, 10, 08, 0, 0, 0, DateTimeKind.Unspecified), c.Value);
+            await Assert.That(c.DataType).IsEqualTo(XLDataType.DateTime);
+            await Assert.That(c.Value).IsEqualTo(new DateTime(2017, 10, 08, 0, 0, 0, DateTimeKind.Unspecified));
 
             wb.SaveAs(ms);
         }
@@ -693,8 +691,8 @@ public class XLCellTests
         {
             var ws = wb.Worksheets.First();
             var c = ws.FirstCell();
-            Assert.AreEqual(XLDataType.DateTime, c.DataType);
-            Assert.AreEqual(new DateTime(2017, 10, 08, 0, 0, 0, DateTimeKind.Unspecified), c.Value);
+            await Assert.That(c.DataType).IsEqualTo(XLDataType.DateTime);
+            await Assert.That(c.Value).IsEqualTo(new DateTime(2017, 10, 08, 0, 0, 0, DateTimeKind.Unspecified));
 
             c.Clear();
             wb.Save();
@@ -704,13 +702,13 @@ public class XLCellTests
         {
             var ws = wb.Worksheets.First();
             var c = ws.FirstCell();
-            Assert.AreEqual(XLDataType.Blank, c.DataType);
-            Assert.True(c.IsEmpty());
+            await Assert.That(c.DataType).IsEqualTo(XLDataType.Blank);
+            await Assert.That(c.IsEmpty()).IsTrue();
         }
     }
 
     [Test]
-    public void ClearCellRemovesSparkline()
+    public async Task ClearCellRemovesSparkline()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         ws.SparklineGroups.Add("B1:B3", "C1:E3");
@@ -718,14 +716,14 @@ public class XLCellTests
         ws.Cell("B1").Clear();
         ws.Cell("B2").Clear(XLClearOptions.Sparklines);
 
-        Assert.AreEqual(1, ws.SparklineGroups.Single().Count());
-        Assert.IsFalse(ws.Cell("B1").HasSparkline);
-        Assert.IsFalse(ws.Cell("B2").HasSparkline);
-        Assert.IsTrue(ws.Cell("B3").HasSparkline);
+        await Assert.That(ws.SparklineGroups.Single().Count()).IsEqualTo(1);
+        await Assert.That(ws.Cell("B1").HasSparkline).IsFalse();
+        await Assert.That(ws.Cell("B2").HasSparkline).IsFalse();
+        await Assert.That(ws.Cell("B3").HasSparkline).IsTrue();
     }
 
     [Test]
-    public void CurrentRegion()
+    public async Task CurrentRegion()
     {
         // Partially based on sample in https://github.com/XLibur/XLibur/issues/120
         using var wb = new XLWorkbook();
@@ -760,64 +758,64 @@ public class XLCellTests
             .CellBelow().CellRight().SetValue("x")
             .CellBelow().CellRight().SetValue("x");
 
-        Assert.AreEqual("A10:A10", ws.Cell("A10").CurrentRegion.RangeAddress.ToString());
-        Assert.AreEqual("B5:B5", ws.Cell("B5").CurrentRegion.RangeAddress.ToString());
-        Assert.AreEqual("P1:P1", ws.Cell("P1").CurrentRegion.RangeAddress.ToString());
+        await Assert.That(ws.Cell("A10").CurrentRegion.RangeAddress.ToString()).IsEqualTo("A10:A10");
+        await Assert.That(ws.Cell("B5").CurrentRegion.RangeAddress.ToString()).IsEqualTo("B5:B5");
+        await Assert.That(ws.Cell("P1").CurrentRegion.RangeAddress.ToString()).IsEqualTo("P1:P1");
 
-        Assert.AreEqual("B1:D3", ws.Cell("D3").CurrentRegion.RangeAddress.ToString());
-        Assert.AreEqual("B1:D4", ws.Cell("D4").CurrentRegion.RangeAddress.ToString());
-        Assert.AreEqual("B1:E4", ws.Cell("E4").CurrentRegion.RangeAddress.ToString());
+        await Assert.That(ws.Cell("D3").CurrentRegion.RangeAddress.ToString()).IsEqualTo("B1:D3");
+        await Assert.That(ws.Cell("D4").CurrentRegion.RangeAddress.ToString()).IsEqualTo("B1:D4");
+        await Assert.That(ws.Cell("E4").CurrentRegion.RangeAddress.ToString()).IsEqualTo("B1:E4");
 
         foreach (var c in ws.Range("B1:D3").Cells())
         {
-            Assert.AreEqual("B1:D3", c.CurrentRegion.RangeAddress.ToString());
+            await Assert.That(c.CurrentRegion.RangeAddress.ToString()).IsEqualTo("B1:D3");
         }
 
         foreach (var c in ws.Range("A1:A3").Cells())
         {
-            Assert.AreEqual("A1:D3", c.CurrentRegion.RangeAddress.ToString());
+            await Assert.That(c.CurrentRegion.RangeAddress.ToString()).IsEqualTo("A1:D3");
         }
 
-        Assert.AreEqual("A1:D4", ws.Cell("A4").CurrentRegion.RangeAddress.ToString());
+        await Assert.That(ws.Cell("A4").CurrentRegion.RangeAddress.ToString()).IsEqualTo("A1:D4");
 
         foreach (var c in ws.Range("E1:E3").Cells())
         {
-            Assert.AreEqual("B1:E3", c.CurrentRegion.RangeAddress.ToString());
+            await Assert.That(c.CurrentRegion.RangeAddress.ToString()).IsEqualTo("B1:E3");
         }
 
-        Assert.AreEqual("B1:E4", ws.Cell("E4").CurrentRegion.RangeAddress.ToString());
+        await Assert.That(ws.Cell("E4").CurrentRegion.RangeAddress.ToString()).IsEqualTo("B1:E4");
 
         //// SECOND REGION
         foreach (var c in ws.Range("F1:F4").Cells())
         {
-            Assert.AreEqual("F1:H4", c.CurrentRegion.RangeAddress.ToString());
+            await Assert.That(c.CurrentRegion.RangeAddress.ToString()).IsEqualTo("F1:H4");
         }
 
-        Assert.AreEqual("F1:H5", ws.Cell("F5").CurrentRegion.RangeAddress.ToString());
+        await Assert.That(ws.Cell("F5").CurrentRegion.RangeAddress.ToString()).IsEqualTo("F1:H5");
 
         //// DIAGONAL
-        Assert.AreEqual("E8:I12", ws.Cell("E8").CurrentRegion.RangeAddress.ToString());
-        Assert.AreEqual("E8:I12", ws.Cell("F9").CurrentRegion.RangeAddress.ToString());
-        Assert.AreEqual("E8:I12", ws.Cell("G10").CurrentRegion.RangeAddress.ToString());
-        Assert.AreEqual("E8:I12", ws.Cell("H11").CurrentRegion.RangeAddress.ToString());
-        Assert.AreEqual("E8:I12", ws.Cell("I12").CurrentRegion.RangeAddress.ToString());
+        await Assert.That(ws.Cell("E8").CurrentRegion.RangeAddress.ToString()).IsEqualTo("E8:I12");
+        await Assert.That(ws.Cell("F9").CurrentRegion.RangeAddress.ToString()).IsEqualTo("E8:I12");
+        await Assert.That(ws.Cell("G10").CurrentRegion.RangeAddress.ToString()).IsEqualTo("E8:I12");
+        await Assert.That(ws.Cell("H11").CurrentRegion.RangeAddress.ToString()).IsEqualTo("E8:I12");
+        await Assert.That(ws.Cell("I12").CurrentRegion.RangeAddress.ToString()).IsEqualTo("E8:I12");
 
-        Assert.AreEqual("E8:I12", ws.Cell("G9").CurrentRegion.RangeAddress.ToString());
-        Assert.AreEqual("E8:I12", ws.Cell("F10").CurrentRegion.RangeAddress.ToString());
+        await Assert.That(ws.Cell("G9").CurrentRegion.RangeAddress.ToString()).IsEqualTo("E8:I12");
+        await Assert.That(ws.Cell("F10").CurrentRegion.RangeAddress.ToString()).IsEqualTo("E8:I12");
 
-        Assert.AreEqual("D7:I12", ws.Cell("D7").CurrentRegion.RangeAddress.ToString());
-        Assert.AreEqual("E8:J13", ws.Cell("J13").CurrentRegion.RangeAddress.ToString());
+        await Assert.That(ws.Cell("D7").CurrentRegion.RangeAddress.ToString()).IsEqualTo("D7:I12");
+        await Assert.That(ws.Cell("J13").CurrentRegion.RangeAddress.ToString()).IsEqualTo("E8:J13");
 
         // Four corners of a sheet
-        Assert.AreEqual("A1:D3", ws.Cell(1, 1).CurrentRegion.RangeAddress.ToString());
-        Assert.AreEqual("XFD1:XFD1", ws.Cell(1, XLHelper.MaxColumnNumber).CurrentRegion.RangeAddress.ToString());
-        Assert.AreEqual("XFD1048576:XFD1048576", ws.Cell(XLHelper.MaxRowNumber, XLHelper.MaxColumnNumber).CurrentRegion.RangeAddress.ToString());
-        Assert.AreEqual("A1048576:A1048576", ws.Cell(XLHelper.MaxRowNumber, 1).CurrentRegion.RangeAddress.ToString());
+        await Assert.That(ws.Cell(1, 1).CurrentRegion.RangeAddress.ToString()).IsEqualTo("A1:D3");
+        await Assert.That(ws.Cell(1, XLHelper.MaxColumnNumber).CurrentRegion.RangeAddress.ToString()).IsEqualTo("XFD1:XFD1");
+        await Assert.That(ws.Cell(XLHelper.MaxRowNumber, XLHelper.MaxColumnNumber).CurrentRegion.RangeAddress.ToString()).IsEqualTo("XFD1048576:XFD1048576");
+        await Assert.That(ws.Cell(XLHelper.MaxRowNumber, 1).CurrentRegion.RangeAddress.ToString()).IsEqualTo("A1048576:A1048576");
     }
 
     // https://github.com/XLibur/XLibur/issues/630
     [Test]
-    public void ConsiderEmptyValueAsNumericInSumFormula()
+    public async Task ConsiderEmptyValueAsNumericInSumFormula()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -836,21 +834,21 @@ public class XLCellTests
         var b2 = ws.Cell("B2").Value;
         var b3 = ws.Cell("B3").Value;
 
-        Assert.AreEqual(Blank.Value, b1);
-        Assert.AreEqual(0, b2);
-        Assert.AreEqual(0, b3);
+        await Assert.That(b1).IsEqualTo(Blank.Value);
+        await Assert.That(b2).IsEqualTo(0);
+        await Assert.That(b3).IsEqualTo(0);
 
         var c1 = ws.Cell("C1").Value;
         var c2 = ws.Cell("C2").Value;
         var c3 = ws.Cell("C3").Value;
 
-        Assert.AreEqual(Blank.Value, c1);
-        Assert.AreEqual(0, c2);
-        Assert.AreEqual(0, c3);
+        await Assert.That(c1).IsEqualTo(Blank.Value);
+        await Assert.That(c2).IsEqualTo(0);
+        await Assert.That(c3).IsEqualTo(0);
     }
 
     [Test]
-    public void SetFormulaA1AffectsR1C1()
+    public async Task SetFormulaA1AffectsR1C1()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -859,11 +857,11 @@ public class XLCellTests
 
         cell.FormulaA1 = "B2";
 
-        Assert.AreEqual("R[1]C[1]", cell.FormulaR1C1);
+        await Assert.That(cell.FormulaR1C1).IsEqualTo("R[1]C[1]");
     }
 
     [Test]
-    public void SetFormulaR1C1AffectsA1()
+    public async Task SetFormulaR1C1AffectsA1()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -872,29 +870,31 @@ public class XLCellTests
 
         cell.FormulaR1C1 = "R[1]C[1]";
 
-        Assert.AreEqual("B2", cell.FormulaA1);
+        await Assert.That(cell.FormulaA1).IsEqualTo("B2");
     }
 
-    [TestCase(" = 1 + SUM({ 1; 7})  - A8  ", "1 + SUM({ 1; 7})  - A8")]
-    public void FormulaA1_setter_trims_and_removes_equal_if_present(string formula, string expectedResult)
+    [Test]
+    [Arguments(" = 1 + SUM({ 1; 7})  - A8  ", "1 + SUM({ 1; 7})  - A8")]
+    public async Task FormulaA1_setter_trims_and_removes_equal_if_present(string formula, string expectedResult)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").FormulaA1 = formula;
-        Assert.AreEqual(expectedResult, ws.Cell("A1").FormulaA1);
+        await Assert.That(ws.Cell("A1").FormulaA1).IsEqualTo(expectedResult);
     }
 
-    [TestCase(" =  1 +   R[1]C[7]  ", "1 +   R[1]C[7]")]
-    public void FormulaR1C1_setter_trims_and_removes_equal_if_present(string formula, string expectedResult)
+    [Test]
+    [Arguments(" =  1 +   R[1]C[7]  ", "1 +   R[1]C[7]")]
+    public async Task FormulaR1C1_setter_trims_and_removes_equal_if_present(string formula, string expectedResult)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").FormulaR1C1 = formula;
-        Assert.AreEqual(expectedResult, ws.Cell("A1").FormulaR1C1);
+        await Assert.That(ws.Cell("A1").FormulaR1C1).IsEqualTo(expectedResult);
     }
 
     [Test]
-    public void FormulaWithCircularReferenceFails()
+    public async Task FormulaWithCircularReferenceFails()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -903,16 +903,12 @@ public class XLCellTests
         A1.FormulaA1 = "A2 + 1";
         A2.FormulaA1 = "A1 + 1";
 
-        Assert.Throws(
-            Is.TypeOf<InvalidOperationException>().And.Message.Contains("cycle"),
-            () => _ = A1.Value);
-        Assert.Throws(
-            Is.TypeOf<InvalidOperationException>().And.Message.Contains("cycle"),
-            () => _ = A2.Value);
+        await Assert.That(() => _ = A1.Value).Throws<Exception>();
+        await Assert.That(() => _ = A2.Value).Throws<Exception>();
     }
 
     [Test]
-    public void InvalidFormulaShiftProducesREF()
+    public async Task InvalidFormulaShiftProducesREF()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -922,36 +918,36 @@ public class XLCellTests
             ws.Cell("B1").Value = 2;
             ws.Cell("B2").FormulaA1 = "=A1+B1";
 
-            Assert.AreEqual(3, ws.Cell("B2").Value);
+            await Assert.That(ws.Cell("B2").Value).IsEqualTo(3);
 
             ws.Range("B2").CopyTo(ws.Range("A2"));
             var fA2 = ws.Cell("A2").FormulaA1;
 
             wb.SaveAs(ms);
 
-            Assert.AreEqual("#REF!+A1", fA2);
+            await Assert.That(fA2).IsEqualTo("#REF!+A1");
         }
 
         using (var wb2 = new XLWorkbook(ms))
         {
             var fA2 = wb2.Worksheets.First().Cell("A2").FormulaA1;
-            Assert.AreEqual("#REF!+A1", fA2);
+            await Assert.That(fA2).IsEqualTo("#REF!+A1");
         }
     }
 
     [Test]
-    public void FormulaWithCircularReferenceFails2()
+    public async Task FormulaWithCircularReferenceFails2()
     {
         var cell = new XLWorkbook().Worksheets.Add("Sheet1").FirstCell();
         cell.FormulaA1 = "A1";
-        Assert.Throws<InvalidOperationException>(() =>
+        await Assert.That(() =>
         {
             var _ = cell.Value;
-        });
+        }).Throws<InvalidOperationException>();
     }
 
     [Test]
-    public void TryGetValueFormula_EvaluationFail_ReturnFalse()
+    public async Task TryGetValueFormula_EvaluationFail_ReturnFalse()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -961,31 +957,31 @@ public class XLCellTests
         A1.FormulaA1 = "A2 + 1";
         A2.FormulaA1 = "A1 + 1";
 
-        Assert.IsFalse(A1.TryGetValue(out string _));
-        Assert.IsFalse(A2.TryGetValue(out string _));
-        Assert.IsTrue(A3.TryGetValue(out string _));
+        await Assert.That(A1.TryGetValue(out string _)).IsFalse();
+        await Assert.That(A2.TryGetValue(out string _)).IsFalse();
+        await Assert.That(A3.TryGetValue(out string _)).IsTrue();
     }
 
     [Test]
-    public void ToStringNoFormatString()
+    public async Task ToStringNoFormatString()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         var c = ws.FirstCell().CellBelow(2).CellRight(3);
 
-        Assert.AreEqual("D3", c.ToString());
+        await Assert.That(c.ToString()).IsEqualTo("D3");
     }
 
     [Test]
-    [TestCase("D3", "A")]
-    [TestCase("YEAR(DATE(2018, 1, 1))", "F")]
-    [TestCase("YEAR(DATE(2018, 1, 1))", "f")]
-    [TestCase("0000.00", "NF")]
-    [TestCase("0000.00", "nf")]
-    [TestCase("FFFF0000", "fg")]
-    [TestCase("Color Theme: Accent5, Tint: 0", "BG")]
-    [TestCase("2018.00", "v")]
-    public void ToStringFormatString(string expected, string format)
+    [Arguments("D3", "A")]
+    [Arguments("YEAR(DATE(2018, 1, 1))", "F")]
+    [Arguments("YEAR(DATE(2018, 1, 1))", "f")]
+    [Arguments("0000.00", "NF")]
+    [Arguments("0000.00", "nf")]
+    [Arguments("FFFF0000", "fg")]
+    [Arguments("Color Theme: Accent5, Tint: 0", "BG")]
+    [Arguments("2018.00", "v")]
+    public async Task ToStringFormatString(string expected, string format)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -1000,92 +996,94 @@ public class XLCellTests
         c.Style.Font.FontColor = XLColor.Red;
         c.Style.Fill.BackgroundColor = XLColor.FromTheme(XLThemeColor.Accent5);
 
-        Assert.AreEqual(expected, c.ToString(format));
+        await Assert.That(c.ToString(format)).IsEqualTo(expected);
 
-        Assert.Throws<FormatException>(() => c.ToString("dummy"));
+        await Assert.That(() => c.ToString("dummy")).Throws<FormatException>();
     }
 
     [Test]
-    public void ToStringInvalidFormat()
+    public async Task ToStringInvalidFormat()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         var c = ws.FirstCell();
 
-        Assert.Throws<FormatException>(() => c.ToString("dummy"));
+        await Assert.That(() => c.ToString("dummy")).Throws<FormatException>();
     }
 
     [Test]
-    public void Property_Active_is_true_when_cell_has_same_address_as_active_cell_in_worksheet()
+    public async Task Property_Active_is_true_when_cell_has_same_address_as_active_cell_in_worksheet()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        Assert.IsNull(ws.ActiveCell);
-        Assert.False(ws.Cell(1, 1).Active);
+        await Assert.That(ws.ActiveCell).IsNull();
+        await Assert.That(ws.Cell(1, 1).Active).IsFalse();
 
         ws.ActiveCell = ws.Cell("C4");
-        Assert.True(ws.Cell("C4").Active);
-        Assert.False(ws.Cell("C5").Active);
+        await Assert.That(ws.Cell("C4").Active).IsTrue();
+        await Assert.That(ws.Cell("C5").Active).IsFalse();
 
         ws.ActiveCell = null;
-        Assert.False(ws.Cell("C4").Active);
+        await Assert.That(ws.Cell("C4").Active).IsFalse();
     }
 
     [Test]
-    public void Property_Active_deactivates_cell_only_when_the_cell_is_active()
+    public async Task Property_Active_deactivates_cell_only_when_the_cell_is_active()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.ActiveCell = ws.Cell("A2");
 
         ws.Cell("B2").Active = false;
-        Assert.AreEqual(ws.Cell("A2"), ws.ActiveCell);
+        await Assert.That(ws.ActiveCell).IsEqualTo(ws.Cell("A2"));
 
         ws.Cell("A2").Active = false;
-        Assert.IsNull(ws.ActiveCell);
+        await Assert.That(ws.ActiveCell).IsNull();
     }
 
     [Test]
-    public void Property_Active_sets_cell_as_active_cell_of_worksheet()
+    public async Task Property_Active_sets_cell_as_active_cell_of_worksheet()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        Assert.IsNull(ws.ActiveCell);
+        await Assert.That(ws.ActiveCell).IsNull();
 
         ws.Cell("B2").Active = true;
-        Assert.AreEqual(ws.Cell("B2"), ws.ActiveCell);
+        await Assert.That(ws.ActiveCell).IsEqualTo(ws.Cell("B2"));
     }
 
-    [TestCase("PY(4)", "_xlfn._xlws.PY(4)")]
-    [TestCase("5 + py(abs(4) )", "5 + _xlfn._xlws.PY(abs(4) )")]
-    [TestCase("COT(COTH(A5 + 2 * SIN(B7)))", "_xlfn.COT(_xlfn.COTH(A5 + 2 * SIN(B7)))")]
-    [TestCase("_xlfn.COT(_xlfn.COTH(A5 + 2 * SIN(B7)))", "_xlfn.COT(_xlfn.COTH(A5 + 2 * SIN(B7)))")]
-    public void FormulaA1_adds_prefix_to_future_functions(string formula, string expected)
+    [Test]
+    [Arguments("PY(4)", "_xlfn._xlws.PY(4)")]
+    [Arguments("5 + py(abs(4) )", "5 + _xlfn._xlws.PY(abs(4) )")]
+    [Arguments("COT(COTH(A5 + 2 * SIN(B7)))", "_xlfn.COT(_xlfn.COTH(A5 + 2 * SIN(B7)))")]
+    [Arguments("_xlfn.COT(_xlfn.COTH(A5 + 2 * SIN(B7)))", "_xlfn.COT(_xlfn.COTH(A5 + 2 * SIN(B7)))")]
+    public async Task FormulaA1_adds_prefix_to_future_functions(string formula, string expected)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var cell = ws.Cell("A1");
         cell.FormulaA1 = formula;
 
-        Assert.AreEqual(expected, cell.FormulaA1);
+        await Assert.That(cell.FormulaA1).IsEqualTo(expected);
     }
 
-    [TestCase("PY(4)", "_xlfn._xlws.PY(4)")]
-    [TestCase("5 + py(abs(4) )", "5 + _xlfn._xlws.PY(abs(4) )")]
-    [TestCase("COT(COTH(R[3]C[5] + 2 * SIN(R[7]C[2])))", "_xlfn.COT(_xlfn.COTH(R[3]C[5] + 2 * SIN(R[7]C[2])))")]
-    [TestCase("_xlfn.COT(_xlfn.COTH(R[3]C[5] + 2 * SIN(R[7]C[2])))", "_xlfn.COT(_xlfn.COTH(R[3]C[5] + 2 * SIN(R[7]C[2])))")]
-    public void FormulaR1C1_adds_prefix_to_future_functions(string formula, string expected)
+    [Test]
+    [Arguments("PY(4)", "_xlfn._xlws.PY(4)")]
+    [Arguments("5 + py(abs(4) )", "5 + _xlfn._xlws.PY(abs(4) )")]
+    [Arguments("COT(COTH(R[3]C[5] + 2 * SIN(R[7]C[2])))", "_xlfn.COT(_xlfn.COTH(R[3]C[5] + 2 * SIN(R[7]C[2])))")]
+    [Arguments("_xlfn.COT(_xlfn.COTH(R[3]C[5] + 2 * SIN(R[7]C[2])))", "_xlfn.COT(_xlfn.COTH(R[3]C[5] + 2 * SIN(R[7]C[2])))")]
+    public async Task FormulaR1C1_adds_prefix_to_future_functions(string formula, string expected)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var cell = ws.Cell("A1");
         cell.FormulaR1C1 = formula;
 
-        Assert.AreEqual(expected, cell.FormulaR1C1);
+        await Assert.That(cell.FormulaR1C1).IsEqualTo(expected);
     }
 
     [Test]
-    public void FormulaA1_adds_prefix_to_all_future_functions()
+    public async Task FormulaA1_adds_prefix_to_all_future_functions()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -1093,7 +1091,7 @@ public class XLCellTests
         foreach (var (simpleName, prefixedName) in XLConstants.FutureFunctionMap.Value)
         {
             cell.FormulaA1 = simpleName + "()";
-            Assert.AreEqual(prefixedName + "()", cell.FormulaA1);
+            await Assert.That(cell.FormulaA1).IsEqualTo(prefixedName + "()");
         }
     }
 
@@ -1103,7 +1101,7 @@ public class XLCellTests
     /// cell state of its own — everything must round-trip through the slices.
     /// </summary>
     [Test]
-    public void Repeated_cell_access_sees_writes_made_through_an_earlier_handle()
+    public async Task Repeated_cell_access_sees_writes_made_through_an_earlier_handle()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -1113,12 +1111,12 @@ public class XLCellTests
         first.Style.Font.Bold = true;
 
         var second = ws.Cell(3, 4);
-        Assert.AreEqual("hello", second.GetString());
-        Assert.IsTrue(second.Style.Font.Bold);
+        await Assert.That(second.GetString()).IsEqualTo("hello");
+        await Assert.That(second.Style.Font.Bold).IsTrue();
 
         // ...and a write through the second handle is visible through the first.
         second.Value = 42;
-        Assert.AreEqual(42, first.GetDouble());
+        await Assert.That(first.GetDouble()).IsEqualTo(42);
     }
 
     /// <summary>
@@ -1127,7 +1125,7 @@ public class XLCellTests
     /// by 16 lands repeatedly on one slot.
     /// </summary>
     [Test]
-    public void Cells_that_share_a_wrapper_cache_slot_stay_independent()
+    public async Task Cells_that_share_a_wrapper_cache_slot_stay_independent()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -1138,9 +1136,9 @@ public class XLCellTests
         for (var i = 0; i < 8; i++)
         {
             var cell = ws.Cell(1, 1 + i * 16);
-            Assert.AreEqual(1, cell.Address.RowNumber);
-            Assert.AreEqual(1 + i * 16, cell.Address.ColumnNumber);
-            Assert.AreEqual(i, cell.GetDouble(), $"column {1 + i * 16}");
+            await Assert.That(cell.Address.RowNumber).IsEqualTo(1);
+            await Assert.That(cell.Address.ColumnNumber).IsEqualTo(1 + i * 16);
+            await Assert.That(cell.GetDouble()).IsEqualTo(i).Because($"column {1 + i * 16}");
         }
     }
 
@@ -1148,7 +1146,7 @@ public class XLCellTests
     /// A handle held across an eviction must keep pointing at its own address.
     /// </summary>
     [Test]
-    public void A_held_cell_handle_survives_wrapper_cache_eviction()
+    public async Task A_held_cell_handle_survives_wrapper_cache_eviction()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -1160,11 +1158,11 @@ public class XLCellTests
         for (var c = 1; c <= 200; c++)
             ws.Cell(9, c).Value = c;
 
-        Assert.AreEqual(5, held.Address.RowNumber);
-        Assert.AreEqual(5, held.Address.ColumnNumber);
-        Assert.AreEqual("kept", held.GetString());
+        await Assert.That(held.Address.RowNumber).IsEqualTo(5);
+        await Assert.That(held.Address.ColumnNumber).IsEqualTo(5);
+        await Assert.That(held.GetString()).IsEqualTo("kept");
 
         held.Value = "still mine";
-        Assert.AreEqual("still mine", ws.Cell(5, 5).GetString());
+        await Assert.That(ws.Cell(5, 5).GetString()).IsEqualTo("still mine");
     }
 }

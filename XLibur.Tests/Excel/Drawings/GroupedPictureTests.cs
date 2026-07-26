@@ -2,16 +2,16 @@
 using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
-using NUnit.Framework;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
 using XLibur.Excel.IO;
 using XLibur.Tests.Utils;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.Drawings;
 
-[TestFixture]
 public class GroupedPictureTests
 {
     private const string GroupedPicturesResource = @"Other\Drawings\GroupedPictures.xlsx";
@@ -31,33 +31,33 @@ public class GroupedPictureTests
     }
 
     [Test]
-    public void GroupedPicturesAreLoadedWithGroupScaledGeometry()
+    public async Task GroupedPicturesAreLoadedWithGroupScaledGeometry()
     {
         using var stream = OpenFixture();
         using var wb = new XLWorkbook(stream);
         var ws = wb.Worksheet("Map");
 
-        Assert.That(ws.Pictures.Count, Is.EqualTo(2));
+        await Assert.That(ws.Pictures.Count).IsEqualTo(2);
 
         var picture1 = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 1");
         var picture2 = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 2");
 
-        Assert.That(picture1.IsInGroup, Is.True);
-        Assert.That(picture2.IsInGroup, Is.True);
+        await Assert.That(picture1.IsInGroup).IsTrue();
+        await Assert.That(picture2.IsInGroup).IsTrue();
 
         // Both pictures are scaled by the same group factor, so their relative sizes are preserved:
         // Picture 1 (child 2_000_000) is larger than Picture 2 (child 1_500_000).
-        Assert.That(picture1.Width, Is.GreaterThan(0));
-        Assert.That(picture1.Width, Is.GreaterThan(picture2.Width));
-        Assert.That(picture1.Height, Is.GreaterThan(picture2.Height));
+        await Assert.That(picture1.Width).IsGreaterThan(0);
+        await Assert.That(picture1.Width).IsGreaterThan(picture2.Width);
+        await Assert.That(picture1.Height).IsGreaterThan(picture2.Height);
 
         // Picture 1's sheet-space extent is twice its child extent (2_000_000 → 4_000_000 EMU).
         var expectedPx1 = DrawingPartReader.ConvertFromEnglishMetricUnits(4_000_000, wb.DpiX);
-        Assert.That(picture1.Width, Is.EqualTo(expectedPx1));
+        await Assert.That(picture1.Width).IsEqualTo(expectedPx1);
     }
 
     [Test]
-    public void UneditedRoundTripPreservesGroupPicturesAndShapes()
+    public async Task UneditedRoundTripPreservesGroupPicturesAndShapes()
     {
         using var output = new MemoryStream();
         using (var stream = OpenFixture())
@@ -69,17 +69,17 @@ public class GroupedPictureTests
         output.Position = 0;
         using var package = SpreadsheetDocument.Open(output, false);
         var drawingsPart = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart;
-        Assert.That(drawingsPart, Is.Not.Null);
+        await Assert.That(drawingsPart).IsNotNull();
         var drawing = drawingsPart!.WorksheetDrawing;
 
         var groups = drawing.Descendants<Xdr.GroupShape>().ToList();
-        Assert.That(groups.Count, Is.EqualTo(1), "group preserved");
+        await Assert.That(groups.Count).IsEqualTo(1).Because("group preserved");
 
         // Assert on the group node so the shapes are verified to remain *inside* the group rather
         // than having been moved out to the top level during the round-trip.
         var group = groups[0];
-        Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2), "both pictures preserved inside the group");
-        Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1), "connector preserved inside the group");
+        await Assert.That(group.Descendants<Xdr.Picture>().Count()).IsEqualTo(2).Because("both pictures preserved inside the group");
+        await Assert.That(group.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1).Because("connector preserved inside the group");
 
         // An unedited grouped picture must keep its exact child-space extent (no rounding drift).
         var extents = group.Descendants<Xdr.Picture>()
@@ -87,19 +87,19 @@ public class GroupedPictureTests
             .Select(e => (e.Cx!.Value, e.Cy!.Value))
             .OrderByDescending(t => t.Item1)
             .ToList();
-        Assert.That(extents[0], Is.EqualTo((2_000_000L, 2_000_000L)));
-        Assert.That(extents[1], Is.EqualTo((1_500_000L, 1_500_000L)));
+        await Assert.That(extents[0]).IsEqualTo((2_000_000L, 2_000_000L));
+        await Assert.That(extents[1]).IsEqualTo((1_500_000L, 1_500_000L));
 
         // Both image relationships still resolve to image parts.
         var embeds = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
             .Select(b => b.Embed?.Value).Where(v => v is not null).ToList();
-        Assert.That(embeds.Count, Is.EqualTo(2));
+        await Assert.That(embeds.Count).IsEqualTo(2);
         foreach (var embed in embeds)
-            Assert.That(drawingsPart.GetPartById(embed!), Is.InstanceOf<ImagePart>());
+            await Assert.That(drawingsPart.GetPartById(embed!)).IsAssignableTo<ImagePart>();
     }
 
     [Test]
-    public void ResizingGroupedPictureRoundTrips()
+    public async Task ResizingGroupedPictureRoundTrips()
     {
         using var output = new MemoryStream();
         int newWidth, newHeight;
@@ -122,8 +122,8 @@ public class GroupedPictureTests
 
             // Round-trips through the group transform involve EMU<->pixel conversions, so allow a
             // small rounding tolerance.
-            Assert.That(picture1.Width, Is.EqualTo(newWidth).Within(2));
-            Assert.That(picture1.Height, Is.EqualTo(newHeight).Within(2));
+            await Assert.That(picture1.Width).IsEqualTo(newWidth).Within(2);
+            await Assert.That(picture1.Height).IsEqualTo(newHeight).Within(2);
         }
 
         // The group, the second picture and the connector all survive the edit.
@@ -132,17 +132,17 @@ public class GroupedPictureTests
         {
             var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
             var groups = drawing.Descendants<Xdr.GroupShape>().ToList();
-            Assert.That(groups.Count, Is.EqualTo(1));
+            await Assert.That(groups.Count).IsEqualTo(1);
 
             // The picture stays inside the group after the resize, alongside its sibling and connector.
             var group = groups[0];
-            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
-            Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+            await Assert.That(group.Descendants<Xdr.Picture>().Count()).IsEqualTo(2);
+            await Assert.That(group.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void GroupedPictureLeftTopReflectSheetPosition()
+    public async Task GroupedPictureLeftTopReflectSheetPosition()
     {
         using var stream = OpenFixture();
         using var wb = new XLWorkbook(stream);
@@ -151,12 +151,12 @@ public class GroupedPictureTests
 
         // Group off (1_000_000, 1_000_000), 2× scale, child off (1_000_000, 1_000_000):
         // sheet pos = (off − chOff·scale) + childOff·scale = −1_000_000 + 1_000_000·2 = 1_000_000 EMU.
-        Assert.That(picture1.Left, Is.EqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(1_000_000, wb.DpiX)));
-        Assert.That(picture1.Top, Is.EqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(1_000_000, wb.DpiY)));
+        await Assert.That(picture1.Left).IsEqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(1_000_000, wb.DpiX));
+        await Assert.That(picture1.Top).IsEqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(1_000_000, wb.DpiY));
     }
 
     [Test]
-    public void MovingGroupedPictureRoundTrips()
+    public async Task MovingGroupedPictureRoundTrips()
     {
         using var output = new MemoryStream();
         int newLeft, newTop;
@@ -176,8 +176,8 @@ public class GroupedPictureTests
         using (var wb = new XLWorkbook(output))
         {
             var picture1 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 1");
-            Assert.That(picture1.Left, Is.EqualTo(newLeft).Within(2));
-            Assert.That(picture1.Top, Is.EqualTo(newTop).Within(2));
+            await Assert.That(picture1.Left).IsEqualTo(newLeft).Within(2);
+            await Assert.That(picture1.Top).IsEqualTo(newTop).Within(2);
         }
 
         // The picture stays inside the group, and the sibling + connector are untouched.
@@ -186,13 +186,13 @@ public class GroupedPictureTests
         {
             var group = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing
                 .Descendants<Xdr.GroupShape>().Single();
-            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
-            Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+            await Assert.That(group.Descendants<Xdr.Picture>().Count()).IsEqualTo(2);
+            await Assert.That(group.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void RemovingGroupedPictureKeepsTheRestOfTheGroup()
+    public async Task RemovingGroupedPictureKeepsTheRestOfTheGroup()
     {
         using var output = new MemoryStream();
         using (var stream = OpenFixture())
@@ -200,7 +200,7 @@ public class GroupedPictureTests
         {
             var ws = wb.Worksheet("Map");
             ws.Pictures.Single(p => p.Name == "Picture 2").Delete();
-            Assert.That(ws.Pictures.Count, Is.EqualTo(1), "deleted picture removed from the collection");
+            await Assert.That(ws.Pictures.Count).IsEqualTo(1).Because("deleted picture removed from the collection");
             wb.SaveAs(output);
         }
 
@@ -209,8 +209,8 @@ public class GroupedPictureTests
         using (var wb = new XLWorkbook(output))
         {
             var pictures = wb.Worksheet("Map").Pictures;
-            Assert.That(pictures.Count, Is.EqualTo(1));
-            Assert.That(pictures.Single().Name, Is.EqualTo("Picture 1"));
+            await Assert.That(pictures.Count).IsEqualTo(1);
+            await Assert.That(pictures.Single().Name).IsEqualTo("Picture 1");
         }
 
         // Only the deleted xdr:pic is gone; the group, the surviving picture and the connector stay.
@@ -221,20 +221,20 @@ public class GroupedPictureTests
             var drawing = drawingsPart.WorksheetDrawing;
             var group = drawing.Descendants<Xdr.GroupShape>().Single();
 
-            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(1));
-            Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+            await Assert.That(group.Descendants<Xdr.Picture>().Count()).IsEqualTo(1);
+            await Assert.That(group.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1);
 
             // The surviving picture's image part is kept; the removed picture's is dropped.
             var embeds = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
                 .Select(b => b.Embed?.Value).Where(v => v is not null).ToList();
-            Assert.That(embeds.Count, Is.EqualTo(1));
-            Assert.That(drawingsPart.GetPartById(embeds[0]!), Is.InstanceOf<ImagePart>());
-            Assert.That(drawingsPart.Parts.Count(p => p.OpenXmlPart is ImagePart), Is.EqualTo(1));
+            await Assert.That(embeds.Count).IsEqualTo(1);
+            await Assert.That(drawingsPart.GetPartById(embeds[0]!)).IsAssignableTo<ImagePart>();
+            await Assert.That(drawingsPart.Parts.Count(p => p.OpenXmlPart is ImagePart)).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void AddingPictureToGroupRoundTrips()
+    public async Task AddingPictureToGroupRoundTrips()
     {
         using var output = new MemoryStream();
         int width, height, left, top;
@@ -254,7 +254,7 @@ public class GroupedPictureTests
             added.Top = 250;
             (width, height, left, top) = (added.Width, added.Height, added.Left, added.Top);
 
-            Assert.That(pictures.Count, Is.EqualTo(3));
+            await Assert.That(pictures.Count).IsEqualTo(3);
             wb.SaveAs(output);
         }
 
@@ -262,14 +262,14 @@ public class GroupedPictureTests
         using (var wb = new XLWorkbook(output))
         {
             var pictures = wb.Worksheet("Map").Pictures;
-            Assert.That(pictures.Count, Is.EqualTo(3));
+            await Assert.That(pictures.Count).IsEqualTo(3);
 
             var added = (XLPicture)pictures.Single(p => p.Name == "Added Picture");
-            Assert.That(added.IsInGroup, Is.True);
-            Assert.That(added.Width, Is.EqualTo(width).Within(2));
-            Assert.That(added.Height, Is.EqualTo(height).Within(2));
-            Assert.That(added.Left, Is.EqualTo(left).Within(2));
-            Assert.That(added.Top, Is.EqualTo(top).Within(2));
+            await Assert.That(added.IsInGroup).IsTrue();
+            await Assert.That(added.Width).IsEqualTo(width).Within(2);
+            await Assert.That(added.Height).IsEqualTo(height).Within(2);
+            await Assert.That(added.Left).IsEqualTo(left).Within(2);
+            await Assert.That(added.Top).IsEqualTo(top).Within(2);
         }
 
         // The new picture went inside the group with the two originals and the connector, and got its
@@ -279,9 +279,9 @@ public class GroupedPictureTests
         {
             var drawingsPart = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!;
             var group = drawingsPart.WorksheetDrawing.Descendants<Xdr.GroupShape>().Single();
-            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(3));
-            Assert.That(group.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
-            Assert.That(drawingsPart.Parts.Count(p => p.OpenXmlPart is ImagePart), Is.EqualTo(3));
+            await Assert.That(group.Descendants<Xdr.Picture>().Count()).IsEqualTo(3);
+            await Assert.That(group.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1);
+            await Assert.That(drawingsPart.Parts.Count(p => p.OpenXmlPart is ImagePart)).IsEqualTo(3);
         }
     }
 
@@ -292,7 +292,7 @@ public class GroupedPictureTests
     }
 
     [Test]
-    public void GroupingFreeFloatingPicturesCreatesAGroup()
+    public async Task GroupingFreeFloatingPicturesCreatesAGroup()
     {
         // Build a workbook with two free-floating pictures and save, so they exist in the drawing.
         using var seeded = new MemoryStream();
@@ -322,9 +322,9 @@ public class GroupedPictureTests
         {
             var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
             var group = drawing.Descendants<Xdr.GroupShape>().Single();
-            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
-            Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2), "no picture left outside the group");
-            Assert.That(drawing.Elements<Xdr.AbsoluteAnchor>().Count(), Is.EqualTo(1), "only the group's anchor remains");
+            await Assert.That(group.Descendants<Xdr.Picture>().Count()).IsEqualTo(2);
+            await Assert.That(drawing.Descendants<Xdr.Picture>().Count()).IsEqualTo(2).Because("no picture left outside the group");
+            await Assert.That(drawing.Elements<Xdr.AbsoluteAnchor>().Count()).IsEqualTo(1).Because("only the group's anchor remains");
         }
 
         // XLibur reloads them as grouped pictures with their positions preserved.
@@ -332,16 +332,16 @@ public class GroupedPictureTests
         using (var wb = new XLWorkbook(output))
         {
             var ws = wb.Worksheet("Map");
-            Assert.That(ws.Pictures.Count, Is.EqualTo(2));
+            await Assert.That(ws.Pictures.Count).IsEqualTo(2);
             var a = (XLPicture)ws.Pictures.Single(p => p.Name == "Pic A");
-            Assert.That(a.IsInGroup, Is.True);
-            Assert.That(a.Left, Is.EqualTo(100).Within(2));
-            Assert.That(a.Top, Is.EqualTo(100).Within(2));
+            await Assert.That(a.IsInGroup).IsTrue();
+            await Assert.That(a.Left).IsEqualTo(100).Within(2);
+            await Assert.That(a.Top).IsEqualTo(100).Within(2);
         }
     }
 
     [Test]
-    public void PublicGroupApiExposesMembershipAndMutation()
+    public async Task PublicGroupApiExposesMembershipAndMutation()
     {
         using var output = new MemoryStream();
         using (var stream = OpenFixture())
@@ -350,14 +350,14 @@ public class GroupedPictureTests
             var ws = wb.Worksheet("Map");
 
             // IXLWorksheet.PictureGroups and IXLPicture.Group expose the group.
-            Assert.That(ws.PictureGroups.Count(), Is.EqualTo(1));
+            await Assert.That(ws.PictureGroups.Count()).IsEqualTo(1);
             var picture1 = ws.Pictures.Single(p => p.Name == "Picture 1");
-            Assert.That(picture1.IsInGroup, Is.True);
+            await Assert.That(picture1.IsInGroup).IsTrue();
 
             var group = picture1.Group;
-            Assert.That(group, Is.Not.Null);
-            Assert.That(group!.Worksheet, Is.SameAs(ws));
-            Assert.That(group.Pictures.Count(), Is.EqualTo(2));
+            await Assert.That(group).IsNotNull();
+            await Assert.That(group!.Worksheet).IsSameReferenceAs(ws);
+            await Assert.That(group.Pictures.Count()).IsEqualTo(2);
 
             // IXLPictureGroup.Add and Remove mutate membership.
             using var image = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Images\SampleImagePng.png"));
@@ -366,10 +366,10 @@ public class GroupedPictureTests
             added.Height = 150;
             added.Left = 50;
             added.Top = 60;
-            Assert.That(group.Pictures.Count(), Is.EqualTo(3));
+            await Assert.That(group.Pictures.Count()).IsEqualTo(3);
 
             group.Remove(ws.Pictures.Single(p => p.Name == "Picture 2"));
-            Assert.That(group.Pictures.Count(), Is.EqualTo(2));
+            await Assert.That(group.Pictures.Count()).IsEqualTo(2);
 
             wb.SaveAs(output);
         }
@@ -378,15 +378,15 @@ public class GroupedPictureTests
         using (var wb = new XLWorkbook(output))
         {
             var ws = wb.Worksheet("Map");
-            Assert.That(ws.PictureGroups.Count(), Is.EqualTo(1));
+            await Assert.That(ws.PictureGroups.Count()).IsEqualTo(1);
             var group = ws.PictureGroups.Single();
             var names = group.Pictures.Select(p => p.Name).ToList();
-            Assert.That(names, Is.EquivalentTo(new[] { "Picture 1", "Group Added" }));
+            await Assert.That(names).IsEquivalentTo(new[] { "Picture 1", "Group Added" });
         }
     }
 
     [Test]
-    public void AddingToANewlyCreatedGroupBeforeSaveIsNotDropped()
+    public async Task AddingToANewlyCreatedGroupBeforeSaveIsNotDropped()
     {
         using var seeded = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -423,13 +423,12 @@ public class GroupedPictureTests
         {
             var group = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing
                 .Descendants<Xdr.GroupShape>().Single();
-            Assert.That(group.Descendants<Xdr.Picture>().Count(), Is.EqualTo(3),
-                "the picture added to the group before its first save must not be dropped");
+            await Assert.That(group.Descendants<Xdr.Picture>().Count()).IsEqualTo(3).Because("the picture added to the group before its first save must not be dropped");
         }
     }
 
     [Test]
-    public void GroupRejectsInvalidArguments()
+    public async Task GroupRejectsInvalidArguments()
     {
         using var seeded = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -444,9 +443,9 @@ public class GroupedPictureTests
         var pictures = reopened.Worksheet("Map").Pictures;
         var a = pictures.Single(p => p.Name == "Pic A");
 
-        Assert.Throws<ArgumentNullException>(() => pictures.Group(null!));
-        Assert.Throws<ArgumentException>(() => pictures.Group(a, null!));
-        Assert.Throws<ArgumentException>(() => pictures.Group(a, a), "duplicates collapse to a single distinct picture");
+        await Assert.That(() => pictures.Group(null!)).Throws<ArgumentNullException>();
+        await Assert.That(() => pictures.Group(a, null!)).Throws<ArgumentException>();
+        await Assert.That(() => pictures.Group(a, a)).Throws<ArgumentException>();
     }
 
     // The nested fixture's "Map" sheet has an outer group (2× scale) containing Picture 1
@@ -465,26 +464,26 @@ public class GroupedPictureTests
     }
 
     [Test]
-    public void NestedGroupPicturesLoadWithComposedScale()
+    public async Task NestedGroupPicturesLoadWithComposedScale()
     {
         using var stream = OpenNestedFixture();
         using var wb = new XLWorkbook(stream);
         var ws = wb.Worksheet("Map");
 
-        Assert.That(ws.Pictures.Count, Is.EqualTo(2), "pictures at both nesting levels are loaded");
+        await Assert.That(ws.Pictures.Count).IsEqualTo(2).Because("pictures at both nesting levels are loaded");
 
         var picture1 = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 1");
         var picture2 = (XLPicture)ws.Pictures.Single(p => p.Name == "Picture 2");
-        Assert.That(picture1.IsInGroup, Is.True);
-        Assert.That(picture2.IsInGroup, Is.True);
+        await Assert.That(picture1.IsInGroup).IsTrue();
+        await Assert.That(picture2.IsInGroup).IsTrue();
 
         // Composed scale: Picture 1 → 4_000_000 EMU, Picture 2 → 2_000_000 EMU (exactly 2:1).
-        Assert.That(picture1.Width, Is.EqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(4_000_000, wb.DpiX)));
-        Assert.That(picture2.Width, Is.EqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(2_000_000, wb.DpiX)));
+        await Assert.That(picture1.Width).IsEqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(4_000_000, wb.DpiX));
+        await Assert.That(picture2.Width).IsEqualTo(DrawingPartReader.ConvertFromEnglishMetricUnits(2_000_000, wb.DpiX));
     }
 
     [Test]
-    public void UneditedNestedRoundTripPreservesStructure()
+    public async Task UneditedNestedRoundTripPreservesStructure()
     {
         using var output = new MemoryStream();
         using (var stream = OpenNestedFixture())
@@ -497,20 +496,20 @@ public class GroupedPictureTests
         using var package = SpreadsheetDocument.Open(output, false);
         var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
 
-        Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(2), "outer + inner group preserved");
-        Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2), "both pictures preserved");
-        Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1), "nested connector preserved");
+        await Assert.That(drawing.Descendants<Xdr.GroupShape>().Count()).IsEqualTo(2).Because("outer + inner group preserved");
+        await Assert.That(drawing.Descendants<Xdr.Picture>().Count()).IsEqualTo(2).Because("both pictures preserved");
+        await Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1).Because("nested connector preserved");
 
         // Unedited pictures keep their exact child-space extents at their respective depths.
         var extents = drawing.Descendants<Xdr.Picture>()
             .Select(p => p.ShapeProperties!.Transform2D!.Extents!.Cx!.Value)
             .OrderByDescending(cx => cx)
             .ToList();
-        Assert.That(extents, Is.EqualTo(new[] { 2_000_000L, 500_000L }));
+        await Assert.That(extents).IsEquivalentTo(new[] { 2_000_000L, 500_000L }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void ResizingDeeplyNestedPictureRoundTrips()
+    public async Task ResizingDeeplyNestedPictureRoundTrips()
     {
         using var output = new MemoryStream();
         int newWidth, newHeight;
@@ -530,8 +529,8 @@ public class GroupedPictureTests
         using (var wb = new XLWorkbook(output))
         {
             var picture2 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 2");
-            Assert.That(picture2.Width, Is.EqualTo(newWidth).Within(2));
-            Assert.That(picture2.Height, Is.EqualTo(newHeight).Within(2));
+            await Assert.That(picture2.Width).IsEqualTo(newWidth).Within(2);
+            await Assert.That(picture2.Height).IsEqualTo(newHeight).Within(2);
         }
 
         // Both groups, both pictures and the connector survive the deep edit.
@@ -539,14 +538,14 @@ public class GroupedPictureTests
         using (var package = SpreadsheetDocument.Open(output, false))
         {
             var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
-            Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(2));
-            Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
-            Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+            await Assert.That(drawing.Descendants<Xdr.GroupShape>().Count()).IsEqualTo(2);
+            await Assert.That(drawing.Descendants<Xdr.Picture>().Count()).IsEqualTo(2);
+            await Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void MovingDeeplyNestedPictureRoundTrips()
+    public async Task MovingDeeplyNestedPictureRoundTrips()
     {
         using var output = new MemoryStream();
         int newLeft, newTop;
@@ -566,17 +565,17 @@ public class GroupedPictureTests
         using (var wb = new XLWorkbook(output))
         {
             var picture2 = (XLPicture)wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 2");
-            Assert.That(picture2.Left, Is.EqualTo(newLeft).Within(2));
-            Assert.That(picture2.Top, Is.EqualTo(newTop).Within(2));
+            await Assert.That(picture2.Left).IsEqualTo(newLeft).Within(2);
+            await Assert.That(picture2.Top).IsEqualTo(newTop).Within(2);
         }
 
         output.Position = 0;
         using (var package = SpreadsheetDocument.Open(output, false))
         {
             var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
-            Assert.That(drawing.Descendants<Xdr.GroupShape>().Count(), Is.EqualTo(2));
-            Assert.That(drawing.Descendants<Xdr.Picture>().Count(), Is.EqualTo(2));
-            Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count(), Is.EqualTo(1));
+            await Assert.That(drawing.Descendants<Xdr.GroupShape>().Count()).IsEqualTo(2);
+            await Assert.That(drawing.Descendants<Xdr.Picture>().Count()).IsEqualTo(2);
+            await Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1);
         }
     }
 }

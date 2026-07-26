@@ -3,19 +3,19 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Globalization;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Attributes;
 using XLibur.Excel;
 using XLibur.Excel.Exceptions;
-using NUnit.Framework;
 using XLibur.Excel.Tables;
 using XLibur.Extensions;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Tables;
 
-[TestFixture]
 public class TablesTests
 {
     public class TestObjectWithoutAttributes
@@ -40,7 +40,7 @@ public class TablesTests
     }
 
     [Test]
-    public void CanSaveTableCreatedFromEmptyDataTable()
+    public async Task CanSaveTableCreatedFromEmptyDataTable()
     {
         var dt = new DataTable("sheet1");
         dt.Columns.Add("col1", typeof(string));
@@ -52,12 +52,12 @@ public class TablesTests
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
 
-        Assert.That(ms.Length, Is.GreaterThan(0));
-        Assert.That(wb.Worksheets.First().Tables.Count(), Is.EqualTo(1));
+        await Assert.That(ms.Length).IsGreaterThan(0);
+        await Assert.That(wb.Worksheets.First().Tables.Count()).IsEqualTo(1);
     }
 
     [Test]
-    public void PreventAddingOfEmptyDataTable()
+    public async Task PreventAddingOfEmptyDataTable()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -65,11 +65,11 @@ public class TablesTests
         var dt = new DataTable();
         var table = ws.FirstCell().InsertTable(dt);
 
-        Assert.That(table, Is.Null);
+        await Assert.That(table).IsNull();
     }
 
     [Test]
-    public void CanSaveTableCreatedFromSingleRow()
+    public async Task CanSaveTableCreatedFromSingleRow()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -79,12 +79,12 @@ public class TablesTests
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
 
-        Assert.That(ms.Length, Is.GreaterThan(0));
-        Assert.That(table.Field(0).Name, Is.EqualTo("Title"));
+        await Assert.That(ms.Length).IsGreaterThan(0);
+        await Assert.That(table.Field(0).Name).IsEqualTo("Title");
     }
 
     [Test]
-    public void CreatingATableFromHeadersPushCellsBelow()
+    public async Task CreatingATableFromHeadersPushCellsBelow()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -92,12 +92,12 @@ public class TablesTests
             .CellBelow().SetValue("X");
         ws.Range("A1").CreateTable();
 
-        Assert.AreEqual(Blank.Value, ws.Cell("A2").Value);
-        Assert.AreEqual("X", ws.Cell("A3").GetText());
+        await Assert.That(ws.Cell("A2").Value).IsEqualTo(Blank.Value);
+        await Assert.That(ws.Cell("A3").GetText()).IsEqualTo("X");
     }
 
     [Test]
-    public void Inserting_Column_Sets_Header()
+    public async Task Inserting_Column_Sets_Header()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -108,11 +108,11 @@ public class TablesTests
 
         var table = ws.RangeUsed()!.CreateTable();
         table.InsertColumnsAfter(1);
-        Assert.AreEqual("Column2", table.HeadersRow()!.LastCell().GetText());
+        await Assert.That(table.HeadersRow()!.LastCell().GetText()).IsEqualTo("Column2");
     }
 
     [Test]
-    public void DataRange_returns_null_if_empty()
+    public async Task DataRange_returns_null_if_empty()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -125,11 +125,11 @@ public class TablesTests
 
         ws.Rows("2:4").Delete();
 
-        Assert.IsNull(table.DataRange);
+        await Assert.That(table.DataRange).IsNull();
     }
 
     [Test]
-    public void SavingLoadingTableWithNewLineInHeader()
+    public async Task SavingLoadingTableWithNewLineInHeader()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -143,11 +143,11 @@ public class TablesTests
         var ws2 = wb2.Worksheet(1);
         var table2 = ws2.Table(0);
         var fieldName = table2.Field(0).Name;
-        Assert.AreEqual("Line1\nLine2", fieldName);
+        await Assert.That(fieldName).IsEqualTo("Line1\nLine2");
     }
 
     [Test]
-    public void SavingLoadingTableWithNewLineInHeader2()
+    public async Task SavingLoadingTableWithNewLineInHeader2()
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Test");
@@ -163,7 +163,7 @@ public class TablesTests
 
         var table1 = ws.Table(0);
         var fieldName1 = table1.Field(0).Name;
-        Assert.AreEqual(columnName, fieldName1);
+        await Assert.That(fieldName1).IsEqualTo(columnName);
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
@@ -171,11 +171,11 @@ public class TablesTests
         var ws2 = wb2.Worksheet(1);
         var table2 = ws2.Table(0);
         var fieldName2 = table2.Field(0).Name;
-        Assert.AreEqual("Line1\nLine2", fieldName2);
+        await Assert.That(fieldName2).IsEqualTo("Line1\nLine2");
     }
 
     [Test]
-    public void TableCreatedFromEmptyDataTable()
+    public async Task TableCreatedFromEmptyDataTable()
     {
         var dt = new DataTable("sheet1");
         dt.Columns.Add("col1", typeof(string));
@@ -184,29 +184,29 @@ public class TablesTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().InsertTable(dt);
-        Assert.AreEqual(2, ws.Tables.First().ColumnCount());
+        await Assert.That(ws.Tables.First().ColumnCount()).IsEqualTo(2);
     }
 
     [Test]
-    public void TableCreatedFromEmptyListOfInt()
+    public async Task TableCreatedFromEmptyListOfInt()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().InsertTable(new List<int>());
-        Assert.AreEqual(1, ws.Tables.First().ColumnCount());
+        await Assert.That(ws.Tables.First().ColumnCount()).IsEqualTo(1);
     }
 
     [Test]
-    public void TableCreatedFromEmptyListOfObject()
+    public async Task TableCreatedFromEmptyListOfObject()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().InsertTable(new List<TestObjectWithoutAttributes>());
-        Assert.AreEqual(2, ws.Tables.First().ColumnCount());
+        await Assert.That(ws.Tables.First().ColumnCount()).IsEqualTo(2);
     }
 
     [Test]
-    public void TableCreatedFromListOfObjectWithPropertyAttributes()
+    public async Task TableCreatedFromListOfObjectWithPropertyAttributes()
     {
         var l = new List<TestObjectWithAttributes>
         {
@@ -217,28 +217,28 @@ public class TablesTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().InsertTable(l);
-        Assert.AreEqual(4, ws.Tables.First().ColumnCount());
-        Assert.AreEqual("FirstColumn", ws.FirstCell().Value);
-        Assert.AreEqual("SecondColumn", ws.FirstCell().CellRight().Value);
-        Assert.AreEqual("SomeFieldNotProperty", ws.FirstCell().CellRight().CellRight().Value);
-        Assert.AreEqual("UnOrderedColumn", ws.FirstCell().CellRight().CellRight().CellRight().Value);
+        await Assert.That(ws.Tables.First().ColumnCount()).IsEqualTo(4);
+        await Assert.That(ws.FirstCell().Value).IsEqualTo("FirstColumn");
+        await Assert.That(ws.FirstCell().CellRight().Value).IsEqualTo("SecondColumn");
+        await Assert.That(ws.FirstCell().CellRight().CellRight().Value).IsEqualTo("SomeFieldNotProperty");
+        await Assert.That(ws.FirstCell().CellRight().CellRight().CellRight().Value).IsEqualTo("UnOrderedColumn");
     }
 
     [Test]
-    public void EmptyTableCreatedFromListOfObjectWithPropertyAttributes()
+    public async Task EmptyTableCreatedFromListOfObjectWithPropertyAttributes()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().InsertTable(new List<TestObjectWithAttributes>());
-        Assert.AreEqual(4, ws.Tables.First().ColumnCount());
-        Assert.AreEqual("FirstColumn", ws.FirstCell().Value);
-        Assert.AreEqual("SecondColumn", ws.FirstCell().CellRight().Value);
-        Assert.AreEqual("SomeFieldNotProperty", ws.FirstCell().CellRight().CellRight().Value);
-        Assert.AreEqual("UnOrderedColumn", ws.FirstCell().CellRight().CellRight().CellRight().Value);
+        await Assert.That(ws.Tables.First().ColumnCount()).IsEqualTo(4);
+        await Assert.That(ws.FirstCell().Value).IsEqualTo("FirstColumn");
+        await Assert.That(ws.FirstCell().CellRight().Value).IsEqualTo("SecondColumn");
+        await Assert.That(ws.FirstCell().CellRight().CellRight().Value).IsEqualTo("SomeFieldNotProperty");
+        await Assert.That(ws.FirstCell().CellRight().CellRight().CellRight().Value).IsEqualTo("UnOrderedColumn");
     }
 
     [Test]
-    public void TableInsertAboveFromData()
+    public async Task TableInsertAboveFromData()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -255,13 +255,13 @@ public class TablesTests
         row = table.DataRange.InsertRowsAbove(1).First();
         row.Field("Value").Value = 1;
 
-        Assert.AreEqual(1, ws.Cell(2, 1).GetDouble());
-        Assert.AreEqual(2, ws.Cell(3, 1).GetDouble());
-        Assert.AreEqual(3, ws.Cell(4, 1).GetDouble());
+        await Assert.That(ws.Cell(2, 1).GetDouble()).IsEqualTo(1);
+        await Assert.That(ws.Cell(3, 1).GetDouble()).IsEqualTo(2);
+        await Assert.That(ws.Cell(4, 1).GetDouble()).IsEqualTo(3);
     }
 
     [Test]
-    public void TableInsertAboveFromRows()
+    public async Task TableInsertAboveFromRows()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -278,13 +278,13 @@ public class TablesTests
         row = row.InsertRowsAbove(1).First();
         row.Field("Value").Value = 1;
 
-        Assert.AreEqual(1, ws.Cell(2, 1).GetDouble());
-        Assert.AreEqual(2, ws.Cell(3, 1).GetDouble());
-        Assert.AreEqual(3, ws.Cell(4, 1).GetDouble());
+        await Assert.That(ws.Cell(2, 1).GetDouble()).IsEqualTo(1);
+        await Assert.That(ws.Cell(3, 1).GetDouble()).IsEqualTo(2);
+        await Assert.That(ws.Cell(4, 1).GetDouble()).IsEqualTo(3);
     }
 
     [Test]
-    public void TableInsertBelowFromData()
+    public async Task TableInsertBelowFromData()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -301,13 +301,13 @@ public class TablesTests
         row = table.DataRange.InsertRowsBelow(1).First();
         row.Field("Value").Value = 3;
 
-        Assert.AreEqual(1, ws.Cell(2, 1).GetDouble());
-        Assert.AreEqual(2, ws.Cell(3, 1).GetDouble());
-        Assert.AreEqual(3, ws.Cell(4, 1).GetDouble());
+        await Assert.That(ws.Cell(2, 1).GetDouble()).IsEqualTo(1);
+        await Assert.That(ws.Cell(3, 1).GetDouble()).IsEqualTo(2);
+        await Assert.That(ws.Cell(4, 1).GetDouble()).IsEqualTo(3);
     }
 
     [Test]
-    public void TableInsertBelowFromRows()
+    public async Task TableInsertBelowFromRows()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -324,13 +324,13 @@ public class TablesTests
         row = row.InsertRowsBelow(1).First();
         row.Field("Value").Value = 3;
 
-        Assert.AreEqual(1, ws.Cell(2, 1).GetDouble());
-        Assert.AreEqual(2, ws.Cell(3, 1).GetDouble());
-        Assert.AreEqual(3, ws.Cell(4, 1).GetDouble());
+        await Assert.That(ws.Cell(2, 1).GetDouble()).IsEqualTo(1);
+        await Assert.That(ws.Cell(3, 1).GetDouble()).IsEqualTo(2);
+        await Assert.That(ws.Cell(4, 1).GetDouble()).IsEqualTo(3);
     }
 
     [Test]
-    public void TableShowHeader()
+    public async Task TableShowHeader()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -341,23 +341,23 @@ public class TablesTests
 
         var table = ws.RangeUsed()!.CreateTable();
 
-        Assert.AreEqual("Categories", table.Fields.First().Name);
+        await Assert.That(table.Fields.First().Name).IsEqualTo("Categories");
 
         table.SetShowHeaderRow(false);
 
-        Assert.AreEqual("Categories", table.Fields.First().Name);
+        await Assert.That(table.Fields.First().Name).IsEqualTo("Categories");
 
-        Assert.IsTrue(ws.Cell(1, 1).IsEmpty(XLCellsUsedOptions.All));
-        Assert.AreEqual(null, table.HeadersRow());
-        Assert.AreEqual("A", table.DataRange!.FirstRow()!.Field("Categories").GetText());
-        Assert.AreEqual("C", table.DataRange.LastRow()!.Field("Categories").GetText());
-        Assert.AreEqual("A", table.DataRange.FirstCell().GetText());
-        Assert.AreEqual("C", table.DataRange.LastCell().GetText());
+        await Assert.That(ws.Cell(1, 1).IsEmpty(XLCellsUsedOptions.All)).IsTrue();
+        await Assert.That(table.HeadersRow()).IsEqualTo(null);
+        await Assert.That(table.DataRange!.FirstRow()!.Field("Categories").GetText()).IsEqualTo("A");
+        await Assert.That(table.DataRange.LastRow()!.Field("Categories").GetText()).IsEqualTo("C");
+        await Assert.That(table.DataRange.FirstCell().GetText()).IsEqualTo("A");
+        await Assert.That(table.DataRange.LastCell().GetText()).IsEqualTo("C");
 
         table.SetShowHeaderRow();
         var headerRow = table.HeadersRow();
-        Assert.AreNotEqual(null, headerRow);
-        Assert.AreEqual("Categories", headerRow!.Cell(1).GetText());
+        await Assert.That(headerRow).IsNotEqualTo(null);
+        await Assert.That(headerRow!.Cell(1).GetText()).IsEqualTo("Categories");
 
         table.SetShowHeaderRow(false);
 
@@ -365,30 +365,31 @@ public class TablesTests
 
         table.SetShowHeaderRow();
 
-        Assert.AreEqual("x", ws.FirstCell().GetText());
-        Assert.AreEqual("Categories", ws.Cell("A2").GetText());
-        Assert.AreNotEqual(null, headerRow);
-        Assert.AreEqual("A", table.DataRange.FirstRow()!.Field("Categories").GetText());
-        Assert.AreEqual("C", table.DataRange.LastRow()!.Field("Categories").GetText());
-        Assert.AreEqual("A", table.DataRange.FirstCell().GetText());
-        Assert.AreEqual("C", table.DataRange.LastCell().GetText());
+        await Assert.That(ws.FirstCell().GetText()).IsEqualTo("x");
+        await Assert.That(ws.Cell("A2").GetText()).IsEqualTo("Categories");
+        await Assert.That(headerRow).IsNotEqualTo(null);
+        await Assert.That(table.DataRange.FirstRow()!.Field("Categories").GetText()).IsEqualTo("A");
+        await Assert.That(table.DataRange.LastRow()!.Field("Categories").GetText()).IsEqualTo("C");
+        await Assert.That(table.DataRange.FirstCell().GetText()).IsEqualTo("A");
+        await Assert.That(table.DataRange.LastCell().GetText()).IsEqualTo("C");
     }
 
-    [TestCase("Amount")]
-    [TestCase("AMOUNT")]
-    [TestCase("amount")]
-    public void FieldNames_of_XLTable_are_case_insensitive(string fieldName)
+    [Test]
+    [Arguments("Amount")]
+    [Arguments("AMOUNT")]
+    [Arguments("amount")]
+    public async Task FieldNames_of_XLTable_are_case_insensitive(string fieldName)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var table = ws.Cell("A1").InsertTable([new { Amount = 1 }]);
 
         var expectedField = table.Field(0);
-        Assert.AreSame(expectedField, table.Field(fieldName));
+        await Assert.That(table.Field(fieldName)).IsSameReferenceAs(expectedField);
     }
 
     [Test]
-    public void ChangeFieldName()
+    public async Task ChangeFieldName()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet");
@@ -405,28 +406,28 @@ public class TablesTests
 
         var cellValue = ws.Cell("B1").GetText();
 
-        Assert.AreEqual("LName", nameBefore);
-        Assert.AreEqual("LastName", nameAfter);
-        Assert.AreEqual("LastName", cellValue);
+        await Assert.That(nameBefore).IsEqualTo("LName");
+        await Assert.That(nameAfter).IsEqualTo("LastName");
+        await Assert.That(cellValue).IsEqualTo("LastName");
 
         tbl.ShowHeaderRow = false;
         tbl.Field(tbl.Fields.Last().Index).Name = "LastNameChanged";
         nameAfter = tbl.Field(tbl.Fields.Last().Index).Name;
-        Assert.AreEqual("LastNameChanged", nameAfter);
+        await Assert.That(nameAfter).IsEqualTo("LastNameChanged");
 
         tbl.SetShowHeaderRow(true);
         nameAfter = (string)tbl.Cell("B1").Value;
-        Assert.AreEqual("LastNameChanged", nameAfter);
+        await Assert.That(nameAfter).IsEqualTo("LastNameChanged");
 
         var field = tbl.Field("LastNameChanged");
-        Assert.AreEqual("LastNameChanged", field.Name);
+        await Assert.That(field.Name).IsEqualTo("LastNameChanged");
 
         tbl.Cell(1, 1).Value = "FirstName";
-        Assert.AreEqual("FirstName", tbl.Field(0).Name);
+        await Assert.That(tbl.Field(0).Name).IsEqualTo("FirstName");
     }
 
     [Test]
-    public void CanDeleteTableColumn()
+    public async Task CanDeleteTableColumn()
     {
         var l = new List<TestObjectWithAttributes>
         {
@@ -440,17 +441,17 @@ public class TablesTests
 
         table.Column("C").Delete();
 
-        Assert.AreEqual(3, table.Fields.Count());
+        await Assert.That(table.Fields.Count()).IsEqualTo(3);
 
-        Assert.AreEqual("FirstColumn", table.Fields.First().Name);
-        Assert.AreEqual(0, table.Fields.First().Index);
+        await Assert.That(table.Fields.First().Name).IsEqualTo("FirstColumn");
+        await Assert.That(table.Fields.First().Index).IsEqualTo(0);
 
-        Assert.AreEqual("UnOrderedColumn", table.Fields.Last().Name);
-        Assert.AreEqual(2, table.Fields.Last().Index);
+        await Assert.That(table.Fields.Last().Name).IsEqualTo("UnOrderedColumn");
+        await Assert.That(table.Fields.Last().Index).IsEqualTo(2);
     }
 
     [Test]
-    public void TestFieldCellTypes()
+    public async Task TestFieldCellTypes()
     {
         var l = new List<TestObjectWithAttributes>
         {
@@ -462,34 +463,34 @@ public class TablesTests
         var ws = wb.AddWorksheet("Sheet1");
         var table = ws.Cell("B2").InsertTable(l);
 
-        Assert.AreEqual(4, table.Fields.Count());
+        await Assert.That(table.Fields.Count()).IsEqualTo(4);
 
-        Assert.AreEqual("B2", table.Field(0).HeaderCell!.Address.ToString());
-        Assert.AreEqual("C2", table.Field(1).HeaderCell!.Address.ToString());
-        Assert.AreEqual("D2", table.Field(2).HeaderCell!.Address.ToString());
-        Assert.AreEqual("E2", table.Field(3).HeaderCell!.Address.ToString());
+        await Assert.That(table.Field(0).HeaderCell!.Address.ToString()).IsEqualTo("B2");
+        await Assert.That(table.Field(1).HeaderCell!.Address.ToString()).IsEqualTo("C2");
+        await Assert.That(table.Field(2).HeaderCell!.Address.ToString()).IsEqualTo("D2");
+        await Assert.That(table.Field(3).HeaderCell!.Address.ToString()).IsEqualTo("E2");
 
-        Assert.IsNull(table.Field(0).TotalsCell);
-        Assert.IsNull(table.Field(1).TotalsCell);
-        Assert.IsNull(table.Field(2).TotalsCell);
-        Assert.IsNull(table.Field(3).TotalsCell);
+        await Assert.That(table.Field(0).TotalsCell).IsNull();
+        await Assert.That(table.Field(1).TotalsCell).IsNull();
+        await Assert.That(table.Field(2).TotalsCell).IsNull();
+        await Assert.That(table.Field(3).TotalsCell).IsNull();
 
         table.SetShowTotalsRow();
 
-        Assert.AreEqual("B5", table.Field(0).TotalsCell!.Address.ToString());
-        Assert.AreEqual("C5", table.Field(1).TotalsCell!.Address.ToString());
-        Assert.AreEqual("D5", table.Field(2).TotalsCell!.Address.ToString());
-        Assert.AreEqual("E5", table.Field(3).TotalsCell!.Address.ToString());
+        await Assert.That(table.Field(0).TotalsCell!.Address.ToString()).IsEqualTo("B5");
+        await Assert.That(table.Field(1).TotalsCell!.Address.ToString()).IsEqualTo("C5");
+        await Assert.That(table.Field(2).TotalsCell!.Address.ToString()).IsEqualTo("D5");
+        await Assert.That(table.Field(3).TotalsCell!.Address.ToString()).IsEqualTo("E5");
 
         var field = table.Fields.Last();
 
-        Assert.AreEqual("E2:E5", field.Column.RangeAddress.ToString());
-        Assert.AreEqual("E3", field.DataCells.First().Address.ToString());
-        Assert.AreEqual("E4", field.DataCells.Last().Address.ToString());
+        await Assert.That(field.Column.RangeAddress.ToString()).IsEqualTo("E2:E5");
+        await Assert.That(field.DataCells.First().Address.ToString()).IsEqualTo("E3");
+        await Assert.That(field.DataCells.Last().Address.ToString()).IsEqualTo("E4");
     }
 
     [Test]
-    public void CanDeleteTable()
+    public async Task CanDeleteTable()
     {
         var l = new List<TestObjectWithAttributes>
         {
@@ -513,13 +514,13 @@ public class TablesTests
             var table = ws.Tables.First();
 
             ws.Tables.Remove(table.Name);
-            Assert.AreEqual(0, ws.Tables.Count());
+            await Assert.That(ws.Tables.Count()).IsEqualTo(0);
             wb.Save();
         }
     }
 
     [Test]
-    public void TableNameCannotBeValidCellName()
+    public async Task TableNameCannotBeValidCellName()
     {
         var dt = new DataTable("sheet1");
         dt.Columns.Add("Patient", typeof(string));
@@ -527,16 +528,16 @@ public class TablesTests
 
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
-        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "May2019"));
-        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "A1"));
-        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "R1C2"));
-        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "r3c2"));
-        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "R2C33333"));
-        Assert.Throws<ArgumentException>(() => ws.Cell(1, 1).InsertTable(dt, "RC"));
+        await Assert.That(() => ws.Cell(1, 1).InsertTable(dt, "May2019")).Throws<ArgumentException>();
+        await Assert.That(() => ws.Cell(1, 1).InsertTable(dt, "A1")).Throws<ArgumentException>();
+        await Assert.That(() => ws.Cell(1, 1).InsertTable(dt, "R1C2")).Throws<ArgumentException>();
+        await Assert.That(() => ws.Cell(1, 1).InsertTable(dt, "r3c2")).Throws<ArgumentException>();
+        await Assert.That(() => ws.Cell(1, 1).InsertTable(dt, "R2C33333")).Throws<ArgumentException>();
+        await Assert.That(() => ws.Cell(1, 1).InsertTable(dt, "RC")).Throws<ArgumentException>();
     }
 
     [Test]
-    public void TableNameSetWhenAddingWorksheetWithDataTable()
+    public async Task TableNameSetWhenAddingWorksheetWithDataTable()
     {
         var dt = new DataTable("sheet1");
         dt.Columns.Add("Patient", typeof(string));
@@ -545,21 +546,21 @@ public class TablesTests
         using (var wb = new XLWorkbook())
         {
             // Generated table name is used and should not be an issue
-            Assert.DoesNotThrow(() => wb.AddWorksheet(dt, "t1"));
+            await Assert.That(() => wb.AddWorksheet(dt, "t1")).ThrowsNothing();
         }
 
         using (var wb = new XLWorkbook())
         {
             // Should pass because t1 is a valid sheet name, and is not used for the tableName
-            Assert.DoesNotThrow(() => wb.AddWorksheet(dt, "t1", "table1"));
+            await Assert.That(() => wb.AddWorksheet(dt, "t1", "table1")).ThrowsNothing();
 
-            Assert.AreEqual(1, wb.Worksheets.Count);
-            Assert.AreEqual(1, wb.Worksheet(1).Tables.Count());
+            await Assert.That(wb.Worksheets.Count).IsEqualTo(1);
+            await Assert.That(wb.Worksheet(1).Tables.Count()).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void CanDeleteTableField()
+    public async Task CanDeleteTableField()
     {
         var l = new List<TestObjectWithAttributes>
         {
@@ -571,23 +572,23 @@ public class TablesTests
         var ws = wb.AddWorksheet("Sheet1");
         var table = ws.Cell("B2").InsertTable(l);
 
-        Assert.AreEqual("B2:E4", table.RangeAddress.ToString());
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("B2:E4");
 
         table.Field("SomeFieldNotProperty").Delete();
 
-        Assert.AreEqual(3, table.Fields.Count());
+        await Assert.That(table.Fields.Count()).IsEqualTo(3);
 
-        Assert.AreEqual("FirstColumn", table.Fields.First().Name);
-        Assert.AreEqual(0, table.Fields.First().Index);
+        await Assert.That(table.Fields.First().Name).IsEqualTo("FirstColumn");
+        await Assert.That(table.Fields.First().Index).IsEqualTo(0);
 
-        Assert.AreEqual("UnOrderedColumn", table.Fields.Last().Name);
-        Assert.AreEqual(2, table.Fields.Last().Index);
+        await Assert.That(table.Fields.Last().Name).IsEqualTo("UnOrderedColumn");
+        await Assert.That(table.Fields.Last().Index).IsEqualTo(2);
 
-        Assert.AreEqual("B2:D4", table.RangeAddress.ToString());
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("B2:D4");
     }
 
     [Test]
-    public void CanDeleteTableRows()
+    public async Task CanDeleteTableRows()
     {
         var l = new List<TestObjectWithAttributes>
         {
@@ -601,20 +602,20 @@ public class TablesTests
         var ws = wb.AddWorksheet("Sheet1");
         var table = ws.Cell("B2").InsertTable(l);
 
-        Assert.AreEqual("B2:E6", table.RangeAddress.ToString());
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("B2:E6");
 
         table.DataRange!.Rows(3, 4).Delete();
 
-        Assert.AreEqual(2, table.DataRange.Rows().Count());
+        await Assert.That(table.DataRange.Rows().Count()).IsEqualTo(2);
 
-        Assert.AreEqual("b", table.DataRange.FirstCell().Value);
-        Assert.AreEqual(777, table.DataRange.LastCell().Value);
+        await Assert.That(table.DataRange.FirstCell().Value).IsEqualTo("b");
+        await Assert.That(table.DataRange.LastCell().Value).IsEqualTo(777);
 
-        Assert.AreEqual("B2:E4", table.RangeAddress.ToString());
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("B2:E4");
     }
 
     [Test]
-    public void OverlappingTablesThrowsException()
+    public async Task OverlappingTablesThrowsException()
     {
         var dt = new DataTable("sheet1");
         dt.Columns.Add("col1", typeof(string));
@@ -623,11 +624,11 @@ public class TablesTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().InsertTable(dt, true);
-        Assert.Throws<InvalidOperationException>(() => ws.FirstCell().CellRight().InsertTable(dt, true));
+        await Assert.That(() => ws.FirstCell().CellRight().InsertTable(dt, true)).Throws<InvalidOperationException>();
     }
 
     [Test]
-    public void OverwritingTableHeaders()
+    public async Task OverwritingTableHeaders()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -644,14 +645,14 @@ public class TablesTests
         });
 
         // The non-string data inserted to headers were converted to strings and used as a field names.
-        Assert.AreEqual("#VALUE!", table.Field(0).Name);
-        Assert.AreEqual("#VALUE!", ws.Cell("A1").Value);
-        Assert.AreEqual("7", table.Field(1).Name);
-        Assert.AreEqual("7", ws.Cell("B1").Value);
+        await Assert.That(table.Field(0).Name).IsEqualTo("#VALUE!");
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo("#VALUE!");
+        await Assert.That(table.Field(1).Name).IsEqualTo("7");
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo("7");
     }
 
     [Test]
-    public void OverwritingTableTotalsRow()
+    public async Task OverwritingTableTotalsRow()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -682,15 +683,20 @@ public class TablesTests
 
         ws.FirstCell().CellBelow().InsertData(data2);
 
-        table.Fields.ForEach(f => Assert.AreEqual(XLTotalsRowFunction.None, f.TotalsRowFunction));
+        // Was Fields.ForEach(f => Assert...); ForEach takes an Action, so an awaited
+        // assertion needs an explicit loop.
+        foreach (var f in table.Fields)
+        {
+            await Assert.That(f.TotalsRowFunction).IsEqualTo(XLTotalsRowFunction.None);
+        }
 
-        Assert.AreEqual("11", table.Field(0).TotalsRowLabel);
-        Assert.AreEqual("K", table.Field(1).TotalsRowLabel);
-        Assert.AreEqual("bbbbbbbbbbb", table.Field(2).TotalsRowLabel);
+        await Assert.That(table.Field(0).TotalsRowLabel).IsEqualTo("11");
+        await Assert.That(table.Field(1).TotalsRowLabel).IsEqualTo("K");
+        await Assert.That(table.Field(2).TotalsRowLabel).IsEqualTo("bbbbbbbbbbb");
     }
 
     [Test]
-    public void TableRenameTests()
+    public async Task TableRenameTests()
     {
         var l = new List<TestObjectWithAttributes>
         {
@@ -703,33 +709,33 @@ public class TablesTests
         var table1 = ws.FirstCell().InsertTable(l);
         var table2 = ws.Cell("A10").InsertTable(l);
 
-        Assert.AreEqual("Table1", table1.Name);
-        Assert.AreEqual("Table2", table2.Name);
+        await Assert.That(table1.Name).IsEqualTo("Table1");
+        await Assert.That(table2.Name).IsEqualTo("Table2");
 
         table1.Name = "table1";
-        Assert.AreEqual("table1", table1.Name);
+        await Assert.That(table1.Name).IsEqualTo("table1");
 
         table1.Name = "_table1";
-        Assert.AreEqual("_table1", table1.Name);
+        await Assert.That(table1.Name).IsEqualTo("_table1");
 
         table1.Name = "\\table1";
-        Assert.AreEqual("\\table1", table1.Name);
+        await Assert.That(table1.Name).IsEqualTo("\\table1");
 
-        Assert.Throws<ArgumentException>(() => table1.Name = "");
-        Assert.Throws<ArgumentException>(() => table1.Name = "R");
-        Assert.Throws<ArgumentException>(() => table1.Name = "C");
-        Assert.Throws<ArgumentException>(() => table1.Name = "r");
-        Assert.Throws<ArgumentException>(() => table1.Name = "c");
+        await Assert.That(() => table1.Name = "").Throws<ArgumentException>();
+        await Assert.That(() => table1.Name = "R").Throws<ArgumentException>();
+        await Assert.That(() => table1.Name = "C").Throws<ArgumentException>();
+        await Assert.That(() => table1.Name = "r").Throws<ArgumentException>();
+        await Assert.That(() => table1.Name = "c").Throws<ArgumentException>();
 
-        Assert.Throws<ArgumentException>(() => table1.Name = "123");
-        Assert.Throws<ArgumentException>(() => table1.Name = new string('A', 256));
+        await Assert.That(() => table1.Name = "123").Throws<ArgumentException>();
+        await Assert.That(() => table1.Name = new string('A', 256)).Throws<ArgumentException>();
 
-        Assert.Throws<ArgumentException>(() => table1.Name = "Table2");
-        Assert.Throws<ArgumentException>(() => table1.Name = "TABLE2");
+        await Assert.That(() => table1.Name = "Table2").Throws<ArgumentException>();
+        await Assert.That(() => table1.Name = "TABLE2").Throws<ArgumentException>();
     }
 
     [Test]
-    public void CanResizeTable()
+    public async Task CanResizeTable()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -761,16 +767,16 @@ public class TablesTests
         ws.FirstCell().CellBelow().InsertData(data2);
         table.Resize(table.FirstCell().Address, table.AsRange().LastCell().CellRight().Address);
 
-        Assert.AreEqual(4, table.Fields.Count());
+        await Assert.That(table.Fields.Count()).IsEqualTo(4);
 
-        Assert.AreEqual("Column4", table.Field(3).Name);
+        await Assert.That(table.Field(3).Name).IsEqualTo("Column4");
 
         ws.Cell("D1").Value = "Integer";
-        Assert.AreEqual("Integer", table.Field(3).Name);
+        await Assert.That(table.Field(3).Name).IsEqualTo("Integer");
     }
 
     [Test]
-    public void TableAsDynamicEnumerable()
+    public async Task TableAsDynamicEnumerable()
     {
         var l = new List<TestObjectWithAttributes>
         {
@@ -784,18 +790,18 @@ public class TablesTests
 
         foreach (var d in table.AsDynamicEnumerable())
         {
-            Assert.DoesNotThrow(() =>
+            await Assert.That(() =>
             {
                 _ = d.FirstColumn;
                 _ = d.SecondColumn;
                 _ = d.UnOrderedColumn;
                 _ = d.SomeFieldNotProperty;
-            });
+            }).ThrowsNothing();
         }
     }
 
     [Test]
-    public void TableAsDotNetDataTable()
+    public async Task TableAsDotNetDataTable()
     {
         var l = new List<TestObjectWithAttributes>
         {
@@ -807,32 +813,32 @@ public class TablesTests
         var ws = wb.AddWorksheet("Sheet1");
         var table = ws.FirstCell().InsertTable(l).AsNativeDataTable();
 
-        Assert.AreEqual(4, table.Columns.Count);
-        Assert.AreEqual("FirstColumn", table.Columns[0].ColumnName);
-        Assert.AreEqual("SecondColumn", table.Columns[1].ColumnName);
-        Assert.AreEqual("SomeFieldNotProperty", table.Columns[2].ColumnName);
-        Assert.AreEqual("UnOrderedColumn", table.Columns[3].ColumnName);
+        await Assert.That(table.Columns.Count).IsEqualTo(4);
+        await Assert.That(table.Columns[0].ColumnName).IsEqualTo("FirstColumn");
+        await Assert.That(table.Columns[1].ColumnName).IsEqualTo("SecondColumn");
+        await Assert.That(table.Columns[2].ColumnName).IsEqualTo("SomeFieldNotProperty");
+        await Assert.That(table.Columns[3].ColumnName).IsEqualTo("UnOrderedColumn");
 
-        Assert.AreEqual(typeof(string), table.Columns[0].DataType);
-        Assert.AreEqual(typeof(string), table.Columns[1].DataType);
-        Assert.AreEqual(typeof(double), table.Columns[2].DataType);
-        Assert.AreEqual(typeof(double), table.Columns[3].DataType);
+        await Assert.That(table.Columns[0].DataType).IsEqualTo(typeof(string));
+        await Assert.That(table.Columns[1].DataType).IsEqualTo(typeof(string));
+        await Assert.That(table.Columns[2].DataType).IsEqualTo(typeof(double));
+        await Assert.That(table.Columns[3].DataType).IsEqualTo(typeof(double));
 
         var dr = table.Rows[0];
-        Assert.AreEqual("b", dr["FirstColumn"]);
-        Assert.AreEqual("a", dr["SecondColumn"]);
-        Assert.AreEqual(4, dr["SomeFieldNotProperty"]);
-        Assert.AreEqual(999, dr["UnOrderedColumn"]);
+        await Assert.That(dr["FirstColumn"]).IsEqualTo("b");
+        await Assert.That(dr["SecondColumn"]).IsEqualTo("a");
+        await Assert.That(Convert.ToDouble(dr["SomeFieldNotProperty"], CultureInfo.InvariantCulture)).IsEqualTo(4d);
+        await Assert.That(Convert.ToDouble(dr["UnOrderedColumn"], CultureInfo.InvariantCulture)).IsEqualTo(999d);
 
         dr = table.Rows[1];
-        Assert.AreEqual("d", dr["FirstColumn"]);
-        Assert.AreEqual("c", dr["SecondColumn"]);
-        Assert.AreEqual(5, dr["SomeFieldNotProperty"]);
-        Assert.AreEqual(777, dr["UnOrderedColumn"]);
+        await Assert.That(dr["FirstColumn"]).IsEqualTo("d");
+        await Assert.That(dr["SecondColumn"]).IsEqualTo("c");
+        await Assert.That(Convert.ToDouble(dr["SomeFieldNotProperty"], CultureInfo.InvariantCulture)).IsEqualTo(5d);
+        await Assert.That(Convert.ToDouble(dr["UnOrderedColumn"], CultureInfo.InvariantCulture)).IsEqualTo(777d);
     }
 
     [Test]
-    public void TestTableCellTypes()
+    public async Task TestTableCellTypes()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -851,14 +857,14 @@ public class TablesTests
             .SetShowTotalsRow();
         table.Fields.First().TotalsRowFunction = XLTotalsRowFunction.Sum;
 
-        Assert.AreEqual(XLTableCellType.Header, table.HeadersRow()!.Cell(1).TableCellType());
-        Assert.AreEqual(XLTableCellType.Data, table.HeadersRow()!.Cell(1).CellBelow().TableCellType());
-        Assert.AreEqual(XLTableCellType.Total, table.TotalsRow()!.Cell(1).TableCellType());
-        Assert.AreEqual(XLTableCellType.None, ws.Cell("Z100").TableCellType());
+        await Assert.That(table.HeadersRow()!.Cell(1).TableCellType()).IsEqualTo(XLTableCellType.Header);
+        await Assert.That(table.HeadersRow()!.Cell(1).CellBelow().TableCellType()).IsEqualTo(XLTableCellType.Data);
+        await Assert.That(table.TotalsRow()!.Cell(1).TableCellType()).IsEqualTo(XLTableCellType.Total);
+        await Assert.That(ws.Cell("Z100").TableCellType()).IsEqualTo(XLTableCellType.None);
     }
 
     [Test]
-    public void TotalsFunctionsOfHeadersWithWeirdCharacters()
+    public async Task TotalsFunctionsOfHeadersWithWeirdCharacters()
     {
         var l = new List<TestObjectWithAttributes>
         {
@@ -877,7 +883,7 @@ public class TablesTests
         ws.Cell("D1").Value = "Normal";
 
         var table = ws.RangeUsed()!.CreateTable();
-        Assert.IsNotNull(table);
+        await Assert.That(table).IsNotNull();
 
         table.ShowTotalsRow = true;
         table.Field(0).TotalsRowFunction = XLTotalsRowFunction.Count;
@@ -885,14 +891,14 @@ public class TablesTests
         table.Field(2).TotalsRowFunction = XLTotalsRowFunction.Sum;
         table.Field(3).TotalsRowFunction = XLTotalsRowFunction.Sum;
 
-        Assert.AreEqual("SUBTOTAL(103,Table1[[ABCD    ]])", table.Field(0).TotalsRowFormulaA1);
-        Assert.AreEqual("SUBTOTAL(103,Table1[[   '#BCD]])", table.Field(1).TotalsRowFormulaA1);
-        Assert.AreEqual("SUBTOTAL(109,Table1[[   as''df   ]])", table.Field(2).TotalsRowFormulaA1);
-        Assert.AreEqual("SUBTOTAL(109,[Normal])", table.Field(3).TotalsRowFormulaA1);
+        await Assert.That(table.Field(0).TotalsRowFormulaA1).IsEqualTo("SUBTOTAL(103,Table1[[ABCD    ]])");
+        await Assert.That(table.Field(1).TotalsRowFormulaA1).IsEqualTo("SUBTOTAL(103,Table1[[   '#BCD]])");
+        await Assert.That(table.Field(2).TotalsRowFormulaA1).IsEqualTo("SUBTOTAL(109,Table1[[   as''df   ]])");
+        await Assert.That(table.Field(3).TotalsRowFormulaA1).IsEqualTo("SUBTOTAL(109,[Normal])");
     }
 
     [Test]
-    public void TotalsFunctionsOfHeadersWithInteriorSpaces()
+    public async Task TotalsFunctionsOfHeadersWithInteriorSpaces()
     {
         // Regression for issue #2864: column names with an interior space (e.g. dates
         // like "Feb 2023") must be wrapped in an extra pair of brackets in the totals
@@ -934,18 +940,18 @@ public class TablesTests
         table.Field(4).TotalsRowFunction = XLTotalsRowFunction.Sum;
         table.Field(5).TotalsRowFunction = XLTotalsRowFunction.Count;
 
-        Assert.That(table.Field(0).TotalsRowFormulaA1, Is.EqualTo("SUBTOTAL(109,Table1[[Jan 2023]])"));
-        Assert.That(table.Field(1).TotalsRowFormulaA1, Is.EqualTo("SUBTOTAL(101,Table1[[Feb 2023]])"));
-        Assert.That(table.Field(2).TotalsRowFormulaA1, Is.EqualTo("SUBTOTAL(103,Table1[[Mar 2023]])"));
+        await Assert.That(table.Field(0).TotalsRowFormulaA1).IsEqualTo("SUBTOTAL(109,Table1[[Jan 2023]])");
+        await Assert.That(table.Field(1).TotalsRowFormulaA1).IsEqualTo("SUBTOTAL(101,Table1[[Feb 2023]])");
+        await Assert.That(table.Field(2).TotalsRowFormulaA1).IsEqualTo("SUBTOTAL(103,Table1[[Mar 2023]])");
         // No space => single-bracket, table name not prepended.
-        Assert.That(table.Field(3).TotalsRowFormulaA1, Is.EqualTo("SUBTOTAL(109,[Total])"));
+        await Assert.That(table.Field(3).TotalsRowFormulaA1).IsEqualTo("SUBTOTAL(109,[Total])");
         // Interior space + quoted character => escaped and double-bracket wrapped.
-        Assert.That(table.Field(4).TotalsRowFormulaA1, Is.EqualTo("SUBTOTAL(109,Table1[[Feb ''23]])"));
-        Assert.That(table.Field(5).TotalsRowFormulaA1, Is.EqualTo("SUBTOTAL(103,Table1[[Q1 '#1]])"));
+        await Assert.That(table.Field(4).TotalsRowFormulaA1).IsEqualTo("SUBTOTAL(109,Table1[[Feb ''23]])");
+        await Assert.That(table.Field(5).TotalsRowFormulaA1).IsEqualTo("SUBTOTAL(103,Table1[[Q1 '#1]])");
     }
 
     [Test]
-    public void CannotCreateDuplicateTablesOverSameRange()
+    public async Task CannotCreateDuplicateTablesOverSameRange()
     {
         var l = new List<TestObjectWithAttributes>
         {
@@ -956,11 +962,11 @@ public class TablesTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().InsertTable(l);
-        Assert.Throws<InvalidOperationException>(() => ws.RangeUsed()!.CreateTable());
+        await Assert.That(() => ws.RangeUsed()!.CreateTable()).Throws<InvalidOperationException>();
     }
 
     [Test]
-    public void CannotCreateTableOverExistingAutoFilter()
+    public async Task CannotCreateTableOverExistingAutoFilter()
     {
         using var wb = new XLWorkbook();
 
@@ -974,11 +980,11 @@ public class TablesTests
         ws.FirstCell().InsertTable(data, createTable: false);
         ws.RangeUsed()!.SetAutoFilter().Column(1).AddFilter(5);
 
-        Assert.Throws<InvalidOperationException>(() => ws.RangeUsed()!.CreateTable());
+        await Assert.That(() => ws.RangeUsed()!.CreateTable()).Throws<InvalidOperationException>();
     }
 
     [Test]
-    public void CopyTableSameWorksheet()
+    public async Task CopyTableSameWorksheet()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.Worksheets.Add("Sheet1");
@@ -987,11 +993,11 @@ public class TablesTests
 
         Action action = () => table.CopyTo(ws1);
 
-        Assert.Throws<InvalidOperationException>(action);
+        await Assert.That(action).Throws<InvalidOperationException>();
     }
 
     [Test]
-    public void CanInsertDateTimeOffset()
+    public async Task CanInsertDateTimeOffset()
     {
         var now = DateTimeOffset.Now;
 
@@ -1004,11 +1010,11 @@ public class TablesTests
 
         var actual = ws1.Cell("A2").GetDateTime().ToString(format);
         var expected = now.DateTime.ToString(format);
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
-    public void CopyDetachedTableDifferentWorksheets()
+    public async Task CopyDetachedTableDifferentWorksheets()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.Worksheets.Add("Sheet1");
@@ -1023,22 +1029,22 @@ public class TablesTests
 
         var copy = original.CopyTo(ws2);
 
-        Assert.AreEqual(0, ws1.Tables.Count()); // We did not add it
-        Assert.AreEqual(1, ws2.Tables.Count());
+        await Assert.That(ws1.Tables.Count()).IsEqualTo(0); // We did not add it
+        await Assert.That(ws2.Tables.Count()).IsEqualTo(1);
 
-        AssertTablesAreEqual(original, copy);
+        await AssertTablesAreEqual(original, copy);
 
-        Assert.AreEqual("Sheet2!A1:C2", copy.RangeAddress.ToString(XLReferenceStyle.A1, true));
-        Assert.AreEqual("Custom column 1", ws2.Cell("A1").Value);
-        Assert.AreEqual("Custom column 2", ws2.Cell("B1").Value);
-        Assert.AreEqual("Custom column 3", ws2.Cell("C1").Value);
-        Assert.AreEqual("Value 1", ws2.Cell("A2").Value);
-        Assert.AreEqual(123.45, (double)ws2.Cell("B2").Value, XLHelper.Epsilon);
-        Assert.AreEqual(new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified), ws2.Cell("C2").Value);
+        await Assert.That(copy.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("Sheet2!A1:C2");
+        await Assert.That(ws2.Cell("A1").Value).IsEqualTo("Custom column 1");
+        await Assert.That(ws2.Cell("B1").Value).IsEqualTo("Custom column 2");
+        await Assert.That(ws2.Cell("C1").Value).IsEqualTo("Custom column 3");
+        await Assert.That(ws2.Cell("A2").Value).IsEqualTo("Value 1");
+        await Assert.That((double)ws2.Cell("B2").Value).IsEqualTo(123.45).Within(XLHelper.Epsilon);
+        await Assert.That(ws2.Cell("C2").Value).IsEqualTo(new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified));
     }
 
     [Test]
-    public void CopyTableDifferentWorksheets()
+    public async Task CopyTableDifferentWorksheets()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.Worksheets.Add("Sheet1");
@@ -1054,24 +1060,24 @@ public class TablesTests
 
         original.CopyTo(ws2);
 
-        Assert.AreEqual(1, ws1.Tables.Count());
-        Assert.AreEqual(1, ws2.Tables.Count());
+        await Assert.That(ws1.Tables.Count()).IsEqualTo(1);
+        await Assert.That(ws2.Tables.Count()).IsEqualTo(1);
 
         var copy = ws2.Tables.First();
 
-        AssertTablesAreEqual(original, copy);
+        await AssertTablesAreEqual(original, copy);
 
-        Assert.AreEqual("Sheet2!A1:C2", copy.RangeAddress.ToString(XLReferenceStyle.A1, true));
-        Assert.AreEqual("Custom column 1", ws2.Cell("A1").Value);
-        Assert.AreEqual("Custom column 2", ws2.Cell("B1").Value);
-        Assert.AreEqual("Custom column 3", ws2.Cell("C1").Value);
-        Assert.AreEqual("Value 1", ws2.Cell("A2").Value);
-        Assert.AreEqual(123.45, (double)ws2.Cell("B2").Value, XLHelper.Epsilon);
-        Assert.AreEqual(new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified), ws2.Cell("C2").Value);
+        await Assert.That(copy.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("Sheet2!A1:C2");
+        await Assert.That(ws2.Cell("A1").Value).IsEqualTo("Custom column 1");
+        await Assert.That(ws2.Cell("B1").Value).IsEqualTo("Custom column 2");
+        await Assert.That(ws2.Cell("C1").Value).IsEqualTo("Custom column 3");
+        await Assert.That(ws2.Cell("A2").Value).IsEqualTo("Value 1");
+        await Assert.That((double)ws2.Cell("B2").Value).IsEqualTo(123.45).Within(XLHelper.Epsilon);
+        await Assert.That(ws2.Cell("C2").Value).IsEqualTo(new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified));
     }
 
     [Test]
-    public void NewTableHasNullRelId()
+    public async Task NewTableHasNullRelId()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -1085,8 +1091,8 @@ public class TablesTests
             ws.Cell("C2").Value = new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified);
             var original = ws.Range("A1:C2").CreateTable("Attached_table");
 
-            Assert.AreEqual(1, ws.Tables.Count());
-            Assert.IsNull((original as XLTable)!.RelId);
+            await Assert.That(ws.Tables.Count()).IsEqualTo(1);
+            await Assert.That((original as XLTable)!.RelId).IsNull();
 
             wb.SaveAs(ms);
         }
@@ -1096,27 +1102,27 @@ public class TablesTests
             var ws = wb.Worksheets.Add("Sheet2");
             var original = wb.Worksheets.First().Tables.First();
 
-            Assert.IsNotNull((original as XLTable)!.RelId);
+            await Assert.That((original as XLTable)!.RelId).IsNotNull();
 
             var copy = original.CopyTo(ws);
 
-            Assert.AreEqual(1, ws.Tables.Count());
-            Assert.IsNull((copy as XLTable)!.RelId);
+            await Assert.That(ws.Tables.Count()).IsEqualTo(1);
+            await Assert.That((copy as XLTable)!.RelId).IsNull();
 
-            AssertTablesAreEqual(original, copy);
+            await AssertTablesAreEqual(original, copy);
 
-            Assert.AreEqual("Sheet2!A1:C2", copy.RangeAddress.ToString(XLReferenceStyle.A1, true));
-            Assert.AreEqual("Custom column 1", ws.Cell("A1").Value);
-            Assert.AreEqual("Custom column 2", ws.Cell("B1").Value);
-            Assert.AreEqual("Custom column 3", ws.Cell("C1").Value);
-            Assert.AreEqual("Value 1", ws.Cell("A2").Value);
-            Assert.AreEqual(123.45, (double)ws.Cell("B2").Value, XLHelper.Epsilon);
-            Assert.AreEqual(new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified), ws.Cell("C2").Value);
+            await Assert.That(copy.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("Sheet2!A1:C2");
+            await Assert.That(ws.Cell("A1").Value).IsEqualTo("Custom column 1");
+            await Assert.That(ws.Cell("B1").Value).IsEqualTo("Custom column 2");
+            await Assert.That(ws.Cell("C1").Value).IsEqualTo("Custom column 3");
+            await Assert.That(ws.Cell("A2").Value).IsEqualTo("Value 1");
+            await Assert.That((double)ws.Cell("B2").Value).IsEqualTo(123.45).Within(XLHelper.Epsilon);
+            await Assert.That(ws.Cell("C2").Value).IsEqualTo(new DateTime(2018, 5, 10, 0, 0, 0, DateTimeKind.Unspecified));
         }
     }
 
     [Test]
-    public void CopyTableWithoutData()
+    public async Task CopyTableWithoutData()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.Worksheets.Add("Sheet1");
@@ -1132,19 +1138,19 @@ public class TablesTests
 
         var copy = (original as XLTable)!.CopyTo(ws2!, false);
 
-        AssertTablesAreEqual(original, copy);
+        await AssertTablesAreEqual(original, copy);
 
-        Assert.AreEqual("Sheet2!A1:C2", copy.RangeAddress.ToString(XLReferenceStyle.A1, true));
-        Assert.AreEqual("Custom column 1", ws2!.Cell("A1")!.Value);
-        Assert.AreEqual("Custom column 2", ws2.Cell("B1")!.Value);
-        Assert.AreEqual("Custom column 3", ws2.Cell("C1")!.Value);
-        Assert.AreEqual(Blank.Value, ws2.Cell("A2")!.Value);
-        Assert.AreEqual(Blank.Value, ws2.Cell("B2")!.Value);
-        Assert.AreEqual(Blank.Value, ws2.Cell("C2")!.Value);
+        await Assert.That(copy.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("Sheet2!A1:C2");
+        await Assert.That(ws2!.Cell("A1")!.Value).IsEqualTo("Custom column 1");
+        await Assert.That(ws2.Cell("B1")!.Value).IsEqualTo("Custom column 2");
+        await Assert.That(ws2.Cell("C1")!.Value).IsEqualTo("Custom column 3");
+        await Assert.That(ws2.Cell("A2")!.Value).IsEqualTo(Blank.Value);
+        await Assert.That(ws2.Cell("B2")!.Value).IsEqualTo(Blank.Value);
+        await Assert.That(ws2.Cell("C2")!.Value).IsEqualTo(Blank.Value);
     }
 
     [Test]
-    public void SavingTableWithNullDataRangeThrowsException()
+    public async Task SavingTableWithNullDataRangeThrowsException()
     {
         using var ms = new MemoryStream();
         using var wb = new XLWorkbook();
@@ -1168,15 +1174,15 @@ public class TablesTests
             .ToList()
             .ForEach(r => r.WorksheetRow().Delete());
 
-        Assert.IsNull(table.DataRange);
-        Assert.Throws<EmptyTableException>(() => wb.SaveAs(ms));
+        await Assert.That(table.DataRange).IsNull();
+        await Assert.That(() => wb.SaveAs(ms)).Throws<EmptyTableException>();
     }
 
     [Test]
-    public void Save_totals_row_label_cell_with_sst_id_matching_the_label()
+    public async Task Save_totals_row_label_cell_with_sst_id_matching_the_label()
     {
         // Issue #2602 test. The totals row  wasn't saved with compact SST ID from file, but with a memory SST that has holes.
-        TestHelper.CreateAndCompare(wb =>
+        await TestHelper.CreateAndCompare(wb =>
         {
             var ws = wb.AddWorksheet();
             ws.Cell("A1").Value = "Dummy1"; // First inserted text - index=0, reference count = 1
@@ -1194,7 +1200,7 @@ public class TablesTests
     }
 
     [Test]
-    public void CanCreateTableWithWhiteSpaceColumnHeaders()
+    public async Task CanCreateTableWithWhiteSpaceColumnHeaders()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -1206,65 +1212,65 @@ public class TablesTests
 
         var table = ws.Range("A1:E3").CreateTable("Table1");
 
-        Assert.AreEqual("Header", table.Field(0).Name);
-        Assert.AreEqual(new string(' ', 1), table.Field(1).Name);
-        Assert.AreEqual(new string(' ', 2), table.Field(2).Name);
-        Assert.AreEqual(new string(' ', 3), table.Field(3).Name);
-        Assert.AreEqual("Column5", table.Field(4).Name);
+        await Assert.That(table.Field(0).Name).IsEqualTo("Header");
+        await Assert.That(table.Field(1).Name).IsEqualTo(new string(' ', 1));
+        await Assert.That(table.Field(2).Name).IsEqualTo(new string(' ', 2));
+        await Assert.That(table.Field(3).Name).IsEqualTo(new string(' ', 3));
+        await Assert.That(table.Field(4).Name).IsEqualTo("Column5");
     }
 
     [Test]
-    public void TableNotFound()
+    public async Task TableNotFound()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
-        Assert.Throws<ArgumentOutOfRangeException>(() => ws.Table("dummy"));
-        Assert.Throws<ArgumentOutOfRangeException>(() => wb.Table("dummy"));
+        await Assert.That(() => ws.Table("dummy")).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(() => wb.Table("dummy")).Throws<ArgumentOutOfRangeException>();
     }
 
     [Test]
-    public void SecondTableOnNewSheetHasUniqueName()
+    public async Task SecondTableOnNewSheetHasUniqueName()
     {
         using var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet();
         var t1 = ws1.FirstCell().InsertTable(Enumerable.Range(1, 10).Select(i => new { Number = i }));
-        Assert.AreEqual("Table1", t1.Name);
+        await Assert.That(t1.Name).IsEqualTo("Table1");
 
         var ws2 = wb.AddWorksheet();
         var t2 = ws2.FirstCell().InsertTable(Enumerable.Range(1, 10).Select(i => new { Number = i }));
-        Assert.AreEqual("Table2", t2.Name);
+        await Assert.That(t2.Name).IsEqualTo("Table2");
     }
 
-    private static void AssertTablesAreEqual(IXLTable table1, IXLTable table2)
+    private static async Task AssertTablesAreEqual(IXLTable table1, IXLTable table2)
     {
-        Assert.AreEqual(table1.RangeAddress.ToString(XLReferenceStyle.A1, false),
-            table2.RangeAddress.ToString(XLReferenceStyle.A1, false));
-        Assert.AreEqual(table1.Fields.Count(), table2.Fields.Count());
+        await Assert.That(table2.RangeAddress.ToString(XLReferenceStyle.A1, false)).IsEqualTo(table1.RangeAddress.ToString(XLReferenceStyle.A1, false));
+        await Assert.That(table2.Fields.Count()).IsEqualTo(table1.Fields.Count());
         for (var j = 0; j < table1.Fields.Count(); j++)
         {
             var originalField = table1.Fields.ElementAt(j);
             var copyField = table2.Fields.ElementAt(j);
-            Assert.AreEqual(originalField.Name, copyField.Name);
+            await Assert.That(copyField.Name).IsEqualTo(originalField.Name);
             if (table1.ShowTotalsRow)
             {
-                Assert.AreEqual(originalField.TotalsRowFormulaA1, copyField.TotalsRowFormulaA1);
-                Assert.AreEqual(originalField.TotalsRowFunction, copyField.TotalsRowFunction);
+                await Assert.That(copyField.TotalsRowFormulaA1).IsEqualTo(originalField.TotalsRowFormulaA1);
+                await Assert.That(copyField.TotalsRowFunction).IsEqualTo(originalField.TotalsRowFunction);
             }
         }
 
-        Assert.AreEqual(table1.Name, table2.Name);
-        Assert.AreEqual(table1.ShowAutoFilter, table2.ShowAutoFilter);
-        Assert.AreEqual(table1.ShowColumnStripes, table2.ShowColumnStripes);
-        Assert.AreEqual(table1.ShowHeaderRow, table2.ShowHeaderRow);
-        Assert.AreEqual(table1.ShowRowStripes, table2.ShowRowStripes);
-        Assert.AreEqual(table1.ShowTotalsRow, table2.ShowTotalsRow);
-        Assert.AreEqual((table1.Style as XLStyle)!.Value, (table2.Style as XLStyle)!.Value);
-        Assert.AreEqual(table1.Theme, table2.Theme);
+        await Assert.That(table2.Name).IsEqualTo(table1.Name);
+        await Assert.That(table2.ShowAutoFilter).IsEqualTo(table1.ShowAutoFilter);
+        await Assert.That(table2.ShowColumnStripes).IsEqualTo(table1.ShowColumnStripes);
+        await Assert.That(table2.ShowHeaderRow).IsEqualTo(table1.ShowHeaderRow);
+        await Assert.That(table2.ShowRowStripes).IsEqualTo(table1.ShowRowStripes);
+        await Assert.That(table2.ShowTotalsRow).IsEqualTo(table1.ShowTotalsRow);
+        await Assert.That((table2.Style as XLStyle)!.Value).IsEqualTo((table1.Style as XLStyle)!.Value);
+        await Assert.That(table2.Theme).IsEqualTo(table1.Theme);
     }
 
-    [TestCase(typeof(string))]
-    [TestCase(typeof(object))]
-    public void InsertData_WhenValuesAreDbNull_WritesBlanks(Type columnType)
+    [Test]
+    [Arguments(typeof(string))]
+    [Arguments(typeof(object))]
+    public async Task InsertData_WhenValuesAreDbNull_WritesBlanks(Type columnType)
     {
         // arrange
         using var wb = new XLWorkbook();
@@ -1281,14 +1287,14 @@ public class TablesTests
         var table = cell.InsertTable(data);
 
         // assert
-        Assert.AreEqual("Name", table!.Cell(1, 1).Value);
-        Assert.AreEqual("Mario", table.Cell(2, 1).Value);
-        Assert.IsTrue(table.Cell(3, 1).Value.IsBlank);
-        Assert.AreEqual("Carlo", table.Cell(4, 1).Value);
+        await Assert.That(table!.Cell(1, 1).Value).IsEqualTo("Name");
+        await Assert.That(table.Cell(2, 1).Value).IsEqualTo("Mario");
+        await Assert.That(table.Cell(3, 1).Value.IsBlank).IsTrue();
+        await Assert.That(table.Cell(4, 1).Value).IsEqualTo("Carlo");
     }
 
     [Test]
-    public void DataRowCount_returns_data_rows_excluding_header_and_totals()
+    public async Task DataRowCount_returns_data_rows_excluding_header_and_totals()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -1297,9 +1303,9 @@ public class TablesTests
         var table = ws.FirstCell().InsertTable(data, "Table1", true);
 
         // Table has header + 5 data rows
-        Assert.AreEqual(6, table.RowCount());
-        Assert.AreEqual(5, table.DataRowCount);
-        Assert.AreEqual(5, table.DataRange!.RowCount());
+        await Assert.That(table.RowCount()).IsEqualTo(6);
+        await Assert.That(table.DataRowCount).IsEqualTo(5);
+        await Assert.That(table.DataRange!.RowCount()).IsEqualTo(5);
 
         // Delete all data rows from worksheet (rows 2..6)
         for (var row = 6; row >= 2; row--)
@@ -1310,14 +1316,14 @@ public class TablesTests
         table.Resize(headerOnlyRange);
 
         // After resize, the table range spans only 1 row (the header)
-        Assert.AreEqual(1, table.RowCount());
+        await Assert.That(table.RowCount()).IsEqualTo(1);
         // DataRowCount should be 0 and DataRange should be null
-        Assert.AreEqual(0, table.DataRowCount);
-        Assert.IsNull(table.DataRange);
+        await Assert.That(table.DataRowCount).IsEqualTo(0);
+        await Assert.That(table.DataRange).IsNull();
     }
 
     [Test]
-    public void DataRange_FirstRowUsed_returns_null_when_no_used_rows()
+    public async Task DataRange_FirstRowUsed_returns_null_when_no_used_rows()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -1332,12 +1338,12 @@ public class TablesTests
         var dataRange = table.DataRange!;
 
         // FirstRowUsed should return null, not throw NRE
-        Assert.IsNull(dataRange.FirstRowUsed());
-        Assert.IsNull(dataRange.LastRowUsed());
+        await Assert.That(dataRange.FirstRowUsed()).IsNull();
+        await Assert.That(dataRange.LastRowUsed()).IsNull();
     }
 
     [Test]
-    public void DataRange_FirstRowUsed_returns_row_when_data_exists()
+    public async Task DataRange_FirstRowUsed_returns_row_when_data_exists()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -1351,14 +1357,14 @@ public class TablesTests
         var dataRange = table.DataRange!;
 
         var firstRow = dataRange.FirstRowUsed();
-        Assert.IsNotNull(firstRow);
+        await Assert.That(firstRow).IsNotNull();
 
         var lastRow = dataRange.LastRowUsed();
-        Assert.IsNotNull(lastRow);
+        await Assert.That(lastRow).IsNotNull();
     }
 
     [Test]
-    public void LoadTable_without_TableStyleInfo_sets_no_theme_and_clears_style_flags()
+    public async Task LoadTable_without_TableStyleInfo_sets_no_theme_and_clears_style_flags()
     {
         using var ms = new MemoryStream();
         using (var doc = SpreadsheetDocument.Create(ms, SpreadsheetDocumentType.Workbook))
@@ -1405,10 +1411,10 @@ public class TablesTests
         using var wb = new XLWorkbook(ms);
         var table = wb.Worksheets.First().Tables.First();
 
-        Assert.That(table.Theme, Is.EqualTo(XLTableTheme.None));
-        Assert.That(table.ShowRowStripes, Is.False);
-        Assert.That(table.ShowColumnStripes, Is.False);
-        Assert.That(table.EmphasizeFirstColumn, Is.False);
-        Assert.That(table.EmphasizeLastColumn, Is.False);
+        await Assert.That(table.Theme).IsEqualTo(XLTableTheme.None);
+        await Assert.That(table.ShowRowStripes).IsFalse();
+        await Assert.That(table.ShowColumnStripes).IsFalse();
+        await Assert.That(table.EmphasizeFirstColumn).IsFalse();
+        await Assert.That(table.EmphasizeLastColumn).IsFalse();
     }
 }

@@ -1,8 +1,9 @@
 ﻿using XLibur.Excel.InsertData;
-using NUnit.Framework;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.InsertData;
 
@@ -17,48 +18,51 @@ public class SimpleTypeReaderTests
 
     private readonly int[] _data = [1, 2, 3];
 
-    [TestCaseSource(nameof(SimpleSourceNames))]
-    public string CanGetPropertyName<T>(IEnumerable<T> data)
+    [Test]
+    [MethodDataSource(nameof(SimpleSourceNames))]
+    // Was a generic method fed by TestCaseData(...).Returns(...). The generic parameter was
+    // never load-bearing: with an unconstrained T, IEnumerable<T> only ever converted to the
+    // non-generic CreateReader(IEnumerable) overload, so taking IEnumerable directly binds
+    // exactly the same call. TUnit data sources return tuples rather than TestCaseData, and
+    // Returns(...) becomes an explicit assertion.
+    public async Task CanGetPropertyName(IEnumerable data, string expected)
     {
         var reader = InsertDataReaderFactory.CreateReader(data);
-        return reader.GetPropertyName(0);
+        await Assert.That(reader.GetPropertyName(0)).IsEqualTo(expected);
     }
 
-    private static IEnumerable<TestCaseData> SimpleSourceNames
+    public static IEnumerable<(IEnumerable Data, string Expected)> SimpleSourceNames()
     {
-        get
-        {
-            yield return new TestCaseData(IntData).Returns("Int32");
-            yield return new TestCaseData(DoubleData).Returns("Double");
-            yield return new TestCaseData(DecimalData).Returns("Decimal");
-            yield return new TestCaseData(arg: StringData).Returns("String");
-            yield return new TestCaseData(CharData).Returns("Char");
-            yield return new TestCaseData(DateTimeData).Returns("DateTime");
-        }
+        yield return (IntData, "Int32");
+        yield return (DoubleData, "Double");
+        yield return (DecimalData, "Decimal");
+        yield return (StringData, "String");
+        yield return (CharData, "Char");
+        yield return (DateTimeData, "DateTime");
     }
 
     [Test]
-    public void CanGetPropertiesCount()
+    public async Task CanGetPropertiesCount()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
-        Assert.AreEqual(1, reader.GetPropertiesCount());
+        await Assert.That(reader.GetPropertiesCount()).IsEqualTo(1);
     }
 
     [Test]
-    public void CanGetRecordsCount()
+    public async Task CanGetRecordsCount()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
-        Assert.AreEqual(3, reader.GetRecords().Count());
+        await Assert.That(reader.GetRecords().Count()).IsEqualTo(3);
     }
 
     [Test]
-    public void CanReadValues()
+    public async Task CanReadValues()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
         var result = reader.GetRecords();
 
         var enumerable = result.ToList();
-        Assert.AreEqual(1, enumerable.First().Single());
-        Assert.AreEqual(3, enumerable.Last().Single());
+        await Assert.That(enumerable.First().Single()).IsEqualTo(1);
+        await Assert.That(enumerable.Last().Single()).IsEqualTo(3);
     }
 }

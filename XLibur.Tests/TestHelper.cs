@@ -1,6 +1,5 @@
 ﻿using XLibur.Examples;
 using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using XLibur.Tests.Utils;
 using Path = System.IO.Path;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests;
 
@@ -44,7 +44,7 @@ internal static class TestHelper
         }
     }
 
-    public static void RunTestExample<T>(string filePartName, bool evaluateFormulae = false)
+    public static async Task RunTestExample<T>(string filePartName, bool evaluateFormulae = false)
         where T : IXLExample, new()
     {
         // Make sure tests run on a deterministic culture
@@ -84,7 +84,7 @@ internal static class TestHelper
             var formattedMessage =
                 $"Actual file '{filePath2}' is different than the expected file '{resourcePath}'. The difference is: '{message}'";
 
-            Assert.IsTrue(success, formattedMessage);
+            await Assert.That(success).IsTrue().Because(formattedMessage);
         }
     }
 
@@ -95,9 +95,9 @@ internal static class TestHelper
     /// <param name="referenceResource">Reference workbook saved in resources</param>
     /// <param name="evaluateFormulae">Should formulas of created workbook be evaluated and values saved?</param>
     /// <param name="validate">Should the created workbook be validated during by OpenXmlSdk validator?</param>
-    public static void CreateAndCompare(Action<XLWorkbook> workbookGenerator, string referenceResource, bool evaluateFormulae = false, bool validate = true)
+    public static async Task CreateAndCompare(Action<XLWorkbook> workbookGenerator, string referenceResource, bool evaluateFormulae = false, bool validate = true)
     {
-        CreateAndCompare(() =>
+        await CreateAndCompare(() =>
         {
             var wb = new XLWorkbook();
             workbookGenerator(wb);
@@ -105,7 +105,7 @@ internal static class TestHelper
         }, referenceResource, evaluateFormulae, validate);
     }
 
-    public static void CreateAndCompare(Func<IXLWorkbook> workbookGenerator, string referenceResource, bool evaluateFormulae = false, bool validate = true)
+    public static async Task CreateAndCompare(Func<IXLWorkbook> workbookGenerator, string referenceResource, bool evaluateFormulae = false, bool validate = true)
     {
         Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("en-US");
 
@@ -133,7 +133,7 @@ internal static class TestHelper
             var formattedMessage =
                 $"Actual file '{filePath2}' is different than the expected file '{resourcePath}'. The difference is: '{message}'";
 
-            Assert.IsTrue(success, formattedMessage);
+            await Assert.That(success).IsTrue().Because(formattedMessage);
         }
     }
 
@@ -142,11 +142,11 @@ internal static class TestHelper
     /// and compare the saved file against the <paramref name="expectedOutputResourcePath"/>.
     /// </summary>
     /// <remarks>Useful for checking whether we can load data from Excel and save it while keeping various feature in the OpenXML intact.</remarks>
-    public static void LoadModifyAndCompare(string loadResourcePath, Action<XLWorkbook> modify, string expectedOutputResourcePath, bool evaluateFormulae = false, bool validate = true)
+    public static async Task LoadModifyAndCompare(string loadResourcePath, Action<XLWorkbook> modify, string expectedOutputResourcePath, bool evaluateFormulae = false, bool validate = true)
     {
         using var stream = GetStreamFromResource(GetResourcePath(loadResourcePath));
         using var ms = new MemoryStream();
-        CreateAndCompare(() =>
+        await CreateAndCompare(() =>
         {
             var wb = new XLWorkbook(stream);
             modify(wb);
@@ -160,32 +160,34 @@ internal static class TestHelper
     /// and compare the saved file against the <paramref name="expectedOutputResourcePath"/>.
     /// </summary>
     /// <remarks>Useful for checking whether we can load data from Excel and save it while keeping various feature in the OpenXML intact.</remarks>
-    public static void LoadSaveAndCompare(string loadResourcePath, string expectedOutputResourcePath, bool evaluateFormulae = false, bool validate = true)
+    public static async Task LoadSaveAndCompare(string loadResourcePath, string expectedOutputResourcePath, bool evaluateFormulae = false, bool validate = true)
     {
-        LoadModifyAndCompare(loadResourcePath, _ => { }, expectedOutputResourcePath, evaluateFormulae, validate);
+        await LoadModifyAndCompare(loadResourcePath, _ => { }, expectedOutputResourcePath, evaluateFormulae, validate);
     }
 
     /// <summary>
     /// A testing method to load a workbook from resource and assert the state of the loaded workbook.
     /// </summary>
-    public static void LoadAndAssert(Action<XLWorkbook> assertWorkbook, string loadResourcePath, LoadOptions options = null)
+    // The assert callbacks take Func<..., Task> rather than Action: TUnit assertions are
+    // awaitable, so a callback that asserts must be awaited or the assertion never runs.
+    public static async Task LoadAndAssert(Func<XLWorkbook, Task> assertWorkbook, string loadResourcePath, LoadOptions options = null)
     {
         using var stream = GetStreamFromResource(GetResourcePath(loadResourcePath));
         using var wb = new XLWorkbook(stream, options ?? new LoadOptions());
 
-        assertWorkbook(wb);
+        await assertWorkbook(wb);
     }
 
     /// <summary>
     /// A testing method to load a workbook with a single worksheet from resource and assert
     /// the state of the loaded workbook.
     /// </summary>
-    public static void LoadAndAssert(Action<XLWorkbook, IXLWorksheet> assertWorksheet, string loadResourcePath, LoadOptions options = null)
+    public static async Task LoadAndAssert(Func<XLWorkbook, IXLWorksheet, Task> assertWorksheet, string loadResourcePath, LoadOptions options = null)
     {
-        LoadAndAssert(wb =>
+        await LoadAndAssert(async wb =>
         {
             var ws = wb.Worksheets.Single();
-            assertWorksheet(wb, ws);
+            await assertWorksheet(wb, ws);
         }, loadResourcePath, options);
     }
 
@@ -199,10 +201,10 @@ internal static class TestHelper
         return Extractor.ReadFileFromResourceToStream(resourcePath);
     }
 
-    public static void LoadFile(string filePartName)
+    public static async Task LoadFile(string filePartName)
     {
         using var stream = GetStreamFromResource(GetResourcePath(filePartName));
-        Assert.DoesNotThrow(() => _ = new XLWorkbook(stream), "Unable to load resource {0}", filePartName);
+        await Assert.That(() => _ = new XLWorkbook(stream)).ThrowsNothing();
     }
 
     public static IEnumerable<string> ListResourceFiles(Func<string, bool> predicate = null)
@@ -224,14 +226,14 @@ internal static class TestHelper
     /// was loaded correctly (i.e. properties are what was set in <paramref name="createWorksheet"/>).
     /// </param>
     /// <param name="referenceResource">Saved reference file.</param>
-    public static void CreateSaveLoadAssert(Action<XLWorkbook, IXLWorksheet> createWorksheet, Action<XLWorkbook, IXLWorksheet> assertLoadedWorkbook, string referenceResource)
+    public static async Task CreateSaveLoadAssert(Action<XLWorkbook, IXLWorksheet> createWorksheet, Func<XLWorkbook, IXLWorksheet, Task> assertLoadedWorkbook, string referenceResource)
     {
-        CreateAndCompare(wb =>
+        await CreateAndCompare(wb =>
         {
             var ws = wb.AddWorksheet();
             createWorksheet(wb, ws);
         }, referenceResource);
-        LoadAndAssert(assertLoadedWorkbook, referenceResource);
+        await LoadAndAssert(assertLoadedWorkbook, referenceResource);
     }
 
     /// <summary>
@@ -242,7 +244,7 @@ internal static class TestHelper
     /// <param name="assertLoadedWorkbook">Method to assert that workbook was loaded correctly.</param>
     /// <param name="validate">Whether to validate the workbook on save.</param>
     /// <param name="evaluateFormulas">Whether to evaluate formulas on save.</param>
-    public static void CreateSaveLoadAssert(Action<XLWorkbook, IXLWorksheet> createWorksheet, Action<XLWorkbook, IXLWorksheet> assertLoadedWorkbook, bool validate = true, bool evaluateFormulas = false)
+    public static async Task CreateSaveLoadAssert(Action<XLWorkbook, IXLWorksheet> createWorksheet, Func<XLWorkbook, IXLWorksheet, Task> assertLoadedWorkbook, bool validate = true, bool evaluateFormulas = false)
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -255,7 +257,7 @@ internal static class TestHelper
         using (var wb = new XLWorkbook(ms))
         {
             var ws = wb.Worksheets.Single();
-            assertLoadedWorkbook(wb, ws);
+            await assertLoadedWorkbook(wb, ws);
         }
     }
 }

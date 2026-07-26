@@ -4,77 +4,78 @@ using System.Reflection;
 using XLibur.Excel.Drawings;
 using XLibur.Fonts.SixLabors.V1;
 using XLibur.Graphics;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Graphics;
 
-[TestFixture]
 public class PictureInfoTests
 {
     [Test]
-    public void CanReadPng()
+    public async Task CanReadPng()
     {
-        AssertRasterImage("SampleImagePng.png", XLPictureFormat.Png, new Size(252, 152), 96, 96);
-    }
-
-    [TestCase("SampleImageJfif.jpg", 176, 270, 96, 96)]
-    [TestCase("jpeg-rgb.jpg", 200, 200, 0, 0)] // Adobe JPG, has APP14 marker right after SOI instead of APP0
-    [TestCase("jpeg-icc-profile.jpg", 4, 4, 0, 0)] // JPEG with ICC profile (APP2) as first marker
-    [TestCase("jpeg-xmp.jpg", 4, 4, 0, 0)] // JPEG with XMP metadata (APP1/XMP) as first marker
-    [TestCase("jpeg-dqt-first.jpg", 4, 4, 0, 0)] // JPEG with DQT as first marker (no APP segment)
-    public void CanReadJfif(string filename, int widthPx, int heightPx, int dpiX, int dpiY)
-    {
-        AssertRasterImage($"Jpg.{filename}", XLPictureFormat.Jpeg, new Size(widthPx, heightPx), dpiX, dpiY);
+        await AssertRasterImage("SampleImagePng.png", XLPictureFormat.Png, new Size(252, 152), 96, 96);
     }
 
     [Test]
-    public void CanReadExif()
+    [Arguments("SampleImageJfif.jpg", 176, 270, 96, 96)]
+    [Arguments("jpeg-rgb.jpg", 200, 200, 0, 0)] // Adobe JPG, has APP14 marker right after SOI instead of APP0
+    [Arguments("jpeg-icc-profile.jpg", 4, 4, 0, 0)] // JPEG with ICC profile (APP2) as first marker
+    [Arguments("jpeg-xmp.jpg", 4, 4, 0, 0)] // JPEG with XMP metadata (APP1/XMP) as first marker
+    [Arguments("jpeg-dqt-first.jpg", 4, 4, 0, 0)] // JPEG with DQT as first marker (no APP segment)
+    public async Task CanReadJfif(string filename, int widthPx, int heightPx, int dpiX, int dpiY)
     {
-        AssertRasterImage("SampleImageExif.jpg", XLPictureFormat.Jpeg, new Size(252, 152), 0, 0);
+        await AssertRasterImage($"Jpg.{filename}", XLPictureFormat.Jpeg, new Size(widthPx, heightPx), dpiX, dpiY);
     }
 
     [Test]
-    public void CanReadGif87Image()
+    public async Task CanReadExif()
     {
-        AssertRasterImage("SampleImageGif87a.gif", XLPictureFormat.Gif, new Size(500, 200), 0, 0);
+        await AssertRasterImage("SampleImageExif.jpg", XLPictureFormat.Jpeg, new Size(252, 152), 0, 0);
     }
 
     [Test]
-    public void CanReadGif89Image()
+    public async Task CanReadGif87Image()
     {
-        AssertRasterImage("SampleImageGif89a.gif", XLPictureFormat.Gif, new Size(500, 200), 0, 0);
-    }
-
-    [TestCase("SampleImageBmpWin24bit.bmp")]
-    [TestCase("SampleImageBmpWin8bit.bmp")]
-    [TestCase("SampleImageBmpWin4bit.bmp")]
-    [TestCase("SampleImageBmpWin24bit.bmp")]
-    public void CanReadBmpImageV3AndFurther(string imageName)
-    {
-        AssertRasterImage(imageName, XLPictureFormat.Bmp, new Size(167, 51), 80.645d, 80.645d);
+        await AssertRasterImage("SampleImageGif87a.gif", XLPictureFormat.Gif, new Size(500, 200), 0, 0);
     }
 
     [Test]
-    public void CanReadBmpV1()
+    public async Task CanReadGif89Image()
     {
-        AssertRasterImage("SampleImageBmpV1.bmp", XLPictureFormat.Bmp, new Size(150, 50), 0, 0);
+        await AssertRasterImage("SampleImageGif89a.gif", XLPictureFormat.Gif, new Size(500, 200), 0, 0);
     }
 
     [Test]
-    public void CanReadOs2BitmapArray()
+    [Arguments("SampleImageBmpWin24bit.bmp")]
+    [Arguments("SampleImageBmpWin8bit.bmp")]
+    [Arguments("SampleImageBmpWin4bit.bmp")]
+    [Arguments("SampleImageBmpWin24bit.bmp")]
+    public async Task CanReadBmpImageV3AndFurther(string imageName)
+    {
+        await AssertRasterImage(imageName, XLPictureFormat.Bmp, new Size(167, 51), 80.645d, 80.645d);
+    }
+
+    [Test]
+    public async Task CanReadBmpV1()
+    {
+        await AssertRasterImage("SampleImageBmpV1.bmp", XLPictureFormat.Bmp, new Size(150, 50), 0, 0);
+    }
+
+    [Test]
+    public async Task CanReadOs2BitmapArray()
     {
         // OS/2 "BA" file: a 14-byte BITMAPARRAYHEADER wrapping a plain BM bitmap
         // with a 12-byte BITMAPCOREHEADER (V1) reporting a 120x80 image.
         using var stream = new MemoryStream(BuildBitmapArrayV1(width: 120, height: 80));
         var read = new BmpInfoReader().TryGetInfo(stream, out var info);
 
-        Assert.IsTrue(read);
-        Assert.AreEqual(XLPictureFormat.Bmp, info.Format);
-        Assert.AreEqual(new Size(120, 80), info.SizePx);
+        await Assert.That(read).IsTrue();
+        await Assert.That(info.Format).IsEqualTo(XLPictureFormat.Bmp);
+        await Assert.That(info.SizePx).IsEqualTo(new Size(120, 80));
     }
 
     [Test]
-    public void Os2IconArrayIsRejected()
+    public async Task Os2IconArrayIsRejected()
     {
         // Same wrapper, but the inner entry is an OS/2 icon ("IC"), which Excel can't read.
         var bytes = BuildBitmapArrayV1(width: 120, height: 80);
@@ -82,7 +83,7 @@ public class PictureInfoTests
         bytes[15] = (byte)'C';
         using var stream = new MemoryStream(bytes);
 
-        Assert.IsFalse(new BmpInfoReader().TryGetInfo(stream, out _));
+        await Assert.That(new BmpInfoReader().TryGetInfo(stream, out _)).IsFalse();
     }
 
     private static byte[] BuildBitmapArrayV1(ushort width, ushort height)
@@ -99,43 +100,44 @@ public class PictureInfoTests
     }
 
     [Test]
-    public void CanReadTiffWithBigEndianEncoding()
+    public async Task CanReadTiffWithBigEndianEncoding()
     {
-        AssertRasterImage("SampleImageTiffBigEndian.tiff", XLPictureFormat.Tiff, new Size(130, 45), 96, 96);
+        await AssertRasterImage("SampleImageTiffBigEndian.tiff", XLPictureFormat.Tiff, new Size(130, 45), 96, 96);
     }
 
     [Test]
-    public void CanReadTiffWithLittleEndianEncoding()
+    public async Task CanReadTiffWithLittleEndianEncoding()
     {
-        AssertRasterImage("SampleImageTiffLittleEndian.tiff", XLPictureFormat.Tiff, new Size(130, 45), 96, 96);
+        await AssertRasterImage("SampleImageTiffLittleEndian.tiff", XLPictureFormat.Tiff, new Size(130, 45), 96, 96);
     }
 
     [Test]
-    public void CanReadPcx()
+    public async Task CanReadPcx()
     {
-        AssertRasterImage("SampleImagePcx.pcx", XLPictureFormat.Pcx, new Size(100, 50), 96, 96);
+        await AssertRasterImage("SampleImagePcx.pcx", XLPictureFormat.Pcx, new Size(100, 50), 96, 96);
     }
 
     [Test]
-    public void PcxWithValidWindowBoundsIsRead()
+    public async Task PcxWithValidWindowBoundsIsRead()
     {
         // Sanity check that a hand-built header with sensible bounds is accepted.
         using var stream = new MemoryStream(BuildPcxHeader(xMin: 0, yMin: 0, xMax: 99, yMax: 49));
         var read = new PcxInfoReader().TryGetInfo(stream, out var info);
 
-        Assert.IsTrue(read);
-        Assert.AreEqual(new Size(100, 50), info.SizePx);
+        await Assert.That(read).IsTrue();
+        await Assert.That(info.SizePx).IsEqualTo(new Size(100, 50));
     }
 
-    [TestCase(99, 0, 0, 49, TestName = "PcxRejectsXMaxBelowXMin")]
-    [TestCase(0, 49, 99, 0, TestName = "PcxRejectsYMaxBelowYMin")]
-    public void PcxWithMalformedWindowBoundsIsRejected(int xMin, int yMin, int xMax, int yMax)
+    [Test]
+    [Arguments(99, 0, 0, 49, DisplayName = "PcxRejectsXMaxBelowXMin")]
+    [Arguments(0, 49, 99, 0, DisplayName = "PcxRejectsYMaxBelowYMin")]
+    public async Task PcxWithMalformedWindowBoundsIsRejected(int xMin, int yMin, int xMax, int yMax)
     {
         // Otherwise valid PCX signature, but Max < Min would yield a zero/negative size.
         using var stream = new MemoryStream(BuildPcxHeader(xMin, yMin, xMax, yMax));
         var read = new PcxInfoReader().TryGetInfo(stream, out _);
 
-        Assert.IsFalse(read);
+        await Assert.That(read).IsFalse();
     }
 
     private static byte[] BuildPcxHeader(int xMin, int yMin, int xMax, int yMax)
@@ -161,75 +163,75 @@ public class PictureInfoTests
     }
 
     [Test]
-    public void CanReadWmfWithPlaceableHeader()
+    public async Task CanReadWmfWithPlaceableHeader()
     {
-        AssertVectorImage("SampleImagePlaceableWmf.wmf", XLPictureFormat.Wmf, new Size(1000, 500));
+        await AssertVectorImage("SampleImagePlaceableWmf.wmf", XLPictureFormat.Wmf, new Size(1000, 500));
     }
 
     [Test]
-    public void CanReadWmfWithOriginalHeader()
+    public async Task CanReadWmfWithOriginalHeader()
     {
-        AssertVectorImage("SampleImageOriginalWmf.wmf", XLPictureFormat.Wmf, new Size(12496, 6247));
+        await AssertVectorImage("SampleImageOriginalWmf.wmf", XLPictureFormat.Wmf, new Size(12496, 6247));
     }
 
     [Test]
-    public void CanReadEmf()
+    public async Task CanReadEmf()
     {
-        AssertVectorImage("SampleImageEmf.emf", XLPictureFormat.Emf, new Size(28844, 28938));
+        await AssertVectorImage("SampleImageEmf.emf", XLPictureFormat.Emf, new Size(28844, 28938));
     }
 
     [Test]
-    public void CanReadExtendedWebp()
+    public async Task CanReadExtendedWebp()
     {
-        AssertRasterImage("SampleImageWebpExtendedFormat.webp", XLPictureFormat.Webp, new Size(188, 231), 72, 72);
+        await AssertRasterImage("SampleImageWebpExtendedFormat.webp", XLPictureFormat.Webp, new Size(188, 231), 72, 72);
     }
 
     [Test]
-    public void CanReadLossyWebp()
+    public async Task CanReadLossyWebp()
     {
-        AssertRasterImage("SampleImageWebpLossy.webp", XLPictureFormat.Webp, new Size(278, 90), 72, 72);
+        await AssertRasterImage("SampleImageWebpLossy.webp", XLPictureFormat.Webp, new Size(278, 90), 72, 72);
     }
 
     [Test]
-    public void CanReadLosslessWebp()
+    public async Task CanReadLosslessWebp()
     {
-        AssertRasterImage("SampleImageWebpLossless.webp", XLPictureFormat.Webp, new Size(395, 136), 72, 72);
+        await AssertRasterImage("SampleImageWebpLossless.webp", XLPictureFormat.Webp, new Size(395, 136), 72, 72);
     }
 
     [Test]
-    public void CanReadSvgWithWidthAndHeight()
+    public async Task CanReadSvgWithWidthAndHeight()
     {
-        AssertRasterImage("SampleImageSvg.svg", XLPictureFormat.Svg, new Size(24, 24), 96, 96);
+        await AssertRasterImage("SampleImageSvg.svg", XLPictureFormat.Svg, new Size(24, 24), 96, 96);
     }
 
     [Test]
-    public void CanReadSvgWithViewBoxOnly()
+    public async Task CanReadSvgWithViewBoxOnly()
     {
-        AssertRasterImage("SampleImageSvgViewBox.svg", XLPictureFormat.Svg, new Size(100, 50), 96, 96);
+        await AssertRasterImage("SampleImageSvgViewBox.svg", XLPictureFormat.Svg, new Size(100, 50), 96, 96);
     }
 
-    private static void AssertRasterImage(string imageName, XLPictureFormat expectedFormat, Size expectedPxSize, double expectedDpiX, double expectedDpiY)
+    private static async Task AssertRasterImage(string imageName, XLPictureFormat expectedFormat, Size expectedPxSize, double expectedDpiX, double expectedDpiY)
     {
-        AssertImage(imageName, expectedFormat, expectedPxSize, Size.Empty, expectedDpiX, expectedDpiY);
+        await AssertImage(imageName, expectedFormat, expectedPxSize, Size.Empty, expectedDpiX, expectedDpiY);
     }
 
-    private static void AssertVectorImage(string imageName, XLPictureFormat expectedFormat, Size expectedHiMetricSize)
+    private static async Task AssertVectorImage(string imageName, XLPictureFormat expectedFormat, Size expectedHiMetricSize)
     {
-        AssertImage(imageName, expectedFormat, Size.Empty, expectedHiMetricSize, 0, 0);
+        await AssertImage(imageName, expectedFormat, Size.Empty, expectedHiMetricSize, 0, 0);
     }
 
-    private static void AssertImage(string imageName, XLPictureFormat expectedFormat, Size expectedPxSize, Size expectedHiMetricSize, double expectedDpiX, double expectedDpiY)
+    private static async Task AssertImage(string imageName, XLPictureFormat expectedFormat, Size expectedPxSize, Size expectedHiMetricSize, double expectedDpiX, double expectedDpiY)
     {
-        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"XLibur.Tests.Resource.Images.{imageName}");
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream($"XLibur.Tests.Resource.Images.{imageName}");
         var engine = new DefaultGraphicEngine(DefaultFontEngine.Instance.Value);
         var info = engine.GetPictureInfo(stream, XLPictureFormat.Unknown);
 
-        Assert.AreEqual(expectedFormat, info.Format);
-        Assert.AreEqual(expectedPxSize, info.SizePx);
-        Assert.AreEqual(expectedHiMetricSize, info.SizePhys);
+        await Assert.That(info.Format).IsEqualTo(expectedFormat);
+        await Assert.That(info.SizePx).IsEqualTo(expectedPxSize);
+        await Assert.That(info.SizePhys).IsEqualTo(expectedHiMetricSize);
 
         // Some DPI is stored as pixels per meter, causing a rounding errors.
-        Assert.AreEqual(expectedDpiX, info.DpiX, 0.02);
-        Assert.AreEqual(expectedDpiY, info.DpiY, 0.02);
+        await Assert.That(info.DpiX).IsEqualTo(expectedDpiX).Within(0.02);
+        await Assert.That(info.DpiY).IsEqualTo(expectedDpiY).Within(0.02);
     }
 }

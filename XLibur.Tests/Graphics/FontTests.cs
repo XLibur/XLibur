@@ -1,67 +1,71 @@
 ﻿using System;
 using XLibur.Excel;
 using XLibur.Graphics;
-using NUnit.Framework;
 using XLibur.Fonts.SixLabors.V1;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Graphics;
 
-[TestFixture]
 public class FontTests
 {
     private readonly IXLGraphicEngine _engine = new DefaultGraphicEngine(DefaultFontEngine.Instance.Value);
 
-    [TestCase]
-    public void CalculatedTextWidth()
+    [Test]
+    [Arguments]
+    public async Task CalculatedTextWidth()
     {
         var textFont = new DummyFont("Calibri", 20);
         var textWidthPt = _engine.GetTextWidth("Lorem ipsum dolor sit amet", textFont, 96);
-        Assert.That(textWidthPt, Is.EqualTo(300));
+        await Assert.That(textWidthPt).IsEqualTo(300);
     }
 
-    [TestCase]
-    public void CalculatedTextHeight()
+    [Test]
+    [Arguments]
+    public async Task CalculatedTextHeight()
     {
         var textFont = new DummyFont("Calibri", 300);
         var textHeightPx = _engine.GetTextHeight(textFont, 96);
         // Calibri on Windows (~500) vs Carlito fallback on Linux (~596) have different metrics
-        Assert.That(textHeightPx, Is.EqualTo(500).Within(100));
+        await Assert.That(textHeightPx).IsEqualTo(500).Within(100);
     }
 
-    [TestCase]
-    public void GetMaxDigitWidth()
+    [Test]
+    [Arguments]
+    public async Task GetMaxDigitWidth()
     {
         var textFont = new DummyFont("Calibri", 11);
         var textWidthPx = _engine.GetMaxDigitWidth(textFont, 96);
-        Assert.That(textWidthPx, Is.EqualTo(7.43359375d)); // Calibri,11 has a max digit width of 7 per spec 18.3.1.13
+        await Assert.That(textWidthPx).IsEqualTo(7.43359375d); // Calibri,11 has a max digit width of 7 per spec 18.3.1.13
     }
 
-    [TestCase]
-    public void DescentIsPositive()
+    [Test]
+    [Arguments]
+    public async Task DescentIsPositive()
     {
         var textFont = new DummyFont("Calibri", 11);
         var textWidthPt = _engine.GetDescent(textFont, 96);
         // Calibri on Windows vs Carlito fallback on Linux gives slightly different metrics
-        Assert.That(textWidthPt, Is.EqualTo(3.666666666666667d).Within(0.5));
+        await Assert.That(textWidthPt).IsEqualTo(3.666666666666667d).Within(0.5);
     }
 
-    [TestCase]
-    public void NonExistentFontUsesFallback()
+    [Test]
+    [Arguments]
+    public async Task NonExistentFontUsesFallback()
     {
         var nonExistentFont = new DummyFont("NonExistentFont", 100);
         var fallbackFont = new DummyFont("Microsoft Sans Serif", 100);
 
         var nonExistentFontWidth = _engine.GetTextWidth("ABCDEF text", nonExistentFont, 96);
         var fallbackFontWidth = _engine.GetTextWidth("ABCDEF text", fallbackFont, 96);
-        Assert.That(nonExistentFontWidth, Is.EqualTo(fallbackFontWidth));
+        await Assert.That(nonExistentFontWidth).IsEqualTo(fallbackFontWidth);
 
         var nonExistentFontHeight = _engine.GetTextHeight(nonExistentFont, 96);
         var fallbackFontHeight = _engine.GetTextHeight(fallbackFont, 96);
-        Assert.That(nonExistentFontHeight, Is.EqualTo(fallbackFontHeight));
+        await Assert.That(nonExistentFontHeight).IsEqualTo(fallbackFontHeight);
     }
 
     [Test]
-    public void UseEmbeddedFontWhenFallbackFontIsNotPresent()
+    public async Task UseEmbeddedFontWhenFallbackFontIsNotPresent()
     {
         var nonExistentFont = new DummyFont("SomeNonExistentFont", 11);
         var fontEngine = new DefaultFontEngine("NonExistentFallbackFont");
@@ -70,11 +74,12 @@ public class FontTests
         var box = fontEngine.GetGlyphBox(text, nonExistentFont, new Dpi(96, 96));
 
         // Max digit width of CarlitoBare is ~7.4 at 11pt, unlike MS Sans Serif which is ~8
-        Assert.That(box.AdvanceWidth, Is.EqualTo(7.43359375f));
+        await Assert.That(box.AdvanceWidth).IsEqualTo(7.43359375f);
     }
 
-    [TestCase]
-    public void CanSpecifyFallbackFontWithoutFileSystem()
+    [Test]
+    [Arguments]
+    public async Task CanSpecifyFallbackFontWithoutFileSystem()
     {
         using var fallbackFontStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
         var fontEngine = DefaultFontEngine.CreateOnlyWithFonts(fallbackFontStream);
@@ -83,11 +88,12 @@ public class FontTests
         var widthOfLetterA = fontEngine.GetTextWidth("A", nonExistentFont, 120);
 
         const double expectedWidthOfLetterA = 31.25d;
-        Assert.AreEqual(expectedWidthOfLetterA, widthOfLetterA, 0.0001);
+        await Assert.That(widthOfLetterA).IsEqualTo(expectedWidthOfLetterA).Within(0.0001);
     }
 
-    [TestCase]
-    public void CanSpecifyExtraFontsAsStreamsWithoutFileSystem()
+    [Test]
+    [Arguments]
+    public async Task CanSpecifyExtraFontsAsStreamsWithoutFileSystem()
     {
         using var fallbackFontStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
         var fontBStream = TestHelper.GetStreamFromResource("Fonts.TestFontB.ttf");
@@ -96,11 +102,12 @@ public class FontTests
         var widthOfLetterB = fontEngine.GetTextWidth("B", new DummyFont("TestFontB", 30), 96);
 
         const double expectedWidthOfLetterB = 25d;
-        Assert.AreEqual(expectedWidthOfLetterB, widthOfLetterB, 0.0001);
+        await Assert.That(widthOfLetterB).IsEqualTo(expectedWidthOfLetterB).Within(0.0001);
     }
 
-    [TestCase]
-    public void Issue_1916_CanMeasureSpecificArabicText()
+    [Test]
+    [Arguments]
+    public async Task Issue_1916_CanMeasureSpecificArabicText()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -108,20 +115,20 @@ public class FontTests
         ws.Column(1).AdjustToContents();
 
         // AdjustToContents should set width to match content (short Arabic text is narrower than default)
-        Assert.That(ws.Column(1).Width, Is.GreaterThan(0));
+        await Assert.That(ws.Column(1).Width).IsGreaterThan(0);
     }
 
     [Test]
-    public void DefaultFontEngine_CanBeUsedDirectly()
+    public async Task DefaultFontEngine_CanBeUsedDirectly()
     {
         var fontEngine = DefaultFontEngine.Instance.Value;
         var textFont = new DummyFont("Calibri", 11);
         var textWidthPx = fontEngine.GetMaxDigitWidth(textFont, 96);
-        Assert.That(textWidthPx, Is.EqualTo(7.43359375d));
+        await Assert.That(textWidthPx).IsEqualTo(7.43359375d);
     }
 
     [Test]
-    public void DefaultFontEngine_CanSpecifyFallbackFontWithoutFileSystem()
+    public async Task DefaultFontEngine_CanSpecifyFallbackFontWithoutFileSystem()
     {
         using var fallbackFontStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
         var fontEngine = DefaultFontEngine.CreateOnlyWithFonts(fallbackFontStream);
@@ -130,11 +137,11 @@ public class FontTests
         var widthOfLetterA = fontEngine.GetTextWidth("A", nonExistentFont, 120);
 
         const double expectedWidthOfLetterA = 31.25d;
-        Assert.That(widthOfLetterA, Is.EqualTo(expectedWidthOfLetterA).Within(0.0001));
+        await Assert.That(widthOfLetterA).IsEqualTo(expectedWidthOfLetterA).Within(0.0001);
     }
 
     [Test]
-    public void FontEngine_CanBeInjectedViaLoadOptions()
+    public async Task FontEngine_CanBeInjectedViaLoadOptions()
     {
         using var fallbackFontStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
         var customFontEngine = DefaultFontEngine.CreateOnlyWithFonts(fallbackFontStream);
@@ -147,7 +154,7 @@ public class FontTests
         ws.Cell(1, 1).Value = "Test";
         ws.Column(1).AdjustToContents();
 
-        Assert.That(ws.Column(1).Width, Is.GreaterThan(0));
+        await Assert.That(ws.Column(1).Width).IsGreaterThan(0);
     }
 
     private class DummyFont : IXLFontBase

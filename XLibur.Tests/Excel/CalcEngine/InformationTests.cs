@@ -1,151 +1,158 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using XLibur.Extensions;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
-[TestFixture]
 [SetCulture("en-US")]
 public class InformationTests
 {
-    [TestCase("A1")] // blank
-    [TestCase("TRUE")]
-    [TestCase("14.5")]
-    [TestCase("\"text\"")]
-    public void ErrorType_NonErrorsAreNA(string argumentFormula)
+    [Test]
+    [Arguments("A1")] // blank
+    [Arguments("TRUE")]
+    [Arguments("14.5")]
+    [Arguments("\"text\"")]
+    public async Task ErrorType_NonErrorsAreNA(string argumentFormula)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate($"ERROR.TYPE({argumentFormula})"));
+        await Assert.That(ws.Evaluate($"ERROR.TYPE({argumentFormula})")).IsEqualTo(XLError.NoValueAvailable);
     }
 
-    [TestCase("#NULL!", 1)]
-    [TestCase("#DIV/0!", 2)]
-    [TestCase("#VALUE!", 3)]
-    [TestCase("#REF!", 4)]
-    [TestCase("#NAME?", 5)]
-    [TestCase("#NUM!", 6)]
-    [TestCase("#N/A", 7)]
+    [Test]
+    [Arguments("#NULL!", 1)]
+    [Arguments("#DIV/0!", 2)]
+    [Arguments("#VALUE!", 3)]
+    [Arguments("#REF!", 4)]
+    [Arguments("#NAME?", 5)]
+    [Arguments("#NUM!", 6)]
+    [Arguments("#N/A", 7)]
     //[TestCase("#GETTING_DATA", 8)] OLAP Cube not supported
     // #SPILL! (ERROR.TYPE 9) can't be written as a literal — the parser doesn't tokenize it —
     // so it is covered against a real spilled #SPILL! cell in SpillEvaluationTests.
-    public void ErrorType_ReturnsNumberForError(string error, int expectedNumber)
+    public async Task ErrorType_ReturnsNumberForError(string error, int expectedNumber)
     {
-        Assert.AreEqual(expectedNumber, XLWorkbook.EvaluateExpr($"ERROR.TYPE({error})"));
+        await Assert.That(XLWorkbook.EvaluateExpr($"ERROR.TYPE({error})")).IsEqualTo(expectedNumber);
     }
 
     #region IsBlank Tests
 
     [Test]
-    public void IsBlank_EmptyCell_True()
+    public async Task IsBlank_EmptyCell_True()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var actual = ws.Evaluate("IsBlank(A1)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
     }
 
     [Test]
-    public void IsBlank_NonEmptyCell_False()
+    public async Task IsBlank_NonEmptyCell_False()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").Value = "1";
         var actual = ws.Evaluate("IsBlank(A1)");
-        Assert.AreEqual(false, actual);
-    }
-
-    [TestCase("FALSE")]
-    [TestCase("0")]
-    [TestCase("5")]
-    [TestCase("\"\"")]
-    [TestCase("\"Hello\"")]
-    [TestCase("#DIV/0!")]
-    public void IsBlank_NonEmptyValue_False(string value)
-    {
-        var actual = XLWorkbook.EvaluateExpr($"IsBlank({value})");
-        Assert.AreEqual(false, actual);
+        await Assert.That(actual).IsEqualTo(false);
     }
 
     [Test]
-    public void IsBlank_InlineBlank_True()
+    [Arguments("FALSE")]
+    [Arguments("0")]
+    [Arguments("5")]
+    [Arguments("\"\"")]
+    [Arguments("\"Hello\"")]
+    [Arguments("#DIV/0!")]
+    public async Task IsBlank_NonEmptyValue_False(string value)
+    {
+        var actual = XLWorkbook.EvaluateExpr($"IsBlank({value})");
+        await Assert.That(actual).IsEqualTo(false);
+    }
+
+    [Test]
+    public async Task IsBlank_InlineBlank_True()
     {
         var actual = XLWorkbook.EvaluateExpr("IsBlank(IF(TRUE,,))");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
     }
 
     #endregion IsBlank Tests
 
-    [TestCase("IF(TRUE,,)")]
-    [TestCase("FALSE")]
-    [TestCase("0")]
-    [TestCase("\"\"")]
-    [TestCase("\"text\"")]
-    public void IsErr_NonErrorValues_False(string valueFormula)
+    [Test]
+    [Arguments("IF(TRUE,,)")]
+    [Arguments("FALSE")]
+    [Arguments("0")]
+    [Arguments("\"\"")]
+    [Arguments("\"text\"")]
+    public async Task IsErr_NonErrorValues_False(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsErr({valueFormula})");
-        Assert.AreEqual(false, actual);
-    }
-
-    [TestCase("#DIV/0!")]
-    [TestCase("#NAME?")]
-    [TestCase("#NULL!")]
-    [TestCase("#NUM!")]
-    [TestCase("#REF!")]
-    [TestCase("#VALUE!")]
-    public void IsErr_ErrorsExceptNA_True(string valueFormula)
-    {
-        var actual = XLWorkbook.EvaluateExpr($"IsErr({valueFormula})");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(false);
     }
 
     [Test]
-    public void IsErr_NA_False()
+    [Arguments("#DIV/0!")]
+    [Arguments("#NAME?")]
+    [Arguments("#NULL!")]
+    [Arguments("#NUM!")]
+    [Arguments("#REF!")]
+    [Arguments("#VALUE!")]
+    public async Task IsErr_ErrorsExceptNA_True(string valueFormula)
+    {
+        var actual = XLWorkbook.EvaluateExpr($"IsErr({valueFormula})");
+        await Assert.That(actual).IsEqualTo(true);
+    }
+
+    [Test]
+    public async Task IsErr_NA_False()
     {
         var actual = XLWorkbook.EvaluateExpr("IsErr(#N/A)");
-        Assert.AreEqual(false, actual);
+        await Assert.That(actual).IsEqualTo(false);
     }
 
-    [TestCase("#DIV/0!")]
-    [TestCase("#N/A")]
-    [TestCase("#NAME?")]
-    [TestCase("#NULL!")]
-    [TestCase("#NUM!")]
-    [TestCase("#REF!")]
-    [TestCase("#VALUE!")]
-    public void IsError_Errors_True(string error)
+    [Test]
+    [Arguments("#DIV/0!")]
+    [Arguments("#N/A")]
+    [Arguments("#NAME?")]
+    [Arguments("#NULL!")]
+    [Arguments("#NUM!")]
+    [Arguments("#REF!")]
+    [Arguments("#VALUE!")]
+    public async Task IsError_Errors_True(string error)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsError({error})");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
     }
 
-    [TestCase("IF(TRUE,,)")]
-    [TestCase("FALSE")]
-    [TestCase("0")]
-    [TestCase("\"\"")]
-    [TestCase("\"text\"")]
-    public void IsError_NonErrors_False(string valueFormula)
+    [Test]
+    [Arguments("IF(TRUE,,)")]
+    [Arguments("FALSE")]
+    [Arguments("0")]
+    [Arguments("\"\"")]
+    [Arguments("\"text\"")]
+    public async Task IsError_NonErrors_False(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsError({valueFormula})");
-        Assert.AreEqual(false, actual);
+        await Assert.That(actual).IsEqualTo(false);
     }
 
     #region IsEven Tests
 
-    [TestCase("2")]
-    [TestCase("\"1 2/2\"")]
-    [TestCase("\"4 1/2\"")]
-    [TestCase("\"48:30:00\"")]
-    [TestCase("\"1900-01-02\"")]
-    public void IsEven_NumberLikeValue_ConvertedThroughValueSemantic(string valueFormula)
+    [Test]
+    [Arguments("2")]
+    [Arguments("\"1 2/2\"")]
+    [Arguments("\"4 1/2\"")]
+    [Arguments("\"48:30:00\"")]
+    [Arguments("\"1900-01-02\"")]
+    public async Task IsEven_NumberLikeValue_ConvertedThroughValueSemantic(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsEven({valueFormula})");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
     }
 
     [Test]
-    public void IsEven_NonIntegerValues_TruncatedForEvaluation()
+    public async Task IsEven_NonIntegerValues_TruncatedForEvaluation()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet");
@@ -155,74 +162,77 @@ public class InformationTests
         ws.Cell("A3").Value = -2.9;
 
         var actual = ws.Evaluate("=IsEven(A1)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
 
         actual = ws.Evaluate("=IsEven(A2)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
 
         actual = ws.Evaluate("=IsEven(A3)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
 
         actual = ws.Evaluate("=IsEven(A4)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
     }
 
     [Test]
-    [Ignore("Arrays not yet implemented.")]
-    public void IsEven_Array_ReturnsArray()
+    [Skip("Arrays not yet implemented.")]
+    public async Task IsEven_Array_ReturnsArray()
     {
-        Assert.AreEqual(2.0, XLWorkbook.EvaluateExpr("SUM(N(IsEven({\"2.9\";2;1})))"));
+        await Assert.That(XLWorkbook.EvaluateExpr("SUM(N(IsEven({\"2.9\";2;1})))")).IsEqualTo(2.0);
     }
 
     [Test]
-    public void IsEven_ReferenceToMoreThanOneCell_Error()
+    public async Task IsEven_ReferenceToMoreThanOneCell_Error()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell(1, 2).FormulaA1 = "IsEven(A1:A2)";
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Cell(1, 2).Value);
+        await Assert.That(ws.Cell(1, 2).Value).IsEqualTo(XLError.IncompatibleValue);
     }
 
-    [TestCase("TRUE", XLError.IncompatibleValue)]
-    [TestCase("FALSE", XLError.IncompatibleValue)]
-    [TestCase("\"\"", XLError.IncompatibleValue)]
-    [TestCase("\"test\"", XLError.IncompatibleValue)]
-    [TestCase("#DIV/0!", XLError.DivisionByZero)]
-    [TestCase("IF(TRUE,,)", XLError.NoValueAvailable)] // Behaves differently from a reference to a blank cell
-    public void IsEven_NonNumberValues_Error(string valueFormula, XLError expectedError)
+    [Test]
+    [Arguments("TRUE", XLError.IncompatibleValue)]
+    [Arguments("FALSE", XLError.IncompatibleValue)]
+    [Arguments("\"\"", XLError.IncompatibleValue)]
+    [Arguments("\"test\"", XLError.IncompatibleValue)]
+    [Arguments("#DIV/0!", XLError.DivisionByZero)]
+    [Arguments("IF(TRUE,,)", XLError.NoValueAvailable)] // Behaves differently from a reference to a blank cell
+    public async Task IsEven_NonNumberValues_Error(string valueFormula, XLError expectedError)
     {
-        Assert.AreEqual(expectedError, XLWorkbook.EvaluateExpr($"IsEven({valueFormula})"));
+        await Assert.That(XLWorkbook.EvaluateExpr($"IsEven({valueFormula})")).IsEqualTo(expectedError);
     }
 
     #endregion IsEven Tests
 
     #region IsLogical Tests
 
-    [TestCase("TRUE")]
-    [TestCase("FALSE")]
-    public void IsLogical_OnlyLogical_True(string valueFormula)
+    [Test]
+    [Arguments("TRUE")]
+    [Arguments("FALSE")]
+    public async Task IsLogical_OnlyLogical_True(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsLogical({valueFormula})");
-        Assert.AreEqual(true, actual);
-    }
-
-    [TestCase("IF(TRUE,,)")]
-    [TestCase("0")]
-    [TestCase("1")]
-    [TestCase("\"\"")]
-    [TestCase("\"text\"")]
-    [TestCase("#NAME?")]
-    [TestCase("#N/A")]
-    [TestCase("#VALUE!")]
-    [TestCase("#REF!")]
-    public void IsLogical_NonLogicalValue_False(string valueFormula)
-    {
-        var actual = XLWorkbook.EvaluateExpr($"IsLogical({valueFormula})");
-        Assert.AreEqual(false, actual);
+        await Assert.That(actual).IsEqualTo(true);
     }
 
     [Test]
-    public void IsLogical_ReferenceToLogicalValue_True()
+    [Arguments("IF(TRUE,,)")]
+    [Arguments("0")]
+    [Arguments("1")]
+    [Arguments("\"\"")]
+    [Arguments("\"text\"")]
+    [Arguments("#NAME?")]
+    [Arguments("#N/A")]
+    [Arguments("#VALUE!")]
+    [Arguments("#REF!")]
+    public async Task IsLogical_NonLogicalValue_False(string valueFormula)
+    {
+        var actual = XLWorkbook.EvaluateExpr($"IsLogical({valueFormula})");
+        await Assert.That(actual).IsEqualTo(false);
+    }
+
+    [Test]
+    public async Task IsLogical_ReferenceToLogicalValue_True()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -230,55 +240,57 @@ public class InformationTests
         ws.Cell("A1").Value = true;
 
         var actual = ws.Evaluate("IsLogical(A1)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
     }
 
     #endregion IsLogical Tests
 
     [Test]
-    public void IsNA_NA_True()
+    public async Task IsNA_NA_True()
     {
         var actual = XLWorkbook.EvaluateExpr("ISNA(#N/A)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
     }
 
-    [TestCase("IF(TRUE,,)")]
-    [TestCase("TRUE")]
-    [TestCase("0")]
-    [TestCase("\"\"")]
-    [TestCase("#REF!")]
-    [TestCase("\"#N/A\"")]
-    public void IsNA_NonNotAvailableValue_False(string valueFormula)
+    [Test]
+    [Arguments("IF(TRUE,,)")]
+    [Arguments("TRUE")]
+    [Arguments("0")]
+    [Arguments("\"\"")]
+    [Arguments("#REF!")]
+    [Arguments("\"#N/A\"")]
+    public async Task IsNA_NonNotAvailableValue_False(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"ISNA({valueFormula})");
-        Assert.AreEqual(false, actual);
+        await Assert.That(actual).IsEqualTo(false);
     }
 
     #region IsNotText Tests
 
     [Test]
-    public void IsNotText_ReferenceToBlankCell_True()
+    public async Task IsNotText_ReferenceToBlankCell_True()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var actual = ws.Evaluate("IsNonText(A1)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
     }
 
-    [TestCase("")]
-    [TestCase("  ")]
-    [TestCase("text")]
-    public void IsNotText_ReferenceToStringCell_False(string text)
+    [Test]
+    [Arguments("")]
+    [Arguments("  ")]
+    [Arguments("text")]
+    public async Task IsNotText_ReferenceToStringCell_False(string text)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").Value = text;
         var actual = ws.Evaluate("IsNonText(A1)");
-        Assert.AreEqual(false, actual);
+        await Assert.That(actual).IsEqualTo(false);
     }
 
     [Test]
-    public void IsNotText_NonTextValues_True()
+    public async Task IsNotText_NonTextValues_True()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet");
@@ -288,13 +300,13 @@ public class InformationTests
         ws.Cell("A4").Value = XLError.IncompatibleValue; //Error value
 
         var actual = ws.Evaluate("IsNonText(A1)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
         actual = ws.Evaluate("IsNonText(A2)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
         actual = ws.Evaluate("IsNonText(A3)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
         actual = ws.Evaluate("IsNonText(A4)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
     }
 
     #endregion IsNotText Tests
@@ -302,7 +314,7 @@ public class InformationTests
     #region IsNumber Tests
 
     [Test]
-    public void IsNumber_Simple_false()
+    public async Task IsNumber_Simple_false()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet");
@@ -310,13 +322,13 @@ public class InformationTests
         ws.Cell("A2").Value = true; //Bool Value
 
         var actual = ws.Evaluate("IsNumber(A1)");
-        Assert.AreEqual(false, actual);
+        await Assert.That(actual).IsEqualTo(false);
         actual = ws.Evaluate("IsNumber(A2)");
-        Assert.AreEqual(false, actual);
+        await Assert.That(actual).IsEqualTo(false);
     }
 
     [Test]
-    public void IsNumber_Simple_true()
+    public async Task IsNumber_Simple_true()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet");
@@ -325,44 +337,46 @@ public class InformationTests
         ws.Cell("A3").Value = new TimeSpan(2, 30, 50); //TimeSpan Value
 
         var actual = ws.Evaluate("=IsNumber(A1)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
         actual = ws.Evaluate("=IsNumber(A2)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
         actual = ws.Evaluate("=IsNumber(A3)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
     }
 
-    [TestCase("TRUE")]
-    [TestCase("FALSE")]
-    [TestCase("\"\"")]
-    [TestCase("#DIV/0!")]
-    [TestCase("#NULL!")]
-    [TestCase("#VALUE!")]
-    [TestCase("#N/A")]
-    public void IsNumber_NonNumber_False(string nonNumberValue)
+    [Test]
+    [Arguments("TRUE")]
+    [Arguments("FALSE")]
+    [Arguments("\"\"")]
+    [Arguments("#DIV/0!")]
+    [Arguments("#NULL!")]
+    [Arguments("#VALUE!")]
+    [Arguments("#N/A")]
+    public async Task IsNumber_NonNumber_False(string nonNumberValue)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsNumber({nonNumberValue})");
-        Assert.AreEqual(false, actual);
+        await Assert.That(actual).IsEqualTo(false);
     }
 
     #endregion IsNumber Tests
 
     #region IsOdd Test
 
+    [Test]
     [SetCulture("en-US")]
-    [TestCase("1")]
-    [TestCase("\"2 3/3\"")]
-    [TestCase("\"5 1/3\"")]
-    [TestCase("\"25:30:00\"")]
-    [TestCase("\"1900-01-03\"")]
-    public void IsOdd_SingleValue_ConvertedThroughValueSemantic(string valueFormula)
+    [Arguments("1")]
+    [Arguments("\"2 3/3\"")]
+    [Arguments("\"5 1/3\"")]
+    [Arguments("\"25:30:00\"")]
+    [Arguments("\"1900-01-03\"")]
+    public async Task IsOdd_SingleValue_ConvertedThroughValueSemantic(string valueFormula)
     {
         var actual = XLWorkbook.EvaluateExpr($"IsOdd({valueFormula})");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
     }
 
     [Test]
-    public void IsOdd_NonIntegerValues_TruncatedForEvaluation()
+    public async Task IsOdd_NonIntegerValues_TruncatedForEvaluation()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet");
@@ -372,51 +386,53 @@ public class InformationTests
         ws.Cell("A3").Value = -5.9;
 
         var actual = ws.Evaluate("=IsOdd(A1)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
 
         actual = ws.Evaluate("=IsOdd(A2)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
 
         actual = ws.Evaluate("=IsOdd(A3)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
 
         actual = ws.Evaluate("=IsOdd(A4)");
-        Assert.AreEqual(false, actual);
+        await Assert.That(actual).IsEqualTo(false);
     }
 
     [SetCulture("en-US")]
     [Test]
-    [Ignore("Arrays not yet implemented.")]
-    public void IsOdd_Array_ReturnsArray()
+    [Skip("Arrays not yet implemented.")]
+    public async Task IsOdd_Array_ReturnsArray()
     {
-        Assert.AreEqual(2.0, XLWorkbook.EvaluateExpr("SUM(N(IsOdd({\"3.2\",7,2})))"));
+        await Assert.That(XLWorkbook.EvaluateExpr("SUM(N(IsOdd({\"3.2\",7,2})))")).IsEqualTo(2.0);
     }
 
     [Test]
-    public void IsOdd_ReferenceToMoreThanOneCell_Error()
+    public async Task IsOdd_ReferenceToMoreThanOneCell_Error()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell(1, 2).FormulaA1 = "IsOdd(A1:A2)";
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Cell(1, 2).Value);
+        await Assert.That(ws.Cell(1, 2).Value).IsEqualTo(XLError.IncompatibleValue);
     }
 
-    [TestCase("TRUE", XLError.IncompatibleValue)]
-    [TestCase("FALSE", XLError.IncompatibleValue)]
-    [TestCase("\"\"", XLError.IncompatibleValue)]
-    [TestCase("\"test\"", XLError.IncompatibleValue)]
-    [TestCase("#DIV/0!", XLError.DivisionByZero)]
-    [TestCase("IF(TRUE,,)", XLError.NoValueAvailable)] // Behaves differently from a reference to a blank cell
-    public void IsOdd_NonNumberValues_Error(string valueFormula, XLError expectedError)
+    [Test]
+    [Arguments("TRUE", XLError.IncompatibleValue)]
+    [Arguments("FALSE", XLError.IncompatibleValue)]
+    [Arguments("\"\"", XLError.IncompatibleValue)]
+    [Arguments("\"test\"", XLError.IncompatibleValue)]
+    [Arguments("#DIV/0!", XLError.DivisionByZero)]
+    [Arguments("IF(TRUE,,)", XLError.NoValueAvailable)] // Behaves differently from a reference to a blank cell
+    public async Task IsOdd_NonNumberValues_Error(string valueFormula, XLError expectedError)
     {
-        Assert.AreEqual(expectedError, XLWorkbook.EvaluateExpr($"IsOdd({valueFormula})"));
+        await Assert.That(XLWorkbook.EvaluateExpr($"IsOdd({valueFormula})")).IsEqualTo(expectedError);
     }
 
     #endregion IsOdd Test
 
-    [TestCase("A1")]
-    [TestCase("(A1,A5)")]
-    public void IsRef_Reference_True(string reference)
+    [Test]
+    [Arguments("A1")]
+    [Arguments("(A1,A5)")]
+    public async Task IsRef_Reference_True(string reference)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet");
@@ -424,52 +440,55 @@ public class InformationTests
 
         ws.Cell("B1").FormulaA1 = $"ISREF({reference})";
 
-        Assert.AreEqual(true, ws.Cell("B1").Value);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(true);
     }
 
-    [TestCase("IF(TRUE,,)")]
-    [TestCase("TRUE")]
-    [TestCase("0")]
-    [TestCase("\"\"")]
+    [Test]
+    [Arguments("IF(TRUE,,)")]
+    [Arguments("TRUE")]
+    [Arguments("0")]
+    [Arguments("\"\"")]
     // [TestCase("{1;2}")] Arrays not yet implemented
-    [TestCase("#N/A")]
-    [TestCase("#VALUE!")]
-    public void IsRef_NonReference_False(string nonReference)
+    [Arguments("#N/A")]
+    [Arguments("#VALUE!")]
+    public async Task IsRef_NonReference_False(string nonReference)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet");
 
         ws.Cell("B1").FormulaA1 = $"ISREF({nonReference})";
 
-        Assert.AreEqual(false, ws.Cell("B1").Value);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(false);
     }
 
     #region IsText Tests
 
     [Test]
-    public void IsText_BlankCell_False()
+    public async Task IsText_BlankCell_False()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("B1").FormulaA1 = "ISTEXT(A1)";
 
-        Assert.AreEqual(false, ws.Cell("B1").Value);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(false);
     }
 
-    [TestCase("0")]
-    [TestCase("123")]
-    [TestCase("TRUE")]
-    [TestCase("#DIV/0!")]
-    [TestCase("IF(TRUE,,)")]
-    public void IsText_NonText_False(string nonText)
+    [Test]
+    [Arguments("0")]
+    [Arguments("123")]
+    [Arguments("TRUE")]
+    [Arguments("#DIV/0!")]
+    [Arguments("IF(TRUE,,)")]
+    public async Task IsText_NonText_False(string nonText)
     {
         var actual = XLWorkbook.EvaluateExpr($"ISTEXT({nonText})");
-        Assert.AreEqual(false, actual);
+        await Assert.That(actual).IsEqualTo(false);
     }
 
-    [TestCase("")]
-    [TestCase("abc")]
-    public void IsText_CellWithText_True(string textValue)
+    [Test]
+    [Arguments("")]
+    [Arguments("abc")]
+    public async Task IsText_CellWithText_True(string textValue)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -477,7 +496,7 @@ public class InformationTests
         ws.Cell("A1").Value = textValue;
 
         var actual = ws.Evaluate("IsText(A1)");
-        Assert.AreEqual(true, actual);
+        await Assert.That(actual).IsEqualTo(true);
     }
 
     #endregion IsText Tests
@@ -485,78 +504,80 @@ public class InformationTests
     #region N Tests
 
     [Test]
-    public void N_Blank_Zero()
+    public async Task N_Blank_Zero()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var actual = ws.Evaluate("N(A1)");
-        Assert.AreEqual(0.0, actual);
+        await Assert.That(actual).IsEqualTo(0.0);
     }
 
     [Test]
-    public void N_Date_SerialNumber()
+    public async Task N_Date_SerialNumber()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var testedDate = DateTime.Now;
         ws.Cell("A1").Value = testedDate;
         var actual = ws.Evaluate("N(A1)");
-        Assert.AreEqual(testedDate.ToSerialDateTime(), actual);
+        await Assert.That(actual).IsEqualTo(testedDate.ToSerialDateTime());
     }
 
     [Test]
-    public void N_False_Zero()
+    public async Task N_False_Zero()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").Value = false;
         var actual = ws.Evaluate("N(A1)");
-        Assert.AreEqual(0, actual);
+        await Assert.That(actual).IsEqualTo(0);
     }
 
     [Test]
-    public void N_True_One()
+    public async Task N_True_One()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").Value = true;
         var actual = ws.Evaluate("N(A1)");
-        Assert.AreEqual(1, actual);
+        await Assert.That(actual).IsEqualTo(1);
     }
     [Test]
-    public void N_Number_Number()
+    public async Task N_Number_Number()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var testedValue = 123;
         ws.Cell("A1").Value = testedValue;
         var actual = ws.Evaluate("N(A1)");
-        Assert.AreEqual(testedValue, actual);
+        await Assert.That(actual).IsEqualTo(testedValue);
     }
 
-    [TestCase("")]
-    [TestCase("abc")]
-    public void N_String_Zero(string text)
+    [Test]
+    [Arguments("")]
+    [Arguments("abc")]
+    public async Task N_String_Zero(string text)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").Value = text;
         var actual = ws.Evaluate("N(A1)");
-        Assert.AreEqual(0, actual);
+        await Assert.That(actual).IsEqualTo(0);
     }
 
     [Test]
-    [Ignore("Array not implemented")]
-    public void N_Array_ConvertsIndividualItems()
+    [Skip("Array not implemented")]
+    public async Task N_Array_ConvertsIndividualItems()
     {
         var actual = XLWorkbook.EvaluateExpr("SUM(N({2,TRUE}))");
-        Assert.AreEqual(3, actual);
+        await Assert.That(actual).IsEqualTo(3);
     }
 
-    [TestCase("A1")]
-    [TestCase("A1:B1")]
-    [TestCase("(A1, B1)")]
-    public void N_Reference_TakesFirstCellFromFirstArea(string reference)
+    [Test]
+    [Arguments("A1")]
+    [Arguments("A1:B1")]
+    [Arguments("(A1, B1)")]
+    public async Task N_Reference_TakesFirstCellFromFirstArea(string reference)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -564,72 +585,75 @@ public class InformationTests
         ws.Cell("B1").Value = 10;
 
         var actual = ws.Evaluate($"SUM(N({reference}))");
-        Assert.AreEqual(5, actual);
+        await Assert.That(actual).IsEqualTo(5);
     }
 
     #endregion N Tests
 
-    [TestCase("IF(TRUE,,)", 1)]
-    [TestCase("0", 1)]
-    [TestCase("1", 1)]
-    [TestCase("-5.2", 1)]
-    [TestCase("\"\"", 2)]
-    [TestCase("\"text\"", 2)]
-    [TestCase("\"1\"", 2)]
-    [TestCase("\"TRUE\"", 2)]
-    [TestCase("TRUE", 4)]
-    [TestCase("FALSE", 4)]
-    [TestCase("#DIV/0!", 16)]
-    [TestCase("1/0", 16)]
-    [TestCase("#N/A", 16)]
-    [TestCase("#VALUE!", 16)]
-    public void Type_NonReferenceScalarValues(string literalValues, double expectedNumber)
+    [Test]
+    [Arguments("IF(TRUE,,)", 1)]
+    [Arguments("0", 1)]
+    [Arguments("1", 1)]
+    [Arguments("-5.2", 1)]
+    [Arguments("\"\"", 2)]
+    [Arguments("\"text\"", 2)]
+    [Arguments("\"1\"", 2)]
+    [Arguments("\"TRUE\"", 2)]
+    [Arguments("TRUE", 4)]
+    [Arguments("FALSE", 4)]
+    [Arguments("#DIV/0!", 16)]
+    [Arguments("1/0", 16)]
+    [Arguments("#N/A", 16)]
+    [Arguments("#VALUE!", 16)]
+    public async Task Type_NonReferenceScalarValues(string literalValues, double expectedNumber)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").FormulaA1 = $"TYPE({literalValues})";
-        Assert.AreEqual(expectedNumber, ws.Cell("A1").Value);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(expectedNumber);
     }
 
-    [Ignore("Arrays not implemented")]
-    [TestCase("{1}")]
-    [TestCase("{TRUE,#N/A}")]
-    [TestCase("{\"abc\";5}")]
-    public void Type_Array_HasValue64(string arrayLiteral)
+    [Test]
+    [Skip("Arrays not implemented")]
+    [Arguments("{1}")]
+    [Arguments("{TRUE,#N/A}")]
+    [Arguments("{\"abc\";5}")]
+    public async Task Type_Array_HasValue64(string arrayLiteral)
     {
         var actual = XLWorkbook.EvaluateExpr($"TYPE({arrayLiteral})");
-        Assert.AreEqual(64.0, actual);
+        await Assert.That(actual).IsEqualTo(64.0);
     }
 
-    [TestCase("A1:A2")]
+    [Test]
+    [Arguments("A1:A2")]
     // [TestCase("(A1:A3 A2:B3)")] Not implemented // Intersection results in a 1x2 block
-    public void Type_ReferenceToNonSingleCell_BehavesLikeArray(string reference)
+    public async Task Type_ReferenceToNonSingleCell_BehavesLikeArray(string reference)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("C1").FormulaA1 = $"TYPE({reference})";
-        Assert.AreEqual(64.0, ws.Cell("C1").Value);
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(64.0);
     }
 
     [Test]
-    public void Type_ReferenceToSingleCell_ReturnsTypeOfCell()
+    public async Task Type_ReferenceToSingleCell_ReturnsTypeOfCell()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").Value = "text";
 
         ws.Cell("C1").FormulaA1 = "TYPE(A1)";
-        Assert.AreEqual(2.0, ws.Cell("C1").Value);
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(2.0);
     }
 
     [Test]
-    public void Type_MultiAreaReference_ReturnsError()
+    public async Task Type_MultiAreaReference_ReturnsError()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").Value = "text";
 
         ws.Cell("C1").FormulaA1 = "TYPE((A1,A1))";
-        Assert.AreEqual(16.0, ws.Cell("C1").Value);
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(16.0);
     }
 }

@@ -1,16 +1,16 @@
 ﻿using System.Linq;
-using NUnit.Framework;
 using XLibur.Excel;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.AutoFilters;
 
-[TestFixture]
 public class ColorFilterTests
 {
     [Test]
-    public void Color_filter_shows_rows_matching_background_color()
+    public async Task Color_filter_shows_rows_matching_background_color()
     {
-        new AutoFilterTester(f => f.ColorFilter(XLColor.Red))
+        await new AutoFilterTester(f => f.ColorFilter(XLColor.Red))
             .Add("A", s => s.Fill.SetBackgroundColor(XLColor.Red), true)
             .Add("B", s => s.Fill.SetBackgroundColor(XLColor.Blue), false)
             .Add("C", s => s.Fill.SetBackgroundColor(XLColor.Red), true)
@@ -19,9 +19,9 @@ public class ColorFilterTests
     }
 
     [Test]
-    public void Font_color_filter_shows_rows_matching_font_color()
+    public async Task Font_color_filter_shows_rows_matching_font_color()
     {
-        new AutoFilterTester(f => f.FontColorFilter(XLColor.Green))
+        await new AutoFilterTester(f => f.FontColorFilter(XLColor.Green))
             .Add("A", s => s.Font.SetFontColor(XLColor.Green), true)
             .Add("B", s => s.Font.SetFontColor(XLColor.Red), false)
             .Add("C", s => s.Font.SetFontColor(XLColor.Green), true)
@@ -30,7 +30,7 @@ public class ColorFilterTests
     }
 
     [Test]
-    public void Color_filter_replaces_previous_filter_type()
+    public async Task Color_filter_replaces_previous_filter_type()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -44,20 +44,20 @@ public class ColorFilterTests
 
         // First, set a regular filter
         autoFilter.Column(1).AddFilter(1);
-        Assert.That(autoFilter.Column(1).FilterType, Is.EqualTo(XLFilterType.Regular));
+        await Assert.That(autoFilter.Column(1).FilterType).IsEqualTo(XLFilterType.Regular);
 
         // Then switch to the color filter — should replace
         autoFilter.Column(1).ColorFilter(XLColor.Red);
-        Assert.That(autoFilter.Column(1).FilterType, Is.EqualTo(XLFilterType.Color));
+        await Assert.That(autoFilter.Column(1).FilterType).IsEqualTo(XLFilterType.Color);
 
-        Assert.That(!ws.Row(2).IsHidden, "Row with red background should be visible");
-        Assert.That(ws.Row(3).IsHidden, "Row with blue background should be hidden");
+        await Assert.That(!ws.Row(2).IsHidden).IsTrue().Because("Row with red background should be visible");
+        await Assert.That(ws.Row(3).IsHidden).IsTrue().Because("Row with blue background should be hidden");
     }
 
     [Test]
-    public void Color_filter_survives_save_and_load()
+    public async Task Color_filter_survives_save_and_load()
     {
-        TestHelper.CreateSaveLoadAssert(
+        await TestHelper.CreateSaveLoadAssert(
             (_, ws) =>
             {
                 ws.Cell("A1").Value = "Data";
@@ -70,23 +70,23 @@ public class ColorFilterTests
 
                 ws.Range("A1:A4").SetAutoFilter().Column(1).ColorFilter(XLColor.Red);
             },
-            (_, ws) =>
+            async (_, ws) =>
             {
                 var filterColumn = ws.AutoFilter.Column(1);
-                Assert.That(filterColumn.FilterType, Is.EqualTo(XLFilterType.Color));
-                Assert.That(filterColumn.FilterByCellColor, Is.True);
+                await Assert.That(filterColumn.FilterType).IsEqualTo(XLFilterType.Color);
+                await Assert.That(filterColumn.FilterByCellColor).IsTrue();
 
                 // After load, reapply to check it works
                 ws.AutoFilter.Reapply();
                 var visibility = ws.Rows("2:4").Select(row => !row.IsHidden);
-                Assert.That(visibility, Is.EqualTo([true, false, true]));
+                await Assert.That(visibility).IsEquivalentTo([true, false, true], CollectionOrdering.Matching);
             });
     }
 
     [Test]
-    public void Font_color_filter_survives_save_and_load()
+    public async Task Font_color_filter_survives_save_and_load()
     {
-        TestHelper.CreateSaveLoadAssert(
+        await TestHelper.CreateSaveLoadAssert(
             (_, ws) =>
             {
                 ws.Cell("A1").Value = "Data";
@@ -97,22 +97,22 @@ public class ColorFilterTests
 
                 ws.Range("A1:A3").SetAutoFilter().Column(1).FontColorFilter(XLColor.Green);
             },
-            (_, ws) =>
+            async (_, ws) =>
             {
                 var filterColumn = ws.AutoFilter.Column(1);
-                Assert.That(filterColumn.FilterType, Is.EqualTo(XLFilterType.Color));
-                Assert.That(filterColumn.FilterByCellColor, Is.False);
+                await Assert.That(filterColumn.FilterType).IsEqualTo(XLFilterType.Color);
+                await Assert.That(filterColumn.FilterByCellColor).IsFalse();
 
                 ws.AutoFilter.Reapply();
                 var visibility = ws.Rows("2:3").Select(row => !row.IsHidden);
-                Assert.That(visibility, Is.EqualTo([true, false]));
+                await Assert.That(visibility).IsEquivalentTo([true, false], CollectionOrdering.Matching);
             });
     }
 
     [Test]
-    public void Color_filter_with_theme_color_survives_save_and_load()
+    public async Task Color_filter_with_theme_color_survives_save_and_load()
     {
-        TestHelper.CreateSaveLoadAssert(
+        await TestHelper.CreateSaveLoadAssert(
             (_, ws) =>
             {
                 ws.Cell("A1").Value = "Data";
@@ -124,20 +124,20 @@ public class ColorFilterTests
                 ws.Range("A1:A3").SetAutoFilter().Column(1)
                     .ColorFilter(XLColor.FromTheme(XLThemeColor.Accent1));
             },
-            (_, ws) =>
+            async (_, ws) =>
             {
                 var filterColumn = ws.AutoFilter.Column(1);
-                Assert.That(filterColumn.FilterType, Is.EqualTo(XLFilterType.Color));
-                Assert.That(filterColumn.FilterByCellColor, Is.True);
+                await Assert.That(filterColumn.FilterType).IsEqualTo(XLFilterType.Color);
+                await Assert.That(filterColumn.FilterByCellColor).IsTrue();
 
                 ws.AutoFilter.Reapply();
-                Assert.That(!ws.Row(2).IsHidden, "Theme color match should be visible");
-                Assert.That(ws.Row(3).IsHidden, "Non-matching theme color should be hidden");
+                await Assert.That(!ws.Row(2).IsHidden).IsTrue().Because("Theme color match should be visible");
+                await Assert.That(ws.Row(3).IsHidden).IsTrue().Because("Non-matching theme color should be hidden");
             });
     }
 
     [Test]
-    public void Color_filter_works_with_multi_column_filter()
+    public async Task Color_filter_works_with_multi_column_filter()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -159,10 +159,10 @@ public class ColorFilterTests
         autoFilter.Column(2).AddFilter(30);
 
         // Row 2: Red + 10 → color matches, value doesn't → hidden
-        Assert.That(ws.Row(2).IsHidden, "Row with Red/10 should be hidden (value doesn't match)");
+        await Assert.That(ws.Row(2).IsHidden).IsTrue().Because("Row with Red/10 should be hidden (value doesn't match)");
         // Row 3: Blue + 20 → color doesn't match → hidden
-        Assert.That(ws.Row(3).IsHidden, "Row with Blue/20 should be hidden (color doesn't match)");
+        await Assert.That(ws.Row(3).IsHidden).IsTrue().Because("Row with Blue/20 should be hidden (color doesn't match)");
         // Row 4: Red + 30 → both match → visible
-        Assert.That(!ws.Row(4).IsHidden, "Row with Red/30 should be visible (both match)");
+        await Assert.That(!ws.Row(4).IsHidden).IsTrue().Because("Row with Red/30 should be visible (both match)");
     }
 }

@@ -1,26 +1,25 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
-[TestFixture]
 public class FormulaCachingTests
 {
     [Test]
-    public void StaticCellDoesNotNeedRecalculation()
+    public async Task StaticCellDoesNotNeedRecalculation()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.Worksheets.Add("TestSheet");
         var cell = sheet.Cell(1, 1);
         cell.Value = "1234567";
 
-        Assert.IsFalse(cell.NeedsRecalculation);
+        await Assert.That(cell.NeedsRecalculation).IsFalse();
     }
 
     [Test]
-    public void EditCellInvalidatesDependentCells()
+    public async Task EditCellInvalidatesDependentCells()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.Worksheets.Add("TestSheet");
@@ -31,11 +30,11 @@ public class FormulaCachingTests
 
         cell.Value = "1234567";
 
-        Assert.IsTrue(dependentCell.NeedsRecalculation);
+        await Assert.That(dependentCell.NeedsRecalculation).IsTrue();
     }
 
     [Test]
-    public void EditFormulaA1InvalidatesDependentCells()
+    public async Task EditFormulaA1InvalidatesDependentCells()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.Worksheets.Add("TestSheet");
@@ -52,12 +51,12 @@ public class FormulaCachingTests
         a2.FormulaA1 = "=A1*20";
         var res2 = a4.Value;
 
-        Assert.AreEqual(15 + 150 + 1500, res1);
-        Assert.AreEqual(15 + 300 + 3000, res2);
+        await Assert.That(res1).IsEqualTo(15 + 150 + 1500);
+        await Assert.That(res2).IsEqualTo(15 + 300 + 3000);
     }
 
     [Test]
-    public void EditFormulaR1C1InvalidatesDependentCells()
+    public async Task EditFormulaR1C1InvalidatesDependentCells()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.Worksheets.Add("TestSheet");
@@ -74,44 +73,44 @@ public class FormulaCachingTests
         a2.FormulaR1C1 = "=R[-1]C*2";
         var res2 = a4.Value;
 
-        Assert.AreEqual(15 + 150 + 1500, res1);
-        Assert.AreEqual(15 + 30 + 300, res2);
+        await Assert.That(res1).IsEqualTo(15 + 150 + 1500);
+        await Assert.That(res2).IsEqualTo(15 + 30 + 300);
     }
 
     [Test]
-    public void InsertRowInvalidatesValues()
+    public async Task InsertRowInvalidatesValues()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.Worksheets.Add("TestSheet");
         var a4 = sheet.Cell("A4");
         a4.FormulaA1 = "=COUNTBLANK(A1:A3)";
 
-        Assert.AreEqual(3, a4.Value);
+        await Assert.That(a4.Value).IsEqualTo(3);
 
         sheet.Row(2).InsertRowsAbove(2);
 
-        Assert.AreEqual(5, sheet.Cell("A6").Value);
+        await Assert.That(sheet.Cell("A6").Value).IsEqualTo(5);
     }
 
     [Test]
-    public void DeleteRowModifiesFormulaAndInvalidatesValues()
+    public async Task DeleteRowModifiesFormulaAndInvalidatesValues()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.Worksheets.Add("TestSheet");
         var original = sheet.Cell("A4");
         original.FormulaA1 = "=COUNTBLANK(A1:A3)";
 
-        Assert.AreEqual(3, original.Value);
+        await Assert.That(original.Value).IsEqualTo(3);
 
         sheet.Row(2).Delete();
 
         var shifted = sheet.Cell("A3");
-        Assert.AreEqual("COUNTBLANK(A1:A2)", shifted.FormulaA1);
-        Assert.AreEqual(2, shifted.Value);
+        await Assert.That(shifted.FormulaA1).IsEqualTo("COUNTBLANK(A1:A2)");
+        await Assert.That(shifted.Value).IsEqualTo(2);
     }
 
     [Test]
-    public void ChainedCalculationPreservesIntermediateValues()
+    public async Task ChainedCalculationPreservesIntermediateValues()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.Worksheets.Add("TestSheet");
@@ -126,17 +125,17 @@ public class FormulaCachingTests
         a1.Value = 15;
         var res = a4.Value;
 
-        Assert.AreEqual(15 + 150 + 1500, res);
-        Assert.IsFalse(a4.NeedsRecalculation);
-        Assert.IsFalse(a3.NeedsRecalculation);
-        Assert.IsFalse(a2.NeedsRecalculation);
-        Assert.AreEqual(150, a2.CachedValue);
-        Assert.AreEqual(1500, a3.CachedValue);
-        Assert.AreEqual(15 + 150 + 1500, a4.CachedValue);
+        await Assert.That(res).IsEqualTo(15 + 150 + 1500);
+        await Assert.That(a4.NeedsRecalculation).IsFalse();
+        await Assert.That(a3.NeedsRecalculation).IsFalse();
+        await Assert.That(a2.NeedsRecalculation).IsFalse();
+        await Assert.That(a2.CachedValue).IsEqualTo(150);
+        await Assert.That(a3.CachedValue).IsEqualTo(1500);
+        await Assert.That(a4.CachedValue).IsEqualTo(15 + 150 + 1500);
     }
 
     [Test]
-    public void EditingAffectsDependentCells()
+    public async Task EditingAffectsDependentCells()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.Worksheets.Add("TestSheet");
@@ -153,17 +152,17 @@ public class FormulaCachingTests
         a1.Value = 20;
         var res2 = a4.Value;
 
-        Assert.AreEqual(15 + 150 + 1500, res1);
-        Assert.AreEqual(20 + 200 + 2000, res2);
+        await Assert.That(res1).IsEqualTo(15 + 150 + 1500);
+        await Assert.That(res2).IsEqualTo(20 + 200 + 2000);
     }
 
     [Test]
-    [TestCase("C4", new[] { "C5" })]
-    [TestCase("D4", new string[] { })]
-    [TestCase("A1", new[] { "A2", "A3", "A4", "C1", "C2", "C3", "C5" })]
-    [TestCase("B2", new[] { "B3", "B4", "C2", "C3", "C5" })]
-    [TestCase("C2", new[] { "C5" })]
-    public void EditingDoesNotAffectNonDependingCells(string changedCell, string[] affectedCells)
+    [Arguments("C4", new[] { "C5" })]
+    [Arguments("D4", new string[] { })]
+    [Arguments("A1", new[] { "A2", "A3", "A4", "C1", "C2", "C3", "C5" })]
+    [Arguments("B2", new[] { "B3", "B4", "C2", "C3", "C5" })]
+    [Arguments("C2", new[] { "C5" })]
+    public async Task EditingDoesNotAffectNonDependingCells(string changedCell, string[] affectedCells)
     {
         using var wb = new XLWorkbook();
         var sheet = wb.Worksheets.Add("TestSheet");
@@ -184,16 +183,15 @@ public class FormulaCachingTests
         var modifiedCells = allCells.Where(cell => cell.NeedsRecalculation);
 
         var xlCells = modifiedCells as IXLCell[] ?? modifiedCells.ToArray();
-        Assert.AreEqual(affectedCells.Length, xlCells.Length);
+        await Assert.That(xlCells.Length).IsEqualTo(affectedCells.Length);
         foreach (var cellAddress in affectedCells)
         {
-            Assert.IsTrue(xlCells.Any(cell => cell.Address.ToString() == cellAddress),
-                $"Cell {cellAddress} is expected to need recalculation, but it does not");
+            await Assert.That(xlCells.Any(cell => cell.Address.ToString() == cellAddress)).IsTrue().Because($"Cell {cellAddress} is expected to need recalculation, but it does not");
         }
     }
 
     [Test]
-    public void CircularReferenceFailsCalculating()
+    public async Task CircularReferenceFailsCalculating()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.Worksheets.Add("TestSheet");
@@ -212,14 +210,14 @@ public class FormulaCachingTests
         var getValueA3 = new Action(() => { _ = a3.Value; });
         var getValueA4 = new Action(() => { _ = a4.Value; });
 
-        Assert.Throws<InvalidOperationException>(getValueA1);
-        Assert.Throws<InvalidOperationException>(getValueA2);
-        Assert.Throws<InvalidOperationException>(getValueA3);
-        Assert.Throws<InvalidOperationException>(getValueA4);
+        await Assert.That(getValueA1).Throws<InvalidOperationException>();
+        await Assert.That(getValueA2).Throws<InvalidOperationException>();
+        await Assert.That(getValueA3).Throws<InvalidOperationException>();
+        await Assert.That(getValueA4).Throws<InvalidOperationException>();
     }
 
     [Test]
-    public void CircularReferenceRecalculationNeededDoesNotFail()
+    public async Task CircularReferenceRecalculationNeededDoesNotFail()
     {
         using var wb = new XLWorkbook();
         var sheet = wb.Worksheets.Add("TestSheet");
@@ -239,14 +237,14 @@ public class FormulaCachingTests
         var recalcNeededA3 = a3.NeedsRecalculation;
         var recalcNeededA4 = a4.NeedsRecalculation;
 
-        Assert.IsTrue(recalcNeededA1);
-        Assert.IsTrue(recalcNeededA2);
-        Assert.IsTrue(recalcNeededA3);
-        Assert.IsTrue(recalcNeededA4);
+        await Assert.That(recalcNeededA1).IsTrue();
+        await Assert.That(recalcNeededA2).IsTrue();
+        await Assert.That(recalcNeededA3).IsTrue();
+        await Assert.That(recalcNeededA4).IsTrue();
     }
 
     [Test]
-    public void DeleteWorksheetInvalidatesValues()
+    public async Task DeleteWorksheetInvalidatesValues()
     {
         using var wb = new XLWorkbook();
         var sheet1 = wb.Worksheets.Add("Sheet1");
@@ -260,47 +258,47 @@ public class FormulaCachingTests
         sheet2.Delete();
         var valueAfterDeletion = sheet1A1.Value;
 
-        Assert.AreEqual("TestValue", valueBeforeDeletion);
-        Assert.AreEqual(XLError.CellReference, valueAfterDeletion);
+        await Assert.That(valueBeforeDeletion).IsEqualTo("TestValue");
+        await Assert.That(valueAfterDeletion).IsEqualTo(XLError.CellReference);
     }
 
     [Test]
-    public void CachedValueToExternalWorkbook()
+    public async Task CachedValueToExternalWorkbook()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\ExternalLinks\WorkbookWithExternalLink.xlsx"));
         using var wb = new XLWorkbook(stream);
         var ws = wb.Worksheets.First();
         var cell = ws.Cell("B2");
-        Assert.IsFalse(cell.NeedsRecalculation);
-        Assert.IsTrue(cell.HasFormula);
+        await Assert.That(cell.NeedsRecalculation).IsFalse();
+        await Assert.That(cell.HasFormula).IsTrue();
 
         // This will fail when we start supporting external links
-        Assert.IsTrue(cell.FormulaA1.StartsWith("[1]"));
+        await Assert.That(cell.FormulaA1.StartsWith("[1]")).IsTrue();
 
-        Assert.AreEqual("hello world", cell.CachedValue);
-        Assert.AreEqual("hello world", cell.Value);
+        await Assert.That(cell.CachedValue).IsEqualTo("hello world");
+        await Assert.That(cell.Value).IsEqualTo("hello world");
 
-        Assert.AreEqual(11, ws.Evaluate("LEN(B2)"));
+        await Assert.That(ws.Evaluate("LEN(B2)")).IsEqualTo(11);
 
         // External file references to evaluate to #REF! instead of throwing
-        Assert.DoesNotThrow(wb.RecalculateAllFormulas);
-        Assert.AreEqual(XLError.CellReference, cell.Value);
+        await Assert.That(wb.RecalculateAllFormulas).ThrowsNothing();
+        await Assert.That(cell.Value).IsEqualTo(XLError.CellReference);
     }
 
     [Test]
-    public void ChangingValueChangesCachedValue()
+    public async Task ChangingValueChangesCachedValue()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Test");
         var cell = ws.Cell(1, 1);
 
         cell.Value = "Hello";
-        Assert.AreEqual("Hello", cell.CachedValue);
+        await Assert.That(cell.CachedValue).IsEqualTo("Hello");
 
         cell.Value = 74.0;
-        Assert.AreEqual(74.0, cell.CachedValue);
+        await Assert.That(cell.CachedValue).IsEqualTo(74.0);
 
         cell.Value = new DateTime(2019, 1, 1, 14, 0, 0, DateTimeKind.Unspecified);
-        Assert.AreEqual(new DateTime(2019, 1, 1, 14, 0, 0, DateTimeKind.Unspecified), cell.CachedValue);
+        await Assert.That(cell.CachedValue).IsEqualTo(new DateTime(2019, 1, 1, 14, 0, 0, DateTimeKind.Unspecified));
     }
 }

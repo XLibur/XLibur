@@ -2,17 +2,16 @@
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
-[TestFixture]
 public class ArrayFormulaTests
 {
     [Test]
-    public void ArrayFormulaIsSaved()
+    public async Task ArrayFormulaIsSaved()
     {
-        TestHelper.CreateAndCompare(wb =>
+        await TestHelper.CreateAndCompare(wb =>
         {
             var ws = wb.AddWorksheet();
             ws.Range("A1:B2").FormulaArrayA1 = "1+2";
@@ -20,26 +19,26 @@ public class ArrayFormulaTests
     }
 
     [Test]
-    public void ArrayFormulaCanBeLoaded()
+    public async Task ArrayFormulaCanBeLoaded()
     {
-        TestHelper.LoadAndAssert(wb =>
+        await TestHelper.LoadAndAssert(async wb =>
         {
             var ws = wb.Worksheets.First();
 
             foreach (var arrayFormulaCell in ws.Range("A1:B2").Cells())
             {
-                Assert.AreEqual("1+2", arrayFormulaCell.FormulaA1);
-                Assert.AreEqual("A1:B2", arrayFormulaCell.FormulaReference.ToStringRelative());
+                await Assert.That(arrayFormulaCell.FormulaA1).IsEqualTo("1+2");
+                await Assert.That(arrayFormulaCell.FormulaReference.ToStringRelative()).IsEqualTo("A1:B2");
             }
 
             var outsideCell = ws.Cell("A3");
-            Assert.IsEmpty(outsideCell.FormulaA1);
-            Assert.Null(outsideCell.FormulaReference);
+            await Assert.That(outsideCell.FormulaA1).IsEmpty();
+            await Assert.That(outsideCell.FormulaReference).IsNull();
         }, @"Other\Formulas\ArrayFormula.xlsx");
     }
 
     [Test]
-    public void CanBeOnlyForOneCell()
+    public async Task CanBeOnlyForOneCell()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -47,15 +46,16 @@ public class ArrayFormulaTests
 
         oneCell.AsRange().FormulaArrayA1 = "2+5";
 
-        Assert.True(oneCell.HasArrayFormula);
-        Assert.AreEqual("2+5", oneCell.FormulaA1);
-        Assert.AreEqual("B3:B3", oneCell.FormulaReference.ToStringRelative());
+        await Assert.That(oneCell.HasArrayFormula).IsTrue();
+        await Assert.That(oneCell.FormulaA1).IsEqualTo("2+5");
+        await Assert.That(oneCell.FormulaReference.ToStringRelative()).IsEqualTo("B3:B3");
     }
 
-    [TestCase("B2:C3")]
-    [TestCase("B2:C4")]
-    [TestCase("A1:D7")]
-    public void SettingValueToContainingRangeClearsArrayFormula(string containingRange)
+    [Test]
+    [Arguments("B2:C3")]
+    [Arguments("B2:C4")]
+    [Arguments("A1:D7")]
+    public async Task SettingValueToContainingRangeClearsArrayFormula(string containingRange)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -66,57 +66,59 @@ public class ArrayFormulaTests
 
         foreach (var cell in arrayFormulaRange.Cells())
         {
-            Assert.AreEqual(Blank.Value, cell.Value);
-            Assert.False(cell.HasArrayFormula);
-            Assert.IsEmpty(cell.FormulaA1);
-            Assert.Null(cell.FormulaReference);
+            await Assert.That(cell.Value).IsEqualTo(Blank.Value);
+            await Assert.That(cell.HasArrayFormula).IsFalse();
+            await Assert.That(cell.FormulaA1).IsEmpty();
+            await Assert.That(cell.FormulaReference).IsNull();
         }
     }
 
-    [TestCase("B2:D3")]
-    [TestCase("A1:E4")]
-    public void SettingFormulaToContainingRangeClearsOriginalArrayFormula(string overlapRange)
+    [Test]
+    [Arguments("B2:D3")]
+    [Arguments("A1:E4")]
+    public async Task SettingFormulaToContainingRangeClearsOriginalArrayFormula(string overlapRange)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Range("B2:D3").FormulaArrayA1 = "1";
 
-        Assert.DoesNotThrow(() => ws.Range(overlapRange).FormulaArrayA1 = "2");
+        await Assert.That(() => ws.Range(overlapRange).FormulaArrayA1 = "2").ThrowsNothing();
     }
 
-    [TestCase("B2:B2")]
-    [TestCase("B2:B3")]
-    [TestCase("A1:C3")]
-    [TestCase("D2:F3")]
-    [TestCase("C:C")]
-    [TestCase("2:2")]
-    public void ArrayFormulaCantPartiallyOverlapWithAnotherArrayFormula(string partialOverlapRange)
+    [Test]
+    [Arguments("B2:B2")]
+    [Arguments("B2:B3")]
+    [Arguments("A1:C3")]
+    [Arguments("D2:F3")]
+    [Arguments("C:C")]
+    [Arguments("2:2")]
+    public async Task ArrayFormulaCantPartiallyOverlapWithAnotherArrayFormula(string partialOverlapRange)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Range("B2:D3").FormulaArrayA1 = "1";
 
-        Assert.That(() => ws.Range(partialOverlapRange).FormulaArrayA1 = "2",
-            Throws.TypeOf<InvalidOperationException>()
-                .With.Message.EqualTo("Can't create array function that partially covers another array function."));
+        var ex = await Assert.That(() => ws.Range(partialOverlapRange).FormulaArrayA1 = "2").Throws<InvalidOperationException>();
+        await Assert.That(ex!.Message).IsEqualTo("Can't create array function that partially covers another array function.");
     }
 
-    [TestCase("A1:B2")]
-    [TestCase("A2")]
-    public void ArrayFormulaCantOverlapWithMergedRange(string partialOverlapRange)
+    [Test]
+    [Arguments("A1:B2")]
+    [Arguments("A2")]
+    public async Task ArrayFormulaCantOverlapWithMergedRange(string partialOverlapRange)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Range("A1:A2").Merge();
 
-        Assert.That(() => ws.Range(partialOverlapRange).FormulaArrayA1 = "1",
-            Throws.TypeOf<InvalidOperationException>()
-                .With.Message.EqualTo("Can't create array function over a merged range."));
+        var ex = await Assert.That(() => ws.Range(partialOverlapRange).FormulaArrayA1 = "1").Throws<InvalidOperationException>();
+        await Assert.That(ex!.Message).IsEqualTo("Can't create array function over a merged range.");
     }
 
-    [TestCase("A1:B2")]
-    [TestCase("A1:C1")]
-    public void ArrayFormulaCantOverlapWithTable(string formulaRange)
+    [Test]
+    [Arguments("A1:B2")]
+    [Arguments("A1:C1")]
+    public async Task ArrayFormulaCantOverlapWithTable(string formulaRange)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -124,40 +126,38 @@ public class ArrayFormulaTests
         ws.Cell("A2").Value = 5;
         ws.Range("A1:A2").CreateTable();
 
-        Assert.That(() => ws.Range(formulaRange).FormulaArrayA1 = "1",
-            Throws.TypeOf<InvalidOperationException>()
-                .With.Message.EqualTo("Can't create array function over a table."));
+        var ex = await Assert.That(() => ws.Range(formulaRange).FormulaArrayA1 = "1").Throws<InvalidOperationException>();
+        await Assert.That(ex!.Message).IsEqualTo("Can't create array function over a table.");
     }
 
     [Test]
-    public void SettingArrayFormulaInvalidatesCells()
+    public async Task SettingArrayFormulaInvalidatesCells()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        Assert.False(ws.Cell("A1").NeedsRecalculation);
-        Assert.False(ws.Cell("A2").NeedsRecalculation);
+        await Assert.That(ws.Cell("A1").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("A2").NeedsRecalculation).IsFalse();
 
         ws.Range("A1:A2").FormulaArrayA1 = "ABS(-3)";
 
-        Assert.True(ws.Cell("A1").NeedsRecalculation);
-        Assert.True(ws.Cell("A2").NeedsRecalculation);
+        await Assert.That(ws.Cell("A1").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("A2").NeedsRecalculation).IsTrue();
     }
 
     [Test]
-    public void ReferencingItselfIsCircularError()
+    public async Task ReferencingItselfIsCircularError()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").FormulaA1 = "A2";
         ws.Range("A2").FormulaArrayA1 = "A1";
 
-        Assert.That(() => _ = ws.Cell("A2").Value,
-            Throws.TypeOf<InvalidOperationException>()
-                .With.Message.EqualTo("Formula in a cell '$Sheet1'!$A1 is part of a cycle."));
+        var ex = await Assert.That(() => _ = ws.Cell("A2").Value).Throws<InvalidOperationException>();
+        await Assert.That(ex!.Message).IsEqualTo("Formula in a cell '$Sheet1'!$A1 is part of a cycle.");
     }
 
     [Test]
-    public void ArrayFormulaCachedValues_WrittenToXml()
+    public async Task ArrayFormulaCachedValues_WrittenToXml()
     {
         // Verify that cached values for array formula cells (both master and child)
         // are written to the XML even when EvaluateFormulasBeforeSaving is false.
@@ -167,9 +167,9 @@ public class ArrayFormulaTests
         ws.Range("A1:A3").FormulaArrayA1 = "TRANSPOSE({10,20,30})";
 
         // Evaluate all cells so cached values are populated
-        Assert.AreEqual(10.0, ws.Cell("A1").Value);
-        Assert.AreEqual(20.0, ws.Cell("A2").Value);
-        Assert.AreEqual(30.0, ws.Cell("A3").Value);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(10.0);
+        await Assert.That(ws.Cell("A2").Value).IsEqualTo(20.0);
+        await Assert.That(ws.Cell("A3").Value).IsEqualTo(30.0);
 
         wb.SaveAs(ms, validate: false);
 
@@ -184,13 +184,13 @@ public class ArrayFormulaTests
         // Previously, only the master cell (A1) would have a value, and child cells
         // (A2, A3) would be empty because cached values were only written when
         // EvaluateFormulasBeforeSaving was true.
-        Assert.That(sheetXml, Does.Contain("<x:v>10</x:v>"), "Master cell A1 value missing from XML");
-        Assert.That(sheetXml, Does.Contain("<x:v>20</x:v>"), "Child cell A2 value missing from XML");
-        Assert.That(sheetXml, Does.Contain("<x:v>30</x:v>"), "Child cell A3 value missing from XML");
+        await Assert.That(sheetXml).Contains("<x:v>10</x:v>").Because("Master cell A1 value missing from XML");
+        await Assert.That(sheetXml).Contains("<x:v>20</x:v>").Because("Child cell A2 value missing from XML");
+        await Assert.That(sheetXml).Contains("<x:v>30</x:v>").Because("Child cell A3 value missing from XML");
     }
 
     [Test]
-    public void NormalFormulaCachedValues_PreservedOnRoundTrip()
+    public async Task NormalFormulaCachedValues_PreservedOnRoundTrip()
     {
         // Verify that non-array formula cells also preserve cached values
         // without requiring EvaluateFormulasBeforeSaving.
@@ -211,12 +211,12 @@ public class ArrayFormulaTests
         using (var wb = new XLWorkbook(ms))
         {
             var ws = wb.Worksheets.First();
-            Assert.AreEqual(20.0, ws.Cell("B1").CachedValue);
+            await Assert.That(ws.Cell("B1").CachedValue).IsEqualTo(20.0);
         }
     }
 
     [Test]
-    public void InsertingRowsInAnotherSheetKeepsArrayFormulaIntact()
+    public async Task InsertingRowsInAnotherSheetKeepsArrayFormulaIntact()
     {
         // Regression: inserting rows/columns anywhere in the workbook used to route every
         // formula cell through the FormulaA1 setter, rebuilding a *normal* formula per cell.
@@ -232,13 +232,13 @@ public class ArrayFormulaTests
 
         foreach (var cell in arraySheet.Range("A1:A3").Cells())
         {
-            Assert.True(cell.HasArrayFormula, $"{cell.Address} lost its array formula");
-            Assert.AreEqual("A1:A3", cell.FormulaReference.ToStringRelative());
+            await Assert.That(cell.HasArrayFormula).IsTrue().Because($"{cell.Address} lost its array formula");
+            await Assert.That(cell.FormulaReference.ToStringRelative()).IsEqualTo("A1:A3");
         }
     }
 
     [Test]
-    public void InsertingRowsAboveShiftsArrayFormulaRange()
+    public async Task InsertingRowsAboveShiftsArrayFormulaRange()
     {
         // A same-sheet insert above the array must relocate the array's spill range so the
         // master cell is still identifiable (otherwise the formula vanishes on save).
@@ -250,13 +250,13 @@ public class ArrayFormulaTests
 
         foreach (var cell in ws.Range("B5:B7").Cells())
         {
-            Assert.True(cell.HasArrayFormula, $"{cell.Address} lost its array formula");
-            Assert.AreEqual("B5:B7", cell.FormulaReference.ToStringRelative());
+            await Assert.That(cell.HasArrayFormula).IsTrue().Because($"{cell.Address} lost its array formula");
+            await Assert.That(cell.FormulaReference.ToStringRelative()).IsEqualTo("B5:B7");
         }
     }
 
     [Test]
-    public void InsertingColumnsBeforeShiftsArrayFormulaRange()
+    public async Task InsertingColumnsBeforeShiftsArrayFormulaRange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -266,13 +266,13 @@ public class ArrayFormulaTests
 
         foreach (var cell in ws.Range("C3:E3").Cells())
         {
-            Assert.True(cell.HasArrayFormula, $"{cell.Address} lost its array formula");
-            Assert.AreEqual("C3:E3", cell.FormulaReference.ToStringRelative());
+            await Assert.That(cell.HasArrayFormula).IsTrue().Because($"{cell.Address} lost its array formula");
+            await Assert.That(cell.FormulaReference.ToStringRelative()).IsEqualTo("C3:E3");
         }
     }
 
     [Test]
-    public void ArrayFormulaSurvivesInsertOnSaveAsSingleFormula()
+    public async Task ArrayFormulaSurvivesInsertOnSaveAsSingleFormula()
     {
         // End-to-end: after an unrelated insert, the saved sheet must still contain exactly one
         // array formula element (on the master cell), not one normal formula per cell.
@@ -296,12 +296,12 @@ public class ArrayFormulaTests
 
         // Exactly one array-formula element, referencing the whole spill range.
         var arrayCount = sheetXml.Split("t=\"array\"").Length - 1;
-        Assert.AreEqual(1, arrayCount, "Array formula was split into multiple per-cell formulas");
-        Assert.That(sheetXml, Does.Contain("ref=\"A1:A3\""));
+        await Assert.That(arrayCount).IsEqualTo(1).Because("Array formula was split into multiple per-cell formulas");
+        await Assert.That(sheetXml).Contains("ref=\"A1:A3\"");
     }
 
     [Test]
-    public void DynamicArrayFormulaKeepsDynamicFlagWhenShifted()
+    public async Task DynamicArrayFormulaKeepsDynamicFlagWhenShifted()
     {
         // A dynamic array is stored as a normal formula with the dynamic-array flag set.
         // When a shift changes the referenced cells, the formula must stay dynamic so the
@@ -328,18 +328,18 @@ public class ArrayFormulaTests
         var sheetXml = sheetReader.ReadToEnd();
 
         // The shifted formula still carries the dynamic-array cell-metadata link.
-        Assert.That(sheetXml, Does.Contain("_xlfn.UNIQUE(A2:A4)"), "Reference shift did not apply");
-        Assert.That(sheetXml, Does.Contain("cm=\"1\""), "Dynamic-array cell metadata (cm) was lost on shift");
+        await Assert.That(sheetXml).Contains("_xlfn.UNIQUE(A2:A4)").Because("Reference shift did not apply");
+        await Assert.That(sheetXml).Contains("cm=\"1\"").Because("Dynamic-array cell metadata (cm) was lost on shift");
 
         // The dynamic-array metadata part is present.
         var metadataEntry = zip.Entries.First(e => e.FullName.Contains("metadata", StringComparison.OrdinalIgnoreCase));
         using var metadataReader = new StreamReader(metadataEntry.Open());
         var metadataXml = metadataReader.ReadToEnd();
-        Assert.That(metadataXml, Does.Contain("fDynamic=\"1\""), "Dynamic-array metadata missing");
+        await Assert.That(metadataXml).Contains("fDynamic=\"1\"").Because("Dynamic-array metadata missing");
     }
 
     [Test]
-    public void DynamicArrayFormulaSavesAsArrayFormulaWithSpillRef()
+    public async Task DynamicArrayFormulaSavesAsArrayFormulaWithSpillRef()
     {
         // A spilled dynamic array serialises as an array formula whose ref is the spill
         // footprint, on the anchor cell, plus the cm dynamic-array metadata link.
@@ -358,13 +358,13 @@ public class ArrayFormulaTests
         using var sheetReader = new StreamReader(sheetEntry.Open());
         var sheetXml = sheetReader.ReadToEnd();
 
-        Assert.That(sheetXml, Does.Contain("t=\"array\""), "Dynamic array must serialise as an array formula");
-        Assert.That(sheetXml, Does.Contain("ref=\"A1:A3\""), "Spill footprint must be written as the array ref");
-        Assert.That(sheetXml, Does.Contain("cm=\"1\""), "Dynamic-array cell metadata (cm) missing");
+        await Assert.That(sheetXml).Contains("t=\"array\"").Because("Dynamic array must serialise as an array formula");
+        await Assert.That(sheetXml).Contains("ref=\"A1:A3\"").Because("Spill footprint must be written as the array ref");
+        await Assert.That(sheetXml).Contains("cm=\"1\"").Because("Dynamic-array cell metadata (cm) missing");
     }
 
     [Test]
-    public void DynamicArrayFormulaRoundTripsAndReSpills()
+    public async Task DynamicArrayFormulaRoundTripsAndReSpills()
     {
         // Full round-trip: save a spilled dynamic array, load it back, and confirm it is
         // reconstructed as a dynamic array (not a legacy CSE array) that re-spills correctly.
@@ -387,24 +387,24 @@ public class ArrayFormulaTests
             var ws = wb.Worksheet("S");
             var anchor = (XLCell)ws.Cell("A1");
 
-            Assert.IsTrue(anchor.HasFormula);
-            Assert.IsTrue(anchor.Formula!.IsDynamicArray, "Loaded formula must be a dynamic array, not a CSE array");
-            Assert.IsFalse(((XLCell)ws.Cell("A2")).HasFormula, "Spilled cell must load formula-less");
+            await Assert.That(anchor.HasFormula).IsTrue();
+            await Assert.That(anchor.Formula!.IsDynamicArray).IsTrue().Because("Loaded formula must be a dynamic array, not a CSE array");
+            await Assert.That(((XLCell)ws.Cell("A2")).HasFormula).IsFalse().Because("Spilled cell must load formula-less");
 
             // The spill re-evaluates and fills the footprint from the cached child values
             // without a #SPILL! collision.
-            Assert.AreEqual(5, ws.Cell("A1").Value);
-            Assert.AreEqual(7, ws.Cell("A3").Value);
+            await Assert.That(ws.Cell("A1").Value).IsEqualTo(5);
+            await Assert.That(ws.Cell("A3").Value).IsEqualTo(7);
 
             // Changing a source re-spills the loaded formula.
             ws.Cell("D3").Value = 8;
             wb.RecalculateAllFormulas();
-            Assert.AreEqual(8, ws.Cell("A3").Value);
+            await Assert.That(ws.Cell("A3").Value).IsEqualTo(8);
         }
     }
 
     [Test]
-    public void DynamicArrayAndCseArrayLoadDistinctly()
+    public async Task DynamicArrayAndCseArrayLoadDistinctly()
     {
         // A dynamic array (cm metadata) and a legacy CSE array (no cm) both serialise with
         // t="array"; on load only the one whose cm references XLDAPR becomes dynamic.
@@ -424,17 +424,17 @@ public class ArrayFormulaTests
         {
             var ws = wb.Worksheet("S");
 
-            Assert.IsTrue(((XLCell)ws.Cell("A1")).Formula!.IsDynamicArray, "SEQUENCE must load as a dynamic array");
-            Assert.IsFalse(((XLCell)ws.Cell("A2")).HasFormula, "Dynamic spill cell is formula-less");
+            await Assert.That(((XLCell)ws.Cell("A1")).Formula!.IsDynamicArray).IsTrue().Because("SEQUENCE must load as a dynamic array");
+            await Assert.That(((XLCell)ws.Cell("A2")).HasFormula).IsFalse().Because("Dynamic spill cell is formula-less");
 
-            Assert.IsFalse(((XLCell)ws.Cell("C1")).Formula!.IsDynamicArray, "CSE array must not load as dynamic");
-            Assert.IsTrue(ws.Cell("C1").HasArrayFormula, "CSE array keeps its array formula");
-            Assert.IsTrue(ws.Cell("C2").HasArrayFormula, "CSE array child keeps the shared array formula");
+            await Assert.That(((XLCell)ws.Cell("C1")).Formula!.IsDynamicArray).IsFalse().Because("CSE array must not load as dynamic");
+            await Assert.That(ws.Cell("C1").HasArrayFormula).IsTrue().Because("CSE array keeps its array formula");
+            await Assert.That(ws.Cell("C2").HasArrayFormula).IsTrue().Because("CSE array child keeps the shared array formula");
         }
     }
 
     [Test]
-    public void DynamicArraySpillErrorRoundTrips()
+    public async Task DynamicArraySpillErrorRoundTrips()
     {
         // A blocked dynamic array (#SPILL! anchor) round-trips: the error value survives save/load
         // (exercising the XLError.SpillRange save/parse path) and stays blocked after reload.
@@ -445,7 +445,7 @@ public class ArrayFormulaTests
             ws.Cell("A2").Value = "block";
             ws.Cell("A1").SetDynamicFormulaA1("SEQUENCE(3)");
             wb.RecalculateAllFormulas();
-            Assert.AreEqual(XLError.SpillRange, ws.Cell("A1").Value);
+            await Assert.That(ws.Cell("A1").Value).IsEqualTo(XLError.SpillRange);
 
             wb.SaveAs(ms, validate: false);
         }
@@ -454,13 +454,13 @@ public class ArrayFormulaTests
         using (var wb = new XLWorkbook(ms))
         {
             var ws = wb.Worksheet("S");
-            Assert.AreEqual("block", ws.Cell("A2").Value);
-            Assert.AreEqual(XLError.SpillRange, ws.Cell("A1").Value);
+            await Assert.That(ws.Cell("A2").Value).IsEqualTo("block");
+            await Assert.That(ws.Cell("A1").Value).IsEqualTo(XLError.SpillRange);
         }
     }
 
     [Test]
-    public void DeletingRowsThroughArrayDoesNotCorruptRange()
+    public async Task DeletingRowsThroughArrayDoesNotCorruptRange()
     {
         // Deleting rows that overlap an array used to push the stored range past row 1, producing
         // an out-of-bounds coordinate (e.g. A0:A2) via the unchecked XLSheetPoint constructor.
@@ -471,39 +471,35 @@ public class ArrayFormulaTests
         var ws = wb.AddWorksheet("S");
         ws.Range("A2:A4").FormulaArrayA1 = "TRANSPOSE({1,2,3})";
 
-        Assert.That(() => ws.Rows(1, 2).Delete(), Throws.Nothing);
+        await Assert.That(() => ws.Rows(1, 2).Delete()).ThrowsNothing();
 
         foreach (var cell in ws.CellsUsed(c => c.HasArrayFormula))
         {
             var reference = cell.FormulaReference!;
-            Assert.That(reference.FirstAddress.RowNumber, Is.GreaterThanOrEqualTo(1),
-                $"{cell.Address} array range has an out-of-bounds row: {reference.ToStringRelative()}");
-            Assert.That(reference.FirstAddress.ColumnNumber, Is.GreaterThanOrEqualTo(1),
-                $"{cell.Address} array range has an out-of-bounds column: {reference.ToStringRelative()}");
+            await Assert.That(reference.FirstAddress.RowNumber).IsGreaterThanOrEqualTo(1).Because($"{cell.Address} array range has an out-of-bounds row: {reference.ToStringRelative()}");
+            await Assert.That(reference.FirstAddress.ColumnNumber).IsGreaterThanOrEqualTo(1).Because($"{cell.Address} array range has an out-of-bounds column: {reference.ToStringRelative()}");
         }
 
-        Assert.That(() => wb.SaveAs(ms, validate: false), Throws.Nothing);
+        await Assert.That(() => wb.SaveAs(ms, validate: false)).ThrowsNothing();
     }
 
     [Test]
-    public void DeletingColumnsThroughArrayDoesNotCorruptRange()
+    public async Task DeletingColumnsThroughArrayDoesNotCorruptRange()
     {
         using var ms = new MemoryStream();
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("S");
         ws.Range("B1:D1").FormulaArrayA1 = "{1,2,3}";
 
-        Assert.That(() => ws.Columns(1, 2).Delete(), Throws.Nothing); // delete A:B, overlaps the array's left edge
+        await Assert.That(() => ws.Columns(1, 2).Delete()).ThrowsNothing(); // delete A:B, overlaps the array's left edge
 
         foreach (var cell in ws.CellsUsed(c => c.HasArrayFormula))
         {
             var reference = cell.FormulaReference!;
-            Assert.That(reference.FirstAddress.ColumnNumber, Is.GreaterThanOrEqualTo(1),
-                $"{cell.Address} array range has an out-of-bounds column: {reference.ToStringRelative()}");
-            Assert.That(reference.FirstAddress.RowNumber, Is.GreaterThanOrEqualTo(1),
-                $"{cell.Address} array range has an out-of-bounds row: {reference.ToStringRelative()}");
+            await Assert.That(reference.FirstAddress.ColumnNumber).IsGreaterThanOrEqualTo(1).Because($"{cell.Address} array range has an out-of-bounds column: {reference.ToStringRelative()}");
+            await Assert.That(reference.FirstAddress.RowNumber).IsGreaterThanOrEqualTo(1).Because($"{cell.Address} array range has an out-of-bounds row: {reference.ToStringRelative()}");
         }
 
-        Assert.That(() => wb.SaveAs(ms, validate: false), Throws.Nothing);
+        await Assert.That(() => wb.SaveAs(ms, validate: false)).ThrowsNothing();
     }
 }

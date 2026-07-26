@@ -1,18 +1,17 @@
 ﻿using System.Linq;
-using NUnit.Framework;
 using XLibur.Excel;
+using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.DataValidations;
-
 // Regression coverage: inserting rows/columns must shift every data-validation rule by exactly
 // the inserted amount without dropping any. The original defect wiped a rule whose extended
 // neighbour transiently overlapped it during the shift (SplitExistingRanges against a
 // not-yet-shifted rule). Related to the conditional-format #2850 double-shift class.
-[TestFixture]
 public class DataValidationDropOnInsertTests
 {
     [Test]
-    public void InsertRowsAbove_KeepsAllValidationsAndShiftsThem()
+    public async Task InsertRowsAbove_KeepsAllValidationsAndShiftsThem()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -29,11 +28,11 @@ public class DataValidationDropOnInsertTests
             .ToList();
 
         // K12 spans the insertion -> K12:K22; K13 -> K23 (not dropped); K23 -> K33.
-        Assert.That(actual, Is.EqualTo(new[] { "K12:K22", "K23:K23", "K33:K33" }));
+        await Assert.That(actual).IsEquivalentTo(new[] { "K12:K22", "K23:K23", "K33:K33" }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void InsertColumnsBefore_KeepsAllValidationsAndShiftsThem()
+    public async Task InsertColumnsBefore_KeepsAllValidationsAndShiftsThem()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -49,6 +48,6 @@ public class DataValidationDropOnInsertTests
             .ToList();
 
         // B spans the insertion boundary column -> B20:L20; C20 -> M20; M20 -> W20.
-        Assert.That(actual, Is.EquivalentTo(new[] { "B20:L20", "M20:M20", "W20:W20" }));
+        await Assert.That(actual).IsEquivalentTo(new[] { "B20:L20", "M20:M20", "W20:W20" });
     }
 }

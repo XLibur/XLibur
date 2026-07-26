@@ -2,17 +2,16 @@
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Clearing;
 
-[TestFixture]
 public class ClearingTests
 {
     private static readonly XLColor BackgroundColor = XLColor.LightBlue;
     private static readonly XLColor ForegroundColor = XLColor.DarkBrown;
 
-    private static XLWorkbook SetupWorkbook()
+    private static async Task<XLWorkbook> SetupWorkbook()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -51,174 +50,174 @@ public class ClearingTests
             .Border.SetOutsideBorderColor(XLColor.Blue)
             .Font.SetBold();
 
-        Assert.AreEqual(XLDataType.Text, ws.Cell("A1").Value.Type);
-        Assert.AreEqual(XLDataType.Text, ws.Cell("A2").Value.Type);
-        Assert.AreEqual(XLDataType.DateTime, ws.Cell("A3").Value.Type);
+        await Assert.That(ws.Cell("A1").Value.Type).IsEqualTo(XLDataType.Text);
+        await Assert.That(ws.Cell("A2").Value.Type).IsEqualTo(XLDataType.Text);
+        await Assert.That(ws.Cell("A3").Value.Type).IsEqualTo(XLDataType.DateTime);
 
-        Assert.AreEqual(false, ws.Cell("A1").HasFormula);
-        Assert.AreEqual(true, ws.Cell("A2").HasFormula);
-        Assert.AreEqual(false, ws.Cell("A1").HasFormula);
+        await Assert.That(ws.Cell("A1").HasFormula).IsEqualTo(false);
+        await Assert.That(ws.Cell("A2").HasFormula).IsEqualTo(true);
+        await Assert.That(ws.Cell("A1").HasFormula).IsEqualTo(false);
 
         foreach (var cell in ws.Range("A1:A3").Cells())
         {
-            Assert.AreEqual(BackgroundColor, cell.Style.Fill.BackgroundColor);
-            Assert.AreEqual(ForegroundColor, cell.Style.Font.FontColor);
-            Assert.IsTrue(ws.ConditionalFormats.Any());
-            Assert.IsTrue(cell.HasComment);
+            await Assert.That(cell.Style.Fill.BackgroundColor).IsEqualTo(BackgroundColor);
+            await Assert.That(cell.Style.Font.FontColor).IsEqualTo(ForegroundColor);
+            await Assert.That(ws.ConditionalFormats.Any()).IsTrue();
+            await Assert.That(cell.HasComment).IsTrue();
         }
 
-        Assert.AreEqual("B1", ws.Cell("A1").GetDataValidation().Value);
+        await Assert.That(ws.Cell("A1").GetDataValidation().Value).IsEqualTo("B1");
 
         return wb;
     }
 
     [Test]
-    public void WorksheetClearAll()
+    public async Task WorksheetClearAll()
     {
-        using var wb = SetupWorkbook();
+        using var wb = await SetupWorkbook();
         var ws = wb.Worksheets.First();
 
         ws.Clear();
 
         foreach (var c in ws.Range("A1:A10").Cells())
         {
-            Assert.IsTrue(c.IsEmpty());
-            Assert.AreEqual(XLDataType.Blank, c.DataType);
-            Assert.AreEqual(ws.Style.Fill.BackgroundColor, c.Style.Fill.BackgroundColor);
-            Assert.AreEqual(ws.Style.Font.FontColor, c.Style.Font.FontColor);
-            Assert.IsFalse(ws.ConditionalFormats.Any());
-            Assert.IsFalse(c.HasComment);
-            Assert.AreEqual(string.Empty, c.GetDataValidation().Value);
+            await Assert.That(c.IsEmpty()).IsTrue();
+            await Assert.That(c.DataType).IsEqualTo(XLDataType.Blank);
+            await Assert.That(c.Style.Fill.BackgroundColor).IsEqualTo(ws.Style.Fill.BackgroundColor);
+            await Assert.That(c.Style.Font.FontColor).IsEqualTo(ws.Style.Font.FontColor);
+            await Assert.That(ws.ConditionalFormats.Any()).IsFalse();
+            await Assert.That(c.HasComment).IsFalse();
+            await Assert.That(c.GetDataValidation().Value).IsEqualTo(string.Empty);
         }
     }
 
     [Test]
-    public void WorksheetClearContents()
+    public async Task WorksheetClearContents()
     {
-        using var wb = SetupWorkbook();
+        using var wb = await SetupWorkbook();
         var ws = wb.Worksheets.First();
 
         ws.Clear(XLClearOptions.Contents);
 
         foreach (var c in ws.Range("A1:A3").Cells())
         {
-            Assert.AreEqual(XLDataType.Blank, ws.Cell("A1").DataType);
-            Assert.IsTrue(c.IsEmpty(XLCellsUsedOptions.Contents));
+            await Assert.That(ws.Cell("A1").DataType).IsEqualTo(XLDataType.Blank);
+            await Assert.That(c.IsEmpty(XLCellsUsedOptions.Contents)).IsTrue();
 
-            Assert.AreEqual(BackgroundColor, c.Style.Fill.BackgroundColor);
-            Assert.AreEqual(ForegroundColor, c.Style.Font.FontColor);
-            Assert.IsTrue(ws.ConditionalFormats.Any());
-            Assert.IsTrue(c.HasComment);
+            await Assert.That(c.Style.Fill.BackgroundColor).IsEqualTo(BackgroundColor);
+            await Assert.That(c.Style.Font.FontColor).IsEqualTo(ForegroundColor);
+            await Assert.That(ws.ConditionalFormats.Any()).IsTrue();
+            await Assert.That(c.HasComment).IsTrue();
         }
 
-        Assert.AreEqual("B1", ws.Cell("A1").GetDataValidation().Value);
+        await Assert.That(ws.Cell("A1").GetDataValidation().Value).IsEqualTo("B1");
     }
 
     [Test]
-    public void WorksheetClearNormalFormats()
+    public async Task WorksheetClearNormalFormats()
     {
-        using var wb = SetupWorkbook();
+        using var wb = await SetupWorkbook();
         var ws = wb.Worksheets.First();
 
         ws.Clear(XLClearOptions.NormalFormats);
 
         foreach (var c in ws.Range("A1:A3").Cells())
         {
-            Assert.IsFalse(c.IsEmpty());
-            Assert.AreEqual(ws.Style.Fill.BackgroundColor, c.Style.Fill.BackgroundColor);
-            Assert.AreEqual(ws.Style.Font.FontColor, c.Style.Font.FontColor);
-            Assert.IsTrue(ws.ConditionalFormats.Any());
-            Assert.IsTrue(c.HasComment);
+            await Assert.That(c.IsEmpty()).IsFalse();
+            await Assert.That(c.Style.Fill.BackgroundColor).IsEqualTo(ws.Style.Fill.BackgroundColor);
+            await Assert.That(c.Style.Font.FontColor).IsEqualTo(ws.Style.Font.FontColor);
+            await Assert.That(ws.ConditionalFormats.Any()).IsTrue();
+            await Assert.That(c.HasComment).IsTrue();
         }
 
-        Assert.AreEqual(XLDataType.Text, ws.Cell("A1").DataType);
-        Assert.AreEqual(XLDataType.Text, ws.Cell("A2").DataType);
-        Assert.AreEqual(XLDataType.DateTime, ws.Cell("A3").DataType);
+        await Assert.That(ws.Cell("A1").DataType).IsEqualTo(XLDataType.Text);
+        await Assert.That(ws.Cell("A2").DataType).IsEqualTo(XLDataType.Text);
+        await Assert.That(ws.Cell("A3").DataType).IsEqualTo(XLDataType.DateTime);
 
-        Assert.AreEqual("B1", ws.Cell("A1").GetDataValidation().Value);
+        await Assert.That(ws.Cell("A1").GetDataValidation().Value).IsEqualTo("B1");
     }
 
     [Test]
-    public void WorksheetClearConditionalFormats()
+    public async Task WorksheetClearConditionalFormats()
     {
-        using var wb = SetupWorkbook();
+        using var wb = await SetupWorkbook();
         var ws = wb.Worksheets.First();
 
         ws.Clear(XLClearOptions.ConditionalFormats);
 
         foreach (var c in ws.Range("A1:A3").Cells())
         {
-            Assert.IsFalse(c.IsEmpty());
-            Assert.AreEqual(BackgroundColor, c.Style.Fill.BackgroundColor);
-            Assert.AreEqual(ForegroundColor, c.Style.Font.FontColor);
-            Assert.IsFalse(ws.ConditionalFormats.Any());
-            Assert.IsTrue(c.HasComment);
+            await Assert.That(c.IsEmpty()).IsFalse();
+            await Assert.That(c.Style.Fill.BackgroundColor).IsEqualTo(BackgroundColor);
+            await Assert.That(c.Style.Font.FontColor).IsEqualTo(ForegroundColor);
+            await Assert.That(ws.ConditionalFormats.Any()).IsFalse();
+            await Assert.That(c.HasComment).IsTrue();
         }
 
-        Assert.AreEqual(XLDataType.Text, ws.Cell("A1").DataType);
-        Assert.AreEqual(XLDataType.Text, ws.Cell("A2").DataType);
-        Assert.AreEqual(XLDataType.DateTime, ws.Cell("A3").DataType);
+        await Assert.That(ws.Cell("A1").DataType).IsEqualTo(XLDataType.Text);
+        await Assert.That(ws.Cell("A2").DataType).IsEqualTo(XLDataType.Text);
+        await Assert.That(ws.Cell("A3").DataType).IsEqualTo(XLDataType.DateTime);
 
-        Assert.AreEqual("B1", ws.Cell("A1").GetDataValidation().Value);
+        await Assert.That(ws.Cell("A1").GetDataValidation().Value).IsEqualTo("B1");
     }
 
     [Test]
-    public void WorksheetClearComments()
+    public async Task WorksheetClearComments()
     {
-        using var wb = SetupWorkbook();
+        using var wb = await SetupWorkbook();
         var ws = wb.Worksheets.First();
 
         ws.Clear(XLClearOptions.Comments);
 
         foreach (var c in ws.Range("A1:A3").Cells())
         {
-            Assert.IsFalse(c.IsEmpty());
-            Assert.AreEqual(BackgroundColor, c.Style.Fill.BackgroundColor);
-            Assert.AreEqual(ForegroundColor, c.Style.Font.FontColor);
-            Assert.IsTrue(ws.ConditionalFormats.Any());
-            Assert.IsFalse(c.HasComment);
+            await Assert.That(c.IsEmpty()).IsFalse();
+            await Assert.That(c.Style.Fill.BackgroundColor).IsEqualTo(BackgroundColor);
+            await Assert.That(c.Style.Font.FontColor).IsEqualTo(ForegroundColor);
+            await Assert.That(ws.ConditionalFormats.Any()).IsTrue();
+            await Assert.That(c.HasComment).IsFalse();
         }
 
-        Assert.AreEqual(XLDataType.Text, ws.Cell("A1").DataType);
-        Assert.AreEqual(XLDataType.Text, ws.Cell("A2").DataType);
-        Assert.AreEqual(XLDataType.DateTime, ws.Cell("A3").DataType);
+        await Assert.That(ws.Cell("A1").DataType).IsEqualTo(XLDataType.Text);
+        await Assert.That(ws.Cell("A2").DataType).IsEqualTo(XLDataType.Text);
+        await Assert.That(ws.Cell("A3").DataType).IsEqualTo(XLDataType.DateTime);
 
-        Assert.AreEqual("B1", ws.Cell("A1").GetDataValidation().Value);
+        await Assert.That(ws.Cell("A1").GetDataValidation().Value).IsEqualTo("B1");
     }
 
     [Test]
-    public void WorksheetClearDataValidation()
+    public async Task WorksheetClearDataValidation()
     {
-        using var wb = SetupWorkbook();
+        using var wb = await SetupWorkbook();
         var ws = wb.Worksheets.First();
 
         ws.Clear(XLClearOptions.DataValidation);
 
         foreach (var c in ws.Range("A1:A3").Cells())
         {
-            Assert.IsFalse(c.IsEmpty());
-            Assert.AreEqual(BackgroundColor, c.Style.Fill.BackgroundColor);
-            Assert.AreEqual(ForegroundColor, c.Style.Font.FontColor);
-            Assert.IsTrue(ws.ConditionalFormats.Any());
-            Assert.IsTrue(c.HasComment);
+            await Assert.That(c.IsEmpty()).IsFalse();
+            await Assert.That(c.Style.Fill.BackgroundColor).IsEqualTo(BackgroundColor);
+            await Assert.That(c.Style.Font.FontColor).IsEqualTo(ForegroundColor);
+            await Assert.That(ws.ConditionalFormats.Any()).IsTrue();
+            await Assert.That(c.HasComment).IsTrue();
         }
 
-        Assert.AreEqual(XLDataType.Text, ws.Cell("A1").DataType);
-        Assert.AreEqual(XLDataType.Text, ws.Cell("A2").DataType);
-        Assert.AreEqual(XLDataType.DateTime, ws.Cell("A3").DataType);
+        await Assert.That(ws.Cell("A1").DataType).IsEqualTo(XLDataType.Text);
+        await Assert.That(ws.Cell("A2").DataType).IsEqualTo(XLDataType.Text);
+        await Assert.That(ws.Cell("A3").DataType).IsEqualTo(XLDataType.DateTime);
 
-        Assert.AreEqual(string.Empty, ws.Cell("A1").GetDataValidation().Value);
+        await Assert.That(ws.Cell("A1").GetDataValidation().Value).IsEqualTo(string.Empty);
     }
 
     [Test]
-    public void DeleteClearedCellValue()
+    public async Task DeleteClearedCellValue()
     {
         using var ms = new MemoryStream();
-        using (var wb = SetupWorkbook())
+        using (var wb = await SetupWorkbook())
         {
             var ws = wb.Worksheets.First();
-            Assert.AreEqual("Hello world!", ws.Cell("A1").GetText());
-            Assert.That(ws.Cell("A3").GetDateTime(), Is.EqualTo(new DateTime(2018, 1, 15, 0, 0, 0, DateTimeKind.Unspecified)));
+            await Assert.That(ws.Cell("A1").GetText()).IsEqualTo("Hello world!");
+            await Assert.That(ws.Cell("A3").GetDateTime()).IsEqualTo(new DateTime(2018, 1, 15, 0, 0, 0, DateTimeKind.Unspecified));
 
             wb.SaveAs(ms);
         }
@@ -227,8 +226,8 @@ public class ClearingTests
         {
             var ws = wb.Worksheets.First();
             ws.Clear(XLClearOptions.Contents);
-            Assert.AreEqual(Blank.Value, ws.Cell("A1").Value);
-            Assert.Throws<InvalidCastException>(() => ws.Cell("A3").GetDateTime());
+            await Assert.That(ws.Cell("A1").Value).IsEqualTo(Blank.Value);
+            await Assert.That(() => ws.Cell("A3").GetDateTime()).Throws<InvalidCastException>();
 
             wb.Save();
         }
@@ -236,17 +235,18 @@ public class ClearingTests
         using (var wb = new XLWorkbook(ms))
         {
             var ws = wb.Worksheets.First();
-            Assert.AreEqual(Blank.Value, ws.Cell("A1").Value);
-            Assert.Throws<InvalidCastException>(() => ws.Cell("A3").GetDateTime());
+            await Assert.That(ws.Cell("A1").Value).IsEqualTo(Blank.Value);
+            await Assert.That(() => ws.Cell("A3").GetDateTime()).Throws<InvalidCastException>();
         }
     }
 
-    [TestCase(XLClearOptions.All, 2)]
-    [TestCase(XLClearOptions.AllContents, 4)]
-    [TestCase(XLClearOptions.AllFormats, 4)]
-    [TestCase(XLClearOptions.Contents, 4)]
-    [TestCase(XLClearOptions.MergedRanges, 2)]
-    public void CanClearMergedRanges(XLClearOptions options, int expectedCount)
+    [Test]
+    [Arguments(XLClearOptions.All, 2)]
+    [Arguments(XLClearOptions.AllContents, 4)]
+    [Arguments(XLClearOptions.AllFormats, 4)]
+    [Arguments(XLClearOptions.Contents, 4)]
+    [Arguments(XLClearOptions.MergedRanges, 2)]
+    public async Task CanClearMergedRanges(XLClearOptions options, int expectedCount)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Test");
@@ -258,6 +258,6 @@ public class ClearingTests
 
         ws.Range("C1:D6").Clear(options);
 
-        Assert.AreEqual(expectedCount, ws.MergedRanges.Count);
+        await Assert.That(ws.MergedRanges.Count).IsEqualTo(expectedCount);
     }
 }

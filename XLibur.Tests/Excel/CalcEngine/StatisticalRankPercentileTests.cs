@@ -1,10 +1,8 @@
-﻿using NUnit.Framework;
-using XLibur.Excel;
+﻿using XLibur.Excel;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
-
 // SMALL / RANK / PERCENTILE / QUARTILE / MODE and their modern aliases.
-[TestFixture]
 public class StatisticalRankPercentileTests
 {
     private const double Tolerance = 1e-9;
@@ -21,130 +19,130 @@ public class StatisticalRankPercentileTests
     }
 
     [Test]
-    public void Small_ReturnsKthSmallest()
+    public async Task Small_ReturnsKthSmallest()
     {
         var ws = SampleSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(1d, (double)ws.Evaluate("SMALL(A1:A7, 1)"), Tolerance);
-            Assert.AreEqual(1d, (double)ws.Evaluate("SMALL(A1:A7, 2)"), Tolerance);
-            Assert.AreEqual(2d, (double)ws.Evaluate("SMALL(A1:A7, 3)"), Tolerance);
-            Assert.AreEqual(9d, (double)ws.Evaluate("SMALL(A1:A7, 7)"), Tolerance);
+            await Assert.That((double)ws.Evaluate("SMALL(A1:A7, 1)")).IsEqualTo(1d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("SMALL(A1:A7, 2)")).IsEqualTo(1d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("SMALL(A1:A7, 3)")).IsEqualTo(2d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("SMALL(A1:A7, 7)")).IsEqualTo(9d).Within(Tolerance);
             // Mirror of LARGE.
-            Assert.AreEqual(9d, (double)ws.Evaluate("LARGE(A1:A7, 1)"), Tolerance);
-            Assert.AreEqual(3d, (double)ws.Evaluate("SMALL({5,3,8,1}, 2)"), Tolerance);
+            await Assert.That((double)ws.Evaluate("LARGE(A1:A7, 1)")).IsEqualTo(9d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("SMALL({5,3,8,1}, 2)")).IsEqualTo(3d).Within(Tolerance);
         }
     }
 
     [Test]
-    public void Small_OutOfRangeK_ReturnsNumberInvalid()
+    public async Task Small_OutOfRangeK_ReturnsNumberInvalid()
     {
         var ws = SampleSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(XLError.NumberInvalid, ws.Evaluate("SMALL(A1:A7, 8)"));
-            Assert.AreEqual(XLError.NumberInvalid, ws.Evaluate("SMALL(A1:A7, 0)"));
+            await Assert.That(ws.Evaluate("SMALL(A1:A7, 8)")).IsEqualTo(XLError.NumberInvalid);
+            await Assert.That(ws.Evaluate("SMALL(A1:A7, 0)")).IsEqualTo(XLError.NumberInvalid);
         }
     }
 
     [Test]
-    public void Rank_DescendingByDefault_AscendingWhenOrderNonZero()
+    public async Task Rank_DescendingByDefault_AscendingWhenOrderNonZero()
     {
         var ws = SampleSheet(out var wb);
         using (wb)
         {
             // Descending (default): 9=1, 5=2, 4=3
-            Assert.AreEqual(3, ws.Evaluate("RANK(4, A1:A7)"));
+            await Assert.That(ws.Evaluate("RANK(4, A1:A7)")).IsEqualTo(3);
             // Tied values (two 1s) share the top rank of the group.
-            Assert.AreEqual(6, ws.Evaluate("RANK(1, A1:A7)"));
+            await Assert.That(ws.Evaluate("RANK(1, A1:A7)")).IsEqualTo(6);
             // Ascending: values below 4 are {1,1,2,3} -> rank 5
-            Assert.AreEqual(5, ws.Evaluate("RANK(4, A1:A7, 1)"));
+            await Assert.That(ws.Evaluate("RANK(4, A1:A7, 1)")).IsEqualTo(5);
             // RANK.EQ is an alias.
-            Assert.AreEqual(3, ws.Evaluate("RANK.EQ(4, A1:A7)"));
+            await Assert.That(ws.Evaluate("RANK.EQ(4, A1:A7)")).IsEqualTo(3);
         }
     }
 
     [Test]
-    public void Rank_NumberNotPresent_ReturnsNotAvailable()
+    public async Task Rank_NumberNotPresent_ReturnsNotAvailable()
     {
         var ws = SampleSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("RANK(7, A1:A7)"));
+            await Assert.That(ws.Evaluate("RANK(7, A1:A7)")).IsEqualTo(XLError.NoValueAvailable);
         }
     }
 
     [Test]
-    public void Mode_ReturnsMostFrequentValue()
+    public async Task Mode_ReturnsMostFrequentValue()
     {
         var ws = SampleSheet(out var wb);
         using (wb)
         {
             // Only 1 repeats.
-            Assert.AreEqual(1d, (double)ws.Evaluate("MODE(A1:A7)"), Tolerance);
+            await Assert.That((double)ws.Evaluate("MODE(A1:A7)")).IsEqualTo(1d).Within(Tolerance);
             // Ties resolve to the value whose first occurrence is earliest.
-            Assert.AreEqual(4d, (double)ws.Evaluate("MODE(4, 4, 2, 2)"), Tolerance);
-            Assert.AreEqual(1d, (double)ws.Evaluate("MODE.SNGL(A1:A7)"), Tolerance);
+            await Assert.That((double)ws.Evaluate("MODE(4, 4, 2, 2)")).IsEqualTo(4d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("MODE.SNGL(A1:A7)")).IsEqualTo(1d).Within(Tolerance);
         }
     }
 
     [Test]
-    public void Mode_NoRepeats_ReturnsNotAvailable()
+    public async Task Mode_NoRepeats_ReturnsNotAvailable()
     {
         var ws = SampleSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("MODE(1, 2, 3, 4)"));
+            await Assert.That(ws.Evaluate("MODE(1, 2, 3, 4)")).IsEqualTo(XLError.NoValueAvailable);
         }
     }
 
     [Test]
-    public void Percentile_InterpolatesBetweenRanks()
+    public async Task Percentile_InterpolatesBetweenRanks()
     {
         var ws = SampleSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(1d, (double)ws.Evaluate("PERCENTILE(A1:A7, 0)"), Tolerance);
-            Assert.AreEqual(9d, (double)ws.Evaluate("PERCENTILE(A1:A7, 1)"), Tolerance);
-            Assert.AreEqual(3d, (double)ws.Evaluate("PERCENTILE(A1:A7, 0.5)"), Tolerance);
-            Assert.AreEqual(1.5d, (double)ws.Evaluate("PERCENTILE(A1:A7, 0.25)"), Tolerance);
-            Assert.AreEqual(1.5d, (double)ws.Evaluate("PERCENTILE.INC(A1:A7, 0.25)"), Tolerance);
+            await Assert.That((double)ws.Evaluate("PERCENTILE(A1:A7, 0)")).IsEqualTo(1d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("PERCENTILE(A1:A7, 1)")).IsEqualTo(9d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("PERCENTILE(A1:A7, 0.5)")).IsEqualTo(3d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("PERCENTILE(A1:A7, 0.25)")).IsEqualTo(1.5d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("PERCENTILE.INC(A1:A7, 0.25)")).IsEqualTo(1.5d).Within(Tolerance);
         }
     }
 
     [Test]
-    public void Percentile_OutOfRange_ReturnsNumberInvalid()
+    public async Task Percentile_OutOfRange_ReturnsNumberInvalid()
     {
         var ws = SampleSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(XLError.NumberInvalid, ws.Evaluate("PERCENTILE(A1:A7, 1.1)"));
-            Assert.AreEqual(XLError.NumberInvalid, ws.Evaluate("PERCENTILE(A1:A7, -0.1)"));
+            await Assert.That(ws.Evaluate("PERCENTILE(A1:A7, 1.1)")).IsEqualTo(XLError.NumberInvalid);
+            await Assert.That(ws.Evaluate("PERCENTILE(A1:A7, -0.1)")).IsEqualTo(XLError.NumberInvalid);
         }
     }
 
     [Test]
-    public void Quartile_MapsToInclusivePercentiles()
+    public async Task Quartile_MapsToInclusivePercentiles()
     {
         var ws = SampleSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(1d, (double)ws.Evaluate("QUARTILE(A1:A7, 0)"), Tolerance);
-            Assert.AreEqual(1.5d, (double)ws.Evaluate("QUARTILE(A1:A7, 1)"), Tolerance);
-            Assert.AreEqual(3d, (double)ws.Evaluate("QUARTILE(A1:A7, 2)"), Tolerance);
-            Assert.AreEqual(4.5d, (double)ws.Evaluate("QUARTILE(A1:A7, 3)"), Tolerance);
-            Assert.AreEqual(9d, (double)ws.Evaluate("QUARTILE(A1:A7, 4)"), Tolerance);
-            Assert.AreEqual(4.5d, (double)ws.Evaluate("QUARTILE.INC(A1:A7, 3)"), Tolerance);
+            await Assert.That((double)ws.Evaluate("QUARTILE(A1:A7, 0)")).IsEqualTo(1d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("QUARTILE(A1:A7, 1)")).IsEqualTo(1.5d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("QUARTILE(A1:A7, 2)")).IsEqualTo(3d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("QUARTILE(A1:A7, 3)")).IsEqualTo(4.5d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("QUARTILE(A1:A7, 4)")).IsEqualTo(9d).Within(Tolerance);
+            await Assert.That((double)ws.Evaluate("QUARTILE.INC(A1:A7, 3)")).IsEqualTo(4.5d).Within(Tolerance);
         }
     }
 
     [Test]
-    public void Quartile_OutOfRange_ReturnsNumberInvalid()
+    public async Task Quartile_OutOfRange_ReturnsNumberInvalid()
     {
         var ws = SampleSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(XLError.NumberInvalid, ws.Evaluate("QUARTILE(A1:A7, 5)"));
+            await Assert.That(ws.Evaluate("QUARTILE(A1:A7, 5)")).IsEqualTo(XLError.NumberInvalid);
         }
     }
 }

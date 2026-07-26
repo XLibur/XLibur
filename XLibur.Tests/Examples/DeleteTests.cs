@@ -1,20 +1,19 @@
 ﻿using XLibur.Examples.Delete;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;
 
-[TestFixture]
 public class DeleteTests
 {
     [Test]
-    public void DeleteFewWorksheets()
+    public async Task DeleteFewWorksheets()
     {
-        TestHelper.RunTestExample<DeleteFewWorksheets>(@"Delete\DeleteFewWorksheets.xlsx");
+        await TestHelper.RunTestExample<DeleteFewWorksheets>(@"Delete\DeleteFewWorksheets.xlsx");
     }
 
     [Test]
-    public void RemoveRows()
+    public async Task RemoveRows()
     {
-        TestHelper.RunTestExample<DeleteRows>(@"Delete\RemoveRows.xlsx");
+        await TestHelper.RunTestExample<DeleteRows>(@"Delete\RemoveRows.xlsx");
     }
 }

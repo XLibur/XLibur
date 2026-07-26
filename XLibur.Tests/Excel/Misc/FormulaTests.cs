@@ -1,44 +1,43 @@
 ﻿using System;
 using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Misc;
 
-[TestFixture]
 public class FormulaTests
 {
     [Test]
-    public void CopyFormula()
+    public async Task CopyFormula()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell("A1").FormulaA1 = "B1";
         ws.Cell("A1").CopyTo("A2");
-        Assert.AreEqual("B2", ws.Cell("A2").FormulaA1);
+        await Assert.That(ws.Cell("A2").FormulaA1).IsEqualTo("B2");
     }
 
     [Test]
-    public void CopyFormula2()
+    public async Task CopyFormula2()
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
 
         ws.Cell("A1").FormulaA1 = "A2-1";
         ws.Cell("A1").CopyTo("B1");
-        Assert.AreEqual("R[1]C-1", ws.Cell("A1").FormulaR1C1);
-        Assert.AreEqual("R[1]C-1", ws.Cell("B1").FormulaR1C1);
-        Assert.AreEqual("B2-1", ws.Cell("B1").FormulaA1);
+        await Assert.That(ws.Cell("A1").FormulaR1C1).IsEqualTo("R[1]C-1");
+        await Assert.That(ws.Cell("B1").FormulaR1C1).IsEqualTo("R[1]C-1");
+        await Assert.That(ws.Cell("B1").FormulaA1).IsEqualTo("B2-1");
 
         ws.Cell("A1").FormulaA1 = "B1+1";
         ws.Cell("A1").CopyTo("A2");
-        Assert.AreEqual("RC[1]+1", ws.Cell("A1").FormulaR1C1);
-        Assert.AreEqual("RC[1]+1", ws.Cell("A2").FormulaR1C1);
-        Assert.AreEqual("B2+1", ws.Cell("A2").FormulaA1);
+        await Assert.That(ws.Cell("A1").FormulaR1C1).IsEqualTo("RC[1]+1");
+        await Assert.That(ws.Cell("A2").FormulaR1C1).IsEqualTo("RC[1]+1");
+        await Assert.That(ws.Cell("A2").FormulaA1).IsEqualTo("B2+1");
     }
 
     [Test]
-    public void CopyFormulaWithSheetNameThatResemblesFormula()
+    public async Task CopyFormulaWithSheetNameThatResemblesFormula()
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("S10 Data");
@@ -47,20 +46,20 @@ public class FormulaTests
 
         ws = wb.Worksheets.Add("Summary");
         ws.Cell("A1").FormulaA1 = "='S10 Data'!A1";
-        Assert.AreEqual("Some value", ws.Cell("A1").Value);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo("Some value");
 
         ws.Cell("A1").CopyTo("A2");
-        Assert.AreEqual("'S10 Data'!A2", ws.Cell("A2").FormulaA1);
+        await Assert.That(ws.Cell("A2").FormulaA1).IsEqualTo("'S10 Data'!A2");
 
         ws.Cell("A1").CopyTo("B1");
-        Assert.AreEqual("'S10 Data'!B1", ws.Cell("B1").FormulaA1);
+        await Assert.That(ws.Cell("B1").FormulaA1).IsEqualTo("'S10 Data'!B1");
 
         ws.Cell("A3").FormulaA1 = "=SUM('S10 Data'!A2)";
-        Assert.AreEqual(123, ws.Cell("A3").Value);
+        await Assert.That(ws.Cell("A3").Value).IsEqualTo(123);
     }
 
     [Test]
-    public void FormulaWithReferenceIncludingSheetName()
+    public async Task FormulaWithReferenceIncludingSheetName()
     {
         using var wb = new XLWorkbook();
         object value;
@@ -68,21 +67,21 @@ public class FormulaTests
         ws.Cell("A1").InsertData(Enumerable.Range(1, 50));
         ws.Cell("B1").FormulaA1 = "=SUM(A1:A50)";
         value = ws.Cell("B1").Value;
-        Assert.AreEqual(1275, value);
+        await Assert.That(value).IsEqualTo(ExpectedCellValue.From(1275));
 
         ws = wb.AddWorksheet("Sheet2");
 
         ws.Cell("A1").FormulaA1 = "=SUM(Sheet1!A1:Sheet1!A50)";
         value = ws.Cell("A1").Value;
-        Assert.AreEqual(1275, value);
+        await Assert.That(value).IsEqualTo(ExpectedCellValue.From(1275));
 
         ws.Cell("B1").FormulaA1 = "=SUM(Sheet1!A1:A50)";
         value = ws.Cell("B1").Value;
-        Assert.AreEqual(1275, value);
+        await Assert.That(value).IsEqualTo(ExpectedCellValue.From(1275));
     }
 
     [Test]
-    public void InvalidReferences()
+    public async Task InvalidReferences()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -90,14 +89,14 @@ public class FormulaTests
         ws = wb.AddWorksheet("Sheet2");
 
         ws.Cell("A1").FormulaA1 = "=SUM(Sheet1!A1:Sheet2!A50)";
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Cell("A1").Value);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(XLError.IncompatibleValue);
 
         ws.Cell("B1").FormulaA1 = "=SUM(UnknownSheet!A50)";
-        Assert.AreEqual(XLError.CellReference, ws.Cell("B1").Value);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(XLError.CellReference);
     }
 
     [Test]
-    public void DateAgainstStringComparison()
+    public async Task DateAgainstStringComparison()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -105,15 +104,15 @@ public class FormulaTests
 
         ws.Cell("A2").FormulaA1 = @"=IF(A1 = """", ""A"", ""B"")";
         var actual = ws.Cell("A2").Value;
-        Assert.AreEqual(actual, "B");
+        await Assert.That("B").IsEqualTo(actual);
 
         ws.Cell("A3").FormulaA1 = @"=IF("""" = A1, ""A"", ""B"")";
         actual = ws.Cell("A3").Value;
-        Assert.AreEqual(actual, "B");
+        await Assert.That("B").IsEqualTo(actual);
     }
 
     [Test]
-    public void FormulaThatReferencesEntireRow()
+    public async Task FormulaThatReferencesEntireRow()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -124,11 +123,11 @@ public class FormulaTests
         ws.FirstCell().CellBelow().FormulaA1 = "=SUM(1:1)";
 
         var actual = ws.FirstCell().CellBelow().Value;
-        Assert.AreEqual(6, actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(6));
     }
 
     [Test]
-    public void FormulaThatReferencesEntireColumn()
+    public async Task FormulaThatReferencesEntireColumn()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -139,54 +138,54 @@ public class FormulaTests
         ws.FirstCell().CellRight().FormulaA1 = "=SUM(A:A)";
 
         var actual = ws.FirstCell().CellRight().Value;
-        Assert.AreEqual(6, actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From(6));
     }
 
     [Test]
-    public void FormulaThatStartsWithEqualsAndPlus()
+    public async Task FormulaThatStartsWithEqualsAndPlus()
     {
         object actual = XLWorkbook.EvaluateExpr("=MID(\"This is a test\", 6, 2)");
-        Assert.AreEqual("is", actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From("is"));
 
         actual = XLWorkbook.EvaluateExpr("=+MID(\"This is a test\", 6, 2)");
-        Assert.AreEqual("is", actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From("is"));
 
         actual = XLWorkbook.EvaluateExpr("=+++++MID(\"This is a test\", 6, 2)");
-        Assert.AreEqual("is", actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From("is"));
 
         actual = XLWorkbook.EvaluateExpr("+MID(\"This is a test\", 6, 2)");
-        Assert.AreEqual("is", actual);
+        await Assert.That(actual).IsEqualTo(ExpectedCellValue.From("is"));
     }
 
     [Test]
-    public void UnimplementedStandardFunctionsAreEvaluatedToNameNotFoundError()
+    public async Task UnimplementedStandardFunctionsAreEvaluatedToNameNotFoundError()
     {
         // RTD will never be implemented
         var actual =
             XLWorkbook.EvaluateExpr("RTD(\"MyRTDServerProdID\",\"MyServer\",\"RaceNum\",\"RunnerID\",\"StatType\")");
-        Assert.AreEqual(XLError.NameNotRecognized, actual);
+        await Assert.That(actual).IsEqualTo(XLError.NameNotRecognized);
     }
 
     [Test]
-    public void FormulasWithErrors()
+    public async Task FormulasWithErrors()
     {
-        Assert.AreEqual(XLError.CellReference, XLWorkbook.EvaluateExpr("YEAR(#REF!)"));
-        Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("YEAR(#VALUE!)"));
-        Assert.AreEqual(XLError.DivisionByZero, XLWorkbook.EvaluateExpr("YEAR(#DIV/0!)"));
-        Assert.AreEqual(XLError.NameNotRecognized, XLWorkbook.EvaluateExpr("YEAR(#NAME?)"));
-        Assert.AreEqual(XLError.NoValueAvailable, XLWorkbook.EvaluateExpr("YEAR(#N/A)"));
-        Assert.AreEqual(XLError.NullValue, XLWorkbook.EvaluateExpr("YEAR(#NULL!)"));
-        Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr("YEAR(#NUM!)"));
+        await Assert.That(XLWorkbook.EvaluateExpr("YEAR(#REF!)")).IsEqualTo(XLError.CellReference);
+        await Assert.That(XLWorkbook.EvaluateExpr("YEAR(#VALUE!)")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(XLWorkbook.EvaluateExpr("YEAR(#DIV/0!)")).IsEqualTo(XLError.DivisionByZero);
+        await Assert.That(XLWorkbook.EvaluateExpr("YEAR(#NAME?)")).IsEqualTo(XLError.NameNotRecognized);
+        await Assert.That(XLWorkbook.EvaluateExpr("YEAR(#N/A)")).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(XLWorkbook.EvaluateExpr("YEAR(#NULL!)")).IsEqualTo(XLError.NullValue);
+        await Assert.That(XLWorkbook.EvaluateExpr("YEAR(#NUM!)")).IsEqualTo(XLError.NumberInvalid);
     }
 
     [Test]
-    public void LegacyFunctionPropagateErrorWithoutException()
+    public async Task LegacyFunctionPropagateErrorWithoutException()
     {
-        Assert.AreEqual(XLError.NameNotRecognized, XLWorkbook.EvaluateExpr("SIN(YEAR(#NAME?))+1"));
+        await Assert.That(XLWorkbook.EvaluateExpr("SIN(YEAR(#NAME?))+1")).IsEqualTo(XLError.NameNotRecognized);
     }
 
     [Test]
-    public void UnicodeLetterParsing()
+    public async Task UnicodeLetterParsing()
     {
         using var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet("Sheet C CÄ");
@@ -199,12 +198,12 @@ public class FormulaTests
         ws3.FirstCell().FormulaA1 = "='Sheet C CÄ'!A1";
         ws3.FirstCell().CellBelow().FormulaA1 = "ÖC!A1";
 
-        Assert.AreEqual(100, ws3.FirstCell().Value);
-        Assert.AreEqual(50, ws3.FirstCell().CellBelow().Value);
+        await Assert.That(ws3.FirstCell().Value).IsEqualTo(100);
+        await Assert.That(ws3.FirstCell().CellBelow().Value).IsEqualTo(50);
     }
 
     [Test]
-    public void ShiftFormula()
+    public async Task ShiftFormula()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -214,9 +213,9 @@ public class FormulaTests
 
         ws.Column(1).Delete();
 
-        Assert.AreEqual("ATAN2(B1,B2)", ws.Cell("A1").FormulaA1);
-        Assert.AreEqual("DEC2HEX(B2)", ws.Cell("A2").FormulaA1);
-        Assert.True(ws.Cell("A3").HasArrayFormula);
-        Assert.AreEqual("DAYS360(B3:B5, C3:C5)", ws.Cell("A3").FormulaA1);
+        await Assert.That(ws.Cell("A1").FormulaA1).IsEqualTo("ATAN2(B1,B2)");
+        await Assert.That(ws.Cell("A2").FormulaA1).IsEqualTo("DEC2HEX(B2)");
+        await Assert.That(ws.Cell("A3").HasArrayFormula).IsTrue();
+        await Assert.That(ws.Cell("A3").FormulaA1).IsEqualTo("DAYS360(B3:B5, C3:C5)");
     }
 }

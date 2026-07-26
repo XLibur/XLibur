@@ -1,15 +1,14 @@
 ﻿using System.Linq;
 using XLibur.Excel;
 using XLibur.Extensions;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Columns;
 
-[TestFixture]
 public class ColumnTests
 {
     [Test]
-    public void ColumnUsed()
+    public async Task ColumnUsed()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -17,35 +16,35 @@ public class ColumnTests
         ws.Cell(3, 1).SetValue("Test");
 
         var fromColumn = ws.Column(1).ColumnUsed();
-        Assert.AreEqual("A2:A3", fromColumn.RangeAddress.ToStringRelative());
+        await Assert.That(fromColumn.RangeAddress.ToStringRelative()).IsEqualTo("A2:A3");
 
         var fromRange = ws.Range("A1:A5").FirstColumn().ColumnUsed();
-        Assert.AreEqual("A2:A3", fromRange.RangeAddress.ToStringRelative());
+        await Assert.That(fromRange.RangeAddress.ToStringRelative()).IsEqualTo("A2:A3");
     }
 
     [Test]
-    public void ColumnsUsedIsFast()
+    public async Task ColumnsUsedIsFast()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.FirstCell().SetValue("Hello world!");
         var columnsUsed = ws.Row(1).AsRange().ColumnsUsed();
-        Assert.AreEqual(1, columnsUsed.Count());
+        await Assert.That(columnsUsed.Count()).IsEqualTo(1);
     }
 
     [Test]
-    public void CopyColumn()
+    public async Task CopyColumn()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue("Test").Style.Font.SetBold();
         ws.FirstColumn().CopyTo(ws.Column(2));
 
-        Assert.IsTrue(ws.Cell("B1").Style.Font.Bold);
+        await Assert.That(ws.Cell("B1").Style.Font.Bold).IsTrue();
     }
 
     [Test]
-    public void InsertingColumnsBefore1()
+    public async Task InsertingColumnsBefore1()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -60,45 +59,45 @@ public class ColumnTests
 
         var columnIns = ws.Column(1).InsertColumnsBefore(1).First();
 
-        Assert.AreEqual(ws.Style.Fill.BackgroundColor, ws.Column(1).Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(ws.Style.Fill.BackgroundColor, ws.Column(1).Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(ws.Style.Fill.BackgroundColor, ws.Column(1).Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(1).Cell(1).Style.Fill.BackgroundColor).IsEqualTo(ws.Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(1).Cell(2).Style.Fill.BackgroundColor).IsEqualTo(ws.Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(1).Cell(3).Style.Fill.BackgroundColor).IsEqualTo(ws.Style.Fill.BackgroundColor);
 
-        Assert.AreEqual(XLColor.Red, ws.Column(2).Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(2).Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(2).Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(2).Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(2).Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(2).Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual(XLColor.Yellow, ws.Column(3).Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Green, ws.Column(3).Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Yellow, ws.Column(3).Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(3).Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
+        await Assert.That(ws.Column(3).Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Green);
+        await Assert.That(ws.Column(3).Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
 
-        Assert.AreEqual(XLColor.Red, ws.Column(4).Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(4).Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(4).Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(4).Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(4).Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(4).Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual("X", ws.Column(3).Cell(2).GetText());
+        await Assert.That(ws.Column(3).Cell(2).GetText()).IsEqualTo("X");
 
-        Assert.AreEqual(ws.Style.Fill.BackgroundColor, columnIns.Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(ws.Style.Fill.BackgroundColor, columnIns.Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(ws.Style.Fill.BackgroundColor, columnIns.Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(columnIns.Cell(1).Style.Fill.BackgroundColor).IsEqualTo(ws.Style.Fill.BackgroundColor);
+        await Assert.That(columnIns.Cell(2).Style.Fill.BackgroundColor).IsEqualTo(ws.Style.Fill.BackgroundColor);
+        await Assert.That(columnIns.Cell(3).Style.Fill.BackgroundColor).IsEqualTo(ws.Style.Fill.BackgroundColor);
 
-        Assert.AreEqual(XLColor.Red, column1.Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, column1.Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, column1.Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(column1.Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(column1.Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(column1.Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual(XLColor.Yellow, column2.Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Green, column2.Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Yellow, column2.Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(column2.Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
+        await Assert.That(column2.Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Green);
+        await Assert.That(column2.Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
 
-        Assert.AreEqual(XLColor.Red, column3.Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, column3.Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, column3.Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(column3.Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(column3.Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(column3.Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual("X", column2.Cell(2).GetText());
+        await Assert.That(column2.Cell(2).GetText()).IsEqualTo("X");
     }
 
     [Test]
-    public void InsertingColumnsBefore2()
+    public async Task InsertingColumnsBefore2()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -113,45 +112,45 @@ public class ColumnTests
 
         var columnIns = ws.Column(2).InsertColumnsBefore(1).First();
 
-        Assert.AreEqual(XLColor.Red, ws.Column(1).Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(1).Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(1).Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(1).Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(1).Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(1).Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual(XLColor.Red, ws.Column(2).Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(2).Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(2).Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(2).Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(2).Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(2).Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual(XLColor.Yellow, ws.Column(3).Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Green, ws.Column(3).Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Yellow, ws.Column(3).Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(3).Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
+        await Assert.That(ws.Column(3).Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Green);
+        await Assert.That(ws.Column(3).Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
 
-        Assert.AreEqual(XLColor.Red, ws.Column(4).Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(4).Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(4).Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(4).Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(4).Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(4).Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual("X", ws.Column(3).Cell(2).GetText());
+        await Assert.That(ws.Column(3).Cell(2).GetText()).IsEqualTo("X");
 
-        Assert.AreEqual(XLColor.Red, columnIns.Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, columnIns.Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, columnIns.Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(columnIns.Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(columnIns.Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(columnIns.Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual(XLColor.Red, column1.Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, column1.Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, column1.Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(column1.Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(column1.Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(column1.Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual(XLColor.Yellow, column2.Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Green, column2.Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Yellow, column2.Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(column2.Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
+        await Assert.That(column2.Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Green);
+        await Assert.That(column2.Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
 
-        Assert.AreEqual(XLColor.Red, column3.Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, column3.Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, column3.Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(column3.Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(column3.Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(column3.Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual("X", column2.Cell(2).GetText());
+        await Assert.That(column2.Cell(2).GetText()).IsEqualTo("X");
     }
 
     [Test]
-    public void InsertingColumnsBefore3()
+    public async Task InsertingColumnsBefore3()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -166,45 +165,45 @@ public class ColumnTests
 
         var columnIns = ws.Column(3).InsertColumnsBefore(1).First();
 
-        Assert.AreEqual(XLColor.Red, ws.Column(1).Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(1).Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(1).Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(1).Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(1).Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(1).Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual(XLColor.Yellow, ws.Column(2).Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Green, ws.Column(2).Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Yellow, ws.Column(2).Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(2).Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
+        await Assert.That(ws.Column(2).Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Green);
+        await Assert.That(ws.Column(2).Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
 
-        Assert.AreEqual(XLColor.Yellow, ws.Column(3).Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Green, ws.Column(3).Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Yellow, ws.Column(3).Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(3).Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
+        await Assert.That(ws.Column(3).Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Green);
+        await Assert.That(ws.Column(3).Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
 
-        Assert.AreEqual(XLColor.Red, ws.Column(4).Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(4).Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, ws.Column(4).Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(ws.Column(4).Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(4).Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(ws.Column(4).Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual("X", ws.Column(2).Cell(2).GetText());
+        await Assert.That(ws.Column(2).Cell(2).GetText()).IsEqualTo("X");
 
-        Assert.AreEqual(XLColor.Yellow, columnIns.Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Green, columnIns.Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Yellow, columnIns.Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(columnIns.Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
+        await Assert.That(columnIns.Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Green);
+        await Assert.That(columnIns.Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
 
-        Assert.AreEqual(XLColor.Red, column1.Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, column1.Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, column1.Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(column1.Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(column1.Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(column1.Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual(XLColor.Yellow, column2.Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Green, column2.Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Yellow, column2.Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(column2.Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
+        await Assert.That(column2.Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Green);
+        await Assert.That(column2.Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
 
-        Assert.AreEqual(XLColor.Red, column3.Cell(1).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, column3.Cell(2).Style.Fill.BackgroundColor);
-        Assert.AreEqual(XLColor.Red, column3.Cell(3).Style.Fill.BackgroundColor);
+        await Assert.That(column3.Cell(1).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(column3.Cell(2).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        await Assert.That(column3.Cell(3).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
 
-        Assert.AreEqual("X", column2.Cell(2).GetText());
+        await Assert.That(column2.Cell(2).GetText()).IsEqualTo("X");
     }
 
     [Test]
-    public void NoColumnsUsed()
+    public async Task NoColumnsUsed()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -216,55 +215,55 @@ public class ColumnTests
         foreach (var row in ws.Range("A1:C3").ColumnsUsed())
             count++;
 
-        Assert.AreEqual(0, count);
+        await Assert.That(count).IsEqualTo(0);
     }
 
     [Test]
-    public void UngroupFromAll()
+    public async Task UngroupFromAll()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         ws.Columns(1, 2).Group();
         ws.Columns(1, 2).Ungroup(true);
 
-        Assert.That(ws.Column(1).OutlineLevel, Is.EqualTo(0));
-        Assert.That(ws.Column(2).OutlineLevel, Is.EqualTo(0));
+        await Assert.That(ws.Column(1).OutlineLevel).IsEqualTo(0);
+        await Assert.That(ws.Column(2).OutlineLevel).IsEqualTo(0);
     }
 
     [Test]
-    public void LastColumnUsed()
+    public async Task LastColumnUsed()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         ws.Cell("A1").Value = "A1";
         ws.Cell("B1").Value = "B1";
         ws.Cell("A2").Value = "A2";
         var lastCoUsed = ws.LastColumnUsed().ColumnNumber();
-        Assert.AreEqual(2, lastCoUsed);
+        await Assert.That(lastCoUsed).IsEqualTo(2);
     }
 
     [Test]
-    public void NegativeColumnNumberIsInvalid()
+    public async Task NegativeColumnNumberIsInvalid()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1") as XLWorksheet;
 
         var column = new XLColumn(ws, -1);
 
-        Assert.IsFalse(column.RangeAddress.IsValid);
+        await Assert.That(column.RangeAddress.IsValid).IsFalse();
     }
 
     [Test]
-    public void AssignWorksheetColumnWidthWhenAllColumnsChanged()
+    public async Task AssignWorksheetColumnWidthWhenAllColumnsChanged()
     {
         var ws = new XLWorkbook().AddWorksheet();
         var columns = ws.Columns();
 
         columns.Width = 100;
 
-        Assert.AreEqual(100, ws.Column("G").Width, XLHelper.Epsilon);
-        Assert.AreEqual(100, ws.ColumnWidth, XLHelper.Epsilon);
+        await Assert.That(ws.Column("G").Width).IsEqualTo(100).Within(XLHelper.Epsilon);
+        await Assert.That(ws.ColumnWidth).IsEqualTo(100).Within(XLHelper.Epsilon);
     }
 
     [Test]
-    public void PreserveWorksheetColumnWidthWhenNotAllColumnsChanged()
+    public async Task PreserveWorksheetColumnWidthWhenNotAllColumnsChanged()
     {
         var ws = new XLWorkbook().AddWorksheet();
         var defaultColumnWidth = ws.ColumnWidth;
@@ -272,12 +271,12 @@ public class ColumnTests
 
         columns.Width = 100;
 
-        Assert.AreEqual(100, ws.Column("G").Width, XLHelper.Epsilon);
-        Assert.AreEqual(defaultColumnWidth, ws.ColumnWidth, XLHelper.Epsilon);
+        await Assert.That(ws.Column("G").Width).IsEqualTo(100).Within(XLHelper.Epsilon);
+        await Assert.That(ws.ColumnWidth).IsEqualTo(defaultColumnWidth).Within(XLHelper.Epsilon);
     }
 
     [Test]
-    public void PreserveWorksheetColumnWidthWhenUsedColumnsChanged()
+    public async Task PreserveWorksheetColumnWidthWhenUsedColumnsChanged()
     {
         var ws = new XLWorkbook().AddWorksheet();
         ws.Cells("A1:E5").Value = "Not empty";
@@ -286,23 +285,23 @@ public class ColumnTests
 
         columns.Width = 100;
 
-        Assert.AreEqual(100, ws.Column("C").Width, XLHelper.Epsilon);
-        Assert.AreEqual(defaultColumnWidth, ws.Column("G").Width, XLHelper.Epsilon);
-        Assert.AreEqual(defaultColumnWidth, ws.ColumnWidth, XLHelper.Epsilon);
+        await Assert.That(ws.Column("C").Width).IsEqualTo(100).Within(XLHelper.Epsilon);
+        await Assert.That(ws.Column("G").Width).IsEqualTo(defaultColumnWidth).Within(XLHelper.Epsilon);
+        await Assert.That(ws.ColumnWidth).IsEqualTo(defaultColumnWidth).Within(XLHelper.Epsilon);
     }
 
     [Test]
-    public void ColumnsCanBeInsertedWhenDocumentHasDefinedNameWithInvalidFormula()
+    public async Task ColumnsCanBeInsertedWhenDocumentHasDefinedNameWithInvalidFormula()
     {
         // Issue: InsertColumnsBefore/After fails with a ParsingException when the workbook
         // has a defined name with an invalid formula.
         var wb = new XLWorkbook();
         wb.DefinedNames.Add("TestName", XLError.NameNotRecognized.ToDisplayString());
         var ws1 = wb.AddWorksheet();
-        Assert.DoesNotThrow(() => ws1.FirstColumn().InsertColumnsAfter(1));
+        await Assert.That(() => ws1.FirstColumn().InsertColumnsAfter(1)).ThrowsNothing();
         var ws2 = wb.AddWorksheet();
-        Assert.DoesNotThrow(() => ws2.FirstColumn().InsertColumnsBefore(1));
+        await Assert.That(() => ws2.FirstColumn().InsertColumnsBefore(1)).ThrowsNothing();
 
-        Assert.That(wb.Worksheets.Count, Is.EqualTo(2));
+        await Assert.That(wb.Worksheets.Count).IsEqualTo(2);
     }
 }

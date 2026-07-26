@@ -1,26 +1,25 @@
 ﻿using XLibur.Examples.Tables;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;
 
-[TestFixture]
 public class TablesTests
 {
     [Test]
-    public void InsertingTables()
+    public async Task InsertingTables()
     {
-        TestHelper.RunTestExample<InsertingTables>(@"Tables\InsertingTables.xlsx");
+        await TestHelper.RunTestExample<InsertingTables>(@"Tables\InsertingTables.xlsx");
     }
 
     [Test]
-    public void ResizingTables()
+    public async Task ResizingTables()
     {
-        TestHelper.RunTestExample<ResizingTables>(@"Tables\ResizingTables.xlsx");
+        await TestHelper.RunTestExample<ResizingTables>(@"Tables\ResizingTables.xlsx");
     }
 
     [Test]
-    public void UsingTables()
+    public async Task UsingTables()
     {
-        TestHelper.RunTestExample<UsingTables>(@"Tables\UsingTables.xlsx");
+        await TestHelper.RunTestExample<UsingTables>(@"Tables\UsingTables.xlsx");
     }
 }

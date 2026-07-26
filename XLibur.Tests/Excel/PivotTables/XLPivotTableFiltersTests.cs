@@ -1,14 +1,13 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.PivotTables;
 
-[TestFixture]
 public class XLPivotTableFiltersTests
 {
     [Test]
-    [Description("https://github.com/ClosedXML/ClosedXML/issues/2486")]
-    public void AddSelectedValue_allows_value_not_present_in_data()
+    [Property("Description", "https://github.com/ClosedXML/ClosedXML/issues/2486")]
+    public async Task AddSelectedValue_allows_value_not_present_in_data()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -24,11 +23,11 @@ public class XLPivotTableFiltersTests
         var filter = pt.ReportFilters.Add("Col2");
 
         // true is not among the data values, but should still be allowed as a filter selection
-        Assert.DoesNotThrow(() => filter.AddSelectedValue(true));
+        await Assert.That(() => filter.AddSelectedValue(true)).ThrowsNothing();
     }
 
     [Test]
-    public void Adding_and_removing_filters_shifts_pivot_table_area()
+    public async Task Adding_and_removing_filters_shifts_pivot_table_area()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -41,22 +40,22 @@ public class XLPivotTableFiltersTests
         var pt = ws.PivotTables.Add("pt", ws.Cell("E2"), data);
 
         // No filter, the table is at the original cell
-        Assert.AreEqual("E2", ((XLPivotTable)pt).Area.ToString());
+        await Assert.That(((XLPivotTable)pt).Area.ToString()).IsEqualTo("E2");
 
         pt.ReportFilters.Add("City");
 
         // First filter also adds divider row between filter and the table.
-        Assert.AreEqual("E4", ((XLPivotTable)pt).Area.ToString());
+        await Assert.That(((XLPivotTable)pt).Area.ToString()).IsEqualTo("E4");
 
         pt.ReportFilters.Add("Flavor");
 
         // When second filter is added, there is no need to add second divider row.
-        Assert.AreEqual("E5", ((XLPivotTable)pt).Area.ToString());
+        await Assert.That(((XLPivotTable)pt).Area.ToString()).IsEqualTo("E5");
 
         pt.ReportFilters.Remove("City");
-        Assert.AreEqual("E4", ((XLPivotTable)pt).Area.ToString());
+        await Assert.That(((XLPivotTable)pt).Area.ToString()).IsEqualTo("E4");
 
         pt.ReportFilters.Remove("Flavor");
-        Assert.AreEqual("E2", ((XLPivotTable)pt).Area.ToString());
+        await Assert.That(((XLPivotTable)pt).Area.ToString()).IsEqualTo("E2");
     }
 }

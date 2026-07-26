@@ -1,6 +1,5 @@
 ﻿using XLibur.Excel;
 using DocumentFormat.OpenXml.Packaging;
-using NUnit.Framework;
 using System;
 using System.Drawing;
 using System.IO;
@@ -8,13 +7,14 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using XLibur.Extensions;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Comments;
 
 public partial class CommentsTests
 {
     [Test]
-    public void CanConvertVmlPaletteEntriesToColors()
+    public async Task CanConvertVmlPaletteEntriesToColors()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\CommentsWithColorNamesAndIndexes.xlsx"));
         using var wb = new XLWorkbook(stream);
@@ -23,16 +23,16 @@ public partial class CommentsTests
 
         // None indicates an absence of a color
         var lineColor = c.GetComment().Style.ColorsAndLines.LineColor;
-        Assert.AreEqual(XLColorType.Color, lineColor.ColorType);
-        Assert.AreEqual("00000000", lineColor.Color.ToHex());
+        await Assert.That(lineColor.ColorType).IsEqualTo(XLColorType.Color);
+        await Assert.That(lineColor.Color.ToHex()).IsEqualTo("00000000");
 
         var bgColor = c.GetComment().Style.ColorsAndLines.FillColor;
-        Assert.AreEqual(XLColorType.Color, bgColor.ColorType);
-        Assert.AreEqual("FFFFFFE1", bgColor.Color.ToHex());
+        await Assert.That(bgColor.ColorType).IsEqualTo(XLColorType.Color);
+        await Assert.That(bgColor.Color.ToHex()).IsEqualTo("FFFFFFE1");
     }
 
     [Test]
-    public void CopyCommentStyle()
+    public async Task CopyCommentStyle()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -66,29 +66,29 @@ public partial class CommentsTests
 
         ws.Row(1).InsertRowsAbove(1);
 
-        void Validate(IXLCell c)
+        async Task Validate(IXLCell c)
         {
-            Assert.IsTrue(c.GetComment().Style.Alignment.AutomaticSize);
-            Assert.AreEqual(XLColor.Red, c.GetComment().Style.ColorsAndLines.FillColor);
+            await Assert.That(c.GetComment().Style.Alignment.AutomaticSize).IsTrue();
+            await Assert.That(c.GetComment().Style.ColorsAndLines.FillColor).IsEqualTo(XLColor.Red);
         }
 
-        Validate(ws.Cell("B3"));
+        await Validate(ws.Cell("B3"));
 
         ws.Column(1).InsertColumnsBefore(2);
 
-        Validate(ws.Cell("D3"));
+        await Validate(ws.Cell("D3"));
 
         ws.Column(1).Delete();
 
-        Validate(ws.Cell("C3"));
+        await Validate(ws.Cell("C3"));
 
         ws.Row(1).Delete();
 
-        Validate(ws.Cell("C2"));
+        await Validate(ws.Cell("C2"));
     }
 
     [Test]
-    public void EnsureUnaffectedCommentAndVmlPartIdsAndUris()
+    public async Task EnsureUnaffectedCommentAndVmlPartIdsAndUris()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\CommentAndButton.xlsx"));
         using var ms = new MemoryStream();
@@ -119,7 +119,7 @@ public partial class CommentsTests
         using (var wb = new XLWorkbook(ms))
         {
             var ws = wb.Worksheets.First();
-            Assert.IsTrue(ws.FirstCell().HasComment);
+            await Assert.That(ws.FirstCell().HasComment).IsTrue();
 
             wb.SaveAs(ms);
         }
@@ -132,17 +132,17 @@ public partial class CommentsTests
             var wsp = wbp.GetPartsOfType<WorksheetPart>().Last();
 
             var wscp = wsp.GetPartsOfType<WorksheetCommentsPart>().Single();
-            Assert.AreEqual(commentPartUri, wscp.Uri.ToString());
-            Assert.AreEqual(commentPartId, wsp.GetIdOfPart(wscp));
+            await Assert.That(wscp.Uri.ToString()).IsEqualTo(commentPartUri);
+            await Assert.That(wsp.GetIdOfPart(wscp)).IsEqualTo(commentPartId);
 
             var vmlp = wsp.GetPartsOfType<VmlDrawingPart>().Single();
-            Assert.AreEqual(vmlPartUri, vmlp.Uri.ToString());
-            Assert.AreEqual(vmlPartId, wsp.GetIdOfPart(vmlp));
+            await Assert.That(vmlp.Uri.ToString()).IsEqualTo(vmlPartUri);
+            await Assert.That(wsp.GetIdOfPart(vmlp)).IsEqualTo(vmlPartId);
         }
     }
 
     [Test]
-    public void SavingDoesNotCauseTwoRootElements() // See #1157
+    public async Task SavingDoesNotCauseTwoRootElements() // See #1157
     {
         using var ms = new MemoryStream();
         using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\CommentAndButton.xlsx")))
@@ -151,22 +151,22 @@ public partial class CommentsTests
             wb.SaveAs(ms);
         }
 
-        Assert.DoesNotThrow(() => _ = new XLWorkbook(ms));
+        await Assert.That(() => _ = new XLWorkbook(ms)).ThrowsNothing();
     }
 
     [Test]
-    public void CanLoadCommentVisibility()
+    public async Task CanLoadCommentVisibility()
     {
         using var inputStream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Drawings\Comments\inputfile.xlsx"));
         using var workbook = new XLWorkbook(inputStream);
         var ws = workbook.Worksheets.First();
 
-        Assert.True(ws.Cell("A1").GetComment().Visible);
-        Assert.False(ws.Cell("A4").GetComment().Visible);
+        await Assert.That(ws.Cell("A1").GetComment().Visible).IsTrue();
+        await Assert.That(ws.Cell("A4").GetComment().Visible).IsFalse();
     }
 
     [Test]
-    public void Margins_are_converted_to_physical_length()
+    public async Task Margins_are_converted_to_physical_length()
     {
         // Technically, it's insets on a textbox. Each comment uses a different unit, but all
         // should have same final dimension at left and top margin (easily visible in the
@@ -175,25 +175,25 @@ public partial class CommentsTests
         // The last comment in vmlDrawing1 also has invalid units and number. These are
         // converted to 0, so we don't crash on load (Excel also ignores invalid values).
         var commentCells = new[] { "A1", "A7", "A16", "A22", "A28" };
-        TestHelper.LoadAndAssert((_, ws) =>
+        await TestHelper.LoadAndAssert(async (_, ws) =>
         {
             foreach (var commentCell in commentCells)
             {
                 var cell = ws.Cell(commentCell);
-                Assert.True(cell.HasComment);
+                await Assert.That(cell.HasComment).IsTrue();
                 var margins = cell.GetComment().Style.Margins;
 
-                Assert.AreEqual(0.5, margins.Left);
-                Assert.AreEqual(0.75, margins.Top);
+                await Assert.That(margins.Left).IsEqualTo(0.5);
+                await Assert.That(margins.Top).IsEqualTo(0.75);
 
-                Assert.AreEqual(0, margins.Right);
-                Assert.AreEqual(0, margins.Bottom);
+                await Assert.That(margins.Right).IsEqualTo(0);
+                await Assert.That(margins.Bottom).IsEqualTo(0);
             }
         }, @"Other\Comments\InsetsUnitConversion.xlsx", new XLibur.Excel.LoadOptions { Dpi = new Point(120, 120) });
     }
 
     [Test]
-    public void Can_load_threaded_comment()
+    public async Task Can_load_threaded_comment()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\ThreadedComment.xlsx"));
         using var wb = new XLWorkbook(stream);
@@ -202,24 +202,23 @@ public partial class CommentsTests
 
         // Threaded comment text is loaded from the threadedComments part,
         // replacing the legacy placeholder from comments1.xml.
-        Assert.That(c.GetComment().Text, Is.EqualTo(
-            "This is a threaded comment.\nThis is a reply."));
+        await Assert.That(c.GetComment().Text).IsEqualTo("This is a threaded comment.\nThis is a reply.");
     }
 
     [Test]
-    public void Can_load_threaded_comment_text() // #2344
+    public async Task Can_load_threaded_comment_text() // #2344
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\celltextcomment_load_2344.xlsx"));
         using var wb = new XLWorkbook(stream);
         var ws = wb.Worksheets.First();
         var c = ws.Cell("B2");
 
-        Assert.That(c.HasComment, Is.True);
-        Assert.That(c.GetComment().Text, Is.EqualTo("This is the comment in b2"));
+        await Assert.That(c.HasComment).IsTrue();
+        await Assert.That(c.GetComment().Text).IsEqualTo("This is the comment in b2");
     }
 
     [Test]
-    public void AutomaticSize_fits_comment_box_to_text()
+    public async Task AutomaticSize_fits_comment_box_to_text()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -241,19 +240,19 @@ public partial class CommentsTests
         var vmlStr = vml.ToString();
 
         // Verify mso-fit-shape-to-text is present
-        Assert.That(vmlStr, Does.Contain("mso-fit-shape-to-text:t"));
+        await Assert.That(vmlStr).Contains("mso-fit-shape-to-text:t");
 
         // Verify that the height was auto-sized to be larger than default 59.25pt.
         // The lorem ipsum text at Tahoma 9pt in 144pt-wide box wraps to 5 lines,
         // requiring more height than the default 59.25pt.
         var heightMatch = HeightPattern().Match(vmlStr);
-        Assert.That(heightMatch.Success, Is.True);
+        await Assert.That(heightMatch.Success).IsTrue();
         var height = double.Parse(heightMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
-        Assert.That(height, Is.GreaterThan(59.25));
+        await Assert.That(height).IsGreaterThan(59.25);
     }
 
     [Test]
-    public void Can_load_comment_with_missing_textbox_in_vml()
+    public async Task Can_load_comment_with_missing_textbox_in_vml()
     {
         // Create a workbook with a comment, then strip the textbox element from VML.
         // This reproduces files where notes/comments have shapes without a textbox element.
@@ -285,12 +284,14 @@ public partial class CommentsTests
 
         // Loading should not throw despite missing textbox
         ms.Position = 0;
-        Assert.DoesNotThrow(() =>
+        var hasComment = false;
+        await Assert.That(() =>
         {
             using var wb = new XLWorkbook(ms);
             var ws = wb.Worksheets.First();
-            Assert.That(ws.Cell("A1").HasComment, Is.True);
-        });
+            hasComment = ws.Cell("A1").HasComment;
+        }).ThrowsNothing();
+        await Assert.That(hasComment).IsTrue();
     }
 
     [GeneratedRegex(@"height:(\d+\.?\d*)pt")]

@@ -1,14 +1,13 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.DataValidations;
 
-[TestFixture]
 public class DataValidationShiftTests
 {
     [Test]
-    public void DataValidationShiftedOnColumnInsert()
+    public async Task DataValidationShiftedOnColumnInsert()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("DataValidationShift");
@@ -22,16 +21,16 @@ public class DataValidationShiftTests
         ws.Column(2).InsertColumnsAfter(2);
         var dv = ws.DataValidations.ToArray();
 
-        Assert.AreEqual(5, dv.Length);
-        Assert.AreEqual("A1:A1", dv[0].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("A2:D2", dv[1].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("A3:E3", dv[2].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("B4:D6", dv[3].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("E7:F7", dv[4].Ranges.Single().RangeAddress.ToString());
+        await Assert.That(dv.Length).IsEqualTo(5);
+        await Assert.That(dv[0].Ranges.Single().RangeAddress.ToString()).IsEqualTo("A1:A1");
+        await Assert.That(dv[1].Ranges.Single().RangeAddress.ToString()).IsEqualTo("A2:D2");
+        await Assert.That(dv[2].Ranges.Single().RangeAddress.ToString()).IsEqualTo("A3:E3");
+        await Assert.That(dv[3].Ranges.Single().RangeAddress.ToString()).IsEqualTo("B4:D6");
+        await Assert.That(dv[4].Ranges.Single().RangeAddress.ToString()).IsEqualTo("E7:F7");
     }
 
     [Test]
-    public void DataValidationShiftedOnRowInsert()
+    public async Task DataValidationShiftedOnRowInsert()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("DataValidationShift");
@@ -45,16 +44,16 @@ public class DataValidationShiftTests
         ws.Row(2).InsertRowsBelow(2);
         var dv = ws.DataValidations.ToArray();
 
-        Assert.AreEqual(5, dv.Length);
-        Assert.AreEqual("A1:A1", dv[0].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("B1:B4", dv[1].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("C1:C5", dv[2].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("D2:F4", dv[3].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("G6:G7", dv[4].Ranges.Single().RangeAddress.ToString());
+        await Assert.That(dv.Length).IsEqualTo(5);
+        await Assert.That(dv[0].Ranges.Single().RangeAddress.ToString()).IsEqualTo("A1:A1");
+        await Assert.That(dv[1].Ranges.Single().RangeAddress.ToString()).IsEqualTo("B1:B4");
+        await Assert.That(dv[2].Ranges.Single().RangeAddress.ToString()).IsEqualTo("C1:C5");
+        await Assert.That(dv[3].Ranges.Single().RangeAddress.ToString()).IsEqualTo("D2:F4");
+        await Assert.That(dv[4].Ranges.Single().RangeAddress.ToString()).IsEqualTo("G6:G7");
     }
 
     [Test]
-    public void DataValidationShiftedOnColumnDelete()
+    public async Task DataValidationShiftedOnColumnDelete()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("DataValidationShift");
@@ -68,15 +67,15 @@ public class DataValidationShiftTests
         ws.Column(2).Delete();
         var dv = ws.DataValidations.ToArray();
 
-        Assert.AreEqual(4, dv.Length);
-        Assert.AreEqual("A1:A1", dv[0].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("A2:A2", dv[1].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("A3:B3", dv[2].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("B7:C7", dv[3].Ranges.Single().RangeAddress.ToString());
+        await Assert.That(dv.Length).IsEqualTo(4);
+        await Assert.That(dv[0].Ranges.Single().RangeAddress.ToString()).IsEqualTo("A1:A1");
+        await Assert.That(dv[1].Ranges.Single().RangeAddress.ToString()).IsEqualTo("A2:A2");
+        await Assert.That(dv[2].Ranges.Single().RangeAddress.ToString()).IsEqualTo("A3:B3");
+        await Assert.That(dv[3].Ranges.Single().RangeAddress.ToString()).IsEqualTo("B7:C7");
     }
 
     [Test]
-    public void DataValidationShiftedOnRowDelete()
+    public async Task DataValidationShiftedOnRowDelete()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("DataValidationShift");
@@ -90,15 +89,15 @@ public class DataValidationShiftTests
         ws.Row(2).Delete();
         var dv = ws.DataValidations.ToArray();
 
-        Assert.AreEqual(4, dv.Length);
-        Assert.AreEqual("A1:A1", dv[0].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("B1:B1", dv[1].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("C1:C2", dv[2].Ranges.Single().RangeAddress.ToString());
-        Assert.AreEqual("G3:G4", dv[3].Ranges.Single().RangeAddress.ToString());
+        await Assert.That(dv.Length).IsEqualTo(4);
+        await Assert.That(dv[0].Ranges.Single().RangeAddress.ToString()).IsEqualTo("A1:A1");
+        await Assert.That(dv[1].Ranges.Single().RangeAddress.ToString()).IsEqualTo("B1:B1");
+        await Assert.That(dv[2].Ranges.Single().RangeAddress.ToString()).IsEqualTo("C1:C2");
+        await Assert.That(dv[3].Ranges.Single().RangeAddress.ToString()).IsEqualTo("G3:G4");
     }
 
     [Test]
-    public void DataValidationShiftedTruncateRange()
+    public async Task DataValidationShiftedTruncateRange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("DataValidationShift");
@@ -106,11 +105,11 @@ public class DataValidationShiftTests
         var dv = ws.DataValidations.Single();
 
         ws.Row(2).InsertRowsAbove(1);
-        Assert.IsTrue(dv.Ranges.Single().RangeAddress.IsValid);
-        Assert.AreEqual($"1:{XLHelper.MaxRowNumber}", dv.Ranges.Single().RangeAddress.ToString());
+        await Assert.That(dv.Ranges.Single().RangeAddress.IsValid).IsTrue();
+        await Assert.That(dv.Ranges.Single().RangeAddress.ToString()).IsEqualTo($"1:{XLHelper.MaxRowNumber}");
 
         ws.Column(2).InsertColumnsAfter(1);
-        Assert.IsTrue(dv.Ranges.Single().RangeAddress.IsValid);
-        Assert.AreEqual($"1:{XLHelper.MaxRowNumber}", dv.Ranges.Single().RangeAddress.ToString());
+        await Assert.That(dv.Ranges.Single().RangeAddress.IsValid).IsTrue();
+        await Assert.That(dv.Ranges.Single().RangeAddress.ToString()).IsEqualTo($"1:{XLHelper.MaxRowNumber}");
     }
 }

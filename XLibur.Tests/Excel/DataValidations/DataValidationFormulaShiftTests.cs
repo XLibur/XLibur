@@ -2,11 +2,10 @@
 using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using NUnit.Framework;
 using XLibur.Excel;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.DataValidations;
-
 /// <summary>
 /// Covers shifting of cell references *inside* data-validation criteria formulas
 /// (formula1/formula2) when rows/columns are inserted or deleted. The validation
@@ -14,13 +13,11 @@ namespace XLibur.Tests.Excel.DataValidations;
 /// targets the formula text, which a separate code path
 /// (<c>ShiftDataValidationFormula*</c>) re-points.
 /// </summary>
-[TestFixture]
 public class DataValidationFormulaShiftTests
 {
     // ---- Positive cases (formula must change) ----
-
     [Test]
-    public void InsertColumn_ShiftsCellReferenceInsideValidationFormula()
+    public async Task InsertColumn_ShiftsCellReferenceInsideValidationFormula()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -30,12 +27,12 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.That(rule.Ranges.Single().RangeAddress.ToString(), Is.EqualTo("F3:F816"));
-        Assert.That(rule.Value, Is.EqualTo("=$E3>0"));
+        await Assert.That(rule.Ranges.Single().RangeAddress.ToString()).IsEqualTo("F3:F816");
+        await Assert.That(rule.Value).IsEqualTo("=$E3>0");
     }
 
     [Test]
-    public void InsertRow_ShiftsRowReferenceInsideValidationFormula()
+    public async Task InsertRow_ShiftsRowReferenceInsideValidationFormula()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -45,12 +42,12 @@ public class DataValidationFormulaShiftTests
 
         ws.Row(1).InsertRowsAbove(1);
 
-        Assert.That(rule.Ranges.Single().RangeAddress.ToString(), Is.EqualTo("C4:Z4"));
-        Assert.That(rule.Value, Is.EqualTo("=D$4>0"));
+        await Assert.That(rule.Ranges.Single().RangeAddress.ToString()).IsEqualTo("C4:Z4");
+        await Assert.That(rule.Value).IsEqualTo("=D$4>0");
     }
 
     [Test]
-    public void DeleteColumn_ShiftsCellReferenceBackInsideValidationFormula()
+    public async Task DeleteColumn_ShiftsCellReferenceBackInsideValidationFormula()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -61,12 +58,12 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(2).Delete();
 
-        Assert.That(rule.Ranges.Single().RangeAddress.ToString(), Is.EqualTo("G3:G10"));
-        Assert.That(rule.Value, Is.EqualTo("=$F3>0"));
+        await Assert.That(rule.Ranges.Single().RangeAddress.ToString()).IsEqualTo("G3:G10");
+        await Assert.That(rule.Value).IsEqualTo("=$F3>0");
     }
 
     [Test]
-    public void DeleteRow_ShiftsRowReferenceBackInsideValidationFormula()
+    public async Task DeleteRow_ShiftsRowReferenceBackInsideValidationFormula()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -76,12 +73,12 @@ public class DataValidationFormulaShiftTests
 
         ws.Row(2).Delete();
 
-        Assert.That(rule.Ranges.Single().RangeAddress.ToString(), Is.EqualTo("C7:Z7"));
-        Assert.That(rule.Value, Is.EqualTo("=D$7>0"));
+        await Assert.That(rule.Ranges.Single().RangeAddress.ToString()).IsEqualTo("C7:Z7");
+        await Assert.That(rule.Value).IsEqualTo("=D$7>0");
     }
 
     [Test]
-    public void InsertColumn_ShiftsBothOperandsOfBetweenRule()
+    public async Task InsertColumn_ShiftsBothOperandsOfBetweenRule()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -91,12 +88,12 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.That(rule.MinValue, Is.EqualTo("$D3"));
-        Assert.That(rule.MaxValue, Is.EqualTo("$E3"));
+        await Assert.That(rule.MinValue).IsEqualTo("$D3");
+        await Assert.That(rule.MaxValue).IsEqualTo("$E3");
     }
 
     [Test]
-    public void InsertColumn_ShiftsSameSheetListSourceRange()
+    public async Task InsertColumn_ShiftsSameSheetListSourceRange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -106,11 +103,11 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.That(rule.Value, Is.EqualTo("=$E$3:$E$10"));
+        await Assert.That(rule.Value).IsEqualTo("=$E$3:$E$10");
     }
 
     [Test]
-    public void InsertColumn_ShiftsDependentDropdownFormula_LeavesDefinedNamesUntouched()
+    public async Task InsertColumn_ShiftsDependentDropdownFormula_LeavesDefinedNamesUntouched()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -120,13 +117,11 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.That(
-            rule.Value,
-            Is.EqualTo("=OFFSET(SubCategoryList,MATCH($E3,CategoryList,0)-1,0,COUNTIF(CategoryList,$E3),1)"));
+        await Assert.That(rule.Value).IsEqualTo("=OFFSET(SubCategoryList,MATCH($E3,CategoryList,0)-1,0,COUNTIF(CategoryList,$E3),1)");
     }
 
     [Test]
-    public void InsertColumn_ShiftsFormulaForFirstColumnInsert_RangeShifterShortCircuit()
+    public async Task InsertColumn_ShiftsFormulaForFirstColumnInsert_RangeShifterShortCircuit()
     {
         // The range shifter early-returns for first-column inserts; the formula pass must
         // still run. This is the exact scenario from the original bug report.
@@ -138,12 +133,12 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.That(rule.Ranges.Single().RangeAddress.ToString(), Is.EqualTo("C3:C10"));
-        Assert.That(rule.Value, Is.EqualTo("=$B3>0"));
+        await Assert.That(rule.Ranges.Single().RangeAddress.ToString()).IsEqualTo("C3:C10");
+        await Assert.That(rule.Value).IsEqualTo("=$B3>0");
     }
 
     [Test]
-    public void InsertRow_ShiftsFormulaForFirstRowInsert_RangeShifterShortCircuit()
+    public async Task InsertRow_ShiftsFormulaForFirstRowInsert_RangeShifterShortCircuit()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -153,14 +148,14 @@ public class DataValidationFormulaShiftTests
 
         ws.Row(1).InsertRowsAbove(1);
 
-        Assert.That(rule.Ranges.Single().RangeAddress.ToString(), Is.EqualTo("C3:Z3"));
-        Assert.That(rule.Value, Is.EqualTo("=D$2>0"));
+        await Assert.That(rule.Ranges.Single().RangeAddress.ToString()).IsEqualTo("C3:Z3");
+        await Assert.That(rule.Value).IsEqualTo("=D$2>0");
     }
 
     // ---- Negative cases (formula must NOT change) ----
 
     [Test]
-    public void InsertColumn_LeavesConstantOperandsUnchanged()
+    public async Task InsertColumn_LeavesConstantOperandsUnchanged()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -170,12 +165,12 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.That(rule.MinValue, Is.EqualTo("0"));
-        Assert.That(rule.MaxValue, Is.EqualTo("1"));
+        await Assert.That(rule.MinValue).IsEqualTo("0");
+        await Assert.That(rule.MaxValue).IsEqualTo("1");
     }
 
     [Test]
-    public void InsertColumn_LeavesQuotedLiteralListUnchanged()
+    public async Task InsertColumn_LeavesQuotedLiteralListUnchanged()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -185,11 +180,11 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.That(rule.Value, Is.EqualTo("\"Yes,No,Maybe\""));
+        await Assert.That(rule.Value).IsEqualTo("\"Yes,No,Maybe\"");
     }
 
     [Test]
-    public void InsertColumn_LeavesCrossSheetListSourceUnchanged_WhenValidationHostSheetMutated()
+    public async Task InsertColumn_LeavesCrossSheetListSourceUnchanged_WhenValidationHostSheetMutated()
     {
         using var wb = new XLWorkbook();
         wb.AddWorksheet("Other lookup");
@@ -202,11 +197,11 @@ public class DataValidationFormulaShiftTests
         // the cross-sheet reference must be untouched.
         ws.Column(1).InsertColumnsBefore(1);
 
-        Assert.That(rule.Value, Is.EqualTo("='Other lookup'!$D$2:$D$9"));
+        await Assert.That(rule.Value).IsEqualTo("='Other lookup'!$D$2:$D$9");
     }
 
     [Test]
-    public void InsertColumn_ShiftsCrossSheetListSource_WhenReferencedSheetMutated()
+    public async Task InsertColumn_ShiftsCrossSheetListSource_WhenReferencedSheetMutated()
     {
         using var wb = new XLWorkbook();
         var lookup = wb.AddWorksheet("Other lookup");
@@ -218,11 +213,11 @@ public class DataValidationFormulaShiftTests
         // Mutating the *referenced* sheet shifts the reference (D -> E).
         lookup.Column(1).InsertColumnsBefore(1);
 
-        Assert.That(rule.Value, Is.EqualTo("='Other lookup'!$E$2:$E$9"));
+        await Assert.That(rule.Value).IsEqualTo("='Other lookup'!$E$2:$E$9");
     }
 
     [Test]
-    public void InsertColumn_LeavesReferenceBeforeInsertionPointUnchanged()
+    public async Task InsertColumn_LeavesReferenceBeforeInsertionPointUnchanged()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -233,13 +228,13 @@ public class DataValidationFormulaShiftTests
 
         ws.Column(6).InsertColumnsBefore(1);
 
-        Assert.That(rule.Value, Is.EqualTo("=$B3>0"));
+        await Assert.That(rule.Value).IsEqualTo("=$B3>0");
     }
 
     // ---- Round-trip (save -> reopen with OpenXML) ----
 
     [Test]
-    public void InsertColumn_ShiftedFormulaSurvivesSaveAndReload()
+    public async Task InsertColumn_ShiftedFormulaSurvivesSaveAndReload()
     {
         using var saved = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -257,7 +252,7 @@ public class DataValidationFormulaShiftTests
         var sheetPart = doc.WorkbookPart!.WorksheetParts.First();
         var dv = sheetPart.Worksheet.Descendants<DataValidation>().Single();
 
-        Assert.That(dv.SequenceOfReferences!.InnerText, Is.EqualTo("F3:F816"));
-        Assert.That(dv.Formula1!.InnerText.TrimStart('='), Is.EqualTo("$E3>0"));
+        await Assert.That(dv.SequenceOfReferences!.InnerText).IsEqualTo("F3:F816");
+        await Assert.That(dv.Formula1!.InnerText.TrimStart('=')).IsEqualTo("$E3>0");
     }
 }

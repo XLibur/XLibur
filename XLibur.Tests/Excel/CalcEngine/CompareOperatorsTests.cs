@@ -1,156 +1,164 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
-[TestFixture]
 public class CompareOperatorsTests
 {
-    [TestCase("1=1", true)]
-    [TestCase("1=0", false)]
-    [TestCase("0.0=0", true)]
-    [TestCase("TRUE=TRUE", true)]
-    [TestCase("FALSE=FALSE", true)]
-    [TestCase("TRUE=FALSE", false)]
-    [TestCase("\"text\"=\"text\"", true)]
-    [TestCase("\"tExT\"=\"TeXt\"", true)]
-    [TestCase("\"text\"=\"text\"", true)]
-    [TestCase("\"\"=\"\"", true)]
-    [TestCase("#VALUE!=#VALUE!", XLError.IncompatibleValue)]
-    [TestCase("A1=B1", true)] // blanks are equal
-    public void EqualTo_WithSameType(string formula, object expectedValue)
+    [Test]
+    [Arguments("1=1", true)]
+    [Arguments("1=0", false)]
+    [Arguments("0.0=0", true)]
+    [Arguments("TRUE=TRUE", true)]
+    [Arguments("FALSE=FALSE", true)]
+    [Arguments("TRUE=FALSE", false)]
+    [Arguments("\"text\"=\"text\"", true)]
+    [Arguments("\"tExT\"=\"TeXt\"", true)]
+    [Arguments("\"text\"=\"text\"", true)]
+    [Arguments("\"\"=\"\"", true)]
+    [Arguments("#VALUE!=#VALUE!", XLError.IncompatibleValue)]
+    [Arguments("A1=B1", true)] // blanks are equal
+    public async Task EqualTo_WithSameType(string formula, object expectedValue)
     {
-        Assert.AreEqual(expectedValue, Evaluate(formula));
+        await Assert.That(Evaluate(formula)).IsEqualTo(ExpectedCellValue.From(expectedValue));
     }
 
-    [TestCase("1<>1", false)]
-    [TestCase("1<>0", true)]
-    [TestCase("0.0<>0", false)]
-    [TestCase("TRUE<>TRUE", false)]
-    [TestCase("FALSE<>FALSE", false)]
-    [TestCase("TRUE<>FALSE", true)]
-    [TestCase("\"texty\"<>\"text\"", true)]
-    [TestCase("\"tExT\"<>\"TeXt\"", false)]
-    [TestCase("\"text\"<>\"text\"", false)]
-    [TestCase("\"\"<>\"\"", false)]
-    [TestCase("#VALUE!<>#VALUE!", XLError.IncompatibleValue)]
-    [TestCase("A1<>B1", false)] // blanks are equal
-    public void NotEqualTo_WithSameType(string formula, object expectedValue)
+    [Test]
+    [Arguments("1<>1", false)]
+    [Arguments("1<>0", true)]
+    [Arguments("0.0<>0", false)]
+    [Arguments("TRUE<>TRUE", false)]
+    [Arguments("FALSE<>FALSE", false)]
+    [Arguments("TRUE<>FALSE", true)]
+    [Arguments("\"texty\"<>\"text\"", true)]
+    [Arguments("\"tExT\"<>\"TeXt\"", false)]
+    [Arguments("\"text\"<>\"text\"", false)]
+    [Arguments("\"\"<>\"\"", false)]
+    [Arguments("#VALUE!<>#VALUE!", XLError.IncompatibleValue)]
+    [Arguments("A1<>B1", false)] // blanks are equal
+    public async Task NotEqualTo_WithSameType(string formula, object expectedValue)
     {
-        Assert.AreEqual(expectedValue, Evaluate(formula));
+        await Assert.That(Evaluate(formula)).IsEqualTo(ExpectedCellValue.From(expectedValue));
     }
 
-    [TestCase("1>1", false)]
-    [TestCase("1>0", true)]
-    [TestCase("0.0>0", false)]
-    [TestCase("TRUE>TRUE", false)]
-    [TestCase("FALSE>FALSE", false)]
-    [TestCase("TRUE>FALSE", true)]
-    [TestCase("\"text\">\"text\"", false)]
-    [TestCase("\"texu\">\"text\"", true)]
-    [TestCase("#VALUE!>#REF!", XLError.IncompatibleValue)]
-    [TestCase("A1>A2", false)]
-    public void GreaterThen_WithSameType(string formula, object expectedValue)
+    [Test]
+    [Arguments("1>1", false)]
+    [Arguments("1>0", true)]
+    [Arguments("0.0>0", false)]
+    [Arguments("TRUE>TRUE", false)]
+    [Arguments("FALSE>FALSE", false)]
+    [Arguments("TRUE>FALSE", true)]
+    [Arguments("\"text\">\"text\"", false)]
+    [Arguments("\"texu\">\"text\"", true)]
+    [Arguments("#VALUE!>#REF!", XLError.IncompatibleValue)]
+    [Arguments("A1>A2", false)]
+    public async Task GreaterThen_WithSameType(string formula, object expectedValue)
     {
-        Assert.AreEqual(expectedValue, Evaluate(formula));
+        await Assert.That(Evaluate(formula)).IsEqualTo(ExpectedCellValue.From(expectedValue));
     }
 
-    [TestCase("1>=1", true)]
-    [TestCase("1>=0", true)]
-    [TestCase("0.0>=0", true)]
-    [TestCase("TRUE>=TRUE", true)]
-    [TestCase("FALSE>=FALSE", true)]
-    [TestCase("TRUE>=FALSE", true)]
-    [TestCase("\"text\">=\"text\"", true)]
-    [TestCase("\"texu\">=\"text\"", true)]
-    [TestCase("#VALUE!>=#REF!", XLError.IncompatibleValue)]
-    [TestCase("A1>=A2", true)]
-    public void GreaterThenOrEqual_WithSameType(string formula, object expectedValue)
+    [Test]
+    [Arguments("1>=1", true)]
+    [Arguments("1>=0", true)]
+    [Arguments("0.0>=0", true)]
+    [Arguments("TRUE>=TRUE", true)]
+    [Arguments("FALSE>=FALSE", true)]
+    [Arguments("TRUE>=FALSE", true)]
+    [Arguments("\"text\">=\"text\"", true)]
+    [Arguments("\"texu\">=\"text\"", true)]
+    [Arguments("#VALUE!>=#REF!", XLError.IncompatibleValue)]
+    [Arguments("A1>=A2", true)]
+    public async Task GreaterThenOrEqual_WithSameType(string formula, object expectedValue)
     {
-        Assert.AreEqual(expectedValue, Evaluate(formula));
+        await Assert.That(Evaluate(formula)).IsEqualTo(ExpectedCellValue.From(expectedValue));
     }
 
-    [TestCase("-5<5", true)]
-    [TestCase("1<1", false)]
-    [TestCase("1<0", false)]
-    [TestCase("0.0<0", false)]
-    [TestCase("TRUE<TRUE", false)]
-    [TestCase("FALSE<FALSE", false)]
-    [TestCase("TRUE<FALSE", false)]
-    [TestCase("FALSE<TRUE", true)]
-    [TestCase("\"text\"<\"text\"", false)]
-    [TestCase("\"text\"<\"texu\"", true)]
-    [TestCase("#VALUE!<#REF!", XLError.IncompatibleValue)]
-    [TestCase("A1<A2", false)]
-    public void LessThen_WithSameType(string formula, object expectedValue)
+    [Test]
+    [Arguments("-5<5", true)]
+    [Arguments("1<1", false)]
+    [Arguments("1<0", false)]
+    [Arguments("0.0<0", false)]
+    [Arguments("TRUE<TRUE", false)]
+    [Arguments("FALSE<FALSE", false)]
+    [Arguments("TRUE<FALSE", false)]
+    [Arguments("FALSE<TRUE", true)]
+    [Arguments("\"text\"<\"text\"", false)]
+    [Arguments("\"text\"<\"texu\"", true)]
+    [Arguments("#VALUE!<#REF!", XLError.IncompatibleValue)]
+    [Arguments("A1<A2", false)]
+    public async Task LessThen_WithSameType(string formula, object expectedValue)
     {
-        Assert.AreEqual(expectedValue, Evaluate(formula));
+        await Assert.That(Evaluate(formula)).IsEqualTo(ExpectedCellValue.From(expectedValue));
     }
 
-    [TestCase("-5<=5", true)]
-    [TestCase("1<=1", true)]
-    [TestCase("1<=0", false)]
-    [TestCase("0.0<=0", true)]
-    [TestCase("TRUE<=TRUE", true)]
-    [TestCase("FALSE<=FALSE", true)]
-    [TestCase("TRUE<=FALSE", false)]
-    [TestCase("FALSE<=TRUE", true)]
-    [TestCase("\"text\"<=\"text\"", true)]
-    [TestCase("\"text\"<=\"texu\"", true)]
-    [TestCase("#VALUE!<=#REF!", XLError.IncompatibleValue)]
-    [TestCase("A1<=A2", true)]
-    public void LessThenOrEqual_WithSameType(string formula, object expectedValue)
+    [Test]
+    [Arguments("-5<=5", true)]
+    [Arguments("1<=1", true)]
+    [Arguments("1<=0", false)]
+    [Arguments("0.0<=0", true)]
+    [Arguments("TRUE<=TRUE", true)]
+    [Arguments("FALSE<=FALSE", true)]
+    [Arguments("TRUE<=FALSE", false)]
+    [Arguments("FALSE<=TRUE", true)]
+    [Arguments("\"text\"<=\"text\"", true)]
+    [Arguments("\"text\"<=\"texu\"", true)]
+    [Arguments("#VALUE!<=#REF!", XLError.IncompatibleValue)]
+    [Arguments("A1<=A2", true)]
+    public async Task LessThenOrEqual_WithSameType(string formula, object expectedValue)
     {
-        Assert.AreEqual(expectedValue, Evaluate(formula));
+        await Assert.That(Evaluate(formula)).IsEqualTo(ExpectedCellValue.From(expectedValue));
     }
 
-    [TestCase("TRUE>-1", true)]
-    [TestCase("TRUE>1", true)]
-    [TestCase("TRUE>100", true)]
-    [TestCase("FALSE>-1", true)]
-    [TestCase("FALSE>1", true)]
-    [TestCase("FALSE>100", true)]
-    [TestCase("TRUE>\"100\"", true)]
-    [TestCase("FALSE>\"100\"", true)]
-    [TestCase("FALSE>\"\"", true)]
-    [TestCase("\"\">FALSE", false)]
-    [TestCase("10>FALSE", false)]
-    [TestCase("10>TRUE", false)]
-    [TestCase("-1<TRUE", true)]
-    [TestCase("1<TRUE", true)]
-    [TestCase("100<TRUE", true)]
-    [TestCase("-1<FALSE", true)]
-    [TestCase("1<FALSE", true)]
-    [TestCase("100<FALSE", true)]
-    [TestCase("\"100\"<TRUE", true)]
-    [TestCase("\"100\"<FALSE", true)]
-    [TestCase("\"\"<FALSE", true)]
-    [TestCase("FALSE<\"\"", false)]
-    [TestCase("FALSE<10", false)]
-    [TestCase("TRUE<10", false)]
-    public void Comparison_LogicalIsAlwaysGreaterThanAnyTextOrNumber(string formula, bool expectedResult)
+    [Test]
+    [Arguments("TRUE>-1", true)]
+    [Arguments("TRUE>1", true)]
+    [Arguments("TRUE>100", true)]
+    [Arguments("FALSE>-1", true)]
+    [Arguments("FALSE>1", true)]
+    [Arguments("FALSE>100", true)]
+    [Arguments("TRUE>\"100\"", true)]
+    [Arguments("FALSE>\"100\"", true)]
+    [Arguments("FALSE>\"\"", true)]
+    [Arguments("\"\">FALSE", false)]
+    [Arguments("10>FALSE", false)]
+    [Arguments("10>TRUE", false)]
+    [Arguments("-1<TRUE", true)]
+    [Arguments("1<TRUE", true)]
+    [Arguments("100<TRUE", true)]
+    [Arguments("-1<FALSE", true)]
+    [Arguments("1<FALSE", true)]
+    [Arguments("100<FALSE", true)]
+    [Arguments("\"100\"<TRUE", true)]
+    [Arguments("\"100\"<FALSE", true)]
+    [Arguments("\"\"<FALSE", true)]
+    [Arguments("FALSE<\"\"", false)]
+    [Arguments("FALSE<10", false)]
+    [Arguments("TRUE<10", false)]
+    public async Task Comparison_LogicalIsAlwaysGreaterThanAnyTextOrNumber(string formula, bool expectedResult)
     {
-        Assert.AreEqual(expectedResult, Evaluate(formula));
+        await Assert.That(Evaluate(formula)).IsEqualTo(expectedResult);
     }
 
-    [TestCase("\"\">10", true)]
-    [TestCase("\"1\">10", true)]
-    [TestCase("10<\"\"", true)]
-    [TestCase("10<\"1\"", true)]
-    public void Comparison_TextIsAlwaysGreaterThanAnyNumber(string formula, bool expectedResult)
+    [Test]
+    [Arguments("\"\">10", true)]
+    [Arguments("\"1\">10", true)]
+    [Arguments("10<\"\"", true)]
+    [Arguments("10<\"1\"", true)]
+    public async Task Comparison_TextIsAlwaysGreaterThanAnyNumber(string formula, bool expectedResult)
     {
-        Assert.AreEqual(expectedResult, XLWorkbook.EvaluateExpr(formula));
+        await Assert.That(XLWorkbook.EvaluateExpr(formula)).IsEqualTo(expectedResult);
     }
 
-    [TestCase("FALSE=A1")]
-    [TestCase("A1=FALSE")]
-    [TestCase("A1=0")]
-    [TestCase("0=A1")]
-    [TestCase("\"\"=A1")]
-    [TestCase("A1=\"\"")]
-    public void Comparison_BlankIsEqualToFalseOrZeroOrEmptyString(string formula)
+    [Test]
+    [Arguments("FALSE=A1")]
+    [Arguments("A1=FALSE")]
+    [Arguments("A1=0")]
+    [Arguments("0=A1")]
+    [Arguments("\"\"=A1")]
+    [Arguments("A1=\"\"")]
+    public async Task Comparison_BlankIsEqualToFalseOrZeroOrEmptyString(string formula)
     {
-        Assert.AreEqual(true, Evaluate(formula));
+        await Assert.That(Evaluate(formula)).IsEqualTo(true);
     }
 
     private static XLCellValue Evaluate(string formula)

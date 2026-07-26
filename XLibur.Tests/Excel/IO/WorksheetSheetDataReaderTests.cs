@@ -3,44 +3,45 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using NUnit.Framework;
 using XLibur.Excel;
 using XLibur.Excel.IO;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.IO;
 
-[TestFixture]
 public class WorksheetSheetDataReaderTests
 {
-    [TestCase("yyyy-MM-dd", XLDataType.DateTime)]
-    [TestCase("YYYY-MM-DD", XLDataType.DateTime)]
-    [TestCase("Yyyy-Mm-Dd", XLDataType.DateTime)]
-    [TestCase("hh:mm:ss", XLDataType.TimeSpan)]
-    [TestCase("HH:MM:SS", XLDataType.TimeSpan)]
-    [TestCase("#,##0.00", XLDataType.Number)]
-    [TestCase("0.00%", XLDataType.Number)]
-    [TestCase("mm:ss", XLDataType.TimeSpan)]
-    [TestCase("MM:SS", XLDataType.TimeSpan)]
-    [TestCase("[Red]0.00", XLDataType.Number)]
-    [TestCase("\"Date: \"yyyy-MM-dd", XLDataType.DateTime)]
-    [TestCase("[$-409]MMMM D, YYYY", XLDataType.DateTime)]
-    public void GetDataTypeFromFormat_handles_mixed_case(string format, XLDataType expected)
+    [Test]
+    [Arguments("yyyy-MM-dd", XLDataType.DateTime)]
+    [Arguments("YYYY-MM-DD", XLDataType.DateTime)]
+    [Arguments("Yyyy-Mm-Dd", XLDataType.DateTime)]
+    [Arguments("hh:mm:ss", XLDataType.TimeSpan)]
+    [Arguments("HH:MM:SS", XLDataType.TimeSpan)]
+    [Arguments("#,##0.00", XLDataType.Number)]
+    [Arguments("0.00%", XLDataType.Number)]
+    [Arguments("mm:ss", XLDataType.TimeSpan)]
+    [Arguments("MM:SS", XLDataType.TimeSpan)]
+    [Arguments("[Red]0.00", XLDataType.Number)]
+    [Arguments("\"Date: \"yyyy-MM-dd", XLDataType.DateTime)]
+    [Arguments("[$-409]MMMM D, YYYY", XLDataType.DateTime)]
+    public async Task GetDataTypeFromFormat_handles_mixed_case(string format, XLDataType expected)
     {
         var result = WorksheetSheetDataReader.GetDataTypeFromFormat(format);
-        Assert.That(result, Is.EqualTo(expected));
-    }
-
-    [TestCase("General")]
-    [TestCase("@")]
-    [TestCase("")]
-    public void GetDataTypeFromFormat_returns_null_for_non_numeric_date_formats(string format)
-    {
-        var result = WorksheetSheetDataReader.GetDataTypeFromFormat(format);
-        Assert.That(result, Is.Null);
+        await Assert.That(result).IsEqualTo(expected);
     }
 
     [Test]
-    public void LoadRow_tracks_last_row_so_rows_without_r_attribute_increment_correctly()
+    [Arguments("General")]
+    [Arguments("@")]
+    [Arguments("")]
+    public async Task GetDataTypeFromFormat_returns_null_for_non_numeric_date_formats(string format)
+    {
+        var result = WorksheetSheetDataReader.GetDataTypeFromFormat(format);
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task LoadRow_tracks_last_row_so_rows_without_r_attribute_increment_correctly()
     {
         // Create an xlsx where some <row> elements have explicit r attributes and some don't.
         // Row without r should increment from the last known row index.
@@ -94,9 +95,9 @@ public class WorksheetSheetDataReaderTests
         using var wb = new XLWorkbook(ms);
         var ws = wb.Worksheets.First();
 
-        Assert.That(ws.Cell("A5").GetString(), Is.EqualTo("First"));
-        Assert.That(ws.Cell("A6").GetString(), Is.EqualTo("Second"));
-        Assert.That(ws.Cell("A10").GetString(), Is.EqualTo("Third"));
-        Assert.That(ws.Cell("A11").GetString(), Is.EqualTo("Fourth"));
+        await Assert.That(ws.Cell("A5").GetString()).IsEqualTo("First");
+        await Assert.That(ws.Cell("A6").GetString()).IsEqualTo("Second");
+        await Assert.That(ws.Cell("A10").GetString()).IsEqualTo("Third");
+        await Assert.That(ws.Cell("A11").GetString()).IsEqualTo("Fourth");
     }
 }

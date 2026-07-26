@@ -3,18 +3,16 @@
 using System.Collections.Generic;
 using System.Data;
 using XLibur.Excel;
-using NUnit.Framework;
 using XLibur.Excel.Coordinates;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
-
 /// <summary>
 /// Test cases per <em>[MS-OI29500] 3.2.3.1.1 Structure References</em>.
 /// </summary>
-[TestFixture]
 internal class StructuredReferenceTests
 {
-    private static IEnumerable<object[]> TestCases
+    public static IEnumerable<object[]> TestCases
     {
         get
         {
@@ -96,8 +94,9 @@ internal class StructuredReferenceTests
         }
     }
 
-    [TestCaseSource(nameof(TestCases))]
-    public void Structured_reference_is_resolved_to_reference(
+    [Test]
+    [MethodDataSource(nameof(TestCases))]
+    public async Task Structured_reference_is_resolved_to_reference(
         string structuredReference,
         string expectedWithTotals,
         string expectedWithoutTotals)
@@ -108,14 +107,14 @@ internal class StructuredReferenceTests
         var table = Add4X3Table(ws, "E7");
         table.ShowTotalsRow = true;
 
-        AssertRange(structuredReference, expectedWithTotals, ws);
+        await AssertRange(structuredReference, expectedWithTotals, ws);
 
         table.ShowTotalsRow = false;
-        AssertRange(structuredReference, expectedWithoutTotals, ws);
+        await AssertRange(structuredReference, expectedWithoutTotals, ws);
     }
 
     [Test]
-    public void This_row_of_column_of_table_reference()
+    public async Task This_row_of_column_of_table_reference()
     {
         // table-name[[#This Row],[column-name]] refers to the cell in the intersection of table-name[column-
         // name] and the current row; for example, the row of the cell that contains the formula with the
@@ -129,18 +128,19 @@ internal class StructuredReferenceTests
         Add4X3Table(ws, "E7");
 
         const string columnFormula = "TableName[[#This Row],[Second]]";
-        AssertRange(columnFormula, "F8:F8", ws, "D8");
-        AssertRange(columnFormula, "F10:F10", ws, "D10");
+        await AssertRange(columnFormula, "F8:F8", ws, "D8");
+        await AssertRange(columnFormula, "F10:F10", ws, "D10");
 
         const string columnsFormula = "TableName[[#This Row],[Second]:[Third]]";
-        AssertRange(columnsFormula, "F8:G8", ws, "D8");
-        AssertRange(columnsFormula, "F10:G10", ws, "D10");
+        await AssertRange(columnsFormula, "F8:G8", ws, "D8");
+        await AssertRange(columnsFormula, "F10:G10", ws, "D10");
     }
 
-    [TestCase("TableName[[#This Row],[Second]]")]
-    [TestCase("TableName[[#This Row],[Second]:[Fourth]]")]
-    [TestCase("TableName[[#This Row],[Fourth]:[Second]]")]
-    public void This_row_outside_data_area_of_table_reference(string formula)
+    [Test]
+    [Arguments("TableName[[#This Row],[Second]]")]
+    [Arguments("TableName[[#This Row],[Second]:[Fourth]]")]
+    [Arguments("TableName[[#This Row],[Fourth]:[Second]]")]
+    public async Task This_row_outside_data_area_of_table_reference(string formula)
     {
         // table-name[[#This Row],[column-name]] and table-name[[#This Row],[column-name1]:[column-name2]]
         // return #VALUE! when the row is not in data range of rows.
@@ -151,16 +151,16 @@ internal class StructuredReferenceTests
         table.ShowTotalsRow = true;
 
         // Right above header row
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate(formula, "D6"));
+        await Assert.That(ws.Evaluate(formula, "D6")).IsEqualTo(XLError.IncompatibleValue);
 
         // Header row
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate(formula, "D7"));
+        await Assert.That(ws.Evaluate(formula, "D7")).IsEqualTo(XLError.IncompatibleValue);
 
         // Whether there is a totals row or not, the result is #VALUE!
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate(formula, "D11"));
+        await Assert.That(ws.Evaluate(formula, "D11")).IsEqualTo(XLError.IncompatibleValue);
 
         table.ShowTotalsRow = false;
-        Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate(formula, "D11"));
+        await Assert.That(ws.Evaluate(formula, "D11")).IsEqualTo(XLError.IncompatibleValue);
     }
 
     private static IXLTable Add4X3Table(IXLWorksheet ws, string origin)
@@ -188,18 +188,18 @@ internal class StructuredReferenceTests
         return table;
     }
 
-    private static void AssertRange(string structureReference, string expectedArea, IXLWorksheet ws, string? formulaAddress = null)
+    private static async Task AssertRange(string structureReference, string expectedArea, IXLWorksheet ws, string? formulaAddress = null)
     {
         if (expectedArea == "#REF!")
         {
-            Assert.AreEqual(XLError.CellReference, ws.Evaluate(structureReference, formulaAddress));
+            await Assert.That(ws.Evaluate(structureReference, formulaAddress)).IsEqualTo(XLError.CellReference);
             return;
         }
 
         var expected = XLSheetRange.Parse(expectedArea);
-        Assert.AreEqual(expected.LeftColumn, ws.Evaluate($"COLUMN({structureReference})", formulaAddress));
-        Assert.AreEqual(expected.TopRow, ws.Evaluate($"ROW({structureReference})", formulaAddress));
-        Assert.AreEqual(expected.Height, ws.Evaluate($"ROWS({structureReference})", formulaAddress));
-        Assert.AreEqual(expected.Width, ws.Evaluate($"COLUMNS({structureReference})", formulaAddress));
+        await Assert.That(ws.Evaluate($"COLUMN({structureReference})", formulaAddress)).IsEqualTo(expected.LeftColumn);
+        await Assert.That(ws.Evaluate($"ROW({structureReference})", formulaAddress)).IsEqualTo(expected.TopRow);
+        await Assert.That(ws.Evaluate($"ROWS({structureReference})", formulaAddress)).IsEqualTo(expected.Height);
+        await Assert.That(ws.Evaluate($"COLUMNS({structureReference})", formulaAddress)).IsEqualTo(expected.Width);
     }
 }

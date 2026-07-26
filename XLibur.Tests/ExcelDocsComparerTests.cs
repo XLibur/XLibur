@@ -1,15 +1,14 @@
 ﻿using XLibur.Examples;
-using NUnit.Framework;
 using System.IO;
 using XLibur.Tests.Utils;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests;
 
-[TestFixture]
 public class ExcelDocsComparerTests
 {
     [Test]
-    public void CheckEqual()
+    public async Task CheckEqual()
     {
         var left = ExampleHelper.GetTempFilePath("left.xlsx");
         var right = ExampleHelper.GetTempFilePath("right.xlsx");
@@ -17,7 +16,7 @@ public class ExcelDocsComparerTests
         {
             new BasicTable().Create(left);
             new BasicTable().Create(right);
-            Assert.IsTrue(ExcelDocsComparer.Compare(left, right, out var message));
+            await Assert.That(ExcelDocsComparer.Compare(left, right, out var message)).IsTrue();
         }
         finally
         {
@@ -33,7 +32,7 @@ public class ExcelDocsComparerTests
     }
 
     [Test]
-    public void CheckNonEqual()
+    public async Task CheckNonEqual()
     {
         var left = ExampleHelper.GetTempFilePath("left.xlsx");
         var right = ExampleHelper.GetTempFilePath("right.xlsx");
@@ -42,7 +41,7 @@ public class ExcelDocsComparerTests
             new BasicTable().Create(left);
             HelloWorld.Create(right);
 
-            Assert.IsFalse(ExcelDocsComparer.Compare(left, right, out var message));
+            await Assert.That(ExcelDocsComparer.Compare(left, right, out var message)).IsFalse();
         }
         finally
         {

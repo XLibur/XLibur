@@ -1,7 +1,7 @@
 ﻿using XLibur.Excel.InsertData;
-using NUnit.Framework;
 using System.Data;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.InsertData;
 
@@ -21,38 +21,38 @@ public class DataRowReaderTests
     }
 
     [Test]
-    public void CanGetPropertyName()
+    public async Task CanGetPropertyName()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
-        Assert.AreEqual("Last name", reader.GetPropertyName(0));
-        Assert.AreEqual("First name", reader.GetPropertyName(1));
-        Assert.AreEqual("Age", reader.GetPropertyName(2));
+        await Assert.That(reader.GetPropertyName(0)).IsEqualTo("Last name");
+        await Assert.That(reader.GetPropertyName(1)).IsEqualTo("First name");
+        await Assert.That(reader.GetPropertyName(2)).IsEqualTo("Age");
     }
 
     [Test]
-    public void CanGetPropertiesCount()
+    public async Task CanGetPropertiesCount()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
-        Assert.AreEqual(3, reader.GetPropertiesCount());
+        await Assert.That(reader.GetPropertiesCount()).IsEqualTo(3);
     }
 
     [Test]
-    public void CanGetRecordsCount()
+    public async Task CanGetRecordsCount()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
-        Assert.AreEqual(2, reader.GetRecords().Count());
+        await Assert.That(reader.GetRecords().Count()).IsEqualTo(2);
     }
 
     [Test]
-    public void CanReadValue()
+    public async Task CanReadValue()
     {
         var reader = InsertDataReaderFactory.CreateReader(_data);
         var result = reader.GetRecords();
 
         var enumerable = result.ToList();
-        Assert.AreEqual("Smith", enumerable.First().First());
-        Assert.AreEqual(33, enumerable.First().Last());
-        Assert.AreEqual("Ivanova", enumerable.Last().First());
-        Assert.AreEqual(25, enumerable.Last().Last());
+        await Assert.That(enumerable.First().First()).IsEqualTo("Smith");
+        await Assert.That(enumerable.First().Last()).IsEqualTo(33);
+        await Assert.That(enumerable.Last().First()).IsEqualTo("Ivanova");
+        await Assert.That(enumerable.Last().Last()).IsEqualTo(25);
     }
 }

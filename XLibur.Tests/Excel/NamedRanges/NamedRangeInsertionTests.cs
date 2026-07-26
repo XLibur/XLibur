@@ -1,11 +1,10 @@
 ﻿using System.IO;
 using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.NamedRanges;
 
-[TestFixture]
 public class NamedRangeInsertionTests
 {
     /// <summary>
@@ -14,7 +13,7 @@ public class NamedRangeInsertionTests
     /// matching Excel's behavior.
     /// </summary>
     [Test]
-    public void InsertingRowsInsideNamedRange_ExpandsRange()
+    public async Task InsertingRowsInsideNamedRange_ExpandsRange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -34,8 +33,7 @@ public class NamedRangeInsertionTests
 
         // Named range should expand from A1:B8 to A1:B14 (8 original + 6 inserted)
         var definedName = wb.DefinedNames.First(dn => dn.Name == "Region");
-        Assert.AreEqual("Sheet1!$A$1:$B$14", definedName.RefersTo,
-            "Named range should expand when rows are inserted inside it");
+        await Assert.That(definedName.RefersTo).IsEqualTo("Sheet1!$A$1:$B$14").Because("Named range should expand when rows are inserted inside it");
     }
 
     /// <summary>
@@ -43,7 +41,7 @@ public class NamedRangeInsertionTests
     /// the named range should expand.
     /// </summary>
     [Test]
-    public void InsertingRowsAtBottomOfNamedRange_ExpandsRange()
+    public async Task InsertingRowsAtBottomOfNamedRange_ExpandsRange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -60,8 +58,7 @@ public class NamedRangeInsertionTests
         ws.Row(8).InsertRowsAbove(3);
 
         var definedName = wb.DefinedNames.First(dn => dn.Name == "Region");
-        Assert.AreEqual("Sheet1!$A$1:$B$11", definedName.RefersTo,
-            "Named range should expand when rows are inserted at its bottom boundary");
+        await Assert.That(definedName.RefersTo).IsEqualTo("Sheet1!$A$1:$B$11").Because("Named range should expand when rows are inserted at its bottom boundary");
     }
 
     /// <summary>
@@ -69,7 +66,7 @@ public class NamedRangeInsertionTests
     /// the named range should shift down but NOT expand.
     /// </summary>
     [Test]
-    public void InsertingRowsAboveNamedRange_ShiftsRangeDown()
+    public async Task InsertingRowsAboveNamedRange_ShiftsRangeDown()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -87,8 +84,7 @@ public class NamedRangeInsertionTests
 
         // Named range should shift from A1:B8 to A3:B10 (same size, shifted down)
         var definedName = wb.DefinedNames.First(dn => dn.Name == "Region");
-        Assert.AreEqual("Sheet1!$A$3:$B$10", definedName.RefersTo,
-            "Named range should shift down when rows are inserted above it");
+        await Assert.That(definedName.RefersTo).IsEqualTo("Sheet1!$A$3:$B$10").Because("Named range should shift down when rows are inserted above it");
     }
 
     /// <summary>
@@ -96,7 +92,7 @@ public class NamedRangeInsertionTests
     /// the named range should NOT change.
     /// </summary>
     [Test]
-    public void InsertingRowsBelowNamedRange_DoesNotChangeRange()
+    public async Task InsertingRowsBelowNamedRange_DoesNotChangeRange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -113,15 +109,14 @@ public class NamedRangeInsertionTests
         ws.Row(9).InsertRowsAbove(3);
 
         var definedName = wb.DefinedNames.First(dn => dn.Name == "Region");
-        Assert.AreEqual("Sheet1!$A$1:$B$8", definedName.RefersTo,
-            "Named range should not change when rows are inserted below it");
+        await Assert.That(definedName.RefersTo).IsEqualTo("Sheet1!$A$1:$B$8").Because("Named range should not change when rows are inserted below it");
     }
 
     /// <summary>
     /// Verifies the named range expansion survives a save/reload roundtrip.
     /// </summary>
     [Test]
-    public void InsertingRowsInsideNamedRange_ExpandsRange_SurvivesRoundtrip()
+    public async Task InsertingRowsInsideNamedRange_ExpandsRange_SurvivesRoundtrip()
     {
         using var ms = new MemoryStream();
 
@@ -147,14 +142,13 @@ public class NamedRangeInsertionTests
         using (var wb2 = new XLWorkbook(ms))
         {
             var definedName = wb2.DefinedNames.First(dn => dn.Name == "Region");
-            Assert.AreEqual("Sheet1!$A$1:$B$14", definedName.RefersTo,
-                "Named range expansion should survive save/reload");
+            await Assert.That(definedName.RefersTo).IsEqualTo("Sheet1!$A$1:$B$14").Because("Named range expansion should survive save/reload");
 
             // Verify the range actually resolves to correct cells
             var ranges = definedName.Ranges;
-            Assert.AreEqual(1, ranges.Count);
+            await Assert.That(ranges.Count).IsEqualTo(1);
             var range = ranges.First();
-            Assert.AreEqual("$A$1:$B$14", range.RangeAddress.ToString());
+            await Assert.That(range.RangeAddress.ToString()).IsEqualTo("$A$1:$B$14");
         }
     }
 
@@ -162,7 +156,7 @@ public class NamedRangeInsertionTests
     /// Worksheet-scoped named ranges should also expand when rows are inserted.
     /// </summary>
     [Test]
-    public void InsertingRowsInsideWorksheetScopedNamedRange_ExpandsRange()
+    public async Task InsertingRowsInsideWorksheetScopedNamedRange_ExpandsRange()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -178,7 +172,6 @@ public class NamedRangeInsertionTests
         ws.Row(3).InsertRowsAbove(6);
 
         var definedName = ws.DefinedNames.First(dn => dn.Name == "Region");
-        Assert.AreEqual("Sheet1!$A$1:$B$14", definedName.RefersTo,
-            "Worksheet-scoped named range should expand when rows are inserted inside it");
+        await Assert.That(definedName.RefersTo).IsEqualTo("Sheet1!$A$1:$B$14").Because("Worksheet-scoped named range should expand when rows are inserted inside it");
     }
 }

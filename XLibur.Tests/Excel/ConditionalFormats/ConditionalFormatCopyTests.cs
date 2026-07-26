@@ -1,16 +1,15 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Linq;
 using XLibur.Excel.ConditionalFormats;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.ConditionalFormats;
 
-[TestFixture]
 public class ConditionalFormatCopyTests
 {
     [Test]
-    public void StylesAreCreatedDuringCopy()
+    public async Task StylesAreCreatedDuringCopy()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet");
@@ -21,11 +20,11 @@ public class ConditionalFormatCopyTests
         var wb2 = new XLWorkbook();
         var ws2 = wb2.Worksheets.Add("Sheet2");
         ws2.FirstCell().CopyFrom(ws.FirstCell());
-        Assert.That(ws2.ConditionalFormats.First().Style.Fill.BackgroundColor, Is.EqualTo(XLColor.Blue)); //Added blue style
+        await Assert.That(ws2.ConditionalFormats.First().Style.Fill.BackgroundColor).IsEqualTo(XLColor.Blue); //Added blue style
     }
 
     [Test]
-    public void CopyConditionalFormatSingleWorksheet()
+    public async Task CopyConditionalFormatSingleWorksheet()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet");
@@ -35,14 +34,14 @@ public class ConditionalFormatCopyTests
 
         ws.Cell("A1").CopyTo("B2");
 
-        Assert.AreEqual(1, ws.ConditionalFormats.Count());
-        Assert.AreEqual(2, ws.ConditionalFormats.First().Ranges.Count);
-        Assert.AreEqual("A1:A1", ws.ConditionalFormats.First().Ranges.First().RangeAddress.ToString());
-        Assert.AreEqual("B2:B2", ws.ConditionalFormats.First().Ranges.Last().RangeAddress.ToString());
+        await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(1);
+        await Assert.That(ws.ConditionalFormats.First().Ranges.Count).IsEqualTo(2);
+        await Assert.That(ws.ConditionalFormats.First().Ranges.First().RangeAddress.ToString()).IsEqualTo("A1:A1");
+        await Assert.That(ws.ConditionalFormats.First().Ranges.Last().RangeAddress.ToString()).IsEqualTo("B2:B2");
     }
 
     [Test]
-    public void CopyConditionalFormatSameRange()
+    public async Task CopyConditionalFormatSameRange()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet");
@@ -52,13 +51,13 @@ public class ConditionalFormatCopyTests
 
         ws.Cell("A1").CopyTo("B2");
 
-        Assert.AreEqual(1, ws.ConditionalFormats.Count());
-        Assert.AreEqual(1, ws.ConditionalFormats.First().Ranges.Count);
-        Assert.AreEqual("A1:C3", ws.ConditionalFormats.First().Ranges.First().RangeAddress.ToString());
+        await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(1);
+        await Assert.That(ws.ConditionalFormats.First().Ranges.Count).IsEqualTo(1);
+        await Assert.That(ws.ConditionalFormats.First().Ranges.First().RangeAddress.ToString()).IsEqualTo("A1:C3");
     }
 
     [Test]
-    public void CopyConditionalFormatsDifferentWorksheets()
+    public async Task CopyConditionalFormatsDifferentWorksheets()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.Worksheets.Add("Sheet1");
@@ -70,18 +69,18 @@ public class ConditionalFormatCopyTests
 
         ws1.Cell("A1").CopyTo(otherCell);
 
-        Assert.AreEqual(1, ws1.ConditionalFormats.Count());
-        Assert.AreEqual(1, ws2.ConditionalFormats.Count());
-        Assert.AreEqual(1, ws1.ConditionalFormats.First().Ranges.Count);
-        Assert.AreEqual(1, ws2.ConditionalFormats.First().Ranges.Count);
-        Assert.AreEqual("Sheet1", ws1.ConditionalFormats.First().Ranges.First().Worksheet.Name);
-        Assert.AreEqual("Sheet2", ws2.ConditionalFormats.First().Ranges.First().Worksheet.Name);
-        Assert.AreEqual("A1:A1", ws1.ConditionalFormats.First().Ranges.First().RangeAddress.ToString());
-        Assert.AreEqual("B2:B2", ws2.ConditionalFormats.First().Ranges.First().RangeAddress.ToString());
+        await Assert.That(ws1.ConditionalFormats.Count()).IsEqualTo(1);
+        await Assert.That(ws2.ConditionalFormats.Count()).IsEqualTo(1);
+        await Assert.That(ws1.ConditionalFormats.First().Ranges.Count).IsEqualTo(1);
+        await Assert.That(ws2.ConditionalFormats.First().Ranges.Count).IsEqualTo(1);
+        await Assert.That(ws1.ConditionalFormats.First().Ranges.First().Worksheet.Name).IsEqualTo("Sheet1");
+        await Assert.That(ws2.ConditionalFormats.First().Ranges.First().Worksheet.Name).IsEqualTo("Sheet2");
+        await Assert.That(ws1.ConditionalFormats.First().Ranges.First().RangeAddress.ToString()).IsEqualTo("A1:A1");
+        await Assert.That(ws2.ConditionalFormats.First().Ranges.First().RangeAddress.ToString()).IsEqualTo("B2:B2");
     }
 
     [Test]
-    public void FullCopyConditionalFormatSameWorksheet()
+    public async Task FullCopyConditionalFormatSameWorksheet()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.Worksheets.Add("Sheet1");
@@ -89,14 +88,14 @@ public class ConditionalFormatCopyTests
         format.WhenEquals("=" + format.Ranges.First().FirstCell().CellRight(4).Address.ToStringRelative()).Fill
             .SetBackgroundColor(XLColor.Blue);
 
-        Assert.Throws<InvalidOperationException>(Action);
+        await Assert.That(Action).Throws<InvalidOperationException>();
         return;
 
         void Action() => format.CopyTo(ws1);
     }
 
     [Test]
-    public void FullCopyConditionalFormatDifferentWorksheets()
+    public async Task FullCopyConditionalFormatDifferentWorksheets()
     {
         var wb = new XLWorkbook();
         var ws1 = wb.Worksheets.Add("Sheet1");
@@ -107,11 +106,11 @@ public class ConditionalFormatCopyTests
 
         format.CopyTo(ws2);
 
-        Assert.AreEqual(1, ws1.ConditionalFormats.Count());
-        Assert.AreEqual(1, ws2.ConditionalFormats.Count());
-        Assert.AreEqual(1, ws1.ConditionalFormats.First().Ranges.Count);
-        Assert.AreEqual(1, ws2.ConditionalFormats.First().Ranges.Count);
-        Assert.AreEqual("Sheet1!A1:C3", ws1.ConditionalFormats.First().Ranges.First().RangeAddress.ToString(XLReferenceStyle.A1, true));
-        Assert.AreEqual("Sheet2!A1:C3", ws2.ConditionalFormats.First().Ranges.First().RangeAddress.ToString(XLReferenceStyle.A1, true));
+        await Assert.That(ws1.ConditionalFormats.Count()).IsEqualTo(1);
+        await Assert.That(ws2.ConditionalFormats.Count()).IsEqualTo(1);
+        await Assert.That(ws1.ConditionalFormats.First().Ranges.Count).IsEqualTo(1);
+        await Assert.That(ws2.ConditionalFormats.First().Ranges.Count).IsEqualTo(1);
+        await Assert.That(ws1.ConditionalFormats.First().Ranges.First().RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("Sheet1!A1:C3");
+        await Assert.That(ws2.ConditionalFormats.First().Ranges.First().RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("Sheet2!A1:C3");
     }
 }

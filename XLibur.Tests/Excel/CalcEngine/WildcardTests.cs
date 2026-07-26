@@ -1,109 +1,114 @@
 ﻿using System;
 using XLibur.Excel.CalcEngine;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
-[TestFixture]
 public class WildcardTests
 {
-    [TestCase("")]
-    [TestCase("abc")]
-    public void Empty_Pattern_Matches_Any_String(string text)
+    [Test]
+    [Arguments("")]
+    [Arguments("abc")]
+    public async Task Empty_Pattern_Matches_Any_String(string text)
     {
-        Assert.AreEqual(0, SearchWildcard(text, string.Empty));
-    }
-
-    [TestCase("", "abc", 0)]
-    [TestCase("a", "abc", 0)]
-    [TestCase("ab", "abc", 0)]
-    [TestCase("abc", "abc", 0)]
-    [TestCase("bc", "abc", 1)]
-    [TestCase("c", "abc", 2)]
-    public void Substring_Of_Text_Matches_Text(string substringPattern, string text, int expectedIndex)
-    {
-        Assert.AreEqual(expectedIndex, SearchWildcard(text, substringPattern));
-    }
-
-    [TestCase("abcd", "abc")]
-    public void Pattern_Not_In_Text_Returns_Negative_One(string pattern, string text)
-    {
-        Assert.AreEqual(-1, SearchWildcard(text, pattern));
+        await Assert.That(SearchWildcard(text, string.Empty)).IsEqualTo(0);
     }
 
     [Test]
-    public void Pattern_Comparison_Is_Case_Insensitive()
+    [Arguments("", "abc", 0)]
+    [Arguments("a", "abc", 0)]
+    [Arguments("ab", "abc", 0)]
+    [Arguments("abc", "abc", 0)]
+    [Arguments("bc", "abc", 1)]
+    [Arguments("c", "abc", 2)]
+    public async Task Substring_Of_Text_Matches_Text(string substringPattern, string text, int expectedIndex)
     {
-        Assert.AreEqual(1, SearchWildcard("zabcd", "AbCd"));
+        await Assert.That(SearchWildcard(text, substringPattern)).IsEqualTo(expectedIndex);
     }
 
     [Test]
-    public void Tilde_Is_Escape_Char()
+    [Arguments("abcd", "abc")]
+    public async Task Pattern_Not_In_Text_Returns_Negative_One(string pattern, string text)
     {
-        Assert.AreEqual(1, SearchWildcard("_abc_", "~a~B~c"));
-    }
-
-    [TestCase("~*", "*", 0)]
-    [TestCase("~*", "a", -1)]
-    [TestCase("~?", "?", 0)]
-    [TestCase("~?", "a", -1)]
-    [TestCase("~a~b~", "ab", 0)]
-    public void Escaped_Wildcards_Are_Matched_As_Chars(string pattern, string text, int expectedPosition)
-    {
-        Assert.AreEqual(expectedPosition, SearchWildcard(text, pattern));
+        await Assert.That(SearchWildcard(text, pattern)).IsEqualTo(-1);
     }
 
     [Test]
-    public void Question_Mark_Wildcard_Matches_Any_Char()
+    public async Task Pattern_Comparison_Is_Case_Insensitive()
     {
-        Assert.AreEqual(0, SearchWildcard("abc", "a?c"));
-    }
-
-    [TestCase("abcd", "ab*cd", 0)]
-    [TestCase("aaab_____cd", "ab*cd", 2)]
-    [TestCase("*abc*", "***a*b*c***", 0)]
-
-    public void Star_Wildcard_Matches_Any_Number_Of_Chars(string text, string pattern, int index)
-    {
-        Assert.AreEqual(index, SearchWildcard(text, pattern));
+        await Assert.That(SearchWildcard("zabcd", "AbCd")).IsEqualTo(1);
     }
 
     [Test]
-    public void Unpaired_Escape_Char_At_The_End_Of_Pattern_Is_Not_Char()
+    public async Task Tilde_Is_Escape_Char()
     {
-        Assert.AreEqual(0, SearchWildcard("a", "a~"));
+        await Assert.That(SearchWildcard("_abc_", "~a~B~c")).IsEqualTo(1);
     }
 
     [Test]
-    public void Star_Wildcard_At_The_Beginning_Matches_First_Char()
+    [Arguments("~*", "*", 0)]
+    [Arguments("~*", "a", -1)]
+    [Arguments("~?", "?", 0)]
+    [Arguments("~?", "a", -1)]
+    [Arguments("~a~b~", "ab", 0)]
+    public async Task Escaped_Wildcards_Are_Matched_As_Chars(string pattern, string text, int expectedPosition)
     {
-        Assert.AreEqual(0, SearchWildcard("abcccd", "*ccd"));
+        await Assert.That(SearchWildcard(text, pattern)).IsEqualTo(expectedPosition);
     }
 
     [Test]
-    public void Pattern_Size_Is_Limited_To_255_Chars()
+    public async Task Question_Mark_Wildcard_Matches_Any_Char()
     {
-        Assert.AreEqual(0, SearchWildcard(new string('a', 1000), new string('a', 255)));
-
-        Assert.AreEqual(-1, SearchWildcard(new string('a', 1000), new string('a', 256)));
+        await Assert.That(SearchWildcard("abc", "a?c")).IsEqualTo(0);
     }
 
-    [TestCase("?", "a", true)]
-    [TestCase("?", "ab", false)]
-    [TestCase("a?", "ab", true)]
-    [TestCase("a?", "abc", false)]
-    [TestCase("?b", "ab", true)]
-    [TestCase("?b", "aab", false)]
-    [TestCase("a*", "abc", true)]
-    [TestCase("*a*", "abc", true)]
-    [TestCase("*c", "abc", true)]
-    [TestCase("*a*a", "abc", false)]
-    [TestCase("*a*a", "aba", true)]
-    [TestCase("*a*a", "zaba", true)]
-    [TestCase("a*", "zaba", false)]
-    public void Matches(string pattern, string text, bool matches)
+    [Test]
+    [Arguments("abcd", "ab*cd", 0)]
+    [Arguments("aaab_____cd", "ab*cd", 2)]
+    [Arguments("*abc*", "***a*b*c***", 0)]
+
+    public async Task Star_Wildcard_Matches_Any_Number_Of_Chars(string text, string pattern, int index)
     {
-        Assert.AreEqual(matches, new Wildcard(pattern).Matches(text.AsSpan()));
+        await Assert.That(SearchWildcard(text, pattern)).IsEqualTo(index);
+    }
+
+    [Test]
+    public async Task Unpaired_Escape_Char_At_The_End_Of_Pattern_Is_Not_Char()
+    {
+        await Assert.That(SearchWildcard("a", "a~")).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Star_Wildcard_At_The_Beginning_Matches_First_Char()
+    {
+        await Assert.That(SearchWildcard("abcccd", "*ccd")).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Pattern_Size_Is_Limited_To_255_Chars()
+    {
+        await Assert.That(SearchWildcard(new string('a', 1000), new string('a', 255))).IsEqualTo(0);
+
+        await Assert.That(SearchWildcard(new string('a', 1000), new string('a', 256))).IsEqualTo(-1);
+    }
+
+    [Test]
+    [Arguments("?", "a", true)]
+    [Arguments("?", "ab", false)]
+    [Arguments("a?", "ab", true)]
+    [Arguments("a?", "abc", false)]
+    [Arguments("?b", "ab", true)]
+    [Arguments("?b", "aab", false)]
+    [Arguments("a*", "abc", true)]
+    [Arguments("*a*", "abc", true)]
+    [Arguments("*c", "abc", true)]
+    [Arguments("*a*a", "abc", false)]
+    [Arguments("*a*a", "aba", true)]
+    [Arguments("*a*a", "zaba", true)]
+    [Arguments("a*", "zaba", false)]
+    public async Task Matches(string pattern, string text, bool matches)
+    {
+        await Assert.That(new Wildcard(pattern).Matches(text.AsSpan())).IsEqualTo(matches);
     }
 
     private static int SearchWildcard(string text, string pattern)

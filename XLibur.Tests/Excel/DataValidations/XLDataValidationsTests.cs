@@ -1,20 +1,20 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.DataValidations;
 
 public class XLDataValidationsTests
 {
     [Test]
-    public void CannotCreateWithoutWorksheet()
+    public async Task CannotCreateWithoutWorksheet()
     {
-        Assert.Throws<ArgumentNullException>(() => new XLDataValidations(null));
+        await Assert.That(() => new XLDataValidations(null)).Throws<ArgumentNullException>();
     }
 
     [Test]
-    public void AddedRangesAreTransferredToTargetSheet()
+    public async Task AddedRangesAreTransferredToTargetSheet()
     {
         using var wb = new XLWorkbook();
         var ws1 = wb.AddWorksheet();
@@ -25,22 +25,23 @@ public class XLDataValidationsTests
 
         var dv2 = ws2.DataValidations.Add(dv1);
 
-        Assert.AreEqual(1, ws1.DataValidations.Count());
-        Assert.AreEqual(1, ws2.DataValidations.Count());
+        await Assert.That(ws1.DataValidations.Count()).IsEqualTo(1);
+        await Assert.That(ws2.DataValidations.Count()).IsEqualTo(1);
 
-        Assert.AreNotSame(dv1, dv2);
+        await Assert.That(dv2).IsNotSameReferenceAs(dv1);
 
-        Assert.AreSame(ws1, dv1.Ranges.Single().Worksheet);
-        Assert.AreSame(ws2, dv2.Ranges.Single().Worksheet);
+        await Assert.That(dv1.Ranges.Single().Worksheet).IsSameReferenceAs(ws1);
+        await Assert.That(dv2.Ranges.Single().Worksheet).IsSameReferenceAs(ws2);
     }
 
-    [TestCase("A1:A1", true)]
-    [TestCase("A1:A3", true)]
-    [TestCase("A1:A4", false)]
-    [TestCase("C2:C2", true)]
-    [TestCase("C1:C3", true)]
-    [TestCase("A1:C3", false)]
-    public void CanFindDataValidationForRange(string searchAddress, bool expectedResult)
+    [Test]
+    [Arguments("A1:A1", true)]
+    [Arguments("A1:A3", true)]
+    [Arguments("A1:A4", false)]
+    [Arguments("C2:C2", true)]
+    [Arguments("C1:C3", true)]
+    [Arguments("A1:C3", false)]
+    public async Task CanFindDataValidationForRange(string searchAddress, bool expectedResult)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -51,21 +52,22 @@ public class XLDataValidationsTests
         var address = new XLRangeAddress(ws as XLWorksheet, searchAddress);
 
         var actualResult = ws.DataValidations.TryGet(address, out var foundDv);
-        Assert.AreEqual(expectedResult, actualResult);
+        await Assert.That(actualResult).IsEqualTo(expectedResult);
         if (expectedResult)
-            Assert.AreSame(dv, foundDv);
+            await Assert.That(foundDv).IsSameReferenceAs(dv);
         else
-            Assert.IsNull(foundDv);
+            await Assert.That(foundDv).IsNull();
     }
 
-    [TestCase("A1:A1", 1)]
-    [TestCase("A1:A3", 1)]
-    [TestCase("B1:B4", 0)]
-    [TestCase("A1:C3", 1)]
-    [TestCase("C2:C3", 1)]
-    [TestCase("C2:G6", 2)]
-    [TestCase("E2:E3", 0)]
-    public void CanGetAllDataValidationsForRange(string searchAddress, int expectedCount)
+    [Test]
+    [Arguments("A1:A1", 1)]
+    [Arguments("A1:A3", 1)]
+    [Arguments("B1:B4", 0)]
+    [Arguments("A1:C3", 1)]
+    [Arguments("C2:C3", 1)]
+    [Arguments("C2:G6", 2)]
+    [Arguments("E2:E3", 0)]
+    public async Task CanGetAllDataValidationsForRange(string searchAddress, int expectedCount)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -80,11 +82,11 @@ public class XLDataValidationsTests
 
         var actualResult = ws.DataValidations.GetAllInRange(address);
 
-        Assert.AreEqual(expectedCount, actualResult.Count());
+        await Assert.That(actualResult.Count()).IsEqualTo(expectedCount);
     }
 
     [Test]
-    public void AddDataValidationSplitsExistingRanges()
+    public async Task AddDataValidationSplitsExistingRanges()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -94,13 +96,12 @@ public class XLDataValidationsTests
         var dv2 = ws.Range("E4:G6").CreateDataValidation();
         dv2.MinValue = "100";
 
-        Assert.AreEqual(4, dv1.Ranges.Count());
-        Assert.AreEqual("B2:G3,B4:D6,B7:G7,C11:C13",
-            string.Join(",", dv1.Ranges.Select(r => r.RangeAddress.ToString())));
+        await Assert.That(dv1.Ranges.Count()).IsEqualTo(4);
+        await Assert.That(string.Join(",", dv1.Ranges.Select(r => r.RangeAddress.ToString()))).IsEqualTo("B2:G3,B4:D6,B7:G7,C11:C13");
     }
 
     [Test]
-    public void RemovedRangeExcludedFromIndex()
+    public async Task RemovedRangeExcludedFromIndex()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -112,12 +113,12 @@ public class XLDataValidationsTests
         dv.RemoveRange(range);
 
         var actualResult = ws.DataValidations.TryGet(range.RangeAddress, out var foundDv);
-        Assert.IsFalse(actualResult);
-        Assert.IsNull(foundDv);
+        await Assert.That(actualResult).IsFalse();
+        await Assert.That(foundDv).IsNull();
     }
 
     [Test]
-    public void ConsolidatedDataValidationsAreUnsubscribed()
+    public async Task ConsolidatedDataValidationsAreUnsubscribed()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -131,8 +132,8 @@ public class XLDataValidationsTests
         dv2.AddRange(ws.Range("D1:D3"));
 
         var consolidatedDv = ws.DataValidations.Single();
-        Assert.AreSame(dv1, consolidatedDv);
-        Assert.True(ws.Cell("C1").HasDataValidation);
-        Assert.False(ws.Cell("D1").HasDataValidation);
+        await Assert.That(consolidatedDv).IsSameReferenceAs(dv1);
+        await Assert.That(ws.Cell("C1").HasDataValidation).IsTrue();
+        await Assert.That(ws.Cell("D1").HasDataValidation).IsFalse();
     }
 }

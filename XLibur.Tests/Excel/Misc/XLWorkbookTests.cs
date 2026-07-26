@@ -2,79 +2,77 @@
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Misc;
-
-[TestFixture]
 // ReSharper disable once InconsistentNaming
 public class XLWorkbookTests
 {
     [Test]
-    public void Cell1()
+    public async Task Cell1()
     {
         var wb = new XLWorkbook();
         var cell = wb.Cell("ABC");
-        Assert.IsNull(cell);
+        await Assert.That(cell).IsNull();
     }
 
     [Test]
-    public void Cell2()
+    public async Task Cell2()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue(1).AddToNamed("Result", XLScope.Worksheet);
         var cell = wb.Cell("Sheet1!Result");
-        Assert.IsNotNull(cell);
-        Assert.AreEqual(1, cell!.Value);
+        await Assert.That(cell).IsNotNull();
+        await Assert.That(cell!.Value).IsEqualTo(1);
     }
 
     [Test]
-    public void Cell3()
+    public async Task Cell3()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue(1).AddToNamed("Result");
         var cell = wb.Cell("Sheet1!Result");
-        Assert.IsNotNull(cell);
-        Assert.AreEqual(1, cell!.Value);
+        await Assert.That(cell).IsNotNull();
+        await Assert.That(cell!.Value).IsEqualTo(1);
     }
 
     [Test]
-    public void Cells1()
+    public async Task Cells1()
     {
         var wb = new XLWorkbook();
         var cells = wb.Cells("ABC");
-        Assert.IsNotNull(cells);
-        Assert.AreEqual(0, cells.Count());
+        await Assert.That(cells).IsNotNull();
+        await Assert.That(cells.Count()).IsEqualTo(0);
     }
 
     [Test]
-    public void Cells2()
+    public async Task Cells2()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue(1).AddToNamed("Result", XLScope.Worksheet);
         var cells = wb.Cells("Sheet1!Result, ABC");
-        Assert.IsNotNull(cells);
-        Assert.AreEqual(1, cells.Count());
-        Assert.AreEqual(1, cells.First().Value);
+        await Assert.That(cells).IsNotNull();
+        await Assert.That(cells.Count()).IsEqualTo(1);
+        await Assert.That(cells.First().Value).IsEqualTo(1);
     }
 
     [Test]
-    public void Cells3()
+    public async Task Cells3()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue(1).AddToNamed("Result");
         var cells = wb.Cells("Sheet1!Result, ABC");
-        Assert.IsNotNull(cells);
-        Assert.AreEqual(1, cells.Count());
-        Assert.AreEqual(1, cells.First().Value);
+        await Assert.That(cells).IsNotNull();
+        await Assert.That(cells.Count()).IsEqualTo(1);
+        await Assert.That(cells.First().Value).IsEqualTo(1);
     }
 
     [Test]
-    public void GetCellFromFullAddress()
+    public async Task GetCellFromFullAddress()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -85,30 +83,31 @@ public class XLWorkbookTests
         var c1Full = wb.Cell("Sheet1!C123");
         var c2Full = wb.Cell("'O'Sheet 2'!B7");
 
-        Assert.AreEqual(c1, c1Full);
-        Assert.AreEqual(c2, c2Full);
-        Assert.NotNull(c1Full);
-        Assert.NotNull(c2Full);
+        await Assert.That(c1Full).IsEqualTo(c1);
+        await Assert.That(c2Full).IsEqualTo(c2);
+        await Assert.That(c1Full).IsNotNull();
+        await Assert.That(c2Full).IsNotNull();
     }
 
-    [TestCase("Sheet1")]
-    [TestCase("Sheet1!")]
-    [TestCase("Sheet2!")]
-    [TestCase("Sheet2!C1")]
-    [TestCase("Sheet1!ZZZ1")]
-    [TestCase("Sheet1!A")]
-    public void GetCellFromNonExistingFullAddress(string address)
+    [Test]
+    [Arguments("Sheet1")]
+    [Arguments("Sheet1!")]
+    [Arguments("Sheet2!")]
+    [Arguments("Sheet2!C1")]
+    [Arguments("Sheet1!ZZZ1")]
+    [Arguments("Sheet1!A")]
+    public async Task GetCellFromNonExistingFullAddress(string address)
     {
         var wb = new XLWorkbook();
         wb.AddWorksheet("Sheet1");
 
         var c = wb.Cell(address);
 
-        Assert.IsNull(c);
+        await Assert.That(c).IsNull();
     }
 
     [Test]
-    public void GetRangeFromFullAddress()
+    public async Task GetRangeFromFullAddress()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -116,24 +115,25 @@ public class XLWorkbookTests
 
         var r2 = wb.Range("Sheet1!C123:D125");
 
-        Assert.AreSame(r1, r2);
-        Assert.NotNull(r2);
+        await Assert.That(r2).IsSameReferenceAs(r1);
+        await Assert.That(r2).IsNotNull();
     }
 
-    [TestCase("Sheet2!C1:D2")]
-    [TestCase("Sheet1!A")]
-    public void GetRangeFromNonExistingFullAddress(string rangeAddress)
+    [Test]
+    [Arguments("Sheet2!C1:D2")]
+    [Arguments("Sheet1!A")]
+    public async Task GetRangeFromNonExistingFullAddress(string rangeAddress)
     {
         var wb = new XLWorkbook();
         wb.AddWorksheet("Sheet1");
 
         var r = wb.Range(rangeAddress);
 
-        Assert.IsNull(r);
+        await Assert.That(r).IsNull();
     }
 
     [Test]
-    public void GetRangesFromFullAddress()
+    public async Task GetRangesFromFullAddress()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -141,160 +141,161 @@ public class XLWorkbookTests
 
         var r2 = wb.Ranges("Sheet1!A1:B2,Sheet1!C1:E3");
 
-        Assert.AreEqual(2, r2.Count);
-        Assert.AreSame(r1.First(), r2.First());
-        Assert.AreSame(r1.Last(), r2.Last());
+        await Assert.That(r2.Count).IsEqualTo(2);
+        await Assert.That(r2.First()).IsSameReferenceAs(r1.First());
+        await Assert.That(r2.Last()).IsSameReferenceAs(r1.Last());
     }
 
-    [TestCase("Sheet2!C1:D2,Sheet2!F1:G4")]
-    [TestCase("Sheet1!A,Sheet1!B")]
-    public void GetRangesFromNonExistingFullAddress(string rangesAddress)
+    [Test]
+    [Arguments("Sheet2!C1:D2,Sheet2!F1:G4")]
+    [Arguments("Sheet1!A,Sheet1!B")]
+    public async Task GetRangesFromNonExistingFullAddress(string rangesAddress)
     {
         var wb = new XLWorkbook();
         wb.AddWorksheet("Sheet1");
 
         var r = wb.Ranges(rangesAddress);
 
-        Assert.NotNull(r);
-        Assert.That(r.Count, Is.EqualTo(0));
+        await Assert.That(r).IsNotNull();
+        await Assert.That(r.Count).IsEqualTo(0);
     }
 
     [Test]
-    public void Non_existent_defined_name_returns_null()
+    public async Task Non_existent_defined_name_returns_null()
     {
         var wb = new XLWorkbook();
         var definedName = wb.DefinedName("ABC");
-        Assert.IsNull(definedName);
+        await Assert.That(definedName).IsNull();
     }
 
     [Test]
-    public void Sheet_specified_defined_name_is_retrieved_from_sheet_if_defined_there()
+    public async Task Sheet_specified_defined_name_is_retrieved_from_sheet_if_defined_there()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue(1).AddToNamed("Result", XLScope.Worksheet);
         var definedName = wb.DefinedName("Sheet1!Result");
-        Assert.IsNotNull(definedName);
-        Assert.AreEqual(1, definedName!.Ranges.Count);
-        Assert.AreEqual(1, definedName.Ranges.Cells().Count());
-        Assert.AreEqual(1, definedName.Ranges.First().FirstCell().Value);
+        await Assert.That(definedName).IsNotNull();
+        await Assert.That(definedName!.Ranges.Count).IsEqualTo(1);
+        await Assert.That(definedName.Ranges.Cells().Count()).IsEqualTo(1);
+        await Assert.That(definedName.Ranges.First().FirstCell().Value).IsEqualTo(1);
     }
 
     [Test]
-    public void Sheet_specified_defined_name_returns_null_if_not_defined_in_sheet_nor_workbook()
+    public async Task Sheet_specified_defined_name_returns_null_if_not_defined_in_sheet_nor_workbook()
     {
         var wb = new XLWorkbook();
         wb.AddWorksheet("Sheet1");
         var definedName = wb.DefinedName("Sheet1!Result");
-        Assert.IsNull(definedName);
+        await Assert.That(definedName).IsNull();
     }
 
     [Test]
-    public void Sheet_specified_defined_name_falls_back_to_workbook_scoped_defined_name_if_not_defined_in_sheet()
+    public async Task Sheet_specified_defined_name_falls_back_to_workbook_scoped_defined_name_if_not_defined_in_sheet()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue(1).AddToNamed("Result");
         var definedName = wb.DefinedName("Sheet1!Result");
-        Assert.IsNotNull(definedName);
-        Assert.AreEqual(1, definedName!.Ranges.Count);
-        Assert.AreEqual(1, definedName.Ranges.Cells().Count());
-        Assert.AreEqual(1, definedName.Ranges.First().FirstCell().Value);
+        await Assert.That(definedName).IsNotNull();
+        await Assert.That(definedName!.Ranges.Count).IsEqualTo(1);
+        await Assert.That(definedName.Ranges.Cells().Count()).IsEqualTo(1);
+        await Assert.That(definedName.Ranges.First().FirstCell().Value).IsEqualTo(1);
     }
 
     [Test]
-    public void Range1()
+    public async Task Range1()
     {
         var wb = new XLWorkbook();
         var range = wb.Range("ABC");
-        Assert.IsNull(range);
+        await Assert.That(range).IsNull();
     }
 
     [Test]
-    public void Range2()
+    public async Task Range2()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue(1).AddToNamed("Result", XLScope.Worksheet);
         var range = wb.Range("Sheet1!Result");
-        Assert.IsNotNull(range);
-        Assert.AreEqual(1, range!.Cells().Count());
-        Assert.AreEqual(1, range.FirstCell().Value);
+        await Assert.That(range).IsNotNull();
+        await Assert.That(range!.Cells().Count()).IsEqualTo(1);
+        await Assert.That(range.FirstCell().Value).IsEqualTo(1);
     }
 
     [Test]
-    public void Range3()
+    public async Task Range3()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue(1).AddToNamed("Result");
         var range = wb.Range("Sheet1!Result");
-        Assert.IsNotNull(range);
-        Assert.AreEqual(1, range!.Cells().Count());
-        Assert.AreEqual(1, range.FirstCell().Value);
+        await Assert.That(range).IsNotNull();
+        await Assert.That(range!.Cells().Count()).IsEqualTo(1);
+        await Assert.That(range.FirstCell().Value).IsEqualTo(1);
     }
 
     [Test]
-    public void Ranges1()
+    public async Task Ranges1()
     {
         var wb = new XLWorkbook();
         var ranges = wb.Ranges("ABC");
-        Assert.IsNotNull(ranges);
-        Assert.AreEqual(0, ranges.Count);
+        await Assert.That(ranges).IsNotNull();
+        await Assert.That(ranges.Count).IsEqualTo(0);
     }
 
     [Test]
-    public void Ranges2()
+    public async Task Ranges2()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue(1).AddToNamed("Result", XLScope.Worksheet);
         var ranges = wb.Ranges("Sheet1!Result, ABC");
-        Assert.IsNotNull(ranges);
-        Assert.AreEqual(1, ranges.Cells().Count());
-        Assert.AreEqual(1, ranges.First().FirstCell().Value);
+        await Assert.That(ranges).IsNotNull();
+        await Assert.That(ranges.Cells().Count()).IsEqualTo(1);
+        await Assert.That(ranges.First().FirstCell().Value).IsEqualTo(1);
     }
 
     [Test]
-    public void Ranges3()
+    public async Task Ranges3()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue(1).AddToNamed("Result");
         var ranges = wb.Ranges("Sheet1!Result, ABC");
-        Assert.IsNotNull(ranges);
-        Assert.AreEqual(1, ranges.Cells().Count());
-        Assert.AreEqual(1, ranges.First().FirstCell().Value);
+        await Assert.That(ranges).IsNotNull();
+        await Assert.That(ranges.Cells().Count()).IsEqualTo(1);
+        await Assert.That(ranges.First().FirstCell().Value).IsEqualTo(1);
     }
 
     [Test]
-    public void WbNamedCell()
+    public async Task WbNamedCell()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell(1, 1).SetValue("Test").AddToNamed("TestCell");
-        Assert.AreEqual("Test", wb.Cell("TestCell")!.GetText());
-        Assert.AreEqual("Test", ws.Cell("TestCell").GetText());
+        await Assert.That(wb.Cell("TestCell")!.GetText()).IsEqualTo("Test");
+        await Assert.That(ws.Cell("TestCell").GetText()).IsEqualTo("Test");
     }
 
     [Test]
-    public void WbNamedCells()
+    public async Task WbNamedCells()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell(1, 1).SetValue("Test").AddToNamed("TestCell");
         ws.Cell(2, 1).SetValue("B").AddToNamed("Test2");
         var wbCells = wb.Cells("TestCell, Test2");
-        Assert.AreEqual("Test", wbCells.First().GetText());
-        Assert.AreEqual("B", wbCells.Last().GetText());
+        await Assert.That(wbCells.First().GetText()).IsEqualTo("Test");
+        await Assert.That(wbCells.Last().GetText()).IsEqualTo("B");
 
         var wsCells = ws.Cells("TestCell, Test2");
-        Assert.AreEqual("Test", wsCells.First().GetText());
-        Assert.AreEqual("B", wsCells.Last().GetText());
+        await Assert.That(wsCells.First().GetText()).IsEqualTo("Test");
+        await Assert.That(wsCells.Last().GetText()).IsEqualTo("B");
     }
 
     [Test]
-    public void WbNamedRange()
+    public async Task WbNamedRange()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -302,12 +303,12 @@ public class XLWorkbookTests
         ws.Cell(2, 1).SetValue("B");
         var original = ws.Range("A1:A2");
         original.AddToNamed("TestRange");
-        Assert.AreEqual(original.RangeAddress.ToStringFixed(), wb.Range("TestRange")!.RangeAddress.ToString());
-        Assert.AreEqual(original.RangeAddress.ToStringFixed(), ws.Range("TestRange").RangeAddress.ToString());
+        await Assert.That(wb.Range("TestRange")!.RangeAddress.ToString()).IsEqualTo(original.RangeAddress.ToStringFixed());
+        await Assert.That(ws.Range("TestRange").RangeAddress.ToString()).IsEqualTo(original.RangeAddress.ToStringFixed());
     }
 
     [Test]
-    public void WbNamedRanges()
+    public async Task WbNamedRanges()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
@@ -317,99 +318,99 @@ public class XLWorkbookTests
         var original = ws.Range("A1:A2");
         original.AddToNamed("TestRange");
         var wbRanges = wb.Ranges("TestRange, Test2");
-        Assert.AreEqual(original.RangeAddress.ToStringFixed(), wbRanges.First().RangeAddress.ToString());
-        Assert.AreEqual("$A$3:$A$3", wbRanges.Last().RangeAddress.ToStringFixed());
+        await Assert.That(wbRanges.First().RangeAddress.ToString()).IsEqualTo(original.RangeAddress.ToStringFixed());
+        await Assert.That(wbRanges.Last().RangeAddress.ToStringFixed()).IsEqualTo("$A$3:$A$3");
 
         var wsRanges = wb.Ranges("TestRange, Test2");
-        Assert.AreEqual(original.RangeAddress.ToStringFixed(), wsRanges.First().RangeAddress.ToString());
-        Assert.AreEqual("$A$3:$A$3", wsRanges.Last().RangeAddress.ToStringFixed());
+        await Assert.That(wsRanges.First().RangeAddress.ToString()).IsEqualTo(original.RangeAddress.ToStringFixed());
+        await Assert.That(wsRanges.Last().RangeAddress.ToStringFixed()).IsEqualTo("$A$3:$A$3");
     }
 
     [Test]
-    public void WbNamedRangesOneString()
+    public async Task WbNamedRangesOneString()
     {
         var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet1");
         wb.DefinedNames.Add("TestRange", "Sheet1!$A$1,Sheet1!$A$3");
 
         var wbRanges = ws.Ranges("TestRange");
-        Assert.AreEqual("$A$1:$A$1", wbRanges.First().RangeAddress.ToStringFixed());
-        Assert.AreEqual("$A$3:$A$3", wbRanges.Last().RangeAddress.ToStringFixed());
+        await Assert.That(wbRanges.First().RangeAddress.ToStringFixed()).IsEqualTo("$A$1:$A$1");
+        await Assert.That(wbRanges.Last().RangeAddress.ToStringFixed()).IsEqualTo("$A$3:$A$3");
 
         var wsRanges = ws.Ranges("TestRange");
-        Assert.AreEqual("$A$1:$A$1", wsRanges.First().RangeAddress.ToStringFixed());
-        Assert.AreEqual("$A$3:$A$3", wsRanges.Last().RangeAddress.ToStringFixed());
+        await Assert.That(wsRanges.First().RangeAddress.ToStringFixed()).IsEqualTo("$A$1:$A$1");
+        await Assert.That(wsRanges.Last().RangeAddress.ToStringFixed()).IsEqualTo("$A$3:$A$3");
     }
 
     [Test]
-    public void WbProtect1()
+    public async Task WbProtect1()
     {
         using var wb = new XLWorkbook();
         wb.Worksheets.Add("Sheet1");
         wb.Protect();
-        Assert.IsTrue(wb.LockStructure);
-        Assert.IsFalse(wb.LockWindows);
-        Assert.IsFalse(wb.IsPasswordProtected);
+        await Assert.That(wb.LockStructure).IsTrue();
+        await Assert.That(wb.LockWindows).IsFalse();
+        await Assert.That(wb.IsPasswordProtected).IsFalse();
     }
 
     [Test]
-    public void WbProtect2()
+    public async Task WbProtect2()
     {
         using var wb = new XLWorkbook();
         wb.Worksheets.Add("Sheet1");
         wb.Protect(XLWorkbookProtectionElements.Windows);
-        Assert.IsTrue(wb.LockStructure);
-        Assert.IsFalse(wb.LockWindows);
-        Assert.IsFalse(wb.IsPasswordProtected);
+        await Assert.That(wb.LockStructure).IsTrue();
+        await Assert.That(wb.LockWindows).IsFalse();
+        await Assert.That(wb.IsPasswordProtected).IsFalse();
     }
 
     [Test]
-    public void WbProtect3()
+    public async Task WbProtect3()
     {
         using var wb = new XLWorkbook();
         wb.Worksheets.Add("Sheet1");
         wb.Protect("Abc@123");
-        Assert.IsTrue(wb.LockStructure);
-        Assert.IsFalse(wb.LockWindows);
-        Assert.IsTrue(wb.IsPasswordProtected);
-        Assert.Throws<InvalidOperationException>(() => wb.Protect());
-        Assert.Throws<InvalidOperationException>(() => wb.Unprotect());
-        Assert.Throws<ArgumentException>(() => wb.Unprotect("Cde@345"));
+        await Assert.That(wb.LockStructure).IsTrue();
+        await Assert.That(wb.LockWindows).IsFalse();
+        await Assert.That(wb.IsPasswordProtected).IsTrue();
+        await Assert.That(() => wb.Protect()).Throws<InvalidOperationException>();
+        await Assert.That(() => wb.Unprotect()).Throws<InvalidOperationException>();
+        await Assert.That(() => wb.Unprotect("Cde@345")).Throws<ArgumentException>();
     }
 
     [Test]
-    public void WbProtect4()
+    public async Task WbProtect4()
     {
         using var wb = new XLWorkbook();
         wb.Worksheets.Add("Sheet1");
         wb.Protect();
-        Assert.IsTrue(wb.LockStructure);
-        Assert.IsFalse(wb.LockWindows);
-        Assert.IsFalse(wb.IsPasswordProtected);
+        await Assert.That(wb.LockStructure).IsTrue();
+        await Assert.That(wb.LockWindows).IsFalse();
+        await Assert.That(wb.IsPasswordProtected).IsFalse();
         wb.Unprotect();
         wb.Protect("Abc@123");
-        Assert.IsTrue(wb.LockStructure);
-        Assert.IsFalse(wb.LockWindows);
-        Assert.IsTrue(wb.IsPasswordProtected);
+        await Assert.That(wb.LockStructure).IsTrue();
+        await Assert.That(wb.LockWindows).IsFalse();
+        await Assert.That(wb.IsPasswordProtected).IsTrue();
     }
 
     [Test]
-    public void WbProtect5()
+    public async Task WbProtect5()
     {
         using var wb = new XLWorkbook();
         wb.Worksheets.Add("Sheet1");
         wb.Protect("Abc@123", XLProtectionAlgorithm.DefaultProtectionAlgorithm, XLWorkbookProtectionElements.Windows);
-        Assert.IsTrue(wb.LockStructure);
-        Assert.IsFalse(wb.LockWindows);
-        Assert.IsTrue(wb.IsPasswordProtected);
+        await Assert.That(wb.LockStructure).IsTrue();
+        await Assert.That(wb.LockWindows).IsFalse();
+        await Assert.That(wb.IsPasswordProtected).IsTrue();
         wb.Unprotect("Abc@123");
-        Assert.IsFalse(wb.LockStructure);
-        Assert.IsFalse(wb.LockWindows);
-        Assert.IsFalse(wb.IsPasswordProtected);
+        await Assert.That(wb.LockStructure).IsFalse();
+        await Assert.That(wb.LockWindows).IsFalse();
+        await Assert.That(wb.IsPasswordProtected).IsFalse();
     }
 
     [Test]
-    public void FileSharingProperties()
+    public async Task FileSharingProperties()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -424,8 +425,8 @@ public class XLWorkbookTests
 
         using (var wb = new XLWorkbook(ms))
         {
-            Assert.IsTrue(wb.FileSharing.ReadOnlyRecommended);
-            Assert.AreEqual(Environment.UserName, wb.FileSharing.UserName);
+            await Assert.That(wb.FileSharing.ReadOnlyRecommended).IsTrue();
+            await Assert.That(wb.FileSharing.UserName).IsEqualTo(Environment.UserName);
         }
     }
 }

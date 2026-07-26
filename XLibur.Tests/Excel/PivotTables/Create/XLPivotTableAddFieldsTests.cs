@@ -1,29 +1,27 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.PivotTables.Create;
-
 /// <summary>
 /// Tests that add fields to a new empty table. Doesn't test data.
 /// Expected: Make sure Excel can read the stuff we wrote.
 /// </summary>
-[TestFixture]
 // ReSharper disable once InconsistentNaming
 internal class XLPivotTableAddFieldsTests
 {
     [Test]
-    public void Add_empty_table()
+    public async Task Add_empty_table()
     {
-        TestHelper.CreateAndCompare(wb =>
+        await TestHelper.CreateAndCompare(wb =>
         {
             CreatePivotTableFor2X2(wb);
         }, @"Other\PivotTable\Create\Add_empty_table.xlsx");
     }
 
     [Test]
-    public void Add_one_column_without_value()
+    public async Task Add_one_column_without_value()
     {
-        TestHelper.CreateAndCompare(wb =>
+        await TestHelper.CreateAndCompare(wb =>
         {
             var pt = CreatePivotTableFor2X2(wb);
 
@@ -32,9 +30,9 @@ internal class XLPivotTableAddFieldsTests
     }
 
     [Test]
-    public void Add_one_row_without_value()
+    public async Task Add_one_row_without_value()
     {
-        TestHelper.CreateAndCompare(wb =>
+        await TestHelper.CreateAndCompare(wb =>
         {
             var pt = CreatePivotTableFor2X2(wb);
 
@@ -43,9 +41,9 @@ internal class XLPivotTableAddFieldsTests
     }
 
     [Test]
-    public void Add_one_column_and_one_value()
+    public async Task Add_one_column_and_one_value()
     {
-        TestHelper.CreateAndCompare(wb =>
+        await TestHelper.CreateAndCompare(wb =>
         {
             var pt = CreatePivotTableFor2X2(wb);
 
@@ -55,9 +53,9 @@ internal class XLPivotTableAddFieldsTests
     }
 
     [Test]
-    public void Add_one_column_and_two_values()
+    public async Task Add_one_column_and_two_values()
     {
-        TestHelper.CreateAndCompare(wb =>
+        await TestHelper.CreateAndCompare(wb =>
         {
             var pt = CreatePivotTableFor2X2(wb);
 

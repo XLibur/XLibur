@@ -1,15 +1,14 @@
 ﻿using System.IO;
 using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.PageSetup;
 
-[TestFixture]
 public class HeaderFooterTests
 {
     [Test]
-    public void CanChangeWorksheetHeader()
+    public async Task CanChangeWorksheetHeader()
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -31,12 +30,13 @@ public class HeaderFooterTests
         ws = wb.Worksheets.First();
 
         var newHeader = ws.PageSetup.Header.Center.GetText(XLHFOccurrence.EvenPages);
-        Assert.AreEqual("Changed header", newHeader);
+        await Assert.That(newHeader).IsEqualTo("Changed header");
     }
 
-    [TestCase("")]
-    [TestCase("&L&C&\"Arial\"&9 19-10-2017 \n&9&\"Arial\" &P    &N &R")] // https://github.com/XLibur/XLibur/issues/563
-    public void CanSetHeaderFooter(string s)
+    [Test]
+    [Arguments("")]
+    [Arguments("&L&C&\"Arial\"&9 19-10-2017 \n&9&\"Arial\" &P    &N &R")] // https://github.com/XLibur/XLibur/issues/563
+    public async Task CanSetHeaderFooter(string s)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -44,11 +44,11 @@ public class HeaderFooterTests
         header.SetInnerText(XLHFOccurrence.AllPages, s);
 
         // Verify header was changed (or remained empty for empty input)
-        Assert.That(header.Changed, Is.EqualTo(!string.IsNullOrEmpty(s)));
+        await Assert.That(header.Changed).IsEqualTo(!string.IsNullOrEmpty(s));
     }
 
     [Test]
-    public void SaveDoesNotCrash_WhenSimpleTextAddedToHeaderCenter()
+    public async Task SaveDoesNotCrash_WhenSimpleTextAddedToHeaderCenter()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -56,11 +56,11 @@ public class HeaderFooterTests
         ws.PageSetup.Header.Center.AddText("Simple Text", XLHFOccurrence.AllPages);
 
         using var ms = new MemoryStream();
-        Assert.DoesNotThrow(() => wb.SaveAs(ms));
+        await Assert.That(() => wb.SaveAs(ms)).ThrowsNothing();
     }
 
     [Test]
-    public void SaveDoesNotCrash_WhenTextAddedToAllHeaderPositions()
+    public async Task SaveDoesNotCrash_WhenTextAddedToAllHeaderPositions()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -70,11 +70,11 @@ public class HeaderFooterTests
         ws.PageSetup.Header.Right.AddText("Right Header Text", XLHFOccurrence.AllPages);
 
         using var ms = new MemoryStream();
-        Assert.DoesNotThrow(() => wb.SaveAs(ms));
+        await Assert.That(() => wb.SaveAs(ms)).ThrowsNothing();
     }
 
     [Test]
-    public void SaveDoesNotCrash_WhenHeaderContainsFormattedText()
+    public async Task SaveDoesNotCrash_WhenHeaderContainsFormattedText()
     {
         // Reproduces the crash from issue: formatted text with font names and sizes
         // in headers causes ArgumentOutOfRangeException due to 255-char limit.
@@ -91,11 +91,11 @@ public class HeaderFooterTests
             .SetFontName("Arial").SetBold().SetFontSize(12);
 
         using var ms = new MemoryStream();
-        Assert.DoesNotThrow(() => wb.SaveAs(ms));
+        await Assert.That(() => wb.SaveAs(ms)).ThrowsNothing();
     }
 
     [Test]
-    public void SaveDoesNotCrash_WhenFormattedHeaderExceeds255Chars()
+    public async Task SaveDoesNotCrash_WhenFormattedHeaderExceeds255Chars()
     {
         // The 255-char limit in GetText() is too restrictive. Format codes like
         // &"FontName,Bold"&12 count toward the limit, making it easy to exceed
@@ -113,6 +113,6 @@ public class HeaderFooterTests
             .SetFontName("Arial").SetBold().SetFontSize(12);
 
         using var ms = new MemoryStream();
-        Assert.DoesNotThrow(() => wb.SaveAs(ms));
+        await Assert.That(() => wb.SaveAs(ms)).ThrowsNothing();
     }
 }

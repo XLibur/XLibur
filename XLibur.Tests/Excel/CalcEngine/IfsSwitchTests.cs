@@ -1,10 +1,8 @@
-﻿using NUnit.Framework;
-using XLibur.Excel;
+﻿using XLibur.Excel;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
-
 // IFS and SWITCH — scalar logical selectors added alongside IF.
-[TestFixture]
 public class IfsSwitchTests
 {
     private static XLWorksheet NewSheet(out XLWorkbook wb)
@@ -14,101 +12,101 @@ public class IfsSwitchTests
     }
 
     [Test]
-    public void Ifs_ReturnsValueOfFirstTrueCondition()
+    public async Task Ifs_ReturnsValueOfFirstTrueCondition()
     {
         var ws = NewSheet(out var wb);
         using (wb)
         {
             ws.Cell("A1").Value = 2;
-            Assert.AreEqual("two", ws.Evaluate(@"IFS(A1=1, ""one"", A1=2, ""two"", A1=3, ""three"")"));
+            await Assert.That(ws.Evaluate(@"IFS(A1=1, ""one"", A1=2, ""two"", A1=3, ""three"")")).IsEqualTo("two");
             // First TRUE wins even if a later condition also matches.
-            Assert.AreEqual("first", ws.Evaluate(@"IFS(TRUE, ""first"", TRUE, ""second"")"));
+            await Assert.That(ws.Evaluate(@"IFS(TRUE, ""first"", TRUE, ""second"")")).IsEqualTo("first");
             // A numeric (non-zero) condition is truthy.
-            Assert.AreEqual("y", ws.Evaluate(@"IFS(0, ""x"", 5, ""y"")"));
+            await Assert.That(ws.Evaluate(@"IFS(0, ""x"", 5, ""y"")")).IsEqualTo("y");
         }
     }
 
     [Test]
-    public void Ifs_NoTrueCondition_ReturnsNotAvailable()
+    public async Task Ifs_NoTrueCondition_ReturnsNotAvailable()
     {
         var ws = NewSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"IFS(FALSE, 1, FALSE, 2)"));
+            await Assert.That(ws.Evaluate(@"IFS(FALSE, 1, FALSE, 2)")).IsEqualTo(XLError.NoValueAvailable);
             // Odd trailing argument with no earlier match -> #N/A.
-            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"IFS(FALSE, 1, 2)"));
+            await Assert.That(ws.Evaluate(@"IFS(FALSE, 1, 2)")).IsEqualTo(XLError.NoValueAvailable);
         }
     }
 
     [Test]
-    public void Ifs_OddTrailingArgument_IgnoredWhenEarlierConditionMatches()
+    public async Task Ifs_OddTrailingArgument_IgnoredWhenEarlierConditionMatches()
     {
         var ws = NewSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(1, ws.Evaluate(@"IFS(TRUE, 1, 2)"));
+            await Assert.That(ws.Evaluate(@"IFS(TRUE, 1, 2)")).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void Ifs_ErrorConditionIsPropagated()
+    public async Task Ifs_ErrorConditionIsPropagated()
     {
         var ws = NewSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(XLError.DivisionByZero, ws.Evaluate(@"IFS(1/0, ""x"", TRUE, ""y"")"));
+            await Assert.That(ws.Evaluate(@"IFS(1/0, ""x"", TRUE, ""y"")")).IsEqualTo(XLError.DivisionByZero);
         }
     }
 
     [Test]
-    public void Switch_ReturnsResultOfFirstMatch()
+    public async Task Switch_ReturnsResultOfFirstMatch()
     {
         var ws = NewSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual("b", ws.Evaluate(@"SWITCH(2, 1, ""a"", 2, ""b"", 3, ""c"")"));
+            await Assert.That(ws.Evaluate(@"SWITCH(2, 1, ""a"", 2, ""b"", 3, ""c"")")).IsEqualTo("b");
             // First match wins.
-            Assert.AreEqual("a", ws.Evaluate(@"SWITCH(1, 1, ""a"", 1, ""b"")"));
+            await Assert.That(ws.Evaluate(@"SWITCH(1, 1, ""a"", 1, ""b"")")).IsEqualTo("a");
         }
     }
 
     [Test]
-    public void Switch_TextMatchIsCaseInsensitive()
+    public async Task Switch_TextMatchIsCaseInsensitive()
     {
         var ws = NewSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual("match", ws.Evaluate(@"SWITCH(""red"", ""RED"", ""match"", ""no"")"));
+            await Assert.That(ws.Evaluate(@"SWITCH(""red"", ""RED"", ""match"", ""no"")")).IsEqualTo("match");
         }
     }
 
     [Test]
-    public void Switch_NoMatch_UsesDefaultWhenPresent()
+    public async Task Switch_NoMatch_UsesDefaultWhenPresent()
     {
         var ws = NewSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual("none", ws.Evaluate(@"SWITCH(9, 1, ""a"", 2, ""b"", ""none"")"));
+            await Assert.That(ws.Evaluate(@"SWITCH(9, 1, ""a"", 2, ""b"", ""none"")")).IsEqualTo("none");
         }
     }
 
     [Test]
-    public void Switch_NoMatch_NoDefault_ReturnsNotAvailable()
+    public async Task Switch_NoMatch_NoDefault_ReturnsNotAvailable()
     {
         var ws = NewSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"SWITCH(9, 1, ""a"", 2, ""b"")"));
+            await Assert.That(ws.Evaluate(@"SWITCH(9, 1, ""a"", 2, ""b"")")).IsEqualTo(XLError.NoValueAvailable);
         }
     }
 
     [Test]
-    public void Switch_ErrorExpressionIsPropagated()
+    public async Task Switch_ErrorExpressionIsPropagated()
     {
         var ws = NewSheet(out var wb);
         using (wb)
         {
-            Assert.AreEqual(XLError.DivisionByZero, ws.Evaluate(@"SWITCH(1/0, 1, ""a"", ""default"")"));
+            await Assert.That(ws.Evaluate(@"SWITCH(1/0, 1, ""a"", ""default"")")).IsEqualTo(XLError.DivisionByZero);
         }
     }
 }

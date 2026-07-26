@@ -1,12 +1,12 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
 public class CalcEngineCellEnumerationTests
 {
     [Test]
-    public void CanEnumerateCellsOverEmptySheet()
+    public async Task CanEnumerateCellsOverEmptySheet()
     {
         using var wb = new XLWorkbook();
         var sheet1 = wb.AddWorksheet("Sheet1");
@@ -15,6 +15,6 @@ public class CalcEngineCellEnumerationTests
         var cell = sheet1.FirstCell();
         cell.FormulaA1 = "=SUMIFS(Sheet2!B:B, Sheet2!C:C, 1)";
 
-        Assert.AreEqual(0, cell.Value);
+        await Assert.That(cell.Value).IsEqualTo(0);
     }
 }

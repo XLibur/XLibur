@@ -1,5 +1,4 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,16 +7,16 @@ using XLibur.Tests.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests;
 
-[TestFixture]
 public class XLPivotTableTests
 {
     [Test]
-    public void PivotTables()
+    public async Task PivotTables()
     {
-        Assert.DoesNotThrow(() =>
+        await Assert.That(() =>
         {
             using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
             using var wb = new XLWorkbook(stream);
@@ -28,15 +27,15 @@ public class XLPivotTableTests
 
             using var ms = new MemoryStream();
             wb.SaveAs(ms, true);
-        });
+        }).ThrowsNothing();
     }
 
     [Test]
-    public void TestPivotTableVersioningAttributes()
+    public async Task TestPivotTableVersioningAttributes()
     {
         // Pivot cache definitions in input file has created and refreshed version attributes = 3
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\PivotTableReferenceFiles\VersioningAttributes\inputfile.xlsx"));
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             var wb = new XLWorkbook(stream);
 
@@ -54,7 +53,7 @@ public class XLPivotTableTests
     }
 
     [Test]
-    public void PivotTableOptionsSaveTest()
+    public async Task PivotTableOptionsSaveTest()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
         using var wb = new XLWorkbook(stream);
@@ -116,50 +115,51 @@ public class XLPivotTableTests
         using var wbassert = new XLWorkbook(ms);
         var wsassert = wbassert.Worksheet("BlankPivotTable");
         var ptassert = wsassert.PivotTable("pvtOptionsTest");
-        Assert.AreNotEqual(null, ptassert, "name save failure");
-        Assert.AreEqual("clmn header", ptassert.ColumnHeaderCaption, "ColumnHeaderCaption save failure");
-        Assert.AreEqual("row header", ptassert.RowHeaderCaption, "RowHeaderCaption save failure");
-        Assert.AreEqual(true, ptassert.MergeAndCenterWithLabels, "MergeAndCenterWithLabels save failure");
-        Assert.AreEqual(12, ptassert.RowLabelIndent, "RowLabelIndent save failure");
-        Assert.AreEqual(XLFilterAreaOrder.OverThenDown, ptassert.FilterAreaOrder, "FilterAreaOrder save failure");
-        Assert.AreEqual(14, ptassert.FilterFieldsPageWrap, "FilterFieldsPageWrap save failure");
-        Assert.AreEqual("error test", ptassert.ErrorValueReplacement, "ErrorValueReplacement save failure");
-        Assert.AreEqual("empty test", ptassert.EmptyCellReplacement, "EmptyCellReplacement save failure");
-        Assert.AreEqual(true, ptassert.AutofitColumns, "AutofitColumns save failure");
-        Assert.AreEqual(false, ptassert.PreserveCellFormatting, "PreserveCellFormatting save failure");
-        Assert.AreEqual(true, ptassert.ShowGrandTotalsRows, "ShowGrandTotalsRows save failure");
-        Assert.AreEqual(true, ptassert.ShowGrandTotalsColumns, "ShowGrandTotalsColumns save failure");
-        Assert.AreEqual(true, ptassert.FilteredItemsInSubtotals, "FilteredItemsInSubtotals save failure");
-        Assert.AreEqual(false, ptassert.AllowMultipleFilters, "AllowMultipleFilters save failure");
-        Assert.AreEqual(false, ptassert.UseCustomListsForSorting, "UseCustomListsForSorting save failure");
-        Assert.AreEqual(false, ptassert.ShowExpandCollapseButtons, "ShowExpandCollapseButtons save failure");
-        Assert.AreEqual(false, ptassert.ShowContextualTooltips, "ShowContextualTooltips save failure");
-        Assert.AreEqual(false, ptassert.ShowPropertiesInTooltips, "ShowPropertiesInTooltips save failure");
-        Assert.AreEqual(false, ptassert.DisplayCaptionsAndDropdowns, "DisplayCaptionsAndDropdowns save failure");
-        Assert.AreEqual(true, ptassert.ClassicPivotTableLayout, "ClassicPivotTableLayout save failure");
-        Assert.AreEqual(true, ptassert.ShowEmptyItemsOnRows, "ShowEmptyItemsOnRows save failure");
-        Assert.AreEqual(true, ptassert.ShowEmptyItemsOnColumns, "ShowEmptyItemsOnColumns save failure");
-        Assert.AreEqual(false, ptassert.DisplayItemLabels, "DisplayItemLabels save failure");
-        Assert.AreEqual(true, ptassert.SortFieldsAtoZ, "SortFieldsAtoZ save failure");
-        Assert.AreEqual(true, ptassert.PrintExpandCollapsedButtons, "PrintExpandCollapsedButtons save failure");
-        Assert.AreEqual(true, ptassert.RepeatRowLabels, "RepeatRowLabels save failure");
-        Assert.AreEqual(true, ptassert.PrintTitles, "PrintTitles save failure");
-        Assert.AreEqual(false, ptassert.PivotCache.SaveSourceData, "SaveSourceData save failure");
-        Assert.AreEqual(false, ptassert.EnableShowDetails, "EnableShowDetails save failure");
-        Assert.AreEqual(false, ptassert.PivotCache.RefreshDataOnOpen, "RefreshDataOnOpen save failure");
-        Assert.AreEqual(XLItemsToRetain.Max, ptassert.PivotCache.ItemsToRetainPerField, "ItemsToRetainPerField save failure");
-        Assert.AreEqual(true, ptassert.EnableCellEditing, "EnableCellEditing save failure");
-        Assert.AreEqual(XLPivotTableTheme.PivotStyleDark13, ptassert.Theme, "Theme save failure");
-        Assert.AreEqual(true, ptassert.ShowValuesRow, "ShowValuesRow save failure");
-        Assert.AreEqual(false, ptassert.ShowRowHeaders, "ShowRowHeaders save failure");
-        Assert.AreEqual(false, ptassert.ShowColumnHeaders, "ShowColumnHeaders save failure");
-        Assert.AreEqual(true, ptassert.ShowRowStripes, "ShowRowStripes save failure");
-        Assert.AreEqual(true, ptassert.ShowColumnStripes, "ShowColumnStripes save failure");
+        await Assert.That(ptassert).IsNotEqualTo(null).Because("name save failure");
+        await Assert.That(ptassert.ColumnHeaderCaption).IsEqualTo("clmn header").Because("ColumnHeaderCaption save failure");
+        await Assert.That(ptassert.RowHeaderCaption).IsEqualTo("row header").Because("RowHeaderCaption save failure");
+        await Assert.That(ptassert.MergeAndCenterWithLabels).IsEqualTo(true).Because("MergeAndCenterWithLabels save failure");
+        await Assert.That(ptassert.RowLabelIndent).IsEqualTo(12).Because("RowLabelIndent save failure");
+        await Assert.That(ptassert.FilterAreaOrder).IsEqualTo(XLFilterAreaOrder.OverThenDown).Because("FilterAreaOrder save failure");
+        await Assert.That(ptassert.FilterFieldsPageWrap).IsEqualTo(14).Because("FilterFieldsPageWrap save failure");
+        await Assert.That(ptassert.ErrorValueReplacement).IsEqualTo("error test").Because("ErrorValueReplacement save failure");
+        await Assert.That(ptassert.EmptyCellReplacement).IsEqualTo("empty test").Because("EmptyCellReplacement save failure");
+        await Assert.That(ptassert.AutofitColumns).IsEqualTo(true).Because("AutofitColumns save failure");
+        await Assert.That(ptassert.PreserveCellFormatting).IsEqualTo(false).Because("PreserveCellFormatting save failure");
+        await Assert.That(ptassert.ShowGrandTotalsRows).IsEqualTo(true).Because("ShowGrandTotalsRows save failure");
+        await Assert.That(ptassert.ShowGrandTotalsColumns).IsEqualTo(true).Because("ShowGrandTotalsColumns save failure");
+        await Assert.That(ptassert.FilteredItemsInSubtotals).IsEqualTo(true).Because("FilteredItemsInSubtotals save failure");
+        await Assert.That(ptassert.AllowMultipleFilters).IsEqualTo(false).Because("AllowMultipleFilters save failure");
+        await Assert.That(ptassert.UseCustomListsForSorting).IsEqualTo(false).Because("UseCustomListsForSorting save failure");
+        await Assert.That(ptassert.ShowExpandCollapseButtons).IsEqualTo(false).Because("ShowExpandCollapseButtons save failure");
+        await Assert.That(ptassert.ShowContextualTooltips).IsEqualTo(false).Because("ShowContextualTooltips save failure");
+        await Assert.That(ptassert.ShowPropertiesInTooltips).IsEqualTo(false).Because("ShowPropertiesInTooltips save failure");
+        await Assert.That(ptassert.DisplayCaptionsAndDropdowns).IsEqualTo(false).Because("DisplayCaptionsAndDropdowns save failure");
+        await Assert.That(ptassert.ClassicPivotTableLayout).IsEqualTo(true).Because("ClassicPivotTableLayout save failure");
+        await Assert.That(ptassert.ShowEmptyItemsOnRows).IsEqualTo(true).Because("ShowEmptyItemsOnRows save failure");
+        await Assert.That(ptassert.ShowEmptyItemsOnColumns).IsEqualTo(true).Because("ShowEmptyItemsOnColumns save failure");
+        await Assert.That(ptassert.DisplayItemLabels).IsEqualTo(false).Because("DisplayItemLabels save failure");
+        await Assert.That(ptassert.SortFieldsAtoZ).IsEqualTo(true).Because("SortFieldsAtoZ save failure");
+        await Assert.That(ptassert.PrintExpandCollapsedButtons).IsEqualTo(true).Because("PrintExpandCollapsedButtons save failure");
+        await Assert.That(ptassert.RepeatRowLabels).IsEqualTo(true).Because("RepeatRowLabels save failure");
+        await Assert.That(ptassert.PrintTitles).IsEqualTo(true).Because("PrintTitles save failure");
+        await Assert.That(ptassert.PivotCache.SaveSourceData).IsEqualTo(false).Because("SaveSourceData save failure");
+        await Assert.That(ptassert.EnableShowDetails).IsEqualTo(false).Because("EnableShowDetails save failure");
+        await Assert.That(ptassert.PivotCache.RefreshDataOnOpen).IsEqualTo(false).Because("RefreshDataOnOpen save failure");
+        await Assert.That(ptassert.PivotCache.ItemsToRetainPerField).IsEqualTo(XLItemsToRetain.Max).Because("ItemsToRetainPerField save failure");
+        await Assert.That(ptassert.EnableCellEditing).IsEqualTo(true).Because("EnableCellEditing save failure");
+        await Assert.That(ptassert.Theme).IsEqualTo(XLPivotTableTheme.PivotStyleDark13).Because("Theme save failure");
+        await Assert.That(ptassert.ShowValuesRow).IsEqualTo(true).Because("ShowValuesRow save failure");
+        await Assert.That(ptassert.ShowRowHeaders).IsEqualTo(false).Because("ShowRowHeaders save failure");
+        await Assert.That(ptassert.ShowColumnHeaders).IsEqualTo(false).Because("ShowColumnHeaders save failure");
+        await Assert.That(ptassert.ShowRowStripes).IsEqualTo(true).Because("ShowRowStripes save failure");
+        await Assert.That(ptassert.ShowColumnStripes).IsEqualTo(true).Because("ShowColumnStripes save failure");
     }
 
-    [TestCase(true)]
-    [TestCase(false)]
-    public void PivotFieldOptionsSaveTest(bool withDefaults)
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task PivotFieldOptionsSaveTest(bool withDefaults)
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
         using var wb = new XLWorkbook(stream);
@@ -186,14 +186,14 @@ public class XLPivotTableTests
         var wsassert = wbassert.Worksheet("pvtFieldOptionsTest");
         var ptassert = wsassert.PivotTable("pvtFieldOptionsTest");
         var pfassert = ptassert.RowLabels.Get("Name");
-        Assert.AreNotEqual(null, pfassert, "name save failure");
-        Assert.AreEqual("Test caption", pfassert.SubtotalCaption, "SubtotalCaption save failure");
-        Assert.AreEqual("Test name", pfassert.CustomName, "CustomName save failure");
-        AssertFieldOptions(pfassert, withDefaults);
+        await Assert.That(pfassert).IsNotEqualTo(null).Because("name save failure");
+        await Assert.That(pfassert.SubtotalCaption).IsEqualTo("Test caption").Because("SubtotalCaption save failure");
+        await Assert.That(pfassert.CustomName).IsEqualTo("Test name").Because("CustomName save failure");
+        await AssertFieldOptions(pfassert, withDefaults);
     }
 
     [Test]
-    [Ignore("PT styles will be fixed in a different PR")]
+    [Skip("PT styles will be fixed in a different PR")]
     public void PivotTableStyleFormatsTest()
     {
         /*
@@ -248,30 +248,30 @@ public class XLPivotTableTests
                             var ws = wb.Worksheet("PivotTableStyleFormats");
                             var pt = ws.PivotTable("pvtStyleFormats").CastTo<XLPivotTable>();
 
-                            Assert.AreEqual(0, pt.StyleFormats.ColumnGrandTotalFormats.Count());
+                            await Assert.That(pt.StyleFormats.ColumnGrandTotalFormats.Count()).IsEqualTo(0);
 
-                            Assert.NotNull(pt.StyleFormats.RowGrandTotalFormats);
-                            Assert.AreEqual(1, pt.StyleFormats.RowGrandTotalFormats.Count());
-                            Assert.AreEqual(XLPivotStyleFormatElement.All, pt.StyleFormats.RowGrandTotalFormats.First().AppliesTo);
-                            Assert.AreEqual(XLColor.VenetianRed, pt.StyleFormats.RowGrandTotalFormats.ForElement(XLPivotStyleFormatElement.All).Style.Font.FontColor);
+                            await Assert.That(pt.StyleFormats.RowGrandTotalFormats).IsNotNull();
+                            await Assert.That(pt.StyleFormats.RowGrandTotalFormats.Count()).IsEqualTo(1);
+                            await Assert.That(pt.StyleFormats.RowGrandTotalFormats.First().AppliesTo).IsEqualTo(XLPivotStyleFormatElement.All);
+                            await Assert.That(pt.StyleFormats.RowGrandTotalFormats.ForElement(XLPivotStyleFormatElement.All).Style.Font.FontColor).IsEqualTo(XLColor.VenetianRed);
 
                             var namePivotField = pt.RowLabels.Get("Name");
                             var monthPivotField = pt.ColumnLabels.Get("Month");
                             var numberOfOrdersPivotValue = pt.Values.Get("NumberOfOrders");
 
-                            Assert.AreEqual(XLStyle.Default, namePivotField.StyleFormats.Label.Style);
-                            Assert.AreEqual(XLColor.Blue, namePivotField.StyleFormats.Subtotal.Style.Fill.BackgroundColor);
+                            await Assert.That(namePivotField.StyleFormats.Label.Style).IsEqualTo(XLStyle.Default);
+                            await Assert.That(namePivotField.StyleFormats.Subtotal.Style.Fill.BackgroundColor).IsEqualTo(XLColor.Blue);
 
-                            Assert.AreEqual(XLStyle.Default, monthPivotField.StyleFormats.Subtotal.Style);
-                            Assert.AreEqual(XLColor.Amber, monthPivotField.StyleFormats.Label.Style.Fill.BackgroundColor);
-                            Assert.AreEqual(XLColor.Yellow, monthPivotField.StyleFormats.Header.Style.Font.FontColor);
+                            await Assert.That(monthPivotField.StyleFormats.Subtotal.Style).IsEqualTo(XLStyle.Default);
+                            await Assert.That(monthPivotField.StyleFormats.Label.Style.Fill.BackgroundColor).IsEqualTo(XLColor.Amber);
+                            await Assert.That(monthPivotField.StyleFormats.Header.Style.Font.FontColor).IsEqualTo(XLColor.Yellow);
 
                             var nameDataValuesFormat = namePivotField.StyleFormats.DataValuesFormat as XLPivotValueStyleFormat;
-                            Assert.AreEqual(2, nameDataValuesFormat.FieldReferences.Count());
+                            await Assert.That(nameDataValuesFormat.FieldReferences.Count()).IsEqualTo(2);
 
-                            Assert.AreEqual(monthPivotField, nameDataValuesFormat.FieldReferences.First().CastTo<PivotLabelFieldReference>().PivotField);
+                            await Assert.That(nameDataValuesFormat.FieldReferences.First().CastTo<PivotLabelFieldReference>().PivotField).IsEqualTo(monthPivotField);
 
-                            Assert.AreEqual(numberOfOrdersPivotValue.CustomName, nameDataValuesFormat.FieldReferences.Last().CastTo<PivotValueFieldReference>().Value);
+                            await Assert.That(nameDataValuesFormat.FieldReferences.Last().CastTo<PivotValueFieldReference>().Value).IsEqualTo(numberOfOrdersPivotValue.CustomName);
 
                             wb.Save();
                         }
@@ -280,7 +280,7 @@ public class XLPivotTableTests
     }
 
     [Test]
-    public void CopyPivotTableTests()
+    public async Task CopyPivotTableTests()
     {
         using var ms = new MemoryStream();
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
@@ -288,27 +288,27 @@ public class XLPivotTableTests
         var ws1 = wb.Worksheet("pvt1");
         var pt1 = ws1.PivotTables.First() as XLPivotTable;
 
-        Assert.Throws<InvalidOperationException>(() => pt1.CopyTo(pt1.TargetCell));
+        await Assert.That(() => pt1.CopyTo(pt1.TargetCell)).Throws<InvalidOperationException>();
 
         var pt2 = pt1.CopyTo(ws1.Cell("AB100")) as XLPivotTable;
 
-        AssertPivotTablesAreEqual(pt1, pt2, compareName: false);
+        await AssertPivotTablesAreEqual(pt1, pt2, compareName: false);
 
         var ws2 = wb.AddWorksheet("Copy Of pvt1");
-        AssertPivotTablesAreEqual(pt1, pt1.CopyTo(ws2.FirstCell()) as XLPivotTable, compareName: true);
+        await AssertPivotTablesAreEqual(pt1, pt1.CopyTo(ws2.FirstCell()) as XLPivotTable, compareName: true);
 
         using var wb2 = new XLWorkbook();
         wb.Worksheet("PastrySalesData").CopyTo(wb2);
 
-        AssertPivotTablesAreEqual(pt1, pt1.CopyTo(wb2.AddWorksheet("pvt").FirstCell()) as XLPivotTable, compareName: true);
+        await AssertPivotTablesAreEqual(pt1, pt1.CopyTo(wb2.AddWorksheet("pvt").FirstCell()) as XLPivotTable, compareName: true);
     }
 
-    private static void AssertPivotTablesAreEqual(XLPivotTable original, XLPivotTable copy, bool compareName)
+    private static async Task AssertPivotTablesAreEqual(XLPivotTable original, XLPivotTable copy, bool compareName)
     {
-        Assert.AreEqual(compareName, original.Name.Equals(copy.Name));
+        await Assert.That(original.Name.Equals(copy.Name)).IsEqualTo(compareName);
 
         var comparer = new PivotTableComparer(compareName: compareName, compareRelId: false, compareTargetCellAddress: false);
-        Assert.IsTrue(comparer.Equals(original, copy));
+        await Assert.That(comparer.Equals(original, copy)).IsTrue();
     }
 
     private class Pastry
@@ -332,21 +332,21 @@ public class XLPivotTableTests
     }
 
     [Test]
-    public void SharedItemsWithVariousDataTypesInTableColumn()
+    public async Task SharedItemsWithVariousDataTypesInTableColumn()
     {
         // Load an excel that contains a table which has various combinations of types in columns.
         // The pivot cache definition contain various flags in shared items for each field and the
         // test checks the flags in cache are set correctly (they are determined in cache writer).
-        Assert.DoesNotThrow(() => TestHelper.LoadSaveAndCompare(
+        await Assert.That(() => TestHelper.LoadSaveAndCompare(
             @"Other\PivotTableReferenceFiles\VariousDataTypesInTableColumns\input.xlsx",
-            @"Other\PivotTableReferenceFiles\VariousDataTypesInTableColumns\output.xlsx"));
+            @"Other\PivotTableReferenceFiles\VariousDataTypesInTableColumns\output.xlsx")).ThrowsNothing();
     }
 
     [Test]
-    public void BlankPivotTableField()
+    public async Task BlankPivotTableField()
     {
         using var ms = new MemoryStream();
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             // Based on .\XLibur\XLibur.Examples\PivotTables\PivotTables.cs
             // But with empty column for Month
@@ -416,11 +416,11 @@ public class XLPivotTableTests
     }
 
     [Test]
-    public void SourceSheetWithWhitespace()
+    public async Task SourceSheetWithWhitespace()
     {
         // Check that pivot source reference for a sheet name with whitespaces
         // is not saved to the file with escaped quotes, issue #955.
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             var wb = new XLWorkbook();
 
@@ -445,11 +445,11 @@ public class XLPivotTableTests
     }
 
     [Test]
-    public void PivotTableWithNoneTheme()
+    public async Task PivotTableWithNoneTheme()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\PivotTableReferenceFiles\PivotTableWithNoneTheme\inputfile.xlsx"));
         using var ms = new MemoryStream();
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             var wb = new XLWorkbook(stream);
             wb.SaveAs(ms);
@@ -458,7 +458,7 @@ public class XLPivotTableTests
     }
 
     [Test]
-    public void MaintainPivotTableLabelsOrder()
+    public async Task MaintainPivotTableLabelsOrder()
     {
         var pastries = new List<Pastry>
         {
@@ -522,8 +522,8 @@ public class XLPivotTableTests
                     .ReportFilters
                     .ToArray();
 
-                Assert.AreEqual("Month", pageFields[0].SourceName);
-                Assert.AreEqual("Name", pageFields[1].SourceName);
+                await Assert.That(pageFields[0].SourceName).IsEqualTo("Month");
+                await Assert.That(pageFields[1].SourceName).IsEqualTo("Name");
             }
         }
 
@@ -565,8 +565,8 @@ public class XLPivotTableTests
                     .ColumnLabels
                     .ToArray();
 
-                Assert.AreEqual("Month", columnLabels[0].SourceName);
-                Assert.AreEqual("Name", columnLabels[1].SourceName);
+                await Assert.That(columnLabels[0].SourceName).IsEqualTo("Month");
+                await Assert.That(columnLabels[1].SourceName).IsEqualTo("Name");
             }
         }
 
@@ -609,15 +609,15 @@ public class XLPivotTableTests
                     .RowLabels
                     .ToArray();
 
-                Assert.AreEqual("Month", rowLabels[0].SourceName);
-                Assert.AreEqual("Name", rowLabels[1].SourceName);
-                Assert.AreEqual("{{Values}}", rowLabels[2].SourceName);
+                await Assert.That(rowLabels[0].SourceName).IsEqualTo("Month");
+                await Assert.That(rowLabels[1].SourceName).IsEqualTo("Name");
+                await Assert.That(rowLabels[2].SourceName).IsEqualTo("{{Values}}");
             }
         }
     }
 
     [Test]
-    public void MaintainPivotTableIntegrityOnMultipleSaves()
+    public async Task MaintainPivotTableIntegrityOnMultipleSaves()
     {
         var pastries = new List<Pastry>
         {
@@ -665,15 +665,15 @@ public class XLPivotTableTests
 
         using (var wb = new XLWorkbook(ms))
         {
-            Assert.AreEqual(1, wb.Worksheets.SelectMany(ws => ws.PivotTables).Count());
+            await Assert.That(wb.Worksheets.SelectMany(ws => ws.PivotTables).Count()).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void TwoPivotWithOneSourceTest()
+    public async Task TwoPivotWithOneSourceTest()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\PivotTableReferenceFiles\TwoPivotTablesWithSingleSource\input.xlsx"));
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             var wb = new XLWorkbook(stream);
             var srcRange = wb.Range("Sheet1!$B$2:$H$207");
@@ -690,17 +690,17 @@ public class XLPivotTableTests
     }
 
     [Test]
-    public void PivotSubtotalsLoadingTest()
+    public async Task PivotSubtotalsLoadingTest()
     {
         // Make sure that if the original file has *subtotals*, the subtotals are
         // turned on even after loading into XLibur and then saving the document.
-        Assert.DoesNotThrow(() => TestHelper.LoadSaveAndCompare(
+        await Assert.That(() => TestHelper.LoadSaveAndCompare(
             @"Other\PivotTableReferenceFiles\PivotSubtotalsSource\input.xlsx",
-            @"Other\PivotTableReferenceFiles\PivotSubtotalsSource\output.xlsx"));
+            @"Other\PivotTableReferenceFiles\PivotSubtotalsSource\output.xlsx")).ThrowsNothing();
     }
 
     [Test]
-    public void ClearPivotTableRenderedRange()
+    public async Task ClearPivotTableRenderedRange()
     {
         // https://github.com/XLibur/XLibur/pull/856
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\PivotTableReferenceFiles\ClearPivotTableRenderedRangeWhenLoading\inputfile.xlsx"));
@@ -708,9 +708,9 @@ public class XLPivotTableTests
         using (var wb = new XLWorkbook(stream))
         {
             var ws = wb.Worksheet("Sheet1");
-            Assert.IsTrue(ws.Cell("B1").IsEmpty());
-            Assert.IsTrue(ws.Cell("C2").IsEmpty());
-            Assert.IsTrue(ws.Cell("D5").IsEmpty());
+            await Assert.That(ws.Cell("B1").IsEmpty()).IsTrue();
+            await Assert.That(ws.Cell("C2").IsEmpty()).IsTrue();
+            await Assert.That(ws.Cell("D5").IsEmpty()).IsTrue();
             wb.SaveAs(ms);
         }
 
@@ -719,14 +719,14 @@ public class XLPivotTableTests
         using (var wb = new XLWorkbook(ms))
         {
             var ws = wb.Worksheet("Sheet1");
-            Assert.IsTrue(ws.Cell("B1").IsEmpty());
-            Assert.IsTrue(ws.Cell("C2").IsEmpty());
-            Assert.IsTrue(ws.Cell("D5").IsEmpty());
+            await Assert.That(ws.Cell("B1").IsEmpty()).IsTrue();
+            await Assert.That(ws.Cell("C2").IsEmpty()).IsTrue();
+            await Assert.That(ws.Cell("D5").IsEmpty()).IsTrue();
         }
     }
 
     [Test]
-    public void Add_all_pivot_tables_for_same_range_use_same_pivot_cache()
+    public async Task Add_all_pivot_tables_for_same_range_use_same_pivot_cache()
     {
         // Two different pivot tables created from same range use same pivot cache
         // and don't create a separate pivot cache for each pivot table.
@@ -741,12 +741,12 @@ public class XLPivotTableTests
         var rangePivot1 = ws.PivotTables.Add("rangePivot1", ws.Cell("D1"), range);
         var rangePivot2 = ws.PivotTables.Add("rangePivot2", ws.Cell("D20"), range);
 
-        Assert.AreNotSame(rangePivot1, rangePivot2);
-        Assert.AreSame(rangePivot1.PivotCache, rangePivot2.PivotCache);
+        await Assert.That(rangePivot2).IsNotSameReferenceAs(rangePivot1);
+        await Assert.That(rangePivot2.PivotCache).IsSameReferenceAs(rangePivot1.PivotCache);
     }
 
     [Test]
-    public void Add_all_pivot_tables_for_same_table_use_same_pivot_cache()
+    public async Task Add_all_pivot_tables_for_same_table_use_same_pivot_cache()
     {
         // Two different pivot tables created from same table use same pivot cache
         // and don't create a separate pivot cache for each pivot table.
@@ -761,12 +761,12 @@ public class XLPivotTableTests
         var tablePivot1 = ws.PivotTables.Add("tablePivot1", ws.Cell("J1"), table);
         var tablePivot2 = ws.PivotTables.Add("tablePivot2", ws.Cell("J20"), table);
 
-        Assert.AreNotSame(tablePivot1, tablePivot2);
-        Assert.AreSame(tablePivot1.PivotCache, tablePivot2.PivotCache);
+        await Assert.That(tablePivot2).IsNotSameReferenceAs(tablePivot1);
+        await Assert.That(tablePivot2.PivotCache).IsSameReferenceAs(tablePivot1.PivotCache);
     }
 
     [Test]
-    public void Add_pivot_tables_will_use_table_as_source_if_range_matches_table_area()
+    public async Task Add_pivot_tables_will_use_table_as_source_if_range_matches_table_area()
     {
         // When a pivot table is created, the `Add` method tries to first
         // find a table with same area as the requested range. If it finds one,
@@ -786,12 +786,12 @@ public class XLPivotTableTests
         var tablePivot1 = ws.PivotTables.Add("tablePivot1", ws.Cell("J1"), matchingRange);
 
         var cacheSource = (XLPivotSourceReference)((XLPivotCache)tablePivot1.PivotCache).Source;
-        Assert.True(cacheSource.UsesName);
-        Assert.AreEqual("Test_table", cacheSource.Name);
+        await Assert.That(cacheSource.UsesName).IsTrue();
+        await Assert.That(cacheSource.Name).IsEqualTo("Test_table");
     }
 
     [Test]
-    public void Load_and_save_pivot_table_with_cache_records_but_missing_source_data()
+    public async Task Load_and_save_pivot_table_with_cache_records_but_missing_source_data()
     {
         // Test file contains a pivot table created from a normal table in
         // a sheet that was already deleted. The file contains cache records,
@@ -803,14 +803,14 @@ public class XLPivotTableTests
         // At this time, there is no content, only shape, because we don't have an engine
         // to determine correct layout and values. Change RefreshDataOnOpen to 0 and change
         // PT in Excel to see the values (aka gimp on Excel PT engine).
-        Assert.DoesNotThrow(() => TestHelper.LoadSaveAndCompare(
+        await Assert.That(() => TestHelper.LoadSaveAndCompare(
             @"Other\PivotTableReferenceFiles\PivotTableWithoutSourceData-input.xlsx",
-            @"Other\PivotTableReferenceFiles\PivotTableWithoutSourceData-output.xlsx"));
+            @"Other\PivotTableReferenceFiles\PivotTableWithoutSourceData-output.xlsx")).ThrowsNothing();
     }
 
     [Test]
-    [Description("https://github.com/ClosedXML/ClosedXML/issues/2219")]
-    public void Pivot_field_item_hidden_flags_survive_round_trip()
+    [Property("Description", "https://github.com/ClosedXML/ClosedXML/issues/2219")]
+    public async Task Pivot_field_item_hidden_flags_survive_round_trip()
     {
         // Pivot table has filters applied through hidden items (h="1") on row fields.
         // Previously, the cache writer always set refreshOnLoad=true, causing Excel
@@ -824,7 +824,7 @@ public class XLPivotTableTests
         // Field 2 (Modell) has items with h="1" (hidden) — these represent the applied filter.
         var modellField = pt.PivotFields[2];
         var hiddenItems = modellField.Items.Where(i => i.Hidden).ToList();
-        Assert.That(hiddenItems.Count, Is.GreaterThan(0), "Precondition: field should have hidden items");
+        await Assert.That(hiddenItems.Count).IsGreaterThan(0).Because("Precondition: field should have hidden items");
 
         // Save and reload
         using var ms = new MemoryStream();
@@ -837,24 +837,22 @@ public class XLPivotTableTests
 
         // Hidden items must be preserved
         var hiddenItems2 = modellField2.Items.Where(i => i.Hidden).ToList();
-        Assert.That(hiddenItems2.Count, Is.EqualTo(hiddenItems.Count),
-            "Hidden items (filters) should survive round-trip");
+        await Assert.That(hiddenItems2.Count).IsEqualTo(hiddenItems.Count).Because("Hidden items (filters) should survive round-trip");
 
         // RefreshOnLoad should not be forced to true
-        Assert.That(pt2.PivotCache.RefreshDataOnOpen, Is.False,
-            "RefreshDataOnOpen should preserve original value (false)");
+        await Assert.That(pt2.PivotCache.RefreshDataOnOpen).IsFalse().Because("RefreshDataOnOpen should preserve original value (false)");
     }
 
     [Test]
-    public void Skips_chartsheets_during_pivot_table_loading()
+    public async Task Skips_chartsheets_during_pivot_table_loading()
     {
         // Pivot table loading code looks for pivot tables on each sheet, but it shouldn't
         // crash when sheet is a chartsheet or other type of sheet. The referenced test file
         // contains chartsheet and a pivot table to ensure that loading code won't crash.
-        TestHelper.LoadAndAssert(wb =>
+        await TestHelper.LoadAndAssert(async wb =>
         {
             // Check that existing pivot table is loaded.
-            Assert.True(wb.Worksheet("pivot").PivotTables.Contains("Pastries"));
+            await Assert.That(wb.Worksheet("pivot").PivotTables.Contains("Pastries")).IsTrue();
         }, @"Other\PivotTableReferenceFiles\ChartsheetAndPivotTable.xlsx");
     }
 
@@ -863,7 +861,7 @@ public class XLPivotTableTests
     #region TargetCell
 
     [Test]
-    public void Property_TargetCell_sets_value_of_the_top_left_corner_of_pivot_table()
+    public async Task Property_TargetCell_sets_value_of_the_top_left_corner_of_pivot_table()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -876,21 +874,22 @@ public class XLPivotTableTests
         pt.ReportFilters.Add("City");
 
         // Even when we added filter and a gap row, the target cell is still E1
-        Assert.AreEqual("E1", pt.TargetCell.Address.ToString());
-        Assert.AreEqual("E3", ((XLPivotTable)pt).Area.FirstPoint.ToString());
+        await Assert.That(pt.TargetCell.Address.ToString()).IsEqualTo("E1");
+        await Assert.That(((XLPivotTable)pt).Area.FirstPoint.ToString()).IsEqualTo("E3");
 
         pt.TargetCell = ws.Cell("E2");
-        Assert.AreEqual("E2", pt.TargetCell.Address.ToString());
-        Assert.AreEqual("E4", ((XLPivotTable)pt).Area.FirstPoint.ToString());
+        await Assert.That(pt.TargetCell.Address.ToString()).IsEqualTo("E2");
+        await Assert.That(((XLPivotTable)pt).Area.FirstPoint.ToString()).IsEqualTo("E4");
     }
 
     #endregion
 
     #region FilterAreaOrder
 
-    [TestCase(XLFilterAreaOrder.DownThenOver, "E5")]
-    [TestCase(XLFilterAreaOrder.OverThenDown, "E3")]
-    public void Property_FilterAreaOrder_determines_direction_in_which_are_filter_fields_laid_out(XLFilterAreaOrder order, string tableAddress)
+    [Test]
+    [Arguments(XLFilterAreaOrder.DownThenOver, "E5")]
+    [Arguments(XLFilterAreaOrder.OverThenDown, "E3")]
+    public async Task Property_FilterAreaOrder_determines_direction_in_which_are_filter_fields_laid_out(XLFilterAreaOrder order, string tableAddress)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -909,22 +908,23 @@ public class XLPivotTableTests
 
         // Indirect detection of filter fields layout: The address of pivot table are is
         // determined by filter area order.
-        Assert.AreEqual(tableAddress, ((XLPivotTable)pt).Area.ToString());
+        await Assert.That(((XLPivotTable)pt).Area.ToString()).IsEqualTo(tableAddress);
     }
 
     #endregion
 
     #region Layout
 
-    [TestCase(XLPivotLayout.Outline, "Property_layout_sets_layout_of_pivot_table_and_all_fields-outline.xlsx")]
-    [TestCase(XLPivotLayout.Tabular, "Property_layout_sets_layout_of_pivot_table_and_all_fields-tabular.xlsx")]
-    [TestCase(XLPivotLayout.Compact, "Property_layout_sets_layout_of_pivot_table_and_all_fields-compact.xlsx")]
-    public void Property_layout_sets_layout_of_pivot_table_and_all_fields(XLPivotLayout layout, string testFile)
+    [Test]
+    [Arguments(XLPivotLayout.Outline, "Property_layout_sets_layout_of_pivot_table_and_all_fields-outline.xlsx")]
+    [Arguments(XLPivotLayout.Tabular, "Property_layout_sets_layout_of_pivot_table_and_all_fields-tabular.xlsx")]
+    [Arguments(XLPivotLayout.Compact, "Property_layout_sets_layout_of_pivot_table_and_all_fields-compact.xlsx")]
+    public async Task Property_layout_sets_layout_of_pivot_table_and_all_fields(XLPivotLayout layout, string testFile)
     {
         // The pivot table also contains unused field Currency. It is there, because tabular
         // layout doesn't display header fields properly (i.e. one header per axis field),
         // unless all (even fields that are not on any axis) have the same field layout.
-        TestHelper.CreateAndCompare(wb =>
+        await TestHelper.CreateAndCompare(wb =>
             {
                 var dataSheet = wb.AddWorksheet();
                 var dataRange = dataSheet.Cell("A1").InsertData(new object[]
@@ -967,46 +967,46 @@ public class XLPivotTableTests
         field.IncludeNewItemsInFilter = withDefaults;
     }
 
-    private static void AssertFieldOptions(IXLPivotField field, bool withDefaults)
+    private static async Task AssertFieldOptions(IXLPivotField field, bool withDefaults)
     {
-        Assert.AreEqual(!withDefaults, field.SubtotalsAtTop, "SubtotalsAtTop save failure");
-        Assert.AreEqual(!withDefaults, field.ShowBlankItems, "ShowBlankItems save failure");
-        Assert.AreEqual(!withDefaults, field.Outline, "Outline save failure");
-        Assert.AreEqual(!withDefaults, field.Compact, "Compact save failure");
-        Assert.AreEqual(withDefaults, field.Collapsed, "Collapsed save failure");
-        Assert.AreEqual(withDefaults, field.InsertBlankLines, "InsertBlankLines save failure");
-        Assert.AreEqual(withDefaults, field.RepeatItemLabels, "RepeatItemLabels save failure");
-        Assert.AreEqual(withDefaults, field.InsertPageBreaks, "InsertPageBreaks save failure");
-        Assert.AreEqual(withDefaults, field.IncludeNewItemsInFilter, "IncludeNewItemsInFilter save failure");
+        await Assert.That(field.SubtotalsAtTop).IsEqualTo(!withDefaults).Because("SubtotalsAtTop save failure");
+        await Assert.That(field.ShowBlankItems).IsEqualTo(!withDefaults).Because("ShowBlankItems save failure");
+        await Assert.That(field.Outline).IsEqualTo(!withDefaults).Because("Outline save failure");
+        await Assert.That(field.Compact).IsEqualTo(!withDefaults).Because("Compact save failure");
+        await Assert.That(field.Collapsed).IsEqualTo(withDefaults).Because("Collapsed save failure");
+        await Assert.That(field.InsertBlankLines).IsEqualTo(withDefaults).Because("InsertBlankLines save failure");
+        await Assert.That(field.RepeatItemLabels).IsEqualTo(withDefaults).Because("RepeatItemLabels save failure");
+        await Assert.That(field.InsertPageBreaks).IsEqualTo(withDefaults).Because("InsertPageBreaks save failure");
+        await Assert.That(field.IncludeNewItemsInFilter).IsEqualTo(withDefaults).Because("IncludeNewItemsInFilter save failure");
     }
 
     [Test]
-    [Description("Loading pivots with custom theme should not throw (ClosedXML#1429)")]
-    public void PivotTableWithCustomTheme_CanLoadAndSave()
+    [Property("Description", "Loading pivots with custom theme should not throw (ClosedXML#1429)")]
+    public async Task PivotTableWithCustomTheme_CanLoadAndSave()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Lion\PivotTables\CustomPivotTheme.xlsx"));
         using var wb = new XLWorkbook(stream);
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
 
-        Assert.That(ms.Length, Is.GreaterThan(0));
+        await Assert.That(ms.Length).IsGreaterThan(0);
     }
 
     [Test]
-    [Description("Loading pivots with styles should not throw (ClosedXML#1429)")]
-    public void PivotTableWithStyles_CanLoadAndSave()
+    [Property("Description", "Loading pivots with styles should not throw (ClosedXML#1429)")]
+    public async Task PivotTableWithStyles_CanLoadAndSave()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Lion\PivotTables\PivotWithStyles.xlsx"));
         using var wb = new XLWorkbook(stream);
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
 
-        Assert.That(ms.Length, Is.GreaterThan(0));
+        await Assert.That(ms.Length).IsGreaterThan(0);
     }
 
     [Test]
-    [Description("Loading an Excel-created workbook with a pivot table calculated field should not throw IncorrectElementsCount")]
-    public void PivotTable_with_calculated_field_can_be_loaded()
+    [Property("Description", "Loading an Excel-created workbook with a pivot table calculated field should not throw IncorrectElementsCount")]
+    public async Task PivotTable_with_calculated_field_can_be_loaded()
     {
         // The file has 3 database fields (datum, weekdag, verbruik) and 1 calculated field (Field1 = verbruik*2).
         // Before the fix, ReadRecords compared record.ChildElements.Count (3) against FieldCount (4),
@@ -1016,9 +1016,9 @@ public class XLPivotTableTests
 
         // Verify calculated field formula survived load
         var pivotCache = wb.PivotCachesInternal.Cast<XLPivotCache>().First();
-        Assert.That(pivotCache.FieldCount, Is.EqualTo(4));
-        Assert.That(pivotCache.DatabaseFieldCount, Is.EqualTo(3));
-        Assert.That(pivotCache.GetCalculatedFieldFormula(3), Is.EqualTo("verbruik*2"));
+        await Assert.That(pivotCache.FieldCount).IsEqualTo(4);
+        await Assert.That(pivotCache.DatabaseFieldCount).IsEqualTo(3);
+        await Assert.That(pivotCache.GetCalculatedFieldFormula(3)).IsEqualTo("verbruik*2");
 
         // Round-trip: save and reload
         using var ms = new MemoryStream();
@@ -1028,17 +1028,17 @@ public class XLPivotTableTests
         using var doc = SpreadsheetDocument.Open(ms, false);
         var cachePart = doc.WorkbookPart!.GetPartsOfType<PivotTableCacheDefinitionPart>().First();
         var cacheFields = cachePart.PivotCacheDefinition.CacheFields!.Elements<CacheField>().ToList();
-        Assert.That(cacheFields.Count, Is.EqualTo(4));
+        await Assert.That(cacheFields.Count).IsEqualTo(4);
 
         var calcField = cacheFields[3];
-        Assert.That(calcField.Name?.Value, Is.EqualTo("Field1"));
-        Assert.That(calcField.Formula?.Value, Is.EqualTo("verbruik*2"));
-        Assert.That(calcField.DatabaseField?.Value, Is.False);
+        await Assert.That(calcField.Name?.Value).IsEqualTo("Field1");
+        await Assert.That(calcField.Formula?.Value).IsEqualTo("verbruik*2");
+        await Assert.That(calcField.DatabaseField?.Value).IsFalse();
     }
 
     [Test]
-    [Description("Pivot table with calculated field should round-trip without losing the formula (ClosedXML#885)")]
-    public void PivotTableWithCalculatedField_RoundTrips()
+    [Property("Description", "Pivot table with calculated field should round-trip without losing the formula (ClosedXML#885)")]
+    public async Task PivotTableWithCalculatedField_RoundTrips()
     {
         // Create an xlsx with a pivot table that has a calculated field using raw OpenXML SDK.
         using var inputStream = new MemoryStream();
@@ -1057,12 +1057,12 @@ public class XLPivotTableTests
         var cacheFields = cachePart.PivotCacheDefinition.CacheFields!.Elements<CacheField>().ToList();
 
         // Should have 3 data fields + 1 calculated field = 4 total
-        Assert.That(cacheFields.Count, Is.EqualTo(4), "Expected 3 source fields + 1 calculated field");
+        await Assert.That(cacheFields.Count).IsEqualTo(4).Because("Expected 3 source fields + 1 calculated field");
 
         var calculatedField = cacheFields.Last();
-        Assert.That(calculatedField.Name?.Value, Is.EqualTo("Profit"), "Calculated field name should be 'Profit'");
-        Assert.That(calculatedField.Formula?.Value, Is.EqualTo("Revenue - Cost"), "Calculated field formula should be preserved");
-        Assert.That(calculatedField.DatabaseField?.Value, Is.False, "Calculated field DatabaseField should be false");
+        await Assert.That(calculatedField.Name?.Value).IsEqualTo("Profit").Because("Calculated field name should be 'Profit'");
+        await Assert.That(calculatedField.Formula?.Value).IsEqualTo("Revenue - Cost").Because("Calculated field formula should be preserved");
+        await Assert.That(calculatedField.DatabaseField?.Value).IsFalse().Because("Calculated field DatabaseField should be false");
     }
 
     /// <summary>
@@ -1269,7 +1269,7 @@ public class XLPivotTableTests
     }
 
     [Test]
-    public void AutoSortScope_survives_round_trip()
+    public async Task AutoSortScope_survives_round_trip()
     {
         // Create an xlsx with a pivot field that has an autoSortScope child using raw OpenXML SDK.
         using var inputStream = new MemoryStream();
@@ -1291,31 +1291,31 @@ public class XLPivotTableTests
 
         // Field 0 (Name) has sortType="descending" and autoSortScope
         var nameField = pivotFields[0];
-        Assert.That(nameField.SortType?.Value, Is.EqualTo(FieldSortValues.Descending), "sortType should be preserved");
+        await Assert.That(nameField.SortType?.Value).IsEqualTo(FieldSortValues.Descending).Because("sortType should be preserved");
 
         var autoSortScope = nameField.GetFirstChild<AutoSortScope>();
-        Assert.That(autoSortScope, Is.Not.Null, "autoSortScope element should survive round-trip");
+        await Assert.That(autoSortScope).IsNotNull().Because("autoSortScope element should survive round-trip");
 
         var pivotArea = autoSortScope!.GetFirstChild<PivotArea>();
-        Assert.That(pivotArea, Is.Not.Null, "pivotArea inside autoSortScope should survive round-trip");
-        Assert.That(pivotArea!.DataOnly?.Value, Is.EqualTo(false), "dataOnly attribute should be preserved");
-        Assert.That(pivotArea.Outline?.Value, Is.EqualTo(false), "outline attribute should be preserved");
-        Assert.That(pivotArea.FieldPosition?.Value, Is.EqualTo(0U), "fieldPosition attribute should be preserved");
+        await Assert.That(pivotArea).IsNotNull().Because("pivotArea inside autoSortScope should survive round-trip");
+        await Assert.That(pivotArea!.DataOnly?.Value).IsEqualTo(false).Because("dataOnly attribute should be preserved");
+        await Assert.That(pivotArea.Outline?.Value).IsEqualTo(false).Because("outline attribute should be preserved");
+        await Assert.That(pivotArea.FieldPosition?.Value).IsEqualTo(0U).Because("fieldPosition attribute should be preserved");
 
         var references = pivotArea.PivotAreaReferences;
-        Assert.That(references, Is.Not.Null, "references should be preserved");
+        await Assert.That(references).IsNotNull().Because("references should be preserved");
         var refList = references!.Elements<PivotAreaReference>().ToList();
-        Assert.That(refList.Count, Is.EqualTo(1), "Should have 1 reference");
-        Assert.That(refList[0].Field?.Value, Is.EqualTo(4294967294U), "reference field should be data field sentinel");
-        Assert.That(refList[0].Selected?.Value, Is.EqualTo(false), "reference selected should be false");
+        await Assert.That(refList.Count).IsEqualTo(1).Because("Should have 1 reference");
+        await Assert.That(refList[0].Field?.Value).IsEqualTo(4294967294U).Because("reference field should be data field sentinel");
+        await Assert.That(refList[0].Selected?.Value).IsEqualTo(false).Because("reference selected should be false");
 
         var xItems = refList[0].Elements<FieldItem>().ToList();
-        Assert.That(xItems.Count, Is.EqualTo(1), "Should have 1 field item");
-        Assert.That(xItems[0].Val?.Value, Is.EqualTo(0U), "field item value should be 0");
+        await Assert.That(xItems.Count).IsEqualTo(1).Because("Should have 1 field item");
+        await Assert.That(xItems[0].Val?.Value).IsEqualTo(0U).Because("field item value should be 0");
     }
 
     [Test]
-    public void AutoSortScope_null_when_not_present()
+    public async Task AutoSortScope_null_when_not_present()
     {
         // Create an xlsx with a pivot field that does NOT have autoSortScope.
         using var inputStream = new MemoryStream();
@@ -1329,8 +1329,7 @@ public class XLPivotTableTests
 
         for (var i = 0; i < pivotTable.PivotFields.Count; i++)
         {
-            Assert.That(pivotTable.PivotFields[i].AutoSortScope, Is.Null,
-                $"Field at index {i} should not have AutoSortScope");
+            await Assert.That(pivotTable.PivotFields[i].AutoSortScope).IsNull().Because($"Field at index {i} should not have AutoSortScope");
         }
     }
 
@@ -1495,7 +1494,7 @@ public class XLPivotTableTests
     }
 
     [Test]
-    public void Deleting_sheet_with_pivot_table_does_not_throw_on_save()
+    public async Task Deleting_sheet_with_pivot_table_does_not_throw_on_save()
     {
         // https://github.com/ClosedXML/ClosedXML/issues/2737
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\LoadPivotTables.xlsx"));
@@ -1505,6 +1504,6 @@ public class XLPivotTableTests
         wb.Worksheet("PivotTable1").Delete();
 
         using var ms = new MemoryStream();
-        Assert.DoesNotThrow(() => wb.SaveAs(ms));
+        await Assert.That(() => wb.SaveAs(ms)).ThrowsNothing();
     }
 }

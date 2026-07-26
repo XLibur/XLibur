@@ -1,266 +1,289 @@
 ﻿using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
-[TestFixture]
 [SetCulture("en-US")]
 public class EngineeringTests
 {
     #region HEX2DEC
 
-    [TestCase("\"A\"", 10)]
-    [TestCase("\"FF\"", 255)]
-    [TestCase("\"AF0\"", 2800)]
-    [TestCase("\"3DA408B9F\"", 16546565023)]
-    [TestCase("\"0\"", 0)]
-    [TestCase("\"1\"", 1)]
-    [TestCase("\"FFFFFFFFFF\"", -1)] // 10 F's = -1 in two's complement
-    [TestCase("\"FFFFFFFE00\"", -512)] // Negative via two's complement
-    [TestCase("\"8000000000\"", -549755813888)] // Most negative 40-bit value
-    [TestCase("\"7FFFFFFFFF\"", 549755813887)] // Most positive 40-bit value
-    public void Hex2Dec(string input, double expected)
+    [Test]
+    [Arguments("\"A\"", 10)]
+    [Arguments("\"FF\"", 255)]
+    [Arguments("\"AF0\"", 2800)]
+    [Arguments("\"3DA408B9F\"", 16546565023)]
+    [Arguments("\"0\"", 0)]
+    [Arguments("\"1\"", 1)]
+    [Arguments("\"FFFFFFFFFF\"", -1)] // 10 F's = -1 in two's complement
+    [Arguments("\"FFFFFFFE00\"", -512)] // Negative via two's complement
+    [Arguments("\"8000000000\"", -549755813888)] // Most negative 40-bit value
+    [Arguments("\"7FFFFFFFFF\"", 549755813887)] // Most positive 40-bit value
+    public async Task Hex2Dec(string input, double expected)
     {
         var actual = (double)XLWorkbook.EvaluateExpr($"HEX2DEC({input})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
-    [TestCase("\"FFFFFFFFFFF\"")] // 11 chars, too long
-    [TestCase("\"GG\"")] // Invalid hex char
-    public void Hex2Dec_InvalidInput_ReturnsNumError(string input)
+    [Test]
+    [Arguments("\"FFFFFFFFFFF\"")] // 11 chars, too long
+    [Arguments("\"GG\"")] // Invalid hex char
+    public async Task Hex2Dec_InvalidInput_ReturnsNumError(string input)
     {
-        Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr($"HEX2DEC({input})"));
+        await Assert.That(XLWorkbook.EvaluateExpr($"HEX2DEC({input})")).IsEqualTo(XLError.NumberInvalid);
     }
 
     #endregion
 
     #region DEC2HEX
 
-    [TestCase(100, "\"64\"")]
-    [TestCase(0, "\"0\"")]
-    [TestCase(-1, "\"FFFFFFFFFF\"")]
-    [TestCase(549755813887, "\"7FFFFFFFFF\"")]
-    [TestCase(-549755813888, "\"8000000000\"")]
-    public void Dec2Hex(double input, string expected)
+    [Test]
+    [Arguments(100, "\"64\"")]
+    [Arguments(0, "\"0\"")]
+    [Arguments(-1, "\"FFFFFFFFFF\"")]
+    [Arguments(549755813887, "\"7FFFFFFFFF\"")]
+    [Arguments(-549755813888, "\"8000000000\"")]
+    public async Task Dec2Hex(double input, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"DEC2HEX({input.ToString(System.Globalization.CultureInfo.InvariantCulture)})");
-        Assert.AreEqual(expected.Trim('"'), actual);
+        await Assert.That(actual).IsEqualTo(expected.Trim('"'));
     }
 
-    [TestCase(100, 4, "0064")]
-    [TestCase(10, 5, "0000A")]
-    public void Dec2Hex_WithPlaces(double input, int places, string expected)
+    [Test]
+    [Arguments(100, 4, "0064")]
+    [Arguments(10, 5, "0000A")]
+    public async Task Dec2Hex_WithPlaces(double input, int places, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"DEC2HEX({input.ToString(System.Globalization.CultureInfo.InvariantCulture)},{places})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
-    [TestCase(100, 1)] // Result is "64" which is 2 chars, but places=1
-    public void Dec2Hex_PlacesTooSmall_ReturnsNumError(double input, int places)
+    [Test]
+    [Arguments(100, 1)] // Result is "64" which is 2 chars, but places=1
+    public async Task Dec2Hex_PlacesTooSmall_ReturnsNumError(double input, int places)
     {
-        Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr($"DEC2HEX({input.ToString(System.Globalization.CultureInfo.InvariantCulture)},{places})"));
+        await Assert.That(XLWorkbook.EvaluateExpr($"DEC2HEX({input.ToString(System.Globalization.CultureInfo.InvariantCulture)},{places})")).IsEqualTo(XLError.NumberInvalid);
     }
 
     #endregion
 
     #region HEX2BIN
 
-    [TestCase("\"F\"", "1111")]
-    [TestCase("\"A\"", "1010")]
-    [TestCase("\"1\"", "1")]
-    [TestCase("\"0\"", "0")]
-    [TestCase("\"1FF\"", "111111111")] // 511
-    [TestCase("\"FFFFFFFE00\"", "1000000000")] // -512 in two's complement
-    public void Hex2Bin(string input, string expected)
+    [Test]
+    [Arguments("\"F\"", "1111")]
+    [Arguments("\"A\"", "1010")]
+    [Arguments("\"1\"", "1")]
+    [Arguments("\"0\"", "0")]
+    [Arguments("\"1FF\"", "111111111")] // 511
+    [Arguments("\"FFFFFFFE00\"", "1000000000")] // -512 in two's complement
+    public async Task Hex2Bin(string input, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"HEX2BIN({input})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
-    [TestCase("\"F\"", 8, "00001111")]
-    public void Hex2Bin_WithPlaces(string input, int places, string expected)
+    [Test]
+    [Arguments("\"F\"", 8, "00001111")]
+    public async Task Hex2Bin_WithPlaces(string input, int places, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"HEX2BIN({input},{places})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
-    [TestCase("\"200\"")] // 512, exceeds BIN range
-    public void Hex2Bin_OutOfRange_ReturnsNumError(string input)
+    [Test]
+    [Arguments("\"200\"")] // 512, exceeds BIN range
+    public async Task Hex2Bin_OutOfRange_ReturnsNumError(string input)
     {
-        Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr($"HEX2BIN({input})"));
+        await Assert.That(XLWorkbook.EvaluateExpr($"HEX2BIN({input})")).IsEqualTo(XLError.NumberInvalid);
     }
 
     #endregion
 
     #region HEX2OCT
 
-    [TestCase("\"F\"", "17")]
-    [TestCase("\"3B4E\"", "35516")]
-    [TestCase("\"0\"", "0")]
-    [TestCase("\"FFFFFFFFFF\"", "7777777777")] // -1
-    public void Hex2Oct(string input, string expected)
+    [Test]
+    [Arguments("\"F\"", "17")]
+    [Arguments("\"3B4E\"", "35516")]
+    [Arguments("\"0\"", "0")]
+    [Arguments("\"FFFFFFFFFF\"", "7777777777")] // -1
+    public async Task Hex2Oct(string input, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"HEX2OCT({input})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
-    [TestCase("\"F\"", 4, "0017")]
-    public void Hex2Oct_WithPlaces(string input, int places, string expected)
+    [Test]
+    [Arguments("\"F\"", 4, "0017")]
+    public async Task Hex2Oct_WithPlaces(string input, int places, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"HEX2OCT({input},{places})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     #endregion
 
     #region BIN2DEC
 
-    [TestCase("\"1010\"", 10)]
-    [TestCase("\"0\"", 0)]
-    [TestCase("\"1\"", 1)]
-    [TestCase("\"111111111\"", 511)] // Max positive
-    [TestCase("\"1000000000\"", -512)] // Most negative 10-bit
-    [TestCase("\"1111111111\"", -1)] // -1 in two's complement
-    public void Bin2Dec(string input, double expected)
+    [Test]
+    [Arguments("\"1010\"", 10)]
+    [Arguments("\"0\"", 0)]
+    [Arguments("\"1\"", 1)]
+    [Arguments("\"111111111\"", 511)] // Max positive
+    [Arguments("\"1000000000\"", -512)] // Most negative 10-bit
+    [Arguments("\"1111111111\"", -1)] // -1 in two's complement
+    public async Task Bin2Dec(string input, double expected)
     {
         var actual = (double)XLWorkbook.EvaluateExpr($"BIN2DEC({input})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
-    [TestCase("\"10000000000\"")] // 11 digits, too long
-    [TestCase("\"2\"")] // Invalid binary digit
-    public void Bin2Dec_InvalidInput_ReturnsNumError(string input)
+    [Test]
+    [Arguments("\"10000000000\"")] // 11 digits, too long
+    [Arguments("\"2\"")] // Invalid binary digit
+    public async Task Bin2Dec_InvalidInput_ReturnsNumError(string input)
     {
-        Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr($"BIN2DEC({input})"));
+        await Assert.That(XLWorkbook.EvaluateExpr($"BIN2DEC({input})")).IsEqualTo(XLError.NumberInvalid);
     }
 
     #endregion
 
     #region BIN2HEX
 
-    [TestCase("\"1010\"", "A")]
-    [TestCase("\"11111111\"", "FF")]
-    [TestCase("\"1111111111\"", "FFFFFFFFFF")] // -1
-    public void Bin2Hex(string input, string expected)
+    [Test]
+    [Arguments("\"1010\"", "A")]
+    [Arguments("\"11111111\"", "FF")]
+    [Arguments("\"1111111111\"", "FFFFFFFFFF")] // -1
+    public async Task Bin2Hex(string input, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"BIN2HEX({input})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
-    [TestCase("\"1010\"", 4, "000A")]
-    public void Bin2Hex_WithPlaces(string input, int places, string expected)
+    [Test]
+    [Arguments("\"1010\"", 4, "000A")]
+    public async Task Bin2Hex_WithPlaces(string input, int places, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"BIN2HEX({input},{places})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     #endregion
 
     #region BIN2OCT
 
-    [TestCase("\"1010\"", "12")]
-    [TestCase("\"0\"", "0")]
-    [TestCase("\"1111111111\"", "7777777777")] // -1
-    public void Bin2Oct(string input, string expected)
+    [Test]
+    [Arguments("\"1010\"", "12")]
+    [Arguments("\"0\"", "0")]
+    [Arguments("\"1111111111\"", "7777777777")] // -1
+    public async Task Bin2Oct(string input, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"BIN2OCT({input})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     #endregion
 
     #region DEC2BIN
 
-    [TestCase(10, "1010")]
-    [TestCase(0, "0")]
-    [TestCase(511, "111111111")]
-    [TestCase(-512, "1000000000")]
-    [TestCase(-1, "1111111111")]
-    public void Dec2Bin(double input, string expected)
+    [Test]
+    [Arguments(10, "1010")]
+    [Arguments(0, "0")]
+    [Arguments(511, "111111111")]
+    [Arguments(-512, "1000000000")]
+    [Arguments(-1, "1111111111")]
+    public async Task Dec2Bin(double input, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"DEC2BIN({input.ToString(System.Globalization.CultureInfo.InvariantCulture)})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
-    [TestCase(10, 8, "00001010")]
-    public void Dec2Bin_WithPlaces(double input, int places, string expected)
+    [Test]
+    [Arguments(10, 8, "00001010")]
+    public async Task Dec2Bin_WithPlaces(double input, int places, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"DEC2BIN({input.ToString(System.Globalization.CultureInfo.InvariantCulture)},{places})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
-    [TestCase(512)] // Out of range
-    [TestCase(-513)]
-    public void Dec2Bin_OutOfRange_ReturnsNumError(double input)
+    [Test]
+    [Arguments(512)] // Out of range
+    [Arguments(-513)]
+    public async Task Dec2Bin_OutOfRange_ReturnsNumError(double input)
     {
-        Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr($"DEC2BIN({input.ToString(System.Globalization.CultureInfo.InvariantCulture)})"));
+        await Assert.That(XLWorkbook.EvaluateExpr($"DEC2BIN({input.ToString(System.Globalization.CultureInfo.InvariantCulture)})")).IsEqualTo(XLError.NumberInvalid);
     }
 
     #endregion
 
     #region DEC2OCT
 
-    [TestCase(100, "144")]
-    [TestCase(0, "0")]
-    [TestCase(-1, "7777777777")]
-    public void Dec2Oct(double input, string expected)
+    [Test]
+    [Arguments(100, "144")]
+    [Arguments(0, "0")]
+    [Arguments(-1, "7777777777")]
+    public async Task Dec2Oct(double input, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"DEC2OCT({input.ToString(System.Globalization.CultureInfo.InvariantCulture)})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     #endregion
 
     #region OCT2DEC
 
-    [TestCase("\"77\"", 63)]
-    [TestCase("\"0\"", 0)]
-    [TestCase("\"7777777777\"", -1)]
-    [TestCase("\"4000000000\"", -536870912)] // Most negative 30-bit
-    [TestCase("\"3777777777\"", 536870911)] // Most positive 30-bit
-    public void Oct2Dec(string input, double expected)
+    [Test]
+    [Arguments("\"77\"", 63)]
+    [Arguments("\"0\"", 0)]
+    [Arguments("\"7777777777\"", -1)]
+    [Arguments("\"4000000000\"", -536870912)] // Most negative 30-bit
+    [Arguments("\"3777777777\"", 536870911)] // Most positive 30-bit
+    public async Task Oct2Dec(string input, double expected)
     {
         var actual = (double)XLWorkbook.EvaluateExpr($"OCT2DEC({input})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     #endregion
 
     #region OCT2BIN
 
-    [TestCase("\"12\"", "1010")]
-    [TestCase("\"0\"", "0")]
-    [TestCase("\"7777777777\"", "1111111111")] // -1
-    public void Oct2Bin(string input, string expected)
+    [Test]
+    [Arguments("\"12\"", "1010")]
+    [Arguments("\"0\"", "0")]
+    [Arguments("\"7777777777\"", "1111111111")] // -1
+    public async Task Oct2Bin(string input, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"OCT2BIN({input})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
-    [TestCase("\"1000\"")] // 512, out of BIN range
-    public void Oct2Bin_OutOfRange_ReturnsNumError(string input)
+    [Test]
+    [Arguments("\"1000\"")] // 512, out of BIN range
+    public async Task Oct2Bin_OutOfRange_ReturnsNumError(string input)
     {
-        Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr($"OCT2BIN({input})"));
+        await Assert.That(XLWorkbook.EvaluateExpr($"OCT2BIN({input})")).IsEqualTo(XLError.NumberInvalid);
     }
 
     #endregion
 
     #region OCT2HEX
 
-    [TestCase("\"17\"", "F")]
-    [TestCase("\"0\"", "0")]
-    [TestCase("\"7777777777\"", "FFFFFFFFFF")] // -1
-    public void Oct2Hex(string input, string expected)
+    [Test]
+    [Arguments("\"17\"", "F")]
+    [Arguments("\"0\"", "0")]
+    [Arguments("\"7777777777\"", "FFFFFFFFFF")] // -1
+    public async Task Oct2Hex(string input, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"OCT2HEX({input})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
-    [TestCase("\"17\"", 4, "000F")]
-    public void Oct2Hex_WithPlaces(string input, int places, string expected)
+    [Test]
+    [Arguments("\"17\"", 4, "000F")]
+    public async Task Oct2Hex_WithPlaces(string input, int places, string expected)
     {
         var actual = (string)XLWorkbook.EvaluateExpr($"OCT2HEX({input},{places})");
-        Assert.AreEqual(expected, actual);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     #endregion

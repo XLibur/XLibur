@@ -4,14 +4,14 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
-using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Styles;
 
 public class NumberFormatTests
 {
     [Test]
-    public void PreserveCellFormat()
+    public async Task PreserveCellFormat()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -26,15 +26,15 @@ public class NumberFormatTests
 
         ws.Column(1).Style.NumberFormat.Format = "yy-MM-dd";
         ws.Cell("A1").InsertData(table);
-        Assert.AreEqual("yy-MM-dd", ws.Cell("A5").Style.DateFormat.Format);
+        await Assert.That(ws.Cell("A5").Style.DateFormat.Format).IsEqualTo("yy-MM-dd");
 
         ws.Row(1).Style.NumberFormat.Format = "yy-MM-dd";
         ws.Cell("A1").InsertData(table.Rows, true);
-        Assert.AreEqual("yy-MM-dd", ws.Cell("E1").Style.DateFormat.Format);
+        await Assert.That(ws.Cell("E1").Style.DateFormat.Format).IsEqualTo("yy-MM-dd");
     }
 
     [Test]
-    public void TestExcelNumberFormats()
+    public async Task TestExcelNumberFormats()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -43,26 +43,26 @@ public class NumberFormatTests
 
         c.Style.NumberFormat.SetFormat("m/d/yy\\ h:mm;@");
 
-        Assert.AreEqual("10/26/13 21:00", c.GetFormattedString());
+        await Assert.That(c.GetFormattedString()).IsEqualTo("10/26/13 21:00");
     }
 
     [Test]
     [SetCulture("en-US")]
-    public void Cell_value_is_formatted_by_current_culture_unless_specified_otherwise()
+    public async Task Cell_value_is_formatted_by_current_culture_unless_specified_otherwise()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var cell = ws.Cell("A1").SetValue(10000.5);
 
         var currentCultureFormat = cell.GetFormattedString();
-        Assert.AreEqual("10000.5", currentCultureFormat);
+        await Assert.That(currentCultureFormat).IsEqualTo("10000.5");
 
         var czechCultureFormat = cell.GetFormattedString(CultureInfo.GetCultureInfo("cs-CZ"));
-        Assert.AreEqual("10000,5", czechCultureFormat);
+        await Assert.That(czechCultureFormat).IsEqualTo("10000,5");
     }
 
     [Test]
-    public void ReadAndWriteColumnNumberFormat()
+    public async Task ReadAndWriteColumnNumberFormat()
     {
         using var memoryStream = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -78,33 +78,33 @@ public class NumberFormatTests
         using (var wb = new XLWorkbook(memoryStream))
         {
             var column = wb.Worksheets.Single().Column(1);
-            Assert.AreEqual("0.000", column.Style.NumberFormat.Format);
+            await Assert.That(column.Style.NumberFormat.Format).IsEqualTo("0.000");
         }
     }
 
     [Test]
-    public void XLNumberFormatKey_GetHashCode_IsCaseSensitive()
+    public async Task XLNumberFormatKey_GetHashCode_IsCaseSensitive()
     {
         var numberFormatKey1 = XLNumberFormatKey.ForFormat("MM");
         var numberFormatKey2 = XLNumberFormatKey.ForFormat("mm");
 
-        Assert.AreNotEqual(numberFormatKey1.GetHashCode(), numberFormatKey2.GetHashCode());
+        await Assert.That(numberFormatKey2.GetHashCode()).IsNotEqualTo(numberFormatKey1.GetHashCode());
     }
 
     [Test]
-    public void XLNumberFormatKey_Equals_IsCaseSensitive()
+    public async Task XLNumberFormatKey_Equals_IsCaseSensitive()
     {
         var numberFormatKey1 = XLNumberFormatKey.ForFormat("MM");
         var numberFormatKey2 = XLNumberFormatKey.ForFormat("mm");
 
-        Assert.IsFalse(numberFormatKey1.Equals(numberFormatKey2));
+        await Assert.That(numberFormatKey1.Equals(numberFormatKey2)).IsFalse();
     }
 
     [Test]
-    public void AddCustomNumberFormatsToFileWithNonSequentialNumberFormatIds()
+    public async Task AddCustomNumberFormatsToFileWithNonSequentialNumberFormatIds()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\NumberFormats\NonSequentialNumberFormatsIds-Input.xlsx"));
-        TestHelper.CreateAndCompare(() =>
+        await TestHelper.CreateAndCompare(() =>
         {
             var wb = new XLWorkbook(stream);
 

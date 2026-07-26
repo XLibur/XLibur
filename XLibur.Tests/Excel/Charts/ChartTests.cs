@@ -1,18 +1,18 @@
 ﻿using DocumentFormat.OpenXml.Drawing.Charts;
 using DocumentFormat.OpenXml.Packaging;
-using NUnit.Framework;
+using System;
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
+using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Charts;
 
-[TestFixture]
 public class ChartTests
 {
     [Test]
-    public void CanCreateColumnClusteredChart()
+    public async Task CanCreateColumnClusteredChart()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Data");
@@ -29,14 +29,14 @@ public class ChartTests
         chart.Position.SetColumn(3).SetRow(1);
         chart.SecondPosition.SetColumn(10).SetRow(15);
 
-        Assert.That(ws.Charts.Count, Is.EqualTo(1));
-        Assert.That(chart.ChartType, Is.EqualTo(XLChartType.ColumnClustered));
-        Assert.That(chart.Title, Is.EqualTo("Sales Chart"));
-        Assert.That(chart.Series.Count, Is.EqualTo(1));
+        await Assert.That(ws.Charts.Count).IsEqualTo(1);
+        await Assert.That(chart.ChartType).IsEqualTo(XLChartType.ColumnClustered);
+        await Assert.That(chart.Title).IsEqualTo("Sales Chart");
+        await Assert.That(chart.Series.Count).IsEqualTo(1);
     }
 
     [Test]
-    public void CanSaveAndLoadChart()
+    public async Task CanSaveAndLoadChart()
     {
         using var ms = new MemoryStream();
 
@@ -65,22 +65,22 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var ws = wb.Worksheet("Data");
-            Assert.That(ws.Charts.Count, Is.EqualTo(1));
+            await Assert.That(ws.Charts.Count).IsEqualTo(1);
 
             var chart = ws.Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.ColumnClustered));
-            Assert.That(chart.Title, Is.EqualTo("Test Chart"));
-            Assert.That(chart.Series.Count, Is.EqualTo(1));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.ColumnClustered);
+            await Assert.That(chart.Title).IsEqualTo("Test Chart");
+            await Assert.That(chart.Series.Count).IsEqualTo(1);
 
             var series = chart.Series.First();
-            Assert.That(series.Name, Is.EqualTo("Sales"));
-            Assert.That(series.ValueReferences, Is.EqualTo("Data!$B$2:$B$3"));
-            Assert.That(series.CategoryReferences, Is.EqualTo("Data!$A$2:$A$3"));
+            await Assert.That(series.Name).IsEqualTo("Sales");
+            await Assert.That(series.ValueReferences).IsEqualTo("Data!$B$2:$B$3");
+            await Assert.That(series.CategoryReferences).IsEqualTo("Data!$A$2:$A$3");
         }
     }
 
     [Test]
-    public void SavedChartHasValidOpenXmlStructure()
+    public async Task SavedChartHasValidOpenXmlStructure()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -101,25 +101,25 @@ public class ChartTests
         using var doc = SpreadsheetDocument.Open(ms, false);
         var wsPart = doc.WorkbookPart!.WorksheetParts.First();
         var drawingsPart = wsPart.DrawingsPart;
-        Assert.That(drawingsPart, Is.Not.Null);
+        await Assert.That(drawingsPart).IsNotNull();
 
         var chartParts = drawingsPart!.ChartParts.ToList();
-        Assert.That(chartParts, Has.Count.EqualTo(1));
+        await Assert.That(chartParts).Count().IsEqualTo(1);
 
         var chartSpace = chartParts[0].ChartSpace;
-        Assert.That(chartSpace, Is.Not.Null);
+        await Assert.That(chartSpace).IsNotNull();
 
         var chartEl = chartSpace!.Elements<C.Chart>().FirstOrDefault();
-        Assert.That(chartEl, Is.Not.Null);
+        await Assert.That(chartEl).IsNotNull();
 
         var barChart = chartEl!.PlotArea!.Elements<BarChart>().FirstOrDefault();
-        Assert.That(barChart, Is.Not.Null);
-        Assert.That(barChart!.BarDirection!.Val!.Value, Is.EqualTo(BarDirectionValues.Column));
-        Assert.That(barChart.BarGrouping!.Val!.Value, Is.EqualTo(BarGroupingValues.Clustered));
+        await Assert.That(barChart).IsNotNull();
+        await Assert.That(barChart!.BarDirection!.Val!.Value).IsEqualTo(BarDirectionValues.Column);
+        await Assert.That(barChart.BarGrouping!.Val!.Value).IsEqualTo(BarGroupingValues.Clustered);
     }
 
     [Test]
-    public void MultipleSeries()
+    public async Task MultipleSeries()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -146,18 +146,18 @@ public class ChartTests
         {
             var ws = wb.Worksheet("Data");
             var chart = ws.Charts.First();
-            Assert.That(chart.Series.Count, Is.EqualTo(2));
+            await Assert.That(chart.Series.Count).IsEqualTo(2);
 
             var series = chart.Series.ToList();
-            Assert.That(series[0].Name, Is.EqualTo("Series1"));
-            Assert.That(series[1].Name, Is.EqualTo("Series2"));
-            Assert.That(series[0].Index, Is.EqualTo(0u));
-            Assert.That(series[1].Index, Is.EqualTo(1u));
+            await Assert.That(series[0].Name).IsEqualTo("Series1");
+            await Assert.That(series[1].Name).IsEqualTo("Series2");
+            await Assert.That(series[0].Index).IsEqualTo(0u);
+            await Assert.That(series[1].Index).IsEqualTo(1u);
         }
     }
 
     [Test]
-    public void ChartWithoutTitle()
+    public async Task ChartWithoutTitle()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -177,12 +177,12 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.Title, Is.Null);
+            await Assert.That(chart.Title).IsNull();
         }
     }
 
     [Test]
-    public void ChartPositionsArePreserved()
+    public async Task ChartPositionsArePreserved()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -202,15 +202,15 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.Position.Column, Is.EqualTo(3));
-            Assert.That(chart.Position.Row, Is.EqualTo(5));
-            Assert.That(chart.SecondPosition.Column, Is.EqualTo(10));
-            Assert.That(chart.SecondPosition.Row, Is.EqualTo(20));
+            await Assert.That(chart.Position.Column).IsEqualTo(3);
+            await Assert.That(chart.Position.Row).IsEqualTo(5);
+            await Assert.That(chart.SecondPosition.Column).IsEqualTo(10);
+            await Assert.That(chart.SecondPosition.Row).IsEqualTo(20);
         }
     }
 
     [Test]
-    public void ChartDoesNotPreventPictureWriting()
+    public async Task ChartDoesNotPreventPictureWriting()
     {
         // Ensure charts and pictures can coexist
         using var ms = new MemoryStream();
@@ -231,12 +231,12 @@ public class ChartTests
         ms.Position = 0;
         using (var wb = new XLWorkbook(ms))
         {
-            Assert.That(wb.Worksheet("Data").Charts.Count, Is.EqualTo(1));
+            await Assert.That(wb.Worksheet("Data").Charts.Count).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadPieChart()
+    public async Task CanSaveAndLoadPieChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -262,15 +262,15 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Pie));
-            Assert.That(chart.Title, Is.EqualTo("Distribution"));
-            Assert.That(chart.Series.Count, Is.EqualTo(1));
-            Assert.That(chart.Series.First().ValueReferences, Is.EqualTo("Data!$B$1:$B$3"));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.Pie);
+            await Assert.That(chart.Title).IsEqualTo("Distribution");
+            await Assert.That(chart.Series.Count).IsEqualTo(1);
+            await Assert.That(chart.Series.First().ValueReferences).IsEqualTo("Data!$B$1:$B$3");
         }
     }
 
     [Test]
-    public void CanSaveAndLoadStackedBarChart()
+    public async Task CanSaveAndLoadStackedBarChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -297,13 +297,13 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.BarStacked));
-            Assert.That(chart.Series.Count, Is.EqualTo(2));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.BarStacked);
+            await Assert.That(chart.Series.Count).IsEqualTo(2);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadLineChart()
+    public async Task CanSaveAndLoadLineChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -329,14 +329,14 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Line));
-            Assert.That(chart.Title, Is.EqualTo("Trend"));
-            Assert.That(chart.Series.Count, Is.EqualTo(1));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.Line);
+            await Assert.That(chart.Title).IsEqualTo("Trend");
+            await Assert.That(chart.Series.Count).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadRadarChart()
+    public async Task CanSaveAndLoadRadarChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -362,14 +362,14 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Radar));
-            Assert.That(chart.Title, Is.EqualTo("Skills"));
-            Assert.That(chart.Series.Count, Is.EqualTo(1));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.Radar);
+            await Assert.That(chart.Title).IsEqualTo("Skills");
+            await Assert.That(chart.Series.Count).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadComboChart()
+    public async Task CanSaveAndLoadComboChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -397,18 +397,18 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.ColumnClustered));
-            Assert.That(chart.Series.Count, Is.EqualTo(1));
-            Assert.That(chart.Series.First().Name, Is.EqualTo("Units"));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.ColumnClustered);
+            await Assert.That(chart.Series.Count).IsEqualTo(1);
+            await Assert.That(chart.Series.First().Name).IsEqualTo("Units");
 
-            Assert.That(chart.SecondaryChartType, Is.EqualTo(XLChartType.Line));
-            Assert.That(chart.SecondarySeries.Count, Is.EqualTo(1));
-            Assert.That(chart.SecondarySeries.First().Name, Is.EqualTo("Price"));
+            await Assert.That(chart.SecondaryChartType).IsEqualTo(XLChartType.Line);
+            await Assert.That(chart.SecondarySeries.Count).IsEqualTo(1);
+            await Assert.That(chart.SecondarySeries.First().Name).IsEqualTo("Price");
         }
     }
 
     [Test]
-    public void CanSaveAndLoadScatterChart()
+    public async Task CanSaveAndLoadScatterChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -429,14 +429,14 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.XYScatterMarkers));
-            Assert.That(chart.Title, Is.EqualTo("XY"));
-            Assert.That(chart.Series.Count, Is.EqualTo(1));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.XYScatterMarkers);
+            await Assert.That(chart.Title).IsEqualTo("XY");
+            await Assert.That(chart.Series.Count).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadStockChart()
+    public async Task CanSaveAndLoadStockChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -458,13 +458,13 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.StockHighLowClose));
-            Assert.That(chart.Series.Count, Is.EqualTo(3));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.StockHighLowClose);
+            await Assert.That(chart.Series.Count).IsEqualTo(3);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadSurfaceChart()
+    public async Task CanSaveAndLoadSurfaceChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -486,13 +486,13 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Surface));
-            Assert.That(chart.Series.Count, Is.EqualTo(2));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.Surface);
+            await Assert.That(chart.Series.Count).IsEqualTo(2);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadWaterfallChart()
+    public async Task CanSaveAndLoadWaterfallChart()
     {
         // Also write to disk for manual Excel inspection
         var filePath = Path.Combine(Path.GetTempPath(), "WaterfallTest.xlsx");
@@ -514,20 +514,20 @@ public class ChartTests
             ms.Position = 0;
             wb.SaveAs(filePath);
         }
-        TestContext.Out.WriteLine($"Waterfall test file: {filePath}");
+        Console.Out.WriteLine($"Waterfall test file: {filePath}");
 
         ms.Position = 0;
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Waterfall));
-            Assert.That(chart.Title, Is.EqualTo("WF"));
-            Assert.That(chart.Series.Count, Is.EqualTo(1));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.Waterfall);
+            await Assert.That(chart.Title).IsEqualTo("WF");
+            await Assert.That(chart.Series.Count).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadFunnelChart()
+    public async Task CanSaveAndLoadFunnelChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -547,13 +547,13 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Funnel));
-            Assert.That(chart.Series.Count, Is.EqualTo(1));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.Funnel);
+            await Assert.That(chart.Series.Count).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadSunburstChart()
+    public async Task CanSaveAndLoadSunburstChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -574,13 +574,13 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Sunburst));
-            Assert.That(chart.Title, Is.EqualTo("SB"));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.Sunburst);
+            await Assert.That(chart.Title).IsEqualTo("SB");
         }
     }
 
     [Test]
-    public void CanSaveAndLoadTreemapChart()
+    public async Task CanSaveAndLoadTreemapChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -600,12 +600,12 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Treemap));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.Treemap);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadBoxWhiskerChart()
+    public async Task CanSaveAndLoadBoxWhiskerChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -626,13 +626,13 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.BoxWhisker));
-            Assert.That(chart.Title, Is.EqualTo("BW"));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.BoxWhisker);
+            await Assert.That(chart.Title).IsEqualTo("BW");
         }
     }
 
     [Test]
-    public void CanSaveAndLoadAreaChart()
+    public async Task CanSaveAndLoadAreaChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -654,13 +654,13 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.AreaStacked));
-            Assert.That(chart.Series.Count, Is.EqualTo(2));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.AreaStacked);
+            await Assert.That(chart.Series.Count).IsEqualTo(2);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadDoughnutChart()
+    public async Task CanSaveAndLoadDoughnutChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -681,13 +681,13 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Doughnut));
-            Assert.That(chart.Title, Is.EqualTo("Ring"));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.Doughnut);
+            await Assert.That(chart.Title).IsEqualTo("Ring");
         }
     }
 
     [Test]
-    public void CanSaveAndLoadBubbleChart()
+    public async Task CanSaveAndLoadBubbleChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -708,14 +708,14 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.Bubble));
-            Assert.That(chart.Title, Is.EqualTo("Bubbles"));
-            Assert.That(chart.Series.Count, Is.EqualTo(1));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.Bubble);
+            await Assert.That(chart.Title).IsEqualTo("Bubbles");
+            await Assert.That(chart.Series.Count).IsEqualTo(1);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadConeChart()
+    public async Task CanSaveAndLoadConeChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -735,12 +735,12 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.ConeClustered));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.ConeClustered);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadCylinderChart()
+    public async Task CanSaveAndLoadCylinderChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -760,12 +760,12 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.CylinderHorizontalStacked));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.CylinderHorizontalStacked);
         }
     }
 
     [Test]
-    public void CanSaveAndLoadPyramidChart()
+    public async Task CanSaveAndLoadPyramidChart()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -785,7 +785,7 @@ public class ChartTests
         using (var wb = new XLWorkbook(ms))
         {
             var chart = wb.Worksheet("Data").Charts.First();
-            Assert.That(chart.ChartType, Is.EqualTo(XLChartType.PyramidStacked100Percent));
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.PyramidStacked100Percent);
         }
     }
 }
