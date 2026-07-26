@@ -31,6 +31,10 @@
 
 #### Formula functions
 
+- **42 engineering functions**: the complex-number family (`COMPLEX` and all 26 `IM*` functions), `CONVERT` with the full unit table, `BESSELI`/`BESSELJ`/`BESSELK`/`BESSELY`, `ERF`/`ERF.PRECISE`/`ERFC`/`ERFC.PRECISE`, `DELTA`, `GESTEP` and the bitwise set (`BITAND`, `BITOR`, `BITXOR`, `BITLSHIFT`, `BITRSHIFT`).
+
+  A complex number in Excel is text, so the `IM*` functions parse `"3+4i"` and write their result back the same way — echoing whichever of `i` or `j` the input used, and refusing to mix the two. `CONVERT` unit names are case sensitive, as Excel's are: `Pica` is a point and `pica` is six to the inch. Prefixes are accepted on metric units, binary prefixes on `bit` and `byte` only, and on no temperature unit — a scale with an offset has no meaningful "milli". ([#253](https://github.com/XLibur/XLibur/pull/253) by [@jafin](https://github.com/jafin))
+
 - **24 more financial functions**: depreciation (`SLN`, `SYD`, `DB`, `DDB`, `VDB`), rate conversion and growth (`EFFECT`, `NOMINAL`, `RRI`, `PDURATION`), fractional dollar notation (`DOLLARDE`, `DOLLARFR`), loan schedules (`ISPMT`, `CUMIPMT`, `CUMPRINC`), discount securities (`TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DISC`, `INTRATE`, `RECEIVED`) and irregular cash flows (`FVSCHEDULE`, `MIRR`, `XNPV`, `XIRR`). `XIRR` solves with Newton–Raphson and falls back to bisection when that wanders off, so a poor guess still converges.
 
   Two deliberate limitations. The day-count-basis bond family (`PRICE`, `YIELD`, `DURATION`, `MDURATION`, `ACCRINT`, `COUP*`, `ODD*`, `AMOR*`) is not included — it needs a coupon-period engine rather than another day-count fraction. And `DISC`/`INTRATE`/`RECEIVED` take their year fraction from the same code as `YEARFRAC`, so basis 1 (actual/actual) uses `YEARFRAC`'s average-year-length rule. ([#252](https://github.com/XLibur/XLibur/pull/252) by [@jafin](https://github.com/jafin))

@@ -966,6 +966,68 @@ internal static class SignatureAdapter
         };
     }
 
+    public static CalcEngineFunction Adapt(Func<CalcContext, double, string, string, ScalarValue> f)
+    {
+        return (ctx, args) =>
+        {
+            var arg0Converted = ToNumber(args[0], ctx);
+            if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+                return err0;
+
+            var arg1Converted = ToText(args[1], ctx);
+            if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+                return err1;
+
+            var arg2Converted = ToText(args[2], ctx);
+            if (!arg2Converted.TryPickT0(out var arg2, out var err2))
+                return err2;
+
+            return f(ctx, arg0, arg1, arg2).ToAnyValue();
+        };
+    }
+
+    public static CalcEngineFunction AdaptLastOptional(Func<CalcContext, double, double, string, ScalarValue> f, string lastDefault)
+    {
+        return (ctx, args) =>
+        {
+            var arg0Converted = ToNumber(args[0], ctx);
+            if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+                return err0;
+
+            var arg1Converted = ToNumber(args[1], ctx);
+            if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+                return err1;
+
+            var arg2 = lastDefault;
+            if (args.Length > 2 && !ToText(args[2], ctx).TryPickT0(out arg2, out var err2))
+                return err2;
+
+            return f(ctx, arg0, arg1, arg2).ToAnyValue();
+        };
+    }
+
+    /// <summary>Two numbers where the second is genuinely optional — the callee is told whether it was supplied.</summary>
+    public static CalcEngineFunction AdaptLastOptional(Func<CalcContext, double, double?, ScalarValue> f)
+    {
+        return (ctx, args) =>
+        {
+            var arg0Converted = ToNumber(args[0], ctx);
+            if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+                return err0;
+
+            double? arg1 = null;
+            if (args.Length > 1)
+            {
+                if (!ToNumber(args[1], ctx).TryPickT0(out var supplied, out var err1))
+                    return err1;
+
+                arg1 = supplied;
+            }
+
+            return f(ctx, arg0, arg1).ToAnyValue();
+        };
+    }
+
     public static CalcEngineFunction AdaptLastTwoOptional(Func<CalcContext, double, double, double, double, double, double, bool, ScalarValue> f, double defaultValue0, bool defaultValue1)
     {
         return (ctx, args) =>

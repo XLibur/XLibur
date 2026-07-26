@@ -222,6 +222,117 @@ public static class XLMath
     }
 
     /// <summary>
+    /// Regularized lower incomplete gamma function P(a, x) = γ(a, x) / Γ(a). Evaluated by its power
+    /// series below the transition point and as 1 − Q(a, x) above it, where each is convergent.
+    /// </summary>
+    internal static double GammaP(double a, double x)
+    {
+        if (x <= 0 || a <= 0)
+            return 0;
+
+        if (x < a + 1.0)
+            return GammaSeries(a, x);
+
+        return 1.0 - GammaContinuedFraction(a, x);
+    }
+
+    /// <summary>
+    /// Regularized upper incomplete gamma function Q(a, x) = Γ(a, x) / Γ(a), the complement of
+    /// <see cref="GammaP"/>. Computed directly in the tail so that small values keep their precision.
+    /// </summary>
+    internal static double GammaQ(double a, double x)
+    {
+        if (x <= 0 || a <= 0)
+            return 1;
+
+        if (x < a + 1.0)
+            return 1.0 - GammaSeries(a, x);
+
+        return GammaContinuedFraction(a, x);
+    }
+
+    /// <summary>Power series for P(a, x), convergent for x below roughly a + 1.</summary>
+    private static double GammaSeries(double a, double x)
+    {
+        const int maxIterations = 300;
+        const double epsilon = 1e-16;
+
+        var term = 1.0 / a;
+        var sum = term;
+        for (var n = 1; n <= maxIterations; n++)
+        {
+            term *= x / (a + n);
+            sum += term;
+            if (Math.Abs(term) < Math.Abs(sum) * epsilon)
+                break;
+        }
+
+        return sum * Math.Exp(-x + a * Math.Log(x) - LnGamma(a));
+    }
+
+    /// <summary>Continued fraction for Q(a, x) (Lentz's method), convergent for x above roughly a + 1.</summary>
+    private static double GammaContinuedFraction(double a, double x)
+    {
+        const int maxIterations = 300;
+        const double epsilon = 1e-16;
+        const double tiny = 1e-300;
+
+        var b = x + 1.0 - a;
+        var c = 1.0 / tiny;
+        var d = 1.0 / b;
+        var h = d;
+
+        for (var i = 1; i <= maxIterations; i++)
+        {
+            var an = -i * (i - a);
+            b += 2.0;
+
+            d = an * d + b;
+            if (Math.Abs(d) < tiny) d = tiny;
+
+            c = b + an / c;
+            if (Math.Abs(c) < tiny) c = tiny;
+
+            d = 1.0 / d;
+            var delta = d * c;
+            h *= delta;
+
+            if (Math.Abs(delta - 1.0) < epsilon)
+                break;
+        }
+
+        return h * Math.Exp(-x + a * Math.Log(x) - LnGamma(a));
+    }
+
+    /// <summary>
+    /// Error function erf(x), expressed through the regularized incomplete gamma function:
+    /// erf(x) = sign(x) · P(1/2, x²).
+    /// </summary>
+    internal static double Erf(double x)
+    {
+        if (x == 0)
+            return 0;
+
+        var p = GammaP(0.5, x * x);
+        return x < 0 ? -p : p;
+    }
+
+    /// <summary>
+    /// Complementary error function erfc(x) = 1 − erf(x). The positive tail is taken from Q(1/2, x²)
+    /// directly rather than by subtraction, which would lose every significant digit for large x.
+    /// </summary>
+    internal static double Erfc(double x)
+    {
+        if (x == 0)
+            return 1;
+
+        if (x > 0)
+            return GammaQ(0.5, x * x);
+
+        return 1.0 + GammaP(0.5, x * x);
+    }
+
+    /// <summary>
     /// Regularized incomplete beta function I_x(a, b) using the continued fraction expansion.
     /// </summary>
     internal static double BetaRegularized(double x, double a, double b)
