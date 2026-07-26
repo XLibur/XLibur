@@ -86,7 +86,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     {
         if (_chain is not null && _dependencyTree is not null)
         {
-            _dependencyTree.AddFormula(new XLBookArea(sheet.Name, range), arrayFormula, sheet.Workbook);
+            _dependencyTree.AddFormula(new SheetArea(sheet.Name, range), arrayFormula, sheet.Workbook);
             _chain.AppendArea(sheet.SheetId, range);
         }
     }
@@ -98,7 +98,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     {
         if (_chain is not null && _dependencyTree is not null)
         {
-            var pointArea = new XLBookArea(sheetName, new Area(point.Point, point.Point));
+            var pointArea = new SheetArea(sheetName, new Area(point.Point, point.Point));
             _dependencyTree.AddFormula(pointArea, formula, workbook);
             _chain.AddLast(point);
         }
@@ -179,7 +179,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 
         if (_dependencyTree is not null)
         {
-            var bookArea = new XLBookArea(sheet.Name, area);
+            var bookArea = new SheetArea(sheet.Name, area);
             _dependencyTree.MarkDirty(bookArea);
         }
     }
@@ -486,7 +486,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         // (not just the anchor). Only needed once the tree exists and the footprint changed.
         if (_dependencyTree is not null && newFootprint != previousRange)
         {
-            var formulaArea = new XLBookArea(sheet.Name, newFootprint);
+            var formulaArea = new SheetArea(sheet.Name, newFootprint);
             _dependencyTree.UpdateSpillFootprint(formulaArea, formula, sheet.Workbook);
         }
     }

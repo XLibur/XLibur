@@ -9,7 +9,7 @@ namespace XLibur.Excel.CalcEngine;
 /// </summary>
 internal sealed class DependenciesContext
 {
-    internal DependenciesContext(XLBookArea formulaArea, XLWorkbook workbook)
+    internal DependenciesContext(SheetArea formulaArea, XLWorkbook workbook)
     {
         FormulaArea = formulaArea;
         Workbook = workbook;
@@ -18,7 +18,7 @@ internal sealed class DependenciesContext
     /// <summary>
     /// An area of a formula, in most cases just one cell, for array formulas area of cells.
     /// </summary>
-    internal XLBookArea FormulaArea { get; }
+    internal SheetArea FormulaArea { get; }
 
     internal XLWorkbook Workbook { get; }
 
@@ -30,7 +30,7 @@ internal sealed class DependenciesContext
     /// <summary>
     /// Add areas to a list of areas the formula depends on. Disregards duplicate entries.
     /// </summary>
-    internal void AddAreas(List<XLBookArea> sheetAreas) => Dependencies.AddAreas(sheetAreas);
+    internal void AddAreas(List<SheetArea> sheetAreas) => Dependencies.AddAreas(sheetAreas);
 
     /// <summary>
     /// Add name to a list of names the formula depends on. Disregards duplicate entries.

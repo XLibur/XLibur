@@ -28,21 +28,21 @@ namespace XLibur.Excel.CalcEngine;
 /// range operator.
 /// </para>
 /// </summary>
-internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext, List<XLBookArea>?>
+internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext, List<SheetArea>?>
 {
-    public List<XLBookArea>? Visit(DependenciesContext context, ScalarNode node)
+    public List<SheetArea>? Visit(DependenciesContext context, ScalarNode node)
     {
         // Scalar node can't contain sub-nodes or references.
         return null;
     }
 
-    public List<XLBookArea>? Visit(DependenciesContext context, ArrayNode node)
+    public List<SheetArea>? Visit(DependenciesContext context, ArrayNode node)
     {
         // Array node can't contain sub-nodes or references.
         return null;
     }
 
-    public List<XLBookArea>? Visit(DependenciesContext context, UnaryNode node)
+    public List<SheetArea>? Visit(DependenciesContext context, UnaryNode node)
     {
         var sheetAreas = node.Expression.Accept(context, this);
 
@@ -71,7 +71,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         return null;
     }
 
-    public List<XLBookArea>? Visit(DependenciesContext context, BinaryNode node)
+    public List<SheetArea>? Visit(DependenciesContext context, BinaryNode node)
     {
         var leftAreas = node.LeftExpression.Accept(context, this);
         var rightAreas = node.RightExpression.Accept(context, this);
@@ -88,7 +88,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         return null;
     }
 
-    public List<XLBookArea>? Visit(DependenciesContext context, FunctionNode node)
+    public List<SheetArea>? Visit(DependenciesContext context, FunctionNode node)
     {
         // According to grammar, ref functions are: CHOOSE, IF, INDEX, INDIRECT, OFFSET
         // Only these functions are allowed to return references, per grammar.
@@ -116,12 +116,12 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         return null;
     }
 
-    public List<XLBookArea>? Visit(DependenciesContext context, NotSupportedNode node)
+    public List<SheetArea>? Visit(DependenciesContext context, NotSupportedNode node)
     {
         return null;
     }
 
-    public List<XLBookArea>? Visit(DependenciesContext context, ReferenceNode node)
+    public List<SheetArea>? Visit(DependenciesContext context, ReferenceNode node)
     {
         var prefix = node.Prefix;
         string sheetName;
@@ -145,10 +145,10 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
 
         var anchor = context.FormulaArea.Area.FirstPoint;
         var sheetRange = node.ReferenceArea.ToSheetRange(anchor);
-        return [new XLBookArea(sheetName, sheetRange)];
+        return [new SheetArea(sheetName, sheetRange)];
     }
 
-    public List<XLBookArea>? Visit(DependenciesContext context, NameNode node)
+    public List<SheetArea>? Visit(DependenciesContext context, NameNode node)
     {
         // External references are not supported for names
         if (node.Prefix?.File is not null)
@@ -176,7 +176,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         // Name is not found in the workbook
         return null;
 
-        List<XLBookArea>? VisitName(XLDefinedName definedName)
+        List<SheetArea>? VisitName(XLDefinedName definedName)
         {
             // The named range is stored as A1 and thus parsed as A1, but should be interpreted as R1C1
             var namedFormula = definedName.RefersTo;
@@ -189,25 +189,25 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         }
     }
 
-    public List<XLBookArea>? Visit(DependenciesContext context, StructuredReferenceNode node)
+    public List<SheetArea>? Visit(DependenciesContext context, StructuredReferenceNode node)
     {
         // TODO: Structured reference should be evaluated into a reference and propagated.
         return null;
     }
 
-    public List<XLBookArea> Visit(DependenciesContext context, PrefixNode node)
+    public List<SheetArea> Visit(DependenciesContext context, PrefixNode node)
     {
         throw new InvalidOperationException("Should never be called.");
     }
 
-    public List<XLBookArea> Visit(DependenciesContext context, FileNode node)
+    public List<SheetArea> Visit(DependenciesContext context, FileNode node)
     {
         throw new InvalidOperationException("Should never be called.");
     }
 
-    private static List<XLBookArea>? VisitBinaryReferenceOp(
+    private static List<SheetArea>? VisitBinaryReferenceOp(
         DependenciesContext context, BinaryOp operation,
-        List<XLBookArea> leftAreas, List<XLBookArea> rightAreas)
+        List<SheetArea> leftAreas, List<SheetArea> rightAreas)
     {
         // Both sides are references — calculate new ranges and propagate.
         if (operation == BinaryOp.Union)
@@ -228,9 +228,9 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         return null;
     }
 
-    private static List<XLBookArea> CombineRangeAreas(List<XLBookArea> leftAreas, List<XLBookArea> rightAreas)
+    private static List<SheetArea> CombineRangeAreas(List<SheetArea> leftAreas, List<SheetArea> rightAreas)
     {
-        var rangeResult = new List<XLBookArea>();
+        var rangeResult = new List<SheetArea>();
 
         // Create a new range from both operands. It must deal with
         // the situation where there are multiple sheets for both operands,
@@ -253,7 +253,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
             for (var i = 1; i < sheetAreas.Count; ++i)
                 rangeArea = rangeArea.Range(sheetAreas[i].Area);
 
-            rangeResult.Add(new XLBookArea(sheetGroup.Key, rangeArea));
+            rangeResult.Add(new SheetArea(sheetGroup.Key, rangeArea));
         }
 
         // It's enough to return the result of a range operation. Operands can
@@ -261,7 +261,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         return rangeResult;
     }
 
-    private static List<XLBookArea>? IntersectAreas(List<XLBookArea> leftAreas, List<XLBookArea> rightAreas)
+    private static List<SheetArea>? IntersectAreas(List<SheetArea> leftAreas, List<SheetArea> rightAreas)
     {
         // Intersection makes the range smaller, so it's rather hard to optimize
         // areas. We make a special case for the most frequent case.
@@ -280,7 +280,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         return leftAreas;
     }
 
-    private List<XLBookArea>? VisitIfFunction(DependenciesContext context, FunctionNode node)
+    private List<SheetArea>? VisitIfFunction(DependenciesContext context, FunctionNode node)
     {
         // Tested value is not propagated, it's evaluated as an argument.
         AcceptAndAddParameter(context, node.Parameters[0]);
@@ -301,7 +301,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         return valueIfFalseReference ?? valueIfTrueReference;
     }
 
-    private List<XLBookArea>? VisitIndexFunction(DependenciesContext context, FunctionNode node)
+    private List<SheetArea>? VisitIndexFunction(DependenciesContext context, FunctionNode node)
     {
         // Add argument references, INDEX can have 2 or 3 arguments.
         for (var i = 1; i < node.Parameters.Count; ++i)
@@ -313,14 +313,14 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         return node.Parameters[0].Accept(context, this);
     }
 
-    private List<XLBookArea>? VisitChooseFunction(DependenciesContext context, FunctionNode node)
+    private List<SheetArea>? VisitChooseFunction(DependenciesContext context, FunctionNode node)
     {
         // Index argument is used to select value, so don't propagate.
         AcceptAndAddParameter(context, node.Parameters[0]);
 
         // Any of arguments can be propagated -> propagate all.
         // Initialize list as null to reduce allocations.
-        List<XLBookArea>? parametersReference = null;
+        List<SheetArea>? parametersReference = null;
         for (var i = 1; i < node.Parameters.Count; ++i)
         {
             var parameterReference = node.Parameters[i].Accept(context, this);
@@ -347,7 +347,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
             AcceptAndAddParameter(context, parameterNode);
     }
 
-    private static void AddAreasIfNotNull(DependenciesContext context, List<XLBookArea>? areas)
+    private static void AddAreasIfNotNull(DependenciesContext context, List<SheetArea>? areas)
     {
         if (areas is not null)
             context.AddAreas(areas);

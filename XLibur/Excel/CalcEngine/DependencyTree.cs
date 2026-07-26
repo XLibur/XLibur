@@ -77,12 +77,12 @@ internal sealed class DependencyTree
                     // is unknown (default) — register the 1x1 anchor; the spill re-registers the
                     // formula once its size is known (see XLCalcEngine.SpillDynamicArray).
                     var footprint = formula.Range == default ? new Area(point, point) : formula.Range;
-                    var bookArea = new XLBookArea(sheet.Name, footprint);
+                    var bookArea = new SheetArea(sheet.Name, footprint);
                     tree.AddFormula(bookArea, formula, workbook);
                 }
                 else if (formula.Type == FormulaType.Normal)
                 {
-                    var bookArea = new XLBookArea(sheet.Name, new Area(point, point));
+                    var bookArea = new SheetArea(sheet.Name, new Area(point, point));
                     tree.AddFormula(bookArea, formula, workbook);
                 }
                 else if (formula.Type == FormulaType.Array)
@@ -91,7 +91,7 @@ internal sealed class DependencyTree
                     var isMasterCell = formula.Range.FirstPoint == point;
                     if (isMasterCell)
                     {
-                        var bookArea = new XLBookArea(sheet.Name, formula.Range);
+                        var bookArea = new SheetArea(sheet.Name, formula.Range);
                         tree.AddFormula(bookArea, formula, workbook);
                     }
                 }
@@ -110,7 +110,7 @@ internal sealed class DependencyTree
     /// <param name="workbook">Workbook that is used to find precedents (names ect.).</param>
     /// <returns>Added cell formula dependencies.</returns>
     /// <exception cref="ArgumentException">Formula already is in the tree.</exception>
-    internal FormulaDependencies AddFormula(XLBookArea formulaArea, XLCellFormula formula, XLWorkbook workbook)
+    internal FormulaDependencies AddFormula(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook)
     {
         var precedents = GetFormulaPrecedents(formulaArea, formula, workbook);
 
@@ -138,7 +138,7 @@ internal sealed class DependencyTree
     /// dependents of every currently-spilled cell. Safe to call whether or not the formula is
     /// already in the tree.
     /// </summary>
-    internal void UpdateSpillFootprint(XLBookArea formulaArea, XLCellFormula formula, XLWorkbook workbook)
+    internal void UpdateSpillFootprint(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook)
     {
         RemoveFormula(formula);
         AddFormula(formulaArea, formula, workbook);
@@ -183,12 +183,12 @@ internal sealed class DependencyTree
     /// <summary>
     /// Mark all formulas that depend (directly or transitively) on the area as dirty.
     /// </summary>
-    internal void MarkDirty(XLBookArea dirtyArea)
+    internal void MarkDirty(SheetArea dirtyArea)
     {
         // BFS vs DFS: Although the longest chain found in the wild is 1000
         // formulas long, attacker could supply malicious excel with recursion
         // leading to stack overflow => use queue even with extra allocation cost.
-        var queue = new Queue<XLBookArea>();
+        var queue = new Queue<SheetArea>();
         queue.Enqueue(dirtyArea);
         while (queue.Count > 0)
         {
@@ -209,7 +209,7 @@ internal sealed class DependencyTree
         }
     }
 
-    private FormulaDependencies GetFormulaPrecedents(XLBookArea formulaArea, XLCellFormula formula, XLWorkbook workbook)
+    private FormulaDependencies GetFormulaPrecedents(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook)
     {
         var ast = formula.GetAst(workbook.CalcEngine);
         var context = new DependenciesContext(formulaArea, workbook);
@@ -286,7 +286,7 @@ internal sealed class DependencyTree
                 var dependent = _dependents[i];
                 if (XLHelper.SheetComparer.Equals(dependent.FormulaArea.Name, oldSheetName))
                 {
-                    var renamedArea = new XLBookArea(newSheetName, dependent.FormulaArea.Area);
+                    var renamedArea = new SheetArea(newSheetName, dependent.FormulaArea.Area);
                     _dependents[i] = new Dependent(renamedArea, dependent.Formula);
                 }
             }
@@ -306,9 +306,9 @@ internal sealed class DependencyTree
         /// doesn't contain it's address to make it easier add/delete
         /// rows/cols.
         /// </summary>
-        internal readonly XLBookArea FormulaArea;
+        internal readonly SheetArea FormulaArea;
 
-        internal Dependent(XLBookArea formulaArea, XLCellFormula formula)
+        internal Dependent(SheetArea formulaArea, XLCellFormula formula)
         {
             FormulaArea = formulaArea;
             Formula = formula;

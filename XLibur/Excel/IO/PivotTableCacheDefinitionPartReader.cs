@@ -113,7 +113,7 @@ internal static class PivotTableCacheDefinitionPartReader
             sheetSource.Reference?.Value is { } areaRef &&
             Area.TryParse(areaRef.AsSpan(), out var sheetArea))
         {
-            var area = new XLBookArea(sheetName, sheetArea);
+            var area = new SheetArea(sheetName, sheetArea);
             if (sheetSource.Id?.Value is { } externalWorkbookRelId)
                 return new XLPivotSourceExternalWorkbook(externalWorkbookRelId, area);
 
@@ -195,7 +195,7 @@ internal static class PivotTableCacheDefinitionPartReader
             {
                 Indexes = pageIndexes,
                 RelId = rangeSet.Id?.Value,
-                Area = new XLBookArea(sheet, area)
+                Area = new SheetArea(sheet, area)
             };
         }
 

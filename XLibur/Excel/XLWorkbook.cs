@@ -624,7 +624,7 @@ public partial class XLWorkbook : IXLWorkbook
     /// <summary>
     /// Try to find a table that covers same area as the <paramref name="area"/> in a workbook.
     /// </summary>
-    internal bool TryGetTable(XLBookArea area, [NotNullWhen(true)] out XLTable? foundTable)
+    internal bool TryGetTable(SheetArea area, [NotNullWhen(true)] out XLTable? foundTable)
     {
         var sheet = WorksheetsInternal.FirstOrDefault<XLWorksheet>(s => XLHelper.SheetComparer.Equals(s.Name, area.Name));
         if (sheet is not null)

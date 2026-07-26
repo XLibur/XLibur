@@ -118,7 +118,7 @@ internal class XLPivotSourceTests
         var ws = wb.AddWorksheet("Sheet1");
         ws.Cell("A1").Value = "Header";
 
-        var area = new XLBookArea("Sheet1", new Area(1, 1, 5, 3));
+        var area = new SheetArea("Sheet1", new Area(1, 1, 5, 3));
         var source = new XLPivotSourceReference(area);
         var result = source.TryGetSource(wb, out var sheet, out var sheetArea);
 
@@ -133,7 +133,7 @@ internal class XLPivotSourceTests
         using var wb = new XLWorkbook();
         wb.AddWorksheet("Sheet1");
 
-        var area = new XLBookArea("NonExistent", new Area(1, 1, 5, 3));
+        var area = new SheetArea("NonExistent", new Area(1, 1, 5, 3));
         var source = new XLPivotSourceReference(area);
         var result = source.TryGetSource(wb, out var sheet, out var sheetArea);
 

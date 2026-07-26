@@ -5,7 +5,7 @@ namespace XLibur.Excel.Coordinates;
 /// <summary>
 /// A specification of an area (rectangular range) of a sheet.
 /// </summary>
-internal readonly struct XLBookArea : IEquatable<XLBookArea>
+internal readonly struct SheetArea : IEquatable<SheetArea>
 {
     /// <summary>
     /// Name of the sheet. Sheet may exist or not (e.g., deleted). Never null.
@@ -17,7 +17,7 @@ internal readonly struct XLBookArea : IEquatable<XLBookArea>
     /// </summary>
     public readonly Area Area;
 
-    public XLBookArea(string name, Area area)
+    public SheetArea(string name, Area area)
     {
         if (string.IsNullOrEmpty(name))
             throw new ArgumentException("Name must not be null or empty.", nameof(name));
@@ -26,25 +26,25 @@ internal readonly struct XLBookArea : IEquatable<XLBookArea>
         Area = area;
     }
 
-    public static bool operator ==(XLBookArea lhs, XLBookArea rhs) => lhs.Equals(rhs);
+    public static bool operator ==(SheetArea lhs, SheetArea rhs) => lhs.Equals(rhs);
 
-    public static bool operator !=(XLBookArea lhs, XLBookArea rhs) => !(lhs == rhs);
+    public static bool operator !=(SheetArea lhs, SheetArea rhs) => !(lhs == rhs);
 
-    internal static XLBookArea From(IXLRange range)
+    internal static SheetArea From(IXLRange range)
     {
         return range.Worksheet is null
             ? throw new ArgumentException("Range doesn't contain sheet.", nameof(range))
-            : new XLBookArea(range.Worksheet.Name, Area.FromRangeAddress(range.RangeAddress));
+            : new SheetArea(range.Worksheet.Name, Area.FromRangeAddress(range.RangeAddress));
     }
 
-    public bool Equals(XLBookArea other)
+    public bool Equals(SheetArea other)
     {
         return Area == other.Area && XLHelper.SheetComparer.Equals(Name, other.Name);
     }
 
     public override bool Equals(object? obj)
     {
-        return obj is XLBookArea other && Equals(other);
+        return obj is SheetArea other && Equals(other);
     }
 
     public override int GetHashCode()
@@ -60,7 +60,7 @@ internal readonly struct XLBookArea : IEquatable<XLBookArea>
     /// </summary>
     /// <param name="other">The area that is being intersected with this one.</param>
     /// <returns>The intersection (=same sheet and has non-empty intersection) or null if intersection isn't possible.</returns>
-    public XLBookArea? Intersect(XLBookArea other)
+    public SheetArea? Intersect(SheetArea other)
     {
         if (!XLHelper.SheetComparer.Equals(Name, other.Name))
             return null;
@@ -69,7 +69,7 @@ internal readonly struct XLBookArea : IEquatable<XLBookArea>
         if (intersectionRange is null)
             return null;
 
-        return new XLBookArea(Name, intersectionRange.Value);
+        return new SheetArea(Name, intersectionRange.Value);
     }
 
     public override string ToString()

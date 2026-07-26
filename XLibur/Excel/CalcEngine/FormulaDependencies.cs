@@ -9,7 +9,7 @@ namespace XLibur.Excel.CalcEngine;
 /// </summary>
 internal sealed class FormulaDependencies
 {
-    private readonly HashSet<XLBookArea> _areas = [];
+    private readonly HashSet<SheetArea> _areas = [];
     private readonly HashSet<XLName> _names = [];
 
     /// <summary>
@@ -17,7 +17,7 @@ internal sealed class FormulaDependencies
     /// result for unusual formulas, but if a value in an area changes, the dependent
     /// formula should be marked as dirty.
     /// </summary>
-    public IReadOnlyCollection<XLBookArea> Areas => _areas;
+    public IReadOnlyCollection<SheetArea> Areas => _areas;
 
     /// <summary>
     /// A collection of names in the formula. If a name changes (added, deleted),
@@ -27,7 +27,7 @@ internal sealed class FormulaDependencies
     /// </summary>
     public IReadOnlyCollection<XLName> Names => _names;
 
-    internal void AddAreas(List<XLBookArea> sheetAreas)
+    internal void AddAreas(List<SheetArea> sheetAreas)
     {
         _areas.UnionWith(sheetAreas);
     }
@@ -40,12 +40,12 @@ internal sealed class FormulaDependencies
     internal void RenameSheet(string oldSheetName, string newSheetName)
     {
         // The renaming is done for every formula, so only allocate when needed.
-        List<(XLBookArea Original, XLBookArea Replacement)>? areasToRename = null;
+        List<(SheetArea Original, SheetArea Replacement)>? areasToRename = null;
         foreach (var areaInFormula in _areas)
         {
             if (XLHelper.SheetComparer.Equals(areaInFormula.Name, oldSheetName))
             {
-                var renamedArea = new XLBookArea(newSheetName, areaInFormula.Area);
+                var renamedArea = new SheetArea(newSheetName, areaInFormula.Area);
                 (areasToRename ??= []).Add((areaInFormula, renamedArea));
             }
         }

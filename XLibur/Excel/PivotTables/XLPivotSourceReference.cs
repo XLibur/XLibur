@@ -11,7 +11,7 @@ namespace XLibur.Excel;
 /// </summary>
 internal sealed class XLPivotSourceReference : IXLPivotSource
 {
-    internal XLPivotSourceReference(XLBookArea area)
+    internal XLPivotSourceReference(SheetArea area)
     {
         Area = area;
         Name = null;
@@ -33,7 +33,7 @@ internal sealed class XLPivotSourceReference : IXLPivotSource
     /// <summary>
     /// Book area with the source data. Either this or <see cref="Name"/> is set.
     /// </summary>
-    internal XLBookArea? Area { get; }
+    internal SheetArea? Area { get; }
 
     /// <summary>
     /// Name of a table or a book-scoped named range that contain the source data.

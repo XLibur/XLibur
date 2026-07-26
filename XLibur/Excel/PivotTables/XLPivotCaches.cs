@@ -14,7 +14,7 @@ internal sealed class XLPivotCaches : IXLPivotCaches, IEnumerable<XLPivotCache>
         _workbook = workbook;
     }
 
-    IXLPivotCache IXLPivotCaches.Add(IXLRange range) => Add(XLBookArea.From(range));
+    IXLPivotCache IXLPivotCaches.Add(IXLRange range) => Add(SheetArea.From(range));
 
     IEnumerator<IXLPivotCache> IEnumerable<IXLPivotCache>.GetEnumerator() => GetEnumerator();
 
@@ -24,7 +24,7 @@ internal sealed class XLPivotCaches : IXLPivotCaches, IEnumerable<XLPivotCache>
 
     public List<XLPivotCache>.Enumerator GetEnumerator() => _caches.GetEnumerator();
 
-    internal XLPivotCache Add(XLBookArea area)
+    internal XLPivotCache Add(SheetArea area)
     {
         var source = _workbook.TryGetTable(area, out var table)
             ? new XLPivotSourceReference(table.Name)
@@ -48,7 +48,7 @@ internal sealed class XLPivotCaches : IXLPivotCaches, IEnumerable<XLPivotCache>
     /// is checked against both types of source references (tables and
     /// ranges) and if area matches, the cache is returned.
     /// </summary>
-    internal XLPivotCache? Find(XLBookArea area)
+    internal XLPivotCache? Find(SheetArea area)
     {
         // This method mimics behavior of Excel.
         // If there is a table for the area and there is a cache for the table, return cache for the table.
