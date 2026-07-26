@@ -245,7 +245,7 @@ public class LoadingTests
     }
 
     [Test]
-    [Skip("PT styles will be fixed in a different PR")]
+    [Skip("Pivot table style formats are not implemented, so the border is not read back.")]
     public async Task CanLoadPivotTableWithBorder()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\PivotTableWithBorder.xlsx"));

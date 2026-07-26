@@ -263,7 +263,7 @@ public class FormulaParserTests
 
     [Test]
     [Arguments]
-    [Skip("XLParser issue #57")]
+    [Skip("ClosedXML.Parser can't tokenize a dynamic data exchange reference.")]
     public async Task Reference_can_be_dynamic_data_exchange()
     {
         await AssertCanParseButNotEvaluate("=Sdemo123|tik!'id1?req?AAPL_STK_SMART_USD_~/'", "Evaluation of dynamic data exchange is not implemented.");

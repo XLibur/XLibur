@@ -317,7 +317,11 @@ public class NamedRangesTests
         }
     }
 
-    [Test, Skip("Muted until shifting is fixed (see #880)")]
+    // Deleting rows doesn't invalidate the addresses of a named range (ClosedXML/ClosedXML#880).
+    // The assertions below are also self-contradictory: the last two both read ElementAt(0) but
+    // expect different values, so the second one is presumably meant to read ElementAt(1). Both
+    // need fixing before this test can be un-skipped.
+    [Test, Skip("Addresses in named ranges don't become invalid when the range is deleted (ClosedXML/ClosedXML#880).")]
     public async Task NamedRangeBecomesInvalidOnRangeAndWorksheetDeleting()
     {
         using var wb = new XLWorkbook();
@@ -339,7 +343,10 @@ public class NamedRangesTests
         await Assert.That(wb.DefinedNames.ElementAt(0).RefersTo).IsEqualTo("#REF!#REF!,'Sheet 2'!A10:D15");
     }
 
-    [Test, Skip("Muted until shifting is fixed (see #880)")]
+    // Same two problems as NamedRangeBecomesInvalidOnRangeAndWorksheetDeleting: the behaviour is
+    // unimplemented, and the last two assertions both read ElementAt(0) while expecting different
+    // values, so they can never both hold.
+    [Test, Skip("Addresses in named ranges don't become invalid when the range is deleted (ClosedXML/ClosedXML#880).")]
     public async Task NamedRangeBecomesInvalidOnRangeDeleting()
     {
         using var wb = new XLWorkbook();

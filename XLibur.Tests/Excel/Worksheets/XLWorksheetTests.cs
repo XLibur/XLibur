@@ -927,7 +927,7 @@ public class XLWorksheetTests
         await Assert.That(copy.VerticalAxis.MinAxisType).IsEqualTo(original.VerticalAxis.MinAxisType);
     }
 
-    [Test, Skip("Muted until #836 is fixed")]
+    [Test, Skip("Sheet references are not updated when a worksheet is copied (ClosedXML/ClosedXML#836).")]
     public async Task CopyWorksheetChangesAbsoluteReferencesInFormulae()
     {
         using var wb1 = new XLWorkbook();

@@ -97,7 +97,7 @@ public class DataValidationTests
         await Assert.That(ws2.Cell("B1").GetDataValidation().Value).IsEqualTo("Sheet1!A1");
     }
 
-    [Test, Skip("Wait for proper formula shifting (#686)")]
+    [Test]
     public async Task Validation_3()
     {
         var wb = new XLWorkbook();
@@ -120,7 +120,7 @@ public class DataValidationTests
         await Assert.That(ws.Cell("B2").GetDataValidation().Value).IsEqualTo("A2");
     }
 
-    [Test, Skip("Wait for proper formula shifting (#686)")]
+    [Test]
     public async Task Validation_5()
     {
         var wb = new XLWorkbook();

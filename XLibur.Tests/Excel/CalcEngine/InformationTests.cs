@@ -175,7 +175,6 @@ public class InformationTests
     }
 
     [Test]
-    [Skip("Arrays not yet implemented.")]
     public async Task IsEven_Array_ReturnsArray()
     {
         await Assert.That(XLWorkbook.EvaluateExpr("SUM(N(IsEven({\"2.9\";2;1})))")).IsEqualTo(2.0);
@@ -400,7 +399,6 @@ public class InformationTests
 
     [SetCulture("en-US")]
     [Test]
-    [Skip("Arrays not yet implemented.")]
     public async Task IsOdd_Array_ReturnsArray()
     {
         await Assert.That(XLWorkbook.EvaluateExpr("SUM(N(IsOdd({\"3.2\",7,2})))")).IsEqualTo(2.0);
@@ -566,7 +564,6 @@ public class InformationTests
     }
 
     [Test]
-    [Skip("Array not implemented")]
     public async Task N_Array_ConvertsIndividualItems()
     {
         var actual = XLWorkbook.EvaluateExpr("SUM(N({2,TRUE}))");
@@ -614,7 +611,6 @@ public class InformationTests
     }
 
     [Test]
-    [Skip("Arrays not implemented")]
     [Arguments("{1}")]
     [Arguments("{TRUE,#N/A}")]
     [Arguments("{\"abc\";5}")]

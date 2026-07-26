@@ -141,7 +141,7 @@ public class TextToNumberCoercionTests
     [Arguments("jan-02", 44563, Skip = ".NET misses culture, en interprets it as MMM-dd, but czech as MMM-yy, so the MMM-dd is the extra culture for en.")] // interpreted as 2022-01-02
     [Arguments("jan-31", 44592, Skip = "Missing excel culture mapping")] // 2022-01-02
     [Arguments("jan-32", 11689)] // 1932-01-01
-    [Arguments("feb-29", 47150, Skip = "Missing excel culture mapping")] // 2029-02-01
+    [Arguments("feb-29", 47150)] // 2029-02-01
     [Arguments("feb-30", 10990)] // 1930-02-01
     [Arguments("feb-31", 11355)] // 1931-02-01
     [Arguments("feb-003", null)] // three digits not allowed
@@ -198,7 +198,7 @@ public class TextToNumberCoercionTests
     [Arguments("11/30/2022 23:160", 44896.06944, Skip = "Excel can have one of of range part, but .NET parser can't.")]
     [Arguments("11/30/2022 9999:59", 45311.66597, Skip = "Excel parser accepts numbers over limit for hours.")]
     [Arguments("11/30/2022 10000:59", null)] // Hours can't be over 9999
-    [Arguments("aug 10, 2022 14:10", 44783.590277777781d, Skip = "Excel specific parsing of months accepts anything from three letters up to full name, but such pattern is not in any en-US DateTimeFormat pattern.")]
+    [Arguments("aug 10, 2022 14:10", 44783.590277777781d)]
     [Arguments("august 10, 2022 14:10", 44783.590277777781d)]
     public async Task DateTime_Format22(string text, double? expectedValue) // Format 22 'm/d/yyyy h:mm'. Specification incorrectly states 'm/d/yy h:mm', but fixed per MS errata.
     {
