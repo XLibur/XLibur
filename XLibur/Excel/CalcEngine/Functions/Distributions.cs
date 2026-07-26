@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using XLibur.Excel.CalcEngine.Functions;
+using static XLibur.Excel.CalcEngine.Functions.SampleStatistics;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
 
 #pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility
@@ -803,28 +804,6 @@ internal static class Distributions
     private static bool TryGetSample(CalcContext ctx, in AnyValue value, out List<double> numbers, out XLError error)
         => Statistical.TryGetNumbers(ctx, value, out numbers, out error);
 
-    private static bool TryGetScalarNumber(CalcContext ctx, in AnyValue value, out double number, out XLError error)
-    {
-        number = 0;
-        error = default;
-
-        if (!value.TryPickScalar(out var scalar, out var collection))
-        {
-            if (collection.TryPickT0(out var array, out var reference))
-            {
-                scalar = array[0, 0];
-            }
-            else if (!reference.TryGetSingleCellValue(out scalar, ctx)
-                     && !value.ImplicitIntersection(ctx).TryPickScalar(out scalar, out _))
-            {
-                error = XLError.IncompatibleValue;
-                return false;
-            }
-        }
-
-        return scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error);
-    }
-
     private static bool TryPairOfNumbers(CalcContext ctx, in ScalarValue left, in ScalarValue right, out double a, out double b, out XLError error)
     {
         a = 0;
@@ -833,25 +812,6 @@ internal static class Distributions
             return false;
 
         return right.ToNumber(ctx.Culture).TryPickT0(out b, out error);
-    }
-
-    private static double Mean(List<double> values)
-    {
-        var total = 0d;
-        foreach (var value in values)
-            total += value;
-
-        return total / values.Count;
-    }
-
-    private static double SampleVariance(List<double> values)
-    {
-        var mean = Mean(values);
-        var sumOfSquares = 0d;
-        foreach (var value in values)
-            sumOfSquares += (value - mean) * (value - mean);
-
-        return sumOfSquares / (values.Count - 1);
     }
 
     #endregion

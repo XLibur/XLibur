@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using XLibur.Excel.CalcEngine.Functions;
+using static XLibur.Excel.CalcEngine.Functions.SampleStatistics;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
 
 namespace XLibur.Excel.CalcEngine;
@@ -903,46 +904,6 @@ internal static class Regression
             return true;
 
         return scalar.TryCoerceLogicalOrBlankOrNumberOrText(out flag, out error);
-    }
-
-    private static bool TryGetScalarNumber(CalcContext ctx, in AnyValue value, out double number, out XLError error)
-    {
-        number = 0;
-        error = default;
-
-        if (!value.TryPickScalar(out var scalar, out var collection))
-        {
-            if (collection.TryPickT0(out var array, out var reference))
-            {
-                scalar = array[0, 0];
-            }
-            else if (!reference.TryGetSingleCellValue(out scalar, ctx)
-                     && !value.ImplicitIntersection(ctx).TryPickScalar(out scalar, out _))
-            {
-                error = XLError.IncompatibleValue;
-                return false;
-            }
-        }
-
-        return scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error);
-    }
-
-    private static double Mean(List<double> values)
-    {
-        var total = 0d;
-        foreach (var value in values)
-            total += value;
-
-        return total / values.Count;
-    }
-
-    private static double SumOfSquaredDeviations(List<double> values, double mean)
-    {
-        var total = 0d;
-        foreach (var value in values)
-            total += (value - mean) * (value - mean);
-
-        return total;
     }
 
     #endregion
