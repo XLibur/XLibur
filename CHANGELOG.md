@@ -49,9 +49,9 @@
 
   Distinct strings accumulate in a shared string table until `Finish()`, the one part of a streaming write proportional to the data. `XLStreamingStringStorage.Inline` removes that at the cost of a larger file, and takes the million-row case from 108 MB to 14 MB.
 
-  Because the writer assembles the package itself rather than going through `System.IO.Packaging`, the destination stream does not have to be seekable — a workbook can be written straight to an HTTP response, which `XLWorkbook.SaveAs` cannot do.
+  Because the writer assembles the package itself rather than going through `System.IO.Packaging`, the destination stream does not have to be seekable — a workbook can be written straight to an HTTP response, which `XLWorkbook.SaveAs` cannot do. ([#263](https://github.com/XLibur/XLibur/pull/263) by [@jafin](https://github.com/jafin))
 
-- **`SaveOptions.CompressionLevel`**: choose how hard the package is compressed on an ordinary save. `CompressionLevel.Fastest` trades a larger file for a quicker save, `NoCompression` skips it entirely. Applies to parts the save creates; re-saving a workbook loaded from an existing file leaves its existing parts alone. `XLStreamingOptions.CompressionLevel` does the same for streamed writes, where `Fastest` is about 1.7× quicker than the default.
+- **`SaveOptions.CompressionLevel`**: choose how hard the package is compressed on an ordinary save. `CompressionLevel.Fastest` trades a larger file for a quicker save, `NoCompression` skips it entirely. Applies to parts the save creates; re-saving a workbook loaded from an existing file leaves its existing parts alone. `XLStreamingOptions.CompressionLevel` does the same for streamed writes, where `Fastest` is about 1.7× quicker than the default. ([#263](https://github.com/XLibur/XLibur/pull/263) by [@jafin](https://github.com/jafin))
 
 #### Formula functions
 
