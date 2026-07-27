@@ -11,12 +11,15 @@ SixLaborsV1FontBootstrap.Register();
 if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreCase))
 {
     // "profile alloc" is a fast, GC-exact allocation report for the save path, split into
-    // create/save phases; "profile create" breaks the create phase down per API call.
-    // The other modes attach dotMemory and target the load path.
+    // create/save phases; "profile create" breaks the create phase down per API call;
+    // "profile streaming [rows]" reports peak heap for the forward-only writer against the
+    // in-memory model. The other modes attach dotMemory and target the load path.
     if (args.Length > 1 && args[1].Equals("alloc", StringComparison.OrdinalIgnoreCase))
         SaveAllocationProfile.Run();
     else if (args.Length > 1 && args[1].Equals("create", StringComparison.OrdinalIgnoreCase))
         CreatePhaseProbe.Run();
+    else if (args.Length > 1 && args[1].Equals("streaming", StringComparison.OrdinalIgnoreCase))
+        StreamingMemoryProfile.Run(args);
     else
         MemoryProfile.Run(args);
 
