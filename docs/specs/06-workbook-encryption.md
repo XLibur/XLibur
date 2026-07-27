@@ -114,10 +114,17 @@ What shipped, against the scope table:
 Public surface is `LoadOptions.Password` and `SaveOptions.Password`; a workbook opened with a
 password is deliberately *not* re-encrypted on save unless one is supplied.
 
-### Deviation: OpenMcdf instead of an in-house CFB layer
+### CFB layer: OpenMcdf, approved
 
-The design recommended writing a minimal in-house CFB reader/writer and flagged the MPL-2.0
-question for maintainer sign-off. The implementation took the dependency instead —
-`OpenMcdf 3.1.4`, referenced from `XLibur/XLibur.csproj`. This resolves acceptance criterion 4
-("no new NuGet dependency without maintainer license sign-off") in the affirmative rather than by
-avoidance, so the license decision is now a shipped fact rather than an open question.
+The design recommended writing a minimal in-house CFB reader/writer, and made acceptance
+criterion 4 ("no new NuGet dependency without maintainer license sign-off") the gate on the
+alternative. The alternative was taken: `OpenMcdf 3.1.4`, referenced from `XLibur/XLibur.csproj`.
+
+**The maintainer sign-off was given** — MPL-2.0 is file-level copyleft and imposes no obligation on
+the MIT-licensed code that consumes it as an unmodified package dependency. Criterion 4 is
+therefore met rather than deviated from, and the in-house CFB recommendation is closed as
+not-taken rather than outstanding.
+
+The practical consequence for anyone reading this later: `XLibur/Excel/IO/Encryption/` contains no
+compound-file implementation, because CFB container handling lives in OpenMcdf. Only the crypto
+layer is in-house.
