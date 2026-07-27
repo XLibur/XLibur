@@ -13,41 +13,6 @@ namespace XLibur.Excel.IO;
 
 internal static class SheetDataWriter
 {
-    /// <summary>
-    /// Day offset between the 1900 and 1904 date systems used by Excel.
-    /// </summary>
-    private const int Date1904OffsetDays = 1462;
-
-    /// <summary>
-    /// An array to convert data type for a formula cell. Key is <see cref="XLDataType"/>.
-    /// It saves some performance through direct indexation instead of switch.
-    /// </summary>
-    private static readonly string?[] FormulaDataType =
-    [
-        null, // blank
-        "b", // boolean
-        null, // number, default value, no need to save type
-        "str", // text, formula can only save this type, no inline or shared string
-        "e", // error
-        null, // datetime, saved as serialized date-time
-        null // timespan, saved as serialized date-time
-    ];
-
-    /// <summary>
-    /// An array to convert a data type for a cell that only contains a value. Key is <see cref="XLDataType"/>.
-    /// It saves some performance through direct indexation instead of switch.
-    /// </summary>
-    private static readonly string?[] ValueDataType =
-    [
-        null, // blank
-        "b", // boolean
-        null, // number, default value, no need to save type
-        "s", // text, the default is a shared string, but there also can be inline string depending on ShareString property
-        "e", // error
-        null, // datetime, saved as serialized date-time
-        null // timespan, saved as serialized date-time
-    ];
-
     internal static void StreamSheetData(XmlWriter xml, XLWorksheet xlWorksheet, SaveContext context,
         SaveOptions options)
     {
@@ -63,7 +28,7 @@ internal static class SheetDataWriter
         var cellCtx = new CellWriteContext
         {
             CellsCollection = xlWorksheet.Internals.CellsCollection,
-            CellRef = new char[10], // Buffer must be enough to hold span and rowNumber as strings
+            CellRef = new char[CellXmlWriter.CellRefBufferLength],
             SaveContext = context,
             SaveOptions = options,
             TableTotalCells = tableTotalCells,
@@ -261,7 +226,7 @@ internal static class SheetDataWriter
         // whose evaluation is unsupported).
         var cachedValue = cellsCollection.ValueSlice.GetCellValue(point);
         var cachedValueType = cachedValue.Type;
-        var dataType = cachedValueType != XLDataType.Blank ? FormulaDataType[(int)cachedValueType] : null;
+        var dataType = cachedValueType != XLDataType.Blank ? CellXmlWriter.GetFormulaCellType(cachedValueType) : null;
 
         Span<char> cellRefSpan = ctx.CellRef;
         var cellRefLen = point.Format(cellRefSpan);
@@ -348,25 +313,8 @@ internal static class SheetDataWriter
     private static void WriteStartFormulaCellDirect(XmlWriter w, char[] reference, int referenceLength,
         string? dataType, uint styleId, in XLMiscSliceContent misc, uint? cmIndex)
     {
-        w.WriteStartElement("c", Main2006SsNs);
-
-        w.WriteStartAttribute("r");
-        w.WriteRaw(reference, 0, referenceLength);
-        w.WriteEndAttribute();
-
-        w.WriteAttribute("s", styleId);
-
-        if (dataType is not null)
-            w.WriteAttributeString("t", dataType);
-
-        if (misc.HasPhonetic)
-            w.WriteAttributeString("ph", TrueValue);
-
-        if (cmIndex is not null)
-            w.WriteAttribute("cm", cmIndex.Value);
-
-        if (misc.ValueMetaIndex is not null)
-            w.WriteAttribute("vm", misc.ValueMetaIndex.Value);
+        CellXmlWriter.WriteCellStart(w, reference, referenceLength, dataType, styleId);
+        CellXmlWriter.WriteCellMetaAttributes(w, misc.HasPhonetic, cmIndex, misc.ValueMetaIndex);
     }
 
     /// <summary>
@@ -380,31 +328,11 @@ internal static class SheetDataWriter
             case XLDataType.Blank:
                 return;
             case XLDataType.Text:
-                WriteStringValue(w, cellValue.GetText());
-                break;
-            case XLDataType.TimeSpan:
-                WriteNumberValue(w, cellValue.GetUnifiedNumber());
-                break;
-            case XLDataType.Number:
-                WriteNumberValue(w, cellValue.GetNumber());
-                break;
-            case XLDataType.DateTime:
-                {
-                    var date = cellValue.GetDateTime();
-                    if (use1904DateSystem)
-                        date = date.AddDays(-Date1904OffsetDays);
-
-                    WriteNumberValue(w, date.ToSerialDateTime());
-                    break;
-                }
-            case XLDataType.Boolean:
-                WriteStringValue(w, cellValue.GetBoolean() ? TrueValue : FalseValue);
-                break;
-            case XLDataType.Error:
-                WriteStringValue(w, cellValue.GetError().ToDisplayString());
+                CellXmlWriter.WriteStringValue(w, cellValue.GetText());
                 break;
             default:
-                throw new InvalidOperationException();
+                CellXmlWriter.WriteNonTextValue(w, cellValue, use1904DateSystem);
+                break;
         }
     }
 
@@ -452,7 +380,7 @@ internal static class SheetDataWriter
             ref readonly var misc = ref cellsCollection.MiscSlice[point];
 
             WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, "s", cellStyleId, in misc);
-            WriteValue(xml, sharedStringId);
+            CellXmlWriter.WriteSharedStringValue(xml, sharedStringId);
             xml.WriteEndElement(); // cell
         }
     }
@@ -462,7 +390,7 @@ internal static class SheetDataWriter
     {
         Span<char> cellRefSpan = ctx.CellRef;
         var cellRefLen = point.Format(cellRefSpan);
-        var dataType = GetCellValueTypeDirect(cellValue.Type, shareString);
+        var dataType = CellXmlWriter.GetValueCellType(cellValue.Type, shareString);
         ref readonly var misc = ref ctx.CellsCollection.MiscSlice[point];
 
         WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId, in misc);
@@ -501,19 +429,7 @@ internal static class SheetDataWriter
 
     private static void WriteStartRow(XmlWriter w, XLRow? xlRow, int rowNumber, int maxColumn, SaveContext context)
     {
-        w.WriteStartElement("row", Main2006SsNs);
-
-        w.WriteStartAttribute("r");
-        w.WriteNumberValue(rowNumber);
-        w.WriteEndAttribute();
-
-        if (maxColumn > 0)
-        {
-            w.WriteStartAttribute("spans");
-            w.WriteString("1:");
-            w.WriteNumberValue(maxColumn);
-            w.WriteEndAttribute();
-        }
+        CellXmlWriter.WriteRowStart(w, rowNumber, maxColumn);
 
         if (xlRow is null)
             return;
@@ -594,42 +510,11 @@ internal static class SheetDataWriter
         xml.WriteEndElement(); // f
     }
 
-    private static void WriteValue(XmlWriter xml, int sharedStringId)
-    {
-        xml.WriteStartElement("v", Main2006SsNs);
-        xml.WriteNumberValue(sharedStringId);
-        xml.WriteEndElement();
-    }
-
-    private static string? GetCellValueTypeDirect(XLDataType dataType, bool shareString)
-    {
-        if (dataType == XLDataType.Text && !shareString)
-            return "inlineStr";
-        return ValueDataType[(int)dataType];
-    }
-
     private static void WriteStartCellDirect(XmlWriter w, char[] reference, int referenceLength, string? dataType,
         uint styleId, in XLMiscSliceContent misc)
     {
-        w.WriteStartElement("c", Main2006SsNs);
-
-        w.WriteStartAttribute("r");
-        w.WriteRaw(reference, 0, referenceLength);
-        w.WriteEndAttribute();
-
-        w.WriteAttribute("s", styleId);
-
-        if (dataType is not null)
-            w.WriteAttributeString("t", dataType);
-
-        if (misc.HasPhonetic)
-            w.WriteAttributeString("ph", TrueValue);
-
-        if (misc.CellMetaIndex is not null)
-            w.WriteAttribute("cm", misc.CellMetaIndex.Value);
-
-        if (misc.ValueMetaIndex is not null)
-            w.WriteAttribute("vm", misc.ValueMetaIndex.Value);
+        CellXmlWriter.WriteCellStart(w, reference, referenceLength, dataType, styleId);
+        CellXmlWriter.WriteCellMetaAttributes(w, misc.HasPhonetic, misc.CellMetaIndex, misc.ValueMetaIndex);
     }
 
     private static void WriteCellValueDirect(XmlWriter w, XLCellValue cellValue, bool shareString,
@@ -642,29 +527,9 @@ internal static class SheetDataWriter
             case XLDataType.Text:
                 WriteCellValueDirectText(w, cellValue, shareString, point, cellsCollection, context);
                 break;
-            case XLDataType.TimeSpan:
-                WriteNumberValue(w, cellValue.GetUnifiedNumber());
-                break;
-            case XLDataType.Number:
-                WriteNumberValue(w, cellValue.GetNumber());
-                break;
-            case XLDataType.DateTime:
-                {
-                    var date = cellValue.GetDateTime();
-                    if (use1904DateSystem)
-                        date = date.AddDays(-Date1904OffsetDays);
-
-                    WriteNumberValue(w, date.ToSerialDateTime());
-                    break;
-                }
-            case XLDataType.Boolean:
-                WriteStringValue(w, cellValue.GetBoolean() ? TrueValue : FalseValue);
-                break;
-            case XLDataType.Error:
-                WriteStringValue(w, cellValue.GetError().ToDisplayString());
-                break;
             default:
-                throw new InvalidOperationException();
+                CellXmlWriter.WriteNonTextValue(w, cellValue, use1904DateSystem);
+                break;
         }
     }
 
@@ -675,43 +540,20 @@ internal static class SheetDataWriter
         {
             var memorySstId = cellsCollection.ValueSlice.GetShareStringId(point);
             var sharedStringId = context.GetSharedStringId(memorySstId, point);
-            WriteValue(w, sharedStringId);
+            CellXmlWriter.WriteSharedStringValue(w, sharedStringId);
+            return;
         }
-        else
+
+        var richText = cellsCollection.ValueSlice.GetRichText(point);
+        if (richText is null)
         {
-            w.WriteStartElement("is", Main2006SsNs);
-            var richText = cellsCollection.ValueSlice.GetRichText(point);
-            if (richText is not null)
-            {
-                TextSerializer.WriteRichTextElements(w, richText, context);
-            }
-            else
-            {
-                var text = cellValue.GetText();
-                w.WriteStartElement("t", Main2006SsNs);
-                if (text.PreserveSpaces())
-                    w.WritePreserveSpaceAttr();
-
-                w.WriteString(text);
-                w.WriteEndElement();
-            }
-
-            w.WriteEndElement(); // is
+            CellXmlWriter.WriteInlineString(w, cellValue.GetText());
+            return;
         }
-    }
 
-    private static void WriteStringValue(XmlWriter w, string text)
-    {
-        w.WriteStartElement("v", Main2006SsNs);
-        w.WriteString(text);
-        w.WriteEndElement();
-    }
-
-    private static void WriteNumberValue(XmlWriter w, double value)
-    {
-        w.WriteStartElement("v", Main2006SsNs);
-        w.WriteNumberValue(value);
-        w.WriteEndElement();
+        w.WriteStartElement("is", Main2006SsNs);
+        TextSerializer.WriteRichTextElements(w, richText, context);
+        w.WriteEndElement(); // is
     }
 
     private struct RowWriterState
