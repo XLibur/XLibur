@@ -21,6 +21,10 @@ static XLibur.Excel.XLAlignmentKey.operator !=(XLibur.Excel.XLAlignmentKey left,
 static XLibur.Excel.XLAlignmentKey.operator ==(XLibur.Excel.XLAlignmentKey left, XLibur.Excel.XLAlignmentKey right) -> bool
 static XLibur.Excel.XLCellValue.operator !=(XLibur.Excel.XLCellValue left, XLibur.Excel.XLCellValue right) -> bool
 static XLibur.Excel.XLCellValue.operator ==(XLibur.Excel.XLCellValue left, XLibur.Excel.XLCellValue right) -> bool
+static XLibur.Excel.Streaming.XLStreamingWorkbook.Create(System.IO.Stream! output) -> XLibur.Excel.Streaming.XLStreamingWorkbook!
+static XLibur.Excel.Streaming.XLStreamingWorkbook.Create(System.IO.Stream! output, XLibur.Excel.Streaming.XLStreamingOptions? options) -> XLibur.Excel.Streaming.XLStreamingWorkbook!
+static XLibur.Excel.Streaming.XLStreamingWorkbook.Create(string! path) -> XLibur.Excel.Streaming.XLStreamingWorkbook!
+static XLibur.Excel.Streaming.XLStreamingWorkbook.Create(string! path, XLibur.Excel.Streaming.XLStreamingOptions? options) -> XLibur.Excel.Streaming.XLStreamingWorkbook!
 static XLibur.Excel.XLColor.Automatic.get -> XLibur.Excel.XLColor!
 virtual XLibur.Excel.XLWorkbook.Dispose(bool disposing) -> void
 XLibur.Excel.Drawings.IXLPicture.Group.get -> XLibur.Excel.Drawings.IXLPictureGroup?
@@ -192,6 +196,60 @@ XLibur.Excel.LoadOptions.Password.get -> string?
 XLibur.Excel.LoadOptions.Password.set -> void
 XLibur.Excel.SaveOptions.Password.get -> string?
 XLibur.Excel.SaveOptions.Password.set -> void
+XLibur.Excel.Streaming.XLStreamingColumn
+XLibur.Excel.Streaming.XLStreamingColumn.Collapsed.get -> bool
+XLibur.Excel.Streaming.XLStreamingColumn.Collapsed.set -> void
+XLibur.Excel.Streaming.XLStreamingColumn.FirstColumn.get -> int
+XLibur.Excel.Streaming.XLStreamingColumn.Hidden.get -> bool
+XLibur.Excel.Streaming.XLStreamingColumn.Hidden.set -> void
+XLibur.Excel.Streaming.XLStreamingColumn.LastColumn.get -> int
+XLibur.Excel.Streaming.XLStreamingColumn.OutlineLevel.get -> int
+XLibur.Excel.Streaming.XLStreamingColumn.OutlineLevel.set -> void
+XLibur.Excel.Streaming.XLStreamingColumn.Style.get -> XLibur.Excel.IXLStyle?
+XLibur.Excel.Streaming.XLStreamingColumn.Style.set -> void
+XLibur.Excel.Streaming.XLStreamingColumn.Width.get -> double?
+XLibur.Excel.Streaming.XLStreamingColumn.Width.set -> void
+XLibur.Excel.Streaming.XLStreamingOptions
+XLibur.Excel.Streaming.XLStreamingOptions.CompressionLevel.get -> System.IO.Compression.CompressionLevel
+XLibur.Excel.Streaming.XLStreamingOptions.CompressionLevel.set -> void
+XLibur.Excel.Streaming.XLStreamingOptions.StringStorage.get -> XLibur.Excel.Streaming.XLStreamingStringStorage
+XLibur.Excel.Streaming.XLStreamingOptions.StringStorage.set -> void
+XLibur.Excel.Streaming.XLStreamingOptions.Use1904DateSystem.get -> bool
+XLibur.Excel.Streaming.XLStreamingOptions.Use1904DateSystem.set -> void
+XLibur.Excel.Streaming.XLStreamingOptions.XLStreamingOptions() -> void
+XLibur.Excel.Streaming.XLStreamingRow
+XLibur.Excel.Streaming.XLStreamingRow.At(int columnNumber) -> XLibur.Excel.Streaming.XLStreamingRow
+XLibur.Excel.Streaming.XLStreamingRow.Cell(XLibur.Excel.XLCellValue value) -> XLibur.Excel.Streaming.XLStreamingRow
+XLibur.Excel.Streaming.XLStreamingRow.Cell(XLibur.Excel.XLCellValue value, XLibur.Excel.IXLStyle? style) -> XLibur.Excel.Streaming.XLStreamingRow
+XLibur.Excel.Streaming.XLStreamingRow.Dispose() -> void
+XLibur.Excel.Streaming.XLStreamingRow.Formula(string! formula, XLibur.Excel.XLCellValue cachedValue = default(XLibur.Excel.XLCellValue), XLibur.Excel.IXLStyle? style = null) -> XLibur.Excel.Streaming.XLStreamingRow
+XLibur.Excel.Streaming.XLStreamingRow.RowNumber.get -> int
+XLibur.Excel.Streaming.XLStreamingRow.Skip(int columnCount) -> XLibur.Excel.Streaming.XLStreamingRow
+XLibur.Excel.Streaming.XLStreamingRow.XLStreamingRow() -> void
+XLibur.Excel.Streaming.XLStreamingStringStorage
+XLibur.Excel.Streaming.XLStreamingStringStorage.Inline = 1 -> XLibur.Excel.Streaming.XLStreamingStringStorage
+XLibur.Excel.Streaming.XLStreamingStringStorage.SharedStrings = 0 -> XLibur.Excel.Streaming.XLStreamingStringStorage
+XLibur.Excel.Streaming.XLStreamingWorkbook
+XLibur.Excel.Streaming.XLStreamingWorkbook.AddWorksheet(string! name) -> XLibur.Excel.Streaming.XLStreamingWorksheet!
+XLibur.Excel.Streaming.XLStreamingWorkbook.CreateStyle() -> XLibur.Excel.IXLStyle!
+XLibur.Excel.Streaming.XLStreamingWorkbook.Dispose() -> void
+XLibur.Excel.Streaming.XLStreamingWorkbook.Finish() -> void
+XLibur.Excel.Streaming.XLStreamingWorksheet
+XLibur.Excel.Streaming.XLStreamingWorksheet.AddRow() -> XLibur.Excel.Streaming.XLStreamingRow
+XLibur.Excel.Streaming.XLStreamingWorksheet.AddRow(XLibur.Excel.IXLStyle? style, double? height = null, bool hidden = false) -> XLibur.Excel.Streaming.XLStreamingRow
+XLibur.Excel.Streaming.XLStreamingWorksheet.AppendRow(System.ReadOnlySpan<XLibur.Excel.XLCellValue> values, XLibur.Excel.IXLStyle? style = null) -> void
+XLibur.Excel.Streaming.XLStreamingWorksheet.AppendRow(params XLibur.Excel.XLCellValue[]! values) -> void
+XLibur.Excel.Streaming.XLStreamingWorksheet.AutoFilterRange.get -> string?
+XLibur.Excel.Streaming.XLStreamingWorksheet.AutoFilterRange.set -> void
+XLibur.Excel.Streaming.XLStreamingWorksheet.Column(int columnNumber) -> XLibur.Excel.Streaming.XLStreamingColumn!
+XLibur.Excel.Streaming.XLStreamingWorksheet.Columns(int firstColumn, int lastColumn) -> XLibur.Excel.Streaming.XLStreamingColumn!
+XLibur.Excel.Streaming.XLStreamingWorksheet.Complete() -> void
+XLibur.Excel.Streaming.XLStreamingWorksheet.FreezeColumns(int columnCount) -> void
+XLibur.Excel.Streaming.XLStreamingWorksheet.FreezePanes(int rowCount, int columnCount) -> void
+XLibur.Excel.Streaming.XLStreamingWorksheet.FreezeRows(int rowCount) -> void
+XLibur.Excel.Streaming.XLStreamingWorksheet.Name.get -> string!
+XLibur.Excel.Streaming.XLStreamingWorksheet.NextRowNumber.get -> int
+XLibur.Excel.Streaming.XLStreamingWorksheet.SkipRows(int count) -> void
 XLibur.Excel.XLAlignmentKey.Equals(XLibur.Excel.XLAlignmentKey other) -> bool
 XLibur.Excel.XLAxisOrientation
 XLibur.Excel.XLAxisOrientation.MaxMin = 1 -> XLibur.Excel.XLAxisOrientation

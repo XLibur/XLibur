@@ -281,7 +281,8 @@ public partial class XLWorkbook
         var workbookStylesPart = workbookPart.WorkbookStylesPart ??
                                  workbookPart.AddNewPart<WorkbookStylesPart>(
                                      context.RelIdGenerator.GetNext(RelType.Workbook));
-        WorkbookStylesPartWriter.GenerateContent(workbookStylesPart, this, context);
+        workbookStylesPart.Stylesheet ??= new Stylesheet();
+        WorkbookStylesPartWriter.GenerateContent(workbookStylesPart.Stylesheet!, this, context);
     }
 
     /// <summary>

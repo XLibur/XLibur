@@ -1774,7 +1774,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     {
         var onlyDatePart = value.GetUnifiedNumber() % 1 == 0;
         var styleValue = GetStyleValue(point);
-        if (styleValue.NumberFormat.Format.Length != 0 || styleValue.NumberFormat.NumberFormatId != 0)
+        if (!XLValueStyleRules.HasGeneralNumberFormat(styleValue))
             return null;
 
         if (onlyDatePart)
@@ -1782,8 +1782,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
             if (ReferenceEquals(styleValue, _cachedDateOnlySourceStyle))
                 return _cachedDateOnlyResultStyle;
 
-            var dateNumberFormat = styleValue.NumberFormat.WithNumberFormatId(14);
-            var result = styleValue.WithNumberFormat(dateNumberFormat);
+            var result = XLValueStyleRules.WithDateTimeFormat(styleValue, onlyDatePart: true);
             _cachedDateOnlySourceStyle = styleValue;
             _cachedDateOnlyResultStyle = result;
             return result;
@@ -1793,8 +1792,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
             if (ReferenceEquals(styleValue, _cachedDateTimeSourceStyle))
                 return _cachedDateTimeResultStyle;
 
-            var dateTimeNumberFormat = styleValue.NumberFormat.WithNumberFormatId(22);
-            var result = styleValue.WithNumberFormat(dateTimeNumberFormat);
+            var result = XLValueStyleRules.WithDateTimeFormat(styleValue, onlyDatePart: false);
             _cachedDateTimeSourceStyle = styleValue;
             _cachedDateTimeResultStyle = result;
             return result;
@@ -1804,14 +1802,13 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     private XLStyleValue? GetStyleForTimeSpan(Point point)
     {
         var styleValue = GetStyleValue(point);
-        if (styleValue.NumberFormat.Format.Length != 0 || styleValue.NumberFormat.NumberFormatId != 0)
+        if (!XLValueStyleRules.HasGeneralNumberFormat(styleValue))
             return null;
 
         if (ReferenceEquals(styleValue, _cachedTimeSpanSourceStyle))
             return _cachedTimeSpanResultStyle;
 
-        var durationNumberFormat = styleValue.NumberFormat.WithNumberFormatId(46);
-        var result = styleValue.WithNumberFormat(durationNumberFormat);
+        var result = XLValueStyleRules.WithDurationFormat(styleValue);
         _cachedTimeSpanSourceStyle = styleValue;
         _cachedTimeSpanResultStyle = result;
         return result;
@@ -1820,24 +1817,15 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     private XLStyleValue? GetStyleForText(XLCellValue value, Point point)
     {
         var text = value.GetText();
-        XLStyleValue? styleValue = null;
-        if (text.Length > 0 && text[0] == '\'')
+
+        // Reading the style out of the slice is the expensive part, so skip it entirely for the
+        // overwhelmingly common text value that needs no adjustment at all.
+        if ((text.Length == 0 || text[0] != '\'') &&
+            !text.AsSpan().Contains(Environment.NewLine.AsSpan(), StringComparison.Ordinal))
         {
-            styleValue = GetStyleValue(point);
-            styleValue = styleValue.WithIncludeQuotePrefix(true);
+            return null;
         }
 
-        var containsNewLine = text.AsSpan()
-            .Contains(Environment.NewLine.AsSpan(), StringComparison.Ordinal);
-        if (containsNewLine)
-        {
-            styleValue ??= GetStyleValue(point);
-            if (!styleValue.Alignment.WrapText)
-            {
-                styleValue = styleValue.WithAlignment(static alignment => alignment.WithWrapText(true));
-            }
-        }
-
-        return styleValue;
+        return XLValueStyleRules.AdjustForText(GetStyleValue(point), text);
     }
 }
