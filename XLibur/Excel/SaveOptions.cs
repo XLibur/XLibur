@@ -1,4 +1,6 @@
-﻿namespace XLibur.Excel;
+﻿using System.IO.Compression;
+
+namespace XLibur.Excel;
 
 public class SaveOptions
 {
@@ -6,6 +8,17 @@ public class SaveOptions
     {
         ValidatePackage = false;
     }
+
+    /// <summary>
+    /// How hard to compress the parts written to the package. Defaults to
+    /// <see cref="CompressionLevel.Optimal"/>; <see cref="CompressionLevel.Fastest"/> trades a
+    /// larger file for a quicker save.
+    /// </summary>
+    /// <remarks>
+    /// Only applies to parts this save creates. Re-saving a workbook that was loaded from an
+    /// existing file leaves the parts it already had at whatever level they were written with.
+    /// </remarks>
+    public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
 
     public bool ConsolidateConditionalFormatRanges { get; set; } = true;
 

@@ -512,6 +512,38 @@ public class StreamingWriteTests
         }
     }
 
+    /// <summary>
+    /// The same knob on the ordinary save path, which reaches it through the SDK's
+    /// <c>OpenXmlPackage.CompressionOption</c> rather than by owning the zip.
+    /// </summary>
+    [Test]
+    public async Task SaveOptionsCompressionLevelChangesPackageSize()
+    {
+        var optimal = SaveSized(CompressionLevel.Optimal);
+        var none = SaveSized(CompressionLevel.NoCompression);
+
+        await Assert.That(none).IsGreaterThan(optimal);
+
+        static long SaveSized(CompressionLevel level)
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet("Data");
+                for (var r = 1; r <= 2_000; r++)
+                {
+                    ws.Cell(r, 1).Value = $"row {r}";
+                    ws.Cell(r, 2).Value = r;
+                    ws.Cell(r, 3).Value = $"note for row {r}";
+                }
+
+                wb.SaveAs(ms, new SaveOptions { CompressionLevel = level });
+            }
+
+            return ms.Length;
+        }
+    }
+
     /// <summary>A write-only, non-seekable wrapper, standing in for a network stream.</summary>
     private sealed class ForwardOnlyStream(Stream inner) : Stream
     {

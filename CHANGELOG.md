@@ -29,6 +29,30 @@
 
 ### ✨ New Features
 
+#### Writing large files
+
+- **Streaming write API (`XLStreamingWorkbook`)**: a forward-only writer for exports too large to hold in memory. Rows are serialised straight into the file as they are appended, so memory stays flat regardless of row count — a million rows by ten columns costs about 108 MB of peak managed heap, against roughly 1.3 GB extrapolated for the same data through `XLWorkbook`. On the 50K-row benchmark it is also 1.6× faster than `XLWorkbook` and allocates a fifth as much.
+
+  ```csharp
+  using var workbook = XLStreamingWorkbook.Create("Large.xlsx");
+  var sheet = workbook.AddWorksheet("Data");
+  sheet.FreezeRows(1);
+  sheet.AppendRow("Name", "Amount");
+
+  for (var i = 0; i < 1_000_000; i++)
+      sheet.AppendRow($"Item {i}", i * 1.5);
+
+  workbook.Finish();   // required — disposing without it abandons the write
+  ```
+
+  The trade is that it is append-only: rows go in ascending order, one worksheet at a time, nothing can be read back or revised, and formulas are stored verbatim rather than evaluated. Streamed sheets support column widths, freeze panes, an autofilter range, row and per-cell styles, and formulas with cached values. Anything beyond that — tables, merges, conditional formats, pivot tables, drawings — still needs `XLWorkbook`.
+
+  Distinct strings accumulate in a shared string table until `Finish()`, the one part of a streaming write proportional to the data. `XLStreamingStringStorage.Inline` removes that at the cost of a larger file, and takes the million-row case from 108 MB to 14 MB.
+
+  Because the writer assembles the package itself rather than going through `System.IO.Packaging`, the destination stream does not have to be seekable — a workbook can be written straight to an HTTP response, which `XLWorkbook.SaveAs` cannot do.
+
+- **`SaveOptions.CompressionLevel`**: choose how hard the package is compressed on an ordinary save. `CompressionLevel.Fastest` trades a larger file for a quicker save, `NoCompression` skips it entirely. Applies to parts the save creates; re-saving a workbook loaded from an existing file leaves its existing parts alone. `XLStreamingOptions.CompressionLevel` does the same for streamed writes, where `Fastest` is about 1.7× quicker than the default.
+
 #### Formula functions
 
 - **Regression and descriptive statistics — 23 functions**: `LINEST`, `LOGEST`, `TREND`, `GROWTH`, `FREQUENCY`, `FORECAST`, `FORECAST.LINEAR`, `CORREL`, `PEARSON`, `COVARIANCE.P`, `COVARIANCE.S`, `COVAR`, `SLOPE`, `INTERCEPT`, `RSQ`, `STEYX`, `SKEW`, `SKEW.P`, `KURT`, `PROB`, `TRIMMEAN`, `HARMEAN` and `AVEDEV`. The five array-returning ones spill.

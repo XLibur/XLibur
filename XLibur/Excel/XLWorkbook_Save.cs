@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
+using System.IO.Packaging;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -59,10 +61,28 @@ public partial class XLWorkbook
                 package.ChangeDocumentType(spreadsheetDocumentType);
             }
 
+            package.CompressionOption = ToCompressionOption(options.CompressionLevel);
             CreateParts(package, options);
             if (options.ValidatePackage) Validate(package);
         }
     }
+
+    /// <summary>
+    /// Map the framework's compression level onto the packaging option the OpenXML SDK takes.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="SaveOptions.CompressionLevel"/> is declared in terms of
+    /// <see cref="CompressionLevel"/> rather than <see cref="CompressionOption"/> so that it
+    /// reads the same as <c>XLStreamingOptions.CompressionLevel</c>, which writes its own zip
+    /// and so has no packaging layer to go through.
+    /// </remarks>
+    private static CompressionOption ToCompressionOption(CompressionLevel level) => level switch
+    {
+        CompressionLevel.NoCompression => CompressionOption.NotCompressed,
+        CompressionLevel.Fastest => CompressionOption.Fast,
+        CompressionLevel.SmallestSize => CompressionOption.Maximum,
+        _ => CompressionOption.Normal
+    };
 
     private void CreatePackage(Stream stream, bool newStream, SpreadsheetDocumentType spreadsheetDocumentType,
         SaveOptions options)
@@ -73,6 +93,7 @@ public partial class XLWorkbook
 
         using (package)
         {
+            package.CompressionOption = ToCompressionOption(options.CompressionLevel);
             CreateParts(package, options);
             if (options.ValidatePackage) Validate(package);
         }

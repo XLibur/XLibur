@@ -10,7 +10,7 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 
 | # | Spec | Area | Effort | Status | Parallelizable? |
 |---|------|------|--------|--------|-----------------|
-| 01 | [Streaming write API](01-streaming-write-api.md) | Feature · Arch · Memory | L | Proposed | Phase 1 refactor first, then independent |
+| 01 | [Streaming write API](01-streaming-write-api.md) | Feature · Arch · Memory | L | ✅ **Done** (see Results) | Phase 1 refactor first, then independent |
 | 02 | [Load-path allocation elimination](02-load-path-allocations.md) | Perf (read) | M | ✅ **Done** (#175) | 3 independent sub-tasks |
 | 03 | [Save-path allocation reduction](03-save-path-allocations.md) | Perf (write) | M | In progress (see Results) | 7 small independent PRs |
 | 04 | [Demand-driven formula evaluation](04-demand-driven-formula-eval.md) | Perf · Arch | L | Proposed | Single owner (correctness-critical) |
@@ -40,11 +40,20 @@ one-cell/absolute anchored charts and every 3D or of-pie chart group. All fixed;
 Results sections. **Still open there:** the writer emits 3D pie/line/area and every surface type as
 their 2D group elements, so XLibur's own 3D charts round-trip as 2D.
 
+Spec 01 landed and resolved the packaging hotspot spec 03 had deferred to it. The blocker was not
+part *lifetime*, as 01 assumed, but part *buffering*: `System.IO.Packaging` opens a package
+read/write, which is `ZipArchiveMode.Update`, and that holds every part's uncompressed bytes until
+close. `XLStreamingWorkbook` therefore writes its OPC package straight over `ZipArchive` in Create
+mode. Two capabilities fall out of owning the zip: output no longer has to be **seekable**, and
+`CompressionLevel` became available — which also closed 01's Phase 3 for the *ordinary* save path,
+since the SDK does expose `OpenXmlPackage.CompressionOption`. Async remains unimplemented, with the
+reasons recorded in 01's Results.
+
 ## Why these ten (01–10)
 
 **Performance (specs 02, 03, 04, 05).** The write cell-loop and the sheetData parse have both had a round of tuning; what remains, in measured order: per-cell string allocations on load (`<v>` + attributes + SST DOM), the ~543 MB formatted save (number formatting, inherited-style resolution, StyleKey hashing), the full-workbook-recalc cliff when reading one dirty formula cell (can build a 176 MB dependency tree to answer one read), and O(all-ranges·log) work per single row insert. Specs 02–05 attack each with concrete targets.
 
-**Features (specs 01, 07, 08, 10).** The fork already leads upstream on charts, dynamic arrays, in-cell images, sparklines, WebP/SVG. The gaps that matter: no bounded-memory export path for huge files (01 — still open), ~250 missing formula functions with a clean registry to extend (07 — waves A–F now done; only the optional day-count-basis set A2 remains), no LET/LAMBDA (08 — still open, the one function family that needs engine work), and charts that couldn't be styled (10 — depth on the flagship differentiator, now done).
+**Features (specs 01, 07, 08, 10).** The fork already leads upstream on charts, dynamic arrays, in-cell images, sparklines, WebP/SVG. The gaps that matter: no bounded-memory export path for huge files (01 — now done: `XLStreamingWorkbook` writes 1M×10 in 108 MB, or 14 MB with inline strings), ~250 missing formula functions with a clean registry to extend (07 — waves A–F now done; only the optional day-count-basis set A2 remains), no LET/LAMBDA (08 — still open, the one function family that needs engine work), and charts that couldn't be styled (10 — depth on the flagship differentiator, now done).
 
 **Compatibility (specs 06, 09).** Both are now done. Password-encrypted files could not be opened or written at all — 06 added agile read/write and standard read (#245). Threaded comments were read lossily and downgraded on save — 09 gave them a real model and a write path (#258). 09's fidelity audit also **disproved its own premise**: chartsheets, form controls and slicers are *not* dropped on round-trip, because saving reopens the original package and rewrites only the parts XLibur models. See `docs/round-trip-fidelity.md`, which pins that behaviour with tests so a future rewrite cannot silently regress it.
 
@@ -58,13 +67,13 @@ Wave 1 (independent, start anytime):
   09 threaded comments ✅ done
   11 Tasks 1–4 ✅ done (−28.8% on the write benchmark; bulk styling −86% per cell)
 Wave 2 (after 03 lands, or coordinated):
-  01 streaming write (Phase 1 seam shared with 03's territory)
+  01 streaming write ✅ done (leaf serializers shared with 03's territory, not an enumeration seam)
   06 encryption ✅ done · 10 charts ✅ done (PRs 1–4: series formatting, data labels, legend/axes, reader gaps)
 Wave 3 (single-owner, correctness-critical — don't parallelize internally):
   04 demand-driven eval · 05 structural edits · 08 LET/LAMBDA (08 after or alongside 04)
 
-Remaining open work: 01 streaming write, 03 (finish), 04 demand-driven eval, 05 structural edits,
-08 LET/LAMBDA, plus the optional 07 wave A2 (day-count-basis financial functions).
+Remaining open work: 03 (finish), 04 demand-driven eval, 05 structural edits, 08 LET/LAMBDA,
+plus the optional 07 wave A2 (day-count-basis financial functions).
 ```
 
 **Read spec 02's Results section before starting 03** — it corrects 03's number-formatting task

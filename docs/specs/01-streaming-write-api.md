@@ -3,7 +3,7 @@
 **Area:** Feature + Architecture + Performance (memory)
 **Effort:** L (2–4 weeks)
 **Dependencies:** None (but coordinate with Spec 03 — both touch `SheetDataWriter`)
-**Status:** Proposed
+**Status:** ✅ **Done** — see [Results](#results-2026-07-27) below.
 
 ## Summary
 
@@ -104,3 +104,122 @@ While in this area: expose `SaveOptions.CompressionLevel` if feasible via the SD
 
 - Architecture survey: `SheetDataWriter` has no seam; `ISlice` is a shift contract, not a data-source abstraction.
 - Benchmarks: `XLibur.Benchmarks/XLiburWorkbookBenchmarks.cs`, results under `BenchmarkDotNet.Artifacts/results/`.
+
+## Results (2026-07-27)
+
+All five acceptance criteria met. Measured on net10.0 with
+`dotnet run -c Release --project XLibur.Benchmarks -f net10.0 -- profile streaming` and
+`-- --filter "*StreamingWriteBenchmarks*"`.
+
+### Acceptance criteria
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | 1M × 10 under 150 MB peak managed heap | **107.9 MB** shared strings, **13.9 MB** inline ✅ |
+| 2 | Opens clean; `XLWorkbook.Load` round-trips values, styles, formulas | `OpenXmlValidator` clean, round-trip tests green ✅ |
+| 3 | 50K scenario ≥ as fast as `CreateAndSave`, ≤ 25% of its allocations | **1.59× faster**, **20.1%** of allocations ✅ |
+| 4 | No public-API breaks; `PublicApiAnalyzers` additions only | Additions only ✅ |
+| 5 | Suite green; new tests in `XLibur.Tests/Excel/Streaming/` | 7432 tests, 25 new ✅ |
+
+### 50K × 3 workload
+
+| Writer | Mean | Allocated |
+|---|---|---|
+| `XLWorkbook.CreateAndSave` | 250.5 ms | 67.46 MB |
+| **`XLStreamingWorkbook`** | **157.9 ms** | **13.59 MB** |
+| `XLStreamingWorkbook`, inline strings | 144.3 ms | 8.70 MB |
+| `XLStreamingWorkbook`, `CompressionLevel.Fastest` | 91.9 ms | 17.00 MB |
+| Raw OpenXML SDK (practical floor for SDK-based libraries) | 205.2 ms | 142.26 MB |
+
+The streaming writer is faster and ~10× leaner than the raw SDK baseline, because it does not
+go through `System.IO.Packaging` at all.
+
+### 1M × 10, peak managed heap
+
+| Writer | Peak heap | Elapsed | File |
+|---|---|---|---|
+| `XLStreamingWorkbook`, shared strings | 107.9 MB | 10.6 s | 36.1 MB |
+| `XLStreamingWorkbook`, inline strings | 13.9 MB | 8.8 s | 35.5 MB |
+| `XLWorkbook` **at 100K × 10** (a tenth of the size) | 126.7 MB | 2.2 s | 3.5 MB |
+
+Every row in this workload carries a distinct string, the worst case for the shared string
+table — the 108 MB is almost entirely that dictionary, and the inline figure is what the
+documented escape hatch buys. Retained (post-collection) heap is ~30 KB at 400K rows either way.
+
+### What changed against the plan
+
+**Phase 1 — the `IXLSheetDataSource` seam was not built.** `StreamSheetData` is a single pass
+over a struct slice enumerator with no per-cell allocation, the product of specs 03 and 11. An
+`IEnumerable<XLRowData>` seam would add an interface dispatch per cell and a row object per row
+to the existing save path, missing this spec's own ≤2% time / 0% allocation parity budget — and
+the abstraction would have to be wide enough to carry formula, misc metadata, rich text and
+table-totals membership, none of which the streaming side has. Instead the *leaf* serializers
+(row start, cell start, value writers, type mapping) were extracted into `CellXmlWriter` and are
+shared by both producers. Same reuse, no change to the hot loop.
+
+**Phase 2 — the package is written by hand, not through the OpenXML SDK.** Task P2.1 asked
+whether parts can be written incrementally under SDK 3.x. They can, and the spike confirmed it —
+but only for *correctness*. Memory told a different story: `System.IO.Packaging` opens a package
+read/write, which maps to `ZipArchiveMode.Update`, and that mode buffers every part's
+**uncompressed** bytes until the archive closes. Measured 48 MB of live heap for 100K × 10,
+growing linearly — the exact failure the API exists to prevent, and the same ~96 MB hotspot
+[spec 03](03-save-path-allocations.md) flagged and deferred here. Opening the package write-only
+*does* select `ZipArchiveMode.Create`, but the SDK enumerates parts and throws
+`Cannot retrieve parts of writeonly container`.
+
+So `StreamingPackageWriter` assembles the OPC package directly over `ZipArchive` in Create mode.
+This is a different resolution than the spec's predicted fallback (staging sheet XML in temp
+files): temp files would not have helped, because the copy into the package would have been
+buffered just the same. Writing the zip ourselves also means no temp disk at all, and two
+capabilities fall out for free — the output need not be **seekable** (a workbook can be written
+straight to a network stream, which `XLWorkbook.SaveAs` cannot do) and `CompressionLevel` is
+directly available.
+
+**Two design points settled before implementation**, both because the spec's API sketch could
+not express what its own constraints promised:
+
+- The row builder `XLStreamingRow` was added alongside `AppendRow`. The sketched surface had no
+  way to write a **formula** (despite the stated "formula strings pass through verbatim"
+  constraint) or a **per-cell style**, and `AppendRow(params XLCellValue[])` allocates an array
+  per row, working against the memory goal.
+- Streamed worksheets support column widths, freeze panes and an autofilter range, not just a
+  name. All are O(1) memory and written around `sheetData`; without them a streamed export
+  cannot be a usable report.
+
+**Style and shared-string ids are inputs, not outputs.** A cell's style id is fixed the moment
+the cell is written, long before the styles part exists, and that XML is already in the package
+by then. `WorkbookStylesPartWriter.GenerateStreamingContent` therefore emits one `cellXf` per
+interned style in intern order, with no dedup and no remap, making index *i* the *i*-th style by
+construction. Shared strings are handed out densely for the same reason, so no `SstMap`
+translation is needed — unlike `SharedStringTable`, which is refcounted and leaves gaps.
+
+**Value-driven style rules are now shared.** A date, a duration and a number are all stored as a
+serial number, so only the number format distinguishes them on the way back in; a leading
+apostrophe and a line break are likewise carried by the style. `XLWorksheet` applied these rules
+on cell assignment. They moved to `XLValueStyleRules` so the cell setter and the streaming writer
+share one definition — found because a streamed `DateTime` initially round-tripped as a `double`.
+
+### Phase 3 — findings
+
+**`CompressionLevel`: implemented on both paths.** The SDK does expose
+`OpenXmlPackage.CompressionOption` (undocumented in the spec's survey), so
+`SaveOptions.CompressionLevel` now works for ordinary saves, mapping onto
+`System.IO.Packaging.CompressionOption`. It applies to parts a save creates; re-saving a loaded
+file leaves its existing parts at whatever level they were written with. The streaming writer
+takes `System.IO.Compression.CompressionLevel` directly. `Fastest` is 1.7× quicker than
+`Optimal` on the 50K workload for a ~25% larger file.
+
+**Async: not implemented, and deliberately so.** Split out rather than guessed at.
+
+- For `XLWorkbook.SaveAs`, it is blocked. `System.IO.Packaging` is entirely synchronous and the
+  SDK has no async save or package API — the only `*Async` methods in 3.4.1 are
+  `OpenXmlWriter.WriteStartElementAsync` and friends, which do not help since the package write
+  underneath them still blocks. A `SaveAsAsync` here could only be `Task.Run(() => SaveAs(...))`,
+  which does not free a thread, it just moves the blocked one — an anti-pattern in a library API.
+- For the streaming writer it *is* achievable, since we own the zip: `XmlWriterSettings.Async`
+  plus `ZipArchive` entry `WriteAsync`. But it would need an async twin of every write method
+  (`AppendRowAsync`, `Cell`…), roughly doubling a permanent public surface, for a workload that
+  is CPU-bound on deflate rather than I/O-bound. The benefit is confined to not holding a thread
+  while flushing to a slow sink — and the non-seekable-stream support already covers the main
+  scenario that motivates it (writing to an HTTP response). Worth a follow-on spec with a real
+  use case behind it, not speculative API surface now.

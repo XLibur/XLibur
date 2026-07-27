@@ -336,19 +336,60 @@ SaveAs(path) / Save()
 
 **Streaming `<sheetData>` with raw `XmlWriter`:**
 
-`SheetDataWriter.StreamSheetData(...)` is the performance-critical hot path. It
-bypasses the OpenXML SDK's `OpenXmlPartWriter` by extracting the underlying
-`XmlWriter` via reflection and writing `<row>` / `<c>` elements directly:
+`SheetDataWriter.StreamSheetData(...)` is the performance-critical hot path.
+`WorksheetPartWriter` builds a detached OpenXML DOM for everything *except*
+`<sheetData>`, then re-emits it through its own `XmlWriter` over the part stream,
+splicing in the streaming writer where `<sheetData>` belongs. Walking the source
+DOM by top-level child this way avoids `OpenXmlPartWriter`'s element-wrapping
+ceremony in the hot path without reaching into its private state via reflection.
 
-```csharp
-// Steal the XmlWriter from OpenXmlPartWriter for raw streaming
-var xml = (XmlWriter)XmlWriterFieldInfo.GetValue(writer)!;
-xml.WriteStartElement("sheetData", Main2006SsNs);
+This avoids creating OpenXML DOM objects for every cell. Cell references are
+formatted into a reusable `char[]` buffer, so the loop allocates nothing per cell.
+
+### Forward-Only Writing (`XLibur.Excel.Streaming`)
+
+`XLWorkbook` materialises the whole workbook before saving, so the in-memory model
+— not the serializer — is the ceiling on export size. `XLStreamingWorkbook` is a
+separate, append-only writer for that case: rows are serialised into the package as
+they arrive, so memory does not grow with row count.
+
+```
+XLStreamingWorkbook ──> StreamingPackageWriter ──> ZipArchive (Create mode)
+   │                          │
+   │  XLStreamingWorksheet ───┘  one part at a time, streamed
+   │  XLStreamingRow            (ref struct; no per-row allocation)
+   │
+   ├─ StreamingStyleTable       XLStyleValue → cellXf index, intern order
+   └─ StreamingSharedStringTable  dense ids, no refcounting
 ```
 
-This avoids the overhead of creating OpenXML DOM objects for every cell and
-enables streaming writes with minimal allocations. Cell references are formatted
-into a reusable `char[]` buffer.
+Three things distinguish it from the normal save path:
+
+1. **It owns its zip.** `System.IO.Packaging` opens packages read/write, which is
+   `ZipArchiveMode.Update`, and that buffers every part's *uncompressed* bytes
+   until the archive closes — the memory ceiling this API exists to remove. So the
+   OPC package (content types, relationships, workbook, worksheets, styles, shared
+   strings) is assembled directly over `ZipArchiveMode.Create`. Consequences: the
+   output stream need not be seekable, `CompressionLevel` is available, and
+   `[Content_Types].xml` is written last since nothing can be revisited.
+
+2. **Style and string ids are inputs, not outputs.** A cell's style id is fixed
+   when the cell is written, long before the styles part exists. So
+   `WorkbookStylesPartWriter.GenerateStreamingContent` emits one `cellXf` per
+   interned style *in intern order*, with no dedup and no remap — index *i* is the
+   *i*-th style by construction. Shared strings are dense for the same reason,
+   unlike the refcounted `SharedStringTable`, whose gaps need an `SstMap` remap.
+
+3. **Only the leaves are shared with `SheetDataWriter`.** `CellXmlWriter` holds the
+   row/cell XML primitives both writers use. The enumeration itself is *not*
+   abstracted: `SheetDataWriter`'s loop is a single pass over a struct slice
+   enumerator with no per-cell allocation, and routing it through a row/cell
+   interface wide enough for the streaming side would cost a virtual call per cell.
+
+Value-driven style rules (a date needs number format 14/22, a duration 46, a
+quote-prefixed or multi-line text value needs style flags) live in
+`XLValueStyleRules`, shared between the cell setter and the streaming writer so a
+streamed date round-trips as a date rather than as a number.
 
 ---
 
@@ -638,7 +679,7 @@ XLibur/
     ├── Exceptions/            — Domain-specific exceptions
     ├── Hyperlinks/            — Cell/range hyperlinks
     ├── InsertData/            — Bulk data insertion helpers
-    ├── IO/                    — 42 reader/writer files (the full IO layer)
+    ├── IO/                    — 43 reader/writer files (the full IO layer)
     ├── Misc/                  — Helper types
     ├── PageSetup/             — Print settings, margins, headers/footers
     ├── Patterns/              — Pattern matching utilities
@@ -650,6 +691,7 @@ XLibur/
     ├── RichText/              — XLImmutableRichText, rich text formatting
     ├── Rows/                  — XLRow, XLRows
     ├── Sparkline/             — Sparkline support
+    ├── Streaming/             — XLStreamingWorkbook, forward-only write path
     ├── Style/                 — XLStyleValue, keys, deferred styles, colors
     │   └── Colors/            — XLColor, theme colors, indexed colors
     └── Tables/                — XLTable, structured references, table fields
