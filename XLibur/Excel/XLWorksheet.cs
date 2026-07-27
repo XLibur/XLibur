@@ -43,6 +43,15 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// </summary>
     internal readonly XLAddress InvalidAddress;
 
+    /// <summary>
+    /// Number of range-shift notification passes run on this worksheet. A pass is one call to
+    /// <see cref="NotifyRangeShiftedRows"/> or <see cref="NotifyRangeShiftedColumns"/>, and each visits
+    /// every live range that the shift can reach. A batch structural edit must therefore run exactly
+    /// one pass however many rows or columns it moves — this counter is the seam the tests assert that
+    /// on, since the work is otherwise invisible from outside.
+    /// </summary>
+    internal int RangeShiftPasses { get; private set; }
+
     #endregion Fields
 
     #region Constructor
@@ -1236,6 +1245,8 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     public void NotifyRangeShiftedRows(XLRange range, int rowsShifted)
     {
+        RangeShiftPasses++;
+
         var rangesToShift = _rangeRepository
             .Where(r => r.RangeAddress.IsValid)
             .OrderBy(r => r.RangeAddress.FirstAddress.RowNumber * -Math.Sign(rowsShifted))
@@ -1272,6 +1283,8 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     public void NotifyRangeShiftedColumns(XLRange range, int columnsShifted)
     {
+        RangeShiftPasses++;
+
         var rangesToShift = _rangeRepository
             .Where(r => r.RangeAddress.IsValid)
             .OrderBy(r => r.RangeAddress.FirstAddress.ColumnNumber * -Math.Sign(columnsShifted))
