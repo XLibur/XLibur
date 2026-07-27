@@ -31,9 +31,11 @@
 
 #### Writing large files
 
-- **Streaming write API (`XLStreamingWorkbook`)**: a forward-only writer for exports too large to hold in memory. Rows are serialised straight into the file as they are appended, so memory stays flat regardless of row count — a million rows by ten columns costs about 108 MB of peak managed heap, against roughly 1.3 GB extrapolated for the same data through `XLWorkbook`. On the 50K-row benchmark it is also 1.6× faster than `XLWorkbook` and allocates a fifth as much.
+- **Streaming write API (`XLStreamingWorkbook`)**: a forward-only writer for exports too large to hold in memory. Rows are serialised straight into the file as they are appended, so nothing is retained per row — a million rows by ten columns costs about 108 MB of peak managed heap, where `XLWorkbook` needs roughly that much for a *tenth* as many rows. On the 50K-row benchmark it is also 1.6× faster than `XLWorkbook` and allocates a fifth as much.
 
   ```csharp
+  using XLibur.Excel.Streaming;
+
   using var workbook = XLStreamingWorkbook.Create("Large.xlsx");
   var sheet = workbook.AddWorksheet("Data");
   sheet.FreezeRows(1);
@@ -47,7 +49,7 @@
 
   The trade is that it is append-only: rows go in ascending order, one worksheet at a time, nothing can be read back or revised, and formulas are stored verbatim rather than evaluated. Streamed sheets support column widths, freeze panes, an autofilter range, row and per-cell styles, and formulas with cached values. Anything beyond that — tables, merges, conditional formats, pivot tables, drawings — still needs `XLWorkbook`.
 
-  Distinct strings accumulate in a shared string table until `Finish()`, the one part of a streaming write proportional to the data. `XLStreamingStringStorage.Inline` removes that at the cost of a larger file, and takes the million-row case from 108 MB to 14 MB.
+  Memory is flat in the number of rows, but not unconditionally flat: under the default `SharedStrings` mode each distinct string is held until `Finish()`, so cost tracks how many *distinct* text values there are rather than how many rows. A million rows of repeating labels is cheap; a million distinct ones is not. `XLStreamingStringStorage.Inline` removes that term entirely at the cost of a larger file, and takes the worst case — every row carrying a distinct string — from 108 MB to 14 MB.
 
   Because the writer assembles the package itself rather than going through `System.IO.Packaging`, the destination stream does not have to be seekable — a workbook can be written straight to an HTTP response, which `XLWorkbook.SaveAs` cannot do. ([#263](https://github.com/XLibur/XLibur/pull/263) by [@jafin](https://github.com/jafin))
 

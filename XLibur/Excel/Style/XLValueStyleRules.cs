@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace XLibur.Excel;
 
@@ -51,18 +51,20 @@ internal static class XLValueStyleRules
     /// </summary>
     internal static XLStyleValue? AdjustForText(XLStyleValue styleValue, string text)
     {
-        XLStyleValue? adjusted = null;
+        var adjusted = styleValue;
 
         if (text.Length > 0 && text[0] == '\'')
-            adjusted = styleValue.WithIncludeQuotePrefix(true);
+            adjusted = adjusted.WithIncludeQuotePrefix(true);
 
-        if (text.AsSpan().Contains(Environment.NewLine.AsSpan(), StringComparison.Ordinal))
+        if (text.AsSpan().Contains(Environment.NewLine.AsSpan(), StringComparison.Ordinal) &&
+            !adjusted.Alignment.WrapText)
         {
-            adjusted ??= styleValue;
-            if (!adjusted.Alignment.WrapText)
-                adjusted = adjusted.WithAlignment(static alignment => alignment.WithWrapText(true));
+            adjusted = adjusted.WithAlignment(static alignment => alignment.WithWrapText(true));
         }
 
-        return adjusted;
+        // Style values are interned, so reference equality means nothing needed changing. Saying
+        // so with null keeps the caller from writing an explicit per-cell style that only
+        // restates what the row, column or worksheet already supplies.
+        return ReferenceEquals(adjusted, styleValue) ? null : adjusted;
     }
 }

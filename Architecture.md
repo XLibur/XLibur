@@ -351,9 +351,16 @@ formatted into a reusable `char[]` buffer, so the loop allocates nothing per cel
 `XLWorkbook` materialises the whole workbook before saving, so the in-memory model
 — not the serializer — is the ceiling on export size. `XLStreamingWorkbook` is a
 separate, append-only writer for that case: rows are serialised into the package as
-they arrive, so memory does not grow with row count.
+they arrive, so nothing is retained per row.
 
-```
+Memory is flat in the number of *rows*, but not unconditionally flat. Under the
+default `SharedStrings` mode each distinct string is held until `Finish()`, so cost
+tracks the *cardinality of distinct text values* — a million rows of repeating
+labels is cheap, a million distinct ones is not. `XLStreamingStringStorage.Inline`
+removes that term entirely at the cost of a larger file. Measured at 1M × 10 with
+every row carrying a distinct string: 108 MB shared, 14 MB inline.
+
+```text
 XLStreamingWorkbook ──> StreamingPackageWriter ──> ZipArchive (Create mode)
    │                          │
    │  XLStreamingWorksheet ───┘  one part at a time, streamed

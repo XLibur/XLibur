@@ -606,10 +606,10 @@ internal static class WorkbookStylesPartWriter
 
             if (foundOne) continue;
 
-            stylesheet.CellFormats!.AppendChild(BuildCellFormat(styleInfo));
+            stylesheet.CellFormats.AppendChild(BuildCellFormat(styleInfo));
         }
 
-        stylesheet.CellFormats!.Count = (uint)stylesheet.CellFormats!.ChildElements.Count;
+        stylesheet.CellFormats.Count = (uint)stylesheet.CellFormats.ChildElements.Count;
     }
 
     /// <summary>
@@ -667,11 +667,11 @@ internal static class WorkbookStylesPartWriter
             if (cellStyleFormat.ApplyProtection!.Value)
                 cellStyleFormat.AppendChild(GetProtection(styleInfo));
 
-            stylesheet.CellStyleFormats!.AppendChild(cellStyleFormat);
+            stylesheet.CellStyleFormats.AppendChild(cellStyleFormat);
         }
 
-        stylesheet.CellStyleFormats!.Count =
-            (uint)stylesheet.CellStyleFormats!.ChildElements.Count;
+        stylesheet.CellStyleFormats.Count =
+            (uint)stylesheet.CellStyleFormats.ChildElements.Count;
     }
 
     private static bool ApplyFill(StyleInfo styleInfo)

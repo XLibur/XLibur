@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.IO.Compression;
 using BenchmarkDotNet.Attributes;
@@ -144,7 +144,12 @@ public static class StreamingMemoryProfile
                 }
 
                 peak = Math.Max(peak, GC.GetTotalMemory(forceFullCollection: false));
+
+                // Finish() serialises the shared string table, which under SharedStrings is the
+                // largest live structure of the whole write - sampling before it would report a
+                // peak that excludes the most expensive moment.
                 workbook.Finish();
+                peak = Math.Max(peak, GC.GetTotalMemory(forceFullCollection: false));
             }
 
             var elapsed = DateTime.UtcNow - start;

@@ -115,11 +115,11 @@ All five acceptance criteria met. Measured on net10.0 with
 
 | # | Criterion | Result |
 |---|---|---|
-| 1 | 1M × 10 under 150 MB peak managed heap | **107.9 MB** shared strings, **13.9 MB** inline ✅ |
-| 2 | Opens clean; `XLWorkbook.Load` round-trips values, styles, formulas | `OpenXmlValidator` clean, round-trip tests green ✅ |
+| 1 | 1M × 10 under 150 MB peak managed heap | **107.9 MB** shared strings, **14.0 MB** inline ✅ |
+| 2 | Opens clean; `XLWorkbook.Load` round-trips values, styles, formulas | `OpenXmlValidator` clean, round-trip tests green — **not verified in Excel itself** ⚠️ |
 | 3 | 50K scenario ≥ as fast as `CreateAndSave`, ≤ 25% of its allocations | **1.59× faster**, **20.1%** of allocations ✅ |
 | 4 | No public-API breaks; `PublicApiAnalyzers` additions only | Additions only ✅ |
-| 5 | Suite green; new tests in `XLibur.Tests/Excel/Streaming/` | 7432 tests, 25 new ✅ |
+| 5 | Suite green; new tests in `XLibur.Tests/Excel/Streaming/` | 7436 tests, 28 new ✅ |
 
 ### 50K × 3 workload
 
@@ -138,9 +138,14 @@ go through `System.IO.Packaging` at all.
 
 | Writer | Peak heap | Elapsed | File |
 |---|---|---|---|
-| `XLStreamingWorkbook`, shared strings | 107.9 MB | 10.6 s | 36.1 MB |
-| `XLStreamingWorkbook`, inline strings | 13.9 MB | 8.8 s | 35.5 MB |
-| `XLWorkbook` **at 100K × 10** (a tenth of the size) | 126.7 MB | 2.2 s | 3.5 MB |
+| `XLStreamingWorkbook`, shared strings | 107.9 MB | 10.3 s | 36.1 MB |
+| `XLStreamingWorkbook`, inline strings | 14.0 MB | 9.5 s | 35.5 MB |
+| `XLWorkbook` **at 100K × 10** (a tenth of the size) | ~100–130 MB | 2.2 s | 3.5 MB |
+
+The streaming figures are stable across runs. The `XLWorkbook` row is not — the harness samples
+`GC.GetTotalMemory` at two points rather than continuously, and it varied between 102.6 MB and
+126.7 MB over two runs, so treat it as an order-of-magnitude comparison rather than a measurement:
+it needs roughly what the streaming writer needs for *ten times* as many rows.
 
 Every row in this workload carries a distinct string, the worst case for the shared string
 table — the 108 MB is almost entirely that dictionary, and the inline figure is what the
@@ -156,6 +161,20 @@ the abstraction would have to be wide enough to carry formula, misc metadata, ri
 table-totals membership, none of which the streaming side has. Instead the *leaf* serializers
 (row start, cell start, value writers, type mapping) were extracted into `CellXmlWriter` and are
 shared by both producers. Same reuse, no change to the hot loop.
+
+The parity budget was measured against `main`, back to back on the same machine:
+
+| Benchmark | main | after | Δ |
+|---|---|---|---|
+| `CreateAndSave` time | 257.5 ms ± 5.11 | 253.5 ms ± 4.91 | −1.6% (bars overlap) |
+| `CreateAndSave` alloc | 67.46 MB | 67.46 MB | **0.00%** |
+| `CreateFormattedAndSave` time | 1157.8 ms ± 17.1 | 1040.3 ms ± 8.2 | −10.1% (bars separated) |
+| `CreateFormattedAndSave` alloc | 325.39 MB | 325.37 MB | −0.01% |
+
+Both inside the ≤2% time / 0% allocation budget, with time improving rather than degrading. The
+10% on `CreateFormattedAndSave` is incidental and unattributed — most likely the `Stylesheet`
+refactor hoisting ~40 `workbookStylesPart.Stylesheet!` accesses, many inside per-style loops, into
+a local, since that SDK property does a lazy root-element lookup per call. Not profiled to confirm.
 
 **Phase 2 — the package is written by hand, not through the OpenXML SDK.** Task P2.1 asked
 whether parts can be written incrementally under SDK 3.x. They can, and the spike confirmed it —

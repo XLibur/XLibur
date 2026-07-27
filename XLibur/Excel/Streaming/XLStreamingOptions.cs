@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 
 namespace XLibur.Excel.Streaming;
 
@@ -48,9 +48,10 @@ public sealed class XLStreamingOptions
     /// file for a faster write, which is often the right call for a large export.
     /// </summary>
     /// <remarks>
-    /// Available here and not on <see cref="SaveOptions"/> because the streaming writer owns its
-    /// zip, whereas <see cref="XLWorkbook"/> goes through <c>System.IO.Packaging</c>, which does
-    /// not expose the setting.
+    /// <see cref="SaveOptions.CompressionLevel"/> is the equivalent for an ordinary save. The two
+    /// reach it differently: the streaming writer configures its own zip, while
+    /// <see cref="XLWorkbook"/> passes the setting through <c>System.IO.Packaging</c>, which
+    /// applies it only to parts that save creates.
     /// </remarks>
     public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
 }

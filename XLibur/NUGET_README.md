@@ -49,8 +49,13 @@ using (var workbook = new XLWorkbook())
 
 `XLWorkbook` builds the whole workbook in memory before saving, which puts a ceiling on how large
 an export can be. For those, `XLStreamingWorkbook` writes rows straight into the file as you append
-them, so memory stays flat no matter how many rows there are — a million rows by ten columns costs
-about 108 MB, or 14 MB with `Inline` string storage.
+them, so nothing is retained per row — a million rows by ten columns costs about 108 MB, or 14 MB
+with `Inline` string storage.
+
+Memory is flat in the number of rows, but not unconditionally flat: by default each *distinct*
+string is held until `Finish()`, so cost tracks how many distinct text values you write rather than
+how many rows. A million rows of repeating labels is cheap; a million distinct ones is not — see
+the note below on `Inline` storage.
 
 ```c#
 using XLibur.Excel.Streaming;

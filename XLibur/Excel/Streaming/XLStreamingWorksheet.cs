@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Xml;
 using XLibur.Excel.Coordinates;
@@ -292,7 +292,16 @@ public sealed class XLStreamingWorksheet
 
         var xml = RequireOpenRow(rowNumber);
         var column = _nextColumnNumber++;
-        var styleId = style is null ? _openRowStyleId : _workbook.Styles.GetOrAdd(ResolveStyleValue(style));
+
+        // A cached date or duration needs the same number format a literal one would, or it
+        // reads back as a plain number. Only that rule applies here: the text adjustments are
+        // about how a user typed a literal, and stripping a leading apostrophe from a formula's
+        // computed result would corrupt the cached value.
+        var styleValue = ResolveStyleValue(style);
+        var adjusted = AdjustStyleForNumberFormat(styleValue, cachedValue);
+        var styleId = ReferenceEquals(adjusted, styleValue) && style is null
+            ? _openRowStyleId
+            : _workbook.Styles.GetOrAdd(adjusted);
 
         // Formulas are stored without the leading '=' that a user typically writes.
         if (formula[0] == '=')
@@ -376,14 +385,8 @@ public sealed class XLStreamingWorksheet
         switch (value.Type)
         {
             case XLDataType.DateTime:
-                return XLValueStyleRules.HasGeneralNumberFormat(styleValue)
-                    ? XLValueStyleRules.WithDateTimeFormat(styleValue, value.GetUnifiedNumber() % 1 == 0)
-                    : styleValue;
-
             case XLDataType.TimeSpan:
-                return XLValueStyleRules.HasGeneralNumberFormat(styleValue)
-                    ? XLValueStyleRules.WithDurationFormat(styleValue)
-                    : styleValue;
+                return AdjustStyleForNumberFormat(styleValue, value);
 
             case XLDataType.Text:
                 {
@@ -398,6 +401,24 @@ public sealed class XLStreamingWorksheet
             default:
                 return styleValue;
         }
+    }
+
+    /// <summary>
+    /// Give a date or duration the number format that identifies it as one, when the style
+    /// leaves the format at General. Everything else is returned untouched.
+    /// </summary>
+    private static XLStyleValue AdjustStyleForNumberFormat(XLStyleValue styleValue, XLCellValue value)
+    {
+        if (!XLValueStyleRules.HasGeneralNumberFormat(styleValue))
+            return styleValue;
+
+        return value.Type switch
+        {
+            XLDataType.DateTime => XLValueStyleRules.WithDateTimeFormat(
+                styleValue, value.GetUnifiedNumber() % 1 == 0),
+            XLDataType.TimeSpan => XLValueStyleRules.WithDurationFormat(styleValue),
+            _ => styleValue
+        };
     }
 
     private void WriteCellStart(XmlWriter xml, int rowNumber, int columnNumber, string? dataType, uint styleId)

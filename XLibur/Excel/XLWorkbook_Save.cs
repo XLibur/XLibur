@@ -303,7 +303,7 @@ public partial class XLWorkbook
                                  workbookPart.AddNewPart<WorkbookStylesPart>(
                                      context.RelIdGenerator.GetNext(RelType.Workbook));
         workbookStylesPart.Stylesheet ??= new Stylesheet();
-        WorkbookStylesPartWriter.GenerateContent(workbookStylesPart.Stylesheet!, this, context);
+        WorkbookStylesPartWriter.GenerateContent(workbookStylesPart.Stylesheet, this, context);
     }
 
     /// <summary>

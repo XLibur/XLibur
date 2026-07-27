@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Xml;
 using XLibur.Excel.IO;
@@ -23,6 +23,12 @@ internal sealed class StreamingSharedStringTable
     private readonly Dictionary<string, int> _ids = new(System.StringComparer.Ordinal);
     private readonly List<string> _texts = [];
 
+    /// <summary>
+    /// Total number of cells that referenced the table, which is what the <c>count</c> attribute
+    /// reports - as against <see cref="Count"/>, the number of <c>si</c> entries.
+    /// </summary>
+    private int _referenceCount;
+
     internal int Count => _texts.Count;
 
     /// <summary>
@@ -30,6 +36,8 @@ internal sealed class StreamingSharedStringTable
     /// </summary>
     internal int GetOrAdd(string text)
     {
+        _referenceCount++;
+
         if (_ids.TryGetValue(text, out var id))
             return id;
 
@@ -43,7 +51,8 @@ internal sealed class StreamingSharedStringTable
     {
         xml.WriteStartDocument();
         xml.WriteStartElement("x", "sst", Main2006SsNs);
-        xml.WriteAttributeString("count", _texts.Count.ToString(CultureInfo.InvariantCulture));
+        // count is how many cells point at the table; uniqueCount is how many entries it holds.
+        xml.WriteAttributeString("count", _referenceCount.ToString(CultureInfo.InvariantCulture));
         xml.WriteAttributeString("uniqueCount", _texts.Count.ToString(CultureInfo.InvariantCulture));
 
         foreach (var text in _texts)

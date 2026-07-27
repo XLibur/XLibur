@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -66,6 +66,85 @@ public class StreamingWriteTests
         await Assert.That(ws.Cell("B2").FormulaA1).IsEqualTo("A1&\"x\"");
         await Assert.That(ws.Cell("B2").CachedValue).IsEqualTo((XLCellValue)"2x");
         await Assert.That(ws.Cell("C2").FormulaA1).IsEqualTo("A1>B1");
+    }
+
+    /// <summary>
+    /// A cached date is stored as a serial number just like a literal one, so it needs the same
+    /// number format or it reads back as a plain number.
+    /// </summary>
+    [Test]
+    public async Task FormulaCachedDatesAndDurationsRoundTripAsSuchTypes()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = XLStreamingWorkbook.Create(ms))
+        {
+            var sheet = wb.AddWorksheet("Cached");
+            using (var row = sheet.AddRow())
+            {
+                row.Formula("TODAY()", cachedValue: new DateTime(2026, 7, 27));
+                row.Formula("NOW()", cachedValue: new DateTime(2026, 7, 27, 13, 45, 0));
+                row.Formula("B1-A1", cachedValue: new TimeSpan(3, 30, 0));
+                row.Formula("1+1", cachedValue: 2.0);
+            }
+
+            wb.Finish();
+        }
+
+        ms.Position = 0;
+        using var loaded = new XLWorkbook(ms);
+        var ws = loaded.Worksheet("Cached");
+
+        await Assert.That(ws.Cell("A1").CachedValue.Type).IsEqualTo(XLDataType.DateTime);
+        await Assert.That(ws.Cell("A1").CachedValue.GetDateTime()).IsEqualTo(new DateTime(2026, 7, 27));
+        await Assert.That(ws.Cell("B1").CachedValue.GetDateTime())
+            .IsEqualTo(new DateTime(2026, 7, 27, 13, 45, 0));
+        await Assert.That(ws.Cell("C1").CachedValue.Type).IsEqualTo(XLDataType.TimeSpan);
+        await Assert.That(ws.Cell("C1").CachedValue.GetTimeSpan()).IsEqualTo(new TimeSpan(3, 30, 0));
+
+        // A numeric cached value must not pick up a date format.
+        await Assert.That(ws.Cell("D1").CachedValue.Type).IsEqualTo(XLDataType.Number);
+    }
+
+    /// <summary>
+    /// A formula's computed text is the value itself, not something a user typed, so a leading
+    /// apostrophe must survive rather than being absorbed into a quote-prefix style.
+    /// </summary>
+    [Test]
+    public async Task FormulaCachedTextKeepsALeadingApostrophe()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = XLStreamingWorkbook.Create(ms))
+        {
+            var sheet = wb.AddWorksheet("Quoted");
+            sheet.AddRow().Formula("CHAR(39)&\"x\"", cachedValue: "'x");
+            wb.Finish();
+        }
+
+        ms.Position = 0;
+        using var loaded = new XLWorkbook(ms);
+        await Assert.That(loaded.Worksheet("Quoted").Cell("A1").CachedValue.GetText()).IsEqualTo("'x");
+    }
+
+    [Test]
+    public async Task SharedStringTableReportsReferenceAndUniqueCounts()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = XLStreamingWorkbook.Create(ms))
+        {
+            var sheet = wb.AddWorksheet("Counts");
+            for (var i = 0; i < 5; i++)
+                sheet.AppendRow("repeated", "also repeated", i);
+
+            wb.Finish();
+        }
+
+        ms.Position = 0;
+        using var doc = SpreadsheetDocument.Open(ms, false);
+        var sst = doc.WorkbookPart!.SharedStringTablePart!.SharedStringTable;
+
+        // 10 text cells referencing 2 distinct strings.
+        await Assert.That(sst.Count!.Value).IsEqualTo(10U);
+        await Assert.That(sst.UniqueCount!.Value).IsEqualTo(2U);
     }
 
     [Test]
