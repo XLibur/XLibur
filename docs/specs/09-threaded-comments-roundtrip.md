@@ -3,7 +3,7 @@
 **Area:** Feature + Compatibility
 **Effort:** M (1–2 weeks)
 **Dependencies:** None.
-**Status:** Implemented — see [Implementation notes](#implementation-notes)
+**Status:** ✅ Implemented in PR #258 — see [Implementation notes](#implementation-notes)
 
 ## Summary
 

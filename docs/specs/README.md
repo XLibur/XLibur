@@ -12,13 +12,13 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 |---|------|------|--------|--------|-----------------|
 | 01 | [Streaming write API](01-streaming-write-api.md) | Feature · Arch · Memory | L | Proposed | Phase 1 refactor first, then independent |
 | 02 | [Load-path allocation elimination](02-load-path-allocations.md) | Perf (read) | M | ✅ **Done** (#175) | 3 independent sub-tasks |
-| 03 | [Save-path allocation reduction](03-save-path-allocations.md) | Perf (write) | M | Proposed | 7 small independent PRs |
+| 03 | [Save-path allocation reduction](03-save-path-allocations.md) | Perf (write) | M | In progress (see Results) | 7 small independent PRs |
 | 04 | [Demand-driven formula evaluation](04-demand-driven-formula-eval.md) | Perf · Arch | L | Proposed | Single owner (correctness-critical) |
 | 05 | [Structural-edit & bulk-style scalability](05-structural-edit-scalability.md) | Arch · Perf | L | Proposed | 3 independent workstreams |
-| 06 | [Workbook encryption (password files)](06-workbook-encryption.md) | Feature · Compat | L | Proposed | Container/crypto layers in parallel |
-| 07 | [Formula function coverage (257→~420)](07-formula-function-coverage.md) | Feature | L | Proposed | **6 fully independent waves** |
+| 06 | [Workbook encryption (password files)](06-workbook-encryption.md) | Feature · Compat | L | ✅ **Done** (#245) | Container/crypto layers in parallel |
+| 07 | [Formula function coverage (257→~420)](07-formula-function-coverage.md) | Feature | L | ✅ **Waves A–F done** (#252–#257) | **6 fully independent waves** |
 | 08 | [LET / LAMBDA](08-let-lambda.md) | Feature | L | Proposed | Single owner (engine core) |
-| 09 | [Threaded comments + round-trip fidelity](09-threaded-comments-roundtrip.md) | Feature · Compat | M | Proposed | Comments vs fidelity-audit split |
+| 09 | [Threaded comments + round-trip fidelity](09-threaded-comments-roundtrip.md) | Feature · Compat | M | ✅ **Done** (#258) | Comments vs fidelity-audit split |
 | 10 | [Chart formatting depth](10-chart-formatting-depth.md) | Feature | L | ✅ **Done** (PRs 1–4) | 4 PRs, 2–3 independent |
 | 11 | [Create-path allocation reduction](11-create-path-allocations.md) | Perf (write) | M | ✅ **Tasks 1–4 done** | Task 4 lands in 11; 05 rebases |
 
@@ -44,9 +44,9 @@ their 2D group elements, so XLibur's own 3D charts round-trip as 2D.
 
 **Performance (specs 02, 03, 04, 05).** The write cell-loop and the sheetData parse have both had a round of tuning; what remains, in measured order: per-cell string allocations on load (`<v>` + attributes + SST DOM), the ~543 MB formatted save (number formatting, inherited-style resolution, StyleKey hashing), the full-workbook-recalc cliff when reading one dirty formula cell (can build a 176 MB dependency tree to answer one read), and O(all-ranges·log) work per single row insert. Specs 02–05 attack each with concrete targets.
 
-**Features (specs 01, 07, 08, 10).** The fork already leads upstream on charts, dynamic arrays, in-cell images, sparklines, WebP/SVG. The gaps that matter: no bounded-memory export path for huge files (01), ~250 missing formula functions with a clean registry to extend (07), no LET/LAMBDA (08 — the one function family that needs engine work), and charts that couldn't be styled (10 — depth on the flagship differentiator, now done).
+**Features (specs 01, 07, 08, 10).** The fork already leads upstream on charts, dynamic arrays, in-cell images, sparklines, WebP/SVG. The gaps that matter: no bounded-memory export path for huge files (01 — still open), ~250 missing formula functions with a clean registry to extend (07 — waves A–F now done; only the optional day-count-basis set A2 remains), no LET/LAMBDA (08 — still open, the one function family that needs engine work), and charts that couldn't be styled (10 — depth on the flagship differentiator, now done).
 
-**Compatibility (specs 06, 09).** Password-encrypted files can't be opened or written at all (06 — hard blocker, zero code exists). Threaded comments are read lossily and silently downgraded on save; chartsheets, form controls, and slicers are dropped on round-trip (09).
+**Compatibility (specs 06, 09).** Both are now done. Password-encrypted files could not be opened or written at all — 06 added agile read/write and standard read (#245). Threaded comments were read lossily and downgraded on save — 09 gave them a real model and a write path (#258). 09's fidelity audit also **disproved its own premise**: chartsheets, form controls and slicers are *not* dropped on round-trip, because saving reopens the original package and rewrites only the parts XLibur models. See `docs/round-trip-fidelity.md`, which pins that behaviour with tests so a future rewrite cannot silently regress it.
 
 **Architecture (specs 01, 04, 05).** The three structural debts the surveys flagged: no streaming seam in the IO layer, calc-engine all-or-nothing recalculation, and materialize-everything patterns for range shift and style propagation (plus two redundant spatial indexes — QuadTree and RBush).
 
@@ -54,13 +54,17 @@ their 2D group elements, so XLibur's own 3D charts round-trip as 2D.
 
 ```
 Wave 1 (independent, start anytime):
-  02 load allocations ✅ done · 03 save allocations · 07 function waves A–F · 09 threaded comments
+  02 load allocations ✅ done · 03 save allocations (in progress) · 07 function waves A–F ✅ done
+  09 threaded comments ✅ done
   11 Tasks 1–4 ✅ done (−28.8% on the write benchmark; bulk styling −86% per cell)
 Wave 2 (after 03 lands, or coordinated):
-  01 streaming write (Phase 1 seam shared with 03's territory) · 06 encryption
-  10 charts ✅ done (PRs 1–4: series formatting, data labels, legend/axes, reader gaps)
+  01 streaming write (Phase 1 seam shared with 03's territory)
+  06 encryption ✅ done · 10 charts ✅ done (PRs 1–4: series formatting, data labels, legend/axes, reader gaps)
 Wave 3 (single-owner, correctness-critical — don't parallelize internally):
   04 demand-driven eval · 05 structural edits · 08 LET/LAMBDA (08 after or alongside 04)
+
+Remaining open work: 01 streaming write, 03 (finish), 04 demand-driven eval, 05 structural edits,
+08 LET/LAMBDA, plus the optional 07 wave A2 (day-count-basis financial functions).
 ```
 
 **Read spec 02's Results section before starting 03** — it corrects 03's number-formatting task

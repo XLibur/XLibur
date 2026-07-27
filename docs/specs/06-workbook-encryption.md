@@ -3,7 +3,7 @@
 **Area:** Feature + Compatibility
 **Effort:** L (3–4 weeks including interop testing)
 **Dependencies:** None.
-**Status:** Proposed
+**Status:** ✅ Implemented in PR #245 (tests #246, guide #249) — see [Implementation notes](#implementation-notes)
 
 ## Summary
 
@@ -92,3 +92,32 @@ Tasks 1–2 and 3–4 can run in parallel (container vs crypto). Test files go i
 - MS-OFFCRYPTO, MS-CFB (Microsoft open specifications).
 - NPOI `POIFS`/`CryptoAPI` (Apache-2.0) as a study reference.
 - Existing (different) feature: `XLibur/Excel/Protection/` — password *hashes* for edit protection, untouched by this spec.
+
+## Implementation notes
+
+> The **Summary** and **Design** sections above describe the codebase *before* this spec was
+> implemented. In particular, "zero encryption code exists in the repo today" is no longer true —
+> read them as the historical problem statement, not as current state.
+
+Landed in PR #245, with test coverage in #246 and a user guide in #249.
+
+What shipped, against the scope table:
+
+| Capability | Shipped |
+|---|---|
+| Read Agile (AES-CBC, SHA-512) | ✅ `IO/Encryption/Agile/` |
+| Read Standard (Office 2007) | ✅ `IO/Encryption/Standard/` |
+| Write Agile | ✅ `Agile/AgileCrypto.cs`, `AgileEncryptionDescriptor.cs` |
+| Write Standard | ❌ excluded by design |
+| XOR / RC4 legacy | ❌ excluded by design |
+
+Public surface is `LoadOptions.Password` and `SaveOptions.Password`; a workbook opened with a
+password is deliberately *not* re-encrypted on save unless one is supplied.
+
+### Deviation: OpenMcdf instead of an in-house CFB layer
+
+The design recommended writing a minimal in-house CFB reader/writer and flagged the MPL-2.0
+question for maintainer sign-off. The implementation took the dependency instead —
+`OpenMcdf 3.1.4`, referenced from `XLibur/XLibur.csproj`. This resolves acceptance criterion 4
+("no new NuGet dependency without maintainer license sign-off") in the affirmative rather than by
+avoidance, so the license decision is now a shipped fact rather than an open question.

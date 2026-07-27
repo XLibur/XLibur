@@ -3,7 +3,7 @@
 **Area:** Feature
 **Effort:** L total, but **highly parallelizable** — 6 independent waves, each a self-contained PR assignable to a different agent/model.
 **Dependencies:** None (waves are independent). LET/LAMBDA are explicitly **excluded** — see Spec 08 (they need parser/scoping work, not registration).
-**Status:** Proposed
+**Status:** ✅ All six waves implemented (#252–#257) — see [Implementation notes](#implementation-notes). Optional wave A2 not done.
 
 ## Summary
 
@@ -56,3 +56,25 @@ Notes: array-shaping functions are pure array→array transforms on the existing
 - Waves B and C both edit `Statistical.cs` — run them sequentially or have C branch from B.
 - All waves touch `FunctionRegistry.cs` — keep registrations grouped by category in the file to minimize merge conflicts; rebase order A → D → E → F → B → C is conflict-minimal.
 - Shared special-functions helper (Wave B) should land before or within B; C may reuse it.
+
+## Implementation notes
+
+All six waves landed, one PR each, in the merge order below rather than the suggested rebase order:
+
+| Wave | Scope | PR |
+|---|---|---|
+| A | Financial | #252 |
+| D | Engineering | #253 |
+| E | Modern text + array shaping | #254 |
+| F | Date/time + misc | #255 |
+| B | Statistical, modern dotted set | #256 |
+| C | Regression & descriptive statistics | #257 |
+
+Waves B and C both landed in `Statistical.cs` as the coordination note anticipated, and B's
+distributions were split into their own `Distributions.cs` alongside a `SampleStatistics.cs` helper
+that C reuses.
+
+**Optional wave A2 was not done.** The day-count-basis functions the spec carved out as a separate
+optional chunk — PRICE, YIELD, DURATION, MDURATION, ACCRINT and the COUP\* family — are still
+unregistered, since they need a 30/360 and actual/actual basis engine that nothing else requires.
+That remains available as a self-contained follow-on.
