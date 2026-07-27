@@ -241,6 +241,7 @@ var options = new SaveOptions
     ConsolidateDataValidationRanges = true,
     GenerateCalculationChain = true,
     FilterPrivacy = true,
+    CompressionLevel = CompressionLevel.Optimal,
 };
 
 workbook.SaveAs("Report.xlsx", options);
@@ -254,7 +255,17 @@ workbook.SaveAs("Report.xlsx", options);
 | `ConsolidateDataValidationRanges` | `true` | Same, for data validation |
 | `GenerateCalculationChain` | `true` | Write the calc chain part Excel uses to order recalculation |
 | `FilterPrivacy` | `null` | Set the privacy flag; `null` leaves it unchanged |
+| `CompressionLevel` | `Optimal` | How hard to compress the package — `Fastest` trades size for speed |
 | `Password` | `null` | Encrypt the saved file — see [Encryption](./encryption.md) |
+
+:::note `CompressionLevel` applies to new parts
+It is honoured for parts the save creates. Re-saving a workbook that was loaded from an existing
+file leaves that file's existing parts at whatever level they were originally written with, because
+those parts are updated rather than recreated. A workbook built from scratch is unaffected.
+
+[`XLStreamingOptions.CompressionLevel`](./streaming.md#compression) is the equivalent for a
+streaming write, where it applies to everything.
+:::
 
 The shorthand overloads cover the two common cases:
 

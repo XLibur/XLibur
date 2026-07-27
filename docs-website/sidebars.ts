@@ -14,6 +14,7 @@ const sidebars: SidebarsConfig = {
         'cells-and-ranges',
         'defined-names',
         'importing-exporting',
+        'streaming',
         'workbook-settings',
         'encryption',
       ],

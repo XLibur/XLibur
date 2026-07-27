@@ -196,6 +196,10 @@ return File(
     "report.xlsx");
 ```
 
+For an export large enough that buffering it is the problem,
+[`XLStreamingWorkbook`](./streaming.md#writing-to-a-web-response) writes straight to the response
+body instead — no `MemoryStream` and no ceiling on size.
+
 ## Putting it together
 
 A small end-to-end example — build a report, save it, reopen it, and amend a cell:

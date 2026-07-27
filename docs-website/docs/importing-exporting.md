@@ -2,7 +2,7 @@
 id: importing-exporting
 title: Importing and Exporting Data
 sidebar_label: Importing and Exporting
-description: Bulk-load collections, DataTables, and DataSets into a workbook, and read data back out — including streaming to a web response.
+description: Bulk-load collections, DataTables, and DataSets into a workbook, and read data back out — including returning a generated file from a web response.
 ---
 
 # Importing and Exporting Data
@@ -295,6 +295,15 @@ back, or use `ToArray()` on a `MemoryStream` as above.
 :::
 
 ## Performance notes
+
+:::tip When memory is the limit, not speed
+Everything below makes an export cheaper *within* the in-memory model, where the whole workbook
+exists before it is written. Past a few hundred thousand rows that model is itself the ceiling.
+
+[`XLStreamingWorkbook`](./streaming.md) writes rows straight into the file as you append them, so
+memory stays flat — a million rows by ten columns costs around 108 MB against roughly a gigabyte.
+The trade is that it is append-only, with no reading back, no tables and no pivots.
+:::
 
 For large exports, a few habits make a substantial difference:
 
