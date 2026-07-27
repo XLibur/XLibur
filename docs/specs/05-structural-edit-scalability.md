@@ -3,7 +3,9 @@
 **Area:** Architecture + Performance
 **Effort:** L (2–3 weeks; can split into 3 independent PRs)
 **Dependencies:** None.
-**Status:** Proposed
+**Status:** ✅ Done — see [Results](#results). Two acceptance criteria were disproved rather than met;
+workstream C1 was declined on evidence. Read Results before acting on the design below, which
+mis-attributes the cost it set out to fix.
 
 ## Summary
 
@@ -75,3 +77,161 @@ Evaluate replacing the QuadTree in `XLRangeIndex` with `RBush.Signed` (already a
 ## References
 
 - Architecture survey §5 (pain points), `AllocationBenchmarks.cs` (`ShiftFormulaRows`), recent regression-relevant fixes: #158 (CF shift), #142 (named range shrink), #157 (page break extents).
+
+## Results
+
+### The spec attributed the cost to the wrong thing
+
+The first thing built was not a fix but a measurement: `StructuralEditProfile`
+(`-- profile structural`). It runs 1,000 single-row inserts and separates the two costs an insert
+pays — the range-shift pass and the formula shift — by placing the sheet's content either *below* the
+insert point (so the shift reaches it) or *above* it (so it cannot). The gap between those isolates
+the cost of **visiting** candidates from the cost of **moving** them. The insert row is held fixed
+across probes, because moving it would also change how many rows `XLRowsCollection.ShiftRowsDown`
+renumbers and confound the comparison.
+
+Baseline, 1,000 inserts into a sheet with 1,000 live ranges and 1,000 formula cells:
+
+| probe | ms | share |
+|---|---:|---:|
+| empty sheet — no ranges, no formulas | 671 | 14% |
+| formula shift | 3,244 | 68% |
+| range-shift pass | 359 | 8% |
+| — of which, visiting ranges the shift cannot reach | 83 | 2% |
+| **total** | **4,753** | |
+
+The spec's premise — "every insert materializes and sorts **every live range in the worksheet**" — is
+literally true and accounts for 8% of the workload its own acceptance criterion names. Formula
+shifting, which the spec files third under workstream A, is 68%.
+
+### A2: the index was declined, and the reason is the point
+
+A2 prescribes replacing the repository scan with a query against `XLRangeIndex`. That cannot be done
+as written: `_rangeRepository` is a `ConcurrentDictionary<XLRangeKey, WeakReference<XLRangeBase>>`
+holding every live range object, and it has **no spatial index at all**. `XLRangeIndex` covers only
+ranges explicitly added to an `XLRanges` collection — merged ranges, CF targets — which is a small
+subset. A2 was therefore not "use the existing index" but "build a new one".
+
+It was not built, because the scan is not the expense. Filtering the candidates by the same condition
+`XLRangeShiftHelper` uses to decide whether to move anything, and sorting only the survivors, made
+unreachable ranges **free**:
+
+| probe | before | after A2 |
+|---|---:|---:|
+| empty sheet | 592 ms | 665 ms |
+| 1,000 ranges above the insert (no-ops) | 812 ms | 585 ms |
+| 1,000 ranges below the insert (all move) | 849 ms | 888 ms |
+
+The no-op case is now indistinguishable from an empty sheet, which says enumerating a thousand weak
+references costs nothing measurable. What cost was the virtual dispatch and address arithmetic per
+range, plus sorting a collection that mostly did not need visiting. An index would remove only the
+enumeration that is already free, while adding a second source of truth over a weak-reference store
+that is mutated *during* the iteration it would serve — every affected range relocates as the pass
+runs, rewriting repository keys through `RelocateRange`. The ranges that remain expensive are the
+ones that genuinely move, and no index avoids those.
+
+### A3: the parser rewrite, and what was actually slow about the regex
+
+The regex was not the problem. For every matched address the old shifter called
+`Workbook.Worksheet(name).Range(addr)`, materialising a live `XLRange` through the range repository —
+once per reference, per formula, per shift. That is what made 1,000 inserts over 1,000 formula cells
+allocate 5.4 GB. `ClosedXML.Parser` hands back each reference already decomposed into row/column
+values and relative/absolute markers, so no address is re-parsed, and it knows which spans are string
+literals, so the quote-parity scan goes too.
+
+| probe | before | after |
+|---|---:|---:|
+| 1,000 formulas below (affected) | 3,915 ms / 5,386 MB | 1,012 ms / 1,201 MB |
+| 1,000 formulas above (no-ops) | 1,827 ms / 2,523 MB | 674 ms / 602 MB |
+| ranges + formulas below | 4,753 ms / 6,091 MB | 1,539 ms / 2,079 MB |
+
+Formulas the parser rejects (external workbook references such as `'[file.xlsx]Sheet'!A1`) fall back
+to the regex implementation, kept in `XLCellFormulaShifter.Legacy.cs`.
+
+Equivalence is pinned by `FormulaShifterCorpus.tsv`: 2,072 (formula, shifted range, shift, host sheet)
+combinations generated from the old implementation, driven by `FormulaShifterCorpusTests`. Regenerate
+with `-- profile shiftercorpus`, which writes the corpus to stdout and reports divergences from the
+legacy path on stderr.
+
+### A3 found a correctness bug, so criterion 4 has a documented exception
+
+Nine of the 2,072 cases diverge, all one bug: a deletion that removes the **tail** of a reference
+computed the new bottom edge as `last + shift` with no clamp to the row above the deletion.
+
+| formula | deletion | was | now |
+|---|---|---|---|
+| `3:5` | rows 5–7 | `3:2` | `3:4` |
+| `4:8` | rows 5–9 | `4:3` | `4:4` |
+| `B3:B7` | rows 5–9 | `B3:B2` | `B3:B4` |
+| `A2:A8` | rows 5–9 | `A2:A3` | `A2:A4` |
+| `B:D` | cols 4–6 | `B:A` | `B:C` |
+
+The outputs it replaces were inverted ranges or silently dropped a surviving row — `A2:A8` losing
+row 4 is the one most likely to have been hit in practice. The other 2,063 cases are byte-identical.
+
+Two things the corpus caught that a smaller test set would not have: cross-sheet resolution (an
+unqualified reference means the sheet its formula lives on, which only matches when the formula is on
+the sheet *being shifted* — the first cut compared the wrong two names and stopped shifting every
+cross-sheet reference, caught by the `ShiftingFormulas` golden file), and
+`ReferenceArea.GetDisplayStringA1()` collapsing a degenerate area, which would have rewritten
+`A5:A10` as `A5` when a deletion narrowed it to one cell.
+
+### Criterion 1 is not met, and cannot be met by workstream A
+
+> Inserting 1,000 rows one-by-one into a sheet with 1,000 live ranges: ≥ 10× faster than main.
+
+That exact workload — ranges, no formulas — went **1,030 ms → 888 ms (1.16×)**. Its cost is 665 ms of
+fixed per-insert work on an *empty* sheet plus ~220 ms of range moves that genuinely have to happen.
+The criterion describes a workload whose cost the spec never located.
+
+The workload the spec was *reaching* for — ranges **and** formulas, which is what a real sheet has —
+went **4,753 ms → 1,539 ms (3.1×)**.
+
+Getting to 10× needs the 665 ms fixed cost, which is out of this spec's scope and not yet diagnosed.
+`ShiftRowsDown`'s per-insert LINQ chain and sort were the obvious suspect and were removed; it made no
+measurable difference. With ~1,000 materialised rows the sort is ~10k int comparisons, while the same
+pass makes ~1,000 `SetRowNumber` calls, each running `OnRangeAddressChanged` → `RelocateRange`: a
+`ConcurrentDictionary` probe plus a walk of the registered range indexes. For `XLRow` that probe
+always misses — rows live in `RowsCollection` and are never stored in the repository. Removing that
+waste needs `RelocateRange` to know which range types can actually be stored or indexed, which is a
+change to the repository contract. **That is the next thing to do, and it is where the remaining 43%
+of this workload is.**
+
+### Criterion 3 is mis-stated, like spec 11's criterion 2 was
+
+> Styling a 100K-cell range allocates O(distinct styles), not O(cells).
+
+It allocates O(cells) — 324 KB, 3,236 KB, 32,264 KB for 10K, 100K, 1M — and no implementation can make
+it otherwise: styling N cells writes N entries into the style slice and the slice must grow to hold
+them. `BulkStyleBenchmarks` measures three sizes precisely because one size cannot distinguish
+"allocates per cell" from "allocates per style".
+
+What matters is the constant: **~33 bytes/cell**, all slice storage, against ~234 bytes/cell before
+spec 11's Task 4. Both linear; only one mostly waste. A future revision should state the criterion as
+a constant, not a complexity class.
+
+### Workstream B was already done
+
+B1 landed as spec 11's Task 4 (#185), which rewrote `XLStylizedBase.ModifyStyle`/`SetStyle` onto the
+slice-walking path — the conflict map at the top of `docs/specs/README.md` had already flagged that
+05 must rebase onto 11. Only B2, the benchmark, was outstanding.
+
+### C1 not done
+
+The RBush-vs-QuadTree prototype was not built. Nothing measured in this spec touches `XLRangeIndex`:
+the range-shift pass reads the repository, not the index, and after A2 its remaining cost is real
+range moves. A consolidation is still defensible as maintenance — two spatial structures, one of them
+391 lines — but it is not a performance change, and this spec produced no evidence either way.
+
+### Status by task
+
+| # | Task | Outcome |
+|---|------|---------|
+| A1 | Counting test; fix to single batch notify | Test added. No fix needed — batch notify already correct; the spec guessed right that it "may partially work already". |
+| A2 | Index-driven `NotifyRangeShifted*` | Done as a filter, not an index. Index declined on evidence (above). |
+| A3 | Slice-level formula shift | Done, on `ClosedXML.Parser`. 3.9× on the isolated formula workload. Fixed a reference-shifting bug. |
+| A4 | *(not in the original plan)* fixed per-insert cost | Sort removed from `ShiftRowsDown`; no measurable effect. Real cause identified, not fixed. |
+| B1 | Bulk style path | Already shipped in #185. |
+| B2 | `BulkStyleBenchmarks` | Done; disproves criterion 3 as worded. |
+| C1 | RBush-vs-QuadTree | Not done. |
+| C2 | `FindUsedColumn` / `XLRanges.Ranges` de-LINQ | Done. |

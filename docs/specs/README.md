@@ -14,7 +14,7 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 02 | [Load-path allocation elimination](02-load-path-allocations.md) | Perf (read) | M | ✅ **Done** (#175) | 3 independent sub-tasks |
 | 03 | [Save-path allocation reduction](03-save-path-allocations.md) | Perf (write) | M | In progress (see Results) | 7 small independent PRs |
 | 04 | [Demand-driven formula evaluation](04-demand-driven-formula-eval.md) | Perf · Arch | L | Proposed | Single owner (correctness-critical) |
-| 05 | [Structural-edit & bulk-style scalability](05-structural-edit-scalability.md) | Arch · Perf | L | Proposed | 3 independent workstreams |
+| 05 | [Structural-edit & bulk-style scalability](05-structural-edit-scalability.md) | Arch · Perf | L | ✅ **Done** (see Results; C1 declined) | 3 independent workstreams |
 | 06 | [Workbook encryption (password files)](06-workbook-encryption.md) | Feature · Compat | L | ✅ **Done** (#245) | Container/crypto layers in parallel |
 | 07 | [Formula function coverage (257→~420)](07-formula-function-coverage.md) | Feature | L | ✅ **Waves A–F done** (#252–#257) | **6 fully independent waves** |
 | 08 | [LET / LAMBDA](08-let-lambda.md) | Feature | L | Proposed | Single owner (engine core) |
@@ -39,6 +39,18 @@ surfaced three long-standing schema violations in the chart writer, and the read
 one-cell/absolute anchored charts and every 3D or of-pie chart group. All fixed; see spec 10's four
 Results sections. **Still open there:** the writer emits 3D pie/line/area and every surface type as
 their 2D group elements, so XLibur's own 3D charts round-trip as 2D.
+
+Spec 05 landed, and its main output is a correction to its own premise. It attributed the cost of
+one-at-a-time row inserts to the range-shift pass materialising and sorting every live range; measured,
+that is 8% of the workload its acceptance criterion names, and formula shifting is 68%. Two of its five
+acceptance criteria were **disproved rather than met** — criterion 1 describes a workload dominated by a
+fixed per-insert cost the spec never located, and criterion 3 asks for a complexity class that no
+implementation can deliver. The prescribed spatial index over the range repository was declined on
+evidence: a filter made unreachable ranges free, which showed the enumeration an index would remove was
+never the expense. The real win was elsewhere — rewriting reference shifting onto `ClosedXML.Parser` cut
+the combined workload 4,753 ms → 1,539 ms and fixed a reference-shifting bug (a deletion removing the
+tail of a range dropped a surviving row: `A2:A8` with rows 5–9 deleted gave `A2:A3`, not `A2:A4`). See
+spec 05's Results for the decomposition and for where the remaining 43% is.
 
 Spec 01 landed and resolved the packaging hotspot spec 03 had deferred to it. The blocker was not
 part *lifetime*, as 01 assumed, but part *buffering*: `System.IO.Packaging` opens a package
@@ -70,10 +82,12 @@ Wave 2 (after 03 lands, or coordinated):
   01 streaming write ✅ done (leaf serializers shared with 03's territory, not an enumeration seam)
   06 encryption ✅ done · 10 charts ✅ done (PRs 1–4: series formatting, data labels, legend/axes, reader gaps)
 Wave 3 (single-owner, correctness-critical — don't parallelize internally):
-  04 demand-driven eval · 05 structural edits · 08 LET/LAMBDA (08 after or alongside 04)
+  04 demand-driven eval · 05 structural edits ✅ done (C1 declined) · 08 LET/LAMBDA (08 after or alongside 04)
 
-Remaining open work: 03 (finish), 04 demand-driven eval, 05 structural edits, 08 LET/LAMBDA,
-plus the optional 07 wave A2 (day-count-basis financial functions).
+Remaining open work: 03 (finish), 04 demand-driven eval, 08 LET/LAMBDA, plus the optional 07
+wave A2 (day-count-basis financial functions). Spec 05 leaves one follow-on it did not scope:
+the ~665 ms of fixed per-insert cost paid on an empty sheet, which its Results section traces
+to RelocateRange probing the range repository for XLRow instances that are never stored there.
 ```
 
 **Read spec 02's Results section before starting 03** — it corrects 03's number-formatting task
