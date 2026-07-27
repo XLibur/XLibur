@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -99,18 +100,59 @@ internal sealed class XLRowsCollection : IDictionary<int, XLRow>
 
     #endregion IDictionary<int,XLRow> Members
 
+    /// <summary>
+    /// Renumbers every materialised row at or below <paramref name="startingRow"/> by
+    /// <paramref name="rowsToShift"/>. Rows pushed past the last row of the sheet are dropped.
+    /// </summary>
+    /// <remarks>
+    /// Every affected row is detached before any of them is renumbered, which is what lets the sort go.
+    /// The previous implementation walked the keys in descending order so that each row's destination
+    /// was guaranteed free, and paid for that ordering with a LINQ chain and an O(n log n) sort over a
+    /// materialised key list — on every single-row insert, not once per batch. Emptying the affected
+    /// keys first makes every destination free by construction, so the order rows are re-added in stops
+    /// mattering. Inserting one row at a time into a sheet of n rows is still O(n) per insert, since
+    /// each row below genuinely has to be renumbered; this removes the sort and the allocation on top
+    /// of it.
+    /// <para>
+    /// Rows are added straight to the backing dictionary, not through <see cref="Add(int, XLRow)"/>:
+    /// moving a row must not touch <c>_maxRowUsed</c> or clear the deleted-row record, and the previous
+    /// implementation did not either.
+    /// </para>
+    /// </remarks>
     public void ShiftRowsDown(int startingRow, int rowsToShift)
     {
-        foreach (var ro in _dictionary.Keys.Where(k => k >= startingRow).OrderByDescending(k => k).ToList())
+        if (_dictionary.Count == 0)
+            return;
+
+        var moving = ArrayPool<KeyValuePair<int, XLRow>>.Shared.Rent(_dictionary.Count);
+        try
         {
-            var rowToMove = _dictionary[ro];
-            _dictionary.Remove(ro);
-            var newRowNum = ro + rowsToShift;
-            if (newRowNum <= XLHelper.MaxRowNumber)
+            var count = 0;
+            foreach (var pair in _dictionary)
             {
-                rowToMove.SetRowNumber(newRowNum);
-                _dictionary.Add(newRowNum, rowToMove);
+                if (pair.Key >= startingRow)
+                    moving[count++] = pair;
             }
+
+            for (var i = 0; i < count; i++)
+                _dictionary.Remove(moving[i].Key);
+
+            for (var i = 0; i < count; i++)
+            {
+                var newRowNumber = moving[i].Key + rowsToShift;
+                if (newRowNumber > XLHelper.MaxRowNumber)
+                    continue;
+
+                var row = moving[i].Value;
+                row.SetRowNumber(newRowNumber);
+                _dictionary.Add(newRowNumber, row);
+            }
+        }
+        finally
+        {
+            // Cleared on return: the pool hands the buffer on, and stale XLRow references in it would
+            // keep whole worksheets alive.
+            ArrayPool<KeyValuePair<int, XLRow>>.Shared.Return(moving, clearArray: true);
         }
     }
 }
