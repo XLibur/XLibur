@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel.Coordinates;
@@ -421,19 +422,53 @@ internal sealed class XLCellsCollection : IWorkbookListener
         }
     }
 
+    /// <summary>
+    /// The first or last column in <paramref name="range"/> holding a cell that counts as used under
+    /// <paramref name="options"/>, or 0 if there is none.
+    /// </summary>
+    /// <remarks>
+    /// The candidate columns come from <see cref="ColumnsUsedKeys"/>, which already merges the four
+    /// slices and caches the result until a slice changes. The previous implementation rebuilt that
+    /// merge per call as <c>Concat</c> x4 -> <c>Where</c> -> <c>Distinct</c> -> <c>OrderBy</c>, so every
+    /// <c>FirstColumnUsed</c>/<c>LastColumnUsed</c> allocated four iterators, a hash set and a sorted
+    /// buffer over every used column in the sheet — beside a cache built for exactly this.
+    /// </remarks>
     private int FindUsedColumn(Area range, XLCellsUsedOptions options, Func<IXLCell, bool>? predicate, bool descending)
     {
-        var usedColumns = Enumerable.Empty<int>();
-        foreach (var slice in _slices)
-            usedColumns = usedColumns.Concat(slice.UsedColumns);
+        var firstColumn = range.FirstPoint.Column;
+        var lastColumn = range.LastPoint.Column;
 
-        usedColumns = usedColumns
-            .Where(c => c >= range.FirstPoint.Column && c <= range.LastPoint.Column)
-            .Distinct();
-        usedColumns = descending
-            ? usedColumns.OrderByDescending(x => x)
-            : usedColumns.OrderBy(x => x);
+        var candidates = ColumnsUsedKeys;
+        if (candidates.Count == 0)
+            return 0;
 
+        var buffer = ArrayPool<int>.Shared.Rent(candidates.Count);
+        int count;
+        try
+        {
+            count = 0;
+            foreach (var column in candidates)
+            {
+                if (column >= firstColumn && column <= lastColumn)
+                    buffer[count++] = column;
+            }
+
+            var columns = buffer.AsSpan(0, count);
+            columns.Sort();
+            if (descending)
+                columns.Reverse();
+
+            return ScanColumns(range, columns, options, predicate);
+        }
+        finally
+        {
+            ArrayPool<int>.Shared.Return(buffer);
+        }
+    }
+
+    private int ScanColumns(Area range, ReadOnlySpan<int> usedColumns, XLCellsUsedOptions options,
+        Func<IXLCell, bool>? predicate)
+    {
         foreach (var columnNumber in usedColumns)
         {
             var enumerator = new SlicesEnumerator(new Area(range.FirstPoint.Row, columnNumber, range.LastPoint.Row, columnNumber), this);

@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Ranges.Index;
 using XLibur.Extensions;
@@ -252,9 +253,18 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
 
     public override string ToString()
     {
-        var retVal = Ranges.Aggregate(string.Empty, (agg, r) => agg + (r + ","));
-        if (retVal.Length > 0) retVal = retVal.Substring(0, retVal.Length - 1);
-        return retVal;
+        // Was Aggregate over string concatenation, which rebuilds the whole accumulated string once
+        // per range — quadratic in the number of ranges, on a collection that can hold thousands.
+        var builder = new StringBuilder();
+        foreach (var range in Ranges)
+        {
+            if (builder.Length > 0)
+                builder.Append(',');
+
+            builder.Append(range);
+        }
+
+        return builder.ToString();
     }
 
     public override bool Equals(object? obj)
@@ -267,8 +277,25 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
         if (other == null)
             return false;
 
-        return Ranges.Count() == other.Ranges.Count() &&
-               Ranges.Select(thisRange => other.Ranges.Contains(thisRange)).All(foundOne => foundOne);
+        // Was Ranges.Select(r => other.Ranges.Contains(r)).All(...): a linear scan of the other
+        // collection per range, and a fresh SelectMany over its indexes for each of those scans.
+        // Hashing the other side once makes it O(n).
+        //
+        // Note this is equality, not coverage — IXLRanges.Contains(IXLRange) asks whether some range
+        // *covers* the argument, which is a different question and would quietly change what two
+        // collections being equal means.
+        var otherRanges = new HashSet<XLRange>(other.Ranges);
+
+        var count = 0;
+        foreach (var range in Ranges)
+        {
+            if (!otherRanges.Contains(range))
+                return false;
+
+            count++;
+        }
+
+        return count == otherRanges.Count;
     }
 
     public override int GetHashCode()
