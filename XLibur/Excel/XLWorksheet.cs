@@ -1247,10 +1247,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     {
         RangeShiftPasses++;
 
-        var rangesToShift = _rangeRepository
-            .Where(r => r.RangeAddress.IsValid)
-            .OrderBy(r => r.RangeAddress.FirstAddress.RowNumber * -Math.Sign(rowsShifted))
-            .ToList();
+        var rangesToShift = CollectRangesShiftedByRows(range, rowsShifted);
 
         WorksheetRangeShiftedRows(range, rowsShifted);
 
@@ -1262,9 +1259,6 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         var collapsed = false;
         foreach (var storedRange in rangesToShift)
         {
-            if (storedRange.IsEntireColumn())
-                continue;
-
             if (ReferenceEquals(range, storedRange))
                 continue;
 
@@ -1285,10 +1279,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     {
         RangeShiftPasses++;
 
-        var rangesToShift = _rangeRepository
-            .Where(r => r.RangeAddress.IsValid)
-            .OrderBy(r => r.RangeAddress.FirstAddress.ColumnNumber * -Math.Sign(columnsShifted))
-            .ToList();
+        var rangesToShift = CollectRangesShiftedByColumns(range, columnsShifted);
 
         WorksheetRangeShiftedColumns(range, columnsShifted);
 
@@ -1298,9 +1289,6 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         var collapsed = false;
         foreach (var storedRange in rangesToShift)
         {
-            if (storedRange.IsEntireRow())
-                continue;
-
             if (ReferenceEquals(range, storedRange))
                 continue;
 
@@ -1315,6 +1303,101 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         {
             range.WorksheetRangeShiftedColumns(range, columnsShifted);
         }
+    }
+
+    /// <summary>
+    /// The live ranges a row shift can actually move, ordered so that a range never lands on an address
+    /// another range still occupies.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The predicate mirrors <see cref="XLRangeShiftHelper.ShiftRows"/>: a range moves only if the
+    /// shifted range spans it horizontally and it extends to or past the shift line. Everything else is
+    /// returned unchanged by the shift, so calling it is a no-op — but it used to be called anyway, and
+    /// worse, sorted first. The sort now sees only the ranges that will move.
+    /// </para>
+    /// <para>
+    /// Dropping the no-ops cannot change the <c>collapsed</c> decision the callers make, even though
+    /// that decision is evaluated for every visited range. <c>collapsed</c> asks whether some range now
+    /// sits exactly on the shifted range's address — and a range at that address is spanned by it and
+    /// ends at or past its first row, so it always satisfies the predicate. A range the predicate
+    /// rejects cannot be at that address, and cannot move onto it either, since it does not move at all.
+    /// </para>
+    /// <para>
+    /// Entire-column ranges are excluded here rather than skipped in the loop, which is where the old
+    /// code skipped them — before its <c>collapsed</c> check, so they could never set it. Same outcome.
+    /// </para>
+    /// </remarks>
+    private List<XLRangeBase> CollectRangesShiftedByRows(XLRange range, int rowsShifted)
+    {
+        var shifted = range.RangeAddress;
+        var shiftFirstRow = shifted.FirstAddress.RowNumber;
+        var shiftFirstColumn = shifted.FirstAddress.ColumnNumber;
+        var shiftLastColumn = shifted.LastAddress.ColumnNumber;
+
+        var affected = new List<XLRangeBase>();
+        foreach (var stored in _rangeRepository)
+        {
+            var address = stored.RangeAddress;
+            if (!address.IsValid || stored.IsEntireColumn())
+                continue;
+
+            if (address.LastAddress.RowNumber < shiftFirstRow)
+                continue;
+
+            if (address.FirstAddress.ColumnNumber < shiftFirstColumn ||
+                address.LastAddress.ColumnNumber > shiftLastColumn)
+                continue;
+
+            affected.Add(stored);
+        }
+
+        // Furthest-first when inserting, nearest-first when deleting: a range must vacate its key
+        // before the range behind it claims it, or XLRepositoryBase.Replace drops the move and the
+        // range silently detaches. Unstable sort is fine — ties share a first row, and the repository
+        // enumerates in no defined order to begin with, so there is no prior order to preserve.
+        var direction = -Math.Sign(rowsShifted);
+        affected.Sort((left, right) =>
+            (left.RangeAddress.FirstAddress.RowNumber * direction)
+            .CompareTo(right.RangeAddress.FirstAddress.RowNumber * direction));
+
+        return affected;
+    }
+
+    /// <summary>
+    /// Column-wise counterpart of <see cref="CollectRangesShiftedByRows"/>; see it for why filtering
+    /// here is safe.
+    /// </summary>
+    private List<XLRangeBase> CollectRangesShiftedByColumns(XLRange range, int columnsShifted)
+    {
+        var shifted = range.RangeAddress;
+        var shiftFirstColumn = shifted.FirstAddress.ColumnNumber;
+        var shiftFirstRow = shifted.FirstAddress.RowNumber;
+        var shiftLastRow = shifted.LastAddress.RowNumber;
+
+        var affected = new List<XLRangeBase>();
+        foreach (var stored in _rangeRepository)
+        {
+            var address = stored.RangeAddress;
+            if (!address.IsValid || stored.IsEntireRow())
+                continue;
+
+            if (address.LastAddress.ColumnNumber < shiftFirstColumn)
+                continue;
+
+            if (address.FirstAddress.RowNumber < shiftFirstRow ||
+                address.LastAddress.RowNumber > shiftLastRow)
+                continue;
+
+            affected.Add(stored);
+        }
+
+        var direction = -Math.Sign(columnsShifted);
+        affected.Sort((left, right) =>
+            (left.RangeAddress.FirstAddress.ColumnNumber * direction)
+            .CompareTo(right.RangeAddress.FirstAddress.ColumnNumber * direction));
+
+        return affected;
     }
 
     private void CheckRangeNotOverlappingOtherEntities(XLRange range)
