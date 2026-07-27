@@ -16,7 +16,7 @@ internal static class FormulaTransformation
     /// so the parser does not misinterpret them as range operators. The fullwidth colon is valid
     /// in the parser's grammar for column names but won't be treated as a range separator.
     /// </summary>
-    private const char ColonPlaceholder = '\uFF1A';
+    internal const char ColonPlaceholder = '\uFF1A';
 
     private static readonly Lazy<PrefixTree> FutureFunctionSet =
         new(() => PrefixTree.Build(XLConstants.FutureFunctionMap.Value.Keys));
@@ -96,7 +96,7 @@ internal static class FormulaTransformation
     /// for plain ranges like <c>SUM(A1:A10)</c>) cost nothing beyond the scan.
     /// </para>
     /// </summary>
-    private static string ProtectStructuredRefColons(string formula, out bool wasProtected)
+    internal static string ProtectStructuredRefColons(string formula, out bool wasProtected)
     {
         wasProtected = false;
 

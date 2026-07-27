@@ -1,430 +1,326 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text;
-using System.Text.RegularExpressions;
-using XLibur.Excel.Coordinates;
+using ClosedXML.Parser;
+using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
+/// <summary>
+/// Repoints the references inside a formula when rows or columns are inserted or deleted.
+/// <para>
+/// References are located with <see cref="ClosedXML.Parser"/> rather than a regex. The parser knows
+/// which spans of the formula are references and which are string literals, function names or
+/// structured references, and it hands back each reference already decomposed into row/column values
+/// and relative/absolute markers. That removes two whole classes of work the regex path needed: the
+/// quote-parity scan that decided whether a match sat inside a string literal, and — far more
+/// expensive — re-parsing every matched address by materialising a live <c>XLRange</c> through the
+/// worksheet's range repository, once per reference, per formula, per shift.
+/// </para>
+/// <para>
+/// Formulas the parser rejects (external workbook references such as <c>'[file.xlsx]Sheet'!A1</c>)
+/// fall back to the regex implementation in <c>XLCellFormulaShifter.Legacy.cs</c>, so no formula that
+/// shifted before stops shifting now.
+/// </para>
+/// </summary>
 internal static partial class XLCellFormulaShifter
 {
-    private const string RefError = "#REF!";
-
-    private static readonly Regex A1SimpleRegex = A1SimpleRegexGenerated();
-
-    private static readonly Regex A1RowRegex = A1RowRegexGenerated();
-
-    private static readonly Regex A1ColumnRegex = A1ColumnRegexGenerated();
-
     internal static string ShiftFormulaRows(string formulaA1, XLWorksheet worksheetInAction, XLRange shiftedRange,
         int rowsShifted)
-    {
-        if (string.IsNullOrWhiteSpace(formulaA1)) return string.Empty;
-
-        var value = formulaA1;
-        var sb = new StringBuilder();
-        var lastIndex = 0;
-        var shiftedWsName = shiftedRange.Worksheet.Name;
-
-        foreach (Match match in A1SimpleRegex.Matches(value))
-        {
-            var matchString = match.Value;
-            var matchIndex = match.Index;
-            if (value.AsSpan(0, matchIndex).Count('"') % 2 == 0)
-            {
-                sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex));
-                var (sheetName, useSheetName) = ExtractSheetName(matchString, worksheetInAction);
-
-                if (String.Compare(sheetName, shiftedWsName, StringComparison.OrdinalIgnoreCase) == 0)
-                    AppendShiftedRowMatch(sb, matchString, sheetName, useSheetName, worksheetInAction, shiftedRange, rowsShifted);
-                else
-                    sb.Append(matchString);
-            }
-            else
-                sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex + matchString.Length));
-
-            lastIndex = matchIndex + matchString.Length;
-        }
-
-        if (lastIndex < value.Length)
-            sb.Append(value.AsSpan(lastIndex));
-
-        return sb.ToString();
-    }
-
-    private static (string sheetName, bool useSheetName) ExtractSheetName(string matchString, XLWorksheet worksheetInAction)
-    {
-        if (matchString.Contains('!'))
-        {
-            var sheetName = matchString.Substring(0, matchString.IndexOf('!'));
-            if (sheetName[0] == '\'')
-                sheetName = sheetName.Substring(1, sheetName.Length - 2).Replace("''", "'");
-            return (sheetName, true);
-        }
-
-        return (worksheetInAction.Name, false);
-    }
-
-    private static void AppendShiftedRowMatch(StringBuilder sb, string matchString, string sheetName, bool useSheetName,
-        XLWorksheet worksheetInAction, XLRange shiftedRange, int rowsShifted)
-    {
-        var rangeAddress = matchString.Substring(matchString.IndexOf('!') + 1);
-        if (A1ColumnRegex.IsMatch(rangeAddress))
-        {
-            sb.Append(matchString);
-            return;
-        }
-
-        var matchRange = worksheetInAction.Workbook.Worksheet(sheetName).Range(rangeAddress);
-        if (!IsRowRangeWithinShiftedRange(shiftedRange, matchRange))
-        {
-            sb.Append(matchString);
-            return;
-        }
-
-        if (useSheetName)
-        {
-            sb.Append(sheetName.EscapeSheetName());
-            sb.Append('!');
-        }
-
-        if (IsDeletedEntirelyByRowShift(shiftedRange, matchRange, rowsShifted))
-            sb.Append(RefError);
-        else if (A1RowRegex.IsMatch(rangeAddress))
-            AppendShiftedRowOnlyRange(sb, rangeAddress, shiftedRange, matchRange, rowsShifted);
-        else if (shiftedRange.RangeAddress.FirstAddress.RowNumber <= matchRange.RangeAddress.FirstAddress.RowNumber)
-        {
-            if (IsTopBoundaryDeletion(shiftedRange, matchRange, rowsShifted))
-                AppendClampedTopRowShift(sb, worksheetInAction, shiftedRange, matchRange, rowsShifted);
-            else
-                AppendShiftedRowCellRange(sb, worksheetInAction, matchRange, rangeAddress, rowsShifted);
-        }
-        else
-            AppendPartialRowShift(sb, worksheetInAction, matchRange, rowsShifted);
-    }
-
-    /// <summary>
-    /// True when a row deletion removes every row of <paramref name="matchRange"/>. Excel replaces such
-    /// a reference with <c>#REF!</c> rather than repointing it, so deleting rows 1-5 turns <c>A1:B2</c>
-    /// into <c>#REF!</c>. Without this the shifted endpoints would be negative and
-    /// <see cref="XLHelper.TrimRowNumber"/> would clamp them back to row 1, leaving the reference
-    /// pointing at a surviving row it never covered (<c>A1:B1</c>). See ClosedXML/ClosedXML#880.
-    /// </summary>
-    private static bool IsDeletedEntirelyByRowShift(XLRange shiftedRange, IXLRange matchRange, int rowsShifted)
-    {
-        return rowsShifted < 0
-            && matchRange.RangeAddress.FirstAddress.RowNumber >= shiftedRange.RangeAddress.FirstAddress.RowNumber
-            && matchRange.RangeAddress.LastAddress.RowNumber + rowsShifted <
-               shiftedRange.RangeAddress.FirstAddress.RowNumber;
-    }
-
-    /// <summary>
-    /// True when a row deletion removes the top boundary of <paramref name="matchRange"/> while some
-    /// rows below the deletion survive. Excel keeps the range's top row fixed at the deletion start and
-    /// shifts only the bottom up (shrink + shift), e.g. deleting row 3 turns A3:A4 into A3:A3. Shifting
-    /// both endpoints (as for a range that is entirely below the deletion) would instead expand the range
-    /// upward to A2:A3. See issue #2866.
-    /// </summary>
-    private static bool IsTopBoundaryDeletion(XLRange shiftedRange, IXLRange matchRange, int rowsShifted)
-    {
-        return rowsShifted < 0
-            && matchRange.RangeAddress.FirstAddress.RowNumber <= shiftedRange.RangeAddress.LastAddress.RowNumber
-            && matchRange.RangeAddress.LastAddress.RowNumber > shiftedRange.RangeAddress.LastAddress.RowNumber;
-    }
-
-    private static void AppendClampedTopRowShift(StringBuilder sb, XLWorksheet ws, XLRange shiftedRange,
-        IXLRange matchRange, int rowsShifted)
-    {
-        sb.Append(new XLAddress(ws,
-            XLHelper.TrimRowNumber(shiftedRange.RangeAddress.FirstAddress.RowNumber),
-            matchRange.RangeAddress.FirstAddress.ColumnLetter,
-            matchRange.RangeAddress.FirstAddress.FixedRow,
-            matchRange.RangeAddress.FirstAddress.FixedColumn));
-        sb.Append(':');
-        sb.Append(new XLAddress(ws,
-            XLHelper.TrimRowNumber(matchRange.RangeAddress.LastAddress.RowNumber + rowsShifted),
-            matchRange.RangeAddress.LastAddress.ColumnLetter,
-            matchRange.RangeAddress.LastAddress.FixedRow,
-            matchRange.RangeAddress.LastAddress.FixedColumn));
-    }
-
-    private static bool IsRowRangeWithinShiftedRange(XLRange shiftedRange, IXLRange matchRange)
-    {
-        return shiftedRange.RangeAddress.FirstAddress.RowNumber <= matchRange.RangeAddress.LastAddress.RowNumber
-            && shiftedRange.RangeAddress.FirstAddress.ColumnNumber <= matchRange.RangeAddress.FirstAddress.ColumnNumber
-            && shiftedRange.RangeAddress.LastAddress.ColumnNumber >= matchRange.RangeAddress.LastAddress.ColumnNumber;
-    }
-
-    /// <summary>
-    /// A row-only reference (<c>3:5</c>) obeys the same rules as a cell range but renders as bare row
-    /// numbers. Both boundaries are decided here rather than shifted blindly: the top only moves when the
-    /// shift starts at or above it, and a deletion that removes the top boundary leaves the top pinned at
-    /// the deletion start; the bottom always shifts.
-    /// <para>
-    /// Shifting both endpoints regardless (as this did) walked the reference onto rows it never covered.
-    /// Deleting row 4 turned 3:5 into 2:4, and it kept the reference from ever shrinking to nothing, so
-    /// <see cref="IsDeletedEntirelyByRowShift"/> never saw the fully deleted case. The same applied to
-    /// insertions: inserting two rows at row 4 turned 3:5 into 5:7 instead of expanding it to 3:7.
-    /// </para>
-    /// </summary>
-    private static void AppendShiftedRowOnlyRange(StringBuilder sb, string rangeAddress, XLRange shiftedRange,
-        IXLRange matchRange, int rowsShifted)
-    {
-        var firstRow = matchRange.RangeAddress.FirstAddress.RowNumber;
-        var lastRow = matchRange.RangeAddress.LastAddress.RowNumber;
-        var shiftStart = shiftedRange.RangeAddress.FirstAddress.RowNumber;
-
-        var newFirstRow = firstRow;
-        if (shiftStart <= firstRow)
-        {
-            newFirstRow = IsTopBoundaryDeletion(shiftedRange, matchRange, rowsShifted)
-                ? shiftStart
-                : firstRow + rowsShifted;
-        }
-
-        var rows = rangeAddress.Split(':');
-        AppendRowBoundary(sb, rows[0], newFirstRow);
-        sb.Append(':');
-        AppendRowBoundary(sb, rows[1], lastRow + rowsShifted);
-    }
-
-    private static void AppendRowBoundary(StringBuilder sb, string rowToken, int rowNumber)
-    {
-        if (rowToken[0] == '$')
-            sb.Append('$');
-
-        sb.Append(XLHelper.TrimRowNumber(rowNumber).ToInvariantString());
-    }
-
-    private static void AppendShiftedRowCellRange(StringBuilder sb, XLWorksheet ws, IXLRange matchRange,
-        string rangeAddress, int rowsShifted)
-    {
-        sb.Append(new XLAddress(ws,
-            XLHelper.TrimRowNumber(matchRange.RangeAddress.FirstAddress.RowNumber + rowsShifted),
-            matchRange.RangeAddress.FirstAddress.ColumnLetter,
-            matchRange.RangeAddress.FirstAddress.FixedRow,
-            matchRange.RangeAddress.FirstAddress.FixedColumn));
-
-        if (rangeAddress.Contains(':'))
-        {
-            sb.Append(':');
-            sb.Append(new XLAddress(ws,
-                XLHelper.TrimRowNumber(matchRange.RangeAddress.LastAddress.RowNumber + rowsShifted),
-                matchRange.RangeAddress.LastAddress.ColumnLetter,
-                matchRange.RangeAddress.LastAddress.FixedRow,
-                matchRange.RangeAddress.LastAddress.FixedColumn));
-        }
-    }
-
-    private static void AppendPartialRowShift(StringBuilder sb, XLWorksheet ws, IXLRange matchRange, int rowsShifted)
-    {
-        sb.Append(matchRange.RangeAddress.FirstAddress);
-        sb.Append(':');
-        sb.Append(new XLAddress(ws,
-            XLHelper.TrimRowNumber(matchRange.RangeAddress.LastAddress.RowNumber + rowsShifted),
-            matchRange.RangeAddress.LastAddress.ColumnLetter,
-            matchRange.RangeAddress.LastAddress.FixedRow,
-            matchRange.RangeAddress.LastAddress.FixedColumn));
-    }
+        => Shift(formulaA1, worksheetInAction, shiftedRange, rowsShifted, ShiftAxis.Row);
 
     internal static string ShiftFormulaColumns(string formulaA1, XLWorksheet worksheetInAction, XLRange shiftedRange,
         int columnsShifted)
+        => Shift(formulaA1, worksheetInAction, shiftedRange, columnsShifted, ShiftAxis.Column);
+
+    private static string Shift(string formulaA1, XLWorksheet worksheetInAction, XLRange shiftedRange, int shift,
+        ShiftAxis axis)
     {
-        if (string.IsNullOrWhiteSpace(formulaA1)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(formulaA1))
+            return string.Empty;
 
-        var value = formulaA1;
-        var sb = new StringBuilder();
-        var lastIndex = 0;
+        if (shift == 0 || !shiftedRange.RangeAddress.IsValid)
+            return formulaA1;
 
-        foreach (Match match in A1SimpleRegex.Matches(value))
+        // Colons inside single-bracket structured reference column names would be read as range
+        // operators. The placeholder is the same width as the colon it replaces, so every SymbolRange
+        // the parser reports still indexes correctly into the original formula.
+        var parseable = FormulaTransformation.ProtectStructuredRefColons(formulaA1, out var wasProtected);
+
+        // Every worksheet's formulas are visited, not just the shifted sheet's, so that a formula on
+        // one sheet referring to the shifted sheet is repointed too. Which references those are depends
+        // on both names: a qualified reference names its sheet outright, while an unqualified one means
+        // the sheet its formula lives on — and that only matches when the formula is *on* the sheet
+        // being shifted.
+        var plan = new ShiftPlan(
+            shiftedSheetName: shiftedRange.Worksheet.Name,
+            formulaSheetName: worksheetInAction.Name,
+            parseable,
+            shiftedRange,
+            shift,
+            axis);
+        try
         {
-            var matchString = match.Value;
-            var matchIndex = match.Index;
-            if (value.AsSpan(0, matchIndex).Count('"') % 2 == 0)
-            {
-                sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex));
-                var (sheetName, useSheetName) = ExtractSheetName(matchString, worksheetInAction);
+            FormulaParser<object?, object?, ShiftPlan>.CellFormulaA1(parseable, plan, ShiftCollector.Instance);
+        }
+        catch (Exception)
+        {
+            return axis == ShiftAxis.Row
+                ? ShiftFormulaRowsLegacy(formulaA1, worksheetInAction, shiftedRange, shift)
+                : ShiftFormulaColumnsLegacy(formulaA1, worksheetInAction, shiftedRange, shift);
+        }
 
-                if (String.Compare(sheetName, shiftedRange.Worksheet.Name, StringComparison.OrdinalIgnoreCase) == 0)
-                    AppendShiftedColumnMatch(sb, matchString, sheetName, useSheetName, worksheetInAction, shiftedRange, columnsShifted);
-                else
-                    sb.Append(matchString);
+        // The common case by a wide margin: the shift cannot reach anything this formula refers to.
+        // Returning the original instance means an unaffected formula costs a parse and nothing else.
+        if (!plan.HasEdits)
+            return formulaA1;
+
+        var shifted = plan.Apply(parseable);
+        return wasProtected ? shifted.Replace(FormulaTransformation.ColonPlaceholder, ':') : shifted;
+    }
+
+    private enum ShiftAxis
+    {
+        Row,
+        Column,
+    }
+
+    /// <summary>
+    /// Collects the reference spans a shift has to rewrite. Only plain and single-sheet references are
+    /// considered, matching what the regex path matched: a 3D reference (<c>Sheet1:Sheet3!A1</c>), a
+    /// workbook-scoped <c>!A1</c> and any external-workbook reference are all left alone.
+    /// </summary>
+    private sealed class ShiftCollector : CollectVisitor<ShiftPlan>
+    {
+        internal static readonly ShiftCollector Instance = new();
+
+        public override object? Reference(ShiftPlan plan, SymbolRange range, ReferenceArea reference)
+        {
+            plan.Visit(range, reference, sheet: null);
+            return null;
+        }
+
+        public override object? SheetReference(ShiftPlan plan, SymbolRange range, string sheet, ReferenceArea reference)
+        {
+            plan.Visit(range, reference, sheet);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The shift being applied, plus the replacement spans collected for it.
+    /// </summary>
+    private sealed class ShiftPlan(
+        string shiftedSheetName,
+        string formulaSheetName,
+        string formula,
+        XLRange shiftedRange,
+        int shift,
+        ShiftAxis axis)
+    {
+        private const string RefErrorText = "#REF!";
+
+        private readonly int _shiftFirstRow = shiftedRange.RangeAddress.FirstAddress.RowNumber;
+        private readonly int _shiftLastRow = shiftedRange.RangeAddress.LastAddress.RowNumber;
+        private readonly int _shiftFirstColumn = shiftedRange.RangeAddress.FirstAddress.ColumnNumber;
+        private readonly int _shiftLastColumn = shiftedRange.RangeAddress.LastAddress.ColumnNumber;
+
+        private List<Edit>? _edits;
+
+        internal bool HasEdits => _edits is { Count: > 0 };
+
+        internal void Visit(SymbolRange range, ReferenceArea reference, string? sheet)
+        {
+            // An unqualified reference resolves against the sheet its formula sits on.
+            var referencedSheet = sheet ?? formulaSheetName;
+            if (!XLHelper.SheetComparer.Equals(referencedSheet, shiftedSheetName))
+                return;
+
+            if (!TryShiftReference(reference, out var shifted, out var destroyed))
+                return;
+
+            _edits ??= [];
+            _edits.Add(new Edit(range.Start, range.Length, Render(range, reference, shifted, sheet, destroyed)));
+        }
+
+        /// <summary>
+        /// Applies the collected replacements to <paramref name="formula"/>. The parser reports spans in
+        /// source order and reference spans never nest, so a single forward pass suffices.
+        /// </summary>
+        internal string Apply(string formula)
+        {
+            var edits = _edits!;
+            var builder = new StringBuilder(formula.Length + 8);
+            var copiedTo = 0;
+
+            foreach (var edit in edits)
+            {
+                builder.Append(formula, copiedTo, edit.Start - copiedTo);
+                builder.Append(edit.Replacement);
+                copiedTo = edit.Start + edit.Length;
+            }
+
+            builder.Append(formula, copiedTo, formula.Length - copiedTo);
+            return builder.ToString();
+        }
+
+        /// <summary>
+        /// Computes the reference's new extent on the shift axis.
+        /// </summary>
+        /// <returns><c>false</c> when the shift leaves the reference untouched, in which case the
+        /// original text is kept verbatim rather than re-rendered.</returns>
+        private bool TryShiftReference(ReferenceArea reference, out ReferenceArea shifted, out bool destroyed)
+        {
+            shifted = reference;
+            destroyed = false;
+
+            var first = reference.First;
+            var second = reference.Second;
+
+            // A reference confined to the other axis (3:5 for a column shift, B:D for a row shift) has
+            // no extent to move. Excel leaves those alone and so did the regex path.
+            if (IsConfinedToOtherAxis(first, second))
+                return false;
+
+            var (refFirst, refLast) = Extent(first, second, axis);
+            var (crossFirst, crossLast) = Extent(first, second, Other(axis));
+            var (shiftCrossFirst, shiftCrossLast) = axis == ShiftAxis.Row
+                ? (_shiftFirstColumn, _shiftLastColumn)
+                : (_shiftFirstRow, _shiftLastRow);
+
+            // The shifted range must span the reference on the *other* axis, otherwise the insert or
+            // delete cuts across it rather than moving it, and Excel leaves the reference where it is.
+            if (crossFirst < shiftCrossFirst || crossLast > shiftCrossLast)
+                return false;
+
+            var shiftStart = axis == ShiftAxis.Row ? _shiftFirstRow : _shiftFirstColumn;
+            if (refLast < shiftStart)
+                return false;
+
+            int newFirst, newLast;
+            if (shift > 0)
+            {
+                newFirst = refFirst >= shiftStart ? refFirst + shift : refFirst;
+                newLast = refLast + shift;
             }
             else
-                sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex + matchString.Length));
+            {
+                var deleted = -shift;
+                var shiftEnd = shiftStart + deleted - 1;
 
-            lastIndex = matchIndex + matchString.Length;
+                // Rows above the deletion keep their number; rows below move up by the deleted count;
+                // rows inside it are gone. A boundary that lands inside the deleted block collapses onto
+                // the edge of the block rather than being moved by the full count — clamping the bottom
+                // is what stops a deletion that swallows a reference's tail from producing an inverted
+                // range such as A2:A8 -> A2:A3 (row 4 survives; the answer is A2:A4).
+                newFirst = refFirst < shiftStart ? refFirst : Math.Max(shiftStart, refFirst - deleted);
+                newLast = refLast <= shiftEnd ? Math.Min(refLast, shiftStart - 1) : refLast - deleted;
+
+                if (newLast < newFirst)
+                {
+                    destroyed = true;
+                    return true;
+                }
+            }
+
+            var max = axis == ShiftAxis.Row ? XLHelper.MaxRowNumber : XLHelper.MaxColumnNumber;
+            newFirst = Math.Clamp(newFirst, 1, max);
+            newLast = Math.Clamp(newLast, 1, max);
+
+            if (newFirst == refFirst && newLast == refLast)
+                return false;
+
+            shifted = new ReferenceArea(
+                WithExtent(first, newFirst, axis),
+                WithExtent(second, newLast, axis));
+            return true;
         }
 
-        if (lastIndex < value.Length)
-            sb.Append(value.AsSpan(lastIndex));
-
-        return sb.ToString();
-    }
-
-    private static void AppendShiftedColumnMatch(StringBuilder sb, string matchString, string sheetName, bool useSheetName,
-        XLWorksheet worksheetInAction, XLRange shiftedRange, int columnsShifted)
-    {
-        var rangeAddress = matchString[(matchString.IndexOf('!') + 1)..];
-        if (A1RowRegex.IsMatch(rangeAddress))
+        /// <summary>
+        /// A reference that names only the axis we are not shifting: <c>3:5</c> during a column shift,
+        /// <c>B:D</c> during a row shift. Its extent on the shift axis is the whole sheet, so it neither
+        /// moves nor collapses.
+        /// </summary>
+        private bool IsConfinedToOtherAxis(RowCol first, RowCol second)
         {
-            sb.Append(matchString);
-            return;
+            return axis == ShiftAxis.Row
+                ? first.RowType == ReferenceAxisType.None && second.RowType == ReferenceAxisType.None
+                : first.ColumnType == ReferenceAxisType.None && second.ColumnType == ReferenceAxisType.None;
         }
 
-        var matchRange = worksheetInAction.Workbook.Worksheet(sheetName).Range(rangeAddress);
-        if (!IsColumnRangeWithinShiftedRange(shiftedRange, matchRange))
+        /// <summary>
+        /// The reference's span on <paramref name="on"/>. An axis the reference does not name (the rows
+        /// of <c>B:D</c>) spans the whole sheet, which is what makes a whole-row insert reach it.
+        /// </summary>
+        private static (int First, int Last) Extent(RowCol first, RowCol second, ShiftAxis on)
         {
-            sb.Append(matchString);
-            return;
+            if (on == ShiftAxis.Row)
+            {
+                return first.RowType == ReferenceAxisType.None
+                    ? (1, XLHelper.MaxRowNumber)
+                    : (first.RowValue, second.RowValue);
+            }
+
+            return first.ColumnType == ReferenceAxisType.None
+                ? (1, XLHelper.MaxColumnNumber)
+                : (first.ColumnValue, second.ColumnValue);
         }
 
-        if (useSheetName)
+        private static RowCol WithExtent(RowCol source, int value, ShiftAxis on)
         {
-            sb.Append(sheetName.EscapeSheetName());
-            sb.Append('!');
+            return on == ShiftAxis.Row
+                ? new RowCol(source.RowType, value, source.ColumnType, source.ColumnValue, source.Style)
+                : new RowCol(source.RowType, source.RowValue, source.ColumnType, value, source.Style);
         }
 
-        if (IsDeletedEntirelyByColumnShift(shiftedRange, matchRange, columnsShifted))
-            sb.Append(RefError);
-        else if (A1ColumnRegex.IsMatch(rangeAddress))
-            AppendShiftedColumnOnlyRange(sb, rangeAddress, shiftedRange, matchRange, columnsShifted);
-        else if (shiftedRange.RangeAddress.FirstAddress.ColumnNumber <= matchRange.RangeAddress.FirstAddress.ColumnNumber)
+        private static ShiftAxis Other(ShiftAxis value) => value == ShiftAxis.Row ? ShiftAxis.Column : ShiftAxis.Row;
+
+        /// <summary>
+        /// Re-renders a reference, restoring the sheet prefix the span covered and keeping the source's
+        /// own shape.
+        /// </summary>
+        /// <remarks>
+        /// The endpoints are joined by hand rather than through <see cref="ReferenceArea.GetDisplayStringA1"/>,
+        /// which collapses a degenerate area to a single address: a range that a deletion narrows to one
+        /// cell would come back as <c>A5</c> where the author wrote <c>A5:A10</c>, silently rewriting a
+        /// range reference into a cell reference.
+        /// </remarks>
+        private string Render(SymbolRange range, ReferenceArea original, ReferenceArea shifted, string? sheet,
+            bool destroyed)
         {
-            if (IsLeftBoundaryDeletion(shiftedRange, matchRange, columnsShifted))
-                AppendClampedLeftColumnShift(sb, worksheetInAction, shiftedRange, matchRange, columnsShifted);
-            else
-                AppendShiftedColumnCellRange(sb, worksheetInAction, matchRange, rangeAddress, columnsShifted);
+            var body = destroyed
+                ? RefErrorText
+                : SourceIsRange(range)
+                    ? string.Concat(shifted.First.GetDisplayStringA1(), ":", shifted.Second.GetDisplayStringA1())
+                    : shifted.First.GetDisplayStringA1();
+
+            if (sheet is null)
+                return body;
+
+            var builder = new StringBuilder(sheet.Length + body.Length + 3);
+            builder.Append(sheet.EscapeSheetName());
+            builder.Append('!');
+            builder.Append(body);
+            return builder.ToString();
         }
-        else
-            AppendPartialColumnShift(sb, worksheetInAction, matchRange, columnsShifted);
-    }
 
-    /// <summary>
-    /// Column-wise counterpart of <see cref="IsDeletedEntirelyByRowShift"/>: true when a column deletion
-    /// removes every column of <paramref name="matchRange"/>, so the reference becomes <c>#REF!</c> instead
-    /// of being clamped back to column A by <see cref="XLHelper.TrimColumnNumber"/>.
-    /// </summary>
-    private static bool IsDeletedEntirelyByColumnShift(XLRange shiftedRange, IXLRange matchRange, int columnsShifted)
-    {
-        return columnsShifted < 0
-            && matchRange.RangeAddress.FirstAddress.ColumnNumber >=
-               shiftedRange.RangeAddress.FirstAddress.ColumnNumber
-            && matchRange.RangeAddress.LastAddress.ColumnNumber + columnsShifted <
-               shiftedRange.RangeAddress.FirstAddress.ColumnNumber;
-    }
-
-    /// <summary>
-    /// Column-wise counterpart of <see cref="IsTopBoundaryDeletion"/>: true when a column deletion removes
-    /// the left boundary of <paramref name="matchRange"/> while some columns to the right survive. Excel
-    /// keeps the range's left column fixed at the deletion start and shifts only the right edge left, e.g.
-    /// deleting column C turns C1:D1 into C1:C1 rather than expanding it to B1:C1. See issue #2866.
-    /// </summary>
-    private static bool IsLeftBoundaryDeletion(XLRange shiftedRange, IXLRange matchRange, int columnsShifted)
-    {
-        return columnsShifted < 0
-            && matchRange.RangeAddress.FirstAddress.ColumnNumber <= shiftedRange.RangeAddress.LastAddress.ColumnNumber
-            && matchRange.RangeAddress.LastAddress.ColumnNumber > shiftedRange.RangeAddress.LastAddress.ColumnNumber;
-    }
-
-    private static void AppendClampedLeftColumnShift(StringBuilder sb, XLWorksheet ws, XLRange shiftedRange,
-        IXLRange matchRange, int columnsShifted)
-    {
-        sb.Append(new XLAddress(ws,
-            matchRange.RangeAddress.FirstAddress.RowNumber,
-            XLHelper.TrimColumnNumber(shiftedRange.RangeAddress.FirstAddress.ColumnNumber),
-            matchRange.RangeAddress.FirstAddress.FixedRow,
-            matchRange.RangeAddress.FirstAddress.FixedColumn));
-        sb.Append(':');
-        sb.Append(new XLAddress(ws,
-            matchRange.RangeAddress.LastAddress.RowNumber,
-            XLHelper.TrimColumnNumber(matchRange.RangeAddress.LastAddress.ColumnNumber + columnsShifted),
-            matchRange.RangeAddress.LastAddress.FixedRow,
-            matchRange.RangeAddress.LastAddress.FixedColumn));
-    }
-
-    private static bool IsColumnRangeWithinShiftedRange(XLRange shiftedRange, IXLRange matchRange)
-    {
-        return shiftedRange.RangeAddress.FirstAddress.ColumnNumber <= matchRange.RangeAddress.LastAddress.ColumnNumber
-            && shiftedRange.RangeAddress.FirstAddress.RowNumber <= matchRange.RangeAddress.FirstAddress.RowNumber
-            && shiftedRange.RangeAddress.LastAddress.RowNumber >= matchRange.RangeAddress.LastAddress.RowNumber;
-    }
-
-    /// <summary>
-    /// Column-wise counterpart of <see cref="AppendShiftedRowOnlyRange"/>: a column-only reference
-    /// (<c>C:E</c>) keeps its left boundary unless the shift starts at or to the left of it, and pins that
-    /// boundary at the deletion start when a deletion removes it.
-    /// </summary>
-    private static void AppendShiftedColumnOnlyRange(StringBuilder sb, string rangeAddress, XLRange shiftedRange,
-        IXLRange matchRange, int columnsShifted)
-    {
-        var firstColumn = matchRange.RangeAddress.FirstAddress.ColumnNumber;
-        var lastColumn = matchRange.RangeAddress.LastAddress.ColumnNumber;
-        var shiftStart = shiftedRange.RangeAddress.FirstAddress.ColumnNumber;
-
-        var newFirstColumn = firstColumn;
-        if (shiftStart <= firstColumn)
+        /// <summary>
+        /// Whether the source text wrote two addresses rather than one. Equal endpoints do not settle it
+        /// — <c>A5:A5</c> is a legal one-cell range and round-trips as written — so only the presence of
+        /// a range operator does. The scan starts past the sheet separator, since a quoted sheet name is
+        /// allowed to contain a colon (<c>'a:b'!A5</c>).
+        /// </summary>
+        private bool SourceIsRange(SymbolRange range)
         {
-            newFirstColumn = IsLeftBoundaryDeletion(shiftedRange, matchRange, columnsShifted)
-                ? shiftStart
-                : firstColumn + columnsShifted;
+            var text = formula.AsSpan(range.Start, range.Length);
+            var separator = text.LastIndexOf('!');
+            if (separator >= 0)
+                text = text[(separator + 1)..];
+
+            return text.Contains(':');
         }
 
-        var columns = rangeAddress.Split(':');
-        AppendColumnBoundary(sb, columns[0], newFirstColumn);
-        sb.Append(':');
-        AppendColumnBoundary(sb, columns[1], lastColumn + columnsShifted);
+        private readonly record struct Edit(int Start, int Length, string Replacement);
     }
-
-    private static void AppendColumnBoundary(StringBuilder sb, string columnToken, int columnNumber)
-    {
-        if (columnToken[0] == '$')
-            sb.Append('$');
-
-        sb.Append(XLHelper.GetColumnLetterFromNumber(columnNumber, true));
-    }
-
-    private static void AppendShiftedColumnCellRange(StringBuilder sb, XLWorksheet ws, IXLRange matchRange,
-        string rangeAddress, int columnsShifted)
-    {
-        sb.Append(new XLAddress(ws,
-            matchRange.RangeAddress.FirstAddress.RowNumber,
-            XLHelper.TrimColumnNumber(matchRange.RangeAddress.FirstAddress.ColumnNumber + columnsShifted),
-            matchRange.RangeAddress.FirstAddress.FixedRow,
-            matchRange.RangeAddress.FirstAddress.FixedColumn));
-
-        if (rangeAddress.Contains(':'))
-        {
-            sb.Append(':');
-            sb.Append(new XLAddress(ws,
-                matchRange.RangeAddress.LastAddress.RowNumber,
-                XLHelper.TrimColumnNumber(matchRange.RangeAddress.LastAddress.ColumnNumber + columnsShifted),
-                matchRange.RangeAddress.LastAddress.FixedRow,
-                matchRange.RangeAddress.LastAddress.FixedColumn));
-        }
-    }
-
-    private static void AppendPartialColumnShift(StringBuilder sb, XLWorksheet ws, IXLRange matchRange, int columnsShifted)
-    {
-        sb.Append(matchRange.RangeAddress.FirstAddress);
-        sb.Append(':');
-        sb.Append(new XLAddress(ws,
-            matchRange.RangeAddress.LastAddress.RowNumber,
-            XLHelper.TrimColumnNumber(matchRange.RangeAddress.LastAddress.ColumnNumber + columnsShifted),
-            matchRange.RangeAddress.LastAddress.FixedRow,
-            matchRange.RangeAddress.LastAddress.FixedColumn));
-    }
-
-    [GeneratedRegex(@"(\$?\d{1,7}:\$?\d{1,7})" // 1:1
-        , RegexOptions.Compiled)]
-    private static partial Regex A1RowRegexGenerated();
-
-    [GeneratedRegex(@"(\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})" // A:A
-        , RegexOptions.Compiled)]
-    private static partial Regex A1ColumnRegexGenerated();
-
-    [GeneratedRegex(
-        @"(?<Reference>(?<Sheet>(\'([^\[\]\*/\\\?:\']+|\'\')\'|\'?\w+\'?)!)?(?<Range>(?<![\w\d])\$?[a-zA-Z]{1,3}\$?\d{1,7}(?<RangeEnd>:\$?[a-zA-Z]{1,3}\$?\d{1,7})?(?![\w\d])|(?<ColumnNumbers>\$?\d{1,7}:\$?\d{1,7})|(?<ColumnLetters>\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})))",
-        RegexOptions.Compiled)]
-    private static partial Regex A1SimpleRegexGenerated();
 }
