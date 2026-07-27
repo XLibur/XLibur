@@ -25,9 +25,14 @@ namespace XLibur.Tests.Excel.Cells;
 /// <c>A2:A3</c>, dropping row 4, where Excel gives <c>A2:A4</c>).
 /// </para>
 /// <para>
+/// Each row carries both implementations' output. The regex path is still live — it is the fallback
+/// for formulas the parser rejects — so it is pinned by the same cases against its own column, which
+/// also puts the nine divergences in the data rather than only in this comment.
+/// </para>
+/// <para>
 /// Regenerate with:
 /// <c>dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile shiftercorpus</c>
-/// — it writes the corpus to stdout and reports divergences from the legacy implementation on stderr.
+/// — it writes the corpus to stdout and reports divergences between the two columns on stderr.
 /// </para>
 /// </summary>
 public class FormulaShifterCorpusTests
@@ -35,6 +40,28 @@ public class FormulaShifterCorpusTests
     [Test]
     [MethodDataSource(nameof(Corpus))]
     public async Task ShiftMatchesTheCorpus(CorpusCase test)
+    {
+        var actual = Shift(test, legacy: false);
+
+        await Assert.That(actual).IsEqualTo(test.Expected);
+    }
+
+    /// <summary>
+    /// The regex implementation is still live — it is the fallback for formulas the parser cannot
+    /// parse, such as external workbook references — so it is pinned by the same corpus against its own
+    /// recorded output. Nine of the 2,072 rows differ from the parser column, all of them the
+    /// tail-deletion clamp described on the class.
+    /// </summary>
+    [Test]
+    [MethodDataSource(nameof(Corpus))]
+    public async Task LegacyShiftMatchesTheCorpus(CorpusCase test)
+    {
+        var actual = Shift(test, legacy: true);
+
+        await Assert.That(actual).IsEqualTo(test.LegacyExpected);
+    }
+
+    private static string Shift(CorpusCase test, bool legacy)
     {
         using var wb = new XLWorkbook();
         var shiftedSheet = (XLWorksheet)wb.AddWorksheet("Sheet1");
@@ -45,19 +72,18 @@ public class FormulaShifterCorpusTests
         // unqualified reference means, so the corpus runs every formula from both positions.
         var host = test.ForeignFormula ? otherSheet : shiftedSheet;
 
-        var actual = test.IsRowShift
-            ? XLCellFormulaShifter.ShiftFormulaRows(
-                test.Formula,
-                host,
-                (XLRange)shiftedSheet.Range(test.First, 1, test.Last, XLHelper.MaxColumnNumber),
-                test.Shift)
-            : XLCellFormulaShifter.ShiftFormulaColumns(
-                test.Formula,
-                host,
-                (XLRange)shiftedSheet.Range(1, test.First, XLHelper.MaxRowNumber, test.Last),
-                test.Shift);
+        if (test.IsRowShift)
+        {
+            var range = (XLRange)shiftedSheet.Range(test.First, 1, test.Last, XLHelper.MaxColumnNumber);
+            return legacy
+                ? XLCellFormulaShifter.ShiftFormulaRowsLegacy(test.Formula, host, range, test.Shift)
+                : XLCellFormulaShifter.ShiftFormulaRows(test.Formula, host, range, test.Shift);
+        }
 
-        await Assert.That(actual).IsEqualTo(test.Expected);
+        var columnRange = (XLRange)shiftedSheet.Range(1, test.First, XLHelper.MaxRowNumber, test.Last);
+        return legacy
+            ? XLCellFormulaShifter.ShiftFormulaColumnsLegacy(test.Formula, host, columnRange, test.Shift)
+            : XLCellFormulaShifter.ShiftFormulaColumns(test.Formula, host, columnRange, test.Shift);
     }
 
     public static IEnumerable<Func<CorpusCase>> Corpus()
@@ -83,7 +109,8 @@ public class FormulaShifterCorpusTests
         int Last,
         int Shift,
         bool ForeignFormula,
-        string Expected)
+        string Expected,
+        string LegacyExpected)
     {
         internal static CorpusCase Parse(string line)
         {
@@ -95,7 +122,8 @@ public class FormulaShifterCorpusTests
                 Last: int.Parse(f[3]),
                 Shift: int.Parse(f[4]),
                 ForeignFormula: f[5] == "1",
-                Expected: f[6]);
+                Expected: f[6],
+                LegacyExpected: f[7]);
         }
 
         // Keeps the test-name column readable instead of showing the record's full property dump.

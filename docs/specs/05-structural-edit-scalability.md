@@ -149,9 +149,11 @@ Formulas the parser rejects (external workbook references such as `'[file.xlsx]S
 to the regex implementation, kept in `XLCellFormulaShifter.Legacy.cs`.
 
 Equivalence is pinned by `FormulaShifterCorpus.tsv`: 2,072 (formula, shifted range, shift, host sheet)
-combinations generated from the old implementation, driven by `FormulaShifterCorpusTests`. Regenerate
-with `-- profile shiftercorpus`, which writes the corpus to stdout and reports divergences from the
-legacy path on stderr.
+combinations generated from the old implementation, driven by `FormulaShifterCorpusTests`. Each row
+carries both implementations' output and both are asserted, so the retained regex path — live as the
+parser's fallback, and previously covered only incidentally — is pinned by the same cases. Regenerate
+with `-- profile shiftercorpus`, which writes the corpus to stdout and reports divergences between the
+two columns on stderr.
 
 ### A3 found a correctness bug, so criterion 4 has a documented exception
 

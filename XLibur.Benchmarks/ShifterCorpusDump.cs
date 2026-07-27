@@ -43,7 +43,7 @@ public static class ShifterCorpusDump
     {
         SixLaborsV1FontBootstrap.Register();
 
-        Console.WriteLine("# axis\tformula\tfirst\tlast\tshift\tforeignFormula\texpected");
+        Console.WriteLine("# axis\tformula\tfirst\tlast\tshift\tforeignFormula\texpected\tlegacyExpected");
 
         foreach (var foreign in new[] { false, true })
         {
@@ -109,16 +109,21 @@ public static class ShifterCorpusDump
     }
 
     /// <summary>
-    /// Emits the parser result as a tab-separated corpus row on stdout, and reports any disagreement
-    /// with the legacy implementation on stderr, so every divergence can be reviewed in one pass
-    /// rather than by diffing two whole runs.
+    /// Emits a tab-separated corpus row carrying <em>both</em> implementations' output, and reports any
+    /// disagreement on stderr so every divergence can be reviewed in one pass rather than by diffing two
+    /// whole runs.
     /// </summary>
+    /// <remarks>
+    /// The legacy column is not redundant. The regex implementation is still live — it is the fallback
+    /// for formulas the parser rejects — so it needs pinning too, and recording its output beside the
+    /// parser's puts the nine known divergences in the data rather than in prose.
+    /// </remarks>
     private static string Format(string formula, int first, int last, int shift, bool foreignFormula,
         string result, string legacyResult)
     {
         if (result != legacyResult)
             Console.Error.WriteLine($"DIVERGES\t{formula}\t{first}\t{last}\t{shift}\t{foreignFormula}\t{result}\tlegacy={legacyResult}");
 
-        return string.Join('\t', formula, first, last, shift, foreignFormula ? "1" : "0", result);
+        return string.Join('\t', formula, first, last, shift, foreignFormula ? "1" : "0", result, legacyResult);
     }
 }
