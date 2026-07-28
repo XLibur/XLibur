@@ -145,8 +145,11 @@ literals, so the quote-parity scan goes too.
 | 1,000 formulas above (no-ops) | 1,827 ms / 2,523 MB | 674 ms / 602 MB |
 | ranges + formulas below | 4,753 ms / 6,091 MB | 1,539 ms / 2,079 MB |
 
-Formulas the parser rejects (external workbook references such as `'[file.xlsx]Sheet'!A1`) fall back
-to the regex implementation, kept in `XLCellFormulaShifter.Legacy.cs`.
+Any failure in the parser path — not only the known gap, external workbook references such as
+`'[file.xlsx]Sheet'!A1` — falls back to the regex implementation, kept in
+`XLCellFormulaShifter.Legacy.cs`. The catch is deliberately broad: a formula that shifted before must
+still shift, so an unanticipated parser failure degrades to the old behaviour rather than silently
+leaving references unmoved.
 
 Equivalence is pinned by `FormulaShifterCorpus.tsv`: 2,072 (formula, shifted range, shift, host sheet)
 combinations generated from the old implementation, driven by `FormulaShifterCorpusTests`. Each row

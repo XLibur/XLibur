@@ -141,7 +141,7 @@ internal static partial class XLCellFormulaShifter
                 return;
 
             _edits ??= [];
-            _edits.Add(new Edit(range.Start, range.Length, Render(range, reference, shifted, sheet, destroyed)));
+            _edits.Add(new Edit(range.Start, range.Length, Render(range, shifted, sheet, destroyed)));
         }
 
         /// <summary>
@@ -286,8 +286,7 @@ internal static partial class XLCellFormulaShifter
         /// cell would come back as <c>A5</c> where the author wrote <c>A5:A10</c>, silently rewriting a
         /// range reference into a cell reference.
         /// </remarks>
-        private string Render(SymbolRange range, ReferenceArea original, ReferenceArea shifted, string? sheet,
-            bool destroyed)
+        private string Render(SymbolRange range, ReferenceArea shifted, string? sheet, bool destroyed)
         {
             var body = destroyed
                 ? RefErrorText

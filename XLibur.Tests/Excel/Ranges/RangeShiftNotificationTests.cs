@@ -183,6 +183,51 @@ public class RangeShiftNotificationTests
         await Assert.That(entireColumn.RangeAddress.LastAddress.RowNumber).IsEqualTo(XLHelper.MaxRowNumber);
     }
 
+    /// <summary>
+    /// A row insertion scoped to columns C:E does not move a range that only partly overlaps it
+    /// horizontally: B1:D5 starts left of the inserted block, so the insert cuts across it rather than
+    /// pushing it down, and Excel leaves it where it is.
+    /// <para>
+    /// This exercises the cross-axis containment condition in <c>CollectRangesShiftedByRows</c>, but
+    /// note what it can and cannot catch. The filter only decides which ranges get *visited*;
+    /// <c>XLRangeShiftHelper.ShiftRows</c> re-checks the same condition and returns the address
+    /// unchanged, so a filter that is too loose costs time and nothing else — deleting the containment
+    /// check outright leaves every test here passing. A filter that is too *tight* strands a range that
+    /// should have moved, which is a correctness bug, and that direction does fail these tests.
+    /// </para>
+    /// </summary>
+    [Test]
+    public async Task PartiallyOverlappingRangeIsNotShiftedByScopedRowInsertion()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var straddling = ws.Range("B1:D5");
+        var contained = ws.Range("C1:E5");
+
+        ws.Range("C3:E3").InsertRowsAbove(1);
+
+        await Assert.That(straddling.RangeAddress.ToString()).IsEqualTo("B1:D5");
+        await Assert.That(contained.RangeAddress.ToString()).IsEqualTo("C1:E6");
+    }
+
+    /// <summary>
+    /// Column twin of <see cref="PartiallyOverlappingRangeIsNotShiftedByScopedRowInsertion"/>: A1:B4
+    /// reaches above the rows the insertion is scoped to, so it is cut across rather than moved.
+    /// </summary>
+    [Test]
+    public async Task PartiallyOverlappingRangeIsNotShiftedByScopedColumnInsertion()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var straddling = ws.Range("A1:B4");
+        var contained = ws.Range("A3:B5");
+
+        ws.Range("C3:C5").InsertColumnsBefore(1);
+
+        await Assert.That(straddling.RangeAddress.ToString()).IsEqualTo("A1:B4");
+        await Assert.That(contained.RangeAddress.ToString()).IsEqualTo("A3:B5");
+    }
+
     [Test]
     public async Task EntireRowRangesAreNotShiftedByColumnInsertion()
     {

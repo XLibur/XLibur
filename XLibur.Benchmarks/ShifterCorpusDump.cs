@@ -1,12 +1,20 @@
 ﻿using System;
+using System.Globalization;
 using XLibur.Excel;
 using XLibur.Fonts.SixLabors.V1;
 
 namespace XLibur.Benchmarks;
 
 /// <summary>
-/// TEMPORARY: dumps the current XLCellFormulaShifter behaviour as TUnit [Arguments] rows, to seed the
-/// equivalence corpus the parser-based rewrite must reproduce. Delete once the corpus is committed.
+/// Generates the <c>XLCellFormulaShifter</c> equivalence corpus asserted by
+/// <c>FormulaShifterCorpusTests</c>, as tab-separated rows on stdout.
+///
+/// Run with: dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile shiftercorpus
+///
+/// This is the supported way to regenerate <c>XLibur.Tests/Resource/Other/FormulaShifterCorpus.tsv</c>
+/// after changing the shifter or widening the case matrix — redirect stdout over that file. Each row
+/// carries both the parser and the legacy implementation's output, and any disagreement between them is
+/// reported on stderr so a change in behaviour has to be looked at rather than silently re-baselined.
 /// </summary>
 public static class ShifterCorpusDump
 {
@@ -121,9 +129,20 @@ public static class ShifterCorpusDump
     private static string Format(string formula, int first, int last, int shift, bool foreignFormula,
         string result, string legacyResult)
     {
-        if (result != legacyResult)
-            Console.Error.WriteLine($"DIVERGES\t{formula}\t{first}\t{last}\t{shift}\t{foreignFormula}\t{result}\tlegacy={legacyResult}");
+        // Invariant throughout: the corpus is generated on whatever machine runs this and parsed back by
+        // int.Parse under the test suite's en-US default, so the shift column — the only one that can be
+        // negative — must not pick up a culture-specific minus sign on the way out.
+        var firstText = first.ToString(CultureInfo.InvariantCulture);
+        var lastText = last.ToString(CultureInfo.InvariantCulture);
+        var shiftText = shift.ToString(CultureInfo.InvariantCulture);
 
-        return string.Join('\t', formula, first, last, shift, foreignFormula ? "1" : "0", result, legacyResult);
+        if (result != legacyResult)
+        {
+            Console.Error.WriteLine(
+                $"DIVERGES\t{formula}\t{firstText}\t{lastText}\t{shiftText}\t{foreignFormula}\t{result}\tlegacy={legacyResult}");
+        }
+
+        return string.Join('\t', formula, firstText, lastText, shiftText, foreignFormula ? "1" : "0", result,
+            legacyResult);
     }
 }
