@@ -222,12 +222,23 @@ Direct port of the upstream pipeline, modernized (nullable, `XLCellValue`-native
 - `RangeTemplate` parses a bound range into a cell grid; the **last row is the options/service
   row** (tags + summary cells); inner defined names become recursive subrange templates
   (vertical master-detail).
-- `TempSheetBuffer` renders onto a `VeryHidden` buffer sheet, then `CopyTo` splices the block
-  into the target sheet, inserting/deleting rows; the defined name is re-pointed via
-  `SetRefersTo`. Formulas are handled in R1C1 during expansion (including the upstream
-  conditional-format R1C1 round-trip trick), so row-relative formulas survive.
+- ~~`TempSheetBuffer` renders onto a `VeryHidden` buffer sheet, then `CopyTo` splices the block
+  into the target sheet~~ — **superseded during implementation; see below.** The defined name is
+  re-pointed via `SetRefersTo`.
 - One deliberate behavioural change, replacing upstream's per-cell copying of conditional
   formats (#216): see "Conditional formatting" below.
+
+> **Implementation decision (Task 3): insert-and-copy, not a temp-sheet buffer.**
+> The buffer sheet is upstream's workaround for ClosedXML's slow and lossy row inserts. XLibur's
+> structural-edit path was rewritten under spec 05 and is neither. Eight characterization tests
+> (`RangeMechanicsCharacterizationTests`) pin what expansion relies on: `CopyTo` adjusts relative
+> formulas and carries styles, merges and row heights; inserting rows shifts content, defined
+> names and conditional-format ranges below and around the insertion point; deleting rows shrinks
+> a name that spans them. Expanding by inserting sheet rows and copying the template block into
+> them therefore delegates formula adjustment, merge tracking, CF extension, row sizing and
+> name shifting to the core library instead of reimplementing all of it — and keeps the report
+> package free of a second, divergent implementation of shifting. The buffer approach is not
+> revisited unless the Task 9 benchmark shows insert-and-copy does not scale.
 
 ### Post-expansion reference rewriting (the differentiator)
 

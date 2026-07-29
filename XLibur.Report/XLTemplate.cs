@@ -6,8 +6,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using XLibur.Excel;
-using XLibur.Report.Excel;
 using XLibur.Report.Expressions;
+using XLibur.Report.Ranges;
 
 namespace XLibur.Report;
 
@@ -160,12 +160,8 @@ public sealed class XLTemplate : IXLTemplate
             throw new InvalidOperationException("This template has already been generated.");
         }
 
-        var scope = new ExpressionScope(_variables);
-
-        foreach (var worksheet in Workbook.Worksheets.Where(w => w.Visibility == XLWorksheetVisibility.Visible).ToList())
-        {
-            EvaluateWorksheet(worksheet, scope);
-        }
+        var interpreter = new RangeInterpreter(_engine, _errors);
+        interpreter.Evaluate(Workbook, _variables);
 
         IsGenerated = true;
         return new XLGenerateResult(_errors);
@@ -199,91 +195,6 @@ public sealed class XLTemplate : IXLTemplate
         {
             Workbook.Dispose();
         }
-    }
-
-    private void EvaluateWorksheet(IXLWorksheet worksheet, ExpressionScope scope)
-    {
-        // Materialised first: evaluating a cell writes to it, and writing during enumeration of
-        // the used-cell set is not safe.
-        var cells = worksheet.CellsUsed(XLCellsUsedOptions.Contents).ToList();
-
-        foreach (var cell in cells)
-        {
-            EvaluateCell(cell, scope);
-        }
-    }
-
-    private void EvaluateCell(IXLCell cell, ExpressionScope scope)
-    {
-        if (cell.HasFormula)
-        {
-            return;
-        }
-
-        var value = cell.Value;
-        if (!value.IsText)
-        {
-            return;
-        }
-
-        var text = value.GetText();
-
-        if (text.StartsWith(ExpressionText.FormulaPrefix, StringComparison.Ordinal))
-        {
-            EvaluateFormulaCell(cell, text, scope);
-            return;
-        }
-
-        if (!ExpressionText.Contains(text))
-        {
-            return;
-        }
-
-        try
-        {
-            cell.Value = EvaluateText(text, scope);
-        }
-        catch (ExpressionEvaluationException ex)
-        {
-            RecordError(cell, ex);
-        }
-    }
-
-    private void EvaluateFormulaCell(IXLCell cell, string text, ExpressionScope scope)
-    {
-        var body = text.Substring(ExpressionText.FormulaPrefix.Length);
-
-        try
-        {
-            var formula = _engine.Interpolate(body, scope);
-            cell.FormulaA1 = formula;
-        }
-        catch (ExpressionEvaluationException ex)
-        {
-            RecordError(cell, ex);
-        }
-    }
-
-    private XLCellValue EvaluateText(string text, ExpressionScope scope)
-    {
-        // A cell that is nothing but one expression keeps that expression's type, so a decimal
-        // total reaches Excel as a number. Anything mixed with literal text can only be text.
-        return ExpressionText.TryGetSingleExpression(text, out var expression)
-            ? ReportValueConverter.ToCellValue(_engine.Evaluate(expression, scope))
-            : _engine.Interpolate(text, scope);
-    }
-
-    private void RecordError(IXLCell cell, ExpressionEvaluationException exception)
-    {
-        _errors.Add(new TemplateError(
-            exception.Message,
-            cell.Worksheet.Name,
-            cell.Address.ToString(),
-            exception));
-
-        // Leave the failure visible in the report rather than silently blanking the cell.
-        cell.Value = exception.Message;
-        cell.Style.Font.FontColor = XLColor.Red;
     }
 
     private void ThrowIfDisposed()

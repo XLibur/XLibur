@@ -56,35 +56,41 @@ public static class ReportResources
         }
     }
 
-    /// <summary>Opens a committed template by fixture name.</summary>
+    /// <summary>
+    /// Opens a committed template by fixture name.
+    /// </summary>
+    /// <remarks>
+    /// Read from the source tree rather than from an embedded copy. A regeneration run writes the
+    /// file and then immediately reads it back; an embedded copy could not exist until the next
+    /// build, so the run would fail on a template it had just written.
+    /// </remarks>
     public static Stream OpenTemplate(string name)
     {
-        var resourceName = $"XLibur.Report.Tests.Resource.Templates.{name}.xlsx";
-        var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
+        var path = TemplatePath(name);
 
-        if (stream is null)
+        if (!File.Exists(path))
         {
             throw new FileNotFoundException(
                 $"Template '{name}' is not committed. Run the suite with {RegenerationVariable}=1 to write it.",
-                resourceName);
+                path);
         }
 
-        return stream;
+        return File.OpenRead(path);
     }
 
     /// <summary>Whether a template has been committed for <paramref name="name"/>.</summary>
-    public static bool TemplateExists(string name) =>
-        System.Reflection.Assembly.GetExecutingAssembly()
-            .GetManifestResourceNames()
-            .Contains($"XLibur.Report.Tests.Resource.Templates.{name}.xlsx", StringComparer.Ordinal);
+    public static bool TemplateExists(string name) => File.Exists(TemplatePath(name));
 
     /// <summary>Writes <paramref name="workbook"/> over the committed template for <paramref name="name"/>.</summary>
     public static void WriteTemplate(string name, IXLWorkbook workbook)
     {
-        var directory = Path.Combine(SourceDirectory, "Resource", "Templates");
-        Directory.CreateDirectory(directory);
-        workbook.SaveAs(Path.Combine(directory, name + ".xlsx"));
+        var path = TemplatePath(name);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        workbook.SaveAs(path);
     }
+
+    private static string TemplatePath(string name) =>
+        Path.Combine(SourceDirectory, "Resource", "Templates", name + ".xlsx");
 
     /// <summary>Saves <paramref name="workbook"/> into the diagnostics directory and returns its path.</summary>
     public static string WriteDiagnostic(string name, IXLWorkbook workbook)
