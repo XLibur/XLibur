@@ -492,3 +492,114 @@ met; 3, 4, 6, 8, 9 and 10 are untouched.
   `XLibur/Excel/Charts/IXLChartSeries.cs` (`ValueReferences`/`CategoryReferences`),
   `XLibur/Properties/AssemblyInfo.cs` (IVT grants), spec 05 (ClosedXML.Parser reference
   shifting), spec 07 (function registry), spec 10 (chart write path).
+
+## Implementation notes
+
+Written after Tasks 1–5 landed, for whoever picks up the rest. Everything here was established by
+running the code, not by reading it.
+
+### The code as it stands
+
+`XLibur.Report/`
+
+| File | Role |
+|---|---|
+| `XLTemplate.cs` | Public entry point. Holds variables, owns the engine, registers the function bridge in its constructor, delegates generation to `RangeInterpreter`. |
+| `IXLTemplate.cs`, `XLGenerateResult.cs`, `TemplateError(s).cs` | Public surface and the error model. Errors are collected, never thrown. |
+| `ExpressionText.cs` | Recognises `{{ }}` and the `&=` formula prefix. `TryGetSingleExpression` is what decides whether a cell keeps its value's type. |
+| `Expressions/` | `IExpressionEngine` (the seam), `ExpressionScope` (parent-linked name lookup), `ScribanExpressionEngine`, `ExpressionEvaluationException`. |
+| `Excel/ReportValueConverter.cs` | `object?` → `XLCellValue`. |
+| `Functions/ExcelFunctionBridge.cs` | Registers every calc-engine function under its upper-case name. |
+| `Ranges/RangeInterpreter.cs` | Orchestrates: resolve bound ranges → evaluate cells outside them → expand each. Exposes `Expansions` (the ledger). |
+| `Ranges/RangeBinder.cs` | Defined name → collection, including `Parent_Child` property paths. |
+| `Ranges/RangeExpander.cs` | The heart. Read tags → capture column expressions → transform items → insert rows → copy → evaluate → restore CFs → run tags → drop the options row → re-point the name. |
+| `Ranges/BoundRange.cs` | `BoundRange` and `RangeArea` (a plain row/column rectangle). |
+| `Tags/` | `OptionTag` + `ProcessingContext`, `TagsRegister`, `TagParser`/`TagToken`, and the built-in tags. |
+
+`XLibur.Report.Tests/Infrastructure/` holds `WorkbookComparer` (semantic diff),
+`ReportFixture`/`GoldenFile` (fixture runner), `ReportResources` (template files, regeneration).
+
+### Running it
+
+```
+dotnet build XLibur.slnx -c Release -v q
+dotnet test XLibur.Report.Tests/XLibur.Report.Tests.csproj -f net10.0
+dotnet test XLibur.Report.Tests/XLibur.Report.Tests.csproj -f net10.0 --treenode-filter "/*/*/TagBehaviourTests/*"
+XLIBUR_REPORT_REGEN=1 dotnet test ...      # rewrite committed fixture templates
+```
+
+`--treenode-filter`, **not** `--filter` — MTP ignores the latter and reports "Zero tests ran".
+
+### Core APIs this depends on, that are not obvious from their signatures
+
+- **`IXLConditionalFormat.Ranges` is a fresh projection.** Mutating the returned collection does
+  nothing. Rewrite coverage with `((XLConditionalFormat)format).SetAreas(XLAreaList.FromRanges(...))`
+  (`XLibur.Excel.ConditionalFormats`, `XLibur.Excel.Coordinates`). The public `Range` setter handles
+  the single-area case.
+- **`RangeUsed()` defaults to contents.** A cell differing only in style, hyperlink or merge falls
+  outside it. `WorkbookComparer` uses `RangeUsed(XLCellsUsedOptions.All)`; two of its own tests
+  failed until it did.
+- **Calling a calc-engine function**: `FunctionDefinition.CallFunction(CalcContext, Span<AnyValue>)`.
+  Construct `new CalcContext(engine, culture, workbook: null, worksheet: null, formulaAddress: null)`
+  for a no-grid evaluation; functions needing a grid throw `MissingContextException`
+  (`XLibur.Excel.CalcEngine.Exceptions`). Convert with `AnyValue.From(...)` in and
+  `AnyValue.TryPickScalar` + `ScalarValue.Match(...)` out; blank is `ScalarValue.Blank.ToAnyValue()`.
+- **Defined names**: enumerate `DefinedNames.ValidNamedRanges()` on both the workbook and each
+  worksheet; re-point with `SetRefersTo(range)`; `Delete()` removes one. Row inserts and deletes
+  shift and shrink names automatically, which the expander relies on to process several ranges on
+  one sheet top to bottom.
+- **`XLHelper.GetColumnLetterFromNumber` / `GetColumnNumberFromLetter`** for column arithmetic; the
+  latter throws `ArgumentException` on nonsense.
+- **Scriban**: `LexerOptions { Mode = ScriptMode.ScriptOnly }` for a bare expression; one
+  `TemplateContext` reused across evaluations with `PushGlobal`/`PopGlobal` per scope;
+  `PushCulture` for formatting. Pushing the function `ScriptObject` **once, by reference** is what
+  makes functions registered after the first evaluation visible. A delegate whose last parameter is
+  `params object?[]` registers as a variadic function — that is how the bridge fits through
+  `AddFunction(string, Delegate)`.
+
+### Conventions this code established
+
+- **The options row is the last row of a multi-row range**; a single-row range has none. It is
+  removed after generation only if nothing is left in it, so a row holding a total survives and a
+  row holding only tags does not. Tag text is `Clear`ed rather than set to `""`, because an empty
+  string still counts as content.
+- **Tags act at two named moments** — `TransformItems` before any row exists, `Execute` after — 
+  rather than relying on priority alone to imply ordering. Priority still orders within a moment
+  (`Delete` is 250 so a column can be sorted by and then removed).
+- **A column-placed tag learns its column's meaning** from `ProcessingContext.ColumnExpressions`,
+  captured before evaluation overwrites the template text. That is why `<<Sort>>` needs no `by`.
+- **Nothing throws out of generation.** Failures become `TemplateError`s and, for cells, red text
+  in the offending cell.
+
+### Notes for the remaining tasks
+
+- **Task 6 (charts/pictures).** The ledger already exists and is populated: `RangeInterpreter.Expansions`
+  is a `List<ExpansionRecord>` of `(Worksheet, TemplateArea, RenderedArea, RowDelta)`. Nothing
+  consumes it yet — that is the whole of the wiring needed. Chart series references are plain
+  settable strings (`IXLChartSeries.ValueReferences`), and setting one marks the chart edited so
+  spec 10's patcher persists it. **Picture-anchor behaviour on row insert is still unverified** —
+  write the characterization test first, as the spec's risk section says.
+- **Task 7 (pivots).** `XLPivotCache.Source` is an internal `IXLPivotSource` with
+  `TryGetSource(workbook, out sheet, out area)`. Distinguish area sources (re-point) from
+  table/name sources (refresh only).
+- **Task 8 (horizontal).** `RangeExpander` is row-oriented throughout — `InsertRowsBelow`, row
+  blocks, the options *row*. Horizontal support is a column-oriented sibling, not a flag; factor
+  the shared parts out rather than threading an `isHorizontal` boolean through it.
+- **Task 4b (grouping).** `SummaryFunctionTag` already emits `SUBTOTAL`, which was chosen precisely
+  so grand totals will not double-count group totals once grouping exists.
+- **Task 3b (nested subranges).** `RangeBinder` resolves `Parent_Child` paths from *workbook*
+  variables. A child range inside a parent's rows needs resolving per parent item instead, and
+  expanding inside each copied block — before the parent's own evaluation pass, or the child's
+  `{{ }}` cells will be evaluated against the parent's scope.
+
+### Environment gotchas
+
+- TUnit's global usings make bare `Assembly` ambiguous with `HookType.Assembly`; qualify
+  `System.Reflection.Assembly`.
+- The `TUnitAssertions0015` analyser rejects `.IsEqualTo(true)`; use `.IsTrue()`. It is a warning
+  locally but `TreatWarningsAsErrors` makes it fail the Release build.
+- Golden-file templates are read from the **source tree**, not embedded resources: a regeneration
+  run writes a template and reads it back in the same pass, which an embedded copy cannot satisfy
+  until the next build.
+- Commit messages here contain parentheses and quotes that break shell quoting — write the message
+  to a file and use `git commit -F`.
