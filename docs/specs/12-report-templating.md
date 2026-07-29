@@ -1,0 +1,430 @@
+# Spec 12 — Report Templating (`XLibur.Report` package)
+
+**Area:** Feature · Arch | **Effort:** L | **Status:** Proposed (July 2026)
+
+## Summary
+
+Add a report-templating engine to the XLibur repository as a new `XLibur.Report` package:
+author a report as an ordinary `.xlsx` template (placeholder expressions, named ranges, tag
+markers), bind .NET data to it, and generate the finished workbook. The architecture is a port
+of ClosedXML.Report (MIT, same lineage as this fork), which already proves the core model —
+defined-name-bound repeating ranges, a cell-text `<<tag>>` system, and buffer-sheet rendering —
+against only the public `IXL*` API surface. On top of that proven core, this spec replaces the
+expression engine with Scriban behind a pluggable abstraction, bridges XLibur's calc-engine
+function registry into template expressions (`{{ SUM(items.Price) }}`), and closes the three
+gaps that ClosedXML.Report never could: **charts, pivot tables, and images that survive range
+expansion**, plus conditional-row tags and conditional-formatting ranges that extend instead of
+duplicating.
+
+Grounding (research, July 2026):
+
+- ClosedXML.Report 0.2.12 (May 2025) uses **System.Linq.Dynamic.Core** for `{{ }}` expressions,
+  drives repetition off Excel defined names bound to `IEnumerable` variables, renders through a
+  `VeryHidden` buffer sheet then splices back, and registers `<<tags>>` via a public static
+  `TagsRegister`. It touches **no ClosedXML internals** — the port is a namespace/API retarget,
+  not a rewrite. Its test suite is ~111 golden-file tests (template + gauge workbook pairs,
+  semantic diff).
+- Upstream is effectively unmaintained: single maintainer, idle since 2025-05-22, 71 open
+  issues, PRs unreviewed for 15+ months. Contributing there is not a viable path.
+- The most-wanted missing capabilities, per upstream issue traffic: charts (#123, #351 — "not
+  supported", series references silently go stale after expansion), pivot tables (#200 corrupt
+  output since 2021; #399 static-pivot regression in 0.2.12), images/shapes not moving with
+  expansion (#354, #281, #249), conditional-formatting rules duplicated per generated cell
+  (#216 — "3 conditions become 9 per cell… kills generation time"), and conditional row logic
+  (`@if`, which MiniExcel has). XLibur — unlike ClosedXML — has a real chart API (spec 10) and
+  a pivot cache model with `Refresh()`, so it is uniquely positioned to close the first two.
+- Scriban (BSD-2-Clause, zero deps on net8+, very active — 7.2.6 July 2026) evaluates a bare
+  expression to a **typed .NET object** (`ScriptMode.ScriptOnly` + `Template.Evaluate`),
+  supports parse-once/evaluate-many, first-class custom-function registration, and real
+  sandbox limits (loop/recursion/output caps, member filters, no reflection escape). Use
+  ≥ 7.x only — the 2026 DoS advisories (GHSA-wgh7-7m3c-fx25 et al.) were fixed in 6.6.0.
+
+## Decisions
+
+Settled with the project owner, July 2026:
+
+1. **Pluggable expression engine, Scriban as the default and flagship syntax.** A
+   ClosedXML.Report-syntax compatibility engine (System.Linq.Dynamic.Core, C# expressions)
+   **is in scope** (decision revised 2026-07-29), shipped as a **separate opt-in package**
+   `XLibur.Report.DynamicLinq` that plugs into the `IExpressionEngine` seam — installing or
+   removing it never touches the core `XLibur.Report` package or its dependency graph.
+2. **No legacy-template compatibility contract.** There is no existing ClosedXML.Report
+   template corpus to run unmodified. The template model (defined names, service row,
+   `<<tags>>`, `{{ }}`) is kept because it is good, not because it is frozen — breaking
+   cleanups are allowed where they fix known upstream design flaws.
+3. **Charts, pivots and images are first-class in v1**: the engine re-points chart series
+   references, moves picture anchors, re-points static pivot sources at the grown range and
+   marks caches refresh-on-open. The `<<pivot>>` generation tag ports too, on XLibur's pivot
+   API.
+4. **Gap-fills in scope:** conditional-formatting range extension (upstream #216) and
+   conditional row/range tags. **Out of scope** (deferred, see Non-goals): worksheet-per-item
+   (#93), horizontal subranges (#225).
+5. **Strict project isolation** (decision 2026-07-29): reporting code lives only in
+   `XLibur.Report*` projects — its own Tests, Examples and Benchmarks projects. The sole
+   core-side change in the whole spec is the `InternalsVisibleTo` grant.
+
+## Scope
+
+In scope:
+
+- New projects `XLibur.Report` (TFMs `net8.0;net9.0;net10.0`, nullable enabled, warnings as
+  errors — matching `XLibur.csproj`), `XLibur.Report.DynamicLinq`, `XLibur.Report.Tests` and
+  `XLibur.Report.Examples`, mirroring the satellite-package layout of `XLibur.Fonts.SixLabors`
+  (+`.Tests`/`.Examples`).
+  Reporting stays fully isolated from the core projects: `XLibur.Tests`, `XLibur.Examples`
+  and `XLibur.Benchmarks` are not touched — the sole core-side change in the whole spec is
+  the one-line IVT grant in `XLibur/Properties/AssemblyInfo.cs`. The `ReportGenerate`
+  benchmark gets its own `XLibur.Report.Benchmarks` project for the same reason.
+  `XLibur.Report` is packaged and versioned by MinVer with the rest of the repo, published
+  from the existing release pipeline.
+- Template language: `{{ scriban-expression }}` in cell values, comments, hyperlinks and rich
+  text; `&=` prefix for generation-time formula construction; Excel defined names binding
+  `IEnumerable` variables to repeating ranges (vertical and horizontal); nested named ranges
+  for vertical master-detail; the `<<Tag param=value>>` marker system with public custom-tag
+  registration.
+- Built-in tags ported: range/layout (`Range`, `SummaryAbove`, `DisableGrandTotal`,
+  `OnlyValues`, `Delete`, `AutoFilter`, `ColsFit`, `RowsFit`, `Hidden`, `PageOptions`,
+  `Protected`, `Height`), sorting (`Sort`/`Asc`/`Desc`), summary functions (`SUM`, `AVG`,
+  `COUNT`, `MAX`, `MIN`, `PRODUCT`, `STDEV`, `VAR`, … with `over=`), grouping with subtotals,
+  outline levels, `MergeLabels`, `PageBreaks`; image insertion (`Image`); pivot generation
+  (`Pivot`, `Row`/`Column`/`Page`, `Data`).
+- New tags: conditional inclusion (`If`) at row and range level.
+- The Excel-function bridge: XLibur's `FunctionRegistry` exposed inside `{{ }}`.
+- Chart/pivot/picture reference rewriting after range expansion.
+- Conditional formatting: ranges extended, not duplicated.
+- The ClosedXML.Report-syntax compatibility engine as a separate plug-in package
+  `XLibur.Report.DynamicLinq` (see Design), verified by the upstream gauge corpus ported
+  wholesale.
+- Full test coverage: TUnit golden-file infrastructure plus unit tests in
+  `XLibur.Report.Tests`, coverage target in the acceptance criteria; a `ReportGenerate`
+  benchmark in `XLibur.Report.Benchmarks`.
+
+Non-goals (recorded so future specs can pick them up):
+
+- Worksheet-per-item generation (upstream #93) and subranges in horizontal tables (#225).
+- Streaming/bounded-memory report generation (compose with spec 01's `XLStreamingWorkbook`
+  later if demand appears) and async generation.
+- Bug-for-bug equivalence with upstream ClosedXML.Report in the compatibility engine — the
+  contract is "passes the ported upstream gauge corpus", not undocumented quirk parity.
+- A template *designer* or any tooling beyond the library and docs.
+
+## Design
+
+### Project and public API
+
+`XLibur.Report/` mirrors the upstream layout where it survives: root public types, `Tags/`
+(upstream `Options/`), `Excel/` (range/subtotal helpers and `IXL*` extensions), `Expressions/`
+(new — the engine seam and Scriban implementation), `Rewriting/` (new — post-expansion
+reference rewriting). Public surface:
+
+```csharp
+namespace XLibur.Report;
+
+public interface IXLTemplate : IDisposable
+{
+    IXLWorkbook Workbook { get; }
+    void AddVariable(string alias, object value);
+    void AddVariable(object value);                  // reflects public members into variables
+    XLGenerateResult Generate();
+    void SaveAs(string file); / SaveAs(Stream);
+}
+
+public class XLTemplate : IXLTemplate                 // ctors: path, Stream, IXLWorkbook
+public class XLGenerateResult { bool HasErrors; TemplateErrors ParsingErrors; }
+
+public interface IExpressionEngine                    // the pluggable seam
+{
+    object? Evaluate(string expression, ExpressionScope scope);   // typed result
+    string  Interpolate(string text, ExpressionScope scope);      // mixed text + {{ }}
+    bool    SupportsFunctions { get; }                            // optional capability
+    void    AddFunction(string name, Delegate function);          // throws if unsupported
+}
+
+public static class TagsRegister { void Add<T>(string name, byte priority); }
+public abstract class OptionTag { … Execute(ProcessingContext ctx); }
+```
+
+Errors accumulate into `TemplateErrors` and are written into the offending cells (red),
+matching upstream behaviour — one bad expression must not abort the whole report (upstream
+#340 is the counter-example to avoid).
+
+### Expression engine: Scriban
+
+`ScribanExpressionEngine` (the default, constructed by `XLTemplate` unless one is injected):
+
+- **Whole-cell expression** `{{ expr }}` → parse with `LexerOptions { Mode =
+  ScriptMode.ScriptOnly }`, evaluate via `Template.Evaluate` → typed object → `XLCellValue`
+  conversion (decimal/double/DateTime/bool/string/Blank). **Mixed text** → normal
+  `Template.Parse` + `Render`. Parsed templates are cached per distinct expression string
+  (upstream caches compiled lambdas the same way); evaluation per data row pushes a per-row
+  `ScriptObject` (`item`, `index`, `items`, plus globals) onto the context stack.
+- **Identity `MemberRenamer`** (`member => member.Name`) so `{{ item.Price }}` binds to C#
+  property names verbatim (Scriban's default would rename to `item.price`).
+- **Relaxed access on**: missing member / null target yields null rather than throwing —
+  report templates over sparse data want this.
+- **Sandbox defaults on**: Scriban's loop/recursion/output limits stay at their safe defaults;
+  the `TemplateContext` exposes only what `AddVariable` put in. One `TemplateContext` per
+  `Generate()` call (it is not thread-safe; a template instance is single-generation at a
+  time, same as upstream).
+- `DataTable` variables convert to `Rows.Cast<DataRow>()`; `IDictionary` variables explode
+  into individual variables — both upstream behaviours kept.
+
+### Compatibility engine: `XLibur.Report.DynamicLinq` (separate package)
+
+A second `IExpressionEngine` implementation that runs **ClosedXML.Report's C# expression
+syntax** (`{{ item.Name.ToUpper() }}`, lambdas, LINQ over exposed collections) so
+upstream-authored templates run unmodified — template *structure* (defined names, tags,
+service row, `&=`) is engine-independent, so the expression language is the only delta.
+
+- **Own NuGet package**, own project, own dependency (`System.Linq.Dynamic.Core` ≥ 1.6.x;
+  never below 1.3.0 — CVE-2023-32571 was arbitrary method invocation). `XLibur.Report`
+  itself never references it: engine selection is per-template
+  (`new XLTemplate(path, new DynamicLinqExpressionEngine())`), so the package plugs in or
+  out of a consuming app without touching the core report package.
+- **Port of upstream `FormulaEvaluator` semantics** (~300–500 LOC): regex `{{ }}` splitting,
+  `ParseLambda` + per-expression lambda cache, `item`/`index`/`items` row binding, `@`-prefixed
+  globals inside range scope, non-generic `IEnumerable` re-cast via compiled `Cast<T>`,
+  mixed-text interpolation with `InvariantCulture` and `DateTime → ToOADate()`.
+- **`SupportsFunctions => false`** — the Excel-function bridge is a Scriban-engine feature;
+  upstream syntax never had it, and Dynamic LINQ's static-method extension mechanism is not
+  worth bridging. `XLTemplate` skips bridge registration for engines that decline.
+- **Trusted templates only** — Dynamic LINQ has no sandbox; the docs state this and point
+  untrusted-template scenarios at the Scriban default.
+- **Conformance contract:** the upstream MIT gauge corpus (~111 template/gauge pairs) ports
+  wholesale under this engine and *is* its test suite; the shared structural golden-file
+  fixtures run parameterized across both engines.
+
+### Excel-function bridge
+
+`XLibur.Excel.CalcEngine.FunctionRegistry` (internal) already maps `SUM`, `AVERAGE`, `ROUND`,
+`TEXT`, `EOMONTH`, … (~420 functions, spec 07) to implementations with Excel coercion
+semantics. The bridge:
+
+- Add `[assembly: InternalsVisibleTo("XLibur.Report")]` to `XLibur/Properties/AssemblyInfo.cs`
+  (assemblies are not strong-named; the grant is a plain name, same as the existing
+  Tests/Benchmarks grants).
+- An adapter registers every registry function into the Scriban context under its **uppercase
+  Excel name** (`SUM`, `IF`, `AVERAGE` — Scriban keywords are lowercase, so `IF` parses as an
+  ordinary identifier), marshalling .NET arguments → `ScalarValue`/array values → function →
+  `XLCellValue` → .NET. Functions that require a grid context (references, `OFFSET`-style)
+  are **excluded** from the bridge — at template-evaluation time there is no grid; real cell
+  formulas remain the tool for that, and the engine expands those.
+- The bridge is one adapter over the registry, not per-function code: functions added to the
+  calc engine later appear in templates automatically.
+
+### Range expansion core
+
+Direct port of the upstream pipeline, modernized (nullable, `XLCellValue`-native, TUnit):
+
+- `RangeInterpreter` binds defined names to `IEnumerable` variables (including the
+  `Parent_Child` underscore convention for nested sources), evaluates non-bound cells, then
+  renders each bound range.
+- `RangeTemplate` parses a bound range into a cell grid; the **last row is the options/service
+  row** (tags + summary cells); inner defined names become recursive subrange templates
+  (vertical master-detail).
+- `TempSheetBuffer` renders onto a `VeryHidden` buffer sheet, then `CopyTo` splices the block
+  into the target sheet, inserting/deleting rows; the defined name is re-pointed via
+  `SetRefersTo`. Formulas are handled in R1C1 during expansion (including the upstream
+  conditional-format R1C1 round-trip trick), so row-relative formulas survive.
+- One deliberate behavioural change, replacing upstream's per-cell copying of conditional
+  formats (#216): see "Conditional formatting" below.
+
+### Post-expansion reference rewriting (the differentiator)
+
+The interpreter keeps an **expansion ledger** per worksheet: for every rendered bound range,
+`(sheet, template area, rendered area, row/column delta below/right of it)`. After all ranges
+on a sheet have rendered, `ReferenceRewriter` walks the workbook:
+
+- **Charts** (`IXLChart` / `IXLChartSeries`): `ValueReferences`, `CategoryReferences` and any
+  name reference are parsed with `ClosedXML.Parser` (already a dependency of XLibur, used by
+  spec 05's reference shifting). A reference that lies inside a template area is stretched to
+  the rendered area; a reference entirely below/right of one is shifted by the delta. XLibur
+  does **not** shift chart references on row insert today (spec 10's patcher never touches
+  loaded charts unless edited) — the rewriter setting `ValueReferences` marks the chart edited
+  and the existing patch-on-save path persists it.
+- **Pictures/shapes** (`IXLPicture`): cell-anchored pictures whose anchor row/column sits
+  below/right of a rendered area move by the delta (upstream #354/#281/#249). If the `CopyTo`
+  row-insertion already relocates anchors, the rewriter's job for pictures reduces to the
+  in-area cases — Task 6 must first pin down current behaviour with a characterization test.
+- **Pivot caches**: a cache whose source is an **area reference** intersecting a template area
+  gets its source re-pointed at the rendered area (internal `XLPivotCache.Source` via the IVT
+  grant; promote to a public `IXLPivotCache` setter only if a public need emerges), then
+  `Refresh()` and `SetRefreshDataOnOpen()`. Caches sourced from **tables or defined names**
+  need no re-point (the name/table already grew) — refresh only. This restores and hardens the
+  "static pivot over a named range" pattern that upstream 0.2.12 regressed (#399), and it is
+  the *documented* happy path; the `<<Pivot>>` generation tag is ported for dynamic layouts
+  but the static pattern is primary.
+
+### Conditional formatting
+
+During expansion the buffer does not copy CF rules per generated cell. Instead, rules whose
+range intersects the template row are recorded once, and after splicing the rule's applied
+range is **extended to the rendered block** (relative references stay R1C1-correct via the
+existing round-trip). Rule count in the output equals rule count in the template — upstream
+produces `rows × rules` duplicates (#216).
+
+### Conditional tags
+
+`<<If test="expr">>`:
+
+- **Row level** (tag in a cell of a data row): after per-row evaluation, rows where `test` is
+  falsy are omitted from the buffer. Scriban truthiness applies (`null`/`false` falsy) — the
+  docs must say so explicitly, since `0` is truthy.
+- **Range level** (tag in the options row): a falsy `test` (evaluated against the range's
+  `items`) renders the range with zero rows — headers and options-row summaries behave exactly
+  as an empty collection does.
+
+### Testing
+
+- **A dedicated `XLibur.Report.Tests` project** (TUnit, mirroring `XLibur.Tests`
+  infrastructure conventions — serial execution, en-US culture defaults — without referencing
+  it): `Resource/Templates/*.xlsx` + `Resource/Gauges/*.xlsx`, and a semantic
+  workbook comparer asserting cell values/types/formulas, comments, hyperlinks, rich text,
+  merged ranges, styles, conditional formats (count and ranges — the #216 fix makes this
+  meaningful), row/column sizes and outline levels, page setup — with the actual output saved
+  to a diagnostics folder on mismatch. This is the upstream `CompareWithGauge` approach
+  rebuilt on TUnit/awaitable assertions.
+- Upstream's MIT-licensed template/gauge pairs port **wholesale as the compatibility
+  engine's conformance suite** (their syntax matches it exactly); for the Scriban engine
+  they port selectively (simple `{{ item.X }}` templates unchanged; ones using C# method
+  calls re-authored). Structural golden-file fixtures are parameterized to run under both
+  engines. `XLibur.Report.Tests` hosts all of it — it references the DynamicLinq package;
+  the shipped `XLibur.Report` package never does.
+- Chart/pivot/image assertions reload the generated workbook through XLibur and assert
+  series references / cache sources / anchors; per repo ground rules, file-format-affecting
+  tasks (5–7) also record a manual "opens clean in Excel" check.
+- Every built-in tag gets at least one golden-file test; the expression engine, function
+  bridge, ledger/rewriter get direct unit tests.
+
+### Packaging, CI, docs
+
+MinVer versioning is inherited from `Directory.Build.props` automatically. Work items: add the
+five projects to `XLibur.slnx` under an `/XLibur.Report/` solution folder (pattern: the
+`XLibur.Fonts.SixLabors` folder), `GeneratePackageOnBuild` in Release for `XLibur.Report`
+and `XLibur.Report.DynamicLinq` (pattern: `XLibur.Bundle`), NuGet readmes, verify
+`release.yml` picks up the new `.nupkg`s and CI runs the new test project, a docs-website
+section (template-language reference, tag reference, function-bridge list, chart/pivot
+patterns, Scriban↔C#-syntax migration page), and a `XLibur.Report.Examples` project.
+
+## Work plan
+
+PR-sized tasks; each lands green (build + tests) on its own branch per repo ground rules.
+
+1. **Scaffold + expression engine.** `XLibur.Report` + `XLibur.Report.Tests` projects, slnx
+   entries, CI test wiring, IVT grants (`XLibur` → `XLibur.Report`; `XLibur.Report` →
+   `XLibur.Report.Tests`), `IExpressionEngine` + `ScribanExpressionEngine` (typed eval,
+   interpolation, caching, relaxed access, identity renamer, sandbox defaults),
+   `TemplateErrors` model. Unit tests for every evaluation shape (typed results incl.
+   decimal/DateTime/Blank, nulls, mixed text, error capture).
+2. **Golden-file test infrastructure** in `XLibur.Report.Tests`. Semantic comparer, resource
+   layout, TUnit fixture helpers, diagnostics-on-mismatch. Tested against hand-made
+   equal/unequal workbook pairs.
+3. **Vertical range expansion.** `RangeInterpreter`, `RangeTemplate`, `TempSheetBuffer`,
+   defined-name binding (incl. underscore paths), service row, R1C1 formula handling, merged
+   ranges, styles/heights, comments/hyperlinks/rich text, nested vertical subranges, `&=`
+   formulas. First golden-file suite.
+4. **Tag framework + core tags.** `OptionTag`/`TagsRegister`/parser, sorting, summary
+   functions with `over=`, layout tags, `Image`, grouping + subtotal engine (outline levels,
+   `MergeLabels`, `PageBreaks`, `SummaryAbove`, grand totals). Largest port task; may split
+   grouping into its own PR at implementation time.
+5. **Excel-function bridge.** Registry adapter, uppercase registration, grid-context function
+   exclusion list, value marshalling, docs table of exposed functions.
+6. **Expansion ledger + chart/picture rewriting.** Ledger, `ReferenceRewriter` for chart
+   series and picture anchors (after the picture characterization test), golden-file tests
+   asserting re-pointed references, manual Excel check.
+7. **Pivot support.** Static-pivot re-point + refresh (area/table/name sources), `<<Pivot>>` /
+   field/data tags on XLibur's pivot API, manual Excel check (upstream #200's corrupt-output
+   history makes the validator + Excel check non-negotiable here).
+8. **Horizontal tables + conditional tags + CF extension.** Horizontal rendering parity
+   (no subranges), `<<If>>` row/range levels, CF extend-not-duplicate with rule-count
+   assertions.
+9. **Packaging, docs, examples, benchmark.** NuGet packaging + release pipeline verification,
+   docs-website section, new `XLibur.Report.Examples` project, new `XLibur.Report.Benchmarks`
+   project with the `ReportGenerate` benchmark (100K-row grouped report) and baseline numbers
+   recorded here.
+10. **Compatibility engine (`XLibur.Report.DynamicLinq`).** New package/project, port of
+    upstream `FormulaEvaluator` semantics onto `IExpressionEngine`, engine parameterization
+    of the shared golden-file fixtures, wholesale port of the upstream gauge corpus as the
+    conformance suite, docs (trusted-templates-only caveat, engine selection).
+
+Sequencing: 1 → 2 → 3 → {4, 5, 6, 10 in parallel} → 7 → 8 → 9. Task 5 only needs Task 1;
+Tasks 6–7 need Task 3's ledger; Task 8 needs Task 4's tag framework; Task 10 needs Tasks
+2–3 (fixtures + expansion core) and is independent of everything after. Conflict map: 4↔8
+(tag framework), 6↔7 (rewriter), 10↔4 (both touch shared test fixtures — coordinate or
+sequence). Everything in `XLibur.Report*/` is disjoint from the core library except the
+one-line IVT grant (Task 1) — no conflicts with open specs 03/04/08.
+
+## Acceptance criteria
+
+1. A template with a bound vertical range, nested subrange, grouping with subtotals, sorting,
+   summary row, merged cells, row-relative formulas, comments and hyperlinks generates
+   correctly (golden-file verified) — parity with the upstream feature set minus non-goals.
+2. `{{ SUM(items.Price) }}`, `{{ IF(item.Qty > 10, "bulk", "unit") }}`, `{{ ROUND(item.Price,
+   2) }}` evaluate through the calc-engine bridge with Excel semantics and **typed** results
+   (a decimal sum lands as a number cell, not text).
+3. A template chart whose series reference a template range shows **all** generated rows after
+   expansion (reloaded references assert the rendered area), and a picture below the range
+   sits below the generated rows. Manual Excel check recorded.
+4. A static pivot over a bound named range reflects the full generated data after
+   refresh-on-open; `<<Pivot>>`-generated output opens in Excel with **no repair dialog**
+   (regression tests for upstream #399 and #200 scenarios).
+5. Conditional formatting: output rule count equals template rule count with ranges covering
+   the rendered block (upstream #216 scenario as a regression test).
+6. `<<If test=…>>` omits rows/ranges when falsy, golden-file verified.
+7. Coverage: ≥ 90% line coverage on `XLibur.Report` (MTP `--coverage`); every built-in tag has
+   at least one golden-file test; one bad expression yields a cell-level error plus
+   `HasErrors`, never an exception aborting generation.
+8. `ReportGenerate` benchmark (100K rows × 10 cols, one group level): completes without the
+   temp-buffer approach degrading super-linearly; numbers recorded in this spec's Results as
+   the baseline for future perf work.
+9. Packages publish from the existing tag-driven release with MinVer-derived versions;
+   Scriban ≥ 7.x is the only new runtime dependency of `XLibur.Report`, and
+   System.Linq.Dynamic.Core is a dependency of `XLibur.Report.DynamicLinq` only.
+10. An unmodified upstream-syntax template (C# expressions, `@` globals, `&=` formulas)
+    generates correctly under `DynamicLinqExpressionEngine`; the ported upstream gauge
+    corpus passes; adding/removing the DynamicLinq package requires no change to code using
+    the default engine.
+
+## Risks
+
+- **Scriban syntax vs user expectations.** Authors coming from ClosedXML.Report lose C#
+  method calls and lambdas (`item.Name.Substring(0,3)` → `item.Name | string.slice 0 3`;
+  LINQ → `array.filter`/`map` or the function bridge). Mitigation: docs migration page, and
+  the `XLibur.Report.DynamicLinq` package (Task 10) runs upstream-syntax templates
+  unmodified for those who want it.
+- **Two engines double the behavioural surface.** Tag-parameter expressions (`over=`,
+  `source=`, `test=`) evaluate through whichever engine the template uses, so every tag has
+  two syntax audiences. Mitigation: tags receive evaluated *values* through the seam, never
+  engine-specific ASTs; the parameterized fixture suite keeps structural behaviour identical
+  across engines.
+- **Buffer-sheet performance at scale.** Upstream shows cell-by-cell buffer rendering strains
+  past ~100K rows (#341, #68). The benchmark in Task 9 makes this visible early; optimization
+  (bulk-write paths from spec 11's learnings) is follow-on work, not a v1 gate beyond
+  criterion 8.
+- **Pivot re-point depends on internal `XLPivotCache.Source` semantics** (area vs table vs
+  name sources). Task 7 starts with characterization tests; if internals shift under spec
+  work in the core, the IVT coupling makes `XLibur.Report` a same-repo build break — visible
+  immediately in CI, which is the point of same-repo versioning.
+- **Picture-anchor behaviour on row insert is unverified** — Task 6's characterization test
+  resolves the unknown before the rewriter is designed around it.
+- **Tag-in-cell parsing ambiguity** (a literal `<<` in report text). Kept upstream-compatible;
+  documented escape hatch if it bites.
+
+## References
+
+- ClosedXML.Report source (develop @ 2025-05-22): `XLTemplate`, `RangeInterpreter`,
+  `RangeTemplate`, `TempSheetBuffer`, `FormulaEvaluator`, `Options/*`, `Excel/Subtotal.cs` —
+  https://github.com/ClosedXML/ClosedXML.Report ; docs
+  https://closedxml.io/ClosedXML.Report/docs/en/
+- Upstream issues driving the gap-fills: #123/#351 (charts), #200/#399 (pivots), #216/#355
+  (conditional formatting), #354/#281/#249 (pictures), #93, #225, #340, #341, #303.
+- Scriban: https://github.com/scriban/scriban — `ScriptMode.ScriptOnly`, `Template.Evaluate`,
+  ScriptObject import, safe-runtime docs; DoS advisories fixed in 6.6.0
+  (GHSA-wgh7-7m3c-fx25, GHSA-xw6w-9jjh-p9cr, GHSA-xcx6-vp38-8hr5).
+- System.Linq.Dynamic.Core: https://github.com/zzzprojects/System.Linq.Dynamic.Core —
+  upstream pins 1.6.0.2; CVE-2023-32571 (arbitrary method invocation) fixed in 1.3.0.
+- XLibur seams: `XLibur/Excel/CalcEngine/FunctionRegistry.cs` (internal),
+  `XLibur/Excel/PivotTables/XLPivotCache.cs` (`Source`, `Refresh`, `RefreshDataOnOpen`),
+  `XLibur/Excel/Charts/IXLChartSeries.cs` (`ValueReferences`/`CategoryReferences`),
+  `XLibur/Properties/AssemblyInfo.cs` (IVT grants), spec 05 (ClosedXML.Parser reference
+  shifting), spec 07 (function registry), spec 10 (chart write path).

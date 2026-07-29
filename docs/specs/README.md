@@ -1,6 +1,6 @@
 # XLibur Improvement Roadmap
 
-Eleven prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
+Twelve prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
 
 Specs 01–10 are the original top-ten set; spec 11 is a follow-on that came out of implementing spec 03 (see below).
 
@@ -21,10 +21,18 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 09 | [Threaded comments + round-trip fidelity](09-threaded-comments-roundtrip.md) | Feature · Compat | M | ✅ **Done** (#258) | Comments vs fidelity-audit split |
 | 10 | [Chart formatting depth](10-chart-formatting-depth.md) | Feature | L | ✅ **Done** (PRs 1–4) | 4 PRs, 2–3 independent |
 | 11 | [Create-path allocation reduction](11-create-path-allocations.md) | Perf (write) | M | ✅ **Tasks 1–4 done** | Task 4 lands in 11; 05 rebases |
+| 12 | [Report templating (`XLibur.Report`)](12-report-templating.md) | Feature · Arch | L | Proposed | 10 tasks; 4/5/6/10 parallel after 3 |
 
 Spec 11 was added after spec 03 landed: 03 halved the *save* phase and showed the rest of it is
 `System.IO.Packaging`, leaving the *create* phase as 72% of the write benchmark. It is a follow-on,
 not part of the original ten.
+
+Spec 12 (July 2026) is a feature spec outside the original survey: a report-templating package
+(`XLibur.Report`) porting the ClosedXML.Report architecture with a Scriban expression engine,
+an Excel-function bridge into `{{ }}` expressions, first-class chart/pivot/image handling
+across range expansion, and an opt-in `XLibur.Report.DynamicLinq` package that runs
+ClosedXML.Report's C#-expression template syntax unmodified. Its only touch on the core
+library is an `InternalsVisibleTo` grant, so it does not conflict with the open perf specs.
 
 Spec 02 delivered **−16.5% load time and −61.5% allocations** (4.750 s / 1020.92 MB → 3.968 s /
 392.88 MB on the 250K×15 benchmark). It also produced two findings that change other specs: a
