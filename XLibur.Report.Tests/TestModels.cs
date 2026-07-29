@@ -7,6 +7,12 @@ public sealed class SaleItem
 {
     public string Product { get; set; } = string.Empty;
 
+    /// <summary>The outer key in grouping fixtures.</summary>
+    public string Region { get; set; } = string.Empty;
+
+    /// <summary>The inner key in nested-grouping fixtures.</summary>
+    public string Category { get; set; } = string.Empty;
+
     public int Quantity { get; set; }
 
     public decimal UnitPrice { get; set; }

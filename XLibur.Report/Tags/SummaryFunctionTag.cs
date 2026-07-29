@@ -17,8 +17,13 @@ namespace XLibur.Report.Tags;
 /// <para>
 /// <c>over</c> totals a different column: <c>&lt;&lt;Sum over=D&gt;&gt;</c>.
 /// </para>
+/// <para>
+/// With <c>&lt;&lt;Group&gt;&gt;</c> in the same options row, the same declaration is repeated in
+/// each group's subtotal row over that group's rows alone. <c>&lt;&lt;DisableGrandTotal&gt;&gt;</c>
+/// keeps the group subtotals and drops the options-row total.
+/// </para>
 /// </remarks>
-public sealed class SummaryFunctionTag : OptionTag
+public sealed class SummaryFunctionTag : OptionTag, IRangeSummaryTag
 {
     /// <summary>
     /// Excel's SUBTOTAL function numbers, which is how SUBTOTAL selects the aggregate to apply.
@@ -39,18 +44,34 @@ public sealed class SummaryFunctionTag : OptionTag
         ["VarP"] = 11,
     };
 
+    private int? _totalledColumn;
+    private bool _columnResolved;
+
     /// <inheritdoc />
     public override void Execute(ProcessingContext context)
     {
-        if (context.OptionsRow is null)
+        if (context.OptionsRow is null || context.GrandTotalsDisabled)
         {
             return;
         }
 
+        var generated = context.GeneratedRange.RangeAddress;
+        var optionsRowNumber = context.OptionsRow.RangeAddress.FirstAddress.RowNumber;
+
+        TryWriteSummary(
+            context.Worksheet.Cell(optionsRowNumber, Column),
+            generated.FirstAddress.RowNumber,
+            generated.LastAddress.RowNumber,
+            context);
+    }
+
+    /// <inheritdoc />
+    public bool TryWriteSummary(IXLCell target, int firstRow, int lastRow, ProcessingContext context)
+    {
         if (!FunctionNumbers.TryGetValue(Token.Name, out var functionNumber))
         {
             context.Errors.Add(new TemplateError($"<<{Token.Name}>> is not a summary function.", context.Worksheet.Name));
-            return;
+            return false;
         }
 
         // The tag's own column decides where the total appears; `over` only changes what is
@@ -58,21 +79,14 @@ public sealed class SummaryFunctionTag : OptionTag
         var totalled = ResolveColumn(context);
         if (totalled is null)
         {
-            return;
+            return false;
         }
-
-        var optionsRowNumber = context.OptionsRow.RangeAddress.FirstAddress.RowNumber;
-        var target = context.Worksheet.Cell(optionsRowNumber, Column);
-
-        var generated = context.GeneratedRange.RangeAddress;
-        var firstRow = generated.FirstAddress.RowNumber;
-        var lastRow = generated.LastAddress.RowNumber;
 
         if (lastRow < firstRow)
         {
             // Nothing was generated; a total over no rows is zero, not a broken reference.
             target.Value = 0;
-            return;
+            return true;
         }
 
         var columnLetter = XLHelper.GetColumnLetterFromNumber(totalled.Value);
@@ -80,9 +94,27 @@ public sealed class SummaryFunctionTag : OptionTag
         target.FormulaA1 = string.Create(
             CultureInfo.InvariantCulture,
             $"SUBTOTAL({functionNumber},{columnLetter}{firstRow}:{columnLetter}{lastRow})");
+
+        return true;
     }
 
+    /// <summary>
+    /// Works out which column to total, once. A grouped range asks for every group, and a template
+    /// naming a column that does not exist should say so once rather than once per group.
+    /// </summary>
     private int? ResolveColumn(ProcessingContext context)
+    {
+        if (_columnResolved)
+        {
+            return _totalledColumn;
+        }
+
+        _columnResolved = true;
+        _totalledColumn = Resolve(context);
+        return _totalledColumn;
+    }
+
+    private int? Resolve(ProcessingContext context)
     {
         var over = Token.Value("over");
         if (over.Length == 0)

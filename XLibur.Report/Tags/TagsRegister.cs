@@ -62,9 +62,20 @@ public static class TagsRegister
     {
         // Ordering matters where one tag reads what another wrote: totals land before the
         // column-fitting and autofilter tags measure the block.
+        Add<GroupOptionTag>("SummaryAbove", 5);
+        Add<GroupOptionTag>("MergeLabels", 5);
+        Add<GroupOptionTag>("PageBreaks", 5);
+        Add<GroupOptionTag>("Collapse", 5);
+        Add<GroupOptionTag>("DisableSubtotals", 5);
+        Add<GroupOptionTag>("DisableGrandTotal", 5);
+
         Add<SortTag>("Sort", 10);
         Add<SortTag>("Asc", 10);
         Add<DescendingSortTag>("Desc", 10);
+
+        // Grouping reads the row order sorting left behind, and nests its levels left to right —
+        // which the register preserves, ordering equal priorities by the column they were read in.
+        Add<GroupTag>("Group", 20);
 
         Add<SummaryFunctionTag>("Sum", 50);
         Add<SummaryFunctionTag>("Avg", 50);

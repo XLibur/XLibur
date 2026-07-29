@@ -61,12 +61,34 @@ internal sealed class RangeExpander
         // are still intact only until evaluation replaces them with values.
         var tags = hasOptionsRow ? ReadTags(sheet, area.LastRow, area) : new List<OptionTag>();
         var columnExpressions = ReadColumnExpressions(sheet, area, dataLastRow);
+        var groupOptions = GroupOptions.Read(tags);
 
-        var items = ApplyItemTransforms(tags, bound.Items, sheet, area, dataLastRow, globalScope, columnExpressions);
+        // The generated rows do not exist yet, so this context points at the template block; a tag
+        // acting at this stage is reordering data, not reading the sheet.
+        var templateContext = new ProcessingContext(
+            sheet,
+            sheet.Range(area.FirstRow, area.FirstColumn, dataLastRow, area.LastColumn),
+            null,
+            bound.Items,
+            _engine,
+            globalScope,
+            _errors,
+            columnExpressions,
+            groupOptions.GrandTotalDisabled);
+
+        var items = ApplyItemTransforms(tags, bound.Items, templateContext);
 
         if (items.Count == 0)
         {
             return Clear(definedName, sheet, area, dataLastRow, hasOptionsRow);
+        }
+
+        // Grouping reorders too, and has to do it last: its ordering is stable, so whatever
+        // <<Sort>> decided survives as the order within each group.
+        var grouping = GroupRenderer.Prepare(tags, items, groupOptions, templateContext);
+        if (grouping is not null)
+        {
+            items = grouping.Items;
         }
 
         // Captured before anything moves: the rules are re-pointed afterwards from the template's
@@ -93,7 +115,7 @@ internal sealed class RangeExpander
         for (var i = 0; i < items.Count; i++)
         {
             var blockFirstRow = area.FirstRow + (i * dataRowCount);
-            var scope = CreateItemScope(globalScope, items, i);
+            var scope = ItemScopes.For(globalScope, items, i);
             EvaluateBlock(sheet, blockFirstRow, blockFirstRow + dataRowCount - 1, area, scope);
         }
 
@@ -101,13 +123,49 @@ internal sealed class RangeExpander
 
         RestoreConditionalFormats(sheet, formatsBeforeExpansion, templateFormats, dataRowCount, items.Count);
 
+        if (grouping is not null)
+        {
+            // Grouping runs before the options row is written, so that the grand total spans the
+            // group totals as well — SUBTOTAL ignores nested SUBTOTALs, which is why it is the
+            // formula the summary tags leave.
+            var groupContext = new ProcessingContext(
+                sheet,
+                sheet.Range(area.FirstRow, area.FirstColumn, renderedLastRow, area.LastColumn),
+                null,
+                items,
+                _engine,
+                globalScope,
+                _errors,
+                columnExpressions,
+                groupOptions.GrandTotalDisabled);
+
+            renderedLastRow = grouping.Render(
+                sheet,
+                area,
+                area.FirstRow,
+                dataRowCount,
+                hasOptionsRow,
+                tags,
+                groupContext);
+        }
+
         if (hasOptionsRow)
         {
             var optionsRowNumber = renderedLastRow + 1;
 
             // Tags run before the options row is considered for removal: a total writes into it,
             // and a row holding a total is not an empty row.
-            ExecuteTags(tags, sheet, area, renderedLastRow, optionsRowNumber, items, globalScope, columnExpressions);
+            ExecuteTags(
+                tags,
+                sheet,
+                area,
+                renderedLastRow,
+                optionsRowNumber,
+                items,
+                globalScope,
+                columnExpressions,
+                groupOptions.GrandTotalDisabled);
+
             RemoveOptionsRowIfEmpty(sheet, optionsRowNumber, area);
         }
 
@@ -141,14 +199,6 @@ internal sealed class RangeExpander
         var rendered = new RangeArea(area.FirstRow, area.FirstColumn, area.FirstRow - 1, area.LastColumn);
         return new ExpansionRecord(sheet, area, rendered, -(lastRowToDelete - area.FirstRow + 1));
     }
-
-    private static ExpressionScope CreateItemScope(ExpressionScope globalScope, IReadOnlyList<object?> items, int index) =>
-        globalScope.CreateChild(new[]
-        {
-            new KeyValuePair<string, object?>("item", items[index]),
-            new KeyValuePair<string, object?>("index", index),
-            new KeyValuePair<string, object?>("items", items),
-        });
 
     private void EvaluateBlock(IXLWorksheet sheet, int firstRow, int lastRow, RangeArea area, ExpressionScope scope)
     {
@@ -250,32 +300,11 @@ internal sealed class RangeExpander
         return expressions;
     }
 
-    private IReadOnlyList<object?> ApplyItemTransforms(
+    private static IReadOnlyList<object?> ApplyItemTransforms(
         List<OptionTag> tags,
         IReadOnlyList<object?> items,
-        IXLWorksheet sheet,
-        RangeArea area,
-        int dataLastRow,
-        ExpressionScope globalScope,
-        Dictionary<int, string> columnExpressions)
+        ProcessingContext context)
     {
-        if (tags.Count == 0)
-        {
-            return items;
-        }
-
-        // The generated rows do not exist yet, so the context points at the template block; a tag
-        // acting at this stage is reordering data, not reading the sheet.
-        var context = new ProcessingContext(
-            sheet,
-            sheet.Range(area.FirstRow, area.FirstColumn, dataLastRow, area.LastColumn),
-            null,
-            items,
-            _engine,
-            globalScope,
-            _errors,
-            columnExpressions);
-
         foreach (var tag in tags)
         {
             items = tag.TransformItems(items, context);
@@ -292,7 +321,8 @@ internal sealed class RangeExpander
         int optionsRowNumber,
         IReadOnlyList<object?> items,
         ExpressionScope globalScope,
-        Dictionary<int, string> columnExpressions)
+        Dictionary<int, string> columnExpressions,
+        bool grandTotalsDisabled)
     {
         if (tags.Count == 0)
         {
@@ -307,7 +337,8 @@ internal sealed class RangeExpander
             _engine,
             globalScope,
             _errors,
-            columnExpressions);
+            columnExpressions,
+            grandTotalsDisabled);
 
         foreach (var tag in tags)
         {

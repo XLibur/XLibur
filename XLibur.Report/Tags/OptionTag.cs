@@ -55,7 +55,8 @@ public sealed class ProcessingContext
         IExpressionEngine engine,
         ExpressionScope scope,
         TemplateErrors errors,
-        IReadOnlyDictionary<int, string> columnExpressions)
+        IReadOnlyDictionary<int, string> columnExpressions,
+        bool grandTotalsDisabled = false)
     {
         Worksheet = worksheet;
         GeneratedRange = generatedRange;
@@ -65,6 +66,7 @@ public sealed class ProcessingContext
         Scope = scope;
         Errors = errors;
         ColumnExpressions = columnExpressions;
+        GrandTotalsDisabled = grandTotalsDisabled;
     }
 
     /// <summary>The sheet being generated.</summary>
@@ -94,4 +96,15 @@ public sealed class ProcessingContext
     /// what to sort by without being told twice.
     /// </summary>
     public IReadOnlyDictionary<int, string> ColumnExpressions { get; }
+
+    /// <summary>
+    /// Whether the options row should be left without a total, because the template said
+    /// <c>&lt;&lt;DisableGrandTotal&gt;&gt;</c>.
+    /// </summary>
+    /// <remarks>
+    /// A grouped range writes the same summary declarations into each group's subtotal row and
+    /// again into the options row. A report that wants group totals but no report-wide total sets
+    /// this; a summary tag reads it before writing.
+    /// </remarks>
+    public bool GrandTotalsDisabled { get; }
 }

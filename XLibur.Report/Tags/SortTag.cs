@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Report.Expressions;
@@ -38,7 +37,7 @@ public class SortTag : OptionTag
         {
             try
             {
-                keyed.Add((items[i], context.Engine.Evaluate(expression, ItemScope(context, items, i))));
+                keyed.Add((items[i], context.Engine.Evaluate(expression, ItemScopes.For(context.Scope, items, i))));
             }
             catch (ExpressionEvaluationException ex)
             {
@@ -53,52 +52,6 @@ public class SortTag : OptionTag
             : keyed.OrderBy(pair => pair.Key, comparer);
 
         return sorted.Select(pair => pair.Item).ToList();
-    }
-
-    private static ExpressionScope ItemScope(ProcessingContext context, IReadOnlyList<object?> items, int index) =>
-        context.Scope.CreateChild(new[]
-        {
-            new KeyValuePair<string, object?>("item", items[index]),
-            new KeyValuePair<string, object?>("index", index),
-            new KeyValuePair<string, object?>("items", items),
-        });
-
-    /// <summary>
-    /// Orders values of whatever type the expression produced, keeping blanks together at the end.
-    /// </summary>
-    private sealed class SortKeyComparer : IComparer<object?>
-    {
-        public static readonly SortKeyComparer Instance = new();
-
-        public int Compare(object? x, object? y)
-        {
-            if (x is null)
-            {
-                return y is null ? 0 : 1;
-            }
-
-            if (y is null)
-            {
-                return -1;
-            }
-
-            if (x is IComparable comparable && x.GetType() == y.GetType())
-            {
-                return comparable.CompareTo(y);
-            }
-
-            // Different types: compare numerically when both are numbers, textually otherwise.
-            if (IsNumeric(x) && IsNumeric(y))
-            {
-                return Convert.ToDouble(x, System.Globalization.CultureInfo.InvariantCulture)
-                    .CompareTo(Convert.ToDouble(y, System.Globalization.CultureInfo.InvariantCulture));
-            }
-
-            return string.Compare(x.ToString(), y.ToString(), StringComparison.CurrentCulture);
-        }
-
-        private static bool IsNumeric(object value) =>
-            value is sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal;
     }
 }
 

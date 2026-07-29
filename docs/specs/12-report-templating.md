@@ -275,6 +275,37 @@ on a sheet have rendered, `ReferenceRewriter` walks the workbook:
   the *documented* happy path; the `<<Pivot>>` generation tag is ported for dynamic layouts
   but the static pattern is primary.
 
+### Grouping and subtotals
+
+`<<Group>>` sits in the options row under the column to group by, and takes that column's template
+expression as its key the same way `<<Sort>>` does. Several nest, leftmost outermost. As
+implemented:
+
+- **The engine orders the rows.** All the levels are ordered in one `OrderBy`/`ThenBy` chain, so
+  the leftmost is the primary key; the ordering is stable, so a `<<Sort>>` (which runs first, at
+  priority 10) still decides the order within a group. `nosort` opts out per level.
+- **Each group gets a subtotal row** carrying whatever summary tags the options row declares, over
+  that group's rows alone, plus a `{0} Total` label in the grouped column. Below the group by
+  default, `summaryAbove` above it. Where several stack at one boundary they read outwards from the
+  rows they cover: innermost first below a group, outermost first above one.
+- **The subtotal row takes the options row's cell styling** — the only styling a template can
+  express for a row that does not exist until generation, and what makes a group total look like
+  the grand total.
+- **The block is outlined**: data rows at the innermost level, each subtotal row one level out from
+  the rows it covers, so collapsing a level in Excel leaves its totals showing. Excel's eight-level
+  limit clamps rather than fails.
+- **Parameters**: `by`, `desc`, `nosort`, `totalLabel`, `merge`/`mergeLabels`, `summaryAbove`,
+  `pageBreaks`, `collapse`, `disableSubtotals`. Each but `by`, `desc`, `nosort` and `totalLabel`
+  also exists as a range-wide options-row tag (`<<MergeLabels>>`, `<<SummaryAbove>>`,
+  `<<PageBreaks>>`, `<<Collapse>>`, `<<DisableSubtotals>>`), for a template with several levels.
+  `<<DisableGrandTotal>>` has no per-level form: it leaves the options row's own summaries
+  unwritten, which is how a report shows a total per group and none for the report.
+
+Rendering inserts sheet rows for the subtotals, bottom-up so that a row number worked out from the
+layout is still valid when its turn comes — the same reasoning as insert-and-copy expansion, and for
+the same reason: the core library shifts content, formulas, names and conditional formats correctly
+already.
+
 ### Conditional formatting
 
 During expansion the buffer does not copy CF rules per generated cell. Instead, rules whose
@@ -330,10 +361,9 @@ patterns, Scriban↔C#-syntax migration page), and a `XLibur.Report.Examples` pr
 
 PR-sized tasks; each lands green (build + tests) on its own branch per repo ground rules.
 
-**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1, 2, 3 and 5 are done;
-Task 4 is done except its grouping/subtotal engine. 200 report tests green on net8.0 and net10.0,
-the solution builds clean in Release, and the 11,603-test core suite is unaffected by the two
-internal members Task 5 added. See **Results** below.
+**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1, 2, 3, 4 and 5 are done.
+228 report tests green on net8.0 and net10.0, the solution builds clean in Release, and the core
+suite is unaffected — the grouping work touched no core file at all. See **Results** below.
 
 1. **Scaffold + expression engine.** `XLibur.Report` + `XLibur.Report.Tests` projects, slnx
    entries, CI test wiring, IVT grants (`XLibur` → `XLibur.Report`; `XLibur.Report` →
@@ -412,13 +442,13 @@ one-line IVT grant (Task 1) — no conflicts with open specs 03/04/08.
 
 ## Results
 
-Five commits on `feat/spec-12-report-templating`, July 2026.
+Six commits on `feat/spec-12-report-templating`, July 2026.
 
 **What landed.** `XLibur.Report` (Scriban engine, template model, vertical range expansion, tag
-framework, Excel-function bridge) and `XLibur.Report.Tests` (200 tests). Both projects are in
-`XLibur.slnx`; CI runs the new suite with coverage.
+framework including grouping and subtotals, Excel-function bridge) and `XLibur.Report.Tests`
+(228 tests). Both projects are in `XLibur.slnx`; CI runs the new suite with coverage.
 
-**Three findings that changed the design.**
+**Four findings that changed the design.**
 
 1. **The temp-sheet buffer was not needed** (Task 3). It is upstream's workaround for ClosedXML's
    slow and lossy row inserts, which spec 05 rewrote. Eight characterization tests established
@@ -435,6 +465,13 @@ framework, Excel-function bridge) and `XLibur.Report.Tests` (200 tests). Both pr
    a `private static` method into a private field. Two read-only `internal` members were added to
    the core (`FunctionRegistry.Names`, `XLCalcEngine.Functions`). Recorded above as a deviation
    from decision 5.
+4. **Grouping cannot be one tag acting alone** (Task 4b). Each `<<Group>>` is a *declaration*; the
+   ordering, the runs, the subtotal rows and the outline are worked out together in
+   `GroupRenderer`, because nesting is a property of the levels as a set. Chaining one stable sort
+   per level in tag order would have made the *last* level the primary key — the opposite of how
+   the levels nest — so the levels are ordered in a single `OrderBy`/`ThenBy` chain instead. The
+   same reasoning applies to the subtotal rows: which of several stack first at a group boundary is
+   a question about all the levels at once, not about any one of them.
 
 **Confirmed, not assumed.** Every Scriban property the spec relied on holds: `ScriptMode.ScriptOnly`
 returns typed objects (a `decimal` stays a `decimal`), an identity `MemberRenamer` keeps C# member
@@ -442,12 +479,13 @@ names, relaxed access turns sparse data into blanks, and an uppercase `IF` parse
 call despite `if` being a keyword. Scriban also honours a `params` delegate, which is what lets the
 bridge register variadic Excel functions through the one-method engine seam.
 
-**Still open.** Task 4's grouping/subtotal engine; Tasks 6–10 (chart/picture rewriting, pivots,
-horizontal ranges + `<<If>>`, packaging/docs/benchmark, the DynamicLinq compatibility engine).
-Nested vertical subranges are not implemented — `RangeBinder` resolves property paths from
-workbook variables, but a child range inside a parent's rows is not yet expanded per parent item.
-Acceptance criteria 1 (partly — no grouping), 2, 5 and 7 (partly — coverage not yet measured) are
-met; 3, 4, 6, 8, 9 and 10 are untouched.
+**Still open.** Tasks 6–10 (chart/picture rewriting, pivots, horizontal ranges + `<<If>>`,
+packaging/docs/benchmark, the DynamicLinq compatibility engine). Nested vertical subranges are not
+implemented — `RangeBinder` resolves property paths from workbook variables, but a child range
+inside a parent's rows is not yet expanded per parent item. Of the tags the Scope section lists,
+`Image`, `PageOptions`, `Protected`, `Height`, `OnlyValues` and the `Range` marker have no
+implementation yet either. Acceptance criteria 1 (except nested subranges), 2, 5 and 7 (partly —
+coverage not yet measured) are met; 3, 4, 6, 8, 9 and 10 are untouched.
 
 ## Risks
 
@@ -495,8 +533,8 @@ met; 3, 4, 6, 8, 9 and 10 are untouched.
 
 ## Implementation notes
 
-Written after Tasks 1–5 landed, for whoever picks up the rest. Everything here was established by
-running the code, not by reading it.
+Written after Tasks 1–5 landed and updated when grouping did, for whoever picks up the rest.
+Everything here was established by running the code, not by reading it.
 
 ### The code as it stands
 
@@ -514,7 +552,10 @@ running the code, not by reading it.
 | `Ranges/RangeBinder.cs` | Defined name → collection, including `Parent_Child` property paths. |
 | `Ranges/RangeExpander.cs` | The heart. Read tags → capture column expressions → transform items → insert rows → copy → evaluate → restore CFs → run tags → drop the options row → re-point the name. |
 | `Ranges/BoundRange.cs` | `BoundRange` and `RangeArea` (a plain row/column rectangle). |
+| `Ranges/GroupRenderer.cs` | Grouping. `Prepare` orders items by the levels' keys before any row exists; `Render` inserts the subtotal rows and outlines the block afterwards. |
+| `Ranges/GroupOptions.cs` | The range-wide grouping options, read out of the `<<SummaryAbove>>`-style tags. |
 | `Tags/` | `OptionTag` + `ProcessingContext`, `TagsRegister`, `TagParser`/`TagToken`, and the built-in tags. |
+| `Tags/IRangeSummaryTag.cs` | The seam a summary is written through, so the options row's total and each group's use one implementation. |
 
 `XLibur.Report.Tests/Infrastructure/` holds `WorkbookComparer` (semantic diff),
 `ReportFixture`/`GoldenFile` (fixture runner), `ReportResources` (template files, regeneration).
@@ -523,12 +564,17 @@ running the code, not by reading it.
 
 ```
 dotnet build XLibur.slnx -c Release -v q
-dotnet test XLibur.Report.Tests/XLibur.Report.Tests.csproj -f net10.0
-dotnet test XLibur.Report.Tests/XLibur.Report.Tests.csproj -f net10.0 --treenode-filter "/*/*/TagBehaviourTests/*"
-XLIBUR_REPORT_REGEN=1 dotnet test ...      # rewrite committed fixture templates
+XLibur.Report.Tests/bin/Release/net10.0/XLibur.Report.Tests.exe
+XLibur.Report.Tests/bin/Release/net10.0/XLibur.Report.Tests.exe --treenode-filter "/*/*/TagBehaviourTests/*"
+XLIBUR_REPORT_REGEN=1 XLibur.Report.Tests/bin/.../XLibur.Report.Tests.exe   # rewrite fixture templates
 ```
 
 `--treenode-filter`, **not** `--filter` — MTP ignores the latter and reports "Zero tests ran".
+
+**`dotnet test` currently discovers nothing here** — every invocation reports "Zero tests ran", exit
+code 5, in ~170 ms. It is not this package: `XLibur.Tests` does the same, filtered or not. Running
+the built test executable directly discovers and runs the whole suite normally, which is what the
+commands above do. Worth re-checking against a newer SDK before spending time on it.
 
 ### Core APIs this depends on, that are not obvious from their signatures
 
@@ -567,9 +613,20 @@ XLIBUR_REPORT_REGEN=1 dotnet test ...      # rewrite committed fixture templates
   rather than relying on priority alone to imply ordering. Priority still orders within a moment
   (`Delete` is 250 so a column can be sorted by and then removed).
 - **A column-placed tag learns its column's meaning** from `ProcessingContext.ColumnExpressions`,
-  captured before evaluation overwrites the template text. That is why `<<Sort>>` needs no `by`.
+  captured before evaluation overwrites the template text. That is why `<<Sort>>` and `<<Group>>`
+  need no `by`.
 - **Nothing throws out of generation.** Failures become `TemplateError`s and, for cells, red text
   in the offending cell.
+- **A grouped range is ordered by the engine, stably.** `<<Group>>` alone is enough to make its
+  groups contiguous; because the ordering is stable, a `<<Sort>>` on another column still decides
+  the order within a group, and `nosort` opts out for data that arrives arranged.
+- **A subtotal row takes the options row's cell styling.** It is the only styling a template has a
+  way to express for a row that does not exist until generation, and it is what makes a group total
+  and the grand total look alike.
+- **Group subtotals and the grand total are the same declaration.** `<<Sum>>` in the options row is
+  written into every group's subtotal row over that group's rows and again into the options row over
+  the lot; `SUBTOTAL` ignoring nested `SUBTOTAL`s is what stops the grand total counting the data
+  twice, and `<<DisableGrandTotal>>` is how a report keeps the group totals without a report total.
 
 ### Notes for the remaining tasks
 
@@ -585,8 +642,11 @@ XLIBUR_REPORT_REGEN=1 dotnet test ...      # rewrite committed fixture templates
 - **Task 8 (horizontal).** `RangeExpander` is row-oriented throughout — `InsertRowsBelow`, row
   blocks, the options *row*. Horizontal support is a column-oriented sibling, not a flag; factor
   the shared parts out rather than threading an `isHorizontal` boolean through it.
-- **Task 4b (grouping).** `SummaryFunctionTag` already emits `SUBTOTAL`, which was chosen precisely
-  so grand totals will not double-count group totals once grouping exists.
+- **Task 8 (`<<If>>`), building on grouping.** Omitting rows is a transform on the item list, which
+  is where `<<Group>>`'s ordering already happens — `RangeExpander.Expand` runs
+  `ApplyItemTransforms`, then `GroupRenderer.Prepare`. A row-level `<<If>>` filtering the list
+  before `Prepare` gets grouping over the surviving rows for free; filtering after it would leave
+  the group keys pointing at rows that are no longer there.
 - **Task 3b (nested subranges).** `RangeBinder` resolves `Parent_Child` paths from *workbook*
   variables. A child range inside a parent's rows needs resolving per parent item instead, and
   expanding inside each copied block — before the parent's own evaluation pass, or the child's
