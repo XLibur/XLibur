@@ -57,9 +57,10 @@ internal sealed class RangeExpander
         var dataLastRow = hasOptionsRow ? area.LastRow - 1 : area.LastRow;
         var dataRowCount = dataLastRow - area.FirstRow + 1;
 
-        // Read before anything else: the tags live in the options row, and the column expressions
-        // are still intact only until evaluation replaces them with values.
-        var tags = hasOptionsRow ? ReadTags(sheet, area.LastRow, area) : new List<OptionTag>();
+        // Read before anything else, and in this order: reading the tags strips their text, so a
+        // column holding an expression beside a tag is only recognised as that expression once the
+        // tag has been taken out of it.
+        var tags = ReadTags(sheet, area, dataLastRow, hasOptionsRow);
         var columnExpressions = ReadColumnExpressions(sheet, area, dataLastRow);
         var groupOptions = GroupOptions.Read(tags);
 
@@ -221,15 +222,44 @@ internal sealed class RangeExpander
     }
 
     /// <summary>
-    /// Reads the tags out of the options row, clearing their text so it does not reach the report.
+    /// Reads every tag the range declares — those in the options row, and those in the rows it
+    /// repeats — ordered so that a tag which has to see what another did runs after it.
     /// </summary>
-    private List<OptionTag> ReadTags(IXLWorksheet sheet, int optionsRowNumber, RangeArea area)
+    /// <remarks>
+    /// A tag in a repeated row is describing a row rather than the range, which is what
+    /// <see cref="OptionTag.InRepeatedRow"/> tells it. Read before anything else happens, because a
+    /// repeated row's tag text must not survive into the copies.
+    /// </remarks>
+    private List<OptionTag> ReadTags(IXLWorksheet sheet, RangeArea area, int dataLastRow, bool hasOptionsRow)
     {
         var tags = new List<OptionTag>();
 
+        for (var row = area.FirstRow; row <= dataLastRow; row++)
+        {
+            ReadTagsFromRow(sheet, row, area, inRepeatedRow: true, tags);
+        }
+
+        if (hasOptionsRow)
+        {
+            ReadTagsFromRow(sheet, area.LastRow, area, inRepeatedRow: false, tags);
+        }
+
+        return tags.OrderBy(tag => TagsRegister.PriorityOf(tag.Token.Name)).ToList();
+    }
+
+    /// <summary>
+    /// Reads the tags out of one row, clearing their text so it does not reach the report.
+    /// </summary>
+    private void ReadTagsFromRow(
+        IXLWorksheet sheet,
+        int rowNumber,
+        RangeArea area,
+        bool inRepeatedRow,
+        List<OptionTag> tags)
+    {
         for (var column = area.FirstColumn; column <= area.LastColumn; column++)
         {
-            var cell = sheet.Cell(optionsRowNumber, column);
+            var cell = sheet.Cell(rowNumber, column);
             if (!cell.Value.IsText)
             {
                 continue;
@@ -245,6 +275,7 @@ internal sealed class RangeExpander
             {
                 if (TagsRegister.TryCreate(token, column, out var tag))
                 {
+                    tag.InRepeatedRow = inRepeatedRow;
                     tags.Add(tag);
                 }
                 else
@@ -268,8 +299,6 @@ internal sealed class RangeExpander
                 cell.Value = remaining;
             }
         }
-
-        return tags.OrderBy(tag => TagsRegister.PriorityOf(tag.Token.Name)).ToList();
     }
 
     /// <summary>

@@ -28,6 +28,18 @@ public abstract class OptionTag
     public int Column { get; internal set; }
 
     /// <summary>
+    /// Whether the tag was written in one of the range's repeated rows rather than in its options
+    /// row.
+    /// </summary>
+    /// <remarks>
+    /// Most tags describe the range and belong in the options row. A tag in a repeated row is
+    /// describing <em>a row</em>, and a tag that means something at both scales reads this to tell
+    /// which was meant — <c>&lt;&lt;If&gt;&gt;</c> in a repeated row drops that row, and in the
+    /// options row drops the range.
+    /// </remarks>
+    public bool InRepeatedRow { get; internal set; }
+
+    /// <summary>
     /// Runs before any row is written, returning the items to generate from. The default returns
     /// them unchanged.
     /// </summary>
@@ -107,4 +119,42 @@ public sealed class ProcessingContext
     /// this; a summary tag reads it before writing.
     /// </remarks>
     public bool GrandTotalsDisabled { get; }
+
+    /// <summary>
+    /// Evaluates a tag parameter as a question and reports whether the answer reads as true.
+    /// </summary>
+    /// <param name="expression">
+    /// A bare expression (<c>item.Quantity &gt; 10</c>), an interpolated one
+    /// (<c>{{ ShowWorkings }}</c>), or a literal (<c>true</c>, <c>1</c>) — all three work, because a
+    /// template author writes whichever reads best and should not have to know the difference.
+    /// </param>
+    /// <param name="scope">
+    /// The names the expression may use. Defaults to <see cref="Scope"/>; a tag asking about one row
+    /// passes that row's scope instead.
+    /// </param>
+    /// <remarks>
+    /// Only <c>null</c> and <c>false</c> are false. Zero and the empty string are <em>true</em>, so a
+    /// template meaning "greater than nothing" has to write the comparison out. An expression that
+    /// will not evaluate is recorded as an error and answers no, on the principle that a report is
+    /// better off leaving a doubtful row out than failing.
+    /// </remarks>
+    public bool IsTrue(string? expression, ExpressionScope? scope = null)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return false;
+        }
+
+        var body = ExpressionText.TryGetSingleExpression(expression, out var single) ? single : expression!;
+
+        try
+        {
+            return ExpressionTruth.IsTruthy(Engine.Evaluate(body, scope ?? Scope));
+        }
+        catch (ExpressionEvaluationException ex)
+        {
+            Errors.Add(new TemplateError(ex.Message, Worksheet.Name, exception: ex));
+            return false;
+        }
+    }
 }

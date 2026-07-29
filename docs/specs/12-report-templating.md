@@ -343,12 +343,30 @@ produces `rows × rules` duplicates (#216).
 
 `<<If test="expr">>`:
 
-- **Row level** (tag in a cell of a data row): after per-row evaluation, rows where `test` is
-  falsy are omitted from the buffer. Scriban truthiness applies (`null`/`false` falsy) — the
-  docs must say so explicitly, since `0` is truthy.
+- **Row level** (tag in one of the range's repeated rows): rows where `test` is falsy are left out.
+  Scriban truthiness applies (`null`/`false` falsy) — the docs must say so explicitly, since `0` is
+  truthy.
 - **Range level** (tag in the options row): a falsy `test` (evaluated against the range's
   `items`) renders the range with zero rows — headers and options-row summaries behave exactly
   as an empty collection does.
+
+> **Implementation decision (Task 8a): the test runs as an item transform, before everything.**
+> Filtering is a transform on the item list, which is where sorting and grouping already happen, so
+> `IfTag` is an ordinary `OptionTag.TransformItems` at priority 1 — ahead of `<<Sort>>` (10) and
+> `<<Group>>` (20). What survives the test is therefore what everything downstream sees: the
+> survivors are what gets sorted, grouped and totalled, and nothing else has to know a row was
+> dropped. Filtering *after* grouping would leave group keys pointing at rows that no longer exist.
+>
+> Two supporting changes fell out of it. `OptionTag` gained **`InRepeatedRow`**, because until now
+> every tag lived in the options row and placement carried no meaning; the expander now reads tags
+> from the repeated rows too, so a tag that means something at both scales can tell which was meant.
+> And `ProcessingContext.IsTrue` evaluates a tag parameter as an expression — a bare one, an
+> interpolated one or a literal — which is what `test=` needs and, incidentally, what
+> `<<Delete keep=…>>` had documented since Task 4 without it ever working: tag parameters were
+> parsed from raw cell text before evaluation, so `keep="{{ ShowWorkings }}"` compared the literal
+> string `{{ ShowWorkings }}` against `"true"` and always deleted the column. Both tags now go
+> through one evaluator and one truthiness rule (`ExpressionTruth`), which is also what keeps the
+> two engines answering the same question the same way.
 
 ### Testing
 
@@ -387,9 +405,9 @@ patterns, Scriban↔C#-syntax migration page), and a `XLibur.Report.Examples` pr
 PR-sized tasks; each lands green (build + tests) on its own branch per repo ground rules.
 
 **Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1–6 are done; Task 7 is done
-except its `<<Pivot>>` generation tag. 297 report tests green on net8.0 and net10.0, the solution
-builds clean in Release, and the core suite (11,603 tests) passes with the chart-reference fix
-Task 6 needed. See **Results** below.
+except its `<<Pivot>>` generation tag; Task 8 is done except horizontal ranges. 314 report tests
+green on net8.0 and net10.0, the solution builds clean in Release, and the core suite (11,603 tests)
+passes with the chart-reference fix Task 6 needed. See **Results** below.
 
 1. **Scaffold + expression engine.** `XLibur.Report` + `XLibur.Report.Tests` projects, slnx
    entries, CI test wiring, IVT grants (`XLibur` → `XLibur.Report`; `XLibur.Report` →
@@ -418,8 +436,8 @@ Task 6 needed. See **Results** below.
    (upstream #200's corrupt-output history makes the validator + Excel check non-negotiable
    here)~~ **done for the static path, 2026-07-30** — the `<<Pivot>>` tag will need its own.
 8. **Horizontal tables + conditional tags + CF extension.** Horizontal rendering parity
-   (no subranges), `<<If>>` row/range levels, CF extend-not-duplicate with rule-count
-   assertions.
+   (no subranges) **still open**; ~~`<<If>>` row/range levels~~ **done**; ~~CF
+   extend-not-duplicate with rule-count assertions~~ **done in Task 3**, see finding 2.
 9. **Packaging, docs, benchmark.** NuGet packaging + release pipeline verification,
    docs-website section, new `XLibur.Report.Benchmarks` project with the `ReportGenerate`
    benchmark (100K-row grouped report) and baseline numbers recorded here.
@@ -555,15 +573,15 @@ names, relaxed access turns sparse data into blanks, and an uppercase `IF` parse
 call despite `if` being a keyword. Scriban also honours a `params` delegate, which is what lets the
 bridge register variadic Excel functions through the one-method engine seam.
 
-**Still open.** Task 7's `<<Pivot>>` generation tag, and Tasks 8–11 (horizontal ranges + `<<If>>`,
-packaging/docs/benchmark, the DynamicLinq compatibility engine, the examples project). Nested
+**Still open.** Task 7's `<<Pivot>>` generation tag, Task 8's horizontal ranges, and Tasks 9–11
+(packaging/docs/benchmark, the DynamicLinq compatibility engine, the examples project). Nested
 vertical subranges are not implemented — `RangeBinder` resolves property paths from workbook
 variables, but a child range inside a parent's rows is not yet expanded per parent item. Of the tags
 the Scope section lists, `Image`, `PageOptions`, `Protected`, `Height`, `OnlyValues` and the `Range`
-marker have no implementation yet either. Acceptance criteria 1 (except nested subranges), 2, 3 and
-5 are met, including criterion 3's manual Excel check; 4 and 7 are partly met — 4's static-pivot
+marker have no implementation yet either. Acceptance criteria 1 (except nested subranges), 2, 3, 5
+and 6 are met, including criterion 3's manual Excel check; 4 and 7 are partly met — 4's static-pivot
 half is done and Excel-verified, its `<<Pivot>>` half is not written, and 7's coverage figure has
-not been measured. Criteria 6, 8, 9, 10 and 11 are untouched.
+not been measured. Criteria 8, 9, 10 and 11 are untouched.
 
 **Manual Excel check: done, 2026-07-30.** The project owner opened both the template and the
 generated report and confirmed they open without a repair dialog and render correctly. That covers
@@ -650,6 +668,8 @@ Everything here was established by running the code, not by reading it.
 | `Ranges/GroupOptions.cs` | The range-wide grouping options, read out of the `<<SummaryAbove>>`-style tags. |
 | `Tags/` | `OptionTag` + `ProcessingContext`, `TagsRegister`, `TagParser`/`TagToken`, and the built-in tags. |
 | `Tags/IRangeSummaryTag.cs` | The seam a summary is written through, so the options row's total and each group's use one implementation. |
+| `Tags/IfTag.cs` | Conditional inclusion, at row scale in a repeated row and at range scale in the options row. |
+| `Expressions/ExpressionTruth.cs` | The one rule for reading a value as a yes or a no, shared by every tag that asks a question. |
 | `Rewriting/ExpansionMap.cs` | Where a row ends up after an expansion, shared by everything that refers to a range by address. |
 | `Rewriting/ReferenceRewriter.cs` | Consumes the expansion ledger and re-points chart series. No picture code — see below. |
 | `Rewriting/SeriesReference.cs` | Takes a sheet-qualified A1 reference apart and puts it back. Refuses the forms it cannot safely rewrite. |
@@ -714,7 +734,14 @@ commands above do. Worth re-checking against a newer SDK before spending time on
   string still counts as content.
 - **Tags act at two named moments** — `TransformItems` before any row exists, `Execute` after — 
   rather than relying on priority alone to imply ordering. Priority still orders within a moment
-  (`Delete` is 250 so a column can be sorted by and then removed).
+  (`If` is 1 so nothing sorts or groups a row that was dropped; `Delete` is 250 so a column can be
+  sorted by and then removed).
+- **A tag's placement carries meaning.** The options row describes the range; a repeated row
+  describes a row. `OptionTag.InRepeatedRow` is how a tag that means something at both scales tells
+  which was meant, and it is why the expander reads tags from every row of the range rather than
+  only the last.
+- **A tag parameter may be an expression.** `ProcessingContext.IsTrue` takes a bare expression, an
+  interpolated one or a literal, so a template author writes whichever reads best.
 - **A column-placed tag learns its column's meaning** from `ProcessingContext.ColumnExpressions`,
   captured before evaluation overwrites the template text. That is why `<<Sort>>` and `<<Group>>`
   need no `by`.
@@ -747,14 +774,13 @@ commands above do. Worth re-checking against a newer SDK before spending time on
   builds gets refresh-on-open, and a pivot below a bound range is moved out of the way. Upstream
   #200 means the OpenXML validator and a real Excel open are both required, not one or the other —
   `PivotRewritingTests.AGeneratedPivotPassesTheOpenXmlValidator` is the pattern for the first.
-- **Task 8 (horizontal).** `RangeExpander` is row-oriented throughout — `InsertRowsBelow`, row
-  blocks, the options *row*. Horizontal support is a column-oriented sibling, not a flag; factor
-  the shared parts out rather than threading an `isHorizontal` boolean through it.
-- **Task 8 (`<<If>>`), building on grouping.** Omitting rows is a transform on the item list, which
-  is where `<<Group>>`'s ordering already happens — `RangeExpander.Expand` runs
-  `ApplyItemTransforms`, then `GroupRenderer.Prepare`. A row-level `<<If>>` filtering the list
-  before `Prepare` gets grouping over the surviving rows for free; filtering after it would leave
-  the group keys pointing at rows that are no longer there.
+- **Task 8's remaining half, horizontal ranges.** `RangeExpander` is row-oriented throughout —
+  `InsertRowsBelow`, row blocks, the options *row* — and so now are `GroupRenderer`, `ExpansionMap`
+  and both rewriters. Horizontal support is a column-oriented sibling, not a flag; factor the shared
+  parts out rather than threading an `isHorizontal` boolean through it. `ExpansionRecord` carries a
+  `RowDelta` only, so a horizontal expansion needs a column delta beside it and both rewriters need
+  to read it — which is the moment to check whether `ExpansionMap`'s row functions want a generic
+  axis rather than a copy.
 - **Task 3b (nested subranges).** `RangeBinder` resolves `Parent_Child` paths from *workbook*
   variables. A child range inside a parent's rows needs resolving per parent item instead, and
   expanding inside each copied block — before the parent's own evaluation pass, or the child's

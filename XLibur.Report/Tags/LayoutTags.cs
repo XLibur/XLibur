@@ -92,14 +92,16 @@ public sealed class HiddenTag : OptionTag
 /// <remarks>
 /// Runs last, so a column may be sorted or totalled by and then removed. Give
 /// <c>keep</c> with a truthy value to leave it in place — which is how a template makes the
-/// removal conditional: <c>&lt;&lt;Delete keep="{{ ShowWorkings }}"&gt;&gt;</c>.
+/// removal conditional: <c>&lt;&lt;Delete keep="{{ ShowWorkings }}"&gt;&gt;</c>. Bare
+/// <c>&lt;&lt;Delete keep&gt;&gt;</c> keeps it outright.
 /// </remarks>
 public sealed class DeleteTag : OptionTag
 {
     /// <inheritdoc />
     public override void Execute(ProcessingContext context)
     {
-        if (Token.Flag("keep"))
+        // Present-but-empty is the bare flag form, which means yes.
+        if (Token.Has("keep") && context.IsTrue(Token.Value("keep", "true")))
         {
             return;
         }

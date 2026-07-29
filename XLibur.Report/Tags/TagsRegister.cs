@@ -69,6 +69,10 @@ public static class TagsRegister
         Add<GroupOptionTag>("DisableSubtotals", 5);
         Add<GroupOptionTag>("DisableGrandTotal", 5);
 
+        // Before everything: what a test leaves out should not be sorted, grouped or totalled, and
+        // nothing downstream has to know anything was dropped.
+        Add<IfTag>("If", 1);
+
         Add<SortTag>("Sort", 10);
         Add<SortTag>("Asc", 10);
         Add<DescendingSortTag>("Desc", 10);
