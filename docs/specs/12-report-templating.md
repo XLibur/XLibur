@@ -330,6 +330,11 @@ patterns, Scriban↔C#-syntax migration page), and a `XLibur.Report.Examples` pr
 
 PR-sized tasks; each lands green (build + tests) on its own branch per repo ground rules.
 
+**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1, 2, 3 and 5 are done;
+Task 4 is done except its grouping/subtotal engine. 200 report tests green on net8.0 and net10.0,
+the solution builds clean in Release, and the 11,603-test core suite is unaffected by the two
+internal members Task 5 added. See **Results** below.
+
 1. **Scaffold + expression engine.** `XLibur.Report` + `XLibur.Report.Tests` projects, slnx
    entries, CI test wiring, IVT grants (`XLibur` → `XLibur.Report`; `XLibur.Report` →
    `XLibur.Report.Tests`), `IExpressionEngine` + `ScribanExpressionEngine` (typed eval,
@@ -404,6 +409,45 @@ one-line IVT grant (Task 1) — no conflicts with open specs 03/04/08.
     generates correctly under `DynamicLinqExpressionEngine`; the ported upstream gauge
     corpus passes; adding/removing the DynamicLinq package requires no change to code using
     the default engine.
+
+## Results
+
+Five commits on `feat/spec-12-report-templating`, July 2026.
+
+**What landed.** `XLibur.Report` (Scriban engine, template model, vertical range expansion, tag
+framework, Excel-function bridge) and `XLibur.Report.Tests` (200 tests). Both projects are in
+`XLibur.slnx`; CI runs the new suite with coverage.
+
+**Three findings that changed the design.**
+
+1. **The temp-sheet buffer was not needed** (Task 3). It is upstream's workaround for ClosedXML's
+   slow and lossy row inserts, which spec 05 rewrote. Eight characterization tests established
+   that `CopyTo` adjusts relative formulas and carries styles, merges and heights, and that row
+   inserts shift content, defined names and CF ranges. Expansion is therefore insert-and-copy, and
+   the report package contains no second implementation of shifting. This also produced the #216
+   fix nearly for free — with one caveat, below.
+2. **Copying a block copies its conditional formats**, so insert-and-copy alone still produced
+   `rows × rules`. The fix is explicit: capture the template's rules, drop the copies, and widen
+   the originals through the internal `XLConditionalFormat.SetAreas`. `IXLConditionalFormat.Ranges`
+   is a fresh projection of the rule's area list and mutating it does nothing — the source
+   documents this. Output rule count now equals template rule count.
+3. **The function registry is not reachable through the IVT grant alone** (Task 5) — it is built by
+   a `private static` method into a private field. Two read-only `internal` members were added to
+   the core (`FunctionRegistry.Names`, `XLCalcEngine.Functions`). Recorded above as a deviation
+   from decision 5.
+
+**Confirmed, not assumed.** Every Scriban property the spec relied on holds: `ScriptMode.ScriptOnly`
+returns typed objects (a `decimal` stays a `decimal`), an identity `MemberRenamer` keeps C# member
+names, relaxed access turns sparse data into blanks, and an uppercase `IF` parses as a function
+call despite `if` being a keyword. Scriban also honours a `params` delegate, which is what lets the
+bridge register variadic Excel functions through the one-method engine seam.
+
+**Still open.** Task 4's grouping/subtotal engine; Tasks 6–10 (chart/picture rewriting, pivots,
+horizontal ranges + `<<If>>`, packaging/docs/benchmark, the DynamicLinq compatibility engine).
+Nested vertical subranges are not implemented — `RangeBinder` resolves property paths from
+workbook variables, but a child range inside a parent's rows is not yet expanded per parent item.
+Acceptance criteria 1 (partly — no grouping), 2, 5 and 7 (partly — coverage not yet measured) are
+met; 3, 4, 6, 8, 9 and 10 are untouched.
 
 ## Risks
 
