@@ -203,6 +203,15 @@ semantics. The bridge:
 - Add `[assembly: InternalsVisibleTo("XLibur.Report")]` to `XLibur/Properties/AssemblyInfo.cs`
   (assemblies are not strong-named; the grant is a plain name, same as the existing
   Tests/Benchmarks grants).
+
+> **Implementation decision (Task 5): two internal members added to the core.** The registry is
+> built by a `private static` method into a private field, so the IVT grant alone does not reach
+> it. Task 5 adds `FunctionRegistry.Names` (the registered names) and `XLCalcEngine.Functions`
+> (the instance) — both `internal`, both read-only, no behaviour change; the full 11,603-test core
+> suite is unaffected. This is a deviation from decision 5's "the sole core-side change is the IVT
+> grant", taken because the alternative — hard-coding a function list in the report package —
+> would break the property that makes the bridge worth having: a function added to the calc engine
+> appears in templates with no further work.
 - An adapter registers every registry function into the Scriban context under its **uppercase
   Excel name** (`SUM`, `IF`, `AVERAGE` — Scriban keywords are lowercase, so `IF` parses as an
   ordinary identifier), marshalling .NET arguments → `ScalarValue`/array values → function →

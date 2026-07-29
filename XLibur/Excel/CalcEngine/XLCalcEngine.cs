@@ -63,11 +63,19 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         _culture = culture;
         _cache = new ExpressionCache(this);
         var funcRegistry = GetFunctionTable();
+        Functions = funcRegistry;
         _parser = new FormulaParser(funcRegistry);
         _visitor = new CalculationVisitor(funcRegistry);
         _dependencyTree = null;
         _chain = null;
     }
+
+    /// <summary>
+    /// The function table this engine parses and evaluates against. Exposed so XLibur.Report can
+    /// offer the same functions inside template expressions as the formula engine offers inside
+    /// cells, without keeping a second list of what exists.
+    /// </summary>
+    internal FunctionRegistry Functions { get; }
 
     /// <summary>
     /// Parses a string into an <see cref="Formula"/>.

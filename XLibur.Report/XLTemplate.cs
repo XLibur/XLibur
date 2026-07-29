@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using XLibur.Excel;
 using XLibur.Report.Expressions;
+using XLibur.Report.Functions;
 using XLibur.Report.Ranges;
 
 namespace XLibur.Report;
@@ -57,6 +58,9 @@ public sealed class XLTemplate : IXLTemplate
         Workbook = workbook ?? throw new ArgumentNullException(nameof(workbook));
         _engine = engine ?? new ScribanExpressionEngine();
         _ownsWorkbook = ownsWorkbook;
+
+        // Excel's own functions, under their Excel names, inside {{ }} expressions.
+        ExcelFunctionBridge.Register(_engine);
     }
 
     /// <inheritdoc />

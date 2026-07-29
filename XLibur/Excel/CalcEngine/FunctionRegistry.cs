@@ -23,6 +23,12 @@ internal sealed class FunctionRegistry
 {
     private readonly Dictionary<string, FunctionDefinition> _func = new(StringComparer.InvariantCultureIgnoreCase);
 
+    /// <summary>
+    /// Names of every registered function. Used by XLibur.Report to surface the function library
+    /// inside template expressions without maintaining its own list of what exists.
+    /// </summary>
+    public IEnumerable<string> Names => _func.Keys;
+
     public bool TryGetFunc(string name, out FunctionDefinition? func)
     {
         return _func.TryGetValue(name, out func);
