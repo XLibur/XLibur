@@ -410,13 +410,13 @@ Task 6 needed. See **Results** below.
    grouping into its own PR at implementation time.
 5. **Excel-function bridge.** Registry adapter, uppercase registration, grid-context function
    exclusion list, value marshalling, docs table of exposed functions.
-6. **Expansion ledger + chart/picture rewriting.** Ledger, `ReferenceRewriter` for chart
-   series and picture anchors (after the picture characterization test), golden-file tests
-   asserting re-pointed references, manual Excel check.
+6. **Expansion ledger + chart/picture rewriting.** **Done** — ledger, `ReferenceRewriter` for
+   chart series, picture behaviour characterized as needing nothing, tests asserting re-pointed
+   references, manual Excel check done 2026-07-30.
 7. **Pivot support.** ~~Static-pivot re-point + refresh (area/table/name sources)~~ **done**,
-   `<<Pivot>>` / field/data tags on XLibur's pivot API **still open**, manual Excel check
+   `<<Pivot>>` / field/data tags on XLibur's pivot API **still open**, ~~manual Excel check
    (upstream #200's corrupt-output history makes the validator + Excel check non-negotiable
-   here) — the validator half is done, the Excel half is not.
+   here)~~ **done for the static path, 2026-07-30** — the `<<Pivot>>` tag will need its own.
 8. **Horizontal tables + conditional tags + CF extension.** Horizontal rendering parity
    (no subranges), `<<If>>` row/range levels, CF extend-not-duplicate with rule-count
    assertions.
@@ -449,6 +449,13 @@ Task 6 needed. See **Results** below.
     it generated without errors, so an example cannot rot into a snippet that no longer
     compiles or no longer works. Examples double as the docs' worked code: the docs-website
     section in Task 9 links them rather than repeating them.
+
+    One of the examples should be the **Excel-verification workbook**: the coverage the 2026-07-30
+    manual check used (grouping, merged labels, one CF rule over a generated block, a picture below
+    the range, a re-pointed chart series, an area-sourced pivot re-pointed and a table-sourced one
+    refreshed), writing template and report side by side. It was a throwaway generator that time;
+    committing it makes the manual check repeatable rather than reconstructed from scratch every
+    time the file format is touched.
 
 Sequencing: 1 → 2 → 3 → {4, 5, 6, 10 in parallel} → 7 → 8 → {9, 11}. Task 5 only needs Task 1;
 Tasks 6–7 need Task 3's ledger; Task 8 needs Task 4's tag framework; Task 10 needs Tasks
@@ -554,17 +561,24 @@ vertical subranges are not implemented — `RangeBinder` resolves property paths
 variables, but a child range inside a parent's rows is not yet expanded per parent item. Of the tags
 the Scope section lists, `Image`, `PageOptions`, `Protected`, `Height`, `OnlyValues` and the `Range`
 marker have no implementation yet either. Acceptance criteria 1 (except nested subranges), 2, 3 and
-5 are met, and 4 and 7 partly — 4's static-pivot half is done and its `<<Pivot>>` half is not;
-7's coverage figure has not been measured. Criteria 6, 8, 9, 10 and 11 are untouched.
+5 are met, including criterion 3's manual Excel check; 4 and 7 are partly met — 4's static-pivot
+half is done and Excel-verified, its `<<Pivot>>` half is not written, and 7's coverage figure has
+not been measured. Criteria 6, 8, 9, 10 and 11 are untouched.
 
-**The manual Excel checks have not been done, for either Task 6 or Task 7.** Both tasks' output is
-asserted by reloading the generated workbook through XLibur, and the pivot output additionally
-passes the OpenXML validator on save — but neither has been opened in Excel, and the repo ground
-rule asks for that on a file-format-affecting task. Two specifics worth an eye. Task 6 drops
-`c:numCache` when it re-points a series: schema-valid, and Excel is expected to rebuild it from the
-formula on open, but that is reasoning rather than observation. Task 7 writes a re-pointed pivot
-cache source, and upstream #200 is a four-year history of pivot output Excel refuses to open, so
-the validator passing is necessary and not sufficient.
+**Manual Excel check: done, 2026-07-30.** The project owner opened both the template and the
+generated report and confirmed they open without a repair dialog and render correctly. That covers
+the two things reasoning could not settle: that Excel rebuilds a chart's `c:numCache` from the
+formula after Task 6 drops it when re-pointing a series, and that Task 7's re-pointed pivot cache
+source is one Excel accepts — upstream #200 being a four-year history of pivot output it refuses,
+the validator passing was necessary and not sufficient.
+
+The workbook pair was produced by a throwaway generator, since there is no examples project yet
+(Task 11). It exercises grouping with subtotals and an outline, merged group labels, a per-row
+formula, one conditional-formatting rule over a generated block, a picture below the range, a chart
+series re-pointed from one row to twelve, an area-sourced pivot re-pointed, and a table-sourced
+pivot refreshed without being re-pointed. **Task 11 should reproduce that coverage as a committed
+example**, so the same check is repeatable rather than reconstructed from scratch next time the file
+format is touched.
 
 ## Risks
 
@@ -719,6 +733,12 @@ commands above do. Worth re-checking against a newer SDK before spending time on
 
 ### Notes for the remaining tasks
 
+- **A pivot's source cannot be set to a defined name through the public API.** `XLPivotCache.Source`
+  is internal, so `IXLPivotTables.Add` only ever gives an area source or — when the range is exactly
+  a table's area — a table source. A template author picks a named source in Excel, not in code, so
+  a *code-built* template demonstrating the refresh-only branch has to use a table. The engine
+  treats name and table sources identically, so nothing is lost; it is the docs and the Task 11
+  examples that need to know.
 - **Task 7's remaining half, the `<<Pivot>>` generation tag.** The static path is done and is the
   documented one; the tag is for templates that want a pivot laid out from data rather than authored
   in the template. It needs `IXLPivotTable`'s field API (`RowLabels`, `ColumnLabels`,
