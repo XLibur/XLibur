@@ -4,6 +4,7 @@ using XLibur.Excel;
 using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.Coordinates;
 using XLibur.Report.Expressions;
+using XLibur.Report.Tags;
 
 namespace XLibur.Report.Ranges;
 
@@ -25,8 +26,15 @@ namespace XLibur.Report.Ranges;
 internal sealed class RangeExpander
 {
     private readonly CellEvaluator _evaluator;
+    private readonly IExpressionEngine _engine;
+    private readonly TemplateErrors _errors;
 
-    public RangeExpander(CellEvaluator evaluator) => _evaluator = evaluator;
+    public RangeExpander(CellEvaluator evaluator, IExpressionEngine engine, TemplateErrors errors)
+    {
+        _evaluator = evaluator;
+        _engine = engine;
+        _errors = errors;
+    }
 
     /// <summary>
     /// Expands <paramref name="bound"/> in place and returns what it did, or <c>null</c> if the
@@ -48,7 +56,13 @@ internal sealed class RangeExpander
         var hasOptionsRow = area.RowCount > 1;
         var dataLastRow = hasOptionsRow ? area.LastRow - 1 : area.LastRow;
         var dataRowCount = dataLastRow - area.FirstRow + 1;
-        var items = bound.Items;
+
+        // Read before anything else: the tags live in the options row, and the column expressions
+        // are still intact only until evaluation replaces them with values.
+        var tags = hasOptionsRow ? ReadTags(sheet, area.LastRow, area) : new List<OptionTag>();
+        var columnExpressions = ReadColumnExpressions(sheet, area, dataLastRow);
+
+        var items = ApplyItemTransforms(tags, bound.Items, sheet, area, dataLastRow, globalScope, columnExpressions);
 
         if (items.Count == 0)
         {
@@ -89,7 +103,12 @@ internal sealed class RangeExpander
 
         if (hasOptionsRow)
         {
-            RemoveOptionsRowIfEmpty(sheet, renderedLastRow + 1, area);
+            var optionsRowNumber = renderedLastRow + 1;
+
+            // Tags run before the options row is considered for removal: a total writes into it,
+            // and a row holding a total is not an empty row.
+            ExecuteTags(tags, sheet, area, renderedLastRow, optionsRowNumber, items, globalScope, columnExpressions);
+            RemoveOptionsRowIfEmpty(sheet, optionsRowNumber, area);
         }
 
         var rendered = new RangeArea(area.FirstRow, area.FirstColumn, renderedLastRow, area.LastColumn);
@@ -148,6 +167,151 @@ internal sealed class RangeExpander
         if (IsRowEmpty(sheet, rowNumber, area))
         {
             sheet.Row(rowNumber).Delete();
+        }
+    }
+
+    /// <summary>
+    /// Reads the tags out of the options row, clearing their text so it does not reach the report.
+    /// </summary>
+    private List<OptionTag> ReadTags(IXLWorksheet sheet, int optionsRowNumber, RangeArea area)
+    {
+        var tags = new List<OptionTag>();
+
+        for (var column = area.FirstColumn; column <= area.LastColumn; column++)
+        {
+            var cell = sheet.Cell(optionsRowNumber, column);
+            if (!cell.Value.IsText)
+            {
+                continue;
+            }
+
+            var text = cell.Value.GetText();
+            if (!TagParser.Contains(text))
+            {
+                continue;
+            }
+
+            foreach (var token in TagParser.Parse(text))
+            {
+                if (TagsRegister.TryCreate(token, column, out var tag))
+                {
+                    tags.Add(tag);
+                }
+                else
+                {
+                    _errors.Add(new TemplateError(
+                        $"<<{token.Name}>> is not a tag this library knows.",
+                        sheet.Name,
+                        cell.Address.ToString()));
+                }
+            }
+
+            var remaining = TagParser.Strip(text);
+            if (remaining.Length == 0)
+            {
+                // Cleared rather than set to an empty string, so an options row that held nothing
+                // but tags still counts as empty and is removed.
+                cell.Clear(XLClearOptions.Contents);
+            }
+            else
+            {
+                cell.Value = remaining;
+            }
+        }
+
+        return tags.OrderBy(tag => TagsRegister.PriorityOf(tag.Token.Name)).ToList();
+    }
+
+    /// <summary>
+    /// Records what expression each column holds, so a column-placed tag can tell what the column
+    /// means without the template having to say it twice.
+    /// </summary>
+    private static Dictionary<int, string> ReadColumnExpressions(IXLWorksheet sheet, RangeArea area, int dataLastRow)
+    {
+        var expressions = new Dictionary<int, string>();
+
+        for (var row = area.FirstRow; row <= dataLastRow; row++)
+        {
+            for (var column = area.FirstColumn; column <= area.LastColumn; column++)
+            {
+                if (expressions.ContainsKey(column))
+                {
+                    continue;
+                }
+
+                var value = sheet.Cell(row, column).Value;
+                if (value.IsText && ExpressionText.TryGetSingleExpression(value.GetText(), out var expression))
+                {
+                    expressions[column] = expression;
+                }
+            }
+        }
+
+        return expressions;
+    }
+
+    private IReadOnlyList<object?> ApplyItemTransforms(
+        List<OptionTag> tags,
+        IReadOnlyList<object?> items,
+        IXLWorksheet sheet,
+        RangeArea area,
+        int dataLastRow,
+        ExpressionScope globalScope,
+        Dictionary<int, string> columnExpressions)
+    {
+        if (tags.Count == 0)
+        {
+            return items;
+        }
+
+        // The generated rows do not exist yet, so the context points at the template block; a tag
+        // acting at this stage is reordering data, not reading the sheet.
+        var context = new ProcessingContext(
+            sheet,
+            sheet.Range(area.FirstRow, area.FirstColumn, dataLastRow, area.LastColumn),
+            null,
+            items,
+            _engine,
+            globalScope,
+            _errors,
+            columnExpressions);
+
+        foreach (var tag in tags)
+        {
+            items = tag.TransformItems(items, context);
+        }
+
+        return items;
+    }
+
+    private void ExecuteTags(
+        List<OptionTag> tags,
+        IXLWorksheet sheet,
+        RangeArea area,
+        int renderedLastRow,
+        int optionsRowNumber,
+        IReadOnlyList<object?> items,
+        ExpressionScope globalScope,
+        Dictionary<int, string> columnExpressions)
+    {
+        if (tags.Count == 0)
+        {
+            return;
+        }
+
+        var context = new ProcessingContext(
+            sheet,
+            sheet.Range(area.FirstRow, area.FirstColumn, renderedLastRow, area.LastColumn),
+            sheet.Range(optionsRowNumber, area.FirstColumn, optionsRowNumber, area.LastColumn),
+            items,
+            _engine,
+            globalScope,
+            _errors,
+            columnExpressions);
+
+        foreach (var tag in tags)
+        {
+            tag.Execute(context);
         }
     }
 

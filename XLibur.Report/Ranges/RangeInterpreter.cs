@@ -19,11 +19,13 @@ namespace XLibur.Report.Ranges;
 internal sealed class RangeInterpreter
 {
     private readonly CellEvaluator _evaluator;
+    private readonly IExpressionEngine _engine;
     private readonly TemplateErrors _errors;
 
     public RangeInterpreter(IExpressionEngine engine, TemplateErrors errors)
     {
         _evaluator = new CellEvaluator(engine, errors);
+        _engine = engine;
         _errors = errors;
     }
 
@@ -39,7 +41,7 @@ internal sealed class RangeInterpreter
 
         EvaluateOutsideBoundRanges(workbook, bound, globalScope);
 
-        var expander = new RangeExpander(_evaluator);
+        var expander = new RangeExpander(_evaluator, _engine, _errors);
         foreach (var range in bound)
         {
             var record = expander.Expand(range, globalScope);
