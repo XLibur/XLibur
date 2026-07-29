@@ -23,10 +23,10 @@ public class SortTag : OptionTag
     {
         var expression = Token.Value("by");
 
-        if (expression.Length == 0 && !context.ColumnExpressions.TryGetValue(Column, out expression!))
+        if (expression.Length == 0 && !context.LineExpressions.TryGetValue(Line, out expression!))
         {
             context.Errors.Add(new TemplateError(
-                $"<<{Token.Name}>> has nothing to sort by: the column it is under holds no expression, and no 'by' was given.",
+                $"<<{Token.Name}>> has nothing to sort by: the line it sits in holds no expression, and no 'by' was given.",
                 context.Worksheet.Name));
             return items;
         }

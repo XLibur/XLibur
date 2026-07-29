@@ -115,9 +115,35 @@ internal static class PivotRewriter
 
         foreach (var expansion in expansions)
         {
-            // The columns have to overlap for the area to be stretched by the expansion, but a
-            // full-row insert moves everything below it whatever its columns.
             var template = expansion.TemplateArea;
+
+            // The area has to cross the template on the other axis to be stretched by the expansion,
+            // but a full-row or full-column insert moves everything past it either way.
+            if (expansion.Axis.IsHorizontal)
+            {
+                var crosses = area.BottomRow >= template.FirstRow && area.TopRow <= template.LastRow;
+
+                if (!crosses)
+                {
+                    if (area.LeftColumn > template.LastColumn)
+                    {
+                        area = new Area(
+                            area.TopRow,
+                            area.LeftColumn + expansion.SlotDelta,
+                            area.BottomRow,
+                            area.RightColumn + expansion.SlotDelta);
+                    }
+
+                    continue;
+                }
+
+                var leftColumn = ExpansionMap.MapColumnStart(area.LeftColumn, expansion);
+                var rightColumn = Math.Max(leftColumn, ExpansionMap.MapColumnEnd(area.RightColumn, expansion));
+
+                area = new Area(area.TopRow, leftColumn, area.BottomRow, rightColumn);
+                continue;
+            }
+
             var overlaps = area.RightColumn >= template.FirstColumn && area.LeftColumn <= template.LastColumn;
 
             if (!overlaps)
@@ -125,17 +151,17 @@ internal static class PivotRewriter
                 if (area.TopRow > template.LastRow)
                 {
                     area = new Area(
-                        area.TopRow + expansion.RowDelta,
+                        area.TopRow + expansion.SlotDelta,
                         area.LeftColumn,
-                        area.BottomRow + expansion.RowDelta,
+                        area.BottomRow + expansion.SlotDelta,
                         area.RightColumn);
                 }
 
                 continue;
             }
 
-            var topRow = ExpansionMap.MapStart(area.TopRow, expansion);
-            var bottomRow = Math.Max(topRow, ExpansionMap.MapEnd(area.BottomRow, expansion));
+            var topRow = ExpansionMap.MapRowStart(area.TopRow, expansion);
+            var bottomRow = Math.Max(topRow, ExpansionMap.MapRowEnd(area.BottomRow, expansion));
 
             area = new Area(topRow, area.LeftColumn, bottomRow, area.RightColumn);
         }
@@ -195,15 +221,17 @@ internal static class PivotRewriter
             {
                 var target = pivot.TargetCell;
                 var row = target.Address.RowNumber;
+                var column = target.Address.ColumnNumber;
 
                 foreach (var expansion in expansions)
                 {
-                    row = ExpansionMap.MapStart(row, expansion);
+                    row = ExpansionMap.MapRowStart(row, expansion);
+                    column = ExpansionMap.MapColumnStart(column, expansion);
                 }
 
-                if (row != target.Address.RowNumber)
+                if (row != target.Address.RowNumber || column != target.Address.ColumnNumber)
                 {
-                    pivot.TargetCell = worksheet.Cell(row, target.Address.ColumnNumber);
+                    pivot.TargetCell = worksheet.Cell(row, column);
                 }
             }
         }

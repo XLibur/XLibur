@@ -96,6 +96,24 @@ public class ChartRewritingTests
         await Assert.That(Series(workbook).ValueReferences).IsEqualTo("Report!$B$12:$B$14");
     }
 
+    /// <summary>
+    /// The same, but with a total in the options row so that the row survives. Everything below the
+    /// range then moves one further than it does when the options row is dropped — which the ledger
+    /// has to account for, and did not until this test said so.
+    /// </summary>
+    [Test]
+    public async Task ASeriesBelowARangeWhoseOptionsRowSurvivesMovesOneFurther()
+    {
+        using var workbook = Template(valueReferences: "Report!$B$10:$B$12", categoryReferences: null);
+        workbook.Worksheet("Report").Cell("B4").Value = "<<Sum>>";
+
+        Generate(workbook);
+
+        // Four generated rows plus the options row holding the total, where the template had two
+        // rows: three more than before.
+        await Assert.That(Series(workbook).ValueReferences).IsEqualTo("Report!$B$13:$B$15");
+    }
+
     [Test]
     public async Task ASeriesAboveTheRangeIsLeftAlone()
     {

@@ -64,6 +64,18 @@ internal sealed class GroupRenderer
             return null;
         }
 
+        if (context.IsHorizontal)
+        {
+            // Excel outlines columns as well as rows, but a subtotal *column* labelled with a group
+            // key is not a thing report readers ask for, and pretending otherwise would mean
+            // guessing at half the layout. Said plainly rather than half-done.
+            context.Errors.Add(new TemplateError(
+                "<<Group>> is not supported in a range that repeats across. Group a range that repeats downwards, "
+                + "or summarise with <<Sum>> and friends instead.",
+                context.Worksheet.Name));
+            return null;
+        }
+
         var levels = BuildLevels(groups, options, context);
         if (levels.Count == 0)
         {
@@ -128,7 +140,7 @@ internal sealed class GroupRenderer
         {
             var expression = tag.KeyExpression;
 
-            if (expression.Length == 0 && !context.ColumnExpressions.TryGetValue(tag.Column, out expression!))
+            if (expression.Length == 0 && !context.LineExpressions.TryGetValue(tag.Line, out expression!))
             {
                 context.Errors.Add(new TemplateError(
                     "<<Group>> has nothing to group by: the column it is under holds no expression, and no 'by' was given.",

@@ -41,7 +41,7 @@ public static class TagsRegister
     /// <summary>The names of every registered tag.</summary>
     public static IEnumerable<string> Names => Registrations.Keys;
 
-    internal static bool TryCreate(TagToken token, int column, out OptionTag tag)
+    internal static bool TryCreate(TagToken token, int row, int column, int line, out OptionTag tag)
     {
         if (!Registrations.TryGetValue(token.Name, out var registration))
         {
@@ -51,7 +51,9 @@ public static class TagsRegister
 
         tag = registration.Create();
         tag.Token = token;
+        tag.Row = row;
         tag.Column = column;
+        tag.Line = line;
         return true;
     }
 
@@ -62,6 +64,10 @@ public static class TagsRegister
     {
         // Ordering matters where one tag reads what another wrote: totals land before the
         // column-fitting and autofilter tags measure the block.
+        // Read before the range is even parsed, not run: which way the range repeats decides where
+        // its options slot is, so the tag cannot wait its turn.
+        Add<HorizontalTag>("Horizontal", 0);
+
         Add<GroupOptionTag>("SummaryAbove", 5);
         Add<GroupOptionTag>("MergeLabels", 5);
         Add<GroupOptionTag>("PageBreaks", 5);

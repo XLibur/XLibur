@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using XLibur.Excel;
 
+
 namespace XLibur.Report.Tags;
 
 /// <summary>
@@ -44,8 +45,8 @@ public sealed class SummaryFunctionTag : OptionTag, IRangeSummaryTag
         ["VarP"] = 11,
     };
 
-    private int? _totalledColumn;
-    private bool _columnResolved;
+    private int? _totalledLine;
+    private bool _lineResolved;
 
     /// <inheritdoc />
     public override void Execute(ProcessingContext context)
@@ -55,13 +56,14 @@ public sealed class SummaryFunctionTag : OptionTag, IRangeSummaryTag
             return;
         }
 
+        var axis = context.Axis;
         var generated = context.GeneratedRange.RangeAddress;
-        var optionsRowNumber = context.OptionsRow.RangeAddress.FirstAddress.RowNumber;
+        var optionsSlot = axis.SlotOf(context.OptionsRow.RangeAddress.FirstAddress);
 
         TryWriteSummary(
-            context.Worksheet.Cell(optionsRowNumber, Column),
-            generated.FirstAddress.RowNumber,
-            generated.LastAddress.RowNumber,
+            axis.Cell(context.Worksheet, optionsSlot, Line),
+            axis.SlotOf(generated.FirstAddress),
+            axis.SlotOf(generated.LastAddress),
             context);
     }
 
@@ -74,9 +76,9 @@ public sealed class SummaryFunctionTag : OptionTag, IRangeSummaryTag
             return false;
         }
 
-        // The tag's own column decides where the total appears; `over` only changes what is
-        // totalled, so a label column can carry the total of a value column.
-        var totalled = ResolveColumn(context);
+        // The tag's own line decides where the total appears; `over` only changes what is totalled,
+        // so a label column can carry the total of a value column.
+        var totalled = ResolveLine(context);
         if (totalled is null)
         {
             return false;
@@ -89,29 +91,27 @@ public sealed class SummaryFunctionTag : OptionTag, IRangeSummaryTag
             return true;
         }
 
-        var columnLetter = XLHelper.GetColumnLetterFromNumber(totalled.Value);
-
         target.FormulaA1 = string.Create(
             CultureInfo.InvariantCulture,
-            $"SUBTOTAL({functionNumber},{columnLetter}{firstRow}:{columnLetter}{lastRow})");
+            $"SUBTOTAL({functionNumber},{context.Axis.LineReference(totalled.Value, firstRow, lastRow)})");
 
         return true;
     }
 
     /// <summary>
-    /// Works out which column to total, once. A grouped range asks for every group, and a template
-    /// naming a column that does not exist should say so once rather than once per group.
+    /// Works out which line to total, once. A grouped range asks for every group, and a template
+    /// naming a line that does not exist should say so once rather than once per group.
     /// </summary>
-    private int? ResolveColumn(ProcessingContext context)
+    private int? ResolveLine(ProcessingContext context)
     {
-        if (_columnResolved)
+        if (_lineResolved)
         {
-            return _totalledColumn;
+            return _totalledLine;
         }
 
-        _columnResolved = true;
-        _totalledColumn = Resolve(context);
-        return _totalledColumn;
+        _lineResolved = true;
+        _totalledLine = Resolve(context);
+        return _totalledLine;
     }
 
     private int? Resolve(ProcessingContext context)
@@ -119,24 +119,18 @@ public sealed class SummaryFunctionTag : OptionTag, IRangeSummaryTag
         var over = Token.Value("over");
         if (over.Length == 0)
         {
-            return Column;
+            return Line;
         }
 
-        if (int.TryParse(over, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
+        var line = context.Axis.ParseLine(over);
+        if (line is not null and > 0)
         {
-            return number;
+            return line;
         }
 
-        try
-        {
-            return XLHelper.GetColumnNumberFromLetter(over);
-        }
-        catch (ArgumentException)
-        {
-            context.Errors.Add(new TemplateError(
-                $"<<{Token.Name} over={over}>> does not name a column.",
-                context.Worksheet.Name));
-            return null;
-        }
+        context.Errors.Add(new TemplateError(
+            $"<<{Token.Name} over={over}>> does not name a {(context.IsHorizontal ? "row" : "column")}.",
+            context.Worksheet.Name));
+        return null;
     }
 }

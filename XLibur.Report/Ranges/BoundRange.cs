@@ -57,6 +57,8 @@ internal readonly struct RangeArea
 
     public int RowCount => LastRow - FirstRow + 1;
 
+    public int ColumnCount => LastColumn - FirstColumn + 1;
+
     public bool Contains(int row, int column) =>
         row >= FirstRow && row <= LastRow && column >= FirstColumn && column <= LastColumn;
 

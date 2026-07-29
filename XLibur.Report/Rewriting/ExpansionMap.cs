@@ -5,12 +5,20 @@ using XLibur.Report.Ranges;
 namespace XLibur.Report.Rewriting;
 
 /// <summary>
-/// Where a row ends up after an expansion, and which expansions happened on which sheet.
+/// Where a row or a column ends up after an expansion, and which expansions happened on which sheet.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Everything that refers to a range by address rather than by identity — a chart series, a pivot
-/// cache source, a pivot table's own corner — has to be moved through the same coordinate change,
-/// so the arithmetic lives here once rather than in each of them.
+/// cache source, a pivot table's own corner — has to be moved through the same coordinate change, so
+/// the arithmetic lives here once rather than in each of them.
+/// </para>
+/// <para>
+/// An expansion moves one dimension and leaves the other alone: a range repeating downwards changes
+/// rows, one repeating across changes columns. The row and column functions are therefore not
+/// interchangeable — asking for the row mapping of a horizontal expansion returns the row unchanged,
+/// which is the right answer and not a special case.
+/// </para>
 /// </remarks>
 internal static class ExpansionMap
 {
@@ -37,49 +45,67 @@ internal static class ExpansionMap
         return bySheet;
     }
 
+    /// <summary>Where the top of something starting at <paramref name="row"/> ends up.</summary>
+    public static int MapRowStart(int row, ExpansionRecord expansion) => expansion.Axis.IsHorizontal
+        ? row
+        : MapStart(row, expansion.TemplateArea.FirstRow, expansion.TemplateArea.LastRow,
+            expansion.RenderedArea.FirstRow, expansion.RenderedArea.LastRow, expansion.SlotDelta);
+
+    /// <summary>Where the bottom of something ending at <paramref name="row"/> ends up.</summary>
+    public static int MapRowEnd(int row, ExpansionRecord expansion) => expansion.Axis.IsHorizontal
+        ? row
+        : MapEnd(row, expansion.TemplateArea.FirstRow, expansion.TemplateArea.LastRow,
+            expansion.RenderedArea.LastRow, expansion.SlotDelta);
+
+    /// <summary>Where the left of something starting at <paramref name="column"/> ends up.</summary>
+    public static int MapColumnStart(int column, ExpansionRecord expansion) => expansion.Axis.IsHorizontal
+        ? MapStart(column, expansion.TemplateArea.FirstColumn, expansion.TemplateArea.LastColumn,
+            expansion.RenderedArea.FirstColumn, expansion.RenderedArea.LastColumn, expansion.SlotDelta)
+        : column;
+
+    /// <summary>Where the right of something ending at <paramref name="column"/> ends up.</summary>
+    public static int MapColumnEnd(int column, ExpansionRecord expansion) => expansion.Axis.IsHorizontal
+        ? MapEnd(column, expansion.TemplateArea.FirstColumn, expansion.TemplateArea.LastColumn,
+            expansion.RenderedArea.LastColumn, expansion.SlotDelta)
+        : column;
+
     /// <summary>
-    /// Where the top of something anchored at <paramref name="row"/> ends up: unchanged above the
-    /// template, moved by the delta below it, and keeping its offset from the top when inside it.
+    /// Unchanged before the template, moved by the delta past it, and keeping its offset from the
+    /// start when inside it.
     /// </summary>
-    public static int MapStart(int row, ExpansionRecord expansion)
+    private static int MapStart(
+        int position, int templateFirst, int templateLast, int renderedFirst, int renderedLast, int delta)
     {
-        var template = expansion.TemplateArea;
-        var rendered = expansion.RenderedArea;
-
-        if (row < template.FirstRow)
+        if (position < templateFirst)
         {
-            return row;
+            return position;
         }
 
-        if (row > template.LastRow)
+        if (position > templateLast)
         {
-            return row + expansion.RowDelta;
+            return position + delta;
         }
 
-        return Math.Min(
-            rendered.FirstRow + (row - template.FirstRow),
-            Math.Max(rendered.LastRow, rendered.FirstRow));
+        return Math.Min(renderedFirst + (position - templateFirst), Math.Max(renderedLast, renderedFirst));
     }
 
     /// <summary>
-    /// Where the bottom of something ending at <paramref name="row"/> ends up. A row anywhere inside
-    /// the template goes to the bottom of what was generated, which is what turns a range covering
-    /// the row a template repeats into one covering every copy of it.
+    /// As <see cref="MapStart"/>, except that anywhere inside the template ends at the end of what
+    /// was generated — which is what turns a range covering the slot a template repeats into one
+    /// covering every copy of it.
     /// </summary>
-    public static int MapEnd(int row, ExpansionRecord expansion)
+    private static int MapEnd(int position, int templateFirst, int templateLast, int renderedLast, int delta)
     {
-        var template = expansion.TemplateArea;
-
-        if (row < template.FirstRow)
+        if (position < templateFirst)
         {
-            return row;
+            return position;
         }
 
-        if (row > template.LastRow)
+        if (position > templateLast)
         {
-            return row + expansion.RowDelta;
+            return position + delta;
         }
 
-        return expansion.RenderedArea.LastRow;
+        return renderedLast;
     }
 }

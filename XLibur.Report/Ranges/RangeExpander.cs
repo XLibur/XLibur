@@ -9,18 +9,27 @@ using XLibur.Report.Tags;
 namespace XLibur.Report.Ranges;
 
 /// <summary>
-/// Repeats a bound range's template rows once per data item.
+/// Repeats a bound range's template slots once per data item.
 /// </summary>
 /// <remarks>
-/// Expansion inserts sheet rows and copies the template block into them, rather than rendering
-/// onto a scratch sheet and splicing the result back. Insert-and-copy hands formula adjustment,
-/// merge tracking, conditional-format extension, row sizing and defined-name shifting to the core
-/// library, all of which it already does correctly and quickly. It also means a conditional format
-/// over the template rows is <em>stretched</em> over the generated ones, rather than being copied
-/// once per generated cell — the behaviour ClosedXML.Report is criticised for in its issue #216.
 /// <para>
-/// The last row of a multi-row range is its options row: it carries tags and summary formulas, and
-/// is not repeated. A single-row range has no options row, so the whole row repeats.
+/// Expansion inserts sheet rows — or columns, for a range that repeats across — and copies the
+/// template block into them, rather than rendering onto a scratch sheet and splicing the result
+/// back. Insert-and-copy hands formula adjustment, merge tracking, conditional-format extension,
+/// row sizing and defined-name shifting to the core library, all of which it already does correctly
+/// and quickly. It also means a conditional format over the template slots is <em>stretched</em>
+/// over the generated ones, rather than being copied once per generated cell — the behaviour
+/// ClosedXML.Report is criticised for in its issue #216.
+/// </para>
+/// <para>
+/// The last slot of a range spanning more than one is its options slot: it carries the tags and the
+/// summary formulas, and is not repeated. A range one slot deep has no options slot, so the whole of
+/// it repeats.
+/// </para>
+/// <para>
+/// Everything here is written against <see cref="RangeAxis"/> rather than against rows, so the
+/// vertical and horizontal cases are the same code read two ways. See that type for the
+/// slot-and-line vocabulary.
 /// </para>
 /// </remarks>
 internal sealed class RangeExpander
@@ -53,35 +62,30 @@ internal sealed class RangeExpander
 
         var sheet = range.Worksheet;
         var area = RangeArea.From(range);
-        var hasOptionsRow = area.RowCount > 1;
-        var dataLastRow = hasOptionsRow ? area.LastRow - 1 : area.LastRow;
-        var dataRowCount = dataLastRow - area.FirstRow + 1;
+        var axis = DetectAxis(sheet, area);
+
+        var firstSlot = axis.FirstSlot(area);
+        var hasOptionsSlot = axis.SlotCount(area) > 1;
+        var dataLastSlot = hasOptionsSlot ? axis.LastSlot(area) - 1 : axis.LastSlot(area);
+        var slotsPerItem = dataLastSlot - firstSlot + 1;
 
         // Read before anything else, and in this order: reading the tags strips their text, so a
-        // column holding an expression beside a tag is only recognised as that expression once the
+        // line holding an expression beside a tag is only recognised as that expression once the
         // tag has been taken out of it.
-        var tags = ReadTags(sheet, area, dataLastRow, hasOptionsRow);
-        var columnExpressions = ReadColumnExpressions(sheet, area, dataLastRow);
+        var tags = ReadTags(sheet, area, axis, dataLastSlot, hasOptionsSlot);
+        var lineExpressions = ReadLineExpressions(sheet, area, axis, dataLastSlot);
         var groupOptions = GroupOptions.Read(tags);
 
-        // The generated rows do not exist yet, so this context points at the template block; a tag
+        // The generated slots do not exist yet, so this context points at the template block; a tag
         // acting at this stage is reordering data, not reading the sheet.
-        var templateContext = new ProcessingContext(
-            sheet,
-            sheet.Range(area.FirstRow, area.FirstColumn, dataLastRow, area.LastColumn),
-            null,
-            bound.Items,
-            _engine,
-            globalScope,
-            _errors,
-            columnExpressions,
-            groupOptions.GrandTotalDisabled);
+        var templateContext = Context(
+            sheet, axis, area, firstSlot, dataLastSlot, null, bound.Items, globalScope, lineExpressions, groupOptions);
 
         var items = ApplyItemTransforms(tags, bound.Items, templateContext);
 
         if (items.Count == 0)
         {
-            return Clear(definedName, sheet, area, dataLastRow, hasOptionsRow);
+            return Clear(definedName, sheet, area, axis, dataLastSlot, hasOptionsSlot);
         }
 
         // Grouping reorders too, and has to do it last: its ordering is stable, so whatever
@@ -94,172 +98,239 @@ internal sealed class RangeExpander
 
         // Captured before anything moves: the rules are re-pointed afterwards from the template's
         // original geometry.
-        var templateFormats = CaptureConditionalFormats(sheet, area.FirstRow, dataLastRow);
+        var templateFormats = CaptureConditionalFormats(sheet, axis, area, firstSlot, dataLastSlot);
         var formatsBeforeExpansion = new HashSet<IXLConditionalFormat>(
             sheet.ConditionalFormats,
             ReferenceEqualityComparer.Instance);
 
-        var extraRows = (items.Count - 1) * dataRowCount;
-        if (extraRows > 0)
+        var extraSlots = (items.Count - 1) * slotsPerItem;
+        if (extraSlots > 0)
         {
-            sheet.Row(dataLastRow).InsertRowsBelow(extraRows);
+            axis.InsertSlotsAfter(sheet, dataLastSlot, extraSlots);
         }
 
-        // Every copy is taken from the still-unevaluated template block, so each item's rows start
+        // Every copy is taken from the still-unevaluated template block, so each item's slots start
         // from the same source; evaluation happens afterwards, once per block.
-        var template = sheet.Range(area.FirstRow, area.FirstColumn, dataLastRow, area.LastColumn);
+        var template = RangeAxis.Range(sheet, axis.Slots(area, firstSlot, dataLastSlot));
         for (var i = 1; i < items.Count; i++)
         {
-            template.CopyTo(sheet.Cell(area.FirstRow + (i * dataRowCount), area.FirstColumn));
+            var blockFirstSlot = firstSlot + (i * slotsPerItem);
+            template.CopyTo(axis.Cell(sheet, blockFirstSlot, axis.FirstLine(area)));
         }
 
         for (var i = 0; i < items.Count; i++)
         {
-            var blockFirstRow = area.FirstRow + (i * dataRowCount);
+            var blockFirstSlot = firstSlot + (i * slotsPerItem);
             var scope = ItemScopes.For(globalScope, items, i);
-            EvaluateBlock(sheet, blockFirstRow, blockFirstRow + dataRowCount - 1, area, scope);
+            EvaluateBlock(sheet, axis.Slots(area, blockFirstSlot, blockFirstSlot + slotsPerItem - 1), scope);
         }
 
-        var renderedLastRow = area.FirstRow + (items.Count * dataRowCount) - 1;
+        var renderedLastSlot = firstSlot + (items.Count * slotsPerItem) - 1;
 
-        RestoreConditionalFormats(sheet, formatsBeforeExpansion, templateFormats, dataRowCount, items.Count);
+        RestoreConditionalFormats(sheet, axis, formatsBeforeExpansion, templateFormats, slotsPerItem, items.Count);
 
         if (grouping is not null)
         {
             // Grouping runs before the options row is written, so that the grand total spans the
             // group totals as well — SUBTOTAL ignores nested SUBTOTALs, which is why it is the
             // formula the summary tags leave.
-            var groupContext = new ProcessingContext(
-                sheet,
-                sheet.Range(area.FirstRow, area.FirstColumn, renderedLastRow, area.LastColumn),
-                null,
-                items,
-                _engine,
-                globalScope,
-                _errors,
-                columnExpressions,
-                groupOptions.GrandTotalDisabled);
+            var groupContext = Context(
+                sheet, axis, area, firstSlot, renderedLastSlot, null, items, globalScope, lineExpressions, groupOptions);
 
-            renderedLastRow = grouping.Render(
+            renderedLastSlot = grouping.Render(
                 sheet,
                 area,
-                area.FirstRow,
-                dataRowCount,
-                hasOptionsRow,
+                firstSlot,
+                slotsPerItem,
+                hasOptionsSlot,
                 tags,
                 groupContext);
         }
 
-        if (hasOptionsRow)
+        // How many slots the range ends up occupying, which is not the same as how many it produced:
+        // an options slot that a total was written into stays, and everything past the range moves
+        // one further because of it.
+        var occupiedSlots = renderedLastSlot - firstSlot + 1;
+
+        if (hasOptionsSlot)
         {
-            var optionsRowNumber = renderedLastRow + 1;
+            var optionsSlot = renderedLastSlot + 1;
+            var optionsRange = RangeAxis.Range(sheet, axis.Slots(area, optionsSlot, optionsSlot));
 
-            // Tags run before the options row is considered for removal: a total writes into it,
-            // and a row holding a total is not an empty row.
-            ExecuteTags(
-                tags,
-                sheet,
-                area,
-                renderedLastRow,
-                optionsRowNumber,
-                items,
-                globalScope,
-                columnExpressions,
-                groupOptions.GrandTotalDisabled);
+            // Tags run before the options slot is considered for removal: a total writes into it,
+            // and a slot holding a total is not an empty one.
+            var executeContext = Context(
+                sheet, axis, area, firstSlot, renderedLastSlot, optionsRange, items, globalScope, lineExpressions,
+                groupOptions);
 
-            RemoveOptionsRowIfEmpty(sheet, optionsRowNumber, area);
+            foreach (var tag in tags)
+            {
+                tag.Execute(executeContext);
+            }
+
+            if (!RemoveOptionsSlotIfEmpty(sheet, axis, area, optionsSlot))
+            {
+                occupiedSlots++;
+            }
         }
 
-        var rendered = new RangeArea(area.FirstRow, area.FirstColumn, renderedLastRow, area.LastColumn);
-        definedName.SetRefersTo(sheet.Range(rendered.FirstRow, rendered.FirstColumn, rendered.LastRow, rendered.LastColumn));
+        var rendered = axis.Slots(area, firstSlot, renderedLastSlot);
+        definedName.SetRefersTo(RangeAxis.Range(sheet, rendered));
 
-        return new ExpansionRecord(sheet, area, rendered, rendered.RowCount - area.RowCount);
+        return new ExpansionRecord(sheet, area, rendered, axis, occupiedSlots - axis.SlotCount(area));
     }
 
     /// <summary>
-    /// Removes a range bound to no data. An options row that still holds content is kept — it may
+    /// Which way the range repeats. Looked for in the last column, the one place that means the same
+    /// thing before the answer is known: a vertical range's options row ends there and a horizontal
+    /// range's options column <em>is</em> there.
+    /// </summary>
+    private static RangeAxis DetectAxis(IXLWorksheet sheet, RangeArea area)
+    {
+        for (var row = area.FirstRow; row <= area.LastRow; row++)
+        {
+            var value = sheet.Cell(row, area.LastColumn).Value;
+            if (!value.IsText)
+            {
+                continue;
+            }
+
+            foreach (var token in TagParser.Parse(value.GetText()))
+            {
+                if (string.Equals(token.Name, "Horizontal", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return RangeAxis.Horizontal;
+                }
+            }
+        }
+
+        return RangeAxis.Vertical;
+    }
+
+    private ProcessingContext Context(
+        IXLWorksheet sheet,
+        RangeAxis axis,
+        RangeArea area,
+        int firstSlot,
+        int lastSlot,
+        IXLRange? optionsSlot,
+        IReadOnlyList<object?> items,
+        ExpressionScope globalScope,
+        Dictionary<int, string> lineExpressions,
+        GroupOptions groupOptions) =>
+        new(
+            sheet,
+            RangeAxis.Range(sheet, axis.Slots(area, firstSlot, lastSlot)),
+            optionsSlot,
+            items,
+            _engine,
+            globalScope,
+            _errors,
+            lineExpressions,
+            axis,
+            groupOptions.GrandTotalDisabled);
+
+    /// <summary>
+    /// Removes a range bound to no data. An options slot that still holds content is kept — it may
     /// carry a total that should show as zero rather than vanish.
     /// </summary>
     private static ExpansionRecord? Clear(
         IXLDefinedName definedName,
         IXLWorksheet sheet,
         RangeArea area,
-        int dataLastRow,
-        bool hasOptionsRow)
+        RangeAxis axis,
+        int dataLastSlot,
+        bool hasOptionsSlot)
     {
-        var optionsRowEmpty = !hasOptionsRow || IsRowEmpty(sheet, area.LastRow, area);
-        var lastRowToDelete = optionsRowEmpty ? area.LastRow : dataLastRow;
+        var firstSlot = axis.FirstSlot(area);
+        var lastSlot = axis.LastSlot(area);
+        var optionsEmpty = !hasOptionsSlot || IsSlotEmpty(sheet, axis, area, lastSlot);
+        var lastToDelete = optionsEmpty ? lastSlot : dataLastSlot;
 
-        sheet.Rows(area.FirstRow, lastRowToDelete).Delete();
+        axis.DeleteSlots(sheet, firstSlot, lastToDelete);
 
-        if (optionsRowEmpty)
+        if (optionsEmpty)
         {
             definedName.Delete();
         }
 
-        var rendered = new RangeArea(area.FirstRow, area.FirstColumn, area.FirstRow - 1, area.LastColumn);
-        return new ExpansionRecord(sheet, area, rendered, -(lastRowToDelete - area.FirstRow + 1));
+        // An empty rendered area: its last slot is before its first, which is what everything
+        // downstream reads as "nothing was produced".
+        var rendered = axis.Slots(area, firstSlot, firstSlot - 1);
+
+        return new ExpansionRecord(sheet, area, rendered, axis, -(lastToDelete - firstSlot + 1));
     }
 
-    private void EvaluateBlock(IXLWorksheet sheet, int firstRow, int lastRow, RangeArea area, ExpressionScope scope)
+    private void EvaluateBlock(IXLWorksheet sheet, RangeArea block, ExpressionScope scope)
     {
-        var block = sheet.Range(firstRow, area.FirstColumn, lastRow, area.LastColumn);
-
         // Materialised: evaluating a cell writes to it, and writing while enumerating the used-cell
         // set is not safe.
-        foreach (var cell in block.CellsUsed(XLCellsUsedOptions.Contents).ToList())
+        foreach (var cell in RangeAxis.Range(sheet, block).CellsUsed(XLCellsUsedOptions.Contents).ToList())
         {
             _evaluator.Evaluate(cell, scope);
         }
     }
 
-    private static void RemoveOptionsRowIfEmpty(IXLWorksheet sheet, int rowNumber, RangeArea area)
+    /// <summary>
+    /// Drops the options slot when nothing was left in it, reporting whether it did — the caller has
+    /// to know, because a surviving options slot moves everything past the range one further.
+    /// </summary>
+    private static bool RemoveOptionsSlotIfEmpty(IXLWorksheet sheet, RangeAxis axis, RangeArea area, int slot)
     {
-        if (IsRowEmpty(sheet, rowNumber, area))
+        if (!IsSlotEmpty(sheet, axis, area, slot))
         {
-            sheet.Row(rowNumber).Delete();
+            return false;
         }
+
+        axis.DeleteSlots(sheet, slot, slot);
+        return true;
     }
 
     /// <summary>
-    /// Reads every tag the range declares — those in the options row, and those in the rows it
+    /// Reads every tag the range declares — those in the options slot, and those in the slots it
     /// repeats — ordered so that a tag which has to see what another did runs after it.
     /// </summary>
     /// <remarks>
-    /// A tag in a repeated row is describing a row rather than the range, which is what
+    /// A tag in a repeated slot is describing one item rather than the range, which is what
     /// <see cref="OptionTag.InRepeatedRow"/> tells it. Read before anything else happens, because a
-    /// repeated row's tag text must not survive into the copies.
+    /// repeated slot's tag text must not survive into the copies.
     /// </remarks>
-    private List<OptionTag> ReadTags(IXLWorksheet sheet, RangeArea area, int dataLastRow, bool hasOptionsRow)
+    private List<OptionTag> ReadTags(
+        IXLWorksheet sheet,
+        RangeArea area,
+        RangeAxis axis,
+        int dataLastSlot,
+        bool hasOptionsSlot)
     {
         var tags = new List<OptionTag>();
 
-        for (var row = area.FirstRow; row <= dataLastRow; row++)
+        for (var slot = axis.FirstSlot(area); slot <= dataLastSlot; slot++)
         {
-            ReadTagsFromRow(sheet, row, area, inRepeatedRow: true, tags);
+            ReadTagsFromSlot(sheet, area, axis, slot, inRepeatedSlot: true, tags);
         }
 
-        if (hasOptionsRow)
+        if (hasOptionsSlot)
         {
-            ReadTagsFromRow(sheet, area.LastRow, area, inRepeatedRow: false, tags);
+            ReadTagsFromSlot(sheet, area, axis, axis.LastSlot(area), inRepeatedSlot: false, tags);
         }
 
         return tags.OrderBy(tag => TagsRegister.PriorityOf(tag.Token.Name)).ToList();
     }
 
     /// <summary>
-    /// Reads the tags out of one row, clearing their text so it does not reach the report.
+    /// Reads the tags out of one slot, clearing their text so it does not reach the report.
     /// </summary>
-    private void ReadTagsFromRow(
+    private void ReadTagsFromSlot(
         IXLWorksheet sheet,
-        int rowNumber,
         RangeArea area,
-        bool inRepeatedRow,
+        RangeAxis axis,
+        int slot,
+        bool inRepeatedSlot,
         List<OptionTag> tags)
     {
-        for (var column = area.FirstColumn; column <= area.LastColumn; column++)
+        for (var line = axis.FirstLine(area); line <= axis.LastLine(area); line++)
         {
-            var cell = sheet.Cell(rowNumber, column);
+            var cell = axis.Cell(sheet, slot, line);
             if (!cell.Value.IsText)
             {
                 continue;
@@ -273,9 +344,9 @@ internal sealed class RangeExpander
 
             foreach (var token in TagParser.Parse(text))
             {
-                if (TagsRegister.TryCreate(token, column, out var tag))
+                if (TagsRegister.TryCreate(token, cell.Address.RowNumber, cell.Address.ColumnNumber, line, out var tag))
                 {
-                    tag.InRepeatedRow = inRepeatedRow;
+                    tag.InRepeatedRow = inRepeatedSlot;
                     tags.Add(tag);
                 }
                 else
@@ -290,7 +361,7 @@ internal sealed class RangeExpander
             var remaining = TagParser.Strip(text);
             if (remaining.Length == 0)
             {
-                // Cleared rather than set to an empty string, so an options row that held nothing
+                // Cleared rather than set to an empty string, so an options slot that held nothing
                 // but tags still counts as empty and is removed.
                 cell.Clear(XLClearOptions.Contents);
             }
@@ -302,26 +373,30 @@ internal sealed class RangeExpander
     }
 
     /// <summary>
-    /// Records what expression each column holds, so a column-placed tag can tell what the column
+    /// Records what expression each line holds, so a tag sitting in a line can tell what that line
     /// means without the template having to say it twice.
     /// </summary>
-    private static Dictionary<int, string> ReadColumnExpressions(IXLWorksheet sheet, RangeArea area, int dataLastRow)
+    private static Dictionary<int, string> ReadLineExpressions(
+        IXLWorksheet sheet,
+        RangeArea area,
+        RangeAxis axis,
+        int dataLastSlot)
     {
         var expressions = new Dictionary<int, string>();
 
-        for (var row = area.FirstRow; row <= dataLastRow; row++)
+        for (var slot = axis.FirstSlot(area); slot <= dataLastSlot; slot++)
         {
-            for (var column = area.FirstColumn; column <= area.LastColumn; column++)
+            for (var line = axis.FirstLine(area); line <= axis.LastLine(area); line++)
             {
-                if (expressions.ContainsKey(column))
+                if (expressions.ContainsKey(line))
                 {
                     continue;
                 }
 
-                var value = sheet.Cell(row, column).Value;
+                var value = axis.Cell(sheet, slot, line).Value;
                 if (value.IsText && ExpressionText.TryGetSingleExpression(value.GetText(), out var expression))
                 {
-                    expressions[column] = expression;
+                    expressions[line] = expression;
                 }
             }
         }
@@ -342,47 +417,16 @@ internal sealed class RangeExpander
         return items;
     }
 
-    private void ExecuteTags(
-        List<OptionTag> tags,
-        IXLWorksheet sheet,
-        RangeArea area,
-        int renderedLastRow,
-        int optionsRowNumber,
-        IReadOnlyList<object?> items,
-        ExpressionScope globalScope,
-        Dictionary<int, string> columnExpressions,
-        bool grandTotalsDisabled)
-    {
-        if (tags.Count == 0)
-        {
-            return;
-        }
-
-        var context = new ProcessingContext(
-            sheet,
-            sheet.Range(area.FirstRow, area.FirstColumn, renderedLastRow, area.LastColumn),
-            sheet.Range(optionsRowNumber, area.FirstColumn, optionsRowNumber, area.LastColumn),
-            items,
-            _engine,
-            globalScope,
-            _errors,
-            columnExpressions,
-            grandTotalsDisabled);
-
-        foreach (var tag in tags)
-        {
-            tag.Execute(context);
-        }
-    }
-
     /// <summary>
     /// Records the conditional formatting rules that live entirely inside the template block,
     /// together with where they sit, before expansion moves anything.
     /// </summary>
     private static List<CapturedConditionalFormat> CaptureConditionalFormats(
         IXLWorksheet sheet,
-        int dataFirstRow,
-        int dataLastRow)
+        RangeAxis axis,
+        RangeArea area,
+        int dataFirstSlot,
+        int dataLastSlot)
     {
         var captured = new List<CapturedConditionalFormat>();
 
@@ -390,7 +434,7 @@ internal sealed class RangeExpander
         {
             var areas = format.Ranges
                 .Select(RangeArea.From)
-                .Where(a => a.FirstRow >= dataFirstRow && a.LastRow <= dataLastRow)
+                .Where(a => axis.FirstSlot(a) >= dataFirstSlot && axis.LastSlot(a) <= dataLastSlot)
                 .ToList();
 
             if (areas.Count > 0)
@@ -416,9 +460,10 @@ internal sealed class RangeExpander
     /// </remarks>
     private static void RestoreConditionalFormats(
         IXLWorksheet sheet,
+        RangeAxis axis,
         HashSet<IXLConditionalFormat> formatsBeforeExpansion,
         List<CapturedConditionalFormat> captured,
-        int dataRowCount,
+        int slotsPerItem,
         int itemCount)
     {
         if (captured.Count == 0)
@@ -431,8 +476,7 @@ internal sealed class RangeExpander
         foreach (var (format, areas) in captured)
         {
             var widened = areas
-                .SelectMany(original => Widen(sheet, original, dataRowCount, itemCount))
-                .Cast<IXLRange>()
+                .SelectMany(original => Widen(sheet, axis, original, slotsPerItem, itemCount))
                 .ToList();
 
             // IXLConditionalFormat.Ranges is a fresh projection of the rule's internal area list,
@@ -445,31 +489,34 @@ internal sealed class RangeExpander
     /// Projects a rule's original rectangle over every generated block, as one range when the
     /// blocks abut and as one range per block when they do not.
     /// </summary>
-    private static IEnumerable<IXLRange> Widen(IXLWorksheet sheet, RangeArea original, int dataRowCount, int itemCount)
+    private static IEnumerable<IXLRange> Widen(
+        IXLWorksheet sheet,
+        RangeAxis axis,
+        RangeArea original,
+        int slotsPerItem,
+        int itemCount)
     {
-        if (original.RowCount == dataRowCount)
+        var firstSlot = axis.FirstSlot(original);
+
+        if (axis.SlotCount(original) == slotsPerItem)
         {
-            yield return sheet.Range(
-                original.FirstRow,
-                original.FirstColumn,
-                original.FirstRow + (itemCount * dataRowCount) - 1,
-                original.LastColumn);
+            yield return RangeAxis.Range(
+                sheet,
+                axis.Slots(original, firstSlot, firstSlot + (itemCount * slotsPerItem) - 1));
             yield break;
         }
 
         for (var i = 0; i < itemCount; i++)
         {
-            var offset = i * dataRowCount;
-            yield return sheet.Range(
-                original.FirstRow + offset,
-                original.FirstColumn,
-                original.LastRow + offset,
-                original.LastColumn);
+            var offset = i * slotsPerItem;
+            yield return RangeAxis.Range(
+                sheet,
+                axis.Slots(original, firstSlot + offset, axis.LastSlot(original) + offset));
         }
     }
 
-    private static bool IsRowEmpty(IXLWorksheet sheet, int rowNumber, RangeArea area) =>
-        !sheet.Range(rowNumber, area.FirstColumn, rowNumber, area.LastColumn)
+    private static bool IsSlotEmpty(IXLWorksheet sheet, RangeAxis axis, RangeArea area, int slot) =>
+        !RangeAxis.Range(sheet, axis.Slots(area, slot, slot))
             .CellsUsed(XLCellsUsedOptions.Contents)
             .Any();
 }
@@ -479,14 +526,17 @@ internal readonly record struct CapturedConditionalFormat(IXLConditionalFormat F
 
 /// <summary>
 /// What one expansion did to a sheet: where the template was, where the generated block ended up,
-/// and how far everything below it moved.
+/// and how far everything past it moved.
 /// </summary>
 /// <remarks>
-/// Collected so that references pointing into or below the template — chart series, picture
-/// anchors, pivot cache sources — can be re-pointed once the sheet has settled.
+/// Collected so that references pointing into or past the template — chart series, pivot cache
+/// sources, pivot table positions — can be re-pointed once the sheet has settled. The axis says
+/// which way the range ran, and so which dimension <see cref="SlotDelta"/> moved: a range repeating
+/// downwards moves what is below it, one repeating across moves what is to its right.
 /// </remarks>
 internal sealed record ExpansionRecord(
     IXLWorksheet Worksheet,
     RangeArea TemplateArea,
     RangeArea RenderedArea,
-    int RowDelta);
+    RangeAxis Axis,
+    int SlotDelta);

@@ -5,13 +5,15 @@ using XLibur.Report.Expressions;
 namespace XLibur.Report.Tags;
 
 /// <summary>
-/// A marker a template author writes in the options row to change how a range is generated.
+/// A marker a template author writes in a range's options slot to change how it is generated.
 /// </summary>
 /// <remarks>
+/// <para>
 /// A tag acts at one of two moments, and may act at both. <see cref="TransformItems"/> runs before
-/// any row is written, which is where reordering belongs; <see cref="Execute"/> runs once the rows
-/// exist, which is where anything referring to the generated block belongs — a total, an
-/// autofilter, a column width.
+/// any row is written, which is where reordering and filtering belong; <see cref="Execute"/> runs
+/// once the rows exist, which is where anything referring to the generated block belongs — a total,
+/// an autofilter, a column width.
+/// </para>
 /// <para>
 /// Register a tag of your own with <see cref="TagsRegister.Add{T}"/>.
 /// </para>
@@ -21,21 +23,31 @@ public abstract class OptionTag
     /// <summary>The tag as written, including its parameters.</summary>
     public TagToken Token { get; internal set; } = new(string.Empty, new Dictionary<string, string>());
 
-    /// <summary>
-    /// The worksheet column the tag was written in. Tags that act on one column of the range —
-    /// a total, a sort key — read this.
-    /// </summary>
+    /// <summary>The worksheet row the tag was written in.</summary>
+    public int Row { get; internal set; }
+
+    /// <summary>The worksheet column the tag was written in.</summary>
     public int Column { get; internal set; }
 
     /// <summary>
-    /// Whether the tag was written in one of the range's repeated rows rather than in its options
-    /// row.
+    /// The line of the range the tag sits in — its <see cref="Column"/> for a range that repeats
+    /// downwards, its <see cref="Row"/> for one that repeats across.
     /// </summary>
     /// <remarks>
-    /// Most tags describe the range and belong in the options row. A tag in a repeated row is
-    /// describing <em>a row</em>, and a tag that means something at both scales reads this to tell
-    /// which was meant — <c>&lt;&lt;If&gt;&gt;</c> in a repeated row drops that row, and in the
-    /// options row drops the range.
+    /// A tag acting on one line of the range — a total, a sort key, a hidden column — reads this
+    /// rather than <see cref="Column"/>, and works whichever way the range runs.
+    /// </remarks>
+    public int Line { get; internal set; }
+
+    /// <summary>
+    /// Whether the tag was written in one of the range's repeated slots rather than in its options
+    /// slot.
+    /// </summary>
+    /// <remarks>
+    /// Most tags describe the range and belong in the options slot. A tag in a repeated slot is
+    /// describing <em>one item</em>, and a tag that means something at both scales reads this to tell
+    /// which was meant — <c>&lt;&lt;If&gt;&gt;</c> in a repeated slot drops that item, and in the
+    /// options slot drops the range.
     /// </remarks>
     public bool InRepeatedRow { get; internal set; }
 
@@ -67,7 +79,8 @@ public sealed class ProcessingContext
         IExpressionEngine engine,
         ExpressionScope scope,
         TemplateErrors errors,
-        IReadOnlyDictionary<int, string> columnExpressions,
+        IReadOnlyDictionary<int, string> lineExpressions,
+        Ranges.RangeAxis axis,
         bool grandTotalsDisabled = false)
     {
         Worksheet = worksheet;
@@ -77,17 +90,21 @@ public sealed class ProcessingContext
         Engine = engine;
         Scope = scope;
         Errors = errors;
-        ColumnExpressions = columnExpressions;
+        LineExpressions = lineExpressions;
+        Axis = axis;
         GrandTotalsDisabled = grandTotalsDisabled;
     }
 
     /// <summary>The sheet being generated.</summary>
     public IXLWorksheet Worksheet { get; }
 
-    /// <summary>The rows the range produced, excluding the options row.</summary>
+    /// <summary>What the range produced, excluding its options slot.</summary>
     public IXLRange GeneratedRange { get; }
 
-    /// <summary>The options row, or <c>null</c> once it has been removed.</summary>
+    /// <summary>
+    /// The range's options slot — its last row when it repeats downwards, its last column when it
+    /// repeats across — or <c>null</c> once it has been removed.
+    /// </summary>
     public IXLRange? OptionsRow { get; }
 
     /// <summary>The data the range was generated from, in the order it was written.</summary>
@@ -103,11 +120,18 @@ public sealed class ProcessingContext
     public TemplateErrors Errors { get; }
 
     /// <summary>
-    /// The template expression each column held, keyed by worksheet column. A column-placed tag
-    /// uses it to work out what that column means — which is how <c>&lt;&lt;Sort&gt;&gt;</c> knows
-    /// what to sort by without being told twice.
+    /// The template expression each line of the range held, keyed by <see cref="OptionTag.Line"/> —
+    /// so by worksheet column for a range that repeats downwards, and by row for one that repeats
+    /// across. A tag sitting in a line uses it to work out what that line means, which is how
+    /// <c>&lt;&lt;Sort&gt;&gt;</c> knows what to sort by without being told twice.
     /// </summary>
-    public IReadOnlyDictionary<int, string> ColumnExpressions { get; }
+    public IReadOnlyDictionary<int, string> LineExpressions { get; }
+
+    /// <summary>Whether the range repeats across rather than downwards.</summary>
+    public bool IsHorizontal => Axis.IsHorizontal;
+
+    /// <summary>Which way the range repeats, and the sheet operations that depend on it.</summary>
+    internal Ranges.RangeAxis Axis { get; }
 
     /// <summary>
     /// Whether the options row should be left without a total, because the template said

@@ -114,16 +114,40 @@ internal static class ReferenceRewriter
     }
 
     /// <summary>
-    /// Moves one reference through one expansion.
+    /// Moves one reference through one expansion, along whichever axis the expansion ran.
     /// </summary>
     /// <remarks>
-    /// A reference sharing no column with the template cannot be stretched by the expansion — a
-    /// chart plotting a column beside the range is not plotting the range — but it still moves if it
-    /// sits below one, because the insert that grew the range was a full-row one.
+    /// A reference has to cross the template on the <em>other</em> axis to be stretched by it — a
+    /// chart plotting a column beside a vertical range is not plotting that range — but it still
+    /// moves if it sits past the template, because the insert that grew the range was a full-row or
+    /// full-column one.
     /// </remarks>
     private static SeriesReference Apply(SeriesReference reference, ExpansionRecord expansion)
     {
         var template = expansion.TemplateArea;
+
+        if (expansion.Axis.IsHorizontal)
+        {
+            if (reference.LastRow < template.FirstRow || reference.FirstRow > template.LastRow)
+            {
+                return reference.FirstColumn <= template.LastColumn
+                    ? reference
+                    : reference with
+                    {
+                        FirstColumn = reference.FirstColumn + expansion.SlotDelta,
+                        LastColumn = reference.LastColumn + expansion.SlotDelta,
+                    };
+            }
+
+            var firstColumn = ExpansionMap.MapColumnStart(reference.FirstColumn, expansion);
+            var lastColumn = ExpansionMap.MapColumnEnd(reference.LastColumn, expansion);
+
+            return reference with
+            {
+                FirstColumn = firstColumn,
+                LastColumn = Math.Max(firstColumn, lastColumn),
+            };
+        }
 
         if (reference.LastColumn < template.FirstColumn || reference.FirstColumn > template.LastColumn)
         {
@@ -131,13 +155,13 @@ internal static class ReferenceRewriter
                 ? reference
                 : reference with
                 {
-                    FirstRow = reference.FirstRow + expansion.RowDelta,
-                    LastRow = reference.LastRow + expansion.RowDelta,
+                    FirstRow = reference.FirstRow + expansion.SlotDelta,
+                    LastRow = reference.LastRow + expansion.SlotDelta,
                 };
         }
 
-        var firstRow = ExpansionMap.MapStart(reference.FirstRow, expansion);
-        var lastRow = ExpansionMap.MapEnd(reference.LastRow, expansion);
+        var firstRow = ExpansionMap.MapRowStart(reference.FirstRow, expansion);
+        var lastRow = ExpansionMap.MapRowEnd(reference.LastRow, expansion);
 
         return reference with
         {

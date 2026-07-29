@@ -404,10 +404,10 @@ patterns, Scriban↔C#-syntax migration page), and a `XLibur.Report.Examples` pr
 
 PR-sized tasks; each lands green (build + tests) on its own branch per repo ground rules.
 
-**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1–6 are done; Task 7 is done
-except its `<<Pivot>>` generation tag; Task 8 is done except horizontal ranges. 314 report tests
-green on net8.0 and net10.0, the solution builds clean in Release, and the core suite (11,603 tests)
-passes with the chart-reference fix Task 6 needed. See **Results** below.
+**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1–6 and 8 are done; Task 7 is
+done except its `<<Pivot>>` generation tag. 337 report tests green on net8.0 and net10.0, the
+solution builds clean in Release, and the core suite (11,603 tests) passes with the chart-reference
+fix Task 6 needed. See **Results** below.
 
 1. **Scaffold + expression engine.** `XLibur.Report` + `XLibur.Report.Tests` projects, slnx
    entries, CI test wiring, IVT grants (`XLibur` → `XLibur.Report`; `XLibur.Report` →
@@ -435,9 +435,10 @@ passes with the chart-reference fix Task 6 needed. See **Results** below.
    `<<Pivot>>` / field/data tags on XLibur's pivot API **still open**, ~~manual Excel check
    (upstream #200's corrupt-output history makes the validator + Excel check non-negotiable
    here)~~ **done for the static path, 2026-07-30** — the `<<Pivot>>` tag will need its own.
-8. **Horizontal tables + conditional tags + CF extension.** Horizontal rendering parity
-   (no subranges) **still open**; ~~`<<If>>` row/range levels~~ **done**; ~~CF
-   extend-not-duplicate with rule-count assertions~~ **done in Task 3**, see finding 2.
+8. **Horizontal tables + conditional tags + CF extension.** **Done** — horizontal rendering
+   parity (no subranges, no grouping), `<<If>>` at row and range level, and CF
+   extend-not-duplicate with rule-count assertions in both directions (the CF half landed in
+   Task 3, see finding 2).
 9. **Packaging, docs, benchmark.** NuGet packaging + release pipeline verification,
    docs-website section, new `XLibur.Report.Benchmarks` project with the `ReportGenerate`
    benchmark (100K-row grouped report) and baseline numbers recorded here.
@@ -523,12 +524,12 @@ the core library except the one-line IVT grant (Task 1) — no conflicts with op
 
 Eight commits on `feat/spec-12-report-templating`, July 2026.
 
-**What landed.** `XLibur.Report` (Scriban engine, template model, vertical range expansion, tag
-framework including grouping and subtotals, Excel-function bridge, chart reference rewriting, static
-pivot re-point and refresh) and `XLibur.Report.Tests` (297 tests). Both projects are in
-`XLibur.slnx`; CI runs the new suite with coverage.
+**What landed.** `XLibur.Report` (Scriban engine, template model, range expansion in both
+directions, tag framework including grouping, subtotals and conditional inclusion, Excel-function
+bridge, chart reference rewriting, static pivot re-point and refresh) and `XLibur.Report.Tests`
+(337 tests). Both projects are in `XLibur.slnx`; CI runs the new suite with coverage.
 
-**Six findings that changed the design.**
+**Seven findings that changed the design.**
 
 1. **The temp-sheet buffer was not needed** (Task 3). It is upstream's workaround for ClosedXML's
    slow and lossy row inserts, which spec 05 rewrote. Eight characterization tests established
@@ -566,6 +567,16 @@ pivot re-point and refresh) and `XLibur.Report.Tests` (297 tests). Both projects
    across Tasks 6 and 7 is worth naming for whoever does Task 8: **anything the core holds as a live
    range moves for free; anything it holds as a value does not, and belongs in the rewriter.**
    Charting the two apart with characterization tests before designing has now paid three times.
+7. **The ledger under-reported by one whenever the options slot survived** (Task 8). Turning the
+   expander's row arithmetic into axis arithmetic forced every number to be justified, and this one
+   could not be: the delta was `rendered slots − template slots`, which silently ignores that an
+   options row a total was written into *stays*, moving everything below the range one further. Every
+   Task 6 chart test had used a template whose options row was empty, so all of them agreed with the
+   wrong answer. The delta is now what the range actually ends up occupying, and
+   `ASeriesBelowARangeWhoseOptionsRowSurvivesMovesOneFurther` is the test that would have caught it.
+   The general lesson: a derived quantity that happens to be right for the cases you tested is not
+   the same as a correct one, and rewriting code against an abstraction is a good way to find out
+   which you have.
 
 **Confirmed, not assumed.** Every Scriban property the spec relied on holds: `ScriptMode.ScriptOnly`
 returns typed objects (a `decimal` stays a `decimal`), an identity `MemberRenamer` keeps C# member
@@ -573,15 +584,16 @@ names, relaxed access turns sparse data into blanks, and an uppercase `IF` parse
 call despite `if` being a keyword. Scriban also honours a `params` delegate, which is what lets the
 bridge register variadic Excel functions through the one-method engine seam.
 
-**Still open.** Task 7's `<<Pivot>>` generation tag, Task 8's horizontal ranges, and Tasks 9–11
-(packaging/docs/benchmark, the DynamicLinq compatibility engine, the examples project). Nested
-vertical subranges are not implemented — `RangeBinder` resolves property paths from workbook
-variables, but a child range inside a parent's rows is not yet expanded per parent item. Of the tags
-the Scope section lists, `Image`, `PageOptions`, `Protected`, `Height`, `OnlyValues` and the `Range`
-marker have no implementation yet either. Acceptance criteria 1 (except nested subranges), 2, 3, 5
-and 6 are met, including criterion 3's manual Excel check; 4 and 7 are partly met — 4's static-pivot
-half is done and Excel-verified, its `<<Pivot>>` half is not written, and 7's coverage figure has
-not been measured. Criteria 8, 9, 10 and 11 are untouched.
+**Still open.** Task 7's `<<Pivot>>` generation tag, and Tasks 9–11 (packaging/docs/benchmark, the
+DynamicLinq compatibility engine, the examples project). Nested vertical subranges are not
+implemented — `RangeBinder` resolves property paths from workbook variables, but a child range
+inside a parent's rows is not yet expanded per parent item. Of the tags the Scope section lists,
+`Image`, `PageOptions`, `Protected`, `Height`, `OnlyValues` and the `Range` marker have no
+implementation yet either. Grouping is deliberately vertical-only, and says so rather than
+half-doing it. Acceptance criteria 1 (except nested subranges), 2, 3, 5 and 6 are met, including
+criterion 3's manual Excel check; 4 and 7 are partly met — 4's static-pivot half is done and
+Excel-verified, its `<<Pivot>>` half is not written, and 7's coverage figure has not been measured.
+Criteria 8, 9, 10 and 11 are untouched.
 
 **Manual Excel check: done, 2026-07-30.** The project owner opened both the template and the
 generated report and confirmed they open without a repair dialog and render correctly. That covers
@@ -664,6 +676,7 @@ Everything here was established by running the code, not by reading it.
 | `Ranges/RangeBinder.cs` | Defined name → collection, including `Parent_Child` property paths. |
 | `Ranges/RangeExpander.cs` | The heart. Read tags → capture column expressions → transform items → insert rows → copy → evaluate → restore CFs → run tags → drop the options row → re-point the name. |
 | `Ranges/BoundRange.cs` | `BoundRange` and `RangeArea` (a plain row/column rectangle). |
+| `Ranges/RangeAxis.cs` | Which way a range repeats, and every sheet operation that depends on it. The slot-and-line vocabulary is defined here. |
 | `Ranges/GroupRenderer.cs` | Grouping. `Prepare` orders items by the levels' keys before any row exists; `Render` inserts the subtotal rows and outlines the block afterwards. |
 | `Ranges/GroupOptions.cs` | The range-wide grouping options, read out of the `<<SummaryAbove>>`-style tags. |
 | `Tags/` | `OptionTag` + `ProcessingContext`, `TagsRegister`, `TagParser`/`TagToken`, and the built-in tags. |
@@ -774,13 +787,11 @@ commands above do. Worth re-checking against a newer SDK before spending time on
   builds gets refresh-on-open, and a pivot below a bound range is moved out of the way. Upstream
   #200 means the OpenXML validator and a real Excel open are both required, not one or the other —
   `PivotRewritingTests.AGeneratedPivotPassesTheOpenXmlValidator` is the pattern for the first.
-- **Task 8's remaining half, horizontal ranges.** `RangeExpander` is row-oriented throughout —
-  `InsertRowsBelow`, row blocks, the options *row* — and so now are `GroupRenderer`, `ExpansionMap`
-  and both rewriters. Horizontal support is a column-oriented sibling, not a flag; factor the shared
-  parts out rather than threading an `isHorizontal` boolean through it. `ExpansionRecord` carries a
-  `RowDelta` only, so a horizontal expansion needs a column delta beside it and both rewriters need
-  to read it — which is the moment to check whether `ExpansionMap`'s row functions want a generic
-  axis rather than a copy.
+- **Horizontal ranges are the axis, not a flag.** `RangeAxis` names what varies — a **slot** is what
+  repeats (a row, or a column), a **line** is the other direction — and the expander, the tags, the
+  ledger and both rewriters are written against it. Adding a third orientation, if one ever made
+  sense, means a third subclass and nothing else. The vertical suite passing unchanged through the
+  refactor is what says the abstraction is faithful rather than merely plausible.
 - **Task 3b (nested subranges).** `RangeBinder` resolves `Parent_Child` paths from *workbook*
   variables. A child range inside a parent's rows needs resolving per parent item instead, and
   expanding inside each copied block — before the parent's own evaluation pass, or the child's
