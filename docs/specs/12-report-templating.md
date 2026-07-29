@@ -300,6 +300,39 @@ on a sheet have rendered, `ReferenceRewriter` walks the workbook:
 > `XLibur.Report.Tests` was added so the tests can assert on a cache's source and record count,
 > neither of which is on the public surface.
 
+#### The `<<Pivot>>` generation tag
+
+As implemented. `<<Pivot dest="Summary!A3">>` in the options row builds a pivot over the generated
+block; `<<Row>>`, `<<Column>>` (or `<<Col>>`), `<<Page>>` and `<<Data>>` in the options row say what
+each column is for.
+
+- **A field is named by its heading**, the cell above the range — the name the cache reads out of the
+  source anyway, so a template does not write it twice. A range starting in row 1 has no heading row
+  and is reported rather than given invented names.
+- **`<<Data>>` sums** unless told otherwise, as a flag (`<<Data avg>>`) or a value
+  (`<<Data func=avg>>`); `title=` renames the value column.
+- **`dest` is read in template coordinates**, like everything else a template writes: a cell marked
+  below the range is below the *generated* range in the report. It takes a sheet-qualified reference
+  or the name of a single-cell defined name.
+- **Refused, not half-done**: a horizontal range (a pivot names its fields from a heading row, which
+  such a range has not got) and a grouped range (its subtotal rows are inside the generated block, and
+  a pivot would count them as data on top of the rows they already total).
+- **Runs last of the tags** (priority 255, after `<<Delete>>`), and the pivot is *built* later still —
+  after the rewriters, at the very end of a run.
+
+> **Implementation finding (Task 7b): the tag cannot build the pivot when it runs.** Everything about
+> a pivot that Task 7 had already learned applies to making one: its position and its cache source are
+> plain rectangles, so a pivot created while ranges are still being generated stays behind as the sheet
+> moves under it — the options row being dropped out from under it is enough. Two mechanisms fell out
+> of that, and both are the same mechanism. `<<Pivot>>` resolves its destination and each field's
+> heading cell to **live one-cell ranges before expansion**, and `PivotBuilder` reads them once
+> everything has finished moving. That is what makes `dest` mean what the template says, what lets
+> `<<Delete>>` take a column and its field away together, and what removes all the arithmetic that
+> would otherwise have been needed — the live-range rule from finding 6, used deliberately rather than
+> merely observed. `RangeShiftMechanicsCharacterizationTests` pins the seven behaviours it relies on.
+> Building *after* the rewriters also means a generated pivot shares a cache with a template pivot
+> re-pointed to the same rows, rather than the workbook carrying two identical caches.
+
 ### Grouping and subtotals
 
 `<<Group>>` sits in the options row under the column to group by, and takes that column's template
@@ -404,10 +437,9 @@ patterns, Scriban↔C#-syntax migration page), and a `XLibur.Report.Examples` pr
 
 PR-sized tasks; each lands green (build + tests) on its own branch per repo ground rules.
 
-**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1–6 and 8 are done; Task 7 is
-done except its `<<Pivot>>` generation tag. 337 report tests green on net8.0 and net10.0, the
-solution builds clean in Release, and the core suite (11,603 tests) passes with the chart-reference
-fix Task 6 needed. See **Results** below.
+**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1–8 are done. 384 report tests
+green on net8.0 and net10.0, the solution builds clean in Release, and the core suite (11,603 tests)
+passes with the chart-reference fix Task 6 needed. Remaining: Tasks 9–11. See **Results** below.
 
 1. **Scaffold + expression engine.** `XLibur.Report` + `XLibur.Report.Tests` projects, slnx
    entries, CI test wiring, IVT grants (`XLibur` → `XLibur.Report`; `XLibur.Report` →
@@ -431,10 +463,10 @@ fix Task 6 needed. See **Results** below.
 6. **Expansion ledger + chart/picture rewriting.** **Done** — ledger, `ReferenceRewriter` for
    chart series, picture behaviour characterized as needing nothing, tests asserting re-pointed
    references, manual Excel check done 2026-07-30.
-7. **Pivot support.** ~~Static-pivot re-point + refresh (area/table/name sources)~~ **done**,
-   `<<Pivot>>` / field/data tags on XLibur's pivot API **still open**, ~~manual Excel check
-   (upstream #200's corrupt-output history makes the validator + Excel check non-negotiable
-   here)~~ **done for the static path, 2026-07-30** — the `<<Pivot>>` tag will need its own.
+7. **Pivot support.** **Done** — static-pivot re-point + refresh (area/table/name sources),
+   `<<Pivot>>` with the `<<Row>>`/`<<Column>>`/`<<Page>>`/`<<Data>>` field tags on XLibur's pivot
+   API, and the manual Excel check for both paths (upstream #200's corrupt-output history makes the
+   validator *and* an Excel open non-negotiable here, 2026-07-30).
 8. **Horizontal tables + conditional tags + CF extension.** **Done** — horizontal rendering
    parity (no subranges, no grouping), `<<If>>` at row and range level, and CF
    extend-not-duplicate with rule-count assertions in both directions (the CF half landed in
@@ -522,14 +554,15 @@ the core library except the one-line IVT grant (Task 1) — no conflicts with op
 
 ## Results
 
-Eight commits on `feat/spec-12-report-templating`, July 2026.
+Nine commits on `feat/spec-12-report-templating`, July 2026.
 
 **What landed.** `XLibur.Report` (Scriban engine, template model, range expansion in both
 directions, tag framework including grouping, subtotals and conditional inclusion, Excel-function
-bridge, chart reference rewriting, static pivot re-point and refresh) and `XLibur.Report.Tests`
-(337 tests). Both projects are in `XLibur.slnx`; CI runs the new suite with coverage.
+bridge, chart reference rewriting, static pivot re-point and refresh, and pivot generation from
+`<<Pivot>>`) and `XLibur.Report.Tests` (384 tests). Both projects are in `XLibur.slnx`; CI runs the
+new suite with coverage.
 
-**Seven findings that changed the design.**
+**Eight findings that changed the design.**
 
 1. **The temp-sheet buffer was not needed** (Task 3). It is upstream's workaround for ClosedXML's
    slow and lossy row inserts, which spec 05 rewrote. Eight characterization tests established
@@ -577,6 +610,15 @@ bridge, chart reference rewriting, static pivot re-point and refresh) and `XLibu
    The general lesson: a derived quantity that happens to be right for the cases you tested is not
    the same as a correct one, and rewriting code against an abstraction is a good way to find out
    which you have.
+8. **A tag cannot build a pivot at the moment it runs** (Task 7b). The live-range rule from finding 6
+   turned out to be the *design* and not just an observation: `<<Pivot>>` resolves its destination and
+   its fields' heading cells to live one-cell ranges before the range expands, and the pivot is built
+   at the end of the run, once everything has finished moving. Doing it in the tag needed arithmetic
+   for the options row being dropped, could not survive `<<Delete>>` taking a column out from under a
+   field, and read `dest` in whatever coordinates the sheet happened to be in mid-generation. Holding
+   the two addresses live instead removed all three problems and the arithmetic with them. The moral
+   for the rest of the package: when a value has to survive the sheet moving, ask the core to hold it
+   rather than working out where it went.
 
 **Confirmed, not assumed.** Every Scriban property the spec relied on holds: `ScriptMode.ScriptOnly`
 returns typed objects (a `decimal` stays a `decimal`), an identity `MemberRenamer` keeps C# member
@@ -584,16 +626,16 @@ names, relaxed access turns sparse data into blanks, and an uppercase `IF` parse
 call despite `if` being a keyword. Scriban also honours a `params` delegate, which is what lets the
 bridge register variadic Excel functions through the one-method engine seam.
 
-**Still open.** Task 7's `<<Pivot>>` generation tag, and Tasks 9–11 (packaging/docs/benchmark, the
-DynamicLinq compatibility engine, the examples project). Nested vertical subranges are not
-implemented — `RangeBinder` resolves property paths from workbook variables, but a child range
-inside a parent's rows is not yet expanded per parent item. Of the tags the Scope section lists,
-`Image`, `PageOptions`, `Protected`, `Height`, `OnlyValues` and the `Range` marker have no
-implementation yet either. Grouping is deliberately vertical-only, and says so rather than
-half-doing it. Acceptance criteria 1 (except nested subranges), 2, 3, 5 and 6 are met, including
-criterion 3's manual Excel check; 4 and 7 are partly met — 4's static-pivot half is done and
-Excel-verified, its `<<Pivot>>` half is not written, and 7's coverage figure has not been measured.
-Criteria 8, 9, 10 and 11 are untouched.
+**Still open.** Tasks 9–11 (packaging/docs/benchmark, the DynamicLinq compatibility engine, the
+examples project). Nested vertical subranges are not implemented — `RangeBinder` resolves property
+paths from workbook variables, but a child range inside a parent's rows is not yet expanded per parent
+item. Of the tags the Scope section lists, `Image`, `PageOptions`, `Protected`, `Height`, `OnlyValues`
+and the `Range` marker have no implementation yet either. Grouping is deliberately vertical-only, and
+`<<Pivot>>` is deliberately neither horizontal nor grouped; each says so rather than half-doing it.
+Acceptance criteria 1 (except nested subranges), 2, 3, 4, 5 and 6 are met, including both manual Excel
+checks; 7 is partly met — every built-in tag has tests and a bad expression yields a cell error rather
+than an exception, but the coverage figure has not been measured. Criteria 8, 9, 10 and 11 are
+untouched.
 
 **Manual Excel check: done, 2026-07-30.** The project owner opened both the template and the
 generated report and confirmed they open without a repair dialog and render correctly. That covers
@@ -605,10 +647,12 @@ the validator passing was necessary and not sufficient.
 The workbook pair was produced by a throwaway generator, since there is no examples project yet
 (Task 11). It exercises grouping with subtotals and an outline, merged group labels, a per-row
 formula, one conditional-formatting rule over a generated block, a picture below the range, a chart
-series re-pointed from one row to twelve, an area-sourced pivot re-pointed, and a table-sourced
-pivot refreshed without being re-pointed. **Task 11 should reproduce that coverage as a committed
-example**, so the same check is repeatable rather than reconstructed from scratch next time the file
-format is touched.
+series re-pointed from one row to twelve, an area-sourced pivot re-pointed, a table-sourced pivot
+refreshed without being re-pointed, and — added for Task 7b — a `PivotGenerated` sheet that is empty
+in the template and holds a `<<Pivot>>`-built pivot in the report, whose regional totals can be read
+against the drawn pivot's as a check that the two agree. **Task 11 should reproduce that coverage as a
+committed example**, so the same check is repeatable rather than reconstructed from scratch next time
+the file format is touched.
 
 ## Risks
 
@@ -685,8 +729,10 @@ Everything here was established by running the code, not by reading it.
 | `Expressions/ExpressionTruth.cs` | The one rule for reading a value as a yes or a no, shared by every tag that asks a question. |
 | `Rewriting/ExpansionMap.cs` | Where a row ends up after an expansion, shared by everything that refers to a range by address. |
 | `Rewriting/ReferenceRewriter.cs` | Consumes the expansion ledger and re-points chart series. No picture code — see below. |
-| `Rewriting/SeriesReference.cs` | Takes a sheet-qualified A1 reference apart and puts it back. Refuses the forms it cannot safely rewrite. |
+| `Rewriting/SheetReference.cs` | Takes a sheet-qualified A1 reference apart and puts it back. Refuses the forms it cannot safely rewrite. Read by the chart rewriter and by `<<Pivot dest=…>>`. |
 | `Rewriting/PivotRewriter.cs` | Re-points area-sourced pivot caches, refreshes every touched cache, and moves pivot tables out of the way. |
+| `Rewriting/PivotBuilder.cs` | Builds the pivot tables `<<Pivot>>` asked for, after every range has settled. `PivotRequest`/`PivotField` are the request it holds until then. |
+| `Tags/PivotTag.cs` | `<<Pivot>>` and the four field tags. Resolves its destination and its fields to live ranges before expansion, so template coordinates stay template coordinates. |
 
 `XLibur.Report.Tests/Infrastructure/` holds `WorkbookComparer` (semantic diff),
 `ReportFixture`/`GoldenFile` (fixture runner), `ReportResources` (template files, regeneration).
@@ -755,9 +801,12 @@ commands above do. Worth re-checking against a newer SDK before spending time on
   only the last.
 - **A tag parameter may be an expression.** `ProcessingContext.IsTrue` takes a bare expression, an
   interpolated one or a literal, so a template author writes whichever reads best.
-- **A column-placed tag learns its column's meaning** from `ProcessingContext.ColumnExpressions`,
+- **A column-placed tag learns its column's meaning** from `ProcessingContext.LineExpressions`,
   captured before evaluation overwrites the template text. That is why `<<Sort>>` and `<<Group>>`
   need no `by`.
+- **A tag can see what else the range asked for**, through `ProcessingContext.Tags`. That is how
+  `<<Pivot>>` finds the field tags that describe its columns, and how it refuses to run at all when a
+  `<<Group>>` is present.
 - **Nothing throws out of generation.** Failures become `TemplateError`s and, for cells, red text
   in the offending cell.
 - **A grouped range is ordered by the engine, stably.** `<<Group>>` alone is enough to make its
@@ -779,14 +828,17 @@ commands above do. Worth re-checking against a newer SDK before spending time on
   a *code-built* template demonstrating the refresh-only branch has to use a table. The engine
   treats name and table sources identically, so nothing is lost; it is the docs and the Task 11
   examples that need to know.
-- **Task 7's remaining half, the `<<Pivot>>` generation tag.** The static path is done and is the
-  documented one; the tag is for templates that want a pivot laid out from data rather than authored
-  in the template. It needs `IXLPivotTable`'s field API (`RowLabels`, `ColumnLabels`,
-  `ReportFilters`, `Values`) driven from `<<Row>>`/`<<Column>>`/`<<Page>>`/`<<Data>>` tags, and a
-  target range to build into. Note what `PivotRewriter` already guarantees for it: whatever it
-  builds gets refresh-on-open, and a pivot below a bound range is moved out of the way. Upstream
-  #200 means the OpenXML validator and a real Excel open are both required, not one or the other —
-  `PivotRewritingTests.AGeneratedPivotPassesTheOpenXmlValidator` is the pattern for the first.
+- **A template address only stays a template address if the core holds it.** `<<Pivot>>` keeps its
+  destination and its fields' heading cells as live one-cell ranges from before expansion, which is
+  what makes `dest="A10"` mean row 10 *of the template* however many rows the report generated, and
+  what makes `<<Delete>>` remove a column and its pivot field together. Anything else that needs to
+  refer to a template address after generation should do the same rather than compute where it went;
+  `RangeShiftMechanicsCharacterizationTests` records exactly what the core does and does not carry.
+- **Anything whose position is a rectangle has to be created last.** A pivot table's position and its
+  cache source are both plain values, so `PivotBuilder` runs at the end of a generation run rather
+  than in the tag. It runs *after* the rewriters on purpose: a generated pivot then shares a cache
+  with a template pivot re-pointed to the same rows, and nothing re-points what it just built.
+  `PivotTagTests.AGeneratedPivotIsNotRePointedASecondTime` fails if that order is disturbed.
 - **Horizontal ranges are the axis, not a flag.** `RangeAxis` names what varies — a **slot** is what
   repeats (a row, or a column), a **line** is the other direction — and the expander, the tags, the
   ledger and both rewriters are written against it. Adding a third orientation, if one ever made

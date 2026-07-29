@@ -100,12 +100,24 @@ public static class TagsRegister
         Add<SummaryFunctionTag>("Var", 50);
         Add<SummaryFunctionTag>("VarP", 50);
 
+        // Declarations rather than actions: <<Pivot>> reads them, and they report a template mistake
+        // if there is no <<Pivot>> to read them.
+        Add<PivotFieldTag>("Row", 200);
+        Add<PivotFieldTag>("Column", 200);
+        Add<PivotFieldTag>("Col", 200);
+        Add<PivotFieldTag>("Page", 200);
+        Add<PivotFieldTag>("Data", 200);
+
         Add<AutoFilterTag>("AutoFilter", 200);
         Add<ColumnsFitTag>("ColsFit", 200);
         Add<RowsFitTag>("RowsFit", 200);
         Add<HiddenTag>("Hidden", 200);
         Add<HiddenTag>("Hide", 200);
         Add<DeleteTag>("Delete", 250);
+
+        // Last of all: a pivot cache's source is a plain rectangle, so the pivot has to be built over
+        // the columns that survive <<Delete>> rather than over the ones the template drew.
+        Add<PivotTag>("Pivot", 255);
     }
 
     private sealed record Registration(byte Priority, Func<OptionTag> Create);

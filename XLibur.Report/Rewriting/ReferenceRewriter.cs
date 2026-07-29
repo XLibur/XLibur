@@ -86,7 +86,7 @@ internal static class ReferenceRewriter
     {
         rewritten = string.Empty;
 
-        if (!SeriesReference.TryParse(reference, out var parsed))
+        if (!SheetReference.TryParse(reference, out var parsed))
         {
             return false;
         }
@@ -122,7 +122,7 @@ internal static class ReferenceRewriter
     /// moves if it sits past the template, because the insert that grew the range was a full-row or
     /// full-column one.
     /// </remarks>
-    private static SeriesReference Apply(SeriesReference reference, ExpansionRecord expansion)
+    private static SheetReference Apply(SheetReference reference, ExpansionRecord expansion)
     {
         var template = expansion.TemplateArea;
 

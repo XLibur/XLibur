@@ -3,11 +3,11 @@ using XLibur.Report.Rewriting;
 
 namespace XLibur.Report.Tests.Rewriting;
 
-public class SeriesReferenceTests
+public class SheetReferenceTests
 {
-    private static SeriesReference Parse(string text)
+    private static SheetReference Parse(string text)
     {
-        SeriesReference.TryParse(text, out var reference);
+        SheetReference.TryParse(text, out var reference);
         return reference;
     }
 
@@ -20,7 +20,7 @@ public class SeriesReferenceTests
     public async Task ParsesTheFormsAChartUses(
         string text, string? sheet, int firstRow, int firstColumn, int lastRow, int lastColumn)
     {
-        await Assert.That(SeriesReference.TryParse(text, out var reference)).IsTrue();
+        await Assert.That(SheetReference.TryParse(text, out var reference)).IsTrue();
         await Assert.That(reference.SheetName).IsEqualTo(sheet);
         await Assert.That(reference.FirstRow).IsEqualTo(firstRow);
         await Assert.That(reference.FirstColumn).IsEqualTo(firstColumn);
@@ -32,7 +32,7 @@ public class SeriesReferenceTests
     [Test]
     public async Task ParsesASheetNameContainingAQuote()
     {
-        await Assert.That(SeriesReference.TryParse("'Bob''s data'!$A$1", out var reference)).IsTrue();
+        await Assert.That(SheetReference.TryParse("'Bob''s data'!$A$1", out var reference)).IsTrue();
         await Assert.That(reference.SheetName).IsEqualTo("Bob's data");
     }
 
@@ -64,7 +64,7 @@ public class SeriesReferenceTests
     [Arguments("'unterminated!$B$3")]
     public async Task RefusesWhatItCannotSafelyRewrite(string text)
     {
-        await Assert.That(SeriesReference.TryParse(text, out _)).IsFalse();
+        await Assert.That(SheetReference.TryParse(text, out _)).IsFalse();
     }
 
     [Test]
@@ -77,7 +77,7 @@ public class SeriesReferenceTests
     public async Task WritesTheReferenceBackTheWayExcelStoresOne(
         string? sheet, int firstRow, int firstColumn, int lastRow, int lastColumn, string expected)
     {
-        var reference = new SeriesReference(sheet, firstRow, firstColumn, lastRow, lastColumn);
+        var reference = new SheetReference(sheet, firstRow, firstColumn, lastRow, lastColumn);
 
         await Assert.That(reference.ToText()).IsEqualTo(expected);
     }

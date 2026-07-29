@@ -31,6 +31,11 @@ namespace XLibur.Report.Rewriting;
 /// Excel is the authority on its own pivot layout, and asking it to re-read on open is what makes a
 /// generated pivot agree with the data beneath it however the fields are arranged.
 /// </para>
+/// <para>
+/// Only what the <em>template</em> held is here to rewrite. A pivot that <c>&lt;&lt;Pivot&gt;&gt;</c>
+/// asks for is built after this runs, precisely so that it is not re-pointed off the rows it was built
+/// over — see <see cref="PivotBuilder"/>.
+/// </para>
 /// </remarks>
 internal static class PivotRewriter
 {

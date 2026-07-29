@@ -42,7 +42,8 @@ internal sealed class RangeInterpreter
 
         EvaluateOutsideBoundRanges(workbook, bound, globalScope);
 
-        var expander = new RangeExpander(_evaluator, _engine, _errors);
+        var pendingPivots = new List<PivotRequest>();
+        var expander = new RangeExpander(_evaluator, _engine, _errors, pendingPivots);
         foreach (var range in bound)
         {
             var record = expander.Expand(range, globalScope);
@@ -52,10 +53,16 @@ internal sealed class RangeInterpreter
             }
         }
 
-        // Last, and once for the workbook: a chart or a pivot may read a range on another sheet, so
+        // Once for the workbook, and only now: a chart or a pivot may read a range on another sheet, so
         // nothing can be re-pointed until every sheet has settled.
         ReferenceRewriter.Rewrite(workbook, Expansions);
         PivotRewriter.Rewrite(workbook, Expansions, _errors);
+
+        // Last of all. A <<Pivot>> is built from live ranges that have finished moving, so waiting
+        // costs nothing; and being built after the rewriter is what keeps the rewriter from re-pointing
+        // a source that is already where it should be, and lets the new pivot share a cache with a
+        // template pivot that has been re-pointed to the same rows.
+        PivotBuilder.Build(pendingPivots, _errors);
     }
 
     private void EvaluateOutsideBoundRanges(IXLWorkbook workbook, List<BoundRange> bound, ExpressionScope globalScope)

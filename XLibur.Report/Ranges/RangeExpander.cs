@@ -37,12 +37,18 @@ internal sealed class RangeExpander
     private readonly CellEvaluator _evaluator;
     private readonly IExpressionEngine _engine;
     private readonly TemplateErrors _errors;
+    private readonly List<Rewriting.PivotRequest> _pendingPivots;
 
-    public RangeExpander(CellEvaluator evaluator, IExpressionEngine engine, TemplateErrors errors)
+    public RangeExpander(
+        CellEvaluator evaluator,
+        IExpressionEngine engine,
+        TemplateErrors errors,
+        List<Rewriting.PivotRequest> pendingPivots)
     {
         _evaluator = evaluator;
         _engine = engine;
         _errors = errors;
+        _pendingPivots = pendingPivots;
     }
 
     /// <summary>
@@ -79,7 +85,8 @@ internal sealed class RangeExpander
         // The generated slots do not exist yet, so this context points at the template block; a tag
         // acting at this stage is reordering data, not reading the sheet.
         var templateContext = Context(
-            sheet, axis, area, firstSlot, dataLastSlot, null, bound.Items, globalScope, lineExpressions, groupOptions);
+            sheet, axis, area, firstSlot, dataLastSlot, null, bound.Items, globalScope, lineExpressions, tags,
+            groupOptions);
 
         var items = ApplyItemTransforms(tags, bound.Items, templateContext);
 
@@ -135,7 +142,8 @@ internal sealed class RangeExpander
             // group totals as well — SUBTOTAL ignores nested SUBTOTALs, which is why it is the
             // formula the summary tags leave.
             var groupContext = Context(
-                sheet, axis, area, firstSlot, renderedLastSlot, null, items, globalScope, lineExpressions, groupOptions);
+                sheet, axis, area, firstSlot, renderedLastSlot, null, items, globalScope, lineExpressions, tags,
+                groupOptions);
 
             renderedLastSlot = grouping.Render(
                 sheet,
@@ -161,7 +169,7 @@ internal sealed class RangeExpander
             // and a slot holding a total is not an empty one.
             var executeContext = Context(
                 sheet, axis, area, firstSlot, renderedLastSlot, optionsRange, items, globalScope, lineExpressions,
-                groupOptions);
+                tags, groupOptions);
 
             foreach (var tag in tags)
             {
@@ -217,6 +225,7 @@ internal sealed class RangeExpander
         IReadOnlyList<object?> items,
         ExpressionScope globalScope,
         Dictionary<int, string> lineExpressions,
+        List<OptionTag> tags,
         GroupOptions groupOptions) =>
         new(
             sheet,
@@ -228,6 +237,8 @@ internal sealed class RangeExpander
             _errors,
             lineExpressions,
             axis,
+            tags,
+            _pendingPivots,
             groupOptions.GrandTotalDisabled);
 
     /// <summary>

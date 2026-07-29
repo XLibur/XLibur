@@ -5,17 +5,22 @@ using XLibur.Excel;
 namespace XLibur.Report.Rewriting;
 
 /// <summary>
-/// A sheet-qualified A1 range reference, in the form a chart series holds one
-/// (<c>Sales!$B$3:$B$3</c>).
+/// A sheet-qualified A1 reference to a cell or a rectangle (<c>Sales!$B$3:$B$3</c>).
 /// </summary>
 /// <remarks>
+/// <para>
 /// Chart references are plain strings in the model and plain strings in the file, so re-pointing a
 /// series means taking one apart and putting it back together. Only the single-area form is
 /// understood — a multi-area reference, a 3-D reference across sheets, or a whole-row or
 /// whole-column one is left alone rather than guessed at, because a wrong reference is worse for a
 /// report than a stale one.
+/// </para>
+/// <para>
+/// The same reading serves anywhere a template writes a reference as text rather than as a range —
+/// <c>&lt;&lt;Pivot dest="Summary!A3"&gt;&gt;</c> among them.
+/// </para>
 /// </remarks>
-internal readonly record struct SeriesReference(
+internal readonly record struct SheetReference(
     string? SheetName,
     int FirstRow,
     int FirstColumn,
@@ -23,7 +28,7 @@ internal readonly record struct SeriesReference(
     int LastColumn)
 {
     /// <summary>Reads <paramref name="text"/>, reporting whether it is a form worth rewriting.</summary>
-    public static bool TryParse(string? text, out SeriesReference reference)
+    public static bool TryParse(string? text, out SheetReference reference)
     {
         reference = default;
 
@@ -53,7 +58,7 @@ internal readonly record struct SeriesReference(
                 return false;
             }
 
-            reference = new SeriesReference(sheetName, row, column, row, column);
+            reference = new SheetReference(sheetName, row, column, row, column);
             return true;
         }
 
@@ -63,7 +68,7 @@ internal readonly record struct SeriesReference(
             return false;
         }
 
-        reference = new SeriesReference(
+        reference = new SheetReference(
             sheetName,
             Math.Min(firstRow, lastRow),
             Math.Min(firstColumn, lastColumn),

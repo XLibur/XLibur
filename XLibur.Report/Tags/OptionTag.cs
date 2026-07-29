@@ -81,8 +81,12 @@ public sealed class ProcessingContext
         TemplateErrors errors,
         IReadOnlyDictionary<int, string> lineExpressions,
         Ranges.RangeAxis axis,
+        IReadOnlyList<OptionTag> tags,
+        List<Rewriting.PivotRequest> pendingPivots,
         bool grandTotalsDisabled = false)
     {
+        Tags = tags;
+        PendingPivots = pendingPivots;
         Worksheet = worksheet;
         GeneratedRange = generatedRange;
         OptionsRow = optionsRow;
@@ -127,11 +131,28 @@ public sealed class ProcessingContext
     /// </summary>
     public IReadOnlyDictionary<int, string> LineExpressions { get; }
 
+    /// <summary>
+    /// Every tag the range declared, in the order they run.
+    /// </summary>
+    /// <remarks>
+    /// For a tag that has to know what else was asked for. <c>&lt;&lt;Pivot&gt;&gt;</c> reads the
+    /// <c>&lt;&lt;Row&gt;&gt;</c> and <c>&lt;&lt;Data&gt;&gt;</c> tags that say what its fields are,
+    /// and refuses to run at all when a <c>&lt;&lt;Group&gt;&gt;</c> is present. Includes the tag
+    /// doing the reading.
+    /// </remarks>
+    public IReadOnlyList<OptionTag> Tags { get; }
+
     /// <summary>Whether the range repeats across rather than downwards.</summary>
     public bool IsHorizontal => Axis.IsHorizontal;
 
     /// <summary>Which way the range repeats, and the sheet operations that depend on it.</summary>
     internal Ranges.RangeAxis Axis { get; }
+
+    /// <summary>
+    /// Pivot tables asked for but not yet built, because they cannot be until every range has
+    /// finished moving the sheet about.
+    /// </summary>
+    internal List<Rewriting.PivotRequest> PendingPivots { get; }
 
     /// <summary>
     /// Whether the options row should be left without a total, because the template said
