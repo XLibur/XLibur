@@ -169,6 +169,10 @@
 
 - **`Series.Add(...)` on a chart loaded from a file throws instead of being discarded on save.** A loaded chart is patched, not regenerated, so a new series had nowhere to be written and vanished without a word. It now throws `NotSupportedException`, as `UseSecondaryAxis` already did. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
 
+#### Comments
+
+- **`IXLComment.Delete()` removes the note from where it is now, not where it was created** ([#259](https://github.com/XLibur/XLibur/issues/259)): a note remembered the cell it was constructed with, and inserting or deleting rows or columns moves the note without telling it. Deleting a note on `A5` after two rows were inserted above cleared `A5` — by then an empty cell — and left the note sitting on `A7`. The note is now confirmed to still be the one at the remembered address before that address is cleared, and located by identity when it is not. ([#268](https://github.com/XLibur/XLibur/pull/268) by [@jafin](https://github.com/jafin))
+
 ### 🗑️ Deprecations
 
 #### Colours and styles

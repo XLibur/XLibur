@@ -278,6 +278,46 @@ internal sealed class XLCellsCollection : IWorkbookListener
     }
 
     /// <summary>
+    /// The point of the cell that holds <paramref name="note"/>, or null when the note is no longer
+    /// on the sheet. Matches by identity rather than by an address the note remembers, because
+    /// shifting rows or columns moves the note's misc slice entry without telling the note. Walks
+    /// the misc slice rather than materialising an <see cref="XLCell"/> per used cell.
+    /// </summary>
+    internal Point? FindNote(XLComment note)
+    {
+        if (MiscSlice.IsEmpty)
+            return null;
+
+        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, Area.Full);
+        while (enumerator.MoveNext())
+        {
+            if (ReferenceEquals(enumerator.Current.Comment, note))
+                return enumerator.Point;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The point of the cell that holds <paramref name="thread"/>, or null when the thread is no
+    /// longer on the sheet. Matches by identity, for the same reason as <see cref="FindNote"/>.
+    /// </summary>
+    internal Point? FindThreadedComment(XLThreadedComment thread)
+    {
+        if (MiscSlice.IsEmpty)
+            return null;
+
+        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, Area.Full);
+        while (enumerator.MoveNext())
+        {
+            if (ReferenceEquals(enumerator.Current.ThreadedComment, thread))
+                return enumerator.Point;
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Points of all cells that carry an in-cell image, in row-major order. Scans the misc slice
     /// directly rather than materialising an <see cref="XLCell"/> per used cell.
     /// </summary>

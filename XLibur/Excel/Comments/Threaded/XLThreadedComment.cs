@@ -121,16 +121,10 @@ internal sealed class XLThreadedComment : IXLThreadedComment
         }
 
         // Look the thread up by identity rather than trusting a remembered address: rows and columns
-        // may have shifted since it was created, which moves the slice entry silently. Threads are
-        // rare, so this only walks the handful of cells that have one.
-        foreach (var cell in Worksheet.Internals.CellsCollection.GetCells(c => c.HasThreadedComment))
-        {
-            if (ReferenceEquals(cell.SliceThreadedComment, this))
-            {
-                cell.SliceThreadedComment = null;
-                return;
-            }
-        }
+        // may have shifted since it was created, which moves the slice entry silently.
+        var cells = Worksheet.Internals.CellsCollection;
+        if (cells.FindThreadedComment(this) is { } point)
+            cells.GetCell(point).SliceThreadedComment = null;
     }
 
     internal XLThreadedComment Root => ParentInternal ?? this;
