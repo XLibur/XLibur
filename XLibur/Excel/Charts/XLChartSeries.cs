@@ -18,7 +18,9 @@ internal enum XLChartSeriesFormat
     Marker = 1 << 3,
     MarkerSize = 1 << 4,
     MarkerFill = 1 << 5,
-    Smooth = 1 << 6
+    Smooth = 1 << 6,
+    ValueReferences = 1 << 7,
+    CategoryReferences = 1 << 8
 }
 
 internal sealed class XLChartSeries : IXLChartSeries
@@ -39,6 +41,8 @@ internal sealed class XLChartSeries : IXLChartSeries
     private XLColor? _markerFillColor;
     private bool _smooth;
     private bool _useSecondaryAxis;
+    private string _valueReferences = string.Empty;
+    private string? _categoryReferences;
 
     /// <param name="chart">The chart this series belongs to.</param>
     /// <param name="secondary">
@@ -52,8 +56,19 @@ internal sealed class XLChartSeries : IXLChartSeries
     }
 
     public string Name { get; set; } = string.Empty;
-    public string? CategoryReferences { get; set; }
-    public string ValueReferences { get; set; } = string.Empty;
+
+    public string? CategoryReferences
+    {
+        get => _categoryReferences;
+        set => Assign(ref _categoryReferences, value, XLChartSeriesFormat.CategoryReferences);
+    }
+
+    public string ValueReferences
+    {
+        get => _valueReferences;
+        set => Assign(ref _valueReferences, value ?? string.Empty, XLChartSeriesFormat.ValueReferences);
+    }
+
     public uint Index { get; internal set; }
     public uint Order { get; internal set; }
 
@@ -139,6 +154,17 @@ internal sealed class XLChartSeries : IXLChartSeries
     /// The formatting properties that have been explicitly assigned through the public API.
     /// </summary>
     internal XLChartSeriesFormat AssignedFormat { get; private set; }
+
+    /// <summary>
+    /// Sets the series' references without marking them as assigned by the caller — the path a
+    /// series takes when it is being created, from a file or from
+    /// <see cref="IXLChartSeriesCollection.Add"/>, rather than edited afterwards.
+    /// </summary>
+    internal void SeedReferences(string valueReferences, string? categoryReferences)
+    {
+        _valueReferences = valueReferences ?? string.Empty;
+        _categoryReferences = categoryReferences;
+    }
 
     /// <summary>
     /// Seeds the formatting properties from the values read out of an existing chart part, without

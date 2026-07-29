@@ -41,11 +41,13 @@ internal sealed class XLChartSeriesCollection : IXLChartSeriesCollection
         var series = new XLChartSeries(_chart, _secondary)
         {
             Name = name,
-            ValueReferences = valueReferences,
-            CategoryReferences = categoryReferences,
             Index = (uint)_series.Count,
             Order = (uint)_series.Count
         };
+
+        // Seeded rather than assigned: creating a series is not editing one, and the patcher
+        // rewrites a loaded chart's references only where the caller changed them.
+        series.SeedReferences(valueReferences, categoryReferences);
         _series.Add(series);
         return series;
     }

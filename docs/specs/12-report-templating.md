@@ -255,17 +255,32 @@ The interpreter keeps an **expansion ledger** per worksheet: for every rendered 
 `(sheet, template area, rendered area, row/column delta below/right of it)`. After all ranges
 on a sheet have rendered, `ReferenceRewriter` walks the workbook:
 
-- **Charts** (`IXLChart` / `IXLChartSeries`): `ValueReferences`, `CategoryReferences` and any
-  name reference are parsed with `ClosedXML.Parser` (already a dependency of XLibur, used by
-  spec 05's reference shifting). A reference that lies inside a template area is stretched to
-  the rendered area; a reference entirely below/right of one is shifted by the delta. XLibur
-  does **not** shift chart references on row insert today (spec 10's patcher never touches
-  loaded charts unless edited) — the rewriter setting `ValueReferences` marks the chart edited
-  and the existing patch-on-save path persists it.
-- **Pictures/shapes** (`IXLPicture`): cell-anchored pictures whose anchor row/column sits
-  below/right of a rendered area move by the delta (upstream #354/#281/#249). If the `CopyTo`
-  row-insertion already relocates anchors, the rewriter's job for pictures reduces to the
-  in-area cases — Task 6 must first pin down current behaviour with a characterization test.
+- **Charts** (`IXLChart` / `IXLChartSeries`): `ValueReferences` and `CategoryReferences` are
+  parsed, re-pointed and written back. A reference that lies inside a template area is stretched
+  to the rendered area; a reference entirely below one is shifted by the delta. XLibur does
+  **not** shift chart references on row insert (spec 10's patcher never touches loaded charts
+  unless edited), which is the gap the rewriter exists to close.
+
+> **Implementation decision (Task 6): the references had to be made writable first, in the core.**
+> The spec assumed the rewriter "setting `ValueReferences` marks the chart edited and the existing
+> patch-on-save path persists it". A characterization test showed it does not: the setters were
+> plain auto-properties raising no flag, `ChartPatcher.HasPendingChanges` never looked at them, and
+> `PatchSeriesFormat` never wrote `c:cat`/`c:val`. Since every chart in a report template is a
+> *loaded* chart, re-pointing one was a silent no-op — acceptance criterion 3 was unreachable. The
+> core now tracks reference assignment through the same `AssignedFormat` mechanism as the
+> formatting properties (`XLChartSeriesFormat.ValueReferences`/`.CategoryReferences`), seeds rather
+> than assigns them when a series is created or loaded, and patches `c:f` while dropping the stale
+> `c:numCache`/`c:strCache` so Excel redraws from the new range. This is the second deviation from
+> decision 5's "the sole core-side change is the IVT grant", and a larger one than Task 5's — it
+> changes save-path behaviour. Taken because it is also a plain core defect: `IXLChartSeries` has
+> had a public settable `ValueReferences` that silently did nothing for every chart read from a
+> file. The full core suite (11,603 tests) is unaffected.
+
+- **Pictures**: nothing to do, established by measurement rather than assumed. A picture anchor is
+  held as a live 1×1 range enrolled in the worksheet's range repository, so a full-row insert
+  shifts it like everything else, and the shift survives the save. The rewriter therefore contains
+  no picture code at all; `PicturePlacementTests` pins the inherited behaviour end to end, because
+  behaviour nobody wrote is the kind that disappears quietly.
 - **Pivot caches**: a cache whose source is an **area reference** intersecting a template area
   gets its source re-pointed at the rendered area (internal `XLPivotCache.Source` via the IVT
   grant; promote to a public `IXLPivotCache` setter only if a public need emerges), then
@@ -361,9 +376,9 @@ patterns, Scriban↔C#-syntax migration page), and a `XLibur.Report.Examples` pr
 
 PR-sized tasks; each lands green (build + tests) on its own branch per repo ground rules.
 
-**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1, 2, 3, 4 and 5 are done.
-228 report tests green on net8.0 and net10.0, the solution builds clean in Release, and the core
-suite is unaffected — the grouping work touched no core file at all. See **Results** below.
+**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1–6 are done. 278 report
+tests green on net8.0 and net10.0, the solution builds clean in Release, and the core suite
+(11,603 tests) passes with the chart-reference fix Task 6 needed. See **Results** below.
 
 1. **Scaffold + expression engine.** `XLibur.Report` + `XLibur.Report.Tests` projects, slnx
    entries, CI test wiring, IVT grants (`XLibur` → `XLibur.Report`; `XLibur.Report` →
@@ -393,21 +408,43 @@ suite is unaffected — the grouping work touched no core file at all. See **Res
 8. **Horizontal tables + conditional tags + CF extension.** Horizontal rendering parity
    (no subranges), `<<If>>` row/range levels, CF extend-not-duplicate with rule-count
    assertions.
-9. **Packaging, docs, examples, benchmark.** NuGet packaging + release pipeline verification,
-   docs-website section, new `XLibur.Report.Examples` project, new `XLibur.Report.Benchmarks`
-   project with the `ReportGenerate` benchmark (100K-row grouped report) and baseline numbers
-   recorded here.
+9. **Packaging, docs, benchmark.** NuGet packaging + release pipeline verification,
+   docs-website section, new `XLibur.Report.Benchmarks` project with the `ReportGenerate`
+   benchmark (100K-row grouped report) and baseline numbers recorded here.
 10. **Compatibility engine (`XLibur.Report.DynamicLinq`).** New package/project, port of
     upstream `FormulaEvaluator` semantics onto `IExpressionEngine`, engine parameterization
     of the shared golden-file fixtures, wholesale port of the upstream gauge corpus as the
     conformance suite, docs (trusted-templates-only caveat, engine selection).
+11. **`XLibur.Report.Examples`.** A runnable console project of worked examples, each writing
+    both the template it authored and the report it generated so a reader can open the pair and
+    see what the template language did. Mirrors the `XLibur.Examples` layout (one class per
+    example, a menu in `Program`), references `XLibur.Report`, and is **not** packaged.
 
-Sequencing: 1 → 2 → 3 → {4, 5, 6, 10 in parallel} → 7 → 8 → 9. Task 5 only needs Task 1;
+    The flagship is an **annual sales report**: a title band bound to workbook variables
+    (company, year, run date), a heading row, a range bound to a collection of line items
+    repeating one row per sale, per-row formulas (`&=`), grouping by region with subtotals and
+    an outline, a sort inside each group, `<<AutoFilter>>` + `<<ColsFit>>`, number and date
+    formats carried from the template, conditional formatting that colours the margin column
+    red below target and green above it — a template rule count of one, whatever the row count,
+    which is the point — and a grand-total row. Smaller examples cover one thing each: the
+    minimum viable template; the Excel-function bridge (`{{ SUM(items.Total) }}`,
+    `{{ IF(...) }}`, `{{ ROUND(...) }}`); custom-tag registration through `TagsRegister`; error
+    handling, showing a deliberately bad expression producing a cell-level error and
+    `HasErrors` rather than an exception; and — once Tasks 6 and 7 land — a chart and a pivot
+    over a bound range, growing with the data.
+
+    Each example is exercised by a smoke test in `XLibur.Report.Tests` that runs it and asserts
+    it generated without errors, so an example cannot rot into a snippet that no longer
+    compiles or no longer works. Examples double as the docs' worked code: the docs-website
+    section in Task 9 links them rather than repeating them.
+
+Sequencing: 1 → 2 → 3 → {4, 5, 6, 10 in parallel} → 7 → 8 → {9, 11}. Task 5 only needs Task 1;
 Tasks 6–7 need Task 3's ledger; Task 8 needs Task 4's tag framework; Task 10 needs Tasks
-2–3 (fixtures + expansion core) and is independent of everything after. Conflict map: 4↔8
-(tag framework), 6↔7 (rewriter), 10↔4 (both touch shared test fixtures — coordinate or
-sequence). Everything in `XLibur.Report*/` is disjoint from the core library except the
-one-line IVT grant (Task 1) — no conflicts with open specs 03/04/08.
+2–3 (fixtures + expansion core) and is independent of everything after. Task 11 wants the
+feature set settled, so it goes last with Task 9 and can share its PR; its chart and pivot
+examples need Tasks 6–7. Conflict map: 4↔8 (tag framework), 6↔7 (rewriter), 10↔4 (both touch
+shared test fixtures — coordinate or sequence). Everything in `XLibur.Report*/` is disjoint from
+the core library except the one-line IVT grant (Task 1) — no conflicts with open specs 03/04/08.
 
 ## Acceptance criteria
 
@@ -439,16 +476,22 @@ one-line IVT grant (Task 1) — no conflicts with open specs 03/04/08.
     generates correctly under `DynamicLinqExpressionEngine`; the ported upstream gauge
     corpus passes; adding/removing the DynamicLinq package requires no change to code using
     the default engine.
+11. `XLibur.Report.Examples` runs end to end and writes, for every example, both the template
+    and the generated report. The annual sales report shows repeated rows, a bound title,
+    grouping with subtotals, per-row formulas and conditional colouring, and its generated
+    workbook holds **one** conditional-formatting rule however many rows it produced. Every
+    example has a smoke test asserting it generates without errors.
 
 ## Results
 
-Six commits on `feat/spec-12-report-templating`, July 2026.
+Seven commits on `feat/spec-12-report-templating`, July 2026.
 
 **What landed.** `XLibur.Report` (Scriban engine, template model, vertical range expansion, tag
-framework including grouping and subtotals, Excel-function bridge) and `XLibur.Report.Tests`
-(228 tests). Both projects are in `XLibur.slnx`; CI runs the new suite with coverage.
+framework including grouping and subtotals, Excel-function bridge, chart reference rewriting) and
+`XLibur.Report.Tests` (278 tests). Both projects are in `XLibur.slnx`; CI runs the new suite with
+coverage.
 
-**Four findings that changed the design.**
+**Five findings that changed the design.**
 
 1. **The temp-sheet buffer was not needed** (Task 3). It is upstream's workaround for ClosedXML's
    slow and lossy row inserts, which spec 05 rewrote. Eight characterization tests established
@@ -472,6 +515,13 @@ framework including grouping and subtotals, Excel-function bridge) and `XLibur.R
    the levels nest — so the levels are ordered in a single `OrderBy`/`ThenBy` chain instead. The
    same reasoning applies to the subtotal rows: which of several stack first at a group boundary is
    a question about all the levels at once, not about any one of them.
+5. **Charts needed a core fix; pictures needed no code at all** (Task 6) — the reverse of what the
+   spec expected on both counts. Setting a loaded chart's series reference was a silent no-op, so
+   the core now tracks reference assignment and patches it (recorded above as a deviation from
+   decision 5). Picture anchors, which the spec listed as an unverified risk, turn out to move on
+   their own: an anchor is a live range enrolled in the worksheet's range repository, so a full-row
+   insert shifts it and the shift survives the save. Both were settled by characterization tests
+   before a line of the rewriter was written, which is the only reason the wrong one was not built.
 
 **Confirmed, not assumed.** Every Scriban property the spec relied on holds: `ScriptMode.ScriptOnly`
 returns typed objects (a `decimal` stays a `decimal`), an identity `MemberRenamer` keeps C# member
@@ -479,13 +529,21 @@ names, relaxed access turns sparse data into blanks, and an uppercase `IF` parse
 call despite `if` being a keyword. Scriban also honours a `params` delegate, which is what lets the
 bridge register variadic Excel functions through the one-method engine seam.
 
-**Still open.** Tasks 6–10 (chart/picture rewriting, pivots, horizontal ranges + `<<If>>`,
-packaging/docs/benchmark, the DynamicLinq compatibility engine). Nested vertical subranges are not
+**Still open.** Tasks 7–11 (pivots, horizontal ranges + `<<If>>`, packaging/docs/benchmark, the
+DynamicLinq compatibility engine, the examples project). Nested vertical subranges are not
 implemented — `RangeBinder` resolves property paths from workbook variables, but a child range
 inside a parent's rows is not yet expanded per parent item. Of the tags the Scope section lists,
 `Image`, `PageOptions`, `Protected`, `Height`, `OnlyValues` and the `Range` marker have no
-implementation yet either. Acceptance criteria 1 (except nested subranges), 2, 5 and 7 (partly —
-coverage not yet measured) are met; 3, 4, 6, 8, 9 and 10 are untouched.
+implementation yet either. Acceptance criteria 1 (except nested subranges), 2, 3 (except the manual
+Excel check — see below), 5 and 7 (partly — coverage not yet measured) are met; 4, 6, 8, 9, 10 and
+11 are untouched.
+
+**The manual Excel check for criterion 3 has not been done.** Task 6's output is asserted by
+reloading the generated workbook through XLibur, which proves the reference was written and reads
+back as intended, but not that Excel opens it without complaint — the repo ground rule asks for
+both on a file-format-affecting task. Dropping `c:numCache` is the part worth an eye: it is
+schema-valid and Excel is expected to rebuild it from the formula on open, but that is reasoning,
+not observation.
 
 ## Risks
 
@@ -507,8 +565,9 @@ coverage not yet measured) are met; 3, 4, 6, 8, 9 and 10 are untouched.
   name sources). Task 7 starts with characterization tests; if internals shift under spec
   work in the core, the IVT coupling makes `XLibur.Report` a same-repo build break — visible
   immediately in CI, which is the point of same-repo versioning.
-- **Picture-anchor behaviour on row insert is unverified** — Task 6's characterization test
-  resolves the unknown before the rewriter is designed around it.
+- ~~**Picture-anchor behaviour on row insert is unverified**~~ — resolved by Task 6's
+  characterization tests: anchors are live ranges and move on their own. The risk that replaced it
+  was the one nobody listed — that chart references could not be *written back* at all.
 - **Tag-in-cell parsing ambiguity** (a literal `<<` in report text). Kept upstream-compatible;
   documented escape hatch if it bites.
 
@@ -556,6 +615,8 @@ Everything here was established by running the code, not by reading it.
 | `Ranges/GroupOptions.cs` | The range-wide grouping options, read out of the `<<SummaryAbove>>`-style tags. |
 | `Tags/` | `OptionTag` + `ProcessingContext`, `TagsRegister`, `TagParser`/`TagToken`, and the built-in tags. |
 | `Tags/IRangeSummaryTag.cs` | The seam a summary is written through, so the options row's total and each group's use one implementation. |
+| `Rewriting/ReferenceRewriter.cs` | Consumes the expansion ledger and re-points chart series. No picture code — see below. |
+| `Rewriting/SeriesReference.cs` | Takes a sheet-qualified A1 reference apart and puts it back. Refuses the forms it cannot safely rewrite. |
 
 `XLibur.Report.Tests/Infrastructure/` holds `WorkbookComparer` (semantic diff),
 `ReportFixture`/`GoldenFile` (fixture runner), `ReportResources` (template files, regeneration).
@@ -590,6 +651,11 @@ commands above do. Worth re-checking against a newer SDK before spending time on
   for a no-grid evaluation; functions needing a grid throw `MissingContextException`
   (`XLibur.Excel.CalcEngine.Exceptions`). Convert with `AnyValue.From(...)` in and
   `AnyValue.TryPickScalar` + `ScalarValue.Match(...)` out; blank is `ScalarValue.Blank.ToAnyValue()`.
+- **Charts**: `IXLWorksheet.Charts` is an `IEnumerable<IXLChart>`; a chart has `Series` and
+  `SecondarySeries`, and a series' `ValueReferences`/`CategoryReferences` are plain sheet-qualified
+  A1 strings (`Data!$B$3:$B$8`), not ranges. `IXLChartSeriesCollection.Add` **throws** for a chart
+  loaded from a file, so a rewriter can only edit the series a template already has. Nothing shifts
+  a chart's own anchor on row insert either — `IXLDrawingPosition.Row` is a plain `int`.
 - **Defined names**: enumerate `DefinedNames.ValidNamedRanges()` on both the workbook and each
   worksheet; re-point with `SetRefersTo(range)`; `Delete()` removes one. Row inserts and deletes
   shift and shrink names automatically, which the expander relies on to process several ranges on
@@ -630,15 +696,12 @@ commands above do. Worth re-checking against a newer SDK before spending time on
 
 ### Notes for the remaining tasks
 
-- **Task 6 (charts/pictures).** The ledger already exists and is populated: `RangeInterpreter.Expansions`
-  is a `List<ExpansionRecord>` of `(Worksheet, TemplateArea, RenderedArea, RowDelta)`. Nothing
-  consumes it yet — that is the whole of the wiring needed. Chart series references are plain
-  settable strings (`IXLChartSeries.ValueReferences`), and setting one marks the chart edited so
-  spec 10's patcher persists it. **Picture-anchor behaviour on row insert is still unverified** —
-  write the characterization test first, as the spec's risk section says.
 - **Task 7 (pivots).** `XLPivotCache.Source` is an internal `IXLPivotSource` with
   `TryGetSource(workbook, out sheet, out area)`. Distinguish area sources (re-point) from
-  table/name sources (refresh only).
+  table/name sources (refresh only). The ledger and the coordinate-mapping rules Task 6 established
+  (`ReferenceRewriter.Apply`) are what a cache source needs re-pointing by, so reuse them rather
+  than deriving the arithmetic a second time — and note that pivot caches, unlike chart series,
+  are not per-sheet, so the sheet a source names is the one to match against.
 - **Task 8 (horizontal).** `RangeExpander` is row-oriented throughout — `InsertRowsBelow`, row
   blocks, the options *row*. Horizontal support is a column-oriented sibling, not a flag; factor
   the shared parts out rather than threading an `isHorizontal` boolean through it.

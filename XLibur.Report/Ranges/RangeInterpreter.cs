@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel;
 using XLibur.Report.Expressions;
+using XLibur.Report.Rewriting;
 
 namespace XLibur.Report.Ranges;
 
@@ -50,6 +51,10 @@ internal sealed class RangeInterpreter
                 Expansions.Add(record);
             }
         }
+
+        // Last, and once for the workbook: a chart may plot a range on another sheet, so nothing
+        // can be re-pointed until every sheet has settled.
+        ReferenceRewriter.Rewrite(workbook, Expansions);
     }
 
     private void EvaluateOutsideBoundRanges(IXLWorkbook workbook, List<BoundRange> bound, ExpressionScope globalScope)

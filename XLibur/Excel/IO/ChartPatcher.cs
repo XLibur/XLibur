@@ -133,6 +133,11 @@ internal static class ChartPatcher
         || HasPendingChanges(xlChart.SeriesInternal)
         || HasPendingChanges(xlChart.SecondarySeriesInternal);
 
+    /// <summary>
+    /// Whether any series was edited. <see cref="XLChartSeries.AssignedFormat"/> covers the series'
+    /// references as well as its formatting, so re-pointing a series at a different range brings
+    /// the chart in for patching just as changing its colour does.
+    /// </summary>
     private static bool HasPendingChanges(XLChartSeriesCollection series)
     {
         foreach (var s in series.Items)

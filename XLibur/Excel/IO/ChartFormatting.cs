@@ -655,9 +655,83 @@ internal static class ChartFormatting
         if ((assigned & XLChartSeriesFormat.Smooth) != 0 && SupportsSmooth(kind))
             PatchSmooth(seriesElement, series);
 
+        PatchSeriesReferences(seriesElement, series, kind);
+
         // Not gated on `assigned`: the labels track their own assignments.
         if (SupportsDataLabels(kind))
             PatchSeriesDataLabels(seriesElement, series.DataLabelsInternal, chartType);
+    }
+
+    /// <summary>
+    /// Points a loaded series at a different range, when the caller re-pointed it.
+    /// </summary>
+    /// <remarks>
+    /// A scatter or bubble series holds its references in <c>c:xVal</c>/<c>c:yVal</c> rather than
+    /// <c>c:cat</c>/<c>c:val</c>, so the elements to patch depend on the group kind — the same
+    /// distinction the reader makes when it loads them.
+    /// </remarks>
+    private static void PatchSeriesReferences(
+        OpenXmlCompositeElement seriesElement, XLChartSeries series, XLChartGroupKind kind)
+    {
+        var assigned = series.AssignedFormat;
+        var isXyBased = kind is XLChartGroupKind.Scatter or XLChartGroupKind.Bubble;
+
+        if ((assigned & XLChartSeriesFormat.ValueReferences) != 0)
+        {
+            var values = isXyBased
+                ? (OpenXmlCompositeElement?)seriesElement.Elements<C.YValues>().FirstOrDefault()
+                : seriesElement.Elements<C.Values>().FirstOrDefault();
+
+            PatchReferenceFormula(values, series.ValueReferences);
+        }
+
+        if ((assigned & XLChartSeriesFormat.CategoryReferences) != 0)
+        {
+            var categories = isXyBased
+                ? (OpenXmlCompositeElement?)seriesElement.Elements<C.XValues>().FirstOrDefault()
+                : seriesElement.Elements<C.CategoryAxisData>().FirstOrDefault();
+
+            PatchReferenceFormula(categories, series.CategoryReferences);
+        }
+    }
+
+    /// <summary>
+    /// Rewrites the <c>c:f</c> of whichever reference element a series data holder contains, and
+    /// drops the cached values that went with the old range.
+    /// </summary>
+    /// <remarks>
+    /// The cache is what Excel draws before it recalculates. Left alone it would describe the range
+    /// the series used to point at, so a chart re-pointed at more rows would open showing the old
+    /// ones. Both caches are optional in the schema, so removing them is valid, and Excel rebuilds
+    /// them from the formula on open.
+    /// </remarks>
+    private static void PatchReferenceFormula(OpenXmlCompositeElement? holder, string? reference)
+    {
+        if (holder == null || string.IsNullOrWhiteSpace(reference))
+            return;
+
+        var numberReference = holder.Elements<C.NumberReference>().FirstOrDefault();
+        if (numberReference != null)
+        {
+            numberReference.Formula = new C.Formula(reference);
+            numberReference.Elements<C.NumberingCache>().ToList().ForEach(cache => cache.Remove());
+            return;
+        }
+
+        var stringReference = holder.Elements<C.StringReference>().FirstOrDefault();
+        if (stringReference != null)
+        {
+            stringReference.Formula = new C.Formula(reference);
+            stringReference.Elements<C.StringCache>().ToList().ForEach(cache => cache.Remove());
+            return;
+        }
+
+        var multiLevelReference = holder.Elements<C.MultiLevelStringReference>().FirstOrDefault();
+        if (multiLevelReference != null)
+        {
+            multiLevelReference.Formula = new C.Formula(reference);
+            multiLevelReference.Elements<C.MultiLevelStringCache>().ToList().ForEach(cache => cache.Remove());
+        }
     }
 
     /// <summary>Whether the series type of a chart group accepts a <c>c:marker</c> child.</summary>
