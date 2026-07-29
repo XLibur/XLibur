@@ -256,6 +256,28 @@ internal sealed class XLCellsCollection : IWorkbookListener
     }
 
     /// <summary>
+    /// Every comment thread in the sheet, paired with the point it sits on, in row-major order.
+    /// Scans the misc slice directly rather than materialising an <see cref="XLCell"/> per used
+    /// cell: the save path asks this of every sheet on every save, including the overwhelmingly
+    /// common case where no sheet has a thread at all.
+    /// </summary>
+    internal List<(Point Point, XLThreadedComment Thread)> GetThreadedComments()
+    {
+        var threads = new List<(Point, XLThreadedComment)>();
+        if (MiscSlice.IsEmpty)
+            return threads;
+
+        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, Area.Full);
+        while (enumerator.MoveNext())
+        {
+            if (enumerator.Current.ThreadedComment is { } thread)
+                threads.Add((enumerator.Point, thread));
+        }
+
+        return threads;
+    }
+
+    /// <summary>
     /// Points of all cells that carry an in-cell image, in row-major order. Scans the misc slice
     /// directly rather than materialising an <see cref="XLCell"/> per used cell.
     /// </summary>
