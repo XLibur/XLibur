@@ -327,7 +327,8 @@ public partial class CommentsTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
-        ws.Cell("B2").GetComment().AddText("Note.");
+        var note = ws.Cell("B2").GetComment();
+        note.AddText("Note.");
 
         ws.Row(1).InsertRowsAbove(2);         // B2 -> B4
         ws.Column(1).InsertColumnsBefore(2);  // B4 -> D4
@@ -335,7 +336,7 @@ public partial class CommentsTests
         ws.Column(1).Delete();                // D3 -> C3
         await Assert.That(ws.Cell("C3").HasComment).IsTrue();
 
-        ws.Cell("C3").GetComment().Delete();
+        note.Delete();
 
         await Assert.That(ws.Cell("C3").HasComment).IsFalse();
         await Assert.That(ws.CellsUsed(XLCellsUsedOptions.Comments).Count()).IsEqualTo(0);
