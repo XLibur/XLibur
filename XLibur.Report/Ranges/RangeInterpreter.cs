@@ -52,9 +52,10 @@ internal sealed class RangeInterpreter
             }
         }
 
-        // Last, and once for the workbook: a chart may plot a range on another sheet, so nothing
-        // can be re-pointed until every sheet has settled.
+        // Last, and once for the workbook: a chart or a pivot may read a range on another sheet, so
+        // nothing can be re-pointed until every sheet has settled.
         ReferenceRewriter.Rewrite(workbook, Expansions);
+        PivotRewriter.Rewrite(workbook, Expansions, _errors);
     }
 
     private void EvaluateOutsideBoundRanges(IXLWorkbook workbook, List<BoundRange> bound, ExpressionScope globalScope)

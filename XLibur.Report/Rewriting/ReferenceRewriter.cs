@@ -39,17 +39,7 @@ internal static class ReferenceRewriter
 
         // Grouped by the sheet the data is on, not the sheet the chart is on: a chart usually sits
         // beside its data but is under no obligation to.
-        var bySheet = new Dictionary<string, List<ExpansionRecord>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var expansion in expansions)
-        {
-            if (!bySheet.TryGetValue(expansion.Worksheet.Name, out var list))
-            {
-                list = new List<ExpansionRecord>();
-                bySheet[expansion.Worksheet.Name] = list;
-            }
-
-            list.Add(expansion);
-        }
+        var bySheet = ExpansionMap.BySheet(expansions);
 
         foreach (var worksheet in workbook.Worksheets)
         {
@@ -127,82 +117,32 @@ internal static class ReferenceRewriter
     /// Moves one reference through one expansion.
     /// </summary>
     /// <remarks>
-    /// A row above the template is untouched; a row below it moves by the expansion's delta. A row
-    /// <em>inside</em> the template is the interesting case, and the two ends are treated
-    /// differently on purpose: the start keeps its offset from the top of the block, and the end
-    /// goes to the bottom of the rendered block. That is what turns a series plotting the single
-    /// row a template repeats into one plotting every row the report generated, which is the whole
-    /// point of the exercise.
+    /// A reference sharing no column with the template cannot be stretched by the expansion — a
+    /// chart plotting a column beside the range is not plotting the range — but it still moves if it
+    /// sits below one, because the insert that grew the range was a full-row one.
     /// </remarks>
     private static SeriesReference Apply(SeriesReference reference, ExpansionRecord expansion)
     {
         var template = expansion.TemplateArea;
-        var rendered = expansion.RenderedArea;
 
-        // The columns have to overlap: a chart plotting a column beside the range is not plotting
-        // the range.
         if (reference.LastColumn < template.FirstColumn || reference.FirstColumn > template.LastColumn)
         {
-            return ShiftBelow(reference, template, expansion.RowDelta);
+            return reference.FirstRow <= template.LastRow
+                ? reference
+                : reference with
+                {
+                    FirstRow = reference.FirstRow + expansion.RowDelta,
+                    LastRow = reference.LastRow + expansion.RowDelta,
+                };
         }
 
-        var firstRow = MapStart(reference.FirstRow, template, rendered, expansion.RowDelta);
-        var lastRow = MapEnd(reference.LastRow, template, rendered, expansion.RowDelta);
+        var firstRow = ExpansionMap.MapStart(reference.FirstRow, expansion);
+        var lastRow = ExpansionMap.MapEnd(reference.LastRow, expansion);
 
         return reference with
         {
             FirstRow = firstRow,
             LastRow = Math.Max(firstRow, lastRow),
         };
-    }
-
-    /// <summary>
-    /// Shifts a reference that shares no column with the template. It cannot be stretched by the
-    /// expansion, but it still moves if it sits below one.
-    /// </summary>
-    private static SeriesReference ShiftBelow(SeriesReference reference, RangeArea template, int rowDelta)
-    {
-        if (reference.FirstRow <= template.LastRow)
-        {
-            return reference;
-        }
-
-        return reference with
-        {
-            FirstRow = reference.FirstRow + rowDelta,
-            LastRow = reference.LastRow + rowDelta,
-        };
-    }
-
-    private static int MapStart(int row, RangeArea template, RangeArea rendered, int rowDelta)
-    {
-        if (row < template.FirstRow)
-        {
-            return row;
-        }
-
-        if (row > template.LastRow)
-        {
-            return row + rowDelta;
-        }
-
-        return Math.Min(rendered.FirstRow + (row - template.FirstRow), Math.Max(rendered.LastRow, rendered.FirstRow));
-    }
-
-    private static int MapEnd(int row, RangeArea template, RangeArea rendered, int rowDelta)
-    {
-        if (row < template.FirstRow)
-        {
-            return row;
-        }
-
-        if (row > template.LastRow)
-        {
-            return row + rowDelta;
-        }
-
-        // Anywhere inside the template block ends at the bottom of what was generated. A range that
-        // ended on the repeated row should end on the last copy of it.
-        return rendered.LastRow;
     }
 }
