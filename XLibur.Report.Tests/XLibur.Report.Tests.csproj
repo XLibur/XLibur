@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Must stay 'latest'. TUnit's Assert.That overloads are disambiguated with
+         [OverloadResolutionPriority], which only C# 13+ honours; on net8.0 'default'
+         means C# 12 and overload resolution silently breaks (CS0411/CS0121). -->
+    <LangVersion>latest</LangVersion>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- CS4014 (call not awaited) must fail the build. TUnit assertions are awaitable, so an
+         un-awaited assertion never executes and the test passes no matter what it asserts. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS4014</WarningsAsErrors>
+    <NoWarn>$(NoWarn);NU1605;CS1591</NoWarn>
+    <!-- TUnit runs on Microsoft.Testing.Platform rather than VSTest. -->
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resource\**\*.xlsx" Exclude="**\~$*.xlsx;bin\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.9.0" />
+    <PackageReference Include="TUnit" Version="1.61.38" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\.editorconfig" Link=".editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XLibur.Report\XLibur.Report.csproj" />
+    <ProjectReference Include="..\XLibur.Fonts.SkiaSharp\XLibur.Fonts.SkiaSharp.csproj" />
+  </ItemGroup>
+
+</Project>

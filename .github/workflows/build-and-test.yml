@@ -99,6 +99,15 @@ jobs:
           --report-trx --report-trx-filename test-results.trx
           --coverage --coverage-output-format xml --coverage-output coverage.xml
 
+      - name: Test Report
+        run: >
+          dotnet test XLibur.Report.Tests/XLibur.Report.Tests.csproj
+          --configuration Release
+          --no-build
+          --framework net10.0
+          --report-trx --report-trx-filename report-test-results.trx
+          --coverage --coverage-output-format xml --coverage-output report-coverage.xml
+
       - name: Test Fonts.SixLabors
         run: >
           dotnet test XLibur.Fonts.SixLabors.Tests/XLibur.Fonts.SixLabors.Tests.csproj
@@ -129,3 +138,4 @@ jobs:
           path: |
             **/TestResults/*.trx
             **/TestResults/coverage.xml
+            **/TestResults/report-coverage.xml

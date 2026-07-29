@@ -1,0 +1,14 @@
+XLibur.Report
+Copyright (c) XLibur Contributors
+
+This product includes software developed as part of ClosedXML.Report
+(https://github.com/ClosedXML/ClosedXML.Report), Copyright (c) ClosedXML.Report
+Contributors, licensed under the MIT License.
+
+Portions of this package are derived from that work — notably the template model
+(defined-name-bound ranges, the options/service row convention, the <<tag>> marker
+syntax) and the grouping/subtotal engine. Files containing derived code carry an
+attribution note in their header.
+
+The MIT License text under which that work is used is reproduced in the LICENSE file
+at the root of this repository, which applies to XLibur.Report as a whole.

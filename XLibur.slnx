@@ -17,6 +17,10 @@
     <Project Path="XLibur.Fonts.SkiaSharp.Tests/XLibur.Fonts.SkiaSharp.Tests.csproj" />
     <Project Path="XLibur.Fonts.SkiaSharp/XLibur.Fonts.SkiaSharp.csproj" />
   </Folder>
+  <Folder Name="/XLibur.Report/">
+    <Project Path="XLibur.Report/XLibur.Report.csproj" />
+    <Project Path="XLibur.Report.Tests/XLibur.Report.Tests.csproj" />
+  </Folder>
   <Project Path="XLibur.Benchmarks/XLibur.Benchmarks.csproj" />
   <Project Path="XLibur.Examples/XLibur.Examples.csproj" />
   <Project Path="XLibur/XLibur.csproj" />
