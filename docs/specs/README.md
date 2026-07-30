@@ -1,6 +1,6 @@
 # XLibur Improvement Roadmap
 
-Twelve prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
+Thirteen prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
 
 Specs 01–10 are the original top-ten set; spec 11 is a follow-on that came out of implementing spec 03 (see below).
 
@@ -21,11 +21,17 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 09 | [Threaded comments + round-trip fidelity](09-threaded-comments-roundtrip.md) | Feature · Compat | M | ✅ **Done** (#258) | Comments vs fidelity-audit split |
 | 10 | [Chart formatting depth](10-chart-formatting-depth.md) | Feature | L | ✅ **Done** (PRs 1–4) | 4 PRs, 2–3 independent |
 | 11 | [Create-path allocation reduction](11-create-path-allocations.md) | Perf (write) | M | ✅ **Tasks 1–4 done** | Task 4 lands in 11; 05 rebases |
-| 12 | [Report templating (`XLibur.Report`)](12-report-templating.md) | Feature · Arch | L | Proposed | 10 tasks; 4/5/6/10 parallel after 3 |
+| 12 | [Report templating (`XLibur.Report`)](12-report-templating.md) | Feature · Arch | L | ✅ **Done** (see Results; gauge corpus not ported) | 11 tasks; 4/5/6/10 parallel after 3 |
+| 13 | [`Clear`/`CopyTo` scalability](13-range-clear-scalability.md) | Perf (edit) · Correctness | S | Proposed ([#271](https://github.com/XLibur/XLibur/issues/271)) | Task 1 first; 2/3/4 independent |
 
 Spec 11 was added after spec 03 landed: 03 halved the *save* phase and showed the rest of it is
 `System.IO.Packaging`, leaving the *create* phase as 72% of the write benchmark. It is a follow-on,
 not part of the original ten.
+
+Spec 13 came out of implementing spec 12, the same way spec 11 came out of spec 03: spec 12's benchmark
+criterion caught report generation scaling super-linearly, and the cause turned out to be a core-library
+defect in `XLRangeBase.Clear` that makes any range copy in a loop quadratic. Tracked as
+[#271](https://github.com/XLibur/XLibur/issues/271).
 
 Spec 12 (July 2026) is a feature spec outside the original survey: a report-templating package
 (`XLibur.Report`) porting the ClosedXML.Report architecture with a Scriban expression engine,

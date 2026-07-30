@@ -36,18 +36,46 @@ public static class ExpansionPhaseProbe
 
         Warm();
 
-        Measure("CopyTo - copying the template block once per item", rows, buckets, copy: true);
-        Measure("CellsUsed - what evaluation enumerates, per block", rows, buckets, copy: false);
+        Measure("CopyTo - copying the template block once per item", rows, buckets, Work.CopyTo);
+        Measure("CellsUsed - what evaluation enumerates, per block", rows, buckets, Work.CellsUsed);
+        Measure("Range - creating a range object at a new address, and nothing else", rows, buckets, Work.NewRange);
+        Measure("Range - creating one at the SAME address over and over", rows, buckets, Work.SameRange);
+        Measure("Clear - what CopyTo does to its target before writing", rows, buckets, Work.Clear);
+        Measure("CopyFrom - one cell, so without the range-level work", rows, buckets, Work.CopyCell);
+        Measure("Clear(Contents) - the same, minus everything Clear does only for All", rows, buckets, Work.ClearContents);
+        Measure("Clear(DataValidation) - isolating the create-then-delete of a validation", rows, buckets, Work.ClearDv);
+    }
+
+    /// <summary>What one bucket's inner loop does.</summary>
+    /// <remarks>
+    /// The last two are the discriminating pair. Both create a range object per iteration and do nothing
+    /// with it; they differ only in whether the address is one the worksheet has seen before. If the
+    /// new-address case climbs and the repeated-address case stays flat, the cost is in <em>accumulating
+    /// range objects</em> rather than in copying — which is a property of the range repository, and makes
+    /// every caller that creates ranges in a loop over a large sheet quadratic, not just CopyTo.
+    /// </remarks>
+    private enum Work
+    {
+        CopyTo,
+        CellsUsed,
+        NewRange,
+        SameRange,
+        Clear,
+        CopyCell,
+        ClearContents,
+        ClearDv,
     }
 
     /// <summary>One small run first, so the first bucket is not paying for JIT.</summary>
     private static void Warm()
     {
-        Measure(null, 500, 1, copy: true);
-        Measure(null, 500, 1, copy: false);
+        foreach (var work in Enum.GetValues<Work>())
+        {
+            Measure(null, 500, 1, work);
+        }
     }
 
-    private static void Measure(string? title, int rows, int buckets, bool copy)
+    private static void Measure(string? title, int rows, int buckets, Work work)
     {
         using var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Report");
@@ -82,14 +110,40 @@ public static class ExpansionPhaseProbe
 
             for (var row = from; row <= to; row++)
             {
-                if (copy)
+                switch (work)
                 {
-                    template.CopyTo(sheet.Cell(row, 1));
-                }
-                else
-                {
-                    // Materialised, as the evaluator does: it writes to the cells it enumerates.
-                    _ = sheet.Range(row, 1, row, 10).CellsUsed(XLCellsUsedOptions.Contents).ToList();
+                    case Work.CopyTo:
+                        template.CopyTo(sheet.Cell(row, 1));
+                        break;
+
+                    case Work.CellsUsed:
+                        // Materialised, as the evaluator does: it writes to the cells it enumerates.
+                        _ = sheet.Range(row, 1, row, 10).CellsUsed(XLCellsUsedOptions.Contents).ToList();
+                        break;
+
+                    case Work.NewRange:
+                        _ = sheet.Range(row, 1, row, 10);
+                        break;
+
+                    case Work.SameRange:
+                        _ = sheet.Range(1, 1, 1, 10);
+                        break;
+
+                    case Work.Clear:
+                        sheet.Range(row, 1, row, 10).Clear();
+                        break;
+
+                    case Work.CopyCell:
+                        sheet.Cell(row, 1).CopyFrom(sheet.Cell(1, 1));
+                        break;
+
+                    case Work.ClearContents:
+                        sheet.Range(row, 1, row, 10).Clear(XLClearOptions.Contents);
+                        break;
+
+                    case Work.ClearDv:
+                        sheet.Range(row, 1, row, 10).Clear(XLClearOptions.DataValidation);
+                        break;
                 }
             }
 

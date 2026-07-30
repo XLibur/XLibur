@@ -479,9 +479,15 @@ passes with the chart-reference fix Task 6 needed.
    its package verified (three TFMs, XML docs, readme/icon/NOTICE, and exactly two dependencies:
    `XLibur` and `Scriban`); `docs/report-templating.md` written as the template-language and tag
    reference and linked from the README; `XLibur.Report.Benchmarks` added with the `ReportGenerate`
-   benchmark plus a `scaling` probe and a `phases` probe. Numbers in Results. There is no docs
-   *site* in this repo — it lives at `xlibur.github.io/XLibur`, a separate repository — so the
-   reference landed in-repo, and that page should be ported from it.
+   benchmark plus a `scaling` probe and a `phases` probe. Numbers in Results.
+
+   **Correction:** this task was first recorded as done with the note that there is no docs site in this
+   repo. That was wrong and unverified — `docs-website/` is a Docusaurus site right here, built to
+   `xlibur.github.io/XLibur` by `.github/workflows/docs.yml` from `main`. The reference was written as
+   `docs/report-templating.md` and linked from the README, which is useful but is not the docs-website
+   section this task asks for. **Outstanding:** add `docs-website/docs/report-templating.md` (adapting the
+   in-repo reference to the site's conventions — see the sibling pages, e.g. `pivot-tables.md`) and add it
+   to `sidebars.ts`.
 10. **Compatibility engine (`XLibur.Report.DynamicLinq`).** **Done except the corpus.** The package,
     the engine (`DynamicLinqExpressionEngine` on `IExpressionEngine`), 37 tests including
     cross-engine agreement, packaging, and the docs (trusted-templates-only caveat, engine
@@ -722,6 +728,11 @@ it has to be rediscovered.
   child range inside a parent's rows is not yet expanded per parent item.
 - **Six tags from the Scope list** have no implementation: `Image`, `PageOptions`, `Protected`,
   `Height`, `OnlyValues` and the `Range` marker.
+- **The docs-website page** (Task 9). `docs/report-templating.md` is the reference, but the published site
+  is `docs-website/` in this repo and has no report page. Adding one is a page plus a `sidebars.ts` entry.
+- **The `CopyTo` fix belongs in the core.** Finding 10's workaround makes the report engine linear; the
+  underlying defect is spec 13 / [#271](https://github.com/XLibur/XLibur/issues/271), with the two-line
+  fix prototyped and measured there.
 - Grouping is deliberately vertical-only, and `<<Pivot>>` deliberately neither horizontal nor grouped;
   each says so rather than half-doing it.
 
@@ -888,9 +899,11 @@ commands above do. Worth re-checking against a newer SDK before spending time on
 - **`IXLRange.CopyTo` costs more the larger the target worksheet is**, independently of how much is
   being copied: measured tripling per call over 30,000 rows, by `ExpansionPhaseProbe`, with no report
   code involved. Any per-item call to it is therefore quadratic in the item count — which is what
-  finding 10 was. Copy in as few calls as the work allows. **This looks like a core-library scaling
-  defect worth a spec of its own**: the report package now works around it, but anything else calling
-  `CopyTo` in a loop over a large sheet has the same problem and no reason to suspect it.
+  finding 10 was. Copy in as few calls as the work allows. **Now diagnosed and specced separately**: the
+  cost is `XLRangeBase.Clear` creating and deleting a data validation on every call even when the sheet
+  has none, which is ~85% of `CopyTo`'s cost and all of its growth. See spec 13 and
+  [#271](https://github.com/XLibur/XLibur/issues/271); a two-line guard takes `CopyTo` from 420 µs to
+  13 µs at 30,000 rows. The report package's doubling workaround stands either way.
 - **Calling a calc-engine function**: `FunctionDefinition.CallFunction(CalcContext, Span<AnyValue>)`.
   Construct `new CalcContext(engine, culture, workbook: null, worksheet: null, formulaAddress: null)`
   for a no-grid evaluation; functions needing a grid throw `MissingContextException`
