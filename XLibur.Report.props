@@ -1,0 +1,64 @@
+<Project>
+
+  <!--
+    The report packages are on their own version stream, not core's.
+
+    Core versions from `v0.106.0`-style tags; the report packages version from `report-v0.1.0`-style
+    ones, so a report release does not need a core release and a core release does not renumber the
+    report packages. `.github/workflows/release.yml` packs core's set and `release-report.yml` packs
+    this one; neither touches the other's tags.
+  -->
+  <PropertyGroup>
+    <MinVerTagPrefix>report-v</MinVerTagPrefix>
+  </PropertyGroup>
+
+  <!--
+    The core version these packages declare a dependency on.
+
+    Declared here rather than left to the ProjectReference, because the project-derived version is
+    whatever core happened to be at pack time — usually a pre-release like 0.106.1-alpha.0.97, which
+    would drag every consumer of a stable report package onto a pre-release core. In-repo builds and
+    tests are unaffected either way: they compile against the project, and this only changes the
+    dependency written into the .nupkg.
+
+    It is an EXACT range while `XLibur.Report` reads core internals through the InternalsVisibleTo
+    grant.
+
+    Internals carry no compatibility contract, so an open floor would be a promise core never made:
+    NuGet would happily unify core upward and the report package would fail at runtime against
+    internals that had since moved. Spec 13 replaces the grant with a public surface; once its task 3
+    lands and the report package builds against the released core package, this becomes an open floor
+    (`0.107.0`) and the exactness goes away. Until then, exact is the honest expression of "compiled
+    against these internals".
+  -->
+  <PropertyGroup>
+    <XLiburDependencyVersion Condition="'$(XLiburDependencyVersion)' == ''">[0.107.0]</XLiburDependencyVersion>
+  </PropertyGroup>
+
+  <!--
+    Rewrites the packed dependency on XLibur to XLiburDependencyVersion.
+
+    `_ProjectReferencesWithVersions` is what NuGet's pack target reads to turn a ProjectReference into
+    a package dependency, and `ProjectVersion` is the version it uses. Overriding it here is the
+    supported way to pack a project reference at a declared version rather than the referenced
+    project's own — which is exactly what two independent version streams in one repository need.
+  -->
+  <Target Name="XLiburReportPinCoreDependency"
+          AfterTargets="_GetProjectReferenceVersions"
+          Condition="'$(XLiburDependencyVersion)' != ''">
+    <ItemGroup>
+      <_ProjectReferencesWithVersions Condition="'%(Filename)' == 'XLibur'">
+        <ProjectVersion>$(XLiburDependencyVersion)</ProjectVersion>
+      </_ProjectReferencesWithVersions>
+    </ItemGroup>
+
+    <!--
+      Only XLibur.Report references core directly; XLibur.Report.DynamicLinq gets it transitively
+      through XLibur.Report, and its dependency on XLibur.Report is that package's own stream version,
+      which is right because the two release together.
+    -->
+    <Message Importance="high"
+             Text="$(MSBuildProjectName): declared core dependency is XLibur $(XLiburDependencyVersion)" />
+  </Target>
+
+</Project>

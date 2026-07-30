@@ -703,6 +703,33 @@ baseline that writes the same grid by an ordinary loop, for when two implementat
 one size. A full run takes the better part of an hour, so `scaling` is the instrument to reach for; a
 `phases` mode splits expansion into its copy and evaluate halves, which is what localised finding 10.
 
+**Releasing.** The report packages are **not** in core's lockstep set. They version off their own tags:
+
+```
+git tag -a report-v0.1.0 -m "XLibur.Report 0.1.0"
+git push upstream report-v0.1.0        # fires .github/workflows/release-report.yml
+```
+
+`XLibur.Report.props`, imported by both packable report projects, is where the stream is declared:
+`MinVerTagPrefix` is `report-v`, so MinVer reads `report-v*` and ignores core's `v*` — a core release no
+longer renumbers Report, and a Report release needs no core release. `release-report.yml` builds, runs the
+suite, packs the two packages, checks their versions against the tag, and publishes; a
+`workflow_dispatch` run is a dry run by default.
+
+The same file declares `XLiburDependencyVersion`, the core version the packages depend on, because a
+`ProjectReference` would otherwise write whatever core happened to be at pack time — usually a
+pre-release, which would drag every consumer of a stable Report onto a pre-release core. It is an
+**exact** range (`[0.107.0]`) rather than a floor for as long as Report reads core internals through the
+IVT grant: internals carry no compatibility contract, so a floor would be a promise core never made, and
+NuGet would unify core upward and break Report at runtime. Spec 13 replaces the grant with a public
+surface; when its task 3 lands, this becomes an open floor and the exactness goes.
+
+Until core 0.107.0 is on NuGet, **a Report release is refused rather than published broken**: the workflow
+reads the dependency out of the packed nuspec and fails if that version is not on NuGet, since an exact
+dependency on an unpublished version is unresolvable. Verified — the gate blocks today, core's latest
+stable being 0.106.0. Core's own `release.yml` also had its previous-tag resolution narrowed to `v[0-9]*`
+releases so a `report-v*` release can never become the tag core's notes diff against.
+
 **Coverage (criterion 7), 2026-07-30.** Measured by running the suite with the MTP coverage extension:
 
 ```
@@ -750,14 +777,13 @@ it has to be rediscovered.
   `Height`, `OnlyValues` and the `Range` marker.
 - **The docs-website page** (Task 9). `docs/report-templating.md` is the reference, but the published site
   is `docs-website/` in this repo and has no report page. Adding one is a page plus a `sidebars.ts` entry.
-- **Report is not in the release pipeline, deliberately.** Task 9 originally added both report packages to
-  `release.yml`'s pack loop. That was dropped when this branch merged `main`: #269 scoped the release tag
-  glob to the core version stream (`v[0-9]*`) as groundwork for versioning an addon package independently,
-  and spec 13 states the intent plainly — Report "moves on its own cadence, is pre-1.0, and should neither
-  inherit core's version nor drag core along". Adding it to the core lockstep loop would undo that. What
-  Task 9 verified stands (three TFMs, XML docs, readme/icon/NOTICE, and exactly the two dependencies
-  criterion 9 requires); what remains is a **tag stream and release job of Report's own**, which is
-  spec 13's territory and depends on its public surface landing first.
+- **Report releases on its own version stream, and cannot release yet.** Task 9 originally added both
+  report packages to `release.yml`'s core pack loop. That was dropped when this branch merged `main`:
+  #269 scoped the release tag glob to the core version stream (`v[0-9]*`) as groundwork for versioning an
+  addon independently, and spec 13 states the intent plainly — Report "moves on its own cadence, is
+  pre-1.0, and should neither inherit core's version nor drag core along". The independent stream is now
+  built rather than deferred; see **Releasing** below. What it waits on is **core 0.107.0 being published**
+  with spec 13's public surface, which the pipeline enforces rather than trusts.
 - **The two `internal` core members this branch added are superseded** (finding 3). Spec 13 replaces the
   `InternalsVisibleTo` grant with a public surface — `XLFunctionLibrary.TryInvoke`/`Names`, and
   `IXLPivotCache.SourceRange`/`SourceWorksheet`/`SetSourceRange` — and keeps `FunctionRegistry.Names` and

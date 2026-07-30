@@ -3,6 +3,9 @@ name: Release
 # All packages version in lockstep from the core tag, so one tag releases the
 # whole set: XLibur, XLibur.Bundle, and the three font engine packages.
 #
+# The report packages are NOT in this set — they are on their own version stream
+# off `report-v*` tags. See release-report.yml and XLibur.Report.props.
+#
 # The glob requires a digit after the `v` so it matches only the core version
 # stream. A bare `v*` would also match a prefixed tag from an independently
 # versioned package (`viz-v1.0.0`), firing a full core release off it.
@@ -40,11 +43,14 @@ jobs:
 
       # Captured before publishing, because once this release is published it
       # becomes "latest" and can no longer serve as the previous tag.
+      # Filtered to the core version stream: an independently versioned package's
+      # release (`report-v0.1.0`) must never become the tag core's notes diff
+      # against, the same reason the tag glob above requires a digit after the `v`.
       - name: Resolve previous release tag
         id: previous
         run: |
           prev=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases \
-                   --limit 1 --json tagName --jq '.[0].tagName // ""')
+                   --limit 20 --json tagName --jq '[.[] | select(.tagName | test("^v[0-9]"))] | .[0].tagName // ""')
           echo "tag=$prev" >> "$GITHUB_OUTPUT"
           echo "Previous release tag: ${prev:-<none>}"
 
