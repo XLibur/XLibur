@@ -322,6 +322,44 @@ public partial class CommentsTests
         await Assert.That(hasComment).IsTrue();
     }
 
+    [Test]
+    public async Task Deleting_a_note_that_has_been_shifted_clears_the_right_cell()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        var note = ws.Cell("B2").GetComment();
+        note.AddText("Note.");
+
+        ws.Row(1).InsertRowsAbove(2);         // B2 -> B4
+        ws.Column(1).InsertColumnsBefore(2);  // B4 -> D4
+        ws.Row(1).Delete();                   // D4 -> D3
+        ws.Column(1).Delete();                // D3 -> C3
+        await Assert.That(ws.Cell("C3").HasComment).IsTrue();
+
+        note.Delete();
+
+        await Assert.That(ws.Cell("C3").HasComment).IsFalse();
+        await Assert.That(ws.CellsUsed(XLCellsUsedOptions.Comments).Count()).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Deleting_a_note_that_is_no_longer_on_the_sheet_leaves_the_cell_alone()
+    {
+        // A5's note goes with the deleted row and A6's note lands on A5, so deleting the note that
+        // is already gone must not take the one that replaced it.
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        var deletedNote = ws.Cell("A5").GetComment();
+        deletedNote.AddText("Five.");
+        ws.Cell("A6").GetComment().AddText("Six.");
+
+        ws.Row(5).Delete();
+        deletedNote.Delete();
+
+        await Assert.That(ws.Cell("A5").HasComment).IsTrue();
+        await Assert.That(ws.Cell("A5").GetComment().Text).IsEqualTo("Six.");
+    }
+
     [GeneratedRegex(@"height:(\d+\.?\d*)pt")]
     private static partial Regex HeightPattern();
 }

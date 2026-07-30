@@ -730,8 +730,22 @@ it has to be rediscovered.
   `Height`, `OnlyValues` and the `Range` marker.
 - **The docs-website page** (Task 9). `docs/report-templating.md` is the reference, but the published site
   is `docs-website/` in this repo and has no report page. Adding one is a page plus a `sidebars.ts` entry.
+- **Report is not in the release pipeline, deliberately.** Task 9 originally added both report packages to
+  `release.yml`'s pack loop. That was dropped when this branch merged `main`: #269 scoped the release tag
+  glob to the core version stream (`v[0-9]*`) as groundwork for versioning an addon package independently,
+  and spec 13 states the intent plainly — Report "moves on its own cadence, is pre-1.0, and should neither
+  inherit core's version nor drag core along". Adding it to the core lockstep loop would undo that. What
+  Task 9 verified stands (three TFMs, XML docs, readme/icon/NOTICE, and exactly the two dependencies
+  criterion 9 requires); what remains is a **tag stream and release job of Report's own**, which is
+  spec 13's territory and depends on its public surface landing first.
+- **The two `internal` core members this branch added are superseded** (finding 3). Spec 13 replaces the
+  `InternalsVisibleTo` grant with a public surface — `XLFunctionLibrary.TryInvoke`/`Names`, and
+  `IXLPivotCache.SourceRange`/`SourceWorksheet`/`SetSourceRange` — and keeps `FunctionRegistry.Names` and
+  `XLCalcEngine.Functions` internal, serving that class instead of serving Report. Moving
+  `ExcelFunctionBridge` and `PivotRewriter` onto it is spec 13's task 3, and is a prerequisite for Report
+  depending on a *published* core package rather than the project. Until then Report builds only in-repo.
 - **The `CopyTo` fix belongs in the core.** Finding 10's workaround makes the report engine linear; the
-  underlying defect is spec 13 / [#271](https://github.com/XLibur/XLibur/issues/271), with the two-line
+  underlying defect is spec 14 / [#271](https://github.com/XLibur/XLibur/issues/271), with the two-line
   fix prototyped and measured there.
 - Grouping is deliberately vertical-only, and `<<Pivot>>` deliberately neither horizontal nor grouped;
   each says so rather than half-doing it.
@@ -901,7 +915,7 @@ commands above do. Worth re-checking against a newer SDK before spending time on
   code involved. Any per-item call to it is therefore quadratic in the item count — which is what
   finding 10 was. Copy in as few calls as the work allows. **Now diagnosed and specced separately**: the
   cost is `XLRangeBase.Clear` creating and deleting a data validation on every call even when the sheet
-  has none, which is ~85% of `CopyTo`'s cost and all of its growth. See spec 13 and
+  has none, which is ~85% of `CopyTo`'s cost and all of its growth. See spec 14 and
   [#271](https://github.com/XLibur/XLibur/issues/271); a two-line guard takes `CopyTo` from 420 µs to
   13 µs at 30,000 rows. The report package's doubling workaround stands either way.
 - **Calling a calc-engine function**: `FunctionDefinition.CallFunction(CalcContext, Span<AnyValue>)`.

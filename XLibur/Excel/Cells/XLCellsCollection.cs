@@ -256,6 +256,68 @@ internal sealed class XLCellsCollection : IWorkbookListener
     }
 
     /// <summary>
+    /// Every comment thread in the sheet, paired with the point it sits on, in row-major order.
+    /// Scans the misc slice directly rather than materialising an <see cref="XLCell"/> per used
+    /// cell: the save path asks this of every sheet on every save, including the overwhelmingly
+    /// common case where no sheet has a thread at all.
+    /// </summary>
+    internal List<(Point Point, XLThreadedComment Thread)> GetThreadedComments()
+    {
+        var threads = new List<(Point, XLThreadedComment)>();
+        if (MiscSlice.IsEmpty)
+            return threads;
+
+        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, Area.Full);
+        while (enumerator.MoveNext())
+        {
+            if (enumerator.Current.ThreadedComment is { } thread)
+                threads.Add((enumerator.Point, thread));
+        }
+
+        return threads;
+    }
+
+    /// <summary>
+    /// The point of the cell that holds <paramref name="note"/>, or null when the note is no longer
+    /// on the sheet. Matches by identity rather than by an address the note remembers, because
+    /// shifting rows or columns moves the note's misc slice entry without telling the note. Walks
+    /// the misc slice rather than materialising an <see cref="XLCell"/> per used cell.
+    /// </summary>
+    internal Point? FindNote(XLComment note)
+    {
+        if (MiscSlice.IsEmpty)
+            return null;
+
+        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, Area.Full);
+        while (enumerator.MoveNext())
+        {
+            if (ReferenceEquals(enumerator.Current.Comment, note))
+                return enumerator.Point;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The point of the cell that holds <paramref name="thread"/>, or null when the thread is no
+    /// longer on the sheet. Matches by identity, for the same reason as <see cref="FindNote"/>.
+    /// </summary>
+    internal Point? FindThreadedComment(XLThreadedComment thread)
+    {
+        if (MiscSlice.IsEmpty)
+            return null;
+
+        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, Area.Full);
+        while (enumerator.MoveNext())
+        {
+            if (ReferenceEquals(enumerator.Current.ThreadedComment, thread))
+                return enumerator.Point;
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Points of all cells that carry an in-cell image, in row-major order. Scans the misc slice
     /// directly rather than materialising an <see cref="XLCell"/> per used cell.
     /// </summary>

@@ -5,7 +5,13 @@ namespace XLibur.Excel;
 
 internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
 {
-    private XLCell _cell = null!;
+    /// <summary>
+    /// The cell the note was last known to sit on. Only a hint for <see cref="Delete"/>: shifting
+    /// rows or columns moves the note's entry within the misc slice without telling the note, so the
+    /// address can name a cell the note has since moved off. The worksheet behind the reference is
+    /// not a hint — a note never changes sheet, because copying builds a new one.
+    /// </summary>
+    private XLCell _lastKnownCell = null!;
 
     public XLComment(XLCell cell, IXLFontBase? defaultFont = null, int? shapeId = null)
         : base(defaultFont ?? XLFont.DefaultCommentFont)
@@ -44,7 +50,18 @@ internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
 
     public void Delete()
     {
-        _cell.DeleteComment();
+        // Confirm the note is still the one living at the remembered address before clearing it: a
+        // shift may have moved this note elsewhere, or moved another note in. The sheet's notes are
+        // only walked when that hint has gone stale, so the common case stays a single slice read.
+        if (ReferenceEquals(_lastKnownCell.SliceComment, this))
+        {
+            _lastKnownCell.SliceComment = null;
+            return;
+        }
+
+        var cells = _lastKnownCell.Worksheet.Internals.CellsCollection;
+        if (cells.FindNote(this) is { } point)
+            cells.GetCell(point).SliceComment = null;
     }
 
     #endregion IXLComment Members
@@ -206,7 +223,7 @@ internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
             .Protection.SetLocked(style.Protection.Locked)
             .Protection.SetLockText(style.Protection.LockText);
 
-        _cell = cell;
+        _lastKnownCell = cell;
         ShapeId = shapeId.Value;
     }
 }

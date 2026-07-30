@@ -21,6 +21,12 @@ internal static class PersonPartWriter
     /// authored, and a <c>personId</c> with no matching <c>&lt;person&gt;</c> is a dangling
     /// reference Excel cannot resolve.
     /// </summary>
+    /// <remarks>
+    /// Every save calls this, for every sheet, to decide whether the person part is needed at all —
+    /// so it walks the misc slice rather than the cells collection. Materialising an
+    /// <see cref="XLCell"/> per used cell here cost 48 bytes × every cell in the workbook on saves
+    /// that had no threaded comments anywhere, which is nearly all of them.
+    /// </remarks>
     internal static List<XLPerson> CollectReferencedPersons(XLWorkbook workbook)
     {
         var persons = new List<XLPerson>();
@@ -34,9 +40,8 @@ internal static class PersonPartWriter
 
         foreach (var worksheet in workbook.WorksheetsInternal)
         {
-            foreach (var cell in worksheet.Internals.CellsCollection.GetCells(c => c.HasThreadedComment))
+            foreach (var (_, root) in worksheet.Internals.CellsCollection.GetThreadedComments())
             {
-                var root = cell.SliceThreadedComment!;
                 AddIfNew(persons, seen, root.AuthorInternal);
 
                 if (root.RepliesInternal is { } replies)

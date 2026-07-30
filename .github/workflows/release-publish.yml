@@ -90,7 +90,9 @@ jobs:
           # sees none and drafts v0.0.1, which would publish NuGet packages below
           # the versions already out there — and NuGet versions cannot be reused.
           # Refuse anything that is not an increase over the highest existing tag.
-          latest=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+          # The digit keeps a prefixed tag from an independently versioned
+          # package (`viz-v1.0.0`) out of the core stream's latest-tag check.
+          latest=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)
           if [ -n "$latest" ] && \
              [ "$(printf '%s\n%s\n' "$version" "${latest#v}" | sort -V | head -n1)" = "$version" ]; then
             echo "::error::$tag is not an increase over the latest tag $latest. If the release draft is wrong (it reads v0.0.1 until the first release is published), pass an explicit version input."

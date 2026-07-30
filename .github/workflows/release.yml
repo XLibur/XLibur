@@ -1,11 +1,14 @@
 name: Release
 
-# All packages version in lockstep from the `v*` tag, so one tag releases the
-# whole set: XLibur, XLibur.Bundle, the three font engine packages, and the two
-# report packages.
+# All packages version in lockstep from the core tag, so one tag releases the
+# whole set: XLibur, XLibur.Bundle, and the three font engine packages.
+#
+# The glob requires a digit after the `v` so it matches only the core version
+# stream. A bare `v*` would also match a prefixed tag from an independently
+# versioned package (`viz-v1.0.0`), firing a full core release off it.
 on:
   push:
-    tags: ['v*']
+    tags: ['v[0-9]*']
   # Called by release-publish.yml, which creates the tag and then invokes this
   # workflow directly. A tag pushed with GITHUB_TOKEN does not trigger the
   # `push: tags` trigger above, so the call has to be explicit.
@@ -60,7 +63,7 @@ jobs:
 
       - name: Pack
         run: |
-          for project in XLibur XLibur.Fonts.SixLabors.V1 XLibur.Bundle XLibur.Fonts.SixLabors XLibur.Fonts.SkiaSharp XLibur.Report XLibur.Report.DynamicLinq; do
+          for project in XLibur XLibur.Fonts.SixLabors.V1 XLibur.Bundle XLibur.Fonts.SixLabors XLibur.Fonts.SkiaSharp; do
             echo "::group::Pack $project"
             dotnet pack "$project/$project.csproj" --configuration Release --no-build --output ./artifacts
             echo "::endgroup::"

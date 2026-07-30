@@ -32,10 +32,9 @@ internal static class ThreadedCommentPartWriter
         xml.WriteAttributeString("xmlns", "x", null, OpenXmlConst.Main2006SsNs);
 
         var refBuffer = new char[10];
-        foreach (var cell in worksheet.Internals.CellsCollection.GetCells(c => c.HasThreadedComment))
+        foreach (var (point, root) in worksheet.Internals.CellsCollection.GetThreadedComments())
         {
-            var root = cell.SliceThreadedComment!;
-            var reference = new string(refBuffer, 0, cell.SheetPoint.Format(refBuffer));
+            var reference = new string(refBuffer, 0, point.Format(refBuffer));
 
             WriteComment(xml, root, reference, root);
             if (root.RepliesInternal is { } replies)
