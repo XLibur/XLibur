@@ -1,6 +1,6 @@
 # XLibur Improvement Roadmap
 
-Eleven prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
+Twelve prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
 
 Specs 01–10 are the original top-ten set; spec 11 is a follow-on that came out of implementing spec 03 (see below).
 
@@ -21,6 +21,20 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 09 | [Threaded comments + round-trip fidelity](09-threaded-comments-roundtrip.md) | Feature · Compat | M | ✅ **Done** (#258) | Comments vs fidelity-audit split |
 | 10 | [Chart formatting depth](10-chart-formatting-depth.md) | Feature | L | ✅ **Done** (PRs 1–4) | 4 PRs, 2–3 independent |
 | 11 | [Create-path allocation reduction](11-create-path-allocations.md) | Perf (write) | M | ✅ **Tasks 1–4 done** | Task 4 lands in 11; 05 rebases |
+| 13 | [Public core surface for `XLibur.Report`](13-report-core-public-api.md) | Arch · API · Packaging | M | Proposed | Tasks 1 and 2 independent |
+
+Spec 12 (report templating) is on the `feat/spec-12-report-templating` branch and joins this
+table when that branch merges. Spec 13 is numbered around it.
+
+Spec 13 came out of preparing `XLibur.Report` to version independently of core. Report reads core
+internals through an `InternalsVisibleTo` grant, which is safe only while the two ship as one
+version off one tag. Building it against the released core package fails with 9 errors across two
+files. Internals carry no compatibility contract, so a version floor over them would be a promise
+core never made — a consumer referencing both packages gets core unified upward by NuGet and
+Report breaks at runtime. 13 replaces the grant with two narrow public additions, a function
+library callable without a grid and a pivot cache source that can be re-pointed, both expressed in
+already-public types. **It is a hard prerequisite for Report's own version stream**, and ships in
+core 0.107.0.
 
 Spec 11 was added after spec 03 landed: 03 halved the *save* phase and showed the rest of it is
 `System.IO.Packaging`, leaving the *create* phase as 72% of the write benchmark. It is a follow-on,
