@@ -20,6 +20,7 @@
   <Folder Name="/XLibur.Report/">
     <Project Path="XLibur.Report/XLibur.Report.csproj" />
     <Project Path="XLibur.Report.Benchmarks/XLibur.Report.Benchmarks.csproj" />
+    <Project Path="XLibur.Report.DynamicLinq/XLibur.Report.DynamicLinq.csproj" />
     <Project Path="XLibur.Report.Examples/XLibur.Report.Examples.csproj" />
     <Project Path="XLibur.Report.Tests/XLibur.Report.Tests.csproj" />
   </Folder>

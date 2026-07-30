@@ -1,6 +1,8 @@
 # Spec 12 — Report Templating (`XLibur.Report` package)
 
-**Area:** Feature · Arch | **Effort:** L | **Status:** Proposed (July 2026)
+**Area:** Feature · Arch | **Effort:** L | **Status:** Implemented (July 2026) on
+`feat/spec-12-report-templating` — all eleven tasks landed; see **Still open** under Results for the
+gaps left inside them, the largest being the un-ported upstream gauge corpus.
 
 ## Summary
 
@@ -437,9 +439,11 @@ patterns, Scriban↔C#-syntax migration page), and a `XLibur.Report.Examples` pr
 
 PR-sized tasks; each lands green (build + tests) on its own branch per repo ground rules.
 
-**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1–9 and 11 are done; only Task 10
-remains. 410 report tests green on net8.0 and net10.0, the solution builds clean in Release, and the
-core suite (11,603 tests) passes with the chart-reference fix Task 6 needed. See **Results** below.
+**Status (July 2026, branch `feat/spec-12-report-templating`):** All eleven tasks are done, with one
+carve-out: Task 10's upstream gauge corpus is not obtainable from this machine and was not ported — see
+**Still open** under Results, which also lists the gaps left inside the finished tasks. 447 report tests
+green on net8.0 and net10.0, the solution builds clean in Release, and the core suite (11,603 tests)
+passes with the chart-reference fix Task 6 needed.
 
 1. **Scaffold + expression engine.** `XLibur.Report` + `XLibur.Report.Tests` projects, slnx
    entries, CI test wiring, IVT grants (`XLibur` → `XLibur.Report`; `XLibur.Report` →
@@ -478,10 +482,13 @@ core suite (11,603 tests) passes with the chart-reference fix Task 6 needed. See
    benchmark plus a `scaling` probe and a `phases` probe. Numbers in Results. There is no docs
    *site* in this repo — it lives at `xlibur.github.io/XLibur`, a separate repository — so the
    reference landed in-repo, and that page should be ported from it.
-10. **Compatibility engine (`XLibur.Report.DynamicLinq`).** New package/project, port of
-    upstream `FormulaEvaluator` semantics onto `IExpressionEngine`, engine parameterization
-    of the shared golden-file fixtures, wholesale port of the upstream gauge corpus as the
-    conformance suite, docs (trusted-templates-only caveat, engine selection).
+10. **Compatibility engine (`XLibur.Report.DynamicLinq`).** **Done except the corpus.** The package,
+    the engine (`DynamicLinqExpressionEngine` on `IExpressionEngine`), 37 tests including
+    cross-engine agreement, packaging, and the docs (trusted-templates-only caveat, engine
+    selection) are all in. **The upstream gauge corpus could not be ported**: it lives in
+    ClosedXML.Report's GitHub test project, not in its NuGet package, so it is not obtainable from
+    this machine — the cached `closedxml.report` packages hold only compiled assemblies. See the
+    note under Results.
 11. **`XLibur.Report.Examples`.** **Done** — ten examples, a menu in `Program`, a `README.md`, and
     five smoke tests in `XLibur.Report.Tests` that run every one of them. A runnable console project
     of worked examples, each writing
@@ -567,15 +574,21 @@ the core library except the one-line IVT grant (Task 1) — no conflicts with op
 
 ## Results
 
-Eleven commits on `feat/spec-12-report-templating`, July 2026.
+Twelve commits on `feat/spec-12-report-templating`, July 2026.
 
 **What landed.** `XLibur.Report` (Scriban engine, template model, range expansion in both
 directions, tag framework including grouping, subtotals and conditional inclusion, Excel-function
 bridge, chart reference rewriting, static pivot re-point and refresh, and pivot generation from
-`<<Pivot>>`), `XLibur.Report.Tests` (410 tests), `XLibur.Report.Examples` (ten worked examples, each
-writing its template and its report) and `XLibur.Report.Benchmarks` (the `ReportGenerate` benchmark and
-two probes). All four are in `XLibur.slnx`; CI builds them and runs the suite with coverage, and
-`release.yml` packs and publishes `XLibur.Report` with the rest.
+`<<Pivot>>`), `XLibur.Report.DynamicLinq` (the ClosedXML.Report-syntax compatibility engine),
+`XLibur.Report.Tests` (447 tests), `XLibur.Report.Examples` (ten worked examples, each writing its
+template and its report) and `XLibur.Report.Benchmarks` (the `ReportGenerate` benchmark and two probes).
+All five are in `XLibur.slnx`; CI builds them and runs the suite with coverage, and `release.yml` packs
+and publishes both report packages with the rest.
+
+**Dependencies, as criterion 9 requires them.** Verified by unpacking the `.nupkg`s: `XLibur.Report`
+depends on `XLibur` and `Scriban` and nothing else; `System.Linq.Dynamic.Core` appears only in
+`XLibur.Report.DynamicLinq`. Engine choice is per template and the core report package never references
+the compatibility one, so installing or removing it changes nothing for code using the default.
 
 **Ten findings that changed the design.**
 
@@ -690,19 +703,32 @@ names, relaxed access turns sparse data into blanks, and an uppercase `IF` parse
 call despite `if` being a keyword. Scriban also honours a `params` delegate, which is what lets the
 bridge register variadic Excel functions through the one-method engine seam.
 
-**Still open.** Task 10 (the DynamicLinq compatibility engine) is the only task left. Beyond it:
-expressions are evaluated in **cell values only** — comments, hyperlinks and rich text are in the Scope
-list but not implemented, which writing the docs turned up. Nested vertical subranges are not
-implemented either: `RangeBinder` resolves property paths from workbook variables, but a child range
-inside a parent's rows is not yet expanded per parent item. Of the tags the Scope section lists,
-`Image`, `PageOptions`, `Protected`, `Height`, `OnlyValues` and the `Range` marker have no
-implementation. Grouping is deliberately vertical-only, and `<<Pivot>>` is deliberately neither
-horizontal nor grouped; each says so rather than half-doing it.
+**Still open.** All eleven tasks have landed; what remains are gaps inside them, listed here so none of
+it has to be rediscovered.
+
+- **The upstream gauge corpus was not ported** (Task 10's conformance contract). It is in
+  ClosedXML.Report's GitHub test project, and the NuGet package — the only copy reachable from this
+  machine — ships compiled assemblies and no test resources. What stands in for it: 24 engine unit tests
+  over the syntax surface, and 13 tests that build the *same* report twice, once per syntax, and assert
+  the two generated workbooks agree cell for cell. That is a real conformance statement about the engine
+  seam, and it is not the same statement as "111 upstream template/gauge pairs pass". **To finish:**
+  clone `ClosedXML/ClosedXML.Report`, copy `tests/ClosedXML.Report.Tests/Resources` into
+  `XLibur.Report.Tests`, and run each template/gauge pair through `WorkbookComparer` under
+  `DynamicLinqExpressionEngine`. Expect real failures — upstream quirk parity is explicitly *not* the
+  contract (see Non-goals), so each will need a judgement about whether it is a bug or a quirk.
+- **Expressions are evaluated in cell values only.** Comments, hyperlinks and rich text are in the Scope
+  list and are not implemented; writing the docs turned that up.
+- **Nested vertical subranges.** `RangeBinder` resolves property paths from workbook variables, but a
+  child range inside a parent's rows is not yet expanded per parent item.
+- **Six tags from the Scope list** have no implementation: `Image`, `PageOptions`, `Protected`,
+  `Height`, `OnlyValues` and the `Range` marker.
+- Grouping is deliberately vertical-only, and `<<Pivot>>` deliberately neither horizontal nor grouped;
+  each says so rather than half-doing it.
 
 Acceptance criteria 1 (except nested subranges), 2, 3, 4, 5, 6, 8, 9 and 11 are met, including both
 manual Excel checks and the benchmark baseline. Criterion 7 is partly met — every built-in tag has
 tests and a bad expression yields a cell error rather than an exception, but the coverage figure has
-not been measured. Criterion 10 is untouched, being Task 10.
+not been measured. Criterion 10 is met except its gauge-corpus clause, as above.
 
 **Manual Excel check: done, 2026-07-30.** The project owner opened both the template and the
 generated report and confirmed they open without a repair dialog and render correctly. That covers
@@ -731,17 +757,20 @@ for Excel — the file being schema-valid is necessary and, per upstream #200, n
 - **Scriban syntax vs user expectations.** Authors coming from ClosedXML.Report lose C#
   method calls and lambdas (`item.Name.Substring(0,3)` → `item.Name | string.slice 0 3`;
   LINQ → `array.filter`/`map` or the function bridge). Mitigation: docs migration page, and
-  the `XLibur.Report.DynamicLinq` package (Task 10) runs upstream-syntax templates
-  unmodified for those who want it.
+  the `XLibur.Report.DynamicLinq` package runs upstream-syntax templates
+  unmodified for those who want it. **Both mitigations are in place**: the migration table is in
+  `docs/report-templating.md`, and the package landed with Task 10.
 - **Two engines double the behavioural surface.** Tag-parameter expressions (`over=`,
   `source=`, `test=`) evaluate through whichever engine the template uses, so every tag has
   two syntax audiences. Mitigation: tags receive evaluated *values* through the seam, never
   engine-specific ASTs; the parameterized fixture suite keeps structural behaviour identical
-  across engines.
-- **Buffer-sheet performance at scale.** Upstream shows cell-by-cell buffer rendering strains
-  past ~100K rows (#341, #68). The benchmark in Task 9 makes this visible early; optimization
-  (bulk-write paths from spec 11's learnings) is follow-on work, not a v1 gate beyond
-  criterion 8.
+  across engines. **Held as built**: `BothEnginesTests` generates the same report under each engine and
+  asserts the two agree cell for cell, tags and all — including `<<If test=…>>`, the tag most exposed to
+  the difference.
+- ~~**Buffer-sheet performance at scale.**~~ Upstream shows cell-by-cell buffer rendering strains
+  past ~100K rows (#341, #68). There is no buffer sheet here (finding 1), but the risk landed anyway in
+  a different form and the Task 9 benchmark caught it exactly as intended — see finding 10. Now flat to
+  100K rows.
 - **Pivot re-point depends on internal `XLPivotCache.Source` semantics** (area vs table vs
   name sources) — characterized and now relied on by `PivotRewriter`. If those internals shift
   under spec work in the core, the IVT coupling makes `XLibur.Report` a same-repo build break —
@@ -813,6 +842,15 @@ Everything here was established by running the code, not by reading it.
 what its template looks like and what data it binds, and the base class saves the pair, validates both
 and prints what the generated workbook says when read back. `AllExamples.Ordered` is the menu, and
 `ExampleSmokeTests` runs every one of them. See its `README.md`.
+
+`XLibur.Report.DynamicLinq/` is one class. `DynamicLinqExpressionEngine` flattens the scope chain into
+the flat parameter list Dynamic LINQ compiles against — which is where the shadowing a scope chain
+expresses has to be resolved, and where the `@`-prefixed aliases are added — and caches the compiled
+lambda under the expression text **plus the parameter names and types**, because the same text against a
+different scope shape is a different lambda. Two details earned their comments: a parameter is compiled
+against the value's *concrete* type, without which `item.Name.ToUpper()` cannot resolve; and a
+non-generic `IEnumerable` is re-cast to the element type its first item reports and materialised, without
+which LINQ has no element type to work with.
 
 `XLibur.Report.Benchmarks/` holds three instruments, and which to reach for matters:
 `ScalingProbe` (`-- scaling`) times one generation per row count and reports **cost per row**, which is

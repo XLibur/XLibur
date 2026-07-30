@@ -34,6 +34,11 @@
       wrong. ExampleSmokeTests runs every one of them.
     -->
     <ProjectReference Include="..\XLibur.Report.Examples\XLibur.Report.Examples.csproj" />
+    <!--
+      The compatibility engine's conformance suite lives here rather than in its own test project, so
+      that the structural fixtures can be run against both engines from one place.
+    -->
+    <ProjectReference Include="..\XLibur.Report.DynamicLinq\XLibur.Report.DynamicLinq.csproj" />
   </ItemGroup>
 
 </Project>

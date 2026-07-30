@@ -243,8 +243,30 @@ System.Linq.Dynamic.Core:
 | `{{items.Where(x => x.Qty > 10)}}` | `{{ items \| array.filter @(do; ret $0.Qty > 10; end) }}` |
 | `{{DateTime.Now}}` | bind it as a variable — the sandbox has no reflection escape |
 
-To run upstream-syntax templates unmodified, install `XLibur.Report.DynamicLinq` and pass its engine to
-`XLTemplate`. That package is not written yet (spec 12 task 10).
+### Or keep the old syntax
+
+Install **`XLibur.Report.DynamicLinq`** and pass its engine, and upstream templates run as written:
+
+```csharp
+using XLibur.Report.DynamicLinq;
+
+using var template = new XLTemplate("LegacyReport.xlsx", new DynamicLinqExpressionEngine());
+```
+
+Everything structural is unchanged — the defined names, the options row, the tags, `&=` — because none
+of it goes through the engine. Property and method access, arithmetic, the conditional operator and LINQ
+over collections in scope all work, `item`/`index`/`items` are the row bindings, and a workbook variable
+is reachable as `Company` or as `@Company`.
+
+Two differences worth knowing. The Excel-function bridge is **not** available under this engine
+(`{{ SUM(...) }}` is an unknown name): it is a feature of the default engine, upstream syntax never had
+it, and templates written for that syntax call .NET methods instead. And **it is for trusted templates
+only** — Dynamic LINQ has no sandbox, an expression can reach any member of any object in scope, and the
+library's history includes CVE-2023-32571. Point it at your own templates, never at one a user uploaded;
+for that, use the default engine.
+
+Engine choice is per template, and `XLibur.Report` never references the package, so adding or removing
+it changes nothing for code using the default.
 
 ## Not implemented yet
 

@@ -1,0 +1,15 @@
+XLibur.Report.DynamicLinq
+Copyright (c) XLibur Contributors
+
+This product includes software developed as part of ClosedXML.Report
+(https://github.com/ClosedXML/ClosedXML.Report), Copyright (c) ClosedXML.Report
+Contributors, licensed under the MIT License.
+
+This package exists to reproduce that project's template expression semantics, so it
+is derived from it more directly than XLibur.Report is: the expression language it
+implements — C# expressions inside {{ }}, the item/index/items row bindings, the
+@-prefixed globals, and the value formatting used when interpolating into text — is
+ClosedXML.Report's design, reimplemented against XLibur.Report's engine seam.
+
+The MIT License text under which that work is used is reproduced in the LICENSE file
+at the root of this repository, which applies to XLibur.Report.DynamicLinq as a whole.
