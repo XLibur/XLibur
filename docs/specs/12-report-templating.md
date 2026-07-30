@@ -437,9 +437,10 @@ patterns, Scriban↔C#-syntax migration page), and a `XLibur.Report.Examples` pr
 
 PR-sized tasks; each lands green (build + tests) on its own branch per repo ground rules.
 
-**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1–8 are done. 384 report tests
-green on net8.0 and net10.0, the solution builds clean in Release, and the core suite (11,603 tests)
-passes with the chart-reference fix Task 6 needed. Remaining: Tasks 9–11. See **Results** below.
+**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1–8 and 11 are done. 389 report
+tests green on net8.0 and net10.0, the solution builds clean in Release, and the core suite (11,603
+tests) passes with the chart-reference fix Task 6 needed. Remaining: Tasks 9 and 10. See **Results**
+below.
 
 1. **Scaffold + expression engine.** `XLibur.Report` + `XLibur.Report.Tests` projects, slnx
    entries, CI test wiring, IVT grants (`XLibur` → `XLibur.Report`; `XLibur.Report` →
@@ -478,7 +479,9 @@ passes with the chart-reference fix Task 6 needed. Remaining: Tasks 9–11. See 
     upstream `FormulaEvaluator` semantics onto `IExpressionEngine`, engine parameterization
     of the shared golden-file fixtures, wholesale port of the upstream gauge corpus as the
     conformance suite, docs (trusted-templates-only caveat, engine selection).
-11. **`XLibur.Report.Examples`.** A runnable console project of worked examples, each writing
+11. **`XLibur.Report.Examples`.** **Done** — ten examples, a menu in `Program`, a `README.md`, and
+    five smoke tests in `XLibur.Report.Tests` that run every one of them. A runnable console project
+    of worked examples, each writing
     both the template it authored and the report it generated so a reader can open the pair and
     see what the template language did. Mirrors the `XLibur.Examples` layout (one class per
     example, a menu in `Program`), references `XLibur.Report`, and is **not** packaged.
@@ -507,6 +510,13 @@ passes with the chart-reference fix Task 6 needed. Remaining: Tasks 9–11. See 
     refreshed), writing template and report side by side. It was a throwaway generator that time;
     committing it makes the manual check repeatable rather than reconstructed from scratch every
     time the file format is touched.
+
+    **As built**, two examples were added beyond the list above and one was changed by what it turned
+    out to be true about. `HorizontalReport` covers Task 8's `<<Horizontal>>`, which post-dates this
+    plan; `ConditionalRows` covers `<<If>>` at both scales. `EverythingAtOnce` is the verification
+    workbook, and it grew a `<<Pivot>>`-generated sheet to check against the drawn one. The
+    error-handling example gained a second half — see finding 9 — because three of the four mistakes
+    it was written to show turned out not to be mistakes.
 
 Sequencing: 1 → 2 → 3 → {4, 5, 6, 10 in parallel} → 7 → 8 → {9, 11}. Task 5 only needs Task 1;
 Tasks 6–7 need Task 3's ledger; Task 8 needs Task 4's tag framework; Task 10 needs Tasks
@@ -554,15 +564,16 @@ the core library except the one-line IVT grant (Task 1) — no conflicts with op
 
 ## Results
 
-Nine commits on `feat/spec-12-report-templating`, July 2026.
+Ten commits on `feat/spec-12-report-templating`, July 2026.
 
 **What landed.** `XLibur.Report` (Scriban engine, template model, range expansion in both
 directions, tag framework including grouping, subtotals and conditional inclusion, Excel-function
 bridge, chart reference rewriting, static pivot re-point and refresh, and pivot generation from
-`<<Pivot>>`) and `XLibur.Report.Tests` (384 tests). Both projects are in `XLibur.slnx`; CI runs the
-new suite with coverage.
+`<<Pivot>>`), `XLibur.Report.Tests` (389 tests) and `XLibur.Report.Examples` (ten worked examples,
+each writing its template and its report). All three are in `XLibur.slnx`; CI builds them and runs the
+suite with coverage.
 
-**Eight findings that changed the design.**
+**Nine findings that changed the design.**
 
 1. **The temp-sheet buffer was not needed** (Task 3). It is upstream's workaround for ClosedXML's
    slow and lossy row inserts, which spec 05 rewrote. Eight characterization tests established
@@ -619,6 +630,15 @@ new suite with coverage.
    the two addresses live instead removed all three problems and the arithmetic with them. The moral
    for the rest of the package: when a value has to survive the sheet moving, ask the core to hold it
    rather than working out where it went.
+9. **Three of the four "mistakes" in the error-handling example are not mistakes** (Task 11). Writing
+   an example that shows what a template error looks like found that an unbound variable, a missing
+   property and an unregistered tag *outside* a bound range are all silent: the first two because
+   relaxed member access reads them as blank, which is exactly what makes a template survive an
+   optional field, and the third because tags are only read inside a bound range. Only two of the four
+   cases the example was drafted with reported anything. The example now has a second half about what
+   is *not* an error, which is the more useful half — a typo in a name is silent, so an empty column is
+   the first place to look for one. Worth generalising: writing the documentation is a test of the
+   library, and the cheapest one available.
 
 **Confirmed, not assumed.** Every Scriban property the spec relied on holds: `ScriptMode.ScriptOnly`
 returns typed objects (a `decimal` stays a `decimal`), an identity `MemberRenamer` keeps C# member
@@ -626,16 +646,16 @@ names, relaxed access turns sparse data into blanks, and an uppercase `IF` parse
 call despite `if` being a keyword. Scriban also honours a `params` delegate, which is what lets the
 bridge register variadic Excel functions through the one-method engine seam.
 
-**Still open.** Tasks 9–11 (packaging/docs/benchmark, the DynamicLinq compatibility engine, the
-examples project). Nested vertical subranges are not implemented — `RangeBinder` resolves property
-paths from workbook variables, but a child range inside a parent's rows is not yet expanded per parent
-item. Of the tags the Scope section lists, `Image`, `PageOptions`, `Protected`, `Height`, `OnlyValues`
-and the `Range` marker have no implementation yet either. Grouping is deliberately vertical-only, and
-`<<Pivot>>` is deliberately neither horizontal nor grouped; each says so rather than half-doing it.
-Acceptance criteria 1 (except nested subranges), 2, 3, 4, 5 and 6 are met, including both manual Excel
-checks; 7 is partly met — every built-in tag has tests and a bad expression yields a cell error rather
-than an exception, but the coverage figure has not been measured. Criteria 8, 9, 10 and 11 are
-untouched.
+**Still open.** Task 9 (packaging, docs-website section, the `ReportGenerate` benchmark) and Task 10
+(the DynamicLinq compatibility engine). Nested vertical subranges are not implemented —
+`RangeBinder` resolves property paths from workbook variables, but a child range inside a parent's rows
+is not yet expanded per parent item. Of the tags the Scope section lists, `Image`, `PageOptions`,
+`Protected`, `Height`, `OnlyValues` and the `Range` marker have no implementation yet either. Grouping
+is deliberately vertical-only, and `<<Pivot>>` is deliberately neither horizontal nor grouped; each
+says so rather than half-doing it. Acceptance criteria 1 (except nested subranges), 2, 3, 4, 5, 6 and
+11 are met, including both manual Excel checks; 7 is partly met — every built-in tag has tests and a
+bad expression yields a cell error rather than an exception, but the coverage figure has not been
+measured. Criteria 8, 9 and 10 are untouched.
 
 **Manual Excel check: done, 2026-07-30.** The project owner opened both the template and the
 generated report and confirmed they open without a repair dialog and render correctly. That covers
@@ -644,15 +664,20 @@ formula after Task 6 drops it when re-pointing a series, and that Task 7's re-po
 source is one Excel accepts — upstream #200 being a four-year history of pivot output it refuses,
 the validator passing was necessary and not sufficient.
 
-The workbook pair was produced by a throwaway generator, since there is no examples project yet
-(Task 11). It exercises grouping with subtotals and an outline, merged group labels, a per-row
-formula, one conditional-formatting rule over a generated block, a picture below the range, a chart
-series re-pointed from one row to twelve, an area-sourced pivot re-pointed, a table-sourced pivot
-refreshed without being re-pointed, and — added for Task 7b — a `PivotGenerated` sheet that is empty
-in the template and holds a `<<Pivot>>`-built pivot in the report, whose regional totals can be read
-against the drawn pivot's as a check that the two agree. **Task 11 should reproduce that coverage as a
-committed example**, so the same check is repeatable rather than reconstructed from scratch next time
-the file format is touched.
+The workbook pair was produced by a throwaway generator the first time. It is now the
+`EverythingAtOnce` example (Task 11), so the check is repeatable rather than reconstructed from scratch
+next time the write path is touched:
+
+```
+dotnet run --project XLibur.Report.Examples -- EverythingAtOnce --out c:\temp\check
+```
+
+It exercises grouping with subtotals and an outline, merged group labels, a per-row formula, one
+conditional-formatting rule over a generated block, a picture below the range, a chart series
+re-pointed from one row to twelve, an area-sourced pivot re-pointed, a table-sourced pivot refreshed
+without being re-pointed, and a `<<Pivot>>`-generated pivot whose regional totals can be read against
+the drawn one's. It prints what the generated file says when read back, then a thirteen-point checklist
+for Excel — the file being schema-valid is necessary and, per upstream #200, nowhere near sufficient.
 
 ## Risks
 
@@ -736,6 +761,11 @@ Everything here was established by running the code, not by reading it.
 
 `XLibur.Report.Tests/Infrastructure/` holds `WorkbookComparer` (semantic diff),
 `ReportFixture`/`GoldenFile` (fixture runner), `ReportResources` (template files, regeneration).
+
+`XLibur.Report.Examples/` is ten worked examples behind one `ReportExample` base class: an example says
+what its template looks like and what data it binds, and the base class saves the pair, validates both
+and prints what the generated workbook says when read back. `AllExamples.Ordered` is the menu, and
+`ExampleSmokeTests` runs every one of them. See its `README.md`.
 
 ### Running it
 

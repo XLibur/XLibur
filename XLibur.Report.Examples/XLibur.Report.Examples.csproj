@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <RootNamespace>XLibur.Report.Examples</RootNamespace>
+    <Company>XLibur</Company>
+    <!-- Worked examples, linked from the docs. Nothing ships from here. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\.editorconfig" Link=".editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XLibur.Report\XLibur.Report.csproj" />
+    <!--
+      <<ColsFit>> and <<RowsFit>> measure text, which needs a font engine; this is the default
+      one. An example is the first place a reader meets that requirement, so it is here rather
+      than left for them to discover.
+    -->
+    <ProjectReference Include="..\XLibur.Fonts.SkiaSharp\XLibur.Fonts.SkiaSharp.csproj" />
+  </ItemGroup>
+
+</Project>

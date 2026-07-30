@@ -29,6 +29,11 @@
   <ItemGroup>
     <ProjectReference Include="..\XLibur.Report\XLibur.Report.csproj" />
     <ProjectReference Include="..\XLibur.Fonts.SkiaSharp\XLibur.Fonts.SkiaSharp.csproj" />
+    <!--
+      The worked examples are documentation, and documentation that is never executed is eventually
+      wrong. ExampleSmokeTests runs every one of them.
+    -->
+    <ProjectReference Include="..\XLibur.Report.Examples\XLibur.Report.Examples.csproj" />
   </ItemGroup>
 
 </Project>
