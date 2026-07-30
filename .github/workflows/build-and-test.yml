@@ -76,8 +76,8 @@ jobs:
           /o:"xlibur"
           /d:sonar.token="$SONAR_TOKEN"
           /d:sonar.host.url="https://sonarcloud.io"
-          /d:sonar.cs.vscoveragexml.reportsPaths="**/coverage.xml"
-          /d:sonar.coverage.exclusions="XLibur.Examples/**,XLibur.Benchmarks/**"
+          /d:sonar.cs.vscoveragexml.reportsPaths="**/*coverage.xml"
+          /d:sonar.coverage.exclusions="XLibur.Examples/**,XLibur.Benchmarks/**,XLibur.Report.Examples/**,XLibur.Report.Benchmarks/**"
           /d:sonar.cpd.exclusions="XLibur/Excel/CalcEngine/Functions/SignatureAdapter.cs,XLibur/Excel/CalcEngine/Functions/Distributions.cs,XLibur/Excel/CalcEngine/Functions/Regression.cs"
           /d:sonar.issue.ignore.multicriteria=e1
           /d:sonar.issue.ignore.multicriteria.e1.ruleKey=csharpsquid:S3220
@@ -90,6 +90,11 @@ jobs:
       # into the MTP runner, so coverage and TRX options are passed straight through rather
       # than via VSTest data collectors. Coverlet is not compatible with MTP; coverage comes
       # from Microsoft.Testing.Extensions.CodeCoverage in the VS XML format SonarCloud reads.
+      #
+      # A suite that produces coverage must name its file `*coverage.xml` to be picked up by
+      # sonar.cs.vscoveragexml.reportsPaths above. The report suite wrote `report-coverage.xml`
+      # against a glob of `**/coverage.xml`, so its coverage silently never reached SonarCloud
+      # and the quality gate read 0.6% on new code for a package that is in fact at 90%.
       - name: Test
         run: >
           dotnet test XLibur.Tests/XLibur.Tests.csproj

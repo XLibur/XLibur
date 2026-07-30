@@ -703,6 +703,26 @@ baseline that writes the same grid by an ordinary loop, for when two implementat
 one size. A full run takes the better part of an hour, so `scaling` is the instrument to reach for; a
 `phases` mode splits expansion into its copy and evaluate halves, which is what localised finding 10.
 
+**Coverage (criterion 7), 2026-07-30.** Measured by running the suite with the MTP coverage extension:
+
+```
+XLibur.Report.Tests/bin/Release/net10.0/XLibur.Report.Tests.exe --coverage --coverage-output-format cobertura
+```
+
+| Assembly | Line coverage |
+|---|---|
+| **`XLibur.Report`** | **90.1%** |
+| `XLibur.Report.DynamicLinq` | 95.3% |
+| `XLibur.Report.Examples` | 70.4% (documentation; excluded from the gate) |
+
+Criterion 7 asks for ≥ 90% on `XLibur.Report`, so it is met — but only measured at the point the PR's
+quality gate failed, which is worth recording: **SonarCloud had never seen this package's coverage at
+all.** The scanner's `sonar.cs.vscoveragexml.reportsPaths` was `**/coverage.xml` while the report
+suite's CI step writes `report-coverage.xml`, so the gate read 0.6% on new code for a package at 90%.
+The glob is now `**/*coverage.xml`, and `XLibur.Report.Examples`/`.Benchmarks` are added to
+`sonar.coverage.exclusions` alongside their core counterparts. A CI step that produces coverage nobody
+reads is worse than no step, because it reports success.
+
 **Confirmed, not assumed.** Every Scriban property the spec relied on holds: `ScriptMode.ScriptOnly`
 returns typed objects (a `decimal` stays a `decimal`), an identity `MemberRenamer` keeps C# member
 names, relaxed access turns sparse data into blanks, and an uppercase `IF` parses as a function
@@ -750,10 +770,9 @@ it has to be rediscovered.
 - Grouping is deliberately vertical-only, and `<<Pivot>>` deliberately neither horizontal nor grouped;
   each says so rather than half-doing it.
 
-Acceptance criteria 1 (except nested subranges), 2, 3, 4, 5, 6, 8, 9 and 11 are met, including both
-manual Excel checks and the benchmark baseline. Criterion 7 is partly met — every built-in tag has
-tests and a bad expression yields a cell error rather than an exception, but the coverage figure has
-not been measured. Criterion 10 is met except its gauge-corpus clause, as above.
+Acceptance criteria 1 (except nested subranges), 2, 3, 4, 5, 6, 7, 8, 9 and 11 are met, including both
+manual Excel checks, the benchmark baseline and criterion 7's coverage figure (90.1%, above).
+Criterion 10 is met except its gauge-corpus clause, as above.
 
 **Manual Excel check: done, 2026-07-30.** The project owner opened both the template and the
 generated report and confirmed they open without a repair dialog and render correctly. That covers
