@@ -437,10 +437,9 @@ patterns, Scriban↔C#-syntax migration page), and a `XLibur.Report.Examples` pr
 
 PR-sized tasks; each lands green (build + tests) on its own branch per repo ground rules.
 
-**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1–8 and 11 are done. 389 report
-tests green on net8.0 and net10.0, the solution builds clean in Release, and the core suite (11,603
-tests) passes with the chart-reference fix Task 6 needed. Remaining: Tasks 9 and 10. See **Results**
-below.
+**Status (July 2026, branch `feat/spec-12-report-templating`):** Tasks 1–9 and 11 are done; only Task 10
+remains. 410 report tests green on net8.0 and net10.0, the solution builds clean in Release, and the
+core suite (11,603 tests) passes with the chart-reference fix Task 6 needed. See **Results** below.
 
 1. **Scaffold + expression engine.** `XLibur.Report` + `XLibur.Report.Tests` projects, slnx
    entries, CI test wiring, IVT grants (`XLibur` → `XLibur.Report`; `XLibur.Report` →
@@ -472,9 +471,13 @@ below.
    parity (no subranges, no grouping), `<<If>>` at row and range level, and CF
    extend-not-duplicate with rule-count assertions in both directions (the CF half landed in
    Task 3, see finding 2).
-9. **Packaging, docs, benchmark.** NuGet packaging + release pipeline verification,
-   docs-website section, new `XLibur.Report.Benchmarks` project with the `ReportGenerate`
-   benchmark (100K-row grouped report) and baseline numbers recorded here.
+9. **Packaging, docs, benchmark.** **Done** — `XLibur.Report` added to `release.yml`'s pack list and
+   its package verified (three TFMs, XML docs, readme/icon/NOTICE, and exactly two dependencies:
+   `XLibur` and `Scriban`); `docs/report-templating.md` written as the template-language and tag
+   reference and linked from the README; `XLibur.Report.Benchmarks` added with the `ReportGenerate`
+   benchmark plus a `scaling` probe and a `phases` probe. Numbers in Results. There is no docs
+   *site* in this repo — it lives at `xlibur.github.io/XLibur`, a separate repository — so the
+   reference landed in-repo, and that page should be ported from it.
 10. **Compatibility engine (`XLibur.Report.DynamicLinq`).** New package/project, port of
     upstream `FormulaEvaluator` semantics onto `IExpressionEngine`, engine parameterization
     of the shared golden-file fixtures, wholesale port of the upstream gauge corpus as the
@@ -564,16 +567,17 @@ the core library except the one-line IVT grant (Task 1) — no conflicts with op
 
 ## Results
 
-Ten commits on `feat/spec-12-report-templating`, July 2026.
+Eleven commits on `feat/spec-12-report-templating`, July 2026.
 
 **What landed.** `XLibur.Report` (Scriban engine, template model, range expansion in both
 directions, tag framework including grouping, subtotals and conditional inclusion, Excel-function
 bridge, chart reference rewriting, static pivot re-point and refresh, and pivot generation from
-`<<Pivot>>`), `XLibur.Report.Tests` (389 tests) and `XLibur.Report.Examples` (ten worked examples,
-each writing its template and its report). All three are in `XLibur.slnx`; CI builds them and runs the
-suite with coverage.
+`<<Pivot>>`), `XLibur.Report.Tests` (410 tests), `XLibur.Report.Examples` (ten worked examples, each
+writing its template and its report) and `XLibur.Report.Benchmarks` (the `ReportGenerate` benchmark and
+two probes). All four are in `XLibur.slnx`; CI builds them and runs the suite with coverage, and
+`release.yml` packs and publishes `XLibur.Report` with the rest.
 
-**Nine findings that changed the design.**
+**Ten findings that changed the design.**
 
 1. **The temp-sheet buffer was not needed** (Task 3). It is upstream's workaround for ClosedXML's
    slow and lossy row inserts, which spec 05 rewrote. Eight characterization tests established
@@ -639,6 +643,46 @@ suite with coverage.
    is *not* an error, which is the more useful half — a typo in a name is silent, so an empty column is
    the first place to look for one. Worth generalising: writing the documentation is a test of the
    library, and the cheapest one available.
+10. **Generation was super-linear, and the cause was one call per item** (Task 9). The first measurement
+    failed criterion 8 outright: the cost per row roughly doubled between 10,000 rows and 50,000, so a
+    50,000-row report took 20 seconds where linear scaling predicted 3. The `phases` probe localised it
+    with no report code involved at all — `IXLRange.CopyTo` costs more the larger the target worksheet
+    is, independently of how much is being copied, tripling per call over 30,000 rows, while the
+    per-block `CellsUsed` that evaluation walks stayed flat at about a microsecond. Expansion was making
+    one `CopyTo` per item, so the engine inherited the core's curve and squared it. The fix is four
+    lines: fill the inserted slots by repeatedly **doubling** what has already been written rather than
+    copying the template once per item. Every copy is of the *unevaluated* template, so after any number
+    of rounds the filled region is n identical blocks, and doubling is therefore indistinguishable from
+    copying n times — ⌈log₂ n⌉ calls instead of n, sixteen rather than fifty thousand. All 389 existing
+    tests passed unchanged, which is what says the two are equivalent; `BlockCopyingTests` then pinned
+    the boundaries where a doubling round is truncated. The result is flat per-row cost out to 100,000
+    rows and **6.8× faster** at 50,000. Two lessons: the acceptance criterion earned its place, because
+    nothing else in the suite would have caught this; and a per-item call into an API whose cost depends
+    on the total size is worth suspecting before it is worth measuring.
+
+**Benchmark baseline (criterion 8), 2026-07-30.** Ten columns, `XLibur.Report.Benchmarks`, net10.0,
+Release, one run per size:
+
+```
+dotnet run -c Release --project XLibur.Report.Benchmarks -f net10.0 -- scaling
+```
+
+| Template shape | 25K | 50K | 100K | µs/row at 100K | per-row vs 25K |
+|---|---|---|---|---|---|
+| Plain — ten expressions, no tags | 1.3 s | 2.7 s | 5.4 s | 54 | 0.98× |
+| Totalled — three `SUBTOTAL` columns | 1.3 s | 2.6 s | 5.2 s | 52 | 1.03× |
+| **Grouped — one group level, five groups, two totals** | **2.1 s** | **4.1 s** | **8.3 s** | **83** | **0.98×** |
+| GroupedAndSorted — plus a sort inside each group | 2.7 s | 5.6 s | 11.9 s | 119 | 1.09× |
+
+The bolded row is the workload criterion 8 names: **100,000 rows × 10 columns with one group level, in
+8.3 seconds, with per-row cost flat**. Before finding 10's fix the same shape ran at 2.4× the per-row
+cost at 50,000 rows that it did at 10,000 — the criterion was not met and the numbers here are the
+second measurement, not the first.
+
+`ReportGenerateBenchmarks` is the BenchmarkDotNet suite over the same four shapes, with a `HandWritten`
+baseline that writes the same grid by an ordinary loop, for when two implementations need comparing at
+one size. A full run takes the better part of an hour, so `scaling` is the instrument to reach for; a
+`phases` mode splits expansion into its copy and evaluate halves, which is what localised finding 10.
 
 **Confirmed, not assumed.** Every Scriban property the spec relied on holds: `ScriptMode.ScriptOnly`
 returns typed objects (a `decimal` stays a `decimal`), an identity `MemberRenamer` keeps C# member
@@ -646,16 +690,19 @@ names, relaxed access turns sparse data into blanks, and an uppercase `IF` parse
 call despite `if` being a keyword. Scriban also honours a `params` delegate, which is what lets the
 bridge register variadic Excel functions through the one-method engine seam.
 
-**Still open.** Task 9 (packaging, docs-website section, the `ReportGenerate` benchmark) and Task 10
-(the DynamicLinq compatibility engine). Nested vertical subranges are not implemented —
-`RangeBinder` resolves property paths from workbook variables, but a child range inside a parent's rows
-is not yet expanded per parent item. Of the tags the Scope section lists, `Image`, `PageOptions`,
-`Protected`, `Height`, `OnlyValues` and the `Range` marker have no implementation yet either. Grouping
-is deliberately vertical-only, and `<<Pivot>>` is deliberately neither horizontal nor grouped; each
-says so rather than half-doing it. Acceptance criteria 1 (except nested subranges), 2, 3, 4, 5, 6 and
-11 are met, including both manual Excel checks; 7 is partly met — every built-in tag has tests and a
-bad expression yields a cell error rather than an exception, but the coverage figure has not been
-measured. Criteria 8, 9 and 10 are untouched.
+**Still open.** Task 10 (the DynamicLinq compatibility engine) is the only task left. Beyond it:
+expressions are evaluated in **cell values only** — comments, hyperlinks and rich text are in the Scope
+list but not implemented, which writing the docs turned up. Nested vertical subranges are not
+implemented either: `RangeBinder` resolves property paths from workbook variables, but a child range
+inside a parent's rows is not yet expanded per parent item. Of the tags the Scope section lists,
+`Image`, `PageOptions`, `Protected`, `Height`, `OnlyValues` and the `Range` marker have no
+implementation. Grouping is deliberately vertical-only, and `<<Pivot>>` is deliberately neither
+horizontal nor grouped; each says so rather than half-doing it.
+
+Acceptance criteria 1 (except nested subranges), 2, 3, 4, 5, 6, 8, 9 and 11 are met, including both
+manual Excel checks and the benchmark baseline. Criterion 7 is partly met — every built-in tag has
+tests and a bad expression yields a cell error rather than an exception, but the coverage figure has
+not been measured. Criterion 10 is untouched, being Task 10.
 
 **Manual Excel check: done, 2026-07-30.** The project owner opened both the template and the
 generated report and confirmed they open without a repair dialog and render correctly. That covers
@@ -767,6 +814,14 @@ what its template looks like and what data it binds, and the base class saves th
 and prints what the generated workbook says when read back. `AllExamples.Ordered` is the menu, and
 `ExampleSmokeTests` runs every one of them. See its `README.md`.
 
+`XLibur.Report.Benchmarks/` holds three instruments, and which to reach for matters:
+`ScalingProbe` (`-- scaling`) times one generation per row count and reports **cost per row**, which is
+the only cheap way to see the shape of the curve — it is what found and then confirmed the fix for
+finding 10; `ExpansionPhaseProbe` (`-- phases`) splits expansion into its copy and evaluate halves using
+no report code at all, to tell a core-library scaling property from an engine one; and
+`ReportGenerateBenchmarks` is the BenchmarkDotNet suite for comparing implementations at one size, which
+costs the better part of an hour to run in full.
+
 ### Running it
 
 ```
@@ -792,6 +847,12 @@ commands above do. Worth re-checking against a newer SDK before spending time on
 - **`RangeUsed()` defaults to contents.** A cell differing only in style, hyperlink or merge falls
   outside it. `WorkbookComparer` uses `RangeUsed(XLCellsUsedOptions.All)`; two of its own tests
   failed until it did.
+- **`IXLRange.CopyTo` costs more the larger the target worksheet is**, independently of how much is
+  being copied: measured tripling per call over 30,000 rows, by `ExpansionPhaseProbe`, with no report
+  code involved. Any per-item call to it is therefore quadratic in the item count — which is what
+  finding 10 was. Copy in as few calls as the work allows. **This looks like a core-library scaling
+  defect worth a spec of its own**: the report package now works around it, but anything else calling
+  `CopyTo` in a loop over a large sheet has the same problem and no reason to suspect it.
 - **Calling a calc-engine function**: `FunctionDefinition.CallFunction(CalcContext, Span<AnyValue>)`.
   Construct `new CalcContext(engine, culture, workbook: null, worksheet: null, formulaAddress: null)`
   for a no-grid evaluation; functions needing a grid throw `MissingContextException`

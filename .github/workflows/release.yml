@@ -1,7 +1,8 @@
 name: Release
 
 # All packages version in lockstep from the `v*` tag, so one tag releases the
-# whole set: XLibur, XLibur.Bundle, and the three font engine packages.
+# whole set: XLibur, XLibur.Bundle, the three font engine packages, and
+# XLibur.Report.
 on:
   push:
     tags: ['v*']
@@ -59,7 +60,7 @@ jobs:
 
       - name: Pack
         run: |
-          for project in XLibur XLibur.Fonts.SixLabors.V1 XLibur.Bundle XLibur.Fonts.SixLabors XLibur.Fonts.SkiaSharp; do
+          for project in XLibur XLibur.Fonts.SixLabors.V1 XLibur.Bundle XLibur.Fonts.SixLabors XLibur.Fonts.SkiaSharp XLibur.Report; do
             echo "::group::Pack $project"
             dotnet pack "$project/$project.csproj" --configuration Release --no-build --output ./artifacts
             echo "::endgroup::"

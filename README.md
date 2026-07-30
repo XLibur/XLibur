@@ -104,6 +104,25 @@ See [docs/font-architecture.md](docs/font-architecture.md) for the full design.
 XLibur documentation lives at [xlibur.github.io/XLibur](https://xlibur.github.io/XLibur/) — start with
 the [Getting Started](https://xlibur.github.io/XLibur/getting-started) guide.
 
+## Report templating
+
+`XLibur.Report` generates reports from `.xlsx` templates: author the report in Excel — placeholder
+expressions, a defined name over the rows to repeat, tag markers for totals and grouping — bind .NET
+data to it, and generate the finished workbook. Charts, pivot tables and pictures survive range
+expansion, which is the part comparable libraries do not do.
+
+```csharp
+using var template = new XLTemplate("SalesReport.xlsx");
+template.AddVariable("Company", "Contoso");
+template.AddVariable("Sales", sales);
+template.Generate();
+template.SaveAs("SalesReport-2026.xlsx");
+```
+
+See [docs/report-templating.md](docs/report-templating.md) for the template language and the tag
+reference, and [XLibur.Report.Examples](XLibur.Report.Examples/README.md) for ten worked examples that
+each write both their template and their generated report.
+
 ## Usage
 
 XLibur lets you create and manipulate Excel files without Excel installed — a common use case is generating reports on a web server.
@@ -129,6 +148,7 @@ Run the test suite:
 
 ```sh
 dotnet test XLibur.Tests/XLibur.Tests.csproj
+dotnet test XLibur.Report.Tests/XLibur.Report.Tests.csproj
 ```
 
 Published benchmark results are available at

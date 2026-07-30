@@ -116,14 +116,7 @@ internal sealed class RangeExpander
             axis.InsertSlotsAfter(sheet, dataLastSlot, extraSlots);
         }
 
-        // Every copy is taken from the still-unevaluated template block, so each item's slots start
-        // from the same source; evaluation happens afterwards, once per block.
-        var template = RangeAxis.Range(sheet, axis.Slots(area, firstSlot, dataLastSlot));
-        for (var i = 1; i < items.Count; i++)
-        {
-            var blockFirstSlot = firstSlot + (i * slotsPerItem);
-            template.CopyTo(axis.Cell(sheet, blockFirstSlot, axis.FirstLine(area)));
-        }
+        FillWithCopiesOfTemplate(sheet, axis, area, firstSlot, slotsPerItem, items.Count);
 
         for (var i = 0; i < items.Count; i++)
         {
@@ -270,6 +263,53 @@ internal sealed class RangeExpander
         var rendered = axis.Slots(area, firstSlot, firstSlot - 1);
 
         return new ExpansionRecord(sheet, area, rendered, axis, -(lastToDelete - firstSlot + 1));
+    }
+
+    /// <summary>
+    /// Fills the inserted slots with copies of the template block, by repeatedly doubling what has
+    /// already been written rather than copying the template once per item.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The two are interchangeable because every copy is taken from the <em>unevaluated</em> template:
+    /// after any number of copies the filled region is n identical blocks, so copying the first k of
+    /// them onto the end is the same as copying the template k times. Evaluation happens afterwards,
+    /// once per item, and is unaffected.
+    /// </para>
+    /// <para>
+    /// It matters because <c>CopyTo</c> costs more the larger the target worksheet is — measurably, and
+    /// independently of how much is being copied: <c>ExpansionPhaseProbe</c> shows the per-call cost
+    /// tripling over 30,000 rows with no report code involved. One call per item therefore made
+    /// generation super-linear in the row count, which was the one thing spec 12's benchmark criterion
+    /// asked it not to be. Doubling makes it ⌈log₂ n⌉ calls — sixteen for fifty thousand rows instead of
+    /// fifty thousand — and the same total number of cells copied.
+    /// </para>
+    /// </remarks>
+    private static void FillWithCopiesOfTemplate(
+        IXLWorksheet sheet,
+        RangeAxis axis,
+        RangeArea area,
+        int firstSlot,
+        int slotsPerItem,
+        int itemCount)
+    {
+        var line = axis.FirstLine(area);
+        var filled = 1;
+
+        while (filled < itemCount)
+        {
+            // The last round copies only as many blocks as are still wanted, so the region never
+            // overshoots the slots that were inserted for it.
+            var copies = System.Math.Min(filled, itemCount - filled);
+
+            var source = RangeAxis.Range(
+                sheet,
+                axis.Slots(area, firstSlot, firstSlot + (copies * slotsPerItem) - 1));
+
+            source.CopyTo(axis.Cell(sheet, firstSlot + (filled * slotsPerItem), line));
+
+            filled += copies;
+        }
     }
 
     private void EvaluateBlock(IXLWorksheet sheet, RangeArea block, ExpressionScope scope)
