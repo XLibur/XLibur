@@ -28,7 +28,7 @@ internal static class PivotTableDefinitionPartWriter2
         xml.WriteStartElement("pivotTableDefinition", Main2006SsNs);
         xml.WriteAttributeString("xmlns", Main2006SsNs);
 
-        WritePivotTableAttributes(xml, pt);
+        WritePivotTableAttributes(xml, pt, context);
 
         // Location
         xml.WriteStartElement("location", Main2006SsNs);
@@ -73,10 +73,10 @@ internal static class PivotTableDefinitionPartWriter2
         xml.Close();
     }
 
-    private static void WritePivotTableAttributes(XmlWriter xml, XLPivotTable pt)
+    private static void WritePivotTableAttributes(XmlWriter xml, XLPivotTable pt, SaveContext context)
     {
         xml.WriteAttribute("name", pt.Name);
-        xml.WriteAttribute("cacheId", pt.PivotCache.CacheId!.Value); // TODO: Maybe not nullable?
+        xml.WriteAttribute("cacheId", context.GetPivotCacheId(pt.PivotCache));
         xml.WriteAttributeDefault("dataOnRows", pt.DataOnRows, false);
         xml.WriteAttributeOptional("dataPosition", pt.DataPosition);
         xml.WriteAttributeOptional("autoFormatId", pt.AutoFormatId);

@@ -23,7 +23,7 @@ public partial class XLWorkbook
             SharedStyles = new Dictionary<XLStyleValue, StyleInfo>();
             TableId = 0;
             TableNames = [];
-            PivotSourceCacheId = 0;
+            PivotCacheIds = new Dictionary<XLPivotCache, uint>();
         }
 
         public Dictionary<XLStyleValue, int> DifferentialFormats { get; private set; }
@@ -41,11 +41,12 @@ public partial class XLWorkbook
         public HashSet<string> TableNames { get; private set; }
 
         /// <summary>
-        /// A free id that can be used by the workbook to reference to a pivot cache.
-        /// The <c>PivotCaches</c> element in a workbook connects the parts with pivot
-        /// cache parts.
+        /// The id each pivot cache is written under, assigned while the <c>pivotCaches</c>
+        /// element of workbook.xml is rebuilt and read back when each pivot table part writes
+        /// its <c>cacheId</c> attribute. The id is a position in that rebuilt element, so it
+        /// belongs to the save rather than to the cache, and is only meaningful within one.
         /// </summary>
-        public uint PivotSourceCacheId { get; set; }
+        public Dictionary<XLPivotCache, uint> PivotCacheIds { get; private set; }
 
         /// <summary>
         /// A map of shared string ids. The index is the actual index from sharedStringId, and
@@ -76,6 +77,24 @@ public partial class XLWorkbook
             }
 
             return sharedStringId;
+        }
+
+        /// <summary>
+        /// The id <paramref name="pivotCache"/> is written under. Every cache reachable from a
+        /// pivot table is registered while <c>pivotCaches</c> is rebuilt, which happens before
+        /// any pivot table part is written, so a miss means the two have gone out of step.
+        /// </summary>
+        internal uint GetPivotCacheId(XLPivotCache pivotCache)
+        {
+            if (!PivotCacheIds.TryGetValue(pivotCache, out var cacheId))
+            {
+                throw new UnreachableException(
+                    "Pivot cache was not assigned an id while the workbook pivotCaches element was rebuilt. " +
+                    "Every cache used by a pivot table is registered there before any pivot table part is " +
+                    "written, so the pivot table being written references a cache the workbook does not list.");
+            }
+
+            return cacheId;
         }
 
         internal int? GetNumberFormat(XLNumberFormatValue? numberFormat)
