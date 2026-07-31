@@ -132,7 +132,7 @@
 
 #### Copying and clearing ranges
 
-- **`IXLRange.CopyTo` no longer gets slower as the sheet fills up** ([#271](https://github.com/XLibur/XLibur/issues/271)): copying a range in a loop was quadratic in the number of copies, so the natural way to expand a template — one `CopyTo` per generated row — degraded badly. On a 30,000-row sheet with no data validations at all, a 1×10 `CopyTo` cost ~420 µs against ~160 µs on the same sheet when nearly empty; it is now ~13 µs and flat. Three things were at fault, all fixed:
+- **`IXLRange.CopyTo` no longer gets slower as the sheet fills up** ([#271](https://github.com/XLibur/XLibur/issues/271), [#303](https://github.com/XLibur/XLibur/pull/303) by [@jafin](https://github.com/jafin)): copying a range in a loop was quadratic in the number of copies, so the natural way to expand a template — one `CopyTo` per generated row — degraded badly. On a 30,000-row sheet with no data validations at all, a 1×10 `CopyTo` cost ~420 µs against ~160 µs on the same sheet when nearly empty; it is now ~13 µs and flat. Three things were at fault, all fixed:
 
   - `Clear(XLClearOptions.All)`, which `CopyTo` runs over its target first, created a data validation covering the target and immediately deleted it *on every call*, even with no validations on the sheet. Going through `Add`/`Delete` is what splits an overlapping rule so only the cleared cells lose their validation, so it is still done when a rule actually overlaps — and skipped when none does. `XLCell.Clear` already guarded this way.
   - A range index promoted itself from a flat list to a QuadTree after 20 `Add` calls rather than 20 live entries, so a collection that only ever held one range at a time still built a tree.
