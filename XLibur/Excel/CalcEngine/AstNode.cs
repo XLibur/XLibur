@@ -2,11 +2,14 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using ClosedXML.Parser;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel.CalcEngine;
 
 /// <summary>
-/// Base class for all AST nodes. All AST nodes must be immutable.
+/// Base class for all AST nodes. All AST nodes must be observably immutable: a node may
+/// memoise something it derives from its own state (see <see cref="ReferenceNode"/>), but
+/// nothing a visitor can see may change after construction.
 /// </summary>
 internal abstract class AstNode
 {
@@ -257,6 +260,19 @@ internal sealed class PrefixNode : AstNode
 /// </summary>
 internal sealed class ReferenceNode : ValueNode
 {
+    /// <summary>
+    /// Resolved reference for the sheet-less form. The address does not depend on anything
+    /// outside the node, so once built it is valid for the node's lifetime.
+    /// </summary>
+    private Reference? _sheetlessReference;
+
+    /// <summary>
+    /// Resolved reference for the prefixed form, together with the sheet it was resolved
+    /// against. A single field rather than two so a reader can never observe a new sheet
+    /// paired with the previous sheet's address.
+    /// </summary>
+    private SheetReference? _sheetReference;
+
     public ReferenceNode(PrefixNode? prefix, ReferenceArea referenceArea, bool isA1)
     {
         Prefix = prefix;
@@ -290,14 +306,79 @@ internal sealed class ReferenceNode : ValueNode
     public AnyValue GetReference(CalcContext ctx)
     {
         if (Prefix is null)
-            return new Reference(new XLRangeAddress(null, Address));
+            return _sheetlessReference ??= new Reference(BuildAddress(null));
 
         if (!Prefix.GetWorksheet(ctx.Workbook).TryPickT0(out var ws, out var err))
             return err;
 
-        // TODO: XLRangeAddress can parse all types of reference item type, utilize known type for faster parsing + cache
-        return new Reference(new XLRangeAddress((XLWorksheet)ws, Address));
+        // ASTs are shared between every cell holding the same formula text (see
+        // ExpressionCache), and recalculation re-resolves every reference, so the same node
+        // is resolved many times and almost always against the same sheet. Keyed on the
+        // resolved sheet rather than cached outright: a rename or a delete-and-re-add changes
+        // which sheet the prefix resolves to, and that must not serve the previous address.
+        var sheet = (XLWorksheet)ws;
+        var cached = _sheetReference;
+        if (cached is not null && ReferenceEquals(cached.Sheet, sheet))
+            return cached.Reference;
+
+        var reference = new Reference(BuildAddress(sheet));
+        _sheetReference = new SheetReference(sheet, reference);
+        return reference;
     }
+
+    /// <summary>
+    /// Build the range address from the <see cref="ReferenceArea"/> the parser produced,
+    /// rather than by re-parsing <see cref="Address"/> — which the constructor generated from
+    /// that same area, so parsing it only recovers what is already known.
+    /// </summary>
+    /// <remarks>
+    /// Only the A1 form is handled. <see cref="IsA1"/> is <c>false</c> only for ASTs built to
+    /// rewrite R1C1 formula text, and those are never evaluated: the only caller that reaches
+    /// here is <see cref="XLCalcEngine.Parse"/>, which always parses as A1. The previous
+    /// string-parsing implementation could not resolve R1C1 either — <see cref="XLRangeAddress"/>
+    /// does not parse that syntax — so this narrows nothing.
+    /// </remarks>
+    private XLRangeAddress BuildAddress(XLWorksheet? sheet)
+    {
+        var first = ReferenceArea.First;
+        var second = ReferenceArea.Second;
+
+        // An axis of type None means the other axis carries the reference (A:B has no row,
+        // 1:5 has no column), so the missing axis spans the whole sheet.
+        var (row1, fixedRow1) = Axis(first.RowType, first.RowValue, XLHelper.MinRowNumber);
+        var (col1, fixedCol1) = Axis(first.ColumnType, first.ColumnValue, XLHelper.MinColumnNumber);
+        var (row2, fixedRow2) = Axis(second.RowType, second.RowValue, XLHelper.MaxRowNumber);
+        var (col2, fixedCol2) = Axis(second.ColumnType, second.ColumnValue, XLHelper.MaxColumnNumber);
+
+        // The endpoints need not be the top-left and bottom-right corners (D4:A1, D1:A4), but
+        // Reference requires a normalized address. Each axis is ordered independently, with
+        // the fixed flag travelling with the coordinate it belongs to.
+        if (row1 > row2)
+        {
+            (row1, row2) = (row2, row1);
+            (fixedRow1, fixedRow2) = (fixedRow2, fixedRow1);
+        }
+
+        if (col1 > col2)
+        {
+            (col1, col2) = (col2, col1);
+            (fixedCol1, fixedCol2) = (fixedCol2, fixedCol1);
+        }
+
+        return new XLRangeAddress(
+            new XLAddress(sheet, row1, col1, fixedRow1, fixedCol1),
+            new XLAddress(sheet, row2, col2, fixedRow2, fixedCol2));
+    }
+
+    private static (int Position, bool Fixed) Axis(ReferenceAxisType axisType, int value, int absent) => axisType switch
+    {
+        ReferenceAxisType.Absolute => (value, true),
+        ReferenceAxisType.Relative => (value, false),
+        ReferenceAxisType.None => (absent, false),
+        _ => throw new NotSupportedException($"Unknown reference axis type {axisType}."),
+    };
+
+    private sealed record SheetReference(XLWorksheet Sheet, Reference Reference);
 }
 
 /// <summary>
