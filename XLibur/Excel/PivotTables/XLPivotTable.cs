@@ -24,6 +24,7 @@ internal sealed class XLPivotTable : IXLPivotTable
     private readonly List<XLPivotFormat> _formats = new();
     private readonly List<XLPivotConditionalFormat> _conditionalFormats = new();
     private readonly List<XLPivotChartFormat> _chartFormats = new();
+    private readonly List<XLPivotFilter> _pivotFilters = new();
     private XLPivotCache _cache;
     private int _filterFieldsPageWrap;
     private bool _outline = true;
@@ -127,6 +128,12 @@ internal sealed class XLPivotTable : IXLPivotTable
     internal IReadOnlyList<XLPivotConditionalFormat> ConditionalFormats => _conditionalFormats;
 
     internal IReadOnlyList<XLPivotChartFormat> ChartFormats => _chartFormats;
+
+    /// <summary>
+    /// Label, value, date and top-N filters on the pivot fields. Not the report-filter axis,
+    /// which is <see cref="Filters"/>.
+    /// </summary>
+    internal IReadOnlyList<XLPivotFilter> PivotFilters => _pivotFilters;
 
     public IXLPivotTable CopyTo(IXLCell targetCell)
     {
@@ -818,6 +825,11 @@ internal sealed class XLPivotTable : IXLPivotTable
     internal void AddChartFormat(XLPivotChartFormat chartFormat)
     {
         _chartFormats.Add(chartFormat);
+    }
+
+    internal void AddPivotFilter(XLPivotFilter pivotFilter)
+    {
+        _pivotFilters.Add(pivotFilter);
     }
 
     #region location

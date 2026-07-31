@@ -130,7 +130,8 @@ internal static class PivotTableDefinitionPartReader
         var pivotTableStyle = pivotTable.GetFirstChild<PivotTableStyle>();
         LoadPivotTableStyle(pivotTableStyle, xlPivotTable);
 
-        // TODO: filters
+        LoadPivotFilters(pivotTable.PivotFilters, xlPivotTable);
+
         // rowHierarchiesUsage is OLAP and thus for now out of scope.
         // colHierarchiesUsage is OLAP and thus for now out of scope.
         LoadExtensionList(pivotTable, xlPivotTable);
@@ -221,6 +222,43 @@ internal static class PivotTableDefinitionPartReader
                 Series = series,
             };
             xlPivotTable.AddChartFormat(xlChartFormat);
+        }
+    }
+
+    /// <summary>
+    /// Load the <c>filters</c> collection — the label, value, date and top-N filters applied to
+    /// pivot fields. Not the report-filter axis, which is <c>pageFields</c> and is loaded above.
+    /// </summary>
+    private static void LoadPivotFilters(PivotFilters? pivotFilters, XLPivotTable xlPivotTable)
+    {
+        if (pivotFilters is null)
+            return;
+
+        foreach (var pivotFilter in pivotFilters.Cast<PivotFilter>())
+        {
+            var field = pivotFilter.Field?.Value ?? throw PartStructureException.MissingAttribute();
+            var id = pivotFilter.Id?.Value ?? throw PartStructureException.MissingAttribute();
+
+            // The type token is kept as written rather than mapped to an enum: XLibur does not
+            // act on it, and a token survives a value a newer Excel introduced.
+            var type = pivotFilter.Type?.InnerText ?? throw PartStructureException.MissingAttribute();
+
+            // autoFilter is required by the schema and is a sub-tree in its own right, so it is
+            // carried through verbatim instead of being modelled.
+            var autoFilter = pivotFilter.AutoFilter ?? throw PartStructureException.ExpectedElementNotFound();
+
+            var xlPivotFilter = new XLPivotFilter(field, id, type, autoFilter.OuterXml)
+            {
+                EvaluationOrder = pivotFilter.EvaluationOrder?.Value ?? 0,
+                MemberPropertyField = pivotFilter.MemberPropertyFieldId?.Value,
+                MeasureHierarchy = pivotFilter.MeasureHierarchy?.Value,
+                MeasureField = pivotFilter.MeasureField?.Value,
+                Name = pivotFilter.Name?.Value,
+                Description = pivotFilter.Description?.Value,
+                StringValue1 = pivotFilter.StringValue1?.Value,
+                StringValue2 = pivotFilter.StringValue2?.Value,
+            };
+            xlPivotTable.AddPivotFilter(xlPivotFilter);
         }
     }
 

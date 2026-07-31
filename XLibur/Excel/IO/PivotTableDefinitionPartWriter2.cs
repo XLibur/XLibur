@@ -53,6 +53,7 @@ internal static class PivotTableDefinitionPartWriter2
         WriteConditionalFormats(xml, pt);
         WriteChartFormats(xml, pt);
         WritePivotTableStyleInfo(xml, pt);
+        WritePivotFilters(xml, pt);
 
         // Because extensions are pretty large, always write them.
         xml.WriteStartElement("extLst");
@@ -438,6 +439,43 @@ internal static class PivotTableDefinitionPartWriter2
         }
 
         xml.WriteEndElement(); // chartFormats
+    }
+
+    /// <summary>
+    /// Write the <c>filters</c> collection. Sits after <c>pivotTableStyleInfo</c>, which is
+    /// where the schema sequence puts it — not next to <c>formats</c>, despite the name.
+    /// </summary>
+    private static void WritePivotFilters(XmlWriter xml, XLPivotTable pt)
+    {
+        if (pt.PivotFilters.Count == 0)
+            return;
+
+        xml.WriteStartElement("filters", Main2006SsNs);
+        xml.WriteAttribute("count", pt.PivotFilters.Count);
+        foreach (var pivotFilter in pt.PivotFilters)
+        {
+            xml.WriteStartElement("filter", Main2006SsNs);
+
+            // fld, id and type are required, so they are written even at their default value.
+            xml.WriteAttribute("fld", pivotFilter.Field);
+            xml.WriteAttributeOptional("mpFld", pivotFilter.MemberPropertyField);
+            xml.WriteAttribute("type", pivotFilter.Type);
+            xml.WriteAttributeDefault("evalOrder", pivotFilter.EvaluationOrder, 0);
+            xml.WriteAttribute("id", pivotFilter.Id);
+            xml.WriteAttributeOptional("iMeasureHier", pivotFilter.MeasureHierarchy);
+            xml.WriteAttributeOptional("iMeasureFld", pivotFilter.MeasureField);
+            xml.WriteAttributeOptional("name", pivotFilter.Name);
+            xml.WriteAttributeOptional("description", pivotFilter.Description);
+            xml.WriteAttributeOptional("stringValue1", pivotFilter.StringValue1);
+            xml.WriteAttributeOptional("stringValue2", pivotFilter.StringValue2);
+
+            // Written back exactly as it was read. See XLPivotFilter.AutoFilterXml.
+            xml.WriteRaw(pivotFilter.AutoFilterXml);
+
+            xml.WriteEndElement(); // filter
+        }
+
+        xml.WriteEndElement(); // filters
     }
 
     private static void WriteConditionalFormats(XmlWriter xml, XLPivotTable pt)
