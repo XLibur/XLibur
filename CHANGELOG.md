@@ -126,6 +126,10 @@
 
 - **Repeated access to the same cell is cheaper**: `ws.Cell(r, c)` minted a fresh `XLCell` every call, so the per-object style cache never hit and a `.Style` access threw away an 80-byte `XLStyle` one statement later. A small direct-mapped cache now hands back the same wrapper for the same address. ([#185](https://github.com/XLibur/XLibur/pull/185) by [@jafin](https://github.com/jafin))
 
+#### Formula engine
+
+- **The Excel function table is built once per process instead of once per calc engine** — about 70 KB and 0.12 ms back on every engine constructed, which is one per workbook that touches a formula plus a fresh one on some internal evaluation paths. Opening a workbook allocates 644 → 574 KB. The ~400-entry table is the same whatever the culture (a function takes its culture from the calculation context, not from the engine holding it) and nothing mutates it after it is built, so the per-engine copy only ever bought a private duplicate of a constant. ([#276](https://github.com/XLibur/XLibur/issues/276) by [@jafin](https://github.com/jafin))
+
 #### Styling
 
 - **86% fewer allocations styling a range, row or column in bulk** (~234 → ~33 bytes per cell): setting a style on a container collected every child cell into a `HashSet` of wrappers before writing anything. Containers that can enumerate exactly those cells now walk the addresses and write the style slice directly. ([#185](https://github.com/XLibur/XLibur/pull/185) by [@jafin](https://github.com/jafin))

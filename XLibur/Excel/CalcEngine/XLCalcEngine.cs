@@ -62,7 +62,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     {
         _culture = culture;
         _cache = new ExpressionCache(this);
-        var funcRegistry = GetFunctionTable();
+        var funcRegistry = FunctionTable;
         Functions = funcRegistry;
         _parser = new FormulaParser(funcRegistry);
         _visitor = new CalculationVisitor(funcRegistry);
@@ -616,7 +616,19 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         return result;
     }
 
-    // build/get static keyword table
+    /// <summary>
+    /// The function table, built once for the process and shared by every engine.
+    /// </summary>
+    /// <remarks>
+    /// The table is the same ~400 entries whatever the culture — a <see cref="FunctionDefinition"/>
+    /// takes its culture from the <see cref="CalcContext"/> it is called with, not from the engine
+    /// that holds it — so building one per engine only bought a private copy of a constant. Sharing
+    /// it is safe for exactly as long as it stays read-only after this returns: nothing calls
+    /// <see cref="FunctionRegistry.RegisterFunction"/> outside the registrations below, and a
+    /// per-engine function would have to go somewhere other than here.
+    /// </remarks>
+    private static readonly FunctionRegistry FunctionTable = GetFunctionTable();
+
     private static FunctionRegistry GetFunctionTable()
     {
         var fr = new FunctionRegistry();
