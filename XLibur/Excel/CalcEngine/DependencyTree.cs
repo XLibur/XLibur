@@ -95,7 +95,9 @@ internal sealed class DependencyTree
                         tree.AddFormula(bookArea, formula, workbook);
                     }
                 }
-                // TODO: Implement other formulas. Don't throw on data table or shared formulas.
+                // TODO: Register data-table formulas too. They are skipped, so their dependents
+                // fall back to a full recalculation (see XLCalcEngine.TryEvaluateSingleCell).
+                // FormulaType.Shared is never produced, so it needs no handling here.
             }
         }
 

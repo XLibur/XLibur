@@ -44,7 +44,6 @@ internal readonly struct SheetPoint : IEquatable<SheetPoint>
     {
     }
 
-    /// TODO: SheetId doesn't work nicely with renames, but will in the future.
     /// <summary>
     /// A sheet id of a point. Id of a sheet never changes during workbook
     /// lifecycle (<see cref="XLWorksheet.SheetId"/>), but the sheet may be
