@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Scriban.Runtime;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.CalcEngine.Exceptions;
@@ -29,6 +31,13 @@ namespace XLibur.Report.Functions;
 /// report that they were called outside a worksheet rather than returning something misleading.
 /// Cell references belong in real Excel formulas, which generation expands and Excel evaluates.
 /// </para>
+/// <para>
+/// Registration is built once per culture and shared by every template. It has to be: importing
+/// the ~400 functions into a Scriban <see cref="ScriptObject"/> costs about 30 KB each, which made
+/// constructing an <see cref="XLTemplate"/> allocate some 12 MB — more than nine tenths of what
+/// generating a small report allocated in total, and twenty times the cost of opening the template
+/// workbook. Sharing the imported object turns that into one <c>PushGlobal</c>.
+/// </para>
 /// </remarks>
 internal static class ExcelFunctionBridge
 {
@@ -36,7 +45,20 @@ internal static class ExcelFunctionBridge
     internal delegate object? ExcelFunction(params object?[] arguments);
 
     /// <summary>
-    /// Registers every function the calc engine knows about with <paramref name="engine"/>.
+    /// The adapters for one culture, and — for the default engine — those same adapters already
+    /// imported into a Scriban globals object.
+    /// </summary>
+    /// <remarks>
+    /// Keyed by culture because the adapters close over the one they convert arguments with.
+    /// In practice this holds a single entry: <see cref="XLTemplate"/> registers under the
+    /// invariant culture, matching <see cref="ScribanExpressionEngine"/>'s own default.
+    /// </remarks>
+    private static readonly ConcurrentDictionary<CultureInfo, IReadOnlyList<(string Name, Delegate Function)>> Adapters = new();
+
+    private static readonly ConcurrentDictionary<CultureInfo, ScriptObject> ScribanGlobals = new();
+
+    /// <summary>
+    /// Makes every function the calc engine knows about callable from <paramref name="engine"/>.
     /// Engines that cannot host functions are left alone.
     /// </summary>
     public static void Register(IExpressionEngine engine, CultureInfo? culture = null)
@@ -47,7 +69,52 @@ internal static class ExcelFunctionBridge
         }
 
         culture ??= CultureInfo.InvariantCulture;
+
+        // The default engine takes the whole library as one shared globals object rather than
+        // ~400 separate imports, which is the entire cost of this bridge.
+        if (engine is ScribanExpressionEngine scriban)
+        {
+            scriban.UseExcelFunctions(ScribanGlobals.GetOrAdd(culture, BuildScribanGlobals));
+            return;
+        }
+
+        // Any other engine — XLibur.Report.DynamicLinq, or a caller's own — is fed one at a time
+        // through the interface. The adapters themselves are still shared.
+        foreach (var (name, function) in AdaptersFor(culture))
+        {
+            engine.AddFunction(name, function);
+        }
+    }
+
+    private static ScriptObject BuildScribanGlobals(CultureInfo culture)
+    {
+        var globals = new ScriptObject();
+
+        foreach (var (name, function) in AdaptersFor(culture))
+        {
+            globals.Import(name, function);
+        }
+
+        return globals;
+    }
+
+    private static IReadOnlyList<(string Name, Delegate Function)> AdaptersFor(CultureInfo culture) =>
+        Adapters.GetOrAdd(culture, BuildAdapters);
+
+    /// <summary>
+    /// One adapter per registered function, closing over a single calc engine.
+    /// </summary>
+    /// <remarks>
+    /// Sharing that engine across templates — and so across threads — is safe because these calls
+    /// have no grid: <see cref="CalcContext.CalcEngine"/> is reached only when reading a cell, which
+    /// needs a worksheet, and without one the call has already failed with the
+    /// <see cref="MissingContextException"/> translated below. The engine is here to be handed to a
+    /// <see cref="CalcContext"/>, not to hold state for the call.
+    /// </remarks>
+    private static IReadOnlyList<(string Name, Delegate Function)> BuildAdapters(CultureInfo culture)
+    {
         var calcEngine = new XLCalcEngine(culture);
+        var adapters = new List<(string Name, Delegate Function)>();
 
         foreach (var name in calcEngine.Functions.Names)
         {
@@ -57,10 +124,12 @@ internal static class ExcelFunctionBridge
             }
 
             var function = definition;
-            engine.AddFunction(
+            adapters.Add((
                 name.ToUpperInvariant(),
-                new ExcelFunction(arguments => Invoke(calcEngine, function, culture, arguments)));
+                new ExcelFunction(arguments => Invoke(calcEngine, function, culture, arguments))));
         }
+
+        return adapters;
     }
 
     private static object? Invoke(

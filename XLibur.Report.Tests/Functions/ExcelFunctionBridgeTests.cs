@@ -187,6 +187,71 @@ public class ExcelFunctionBridgeTests
         await Assert.That(engine.AddFunctionCalls).IsEqualTo(0);
     }
 
+    /// <summary>
+    /// The default engine is handed the library as one shared object, but any other engine — the
+    /// DynamicLinq one, or a caller's own — still receives it a function at a time through
+    /// <see cref="IExpressionEngine.AddFunction"/>.
+    /// </summary>
+    [Test]
+    public async Task OtherEnginesAreStillGivenEachFunction()
+    {
+        var engine = new RecordingEngine();
+
+        ExcelFunctionBridge.Register(engine);
+
+        await Assert.That(engine.Names).Contains("SUM");
+        await Assert.That(engine.Names).Contains("UPPER");
+        await Assert.That(engine.Names.Count).IsGreaterThan(100);
+    }
+
+    [Test]
+    public async Task AFunctionAddedToTheEngineShadowsTheExcelOne()
+    {
+        var engine = BridgedEngine();
+        engine.AddFunction("UPPER", new Func<string, string>(_ => "shadowed"));
+
+        var result = engine.Evaluate("UPPER(\"contoso\")", ExpressionScope.Empty);
+
+        await Assert.That(result).IsEqualTo("shadowed");
+    }
+
+    /// <summary>
+    /// The Excel library is one object shared by every engine, so an engine that shadows a function
+    /// must not be writing into it. This is the test that would catch that: a second engine has to
+    /// still see the real UPPER.
+    /// </summary>
+    [Test]
+    public async Task ShadowingAFunctionDoesNotAffectAnotherEngine()
+    {
+        var shadowed = BridgedEngine();
+        shadowed.AddFunction("UPPER", new Func<string, string>(_ => "shadowed"));
+
+        var untouched = BridgedEngine();
+        var result = untouched.Evaluate("UPPER(\"contoso\")", ExpressionScope.Empty);
+
+        await Assert.That(result).IsEqualTo("CONTOSO");
+    }
+
+    [Test]
+    public async Task ABoundVariableShadowsAFunctionOfTheSameName()
+    {
+        var result = BridgedEngine().Evaluate("SUM", Scope(("SUM", "a variable")));
+
+        await Assert.That(result).IsEqualTo("a variable");
+    }
+
+    /// <summary>Every engine gets the library, not just the first one to ask for it.</summary>
+    [Test]
+    public async Task EachEngineGetsTheLibrary()
+    {
+        for (var i = 0; i < 3; i++)
+        {
+            var result = BridgedEngine().Evaluate("SUM(1, 2, 3)", ExpressionScope.Empty);
+
+            await Assert.That(Number(result)).IsEqualTo(6d);
+        }
+    }
+
     private sealed class FunctionlessEngine : IExpressionEngine
     {
         public int AddFunctionCalls { get; private set; }
@@ -198,5 +263,18 @@ public class ExcelFunctionBridgeTests
         public string Interpolate(string text, ExpressionScope scope) => text;
 
         public void AddFunction(string name, Delegate function) => AddFunctionCalls++;
+    }
+
+    private sealed class RecordingEngine : IExpressionEngine
+    {
+        public List<string> Names { get; } = new();
+
+        public bool SupportsFunctions => true;
+
+        public object? Evaluate(string expression, ExpressionScope scope) => null;
+
+        public string Interpolate(string text, ExpressionScope scope) => text;
+
+        public void AddFunction(string name, Delegate function) => Names.Add(name);
     }
 }

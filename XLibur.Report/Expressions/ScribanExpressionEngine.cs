@@ -42,6 +42,7 @@ public sealed class ScribanExpressionEngine : IExpressionEngine
     private readonly ConditionalWeakTable<ExpressionScope, ScriptObject> _scopeObjects = new();
     private readonly ScriptObject _functions = new();
     private readonly CultureInfo _culture;
+    private ScriptObject? _excelFunctions;
     private TemplateContext? _context;
 
     /// <summary>Creates an engine evaluating under <paramref name="culture"/>, invariant by default.</summary>
@@ -64,6 +65,25 @@ public sealed class ScribanExpressionEngine : IExpressionEngine
         }
 
         _functions.Import(name, function);
+    }
+
+    /// <summary>
+    /// Adopts a prepared set of Excel functions, shared with every other engine registered for the
+    /// same culture rather than imported one at a time into this one.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="functions"/> is read-only and shared, so it goes on the stack *below*
+    /// <see cref="_functions"/>: anything <see cref="AddFunction"/> adds shadows an Excel function
+    /// of the same name, and this engine never writes to the shared object. Bound variables are
+    /// pushed later still, so a variable named <c>SUM</c> shadows both — the order a template author
+    /// would expect.
+    /// </remarks>
+    internal void UseExcelFunctions(ScriptObject functions)
+    {
+        _excelFunctions = functions;
+
+        // Dropped rather than amended: the stack is ordered, and this belongs at the bottom of it.
+        _context = null;
     }
 
     /// <inheritdoc />
@@ -130,6 +150,12 @@ public sealed class ScribanExpressionEngine : IExpressionEngine
         };
 
         context.PushCulture(_culture);
+
+        // The shared Excel library first, so this engine's own functions shadow it.
+        if (_excelFunctions is not null)
+        {
+            context.PushGlobal(_excelFunctions);
+        }
 
         // Pushed once and never popped, so functions registered later through AddFunction are
         // still visible: the same ScriptObject instance stays on the stack.
