@@ -1,9 +1,11 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using OpenMcdf;
 using XLibur.Excel;
 using XLibur.Excel.Exceptions;
+using XLibur.Excel.IO.Encryption;
 using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Encryption;
@@ -476,6 +478,133 @@ public class WorkbookEncryptionTests
         // And the file it came from is untouched by any of that.
         using var original = new XLWorkbook(encryptedFile.Path, new LoadOptions { Password = Password });
         await Assert.That(original.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("before");
+    }
+
+    /// <summary>
+    /// Thrown by <see cref="FailingEncryptor"/>, so that a test asserting a save failed cannot be
+    /// satisfied by some other failure that happens to carry a common exception type.
+    /// </summary>
+    private sealed class EncryptionFailure : Exception
+    {
+        public EncryptionFailure()
+            : base("Simulated encryption failure.")
+        {
+        }
+    }
+
+    /// <summary>
+    /// An encryption that fails before it produces anything, standing in for the failures the real
+    /// one can suffer and a test cannot provoke: an out-of-memory on the two full-size allocations,
+    /// or a cryptographic fault.
+    /// </summary>
+    private sealed class FailingEncryptor : IWorkbookEncryptor
+    {
+        public void Encrypt(Stream destination, byte[] package, string password) =>
+            throw new EncryptionFailure();
+    }
+
+    /// <summary>
+    /// Whether two sets of bytes are identical, as a single assertion rather than a diff of two
+    /// buffers that run to kilobytes.
+    /// </summary>
+    private static async Task AssertBytesAreUnchanged(byte[] before, byte[] after)
+    {
+        await Assert.That(after.Length).IsEqualTo(before.Length);
+        await Assert.That(after.SequenceEqual(before)).IsTrue();
+    }
+
+    [Test]
+    public async Task Save_leaves_the_file_it_would_overwrite_untouched_when_the_encryption_fails()
+    {
+        using var file = new TemporaryFile();
+        WriteEncryptedFile(file.Path, Password);
+        var before = File.ReadAllBytes(file.Path);
+
+        using var wb = new XLWorkbook(file.Path, new LoadOptions { Password = Password });
+        wb.Worksheet("Data").Cell("A1").Value = "after";
+        wb.Encryptor = new FailingEncryptor();
+
+        // The whole point of encrypting into a buffer: the destination is opened for writing only
+        // once the bytes that replace it exist, so a failure before that leaves the file alone.
+        await Assert.That(() => wb.Save()).Throws<EncryptionFailure>();
+        await AssertBytesAreUnchanged(before, File.ReadAllBytes(file.Path));
+    }
+
+    [Test]
+    public async Task Save_leaves_the_stream_it_would_overwrite_untouched_when_the_encryption_fails()
+    {
+        using var origin = new MemoryStream();
+        var encrypted = CreateEncryptedWorkbook(Password);
+        origin.Write(encrypted, 0, encrypted.Length);
+        origin.Position = 0;
+
+        using var wb = new XLWorkbook(origin, new LoadOptions { Password = Password });
+        wb.Worksheet("Data").Cell("A4").Value = "never written";
+        wb.Encryptor = new FailingEncryptor();
+
+        await Assert.That(() => wb.Save()).Throws<EncryptionFailure>();
+
+        // Truncating first would have emptied this stream and then spent the encryption with
+        // nothing in it, which is what the ordering in SaveEncrypted exists to avoid.
+        await AssertBytesAreUnchanged(encrypted, origin.ToArray());
+
+        // And what is still there is still a workbook, not merely the right number of bytes.
+        using var reopened = new XLWorkbook(new MemoryStream(origin.ToArray()), new LoadOptions { Password = Password });
+        await Assert.That(reopened.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("Hello encrypted world");
+    }
+
+    [Test]
+    public async Task SaveAs_leaves_the_file_it_would_overwrite_untouched_when_the_encryption_fails()
+    {
+        using var file = new TemporaryFile();
+        WriteEncryptedFile(file.Path, Password, "the file that was already there");
+        var before = File.ReadAllBytes(file.Path);
+
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet("Data").Cell("A1").Value = "the workbook that failed to encrypt";
+        wb.Encryptor = new FailingEncryptor();
+
+        await Assert.That(() => wb.SaveAs(file.Path, new SaveOptions { Password = Password }))
+            .Throws<EncryptionFailure>();
+        await AssertBytesAreUnchanged(before, File.ReadAllBytes(file.Path));
+    }
+
+    [Test]
+    public async Task SaveAs_to_a_stream_reports_a_failed_encryption()
+    {
+        using var destination = new MemoryStream();
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet("Data").Cell("A1").Value = "the workbook that failed to encrypt";
+        wb.Encryptor = new FailingEncryptor();
+
+        // This path encrypts straight into the caller's stream rather than into a buffer, because
+        // there is nothing to lose: SaveAs to a stream writes from wherever the stream is and never
+        // truncates, so it has no prior content of its own to protect. What it owes the caller is
+        // the failure itself.
+        await Assert.That(() => wb.SaveAs(destination, new SaveOptions { Password = Password }))
+            .Throws<EncryptionFailure>();
+    }
+
+    [Test]
+    public async Task Save_replaces_the_file_when_the_encryption_succeeds()
+    {
+        // The control for the three tests above: the destination is left alone because the
+        // encryption failed, not because a save with this shape never writes anything.
+        using var file = new TemporaryFile();
+        WriteEncryptedFile(file.Path, Password);
+        var before = File.ReadAllBytes(file.Path);
+
+        using (var wb = new XLWorkbook(file.Path, new LoadOptions { Password = Password }))
+        {
+            wb.Worksheet("Data").Cell("A1").Value = "after";
+            wb.Save();
+        }
+
+        var after = File.ReadAllBytes(file.Path);
+        await Assert.That(after.SequenceEqual(before)).IsFalse();
+
+        using var reopened = new XLWorkbook(file.Path, new LoadOptions { Password = Password });
+        await Assert.That(reopened.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("after");
     }
 
     [Test]

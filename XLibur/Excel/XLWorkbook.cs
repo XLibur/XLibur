@@ -458,10 +458,10 @@ public partial class XLWorkbook : IXLWorkbook
     /// steps that allocate the workbook twice over — would leave an empty file where the workbook
     /// was. This trades one more copy of the encrypted container for that not happening.
     /// </remarks>
-    private static MemoryStream EncryptToBuffer(MemoryStream package, string password)
+    private MemoryStream EncryptToBuffer(MemoryStream package, string password)
     {
         var container = new MemoryStream();
-        IO.Encryption.WorkbookEncryption.Encrypt(container, package.ToArray(), password);
+        Encryptor.Encrypt(container, package.ToArray(), password);
 
         // No rewind: WriteTo copies the whole buffer regardless of position.
         return container;
@@ -602,7 +602,7 @@ public partial class XLWorkbook : IXLWorkbook
         if (!string.IsNullOrEmpty(options.Password))
         {
             var package = BuildPackageInMemory(options);
-            IO.Encryption.WorkbookEncryption.Encrypt(stream, package.ToArray(), options.Password);
+            Encryptor.Encrypt(stream, package.ToArray(), options.Password);
 
             AdoptEncryptedOrigin(package, options.Password, file: null, stream);
             return;
@@ -858,6 +858,18 @@ public partial class XLWorkbook : IXLWorkbook
     private string? _encryptedFile;
 
     private Stream? _encryptedStream;
+
+    /// <summary>
+    /// The encryption a save runs the built package through before it touches the destination.
+    /// </summary>
+    /// <remarks>
+    /// Settable so that a test can substitute an encryption that fails, which is the only way to
+    /// exercise what a save leaves behind when the encryption does. Per workbook rather than static,
+    /// so a substitution cannot outlive the workbook it was made for. Production code never assigns
+    /// it.
+    /// </remarks>
+    internal IO.Encryption.IWorkbookEncryptor Encryptor { get; set; } =
+        IO.Encryption.WorkbookEncryptor.Default;
 
     #endregion Fields
 
