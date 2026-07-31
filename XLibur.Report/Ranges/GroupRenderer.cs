@@ -90,7 +90,7 @@ internal sealed class GroupRenderer
             return null;
         }
 
-        var (ordered, orderedKeys) = Order(levels, items, keys);
+        var (ordered, orderedKeys) = Order(levels, items, keys, context.Engine.Culture);
         return new GroupRenderer(levels, ordered, orderedKeys);
     }
 
@@ -206,8 +206,10 @@ internal sealed class GroupRenderer
     private static (IReadOnlyList<object?> Items, object?[][] Keys) Order(
         List<GroupLevel> levels,
         IReadOnlyList<object?> items,
-        object?[][] keys)
+        object?[][] keys,
+        CultureInfo culture)
     {
+        var comparer = new SortKeyComparer(culture);
         IOrderedEnumerable<int>? ordered = null;
 
         for (var level = 0; level < levels.Count; level++)
@@ -224,14 +226,14 @@ internal sealed class GroupRenderer
             if (ordered is null)
             {
                 ordered = descending
-                    ? Enumerable.Range(0, items.Count).OrderByDescending(key, SortKeyComparer.Instance)
-                    : Enumerable.Range(0, items.Count).OrderBy(key, SortKeyComparer.Instance);
+                    ? Enumerable.Range(0, items.Count).OrderByDescending(key, comparer)
+                    : Enumerable.Range(0, items.Count).OrderBy(key, comparer);
             }
             else
             {
                 ordered = descending
-                    ? ordered.ThenByDescending(key, SortKeyComparer.Instance)
-                    : ordered.ThenBy(key, SortKeyComparer.Instance);
+                    ? ordered.ThenByDescending(key, comparer)
+                    : ordered.ThenBy(key, comparer);
             }
         }
 
@@ -529,7 +531,8 @@ internal sealed class GroupRenderer
             var level = _levels[run.Level];
             if (!summaryColumns.Contains(level.Column))
             {
-                sheet.Cell(run.SubtotalRow, level.Column).Value = level.TotalLabel.Replace("{0}", KeyText(run.Key));
+                sheet.Cell(run.SubtotalRow, level.Column).Value =
+                    level.TotalLabel.Replace("{0}", KeyText.For(run.Key, context.Engine.Culture));
             }
         }
     }
@@ -628,14 +631,6 @@ internal sealed class GroupRenderer
             }
         }
     }
-
-    private static string KeyText(object? key) => key switch
-    {
-        null => string.Empty,
-        string text => text,
-        IFormattable formattable => formattable.ToString(null, CultureInfo.CurrentCulture),
-        _ => key.ToString() ?? string.Empty,
-    };
 
     /// <summary>One <c>&lt;&lt;Group&gt;&gt;</c> tag, resolved against the range-wide options.</summary>
     private sealed record GroupLevel(

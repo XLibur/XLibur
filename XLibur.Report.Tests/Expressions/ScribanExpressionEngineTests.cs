@@ -163,6 +163,19 @@ public class ScribanExpressionEngineTests
         await Assert.That(result).IsEqualTo("1234,5");
     }
 
+    /// <summary>
+    /// The culture is readable, which is what lets sorting and group labels follow the report's
+    /// culture rather than the machine's.
+    /// </summary>
+    [Test]
+    public async Task CultureIsExposed()
+    {
+        var german = CultureInfo.GetCultureInfo("de-DE");
+
+        await Assert.That(new ScribanExpressionEngine().Culture).IsEqualTo(CultureInfo.InvariantCulture);
+        await Assert.That(new ScribanExpressionEngine(german).Culture).IsEqualTo(german);
+    }
+
     [Test]
     public async Task InnerScopeShadowsOuterScope()
     {

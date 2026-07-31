@@ -61,6 +61,22 @@ lets one template survive an optional field — a middle name, a discount that i
 without testing for each. The price is that a **typo in a name is silent**, so a column that comes out
 empty is the first place to look for one.
 
+### Culture
+
+Everything the report formats or orders follows **one** culture, and it is the template's rather than
+the machine's. A default `XLTemplate` is invariant end to end, so the same template over the same data
+produces the same workbook wherever it is generated — the same row order, the same group labels, the
+same decimal point. Pass a culture to the engine to say otherwise:
+
+```csharp
+using var template = new XLTemplate("Rapport.xlsx", new ScribanExpressionEngine(new CultureInfo("sv-SE")));
+```
+
+That one argument decides how an interpolated number or date reads, how `<<Sort>>` and `<<Group>>`
+collate text — Swedish sorting `å` after `z`, Czech treating `ch` as a single letter — and how a
+group's `{0} Total` label formats a date or a decimal key. A custom tag that needs the same answer
+reads `context.Engine.Culture`.
+
 ## Bound ranges
 
 A **defined name** matching the name of a variable that holds a collection makes the rows it covers

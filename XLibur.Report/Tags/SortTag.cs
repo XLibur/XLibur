@@ -46,7 +46,7 @@ public class SortTag : OptionTag
             }
         }
 
-        var comparer = SortKeyComparer.Instance;
+        var comparer = new SortKeyComparer(context.Engine.Culture);
         var sorted = Descending
             ? keyed.OrderByDescending(pair => pair.Key, comparer)
             : keyed.OrderBy(pair => pair.Key, comparer);

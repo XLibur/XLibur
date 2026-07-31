@@ -226,6 +226,19 @@ public class DynamicLinqEngineTests
     }
 
     /// <summary>
+    /// The culture is readable, which is what lets sorting and group labels follow the report's culture
+    /// rather than the machine's.
+    /// </summary>
+    [Test]
+    public async Task CultureIsExposed()
+    {
+        var czech = CultureInfo.GetCultureInfo("cs-CZ");
+
+        await Assert.That(Engine.Culture).IsEqualTo(CultureInfo.InvariantCulture);
+        await Assert.That(new DynamicLinqExpressionEngine(czech).Culture).IsEqualTo(czech);
+    }
+
+    /// <summary>
     /// The engine declines to host functions, and says so rather than accepting them and ignoring them.
     /// </summary>
     [Test]

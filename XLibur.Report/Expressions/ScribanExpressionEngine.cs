@@ -48,6 +48,9 @@ public sealed class ScribanExpressionEngine : IExpressionEngine
     public ScribanExpressionEngine(CultureInfo? culture = null) => _culture = culture ?? CultureInfo.InvariantCulture;
 
     /// <inheritdoc />
+    public CultureInfo Culture => _culture;
+
+    /// <inheritdoc />
     public bool SupportsFunctions => true;
 
     /// <inheritdoc />

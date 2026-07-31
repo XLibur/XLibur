@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 
 namespace XLibur.Report.Expressions;
 
@@ -17,6 +18,20 @@ namespace XLibur.Report.Expressions;
 /// </remarks>
 public interface IExpressionEngine
 {
+    /// <summary>
+    /// The culture the report is generated under — how a value formats, and how two text keys
+    /// collate.
+    /// </summary>
+    /// <remarks>
+    /// The engine owns the answer because it is the thing that already had to be told: both shipped
+    /// engines take a culture and default to <see cref="CultureInfo.InvariantCulture"/>. Exposing it
+    /// is what lets the rest of the pipeline — sort order, group order, a group's <c>{0} Total</c>
+    /// label — follow the culture the <em>template</em> was given rather than the one the machine
+    /// happens to be running under, so the same template and the same data produce the same workbook
+    /// wherever it is generated.
+    /// </remarks>
+    CultureInfo Culture { get; }
+
     /// <summary>
     /// Whether this engine can expose .NET functions to templates through
     /// <see cref="AddFunction"/>. Engines that return <c>false</c> are skipped when the Excel

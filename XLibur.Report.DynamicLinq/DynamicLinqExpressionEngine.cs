@@ -91,6 +91,9 @@ public sealed class DynamicLinqExpressionEngine : IExpressionEngine
     }
 
     /// <inheritdoc />
+    public CultureInfo Culture => _culture;
+
+    /// <inheritdoc />
     /// <remarks>
     /// Always <c>false</c>. See the remarks on <see cref="DynamicLinqExpressionEngine"/>: the
     /// Excel-function bridge belongs to the default engine, and <c>XLTemplate</c> skips registering it

@@ -138,6 +138,7 @@ public interface IExpressionEngine                    // the pluggable seam
 {
     object? Evaluate(string expression, ExpressionScope scope);   // typed result
     string  Interpolate(string text, ExpressionScope scope);      // mixed text + {{ }}
+    CultureInfo Culture { get; }                                  // the report's culture (#275)
     bool    SupportsFunctions { get; }                            // optional capability
     void    AddFunction(string name, Delegate function);          // throws if unsupported
 }
@@ -344,6 +345,13 @@ implemented:
 - **The engine orders the rows.** All the levels are ordered in one `OrderBy`/`ThenBy` chain, so
   the leftmost is the primary key; the ordering is stable, so a `<<Sort>>` (which runs first, at
   priority 10) still decides the order within a group. `nosort` opts out per level.
+- **Ordering and labelling follow `IExpressionEngine.Culture`**, not `CultureInfo.CurrentCulture`
+  ([#275](https://github.com/XLibur/XLibur/issues/275)). `SortKeyComparer` collates text through that
+  culture's `CompareInfo` and `KeyText` formats a key through it, so a default template is invariant
+  end to end and a template handed `new ScribanExpressionEngine(new CultureInfo("sv-SE"))` sorts and
+  labels the way its readers read. Both the comparer's string arm and its mixed-type text fallback
+  were affected; `string.CompareTo` collates under the current culture, so strings are taken before
+  the general `IComparable` case.
 - **Each group gets a subtotal row** carrying whatever summary tags the options row declares, over
   that group's rows alone, plus a `{0} Total` label in the grouped column. Below the group by
   default, `summaryAbove` above it. Where several stack at one boundary they read outwards from the
