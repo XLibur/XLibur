@@ -88,16 +88,68 @@ deprecation period before it can be considered.
 
 ## Task summary
 
-| Task | Item(s) | Kind |
-|------|---------|------|
-| #1 | 7 | Bug — empty data validations written with empty `sqref` |
-| #2 | 10 | Feature — pivot `chartFormats` round trip |
-| #3 | 11 | Feature — pivot `filters` round trip |
-| #4 | 2, 4 | Correctness — structured references in the dependency tree |
-| #5 | 3 | Perf — register data-table formulas in the dependency tree |
-| #6 | 1 | Perf — cache parsed reference addresses |
-| #7 | 12 | Cleanup — `CacheId` nullability |
-| #8 | 17 | Hardening — validate pivot field item values |
-| #9 | — | Gap — complete the `SetDataValidation` deprecation |
-| #10 | 5, 8, 9, 13–16, 18–27 | Decision — removal release for 17 obsolete members |
-| #11 | — | Typo — `"Used"` → `"Use"` |
+| Task | Item(s) | Kind | Status |
+|------|---------|------|--------|
+| #1 | 7 | Bug — empty data validations written with empty `sqref` | Not started |
+| #2 | 10 | Feature — pivot `chartFormats` round trip | Not started |
+| #3 | 11 | Feature — pivot `filters` round trip | Not started |
+| #4 | 2, 4 | Correctness — structured references in the dependency tree | Not started |
+| #5 | 3 | Perf — register data-table formulas in the dependency tree | Not started |
+| #6 | 1 | Perf — cache parsed reference addresses | **Done** — [#286](https://github.com/XLibur/XLibur/pull/286) |
+| #7 | 12 | Cleanup — `CacheId` nullability | **Done** — [#287](https://github.com/XLibur/XLibur/pull/287) |
+| #8 | 17 | Hardening — validate pivot field item values | Not started |
+| #9 | — | Gap — complete the `SetDataValidation` deprecation | Not started |
+| #10 | 5, 8, 9, 13–16, 18–27 | Decision — removal release for 17 obsolete members | Not started |
+| #11 | — | Typo — `"Used"` → `"Use"` | Not started |
+
+---
+
+## Progress
+
+Work is going out as a PR stack, each branch based on the previous one. Every PR needs
+retargeting to `main` as the one below it merges.
+
+| PR | Branch | Base | Contents |
+|----|--------|------|----------|
+| [#285](https://github.com/XLibur/XLibur/pull/285) | `chore/todo-triage` | `main` | This document; the stale TODO removed and the partly stale one reworded |
+| [#286](https://github.com/XLibur/XLibur/pull/286) | `fix/astnode-reference-cache` | #285 | Task #6 |
+| [#287](https://github.com/XLibur/XLibur/pull/287) | `fix/pivot-cache-id-nullability` | #286 | Task #7 |
+
+### Task #6 — reference resolution (#286)
+
+`ReferenceNode.GetReference` parsed the address string on every evaluation — a string the
+constructor itself generates from the parsed `ReferenceArea`, so parsing it only recovered
+what the node already held. It now builds the address from the area directly and memoises the
+`Reference`: unconditionally for the sheet-less form, and keyed on the resolved worksheet for
+the prefixed form, so replacing a sheet cannot serve the previous address.
+
+Measured with the new `FormulaEvaluationBenchmarks` (20K formula rows, `RecalculateAllFormulas`
+per operation, net10.0, Ryzen 9 5950X):
+
+| Shape | Before | After | Time | Allocated |
+|---|---|---|---|---|
+| `UniqueSameSheet` | 19.51 ms / 15.87 MB | 16.06 ms / 10.38 MB | −17.7% | −34.6% |
+| `SharedSameSheet` | 16.17 ms / 16.17 MB | 13.56 ms / 10.38 MB | −16.1% | −35.8% |
+| `SharedCrossSheet` | 37.64 ms / 16.18 MB | 32.99 ms / 10.38 MB | −12.4% | −35.8% |
+
+**Found and fixed along the way, not on the triage list:** a reversed range such as
+`=SUM(B2:A1)` threw `ArgumentException("Range address must be normalized")` out of the
+`Reference` constructor — an unhandled exception reaching the caller rather than a `#REF!`.
+The parser returns endpoints in written order and nothing normalized them. The new
+construction orders each axis independently, carrying each fixed flag with its own coordinate.
+
+### Task #7 — pivot cache id (#287)
+
+The TODO asked whether `XLPivotCache.CacheId` needed to be nullable. It did not, because it did
+not belong on the cache: it was documented as coming from the file, but the reader discards the
+`cacheId` it reads, so nothing ever set it on load. Its only writer assigns a position while
+rebuilding the workbook `pivotCaches` element and its only reader is the pivot table writer, so
+the value belongs to one save. Moved to `SaveContext` as a cache-to-id map; the property is
+gone, and so is `PivotSourceCacheId`, which was a loop counter with workbook-level scope.
+
+### Suggested order for what remains
+
+#2, #3 and #8 are all pivot work touching the same reader/writer pair as #7, so taking them
+next keeps the conflict surface small. #1 is the only outright bug left and is independent of
+everything else. #9 should be settled before #10, since it changes what the
+`SetDataValidation` group contains.
