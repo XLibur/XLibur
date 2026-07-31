@@ -119,7 +119,7 @@ internal static class ChartReader
         {
             var text = string.Join("", richText.Descendants<A.Text>().Select(t => t.Text));
             if (!string.IsNullOrEmpty(text))
-                xlChart.Title = text;
+                xlChart.SeedLoadedTitle(text);
         }
     }
 
@@ -261,7 +261,7 @@ internal static class ChartReader
 
         var titleText = string.Join("", cxTitle.Descendants<A.Text>().Select(t => t.Text));
         if (!string.IsNullOrEmpty(titleText))
-            xlChart.Title = titleText;
+            xlChart.SeedLoadedTitle(titleText);
     }
 
     private static XLChartType? ReadExtendedChartType(Cx.ChartSpace chartSpace)

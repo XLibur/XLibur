@@ -281,7 +281,7 @@ internal static class ChartWriter
 
         var cxChart = new Cx.Chart();
         if (xlChart.Title != null)
-            cxChart.AppendChild(BuildExtendedChartTitle(xlChart.Title));
+            cxChart.AppendChild(ChartFormatting.BuildExtendedTitle(xlChart.Title));
         cxChart.AppendChild(plotArea);
 
         var chartSpace = new Cx.ChartSpace();
@@ -374,29 +374,6 @@ internal static class ChartWriter
         return plotArea;
     }
 
-    private static Cx.ChartTitle BuildExtendedChartTitle(string titleText)
-    {
-        var title = new Cx.ChartTitle
-        {
-            Pos = Cx.SidePos.T,
-            Align = Cx.PosAlign.Ctr,
-            Overlay = false
-        };
-        var rich = new Cx.RichTextBody(
-            new A.BodyProperties(),
-            new A.ListStyle(),
-            new A.Paragraph(
-                new A.Run(
-                    new A.RunProperties { Language = "en-US" },
-                    new A.Text(titleText)
-                )
-            )
-        );
-        var txTitle = new Cx.Text();
-        txTitle.AppendChild(rich);
-        title.AppendChild(txTitle);
-        return title;
-    }
 
     // ── Standard ChartSpace building ────────────────────────────────────
 
@@ -407,20 +384,8 @@ internal static class ChartWriter
         if (xlChart.Title != null)
         {
             chart.Title = new C.Title(
-                new C.ChartText(
-                    new C.RichText(
-                        new A.BodyProperties(),
-                        new A.ListStyle(),
-                        new A.Paragraph(
-                            new A.Run(
-                                new A.RunProperties { Language = "en-US" },
-                                new A.Text(xlChart.Title)
-                            )
-                        )
-                    )
-                ),
-                new C.Overlay { Val = false }
-            );
+                ChartFormatting.BuildTitleText(xlChart.Title),
+                new C.Overlay { Val = false });
         }
 
         chart.Append(BuildPlotArea(xlChart));

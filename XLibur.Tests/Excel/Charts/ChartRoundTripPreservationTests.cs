@@ -717,6 +717,407 @@ public class ChartRoundTripPreservationTests
         }
     }
 
+    // ── The chart title ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// A chart part whose <c>c:chart</c> opens with the given head — the <c>c:title</c> block and its
+    /// <c>c:autoTitleDeleted</c>, which is what the title tests vary — over a plain bar series.
+    /// </summary>
+    private static string ChartXmlWithTitleHead(string head) => $"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+          <c:chart>
+            {head}
+            <c:plotArea>
+              <c:layout/>
+              <c:barChart>
+                <c:barDir val="col"/>
+                <c:grouping val="clustered"/>
+                <c:varyColors val="0"/>
+                <c:ser>
+                  <c:idx val="0"/>
+                  <c:order val="0"/>
+                  <c:tx><c:v>Units</c:v></c:tx>
+                  <c:cat><c:strRef><c:f>Data!$A$1:$A$2</c:f></c:strRef></c:cat>
+                  <c:val><c:numRef><c:f>Data!$B$1:$B$2</c:f></c:numRef></c:val>
+                </c:ser>
+                <c:axId val="111111111"/>
+                <c:axId val="222222222"/>
+              </c:barChart>
+              <c:catAx><c:axId val="111111111"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222222222"/></c:catAx>
+              <c:valAx><c:axId val="222222222"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111111111"/></c:valAx>
+            </c:plotArea>
+            <c:plotVisOnly val="1"/>
+          </c:chart>
+        </c:chartSpace>
+        """;
+
+    [Test]
+    public async Task RetitlingALoadedChartIsWrittenToTheChartPart()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart();
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            await Assert.That(chart.Title).IsEqualTo("Units and price");
+
+            chart.SetTitle("Edited title");
+
+            // A property that has always been patched, edited in the same save.
+            chart.Legend.Position = XLLegendPosition.Top;
+            wb.SaveAs(saved, validate: true);
+        }
+
+        var xml = ReadChartXml(saved);
+        await Assert.That(xml).Contains("<a:t>Edited title</a:t>");
+        await Assert.That(xml).DoesNotContain("Units and price");
+        await Assert.That(xml).Contains("<c:legendPos val=\"t\"");
+        await Assert.That(xml).Contains("<a:t>Units</a:t>").Because("The value axis title is a different title.");
+    }
+
+    [Test]
+    public async Task AnEditedTitleReloadsWithTheNewValue()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart();
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            wb.Worksheet("Data").Charts.First().SetTitle("Edited title");
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        using (var wb = new XLWorkbook(saved))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            await Assert.That(chart.Title).IsEqualTo("Edited title");
+            await Assert.That(chart.ValueAxis.Title).IsEqualTo("Units").Because("The axis title is untouched.");
+        }
+    }
+
+    [Test]
+    public async Task RetitlingALoadedChartKeepsTheFormattingTheTitleCameWith()
+    {
+        const string styledTitle = """
+            <c:title>
+              <c:tx><c:rich><a:bodyPr rot="0" vert="horz"/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="1800"/></a:pPr><a:r><a:rPr lang="en-US" sz="1600" b="1"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:rPr><a:t>Original title</a:t></a:r></a:p></c:rich></c:tx>
+              <c:layout/>
+              <c:overlay val="0"/>
+              <c:spPr><a:noFill/></c:spPr>
+            </c:title>
+            <c:autoTitleDeleted val="0"/>
+            """;
+
+        using var original = CreateWorkbookWithExcelShapedChart(ChartXmlWithTitleHead(styledTitle));
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            wb.Worksheet("Data").Charts.First().SetTitle("Edited title");
+            wb.SaveAs(saved, validate: true);
+        }
+
+        var xml = ReadChartXml(saved);
+        await Assert.That(xml).Contains("<a:t>Edited title</a:t>");
+        await Assert.That(xml).DoesNotContain("Original title");
+
+        // Everything around the text survived.
+        await Assert.That(xml).Contains("sz=\"1600\"").Because("The run properties of the old run are kept.");
+        await Assert.That(xml).Contains("b=\"1\"");
+        await Assert.That(xml).Contains("FF0000");
+        await Assert.That(xml).Contains("<a:defRPr sz=\"1800\"");
+        await Assert.That(xml).Contains("rot=\"0\"");
+        await Assert.That(xml).Contains("<c:overlay val=\"0\"");
+        await Assert.That(xml).Contains("<a:noFill");
+    }
+
+    [Test]
+    public async Task ATitleCanBeAddedToALoadedChartThatHadNone()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart(
+            ChartXmlWithTitleHead("<c:autoTitleDeleted val=\"1\"/>"));
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            await Assert.That(chart.Title).IsNull();
+
+            chart.SetTitle("New title");
+            wb.SaveAs(saved, validate: true);
+        }
+
+        var xml = ReadChartXml(saved);
+        await Assert.That(xml).Contains("<a:t>New title</a:t>");
+        await Assert.That(xml).Contains("<c:autoTitleDeleted val=\"0\"").Because("Excel hides the title while this is set.");
+        await Assert.That(xml.IndexOf("<c:title>", StringComparison.Ordinal))
+            .IsLessThan(xml.IndexOf("<c:autoTitleDeleted", StringComparison.Ordinal))
+            .Because("c:title precedes c:autoTitleDeleted in CT_Chart.");
+    }
+
+    [Test]
+    public async Task ClearingTheTitleOfALoadedChartRemovesIt()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart();
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            wb.Worksheet("Data").Charts.First().SetTitle(null);
+            wb.SaveAs(saved, validate: true);
+        }
+
+        var xml = ReadChartXml(saved);
+        await Assert.That(xml).DoesNotContain("Units and price");
+        await Assert.That(xml).Contains("<c:autoTitleDeleted val=\"1\"").Because("Excel would otherwise put an automatic title back.");
+        await Assert.That(xml).Contains("<a:t>Units</a:t>").Because("The value axis keeps its own title.");
+
+        saved.Position = 0;
+        using (var wb = new XLWorkbook(saved))
+        {
+            await Assert.That(wb.Worksheet("Data").Charts.First().Title).IsNull();
+        }
+    }
+
+    [Test]
+    public async Task ATitleLinkedToACellIsReplacedByTheLiteralOne()
+    {
+        const string linkedTitle = """
+            <c:title>
+              <c:tx><c:strRef><c:f>Data!$A$1</c:f><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>Q1</c:v></c:pt></c:strCache></c:strRef></c:tx>
+              <c:overlay val="0"/>
+            </c:title>
+            <c:autoTitleDeleted val="0"/>
+            """;
+
+        using var original = CreateWorkbookWithExcelShapedChart(ChartXmlWithTitleHead(linkedTitle));
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            wb.Worksheet("Data").Charts.First().SetTitle("Literal title");
+            wb.SaveAs(saved, validate: true);
+        }
+
+        var xml = ReadChartXml(saved);
+        await Assert.That(xml).Contains("<a:t>Literal title</a:t>");
+        await Assert.That(xml).DoesNotContain("<c:f>Data!$A$1</c:f>").Because("The link the title had is gone with the text it produced.");
+        await Assert.That(xml).Contains("<c:overlay val=\"0\"").Because("The rest of c:title is left alone.");
+    }
+
+    /// <summary>
+    /// A 3D chart part with no title of its own. <c>c:view3D</c>, <c>c:floor</c>, <c>c:sideWall</c>
+    /// and <c>c:backWall</c> sit between <c>c:autoTitleDeleted</c> and <c>c:plotArea</c> in
+    /// <c>CT_Chart</c>, so they are what a newly inserted title has to be placed ahead of.
+    /// </summary>
+    private const string ThreeDimensionalChartXml = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+          <c:chart>
+            <c:view3D><c:rotX val="15"/><c:rotY val="20"/><c:rAngAx val="1"/></c:view3D>
+            <c:floor><c:thickness val="0"/></c:floor>
+            <c:sideWall><c:thickness val="0"/></c:sideWall>
+            <c:backWall><c:thickness val="0"/></c:backWall>
+            <c:plotArea>
+              <c:layout/>
+              <c:bar3DChart>
+                <c:barDir val="col"/>
+                <c:grouping val="clustered"/>
+                <c:varyColors val="0"/>
+                <c:ser>
+                  <c:idx val="0"/>
+                  <c:order val="0"/>
+                  <c:tx><c:v>Units</c:v></c:tx>
+                  <c:cat><c:strRef><c:f>Data!$A$1:$A$2</c:f></c:strRef></c:cat>
+                  <c:val><c:numRef><c:f>Data!$B$1:$B$2</c:f></c:numRef></c:val>
+                </c:ser>
+                <c:axId val="111111111"/>
+                <c:axId val="222222222"/>
+              </c:bar3DChart>
+              <c:catAx><c:axId val="111111111"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222222222"/></c:catAx>
+              <c:valAx><c:axId val="222222222"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111111111"/></c:valAx>
+            </c:plotArea>
+            <c:plotVisOnly val="1"/>
+          </c:chart>
+        </c:chartSpace>
+        """;
+
+    [Test]
+    public async Task ATitleAddedToA3DChartGoesAheadOfTheView3DElements()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart(ThreeDimensionalChartXml);
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            await Assert.That(chart.Title).IsNull();
+
+            chart.SetTitle("3D title");
+            wb.SaveAs(saved, validate: true);
+        }
+
+        var xml = ReadChartXml(saved);
+        await Assert.That(xml).Contains("<a:t>3D title</a:t>");
+
+        // CT_Chart orders title, autoTitleDeleted, pivotFmts, view3D, floor, sideWall, backWall,
+        // plotArea — so both inserted elements belong ahead of the 3D block, not merely ahead of
+        // the plot area.
+        var title = xml.IndexOf("<c:title>", StringComparison.Ordinal);
+        var autoTitleDeleted = xml.IndexOf("<c:autoTitleDeleted", StringComparison.Ordinal);
+        var view3D = xml.IndexOf("<c:view3D", StringComparison.Ordinal);
+
+        await Assert.That(title).IsLessThan(autoTitleDeleted);
+        await Assert.That(autoTitleDeleted).IsLessThan(view3D);
+        await Assert.That(view3D).IsLessThan(xml.IndexOf("<c:floor", StringComparison.Ordinal)).Because("The 3D block itself is left in its own order.");
+
+        saved.Position = 0;
+        using (var wb = new XLWorkbook(saved))
+        {
+            await Assert.That(wb.Worksheet("Data").Charts.First().Title).IsEqualTo("3D title");
+        }
+    }
+
+    // ── The title of an extended (ChartEx) chart ────────────────────────
+
+    /// <summary>
+    /// A workbook holding one waterfall chart, which XLibur writes as an extended chart part. An
+    /// empty <paramref name="title"/> leaves the chart untitled.
+    /// </summary>
+    private static MemoryStream CreateWorkbookWithWaterfallChart(string title)
+    {
+        var ms = new MemoryStream();
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Data");
+        ws.Cell("A1").Value = "Start";
+        ws.Cell("A2").Value = "Add";
+        ws.Cell("B1").Value = 1000;
+        ws.Cell("B2").Value = 500;
+
+        var chart = ws.Charts.Add(XLChartType.Waterfall);
+        if (title.Length != 0)
+            chart.SetTitle(title);
+        chart.Series.Add("Amount", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+        chart.Position.SetColumn(5).SetRow(1);
+        chart.SecondPosition.SetColumn(12).SetRow(15);
+        wb.SaveAs(ms);
+
+        ms.Position = 0;
+        return ms;
+    }
+
+    private static string ReadExtendedChartXml(MemoryStream stream)
+    {
+        stream.Position = 0;
+        using var doc = SpreadsheetDocument.Open(stream, false);
+        var chartPart = doc.WorkbookPart!.WorksheetParts.First().DrawingsPart!
+            .ExtendedChartParts.First();
+        using var reader = new StreamReader(chartPart.GetStream(FileMode.Open, FileAccess.Read));
+        return reader.ReadToEnd();
+    }
+
+    [Test]
+    public async Task RetitlingALoadedExtendedChartIsWrittenToTheChartPart()
+    {
+        using var original = CreateWorkbookWithWaterfallChart("Original title");
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            await Assert.That(chart.ChartType).IsEqualTo(XLChartType.Waterfall);
+            await Assert.That(chart.Title).IsEqualTo("Original title");
+
+            chart.SetTitle("Edited title");
+            wb.SaveAs(saved);
+        }
+
+        var xml = ReadExtendedChartXml(saved);
+        await Assert.That(xml).Contains("<a:t>Edited title</a:t>");
+        await Assert.That(xml).DoesNotContain("Original title");
+        await Assert.That(xml).Contains("<cx:plotAreaRegion>").Because("The rest of the chart part is untouched.");
+
+        saved.Position = 0;
+        using (var wb = new XLWorkbook(saved))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            await Assert.That(chart.Title).IsEqualTo("Edited title");
+            await Assert.That(chart.Series.Count).IsEqualTo(1);
+        }
+    }
+
+    [Test]
+    public async Task ATitleCanBeAddedToALoadedExtendedChartThatHadNone()
+    {
+        using var original = CreateWorkbookWithWaterfallChart(string.Empty);
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            await Assert.That(chart.Title).IsNull();
+
+            chart.SetTitle("New title");
+            wb.SaveAs(saved);
+        }
+
+        var xml = ReadExtendedChartXml(saved);
+        await Assert.That(xml).Contains("<a:t>New title</a:t>");
+        await Assert.That(xml.IndexOf("<cx:title", StringComparison.Ordinal))
+            .IsLessThan(xml.IndexOf("<cx:plotArea>", StringComparison.Ordinal))
+            .Because("cx:title opens CT_Chart, ahead of cx:plotArea.");
+
+        saved.Position = 0;
+        using (var wb = new XLWorkbook(saved))
+        {
+            await Assert.That(wb.Worksheet("Data").Charts.First().Title).IsEqualTo("New title");
+        }
+    }
+
+    [Test]
+    public async Task ClearingTheTitleOfALoadedExtendedChartRemovesIt()
+    {
+        using var original = CreateWorkbookWithWaterfallChart("Original title");
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(original))
+        {
+            wb.Worksheet("Data").Charts.First().SetTitle(null);
+            wb.SaveAs(saved);
+        }
+
+        var xml = ReadExtendedChartXml(saved);
+        await Assert.That(xml).DoesNotContain("Original title");
+        await Assert.That(xml).DoesNotContain("<cx:title");
+
+        saved.Position = 0;
+        using (var wb = new XLWorkbook(saved))
+        {
+            await Assert.That(wb.Worksheet("Data").Charts.First().Title).IsNull();
+        }
+    }
+
+    [Test]
+    public async Task ReadingATitleIsNotAnEdit()
+    {
+        using var original = CreateWorkbookWithExcelShapedChart();
+        var before = ReadChartXml(original);
+
+        using var saved = new MemoryStream();
+        original.Position = 0;
+        using (var wb = new XLWorkbook(original))
+        {
+            var chart = wb.Worksheet("Data").Charts.First();
+            await Assert.That(chart.Title).IsEqualTo("Units and price");
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(ReadChartXml(saved)).IsEqualTo(before);
+    }
+
     [Test]
     public async Task SavingANewChartTwiceDoesNotDuplicateIt()
     {

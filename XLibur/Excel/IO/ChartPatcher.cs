@@ -4,6 +4,7 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
+using Cx = DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 
 namespace XLibur.Excel.IO;
 
@@ -23,6 +24,10 @@ namespace XLibur.Excel.IO;
 /// assigned (see <see cref="XLChartSeries.AssignedFormat"/>): a chart nobody edited is not modified
 /// at all.
 /// </para>
+/// <para>
+/// An extended (ChartEx) chart holds its series in the cx namespace and carries none of the
+/// formatting XLibur models, so the only edit it takes is a new title.
+/// </para>
 /// </remarks>
 internal static class ChartPatcher
 {
@@ -34,13 +39,21 @@ internal static class ChartPatcher
         if (!HasPendingChanges(xlChart))
             return;
 
-        // Extended (ChartEx) charts model their series in the cx namespace and do not support the
-        // series formatting properties, so there is nothing to patch.
-        var chartPart = ResolveChartPart(worksheetPart, xlChart);
-        var chart = chartPart?.ChartSpace?.Elements<C.Chart>().FirstOrDefault();
+        var part = ResolvePart(worksheetPart, xlChart);
+
+        // Extended (ChartEx) charts model their series in the cx namespace and have none of the
+        // formatting properties below, so the title is all there is to carry back into one.
+        if (part is ExtendedChartPart extendedPart)
+        {
+            PatchExtendedChart(extendedPart, xlChart);
+            return;
+        }
+
+        var chart = (part as ChartPart)?.ChartSpace?.Elements<C.Chart>().FirstOrDefault();
         if (chart == null)
             return;
 
+        ChartFormatting.PatchTitle(chart, xlChart);
         ChartFormatting.PatchLegend(chart, xlChart.LegendInternal);
 
         var plotArea = chart.PlotArea;
@@ -125,7 +138,8 @@ internal static class ChartPatcher
     }
 
     private static bool HasPendingChanges(XLChart xlChart) =>
-        xlChart.DataLabelsInternal.AssignedFormat != XLDataLabelsFormat.None
+        xlChart.TitleAssigned
+        || xlChart.DataLabelsInternal.AssignedFormat != XLDataLabelsFormat.None
         || xlChart.LegendInternal.AssignedFormat != XLChartLegendFormat.None
         || xlChart.CategoryAxisInternal.AssignedFormat != XLChartAxisFormat.None
         || xlChart.ValueAxisInternal.AssignedFormat != XLChartAxisFormat.None
@@ -163,7 +177,23 @@ internal static class ChartPatcher
         }
     }
 
-    private static ChartPart? ResolveChartPart(WorksheetPart worksheetPart, XLChart xlChart)
+    /// <summary>
+    /// Writes the pending title of a loaded extended chart back into its chart part.
+    /// </summary>
+    private static void PatchExtendedChart(ExtendedChartPart chartPart, XLChart xlChart)
+    {
+        var chart = chartPart.ChartSpace?.Elements<Cx.Chart>().FirstOrDefault();
+        if (chart == null)
+            return;
+
+        ChartFormatting.PatchExtendedTitle(chart, xlChart);
+    }
+
+    /// <summary>
+    /// The package part holding a loaded chart, which is a <see cref="ChartPart"/> for a standard
+    /// chart and an <see cref="ExtendedChartPart"/> for a ChartEx one.
+    /// </summary>
+    private static OpenXmlPart? ResolvePart(WorksheetPart worksheetPart, XLChart xlChart)
     {
         if (xlChart.RelId == null)
             return null;
@@ -177,6 +207,6 @@ internal static class ChartPatcher
         if (!drawingsPart.Parts.Any(p => p.RelationshipId == xlChart.RelId))
             return null;
 
-        return drawingsPart.GetPartById(xlChart.RelId) as ChartPart;
+        return drawingsPart.GetPartById(xlChart.RelId);
     }
 }

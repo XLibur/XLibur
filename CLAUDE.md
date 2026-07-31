@@ -69,6 +69,7 @@ Solution uses `.slnx` format (modern MSBuild Solution Extension).
 - Do not use compound commands (e.g., `&&`, `||`, `;`) in Bash tool calls. Run each command as a separate Bash tool invocation.
 - Never use compound commands with bash or git. Each command must be its own separate Bash tool call.
 - Never use `cd <folder> && git <params>` style commands. Use absolute paths or set the working directory separately.
+- Never pass a multi-line commit message as an inline PowerShell here-string (e.g. ``git commit -m @'...'@``). When used in a Bash-shell, each `@` will be interpreted as part of the commit message. Omit the `@` characters, e.g. ``git commit -m '...'``.
 
 ## Dependencies
 

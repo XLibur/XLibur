@@ -48,13 +48,35 @@ internal sealed class XLChart : XLDrawing<IXLChart>, IXLChart
         SecondaryValueAxisInternal = new XLChartAxis(this, XLChartAxisRole.SecondaryValue);
     }
 
-    public string? Title { get; set; }
+    private string? _title;
+
+    public string? Title
+    {
+        get => _title;
+        set
+        {
+            _title = value;
+            TitleAssigned = true;
+        }
+    }
 
     public IXLChart SetTitle(string? title)
     {
         Title = title;
         return this;
     }
+
+    /// <summary>
+    /// Whether the caller assigned <see cref="Title"/> through the public API. A title seeded from a
+    /// chart part that was read leaves this <c>false</c>, so a chart nobody retitled is not patched.
+    /// </summary>
+    internal bool TitleAssigned { get; private set; }
+
+    /// <summary>
+    /// Seeds the title from an existing chart part without marking it as assigned, the counterpart of
+    /// <c>SeedLoaded</c> on the legend and the axes.
+    /// </summary>
+    internal void SeedLoadedTitle(string? title) => _title = title;
 
     public IXLChartSeriesCollection Series { get; }
 
