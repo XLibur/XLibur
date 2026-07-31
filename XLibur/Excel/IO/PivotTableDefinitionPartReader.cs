@@ -124,7 +124,8 @@ internal static class PivotTableDefinitionPartReader
 
         LoadConditionalFormats(pivotTable.ConditionalFormats, xlPivotTable, sheet, context);
 
-        // TODO: chartFormats
+        LoadChartFormats(pivotTable.ChartFormats, xlPivotTable);
+
         // pivotHierarchies is OLAP and thus for now out of scope.
         var pivotTableStyle = pivotTable.GetFirstChild<PivotTableStyle>();
         LoadPivotTableStyle(pivotTableStyle, xlPivotTable);
@@ -192,6 +193,34 @@ internal static class PivotTableDefinitionPartReader
                 DxfStyleValue = dxfStyle.Value,
             };
             xlPivotTable.AddFormat(xlFormat);
+        }
+    }
+
+    /// <summary>
+    /// Load the <c>chartFormats</c> collection — the manual formatting a PivotChart carries for
+    /// individual series and data points. The chart part holds the formatting itself; these
+    /// records tie each one to the pivot area it applies to, so dropping them leaves the chart
+    /// pointing at nothing.
+    /// </summary>
+    private static void LoadChartFormats(ChartFormats? chartFormats, XLPivotTable xlPivotTable)
+    {
+        if (chartFormats is null)
+            return;
+
+        foreach (var chartFormat in chartFormats.Cast<ChartFormat>())
+        {
+            var chart = chartFormat.Chart?.Value ?? throw PartStructureException.MissingAttribute();
+            var format = chartFormat.Format?.Value ?? throw PartStructureException.MissingAttribute();
+            var series = chartFormat.Series?.Value ?? false;
+
+            var pivotArea = chartFormat.PivotArea ?? throw PartStructureException.ExpectedElementNotFound();
+            var xlChartFormat = new XLPivotChartFormat(LoadPivotArea(pivotArea))
+            {
+                Chart = chart,
+                Format = format,
+                Series = series,
+            };
+            xlPivotTable.AddChartFormat(xlChartFormat);
         }
     }
 

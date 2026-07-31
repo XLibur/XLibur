@@ -51,6 +51,7 @@ internal static class PivotTableDefinitionPartWriter2
         WriteDataFields(xml, pt, context);
         WriteFormats(xml, pt, context);
         WriteConditionalFormats(xml, pt);
+        WriteChartFormats(xml, pt);
         WritePivotTableStyleInfo(xml, pt);
 
         // Because extensions are pretty large, always write them.
@@ -410,6 +411,33 @@ internal static class PivotTableDefinitionPartWriter2
             }
             xml.WriteEndElement(); // formats
         }
+    }
+
+    /// <summary>
+    /// Write the <c>chartFormats</c> collection. Sits between <c>conditionalFormats</c> and
+    /// <c>pivotTableStyleInfo</c>, which is where the schema sequence puts it.
+    /// </summary>
+    private static void WriteChartFormats(XmlWriter xml, XLPivotTable pt)
+    {
+        if (pt.ChartFormats.Count == 0)
+            return;
+
+        xml.WriteStartElement("chartFormats", Main2006SsNs);
+        xml.WriteAttribute("count", pt.ChartFormats.Count);
+        foreach (var chartFormat in pt.ChartFormats)
+        {
+            xml.WriteStartElement("chartFormat", Main2006SsNs);
+
+            // chart and format are required, so they are written even at their default value.
+            xml.WriteAttribute("chart", chartFormat.Chart);
+            xml.WriteAttribute("format", chartFormat.Format);
+            xml.WriteAttributeDefault("series", chartFormat.Series, false);
+
+            WritePivotArea(xml, chartFormat.PivotArea);
+            xml.WriteEndElement(); // chartFormat
+        }
+
+        xml.WriteEndElement(); // chartFormats
     }
 
     private static void WriteConditionalFormats(XmlWriter xml, XLPivotTable pt)
