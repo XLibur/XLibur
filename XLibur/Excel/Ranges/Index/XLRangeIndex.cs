@@ -26,6 +26,12 @@ internal abstract class XLRangeIndex : IXLRangeIndex
 
     #region Public Methods
 
+    /// <summary>
+    /// Whether the index has switched from the flat list to the QuadTree. Promotion happens once the
+    /// index holds <see cref="MinimumCountForIndexing"/> ranges at the same time, and is one-way.
+    /// </summary>
+    internal bool IsIndexed => _quadTree is not null;
+
     public abstract bool MatchesType(XLRangeType rangeType);
 
     public bool Add(IXLAddressable range)
@@ -37,18 +43,23 @@ internal abstract class XLRangeIndex : IXLRangeIndex
 
         CheckWorksheet(range.RangeAddress.Worksheet);
 
-        _count++;
-        if (_count < MinimumCountForIndexing)
-        {
-            if (_rangeList.Any(r => r == range))
-                return false;
-
-            _rangeList.Add(range);
-            return true;
-        }
-
+        // Promotion is driven by how many ranges the index actually holds, not by how many have ever
+        // been added: a collection that never holds more than a handful at a time — a Clear() that
+        // adds a data validation and immediately deletes it, say — has nothing to gain from a
+        // QuadTree, and paid for one after 20 such round trips (#271).
         if (_quadTree == null)
+        {
+            if (_rangeList.Count < MinimumCountForIndexing)
+            {
+                if (_rangeList.Any(r => r == range))
+                    return false;
+
+                _rangeList.Add(range);
+                return true;
+            }
+
             InitializeTree();
+        }
 
         return _quadTree!.Add(range);
     }
@@ -158,7 +169,6 @@ internal abstract class XLRangeIndex : IXLRangeIndex
     protected readonly List<IXLAddressable> _rangeList;
 
     private readonly IXLWorksheet _worksheet;
-    private int _count;
     protected Quadrant? _quadTree;
 
     #endregion Private Fields

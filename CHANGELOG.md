@@ -130,6 +130,14 @@
 
 - **86% fewer allocations styling a range, row or column in bulk** (~234 → ~33 bytes per cell): setting a style on a container collected every child cell into a `HashSet` of wrappers before writing anything. Containers that can enumerate exactly those cells now walk the addresses and write the style slice directly. ([#185](https://github.com/XLibur/XLibur/pull/185) by [@jafin](https://github.com/jafin))
 
+#### Copying and clearing ranges
+
+- **`IXLRange.CopyTo` no longer gets slower as the sheet fills up** ([#271](https://github.com/XLibur/XLibur/issues/271)): copying a range in a loop was quadratic in the number of copies, so the natural way to expand a template — one `CopyTo` per generated row — degraded badly. On a 30,000-row sheet with no data validations at all, a 1×10 `CopyTo` cost ~420 µs against ~160 µs on the same sheet when nearly empty; it is now ~13 µs and flat. Three things were at fault, all fixed:
+
+  - `Clear(XLClearOptions.All)`, which `CopyTo` runs over its target first, created a data validation covering the target and immediately deleted it *on every call*, even with no validations on the sheet. Going through `Add`/`Delete` is what splits an overlapping rule so only the cleared cells lose their validation, so it is still done when a rule actually overlaps — and skipped when none does. `XLCell.Clear` already guarded this way.
+  - A range index promoted itself from a flat list to a QuadTree after 20 `Add` calls rather than 20 live entries, so a collection that only ever held one range at a time still built a tree.
+  - QuadTree quadrants are created on demand and never torn down, so an index that had seen many add/remove cycles kept a skeleton of empty quadrants that every subsequent removal walked. Each quadrant now tracks how many ranges its subtree holds, and traversals skip subtrees holding none.
+
 #### Saving
 
 - **50% fewer allocations on save** (237.1 → 117.9 MB for the same benchmark), with wall time improving from 1187–1290 ms to 1051–1167 ms. Four save helpers materialised a cell wrapper for every used cell just to read one property and now read the underlying storage directly; `int`/`uint` cell values are formatted into a span instead of allocating a string each; style-key hashes are memoised, cutting `StyleKey.GetHashCode` by 95% over 100K styles. Saved output is byte-identical to before. ([#179](https://github.com/XLibur/XLibur/pull/179) by [@jafin](https://github.com/jafin))

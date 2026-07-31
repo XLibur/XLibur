@@ -95,6 +95,16 @@ internal sealed class XLDataValidations : IXLDataValidations
             .Distinct();
     }
 
+    /// <summary>
+    /// Whether any data validation rule covers a cell of <paramref name="rangeAddress"/>. Cheaper than
+    /// <see cref="GetAllInRange"/> when only the yes/no answer is wanted: it stops at the first hit and
+    /// skips the de-duplication.
+    /// </summary>
+    internal bool AnyInRange(in XLRangeAddress rangeAddress)
+    {
+        return rangeAddress.IsValid && _dataValidationIndex.Intersects(in rangeAddress);
+    }
+
     public IEnumerator<IXLDataValidation> GetEnumerator()
     {
         return _dataValidations.GetEnumerator();

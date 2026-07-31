@@ -241,6 +241,94 @@ public class RangeIndexTest
         await Assert.That(ranges.Count).IsEqualTo(0);
     }
 
+    [Test]
+    public async Task AddingAndRemovingOneRangeAtATimeNeverBuildsQuadTree()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1") as XLWorksheet;
+        var index = CreateRangeIndex(ws);
+
+        // A collection that never holds more than one range has nothing to gain from a QuadTree.
+        // Promotion used to be driven by the number of Add calls, so this loop built one — and then
+        // every RemoveAll walked the quadrants it had accumulated, which is what made XLRangeBase.Clear
+        // (and therefore CopyTo) quadratic on a large sheet.
+        for (var i = 1; i <= 500; i++)
+        {
+            var range = ws.Range(i, 1, i, 10);
+            index.Add(range);
+            index.RemoveAll(r => true);
+        }
+
+        await Assert.That(index.IsIndexed).IsFalse();
+        await Assert.That(index.GetAll().Any()).IsFalse();
+    }
+
+    [Test]
+    public async Task QuadTreeRemainsConsistentAcrossRemoveAndReAdd()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1") as XLWorksheet;
+        var index = FillIndexWithTestData(ws);
+
+        await Assert.That(index.IsIndexed).IsTrue();
+
+        // Empty the tree, then refill it: entries added after a subtree has been emptied must still be
+        // found, i.e. the per-quadrant occupancy count that lets traversals skip empty subtrees has to
+        // come back up as well as down.
+        var removed = index.RemoveAll(_ => true);
+        await Assert.That(removed).IsEqualTo(TestCount);
+        await Assert.That(index.GetAll().Any()).IsFalse();
+
+        for (var i = 1; i <= TestCount; i++)
+        {
+            index.Add(ws.Range(i * 2, 2, i * 2, 4));
+        }
+
+        await Assert.That(index.GetAll().Count()).IsEqualTo(TestCount);
+
+        for (var i = 1; i <= TestCount; i++)
+        {
+            var address = new XLAddress(ws, i * 2, 3, false, false);
+            await Assert.That(index.Contains(in address)).IsTrue();
+        }
+    }
+
+    [Test]
+    public async Task QuadTreeRemoveAllKeepsNonMatchingRangesFindable()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1") as XLWorksheet;
+        var index = FillIndexWithTestData(ws);
+
+        var removed = index.RemoveAll(r => r.RangeAddress.FirstAddress.RowNumber % 4 == 0);
+
+        await Assert.That(removed).IsEqualTo(TestCount / 2);
+        await Assert.That(index.GetAll().Count()).IsEqualTo(TestCount - TestCount / 2);
+
+        for (var i = 1; i <= TestCount; i++)
+        {
+            var address = new XLAddress(ws, i * 2, 3, false, false);
+            await Assert.That(index.Contains(in address)).IsEqualTo(i % 2 == 1);
+        }
+    }
+
+    [Test]
+    public async Task QuadTreeRemoveByAddressAllowsReAddingSameAddress()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1") as XLWorksheet;
+        var index = FillIndexWithTestData(ws);
+        var address = new XLAddress(ws, 200, 3, false, false);
+
+        await Assert.That(index.Remove(ws.Range(200, 2, 200, 4).RangeAddress)).IsTrue();
+        await Assert.That(index.Contains(in address)).IsFalse();
+        await Assert.That(index.Remove(ws.Range(200, 2, 200, 4).RangeAddress)).IsFalse();
+
+        await Assert.That(index.Add(ws.Range(200, 2, 200, 4))).IsTrue();
+        await Assert.That(index.Contains(in address)).IsTrue();
+        await Assert.That(index.GetAll().Count()).IsEqualTo(TestCount);
+    }
+
     private static XLRangeIndex<IXLRangeBase> CreateRangeIndex(IXLWorksheet worksheet)
     {
         return new XLRangeIndex<IXLRangeBase>((XLWorksheet)worksheet);

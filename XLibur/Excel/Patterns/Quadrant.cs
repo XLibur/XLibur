@@ -119,6 +119,9 @@ internal class Quadrant
         if (Children == null && addToChild)
             Children = children;
 
+        if (res)
+            _subtreeCount++;
+
         return res;
     }
 
@@ -127,6 +130,9 @@ internal class Quadrant
     /// </summary>
     public IEnumerable<IXLAddressable> GetAll()
     {
+        if (_subtreeCount == 0)
+            yield break;
+
         if (Ranges != null)
         {
             foreach (var range in Ranges)
@@ -137,6 +143,9 @@ internal class Quadrant
         {
             foreach (var childQuadrant in Children)
             {
+                if (childQuadrant._subtreeCount == 0)
+                    continue;
+
                 var childRanges = childQuadrant.GetAll();
                 foreach (var range in childRanges)
                     yield return range;
@@ -149,6 +158,9 @@ internal class Quadrant
     /// </summary>
     public IEnumerable<IXLAddressable> GetIntersectedRanges(IXLRangeAddress rangeAddress)
     {
+        if (_subtreeCount == 0)
+            yield break;
+
         if (Ranges != null)
         {
             foreach (var range in Ranges)
@@ -167,6 +179,9 @@ internal class Quadrant
     /// </summary>
     public IEnumerable<IXLAddressable> GetIntersectedRanges(IXLAddress address)
     {
+        if (_subtreeCount == 0)
+            yield break;
+
         if (Ranges != null)
         {
             foreach (var range in Ranges)
@@ -188,6 +203,9 @@ internal class Quadrant
     /// </summary>
     public bool CoversAnyRange(in XLAddress address)
     {
+        if (_subtreeCount == 0)
+            return false;
+
         if (_ranges is not null)
         {
             foreach (var range in _ranges.Values)
@@ -221,7 +239,7 @@ internal class Quadrant
 
         foreach (var childQuadrant in Children)
         {
-            if (childQuadrant.Intersects(in rangeAddress))
+            if (childQuadrant._subtreeCount > 0 && childQuadrant.Intersects(in rangeAddress))
             {
                 foreach (var range in childQuadrant.GetIntersectedRanges(rangeAddress))
                     yield return range;
@@ -236,7 +254,7 @@ internal class Quadrant
 
         foreach (var childQuadrant in Children)
         {
-            if (childQuadrant.Covers(in address))
+            if (childQuadrant._subtreeCount > 0 && childQuadrant.Covers(in address))
             {
                 foreach (var range in childQuadrant.GetIntersectedRanges(address))
                     yield return range;
@@ -250,6 +268,9 @@ internal class Quadrant
     /// <returns>True if the range was removed, false if it does not exist in the QuadTree.</returns>
     public bool Remove(IXLRangeAddress rangeAddress)
     {
+        if (_subtreeCount == 0)
+            return false;
+
         var res = false;
 
         var coveredByChild = false;
@@ -268,6 +289,9 @@ internal class Quadrant
         if (!coveredByChild && _ranges?.Remove(rangeAddress) == true)
             res = true;
 
+        if (res)
+            _subtreeCount--;
+
         return res;
     }
 
@@ -275,32 +299,63 @@ internal class Quadrant
     /// Remove all the ranges matching specified criteria from the quadrant and its child quadrants (recursively).
     /// Don't use it for searching intersections as it would be much less efficient than <see cref="GetIntersectedRanges(IXLRangeAddress)"/>.
     /// </summary>
-    public IEnumerable<IXLAddressable> RemoveAll(Predicate<IXLAddressable> predicate)
+    /// <remarks>
+    /// Eager rather than lazy: every caller wants the whole set (or just its size), and removal has to
+    /// stay all-or-nothing for <see cref="_subtreeCount"/> to keep matching the contents — a half-consumed
+    /// lazy walk used to yield ranges it had not removed yet.
+    /// </remarks>
+    public IReadOnlyList<IXLAddressable> RemoveAll(Predicate<IXLAddressable> predicate)
     {
+        var removed = new List<IXLAddressable>();
+        RemoveAllInto(predicate, removed);
+        return removed;
+    }
+
+    /// <summary>
+    /// Recursive worker for <see cref="RemoveAll"/>. Returns the number of ranges removed from this
+    /// quadrant and its descendants, so each level can adjust its own <see cref="_subtreeCount"/>.
+    /// </summary>
+    private int RemoveAllInto(Predicate<IXLAddressable> predicate, List<IXLAddressable> removed)
+    {
+        // Child quadrants are created on demand but never destroyed, so a long-lived index that has
+        // seen many add/remove cycles keeps a skeleton of empty quadrants. Without this test every
+        // removal would walk that skeleton, which is what made a Clear/CopyTo loop quadratic (#271).
+        if (_subtreeCount == 0)
+            return 0;
+
+        var count = 0;
+
         if (_ranges != null)
         {
-            var ranges = _ranges.Values.Where(r => predicate(r));
-            var keysToRemove = new List<IXLRangeAddress>();
-            foreach (var range in ranges)
+            List<IXLRangeAddress>? keysToRemove = null;
+            foreach (var range in _ranges.Values)
             {
-                keysToRemove.Add(range.RangeAddress);
-                yield return range;
+                if (!predicate(range))
+                    continue;
+
+                (keysToRemove ??= new List<IXLRangeAddress>()).Add(range.RangeAddress);
+                removed.Add(range);
             }
 
-            foreach (var keyToRemove in keysToRemove)
+            if (keysToRemove != null)
             {
-                _ranges.Remove(keyToRemove);
-            }
-        }
-
-        if (Children != null)
-        {
-            foreach (var childQuadrant in Children)
-                foreach (var childRange in childQuadrant.RemoveAll(predicate))
+                foreach (var keyToRemove in keysToRemove)
                 {
-                    yield return childRange;
+                    if (_ranges.Remove(keyToRemove))
+                        count++;
                 }
+            }
         }
+
+        var children = Children;
+        if (children != null)
+        {
+            for (var i = 0; i < children.Count; i++)
+                count += children[i].RemoveAllInto(predicate, removed);
+        }
+
+        _subtreeCount -= count;
+        return count;
     }
 
     #endregion Public Methods
@@ -316,6 +371,14 @@ internal class Quadrant
     /// Collection of ranges belonging to the current quadrant (that cannot fit into child quadrants).
     /// </summary>
     private Dictionary<IXLRangeAddress, IXLAddressable>? _ranges;
+
+    /// <summary>
+    /// Number of ranges held by this quadrant and every descendant. <see cref="Children"/> is created
+    /// lazily but never torn down, so an index that has seen many add/remove cycles accumulates empty
+    /// quadrants; this count lets every traversal skip a subtree that has nothing in it instead of
+    /// walking that skeleton.
+    /// </summary>
+    private int _subtreeCount;
 
     #endregion Private Fields
 

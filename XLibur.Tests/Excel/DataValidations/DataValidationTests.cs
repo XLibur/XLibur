@@ -249,6 +249,50 @@ public class DataValidationTests
     }
 
     [Test]
+    public async Task ClearingDataValidationOnASheetWithoutAnyIsANoOp()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("DataValidation");
+
+        // Clear used to add a rule covering the range and delete it again regardless, which left the
+        // collection empty but cost more the bigger the sheet's validation index had grown (#271).
+        ws.Range("A1:C3").Clear(XLClearOptions.DataValidation);
+        ws.Range("A1:C3").Clear(XLClearOptions.All);
+
+        await Assert.That(ws.DataValidations.Count()).IsEqualTo(0);
+        await Assert.That(ws.Cell("B2").HasDataValidation).IsFalse();
+    }
+
+    [Test]
+    public async Task ClearingDataValidationLeavesRulesOutsideTheRangeAlone()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("DataValidation");
+        ws.Range("E1:E3").CreateDataValidation().WholeNumber.Between(0, 100);
+
+        ws.Range("A1:C3").Clear(XLClearOptions.All);
+
+        await Assert.That(ws.DataValidations.Count()).IsEqualTo(1);
+        await Assert.That(ws.Range("E1:E3").Cells().All(c => c.HasDataValidation)).IsTrue();
+    }
+
+    [Test]
+    public async Task CopyToClearsOnlyTheValidationItOverwrites()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("DataValidation");
+        ws.Range("A1:C1").Value = "template";
+        ws.Range("A5:C5").CreateDataValidation().WholeNumber.Between(0, 100);
+        ws.Range("A6:C6").CreateDataValidation().WholeNumber.Between(0, 100);
+
+        ws.Range("A1:C1").CopyTo(ws.Cell("A5"));
+
+        await Assert.That(ws.Range("A5:C5").Cells().Any(c => c.HasDataValidation)).IsFalse();
+        await Assert.That(ws.Range("A6:C6").Cells().All(c => c.HasDataValidation)).IsTrue();
+        await Assert.That(ws.Cell("A5").GetString()).IsEqualTo("template");
+    }
+
+    [Test]
     public async Task NewDataValidationSplitsRange()
     {
         using var wb = new XLWorkbook();

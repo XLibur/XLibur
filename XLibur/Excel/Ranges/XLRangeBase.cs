@@ -376,7 +376,12 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         if (clearOptions.HasFlag(XLClearOptions.ConditionalFormats))
             RemoveConditionalFormatting();
 
-        if (clearOptions.HasFlag(XLClearOptions.DataValidation))
+        // Adding a rule over the range and deleting it again is not the same as Delete(range): going
+        // through Add is what splits an overlapping rule so that only the cleared cells lose their
+        // validation. With nothing overlapping it is a pure round trip, so skip it — that round trip
+        // was the whole cost of CopyTo on a large sheet (#271).
+        if (clearOptions.HasFlag(XLClearOptions.DataValidation) &&
+            Worksheet.DataValidations.AnyInRange(RangeAddress))
         {
             var validation = CreateDataValidation();
             Worksheet.DataValidations.Delete(validation);
