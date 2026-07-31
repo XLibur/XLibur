@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel;
+using XLibur.Excel.Exceptions;
 using XLibur.Report.Tags;
 
 namespace XLibur.Report.Rewriting;
@@ -60,10 +61,23 @@ internal static class PivotBuilder
         }
 
         var destination = request.Destination.FirstCell();
-        var pivot = destination.Worksheet.PivotTables.Add(
-            Name(destination.Worksheet.Workbook, request.RequestedName),
-            destination,
-            request.Source);
+
+        IXLPivotTable pivot;
+        try
+        {
+            pivot = destination.Worksheet.PivotTables.Add(
+                Name(destination.Worksheet.Workbook, request.RequestedName),
+                destination,
+                request.Source);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidReferenceException)
+        {
+            // A name the sheet already holds — two <<Pivot name="…">> asking for the same one, or a
+            // template pivot that has it — or a source the cache cannot read. Both are template
+            // problems, and the rest of the report should survive either.
+            errors.Add(Error(request, $"<<Pivot>> could not be built: {ex.Message}"));
+            return;
+        }
 
         foreach (var field in request.Fields)
         {

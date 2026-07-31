@@ -130,13 +130,11 @@ internal static class ReferenceRewriter
         {
             if (reference.LastRow < template.FirstRow || reference.FirstRow > template.LastRow)
             {
-                return reference.FirstColumn <= template.LastColumn
-                    ? reference
-                    : reference with
-                    {
-                        FirstColumn = reference.FirstColumn + expansion.SlotDelta,
-                        LastColumn = reference.LastColumn + expansion.SlotDelta,
-                    };
+                return reference with
+                {
+                    FirstColumn = Shift(reference.FirstColumn, template.LastColumn, expansion.SlotDelta),
+                    LastColumn = Shift(reference.LastColumn, template.LastColumn, expansion.SlotDelta),
+                };
             }
 
             var firstColumn = ExpansionMap.MapColumnStart(reference.FirstColumn, expansion);
@@ -151,13 +149,11 @@ internal static class ReferenceRewriter
 
         if (reference.LastColumn < template.FirstColumn || reference.FirstColumn > template.LastColumn)
         {
-            return reference.FirstRow <= template.LastRow
-                ? reference
-                : reference with
-                {
-                    FirstRow = reference.FirstRow + expansion.SlotDelta,
-                    LastRow = reference.LastRow + expansion.SlotDelta,
-                };
+            return reference with
+            {
+                FirstRow = Shift(reference.FirstRow, template.LastRow, expansion.SlotDelta),
+                LastRow = Shift(reference.LastRow, template.LastRow, expansion.SlotDelta),
+            };
         }
 
         var firstRow = ExpansionMap.MapRowStart(reference.FirstRow, expansion);
@@ -169,4 +165,17 @@ internal static class ReferenceRewriter
             LastRow = Math.Max(firstRow, lastRow),
         };
     }
+
+    /// <summary>
+    /// Where one end of a reference the expansion did not stretch ends up: unchanged where it sat at
+    /// or before the template, moved by the delta where it sat past it.
+    /// </summary>
+    /// <remarks>
+    /// Each end is moved on its own, because a reference may straddle the template — starting above a
+    /// vertical range and ending below it, in columns the range does not touch. Its start stays put
+    /// and its tail follows the rows the insert pushed down; treating the reference as a unit would
+    /// leave the tail naming rows that have moved.
+    /// </remarks>
+    private static int Shift(int position, int templateLast, int delta) =>
+        position > templateLast ? position + delta : position;
 }

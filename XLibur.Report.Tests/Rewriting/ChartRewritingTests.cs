@@ -170,6 +170,22 @@ public class ChartRewritingTests
         await Assert.That(Series(workbook).ValueReferences).IsEqualTo("Report!$E$3:$E$3");
     }
 
+    /// <summary>
+    /// A column beside the range is not stretched by it, but the rows below the range still move,
+    /// because the insert that grew the range was a full-row one. A reference that starts above the
+    /// range and ends below it therefore keeps its start and follows the rows its tail sat on.
+    /// </summary>
+    [Test]
+    public async Task AReferenceBesideTheRangeSpanningItFollowsTheRowsBelowIt()
+    {
+        using var workbook = Template(valueReferences: "Report!$E$1:$E$10", categoryReferences: null);
+
+        Generate(workbook);
+
+        // Two rows net, the same shift a reference wholly below the range gets.
+        await Assert.That(Series(workbook).ValueReferences).IsEqualTo("Report!$E$1:$E$12");
+    }
+
     /// <summary>An empty collection shrinks the range, and the series shrinks with it.</summary>
     [Test]
     public async Task ASeriesOverAnEmptyRangeCollapses()

@@ -140,9 +140,31 @@ internal static class ExcelFunctionBridge
         XLError error => AnyValue.From(error),
         XLCellValue cellValue => ((ScalarValue)cellValue).ToAnyValue(),
 
-        IConvertible convertible => AnyValue.From(convertible.ToDouble(culture)),
+        IConvertible convertible => FromConvertible(convertible, culture),
         _ => AnyValue.From(value.ToString() ?? string.Empty),
     };
+
+    /// <summary>
+    /// A number where the value converts to one, its text otherwise.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="IConvertible"/> is not a promise of being a number: <see cref="char"/> and
+    /// <see cref="DBNull"/> implement it and throw from <c>ToDouble</c>. Letting that throw would
+    /// abort the whole run over one cell's argument, which is the opposite of what generation
+    /// promises — so a value that will not convert is passed as its text, the same as anything else
+    /// with no numeric form.
+    /// </remarks>
+    private static AnyValue FromConvertible(IConvertible convertible, CultureInfo culture)
+    {
+        try
+        {
+            return AnyValue.From(convertible.ToDouble(culture));
+        }
+        catch (Exception ex) when (ex is InvalidCastException or FormatException or OverflowException)
+        {
+            return AnyValue.From(convertible.ToString(culture) ?? string.Empty);
+        }
+    }
 
     private static object? FromAnyValue(AnyValue value)
     {

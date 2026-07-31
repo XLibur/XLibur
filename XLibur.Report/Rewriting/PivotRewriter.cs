@@ -130,14 +130,11 @@ internal static class PivotRewriter
 
                 if (!crosses)
                 {
-                    if (area.LeftColumn > template.LastColumn)
-                    {
-                        area = new Area(
-                            area.TopRow,
-                            area.LeftColumn + expansion.SlotDelta,
-                            area.BottomRow,
-                            area.RightColumn + expansion.SlotDelta);
-                    }
+                    area = new Area(
+                        area.TopRow,
+                        Shift(area.LeftColumn, template.LastColumn, expansion.SlotDelta),
+                        area.BottomRow,
+                        Shift(area.RightColumn, template.LastColumn, expansion.SlotDelta));
 
                     continue;
                 }
@@ -153,14 +150,11 @@ internal static class PivotRewriter
 
             if (!overlaps)
             {
-                if (area.TopRow > template.LastRow)
-                {
-                    area = new Area(
-                        area.TopRow + expansion.SlotDelta,
-                        area.LeftColumn,
-                        area.BottomRow + expansion.SlotDelta,
-                        area.RightColumn);
-                }
+                area = new Area(
+                    Shift(area.TopRow, template.LastRow, expansion.SlotDelta),
+                    area.LeftColumn,
+                    Shift(area.BottomRow, template.LastRow, expansion.SlotDelta),
+                    area.RightColumn);
 
                 continue;
             }
@@ -173,6 +167,14 @@ internal static class PivotRewriter
 
         return new SheetArea(source.Name, area);
     }
+
+    /// <summary>
+    /// Where one edge of a source the expansion did not stretch ends up: unchanged where it sat at or
+    /// before the template, moved by the delta where it sat past it. Each edge moves on its own, so a
+    /// source straddling the template keeps its start and follows the rows its tail sat above.
+    /// </summary>
+    private static int Shift(int position, int templateLast, int delta) =>
+        position > templateLast ? position + delta : position;
 
     /// <summary>
     /// Re-reads the cache's records, and asks Excel to do the same when it opens the file.
