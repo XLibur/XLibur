@@ -77,6 +77,7 @@ jobs:
           /d:sonar.token="$SONAR_TOKEN"
           /d:sonar.host.url="https://sonarcloud.io"
           /d:sonar.cs.vscoveragexml.reportsPaths="**/*coverage.xml"
+          /d:sonar.exclusions="docs-website/**"
           /d:sonar.coverage.exclusions="XLibur.Examples/**,XLibur.Benchmarks/**,XLibur.Report.Examples/**,XLibur.Report.Benchmarks/**"
           /d:sonar.cpd.exclusions="XLibur/Excel/CalcEngine/Functions/SignatureAdapter.cs,XLibur/Excel/CalcEngine/Functions/Distributions.cs,XLibur/Excel/CalcEngine/Functions/Regression.cs"
           /d:sonar.issue.ignore.multicriteria=e1
