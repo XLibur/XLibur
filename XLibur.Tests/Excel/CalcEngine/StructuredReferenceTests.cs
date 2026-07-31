@@ -163,6 +163,25 @@ internal class StructuredReferenceTests
         await Assert.That(ws.Evaluate(formula, "D11")).IsEqualTo(XLError.IncompatibleValue);
     }
 
+    /// <summary>
+    /// A table name is workbook scoped, so a structured reference can be used from a sheet other
+    /// than the one holding the table. It must resolve to the table's own sheet rather than to
+    /// the same coordinates on the referencing sheet.
+    /// </summary>
+    [Test]
+    public async Task Structured_reference_resolves_on_the_sheet_owning_the_table()
+    {
+        using var wb = new XLWorkbook();
+        var data = wb.AddWorksheet("Data");
+        var report = wb.AddWorksheet("Report");
+
+        // Table at E7:H11 on Data, the `Second` column holding 10, 20, 30 in F8:F10.
+        Add4X3Table(data, "E7");
+
+        await Assert.That(report.Evaluate("SUM(TableName[Second])")).IsEqualTo(60.0);
+        await Assert.That(report.Evaluate("COUNTA(TableName[#Headers])")).IsEqualTo(4.0);
+    }
+
     private static IXLTable Add4X3Table(IXLWorksheet ws, string origin)
     {
         var dt = new DataTable("TableName");

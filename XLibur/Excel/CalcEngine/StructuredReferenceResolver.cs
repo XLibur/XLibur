@@ -44,11 +44,17 @@ internal static class StructuredReferenceResolver
     /// </summary>
     /// <param name="scope">The formula being resolved for.</param>
     /// <param name="node">The reference to resolve.</param>
-    /// <param name="range">The area covered, when this returns <c>true</c>.</param>
+    /// <param name="worksheet">
+    /// The sheet <paramref name="range"/> lies on, when this returns <c>true</c>. Table names are
+    /// workbook scoped, so that is the sheet owning the table and not necessarily the scope's own
+    /// sheet. For a table-less reference the two are the same by construction.
+    /// </param>
+    /// <param name="range">The area covered on <paramref name="worksheet"/>, when this returns <c>true</c>.</param>
     /// <param name="error">Why resolution failed, when this returns <c>false</c>.</param>
     internal static bool TryResolve<TScope>(
         TScope scope,
         StructuredReferenceNode node,
+        [NotNullWhen(true)] out XLWorksheet? worksheet,
         out Area range,
         out XLError error)
         where TScope : IStructuredReferenceScope
@@ -56,6 +62,7 @@ internal static class StructuredReferenceResolver
         // We don't support external links.
         if (node.Prefix is not null)
         {
+            worksheet = null;
             range = default;
             error = XLError.CellReference;
             return false;
@@ -64,6 +71,7 @@ internal static class StructuredReferenceResolver
         if (!TryGetTable(scope, node.Table, out var table) ||
             !TryGetColumns(table, node.FirstColumn, node.LastColumn, out var colStart, out var colEnd))
         {
+            worksheet = null;
             range = default;
             error = XLError.CellReference;
             return false;
@@ -73,10 +81,12 @@ internal static class StructuredReferenceResolver
         // not allowed by grammar.
         if (!TryGetRows(scope, table, node.Area, out var rowStart, out var rowEnd, out error))
         {
+            worksheet = null;
             range = default;
             return false;
         }
 
+        worksheet = table.Worksheet;
         range = new Area(rowStart, colStart, rowEnd, colEnd);
         error = default;
         return true;

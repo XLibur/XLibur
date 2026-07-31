@@ -500,18 +500,43 @@ internal class DependencyTreeTests
     }
 
     /// <summary>
+    /// A table name is workbook scoped, so the area it resolves to lies on the table's own sheet,
+    /// which need not be the sheet holding the formula. Registering the precedent against the
+    /// formula's sheet would watch entirely unrelated cells.
+    /// </summary>
+    [Test]
+    public async Task Structured_reference_depends_on_the_sheet_owning_the_table()
+    {
+        using var wb = new XLWorkbook();
+        var report = wb.AddWorksheet("Report");
+        wb.AddWorksheet("Data");
+        AddTable(wb, "Data");
+
+        var tree = new DependencyTree();
+        var cell = report.Cell("A1");
+        cell.SetFormulaA1("SUM(TableName[Second])");
+
+        var cellFormula = ((XLCell)cell).Formula;
+        var dependencies = tree.AddFormula(new SheetArea(report.Name, cellFormula.Range), cellFormula, wb);
+
+        await Assert.That(dependencies.Areas)
+            .IsEquivalentTo(new SheetArea[] { new("Data", Area.Parse("F8:F10")) });
+    }
+
+    /// <summary>
     /// A 4x3 table at E7 with headers First..Fourth, matching the layout
     /// <c>StructuredReferenceTests</c> uses.
     /// </summary>
-    private static void AddTable(XLWorkbook wb)
+    private static void AddTable(XLWorkbook wb) => AddTable(wb, "Sheet");
+
+    private static void AddTable(XLWorkbook wb, string sheetName)
     {
-        var ws = wb.Worksheet("Sheet");
+        var ws = wb.Worksheet(sheetName);
         ws.Cell("E7").Value = "First";
         ws.Cell("F7").Value = "Second";
         ws.Cell("G7").Value = "Third";
         ws.Cell("H7").Value = "Fourth";
-        var table = ws.Range("E7:H10").CreateTable("TableName");
-        _ = table;
+        ws.Range("E7:H10").CreateTable("TableName");
     }
 
     #endregion Structured references

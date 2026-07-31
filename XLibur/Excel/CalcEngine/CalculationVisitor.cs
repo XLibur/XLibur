@@ -109,10 +109,12 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
 
     public AnyValue Visit(CalcContext context, StructuredReferenceNode node)
     {
-        if (!StructuredReferenceResolver.TryResolve(context, node, out var range, out var error))
+        if (!StructuredReferenceResolver.TryResolve(context, node, out var worksheet, out var range, out var error))
             return error;
 
-        return new Reference(XLRangeAddress.FromSheetRange(context.Worksheet, range));
+        // The table's own sheet, not the formula's — a table name is workbook scoped and can be
+        // referenced from anywhere in the workbook.
+        return new Reference(XLRangeAddress.FromSheetRange(worksheet, range));
     }
 
     public AnyValue Visit(CalcContext context, PrefixNode node)
