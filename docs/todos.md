@@ -76,11 +76,14 @@ deprecation period before it can be considered.
 
 ### Two findings surfaced while triaging this part
 
-- **Task #9** — the `SetDataValidation` deprecation is only half-applied.
-  `IXLBaseCollection<TSingle, TMultiple>.SetDataValidation()` (`IXLBaseCollection.cs:11`, the
-  interface behind `IXLColumns`/`IXLRows`/`IXLCells`) is shipped public API
-  (`PublicAPI.Shipped.txt:176`) but carries no `[Obsolete]` and has no `CreateDataValidation()`
-  counterpart. Sonar missed it precisely because the attribute is absent.
+- **Task #9** — `IXLBaseCollection<TSingle, TMultiple>` (`IXLBaseCollection.cs:5`) is **dead
+  public API**. It is shipped (`PublicAPI.Shipped.txt:166-180`, 15 members, including a
+  `SetDataValidation()` that carries no `[Obsolete]`), but nothing implements it and nothing
+  consumes it: `git grep IXLBaseCollection` outside `PublicAPI.Shipped.txt` returns only its
+  own declaration, and `IXLColumns`, `IXLRows`, `IXLCells`, `IXLRangeColumns` and
+  `IXLRangeRows` all derive from `IEnumerable<T>` alone. So this is a disposal question that
+  belongs with task #10, not a deprecation to complete — adding the missing
+  `CreateDataValidation()` counterpart would only grow dead surface.
 - **Task #11** — `XLWorksheet.cs:597` reads `"Used {nameof(DefinedName)} instead."`; should be
   "Use", matching its nine siblings.
 
@@ -90,30 +93,35 @@ deprecation period before it can be considered.
 
 | Task | Item(s) | Kind | Status |
 |------|---------|------|--------|
-| #1 | 7 | Bug — empty data validations written with empty `sqref` | Not started |
-| #2 | 10 | Feature — pivot `chartFormats` round trip | Not started |
+| #1 | 7 | Bug — empty data validations written with empty `sqref` | In review — [#290](https://github.com/XLibur/XLibur/pull/290) |
+| #2 | 10 | Feature — pivot `chartFormats` round trip | In review — [#294](https://github.com/XLibur/XLibur/pull/294) |
 | #3 | 11 | Feature — pivot `filters` round trip | Not started |
 | #4 | 2, 4 | Correctness — structured references in the dependency tree | Not started |
 | #5 | 3 | Perf — register data-table formulas in the dependency tree | Not started |
-| #6 | 1 | Perf — cache parsed reference addresses | **Done** — [#286](https://github.com/XLibur/XLibur/pull/286) |
-| #7 | 12 | Cleanup — `CacheId` nullability | **Done** — [#287](https://github.com/XLibur/XLibur/pull/287) |
+| #6 | 1 | Perf — cache parsed reference addresses | **Merged** — [#286](https://github.com/XLibur/XLibur/pull/286) |
+| #7 | 12 | Cleanup — `CacheId` nullability | **Merged** — [#287](https://github.com/XLibur/XLibur/pull/287) |
 | #8 | 17 | Hardening — validate pivot field item values | Not started |
-| #9 | — | Gap — complete the `SetDataValidation` deprecation | Not started |
-| #10 | 5, 8, 9, 13–16, 18–27 | Decision — removal release for 17 obsolete members | Not started |
-| #11 | — | Typo — `"Used"` → `"Use"` | Not started |
+| #9 | — | Decision — dispose of the orphan `IXLBaseCollection` interface | **Needs an owner decision** |
+| #10 | 5, 8, 9, 13–16, 18–27 | Decision — removal release for 17 obsolete members | **Needs an owner decision** |
+| #11 | — | Typo — `"Used"` → `"Use"` | In review — [#292](https://github.com/XLibur/XLibur/pull/292) |
 
 ---
 
 ## Progress
 
-Work is going out as a PR stack, each branch based on the previous one. Every PR needs
-retargeting to `main` as the one below it merges.
+The first four PRs went out as a stack and are now merged. Everything since branches from `main`
+directly — the stack cost a rebase of every branch above each merge, which was not worth it for
+changes that mostly touch different files.
 
-| PR | Branch | Base | Contents |
-|----|--------|------|----------|
-| [#285](https://github.com/XLibur/XLibur/pull/285) | `chore/todo-triage` | `main` | This document; the stale TODO removed and the partly stale one reworded |
-| [#286](https://github.com/XLibur/XLibur/pull/286) | `fix/astnode-reference-cache` | #285 | Task #6 |
-| [#287](https://github.com/XLibur/XLibur/pull/287) | `fix/pivot-cache-id-nullability` | #286 | Task #7 |
+| PR | Contents | State |
+|----|----------|-------|
+| [#285](https://github.com/XLibur/XLibur/pull/285) | This document; the stale TODO removed and the partly stale one reworded | Merged |
+| [#286](https://github.com/XLibur/XLibur/pull/286) | Task #6 | Merged |
+| [#287](https://github.com/XLibur/XLibur/pull/287) | Task #7 | Merged |
+| [#288](https://github.com/XLibur/XLibur/pull/288) | This section | Merged |
+| [#290](https://github.com/XLibur/XLibur/pull/290) | Task #1 | Open |
+| [#292](https://github.com/XLibur/XLibur/pull/292) | Task #11 | Open |
+| [#294](https://github.com/XLibur/XLibur/pull/294) | Task #2 (replaces #291, which was stacked on #287) | Open |
 
 ### Task #6 — reference resolution (#286)
 
@@ -147,9 +155,35 @@ rebuilding the workbook `pivotCaches` element and its only reader is the pivot t
 the value belongs to one save. Moved to `SaveContext` as a cache-to-id map; the property is
 gone, and so is `PivotSourceCacheId`, which was a loop counter with workbook-level scope.
 
+### Task #1 — empty data validations (#290)
+
+`SplitBy` can strip a rule of every area when a new validation wholly covers it, and the writer
+then joined its zero ranges into `sqref=""`. Excel treats that as corruption and repairs the
+workbook, dropping *every* validation on the sheet. `ClearRanges` and `RemoveRange` are public
+and reach the same state without any splitting, so the fix is at both ends: the split path drops
+rules it empties, and the writer skips any rule with no coverage.
+
+The sweep runs after the split loop rather than off the coverage-changed event because `SplitBy`
+passes through zero areas transiently, between removing an area and adding back its remainder.
+
+### Task #2 — pivot chartFormats (#294)
+
+The `chartFormats` element — which ties each PivotChart formatting record to the pivot area it
+applies to — was never read or written, so manual chart formatting vanished on load/save. Added
+`XLPivotChartFormat` plus a reader and writer following the existing `formats`/`conditionalFormats`
+pattern. Not to be confused with the `chartFormat` *attribute*, which already worked.
+
+### Task #9 — correction
+
+The entry above in Part 2 has been rewritten. The original claim — that this was a half-applied
+deprecation on the interface behind `IXLColumns`/`IXLRows`/`IXLCells` — was wrong: nothing
+extends `IXLBaseCollection` and nothing implements it. There is no deprecation to complete, only
+a disposal decision, which belongs with #10.
+
 ### Suggested order for what remains
 
-#2, #3 and #8 are all pivot work touching the same reader/writer pair as #7, so taking them
-next keeps the conflict surface small. #1 is the only outright bug left and is independent of
-everything else. #9 should be settled before #10, since it changes what the
-`SetDataValidation` group contains.
+#3 and #8 are the remaining pivot items and touch the same reader/writer pair, so they conflict
+least taken together — though #3 is much the largest job left, since `CT_PivotFilter` carries a
+required full `autoFilter` subtree. #4 and #5 are both calc-engine dependency-tree work and pair
+naturally. #9 and #10 are decisions rather than code, and #9 does not gate #10 in the way the
+earlier note claimed — they are two parts of the same disposal question.
