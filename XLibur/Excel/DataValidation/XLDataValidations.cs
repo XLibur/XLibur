@@ -259,15 +259,22 @@ internal sealed class XLDataValidations : IXLDataValidations
     {
         if (_skipSplittingExistingRanges) return;
 
+        // Distinct because the index holds one entry per area, so a rule covering several
+        // intersecting areas would otherwise be split once per area. SplitBy is idempotent —
+        // later calls find nothing left intersecting — but there is no reason to repeat it,
+        // and the emptied-rule sweep below needs each rule considered once.
+        var split = _dataValidationIndex.GetIntersectedRanges((XLRangeAddress)rangeAddress)
+            .Select(entry => entry.DataValidation)
+            .Distinct()
+            .ToList();
+
         try
         {
             _skipSplittingExistingRanges = true;
-            var entries = _dataValidationIndex.GetIntersectedRanges((XLRangeAddress)rangeAddress)
-                .ToList();
 
-            foreach (var entry in entries)
+            foreach (var dataValidation in split)
             {
-                entry.DataValidation.SplitBy(rangeAddress);
+                dataValidation.SplitBy(rangeAddress);
             }
         }
         finally
@@ -275,7 +282,15 @@ internal sealed class XLDataValidations : IXLDataValidations
             _skipSplittingExistingRanges = false;
         }
 
-        //TODO Remove empty data validations
+        // A rule whose coverage lay entirely inside rangeAddress has no areas left: the new
+        // rule took every cell it applied to. Excel cannot express a rule that applies to
+        // nothing — sqref must be non-empty — and the rule is now unreachable, so drop it
+        // rather than leave it in the collection to be written as sqref="".
+        foreach (var dataValidation in split)
+        {
+            if (dataValidation.Areas.Count == 0)
+                Delete(dataValidation);
+        }
     }
 
     /// <summary>

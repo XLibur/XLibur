@@ -32,6 +32,13 @@ internal static class DataValidationWriter
 
         foreach (var dv in xlWorksheet.DataValidations)
         {
+            // A rule can be left covering nothing — ClearRanges and RemoveRange are public and
+            // neither drops the rule. sqref is built by joining its ranges, so writing one
+            // would emit sqref="", which the schema forbids and Excel repairs the file over.
+            // A rule that applies to no cell has nothing to say, so skipping it loses nothing.
+            if (((XLDataValidation)dv).Areas.Count == 0)
+                continue;
+
             var (minReferencesAnotherSheet, minValue) = UsesExternalSheet(xlWorksheet, dv.MinValue);
             var (maxReferencesAnotherSheet, maxValue) = UsesExternalSheet(xlWorksheet, dv.MaxValue);
 
