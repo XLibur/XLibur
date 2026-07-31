@@ -13,6 +13,20 @@
   </PropertyGroup>
 
   <!--
+    Where the stream starts before it has a tag.
+
+    With no `report-v*` tag reachable, MinVer numbers the packages 0.0.0-<label>.<height>, which is
+    what `.github/workflows/release-report-prerelease.yml` would publish today — an unusable version
+    that can never be reclaimed on NuGet. This floor makes those 0.1.0-<label>.<height> instead,
+    leading up to the first release at `report-v0.1.0`.
+
+    It retires itself: once a tag exists MinVer's own number is higher, and the floor stops applying.
+  -->
+  <PropertyGroup>
+    <MinVerMinimumMajorMinor>0.1</MinVerMinimumMajorMinor>
+  </PropertyGroup>
+
+  <!--
     The core version these packages declare a dependency on.
 
     Declared here rather than left to the ProjectReference, because the project-derived version is
