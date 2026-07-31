@@ -1019,7 +1019,7 @@ public partial class XLWorkbook
     private static void SynchronizeWorkbookPivotCacheReferences(WorkbookPart workbookPart,
         IReadOnlyList<IXLPivotTable> allPivotTables, SaveContext context)
     {
-        context.PivotSourceCacheId = 0;
+        context.PivotCacheIds.Clear();
         var xlUsedCaches = new List<XLPivotCache>();
         var seenUsedCaches = new HashSet<IXLPivotCache>();
         foreach (var pt in allPivotTables)
@@ -1033,10 +1033,11 @@ public partial class XLWorkbook
             var pivotCaches = new PivotCaches();
             workbookPart.Workbook!.PivotCaches = pivotCaches;
 
-            foreach (var source in xlUsedCaches)
+            for (var i = 0; i < xlUsedCaches.Count; i++)
             {
-                var cacheId = context.PivotSourceCacheId++;
-                source.CacheId = cacheId;
+                var source = xlUsedCaches[i];
+                var cacheId = (uint)i;
+                context.PivotCacheIds[source] = cacheId;
                 pivotCaches.AppendChild(new PivotCache { CacheId = cacheId, Id = source.WorkbookCacheRelId });
             }
         }

@@ -105,11 +105,6 @@ internal sealed class XLPivotCache : IXLPivotCache
 
     #endregion
 
-    /// <summary>
-    /// Pivot cache definition id from the file.
-    /// </summary>
-    internal uint? CacheId { get; set; }
-
     internal Guid Guid { get; }
 
     /// <summary>
