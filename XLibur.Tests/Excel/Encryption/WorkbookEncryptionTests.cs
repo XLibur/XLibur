@@ -355,6 +355,40 @@ public class WorkbookEncryptionTests
     }
 
     [Test]
+    public async Task Save_back_to_a_stream_leaves_no_tail_of_the_larger_workbook_it_replaced()
+    {
+        const string RowText = "row text long enough to make the package worth measuring";
+
+        using var origin = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            for (var row = 1; row <= 2000; row++)
+                ws.Cell(row, 1).Value = RowText;
+
+            wb.SaveAs(origin, new SaveOptions { Password = Password });
+        }
+
+        var lengthBefore = origin.Length;
+        origin.Position = 0;
+
+        using (var wb = new XLWorkbook(origin, new LoadOptions { Password = Password }))
+        {
+            wb.Worksheet("Data").Rows(2, 2000).Delete();
+            wb.Save();
+        }
+
+        // The stream has to end where the new container ends. Whatever the larger one left beyond
+        // that is trailing rubbish on the file, which is why the truncation happens after the
+        // write rather than before the encryption.
+        await Assert.That(origin.Length).IsLessThan(lengthBefore);
+
+        using var reopened = new XLWorkbook(new MemoryStream(origin.ToArray()), new LoadOptions { Password = Password });
+        await Assert.That(reopened.Worksheet("Data").Cell(1, 1).GetString()).IsEqualTo(RowText);
+        await Assert.That(reopened.Worksheet("Data").Cell(2, 1).GetString()).IsEqualTo(string.Empty);
+    }
+
+    [Test]
     public async Task Save_says_so_when_the_stream_it_was_loaded_from_cannot_be_written_back_to()
     {
         // A read-only stream can still be decrypted and read; it is only the write back that is

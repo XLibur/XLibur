@@ -413,18 +413,20 @@ public partial class XLWorkbook : IXLWorkbook
         // encrypted the destination is also the file or stream this package is being copied from,
         // so writing to it first would pull the ground out from under the copy.
         var package = BuildPackageInMemory(options);
-        var packageBytes = package.ToArray();
 
         var file = _encryptedFile ?? (_loadSource == XLLoadSource.File ? _originalFile : null);
         if (file is not null)
         {
+            using (var container = EncryptToBuffer(package, password))
             using (var destination = File.Create(file))
-                IO.Encryption.WorkbookEncryption.Encrypt(destination, packageBytes, password);
+                container.WriteTo(destination);
 
             AdoptEncryptedOrigin(package, password, file, stream: null);
             return;
         }
 
+        // Checked before the encryption rather than after it, so an unusable stream costs the
+        // caller an exception rather than a key derivation first.
         var originStream = _encryptedStream ?? _originalStream!;
         if (!originStream.CanWrite || !originStream.CanSeek)
         {
@@ -432,11 +434,37 @@ public partial class XLWorkbook : IXLWorkbook
                 "The stream this workbook was loaded from is not writable and seekable, so Save cannot write the encrypted workbook back to it. Use one of the 'SaveAs' methods.");
         }
 
-        originStream.Position = 0;
-        originStream.SetLength(0);
-        IO.Encryption.WorkbookEncryption.Encrypt(originStream, packageBytes, password);
+        using (var container = EncryptToBuffer(package, password))
+        {
+            originStream.Position = 0;
+            container.WriteTo(originStream);
+        }
+
+        // Only now, once the new content is in: anything the old container had beyond the end of
+        // the new one is what is left to drop.
+        originStream.SetLength(originStream.Position);
 
         AdoptEncryptedOrigin(package, password, file: null, originStream);
+    }
+
+    /// <summary>
+    /// Encrypts a package into a buffer, so that a destination is overwritten only once the bytes
+    /// that replace it exist.
+    /// </summary>
+    /// <remarks>
+    /// Encrypting straight into the destination would empty it first and then spend the key
+    /// derivation, the encryption and the integrity hash with nothing in it, because the container
+    /// is only written once all of that is done. A failure anywhere in there — and these are the
+    /// steps that allocate the workbook twice over — would leave an empty file where the workbook
+    /// was. This trades one more copy of the encrypted container for that not happening.
+    /// </remarks>
+    private static MemoryStream EncryptToBuffer(MemoryStream package, string password)
+    {
+        var container = new MemoryStream();
+        IO.Encryption.WorkbookEncryption.Encrypt(container, package.ToArray(), password);
+
+        // No rewind: WriteTo copies the whole buffer regardless of position.
+        return container;
     }
 
     /// <summary>
@@ -506,8 +534,9 @@ public partial class XLWorkbook : IXLWorkbook
         if (!string.IsNullOrEmpty(options.Password))
         {
             var package = BuildPackageInMemory(options);
+            using (var container = EncryptToBuffer(package, options.Password))
             using (var destination = File.Create(file))
-                IO.Encryption.WorkbookEncryption.Encrypt(destination, package.ToArray(), options.Password);
+                container.WriteTo(destination);
 
             AdoptEncryptedOrigin(package, options.Password, file, stream: null);
             return;
