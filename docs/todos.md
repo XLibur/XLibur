@@ -74,6 +74,16 @@ single decision, **task #10**, covering three groups:
 deprecated deliberately and recently in PR #232 — see `CHANGELOG.md:182`. It needs a normal
 deprecation period before it can be considered.
 
+### Decision (owner, July 2026)
+
+**All three groups above are removed in the next minor `v0.x` release.** The library is still
+pre-1.0, so a breaking change costs less now than it will after 1.0, and these shims have all
+carried their replacement in the message for some time. `XLColor.NoColor` stays, per the
+exclusion above.
+
+`IXLBaseCollection` (below) is *not* part of that removal — it is only being deprecated now, so
+its own period runs from this release.
+
 ### Two findings surfaced while triaging this part
 
 - **Task #9** — `IXLBaseCollection<TSingle, TMultiple>` (`IXLBaseCollection.cs:5`) is **dead
@@ -84,6 +94,10 @@ deprecation period before it can be considered.
   `IXLRangeRows` all derive from `IEnumerable<T>` alone. So this is a disposal question that
   belongs with task #10, not a deprecation to complete — adding the missing
   `CreateDataValidation()` counterpart would only grow dead surface.
+  **Decided:** the interface is marked `[Obsolete]` as of this release and removed once it has
+  served a deprecation period, rather than being removed alongside the groups above. Marking it
+  produced zero build warnings, which is itself a second confirmation that nothing uses it —
+  `TreatWarningsAsErrors` would have turned any `CS0618` into an error.
 - **Task #11** — `XLWorksheet.cs:597` reads `"Used {nameof(DefinedName)} instead."`; should be
   "Use", matching its nine siblings.
 
@@ -101,8 +115,8 @@ deprecation period before it can be considered.
 | #6 | 1 | Perf — cache parsed reference addresses | **Merged** — [#286](https://github.com/XLibur/XLibur/pull/286) |
 | #7 | 12 | Cleanup — `CacheId` nullability | **Merged** — [#287](https://github.com/XLibur/XLibur/pull/287) |
 | #8 | 17 | Hardening — validate pivot field item values | Not started |
-| #9 | — | Decision — dispose of the orphan `IXLBaseCollection` interface | **Needs an owner decision** |
-| #10 | 5, 8, 9, 13–16, 18–27 | Decision — removal release for 17 obsolete members | **Needs an owner decision** |
+| #9 | — | Decision — dispose of the orphan `IXLBaseCollection` interface | Decided — deprecated now, removed after a deprecation period |
+| #10 | 5, 8, 9, 13–16, 18–27 | Decision — removal release for 17 obsolete members | Decided — groups 1–3 removed in the next minor `v0.x`; removal not yet done |
 | #11 | — | Typo — `"Used"` → `"Use"` | In review — [#292](https://github.com/XLibur/XLibur/pull/292) |
 
 ---
@@ -180,10 +194,12 @@ deprecation on the interface behind `IXLColumns`/`IXLRows`/`IXLCells` — was wr
 extends `IXLBaseCollection` and nothing implements it. There is no deprecation to complete, only
 a disposal decision, which belongs with #10.
 
-### Suggested order for what remains
+### Still to do
 
-#3 and #8 are the remaining pivot items and touch the same reader/writer pair, so they conflict
-least taken together — though #3 is much the largest job left, since `CT_PivotFilter` carries a
-required full `autoFilter` subtree. #4 and #5 are both calc-engine dependency-tree work and pair
-naturally. #9 and #10 are decisions rather than code, and #9 does not gate #10 in the way the
-earlier note claimed — they are two parts of the same disposal question.
+- **#4 + #5** — calc-engine dependency-tree work, taken next as a pair.
+- **#10 removal** — the decision is made but the code change is not: 16 members across three
+  groups, plus the `PublicAPI.*.txt` and `CHANGELOG.md` updates a breaking change needs.
+- **#3** — the largest job left. `CT_PivotFilter` carries a required full `autoFilter` subtree,
+  so it needs real OpenXML modelling rather than another pass of the `formats` pattern.
+- **#8** — smallest, but needs pivot-table/cache context threaded into a static loader to
+  validate input, and risks rejecting files Excel accepts. Worth weighing before doing.

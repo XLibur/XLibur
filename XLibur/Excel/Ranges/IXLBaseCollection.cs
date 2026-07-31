@@ -1,7 +1,18 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
+/// <summary>
+/// Unused. No type in XLibur implements or extends this interface, and nothing consumes it —
+/// the collections it looks like it should describe (<see cref="IXLColumns"/>,
+/// <see cref="IXLRows"/>, <see cref="IXLCells"/>, <see cref="IXLRangeColumns"/>,
+/// <see cref="IXLRangeRows"/>) all derive from <see cref="IEnumerable{T}"/> alone. It is kept
+/// only because it has shipped, and is deprecated ahead of removal.
+/// </summary>
+[Obsolete("IXLBaseCollection is not implemented by any XLibur type and will be removed. " +
+          "Use the collection interface you actually hold — IXLColumns, IXLRows, IXLCells, " +
+          "IXLRangeColumns or IXLRangeRows.")]
 public interface IXLBaseCollection<out TSingle, TMultiple> : IEnumerable<TSingle>
 {
     int Count { get; }
