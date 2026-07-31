@@ -128,7 +128,7 @@
 
 #### Formula engine
 
-- **The Excel function table is built once per process instead of once per calc engine** — about 70 KB and 0.12 ms back on every engine constructed, which is one per workbook that touches a formula plus a fresh one on some internal evaluation paths. Opening a workbook allocates 644 → 574 KB. The ~400-entry table is the same whatever the culture (a function takes its culture from the calculation context, not from the engine holding it) and nothing mutates it after it is built, so the per-engine copy only ever bought a private duplicate of a constant. ([#276](https://github.com/XLibur/XLibur/issues/276) by [@jafin](https://github.com/jafin))
+- **The Excel function table is built once per process instead of once per calc engine** — about 70 KB and 0.12 ms back on every engine constructed, which is one per workbook that touches a formula plus a fresh one on some internal evaluation paths. Opening a workbook allocates 644 → 574 KB. The ~400-entry table is the same whatever the culture (a function takes its culture from the calculation context, not from the engine holding it) and nothing mutates it after it is built, so the per-engine copy only ever bought a private duplicate of a constant. ([#276](https://github.com/XLibur/XLibur/issues/276), [#306](https://github.com/XLibur/XLibur/pull/306) by [@jafin](https://github.com/jafin))
 
 #### Styling
 
