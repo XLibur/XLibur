@@ -70,6 +70,18 @@ const sidebars: SidebarsConfig = {
         'page-setup',
       ],
     },
+    {
+      type: 'category',
+      label: 'Report templating',
+      collapsed: false,
+      items: [
+        'report-templating',
+        'report-expressions',
+        'report-tags',
+        'report-charts-and-pivots',
+        'report-migration',
+      ],
+    },
   ],
 };
 

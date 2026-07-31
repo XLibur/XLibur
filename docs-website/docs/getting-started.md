@@ -262,5 +262,7 @@ using (var workbook = new XLWorkbook(path))
   valid for XLibur — the API surface is largely unchanged from ClosedXML 0.105.
 - The [`XLibur.Examples`](https://github.com/XLibur/XLibur/tree/main/XLibur.Examples) project in
   the repository contains runnable samples for most features.
+- Generating a report from an Excel template rather than building it cell by cell? See
+  [Report Templating](./report-templating.md).
 - Migrating an existing ClosedXML project? See
   [Migration from ClosedXML](./migration.md).

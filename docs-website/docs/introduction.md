@@ -48,6 +48,23 @@ using (var workbook = new XLWorkbook())
 Head to [Getting Started](./getting-started.md) for installation and a tour of the
 common read/write operations.
 
+## Report templating
+
+The companion `XLibur.Report` package generates reports from `.xlsx` templates: author the report
+in Excel — placeholder expressions, a defined name over the rows to repeat, tag markers for totals
+and grouping — bind .NET data to it, and generate the finished workbook. Charts, pivot tables and
+pictures survive range expansion.
+
+```csharp
+using var template = new XLTemplate("SalesReport.xlsx");
+template.AddVariable("Company", "Contoso");
+template.AddVariable("Sales", sales);
+template.Generate();
+template.SaveAs("SalesReport-2026.xlsx");
+```
+
+See [Report Templating](./report-templating.md).
+
 ## Migration from ClosedXML
 
 The public API surface is largely unchanged from ClosedXML 0.105 — migrating is mostly a namespace
