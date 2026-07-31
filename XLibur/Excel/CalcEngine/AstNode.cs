@@ -268,10 +268,16 @@ internal sealed class ReferenceNode : ValueNode
 
     /// <summary>
     /// Resolved reference for the prefixed form, together with the sheet it was resolved
-    /// against. A single field rather than two so a reader can never observe a new sheet
-    /// paired with the previous sheet's address.
+    /// against, kept in one object so the pair is replaced as a unit.
     /// </summary>
     private SheetReference? _sheetReference;
+
+    // Neither memo is synchronized. Evaluation is single-threaded — XLWorkbook is not
+    // thread-safe — so this is not a claim about concurrent readers. It is worth noting that
+    // both fields tolerate a lost update anyway, because neither is trusted on its own: the
+    // sheet-less reference is immutable and every writer produces an equal one, and the
+    // prefixed reference is only used after ReferenceEquals confirms it was resolved against
+    // the sheet being asked about, so any other value is recomputed rather than misapplied.
 
     public ReferenceNode(PrefixNode? prefix, ReferenceArea referenceArea, bool isA1)
     {
