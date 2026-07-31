@@ -23,6 +23,7 @@ internal sealed class XLPivotTable : IXLPivotTable
 
     private readonly List<XLPivotFormat> _formats = new();
     private readonly List<XLPivotConditionalFormat> _conditionalFormats = new();
+    private readonly List<XLPivotChartFormat> _chartFormats = new();
     private XLPivotCache _cache;
     private int _filterFieldsPageWrap;
     private bool _outline = true;
@@ -124,6 +125,8 @@ internal sealed class XLPivotTable : IXLPivotTable
     internal IReadOnlyList<XLPivotFormat> Formats => _formats;
 
     internal IReadOnlyList<XLPivotConditionalFormat> ConditionalFormats => _conditionalFormats;
+
+    internal IReadOnlyList<XLPivotChartFormat> ChartFormats => _chartFormats;
 
     public IXLPivotTable CopyTo(IXLCell targetCell)
     {
@@ -810,6 +813,11 @@ internal sealed class XLPivotTable : IXLPivotTable
     internal void AddConditionalFormat(XLPivotConditionalFormat conditionalFormat)
     {
         _conditionalFormats.Add(conditionalFormat);
+    }
+
+    internal void AddChartFormat(XLPivotChartFormat chartFormat)
+    {
+        _chartFormats.Add(chartFormat);
     }
 
     #region location
