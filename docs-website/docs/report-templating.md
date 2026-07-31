@@ -204,6 +204,20 @@ template.Workbook.Worksheet("Sales").SheetView.FreezeRows(3);
 template.SaveAs("SalesReport.xlsx");
 ```
 
+### Every sheet is generated
+
+Generation covers **every** worksheet in the workbook, including hidden and very hidden ones. A
+hidden sheet is a normal place to keep the lookup tables and working data a report is built from,
+so expressions in its cells are evaluated and its bound ranges expand exactly as they would on a
+visible sheet — hiding a sheet controls what the reader sees, not what gets generated.
+
+To leave a sheet out of the report, delete it after generating rather than hiding it:
+
+```csharp
+template.Generate();
+template.Workbook.Worksheet("Working").Delete();
+```
+
 ### Saving to a stream
 
 ```csharp

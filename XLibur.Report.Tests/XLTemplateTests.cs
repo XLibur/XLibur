@@ -148,8 +148,12 @@ public class XLTemplateTests
         await Assert.That(workbook.Worksheet("Report").Cell("A1").Value.GetText()).IsEqualTo("Perth");
     }
 
+    /// <summary>
+    /// A hidden sheet is where a report keeps its lookup tables and working data, so it is generated
+    /// like any other. Generation follows the data, not what the reader can see.
+    /// </summary>
     [Test]
-    public async Task HiddenSheetsAreNotGenerated()
+    public async Task HiddenSheetsAreGenerated()
     {
         using var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Hidden");
@@ -160,7 +164,53 @@ public class XLTemplateTests
 
         template.Generate();
 
-        await Assert.That(sheet.Cell("A1").Value.GetText()).IsEqualTo("{{ value }}");
+        await Assert.That(sheet.Cell("A1").Value.GetText()).IsEqualTo("generated");
+    }
+
+    [Test]
+    public async Task VeryHiddenSheetsAreGenerated()
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("VeryHidden");
+        sheet.Cell("A1").Value = "{{ value }}";
+        sheet.Visibility = XLWorksheetVisibility.VeryHidden;
+        using var template = new XLTemplate(workbook);
+        template.AddVariable("value", "generated");
+
+        template.Generate();
+
+        await Assert.That(sheet.Cell("A1").Value.GetText()).IsEqualTo("generated");
+    }
+
+    /// <summary>
+    /// Both halves of the generation path have to agree about a hidden sheet. Issue #278 is the
+    /// counter-example: the cell pass skipped hidden sheets while the bound ranges on them expanded
+    /// anyway, so the same template block behaved differently depending on whether a defined name
+    /// happened to cover it.
+    /// </summary>
+    [Test]
+    public async Task HiddenSheetHasBothItsCellsAndItsBoundRangesGenerated()
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Lookup");
+        sheet.Cell("A1").Value = "{{ Company }}";
+        sheet.Cell("A4").Value = "{{ item.Product }}";
+        workbook.DefinedNames.Add("Items", sheet.Range(4, 1, 5, 3));
+        sheet.Visibility = XLWorksheetVisibility.Hidden;
+
+        using var template = new XLTemplate(workbook);
+        template.AddVariable("Company", "Contoso");
+        template.AddVariable("Items", new List<SaleItem>
+        {
+            new() { Product = "Widget" },
+            new() { Product = "Gadget" },
+        });
+
+        template.Generate();
+
+        await Assert.That(sheet.Cell("A1").Value.GetText()).IsEqualTo("Contoso");
+        await Assert.That(sheet.Cell("A4").Value.GetText()).IsEqualTo("Widget");
+        await Assert.That(sheet.Cell("A5").Value.GetText()).IsEqualTo("Gadget");
     }
 
     /// <summary>
@@ -282,7 +332,7 @@ public class XLTemplateTests
     }
 
     [Test]
-    public async Task EveryVisibleSheetIsGenerated()
+    public async Task EverySheetIsGenerated()
     {
         using var workbook = new XLWorkbook();
         workbook.AddWorksheet("First").Cell("A1").Value = "{{ value }}";

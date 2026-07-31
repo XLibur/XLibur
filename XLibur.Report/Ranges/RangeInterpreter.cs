@@ -16,6 +16,11 @@ namespace XLibur.Report.Ranges;
 /// which is harmless because their values are already resolved. Cells <em>inside</em> a bound
 /// range are skipped by that first pass — they refer to <c>item</c>, which only exists once
 /// expansion puts a row's data in scope.
+/// <para>
+/// Visibility plays no part in either step. A hidden sheet is a normal place to keep the lookup
+/// tables and working data a report is built from, so generation follows the data rather than what
+/// the reader can see, and every sheet is treated alike.
+/// </para>
 /// </remarks>
 internal sealed class RangeInterpreter
 {
@@ -67,7 +72,7 @@ internal sealed class RangeInterpreter
 
     private void EvaluateOutsideBoundRanges(IXLWorkbook workbook, List<BoundRange> bound, ExpressionScope globalScope)
     {
-        foreach (var worksheet in workbook.Worksheets.Where(IsGenerated).ToList())
+        foreach (var worksheet in workbook.Worksheets.ToList())
         {
             var areas = bound
                 .Where(b => ReferenceEquals(b.Worksheet, worksheet))
@@ -86,6 +91,4 @@ internal sealed class RangeInterpreter
             }
         }
     }
-
-    internal static bool IsGenerated(IXLWorksheet worksheet) => worksheet.Visibility == XLWorksheetVisibility.Visible;
 }
