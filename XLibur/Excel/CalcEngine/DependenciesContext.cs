@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using XLibur.Excel.CalcEngine.Exceptions;
 using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel.CalcEngine;
@@ -7,7 +8,7 @@ namespace XLibur.Excel.CalcEngine;
 /// Context for <see cref="DependenciesVisitor"/>, it is used
 /// to collect all objects a formula depends on during calculation.
 /// </summary>
-internal sealed class DependenciesContext
+internal sealed class DependenciesContext : IStructuredReferenceScope
 {
     internal DependenciesContext(SheetArea formulaArea, XLWorkbook workbook)
     {
@@ -15,12 +16,32 @@ internal sealed class DependenciesContext
         Workbook = workbook;
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// Resolved from <see cref="FormulaArea"/> on demand, and only read for a table-less
+    /// reference. The sheet always exists here: a formula is registered in the tree under the
+    /// name of the sheet it was found on, so the lookup can only fail if the two have gone out
+    /// of step. Mirrors <see cref="CalcContext"/>, which throws the same exception for the same
+    /// member when it has no sheet to offer.
+    /// </remarks>
+    XLWorksheet IStructuredReferenceScope.Worksheet =>
+        Workbook.TryGetWorksheet(FormulaArea.Name, out XLWorksheet? sheet)
+            ? sheet
+            : throw new MissingContextException();
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// For an array formula this is the top-left cell of the formula's area, which is the cell
+    /// Excel treats as owning the formula.
+    /// </remarks>
+    Point IStructuredReferenceScope.FormulaPoint => FormulaArea.Area.FirstPoint;
+
     /// <summary>
     /// An area of a formula, in most cases just one cell, for array formulas area of cells.
     /// </summary>
     internal SheetArea FormulaArea { get; }
 
-    internal XLWorkbook Workbook { get; }
+    public XLWorkbook Workbook { get; }
 
     /// <summary>
     /// The result. Visitor adds all areas/names formula depends on to this.

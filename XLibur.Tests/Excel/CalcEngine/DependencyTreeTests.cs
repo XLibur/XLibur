@@ -409,6 +409,113 @@ internal class DependencyTreeTests
         }
     }
 
+    #region Structured references
+
+    /// <summary>
+    /// A structured reference resolves to the table's current area, so a formula using one must
+    /// register that area as a precedent. Until it did, nothing invalidated the formula when the
+    /// table's cells changed.
+    /// </summary>
+    [Test]
+    [MethodDataSource(nameof(StructuredReferenceDependencyTestCases))]
+    public async Task Structured_reference_is_a_dependency_of_the_area_it_covers(
+        string formula,
+        string expectedArea)
+    {
+        var dependencies = GetDependencies(formula, "A1", AddTable);
+
+        await Assert.That(dependencies.Areas)
+            .IsEquivalentTo(new SheetArea[] { new("Sheet", Area.Parse(expectedArea)) });
+    }
+
+    public static IEnumerable<object[]> StructuredReferenceDependencyTestCases
+    {
+        get
+        {
+            // Table occupies E7:H10 — headers on row 7, data rows 8..10.
+            yield return ["SUM(TableName[Second])", "F8:F10"];
+            yield return ["SUM(TableName[])", "E8:H10"];
+            yield return ["SUM(TableName[#All])", "E7:H10"];
+            yield return ["SUM(TableName[#Headers])", "E7:H7"];
+            yield return ["SUM(TableName[[Second]:[Fourth]])", "F8:H10"];
+        }
+    }
+
+    /// <summary>
+    /// The reference is propagated to the parent node rather than added directly, so an
+    /// enclosing range operator can combine it — the contract the other reference nodes follow.
+    /// </summary>
+    [Test]
+    public async Task Structured_reference_is_propagated_to_an_enclosing_range_operator()
+    {
+        var dependencies = GetDependencies("B3:TableName[Second]", "A1", AddTable);
+
+        await Assert.That(dependencies.Areas)
+            .IsEquivalentTo(new SheetArea[] { new("Sheet", Area.Parse("B3:F10")) });
+    }
+
+    /// <summary>
+    /// An unresolvable reference contributes no precedent rather than failing — the formula is
+    /// a <c>#REF!</c>, and whatever later makes the table resolve rebuilds the tree.
+    /// </summary>
+    [Test]
+    [MethodDataSource(nameof(UnresolvableStructuredReferenceTestCases))]
+    public async Task Unresolvable_structured_reference_has_no_dependencies(string formula)
+    {
+        var dependencies = GetDependencies(formula, "A1", AddTable);
+
+        await Assert.That(dependencies.Areas).IsEmpty();
+    }
+
+    public static IEnumerable<object[]> UnresolvableStructuredReferenceTestCases
+    {
+        get
+        {
+            yield return ["SUM(WrongName[Second])"];
+            yield return ["SUM(TableName[NonExistentCol])"];
+        }
+    }
+
+    /// <summary>
+    /// The end-to-end consequence: editing a cell inside the table has to invalidate a formula
+    /// that reads the table through a structured reference.
+    /// </summary>
+    [Test]
+    public async Task Editing_a_table_cell_dirties_a_formula_using_a_structured_reference()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet");
+        AddTable(wb);
+
+        ws.Cell("F8").Value = 1;
+        ws.Cell("F9").Value = 2;
+        ws.Cell("F10").Value = 3;
+        ws.Cell("A1").FormulaA1 = "SUM(TableName[Second])";
+
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(6);
+
+        ws.Cell("F9").Value = 20;
+
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(24);
+    }
+
+    /// <summary>
+    /// A 4x3 table at E7 with headers First..Fourth, matching the layout
+    /// <c>StructuredReferenceTests</c> uses.
+    /// </summary>
+    private static void AddTable(XLWorkbook wb)
+    {
+        var ws = wb.Worksheet("Sheet");
+        ws.Cell("E7").Value = "First";
+        ws.Cell("F7").Value = "Second";
+        ws.Cell("G7").Value = "Third";
+        ws.Cell("H7").Value = "Fourth";
+        var table = ws.Range("E7:H10").CreateTable("TableName");
+        _ = table;
+    }
+
+    #endregion Structured references
+
     private static FormulaDependencies GetDependencies(string formula, string formulaAddress = "A1", Action<XLWorkbook> init = null)
     {
         using var wb = new XLWorkbook();

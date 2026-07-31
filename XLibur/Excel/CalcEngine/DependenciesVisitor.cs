@@ -191,8 +191,20 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
 
     public List<SheetArea>? Visit(DependenciesContext context, StructuredReferenceNode node)
     {
-        // TODO: Structured reference should be evaluated into a reference and propagated.
-        return null;
+        // Resolve to the area the table currently covers, the same way evaluation does. Like a
+        // defined name, the answer changes when the table is resized, renamed, added or
+        // deleted — DependencyTree already requires rebuilding on all four.
+        if (!StructuredReferenceResolver.TryResolve(context, node, out var range, out _))
+        {
+            // Unresolvable today (missing table or column) means there is no precedent to
+            // register. The formula evaluates to #REF!, and whatever later makes the table
+            // resolve rebuilds the tree.
+            return null;
+        }
+
+        // Propagated rather than added to the context, so an enclosing range operator can
+        // combine it — the same contract the other reference-producing nodes follow.
+        return [new SheetArea(context.FormulaArea.Name, range)];
     }
 
     public List<SheetArea> Visit(DependenciesContext context, PrefixNode node)

@@ -11,7 +11,7 @@ using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel.CalcEngine;
 
-internal sealed class CalcContext
+internal sealed class CalcContext : IStructuredReferenceScope
 {
     private readonly bool _recursive;
 
@@ -84,6 +84,16 @@ internal sealed class CalcContext
     public uint? RecalculateSheetId { get; set; }
 
     internal Point FormulaSheetPoint => new(FormulaAddress.RowNumber, FormulaAddress.ColumnNumber);
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Both this and <see cref="IStructuredReferenceScope.Worksheet"/> throw
+    /// <see cref="MissingContextException"/> when the expression has no anchoring cell. That is
+    /// deliberate and pre-existing: the resolver reads them only for the forms that genuinely
+    /// need a formula location, so <c>Table1[Amount]</c> still resolves from a bare
+    /// <c>Evaluate</c> call while <c>[@Amount]</c> cannot.
+    /// </remarks>
+    Point IStructuredReferenceScope.FormulaPoint => FormulaSheetPoint;
 
     /// <summary>
     /// What date system should be used in calculation. Either 1900 or 1904.

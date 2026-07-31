@@ -95,8 +95,14 @@ internal sealed class DependencyTree
                         tree.AddFormula(bookArea, formula, workbook);
                     }
                 }
-                // TODO: Register data-table formulas too. They are skipped, so their dependents
-                // fall back to a full recalculation (see XLCalcEngine.TryEvaluateSingleCell).
+                // Data-table formulas are skipped deliberately, and cannot simply be added to
+                // the chain above. AddFormula derives precedents by parsing the formula text,
+                // and a data table's text is the placeholder "{TABLE(A1,}" — not valid formula
+                // syntax, so parsing it throws ExpressionParseException. Registering them needs
+                // precedents built from Input1/Input2 and the table's header formulas instead of
+                // from an AST. XLibur does not evaluate data tables either (there is no TABLE
+                // function), so the only gain would be dropping the full-recalculation trigger in
+                // XLCalcEngine.TryEvaluateSingleCell.
                 // FormulaType.Shared is never produced, so it needs no handling here.
             }
         }
