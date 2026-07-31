@@ -354,8 +354,13 @@ public partial class XLWorkbook : IXLWorkbook
     }
 
     /// <summary>
-    ///   Saves the current workbook.
+    ///   Saves the current workbook back to the file or stream it was loaded from.
     /// </summary>
+    /// <remarks>
+    /// Preserves the encryption of the origin: a workbook opened with
+    /// <see cref="LoadOptions.Password"/> is written back encrypted with that same password. Use
+    /// <see cref="SaveAs(string)"/> to write a workbook without the encryption it was loaded with.
+    /// </remarks>
     public void Save()
     {
         Save(false);
@@ -380,12 +385,90 @@ public partial class XLWorkbook : IXLWorkbook
         if (_loadSource == XLLoadSource.New)
             throw new InvalidOperationException("This is a new file. Please use one of the 'SaveAs' methods.");
 
+        // A null password here means "leave the encryption as it was", not "write plaintext": Save
+        // puts a workbook back the way it came, so one opened with a password goes back encrypted
+        // under that password. Naming a password rotates it, or encrypts an origin that was plain.
+        // Dropping encryption is deliberately not expressible here — that is what SaveAs is for.
+        var password = string.IsNullOrEmpty(options.Password) ? _encryptionPassword : options.Password;
+        if (!string.IsNullOrEmpty(password))
+        {
+            SaveEncrypted(password, options);
+            return;
+        }
+
         if (_loadSource == XLLoadSource.Stream)
         {
             CreatePackage(_originalStream!, false, _spreadsheetDocumentType, options);
         }
         else
             CreatePackage(_originalFile!, _spreadsheetDocumentType, options);
+    }
+
+    /// <summary>
+    /// Writes the workbook back to its origin as an encrypted compound file.
+    /// </summary>
+    private void SaveEncrypted(string password, SaveOptions options)
+    {
+        // Build the whole package before touching the destination. When the origin is not yet
+        // encrypted the destination is also the file or stream this package is being copied from,
+        // so writing to it first would pull the ground out from under the copy.
+        var package = BuildPackageInMemory(options);
+        var packageBytes = package.ToArray();
+
+        var file = _encryptedFile ?? (_loadSource == XLLoadSource.File ? _originalFile : null);
+        if (file is not null)
+        {
+            using (var destination = File.Create(file))
+                IO.Encryption.WorkbookEncryption.Encrypt(destination, packageBytes, password);
+
+            AdoptEncryptedOrigin(package, password, file, stream: null);
+            return;
+        }
+
+        var originStream = _encryptedStream ?? _originalStream!;
+        if (!originStream.CanWrite || !originStream.CanSeek)
+        {
+            throw new InvalidOperationException(
+                "The stream this workbook was loaded from is not writable and seekable, so Save cannot write the encrypted workbook back to it. Use one of the 'SaveAs' methods.");
+        }
+
+        originStream.Position = 0;
+        originStream.SetLength(0);
+        IO.Encryption.WorkbookEncryption.Encrypt(originStream, packageBytes, password);
+
+        AdoptEncryptedOrigin(package, password, file: null, originStream);
+    }
+
+    /// <summary>
+    /// Records the encrypted compound file just written as the workbook's origin, and keeps the
+    /// plaintext package that produced it as the base the next save copies and patches.
+    /// </summary>
+    /// <remarks>
+    /// The container that was written is a compound file rather than a package, so it cannot serve
+    /// as that base itself. Neither can whatever the base was a moment ago, because this save may
+    /// have written over it. The package built here is the one copy of the plaintext that is
+    /// certainly still good.
+    /// </remarks>
+    private void AdoptEncryptedOrigin(MemoryStream package, string password, string? file, Stream? stream)
+    {
+        _loadSource = XLLoadSource.Stream;
+        _originalStream = package;
+        _originalFile = null;
+
+        _encryptionPassword = password;
+        _encryptedFile = file;
+        _encryptedStream = stream;
+    }
+
+    /// <summary>
+    /// Forgets that the workbook came from an encrypted container, after a save that wrote it out
+    /// as an ordinary package.
+    /// </summary>
+    private void ClearEncryptedOrigin()
+    {
+        _encryptionPassword = null;
+        _encryptedFile = null;
+        _encryptedStream = null;
     }
 
     /// <summary>
@@ -417,15 +500,16 @@ public partial class XLWorkbook : IXLWorkbook
         var directoryName = Path.GetDirectoryName(file);
         if (!string.IsNullOrWhiteSpace(directoryName)) Directory.CreateDirectory(directoryName);
 
+        // SaveAs states the encryption of the file it writes: a password means encrypt with it,
+        // no password means write plaintext, whichever the workbook was loaded as. That asymmetry
+        // with Save is the point — Save puts a file back as it was, SaveAs describes a new one.
         if (!string.IsNullOrEmpty(options.Password))
         {
-            using var package = BuildPackageInMemory(options);
-            using var destination = File.Create(file);
-            IO.Encryption.WorkbookEncryption.Encrypt(destination, package.ToArray(), options.Password);
+            var package = BuildPackageInMemory(options);
+            using (var destination = File.Create(file))
+                IO.Encryption.WorkbookEncryption.Encrypt(destination, package.ToArray(), options.Password);
 
-            // The load source is deliberately left alone. What is on disk now is a compound file,
-            // so pointing the workbook at it would break the next save, which expects to reopen and
-            // patch a package.
+            AdoptEncryptedOrigin(package, options.Password, file, stream: null);
             return;
         }
 
@@ -458,6 +542,7 @@ public partial class XLWorkbook : IXLWorkbook
         _loadSource = XLLoadSource.File;
         _originalFile = file;
         _originalStream = null;
+        ClearEncryptedOrigin();
     }
 
     /// <summary>
@@ -487,11 +572,10 @@ public partial class XLWorkbook : IXLWorkbook
 
         if (!string.IsNullOrEmpty(options.Password))
         {
-            using var package = BuildPackageInMemory(options);
+            var package = BuildPackageInMemory(options);
             IO.Encryption.WorkbookEncryption.Encrypt(stream, package.ToArray(), options.Password);
 
-            // As with the file overload, the load source keeps pointing at the unencrypted package
-            // this workbook was built from rather than at the compound file just written.
+            AdoptEncryptedOrigin(package, options.Password, file: null, stream);
             return;
         }
 
@@ -538,13 +622,15 @@ public partial class XLWorkbook : IXLWorkbook
         _loadSource = XLLoadSource.Stream;
         _originalStream = stream;
         _originalFile = null;
+        ClearEncryptedOrigin();
     }
 
     /// <summary>
     /// Builds the complete unencrypted package in memory so it can be encrypted as a whole. Mirrors
     /// what the stream overload of <see cref="SaveAs(Stream, SaveOptions)"/> does per load source,
-    /// but leaves the workbook's own load source untouched, because the caller is writing a
-    /// compound file that this workbook could not later reopen as a package.
+    /// but into a buffer, because a compound file has to be written in one go rather than patched
+    /// in place. The returned stream is positioned at the start and owned by the caller, which
+    /// keeps it as the workbook's new package base — see <see cref="AdoptEncryptedOrigin"/>.
     /// </summary>
     private MemoryStream BuildPackageInMemory(SaveOptions options)
     {
@@ -718,9 +804,31 @@ public partial class XLWorkbook : IXLWorkbook
 
     #region Fields
 
+    /// <summary>
+    /// Where the plaintext package a save copies and patches comes from. For an encrypted workbook
+    /// this is always <see cref="XLLoadSource.Stream"/> over a package held in memory, because the
+    /// container the workbook actually came from is a compound file rather than a package.
+    /// </summary>
     private XLLoadSource _loadSource = XLLoadSource.New;
+
     private string? _originalFile;
     private Stream? _originalStream;
+
+    /// <summary>
+    /// The password this workbook was opened with, or last saved under. Non-null exactly when the
+    /// workbook's origin is an encrypted container, which is what lets <see cref="Save()"/> put it
+    /// back the way it came. Held for the lifetime of the workbook rather than for the load, so a
+    /// caller who wants the password out of memory sooner should keep the workbook short-lived.
+    /// </summary>
+    private string? _encryptionPassword;
+
+    /// <summary>
+    /// The encrypted container <see cref="Save()"/> writes back to. Exactly one of these is set
+    /// while <see cref="_encryptionPassword"/> is non-null, and neither is otherwise.
+    /// </summary>
+    private string? _encryptedFile;
+
+    private Stream? _encryptedStream;
 
     #endregion Fields
 
@@ -762,8 +870,12 @@ public partial class XLWorkbook : IXLWorkbook
         {
             // The workbook is backed by the decrypted package rather than by the file on disk. The
             // file is a compound file, not a package, so the save path could not copy and patch it.
+            // It stays the origin all the same, so Save writes it back re-encrypted rather than
+            // patching the copy in memory that nothing would ever read again.
             _loadSource = XLLoadSource.Stream;
             _originalStream = decrypted;
+            _encryptionPassword = loadOptions.Password;
+            _encryptedFile = file;
             Load(decrypted);
         }
         else
@@ -810,9 +922,16 @@ public partial class XLWorkbook : IXLWorkbook
         // workbook. One that isn't can only be an ordinary package, and is passed straight through
         // so that callers streaming a plain .xlsx keep working exactly as before.
         var isEncrypted = stream.CanSeek && IO.Encryption.EncryptedPackageContainer.IsCompoundFile(stream);
-        _originalStream = isEncrypted
-            ? IO.Encryption.WorkbookEncryption.Decrypt(stream, loadOptions.Password)
-            : stream;
+        if (isEncrypted)
+        {
+            // As with the file constructor: the decrypted package backs the workbook, while the
+            // caller's stream stays the origin Save writes the re-encrypted container back to.
+            _originalStream = IO.Encryption.WorkbookEncryption.Decrypt(stream, loadOptions.Password);
+            _encryptionPassword = loadOptions.Password;
+            _encryptedStream = stream;
+        }
+        else
+            _originalStream = stream;
 
         Load(_originalStream);
         SharedStringTable.TrimExcess();
@@ -1197,6 +1316,14 @@ public partial class XLWorkbook : IXLWorkbook
 
     public override string ToString()
     {
+        // An encrypted workbook is backed by a package in memory, which says nothing useful about
+        // where it came from. Name the container instead.
+        if (_encryptedFile is not null)
+            return $"XLWorkbook({_encryptedFile}, encrypted)";
+
+        if (_encryptedStream is not null)
+            return $"XLWorkbook({_encryptedStream}, encrypted)";
+
         return _loadSource switch
         {
             XLLoadSource.New => "XLWorkbook(new)",

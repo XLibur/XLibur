@@ -1,8 +1,10 @@
+using System;
 using System.IO;
 using System.Threading.Tasks;
 using OpenMcdf;
 using XLibur.Excel;
 using XLibur.Excel.Exceptions;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Encryption;
 
@@ -211,6 +213,235 @@ public class WorkbookEncryptionTests
             if (File.Exists(path))
                 File.Delete(path);
         }
+    }
+
+    /// <summary>
+    /// Writes a small encrypted workbook to <paramref name="path"/>, as the file the round-trip
+    /// tests below open and save back.
+    /// </summary>
+    private static void WriteEncryptedFile(string path, string password, string cellValue = "before")
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet("Data").Cell("A1").Value = cellValue;
+        wb.SaveAs(path, new SaveOptions { Password = password });
+    }
+
+    /// <summary>
+    /// Whether the bytes are an encrypted container rather than an ordinary package. The two are
+    /// told apart by their first byte: a compound file starts 0xD0, a zip starts 'P'.
+    /// </summary>
+    private static bool IsEncryptedContainer(byte[] bytes) => bytes.Length > 0 && bytes[0] == 0xD0;
+
+    [Test]
+    public async Task Save_writes_an_encrypted_file_back_encrypted_with_the_password_it_was_opened_with()
+    {
+        using var file = new TemporaryFile();
+        WriteEncryptedFile(file.Path, Password);
+
+        using (var wb = new XLWorkbook(file.Path, new LoadOptions { Password = Password }))
+        {
+            wb.Worksheet("Data").Cell("A1").Value = "after";
+            wb.Save();
+        }
+
+        // The edit reached the file, and the file is still encrypted under the same password.
+        await Assert.That(IsEncryptedContainer(File.ReadAllBytes(file.Path))).IsTrue();
+
+        using var reopened = new XLWorkbook(file.Path, new LoadOptions { Password = Password });
+        await Assert.That(reopened.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("after");
+    }
+
+    [Test]
+    public async Task Save_repeated_on_an_encrypted_file_keeps_working()
+    {
+        using var file = new TemporaryFile();
+        WriteEncryptedFile(file.Path, Password);
+
+        using (var wb = new XLWorkbook(file.Path, new LoadOptions { Password = Password }))
+        {
+            wb.Worksheet("Data").Cell("A1").Value = "first";
+            wb.Save();
+
+            wb.Worksheet("Data").Cell("A1").Value = "second";
+            wb.Save();
+        }
+
+        using var reopened = new XLWorkbook(file.Path, new LoadOptions { Password = Password });
+        await Assert.That(reopened.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("second");
+    }
+
+    [Test]
+    public async Task Save_with_a_password_rotates_the_password_in_place()
+    {
+        using var file = new TemporaryFile();
+        WriteEncryptedFile(file.Path, Password);
+
+        using (var wb = new XLWorkbook(file.Path, new LoadOptions { Password = Password }))
+            wb.Save(new SaveOptions { Password = "n3wsecret" });
+
+        using var reopened = new XLWorkbook(file.Path, new LoadOptions { Password = "n3wsecret" });
+        await Assert.That(reopened.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("before");
+
+        // The password it was opened with no longer opens it.
+        await Assert.That(() => new XLWorkbook(file.Path, new LoadOptions { Password = Password }))
+            .Throws<XLInvalidPasswordException>();
+    }
+
+    [Test]
+    public async Task Save_with_a_password_encrypts_a_workbook_that_was_loaded_from_a_plain_file()
+    {
+        using var file = new TemporaryFile();
+        using (var wb = new XLWorkbook())
+        {
+            wb.AddWorksheet("Data").Cell("A1").Value = "was plain";
+            wb.SaveAs(file.Path);
+        }
+
+        using (var wb = new XLWorkbook(file.Path))
+        {
+            wb.Worksheet("Data").Cell("A2").Value = "now secret";
+            wb.Save(new SaveOptions { Password = Password });
+        }
+
+        await Assert.That(IsEncryptedContainer(File.ReadAllBytes(file.Path))).IsTrue();
+
+        using var reopened = new XLWorkbook(file.Path, new LoadOptions { Password = Password });
+        await Assert.That(reopened.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("was plain");
+        await Assert.That(reopened.Worksheet("Data").Cell("A2").GetString()).IsEqualTo("now secret");
+    }
+
+    [Test]
+    public async Task Save_on_a_workbook_loaded_from_a_plain_file_leaves_it_plain()
+    {
+        using var file = new TemporaryFile();
+        using (var wb = new XLWorkbook())
+        {
+            wb.AddWorksheet("Data").Cell("A1").Value = "before";
+            wb.SaveAs(file.Path);
+        }
+
+        using (var wb = new XLWorkbook(file.Path))
+        {
+            wb.Worksheet("Data").Cell("A1").Value = "after";
+            wb.Save();
+        }
+
+        await Assert.That(IsEncryptedContainer(File.ReadAllBytes(file.Path))).IsFalse();
+
+        using var reopened = new XLWorkbook(file.Path);
+        await Assert.That(reopened.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("after");
+    }
+
+    [Test]
+    public async Task Save_writes_the_encrypted_container_back_to_the_stream_it_was_loaded_from()
+    {
+        using var origin = new MemoryStream();
+        var encrypted = CreateEncryptedWorkbook(Password);
+        origin.Write(encrypted, 0, encrypted.Length);
+        origin.Position = 0;
+
+        using (var wb = new XLWorkbook(origin, new LoadOptions { Password = Password }))
+        {
+            wb.Worksheet("Data").Cell("A4").Value = "written back";
+            wb.Save();
+        }
+
+        var saved = origin.ToArray();
+        await Assert.That(IsEncryptedContainer(saved)).IsTrue();
+
+        using var reopened = new XLWorkbook(new MemoryStream(saved), new LoadOptions { Password = Password });
+        await Assert.That(reopened.Worksheet("Data").Cell("A4").GetString()).IsEqualTo("written back");
+        await Assert.That(reopened.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("Hello encrypted world");
+    }
+
+    [Test]
+    public async Task Save_says_so_when_the_stream_it_was_loaded_from_cannot_be_written_back_to()
+    {
+        // A read-only stream can still be decrypted and read; it is only the write back that is
+        // impossible, and that has to be said rather than skipped.
+        using var origin = new MemoryStream(CreateEncryptedWorkbook(Password), writable: false);
+        using var wb = new XLWorkbook(origin, new LoadOptions { Password = Password });
+
+        await Assert.That(() => wb.Save()).Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Save_after_an_encrypted_SaveAs_updates_the_file_that_SaveAs_wrote()
+    {
+        using var file = new TemporaryFile();
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet("Data").Cell("A1").Value = "first";
+        wb.SaveAs(file.Path, new SaveOptions { Password = Password });
+
+        // SaveAs used to leave the load source pointing at whatever the workbook was built from,
+        // which made this Save a no-op.
+        wb.Worksheet("Data").Cell("A1").Value = "second";
+        wb.Save();
+
+        using var reopened = new XLWorkbook(file.Path, new LoadOptions { Password = Password });
+        await Assert.That(reopened.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("second");
+    }
+
+    [Test]
+    public async Task Save_after_an_encrypted_SaveAs_to_a_stream_updates_that_stream()
+    {
+        using var destination = new MemoryStream();
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet("Data").Cell("A1").Value = "first";
+        wb.SaveAs(destination, new SaveOptions { Password = Password });
+
+        wb.Worksheet("Data").Cell("A1").Value = "second";
+        wb.Save();
+
+        using var reopened = new XLWorkbook(
+            new MemoryStream(destination.ToArray()), new LoadOptions { Password = Password });
+        await Assert.That(reopened.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("second");
+    }
+
+    [Test]
+    public async Task SaveAs_without_a_password_over_the_same_path_removes_the_encryption()
+    {
+        using var file = new TemporaryFile();
+        WriteEncryptedFile(file.Path, Password);
+
+        using (var wb = new XLWorkbook(file.Path, new LoadOptions { Password = Password }))
+        {
+            wb.Worksheet("Data").Cell("A1").Value = "no longer secret";
+
+            // The documented way to decrypt in place: SaveAs states the encryption of the file it
+            // writes, and no password means none.
+            wb.SaveAs(file.Path);
+        }
+
+        await Assert.That(IsEncryptedContainer(File.ReadAllBytes(file.Path))).IsFalse();
+
+        using var reopened = new XLWorkbook(file.Path);
+        await Assert.That(reopened.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("no longer secret");
+    }
+
+    [Test]
+    public async Task Save_after_a_plain_SaveAs_does_not_bring_the_encryption_back()
+    {
+        using var encryptedFile = new TemporaryFile();
+        using var plainFile = new TemporaryFile();
+        WriteEncryptedFile(encryptedFile.Path, Password);
+
+        using (var wb = new XLWorkbook(encryptedFile.Path, new LoadOptions { Password = Password }))
+        {
+            wb.SaveAs(plainFile.Path);
+
+            wb.Worksheet("Data").Cell("A1").Value = "still plain";
+            wb.Save();
+        }
+
+        await Assert.That(IsEncryptedContainer(File.ReadAllBytes(plainFile.Path))).IsFalse();
+
+        using var reopened = new XLWorkbook(plainFile.Path);
+        await Assert.That(reopened.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("still plain");
+
+        // And the file it came from is untouched by any of that.
+        using var original = new XLWorkbook(encryptedFile.Path, new LoadOptions { Password = Password });
+        await Assert.That(original.Worksheet("Data").Cell("A1").GetString()).IsEqualTo("before");
     }
 
     [Test]

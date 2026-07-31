@@ -34,6 +34,12 @@ public class LoadOptions
     /// <see cref="Exceptions.XLInvalidPasswordException"/>. This is the password that encrypts the
     /// whole file, unrelated to workbook and sheet protection, which control edit permissions
     /// inside a file that anyone can open.
+    /// <para>
+    /// When the file was encrypted, the password is retained for the lifetime of the workbook so
+    /// that <c>Save</c> can write it back encrypted. It is an ordinary string, as passwords are
+    /// throughout this API, so it lives until the GC reclaims it; keep the workbook short-lived if
+    /// that matters to your threat model.
+    /// </para>
     /// </remarks>
     public string? Password { get; set; }
 

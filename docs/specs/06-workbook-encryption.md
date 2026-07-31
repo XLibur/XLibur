@@ -111,8 +111,30 @@ What shipped, against the scope table:
 | Write Standard | ❌ excluded by design |
 | XOR / RC4 legacy | ❌ excluded by design |
 
-Public surface is `LoadOptions.Password` and `SaveOptions.Password`; a workbook opened with a
-password is deliberately *not* re-encrypted on save unless one is supplied.
+Public surface is `LoadOptions.Password` and `SaveOptions.Password`.
+
+### Save-time encryption state, revised by #251
+
+As shipped in #245, a workbook opened with a password was *not* re-encrypted on save unless one
+was supplied — and `Save()` on such a workbook wrote to the decrypted copy in memory and left the
+file on disk untouched, discarding the edits without a word. Issue #251 replaced that with a rule
+per method rather than one for both:
+
+- **`Save` preserves the encryption state it loaded with.** A workbook opened with a password is
+  written back to its origin encrypted under that password. A password on `SaveOptions` rotates it,
+  or encrypts an origin that was plain. `Save` cannot remove encryption.
+- **`SaveAs` states the encryption state.** A password means encrypt with it, no password means
+  write plaintext — unchanged from #245, and the only way to decrypt a file.
+
+So a null `SaveOptions.Password` means *unchanged* to `Save` and *none* to `SaveAs`. This requires
+the load password to be retained for the lifetime of the workbook, which is a deliberate widening
+of what #245 held; derived keys are still zeroed as before.
+
+Mechanically, an encrypted workbook keeps its load provenance (`_encryptedFile`/`_encryptedStream`
+plus `_encryptionPassword`) separately from the decrypted package that backs it, rather than
+overloading `_loadSource = Stream` to mean "backed by memory, origin forgotten". `SaveAs` no longer
+leaves the load source stale either: after an encrypted `SaveAs` the workbook's origin is the
+container it just wrote.
 
 ### CFB layer: OpenMcdf, approved
 

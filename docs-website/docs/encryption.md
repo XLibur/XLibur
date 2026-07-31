@@ -81,53 +81,79 @@ using var ms = new MemoryStream();
 workbook.SaveAs(ms, new SaveOptions { Password = "s3cret" });
 ```
 
-## The password is never carried from load to save
+## `Save` keeps the encryption, `SaveAs` states it
 
-Opening a workbook with a password does **not** cause it to be re-encrypted when you save it. To
-keep a file encrypted, supply the password again:
+The two save methods treat a missing password differently, because they are asking for different
+things.
+
+**`Save()` puts a workbook back where it came from, as it came.** A file opened with a password is
+written back to that file encrypted, under the same password:
 
 ```csharp
 using var workbook = new XLWorkbook("Confidential.xlsx", new LoadOptions { Password = "s3cret" });
 
 workbook.Worksheet("Data").Cell("A1").Value = "Updated";
 
-// Still encrypted — the password has to be given again
-workbook.SaveAs("Confidential.xlsx", new SaveOptions { Password = "s3cret" });
+workbook.Save();          // Confidential.xlsx — still encrypted, still "s3cret"
 ```
 
-This is deliberate. If the password carried over implicitly, a plain `SaveAs` would silently
-produce a file the caller could not open without a password they never mentioned. The flip side
-is that forgetting it decrypts the file, so make the save password explicit wherever a file is
-meant to stay protected.
+**`SaveAs` describes the file it is about to write.** A password means encrypt with it, no password
+means plain, whatever the workbook was loaded as:
 
-Removing the protection is therefore just a save without a password:
+```csharp
+workbook.SaveAs("Public.xlsx");                                              // plain
+workbook.SaveAs("Copy.xlsx", new SaveOptions { Password = "s3cret" });       // encrypted
+```
+
+So a null `Password` means *unchanged* to `Save` and *none* to `SaveAs`. The asymmetry is the
+point: a plain `SaveAs` can never silently produce a file you cannot open, and a plain `Save` can
+never silently drop the protection off a file that had it.
+
+### Changing the password
+
+Give `Save` a password and it replaces the one the file already had, in place:
 
 ```csharp
 using var workbook = new XLWorkbook("Confidential.xlsx", new LoadOptions { Password = "s3cret" });
-workbook.SaveAs("Public.xlsx");                    // plain, unencrypted
+workbook.Save(new SaveOptions { Password = "n3wsecret" });
 ```
 
-And changing it is a save with a different one:
+The same call on a workbook that was *not* loaded encrypted encrypts it for the first time:
 
 ```csharp
-workbook.SaveAs("Confidential.xlsx", new SaveOptions { Password = "n3wsecret" });
+using var workbook = new XLWorkbook("Public.xlsx");
+workbook.Save(new SaveOptions { Password = "s3cret" });   // Public.xlsx is now encrypted
 ```
 
-:::warning `Save()` does not update an encrypted file in place
-A workbook opened from an encrypted file is backed by the decrypted copy held in memory, because
-the file on disk is a compound file rather than a package the save path can patch. `Save()` writes
-to that in-memory copy and leaves the file on disk untouched — your changes go nowhere.
+### Removing the password
 
-Always use `SaveAs` for a workbook that was loaded encrypted:
+`Save` cannot remove encryption — there is no way to express it, which is what stops it happening
+by accident. Decrypting is a `SaveAs` without a password, and the path can be the one you are
+already at:
 
 ```csharp
-// Wrong — the file on disk is not updated
-workbook.Save();
+using var workbook = new XLWorkbook("Confidential.xlsx", new LoadOptions { Password = "s3cret" });
 
-// Right
-workbook.SaveAs("Confidential.xlsx", new SaveOptions { Password = "s3cret" });
+workbook.SaveAs("Confidential.xlsx");   // decrypted in place
+workbook.SaveAs("Public.xlsx");         // or written out plain somewhere else
 ```
-:::
+
+After that the workbook is no longer an encrypted one, so a later `Save()` keeps writing plain
+files. `SaveAs` sets the encryption state as well as using it.
+
+### Streams behave the same way
+
+`Save()` on a workbook loaded from a stream writes the re-encrypted container back to that same
+stream, so the stream has to be writable and seekable — `Save` says so with an
+`InvalidOperationException` if it is not, rather than dropping the changes:
+
+```csharp
+using var file = File.Open("Confidential.xlsx", FileMode.Open, FileAccess.ReadWrite);
+using var workbook = new XLWorkbook(file, new LoadOptions { Password = "s3cret" });
+
+workbook.Worksheet("Data").Cell("A1").Value = "Updated";
+workbook.Save();          // the stream now holds the re-encrypted workbook
+```
 
 ## Handling a wrong password
 
@@ -225,7 +251,9 @@ using var workbook = new XLWorkbook(buffer, new LoadOptions { Password = "s3cret
   encrypting files in bulk, and do not put an encrypted save inside a tight loop.
 - **Derived keys are zeroed** after use with `CryptographicOperations.ZeroMemory`. Passwords are
   ordinary strings, matching the rest of the API, so they live in memory until the GC reclaims
-  them — if that matters in your threat model, keep their lifetime short.
+  them. A workbook opened from an encrypted file holds its load password for as long as the
+  workbook lives, because that is what lets `Save()` put the file back encrypted — if that matters
+  in your threat model, keep the workbook short-lived.
 - **The whole file is encrypted**, not individual sheets. Excel offers no way to encrypt part of a
   workbook, so neither does XLibur. Split the data across files if different audiences need
   different access.

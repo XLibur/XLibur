@@ -47,8 +47,10 @@ internal static class WorkbookEncryption
         var (encryptionInfo, encryptedPackage) = EncryptedPackageContainer.ReadStreams(source);
         var package = DecryptPackage(encryptionInfo, encryptedPackage, password);
 
-        // Writable, because the workbook keeps this as its backing package and the save path copies
-        // from and patches a package rather than only reading it.
+        // Over the decrypted bytes rather than a copy of them: the workbook keeps this as the base
+        // package a save copies out of, and only ever reads it. A save of an encrypted workbook
+        // builds a fresh package to patch, because the compound file it produces has to be written
+        // whole rather than patched in place.
         return new MemoryStream(package);
     }
 

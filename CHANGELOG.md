@@ -83,7 +83,20 @@
 
 - **Password-protected workbooks (ECMA-376 encryption)**: `LoadOptions.Password` opens an encrypted workbook and `SaveOptions.Password` writes one. Reading covers both schemes in the wild — agile encryption (Office 2010 and later) and standard encryption (Office 2007); writing uses agile encryption with the parameters Excel itself writes (AES-256-CBC, SHA-512, 100,000 spins and a fresh random key per save). Previously an encrypted file could not be opened at all and failed opaquely.
 
-  A wrong or missing password throws `XLInvalidPasswordException`, which is what a caller re-prompts on; an altered package whose HMAC fails throws `XLEncryptionException`, because there the password was right. A legacy `.xls` is detected and named rather than mistaken for an encrypted workbook. The password is never carried from load to save — a plain `SaveAs` cannot silently produce a file the caller can no longer open. ([#245](https://github.com/XLibur/XLibur/pull/245) by [@jafin](https://github.com/jafin))
+  A wrong or missing password throws `XLInvalidPasswordException`, which is what a caller re-prompts on; an altered package whose HMAC fails throws `XLEncryptionException`, because there the password was right. A legacy `.xls` is detected and named rather than mistaken for an encrypted workbook. ([#245](https://github.com/XLibur/XLibur/pull/245) by [@jafin](https://github.com/jafin))
+
+  `Save` and `SaveAs` read a missing `SaveOptions.Password` differently, because they are asking for different things. **`Save` preserves the encryption of the file it came from** — a workbook opened with a password is written back to that file encrypted under the same password, so a load/edit/save round trip works in one call. Giving `Save` a password rotates it in place, or encrypts an origin that was plain; `Save` cannot remove encryption at all. **`SaveAs` states the encryption of the file it writes** — a password means encrypt with it, no password means plaintext, whatever the workbook was loaded as, so a plain `SaveAs` can never silently produce a file the caller cannot open, and is how encryption is removed.
+
+  ```csharp
+  using var workbook = new XLWorkbook("Confidential.xlsx", new LoadOptions { Password = "s3cret" });
+  workbook.Worksheet("Data").Cell("A1").Value = "Updated";
+
+  workbook.Save();                                          // still encrypted, same password
+  workbook.Save(new SaveOptions { Password = "n3w" });      // rotated in place
+  workbook.SaveAs("Public.xlsx");                           // plain — explicitly asked for
+  ```
+
+  The load password is therefore retained for the lifetime of the workbook, which is what lets `Save` re-encrypt; derived keys are still zeroed after use. ([#251](https://github.com/XLibur/XLibur/issues/251) by [@jafin](https://github.com/jafin))
 
 #### Charts
 

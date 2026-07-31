@@ -46,15 +46,26 @@ public class SaveOptions
     public bool GenerateCalculationChain { get; set; } = true;
 
     /// <summary>
-    /// Password used to encrypt the saved workbook. Default value is <c>null</c>, which saves an
-    /// ordinary unencrypted file. When set, the file is written with agile encryption
-    /// (AES-256-CBC, SHA-512), the profile Excel itself writes.
+    /// Password used to encrypt the saved workbook. When set, the file is written with agile
+    /// encryption (AES-256-CBC, SHA-512), the profile Excel itself writes.
     /// </summary>
     /// <remarks>
-    /// A workbook opened with <see cref="LoadOptions.Password"/> is <em>not</em> re-encrypted
-    /// automatically on save; the password has to be given here again. Carrying it over implicitly
-    /// would mean a plain <c>SaveAs</c> silently produced a file the caller could not open without
-    /// a password they never mentioned.
+    /// The default of <c>null</c> means different things to the two save methods, because they
+    /// mean different things themselves:
+    /// <list type="bullet">
+    /// <item>
+    ///   <c>SaveAs</c> states the encryption of the file it writes, so <c>null</c> is <em>no
+    ///   encryption</em>. A plain <c>SaveAs</c> therefore cannot silently produce a file the caller
+    ///   could not open without a password they never mentioned, and is how encryption is removed
+    ///   from a workbook that was loaded with it.
+    /// </item>
+    /// <item>
+    ///   <c>Save</c> puts a workbook back where it came from as it was, so <c>null</c> is
+    ///   <em>unchanged</em>: one opened with <see cref="LoadOptions.Password"/> is written back
+    ///   encrypted under that password. Setting a password rotates it, or encrypts an origin that
+    ///   was not encrypted before. <c>Save</c> cannot remove encryption.
+    /// </item>
+    /// </list>
     /// </remarks>
     public string? Password { get; set; }
 
