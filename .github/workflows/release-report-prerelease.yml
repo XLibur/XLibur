@@ -1,0 +1,235 @@
+name: Pre-release Report
+
+# Pre-release the report packages off the current branch, without a tag.
+#
+# The report stream's counterpart to release-prerelease.yml, which does the same
+# for core. Only XLibur.Report and XLibur.Report.DynamicLinq are packed into
+# ./artifacts; the core packages are built — the solution has to compile — but
+# never land there, and only ./artifacts is pushed, so a report pre-release can
+# never renumber or republish core.
+#
+# MinVer numbers these off `report-v*` tags (see XLibur.Report.props), so the
+# version is the next patch after the latest report tag plus the chosen label and
+# the commit height — e.g. `0.1.1-beta.7`. Until the first report tag exists,
+# MinVerMinimumMajorMinor in XLibur.Report.props makes that `0.1.0-<label>.<height>`
+# rather than an unusable `0.0.0-...`.
+#
+# Publishing is gated on the declared core dependency being resolvable on NuGet,
+# exactly as in release-report.yml — a pre-release nobody can restore is worse
+# than no pre-release. Use the `core-dependency` input to declare a core
+# pre-release when the stable core version is not out yet.
+#
+# Dry run is the default: a NuGet push cannot be undone and a version cannot be
+# reused. Uncheck it deliberately.
+
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease-label:
+        description: 'Pre-release label (alpha, beta, rc)'
+        required: true
+        default: 'alpha'
+        type: choice
+        options:
+          - alpha
+          - beta
+          - rc
+      core-dependency:
+        description: 'Core dependency to declare, e.g. [0.107.0] or 0.107.1-alpha.12. Empty uses XLibur.Report.props.'
+        required: false
+        default: ''
+        type: string
+      dry-run:
+        description: 'Dry run — build, test, pack and check, but do not publish'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  prerelease:
+    name: Pre-release report packages
+    runs-on: ubuntu-latest
+
+    env:
+      # Applies to every project in the build, but each resolves it against its
+      # own tag prefix — core off `v*`, the report packages off `report-v*` — and
+      # only the report packages are packed here.
+      MinVerDefaultPreReleaseIdentifiers: ${{ inputs.prerelease-label }}
+      # Empty leaves XLibur.Report.props' own value in force.
+      XLiburDependencyVersion: ${{ inputs.core-dependency }}
+      DRY_RUN: ${{ inputs.dry-run }}
+
+    steps:
+      # A workflow_dispatch input is attacker-controlled text. It is never
+      # interpolated into a script — it reaches MSBuild through the environment —
+      # and it has to look like a version before it gets that far.
+      - name: Validate the core dependency override
+        if: inputs.core-dependency != ''
+        run: |
+          if ! printf '%s' "$XLiburDependencyVersion" | grep -qE '^\[?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?\]?$'; then
+            echo "::error::'$XLiburDependencyVersion' is not a version or an exact range — expected 0.107.0 or [0.107.0]"
+            exit 1
+          fi
+          echo "Declaring core dependency $XLiburDependencyVersion"
+
+      # MinVer needs the full history and the tags to find the latest `report-v*`
+      # tag and the height above it. A shallow clone silently yields 0.0.0.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Show inputs
+        run: |
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Pre-release label: ${{ inputs.prerelease-label }}"
+          echo "Dry run: $DRY_RUN"
+
+      - name: Restore dependencies
+        run: dotnet restore XLibur.slnx
+
+      - name: Build
+        run: dotnet build XLibur.slnx --configuration Release --no-restore
+
+      # A pre-release is still something people install. The suite has to pass for
+      # the commit being packed, same as in release-report.yml.
+      - name: Test
+        run: >
+          dotnet test XLibur.Report.Tests/XLibur.Report.Tests.csproj
+          --configuration Release
+          --no-build
+          --framework net10.0
+
+      - name: Pack
+        run: |
+          for project in XLibur.Report XLibur.Report.DynamicLinq; do
+            echo "::group::Pack $project"
+            dotnet pack "$project/$project.csproj" --configuration Release --no-build --output ./artifacts
+            echo "::endgroup::"
+          done
+          ls -la ./artifacts/
+
+      # There is no tag to check the version against, so check the shape instead:
+      # a pre-release must carry the requested label. If it does not, MinVer found
+      # a `report-v*` tag on HEAD and this is a stable version that belongs in
+      # release-report.yml, not here.
+      - name: Verify the packages are pre-release
+        env:
+          LABEL: ${{ inputs.prerelease-label }}
+        run: |
+          status=0
+          for package in ./artifacts/*.nupkg; do
+            name=$(basename "$package" .nupkg)
+            case "$name" in
+              *-$LABEL.*) ;;
+              *)
+                echo "::error::$name is not a '$LABEL' pre-release"
+                status=1
+                ;;
+            esac
+          done
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Expected pre-release versions. A stable version here means HEAD carries a report-v* tag — release it through Release Report instead."
+            exit 1
+          fi
+
+      # The same gate release-report.yml applies, and for the same reason:
+      # XLibur.Report declares an EXACT core dependency while it reads core
+      # internals through the InternalsVisibleTo grant (see XLibur.Report.props),
+      # and an exact dependency on a core version that is not on NuGet is
+      # unresolvable. Pre-release core versions are listed in the same index, so
+      # pointing at one through the `core-dependency` input passes this check.
+      - name: Verify the declared core dependency is published
+        run: |
+          package=$(ls ./artifacts/XLibur.Report.[0-9]*.nupkg | head -n1)
+          echo "Reading the declared dependency from $(basename "$package")"
+
+          # The first XLibur dependency in the nuspec; every target framework group
+          # carries the same one.
+          declared=$(unzip -p "$package" 'XLibur.Report.nuspec' \
+            | grep -o 'id="XLibur" version="[^"]*"' \
+            | head -n1 \
+            | sed 's/.*version="\([^"]*\)".*/\1/')
+
+          if [ -z "$declared" ]; then
+            echo "::error::Could not read the XLibur dependency from the packed nuspec"
+            exit 1
+          fi
+
+          # Strip range brackets: [0.107.0] and 0.107.0 both resolve to 0.107.0.
+          version=$(printf '%s' "$declared" | tr -d '[]()' | cut -d, -f1)
+          echo "Declared core dependency: $declared (checking $version)"
+
+          if ! curl -sf "https://api.nuget.org/v3-flatcontainer/xlibur/index.json" -o core-versions.json; then
+            echo "::error::Could not query NuGet for published XLibur versions"
+            exit 1
+          fi
+
+          if ! jq -e --arg v "$version" '.versions | index($v)' core-versions.json >/dev/null; then
+            echo "::error::XLibur $version is not published on NuGet, so this package would be unresolvable."
+            echo "::error::Publish core $version first, or run this workflow with a core-dependency input naming a version that is out (a core pre-release counts)."
+            exit 1
+          fi
+
+          echo "XLibur $version is published — dependency is resolvable"
+          echo "CORE_DEPENDENCY=$declared" >> "$GITHUB_ENV"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Report pre-release packages"
+            echo
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "**Dry run — nothing was published.**"
+              echo
+            fi
+            echo "Branch: \`${{ github.ref_name }}\` · label: \`${{ inputs.prerelease-label }}\`"
+            echo
+            echo "Core dependency: \`XLibur ${CORE_DEPENDENCY:-unresolved}\`"
+            echo
+            for package in ./artifacts/*.nupkg; do
+              [ -e "$package" ] || continue
+              echo "- \`$(basename "$package")\`"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: NuGet login
+        if: env.DRY_RUN != 'true'
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        id: nuget-login
+        with:
+          user: jafin
+
+      - name: Push to NuGet
+        if: env.DRY_RUN != 'true'
+        run: dotnet nuget push ./artifacts/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --skip-duplicate
+
+      - name: Push symbols to NuGet
+        if: env.DRY_RUN != 'true'
+        run: dotnet nuget push ./artifacts/*.snupkg --source https://api.nuget.org/v3/index.json --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --skip-duplicate
+
+      - name: Dry run — skipped NuGet publish
+        if: env.DRY_RUN == 'true'
+        run: echo "Dry run enabled — packages were built but not published to NuGet."
+
+      # No tag, so no GitHub Release — the packages are the artifact. Uploaded on
+      # failure too, so a dry run that trips a gate still hands you the .nupkg.
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: report-prerelease-packages
+          path: ./artifacts/*
+          if-no-files-found: ignore
