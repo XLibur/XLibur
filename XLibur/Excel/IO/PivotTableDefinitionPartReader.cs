@@ -243,11 +243,11 @@ internal static class PivotTableDefinitionPartReader
             // act on it, and a token survives a value a newer Excel introduced.
             var type = pivotFilter.Type?.InnerText ?? throw PartStructureException.MissingAttribute();
 
-            // autoFilter is required by the schema and is a sub-tree in its own right, so it is
-            // carried through verbatim instead of being modelled.
+            // autoFilter is required by the schema and carries the criteria, so a filter without
+            // one says nothing about what it keeps.
             var autoFilter = pivotFilter.AutoFilter ?? throw PartStructureException.ExpectedElementNotFound();
 
-            var xlPivotFilter = new XLPivotFilter(field, id, type, autoFilter.OuterXml)
+            var xlPivotFilter = new XLPivotFilter(field, id, type, ReadAutoFilter(autoFilter))
             {
                 EvaluationOrder = pivotFilter.EvaluationOrder?.Value ?? 0,
                 MemberPropertyField = pivotFilter.MemberPropertyFieldId?.Value,
@@ -260,6 +260,22 @@ internal static class PivotTableDefinitionPartReader
             };
             xlPivotTable.AddPivotFilter(xlPivotFilter);
         }
+    }
+
+    /// <summary>
+    /// Read the <c>autoFilter</c> of a pivot filter. The <c>filterColumn</c> children go through
+    /// the same reader as a worksheet autofilter's, because the element is the same one;
+    /// <c>sortState</c> and <c>extLst</c> are preserved rather than modelled.
+    /// </summary>
+    private static XLPivotAutoFilter ReadAutoFilter(AutoFilter autoFilter)
+    {
+        return new XLPivotAutoFilter
+        {
+            Reference = autoFilter.Reference?.Value,
+            Columns = autoFilter.Elements<FilterColumn>().Select(FilterColumnCriteriaReader.Read).ToList(),
+            SortStateXml = autoFilter.GetFirstChild<SortState>()?.OuterXml,
+            ExtensionListXml = autoFilter.GetFirstChild<ExtensionList>()?.OuterXml,
+        };
     }
 
     private static void LoadConditionalFormats(DocumentFormat.OpenXml.Spreadsheet.ConditionalFormats? conditionalFormats, XLPivotTable xlPivotTable,

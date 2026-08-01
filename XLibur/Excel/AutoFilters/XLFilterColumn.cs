@@ -17,12 +17,38 @@ internal sealed class XLFilterColumn : IXLFilterColumn, IXLFilteredColumn, IEnum
         _column = column;
     }
 
+    /// <summary>
+    /// The criteria this column was loaded from, kept until the column is changed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The runtime state below is a lossy view of a <c>filterColumn</c>: it has no room for an
+    /// <c>iconFilter</c>, for the button attributes, for <c>extLst</c>, or for the three dozen
+    /// <c>dynamicFilter</c> types beyond above- and below-average. Writing an untouched column
+    /// back from the criteria instead of from that state is what keeps those from being dropped
+    /// by a load and save.
+    /// </para>
+    /// <para>
+    /// Every mutation clears it, so a column the caller has changed is written from what the
+    /// caller asked for, not from what the file used to say.
+    /// </para>
+    /// </remarks>
+    internal XLFilterColumnCriteria? SourceCriteria { get; private set; }
+
+    /// <summary>
+    /// Record the criteria the column was loaded from. Called after the runtime state has been
+    /// populated, because populating it goes through <see cref="AddFilter(XLFilter, bool)"/>,
+    /// which clears the criteria again.
+    /// </summary>
+    internal void SetSourceCriteria(XLFilterColumnCriteria criteria) => SourceCriteria = criteria;
+
     #region IXLFilterColumn Members
 
     public void Clear(bool reapply = true)
     {
         _filters.Clear();
         FilterType = XLFilterType.None;
+        SourceCriteria = null;
         if (reapply)
             _autoFilter.Reapply();
     }
@@ -285,6 +311,7 @@ internal sealed class XLFilterColumn : IXLFilterColumn, IXLFilteredColumn, IEnum
             throw new InvalidOperationException($"{FilterType} filter can have max {maxFilters} conditions.");
 
         _filters.Add(filter);
+        SourceCriteria = null;
         if (reapply)
             _autoFilter.Reapply();
     }
@@ -297,6 +324,10 @@ internal sealed class XLFilterColumn : IXLFilterColumn, IXLFilteredColumn, IEnum
             // correct value, even is cell values changed and avg was stale.
             DynamicValue = GetAverageFilterValue();
             _filters[0].Value = DynamicValue;
+
+            // The recomputed average is what should be saved, so the loaded criteria — which
+            // carry the stale one — no longer describe the column.
+            SourceCriteria = null;
         }
 
         if (FilterType == XLFilterType.TopBottom)

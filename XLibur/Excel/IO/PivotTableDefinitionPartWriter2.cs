@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Extensions;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;
@@ -469,13 +470,44 @@ internal static class PivotTableDefinitionPartWriter2
             xml.WriteAttributeOptional("stringValue1", pivotFilter.StringValue1);
             xml.WriteAttributeOptional("stringValue2", pivotFilter.StringValue2);
 
-            // Written back exactly as it was read. See XLPivotFilter.AutoFilterXml.
-            xml.WriteRaw(pivotFilter.AutoFilterXml);
+            WriteAutoFilter(xml, pivotFilter.AutoFilter);
 
             xml.WriteEndElement(); // filter
         }
 
         xml.WriteEndElement(); // filters
+    }
+
+    /// <summary>
+    /// Write the <c>autoFilter</c> child of a pivot filter.
+    /// </summary>
+    /// <remarks>
+    /// Built as a DOM element and streamed into the writer, rather than written attribute by
+    /// attribute, so that the criteria have a single writer shared with worksheet autofilters
+    /// instead of one per part. This part is streamed for the sake of the thousands of items a
+    /// pivot table definition holds; a handful of filters is not where that matters.
+    /// </remarks>
+    private static void WriteAutoFilter(XmlWriter xml, XLPivotAutoFilter pivotAutoFilter)
+    {
+        var autoFilter = new AutoFilter();
+        if (pivotAutoFilter.Reference is { } reference)
+            autoFilter.Reference = reference;
+
+        foreach (var column in pivotAutoFilter.Columns)
+            autoFilter.Append(FilterColumnCriteriaWriter.Write(column));
+
+        // Schema order puts both after the filterColumn children.
+        if (pivotAutoFilter.SortStateXml is { } sortStateXml)
+            autoFilter.Append(new SortState(sortStateXml));
+
+        if (pivotAutoFilter.ExtensionListXml is { } extensionListXml)
+            autoFilter.Append(new ExtensionList(extensionListXml));
+
+        // The SDK writes a detached element with its own prefix, so this goes out as
+        // `x:autoFilter` with a declaration of its own rather than picking up the default
+        // namespace already in scope. Redundant, but the same namespace, and the same shape the
+        // preserved sub-tree produced before it was modelled.
+        autoFilter.WriteTo(xml);
     }
 
     private static void WriteConditionalFormats(XmlWriter xml, XLPivotTable pt)

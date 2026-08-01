@@ -1,10 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.AutoFilters;
 using XLibur.Excel.ContentManagers;
-using XLibur.Utils;
 using static XLibur.Excel.XLWorkbook;
 
 namespace XLibur.Excel.IO;
@@ -41,136 +42,149 @@ internal static class AutoFilterWriter
 
         foreach (var (columnNumber, xlFilterColumn) in xlAutoFilter.Columns)
         {
-            var filterColumn = new FilterColumn { ColumnId = (uint)columnNumber - 1 };
-
-            if (xlFilterColumn.FilterType == XLFilterType.None)
+            if (GetCriteria(xlFilterColumn, (uint)columnNumber - 1, context) is not { } criteria)
                 continue;
 
-            PopulateFilterColumn(filterColumn, xlFilterColumn, context);
-            autoFilter.Append(filterColumn);
+            autoFilter.Append(FilterColumnCriteriaWriter.Write(criteria));
         }
 
         if (xlAutoFilter.Sorted)
             AppendSortState(autoFilter, xlAutoFilter, filterRange);
     }
 
-    private static void PopulateFilterColumn(FilterColumn filterColumn, XLFilterColumn xlFilterColumn,
+    /// <summary>
+    /// The criteria to write for one column, or <c>null</c> when it has nothing to say.
+    /// </summary>
+    /// <remarks>
+    /// A column that was loaded and not since changed is written from the criteria it was loaded
+    /// with, so the parts the runtime state cannot hold — an <c>iconFilter</c>, the button
+    /// attributes, <c>extLst</c> — are not lost by a load and save. Once the caller changes the
+    /// column those criteria are dropped, and it is written from what the caller asked for.
+    /// </remarks>
+    private static XLFilterColumnCriteria? GetCriteria(XLFilterColumn xlFilterColumn, uint columnId,
         SaveContext context)
     {
-        switch (xlFilterColumn.FilterType)
+        if (xlFilterColumn.SourceCriteria is { } sourceCriteria)
+            return sourceCriteria;
+
+        if (xlFilterColumn.FilterType == XLFilterType.None)
+            return null;
+
+        return new XLFilterColumnCriteria
         {
-            case XLFilterType.Custom:
-                filterColumn.Append(CreateCustomFilters(xlFilterColumn));
-                break;
-
-            case XLFilterType.TopBottom:
-                filterColumn.Append(CreateTop10Filter(xlFilterColumn));
-                break;
-
-            case XLFilterType.Dynamic:
-                filterColumn.Append(CreateDynamicFilter(xlFilterColumn));
-                break;
-
-            case XLFilterType.Regular:
-                filterColumn.Append(CreateRegularFilters(xlFilterColumn));
-                break;
-
-            case XLFilterType.Color:
-                AppendColorFilter(filterColumn, xlFilterColumn, context);
-                break;
-
-            default:
-                throw new NotSupportedException();
-        }
+            ColumnId = columnId,
+            Criteria = CreateCriteria(xlFilterColumn, context),
+        };
     }
 
-    private static CustomFilters CreateCustomFilters(XLFilterColumn xlFilterColumn)
+    private static XLFilterCriteria? CreateCriteria(XLFilterColumn xlFilterColumn, SaveContext context)
     {
-        var customFilters = new CustomFilters();
+        return xlFilterColumn.FilterType switch
+        {
+            XLFilterType.Custom => CreateCustomFilters(xlFilterColumn),
+            XLFilterType.TopBottom => CreateTop10Filter(xlFilterColumn),
+            XLFilterType.Dynamic => CreateDynamicFilter(xlFilterColumn),
+            XLFilterType.Regular => CreateRegularFilters(xlFilterColumn),
+
+            // A colour whose differential format was never registered has no dxfId to point at,
+            // so the column is written without criteria rather than with a dangling reference.
+            XLFilterType.Color => CreateColorFilter(xlFilterColumn, context),
+            _ => throw new NotSupportedException(),
+        };
+    }
+
+    private static XLCustomFiltersCriteria CreateCustomFilters(XLFilterColumn xlFilterColumn)
+    {
+        var filters = new List<XLCustomFilterCriterion>();
+        var and = false;
+
         foreach (var xlFilter in xlFilterColumn)
         {
-            var filterValue = xlFilter.CustomValue.ToString(CultureInfo.InvariantCulture);
-            var customFilter = new CustomFilter { Val = filterValue };
-
-            if (xlFilter.Operator != XLFilterOperator.Equal)
-                customFilter.Operator = xlFilter.Operator.ToOpenXml();
+            filters.Add(new XLCustomFilterCriterion
+            {
+                Value = xlFilter.CustomValue.ToString(CultureInfo.InvariantCulture),
+                Operator = xlFilter.Operator,
+            });
 
             if (xlFilter.Connector == XLConnector.And)
-                customFilters.And = true;
-
-            customFilters.Append(customFilter);
+                and = true;
         }
 
-        return customFilters;
+        return new XLCustomFiltersCriteria { And = and, Filters = filters };
     }
 
-    private static Top10 CreateTop10Filter(XLFilterColumn xlFilterColumn)
+    private static XLTop10Criteria CreateTop10Filter(XLFilterColumn xlFilterColumn)
     {
-        return new Top10
+        return new XLTop10Criteria
         {
-            Val = xlFilterColumn.TopBottomValue,
-            Percent = OpenXmlHelper.GetBooleanValue(xlFilterColumn.TopBottomType == XLTopBottomType.Percent, false),
-            Top = OpenXmlHelper.GetBooleanValue(xlFilterColumn.TopBottomPart == XLTopBottomPart.Top, true)
+            Value = xlFilterColumn.TopBottomValue,
+            Percent = xlFilterColumn.TopBottomType == XLTopBottomType.Percent,
+            Top = xlFilterColumn.TopBottomPart == XLTopBottomPart.Top,
         };
     }
 
-    private static DynamicFilter CreateDynamicFilter(XLFilterColumn xlFilterColumn)
+    private static XLDynamicFilterCriteria CreateDynamicFilter(XLFilterColumn xlFilterColumn)
     {
-        return new DynamicFilter
+        return new XLDynamicFilterCriteria
         {
-            Type = xlFilterColumn.DynamicType.ToOpenXml(),
-            Val = xlFilterColumn.DynamicValue
+            Type = new EnumValue<DynamicFilterValues>(xlFilterColumn.DynamicType.ToOpenXml()).InnerText!,
+            Value = xlFilterColumn.DynamicValue,
         };
     }
 
-    private static Filters CreateRegularFilters(XLFilterColumn xlFilterColumn)
+    private static XLValuesFilterCriteria CreateRegularFilters(XLFilterColumn xlFilterColumn)
     {
-        var filters = new Filters();
-        foreach (var filter in xlFilterColumn)
-        {
-            if (filter.Value is string s)
-                filters.Append(new Filter { Val = s });
-        }
+        var values = new List<string>();
+        var dateGroups = new List<XLDateGroupCriteria>();
 
         foreach (var filter in xlFilterColumn)
         {
-            if (filter.Value is DateTime time)
-                filters.Append(CreateDateGroupItem(filter, time));
+            switch (filter.Value)
+            {
+                case string text:
+                    values.Add(text);
+                    break;
+
+                case DateTime time:
+                    dateGroups.Add(CreateDateGroup(filter, time));
+                    break;
+            }
         }
 
-        return filters;
+        return new XLValuesFilterCriteria { Values = values, DateGroups = dateGroups };
     }
 
-    private static DateGroupItem CreateDateGroupItem(XLFilter filter, DateTime time)
+    /// <summary>
+    /// A date truncated to the filter's grouping. The parts finer than the grouping are left out
+    /// rather than written as the zeroes the <see cref="DateTime"/> carries, because Excel reads
+    /// a present part as one the filter matches on.
+    /// </summary>
+    private static XLDateGroupCriteria CreateDateGroup(XLFilter filter, DateTime time)
     {
-        var dgi = new DateGroupItem
+        var grouping = filter.DateTimeGrouping;
+        return new XLDateGroupCriteria
         {
+            Grouping = grouping,
             Year = (ushort)time.Year,
-            DateTimeGrouping = filter.DateTimeGrouping.ToOpenXml()
+            Month = grouping >= XLDateTimeGrouping.Month ? (ushort)time.Month : null,
+            Day = grouping >= XLDateTimeGrouping.Day ? (ushort)time.Day : null,
+            Hour = grouping >= XLDateTimeGrouping.Hour ? (ushort)time.Hour : null,
+            Minute = grouping >= XLDateTimeGrouping.Minute ? (ushort)time.Minute : null,
+            Second = grouping >= XLDateTimeGrouping.Second ? (ushort)time.Second : null,
         };
-
-        if (filter.DateTimeGrouping >= XLDateTimeGrouping.Month) dgi.Month = (ushort)time.Month;
-        if (filter.DateTimeGrouping >= XLDateTimeGrouping.Day) dgi.Day = (ushort)time.Day;
-        if (filter.DateTimeGrouping >= XLDateTimeGrouping.Hour) dgi.Hour = (ushort)time.Hour;
-        if (filter.DateTimeGrouping >= XLDateTimeGrouping.Minute) dgi.Minute = (ushort)time.Minute;
-        if (filter.DateTimeGrouping >= XLDateTimeGrouping.Second) dgi.Second = (ushort)time.Second;
-
-        return dgi;
     }
 
-    private static void AppendColorFilter(FilterColumn filterColumn, XLFilterColumn xlFilterColumn,
-        SaveContext context)
+    private static XLColorFilterCriteria? CreateColorFilter(XLFilterColumn xlFilterColumn, SaveContext context)
     {
         var dxfKey = (xlFilterColumn.FilterColor.Key, xlFilterColumn.FilterByCellColor);
-        if (context.ColorFilterDxfIds.TryGetValue(dxfKey, out var dxfId))
+        if (!context.ColorFilterDxfIds.TryGetValue(dxfKey, out var dxfId))
+            return null;
+
+        return new XLColorFilterCriteria
         {
-            var colorFilter = new ColorFilter
-            {
-                FormatId = (uint)dxfId,
-                CellColor = OpenXmlHelper.GetBooleanValue(xlFilterColumn.FilterByCellColor, true),
-            };
-            filterColumn.Append(colorFilter);
-        }
+            DifferentialFormatId = (uint)dxfId,
+            CellColor = xlFilterColumn.FilterByCellColor,
+        };
     }
 
     private static void AppendSortState(AutoFilter autoFilter, XLAutoFilter xlAutoFilter, IXLRange filterRange)

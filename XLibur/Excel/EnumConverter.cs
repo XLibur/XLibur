@@ -1148,6 +1148,17 @@ internal static class EnumConverter
         return DynamicFilterMap[value];
     }
 
+    /// <summary>
+    /// The non-throwing form of <see cref="ToXLibur(DynamicFilterValues)"/>.
+    /// <c>ST_DynamicFilterType</c> has around forty values — every relative date period Excel
+    /// offers — and <see cref="XLFilterDynamicType"/> covers the two averages, so a caller
+    /// reading a file has to cope with a value that does not map.
+    /// </summary>
+    public static bool TryToXLibur(this DynamicFilterValues value, out XLFilterDynamicType result)
+    {
+        return DynamicFilterMap.TryGetValue(value, out result);
+    }
+
     public static XLDateTimeGrouping ToXLibur(this DateTimeGroupingValues value)
     {
         return DateTimeGroupingMap[value];

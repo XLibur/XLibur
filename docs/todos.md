@@ -109,7 +109,7 @@ its own period runs from this release.
 |------|---------|------|--------|
 | #1 | 7 | Bug — empty data validations written with empty `sqref` | **Merged** — [#290](https://github.com/XLibur/XLibur/pull/290) |
 | #2 | 10 | Feature — pivot `chartFormats` round trip | **Merged** — [#294](https://github.com/XLibur/XLibur/pull/294) |
-| #3 | 11 | Feature — pivot `filters` round trip | Not started |
+| #3 | 11 | Feature — pivot `filters` round trip | **Merged** — [#300](https://github.com/XLibur/XLibur/pull/300); `autoFilter` modelled rather than preserved as a string in [#301](https://github.com/XLibur/XLibur/issues/301) |
 | #4 | 2, 4 | Correctness — structured references in the dependency tree | In review — [#297](https://github.com/XLibur/XLibur/pull/297) |
 | #5 | 3 | Perf — register data-table formulas in the dependency tree | **Closed, will not do** — see below |
 | #6 | 1 | Perf — cache parsed reference addresses | **Merged** — [#286](https://github.com/XLibur/XLibur/pull/286) |

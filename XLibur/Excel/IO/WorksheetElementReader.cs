@@ -374,39 +374,69 @@ internal static class WorksheetElementReader
         }
     }
 
+    /// <summary>
+    /// Load the <c>filterColumn</c> elements of an autofilter.
+    /// </summary>
+    /// <remarks>
+    /// Each column is read into <see cref="XLFilterColumnCriteria"/> first, then translated into
+    /// the cell-evaluating runtime state as far as that state can express it. The criteria are
+    /// kept on the column so that the parts it cannot express — an <c>iconFilter</c>, the button
+    /// attributes, <c>extLst</c>, a <c>dynamicFilter</c> type other than the two averages — are
+    /// still there to be written back.
+    /// </remarks>
     internal static void LoadAutoFilterColumns(AutoFilter af, XLAutoFilter autoFilter,
         Dictionary<int, DifferentialFormat>? differentialFormats = null)
     {
         foreach (var filterColumn in af.Elements<FilterColumn>())
         {
-            var column = (int)filterColumn.ColumnId!.Value + 1;
-            var xlFilterColumn = autoFilter.Column(column);
-            if (filterColumn.CustomFilters is { } customFilters)
-                LoadCustomFilters(xlFilterColumn, customFilters);
-            else if (filterColumn.Filters is { } filters)
-                LoadRegularFilters(xlFilterColumn, filters);
-            else if (filterColumn.Top10 is { } top10)
-                LoadTop10Filter(xlFilterColumn, top10);
-            else if (filterColumn.DynamicFilter is { } dynamicFilter)
-                LoadDynamicFilter(xlFilterColumn, filterColumn, dynamicFilter);
-            else if (filterColumn.Elements<ColorFilter>().FirstOrDefault() is { } colorFilter
-                     && differentialFormats is not null)
-                LoadColorFilter(xlFilterColumn, colorFilter, differentialFormats);
+            var criteria = FilterColumnCriteriaReader.Read(filterColumn);
+            var xlFilterColumn = autoFilter.Column((int)criteria.ColumnId + 1);
+
+            switch (criteria.Criteria)
+            {
+                case XLCustomFiltersCriteria customFilters:
+                    LoadCustomFilters(xlFilterColumn, customFilters);
+                    break;
+
+                case XLValuesFilterCriteria values:
+                    LoadRegularFilters(xlFilterColumn, values);
+                    break;
+
+                case XLTop10Criteria top10:
+                    LoadTop10Filter(xlFilterColumn, top10);
+                    break;
+
+                case XLDynamicFilterCriteria dynamicFilter:
+                    LoadDynamicFilter(xlFilterColumn, dynamicFilter);
+                    break;
+
+                case XLColorFilterCriteria colorFilter when differentialFormats is not null:
+                    LoadColorFilter(xlFilterColumn, colorFilter, differentialFormats);
+                    break;
+
+                default:
+                    // An iconFilter, a colour filter with no differential formats to resolve
+                    // against, or no criteria at all. Nothing to evaluate against cells; the
+                    // criteria below are what carry it through a save.
+                    break;
+            }
+
+            xlFilterColumn.SetSourceCriteria(criteria);
         }
     }
 
-    private static void LoadCustomFilters(XLFilterColumn xlFilterColumn, CustomFilters customFilters)
+    private static void LoadCustomFilters(XLFilterColumn xlFilterColumn, XLCustomFiltersCriteria customFilters)
     {
         xlFilterColumn.FilterType = XLFilterType.Custom;
-        var connector = OpenXmlHelper.GetBooleanValueAsBool(customFilters.And, false)
-            ? XLConnector.And
-            : XLConnector.Or;
+        var connector = customFilters.And ? XLConnector.And : XLConnector.Or;
 
-        foreach (var filter in customFilters.OfType<CustomFilter>())
+        foreach (var filter in customFilters.Filters)
         {
-            var op = filter.Operator is not null ? filter.Operator.Value.ToXLibur() : XLFilterOperator.Equal;
-            var filterValue = filter.Val!.Value!;
-            var xlFilter = CreateCustomXLFilter(op, filterValue, connector);
+            // val is optional in the schema, but a comparison without one says nothing.
+            if (filter.Value is not { } filterValue)
+                continue;
+
+            var xlFilter = CreateCustomXLFilter(filter.Operator, filterValue, connector);
             xlFilterColumn.AddFilter(xlFilter);
         }
     }
@@ -427,26 +457,23 @@ internal static class WorksheetElementReader
         }
     }
 
-    private static void LoadRegularFilters(XLFilterColumn xlFilterColumn, Filters filters)
+    private static void LoadRegularFilters(XLFilterColumn xlFilterColumn, XLValuesFilterCriteria values)
     {
         xlFilterColumn.FilterType = XLFilterType.Regular;
-        foreach (var filter in filters.OfType<Filter>())
+        foreach (var value in values.Values)
         {
-            xlFilterColumn.AddFilter(XLFilter.CreateRegularFilter(filter.Val!.Value!));
+            xlFilterColumn.AddFilter(XLFilter.CreateRegularFilter(value));
         }
 
-        foreach (var dateGroupItem in filters.OfType<DateGroupItem>())
+        foreach (var dateGroup in values.DateGroups)
         {
-            LoadDateGroupItem(xlFilterColumn, dateGroupItem);
+            LoadDateGroupItem(xlFilterColumn, dateGroup);
         }
     }
 
-    private static void LoadDateGroupItem(XLFilterColumn xlFilterColumn, DateGroupItem dateGroupItem)
+    private static void LoadDateGroupItem(XLFilterColumn xlFilterColumn, XLDateGroupCriteria dateGroupItem)
     {
-        if (dateGroupItem.DateTimeGrouping is null || !dateGroupItem.DateTimeGrouping.HasValue)
-            return;
-
-        var xlGrouping = dateGroupItem.DateTimeGrouping.Value.ToXLibur();
+        var xlGrouping = dateGroupItem.Grouping;
         var year = 1900;
         var month = 1;
         var day = 1;
@@ -482,41 +509,47 @@ internal static class WorksheetElementReader
         }
     }
 
-    private static bool TryGetDatePart(UInt16Value? value, ref int result)
+    private static bool TryGetDatePart(ushort? value, ref int result)
     {
-        if (value?.HasValue ?? false)
+        if (value is { } part)
         {
-            result = value.Value;
+            result = part;
             return true;
         }
 
         return false;
     }
 
-    private static void LoadTop10Filter(XLFilterColumn xlFilterColumn, Top10 top10)
+    private static void LoadTop10Filter(XLFilterColumn xlFilterColumn, XLTop10Criteria top10)
     {
         xlFilterColumn.FilterType = XLFilterType.TopBottom;
-        xlFilterColumn.TopBottomType = OpenXmlHelper.GetBooleanValueAsBool(top10.Percent, false)
-            ? XLTopBottomType.Percent
-            : XLTopBottomType.Items;
-        var takeTop = OpenXmlHelper.GetBooleanValueAsBool(top10.Top, true);
-        xlFilterColumn.TopBottomPart = takeTop ? XLTopBottomPart.Top : XLTopBottomPart.Bottom;
+        xlFilterColumn.TopBottomType = top10.Percent ? XLTopBottomType.Percent : XLTopBottomType.Items;
+        xlFilterColumn.TopBottomPart = top10.Top ? XLTopBottomPart.Top : XLTopBottomPart.Bottom;
 
         // Value contains how many percent or items, so it can only be int.
         // Filter value is optional, so we don't rely on it.
-        var percentsOrItems = (int)top10.Val!.Value;
+        var percentsOrItems = (int)top10.Value;
         xlFilterColumn.TopBottomValue = percentsOrItems;
-        xlFilterColumn.AddFilter(XLFilter.CreateTopBottom(takeTop, percentsOrItems));
+        xlFilterColumn.AddFilter(XLFilter.CreateTopBottom(top10.Top, percentsOrItems));
     }
 
-    private static void LoadDynamicFilter(XLFilterColumn xlFilterColumn, FilterColumn filterColumn,
-        DynamicFilter dynamicFilter)
+    /// <summary>
+    /// Set up the runtime state for a <c>dynamicFilter</c>, if it is one of the two types the
+    /// runtime state can express.
+    /// </summary>
+    /// <remarks>
+    /// <c>ST_DynamicFilterType</c> has around forty values — every relative date period Excel
+    /// offers — while <see cref="XLFilterDynamicType"/> has the two averages. The rest are left
+    /// unevaluated rather than forced onto one of the two, and survive the save through the
+    /// criteria kept on the column.
+    /// </remarks>
+    private static void LoadDynamicFilter(XLFilterColumn xlFilterColumn, XLDynamicFilterCriteria dynamicFilter)
     {
+        if (!TryGetDynamicType(dynamicFilter.Type, out var dynamicType))
+            return;
+
         xlFilterColumn.FilterType = XLFilterType.Dynamic;
-        var dynamicType = dynamicFilter.Type is { } dynamicFilterType
-            ? dynamicFilterType.Value.ToXLibur()
-            : XLFilterDynamicType.AboveAverage;
-        var dynamicValue = filterColumn.DynamicFilter!.Val!.Value;
+        var dynamicValue = dynamicFilter.Value ?? double.NaN;
 
         xlFilterColumn.DynamicType = dynamicType;
         xlFilterColumn.DynamicValue = dynamicValue;
@@ -524,14 +557,28 @@ internal static class WorksheetElementReader
             dynamicType == XLFilterDynamicType.AboveAverage));
     }
 
-    private static void LoadColorFilter(XLFilterColumn xlFilterColumn, ColorFilter colorFilter,
+    private static bool TryGetDynamicType(string token, out XLFilterDynamicType dynamicType)
+    {
+        var value = new EnumValue<DynamicFilterValues> { InnerText = token };
+        if (value.HasValue && value.Value.TryToXLibur(out dynamicType))
+            return true;
+
+        dynamicType = default;
+        return false;
+    }
+
+    private static void LoadColorFilter(XLFilterColumn xlFilterColumn, XLColorFilterCriteria colorFilter,
         Dictionary<int, DifferentialFormat> differentialFormats)
     {
+        // dxfId is optional, and without it there is no colour to match on.
+        if (colorFilter.DifferentialFormatId is not { } dxfId)
+            return;
+
         xlFilterColumn.FilterType = XLFilterType.Color;
-        var byCellColor = OpenXmlHelper.GetBooleanValueAsBool(colorFilter.CellColor, true);
+        var byCellColor = colorFilter.CellColor;
         xlFilterColumn.FilterByCellColor = byCellColor;
 
-        var formatId = (int)colorFilter.FormatId!.Value;
+        var formatId = (int)dxfId;
         if (differentialFormats.TryGetValue(formatId, out var dxf))
         {
             var filterColorValue = ResolveFilterColor(dxf, byCellColor);

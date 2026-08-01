@@ -12,21 +12,18 @@ namespace XLibur.Excel;
 /// </para>
 /// <para>
 /// XLibur has no API for creating or interpreting these yet, so the type exists to carry them
-/// through a load/save unchanged. The attributes are modelled because they are the part anyone
-/// exposing an API would need; <see cref="AutoFilterXml"/> is kept verbatim because
-/// <c>CT_AutoFilter</c> is a whole sub-tree of its own (<c>filterColumn</c> with any of
-/// <c>filters</c>, <c>top10</c>, <c>customFilters</c>, <c>dynamicFilter</c>, <c>colorFilter</c>
-/// or <c>iconFilter</c>) and modelling it would be a large surface with nothing reading it.
+/// through a load/save unchanged. The attributes here say which field the filter applies to and
+/// what kind it is; <see cref="AutoFilter"/> holds the criteria themselves.
 /// </para>
 /// </remarks>
 internal sealed class XLPivotFilter
 {
-    internal XLPivotFilter(uint field, uint id, string type, string autoFilterXml)
+    internal XLPivotFilter(uint field, uint id, string type, XLPivotAutoFilter autoFilter)
     {
         Field = field;
         Id = id;
         Type = type;
-        AutoFilterXml = autoFilterXml;
+        AutoFilter = autoFilter;
     }
 
     /// <summary>
@@ -48,10 +45,10 @@ internal sealed class XLPivotFilter
     internal string Type { get; }
 
     /// <summary>
-    /// The <c>autoFilter</c> child, verbatim, including its element tags. Required by the
-    /// schema, so every filter has one.
+    /// The criteria — what the filter actually keeps. Required by the schema, so every filter
+    /// has one.
     /// </summary>
-    internal string AutoFilterXml { get; }
+    internal XLPivotAutoFilter AutoFilter { get; }
 
     /// <summary>
     /// Order the filter is evaluated in relative to the other filters. Default <c>0</c>.
