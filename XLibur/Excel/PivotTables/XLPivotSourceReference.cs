@@ -23,6 +23,8 @@ internal sealed class XLPivotSourceReference : IXLPivotSource
         Name = namedRangeOrTable;
     }
 
+    public XLPivotSourceKind Kind => UsesName ? XLPivotSourceKind.Name : XLPivotSourceKind.Range;
+
     /// <summary>
     /// Are source data in external workbook defined by a <see cref="Name"/> or by <see cref="Area">cell area</see>.
     /// </summary>

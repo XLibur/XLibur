@@ -9,6 +9,8 @@ namespace XLibur.Excel;
 /// </summary>
 internal sealed class XLPivotSourceExternalWorkbook : IXLPivotSource
 {
+    public XLPivotSourceKind Kind => XLPivotSourceKind.ExternalWorkbook;
+
     /// <summary>
     /// External workbook relId. If relationships of cache definition changes, make sure to either keep same or update it.
     /// </summary>

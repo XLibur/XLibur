@@ -9,6 +9,8 @@ namespace XLibur.Excel;
 /// </summary>
 internal sealed class XLPivotSourceScenario : IXLPivotSource
 {
+    public XLPivotSourceKind Kind => XLPivotSourceKind.Scenario;
+
     public bool Equals(IXLPivotSource? other)
     {
         return other is XLPivotSourceScenario;

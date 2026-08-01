@@ -10,6 +10,8 @@ namespace XLibur.Excel;
 /// </summary>
 internal sealed class XLPivotSourceConsolidation : IXLPivotSource
 {
+    public XLPivotSourceKind Kind => XLPivotSourceKind.Consolidation;
+
     /// <summary>
     /// Will application automatically create additional page filter in addition to the <see cref="Pages"/>.
     /// </summary>

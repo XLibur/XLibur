@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
+using System.Runtime.InteropServices;
 using Scriban.Runtime;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
@@ -18,8 +18,8 @@ namespace XLibur.Report.Functions;
 /// they mean in a cell.
 /// </summary>
 /// <remarks>
-/// One adapter over the calc engine's function registry rather than a wrapper per function: a
-/// function added to the engine becomes available to templates without any change here.
+/// One adapter over <see cref="XLFunctionLibrary"/> rather than a wrapper per function: a function
+/// added to the calc engine becomes available to templates without any change here.
 /// <para>
 /// Functions are registered under their upper-case Excel names. That is not cosmetic — Scriban's
 /// keywords are lower case, so <c>if</c> would be parsed as a block conditional while <c>IF</c>
@@ -58,8 +58,8 @@ internal static class ExcelFunctionBridge
     private static readonly ConcurrentDictionary<CultureInfo, ScriptObject> ScribanGlobals = new();
 
     /// <summary>
-    /// Makes every function the calc engine knows about callable from <paramref name="engine"/>.
-    /// Engines that cannot host functions are left alone.
+    /// Makes every function the workbook function library knows about callable from
+    /// <paramref name="engine"/>. Engines that cannot host functions are left alone.
     /// </summary>
     public static void Register(IExpressionEngine engine, CultureInfo? culture = null)
     {
@@ -102,59 +102,46 @@ internal static class ExcelFunctionBridge
         Adapters.GetOrAdd(culture, BuildAdapters);
 
     /// <summary>
-    /// One adapter per registered function, closing over a single calc engine.
+    /// One adapter per available function, closing over a single function library.
     /// </summary>
     /// <remarks>
-    /// Sharing that engine across templates — and so across threads — is safe because these calls
-    /// have no grid: <see cref="CalcContext.CalcEngine"/> is reached only when reading a cell, which
-    /// needs a worksheet, and without one the call has already failed with the
-    /// <see cref="MissingContextException"/> translated below. The engine is here to be handed to a
-    /// <see cref="CalcContext"/>, not to hold state for the call.
+    /// Sharing that library across templates — and so across threads — is what
+    /// <see cref="XLFunctionLibrary"/> is built for: it holds no per-call state, and constructing
+    /// one builds the whole function table, which is the cost this cache exists to pay once.
     /// </remarks>
     private static IReadOnlyList<(string Name, Delegate Function)> BuildAdapters(CultureInfo culture)
     {
-        var calcEngine = new XLCalcEngine(culture);
+        var library = new XLFunctionLibrary(culture);
         var adapters = new List<(string Name, Delegate Function)>();
 
-        foreach (var name in calcEngine.Functions.Names)
+        foreach (var name in library.Names)
         {
-            if (!calcEngine.Functions.TryGetFunc(name, out var definition) || definition is null)
-            {
-                continue;
-            }
-
-            var function = definition;
+            var functionName = name;
             adapters.Add((
                 name.ToUpperInvariant(),
-                new ExcelFunction(arguments => Invoke(calcEngine, function, culture, arguments))));
+                new ExcelFunction(arguments => Invoke(library, functionName, culture, arguments))));
         }
 
         return adapters;
     }
 
     private static object? Invoke(
-        XLCalcEngine calcEngine,
-        FunctionDefinition definition,
+        XLFunctionLibrary library,
+        string name,
         CultureInfo culture,
         object?[] arguments)
     {
         var flattened = Flatten(arguments, culture);
 
-        if (flattened.Count < definition.MinParams || flattened.Count > definition.MaxParams)
-        {
-            return XLError.IncompatibleValue;
-        }
-
-        // No workbook and no cell: a template expression is evaluated before there is a grid to be
-        // relative to. Functions that reach for one throw, and are reported as such below.
-        var context = new CalcContext(calcEngine, culture, workbook: null, worksheet: null, formulaAddress: null);
-        var values = flattened.ToArray();
-
         try
         {
-            return FromAnyValue(definition.CallFunction(context, values.AsSpan()));
+            // Arity is the library's business — a wrong count comes back as an error result, the
+            // same as any other call that was made but could not succeed.
+            return library.TryInvoke(name, CollectionsMarshal.AsSpan(flattened), out var result)
+                ? FromCellValue(result)
+                : XLError.NameNotRecognized;
         }
-        catch (MissingContextException)
+        catch (XLNoWorksheetContextException)
         {
             throw new ExpressionEvaluationException(
                 "This function needs a worksheet to work against, which a template expression does not have. " +
@@ -173,9 +160,9 @@ internal static class ExcelFunctionBridge
     /// <c>MAX</c> — mean by a range argument, and it keeps the bridge clear of the engine's
     /// internal array representation.
     /// </remarks>
-    private static List<AnyValue> Flatten(object?[] arguments, CultureInfo culture)
+    private static List<XLCellValue> Flatten(object?[] arguments, CultureInfo culture)
     {
-        var values = new List<AnyValue>(arguments.Length);
+        var values = new List<XLCellValue>(arguments.Length);
 
         foreach (var argument in arguments)
         {
@@ -183,34 +170,36 @@ internal static class ExcelFunctionBridge
             {
                 foreach (var item in enumerable)
                 {
-                    values.Add(ToAnyValue(item, culture));
+                    values.Add(ToCellValue(item, culture));
                 }
 
                 continue;
             }
 
-            values.Add(ToAnyValue(argument, culture));
+            values.Add(ToCellValue(argument, culture));
         }
 
         return values;
     }
 
-    private static AnyValue ToAnyValue(object? value, CultureInfo culture) => value switch
+    private static XLCellValue ToCellValue(object? value, CultureInfo culture) => value switch
     {
-        null => ScalarValue.Blank.ToAnyValue(),
-        bool logical => AnyValue.From(logical),
-        string text => AnyValue.From(text),
+        null => Blank.Value,
+        bool logical => logical,
+        string text => text,
 
-        // Excel keeps dates as serial numbers, and its date functions expect them that way.
-        DateTime dateTime => AnyValue.From(dateTime.ToOADate()),
-        DateTimeOffset dateTimeOffset => AnyValue.From(dateTimeOffset.DateTime.ToOADate()),
-        TimeSpan timeSpan => AnyValue.From(timeSpan.TotalDays),
+        // Excel keeps dates as serial numbers, and its date functions expect them that way. Passed
+        // as the number rather than as a date-typed cell value, so that what reaches a function is
+        // the serial it would see in a cell formula.
+        DateTime dateTime => dateTime.ToOADate(),
+        DateTimeOffset dateTimeOffset => dateTimeOffset.DateTime.ToOADate(),
+        TimeSpan timeSpan => timeSpan.TotalDays,
 
-        XLError error => AnyValue.From(error),
-        XLCellValue cellValue => ((ScalarValue)cellValue).ToAnyValue(),
+        XLError error => error,
+        XLCellValue cellValue => cellValue,
 
         IConvertible convertible => FromConvertible(convertible, culture),
-        _ => AnyValue.From(value.ToString() ?? string.Empty),
+        _ => value.ToString() ?? string.Empty,
     };
 
     /// <summary>
@@ -223,31 +212,31 @@ internal static class ExcelFunctionBridge
     /// promises — so a value that will not convert is passed as its text, the same as anything else
     /// with no numeric form.
     /// </remarks>
-    private static AnyValue FromConvertible(IConvertible convertible, CultureInfo culture)
+    private static XLCellValue FromConvertible(IConvertible convertible, CultureInfo culture)
     {
         try
         {
-            return AnyValue.From(convertible.ToDouble(culture));
+            return convertible.ToDouble(culture);
         }
         catch (Exception ex) when (ex is InvalidCastException or FormatException or OverflowException)
         {
-            return AnyValue.From(convertible.ToString(culture) ?? string.Empty);
+            return convertible.ToString(culture) ?? string.Empty;
         }
     }
 
-    private static object? FromAnyValue(AnyValue value)
+    /// <summary>
+    /// The function's result as a template expression sees it. Blank becomes <c>null</c>, which is
+    /// what an expression engine understands as "nothing here".
+    /// </summary>
+    private static object? FromCellValue(XLCellValue value) => value.Type switch
     {
-        if (!value.TryPickScalar(out var scalar, out _))
-        {
-            // An array or reference result has no single value a cell could hold.
-            return XLError.IncompatibleValue;
-        }
-
-        return scalar.Match<object?>(
-            () => null,
-            logical => logical,
-            number => number,
-            text => text,
-            error => error);
-    }
+        XLDataType.Blank => null,
+        XLDataType.Boolean => value.GetBoolean(),
+        XLDataType.Number => value.GetNumber(),
+        XLDataType.Text => value.GetText(),
+        XLDataType.Error => value.GetError(),
+        XLDataType.DateTime => value.GetDateTime(),
+        XLDataType.TimeSpan => value.GetTimeSpan(),
+        _ => null,
+    };
 }

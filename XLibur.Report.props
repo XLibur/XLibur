@@ -21,18 +21,19 @@
     tests are unaffected either way: they compile against the project, and this only changes the
     dependency written into the .nupkg.
 
-    It is an EXACT range while `XLibur.Report` reads core internals through the InternalsVisibleTo
-    grant.
+    It is an open FLOOR, not an exact range: `XLibur.Report` compiles against core's public surface
+    only, so a consumer that pulls a newer core in alongside it gets something core has promised not
+    to break.
 
-    Internals carry no compatibility contract, so an open floor would be a promise core never made:
-    NuGet would happily unify core upward and the report package would fail at runtime against
-    internals that had since moved. Spec 13 replaces the grant with a public surface; once its task 3
-    lands and the report package builds against the released core package, this becomes an open floor
-    (`0.200.0`) and the exactness goes away. Until then, exact is the honest expression of "compiled
-    against these internals".
+    It was exact — `[0.200.0]` — while the report package read core internals through an
+    InternalsVisibleTo grant. Internals carry no compatibility contract, so an open floor would have
+    been a promise core never made: NuGet would happily unify core upward and the report package
+    would fail at runtime against internals that had since moved. Spec 13 replaced that grant with
+    `XLFunctionLibrary` and the `IXLPivotCache` source members, which is what makes a floor honest.
+    0.201.0 is the first core release carrying them, so it is the floor.
   -->
   <PropertyGroup>
-    <XLiburDependencyVersion Condition="'$(XLiburDependencyVersion)' == ''">[0.200.0]</XLiburDependencyVersion>
+    <XLiburDependencyVersion Condition="'$(XLiburDependencyVersion)' == ''">0.201.0</XLiburDependencyVersion>
   </PropertyGroup>
 
   <!--

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel;
-using XLibur.Excel.Coordinates;
 using XLibur.Excel.Exceptions;
 using XLibur.Report.Ranges;
 
@@ -45,39 +44,55 @@ internal static class PivotRewriter
     /// </summary>
     public static void Rewrite(IXLWorkbook workbook, IReadOnlyList<ExpansionRecord> expansions, TemplateErrors errors)
     {
-        if (expansions.Count == 0 || workbook is not XLWorkbook typed)
+        if (expansions.Count == 0)
         {
             return;
         }
 
         var bySheet = ExpansionMap.BySheet(expansions);
 
-        RewriteCaches(typed, bySheet, errors);
-        MovePivotTables(typed, bySheet);
+        RewriteCaches(workbook, bySheet, errors);
+        MovePivotTables(workbook, bySheet);
     }
 
     private static void RewriteCaches(
-        XLWorkbook workbook,
+        IXLWorkbook workbook,
         Dictionary<string, List<ExpansionRecord>> bySheet,
         TemplateErrors errors)
     {
-        foreach (var cache in workbook.PivotCaches.OfType<XLPivotCache>())
+        foreach (var cache in workbook.PivotCaches)
         {
-            // A source XLibur cannot resolve — an external workbook, a consolidation, a connection —
-            // is left exactly as the template had it.
-            if (cache.Source is not XLPivotSourceReference reference)
-            {
-                continue;
-            }
+            var sourceRange = cache.SourceKind == XLPivotSourceKind.Range ? cache.SourceRange : null;
+            string sheetName;
 
-            var sheetName = SourceSheetName(workbook, reference);
-            if (sheetName is null)
+            switch (cache.SourceKind)
             {
-                // A named source that resolves to nothing: most likely a name the report deleted
-                // along with a range that turned out to be empty. The pivot is in the output with
-                // no data behind it, which the report's author needs telling about.
-                errors.Add(SourceUnreadable(reference.Name, null));
-                continue;
+                case XLPivotSourceKind.Range when sourceRange is not null:
+                    sheetName = sourceRange.Worksheet.Name;
+                    break;
+
+                case XLPivotSourceKind.Range:
+                    // The area names a sheet that is not in the workbook, so nothing was generated
+                    // on it either. Left alone, and not worth reporting: the template was already
+                    // like this before the report ran.
+                    continue;
+
+                case XLPivotSourceKind.Name when cache.SourceWorksheet is { } named:
+                    sheetName = named.Name;
+                    break;
+
+                case XLPivotSourceKind.Name:
+                    // A named source that resolves to nothing: most likely a name the report deleted
+                    // along with a range that turned out to be empty. The pivot is in the output with
+                    // no data behind it, which the report's author needs telling about.
+                    errors.Add(SourceUnreadable(cache.SourceName, null));
+                    continue;
+
+                default:
+                    // A source XLibur cannot read — an external workbook, a consolidation, a
+                    // scenario, a connection — is left exactly as the template had it, silently.
+                    // There is nothing wrong with it, and nothing this can do for it.
+                    continue;
             }
 
             if (!bySheet.TryGetValue(sheetName, out var expansions))
@@ -87,9 +102,9 @@ internal static class PivotRewriter
                 continue;
             }
 
-            if (!reference.UsesName)
+            if (sourceRange is not null)
             {
-                cache.Source = new XLPivotSourceReference(RePoint(reference.Area!.Value, expansions));
+                cache.SetSourceRange(RePoint(sourceRange, expansions));
             }
 
             Refresh(cache, sheetName, errors);
@@ -97,26 +112,16 @@ internal static class PivotRewriter
     }
 
     /// <summary>
-    /// Which sheet a cache reads from — the sheet named in an area source, or the sheet the source
-    /// name or table currently resolves to.
-    /// </summary>
-    private static string? SourceSheetName(XLWorkbook workbook, XLPivotSourceReference reference)
-    {
-        if (!reference.UsesName)
-        {
-            return reference.Area!.Value.Name;
-        }
-
-        return reference.TryGetSource(workbook, out var sheet, out _) ? sheet?.Name : null;
-    }
-
-    /// <summary>
     /// Moves and stretches an area source through the expansions on its sheet, in the order they
     /// ran.
     /// </summary>
-    private static SheetArea RePoint(SheetArea source, List<ExpansionRecord> expansions)
+    private static IXLRange RePoint(IXLRange source, List<ExpansionRecord> expansions)
     {
-        var area = source.Area;
+        var worksheet = source.Worksheet;
+        var topRow = source.RangeAddress.FirstAddress.RowNumber;
+        var leftColumn = source.RangeAddress.FirstAddress.ColumnNumber;
+        var bottomRow = source.RangeAddress.LastAddress.RowNumber;
+        var rightColumn = source.RangeAddress.LastAddress.ColumnNumber;
 
         foreach (var expansion in expansions)
         {
@@ -126,46 +131,36 @@ internal static class PivotRewriter
             // but a full-row or full-column insert moves everything past it either way.
             if (expansion.Axis.IsHorizontal)
             {
-                var crosses = area.BottomRow >= template.FirstRow && area.TopRow <= template.LastRow;
+                var crosses = bottomRow >= template.FirstRow && topRow <= template.LastRow;
 
                 if (!crosses)
                 {
-                    area = new Area(
-                        area.TopRow,
-                        Shift(area.LeftColumn, template.LastColumn, expansion.SlotDelta),
-                        area.BottomRow,
-                        Shift(area.RightColumn, template.LastColumn, expansion.SlotDelta));
+                    leftColumn = Shift(leftColumn, template.LastColumn, expansion.SlotDelta);
+                    rightColumn = Shift(rightColumn, template.LastColumn, expansion.SlotDelta);
 
                     continue;
                 }
 
-                var leftColumn = ExpansionMap.MapColumnStart(area.LeftColumn, expansion);
-                var rightColumn = Math.Max(leftColumn, ExpansionMap.MapColumnEnd(area.RightColumn, expansion));
-
-                area = new Area(area.TopRow, leftColumn, area.BottomRow, rightColumn);
+                leftColumn = ExpansionMap.MapColumnStart(leftColumn, expansion);
+                rightColumn = Math.Max(leftColumn, ExpansionMap.MapColumnEnd(rightColumn, expansion));
                 continue;
             }
 
-            var overlaps = area.RightColumn >= template.FirstColumn && area.LeftColumn <= template.LastColumn;
+            var overlaps = rightColumn >= template.FirstColumn && leftColumn <= template.LastColumn;
 
             if (!overlaps)
             {
-                area = new Area(
-                    Shift(area.TopRow, template.LastRow, expansion.SlotDelta),
-                    area.LeftColumn,
-                    Shift(area.BottomRow, template.LastRow, expansion.SlotDelta),
-                    area.RightColumn);
+                topRow = Shift(topRow, template.LastRow, expansion.SlotDelta);
+                bottomRow = Shift(bottomRow, template.LastRow, expansion.SlotDelta);
 
                 continue;
             }
 
-            var topRow = ExpansionMap.MapRowStart(area.TopRow, expansion);
-            var bottomRow = Math.Max(topRow, ExpansionMap.MapRowEnd(area.BottomRow, expansion));
-
-            area = new Area(topRow, area.LeftColumn, bottomRow, area.RightColumn);
+            topRow = ExpansionMap.MapRowStart(topRow, expansion);
+            bottomRow = Math.Max(topRow, ExpansionMap.MapRowEnd(bottomRow, expansion));
         }
 
-        return new SheetArea(source.Name, area);
+        return worksheet.Range(topRow, leftColumn, bottomRow, rightColumn);
     }
 
     /// <summary>
@@ -179,7 +174,7 @@ internal static class PivotRewriter
     /// <summary>
     /// Re-reads the cache's records, and asks Excel to do the same when it opens the file.
     /// </summary>
-    private static void Refresh(XLPivotCache cache, string sheetName, TemplateErrors errors)
+    private static void Refresh(IXLPivotCache cache, string sheetName, TemplateErrors errors)
     {
         try
         {
@@ -214,7 +209,7 @@ internal static class PivotRewriter
     /// Moves a pivot table that sat below rows the report generated, so that it is not written over
     /// by them.
     /// </summary>
-    private static void MovePivotTables(XLWorkbook workbook, Dictionary<string, List<ExpansionRecord>> bySheet)
+    private static void MovePivotTables(IXLWorkbook workbook, Dictionary<string, List<ExpansionRecord>> bySheet)
     {
         foreach (var worksheet in workbook.Worksheets)
         {

@@ -180,6 +180,23 @@ public interface IXLConditionalFormat
 
     IXLRanges Ranges { get; }
 
+    /// <summary>
+    /// Replaces the ranges this rule covers.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Ranges"/> is a fresh projection of the rule's coverage, so adding to or removing
+    /// from what it returns does nothing. This is how coverage is rewritten wholesale — widening one
+    /// rule over blocks that were generated from it, rather than leaving a copied rule per block.
+    /// </remarks>
+    /// <param name="ranges">
+    /// The ranges to cover. All must belong to the same worksheet as this rule.
+    /// </param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="ranges"/> is null.</exception>
+    /// <exception cref="System.ArgumentException">
+    /// <paramref name="ranges"/> is empty, or contains a range from another worksheet.
+    /// </exception>
+    IXLConditionalFormat SetRanges(System.Collections.Generic.IEnumerable<IXLRange> ranges);
+
     XLDictionary<XLFormula> Values { get; }
 
     XLDictionary<XLColor> Colors { get; }

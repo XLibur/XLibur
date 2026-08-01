@@ -46,10 +46,50 @@ public interface IXLPivotCache
     bool SaveSourceData { get; set; }
 
     /// <summary>
+    /// What kind of source this cache reads from.
+    /// </summary>
+    /// <remarks>
+    /// Check this before <see cref="SourceRange"/> or <see cref="SourceWorksheet"/>: those are
+    /// null both for a source XLibur cannot read at all and for one it can read but that no longer
+    /// resolves, and only this tells the two apart.
+    /// </remarks>
+    XLPivotSourceKind SourceKind { get; }
+
+    /// <summary>
+    /// The range this cache reads from. Non-null only when <see cref="SourceKind"/> is
+    /// <see cref="XLPivotSourceKind.Range"/> and that range's sheet still exists.
+    /// </summary>
+    IXLRange? SourceRange { get; }
+
+    /// <summary>
+    /// The table or defined name this cache reads from. Non-null exactly when
+    /// <see cref="SourceKind"/> is <see cref="XLPivotSourceKind.Name"/> — this is the name the
+    /// file recorded, whether or not it still resolves to anything.
+    /// </summary>
+    string? SourceName { get; }
+
+    /// <summary>
+    /// The worksheet this cache reads from, resolved through the table or defined name when
+    /// <see cref="SourceKind"/> is <see cref="XLPivotSourceKind.Name"/>. Null when the source does
+    /// not resolve — a deleted name, a missing sheet — or when the kind is one XLibur cannot read.
+    /// </summary>
+    IXLWorksheet? SourceWorksheet { get; }
+
+    /// <summary>
     /// Refresh data in the pivot source from the source reference data.
     /// </summary>
     /// <exception cref="InvalidReferenceException">The data source for the pivot table can't be found.</exception>
     IXLPivotCache Refresh();
+
+    /// <summary>
+    /// Re-points the cache at <paramref name="range"/>, making <see cref="SourceKind"/>
+    /// <see cref="XLPivotSourceKind.Range"/> whatever it was before. Does not refresh — call
+    /// <see cref="Refresh"/> to re-read the records.
+    /// </summary>
+    /// <param name="range">The range to read from. Must belong to a worksheet.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="range"/> is null.</exception>
+    /// <exception cref="System.ArgumentException"><paramref name="range"/> has no worksheet.</exception>
+    IXLPivotCache SetSourceRange(IXLRange range);
 
     /// <inheritdoc cref="ItemsToRetainPerField"/>
     IXLPivotCache SetItemsToRetainPerField(XLItemsToRetain value);

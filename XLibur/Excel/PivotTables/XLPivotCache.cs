@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using XLibur.Excel.Coordinates;
 using XLibur.Excel.Exceptions;
 
 namespace XLibur.Excel;
@@ -46,6 +47,42 @@ internal sealed class XLPivotCache : IXLPivotCache
     public bool RefreshDataOnOpen { get; set; }
 
     public bool SaveSourceData { get; set; }
+
+    public XLPivotSourceKind SourceKind => Source.Kind;
+
+    public IXLRange? SourceRange
+    {
+        get
+        {
+            // A named source has no rectangle of its own — the name or table owns one, and it can
+            // move. Callers that want where it currently points ask SourceWorksheet.
+            if (Source is not XLPivotSourceReference { UsesName: false } reference)
+                return null;
+
+            var sheetArea = reference.Area.Value;
+            if (!_workbook.WorksheetsInternal.TryGetWorksheet(sheetArea.Name, out var sheet))
+                return null;
+
+            var area = sheetArea.Area;
+            return sheet.Range(area.TopRow, area.LeftColumn, area.BottomRow, area.RightColumn);
+        }
+    }
+
+    public string? SourceName => (Source as XLPivotSourceReference)?.Name;
+
+    public IXLWorksheet? SourceWorksheet
+    {
+        get
+        {
+            // Only these two can resolve to a sheet at all. The others throw from TryGetSource
+            // rather than returning false, and a property that reports "no worksheet" by throwing
+            // would be no use to a caller deciding what to do about a pivot it cannot re-point.
+            if (Source.Kind is not (XLPivotSourceKind.Range or XLPivotSourceKind.Name))
+                return null;
+
+            return Source.TryGetSource(_workbook, out var sheet, out _) ? sheet : null;
+        }
+    }
 
     /// <summary>
     /// Number of fields in the cache.
@@ -102,6 +139,15 @@ internal sealed class XLPivotCache : IXLPivotCache
     public IXLPivotCache SetSaveSourceData() => SetSaveSourceData(true);
 
     public IXLPivotCache SetSaveSourceData(bool value) { SaveSourceData = value; return this; }
+
+    public IXLPivotCache SetSourceRange(IXLRange range)
+    {
+        if (range is null)
+            throw new ArgumentNullException(nameof(range));
+
+        Source = new XLPivotSourceReference(SheetArea.From(range));
+        return this;
+    }
 
     #endregion
 

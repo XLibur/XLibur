@@ -531,9 +531,9 @@ internal sealed class RangeExpander
                 .SelectMany(original => Widen(sheet, axis, original, slotsPerItem, itemCount))
                 .ToList();
 
-            // IXLConditionalFormat.Ranges is a fresh projection of the rule's internal area list,
-            // so mutating it does nothing; SetAreas is the supported way to rewrite coverage.
-            ((XLConditionalFormat)format).SetAreas(XLAreaList.FromRanges(widened));
+            // IXLConditionalFormat.Ranges is a fresh projection of the rule's coverage, so mutating
+            // it does nothing; SetRanges is the supported way to rewrite coverage.
+            format.SetRanges(widened);
         }
     }
 

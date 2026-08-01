@@ -242,6 +242,32 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     /// </summary>
     internal void SetAreas(XLAreaList areas) => Areas = areas;
 
+    public IXLConditionalFormat SetRanges(IEnumerable<IXLRange> ranges)
+    {
+        if (ranges is null)
+            throw new ArgumentNullException(nameof(ranges));
+
+        var materialized = ranges as IReadOnlyCollection<IXLRange> ?? ranges.ToList();
+
+        if (materialized.Count == 0)
+            throw new ArgumentException("A conditional format must cover at least one range.", nameof(ranges));
+
+        foreach (var range in materialized)
+        {
+            // Areas are bare rectangles interpreted against this rule's own sheet, so a range from
+            // elsewhere would silently move the rule rather than being rejected.
+            if (!ReferenceEquals(range.Worksheet, _worksheet))
+            {
+                throw new ArgumentException(
+                    $"Range '{range.RangeAddress}' belongs to a different worksheet than the conditional format.",
+                    nameof(ranges));
+            }
+        }
+
+        Areas = XLAreaList.FromRanges(materialized);
+        return this;
+    }
+
     private XLRange MaterializeRange(Area area)
         => _worksheet.Range(area.TopRow, area.LeftColumn, area.BottomRow, area.RightColumn);
 

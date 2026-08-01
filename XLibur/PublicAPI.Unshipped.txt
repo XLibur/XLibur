@@ -27,6 +27,14 @@ static XLibur.Excel.Streaming.XLStreamingWorkbook.Create(string! path) -> XLibur
 static XLibur.Excel.Streaming.XLStreamingWorkbook.Create(string! path, XLibur.Excel.Streaming.XLStreamingOptions? options) -> XLibur.Excel.Streaming.XLStreamingWorkbook!
 static XLibur.Excel.XLColor.Automatic.get -> XLibur.Excel.XLColor!
 virtual XLibur.Excel.XLWorkbook.Dispose(bool disposing) -> void
+XLibur.Excel.CalcEngine.Exceptions.XLNoWorksheetContextException
+XLibur.Excel.CalcEngine.Exceptions.XLNoWorksheetContextException.XLNoWorksheetContextException() -> void
+XLibur.Excel.CalcEngine.Exceptions.XLNoWorksheetContextException.XLNoWorksheetContextException(string! message) -> void
+XLibur.Excel.CalcEngine.Exceptions.XLNoWorksheetContextException.XLNoWorksheetContextException(string! message, System.Exception! innerException) -> void
+XLibur.Excel.CalcEngine.XLFunctionLibrary
+XLibur.Excel.CalcEngine.XLFunctionLibrary.Names.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
+XLibur.Excel.CalcEngine.XLFunctionLibrary.TryInvoke(string! name, System.ReadOnlySpan<XLibur.Excel.XLCellValue> arguments, out XLibur.Excel.XLCellValue result) -> bool
+XLibur.Excel.CalcEngine.XLFunctionLibrary.XLFunctionLibrary(System.Globalization.CultureInfo? culture = null) -> void
 XLibur.Excel.Drawings.IXLPicture.Group.get -> XLibur.Excel.Drawings.IXLPictureGroup?
 XLibur.Excel.Drawings.IXLPicture.IsInGroup.get -> bool
 XLibur.Excel.Drawings.IXLPictureGroup
@@ -167,7 +175,13 @@ XLibur.Excel.IXLPersons.Add(string! displayName) -> XLibur.Excel.IXLPerson!
 XLibur.Excel.IXLPersons.Count.get -> int
 XLibur.Excel.IXLPersons.Get(System.Guid id) -> XLibur.Excel.IXLPerson?
 XLibur.Excel.IXLPersons.GetByDisplayName(string! displayName) -> XLibur.Excel.IXLPerson?
+XLibur.Excel.IXLConditionalFormat.SetRanges(System.Collections.Generic.IEnumerable<XLibur.Excel.IXLRange!>! ranges) -> XLibur.Excel.IXLConditionalFormat!
 XLibur.Excel.IXLPersons.Remove(System.Guid id) -> bool
+XLibur.Excel.IXLPivotCache.SetSourceRange(XLibur.Excel.IXLRange! range) -> XLibur.Excel.IXLPivotCache!
+XLibur.Excel.IXLPivotCache.SourceKind.get -> XLibur.Excel.XLPivotSourceKind
+XLibur.Excel.IXLPivotCache.SourceName.get -> string?
+XLibur.Excel.IXLPivotCache.SourceRange.get -> XLibur.Excel.IXLRange?
+XLibur.Excel.IXLPivotCache.SourceWorksheet.get -> XLibur.Excel.IXLWorksheet?
 XLibur.Excel.IXLSheetView.PaneTopLeftCellAddress.get -> XLibur.Excel.IXLAddress?
 XLibur.Excel.IXLSheetView.PaneTopLeftCellAddress.set -> void
 XLibur.Excel.IXLThreadedComment
@@ -300,6 +314,13 @@ XLibur.Excel.XLMarkerStyle.Square = 7 -> XLibur.Excel.XLMarkerStyle
 XLibur.Excel.XLMarkerStyle.Star = 8 -> XLibur.Excel.XLMarkerStyle
 XLibur.Excel.XLMarkerStyle.Triangle = 9 -> XLibur.Excel.XLMarkerStyle
 XLibur.Excel.XLMarkerStyle.X = 10 -> XLibur.Excel.XLMarkerStyle
+XLibur.Excel.XLPivotSourceKind
+XLibur.Excel.XLPivotSourceKind.Connection = 5 -> XLibur.Excel.XLPivotSourceKind
+XLibur.Excel.XLPivotSourceKind.Consolidation = 2 -> XLibur.Excel.XLPivotSourceKind
+XLibur.Excel.XLPivotSourceKind.ExternalWorkbook = 4 -> XLibur.Excel.XLPivotSourceKind
+XLibur.Excel.XLPivotSourceKind.Name = 1 -> XLibur.Excel.XLPivotSourceKind
+XLibur.Excel.XLPivotSourceKind.Range = 0 -> XLibur.Excel.XLPivotSourceKind
+XLibur.Excel.XLPivotSourceKind.Scenario = 3 -> XLibur.Excel.XLPivotSourceKind
 XLibur.Excel.XLUsedCell
 XLibur.Excel.XLUsedCell.Column.get -> int
 XLibur.Excel.XLUsedCell.Row.get -> int
