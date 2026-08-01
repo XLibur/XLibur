@@ -303,7 +303,10 @@ public interface IXLRangeBase : IXLAddressable
     /// </summary>
     IXLDataValidation CreateDataValidation();
 
+    // See the implementation in XLRangeBase for why this stays until the next major version.
+#pragma warning disable S1133
     [Obsolete("Use GetDataValidation() to access the existing rule, or CreateDataValidation() to create a new one.")]
+#pragma warning restore S1133
     IXLDataValidation SetDataValidation();
 
     IXLConditionalFormat AddConditionalFormat();

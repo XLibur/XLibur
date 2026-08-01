@@ -518,11 +518,13 @@ internal sealed class XLCellsCollection : IWorkbookListener
         try
         {
             count = 0;
+#pragma warning disable S3267 // Where would allocate the iterator this pooled buffer exists to avoid
             foreach (var column in candidates)
             {
                 if (column >= firstColumn && column <= lastColumn)
                     buffer[count++] = column;
             }
+#pragma warning restore S3267
 
             var columns = buffer.AsSpan(0, count);
             columns.Sort();
@@ -577,11 +579,13 @@ internal sealed class XLCellsCollection : IWorkbookListener
     {
         // This is different from XLCellUsedOptions, which uses a business logic (e.g. empty string is considered not-used).
         // Here, we ask whether any slice contains a used elements which might differ from cell used logic.
+#pragma warning disable S3267 // Four slices, asked per cell: Where would allocate an iterator and a closure per call
         foreach (var slice in _slices)
         {
             if (slice.IsUsed(address))
                 return true;
         }
+#pragma warning restore S3267
 
         return false;
     }
@@ -631,11 +635,16 @@ internal sealed class XLCellsCollection : IWorkbookListener
             _reverse = reverse;
             _enumerators = new IEnumerator<Point>[enumerators.Length];
             _count = 0;
+
+            // MoveNext both tests and advances, so this reads as a filter but is not one: expressing it
+            // as Where would hide a side effect inside a predicate, which is worse than the loop.
+#pragma warning disable S3267
             foreach (var enumerator in enumerators)
             {
                 if (enumerator.MoveNext())
                     _enumerators[_count++] = enumerator;
             }
+#pragma warning restore S3267
         }
 
         public Point Current { get; private set; }

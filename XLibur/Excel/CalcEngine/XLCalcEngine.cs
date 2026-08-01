@@ -649,11 +649,14 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         if (previousRange == default)
             return;
 
+        // Area is a readonly struct whose enumerator is a struct too; Where would box both.
+#pragma warning disable S3267
         foreach (var point in previousRange)
         {
             if (!keepRange.Contains(point))
                 valueSlice.SetCellValue(point, Blank.Value);
         }
+#pragma warning restore S3267
     }
 
     internal AnyValue EvaluateName(string nameFormula, XLWorksheet ws)

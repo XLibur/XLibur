@@ -58,13 +58,16 @@ internal sealed class XLRowDeletionMap
     internal List<(int FirstRow, int LastRow)> GetRunsBottomUp()
     {
         var runs = new List<(int, int)>();
-        for (var i = _deleted.Length - 1; i >= 0; i--)
+        var i = _deleted.Length - 1;
+        while (i >= 0)
         {
+            // Walk back over the rows adjacent to this one; where they stop is the run's top.
             var last = _deleted[i];
             while (i > 0 && _deleted[i - 1] == _deleted[i] - 1)
                 i--;
 
             runs.Add((_deleted[i], last));
+            i--;
         }
 
         return runs;

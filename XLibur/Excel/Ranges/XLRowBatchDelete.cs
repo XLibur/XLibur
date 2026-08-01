@@ -40,7 +40,7 @@ internal static class XLRowBatchDelete
         {
             foreach (var (firstRow, lastRow) in map.GetRunsBottomUp())
             {
-                var range = (XLRange)worksheet.Range(firstRow, 1, lastRow, XLHelper.MaxColumnNumber);
+                var range = worksheet.Range(firstRow, 1, lastRow, XLHelper.MaxColumnNumber);
                 range.Delete(XLShiftDeletedCells.ShiftCellsUp, shiftFormulas: !batched, moveCells: !batched);
 
                 for (var row = lastRow; row >= firstRow; row--)
