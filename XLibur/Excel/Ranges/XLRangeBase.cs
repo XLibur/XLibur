@@ -1080,7 +1080,18 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         mergeToDelete.ForEach(m => Worksheet.Internals.MergedRanges.Remove(m));
     }
 
-    public void Delete(XLShiftDeletedCells shiftDeleteCells)
+    public void Delete(XLShiftDeletedCells shiftDeleteCells) => Delete(shiftDeleteCells, shiftFormulas: true);
+
+    /// <summary>
+    /// Deletes the range, optionally skipping the formula pass.
+    /// </summary>
+    /// <param name="shiftDeleteCells">Which way the surviving cells close the gap.</param>
+    /// <param name="shiftFormulas">
+    /// <c>false</c> only for <see cref="XLRowBatchDelete"/>, which re-points every formula once against
+    /// the whole set of deleted rows before removing them run by run. Running the per-run pass as well
+    /// would be both wasted work and wrong, since the formulas already hold their final text.
+    /// </param>
+    internal void Delete(XLShiftDeletedCells shiftDeleteCells, bool shiftFormulas)
     {
         var numberOfRows = RowCount();
         var numberOfColumns = ColumnCount();
@@ -1089,18 +1100,20 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
         Worksheet.SparklineGroups.Remove(this);
 
-        IXLRange shiftedRangeFormula = Worksheet.Range(
-            RangeAddress.FirstAddress.RowNumber,
-            RangeAddress.FirstAddress.ColumnNumber,
-            RangeAddress.LastAddress.RowNumber,
-            RangeAddress.LastAddress.ColumnNumber);
+        if (shiftFormulas)
+        {
+            IXLRange shiftedRangeFormula = Worksheet.Range(
+                RangeAddress.FirstAddress.RowNumber,
+                RangeAddress.FirstAddress.ColumnNumber,
+                RangeAddress.LastAddress.RowNumber,
+                RangeAddress.LastAddress.ColumnNumber);
 
-        // Shift formulas first
-        XLFormulaShiftPass.Run(
-            Worksheet.Workbook,
-            (XLRange)shiftedRangeFormula,
-            shiftDeleteCells == XLShiftDeletedCells.ShiftCellsUp,
-            shiftDeleteCells == XLShiftDeletedCells.ShiftCellsUp ? -numberOfRows : -numberOfColumns);
+            XLFormulaShiftPass.Run(
+                Worksheet.Workbook,
+                (XLRange)shiftedRangeFormula,
+                shiftDeleteCells == XLShiftDeletedCells.ShiftCellsUp,
+                shiftDeleteCells == XLShiftDeletedCells.ShiftCellsUp ? -numberOfRows : -numberOfColumns);
+        }
 
         // Range to shift...
         var columnModifier = 0;

@@ -34,6 +34,55 @@ internal static partial class XLCellFormulaShifter
         int columnsShifted)
         => Shift(formulaA1, worksheetInAction, shiftedRange, columnsShifted, ShiftAxis.Column);
 
+    /// <summary>
+    /// Re-points a formula for the deletion of a whole set of rows at once, rather than one contiguous
+    /// block at a time.
+    /// </summary>
+    /// <remarks>
+    /// The block overload cannot express a scattered deletion, so callers had to run it once per row —
+    /// which is a parse of every formula in the workbook per row. Here the whole set is one mapping and
+    /// one parse.
+    /// <para>
+    /// Only whole-row deletions come through here, so the cross-axis containment test the block path
+    /// applies is vacuous: a whole-row deletion spans every column and therefore spans every reference.
+    /// </para>
+    /// </remarks>
+    internal static string ShiftFormulaRows(string formulaA1, XLWorksheet worksheetInAction, string shiftedSheetName,
+        XLRowDeletionMap map)
+    {
+        if (string.IsNullOrWhiteSpace(formulaA1))
+            return string.Empty;
+
+        var parseable = FormulaTransformation.ProtectStructuredRefColons(formulaA1, out var wasProtected);
+        var plan = new ShiftPlan(shiftedSheetName, worksheetInAction.Name, parseable, map);
+        try
+        {
+            FormulaParser<object?, object?, ShiftPlan>.CellFormulaA1(parseable, plan, ShiftCollector.Instance);
+        }
+        catch (Exception)
+        {
+            // The block path degrades to the regex implementation here. There is no batch regex
+            // shifter, so fall back to applying the runs one at a time, which is what the caller would
+            // have done anyway. Correctness first; this is the rare formula, not the common one.
+            var shiftedByRuns = formulaA1;
+            foreach (var (firstRow, lastRow) in map.GetRunsBottomUp())
+            {
+                var runRange = (XLRange)worksheetInAction.Workbook.Worksheet(shiftedSheetName)
+                    .Range(firstRow, 1, lastRow, XLHelper.MaxColumnNumber);
+                shiftedByRuns = ShiftFormulaRowsLegacy(
+                    shiftedByRuns, worksheetInAction, runRange, -(lastRow - firstRow + 1));
+            }
+
+            return shiftedByRuns;
+        }
+
+        if (!plan.HasEdits)
+            return formulaA1;
+
+        var shifted = plan.Apply(parseable);
+        return wasProtected ? shifted.Replace(FormulaTransformation.ColonPlaceholder, ':') : shifted;
+    }
+
     private static string Shift(string formulaA1, XLWorksheet worksheetInAction, XLRange shiftedRange, int shift,
         ShiftAxis axis)
     {
@@ -111,30 +160,72 @@ internal static partial class XLCellFormulaShifter
     /// <summary>
     /// The shift being applied, plus the replacement spans collected for it.
     /// </summary>
-    private sealed class ShiftPlan(
-        string shiftedSheetName,
-        string formulaSheetName,
-        string formula,
-        XLRange shiftedRange,
-        int shift,
-        ShiftAxis axis)
+    private sealed class ShiftPlan
     {
         private const string RefErrorText = "#REF!";
 
-        private readonly int _shiftFirstRow = shiftedRange.RangeAddress.FirstAddress.RowNumber;
-        private readonly int _shiftLastRow = shiftedRange.RangeAddress.LastAddress.RowNumber;
-        private readonly int _shiftFirstColumn = shiftedRange.RangeAddress.FirstAddress.ColumnNumber;
-        private readonly int _shiftLastColumn = shiftedRange.RangeAddress.LastAddress.ColumnNumber;
+        private readonly string _shiftedSheetName;
+        private readonly string _formulaSheetName;
+        private readonly string _formula;
+        private readonly int _shift;
+        private readonly ShiftAxis _axis;
+
+        private readonly int _shiftFirstRow;
+        private readonly int _shiftLastRow;
+        private readonly int _shiftFirstColumn;
+        private readonly int _shiftLastColumn;
+
+        /// <summary>
+        /// Set for a scattered whole-row deletion, in which case it — not
+        /// <see cref="_shift"/> — decides where each reference edge lands.
+        /// </summary>
+        private readonly XLRowDeletionMap? _rowMap;
 
         private List<Edit>? _edits;
+
+        internal ShiftPlan(
+            string shiftedSheetName,
+            string formulaSheetName,
+            string formula,
+            XLRange shiftedRange,
+            int shift,
+            ShiftAxis axis)
+        {
+            _shiftedSheetName = shiftedSheetName;
+            _formulaSheetName = formulaSheetName;
+            _formula = formula;
+            _shift = shift;
+            _axis = axis;
+            _shiftFirstRow = shiftedRange.RangeAddress.FirstAddress.RowNumber;
+            _shiftLastRow = shiftedRange.RangeAddress.LastAddress.RowNumber;
+            _shiftFirstColumn = shiftedRange.RangeAddress.FirstAddress.ColumnNumber;
+            _shiftLastColumn = shiftedRange.RangeAddress.LastAddress.ColumnNumber;
+        }
+
+        /// <summary>
+        /// A whole-row deletion of an arbitrary set of rows. The shifted region spans every column, so
+        /// the cross-axis bounds are the whole sheet.
+        /// </summary>
+        internal ShiftPlan(string shiftedSheetName, string formulaSheetName, string formula, XLRowDeletionMap map)
+        {
+            _shiftedSheetName = shiftedSheetName;
+            _formulaSheetName = formulaSheetName;
+            _formula = formula;
+            _axis = ShiftAxis.Row;
+            _rowMap = map;
+            _shiftFirstRow = map.FirstDeletedRow;
+            _shiftLastRow = XLHelper.MaxRowNumber;
+            _shiftFirstColumn = 1;
+            _shiftLastColumn = XLHelper.MaxColumnNumber;
+        }
 
         internal bool HasEdits => _edits is { Count: > 0 };
 
         internal void Visit(SymbolRange range, ReferenceArea reference, string? sheet)
         {
             // An unqualified reference resolves against the sheet its formula sits on.
-            var referencedSheet = sheet ?? formulaSheetName;
-            if (!XLHelper.SheetComparer.Equals(referencedSheet, shiftedSheetName))
+            var referencedSheet = sheet ?? _formulaSheetName;
+            if (!XLHelper.SheetComparer.Equals(referencedSheet, _shiftedSheetName))
                 return;
 
             if (!TryShiftReference(reference, out var shifted, out var destroyed))
@@ -184,9 +275,9 @@ internal static partial class XLCellFormulaShifter
             if (IsConfinedToOtherAxis(first, second))
                 return false;
 
-            var (refFirst, refLast) = Extent(first, second, axis);
-            var (crossFirst, crossLast) = Extent(first, second, Other(axis));
-            var (shiftCrossFirst, shiftCrossLast) = axis == ShiftAxis.Row
+            var (refFirst, refLast) = Extent(first, second, _axis);
+            var (crossFirst, crossLast) = Extent(first, second, Other(_axis));
+            var (shiftCrossFirst, shiftCrossLast) = _axis == ShiftAxis.Row
                 ? (_shiftFirstColumn, _shiftLastColumn)
                 : (_shiftFirstRow, _shiftLastRow);
 
@@ -195,19 +286,32 @@ internal static partial class XLCellFormulaShifter
             if (crossFirst < shiftCrossFirst || crossLast > shiftCrossLast)
                 return false;
 
-            var shiftStart = axis == ShiftAxis.Row ? _shiftFirstRow : _shiftFirstColumn;
+            var shiftStart = _axis == ShiftAxis.Row ? _shiftFirstRow : _shiftFirstColumn;
             if (refLast < shiftStart)
                 return false;
 
             int newFirst, newLast;
-            if (shift > 0)
+            if (_rowMap is not null)
             {
-                newFirst = refFirst >= shiftStart ? refFirst + shift : refFirst;
-                newLast = refLast + shift;
+                // The top slides up by the rows deleted above it; the bottom also loses the rows
+                // deleted inside the reference. An inverted result means the deletion swallowed it.
+                newFirst = _rowMap.MapFirst(refFirst);
+                newLast = _rowMap.MapLast(refLast);
+
+                if (newLast < newFirst)
+                {
+                    destroyed = true;
+                    return true;
+                }
+            }
+            else if (_shift > 0)
+            {
+                newFirst = refFirst >= shiftStart ? refFirst + _shift : refFirst;
+                newLast = refLast + _shift;
             }
             else
             {
-                var deleted = -shift;
+                var deleted = -_shift;
                 var shiftEnd = shiftStart + deleted - 1;
 
                 // Rows above the deletion keep their number; rows below move up by the deleted count;
@@ -225,7 +329,7 @@ internal static partial class XLCellFormulaShifter
                 }
             }
 
-            var max = axis == ShiftAxis.Row ? XLHelper.MaxRowNumber : XLHelper.MaxColumnNumber;
+            var max = _axis == ShiftAxis.Row ? XLHelper.MaxRowNumber : XLHelper.MaxColumnNumber;
             newFirst = Math.Clamp(newFirst, 1, max);
             newLast = Math.Clamp(newLast, 1, max);
 
@@ -233,8 +337,8 @@ internal static partial class XLCellFormulaShifter
                 return false;
 
             shifted = new ReferenceArea(
-                WithExtent(first, newFirst, axis),
-                WithExtent(second, newLast, axis));
+                WithExtent(first, newFirst, _axis),
+                WithExtent(second, newLast, _axis));
             return true;
         }
 #pragma warning restore S3776
@@ -246,7 +350,7 @@ internal static partial class XLCellFormulaShifter
         /// </summary>
         private bool IsConfinedToOtherAxis(RowCol first, RowCol second)
         {
-            return axis == ShiftAxis.Row
+            return _axis == ShiftAxis.Row
                 ? first.RowType == ReferenceAxisType.None && second.RowType == ReferenceAxisType.None
                 : first.ColumnType == ReferenceAxisType.None && second.ColumnType == ReferenceAxisType.None;
         }
@@ -313,7 +417,7 @@ internal static partial class XLCellFormulaShifter
         /// </summary>
         private bool SourceIsRange(SymbolRange range)
         {
-            var text = formula.AsSpan(range.Start, range.Length);
+            var text = _formula.AsSpan(range.Start, range.Length);
             var separator = text.LastIndexOf('!');
             if (separator >= 0)
                 text = text[(separator + 1)..];

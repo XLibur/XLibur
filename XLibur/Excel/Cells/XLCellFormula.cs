@@ -467,6 +467,18 @@ internal sealed class XLCellFormula
     /// on the next shift, which is the parse the filter exists to avoid.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The batch counterpart of <see cref="SeedShiftedExtentFrom(XLCellFormula,int,int,bool)"/>. The
+    /// bound is the furthest row a reference reaches, so it maps like the bottom edge of one.
+    /// </summary>
+    internal void SeedShiftedExtentFrom(XLCellFormula source, XLRowDeletionMap map)
+    {
+        if (source._maxShiftableRow == 0)
+            return;
+
+        _maxShiftableRow = Math.Clamp(map.MapLast(source._maxShiftableRow), 1, XLHelper.MaxRowNumber);
+    }
+
     /// <param name="source">The formula this one replaces.</param>
     /// <param name="shiftStart">First row (or column) of the shifted region.</param>
     /// <param name="shift">Signed shift; negative for a deletion.</param>

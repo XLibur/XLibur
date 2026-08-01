@@ -76,11 +76,11 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
                 list.Add(r.RowNumber());
             }
 
+            // One batched delete per sheet rather than one delete per row. The rows need not be
+            // contiguous: XLRowBatchDelete folds the whole set into a single row map so the formula
+            // pass, which visits every formula in the workbook, runs once instead of once per row.
             foreach (var kp in toDelete)
-            {
-                foreach (var r in kp.Value.OrderByDescending(r => r))
-                    kp.Key.Row(r).Delete();
-            }
+                XLRowBatchDelete.Delete((XLWorksheet)kp.Key, kp.Value);
         }
     }
 
