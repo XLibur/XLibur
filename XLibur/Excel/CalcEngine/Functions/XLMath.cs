@@ -304,6 +304,7 @@ public static class XLMath
     /// on the CDF, with the bracket it has narrowed so far as a fallback whenever a step would jump
     /// outside it — the density vanishes in both tails, where Newton alone would run away.
     /// </summary>
+#pragma warning disable S3776 // Newton on the gamma CDF with bracket fallbacks; the guards are the numerics
     internal static double InverseGammaP(double p, double a)
     {
         if (p <= 0)
@@ -343,6 +344,7 @@ public static class XLMath
 
         return x;
     }
+#pragma warning restore S3776
 
     private static double InverseGammaInitialGuess(double p, double a)
     {

@@ -203,6 +203,7 @@ internal sealed class GroupRenderer
     /// how the levels nest. Because the ordering is stable, whatever <c>&lt;&lt;Sort&gt;&gt;</c>
     /// already decided survives as the order within each group.
     /// </remarks>
+#pragma warning disable S3776 // Building one ordering across all levels; the first level seeds it and the rest chain
     private static (IReadOnlyList<object?> Items, object?[][] Keys) Order(
         List<GroupLevel> levels,
         IReadOnlyList<object?> items,
@@ -263,6 +264,7 @@ internal sealed class GroupRenderer
 
         return (orderedItems, orderedKeys);
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// Finds each level's runs of consecutive items sharing a key — a run being one group.
@@ -541,6 +543,7 @@ internal sealed class GroupRenderer
     /// Gives the block its outline: data rows at the innermost level, each subtotal row one level
     /// out from the rows it covers, so that collapsing a level in Excel leaves its totals showing.
     /// </summary>
+#pragma warning disable S3776 // Outline levels, collapsing and summary position are three independent passes
     private void Outline(IXLWorksheet sheet, List<Run> runs, List<Run> subtotalled, int[] itemFirstRow, int dataRowCount)
     {
         // Excel allows eight outline levels. A template with more still generates; it just stops
@@ -588,6 +591,7 @@ internal sealed class GroupRenderer
                 : XLOutlineSummaryVLocation.Bottom;
         }
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// Merges a group's repeated label cells into one, which is the point of grouping a column the

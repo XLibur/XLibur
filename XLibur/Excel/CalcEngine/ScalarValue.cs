@@ -462,6 +462,7 @@ internal readonly struct ScalarValue
         serialDateTime = default;
         return false;
 
+#pragma warning disable S3776 // Every split point of 'date time' has to be tried; the guards are the search
         static bool TryParseDateWithOverflowTime(string text, CultureInfo culture, out double serialDateTime)
         {
             serialDateTime = default;
@@ -494,6 +495,7 @@ internal readonly struct ScalarValue
 
             return false;
         }
+#pragma warning restore S3776
 
         // Whether the culture writes '3/1' as the first of March or the third of January.
         static bool IsMonthBeforeDay(CultureInfo c)

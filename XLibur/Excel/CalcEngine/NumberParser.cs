@@ -36,6 +36,7 @@ internal static class NumberParser
     /// leftmost group may be shorter than its group size, which is why the groups can't be validated
     /// until they have all been seen.
     /// </summary>
+#pragma warning disable S3776 // Group sizes are validated right-to-left with the leftmost group exempt
     private static bool HasValidGroupSeparators(string text, CultureInfo culture)
     {
         var format = culture.NumberFormat;
@@ -76,6 +77,7 @@ internal static class NumberParser
 
         return true;
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// Group sizes are listed from the right, and the last one repeats for everything further left.

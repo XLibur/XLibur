@@ -170,6 +170,7 @@ internal static partial class XLCellFormulaShifter
         /// </summary>
         /// <returns><c>false</c> when the shift leaves the reference untouched, in which case the
         /// original text is kept verbatim rather than re-rendered.</returns>
+#pragma warning disable S3776 // Insert and delete each have their own clamping rules, documented inline
         private bool TryShiftReference(ReferenceArea reference, out ReferenceArea shifted, out bool destroyed)
         {
             shifted = reference;
@@ -236,6 +237,7 @@ internal static partial class XLCellFormulaShifter
                 WithExtent(second, newLast, axis));
             return true;
         }
+#pragma warning restore S3776
 
         /// <summary>
         /// A reference that names only the axis we are not shifting: <c>3:5</c> during a column shift,

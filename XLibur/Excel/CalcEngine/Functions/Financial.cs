@@ -215,6 +215,7 @@ internal static class Financial
         return XLError.NumberInvalid;
     }
 
+#pragma warning disable S3776 // Six scalar arguments to read before one Newton iteration
     private static AnyValue Rate(CalcContext ctx, Span<AnyValue> args)
     {
         // RATE(nper, pmt, pv, [fv], [type], [guess]) - solved iteratively. All arguments are scalars.
@@ -256,6 +257,7 @@ internal static class Financial
 
         return XLError.NumberInvalid;
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// The time-value-of-money residual: <c>pv·(1+rate)^nper + pmt·(1+rate·type)·((1+rate)^nper−1)/rate + fv</c>,
@@ -755,6 +757,7 @@ internal static class Financial
         return XNpvOf(rate, schedule);
     }
 
+#pragma warning disable S3776 // Newton with a documented bisection fallback; the convergence tests are the algorithm
     private static AnyValue XIrr(CalcContext ctx, Span<AnyValue> args)
     {
         // XIRR(values, dates, [guess]) — the rate at which XNPV of the schedule is zero.
@@ -807,6 +810,7 @@ internal static class Financial
         // Newton wandered off; fall back to bisecting a bracket found by scanning outwards.
         return XIrrByBisection(schedule);
     }
+#pragma warning restore S3776
 
     private static AnyValue XIrrByBisection(List<(double Amount, double Days)> schedule)
     {
@@ -860,6 +864,7 @@ internal static class Financial
     /// first date. The two arguments must hold the same number of cells and no date may fall before
     /// the first one.
     /// </summary>
+#pragma warning disable S3776 // Two symmetric collection walks with error propagation, then one pairing check
     private static bool TryCollectSchedule(CalcContext ctx, in AnyValue valuesArg, in AnyValue datesArg, out List<(double Amount, double Days)> schedule, out XLError error)
     {
         schedule = null!;
@@ -923,6 +928,7 @@ internal static class Financial
         schedule = result;
         return true;
     }
+#pragma warning restore S3776
 
     #endregion
 

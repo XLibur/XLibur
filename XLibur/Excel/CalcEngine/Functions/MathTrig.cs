@@ -1020,6 +1020,7 @@ internal static class MathTrig
     /// Functions 1..13 take any number of ranges; 14..19 take one array and a k, because they pick
     /// a position within a single ordered set.
     /// </summary>
+#pragma warning disable S3776 // AGGREGATE dispatches nineteen functions; the switch arms are the specification
     private static AnyValue Aggregate(CalcContext ctx, Span<AnyValue> args)
     {
         if (!TryGetAggregateArgument(ctx, args[0], out var functionArgument, out var functionError))
@@ -1080,6 +1081,7 @@ internal static class MathTrig
             _ => Statistical.QuartileExclusive(numbers, k),
         };
     }
+#pragma warning restore S3776
 
     /// <summary>Read one of AGGREGATE's scalar arguments — the function number, the options or the k.</summary>
     private static bool TryGetAggregateArgument(CalcContext ctx, in AnyValue value, out double number, out XLError error)

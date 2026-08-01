@@ -77,6 +77,7 @@ internal static class SharedStringReader
         return [];
     }
 
+#pragma warning disable S3776 // A hand-rolled XmlReader walk; the node-type tests are the parser
     private static SharedStringEntry[] ReadSst(XmlReader reader)
     {
         // Pre-allocate from the sst's uniqueCount attribute to avoid resize+copy for large tables.
@@ -126,6 +127,7 @@ internal static class SharedStringReader
 
         return entries;
     }
+#pragma warning restore S3776
 
     private static int ReadUniqueCount(XmlReader reader)
     {

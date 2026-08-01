@@ -9,6 +9,7 @@ namespace XLibur.Excel.IO;
 
 internal static class TextSerializer
 {
+#pragma warning disable S3776 // Runs, phonetic runs and phonetic properties are three independent optional sections
     internal static void WriteRichTextElements(XmlWriter w, XLImmutableRichText richText, SaveContext context)
     {
         if (richText.Runs.Count == 0)
@@ -69,6 +70,7 @@ internal static class TextSerializer
             w.WriteEndElement(); // phoneticPr
         }
     }
+#pragma warning restore S3776
 
     internal static void WriteRun(XmlWriter w, XLImmutableRichText richText, XLImmutableRichText.RichTextRun run)
     {

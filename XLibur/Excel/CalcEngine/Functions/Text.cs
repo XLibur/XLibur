@@ -167,6 +167,7 @@ internal static class Text
     /// forms. Like ASC, real Excel only does this when the authoring language is East Asian; the
     /// mapping is applied unconditionally here, which is what makes DBCS(ASC(x)) an identity.
     /// </summary>
+#pragma warning disable S3776 // Half-width katakana recombination then a flat per-character mapping
     private static ScalarValue Dbcs(CalcContext ctx, string text)
     {
         const char dakuten = 'ﾞ';
@@ -209,6 +210,7 @@ internal static class Text
 
         return sb.ToString();
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// The half-width to full-width katakana mapping, derived by running every full-width katakana
@@ -303,6 +305,7 @@ internal static class Text
     /// TEXTSPLIT(text, col_delimiter, [row_delimiter], [ignore_empty], [match_mode], [pad_with]) —
     /// split into a grid, rows first and then columns within each row, and pad the short rows.
     /// </summary>
+#pragma warning disable S3776 // Six optional arguments to read before splitting; each guard is independent
     private static AnyValue TextSplit(CalcContext ctx, Span<AnyValue> args)
     {
         if (!TryGetText(ctx, args[0], out var text, out var textError))
@@ -356,6 +359,7 @@ internal static class Text
 
         return new ConstArray(data);
     }
+#pragma warning restore S3776
 
     /// <summary>Split on any of the delimiters; no delimiters at all leaves the text in one piece.</summary>
     private static List<string> Split(string text, List<string> delimiters, bool ignoreCase, bool ignoreEmpty)
@@ -387,6 +391,7 @@ internal static class Text
     /// match at the same place the longer one wins, so splitting on both "&lt;br&gt;" and "&lt;b&gt;"
     /// does not leave a stray "r&gt;".
     /// </summary>
+#pragma warning disable S3776 // Longest-match-wins delimiter scan; the tie-breaking is the point of the method
     private static List<(int Start, int Length)> FindDelimiters(string text, List<string> delimiters, bool ignoreCase)
     {
         var comparison = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
@@ -422,6 +427,7 @@ internal static class Text
 
         return matches;
     }
+#pragma warning restore S3776
 
     /// <summary>Read a delimiter argument, which Excel lets you write as an array of alternatives.</summary>
     private static bool TryGetDelimiters(CalcContext ctx, in AnyValue value, out List<string> delimiters, out XLError error)
@@ -540,6 +546,7 @@ internal static class Text
         return Render(ctx, ToScalar(ctx, args[0]), strict);
     }
 
+#pragma warning disable S3776 // Concise and strict rendering differ only in separators, chosen inline per position
     private static AnyValue ArrayToText(CalcContext ctx, Span<AnyValue> args)
     {
         if (!TryGetFormat(ctx, args, 1, out var strict, out var formatError))
@@ -573,6 +580,7 @@ internal static class Text
 
         return sb.ToString();
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// Read the shared <c>format</c> argument of VALUETOTEXT and ARRAYTOTEXT: 0 is the concise form

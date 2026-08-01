@@ -102,6 +102,7 @@ internal readonly record struct SheetReference(
     /// Separates the sheet name from the area, understanding the quoting Excel uses for a name that
     /// contains a space or a punctuation mark.
     /// </summary>
+#pragma warning disable S3776 // Quoted and unquoted sheet names are two separate, flat parses
     private static bool TrySplitSheet(string text, out string? sheetName, out string area)
     {
         sheetName = null;
@@ -164,6 +165,7 @@ internal readonly record struct SheetReference(
         area = text[(separator + 1)..];
         return area.Length > 0;
     }
+#pragma warning restore S3776
 
     /// <summary>Parses <c>$B$3</c>, <c>B3</c> and the mixed forms into row and column numbers.</summary>
     private static bool TryParseCell(string text, out int row, out int column)

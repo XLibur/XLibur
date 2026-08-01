@@ -583,6 +583,7 @@ internal static class ChartFormatting
     /// Applies the assigned axis properties onto an existing <c>c:catAx</c> or <c>c:valAx</c>, leaving
     /// its tick marks, label positions, line and text formatting as they were.
     /// </summary>
+#pragma warning disable S3776 // One independent, flat block per assigned axis property
     internal static void PatchAxis(OpenXmlCompositeElement? axis, XLChartAxis model)
     {
         var assigned = model.AssignedFormat;
@@ -634,7 +635,9 @@ internal static class ChartFormatting
         if (model.IsValueAxis)
             PatchAxisUnits(axis, model, assigned);
     }
+#pragma warning restore S3776
 
+#pragma warning disable S3776 // One independent, flat block per assigned scaling property
     private static void PatchScaling(
         OpenXmlCompositeElement axis, XLChartAxis model, XLChartAxisFormat assigned)
     {
@@ -681,6 +684,7 @@ internal static class ChartFormatting
                 InsertOrdered(scaling, new C.MinAxisValue { Val = model.Min.Value }, ScalingChildOrder);
         }
     }
+#pragma warning restore S3776
 
     private static void PatchAxisUnits(
         OpenXmlCompositeElement axis, XLChartAxis model, XLChartAxisFormat assigned)
@@ -968,6 +972,7 @@ internal static class ChartFormatting
         OpenXmlCompositeElement groupElement, XLChartDataLabels labels, XLChartType chartType) =>
         PatchDataLabels(groupElement, labels, chartType, groupLevel: true);
 
+#pragma warning disable S3776 // One independent, flat block per assigned data-label property
     private static void PatchDataLabels(
         OpenXmlCompositeElement parent, XLChartDataLabels labels, XLChartType chartType, bool groupLevel)
     {
@@ -1022,6 +1027,7 @@ internal static class ChartFormatting
         if ((assigned & XLDataLabelsFormat.ShowPercentage) != 0)
             SetLabelFlag<C.ShowPercent>(dataLabels, labels.ShowPercentage);
     }
+#pragma warning restore S3776
 
     private static void SetLabelFlag<TFlag>(C.DataLabels dataLabels, bool value)
         where TFlag : OpenXmlLeafElement, new()
@@ -1272,6 +1278,7 @@ internal static class ChartFormatting
             shapeProperties.Append(fill);
     }
 
+#pragma warning disable S3776 // Create-or-update outline, then one flat block per assigned property
     private static void SetOutline(
         C.ChartShapeProperties shapeProperties, XLChartSeries series, XLChartSeriesFormat assigned)
     {
@@ -1307,6 +1314,7 @@ internal static class ChartFormatting
                 outline.InsertAt(new A.SolidFill(BuildColor(series.LineColor)), 0);
         }
     }
+#pragma warning restore S3776
 
     private static bool IsFillElement(OpenXmlElement element) =>
         element is A.NoFill or A.SolidFill or A.GradientFill or A.BlipFill or A.PatternFill or A.GroupFill;

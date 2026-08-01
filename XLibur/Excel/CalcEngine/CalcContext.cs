@@ -116,6 +116,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
         CancellationToken.ThrowIfCancellationRequested();
     }
 
+#pragma warning disable S3776 // One cell-read contract: spill anchors, clean cells, single-sheet recalc, recursive eval
     internal ScalarValue GetCellValue(XLWorksheet? sheet, int rowNumber, int columnNumber)
     {
         sheet ??= Worksheet;
@@ -172,6 +173,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
 
         throw new GettingDataException(new SheetPoint(sheet.SheetId, new Point(rowNumber, columnNumber)));
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// This method goes over slices and returns a value for each non-blank cell. Because it is using

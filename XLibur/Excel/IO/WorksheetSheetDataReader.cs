@@ -448,6 +448,7 @@ internal static class WorksheetSheetDataReader
             reader.Skip();
     }
 
+#pragma warning disable S3776 // Shared, array and dynamic-array formulas are decided by flat, documented tests
     private static XLCellFormula? SetCellFormulaXml(XmlReader reader, XLWorksheet ws, Point cellAddress,
         Dictionary<uint, string> sharedFormulasR1C1, uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes)
     {
@@ -518,6 +519,7 @@ internal static class WorksheetSheetDataReader
 
         return formula;
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// Loads a classic or dynamic array formula from a master <c>&lt;f t="array"&gt;</c> cell.

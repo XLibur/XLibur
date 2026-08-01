@@ -59,6 +59,7 @@ internal static class DynamicArray
     /// Append the arguments along one axis. The other axis grows to the widest (or tallest)
     /// argument, and the arguments that fall short are padded with <c>#N/A</c>.
     /// </summary>
+#pragma warning disable S3776 // Measure the arguments, then fill; both walks are flat and sequential
     private static AnyValue Stack(CalcContext ctx, Span<AnyValue> args, bool vertically)
     {
         var parts = new List<Array>(args.Length);
@@ -91,6 +92,7 @@ internal static class DynamicArray
 
         return Orient(new ConstArray(data), !vertically);
     }
+#pragma warning restore S3776
 
     #endregion
 
@@ -106,6 +108,7 @@ internal static class DynamicArray
     /// TOROW/TOCOL(array, [ignore], [scan_by_column]) — read every value in scan order, optionally
     /// skipping blanks (1), errors (2) or both (3), and lay the result out along a single axis.
     /// </summary>
+#pragma warning disable S3776 // Optional-argument guards ahead of one filtered walk; already reduced from 21
     private static AnyValue Flatten(CalcContext ctx, Span<AnyValue> args, bool intoRow)
     {
         if (!args[0].TryPickCollectionArray(out var array, ctx))
@@ -147,6 +150,7 @@ internal static class DynamicArray
 
         return Orient(new ConstArray(data), intoRow);
     }
+#pragma warning restore S3776
 
     private static AnyValue WrapRows(CalcContext ctx, Span<AnyValue> args)
         => Wrap(ctx, args, intoRows: true);
@@ -208,6 +212,7 @@ internal static class DynamicArray
     /// CHOOSEROWS/CHOOSECOLS(array, num1, …) — pick lines out of the array in the order asked for,
     /// repeats included. A negative index counts back from the end.
     /// </summary>
+#pragma warning disable S3776 // One index-validation rule applied over two argument shapes
     private static AnyValue Choose(CalcContext ctx, Span<AnyValue> args, bool byRow)
     {
         if (!args[0].TryPickCollectionArray(out var array, ctx))
@@ -252,6 +257,7 @@ internal static class DynamicArray
 
         return Orient(BuildRows(source, selected), !byRow);
     }
+#pragma warning restore S3776
 
     #endregion
 
@@ -406,6 +412,7 @@ internal static class DynamicArray
         return new ConstArray(data);
     }
 
+#pragma warning disable S3776 // Argument guards, then a linear group-by over rows; each stage is flat
     private static AnyValue Unique(CalcContext ctx, Span<AnyValue> args)
     {
         if (!args[0].TryPickCollectionArray(out var array, ctx))
@@ -467,6 +474,7 @@ internal static class DynamicArray
 
         return Orient(new ConstArray(result), byColumn);
     }
+#pragma warning restore S3776
 
     private static AnyValue Sort(CalcContext ctx, Span<AnyValue> args)
     {
@@ -503,6 +511,7 @@ internal static class DynamicArray
         return Orient(BuildRows(source, order), byColumn);
     }
 
+#pragma warning disable S3776 // Parsing the (by_array, [order]) pairs is one loop with one comparator
     private static AnyValue SortBy(CalcContext ctx, Span<AnyValue> args)
     {
         if (!args[0].TryPickCollectionArray(out var array, ctx))
@@ -552,7 +561,9 @@ internal static class DynamicArray
 
         return BuildRows(array, indices);
     }
+#pragma warning restore S3776
 
+#pragma warning disable S3776 // Mask-shape detection then one mask walk; already reduced from 27
     private static AnyValue Filter(CalcContext ctx, Span<AnyValue> args)
     {
         if (!args[0].TryPickCollectionArray(out var array, ctx))
@@ -591,7 +602,9 @@ internal static class DynamicArray
 
         return Orient(BuildRows(source, kept), !filterRows);
     }
+#pragma warning restore S3776
 
+#pragma warning disable S3776 // Six optional arguments to validate before one lookup; already reduced from 23
     private static AnyValue XLookup(CalcContext ctx, Span<AnyValue> args)
     {
         if (!TryScalarArg(ctx, args[0], out var lookupValue))
@@ -634,6 +647,7 @@ internal static class DynamicArray
 
         return Orient(new ConstArray(line), !vertical);
     }
+#pragma warning restore S3776
 
     private static AnyValue XMatch(CalcContext ctx, Span<AnyValue> args)
     {
@@ -664,6 +678,7 @@ internal static class DynamicArray
     /// 2 wildcard) and search modes (1 first-to-last, -1 last-to-first; binary modes fall back to a
     /// linear scan, which is correct if slower).
     /// </summary>
+#pragma warning disable S3776 // Four match modes over one scan; the modes are the specification
     private static int FindMatch(Array array, bool vertical, ScalarValue target, int matchMode, int searchMode)
     {
         var length = vertical ? array.Height : array.Width;
@@ -707,6 +722,7 @@ internal static class DynamicArray
 
         return best;
     }
+#pragma warning restore S3776
 
     private static ScalarValue Element(Array array, bool vertical, int index)
         => vertical ? array[index, 0] : array[0, index];

@@ -552,6 +552,7 @@ internal static class Regression
         return BuildStatistics(design, constant, coefficients, row);
     }
 
+#pragma warning disable S3776 // Optional new_x handling ahead of one prediction loop
     private static AnyValue Predict(CalcContext ctx, Span<AnyValue> args, bool exponential)
     {
         // TREND(known_y, [known_x], [new_x], [const]) — the flag sits one place later than in LINEST.
@@ -599,6 +600,7 @@ internal static class Regression
 
         return new ConstArray(data);
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// Read known_y and known_x into a design matrix. When known_x is left out the predictor is the
@@ -716,6 +718,7 @@ internal static class Regression
     /// Read a block of predictor values. <paramref name="expected"/> is the number of predictors to
     /// insist on, or zero to take whatever the block holds.
     /// </summary>
+#pragma warning disable S3776 // Orientation fixup and shape validation ahead of one read loop
     private static bool TryReadPredictors(CalcContext ctx, Array array, int expected, bool vertical, out double[,] x, out int observations, out XLError error)
     {
         error = default;
@@ -754,6 +757,7 @@ internal static class Regression
 
         return true;
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// Solve the normal equations XᵀX·β = Xᵀy. <paramref name="constant"/> false pins the intercept
@@ -829,6 +833,7 @@ internal static class Regression
     /// degrees of freedom, then the regression and residual sums of squares. The cells to the right
     /// of the short rows are <c>#N/A</c>, as Excel leaves them.
     /// </summary>
+#pragma warning disable S3776 // The five-row LINEST statistics block; the arithmetic is flat and sequential
     private static AnyValue BuildStatistics(in Design design, bool constant, double[] coefficients, double[] reportedRow)
     {
         var width = design.Predictors + 1;
@@ -873,6 +878,7 @@ internal static class Regression
 
         return new ConstArray(data);
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// Standard errors of the coefficients, in the same reversed order as the coefficients: the

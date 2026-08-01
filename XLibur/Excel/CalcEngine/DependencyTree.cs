@@ -53,6 +53,7 @@ internal sealed class DependencyTree
 
     internal bool IsEmpty => _sheetTrees.All(sheetTree => sheetTree.Value.IsEmpty) && _dependencies.Count == 0;
 
+#pragma warning disable S3776 // One branch per formula kind, each documented; splitting would separate them from the walk
     internal static DependencyTree CreateFrom(XLWorkbook workbook)
     {
         var tree = new DependencyTree();
@@ -109,6 +110,7 @@ internal sealed class DependencyTree
 
         return tree;
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// Add a formula to the dependency tree.

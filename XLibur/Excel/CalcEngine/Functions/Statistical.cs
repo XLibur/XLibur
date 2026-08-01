@@ -808,6 +808,7 @@ internal static class Statistical
     /// and exclusive flavours: inclusive spreads the n values over 0…1, exclusive over
     /// 1/(n+1)…n/(n+1). The result is truncated, not rounded, to <c>significance</c> decimals.
     /// </summary>
+#pragma warning disable S3776 // Argument guards, then the inclusive/exclusive rank rules PERCENTRANK is defined by
     private static AnyValue PercentRank(CalcContext ctx, Span<AnyValue> args, bool exclusive)
     {
         if (!TryGetNumbers(ctx, args[0], out var numbers, out var arrayError))
@@ -857,6 +858,7 @@ internal static class Statistical
         var scale = Math.Pow(10, significance);
         return Math.Truncate(rank * scale) / scale;
     }
+#pragma warning restore S3776
 
     private static AnyValue Quartile(CalcContext ctx, AnyValue arrayParam, double quartParam)
     {

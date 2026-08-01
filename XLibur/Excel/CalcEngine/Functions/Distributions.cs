@@ -205,6 +205,7 @@ internal static class Distributions
     /// the shape of the ranges: a two-dimensional table has (rows−1)(columns−1), a single row or
     /// column has one less than its length.
     /// </summary>
+#pragma warning disable S3776 // A double loop over paired cells; the guards inside it are the function's error contract
     private static AnyValue ChiSqTest(CalcContext ctx, Span<AnyValue> args)
     {
         if (!args[0].TryPickCollectionArray(out var actual, ctx) ||
@@ -242,6 +243,7 @@ internal static class Distributions
 
         return XLMath.GammaQ(degreesOfFreedom / 2.0, statistic / 2);
     }
+#pragma warning restore S3776
 
     private static bool IsValidDegreesOfFreedom(double degreesOfFreedom)
         => degreesOfFreedom >= 1 && degreesOfFreedom < 1e10;

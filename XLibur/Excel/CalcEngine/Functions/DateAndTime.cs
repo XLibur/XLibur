@@ -418,6 +418,7 @@ internal static class DateAndTime
     /// Read the <c>weekend</c> argument of the .INTL functions: either one of the numbered codes, or
     /// a seven-character string of 0s and 1s running Monday to Sunday where 1 marks a weekend day.
     /// </summary>
+#pragma warning disable S3776 // The weekend argument has two spellings -- a numbered code or a seven-character mask
     private static bool TryGetWeekendMask(CalcContext ctx, in AnyValue value, out int mask, out XLError error)
     {
         mask = 0;
@@ -476,6 +477,7 @@ internal static class DateAndTime
         error = default;
         return true;
     }
+#pragma warning restore S3776
 
     /// <summary>Day of the week of a serial date as a bit index, 0 = Monday … 6 = Sunday.</summary>
     private static int WeekdayBit(int serialDate) => (WeekdayCalc(serialDate) + 5) % 7;
@@ -552,6 +554,7 @@ internal static class DateAndTime
         return total;
     }
 
+#pragma warning disable S3776 // Four optional-argument guards ahead of one day-stepping loop
     private static AnyValue WorkdayIntl(CalcContext ctx, Span<AnyValue> args)
     {
         if (!TryGetDate(ctx, ToScalar(ctx, args[0]), out var startDate, out var startError))
@@ -587,6 +590,7 @@ internal static class DateAndTime
 
         return date;
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// Reduce an argument of the .INTL functions to the single value it expects. Only the holidays

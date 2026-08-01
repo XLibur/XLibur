@@ -79,6 +79,7 @@ internal sealed class XLAreaList : IEnumerable<Area>
     /// Appends the pieces one area breaks into when <paramref name="insertedArea"/> pushes it down.
     /// An area can survive whole, be extended, or be cut into an above/left/right/shifted set.
     /// </summary>
+#pragma warning disable S3776 // Splitting one area against an insertion; already reduced from 32
     private static void AddShiftedDown(Area originalArea, Area insertedArea, List<Area> result)
     {
         if (originalArea.HasFullColumnHeight)
@@ -153,6 +154,7 @@ internal sealed class XLAreaList : IEnumerable<Area>
             result.Add(cutToWidth);
         }
     }
+#pragma warning restore S3776
 
     internal XLAreaList InsertAndShiftRight(Area insertedArea)
     {
