@@ -180,7 +180,10 @@ internal static class AgileCrypto
         var plaintext = new byte[declaredLength];
         var written = 0;
 
-        for (var segmentIndex = 0; written < declaredLength; segmentIndex++)
+        // The loop ends when the declared content has been recovered, not when the segments run
+        // out — a trailing segment can carry padding past the declared length.
+        var segmentIndex = 0;
+        while (written < declaredLength)
         {
             var offset = prefixLength + segmentIndex * SegmentLength;
             var segmentLength = Math.Min(SegmentLength, encryptedPackage.Length - offset);
@@ -203,6 +206,7 @@ internal static class AgileCrypto
             written += copyLength;
 
             CryptographicOperations.ZeroMemory(decrypted);
+            segmentIndex++;
         }
 
         if (written != declaredLength)
