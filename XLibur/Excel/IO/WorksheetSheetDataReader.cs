@@ -111,6 +111,21 @@ internal static class WorksheetSheetDataReader
     }
 
     /// <summary>
+    /// Parsed cell-level attributes from a &lt;c&gt; element. <see cref="HasMisc"/> records whether any
+    /// of the attributes that live in the misc slice were present, so a cell carrying none of them --
+    /// the overwhelming majority -- skips writing to that slice entirely.
+    /// Stack-allocated (readonly record struct) to avoid per-cell GC pressure.
+    /// </summary>
+    private readonly record struct CellProperties(
+        int StyleIndex,
+        Point? CellRef,
+        CellValues DataType,
+        bool ShowPhonetic,
+        uint? CellMetaIndex,
+        uint? ValueMetaIndex,
+        bool HasMisc);
+
+    /// <summary>
     /// Capacity of <see cref="SheetDataReadContext.ValueBuffer"/>. Comfortably exceeds every value
     /// read through it: a cell reference is at most 10 characters (<c>XFD1048576</c>), a style or
     /// metadata index at most 10 digits, and a round-tripped double at most 24. Longer content still
@@ -161,79 +176,88 @@ internal static class WorksheetSheetDataReader
            && reader.LocalName == localName
            && reader.NamespaceURI == OpenXmlConst.Main2006SsNs;
 
-    private static void LoadRowXml(XmlReader reader, in SheetDataReadContext context,
-        ref SheetDataReadState state)
+    /// <summary>
+    /// Reads the attributes of a <c>&lt;row&gt;</c>, leaving the reader back on the element itself.
+    /// <paramref name="rowIndex"/> comes back as zero when the row carried no <c>r</c>, which means
+    /// it follows on from the previous one.
+    /// </summary>
+    private static RowProperties ReadRowAttributes(XmlReader reader, char[] buffer, out int rowIndex)
     {
-        Debug.Assert(reader is { NodeType: XmlNodeType.Element, LocalName: "row" });
-
-        var rowIndex = 0;
+        rowIndex = 0;
         double? height = null;
         double? dyDescent = null;
         bool hidden = false, collapsed = false, showPhonetic = false, customFormat = false;
         int? outlineLevel = null;
         int? styleIndex = null;
-        var isEmptyRow = reader.IsEmptyElement;
 
-        if (reader.HasAttributes)
+        if (!reader.HasAttributes)
+            return new RowProperties(height, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
+
+        while (reader.MoveToNextAttribute())
         {
-            var buffer = context.ValueBuffer;
-            while (reader.MoveToNextAttribute())
+            var ns = reader.NamespaceURI;
+            var localName = reader.LocalName;
+
+            var isKnown = ns.Length == 0
+                ? localName is "r" or "ht" or "hidden" or "collapsed" or "outlineLevel"
+                    or "ph" or "customFormat" or "s"
+                : localName == "dyDescent" && ns == OpenXmlConst.X14Ac2009SsNs;
+
+            if (!isKnown)
+                continue;
+
+            // Read as characters — none of these attributes is retained as a string.
+            var length = ReadValueIntoBuffer(reader, buffer, out var overflow);
+            var value = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
+
+            switch (localName)
             {
-                var ns = reader.NamespaceURI;
-                var localName = reader.LocalName;
-
-                var isKnown = ns.Length == 0
-                    ? localName is "r" or "ht" or "hidden" or "collapsed" or "outlineLevel"
-                        or "ph" or "customFormat" or "s"
-                    : localName == "dyDescent" && ns == OpenXmlConst.X14Ac2009SsNs;
-
-                if (!isKnown)
-                    continue;
-
-                // Read as characters — none of these attributes is retained as a string.
-                var length = ReadValueIntoBuffer(reader, buffer, out var overflow);
-                var value = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
-
-                switch (localName)
-                {
-                    case "r":
-                        TryParseOoxmlNonNegativeInt(value, out rowIndex);
-                        break;
-                    case "ht":
-                        height = double.Parse(value, NumberStyles.Float, XLHelper.ParseCulture);
-                        break;
-                    case "dyDescent":
-                        dyDescent = double.Parse(value, NumberStyles.Float, XLHelper.ParseCulture);
-                        break;
-                    case "hidden":
-                        hidden = ParseXmlBool(value);
-                        break;
-                    case "collapsed":
-                        collapsed = ParseXmlBool(value);
-                        break;
-                    case "outlineLevel":
-                        outlineLevel = int.Parse(value, CultureInfo.InvariantCulture);
-                        break;
-                    case "ph":
-                        showPhonetic = ParseXmlBool(value);
-                        break;
-                    case "customFormat":
-                        customFormat = ParseXmlBool(value);
-                        break;
-                    case "s":
-                        styleIndex = int.Parse(value, CultureInfo.InvariantCulture);
-                        break;
-                }
+                case "r":
+                    TryParseOoxmlNonNegativeInt(value, out rowIndex);
+                    break;
+                case "ht":
+                    height = double.Parse(value, NumberStyles.Float, XLHelper.ParseCulture);
+                    break;
+                case "dyDescent":
+                    dyDescent = double.Parse(value, NumberStyles.Float, XLHelper.ParseCulture);
+                    break;
+                case "hidden":
+                    hidden = ParseXmlBool(value);
+                    break;
+                case "collapsed":
+                    collapsed = ParseXmlBool(value);
+                    break;
+                case "outlineLevel":
+                    outlineLevel = int.Parse(value, CultureInfo.InvariantCulture);
+                    break;
+                case "ph":
+                    showPhonetic = ParseXmlBool(value);
+                    break;
+                case "customFormat":
+                    customFormat = ParseXmlBool(value);
+                    break;
+                case "s":
+                    styleIndex = int.Parse(value, CultureInfo.InvariantCulture);
+                    break;
             }
-
-            reader.MoveToElement();
         }
+
+        reader.MoveToElement();
+        return new RowProperties(height, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
+    }
+
+    private static void LoadRowXml(XmlReader reader, in SheetDataReadContext context,
+        ref SheetDataReadState state)
+    {
+        Debug.Assert(reader is { NodeType: XmlNodeType.Element, LocalName: "row" });
+
+        var isEmptyRow = reader.IsEmptyElement;
+        var rowProps = ReadRowAttributes(reader, context.ValueBuffer, out var rowIndex);
 
         if (rowIndex == 0)
             rowIndex = ++state.LastRow;
         state.LastRow = rowIndex;
 
-        var rowProps = new RowProperties(height, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
         if (rowProps.HasCustomProps)
             ApplyRowCustomProps(in rowProps, context.Worksheet, rowIndex, context.Styles);
 
@@ -268,65 +292,15 @@ internal static class WorksheetSheetDataReader
     {
         Debug.Assert(reader is { NodeType: XmlNodeType.Element, LocalName: "c" });
 
-        int styleIndex = 0;
-        Point? cellRef = null;
-        var dataType = CellValues.Number; // Matches an absent t attribute.
-        bool showPhonetic = false;
-        uint? cellMetaIndex = null;
-        uint? valueMetaIndex = null;
-        bool hasMisc = false;
         var isEmptyCell = reader.IsEmptyElement;
+        var cellProps = ReadCellAttributes(reader, context.ValueBuffer);
+        var dataType = cellProps.DataType;
+        var cellMetaIndex = cellProps.CellMetaIndex;
 
-        if (reader.HasAttributes)
-        {
-            var buffer = context.ValueBuffer;
-            while (reader.MoveToNextAttribute())
-            {
-                if (reader.NamespaceURI.Length != 0)
-                    continue;
-
-                // LocalName comes from the reader's name table, so it costs nothing; the value is
-                // read as characters because none of these attributes is retained as a string.
-                var localName = reader.LocalName;
-                if (localName is not ("r" or "s" or "t" or "ph" or "cm" or "vm"))
-                    continue;
-
-                var length = ReadValueIntoBuffer(reader, buffer, out var overflow);
-                var value = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
-
-                switch (localName)
-                {
-                    case "r":
-                        cellRef = Point.Parse(value);
-                        break;
-                    case "s":
-                        TryParseOoxmlNonNegativeInt(value, out styleIndex);
-                        break;
-                    case "t":
-                        dataType = ParseCellDataType(value);
-                        break;
-                    case "ph":
-                        showPhonetic = ParseXmlBool(value);
-                        if (showPhonetic) hasMisc = true;
-                        break;
-                    case "cm":
-                        cellMetaIndex = uint.Parse(value, CultureInfo.InvariantCulture);
-                        hasMisc = true;
-                        break;
-                    case "vm":
-                        valueMetaIndex = uint.Parse(value, CultureInfo.InvariantCulture);
-                        hasMisc = true;
-                        break;
-                }
-            }
-
-            reader.MoveToElement();
-        }
-
-        var cellAddress = cellRef ?? new Point(rowIndex, state.LastColumnNumber + 1);
+        var cellAddress = cellProps.CellRef ?? new Point(rowIndex, state.LastColumnNumber + 1);
         state.LastColumnNumber = cellAddress.Column;
 
-        var cellStyleValue = context.StyleCache.Resolve(styleIndex);
+        var cellStyleValue = context.StyleCache.Resolve(cellProps.StyleIndex);
 
         var ws = context.Worksheet;
         var cellsCollection = ws.Internals.CellsCollection;
@@ -335,13 +309,13 @@ internal static class WorksheetSheetDataReader
         if (!styleMatchesInherited)
             cellsCollection.StyleSlice.SetNonDefault(cellAddress.Row, cellAddress.Column, cellStyleValue);
 
-        if (hasMisc)
+        if (cellProps.HasMisc)
         {
             var misc = new XLMiscSliceContent
             {
-                HasPhonetic = showPhonetic,
+                HasPhonetic = cellProps.ShowPhonetic,
                 CellMetaIndex = cellMetaIndex,
-                ValueMetaIndex = valueMetaIndex
+                ValueMetaIndex = cellProps.ValueMetaIndex
             };
             cellsCollection.MiscSlice.Set(cellAddress, in misc);
         }
@@ -366,6 +340,68 @@ internal static class WorksheetSheetDataReader
             EnsureStyleForBlankCell(cellsCollection, cellAddress, cellStyleValue);
 
         reader.Read(); // Move past </c>.
+    }
+
+    /// <summary>
+    /// Reads the attributes of a <c>&lt;c&gt;</c>, leaving the reader back on the element itself.
+    /// A missing <c>r</c> leaves <see cref="CellProperties.CellRef"/> null, meaning the cell follows
+    /// on from the previous one in the row.
+    /// </summary>
+    private static CellProperties ReadCellAttributes(XmlReader reader, char[] buffer)
+    {
+        int styleIndex = 0;
+        Point? cellRef = null;
+        var dataType = CellValues.Number; // Matches an absent t attribute.
+        bool showPhonetic = false;
+        uint? cellMetaIndex = null;
+        uint? valueMetaIndex = null;
+        bool hasMisc = false;
+
+        if (!reader.HasAttributes)
+            return new CellProperties(styleIndex, cellRef, dataType, showPhonetic, cellMetaIndex, valueMetaIndex, hasMisc);
+
+        while (reader.MoveToNextAttribute())
+        {
+            if (reader.NamespaceURI.Length != 0)
+                continue;
+
+            // LocalName comes from the reader's name table, so it costs nothing; the value is
+            // read as characters because none of these attributes is retained as a string.
+            var localName = reader.LocalName;
+            if (localName is not ("r" or "s" or "t" or "ph" or "cm" or "vm"))
+                continue;
+
+            var length = ReadValueIntoBuffer(reader, buffer, out var overflow);
+            var value = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
+
+            switch (localName)
+            {
+                case "r":
+                    cellRef = Point.Parse(value);
+                    break;
+                case "s":
+                    TryParseOoxmlNonNegativeInt(value, out styleIndex);
+                    break;
+                case "t":
+                    dataType = ParseCellDataType(value);
+                    break;
+                case "ph":
+                    showPhonetic = ParseXmlBool(value);
+                    if (showPhonetic) hasMisc = true;
+                    break;
+                case "cm":
+                    cellMetaIndex = uint.Parse(value, CultureInfo.InvariantCulture);
+                    hasMisc = true;
+                    break;
+                case "vm":
+                    valueMetaIndex = uint.Parse(value, CultureInfo.InvariantCulture);
+                    hasMisc = true;
+                    break;
+            }
+        }
+
+        reader.MoveToElement();
+        return new CellProperties(styleIndex, cellRef, dataType, showPhonetic, cellMetaIndex, valueMetaIndex, hasMisc);
     }
 
     private static void LoadCellContentXml(XmlReader reader, in SheetDataReadContext context,
