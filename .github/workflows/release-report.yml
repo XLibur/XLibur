@@ -10,6 +10,10 @@ name: Release Report
 #
 # Run with dry-run first (workflow_dispatch) to see the versions and the declared
 # core dependency without publishing anything.
+#
+# Pushing the tag is what releases. A dispatch with dry-run off will publish, but
+# only from a commit that is exactly a report-v tag — anywhere else MinVer yields
+# a pre-release and the run refuses, because a NuGet version cannot be reused.
 
 on:
   push:
@@ -77,26 +81,62 @@ jobs:
           done
           ls -la ./artifacts/
 
-      # A tag push must produce packages carrying that tag's version. A mismatch
-      # means MinVer did not see the tag — usually a shallow clone or a tag that
-      # does not match the report prefix — and would publish a pre-release version.
-      - name: Verify package versions match the tag
-        if: startsWith(github.ref, 'refs/tags/')
+      # What was actually built, read from the packed files rather than assumed
+      # from the ref — a dispatch run has no tag to read, and every later step
+      # needs to agree on one version. The [0-9] glob picks XLibur.Report itself
+      # rather than XLibur.Report.DynamicLinq, whose name also starts with it.
+      - name: Resolve the released version
         run: |
-          expected="${GITHUB_REF_NAME#report-v}"
+          package=$(ls ./artifacts/XLibur.Report.[0-9]*.nupkg | head -n1)
+          version=$(basename "$package" .nupkg)
+          version="${version#XLibur.Report.}"
+
           status=0
           for package in ./artifacts/*.nupkg; do
             name=$(basename "$package" .nupkg)
-            if [ "${name%.$expected}" = "$name" ]; then
-              echo "::error::$name is not version $expected"
+            if [ "${name%.$version}" = "$name" ]; then
+              echo "::error::$name is not version $version"
               status=1
             fi
           done
           if [ "$status" -ne 0 ]; then
-            echo "::error::Package versions do not match tag $GITHUB_REF_NAME — refusing to publish"
+            echo "::error::The report packages do not share one version — refusing to publish"
             exit 1
           fi
-          echo "All report packages are version $expected"
+
+          echo "All report packages are version $version"
+          echo "REPORT_VERSION=$version" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=report-v$version" >> "$GITHUB_ENV"
+
+      # A tag push must produce packages carrying that tag's version. A mismatch
+      # means MinVer did not see the tag — usually a shallow clone or a tag that
+      # does not match the report prefix — and would publish a pre-release version.
+      - name: Verify the version matches the tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          expected="${GITHUB_REF_NAME#report-v}"
+          if [ "$REPORT_VERSION" != "$expected" ]; then
+            echo "::error::Packages are version $REPORT_VERSION but tag $GITHUB_REF_NAME expects $expected — refusing to publish"
+            exit 1
+          fi
+          echo "Version $REPORT_VERSION matches tag $GITHUB_REF_NAME"
+
+      # The check above only runs on a tag, so a dispatch run with dry-run off
+      # would otherwise publish whatever MinVer produced. On any commit that is
+      # not exactly a report-v tag that is a pre-release like 0.200.1-alpha.0.4,
+      # and a NuGet version can never be reused once pushed. Publishing is for
+      # released versions; a dispatch that wants packages should stay a dry run.
+      - name: Refuse to publish a pre-release version
+        if: env.DRY_RUN != 'true'
+        run: |
+          case "$REPORT_VERSION" in
+            *-*)
+              echo "::error::$REPORT_VERSION is a pre-release, produced because HEAD is not exactly a report-v tag."
+              echo "::error::Push a report-v tag to release, or re-run as a dry run to just build the packages."
+              exit 1
+              ;;
+          esac
+          echo "$REPORT_VERSION is a release version"
 
       # The gate that matters. XLibur.Report reads core internals through an
       # InternalsVisibleTo grant, so XLibur.Report.props declares an EXACT core
@@ -150,6 +190,8 @@ jobs:
               echo "**Dry run — nothing was published.**"
               echo
             fi
+            echo "Version: \`$REPORT_VERSION\` (release \`$RELEASE_TAG\`)"
+            echo
             echo "Core dependency: \`XLibur $CORE_DEPENDENCY\`"
             echo
             for package in ./artifacts/*.nupkg; do
@@ -175,13 +217,21 @@ jobs:
       # Its own GitHub Release, on its own tag. Marked as a pre-release while the
       # stream is below 1.0 so it never becomes the "latest release" that core's
       # own release notes diff against.
+      #
+      # Keyed to the resolved version rather than to github.ref_name, so that a
+      # dispatch run which publishes also releases. Gating this on refs/tags left
+      # the two able to disagree: report-v0.200.0 was dispatched from main, pushed
+      # both packages to NuGet, and skipped this step, so the version existed on
+      # NuGet with no release beside it. Anything that reaches NuGet gets a
+      # release, and target_commitish creates the tag when the run was not one.
       - name: Publish GitHub Release
-        if: env.DRY_RUN != 'true' && startsWith(github.ref, 'refs/tags/')
+        if: env.DRY_RUN != 'true'
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          prerelease: ${{ !startsWith(github.ref_name, 'report-v1') }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          prerelease: ${{ !startsWith(env.RELEASE_TAG, 'report-v1') }}
           generate_release_notes: true
           files: |
             ./artifacts/*.nupkg
