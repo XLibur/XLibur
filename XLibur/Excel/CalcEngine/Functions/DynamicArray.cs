@@ -140,16 +140,12 @@ internal static class DynamicArray
         if (kept.Count == 0)
             return EmptyResult;
 
-        var data = intoRow ? new ScalarValue[1, kept.Count] : new ScalarValue[kept.Count, 1];
+        // Build the column and let TOROW read it sideways, rather than branching per value.
+        var data = new ScalarValue[kept.Count, 1];
         for (var i = 0; i < kept.Count; i++)
-        {
-            if (intoRow)
-                data[0, i] = kept[i];
-            else
-                data[i, 0] = kept[i];
-        }
+            data[i, 0] = kept[i];
 
-        return new ConstArray(data);
+        return Orient(new ConstArray(data), intoRow);
     }
 
     private static AnyValue WrapRows(CalcContext ctx, Span<AnyValue> args)
@@ -182,22 +178,20 @@ internal static class DynamicArray
         foreach (var value in array)
             values.Add(value);
 
+        // Lay the pieces out as rows and let WRAPCOLS read them as columns, rather than branching
+        // on the orientation for every value.
         var pieces = (values.Count + wrapCount - 1) / wrapCount;
-        var data = intoRows ? new ScalarValue[pieces, wrapCount] : new ScalarValue[wrapCount, pieces];
+        var data = new ScalarValue[pieces, wrapCount];
         for (var piece = 0; piece < pieces; piece++)
         {
             for (var offset = 0; offset < wrapCount; offset++)
             {
                 var index = piece * wrapCount + offset;
-                var value = index < values.Count ? values[index] : padding;
-                if (intoRows)
-                    data[piece, offset] = value;
-                else
-                    data[offset, piece] = value;
+                data[piece, offset] = index < values.Count ? values[index] : padding;
             }
         }
 
-        return new ConstArray(data);
+        return Orient(new ConstArray(data), !intoRows);
     }
 
     #endregion
@@ -579,9 +573,11 @@ internal static class DynamicArray
         else
             return XLError.IncompatibleValue;
 
+        // Keeping columns is keeping the rows of the transpose, so only the row case is written out.
+        var source = filterRows ? array : new TransposedArray(array);
+
         var kept = new List<int>();
-        var count = filterRows ? height : width;
-        for (var i = 0; i < count; i++)
+        for (var i = 0; i < source.Height; i++)
         {
             var mask = filterRows ? include[i, 0] : include[0, i];
             if (!mask.TryCoerceLogicalOrBlankOrNumberOrText(out var flag, out var maskError))
@@ -593,26 +589,7 @@ internal static class DynamicArray
         if (kept.Count == 0)
             return args.Length > 2 ? args[2] : XLError.CellReference;
 
-        if (filterRows)
-        {
-            var rows = new ScalarValue[kept.Count, width];
-            for (var i = 0; i < kept.Count; i++)
-            {
-                for (var c = 0; c < width; c++)
-                    rows[i, c] = array[kept[i], c];
-            }
-
-            return new ConstArray(rows);
-        }
-
-        var columns = new ScalarValue[height, kept.Count];
-        for (var i = 0; i < kept.Count; i++)
-        {
-            for (var r = 0; r < height; r++)
-                columns[r, i] = array[r, kept[i]];
-        }
-
-        return new ConstArray(columns);
+        return Orient(BuildRows(source, kept), !filterRows);
     }
 
     private static AnyValue XLookup(CalcContext ctx, Span<AnyValue> args)
@@ -643,28 +620,19 @@ internal static class DynamicArray
             return args.Length > 3 ? args[3] : XLError.NoValueAvailable;
 
         // Return the matching row (vertical lookup) or column (horizontal lookup) of return_array.
-        if (vertical)
-        {
-            if (returnArray!.Height != length)
-                return XLError.IncompatibleValue;
-            if (returnArray.Width == 1)
-                return returnArray[index, 0].ToAnyValue();
-
-            var row = new ScalarValue[1, returnArray.Width];
-            for (var c = 0; c < returnArray.Width; c++)
-                row[0, c] = returnArray[index, c];
-            return new ConstArray(row);
-        }
-
-        if (returnArray!.Width != length)
+        // A horizontal lookup returns the matching row of the transpose, so only one case is written
+        // out and the result is turned back the right way round at the end.
+        var source = vertical ? returnArray! : new TransposedArray(returnArray!);
+        if (source.Height != length)
             return XLError.IncompatibleValue;
-        if (returnArray.Height == 1)
-            return returnArray[0, index].ToAnyValue();
+        if (source.Width == 1)
+            return source[index, 0].ToAnyValue();
 
-        var column = new ScalarValue[returnArray.Height, 1];
-        for (var r = 0; r < returnArray.Height; r++)
-            column[r, 0] = returnArray[r, index];
-        return new ConstArray(column);
+        var line = new ScalarValue[1, source.Width];
+        for (var c = 0; c < source.Width; c++)
+            line[0, c] = source[index, c];
+
+        return Orient(new ConstArray(line), !vertical);
     }
 
     private static AnyValue XMatch(CalcContext ctx, Span<AnyValue> args)
