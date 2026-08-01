@@ -43,6 +43,11 @@ internal sealed class FormulaSlice : ISlice
         _formulas.DeleteAreaAndShiftUp(rangeToDelete);
     }
 
+    public void DeleteRowsAndCompact(XLRowDeletionMap map)
+    {
+        _formulas.DeleteRowsAndCompact(map);
+    }
+
     public IEnumerator<Point> GetEnumerator(Area range, bool reverse = false)
     {
         return _formulas.GetEnumerator(range, reverse);

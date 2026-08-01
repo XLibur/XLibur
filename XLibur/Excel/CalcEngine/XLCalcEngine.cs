@@ -158,12 +158,66 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         Purge(sheet.Workbook.WorksheetsInternal);
     }
 
+    /// <summary>
+    /// Non-zero while a caller is applying many structural edits that should cost one purge between
+    /// them, not one each.
+    /// </summary>
+    private int _purgeSuspensions;
+
+    /// <summary>Whether a purge was asked for while suspended and still owes its work.</summary>
+    private bool _purgeDeferred;
+
+    /// <summary>
+    /// Coalesces the purges of a run of structural edits into one.
+    /// </summary>
+    /// <remarks>
+    /// A purge throws away the dependency tree and marks every formula in the workbook dirty, so it
+    /// costs a walk of every formula slice. That is the right price once, but a caller deleting a
+    /// scattered set of rows a run at a time pays it per run, and the walk allocates nothing — which
+    /// makes it the kind of quadratic that hides from an allocation profile. Purging is idempotent
+    /// and order-independent, so deferring to a single purge at the end is equivalent.
+    /// </remarks>
+    internal PurgeSuspension SuspendPurge(XLWorkbook workbook) => new(this, workbook);
+
+    internal readonly struct PurgeSuspension : IDisposable
+    {
+        private readonly XLCalcEngine _engine;
+        private readonly XLWorkbook _workbook;
+
+        internal PurgeSuspension(XLCalcEngine engine, XLWorkbook workbook)
+        {
+            _engine = engine;
+            _workbook = workbook;
+            engine._purgeSuspensions++;
+        }
+
+        public void Dispose()
+        {
+            if (--_engine._purgeSuspensions > 0)
+                return;
+
+            if (!_engine._purgeDeferred)
+                return;
+
+            _engine._purgeDeferred = false;
+            _engine.Purge(_workbook.WorksheetsInternal);
+        }
+    }
+
     private void Purge(XLWorksheets sheets)
     {
         _dependencyTree = null;
         _chain = null;
         _needsDependencyTree = false;
         _spillOwners.Clear();
+
+        if (_purgeSuspensions > 0)
+        {
+            // The tree and chain are dropped either way — they are cheap to discard and must not be
+            // trusted mid-edit. Only the formula walk waits.
+            _purgeDeferred = true;
+            return;
+        }
 
         // Mark everything as dirty, because there can be stale values
         foreach (var sheet in sheets)

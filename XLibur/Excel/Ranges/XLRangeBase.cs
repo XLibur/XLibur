@@ -1091,7 +1091,14 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
     /// the whole set of deleted rows before removing them run by run. Running the per-run pass as well
     /// would be both wasted work and wrong, since the formulas already hold their final text.
     /// </param>
-    internal void Delete(XLShiftDeletedCells shiftDeleteCells, bool shiftFormulas)
+    /// <param name="moveCells">
+    /// <c>false</c> only for <see cref="XLRowBatchDelete"/>, which compacts the cells for the whole
+    /// deletion in one pass after the per-run bookkeeping has run. Everything else this method does —
+    /// live ranges, merges, sparklines, conditional formats, data validations, page breaks,
+    /// hyperlinks — is metadata that never reads a cell position, so it composes run by run and does
+    /// not care whether the cells have moved yet.
+    /// </param>
+    internal void Delete(XLShiftDeletedCells shiftDeleteCells, bool shiftFormulas, bool moveCells = true)
     {
         var numberOfRows = RowCount();
         var numberOfColumns = ColumnCount();
@@ -1122,13 +1129,17 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         switch (shiftDeleteCells)
         {
             case XLShiftDeletedCells.ShiftCellsLeft:
-                Worksheet.Internals.CellsCollection.DeleteAreaAndShiftLeft(range);
+                if (moveCells)
+                    Worksheet.Internals.CellsCollection.DeleteAreaAndShiftLeft(range);
+
                 Worksheet.SparklineGroupsInternal.ShiftColumns(range, -numberOfColumns);
                 columnModifier = ColumnCount();
                 break;
 
             case XLShiftDeletedCells.ShiftCellsUp:
-                Worksheet.Internals.CellsCollection.DeleteAreaAndShiftUp(range);
+                if (moveCells)
+                    Worksheet.Internals.CellsCollection.DeleteAreaAndShiftUp(range);
+
                 Worksheet.SparklineGroupsInternal.ShiftRows(range, -numberOfRows);
                 rowModifier = RowCount();
                 break;

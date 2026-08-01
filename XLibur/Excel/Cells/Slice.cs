@@ -138,6 +138,93 @@ internal sealed partial class Slice<TElement> : ISlice
     }
 
     /// <summary>
+    /// Removes a set of whole rows and closes the gaps, in one pass.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="DeleteAreaAndShiftUp"/> works a cell at a time because the area it is given can be
+    /// narrower than the sheet, so it has to move cells out from under the ones staying put. A whole
+    /// row has no such constraint: the slice stores a row's entire set of columns as one
+    /// <c>RowData</c>, so a surviving row moves by assigning that value at its new index. The cost
+    /// drops from one operation per cell below the deletion to one per used row, and — since this
+    /// takes the whole deletion at once rather than a block at a time — from once per deleted row to
+    /// once altogether.
+    /// <para>
+    /// Rows are walked upward. Every surviving row's destination is at or above where it currently
+    /// sits and destinations rise with sources, so a row is never written over one that has not been
+    /// read yet, and no temporary copy is needed.
+    /// </para>
+    /// </remarks>
+    public void DeleteRowsAndCompact(XLRowDeletionMap map)
+    {
+        var lastUsedRow = MaxRow;
+        if (lastUsedRow == 0)
+            return;
+
+        var rowsEnumerator = new Lut<RowData>.LutEnumerator(_data, XLHelper.MinRowNumber - 1, lastUsedRow - 1);
+
+        // The enumerator walks the same structure being written, and a write can clear the bucket it
+        // is standing on, so collect the used rows before touching anything.
+        var used = new List<(int Row, RowData Data)>();
+        while (rowsEnumerator.MoveNext())
+            used.Add((rowsEnumerator.Index + 1, rowsEnumerator.Current));
+
+        // Destinations claimed by a surviving row, ascending — sources ascend and the mapping is
+        // strictly increasing across survivors, so this list comes out sorted for free.
+        var claimed = new List<int>(used.Count);
+
+        foreach (var (row, data) in used)
+        {
+            if (map.IsDeleted(row))
+            {
+                // The row is going away, so every cell in it stops counting toward its column.
+                ReleaseColumnUsage(in data);
+                continue;
+            }
+
+            var target = map.MapFirst(row);
+            if (target != row)
+                _data.Set(target - 1, data);
+
+            claimed.Add(target);
+        }
+
+        // Clear every slot that held something and did not receive a row. Two cases look the same from
+        // here: a row that moved up and left its old slot behind, and a slot whose new occupant is an
+        // *unused* row, which writes nothing and would otherwise leave the previous contents in place.
+        // The second is the one that bites — a row with no explicit style or value is invisible to the
+        // walk above, so its destination has to be cleared on its behalf.
+        var next = 0;
+        foreach (var (row, _) in used)
+        {
+            while (next < claimed.Count && claimed[next] < row)
+                next++;
+
+            if (next < claimed.Count && claimed[next] == row)
+                continue;
+
+            _data.Set(row - 1, default);
+        }
+
+        if (map.Count > 0)
+            _version++;
+
+        if (_columnUsage.Count == 0)
+            MaxColumn = 0;
+        else if (MaxColumn > 0 && !_columnUsage.ContainsKey(MaxColumn))
+            MaxColumn = CalculateMaxColumn();
+    }
+
+    /// <summary>
+    /// Drops a departing row's cells from the per-column usage counts.
+    /// </summary>
+    private void ReleaseColumnUsage(in RowData data)
+    {
+        var columns = data.GetColumnEnumerator(XLHelper.MinColumnNumber - 1, XLHelper.MaxColumnNumber - 1);
+        while (columns.MoveNext())
+            DecrementColumnUsage(columns.Index + 1);
+    }
+
+    /// <summary>
     /// Get enumerator over used values of the range.
     /// </summary>
     public IEnumerator<Point> GetEnumerator(Area range, bool reverse = false)

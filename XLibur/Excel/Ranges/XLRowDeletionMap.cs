@@ -70,6 +70,9 @@ internal sealed class XLRowDeletionMap
         return runs;
     }
 
+    /// <summary>Whether this row is one of the deleted ones.</summary>
+    internal bool IsDeleted(int row) => Array.BinarySearch(_deleted, row) >= 0;
+
     /// <summary>
     /// Where the top of a range lands: its own row less the rows deleted strictly above it. A row that
     /// is itself deleted maps to the position its first surviving successor takes.

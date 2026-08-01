@@ -145,6 +145,15 @@ internal sealed class XLCellsCollection : IWorkbookListener
     }
 
     /// <summary>
+    /// Remove a set of whole rows from every slice and close the gaps, in one pass each.
+    /// </summary>
+    internal void DeleteRowsAndCompact(XLRowDeletionMap map)
+    {
+        foreach (var slice in _slices)
+            slice.DeleteRowsAndCompact(map);
+    }
+
+    /// <summary>
     /// Direct-mapped cache of recently vended cell wrappers. An <see cref="XLCell"/> is a stateless
     /// handle over (collection, point) — all cell data lives in the slices — so returning the same
     /// instance twice for the same point is equivalent to returning two, and lets the caller reuse

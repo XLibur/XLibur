@@ -33,14 +33,27 @@ internal static class XLRowBatchDelete
         if (batched)
             ShiftAllFormulas(worksheet.Workbook, worksheet.Name, map);
 
-        foreach (var (firstRow, lastRow) in map.GetRunsBottomUp())
+        // One purge for the whole deletion instead of one per run. Each run's delete asks the calc
+        // engine to drop its dependency tree and mark every formula dirty, and that walk allocates
+        // nothing, so run-by-run it is a quadratic that an allocation profile cannot see.
+        using (worksheet.Workbook.CalcEngine.SuspendPurge(worksheet.Workbook))
         {
-            var range = (XLRange)worksheet.Range(firstRow, 1, lastRow, XLHelper.MaxColumnNumber);
-            range.Delete(XLShiftDeletedCells.ShiftCellsUp, shiftFormulas: !batched);
+            foreach (var (firstRow, lastRow) in map.GetRunsBottomUp())
+            {
+                var range = (XLRange)worksheet.Range(firstRow, 1, lastRow, XLHelper.MaxColumnNumber);
+                range.Delete(XLShiftDeletedCells.ShiftCellsUp, shiftFormulas: !batched, moveCells: !batched);
 
-            for (var row = lastRow; row >= firstRow; row--)
-                worksheet.DeleteRow(row);
+                for (var row = lastRow; row >= firstRow; row--)
+                    worksheet.DeleteRow(row);
+            }
         }
+
+        // The cells move last and all at once. Everything above only touched metadata, none of which
+        // reads a cell position, so deferring the move costs nothing in correctness and turns the
+        // per-run compaction — one operation per cell below each deleted run — into one pass that
+        // moves whole rows.
+        if (batched)
+            worksheet.Internals.CellsCollection.DeleteRowsAndCompact(map);
     }
 
     /// <summary>

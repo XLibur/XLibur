@@ -50,6 +50,16 @@ internal sealed class ValueSlice : ISlice
         _values.DeleteAreaAndShiftUp(rangeToDelete);
     }
 
+    public void DeleteRowsAndCompact(XLRowDeletionMap map)
+    {
+        // Text in the departing rows releases its shared-string references; text in the rows that
+        // survive keeps them, since those cells move rather than disappear.
+        foreach (var (firstRow, lastRow) in map.GetRunsBottomUp())
+            DereferenceTextInRange(new Area(firstRow, 1, lastRow, XLHelper.MaxColumnNumber));
+
+        _values.DeleteRowsAndCompact(map);
+    }
+
     public IEnumerator<Point> GetEnumerator(Area range, bool reverse = false) => _values.GetEnumerator(range, reverse);
 
     public void InsertAreaAndShiftDown(Area range)

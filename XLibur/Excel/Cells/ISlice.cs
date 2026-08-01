@@ -33,6 +33,16 @@ internal interface ISlice
     int MaxRow { get; }
 
     /// <summary>
+    /// Remove a set of whole rows and close the gaps, in one pass over the slice.
+    /// </summary>
+    /// <remarks>
+    /// The whole-row, whole-deletion counterpart of <see cref="DeleteAreaAndShiftUp"/>. Because a row
+    /// is one stored value rather than a run of cells, and because the entire deletion is applied at
+    /// once, this costs one operation per used row instead of one per cell below each deleted row.
+    /// </remarks>
+    void DeleteRowsAndCompact(XLRowDeletionMap map);
+
+    /// <summary>
     /// A set of columns that have at least one used cell. The order of columns is non-deterministic.
     /// </summary>
     Dictionary<int, int>.KeyCollection UsedColumns { get; }
