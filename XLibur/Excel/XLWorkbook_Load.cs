@@ -881,7 +881,7 @@ public partial class XLWorkbook
         if (!string.IsNullOrEmpty(value))
             return Guid.TryParse(value, out guid);
 
-        guid = default;
+        guid = Guid.Empty;
         return false;
     }
 

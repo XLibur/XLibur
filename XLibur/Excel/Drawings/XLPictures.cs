@@ -242,17 +242,17 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         return members;
     }
 
-    private (long MinX, long MinY, long MaxX, long MaxY) ValidateMembersAndComputeBounds(List<XLPicture> members)
+    private (long MinX, long MinY, long MaxX, long MaxY) ValidateMembersAndComputeBounds(List<XLPicture> pictures)
     {
         var wb = _worksheet.Workbook;
         long minX = long.MaxValue, minY = long.MaxValue, maxX = long.MinValue, maxY = long.MinValue;
 
-        foreach (var member in members)
+        foreach (var member in pictures)
         {
             if (!ReferenceEquals(member.Worksheet, _worksheet))
-                throw new ArgumentException("All pictures must belong to this worksheet.", "pictures");
+                throw new ArgumentException("All pictures must belong to this worksheet.", nameof(pictures));
             if (member.IsInGroup)
-                throw new ArgumentException($"Picture '{member.Name}' is already in a group.", "pictures");
+                throw new ArgumentException($"Picture '{member.Name}' is already in a group.", nameof(pictures));
             if (member.Placement != XLPicturePlacement.FreeFloating)
                 throw new NotSupportedException(
                     $"Only free-floating pictures can be grouped; '{member.Name}' is '{member.Placement}'. Call MoveTo(left, top) first.");

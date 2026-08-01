@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using XLibur.Report.Rewriting;
 
@@ -7,7 +8,11 @@ public class SheetReferenceTests
 {
     private static SheetReference Parse(string text)
     {
-        SheetReference.TryParse(text, out var reference);
+        // Every case here is a reference the parser is expected to accept. Failing loudly beats
+        // returning a default that turns into a baffling assertion failure further down.
+        if (!SheetReference.TryParse(text, out var reference))
+            throw new ArgumentException($"'{text}' did not parse as a sheet reference.", nameof(text));
+
         return reference;
     }
 

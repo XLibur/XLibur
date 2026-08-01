@@ -105,7 +105,7 @@ internal sealed class RangeExpander
 
         // Captured before anything moves: the rules are re-pointed afterwards from the template's
         // original geometry.
-        var templateFormats = CaptureConditionalFormats(sheet, axis, area, firstSlot, dataLastSlot);
+        var templateFormats = CaptureConditionalFormats(sheet, axis, firstSlot, dataLastSlot);
         var formatsBeforeExpansion = new HashSet<IXLConditionalFormat>(
             sheet.ConditionalFormats,
             ReferenceEqualityComparer.Instance);
@@ -475,7 +475,6 @@ internal sealed class RangeExpander
     private static List<CapturedConditionalFormat> CaptureConditionalFormats(
         IXLWorksheet sheet,
         RangeAxis axis,
-        RangeArea area,
         int dataFirstSlot,
         int dataLastSlot)
     {

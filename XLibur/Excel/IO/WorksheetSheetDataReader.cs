@@ -213,7 +213,9 @@ internal static class WorksheetSheetDataReader
             switch (localName)
             {
                 case "r":
-                    TryParseOoxmlNonNegativeInt(value, out rowIndex);
+                    // A malformed r leaves rowIndex at zero, which the caller reads as "no r" and
+                    // resolves to the next sequential row. Discarding the result is the behaviour.
+                    _ = TryParseOoxmlNonNegativeInt(value, out rowIndex);
                     break;
                 case "ht":
                     height = double.Parse(value, NumberStyles.Float, XLHelper.ParseCulture);
@@ -380,7 +382,9 @@ internal static class WorksheetSheetDataReader
                     cellRef = Point.Parse(value);
                     break;
                 case "s":
-                    TryParseOoxmlNonNegativeInt(value, out styleIndex);
+                    // A malformed s leaves styleIndex at zero, the default style. Discarding the
+                    // result is the behaviour.
+                    _ = TryParseOoxmlNonNegativeInt(value, out styleIndex);
                     break;
                 case "t":
                     dataType = ParseCellDataType(value);

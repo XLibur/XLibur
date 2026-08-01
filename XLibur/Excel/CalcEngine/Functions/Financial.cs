@@ -536,7 +536,7 @@ internal static class Financial
         var total = 0d;
         for (var period = Math.Ceiling(startPeriod); period <= Math.Truncate(endPeriod); period++)
         {
-            var interest = InterestOfPeriod(rate, period, numberOfPayments, presentValue, type, pmt);
+            var interest = InterestOfPeriod(rate, period, presentValue, type, pmt);
             total += principal ? pmt - interest : interest;
         }
 
@@ -544,7 +544,7 @@ internal static class Financial
     }
 
     /// <summary>Interest portion of a single annuity payment; the IPMT calculation without the argument checks.</summary>
-    private static double InterestOfPeriod(double rate, double period, double numberOfPayments, double presentValue, double type, double pmt)
+    private static double InterestOfPeriod(double rate, double period, double presentValue, double type, double pmt)
     {
         // Payment one of an annuity-due carries no interest — the payment is made before any accrues.
         if (type != 0 && period == 1)
