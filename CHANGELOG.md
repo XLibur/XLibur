@@ -3,6 +3,7 @@
 ## Contents
 
 - [Unreleased](#unreleased)
+- [XLibur.Report — Unreleased](#xliburreport--unreleased)
 - [v0.106.0](#v01060---2026-07-25)
 
 ## Unreleased
@@ -114,6 +115,19 @@
 
 - **Chart anchoring**: `IXLChart.Anchor` (`MoveAndSizeWithCells`, `MoveWithCells`, `Absolute`) with `Width`, `Height`, `Left` and `Top` in pixels, so a chart can keep its size as rows are inserted or be pinned to a spot on the sheet. Two-cell anchoring via `Position`/`SecondPosition` remains the default. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
 
+#### Comments
+
+- **Threaded comments are modelled and round-trip**: `IXLCell.GetThreadedComment()`, `CreateThreadedComment(author, text)` and `HasThreadedComment`, with `IXLThreadedComment` (`Text`, `Author`, `CreatedUtc`, `Parent`, `Replies`, `Resolved`, `AddReply`, `Delete`) and the workbook's author list on `IXLWorkbook.Persons`. Previously a thread was read lossily — the whole conversation was flattened into the legacy note's text joined by newlines, discarding authors, timestamps and reply structure — and there was no write path at all, so saving regenerated the fallback note without the `tc={rootId}` marker that ties it to the thread, leaving Excel with threaded parts it no longer recognised a fallback for.
+
+  ```csharp
+  var author = workbook.Persons.Add("Dana Reed");
+  var thread = sheet.Cell("B4").CreateThreadedComment(author, "Is this figure final?");
+  thread.AddReply(workbook.Persons.Add("Sam Ali"), "Yes — signed off Friday.");
+  thread.Resolved = true;
+  ```
+
+  A cell carries either a note or a thread, never both; creating one over the other throws rather than silently discarding it. Timestamps are pinned to UTC, since Excel writes no designator. The fallback note and its VML shape are regenerated from the thread on every save so the two cannot drift after an edit, and mentions round-trip as raw XML — they are dropped when the text changes, because their offsets index into the text they were written against. Verified against Excel 365: threads created from scratch, an Excel-authored file round-tripped, that file edited through the API, and a sheet mixing a note with a thread all open with no repair prompt. ([#258](https://github.com/XLibur/XLibur/pull/258) by [@jafin](https://github.com/jafin))
+
 #### Colours and styles
 
 - **`XLColorType.Automatic`**, with `XLColor.Automatic` and `XLColor.IsAutomatic`. OOXML has four kinds of colour and XLibur modelled three; the automatic colour (ECMA-376 `CT_Color/@auto`, what Excel's font colour picker labels "Automatic") was disguised as a fully transparent black. `auto="1"` is now read and written explicitly. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
@@ -129,6 +143,12 @@
 #### Formula engine
 
 - **The Excel function table is built once per process instead of once per calc engine** — about 70 KB and 0.12 ms back on every engine constructed, which is one per workbook that touches a formula plus a fresh one on some internal evaluation paths. Opening a workbook allocates 644 → 574 KB. The ~400-entry table is the same whatever the culture (a function takes its culture from the calculation context, not from the engine holding it) and nothing mutates it after it is built, so the per-engine copy only ever bought a private duplicate of a constant. ([#276](https://github.com/XLibur/XLibur/issues/276), [#306](https://github.com/XLibur/XLibur/pull/306) by [@jafin](https://github.com/jafin))
+
+- **Evaluating a formula no longer re-parses the addresses it holds.** A reference node built its range address by parsing an address string that the node itself had generated from an already-parsed reference, so the parse only recovered what it was holding — through a `Contains`, a `Split` allocating an array plus a substring per endpoint, and an address parse per endpoint. The address is now built from the parsed form and the result memoised on the node, which pays off because a formula's syntax tree is shared by every cell holding the same text. Recalculating 20,000 formula rows is 12–18% quicker and allocates 35% less. ([#286](https://github.com/XLibur/XLibur/pull/286) by [@jafin](https://github.com/jafin))
+
+#### Structural edits
+
+- **Inserting or deleting rows one at a time is roughly 3× quicker on a sheet full of formulas** (1,000 single-row inserts over 1,000 formula cells and 1,000 live ranges: 4,753 → 1,556 ms, 6,091 → 2,072 MB). Formula shifting was 68% of that cost, and its expense was not the regular expression it looked like: for every matched address it materialised a live range through the worksheet's range repository, once per reference, per formula, per shift. References are now shifted through `ClosedXML.Parser`, which hands each one back already decomposed, so no address is re-parsed and a formula the shift cannot reach is returned as the same string instance. Equivalence with the previous implementation is pinned by a 2,072-case corpus. Separately, a shift pass no longer visits ranges it provably cannot move — a range out of a shift's reach is now free rather than merely cheap. ([#264](https://github.com/XLibur/XLibur/pull/264) by [@jafin](https://github.com/jafin))
 
 #### Styling
 
@@ -155,6 +175,14 @@
 - **A reference whose rows or columns are all deleted becomes `#REF!`** ([ClosedXML #880](https://github.com/ClosedXML/ClosedXML/issues/880)): endpoints were shifted by the deleted height and clamped to row 1, so deleting rows 1–5 turned `Sheet1!$A$1:$B$2` into `Sheet1!$A$1:$B$1` — a phantom one-row range over whatever data had moved up into it. The same shifter serves cell formulas, so `=SUM(A1:A2)` with those rows deleted now reads `SUM(#REF!)` rather than quietly summing the wrong cells. Deleting the sheet afterwards drops the stale sheet prefix instead of leaving a defined name pointing at a sheet that no longer exists. ([#243](https://github.com/XLibur/XLibur/pull/243) by [@jafin](https://github.com/jafin))
 
 - **Row-only and column-only references are positioned correctly when rows or columns are inserted or deleted**: `3:5` with row 4 deleted became `2:4` — a reference that had walked onto row 2, which it never covered, while losing row 5, which survived. Because a multi-row delete is applied one row at a time, the reference kept drifting up instead of shrinking and never became small enough for the `#REF!` check to fire. Insertions had the mirror problem: inserting two rows at row 4 moved `3:5` to `5:7` rather than expanding it to `3:7`. Both axes now follow the same boundary rules as an equivalent cell range. ([#244](https://github.com/XLibur/XLibur/pull/244) by [@jafin](https://github.com/jafin))
+
+- **A formula reading a table keeps up with the table's contents.** A structured reference such as `=SUM(Table1[Amount])` registered no precedents at all, so nothing invalidated the formula when those cells changed and it went on serving a stale cached value until something forced a full recalculation. Evaluation and dependency tracking now resolve a structured reference through the same code, so they cannot disagree about what one covers. A reference naming a table on another sheet is also resolved against *that* sheet rather than the calling one — it previously read the same coordinates on the wrong sheet, quietly returning 0. ([#297](https://github.com/XLibur/XLibur/pull/297) by [@jafin](https://github.com/jafin))
+
+- **A defined name holding a structured reference resolves to what the reference says.** `IXLDefinedName.Ranges` resolved every form as though it named a data column, so a name over `Sales[[#Headers],[Amount]]` pointed at the data instead of the header, a column span `Sales[[Amount]:[Tax]]` lost everything but its first column, and a whole-table `Sales[#All]` resolved to nothing. An unknown column threw `ArgumentOutOfRangeException` out of a property getter — reachable just by loading a workbook whose table column had since been renamed; it now contributes no range, as an unknown table already did. `Sales[Amount]`, the common form, resolves as before. ([#311](https://github.com/XLibur/XLibur/pull/311) by [@jafin](https://github.com/jafin))
+
+- **A deletion that removes the tail of a reference no longer inverts it.** The new bottom was computed as the last row plus the shift with nothing clamping it to the row above the deletion, so `3:5` with rows 5–7 deleted came back as `3:2` — an inverted range, not a valid formula — and `A2:A8` with rows 5–9 deleted came back as `A2:A3`, dropping row 4, which survived. Both now shrink to the rows that are left. ([#264](https://github.com/XLibur/XLibur/pull/264) by [@jafin](https://github.com/jafin))
+
+- **A reference written back to front evaluates instead of throwing.** `=SUM(B2:A1)` threw `ArgumentException("Range address must be normalized")` because the parser hands endpoints back in the order they were written and nothing ordered them before use. Each axis is now ordered independently, carrying its own fixed marker, and the formula evaluates as Excel's does. ([#286](https://github.com/XLibur/XLibur/pull/286) by [@jafin](https://github.com/jafin))
 
 - **Copying a worksheet repoints the copy's self-references at the copy** ([ClosedXML #836](https://github.com/ClosedXML/ClosedXML/issues/836)): copying a sheet named `Original` holding `Original!A1 * 3` produced a sheet whose formula still pointed back at the original. References to *other* sheets are left alone, as they should be. ([#241](https://github.com/XLibur/XLibur/pull/241) by [@jafin](https://github.com/jafin))
 
@@ -200,7 +228,29 @@
 
 - **`IXLComment.Delete()` removes the note from where it is now, not where it was created** ([#259](https://github.com/XLibur/XLibur/issues/259)): a note remembered the cell it was constructed with, and inserting or deleting rows or columns moves the note without telling it. Deleting a note on `A5` after two rows were inserted above cleared `A5` — by then an empty cell — and left the note sitting on `A7`. The note is now confirmed to still be the one at the remembered address before that address is cleared, and located by identity when it is not. ([#268](https://github.com/XLibur/XLibur/pull/268) by [@jafin](https://github.com/jafin))
 
+#### Data validation
+
+- **A data validation is never written covering nothing.** The schema requires a rule's `sqref` to be non-empty, and Excel reads `sqref=""` as corruption — it repairs the workbook and drops *every* validation on the sheet, not just the broken one. Two paths produced one: adding a validation over a range that wholly contained an existing rule left that rule with no coverage, and the public `ClearRanges`/`RemoveRange` let a caller empty one directly. A rule the split leaves with nothing is now deleted, and the writer skips any rule with no coverage — a rule applying to no cell has nothing to say. Where the emptied rule was the only one on the sheet, the `dataValidations` element is omitted rather than written holding a single broken child. ([#290](https://github.com/XLibur/XLibur/pull/290) by [@jafin](https://github.com/jafin))
+
+#### Autofilter
+
+- **A worksheet autofilter keeps the parts of a filter XLibur does not model.** The runtime state is a lossy view of the element — it has no room for an `iconFilter`, the button attributes, `extLst`, or the dynamic filter types beyond the two averages — and those were dropped on save. A column that has not been changed is now written back from the criteria it was loaded with; every mutation drops them, so an edit is never discarded. ([#310](https://github.com/XLibur/XLibur/pull/310) by [@jafin](https://github.com/jafin))
+
+- **Loading a relative-date filter no longer throws.** A `dynamicFilter` using any of the ~38 relative date types (`thisMonth`, `yearToDate`, `lastQuarter`, …) threw `KeyNotFoundException`, because the token was looked up in a two-entry map. The token is carried as written, so the file loads and the filter survives. ([#310](https://github.com/XLibur/XLibur/pull/310) by [@jafin](https://github.com/jafin))
+
+#### Pivot tables
+
+- **Pivot field filters survive a round trip.** The `filters` element holds the label, value, date and top-N filters applied to pivot fields — what Excel offers from a field's dropdown — and the reader skipped it, so loading and saving silently un-filtered every pivot table in the workbook. That changes what the workbook *shows*, not just what it remembers. (Not to be confused with the report-filter axis, which is the `pageFields` element and was already supported.) ([#300](https://github.com/XLibur/XLibur/pull/300), [#310](https://github.com/XLibur/XLibur/pull/310) by [@jafin](https://github.com/jafin))
+
+- **A PivotChart keeps its manual series and point formatting.** The chart part holds the formatting, but the pivot table's `chartFormats` collection is what ties each formatting record to the pivot area it applies to, and the reader skipped the element — so a round trip dropped every link and the formatting disappeared. ([#294](https://github.com/XLibur/XLibur/pull/294) by [@jafin](https://github.com/jafin))
+
 ### 🗑️ Deprecations
+
+#### Collections
+
+- **`IXLBaseCollection<TSingle, TMultiple>` is deprecated ahead of removal.** Nothing in XLibur implements, extends or consumes it — the collections it looks like it should describe (`IXLColumns`, `IXLRows`, `IXLCells`, `IXLRangeColumns`, `IXLRangeRows`) all derive from `IEnumerable<T>` alone. Marking it produced no build warnings anywhere in the solution, which is a second confirmation that it is an orphan. It is public, so an external consumer could in principle implement it, and it gets a normal deprecation period rather than being removed outright. ([#296](https://github.com/XLibur/XLibur/pull/296) by [@jafin](https://github.com/jafin))
+
+  Note also that the three groups of already-shipped `[Obsolete]` members are removed in the next minor version — `XLColor.NoColor`, deprecated below, is the exception and stays. ([#296](https://github.com/XLibur/XLibur/pull/296) by [@jafin](https://github.com/jafin))
 
 #### Colours and styles
 
@@ -215,6 +265,53 @@
   ```
 
   A straight rename — `NoColor` returns `Automatic`, so the two are the same value.
+
+## XLibur.Report — Unreleased
+
+`XLibur.Report` is versioned and released independently of the core library, on its own
+`report-v*` tag stream, so its changes are recorded here rather than under the core version
+above. Nothing in this section has shipped yet.
+
+### ✨ New Features
+
+#### Report templating
+
+- **`XLibur.Report` — build a report from a template that is itself an ordinary `.xlsx` file.** You author the report in Excel — the fonts, the number formats, the borders, the chart, the pivot table — and mark the parts that come from data with `{{ }}` expressions and `<<Tag>>` markers. At run time you bind .NET objects to it and generate the finished workbook, so none of the report's *appearance* is described in code. ([#273](https://github.com/XLibur/XLibur/pull/273) by [@jafin](https://github.com/jafin))
+
+  ```csharp
+  using XLibur.Report;
+
+  using var template = new XLTemplate("SalesReport.xlsx");
+  template.AddVariable("Company", "Contoso Ltd");
+  template.AddVariable("Sales", sales);
+
+  template.Generate();
+  template.SaveAs("SalesReport-2026.xlsx");
+  ```
+
+  A template does three things. A `{{ … }}` expression anywhere in a cell's text is evaluated and replaced, resolving to a *typed* value — a decimal total reaches Excel as a number, not as text — and `&=` at the start of a cell builds a formula. A **defined name** matching a bound collection makes the rows it covers repeat, once per item, with `item` in scope. The last row of a bound range is its **options row**: it is not repeated, it carries the tags, and it is deleted if nothing was written into it.
+
+  The tags cover totals (`<<Sum>>`, `<<Avg>>`, `<<Count>>`, `<<Max>>`, `<<Min>>`, `<<StdDev>>`, `<<Var>>` and friends, left as live `SUBTOTAL` formulas rather than computed numbers), `<<Sort>>`, `<<Group>>` with an Excel outline and subtotals, `<<If>>`, `<<Horizontal>>` to repeat across columns instead of down rows, `<<AutoFilter>>`, `<<ColsFit>>`/`<<RowsFit>>`, `<<Hidden>>`, `<<Delete>>` and `<<Pivot>>`. You can register a tag of your own.
+
+  A bad expression records a `TemplateError` and marks the cell red rather than aborting the run, so one broken cell does not cost you the report.
+
+- **Charts, pivot tables, pictures and conditional formats survive range expansion.** A chart series drawn over the template's repeated row plots every generated row; a template pivot table is re-pointed at the generated rows, refreshed, and moved if the rows grew over it, while `<<Pivot dest="…">>` builds one from the template's own shape; a picture below a bound range ends up below the generated rows; and a conditional-format rule over the repeated rows is *stretched* over the generated block rather than copied per generated cell. ([#273](https://github.com/XLibur/XLibur/pull/273) by [@jafin](https://github.com/jafin))
+
+- **Excel's own functions are available inside `{{ }}`, under their Excel names** — `{{ SUM(array.map items "Total") }}` — so a template author reaches for the function they already know rather than a Scriban equivalent. ([#273](https://github.com/XLibur/XLibur/pull/273) by [@jafin](https://github.com/jafin))
+
+- **`XLibur.Report.DynamicLinq` runs ClosedXML.Report's C# expression syntax as written.** The default engine is [Scriban](https://github.com/scriban/scriban), which is a template language rather than C#, so expressions like `{{item.Name.ToUpper()}}` need translating. Installing the DynamicLinq package and passing its engine to `XLTemplate` avoids touching them at all. ([#273](https://github.com/XLibur/XLibur/pull/273) by [@jafin](https://github.com/jafin))
+
+  ```csharp
+  using var template = new XLTemplate("SalesReport.xlsx", new DynamicLinqExpressionEngine());
+  ```
+
+  The rest of a ClosedXML.Report template carries over unchanged: defined names bind ranges, the last row is the options row, `<<Tag>>` markers keep their names and meanings, property paths in a defined name work the same way (`Order_Lines` binds `Order.Lines`), and the API shape — `new XLTemplate(path)`, `AddVariable`, `Generate`, `SaveAs` — is the same.
+
+- **Report generation is culture-controlled, not machine-controlled.** `IExpressionEngine.Culture` is what orders rows and formats group labels, so the same template over the same data produces the same report wherever it runs. Both engines default to the invariant culture and expose the culture they were constructed with. ([#305](https://github.com/XLibur/XLibur/pull/305) by [@jafin](https://github.com/jafin))
+
+- **Hidden sheets are generated.** A hidden sheet is a normal place to keep the lookup tables and working data a report is built from, so generation follows the data rather than what the reader can see. Hiding a sheet controls what the reader sees; deleting it after `Generate()` is what keeps it out of the report. ([#304](https://github.com/XLibur/XLibur/pull/304) by [@jafin](https://github.com/jafin))
+
+- **Defined names bind under Excel's scoping and matching rules.** Two sheet-scoped names sharing a name — a `Q1!Items` section and a `Q2!Items` section — both bind, where previously the second silently generated blank. A workbook-scoped name binds except on a sheet declaring its own name of that name, which is what Excel does. And a name is matched to its variable case-insensitively, as Excel holds names in one case-insensitive namespace, so a template author who types `ITEMS` in the name box has named the variable added as `Items`. An exact match still wins, and two variables differing only by case are reported rather than bound arbitrarily. ([#307](https://github.com/XLibur/XLibur/pull/307), [#314](https://github.com/XLibur/XLibur/pull/314) by [@jafin](https://github.com/jafin))
 
 ## v0.106.0 - 2026-07-25
 
