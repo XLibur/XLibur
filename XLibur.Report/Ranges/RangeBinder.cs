@@ -11,10 +11,17 @@ namespace XLibur.Report.Ranges;
 /// Works out which of a workbook's defined names mark repeating template rows.
 /// </summary>
 /// <remarks>
+/// <para>
 /// A name marks a repeating range when it resolves to a collection: either a variable of the same
 /// name, or — for a name like <c>Customer_Orders</c> — a property path walked from one. Names that
 /// resolve to nothing, or to a single value, are left alone; a template is free to use defined
 /// names for their ordinary purpose.
+/// </para>
+/// <para>
+/// Names are gathered under Excel's scoping rules rather than de-duplicated workbook-wide, so a
+/// template may declare the same name once per sheet — <c>Q1!Items</c> and <c>Q2!Items</c> — and
+/// have every one of them bind. See <see cref="EnumerateNames"/>.
+/// </para>
 /// </remarks>
 internal static class RangeBinder
 {
@@ -28,15 +35,9 @@ internal static class RangeBinder
         TemplateErrors errors)
     {
         var bound = new List<BoundRange>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var definedName in EnumerateNames(workbook))
         {
-            if (!seen.Add(definedName.Name))
-            {
-                continue;
-            }
-
             if (!TryResolveItems(definedName.Name, variables, out var items))
             {
                 continue;
@@ -67,20 +68,67 @@ internal static class RangeBinder
             .ToList();
     }
 
+    /// <summary>
+    /// The names a template can bind, with Excel's scoping applied.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every sheet-scoped name is yielded — the same name on two sheets is two names in Excel, and a
+    /// template with one section per sheet is the obvious way to write it — followed by each
+    /// workbook-scoped name that no sheet has shadowed.
+    /// </para>
+    /// <para>
+    /// Excel decides shadowing by where a reference is written: a sheet-scoped name hides the
+    /// workbook-scoped one of that name on its own sheet, and nowhere else. A defined name here is
+    /// not read from anywhere, it <em>is</em> a range, so the sheet it sits on stands in for the
+    /// sheet a reference would be written on. A workbook-scoped <c>Items</c> covering <c>Q1!A5:C5</c>
+    /// therefore keeps binding when <c>Q2</c> declares its own <c>Items</c>, and is dropped when
+    /// <c>Q1</c> does.
+    /// </para>
+    /// </remarks>
     private static IEnumerable<IXLDefinedName> EnumerateNames(IXLWorkbook workbook)
     {
-        foreach (var name in workbook.DefinedNames.ValidNamedRanges())
-        {
-            yield return name;
-        }
+        var declaringSheets = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var worksheet in workbook.Worksheets)
         {
             foreach (var name in worksheet.DefinedNames.ValidNamedRanges())
             {
+                if (!declaringSheets.TryGetValue(name.Name, out var sheets))
+                {
+                    sheets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    declaringSheets[name.Name] = sheets;
+                }
+
+                sheets.Add(worksheet.Name);
                 yield return name;
             }
         }
+
+        foreach (var name in workbook.DefinedNames.ValidNamedRanges())
+        {
+            if (!IsShadowed(name, declaringSheets))
+            {
+                yield return name;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether the sheet a workbook-scoped name covers declares a name of its own by that name.
+    /// </summary>
+    /// <remarks>
+    /// The name's ranges are only read when some sheet declares the name at all, which is almost
+    /// never; a lookup that misses costs a dictionary probe and no parsing of <c>RefersTo</c>.
+    /// </remarks>
+    private static bool IsShadowed(IXLDefinedName name, Dictionary<string, HashSet<string>> declaringSheets)
+    {
+        if (!declaringSheets.TryGetValue(name.Name, out var sheets))
+        {
+            return false;
+        }
+
+        return name.Ranges.Any(range => sheets.Contains(range.Worksheet.Name));
     }
 
     /// <summary>

@@ -97,6 +97,23 @@ entirely.
 Defined names may address a property path with an underscore: a name `Order_Lines` binds
 `order.Lines` where `Order` is the bound variable.
 
+### Name scope
+
+Names bind under Excel's own scoping. A name scoped to a **sheet** may be declared once per sheet, and
+every one of them binds — the natural way to write a template with a section per sheet:
+
+```
+Q1!Items → Q1!A2:C3     both bind, both read the Items variable
+Q2!Items → Q2!A2:C3
+```
+
+A name scoped to the **workbook** binds everywhere except on a sheet that declares its own name of that
+name, which shadows it there and nowhere else. Shadowing is silent: it is what Excel does, so it is not
+reported as a template error.
+
+The name is what selects the variable, so all the ranges above read `Items`. To bind two sheets to
+different data, give the ranges different names.
+
 ## Tags
 
 `<<Tag param=value>>` in a range's options row. Parameters may be bare flags (`desc`), assigned
