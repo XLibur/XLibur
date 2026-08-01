@@ -31,7 +31,7 @@ version=${1:?usage: generate-sbom.sh <version> <output-dir> <project>...}
 output=${2:?usage: generate-sbom.sh <version> <output-dir> <project>...}
 shift 2
 
-if [ "$#" -eq 0 ]; then
+if [[ "$#" -eq 0 ]]; then
   echo "::error::No projects given — nothing to generate" >&2
   exit 1
 fi
@@ -48,8 +48,8 @@ for project in "$@"; do
   csproj="$repo_root/$project/$project.csproj"
   filename="$project.$version.cdx.json"
 
-  if [ ! -f "$csproj" ]; then
-    echo "::error::$csproj does not exist"
+  if [[ ! -f "$csproj" ]]; then
+    echo "::error::$csproj does not exist" >&2
     status=1
     continue
   fi
@@ -70,20 +70,20 @@ for project in "$@"; do
       --exclude-test-projects \
       --set-name "$project" \
       --set-version "$version"; then
-    echo "::error::CycloneDX failed for $project"
+    echo "::error::CycloneDX failed for $project" >&2
     status=1
   fi
 
   echo "::endgroup::"
 
-  if [ ! -s "$output/$filename" ]; then
-    echo "::error::$filename was not produced"
+  if [[ ! -s "$output/$filename" ]]; then
+    echo "::error::$filename was not produced" >&2
     status=1
   fi
 done
 
-if [ "$status" -ne 0 ]; then
-  echo "::error::SBOM generation failed — refusing to continue"
+if [[ "$status" -ne 0 ]]; then
+  echo "::error::SBOM generation failed — refusing to continue" >&2
   exit 1
 fi
 
