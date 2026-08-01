@@ -56,6 +56,45 @@ Solution uses `.slnx` format (modern MSBuild Solution Extension).
   finds 0 tests. Tracked upstream at stryker-mutator/stryker-net#3094. `stryker-config.json`
   and the tool manifest are left in place for when support lands.
 
+### "Zero tests ran" / exit code 5 — filter syntax, not a broken suite
+
+`dotnet test` reports an unknown runner option as `Zero tests ran` + `Exit code: 5` and
+swallows the real message. Nothing is wrong with discovery; the argument was rejected before
+any test ran. Run the built test executable directly to see the truth:
+
+```
+XLibur.Tests/bin/Debug/net10.0/XLibur.Tests.exe --filter Foo
+  -> Unknown option '--filter'
+```
+
+Distinguish the two exit codes:
+
+- **Exit 5 = invalid command line.** A VSTest-era option was passed. `--filter`,
+  `--logger`, `--collect` and `--blame` do **not** exist on this runner.
+- **Exit 8 = zero tests genuinely matched.** The filter is valid but selected nothing.
+
+**Filtering uses `--treenode-filter`, not `--filter`:**
+
+```
+dotnet test XLibur.Tests/XLibur.Tests.csproj -f net10.0 --treenode-filter "/*/*/PivotFilterCriteriaTests/*"
+```
+
+The path is `/Assembly/Namespace/Class/Test`; `*` wildcards each segment.
+
+Other notes:
+
+- Pass `-f net10.0`. The test projects multi-target `net8.0;net10.0`, so an unfiltered run
+  executes the whole suite twice.
+- MSBuild options still work — `-v n`, `--no-build`, `-c Release` are handled by the
+  `dotnet test` wrapper and never reach the runner.
+- **Do not filter at solution level.** `dotnet test XLibur.slnx --treenode-filter ...` exits 8
+  even when every selected test passes, because the other six test projects each match zero
+  tests. Neither `--minimum-expected-tests 0` nor `--zero-tests-policy` suppresses it (valid
+  values are `allow-skipped` and `strict` — there is no `ignore`). Name the specific
+  `.csproj` instead.
+- `--diagnostic` writes a `log_*.diag` file when the cause is still unclear.
+- See also https://tunit.dev/docs/troubleshooting/
+
 ## Key Dependencies
 
 - **DocumentFormat.OpenXml** 3.4.1 - Core OpenXML implementation ([source](https://github.com/dotnet/Open-XML-SDK))
