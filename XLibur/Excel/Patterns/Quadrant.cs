@@ -323,29 +323,7 @@ internal class Quadrant
         if (_subtreeCount == 0)
             return 0;
 
-        var count = 0;
-
-        if (_ranges != null)
-        {
-            List<IXLRangeAddress>? keysToRemove = null;
-            foreach (var range in _ranges.Values)
-            {
-                if (!predicate(range))
-                    continue;
-
-                (keysToRemove ??= new List<IXLRangeAddress>()).Add(range.RangeAddress);
-                removed.Add(range);
-            }
-
-            if (keysToRemove != null)
-            {
-                foreach (var keyToRemove in keysToRemove)
-                {
-                    if (_ranges.Remove(keyToRemove))
-                        count++;
-                }
-            }
-        }
+        var count = RemoveOwnRanges(predicate, removed);
 
         var children = Children;
         if (children != null)
@@ -355,6 +333,39 @@ internal class Quadrant
         }
 
         _subtreeCount -= count;
+        return count;
+    }
+
+    /// <summary>
+    /// Removes this quadrant's own matching ranges, appending them to <paramref name="removed"/>, and
+    /// returns how many went. The matches are collected before any are removed because the dictionary
+    /// cannot be modified while its values are being enumerated.
+    /// </summary>
+    private int RemoveOwnRanges(Predicate<IXLAddressable> predicate, List<IXLAddressable> removed)
+    {
+        if (_ranges == null)
+            return 0;
+
+        List<IXLRangeAddress>? keysToRemove = null;
+        foreach (var range in _ranges.Values)
+        {
+            if (!predicate(range))
+                continue;
+
+            (keysToRemove ??= new List<IXLRangeAddress>()).Add(range.RangeAddress);
+            removed.Add(range);
+        }
+
+        if (keysToRemove == null)
+            return 0;
+
+        var count = 0;
+        foreach (var keyToRemove in keysToRemove)
+        {
+            if (_ranges.Remove(keyToRemove))
+                count++;
+        }
+
         return count;
     }
 
