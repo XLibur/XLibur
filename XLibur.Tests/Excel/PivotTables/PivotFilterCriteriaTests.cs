@@ -5,6 +5,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Validation;
+using TUnit.Assertions.Enums;
 using XLibur.Excel;
 
 namespace XLibur.Tests.Excel.PivotTables;
@@ -42,8 +43,7 @@ public class PivotFilterCriteriaTests
     }
 
     /// <summary>
-    /// The other form of <c>filters</c>: date groups rather than values. The schema makes the two
-    /// a choice, so a column uses one or the other.
+    /// The other form of <c>filters</c>: date groups rather than values.
     /// </summary>
     [Test]
     public async Task DateGroupFilter_SurvivesARoundTrip()
@@ -73,6 +73,52 @@ public class PivotFilterCriteriaTests
         // The parts finer than the grouping stay absent: Excel reads a present part as one the
         // filter matches on, so writing hour="0" would narrow the filter.
         await Assert.That(dateGroup.Hour).IsNull();
+    }
+
+    /// <summary>
+    /// Values and date groups in one <c>filters</c> element.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>CT_Filters</c> is an <c>xsd:sequence</c> of <c>filter [0..*]</c> followed by
+    /// <c>dateGroupItem [0..*]</c>, not a choice, so the two belong together in one element. It is
+    /// what Excel writes for a mixed tick-box selection over a date column: a fully ticked month
+    /// becomes a <c>dateGroupItem</c>, individually ticked dates become <c>filter</c> entries.
+    /// </para>
+    /// <para>
+    /// Worth pinning because <c>OpenXmlValidator</c> reports the combination as an error. The
+    /// validator is stricter than the schema here, which is why
+    /// <see cref="EveryFilterKindTogether_ProducesASchemaValidPackage"/> keeps the two apart and
+    /// this test does not go through it.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ValuesAndDateGroupsTogether_SurviveARoundTrip()
+    {
+        var filters = new Filters();
+        filters.Append(new Filter { Val = "Cookies" });
+        filters.Append(new DateGroupItem
+        {
+            DateTimeGrouping = DateTimeGroupingValues.Month,
+            Year = 2024,
+            Month = 3,
+        });
+
+        var filterColumn = new FilterColumn { ColumnId = 0U };
+        filterColumn.Append(filters);
+
+        var written = PivotFilterWorkbook.RoundTripFilterColumn(filterColumn).Elements<Filters>().Single();
+
+        await Assert.That(written.Elements<Filter>().Single().Val!.Value).IsEqualTo("Cookies");
+
+        var dateGroup = written.Elements<DateGroupItem>().Single();
+        await Assert.That(dateGroup.DateTimeGrouping!.InnerText).IsEqualTo("month");
+        await Assert.That(dateGroup.Year!.Value).IsEqualTo((ushort)2024);
+        await Assert.That(dateGroup.Month!.Value).IsEqualTo((ushort)3);
+
+        // Schema order: every filter, then every dateGroupItem.
+        await Assert.That(written.ChildElements.Select(child => child.LocalName).ToList())
+            .IsEquivalentTo(new[] { "filter", "dateGroupItem" }, CollectionOrdering.Matching);
     }
 
     /// <summary>
@@ -195,11 +241,15 @@ public class PivotFilterCriteriaTests
     /// Nothing reads <c>extLst</c>, which is exactly why it has to be carried: it is where a
     /// newer Excel puts whatever this build has never heard of.
     /// </summary>
+    /// <remarks>
+    /// The column carries no criteria alongside it. <c>extLst</c> is one of the alternatives in
+    /// the <c>CT_FilterColumn</c> choice rather than an addition to them, so a column holding
+    /// both it and a <c>top10</c> is not something a valid file can contain.
+    /// </remarks>
     [Test]
     public async Task FilterColumnExtensionList_SurvivesARoundTrip()
     {
         var filterColumn = new FilterColumn { ColumnId = 0U };
-        filterColumn.Append(new Top10 { Val = 5D });
         filterColumn.Append(BuildExtensionList("{FEDCBA98-7654-3210-FEDC-BA9876543210}"));
 
         var written = PivotFilterWorkbook.RoundTripFilterColumn(filterColumn);
@@ -283,10 +333,17 @@ public class PivotFilterCriteriaTests
     }
 
     /// <summary>
-    /// A workbook carrying one filter of every kind validates against the schema after a round
+    /// A workbook carrying one filter of every kind passes <c>OpenXmlValidator</c> after a round
     /// trip. Excel repairs a file it cannot parse rather than reporting where it broke, so this
     /// is the check that catches a criteria writer emitting the right values in the wrong shape.
     /// </summary>
+    /// <remarks>
+    /// The validator is not the schema, and it is stricter than the schema on <c>CT_Filters</c>:
+    /// it rejects <c>filter</c> and <c>dateGroupItem</c> in one element, which the
+    /// <c>xsd:sequence</c> allows and Excel writes. The two are kept in separate columns here so
+    /// that this test says something about the writer rather than about that quirk;
+    /// <see cref="ValuesAndDateGroupsTogether_SurviveARoundTrip"/> covers the combination.
+    /// </remarks>
     [Test]
     public async Task EveryFilterKindTogether_ProducesASchemaValidPackage()
     {
@@ -299,6 +356,9 @@ public class PivotFilterCriteriaTests
             new DynamicFilter { Type = DynamicFilterValues.LastQuarter, Val = 45000D },
             new ColorFilter { FormatId = 0U, CellColor = false },
             new IconFilter { IconSet = IconSetValues.ThreeTrafficLights1, IconId = 2U },
+
+            // The seventh alternative in the choice, not an addition to the other six.
+            BuildExtensionList("{11111111-2222-3333-4444-555555555555}"),
         };
 
         var filters = kinds.Select((kind, index) =>

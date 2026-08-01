@@ -46,6 +46,11 @@ public class AutoFilterRoundTripTests
         await Assert.That(written.ShowButton!.Value).IsFalse();
     }
 
+    /// <remarks>
+    /// The column carries no criteria alongside it. <c>extLst</c> is one of the alternatives in
+    /// the <c>CT_FilterColumn</c> choice rather than an addition to them, so a column holding
+    /// both it and a <c>top10</c> is not something a valid file can contain.
+    /// </remarks>
     [Test]
     public async Task FilterColumnExtensionList_SurvivesARoundTrip()
     {
@@ -57,7 +62,6 @@ public class AutoFilterRoundTripTests
         extensionList.Append(extension);
 
         var filterColumn = new FilterColumn { ColumnId = 0U };
-        filterColumn.Append(new Top10 { Val = 3D });
         filterColumn.Append(extensionList);
 
         var written = RoundTripFilterColumn(filterColumn);
