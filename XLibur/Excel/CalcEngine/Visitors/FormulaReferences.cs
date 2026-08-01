@@ -12,13 +12,6 @@ namespace XLibur.Excel.CalcEngine.Visitors;
 /// </summary>
 internal sealed class FormulaReferences
 {
-    private readonly string _formula;
-
-    private FormulaReferences(string formula)
-    {
-        _formula = formula;
-    }
-
     /// <summary>
     /// Is there a <c>#REF!</c> anywhere in the formula?
     /// </summary>
@@ -34,11 +27,16 @@ internal sealed class FormulaReferences
     /// </summary>
     internal HashSet<XLSheetReference> SheetReferences { get; } = [];
 
-    private HashSet<(string Table, string Column, string Symbol)> StructuredReferences { get; } = new();
+    /// <summary>
+    /// Structured references (<c>Sales[Amount]</c>) found in the formula, kept as written rather
+    /// than as areas: a table can be resized, renamed or deleted after the formula was parsed, so
+    /// the area a reference covers is only true at the moment it is asked for.
+    /// </summary>
+    private HashSet<StructuredReference> StructuredReferences { get; } = new();
 
     internal static FormulaReferences ForFormula(string formula)
     {
-        var references = new FormulaReferences(formula);
+        var references = new FormulaReferences();
         FormulaParser<object?, object?, FormulaReferences>.CellFormulaA1(formula, references,
             CollectRefsFactory.Instance);
         return references;
@@ -61,13 +59,68 @@ internal sealed class FormulaReferences
             }
         }
 
-        foreach (var (tableName, column, _) in StructuredReferences)
+        if (StructuredReferences.Count > 0)
         {
-            if (workbook.TryGetTable(tableName, out var table))
-                list.Add(table.DataRange!.Column(column));
+            var scope = new DefinedNameScope(workbook, anchor);
+            foreach (var reference in StructuredReferences)
+            {
+                // A reference that does not resolve today — an unknown table, a column since
+                // renamed — contributes no range, the same answer an unknown table has always
+                // given. Excel shows such a name as #REF! rather than refusing the workbook, and
+                // whatever later restores the table makes the name resolve again.
+                if (!StructuredReferenceResolver.TryResolve(scope, reference.ToNode(), out var sheet, out var area, out _))
+                    continue;
+
+                list.Add(sheet.Range(area.TopRow, area.LeftColumn, area.BottomRow, area.RightColumn));
+            }
         }
 
         return list;
+    }
+
+    /// <summary>
+    /// A structured reference as the formula wrote it. A value type so that the same reference
+    /// written twice in one formula counts once.
+    /// </summary>
+    /// <remarks>
+    /// Only references naming a table are collected — <see cref="CollectRefsFactory"/> does not
+    /// override the table-less or external-workbook overloads — so <see cref="Table"/> is never
+    /// null and <see cref="IStructuredReferenceScope.Worksheet"/> is never reached.
+    /// </remarks>
+    private readonly record struct StructuredReference(
+        string Table,
+        StructuredReferenceArea Area,
+        string? FirstColumn,
+        string? LastColumn)
+    {
+        internal StructuredReferenceNode ToNode() => new(null, Table, Area, FirstColumn, LastColumn);
+    }
+
+    /// <summary>
+    /// The formula location a defined name can offer the resolver.
+    /// </summary>
+    /// <remarks>
+    /// A defined name is not written in a cell, so it has no formula location of its own and the
+    /// caller's anchor stands in for one. That only matters to <c>[@Column]</c>, which needs a row
+    /// to mean anything: against the default anchor it lands outside the table's data and resolves
+    /// to no range, which is the right answer for a name Excel would show as <c>#VALUE!</c>.
+    /// </remarks>
+    private readonly struct DefinedNameScope : IStructuredReferenceScope
+    {
+        public DefinedNameScope(XLWorkbook workbook, Point anchor)
+        {
+            Workbook = workbook;
+            FormulaPoint = anchor;
+        }
+
+        public XLWorkbook Workbook { get; }
+
+        public Point FormulaPoint { get; }
+
+        /// <inheritdoc />
+        /// <remarks>Read only for a table-less reference, which is never collected.</remarks>
+        public XLWorksheet Worksheet =>
+            throw new InvalidOperationException("A defined name has no sheet to resolve a table-less reference against.");
     }
 
     /// <summary>
@@ -100,10 +153,7 @@ internal sealed class FormulaReferences
             StructuredReferenceArea area,
             string? firstColumn, string? lastColumn)
         {
-            // TODO: Temporary placeholder, extract range detection from CalculationVisitor
-            if (firstColumn is not null)
-                context.StructuredReferences.Add((table, firstColumn,
-                    context._formula.Substring(range.Start, range.End - range.Start)));
+            context.StructuredReferences.Add(new StructuredReference(table, area, firstColumn, lastColumn));
 
             return base.StructureReference(context, range, table, area, firstColumn, lastColumn);
         }
