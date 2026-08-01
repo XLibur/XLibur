@@ -50,6 +50,17 @@ internal sealed class XLCellFormula
     private FormulaExtra? _extra;
 
     /// <summary>
+    /// Cached value behind <see cref="MaxShiftableRow"/>; <c>0</c> means "not computed yet"
+    /// (no reference can have row 0, so it is unambiguous as a sentinel).
+    /// </summary>
+    private int _maxShiftableRow;
+
+    /// <summary>
+    /// Cached value behind <see cref="MaxShiftableColumn"/>. See <see cref="_maxShiftableRow"/>.
+    /// </summary>
+    private int _maxShiftableColumn;
+
+    /// <summary>
     /// Is this formula clean, i.e. evaluated against the workbook's current edit epoch?
     /// </summary>
     internal bool IsClean(XLWorkbook wb) => _evalEpoch == wb.EditEpoch;
@@ -356,6 +367,33 @@ internal sealed class XLCellFormula
     }
 
     /// <summary>
+    /// The lowest row a row-shift can start at and still rewrite something in this formula, i.e. the
+    /// largest row any shiftable reference reaches. A row deletion or insertion starting below this
+    /// cannot produce an edit, so the shift can be skipped without parsing.
+    /// <para>
+    /// Computed once and cached, because the shift pass asks the same question of every formula in
+    /// the workbook on every structural edit, and the answer only changes when <see cref="A1"/> does.
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// "Shiftable" means the reference kinds <c>XLCellFormulaShifter</c> actually rewrites — plain and
+    /// single-sheet references. Everything else (3D, bang, external, defined names, structured
+    /// references) is left alone by the shifter, so it contributes no bound. A formula the parser
+    /// rejects reports <see cref="XLHelper.MaxRowNumber"/>, which never filters, so it still reaches
+    /// the shifter's legacy fallback.
+    /// </remarks>
+    internal int MaxShiftableRow => _maxShiftableRow != 0
+        ? _maxShiftableRow
+        : _maxShiftableRow = FormulaExtent.Of(A1).MaxRow;
+
+    /// <summary>
+    /// The column counterpart of <see cref="MaxShiftableRow"/>.
+    /// </summary>
+    internal int MaxShiftableColumn => _maxShiftableColumn != 0
+        ? _maxShiftableColumn
+        : _maxShiftableColumn = FormulaExtent.Of(A1).MaxColumn;
+
+    /// <summary>
     /// Get a lazy initialized AST for the formula.
     /// </summary>
     /// <param name="engine">Engine to parse the formula into AST, if necessary.</param>
@@ -383,6 +421,7 @@ internal sealed class XLCellFormula
             return;
 
         A1 = newA1;
+        InvalidateExtent();
         MarkExplicitlyDirty();
     }
 
@@ -397,8 +436,73 @@ internal sealed class XLCellFormula
         if (res != a1)
         {
             A1 = res;
+            InvalidateExtent();
             MarkExplicitlyDirty();
         }
+    }
+
+    /// <summary>
+    /// Drops the cached <see cref="MaxShiftableRow"/>/<see cref="MaxShiftableColumn"/>. Must be
+    /// called from every place that assigns <see cref="A1"/> after construction.
+    /// </summary>
+    private void InvalidateExtent()
+    {
+        _maxShiftableRow = 0;
+        _maxShiftableColumn = 0;
+    }
+
+    /// <summary>
+    /// Seeds this formula's cached extent from the formula it was shifted out of, instead of
+    /// re-deriving it by parsing text that was just parsed by the shifter.
+    /// </summary>
+    /// <remarks>
+    /// A shift moves every reference it touches by the same rule, so the predecessor's bound moved by
+    /// that rule bounds the successor. The result is only ever an over-estimate — a reference clamped
+    /// onto the edge of a deleted block lands below it — and over-estimating is the safe direction:
+    /// the filter that reads this skips a formula only when the bound falls short of the shift, so a
+    /// bound that is too large costs a parse and never a missed rewrite.
+    /// <para>
+    /// Carrying the bound rather than recomputing it is what keeps the filter from being a pessimism
+    /// on sheets where formulas really do move: without it every rewritten formula pays a fresh parse
+    /// on the next shift, which is the parse the filter exists to avoid.
+    /// </para>
+    /// </remarks>
+    /// <param name="source">The formula this one replaces.</param>
+    /// <param name="shiftStart">First row (or column) of the shifted region.</param>
+    /// <param name="shift">Signed shift; negative for a deletion.</param>
+    /// <param name="shiftRows"><c>true</c> for a row shift, <c>false</c> for a column shift.</param>
+    internal void SeedShiftedExtentFrom(XLCellFormula source, int shiftStart, int shift, bool shiftRows)
+    {
+        var sourceBound = shiftRows ? source._maxShiftableRow : source._maxShiftableColumn;
+
+        // Nothing cached on the source means nothing to carry: leave this formula to compute its own
+        // bound on first use.
+        if (sourceBound == 0)
+            return;
+
+        int bound;
+        if (sourceBound < shiftStart)
+        {
+            bound = sourceBound;
+        }
+        else if (shift >= 0)
+        {
+            bound = sourceBound + shift;
+        }
+        else
+        {
+            // A reference that survives moves up by the deleted count; one swallowed by the deletion
+            // collapses onto the row above it. Neither can exceed this.
+            bound = Math.Max(sourceBound + shift, shiftStart - 1);
+        }
+
+        var max = shiftRows ? XLHelper.MaxRowNumber : XLHelper.MaxColumnNumber;
+        bound = Math.Clamp(bound, 1, max);
+
+        if (shiftRows)
+            _maxShiftableRow = bound;
+        else
+            _maxShiftableColumn = bound;
     }
 
     internal XLCellFormula GetMovedTo(Point origin, Point destination)

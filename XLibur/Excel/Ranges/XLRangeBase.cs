@@ -1096,21 +1096,11 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
             RangeAddress.LastAddress.ColumnNumber);
 
         // Shift formulas first
-        var processedArrayFormulas = new HashSet<XLCellFormula>();
-        foreach (var cell in Worksheet
-                     .Workbook
-                     .Worksheets
-                     .Cast<XLWorksheet>()
-                     .SelectMany(ws => ws
-                         .Internals
-                         .CellsCollection
-                         .GetCells(c => c.HasFormula)))
-        {
-            if (shiftDeleteCells == XLShiftDeletedCells.ShiftCellsUp)
-                cell.ShiftFormulaRows((XLRange)shiftedRangeFormula, numberOfRows * -1, processedArrayFormulas);
-            else
-                cell.ShiftFormulaColumns((XLRange)shiftedRangeFormula, numberOfColumns * -1, processedArrayFormulas);
-        }
+        XLFormulaShiftPass.Run(
+            Worksheet.Workbook,
+            (XLRange)shiftedRangeFormula,
+            shiftDeleteCells == XLShiftDeletedCells.ShiftCellsUp,
+            shiftDeleteCells == XLShiftDeletedCells.ShiftCellsUp ? -numberOfRows : -numberOfColumns);
 
         // Range to shift...
         var columnModifier = 0;

@@ -51,13 +51,7 @@ internal static class XLRangeInsertHelper
 
     private static void ShiftFormulasForColumns(XLRangeBase range, int numberOfColumns)
     {
-        var asRange = range.AsRange();
-        var processedArrayFormulas = new HashSet<XLCellFormula>();
-        foreach (var ws in range.Worksheet.Workbook.WorksheetsInternal)
-        {
-            foreach (var cell in ws.Internals.CellsCollection.GetCells(c => c.Formula is not null))
-                cell.ShiftFormulaColumns(asRange, numberOfColumns, processedArrayFormulas);
-        }
+        XLFormulaShiftPass.Run(range.Worksheet.Workbook, range.AsRange(), shiftRows: false, numberOfColumns);
     }
 
     private static void ShiftColumnWidths(XLRangeBase range, bool onlyUsedCells, int numberOfColumns)
@@ -164,13 +158,7 @@ internal static class XLRangeInsertHelper
 
     private static void ShiftFormulasForRows(XLRangeBase range, int numberOfRows)
     {
-        var asRange = range.AsRange();
-        var processedArrayFormulas = new HashSet<XLCellFormula>();
-        foreach (var ws in range.Worksheet.Workbook.WorksheetsInternal)
-        {
-            foreach (var cell in ws.Internals.CellsCollection.GetCells(c => c.Formula is not null))
-                cell.ShiftFormulaRows(asRange, numberOfRows, processedArrayFormulas);
-        }
+        XLFormulaShiftPass.Run(range.Worksheet.Workbook, range.AsRange(), shiftRows: true, numberOfRows);
     }
 
     private static void ShiftRowHeights(XLRangeBase range, bool onlyUsedCells, int numberOfRows)
