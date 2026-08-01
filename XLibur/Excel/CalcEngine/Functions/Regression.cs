@@ -420,32 +420,12 @@ internal static class Regression
             return XLError.IncompatibleValue;
 
         var data = new List<double>();
-        foreach (var value in dataArray!)
-        {
-            if (value.TryPickError(out var dataError))
-                return dataError;
-            if (value.TryPickNumber(out var number))
-                data.Add(number);
-        }
+        if (!TryCollectNumbers(dataArray!, data, out var dataError))
+            return dataError;
 
         var bins = new List<double>();
-        if (args[1].TryPickCollectionArray(out var binArray, ctx))
-        {
-            foreach (var value in binArray!)
-            {
-                if (value.TryPickError(out var binError))
-                    return binError;
-                if (value.TryPickNumber(out var number))
-                    bins.Add(number);
-            }
-        }
-        else if (args[1].TryPickScalar(out var scalar, out _))
-        {
-            if (scalar.TryPickError(out var scalarError))
-                return scalarError;
-            if (scalar.TryPickNumber(out var number))
-                bins.Add(number);
-        }
+        if (!TryCollectBins(ctx, args[1], bins, out var binError))
+            return binError;
 
         // With no bins at all every value lands in the single overflow bucket.
         var counts = new ScalarValue[bins.Count + 1, 1];
@@ -464,6 +444,49 @@ internal static class Regression
         }
 
         return new ConstArray(counts);
+    }
+
+    /// <summary>
+    /// Adds every number in <paramref name="array"/> to <paramref name="into"/>. An error anywhere in
+    /// the block is the answer for the whole function, so it stops the walk; anything else that is not
+    /// a number — text, a blank — is simply not a data point.
+    /// </summary>
+    private static bool TryCollectNumbers(Array array, List<double> into, out XLError error)
+    {
+        error = default;
+        foreach (var value in array)
+        {
+            if (value.TryPickError(out error))
+                return false;
+
+            if (value.TryPickNumber(out var number))
+                into.Add(number);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Reads FREQUENCY's bins, which Excel accepts as a range, an array or a single value. Anything
+    /// else leaves the bins empty, which is not an error — it puts every data point in the one
+    /// overflow bucket.
+    /// </summary>
+    private static bool TryCollectBins(CalcContext ctx, in AnyValue arg, List<double> into, out XLError error)
+    {
+        if (arg.TryPickCollectionArray(out var binArray, ctx))
+            return TryCollectNumbers(binArray!, into, out error);
+
+        error = default;
+        if (!arg.TryPickScalar(out var scalar, out _))
+            return true;
+
+        if (scalar.TryPickError(out error))
+            return false;
+
+        if (scalar.TryPickNumber(out var number))
+            into.Add(number);
+
+        return true;
     }
 
     #endregion
@@ -603,7 +626,26 @@ internal static class Regression
         var vertical = yArray!.Width == 1;
         var observations = vertical ? yArray.Height : yArray.Width;
 
-        var y = new double[observations];
+        if (!TryReadResponse(ctx, yArray, vertical, exponential, out var y, out error))
+            return false;
+
+        if (!TryReadDesignMatrix(ctx, args, vertical, observations, out var x, out var predictors, out error))
+            return false;
+
+        design = new Design(x, y, observations, predictors, vertical);
+        return true;
+    }
+
+    /// <summary>
+    /// Read known_y into the response vector. LOGEST and GROWTH fit the logarithm of y rather than y
+    /// itself, so for those the values are logged on the way in.
+    /// </summary>
+    private static bool TryReadResponse(CalcContext ctx, Array yArray, bool vertical, bool exponential, out double[] y, out XLError error)
+    {
+        error = default;
+        var observations = vertical ? yArray.Height : yArray.Width;
+        y = new double[observations];
+
         for (var i = 0; i < observations; i++)
         {
             var scalar = vertical ? yArray[i, 0] : yArray[0, i];
@@ -628,36 +670,45 @@ internal static class Regression
             y[i] = value;
         }
 
-        double[,] x;
-        int predictors;
-        if (args.Length > 1 && !IsOmitted(args, 1))
-        {
-            if (!args[1].TryPickCollectionArray(out var xArray, ctx))
-            {
-                error = XLError.IncompatibleValue;
-                return false;
-            }
+        return true;
+    }
 
-            if (!TryReadPredictors(ctx, xArray!, 0, vertical, out x, out var xObservations, out error))
-                return false;
+    /// <summary>
+    /// Read known_x into the design matrix. Left out, the predictor is the sequence 1, 2, 3, … ,
+    /// which is what makes TREND(known_y) a fit against position.
+    /// </summary>
+    private static bool TryReadDesignMatrix(CalcContext ctx, Span<AnyValue> args, bool vertical, int observations, out double[,] x, out int predictors, out XLError error)
+    {
+        error = default;
 
-            if (xObservations != observations)
-            {
-                error = XLError.CellReference;
-                return false;
-            }
-
-            predictors = x.GetLength(1);
-        }
-        else
+        if (args.Length <= 1 || IsOmitted(args, 1))
         {
             predictors = 1;
             x = new double[observations, 1];
             for (var i = 0; i < observations; i++)
                 x[i, 0] = i + 1;
+
+            return true;
         }
 
-        design = new Design(x, y, observations, predictors, vertical);
+        predictors = 0;
+        if (!args[1].TryPickCollectionArray(out var xArray, ctx))
+        {
+            x = new double[0, 0];
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        if (!TryReadPredictors(ctx, xArray!, 0, vertical, out x, out var xObservations, out error))
+            return false;
+
+        if (xObservations != observations)
+        {
+            error = XLError.CellReference;
+            return false;
+        }
+
+        predictors = x.GetLength(1);
         return true;
     }
 
