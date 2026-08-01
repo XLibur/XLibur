@@ -271,6 +271,8 @@ public class ExcelFunctionBridgeTests
     {
         public List<string> Names { get; } = new();
 
+        public CultureInfo Culture => CultureInfo.InvariantCulture;
+
         public bool SupportsFunctions => true;
 
         public object? Evaluate(string expression, ExpressionScope scope) => null;
