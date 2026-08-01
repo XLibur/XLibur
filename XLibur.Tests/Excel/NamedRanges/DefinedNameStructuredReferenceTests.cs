@@ -128,6 +128,42 @@ public class DefinedNameStructuredReferenceTests
             .IsEquivalentTo(new[] { "B2:B3", "C2:C3" });
     }
 
+    /// <summary>
+    /// Structured references and ordinary sheet references are gathered by separate passes, so a
+    /// formula holding both has to come back with both.
+    /// </summary>
+    /// <remarks>
+    /// A sheet reference keeps the fixed markers it was written with, while a structured reference
+    /// is resolved to the area the table currently covers and so has none.
+    /// </remarks>
+    [Test]
+    public async Task AStructuredReferenceAndASheetReferenceBothContribute()
+    {
+        using var wb = TableBook();
+
+        await Assert.That(RangesOf(wb, "SUM(Sales[Amount], Data!$A$10:$A$11)"))
+            .IsEquivalentTo(new[] { "B2:B3", "$A$10:$A$11" });
+    }
+
+    /// <summary>
+    /// A structured reference that cannot resolve does not make the name invalid. Deliberate:
+    /// <see cref="IXLDefinedName.IsValid"/> reports a <c>#REF!</c> written into the formula, and it
+    /// is what <c>ValidNamedRanges()</c> filters on — which the IO writers and XLibur.Report's range
+    /// binder both consume. A name that survives a load and save today has to keep surviving one.
+    /// </summary>
+    [Test]
+    [Arguments("NoSuchTable[Amount]")]
+    [Arguments("Sales[NoSuchColumn]")]
+    public async Task AnUnresolvableReferenceLeavesTheNameValid(string formula)
+    {
+        using var wb = TableBook();
+        var name = wb.DefinedNames.Add("Probe", formula);
+
+        await Assert.That(name.Ranges).IsEmpty();
+        await Assert.That(name.IsValid).IsTrue();
+        await Assert.That(wb.DefinedNames.ValidNamedRanges().Any(n => n.Name == "Probe")).IsTrue();
+    }
+
     /// <summary>The resolved area follows the table, rather than being fixed when the name was added.</summary>
     [Test]
     public async Task TheAreaFollowsTheTableWhenItGrows()
