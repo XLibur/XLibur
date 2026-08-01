@@ -1,0 +1,66 @@
+<Project>
+
+  <!--
+    Microsoft.Sbom.Targets writes an SPDX manifest into the .nupkg under _manifest/ at pack time,
+    so every package carries its own bill of materials to whoever installs it. That is the layer
+    that reaches nuget.org consumers: nuget.org rewrites the .nupkg on upload, which invalidates
+    any digest-based attestation, but package content is untouched.
+
+    This lives in Directory.Build.targets rather than Directory.Build.props because the .props file
+    is imported before the project body and so could not read IsPackable out of it.
+
+    The gate is IsPackable and NOT GeneratePackageOnBuild, even though the latter names the same
+    seven projects. GeneratePackageOnBuild is set inside a Release-only PropertyGroup, and CI
+    restores at the default configuration and then builds Release without restoring again, so the
+    reference would be absent from project.assets.json but present at build time, failing the build.
+    IsPackable is configuration-independent, so restore and build always agree.
+
+    Within that set the reference is unconditional and only GenerateSBOM is gated. Generation is
+    slow and every packable project sets GeneratePackageOnBuild, so a plain Release build — what
+    build-and-test.yml runs on every PR — would otherwise pay for it. MSBuild surfaces environment
+    variables as properties, so the release workflows set GenerateSBOM=true at job level and the
+    condition below yields to it.
+  -->
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.5" PrivateAssets="All" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(GenerateSBOM)' == ''">
+    <GenerateSBOM>false</GenerateSBOM>
+  </PropertyGroup>
+
+  <!--
+    Corrects the metadata Microsoft.Sbom.Targets would otherwise record.
+
+    Its own defaults read $(Version) and $(MSBuildProjectDirectory) during evaluation, which is too
+    early and too broad here:
+
+      * MinVer computes the version inside a target, so at evaluation $(Version) is still unset and
+        the SBOM defaults to 1.0.0 — every release would ship a manifest naming a version that does
+        not exist. Same ordering trap that SetPackageReleaseNotesFromVersion works around in
+        Directory.Build.props. By the time GenerateSbomTarget runs (AfterTargets="Pack")
+        $(PackageVersion) is correct; the tool already relies on that to locate the .nupkg.
+
+      * The default component path is the project directory. The scan reads package metadata out of
+        whatever it finds under there, and because every packable project sets
+        GeneratePackageOnBuild, bin/ already holds this package's own .nupkg by the time pack runs —
+        so the package would list itself as one of its dependencies. Narrowing to obj/ keeps the
+        scan on project.assets.json, the authoritative resolved dependency graph.
+
+        Note this does not eliminate self-reference entirely: obj/Release holds the .nuspec and
+        .symbols.nuspec for the version being packed, which SPDX records as the root package anyway.
+        A dirty local obj/ that has accumulated .nuspec files from earlier builds will add one entry
+        per stale version; a CI checkout is clean, so it sees only the current one.
+
+    Namespaces are based on the repository rather than the tool's spdx.org default so a manifest is
+    traceable to where it was produced.
+  -->
+  <Target Name="SetSbomMetadataFromVersion" BeforeTargets="GenerateSbomTarget">
+    <PropertyGroup>
+      <SbomGenerationPackageVersion>$(PackageVersion)</SbomGenerationPackageVersion>
+      <SbomGenerationBuildComponentPath>$(MSBuildProjectDirectory)/obj</SbomGenerationBuildComponentPath>
+      <SbomGenerationNamespaceBaseUri>$(RepositoryUrl)/spdx</SbomGenerationNamespaceBaseUri>
+    </PropertyGroup>
+  </Target>
+
+</Project>

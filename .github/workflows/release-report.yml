@@ -43,6 +43,9 @@ jobs:
       # is the real thing.
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run != false }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Read as an MSBuild property, so every pack below embeds its SPDX manifest.
+      # Off by default (Directory.Build.targets) so PR builds do not pay for it.
+      GenerateSBOM: true
 
     steps:
       - uses: actions/checkout@v7
@@ -59,6 +62,10 @@ jobs:
 
       - name: Restore dependencies
         run: dotnet restore XLibur.slnx
+
+      # CycloneDX, pinned in .config/dotnet-tools.json so Dependabot keeps it current.
+      - name: Restore .NET tools
+        run: dotnet tool restore
 
       - name: Build
         run: dotnet build XLibur.slnx --configuration Release --no-restore
@@ -181,6 +188,16 @@ jobs:
           echo "XLibur $version is published — dependency is resolvable"
           echo "CORE_DEPENDENCY=$declared" >> "$GITHUB_ENV"
 
+      # One CycloneDX document per package, attached to the release beside the .nupkg
+      # it describes. This is in addition to the SPDX manifest already embedded in each
+      # package by GenerateSBOM above — that one travels to nuget.org consumers, this one
+      # resolves the ProjectReference graph and is the better document for tooling.
+      #
+      # Runs after the gates above so a release that is going to be refused does not
+      # spend the time, but before the summary, which lists what was produced.
+      - name: Generate SBOMs
+        run: bash .github/scripts/generate-sbom.sh "$REPORT_VERSION" ./sboms XLibur.Report XLibur.Report.DynamicLinq
+
       - name: Summary
         run: |
           {
@@ -196,6 +213,12 @@ jobs:
             echo
             for package in ./artifacts/*.nupkg; do
               echo "- \`$(basename "$package")\`"
+            done
+            echo
+            echo "SBOMs: SPDX embedded in each package under \`_manifest/\`, plus CycloneDX"
+            echo
+            for sbom in ./sboms/*.cdx.json; do
+              echo "- \`$(basename "$sbom")\`"
             done
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -236,10 +259,15 @@ jobs:
           files: |
             ./artifacts/*.nupkg
             ./artifacts/*.snupkg
+            ./sboms/*.cdx.json
 
+      # Includes the SBOMs so a dry run — which publishes nothing — still leaves them
+      # somewhere inspectable.
       - name: Upload packages
         uses: actions/upload-artifact@v7
         if: always()
         with:
           name: report-packages
-          path: ./artifacts/*
+          path: |
+            ./artifacts/*
+            ./sboms/*

@@ -28,6 +28,11 @@ jobs:
 
     env:
       MinVerDefaultPreReleaseIdentifiers: ${{ inputs.prerelease-label }}
+      # Read as an MSBuild property, so every pack below embeds its SPDX manifest — a
+      # pre-release package carries the same bill of materials a stable one does. There
+      # is no GitHub Release here, so no CycloneDX documents are generated; those are
+      # release assets and this workflow only pushes to NuGet.
+      GenerateSBOM: true
 
     steps:
       - uses: actions/checkout@v7

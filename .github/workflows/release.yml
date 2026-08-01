@@ -33,6 +33,9 @@ jobs:
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Read as an MSBuild property, so every pack below embeds its SPDX manifest.
+      # Off by default (Directory.Build.targets) so PR builds do not pay for it.
+      GenerateSBOM: true
 
     steps:
       - uses: actions/checkout@v7
@@ -63,6 +66,10 @@ jobs:
 
       - name: Restore dependencies
         run: dotnet restore XLibur.slnx
+
+      # CycloneDX, pinned in .config/dotnet-tools.json so Dependabot keeps it current.
+      - name: Restore .NET tools
+        run: dotnet tool restore
 
       - name: Build
         run: dotnet build XLibur.slnx --configuration Release --no-restore
@@ -95,6 +102,18 @@ jobs:
             exit 1
           fi
           echo "All packages are version $expected"
+
+      # One CycloneDX document per package, attached to the release beside the .nupkg it
+      # describes. This is in addition to the SPDX manifest already embedded in each
+      # package by GenerateSBOM above — that one travels to nuget.org consumers, this one
+      # resolves the ProjectReference graph and is the better document for tooling.
+      #
+      # The project list matches Pack above; the version is the tag's, already verified
+      # against every package by the step above.
+      - name: Generate SBOMs
+        run: |
+          bash .github/scripts/generate-sbom.sh "${TAG#v}" ./sboms \
+            XLibur XLibur.Fonts.SixLabors.V1 XLibur.Bundle XLibur.Fonts.SixLabors XLibur.Fonts.SkiaSharp
 
       - name: NuGet login
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
@@ -153,3 +172,4 @@ jobs:
           files: |
             ./artifacts/*.nupkg
             ./artifacts/*.snupkg
+            ./sboms/*.cdx.json

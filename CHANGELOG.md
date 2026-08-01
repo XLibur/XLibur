@@ -8,6 +8,15 @@
 
 ## Unreleased
 
+### 🔒 Supply Chain
+
+- **Every package now ships a Software Bill of Materials.** Each `.nupkg` embeds an SPDX 2.2 manifest under `_manifest/spdx_2.2/`, generated at pack time, so the bill of materials travels with the package to anyone installing it from NuGet. Each release additionally carries a CycloneDX 1.7 document per package (`XLibur.<version>.cdx.json`) as a GitHub Release asset.
+
+  ```bash
+  # Read the embedded manifest without installing
+  unzip -p XLibur.0.200.0.nupkg '_manifest/spdx_2.2/manifest.spdx.json' | jq .
+  ```
+
 ## v0.200.0 - 2026-08-01
 
 ### ⚠️ Breaking Changes
