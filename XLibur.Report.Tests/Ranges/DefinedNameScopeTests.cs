@@ -3,19 +3,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
-using XLibur.Report.Ranges;
 
 namespace XLibur.Report.Tests.Ranges;
 
 /// <summary>
-/// Which defined names bind when more than one of them shares a name.
+/// Which defined names bind when more than one of them shares a name, and how a name is matched to
+/// the variable it selects.
 /// </summary>
 /// <remarks>
 /// Excel scopes a defined name either to the workbook or to one sheet, and the same name may be
 /// declared once per sheet on top of a workbook-wide one. Binding follows those rules: every
 /// sheet-scoped name binds, and a workbook-scoped name binds except on a sheet that declares its
 /// own. Every range named <c>Items</c> reads the <c>Items</c> variable, which is what a template
-/// repeating one section per sheet wants.
+/// repeating one section per sheet wants — and it reads it whatever case the name is typed in,
+/// because that is the one namespace Excel keeps names in.
 /// </remarks>
 public class DefinedNameScopeTests
 {
@@ -121,13 +122,9 @@ public class DefinedNameScopeTests
 
     /// <summary>
     /// Excel holds defined names in one case-insensitive namespace, so a sheet-scoped <c>items</c>
-    /// shadows a workbook-scoped <c>ITEMS</c>.
+    /// shadows a workbook-scoped <c>ITEMS</c> — and both spellings select the <c>Items</c> variable,
+    /// which is what makes the shadowing observable through a template at all.
     /// </summary>
-    /// <remarks>
-    /// Driven through the binder rather than through a template, because a template matches its
-    /// variables case-sensitively: neither spelling would find an <c>Items</c> variable, so both
-    /// blocks would come out unbound and the two answers would be indistinguishable.
-    /// </remarks>
     [Test]
     public async Task ShadowingComparesNamesTheWayExcelDoes()
     {
@@ -136,15 +133,81 @@ public class DefinedNameScopeTests
         workbook.DefinedNames.Add("ITEMS", TemplateBlock(sheet, 1));
         sheet.DefinedNames.Add("items", TemplateBlock(sheet, 5));
 
-        var variables = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Items"] = ThreeItems(),
-        };
+        var result = Generate(workbook, ThreeItems());
 
-        var bound = RangeBinder.Resolve(workbook, variables, new TemplateErrors());
+        await Assert.That(result.ParsingErrors).IsEmpty();
 
-        await Assert.That(bound.Count).IsEqualTo(1);
-        await Assert.That(bound[0].Area.FirstRow).IsEqualTo(5);
+        // The shadowed block never expanded, so nothing below it moved.
+        await Assert.That(sheet.Cell("A5").Value.GetText()).IsEqualTo("Widget");
+        await Assert.That(sheet.Cell("A7").Value.GetText()).IsEqualTo("Doohickey");
+        await Assert.That(sheet.Cell("A1").IsEmpty()).IsTrue();
+    }
+
+    /// <summary>
+    /// The case from issue #308. A defined name is an Excel identifier, written in Excel's name box
+    /// and held in Excel's case-insensitive namespace, so the case it is typed in does not decide
+    /// whether it finds its variable. It used to: the block was left unbound and rendered blank,
+    /// with nothing in <see cref="XLGenerateResult.ParsingErrors"/> to say why.
+    /// </summary>
+    [Test]
+    [Arguments("ITEMS")]
+    [Arguments("items")]
+    [Arguments("iTeMs")]
+    public async Task ADefinedNameFindsItsVariableWhateverCaseItIsTypedIn(string definedName)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Report");
+        workbook.DefinedNames.Add(definedName, TemplateBlock(sheet, 1));
+
+        var result = Generate(workbook, ThreeItems());
+
+        await Assert.That(result.ParsingErrors).IsEmpty();
+        await Assert.That(sheet.Cell("A1").Value.GetText()).IsEqualTo("Widget");
+        await Assert.That(sheet.Cell("A3").Value.GetText()).IsEqualTo("Doohickey");
+    }
+
+    /// <summary>
+    /// A template holding two variables that differ only by case keeps the one the name spells
+    /// exactly, so no template that binds today binds anything different.
+    /// </summary>
+    [Test]
+    public async Task AnExactMatchWinsOverOneDifferingOnlyByCase()
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Report");
+        workbook.DefinedNames.Add("Items", TemplateBlock(sheet, 1));
+
+        using var template = new XLTemplate(workbook);
+        template.AddVariable("items", ThreeItems());
+        template.AddVariable("Items", ThreeItems().Take(1).ToList());
+        var result = template.Generate();
+
+        await Assert.That(result.ParsingErrors).IsEmpty();
+        await Assert.That(sheet.Cell("A1").Value.GetText()).IsEqualTo("Widget");
+        await Assert.That(sheet.Cell("A2").IsEmpty()).IsTrue();
+    }
+
+    /// <summary>
+    /// Two variables differing only by case, and a name spelling neither of them: the one case a
+    /// case-insensitive match has no answer for. Binding either would be binding whichever the
+    /// dictionary yielded first, so the name is reported instead and nothing binds.
+    /// </summary>
+    [Test]
+    public async Task VariablesDifferingOnlyByCaseAreReportedRatherThanGuessedAt()
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Report");
+        workbook.DefinedNames.Add("ITEMS", TemplateBlock(sheet, 1));
+
+        using var template = new XLTemplate(workbook);
+        template.AddVariable("Items", ThreeItems());
+        template.AddVariable("items", ThreeItems());
+        var result = template.Generate();
+
+        await Assert.That(result.HasErrors).IsTrue();
+        await Assert.That(result.ParsingErrors.Count).IsEqualTo(1);
+        await Assert.That(result.ParsingErrors[0].Message).Contains("'ITEMS'");
+        await Assert.That(result.ParsingErrors[0].Message).Contains("differ only by case");
     }
 
     /// <summary>

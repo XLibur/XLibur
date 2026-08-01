@@ -386,6 +386,37 @@ public class RangeExpansionTests
         await Assert.That(workbook.Worksheet("Report").Cell("A3").Value.GetText()).IsEqualTo("Doohickey");
     }
 
+    /// <summary>
+    /// Where an underscore name stops being an Excel identifier. Its first segment picks a variable,
+    /// so it matches the way Excel matches a name; the segments after it are read off the object as
+    /// the C# members they are, and match exactly.
+    /// </summary>
+    [Test]
+    [Arguments("ORDER_Lines", "Doohickey")]
+    [Arguments("order_Lines", "Doohickey")]
+    [Arguments("Order_lines", null)]
+    [Arguments("Order_LINES", null)]
+    public async Task OnlyAnUnderscoreNamesFirstSegmentIgnoresCase(string name, string? expected)
+    {
+        using var workbook = TemplateWithItemsRange(ws => ws.Cell("A1").Value = "{{ item.Product }}", name: name);
+
+        using var template = new XLTemplate(workbook);
+        template.AddVariable("Order", new Order { Lines = ThreeItems() });
+        var result = template.Generate();
+
+        await Assert.That(result.ParsingErrors).IsEmpty();
+
+        var cell = workbook.Worksheet("Report").Cell("A3");
+        if (expected is null)
+        {
+            await Assert.That(cell.IsEmpty()).IsTrue();
+        }
+        else
+        {
+            await Assert.That(cell.Value.GetText()).IsEqualTo(expected);
+        }
+    }
+
     [Test]
     public async Task DefinedNamesWithNoMatchingVariableAreLeftAlone()
     {

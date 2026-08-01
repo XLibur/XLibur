@@ -22,6 +22,11 @@ namespace XLibur.Report.Ranges;
 /// template may declare the same name once per sheet — <c>Q1!Items</c> and <c>Q2!Items</c> — and
 /// have every one of them bind. See <see cref="EnumerateNames"/>.
 /// </para>
+/// <para>
+/// A name is then matched to its variable the way Excel matches names, without regard to case. That
+/// is the boundary at which an Excel identifier becomes a C# one, and matching stops being
+/// case-insensitive on the other side of it. See <see cref="TryGetVariable"/>.
+/// </para>
 /// </remarks>
 internal static class RangeBinder
 {
@@ -38,7 +43,7 @@ internal static class RangeBinder
 
         foreach (var definedName in EnumerateNames(workbook))
         {
-            if (!TryResolveItems(definedName.Name, variables, out var items))
+            if (!TryResolveItems(definedName.Name, variables, errors, out var items))
             {
                 continue;
             }
@@ -137,11 +142,12 @@ internal static class RangeBinder
     private static bool TryResolveItems(
         string name,
         IReadOnlyDictionary<string, object?> variables,
+        TemplateErrors errors,
         out IReadOnlyList<object?>? items)
     {
         items = null;
 
-        if (!TryResolveValue(name, variables, out var value))
+        if (!TryResolveValue(name, variables, errors, out var value))
         {
             return false;
         }
@@ -159,9 +165,10 @@ internal static class RangeBinder
     private static bool TryResolveValue(
         string name,
         IReadOnlyDictionary<string, object?> variables,
+        TemplateErrors errors,
         out object? value)
     {
-        if (variables.TryGetValue(name, out value))
+        if (TryGetVariable(name, name, variables, errors, out value))
         {
             return true;
         }
@@ -173,7 +180,7 @@ internal static class RangeBinder
         }
 
         var segments = name.Split('_');
-        if (!variables.TryGetValue(segments[0], out var current) || current is null)
+        if (!TryGetVariable(name, segments[0], variables, errors, out var current) || current is null)
         {
             return false;
         }
@@ -189,6 +196,74 @@ internal static class RangeBinder
 
         value = current;
         return true;
+    }
+
+    /// <summary>Finds the variable a defined name selects.</summary>
+    /// <param name="definedName">The whole name, for the error message.</param>
+    /// <param name="name">The name to look up — the whole of it, or a path's first segment.</param>
+    /// <param name="variables">The template's variables.</param>
+    /// <param name="errors">Collects an ambiguous match.</param>
+    /// <param name="value">The variable's value, when one was found.</param>
+    /// <remarks>
+    /// <para>
+    /// Excel holds defined names in one case-insensitive namespace, so a template author who types
+    /// <c>ITEMS</c> in the name box has named the same thing as the variable added as <c>Items</c>,
+    /// and it binds. An exact match still wins, so nothing that binds today binds anything
+    /// different; the case-insensitive pass runs only when there is nothing exact to find.
+    /// </para>
+    /// <para>
+    /// The boundary stops here. The property segments of <c>Customer_Orders</c> are read by
+    /// <see cref="ReadMember"/>, and every name inside <c>{{ }}</c> by the expression engine, as the
+    /// C# members they are: <c>item.Price</c> and <c>item.price</c> stay different names.
+    /// </para>
+    /// <para>
+    /// Two variables differing only by case are the one case with no answer — nothing is exact, and
+    /// picking either would be picking whichever the dictionary happened to yield first — so the
+    /// name is reported and left unbound.
+    /// </para>
+    /// </remarks>
+    private static bool TryGetVariable(
+        string definedName,
+        string name,
+        IReadOnlyDictionary<string, object?> variables,
+        TemplateErrors errors,
+        out object? value)
+    {
+        if (variables.TryGetValue(name, out value))
+        {
+            return true;
+        }
+
+        string? matched = null;
+
+        foreach (var variable in variables)
+        {
+            if (!StringComparer.OrdinalIgnoreCase.Equals(variable.Key, name))
+            {
+                continue;
+            }
+
+            if (matched is not null)
+            {
+                // Say which part of the name did the matching, because for a property path it is the
+                // first segment rather than the whole of it.
+                var through = string.Equals(definedName, name, StringComparison.Ordinal)
+                    ? string.Empty
+                    : $" (through its first segment '{name}')";
+
+                errors.Add(new TemplateError(
+                    $"Defined name '{definedName}'{through} matches the variables '{matched}' and " +
+                    $"'{variable.Key}', which differ only by case. Rename one of them, or spell the name to " +
+                    "match one of them exactly."));
+                value = null;
+                return false;
+            }
+
+            matched = variable.Key;
+            value = variable.Value;
+        }
+
+        return matched is not null;
     }
 
     /// <summary>Reads a property, field or dictionary entry by name.</summary>

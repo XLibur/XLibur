@@ -97,6 +97,21 @@ entirely.
 Defined names may address a property path with an underscore: a name `Order_Lines` binds
 `order.Lines` where `Order` is the bound variable.
 
+### Name case
+
+A defined name is an Excel identifier, and Excel keeps names in one case-insensitive namespace, so the
+case a name is typed in does not decide which variable it finds. `Items`, `ITEMS` and `items` all
+select the variable added as `Items`.
+
+That holds at the name only. Everything inside `{{ }}` is C#, and matches case-**sensitively**:
+`item.Price` and `item.price` are different names. An underscore name sits astride the two — its first
+segment picks a variable, so `ORDER_Lines` binds `Order.Lines`, while the segments after it are
+properties and must be spelled as the type spells them, so `Order_lines` binds nothing.
+
+A template holding two variables that differ only by case — `AddVariable("Items", …)` and
+`AddVariable("items", …)` — keeps both, and a name spelling one of them exactly gets that one. A name
+spelling neither is genuinely ambiguous: it binds nothing and is reported in `ParsingErrors`.
+
 ### Name scope
 
 Names bind under Excel's own scoping. A name scoped to a **sheet** may be declared once per sheet, and
@@ -108,8 +123,9 @@ Q2!Items → Q2!A2:C3
 ```
 
 A name scoped to the **workbook** binds everywhere except on a sheet that declares its own name of that
-name, which shadows it there and nowhere else. Shadowing is silent: it is what Excel does, so it is not
-reported as a template error.
+name, which shadows it there and nowhere else — and the two names are compared the way Excel compares
+them, so a sheet-scoped `items` shadows a workbook-scoped `ITEMS`. Shadowing is silent: it is what
+Excel does, so it is not reported as a template error.
 
 The name is what selects the variable, so all the ranges above read `Items`. To bind two sheets to
 different data, give the ranges different names.
