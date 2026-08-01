@@ -280,7 +280,7 @@ public static partial class XLHelper
         while (cellAddressString[rowPos] > '9')
             rowPos++;
 
-        return GetColumnNumberFromLetter(cellAddressString.Substring(0, rowPos));
+        return GetColumnNumberFromLetter(cellAddressString.AsSpan(0, rowPos));
     }
 
     internal static string[] SplitRange(string range)

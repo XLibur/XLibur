@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel;
@@ -139,7 +139,7 @@ internal static class PivotBuilder
     /// already taken. Names have to be unique across the workbook, and a template producing several
     /// pivots cannot be made to name them all.
     /// </summary>
-    private static string Name(IXLWorkbook workbook, string requested)
+    private static string Name(XLWorkbook workbook, string requested)
     {
         if (requested.Length > 0)
         {

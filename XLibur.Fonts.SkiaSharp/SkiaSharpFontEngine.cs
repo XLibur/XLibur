@@ -17,7 +17,7 @@ public class SkiaSharpFontEngine : IXLFontEngine
 {
     private const float FontMetricSize = 16f;
 
-    private readonly IReadOnlyDictionary<string, SKTypeface> _streamFonts;
+    private readonly Dictionary<string, SKTypeface> _streamFonts;
     private readonly bool _useSystemFonts;
     private readonly string _fallbackFont;
     private readonly string? _embeddedFontName;
@@ -232,7 +232,7 @@ public class SkiaSharpFontEngine : IXLFontEngine
         return maxWidth / entry.UnitsPerEm;
     }
 
-    private static string AddTypeface(IDictionary<string, SKTypeface> fonts, Stream stream)
+    private static string AddTypeface(Dictionary<string, SKTypeface> fonts, Stream stream)
     {
         using var data = SKData.Create(stream);
         var typeface = SKTypeface.FromData(data)

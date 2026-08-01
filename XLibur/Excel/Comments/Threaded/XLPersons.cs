@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -102,7 +102,7 @@ internal sealed class XLPersons : IXLPersons
         return !string.IsNullOrEmpty(person.UserId) || !string.IsNullOrEmpty(person.ProviderId);
     }
 
-    private static bool IsSameIdentity(IXLPerson left, IXLPerson right)
+    private static bool IsSameIdentity(XLPerson left, IXLPerson right)
     {
         return string.Equals(left.DisplayName, right.DisplayName, StringComparison.Ordinal)
                && string.Equals(left.UserId, right.UserId, StringComparison.Ordinal)

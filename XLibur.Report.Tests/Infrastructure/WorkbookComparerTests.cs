@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
@@ -263,7 +263,7 @@ public class WorkbookComparerTests
         var differences = WorkbookComparer.Compare(expected, actual, new WorkbookComparisonOptions { MaxDifferences = 5 });
 
         await Assert.That(differences.Count).IsLessThanOrEqualTo(6);
-        await Assert.That(differences.Last()).Contains("stopped after");
+        await Assert.That(differences[^1]).Contains("stopped after");
     }
 
     [Test]

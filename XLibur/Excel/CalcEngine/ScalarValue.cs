@@ -312,7 +312,7 @@ internal readonly struct ScalarValue
             var valueStart = SkipSpaces(text, signStart + signLength);
             return valueStart == signStart + signLength
                 ? null
-                : text.Substring(0, signStart + signLength) + text.Substring(valueStart);
+                : string.Concat(text.AsSpan(0, signStart + signLength), text.AsSpan(valueStart));
         }
 
         // Returns the content of the braces, or null when the text isn't braced. A sign inside the

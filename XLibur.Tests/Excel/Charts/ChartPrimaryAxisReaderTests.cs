@@ -89,7 +89,7 @@ public class ChartPrimaryAxisReaderTests
             // dropping it on save would be worse than saying so.
             await Assert.That(() => chart.Series.Add("New", "Data!$B$1:$B$2", "Data!$A$1:$A$2")).Throws<NotSupportedException>();
             await Assert.That(() => chart.SecondarySeries.Add("New", "Data!$B$1:$B$2", "Data!$A$1:$A$2")).Throws<NotSupportedException>();
-            await Assert.That(chart.Series.Count()).IsEqualTo(1);
+            await Assert.That(chart.Series.Count).IsEqualTo(1);
         }
     }
 }

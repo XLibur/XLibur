@@ -113,7 +113,7 @@ internal sealed class XLChartDataLabels : IXLDataLabels
             if (value != XLDataLabelPosition.Auto && !IsPositionAllowed(chartType, value))
             {
                 var allowed = AllowedPositions(chartType);
-                var offered = allowed.Count == 0
+                var offered = allowed.Length == 0
                     ? "only Auto"
                     : "Auto, " + string.Join(", ", allowed);
                 throw new ArgumentException(
@@ -169,7 +169,7 @@ internal sealed class XLChartDataLabels : IXLDataLabels
     /// surface and every 3D type offer none: Excel places their labels itself and rejects a file that
     /// says otherwise.
     /// </summary>
-    private static IReadOnlyList<XLDataLabelPosition> AllowedPositions(XLChartType chartType) => chartType switch
+    private static XLDataLabelPosition[] AllowedPositions(XLChartType chartType) => chartType switch
     {
         XLChartType.BarClustered or XLChartType.ColumnClustered => ClusteredBarPositions,
 

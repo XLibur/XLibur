@@ -752,7 +752,7 @@ internal static class DynamicArray
         return true;
     }
 
-    private static ConstArray BuildRows(Array source, IReadOnlyList<int> rowOrder)
+    private static ConstArray BuildRows(Array source, List<int> rowOrder)
     {
         var result = new ScalarValue[rowOrder.Count, source.Width];
         for (var i = 0; i < rowOrder.Count; i++)

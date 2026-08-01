@@ -51,7 +51,10 @@ taken from the local build.
 | `S3928` + `CA2208` | 2 + 2 | Real defect — see below |
 | `CA1826` | 2 | Index the collection directly |
 | `SYSLIB1045` | 2 | `[GeneratedRegex]` partial method |
-| `S1066`, `S1118`, `S4581`, `CA1513`, `CA1822`, `CA1845`, `CA1846` | 1 each | Mechanical |
+| `S1066`, `S1118`, `S4581`, `CA1513`, `CA1845`, `CA1846` | 1 each | Mechanical |
+
+`CA1822` was triaged as a fix and reversed on inspection — see its entry. That makes the
+split **67 fix / 83 ignore**.
 
 **The one real defect.** `XLPictures.ValidateMembersAndComputeBounds(List<XLPicture> members)`
 throws `ArgumentException` with the literal `paramName` `"pictures"`, which is not a
@@ -1270,7 +1273,7 @@ Stacked pull requests, each branching from the one before:
 ### 146. Member 'CreateStyle' does not access instance data and can be marked as static
 - Location: `XLibur/Excel/Streaming/XLStreamingWorkbook.cs:157`
 - Rule: `external_roslyn:CA1822` — roslyn:CA1822
-- **Status:** FIX - mark the member static.
+- **Status:** IGNORE - reversed on inspection. `XLStreamingWorkbook.CreateStyle` is a public method on a public class and is not declared by any interface, so making it static is a source-breaking change for callers. Not worth it to devirtualise one call.
 - Link: https://sonarcloud.io/project/issues?id=XLibur_XLibur&open=AZ-jJ3bhmmYrCxinzLl2
 - Fix guidance: see rule `external_roslyn:CA1822` below.
 

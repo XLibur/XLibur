@@ -74,7 +74,7 @@ public class ChartGroupKindReaderTests
         using (wb)
         {
             await Assert.That(chart.ChartType).IsEqualTo(expected);
-            await Assert.That(chart.Series.Count()).IsEqualTo(1);
+            await Assert.That(chart.Series.Count).IsEqualTo(1);
         }
     }
 

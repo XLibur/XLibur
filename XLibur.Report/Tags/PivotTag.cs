@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel;
@@ -178,7 +178,7 @@ public sealed class PivotTag : OptionTag
         return ResolveName(context.Worksheet.Workbook, dest) ?? ResolveReference(context, dest);
     }
 
-    private static IXLRange? ResolveName(IXLWorkbook workbook, string dest)
+    private static IXLRange? ResolveName(XLWorkbook workbook, string dest)
     {
         if (!workbook.DefinedNames.TryGetValue(dest, out var definedName))
         {

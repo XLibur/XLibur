@@ -149,7 +149,7 @@ internal abstract class XLRangeIndex : IXLRangeIndex
     public int RemoveAll(Predicate<IXLAddressable>? predicate = null)
     {
         predicate ??= _ => true;
-        return _quadTree == null ? _rangeList.RemoveAll(predicate) : _quadTree.RemoveAll(predicate).Count();
+        return _quadTree == null ? _rangeList.RemoveAll(predicate) : _quadTree.RemoveAll(predicate).Count;
     }
 
     #endregion Public Methods
