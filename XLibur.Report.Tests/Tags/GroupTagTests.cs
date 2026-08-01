@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
@@ -23,7 +23,7 @@ public class GroupTagTests
     /// Builds a four-column range over A3:D4 — region, category, product, quantity — where row 3 is
     /// the data row and row 4 the options row.
     /// </summary>
-    private static IXLWorkbook Template(string a = "", string b = "", string c = "", string d = "")
+    private static XLWorkbook Template(string a = "", string b = "", string c = "", string d = "")
     {
         var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Report");

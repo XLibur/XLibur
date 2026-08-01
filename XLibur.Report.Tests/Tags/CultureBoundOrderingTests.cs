@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -56,7 +56,7 @@ public class CultureBoundOrderingTests
     /// A two-column range over A3:B4 — the first column holding <paramref name="expression"/>, the
     /// second a quantity — with row 4 the options row.
     /// </summary>
-    private static IXLWorkbook Template(string expression, string optionsA, string optionsB = "")
+    private static XLWorkbook Template(string expression, string optionsA, string optionsB = "")
     {
         var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Report");

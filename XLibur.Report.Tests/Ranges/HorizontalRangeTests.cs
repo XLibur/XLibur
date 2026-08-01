@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
@@ -21,7 +21,7 @@ public class HorizontalRangeTests
     /// A range over B4:C6 with the labels down column A. Column B repeats — product, quantity and a
     /// spare line — and column C is the options column.
     /// </summary>
-    private static IXLWorkbook Template(string c4 = "<<Horizontal>>", string c5 = "", string c6 = "")
+    private static XLWorkbook Template(string c4 = "<<Horizontal>>", string c5 = "", string c6 = "")
     {
         var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Report");

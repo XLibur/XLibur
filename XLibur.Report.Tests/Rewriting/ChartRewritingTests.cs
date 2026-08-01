@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -26,7 +26,7 @@ public class ChartRewritingTests
     /// A sheet whose rows 3 (data) and 4 (options) are named <c>Items</c>, with a column chart
     /// plotting the quantity column against the product column.
     /// </summary>
-    private static IXLWorkbook Template(string valueReferences = "Report!$B$3:$B$3", string? categoryReferences = "Report!$A$3:$A$3")
+    private static XLWorkbook Template(string valueReferences = "Report!$B$3:$B$3", string? categoryReferences = "Report!$A$3:$A$3")
     {
         var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Report");

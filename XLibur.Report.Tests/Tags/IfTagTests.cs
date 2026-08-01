@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
@@ -20,7 +20,7 @@ public class IfTagTests
     /// <paramref name="c3"/> lands in a repeated row, anything for the row-4 arguments in the options
     /// row.
     /// </summary>
-    private static IXLWorkbook Template(string c3 = "", string a4 = "", string b4 = "", string c4 = "")
+    private static XLWorkbook Template(string c3 = "", string a4 = "", string b4 = "", string c4 = "")
     {
         var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Report");

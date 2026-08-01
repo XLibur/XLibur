@@ -1,14 +1,15 @@
-using System;
+﻿using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
 
 namespace XLibur.Tests.Excel.Comments;
 
-public class ThreadedCommentReviewTests
+public partial class ThreadedCommentReviewTests
 {
     [Test]
     public async Task Deleting_a_thread_that_has_been_shifted_clears_the_right_cell()
@@ -124,7 +125,7 @@ public class ThreadedCommentReviewTests
             using (var reader = new StreamReader(entry.Open(), Encoding.UTF8))
                 xml = reader.ReadToEnd();
 
-            xml = System.Text.RegularExpressions.Regex.Replace(xml, " dT=\"[^\"]*\"", string.Empty);
+            xml = TimestampAttribute().Replace(xml, string.Empty);
 
             using var stream = entry.Open();
             stream.SetLength(0);
@@ -150,4 +151,9 @@ public class ThreadedCommentReviewTests
         using var reader = new StreamReader(entryStream, Encoding.UTF8);
         return reader.ReadToEnd();
     }
+
+    // The threaded-comment timestamp is written at save time, so it has to come out before two
+    // saves of the same workbook can be compared.
+    [GeneratedRegex(" dT=\"[^\"]*\"")]
+    private static partial Regex TimestampAttribute();
 }

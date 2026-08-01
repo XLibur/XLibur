@@ -1549,8 +1549,13 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
             return;
         }
 
-        var paneRow = sr > 0 ? (target.RowNumber <= sr ? sr + 1 : target.RowNumber) : 1;
-        var paneColumn = sc > 0 ? (target.ColumnNumber <= sc ? sc + 1 : target.ColumnNumber) : 1;
+        var paneRow = PaneStart(sr, target.RowNumber);
+        var paneColumn = PaneStart(sc, target.ColumnNumber);
+
+        // With no split the pane starts at the first row/column; with one, it starts just past the
+        // split unless the target already sits below it.
+        static int PaneStart(int split, int index) =>
+            split > 0 ? (index <= split ? split + 1 : index) : 1;
 
         SheetView.PaneTopLeftCellAddress = new XLAddress(this, paneRow, paneColumn,
             fixedRow: false, fixedColumn: false);

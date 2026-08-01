@@ -290,11 +290,10 @@ internal static partial class XLCellFormulaShifter
         /// </remarks>
         private string Render(SymbolRange range, ReferenceArea shifted, string? sheet, bool destroyed)
         {
-            var body = destroyed
-                ? RefErrorText
-                : SourceIsRange(range)
-                    ? string.Concat(shifted.First.GetDisplayStringA1(), ":", shifted.Second.GetDisplayStringA1())
-                    : shifted.First.GetDisplayStringA1();
+            var reference = SourceIsRange(range)
+                ? string.Concat(shifted.First.GetDisplayStringA1(), ":", shifted.Second.GetDisplayStringA1())
+                : shifted.First.GetDisplayStringA1();
+            var body = destroyed ? RefErrorText : reference;
 
             if (sheet is null)
                 return body;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -34,7 +34,7 @@ public class ExampleSmokeTests
     /// </summary>
     private static bool ExpectsErrors(string name) => name == new ErrorsAreReportedNotThrown().Name;
 
-    private static IReadOnlyList<ExampleRun> RunAll()
+    private static List<ExampleRun> RunAll()
     {
         var directory = Path.Combine(Path.GetTempPath(), "XLiburReportExamples", Guid.NewGuid().ToString("N"));
 

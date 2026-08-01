@@ -848,9 +848,11 @@ internal static class Statistical
         if (numbers[below] < x && below + 1 < numbers.Count)
             position += (x - numbers[below]) / (numbers[below + 1] - numbers[below]);
 
+        // A single observation has no spread to place x within, so it ranks at the top.
+        var inclusiveRank = numbers.Count > 1 ? position / (numbers.Count - 1) : 1d;
         var rank = exclusive
             ? (position + 1) / (numbers.Count + 1)
-            : numbers.Count > 1 ? position / (numbers.Count - 1) : 1d;
+            : inclusiveRank;
 
         if (exclusive && (rank <= 0 || rank >= 1))
             return XLError.NoValueAvailable;

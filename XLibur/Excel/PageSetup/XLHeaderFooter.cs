@@ -35,8 +35,6 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
 
     public string GetText(XLHFOccurrence occurrence)
     {
-        //if (innerTexts.ContainsKey(occurrence)) return innerTexts[occurrence];
-
         var leftText = Left.GetText(occurrence);
         var centerText = Center.GetText(occurrence);
         var rightText = Right.GetText(occurrence);

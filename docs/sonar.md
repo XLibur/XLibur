@@ -1,4 +1,4 @@
-# SonarQube issues — XLibur_XLibur
+﻿# SonarQube issues — XLibur_XLibur
 
 - Server: https://sonarcloud.io
 - Filters: impactSeverities=`MEDIUM`, issueStatuses=`OPEN,CONFIRMED`
@@ -42,7 +42,7 @@ taken from the local build.
 | `CA1859` | 19 | Tighten to the concrete type where the member is not public API |
 | `CA1510` | 9 | `ArgumentNullException.ThrowIfNull` |
 | `S3358` | 5 | Lift the inner ternary into a named local |
-| `S125` | 4 | Delete the commented-out code |
+| `S125` | 2 | Delete the commented-out code — the other 2 are prose, not code |
 | `S6562` | 4 | Pass `DateTimeKind` explicitly in sample data |
 | `CA2249` | 4 | `string.Contains` |
 | `CA1806` | 3 | Make the tolerated-parse fallback explicit |
@@ -53,8 +53,8 @@ taken from the local build.
 | `SYSLIB1045` | 2 | `[GeneratedRegex]` partial method |
 | `S1066`, `S1118`, `S4581`, `CA1513`, `CA1845`, `CA1846` | 1 each | Mechanical |
 
-`CA1822` was triaged as a fix and reversed on inspection — see its entry. That makes the
-split **67 fix / 83 ignore**.
+Three entries were triaged as fixes and reversed once the code was read — one `CA1822`
+and two `S125`. Each says so in its own entry. The final split is **65 fix / 85 ignore**.
 
 **The one real defect.** `XLPictures.ValidateMembersAndComputeBounds(List<XLPicture> members)`
 throws `ArgumentException` with the literal `paramName` `"pictures"`, which is not a
@@ -114,7 +114,7 @@ Stacked pull requests, each branching from the one before:
 
 ### 2. Remove this commented out code.
 - Location: `XLibur.Benchmarks/Program.cs:14`
-- Rule: `csharpsquid:S125` — Sections of code should not be commented out
+- **Status:** IGNORE - FALSE POSITIVE on inspection: the flagged lines are prose describing the benchmark modes, not commented-out code.
 - **Status:** FIX - delete the commented-out code.
 - Link: https://sonarcloud.io/project/issues?id=XLibur_XLibur&open=AZ-jJ36vmmYrCxinzLl-
 - Fix guidance: see rule `csharpsquid:S125` below.
@@ -1103,7 +1103,7 @@ Stacked pull requests, each branching from the one before:
 
 ### 125. Remove this commented out code.
 - Location: `XLibur/Excel/Cells/XLCellFormulaShifter.cs:212`
-- Rule: `csharpsquid:S125` — Sections of code should not be commented out
+- **Status:** IGNORE - FALSE POSITIVE on inspection: the flagged lines are prose describing how row deletion clamps a reference, not commented-out code.
 - **Status:** FIX - delete the commented-out code.
 - Link: https://sonarcloud.io/project/issues?id=XLibur_XLibur&open=AZ-nMDZv--pWpbX2ie1c
 - Fix guidance: see rule `csharpsquid:S125` below.

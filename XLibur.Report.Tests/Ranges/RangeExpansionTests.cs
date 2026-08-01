@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -23,7 +23,7 @@ public class RangeExpansionTests
     /// Builds a sheet whose rows <paramref name="dataRows"/> are named <c>Items</c>, with the row
     /// after them acting as the options row.
     /// </summary>
-    private static IXLWorkbook TemplateWithItemsRange(
+    private static XLWorkbook TemplateWithItemsRange(
         Action<IXLWorksheet> build,
         int firstRow = 1,
         int dataRows = 1,

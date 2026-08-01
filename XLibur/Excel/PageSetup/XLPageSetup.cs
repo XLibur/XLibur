@@ -198,18 +198,6 @@ internal sealed class XLPageSetup : IXLPageSetup
         ColumnBreaks.Sort();
     }
 
-    //public void SetPageBreak(IXLRange range, XLPageBreakLocations breakLocation)
-    //{
-    //    switch (breakLocation)
-    //    {
-    //        case XLPageBreakLocations.AboveRange: RowBreaks.Add(range.Internals.Worksheet.Row(range.RowNumber)); break;
-    //        case XLPageBreakLocations.BelowRange: RowBreaks.Add(range.Internals.Worksheet.Row(range.RowCount())); break;
-    //        case XLPageBreakLocations.LeftOfRange: ColumnBreaks.Add(range.Internals.Worksheet.Column(range.ColumnNumber)); break;
-    //        case XLPageBreakLocations.RightOfRange: ColumnBreaks.Add(range.Internals.Worksheet.Column(range.ColumnCount())); break;
-    //        default: throw new NotImplementedException();
-    //    }
-    //}
-
     public IXLPageSetup SetPageOrientation(XLPageOrientation value) { PageOrientation = value; return this; }
     public IXLPageSetup SetPagesWide(int value) { PagesWide = value; return this; }
     public IXLPageSetup SetPagesTall(int value) { PagesTall = value; return this; }

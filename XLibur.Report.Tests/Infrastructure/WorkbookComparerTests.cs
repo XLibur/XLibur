@@ -7,7 +7,7 @@ namespace XLibur.Report.Tests.Infrastructure;
 
 public class WorkbookComparerTests
 {
-    private static IXLWorkbook Sheet(Action<IXLWorksheet> build, string name = "Report")
+    private static XLWorkbook Sheet(Action<IXLWorksheet> build, string name = "Report")
     {
         var workbook = new XLWorkbook();
         build(workbook.AddWorksheet(name));

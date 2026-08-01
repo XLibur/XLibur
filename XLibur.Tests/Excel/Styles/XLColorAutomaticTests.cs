@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using XLibur.Excel;
 using System.Threading.Tasks;
 
@@ -13,7 +14,7 @@ namespace XLibur.Tests.Excel.Styles;
 /// picker. The application resolves the actual color from the context it is used in, so it must not
 /// be pinned to a concrete value on save.
 /// </summary>
-public class XLColorAutomaticTests
+public partial class XLColorAutomaticTests
 {
     [Test]
     public async Task Automatic_IsTheFirstColorType()
@@ -99,8 +100,7 @@ public class XLColorAutomaticTests
 
     private static async Task<string> FontsBlock(string stylesXml)
     {
-        var match = System.Text.RegularExpressions.Regex.Match(stylesXml, "<x:fonts.*?</x:fonts>",
-            System.Text.RegularExpressions.RegexOptions.Singleline);
+        var match = FontsBlockPattern().Match(stylesXml);
         await Assert.That(match.Success).IsTrue().Because($"No <fonts> block in styles.xml.\n\n{stylesXml}");
         return match.Value;
     }
@@ -198,4 +198,7 @@ public class XLColorAutomaticTests
 
         return ms.ToArray();
     }
+
+    [GeneratedRegex("<x:fonts.*?</x:fonts>", RegexOptions.Singleline)]
+    private static partial Regex FontsBlockPattern();
 }

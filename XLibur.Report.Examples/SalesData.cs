@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Report.Examples;
@@ -61,7 +61,7 @@ public static class SalesData
             Product = product,
             Quantity = quantity,
             UnitPrice = unitPrice,
-            SoldOn = new DateTime(2026, 3, day),
+            SoldOn = new DateTime(2026, 3, day, 0, 0, 0, DateTimeKind.Utc),
             IsExport = export,
         };
 }

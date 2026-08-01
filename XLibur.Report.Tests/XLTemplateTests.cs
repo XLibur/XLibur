@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,7 +9,7 @@ namespace XLibur.Report.Tests;
 
 public class XLTemplateTests
 {
-    private static IXLWorkbook WorkbookWith(params (string Address, string Text)[] cells)
+    private static XLWorkbook WorkbookWith(params (string Address, string Text)[] cells)
     {
         var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Report");

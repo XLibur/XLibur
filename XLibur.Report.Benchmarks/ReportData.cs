@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Report.Benchmarks;
@@ -49,7 +49,7 @@ public static class ReportData
     public static List<ReportRow> Rows(int count)
     {
         var rows = new List<ReportRow>(count);
-        var start = new DateTime(2026, 1, 1);
+        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         for (var i = 0; i < count; i++)
         {

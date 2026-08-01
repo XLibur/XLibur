@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using XLibur.Excel.CalcEngine.Functions;
 using static XLibur.Excel.CalcEngine.Functions.SampleStatistics;
@@ -598,7 +598,12 @@ internal static class Distributions
             return XLMath.GammaP(alpha, x / beta);
 
         if (x == 0)
-            return alpha < 1 ? XLError.NumberInvalid : alpha == 1 ? 1 / beta : 0d;
+            return alpha switch
+            {
+                < 1 => XLError.NumberInvalid,
+                1 => 1 / beta,
+                _ => 0d,
+            };
 
         var logDensity = (alpha - 1) * Math.Log(x) - x / beta - alpha * Math.Log(beta) - XLMath.LnGamma(alpha);
         return Math.Exp(logDensity);

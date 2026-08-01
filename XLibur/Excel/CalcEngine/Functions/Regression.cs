@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using XLibur.Excel.CalcEngine.Functions;
 using static XLibur.Excel.CalcEngine.Functions.SampleStatistics;
@@ -948,13 +948,11 @@ internal static class Regression
     {
         flag = false;
         error = default;
-        if (!value.TryPickScalar(out var scalar, out _))
+        if (!value.TryPickScalar(out var scalar, out _)
+            && !value.ImplicitIntersection(ctx).TryPickScalar(out scalar, out _))
         {
-            if (!value.ImplicitIntersection(ctx).TryPickScalar(out scalar, out _))
-            {
-                error = XLError.IncompatibleValue;
-                return false;
-            }
+            error = XLError.IncompatibleValue;
+            return false;
         }
 
         if (scalar.IsBlank)

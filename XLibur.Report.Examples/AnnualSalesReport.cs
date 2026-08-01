@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
@@ -144,7 +144,7 @@ public sealed class AnnualSalesReport : ReportExample
     {
         template.AddVariable("Company", "Contoso Horticultural Supplies");
         template.AddVariable("Year", 2026);
-        template.AddVariable("RunOn", new DateTime(2026, 7, 30).ToString("d MMMM yyyy"));
+        template.AddVariable("RunOn", new DateTime(2026, 7, 30, 0, 0, 0, DateTimeKind.Utc).ToString("d MMMM yyyy"));
         template.AddVariable("StrongLine", 500);
         template.AddVariable("WeakLine", 100);
         template.AddVariable("Sales", SalesData.Sales());

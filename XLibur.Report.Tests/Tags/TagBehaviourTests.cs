@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -20,7 +20,7 @@ public class TagBehaviourTests
     /// Builds a two-column range over A3:B4, where row 3 is the data row and row 4 the options row
     /// holding <paramref name="optionsA"/> and <paramref name="optionsB"/>.
     /// </summary>
-    private static IXLWorkbook Template(string optionsA = "", string optionsB = "")
+    private static XLWorkbook Template(string optionsA = "", string optionsB = "")
     {
         var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Report");

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -49,7 +49,7 @@ public static class GoldenFile
         throw new GoldenFileMismatchException(Describe(fixture.Name, differences, actualPath, expectedPath));
     }
 
-    private static IXLWorkbook LoadTemplate(ReportFixture fixture)
+    private static XLWorkbook LoadTemplate(ReportFixture fixture)
     {
         using var stream = ReportResources.OpenTemplate(fixture.Name);
         return new XLWorkbook(stream);

@@ -7,7 +7,7 @@ namespace XLibur.Fonts.SixLabors.Examples.FontEngine;
 /// Demonstrates using SixLabors.Fonts 2.x as the font engine for text measurement.
 /// Install the XLibur.Fonts.SixLabors NuGet package to use this.
 /// </summary>
-public class UsingSixLaborsFontsV2
+public static class UsingSixLaborsFontsV2
 {
     public static void Create(string filePath)
     {

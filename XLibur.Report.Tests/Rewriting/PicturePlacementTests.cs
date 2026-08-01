@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -27,7 +27,7 @@ public class PicturePlacementTests
         .ToList();
 
     /// <summary>Rows 3 and 4 are the bound range; the picture is anchored at A8, below it.</summary>
-    private static IXLWorkbook Template(string anchor)
+    private static XLWorkbook Template(string anchor)
     {
         var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Report");
