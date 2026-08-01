@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -112,15 +112,8 @@ public sealed class DynamicLinqExpressionEngine : IExpressionEngine
     /// <inheritdoc />
     public object? Evaluate(string expression, ExpressionScope scope)
     {
-        if (expression is null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
-
-        if (scope is null)
-        {
-            throw new ArgumentNullException(nameof(scope));
-        }
+        ArgumentNullException.ThrowIfNull(expression);
+        ArgumentNullException.ThrowIfNull(scope);
 
         var names = Flatten(scope);
 
@@ -130,15 +123,8 @@ public sealed class DynamicLinqExpressionEngine : IExpressionEngine
     /// <inheritdoc />
     public string Interpolate(string text, ExpressionScope scope)
     {
-        if (text is null)
-        {
-            throw new ArgumentNullException(nameof(text));
-        }
-
-        if (scope is null)
-        {
-            throw new ArgumentNullException(nameof(scope));
-        }
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(scope);
 
         var names = Flatten(scope);
         var result = new StringBuilder(text.Length);

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text;
 using XLibur.Excel;
 
@@ -40,7 +40,7 @@ internal readonly record struct SheetReference(
         var span = text!.Trim();
 
         // A multi-area reference is written as a parenthesised, comma-separated list.
-        if (span.IndexOf(',') >= 0 || span.IndexOf('(') >= 0)
+        if (span.Contains(',') || span.Contains('('))
         {
             return false;
         }
@@ -156,7 +156,7 @@ internal readonly record struct SheetReference(
         var unquoted = text[..separator];
 
         // A 3-D reference spans sheets; there is no single sheet to match it against.
-        if (unquoted.IndexOf(':') >= 0)
+        if (unquoted.Contains(':'))
         {
             return false;
         }

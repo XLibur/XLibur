@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
@@ -117,10 +117,7 @@ public sealed class XLTemplate : IXLTemplate
     /// <inheritdoc />
     public void AddVariable(object value)
     {
-        if (value is null)
-        {
-            throw new ArgumentNullException(nameof(value));
-        }
+        ArgumentNullException.ThrowIfNull(value);
 
         ThrowIfDisposed();
 
@@ -203,9 +200,6 @@ public sealed class XLTemplate : IXLTemplate
 
     private void ThrowIfDisposed()
     {
-        if (_disposed)
-        {
-            throw new ObjectDisposedException(nameof(XLTemplate));
-        }
+        ObjectDisposedException.ThrowIf(_disposed, this);
     }
 }

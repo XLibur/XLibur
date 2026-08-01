@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
@@ -62,10 +62,7 @@ public sealed class ScribanExpressionEngine : IExpressionEngine
             throw new ArgumentException("A function name is required.", nameof(name));
         }
 
-        if (function is null)
-        {
-            throw new ArgumentNullException(nameof(function));
-        }
+        ArgumentNullException.ThrowIfNull(function);
 
         _functions.Import(name, function);
     }
@@ -92,10 +89,7 @@ public sealed class ScribanExpressionEngine : IExpressionEngine
     /// <inheritdoc />
     public object? Evaluate(string expression, ExpressionScope scope)
     {
-        if (expression is null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(expression);
 
         var template = GetTemplate(_expressionCache, expression, expression, ExpressionLexerOptions);
         return Run(template, expression, scope, static (t, ctx) => t.Evaluate(ctx));
@@ -104,10 +98,7 @@ public sealed class ScribanExpressionEngine : IExpressionEngine
     /// <inheritdoc />
     public string Interpolate(string text, ExpressionScope scope)
     {
-        if (text is null)
-        {
-            throw new ArgumentNullException(nameof(text));
-        }
+        ArgumentNullException.ThrowIfNull(text);
 
         var template = GetTemplate(_textCache, text, text, lexerOptions: null);
         return Run(template, text, scope, static (t, ctx) => t.Render(ctx)) ?? string.Empty;

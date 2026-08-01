@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 
 namespace XLibur.Excel.CalcEngine;
@@ -108,7 +108,7 @@ internal static class NumberParser
     private static bool ContainsCurrencySymbol(string text, CultureInfo culture)
     {
         var symbol = culture.NumberFormat.CurrencySymbol;
-        return symbol.Length > 0 && text.IndexOf(symbol, StringComparison.Ordinal) >= 0;
+        return symbol.Length > 0 && text.Contains(symbol, StringComparison.Ordinal);
     }
 
     private static int IndexOfFirstDigit(string text)

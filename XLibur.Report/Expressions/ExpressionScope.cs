@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace XLibur.Report.Expressions;
@@ -29,10 +29,7 @@ public sealed class ExpressionScope
     /// </summary>
     public ExpressionScope(IEnumerable<KeyValuePair<string, object?>> values, ExpressionScope? parent = null)
     {
-        if (values is null)
-        {
-            throw new ArgumentNullException(nameof(values));
-        }
+        ArgumentNullException.ThrowIfNull(values);
 
         _values = new Dictionary<string, object?>(StringComparer.Ordinal);
         foreach (var pair in values)
