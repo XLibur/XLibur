@@ -1,6 +1,6 @@
 # XLibur Improvement Roadmap
 
-Fourteen prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
+Seventeen prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
 
 Specs 01–10 are the original top-ten set; spec 11 is a follow-on that came out of implementing spec 03 (see below).
 
@@ -24,6 +24,41 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 12 | [Report templating (`XLibur.Report`)](12-report-templating.md) | Feature · Arch | L | ✅ **Done** (see Results; gauge corpus not ported) | 11 tasks; 4/5/6/10 parallel after 3 |
 | 13 | [Public core surface for `XLibur.Report`](13-report-core-public-api.md) | Arch · API · Packaging | M | Proposed | Tasks 1 and 2 independent |
 | 14 | [`Clear`/`CopyTo` scalability](14-clear-copyto-scalability.md) | Perf (edit) · Correctness | S | Proposed ([#271](https://github.com/XLibur/XLibur/issues/271)) | Task 1 first; 2/3/4 independent |
+| 15 | [Shapes & text boxes](15-shapes-and-text-boxes.md) | Feature · Compat | L | Proposed (**needs 16 first**) | 1–3 one stream; then 4/5 parallel |
+| 16 | [Shared DrawingML infrastructure](16-drawingml-infrastructure.md) | Arch · Refactor | S–M | Proposed | 3 PRs; harness first, then 2/3 independent |
+| 17 | [Picture styling & fidelity](17-picture-styling.md) | Feature · Compat · **Defect** | M–L | Proposed (**needs 16 first**) | Task 1 (fidelity fix) first and standalone; 3/4/5 parallel after 2 |
+
+Spec 15 closes the last hole in the drawing surface: XLibur can add pictures and charts but no shape of
+any kind, so a floating text box, callout or arrow cannot be created at all. Shapes that already exist in
+a file do survive a round trip — save reopens the original package and rewrites only modelled parts, the
+same mechanism `docs/round-trip-fidelity.md` documents — but they are invisible to the model, so their
+text can be neither read nor changed. 15 adds `ws.Shapes` over DrawingML `xdr:sp` with a paragraph-aware
+text model, and follows spec 10's chart precedent: new shapes are generated, loaded shapes are **patched
+in place** so unmodelled XML (gradients, effects, theme styles) keeps surviving untouched.
+
+Spec 16 was split out of 15 by review (2026-08-01): the machinery 15 needs already exists in chart- and
+picture-specific form, and extracting it is refactoring of *shipped* behaviour that deserves its own
+gate rather than landing interleaved with feature PRs. 16 delivers three internal pieces, harness
+first: an XML change-set test harness with golden fixtures (proven by retrofitting two chart tests);
+the anchor factory out of `PictureWriter.AddPictureAnchor`; and the DrawingML
+fill/line/colour/element-ordering layer out of `ChartFormatting` — `xdr:sp/spPr` and a chart's `spPr`
+are the same schema type, and one implementation of it beats two — with value-only signatures so
+neither side's assigned-flags enum leaks in. 16 is strictly extraction: operations charts never
+perform (`a:noFill` emission, `a:prstDash`) and the `SetRichText` paragraph-editing primitives are
+added/extracted by 15 itself, where their real consumer shapes the code and its tests gate it.
+**15 hard-depends on 16.** (Spec 10's open 3D follow-on is unrelated — that gap is chart group
+emission in `ChartWriter.cs`, not this layer.)
+
+Spec 17 started as "add the missing picture styling" and turned into a defect report: the picture save
+path **destroys existing styling**. `PictureWriter.AddPictureAnchor` replaces every picture's anchor on
+every save with a hardcoded `spPr` and `blipFill`, so rotation, borders, shadows, recolors and crops
+authored in Excel are silently lost the first time XLibur saves the file — the round-trip-fidelity
+guarantee never covered pictures, because it only protects what XLibur does not rewrite. 17's task 1 is
+the standalone fix (patch-in-place for loaded pictures, clean sheets untouched, image binaries no longer
+re-fed every save); the styling model — border, fill, rotation/flip, transparency, single outer shadow,
+recolor presets, crop, brightness/contrast — builds on top of it through spec 16's shared layer plus a
+new `BlipEffectsWriter`. **17 hard-depends on 16** and conflicts with 15 in `PictureWriter.cs`
+(sequential, either order).
 
 Spec 13 came out of preparing `XLibur.Report` to version independently of core. Report reads core
 internals through an `InternalsVisibleTo` grant, which is safe only while the two ship as one
@@ -124,7 +159,7 @@ to RelocateRange probing the range repository for XLRow instances that are never
 **Read spec 02's Results section before starting 03** — it corrects 03's number-formatting task
 and describes an allocation technique that applies to the rest of the IO layer.
 
-Conflict map: 01↔03 (`SheetDataWriter`), 04↔08 (evaluation stack / `CalcContext`), 07 waves B↔C (`Statistical.cs`). Everything else is disjoint. **Spec 05 must rebase onto spec 11**: 11's Task 4 rewrote bulk style propagation (`XLStylizedBase.ModifyStyle` / `SetStyle`), which is 05's territory.
+Conflict map: 01↔03 (`SheetDataWriter`), 04↔08 (evaluation stack / `CalcContext`), 07 waves B↔C (`Statistical.cs`), 16↔any chart-*formatting* work (`ChartFormatting.cs` — 16 extracts its DrawingML property layer; spec 10's open 3D follow-on is in `ChartWriter.cs` and does not conflict), 15→16 and 17→16 (hard dependencies), 15↔17 (`PictureWriter.cs` save orchestration — sequential, either order), 15↔17 also share the shared-layer `noFill`/`prstDash` ops and `XLLineDashStyle` (first lander adds them). Everything else is disjoint. **Spec 05 must rebase onto spec 11**: 11's Task 4 rewrote bulk style propagation (`XLStylizedBase.ModifyStyle` / `SetStyle`), which is 05's territory.
 
 ## Ground rules for implementing agents
 
