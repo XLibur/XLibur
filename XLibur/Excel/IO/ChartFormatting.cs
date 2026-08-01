@@ -1398,39 +1398,45 @@ internal static class ChartFormatting
         _ => throw new ArgumentOutOfRangeException(nameof(themeColor), themeColor, "Unknown theme colour.")
     };
 
+    /// <summary>
+    /// The scheme colours XLibur models, paired with the theme slot each maps onto. The first four
+    /// slots answer to two names apiece: <c>bg1</c>/<c>lt1</c> and <c>tx1</c>/<c>dk1</c> are the same
+    /// slot addressed from a colour map or from the theme itself, and a producer may write either.
+    /// </summary>
+    /// <remarks>
+    /// A plain array rather than a dictionary: <c>SchemeColorValues</c> is an Open XML SDK 3 enum
+    /// value type whose equality is defined by its <c>==</c> operator, not by GetHashCode, so a scan
+    /// over sixteen entries is both correct and cheaper than hashing.
+    /// </remarks>
+    private static readonly (A.SchemeColorValues Scheme, XLThemeColor Theme)[] ThemeColorMap =
+    [
+        (A.SchemeColorValues.Background1, XLThemeColor.Background1),
+        (A.SchemeColorValues.Light1, XLThemeColor.Background1),
+        (A.SchemeColorValues.Text1, XLThemeColor.Text1),
+        (A.SchemeColorValues.Dark1, XLThemeColor.Text1),
+        (A.SchemeColorValues.Background2, XLThemeColor.Background2),
+        (A.SchemeColorValues.Light2, XLThemeColor.Background2),
+        (A.SchemeColorValues.Text2, XLThemeColor.Text2),
+        (A.SchemeColorValues.Dark2, XLThemeColor.Text2),
+        (A.SchemeColorValues.Accent1, XLThemeColor.Accent1),
+        (A.SchemeColorValues.Accent2, XLThemeColor.Accent2),
+        (A.SchemeColorValues.Accent3, XLThemeColor.Accent3),
+        (A.SchemeColorValues.Accent4, XLThemeColor.Accent4),
+        (A.SchemeColorValues.Accent5, XLThemeColor.Accent5),
+        (A.SchemeColorValues.Accent6, XLThemeColor.Accent6),
+        (A.SchemeColorValues.Hyperlink, XLThemeColor.Hyperlink),
+        (A.SchemeColorValues.FollowedHyperlink, XLThemeColor.FollowedHyperlink),
+    ];
+
     private static bool TryMapThemeColor(A.SchemeColorValues value, out XLThemeColor themeColor)
     {
-        if (value == A.SchemeColorValues.Background1 || value == A.SchemeColorValues.Light1)
+        foreach (var (scheme, theme) in ThemeColorMap)
         {
-            themeColor = XLThemeColor.Background1;
-            return true;
-        }
-        if (value == A.SchemeColorValues.Text1 || value == A.SchemeColorValues.Dark1)
-        {
-            themeColor = XLThemeColor.Text1;
-            return true;
-        }
-        if (value == A.SchemeColorValues.Background2 || value == A.SchemeColorValues.Light2)
-        {
-            themeColor = XLThemeColor.Background2;
-            return true;
-        }
-        if (value == A.SchemeColorValues.Text2 || value == A.SchemeColorValues.Dark2)
-        {
-            themeColor = XLThemeColor.Text2;
-            return true;
-        }
-        if (value == A.SchemeColorValues.Accent1) { themeColor = XLThemeColor.Accent1; return true; }
-        if (value == A.SchemeColorValues.Accent2) { themeColor = XLThemeColor.Accent2; return true; }
-        if (value == A.SchemeColorValues.Accent3) { themeColor = XLThemeColor.Accent3; return true; }
-        if (value == A.SchemeColorValues.Accent4) { themeColor = XLThemeColor.Accent4; return true; }
-        if (value == A.SchemeColorValues.Accent5) { themeColor = XLThemeColor.Accent5; return true; }
-        if (value == A.SchemeColorValues.Accent6) { themeColor = XLThemeColor.Accent6; return true; }
-        if (value == A.SchemeColorValues.Hyperlink) { themeColor = XLThemeColor.Hyperlink; return true; }
-        if (value == A.SchemeColorValues.FollowedHyperlink)
-        {
-            themeColor = XLThemeColor.FollowedHyperlink;
-            return true;
+            if (value == scheme)
+            {
+                themeColor = theme;
+                return true;
+            }
         }
 
         themeColor = default;
