@@ -176,6 +176,7 @@ internal sealed class XLChartAxis : IXLChartAxis
     /// Seeds the properties from an existing chart part without marking them as assigned, so that an
     /// axis nobody edited is never written back.
     /// </summary>
+#pragma warning disable S107 // One parameter per axis attribute read from the chart part
     internal void SeedLoaded(
         string? title,
         string? numberFormat,
@@ -188,6 +189,7 @@ internal sealed class XLChartAxis : IXLChartAxis
         XLAxisOrientation orientation,
         bool logScale,
         double logBase)
+#pragma warning restore S107
     {
         _title = title;
         _numberFormat = numberFormat;

@@ -708,6 +708,7 @@ internal static class DynamicArray
             if (compare == 0)
                 return i;
 
+#pragma warning disable S1871 // The two arms are the two match modes; one condition would hide that
             if (matchMode == -1 && compare < 0 && (best == -1 || comparer.Compare(value, bestValue) > 0))
             {
                 best = i;
@@ -718,6 +719,7 @@ internal static class DynamicArray
                 best = i;
                 bestValue = value;
             }
+#pragma warning restore S1871
         }
 
         return best;

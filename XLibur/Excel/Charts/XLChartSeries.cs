@@ -171,6 +171,7 @@ internal sealed class XLChartSeries : IXLChartSeries
     /// marking them as assigned by the caller. Values seeded this way are never written back, so a
     /// chart nobody edited keeps its original XML byte for byte.
     /// </summary>
+#pragma warning disable S107 // One parameter per series format attribute read from the chart part
     internal void SeedLoadedFormat(
         XLColor? fillColor,
         XLColor? lineColor,
@@ -180,6 +181,7 @@ internal sealed class XLChartSeries : IXLChartSeries
         XLColor? markerFillColor,
         bool smooth,
         bool useSecondaryAxis)
+#pragma warning restore S107
     {
         _fillColor = fillColor;
         _lineColor = lineColor;

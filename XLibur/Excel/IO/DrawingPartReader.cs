@@ -151,8 +151,10 @@ internal static class DrawingPartReader
             LoadGroupRecursive(nested, drawingsPart, ws, scaleX, scaleY, offsetX, offsetY);
     }
 
+#pragma warning disable S107 // One parameter per drawing anchor attribute
     private static void LoadGroupedPicture(Xdr.Picture pic, DrawingsPart drawingsPart, XLWorksheet ws,
         double scaleX, double scaleY, double offsetX, double offsetY, uint? groupId, long groupKey)
+#pragma warning restore S107
     {
         var embed = pic.BlipFill?.Blip?.Embed?.Value;
         if (embed == null)

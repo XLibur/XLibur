@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -91,6 +91,7 @@ public static class Program
     {
         var names = new List<string>();
 
+#pragma warning disable S127 // --out consumes the following argument, so the index advances twice
         for (var i = 0; i < args.Length; i++)
         {
             if (args[i].StartsWith("--", StringComparison.Ordinal))
@@ -106,6 +107,7 @@ public static class Program
 
             names.Add(args[i]);
         }
+#pragma warning restore S127
 
         return names;
     }

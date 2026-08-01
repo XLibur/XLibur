@@ -154,7 +154,9 @@ public sealed class XLStreamingWorkbook : IDisposable
     /// The writer interns the style's value at the point of use, so one instance can be
     /// reconfigured and handed to later rows without disturbing the rows already written.
     /// </remarks>
+#pragma warning disable CA1822 // Public API: making this static would break every caller
     public IXLStyle CreateStyle() => XLStyle.CreateEmptyStyle();
+#pragma warning restore CA1822
 
     /// <summary>
     /// Add a worksheet and make it the one being written. Any worksheet still open is completed

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using XLibur.Excel;
 using XLibur.Report.Expressions;
 
@@ -71,6 +71,7 @@ public abstract class OptionTag
 /// </summary>
 public sealed class ProcessingContext
 {
+#pragma warning disable S107 // One field per piece of processing state; a parameter object here is the same list behind a name
     internal ProcessingContext(
         IXLWorksheet worksheet,
         IXLRange generatedRange,
@@ -84,6 +85,7 @@ public sealed class ProcessingContext
         IReadOnlyList<OptionTag> tags,
         List<Rewriting.PivotRequest> pendingPivots,
         bool grandTotalsDisabled = false)
+#pragma warning restore S107
     {
         Tags = tags;
         PendingPivots = pendingPivots;

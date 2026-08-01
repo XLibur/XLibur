@@ -28,3 +28,23 @@ indent_size = 2
 
 [*.md]
 trim_trailing_whitespace = false
+
+# Analyzer rules that are right about library code and wrong about test code.
+# These fire only under SonarCloud's analyzer configuration, not the normal build.
+# See docs/sonar.md for the finding-by-finding reasoning.
+[{XLibur.Tests,XLibur.Report.Tests,XLibur.Fonts.SixLabors.Tests,XLibur.Fonts.SkiaSharp.Tests}/**.cs]
+
+# CA1861: hoist a constant array argument into a static readonly field. In a test the array
+# literal IS the case under test and belongs beside its assertion; moving 58 of them to fields
+# trades readability for one avoided allocation per test.
+dotnet_diagnostic.CA1861.severity = none
+
+# TUnit0057: a hook may take an AssemblyHookContext. Ours have no use for it, and adding an
+# unused parameter to silence an informational suggestion is worse than the suggestion.
+dotnet_diagnostic.TUnit0057.severity = none
+
+# TUnitAssertions0016: IsEqualTo on a collection compares by reference. Area is a readonly
+# struct with IEquatable value equality that also enumerates points, so the premise does not
+# hold; IsEquivalentTo would compare point sequences instead of the area, which is the weaker
+# and wrong assertion.
+dotnet_diagnostic.TUnitAssertions0016.severity = none

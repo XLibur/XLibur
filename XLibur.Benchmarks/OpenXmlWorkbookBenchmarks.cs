@@ -299,8 +299,10 @@ public class OpenXmlWorkbookBenchmarks
         WriteRowEnd(writer);
     }
 
+#pragma warning disable S107 // The benchmark mirrors the raw OpenXML write it measures; grouping the arguments would measure the grouping
     private void WriteFormattedDataRow(OpenXmlWriter writer, Span<char> cellRef, int row, int i, int idx,
         bool applyFormatting, List<string> sstEntries, Dictionary<string, int> sstMap)
+#pragma warning restore S107
     {
         WriteRowStart(writer, row);
 

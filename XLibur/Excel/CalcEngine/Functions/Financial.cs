@@ -373,7 +373,9 @@ internal static class Financial
     /// for, so consecutive slices add up to the whole and a full-life run charges exactly
     /// <c>cost - salvage</c>.
     /// </summary>
+#pragma warning disable S107 // VDB takes seven arguments in Excel; the eighth is the calc context
     private static ScalarValue Vdb(CalcContext ctx, double cost, double salvage, double life, double startPeriod, double endPeriod, double factor, bool noSwitch)
+#pragma warning restore S107
     {
         if (startPeriod < 0 || endPeriod < startPeriod || endPeriod > life || cost < 0 || salvage > cost || factor <= 0)
             return XLError.NumberInvalid;

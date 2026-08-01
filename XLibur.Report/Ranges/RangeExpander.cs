@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel;
 using XLibur.Excel.ConditionalFormats;
@@ -208,6 +208,7 @@ internal sealed class RangeExpander
         return RangeAxis.Vertical;
     }
 
+#pragma warning disable S107 // One field per piece of expansion state; a parameter object here is the same list behind a name
     private ProcessingContext Context(
         IXLWorksheet sheet,
         RangeAxis axis,
@@ -220,6 +221,7 @@ internal sealed class RangeExpander
         Dictionary<int, string> lineExpressions,
         List<OptionTag> tags,
         GroupOptions groupOptions) =>
+#pragma warning restore S107
         new(
             sheet,
             RangeAxis.Range(sheet, axis.Slots(area, firstSlot, lastSlot)),

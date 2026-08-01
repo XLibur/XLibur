@@ -6,6 +6,11 @@ namespace XLibur.Excel.CalcEngine.Functions;
 /// <summary>
 /// A collection of adapter functions from a more a generic formula function to more specific ones.
 /// </summary>
+// S2234 is suppressed for the whole file. Every adapter forwards its locals arg0..argN-1 to a
+// Func<> whose own generic parameters the framework names arg1..argN, so the rule matches them by
+// name and reports a transposition that is not there. The calls are positionally correct and the
+// calc-engine tests over these functions cover it.
+#pragma warning disable S2234 // Func<> names its generics arg1..argN; our locals are arg0..argN-1
 internal static class SignatureAdapter
 {
     #region Signature adapters
@@ -1335,3 +1340,4 @@ internal static class SignatureAdapter
     }
     #endregion
 }
+#pragma warning restore S2234

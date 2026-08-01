@@ -24,6 +24,7 @@ internal static class WorksheetSheetDataReader
     /// <summary>
     /// Loop-invariant parameters for sheet data reading.
     /// </summary>
+#pragma warning disable S107 // One field per piece of sheet-read context
     internal readonly struct SheetDataReadContext(
         StylesheetData styles,
         XLWorksheet worksheet,
@@ -33,6 +34,7 @@ internal static class WorksheetSheetDataReader
         Dictionary<XLNumberFormatValue, XLDataType> numberDataTypeCache,
         bool use1904DateSystem,
         HashSet<uint>? dynamicArrayCmIndexes = null)
+#pragma warning restore S107
     {
         public readonly StylesheetData Styles = styles;
         public readonly XLWorksheet Worksheet = worksheet;
@@ -408,9 +410,11 @@ internal static class WorksheetSheetDataReader
         return new CellProperties(styleIndex, cellRef, dataType, showPhonetic, cellMetaIndex, valueMetaIndex, hasMisc);
     }
 
+#pragma warning disable S107 // One parameter per cell attribute read from sheetData
     private static void LoadCellContentXml(XmlReader reader, in SheetDataReadContext context,
         CellValues dataType, Point cellAddress, XLStyleValue cellStyleValue,
         XLWorksheet ws, XLCellsCollection cellsCollection, uint? cellMetaIndex)
+#pragma warning restore S107
     {
         // Positioned on the first child of <c> (an Element) or on </c> (an EndElement).
         var formula = IsMainElement(reader, "f")
@@ -551,9 +555,11 @@ internal static class WorksheetSheetDataReader
         return arrayFormula;
     }
 
+#pragma warning disable S107 // One parameter per data-table formula attribute
     private static XLCellFormula LoadDataTableFormulaXml(string refAttr, string? r1Attr, string? r2Attr,
         bool is2D, bool input1Deleted, bool input2Deleted, bool isRowDataTable,
         Point cellAddress, FormulaSlice formulaSlice)
+#pragma warning restore S107
     {
         var dataTableArea = Area.Parse(refAttr);
         var input1 = r1Attr is not null ? Point.Parse(r1Attr) : throw MissingRequiredAttr("r1");
@@ -746,10 +752,12 @@ internal static class WorksheetSheetDataReader
     /// bypassing <see cref="XLCell"/> allocation and <c>CalcEngine.MarkDirty</c>.
     /// An <see cref="XLCell"/> is only created for the rare rich-text shared-string path.
     /// </summary>
+#pragma warning disable S107 // One parameter per cell attribute needed to set the value
     internal static void SetCellValue(CellValues dataType, ReadOnlySpan<char> cellValue,
         XLCellsCollection cellsCollection, Point cellAddress, XLStyleValue cellStyleValue,
         XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline,
         Dictionary<XLNumberFormatValue, XLDataType>? numberDataTypeCache = null)
+#pragma warning restore S107
     {
         // Number and SharedString are the bulk of any sheet and parse straight from the characters.
         // String keeps the text, so it materializes one either way. Error and Date are rare enough

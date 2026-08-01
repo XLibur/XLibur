@@ -168,6 +168,7 @@ internal static class Text
     /// mapping is applied unconditionally here, which is what makes DBCS(ASC(x)) an identity.
     /// </summary>
 #pragma warning disable S3776 // Half-width katakana recombination then a flat per-character mapping
+#pragma warning disable S127 // The extra i++ consumes the second half of a combining pair
     private static ScalarValue Dbcs(CalcContext ctx, string text)
     {
         const char dakuten = 'ﾞ';
@@ -211,6 +212,8 @@ internal static class Text
         return sb.ToString();
     }
 #pragma warning restore S3776
+
+#pragma warning restore S127
 
     /// <summary>
     /// The half-width to full-width katakana mapping, derived by running every full-width katakana
