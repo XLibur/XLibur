@@ -1,4 +1,4 @@
-﻿using XLibur.Examples.ImageHandling;
+using XLibur.Examples.ImageHandling;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;

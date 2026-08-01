@@ -1,4 +1,4 @@
-﻿using XLibur.Excel;
+using XLibur.Excel;
 using System;
 using System.Linq;
 using XLibur.Excel.ConditionalFormats;

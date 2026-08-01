@@ -1,4 +1,4 @@
-﻿using XLibur.Utils;
+using XLibur.Utils;
 using static XLibur.Excel.XLProtectionAlgorithm;
 using System.Threading.Tasks;
 

@@ -1,3 +1,3 @@
-﻿namespace XLibur.Excel;
+namespace XLibur.Excel;
 
 public enum XLTableCellType { None, Header, Data, Total }

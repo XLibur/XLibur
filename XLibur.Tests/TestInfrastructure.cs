@@ -1,4 +1,4 @@
-﻿// The test project does not enable nullable reference types, but this file annotates the two
+// The test project does not enable nullable reference types, but this file annotates the two
 // members below. Opting just this file in keeps the annotations legal (CS8632) without turning
 // null analysis on for the whole suite.
 #nullable enable

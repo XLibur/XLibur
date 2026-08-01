@@ -1,4 +1,4 @@
-﻿using XLibur.Examples.PivotTables;
+using XLibur.Examples.PivotTables;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;

@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel.Streaming;
+namespace XLibur.Excel.Streaming;
 
 /// <summary>
 /// Presentation settings for a column (or a range of columns) of a streamed worksheet, as

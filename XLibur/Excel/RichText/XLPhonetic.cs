@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel.RichText;
+namespace XLibur.Excel.RichText;
 
 internal sealed class XLPhonetic : IXLPhonetic
 {

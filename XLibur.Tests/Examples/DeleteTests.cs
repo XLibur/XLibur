@@ -1,4 +1,4 @@
-﻿using XLibur.Examples.Delete;
+using XLibur.Examples.Delete;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;

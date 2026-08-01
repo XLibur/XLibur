@@ -1,4 +1,4 @@
-﻿using XLibur.Examples.AutoFilters;
+using XLibur.Examples.AutoFilters;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;

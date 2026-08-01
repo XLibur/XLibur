@@ -1,4 +1,4 @@
-﻿using XLibur.Excel;
+using XLibur.Excel;
 using DocumentFormat.OpenXml.Packaging;
 using System;
 using System.Drawing;

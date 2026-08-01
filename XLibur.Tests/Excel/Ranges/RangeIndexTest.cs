@@ -1,4 +1,4 @@
-﻿using XLibur.Excel;
+using XLibur.Excel;
 using XLibur.Excel.Patterns;
 using XLibur.Excel.Ranges.Index;
 using System.Collections.Generic;

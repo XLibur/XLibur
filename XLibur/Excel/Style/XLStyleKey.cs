@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// The composite key of a style. Instances are only ever produced through object initialisers

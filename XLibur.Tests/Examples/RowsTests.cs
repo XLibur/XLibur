@@ -1,4 +1,4 @@
-﻿using XLibur.Examples.Rows;
+using XLibur.Examples.Rows;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;

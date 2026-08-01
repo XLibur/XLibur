@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// Specifies how to apply <see cref="XLConditionalFormatType.Top10"/> conditional formatting rule

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Excel;

@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel.CalcEngine.Functions;
+namespace XLibur.Excel.CalcEngine.Functions;
 
 internal interface ITallyState<out TState>
 {

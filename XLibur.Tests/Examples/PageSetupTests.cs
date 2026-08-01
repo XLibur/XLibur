@@ -1,4 +1,4 @@
-﻿using XLibur.Examples.PageSetup;
+using XLibur.Examples.PageSetup;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using XLibur.Excel.Caching;
 
 namespace XLibur.Excel;

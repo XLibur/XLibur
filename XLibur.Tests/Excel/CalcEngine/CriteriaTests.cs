@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Globalization;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;

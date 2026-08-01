@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Xml;
 using XLibur.Extensions;
 using static XLibur.Excel.IO.OpenXmlConst;

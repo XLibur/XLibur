@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Coordinates;
 

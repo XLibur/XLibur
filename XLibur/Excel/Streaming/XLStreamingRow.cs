@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel.Streaming;
+namespace XLibur.Excel.Streaming;
 
 /// <summary>
 /// The row currently being written by an <see cref="XLStreamingWorksheet"/>. Cells are written

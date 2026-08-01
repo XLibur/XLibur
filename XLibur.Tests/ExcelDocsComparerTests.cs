@@ -1,4 +1,4 @@
-﻿using XLibur.Examples;
+using XLibur.Examples;
 using System.IO;
 using XLibur.Tests.Utils;
 using System.Threading.Tasks;

@@ -1,4 +1,4 @@
-﻿using XLibur.Excel;
+using XLibur.Excel;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.PivotTables.Style;

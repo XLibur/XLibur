@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// Listener for components that need to be notified about structural changes of a workbook

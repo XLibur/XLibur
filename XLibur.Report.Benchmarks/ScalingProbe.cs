@@ -90,14 +90,16 @@ public static class ScalingProbe
             sheet.Cell("E3").Value = "<<Sum>>";
             sheet.Cell("F3").Value = "<<Sum>>";
             sheet.Cell("J3").Value = "<<Sum>>";
-        });
+        }
+        );
 
         yield return ("Grouped - one group level, five groups, two totals", sheet =>
         {
             sheet.Cell("A3").Value = "<<Group>>";
             sheet.Cell("E3").Value = "<<Sum>>";
             sheet.Cell("J3").Value = "<<Sum>>";
-        });
+        }
+        );
 
         yield return ("GroupedAndSorted - grouping plus a sort inside each group", sheet =>
         {
@@ -105,7 +107,8 @@ public static class ScalingProbe
             sheet.Cell("C3").Value = "<<Sort>>";
             sheet.Cell("E3").Value = "<<Sum>>";
             sheet.Cell("J3").Value = "<<Sum>>";
-        });
+        }
+        );
     }
 
     private static int Generate(List<ReportRow> rows, Action<IXLWorksheet>? options)

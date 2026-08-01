@@ -1,4 +1,4 @@
-﻿using XLibur.Excel;
+using XLibur.Excel;
 using XLibur.Excel.Coordinates;
 using System.Threading.Tasks;
 

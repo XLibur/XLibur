@@ -1,4 +1,4 @@
-﻿using XLibur.Examples.ConditionalFormatting;
+using XLibur.Examples.ConditionalFormatting;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;

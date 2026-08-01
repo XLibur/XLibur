@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
 using System.Threading.Tasks;

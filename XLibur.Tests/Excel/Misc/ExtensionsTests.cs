@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using DocumentFormat.OpenXml;
 using XLibur.Extensions;
 using System.Threading.Tasks;

@@ -1,4 +1,4 @@
-﻿using XLibur.Excel.InsertData;
+using XLibur.Excel.InsertData;
 using System.Data;
 using System.Linq;
 using System.Threading.Tasks;

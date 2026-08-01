@@ -1,4 +1,4 @@
-﻿using XLibur.Excel.Coordinates;
+using XLibur.Excel.Coordinates;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Coordinates;

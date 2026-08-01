@@ -1,4 +1,4 @@
-﻿using ClosedXML.Parser;
+using ClosedXML.Parser;
 using XLibur.Extensions;
 
 namespace XLibur.Excel.Coordinates;

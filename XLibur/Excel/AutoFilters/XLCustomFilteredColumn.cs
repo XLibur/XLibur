@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel.AutoFilters;
+namespace XLibur.Excel.AutoFilters;
 
 internal sealed class XLCustomFilteredColumn : IXLCustomFilteredColumn
 {

@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel.Coordinates;
+namespace XLibur.Excel.Coordinates;
 
 /// <summary>
 /// Absolute units of physical length.

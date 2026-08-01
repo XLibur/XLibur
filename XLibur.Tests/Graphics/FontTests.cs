@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using XLibur.Excel;
 using XLibur.Graphics;
 using XLibur.Fonts.SixLabors.V1;

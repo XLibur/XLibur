@@ -1,4 +1,4 @@
-﻿namespace XLibur.Excel;
+namespace XLibur.Excel;
 
 /// <summary>
 /// Where a data label sits relative to its data point.

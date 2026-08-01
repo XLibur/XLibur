@@ -1,4 +1,4 @@
-﻿using XLibur.Excel.InsertData;
+using XLibur.Excel.InsertData;
 using System;
 using System.Collections;
 using System.Collections.Generic;

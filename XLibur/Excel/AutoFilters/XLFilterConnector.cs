@@ -1,4 +1,4 @@
-﻿using XLibur.Excel.AutoFilters;
+using XLibur.Excel.AutoFilters;
 
 namespace XLibur.Excel;
 

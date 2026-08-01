@@ -1,4 +1,4 @@
-﻿using XLibur.Examples.Ranges;
+using XLibur.Examples.Ranges;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Examples;

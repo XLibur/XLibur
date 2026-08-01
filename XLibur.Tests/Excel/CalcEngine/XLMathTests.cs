@@ -1,4 +1,4 @@
-﻿using XLibur.Excel.CalcEngine.Functions;
+using XLibur.Excel.CalcEngine.Functions;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;

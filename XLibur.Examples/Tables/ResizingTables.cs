@@ -1,4 +1,4 @@
-﻿using XLibur.Excel;
+using XLibur.Excel;
 using MoreLinq;
 using System;
 using System.Linq;

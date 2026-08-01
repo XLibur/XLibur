@@ -1,4 +1,4 @@
-﻿using XLibur.Examples.Sparklines;
+using XLibur.Examples.Sparklines;
 using XLibur.Excel;
 using System;
 using System.IO;

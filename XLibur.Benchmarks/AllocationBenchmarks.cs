@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using System.Globalization;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;

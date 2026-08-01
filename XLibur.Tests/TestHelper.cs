@@ -1,4 +1,4 @@
-﻿using XLibur.Examples;
+using XLibur.Examples;
 using XLibur.Excel;
 using System;
 using System.Collections.Generic;

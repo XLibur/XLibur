@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Excel.ContentManagers;
