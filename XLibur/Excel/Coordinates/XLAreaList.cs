@@ -70,162 +70,182 @@ internal sealed class XLAreaList : IEnumerable<Area>
         // results from insert right at E3).
         var result = new List<Area>(_areas.Count);
         foreach (var originalArea in _areas)
-        {
-            if (originalArea.HasFullColumnHeight)
-            {
-                result.Add(originalArea);
-                continue;
-            }
-
-            // Skip all cases that don't shift or extend the area in some way.
-            if (insertedArea.RightColumn < originalArea.LeftColumn ||
-                insertedArea.LeftColumn > originalArea.RightColumn ||
-                insertedArea.TopRow > originalArea.BottomRow + 1)
-            {
-                result.Add(originalArea);
-                continue;
-            }
-
-            if (originalArea.SplitAbove(insertedArea.TopRow, out var above, out var remaining) &&
-                above.Value.LeftColumn >= insertedArea.LeftColumn &&
-                above.Value.RightColumn <= insertedArea.RightColumn)
-            {
-                // Special case: if inserted area covers the full width of the original area and
-                // there is something above, the whole area is just extended downwards. The null
-                // check handles the inserted area attaching to the bottom of the original.
-                var mergedAndExtended = above.Value.ExtendBelow(insertedArea.Height + (remaining?.Height ?? 0));
-                result.Add(mergedAndExtended);
-                continue;
-            }
-
-            Area? left = null, right = null;
-            if (remaining is not null)
-                remaining.Value.SplitBefore(insertedArea.LeftColumn, out left, out remaining);
-
-            if (remaining is not null)
-                remaining.Value.SplitAfter(insertedArea.RightColumn, out right, out remaining);
-
-            if (above is not null)
-                result.Add(above.Value);
-
-            if (left is not null)
-                result.Add(left.Value);
-
-            if (right is not null)
-                result.Add(right.Value);
-
-            if (above is not null)
-            {
-                // There was something above the inserted area, so extend.
-                if (remaining is not null)
-                {
-                    var extended = remaining.Value.ExtendBelow(insertedArea.Height);
-                    result.Add(extended);
-                }
-                else if (insertedArea.TopRow == originalArea.BottomRow + 1)
-                {
-                    // Partial cover attaching at the bottom of the original area, e.g. insert to
-                    // B2 with original A1:C1.
-                    var cutToWidth = new Area(
-                        insertedArea.TopRow,
-                        Math.Max(insertedArea.LeftColumn, originalArea.LeftColumn),
-                        insertedArea.BottomRow,
-                        Math.Min(insertedArea.RightColumn, originalArea.RightColumn));
-                    result.Add(cutToWidth);
-                }
-            }
-            else
-            {
-                // There was nothing above the inserted area, so shift.
-                if (remaining is null)
-                    throw new UnreachableException();
-
-                if (remaining.Value.ShiftRowsAndClip(insertedArea.Height) is { } shifted)
-                    result.Add(shifted);
-            }
-        }
+            AddShiftedDown(originalArea, insertedArea, result);
 
         return new XLAreaList(result);
+    }
+
+    /// <summary>
+    /// Appends the pieces one area breaks into when <paramref name="insertedArea"/> pushes it down.
+    /// An area can survive whole, be extended, or be cut into an above/left/right/shifted set.
+    /// </summary>
+    private static void AddShiftedDown(Area originalArea, Area insertedArea, List<Area> result)
+    {
+        if (originalArea.HasFullColumnHeight)
+        {
+            result.Add(originalArea);
+            return;
+        }
+
+        // Skip all cases that don't shift or extend the area in some way.
+        if (insertedArea.RightColumn < originalArea.LeftColumn ||
+            insertedArea.LeftColumn > originalArea.RightColumn ||
+            insertedArea.TopRow > originalArea.BottomRow + 1)
+        {
+            result.Add(originalArea);
+            return;
+        }
+
+        if (originalArea.SplitAbove(insertedArea.TopRow, out var above, out var remaining) &&
+            above.Value.LeftColumn >= insertedArea.LeftColumn &&
+            above.Value.RightColumn <= insertedArea.RightColumn)
+        {
+            // Special case: if inserted area covers the full width of the original area and
+            // there is something above, the whole area is just extended downwards. The null
+            // check handles the inserted area attaching to the bottom of the original.
+            var mergedAndExtended = above.Value.ExtendBelow(insertedArea.Height + (remaining?.Height ?? 0));
+            result.Add(mergedAndExtended);
+            return;
+        }
+
+        Area? left = null, right = null;
+        if (remaining is not null)
+            remaining.Value.SplitBefore(insertedArea.LeftColumn, out left, out remaining);
+
+        if (remaining is not null)
+            remaining.Value.SplitAfter(insertedArea.RightColumn, out right, out remaining);
+
+        if (above is not null)
+            result.Add(above.Value);
+
+        if (left is not null)
+            result.Add(left.Value);
+
+        if (right is not null)
+            result.Add(right.Value);
+
+        if (above is null)
+        {
+            // There was nothing above the inserted area, so shift.
+            if (remaining is null)
+                throw new UnreachableException();
+
+            if (remaining.Value.ShiftRowsAndClip(insertedArea.Height) is { } shifted)
+                result.Add(shifted);
+
+            return;
+        }
+
+        // There was something above the inserted area, so extend.
+        if (remaining is not null)
+        {
+            result.Add(remaining.Value.ExtendBelow(insertedArea.Height));
+        }
+        else if (insertedArea.TopRow == originalArea.BottomRow + 1)
+        {
+            // Partial cover attaching at the bottom of the original area, e.g. insert to
+            // B2 with original A1:C1.
+            var cutToWidth = new Area(
+                insertedArea.TopRow,
+                Math.Max(insertedArea.LeftColumn, originalArea.LeftColumn),
+                insertedArea.BottomRow,
+                Math.Min(insertedArea.RightColumn, originalArea.RightColumn));
+            result.Add(cutToWidth);
+        }
     }
 
     internal XLAreaList InsertAndShiftRight(Area insertedArea)
     {
         var result = new List<Area>(_areas.Count);
         foreach (var originalArea in _areas)
-        {
-            if (originalArea.HasFullRowWidth)
-            {
-                result.Add(originalArea);
-                continue;
-            }
-
-            // Skip all cases that don't shift or extend the area in some way.
-            if (insertedArea.BottomRow < originalArea.TopRow ||
-                insertedArea.TopRow > originalArea.BottomRow ||
-                insertedArea.LeftColumn > originalArea.RightColumn + 1)
-            {
-                result.Add(originalArea);
-                continue;
-            }
-
-            // Deal with the special case of attachment at the right side.
-            if (insertedArea.LeftColumn == originalArea.RightColumn + 1)
-            {
-                if (originalArea.TopRow >= insertedArea.TopRow &&
-                    originalArea.BottomRow <= insertedArea.BottomRow)
-                {
-                    result.Add(originalArea.ExtendRight(insertedArea.Width));
-                }
-                else
-                {
-                    // Attaches at the right of the original area, e.g. insert to B2 with original A1:C1.
-                    var cutToHeight = new Area(
-                        Math.Max(insertedArea.TopRow, originalArea.TopRow),
-                        insertedArea.LeftColumn,
-                        Math.Min(insertedArea.BottomRow, originalArea.BottomRow),
-                        insertedArea.RightColumn);
-                    result.Add(originalArea);
-                    result.Add(cutToHeight);
-                }
-
-                continue;
-            }
-
-            Area? below = null, left = null;
-            originalArea.SplitAbove(insertedArea.TopRow, out var above, out var remaining);
-
-            if (remaining is not null)
-                remaining.Value.SplitBelow(insertedArea.BottomRow, out below, out remaining);
-
-            if (remaining is not null)
-                remaining.Value.SplitBefore(insertedArea.LeftColumn, out left, out remaining);
-
-            // Something must remain: the inserted area intersects the original area (the right-side
-            // attachment special case is handled above) and we only cut three times, one per side.
-            if (remaining is null)
-                throw new UnreachableException();
-
-            if (above is not null)
-                result.Add(above.Value);
-
-            if (below is not null)
-                result.Add(below.Value);
-
-            if (left is not null)
-            {
-                // There was something on the left of the inserted area, so extend.
-                var mergedAndExtended = left.Value.ExtendRight(insertedArea.Width + remaining.Value.Width);
-                result.Add(mergedAndExtended);
-            }
-            else
-            {
-                // There is nothing on the left side, so shift.
-                if (remaining.Value.ShiftColumnsAndClip(insertedArea.Width) is { } shifted)
-                    result.Add(shifted);
-            }
-        }
+            AddShiftedRight(originalArea, insertedArea, result);
 
         return new XLAreaList(result);
+    }
+
+    /// <summary>
+    /// Appends the pieces one area breaks into when <paramref name="insertedArea"/> pushes it right.
+    /// An area can survive whole, be extended, or be cut into an above/below/left/shifted set.
+    /// </summary>
+    private static void AddShiftedRight(Area originalArea, Area insertedArea, List<Area> result)
+    {
+        if (originalArea.HasFullRowWidth)
+        {
+            result.Add(originalArea);
+            return;
+        }
+
+        // Skip all cases that don't shift or extend the area in some way.
+        if (insertedArea.BottomRow < originalArea.TopRow ||
+            insertedArea.TopRow > originalArea.BottomRow ||
+            insertedArea.LeftColumn > originalArea.RightColumn + 1)
+        {
+            result.Add(originalArea);
+            return;
+        }
+
+        // Deal with the special case of attachment at the right side.
+        if (insertedArea.LeftColumn == originalArea.RightColumn + 1)
+        {
+            AddAttachedAtRight(originalArea, insertedArea, result);
+            return;
+        }
+
+        Area? below = null, left = null;
+        originalArea.SplitAbove(insertedArea.TopRow, out var above, out var remaining);
+
+        if (remaining is not null)
+            remaining.Value.SplitBelow(insertedArea.BottomRow, out below, out remaining);
+
+        if (remaining is not null)
+            remaining.Value.SplitBefore(insertedArea.LeftColumn, out left, out remaining);
+
+        // Something must remain: the inserted area intersects the original area (the right-side
+        // attachment special case is handled above) and we only cut three times, one per side.
+        if (remaining is null)
+            throw new UnreachableException();
+
+        if (above is not null)
+            result.Add(above.Value);
+
+        if (below is not null)
+            result.Add(below.Value);
+
+        if (left is not null)
+        {
+            // There was something on the left of the inserted area, so extend.
+            var mergedAndExtended = left.Value.ExtendRight(insertedArea.Width + remaining.Value.Width);
+            result.Add(mergedAndExtended);
+        }
+        else
+        {
+            // There is nothing on the left side, so shift.
+            if (remaining.Value.ShiftColumnsAndClip(insertedArea.Width) is { } shifted)
+                result.Add(shifted);
+        }
+    }
+
+    /// <summary>
+    /// The inserted area starts exactly one column past the original, so nothing moves: the original
+    /// either grows to swallow the insertion, or keeps it as a separate piece cut to their overlap.
+    /// </summary>
+    private static void AddAttachedAtRight(Area originalArea, Area insertedArea, List<Area> result)
+    {
+        if (originalArea.TopRow >= insertedArea.TopRow &&
+            originalArea.BottomRow <= insertedArea.BottomRow)
+        {
+            result.Add(originalArea.ExtendRight(insertedArea.Width));
+            return;
+        }
+
+        // Attaches at the right of the original area, e.g. insert to B2 with original A1:C1.
+        var cutToHeight = new Area(
+            Math.Max(insertedArea.TopRow, originalArea.TopRow),
+            insertedArea.LeftColumn,
+            Math.Min(insertedArea.BottomRow, originalArea.BottomRow),
+            insertedArea.RightColumn);
+        result.Add(originalArea);
+        result.Add(cutToHeight);
     }
 
     internal XLAreaList DeleteAndShiftUp(Area deletedArea)
@@ -233,35 +253,35 @@ internal sealed class XLAreaList : IEnumerable<Area>
         var groove = deletedArea.ExtendBelow(XLHelper.MaxRowNumber);
         var result = new List<Area>(_areas.Count);
         foreach (var originalArea in _areas)
-        {
-            if (originalArea.HasFullColumnHeight)
-            {
-                result.Add(originalArea);
-                continue;
-            }
-
-            var deleteWontSplitOriginalArea =
-                deletedArea.LeftColumn <= originalArea.LeftColumn && deletedArea.RightColumn >= originalArea.RightColumn;
-            if (deleteWontSplitOriginalArea)
-            {
-                var shiftedArea = originalArea.ShiftOrShrinkUp(deletedArea.TopRow, deletedArea.Height);
-                if (shiftedArea is not null)
-                    result.Add(shiftedArea.Value);
-            }
-            else
-            {
-                var inGrooveArea = originalArea.Exclude(groove, result);
-                if (inGrooveArea is not null)
-                {
-                    // There is something to shift, so shift it upwards.
-                    var shiftedArea = inGrooveArea.Value.ShiftOrShrinkUp(deletedArea.TopRow, deletedArea.Height);
-                    if (shiftedArea is not null)
-                        result.Add(shiftedArea.Value);
-                }
-            }
-        }
+            AddShiftedUp(originalArea, deletedArea, groove, result);
 
         return new XLAreaList(result);
+    }
+
+    /// <summary>
+    /// Appends what survives of one area when <paramref name="deletedArea"/> pulls it up. When the
+    /// deletion is narrower than the area, the parts outside <paramref name="groove"/> stay put and
+    /// only the part inside it moves.
+    /// </summary>
+    private static void AddShiftedUp(Area originalArea, Area deletedArea, Area groove, List<Area> result)
+    {
+        if (originalArea.HasFullColumnHeight)
+        {
+            result.Add(originalArea);
+            return;
+        }
+
+        var deleteWontSplitOriginalArea =
+            deletedArea.LeftColumn <= originalArea.LeftColumn && deletedArea.RightColumn >= originalArea.RightColumn;
+
+        // Exclude appends the pieces outside the groove to the result itself and hands back the one
+        // piece inside it, which is the only part the deletion moves.
+        var areaToShift = deleteWontSplitOriginalArea
+            ? originalArea
+            : originalArea.Exclude(groove, result);
+
+        if (areaToShift?.ShiftOrShrinkUp(deletedArea.TopRow, deletedArea.Height) is { } shiftedArea)
+            result.Add(shiftedArea);
     }
 
     internal XLAreaList DeleteAndShiftLeft(Area deletedArea)
@@ -269,35 +289,35 @@ internal sealed class XLAreaList : IEnumerable<Area>
         var groove = deletedArea.ExtendRight(XLHelper.MaxColumnNumber);
         var result = new List<Area>(_areas.Count);
         foreach (var originalArea in _areas)
-        {
-            if (originalArea.HasFullRowWidth)
-            {
-                result.Add(originalArea);
-                continue;
-            }
-
-            var deleteWontSplitOriginalArea =
-                deletedArea.TopRow <= originalArea.TopRow && deletedArea.BottomRow >= originalArea.BottomRow;
-            if (deleteWontSplitOriginalArea)
-            {
-                var shiftedArea = originalArea.ShiftOrShrinkLeft(deletedArea.LeftColumn, deletedArea.Width);
-                if (shiftedArea is not null)
-                    result.Add(shiftedArea.Value);
-            }
-            else
-            {
-                var inGrooveArea = originalArea.Exclude(groove, result);
-                if (inGrooveArea is not null)
-                {
-                    // There is something to shift, so shift it leftward.
-                    var shiftedArea = inGrooveArea.Value.ShiftOrShrinkLeft(deletedArea.LeftColumn, deletedArea.Width);
-                    if (shiftedArea is not null)
-                        result.Add(shiftedArea.Value);
-                }
-            }
-        }
+            AddShiftedLeft(originalArea, deletedArea, groove, result);
 
         return new XLAreaList(result);
+    }
+
+    /// <summary>
+    /// Appends what survives of one area when <paramref name="deletedArea"/> pulls it left. When the
+    /// deletion is shorter than the area, the parts outside <paramref name="groove"/> stay put and
+    /// only the part inside it moves.
+    /// </summary>
+    private static void AddShiftedLeft(Area originalArea, Area deletedArea, Area groove, List<Area> result)
+    {
+        if (originalArea.HasFullRowWidth)
+        {
+            result.Add(originalArea);
+            return;
+        }
+
+        var deleteWontSplitOriginalArea =
+            deletedArea.TopRow <= originalArea.TopRow && deletedArea.BottomRow >= originalArea.BottomRow;
+
+        // Exclude appends the pieces outside the groove to the result itself and hands back the one
+        // piece inside it, which is the only part the deletion moves.
+        var areaToShift = deleteWontSplitOriginalArea
+            ? originalArea
+            : originalArea.Exclude(groove, result);
+
+        if (areaToShift?.ShiftOrShrinkLeft(deletedArea.LeftColumn, deletedArea.Width) is { } shiftedArea)
+            result.Add(shiftedArea);
     }
 
     internal XLAreaList DeleteWithoutShift(Area deletedArea)
