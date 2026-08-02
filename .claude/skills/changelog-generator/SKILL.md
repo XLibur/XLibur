@@ -14,13 +14,12 @@ Generate and maintain professional, user-facing `CHANGELOG.md` files by analyzin
 3. **Filter noise** — exclude internal-only changes
 4. **Categorize** — group by change type (emoji sections), then by feature area within each
 5. **Translate** — rewrite commit messages as user-facing entries, each attributed to its PR and author
-6. **Summarize & format & write** — open each release with a one-paragraph summary, then create or update `CHANGELOG.md` following the conventions below
+6. **Format & write** — create or update `CHANGELOG.md` following the conventions below
 7. **Review with the user** — show the draft before finalizing
 ## Step 1: Determine the Commit Range
  
 Resolve what the user means by "since last release" / "for version X" / "past week":
  
-
 ```bash
 # Most recent tag (usually the last release)
 git describe --tags --abbrev=0
@@ -31,7 +30,6 @@ git tag --sort=-creatordate --format='%(refname:short)  %(creatordate:short)'
 # Check whether CHANGELOG.md already exists and read its latest entry
 # (its most recent version heading tells you where to resume from)
 ```
-
  
 Common range patterns:
  
@@ -48,7 +46,6 @@ If no tags exist and no existing changelog gives a starting point, ask the user 
  
 Collect commits with enough context to write meaningful entries:
  
-
 ```bash
 # Subject + body + author + date, machine-parseable
 git log <range> --no-merges --pretty=format:'%H%x09%ad%x09%an%x09%s' --date=short
@@ -56,7 +53,6 @@ git log <range> --no-merges --pretty=format:'%H%x09%ad%x09%an%x09%s' --date=shor
 # For commits whose subject alone is unclear, pull the full message and files touched
 git show <hash> --stat --pretty=format:'%s%n%n%b'
 ```
-
  
 Read commit bodies, not just subjects — the body often explains the user impact that the subject omits. If a commit references a PR or issue number (`#123`), keep the reference; every entry is attributed to it (see Step 5).
 
@@ -190,7 +186,7 @@ This applies to any entry with a migration, wherever it sits — most often ⚠�
 🗑️ Deprecations, but also a ✨ New Feature that supersedes an older call, or a 🐛 Bug Fix whose
 correct behaviour needs a different call site.
 
-```markdown
+````markdown
 - **`IndexColor` is replaced by `RawColor()`.** The property returned a palette index that silently
   went stale when the theme changed; the method resolves against the active theme at call time.
   ([#312](https://github.com/org/repo/pull/312) by [@handle](https://github.com/handle))
@@ -202,7 +198,7 @@ correct behaviour needs a different call site.
   // After
   var c = cell.Style.Font.RawColor();
   ```
-```
+````
 
 Rules for the example:
 
@@ -246,45 +242,10 @@ Default to a professional, concise, positive tone. Before writing, check for pro
    implementation detail they carry. It does not override the two-level emoji structure or
    attribution — those apply to the section you are writing even when older sections lack them.
 3. A `CONTRIBUTING.md` or docs style guide in the repo
-
-## Step 5b: Write the Per-Release Summary Paragraph
-
-Every version section opens with a **single-paragraph summary**, placed directly under the version
-heading and above the first `###` type section. It gives a reader the shape of the release in a few
-sentences before they drop into the categorized detail below.
-
-Rules for the summary:
-
-- **One paragraph, plain prose.** No bullet list, no `####` subheadings, and no per-entry PR links —
-  those live in the detailed entries beneath it. Two to four sentences is the target.
-- **Lead with new features, named explicitly.** If the release adds capabilities, name each one
-  ("Adds CSV export, faceted search, and a saved-view picker"). These are what people upgrade for,
-  so they go first and they go by name — do not reduce features to a count.
-- **Consolidate bug fixes into a count.** The 🐛 Bug Fixes section already lists them individually;
-  the summary just tallies them ("plus 8 bug fixes", or "plus 8 bug fixes across charts and formula
-  parsing" when they cluster in one or two areas). Do not restate each fix.
-- **Call out anything large by name instead of burying it in the count.** A change that is
-  significant on its own — a data-loss or security fix, a major correctness fix, a breaking change,
-  or a headline performance win — is named in the summary even when it is technically a "fix". The
-  count then covers only the remainder ("fixes a data-loss bug in the export path, plus 5 smaller
-  bug fixes"). Use judgment: "large" means a reader would want to know about it specifically, not
-  see it folded into a number.
-- **Match the release's actual shape.** A features-only release says so ("no bug fixes this
-  release"); a maintenance release says so ("A maintenance release: 8 bug fixes, no new features").
-  Mention Breaking Changes / Security / Deprecations in the summary whenever the release has them —
-  those are the sentences a reader most needs up front.
-- **Stay consistent with the sections below.** Every feature named and every count stated must match
-  what the categorized entries actually contain (see the Step 7 check).
-
-Placement and light styling (a leading `>` blockquote or `**Summary:**` lead-in) may follow the
-project's existing changelog style; if the file already opens releases with a summary line, match
-that. Default to a plain paragraph when there is no existing convention.
-
 ## Step 6: Format and Write CHANGELOG.md
  
 Follow [Keep a Changelog](https://keepachangelog.com) conventions adapted to the sections above:
  
-
 ```markdown
 # Changelog
  
@@ -297,8 +258,6 @@ All notable changes to this project will be documented in this file.
 - [2.4.0](#240---2026-06-02)
 
 ## [2.5.0] - 2026-07-26
-
-This release adds **CSV export for report data** and **faceted search** on the `/v2` endpoint. It also removes the legacy `/v1/search` endpoint (see Breaking Changes) and makes large exports up to 3× faster. On top of that, it fixes a crash when signing in after a long period of inactivity, plus 5 smaller bug fixes across reporting and search.
 
 ### ⚠️ Breaking Changes
 
@@ -338,12 +297,11 @@ This release adds **CSV export for report data** and **faceted search** on the `
 ```
 
 Rules for writing the file:
-- **Each version section opens with the one-paragraph summary from Step 5b**, between the version heading and the first `###` type section
 - **A `## Contents` table of contents sits at the top**, between the intro and the newest version — see below
 - **Newest version at the top**, directly under the table of contents
 - Version heading format: `## [X.Y.Z] - YYYY-MM-DD`. If the release isn't tagged/dated yet, use `## [Unreleased]`
 - **Updating an existing changelog:** insert the new section above the previous newest version. Never rewrite or reorder existing entries. Preserve the file's existing heading style, bullet style, and link conventions exactly — consistency beats these guidelines.
-- **A file whose older releases predate this format:** apply the two-level emoji structure, the per-release summary, and attribution to the section you are writing, and leave already-released sections untouched. Mixed heading styles across releases are expected and fine. Offer to backfill older sections as a separate pass — it means mapping every historical entry to a PR, which is its own job.
+- **A file whose older releases predate this format:** apply the two-level emoji structure and attribution to the section you are writing, and leave already-released sections untouched. Mixed heading styles across releases are expected and fine. Offer to backfill older sections as a separate pass — it means mapping every historical entry to a PR, which is its own job.
 
 ### Table of contents
 
@@ -385,13 +343,6 @@ Present the draft to the user before (or immediately after) writing the file, an
 - Which repo you linked PRs against, when the project has more than one remote
 - Any migration example whose replacement API you could not verify against the diff, and any
   migration you judged non-mechanical — those are the two the user most needs to check
-- Any bug fix you promoted out of the summary count into a named call-out — the "is this large
-  enough to name?" judgment is the user's to confirm
-
-**Verify each release summary against its sections:** every feature named in the summary appears
-under ✨ New Features, the bug-fix count matches the number of 🐛 Bug Fixes entries (minus any you
-named separately), and any Breaking Change / Security / Deprecation the summary mentions has a
-matching section. A summary that disagrees with the detail below it is worse than no summary.
 
 Report the section/area layout and the entry count so the user can see the shape at a glance without
 re-reading the file. After restructuring an existing section, verify the entry count is unchanged —
