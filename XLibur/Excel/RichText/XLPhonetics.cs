@@ -244,6 +244,8 @@ internal sealed class XLPhonetics : IXLPhonetics, IEquatable<XLPhonetics>
         return GetEnumerator();
     }
 
+    public override bool Equals(object? obj) => Equals(obj as XLPhonetics);
+
     public bool Equals(IXLPhonetics? other) => Equals(other as XLPhonetics);
 
     public bool Equals(XLPhonetics? other)
@@ -261,5 +263,13 @@ internal sealed class XLPhonetics : IXLPhonetics, IEquatable<XLPhonetics>
             _font.Key.Equals(other._font.Key) &&
             Type == other.Type &&
             Alignment == other.Alignment;
+    }
+
+    public override int GetHashCode()
+    {
+        // Every component of equality here — the phonetic runs, the font key, Type and Alignment —
+        // is mutable, so a computed hash would go stale the moment the instance is edited. Constant,
+        // as XLRichString is for the same reason. Don't ever use this class as a dictionary key.
+        return 4; // Chosen by fair dice roll. Guaranteed to be random.
     }
 }
