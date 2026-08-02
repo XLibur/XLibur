@@ -231,6 +231,20 @@ internal readonly struct Point : IEquatable<Point>, IComparable<Point>
         return PackedValue.CompareTo(other.PackedValue);
     }
 
+    // The packing puts the row above the column, so comparing the packed values directly is the
+    // row-major ordering. These make that ordering usable with the operators, not just CompareTo.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool operator <(Point a, Point b) => a.PackedValue < b.PackedValue;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool operator <=(Point a, Point b) => a.PackedValue <= b.PackedValue;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool operator >(Point a, Point b) => a.PackedValue > b.PackedValue;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool operator >=(Point a, Point b) => a.PackedValue >= b.PackedValue;
+
     /// <summary>
     /// Is the point within the range or below the range?
     /// </summary>

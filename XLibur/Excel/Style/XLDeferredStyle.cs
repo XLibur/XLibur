@@ -16,7 +16,6 @@ internal sealed class XLDeferredStyle : IXLStyle
     private readonly XLDeferredAlignment _alignment;
     private readonly XLDeferredNumberFormat _numberFormat;
     private readonly XLDeferredProtection _protection;
-    private bool _includeQuotePrefix;
 
     internal XLDeferredStyle(XLStyleKey key)
     {
@@ -26,7 +25,7 @@ internal sealed class XLDeferredStyle : IXLStyle
         _alignment = new XLDeferredAlignment(this, key.Alignment);
         _numberFormat = new XLDeferredNumberFormat(this, key.NumberFormat);
         _protection = new XLDeferredProtection(this, key.Protection);
-        _includeQuotePrefix = key.IncludeQuotePrefix;
+        IncludeQuotePrefix = key.IncludeQuotePrefix;
     }
 
     /// <summary>
@@ -40,7 +39,7 @@ internal sealed class XLDeferredStyle : IXLStyle
         Alignment = _alignment.Key,
         NumberFormat = _numberFormat.Key,
         Protection = _protection.Key,
-        IncludeQuotePrefix = _includeQuotePrefix,
+        IncludeQuotePrefix = IncludeQuotePrefix,
     };
 
     public IXLFont Font
@@ -67,11 +66,7 @@ internal sealed class XLDeferredStyle : IXLStyle
         set => _fill.Key = XLFill.GenerateKey(value);
     }
 
-    public bool IncludeQuotePrefix
-    {
-        get => _includeQuotePrefix;
-        set => _includeQuotePrefix = value;
-    }
+    public bool IncludeQuotePrefix { get; set; }
 
     public IXLNumberFormat NumberFormat
     {
@@ -89,7 +84,7 @@ internal sealed class XLDeferredStyle : IXLStyle
 
     public IXLStyle SetIncludeQuotePrefix(bool includeQuotePrefix = true)
     {
-        _includeQuotePrefix = includeQuotePrefix;
+        IncludeQuotePrefix = includeQuotePrefix;
         return this;
     }
 

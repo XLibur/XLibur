@@ -14,4 +14,14 @@ internal readonly record struct XLSheetOffset(int RowOfs, int ColOfs) : ICompara
         var rowComparison = RowOfs.CompareTo(other.RowOfs);
         return rowComparison != 0 ? rowComparison : ColOfs.CompareTo(other.ColOfs);
     }
+
+    // Row-major ordering, exposed through the operators as well as CompareTo. Equality comes from
+    // the record struct.
+    public static bool operator <(XLSheetOffset a, XLSheetOffset b) => a.CompareTo(b) < 0;
+
+    public static bool operator <=(XLSheetOffset a, XLSheetOffset b) => a.CompareTo(b) <= 0;
+
+    public static bool operator >(XLSheetOffset a, XLSheetOffset b) => a.CompareTo(b) > 0;
+
+    public static bool operator >=(XLSheetOffset a, XLSheetOffset b) => a.CompareTo(b) >= 0;
 }

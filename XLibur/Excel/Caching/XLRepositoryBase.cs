@@ -6,12 +6,7 @@ using System.Threading;
 
 namespace XLibur.Excel.Caching;
 
-internal abstract class XLRepositoryBase : IXLRepository
-{
-    public abstract void Clear();
-}
-
-internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<Tkey, Tvalue>
+internal class XLRepositoryBase<Tkey, Tvalue> : IXLRepository<Tkey, Tvalue>
     where Tkey : struct, IEquatable<Tkey>
     where Tvalue : class
 {
@@ -130,7 +125,7 @@ internal class XLRepositoryBase<Tkey, Tvalue> : XLRepositoryBase, IXLRepository<
         _storage.TryRemove(key, out _);
     }
 
-    public override void Clear()
+    public void Clear()
     {
         _storage.Clear();
         _deadEntriesSeen = 0;

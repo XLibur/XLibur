@@ -6,7 +6,7 @@ using XLibur.Extensions;
 
 namespace XLibur.Excel.RichText;
 
-internal sealed class XLPhonetics : IXLPhonetics
+internal sealed class XLPhonetics : IXLPhonetics, IEquatable<XLPhonetics>
 {
     private readonly List<IXLPhonetic> _phonetics = [];
     private readonly XLFont _font;

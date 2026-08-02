@@ -152,8 +152,6 @@ internal sealed class XLDataValidation : IXLDataValidation
 
     #region IXLDataValidation Members
 
-    private string maxValue = string.Empty;
-    private string minValue = string.Empty;
     public XLAllowedValues AllowedValues { get; set; }
 
     public XLDateCriteria Date
@@ -181,8 +179,8 @@ internal sealed class XLDataValidation : IXLDataValidation
     public bool InCellDropdown { get; set; }
     public string InputMessage { get; set; } = string.Empty;
     public string InputTitle { get; set; } = string.Empty;
-    public string MaxValue { get => maxValue; set => maxValue = value; }
-    public string MinValue { get => minValue; set => minValue = value; }
+    public string MaxValue { get; set; } = string.Empty;
+    public string MinValue { get; set; } = string.Empty;
     public XLOperator Operator { get; set; }
 
     /// <summary>

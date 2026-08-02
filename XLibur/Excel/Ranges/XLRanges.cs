@@ -9,7 +9,7 @@ using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized
+internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized, IEquatable<XLRanges>
 {
     /// <summary>
     /// Normally, XLRanges collection includes ranges from a single worksheet, but not necessarily.

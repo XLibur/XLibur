@@ -4,7 +4,7 @@ using System.Diagnostics;
 namespace XLibur.Excel.RichText;
 
 [DebuggerDisplay("{Text}")]
-internal sealed class XLRichString : IXLRichString
+internal sealed class XLRichString : IXLRichString, IEquatable<XLRichString>
 {
     private readonly IXLWithRichString _withRichString;
     private readonly XLFont _font;
