@@ -78,7 +78,7 @@ public class XLRangesEqualityTests
         object nullObject = null;
 
         await Assert.That(ranges.Equals(null)).IsFalse();
-        await Assert.That(ranges.Equals(nullObject)!).IsFalse();
+        await Assert.That(ranges.Equals(nullObject)).IsFalse();
         await Assert.That(ranges.Equals("not a range collection")).IsFalse();
     }
 

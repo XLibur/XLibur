@@ -104,7 +104,7 @@ public class DataValidationTests
         var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell("A1").SetValue("A");
         ws.Cell("B1").CreateDataValidation().Custom("A1");
-        ws.FirstRow()!.InsertRowsAbove(1);
+        ws.FirstRow().InsertRowsAbove(1);
 
         await Assert.That(ws.Cell("B2").GetDataValidation().Value).IsEqualTo("A2");
     }
@@ -127,7 +127,7 @@ public class DataValidationTests
         var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell("A1").SetValue("A");
         ws.Cell("B1").CreateDataValidation().Custom("A1");
-        ws.FirstColumn()!.InsertColumnsBefore(1);
+        ws.FirstColumn().InsertColumnsBefore(1);
 
         await Assert.That(ws.Cell("C1").GetDataValidation().Value).IsEqualTo("B1");
     }
@@ -158,7 +158,7 @@ public class DataValidationTests
         var dv = table.DataRange!.CreateDataValidation();
         dv.ErrorTitle = "Error";
 
-        await Assert.That(table.DataRange!.FirstCell().GetDataValidation().ErrorTitle).IsEqualTo("Error");
+        await Assert.That(table.DataRange.FirstCell().GetDataValidation().ErrorTitle).IsEqualTo("Error");
     }
 
     [Test]
@@ -491,7 +491,7 @@ public class DataValidationTests
 
         ms.Position = 0;
         using var doc = SpreadsheetDocument.Open(ms, false);
-        var worksheetPart = doc.WorkbookPart.WorksheetParts.First()!;
+        var worksheetPart = doc.WorkbookPart.WorksheetParts.First();
         var dataValidation = worksheetPart.Worksheet
             .Descendants<DataValidation>()
             .First();

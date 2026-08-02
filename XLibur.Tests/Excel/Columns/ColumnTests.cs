@@ -38,7 +38,7 @@ public class ColumnTests
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue("Test").Style.Font.SetBold();
-        ws.FirstColumn()!.CopyTo(ws.Column(2));
+        ws.FirstColumn().CopyTo(ws.Column(2));
 
         await Assert.That(ws.Cell("B1").Style.Font.Bold).IsTrue();
     }
@@ -298,9 +298,9 @@ public class ColumnTests
         var wb = new XLWorkbook();
         wb.DefinedNames.Add("TestName", XLError.NameNotRecognized.ToDisplayString());
         var ws1 = wb.AddWorksheet();
-        await Assert.That(() => ws1.FirstColumn()!.InsertColumnsAfter(1)).ThrowsNothing();
+        await Assert.That(() => ws1.FirstColumn().InsertColumnsAfter(1)).ThrowsNothing();
         var ws2 = wb.AddWorksheet();
-        await Assert.That(() => ws2.FirstColumn()!.InsertColumnsBefore(1)).ThrowsNothing();
+        await Assert.That(() => ws2.FirstColumn().InsertColumnsBefore(1)).ThrowsNothing();
 
         await Assert.That(wb.Worksheets.Count).IsEqualTo(2);
     }

@@ -126,8 +126,8 @@ public class CopyContentsTests
 
         var ws2 = ws1.CopyTo("Sheet2");
 
-        await Assert.That(ws1.FirstCell()!.Address.Worksheet.Name).IsEqualTo("Sheet1");
-        await Assert.That(ws2.FirstCell()!.Address.Worksheet.Name).IsEqualTo("Sheet2");
+        await Assert.That(ws1.FirstCell().Address.Worksheet.Name).IsEqualTo("Sheet1");
+        await Assert.That(ws2.FirstCell().Address.Worksheet.Name).IsEqualTo("Sheet2");
     }
 
     [Test]

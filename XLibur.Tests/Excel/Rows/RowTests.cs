@@ -25,7 +25,7 @@ public class RowTests
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue("Test").Style.Font.SetBold();
-        ws.FirstRow()!.CopyTo(ws.Row(2));
+        ws.FirstRow().CopyTo(ws.Row(2));
 
         await Assert.That(ws.Cell("A2").Style.Font.Bold).IsTrue();
     }

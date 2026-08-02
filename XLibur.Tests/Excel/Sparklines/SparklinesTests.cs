@@ -865,9 +865,9 @@ public class SparklinesTests
             var ws = wb.Worksheets.Single();
 
             await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(2);
-            await Assert.That(ws.Cell("A2")!.Sparkline.IsValid).IsFalse();
-            await Assert.That(ws.Cell("A5")!.Sparkline.SourceData.RangeAddress.ToString()).IsEqualTo("B5:F5");
-            await Assert.That(ws.Cell("A5")!.Sparkline.SparklineGroup.DateRange).IsNull();
+            await Assert.That(ws.Cell("A2").Sparkline.IsValid).IsFalse();
+            await Assert.That(ws.Cell("A5").Sparkline.SourceData.RangeAddress.ToString()).IsEqualTo("B5:F5");
+            await Assert.That(ws.Cell("A5").Sparkline.SparklineGroup.DateRange).IsNull();
         }
     }
 
@@ -885,7 +885,7 @@ public class SparklinesTests
 
         axis.ManualMin = 100;
 
-        await Assert.That(axis.ManualMin!.Value).IsEqualTo(100).Within(XLHelper.Epsilon);
+        await Assert.That(axis.ManualMin.Value).IsEqualTo(100).Within(XLHelper.Epsilon);
         await Assert.That(axis.MinAxisType).IsEqualTo(XLSparklineAxisMinMax.Custom);
     }
 
@@ -899,7 +899,7 @@ public class SparklinesTests
 
         axis.ManualMax = 100;
 
-        await Assert.That(axis.ManualMax!.Value).IsEqualTo(100).Within(XLHelper.Epsilon);
+        await Assert.That(axis.ManualMax.Value).IsEqualTo(100).Within(XLHelper.Epsilon);
         await Assert.That(axis.MaxAxisType).IsEqualTo(XLSparklineAxisMinMax.Custom);
     }
 
@@ -990,7 +990,7 @@ public class SparklinesTests
 
         await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(1);
         await Assert.That(target.HasSparkline).IsTrue();
-        await Assert.That(target.Sparkline.SparklineGroup).IsSameReferenceAs(ws.Cell("A2")!.Sparkline.SparklineGroup);
+        await Assert.That(target.Sparkline.SparklineGroup).IsSameReferenceAs(ws.Cell("A2").Sparkline.SparklineGroup);
         await Assert.That(target.Sparkline.SourceData.RangeAddress.ToString()).IsEqualTo("E4:I4");
     }
 
@@ -1013,8 +1013,8 @@ public class SparklinesTests
         await Assert.That(ws2.SparklineGroups.Count()).IsEqualTo(2);
         await Assert.That(target1.HasSparkline).IsTrue();
         await Assert.That(target2.HasSparkline).IsTrue();
-        await Assert.That(target1.Sparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)!).IsEqualTo("'Sheet 2'!E4:I4");
-        await Assert.That(target2.Sparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)!).IsEqualTo("'Sheet 3'!E5:I5");
+        await Assert.That(target1.Sparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 2'!E4:I4");
+        await Assert.That(target2.Sparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 3'!E5:I5");
     }
 
     [Test]

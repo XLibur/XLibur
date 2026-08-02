@@ -173,8 +173,8 @@ public class XLWorksheetTests
         await Assert.That(ws.MergedRanges.First().RangeAddress.ToStringRelative()).IsEqualTo("A1:B2");
         await Assert.That(ws.MergedRanges.Last().RangeAddress.ToStringRelative()).IsEqualTo("D2:E2");
 
-        await Assert.That(ws.Cell("A2")!.MergedRange().RangeAddress.ToStringRelative()).IsEqualTo("A1:B2");
-        await Assert.That(ws.Cell("D2")!.MergedRange().RangeAddress.ToStringRelative()).IsEqualTo("D2:E2");
+        await Assert.That(ws.Cell("A2").MergedRange().RangeAddress.ToStringRelative()).IsEqualTo("A1:B2");
+        await Assert.That(ws.Cell("D2").MergedRange().RangeAddress.ToStringRelative()).IsEqualTo("D2:E2");
 
         await Assert.That(ws.Cell("Z10").MergedRange()).IsNull();
     }

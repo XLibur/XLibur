@@ -40,7 +40,7 @@ internal class XLPivotTableAxisFieldTests
         var idField = pt.RowLabels.Add("ID", "Custom ID");
         var colorField = pt.RowLabels.Add("Color");
 
-        var ex1 = await Assert.That(() => idField.SetCustomName("Color")).Throws<ArgumentException>()!;
+        var ex1 = await Assert.That(() => idField.SetCustomName("Color")).Throws<ArgumentException>();
         await Assert.That(ex1.Message).IsEqualTo("Custom name 'Color' is already used by another field.");
         var ex2 = await Assert.That(() => colorField.SetCustomName("Custom ID")).Throws<ArgumentException>();
         await Assert.That(ex2.Message).IsEqualTo("Custom name 'Custom ID' is already used by another field.");

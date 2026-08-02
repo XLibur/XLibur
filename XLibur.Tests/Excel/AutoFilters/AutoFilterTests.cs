@@ -32,8 +32,8 @@ public class AutoFilterTests
             6
         };
 
-        table.DataRange!.InsertRowsBelow(listOfArr.Count - table.DataRange!.RowCount());
-        table.DataRange!.FirstCell().InsertData(listOfArr);
+        table.DataRange!.InsertRowsBelow(listOfArr.Count - table.DataRange.RowCount());
+        table.DataRange.FirstCell().InsertData(listOfArr);
 
         await Assert.That(table.AutoFilter.Range.RangeAddress.ToStringRelative()).IsEqualTo("A1:A5");
         await Assert.That(table.AutoFilter.VisibleRows.Count()).IsEqualTo(5);

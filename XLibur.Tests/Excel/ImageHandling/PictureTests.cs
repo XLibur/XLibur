@@ -157,13 +157,13 @@ public class PictureTests
             ws.AddPicture(stream!, XLPictureFormat.Png);
             stream.Position = 0;
 
-            ws.AddPicture(stream!, XLPictureFormat.Png);
+            ws.AddPicture(stream, XLPictureFormat.Png);
             stream.Position = 0;
 
-            ws.AddPicture(stream!, XLPictureFormat.Png).Name = "Picture 4";
+            ws.AddPicture(stream, XLPictureFormat.Png).Name = "Picture 4";
             stream.Position = 0;
 
-            ws.AddPicture(stream!, XLPictureFormat.Png);
+            ws.AddPicture(stream, XLPictureFormat.Png);
             stream.Position = 0;
         }
 
@@ -184,13 +184,13 @@ public class PictureTests
             ws.AddPicture(stream!, XLPictureFormat.Png);
             stream.Position = 0;
 
-            ws.AddPicture(stream!, XLPictureFormat.Png);
+            ws.AddPicture(stream, XLPictureFormat.Png);
             stream.Position = 0;
 
-            ws.AddPicture(stream!, XLPictureFormat.Png).Name = "Picture 4";
+            ws.AddPicture(stream, XLPictureFormat.Png).Name = "Picture 4";
             stream.Position = 0;
 
-            ws.AddPicture(stream!, XLPictureFormat.Png);
+            ws.AddPicture(stream, XLPictureFormat.Png);
             stream.Position = 0;
         }
 
@@ -360,7 +360,7 @@ public class PictureTests
                 .MoveTo(220, 155) as XLPicture;
         }
 
-        var copy = original.Duplicate()!
+        var copy = original.Duplicate()
             .MoveTo(300, 200) as XLPicture;
 
         await Assert.That(ws1.Pictures.Count).IsEqualTo(2);
@@ -392,7 +392,7 @@ public class PictureTests
         }
         var ws2 = wb.Worksheets.Add("Sheet2");
 
-        var copy = original.CopyTo(ws2)!;
+        var copy = original.CopyTo(ws2);
 
         await Assert.That(ws1.Pictures.Count).IsEqualTo(1);
         await Assert.That(ws2.Pictures.Count).IsEqualTo(1);

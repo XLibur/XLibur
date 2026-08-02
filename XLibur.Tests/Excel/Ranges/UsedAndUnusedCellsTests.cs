@@ -36,7 +36,7 @@ public class UsedAndUnusedCellsTests
         await Assert.That(i).IsEqualTo(2);
 
         i = 0;
-        row = workbook.Worksheets.First().FirstRow()!.RowBelow();
+        row = workbook.Worksheets.First().FirstRow().RowBelow();
         foreach (var cell in row.Cells())
         {
             i++;
@@ -45,7 +45,7 @@ public class UsedAndUnusedCellsTests
 
         i = 0;
         row = workbook.Worksheets.First().LastRowUsed(XLCellsUsedOptions.All);
-        await Assert.That(row.RowNumber()!).IsEqualTo(6);
+        await Assert.That(row.RowNumber()).IsEqualTo(6);
         foreach (var cell in row.Cells())
         {
             i++;
@@ -54,7 +54,7 @@ public class UsedAndUnusedCellsTests
 
         i = 0;
         row = workbook.Worksheets.First().LastRowUsed(XLCellsUsedOptions.All);
-        await Assert.That(row.RowNumber()!).IsEqualTo(6);
+        await Assert.That(row.RowNumber()).IsEqualTo(6);
         foreach (var cell in row.CellsUsed())
         {
             i++;
@@ -86,7 +86,7 @@ public class UsedAndUnusedCellsTests
         await Assert.That(i).IsEqualTo(3);
 
         i = 0;
-        row = workbook.Worksheets.First().FirstRow()!.RowBelow(); //This row has no empty cells BETWEEN used cells
+        row = workbook.Worksheets.First().FirstRow().RowBelow(); //This row has no empty cells BETWEEN used cells
         foreach (var cell in row.Cells(false))
         {
             i++;
@@ -106,7 +106,7 @@ public class UsedAndUnusedCellsTests
         await Assert.That(i).IsEqualTo(2);
 
         i = 0;
-        column = workbook.Worksheets.First().FirstColumn()!.ColumnRight().ColumnRight();
+        column = workbook.Worksheets.First().FirstColumn().ColumnRight().ColumnRight();
         foreach (var cell in column.Cells())
         {
             i++;
@@ -142,7 +142,7 @@ public class UsedAndUnusedCellsTests
         await Assert.That(i).IsEqualTo(4);
 
         i = 0;
-        column = workbook.Worksheets.First().FirstColumn()!.ColumnRight().ColumnRight(); //This column has no empty cells BETWEEN used cells
+        column = workbook.Worksheets.First().FirstColumn().ColumnRight().ColumnRight(); //This column has no empty cells BETWEEN used cells
         foreach (var cell in column.Cells(false))
         {
             i++;

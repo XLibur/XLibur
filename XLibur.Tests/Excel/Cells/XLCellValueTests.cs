@@ -603,7 +603,7 @@ public class XLCellValueTests
     public async Task TimeSpan_throws_when_not_representable(double serialDateTime)
     {
         var value = XLCellValue.FromSerialTimeSpan(serialDateTime);
-        var ex = await Assert.That(() => value.GetTimeSpan()).Throws<OverflowException>()!;
+        var ex = await Assert.That(() => value.GetTimeSpan()).Throws<OverflowException>();
         await Assert.That(ex!.Message).IsEqualTo("The serial date time value is too large to be represented in a TimeSpan.");
     }
 }

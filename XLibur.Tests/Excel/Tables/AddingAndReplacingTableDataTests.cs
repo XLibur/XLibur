@@ -153,7 +153,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(5);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(6);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
@@ -183,7 +183,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(5);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(6);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
@@ -221,7 +221,7 @@ public class AppendingAndReplacingTableDataTests
             var cell = ws.Cell(address);
             await Assert.That(cell.Value).IsEqualTo("de Beer");
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(5);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(6);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
 
             await Assert.That(cell.CellBelow(NewData.Length).Value).IsEqualTo(value);
         }
@@ -254,7 +254,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(5);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(6);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
@@ -286,7 +286,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(5);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(6);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
@@ -314,7 +314,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(2);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(6);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
@@ -345,7 +345,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(2);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(6);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
@@ -377,7 +377,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(2);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(6);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
@@ -408,7 +408,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(6);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(6);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
@@ -439,7 +439,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(1);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(6);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
@@ -470,7 +470,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(4);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(10);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(10);
 
             await Assert.That(table.Worksheet.Cell("H5").FormulaA1).IsEqualTo("SUM($G$3:G5)");
             await Assert.That(table.Worksheet.Cell("H6").FormulaA1).IsEqualTo("SUM($G$3:G6)");
@@ -516,7 +516,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(4);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(10);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(10);
 
             await Assert.That(table.Worksheet.Cell("H5").FormulaA1).IsEqualTo("SUM($G$3:G5)");
             await Assert.That(table.Worksheet.Cell("H6").FormulaA1).IsEqualTo("SUM($G$3:G6)");
@@ -569,7 +569,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(2);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(6);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(6);
         }
     }
 
@@ -600,7 +600,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(7);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(10);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(10);
 
             await Assert.That(table.Worksheet.Cell("H8").FormulaA1).IsEqualTo("SUM($G$3:G8)");
             await Assert.That(table.Worksheet.Cell("H9").FormulaA1).IsEqualTo("SUM($G$3:G9)");
@@ -651,7 +651,7 @@ public class AppendingAndReplacingTableDataTests
             var table = wb.Worksheets.SelectMany(ws => ws.Tables).First();
 
             await Assert.That(table.DataRange!.RowCount()).IsEqualTo(9);
-            await Assert.That(table.DataRange!.ColumnCount()).IsEqualTo(10);
+            await Assert.That(table.DataRange.ColumnCount()).IsEqualTo(10);
 
             await Assert.That(table.Worksheet.Cell("H10").FormulaA1).IsEqualTo("SUM($G$3:G10)");
             await Assert.That(table.Worksheet.Cell("H11").FormulaA1).IsEqualTo("SUM($G$3:G11)");

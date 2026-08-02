@@ -75,7 +75,7 @@ internal class XLPivotSourceTests
         await Assert.That(sheet!.Name).IsEqualTo("Data");
         // Should resolve to table area (A1:A2), not defined name area (B1:B5)
         await Assert.That(sheetArea!.Value.LeftColumn).IsEqualTo(1);
-        await Assert.That(sheetArea!.Value.RightColumn).IsEqualTo(1);
+        await Assert.That(sheetArea.Value.RightColumn).IsEqualTo(1);
     }
 
     [Test]

@@ -179,7 +179,7 @@ public class XLPivotCacheTests
                 ("Waffles", "Puff")
             });
 
-            var table = range.CreateTable()!;
+            var table = range.CreateTable();
 
             var pivotTable = ws.PivotTables.Add("pvt", ws.Cell("D1"), table);
             pivotTable.RowLabels.Add("Pastry");

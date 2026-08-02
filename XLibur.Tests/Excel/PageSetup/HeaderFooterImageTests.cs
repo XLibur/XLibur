@@ -359,7 +359,7 @@ public class HeaderFooterImageTests
         var ssNs = XNamespace.Get(OpenXmlConst.Main2006SsNs);
 
         await Assert.That(sheetXml.Root!.Element(ssNs + "legacyDrawing")).IsNotNull();
-        await Assert.That(sheetXml.Root!.Element(ssNs + "legacyDrawingHF")).IsNotNull();
+        await Assert.That(sheetXml.Root.Element(ssNs + "legacyDrawingHF")).IsNotNull();
     }
 
     #region Helpers

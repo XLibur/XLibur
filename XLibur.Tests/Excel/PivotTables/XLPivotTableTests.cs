@@ -202,19 +202,19 @@ public class XLPivotTableTests
         var ws1 = wb.Worksheet("pvt1");
         var pt1 = ws1.PivotTables.First() as XLPivotTable;
 
-        await Assert.That(() => pt1.CopyTo(pt1.TargetCell)!).Throws<InvalidOperationException>();
+        await Assert.That(() => pt1.CopyTo(pt1.TargetCell)).Throws<InvalidOperationException>();
 
-        var pt2 = pt1.CopyTo(ws1.Cell("AB100"))! as XLPivotTable;
+        var pt2 = pt1.CopyTo(ws1.Cell("AB100")) as XLPivotTable;
 
         await AssertPivotTablesAreEqual(pt1, pt2, compareName: false);
 
         var ws2 = wb.AddWorksheet("Copy Of pvt1");
-        await AssertPivotTablesAreEqual(pt1, pt1.CopyTo(ws2.FirstCell())! as XLPivotTable, compareName: true);
+        await AssertPivotTablesAreEqual(pt1, pt1.CopyTo(ws2.FirstCell()) as XLPivotTable, compareName: true);
 
         using var wb2 = new XLWorkbook();
         wb.Worksheet("PastrySalesData").CopyTo(wb2);
 
-        await AssertPivotTablesAreEqual(pt1, pt1.CopyTo(wb2.AddWorksheet("pvt").FirstCell())! as XLPivotTable, compareName: true);
+        await AssertPivotTablesAreEqual(pt1, pt1.CopyTo(wb2.AddWorksheet("pvt").FirstCell()) as XLPivotTable, compareName: true);
     }
 
     private static async Task AssertPivotTablesAreEqual(XLPivotTable original, XLPivotTable copy, bool compareName)

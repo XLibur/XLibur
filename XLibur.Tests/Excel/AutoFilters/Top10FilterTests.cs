@@ -14,7 +14,7 @@ public class Top10FilterTests
         await TestHelper.CreateSaveLoadAssert(
             (_, ws) =>
             {
-                var autoFilter = ws.Cell("A1")!.InsertData(new object[]
+                var autoFilter = ws.Cell("A1").InsertData(new object[]
                 {
                     "Data",
                     4, 4, 1, 3, 2, 5,
@@ -140,7 +140,7 @@ public class Top10FilterTests
                 filterColumn.Top(value);
             else
                 filterColumn.Bottom(value);
-        }).Throws<ArgumentOutOfRangeException>()!;
+        }).Throws<ArgumentOutOfRangeException>();
         await Assert.That(ex!.Message).Contains("Value must be between 1 and 500.");
     }
 }
