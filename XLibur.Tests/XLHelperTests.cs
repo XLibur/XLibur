@@ -125,7 +125,7 @@ public class XLHelperTests
     [Arguments("null", null)]
     [Arguments("empty", "")]
     [Arguments("1234567890123456789012345678901", "1234567890123456789012345678901TOOLONG")]
-    public async Task CreateSafeSheetNames(string expected, string input)
+    public async Task CreateSafeSheetNames(string expected, string? input)
     {
         var actual = XLHelper.CreateSafeSheetName(input);
         await Assert.That(actual).IsEqualTo(expected);
@@ -148,7 +148,7 @@ public class XLHelperTests
     [Arguments(null, "null")]
     [Arguments("", "empty")]
     [Arguments("1234567890123456789012345678901TOOLONG", "1234567890123456789012345678901")]
-    public async Task CreateSafeSheetNamesWithUnderscore(string input, string expected)
+    public async Task CreateSafeSheetNamesWithUnderscore(string? input, string expected)
     {
         await Assert.That(XLHelper.CreateSafeSheetName(input, replaceChar: '_')).IsEqualTo(expected);
     }

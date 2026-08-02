@@ -116,7 +116,7 @@ public class XLPivotTableTests
         using var wbassert = new XLWorkbook(ms);
         var wsassert = wbassert.Worksheet("BlankPivotTable");
         var ptassert = wsassert.PivotTable("pvtOptionsTest");
-        await Assert.That(ptassert).IsNotEqualTo(null).Because("name save failure");
+        await Assert.That(ptassert).IsNotNull().Because("name save failure");
         await Assert.That(ptassert.ColumnHeaderCaption).IsEqualTo("clmn header").Because("ColumnHeaderCaption save failure");
         await Assert.That(ptassert.RowHeaderCaption).IsEqualTo("row header").Because("RowHeaderCaption save failure");
         await Assert.That(ptassert.MergeAndCenterWithLabels).IsTrue().Because("MergeAndCenterWithLabels save failure");
@@ -187,7 +187,7 @@ public class XLPivotTableTests
         var wsassert = wbassert.Worksheet("pvtFieldOptionsTest");
         var ptassert = wsassert.PivotTable("pvtFieldOptionsTest");
         var pfassert = ptassert.RowLabels.Get("Name");
-        await Assert.That(pfassert).IsNotEqualTo(null).Because("name save failure");
+        await Assert.That(pfassert).IsNotNull().Because("name save failure");
         await Assert.That(pfassert.SubtotalCaption).IsEqualTo("Test caption").Because("SubtotalCaption save failure");
         await Assert.That(pfassert.CustomName).IsEqualTo("Test name").Because("CustomName save failure");
         await AssertFieldOptions(pfassert, withDefaults);
@@ -1201,7 +1201,7 @@ public class XLPivotTableTests
         var pivotTablePart = doc.WorkbookPart!.WorksheetParts
             .SelectMany(wsp => wsp.GetPartsOfType<PivotTablePart>())
             .First();
-        var pivotFields = pivotTablePart.PivotTableDefinition.PivotFields!.Elements<PivotField>().ToList();
+        var pivotFields = pivotTablePart.PivotTableDefinition!.PivotFields!.Elements<PivotField>().ToList();
 
         // Field 0 (Name) has sortType="descending" and autoSortScope
         var nameField = pivotFields[0];

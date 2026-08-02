@@ -28,7 +28,7 @@ public class ConditionalFormatSetRangesTests
         format.SetRanges([sheet.Range("A1:B2"), sheet.Range("A5:B6")]);
 
         var covered = format.Ranges.Select(r => r.RangeAddress.ToString()).ToList();
-        await Assert.That(covered).IsEquivalentTo(new[] { "A1:B2", "A5:B6" });
+        await Assert.That(covered).IsEquivalentTo(new string?[] { "A1:B2", "A5:B6" });
     }
 
     [Test]
@@ -41,7 +41,7 @@ public class ConditionalFormatSetRangesTests
         format.SetRanges([sheet.Range("D1:D4")]);
 
         var covered = format.Ranges.Select(r => r.RangeAddress.ToString()).ToList();
-        await Assert.That(covered).IsEquivalentTo(new[] { "D1:D4" });
+        await Assert.That(covered).IsEquivalentTo(new string?[] { "D1:D4" });
     }
 
     [Test]
@@ -122,6 +122,6 @@ public class ConditionalFormatSetRangesTests
             .Ranges.Select(r => r.RangeAddress.ToString())
             .ToList();
 
-        await Assert.That(covered).IsEquivalentTo(new[] { "A1:B2", "A5:B6" });
+        await Assert.That(covered).IsEquivalentTo(new string?[] { "A1:B2", "A5:B6" });
     }
 }

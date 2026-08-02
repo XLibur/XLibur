@@ -89,6 +89,6 @@ public class ConditionalFormatRangeShiftTests
             .ToList();
 
         // A5:A7 spans the insertion at row 6 -> extends to A5:A10; C10:C12 is below -> C13:C15.
-        await Assert.That(areas).IsEquivalentTo(new[] { "A5:A10", "C13:C15" }, CollectionOrdering.Matching);
+        await Assert.That(areas).IsEquivalentTo(new string?[] { "A5:A10", "C13:C15" }, CollectionOrdering.Matching);
     }
 }

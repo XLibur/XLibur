@@ -72,7 +72,7 @@ internal static class PivotFilterWorkbook
             .Single()
             .PivotTableDefinition;
 
-        return definition.Elements<PivotFilters>()
+        return definition!.Elements<PivotFilters>()
             .SelectMany(f => f.Elements<PivotFilter>())
             .ToList();
     }

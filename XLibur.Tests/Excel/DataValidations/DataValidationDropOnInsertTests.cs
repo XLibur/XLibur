@@ -28,7 +28,7 @@ public class DataValidationDropOnInsertTests
             .ToList();
 
         // K12 spans the insertion -> K12:K22; K13 -> K23 (not dropped); K23 -> K33.
-        await Assert.That(actual).IsEquivalentTo(new[] { "K12:K22", "K23:K23", "K33:K33" }, CollectionOrdering.Matching);
+        await Assert.That(actual).IsEquivalentTo(new string?[] { "K12:K22", "K23:K23", "K33:K33" }, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -48,6 +48,6 @@ public class DataValidationDropOnInsertTests
             .ToList();
 
         // B spans the insertion boundary column -> B20:L20; C20 -> M20; M20 -> W20.
-        await Assert.That(actual).IsEquivalentTo(new[] { "B20:L20", "M20:M20", "W20:W20" });
+        await Assert.That(actual).IsEquivalentTo(new string?[] { "B20:L20", "M20:M20", "W20:W20" });
     }
 }

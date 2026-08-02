@@ -156,7 +156,7 @@ internal class XLAreaListTests
     [Arguments("B2", "D2", "A1:C3", "E3")] // Intersected area not in corner and shifted doesn't start at target
     [Arguments("D3:G6", "A1", "E4:F5", "A1:B2")]
     [Arguments("B2", "XFD1048576", "A1:C3", null)] // Copied area out of sheet
-    public async Task TryCopyAreaTo_return_list_of_intersecting_areas_shifted_to_target(string areaListText, string targetPointText, string areaToCopyText, string expected)
+    public async Task TryCopyAreaTo_return_list_of_intersecting_areas_shifted_to_target(string areaListText, string targetPointText, string areaToCopyText, string? expected)
     {
         var areaList = Parse(areaListText);
         var targetPoint = Point.Parse(targetPointText);

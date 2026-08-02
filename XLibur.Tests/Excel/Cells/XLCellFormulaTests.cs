@@ -45,7 +45,7 @@ public class XLCellFormulaTests
         await Assert.That(metaPart).IsNotNull().Because("CellMetadataPart should exist");
 
         var metadata = metaPart!.Metadata;
-        var metadataType = metadata.MetadataTypes!.Elements<MetadataType>().First();
+        var metadataType = metadata!.MetadataTypes!.Elements<MetadataType>().First();
         await Assert.That(metadataType.Name!.Value).IsEqualTo("XLDAPR");
 
         // Verify futureMetadata block exists

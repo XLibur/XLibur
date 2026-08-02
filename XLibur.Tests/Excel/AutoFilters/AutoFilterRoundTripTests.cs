@@ -183,7 +183,7 @@ public class AutoFilterRoundTripTests
         using var doc = SpreadsheetDocument.Open(saved, false);
         var worksheet = doc.WorkbookPart!.WorksheetParts.Single().Worksheet;
 
-        return worksheet.Elements<AutoFilter>().Single().Elements<FilterColumn>().ToList();
+        return worksheet!.Elements<AutoFilter>().Single().Elements<FilterColumn>().ToList();
     }
 
     /// <summary>

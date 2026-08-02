@@ -190,11 +190,11 @@ public class XLRangeBaseTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
-        await Assert.That(ws.Cell("A1").AsRange().Grow()!.RangeAddress.ToString()).IsEqualTo("A1:B2");
-        await Assert.That(ws.Cell("A2").AsRange().Grow()!.RangeAddress.ToString()).IsEqualTo("A1:B3");
-        await Assert.That(ws.Cell("B1").AsRange().Grow()!.RangeAddress.ToString()).IsEqualTo("A1:C2");
+        await Assert.That(ws.Cell("A1").AsRange().Grow().RangeAddress.ToString()).IsEqualTo("A1:B2");
+        await Assert.That(ws.Cell("A2").AsRange().Grow().RangeAddress.ToString()).IsEqualTo("A1:B3");
+        await Assert.That(ws.Cell("B1").AsRange().Grow().RangeAddress.ToString()).IsEqualTo("A1:C2");
 
-        await Assert.That(ws.Cell("F5").AsRange().Grow()!.RangeAddress.ToString()).IsEqualTo("E4:G6");
+        await Assert.That(ws.Cell("F5").AsRange().Grow().RangeAddress.ToString()).IsEqualTo("E4:G6");
         await Assert.That(ws.Cell("F5").AsRange().Grow(2).RangeAddress.ToString()).IsEqualTo("D3:H7");
         await Assert.That(ws.Cell("F5").AsRange().Grow(100).RangeAddress.ToString()).IsEqualTo("A1:DB105");
     }
@@ -210,7 +210,7 @@ public class XLRangeBaseTests
         await Assert.That(ws.Range("A1:Z26").Shrink(10)!.RangeAddress.ToString()).IsEqualTo("K11:P16");
 
         // Grow and shrink back
-        await Assert.That(ws.Cell("Z26").AsRange().Grow(10)!.Shrink(10)!.RangeAddress.ToString()).IsEqualTo("Z26:Z26");
+        await Assert.That(ws.Cell("Z26").AsRange().Grow(10).Shrink(10)!.RangeAddress.ToString()).IsEqualTo("Z26:Z26");
     }
 
     [Test]

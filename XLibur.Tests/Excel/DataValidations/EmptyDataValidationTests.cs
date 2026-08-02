@@ -51,7 +51,7 @@ public class EmptyDataValidationTests
             .Ranges.Select(r => r.RangeAddress.ToString())
             .ToList();
 
-        await Assert.That(remainder).IsEquivalentTo(new[] { "A1:A1", "A4:A5" });
+        await Assert.That(remainder).IsEquivalentTo(new string?[] { "A1:A1", "A4:A5" });
     }
 
     [Test]
@@ -66,7 +66,7 @@ public class EmptyDataValidationTests
         wb.SaveAs(ms);
 
         var written = ReadSqrefs(ms);
-        await Assert.That(written).IsEquivalentTo(new[] { "A1:A5" });
+        await Assert.That(written).IsEquivalentTo(new string?[] { "A1:A5" });
     }
 
     /// <summary>
@@ -88,7 +88,7 @@ public class EmptyDataValidationTests
         wb.SaveAs(ms);
 
         var written = ReadSqrefs(ms);
-        await Assert.That(written).IsEquivalentTo(new[] { "C1:C3" });
+        await Assert.That(written).IsEquivalentTo(new string?[] { "C1:C3" });
     }
 
     /// <summary>
@@ -111,7 +111,7 @@ public class EmptyDataValidationTests
         using var doc = SpreadsheetDocument.Open(ms, false);
         var worksheet = doc.WorkbookPart!.WorksheetParts.Single().Worksheet;
 
-        await Assert.That(worksheet.Elements<DocumentFormat.OpenXml.Spreadsheet.DataValidations>().Any())
+        await Assert.That(worksheet!.Elements<DocumentFormat.OpenXml.Spreadsheet.DataValidations>().Any())
             .IsFalse();
     }
 

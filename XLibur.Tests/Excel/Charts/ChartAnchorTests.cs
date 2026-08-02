@@ -169,7 +169,7 @@ public class ChartAnchorTests
         {
             var charts = wb.Worksheet("Data").Charts.ToList();
             await Assert.That(charts.Count).IsEqualTo(3).Because("A one-cell or absolute anchored chart used to be skipped on read.");
-            await Assert.That(charts.Select(c => c.Title)).IsEquivalentTo(new[] { "Two cell", "One cell", "Absolute" }, CollectionOrdering.Matching);
+            await Assert.That(charts.Select(c => c.Title)).IsEquivalentTo(new string?[] { "Two cell", "One cell", "Absolute" }, CollectionOrdering.Matching);
             await Assert.That(charts.Select(c => c.Anchor)).IsEquivalentTo(new[]
             {
                 XLDrawingAnchor.MoveAndSizeWithCells,

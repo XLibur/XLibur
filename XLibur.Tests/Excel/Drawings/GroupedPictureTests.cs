@@ -278,7 +278,7 @@ public class GroupedPictureTests
         using (var package = SpreadsheetDocument.Open(output, false))
         {
             var drawingsPart = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!;
-            var group = drawingsPart.WorksheetDrawing.Descendants<Xdr.GroupShape>().Single();
+            var group = drawingsPart.WorksheetDrawing!.Descendants<Xdr.GroupShape>().Single();
             await Assert.That(group.Descendants<Xdr.Picture>().Count()).IsEqualTo(3);
             await Assert.That(group.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1);
             await Assert.That(drawingsPart.Parts.Count(p => p.OpenXmlPart is ImagePart)).IsEqualTo(3);

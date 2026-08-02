@@ -235,10 +235,10 @@ public class XLWorksheetTests
         await Assert.That(wb.Worksheets.TryGetWorksheet("sHEeT1", out _)).IsTrue();
         await Assert.That(wb.Worksheets.TryGetWorksheet("Sheeeet2", out _)).IsFalse();
 
-        await Assert.That(wb.TryGetWorksheet("Sheet1", out IXLWorksheet _)).IsTrue();
-        await Assert.That(wb.TryGetWorksheet("sheet1", out IXLWorksheet _)).IsTrue();
-        await Assert.That(wb.TryGetWorksheet("sHEeT1", out IXLWorksheet _)).IsTrue();
-        await Assert.That(wb.TryGetWorksheet("Sheeeet2", out IXLWorksheet _)).IsFalse();
+        await Assert.That(wb.TryGetWorksheet("Sheet1", out IXLWorksheet? _)).IsTrue();
+        await Assert.That(wb.TryGetWorksheet("sheet1", out IXLWorksheet? _)).IsTrue();
+        await Assert.That(wb.TryGetWorksheet("sHEeT1", out IXLWorksheet? _)).IsTrue();
+        await Assert.That(wb.TryGetWorksheet("Sheeeet2", out IXLWorksheet? _)).IsFalse();
     }
 
     [Test]

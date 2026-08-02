@@ -356,7 +356,7 @@ public class TablesTests
 
         table.SetShowHeaderRow();
         var headerRow = table.HeadersRow();
-        await Assert.That(headerRow).IsNotEqualTo(null);
+        await Assert.That(headerRow).IsNotNull();
         await Assert.That(headerRow!.Cell(1).GetText()).IsEqualTo("Categories");
 
         table.SetShowHeaderRow(false);
@@ -367,7 +367,7 @@ public class TablesTests
 
         await Assert.That(ws.FirstCell().GetText()).IsEqualTo("x");
         await Assert.That(ws.Cell("A2").GetText()).IsEqualTo("Categories");
-        await Assert.That(headerRow).IsNotEqualTo(null);
+        await Assert.That(headerRow).IsNotNull();
         await Assert.That(table.DataRange.FirstRow()!.Field("Categories").GetText()).IsEqualTo("A");
         await Assert.That(table.DataRange.LastRow()!.Field("Categories").GetText()).IsEqualTo("C");
         await Assert.That(table.DataRange.FirstCell().GetText()).IsEqualTo("A");

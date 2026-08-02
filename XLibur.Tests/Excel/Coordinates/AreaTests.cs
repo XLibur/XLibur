@@ -54,7 +54,7 @@ public class AreaTests
     [Arguments("I6:J9", "L7", "I6:L9")]
     [Arguments("B2:B4", "A3:C3", "A2:C4")]
     [Arguments("B2:C3", "E5:F6", "B2:F6")]
-    public async Task RangeOperation(string leftOperand, string rightOperand, string expectedRange)
+    public async Task RangeOperation(string leftOperand, string rightOperand, string? expectedRange)
     {
         var left = Area.Parse(leftOperand);
         var right = Area.Parse(rightOperand);
@@ -70,7 +70,7 @@ public class AreaTests
     [Arguments("A1:A3", "B2:C2", null)]
     [Arguments("A1:D6", "B2:C3", "B2:C3")]
     [Arguments("A1:C6", "B4:E10", "B4:C6")]
-    public async Task IntersectOperation(string leftOperand, string rightOperand, string expectedRange)
+    public async Task IntersectOperation(string leftOperand, string rightOperand, string? expectedRange)
     {
         var left = Area.Parse(leftOperand);
         var right = Area.Parse(rightOperand);
@@ -120,7 +120,7 @@ public class AreaTests
     [Arguments("XFD1", "XFB1", null)] // Completely pushed out of the range
     [Arguments("XFA1:XFD1", "XEZ1:XFA1", "XFC1:XFD1")] // Partially pushed out of the range
     [Arguments("XFA1:XFD1", "XFB1:XFC1", "XFA1:XFD1")] // Extend below last row
-    public async Task TryInsertAreaAndShiftRight_without_partial_cover(string original, string inserted, string repositioned)
+    public async Task TryInsertAreaAndShiftRight_without_partial_cover(string original, string inserted, string? repositioned)
     {
         var originalArea = Area.Parse(original);
         var insertedArea = Area.Parse(inserted);
@@ -156,7 +156,7 @@ public class AreaTests
     [Arguments("A1048576", "A1048575", null)] // Completely pushed out of the range
     [Arguments("A1048574:A1048576", "A1048570:A1048571", "A1048576")] // Partially pushed out of the range
     [Arguments("A1048570:A1048572", "A1048571:A1048576", "A1048570:A1048576")] // Extend below last row
-    public async Task TryInsertAreaAndShiftDown_without_partial_cover(string original, string inserted, string repositioned)
+    public async Task TryInsertAreaAndShiftDown_without_partial_cover(string original, string inserted, string? repositioned)
     {
         var originalArea = Area.Parse(original);
         var insertedArea = Area.Parse(inserted);
@@ -191,7 +191,7 @@ public class AreaTests
     [Arguments("D4:E4", "A5:F9", "D4:E4")] // Deleted area is fully downward
     [Arguments("D4:E4", "A1:F3", "D4:E4")] // Deleted area is fully upwards
     [Arguments("D4:E4", "A5:F10", "D4:E4")] // Partial deletion is below -> not affected
-    public async Task TryDeleteAreaAndShiftLeft_without_partial_cover(string original, string deleted, string repositioned)
+    public async Task TryDeleteAreaAndShiftLeft_without_partial_cover(string original, string deleted, string? repositioned)
     {
         var originalArea = Area.Parse(original);
         var deletedArea = Area.Parse(deleted);
@@ -228,7 +228,7 @@ public class AreaTests
     [Arguments("B5:B8", "A1:A10", "B5:B8")] // Deleted area is fully on the left
     [Arguments("B5:B8", "C1:C10", "B5:B8")] // Deleted area is fully on the right
     [Arguments("B5:D8", "B9:C10", "B5:D8")] // Partial deletion is below -> not affected
-    public async Task TryDeleteAreaAndShiftUp_without_partial_cover(string leftOperand, string deleted, string expected)
+    public async Task TryDeleteAreaAndShiftUp_without_partial_cover(string leftOperand, string deleted, string? expected)
     {
         var originalArea = Area.Parse(leftOperand);
         var deletedArea = Area.Parse(deleted);

@@ -151,7 +151,7 @@ public class PivotFilterTests
             .Single()
             .PivotTableDefinition;
 
-        await Assert.That(definition.Elements<PivotFilters>().Any()).IsFalse();
+        await Assert.That(definition!.Elements<PivotFilters>().Any()).IsFalse();
     }
 
     private static List<PivotFilter> ReadPivotFilters(MemoryStream saved) =>

@@ -100,7 +100,7 @@ public class PageBreaksTests
         using var doc = SpreadsheetDocument.Open(ms, false);
         var worksheet = doc.WorkbookPart!.WorksheetParts.Single().Worksheet;
 
-        var rowBreak = worksheet.GetFirstChild<RowBreaks>()!.Elements<Break>().Single();
+        var rowBreak = worksheet!.GetFirstChild<RowBreaks>()!.Elements<Break>().Single();
         await Assert.That(rowBreak.Id!.Value).IsEqualTo(32u);
         await Assert.That(rowBreak.Max!.Value).IsEqualTo(16383u); // last column, 0-based XFD
 
