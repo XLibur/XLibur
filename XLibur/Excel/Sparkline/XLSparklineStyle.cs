@@ -120,10 +120,10 @@ internal sealed class XLSparklineStyle : IXLSparklineStyle, IEquatable<XLSparkli
     /// <returns>true if the specified object  is equal to the current object; otherwise, false.</returns>
     public override bool Equals(object? obj)
     {
-        if (ReferenceEquals(null, obj)) return false;
+        if (obj is null) return false;
         if (ReferenceEquals(this, obj)) return true;
-        if (obj.GetType() != typeof(XLSparklineStyle)) return false;
-        return Equals((XLSparklineStyle)obj);
+        // The class is sealed, so an 'is' test is exactly the GetType() == typeof(...) check.
+        return obj is XLSparklineStyle other && Equals(other);
     }
 
     /// <summary>Serves as the default hash function.</summary>

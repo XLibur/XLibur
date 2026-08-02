@@ -483,7 +483,7 @@ internal static class PictureWriter
         {
             var anchor = string.IsNullOrEmpty(member.RelId)
                 ? null
-                : GetAnchorFromImageId(drawingsPart, member.RelId!);
+                : GetAnchorFromImageId(drawingsPart, member.RelId);
             var picElement = anchor?.Descendants<Xdr.Picture>().FirstOrDefault();
             if (anchor is null || picElement is null)
                 continue;
@@ -641,9 +641,9 @@ internal static class PictureWriter
 
         // Re-feed the image bytes into the existing part. If the image was not replaced these are
         // the same bytes that were read, so the part is unchanged.
-        if (!string.IsNullOrEmpty(pic.RelId) && drawingsPart.HasPartWithId(pic.RelId!))
+        if (!string.IsNullOrEmpty(pic.RelId) && drawingsPart.HasPartWithId(pic.RelId))
         {
-            var imagePart = (ImagePart)drawingsPart.GetPartById(pic.RelId!);
+            var imagePart = (ImagePart)drawingsPart.GetPartById(pic.RelId);
             pic.ImageStream.Position = 0;
             imagePart.FeedData(pic.ImageStream);
         }
@@ -742,12 +742,12 @@ internal static class PictureWriter
             picElement?.Remove();
 
             // Drop the image part only if nothing else references it any more.
-            if (!string.IsNullOrEmpty(relId) && drawingsPart.HasPartWithId(relId!))
+            if (!string.IsNullOrEmpty(relId) && drawingsPart.HasPartWithId(relId))
             {
                 var stillReferenced = worksheetDrawing.Descendants<Blip>()
                     .Any(b => b.Embed?.Value == relId);
                 if (!stillReferenced)
-                    drawingsPart.DeletePart(relId!);
+                    drawingsPart.DeletePart(relId);
             }
         }
     }

@@ -8,6 +8,8 @@ namespace XLibur.Excel;
 
 internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAddress>
 {
+    private const string RefError = "#REF!";
+
     #region Static members
 
     public static XLRangeAddress EntireColumn(XLWorksheet worksheet, int column)
@@ -270,7 +272,7 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
     {
         string address;
         if (!IsValid)
-            address = "#REF!";
+            address = RefError;
         else
         {
             if (IsEntireSheet())
@@ -305,7 +307,7 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
     {
         string address;
         if (!IsValid)
-            address = "#REF!";
+            address = RefError;
         else
         {
             if (IsEntireSheet())
@@ -346,24 +348,24 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
 
     private string BuildInvalidOrDeletedString()
     {
-        var worksheet = WorksheetIsDeleted ? "#REF!" : "";
+        var worksheet = WorksheetIsDeleted ? RefError : "";
         var address = (!FirstAddress.IsValid || !LastAddress.IsValid)
-            ? "#REF!"
+            ? RefError
             : string.Concat(FirstAddress.ToString(), ":", LastAddress.ToString());
         return string.Concat(worksheet, address);
     }
 
     private string BuildEntireRowString()
     {
-        var firstAddress = FirstAddress.IsValid ? FirstAddress.RowNumber.ToString() : "#REF!";
-        var lastAddress = LastAddress.IsValid ? LastAddress.RowNumber.ToString() : "#REF!";
+        var firstAddress = FirstAddress.IsValid ? FirstAddress.RowNumber.ToString() : RefError;
+        var lastAddress = LastAddress.IsValid ? LastAddress.RowNumber.ToString() : RefError;
         return string.Concat(firstAddress, ':', lastAddress);
     }
 
     private string BuildEntireColumnString()
     {
-        var firstAddress = FirstAddress.IsValid ? FirstAddress.ColumnLetter : "#REF!";
-        var lastAddress = LastAddress.IsValid ? LastAddress.ColumnLetter : "#REF!";
+        var firstAddress = FirstAddress.IsValid ? FirstAddress.ColumnLetter : RefError;
+        var lastAddress = LastAddress.IsValid ? LastAddress.ColumnLetter : RefError;
         return string.Concat(firstAddress, ':', lastAddress);
     }
 

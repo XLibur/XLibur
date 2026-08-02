@@ -37,7 +37,7 @@ internal readonly record struct SheetReference(
             return false;
         }
 
-        var span = text!.Trim();
+        var span = text.Trim();
 
         // A multi-area reference is written as a parenthesised, comma-separated list.
         if (span.Contains(',') || span.Contains('('))

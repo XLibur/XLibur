@@ -40,9 +40,11 @@ public class FormulaEvaluationBenchmarks
     private const int RowCount = 20_000;
     private const int LookupRows = 20;
 
-    private XLWorkbook _uniqueSameSheet = null!;
-    private XLWorkbook _sharedSameSheet = null!;
-    private XLWorkbook _sharedCrossSheet = null!;
+    // Assigned by Setup. Plain null rather than null!: this project has no nullable context, so the
+    // forgiving operator says nothing the compiler was going to check anyway.
+    private XLWorkbook _uniqueSameSheet = null;
+    private XLWorkbook _sharedSameSheet = null;
+    private XLWorkbook _sharedCrossSheet = null;
 
     [GlobalSetup]
     public void Setup()

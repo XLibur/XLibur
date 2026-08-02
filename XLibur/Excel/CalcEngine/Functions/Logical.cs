@@ -43,10 +43,14 @@ internal static class Logical
         return value;
     }
 
+    // FALSE() and TRUE() are zero-argument Excel functions. They are registered through Adapt as
+    // method groups, so they have to stay methods; a constant cannot be converted to the delegate.
+#pragma warning disable S3400
     private static ScalarValue False()
     {
         return false;
     }
+#pragma warning restore S3400
 
     private static AnyValue If(ScalarValue condition, AnyValue valueIfTrue, AnyValue valueIfFalse)
     {
@@ -138,8 +142,11 @@ internal static class Logical
         return value;
     }
 
+    // See the note on False(): registered as a method group, so it cannot become a constant.
+#pragma warning disable S3400
     private static ScalarValue True()
     {
         return true;
     }
+#pragma warning restore S3400
 }

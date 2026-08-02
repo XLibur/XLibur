@@ -156,8 +156,9 @@ public sealed partial class XLColor : IEquatable<XLColor>
         // If both are null, or both are same instance, return true.
         if (ReferenceEquals(left, right)) return true;
 
-        // If one is null, but not both, return false.
-        if ((left as object) == null || (right as object) == null) return false;
+        // If one is null, but not both, return false. 'is null' does not re-enter this operator,
+        // which is what the 'as object' cast was guarding against.
+        if (left is null || right is null) return false;
 
         return left.Equals(right);
     }

@@ -530,7 +530,7 @@ internal static class DrawingPartReader
         {
             picture.MoveTo(
                 ConvertFromEnglishMetricUnits(absoluteAnchor.Position!.X!.Value, ws.Workbook.DpiX),
-                ConvertFromEnglishMetricUnits(absoluteAnchor.Position!.Y!.Value, ws.Workbook.DpiY)
+                ConvertFromEnglishMetricUnits(absoluteAnchor.Position.Y!.Value, ws.Workbook.DpiY)
             );
         }
         else if (anchor is Xdr.OneCellAnchor oneCellAnchor)
@@ -562,7 +562,7 @@ internal static class DrawingPartReader
                 var spPr = shapeProperties;
                 picture.MoveTo(
                     ConvertFromEnglishMetricUnits(spPr.Transform2D!.Offset!.X!, ws.Workbook.DpiX),
-                    ConvertFromEnglishMetricUnits(spPr.Transform2D!.Offset!.Y!, ws.Workbook.DpiY)
+                    ConvertFromEnglishMetricUnits(spPr.Transform2D.Offset.Y!, ws.Workbook.DpiY)
                 );
             }
         }

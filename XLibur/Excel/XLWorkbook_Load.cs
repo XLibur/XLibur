@@ -117,16 +117,16 @@ public partial class XLWorkbook
         if (workbookPart.Workbook!.WorkbookProperties is { } wbProps)
             Use1904DateSystem = OpenXmlHelper.GetBooleanValueAsBool(wbProps.Date1904, false);
 
-        if (workbookPart.Workbook!.FileSharing is { } wbFilesharing)
+        if (workbookPart.Workbook.FileSharing is { } wbFilesharing)
         {
             FileSharing.ReadOnlyRecommended =
                 OpenXmlHelper.GetBooleanValueAsBool(wbFilesharing.ReadOnlyRecommended, false);
             FileSharing.UserName = wbFilesharing.UserName?.Value;
         }
 
-        LoadWorkbookProtection(workbookPart.Workbook!.WorkbookProtection, this);
+        LoadWorkbookProtection(workbookPart.Workbook.WorkbookProtection, this);
 
-        LoadCalculationProperties(workbookPart.Workbook!.CalculationProperties);
+        LoadCalculationProperties(workbookPart.Workbook.CalculationProperties);
 
         LoadExtendedFileProperties(dSpreadsheet);
 
@@ -160,7 +160,7 @@ public partial class XLWorkbook
         // have to be in place before the sheets are read.
         LoadPersons(workbookPart);
 
-        var sheets = workbookPart.Workbook!.Sheets;
+        var sheets = workbookPart.Workbook.Sheets;
         LoadSheetsPass1(workbookPart, sheets!);
 
         LoadSheetsPass2(workbookPart, sheets!, sharedStrings, context);
@@ -260,7 +260,7 @@ public partial class XLWorkbook
             // Although the relationship to worksheet is most common, there can be other types
             // than worksheet, e.g., chartSheet. Since we can't load them, add them to the list
             // of unsupported sheets and copy them when saving. See Codeplex #6932.
-            if (workbookPart.GetPartById(dSheet.Id!.Value!) is not WorksheetPart)
+            if (workbookPart.GetPartById(dSheet.Id.Value!) is not WorksheetPart)
             {
                 UnsupportedSheets.Add(new UnsupportedSheet { SheetId = sheetIdValue, Position = position });
                 continue;
@@ -293,7 +293,7 @@ public partial class XLWorkbook
             // Although the relationship to worksheet is most common, there can be other types
             // than worksheet, e.g., chartSheet. Since we can't load them, add them to a list
             // of unsupported sheets and copy them when saving. See Codeplex #6932.
-            if (workbookPart.GetPartById(dSheet.Id!.Value!) is not WorksheetPart worksheetPart)
+            if (workbookPart.GetPartById(dSheet.Id.Value!) is not WorksheetPart worksheetPart)
                 continue;
 
             var sheetName = dSheet.Name!.Value!;
@@ -942,7 +942,7 @@ public partial class XLWorkbook
             }
 
             // The referenced sheet can also be ChartsheetPart. Only look for pivot tables in normal sheet parts.
-            if (workbookPart.GetPartById(dSheet.Id!.Value!) is WorksheetPart worksheetPart)
+            if (workbookPart.GetPartById(dSheet.Id.Value!) is WorksheetPart worksheetPart)
             {
                 var ws = (XLWorksheet)WorksheetsInternal.Worksheet(dSheet.Name!.Value!);
 

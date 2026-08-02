@@ -192,7 +192,7 @@ public sealed class ProcessingContext
             return false;
         }
 
-        var body = ExpressionText.TryGetSingleExpression(expression, out var single) ? single : expression!;
+        var body = ExpressionText.TryGetSingleExpression(expression, out var single) ? single : expression;
 
         try
         {

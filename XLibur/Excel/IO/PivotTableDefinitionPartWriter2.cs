@@ -15,6 +15,10 @@ namespace XLibur.Excel.IO;
 
 internal static class PivotTableDefinitionPartWriter2
 {
+    // Attribute names repeated across the pivot definition elements.
+    private const string CountAttr = "count";
+    private const string FieldAttr = "field";
+
     internal static void WriteContent(PivotTablePart pivotTablePart, XLPivotTable pt, SaveContext context)
     {
         var settings = new XmlWriterSettings
@@ -154,7 +158,7 @@ internal static class PivotTableDefinitionPartWriter2
     private static void WritePivotFields(XmlWriter xml, XLPivotTable pt, SaveContext context)
     {
         xml.WriteStartElement("pivotFields", Main2006SsNs);
-        xml.WriteAttribute("count", pt.PivotFields.Count);
+        xml.WriteAttribute(CountAttr, pt.PivotFields.Count);
 
         foreach (var pf in pt.PivotFields)
         {
@@ -252,7 +256,7 @@ internal static class PivotTableDefinitionPartWriter2
         if (pf.Items.Count > 0)
         {
             xml.WriteStartElement("items", Main2006SsNs);
-            xml.WriteAttribute("count", pf.Items.Count);
+            xml.WriteAttribute(CountAttr, pf.Items.Count);
             foreach (var pfItem in pf.Items)
             {
                 xml.WriteStartElement("item", Main2006SsNs);
@@ -300,7 +304,7 @@ internal static class PivotTableDefinitionPartWriter2
         if (filterFields.Count > 0)
         {
             xml.WriteStartElement("pageFields", Main2006SsNs);
-            xml.WriteAttribute("count", filterFields.Count);
+            xml.WriteAttribute(CountAttr, filterFields.Count);
             foreach (var filterField in filterFields)
             {
                 xml.WriteStartElement("pageField", Main2006SsNs);
@@ -321,7 +325,7 @@ internal static class PivotTableDefinitionPartWriter2
         if (pt.DataFields.Count > 0)
         {
             xml.WriteStartElement("dataFields", Main2006SsNs);
-            xml.WriteAttribute("count", pt.DataFields.Count);
+            xml.WriteAttribute(CountAttr, pt.DataFields.Count);
             foreach (var dataField in pt.DataFields)
             {
                 xml.WriteStartElement("dataField", Main2006SsNs);
@@ -349,7 +353,7 @@ internal static class PivotTableDefinitionPartWriter2
         return subtotal switch
         {
             XLPivotSummary.Sum => "sum",
-            XLPivotSummary.Count => "count",
+            XLPivotSummary.Count => CountAttr,
             XLPivotSummary.Average => "average",
             XLPivotSummary.Minimum => "min",
             XLPivotSummary.Maximum => "max",
@@ -385,7 +389,7 @@ internal static class PivotTableDefinitionPartWriter2
         if (pt.Formats.Count > 0)
         {
             xml.WriteStartElement("formats", Main2006SsNs);
-            xml.WriteAttribute("count", pt.Formats.Count);
+            xml.WriteAttribute(CountAttr, pt.Formats.Count);
             foreach (var format in pt.Formats)
             {
                 xml.WriteStartElement("format", Main2006SsNs);
@@ -425,7 +429,7 @@ internal static class PivotTableDefinitionPartWriter2
             return;
 
         xml.WriteStartElement("chartFormats", Main2006SsNs);
-        xml.WriteAttribute("count", pt.ChartFormats.Count);
+        xml.WriteAttribute(CountAttr, pt.ChartFormats.Count);
         foreach (var chartFormat in pt.ChartFormats)
         {
             xml.WriteStartElement("chartFormat", Main2006SsNs);
@@ -452,7 +456,7 @@ internal static class PivotTableDefinitionPartWriter2
             return;
 
         xml.WriteStartElement("filters", Main2006SsNs);
-        xml.WriteAttribute("count", pt.PivotFilters.Count);
+        xml.WriteAttribute(CountAttr, pt.PivotFilters.Count);
         foreach (var pivotFilter in pt.PivotFilters)
         {
             xml.WriteStartElement("filter", Main2006SsNs);
@@ -518,7 +522,7 @@ internal static class PivotTableDefinitionPartWriter2
         if (pt.ConditionalFormats.Count > 0)
         {
             xml.WriteStartElement("conditionalFormats", Main2006SsNs);
-            xml.WriteAttribute("count", pt.ConditionalFormats.Count);
+            xml.WriteAttribute(CountAttr, pt.ConditionalFormats.Count);
             foreach (var conditionalFormat in pt.ConditionalFormats)
                 WriteConditionalFormat(xml, conditionalFormat);
 
@@ -535,7 +539,7 @@ internal static class PivotTableDefinitionPartWriter2
             {
                 XLPivotCfScope.SelectedCells => "selection",
                 XLPivotCfScope.DataFields => "data",
-                XLPivotCfScope.FieldIntersections => "field",
+                XLPivotCfScope.FieldIntersections => FieldAttr,
                 _ => throw new UnreachableException(),
             };
             xml.WriteAttribute("scope", scopeAttr);
@@ -556,7 +560,7 @@ internal static class PivotTableDefinitionPartWriter2
 
         xml.WriteAttribute("priority", conditionalFormat.Format.Priority);
         xml.WriteStartElement("pivotAreas", Main2006SsNs);
-        xml.WriteAttribute("count", conditionalFormat.Areas.Count);
+        xml.WriteAttribute(CountAttr, conditionalFormat.Areas.Count);
         foreach (var pivotArea in conditionalFormat.Areas)
             WritePivotArea(xml, pivotArea);
 
@@ -588,10 +592,10 @@ internal static class PivotTableDefinitionPartWriter2
         if (axis.Fields.Count > 0)
         {
             xml.WriteStartElement(fieldsElement, Main2006SsNs);
-            xml.WriteAttribute("count", axis.Fields.Count);
+            xml.WriteAttribute(CountAttr, axis.Fields.Count);
             foreach (var axisField in axis.Fields)
             {
-                xml.WriteStartElement("field", Main2006SsNs);
+                xml.WriteStartElement(FieldAttr, Main2006SsNs);
                 xml.WriteAttribute("x", axisField.Value);
                 xml.WriteEndElement();
             }
@@ -606,7 +610,7 @@ internal static class PivotTableDefinitionPartWriter2
     private static void WriteAxisItems(XmlWriter xml, XLPivotTableAxis axis, string itemsElement)
     {
         xml.WriteStartElement(itemsElement, Main2006SsNs);
-        xml.WriteAttribute("count", axis.Items.Count);
+        xml.WriteAttribute(CountAttr, axis.Items.Count);
 
         IReadOnlyList<int> previous = Array.Empty<int>();
         foreach (var axisItem in axis.Items)
@@ -649,7 +653,7 @@ internal static class PivotTableDefinitionPartWriter2
     private static void WritePivotArea(XmlWriter xml, XLPivotArea pivotArea)
     {
         xml.WriteStartElement("pivotArea", Main2006SsNs);
-        xml.WriteAttributeOptional("field", pivotArea.Field?.Value);
+        xml.WriteAttributeOptional(FieldAttr, pivotArea.Field?.Value);
         if (pivotArea.Type != XLPivotAreaType.Normal)
         {
             var typeAttr = pivotArea.Type switch
@@ -685,12 +689,12 @@ internal static class PivotTableDefinitionPartWriter2
         if (pivotArea.References.Count > 0)
         {
             xml.WriteStartElement("references", Main2006SsNs);
-            xml.WriteAttribute("count", pivotArea.References.Count);
+            xml.WriteAttribute(CountAttr, pivotArea.References.Count);
             foreach (var reference in pivotArea.References)
             {
                 xml.WriteStartElement("reference", Main2006SsNs);
-                xml.WriteAttributeOptional("field", reference.Field);
-                xml.WriteAttribute("count", reference.FieldItems.Count);
+                xml.WriteAttributeOptional(FieldAttr, reference.Field);
+                xml.WriteAttribute(CountAttr, reference.FieldItems.Count);
                 xml.WriteAttributeDefault("selected", reference.Selected, true);
                 xml.WriteAttributeDefault("byPosition", reference.ByPosition, false);
                 xml.WriteAttributeDefault("relative", reference.Relative, false);
@@ -730,7 +734,7 @@ internal static class PivotTableDefinitionPartWriter2
         {
             XLPivotItemType.Avg => "avg",
             XLPivotItemType.Blank => "blank",
-            XLPivotItemType.Count => "count",
+            XLPivotItemType.Count => CountAttr,
             XLPivotItemType.CountA => "countA",
             XLPivotItemType.Data => "data",
             XLPivotItemType.Default => "default",

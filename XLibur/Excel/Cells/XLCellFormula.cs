@@ -27,6 +27,8 @@ internal enum FormulaConversionType
 [DebuggerDisplay("Cell:{Range} - Type: {Type} - Formula: {A1}")]
 internal sealed class XLCellFormula
 {
+    private const string RefError = "#REF!";
+
     /// <summary>
     /// This is only a placeholder, so the data table formula looks like array formula for saving code.
     /// First argument is replaced by value from current row, second is replaced by value from current column.
@@ -277,11 +279,11 @@ internal sealed class XLCellFormula
         if (isRowDataTable)
         {
             colInput = string.Empty;
-            rowInput = input1Deleted ? "#REF!" : input1Address.ToString();
+            rowInput = input1Deleted ? RefError : input1Address.ToString();
         }
         else
         {
-            colInput = input1Deleted ? "#REF!" : input1Address.ToString();
+            colInput = input1Deleted ? RefError : input1Address.ToString();
             rowInput = string.Empty;
         }
 
@@ -312,8 +314,8 @@ internal sealed class XLCellFormula
         Point input2Address,
         bool input2Deleted)
     {
-        var colInput = input1Deleted ? "#REF!" : input1Address.ToString();
-        var rowInput = input2Deleted ? "#REF!" : input2Address.ToString();
+        var colInput = input1Deleted ? RefError : input1Address.ToString();
+        var rowInput = input2Deleted ? RefError : input2Address.ToString();
         var formula = string.Format(DataTableFormulaFormat, rowInput, colInput);
         return new XLCellFormula(formula)
         {

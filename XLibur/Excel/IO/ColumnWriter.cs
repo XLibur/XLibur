@@ -240,7 +240,7 @@ internal static class ColumnWriter
             ? (byte)column.OutlineLevel
             : null;
 
-        sheetColumnsByMin.Remove(column.Min!.Value);
+        sheetColumnsByMin.Remove(column.Min.Value);
         if (existingColumn.Min! + 1 > existingColumn.Max!)
         {
             columns.RemoveChild(existingColumn);
@@ -250,9 +250,9 @@ internal static class ColumnWriter
         else
         {
             columns.AppendChild(newColumn);
-            sheetColumnsByMin.Add(newColumn.Min!.Value, newColumn);
+            sheetColumnsByMin.Add(newColumn.Min.Value, newColumn);
             existingColumn.Min = existingColumn.Min! + 1;
-            sheetColumnsByMin.Add(existingColumn.Min!.Value, existingColumn);
+            sheetColumnsByMin.Add(existingColumn.Min.Value, existingColumn);
         }
     }
 

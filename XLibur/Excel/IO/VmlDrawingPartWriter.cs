@@ -17,6 +17,9 @@ namespace XLibur.Excel.IO;
 
 internal static class VmlDrawingPartWriter
 {
+    // VML spells its booleans with a leading capital.
+    private const string VmlFalse = "False";
+
     // Generates content of vmlDrawingPart1.
     internal static bool GenerateContent(VmlDrawingPart vmlDrawingPart, XLWorksheet xlWorksheet)
     {
@@ -62,7 +65,7 @@ internal static class VmlDrawingPartWriter
             ms.Position = 0;
             var xdoc = XDocumentExtensions.Load(ms)!;
             xdoc.Root!.Elements().ForEach(e => writer.WriteRaw(e.ToString()));
-            hasAnyVmlElements |= xdoc.Root!.HasElements;
+            hasAnyVmlElements |= xdoc.Root.HasElements;
         }
 
         writer.WriteEndElement();
@@ -107,19 +110,19 @@ internal static class VmlDrawingPartWriter
             new ClientData(
                     new MoveWithCells(comment.Style.Properties.Positioning == XLDrawingAnchor.Absolute
                         ? "True"
-                        : "False"), // Counterintuitive
+                        : VmlFalse), // Counterintuitive
                     new ResizeWithCells(comment.Style.Properties.Positioning == XLDrawingAnchor.MoveAndSizeWithCells
-                        ? "False"
+                        ? VmlFalse
                         : "True"), // Counterintuitive
                     anchor,
                     new HorizontalTextAlignment(comment.Style.Alignment.Horizontal.ToString().ToCamel()),
                     new VerticalTextAlignment(comment.Style.Alignment.Vertical.ToString().ToCamel()),
-                    new AutoFill("False"),
+                    new AutoFill(VmlFalse),
                     new CommentRowTarget { Text = (rowNumber - 1).ToInvariantString() },
                     new CommentColumnTarget { Text = (columnNumber - 1).ToInvariantString() },
-                    new Locked(comment.Style.Protection.Locked ? "True" : "False"),
-                    new LockText(comment.Style.Protection.LockText ? "True" : "False"),
-                    new Visible(comment.Visible ? "True" : "False")
+                    new Locked(comment.Style.Protection.Locked ? "True" : VmlFalse),
+                    new LockText(comment.Style.Protection.LockText ? "True" : VmlFalse),
+                    new Visible(comment.Visible ? "True" : VmlFalse)
                 )
             { ObjectType = ObjectValues.Note }
         )

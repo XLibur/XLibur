@@ -157,9 +157,9 @@ internal static class Statistical
             var cdf = 0d;
             for (var y = 0; y <= numberSuccesses; ++y)
             {
-                var result = BinomDist(y, numberTrials, successProbability);
-                if (!result.TryPickT0(out var pf, out var error))
-                    return error;
+                var termResult = BinomDist(y, numberTrials, successProbability);
+                if (!termResult.TryPickT0(out var pf, out var termError))
+                    return termError;
 
                 cdf += pf;
             }
@@ -170,13 +170,11 @@ internal static class Statistical
             return cdf;
         }
 
-        {
-            var result = BinomDist(numberSuccesses, numberTrials, successProbability);
-            if (!result.TryPickT0(out var binomDist, out var error))
-                return error;
+        var result = BinomDist(numberSuccesses, numberTrials, successProbability);
+        if (!result.TryPickT0(out var binomDist, out var error))
+            return error;
 
-            return binomDist;
-        }
+        return binomDist;
     }
 
     private static OneOf<double, XLError> BinomDist(double x, double n, double p)

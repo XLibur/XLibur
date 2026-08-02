@@ -74,7 +74,7 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
 
         var parsedElements = new List<ParsedHeaderFooterElement>();
         var currentPosition = 'L'; // default is LEFT
-        var hfElement = "";
+        var hfElement = new StringBuilder();
 
         var i = 0;
         while (i < text.Length)
@@ -84,16 +84,16 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
                 if (hfElement.Length > 0) parsedElements.Add(new ParsedHeaderFooterElement
                 {
                     Position = currentPosition,
-                    Text = hfElement
+                    Text = hfElement.ToString()
                 });
 
                 currentPosition = text[i + 1];
                 i += 2;
-                hfElement = "";
+                hfElement.Clear();
                 continue;
             }
 
-            hfElement += text[i];
+            hfElement.Append(text[i]);
             i++;
         }
 
@@ -101,7 +101,7 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
             parsedElements.Add(new ParsedHeaderFooterElement
             {
                 Position = currentPosition,
-                Text = hfElement
+                Text = hfElement.ToString()
             });
         return parsedElements;
     }

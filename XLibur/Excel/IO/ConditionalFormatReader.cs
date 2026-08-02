@@ -43,7 +43,7 @@ internal static class ConditionalFormatReader
             LoadConditionalFormatFormulas(fr, conditionalFormat);
 
             if (!string.IsNullOrWhiteSpace(fr.Text))
-                conditionalFormat.Values.Add(new XLFormula { _value = fr.Text!.Value!, IsFormula = false });
+                conditionalFormat.Values.Add(new XLFormula { _value = fr.Text.Value!, IsFormula = false });
 
             LoadTop10OrTimePeriod(fr, conditionalFormat);
             LoadScaleBarOrIconSet(fr, conditionalFormat);
@@ -343,7 +343,7 @@ internal static class ConditionalFormatReader
         {
             if (c.Type != null)
                 conditionalFormat.ContentTypes.Add(c.Type.Value.ToXLibur());
-            conditionalFormat.Values.Add(c.Val != null ? new XLFormula { Value = c.Val!.Value! } : null!);
+            conditionalFormat.Values.Add(c.Val != null ? new XLFormula { Value = c.Val.Value! } : null!);
 
             if (c.GreaterThanOrEqual != null)
                 conditionalFormat.IconSetOperators.Add(c.GreaterThanOrEqual.Value

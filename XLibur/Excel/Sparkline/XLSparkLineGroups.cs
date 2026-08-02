@@ -149,7 +149,7 @@ internal sealed class XLSparklineGroups : IXLSparklineGroups
     /// Remove the sparkline from the worksheet
     /// </summary>
     /// <param name="sparkline">The sparkline to remove</param>
-    private void Remove(IXLSparkline sparkline)
+    private static void Remove(IXLSparkline sparkline)
     {
         sparkline.SparklineGroup.Remove(sparkline);
     }

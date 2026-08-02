@@ -33,7 +33,7 @@ public class BulkStyleBenchmarks
     /// cell" from "allocates per style" — only the ratio between sizes can.
     /// </summary>
     [Params(10_000, 100_000, 1_000_000)]
-    public int Cells;
+    public int Cells { get; set; }
 
     private const int Columns = 10;
 

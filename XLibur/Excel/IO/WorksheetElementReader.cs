@@ -52,10 +52,10 @@ internal static class WorksheetElementReader
         if (selection == null) return;
 
         if (selection.SequenceOfReferences != null)
-            ws.Ranges(selection.SequenceOfReferences!.InnerText!.Replace(" ", ",")).Select();
+            ws.Ranges(selection.SequenceOfReferences.InnerText!.Replace(" ", ",")).Select();
 
         if (selection.ActiveCell != null)
-            ws.Cell(selection.ActiveCell!.Value!)!.SetActive();
+            ws.Cell(selection.ActiveCell.Value!)!.SetActive();
     }
 
     private static void LoadSheetViewZoom(SheetView sheetView, XLWorksheet ws)
@@ -348,7 +348,7 @@ internal static class WorksheetElementReader
         {
             if (hl.Reference!.Value!.Equals("#REF")) continue;
             var tooltip = hl.Tooltip != null ? hl.Tooltip.Value : string.Empty;
-            var xlRange = ws.Range(hl.Reference!.Value!);
+            var xlRange = ws.Range(hl.Reference.Value);
             foreach (var xlCell1 in xlRange!.Cells())
             {
                 var xlCell = (XLCell)xlCell1;
@@ -357,7 +357,7 @@ internal static class WorksheetElementReader
                 else if (hl.Location != null)
                     xlCell.SetCellHyperlink(new XLHyperlink(hl.Location.Value!, tooltip!));
                 else
-                    xlCell.SetCellHyperlink(new XLHyperlink(hl.Reference!.Value!, tooltip!));
+                    xlCell.SetCellHyperlink(new XLHyperlink(hl.Reference.Value, tooltip!));
             }
         }
     }

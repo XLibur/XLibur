@@ -857,7 +857,7 @@ internal static class WorksheetSheetDataReader
             ws.ColumnWidth = wsDefaultColumn.Width - XLConstants.ColumnWidthOffset;
 
         var styleIndexDefault = wsDefaultColumn != null && wsDefaultColumn.Style != null
-            ? int.Parse(wsDefaultColumn.Style!.InnerText!)
+            ? int.Parse(wsDefaultColumn.Style.InnerText!)
             : -1;
         if (styleIndexDefault >= 0)
             ApplyStyle(ws, styleIndexDefault, styles);
@@ -1253,7 +1253,7 @@ internal static class WorksheetSheetDataReader
             xlColumns.ForEach(c => c.OutlineLevel = outlineLevel);
         }
 
-        var styleIndex = col.Style != null ? int.Parse(col.Style!.InnerText!) : -1;
+        var styleIndex = col.Style != null ? int.Parse(col.Style.InnerText!) : -1;
         if (styleIndex >= 0)
         {
             ApplyStyle(xlColumns, styleIndex, styles);

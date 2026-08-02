@@ -233,7 +233,12 @@ internal static class OpenXmlHelper
     {
         var runFont = fontSource.Elements<RunFont>().FirstOrDefault();
         if (runFont?.Val != null)
+            // The guard proves the StringValue is non-null, but the implicit StringValue -> string
+            // conversion returns string?, so the bang suppresses CS8601 on the assignment, not on
+            // the guarded member access. S8969 only sees the latter.
+#pragma warning disable S8969
             fontBase.FontName = runFont.Val!;
+#pragma warning restore S8969
     }
 
     private static void LoadFontSize(OpenXmlElement fontSource, IXLFontBase fontBase)

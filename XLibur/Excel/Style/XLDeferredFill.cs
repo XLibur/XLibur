@@ -75,5 +75,5 @@ internal sealed class XLDeferredFill : IXLFill
     public IXLStyle SetPatternColor(XLColor value) { PatternColor = value; return _style; }
     public IXLStyle SetPatternType(XLFillPatternValues value) { PatternType = value; return _style; }
 
-    public bool Equals(IXLFill? other) => other is XLDeferredFill df ? Key == df.Key : false;
+    public bool Equals(IXLFill? other) => other is XLDeferredFill df && Key == df.Key;
 }

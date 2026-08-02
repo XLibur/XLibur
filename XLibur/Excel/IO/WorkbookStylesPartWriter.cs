@@ -1007,23 +1007,9 @@ internal static class WorkbookStylesPartWriter
 
                 break;
 
-            case XLFillPatternValues.DarkDown:
-            case XLFillPatternValues.DarkGray:
-            case XLFillPatternValues.DarkGrid:
-            case XLFillPatternValues.DarkHorizontal:
-            case XLFillPatternValues.DarkTrellis:
-            case XLFillPatternValues.DarkUp:
-            case XLFillPatternValues.DarkVertical:
-            case XLFillPatternValues.Gray0625:
-            case XLFillPatternValues.Gray125:
-            case XLFillPatternValues.LightDown:
-            case XLFillPatternValues.LightGray:
-            case XLFillPatternValues.LightGrid:
-            case XLFillPatternValues.LightHorizontal:
-            case XLFillPatternValues.LightTrellis:
-            case XLFillPatternValues.LightUp:
-            case XLFillPatternValues.LightVertical:
-            case XLFillPatternValues.MediumGray:
+            // Every remaining pattern (the Dark*, Light*, Gray* and MediumGray family) writes both
+            // colors the same way, so they share the default arm rather than being listed as empty
+            // fall-through labels.
             default:
 
                 foregroundColor = new ForegroundColor().FromXLiburColor<ForegroundColor>(fillInfo.Fill.PatternColor);

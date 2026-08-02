@@ -128,7 +128,7 @@ public sealed class XLTemplate : IXLTemplate
                 var key = entry.Key?.ToString();
                 if (!string.IsNullOrWhiteSpace(key))
                 {
-                    AddVariable(key!, entry.Value);
+                    AddVariable(key, entry.Value);
                 }
             }
 

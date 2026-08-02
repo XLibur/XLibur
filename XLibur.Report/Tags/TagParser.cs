@@ -33,7 +33,7 @@ internal static class TagParser
             return tokens;
         }
 
-        foreach (Match match in Pattern.Matches(text!))
+        foreach (Match match in Pattern.Matches(text))
         {
             tokens.Add(new TagToken(match.Groups["name"].Value, ParseParameters(match.Groups["params"].Value)));
         }
@@ -43,7 +43,7 @@ internal static class TagParser
 
     /// <summary>Returns <paramref name="text"/> with its tags removed.</summary>
     public static string Strip(string? text) =>
-        string.IsNullOrEmpty(text) ? string.Empty : Pattern.Replace(text!, string.Empty).Trim();
+        string.IsNullOrEmpty(text) ? string.Empty : Pattern.Replace(text, string.Empty).Trim();
 
     private static Dictionary<string, string> ParseParameters(string text)
     {

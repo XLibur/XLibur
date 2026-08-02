@@ -9,6 +9,8 @@ namespace XLibur.Excel;
 
 internal sealed class XLBorder : IXLBorder
 {
+    private const string ColorCannotBeNull = "Color cannot be null";
+
     #region Static members
 
     internal static XLBorderKey GenerateKey(IXLBorder? defaultBorder) => defaultBorder switch
@@ -228,7 +230,7 @@ internal sealed class XLBorder : IXLBorder
         set
         {
             if (value == null)
-                throw new ArgumentNullException(nameof(value), "Color cannot be null");
+                throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
 
             if (Key.LeftBorderColor == value.Key) return;
             if (_style.IsCellContainer)
@@ -261,7 +263,7 @@ internal sealed class XLBorder : IXLBorder
         set
         {
             if (value == null)
-                throw new ArgumentNullException(nameof(value), "Color cannot be null");
+                throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
 
             if (Key.RightBorderColor == value.Key) return;
             if (_style.IsCellContainer)
@@ -294,7 +296,7 @@ internal sealed class XLBorder : IXLBorder
         set
         {
             if (value == null)
-                throw new ArgumentNullException(nameof(value), "Color cannot be null");
+                throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
 
             if (Key.TopBorderColor == value.Key) return;
             if (_style.IsCellContainer)
@@ -327,7 +329,7 @@ internal sealed class XLBorder : IXLBorder
         set
         {
             if (value == null)
-                throw new ArgumentNullException(nameof(value), "Color cannot be null");
+                throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
 
             if (Key.BottomBorderColor == value.Key) return;
             if (_style.IsCellContainer)
@@ -360,7 +362,7 @@ internal sealed class XLBorder : IXLBorder
         set
         {
             if (value == null)
-                throw new ArgumentNullException(nameof(value), "Color cannot be null");
+                throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
 
             if (Key.DiagonalBorderColor == value.Key) return;
             if (_style.IsCellContainer)

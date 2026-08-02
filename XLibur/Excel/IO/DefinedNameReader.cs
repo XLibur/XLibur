@@ -28,7 +28,7 @@ internal static class DefinedNameReader
 
             var localSheetId = -1;
             if (definedName.LocalSheetId?.HasValue ?? false)
-                localSheetId = Convert.ToInt32(definedName.LocalSheetId!.Value);
+                localSheetId = Convert.ToInt32(definedName.LocalSheetId.Value);
 
             if (name == "_xlnm.Print_Area")
             {

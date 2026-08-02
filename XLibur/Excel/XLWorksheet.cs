@@ -20,6 +20,8 @@ namespace XLibur.Excel;
 
 internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 {
+    private const string OutlineLevelOutOfRange = "Outline level must be between 1 and 8.";
+
     #region Fields
 
     private readonly XLRangeFactory _rangeFactory;
@@ -534,7 +536,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     public IXLWorksheet CollapseRows(int outlineLevel)
     {
         if (outlineLevel is < 1 or > 8)
-            throw new ArgumentOutOfRangeException(nameof(outlineLevel), "Outline level must be between 1 and 8.");
+            throw new ArgumentOutOfRangeException(nameof(outlineLevel), OutlineLevelOutOfRange);
 
         Internals.RowsCollection.Values.Where(r => r.OutlineLevel == outlineLevel).ForEach(r => r.Collapse());
         return this;
@@ -549,7 +551,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     public IXLWorksheet CollapseColumns(int outlineLevel)
     {
         if (outlineLevel is < 1 or > 8)
-            throw new ArgumentOutOfRangeException(nameof(outlineLevel), "Outline level must be between 1 and 8.");
+            throw new ArgumentOutOfRangeException(nameof(outlineLevel), OutlineLevelOutOfRange);
 
         Internals.ColumnsCollection.Values.Where(c => c.OutlineLevel == outlineLevel).ForEach(c => c.Collapse());
         return this;
@@ -564,7 +566,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     public IXLWorksheet ExpandRows(int outlineLevel)
     {
         if (outlineLevel is < 1 or > 8)
-            throw new ArgumentOutOfRangeException(nameof(outlineLevel), "Outline level must be between 1 and 8.");
+            throw new ArgumentOutOfRangeException(nameof(outlineLevel), OutlineLevelOutOfRange);
 
         Internals.RowsCollection.Values.Where(r => r.OutlineLevel == outlineLevel).ForEach(r => r.Expand());
         return this;
@@ -579,7 +581,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     public IXLWorksheet ExpandColumns(int outlineLevel)
     {
         if (outlineLevel is < 1 or > 8)
-            throw new ArgumentOutOfRangeException(nameof(outlineLevel), "Outline level must be between 1 and 8.");
+            throw new ArgumentOutOfRangeException(nameof(outlineLevel), OutlineLevelOutOfRange);
 
         Internals.ColumnsCollection.Values.Where(c => c.OutlineLevel == outlineLevel).ForEach(c => c.Expand());
         return this;

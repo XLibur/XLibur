@@ -189,11 +189,10 @@ internal static class PageSetupWriter
         else
             worksheet.RemoveAllChildren<HeaderFooter>();
 
-        {
-            var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.HeaderFooter);
-            worksheet.InsertAfter(headerFooter, previousElement);
-            cm.SetElement(XLWorksheetContents.HeaderFooter, headerFooter);
-        }
+        var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.HeaderFooter);
+        worksheet.InsertAfter(headerFooter, previousElement);
+        cm.SetElement(XLWorksheetContents.HeaderFooter, headerFooter);
+
         if (((XLHeaderFooter)xlWorksheet.PageSetup.Header).Changed
             || ((XLHeaderFooter)xlWorksheet.PageSetup.Footer).Changed)
         {
@@ -240,7 +239,7 @@ internal static class PageSetupWriter
             var existingBreaks = rowBreaks.ChildElements.OfType<Break>().ToArray();
             var rowBreaksToDelete = existingBreaks
                 .Where(rb => rb.Id?.Value is null ||
-                             !xlWorksheet.PageSetup.RowBreaks.Contains((int)rb.Id!.Value))
+                             !xlWorksheet.PageSetup.RowBreaks.Contains((int)rb.Id.Value))
                 .ToList();
 
             foreach (var rb in rowBreaksToDelete)
@@ -294,7 +293,7 @@ internal static class PageSetupWriter
             var existingBreaks = columnBreaks.ChildElements.OfType<Break>().ToArray();
             var columnBreaksToDelete = existingBreaks
                 .Where(cb => cb.Id?.Value is null ||
-                             !xlWorksheet.PageSetup.ColumnBreaks.Contains((int)cb.Id!.Value))
+                             !xlWorksheet.PageSetup.ColumnBreaks.Contains((int)cb.Id.Value))
                 .ToList();
 
             foreach (var rb in columnBreaksToDelete)

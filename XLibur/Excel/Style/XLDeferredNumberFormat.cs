@@ -41,5 +41,5 @@ internal sealed class XLDeferredNumberFormat : IXLNumberFormat
     public IXLStyle SetNumberFormatId(int value) { NumberFormatId = value; return _style; }
     public IXLStyle SetFormat(string value) { Format = value; return _style; }
 
-    public bool Equals(IXLNumberFormatBase? other) => other is XLDeferredNumberFormat dnf ? Key == dnf.Key : false;
+    public bool Equals(IXLNumberFormatBase? other) => other is XLDeferredNumberFormat dnf && Key == dnf.Key;
 }

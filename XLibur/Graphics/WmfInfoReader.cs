@@ -96,6 +96,10 @@ internal sealed class WmfInfoReader : ImageInfoReader
         return new XLPictureInfo(XLPictureFormat.Wmf, Size.Empty, physSize);
     }
 
+    // S3398 wants GetU32LE and GetS16LE moved into PlaceableHeader because only it calls them.
+    // GetU16LE is called from both here and PlaceableHeader, so taking that advice would scatter
+    // three sibling little-endian readers across two types for no gain. They stay together.
+#pragma warning disable S3398
     private static uint GetU32LE(Span<byte> s, int i)
         => (uint)(s[i + 0] | (s[i + 1] << 8) | (s[i + 2] << 16) | (s[i + 3] << 24));
 
@@ -104,6 +108,7 @@ internal sealed class WmfInfoReader : ImageInfoReader
 
     private static short GetS16LE(Span<byte> s, int i)
         => (short)(s[i + 0] | (s[i + 1] << 8));
+#pragma warning restore S3398
 
     private static int ToHiMetric(int size, double unitsPerInch) =>
         (int)Math.Round(size / unitsPerInch * 254d, MidpointRounding.AwayFromZero);

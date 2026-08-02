@@ -26,7 +26,6 @@ public class StreamingWriteBenchmarks
 {
     private const int RowCount = 50_000;
 
-    private BenchmarkData _data = null;
     private string[] _strings = null;
     private double[] _numbers = null;
     private DateTime[] _dates = null;
@@ -35,10 +34,10 @@ public class StreamingWriteBenchmarks
     public void Setup()
     {
         SixLaborsV1FontBootstrap.Register();
-        _data = BenchmarkData.Create(RowCount);
-        _strings = _data.Strings;
-        _numbers = _data.Numbers;
-        _dates = _data.Dates;
+        var data = BenchmarkData.Create(RowCount);
+        _strings = data.Strings;
+        _numbers = data.Numbers;
+        _dates = data.Dates;
     }
 
     [Benchmark(Baseline = true)]

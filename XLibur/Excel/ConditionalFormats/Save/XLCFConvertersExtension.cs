@@ -5,15 +5,10 @@ namespace XLibur.Excel;
 
 internal static class XLCFConvertersExtension
 {
-    private static readonly Dictionary<XLConditionalFormatType, IXLCFConverterExtension> Converters;
-
-    static XLCFConvertersExtension()
+    private static readonly Dictionary<XLConditionalFormatType, IXLCFConverterExtension> Converters = new()
     {
-        Converters = new Dictionary<XLConditionalFormatType, IXLCFConverterExtension>
-        {
-            { XLConditionalFormatType.DataBar, new XLCFDataBarConverterExtension() }
-        };
-    }
+        { XLConditionalFormatType.DataBar, new XLCFDataBarConverterExtension() }
+    };
 
     public static ConditionalFormattingRule Convert(IXLConditionalFormat conditionalFormat, XLWorkbook.SaveContext context)
     {

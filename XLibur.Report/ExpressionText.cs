@@ -37,7 +37,7 @@ internal static class ExpressionText
             return false;
         }
 
-        var trimmed = text!.Trim();
+        var trimmed = text.Trim();
         if (trimmed.Length < 5 || !trimmed.StartsWith("{{", StringComparison.Ordinal) || !trimmed.EndsWith("}}", StringComparison.Ordinal))
         {
             return false;

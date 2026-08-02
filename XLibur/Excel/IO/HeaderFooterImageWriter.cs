@@ -12,6 +12,11 @@ namespace XLibur.Excel.IO;
 
 internal static class HeaderFooterImageWriter
 {
+    // VML namespaces fixed by the OOXML spec; the writer emits them verbatim.
+    private const string VmlNs = "urn:schemas-microsoft-com:vml";
+    private const string OfficeNs = "urn:schemas-microsoft-com:office:office";
+    private const string ExcelNs = "urn:schemas-microsoft-com:office:excel";
+
     /// <summary>
     /// Writes header/footer images as a separate VML drawing part with image relationships,
     /// and adds the <c>&lt;legacyDrawingHF&gt;</c> element to the worksheet XML.
@@ -78,34 +83,34 @@ internal static class HeaderFooterImageWriter
         using var writer = new XmlTextWriter(stream, Encoding.UTF8);
 
         writer.WriteStartElement("xml");
-        writer.WriteAttributeString("xmlns", "v", null, "urn:schemas-microsoft-com:vml");
-        writer.WriteAttributeString("xmlns", "o", null, "urn:schemas-microsoft-com:office:office");
-        writer.WriteAttributeString("xmlns", "x", null, "urn:schemas-microsoft-com:office:excel");
+        writer.WriteAttributeString("xmlns", "v", null, VmlNs);
+        writer.WriteAttributeString("xmlns", "o", null, OfficeNs);
+        writer.WriteAttributeString("xmlns", "x", null, ExcelNs);
 
         // Shape layout
-        writer.WriteStartElement("o", "shapelayout", "urn:schemas-microsoft-com:office:office");
-        writer.WriteAttributeString("v", "ext", "urn:schemas-microsoft-com:vml", "edit");
-        writer.WriteStartElement("o", "idmap", "urn:schemas-microsoft-com:office:office");
-        writer.WriteAttributeString("v", "ext", "urn:schemas-microsoft-com:vml", "edit");
+        writer.WriteStartElement("o", "shapelayout", OfficeNs);
+        writer.WriteAttributeString("v", "ext", VmlNs, "edit");
+        writer.WriteStartElement("o", "idmap", OfficeNs);
+        writer.WriteAttributeString("v", "ext", VmlNs, "edit");
         writer.WriteAttributeString("data", "2");
         writer.WriteEndElement(); // o:idmap
         writer.WriteEndElement(); // o:shapelayout
 
         // Shape type for pictures
-        writer.WriteStartElement("v", "shapetype", "urn:schemas-microsoft-com:vml");
+        writer.WriteStartElement("v", "shapetype", VmlNs);
         writer.WriteAttributeString("id", "_x0000_t75");
         writer.WriteAttributeString("coordsize", "21600,21600");
-        writer.WriteAttributeString("o", "spt", "urn:schemas-microsoft-com:office:office", "75");
-        writer.WriteAttributeString("o", "preferrelative", "urn:schemas-microsoft-com:office:office", "t");
+        writer.WriteAttributeString("o", "spt", OfficeNs, "75");
+        writer.WriteAttributeString("o", "preferrelative", OfficeNs, "t");
         writer.WriteAttributeString("path", "m@4@5l@4@11@9@11@9@5xe");
         writer.WriteAttributeString("filled", "f");
         writer.WriteAttributeString("stroked", "f");
 
-        writer.WriteStartElement("v", "stroke", "urn:schemas-microsoft-com:vml");
+        writer.WriteStartElement("v", "stroke", VmlNs);
         writer.WriteAttributeString("joinstyle", "miter");
         writer.WriteEndElement();
 
-        writer.WriteStartElement("v", "formulas", "urn:schemas-microsoft-com:vml");
+        writer.WriteStartElement("v", "formulas", VmlNs);
         WriteFormula(writer, "if lineDrawn pixelLineWidth 0");
         WriteFormula(writer, "sum @0 1 0");
         WriteFormula(writer, "sum 0 0 @1");
@@ -120,14 +125,14 @@ internal static class HeaderFooterImageWriter
         WriteFormula(writer, "sum @10 21600 0");
         writer.WriteEndElement(); // v:formulas
 
-        writer.WriteStartElement("v", "path", "urn:schemas-microsoft-com:vml");
-        writer.WriteAttributeString("o", "extrusionok", "urn:schemas-microsoft-com:office:office", "f");
+        writer.WriteStartElement("v", "path", VmlNs);
+        writer.WriteAttributeString("o", "extrusionok", OfficeNs, "f");
         writer.WriteAttributeString("gradientshapeok", "t");
-        writer.WriteAttributeString("o", "connecttype", "urn:schemas-microsoft-com:office:office", "rect");
+        writer.WriteAttributeString("o", "connecttype", OfficeNs, "rect");
         writer.WriteEndElement();
 
-        writer.WriteStartElement("o", "lock", "urn:schemas-microsoft-com:office:office");
-        writer.WriteAttributeString("v", "ext", "urn:schemas-microsoft-com:vml", "edit");
+        writer.WriteStartElement("o", "lock", OfficeNs);
+        writer.WriteAttributeString("v", "ext", VmlNs, "edit");
         writer.WriteAttributeString("aspectratio", "t");
         writer.WriteEndElement();
 
@@ -144,19 +149,19 @@ internal static class HeaderFooterImageWriter
             var heightPt = image.HeightPt.ToInvariantString();
             var style = $"position:absolute;margin-left:0;margin-top:0;width:{widthPt}pt;height:{heightPt}pt;z-index:{zIndex++}";
 
-            writer.WriteStartElement("v", "shape", "urn:schemas-microsoft-com:vml");
+            writer.WriteStartElement("v", "shape", VmlNs);
             writer.WriteAttributeString("id", image.PositionCode!);
-            writer.WriteAttributeString("o", "spid", "urn:schemas-microsoft-com:office:office", spid);
+            writer.WriteAttributeString("o", "spid", OfficeNs, spid);
             writer.WriteAttributeString("type", "#_x0000_t75");
             writer.WriteAttributeString("style", style);
 
-            writer.WriteStartElement("v", "imagedata", "urn:schemas-microsoft-com:vml");
-            writer.WriteAttributeString("o", "relid", "urn:schemas-microsoft-com:office:office", relId);
-            writer.WriteAttributeString("o", "title", "urn:schemas-microsoft-com:office:office", "");
+            writer.WriteStartElement("v", "imagedata", VmlNs);
+            writer.WriteAttributeString("o", "relid", OfficeNs, relId);
+            writer.WriteAttributeString("o", "title", OfficeNs, "");
             writer.WriteEndElement();
 
-            writer.WriteStartElement("o", "lock", "urn:schemas-microsoft-com:office:office");
-            writer.WriteAttributeString("v", "ext", "urn:schemas-microsoft-com:vml", "edit");
+            writer.WriteStartElement("o", "lock", OfficeNs);
+            writer.WriteAttributeString("v", "ext", VmlNs, "edit");
             writer.WriteAttributeString("rotation", "t");
             writer.WriteEndElement();
 
@@ -169,7 +174,7 @@ internal static class HeaderFooterImageWriter
 
     private static void WriteFormula(XmlTextWriter writer, string eqn)
     {
-        writer.WriteStartElement("v", "f", "urn:schemas-microsoft-com:vml");
+        writer.WriteStartElement("v", "f", VmlNs);
         writer.WriteAttributeString("eqn", eqn);
         writer.WriteEndElement();
     }

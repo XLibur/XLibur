@@ -9,6 +9,8 @@ namespace XLibur.Excel;
 /// </summary>
 internal sealed class XLDeferredBorder : IXLBorder
 {
+    private const string ColorCannotBeNull = "Color cannot be null";
+
     private readonly XLDeferredStyle _style;
     internal XLBorderKey Key;
 
@@ -79,7 +81,7 @@ internal sealed class XLDeferredBorder : IXLBorder
         }
         set
         {
-            if (value == null) throw new ArgumentNullException(nameof(value), "Color cannot be null");
+            if (value == null) throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
             Key = Key with { LeftBorderColor = value.Key };
         }
     }
@@ -99,7 +101,7 @@ internal sealed class XLDeferredBorder : IXLBorder
         }
         set
         {
-            if (value == null) throw new ArgumentNullException(nameof(value), "Color cannot be null");
+            if (value == null) throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
             Key = Key with { RightBorderColor = value.Key };
         }
     }
@@ -119,7 +121,7 @@ internal sealed class XLDeferredBorder : IXLBorder
         }
         set
         {
-            if (value == null) throw new ArgumentNullException(nameof(value), "Color cannot be null");
+            if (value == null) throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
             Key = Key with { TopBorderColor = value.Key };
         }
     }
@@ -139,7 +141,7 @@ internal sealed class XLDeferredBorder : IXLBorder
         }
         set
         {
-            if (value == null) throw new ArgumentNullException(nameof(value), "Color cannot be null");
+            if (value == null) throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
             Key = Key with { BottomBorderColor = value.Key };
         }
     }
@@ -171,7 +173,7 @@ internal sealed class XLDeferredBorder : IXLBorder
         }
         set
         {
-            if (value == null) throw new ArgumentNullException(nameof(value), "Color cannot be null");
+            if (value == null) throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
             Key = Key with { DiagonalBorderColor = value.Key };
         }
     }

@@ -123,7 +123,7 @@ public sealed class SummaryFunctionTag : OptionTag, IRangeSummaryTag
         }
 
         var line = context.Axis.ParseLine(over);
-        if (line is not null and > 0)
+        if (line is > 0)
         {
             return line;
         }

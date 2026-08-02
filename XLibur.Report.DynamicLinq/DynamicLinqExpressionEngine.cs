@@ -283,34 +283,34 @@ public sealed class DynamicLinqExpressionEngine : IExpressionEngine
 
             return new Binding(name, type, value);
         }
-    }
 
-    /// <summary>
-    /// <c>Enumerable.Cast&lt;T&gt;().ToList()</c>, reached by reflection because <c>T</c> is only known
-    /// at runtime.
-    /// </summary>
-    private static object CastTo(IEnumerable enumerable, Type elementType)
-    {
-        var cast = typeof(Enumerable).GetMethod(nameof(Enumerable.Cast))!.MakeGenericMethod(elementType);
-        var toList = typeof(Enumerable).GetMethod(nameof(Enumerable.ToList))!.MakeGenericMethod(elementType);
-
-        return toList.Invoke(null, new[] { cast.Invoke(null, new object[] { enumerable }) })!;
-    }
-
-    private static bool IsGenericEnumerable(Type type) =>
-        type.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
-
-    private static Type? ElementType(IEnumerable enumerable)
-    {
-        foreach (var item in enumerable)
+        /// <summary>
+        /// <c>Enumerable.Cast&lt;T&gt;().ToList()</c>, reached by reflection because <c>T</c> is only known
+        /// at runtime.
+        /// </summary>
+        private static object CastTo(IEnumerable enumerable, Type elementType)
         {
-            if (item is not null)
-            {
-                return item.GetType();
-            }
+            var cast = typeof(Enumerable).GetMethod(nameof(Enumerable.Cast))!.MakeGenericMethod(elementType);
+            var toList = typeof(Enumerable).GetMethod(nameof(Enumerable.ToList))!.MakeGenericMethod(elementType);
+
+            return toList.Invoke(null, new[] { cast.Invoke(null, new object[] { enumerable }) })!;
         }
 
-        return null;
+        private static bool IsGenericEnumerable(Type type) =>
+            type.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+        private static Type? ElementType(IEnumerable enumerable)
+        {
+            foreach (var item in enumerable)
+            {
+                if (item is not null)
+                {
+                    return item.GetType();
+                }
+            }
+
+            return null;
+        }
     }
 
     private static string CacheKey(string expression, ParameterExpression[] parameters)

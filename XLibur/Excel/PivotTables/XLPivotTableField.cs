@@ -118,7 +118,7 @@ internal sealed class XLPivotTableField
     /// <summary>
     /// A flag that indicates whether to show all items for this field.
     /// </summary>
-    internal bool ShowAll { get; set; } = true;
+    internal bool ShowAll { get; set; }
 
     /// <summary>
     /// Insert empty row below every item if the field is row/column axis. The last field in axis

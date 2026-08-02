@@ -23,6 +23,9 @@ namespace XLibur.Excel;
 
 public partial class XLWorkbook
 {
+    // Name of the future-metadata block that carries rich value indices.
+    private const string RichValueMetadataName = "XLRICHVALUE";
+
     private static void Validate(SpreadsheetDocument package)
     {
         var backupCulture = Thread.CurrentThread.CurrentCulture;
@@ -164,7 +167,7 @@ public partial class XLWorkbook
         foreach (var item in toDelete)
             item.Remove();
 
-        if (!calChainPart.CalculationChain!.Any())
+        if (!calChainPart.CalculationChain.Any())
             wbPart.DeletePart(calChainPart);
     }
 
@@ -281,7 +284,7 @@ public partial class XLWorkbook
             return;
 
         foreach (var c in pivotCachesToRemove)
-            workbookPart.Workbook.PivotCaches!.RemoveChild(c);
+            workbookPart.Workbook.PivotCaches.RemoveChild(c);
     }
 
     private void GenerateWorkbookLevelParts(SpreadsheetDocument document, WorkbookPart workbookPart,
@@ -578,14 +581,14 @@ public partial class XLWorkbook
         uint typeIdx = 1;
         foreach (var mt in metadataTypes.Elements<MetadataType>())
         {
-            if (mt.Name?.Value == "XLRICHVALUE")
+            if (mt.Name?.Value == RichValueMetadataName)
                 return typeIdx;
             typeIdx++;
         }
 
         metadataTypes.Append(new MetadataType
         {
-            Name = "XLRICHVALUE",
+            Name = RichValueMetadataName,
             MinSupportedVersion = 120000,
             Copy = true,
             PasteAll = true,
@@ -605,10 +608,10 @@ public partial class XLWorkbook
     private static void AppendRichValueFutureMetadata(Metadata metadata, List<RichDataWriter.RichValueEntry> entries)
     {
         var existingFm = metadata.Elements<FutureMetadata>()
-            .FirstOrDefault(fm => fm.Name?.Value == "XLRICHVALUE");
+            .FirstOrDefault(fm => fm.Name?.Value == RichValueMetadataName);
         existingFm?.Remove();
 
-        var futureMetadata = new FutureMetadata { Name = "XLRICHVALUE", Count = (uint)entries.Count };
+        var futureMetadata = new FutureMetadata { Name = RichValueMetadataName, Count = (uint)entries.Count };
         for (var i = 0; i < entries.Count; i++)
         {
             var fmBlock = new FutureMetadataBlock();
@@ -877,7 +880,7 @@ public partial class XLWorkbook
             .Where(e => e.Name.LocalName == "shapetype" && e.Attribute("id")?.Value == XLConstants.Comment.ShapeTypeId)
             .Remove();
 
-        xdoc.Root!
+        xdoc.Root
             .Elements()
             .Where(e => e.Name.LocalName == "shape" &&
                         e.Attribute("type")?.Value == "#" + XLConstants.Comment.ShapeTypeId)
@@ -976,7 +979,7 @@ public partial class XLWorkbook
         List<PivotCache>? orphanedCaches = null;
         foreach (var pc in workbookPart.Workbook.PivotCaches.Elements<PivotCache>())
         {
-            if (pc.Id is null || !workbookPart.HasPartWithId(pc.Id!.Value!))
+            if (pc.Id is null || !workbookPart.HasPartWithId(pc.Id.Value!))
                 (orphanedCaches ??= []).Add(pc);
         }
 
@@ -1009,7 +1012,7 @@ public partial class XLWorkbook
         {
             var cacheRelId = context.RelIdGenerator.GetNext(RelType.Workbook);
             pivotSource.WorkbookCacheRelId = cacheRelId;
-            workbookPart.AddNewPart<PivotTableCacheDefinitionPart>(pivotSource.WorkbookCacheRelId!);
+            workbookPart.AddNewPart<PivotTableCacheDefinitionPart>(pivotSource.WorkbookCacheRelId);
         }
     }
 
@@ -1061,7 +1064,7 @@ public partial class XLWorkbook
                 Debug.Assert(!string.IsNullOrEmpty(xlPivotCache.WorkbookCacheRelId));
 
                 var pivotTableCacheDefinitionPart =
-                    (PivotTableCacheDefinitionPart)workbookPart.GetPartById(xlPivotCache.WorkbookCacheRelId!);
+                    (PivotTableCacheDefinitionPart)workbookPart.GetPartById(xlPivotCache.WorkbookCacheRelId);
 
                 PivotTableCacheDefinitionPartWriter.GenerateContent(pivotTableCacheDefinitionPart, xlPivotCache, context);
 

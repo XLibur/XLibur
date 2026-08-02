@@ -12,8 +12,6 @@ public class DataValidationDecimal : IXLExample
         var c2 = ws.Cell("B1");
         c1.Value = 1.1;
         c2.Value = 2.1;
-        var r1 = ws.Range("A1:A10");
-        var r2 = ws.Range("B1:B10");
 
         ws.Range("A2:A10").CreateDataValidation().Decimal.EqualTo(1.1);
         ws.Range("B2:B10").CreateDataValidation().Decimal.NotEqualTo(2.1);

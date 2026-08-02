@@ -127,5 +127,5 @@ internal sealed class XLDeferredAlignment : IXLAlignment
     public IXLStyle SetTopToBottom() { TopToBottom = true; return _style; }
     public IXLStyle SetTopToBottom(bool value) { TopToBottom = value; return _style; }
 
-    public bool Equals(IXLAlignment? other) => other is XLDeferredAlignment da ? Key == da.Key : false;
+    public bool Equals(IXLAlignment? other) => other is XLDeferredAlignment da && Key == da.Key;
 }

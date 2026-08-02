@@ -12,6 +12,12 @@ namespace XLibur.Excel;
 
 internal static class EnumConverter
 {
+    /// <summary>
+    /// Message for the default arm of every enum switch here: the value is outside the set the
+    /// converter knows how to map.
+    /// </summary>
+    private const string NotImplementedValue = "Not implemented value!";
+
     private static readonly Dictionary<XLPictureFormat, PartTypeInfo> PictureFormatMap =
         new()
         {
@@ -591,7 +597,7 @@ internal static class EnumConverter
         XLFontUnderlineValues.None => UnderlineValues.None,
         XLFontUnderlineValues.Single => UnderlineValues.Single,
         XLFontUnderlineValues.SingleAccounting => UnderlineValues.SingleAccounting,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static OrientationValues ToOpenXml(this XLPageOrientation value) => value switch
@@ -599,7 +605,7 @@ internal static class EnumConverter
         XLPageOrientation.Default => OrientationValues.Default,
         XLPageOrientation.Landscape => OrientationValues.Landscape,
         XLPageOrientation.Portrait => OrientationValues.Portrait,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static VerticalAlignmentRunValues ToOpenXml(this XLFontVerticalTextAlignmentValues value) => value switch
@@ -607,7 +613,7 @@ internal static class EnumConverter
         XLFontVerticalTextAlignmentValues.Baseline => VerticalAlignmentRunValues.Baseline,
         XLFontVerticalTextAlignmentValues.Subscript => VerticalAlignmentRunValues.Subscript,
         XLFontVerticalTextAlignmentValues.Superscript => VerticalAlignmentRunValues.Superscript,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static PatternValues ToOpenXml(this XLFillPatternValues value) => value switch
@@ -631,7 +637,7 @@ internal static class EnumConverter
         XLFillPatternValues.MediumGray => PatternValues.MediumGray,
         XLFillPatternValues.None => PatternValues.None,
         XLFillPatternValues.Solid => PatternValues.Solid,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static BorderStyleValues ToOpenXml(this XLBorderStyleValues value) => value switch
@@ -650,7 +656,7 @@ internal static class EnumConverter
         XLBorderStyleValues.SlantDashDot => BorderStyleValues.SlantDashDot,
         XLBorderStyleValues.Thick => BorderStyleValues.Thick,
         XLBorderStyleValues.Thin => BorderStyleValues.Thin,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static HorizontalAlignmentValues ToOpenXml(this XLAlignmentHorizontalValues value) => value switch
@@ -663,7 +669,7 @@ internal static class EnumConverter
         XLAlignmentHorizontalValues.Justify => HorizontalAlignmentValues.Justify,
         XLAlignmentHorizontalValues.Left => HorizontalAlignmentValues.Left,
         XLAlignmentHorizontalValues.Right => HorizontalAlignmentValues.Right,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static VerticalAlignmentValues ToOpenXml(this XLAlignmentVerticalValues value) => value switch
@@ -673,14 +679,14 @@ internal static class EnumConverter
         XLAlignmentVerticalValues.Distributed => VerticalAlignmentValues.Distributed,
         XLAlignmentVerticalValues.Justify => VerticalAlignmentValues.Justify,
         XLAlignmentVerticalValues.Top => VerticalAlignmentValues.Top,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static PageOrderValues ToOpenXml(this XLPageOrderValues value) => value switch
     {
         XLPageOrderValues.DownThenOver => PageOrderValues.DownThenOver,
         XLPageOrderValues.OverThenDown => PageOrderValues.OverThenDown,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static CellCommentsValues ToOpenXml(this XLShowCommentsValues value) => value switch
@@ -688,7 +694,7 @@ internal static class EnumConverter
         XLShowCommentsValues.AsDisplayed => CellCommentsValues.AsDisplayed,
         XLShowCommentsValues.AtEnd => CellCommentsValues.AtEnd,
         XLShowCommentsValues.None => CellCommentsValues.None,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static PrintErrorValues ToOpenXml(this XLPrintErrorValues value) => value switch
@@ -697,7 +703,7 @@ internal static class EnumConverter
         XLPrintErrorValues.Dash => PrintErrorValues.Dash,
         XLPrintErrorValues.Displayed => PrintErrorValues.Displayed,
         XLPrintErrorValues.NA => PrintErrorValues.NA,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static CalculateModeValues ToOpenXml(this XLCalculateMode value) => value switch
@@ -705,14 +711,14 @@ internal static class EnumConverter
         XLCalculateMode.Auto => CalculateModeValues.Auto,
         XLCalculateMode.AutoNoTable => CalculateModeValues.AutoNoTable,
         XLCalculateMode.Manual => CalculateModeValues.Manual,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static ReferenceModeValues ToOpenXml(this XLReferenceStyle value) => value switch
     {
         XLReferenceStyle.R1C1 => ReferenceModeValues.R1C1,
         XLReferenceStyle.A1 => ReferenceModeValues.A1,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static uint ToOpenXml(this XLAlignmentReadingOrderValues value) => value switch
@@ -720,7 +726,7 @@ internal static class EnumConverter
         XLAlignmentReadingOrderValues.ContextDependent => 0,
         XLAlignmentReadingOrderValues.LeftToRight => 1,
         XLAlignmentReadingOrderValues.RightToLeft => 2,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static TotalsRowFunctionValues ToOpenXml(this XLTotalsRowFunction value) => value switch
@@ -735,7 +741,7 @@ internal static class EnumConverter
         XLTotalsRowFunction.StandardDeviation => TotalsRowFunctionValues.StandardDeviation,
         XLTotalsRowFunction.Variance => TotalsRowFunctionValues.Variance,
         XLTotalsRowFunction.Custom => TotalsRowFunctionValues.Custom,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static DataValidationValues ToOpenXml(this XLAllowedValues value) => value switch
@@ -748,7 +754,7 @@ internal static class EnumConverter
         XLAllowedValues.TextLength => DataValidationValues.TextLength,
         XLAllowedValues.Time => DataValidationValues.Time,
         XLAllowedValues.WholeNumber => DataValidationValues.Whole,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static DataValidationErrorStyleValues ToOpenXml(this XLErrorStyle value) => value switch
@@ -756,7 +762,7 @@ internal static class EnumConverter
         XLErrorStyle.Information => DataValidationErrorStyleValues.Information,
         XLErrorStyle.Warning => DataValidationErrorStyleValues.Warning,
         XLErrorStyle.Stop => DataValidationErrorStyleValues.Stop,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static DataValidationOperatorValues ToOpenXml(this XLOperator value) => value switch
@@ -769,7 +775,7 @@ internal static class EnumConverter
         XLOperator.LessThan => DataValidationOperatorValues.LessThan,
         XLOperator.NotBetween => DataValidationOperatorValues.NotBetween,
         XLOperator.NotEqualTo => DataValidationOperatorValues.NotEqual,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static SheetStateValues ToOpenXml(this XLWorksheetVisibility value) => value switch
@@ -777,7 +783,7 @@ internal static class EnumConverter
         XLWorksheetVisibility.Visible => SheetStateValues.Visible,
         XLWorksheetVisibility.Hidden => SheetStateValues.Hidden,
         XLWorksheetVisibility.VeryHidden => SheetStateValues.VeryHidden,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static PhoneticValues ToOpenXml(this XLPhoneticType value) => value switch
@@ -786,7 +792,7 @@ internal static class EnumConverter
         XLPhoneticType.HalfWidthKatakana => PhoneticValues.HalfWidthKatakana,
         XLPhoneticType.Hiragana => PhoneticValues.Hiragana,
         XLPhoneticType.NoConversion => PhoneticValues.NoConversion,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static DataConsolidateFunctionValues ToOpenXml(this XLPivotSummary value) => value switch
@@ -802,7 +808,7 @@ internal static class EnumConverter
         XLPivotSummary.PopulationStandardDeviation => DataConsolidateFunctionValues.StandardDeviationP,
         XLPivotSummary.Variance => DataConsolidateFunctionValues.Variance,
         XLPivotSummary.PopulationVariance => DataConsolidateFunctionValues.VarianceP,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static ShowDataAsValues ToOpenXml(this XLPivotCalculation value) => value switch
@@ -816,7 +822,7 @@ internal static class EnumConverter
         XLPivotCalculation.PercentageOfColumn => ShowDataAsValues.PercentOfColumn,
         XLPivotCalculation.PercentageOfTotal => ShowDataAsValues.PercentOfTotal,
         XLPivotCalculation.Index => ShowDataAsValues.Index,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static FilterOperatorValues ToOpenXml(this XLFilterOperator value) => value switch
@@ -827,14 +833,14 @@ internal static class EnumConverter
         XLFilterOperator.EqualOrGreaterThan => FilterOperatorValues.GreaterThanOrEqual,
         XLFilterOperator.LessThan => FilterOperatorValues.LessThan,
         XLFilterOperator.EqualOrLessThan => FilterOperatorValues.LessThanOrEqual,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static DynamicFilterValues ToOpenXml(this XLFilterDynamicType value) => value switch
     {
         XLFilterDynamicType.AboveAverage => DynamicFilterValues.AboveAverage,
         XLFilterDynamicType.BelowAverage => DynamicFilterValues.BelowAverage,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static DateTimeGroupingValues ToOpenXml(this XLDateTimeGrouping value) => value switch
@@ -845,7 +851,7 @@ internal static class EnumConverter
         XLDateTimeGrouping.Hour => DateTimeGroupingValues.Hour,
         XLDateTimeGrouping.Minute => DateTimeGroupingValues.Minute,
         XLDateTimeGrouping.Second => DateTimeGroupingValues.Second,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static SheetViewValues ToOpenXml(this XLSheetViewOptions value) => value switch
@@ -853,7 +859,7 @@ internal static class EnumConverter
         XLSheetViewOptions.Normal => SheetViewValues.Normal,
         XLSheetViewOptions.PageBreakPreview => SheetViewValues.PageBreakPreview,
         XLSheetViewOptions.PageLayout => SheetViewValues.PageLayout,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static Vml.StrokeLineStyleValues ToOpenXml(this XLLineStyle value) => value switch
@@ -863,7 +869,7 @@ internal static class EnumConverter
         XLLineStyle.ThickThin => Vml.StrokeLineStyleValues.ThickThin,
         XLLineStyle.ThinThick => Vml.StrokeLineStyleValues.ThinThick,
         XLLineStyle.ThinThin => Vml.StrokeLineStyleValues.ThinThin,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static ConditionalFormatValues ToOpenXml(this XLConditionalFormatType value) => value switch
@@ -886,7 +892,7 @@ internal static class EnumConverter
         XLConditionalFormatType.NotError => ConditionalFormatValues.NotContainsErrors,
         XLConditionalFormatType.TimePeriod => ConditionalFormatValues.TimePeriod,
         XLConditionalFormatType.AboveAverage => ConditionalFormatValues.AboveAverage,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static ConditionalFormatValueObjectValues ToOpenXml(this XLCFContentType value) => value switch
@@ -897,7 +903,7 @@ internal static class EnumConverter
         XLCFContentType.Minimum => ConditionalFormatValueObjectValues.Min,
         XLCFContentType.Formula => ConditionalFormatValueObjectValues.Formula,
         XLCFContentType.Percentile => ConditionalFormatValueObjectValues.Percentile,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static ConditionalFormattingOperatorValues ToOpenXml(this XLCFOperator value) => value switch
@@ -914,7 +920,7 @@ internal static class EnumConverter
         XLCFOperator.NotContains => ConditionalFormattingOperatorValues.NotContains,
         XLCFOperator.StartsWith => ConditionalFormattingOperatorValues.BeginsWith,
         XLCFOperator.EndsWith => ConditionalFormattingOperatorValues.EndsWith,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static IconSetValues ToOpenXml(this XLIconSetStyle value) => value switch
@@ -936,7 +942,7 @@ internal static class EnumConverter
         XLIconSetStyle.FiveArrowsGray => IconSetValues.FiveArrowsGray,
         XLIconSetStyle.FiveRating => IconSetValues.FiveRating,
         XLIconSetStyle.FiveQuarters => IconSetValues.FiveQuarters,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static TimePeriodValues ToOpenXml(this XLTimePeriod value) => value switch
@@ -951,7 +957,7 @@ internal static class EnumConverter
         XLTimePeriod.LastMonth => TimePeriodValues.LastMonth,
         XLTimePeriod.ThisMonth => TimePeriodValues.ThisMonth,
         XLTimePeriod.NextMonth => TimePeriodValues.NextMonth,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static PartTypeInfo ToOpenXml(this XLPictureFormat value)
@@ -964,7 +970,7 @@ internal static class EnumConverter
         XLPicturePlacement.FreeFloating => Xdr.EditAsValues.Absolute,
         XLPicturePlacement.Move => Xdr.EditAsValues.OneCell,
         XLPicturePlacement.MoveAndSize => Xdr.EditAsValues.TwoCell,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static PivotAreaValues ToOpenXml(this XLPivotAreaType value) => value switch
@@ -985,7 +991,7 @@ internal static class EnumConverter
         XLSparklineType.Line => X14.SparklineTypeValues.Line,
         XLSparklineType.Column => X14.SparklineTypeValues.Column,
         XLSparklineType.Stacked => X14.SparklineTypeValues.Stacked,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static X14.SparklineAxisMinMaxValues ToOpenXml(this XLSparklineAxisMinMax value) => value switch
@@ -993,7 +999,7 @@ internal static class EnumConverter
         XLSparklineAxisMinMax.Automatic => X14.SparklineAxisMinMaxValues.Individual,
         XLSparklineAxisMinMax.SameForAll => X14.SparklineAxisMinMaxValues.Group,
         XLSparklineAxisMinMax.Custom => X14.SparklineAxisMinMaxValues.Custom,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static X14.DisplayBlanksAsValues ToOpenXml(this XLDisplayBlanksAsValues value) => value switch
@@ -1001,7 +1007,7 @@ internal static class EnumConverter
         XLDisplayBlanksAsValues.Interpolate => X14.DisplayBlanksAsValues.Span,
         XLDisplayBlanksAsValues.NotPlotted => X14.DisplayBlanksAsValues.Gap,
         XLDisplayBlanksAsValues.Zero => X14.DisplayBlanksAsValues.Zero,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static FieldSortValues ToOpenXml(this XLPivotSortType value) => value switch
@@ -1009,7 +1015,7 @@ internal static class EnumConverter
         XLPivotSortType.Default => FieldSortValues.Manual,
         XLPivotSortType.Ascending => FieldSortValues.Ascending,
         XLPivotSortType.Descending => FieldSortValues.Descending,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static X14.DataBarAxisPositionValues ToOpenXml(this XLDataBarAxisPosition value)
@@ -1017,7 +1023,7 @@ internal static class EnumConverter
         if (value == XLDataBarAxisPosition.Automatic) return X14.DataBarAxisPositionValues.Automatic;
         if (value == XLDataBarAxisPosition.Middle) return X14.DataBarAxisPositionValues.Middle;
         if (value == XLDataBarAxisPosition.None) return X14.DataBarAxisPositionValues.None;
-        throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
+        throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue);
     }
 
     public static XLFontUnderlineValues ToXLibur(this UnderlineValues value)
@@ -1090,7 +1096,7 @@ internal static class EnumConverter
         0 => XLAlignmentReadingOrderValues.ContextDependent,
         1 => XLAlignmentReadingOrderValues.LeftToRight,
         2 => XLAlignmentReadingOrderValues.RightToLeft,
-        _ => throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!"),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
     public static XLTotalsRowFunction ToXLibur(this TotalsRowFunctionValues value)
@@ -1254,7 +1260,7 @@ internal static class EnumConverter
         if (value == X14.DataBarAxisPositionValues.Automatic) return XLDataBarAxisPosition.Automatic;
         if (value == X14.DataBarAxisPositionValues.Middle) return XLDataBarAxisPosition.Middle;
         if (value == X14.DataBarAxisPositionValues.None) return XLDataBarAxisPosition.None;
-        throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
+        throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue);
     }
 
     /// <summary>
@@ -1302,7 +1308,7 @@ internal static class EnumConverter
         if (string.IsNullOrEmpty(rawText))
             return null;
 
-        var lowered = factory(rawText!.ToLowerInvariant());
+        var lowered = factory(rawText.ToLowerInvariant());
         return map.TryGetValue(lowered, out var result) ? result : null;
     }
 
