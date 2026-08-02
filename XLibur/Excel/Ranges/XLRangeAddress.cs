@@ -51,8 +51,18 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
         LastAddress = lastAddress;
     }
 
+    /// <exception cref="ArgumentNullException"><paramref name="rangeAddress"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="rangeAddress"/> is empty.</exception>
+    /// <exception cref="FormatException"><paramref name="rangeAddress"/> has an empty half, such
+    /// as "A1:" or ":".</exception>
     public XLRangeAddress(XLWorksheet? worksheet, string rangeAddress) : this()
     {
+        // A missing address and a half-written one fail differently and are reported differently.
+        // Without these guards a null reached string.Contains below and an empty part reached
+        // firstPart[0], so callers got NullReferenceException and IndexOutOfRangeException —
+        // internal detail escaping rather than a contract they could act on.
+        ArgumentException.ThrowIfNullOrEmpty(rangeAddress);
+
         var addressToUse = rangeAddress.Contains('!')
             ? rangeAddress.Substring(rangeAddress.LastIndexOf('!') + 1)
             : rangeAddress;
@@ -71,6 +81,8 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
             secondPart = addressToUse;
         }
 
+        ThrowIfHalfEmpty(rangeAddress, firstPart, secondPart);
+
         if (XLHelper.IsValidA1Address(firstPart))
         {
             FirstAddress = XLAddress.Create(worksheet, firstPart);
@@ -80,6 +92,11 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
         {
             firstPart = firstPart.Replace("$", string.Empty);
             secondPart = secondPart.Replace("$", string.Empty);
+
+            // Checked again after the strip: "$" and "$:$" survive the check above and are only
+            // empty once the anchors are gone.
+            ThrowIfHalfEmpty(rangeAddress, firstPart, secondPart);
+
             if (char.IsDigit(firstPart[0]))
             {
                 FirstAddress = XLAddress.Create(worksheet, "A" + firstPart);
@@ -93,6 +110,17 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
         }
 
         Worksheet = worksheet;
+    }
+
+    /// <summary>
+    /// Rejects an address whose first or last half is empty. Separate from the null/empty guard
+    /// on the whole string: "A1:" is a malformed address rather than a missing one, so it is a
+    /// <see cref="FormatException"/> like any other parse failure.
+    /// </summary>
+    private static void ThrowIfHalfEmpty(string rangeAddress, string firstPart, string secondPart)
+    {
+        if (firstPart.Length == 0 || secondPart.Length == 0)
+            throw new FormatException($"'{rangeAddress}' is not a valid range address.");
     }
 
     #endregion Constructor

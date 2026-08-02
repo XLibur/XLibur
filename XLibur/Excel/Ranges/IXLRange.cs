@@ -194,15 +194,19 @@ public interface IXLRange : IXLRangeBase
     /// <summary>Returns the specified range.</summary>
     /// <para>e.g. Range("A1"), Range("A1:C2")</para>
     /// <param name="rangeAddress">The range boundaries.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="rangeAddress"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="rangeAddress"/> is empty, or is
+    /// otherwise not an address the parser can start from.</exception>
+    /// <exception cref="FormatException"><paramref name="rangeAddress"/> is malformed, including
+    /// a half-written range such as "A1:" or ":".</exception>
+    /// <exception cref="OverflowException">A row or column number is past the sheet limits.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="rangeAddress"/> is neither an
+    /// address nor a defined name.</exception>
     /// <remarks>
-    /// An unparseable <paramref name="rangeAddress"/> throws, but the type depends on how the
-    /// parse fails rather than on a single documented contract: <see cref="FormatException"/>
-    /// for a malformed address, <see cref="OverflowException"/> for row or column numbers past
-    /// the sheet limits, <see cref="ArgumentOutOfRangeException"/> for a name that is neither an
-    /// address nor a defined name, and <see cref="IndexOutOfRangeException"/> for an empty
-    /// string. Do not write a caller that catches one of these expecting to have covered the
-    /// rest. Contrast <see cref="Cell(string)"/>, which throws
-    /// <see cref="ArgumentException"/> for every bad input.
+    /// A missing address and a malformed one are reported differently on purpose: null or empty
+    /// means the caller passed nothing, while "A1:" means they passed something the parser could
+    /// not read. The remaining two are reached only by input that parses far enough to be
+    /// resolved and then fails.
     /// </remarks>
     IXLRange Range(string rangeAddress);
 
