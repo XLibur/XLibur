@@ -40,6 +40,7 @@ public interface IXLRange : IXLRangeBase
     /// <summary>Gets the cell at the specified address.</summary>
     /// <para>The cell address is relative to the parent range.</para>
     /// <param name="cellAddressInRange">The cell address in the parent range.</param>
+    /// <exception cref="ArgumentException">Address is not A1 or a named range.</exception>
     IXLCell Cell(string cellAddressInRange);
 
     /// <summary>
@@ -193,6 +194,7 @@ public interface IXLRange : IXLRangeBase
     /// <summary>Returns the specified range.</summary>
     /// <para>e.g. Range("A1"), Range("A1:C2")</para>
     /// <param name="rangeAddress">The range boundaries.</param>
+    /// <exception cref="FormatException"><paramref name="rangeAddress"/> is not a valid address.</exception>
     IXLRange Range(string rangeAddress);
 
     /// <summary>Returns the specified range.</summary>

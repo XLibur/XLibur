@@ -110,7 +110,12 @@ internal class XLRange : XLStoredRangeBase, IXLRange
 
     IXLCell IXLRange.Cell(string cellAddressInRange)
     {
-        return Cell(cellAddressInRange)!;
+        // IXLRange.Cell is annotated non-null, but the underlying lookup returns null for a string
+        // that is neither an A1 address nor a defined name. Throw here rather than forgiving the
+        // null, so the caller gets the failure at the call site instead of a NullReferenceException
+        // somewhere downstream. Matches IXLWorksheet.Cell.
+        return Cell(cellAddressInRange) ??
+               throw new ArgumentException($"'{cellAddressInRange}' is not A1 address or named range.");
     }
 
     IXLCell IXLRange.Cell(int row, string column)
@@ -130,7 +135,12 @@ internal class XLRange : XLStoredRangeBase, IXLRange
 
     IXLRange IXLRange.Range(string rangeAddress)
     {
-        return Range(rangeAddress)!;
+        // Defensive only, unlike Cell above. The virtual method is annotated nullable because
+        // XLWorksheet's override can return null, but this implementation cannot: a malformed
+        // address throws FormatException while being parsed, before there is anything to return.
+        // The guard is here so that stops being true silently rather than by handing back a null.
+        return Range(rangeAddress) ??
+               throw new ArgumentException($"'{rangeAddress}' is not a valid range address or named range.");
     }
 
     IXLRange IXLRange.Range(IXLCell firstCell, IXLCell lastCell)

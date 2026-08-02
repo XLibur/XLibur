@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel;
@@ -557,4 +558,19 @@ public class XLRangeBaseTests
         var masterCellFormula = ws.Cell("A1").FormulaA1;
         await Assert.That(masterCellFormula).IsEqualTo(expected);
     }
+
+    // IXLRange.Cell and IXLRange.Range are annotated non-null. They used to reach that annotation
+    // with a null-forgiving operator over a lookup that really can return null, which handed the
+    // caller a null through a non-nullable reference and failed later, somewhere else. They now
+    // throw at the call site, matching what IXLWorksheet has always done.
+
+    [Test]
+    public async Task Cell_by_address_throws_when_the_address_resolves_to_nothing()
+    {
+        using var wb = new XLWorkbook();
+        IXLRange range = wb.AddWorksheet().Range("A1:C3");
+
+        await Assert.That(() => range.Cell("not an address")).Throws<ArgumentException>();
+    }
+
 }
