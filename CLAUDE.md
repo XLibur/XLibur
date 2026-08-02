@@ -110,6 +110,37 @@ Other notes:
 - Never use `cd <folder> && git <params>` style commands. Use absolute paths or set the working directory separately.
 - Never pass a multi-line commit message as an inline PowerShell here-string (e.g. ``git commit -m @'...'@``). When used in a Bash-shell, each `@` will be interpreted as part of the commit message. Omit the `@` characters, e.g. ``git commit -m '...'``.
 
+### Do not use `sed -i` to edit tracked files — it strips the CR
+
+`.gitattributes` checks every source file out as CRLF (`* text=auto eol=crlf`), matching
+`end_of_line = crlf` in `.editorconfig`. Git Bash's `sed -i` rewrites the file with LF
+endings, so a one-line change turns into a whole-file diff:
+
+```
+sed -i '/<Nullable>/d' XLibur/XLibur.csproj
+git diff --stat   ->  XLibur/XLibur.csproj | 109 +++++-----   # 55-line file
+```
+
+This is the cause of the `.csproj` churn that keeps recurring. Two further traps:
+
+- `git add --renormalize` does **not** fix it. It makes things worse, because it then wants
+  to convert files you never touched.
+- Only some files show it, so a spot check on one file is not proof the batch was clean.
+
+Use instead, in rough order of preference:
+
+1. The **Edit / Write tools** — they preserve the file's existing endings.
+2. A bash line array, which keeps the `\r` as part of each line's content:
+
+   ```bash
+   mapfile -t lines < "$f"
+   lines[$i]="${lines[$i]/old/new}"      # the trailing \r rides along untouched
+   printf '%s\n' "${lines[@]}" > "$f"
+   ```
+
+Whichever you use, verify with `git diff --numstat` afterwards: a file whose changed-line
+count is near its total line count has been rewritten, not edited.
+
 ## Dependencies
 
 - Do NOT upgrade SixLabors.Fonts. Newer versions have a conflicting commercial license.
