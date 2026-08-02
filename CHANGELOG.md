@@ -3,19 +3,87 @@
 ## Contents
 
 - [Unreleased](#unreleased)
+- [v0.200.0](#v02000---2026-08-01)
 - [XLibur.Report — Unreleased](#xliburreport--unreleased)
 - [v0.106.0](#v01060---2026-07-25)
 
 ## Unreleased
 
+Promotes to public API the three core capabilities `XLibur.Report` previously reached through
+`InternalsVisibleTo`: `XLFunctionLibrary`, for evaluating a workbook function without a grid;
+source inspection and re-pointing on `IXLPivotCache`; and `IXLConditionalFormat.SetRanges`.
+Deleting a set of rows is up to 67× faster and allocates 670× less. Every package now ships a
+Software Bill of Materials. Adding members to `IXLPivotCache` and `IXLConditionalFormat` is
+source-breaking for anyone implementing those interfaces outside the library (see Breaking
+Changes). No bug fixes this release.
+
+### ⚠️ Breaking Changes
+
+#### Pivot tables and conditional formatting
+
+- **`IXLPivotCache` and `IXLConditionalFormat` gain members**, which is source-breaking for any type outside the library implementing them. Neither interface is designed to be implemented externally — each has a single implementation with an internal constructor — and XLibur is pre-1.0. Consumers that only *use* these interfaces are unaffected. ([#354](https://github.com/XLibur/XLibur/pull/354) by [@jafin](https://github.com/jafin))
+
 ### 🔒 Supply Chain
 
-- **Every package now ships a Software Bill of Materials.** Each `.nupkg` embeds an SPDX 2.2 manifest under `_manifest/spdx_2.2/`, generated at pack time, so the bill of materials travels with the package to anyone installing it from NuGet. Each release additionally carries a CycloneDX 1.7 document per package (`XLibur.<version>.cdx.json`) as a GitHub Release asset.
+- **Every package now ships a Software Bill of Materials.** Each `.nupkg` embeds an SPDX 2.2 manifest under `_manifest/spdx_2.2/`, generated at pack time, so the bill of materials travels with the package to anyone installing it from NuGet. Each release additionally carries a CycloneDX 1.7 document per package (`XLibur.<version>.cdx.json`) as a GitHub Release asset. ([#353](https://github.com/XLibur/XLibur/pull/353), [#356](https://github.com/XLibur/XLibur/pull/356) by [@jafin](https://github.com/jafin))
 
   ```bash
   # Read the embedded manifest without installing
   unzip -p XLibur.0.200.0.nupkg '_manifest/spdx_2.2/manifest.spdx.json' | jq .
   ```
+
+### ✨ New Features
+
+#### Formula functions
+
+- **`XLFunctionLibrary` evaluates one of Excel's ~400 built-in functions without a workbook.** Previously the calculation engine was reachable only through a cell, so computing `SUM` over values you already hold in memory meant building a grid to put them in. An instance is safe to share across threads, which is worth doing: constructing one builds the whole function table, at about 12 MB. ([#354](https://github.com/XLibur/XLibur/pull/354) by [@jafin](https://github.com/jafin))
+
+  ```csharp
+  using XLibur.Excel.CalcEngine;
+
+  var library = new XLFunctionLibrary();               // or pass a CultureInfo
+  ReadOnlySpan<XLCellValue> args = [1.0, 2.0, 3.0];
+
+  if (library.TryInvoke("SUM", args, out var result))
+      Console.WriteLine(result);                       // 6
+  ```
+
+  This calls a function; it does not parse a formula — there are no cell references or ranges, so a function that takes a range in a cell formula takes those cells as a run of arguments here. `TryInvoke` returns `false` only when no function has that name; a call that was made but could not succeed (wrong arity, wrong argument type, division by zero) returns `true` with an `XLError` result, as Excel reports it. Functions that need a worksheet to be relative to — `ROW`, `OFFSET`, `INDIRECT` — throw `XLNoWorksheetContextException`, and a result that is an array or a reference comes back as `#VALUE!`. To evaluate a formula string against real data, use `IXLWorksheet.Evaluate` instead.
+
+#### Pivot tables
+
+- **A pivot cache now reports where its data comes from, and can be re-pointed at a new range.** `SourceKind` distinguishes the six source kinds Excel defines, so a source XLibur cannot resolve (a connection, a consolidation, an external workbook, a scenario) is distinguishable from a named range that no longer exists. `SourceRange`, `SourceName` and `SourceWorksheet` expose the source itself, and `SetSourceRange` moves the cache to a new one — useful after generated rows have grown past the range the template defined. ([#354](https://github.com/XLibur/XLibur/pull/354) by [@jafin](https://github.com/jafin))
+
+  ```csharp
+  var cache = pivotTable.PivotCache;
+
+  if (cache.SourceKind == XLPivotSourceKind.Range)
+      cache.SetSourceRange(worksheet.Range("A1:D500"));
+  ```
+
+  `SourceRange`, `SourceName` and `SourceWorksheet` return `null` for kinds that cannot resolve to a range, rather than throwing — check `SourceKind` first when the distinction matters.
+
+#### Conditional formatting
+
+- **`IXLConditionalFormat.SetRanges` replaces the ranges a rule covers.** `Ranges` returns a fresh projection each time it is read, so there was previously no way to widen an existing rule over a larger block — the only option was deleting the rule and rebuilding it. ([#354](https://github.com/XLibur/XLibur/pull/354) by [@jafin](https://github.com/jafin))
+
+  ```csharp
+  format.SetRanges([worksheet.Range("A1:D500")]);
+  ```
+
+### ⚡ Performance
+
+#### Structural edits
+
+- **Deleting a set of rows is up to 67× faster and allocates 670× less.** `IXLRows.Delete()` looped a single-row delete over its rows, so every consumer of a shift — most expensively the formula pass, which visits every formula in the workbook — ran once per row. The rows are now re-pointed against the whole deletion in one pass, contiguous rows coalesce into one run, the cell compaction moves a row at a time rather than a cell at a time, and the calculation-engine purge that each run repeated is coalesced into one. Deleting every third row of an 8000-row sheet with a `SUM` per row went from 19,595 ms and 17,481 MB to 294 ms and 26 MB, and the growth rate dropped from 4× per doubling to 2×. Row and column *inserts* and single-row deletes get a smaller share of the same win, since formulas the edit cannot reach now skip the parse entirely. ([#347](https://github.com/XLibur/XLibur/pull/347), [#348](https://github.com/XLibur/XLibur/pull/348), [#350](https://github.com/XLibur/XLibur/pull/350) by [@jafin](https://github.com/jafin))
+
+  A workbook holding an array, data-table or dynamic-array formula keeps the row-at-a-time path, because the stored range and spill footprint those carry are relocated by the per-cell shift rather than by rewriting formula text.
+
+### 🔧 Dependencies
+
+- **`XLibur.Fonts.SkiaSharp` moves to SkiaSharp 4.151.0** (from 4.150.1), with the Linux, macOS and Win32 native asset packages following. The font engine decides text metrics, so the thing to watch in a bump like this is column widths and row heights moving; nothing shifted. ([#351](https://github.com/XLibur/XLibur/pull/351) by [@jafin](https://github.com/jafin))
+
+- **`XLibur` moves to OpenMcdf 3.2.0** (from 3.1.4). ([#342](https://github.com/XLibur/XLibur/pull/342) by [@dependabot](https://github.com/apps/dependabot))
 
 ## v0.200.0 - 2026-08-01
 
@@ -323,6 +391,12 @@ above. Nothing in this section has shipped yet.
 - **Hidden sheets are generated.** A hidden sheet is a normal place to keep the lookup tables and working data a report is built from, so generation follows the data rather than what the reader can see. Hiding a sheet controls what the reader sees; deleting it after `Generate()` is what keeps it out of the report. ([#304](https://github.com/XLibur/XLibur/pull/304) by [@jafin](https://github.com/jafin))
 
 - **Defined names bind under Excel's scoping and matching rules.** Two sheet-scoped names sharing a name — a `Q1!Items` section and a `Q2!Items` section — both bind, where previously the second silently generated blank. A workbook-scoped name binds except on a sheet declaring its own name of that name, which is what Excel does. And a name is matched to its variable case-insensitively, as Excel holds names in one case-insensitive namespace, so a template author who types `ITEMS` in the name box has named the variable added as `Items`. An exact match still wins, and two variables differing only by case are reported rather than bound arbitrarily. ([#307](https://github.com/XLibur/XLibur/pull/307), [#314](https://github.com/XLibur/XLibur/pull/314) by [@jafin](https://github.com/jafin))
+
+### 🔧 Dependencies
+
+- **`XLibur.Report` no longer pins an exact core version.** It built against core internals, and a package compiled against internals can only honestly declare an exact dependency — so it pinned `[0.200.0]`, which made every core release a Report release and defeated the point of the separate `report-v*` tag stream. Report now builds against public API only (see the core section above) and declares an open floor of `0.201.0`, so a Report release travels with any core at or above that. ([#354](https://github.com/XLibur/XLibur/pull/354) by [@jafin](https://github.com/jafin))
+
+- **`XLibur.Report.DynamicLinq` moves to System.Linq.Dynamic.Core 1.7.3** (from 1.7.1). ([#345](https://github.com/XLibur/XLibur/pull/345) by [@dependabot](https://github.com/apps/dependabot))
 
 ## v0.106.0 - 2026-07-25
 
