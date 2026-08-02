@@ -7,12 +7,10 @@
     <LangVersion>latest</LangVersion>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <!-- CS4014 (call not awaited) must fail the build. TUnit assertions are awaitable, so an
          un-awaited assertion never executes and the test passes no matter what it asserts.
-         The other test projects get this from TreatWarningsAsErrors in Directory.Build.props;
-         this project opts out of that, so the one warning that must not be ignored is
-         promoted explicitly. -->
+         TreatWarningsAsErrors in Directory.Build.props already covers this; the rule is kept
+         explicit so that it survives if that is ever relaxed again. -->
     <WarningsAsErrors>$(WarningsAsErrors);CS4014</WarningsAsErrors>
     <NoWarn>$(NoWarn);NU1605;CS1591;CS1658;CS1584;</NoWarn>
     <!-- TUnit runs on Microsoft.Testing.Platform rather than VSTest. -->

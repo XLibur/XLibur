@@ -4,7 +4,6 @@
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <AssemblyName>XLibur.Benchmarks</AssemblyName>
     <RootNamespace>XLibur.Benchmarks</RootNamespace>
