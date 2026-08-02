@@ -254,7 +254,7 @@ public class ChartDataLabelTests
 
         var ex = await Assert.That(() => labels.Position = XLDataLabelPosition.OutsideEnd).Throws<ArgumentException>();
         await Assert.That(ex!.Message).Contains("ColumnStacked");
-        await Assert.That(ex.Message).Contains("InsideBase").Because("The message lists what Excel does offer.");
+        await Assert.That(ex!.Message).Contains("InsideBase").Because("The message lists what Excel does offer.");
 
         await Assert.That(() => labels.Position = XLDataLabelPosition.InsideEnd).ThrowsNothing();
     }

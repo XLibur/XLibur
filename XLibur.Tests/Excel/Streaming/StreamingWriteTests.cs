@@ -225,7 +225,7 @@ public class StreamingWriteTests
         using (var doc = SpreadsheetDocument.Open(ms, false))
         {
             var sst = doc.WorkbookPart!.SharedStringTablePart!.SharedStringTable;
-            await Assert.That(sst.Count()).IsEqualTo(2);
+            await Assert.That(sst.Count()!).IsEqualTo(2);
         }
 
         ms.Position = 0;

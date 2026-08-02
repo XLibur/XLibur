@@ -45,7 +45,7 @@ public class UsedAndUnusedCellsTests
 
         i = 0;
         row = workbook.Worksheets.First().LastRowUsed(XLCellsUsedOptions.All);
-        await Assert.That(row.RowNumber()).IsEqualTo(6);
+        await Assert.That(row.RowNumber()!).IsEqualTo(6);
         foreach (var cell in row.Cells())
         {
             i++;
@@ -54,7 +54,7 @@ public class UsedAndUnusedCellsTests
 
         i = 0;
         row = workbook.Worksheets.First().LastRowUsed(XLCellsUsedOptions.All);
-        await Assert.That(row.RowNumber()).IsEqualTo(6);
+        await Assert.That(row.RowNumber()!).IsEqualTo(6);
         foreach (var cell in row.CellsUsed())
         {
             i++;
@@ -71,7 +71,7 @@ public class UsedAndUnusedCellsTests
 
         ws.Range("B3:F6").SetValue(100);
 
-        await Assert.That(ws.FirstRowUsed(XLCellsUsedOptions.AllContents).RowNumber()).IsEqualTo(3);
+        await Assert.That(ws.FirstRowUsed(XLCellsUsedOptions.AllContents)!.RowNumber()).IsEqualTo(3);
     }
 
     [Test]
@@ -228,7 +228,7 @@ public class UsedAndUnusedCellsTests
         var options = includeFormatting
             ? XLCellsUsedOptions.All
             : XLCellsUsedOptions.AllContents | XLCellsUsedOptions.MergedRanges;
-        var actual = ws.RangeUsed(options).RangeAddress;
+        var actual = ws.RangeUsed(options)!.RangeAddress;
 
         await Assert.That(actual.ToString()).IsEqualTo(expectedRange);
     }
@@ -248,7 +248,7 @@ public class UsedAndUnusedCellsTests
         var actual = ws.LastCellUsed(XLCellsUsedOptions.All,
             c => c.Style.Fill.BackgroundColor == XLColor.Yellow);
 
-        await Assert.That(actual.Address.ToString()).IsEqualTo("C2");
+        await Assert.That(actual.Address.ToString()!).IsEqualTo("C2");
     }
 
     [Test]
@@ -266,7 +266,7 @@ public class UsedAndUnusedCellsTests
         var actual = ws.FirstCellUsed(XLCellsUsedOptions.All,
             c => c.Style.Fill.BackgroundColor == XLColor.Yellow);
 
-        await Assert.That(actual.Address.ToString()).IsEqualTo("A2");
+        await Assert.That(actual.Address.ToString()!).IsEqualTo("A2");
     }
 
     [Test]

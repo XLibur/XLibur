@@ -17,13 +17,13 @@ public class RegularFilterTests
         await TestHelper.CreateSaveLoadAssert(
             (_, ws) =>
             {
-                var autoFilter = ws.Cell("A1").InsertData(new object[]
+                var autoFilter = ws.Cell("A1")!.InsertData(new object[]
                 {
                     "Data",
                     1, 2,
                     new DateTime(2015, 7, 25, 0, 0, 0, DateTimeKind.Unspecified),
                     new DateTime(2015, 8, 25, 0, 0, 0, DateTimeKind.Unspecified),
-                }).SetAutoFilter();
+                })!.SetAutoFilter();
                 autoFilter.Column(1)
                     .AddFilter(1)
                     .AddDateGroupFilter(new DateTime(2015, 8, 1, 0, 0, 0, DateTimeKind.Unspecified), XLDateTimeGrouping.Month);

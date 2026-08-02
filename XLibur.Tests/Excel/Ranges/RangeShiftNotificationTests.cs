@@ -25,7 +25,7 @@ public class RangeShiftNotificationTests
     {
         using var wb = new XLWorkbook();
         var ws = (XLWorksheet)wb.AddWorksheet();
-        ws.Cell("A1").Value = "anchor";
+        ws.Cell("A1")!.Value = "anchor";
         var before = ws.RangeShiftPasses;
 
         ws.Row(3).InsertRowsAbove(1000);
@@ -38,7 +38,7 @@ public class RangeShiftNotificationTests
     {
         using var wb = new XLWorkbook();
         var ws = (XLWorksheet)wb.AddWorksheet();
-        ws.Cell("A1").Value = "anchor";
+        ws.Cell("A1")!.Value = "anchor";
         var before = ws.RangeShiftPasses;
 
         ws.Row(3).InsertRowsBelow(1000);
@@ -51,7 +51,7 @@ public class RangeShiftNotificationTests
     {
         using var wb = new XLWorkbook();
         var ws = (XLWorksheet)wb.AddWorksheet();
-        ws.Cell("A1").Value = "anchor";
+        ws.Cell("A1")!.Value = "anchor";
         var before = ws.RangeShiftPasses;
 
         ws.Column(3).InsertColumnsBefore(500);
@@ -64,7 +64,7 @@ public class RangeShiftNotificationTests
     {
         using var wb = new XLWorkbook();
         var ws = (XLWorksheet)wb.AddWorksheet();
-        ws.Cell("A1").Value = "anchor";
+        ws.Cell("A1")!.Value = "anchor";
         var before = ws.RangeShiftPasses;
 
         ws.Column(3).InsertColumnsAfter(500);
@@ -77,10 +77,10 @@ public class RangeShiftNotificationTests
     {
         using var wb = new XLWorkbook();
         var ws = (XLWorksheet)wb.AddWorksheet();
-        ws.Cell("A1").Value = "anchor";
+        ws.Cell("A1")!.Value = "anchor";
         var before = ws.RangeShiftPasses;
 
-        ws.Range("B2:C500").Delete(XLShiftDeletedCells.ShiftCellsUp);
+        ws.Range("B2:C500")!.Delete(XLShiftDeletedCells.ShiftCellsUp);
 
         await Assert.That(ws.RangeShiftPasses - before).IsEqualTo(1);
     }

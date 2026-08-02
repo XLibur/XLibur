@@ -222,7 +222,7 @@ public class BatchRowDeleteTests
 
         ws.Rows("2:2,12:12,15:15").Delete();
 
-        await Assert.That(wb.DefinedName("Block").RefersTo).IsEqualTo("Data!$A$9:$A$17");
+        await Assert.That(wb.DefinedName("Block")!.RefersTo).IsEqualTo("Data!$A$9:$A$17");
     }
 
     [Test]

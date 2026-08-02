@@ -604,6 +604,6 @@ public class XLCellValueTests
     {
         var value = XLCellValue.FromSerialTimeSpan(serialDateTime);
         var ex = await Assert.That(() => value.GetTimeSpan()).Throws<OverflowException>()!;
-        await Assert.That(ex.Message).IsEqualTo("The serial date time value is too large to be represented in a TimeSpan.");
+        await Assert.That(ex!.Message).IsEqualTo("The serial date time value is too large to be represented in a TimeSpan.");
     }
 }

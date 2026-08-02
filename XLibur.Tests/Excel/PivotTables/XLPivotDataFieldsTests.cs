@@ -31,7 +31,7 @@ internal class XLPivotDataFieldsTests
         var ex = await Assert.That(() => pt.Values.Add("Wrong field name")).Throws<ArgumentOutOfRangeException>();
 
         await Assert.That(ex).IsNotNull();
-        await Assert.That(ex.Message).StartsWith("Field 'Wrong field name' is not in the fields of a pivot cache. Should be one of 'Name','Price'.");
+        await Assert.That(ex!.Message).StartsWith("Field 'Wrong field name' is not in the fields of a pivot cache. Should be one of 'Name','Price'.");
     }
 
     #endregion

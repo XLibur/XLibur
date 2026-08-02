@@ -20,7 +20,7 @@ public class PictureTests
         var ws = wb.AddWorksheet("Sheet1");
 
         using var resourceStream = System.Reflection.Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable))!.GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg");
-        var picture = ws.AddPicture(resourceStream, "MyPicture")
+        var picture = ws.AddPicture(resourceStream!, "MyPicture")
             .WithPlacement(XLPicturePlacement.FreeFloating)
             .MoveTo(50, 50)
             .WithSize(200, 200);
@@ -112,7 +112,7 @@ public class PictureTests
         var ws = wb.AddWorksheet("Sheet1");
 
         using var resourceStream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png");
-        var pic = ws.AddPicture(resourceStream, "MyPicture")
+        var pic = ws.AddPicture(resourceStream!, "MyPicture")
             .WithPlacement(XLPicturePlacement.FreeFloating)
             .MoveTo(50, 50);
 
@@ -154,16 +154,16 @@ public class PictureTests
 
         using (var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png"))
         {
-            ws.AddPicture(stream, XLPictureFormat.Png);
+            ws.AddPicture(stream!, XLPictureFormat.Png);
             stream.Position = 0;
 
-            ws.AddPicture(stream, XLPictureFormat.Png);
+            ws.AddPicture(stream!, XLPictureFormat.Png);
             stream.Position = 0;
 
-            ws.AddPicture(stream, XLPictureFormat.Png).Name = "Picture 4";
+            ws.AddPicture(stream!, XLPictureFormat.Png).Name = "Picture 4";
             stream.Position = 0;
 
-            ws.AddPicture(stream, XLPictureFormat.Png);
+            ws.AddPicture(stream!, XLPictureFormat.Png);
             stream.Position = 0;
         }
 
@@ -181,16 +181,16 @@ public class PictureTests
 
         using (var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png"))
         {
-            ws.AddPicture(stream, XLPictureFormat.Png);
+            ws.AddPicture(stream!, XLPictureFormat.Png);
             stream.Position = 0;
 
-            ws.AddPicture(stream, XLPictureFormat.Png);
+            ws.AddPicture(stream!, XLPictureFormat.Png);
             stream.Position = 0;
 
-            ws.AddPicture(stream, XLPictureFormat.Png).Name = "Picture 4";
+            ws.AddPicture(stream!, XLPictureFormat.Png).Name = "Picture 4";
             stream.Position = 0;
 
-            ws.AddPicture(stream, XLPictureFormat.Png);
+            ws.AddPicture(stream!, XLPictureFormat.Png);
             stream.Position = 0;
         }
 
@@ -219,7 +219,7 @@ public class PictureTests
         var ws = wb.Worksheets.Add("Sheet1");
 
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png");
-        var pic = ws.AddPicture(stream, XLPictureFormat.Png, "Image1")
+        var pic = ws.AddPicture(stream!, XLPictureFormat.Png, "Image1")
             .WithPlacement(XLPicturePlacement.FreeFloating)
             .MoveTo(220, 155);
 
@@ -323,11 +323,11 @@ public class PictureTests
         var ws2 = wb.AddWorksheet("Sheet2");
 
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png");
-        (ws1 as XLWorksheet)!.AddPicture(stream, "Picture 1", 2);
-        (ws1 as XLWorksheet)!.AddPicture(stream, "Picture 2", 3);
+        (ws1 as XLWorksheet)!.AddPicture(stream!, "Picture 1", 2);
+        (ws1 as XLWorksheet)!.AddPicture(stream!, "Picture 2", 3);
 
         //Internal method - used for loading files
-        var pic = (ws2 as XLWorksheet)!.AddPicture(stream, "Picture 1", 2)
+        var pic = (ws2 as XLWorksheet)!.AddPicture(stream!, "Picture 1", 2)
             .WithPlacement(XLPicturePlacement.FreeFloating)
             .MoveTo(220, 155) as XLPicture;
 
@@ -341,7 +341,7 @@ public class PictureTests
 
         pic.Id = id;
 
-        var pic2 = (ws2 as XLWorksheet)!.AddPicture(stream, "Picture 2", 3)
+        var pic2 = (ws2 as XLWorksheet)!.AddPicture(stream!, "Picture 2", 3)
             .WithPlacement(XLPicturePlacement.FreeFloating)
             .MoveTo(440, 300) as XLPicture;
     }
@@ -355,12 +355,12 @@ public class PictureTests
         IXLPicture original;
         using (var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png"))
         {
-            original = (ws1 as XLWorksheet)!.AddPicture(stream, "Picture 1", 2)
+            original = (ws1 as XLWorksheet)!.AddPicture(stream!, "Picture 1", 2)
                 .WithPlacement(XLPicturePlacement.FreeFloating)
                 .MoveTo(220, 155) as XLPicture;
         }
 
-        var copy = original.Duplicate()
+        var copy = original.Duplicate()!
             .MoveTo(300, 200) as XLPicture;
 
         await Assert.That(ws1.Pictures.Count).IsEqualTo(2);
@@ -386,13 +386,13 @@ public class PictureTests
         IXLPicture original;
         using (var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png"))
         {
-            original = (ws1 as XLWorksheet)!.AddPicture(stream, "Picture 1", 2)
+            original = (ws1 as XLWorksheet)!.AddPicture(stream!, "Picture 1", 2)
                 .WithPlacement(XLPicturePlacement.FreeFloating)
                 .MoveTo(220, 155) as XLPicture;
         }
         var ws2 = wb.Worksheets.Add("Sheet2");
 
-        var copy = original.CopyTo(ws2);
+        var copy = original.CopyTo(ws2)!;
 
         await Assert.That(ws1.Pictures.Count).IsEqualTo(1);
         await Assert.That(ws2.Pictures.Count).IsEqualTo(1);
@@ -418,7 +418,7 @@ public class PictureTests
         using var wb = new XLWorkbook();
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png");
         var ws = wb.Worksheets.Add("ImageShift");
-        var picture = ws.AddPicture(stream, XLPictureFormat.Png, "PngImage")
+        var picture = ws.AddPicture(stream!, XLPictureFormat.Png, "PngImage")
             .MoveTo(ws.Cell(5, 2))
             .WithPlacement(XLPicturePlacement.Move);
 
@@ -475,7 +475,7 @@ public class PictureTests
         var ws = wb.AddWorksheet("Sheet1");
 
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png");
-        var pic = ws.AddPicture(stream, XLPictureFormat.Png, "temp");
+        var pic = ws.AddPicture(stream!, XLPictureFormat.Png, "temp");
         pic.Name = name;
 
         await Assert.That(pic.Name).IsEqualTo(name);

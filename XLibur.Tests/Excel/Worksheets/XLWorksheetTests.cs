@@ -173,8 +173,8 @@ public class XLWorksheetTests
         await Assert.That(ws.MergedRanges.First().RangeAddress.ToStringRelative()).IsEqualTo("A1:B2");
         await Assert.That(ws.MergedRanges.Last().RangeAddress.ToStringRelative()).IsEqualTo("D2:E2");
 
-        await Assert.That(ws.Cell("A2").MergedRange().RangeAddress.ToStringRelative()).IsEqualTo("A1:B2");
-        await Assert.That(ws.Cell("D2").MergedRange().RangeAddress.ToStringRelative()).IsEqualTo("D2:E2");
+        await Assert.That(ws.Cell("A2")!.MergedRange().RangeAddress.ToStringRelative()).IsEqualTo("A1:B2");
+        await Assert.That(ws.Cell("D2")!.MergedRange().RangeAddress.ToStringRelative()).IsEqualTo("D2:E2");
 
         await Assert.That(ws.Cell("Z10").MergedRange()).IsNull();
     }
@@ -544,11 +544,11 @@ public class XLWorksheetTests
         async Task AssertStylesAreEqual(IXLWorksheet ws1Assert, IXLWorksheet ws2)
         {
             await Assert.That((ws2.Style as XLStyle)!.Value).IsEqualTo((ws1Assert.Style as XLStyle)!.Value).Because("Worksheet styles differ");
-            var cellsUsed = ws1Assert.Range(ws1Assert.FirstCell(), ws1Assert.LastCellUsed()).Cells();
+            var cellsUsed = ws1Assert.Range(ws1Assert.FirstCell(), ws1Assert.LastCellUsed()!).Cells();
             foreach (var cell in cellsUsed)
             {
                 var style1 = (cell.Style as XLStyle)!.Value;
-                var style2 = (ws2.Cell(cell.Address.ToString()).Style as XLStyle)!.Value;
+                var style2 = (ws2.Cell(cell.Address.ToString()!).Style as XLStyle)!.Value;
                 await Assert.That(style2).IsEqualTo(style1).Because($"Cell {cell.Address} styles differ");
             }
         }
@@ -686,13 +686,13 @@ public class XLWorksheetTests
     public async Task CopyWorksheetPreservesPictures()
     {
         using var ms = new MemoryStream();
-        using var imageStream = System.Reflection.Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable))
+        using var imageStream = System.Reflection.Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable))!
             .GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg");
         using var wb1 = new XLWorkbook();
 
         var ws1 = wb1.Worksheets.Add("Original");
 
-        ws1.AddPicture(imageStream, "MyPicture")
+        ws1.AddPicture(imageStream!, "MyPicture")
             .WithPlacement(XLPicturePlacement.FreeFloating)
             .MoveTo(50, 50)
             .WithSize(200, 200);
@@ -905,7 +905,7 @@ public class XLWorksheetTests
             await Assert.That(copy.ElementAt(i).SourceData.RangeAddress.ToString()).IsEqualTo(original.ElementAt(i).SourceData.RangeAddress.ToString());
         }
 
-        await Assert.That(copy.DateRange.RangeAddress.ToString()).IsEqualTo(original.DateRange.RangeAddress.ToString());
+        await Assert.That(copy.DateRange.RangeAddress.ToString()!).IsEqualTo(original.DateRange.RangeAddress.ToString()!);
         await Assert.That(copy.DateRange.Worksheet).IsSameReferenceAs(ws2);
 
         await Assert.That(copy.DisplayEmptyCellsAs).IsEqualTo(original.DisplayEmptyCellsAs);

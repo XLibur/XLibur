@@ -100,7 +100,7 @@ public class XLCellTests
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var range = ws.Cell(2, 2).InsertData(InsertDataStrings);
-        await Assert.That(range.ToString()).IsEqualTo("Sheet1!B2:B4");
+        await Assert.That(range.ToString()!).IsEqualTo("Sheet1!B2:B4");
     }
 
     [Test]
@@ -108,7 +108,7 @@ public class XLCellTests
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var range = ws.Cell(2, 2).InsertData(InsertDataStrings, false);
-        await Assert.That(range.ToString()).IsEqualTo("Sheet1!B2:B4");
+        await Assert.That(range.ToString()!).IsEqualTo("Sheet1!B2:B4");
     }
 
     [Test]
@@ -116,7 +116,7 @@ public class XLCellTests
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet1");
         var range = ws.Cell(2, 2).InsertData(InsertDataStrings, true);
-        await Assert.That(range.ToString()).IsEqualTo("Sheet1!B2:D2");
+        await Assert.That(range.ToString()!).IsEqualTo("Sheet1!B2:D2");
     }
 
     [Test]

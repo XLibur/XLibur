@@ -299,7 +299,7 @@ public class SavingTests
         var ws = wb.AddWorksheet("Sheet1");
         ws.Cell("D4").Value = "Hello world.";
 
-        ws.AddPicture(imageStream, "MyPicture")
+        ws.AddPicture(imageStream!, "MyPicture")
             .WithPlacement(XLPicturePlacement.FreeFloating)
             .MoveTo(50, 50)
             .WithSize(200, 200);
@@ -663,7 +663,7 @@ public class SavingTests
 
         using (var wb = SpreadsheetDocument.Open(ms, false))
         {
-            await Assert.That(wb.WorkbookPart!.Workbook.WorkbookProperties.FilterPrivacy!.Value).IsTrue();
+            await Assert.That(wb.WorkbookPart!.Workbook.WorkbookProperties!.FilterPrivacy!.Value).IsTrue();
         }
     }
 
@@ -682,7 +682,7 @@ public class SavingTests
 
         using (var wb = SpreadsheetDocument.Open(ms, false))
         {
-            await Assert.That(wb.WorkbookPart!.Workbook.WorkbookProperties.FilterPrivacy).IsNull();
+            await Assert.That(wb.WorkbookPart!.Workbook.WorkbookProperties!.FilterPrivacy).IsNull();
         }
     }
 
@@ -691,7 +691,7 @@ public class SavingTests
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\FilterPrivacyEnabledWorkbook.xlsx"));
         using var wb = SpreadsheetDocument.Open(stream, false);
-        await Assert.That(wb.WorkbookPart!.Workbook.WorkbookProperties.FilterPrivacy!.Value).IsTrue();
+        await Assert.That(wb.WorkbookPart!.Workbook.WorkbookProperties!.FilterPrivacy!.Value).IsTrue();
     }
 
     [Test]

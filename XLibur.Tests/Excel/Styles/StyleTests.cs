@@ -19,7 +19,7 @@ public class StyleTests
             ws.FirstCell().SetValue("Empty cell with quote prefix:");
             var cell = ws.FirstCell().CellRight() as XLCell;
 
-            await Assert.That(cell.IsEmpty()).IsTrue();
+            await Assert.That(cell.IsEmpty()!).IsTrue();
             cell.Value = String.Empty;
             cell.Style.IncludeQuotePrefix = true;
 

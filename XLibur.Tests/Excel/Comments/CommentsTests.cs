@@ -22,7 +22,7 @@ public partial class CommentsTests
         var c = ws.FirstCellUsed();
 
         // None indicates an absence of a color
-        var lineColor = c.GetComment().Style.ColorsAndLines.LineColor;
+        var lineColor = c.GetComment()!.Style.ColorsAndLines.LineColor;
         await Assert.That(lineColor.ColorType).IsEqualTo(XLColorType.Color);
         await Assert.That(lineColor.Color.ToHex()).IsEqualTo("00000000");
 

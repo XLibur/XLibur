@@ -363,9 +363,9 @@ public class RowTests
         await Assert.That(loadedWs.Internals.RowsCollection).IsEmpty();
 
         // But cell data should still be accessible
-        await Assert.That(loadedWs.Cell("A1").GetString()).IsEqualTo("Hello");
-        await Assert.That(loadedWs.Cell("A2").GetString()).IsEqualTo("World");
-        await Assert.That(loadedWs.Cell("A3").GetValue<int>()).IsEqualTo(42);
+        await Assert.That(loadedWs.Cell("A1")!.GetString()).IsEqualTo("Hello");
+        await Assert.That(loadedWs.Cell("A2")!.GetString()).IsEqualTo("World");
+        await Assert.That(loadedWs.Cell("A3")!.GetValue<int>()).IsEqualTo(42);
     }
 
     [Test]
@@ -391,9 +391,9 @@ public class RowTests
         await Assert.That(loadedWs.Internals.RowsCollection[2].Height).IsEqualTo(30).Within(XLHelper.Epsilon);
 
         // All cell data should still be accessible
-        await Assert.That(loadedWs.Cell("A1").GetString()).IsEqualTo("Normal row");
-        await Assert.That(loadedWs.Cell("A2").GetString()).IsEqualTo("Custom height row");
-        await Assert.That(loadedWs.Cell("A3").GetString()).IsEqualTo("Normal row");
+        await Assert.That(loadedWs.Cell("A1")!.GetString()).IsEqualTo("Normal row");
+        await Assert.That(loadedWs.Cell("A2")!.GetString()).IsEqualTo("Custom height row");
+        await Assert.That(loadedWs.Cell("A3")!.GetString()).IsEqualTo("Normal row");
     }
 
     [Test]

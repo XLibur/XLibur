@@ -701,7 +701,7 @@ public class SparklinesTests
             await Assert.That(group.ElementAt(1).SourceData.RangeAddress.ToString()).IsEqualTo("B2:Z2");
             await Assert.That(group.ElementAt(2).SourceData.RangeAddress.ToString()).IsEqualTo("B3:Z3");
 
-            await Assert.That(group.DateRange.RangeAddress.ToString()).IsEqualTo("B4:Z4");
+            await Assert.That(group.DateRange.RangeAddress.ToString()!).IsEqualTo("B4:Z4");
 
             await Assert.That(group.Style.FirstMarkerColor).IsEqualTo(XLColor.AliceBlue);
             await Assert.That(group.Style.HighMarkerColor).IsEqualTo(XLColor.Alizarin);
@@ -784,7 +784,7 @@ public class SparklinesTests
         using var ms = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Sparklines\SparklineThemes\inputfile.xlsx"));
         using var wb = new XLWorkbook(ms);
         var expectedStyle = GetThemeByName(expectedThemeName);
-        var actualStyle = wb.Cell(cellAddress).Sparkline.SparklineGroup.Style;
+        var actualStyle = wb.Cell(cellAddress)!.Sparkline.SparklineGroup.Style;
 
         await Assert.That(actualStyle).IsEqualTo(expectedStyle);
         return;
@@ -793,7 +793,7 @@ public class SparklinesTests
         {
             var themes = typeof(XLSparklineTheme);
             var prop = themes.GetProperty(themeName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-            return prop.GetValue(null, null) as IXLSparklineStyle;
+            return prop.GetValue(null, null)! as IXLSparklineStyle;
         }
     }
 
@@ -865,9 +865,9 @@ public class SparklinesTests
             var ws = wb.Worksheets.Single();
 
             await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(2);
-            await Assert.That(ws.Cell("A2").Sparkline.IsValid).IsFalse();
-            await Assert.That(ws.Cell("A5").Sparkline.SourceData.RangeAddress.ToString()).IsEqualTo("B5:F5");
-            await Assert.That(ws.Cell("A5").Sparkline.SparklineGroup.DateRange).IsNull();
+            await Assert.That(ws.Cell("A2")!.Sparkline.IsValid).IsFalse();
+            await Assert.That(ws.Cell("A5")!.Sparkline.SourceData.RangeAddress.ToString()).IsEqualTo("B5:F5");
+            await Assert.That(ws.Cell("A5")!.Sparkline.SparklineGroup.DateRange).IsNull();
         }
     }
 
@@ -990,7 +990,7 @@ public class SparklinesTests
 
         await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(1);
         await Assert.That(target.HasSparkline).IsTrue();
-        await Assert.That(target.Sparkline.SparklineGroup).IsSameReferenceAs(ws.Cell("A2").Sparkline.SparklineGroup);
+        await Assert.That(target.Sparkline.SparklineGroup).IsSameReferenceAs(ws.Cell("A2")!.Sparkline.SparklineGroup);
         await Assert.That(target.Sparkline.SourceData.RangeAddress.ToString()).IsEqualTo("E4:I4");
     }
 
@@ -1013,8 +1013,8 @@ public class SparklinesTests
         await Assert.That(ws2.SparklineGroups.Count()).IsEqualTo(2);
         await Assert.That(target1.HasSparkline).IsTrue();
         await Assert.That(target2.HasSparkline).IsTrue();
-        await Assert.That(target1.Sparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 2'!E4:I4");
-        await Assert.That(target2.Sparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 3'!E5:I5");
+        await Assert.That(target1.Sparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)!).IsEqualTo("'Sheet 2'!E4:I4");
+        await Assert.That(target2.Sparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)!).IsEqualTo("'Sheet 3'!E5:I5");
     }
 
     [Test]

@@ -14,8 +14,8 @@ public class MergedRangesTests
         var ws = wb.Worksheets.Add("Sheet");
         ws.Range("B2:D4").Merge();
 
-        var first = ws.FirstCellUsed(XLCellsUsedOptions.All).Address.ToStringRelative();
-        var last = ws.LastCellUsed(XLCellsUsedOptions.All).Address.ToStringRelative();
+        var first = ws.FirstCellUsed(XLCellsUsedOptions.All)!.Address.ToStringRelative();
+        var last = ws.LastCellUsed(XLCellsUsedOptions.All)!.Address.ToStringRelative();
 
         await Assert.That(first).IsEqualTo("B2");
         await Assert.That(last).IsEqualTo("D4");

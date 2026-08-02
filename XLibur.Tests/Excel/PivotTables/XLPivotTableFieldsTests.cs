@@ -58,7 +58,7 @@ internal class XLPivotTableAxisTests
         pt.RowLabels.Add("ID", "Item ID");
 
         var ex = await Assert.That(() => pt.RowLabels.Add("ID", "Item ID")).Throws<InvalidOperationException>()!;
-        await Assert.That(ex.Message).IsEqualTo("Custom name 'Item ID' is already used.");
+        await Assert.That(ex!.Message).IsEqualTo("Custom name 'Item ID' is already used.");
     }
 
     [Test]
@@ -76,7 +76,7 @@ internal class XLPivotTableAxisTests
         await Assert.That(() => pt.RowLabels.Add("ID", "Item ID")).ThrowsNothing();
 
         var ex = await Assert.That(() => pt.RowLabels.Add("nonexistent")).Throws<InvalidOperationException>()!;
-        await Assert.That(ex.Message).IsEqualTo("Field 'nonexistent' not found in pivot cache.");
+        await Assert.That(ex!.Message).IsEqualTo("Field 'nonexistent' not found in pivot cache.");
     }
 
     #endregion
@@ -157,7 +157,7 @@ internal class XLPivotTableAxisTests
 
         await Assert.That(pt.RowLabels.Get("id").SourceName).IsEqualTo("ID");
         var ex = await Assert.That(() => pt.RowLabels.Get("color")).Throws<KeyNotFoundException>()!;
-        await Assert.That(ex.Message).IsEqualTo("Field with source name 'color' not found in AxisRow.");
+        await Assert.That(ex!.Message).IsEqualTo("Field with source name 'color' not found in AxisRow.");
     }
 
     #endregion

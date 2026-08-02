@@ -41,12 +41,12 @@ public class EnumerableExtensionsTests
         //check the beginning and the ending of the actual type
         var expectedTypeStart = "<>f__AnonymousType";
         var expectedTypeEnd = "`2[System.String,System.String]";
-        var actualType = anonymousIterator.GetItemType().ToString();
+        var actualType = anonymousIterator.GetItemType()!.ToString();
         await Assert.That(actualType.StartsWith(expectedTypeStart)).IsTrue();
         await Assert.That(actualType.EndsWith(expectedTypeEnd)).IsTrue();
 
         IEnumerable<object> obj = anonymousIterator;
-        actualType = obj.GetItemType().ToString();
+        actualType = obj.GetItemType()!.ToString();
         await Assert.That(actualType.StartsWith(expectedTypeStart)).IsTrue();
         await Assert.That(actualType.EndsWith(expectedTypeEnd)).IsTrue();
     }

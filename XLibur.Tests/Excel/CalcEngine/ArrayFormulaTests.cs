@@ -28,7 +28,7 @@ public class ArrayFormulaTests
             foreach (var arrayFormulaCell in ws.Range("A1:B2").Cells())
             {
                 await Assert.That(arrayFormulaCell.FormulaA1).IsEqualTo("1+2");
-                await Assert.That(arrayFormulaCell.FormulaReference.ToStringRelative()).IsEqualTo("A1:B2");
+                await Assert.That(arrayFormulaCell.FormulaReference.ToStringRelative()!).IsEqualTo("A1:B2");
             }
 
             var outsideCell = ws.Cell("A3");
@@ -48,7 +48,7 @@ public class ArrayFormulaTests
 
         await Assert.That(oneCell.HasArrayFormula).IsTrue();
         await Assert.That(oneCell.FormulaA1).IsEqualTo("2+5");
-        await Assert.That(oneCell.FormulaReference.ToStringRelative()).IsEqualTo("B3:B3");
+        await Assert.That(oneCell.FormulaReference.ToStringRelative()!).IsEqualTo("B3:B3");
     }
 
     [Test]

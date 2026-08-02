@@ -14,11 +14,11 @@ public class DynamicFilterTests
         await TestHelper.CreateSaveLoadAssert(
             (_, ws) =>
             {
-                var autoFilter = ws.Cell("A1").InsertData(new object[]
+                var autoFilter = ws.Cell("A1")!.InsertData(new object[]
                 {
                     "Data",
                     1,2,3,4,5,10, // avg. 4.16
-                }).SetAutoFilter();
+                })!.SetAutoFilter();
                 autoFilter.Column(1).AboveAverage();
             },
             async (_, ws) =>

@@ -491,7 +491,7 @@ public class DataValidationTests
 
         ms.Position = 0;
         using var doc = SpreadsheetDocument.Open(ms, false);
-        var worksheetPart = doc.WorkbookPart.WorksheetParts.First();
+        var worksheetPart = doc.WorkbookPart.WorksheetParts.First()!;
         var dataValidation = worksheetPart.Worksheet
             .Descendants<DataValidation>()
             .First();

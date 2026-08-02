@@ -226,7 +226,7 @@ public class NamedRangesTests
 
         var copySheet = wb.AddWorksheet();
         var ex = await Assert.That(() => name.CopyTo(copySheet)).Throws<InvalidOperationException>()!;
-        await Assert.That(ex.Message).IsEqualTo("Cannot copy workbook scoped defined name.");
+        await Assert.That(ex!.Message).IsEqualTo("Cannot copy workbook scoped defined name.");
     }
 
     [Test]

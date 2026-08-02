@@ -588,7 +588,7 @@ public class AppendingAndReplacingTableDataTests
 
             var appendedRange = table.AppendData(list, propagateExtraColumns: true);
 
-            await Assert.That(appendedRange.RangeAddress.ToString()).IsEqualTo("B6:G9");
+            await Assert.That(appendedRange.RangeAddress.ToString()!).IsEqualTo("B6:G9");
 
             ws.Columns().AdjustToContents();
 

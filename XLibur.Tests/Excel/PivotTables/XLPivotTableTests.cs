@@ -202,19 +202,19 @@ public class XLPivotTableTests
         var ws1 = wb.Worksheet("pvt1");
         var pt1 = ws1.PivotTables.First() as XLPivotTable;
 
-        await Assert.That(() => pt1.CopyTo(pt1.TargetCell)).Throws<InvalidOperationException>();
+        await Assert.That(() => pt1.CopyTo(pt1.TargetCell)!).Throws<InvalidOperationException>();
 
-        var pt2 = pt1.CopyTo(ws1.Cell("AB100")) as XLPivotTable;
+        var pt2 = pt1.CopyTo(ws1.Cell("AB100"))! as XLPivotTable;
 
         await AssertPivotTablesAreEqual(pt1, pt2, compareName: false);
 
         var ws2 = wb.AddWorksheet("Copy Of pvt1");
-        await AssertPivotTablesAreEqual(pt1, pt1.CopyTo(ws2.FirstCell()) as XLPivotTable, compareName: true);
+        await AssertPivotTablesAreEqual(pt1, pt1.CopyTo(ws2.FirstCell())! as XLPivotTable, compareName: true);
 
         using var wb2 = new XLWorkbook();
         wb.Worksheet("PastrySalesData").CopyTo(wb2);
 
-        await AssertPivotTablesAreEqual(pt1, pt1.CopyTo(wb2.AddWorksheet("pvt").FirstCell()) as XLPivotTable, compareName: true);
+        await AssertPivotTablesAreEqual(pt1, pt1.CopyTo(wb2.AddWorksheet("pvt").FirstCell())! as XLPivotTable, compareName: true);
     }
 
     private static async Task AssertPivotTablesAreEqual(XLPivotTable original, XLPivotTable copy, bool compareName)
@@ -941,7 +941,7 @@ public class XLPivotTableTests
 
         using var doc = SpreadsheetDocument.Open(ms, false);
         var cachePart = doc.WorkbookPart!.GetPartsOfType<PivotTableCacheDefinitionPart>().First();
-        var cacheFields = cachePart.PivotCacheDefinition.CacheFields!.Elements<CacheField>().ToList();
+        var cacheFields = cachePart.PivotCacheDefinition!.CacheFields!.Elements<CacheField>().ToList();
         await Assert.That(cacheFields.Count).IsEqualTo(4);
 
         var calcField = cacheFields[3];
@@ -968,7 +968,7 @@ public class XLPivotTableTests
         outputStream.Position = 0;
         using var doc = SpreadsheetDocument.Open(outputStream, false);
         var cachePart = doc.WorkbookPart!.GetPartsOfType<PivotTableCacheDefinitionPart>().First();
-        var cacheFields = cachePart.PivotCacheDefinition.CacheFields!.Elements<CacheField>().ToList();
+        var cacheFields = cachePart.PivotCacheDefinition!.CacheFields!.Elements<CacheField>().ToList();
 
         // Should have 3 data fields + 1 calculated field = 4 total
         await Assert.That(cacheFields.Count).IsEqualTo(4).Because("Expected 3 source fields + 1 calculated field");

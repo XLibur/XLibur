@@ -85,7 +85,7 @@ public class XLRangeBaseTests
         ws.Cell(1, 1).Value = "Hello World!";
         wb.DefinedNames.Add("SingleCell", "Sheet1!$A$1");
         var range = wb.Range("SingleCell");
-        await Assert.That(range.CellsUsed().Count()).IsEqualTo(1);
+        await Assert.That(range.CellsUsed()!.Count()).IsEqualTo(1);
         await Assert.That(range.CellsUsed().Single().GetText()).IsEqualTo("Hello World!");
     }
 
@@ -103,7 +103,7 @@ public class XLRangeBaseTests
         wb.DefinedNames.Add("FNameColumn", $"{table.Name}[FName]");
 
         var namedRange = wb.Range("FNameColumn");
-        await Assert.That(namedRange.Cells().Count()).IsEqualTo(3);
+        await Assert.That(namedRange.Cells()!.Count()).IsEqualTo(3);
         await Assert.That(namedRange.CellsUsed().Select(cell => cell.GetText()).SequenceEqual(["John", "Hank", "Dagny"])).IsTrue();
     }
 
@@ -205,11 +205,11 @@ public class XLRangeBaseTests
         var ws = wb.AddWorksheet("Sheet1");
         await Assert.That(ws.Cell("A1").AsRange().Shrink()).IsNull();
         await Assert.That(ws.Range("B2:C3").Shrink()).IsNull();
-        await Assert.That(ws.Range("B2:D4").Shrink().RangeAddress.ToString()).IsEqualTo("C3:C3");
-        await Assert.That(ws.Range("A1:Z26").Shrink(10).RangeAddress.ToString()).IsEqualTo("K11:P16");
+        await Assert.That(ws.Range("B2:D4")!.Shrink().RangeAddress.ToString()).IsEqualTo("C3:C3");
+        await Assert.That(ws.Range("A1:Z26")!.Shrink(10).RangeAddress.ToString()).IsEqualTo("K11:P16");
 
         // Grow and shrink back
-        await Assert.That(ws.Cell("Z26").AsRange().Grow(10).Shrink(10).RangeAddress.ToString()).IsEqualTo("Z26:Z26");
+        await Assert.That(ws.Cell("Z26")!.AsRange().Grow(10).Shrink(10).RangeAddress.ToString()).IsEqualTo("Z26:Z26");
     }
 
     [Test]
@@ -218,10 +218,10 @@ public class XLRangeBaseTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
-        await Assert.That(ws.Range("B9:I11").Intersection(ws.Range("D4:G16")).ToString()).IsEqualTo("D9:G11");
-        await Assert.That(ws.Range("E9:I11").Intersection(ws.Range("D4:G16")).ToString()).IsEqualTo("E9:G11");
-        await Assert.That(ws.Cell("E9").AsRange().Intersection(ws.Range("D4:G16")).ToString()).IsEqualTo("E9:E9");
-        await Assert.That(ws.Range("D4:G16").Intersection(ws.Cell("E9").AsRange()).ToString()).IsEqualTo("E9:E9");
+        await Assert.That(ws.Range("B9:I11")!.Intersection(ws.Range("D4:G16")).ToString()).IsEqualTo("D9:G11");
+        await Assert.That(ws.Range("E9:I11")!.Intersection(ws.Range("D4:G16")).ToString()).IsEqualTo("E9:G11");
+        await Assert.That(ws.Cell("E9")!.AsRange().Intersection(ws.Range("D4:G16")).ToString()).IsEqualTo("E9:E9");
+        await Assert.That(ws.Range("D4:G16")!.Intersection(ws.Cell("E9").AsRange()).ToString()).IsEqualTo("E9:E9");
 
         var rangeAddress = (XLRangeAddress)ws.Cell("C3").AsRange().Intersection(ws.Cell("A1").AsRange());
         await Assert.That(rangeAddress.IsValid).IsFalse();
@@ -497,7 +497,7 @@ public class XLRangeBaseTests
         var range = ws.Range(rangeAddress) as XLRange;
         var splitter = ws.Range(splitBy);
 
-        var result = range.Split(splitter.RangeAddress, includeIntersection);
+        var result = range.Split(splitter.RangeAddress, includeIntersection)!;
 
         var actualAddresses = string.Join(",", result.Select(r => r.RangeAddress.ToString()));
 
@@ -526,7 +526,7 @@ public class XLRangeBaseTests
         // Sort uses cached values - update them
         ws.RecalculateAllFormulas();
 
-        range.Sort("3 DESC");
+        range!.Sort("3 DESC");
 
         await Assert.That(ws.Cell("A2").Value).IsEqualTo(32);
         await Assert.That(ws.Cell("A3").Value).IsEqualTo(6);
