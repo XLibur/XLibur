@@ -2,7 +2,6 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net8.0;net9.0</TargetFrameworks>
-        <Nullable>enable</Nullable>
         <RootNamespace>XLibur.Fonts.SixLabors</RootNamespace>
         <Description>SixLabors.Fonts 2.x implementation of IXLFontEngine for XLibur.</Description>
         <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>

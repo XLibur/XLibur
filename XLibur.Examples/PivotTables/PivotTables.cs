@@ -8,7 +8,9 @@ public class PivotTables : IXLExample
 {
     private sealed class Pastry
     {
-        public Pastry(string name, int? code, int numberOfOrders, double quality, string month, DateTime? bakeDate)
+        // month is nullable: the last row below deliberately leaves it blank, to exercise
+        // ContainsBlank and the integer row/column paths in the pivot table.
+        public Pastry(string name, int? code, int numberOfOrders, double quality, string? month, DateTime? bakeDate)
         {
             Name = name;
             Code = code;
@@ -26,7 +28,7 @@ public class PivotTables : IXLExample
 
         public double Quality { get; set; }
 
-        public string Month { get; set; }
+        public string? Month { get; set; }
 
         public DateTime? BakeDate { get; set; }
     }

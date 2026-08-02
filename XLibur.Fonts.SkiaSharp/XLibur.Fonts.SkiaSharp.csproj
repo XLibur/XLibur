@@ -2,7 +2,6 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net8.0;net9.0</TargetFrameworks>
-        <Nullable>enable</Nullable>
         <RootNamespace>XLibur.Fonts.SkiaSharp</RootNamespace>
         <Description>SkiaSharp implementation of IXLFontEngine for XLibur.</Description>
         <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>

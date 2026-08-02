@@ -15,11 +15,11 @@ public class Sorting : IXLExample
         AddTestTable(wsTable);
 
         wsTable.Row(1).InsertRowsAbove(1);
-        var lastCo = wsTable.LastColumnUsed().ColumnNumber();
+        var lastCo = wsTable.LastColumnUsed()!.ColumnNumber();
         for (var co = 1; co <= lastCo; co++)
             wsTable.Cell(1, co).Value = "Column" + co;
 
-        var table = wsTable.RangeUsed().AsTable();
+        var table = wsTable.RangeUsed()!.AsTable();
         table.Sort("Column2 Desc, 1, 3 Asc");
 
         // Sort table another way
@@ -27,11 +27,11 @@ public class Sorting : IXLExample
         AddTestTable(wsTable);
 
         wsTable.Row(1).InsertRowsAbove(1);
-        lastCo = wsTable.LastColumnUsed().ColumnNumber();
+        lastCo = wsTable.LastColumnUsed()!.ColumnNumber();
         for (var co = 1; co <= lastCo; co++)
             wsTable.Cell(1, co).Value = "Column" + co;
 
-        table = wsTable.RangeUsed().AsTable();
+        table = wsTable.RangeUsed()!.AsTable();
         table.Sort("Column2", XLSortOrder.Descending);
 
         #endregion Sort Table
@@ -41,8 +41,8 @@ public class Sorting : IXLExample
         var wsRows = wb.Worksheets.Add("Rows");
         AddTestTable(wsRows);
         wsRows.Row(1).Sort();
-        wsRows.RangeUsed().Row(2).Sort();
-        wsRows.Rows(3, wsRows.LastRowUsed().RowNumber()).Delete();
+        wsRows.RangeUsed()!.Row(2).Sort();
+        wsRows.Rows(3, wsRows.LastRowUsed()!.RowNumber()).Delete();
 
         #endregion Sort Rows
 
@@ -50,9 +50,9 @@ public class Sorting : IXLExample
 
         var wsColumns = wb.Worksheets.Add("Columns");
         AddTestTable(wsColumns);
-        wsColumns.LastColumnUsed().Delete();
+        wsColumns.LastColumnUsed()!.Delete();
         wsColumns.Column(1).Sort();
-        wsColumns.RangeUsed().Column(2).Sort();
+        wsColumns.RangeUsed()!.Column(2).Sort();
 
         #endregion Sort Columns
 

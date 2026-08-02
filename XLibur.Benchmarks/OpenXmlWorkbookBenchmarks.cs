@@ -27,9 +27,13 @@ public class OpenXmlWorkbookBenchmarks
     private const int RowCount = 50_000;
     private const string Ns = OpenXmlConst.Main2006SsNs;
 
-    private string[] _strings = null;
-    private double[] _numbers = null;
-    private DateTime[] _dates = null;
+    // OpenXmlAttribute takes a non-nullable namespaceUri, but an unqualified attribute has none and
+    // the SDK expects null there. Named so the intent survives the null-forgiving operator.
+    private const string NoNamespace = null!;
+
+    private string[] _strings = null!;
+    private double[] _numbers = null!;
+    private DateTime[] _dates = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -186,11 +190,11 @@ public class OpenXmlWorkbookBenchmarks
     {
         var attrs = new List<OpenXmlAttribute>
         {
-            new("r", null, cellRef),
-            new("t", null, "s")
+            new("r", NoNamespace,cellRef),
+            new("t", NoNamespace, "s")
         };
         if (styleIndex > 0)
-            attrs.Add(new OpenXmlAttribute("s", null, styleIndex.ToString()));
+            attrs.Add(new OpenXmlAttribute("s", NoNamespace, styleIndex.ToString()));
 
         writer.WriteStartElement(new Cell(), attrs);
         writer.WriteElement(new CellValue(sstId));
@@ -202,11 +206,11 @@ public class OpenXmlWorkbookBenchmarks
         var refStr = cellRef[..cellRefLen].ToString();
         var attrs = new List<OpenXmlAttribute>
         {
-            new("r", null, refStr),
-            new("t", null, "s")
+            new("r", NoNamespace,refStr),
+            new("t", NoNamespace, "s")
         };
         if (styleIndex > 0)
-            attrs.Add(new OpenXmlAttribute("s", null, styleIndex.ToString()));
+            attrs.Add(new OpenXmlAttribute("s", NoNamespace, styleIndex.ToString()));
 
         writer.WriteStartElement(new Cell(), attrs);
         writer.WriteElement(new CellValue(sstId));
@@ -218,10 +222,10 @@ public class OpenXmlWorkbookBenchmarks
         var refStr = cellRef[..cellRefLen].ToString();
         var attrs = new List<OpenXmlAttribute>
         {
-            new("r", null, refStr),
+            new("r", NoNamespace,refStr),
         };
         if (styleIndex > 0)
-            attrs.Add(new OpenXmlAttribute("s", null, styleIndex.ToString()));
+            attrs.Add(new OpenXmlAttribute("s", NoNamespace, styleIndex.ToString()));
 
         writer.WriteStartElement(new Cell(), attrs);
         writer.WriteElement(new CellValue(value.ToString("G15", CultureInfo.InvariantCulture)));
@@ -230,7 +234,7 @@ public class OpenXmlWorkbookBenchmarks
 
     private static void WriteFormulaCell(OpenXmlWriter writer, string cellRef, string formula)
     {
-        var attrs = new List<OpenXmlAttribute> { new("r", null, cellRef) };
+        var attrs = new List<OpenXmlAttribute> { new("r", NoNamespace, cellRef) };
         writer.WriteStartElement(new Cell(), attrs);
         writer.WriteElement(new CellFormula(formula));
         writer.WriteEndElement();

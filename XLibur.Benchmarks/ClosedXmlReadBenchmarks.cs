@@ -12,7 +12,7 @@ public class ClosedXmlReadBenchmarks
     private const int RowCount = 250_000;
     private const int ColCount = 15;
 
-    private byte[] _fileBytes = null;
+    private byte[] _fileBytes = null!;
 
     [GlobalSetup]
     public void Setup()

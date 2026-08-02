@@ -64,7 +64,7 @@ public class ShowCase : IXLExample
             .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
 
         //Merge title cells
-        rngTable.FirstRow().Merge(); // We could've also used: rngTable.Range("A1:E1").Merge() or rngTable.Row(1).Merge()
+        rngTable.FirstRow()!.Merge(); // We could've also used: rngTable.Range("A1:E1").Merge() or rngTable.Row(1).Merge()
 
         //Formatting headers
         var rngHeaders = rngTable.Range("B3:F3");
@@ -86,7 +86,7 @@ public class ShowCase : IXLExample
         excelTable.Field("DOB").TotalsRowLabel = "Average:";
 
         //Add thick borders to the contents of our spreadsheet
-        ws.RangeUsed().Style.Border.OutsideBorder = XLBorderStyleValues.Thick;
+        ws.RangeUsed()!.Style.Border.OutsideBorder = XLBorderStyleValues.Thick;
 
         // Adjust column widths to their content
         ws.Columns(2, 6).AdjustToContents();

@@ -76,9 +76,9 @@ public class InsertingTables : IXLExample
 
     private sealed class Person
     {
-        [XLColumn(Header = "House Street")] public string House { get; set; }
+        [XLColumn(Header = "House Street")] public string House { get; set; } = string.Empty;
 
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         public int Age { get; set; }
 

@@ -23,7 +23,7 @@ public class CustomAutoFilter : IXLExample
             .CellBelow().SetValue(4);
 
         // Add filters
-        ws.RangeUsed().SetAutoFilter().Column(1).EqualTo(3).Or.GreaterThan(4);
+        ws.RangeUsed()!.SetAutoFilter().Column(1).EqualTo(3).Or.GreaterThan(4);
 
         // Sort the filtered list
         ws.AutoFilter.Sort();
@@ -43,7 +43,7 @@ public class CustomAutoFilter : IXLExample
             .CellBelow().SetValue("D");
 
         // Add filters
-        ws.RangeUsed().SetAutoFilter().Column(1).Between("B", "D");
+        ws.RangeUsed()!.SetAutoFilter().Column(1).Between("B", "D");
 
         // Sort the filtered list
         ws.AutoFilter.Sort();
@@ -63,7 +63,7 @@ public class CustomAutoFilter : IXLExample
             .CellBelow().SetValue(4);
 
         // Add filters
-        ws.RangeUsed().SetAutoFilter().Column(1).EqualTo(3).Or.EqualTo("C");
+        ws.RangeUsed()!.SetAutoFilter().Column(1).EqualTo(3).Or.EqualTo("C");
 
         // Sort the filtered list
         ws.AutoFilter.Sort();
@@ -98,8 +98,8 @@ public class CustomAutoFilter : IXLExample
             .CellBelow().SetValue("D");
 
         // Add filters
-        ws.RangeUsed().SetAutoFilter().Column(2).EqualTo(3).Or.GreaterThan(4);
-        ws.RangeUsed().SetAutoFilter().Column(3).Between("B", "D");
+        ws.RangeUsed()!.SetAutoFilter().Column(2).EqualTo(3).Or.GreaterThan(4);
+        ws.RangeUsed()!.SetAutoFilter().Column(3).Between("B", "D");
 
         // Sort the filtered list
         ws.AutoFilter.Sort(3);

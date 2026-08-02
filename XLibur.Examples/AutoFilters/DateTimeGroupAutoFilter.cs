@@ -26,7 +26,7 @@ public class DateTimeGroupAutoFilter : IXLExample
         ws.Column(1).Style.NumberFormat.Format = "d MMMM yyyy";
 
         // Add filters
-        ws.RangeUsed().SetAutoFilter().Column(1).AddDateGroupFilter(new DateTime(2018, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(3), XLDateTimeGrouping.Day);
+        ws.RangeUsed()!.SetAutoFilter().Column(1).AddDateGroupFilter(new DateTime(2018, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(3), XLDateTimeGrouping.Day);
 
         // Sort the filtered list
         ws.AutoFilter.Sort();

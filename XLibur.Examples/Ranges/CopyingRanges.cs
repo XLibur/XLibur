@@ -15,8 +15,8 @@ public class CopyingRanges : IXLExample
             var ws = workbook.Worksheet(1);
 
             // Define a range with the data
-            var firstTableCell = ws.FirstCellUsed();
-            var lastTableCell = ws.LastCellUsed();
+            var firstTableCell = ws.FirstCellUsed()!;
+            var lastTableCell = ws.LastCellUsed()!;
             var rngData = ws.Range(firstTableCell.Address, lastTableCell.Address);
 
             // Copy the table to another worksheet

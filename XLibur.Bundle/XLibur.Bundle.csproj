@@ -2,7 +2,6 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net8.0;net9.0</TargetFrameworks>
-        <Nullable>enable</Nullable>
         <Description>Convenience meta-package for XLibur. Installs XLibur together with the default SkiaSharp font engine (MIT). The engine auto-registers on first use — no startup call required. Equivalent to installing XLibur and XLibur.Fonts.SkiaSharp separately.</Description>
         <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>
         <PackageTags>Excel OpenXml xlsx Bundle</PackageTags>

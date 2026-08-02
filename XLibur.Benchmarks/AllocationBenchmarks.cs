@@ -67,10 +67,10 @@ public class AllocationBenchmarks
         "E10-F20/G30", "AVERAGE(H1:H50)", "\"literal:A1\"&B2", "C5*D5+E5", "MAX(A1:Z1)", "MIN(B2:B200)",
     ];
 
-    private XLWorkbook _workbook = null;
-    private XLWorksheet _worksheet = null;
-    private XLRange _shiftRange = null;
-    private XLCell[] _emptyCells = null;
+    private XLWorkbook _workbook = null!;
+    private XLWorksheet _worksheet = null!;
+    private XLRange _shiftRange = null!;
+    private XLCell[] _emptyCells = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -78,7 +78,7 @@ public class AllocationBenchmarks
         SixLaborsV1FontBootstrap.Register();
         _workbook = new XLWorkbook();
         _worksheet = (XLWorksheet)_workbook.AddWorksheet("Data");
-        _shiftRange = _worksheet.Range("A1:Z1000");
+        _shiftRange = _worksheet.Range("A1:Z1000")!;
 
         _emptyCells = new XLCell[Colors.Length];
         for (var i = 0; i < _emptyCells.Length; i++)

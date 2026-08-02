@@ -24,7 +24,7 @@ public class TopBottomAutoFilter : IXLExample
             .CellBelow().SetValue(4);
 
         // Add filters
-        ws.RangeUsed().SetAutoFilter().Column(1).Top(2);
+        ws.RangeUsed()!.SetAutoFilter().Column(1).Top(2);
 
         // Sort the filtered list
         //ws.AutoFilter.Sort(1);
@@ -59,7 +59,7 @@ public class TopBottomAutoFilter : IXLExample
             .CellBelow().SetValue("D");
 
         // Add filters
-        ws.RangeUsed().SetAutoFilter().Column(2).Bottom(50, XLTopBottomType.Percent);
+        ws.RangeUsed()!.SetAutoFilter().Column(2).Bottom(50, XLTopBottomType.Percent);
 
         // Sort the filtered list
         //ws.AutoFilter.Sort(3);

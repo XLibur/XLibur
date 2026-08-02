@@ -23,7 +23,7 @@ public class DynamicAutoFilter : IXLExample
             .CellBelow().SetValue(4);
 
         // Add filters
-        ws.RangeUsed().SetAutoFilter().Column(1).AboveAverage();
+        ws.RangeUsed()!.SetAutoFilter().Column(1).AboveAverage();
 
         // Sort the filtered list
         //ws.AutoFilter.Sort(1);
@@ -58,7 +58,7 @@ public class DynamicAutoFilter : IXLExample
             .CellBelow().SetValue("D");
 
         // Add filters
-        ws.RangeUsed().SetAutoFilter().Column(2).BelowAverage();
+        ws.RangeUsed()!.SetAutoFilter().Column(2).BelowAverage();
 
         // Sort the filtered list
         //ws.AutoFilter.Sort(3);

@@ -3,7 +3,6 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <OutputType>Exe</OutputType>
-    <Nullable>enable</Nullable>
     <RootNamespace>XLibur.Report.Examples</RootNamespace>
     <Company>XLibur</Company>
     <!-- Worked examples, linked from the docs. Nothing ships from here. -->

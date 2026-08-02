@@ -5,7 +5,6 @@
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
-    <Nullable>enable</Nullable>
     <AssemblyName>XLibur.Report.Benchmarks</AssemblyName>
     <RootNamespace>XLibur.Report.Benchmarks</RootNamespace>
     <Company>XLibur</Company>

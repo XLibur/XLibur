@@ -79,9 +79,9 @@ public class InsertingData : IXLExample
 
     private sealed class Person
     {
-        public string House { get; set; }
+        public string House { get; set; } = string.Empty;
 
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         public int Age { get; set; }
 

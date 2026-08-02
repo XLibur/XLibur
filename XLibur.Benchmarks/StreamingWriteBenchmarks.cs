@@ -26,9 +26,9 @@ public class StreamingWriteBenchmarks
 {
     private const int RowCount = 50_000;
 
-    private string[] _strings = null;
-    private double[] _numbers = null;
-    private DateTime[] _dates = null;
+    private string[] _strings = null!;
+    private double[] _numbers = null!;
+    private DateTime[] _dates = null!;
 
     [GlobalSetup]
     public void Setup()

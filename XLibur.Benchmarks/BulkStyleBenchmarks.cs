@@ -37,12 +37,10 @@ public class BulkStyleBenchmarks
 
     private const int Columns = 10;
 
-    // Assigned per iteration by Setup. Plain null rather than null!: this project has no nullable
-    // context, so the forgiving operator says nothing the compiler was going to check anyway, and every
-    // other benchmark here declares its fixture fields this way.
-    private XLWorkbook _workbook = null;
-    private IXLWorksheet _worksheet = null;
-    private IXLRange _range = null;
+    // Assigned per iteration by Setup, so the field is never observed null despite the declaration.
+    private XLWorkbook _workbook = null!;
+    private IXLWorksheet _worksheet = null!;
+    private IXLRange _range = null!;
 
     [IterationSetup]
     public void Setup()

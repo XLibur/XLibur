@@ -18,10 +18,10 @@ public class CurrentRowColumn : IXLExample
             .CellBelow().SetValue(cell.WorksheetColumn().ColumnLetter())
             .CellLeft().SetValue("Red's Column:");
 
-        var row = ws.Range("A6:C6").FirstRow();
+        var row = ws.Range("A6:C6").FirstRow()!;
         row.Style.Fill.SetBackgroundColor(XLColor.Blue);
 
-        var column = ws.Range("B7:B9").FirstColumn();
+        var column = ws.Range("B7:B9").FirstColumn()!;
         column.Style.Fill.SetBackgroundColor(XLColor.Green);
 
         ws.Cell(1, 4)

@@ -13,7 +13,7 @@ public class AdjustToContentsWithAutoFilter : IXLExample
         ws.Cell("A3").Value = "Hank";
         ws.Cell("A4").Value = "Dagny";
 
-        ws.RangeUsed().SetAutoFilter();
+        ws.RangeUsed()!.SetAutoFilter();
 
         ws.Columns().AdjustToContents();
 

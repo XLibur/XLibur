@@ -15,10 +15,10 @@ public class XLiburWorkbookBenchmarks
 {
     private const int RowCount = 50_000;
 
-    private BenchmarkData _data = null;
-    private string[] _strings = null;
-    private double[] _numbers = null;
-    private DateTime[] _dates = null;
+    private BenchmarkData _data = null!;
+    private string[] _strings = null!;
+    private double[] _numbers = null!;
+    private DateTime[] _dates = null!;
 
     [GlobalSetup]
     public void Setup()

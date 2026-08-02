@@ -34,7 +34,7 @@ public class RegularAutoFilter : IXLExample
             .CellBelow().SetValue("Jacques");
 
         // Add filters
-        var autoFilter = ws.RangeUsed().SetAutoFilter();
+        var autoFilter = ws.RangeUsed()!.SetAutoFilter();
         autoFilter.Column(1).AddFilter(3)
             .AddFilter(1);
 
@@ -60,7 +60,7 @@ public class RegularAutoFilter : IXLExample
             .CellBelow().SetValue("D");
 
         // Add filters
-        ws.RangeUsed().SetAutoFilter().Column(1).AddFilter("C")
+        ws.RangeUsed()!.SetAutoFilter().Column(1).AddFilter("C")
             .AddFilter("A");
 
         // Sort the filtered list
@@ -83,7 +83,7 @@ public class RegularAutoFilter : IXLExample
             .CellBelow().SetValue(4);
 
         // Add filters
-        ws.RangeUsed().SetAutoFilter().Column(1).AddFilter("C")
+        ws.RangeUsed()!.SetAutoFilter().Column(1).AddFilter("C")
             .AddFilter(1);
 
         // Sort the filtered list
@@ -121,7 +121,7 @@ public class RegularAutoFilter : IXLExample
             .CellBelow().SetValue("D");
 
         // Add filters
-        ws.RangeUsed().SetAutoFilter().Column(2).AddFilter(3)
+        ws.RangeUsed()!.SetAutoFilter().Column(2).AddFilter(3)
             .AddFilter(1);
 
         // Sort the filtered list
@@ -144,7 +144,7 @@ public class RegularAutoFilter : IXLExample
             .CellBelow().SetValue(4);
 
         // Add filters
-        var table = ws.RangeUsed().CreateTable();
+        var table = ws.RangeUsed()!.CreateTable();
         table.ShowTotalsRow = true;
         table.Field(0).TotalsRowFunction = XLTotalsRowFunction.Sum;
         table.AutoFilter.Column(1).AddFilter(3).AddFilter(4);

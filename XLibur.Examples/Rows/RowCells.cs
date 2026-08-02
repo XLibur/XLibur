@@ -15,7 +15,7 @@ public class RowCells : IXLExample
         rowFromWorksheet.Cells("3,5:6").Style.Fill.BackgroundColor = XLColor.Red;
         rowFromWorksheet.Cells(8, 9).Style.Fill.BackgroundColor = XLColor.Blue;
 
-        var rowFromRange = ws.Range("A2:I2").FirstRow();
+        var rowFromRange = ws.Range("A2:I2").FirstRow()!;
 
         rowFromRange.Cell(1).Style.Fill.BackgroundColor = XLColor.Red;
         rowFromRange.Cells("2").Style.Fill.BackgroundColor = XLColor.Blue;

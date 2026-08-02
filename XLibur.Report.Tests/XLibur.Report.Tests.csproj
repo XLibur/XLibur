@@ -6,7 +6,6 @@
          means C# 12 and overload resolution silently breaks (CS0411/CS0121). -->
     <LangVersion>latest</LangVersion>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
-    <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <!-- CS4014 (call not awaited) must fail the build. TUnit assertions are awaitable, so an

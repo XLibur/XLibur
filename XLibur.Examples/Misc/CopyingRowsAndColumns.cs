@@ -61,7 +61,7 @@ public class CopyingRowsAndColumns : IXLExample
         destinationRow.Clear();
 
         var originalRow = originalSheet.Row(originalRowNumber);
-        var columnNumber = originalRow.LastCellUsed(XLCellsUsedOptions.All).Address.ColumnNumber;
+        var columnNumber = originalRow.LastCellUsed(XLCellsUsedOptions.All)!.Address.ColumnNumber;
 
         var originalRange = originalSheet.Range(originalRowNumber, 1, originalRowNumber, columnNumber);
         var destRange = destSheet.Range(destRowNumber, 1, destRowNumber, columnNumber);

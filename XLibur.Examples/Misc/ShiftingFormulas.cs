@@ -39,9 +39,9 @@ public class ShiftingFormulas : IXLExample
 
         var dataGrid = ws.Range("B2:D3");
         ws.Row(1).InsertRowsAbove(1);
-        var newRow = dataGrid.LastRow().InsertRowsAbove(1).First();
+        var newRow = dataGrid.LastRow()!.InsertRowsAbove(1).First();
         newRow.Value = 1;
-        dataGrid.LastColumn().FormulaR1C1 = $"SUM(RC[-{dataGrid.ColumnCount() - 1}]:RC[-1])";
+        dataGrid.LastColumn()!.FormulaR1C1 = $"SUM(RC[-{dataGrid.ColumnCount() - 1}]:RC[-1])";
         ws.Cell(1, 1).InsertCellsBelow(1);
         ws.Column(1).InsertColumnsBefore(1);
         ws.Row(4).Delete();

@@ -5,7 +5,6 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net8.0;net9.0</TargetFrameworks>
-        <Nullable>enable</Nullable>
         <RootNamespace>XLibur.Report.DynamicLinq</RootNamespace>
         <Description>ClosedXML.Report expression-syntax compatibility for XLibur.Report. Runs templates written with C# expressions, lambdas and LINQ inside {{ }} — the syntax ClosedXML.Report used — by plugging a second expression engine into XLibur.Report. Install it only if you have such templates; XLibur.Report's own Scriban engine needs nothing from here.</Description>
         <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>

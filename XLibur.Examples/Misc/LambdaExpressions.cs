@@ -18,7 +18,7 @@ public class LambdaExpressions : IXLExample
 
             // Define a range with the data
             var firstDataCell = ws.Cell("B4");
-            var lastDataCell = ws.LastCellUsed();
+            var lastDataCell = ws.LastCellUsed()!;
             var rngData = ws.Range(firstDataCell.Address, lastDataCell.Address);
 
             // Delete all rows where Outcast = false (the 3rd column)
@@ -35,7 +35,7 @@ public class LambdaExpressions : IXLExample
             }
 
             // Put a thick border to the bottom of the table (we may have deleted the bottom cells with the border)
-            rngData.LastRow().Style.Border.BottomBorder = XLBorderStyleValues.Thick;
+            rngData.LastRow()!.Style.Border.BottomBorder = XLBorderStyleValues.Thick;
 
             workbook.SaveAs(filePath);
         }

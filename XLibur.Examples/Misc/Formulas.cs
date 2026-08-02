@@ -47,7 +47,7 @@ public class Formulas : IXLExample
 
         // Setting the formula of a range
         var rngData = ws.Range(2, 1, 4, 7);
-        rngData.LastColumn().FormulaR1C1 = "=IF(RC[-4]=RC[-1],\"Yes\", \"No\")";
+        rngData.LastColumn()!.FormulaR1C1 = "=IF(RC[-4]=RC[-1],\"Yes\", \"No\")";
 
         // Using an array formula:
         // Just put the formula between curly braces

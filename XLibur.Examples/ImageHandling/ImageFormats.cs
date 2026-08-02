@@ -12,7 +12,7 @@ public class ImageFormats : IXLExample
         IXLWorksheet ws;
 
         using (var fs = Assembly.GetExecutingAssembly()
-                   .GetManifestResourceStream("XLibur.Examples.Resources.ImageHandling.jpg"))
+                   .GetManifestResourceStream("XLibur.Examples.Resources.ImageHandling.jpg")!)
         {
             #region Jpeg
 
@@ -24,7 +24,7 @@ public class ImageFormats : IXLExample
         }
 
         using (var fs = Assembly.GetExecutingAssembly()
-                   .GetManifestResourceStream("XLibur.Examples.Resources.ImageHandling.png"))
+                   .GetManifestResourceStream("XLibur.Examples.Resources.ImageHandling.png")!)
         {
             #region Png
 

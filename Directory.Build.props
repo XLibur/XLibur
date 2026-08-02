@@ -31,6 +31,7 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
 
     <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
     <TreatWarningsAsErrors Condition="'$(StrykerEnabled)' != 'true'">true</TreatWarningsAsErrors>
     <NoWarn>$(NoWarn);NU1605;CS1591</NoWarn>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

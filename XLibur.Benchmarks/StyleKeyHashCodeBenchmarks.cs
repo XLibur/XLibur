@@ -15,11 +15,11 @@ public class StyleKeyHashCodeBenchmarks
 {
     private const int Iterations = 100_000;
 
-    private XLFontKey[] _fontKeys = null;
-    private XLBorderKey[] _borderKeys = null;
-    private XLFillKey[] _fillKeys = null;
-    private XLColorKey[] _colorKeys = null;
-    private XLStyleKey[] _styleKeys = null;
+    private XLFontKey[] _fontKeys = null!;
+    private XLBorderKey[] _borderKeys = null!;
+    private XLFillKey[] _fillKeys = null!;
+    private XLColorKey[] _colorKeys = null!;
+    private XLStyleKey[] _styleKeys = null!;
 
     [GlobalSetup]
     public void Setup()

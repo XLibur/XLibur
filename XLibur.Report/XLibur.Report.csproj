@@ -5,7 +5,6 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net8.0;net9.0</TargetFrameworks>
-        <Nullable>enable</Nullable>
         <RootNamespace>XLibur.Report</RootNamespace>
         <Description>Report templating for XLibur. Author a report as an ordinary .xlsx template — placeholder expressions, named ranges and tag markers — bind .NET data to it, and generate the finished workbook. Charts, pivot tables and pictures survive range expansion.</Description>
         <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>

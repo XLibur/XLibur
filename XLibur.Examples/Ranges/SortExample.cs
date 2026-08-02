@@ -14,13 +14,13 @@ public class SortExample : IXLExample
         var wsTable = wb.Worksheets.Add("Table");
         AddTestTable(wsTable);
         var header = wsTable.Row(1).InsertRowsAbove(1).First();
-        for (var co = 1; co <= wsTable.LastColumnUsed().ColumnNumber(); co++)
+        for (var co = 1; co <= wsTable.LastColumnUsed()!.ColumnNumber(); co++)
         {
             header.Cell(co).Value = "Column" + co;
         }
 
-        var rangeTable = wsTable.RangeUsed();
-        var table = rangeTable.CopyTo(wsTable.Column(wsTable.LastColumnUsed().ColumnNumber() + 3)).CreateTable();
+        var rangeTable = wsTable.RangeUsed()!;
+        var table = rangeTable.CopyTo(wsTable.Column(wsTable.LastColumnUsed()!.ColumnNumber() + 3)).CreateTable();
 
         table.Sort("Column2, Column3 Desc, Column1 ASC");
 
@@ -36,9 +36,9 @@ public class SortExample : IXLExample
 
         var wsLeftToRight = wb.Worksheets.Add("Sort Left to Right");
         AddTestTable(wsLeftToRight);
-        wsLeftToRight.RangeUsed().Transpose(XLTransposeOptions.MoveCells);
-        var rangeLeftToRight = wsLeftToRight.RangeUsed();
-        var copyLeftToRight = rangeLeftToRight.CopyTo(wsLeftToRight.Row(wsLeftToRight.LastRowUsed().RowNumber() + 3));
+        wsLeftToRight.RangeUsed()!.Transpose(XLTransposeOptions.MoveCells);
+        var rangeLeftToRight = wsLeftToRight.RangeUsed()!;
+        var copyLeftToRight = rangeLeftToRight.CopyTo(wsLeftToRight.Row(wsLeftToRight.LastRowUsed()!.RowNumber() + 3));
 
         copyLeftToRight.SortLeftToRight();
 
@@ -53,8 +53,8 @@ public class SortExample : IXLExample
 
         var wsComplex2 = wb.Worksheets.Add("Complex 2");
         AddTestTable(wsComplex2);
-        var rangeComplex2 = wsComplex2.RangeUsed();
-        var copyComplex2 = rangeComplex2.CopyTo(wsComplex2.Column(wsComplex2.LastColumnUsed().ColumnNumber() + 3));
+        var rangeComplex2 = wsComplex2.RangeUsed()!;
+        var copyComplex2 = rangeComplex2.CopyTo(wsComplex2.Column(wsComplex2.LastColumnUsed()!.ColumnNumber() + 3));
 
         copyComplex2.SortColumns.Add(1, XLSortOrder.Ascending, false, true);
         copyComplex2.SortColumns.Add(3, XLSortOrder.Descending);
@@ -77,8 +77,8 @@ public class SortExample : IXLExample
 
         var wsComplex1 = wb.Worksheets.Add("Complex 1");
         AddTestTable(wsComplex1);
-        var rangeComplex1 = wsComplex1.RangeUsed();
-        var copyComplex1 = rangeComplex1.CopyTo(wsComplex1.Column(wsComplex1.LastColumnUsed().ColumnNumber() + 3));
+        var rangeComplex1 = wsComplex1.RangeUsed()!;
+        var copyComplex1 = rangeComplex1.CopyTo(wsComplex1.Column(wsComplex1.LastColumnUsed()!.ColumnNumber() + 3));
 
         copyComplex1.Sort("2, 1 DESC", XLSortOrder.Ascending, true);
 
@@ -94,11 +94,11 @@ public class SortExample : IXLExample
 
         var wsSimpleColumn = wb.Worksheets.Add("Simple Column");
         AddTestColumn(wsSimpleColumn);
-        var rangeSimpleColumn = wsSimpleColumn.RangeUsed();
+        var rangeSimpleColumn = wsSimpleColumn.RangeUsed()!;
         var copySimpleColumn =
-            rangeSimpleColumn.CopyTo(wsSimpleColumn.Column(wsSimpleColumn.LastColumnUsed().ColumnNumber() + 3));
+            rangeSimpleColumn.CopyTo(wsSimpleColumn.Column(wsSimpleColumn.LastColumnUsed()!.ColumnNumber() + 3));
 
-        copySimpleColumn.FirstColumn().Sort(XLSortOrder.Descending, true);
+        copySimpleColumn.FirstColumn()!.Sort(XLSortOrder.Descending, true);
 
         wsSimpleColumn.Row(1).InsertRowsAbove(2);
         wsSimpleColumn.Cell(1, 1)
@@ -112,8 +112,8 @@ public class SortExample : IXLExample
 
         var wsSimple = wb.Worksheets.Add("Simple");
         AddTestTable(wsSimple);
-        var rangeSimple = wsSimple.RangeUsed();
-        var copySimple = rangeSimple.CopyTo(wsSimple.Column(wsSimple.LastColumnUsed().ColumnNumber() + 3));
+        var rangeSimple = wsSimple.RangeUsed()!;
+        var copySimple = rangeSimple.CopyTo(wsSimple.Column(wsSimple.LastColumnUsed()!.ColumnNumber() + 3));
 
         copySimple.Sort();
 

@@ -14,10 +14,10 @@ public class UsingTables : IXLExample
             using var wb = new XLWorkbook(tempFile);
             var ws = wb.Worksheet(1);
             ws.Name = "Contacts Table";
-            var firstCell = ws.FirstCellUsed();
-            var lastCell = ws.LastCellUsed();
+            var firstCell = ws.FirstCellUsed()!;
+            var lastCell = ws.LastCellUsed()!;
             var range = ws.Range(firstCell.Address, lastCell.CellRight().Address);
-            range.FirstRow().Delete(); // Deleting the "Contacts" header (we don't need it for our purposes)
+            range.FirstRow()!.Delete(); // Deleting the "Contacts" header (we don't need it for our purposes)
 
             // We want to use a theme for table, not the hard coded format of the BasicTable
             range.Clear(XLClearOptions.AllFormats);
@@ -50,7 +50,7 @@ public class UsingTables : IXLExample
             int columnWithHeaders = lastCell.Address.ColumnNumber + 3;
             int currentRow = table.RangeAddress.FirstAddress.RowNumber;
             ws.Cell(currentRow, columnWithHeaders).Value = "Table Headers";
-            foreach (var cell in table.HeadersRow().Cells())
+            foreach (var cell in table.HeadersRow()!.Cells())
             {
                 currentRow++;
                 ws.Cell(currentRow, columnWithHeaders).Value = cell.Value;
@@ -71,7 +71,7 @@ public class UsingTables : IXLExample
             int columnWithNames = columnWithHeaders + 2;
             currentRow = table.RangeAddress.FirstAddress.RowNumber; // reset the currentRow
             ws.Cell(currentRow, columnWithNames).Value = "Names";
-            foreach (var row in table.DataRange.Rows())
+            foreach (var row in table.DataRange!.Rows())
             {
                 currentRow++;
                 var fName = row.Field("FName").GetString(); // Notice how we're calling the cell by field name

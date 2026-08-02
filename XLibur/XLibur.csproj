@@ -3,7 +3,6 @@
     <PropertyGroup>
         <LangVersion>default</LangVersion>
         <TargetFrameworks>net10.0;net8.0;net9.0</TargetFrameworks>
-        <Nullable>enable</Nullable>
         <RootNamespace>XLibur</RootNamespace>
         <Company>XLibur</Company>
         <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>
