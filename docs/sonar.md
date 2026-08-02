@@ -80,6 +80,14 @@ parameter of that method — so the exception names something the caller cannot 
 `arg0..argN-1`; the rule matches them by name and sees a shift. Positionally the call is
 correct, and the calc-engine tests covering these functions pass.
 
+The suppression added for it in `1fcb9b82` did not close the findings, and the reason is
+worth recording: `SignatureAdapter.cs` already carried a run of narrow
+`#pragma warning disable`/`restore S2234` pairs, and the first `restore` cancels the
+file-level `disable` placed above the class. Everything past that point is unsuppressed
+unless it carries its own pair. Three forwarding calls did not, so they kept reporting.
+They now do, matching the pairs already around the neighbouring adapters — a new adapter
+below that line needs the same pair around its call.
+
 `TUnitAssertions0016` says `.IsEqualTo(...)` on a collection compares by reference.
 `Area` is a `readonly struct : IEquatable<Area>, IEnumerable<Point>` with `Equals` and
 `GetHashCode` — it trips the rule only because it also enumerates points. Switching to

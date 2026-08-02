@@ -76,8 +76,7 @@ public sealed class XLFunctionLibrary
     /// </exception>
     public bool TryInvoke(string name, ReadOnlySpan<XLCellValue> arguments, out XLCellValue result)
     {
-        if (name is null)
-            throw new ArgumentNullException(nameof(name));
+        ArgumentNullException.ThrowIfNull(name);
 
         if (!_engine.Functions.TryGetFunc(name, out var definition) || definition is null)
         {

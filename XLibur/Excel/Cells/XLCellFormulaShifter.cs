@@ -314,11 +314,11 @@ internal static partial class XLCellFormulaShifter
                 var deleted = -_shift;
                 var shiftEnd = shiftStart + deleted - 1;
 
-                // Rows above the deletion keep their number; rows below move up by the deleted count;
-                // rows inside it are gone. A boundary that lands inside the deleted block collapses onto
-                // the edge of the block rather than being moved by the full count — clamping the bottom
-                // is what stops a deletion that swallows a reference's tail from producing an inverted
-                // range such as A2:A8 -> A2:A3 (row 4 survives; the answer is A2:A4).
+                // Rows above the deletion keep their number, rows below move up by the deleted count,
+                // and rows inside it are gone. A boundary that lands inside the deleted block collapses
+                // onto the edge of the block rather than being moved by the full count — clamping the
+                // bottom is what stops a deletion that swallows a reference's tail from producing an
+                // inverted range such as A2:A8 -> A2:A3 (row 4 survives, so the answer is A2:A4).
                 newFirst = refFirst < shiftStart ? refFirst : Math.Max(shiftStart, refFirst - deleted);
                 newLast = refLast <= shiftEnd ? Math.Min(refLast, shiftStart - 1) : refLast - deleted;
 

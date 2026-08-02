@@ -142,8 +142,7 @@ internal sealed class XLPivotCache : IXLPivotCache
 
     public IXLPivotCache SetSourceRange(IXLRange range)
     {
-        if (range is null)
-            throw new ArgumentNullException(nameof(range));
+        ArgumentNullException.ThrowIfNull(range);
 
         Source = new XLPivotSourceReference(SheetArea.From(range));
         return this;

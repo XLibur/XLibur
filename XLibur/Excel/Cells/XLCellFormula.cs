@@ -382,16 +382,30 @@ internal sealed class XLCellFormula
     /// rejects reports <see cref="XLHelper.MaxRowNumber"/>, which never filters, so it still reaches
     /// the shifter's legacy fallback.
     /// </remarks>
-    internal int MaxShiftableRow => _maxShiftableRow != 0
-        ? _maxShiftableRow
-        : _maxShiftableRow = FormulaExtent.Of(A1).MaxRow;
+    internal int MaxShiftableRow
+    {
+        get
+        {
+            if (_maxShiftableRow == 0)
+                _maxShiftableRow = FormulaExtent.Of(A1).MaxRow;
+
+            return _maxShiftableRow;
+        }
+    }
 
     /// <summary>
     /// The column counterpart of <see cref="MaxShiftableRow"/>.
     /// </summary>
-    internal int MaxShiftableColumn => _maxShiftableColumn != 0
-        ? _maxShiftableColumn
-        : _maxShiftableColumn = FormulaExtent.Of(A1).MaxColumn;
+    internal int MaxShiftableColumn
+    {
+        get
+        {
+            if (_maxShiftableColumn == 0)
+                _maxShiftableColumn = FormulaExtent.Of(A1).MaxColumn;
+
+            return _maxShiftableColumn;
+        }
+    }
 
     /// <summary>
     /// Get a lazy initialized AST for the formula.

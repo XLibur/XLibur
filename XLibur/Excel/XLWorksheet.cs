@@ -1554,8 +1554,13 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         // With no split the pane starts at the first row/column; with one, it starts just past the
         // split unless the target already sits below it.
-        static int PaneStart(int split, int index) =>
-            split > 0 ? (index <= split ? split + 1 : index) : 1;
+        static int PaneStart(int split, int index)
+        {
+            if (split <= 0)
+                return 1;
+
+            return index <= split ? split + 1 : index;
+        }
 
         SheetView.PaneTopLeftCellAddress = new XLAddress(this, paneRow, paneColumn,
             fixedRow: false, fixedColumn: false);

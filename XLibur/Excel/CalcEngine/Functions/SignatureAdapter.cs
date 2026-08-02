@@ -6,10 +6,14 @@ namespace XLibur.Excel.CalcEngine.Functions;
 /// <summary>
 /// A collection of adapter functions from a more a generic formula function to more specific ones.
 /// </summary>
-// S2234 is suppressed for the whole file. Every adapter forwards its locals arg0..argN-1 to a
+// S2234 is suppressed throughout this file. Every adapter forwards its locals arg0..argN-1 to a
 // Func<> whose own generic parameters the framework names arg1..argN, so the rule matches them by
 // name and reports a transposition that is not there. The calls are positionally correct and the
 // calc-engine tests over these functions cover it.
+//
+// The disable below does not reach the end of the file — a restore further down closes it — so
+// each forwarding call past that point carries its own disable/restore pair. Adding a new adapter
+// means adding the pair around its call as well.
 #pragma warning disable S2234 // Func<> names its generics arg1..argN; our locals are arg0..argN-1
 internal static class SignatureAdapter
 {
@@ -1021,7 +1025,9 @@ internal static class SignatureAdapter
             if (!ToOptionalNumber(args, 4, defaultValue1, ctx).TryPickT0(out var arg4, out var err4))
                 return err4;
 
+#pragma warning disable S2234 // Adapter forwards positionally; the delegate names its own parameters
             return f(ctx, arg0, arg1, arg2, arg3, arg4).ToAnyValue();
+#pragma warning restore S2234
         };
     }
 
@@ -1065,7 +1071,9 @@ internal static class SignatureAdapter
             if (!arg4Converted.TryPickT0(out var arg4, out var err4))
                 return err4;
 
+#pragma warning disable S2234 // Adapter forwards positionally; the delegate names its own parameters
             return f(ctx, arg0, arg1, arg2, arg3, arg4).ToAnyValue();
+#pragma warning restore S2234
         };
     }
 
@@ -1096,7 +1104,9 @@ internal static class SignatureAdapter
             if (!ToOptionalNumber(args, 5, defaultValue1, ctx).TryPickT0(out var arg5, out var err5))
                 return err5;
 
+#pragma warning disable S2234 // Adapter forwards positionally; the delegate names its own parameters
             return f(ctx, arg0, arg1, arg2, arg3, arg4, arg5).ToAnyValue();
+#pragma warning restore S2234
         };
     }
 

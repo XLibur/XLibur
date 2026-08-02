@@ -10,12 +10,14 @@ SixLaborsV1FontBootstrap.Register();
 
 if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreCase))
 {
-    // "profile alloc" is a fast, GC-exact allocation report for the save path, split into
-    // create/save phases; "profile create" breaks the create phase down per API call;
-    // "profile streaming [rows]" reports peak heap for the forward-only writer against the
-    // in-memory model; "profile structural" splits the cost of repeated row inserts into its
-    // range-shift and formula-shift halves. The other modes attach dotMemory and target the
-    // load path.
+    // The fast, GC-exact profiling modes are:
+    //   alloc       an allocation report for the save path, split into create and save phases
+    //   create      the create phase broken down per API call
+    //   streaming   peak heap for the forward-only writer measured against the in-memory
+    //               model, optionally taking a row count
+    //   structural  the cost of repeated row inserts split into its range-shift and
+    //               formula-shift halves
+    // Every other mode attaches dotMemory and targets the load path.
     if (args.Length > 1 && args[1].Equals("alloc", StringComparison.OrdinalIgnoreCase))
         SaveAllocationProfile.Run();
     else if (args.Length > 1 && args[1].Equals("create", StringComparison.OrdinalIgnoreCase))

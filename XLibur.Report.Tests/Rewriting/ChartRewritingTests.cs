@@ -50,7 +50,7 @@ public class ChartRewritingTests
         return template.Generate();
     }
 
-    private static IXLChartSeries Series(IXLWorkbook workbook) =>
+    private static IXLChartSeries Series(XLWorkbook workbook) =>
         workbook.Worksheet("Report").Charts.Single().Series.Single();
 
     [Test]

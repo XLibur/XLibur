@@ -244,8 +244,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
     public IXLConditionalFormat SetRanges(IEnumerable<IXLRange> ranges)
     {
-        if (ranges is null)
-            throw new ArgumentNullException(nameof(ranges));
+        ArgumentNullException.ThrowIfNull(ranges);
 
         var materialized = ranges as IReadOnlyCollection<IXLRange> ?? ranges.ToList();
 
