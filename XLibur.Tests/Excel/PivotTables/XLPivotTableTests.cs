@@ -200,21 +200,21 @@ public class XLPivotTableTests
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
         using var wb = new XLWorkbook(stream);
         var ws1 = wb.Worksheet("pvt1");
-        var pt1 = ws1.PivotTables.First() as XLPivotTable;
+        var pt1 = (XLPivotTable)ws1.PivotTables.First();
 
-        await Assert.That(() => pt1!.CopyTo(pt1.TargetCell)).Throws<InvalidOperationException>();
+        await Assert.That(() => pt1.CopyTo(pt1.TargetCell)).Throws<InvalidOperationException>();
 
-        var pt2 = pt1!.CopyTo(ws1.Cell("AB100")) as XLPivotTable;
+        var pt2 = (XLPivotTable)pt1.CopyTo(ws1.Cell("AB100"));
 
         await AssertPivotTablesAreEqual(pt1, pt2, compareName: false);
 
         var ws2 = wb.AddWorksheet("Copy Of pvt1");
-        await AssertPivotTablesAreEqual(pt1, pt1.CopyTo(ws2.FirstCell()) as XLPivotTable, compareName: true);
+        await AssertPivotTablesAreEqual(pt1, (XLPivotTable)pt1.CopyTo(ws2.FirstCell()), compareName: true);
 
         using var wb2 = new XLWorkbook();
         wb.Worksheet("PastrySalesData").CopyTo(wb2);
 
-        await AssertPivotTablesAreEqual(pt1, pt1.CopyTo(wb2.AddWorksheet("pvt").FirstCell()) as XLPivotTable, compareName: true);
+        await AssertPivotTablesAreEqual(pt1, (XLPivotTable)pt1.CopyTo(wb2.AddWorksheet("pvt").FirstCell()), compareName: true);
     }
 
     private static async Task AssertPivotTablesAreEqual(XLPivotTable original, XLPivotTable copy, bool compareName)
@@ -590,7 +590,7 @@ public class XLPivotTableTests
         await TestHelper.CreateAndCompare(() =>
         {
             var wb = new XLWorkbook(stream);
-            var srcRange = wb.Range("Sheet1!$B$2:$H$207");
+            var srcRange = wb.Range("Sheet1!$B$2:$H$207")!;
 
             var pivotSource = wb.PivotCaches.Add(srcRange);
 

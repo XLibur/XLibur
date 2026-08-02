@@ -224,10 +224,10 @@ public class XLRangeBaseTests
         await Assert.That(ws.Cell("E9").AsRange().Intersection(ws.Range("D4:G16"))!.ToString()).IsEqualTo("E9:E9");
         await Assert.That(ws.Range("D4:G16").Intersection(ws.Cell("E9").AsRange())!.ToString()).IsEqualTo("E9:E9");
 
-        var rangeAddress = (XLRangeAddress)ws.Cell("C3").AsRange().Intersection(ws.Cell("A1").AsRange());
+        var rangeAddress = (XLRangeAddress)ws.Cell("C3").AsRange().Intersection(ws.Cell("A1").AsRange())!;
         await Assert.That(rangeAddress.IsValid).IsFalse();
 
-        rangeAddress = (XLRangeAddress)ws.Cell("A1").AsRange().Intersection(ws.Cell("C3").AsRange());
+        rangeAddress = (XLRangeAddress)ws.Cell("A1").AsRange().Intersection(ws.Cell("C3").AsRange())!;
         await Assert.That(rangeAddress.IsValid).IsFalse();
 
         await Assert.That(ws.Range("A1:C3").Intersection(null!)).IsNull();
@@ -495,7 +495,7 @@ public class XLRangeBaseTests
     {
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        var range = ws.Range(rangeAddress) as XLRange;
+        var range = (XLRange)ws.Range(rangeAddress);
         var splitter = ws.Range(splitBy);
 
         var result = range.Split(splitter.RangeAddress, includeIntersection);

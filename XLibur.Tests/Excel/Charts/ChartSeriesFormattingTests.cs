@@ -482,7 +482,7 @@ public class ChartSeriesFormattingTests
     {
         // Left on disk on purpose: this is the file to open in Excel when checking that the
         // formatting renders the way it is meant to.
-        var path = Path.Combine(TestContext.TestDirectory, "FormattedChartExamples.xlsx");
+        var path = Path.Combine(TestContext.TestDirectory!, "FormattedChartExamples.xlsx");
         new XLibur.Examples.Charts.FormattedChartExamples().Create(path);
         Console.Out.WriteLine($"Formatted chart example: {path}");
 

@@ -46,7 +46,7 @@ public class DefinedNameStructuredReferenceTests
 
     private static string[] RangesOf(XLWorkbook wb, string formula) =>
         wb.DefinedNames.Add("Probe", formula).Ranges
-            .Select(r => r.RangeAddress.ToString())
+            .Select(r => r.RangeAddress.ToString()!)
             .ToArray();
 
     [Test]

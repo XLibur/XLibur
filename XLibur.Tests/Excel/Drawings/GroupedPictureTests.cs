@@ -184,7 +184,7 @@ public class GroupedPictureTests
         output.Position = 0;
         using (var package = SpreadsheetDocument.Open(output, false))
         {
-            var group = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing
+            var group = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing!
                 .Descendants<Xdr.GroupShape>().Single();
             await Assert.That(group.Descendants<Xdr.Picture>().Count()).IsEqualTo(2);
             await Assert.That(group.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1);
@@ -421,7 +421,7 @@ public class GroupedPictureTests
         output.Position = 0;
         using (var package = SpreadsheetDocument.Open(output, false))
         {
-            var group = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing
+            var group = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing!
                 .Descendants<Xdr.GroupShape>().Single();
             await Assert.That(group.Descendants<Xdr.Picture>().Count()).IsEqualTo(3).Because("the picture added to the group before its first save must not be dropped");
         }

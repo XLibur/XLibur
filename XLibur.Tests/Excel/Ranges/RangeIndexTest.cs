@@ -179,18 +179,18 @@ public class RangeIndexTest
             child.MaximumRow == 24576 &&
             child.Y == 2)).IsEqualTo(2);
 
-        await Assert.That(level0.Children[0].Children.Any()).IsTrue();
+        await Assert.That(level0.Children[0].Children!.Any()).IsTrue();
         await Assert.That(level0.Children.Skip(1).All(child => child.Children == null)).IsTrue();
 
         var level8 = level0
             .Children[0] // 1
-            .Children[0] // 2
-            .Children[0] // 3
-            .Children[0] // 4
-            .Children[0] // 5
-            .Children[0] // 6
-            .Children[0] // 7
-            .Children[^1]; // 8
+            .Children![0] // 2
+            .Children![0] // 3
+            .Children![0] // 4
+            .Children![0] // 5
+            .Children![0] // 6
+            .Children![0] // 7
+            .Children![^1]; // 8
 
         await Assert.That(level8.MinimumColumn).IsEqualTo(65);
         await Assert.That(level8.MinimumRow).IsEqualTo(65);
@@ -207,15 +207,15 @@ public class RangeIndexTest
     {
         using var wb = new XLWorkbook();
         var ws = (XLWorksheet)wb.Worksheets.Add("Sheet1");
-        var range1 = ws.Range("A1:B2");
-        var range2 = ws.Range("A2:B3");
-        var range3 = ws.Range("A1:B2"); // same as range1
+        var range1 = ws.Range("A1:B2")!;
+        var range2 = ws.Range("A2:B3")!;
+        var range3 = ws.Range("A1:B2")!; // same as range1
 
         var ranges = new XLRanges { range1 };
         await Assert.That(ranges.Count).IsEqualTo(1);
-        ranges.Add(range2!);
+        ranges.Add(range2);
         await Assert.That(ranges.Count).IsEqualTo(2);
-        ranges.Add(range3!);
+        ranges.Add(range3);
         await Assert.That(ranges.Count).IsEqualTo(2);
 
         // Add many entries to activate QuadTree

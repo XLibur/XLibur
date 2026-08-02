@@ -116,11 +116,11 @@ public class XLPivotCacheTests
         });
 
         var pivots = wb.AddWorksheet("Pivots");
-        var byPastry = pivots.PivotTables.Add("byPastry", pivots.Cell("A1"), pastries);
+        var byPastry = pivots.PivotTables.Add("byPastry", pivots.Cell("A1"), pastries!);
         byPastry.RowLabels.Add("Pastry");
         byPastry.Values.Add("Sold");
 
-        var byDough = pivots.PivotTables.Add("byDough", pivots.Cell("F1"), doughs);
+        var byDough = pivots.PivotTables.Add("byDough", pivots.Cell("F1"), doughs!);
         byDough.RowLabels.Add("Dough");
         byDough.Values.Add("Batches");
 

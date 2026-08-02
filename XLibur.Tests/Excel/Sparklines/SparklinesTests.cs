@@ -793,7 +793,7 @@ public class SparklinesTests
         {
             var themes = typeof(XLSparklineTheme);
             var prop = themes.GetProperty(themeName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-            return prop.GetValue(null, null)! as IXLSparklineStyle;
+            return (IXLSparklineStyle)prop!.GetValue(null, null)!;
         }
     }
 

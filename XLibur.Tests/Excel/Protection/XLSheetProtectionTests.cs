@@ -150,7 +150,7 @@ public class XLSheetProtectionTests
         await Assert.That(ReferenceEquals(ws1.Protection, ws2.Protection)).IsFalse();
         await Assert.That(ws2.Protection.IsProtected).IsTrue();
         await Assert.That(ws2.Protection.AllowedElements).IsEqualTo(XLSheetProtectionElements.FormatColumns | XLSheetProtectionElements.FormatRows | XLSheetProtectionElements.SelectEverything);
-        await Assert.That((ws2.Protection as XLSheetProtection).PasswordHash).IsEqualTo((ws1.Protection as XLSheetProtection).PasswordHash);
+        await Assert.That(((XLSheetProtection)ws2.Protection).PasswordHash).IsEqualTo(((XLSheetProtection)ws1.Protection).PasswordHash);
     }
 
     [Test]

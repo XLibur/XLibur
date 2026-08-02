@@ -33,7 +33,7 @@ public class ConditionalFormatRangeShiftTests
             ? $"K12:K{12 + inserted}"      // row above the insertion expands to swallow inserted rows
             : $"K{r + inserted}:K{r + inserted}"); // rows at/below the insertion move down
 
-        var actual = ws.ConditionalFormats.Select(cf => cf.Ranges.Single().RangeAddress.ToString());
+        var actual = ws.ConditionalFormats.Select(cf => cf.Ranges.Single().RangeAddress.ToString()!);
         await Assert.That(actual).IsEquivalentTo(expected.ToList(), CollectionOrdering.Matching);
     }
 

@@ -137,14 +137,15 @@ public class EmptyDataValidationTests
     }
 
     /// <summary>
-    /// Every <c>sqref</c> written to the sheet. Any empty entry here is the corruption this
-    /// class exists to prevent.
+    /// Every <c>sqref</c> written to the sheet. Any empty or null entry here is the corruption
+    /// this class exists to prevent, so the element type stays nullable rather than forgiving
+    /// the null and failing with a NullReferenceException instead of the assertion.
     /// </summary>
-    private static string[] ReadSqrefs(MemoryStream saved)
+    private static string?[] ReadSqrefs(MemoryStream saved)
     {
         saved.Position = 0;
         using var doc = SpreadsheetDocument.Open(saved, false);
-        var worksheet = doc.WorkbookPart!.WorksheetParts.Single().Worksheet;
+        var worksheet = doc.WorkbookPart!.WorksheetParts.Single().Worksheet!;
 
         return worksheet
             .Elements<DocumentFormat.OpenXml.Spreadsheet.DataValidations>()

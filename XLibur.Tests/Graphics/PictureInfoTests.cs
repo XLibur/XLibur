@@ -224,7 +224,7 @@ public class PictureInfoTests
     {
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream($"XLibur.Tests.Resource.Images.{imageName}");
         var engine = new DefaultGraphicEngine(DefaultFontEngine.Instance.Value);
-        var info = engine.GetPictureInfo(stream, XLPictureFormat.Unknown);
+        var info = engine.GetPictureInfo(stream!, XLPictureFormat.Unknown);
 
         await Assert.That(info.Format).IsEqualTo(expectedFormat);
         await Assert.That(info.SizePx).IsEqualTo(expectedPxSize);

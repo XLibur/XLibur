@@ -38,7 +38,7 @@ public class PivotFilterCriteriaTests
         var written = PivotFilterWorkbook.RoundTripFilterColumn(filterColumn).Elements<Filters>().Single();
 
         await Assert.That(written.Blank!.Value).IsTrue();
-        await Assert.That(written.Elements<Filter>().Select(f => f.Val!.Value).ToList())
+        await Assert.That(written.Elements<Filter>().Select(f => f.Val!.Value!).ToList())
             .IsEquivalentTo(new[] { "Cookies", "Cake" });
     }
 

@@ -239,7 +239,7 @@ internal class DependencyTreeTests
         AddFormula(tree, ws, "A4", "=A3");
 
         // Mark the middle one dirty, but A4 is still clear
-        ((XLCell)ws.Cell("A3")).Formula.MarkExplicitlyDirty();
+        ((XLCell)ws.Cell("A3")).Formula!.MarkExplicitlyDirty();
 
         MarkDirty(tree, ws, "A1");
         await AssertDirty(ws, "A2", "A3");
@@ -516,7 +516,7 @@ internal class DependencyTreeTests
         var cell = report.Cell("A1");
         cell.SetFormulaA1("SUM(TableName[Second])");
 
-        var cellFormula = ((XLCell)cell).Formula;
+        var cellFormula = ((XLCell)cell).Formula!;
         var dependencies = tree.AddFormula(new SheetArea(report.Name, cellFormula.Range), cellFormula, wb);
 
         await Assert.That(dependencies.Areas)
@@ -550,7 +550,7 @@ internal class DependencyTreeTests
         var cell = ws.Cell(formulaAddress);
         cell.SetFormulaA1(formula);
 
-        var cellFormula = ((XLCell)cell).Formula;
+        var cellFormula = ((XLCell)cell).Formula!;
         var dependencies = tree.AddFormula(new SheetArea(ws.Name, cellFormula.Range), cellFormula, wb);
         return dependencies;
     }

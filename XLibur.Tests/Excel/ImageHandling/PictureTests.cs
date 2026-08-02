@@ -355,9 +355,9 @@ public class PictureTests
         IXLPicture original;
         using (var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png"))
         {
-            original = (ws1 as XLWorksheet)!.AddPicture(stream!, "Picture 1", 2)
+            original = ((XLWorksheet)ws1).AddPicture(stream!, "Picture 1", 2)
                 .WithPlacement(XLPicturePlacement.FreeFloating)
-                .MoveTo(220, 155) as XLPicture;
+                .MoveTo(220, 155);
         }
 
         var copy = original!.Duplicate()
@@ -386,9 +386,9 @@ public class PictureTests
         IXLPicture original;
         using (var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png"))
         {
-            original = (ws1 as XLWorksheet)!.AddPicture(stream!, "Picture 1", 2)
+            original = ((XLWorksheet)ws1).AddPicture(stream!, "Picture 1", 2)
                 .WithPlacement(XLPicturePlacement.FreeFloating)
-                .MoveTo(220, 155) as XLPicture;
+                .MoveTo(220, 155);
         }
         var ws2 = wb.Worksheets.Add("Sheet2");
 
