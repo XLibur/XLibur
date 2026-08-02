@@ -194,7 +194,16 @@ public interface IXLRange : IXLRangeBase
     /// <summary>Returns the specified range.</summary>
     /// <para>e.g. Range("A1"), Range("A1:C2")</para>
     /// <param name="rangeAddress">The range boundaries.</param>
-    /// <exception cref="FormatException"><paramref name="rangeAddress"/> is not a valid address.</exception>
+    /// <remarks>
+    /// An unparseable <paramref name="rangeAddress"/> throws, but the type depends on how the
+    /// parse fails rather than on a single documented contract: <see cref="FormatException"/>
+    /// for a malformed address, <see cref="OverflowException"/> for row or column numbers past
+    /// the sheet limits, <see cref="ArgumentOutOfRangeException"/> for a name that is neither an
+    /// address nor a defined name, and <see cref="IndexOutOfRangeException"/> for an empty
+    /// string. Do not write a caller that catches one of these expecting to have covered the
+    /// rest. Contrast <see cref="Cell(string)"/>, which throws
+    /// <see cref="ArgumentException"/> for every bad input.
+    /// </remarks>
     IXLRange Range(string rangeAddress);
 
     /// <summary>Returns the specified range.</summary>
