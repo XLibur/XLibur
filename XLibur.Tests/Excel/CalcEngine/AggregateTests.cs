@@ -11,14 +11,14 @@ namespace XLibur.Tests.Excel.CalcEngine;
 [SetCulture("en-US")]
 public class AggregateTests
 {
-    private static XLWorksheet NewSheet(out XLWorkbook wb)
+    private static IXLWorksheet NewSheet(out XLWorkbook wb)
     {
         wb = new XLWorkbook();
-        return (XLWorksheet)wb.AddWorksheet("Sheet1");
+        return wb.AddWorksheet("Sheet1");
     }
 
     /// <summary>Put 1, 2, 3, 4 and 5 into A1:A5.</summary>
-    private static void SeedNumbers(XLWorksheet ws)
+    private static void SeedNumbers(IXLWorksheet ws)
     {
         for (var row = 1; row <= 5; row++)
             ws.Cell(row, 1).Value = row;

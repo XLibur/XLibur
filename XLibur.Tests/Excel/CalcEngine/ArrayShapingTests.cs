@@ -11,14 +11,14 @@ namespace XLibur.Tests.Excel.CalcEngine;
 [SetCulture("en-US")]
 public class ArrayShapingTests
 {
-    private static XLWorksheet NewSheet(out XLWorkbook wb)
+    private static IXLWorksheet NewSheet(out XLWorkbook wb)
     {
         wb = new XLWorkbook();
-        return (XLWorksheet)wb.AddWorksheet("Sheet1");
+        return wb.AddWorksheet("Sheet1");
     }
 
     /// <summary>Fill A1:C2 with 1..6 read left to right, top to bottom.</summary>
-    private static void SeedGrid(XLWorksheet ws)
+    private static void SeedGrid(IXLWorksheet ws)
     {
         var value = 1;
         for (var row = 1; row <= 2; row++)

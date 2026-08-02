@@ -7,10 +7,10 @@ namespace XLibur.Tests.Excel.CalcEngine;
 // sized range; scalar results (and the top-left collapse) through ws.Evaluate.
 public class DynamicArrayFunctionTests
 {
-    private static XLWorksheet NewSheet(out XLWorkbook wb)
+    private static IXLWorksheet NewSheet(out XLWorkbook wb)
     {
         wb = new XLWorkbook();
-        return (XLWorksheet)wb.AddWorksheet("Sheet1");
+        return wb.AddWorksheet("Sheet1");
     }
 
     [Test]

@@ -8,10 +8,10 @@ public class FinancialTvmTests
     private const double Tolerance = 1e-4;
     private const double IterativeTolerance = 1e-3;
 
-    private static XLWorksheet NewSheet(out XLWorkbook wb)
+    private static IXLWorksheet NewSheet(out XLWorkbook wb)
     {
         wb = new XLWorkbook();
-        return (XLWorksheet)wb.AddWorksheet("Sheet1");
+        return wb.AddWorksheet("Sheet1");
     }
 
     [Test]

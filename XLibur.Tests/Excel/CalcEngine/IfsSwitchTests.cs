@@ -5,10 +5,10 @@ namespace XLibur.Tests.Excel.CalcEngine;
 // IFS and SWITCH — scalar logical selectors added alongside IF.
 public class IfsSwitchTests
 {
-    private static XLWorksheet NewSheet(out XLWorkbook wb)
+    private static IXLWorksheet NewSheet(out XLWorkbook wb)
     {
         wb = new XLWorkbook();
-        return (XLWorksheet)wb.AddWorksheet("Sheet1");
+        return wb.AddWorksheet("Sheet1");
     }
 
     [Test]

@@ -10,10 +10,10 @@ namespace XLibur.Tests.Excel.CalcEngine;
 /// </summary>
 public class FinancialCashFlowTests
 {
-    private static XLWorksheet NewSheet(out XLWorkbook wb)
+    private static IXLWorksheet NewSheet(out XLWorkbook wb)
     {
         wb = new XLWorkbook();
-        return (XLWorksheet)wb.AddWorksheet("Sheet1");
+        return wb.AddWorksheet("Sheet1");
     }
 
     [Test]
@@ -349,7 +349,7 @@ public class FinancialCashFlowTests
         }
     }
 
-    private static void SeedIrregularSchedule(XLWorksheet ws)
+    private static void SeedIrregularSchedule(IXLWorksheet ws)
     {
         ws.Cell("A1").Value = -10000;
         ws.Cell("A2").Value = 2750;

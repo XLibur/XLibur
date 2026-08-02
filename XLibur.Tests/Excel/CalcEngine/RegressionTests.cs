@@ -13,14 +13,14 @@ namespace XLibur.Tests.Excel.CalcEngine;
 [SetCulture("en-US")]
 public class RegressionTests
 {
-    private static XLWorksheet NewSheet(out XLWorkbook wb)
+    private static IXLWorksheet NewSheet(out XLWorkbook wb)
     {
         wb = new XLWorkbook();
-        return (XLWorksheet)wb.AddWorksheet("Sheet1");
+        return wb.AddWorksheet("Sheet1");
     }
 
     /// <summary>x = 9, 7, 5, 3, 1 in column A and y = 10, 6, 1, 5, 3 in column B.</summary>
-    private static void SeedScatter(XLWorksheet ws)
+    private static void SeedScatter(IXLWorksheet ws)
     {
         double[] xs = [9, 7, 5, 3, 1];
         double[] ys = [10, 6, 1, 5, 3];
@@ -32,7 +32,7 @@ public class RegressionTests
     }
 
     /// <summary>x = 1..5 in column A and the exactly linear y = 2x + 1 in column B.</summary>
-    private static void SeedExactLine(XLWorksheet ws)
+    private static void SeedExactLine(IXLWorksheet ws)
     {
         for (var row = 1; row <= 5; row++)
         {

@@ -9,10 +9,10 @@ namespace XLibur.Tests.Excel.CalcEngine;
 // footprint clears the cells the previous result no longer covers.
 public class SpillEvaluationTests
 {
-    private static XLWorksheet NewSheet(out XLWorkbook wb)
+    private static IXLWorksheet NewSheet(out XLWorkbook wb)
     {
         wb = new XLWorkbook();
-        return (XLWorksheet)wb.AddWorksheet("Sheet1");
+        return wb.AddWorksheet("Sheet1");
     }
 
     [Test]

@@ -12,13 +12,13 @@ namespace XLibur.Tests.Excel.CalcEngine;
 [SetCulture("en-US")]
 public class HypothesisTestTests
 {
-    private static XLWorksheet NewSheet(out XLWorkbook wb)
+    private static IXLWorksheet NewSheet(out XLWorkbook wb)
     {
         wb = new XLWorkbook();
-        return (XLWorksheet)wb.AddWorksheet("Sheet1");
+        return wb.AddWorksheet("Sheet1");
     }
 
-    private static void SeedTwoSamples(XLWorksheet ws)
+    private static void SeedTwoSamples(IXLWorksheet ws)
     {
         double[] first = [3, 4, 5, 8, 9, 1, 2, 4, 5];
         double[] second = [6, 19, 3, 2, 14, 4, 5, 17, 1];
