@@ -132,7 +132,7 @@ public class LoadingTests
         var ws = wb.Worksheets.First();
         var table = ws.Tables.First();
         var rangeBefore = table.RangeAddress.ToString();
-        table.DataRange.InsertRowsBelow(5);
+        table.DataRange!.InsertRowsBelow(5);
 
         await Assert.That(table.RangeAddress.ToString()).IsNotEqualTo(rangeBefore);
     }

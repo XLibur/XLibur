@@ -18,7 +18,7 @@ public class ColumnTests
         var fromColumn = ws.Column(1).ColumnUsed();
         await Assert.That(fromColumn.RangeAddress.ToStringRelative()).IsEqualTo("A2:A3");
 
-        var fromRange = ws.Range("A1:A5").FirstColumn().ColumnUsed();
+        var fromRange = ws.Range("A1:A5").FirstColumn()!.ColumnUsed();
         await Assert.That(fromRange.RangeAddress.ToStringRelative()).IsEqualTo("A2:A3");
     }
 
@@ -38,7 +38,7 @@ public class ColumnTests
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue("Test").Style.Font.SetBold();
-        ws.FirstColumn().CopyTo(ws.Column(2));
+        ws.FirstColumn()!.CopyTo(ws.Column(2));
 
         await Assert.That(ws.Cell("B1").Style.Font.Bold).IsTrue();
     }
@@ -236,7 +236,7 @@ public class ColumnTests
         ws.Cell("A1").Value = "A1";
         ws.Cell("B1").Value = "B1";
         ws.Cell("A2").Value = "A2";
-        var lastCoUsed = ws.LastColumnUsed().ColumnNumber();
+        var lastCoUsed = ws.LastColumnUsed()!.ColumnNumber();
         await Assert.That(lastCoUsed).IsEqualTo(2);
     }
 
@@ -298,9 +298,9 @@ public class ColumnTests
         var wb = new XLWorkbook();
         wb.DefinedNames.Add("TestName", XLError.NameNotRecognized.ToDisplayString());
         var ws1 = wb.AddWorksheet();
-        await Assert.That(() => ws1.FirstColumn().InsertColumnsAfter(1)).ThrowsNothing();
+        await Assert.That(() => ws1.FirstColumn()!.InsertColumnsAfter(1)).ThrowsNothing();
         var ws2 = wb.AddWorksheet();
-        await Assert.That(() => ws2.FirstColumn().InsertColumnsBefore(1)).ThrowsNothing();
+        await Assert.That(() => ws2.FirstColumn()!.InsertColumnsBefore(1)).ThrowsNothing();
 
         await Assert.That(wb.Worksheets.Count).IsEqualTo(2);
     }

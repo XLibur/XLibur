@@ -104,7 +104,7 @@ public class DataValidationTests
         var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell("A1").SetValue("A");
         ws.Cell("B1").CreateDataValidation().Custom("A1");
-        ws.FirstRow().InsertRowsAbove(1);
+        ws.FirstRow()!.InsertRowsAbove(1);
 
         await Assert.That(ws.Cell("B2").GetDataValidation().Value).IsEqualTo("A2");
     }
@@ -127,7 +127,7 @@ public class DataValidationTests
         var ws = wb.Worksheets.Add("Sheet1");
         ws.Cell("A1").SetValue("A");
         ws.Cell("B1").CreateDataValidation().Custom("A1");
-        ws.FirstColumn().InsertColumnsBefore(1);
+        ws.FirstColumn()!.InsertColumnsBefore(1);
 
         await Assert.That(ws.Cell("C1").GetDataValidation().Value).IsEqualTo("B1");
     }
@@ -153,12 +153,12 @@ public class DataValidationTests
             .CellBelow().SetValue("A")
             .CellBelow().SetValue("B");
 
-        var table = ws.RangeUsed().CreateTable();
+        var table = ws.RangeUsed()!.CreateTable();
 
-        var dv = table.DataRange.CreateDataValidation();
+        var dv = table.DataRange!.CreateDataValidation();
         dv.ErrorTitle = "Error";
 
-        await Assert.That(table.DataRange.FirstCell().GetDataValidation().ErrorTitle).IsEqualTo("Error");
+        await Assert.That(table.DataRange!.FirstCell().GetDataValidation().ErrorTitle).IsEqualTo("Error");
     }
 
     [Test]
@@ -170,9 +170,9 @@ public class DataValidationTests
         ws.FirstCell().SetValue("Categories")
             .CellBelow().SetValue("A");
 
-        var table = ws.RangeUsed().CreateTable();
+        var table = ws.RangeUsed()!.CreateTable();
 
-        var dv = table.DataRange.CreateDataValidation();
+        var dv = table.DataRange!.CreateDataValidation();
         dv.ErrorTitle = "Error";
 
         await Assert.That(ws.DataValidations.Single().ErrorTitle).IsEqualTo("Error");
@@ -336,7 +336,7 @@ public class DataValidationTests
     [Test]
     public async Task CannotCreateDataValidationWithoutRange()
     {
-        await Assert.That(() => new XLDataValidation(null)).Throws<ArgumentNullException>();
+        await Assert.That(() => new XLDataValidation(null!)).Throws<ArgumentNullException>();
     }
 
     [Test]
@@ -430,7 +430,7 @@ public class DataValidationTests
         var dv = new XLDataValidation(range1);
 
         dv.RemoveRange(range2);
-        dv.RemoveRange(null);
+        dv.RemoveRange(null!);
 
         await Assert.That(dv.Ranges.Single()).IsSameReferenceAs(range1);
     }
@@ -652,7 +652,7 @@ public class DataValidationTests
         }
 
         // Set up AutoFilter on column 4 with "Is Issue" filter
-        ws.RangeUsed().SetAutoFilter().Column(4).AddFilter("Is Issue");
+        ws.RangeUsed()!.SetAutoFilter().Column(4).AddFilter("Is Issue");
 
         // User passes a pre-quoted string with comma-separated values
         var errorList = new List<string> { "New", "Backdated", "Old", "Other" };

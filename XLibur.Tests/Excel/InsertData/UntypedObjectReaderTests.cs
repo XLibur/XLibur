@@ -12,7 +12,7 @@ public class UntypedObjectReaderTests
 {
     private readonly ArrayList _data = new(new object[]
     {
-        null,
+        null!,
         new TablesTests.TestObjectWithAttributes
         {
             Column1 = "Value 1",
@@ -20,9 +20,9 @@ public class UntypedObjectReaderTests
             UnOrderedColumn = 3,
             MyField = 4,
         },
-        null,
-        null,
-        null,
+        null!,
+        null!,
+        null!,
         new[] { 1, 2, 3 },
         new[] { 4, 5, 6, 7 },
         "Separator",

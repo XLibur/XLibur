@@ -25,7 +25,7 @@ public class RowTests
         var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
         ws.FirstCell().SetValue("Test").Style.Font.SetBold();
-        ws.FirstRow().CopyTo(ws.Row(2));
+        ws.FirstRow()!.CopyTo(ws.Row(2));
 
         await Assert.That(ws.Cell("A2").Style.Font.Bold).IsTrue();
     }
@@ -239,7 +239,7 @@ public class RowTests
         var fromRow = ws.Row(1).RowUsed();
         await Assert.That(fromRow.RangeAddress.ToStringRelative()).IsEqualTo("B1:C1");
 
-        var fromRange = ws.Range("A1:E1").FirstRow().RowUsed();
+        var fromRange = ws.Range("A1:E1").FirstRow()!.RowUsed();
         await Assert.That(fromRange.RangeAddress.ToStringRelative()).IsEqualTo("B1:C1");
     }
 

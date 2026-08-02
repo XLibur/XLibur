@@ -31,7 +31,7 @@ public sealed class ResourceFileExtractor
             var key = assembly.GetName().FullName;
             if (extractors.TryGetValue(key, out var extractor)
                 || extractors.TryGetValue(key, out extractor)) return extractor;
-            extractor = new ResourceFileExtractor(assembly, true, null);
+            extractor = new ResourceFileExtractor(assembly, true, null!);
             extractors.Add(key, extractor);
 
             return extractor;
@@ -150,7 +150,7 @@ public sealed class ResourceFileExtractor
 
     public bool IsStatic { get; set; }
 
-    public IEnumerable<string> GetFileNames(Func<String, Boolean> predicate = null)
+    public IEnumerable<string> GetFileNames(Func<String, Boolean> predicate = null!)
     {
         predicate ??= (s => true);
 

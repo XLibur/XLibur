@@ -9,7 +9,7 @@ namespace XLibur.Tests.Excel.CalcEngine;
 [SetCulture("en-US")]
 public class LookupTests
 {
-    private static IXLWorksheet ws;
+    private static IXLWorksheet ws = null!;
 
     #region Setup and teardown
 

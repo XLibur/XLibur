@@ -85,11 +85,11 @@ public class BatchRowDeleteCompactionTests
         ws.Cell("H3").Value = "far right";
         ws.Cell("A4").Value = 4;
 
-        await Assert.That(ws.LastColumnUsed().ColumnNumber()).IsEqualTo(8);
+        await Assert.That(ws.LastColumnUsed()!.ColumnNumber()).IsEqualTo(8);
 
         ws.Rows("3:3").Delete();
 
-        await Assert.That(ws.LastColumnUsed().ColumnNumber()).IsEqualTo(1);
+        await Assert.That(ws.LastColumnUsed()!.ColumnNumber()).IsEqualTo(1);
     }
 
     [Test]
@@ -102,7 +102,7 @@ public class BatchRowDeleteCompactionTests
 
         ws.Rows("3:3").Delete();
 
-        await Assert.That(ws.LastColumnUsed().ColumnNumber()).IsEqualTo(8);
+        await Assert.That(ws.LastColumnUsed()!.ColumnNumber()).IsEqualTo(8);
     }
 
     [Test]
@@ -115,7 +115,7 @@ public class BatchRowDeleteCompactionTests
 
         ws.Rows("2:2,5:5,9:9").Delete();
 
-        await Assert.That(ws.LastRowUsed().RowNumber()).IsEqualTo(7);
+        await Assert.That(ws.LastRowUsed()!.RowNumber()).IsEqualTo(7);
         await Assert.That(ws.Cell(8, 1).IsEmpty()).IsTrue();
     }
 

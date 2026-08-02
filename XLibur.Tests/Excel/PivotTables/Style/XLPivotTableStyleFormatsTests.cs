@@ -22,7 +22,7 @@ internal class XLPivotTableStyleFormatsTests
 
             var ptSheet = wb.AddWorksheet().SetTabActive();
             ptSheet.Column("A").Width = 15;
-            var pt = dataRange.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
+            var pt = dataRange!.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
             pt.RowLabels.Add("Name");
             pt.Values.Add("Price", "Avg $").SetSummaryFormula(XLPivotSummary.Average);
             pt.Values.Add("Price", "Max $").SetSummaryFormula(XLPivotSummary.Maximum);
@@ -56,7 +56,7 @@ internal class XLPivotTableStyleFormatsTests
             });
 
             var ptSheet = wb.AddWorksheet().SetTabActive();
-            var pt = dataRange.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
+            var pt = dataRange!.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
             pt.RowLabels.Add("Name");
             pt.Values.Add("Price");
 
@@ -109,7 +109,7 @@ internal class XLPivotTableStyleFormatsTests
 
             var ptSheet = wb.AddWorksheet().SetTabActive();
             ptSheet.Column("A").Width = 15;
-            var pt = dataRange.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
+            var pt = dataRange!.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
             pt.RowLabels.Add("Name");
             pt.RowLabels.Add("Month");
             pt.Values.Add("Price");

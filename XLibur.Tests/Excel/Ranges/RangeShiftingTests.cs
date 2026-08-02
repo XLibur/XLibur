@@ -77,12 +77,12 @@ public class RangeShiftingTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var deletedRange = ws.Range(deletedRangeAddress);
-        var rangeHeight = deletedRange.LastRow().RowNumber() - deletedRange.FirstRow().RowNumber() + 1;
+        var rangeHeight = deletedRange.LastRow()!.RowNumber() - deletedRange.FirstRow()!.RowNumber() + 1;
         var mergedRange = ws.Range(
-            deletedRange.LastRow().RowNumber() + 1,
-            deletedRange.FirstColumn().ColumnNumber(),
-            deletedRange.LastRow().RowNumber() + rangeHeight,
-            deletedRange.LastColumn().ColumnNumber()
+            deletedRange.LastRow()!.RowNumber() + 1,
+            deletedRange.FirstColumn()!.ColumnNumber(),
+            deletedRange.LastRow()!.RowNumber() + rangeHeight,
+            deletedRange.LastColumn()!.ColumnNumber()
         );
         mergedRange.Merge();
 
@@ -101,12 +101,12 @@ public class RangeShiftingTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var deletedRange = ws.Range(deletedRangeAddress);
-        var rangeWidth = deletedRange.LastColumn().ColumnNumber() - deletedRange.FirstColumn().ColumnNumber() + 1;
+        var rangeWidth = deletedRange.LastColumn()!.ColumnNumber() - deletedRange.FirstColumn()!.ColumnNumber() + 1;
         var mergedRange = ws.Range(
-            deletedRange.FirstRow().RowNumber(),
-            deletedRange.LastColumn().ColumnNumber() + 1,
-            deletedRange.LastRow().RowNumber(),
-            deletedRange.LastColumn().ColumnNumber() + rangeWidth
+            deletedRange.FirstRow()!.RowNumber(),
+            deletedRange.LastColumn()!.ColumnNumber() + 1,
+            deletedRange.LastRow()!.RowNumber(),
+            deletedRange.LastColumn()!.ColumnNumber() + rangeWidth
         );
         mergedRange.Merge();
 

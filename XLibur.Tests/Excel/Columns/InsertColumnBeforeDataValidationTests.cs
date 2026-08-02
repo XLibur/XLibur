@@ -34,7 +34,7 @@ public class InsertColumnBeforeDataValidationTests
         saved.Position = 0;
         using var doc = SpreadsheetDocument.Open(saved, false);
         var sheetPart = doc.WorkbookPart!.WorksheetParts.First();
-        var written = sheetPart.Worksheet.Descendants<DataValidation>()
+        var written = sheetPart.Worksheet!.Descendants<DataValidation>()
             .Select(dv => (title: dv.PromptTitle?.Value ?? string.Empty,
                            sqref: dv.SequenceOfReferences!.InnerText))
             .ToList();
@@ -91,7 +91,7 @@ public class InsertColumnBeforeDataValidationTests
         saved.Position = 0;
         using var doc = SpreadsheetDocument.Open(saved, false);
         var sheetPart = doc.WorkbookPart!.WorksheetParts.First();
-        var dvs = sheetPart.Worksheet.Descendants<DataValidation>()
+        var dvs = sheetPart.Worksheet!.Descendants<DataValidation>()
             .Select(dv => (title: dv.PromptTitle?.Value ?? string.Empty,
                            sqref: dv.SequenceOfReferences!.InnerText,
                            f1: dv.Formula1?.InnerText ?? string.Empty))

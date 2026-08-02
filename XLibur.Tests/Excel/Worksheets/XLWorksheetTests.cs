@@ -547,8 +547,8 @@ public class XLWorksheetTests
             var cellsUsed = ws1Assert.Range(ws1Assert.FirstCell(), ws1Assert.LastCellUsed()).Cells();
             foreach (var cell in cellsUsed)
             {
-                var style1 = (cell.Style as XLStyle).Value;
-                var style2 = (ws2.Cell(cell.Address.ToString()).Style as XLStyle).Value;
+                var style1 = (cell.Style as XLStyle)!.Value;
+                var style2 = (ws2.Cell(cell.Address.ToString()).Style as XLStyle)!.Value;
                 await Assert.That(style2).IsEqualTo(style1).Because($"Cell {cell.Address} styles differ");
             }
         }
@@ -580,7 +580,7 @@ public class XLWorksheetTests
                 await Assert.That(copy.Ranges.ElementAt(j).RangeAddress.ToString(XLReferenceStyle.A1, false)).IsEqualTo(original.Ranges.ElementAt(j).RangeAddress.ToString(XLReferenceStyle.A1, false));
             }
 
-            await Assert.That((copy.Style as XLStyle).Value).IsEqualTo((original.Style as XLStyle).Value);
+            await Assert.That((copy.Style as XLStyle)!.Value).IsEqualTo((original.Style as XLStyle)!.Value);
             await Assert.That(copy.Values.Single().Value.Value).IsEqualTo(original.Values.Single().Value.Value);
         }
     }
@@ -632,7 +632,7 @@ public class XLWorksheetTests
             await Assert.That(copy.ShowHeaderRow).IsEqualTo(original.ShowHeaderRow);
             await Assert.That(copy.ShowRowStripes).IsEqualTo(original.ShowRowStripes);
             await Assert.That(copy.ShowTotalsRow).IsEqualTo(original.ShowTotalsRow);
-            await Assert.That((copy.Style as XLStyle).Value).IsEqualTo((original.Style as XLStyle).Value);
+            await Assert.That((copy.Style as XLStyle)!.Value).IsEqualTo((original.Style as XLStyle)!.Value);
             await Assert.That(copy.Theme).IsEqualTo(original.Theme);
         }
     }

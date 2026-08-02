@@ -97,7 +97,7 @@ public class PivotChartFormatTests
         });
 
         var pivots = wb.AddWorksheet("Pivots");
-        var pt = pivots.PivotTables.Add("pvt", pivots.Cell("A1"), range);
+        var pt = pivots.PivotTables.Add("pvt", pivots.Cell("A1"), range!);
         pt.RowLabels.Add("Pastry");
         pt.Values.Add("Sold");
 

@@ -21,7 +21,7 @@ internal class XLPivotFieldStyleFormatsTests
 
             var ptSheet = wb.AddWorksheet().SetTabActive();
             ptSheet.Column("A").Width = 15;
-            var pt = dataRange.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
+            var pt = dataRange!.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
             pt.RowLabels.Add("Name");
             var monthField = pt.RowLabels.Add("Month");
             pt.Values.Add("Price");
@@ -54,7 +54,7 @@ internal class XLPivotFieldStyleFormatsTests
             });
 
             var ptSheet = wb.AddWorksheet().SetTabActive();
-            var pt = dataRange.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
+            var pt = dataRange!.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
             pt.Layout = layout;
             pt.Values.Add("Price");
             pt.RowLabels.Add("Month");
@@ -85,7 +85,7 @@ internal class XLPivotFieldStyleFormatsTests
             });
 
             var ptSheet = wb.AddWorksheet().SetTabActive();
-            var pt = dataRange.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
+            var pt = dataRange!.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
             pt.Values.Add("Price");
             var nameField = pt.RowLabels.Add("Name")
                 .AddSubtotal(XLSubtotalFunction.Sum)
@@ -127,7 +127,7 @@ internal class XLPivotFieldStyleFormatsTests
             });
 
             var ptSheet = wb.AddWorksheet().SetTabActive();
-            var pt = dataRange.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
+            var pt = dataRange!.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
             var nameRowField = pt.RowLabels.Add("Name");
             var monthRowField = pt.RowLabels.Add("Month");
             var flavorColumnField = pt.ColumnLabels.Add("Flavor");
@@ -164,7 +164,7 @@ internal class XLPivotFieldStyleFormatsTests
             });
 
             var ptSheet = wb.AddWorksheet().SetTabActive();
-            var pt = dataRange.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
+            var pt = dataRange!.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
 
             pt.RowLabels.Add("Name");
             pt.RowLabels.Add(XLConstants.PivotTable.ValuesSentinalLabel);
@@ -195,7 +195,7 @@ internal class XLPivotFieldStyleFormatsTests
             });
 
             var ptSheet = wb.AddWorksheet().SetTabActive();
-            var pt = dataRange.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
+            var pt = dataRange!.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
 
             var nameField = pt.RowLabels.Add("Name");
             var flavorField = pt.ColumnLabels.Add("Flavor");

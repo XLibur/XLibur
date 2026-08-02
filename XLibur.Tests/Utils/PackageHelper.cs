@@ -252,7 +252,7 @@ public static class PackageHelper
     /// <param name="message"></param>
     public static bool Compare(Package left, Package right, bool compareToFirstDifference, out string message)
     {
-        return Compare(left, right, compareToFirstDifference, null, out message);
+        return Compare(left, right, compareToFirstDifference, null!, out message);
     }
 
     /// <summary>

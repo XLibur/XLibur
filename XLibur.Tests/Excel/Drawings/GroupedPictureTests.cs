@@ -72,7 +72,7 @@ public class GroupedPictureTests
         await Assert.That(drawingsPart).IsNotNull();
         var drawing = drawingsPart!.WorksheetDrawing;
 
-        var groups = drawing.Descendants<Xdr.GroupShape>().ToList();
+        var groups = drawing!.Descendants<Xdr.GroupShape>().ToList();
         await Assert.That(groups.Count).IsEqualTo(1).Because("group preserved");
 
         // Assert on the group node so the shapes are verified to remain *inside* the group rather
@@ -91,7 +91,7 @@ public class GroupedPictureTests
         await Assert.That(extents[1]).IsEqualTo((1_500_000L, 1_500_000L));
 
         // Both image relationships still resolve to image parts.
-        var embeds = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
+        var embeds = drawing!.Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
             .Select(b => b.Embed?.Value).Where(v => v is not null).ToList();
         await Assert.That(embeds.Count).IsEqualTo(2);
         foreach (var embed in embeds)
@@ -131,7 +131,7 @@ public class GroupedPictureTests
         using (var package = SpreadsheetDocument.Open(output, false))
         {
             var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
-            var groups = drawing.Descendants<Xdr.GroupShape>().ToList();
+            var groups = drawing!.Descendants<Xdr.GroupShape>().ToList();
             await Assert.That(groups.Count).IsEqualTo(1);
 
             // The picture stays inside the group after the resize, alongside its sibling and connector.
@@ -219,13 +219,13 @@ public class GroupedPictureTests
         {
             var drawingsPart = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!;
             var drawing = drawingsPart.WorksheetDrawing;
-            var group = drawing.Descendants<Xdr.GroupShape>().Single();
+            var group = drawing!.Descendants<Xdr.GroupShape>().Single();
 
             await Assert.That(group.Descendants<Xdr.Picture>().Count()).IsEqualTo(1);
             await Assert.That(group.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1);
 
             // The surviving picture's image part is kept; the removed picture's is dropped.
-            var embeds = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
+            var embeds = drawing!.Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
                 .Select(b => b.Embed?.Value).Where(v => v is not null).ToList();
             await Assert.That(embeds.Count).IsEqualTo(1);
             await Assert.That(drawingsPart.GetPartById(embeds[0]!)).IsAssignableTo<ImagePart>();
@@ -321,9 +321,9 @@ public class GroupedPictureTests
         using (var package = SpreadsheetDocument.Open(output, false))
         {
             var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
-            var group = drawing.Descendants<Xdr.GroupShape>().Single();
+            var group = drawing!.Descendants<Xdr.GroupShape>().Single();
             await Assert.That(group.Descendants<Xdr.Picture>().Count()).IsEqualTo(2);
-            await Assert.That(drawing.Descendants<Xdr.Picture>().Count()).IsEqualTo(2).Because("no picture left outside the group");
+            await Assert.That(drawing!.Descendants<Xdr.Picture>().Count()).IsEqualTo(2).Because("no picture left outside the group");
             await Assert.That(drawing.Elements<Xdr.AbsoluteAnchor>().Count()).IsEqualTo(1).Because("only the group's anchor remains");
         }
 
@@ -496,12 +496,12 @@ public class GroupedPictureTests
         using var package = SpreadsheetDocument.Open(output, false);
         var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
 
-        await Assert.That(drawing.Descendants<Xdr.GroupShape>().Count()).IsEqualTo(2).Because("outer + inner group preserved");
-        await Assert.That(drawing.Descendants<Xdr.Picture>().Count()).IsEqualTo(2).Because("both pictures preserved");
-        await Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1).Because("nested connector preserved");
+        await Assert.That(drawing!.Descendants<Xdr.GroupShape>().Count()).IsEqualTo(2).Because("outer + inner group preserved");
+        await Assert.That(drawing!.Descendants<Xdr.Picture>().Count()).IsEqualTo(2).Because("both pictures preserved");
+        await Assert.That(drawing!.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1).Because("nested connector preserved");
 
         // Unedited pictures keep their exact child-space extents at their respective depths.
-        var extents = drawing.Descendants<Xdr.Picture>()
+        var extents = drawing!.Descendants<Xdr.Picture>()
             .Select(p => p.ShapeProperties!.Transform2D!.Extents!.Cx!.Value)
             .OrderByDescending(cx => cx)
             .ToList();
@@ -538,9 +538,9 @@ public class GroupedPictureTests
         using (var package = SpreadsheetDocument.Open(output, false))
         {
             var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
-            await Assert.That(drawing.Descendants<Xdr.GroupShape>().Count()).IsEqualTo(2);
-            await Assert.That(drawing.Descendants<Xdr.Picture>().Count()).IsEqualTo(2);
-            await Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1);
+            await Assert.That(drawing!.Descendants<Xdr.GroupShape>().Count()).IsEqualTo(2);
+            await Assert.That(drawing!.Descendants<Xdr.Picture>().Count()).IsEqualTo(2);
+            await Assert.That(drawing!.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1);
         }
     }
 
@@ -573,9 +573,9 @@ public class GroupedPictureTests
         using (var package = SpreadsheetDocument.Open(output, false))
         {
             var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
-            await Assert.That(drawing.Descendants<Xdr.GroupShape>().Count()).IsEqualTo(2);
-            await Assert.That(drawing.Descendants<Xdr.Picture>().Count()).IsEqualTo(2);
-            await Assert.That(drawing.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1);
+            await Assert.That(drawing!.Descendants<Xdr.GroupShape>().Count()).IsEqualTo(2);
+            await Assert.That(drawing!.Descendants<Xdr.Picture>().Count()).IsEqualTo(2);
+            await Assert.That(drawing!.Descendants<Xdr.ConnectionShape>().Count()).IsEqualTo(1);
         }
     }
 }

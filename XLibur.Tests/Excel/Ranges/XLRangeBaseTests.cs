@@ -229,7 +229,7 @@ public class XLRangeBaseTests
         rangeAddress = (XLRangeAddress)ws.Cell("A1").AsRange().Intersection(ws.Cell("C3").AsRange());
         await Assert.That(rangeAddress.IsValid).IsFalse();
 
-        await Assert.That(ws.Range("A1:C3").Intersection(null)).IsNull();
+        await Assert.That(ws.Range("A1:C3").Intersection(null!)).IsNull();
 
         var otherWs = wb.AddWorksheet("Sheet2");
         await Assert.That(ws.Intersection(otherWs)).IsNull();
@@ -249,7 +249,7 @@ public class XLRangeBaseTests
 
         await Assert.That(ws.Cell("A1").AsRange().Union(ws.Cell("C3").AsRange()).Count()).IsEqualTo(2);
 
-        await Assert.That(ws.Range("A1:C3").Union(null).Count()).IsEqualTo(9);
+        await Assert.That(ws.Range("A1:C3").Union(null!).Count()).IsEqualTo(9);
 
         var otherWs = wb.AddWorksheet("Sheet2");
         await Assert.That(ws.Union(otherWs).Any()).IsFalse();
@@ -269,7 +269,7 @@ public class XLRangeBaseTests
 
         await Assert.That(ws.Cell("A1").AsRange().Difference(ws.Cell("C3").AsRange()).Count()).IsEqualTo(1);
 
-        await Assert.That(ws.Range("A1:C3").Difference(null).Count()).IsEqualTo(9);
+        await Assert.That(ws.Range("A1:C3").Difference(null!).Count()).IsEqualTo(9);
 
         var otherWs = wb.AddWorksheet("Sheet2");
         await Assert.That(ws.Difference(otherWs).Any()).IsFalse();
@@ -391,7 +391,7 @@ public class XLRangeBaseTests
         var rangesCopy = ranges.ToList();
 
         ranges.RemoveAll(null, false);
-        ws.FirstColumn().InsertColumnsBefore(1);
+        ws.FirstColumn()!.InsertColumnsBefore(1);
 
         await Assert.That(ranges.Count).IsEqualTo(0);
         // if ranges were not disposed they addresses should change

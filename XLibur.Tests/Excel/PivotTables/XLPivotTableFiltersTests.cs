@@ -18,7 +18,7 @@ public class XLPivotTableFiltersTests
             ("B", false),
         });
 
-        var pt = ws.PivotTables.Add("pt", ws.Cell("E1"), data);
+        var pt = ws.PivotTables.Add("pt", ws.Cell("E1"), data!);
         pt.RowLabels.Add("Col1");
         var filter = pt.ReportFilters.Add("Col2");
 
@@ -37,7 +37,7 @@ public class XLPivotTableFiltersTests
             ("Cake", "Tokyo", "Vanilla", 7),
         });
 
-        var pt = ws.PivotTables.Add("pt", ws.Cell("E2"), data);
+        var pt = ws.PivotTables.Add("pt", ws.Cell("E2"), data!);
 
         // No filter, the table is at the original cell
         await Assert.That(((XLPivotTable)pt).Area.ToString()).IsEqualTo("E2");

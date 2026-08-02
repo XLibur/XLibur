@@ -9,7 +9,7 @@ namespace XLibur.Tests.Excel.CalcEngine;
 public class StatisticalTests
 {
     private const double tolerance = 1e-6;
-    private static XLWorkbook workbook;
+    private static XLWorkbook workbook = null!;
 
     [Test]
     public async Task Average()

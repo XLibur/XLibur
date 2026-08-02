@@ -233,7 +233,7 @@ public class ArrayFormulaTests
         foreach (var cell in arraySheet.Range("A1:A3").Cells())
         {
             await Assert.That(cell.HasArrayFormula).IsTrue().Because($"{cell.Address} lost its array formula");
-            await Assert.That(cell.FormulaReference.ToStringRelative()).IsEqualTo("A1:A3");
+            await Assert.That(cell.FormulaReference!.ToStringRelative()).IsEqualTo("A1:A3");
         }
     }
 
@@ -251,7 +251,7 @@ public class ArrayFormulaTests
         foreach (var cell in ws.Range("B5:B7").Cells())
         {
             await Assert.That(cell.HasArrayFormula).IsTrue().Because($"{cell.Address} lost its array formula");
-            await Assert.That(cell.FormulaReference.ToStringRelative()).IsEqualTo("B5:B7");
+            await Assert.That(cell.FormulaReference!.ToStringRelative()).IsEqualTo("B5:B7");
         }
     }
 
@@ -267,7 +267,7 @@ public class ArrayFormulaTests
         foreach (var cell in ws.Range("C3:E3").Cells())
         {
             await Assert.That(cell.HasArrayFormula).IsTrue().Because($"{cell.Address} lost its array formula");
-            await Assert.That(cell.FormulaReference.ToStringRelative()).IsEqualTo("C3:E3");
+            await Assert.That(cell.FormulaReference!.ToStringRelative()).IsEqualTo("C3:E3");
         }
     }
 

@@ -190,8 +190,8 @@ public class XLRangeAddressTests
         var ws = wb.AddWorksheet("Sheet1");
 
         var wsRange = ws.AsRange();
-        var row = ws.FirstRow().RowBelow(4).AsRange();
-        var column = ws.FirstColumn().ColumnRight(4).AsRange();
+        var row = ws.FirstRow()!.RowBelow(4).AsRange();
+        var column = ws.FirstColumn()!.ColumnRight(4).AsRange();
 
         await Assert.That(wsRange.RangeAddress.ToString()).IsEqualTo($"1:{XLHelper.MaxRowNumber}");
         await Assert.That(row.RangeAddress.ToString()).IsEqualTo("5:5");

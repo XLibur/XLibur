@@ -75,7 +75,7 @@ internal class XLPivotTableAddFieldsTests
         });
 
         var ws = wb.AddWorksheet().SetTabActive();
-        var pt = ws.PivotTables.Add("Test", ws.FirstCell(), range);
+        var pt = ws.PivotTables.Add("Test", ws.FirstCell(), range!);
         return pt;
     }
 }

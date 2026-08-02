@@ -541,7 +541,7 @@ internal class DependencyTreeTests
 
     #endregion Structured references
 
-    private static FormulaDependencies GetDependencies(string formula, string formulaAddress = "A1", Action<XLWorkbook> init = null)
+    private static FormulaDependencies GetDependencies(string formula, string formulaAddress = "A1", Action<XLWorkbook> init = null!)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet");

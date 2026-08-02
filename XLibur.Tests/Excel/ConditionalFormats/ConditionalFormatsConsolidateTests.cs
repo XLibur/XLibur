@@ -123,8 +123,8 @@ public class ConditionalFormatsConsolidateTests
         ((XLConditionalFormats)ws.ConditionalFormats).Consolidate();
 
         await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(3);
-        await Assert.That((ws.ConditionalFormats.Last().Style as XLStyle).Value).IsEqualTo((ws.ConditionalFormats.First().Style as XLStyle).Value);
-        await Assert.That((ws.ConditionalFormats.ElementAt(1).Style as XLStyle).Value).IsNotEqualTo((ws.ConditionalFormats.First().Style as XLStyle).Value);
+        await Assert.That((ws.ConditionalFormats.Last().Style as XLStyle)!.Value).IsEqualTo((ws.ConditionalFormats.First().Style as XLStyle)!.Value);
+        await Assert.That((ws.ConditionalFormats.ElementAt(1).Style as XLStyle)!.Value).IsNotEqualTo((ws.ConditionalFormats.First().Style as XLStyle)!.Value);
     }
 
     [Test]
@@ -141,8 +141,8 @@ public class ConditionalFormatsConsolidateTests
         ((XLConditionalFormats)ws.ConditionalFormats).Consolidate();
 
         await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(3);
-        await Assert.That((ws.ConditionalFormats.Last().Style as XLStyle).Value).IsEqualTo((ws.ConditionalFormats.First().Style as XLStyle).Value);
-        await Assert.That((ws.ConditionalFormats.ElementAt(1).Style as XLStyle).Value).IsNotEqualTo((ws.ConditionalFormats.First().Style as XLStyle).Value);
+        await Assert.That((ws.ConditionalFormats.Last().Style as XLStyle)!.Value).IsEqualTo((ws.ConditionalFormats.First().Style as XLStyle)!.Value);
+        await Assert.That((ws.ConditionalFormats.ElementAt(1).Style as XLStyle)!.Value).IsNotEqualTo((ws.ConditionalFormats.First().Style as XLStyle)!.Value);
         await Assert.That(ws.ConditionalFormats.All(cf => cf.Ranges.Count == 1)).IsTrue().Because("Number of ranges in consolidated conditional formats is expected to be 1");
         await Assert.That(ws.ConditionalFormats.ElementAt(0).Ranges.Single().RangeAddress.ToString()).IsEqualTo("A1:A1");
         await Assert.That(ws.ConditionalFormats.ElementAt(1).Ranges.Single().RangeAddress.ToString()).IsEqualTo("A2:A3");
@@ -164,7 +164,7 @@ public class ConditionalFormatsConsolidateTests
         ((XLConditionalFormats)ws.ConditionalFormats).Consolidate();
 
         await Assert.That(ws.ConditionalFormats.Count()).IsEqualTo(1);
-        await Assert.That((cf.Style as XLStyle).Value).IsEqualTo((ws.ConditionalFormats.Single().Style as XLStyle).Value);
+        await Assert.That((cf.Style as XLStyle)!.Value).IsEqualTo((ws.ConditionalFormats.Single().Style as XLStyle)!.Value);
         await Assert.That(ws.ConditionalFormats.Single().Ranges.Single().RangeAddress.ToString()).IsEqualTo("A3:C8");
         await Assert.That(ws.ConditionalFormats.Single().Values.Single().Value.IsFormula).IsTrue();
         await Assert.That(ws.ConditionalFormats.Single().Values.Single().Value.Value).IsEqualTo("A3=$D3");

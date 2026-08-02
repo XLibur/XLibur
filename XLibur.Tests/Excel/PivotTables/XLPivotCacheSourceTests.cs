@@ -36,7 +36,7 @@ public class XLPivotCacheSourceTests
         using var wb = WorkbookWithData(out var sheet);
         var range = sheet.Range("A1:B4");
 
-        var cache = wb.PivotCaches.Add(range);
+        var cache = wb.PivotCaches.Add(range!);
 
         await Assert.That(cache.SourceKind).IsEqualTo(XLPivotSourceKind.Range);
         await Assert.That(cache.SourceRange).IsNotNull();

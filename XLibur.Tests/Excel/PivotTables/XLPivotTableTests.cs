@@ -42,7 +42,7 @@ public class XLPivotTableTests
 
             var data = wb.Worksheet("Data");
 
-            var pt = data.RangeUsed().CreatePivotTable(wb.AddWorksheet("pvt2").FirstCell(), "pvt2");
+            var pt = data.RangeUsed()!.CreatePivotTable(wb.AddWorksheet("pvt2").FirstCell(), "pvt2");
 
             pt.ColumnLabels.Add("Sex");
             pt.RowLabels.Add("FullName");
@@ -350,7 +350,7 @@ public class XLPivotTableTests
 
             // Add a new sheet for our pivot table
             var ptSheet = wb.Worksheets.Add("pvt");
-            var pt = ptSheet.PivotTables.Add("pvt", ptSheet.Cell(1, 1), range);
+            var pt = ptSheet.PivotTables.Add("pvt", ptSheet.Cell(1, 1), range!);
             pt.RowLabels.Add("Name");
             pt.Values.Add("Sold count");
 
@@ -652,8 +652,8 @@ public class XLPivotTableTests
             ("Pie", 14),
         });
 
-        var rangePivot1 = ws.PivotTables.Add("rangePivot1", ws.Cell("D1"), range);
-        var rangePivot2 = ws.PivotTables.Add("rangePivot2", ws.Cell("D20"), range);
+        var rangePivot1 = ws.PivotTables.Add("rangePivot1", ws.Cell("D1"), range!);
+        var rangePivot2 = ws.PivotTables.Add("rangePivot2", ws.Cell("D20"), range!);
 
         await Assert.That(rangePivot2).IsNotSameReferenceAs(rangePivot1);
         await Assert.That(rangePivot2.PivotCache).IsSameReferenceAs(rangePivot1.PivotCache);
@@ -784,7 +784,7 @@ public class XLPivotTableTests
             ("Name", "City", "Flavor", "Sales"),
             ("Cake", "Tokyo", "Vanilla", 7),
         });
-        var pt = ws.PivotTables.Add("pt", ws.Cell("E1"), data);
+        var pt = ws.PivotTables.Add("pt", ws.Cell("E1"), data!);
         pt.ReportFilters.Add("City");
 
         // Even when we added filter and a gap row, the target cell is still E1
@@ -813,7 +813,7 @@ public class XLPivotTableTests
             ("Cake", "Tokyo", "Vanilla", 7),
         });
 
-        var pt = ws.PivotTables.Add("pt", ws.Cell("E1"), data);
+        var pt = ws.PivotTables.Add("pt", ws.Cell("E1"), data!);
         pt.FilterAreaOrder = order;
 
         pt.ReportFilters.Add("Name");
@@ -851,7 +851,7 @@ public class XLPivotTableTests
 
                 var ptSheet = wb.AddWorksheet().SetTabActive();
                 ptSheet.Column("A").Width = 15;
-                var pt = dataRange.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
+                var pt = dataRange!.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
 
                 // Add at least two fields to each axis to make each layout distinctive.
                 pt.RowLabels.Add("Name");

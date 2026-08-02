@@ -22,7 +22,7 @@ public class XLPivotCacheTests
         var ws = wb.AddWorksheet();
         var range = ws.FirstCell().InsertData(PivotCacheFieldNamePie);
 
-        var pivotCache = wb.PivotCaches.Add(range);
+        var pivotCache = wb.PivotCaches.Add(range!);
         ws.Cell("A1").Value = "Pastry";
 
         await Assert.That(pivotCache.FieldNames).IsEquivalentTo(PivotCacheFieldNameOnly, CollectionOrdering.Matching);
@@ -35,7 +35,7 @@ public class XLPivotCacheTests
         var ws = wb.AddWorksheet();
         var range = ws.FirstCell().InsertData(PivotCacheFieldNamePie);
 
-        var pivotCache = wb.PivotCaches.Add(range);
+        var pivotCache = wb.PivotCaches.Add(range!);
         ws.Cell("A1").Value = "Pastry";
         pivotCache.Refresh();
 
@@ -49,7 +49,7 @@ public class XLPivotCacheTests
         var ws = wb.AddWorksheet();
         var range = ws.FirstCell().InsertData(PivotCacheFieldNamePie);
 
-        var pivotCache = wb.PivotCaches.Add(range);
+        var pivotCache = wb.PivotCaches.Add(range!);
 
         pivotCache.ItemsToRetainPerField = XLItemsToRetain.None;
         pivotCache.SaveSourceData = false;

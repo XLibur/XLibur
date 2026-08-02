@@ -22,7 +22,7 @@ public class SparklineShiftTests
     [Test]
     public async Task SparklineColumnShiftedOutOfSheetAreRemoved()
     {
-        await AssertSparklinePosition("XFD1", ws => ws.Column("C").InsertColumnsAfter(1), null);
+        await AssertSparklinePosition("XFD1", ws => ws.Column("C").InsertColumnsAfter(1), null!);
     }
 
     [Test]
@@ -40,7 +40,7 @@ public class SparklineShiftTests
     [Test]
     public async Task SparklineRowShiftedOutOfSheetAreRemoved()
     {
-        await AssertSparklinePosition($"A{XLHelper.MaxRowNumber}", ws => ws.Row(2).InsertRowsBelow(1), null);
+        await AssertSparklinePosition($"A{XLHelper.MaxRowNumber}", ws => ws.Row(2).InsertRowsBelow(1), null!);
     }
 
     private static async Task AssertSparklinePosition(string sparklineAddress, Action<IXLWorksheet> insertAction, string expectedAddress)

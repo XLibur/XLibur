@@ -14,14 +14,14 @@ public class SparklinesTests
     [Test]
     public async Task CannotCreateSparklineGroupsWithoutWorksheet()
     {
-        Action action = () => _ = new XLSparklineGroups(null);
+        Action action = () => _ = new XLSparklineGroups(null!);
         await Assert.That(action).Throws<ArgumentNullException>();
     }
 
     [Test]
     public async Task CannotCreateSparklineGroupWithoutWorksheet()
     {
-        Action action = () => _ = new XLSparklineGroup(null);
+        Action action = () => _ = new XLSparklineGroup(null!);
         await Assert.That(action).Throws<ArgumentNullException>();
     }
 
@@ -29,7 +29,7 @@ public class SparklinesTests
     public async Task CannotCreateSparklineWithoutGroup()
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
-        Action action = () => _ = new XLSparkline(null, ws.Cell("A1"), ws.Range("A2:A5"));
+        Action action = () => _ = new XLSparkline(null!, ws.Cell("A1"), ws.Range("A2:A5"));
         await Assert.That(action).Throws<ArgumentNullException>();
     }
 
@@ -38,7 +38,7 @@ public class SparklinesTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1");
         var group = new XLSparklineGroup(ws);
-        Action action = () => _ = new XLSparkline(group, null, ws.Range("A2:A5"));
+        Action action = () => _ = new XLSparkline(group, null!, ws.Range("A2:A5"));
         await Assert.That(action).Throws<ArgumentNullException>();
     }
 
@@ -496,7 +496,7 @@ public class SparklinesTests
         var ws = new XLWorkbook().AddWorksheet("Sheet 1");
         var group = ws.SparklineGroups.Add("A1", "B1:Z1");
 
-        Action action = () => group.Style = null;
+        Action action = () => group.Style = null!;
 
         await Assert.That(action).Throws<ArgumentNullException>();
     }
@@ -1032,7 +1032,7 @@ public class SparklinesTests
         await Assert.That(ws1.SparklineGroups.Count()).IsEqualTo(1);
         await Assert.That(ws2.SparklineGroups.Count()).IsEqualTo(1);
         await Assert.That(target.HasSparkline).IsTrue();
-        await Assert.That(target.Sparkline.SparklineGroup.DateRange.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 2'!D6:H6");
+        await Assert.That(target.Sparkline!.SparklineGroup.DateRange!.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 2'!D6:H6");
     }
 
     [Test]
@@ -1051,7 +1051,7 @@ public class SparklinesTests
         await Assert.That(ws1.SparklineGroups.Count()).IsEqualTo(1);
         await Assert.That(ws2.SparklineGroups.Count()).IsEqualTo(1);
         await Assert.That(target.HasSparkline).IsTrue();
-        await Assert.That(target.Sparkline.SparklineGroup.DateRange.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 3'!D6:H6");
+        await Assert.That(target.Sparkline!.SparklineGroup.DateRange!.RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 3'!D6:H6");
     }
 
     #endregion Copy sparkline groups

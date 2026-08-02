@@ -20,9 +20,9 @@ public class TablesTests
 {
     public class TestObjectWithoutAttributes
     {
-        public string Column1 { get; set; }
+        public string Column1 { get; set; } = string.Empty;
 
-        public string Column2 { get; set; }
+        public string Column2 { get; set; } = string.Empty;
     }
 
     public class TestObjectWithAttributes
@@ -30,10 +30,10 @@ public class TablesTests
         public int UnOrderedColumn { get; set; }
 
         [XLColumn(Header = "SecondColumn", Order = 1)]
-        public string Column1 { get; set; }
+        public string Column1 { get; set; } = string.Empty;
 
         [XLColumn(Header = "FirstColumn", Order = 0)]
-        public string Column2 { get; set; }
+        public string Column2 { get; set; } = string.Empty;
 
         [XLColumn(Header = "SomeFieldNotProperty", Order = 2)]
         public int MyField;
@@ -250,9 +250,9 @@ public class TablesTests
 
         var row = table.DataRange!.FirstRow();
         row!.Field("Value").Value = 3;
-        row = table.DataRange.InsertRowsAbove(1).First();
+        row = table.DataRange!.InsertRowsAbove(1).First();
         row.Field("Value").Value = 2;
-        row = table.DataRange.InsertRowsAbove(1).First();
+        row = table.DataRange!.InsertRowsAbove(1).First();
         row.Field("Value").Value = 1;
 
         await Assert.That(ws.Cell(2, 1).GetDouble()).IsEqualTo(1);
@@ -296,9 +296,9 @@ public class TablesTests
 
         var row = table.DataRange!.FirstRow();
         row!.Field("Value").Value = 1;
-        row = table.DataRange.InsertRowsBelow(1).First();
+        row = table.DataRange!.InsertRowsBelow(1).First();
         row.Field("Value").Value = 2;
-        row = table.DataRange.InsertRowsBelow(1).First();
+        row = table.DataRange!.InsertRowsBelow(1).First();
         row.Field("Value").Value = 3;
 
         await Assert.That(ws.Cell(2, 1).GetDouble()).IsEqualTo(1);
@@ -350,9 +350,9 @@ public class TablesTests
         await Assert.That(ws.Cell(1, 1).IsEmpty(XLCellsUsedOptions.All)).IsTrue();
         await Assert.That(table.HeadersRow()).IsNull();
         await Assert.That(table.DataRange!.FirstRow()!.Field("Categories").GetText()).IsEqualTo("A");
-        await Assert.That(table.DataRange.LastRow()!.Field("Categories").GetText()).IsEqualTo("C");
-        await Assert.That(table.DataRange.FirstCell().GetText()).IsEqualTo("A");
-        await Assert.That(table.DataRange.LastCell().GetText()).IsEqualTo("C");
+        await Assert.That(table.DataRange!.LastRow()!.Field("Categories").GetText()).IsEqualTo("C");
+        await Assert.That(table.DataRange!.FirstCell().GetText()).IsEqualTo("A");
+        await Assert.That(table.DataRange!.LastCell().GetText()).IsEqualTo("C");
 
         table.SetShowHeaderRow();
         var headerRow = table.HeadersRow();
@@ -368,10 +368,10 @@ public class TablesTests
         await Assert.That(ws.FirstCell().GetText()).IsEqualTo("x");
         await Assert.That(ws.Cell("A2").GetText()).IsEqualTo("Categories");
         await Assert.That(headerRow).IsNotEqualTo(null);
-        await Assert.That(table.DataRange.FirstRow()!.Field("Categories").GetText()).IsEqualTo("A");
-        await Assert.That(table.DataRange.LastRow()!.Field("Categories").GetText()).IsEqualTo("C");
-        await Assert.That(table.DataRange.FirstCell().GetText()).IsEqualTo("A");
-        await Assert.That(table.DataRange.LastCell().GetText()).IsEqualTo("C");
+        await Assert.That(table.DataRange!.FirstRow()!.Field("Categories").GetText()).IsEqualTo("A");
+        await Assert.That(table.DataRange!.LastRow()!.Field("Categories").GetText()).IsEqualTo("C");
+        await Assert.That(table.DataRange!.FirstCell().GetText()).IsEqualTo("A");
+        await Assert.That(table.DataRange!.LastCell().GetText()).IsEqualTo("C");
     }
 
     [Test]
@@ -606,10 +606,10 @@ public class TablesTests
 
         table.DataRange!.Rows(3, 4).Delete();
 
-        await Assert.That(table.DataRange.Rows().Count()).IsEqualTo(2);
+        await Assert.That(table.DataRange!.Rows().Count()).IsEqualTo(2);
 
-        await Assert.That(table.DataRange.FirstCell().Value).IsEqualTo("b");
-        await Assert.That(table.DataRange.LastCell().Value).IsEqualTo(777);
+        await Assert.That(table.DataRange!.FirstCell().Value).IsEqualTo("b");
+        await Assert.That(table.DataRange!.LastCell().Value).IsEqualTo(777);
 
         await Assert.That(table.RangeAddress.ToString()).IsEqualTo("B2:E4");
     }

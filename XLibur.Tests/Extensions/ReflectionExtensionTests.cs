@@ -29,7 +29,7 @@ public class ReflectionExtensionTests
         public int InstanceProperty { get; set; }
         public int InstanceField = 0;
 
-        public event EventHandler<EventArgs> InstanceEvent;
+        public event EventHandler<EventArgs>? InstanceEvent;
 
 #pragma warning disable CA1822 // Intentionally non-static: test verifies IsStatic() returns false
         public void InstanceMethod()

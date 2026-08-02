@@ -23,7 +23,7 @@ internal class StructuredReferenceColonTests
             new object[] { "2026-01-01", "1" }
         };
         var range = ws2.FirstCell().InsertData(data);
-        range.CreateTable("Table2");
+        range!.CreateTable("Table2");
 
         ws.FirstCell().Value = "2026-01-01";
         ws.Cell("B1").FormulaA1 =
@@ -49,7 +49,7 @@ internal class StructuredReferenceColonTests
                 new object[] { "2026-01-01", "1" }
             };
             var range = ws2.FirstCell().InsertData(data);
-            range.CreateTable("Table2");
+            range!.CreateTable("Table2");
 
             var ws = wb.AddWorksheet("Sheet1");
             ws.FirstCell().Value = "2026-01-01";
@@ -95,7 +95,7 @@ internal class StructuredReferenceColonTests
             new object[] { "2026-01-01", "42" }
         };
         var range = ws2.FirstCell().InsertData(data);
-        range.CreateTable("Table2");
+        range!.CreateTable("Table2");
 
         ws.Cell("A1").FormulaA1 = "=Table2[Value]";
 

@@ -170,7 +170,7 @@ internal static class TestHelper
     /// </summary>
     // The assert callbacks take Func<..., Task> rather than Action: TUnit assertions are
     // awaitable, so a callback that asserts must be awaited or the assertion never runs.
-    public static async Task LoadAndAssert(Func<XLWorkbook, Task> assertWorkbook, string loadResourcePath, LoadOptions options = null)
+    public static async Task LoadAndAssert(Func<XLWorkbook, Task> assertWorkbook, string loadResourcePath, LoadOptions options = null!)
     {
         using var stream = GetStreamFromResource(GetResourcePath(loadResourcePath));
         using var wb = new XLWorkbook(stream, options ?? new LoadOptions());
@@ -182,7 +182,7 @@ internal static class TestHelper
     /// A testing method to load a workbook with a single worksheet from resource and assert
     /// the state of the loaded workbook.
     /// </summary>
-    public static async Task LoadAndAssert(Func<XLWorkbook, IXLWorksheet, Task> assertWorksheet, string loadResourcePath, LoadOptions options = null)
+    public static async Task LoadAndAssert(Func<XLWorkbook, IXLWorksheet, Task> assertWorksheet, string loadResourcePath, LoadOptions options = null!)
     {
         await LoadAndAssert(async wb =>
         {
@@ -207,7 +207,7 @@ internal static class TestHelper
         await Assert.That(() => _ = new XLWorkbook(stream)).ThrowsNothing();
     }
 
-    public static IEnumerable<string> ListResourceFiles(Func<string, bool> predicate = null)
+    public static IEnumerable<string> ListResourceFiles(Func<string, bool> predicate = null!)
     {
         return Extractor.GetFileNames(predicate);
     }

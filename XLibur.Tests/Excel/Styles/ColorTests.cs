@@ -53,25 +53,25 @@ public class ColorTests
         var color3 = new BackgroundColor().FromXLiburColor<BackgroundColor>(xlColor3);
         var color4 = new BackgroundColor().FromXLiburColor<BackgroundColor>(xlColor4);
 
-        await Assert.That(color1.Rgb.Value).IsEqualTo("FFFF0000");
+        await Assert.That(color1.Rgb!.Value).IsEqualTo("FFFF0000");
         await Assert.That(color1.Indexed).IsNull();
         await Assert.That(color1.Theme).IsNull();
         await Assert.That(color1.Tint).IsNull();
 
         await Assert.That(color2.Rgb).IsNull();
-        await Assert.That(color2.Indexed.Value).IsEqualTo(20u);
+        await Assert.That(color2.Indexed!.Value).IsEqualTo(20u);
         await Assert.That(color2.Theme).IsNull();
         await Assert.That(color2.Tint).IsNull();
 
         await Assert.That(color3.Rgb).IsNull();
         await Assert.That(color3.Indexed).IsNull();
-        await Assert.That(color3.Theme.Value).IsEqualTo(4u);
+        await Assert.That(color3.Theme!.Value).IsEqualTo(4u);
         await Assert.That(color3.Tint).IsNull();
 
         await Assert.That(color4.Rgb).IsNull();
         await Assert.That(color4.Indexed).IsNull();
-        await Assert.That(color4.Theme.Value).IsEqualTo(5u);
-        await Assert.That(color4.Tint.Value).IsEqualTo(0.4);
+        await Assert.That(color4.Theme!.Value).IsEqualTo(5u);
+        await Assert.That(color4.Tint!.Value).IsEqualTo(0.4);
     }
 
     [Test]
@@ -87,25 +87,25 @@ public class ColorTests
         var color3 = new X14.FillColor().FromXLiburColor<X14.FillColor>(xlColor3);
         var color4 = new X14.HighMarkerColor().FromXLiburColor<X14.HighMarkerColor>(xlColor4);
 
-        await Assert.That(color1.Rgb.Value).IsEqualTo("FFFF0000");
+        await Assert.That(color1.Rgb!.Value).IsEqualTo("FFFF0000");
         await Assert.That(color1.Indexed).IsNull();
         await Assert.That(color1.Theme).IsNull();
         await Assert.That(color1.Tint).IsNull();
 
         await Assert.That(color2.Rgb).IsNull();
-        await Assert.That(color2.Indexed.Value).IsEqualTo(20u);
+        await Assert.That(color2.Indexed!.Value).IsEqualTo(20u);
         await Assert.That(color2.Theme).IsNull();
         await Assert.That(color2.Tint).IsNull();
 
         await Assert.That(color3.Rgb).IsNull();
         await Assert.That(color3.Indexed).IsNull();
-        await Assert.That(color3.Theme.Value).IsEqualTo(4u);
+        await Assert.That(color3.Theme!.Value).IsEqualTo(4u);
         await Assert.That(color3.Tint).IsNull();
 
         await Assert.That(color4.Rgb).IsNull();
         await Assert.That(color4.Indexed).IsNull();
-        await Assert.That(color4.Theme.Value).IsEqualTo(5u);
-        await Assert.That(color4.Tint.Value).IsEqualTo(0.4);
+        await Assert.That(color4.Theme!.Value).IsEqualTo(5u);
+        await Assert.That(color4.Tint!.Value).IsEqualTo(0.4);
     }
 
     [Test]

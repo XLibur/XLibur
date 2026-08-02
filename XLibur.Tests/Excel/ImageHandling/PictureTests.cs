@@ -19,7 +19,7 @@ public class PictureTests
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
 
-        using var resourceStream = System.Reflection.Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable)).GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg");
+        using var resourceStream = System.Reflection.Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable))!.GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg");
         var picture = ws.AddPicture(resourceStream, "MyPicture")
             .WithPlacement(XLPicturePlacement.FreeFloating)
             .MoveTo(50, 50)
@@ -40,10 +40,10 @@ public class PictureTests
 
         try
         {
-            using (var resourceStream = System.Reflection.Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable)).GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg"))
+            using (var resourceStream = System.Reflection.Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable))!.GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg"))
             using (var fileStream = File.Create(path))
             {
-                resourceStream.Seek(0, SeekOrigin.Begin);
+                resourceStream!.Seek(0, SeekOrigin.Begin);
                 resourceStream.CopyTo(fileStream);
                 fileStream.Close();
             }
@@ -70,10 +70,10 @@ public class PictureTests
 
         try
         {
-            using (var resourceStream = System.Reflection.Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable)).GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg"))
+            using (var resourceStream = System.Reflection.Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable))!.GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg"))
             using (var fileStream = File.Create(path))
             {
-                resourceStream.Seek(0, SeekOrigin.Begin);
+                resourceStream!.Seek(0, SeekOrigin.Begin);
                 resourceStream.CopyTo(fileStream);
                 fileStream.Close();
             }
@@ -323,11 +323,11 @@ public class PictureTests
         var ws2 = wb.AddWorksheet("Sheet2");
 
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png");
-        (ws1 as XLWorksheet).AddPicture(stream, "Picture 1", 2);
-        (ws1 as XLWorksheet).AddPicture(stream, "Picture 2", 3);
+        (ws1 as XLWorksheet)!.AddPicture(stream, "Picture 1", 2);
+        (ws1 as XLWorksheet)!.AddPicture(stream, "Picture 2", 3);
 
         //Internal method - used for loading files
-        var pic = (ws2 as XLWorksheet).AddPicture(stream, "Picture 1", 2)
+        var pic = (ws2 as XLWorksheet)!.AddPicture(stream, "Picture 1", 2)
             .WithPlacement(XLPicturePlacement.FreeFloating)
             .MoveTo(220, 155) as XLPicture;
 
@@ -341,7 +341,7 @@ public class PictureTests
 
         pic.Id = id;
 
-        var pic2 = (ws2 as XLWorksheet).AddPicture(stream, "Picture 2", 3)
+        var pic2 = (ws2 as XLWorksheet)!.AddPicture(stream, "Picture 2", 3)
             .WithPlacement(XLPicturePlacement.FreeFloating)
             .MoveTo(440, 300) as XLPicture;
     }
@@ -355,7 +355,7 @@ public class PictureTests
         IXLPicture original;
         using (var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png"))
         {
-            original = (ws1 as XLWorksheet).AddPicture(stream, "Picture 1", 2)
+            original = (ws1 as XLWorksheet)!.AddPicture(stream, "Picture 1", 2)
                 .WithPlacement(XLPicturePlacement.FreeFloating)
                 .MoveTo(220, 155) as XLPicture;
         }
@@ -386,7 +386,7 @@ public class PictureTests
         IXLPicture original;
         using (var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png"))
         {
-            original = (ws1 as XLWorksheet).AddPicture(stream, "Picture 1", 2)
+            original = (ws1 as XLWorksheet)!.AddPicture(stream, "Picture 1", 2)
                 .WithPlacement(XLPicturePlacement.FreeFloating)
                 .MoveTo(220, 155) as XLPicture;
         }
