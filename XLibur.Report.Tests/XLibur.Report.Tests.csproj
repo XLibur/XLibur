@@ -7,7 +7,6 @@
     <LangVersion>latest</LangVersion>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <!-- CS4014 (call not awaited) must fail the build. TUnit assertions are awaitable, so an
          un-awaited assertion never executes and the test passes no matter what it asserts. -->
     <WarningsAsErrors>$(WarningsAsErrors);CS4014</WarningsAsErrors>
