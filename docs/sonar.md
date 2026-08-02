@@ -1,5 +1,150 @@
 ﻿# SonarQube issues — XLibur_XLibur
 
+This file covers two exports. The 278-issue sweep is first; the earlier 150-issue
+`MEDIUM` triage follows it, unchanged.
+
+---
+
+# Export 2 — 278 issues
+
+- Server: https://sonarcloud.io
+- Total issues: 278
+- Branch: `chore/sonar-sweep-278`
+
+## Outcome
+
+| | Count |
+|---|---:|
+| Fixed | 174 |
+| Accepted, suppressed with a reason | 104 |
+
+No rule splits across both outcomes except `S1192` and `S4136`, which are noted below.
+
+### How this was verified
+
+The same harness as the previous export: `SonarAnalyzer.CSharp` (10.31.0) referenced
+temporarily from `Directory.Build.props` behind a `SonarProbe` property, with
+`TreatWarningsAsErrors` off so the analyzer's own findings do not fail the build. The
+findings were captured as a `file|line|rule` set before and after. The harness was
+removed before commit, for the reason given in `68487738`.
+
+Result: every rule below that reproduces locally went to **zero**. Two do not reproduce
+locally at all — `S1192` and `S2342` both take a parameter (a duplication threshold and a
+naming regex) that needs a `SonarLint.xml`, exactly as `S107` did last time. Their entries
+are reasoned from the export rather than measured, and are the ones to re-check on the next
+scan.
+
+**`S8969` got a stronger check than the analyzer.** The rule claims a null-forgiving
+operator is redundant. Rather than trust that, all 50 were deleted and the solution rebuilt
+under `TreatWarningsAsErrors` with nullable enabled: a bang that was actually load-bearing
+fails the build. 49 were genuinely redundant. One was not, and it is a real false positive
+worth recording.
+
+`OpenXmlHelper.LoadFontName` reads:
+
+```csharp
+if (runFont?.Val != null)
+    fontBase.FontName = runFont.Val!;
+```
+
+The guard proves the `StringValue` is non-null, and that is all S8969 looks at. But the
+implicit `StringValue` → `string` conversion returns `string?`, so the bang is suppressing
+`CS8601` on the *assignment*, not `CS8602` on the member access. Deleting it breaks the
+build. It keeps the bang and a pragma. The neighbouring `FontSize` line looks identical and
+is fine, because `DoubleValue` → `double` is not nullable.
+
+### Fixed — 174
+
+| Rule | Count | Action |
+|---|---:|---|
+| `S8969` | 49 | Delete the redundant bang (1 of the 50 kept — see above) |
+| `S3458` | 17 | Fold 17 empty `case` labels into the `default` arm they fell through to |
+| `S1192` | 9 | Hoist repeated messages, XML attribute names and VML namespaces to constants |
+| `S1481` | 5 | Drop unused example locals; one `out` parameter became a discard |
+| `S1125` | 4 | `x is T y ? Key == y.Key : false` → `&&` |
+| `S8970` | 3 | Benchmark fixture fields use plain `null` — no nullable context to forgive |
+| `S3897` | 3 | Declare `IEquatable<T>` where `Equals(T)` already existed |
+| `S2292` | 3 | Genuine trivial properties became auto-properties |
+| `S2219` | 2 | `is` instead of `GetType() ==` / `as … != null` |
+| `S1210` | 2 | Add `<`, `<=`, `>`, `>=` beside `CompareTo` |
+| `S1199` | 2 | Unwrap a nested block — see the note below |
+| `S4136` | 2 | Two small local moves (`XLFormattedText`, `XLTemplate`) |
+| `S1694` | 1 | Delete the redundant non-generic `XLRepositoryBase` |
+| `S1075`, `S1450`, `S1643`, `S2325`, `S3398`, `S3400`, `S3604`, `S3963`, `S4201`, `S1104` | 1 each | Mechanical |
+
+Three extra `S8969` in `XLibur.Report.Tests` were fixed at the same time. They are not in
+the export — SonarCloud's profile does not report them — but they are the same defect.
+
+**`S1199` was not the trivial unwrap it looked like.** In `Statistical.BinomDist` the bare
+block exists so the second `result`/`error` pair does not collide with the loop's. Removing
+the braces produces `CS0136`: C# forbids an inner-scope local sharing a name with one in an
+enclosing scope, in either order. Renaming the loop locals removes the block for real.
+
+### Accepted — 104
+
+| Rule | Count | Why |
+|---|---:|---|
+| `S3267` | 56 | Rewrite a filtering loop as LINQ. Overwhelmingly per-cell, per-formula and per-row paths where `Where`/`Select` allocates a delegate and an enumerator on a path the library works to keep allocation-free — `FormulaDependencies.RenameSheet` carries a comment saying exactly that. One (`XLCells`) filters on a side-effecting `HashSet.Add`, which LINQ would hide rather than simplify. The rule's own docs offer `PerformanceSensitiveAttribute` for this case; scoping it off is the same decision without annotating fifty methods |
+| `S101` | 20 | See below |
+| `S1192` | 19 | Sample data in the example and benchmark projects (16), and three colour-table transcriptions |
+| `S2342` | 12 | Same acronym problem as `S101`, mostly public API, plus a plural-for-`[Flags]` complaint about internal enums that read correctly in the singular |
+| `S4136` | 9 | Large files ordered by a scheme grouping-by-name would destroy: `SignatureAdapter` by arity, `EnumConverter` by the enum each `ToOpenXml`/`ToXLibur` pair converts, the save partial by pipeline stage |
+| `S2292` | 8 | **False positive** — see below |
+| `S1075` | 8 | XML namespace and relationship-type URIs fixed by ECMA-376. Identifiers, not endpoints; making one configurable only lets a caller produce a file Excel cannot open |
+| `S2344` | 3 | **Rule conflict** — see below |
+| `S3398` | 3 | Moving `GetU32LE`/`GetS16LE` into `PlaceableHeader` would scatter three sibling little-endian readers across two types, because `GetU16LE` has callers on both sides |
+| `S3400` | 2 | `Logical.True`/`False` implement the zero-argument Excel functions and are registered as method groups; a constant cannot convert to the delegate |
+| `S1694` | 1 | The AST is deliberately a closed class hierarchy — an interface could be implemented by a struct and box on every visit |
+
+**Why `S101` and `S2342` are not fixable.** The library prefixes every type with `XL` and
+abbreviates two domains inside that prefix — `CF` for conditional format, `HF` for
+header/footer — producing `IXLCFIconSet` and `XLHFItem`, which the rule reads as run-on
+capitals. Seven of the flagged types are public API (`IXLCFColorScaleMin`/`Mid`/`Max`,
+`IXLCFDataBarMin`/`Max`, `IXLCFIconSet`, `IXLHFItem`) and cannot be renamed without a
+breaking change. Renaming only the internal half would leave `XlcfCellIsConverter` sitting
+next to `IXLCFIconSet`, which is worse than either convention alone.
+
+The rule documents a `CustomDictionary.xml` acronym escape hatch. It was tried and does not
+work here: registering `XL`, `CF` and `HF` changed nothing, because the analyzer does not
+recognise two adjacent acronyms (`XL` immediately followed by `CF`). The file was removed
+again rather than left in place doing nothing.
+
+**Why `S2344` is a rule conflict.** Every hit is a `[Flags]` enum whose name says so —
+`FunctionFlags`, `FormulaFlags`, `XlRowFlags` — which is the BCL's own convention
+(`BindingFlags`). Worse, dropping the suffix makes the name singular, which `S2342` then
+rejects for a `[Flags]` enum. The two rules cannot both be satisfied.
+
+**Why the `S2292` hits are false positives.** `XLPivotDataField` and `XLPivotTable` expose
+`init`-only properties whose backing fields are *also* written from ordinary methods — the
+layout-mode setter assigns all four of `_compact`/`_compactData`/`_outline`/`_outlineData`
+together, and base field/item resolution rewrites `_baseField`. An auto-property with an
+`init` accessor cannot be assigned outside a constructor or object initializer, so the
+explicit field is doing real work. The three genuinely trivial ones were converted.
+
+### Where the suppressions live
+
+Repo-wide rules (`S101`, `S2342`, `S2344`, `S1075`, `S3267`) and the sample-project
+`S1192` are scoped in `.editorconfig`, matching the `CA1861` precedent from the previous
+export. Everything else is an inline `#pragma` next to the code it excuses.
+
+One trap, already learned the hard way in `617d5466`: a `#pragma warning restore` cancels a
+file-level `disable` for that rule from that point on. `SignatureAdapter.cs` now carries a
+file-level `disable S4136` *below* its `disable S2234`, and there is no `restore S4136`
+anywhere in the file, so it reaches the end. A narrow `restore S4136` added later would
+silently unsuppress everything after it.
+
+### Left for the owner
+
+`XLSparkLineGroups.Remove(IXLSparkline)` is private and has no callers — the two
+`group.Remove(sparkline)` sites in the same file bind to `IXLSparklineGroup.Remove`, and
+external callers use the `IXLCell` overload. It was made `static` as `S2325` asked, but it
+looks like dead code and deleting it is probably the better fix. Sonar's `S1144` does not
+flag it.
+
+---
+
+# Export 1 — 150 issues (`MEDIUM`)
+
 - Server: https://sonarcloud.io
 - Filters: impactSeverities=`MEDIUM`, issueStatuses=`OPEN,CONFIRMED`
 - Total issues: 150

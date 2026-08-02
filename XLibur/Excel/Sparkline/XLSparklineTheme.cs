@@ -1,5 +1,11 @@
 namespace XLibur.Excel;
 
+// S1192 counts the repeated hex values (FFD00000 twelve times, FF0070C0 eight). This class is a
+// transcription of Excel's built-in sparkline styles: within one style the same accent is assigned
+// to every marker slot, and the same accent reappears in other styles meaning something different
+// there. A shared constant would have to be named for one of those roles and would be wrong in the
+// rest, and each style block would stop reading as a straight copy of the table it mirrors.
+#pragma warning disable S1192
 public static class XLSparklineTheme
 {
     #region Public Properties

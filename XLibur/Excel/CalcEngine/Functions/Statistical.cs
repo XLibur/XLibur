@@ -8,6 +8,9 @@ using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
 
 namespace XLibur.Excel.CalcEngine;
 
+// S4136 wants every overload group adjacent. Members here are ordered by the Excel function they implement,
+// which is the order a reader follows; regrouping by name would break it.
+#pragma warning disable S4136
 internal static class Statistical
 {
     // Argument positions that may be ranges in *IFS functions that take a leading value range:

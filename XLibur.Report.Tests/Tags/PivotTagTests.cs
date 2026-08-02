@@ -61,7 +61,7 @@ public class PivotTagTests
     private static string SourceArea(IXLPivotTable pivot)
     {
         var reference = (XLPivotSourceReference)((XLPivotCache)pivot.PivotCache).Source;
-        return reference.UsesName ? reference.Name! : reference.Area!.Value.Area.ToString();
+        return reference.UsesName ? reference.Name : reference.Area.Value.Area.ToString();
     }
 
     [Test]

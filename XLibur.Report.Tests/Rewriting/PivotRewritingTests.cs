@@ -61,7 +61,7 @@ public class PivotRewritingTests
     private static string SourceArea(IXLPivotTable pivot)
     {
         var reference = (XLPivotSourceReference)Cache(pivot).Source;
-        return reference.UsesName ? reference.Name! : reference.Area!.Value.Area.ToString();
+        return reference.UsesName ? reference.Name : reference.Area.Value.Area.ToString();
     }
 
     /// <summary>

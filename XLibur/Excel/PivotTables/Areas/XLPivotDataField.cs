@@ -7,6 +7,10 @@ namespace XLibur.Excel;
 /// A field that describes calculation of value to display in the <see cref="XLPivotAreaType.Data"/>
 /// area of pivot table.
 /// </summary>
+// S2292 reads Subtotal, ShowDataAsFormat, BaseField and BaseItem as trivial wrappers over their
+// backing fields. They are not: the fields are also written from ordinary methods further down
+// (base field/item resolution), which an init-only auto-property cannot express.
+#pragma warning disable S2292
 internal sealed class XLPivotDataField : IXLPivotValue
 {
     private const int BaseFieldDefaultValue = -1;

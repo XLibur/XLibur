@@ -48,6 +48,9 @@ public enum XLCellSetValueBehavior
 }
 
 // ReSharper disable once InconsistentNaming
+// S4136 wants every overload group adjacent. Members here are ordered by the lifecycle stage they belong to,
+// which is the order a reader follows; regrouping by name would break it.
+#pragma warning disable S4136
 public partial class XLWorkbook : IXLWorkbook
 {
     #region Static

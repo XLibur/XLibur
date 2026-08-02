@@ -85,35 +85,6 @@ public sealed class XLTemplate : IXLTemplate
         _variables[alias] = value is DataTable table ? ToRowDictionaries(table) : value;
     }
 
-    /// <summary>
-    /// Binds a <see cref="DataTable"/> as a materialised list of column-keyed dictionaries.
-    /// </summary>
-    /// <remarks>
-    /// Two reasons not to hand out <see cref="DataRow"/>s directly. A row exposes its columns
-    /// through an indexer rather than through properties, so <c>{{ row.Customer }}</c> — the way a
-    /// template author naturally writes it — would find nothing; and the rows have to be
-    /// materialised anyway, because expanding a range enumerates its data more than once.
-    /// </remarks>
-    private static List<Dictionary<string, object?>> ToRowDictionaries(DataTable table)
-    {
-        var columns = table.Columns.Cast<DataColumn>().ToList();
-        var rows = new List<Dictionary<string, object?>>(table.Rows.Count);
-
-        foreach (DataRow row in table.Rows)
-        {
-            var values = new Dictionary<string, object?>(columns.Count, StringComparer.Ordinal);
-            foreach (var column in columns)
-            {
-                var value = row[column];
-                values[column.ColumnName] = value is DBNull ? null : value;
-            }
-
-            rows.Add(values);
-        }
-
-        return rows;
-    }
-
     /// <inheritdoc />
     public void AddVariable(object value)
     {
@@ -149,6 +120,35 @@ public sealed class XLTemplate : IXLTemplate
         {
             AddVariable(field.Name, field.GetValue(value));
         }
+    }
+
+    /// <summary>
+    /// Binds a <see cref="DataTable"/> as a materialised list of column-keyed dictionaries.
+    /// </summary>
+    /// <remarks>
+    /// Two reasons not to hand out <see cref="DataRow"/>s directly. A row exposes its columns
+    /// through an indexer rather than through properties, so <c>{{ row.Customer }}</c> — the way a
+    /// template author naturally writes it — would find nothing; and the rows have to be
+    /// materialised anyway, because expanding a range enumerates its data more than once.
+    /// </remarks>
+    private static List<Dictionary<string, object?>> ToRowDictionaries(DataTable table)
+    {
+        var columns = table.Columns.Cast<DataColumn>().ToList();
+        var rows = new List<Dictionary<string, object?>>(table.Rows.Count);
+
+        foreach (DataRow row in table.Rows)
+        {
+            var values = new Dictionary<string, object?>(columns.Count, StringComparer.Ordinal);
+            foreach (var column in columns)
+            {
+                var value = row[column];
+                values[column.ColumnName] = value is DBNull ? null : value;
+            }
+
+            rows.Add(values);
+        }
+
+        return rows;
     }
 
     /// <inheritdoc />

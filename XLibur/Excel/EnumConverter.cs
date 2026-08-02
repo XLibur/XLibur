@@ -10,6 +10,10 @@ using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
 namespace XLibur.Excel;
 
+// S4136 wants every overload group adjacent. Members here are ordered by the enum they convert,
+// keeping each ToOpenXml/ToXLibur pair together, which is the order a reader follows; regrouping
+// by name would break it.
+#pragma warning disable S4136
 internal static class EnumConverter
 {
     /// <summary>

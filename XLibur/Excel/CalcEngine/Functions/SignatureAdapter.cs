@@ -15,6 +15,11 @@ namespace XLibur.Excel.CalcEngine.Functions;
 // each forwarding call past that point carries its own disable/restore pair. Adding a new adapter
 // means adding the pair around its call as well.
 #pragma warning disable S2234 // Func<> names its generics arg1..argN; our locals are arg0..argN-1
+// S4136 wants the Adapt, AdaptLastOptional and AdaptLastTwoOptional overloads each grouped in one
+// run. They are instead ordered by arity within their regions, so an adapter for a new signature is
+// found by counting its parameters. Grouping by name would interleave the three families and lose
+// that. Unlike S2234 above, no restore for S4136 appears below, so this reaches the whole file.
+#pragma warning disable S4136
 internal static class SignatureAdapter
 {
     #region Signature adapters

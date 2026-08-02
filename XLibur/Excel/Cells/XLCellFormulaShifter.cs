@@ -24,6 +24,9 @@ namespace XLibur.Excel;
 /// shifted before stops shifting now.
 /// </para>
 /// </summary>
+// S4136 wants every overload group adjacent. Members here are ordered by the kind of shift they perform,
+// which is the order a reader follows; regrouping by name would break it.
+#pragma warning disable S4136
 internal static partial class XLCellFormulaShifter
 {
     internal static string ShiftFormulaRows(string formulaA1, XLWorksheet worksheetInAction, XLRange shiftedRange,

@@ -215,7 +215,7 @@ public class ScribanExpressionEngineTests
 
         var exception = Assert.Throws<ExpressionEvaluationException>(() => engine.Evaluate("item.", ItemScope(SampleItem())));
 
-        await Assert.That(exception!.Expression).IsEqualTo("item.");
+        await Assert.That(exception.Expression).IsEqualTo("item.");
     }
 
     [Test]

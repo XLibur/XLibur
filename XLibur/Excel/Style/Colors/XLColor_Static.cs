@@ -6,6 +6,9 @@ using XLibur.Utils;
 
 namespace XLibur.Excel;
 
+// S1192 flags #FF967117 appearing four times. This file is the named-colour table; each entry is
+// the definition of its own colour and the repeats are colours that genuinely share a hex value.
+#pragma warning disable S1192
 public sealed partial class XLColor
 {
     private static readonly XLRepositoryBase<XLColorKey, XLColor> Repository = new(key => new XLColor(key));

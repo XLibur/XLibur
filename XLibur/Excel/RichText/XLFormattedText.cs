@@ -64,6 +64,14 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
         return AddText(richText);
     }
 
+    public IXLRichString AddText(XLRichString richText)
+    {
+        _richTexts.Add(richText);
+        Length += richText.Text.Length;
+        OnContentChanged();
+        return richText;
+    }
+
     /// <summary>
     /// Add a run that states no formatting of its own and simply inherits the container's font,
     /// i.e. an <c>&lt;r&gt;</c> read with no <c>&lt;rPr&gt;</c>. Used only by the loader - a run
@@ -73,14 +81,6 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
     {
         var richText = new XLRichString(text, _defaultFont, this, OnContentChanged, inheritsContainerFont: true);
         return AddText(richText);
-    }
-
-    public IXLRichString AddText(XLRichString richText)
-    {
-        _richTexts.Add(richText);
-        Length += richText.Text.Length;
-        OnContentChanged();
-        return richText;
     }
 
     public IXLRichString AddNewLine()

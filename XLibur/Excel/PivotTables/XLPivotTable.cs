@@ -10,6 +10,10 @@ using XLibur.Extensions;
 namespace XLibur.Excel;
 
 [DebuggerDisplay("{Name}")]
+// S2292 reads Compact, Outline, OutlineData and CompactData as trivial wrappers. They are not:
+// the layout-mode setter assigns all four backing fields together, which an init-only
+// auto-property cannot express.
+#pragma warning disable S2292
 internal sealed class XLPivotTable : IXLPivotTable
 {
     private readonly XLWorksheet _worksheet;

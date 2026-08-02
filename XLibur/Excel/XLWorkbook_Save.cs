@@ -21,6 +21,9 @@ using Path = System.IO.Path;
 
 namespace XLibur.Excel;
 
+// S4136 wants every overload group adjacent. Members here are ordered by the stage of the save
+// pipeline they belong to, which is the order a reader follows; regrouping by name would break it.
+#pragma warning disable S4136
 public partial class XLWorkbook
 {
     // Name of the future-metadata block that carries rich value indices.

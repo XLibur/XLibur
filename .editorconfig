@@ -48,3 +48,52 @@ dotnet_diagnostic.TUnit0057.severity = none
 # hold; IsEquivalentTo would compare point sequences instead of the area, which is the weaker
 # and wrong assertion.
 dotnet_diagnostic.TUnitAssertions0016.severity = none
+
+# Naming rules that disagree with XLibur's own conventions, everywhere.
+# See docs/sonar.md for the finding-by-finding reasoning.
+[*.cs]
+
+# S101: PascalCase for type names. The library prefixes every type with XL and abbreviates two
+# domains inside that prefix - CF for conditional format, HF for header/footer - giving names
+# like IXLCFIconSet and XLHFItem that the rule reads as run-on capitals. Seven of the flagged
+# types are public API (IXLCFColorScaleMin/Mid/Max, IXLCFDataBarMin/Max, IXLCFIconSet,
+# IXLHFItem) and cannot be renamed without a breaking change; renaming only the internal half
+# would leave XlcfCellIsConverter sitting next to IXLCFIconSet, which is worse than either
+# convention on its own. The rule's CustomDictionary escape hatch was tried and does not help:
+# it does not recognise two adjacent acronyms (XL followed by CF).
+dotnet_diagnostic.S101.severity = none
+
+# S2342: enum naming. Same acronym problem for XLCFOperator, XLHFMode and friends - again mostly
+# public API - plus a second complaint that [Flags] enums should be plural. The internal ones it
+# would rename (XLChartAxisFormat, XLDataLabelsFormat, ...) name a set of formatting aspects that
+# were explicitly set, and read correctly in the singular at every use site.
+dotnet_diagnostic.S2342.severity = none
+
+# S2344: an enum should not end in "Flags". Every hit is a [Flags] enum whose name says exactly
+# that (FunctionFlags, FormulaFlags, XlRowFlags), which is the BCL's own convention -
+# BindingFlags, RegexOptions. Worse, the rule contradicts S2342: dropping the suffix from a
+# [Flags] enum makes the name singular, which S2342 then rejects.
+dotnet_diagnostic.S2344.severity = none
+
+# S1075: URIs should not be hardcoded. All eight hits are XML namespace and relationship-type
+# URIs fixed by ECMA-376. They are identifiers, not endpoints or paths - making one
+# configurable would only let a caller produce a file Excel cannot open.
+dotnet_diagnostic.S1075.severity = none
+
+# S3267: rewrite a filtering loop as LINQ. The flagged loops are overwhelmingly per-cell,
+# per-formula or per-row paths, where a Where/Select allocates a delegate and an enumerator on
+# a path the library works hard to keep allocation-free; FormulaDependencies.RenameSheet even
+# carries a comment saying so. One of them (XLCells) filters on a side-effecting
+# HashSet.Add predicate, which LINQ would hide rather than simplify. The rule's own
+# documentation offers PerformanceSensitiveAttribute for exactly this case; scoping it off is
+# the same decision without annotating fifty methods.
+dotnet_diagnostic.S3267.severity = none
+
+# Sample and measurement projects: the literal IS the data.
+[{XLibur.Examples,XLibur.Report.Examples,XLibur.Benchmarks,XLibur.Report.Benchmarks}/**.cs]
+
+# S1192: hoist a repeated string literal into a constant. In an example, "Titles", "Revenue" and
+# "1-3, 5, 7" are the worked example - a reader follows them down the page, and replacing them
+# with Titles/Revenue/RangeSpec constants makes the sample harder to read, not easier. Same
+# argument the repo already accepted for CA1861 in tests.
+dotnet_diagnostic.S1192.severity = none

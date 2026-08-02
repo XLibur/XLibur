@@ -11,6 +11,10 @@ namespace XLibur.Excel.CalcEngine;
 /// memoise something it derives from its own state (see <see cref="ReferenceNode"/>), but
 /// nothing a visitor can see may change after construction.
 /// </summary>
+// S1694 suggests an interface, since Accept is the only member. The AST is deliberately a closed
+// class hierarchy: an interface could be implemented by a struct, which would box on every visit,
+// and ValueNode extends this to share that closure with its own subclasses.
+#pragma warning disable S1694
 internal abstract class AstNode
 {
     /// <summary>
