@@ -13,15 +13,40 @@ Promotes to public API the three core capabilities `XLibur.Report` previously re
 `InternalsVisibleTo`: `XLFunctionLibrary`, for evaluating a workbook function without a grid;
 source inspection and re-pointing on `IXLPivotCache`; and `IXLConditionalFormat.SetRanges`.
 Deleting a set of rows is up to 67× faster and allocates 670× less. Every package now ships a
-Software Bill of Materials. Adding members to `IXLPivotCache` and `IXLConditionalFormat` is
-source-breaking for anyone implementing those interfaces outside the library (see Breaking
-Changes). No bug fixes this release.
+Software Bill of Materials. Two breaking changes: adding members to `IXLPivotCache` and
+`IXLConditionalFormat` is source-breaking for anyone implementing those interfaces outside the
+library, and `IXLRange.Cell(string)` now throws for an address it cannot resolve instead of
+returning null (see Breaking Changes). Plus 2 bug fixes, covering range-address validation and
+rich-text equality.
 
 ### ⚠️ Breaking Changes
 
 #### Pivot tables and conditional formatting
 
 - **`IXLPivotCache` and `IXLConditionalFormat` gain members**, which is source-breaking for any type outside the library implementing them. Neither interface is designed to be implemented externally — each has a single implementation with an internal constructor — and XLibur is pre-1.0. Consumers that only *use* these interfaces are unaffected. ([#354](https://github.com/XLibur/XLibur/pull/354) by [@jafin](https://github.com/jafin))
+
+#### Ranges
+
+- **`IXLRange.Cell(string)` throws `ArgumentException` for an address it cannot resolve, where it previously returned `null`.** The interface has always been annotated non-null, so the null contradicted the signature and typically surfaced as a `NullReferenceException` further downstream. It now fails at the call site, matching `IXLWorksheet.Cell(string)`, which already behaved this way. ([#360](https://github.com/XLibur/XLibur/pull/360) by [@jafin](https://github.com/jafin))
+
+  ```csharp
+  // Before — a null return was the only signal that the address was unresolvable
+  var cell = range.Cell(name);
+  if (cell is null)
+      return;
+
+  // After
+  try
+  {
+      var cell = range.Cell(name);
+  }
+  catch (ArgumentException)
+  {
+      return;
+  }
+  ```
+
+  Not a mechanical swap: if you relied on the null to mean "not found", the equivalent is now catching `ArgumentException`. Code that trusted the non-null annotation needs no change. `IXLRange.Range(string)` gained the same guard, but nothing reaches it — a bad address already throws while being parsed.
 
 ### 🔒 Supply Chain
 
@@ -78,6 +103,20 @@ Changes). No bug fixes this release.
 - **Deleting a set of rows is up to 67× faster and allocates 670× less.** `IXLRows.Delete()` looped a single-row delete over its rows, so every consumer of a shift — most expensively the formula pass, which visits every formula in the workbook — ran once per row. The rows are now re-pointed against the whole deletion in one pass, contiguous rows coalesce into one run, the cell compaction moves a row at a time rather than a cell at a time, and the calculation-engine purge that each run repeated is coalesced into one. Deleting every third row of an 8000-row sheet with a `SUM` per row went from 19,595 ms and 17,481 MB to 294 ms and 26 MB, and the growth rate dropped from 4× per doubling to 2×. Row and column *inserts* and single-row deletes get a smaller share of the same win, since formulas the edit cannot reach now skip the parse entirely. ([#347](https://github.com/XLibur/XLibur/pull/347), [#348](https://github.com/XLibur/XLibur/pull/348), [#350](https://github.com/XLibur/XLibur/pull/350) by [@jafin](https://github.com/jafin))
 
   A workbook holding an array, data-table or dynamic-array formula keeps the row-at-a-time path, because the stored range and spill footprint those carry are relocated by the per-cell shift rather than by rewriting formula text.
+
+### 🐛 Bug Fixes
+
+#### Ranges
+
+- **A null, empty or half-written range address now says what is wrong instead of crashing.** `Range("")` and half-written addresses such as `"A1:"`, `":"` and `"$"` threw `IndexOutOfRangeException`, and a null address threw `NullReferenceException` — internal failures escaping a public API rather than anything a caller could act on. Null now throws `ArgumentNullException`, empty throws `ArgumentException`, and a half-written address throws `FormatException`, joining the malformed-address case that already did. ([#363](https://github.com/XLibur/XLibur/pull/363), [#365](https://github.com/XLibur/XLibur/pull/365) by [@jafin](https://github.com/jafin))
+
+  Deliberately unchanged: `" "` still throws `ArgumentException`, `"not an address"` still `FormatException`, an address past the sheet limits still `OverflowException`, and an unknown name still `ArgumentOutOfRangeException`. The XML docs on `IXLRange.Range(string)` now list all of them. This affects every entry point that parses an address string, including `IXLWorksheet.Range(string)` and `IXLWorkbook.Range(string)`.
+
+#### Rich text
+
+- **Two phonetic runs with identical content now compare equal however they are held.** `XLPhonetics` carried typed `Equals` overloads but never overrode `object.Equals` and had no `GetHashCode`, so value comparison applied only where the static type was known — an `object`-typed reference, `object.Equals(a, b)` or a non-generic collection fell back to reference equality, and hashing was identity-based. Reachable through `IXLFormattedText.Phonetics`. ([#362](https://github.com/XLibur/XLibur/pull/362) by [@jafin](https://github.com/jafin))
+
+  `GetHashCode` returns a constant, deliberately and consistently with `XLRichString`: every field feeding equality is mutable, so a computed hash would go stale on the first edit. That is correct but degenerate, so avoid using phonetics as dictionary keys where lookup cost matters.
 
 ### 🔧 Dependencies
 
