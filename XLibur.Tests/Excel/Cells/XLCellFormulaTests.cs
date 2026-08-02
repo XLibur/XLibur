@@ -108,7 +108,7 @@ public class XLCellFormulaTests
 
         // Only one XLDAPR metadata entry should exist
         var metadata = wbPart.CellMetadataPart!.Metadata;
-        var cellMeta = metadata.GetFirstChild<CellMetadata>()!;
+        var cellMeta = metadata!.GetFirstChild<CellMetadata>()!;
         await Assert.That(cellMeta.Count!.Value).IsEqualTo(ExpectedCellValue.From(1));
 
         // Both cells should reference the same cm index

@@ -444,7 +444,7 @@ public class DataValidationTests
         var range2 = ws.Range("C1:C3");
         var dv = new XLDataValidation(range1);
 
-        IXLRange addedRange = null;
+        IXLRange? addedRange = null;
 
         dv.RangeAdded += (s, e) => addedRange = e.Range;
 
@@ -526,7 +526,7 @@ public class DataValidationTests
         var range2 = ws.Range("C1:C3");
         var dv = new XLDataValidation(range1);
         dv.AddRange(range2);
-        IXLRange removedRange = null;
+        IXLRange? removedRange = null;
         dv.RangeRemoved += (s, e) => removedRange = e.Range;
 
         dv.RemoveRange(range2);

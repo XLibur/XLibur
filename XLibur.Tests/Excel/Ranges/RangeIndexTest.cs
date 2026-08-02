@@ -152,7 +152,7 @@ public class RangeIndexTest
         var quadTree = new Quadrant();
         var range = ws.Range("BT76:CA87");
 
-        quadTree.Add(range);
+        quadTree.Add(range!);
 
         var level0 = quadTree;
         await Assert.That(level0.MinimumColumn).IsEqualTo(1);
@@ -160,7 +160,7 @@ public class RangeIndexTest
         await Assert.That(level0.MinimumRow).IsEqualTo(1);
         await Assert.That(level0.MaximumRow).IsEqualTo(XLHelper.MaxRowNumber);
         await Assert.That(level0.Ranges).IsNull();
-        await Assert.That(level0.Children.Count).IsEqualTo(128);
+        await Assert.That(level0.Children!.Count).IsEqualTo(128);
         await Assert.That(level0.Children.All(child => child.Level == 1)).IsTrue();
         await Assert.That(level0.Children.Count(child =>
             child.MinimumColumn == 1 &&
@@ -197,7 +197,7 @@ public class RangeIndexTest
         await Assert.That(level8.MaximumColumn).IsEqualTo(128);
         await Assert.That(level8.MaximumRow).IsEqualTo(128);
 
-        var level9 = level8.Children[0];
+        var level9 = level8.Children![0];
         await Assert.That(level9.Ranges).IsNotNull();
         await Assert.That(level9.Ranges.Single()).IsEqualTo(range);
     }
@@ -213,9 +213,9 @@ public class RangeIndexTest
 
         var ranges = new XLRanges { range1 };
         await Assert.That(ranges.Count).IsEqualTo(1);
-        ranges.Add(range2);
+        ranges.Add(range2!);
         await Assert.That(ranges.Count).IsEqualTo(2);
-        ranges.Add(range3);
+        ranges.Add(range3!);
         await Assert.That(ranges.Count).IsEqualTo(2);
 
         // Add many entries to activate QuadTree

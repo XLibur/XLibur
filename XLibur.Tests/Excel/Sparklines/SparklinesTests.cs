@@ -701,7 +701,7 @@ public class SparklinesTests
             await Assert.That(group.ElementAt(1).SourceData.RangeAddress.ToString()).IsEqualTo("B2:Z2");
             await Assert.That(group.ElementAt(2).SourceData.RangeAddress.ToString()).IsEqualTo("B3:Z3");
 
-            await Assert.That(group.DateRange.RangeAddress.ToString()!).IsEqualTo("B4:Z4");
+            await Assert.That(group.DateRange!.RangeAddress.ToString()!).IsEqualTo("B4:Z4");
 
             await Assert.That(group.Style.FirstMarkerColor).IsEqualTo(XLColor.AliceBlue);
             await Assert.That(group.Style.HighMarkerColor).IsEqualTo(XLColor.Alizarin);
@@ -917,7 +917,7 @@ public class SparklinesTests
         axis.MinAxisType = axisType;
 
         if (expectedManualMin.HasValue)
-            await Assert.That(axis.ManualMin.Value).IsEqualTo(expectedManualMin.Value).Within(XLHelper.Epsilon);
+            await Assert.That(axis.ManualMin!.Value).IsEqualTo(expectedManualMin.Value).Within(XLHelper.Epsilon);
         else
             await Assert.That(axis.ManualMin).IsNull();
     }
@@ -936,7 +936,7 @@ public class SparklinesTests
         axis.MaxAxisType = axisType;
 
         if (expectedManualMax.HasValue)
-            await Assert.That(axis.ManualMax.Value).IsEqualTo(expectedManualMax.Value).Within(XLHelper.Epsilon);
+            await Assert.That(axis.ManualMax!.Value).IsEqualTo(expectedManualMax.Value).Within(XLHelper.Epsilon);
         else
             await Assert.That(axis.ManualMax).IsNull();
     }

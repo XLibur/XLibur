@@ -23,7 +23,7 @@ public static class PackageHelper
         serializer.Serialize(stream, content);
     }
 
-    public static object ReadXmlPart(Package package, Uri uri, XmlSerializer serializer)
+    public static object? ReadXmlPart(Package package, Uri uri, XmlSerializer serializer)
     {
         if (!package.PartExists(uri))
         {

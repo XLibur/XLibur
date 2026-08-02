@@ -112,7 +112,7 @@ public class PrintAreaTests
         saved.Position = 0;
         using (var doc = SpreadsheetDocument.Open(saved, false))
         {
-            var definedNames = doc.WorkbookPart!.Workbook.DefinedNames;
+            var definedNames = doc.WorkbookPart!.Workbook!.DefinedNames;
             await Assert.That(definedNames).IsNotNull();
 
             var printArea = definedNames!

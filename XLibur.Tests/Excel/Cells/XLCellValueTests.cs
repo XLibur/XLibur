@@ -71,7 +71,7 @@ public class XLCellValueTests
     [Test]
     public async Task NullString_IsConvertedToBlank()
     {
-        XLCellValue value = (string)null;
+        XLCellValue value = (string?)null;
         await Assert.That(value.IsBlank).IsTrue();
         await Assert.That(value.IsText).IsFalse();
     }

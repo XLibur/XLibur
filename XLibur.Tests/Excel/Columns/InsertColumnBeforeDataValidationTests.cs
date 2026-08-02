@@ -122,7 +122,7 @@ public class InsertColumnBeforeDataValidationTests
         }
     }
 
-    private static string FindSqref(
+    private static string? FindSqref(
         System.Collections.Generic.IEnumerable<(string title, string? sqref, string f1)> dvs,
         string title) => dvs.Single(x => x.title == title).sqref;
 }

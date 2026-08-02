@@ -202,9 +202,9 @@ public class XLPivotTableTests
         var ws1 = wb.Worksheet("pvt1");
         var pt1 = ws1.PivotTables.First() as XLPivotTable;
 
-        await Assert.That(() => pt1.CopyTo(pt1.TargetCell)).Throws<InvalidOperationException>();
+        await Assert.That(() => pt1!.CopyTo(pt1.TargetCell)).Throws<InvalidOperationException>();
 
-        var pt2 = pt1.CopyTo(ws1.Cell("AB100")) as XLPivotTable;
+        var pt2 = pt1!.CopyTo(ws1.Cell("AB100")) as XLPivotTable;
 
         await AssertPivotTablesAreEqual(pt1, pt2, compareName: false);
 

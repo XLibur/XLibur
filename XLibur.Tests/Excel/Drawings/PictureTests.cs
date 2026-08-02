@@ -92,7 +92,7 @@ public class PictureTests
             using var imageStream = System.Reflection.Assembly.GetExecutingAssembly()
                 .GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png");
             var imagePart = drawingsPart.AddImagePart(ImagePartType.Png);
-            imagePart.FeedData(imageStream);
+            imagePart.FeedData(imageStream!);
             var imageRelId = drawingsPart.GetIdOfPart(imagePart);
 
             // Create a TwoCellAnchor with a picture that has an empty name

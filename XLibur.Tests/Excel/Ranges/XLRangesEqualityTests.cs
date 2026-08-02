@@ -75,10 +75,10 @@ public class XLRangesEqualityTests
         var ws = wb.AddWorksheet();
         var ranges = new XLRanges { ws.Range("A1:B2") };
 
-        object nullObject = null;
+        object? nullObject = null;
 
         await Assert.That(ranges.Equals(null)).IsFalse();
-        await Assert.That(ranges.Equals(nullObject)).IsFalse();
+        await Assert.That(ranges!.Equals(nullObject)).IsFalse();
         await Assert.That(ranges.Equals("not a range collection")).IsFalse();
     }
 

@@ -22,7 +22,7 @@ internal class PivotTableComparer : IEqualityComparer<XLPivotTable>
         _compareTargetCellAddress = compareTargetCellAddress;
     }
 
-    public bool Equals(XLPivotTable x, XLPivotTable y)
+    public bool Equals(XLPivotTable? x, XLPivotTable? y)
     {
         if (x == null && y == null) return true;
 

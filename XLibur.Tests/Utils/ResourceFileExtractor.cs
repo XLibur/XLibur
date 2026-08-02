@@ -44,7 +44,7 @@ public sealed class ResourceFileExtractor
 
     #region Private fields
 
-    private readonly ResourceFileExtractor _mBaseExtractor;
+    private readonly ResourceFileExtractor? _mBaseExtractor;
 
     #endregion Private fields
 
@@ -103,7 +103,7 @@ public sealed class ResourceFileExtractor
     /// </summary>
     /// <param name="assembly"></param>
     public ResourceFileExtractor(Assembly assembly)
-        : this(assembly ?? Assembly.GetCallingAssembly(), (ResourceFileExtractor)null)
+        : this(assembly ?? Assembly.GetCallingAssembly(), (ResourceFileExtractor?)null)
     {
     }
 
@@ -112,7 +112,7 @@ public sealed class ResourceFileExtractor
     /// </summary>
     /// <param name="assembly"></param>
     /// <param name="baseExtractor"></param>
-    public ResourceFileExtractor(Assembly assembly, ResourceFileExtractor baseExtractor)
+    public ResourceFileExtractor(Assembly assembly, ResourceFileExtractor? baseExtractor)
         : this(assembly ?? Assembly.GetCallingAssembly(), false, baseExtractor)
     {
     }
@@ -124,11 +124,11 @@ public sealed class ResourceFileExtractor
     /// <param name="isStatic"></param>
     /// <param name="baseExtractor"></param>
     /// <exception cref="ArgumentNullException">Argument is null.</exception>
-    private ResourceFileExtractor(Assembly assembly, bool isStatic, ResourceFileExtractor baseExtractor)
+    private ResourceFileExtractor(Assembly assembly, bool isStatic, ResourceFileExtractor? baseExtractor)
     {
         Assembly = assembly ?? throw new ArgumentNullException(nameof(assembly));
         _mBaseExtractor = baseExtractor;
-        AssemblyName = Assembly.GetName().Name;
+        AssemblyName = Assembly.GetName().Name!;
         IsStatic = isStatic;
         ResourceFilePath = ".Resources.";
     }

@@ -146,7 +146,7 @@ public class XLPivotCacheTests
         saved.Position = 0;
         using var doc = SpreadsheetDocument.Open(saved, false);
 
-        var declared = doc.WorkbookPart!.Workbook.PivotCaches!
+        var declared = doc.WorkbookPart!.Workbook!.PivotCaches!
             .Elements<PivotCache>()
             .Select(cache => cache.CacheId!.Value)
             .ToList();
@@ -179,7 +179,7 @@ public class XLPivotCacheTests
                 ("Waffles", "Puff")
             });
 
-            var table = range.CreateTable();
+            var table = range!.CreateTable();
 
             var pivotTable = ws.PivotTables.Add("pvt", ws.Cell("D1"), table);
             pivotTable.RowLabels.Add("Pastry");

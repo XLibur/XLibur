@@ -155,7 +155,7 @@ public class PictureTests
         using (var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png"))
         {
             ws.AddPicture(stream!, XLPictureFormat.Png);
-            stream.Position = 0;
+            stream!.Position = 0;
 
             ws.AddPicture(stream, XLPictureFormat.Png);
             stream.Position = 0;
@@ -182,7 +182,7 @@ public class PictureTests
         using (var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png"))
         {
             ws.AddPicture(stream!, XLPictureFormat.Png);
-            stream.Position = 0;
+            stream!.Position = 0;
 
             ws.AddPicture(stream, XLPictureFormat.Png);
             stream.Position = 0;
@@ -331,7 +331,7 @@ public class PictureTests
             .WithPlacement(XLPicturePlacement.FreeFloating)
             .MoveTo(220, 155) as XLPicture;
 
-        var id = pic.Id;
+        var id = pic!.Id;
 
         pic.Id = id;
         await Assert.That(pic.Id).IsEqualTo(id);
@@ -360,11 +360,11 @@ public class PictureTests
                 .MoveTo(220, 155) as XLPicture;
         }
 
-        var copy = original.Duplicate()
+        var copy = original!.Duplicate()
             .MoveTo(300, 200) as XLPicture;
 
         await Assert.That(ws1.Pictures.Count).IsEqualTo(2);
-        await Assert.That(copy.Worksheet).IsEqualTo(ws1);
+        await Assert.That(copy!.Worksheet).IsEqualTo(ws1);
         await Assert.That(copy.Format).IsEqualTo(original.Format);
         await Assert.That(copy.Height).IsEqualTo(original.Height);
         await Assert.That(copy.Placement).IsEqualTo(original.Placement);
@@ -392,7 +392,7 @@ public class PictureTests
         }
         var ws2 = wb.Worksheets.Add("Sheet2");
 
-        var copy = original.CopyTo(ws2);
+        var copy = original!.CopyTo(ws2);
 
         await Assert.That(ws1.Pictures.Count).IsEqualTo(1);
         await Assert.That(ws2.Pictures.Count).IsEqualTo(1);

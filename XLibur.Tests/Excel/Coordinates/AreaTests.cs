@@ -58,7 +58,7 @@ public class AreaTests
     {
         var left = Area.Parse(leftOperand);
         var right = Area.Parse(rightOperand);
-        var expected = Area.Parse(expectedRange);
+        var expected = Area.Parse(expectedRange!);
 
         await Assert.That(left.Range(right)).IsEqualTo(expected);
     }

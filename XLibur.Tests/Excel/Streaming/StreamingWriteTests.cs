@@ -143,7 +143,7 @@ public class StreamingWriteTests
         var sst = doc.WorkbookPart!.SharedStringTablePart!.SharedStringTable;
 
         // 10 text cells referencing 2 distinct strings.
-        await Assert.That(sst.Count!.Value).IsEqualTo(10U);
+        await Assert.That(sst!.Count!.Value).IsEqualTo(10U);
         await Assert.That(sst.UniqueCount!.Value).IsEqualTo(2U);
     }
 
@@ -673,7 +673,7 @@ public class StreamingWriteTests
         sheet.AddRow().Cell("second");
 
         // A ref struct cannot be captured in a lambda, so the assertion is written out.
-        Exception caught = null;
+        Exception? caught = null;
         try
         {
             first.Cell("too late");
@@ -732,7 +732,7 @@ public class StreamingWriteTests
         var row = sheet.AddRow();
         row.Cell("a").Cell("b").Cell("c");
 
-        Exception caught = null;
+        Exception? caught = null;
         try
         {
             row.At(2);

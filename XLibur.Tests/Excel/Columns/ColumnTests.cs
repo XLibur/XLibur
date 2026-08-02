@@ -245,7 +245,7 @@ public class ColumnTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1") as XLWorksheet;
 
-        var column = new XLColumn(ws, -1);
+        var column = new XLColumn(ws!, -1);
 
         await Assert.That(column.RangeAddress.IsValid).IsFalse();
     }

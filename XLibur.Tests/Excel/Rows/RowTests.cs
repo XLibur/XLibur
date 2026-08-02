@@ -287,7 +287,7 @@ public class RowTests
     {
         var ws = new XLWorkbook().AddWorksheet("Sheet1") as XLWorksheet;
 
-        var row = new XLRow(ws, -1);
+        var row = new XLRow(ws!, -1);
 
         await Assert.That(row.RangeAddress.IsValid).IsFalse();
     }

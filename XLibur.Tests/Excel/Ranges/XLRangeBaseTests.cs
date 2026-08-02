@@ -86,7 +86,7 @@ public class XLRangeBaseTests
         ws.Cell(1, 1).Value = "Hello World!";
         wb.DefinedNames.Add("SingleCell", "Sheet1!$A$1");
         var range = wb.Range("SingleCell");
-        await Assert.That(range.CellsUsed().Count()).IsEqualTo(1);
+        await Assert.That(range!.CellsUsed().Count()).IsEqualTo(1);
         await Assert.That(range.CellsUsed().Single().GetText()).IsEqualTo("Hello World!");
     }
 
@@ -104,7 +104,7 @@ public class XLRangeBaseTests
         wb.DefinedNames.Add("FNameColumn", $"{table.Name}[FName]");
 
         var namedRange = wb.Range("FNameColumn");
-        await Assert.That(namedRange.Cells().Count()).IsEqualTo(3);
+        await Assert.That(namedRange!.Cells().Count()).IsEqualTo(3);
         await Assert.That(namedRange.CellsUsed().Select(cell => cell.GetText()).SequenceEqual(["John", "Hank", "Dagny"])).IsTrue();
     }
 

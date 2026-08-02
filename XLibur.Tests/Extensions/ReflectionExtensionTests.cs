@@ -18,7 +18,7 @@ public class ReflectionExtensionTests
         public static int StaticProperty { get; set; }
         public static int StaticField = 0;
 
-        public static event EventHandler<EventArgs> StaticEvent;
+        public static event EventHandler<EventArgs>? StaticEvent;
 
         public static void StaticMethod()
         {
