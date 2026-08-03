@@ -385,17 +385,3 @@ files containing charts:
 the shift for any rule whose shifted target address collided with another rule's existing range —
 a rule at `K13` that should move to `K23` landed at `K33`, while rules whose targets happened to be
 empty shifted correctly.
-
-## Worth adopting once you are on XLibur
-
-Nothing here is required to migrate, but each addresses something ClosedXML 0.105 could not do.
-
-| | |
-|---|---|
-| **[Password-protected workbooks](./encryption.md)** | `LoadOptions.Password` opens agile (2010+) and standard (2007) encrypted files; `SaveOptions.Password` writes agile. Previously an encrypted file could not be opened at all, and failed opaquely. Note that `Save()` **preserves** the encryption a workbook was loaded with, while `SaveAs` states the encryption of the file it writes. |
-| **[Streaming writes](./streaming.md)** | `XLStreamingWorkbook` is a forward-only writer for exports too large to hold in memory — a million rows by ten columns costs about 108 MB of peak managed heap, and the destination stream need not be seekable. |
-| **`IXLWorksheet.SetCellValue(row, column, value)`** | Writes straight into the worksheet's storage without allocating an intermediate `XLCell`. It does *not* clear an existing formula, check merged ranges, or refresh table header fields — keep `Cell(r, c).SetValue(...)` where you need those. |
-| **`SaveOptions.CompressionLevel`** | Trade file size for save speed. `Fastest` is roughly 1.7× quicker on a streamed write. |
-| **[~160 new worksheet functions](./functions.md)** | Statistical distributions and hypothesis tests, regression, engineering and complex numbers, financial, modern text and array-shaping, `AGGREGATE`, and the `.INTL` date functions. |
-| **`XLFunctionLibrary`** | Evaluates one of Excel's built-in functions over values you already hold, with no workbook and no grid to put them in. |
-| **[XLibur.Report](./report-templating.md)** | Builds a report from a template that is itself an ordinary `.xlsx`. If you are coming from ClosedXML.Report, see [Coming from ClosedXML.Report](./report-migration.md). |
