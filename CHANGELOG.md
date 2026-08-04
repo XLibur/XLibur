@@ -9,6 +9,14 @@
 
 ## Unreleased
 
+### 🐛 Bug Fixes
+
+#### Formulas
+
+- **A dynamic-array formula keeps its spill through a save.** A workbook holding `=UNIQUE(...)` or any other spilling formula came back with the anchor value intact and `#VALUE!` in every cell below it. Excel writes a spilled cell as a cached formula result (`t="str"`), and reads a shared-string or inline-string cell inside a spill footprint as content occupying the range. XLibur decided whether text was a formula result purely from the presence of an `<f>` element — and a dynamic array carries its formula only in the anchor — so the spilled cells were taken for text constants, interned into the shared string table, and written back as `t="s"`. Data tables lost their footprint the same way. ([#370](https://github.com/XLibur/XLibur/pull/370) by [@jafin](https://github.com/jafin))
+
+  Classic array formulas were never affected: the formula slice holds one across its whole range, so every cell of one already saved as a formula cell.
+
 ## v0.300.0 - 2026-08-02
 
 Promotes to public API the three core capabilities `XLibur.Report` previously reached through
