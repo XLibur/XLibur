@@ -695,7 +695,6 @@ internal static class PivotTableDefinitionPartReader
             Subtotals = subtotals,
         };
 
-        // Add indexes after the reference is initialized, so it can check values by cacheIndex/byPosition.
         foreach (var fieldItem in reference.OfType<FieldItem>())
         {
             var fieldItemValue = fieldItem.Val?.Value ?? throw PartStructureException.MissingAttribute();

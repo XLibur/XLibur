@@ -51,9 +51,15 @@ internal sealed class XLPivotReference
 
     internal HashSet<XLSubtotalFunction> Subtotals { get; init; } = new();
 
+    /// <remarks>
+    /// The value is stored as it is given. It is an index into one of three different collections
+    /// depending on the owning <see cref="XLPivotArea.CacheIndex"/> and on <see cref="ByPosition"/>,
+    /// but nothing here resolves it: the writer emits it verbatim and the area comparer only
+    /// compares it, so an index that points at nothing costs nothing to hold. Validating it would
+    /// mean refusing to load a file Excel opens, in exchange for no behaviour XLibur could improve.
+    /// </remarks>
     internal void AddFieldItem(uint fieldItem)
     {
-        // TODO: Check value by area.CacheIndex and ByPosition
         _fieldItems.Add(fieldItem);
     }
 }

@@ -114,7 +114,7 @@ its own period runs from this release.
 | #5 | 3 | Perf — register data-table formulas in the dependency tree | **Closed, will not do** — see below |
 | #6 | 1 | Perf — cache parsed reference addresses | **Merged** — [#286](https://github.com/XLibur/XLibur/pull/286) |
 | #7 | 12 | Cleanup — `CacheId` nullability | **Merged** — [#287](https://github.com/XLibur/XLibur/pull/287) |
-| #8 | 17 | Hardening — validate pivot field item values | Not started |
+| #8 | 17 | Hardening — validate pivot field item values | **Closed, will not do** — see below |
 | #9 | — | Decision — dispose of the orphan `IXLBaseCollection` interface | **Merged** — [#296](https://github.com/XLibur/XLibur/pull/296) |
 | #10 | 5, 8, 9, 13–16, 18–27 | Decision — removal release for 17 obsolete members | Decided — groups 1–3 removed in the next minor `v0.x`; removal not yet done |
 | #11 | — | Typo — `"Used"` → `"Use"` | **Merged** — [#292](https://github.com/XLibur/XLibur/pull/292) |
@@ -235,6 +235,40 @@ invalidating. The only gain is dropping the full-workbook `Recalculate` that
 **Decision (owner): closed, will not do.** Revisit only if that recalculation shows up as a real
 performance problem. The comment in `DependencyTree` now records why data tables are skipped.
 
+### Task #8 — closed, will not do
+
+The TODO was `// TODO: Check value by area.CacheIndex and ByPosition` on
+`XLPivotReference.AddFieldItem`. The triage called it hardening and flagged that it "risks
+rejecting files Excel accepts". Looked at properly, there is less here than that:
+
+- **It is not implementable as written.** `CacheIndex` lives on `XLPivotArea`, and
+  `XLPivotReference` holds no back-reference to its area. The loader builds the area first and
+  then calls `AddReference(LoadPivotReference(reference))`
+  (`PivotTableDefinitionPartReader.cs:674`); `LoadPivotReference` is `static` and takes only the
+  OpenXML element, so it has no area, no pivot table and no cache — which is where the bounds
+  would have to come from.
+- **Nothing dereferences the value.** The only consumers of `FieldItems` are
+  `PivotTableDefinitionPartWriter2` (emits `<x v="..."/>` verbatim) and `XLPivotAreaComparer`
+  (equality and hash). An out-of-range index causes no crash and no misbehaviour; it round-trips
+  faithfully and Excel decides what to make of it.
+- **Neither caller can supply a bad value.** The load path takes whatever the file says. The API
+  path (`XLPivotValueStyleFormat.GetCurrentArea`) feeds indexes XLibur derived itself from
+  `pivotField.GetAllItems(...)` and `DataFields.IndexOf(...)`, in range by construction, and
+  `ForValueField` already range-checks its own argument. That path also builds
+  `new XLPivotArea()`, so `CacheIndex` and `ByPosition` — the two discriminators the TODO names —
+  are both constant `false` there.
+
+So the change would convert "load the file" into "throw on load" and buy no behaviour XLibur
+could improve. For a reader, faithful round-tripping beats rejection.
+
+**Decision (owner): closed, will not do.** Revisit only if something starts resolving these
+indexes rather than passing them through. `AddFieldItem` now records why it stores the value
+unchecked.
+
+Corrected while closing this: `PivotTableDefinitionPartReader.cs:698` carried the comment
+*"Add indexes after the reference is initialized, so it can check values by
+cacheIndex/byPosition"*, describing a check that has never existed. Removed.
+
 ### Open bug found while investigating #5
 
 `DataTableFormulaFormat` (`XLCellFormula.cs:34`) is `"{{TABLE({0},{1}}}"`, which produces
@@ -254,8 +288,6 @@ depends on the current value.
   the test files that still call `NamedRange`/`NamedRanges`.
 - **#3** — the largest job left. `CT_PivotFilter` carries a required full `autoFilter` subtree,
   so it needs real OpenXML modelling rather than another pass of the `formats` pattern.
-- **#8** — smallest, but needs pivot-table/cache context threaded into a static loader to
-  validate input, and risks rejecting files Excel accepts. Worth weighing before doing.
 - **The `DataTableFormulaFormat` bug** above, if the intended display text can be settled.
 
-Tasks #1, #2, #4, #6, #7, #9 and #11 are done; #5 is closed as will-not-do.
+Tasks #1, #2, #4, #6, #7, #9 and #11 are done; #5 and #8 are closed as will-not-do.
