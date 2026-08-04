@@ -532,7 +532,10 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 for (var colOffset = 0; colOffset < array.Width; ++colOffset)
                 {
                     var point = new Point(anchor.Row + rowOffset, anchor.Column + colOffset);
-                    valueSlice.SetCellValue(point, array[rowOffset, colOffset].ToCellValue());
+
+                    // inline: a spilled cell holds a formula result, so its text belongs in the
+                    // cell's own <v>, not in the shared string table.
+                    valueSlice.SetCellValue(point, array[rowOffset, colOffset].ToCellValue(), inline: true);
                 }
             }
         }

@@ -421,7 +421,12 @@ internal static class WorksheetSheetDataReader
             ? SetCellFormulaXml(reader, ws, cellAddress, context.SharedFormulasR1C1, cellMetaIndex, context.DynamicArrayCmIndexes)
             : null;
 
-        var formulaInline = formula is not null;
+        // A formula result string is stored in <v>, never in the shared string table. That is true
+        // of the formula's own cell and equally of a cell carrying only a cached result: the spilled
+        // cells of a dynamic array and the non-master cells of an array formula have t="str" and no
+        // <f>. Sharing their text would write them back as t="s" constants, which Excel reads as
+        // content blocking the spill.
+        var formulaInline = formula is not null || dataType == CellValues.String;
 
         var cellHasValue = IsMainElement(reader, "v");
         var cellWasSetWithEmptyValue = false;
@@ -442,8 +447,8 @@ internal static class WorksheetSheetDataReader
             cellWasSetWithEmptyValue = true;
         }
 
-        if (formulaInline && (cellHasValue || cellWasSetWithEmptyValue))
-            formula!.MarkClean(ws.Workbook);
+        if (formula is not null && (cellHasValue || cellWasSetWithEmptyValue))
+            formula.MarkClean(ws.Workbook);
 
         if (IsMainElement(reader, "is"))
             LoadInlineStringXml(reader, dataType, cellsCollection, cellAddress, ws);

@@ -1,3 +1,8 @@
+using System;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using System.Text.RegularExpressions;
 using XLibur.Excel;
 using System.Threading.Tasks;
 
@@ -460,5 +465,90 @@ public class SpillEvaluationTests
             ws.Cell("D3").Value = 5;
             await Assert.That(ws.Cell("A1").Value).IsEqualTo(50);
         }
+    }
+
+    /// <summary>
+    /// Excel reads a shared-string or inline-string cell inside a spill footprint as content
+    /// occupying the range, and renders every spilled cell below the anchor as <c>#VALUE!</c>. The
+    /// spilled cells therefore have to be saved the way Excel saves them — as cached formula results
+    /// (<c>t="str"</c> with a <c>&lt;v&gt;</c>), even though they carry no formula of their own.
+    /// </summary>
+    [Test]
+    public async Task Spill_TextFootprint_SavedAsFormulaResultsNotSharedStrings()
+    {
+        using var ms = new MemoryStream();
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = "alpha";
+            ws.Cell("A2").Value = "beta";
+            ws.Cell("A3").Value = "alpha";
+            ws.Cell("C1").SetDynamicFormulaA1("UNIQUE(A1:A3)");
+
+            await Assert.That(ws.Cell("C1").Value).IsEqualTo("alpha");
+            await Assert.That(ws.Cell("C2").Value).IsEqualTo("beta");
+
+            wb.SaveAs(ms, validate: false);
+        }
+
+        var sheetXml = ReadSheetXml(ms);
+
+        // The anchor keeps its formula; the spilled cell holds only the cached result, but both are
+        // typed as formula results.
+        await Assert.That(CellXml(sheetXml, "C1")).Contains(@"t=""str""").And.Contains(@"cm=""1""");
+        await Assert.That(CellXml(sheetXml, "C2")).IsEqualTo(@"<x:c r=""C2"" s=""0"" t=""str""><x:v>beta</x:v></x:c>");
+    }
+
+    /// <summary>
+    /// The same footprint typing has to survive a load/save round trip: a spilled cell arrives with
+    /// <c>t="str"</c> and no <c>&lt;f&gt;</c>, so nothing but the anchor's footprint marks it as part
+    /// of the array. Reading it as an ordinary text constant is what turned a spill into #VALUE!.
+    /// </summary>
+    [Test]
+    public async Task Spill_TextFootprint_SurvivesRoundTrip()
+    {
+        using var first = new MemoryStream();
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = "alpha";
+            ws.Cell("A2").Value = "beta";
+            ws.Cell("A3").Value = "alpha";
+            ws.Cell("C1").SetDynamicFormulaA1("UNIQUE(A1:A3)");
+            await Assert.That(ws.Cell("C1").Value).IsEqualTo("alpha");
+            await Assert.That(ws.Cell("C2").Value).IsEqualTo("beta");
+
+            wb.SaveAs(first, validate: false);
+        }
+
+        first.Position = 0;
+        using var second = new MemoryStream();
+        using (var reloaded = new XLWorkbook(first))
+        {
+            var sheet = reloaded.Worksheets.First();
+            // The _xlfn. prefix is how a future function is stored in the file, and XLibur keeps it
+            // on the loaded text; the point here is that the anchor is still a dynamic array.
+            await Assert.That(sheet.Cell("C1").FormulaA1).EndsWith("UNIQUE(A1:A3)");
+            await Assert.That(sheet.Cell("C2").Value).IsEqualTo("beta");
+
+            reloaded.SaveAs(second, validate: false);
+        }
+
+        var sheetXml = ReadSheetXml(second);
+        await Assert.That(CellXml(sheetXml, "C2")).IsEqualTo(@"<x:c r=""C2"" s=""0"" t=""str""><x:v>beta</x:v></x:c>");
+    }
+
+    private static string ReadSheetXml(MemoryStream savedWorkbook)
+    {
+        using var zip = new ZipArchive(new MemoryStream(savedWorkbook.ToArray()), ZipArchiveMode.Read);
+        var sheetEntry = zip.Entries.First(e => e.FullName.Contains("sheet1.xml", StringComparison.OrdinalIgnoreCase));
+        using var reader = new StreamReader(sheetEntry.Open());
+        return reader.ReadToEnd();
+    }
+
+    private static string CellXml(string sheetXml, string cellRef)
+    {
+        var match = Regex.Match(sheetXml, $@"<x:c r=""{cellRef}"".*?(?:/>|</x:c>)", RegexOptions.Singleline);
+        return match.Success ? match.Value : $"<missing cell {cellRef}>";
     }
 }

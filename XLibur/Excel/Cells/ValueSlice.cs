@@ -112,9 +112,17 @@ internal sealed class ValueSlice : ISlice
         };
     }
 
-    internal void SetCellValue(Point point, XLCellValue cellValue)
+    /// <param name="point">Cell address.</param>
+    /// <param name="cellValue">Value to write.</param>
+    /// <param name="inline">
+    /// Overrides the cell's current inline flag. Pass <c>true</c> for a value that is a formula
+    /// result (e.g. a cell of a dynamic array's spill footprint), which is never shared. When
+    /// <c>null</c> the cell keeps whatever flag it already had.
+    /// </param>
+    internal void SetCellValue(Point point, XLCellValue cellValue, bool? inline = null)
     {
         ref readonly var original = ref _values[point];
+        var isInline = inline ?? original.Inline;
 
         double value;
         if (cellValue.Type == XLDataType.Text)
@@ -123,13 +131,13 @@ internal sealed class ValueSlice : ISlice
             {
                 // Change references. Increase first and then decrease to have fewer shuffles assigning same value to a cell.
                 var originalStringId = (int)original.Value;
-                value = _sst.IncreaseRef(cellValue.GetText(), original.Inline);
+                value = _sst.IncreaseRef(cellValue.GetText(), isInline);
                 _sst.DecreaseRef(originalStringId);
             }
             else
             {
                 // The original value wasn't a text -> just increase ref count to a new text
-                value = _sst.IncreaseRef(cellValue.GetText(), original.Inline);
+                value = _sst.IncreaseRef(cellValue.GetText(), isInline);
             }
         }
         else
@@ -152,7 +160,7 @@ internal sealed class ValueSlice : ISlice
                 value = 0; // blank
         }
 
-        var modified = new XLValueSliceContent(value, cellValue.Type, original.Inline);
+        var modified = new XLValueSliceContent(value, cellValue.Type, isInline);
         _values.Set(point, in modified);
     }
 

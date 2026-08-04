@@ -21,6 +21,7 @@ internal static class SheetDataWriter
         xml.WriteStartElement("sheetData", Main2006SsNs);
 
         var tableTotalCells = CollectTableTotalCells(xlWorksheet);
+        var cachedResultFootprints = CollectCachedResultFootprints(xlWorksheet);
 
         // A rather complicated state machine, so rows and cells can be written in a single loop
         var rowState = new RowWriterState();
@@ -32,6 +33,7 @@ internal static class SheetDataWriter
             SaveContext = context,
             SaveOptions = options,
             TableTotalCells = tableTotalCells,
+            CachedResultFootprints = cachedResultFootprints,
             Use1904DateSystem = xlWorksheet.Workbook.Use1904DateSystem,
         };
         uint rowStyleId = 0;
@@ -96,6 +98,56 @@ internal static class SheetDataWriter
         }
 
         return cells;
+    }
+
+    /// <summary>
+    /// The footprints of every formula on the sheet that stores its results in cells other than the
+    /// one holding the formula, or <c>null</c> when the sheet has none (the common case, so callers
+    /// pay nothing).
+    /// </summary>
+    /// <remarks>
+    /// A dynamic array and a data table both keep their formula only in the master cell; the rest of
+    /// the footprint holds cached results with no <c>&lt;f&gt;</c> of its own. Those cells must still
+    /// be written as formula results (<c>t="str"</c> and a <c>&lt;v&gt;</c>), because Excel reads a
+    /// shared-string or inline-string cell inside a spill footprint as content occupying the range,
+    /// and renders the spill as <c>#VALUE!</c> everywhere below the anchor. Master cells are excluded
+    /// implicitly: they hold a formula and so never reach the value-only path. Classic array formulas
+    /// need no entry here — the formula slice holds them across the whole range, so every cell of one
+    /// already takes the formula path.
+    /// </remarks>
+    private static List<Area>? CollectCachedResultFootprints(XLWorksheet xlWorksheet)
+    {
+        List<Area>? footprints = null;
+        using var enumerator = xlWorksheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
+        while (enumerator.MoveNext())
+        {
+            var formula = enumerator.Current;
+            if (!formula.IsDynamicArray && formula.Type != FormulaType.DataTable)
+                continue;
+
+            var range = formula.Range;
+            if (range == default || (range.Width == 1 && range.Height == 1))
+                continue;
+
+            footprints ??= [];
+            footprints.Add(range);
+        }
+
+        return footprints;
+    }
+
+    private static bool IsCachedResultCell(List<Area>? footprints, Point point)
+    {
+        if (footprints is null)
+            return false;
+
+        foreach (var footprint in footprints)
+        {
+            if (footprint.Contains(point))
+                return true;
+        }
+
+        return false;
     }
 
     private static List<int> GetSortedRowNumbers(XLWorksheet xlWorksheet)
@@ -199,7 +251,10 @@ internal static class SheetDataWriter
         // blank-and-empty check), so no second ValueSlice traversal is needed here.
         if (cellValue.Type != XLDataType.Blank)
         {
-            WriteValueOnlyCell(xml, ref ctx, point, cellStyleId, cellValue, shareString);
+            if (IsCachedResultCell(ctx.CachedResultFootprints, point))
+                WriteCachedResultCell(xml, ref ctx, point, cellStyleId, cellValue);
+            else
+                WriteValueOnlyCell(xml, ref ctx, point, cellStyleId, cellValue, shareString);
         }
         else if (rowStyleId != cellStyleId)
         {
@@ -383,6 +438,24 @@ internal static class SheetDataWriter
             CellXmlWriter.WriteSharedStringValue(xml, sharedStringId);
             xml.WriteEndElement(); // cell
         }
+    }
+
+    /// <summary>
+    /// Write a cell that carries only the cached result of a dynamic array spilled into it. It has
+    /// no formula of its own, but is typed and serialised like a formula cell so Excel treats it as
+    /// part of the spill rather than as content blocking it.
+    /// </summary>
+    private static void WriteCachedResultCell(XmlWriter xml, ref CellWriteContext ctx,
+        Point point, uint cellStyleId, XLCellValue cellValue)
+    {
+        Span<char> cellRefSpan = ctx.CellRef;
+        var cellRefLen = point.Format(cellRefSpan);
+        var dataType = CellXmlWriter.GetFormulaCellType(cellValue.Type);
+        ref readonly var misc = ref ctx.CellsCollection.MiscSlice[point];
+
+        WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId, in misc);
+        WriteCachedFormulaValue(xml, cellValue, ctx.Use1904DateSystem);
+        xml.WriteEndElement(); // cell
     }
 
     private static void WriteValueOnlyCell(XmlWriter xml, ref CellWriteContext ctx,
@@ -570,6 +643,7 @@ internal static class SheetDataWriter
         public SaveContext SaveContext;
         public SaveOptions SaveOptions;
         public HashSet<Point>? TableTotalCells;
+        public List<Area>? CachedResultFootprints;
         public bool Use1904DateSystem;
     }
 
