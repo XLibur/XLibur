@@ -20,8 +20,16 @@ internal static class SheetDataWriter
 
         xml.WriteStartElement("sheetData", Main2006SsNs);
 
+        // Evaluating a dirty dynamic-array formula spills into its footprint, which both creates the
+        // cells the write loop has to visit and sets the Range that identifies them. Left to the
+        // per-cell evaluation below, a spill triggered part-way through the pass would land behind
+        // the enumerator: the anchor would claim a ref the file has no cells for. Do it up front, so
+        // the footprints and the enumerator both see the final grid.
+        if (options.EvaluateFormulasBeforeSaving)
+            EvaluateDirtyFormulas(xlWorksheet);
+
         var tableTotalCells = CollectTableTotalCells(xlWorksheet);
-        var cachedResultFootprints = CollectCachedResultFootprints(xlWorksheet);
+        var cachedResultFormulas = CollectCachedResultFormulas(xlWorksheet);
 
         // A rather complicated state machine, so rows and cells can be written in a single loop
         var rowState = new RowWriterState();
@@ -33,7 +41,7 @@ internal static class SheetDataWriter
             SaveContext = context,
             SaveOptions = options,
             TableTotalCells = tableTotalCells,
-            CachedResultFootprints = cachedResultFootprints,
+            CachedResultFormulas = cachedResultFormulas,
             Use1904DateSystem = xlWorksheet.Workbook.Use1904DateSystem,
         };
         uint rowStyleId = 0;
@@ -101,9 +109,43 @@ internal static class SheetDataWriter
     }
 
     /// <summary>
-    /// The footprints of every formula on the sheet that stores its results in cells other than the
-    /// one holding the formula, or <c>null</c> when the sheet has none (the common case, so callers
-    /// pay nothing).
+    /// Evaluate every dirty formula on the sheet, so the grid the write pass walks is the final one.
+    /// </summary>
+    /// <remarks>
+    /// The formulas are collected before any of them is evaluated: a spill writes into the value
+    /// slice and can extend the sheet's used range, which must not happen under an open enumerator.
+    /// An array formula is held by every cell of its range, so the same instance is collected more
+    /// than once; the second dirty check makes the repeats free, and also skips whatever a fallback
+    /// to full recalculation already cleaned.
+    /// </remarks>
+    private static void EvaluateDirtyFormulas(XLWorksheet xlWorksheet)
+    {
+        var workbook = xlWorksheet.Workbook;
+
+        List<(Point Point, XLCellFormula Formula)>? dirty = null;
+        using (var enumerator = xlWorksheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full))
+        {
+            while (enumerator.MoveNext())
+            {
+                var formula = enumerator.Current;
+                if (formula.IsDirty(workbook))
+                    (dirty ??= []).Add((enumerator.Point, formula));
+            }
+        }
+
+        if (dirty is null)
+            return;
+
+        foreach (var (point, formula) in dirty)
+        {
+            if (formula.IsDirty(workbook))
+                EvaluateFormulaForSave(xlWorksheet, formula, point);
+        }
+    }
+
+    /// <summary>
+    /// Every formula on the sheet that stores its results in cells other than the one holding it, or
+    /// <c>null</c> when the sheet has none (the common case, so callers pay nothing).
     /// </summary>
     /// <remarks>
     /// A dynamic array and a data table both keep their formula only in the master cell; the rest of
@@ -114,36 +156,35 @@ internal static class SheetDataWriter
     /// implicitly: they hold a formula and so never reach the value-only path. Classic array formulas
     /// need no entry here — the formula slice holds them across the whole range, so every cell of one
     /// already takes the formula path.
+    /// <para>
+    /// The formulas are held rather than their footprints, so a <see cref="XLCellFormula.Range"/> that
+    /// moves after this point is still read correctly. Evaluation is meant to be finished before the
+    /// write pass starts, but a footprint snapshotted here would silently go stale if it were not.
+    /// </para>
     /// </remarks>
-    private static List<Area>? CollectCachedResultFootprints(XLWorksheet xlWorksheet)
+    private static List<XLCellFormula>? CollectCachedResultFormulas(XLWorksheet xlWorksheet)
     {
-        List<Area>? footprints = null;
+        List<XLCellFormula>? formulas = null;
         using var enumerator = xlWorksheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
         while (enumerator.MoveNext())
         {
             var formula = enumerator.Current;
-            if (!formula.IsDynamicArray && formula.Type != FormulaType.DataTable)
-                continue;
-
-            var range = formula.Range;
-            if (range == default || (range.Width == 1 && range.Height == 1))
-                continue;
-
-            footprints ??= [];
-            footprints.Add(range);
+            if (formula.IsDynamicArray || formula.Type == FormulaType.DataTable)
+                (formulas ??= []).Add(formula);
         }
 
-        return footprints;
+        return formulas;
     }
 
-    private static bool IsCachedResultCell(List<Area>? footprints, Point point)
+    private static bool IsCachedResultCell(List<XLCellFormula>? formulas, Point point)
     {
-        if (footprints is null)
+        if (formulas is null)
             return false;
 
-        foreach (var footprint in footprints)
+        foreach (var formula in formulas)
         {
-            if (footprint.Contains(point))
+            var range = formula.Range;
+            if (range != default && range.Contains(point))
                 return true;
         }
 
@@ -251,7 +292,7 @@ internal static class SheetDataWriter
         // blank-and-empty check), so no second ValueSlice traversal is needed here.
         if (cellValue.Type != XLDataType.Blank)
         {
-            if (IsCachedResultCell(ctx.CachedResultFootprints, point))
+            if (IsCachedResultCell(ctx.CachedResultFormulas, point))
                 WriteCachedResultCell(xml, ref ctx, point, cellStyleId, cellValue);
             else
                 WriteValueOnlyCell(xml, ref ctx, point, cellStyleId, cellValue, shareString);
@@ -643,7 +684,7 @@ internal static class SheetDataWriter
         public SaveContext SaveContext;
         public SaveOptions SaveOptions;
         public HashSet<Point>? TableTotalCells;
-        public List<Area>? CachedResultFootprints;
+        public List<XLCellFormula>? CachedResultFormulas;
         public bool Use1904DateSystem;
     }
 

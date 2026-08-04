@@ -500,6 +500,38 @@ public class SpillEvaluationTests
     }
 
     /// <summary>
+    /// A dynamic array that has never been evaluated has no footprint at all until the save itself
+    /// spills it. If that happens part-way through the write pass, the spilled cells land behind the
+    /// enumerator and never reach the file, leaving the anchor claiming a <c>ref</c> the file has no
+    /// cells for; and the footprint the pass started with does not cover them either, so any that do
+    /// get written go out as constants.
+    /// </summary>
+    [Test]
+    public async Task Spill_TextFootprint_EvaluatedDuringSave_IsWrittenAsFormulaResults()
+    {
+        using var ms = new MemoryStream();
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = "alpha";
+            ws.Cell("A2").Value = "beta";
+            ws.Cell("A3").Value = "alpha";
+
+            // Deliberately never read: the spill has to happen during the save.
+            ws.Cell("C1").SetDynamicFormulaA1("UNIQUE(A1:A3)");
+
+            wb.SaveAs(ms, new SaveOptions { EvaluateFormulasBeforeSaving = true, ValidatePackage = false });
+        }
+
+        var sheetXml = ReadSheetXml(ms);
+
+        await Assert.That(CellXml(sheetXml, "C1")).Contains(@"ref=""C1:C2""");
+        await Assert.That(CellXml(sheetXml, "C2"))
+            .IsEqualTo(@"<x:c r=""C2"" s=""0"" t=""str""><x:v>beta</x:v></x:c>")
+            .Because("the cell the anchor's ref promises must exist, and be typed as a formula result");
+    }
+
+    /// <summary>
     /// The same footprint typing has to survive a load/save round trip: a spilled cell arrives with
     /// <c>t="str"</c> and no <c>&lt;f&gt;</c>, so nothing but the anchor's footprint marks it as part
     /// of the array. Reading it as an ordinary text constant is what turned a spill into #VALUE!.
