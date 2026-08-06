@@ -385,13 +385,7 @@ public partial class XLWorkbook
         ref WorksheetSheetDataReader.SheetDataReadState state)
     {
         using var stream = worksheetPart.GetStream(FileMode.Open, FileAccess.Read);
-        using var reader = XmlReader.Create(stream, new XmlReaderSettings
-        {
-            IgnoreWhitespace = true,
-            IgnoreComments = true,
-            IgnoreProcessingInstructions = true,
-            CloseInput = false
-        });
+        using var reader = PartXmlReader.Create(stream);
 
         while (reader.Read())
         {
@@ -985,13 +979,7 @@ public partial class XLWorkbook
         if (tp is null) return;
 
         using var stream = tp.GetStream(FileMode.Open, FileAccess.Read);
-        using var reader = XmlReader.Create(stream, new XmlReaderSettings
-        {
-            IgnoreWhitespace = true,
-            IgnoreComments = true,
-            IgnoreProcessingInstructions = true,
-            CloseInput = false,
-        });
+        using var reader = PartXmlReader.Create(stream);
 
         // <a:theme> (0) / <a:themeElements> (1) / <a:clrScheme> (2). Matching on depth as well as
         // name is what keeps the scan off the <a:clrScheme> nested inside <a:extraClrSchemeLst>,

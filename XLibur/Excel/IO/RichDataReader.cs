@@ -103,7 +103,7 @@ internal static class RichDataReader
     private static int FindLocalImageStructureIndex(OpenXmlPart part)
     {
         using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
-        using var reader = XmlReader.Create(stream);
+        using var reader = PartXmlReader.CreateVerbatim(stream);
 
         var structureIndex = 0;
         while (reader.Read())
@@ -129,7 +129,7 @@ internal static class RichDataReader
         var relIds = new List<string>();
 
         using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
-        using var reader = XmlReader.Create(stream);
+        using var reader = PartXmlReader.CreateVerbatim(stream);
 
         while (reader.Read())
         {
@@ -156,7 +156,7 @@ internal static class RichDataReader
         var entries = new List<XLCellImage?>();
 
         using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
-        using var reader = XmlReader.Create(stream);
+        using var reader = PartXmlReader.CreateVerbatim(stream);
 
         while (reader.Read())
         {

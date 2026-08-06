@@ -66,7 +66,7 @@ public static class TemplateRoundTripProfile
 
         if (args.Length > 2 && args[2].Equals("loop", StringComparison.OrdinalIgnoreCase))
         {
-            Loop(template, phase: args.Length > 3 ? args[3] : "roundtrip");
+            Loop(template, phase: args.Length > 3 ? args[3] : DefaultPhase);
             return;
         }
 
@@ -96,6 +96,21 @@ public static class TemplateRoundTripProfile
     /// </remarks>
     private static void Loop(string? template, string phase)
     {
+        // Matched case-insensitively, like the `profile <mode>` dispatch this arrives through, and
+        // an unrecognised phase stops rather than quietly running something else: a profile of the
+        // wrong workload looks entirely plausible, so a typo would otherwise cost a whole
+        // collect-and-analyse cycle before anyone noticed.
+        if (!Phases.Contains(phase, StringComparer.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine(
+                $"Unknown phase '{phase}'. Expected one of: {string.Join(", ", Phases)}.");
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        var isOpen = phase.Equals("open", StringComparison.OrdinalIgnoreCase);
+        var isSave = phase.Equals("save", StringComparison.OrdinalIgnoreCase);
+
         var bytes = GetFixture(template, sheetCount: 10, definedNames: 20, validations: 26, dataRows: 0);
         RoundTrip(bytes); // JIT warm-up, so start-up does not colour the trace.
 
@@ -105,23 +120,21 @@ public static class TemplateRoundTripProfile
 
         while (elapsed.Elapsed.TotalSeconds < LoopSeconds)
         {
-            switch (phase)
+            if (isOpen)
             {
-                case "open":
-                    using (var input = new MemoryStream(bytes, writable: false))
-                    using (var workbook = new XLWorkbook(input))
-                        _ = workbook.Worksheets.Count;
-                    break;
-
-                case "save":
-                    using (var state = Open(bytes))
-                    using (var sink = new MemoryStream())
-                        state.Workbook.SaveAs(sink);
-                    break;
-
-                default:
-                    RoundTrip(bytes);
-                    break;
+                using var input = new MemoryStream(bytes, writable: false);
+                using var workbook = new XLWorkbook(input);
+                _ = workbook.Worksheets.Count;
+            }
+            else if (isSave)
+            {
+                using var state = Open(bytes);
+                using var sink = new MemoryStream();
+                state.Workbook.SaveAs(sink);
+            }
+            else
+            {
+                RoundTrip(bytes);
             }
 
             iterations++;
@@ -129,6 +142,10 @@ public static class TemplateRoundTripProfile
 
         Console.WriteLine($"{iterations:N0} iterations in {elapsed.Elapsed.TotalSeconds:F1}s");
     }
+
+    private const string DefaultPhase = "roundtrip";
+
+    private static readonly string[] Phases = ["open", "save", DefaultPhase];
 
     private const int LoopSeconds = 20;
 
@@ -307,7 +324,7 @@ public static class TemplateRoundTripProfile
             Row($"rows={rows:N0} per-cell", perCell, bytes.Length);
             Row($"rows={rows:N0} per-column", perColumn, bytes.Length);
             Console.WriteLine(
-                $"| {"  ratio per-cell / per-column",-49} | {SafeRatio(perCell.Milliseconds, perColumn.Milliseconds),7:F2}x | {SafeRatio(perCell.FastestMs, perColumn.FastestMs),7:F2}x | {SafeRatio(perCell.Bytes, perColumn.Bytes),7:F2}x |             |");
+                $"| {"  ratio per-cell / per-column",-49} | {SafeRatio(perCell.Milliseconds, perColumn.Milliseconds),8:F2}x | {SafeRatio(perCell.FastestMs, perColumn.FastestMs),9:F2}x | {SafeRatio(perCell.Bytes, perColumn.Bytes),7:F2}x |             |");
         }
     }
 
@@ -503,11 +520,13 @@ public static class TemplateRoundTripProfile
     {
         Console.WriteLine();
         Console.WriteLine(title);
-        Console.WriteLine("| Probe                                             |   median |  fastest |    Alloc |   Fixture   |");
-        Console.WriteLine("|---------------------------------------------------|----------|----------|----------|-------------|");
+        // Units live in the header so the cells can stay bare numbers. A per-cell "m" suffix
+        // reads as minutes.
+        Console.WriteLine("| Probe                                             | median ms | fastest ms |    Alloc |   Fixture   |");
+        Console.WriteLine("|---------------------------------------------------|-----------|------------|----------|-------------|");
     }
 
     private static void Row(string label, Sample sample, int fixtureBytes) =>
         Console.WriteLine(
-            $"| {label,-49} | {sample.Milliseconds,7:F1}m | {sample.FastestMs,7:F1}m | {sample.Bytes / 1048576.0,5:F1} MB | {fixtureBytes,8:N0} B |");
+            $"| {label,-49} | {sample.Milliseconds,9:F1} | {sample.FastestMs,10:F1} | {sample.Bytes / 1048576.0,5:F1} MB | {fixtureBytes,9:N0} B |");
 }

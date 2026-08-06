@@ -55,14 +55,8 @@ internal static class SharedStringReader
     internal static SharedStringEntry[] Read(SharedStringTablePart part)
     {
         using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
-        using var reader = XmlReader.Create(stream, new XmlReaderSettings
-        {
-            // Whitespace must NOT be ignored: a <t> holding only spaces is legitimate text content.
-            IgnoreWhitespace = false,
-            IgnoreComments = true,
-            IgnoreProcessingInstructions = true,
-            CloseInput = false
-        });
+        // Whitespace must NOT be ignored: a <t> holding only spaces is legitimate text content.
+        using var reader = PartXmlReader.Create(stream, ignoreWhitespace: false);
 
         while (reader.Read())
         {

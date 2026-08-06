@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using DocumentFormat.OpenXml;
 
@@ -19,6 +18,23 @@ namespace XLibur.Excel.ContentManagers;
 internal abstract class XLBaseContentManager<T>
     where T : struct, Enum
 {
+    /// <summary>
+    /// Enforces the precondition of <see cref="Index"/> once per closed generic type, in every
+    /// build configuration. A <c>Debug.Assert</c> would not do: it compiles out of Release,
+    /// so declaring a future slot enum with a non-<see cref="int"/> underlying type would silently
+    /// index the wrong slot — or past the end of the array — in exactly the builds that ship.
+    /// </summary>
+    static XLBaseContentManager()
+    {
+        var underlying = Enum.GetUnderlyingType(typeof(T));
+        if (underlying != typeof(int))
+        {
+            throw new InvalidOperationException(
+                $"{typeof(T).Name} is backed by {underlying.Name}, but {nameof(XLBaseContentManager<T>)} " +
+                "reinterprets its slot enum as int. Declare the enum with the default int underlying type.");
+        }
+    }
+
     private readonly OpenXmlElement?[] _contents;
 
     /// <param name="highestSlot">
@@ -50,12 +66,8 @@ internal abstract class XLBaseContentManager<T>
     /// <summary>
     /// Reinterprets the enum as its underlying <see cref="int"/>. Casting through
     /// <see cref="ValueType"/> would box on every call, which matters because writers call
-    /// <see cref="GetPreviousElementFor"/> once per emitted element.
+    /// <see cref="GetPreviousElementFor"/> once per emitted element. The static constructor
+    /// guarantees the reinterpret is valid.
     /// </summary>
-    private static int Index(T content)
-    {
-        Debug.Assert(Enum.GetUnderlyingType(typeof(T)) == typeof(int),
-            $"{typeof(T).Name} must be int-backed for the reinterpret cast to be valid.");
-        return Unsafe.As<T, int>(ref content);
-    }
+    private static int Index(T content) => Unsafe.As<T, int>(ref content);
 }
