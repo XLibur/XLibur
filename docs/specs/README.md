@@ -27,7 +27,7 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 15 | [Shapes & text boxes](15-shapes-and-text-boxes.md) | Feature · Compat | L | Proposed (**needs 16 first**) | 1–3 one stream; then 4/5 parallel |
 | 16 | [Shared DrawingML infrastructure](16-drawingml-infrastructure.md) | Arch · Refactor | S–M | Proposed | 3 PRs; harness first, then 2/3 independent |
 | 17 | [Picture styling & fidelity](17-picture-styling.md) | Feature · Compat · **Defect** | M–L | Proposed (**needs 16 first**) | Task 1 (fidelity fix) first and standalone; 3/4/5 parallel after 2 |
-| 18 | [Template round-trip overhead](18-template-round-trip-overhead.md) | Perf (read + write) · **Defect** | M | Tasks 0-1 done (see Results) | Task 1 first (biggest win); 2/3 independent after |
+| 18 | [Template round-trip overhead](18-template-round-trip-overhead.md) | Perf (read + write) · **Defect** | M | Tasks 0�2 done (see Results) | Task 1 first (biggest win); 2/3 independent after |
 
 Spec 15 closes the last hole in the drawing surface: XLibur can add pictures and charts but no shape of
 any kind, so a floating text box, callout or arrow cannot be created at all. Shapes that already exist in

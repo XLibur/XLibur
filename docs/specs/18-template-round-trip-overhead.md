@@ -3,7 +3,7 @@
 **Area:** Performance (read + write time, memory)
 **Effort:** M (task 1 is the bulk of the win; 2–4 are independent follow-ons)
 **Dependencies:** Touches `WorksheetPartWriter` and the style façades. Coordinate with Spec 03 (both touch the save path) and Spec 11 (create-path allocations); no overlap with the `SheetDataWriter` cell loop, which is already tuned.
-**Status:** Tasks 0 and 1 done — see [Results](#results). Tasks 2–4 open.
+**Status:** Tasks 0–2 done — see [Results](#results). Tasks 3–4 open.
 
 ## Summary
 
@@ -41,7 +41,7 @@ dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile
 |---|------|--------|------|
 | 0 | Benchmarks + decomposition probe that expose all of this | ✅ Done | S |
 | 1 | Stop materialising `<sheetData>` into a DOM on save | ✅ Done (`26b248d9`) | M |
-| 2 | Per-cell styling costs ~2.3× because the wrapper caches never hit | ⬜ Proposed | M |
+| 2 | Per-cell styling: CPU cost in the façade setters | ✅ Done (`4d98f127`) — allocation share found inherent | M |
 | 3 | Lookup-column refresh costs ~3× per cell versus the grid path — cause unknown | ⬜ Needs investigation | S |
 | 4 | Re-verify and file the remainder | ⬜ Proposed | S |
 
@@ -114,16 +114,50 @@ BenchmarkDotNet, net10.0 Release, before/after task 1:
 
 `LoadRowHeavy` is load-only and unaffected, as expected; it is listed as the control.
 
-### Task 2 — Per-cell styling costs ~2.3× ⬜
+### Task 2 — Per-cell styling costs ~2.3× ✅ (partly; see below)
 
-Corroborated twice:
+The symptom was corroborated twice:
 
 - `profile template` — per-cell vs per-column number format is **2.1–2.6× time and a stable 2.3× allocation** across 1,000/5,000/20,000 rows.
 - `profile alloc` — `CreateFormattedAndSave` allocates **183.3 MB** in the create phase against **25.1 MB** for the same rows unformatted.
 
-**Mechanism.** `XLStylizedBase` caches its `XLStyle` façade in `_cachedStyle`, and `XLStyle` caches `_cachedNumberFormat`; `XLStyleValue` additionally memoises key transitions (`StoreTransition`). The machinery is already designed to avoid this cost — but `worksheet.Cell(r, c)` returns a **fresh `XLCell` on every call**, so those per-object caches are always cold. Each formatted cell therefore allocates the cell plus a fresh façade chain.
+**The mechanism first recorded here was wrong**, and it is worth saying why rather than quietly deleting it. It claimed the façade objects were the cost, because `Cell(r, c)` returns a fresh `XLCell` whose `_cachedStyle` is therefore always cold. Two things are wrong with that. `XLCellsCollection.GetCell` already keeps a direct-mapped `XLCell` cache; and, more importantly, the façades barely allocate.
 
-Options, in rough order of appeal: cache the façade per worksheet keyed by nothing (re-target the wrapper's container on access); pool/cache `XLCell` instances from `Cell(r, c)`; or add a bulk styling API and document per-column styling as the fast path. Needs a design decision before implementation — note that `Cell(r,c)` returning a stable instance has semantics implications well beyond styling.
+`CellStylingBenchmarks` splits the path. Per 20,000 cells, against an unstyled write of the same values:
+
+| step | time | allocated |
+|---|---:|---:|
+| `XLStyle` façade | 21 ns/cell | 76 B/cell |
+| `XLNumberFormat` façade | 6 ns/cell | 31 B/cell |
+| the `.Format = x` setter | **163 ns/cell** | 23 B/cell |
+| *(for scale: assigning a pre-built `IXLStyle` instead)* | 59 ns/cell | 123 B/cell |
+
+So the whole façade chain is ~2% of the styling **allocation** and ~14% of its **time**. The allocation is the style-slice write, and it is inherent: a distinct style per cell is N slice entries, exactly as `BulkStyleBenchmarks` already concluded for spec 05's criterion 3. **There is no allocation win available here.** Per-column styling stays 2.3× leaner because it writes one style, not 20,000.
+
+What *was* available was CPU, in the setter. Every façade applied a component key by interning it and then handing it straight back:
+
+```csharp
+private void SetKey(XLNumberFormatKey newKey)
+{
+    Key = newKey;                    // XLNumberFormatValue.FromKey -> repository lookup
+    _style.ModifyNumberFormat(Key);  // hashes the same key again
+}
+```
+
+The lookup is waste in both directions `ModifyXxx` can go: on a transition-cache hit it never needs the component value, and on a miss it interns the component anyway inside `XLStyleValue.FromKey`. All six façades shared the pattern. Fixed in `4d98f127` by applying the modification first and taking the interned value back off the resulting style.
+
+`CellStylingBenchmarks`, ratio against the unstyled write in the same run:
+
+| Benchmark | before | after |
+|---|---|---|
+| `StyleFacadePerCell` | 2.38 (median 6.56 ms) | **1.57** (median 4.38 ms) |
+| `TwoPropertiesPerCell` | 2.66 (median 7.28 ms) | **2.11** (median 6.06 ms) |
+
+≈328 → ≈219 ns per styled cell. Allocation unchanged at 7.58 MB.
+
+**Still open.** The setter is now ~82 ns/cell against ~59 ns/cell for assigning a pre-built style, so roughly 23 ns/cell of key-hashing and transition machinery remains. Diminishing, and worth measuring before assuming it is reachable.
+
+**Noted while here, not fixed:** `XLStyleValue.GetTransition` matches on the 32-bit transition hash alone and never compares the key, so two component keys sharing a hash *and* a cache slot would hand back the wrong style. The window is small — an 8-entry direct-mapped cache — and the risk predates this work, but it is a correctness bug rather than a performance one and deserves its own issue.
 
 ### Task 3 — Lookup refresh costs ~3× per cell ⬜
 
