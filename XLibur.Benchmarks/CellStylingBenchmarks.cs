@@ -35,7 +35,18 @@ namespace XLibur.Benchmarks;
 [MemoryDiagnoser]
 public class CellStylingBenchmarks
 {
-    private const int Rows = 20_000;
+    /// <summary>
+    /// Sized so a measured iteration runs long enough to swamp the per-iteration noise floor.
+    /// </summary>
+    /// <remarks>
+    /// At 20,000 rows the cheapest variant measured ~2.7 ms against BenchmarkDotNet's recommended
+    /// 100 ms, and the baseline's own samples scattered across 2.7–6.1 ms — wide enough to move
+    /// every <c>Ratio</c> in the table by more than the effects being chased. A re-run of the
+    /// spec-18 task 2 A/B disagreed with itself in opposite directions on two benchmarks because
+    /// of it.
+    /// </remarks>
+    private const int Rows = 100_000;
+
     private const string DateFormat = "mmm/yyyy";
 
     private XLWorkbook _workbook = null!;
@@ -66,8 +77,25 @@ public class CellStylingBenchmarks
         _preBuiltStyle = donor.Style;
     }
 
+    /// <summary>
+    /// Disposes the workbook and collects it here, outside the measured region.
+    /// </summary>
+    /// <remarks>
+    /// Each iteration builds a fresh workbook holding <see cref="Rows"/> cells, so without this the
+    /// previous iteration's garbage is reclaimed part-way through the next iteration's measurement
+    /// and lands on whichever variant happens to be running. That showed up as gen2 collections and
+    /// a scatter of high outliers on the cheapest benchmarks, which are exactly the ones used as the
+    /// ratio baseline.
+    /// </remarks>
     [IterationCleanup]
-    public void IterationCleanup() => _workbook.Dispose();
+    public void IterationCleanup()
+    {
+        _workbook.Dispose();
+
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+    }
 
     [Benchmark(Baseline = true)]
     public void ValueOnly()

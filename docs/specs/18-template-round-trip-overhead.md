@@ -3,7 +3,7 @@
 **Area:** Performance (read + write time, memory)
 **Effort:** M (task 1 is the bulk of the win; 2–4 are independent follow-ons)
 **Dependencies:** Touches `WorksheetPartWriter` and the style façades. Coordinate with Spec 03 (both touch the save path) and Spec 11 (create-path allocations); no overlap with the `SheetDataWriter` cell loop, which is already tuned.
-**Status:** Tasks 0–3 done — see [Results](#results). Task 4 open.
+**Status:** Tasks 0–4 done — see [Results](#results). Task 5 open (the dominant remaining cost).
 
 ## Summary
 
@@ -41,9 +41,10 @@ dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile
 |---|------|--------|------|
 | 0 | Benchmarks + decomposition probe that expose all of this | ✅ Done | S |
 | 1 | Stop materialising `<sheetData>` into a DOM on save | ✅ Done (`26b248d9`) | M |
-| 2 | Per-cell styling: CPU cost in the façade setters | ✅ Done (`4d98f127`) — allocation share found inherent | M |
+| 2 | Per-cell styling: CPU cost in the façade setters | ✅ Done (`4d98f127`) — allocation share found inherent; **win restated at −13% by task 4** | M |
 | 3 | Lookup-column refresh costs ~3× per cell versus the grid path | ✅ Explained — inherent, no fix | S |
-| 4 | Re-verify and file the remainder | ⬜ Proposed | S |
+| 4 | Re-verify and file the remainder | ✅ Done | S |
+| 5 | Each structurally empty worksheet costs ~2.2 ms / ~0.24 MB to round-trip | ⬜ Proposed | M |
 
 ---
 
@@ -54,6 +55,10 @@ dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile
 - `XLibur.Benchmarks/TemplateFixture.cs` — the shared synthetic template.
 
 **Do not use the probe's timings to claim a change.** On the reference machine they move by tens of percent between runs of identical code — the same order as the effects being chased. The probe locates cost and reports exact allocation; BenchmarkDotNet proves movement. An early iteration of this work reported a 30% win that BenchmarkDotNet then showed to be ~0%.
+
+**BenchmarkDotNet is not automatically trustworthy either** — it is only trustworthy when its warnings are clear. Task 2's win was overstated by 2.5× because its benchmark ran 2.7 ms iterations against the recommended 100 ms and divided by a baseline that scattered 2.7–6.1 ms; BDN said so in a `MinIterationTime` warning that went unread. Before believing a `Ratio`, check three things: that the `MinIterationTime` warning is absent or the iteration is comfortably long, that the *baseline's* removed outliers do not span an appreciable fraction of its mean, and — for anything with `[IterationSetup]` — that the previous iteration's garbage is collected in `[IterationCleanup]` rather than inside the next measurement.
+
+**A/B the controls, not just the target.** The reliable signal in the task 2 re-run was not the two benchmarks that improved; it was the five that did not move while they did. A change that appears to shift every variant in the table, or that shifts variants it cannot reach, is measuring the machine.
 
 ### Task 1 — Stop materialising `<sheetData>` into a DOM on save ✅
 
@@ -146,16 +151,45 @@ private void SetKey(XLNumberFormatKey newKey)
 
 The lookup is waste in both directions `ModifyXxx` can go: on a transition-cache hit it never needs the component value, and on a miss it interns the component anyway inside `XLStyleValue.FromKey`. All six façades shared the pattern. Fixed in `4d98f127` by applying the modification first and taking the interned value back off the resulting style.
 
-`CellStylingBenchmarks`, ratio against the unstyled write in the same run:
+The fix is real but smaller than first reported. **Task 4 re-ran the A/B and the original figures did not
+reproduce; they are corrected here.** What was recorded — 2.38 → 1.57, ≈328 → ≈219 ns per styled cell —
+came from a benchmark whose iterations ran 2.7–5.8 ms against BenchmarkDotNet's recommended 100 ms, and
+whose `ValueOnly` baseline scattered across 2.7–6.1 ms. Since every `Ratio` in the table divides by that
+baseline, the reported win was mostly baseline movement. A first re-run disagreed with itself in opposite
+directions on two benchmarks, which is what exposed it.
 
-| Benchmark | before | after |
-|---|---|---|
-| `StyleFacadePerCell` | 2.38 (median 6.56 ms) | **1.57** (median 4.38 ms) |
-| `TwoPropertiesPerCell` | 2.66 (median 7.28 ms) | **2.11** (median 6.06 ms) |
+Re-measured at 100,000 rows with a forced gen2 collection in `IterationCleanup` (so the previous
+iteration's workbook is reclaimed outside the measured region), A/B against `4d98f127~1` with the
+benchmark project byte-identical across both arms:
 
-≈328 → ≈219 ns per styled cell. Allocation unchanged at 7.58 MB.
+| Benchmark | setter per cell | before | after | Δ |
+|---|---|---:|---:|---:|
+| `StyleFacadePerCell` | 1× | 48.26 ms | **43.76 ms** | −4.50 |
+| `TwoPropertiesPerCell` | 2× | 58.95 ms | **54.23 ms** | −4.72 |
+| `ValueOnly` *(control)* | — | 24.57 ms | 23.05 ms | −1.52 |
+| `FacadeStyleOnly` *(control)* | — | 42.00 ms | 42.46 ms | +0.46 |
+| `FacadeChainOnly` *(control)* | — | 40.22 ms | 40.37 ms | +0.15 |
+| `StyleAssignedPerCell` *(control)* | — | 43.46 ms | 43.28 ms | −0.18 |
+| `StyleOnColumn` *(control)* | — | 18.11 ms | 18.13 ms | +0.02 |
 
-**Still open.** The setter is now ~82 ns/cell against ~59 ns/cell for assigning a pre-built style, so roughly 23 ns/cell of key-hashing and transition machinery remains. Diminishing, and worth measuring before assuming it is reachable.
+The five controls never call a façade setter and scatter within ±1.5 ms in both directions; the two that
+do call it both improve, with non-overlapping error bars. Measured against each run's own baseline the
+styling overhead falls **237 → 207 ns/cell** for one property (−13%) and 344 → 312 ns/cell for two
+(−9%). Allocation is unchanged, as expected for a pure lookup elision.
+
+**The per-step split above is regime-dependent — do not read it as fixed.** Re-measuring at 100,000 rows
+inverts it: `FacadeStyleOnly` rises to ratio 1.85 and `FacadeChainOnly` to 1.76, i.e. building the façade
+and setting *nothing* costs nearly as much as the whole styled write, and `FacadeChainOnly` comes out
+*cheaper* than `FacadeStyleOnly` despite doing strictly more work. The GC columns explain it: every styled
+variant runs 2× the baseline's Gen0 collections plus Gen1 collections the baseline never triggers, so past
+~20K styled cells the measurement is dominated by reclaiming the extra allocation rather than by the style
+code. The 21/6/163 ns attribution holds at 20K rows and nowhere else. Allocation ratios, by contrast, are
+stable across both sizes (1.52 / 1.49 / 1.74 / 1.31 / 1.43 / 0.65) — that part of the conclusion was always
+sound.
+
+**Still open.** Roughly 207 ns/cell of styling overhead remains against 20 ns/cell for the value write.
+Whether any of it is reachable is unmeasured; the transition machinery is the obvious suspect, but see the
+regime warning above before trusting any per-step number that motivates chasing it.
 
 **Noted while here, not fixed:** `XLStyleValue.GetTransition` matches on the 32-bit transition hash alone and never compares the key, so two component keys sharing a hash *and* a cache slot would hand back the wrong style. The window is small — an 8-entry direct-mapped cache — and the risk predates this work, but it is a correctness bug rather than a performance one and deserves its own issue.
 
@@ -187,9 +221,52 @@ So it is mostly the `<row>` element and its bookkeeping, ~443 ns per row, not th
 
 **Guidance rather than a code change:** cost scales with rows and with *distinct* values, not with cells. A caller refreshing a tall single-column lookup is on the most expensive path there is, and the lever available to them is the data, not the library.
 
-### Task 4 — Re-verify and file the remainder ⬜
+### Task 4 — Re-verify and file the remainder ✅
 
-After tasks 1–3, re-run the benchmark set and the `profile template` decomposition. File follow-ups for anything ≥ 5% of what remains. Note but do not chase `System.IO.Packaging` buffering and `XmlWriter` internals — that is Spec 01/03 territory.
+**Tasks 1 and 3 reproduce exactly.** All five `TemplateRoundTripBenchmarks` match their recorded post-fix
+values with allocation identical to the byte (`OpenAndSaveRowHeavyUnchanged` 921.3 ms / 88.83 MB,
+`LoadRowHeavy` 389.8 ms / 55.4 MB, `Open` 4.22 ms / 1.67 MB, `OpenAndSaveUnchanged` 7.89 ms / 3.17 MB,
+`RefreshLookupColumn` 9.91 ms / 3.83 MB). All six `SheetGeometryBenchmarks` land within noise of theirs,
+allocation again identical to the byte. Times sit 5–7% below the recorded figures across the board, which
+is machine variance, not a new win — identical allocation says it is the same code path.
+
+**Task 2 did not reproduce and has been corrected above**, along with the benchmark that produced it.
+
+**Filed as task 5:** per-worksheet round-trip cost, the dominant remaining term.
+
+**Ruled out by the same decomposition**, both previously plausible suspects from the profiled application:
+
+- **Defined names are free.** 10 sheets with 0 names round-trips in 30.6 ms; with 20 names, 28.5 ms.
+- **Data validations are free.** 0 → 26 → 100 validations moves 28.5 → 28.3 → 29.6 ms, inside probe noise.
+
+So the template that triggered this spec — ~10 sheets, ~20 defined names, ~26 validations — pays for its
+sheet *count* and essentially nothing for the features that looked like the obvious cause.
+
+Left unchased by scope, as instructed: `System.IO.Packaging` buffering and `XmlWriter` internals (Spec 01/03).
+
+### Task 5 — Each structurally empty worksheet costs ~2.2 ms and ~0.24 MB to round-trip ⬜
+
+`profile template`, varying only the sheet count with zero data rows:
+
+| sheets | round trip | alloc | fixture on disk |
+|---:|---:|---:|---:|
+| 1 | 10.9 ms | 1.3 MB | 8,312 B |
+| 10 | 30.6 ms | 3.2 MB | 22,581 B |
+| 40 | 96.9 ms | 10.6 MB | 76,074 B |
+
+The slope is linear and consistent across both intervals — 2.19 ms / 0.21 MB per sheet from 1→10, and
+2.21 ms / 0.25 MB per sheet from 10→40. Each worksheet carries ~1.8 KB of XML, so this is roughly **135×
+the on-disk size in allocation**, and costs about what 1,370 grid cells cost, for a sheet containing no
+cells at all.
+
+It is the dominant remaining term on any template-shaped workbook: on the 10-sheet fixture it is 22 of the
+30.6 ms round trip. Unlike rows and distinct strings (task 3), it scales with nothing the caller can
+reduce — the sheets are already empty.
+
+**Not yet attributed.** `profile template loop roundtrip` uses exactly this fixture (10 sheets, 0 data
+rows) and is the right workload to trace. The split to establish first is packaging versus XLibur: a part
+per sheet through `System.IO.Packaging` is Spec 01/03 territory and out of scope here, whereas per-sheet
+DOM and content-manager work is not. Do that attribution before designing anything.
 
 ## Already ruled out
 
