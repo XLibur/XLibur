@@ -109,11 +109,20 @@ public static class TemplateRoundTripProfile
 
     /// <summary>
     /// Attributes the round trip between parse and serialise. Save is reported as
-    /// (open+save) − (open) rather than measured directly, because a workbook cannot currently be
-    /// saved twice: <c>SaveAs</c> disposes the source stream, so a second call throws
-    /// <see cref="ObjectDisposedException"/>. Every probe here therefore opens a fresh workbook
-    /// per iteration.
+    /// (open+save) − (open) rather than measured directly, because a second save of the same
+    /// instance is not the same operation as the first: <c>SaveAs</c> adopts its destination as
+    /// the workbook's origin, so the next save edits the package it just wrote instead of the
+    /// template. Every probe therefore opens a fresh workbook per iteration.
     /// </summary>
+    /// <remarks>
+    /// The adoption is also a trap worth knowing about when writing probes. Because the previous
+    /// destination becomes the origin, disposing it — which a <c>using</c> on a scratch
+    /// <see cref="MemoryStream"/> does — makes the <em>next</em> <c>SaveAs</c> throw
+    /// <see cref="ObjectDisposedException"/> ("Cannot access a closed Stream") from deep inside,
+    /// where it reads that origin back. It is not that saving twice is unsupported: two saves to
+    /// two streams that both stay alive succeed, and the stream a workbook was loaded from is
+    /// left readable.
+    /// </remarks>
     private static void OpenVersusSaveAttribution(string? template)
     {
         Header("open versus save attribution");
@@ -363,7 +372,8 @@ public static class TemplateRoundTripProfile
 
     /// <summary>
     /// As <see cref="Measure"/>, but with per-iteration setup held outside the measurement.
-    /// Setup is unavoidable for the split probes: a workbook cannot be saved twice, so each pass
+    /// Setup is unavoidable for the split probes: a saved workbook has adopted its destination as
+    /// its origin and would not save the same work a second time, so each pass
     /// has to open a fresh one, and that open would otherwise swamp what is being measured.
     /// </summary>
     private static Sample MeasureExcludingSetup<TState>(Func<TState> setup, Action<TState> action)
