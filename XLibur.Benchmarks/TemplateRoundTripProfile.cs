@@ -161,21 +161,26 @@ public static class TemplateRoundTripProfile
     {
         Header("open + save, unmodified");
 
-        foreach (var (sheets, names, validations) in new[]
+        foreach (var (sheets, names, validations, lookupRows) in new[]
                  {
-                     // The first three vary only the sheet count, so the marginal cost of one
-                     // structurally empty worksheet — the part of the bill that scales with
-                     // nothing a caller controls — falls out of the slope.
-                     (1, 0, 0),
-                     (10, 0, 0),
-                     (40, 0, 0),
-                     (10, 20, 0),
-                     (10, 20, 26),
-                     (10, 20, 100),
+                     // Two sheet-count sweeps at different lookup-row counts. The header-only sweep
+                     // isolates what a worksheet costs structurally; the 100-row sweep is the same
+                     // sheets carrying data. Running only the latter confounds the two, and did:
+                     // the resulting slope was reported as the cost of an *empty* sheet when every
+                     // sheet in it held 101 rows.
+                     (1, 0, 0, 0),
+                     (10, 0, 0, 0),
+                     (40, 0, 0, 0),
+                     (1, 0, 0, TemplateFixture.DefaultLookupRows),
+                     (10, 0, 0, TemplateFixture.DefaultLookupRows),
+                     (40, 0, 0, TemplateFixture.DefaultLookupRows),
+                     (10, 20, 0, TemplateFixture.DefaultLookupRows),
+                     (10, 20, 26, TemplateFixture.DefaultLookupRows),
+                     (10, 20, 100, TemplateFixture.DefaultLookupRows),
                  })
         {
-            var bytes = GetFixture(template, sheets, names, validations, dataRows: 0);
-            Row($"sheets={sheets} names={names} validations={validations}",
+            var bytes = GetFixture(template, sheets, names, validations, dataRows: 0, lookupRows);
+            Row($"sheets={sheets} names={names} val={validations} lookupRows={lookupRows}",
                 Measure(() => RoundTrip(bytes)), bytes.Length);
         }
     }
@@ -390,10 +395,16 @@ public static class TemplateRoundTripProfile
     /// <em>build</em> a fixture, so they have no effect on an external template — cases that
     /// differ only in those values become repeat samples of one measurement.
     /// </summary>
-    private static byte[] GetFixture(string? template, int sheetCount, int definedNames, int validations, int dataRows) =>
+    private static byte[] GetFixture(
+        string? template,
+        int sheetCount,
+        int definedNames,
+        int validations,
+        int dataRows,
+        int lookupRows = TemplateFixture.DefaultLookupRows) =>
         template is not null
             ? File.ReadAllBytes(template)
-            : Build(sheetCount, definedNames, validations, dataRows);
+            : Build(sheetCount, definedNames, validations, dataRows, lookupRows);
 
     private static void RoundTrip(byte[] bytes)
     {

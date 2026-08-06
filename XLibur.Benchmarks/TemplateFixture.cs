@@ -28,25 +28,41 @@ internal static class TemplateFixture
     public const int GridColumns = 21;
     public const string DateFormat = "mmm/yyyy";
 
-    /// <summary>Rows per lookup sheet, enough that a defined name spans a realistic range.</summary>
-    private const int LookupRows = 100;
+    /// <summary>
+    /// Default rows per lookup sheet, enough that a defined name spans a realistic range.
+    /// </summary>
+    public const int DefaultLookupRows = 100;
 
     /// <summary>
     /// Builds a workbook approximating a real reporting template: one data sheet plus a number of
     /// lookup sheets, workbook-scoped defined names over the lookup columns, and list data
     /// validations on the data sheet pointing at those names.
     /// </summary>
-    public static byte[] Build(int sheetCount, int definedNames, int validations, int dataRows)
+    /// <param name="lookupRows">
+    /// Rows on each lookup sheet. Zero builds sheets that hold nothing but a header, which is what
+    /// isolates the structural cost of a worksheet from the cost of the rows on it — the two were
+    /// confounded while this was a constant, and the per-sheet slope was reported as a cost per
+    /// *empty* sheet when every sheet in it carried 101 rows.
+    /// </param>
+    public static byte[] Build(
+        int sheetCount,
+        int definedNames,
+        int validations,
+        int dataRows,
+        int lookupRows = DefaultLookupRows)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(sheetCount, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(lookupRows);
+
+        var lookupSheets = sheetCount - 1;
 
         // Every defined name spans a lookup column, and every validation points at the first
-        // defined name, so neither can be built without at least one lookup sheet. Rejecting the
+        // defined name, so neither can be built without a lookup sheet that has rows. Rejecting the
         // combination keeps a probe from quietly measuring a fixture that is not what it asked for.
-        if (sheetCount == 1 && (definedNames > 0 || validations > 0))
+        if ((lookupSheets == 0 || lookupRows == 0) && (definedNames > 0 || validations > 0))
         {
             throw new ArgumentException(
-                "A single-sheet fixture has no lookup sheet to point at, so it cannot carry defined names or validations.",
+                "Defined names and validations span a lookup range, so they need at least one lookup sheet with at least one row.",
                 nameof(sheetCount));
         }
 
@@ -65,26 +81,25 @@ internal static class TemplateFixture
         // The data sheet is one of the requested sheets, so the rest are lookups. sheetCount: 1 is
         // the data sheet alone; anything else made the workbook one sheet wider than asked for,
         // which mattered because the per-sheet cost is read off the slope between these counts.
-        var lookupSheets = sheetCount - 1;
         for (var s = 1; s <= lookupSheets; s++)
         {
             var lookup = workbook.AddWorksheet($"{LookupSheetPrefix}{s}");
             lookup.Cell(HeaderRow, 1).Value = "Value";
 
-            for (var r = 1; r <= LookupRows; r++)
+            for (var r = 1; r <= lookupRows; r++)
                 lookup.Cell(HeaderRow + r, 1).Value = $"Sheet {s} value {r}";
         }
 
-        if (lookupSheets > 0)
+        if (lookupSheets > 0 && lookupRows > 0)
         {
             // The first defined name is the one the refresh probe repoints.
             var firstLookup = workbook.Worksheet(FirstLookupSheet);
-            workbook.DefinedNames.Add(LookupRangeName, firstLookup.Range(HeaderRow + 1, 1, HeaderRow + LookupRows, 1));
+            workbook.DefinedNames.Add(LookupRangeName, firstLookup.Range(HeaderRow + 1, 1, HeaderRow + lookupRows, 1));
 
             for (var n = 1; n < definedNames; n++)
             {
                 var sheet = workbook.Worksheet($"{LookupSheetPrefix}{(n % lookupSheets) + 1}");
-                workbook.DefinedNames.Add($"Name{n}", sheet.Range(HeaderRow + 1, 1, HeaderRow + LookupRows, 1));
+                workbook.DefinedNames.Add($"Name{n}", sheet.Range(HeaderRow + 1, 1, HeaderRow + lookupRows, 1));
             }
         }
 

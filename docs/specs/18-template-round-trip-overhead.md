@@ -241,11 +241,11 @@ is machine variance, not a new win — identical allocation says it is the same 
 profiled application. Against a 10-sheet fixture: 0 names → 3.2 MB, 20 names → 3.3 MB; then 0 → 26 → 100
 validations holds flat at 3.3 MB. Allocation is reported exactly by the probe, so this part is solid.
 
-**Their time cost is not established either way, and one run should not be trusted here.** A first
-decomposition put 20 names *below* 0 names (28.5 ms against 30.6 ms); a second, over a byte-identical
-fixture (22,725 B both times), put it 70% *above* (46.3 ms against 27.2 ms). Nothing changed but the
-machine. Anyone wanting a time answer for names or validations needs a BenchmarkDotNet case, not this
-probe — see the measurement warning under task 0, which exists because this spec has already published two
+**Their time cost is not established, and one run should not be trusted here.** Three decompositions over a
+byte-identical fixture (22,725 B every time) put 20 names at 28.5 ms against 30.6 ms for none, then 46.3
+against 27.2, then 25.9 against 27.6. Two of the three say free and one says 70% dearer; nothing changed
+but the machine. Anyone wanting a time answer for names or validations needs a BenchmarkDotNet case, not
+this probe — see the measurement warning under task 0, which exists because this spec has already published
 figures that did not survive re-measurement.
 
 What the sheet-count slope shows is robust because it is read across three points that all move together
@@ -253,31 +253,37 @@ and is corroborated by allocation. The rest of the table is not.
 
 Left unchased by scope, as instructed: `System.IO.Packaging` buffering and `XmlWriter` internals (Spec 01/03).
 
-### Task 5 — Each additional worksheet costs ~2.2 ms and ~0.24 MB to round-trip ⬜ (attributed)
+### Task 5 — A worksheet costs ~1.0 ms and ~0.19 MB structurally, before any row on it ⬜ (attributed)
 
-> **Correction.** This task was first written as "each *structurally empty* worksheet". That is wrong, and
-> the trace is what caught it. `TemplateFixture` gives every lookup sheet `LookupRows = 100` rows plus a
-> header, so the sheets whose count the slope varies each carry 101 rows of a one-column string table —
-> `LoadRowXml` and `LoadCellXml` together account for 18.6% of the trace on a fixture described as having
-> no data. The slope below is real, but it is the cost of *a lookup sheet*, not of an empty one. The true
-> structural floor is still unmeasured; it needs a fixture whose lookup row count is a parameter.
+> **Correction.** This task first claimed ~2.2 ms per *structurally empty* worksheet. It was measuring
+> sheets that each held 101 rows: `TemplateFixture` hard-coded `LookupRows = 100`, so sheet count and row
+> count moved together and the slope charged the rows to the sheet. `LoadRowXml` and `LoadCellXml` being
+> 18.6% of a trace of a fixture described as having no data is what exposed it. `lookupRows` is now a
+> parameter and the two are separated below.
 
-`profile template`, varying only the sheet count with zero data rows:
+`profile template`, two sheet-count sweeps differing only in rows per lookup sheet:
 
-| sheets | round trip | alloc | fixture on disk |
-|---:|---:|---:|---:|
-| 1 | 7.3 ms | 1.1 MB | 6,437 B |
-| 10 | 27.2 ms | 3.2 MB | 22,581 B |
-| 40 | 101.1 ms | 10.6 MB | 76,074 B |
+| sheets | header-only | 100 rows/sheet |
+|---:|---:|---:|
+| 1 | 6.3 ms / 1.1 MB / 6,437 B | 7.5 ms / 1.1 MB / 6,437 B |
+| 10 | 15.1 ms / 2.8 MB / 12,766 B | 27.6 ms / 3.2 MB / 22,581 B |
+| 40 | 46.8 ms / 8.5 MB / 33,749 B | 94.4 ms / 10.6 MB / 76,074 B |
 
-The slope is consistent across both intervals — 2.21 ms / 0.23 MB per sheet from 1→10, and 2.46 ms /
-0.25 MB per sheet from 10→40. Each worksheet carries ~1.8 KB of XML, so this is roughly **130× the
-on-disk size in allocation**, and costs about what 1,300 grid cells cost, for a sheet containing no cells
-at all.
+| | per sheet, time | per sheet, alloc |
+|---|---:|---:|
+| **structural (header-only)** | **~1.0 ms** | **~0.19 MB** |
+| the 100 rows on top | ~1.2 ms | ~0.05 MB |
+| *(total, as previously reported)* | ~2.2 ms | ~0.24 MB |
 
-It is the dominant remaining term on any template-shaped workbook: on the 10-sheet fixture it is roughly
-20 of the 27.2 ms round trip. Unlike rows and distinct strings (task 3), it scales with nothing the caller
-can reduce — the sheets are already empty.
+Both slopes hold across both intervals — 0.98 and 1.06 ms/sheet header-only, 2.23 and 2.23 with rows — so
+the split is real. At `sheets=1` the two sweeps build a byte-identical fixture (6,437 B) and still measured
+6.3 against 7.5 ms, which sets the probe's noise floor at ~1.2 ms here; the slopes come from differences of
+8.8 and 31.7 ms, well clear of it.
+
+**The structural half is the interesting one.** A header-only worksheet adds ~703 B to the file and ~0.19 MB
+of allocation — roughly **270× its on-disk size**, for a sheet holding one cell. Allocation is where the
+split is starkest: rows contribute only ~21% of the per-sheet bytes. Unlike rows and distinct strings
+(task 3), this scales with nothing the caller can reduce.
 
 #### Attribution
 
