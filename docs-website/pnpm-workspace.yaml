@@ -16,9 +16,15 @@ allowBuilds:
 #
 # Drop an entry once the upstream dependent has moved past it on its own:
 #   serialize-javascript  @docusaurus/bundler > copy-webpack-plugin   GHSA-5c6j-r48x-rmvq, GHSA-qj8w-gfj5-8c6v
-#   brace-expansion       serve-handler > minimatch                   GHSA-mh99-v99m-4gvg
+#   brace-expansion       serve-handler > minimatch                   GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895
 #   uuid                  webpack-dev-server > sockjs                 GHSA-w5hq-g745-h8pq
+#   fast-uri              webpack > schema-utils > ajv                GHSA-7p8r-x3mc-p8w7
+#
+# fast-uri is held below 4 because ajv declares ^3.0.1 and uses it to resolve schema $refs. The
+# advisory is fixed in 3.1.5, so there is nothing to gain from crossing a major its only dependent
+# does not claim to support.
 overrides:
   serialize-javascript: '>=7.0.5'
-  brace-expansion: '>=5.0.8'
+  brace-expansion: '>=5.0.9'
   uuid: '>=11.1.1'
+  fast-uri: '>=3.1.5 <4'
