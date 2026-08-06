@@ -3,7 +3,7 @@
 **Area:** Performance (read + write time, memory)
 **Effort:** M (task 1 is the bulk of the win; 2–4 are independent follow-ons)
 **Dependencies:** Touches `WorksheetPartWriter` and the style façades. Coordinate with Spec 03 (both touch the save path) and Spec 11 (create-path allocations); no overlap with the `SheetDataWriter` cell loop, which is already tuned.
-**Status:** Tasks 0–2 done — see [Results](#results). Tasks 3–4 open.
+**Status:** Tasks 0–3 done — see [Results](#results). Task 4 open.
 
 ## Summary
 
@@ -42,7 +42,7 @@ dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile
 | 0 | Benchmarks + decomposition probe that expose all of this | ✅ Done | S |
 | 1 | Stop materialising `<sheetData>` into a DOM on save | ✅ Done (`26b248d9`) | M |
 | 2 | Per-cell styling: CPU cost in the façade setters | ✅ Done (`4d98f127`) — allocation share found inherent | M |
-| 3 | Lookup-column refresh costs ~3× per cell versus the grid path — cause unknown | ⬜ Needs investigation | S |
+| 3 | Lookup-column refresh costs ~3× per cell versus the grid path | ✅ Explained — inherent, no fix | S |
 | 4 | Re-verify and file the remainder | ⬜ Proposed | S |
 
 ---
@@ -159,11 +159,33 @@ The lookup is waste in both directions `ModifyXxx` can go: on a transition-cache
 
 **Noted while here, not fixed:** `XLStyleValue.GetTransition` matches on the 32-bit transition hash alone and never compares the key, so two component keys sharing a hash *and* a cache slot would hand back the wrong style. The window is small — an 8-entry direct-mapped cache — and the risk predates this work, but it is a correctness bug rather than a performance one and deserves its own issue.
 
-### Task 3 — Lookup refresh costs ~3× per cell ⬜
+### Task 3 — Lookup refresh costs ~3× per cell ✅ Explained — not a defect
 
-`profile template`, lookup refresh: 10,000 values cost ~38 ms above the round-trip floor, ≈3.8 µs per cell, where the grid path runs ≈1.3 µs per cell for write + save. Candidate causes, none yet confirmed: 10,000 *unique* strings pressuring the shared-string table where the grid repeats `"Yes"`/`"No"`; or extending the used range from 100 to 10,000 rows interacting with the 26 data validations and 20 defined names on the fixture.
+`profile template`, lookup refresh: the 1,000 → 10,000 step costs ≈5.4 µs per cell where the grid path runs ≈1.3 µs per cell for write + save. Two causes were proposed and neither had evidence: shared-string pressure, because the lookup values are all distinct; or the sheet's geometry, because a single column pays whatever a row costs once per cell instead of once per twenty.
 
-**Measure before designing.** This is the one finding here with no established mechanism.
+`SheetGeometryBenchmarks` crosses the two — 20,000 string cells in every variant, so a difference is a difference *per cell*:
+
+| variant | mean | allocated |
+|---|---:|---:|
+| `TallNarrow_Unique` | 40.73 ms | 17.42 MB |
+| `TallNarrow_Repeated` | 29.71 ms | 9.96 MB |
+| `ShortWide_Unique` | 30.74 ms | 12.85 MB |
+| `ShortWide_Repeated` | 17.70 ms | 5.50 MB |
+
+**Both effects are real, roughly equal, independent, and they compound.** Geometry costs 25–40%; string uniqueness costs 27–42%; together the worst quadrant is 2.3× the best in time and 3.2× in allocation. Neither candidate was "the" cause, which is why crossing them mattered — either comparison alone would have confounded the two and produced a confident wrong answer.
+
+Splitting the geometry penalty by phase (unique strings) locates it:
+
+| phase | tall narrow | short wide | penalty |
+|---|---:|---:|---:|
+| write only | 10.45 ms / 7.45 MB | 8.38 ms / 6.15 MB | +2.07 ms — 19% |
+| save (by subtraction) | 30.98 ms / 9.97 MB | 22.12 ms / 6.70 MB | **+8.86 ms — 81%** |
+
+So it is mostly the `<row>` element and its bookkeeping, ~443 ns per row, not the row storage. The string effect is a flat ~7.4 MB per 20,000 distinct values (~373 B each) whichever way the sheet is shaped, exactly as one shared-string entry plus one `<si>` per distinct value should behave.
+
+**Conclusion: there is nothing to fix.** Both costs are inherent to the data's shape — a row costs what a row costs, and a distinct string has to be stored and written once. The lookup refresh simply sits in the worst quadrant of both while the grid sits near the best: 21 columns wide, and only about a quarter of its cells are unique strings (the rest are numbers, dates and a repeated `"Yes"`/`"No"`). That accounts for the ~4× without any defect. `SheetDataWriter.WriteStartRow` was inspected and is already tight — it early-outs before touching row attributes when no `XLRow` exists.
+
+**Guidance rather than a code change:** cost scales with rows and with *distinct* values, not with cells. A caller refreshing a tall single-column lookup is on the most expensive path there is, and the lever available to them is the data, not the library.
 
 ### Task 4 — Re-verify and file the remainder ⬜
 
