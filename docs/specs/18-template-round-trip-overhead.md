@@ -3,7 +3,7 @@
 **Area:** Performance (read + write time, memory)
 **Effort:** M (task 1 is the bulk of the win; 2–4 are independent follow-ons)
 **Dependencies:** Touches `WorksheetPartWriter` and the style façades. Coordinate with Spec 03 (both touch the save path) and Spec 11 (create-path allocations); no overlap with the `SheetDataWriter` cell loop, which is already tuned.
-**Status:** Task 0 done; task 1 in progress.
+**Status:** Tasks 0 and 1 done — see [Results](#results). Tasks 2–4 open.
 
 ## Summary
 
@@ -40,7 +40,7 @@ dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile
 | # | Task | Status | Size |
 |---|------|--------|------|
 | 0 | Benchmarks + decomposition probe that expose all of this | ✅ Done | S |
-| 1 | Stop materialising `<sheetData>` into a DOM on save | 🔵 In progress | M |
+| 1 | Stop materialising `<sheetData>` into a DOM on save | ✅ Done (`26b248d9`) | M |
 | 2 | Per-cell styling costs ~2.3× because the wrapper caches never hit | ⬜ Proposed | M |
 | 3 | Lookup-column refresh costs ~3× per cell versus the grid path — cause unknown | ⬜ Needs investigation | S |
 | 4 | Re-verify and file the remainder | ⬜ Proposed | S |
@@ -55,7 +55,7 @@ dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile
 
 **Do not use the probe's timings to claim a change.** On the reference machine they move by tens of percent between runs of identical code — the same order as the effects being chased. The probe locates cost and reports exact allocation; BenchmarkDotNet proves movement. An early iteration of this work reported a 30% win that BenchmarkDotNet then showed to be ~0%.
 
-### Task 1 — Stop materialising `<sheetData>` into a DOM on save 🔵
+### Task 1 — Stop materialising `<sheetData>` into a DOM on save ✅
 
 **Current state.** `XLibur/Excel/IO/WorksheetPartWriter.cs`, `GetWorksheetDom` (~line 42):
 
@@ -86,11 +86,33 @@ This is the save-side twin of the load-side fix already made in `XLWorkbook_Load
 - **Unknown/`AlternateContent` top-level children** must still round-trip; they go through `LoadCurrentElement()` unchanged.
 - **Empty part** (`partIsEmpty`) path is untouched.
 
-**Acceptance criteria.**
-1. `OpenAndSaveRowHeavyUnchanged` allocation reduced ≥ 50% (333.68 MB → ≤ 165 MB); mean time reduced ≥ 40%.
-2. `OpenAndSaveUnchanged` allocation not regressed.
-3. Saved output semantically identical to main across the full corpus — `ExcelDocsComparerTests` and the round-trip suites green.
-4. All tests green; no public API change.
+**Acceptance criteria.** All met — see [Results](#results).
+1. ✅ `OpenAndSaveRowHeavyUnchanged` allocation reduced ≥ 50% (333.68 MB → ≤ 165 MB); mean time reduced ≥ 40%.
+2. ✅ `OpenAndSaveUnchanged` allocation not regressed.
+3. ✅ Saved output semantically identical to main across the full corpus.
+4. ✅ All tests green; no public API change.
+
+**Outcome.** The part is copied into memory with `<sheetData>` reduced to an empty element, and the DOM is built from that copy. Rows are tokenised once by a raw reader rather than becoming objects nobody reads.
+
+Assembling the root by hand and appending each top-level child — the design sketched above — was implemented first and is faster still, but it is **not byte-faithful**, and the risk anticipated above turned out to be the wrong one. The root's own prefix reproduced fine; what broke was descendants. A child parsed on its own records the namespace declarations it needs rather than inheriting the root's, so a part whose root uses a *default* namespace round-trips its `mc:AlternateContent` subtrees as `<controls xmlns="…">` where the file had `<x:controls>` (caught by `SavingTests.FormControlsArePreserved`). Two further traps found on the way, worth not re-deriving:
+
+- `reader.Prefix` on `OpenXmlPartReader` is the *element's resolved* prefix, not the one the file used. It falls back to the SDK's canonical `x` for the spreadsheet namespace even when the part declared none.
+- A *default* namespace declaration never appears in `reader.NamespaceDeclarations`. That list is filled by testing for the `xmlns` prefix, which `xmlns="…"` does not have, so it surfaces among the attributes under the reserved local name `xmlns`. `AddNamespaceDeclaration` cannot put it back either — it rejects an empty prefix.
+
+Copying the part keeps the SDK doing one parse of one document, so the emitted bytes are unchanged by construction. The copy covers everything except `<sheetData>`; it measured at 991.7 ms against 917.4 ms for the unfaithful version, inside that version's own 76 ms standard deviation.
+
+## Results
+
+BenchmarkDotNet, net10.0 Release, before/after task 1:
+
+| Benchmark | before | after | Δ time | Δ allocated |
+|---|---|---|---|---|
+| `OpenAndSaveRowHeavyUnchanged` | 1,729.6 ms / 333.68 MB | 991.7 ms / 88.83 MB | −43% | **−73%** |
+| `OpenAndSaveUnchanged` | 10.42 ms / 3.89 MB | 8.42 ms / 3.17 MB | −19% | −19% |
+| `RefreshLookupColumn` | 11.49 ms / 4.55 MB | 10.08 ms / 3.83 MB | −12% | −16% |
+| `LoadRowHeavy` | 402.4 ms / 55.40 MB | 406.4 ms / 55.40 MB | — | — |
+
+`LoadRowHeavy` is load-only and unaffected, as expected; it is listed as the control.
 
 ### Task 2 — Per-cell styling costs ~2.3× ⬜
 
