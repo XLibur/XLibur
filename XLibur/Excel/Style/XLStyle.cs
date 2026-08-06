@@ -90,9 +90,9 @@ internal sealed class XLStyle : IXLStyle
     /// </summary>
     internal void ModifyFont(XLFontKey newFontKey)
     {
-        var transitionHash = newFontKey.GetHashCode();
-        Value = Value.GetTransition(transitionHash)
-                ?? Value.StoreTransition(transitionHash, ResolveFont(newFontKey));
+        var transitionHash = (newFontKey.GetHashCode() * 397) ^ 0;
+        Value = Value.GetTransition(transitionHash, in newFontKey)
+                ?? Value.StoreTransition(transitionHash, in newFontKey, ResolveFont(newFontKey));
         ((XLCell)_container!).SetStyleValue(Value);
 
         XLStyleValue ResolveFont(XLFontKey key)
@@ -105,10 +105,12 @@ internal sealed class XLStyle : IXLStyle
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyBorder(XLBorderKey newBorderKey)
     {
-        // Shift hash to avoid collision with other component types stored on the same base style.
+        // Tag the hash so the same component key applied to different components lands in a
+        // different slot. This only spreads the entries out; correctness comes from the key
+        // comparison inside GetTransition, which also rejects a cross-component hash collision.
         var transitionHash = (newBorderKey.GetHashCode() * 397) ^ 1;
-        Value = Value.GetTransition(transitionHash)
-                ?? Value.StoreTransition(transitionHash, ResolveBorder(newBorderKey));
+        Value = Value.GetTransition(transitionHash, in newBorderKey)
+                ?? Value.StoreTransition(transitionHash, in newBorderKey, ResolveBorder(newBorderKey));
         ((XLCell)_container!).SetStyleValue(Value);
         return;
 
@@ -123,8 +125,8 @@ internal sealed class XLStyle : IXLStyle
     internal void ModifyFill(XLFillKey newFillKey)
     {
         var transitionHash = (newFillKey.GetHashCode() * 397) ^ 2;
-        Value = Value.GetTransition(transitionHash)
-                ?? Value.StoreTransition(transitionHash, ResolveFill(newFillKey));
+        Value = Value.GetTransition(transitionHash, in newFillKey)
+                ?? Value.StoreTransition(transitionHash, in newFillKey, ResolveFill(newFillKey));
         ((XLCell)_container!).SetStyleValue(Value);
         return;
 
@@ -139,8 +141,8 @@ internal sealed class XLStyle : IXLStyle
     internal void ModifyAlignment(XLAlignmentKey newAlignmentKey)
     {
         var transitionHash = (newAlignmentKey.GetHashCode() * 397) ^ 3;
-        Value = Value.GetTransition(transitionHash)
-                ?? Value.StoreTransition(transitionHash, ResolveAlignment(newAlignmentKey));
+        Value = Value.GetTransition(transitionHash, in newAlignmentKey)
+                ?? Value.StoreTransition(transitionHash, in newAlignmentKey, ResolveAlignment(newAlignmentKey));
         ((XLCell)_container!).SetStyleValue(Value);
         return;
 
@@ -155,8 +157,8 @@ internal sealed class XLStyle : IXLStyle
     internal void ModifyNumberFormat(XLNumberFormatKey newNumberFormatKey)
     {
         var transitionHash = (newNumberFormatKey.GetHashCode() * 397) ^ 4;
-        Value = Value.GetTransition(transitionHash)
-                ?? Value.StoreTransition(transitionHash, ResolveNumberFormat(newNumberFormatKey));
+        Value = Value.GetTransition(transitionHash, in newNumberFormatKey)
+                ?? Value.StoreTransition(transitionHash, in newNumberFormatKey, ResolveNumberFormat(newNumberFormatKey));
         ((XLCell)_container!).SetStyleValue(Value);
         return;
 
@@ -171,8 +173,8 @@ internal sealed class XLStyle : IXLStyle
     internal void ModifyProtection(XLProtectionKey newProtectionKey)
     {
         var transitionHash = (newProtectionKey.GetHashCode() * 397) ^ 5;
-        Value = Value.GetTransition(transitionHash)
-                ?? Value.StoreTransition(transitionHash, ResolveProtection(newProtectionKey));
+        Value = Value.GetTransition(transitionHash, in newProtectionKey)
+                ?? Value.StoreTransition(transitionHash, in newProtectionKey, ResolveProtection(newProtectionKey));
         ((XLCell)_container!).SetStyleValue(Value);
         return;
 
