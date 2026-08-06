@@ -31,7 +31,15 @@ public class TemplateRoundTripBenchmarks
     private const int Validations = 26;
     private const int LookupValues = 1_000;
 
+    /// <summary>
+    /// Rows in the <see cref="LoadRowHeavy"/> fixture. Large enough that per-row costs in the
+    /// loader dominate the per-workbook ones, small enough to benchmark in reasonable time —
+    /// <c>XLiburReadBenchmarks</c> covers the 250,000-row end.
+    /// </summary>
+    private const int HeavyRows = 20_000;
+
     private byte[] _template = null!;
+    private byte[] _rowHeavy = null!;
     private string[] _lookupValues = null!;
 
     [GlobalSetup]
@@ -39,7 +47,24 @@ public class TemplateRoundTripBenchmarks
     {
         SixLaborsV1FontBootstrap.Register();
         _template = TemplateFixture.Build(SheetCount, DefinedNames, Validations, dataRows: 0);
+        _rowHeavy = TemplateFixture.Build(sheetCount: 1, definedNames: 1, validations: 0, dataRows: HeavyRows);
         _lookupValues = Enumerable.Range(1, LookupValues).Select(i => $"Lookup value {i}").ToArray();
+    }
+
+    /// <summary>
+    /// Parse a sheet whose cost is dominated by rows rather than structure.
+    /// </summary>
+    /// <remarks>
+    /// Guards the cost of getting the SDK reader past <c>&lt;sheetData&gt;</c> in the loader's
+    /// first pass. That is per-row work which does not show up in the other benchmarks here, all
+    /// of which use structurally rich but nearly empty sheets.
+    /// </remarks>
+    [Benchmark]
+    public int LoadRowHeavy()
+    {
+        using var input = new MemoryStream(_rowHeavy, writable: false);
+        using var workbook = new XLWorkbook(input);
+        return workbook.Worksheets.Count;
     }
 
     /// <summary>Parse only — the floor cost of reading the template.</summary>
