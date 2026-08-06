@@ -1,4 +1,3 @@
-using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 
@@ -50,47 +49,71 @@ internal enum XLWorksheetContents
 
 internal sealed class XLWorksheetContentManager : XLBaseContentManager<XLWorksheetContents>
 {
+    /// <remarks>
+    /// One pass over the children, keeping the last element seen for each slot. This used to run
+    /// <c>Elements&lt;T&gt;().LastOrDefault()</c> once per slot — thirty-nine filtered traversals
+    /// of the same child list, each allocating its own iterator — which made building the manager
+    /// a significant share of the per-worksheet save cost. The last-wins behaviour is preserved
+    /// because a later child simply overwrites its slot.
+    /// <para>
+    /// <see cref="XLWorksheetContents.SmartTags"/> is deliberately not mapped, matching the
+    /// original: that slot stays empty so it never becomes an insertion anchor.
+    /// </para>
+    /// </remarks>
     public XLWorksheetContentManager(Worksheet opWorksheet)
+        : base(XLWorksheetContents.WorksheetExtensionList)
     {
-        contents.Add(XLWorksheetContents.SheetProperties, opWorksheet.Elements<SheetProperties>().LastOrDefault());
-        contents.Add(XLWorksheetContents.SheetDimension, opWorksheet.Elements<SheetDimension>().LastOrDefault());
-        contents.Add(XLWorksheetContents.SheetViews, opWorksheet.Elements<SheetViews>().LastOrDefault());
-        contents.Add(XLWorksheetContents.SheetFormatProperties, opWorksheet.Elements<SheetFormatProperties>().LastOrDefault());
-        contents.Add(XLWorksheetContents.Columns, opWorksheet.Elements<Columns>().LastOrDefault());
-        contents.Add(XLWorksheetContents.SheetData, opWorksheet.Elements<SheetData>().LastOrDefault());
-        contents.Add(XLWorksheetContents.SheetCalculationProperties, opWorksheet.Elements<SheetCalculationProperties>().LastOrDefault());
-        contents.Add(XLWorksheetContents.SheetProtection, opWorksheet.Elements<SheetProtection>().LastOrDefault());
-        contents.Add(XLWorksheetContents.ProtectedRanges, opWorksheet.Elements<ProtectedRanges>().LastOrDefault());
-        contents.Add(XLWorksheetContents.Scenarios, opWorksheet.Elements<Scenarios>().LastOrDefault());
-        contents.Add(XLWorksheetContents.AutoFilter, opWorksheet.Elements<AutoFilter>().LastOrDefault());
-        contents.Add(XLWorksheetContents.SortState, opWorksheet.Elements<SortState>().LastOrDefault());
-        contents.Add(XLWorksheetContents.DataConsolidate, opWorksheet.Elements<DataConsolidate>().LastOrDefault());
-        contents.Add(XLWorksheetContents.CustomSheetViews, opWorksheet.Elements<CustomSheetViews>().LastOrDefault());
-        contents.Add(XLWorksheetContents.MergeCells, opWorksheet.Elements<MergeCells>().LastOrDefault());
-        contents.Add(XLWorksheetContents.PhoneticProperties, opWorksheet.Elements<PhoneticProperties>().LastOrDefault());
-        contents.Add(XLWorksheetContents.ConditionalFormatting, opWorksheet.Elements<ConditionalFormatting>().LastOrDefault());
-        contents.Add(XLWorksheetContents.DataValidations, opWorksheet.Elements<DataValidations>().LastOrDefault());
-        contents.Add(XLWorksheetContents.Hyperlinks, opWorksheet.Elements<Hyperlinks>().LastOrDefault());
-        contents.Add(XLWorksheetContents.PrintOptions, opWorksheet.Elements<PrintOptions>().LastOrDefault());
-        contents.Add(XLWorksheetContents.PageMargins, opWorksheet.Elements<PageMargins>().LastOrDefault());
-        contents.Add(XLWorksheetContents.PageSetup, opWorksheet.Elements<PageSetup>().LastOrDefault());
-        contents.Add(XLWorksheetContents.HeaderFooter, opWorksheet.Elements<HeaderFooter>().LastOrDefault());
-        contents.Add(XLWorksheetContents.RowBreaks, opWorksheet.Elements<RowBreaks>().LastOrDefault());
-        contents.Add(XLWorksheetContents.ColumnBreaks, opWorksheet.Elements<ColumnBreaks>().LastOrDefault());
-        contents.Add(XLWorksheetContents.CustomProperties, opWorksheet.Elements<CustomProperties>().LastOrDefault());
-        contents.Add(XLWorksheetContents.CellWatches, opWorksheet.Elements<CellWatches>().LastOrDefault());
-        contents.Add(XLWorksheetContents.IgnoredErrors, opWorksheet.Elements<IgnoredErrors>().LastOrDefault());
-        //contents.Add(XLWSContents.SmartTags, opWorksheet.Elements<SmartTags>().LastOrDefault());
-        contents.Add(XLWorksheetContents.Drawing, opWorksheet.Elements<Drawing>().LastOrDefault());
-        contents.Add(XLWorksheetContents.LegacyDrawing, opWorksheet.Elements<LegacyDrawing>().LastOrDefault());
-        contents.Add(XLWorksheetContents.LegacyDrawingHeaderFooter, opWorksheet.Elements<LegacyDrawingHeaderFooter>().LastOrDefault());
-        contents.Add(XLWorksheetContents.DrawingHeaderFooter, opWorksheet.Elements<DrawingHeaderFooter>().LastOrDefault());
-        contents.Add(XLWorksheetContents.Picture, opWorksheet.Elements<Picture>().LastOrDefault());
-        contents.Add(XLWorksheetContents.OleObjects, opWorksheet.Elements<OleObjects>().LastOrDefault());
-        contents.Add(XLWorksheetContents.Controls, opWorksheet.Elements<Controls>().LastOrDefault());
-        contents.Add(XLWorksheetContents.AlternateContent, opWorksheet.Elements<AlternateContent>().LastOrDefault());
-        contents.Add(XLWorksheetContents.WebPublishItems, opWorksheet.Elements<WebPublishItems>().LastOrDefault());
-        contents.Add(XLWorksheetContents.TableParts, opWorksheet.Elements<TableParts>().LastOrDefault());
-        contents.Add(XLWorksheetContents.WorksheetExtensionList, opWorksheet.Elements<WorksheetExtensionList>().LastOrDefault());
+        foreach (var child in opWorksheet.ChildElements)
+        {
+            if (SlotOf(child) is { } slot)
+                SetElement(slot, child);
+        }
     }
+
+    /// <summary>
+    /// The schema slot an element belongs to, or null when the element is not tracked.
+    /// </summary>
+    private static XLWorksheetContents? SlotOf(OpenXmlElement child) => child switch
+    {
+        SheetProperties => XLWorksheetContents.SheetProperties,
+        SheetDimension => XLWorksheetContents.SheetDimension,
+        SheetViews => XLWorksheetContents.SheetViews,
+        SheetFormatProperties => XLWorksheetContents.SheetFormatProperties,
+        Columns => XLWorksheetContents.Columns,
+        SheetData => XLWorksheetContents.SheetData,
+        SheetCalculationProperties => XLWorksheetContents.SheetCalculationProperties,
+        SheetProtection => XLWorksheetContents.SheetProtection,
+        ProtectedRanges => XLWorksheetContents.ProtectedRanges,
+        Scenarios => XLWorksheetContents.Scenarios,
+        AutoFilter => XLWorksheetContents.AutoFilter,
+        SortState => XLWorksheetContents.SortState,
+        DataConsolidate => XLWorksheetContents.DataConsolidate,
+        CustomSheetViews => XLWorksheetContents.CustomSheetViews,
+        MergeCells => XLWorksheetContents.MergeCells,
+        PhoneticProperties => XLWorksheetContents.PhoneticProperties,
+        ConditionalFormatting => XLWorksheetContents.ConditionalFormatting,
+        DataValidations => XLWorksheetContents.DataValidations,
+        Hyperlinks => XLWorksheetContents.Hyperlinks,
+        PrintOptions => XLWorksheetContents.PrintOptions,
+        PageMargins => XLWorksheetContents.PageMargins,
+        PageSetup => XLWorksheetContents.PageSetup,
+        HeaderFooter => XLWorksheetContents.HeaderFooter,
+        RowBreaks => XLWorksheetContents.RowBreaks,
+        ColumnBreaks => XLWorksheetContents.ColumnBreaks,
+        CustomProperties => XLWorksheetContents.CustomProperties,
+        CellWatches => XLWorksheetContents.CellWatches,
+        IgnoredErrors => XLWorksheetContents.IgnoredErrors,
+        Drawing => XLWorksheetContents.Drawing,
+        LegacyDrawing => XLWorksheetContents.LegacyDrawing,
+        LegacyDrawingHeaderFooter => XLWorksheetContents.LegacyDrawingHeaderFooter,
+        DrawingHeaderFooter => XLWorksheetContents.DrawingHeaderFooter,
+        Picture => XLWorksheetContents.Picture,
+        OleObjects => XLWorksheetContents.OleObjects,
+        Controls => XLWorksheetContents.Controls,
+        AlternateContent => XLWorksheetContents.AlternateContent,
+        WebPublishItems => XLWorksheetContents.WebPublishItems,
+        TableParts => XLWorksheetContents.TableParts,
+        WorksheetExtensionList => XLWorksheetContents.WorksheetExtensionList,
+        _ => null,
+    };
 }

@@ -21,6 +21,19 @@ internal static class ConditionalFormattingWriter
         XLWorksheet xlWorksheet,
         SaveContext context)
     {
+        // Fast path for the overwhelmingly common worksheet that carries no conditional
+        // formatting at all. The general path below allocates a hash set, a cast iterator, a
+        // concat iterator, an ordered sequence and a list before it can discover there is
+        // nothing to write, and that is per worksheet on every save. Nothing is skipped: with
+        // both collections empty the priority renumbering below is a no-op.
+        // The explicit type argument disambiguates XLPivotTables' two IEnumerable<T> implementations.
+        if (!xlWorksheet.ConditionalFormats.Any() && !xlWorksheet.PivotTables.Any<XLPivotTable>())
+        {
+            worksheet.RemoveAllChildren<ConditionalFormatting>();
+            cm.SetElement(XLWorksheetContents.ConditionalFormatting, null);
+            return;
+        }
+
         var xlSheetPivotCfs = xlWorksheet.PivotTables
             .SelectMany<XLPivotTable, XLConditionalFormat>(pt => pt.ConditionalFormats.Select(cf => cf.Format))
             .ToHashSet();

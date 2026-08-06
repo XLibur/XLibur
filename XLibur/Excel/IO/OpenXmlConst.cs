@@ -25,6 +25,9 @@ internal static class OpenXmlConst
 
     public const string RichData2Ns = "http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2";
 
+    /// <summary>DrawingML main namespace, used by the theme part.</summary>
+    public const string DrawingMain2006Ns = "http://schemas.openxmlformats.org/drawingml/2006/main";
+
     /// <summary>
     /// Valid and shorter than normal true.
     /// </summary>
