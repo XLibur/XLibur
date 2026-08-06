@@ -52,7 +52,7 @@ internal sealed class XLStyleValue : IEquatable<XLStyleValue?>
     /// Direct-mapped transition cache stored per base style. When many cells undergo the same
     /// style transition (e.g., Default → Bold=true), this cache returns the result immediately
     /// without computing XLStyleKey hash or hitting the ConcurrentDictionary repository.
-    /// Each entry is a (hash, component key, result) triple; slot collisions simply evict.
+    /// Each slot holds one <see cref="TransitionEntry"/>; slot collisions simply evict.
     /// Thread-safety: benign races at most cause a cache miss, never incorrect results.
     /// </summary>
     /// <remarks>
@@ -77,9 +77,46 @@ internal sealed class XLStyleValue : IEquatable<XLStyleValue?>
     private const int TransitionCacheSize = 8;
     private const int TransitionCacheMask = TransitionCacheSize - 1;
 
-    private int[]? _transitionHashes;
-    private object?[]? _transitionKeys;
-    private XLStyleValue?[]? _transitionResults;
+    private TransitionEntry?[]? _transitionCache;
+
+    /// <summary>
+    /// One cached transition: the hash a lookup gates on, the component key that hash stands for,
+    /// and the resulting style.
+    /// </summary>
+    /// <remarks>
+    /// The three travel together in one immutable object so that a slot can be filled by a single
+    /// reference write. Held as separate arrays they could not be: two threads storing different
+    /// keys into the same slot may interleave their writes, leaving a reader an entry whose key and
+    /// result come from different transitions — a wrong style, not a miss.
+    /// </remarks>
+    private abstract class TransitionEntry
+    {
+        protected TransitionEntry(int hash, XLStyleValue result)
+        {
+            Hash = hash;
+            Result = result;
+        }
+
+        internal readonly int Hash;
+
+        internal readonly XLStyleValue Result;
+    }
+
+    /// <summary>
+    /// A <see cref="TransitionEntry"/> holding its component key in its own type, so the key costs
+    /// no box and a lookup for a different component type is rejected by the cast.
+    /// </summary>
+    private sealed class TransitionEntry<TKey> : TransitionEntry
+        where TKey : struct, IEquatable<TKey>
+    {
+        internal TransitionEntry(int hash, in TKey key, XLStyleValue result)
+            : base(hash, result)
+        {
+            Key = key;
+        }
+
+        internal readonly TKey Key;
+    }
 
     /// <summary>
     /// Look up a cached transition from this style. Returns null on miss.
@@ -89,49 +126,45 @@ internal sealed class XLStyleValue : IEquatable<XLStyleValue?>
     internal XLStyleValue? GetTransition<TKey>(int transitionHash, in TKey componentKey)
         where TKey : struct, IEquatable<TKey>
     {
-        var hashes = _transitionHashes;
-        if (hashes is null)
+        // Both reads acquire, pairing with the releasing writes in StoreTransition: an entry is seen
+        // either not at all or fully constructed, and the array is never seen before it is usable.
+        var cache = Volatile.Read(ref _transitionCache);
+        if (cache is null)
             return null;
 
-        var slot = transitionHash & TransitionCacheMask;
-        if (hashes[slot] != transitionHash)
+        var entry = Volatile.Read(ref cache[transitionHash & TransitionCacheMask]);
+
+        // The cast also rejects a hash collision between two different component types, which the
+        // tag mixed into the hash makes unlikely but does not prevent.
+        if (entry is not TransitionEntry<TKey> typed || typed.Hash != transitionHash)
             return null;
 
-        // The type test also rejects a hash collision between two different component types, which
-        // the tag mixed into the hash makes unlikely but does not prevent.
-        if (_transitionKeys![slot] is not TKey cachedKey || !cachedKey.Equals(componentKey))
-            return null;
-
-        return _transitionResults![slot];
+        return typed.Key.Equals(componentKey) ? typed.Result : null;
     }
 
     /// <summary>
     /// Store a transition result and return it (for fluent use: value ?? StoreTransition(...)).
     /// </summary>
     /// <remarks>
-    /// Boxes <paramref name="componentKey"/>. That cost falls only on a miss — one box per distinct
-    /// transition per base style, not per cell — so the repeat transitions this cache exists to
-    /// serve do not pay it.
+    /// Allocates one entry. That cost falls only on a miss — one entry per distinct transition per
+    /// base style, not per cell — so the repeat transitions this cache exists to serve do not pay it.
     /// </remarks>
     internal XLStyleValue StoreTransition<TKey>(int transitionHash, in TKey componentKey, XLStyleValue result)
         where TKey : struct, IEquatable<TKey>
     {
-        var hashes = _transitionHashes;
-        if (hashes is null)
+        var cache = Volatile.Read(ref _transitionCache);
+        if (cache is null)
         {
-            hashes = new int[TransitionCacheSize];
-            _transitionKeys = new object?[TransitionCacheSize];
-            _transitionResults = new XLStyleValue?[TransitionCacheSize];
-            _transitionHashes = hashes;
+            var created = new TransitionEntry?[TransitionCacheSize];
+
+            // Whoever loses keeps writing into the winner's array, so no entry is stranded in an
+            // array no reader can reach.
+            cache = Interlocked.CompareExchange(ref _transitionCache, created, null) ?? created;
         }
 
-        var slot = transitionHash & TransitionCacheMask;
-
-        // The result is published before the hash, and the hash is what a lookup gates on, so a
-        // concurrent reader either misses or sees a fully written entry.
-        _transitionKeys![slot] = componentKey;
-        _transitionResults![slot] = result;
-        Volatile.Write(ref hashes[slot], transitionHash);
+        Volatile.Write(
+            ref cache[transitionHash & TransitionCacheMask],
+            new TransitionEntry<TKey>(transitionHash, in componentKey, result));
         return result;
     }
 

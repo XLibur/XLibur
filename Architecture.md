@@ -252,16 +252,23 @@ classes provide lazy wrappers that resolve the inherited chain on read.
 `XLStyleValue` has an 8-slot direct-mapped transition cache for bulk style
 operations. When applying the same style change to thousands of cells (e.g.,
 "make bold"), the first cell computes the new `XLStyleKey`, looks it up in the
-repository, and caches the `(hash → result)` mapping. Subsequent cells with the
-same base style hit the cache directly.
+repository, and caches the `(component key → result)` mapping. Subsequent cells
+with the same base style hit the cache directly.
 
 ```csharp
 private const int TransitionCacheSize = 8;
 private const int TransitionCacheMask = TransitionCacheSize - 1;
 
 // Slot = transitionHash & 0x7
-// Collisions simply evict; benign races cause misses, never incorrect results.
+// Slot collisions simply evict; benign races cause misses, never incorrect results.
 ```
+
+A hit is gated on the hash of the component key and then confirmed by comparing
+the key itself — two distinct keys sharing a 32-bit hash would otherwise return
+each other's style, which is reachable through the public API via custom number
+formats and font names. Hash, key and result live in one immutable entry object
+so a slot is filled by a single reference write; a reader therefore sees an entry
+whole or not at all.
 
 ---
 

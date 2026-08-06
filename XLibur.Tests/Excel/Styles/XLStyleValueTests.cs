@@ -32,7 +32,11 @@ public class XLStyleValueTests
     public async Task TransitionCache_FormatsWithCollidingHashes_DoNotOverwriteEachOther()
     {
         if (!TryFindCollidingNumberFormats(out var formatA, out var formatB))
-            return;
+        {
+            // Not a pass: without a colliding pair nothing here exercises the cache's key comparison.
+            Skip.Test($"No two of {CandidateCap:N0} candidate number formats shared a hash code, so " +
+                      "the transition-cache collision path could not be exercised.");
+        }
 
         using var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Data");
@@ -50,25 +54,29 @@ public class XLStyleValueTests
     }
 
     /// <summary>
+    /// Number of candidate format strings the collision search will try before giving up.
+    /// </summary>
+    private const int CandidateCap = 4_000_000;
+
+    /// <summary>
     /// Searches for two distinct custom number format strings whose hash codes collide. Returns
-    /// false if none is found within the cap.
+    /// false if none is found within <see cref="CandidateCap"/>.
     /// </summary>
     private static bool TryFindCollidingNumberFormats(out string formatA, out string formatB)
     {
-        const int candidateCap = 4_000_000;
-
         var seen = new Dictionary<int, string>();
-        for (var i = 0; i < candidateCap; i++)
+        for (var i = 0; i < CandidateCap; i++)
         {
             var candidate = $"#,##0.00_);[Red]({i})";
-            if (seen.TryGetValue(candidate.GetHashCode(), out var previous))
+            var candidateHash = candidate.GetHashCode();
+            if (seen.TryGetValue(candidateHash, out var previous))
             {
                 formatA = previous;
                 formatB = candidate;
                 return true;
             }
 
-            seen[candidate.GetHashCode()] = candidate;
+            seen[candidateHash] = candidate;
         }
 
         formatA = string.Empty;
