@@ -64,6 +64,12 @@ public static class TemplateRoundTripProfile
         if (template is not null)
             Console.WriteLine($"fixture: {template} (generated-fixture parameters ignored)");
 
+        if (args.Length > 2 && args[2].Equals("loop", StringComparison.OrdinalIgnoreCase))
+        {
+            Loop(template, phase: args.Length > 3 ? args[3] : "roundtrip");
+            return;
+        }
+
         RoundTripCost(template);
         OpenVersusSaveAttribution(template);
         LookupColumnRefresh(template);
@@ -75,6 +81,56 @@ public static class TemplateRoundTripProfile
         Console.WriteLine("Bytes are exact. Times are medians of "
             + $"{Iterations} passes after a warm-up — use BenchmarkDotNet for time claims.");
     }
+
+    /// <summary>
+    /// Repeats one phase for a fixed wall-clock window so an external profiler can be attached to
+    /// it, e.g.
+    /// <code>
+    /// dotnet-trace collect --format speedscope -- XLibur.Benchmarks.exe profile template loop open
+    /// </code>
+    /// </summary>
+    /// <remarks>
+    /// The table-producing probes are the wrong shape to profile: they interleave six unrelated
+    /// workloads with forced gen2 collections between every pass, so a captured trace mixes them
+    /// together and the GC work swamps the code under study. This runs one phase and nothing else.
+    /// </remarks>
+    private static void Loop(string? template, string phase)
+    {
+        var bytes = GetFixture(template, sheetCount: 10, definedNames: 20, validations: 26, dataRows: 0);
+        RoundTrip(bytes); // JIT warm-up, so start-up does not colour the trace.
+
+        Console.WriteLine($"looping '{phase}' for {LoopSeconds}s...");
+        var elapsed = Stopwatch.StartNew();
+        var iterations = 0;
+
+        while (elapsed.Elapsed.TotalSeconds < LoopSeconds)
+        {
+            switch (phase)
+            {
+                case "open":
+                    using (var input = new MemoryStream(bytes, writable: false))
+                    using (var workbook = new XLWorkbook(input))
+                        _ = workbook.Worksheets.Count;
+                    break;
+
+                case "save":
+                    using (var state = Open(bytes))
+                    using (var sink = new MemoryStream())
+                        state.Workbook.SaveAs(sink);
+                    break;
+
+                default:
+                    RoundTrip(bytes);
+                    break;
+            }
+
+            iterations++;
+        }
+
+        Console.WriteLine($"{iterations:N0} iterations in {elapsed.Elapsed.TotalSeconds:F1}s");
+    }
+
+    private const int LoopSeconds = 20;
 
     // ── 1. Round-trip cost ────────────────────────────────────────────────────
 
@@ -295,8 +351,12 @@ public static class TemplateRoundTripProfile
 
     private static string? ResolveTemplatePath(string[] args)
     {
-        // `profile template <path>` wins over the environment variable.
-        var path = args.Length > 2 ? args[2] : Environment.GetEnvironmentVariable("XLIBUR_PERF_TEMPLATE");
+        // `profile template <path>` wins over the environment variable. "loop" is the profiler
+        // sub-command rather than a path, so it falls through to the environment variable.
+        var argPath = args.Length > 2 && !args[2].Equals("loop", StringComparison.OrdinalIgnoreCase)
+            ? args[2]
+            : null;
+        var path = argPath ?? Environment.GetEnvironmentVariable("XLIBUR_PERF_TEMPLATE");
 
         if (string.IsNullOrWhiteSpace(path))
             return null;
