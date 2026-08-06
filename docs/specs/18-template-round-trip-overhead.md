@@ -303,16 +303,46 @@ the opposite way to the assumption.
 
 Two things worth recording separately:
 
-- **Array growth dominates.** `Thread.PollGCWorker` is 30.3% of the trace, and its call sites are almost
-  entirely `Array.Resize` / `Array.Copy` / `Buffer.Memmove` — `LoadCellXml` resizing (11.5%),
-  `Slice<T>.Lut<T>.SetValue` resizing (10.7%), and `XmlTextReaderImpl.AllocNode` growing the reader's node
-  buffer (10.1%). Time parks on the GC poll at safepoints inside those copy loops, so this is the
-  allocation the benchmarks measure showing up as wall clock. Pre-sizing the per-sheet slices is the
-  obvious first move, and it is squarely XLibur's code.
+- **Array growth dominates the *row* cost, not the structural one.** `Thread.PollGCWorker` is 30.3% of the
+  trace, and its call sites are almost entirely `Array.Resize` / `Array.Copy` / `Buffer.Memmove` —
+  `LoadCellXml` resizing (11.5%), `Slice<T>.Lut<T>.SetValue` resizing (10.7%), and
+  `XmlTextReaderImpl.AllocNode` growing the reader's node buffer (10.1%). **This trace ran on the 100-row
+  fixture, so that resizing is the rows, not the sheets.** Pre-sizing the per-sheet slices looked like the
+  obvious first move on this evidence and it is not — see the breakdown below, which was measured
+  afterwards and rules it out. Recorded as a caution: this is the second wrong conclusion in this spec
+  drawn from a fixture whose sheet count and row count moved together.
 - **The temp file is the SDK's, and it is per workbook.** `WriteableStreamExtensions.EnableWriteableStream`
   calls `Path.GetTempFileName` to make the package writeable — 7.8% of the trace, but fixed per round trip
   rather than scaling with sheets, so it is not part of this slope. Worth its own note; `GetTempFileName`
   on Windows probes for an unused name and degrades as `%TEMP%` fills.
+
+#### Where the structural bytes actually go
+
+Exact allocation (`GC.GetTotalAllocatedBytes(precise: true)`), read as the 10→40 delta over header-only
+sheets, so it is per worksheet with no rows on it:
+
+| component | per sheet | share |
+|---|---:|---:|
+| model construction (`AddWorksheet` + one cell) | ~23.5 KB | 12% |
+| load, beyond the model | ~82 KB | 41% |
+| save baseline (DOM, content manager, writer, zip entry) | ~58.5 KB | 29% |
+| reading the existing part for save | ~17.6 KB | 9% |
+| the byte-fidelity copy from task 1 | ~20 KB | 10% |
+| **total** | **~202 KB** | |
+
+Against ~699 B of XML on disk, so ~289×.
+
+**This rules out pre-sizing the slices.** The entire in-memory model is 12% of the bill and the slices are
+only part of that, so no amount of pre-sizing moves the per-sheet number meaningfully. The load side, at
+41%, is the largest untouched term and is where a follow-up should start.
+
+The task 1 figure was measured by temporarily restoring the direct read `main` uses: the round trip fell
+from 202,237 to 182,093 B per sheet. **Task 1 therefore costs ~20 KB per worksheet on small sheets**, in
+exchange for 334 MB → 89 MB on row-heavy ones and byte fidelity. The cost is the `XmlReader`/`XmlWriter`
+buffers, which expose no public size knob, rather than the `MemoryStream`. A part-size threshold would
+recover it — the direct read is byte-faithful, being what `main` does — but that reintroduces a heuristic
+on the path whose fidelity took three failed designs to get right, for 10% of a per-sheet cost. Left
+undone deliberately; the trade is a reviewer's call, not an obvious win.
 
 ## Already ruled out
 
