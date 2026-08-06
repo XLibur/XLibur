@@ -17,6 +17,8 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
     //               model, optionally taking a row count
     //   structural  the cost of repeated row inserts split into its range-shift and
     //               formula-shift halves
+    //   template    the open->edit->save round trip of an existing workbook, split into parse
+    //               and serialise; optionally takes a path to a real .xlsx template
     // Every other mode attaches dotMemory and targets the load path.
     if (args.Length > 1 && args[1].Equals("alloc", StringComparison.OrdinalIgnoreCase))
         SaveAllocationProfile.Run();
@@ -26,6 +28,8 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
         StreamingMemoryProfile.Run(args);
     else if (args.Length > 1 && args[1].Equals("structural", StringComparison.OrdinalIgnoreCase))
         StructuralEditProfile.Run();
+    else if (args.Length > 1 && args[1].Equals("template", StringComparison.OrdinalIgnoreCase))
+        TemplateRoundTripProfile.Run(args);
     else if (args.Length > 1 && args[1].Equals("shiftercorpus", StringComparison.OrdinalIgnoreCase))
         ShifterCorpusDump.Run();
     else
