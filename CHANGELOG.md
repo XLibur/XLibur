@@ -3,6 +3,8 @@
 ## Contents
 
 - [Unreleased](#unreleased)
+- [v0.301.0](#v03010---2026-08-04)
+- [v0.300.0](#v03000---2026-08-02)
 - [v0.200.0](#v02000---2026-08-01)
 - [XLibur.Report — Unreleased](#xliburreport--unreleased)
 - [v0.106.0](#v01060---2026-07-25)
@@ -22,7 +24,7 @@
 ## v0.300.0 - 2026-08-02
 
 Promotes to public API the three core capabilities `XLibur.Report` previously reached through
-`InternalsVisibleTo`: `XLFunctionLibrary`, for evaluating a workbook function without a grid;
+`InternalsVisibleTo`: `XLFunctionLibrary`, for evaluating a worksheet function without a grid;
 source inspection and re-pointing on `IXLPivotCache`; and `IXLConditionalFormat.SetRanges`.
 Deleting a set of rows is up to 67× faster and allocates 670× less. Every package now ships a
 Software Bill of Materials. Two breaking changes: adding members to `IXLPivotCache` and
@@ -66,14 +68,14 @@ rich-text equality.
 
   ```bash
   # Read the embedded manifest without installing
-  unzip -p XLibur.0.200.0.nupkg '_manifest/spdx_2.2/manifest.spdx.json' | jq .
+  unzip -p XLibur.0.300.0.nupkg '_manifest/spdx_2.2/manifest.spdx.json' | jq .
   ```
 
 ### ✨ New Features
 
 #### Formula functions
 
-- **`XLFunctionLibrary` evaluates one of Excel's ~400 built-in functions without a workbook.** Previously the calculation engine was reachable only through a cell, so computing `SUM` over values you already hold in memory meant building a grid to put them in. An instance is safe to share across threads, which is worth doing: constructing one builds the whole function table, at about 12 MB. ([#354](https://github.com/XLibur/XLibur/pull/354) by [@jafin](https://github.com/jafin))
+- **`XLFunctionLibrary` evaluates one of Excel's ~400 worksheet functions without a workbook.** Previously the calculation engine was reachable only through a cell, so computing `SUM` over values you already hold in memory meant building a grid to put them in. An instance is safe to share across threads, which is worth doing: constructing one builds the whole function table, at ~12 MB. ([#354](https://github.com/XLibur/XLibur/pull/354) by [@jafin](https://github.com/jafin))
 
   ```csharp
   using XLibur.Excel.CalcEngine;
@@ -112,7 +114,7 @@ rich-text equality.
 
 #### Structural edits
 
-- **Deleting a set of rows is up to 67× faster and allocates 670× less.** `IXLRows.Delete()` looped a single-row delete over its rows, so every consumer of a shift — most expensively the formula pass, which visits every formula in the workbook — ran once per row. The rows are now re-pointed against the whole deletion in one pass, contiguous rows coalesce into one run, the cell compaction moves a row at a time rather than a cell at a time, and the calculation-engine purge that each run repeated is coalesced into one. Deleting every third row of an 8000-row sheet with a `SUM` per row went from 19,595 ms and 17,481 MB to 294 ms and 26 MB, and the growth rate dropped from 4× per doubling to 2×. Row and column *inserts* and single-row deletes get a smaller share of the same win, since formulas the edit cannot reach now skip the parse entirely. ([#347](https://github.com/XLibur/XLibur/pull/347), [#348](https://github.com/XLibur/XLibur/pull/348), [#350](https://github.com/XLibur/XLibur/pull/350) by [@jafin](https://github.com/jafin))
+- **Deleting a set of rows is up to 67× faster and allocates 670× less.** `IXLRows.Delete()` looped a single-row delete over its rows, so every consumer of a shift — most expensively the formula pass, which visits every formula in the workbook — ran once per row. The rows are now re-pointed against the whole deletion in one pass, contiguous rows coalesce into one run, the cell compaction moves a row at a time rather than a cell at a time, and the calculation-engine purge that each run repeated is coalesced into one. Deleting every third row of an 8,000-row sheet with a `SUM` per row went from 19,595 ms and 17,481 MB to 294 ms and 26 MB, and the growth rate dropped from 4× per doubling to 2×. Row and column *inserts* and single-row deletes get a smaller share of the same win, since formulas the edit cannot reach now skip the parse entirely. ([#347](https://github.com/XLibur/XLibur/pull/347), [#348](https://github.com/XLibur/XLibur/pull/348), [#350](https://github.com/XLibur/XLibur/pull/350) by [@jafin](https://github.com/jafin))
 
   A workbook holding an array, data-table or dynamic-array formula keeps the row-at-a-time path, because the stored range and spill footprint those carry are relocated by the per-cell shift rather than by rewriting formula text.
 
@@ -140,29 +142,29 @@ rich-text equality.
 
 ### ⚠️ Breaking Changes
 
-#### Colours and styles
+#### Colors and styles
 
-- **`XLColorType` members are renumbered.** `Automatic` takes ordinal 0, so `Color` moves 0 → 1, `Theme` 1 → 2 and `Indexed` 2 → 3. This is source compatible but binary breaking, and breaks anything that persists the numeric value — stored settings or serialised styles written by an earlier version need remapping. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
+- **`XLColorType` members are renumbered.** `Automatic` takes ordinal 0, so `Color` moves 0 → 1, `Theme` 1 → 2 and `Indexed` 2 → 3. This is source compatible but binary breaking, and breaks anything that persists the numeric value — stored settings or serialized styles written by an earlier version need remapping. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
 
-- **`XLColor.NoColor.Color` (and `.Indexed`/`.ThemeColor`) now throw** instead of returning a meaningless all-zero ARGB. Test with `IsAutomatic` before reading a colour component. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
+- **`XLColor.NoColor.Color` (and `.Indexed`/`.ThemeColor`) now throw** instead of returning a meaningless all-zero ARGB. Test with `IsAutomatic` before reading a color component. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
 
   ```csharp
-  // Before — returned Color.FromArgb(0, 0, 0, 0) for an automatic colour
+  // Before — returned Color.FromArgb(0, 0, 0, 0) for an automatic color
   var rgb = cell.Style.Font.FontColor.Color;
 
   // After
-  var colour = cell.Style.Font.FontColor;
-  var rgb = colour.IsAutomatic ? defaultRgb : colour.Color;
+  var color = cell.Style.Font.FontColor;
+  var rgb = color.IsAutomatic ? defaultRgb : color.Color;
   ```
 
   There is no ARGB that means "automatic", which is why the property now throws rather than
-  inventing one — decide what your code should render for a colour Excel resolves at display time.
+  inventing one — decide what your code should render for a color Excel resolves at display time.
 
 ### ✨ New Features
 
 #### Writing large files
 
-- **Streaming write API (`XLStreamingWorkbook`)**: a forward-only writer for exports too large to hold in memory. Rows are serialised straight into the file as they are appended, so nothing is retained per row — a million rows by ten columns costs about 108 MB of peak managed heap, where `XLWorkbook` needs roughly that much for a *tenth* as many rows. On the 50K-row benchmark it is also 1.6× faster than `XLWorkbook` and allocates a fifth as much.
+- **Streaming write API (`XLStreamingWorkbook`)**: a forward-only writer for exports too large to hold in memory. Rows are serialized straight into the file as they are appended, so nothing is retained per row — a million rows × ten columns costs ~108 MB of peak managed heap, where `XLWorkbook` needs roughly that much for a *tenth* as many rows. On the 50K-row benchmark it is also 1.6× faster than `XLWorkbook` and allocates a fifth as much.
 
   ```csharp
   using XLibur.Excel.Streaming;
@@ -184,7 +186,7 @@ rich-text equality.
 
   Because the writer assembles the package itself rather than going through `System.IO.Packaging`, the destination stream does not have to be seekable — a workbook can be written straight to an HTTP response, which `XLWorkbook.SaveAs` cannot do. ([#263](https://github.com/XLibur/XLibur/pull/263) by [@jafin](https://github.com/jafin))
 
-- **`SaveOptions.CompressionLevel`**: choose how hard the package is compressed on an ordinary save. `CompressionLevel.Fastest` trades a larger file for a quicker save, `NoCompression` skips it entirely. Applies to parts the save creates; re-saving a workbook loaded from an existing file leaves its existing parts alone. `XLStreamingOptions.CompressionLevel` does the same for streamed writes, where `Fastest` is about 1.7× quicker than the default. ([#263](https://github.com/XLibur/XLibur/pull/263) by [@jafin](https://github.com/jafin))
+- **`SaveOptions.CompressionLevel`**: choose how hard the package is compressed on an ordinary save. `CompressionLevel.Fastest` trades a larger file for a quicker save, `NoCompression` skips it entirely. Applies to parts the save creates; re-saving a workbook loaded from an existing file leaves its existing parts alone. `XLStreamingOptions.CompressionLevel` does the same for streamed writes, where `Fastest` is ~1.7× quicker than the default. ([#263](https://github.com/XLibur/XLibur/pull/263) by [@jafin](https://github.com/jafin))
 
 #### Formula functions
 
@@ -231,7 +233,7 @@ rich-text equality.
 
 #### Charts
 
-- **Chart series formatting**: `IXLChartSeries` gained `FillColor`, `LineColor`, `LineWidthPt`, `MarkerStyle` (new `XLMarkerStyle` enum), `MarkerSize`, `MarkerFillColor` and `Smooth`, so a generated chart can be styled instead of relying on Excel's automatic theme colours. Leaving a property `null` omits its element, which keeps the automatic colour — nothing is ever written as an explicit black. ([#220](https://github.com/XLibur/XLibur/pull/220) by [@jafin](https://github.com/jafin))
+- **Chart series formatting**: `IXLChartSeries` gained `FillColor`, `LineColor`, `LineWidthPt`, `MarkerStyle` (new `XLMarkerStyle` enum), `MarkerSize`, `MarkerFillColor` and `Smooth`, so a generated chart can be styled instead of relying on Excel's automatic theme colors. Leaving a property `null` omits its element, which keeps the automatic color — nothing is ever written as an explicit black. ([#220](https://github.com/XLibur/XLibur/pull/220) by [@jafin](https://github.com/jafin))
 
 - **Secondary value axis per series**: `IXLChartSeries.UseSecondaryAxis` plots a series against a value axis on the right, so a percentage can share a chart with values in the thousands. It applies to series of the primary chart type as well as to a combo chart's `SecondarySeries`. ([#220](https://github.com/XLibur/XLibur/pull/220) by [@jafin](https://github.com/jafin))
 
@@ -241,13 +243,13 @@ rich-text equality.
 
 - **Chart axes**: `IXLChart.CategoryAxis`, `ValueAxis` and `SecondaryValueAxis`, each with `Title`, `NumberFormat`, `Min`, `Max`, `MajorUnit`, `MinorUnit`, `Visible`, `MajorGridlines`, `Orientation` (reversed axes) and `LogScale`/`LogBase`. The unit and log-scale properties belong to a value axis in the file format and are skipped on a category axis — except on scatter and bubble charts, whose horizontal axis holds numbers. ([#222](https://github.com/XLibur/XLibur/pull/222) by [@jafin](https://github.com/jafin))
 
-- **Charts loaded from a file can be restyled**: setting the series formatting, data labels, legend or axes on a loaded chart now writes back on save. Only the properties actually assigned are patched into the existing chart part, so trendlines, error bars, gradient fills, per-point colours and label overrides, label and axis fonts, tick marks and the chart's style/colour parts are all preserved — and a chart nobody edited is left byte for byte as it was. ([#220](https://github.com/XLibur/XLibur/pull/220), [#221](https://github.com/XLibur/XLibur/pull/221), [#222](https://github.com/XLibur/XLibur/pull/222) by [@jafin](https://github.com/jafin))
+- **Charts loaded from a file can be restyled**: setting the series formatting, data labels, legend or axes on a loaded chart now writes back on save. Only the properties actually assigned are patched into the existing chart part, so trendlines, error bars, gradient fills, per-point colors and label overrides, label and axis fonts, tick marks and the chart's style/color parts are all preserved — and a chart nobody edited is left byte-identical. ([#220](https://github.com/XLibur/XLibur/pull/220), [#221](https://github.com/XLibur/XLibur/pull/221), [#222](https://github.com/XLibur/XLibur/pull/222) by [@jafin](https://github.com/jafin))
 
 - **Chart anchoring**: `IXLChart.Anchor` (`MoveAndSizeWithCells`, `MoveWithCells`, `Absolute`) with `Width`, `Height`, `Left` and `Top` in pixels, so a chart can keep its size as rows are inserted or be pinned to a spot on the sheet. Two-cell anchoring via `Position`/`SecondPosition` remains the default. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
 
 #### Comments
 
-- **Threaded comments are modelled and round-trip**: `IXLCell.GetThreadedComment()`, `CreateThreadedComment(author, text)` and `HasThreadedComment`, with `IXLThreadedComment` (`Text`, `Author`, `CreatedUtc`, `Parent`, `Replies`, `Resolved`, `AddReply`, `Delete`) and the workbook's author list on `IXLWorkbook.Persons`. Previously a thread was read lossily — the whole conversation was flattened into the legacy note's text joined by newlines, discarding authors, timestamps and reply structure — and there was no write path at all, so saving regenerated the fallback note without the `tc={rootId}` marker that ties it to the thread, leaving Excel with threaded parts it no longer recognised a fallback for.
+- **Threaded comments are modeled and round-trip**: `IXLCell.GetThreadedComment()`, `CreateThreadedComment(author, text)` and `HasThreadedComment`, with `IXLThreadedComment` (`Text`, `Author`, `CreatedUtc`, `Parent`, `Replies`, `Resolved`, `AddReply`, `Delete`) and the workbook's author list on `IXLWorkbook.Persons`. Previously a thread was read lossily — the whole conversation was flattened into the legacy note's text joined by newlines, discarding authors, timestamps and reply structure — and there was no write path at all, so saving regenerated the fallback note without the `tc={rootId}` marker that ties it to the thread, leaving Excel with threaded parts it no longer recognized a fallback for.
 
   ```csharp
   var author = workbook.Persons.Add("Dana Reed");
@@ -258,27 +260,27 @@ rich-text equality.
 
   A cell carries either a note or a thread, never both; creating one over the other throws rather than silently discarding it. Timestamps are pinned to UTC, since Excel writes no designator. The fallback note and its VML shape are regenerated from the thread on every save so the two cannot drift after an edit, and mentions round-trip as raw XML — they are dropped when the text changes, because their offsets index into the text they were written against. Verified against Excel 365: threads created from scratch, an Excel-authored file round-tripped, that file edited through the API, and a sheet mixing a note with a thread all open with no repair prompt. ([#258](https://github.com/XLibur/XLibur/pull/258) by [@jafin](https://github.com/jafin))
 
-#### Colours and styles
+#### Colors and styles
 
-- **`XLColorType.Automatic`**, with `XLColor.Automatic` and `XLColor.IsAutomatic`. OOXML has four kinds of colour and XLibur modelled three; the automatic colour (ECMA-376 `CT_Color/@auto`, what Excel's font colour picker labels "Automatic") was disguised as a fully transparent black. `auto="1"` is now read and written explicitly. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
+- **`XLColorType.Automatic`**, with `XLColor.Automatic` and `XLColor.IsAutomatic`. OOXML has four kinds of color and XLibur modeled three; the automatic color (ECMA-376 `CT_Color/@auto`, what Excel's font color picker labels "Automatic") was disguised as a fully transparent black. `auto="1"` is now read and written explicitly. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
 
 ### ⚡ Performance
 
 #### Workbook creation
 
-- **40% fewer allocations building a workbook** (create phase of the 50K x 10 benchmark, 305.5 → 183.6 MB; whole benchmark 423.4 → 301.3 MB). Every `cell.Value = x` ran a merged-range membership test that allocated ~250 bytes even on a sheet with no merged ranges at all, boxing the address and building a LINQ iterator chain over an empty list. That test is now skipped outright when the sheet has no merges, and made allocation-free when it does — a merged title row is a common layout and used to cost *more* than no merge at all, because the predicate then actually ran. A cell write drops 375.5 → 103.6 bytes on both paths. ([#185](https://github.com/XLibur/XLibur/pull/185) by [@jafin](https://github.com/jafin))
+- **40% fewer allocations building a workbook** (create phase of the 50K × 10 benchmark, 305.5 → 183.6 MB; whole benchmark 423.4 → 301.3 MB). Every `cell.Value = x` ran a merged-range membership test that allocated ~250 bytes even on a sheet with no merged ranges at all, boxing the address and building a LINQ iterator chain over an empty list. That test is now skipped outright when the sheet has no merges, and made allocation-free when it does — a merged title row is a common layout and used to cost *more* than no merge at all, because the predicate then actually ran. A cell write drops 375.5 → 103.6 bytes on both paths. ([#185](https://github.com/XLibur/XLibur/pull/185) by [@jafin](https://github.com/jafin))
 
 - **Repeated access to the same cell is cheaper**: `ws.Cell(r, c)` minted a fresh `XLCell` every call, so the per-object style cache never hit and a `.Style` access threw away an 80-byte `XLStyle` one statement later. A small direct-mapped cache now hands back the same wrapper for the same address. ([#185](https://github.com/XLibur/XLibur/pull/185) by [@jafin](https://github.com/jafin))
 
 #### Formula engine
 
-- **The Excel function table is built once per process instead of once per calc engine** — about 70 KB and 0.12 ms back on every engine constructed, which is one per workbook that touches a formula plus a fresh one on some internal evaluation paths. Opening a workbook allocates 644 → 574 KB. The ~400-entry table is the same whatever the culture (a function takes its culture from the calculation context, not from the engine holding it) and nothing mutates it after it is built, so the per-engine copy only ever bought a private duplicate of a constant. ([#276](https://github.com/XLibur/XLibur/issues/276), [#306](https://github.com/XLibur/XLibur/pull/306) by [@jafin](https://github.com/jafin))
+- **The worksheet function table is built once per process instead of once per calc engine** — ~70 KB and 0.12 ms back on every engine constructed, which is one per workbook that touches a formula plus a fresh one on some internal evaluation paths. Opening a workbook allocates 644 → 574 KB. The ~400-entry table is the same whatever the culture (a function takes its culture from the calculation context, not from the engine holding it) and nothing mutates it after it is built, so the per-engine copy only ever bought a private duplicate of a constant. ([#276](https://github.com/XLibur/XLibur/issues/276), [#306](https://github.com/XLibur/XLibur/pull/306) by [@jafin](https://github.com/jafin))
 
-- **Evaluating a formula no longer re-parses the addresses it holds.** A reference node built its range address by parsing an address string that the node itself had generated from an already-parsed reference, so the parse only recovered what it was holding — through a `Contains`, a `Split` allocating an array plus a substring per endpoint, and an address parse per endpoint. The address is now built from the parsed form and the result memoised on the node, which pays off because a formula's syntax tree is shared by every cell holding the same text. Recalculating 20,000 formula rows is 12–18% quicker and allocates 35% less. ([#286](https://github.com/XLibur/XLibur/pull/286) by [@jafin](https://github.com/jafin))
+- **Evaluating a formula no longer re-parses the addresses it holds.** A reference node built its range address by parsing an address string that the node itself had generated from an already-parsed reference, so the parse only recovered what it was holding — through a `Contains`, a `Split` allocating an array plus a substring per endpoint, and an address parse per endpoint. The address is now built from the parsed form and the result memoized on the node, which pays off because a formula's syntax tree is shared by every cell holding the same text. Recalculating 20,000 formula rows is 12–18% quicker and allocates 35% less. ([#286](https://github.com/XLibur/XLibur/pull/286) by [@jafin](https://github.com/jafin))
 
 #### Structural edits
 
-- **Inserting or deleting rows one at a time is roughly 3× quicker on a sheet full of formulas** (1,000 single-row inserts over 1,000 formula cells and 1,000 live ranges: 4,753 → 1,556 ms, 6,091 → 2,072 MB). Formula shifting was 68% of that cost, and its expense was not the regular expression it looked like: for every matched address it materialised a live range through the worksheet's range repository, once per reference, per formula, per shift. References are now shifted through `ClosedXML.Parser`, which hands each one back already decomposed, so no address is re-parsed and a formula the shift cannot reach is returned as the same string instance. Equivalence with the previous implementation is pinned by a 2,072-case corpus. Separately, a shift pass no longer visits ranges it provably cannot move — a range out of a shift's reach is now free rather than merely cheap. ([#264](https://github.com/XLibur/XLibur/pull/264) by [@jafin](https://github.com/jafin))
+- **Inserting or deleting rows one at a time is roughly 3× quicker on a sheet full of formulas** (1,000 single-row inserts over 1,000 formula cells and 1,000 live ranges: 4,753 → 1,556 ms, 6,091 → 2,072 MB). Formula shifting was 68% of that cost, and its expense was not the regular expression it looked like: for every matched address it materialized a live range through the worksheet's range repository, once per reference, per formula, per shift. References are now shifted through `ClosedXML.Parser`, which hands each one back already decomposed, so no address is re-parsed and a formula the shift cannot reach is returned as the same string instance. Equivalence with the previous implementation is pinned by a 2,072-case corpus. Separately, a shift pass no longer visits ranges it provably cannot move — a range out of a shift's reach is now free rather than merely cheap. ([#264](https://github.com/XLibur/XLibur/pull/264) by [@jafin](https://github.com/jafin))
 
 #### Styling
 
@@ -294,13 +296,13 @@ rich-text equality.
 
 #### Saving
 
-- **50% fewer allocations on save** (237.1 → 117.9 MB for the same benchmark), with wall time improving from 1187–1290 ms to 1051–1167 ms. Four save helpers materialised a cell wrapper for every used cell just to read one property and now read the underlying storage directly; `int`/`uint` cell values are formatted into a span instead of allocating a string each; style-key hashes are memoised, cutting `StyleKey.GetHashCode` by 95% over 100K styles. Saved output is byte-identical to before. ([#179](https://github.com/XLibur/XLibur/pull/179) by [@jafin](https://github.com/jafin))
+- **50% fewer allocations on save** (237.1 → 117.9 MB for the same benchmark), with wall time improving from 1187–1290 ms to 1051–1167 ms. Four save helpers materialized a cell wrapper for every used cell just to read one property and now read the underlying storage directly; `int`/`uint` cell values are formatted into a span instead of allocating a string each; style-key hashes are memoized, cutting `StyleKey.GetHashCode` by 95% over 100K styles. Saved output is byte-identical to before. ([#179](https://github.com/XLibur/XLibur/pull/179) by [@jafin](https://github.com/jafin))
 
 ### 🐛 Bug Fixes
 
 #### Formulas and references
 
-- **`SUBTOTAL` no longer counts a nested post-2007 function twice.** The check that stops a subtotal counting a subtotal inside its own range compared the function name as the formula stores it, and Excel stores every function added after 2007 under an `_xlfn.` namespace — so a nested `AGGREGATE` was never recognised. The namespace is now stripped before the comparison. ([#255](https://github.com/XLibur/XLibur/pull/255) by [@jafin](https://github.com/jafin))
+- **`SUBTOTAL` no longer counts a nested post-2007 function twice.** The check that stops a subtotal counting a subtotal inside its own range compared the function name as the formula stores it, and Excel stores every function added after 2007 under an `_xlfn.` namespace — so a nested `AGGREGATE` was never recognized. The namespace is now stripped before the comparison. ([#255](https://github.com/XLibur/XLibur/pull/255) by [@jafin](https://github.com/jafin))
 
 - **A reference whose rows or columns are all deleted becomes `#REF!`** ([ClosedXML #880](https://github.com/ClosedXML/ClosedXML/issues/880)): endpoints were shifted by the deleted height and clamped to row 1, so deleting rows 1–5 turned `Sheet1!$A$1:$B$2` into `Sheet1!$A$1:$B$1` — a phantom one-row range over whatever data had moved up into it. The same shifter serves cell formulas, so `=SUM(A1:A2)` with those rows deleted now reads `SUM(#REF!)` rather than quietly summing the wrong cells. Deleting the sheet afterwards drops the stale sheet prefix instead of leaving a defined name pointing at a sheet that no longer exists. ([#243](https://github.com/XLibur/XLibur/pull/243) by [@jafin](https://github.com/jafin))
 
@@ -322,19 +324,19 @@ rich-text equality.
 
 #### Rich text and shared strings
 
-- **Rich-text runs keep their automatic or absent colour through a round-trip**: a plain load → `SaveAs` wrote every colour-less run back with an explicit `<color rgb="FF000000"/>`, and promoted a plain string carrying a phonetic guide (`<t>` + `<rPh>`, common in Japanese workbooks) into a synthetic run that inherited the same injection. An explicit black cannot be overridden by a theme colour change or by conditional formatting, where the automatic colour it replaced can. A run that was read with no `<rPr>` is now written back without one, so inheritance stays inheritance; splitting such a run keeps that property rather than materialising the cell font as explicit formatting. ([#225](https://github.com/XLibur/XLibur/pull/225), [#227](https://github.com/XLibur/XLibur/pull/227) by [@jafin](https://github.com/jafin))
+- **Rich-text runs keep their automatic or absent color through a round-trip**: a plain load → `SaveAs` wrote every color-less run back with an explicit `<color rgb="FF000000"/>`, and promoted a plain string carrying a phonetic guide (`<t>` + `<rPh>`, common in Japanese workbooks) into a synthetic run that inherited the same injection. An explicit black cannot be overridden by a theme color change or by conditional formatting, where the automatic color it replaced can. A run that was read with no `<rPr>` is now written back without one, so inheritance stays inheritance; splitting such a run keeps that property rather than materializing the cell font as explicit formatting. ([#225](https://github.com/XLibur/XLibur/pull/225), [#227](https://github.com/XLibur/XLibur/pull/227) by [@jafin](https://github.com/jafin))
 
 - **Saving a plain shared string that carries a phonetic guide no longer throws.** Its text is decoded on the way in, so a decoded `_xHHHH_` escape is a literal control character — not valid XML content — and the writer emitted it raw, failing with an `ArgumentException` naming the invalid character. ([#225](https://github.com/XLibur/XLibur/pull/225), [#227](https://github.com/XLibur/XLibur/pull/227) by [@jafin](https://github.com/jafin))
 
-#### Colours and conditional formatting
+#### Colors and conditional formatting
 
-- **An automatic colour is no longer written as an explicit `rgb="00000000"`.** Colour writers switch on the colour type, and the automatic colour fell into the RGB arm — pinning down a colour the source deliberately left for the application to resolve. The three conditional-format colour converters gained explicit automatic arms too, where they would otherwise have dropped the colour silently. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
+- **An automatic color is no longer written as an explicit `rgb="00000000"`.** Color writers switch on the color type, and the automatic color fell into the RGB arm — pinning down a color the source deliberately left for the application to resolve. The three conditional-format color converters gained explicit automatic arms too, where they would otherwise have dropped the color silently. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
 
 #### Charts
 
 - **Charts anchored with a one-cell or absolute anchor are no longer dropped on load.** The reader only looked at `xdr:twoCellAnchor`, so a chart Excel had anchored either of the other two ways was missing from `IXLWorksheet.Charts` entirely (its XML survived a round trip, but the chart was invisible to the API). ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
 
-- **3D and of-pie chart groups are read.** `c:pie3DChart`, `c:line3DChart`, `c:area3DChart`, `c:surface3DChart` and `c:ofPieChart` were not recognised, so an Excel-authored chart using one loaded with no series and the wrong chart type. Their series and series formatting now read the same as the 2D groups', and pie-of-pie and bar-of-pie are told apart. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
+- **3D and of-pie chart groups are read.** `c:pie3DChart`, `c:line3DChart`, `c:area3DChart`, `c:surface3DChart` and `c:ofPieChart` were not recognized, so an Excel-authored chart using one loaded with no series and the wrong chart type. Their series and series formatting now read the same as the 2D groups', and pie-of-pie and bar-of-pie are told apart. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
 
 - **Chart XML now passes OpenXML schema validation.** Three long-standing violations in the chart writer are fixed: series names were written as a `c:strRef` with no required `c:f` (a literal name now uses `<c:tx><c:v>`, and both forms are read back), `c:doughnutChart` omitted the required `c:holeSize`, and `c:marker` was written after `c:cat`/`c:val` instead of before. Excel tolerated all three, but stricter readers and `SaveOptions.ValidatePackage` did not. ([#220](https://github.com/XLibur/XLibur/pull/220) by [@jafin](https://github.com/jafin))
 
@@ -344,9 +346,9 @@ rich-text equality.
 
 - **Which of those groups is on the secondary axis no longer depends on the order they appear in the file.** The primary axis pair was taken from whichever group came first, so a file that wrote its secondary group ahead of the primary one read back with `UseSecondaryAxis` inverted on every series and the two axis models swapped. The group whose value axis crosses at the maximum — how a secondary axis comes to be drawn on the right — is now passed over instead. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
 
-- **`Smooth` is honoured on a new stock chart.** A stock chart's series are `CT_LineSer` and take `c:smooth`, but the writer never emitted it, so the property worked on a stock chart read from a file and was silently dropped on one XLibur created. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
+- **`Smooth` is honored on a new stock chart.** A stock chart's series are `CT_LineSer` and take `c:smooth`, but the writer never emitted it, so the property worked on a stock chart read from a file and was silently dropped on one XLibur created. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
 
-- **`IXLChart.SetTitle` on a chart loaded from a file is no longer silently discarded** ([#272](https://github.com/XLibur/XLibur/issues/272)): the patcher rewrote the legend, axes, data labels and series of a loaded chart but never its title, so the model accepted the new title, `chart.Title` read it back, and the saved part kept the old one — with no exception and no warning. The title is now patched in like everything else. Only the text is replaced, so a title that came out of Excel keeps its font, colour, layout and overlay; setting it to `null` removes the title and sets `c:autoTitleDeleted` so Excel does not put an automatic one back in its place. This covers extended (ChartEx) charts — waterfall, funnel, treemap, sunburst, box &amp; whisker — as well as the standard ones; the title is the only edit those take, since they carry none of the formatting XLibur models. ([#283](https://github.com/XLibur/XLibur/pull/283) by [@jafin](https://github.com/jafin))
+- **`IXLChart.SetTitle` on a chart loaded from a file is no longer silently discarded** ([#272](https://github.com/XLibur/XLibur/issues/272)): the patcher rewrote the legend, axes, data labels and series of a loaded chart but never its title, so the model accepted the new title, `chart.Title` read it back, and the saved part kept the old one — with no exception and no warning. The title is now patched in like everything else. Only the text is replaced, so a title that came out of Excel keeps its font, color, layout and overlay; setting it to `null` removes the title and sets `c:autoTitleDeleted` so Excel does not put an automatic one back in its place. This covers extended (ChartEx) charts — waterfall, funnel, treemap, sunburst, box & whisker — as well as the standard ones; the title is the only edit those take, since they carry none of the formatting XLibur models. ([#283](https://github.com/XLibur/XLibur/pull/283) by [@jafin](https://github.com/jafin))
 
 - **Positioning a legend that is not there no longer creates one.** `IXLChartLegend.Position` and `Overlay` are documented as ignored while `Visible` is `false`, and a new chart gets no legend from them — but assigning one of them on a *loaded* chart that had no legend added one. ([#230](https://github.com/XLibur/XLibur/pull/230) by [@jafin](https://github.com/jafin))
 
@@ -380,11 +382,11 @@ rich-text equality.
 
 - **`IXLBaseCollection<TSingle, TMultiple>` is deprecated ahead of removal.** Nothing in XLibur implements, extends or consumes it — the collections it looks like it should describe (`IXLColumns`, `IXLRows`, `IXLCells`, `IXLRangeColumns`, `IXLRangeRows`) all derive from `IEnumerable<T>` alone. Marking it produced no build warnings anywhere in the solution, which is a second confirmation that it is an orphan. It is public, so an external consumer could in principle implement it, and it gets a normal deprecation period rather than being removed outright. ([#296](https://github.com/XLibur/XLibur/pull/296) by [@jafin](https://github.com/jafin))
 
-  Note also that the three groups of already-shipped `[Obsolete]` members are removed in the next minor version — `XLColor.NoColor`, deprecated below, is the exception and stays. ([#296](https://github.com/XLibur/XLibur/pull/296) by [@jafin](https://github.com/jafin))
+  Note also that the three groups of already-shipped `[Obsolete]` members will be removed in the next minor version — `XLColor.NoColor`, deprecated below, is the exception and stays. ([#296](https://github.com/XLibur/XLibur/pull/296) by [@jafin](https://github.com/jafin))
 
-#### Colours and styles
+#### Colors and styles
 
-- **`XLColor.NoColor` is deprecated in favour of `XLColor.Automatic`.** Some Excel pickers (sheet tab, fill background) label the same value "No Color" — that is a GUI convention, not a different value. `NoColor` still compiles but now warns, which is an error for consumers building with `TreatWarningsAsErrors`. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
+- **`XLColor.NoColor` is deprecated in favor of `XLColor.Automatic`.** Some Excel pickers (sheet tab, fill background) label the same value "No Color" — that is a GUI convention, not a different value. `NoColor` still compiles but now warns, which is an error for consumers building with `TreatWarningsAsErrors`. ([#232](https://github.com/XLibur/XLibur/pull/232) by [@jafin](https://github.com/jafin))
 
   ```csharp
   // Before
@@ -427,7 +429,7 @@ above. Nothing in this section has shipped yet.
 
 - **Charts, pivot tables, pictures and conditional formats survive range expansion.** A chart series drawn over the template's repeated row plots every generated row; a template pivot table is re-pointed at the generated rows, refreshed, and moved if the rows grew over it, while `<<Pivot dest="…">>` builds one from the template's own shape; a picture below a bound range ends up below the generated rows; and a conditional-format rule over the repeated rows is *stretched* over the generated block rather than copied per generated cell. ([#273](https://github.com/XLibur/XLibur/pull/273) by [@jafin](https://github.com/jafin))
 
-- **Excel's own functions are available inside `{{ }}`, under their Excel names** — `{{ SUM(array.map items "Total") }}` — so a template author reaches for the function they already know rather than a Scriban equivalent. ([#273](https://github.com/XLibur/XLibur/pull/273) by [@jafin](https://github.com/jafin))
+- **Excel's worksheet functions are available inside `{{ }}`, under their Excel names** — `{{ SUM(array.map items "Total") }}` — so a template author reaches for the function they already know rather than a Scriban equivalent. ([#273](https://github.com/XLibur/XLibur/pull/273) by [@jafin](https://github.com/jafin))
 
 - **`XLibur.Report.DynamicLinq` runs ClosedXML.Report's C# expression syntax as written.** The default engine is [Scriban](https://github.com/scriban/scriban), which is a template language rather than C#, so expressions like `{{item.Name.ToUpper()}}` need translating. Installing the DynamicLinq package and passing its engine to `XLTemplate` avoids touching them at all. ([#273](https://github.com/XLibur/XLibur/pull/273) by [@jafin](https://github.com/jafin))
 
@@ -454,11 +456,11 @@ above. Nothing in this section has shipped yet.
 First XLibur release since forking [ClosedXML v0.105.0](https://github.com/ClosedXML/ClosedXML/)
 (May 2025). Everything below is relative to that baseline.
 
-### Added
+### ✨ New Features
 
 - **Charts — all 78 `XLChartType` values**: End-to-end chart creation, saving, loading and round-tripping. Covers bar/column (clustered, stacked, percent, 2D and 3D), the 21 Bar3D cone/cylinder/pyramid shapes, line, area, pie/doughnut (including pie-to-pie and pie-to-bar), radar, scatter/XY, bubble, and surface types, plus data series, chart titles, combo charts and positioning. The previous `IXLChart`/`XLChart` stubs are now backed by a real implementation.
 
-- **Dynamic arrays**: Modern array functions — `SEQUENCE`, `UNIQUE`, `SORT`, `SORTBY`, `FILTER`, `XLOOKUP` and `XMATCH` — together with a **spill engine**. A dynamic-array formula written into a single cell now auto-fills its computed footprint into the neighbouring cells, grows and shrinks as the result changes, and round-trips through save/load. Only the anchor cell holds the formula; spilled cells stay formula-less, matching Excel. A footprint blocked by existing content, or one that would run past the sheet edge, collapses to the new `#SPILL!` error (`XLError.SpillRange`) on the anchor.
+- **Dynamic arrays**: Modern array functions — `SEQUENCE`, `UNIQUE`, `SORT`, `SORTBY`, `FILTER`, `XLOOKUP` and `XMATCH` — together with a **spill engine**. A dynamic-array formula written into a single cell now auto-fills its computed footprint into the neighboring cells, grows and shrinks as the result changes, and round-trips through save/load. Only the anchor cell holds the formula; spilled cells stay formula-less, matching Excel. A footprint blocked by existing content, or one that would run past the sheet edge, collapses to the new `#SPILL!` error (`XLError.SpillRange`) on the anchor.
 
 - **New worksheet functions**:
   - Conditional aggregates: `AVERAGEIF`, `AVERAGEIFS`, `MAXIFS`, `MINIFS`
@@ -469,7 +471,7 @@ First XLibur release since forking [ClosedXML v0.105.0](https://github.com/Close
 
 - **Wildcard support in `HLOOKUP` and `VLOOKUP`**: `*` and `?` patterns now match in lookup values, as they do in Excel.
 
-- **Swappable font engine, and a font-library-free core**: Text measurement (column auto-fit, row heights, glyph metrics) moved behind `IXLFontEngine`, and the font library ships as a separate package rather than being compiled into the core assembly. The MIT-licensed SkiaSharp engine is the default and auto-registers the first time a workbook is created, so no startup call is needed. This lets you choose a font library whose licence suits you, and stops library authors inheriting a font dependency they don't need. See the Upgrade Guide below.
+- **Swappable font engine, and a font-library-free core**: Text measurement (column auto-fit, row heights, glyph metrics) moved behind `IXLFontEngine`, and the font library ships as a separate package rather than being compiled into the core assembly. The MIT-licensed SkiaSharp engine is the default and auto-registers the first time a workbook is created, so no startup call is needed. This lets you choose a font library whose license suits you, and stops library authors inheriting a font dependency they don't need. See the Upgrade Guide below.
 
 - **`XLibur.Bundle` meta-package**: Installs the core library together with the default font engine, so a single package reference behaves like ClosedXML out of the box.
 
@@ -479,7 +481,7 @@ First XLibur release since forking [ClosedXML v0.105.0](https://github.com/Close
 
 - **Pivot table improvements**: Named ranges resolve as a pivot cache source, and `autoSortScope` on pivot fields round-trips through load/save.
 
-### Fixed
+### 🐛 Bug Fixes
 
 - **Array and dynamic-array formulas no longer break on row/column shifts**: Inserting or deleting rows/columns anywhere in a workbook used to rebuild every formula cell through the `FormulaA1` setter, which turned a single array formula (shared across its whole range) into one *normal* formula per cell. For dynamic arrays this split a single spilled formula such as `=UNIQUE(...)` into multiple implicit-intersection `=@UNIQUE(...)` cells, even when the edit happened on an unrelated sheet. Shifts now update the shared formula instance in place — preserving its array/dynamic-array nature — and relocate the spill range for same-sheet inserts/deletes.
 
@@ -503,23 +505,23 @@ First XLibur release since forking [ClosedXML v0.105.0](https://github.com/Close
 
 - **Pivot table alignment formatting round-trips**: Alignment in pivot table differential formats (DXF) was silently lost on load/save.
 
-### Performance
+### ⚡ Performance
 
-- **61% fewer allocations and 16.5% less wall time on load** (250K rows x 15 columns benchmark), from removing per-cell and per-entry garbage in the shared-string reader, cell value/attribute reads, and a new style cache.
+- **61% fewer allocations and 16.5% less wall time on load** (250K × 15 benchmark), from removing per-cell and per-entry garbage in the shared-string reader, cell value/attribute reads, and a new style cache.
 
-- **`<sheetData>` is read with a raw `XmlReader`**: Worksheet loading — the dominant cost when opening a workbook — no longer goes through the OpenXML SDK's `OpenXmlPartReader`, which rebuilt a `ReadOnlyCollection<OpenXmlAttribute>` and materialized text through its object model for every `<c>`, `<row>` and `<f>` element. Measured in isolation on a 250K x 15 sheet (3.75M cells), that reader accounted for ~67% of load time and ~80% of load allocations — roughly 4x slower and 5x more garbage than an equivalent raw `XmlReader` traversal.
+- **`<sheetData>` is read with a raw `XmlReader`**: Worksheet loading — the dominant cost when opening a workbook — no longer goes through the OpenXML SDK's `OpenXmlPartReader`, which rebuilt a `ReadOnlyCollection<OpenXmlAttribute>` and materialized text through its object model for every `<c>`, `<row>` and `<f>` element. Measured in isolation on a 250K × 15 sheet (3.75M cells), that reader accounted for ~67% of load time and ~80% of load allocations — roughly 4× slower and 5× more garbage than an equivalent raw `XmlReader` traversal.
 
 - **Faster string cell reads**: `GetValue<string>()`/`GetString()` — the most common cell read — no longer runs a compiled regex over the whole string (allocating a `MatchCollection`) to find the rare `_xHHHH_` escape sequence.
 
-- **Reduced allocations in 10 per-cell, per-formula and per-address hot-path methods**, with no public API or behaviour change.
+- **Reduced allocations in 10 per-cell, per-formula and per-address hot-path methods**, with no public API or behavior change.
 
 - **Load and save hot paths**: The shared-string reader is pre-allocated from the SST count, merged cells stream instead of building a full DOM, worksheet attributes are parsed in a single pass, calc-engine overhead is skipped for formula cells during load, and `uint` boxing was removed from the XML writer.
 
 - **`XmlEncoder.EncodeString` fast-path**: Added a character scan that short-circuits before the `Regex` and `StringBuilder` when a string contains no characters that need encoding (the common case for plain text). For workbooks with ~50K unique shared strings this eliminates ~50K `StringBuilder` allocations, ~50K regex evaluations, and ~50K string copies on save.
 
-- **`IXLWorksheet.SetCellValue(int row, int column, XLCellValue value)`** (new API): Sets a cell value directly on the worksheet's internal storage without allocating an intermediate `XLCell` object. For bulk data population (e.g. 50K rows x 3 columns) this eliminates ~150K object allocations that the `Cell(row, col).SetValue(...)` pattern would create.
+- **`IXLWorksheet.SetCellValue(int row, int column, XLCellValue value)`** (new API): Sets a cell value directly on the worksheet's internal storage without allocating an intermediate `XLCell` object. For bulk data population (e.g. 50K × 3) this eliminates ~150K object allocations that the `Cell(row, col).SetValue(...)` pattern would create.
 
-### Upgrade Guide
+### 📖 Upgrade Guide
 
 #### Migrating from ClosedXML
 

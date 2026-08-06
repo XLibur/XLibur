@@ -71,4 +71,38 @@ awk -v heading="$heading" '
 mv "$tmp" "$changelog"
 trap - EXIT
 
+# Rebuild the "Contents" list from the "## " headings, so it cannot drift out of
+# date as releases are rolled. Anchors follow GitHub's rule: lower-case, drop every
+# character that is not a letter, digit, space or hyphen, then spaces to hyphens.
+contents=$(
+  grep -E '^## ' "$changelog" | while IFS= read -r line; do
+    text=${line#'## '}
+    text=${text%$'\r'}
+    [[ $text == Contents ]] && continue
+    anchor=$(printf '%s' "$text" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9 -' | tr ' ' '-')
+    # Link text is the heading without its " - YYYY-MM-DD" suffix.
+    label=${text% - [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]}
+    printf -- '- [%s](#%s)\n' "$label" "$anchor"
+  done
+)
+
+if [[ -n $contents ]]; then
+  tmp=$(mktemp)
+  trap 'rm -f "$tmp"' EXIT
+
+  awk -v contents="$contents" '
+    !seen && /^## Contents[[:space:]]*$/ {
+      print; print ""; print contents; print ""
+      seen = 1; skip = 1
+      next
+    }
+    skip && /^## / { skip = 0 }
+    skip { next }
+    { print }
+  ' "$changelog" >"$tmp"
+
+  mv "$tmp" "$changelog"
+  trap - EXIT
+fi
+
 echo "Rolled Unreleased into '${heading}' in ${changelog}"
