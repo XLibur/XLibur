@@ -38,6 +38,18 @@ internal static class TemplateFixture
     /// </summary>
     public static byte[] Build(int sheetCount, int definedNames, int validations, int dataRows)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(sheetCount, 1);
+
+        // Every defined name spans a lookup column, and every validation points at the first
+        // defined name, so neither can be built without at least one lookup sheet. Rejecting the
+        // combination keeps a probe from quietly measuring a fixture that is not what it asked for.
+        if (sheetCount == 1 && (definedNames > 0 || validations > 0))
+        {
+            throw new ArgumentException(
+                "A single-sheet fixture has no lookup sheet to point at, so it cannot carry defined names or validations.",
+                nameof(sheetCount));
+        }
+
         using var workbook = new XLWorkbook();
 
         var data = workbook.AddWorksheet(DataSheet);
@@ -50,7 +62,10 @@ internal static class TemplateFixture
         if (dataRows > 0)
             WriteGrid(data, dataRows, GridColumns, perCellNumberFormat: true);
 
-        var lookupSheets = Math.Max(1, sheetCount - 1);
+        // The data sheet is one of the requested sheets, so the rest are lookups. sheetCount: 1 is
+        // the data sheet alone; anything else made the workbook one sheet wider than asked for,
+        // which mattered because the per-sheet cost is read off the slope between these counts.
+        var lookupSheets = sheetCount - 1;
         for (var s = 1; s <= lookupSheets; s++)
         {
             var lookup = workbook.AddWorksheet($"{LookupSheetPrefix}{s}");
@@ -60,14 +75,17 @@ internal static class TemplateFixture
                 lookup.Cell(HeaderRow + r, 1).Value = $"Sheet {s} value {r}";
         }
 
-        // The first defined name is the one the refresh probe repoints.
-        var firstLookup = workbook.Worksheet(FirstLookupSheet);
-        workbook.DefinedNames.Add(LookupRangeName, firstLookup.Range(HeaderRow + 1, 1, HeaderRow + LookupRows, 1));
-
-        for (var n = 1; n < definedNames; n++)
+        if (lookupSheets > 0)
         {
-            var sheet = workbook.Worksheet($"{LookupSheetPrefix}{(n % lookupSheets) + 1}");
-            workbook.DefinedNames.Add($"Name{n}", sheet.Range(HeaderRow + 1, 1, HeaderRow + LookupRows, 1));
+            // The first defined name is the one the refresh probe repoints.
+            var firstLookup = workbook.Worksheet(FirstLookupSheet);
+            workbook.DefinedNames.Add(LookupRangeName, firstLookup.Range(HeaderRow + 1, 1, HeaderRow + LookupRows, 1));
+
+            for (var n = 1; n < definedNames; n++)
+            {
+                var sheet = workbook.Worksheet($"{LookupSheetPrefix}{(n % lookupSheets) + 1}");
+                workbook.DefinedNames.Add($"Name{n}", sheet.Range(HeaderRow + 1, 1, HeaderRow + LookupRows, 1));
+            }
         }
 
         for (var v = 0; v < validations; v++)

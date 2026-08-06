@@ -47,7 +47,10 @@ public class TemplateRoundTripBenchmarks
     {
         SixLaborsV1FontBootstrap.Register();
         _template = TemplateFixture.Build(SheetCount, DefinedNames, Validations, dataRows: 0);
-        _rowHeavy = TemplateFixture.Build(sheetCount: 1, definedNames: 1, validations: 0, dataRows: HeavyRows);
+        // Two sheets: the data sheet under measurement plus the one lookup sheet the defined name
+        // spans. This asked for one sheet until the fixture's sheet count was corrected, and got
+        // two anyway, so the shape here is unchanged and the recorded baselines stay comparable.
+        _rowHeavy = TemplateFixture.Build(sheetCount: 2, definedNames: 1, validations: 0, dataRows: HeavyRows);
         _lookupValues = Enumerable.Range(1, LookupValues).Select(i => $"Lookup value {i}").ToArray();
     }
 

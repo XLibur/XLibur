@@ -29,7 +29,7 @@ Reference point for task 1: writing those same 420,000 cells into a workbook who
 
 Reproduce with:
 
-```
+```bash
 dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- --filter "*TemplateRoundTripBenchmarks*"
 dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile template
 dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile template loop save   # for a profiler
@@ -52,7 +52,10 @@ dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile
 
 - `XLibur.Benchmarks/TemplateRoundTripBenchmarks.cs` — the trustworthy numbers.
 - `XLibur.Benchmarks/TemplateRoundTripProfile.cs` — `profile template [path.xlsx]` decomposes the round trip; `profile template loop <open|save|roundtrip>` runs one phase so a profiler can attach.
-- `XLibur.Benchmarks/TemplateFixture.cs` — the shared synthetic template.
+- `XLibur.Benchmarks/TemplateFixture.cs` — the shared synthetic template. `sheetCount` built one sheet
+  too many until review caught it (`Math.Max(1, sheetCount - 1)` lookup sheets, so `sheetCount: 1` gave
+  two). Only the `sheets=1` row was affected — 10 and 40 were always right — and the task 5 figures below
+  are the corrected ones.
 
 **Do not use the probe's timings to claim a change.** On the reference machine they move by tens of percent between runs of identical code — the same order as the effects being chased. The probe locates cost and reports exact allocation; BenchmarkDotNet proves movement. An early iteration of this work reported a 30% win that BenchmarkDotNet then showed to be ~0%.
 
@@ -234,13 +237,19 @@ is machine variance, not a new win — identical allocation says it is the same 
 
 **Filed as task 5:** per-worksheet round-trip cost, the dominant remaining term.
 
-**Ruled out by the same decomposition**, both previously plausible suspects from the profiled application:
+**Neither defined names nor data validations allocate measurably**, the two plausible suspects from the
+profiled application. Against a 10-sheet fixture: 0 names → 3.2 MB, 20 names → 3.3 MB; then 0 → 26 → 100
+validations holds flat at 3.3 MB. Allocation is reported exactly by the probe, so this part is solid.
 
-- **Defined names are free.** 10 sheets with 0 names round-trips in 30.6 ms; with 20 names, 28.5 ms.
-- **Data validations are free.** 0 → 26 → 100 validations moves 28.5 → 28.3 → 29.6 ms, inside probe noise.
+**Their time cost is not established either way, and one run should not be trusted here.** A first
+decomposition put 20 names *below* 0 names (28.5 ms against 30.6 ms); a second, over a byte-identical
+fixture (22,725 B both times), put it 70% *above* (46.3 ms against 27.2 ms). Nothing changed but the
+machine. Anyone wanting a time answer for names or validations needs a BenchmarkDotNet case, not this
+probe — see the measurement warning under task 0, which exists because this spec has already published two
+figures that did not survive re-measurement.
 
-So the template that triggered this spec — ~10 sheets, ~20 defined names, ~26 validations — pays for its
-sheet *count* and essentially nothing for the features that looked like the obvious cause.
+What the sheet-count slope shows is robust because it is read across three points that all move together
+and is corroborated by allocation. The rest of the table is not.
 
 Left unchased by scope, as instructed: `System.IO.Packaging` buffering and `XmlWriter` internals (Spec 01/03).
 
@@ -250,18 +259,18 @@ Left unchased by scope, as instructed: `System.IO.Packaging` buffering and `XmlW
 
 | sheets | round trip | alloc | fixture on disk |
 |---:|---:|---:|---:|
-| 1 | 10.9 ms | 1.3 MB | 8,312 B |
-| 10 | 30.6 ms | 3.2 MB | 22,581 B |
-| 40 | 96.9 ms | 10.6 MB | 76,074 B |
+| 1 | 7.3 ms | 1.1 MB | 6,437 B |
+| 10 | 27.2 ms | 3.2 MB | 22,581 B |
+| 40 | 101.1 ms | 10.6 MB | 76,074 B |
 
-The slope is linear and consistent across both intervals — 2.19 ms / 0.21 MB per sheet from 1→10, and
-2.21 ms / 0.25 MB per sheet from 10→40. Each worksheet carries ~1.8 KB of XML, so this is roughly **135×
-the on-disk size in allocation**, and costs about what 1,370 grid cells cost, for a sheet containing no
-cells at all.
+The slope is consistent across both intervals — 2.21 ms / 0.23 MB per sheet from 1→10, and 2.46 ms /
+0.25 MB per sheet from 10→40. Each worksheet carries ~1.8 KB of XML, so this is roughly **130× the
+on-disk size in allocation**, and costs about what 1,300 grid cells cost, for a sheet containing no cells
+at all.
 
-It is the dominant remaining term on any template-shaped workbook: on the 10-sheet fixture it is 22 of the
-30.6 ms round trip. Unlike rows and distinct strings (task 3), it scales with nothing the caller can
-reduce — the sheets are already empty.
+It is the dominant remaining term on any template-shaped workbook: on the 10-sheet fixture it is roughly
+20 of the 27.2 ms round trip. Unlike rows and distinct strings (task 3), it scales with nothing the caller
+can reduce — the sheets are already empty.
 
 **Not yet attributed.** `profile template loop roundtrip` uses exactly this fixture (10 sheets, 0 data
 rows) and is the right workload to trace. The split to establish first is packaging versus XLibur: a part

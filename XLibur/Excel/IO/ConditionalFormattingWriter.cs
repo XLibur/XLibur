@@ -24,10 +24,15 @@ internal static class ConditionalFormattingWriter
         // Fast path for the overwhelmingly common worksheet that carries no conditional
         // formatting at all. The general path below allocates a hash set, a cast iterator, a
         // concat iterator, an ordered sequence and a list before it can discover there is
-        // nothing to write, and that is per worksheet on every save. Nothing is skipped: with
-        // both collections empty the priority renumbering below is a no-op.
+        // nothing to write, and that is per worksheet on every save. Nothing is skipped: with no
+        // conditional formats from either source the general path reaches the same
+        // RemoveAllChildren/SetElement pair below, via a zero-length list.
+        // A pivot table only contributes here if it carries conditional formats, so testing for
+        // the formats rather than for the table keeps the fast path open to the common sheet that
+        // has pivots but no pivot CF.
         // The explicit type argument disambiguates XLPivotTables' two IEnumerable<T> implementations.
-        if (!xlWorksheet.ConditionalFormats.Any() && !xlWorksheet.PivotTables.Any<XLPivotTable>())
+        if (!xlWorksheet.ConditionalFormats.Any() &&
+            !xlWorksheet.PivotTables.Any<XLPivotTable>(pt => pt.ConditionalFormats.Any()))
         {
             worksheet.RemoveAllChildren<ConditionalFormatting>();
             cm.SetElement(XLWorksheetContents.ConditionalFormatting, null);

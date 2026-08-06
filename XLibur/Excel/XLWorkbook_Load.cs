@@ -1008,7 +1008,19 @@ public partial class XLWorkbook
             if (string.IsNullOrEmpty(hex))
                 continue;
 
-            var color = XLColor.FromHexRgb(hex);
+            // A theme is decoration, so a malformed slot should cost that one colour rather than
+            // the whole workbook. FromHexRgb throws FormatException both for a value that is not
+            // six characters and for one containing a non-hex character.
+            XLColor color;
+            try
+            {
+                color = XLColor.FromHexRgb(hex);
+            }
+            catch (FormatException)
+            {
+                continue;
+            }
+
             switch (slot)
             {
                 case "lt1": theme.Background1 = color; break;

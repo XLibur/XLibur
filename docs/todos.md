@@ -110,7 +110,7 @@ its own period runs from this release.
 | #1 | 7 | Bug — empty data validations written with empty `sqref` | **Merged** — [#290](https://github.com/XLibur/XLibur/pull/290) |
 | #2 | 10 | Feature — pivot `chartFormats` round trip | **Merged** — [#294](https://github.com/XLibur/XLibur/pull/294) |
 | #3 | 11 | Feature — pivot `filters` round trip | **Merged** — [#300](https://github.com/XLibur/XLibur/pull/300); `autoFilter` modelled rather than preserved as a string in [#301](https://github.com/XLibur/XLibur/issues/301) |
-| #4 | 2, 4 | Correctness — structured references in the dependency tree | In review — [#297](https://github.com/XLibur/XLibur/pull/297) |
+| #4 | 2, 4 | Correctness — structured references in the dependency tree | **Merged** — [#297](https://github.com/XLibur/XLibur/pull/297) |
 | #5 | 3 | Perf — register data-table formulas in the dependency tree | **Closed, will not do** — see below |
 | #6 | 1 | Perf — cache parsed reference addresses | **Merged** — [#286](https://github.com/XLibur/XLibur/pull/286) |
 | #7 | 12 | Cleanup — `CacheId` nullability | **Merged** — [#287](https://github.com/XLibur/XLibur/pull/287) |
@@ -138,7 +138,7 @@ changes that mostly touch different files.
 | [#294](https://github.com/XLibur/XLibur/pull/294) | Task #2 (replaces #291, which was stacked on #287) | Merged |
 | [#295](https://github.com/XLibur/XLibur/pull/295) | Correction to the task #9 finding | Merged |
 | [#296](https://github.com/XLibur/XLibur/pull/296) | Task #9, plus the #9 and #10 decisions | Merged |
-| [#297](https://github.com/XLibur/XLibur/pull/297) | Task #4, plus the task #5 correction | Open |
+| [#297](https://github.com/XLibur/XLibur/pull/297) | Task #4, plus the task #5 correction | Merged |
 
 ### Task #6 — reference resolution (#286)
 
