@@ -110,10 +110,22 @@ internal sealed class XLFont : IXLFont
     /// <summary>
     /// Cell-container fast path: no Func&lt;&gt; allocation.
     /// </summary>
+    /// <summary>
+    /// Apply a new component key to the cell this facade is attached to.
+    /// </summary>
+    /// <remarks>
+    /// The new key is deliberately <em>not</em> interned before being applied. Assigning it to
+    /// <c>Key</c> first would run a repository lookup -- hashing the key and probing a dictionary --
+    /// whose result is then thrown away: on a transition-cache hit <c>ModifyFont</c> never needs the
+    /// component value at all, and on a miss it interns the component anyway inside
+    /// <c>XLStyleValue.FromKey</c>. Taking the interned value back off the resulting style instead
+    /// leaves the facade just as correct for later reads, at no lookup. Measured over 20,000 cells
+    /// setting one property each, this was the single largest cost on the per-cell styling path.
+    /// </remarks>
     private void SetKey(XLFontKey newKey)
     {
-        Key = newKey;
-        _style.ModifyFont(Key);
+        _style.ModifyFont(newKey);
+        _value = _style.Value.Font;
     }
 
     /// <summary>
