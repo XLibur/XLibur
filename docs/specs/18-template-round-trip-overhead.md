@@ -253,7 +253,14 @@ and is corroborated by allocation. The rest of the table is not.
 
 Left unchased by scope, as instructed: `System.IO.Packaging` buffering and `XmlWriter` internals (Spec 01/03).
 
-### Task 5 — Each structurally empty worksheet costs ~2.2 ms and ~0.24 MB to round-trip ⬜
+### Task 5 — Each additional worksheet costs ~2.2 ms and ~0.24 MB to round-trip ⬜ (attributed)
+
+> **Correction.** This task was first written as "each *structurally empty* worksheet". That is wrong, and
+> the trace is what caught it. `TemplateFixture` gives every lookup sheet `LookupRows = 100` rows plus a
+> header, so the sheets whose count the slope varies each carry 101 rows of a one-column string table —
+> `LoadRowXml` and `LoadCellXml` together account for 18.6% of the trace on a fixture described as having
+> no data. The slope below is real, but it is the cost of *a lookup sheet*, not of an empty one. The true
+> structural floor is still unmeasured; it needs a fixture whose lookup row count is a parameter.
 
 `profile template`, varying only the sheet count with zero data rows:
 
@@ -272,10 +279,34 @@ It is the dominant remaining term on any template-shaped workbook: on the 10-she
 20 of the 27.2 ms round trip. Unlike rows and distinct strings (task 3), it scales with nothing the caller
 can reduce — the sheets are already empty.
 
-**Not yet attributed.** `profile template loop roundtrip` uses exactly this fixture (10 sheets, 0 data
-rows) and is the right workload to trace. The split to establish first is packaging versus XLibur: a part
-per sheet through `System.IO.Packaging` is Spec 01/03 territory and out of scope here, whereas per-sheet
-DOM and content-manager work is not. Do that attribution before designing anything.
+#### Attribution
+
+`dotnet-trace --format speedscope` over `profile template loop roundtrip` (10 sheets, 20 names, 26
+validations), 21,253 ms sampled. Inclusive shares of the whole trace:
+
+| | share | what it is |
+|---|---:|---|
+| `LoadWorksheetElements` | 23.7% | per sheet — **XLibur** |
+| `GenerateWorksheetPartContent` | 10.2% | per sheet — **XLibur** |
+| zip deflate/inflate + the `Monitor` contention under it | ~8.5% | per part — packaging |
+| `Path.GetTempFileName` + `CreateFile` | 7.8% | **once per package**, not per sheet |
+
+**The per-sheet cost is roughly 4:1 XLibur's own work over packaging, so task 5 is in scope** rather than
+Spec 01/03 territory as originally guessed. Splitting the two was the point of the trace and it came out
+the opposite way to the assumption.
+
+Two things worth recording separately:
+
+- **Array growth dominates.** `Thread.PollGCWorker` is 30.3% of the trace, and its call sites are almost
+  entirely `Array.Resize` / `Array.Copy` / `Buffer.Memmove` — `LoadCellXml` resizing (11.5%),
+  `Slice<T>.Lut<T>.SetValue` resizing (10.7%), and `XmlTextReaderImpl.AllocNode` growing the reader's node
+  buffer (10.1%). Time parks on the GC poll at safepoints inside those copy loops, so this is the
+  allocation the benchmarks measure showing up as wall clock. Pre-sizing the per-sheet slices is the
+  obvious first move, and it is squarely XLibur's code.
+- **The temp file is the SDK's, and it is per workbook.** `WriteableStreamExtensions.EnableWriteableStream`
+  calls `Path.GetTempFileName` to make the package writeable — 7.8% of the trace, but fixed per round trip
+  rather than scaling with sheets, so it is not part of this slope. Worth its own note; `GetTempFileName`
+  on Windows probes for an unused name and degrades as `%TEMP%` fills.
 
 ## Already ruled out
 
