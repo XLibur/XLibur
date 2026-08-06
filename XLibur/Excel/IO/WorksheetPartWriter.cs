@@ -26,6 +26,110 @@ internal static class WorksheetPartWriter
         StreamToPart(worksheetDom, worksheetPart, xlWorksheet, context, options);
     }
 
+    /// <summary>
+    /// Reads the existing worksheet part into a detached DOM, substituting an empty
+    /// <see cref="SheetData"/> for the stored one.
+    /// </summary>
+    /// <remarks>
+    /// Reading the part as it stands and calling <c>LoadCurrentElement</c> on
+    /// <c>&lt;worksheet&gt;</c> materialises the entire part — every <c>&lt;row&gt;</c> and every
+    /// <c>&lt;c&gt;</c> as an OpenXML object — and <see cref="StreamToPart"/> then discards all of
+    /// it, because cells are streamed from the value slices instead. On a workbook holding
+    /// 20,000 x 21 cells that discarded DOM was most of the ~1.3 s and ~278 MB it took to save a
+    /// file nobody had changed; even on a template whose sheets hold 100 rows it was 41% of save
+    /// time. It also defeated the memory intent already recorded against the SheetData region
+    /// below.
+    /// <para>
+    /// An empty <see cref="SheetData"/> satisfies everything downstream: it is what
+    /// <c>Elements&lt;SheetData&gt;().First()</c> finds, what the content manager anchors
+    /// insertions on, and what <see cref="StreamToPart"/> matches to know where to splice the
+    /// streamed cells in.
+    /// </para>
+    /// <para>
+    /// Accessing the part through <c>worksheetPart.Worksheet</c> is not an option: that creates an
+    /// attached DOM which the SDK tracks and writes back to the part on its own.
+    /// </para>
+    /// </remarks>
+    private static Worksheet ReadWorksheetDomWithoutSheetData(WorksheetPart worksheetPart)
+    {
+        using var withoutRows = CopyPartWithEmptySheetData(worksheetPart);
+        using var reader = new OpenXmlPartReader(withoutRows, worksheetPart.Features, default);
+
+        // Create reads the XML declaration only, so the first Read lands on <worksheet>.
+        if (!reader.Read())
+            throw new ArgumentException("Worksheet part should contain worksheet xml, but is empty.");
+
+        return (Worksheet)reader.LoadCurrentElement()!;
+    }
+
+    /// <summary>
+    /// Copies the worksheet part into memory with <c>&lt;sheetData&gt;</c> reduced to an empty
+    /// element, leaving every other byte of markup as it was.
+    /// </summary>
+    /// <remarks>
+    /// The DOM is still built by a single <c>LoadCurrentElement</c> over a single document, and
+    /// that is what makes this safe. Loading the top-level children individually instead — each
+    /// appended to a hand-built root — is faster still, but it changes what gets written: a child
+    /// parsed on its own records the namespace declarations it needs rather than inheriting the
+    /// root's, so a part whose root uses a default namespace round-trips its
+    /// <c>mc:AlternateContent</c> subtrees as <c>&lt;controls xmlns="…"&gt;</c> where the file had
+    /// <c>&lt;x:controls&gt;</c>. Equivalent XML, different bytes, and this library holds itself to
+    /// byte-level round-trip fidelity.
+    /// <para>
+    /// The expensive part is skipped either way: rows are tokenised once by a raw reader instead
+    /// of being materialised into OpenXML objects the caller discards. What gets copied twice is
+    /// everything *except* <c>&lt;sheetData&gt;</c>, which on any sheet worth optimising is a
+    /// rounding error.
+    /// </para>
+    /// </remarks>
+    private static MemoryStream CopyPartWithEmptySheetData(WorksheetPart worksheetPart)
+    {
+        var buffer = new MemoryStream();
+
+        using (var partStream = worksheetPart.GetStream(FileMode.Open, FileAccess.Read))
+        using (var reader = PartXmlReader.CreateVerbatim(partStream))
+        using (var writer = XmlWriter.Create(buffer, new XmlWriterSettings
+               {
+                   CloseOutput = false,
+                   Encoding = XLHelper.NoBomUTF8,
+               }))
+        {
+            if (reader.MoveToContent() != XmlNodeType.Element)
+                throw new ArgumentException("Worksheet part should contain worksheet xml, but is empty.");
+
+            writer.WriteStartElement(reader.Prefix, reader.LocalName, reader.NamespaceURI);
+            writer.WriteAttributes(reader, defattr: true);
+
+            if (!reader.IsEmptyElement)
+            {
+                reader.Read(); // Into the first child.
+
+                // WriteNode and Skip both leave the reader on the next node, so nothing in this
+                // loop calls Read again.
+                while (!reader.EOF && reader.NodeType != XmlNodeType.EndElement)
+                {
+                    if (reader.NodeType == XmlNodeType.Element &&
+                        reader.LocalName == "sheetData" &&
+                        reader.NamespaceURI == Main2006SsNs)
+                    {
+                        writer.WriteStartElement(reader.Prefix, reader.LocalName, reader.NamespaceURI);
+                        writer.WriteEndElement();
+                        reader.Skip();
+                    }
+                    else
+                    {
+                        writer.WriteNode(reader, defattr: true);
+                    }
+                }
+            }
+
+            writer.WriteEndElement();
+        }
+
+        buffer.Position = 0;
+        return buffer;
+    }
+
     private static Worksheet GetWorksheetDom(
         bool partIsEmpty,
         WorksheetPart worksheetPart,
@@ -40,25 +144,7 @@ internal static class WorksheetPartWriter
 
         #region Worksheet
 
-        Worksheet worksheet;
-        if (!partIsEmpty)
-        {
-            // Accessing the worksheet through worksheetPart.Worksheet creates an attached DOM
-            // worksheet that is tracked and later saved automatically to the part.
-            // Using the reader, we get a detached DOM.
-            // The OpenXmlReader.Create method only reads XML declaration but doesn't read content.
-            using var reader = OpenXmlReader.Create(worksheetPart);
-            if (!reader.Read())
-            {
-                throw new ArgumentException("Worksheet part should contain worksheet xml, but is empty.");
-            }
-
-            worksheet = (Worksheet)reader.LoadCurrentElement()!;
-        }
-        else
-        {
-            worksheet = new Worksheet();
-        }
+        var worksheet = partIsEmpty ? new Worksheet() : ReadWorksheetDomWithoutSheetData(worksheetPart);
 
         if (worksheet.NamespaceDeclarations.All(ns => ns.Value != RelationshipsNs))
             worksheet.AddNamespaceDeclaration("r", RelationshipsNs);
