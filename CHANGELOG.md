@@ -9,6 +9,36 @@
 
 ## Unreleased
 
+### ⚡ Performance
+
+#### Saving
+
+- **Saving a workbook that was loaded from a file no longer re-materialises every stored row and cell.** `GetWorksheetDom` called `LoadCurrentElement` on `<worksheet>` whenever the stored part was non-empty, building an OpenXML DOM of the entire sheet — which `StreamToPart` then discarded, because cells are streamed from the value slices instead. The intent was already recorded in the code ("Sheet data is not updated in the Worksheet DOM here, because it is later being streamed directly to the file … especially problematic for large sheets") but it was defeated on every save of a loaded workbook, and on every save after the first. The part is now copied with `<sheetData>` reduced to an empty element and the DOM built from that, so stored rows are tokenised once by a raw reader rather than becoming objects nobody reads. Re-saving an untouched 20,000 × 21 workbook went from 1,729.6 ms and 333.68 MB to 991.7 ms and 88.83 MB; a 10-sheet template round trip from 10.42 ms and 3.89 MB to 8.42 ms and 3.17 MB. ([#373](https://github.com/XLibur/XLibur/pull/373) by [@jafin](https://github.com/jafin))
+
+  Copying the part rather than assembling the root element by hand is deliberate, and costs about 8% of the win. A child parsed on its own records the namespace declarations it needs instead of inheriting the root's, so the faster version round-tripped `mc:AlternateContent` subtrees as `<controls xmlns="…">` where the file had `<x:controls>`. Copying keeps the SDK doing one parse of one document, so the emitted bytes are unchanged by construction.
+
+- **Fixed per-workbook and per-worksheet save cost is lower**, worth ~4% of total allocation on an open-and-save round trip of a 10-sheet template. Reading the theme no longer materialises the entire theme part — font scheme, format scheme, gradient fills, effect styles — to pull twelve hex colours. The worksheet and sheet-view content managers make one pass over their child list instead of 39 filtered traversals of it per worksheet per save, and their slot lookup no longer allocates on every emitted element. The conditional-formatting writer now discovers that a worksheet has no conditional formatting before building a hash set, cast, concat, ordering and list rather than after. ([#373](https://github.com/XLibur/XLibur/pull/373) by [@jafin](https://github.com/jafin))
+
+#### Loading
+
+- **The loader skips `<sheetData>` in one operation instead of once per row.** Each worksheet part is read twice: once for structural elements with the SDK reader, once for `<sheetData>` with a raw reader, which is far cheaper per cell. The first pass has to get past `<sheetData>`, and it was doing so a row at a time — and `Skip` on a start element runs the element factory and builds an attribute list, so each row cost a throwaway `Row` object plus attributes. On a 20,000 × 20 sheet the skip alone was 117 ms and 4.9 MB, against 268 ms to read the cells for real. Loading a 20,000 × 21 workbook went from 460.2 ms and 60.14 MB to 405.6 ms and 55.40 MB. ([#373](https://github.com/XLibur/XLibur/pull/373) by [@jafin](https://github.com/jafin))
+
+  Allocation is exact and consistently 5–12% lower across the load benchmarks. Times carry wide error bars on the benchmark machine; a probe sweeping sheet shapes put the load-time saving at 10–37%, largest on many-rows-few-columns sheets.
+
+#### Styles
+
+- **Setting a style property on a cell costs ~33% less CPU, at ~219 ns per styled cell rather than ~328 ns.** All six style facades — number format, font, fill, border, alignment, protection — interned each new component key in its repository and then handed it straight to the style, which hashed the same key again. The interning was waste whichever way the modification went: on a transition-cache hit the component value is never needed, and on a miss the component is interned anyway further down. Taking the interned value back off the resulting style leaves the facade just as correct for later reads, at no lookup. Allocation is unchanged, since a repository probe of an existing entry does not allocate. ([#373](https://github.com/XLibur/XLibur/pull/373) by [@jafin](https://github.com/jafin))
+
+### 🐛 Bug Fixes
+
+#### Styles
+
+- **A cell keeps the number format, font or border it was given when two style keys happen to share a hash code.** The per-style transition cache matched an entry on a 32-bit hash and never compared the key itself, so two distinct component keys colliding in both hash and cache slot returned each other's style — a cell silently ending up with formatting it was never assigned, and nothing in the file to explain it. This is reachable through the public API rather than merely theoretical: a custom number format pins `NumberFormatId` to a constant, so the key's hash reduces to the hash of the format string, and a workbook applying k distinct custom formats to default-styled cells collides with odds near k²/2^33 — roughly 1 in 8,000 at k=1,000. Font names are exposed the same way. Because string hashing is randomised per process, an unchanged workbook round-trips correctly on most runs and corrupts on others. A hit is now confirmed by comparing the key, with the hash kept as the cheap reject so the miss path is unchanged. ([#374](https://github.com/XLibur/XLibur/pull/374) by [@jafin](https://github.com/jafin))
+
+  The cache also held its hash, key and result in three parallel arrays, where two threads storing different keys into one slot could interleave their writes and leave an entry whose key and result came from different transitions — again a wrong style rather than the documented cache miss. The three now travel in one immutable entry published by a single reference write, so a reader sees an entry whole or not at all.
+
+  Alignment and protection keys were never exposed to this: a brute force over 11.4M alignment keys spanning Excel's full permitted indent and rotation ranges found no collision at all. Only the string-bearing keys were affected.
+
 ## v0.301.0 - 2026-08-04
 
 ### 🐛 Bug Fixes
