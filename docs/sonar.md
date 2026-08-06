@@ -1,4 +1,4 @@
-﻿# SonarQube issues — XLibur_XLibur
+# SonarQube issues — XLibur_XLibur
 
 This file covers two exports. The 278-issue sweep is first; the earlier 150-issue
 `MEDIUM` triage follows it, unchanged.
