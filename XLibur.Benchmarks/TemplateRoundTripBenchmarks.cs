@@ -52,6 +52,24 @@ public class TemplateRoundTripBenchmarks
     }
 
     /// <summary>
+    /// Open a workbook that already holds many rows and save it again without touching anything.
+    /// </summary>
+    /// <remarks>
+    /// The realistic template-export shape, and the only benchmark here whose *stored* part is
+    /// row-heavy — <see cref="OpenAndSaveUnchanged"/> saves a fixture whose sheets are nearly
+    /// empty on disk, so it cannot see any save cost that scales with the rows already in the
+    /// part. Compare against <see cref="LoadRowHeavy"/> to separate the save half from the parse.
+    /// </remarks>
+    [Benchmark]
+    public void OpenAndSaveRowHeavyUnchanged()
+    {
+        using var input = new MemoryStream(_rowHeavy, writable: false);
+        using var workbook = new XLWorkbook(input);
+        using var output = new MemoryStream();
+        workbook.SaveAs(output);
+    }
+
+    /// <summary>
     /// Parse a sheet whose cost is dominated by rows rather than structure.
     /// </summary>
     /// <remarks>
