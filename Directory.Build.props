@@ -55,4 +55,25 @@
     </PropertyGroup>
   </Target>
 
+  <!--
+    The analyzer the CI SonarCloud scan runs, so S-rule findings can be reproduced locally instead
+    of only in CI. Off by default: the codebase carries roughly 4,900 pre-existing S findings, and
+    TreatWarningsAsErrors would turn every one into a build error.
+
+      dotnet build XLibur.slnx -c Release -p:EnableSonarAnalyzers=true
+
+    Warnings-as-errors is disabled for that run so it reports rather than fails; real compiler
+    errors still fail as usual. Analyzer-only, so PrivateAssets keeps it out of the packages.
+  -->
+  <PropertyGroup Condition="'$(EnableSonarAnalyzers)' == 'true'">
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(EnableSonarAnalyzers)' == 'true'">
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.4.0.108396">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
 </Project>

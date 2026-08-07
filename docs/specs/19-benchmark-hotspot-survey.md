@@ -151,10 +151,17 @@ XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.exe --filter "*XLiburRea
 XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.exe --filter "*TemplateRoundTrip*" "*StreamingWrite*" "*SheetGeometry*"
 XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.exe --filter "*CellStyling*" "*FormulaEvaluation*" "*StyleKeyHashCode*" "*AllocationBenchmarks*"
 
-XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.exe profile alloc
-XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.exe profile create
-XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.exe profile template
+XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.exe profile alloc         # areas 2, 3
+XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.exe profile create        # area 2
+XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.exe profile template      # area 3
+XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.exe profile compression   # area 3
+XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.exe profile loadalloc     # area 4
+XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.exe profile dirtyread     # area 5
+XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.exe profile hyperlinks    # area 5
 ```
+
+`profile loadalloc` and `profile dirtyread` take several minutes each — they build seven and five
+fixtures respectively at 100,000 rows before measuring anything.
 
 **Do not pass `--job short`.** `Program.cs` adds an explicit job for the in-process toolchain, and
 `--job` *adds* a second one, so every benchmark runs twice. Individual characteristics
@@ -765,7 +772,7 @@ change can remove without changing what a workbook costs to hold.
 
 | variant | allocated | retained | transient | B/cell | retained B/cell | file KB | ms |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| **baseline** (3 unique str, 5 num, 3 date, 3 str, 1 formula) | **207.0 MB** | 110.6 MB | 96.4 MB | 144.7 | 77.3 | 10,545 | 2,533 |
+| **baseline** (3 str incl. 2 unique, 5 num, 3 date, 3 str, 1 formula) | **207.0 MB** | 110.6 MB | 96.4 MB | 144.7 | 77.3 | 10,545 | 2,533 |
 | no formula column (col 15 numeric) | **104.3 MB** | 71.3 MB | 33.1 MB | 72.9 | 49.8 | 9,901 | **1,302** |
 | formula column, one repeated text | 132.7 MB | 98.1 MB | 34.6 MB | 92.8 | 68.6 | 9,892 | 1,556 |
 | no unique strings (3 cols repeat 10 values) | 101.1 MB | 72.1 MB | 29.0 MB | 70.6 | 50.4 | 8,683 | 1,133 |

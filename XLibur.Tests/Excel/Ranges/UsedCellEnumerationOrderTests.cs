@@ -177,7 +177,10 @@ public class UsedCellEnumerationOrderTests
         for (var row = 1; row <= 4; row++)
             ws.Cell(row, 1).Value = row;
 
-        var even = ws.CellsUsed(c => c.GetDouble() % 2 == 0);
+        // GetValue<int> rather than a modulo over GetDouble: the cells hold whole numbers, and an
+        // exact equality test against a floating-point result is fragile even when it happens to
+        // hold (S1244).
+        var even = ws.CellsUsed(c => c.GetValue<int>() % 2 == 0);
 
         await Assert.That(Addresses(even)).IsEqualTo("A2,A4");
     }

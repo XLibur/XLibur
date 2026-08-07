@@ -261,6 +261,11 @@ public static class LoadDecompositionProfile
         var unique = UsesUniqueStrings(shape);
         ws.Cell(row, 12).Value = statuses[i % statuses.Length];
         ws.Cell(row, 13).Value = unique ? $"Note for row {row} with seed {seed}" : "Note";
+        // seed is 0-9999 over far more rows, so this column holds ~10,000 distinct values rather
+        // than one per row. That is deliberate: XLiburReadBenchmarks writes exactly this, and the
+        // baseline exists to mirror that fixture so the decomposition explains its numbers. Only
+        // cols 1 and 13 are unique per row, which is why the ablation is labelled by column count
+        // and its figures are the confounded row the results section tells readers not to lean on.
         ws.Cell(row, 14).Value = unique ? $"CODE-{seed:D5}" : "CODE-00000";
     }
 

@@ -15,18 +15,23 @@ public class SaveOptions
     /// larger file for a quicker save.
     /// </summary>
     /// <remarks>
-    /// <b>Only applies to parts this save creates</b>, which in practice means the first save of a
-    /// workbook built from scratch. A part's compression is fixed when the zip entry is created, so
-    /// re-saving a workbook that was loaded from a file or stream — or one that has been saved once
-    /// already, since it adopts its destination as its origin — leaves every existing part at the
-    /// level it was first written with. That includes the parts XLibur rewrites itself: a reopened
+    /// <b>Applies only to parts this save creates.</b> A zip entry's compression is fixed when the
+    /// entry is created, so a workbook that was loaded from a file or stream — or one already saved
+    /// once, since it adopts its destination as its origin — keeps every <i>existing</i> part at the
+    /// level it was first written with. That includes parts XLibur rewrites itself: a reopened
     /// <c>sheet1.xml</c> keeps its original entry, so new sheet data goes in at the old level.
     /// <para>
-    /// Measured on a 50,000 × 3 workbook: a first save honours the setting (10,585 KB at
-    /// <see cref="CompressionLevel.NoCompression"/> against 1,369 KB at
-    /// <see cref="CompressionLevel.Optimal"/>), while a second save of the same workbook and a save
-    /// of one loaded from a stream both produce identical output at either level. Callers who want
-    /// a different level for a template-driven export cannot get one this way.
+    /// Parts the save genuinely adds are a different matter and <i>do</i> honour the setting: the
+    /// level is applied to the package before parts are written, so a worksheet, table or image
+    /// that did not exist in the template gets the requested compression. A template-driven export
+    /// therefore lands somewhere in between — new parts at the chosen level, everything inherited
+    /// from the template unchanged — and the more the output is reused from the template, the less
+    /// the setting can reach.
+    /// </para>
+    /// <para>
+    /// Consequently only a workbook built from scratch and saved for the first time has the setting
+    /// applied throughout. Measurements are in <c>docs/specs/19-benchmark-hotspot-survey.md</c>,
+    /// area 3.
     /// </para>
     /// </remarks>
     public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
