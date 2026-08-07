@@ -12,7 +12,7 @@
 
 ## Unreleased
 
-A performance release for cell styles, with two breaking changes. Style data now uses about half the memory it used before, and XLibur compares and looks up styles faster. `XLColor.Color` no longer returns a named colour, and the two alignment style types are now internal; each needs a small code change if you use it. One bug fix: an edge with no border line now always reports the same colour.
+A performance release for cell styles, with two breaking changes. Style data now uses about half the memory it used before, and XLibur compares and looks up styles faster. `XLColor.Color` no longer returns a named colour, and the two alignment style types are now internal; each needs a small code change if you use it. Three bug fixes: an edge with no border line now always reports the same colour, setting an edge's colour before its line style no longer loses the colour, and an out-of-range enum value is now rejected instead of silently aliasing a different one.
 
 ### ⚠️ Breaking Changes
 
@@ -60,6 +60,10 @@ A performance release for cell styles, with two breaking changes. Style data now
 - **An edge with no border line always reports the same colour.** Two borders that differ only in the colour of an edge with no line have always counted as equal, so XLibur kept whichever it saw first. Setting a colour on such an edge did nothing, which is correct — Excel draws no line there, and writes no colour — but the colour you read back depended on what the workbook had done earlier. These edges now always report black. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
 
   A file can give an edge a colour but no line style, because the two are independent. XLibur now treats such a border the same way, so it matches the border already in the file instead of saving a second copy of it.
+
+- **Setting an edge's colour before its line style no longer loses the colour.** The fix above means a colour set on an edge with no line style is dropped there and then, so `border.TopBorderColor = Red; border.TopBorder = Thin;` used to end up black instead of red — the second line had nothing left to colour. XLibur now holds such a colour until the edge is given a line style, and applies it then, so the two lines give the same result in either order. Setting the colour on the outside or inside of a range in one call, before the matching line style, still loses the colour as before; set the line style first for those. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
+
+- **An out-of-range enum value is rejected instead of silently becoming a different one.** Border line style, colour kind, and theme colour are each stored in a single byte to keep a style small. Casting an invalid value into one of the public enums that back them — `(XLBorderStyleValues)999`, for example — used to wrap around into whichever defined member the value happened to reduce to, silently applying a style or colour you never asked for. XLibur now rejects such a value with `ArgumentOutOfRangeException` instead. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
 
 ## v0.310.0 - 2026-08-06
 

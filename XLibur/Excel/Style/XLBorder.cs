@@ -42,6 +42,44 @@ internal sealed class XLBorder : IXLBorder
 
     private XLBorderValue _value;
 
+    /// <summary>
+    /// A colour assigned to an edge while that edge has no style, held here instead of being
+    /// written through - and one field per edge, since each edge's style and colour move
+    /// independently of the others.
+    /// </summary>
+    /// <remarks>
+    /// An edge with no style has no colour to draw with, and <see cref="XLBorderKey.Normalize"/>
+    /// replaces such a colour with black the moment the key reaches a repository or an
+    /// <c>XLStyleKey</c>. Without this, the ordinary call order
+    /// <c>border.TopBorderColor = red; border.TopBorder = XLBorderStyleValues.Thin;</c> would set
+    /// the colour, have normalization erase it straight back to black, and only then apply the
+    /// style - the edge ends up black rather than red, and neither statement looks responsible.
+    /// <see cref="ApplyEdgeStyle"/> re-applies whichever colour is still pending here when the edge
+    /// is given a style, so the two statements read in either order give the same result. A colour
+    /// assigned to an edge that already has a style needs none of this and is written through at
+    /// once, as before.
+    /// <para>
+    /// Meaningful only while the corresponding edge has no style - <see cref="ApplyEdgeStyle"/>
+    /// clears it once it has been read, whether or not the new style made it applicable - and only
+    /// against the ground truth it was recorded against: <see cref="SyncValue"/> clears every
+    /// pending colour whenever the interned border changes for a reason other than this facade's
+    /// own writes, so a stale colour can never be applied to a style the caller does not know it
+    /// still holds.
+    /// </para>
+    /// <para>
+    /// Facade-local, and only for the five single-edge properties: <see cref="OutsideBorder"/>,
+    /// <see cref="OutsideBorderColor"/>, <see cref="InsideBorder"/> and
+    /// <see cref="InsideBorderColor"/> apply their four edges as one combined write and do not use
+    /// it, so a colour assigned there before the matching style keeps the behaviour these remarks
+    /// describe as broken - callers of the compound setters still set style before colour.
+    /// </para>
+    /// </remarks>
+    private XLColorKey? _pendingLeftBorderColor;
+    private XLColorKey? _pendingRightBorderColor;
+    private XLColorKey? _pendingTopBorderColor;
+    private XLColorKey? _pendingBottomBorderColor;
+    private XLColorKey? _pendingDiagonalBorderColor;
+
     /// <remarks>
     /// Read-only. The setter this replaces interned the assigned key in the border repository, and
     /// every caller then went on to resolve a style that interned it again - see
@@ -75,7 +113,27 @@ internal sealed class XLBorder : IXLBorder
 
     #endregion Constructors
 
-    internal void SyncValue(XLBorderValue value) { _value = value; }
+    /// <remarks>
+    /// Clears every pending colour whenever the incoming value's key differs from the one already
+    /// held - see the remarks on <see cref="_pendingLeftBorderColor"/>. Compared by key rather than
+    /// by reference: values are interned, so identical keys are ordinarily the same instance, but
+    /// the repository holds only weak references and can hand back a second instance for a key
+    /// still in use once the first is collected. Comparing keys makes that indistinguishable from
+    /// "nothing changed" rather than a false trigger that would silently drop a pending colour.
+    /// </remarks>
+    internal void SyncValue(XLBorderValue value)
+    {
+        if (!value.Key.Equals(_value.Key))
+        {
+            _pendingLeftBorderColor = null;
+            _pendingRightBorderColor = null;
+            _pendingTopBorderColor = null;
+            _pendingBottomBorderColor = null;
+            _pendingDiagonalBorderColor = null;
+        }
+
+        _value = value;
+    }
 
     #region IXLBorder Members
 
@@ -212,14 +270,9 @@ internal sealed class XLBorder : IXLBorder
     public XLBorderStyleValues LeftBorder
     {
         get => Key.LeftBorder;
-        set
-        {
-            if (Key.LeftBorder == value) return;
-            if (_style.IsCellContainer)
-                SetKey(Key with { LeftBorder = value });
-            else
-                Modify(k => k with { LeftBorder = value });
-        }
+        set => ApplyEdgeStyle(value, Key.LeftBorder, ref _pendingLeftBorderColor,
+            static (k, s) => k with { LeftBorder = s },
+            static (k, c) => k with { LeftBorderColor = c });
     }
 
     public XLColor LeftBorderColor
@@ -229,30 +282,16 @@ internal sealed class XLBorder : IXLBorder
             var colorKey = Key.LeftBorderColor;
             return XLColor.FromKey(ref colorKey);
         }
-        set
-        {
-            if (value == null)
-                throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
-
-            if (Key.LeftBorderColor == value.Key) return;
-            if (_style.IsCellContainer)
-                SetKey(Key with { LeftBorderColor = value.Key });
-            else
-                Modify(k => k with { LeftBorderColor = value.Key });
-        }
+        set => ApplyEdgeColor(value, Key.LeftBorder, Key.LeftBorderColor, ref _pendingLeftBorderColor,
+            static (k, c) => k with { LeftBorderColor = c });
     }
 
     public XLBorderStyleValues RightBorder
     {
         get => Key.RightBorder;
-        set
-        {
-            if (Key.RightBorder == value) return;
-            if (_style.IsCellContainer)
-                SetKey(Key with { RightBorder = value });
-            else
-                Modify(k => k with { RightBorder = value });
-        }
+        set => ApplyEdgeStyle(value, Key.RightBorder, ref _pendingRightBorderColor,
+            static (k, s) => k with { RightBorder = s },
+            static (k, c) => k with { RightBorderColor = c });
     }
 
     public XLColor RightBorderColor
@@ -262,30 +301,16 @@ internal sealed class XLBorder : IXLBorder
             var colorKey = Key.RightBorderColor;
             return XLColor.FromKey(ref colorKey);
         }
-        set
-        {
-            if (value == null)
-                throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
-
-            if (Key.RightBorderColor == value.Key) return;
-            if (_style.IsCellContainer)
-                SetKey(Key with { RightBorderColor = value.Key });
-            else
-                Modify(k => k with { RightBorderColor = value.Key });
-        }
+        set => ApplyEdgeColor(value, Key.RightBorder, Key.RightBorderColor, ref _pendingRightBorderColor,
+            static (k, c) => k with { RightBorderColor = c });
     }
 
     public XLBorderStyleValues TopBorder
     {
         get => Key.TopBorder;
-        set
-        {
-            if (Key.TopBorder == value) return;
-            if (_style.IsCellContainer)
-                SetKey(Key with { TopBorder = value });
-            else
-                Modify(k => k with { TopBorder = value });
-        }
+        set => ApplyEdgeStyle(value, Key.TopBorder, ref _pendingTopBorderColor,
+            static (k, s) => k with { TopBorder = s },
+            static (k, c) => k with { TopBorderColor = c });
     }
 
     public XLColor TopBorderColor
@@ -295,30 +320,16 @@ internal sealed class XLBorder : IXLBorder
             var colorKey = Key.TopBorderColor;
             return XLColor.FromKey(ref colorKey);
         }
-        set
-        {
-            if (value == null)
-                throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
-
-            if (Key.TopBorderColor == value.Key) return;
-            if (_style.IsCellContainer)
-                SetKey(Key with { TopBorderColor = value.Key });
-            else
-                Modify(k => k with { TopBorderColor = value.Key });
-        }
+        set => ApplyEdgeColor(value, Key.TopBorder, Key.TopBorderColor, ref _pendingTopBorderColor,
+            static (k, c) => k with { TopBorderColor = c });
     }
 
     public XLBorderStyleValues BottomBorder
     {
         get => Key.BottomBorder;
-        set
-        {
-            if (Key.BottomBorder == value) return;
-            if (_style.IsCellContainer)
-                SetKey(Key with { BottomBorder = value });
-            else
-                Modify(k => k with { BottomBorder = value });
-        }
+        set => ApplyEdgeStyle(value, Key.BottomBorder, ref _pendingBottomBorderColor,
+            static (k, s) => k with { BottomBorder = s },
+            static (k, c) => k with { BottomBorderColor = c });
     }
 
     public XLColor BottomBorderColor
@@ -328,30 +339,16 @@ internal sealed class XLBorder : IXLBorder
             var colorKey = Key.BottomBorderColor;
             return XLColor.FromKey(ref colorKey);
         }
-        set
-        {
-            if (value == null)
-                throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
-
-            if (Key.BottomBorderColor == value.Key) return;
-            if (_style.IsCellContainer)
-                SetKey(Key with { BottomBorderColor = value.Key });
-            else
-                Modify(k => k with { BottomBorderColor = value.Key });
-        }
+        set => ApplyEdgeColor(value, Key.BottomBorder, Key.BottomBorderColor, ref _pendingBottomBorderColor,
+            static (k, c) => k with { BottomBorderColor = c });
     }
 
     public XLBorderStyleValues DiagonalBorder
     {
         get => Key.DiagonalBorder;
-        set
-        {
-            if (Key.DiagonalBorder == value) return;
-            if (_style.IsCellContainer)
-                SetKey(Key with { DiagonalBorder = value });
-            else
-                Modify(k => k with { DiagonalBorder = value });
-        }
+        set => ApplyEdgeStyle(value, Key.DiagonalBorder, ref _pendingDiagonalBorderColor,
+            static (k, s) => k with { DiagonalBorder = s },
+            static (k, c) => k with { DiagonalBorderColor = c });
     }
 
     public XLColor DiagonalBorderColor
@@ -361,17 +358,8 @@ internal sealed class XLBorder : IXLBorder
             var colorKey = Key.DiagonalBorderColor;
             return XLColor.FromKey(ref colorKey);
         }
-        set
-        {
-            if (value == null)
-                throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
-
-            if (Key.DiagonalBorderColor == value.Key) return;
-            if (_style.IsCellContainer)
-                SetKey(Key with { DiagonalBorderColor = value.Key });
-            else
-                Modify(k => k with { DiagonalBorderColor = value.Key });
-        }
+        set => ApplyEdgeColor(value, Key.DiagonalBorder, Key.DiagonalBorderColor, ref _pendingDiagonalBorderColor,
+            static (k, c) => k with { DiagonalBorderColor = c });
     }
 
     public bool DiagonalUp
@@ -509,6 +497,82 @@ internal sealed class XLBorder : IXLBorder
     }
 
     #endregion IXLBorder Members
+
+    /// <summary>
+    /// Set one edge's style, applying whichever colour is pending for it - see
+    /// <see cref="_pendingLeftBorderColor"/> - if the new style makes one applicable.
+    /// </summary>
+    /// <param name="newStyle">Style to give the edge.</param>
+    /// <param name="currentStyle">The edge's style before this call.</param>
+    /// <param name="pendingColor">The pending-colour field for this edge specifically.</param>
+    /// <param name="withStyle">Rewrites a border key's style for this edge.</param>
+    /// <param name="withColor">Rewrites a border key's colour for this edge.</param>
+    private void ApplyEdgeStyle(
+        XLBorderStyleValues newStyle,
+        XLBorderStyleValues currentStyle,
+        ref XLColorKey? pendingColor,
+        Func<XLBorderKey, XLBorderStyleValues, XLBorderKey> withStyle,
+        Func<XLBorderKey, XLColorKey, XLBorderKey> withColor)
+    {
+        if (currentStyle == newStyle) return;
+
+        // A colour pending against the old style is either about to become applicable (None to a
+        // style) or moot (any style to None, since the edge is about to have nothing to draw
+        // regardless of what colour it was given). Either way it does not survive this call.
+        var colorToApply = newStyle != XLBorderStyleValues.None ? pendingColor : null;
+        pendingColor = null;
+
+        if (_style.IsCellContainer)
+        {
+            var newKey = withStyle(Key, newStyle);
+            if (colorToApply is { } color)
+                newKey = withColor(newKey, color);
+            SetKey(newKey);
+        }
+        else
+        {
+            Modify(k =>
+            {
+                var newKey = withStyle(k, newStyle);
+                return colorToApply is { } color ? withColor(newKey, color) : newKey;
+            });
+        }
+    }
+
+    /// <summary>
+    /// Set one edge's colour, or - if the edge currently has no style - record it as pending
+    /// instead of writing it through. See <see cref="_pendingLeftBorderColor"/> for why.
+    /// </summary>
+    /// <param name="value">Colour to give the edge.</param>
+    /// <param name="currentStyle">The edge's style, which decides whether the colour is written
+    /// through or held pending.</param>
+    /// <param name="currentColor">The edge's colour before this call.</param>
+    /// <param name="pendingColor">The pending-colour field for this edge specifically.</param>
+    /// <param name="withColor">Rewrites a border key's colour for this edge.</param>
+    private void ApplyEdgeColor(
+        XLColor value,
+        XLBorderStyleValues currentStyle,
+        XLColorKey currentColor,
+        ref XLColorKey? pendingColor,
+        Func<XLBorderKey, XLColorKey, XLBorderKey> withColor)
+    {
+        if (value == null)
+            throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
+
+        if (currentStyle == XLBorderStyleValues.None)
+        {
+            pendingColor = value.Key;
+            return;
+        }
+
+        pendingColor = null;
+        if (currentColor == value.Key) return;
+
+        if (_style.IsCellContainer)
+            SetKey(withColor(Key, value.Key));
+        else
+            Modify(k => withColor(k, value.Key));
+    }
 
     /// <summary>
     /// Apply a new component key to the cell this facade is attached to.

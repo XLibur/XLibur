@@ -18,7 +18,7 @@ namespace XLibur.Excel;
 /// key. Holding a <see cref="System.Drawing.Color"/> - 24 bytes, of which the key only ever consumes
 /// the 4 ARGB bytes - alongside separate <c>Indexed</c>, <c>ThemeColor</c> and <c>ThemeTint</c>
 /// fields cost 48 bytes and made <c>XLStyleKey</c> 536 bytes. Storing the ARGB value instead, over a
-/// union, brings this type to 16 bytes and <c>XLStyleKey</c> to 240.
+/// union, brings this type to 16 bytes and <c>XLStyleKey</c> to 264.
 /// </para>
 /// <para>
 /// Because a payload write depends on the kind, instances are built through the factory methods
@@ -44,11 +44,44 @@ internal readonly struct XLColorKey : IEquatable<XLColorKey>
     /// <summary><see cref="XLThemeColor"/> narrowed to a byte, on the same terms as <see cref="_colorType"/>.</summary>
     private readonly byte _themeColor;
 
+    /// <remarks>
+    /// Every current call site passes a literal <see cref="XLColorType"/>, so only
+    /// <paramref name="themeColor"/> - reachable from a caller-supplied value through the public
+    /// <see cref="XLColor.FromTheme(XLThemeColor)"/> - is truly at risk of an out-of-range cast. Both
+    /// are checked, so a future call site that stops passing a literal does not silently reopen the
+    /// gap: an unchecked narrowing would wrap an invalid value into whichever defined member it
+    /// happens to reduce to mod 256, substituting one colour kind for another rather than failing
+    /// where the bad value was introduced.
+    /// </remarks>
     private XLColorKey(ulong payload, XLColorType colorType, XLThemeColor themeColor)
     {
         _payload = payload;
-        _colorType = (byte)colorType;
-        _themeColor = (byte)themeColor;
+        _colorType = ToByte(colorType);
+        _themeColor = ToByte(themeColor);
+    }
+
+    private static byte ToByte(XLColorType colorType)
+    {
+        var raw = (int)colorType;
+        if ((uint)raw > byte.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(nameof(colorType), colorType,
+                $"{nameof(XLColorType)} value {raw} does not fit in the byte a colour kind is stored in.");
+        }
+
+        return (byte)raw;
+    }
+
+    private static byte ToByte(XLThemeColor themeColor)
+    {
+        var raw = (int)themeColor;
+        if ((uint)raw > byte.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(nameof(themeColor), themeColor,
+                $"{nameof(XLThemeColor)} value {raw} does not fit in the byte a theme colour is stored in.");
+        }
+
+        return (byte)raw;
     }
 
     /// <summary>

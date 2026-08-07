@@ -1,3 +1,5 @@
+using System;
+
 namespace XLibur.Excel;
 
 /// <summary>
@@ -8,7 +10,12 @@ namespace XLibur.Excel;
 /// The five colours dominate the size of this struct, and this struct dominates the size of
 /// <c>XLStyleKey</c>, which is copied on every style mutation and again on every repository probe.
 /// The edge styles are therefore stored as bytes - <see cref="XLBorderStyleValues"/> has fourteen
-/// members but is public, so it stays <c>int</c>-backed and widens at the property boundary.
+/// members but is public, so it stays <c>int</c>-backed and widens at the property boundary. The
+/// narrowing checks its input rather than truncating silently: <see cref="XLBorderStyleValues"/> is
+/// public, so a caller can cast an arbitrary <c>int</c> to it - <c>(XLBorderStyleValues)999</c>
+/// compiles and runs - and an unchecked narrowing cast would then wrap that into whichever defined
+/// member 999 happens to reduce to mod 256, silently substituting one style for another rather than
+/// failing where the bad value was introduced.
 /// <para>
 /// Keys reaching a repository or an <c>XLStyleKey</c> are <see cref="Normalize">normalized</see>
 /// first, so <see cref="Equals(XLBorderKey)"/> is a plain field comparison rather than the
@@ -17,6 +24,22 @@ namespace XLibur.Excel;
 /// </remarks>
 internal readonly record struct XLBorderKey
 {
+    /// <summary>
+    /// Narrows a border style to the byte this key stores it in, rejecting a value that would not
+    /// survive the round trip. See the type remarks for why an unchecked cast is not safe here.
+    /// </summary>
+    private static byte ToByte(XLBorderStyleValues style)
+    {
+        var raw = (int)style;
+        if ((uint)raw > byte.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(nameof(style), style,
+                $"{nameof(XLBorderStyleValues)} value {raw} does not fit in the byte an edge style is stored in.");
+        }
+
+        return (byte)raw;
+    }
+
     /// <summary>
     /// The colour every edge without a style is given by <see cref="Normalize"/>. Black, because
     /// that is what a border key with no explicit colour has always carried, and what reading the
@@ -52,7 +75,7 @@ internal readonly record struct XLBorderKey
     public required XLBorderStyleValues LeftBorder
     {
         get => (XLBorderStyleValues)_leftBorder;
-        init => _leftBorder = (byte)value;
+        init => _leftBorder = ToByte(value);
     }
 
     public required XLColorKey LeftBorderColor
@@ -64,7 +87,7 @@ internal readonly record struct XLBorderKey
     public required XLBorderStyleValues RightBorder
     {
         get => (XLBorderStyleValues)_rightBorder;
-        init => _rightBorder = (byte)value;
+        init => _rightBorder = ToByte(value);
     }
 
     public required XLColorKey RightBorderColor
@@ -76,7 +99,7 @@ internal readonly record struct XLBorderKey
     public required XLBorderStyleValues TopBorder
     {
         get => (XLBorderStyleValues)_topBorder;
-        init => _topBorder = (byte)value;
+        init => _topBorder = ToByte(value);
     }
 
     public required XLColorKey TopBorderColor
@@ -88,7 +111,7 @@ internal readonly record struct XLBorderKey
     public required XLBorderStyleValues BottomBorder
     {
         get => (XLBorderStyleValues)_bottomBorder;
-        init => _bottomBorder = (byte)value;
+        init => _bottomBorder = ToByte(value);
     }
 
     public required XLColorKey BottomBorderColor
@@ -100,7 +123,7 @@ internal readonly record struct XLBorderKey
     public required XLBorderStyleValues DiagonalBorder
     {
         get => (XLBorderStyleValues)_diagonalBorder;
-        init => _diagonalBorder = (byte)value;
+        init => _diagonalBorder = ToByte(value);
     }
 
     public required XLColorKey DiagonalBorderColor
