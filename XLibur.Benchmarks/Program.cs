@@ -36,6 +36,8 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
         CompressionProfile.Run();
     else if (args.Length > 1 && args[1].Equals("loadalloc", StringComparison.OrdinalIgnoreCase))
         LoadDecompositionProfile.Run();
+    else if (args.Length > 1 && args[1].Equals("dirtyread", StringComparison.OrdinalIgnoreCase))
+        DirtyFormulaReadProfile.Run();
     else
         MemoryProfile.Run(args);
 

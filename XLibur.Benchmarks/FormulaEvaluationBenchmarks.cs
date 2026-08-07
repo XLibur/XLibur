@@ -38,7 +38,19 @@ namespace XLibur.Benchmarks;
 public class FormulaEvaluationBenchmarks
 {
     private const int RowCount = 20_000;
-    private const int LookupRows = 20;
+
+    /// <summary>
+    /// Cells summed by every variant's formula.
+    /// </summary>
+    /// <remarks>
+    /// Held equal across all three on purpose. Until spec 19 area 5 task 5.1 it was not: the
+    /// same-sheet variant summed <c>$D$1:$E$1</c>, two cells, while the cross-sheet one summed
+    /// twenty. The 3.1x gap between them was therefore a gap between summing two cells and summing
+    /// twenty as much as anything about resolving a sheet prefix, and could not be read as a
+    /// cross-sheet penalty. With the count equal the only difference left between
+    /// <see cref="SharedSameSheet"/> and <see cref="SharedCrossSheet"/> is the prefix.
+    /// </remarks>
+    private const int SummedCells = 20;
 
     // Assigned by Setup, so the field is never observed null despite the declaration.
     private XLWorkbook _uniqueSameSheet = null!;
@@ -50,24 +62,25 @@ public class FormulaEvaluationBenchmarks
     {
         SixLaborsV1FontBootstrap.Register();
 
-        // Distinct formula text per row: one AST each, every reference resolved once.
+        // Distinct formula text per row: one AST each, every reference resolved once. The window
+        // slides so the text differs, and Build populates past RowCount so every window is full.
         _uniqueSameSheet = Build(out var uniqueSheet);
         for (var row = 1; row <= RowCount; row++)
-            uniqueSheet.Cell(row, 6).FormulaA1 = $"SUM(D{row}:E{row})";
+            uniqueSheet.Cell(row, 6).FormulaA1 = $"SUM(D{row}:D{row + SummedCells - 1})";
 
         // One formula text for the whole column: one AST, resolved RowCount times.
         _sharedSameSheet = Build(out var sharedSheet);
         for (var row = 1; row <= RowCount; row++)
-            sharedSheet.Cell(row, 6).FormulaA1 = "SUM($D$1:$E$1)";
+            sharedSheet.Cell(row, 6).FormulaA1 = $"SUM($D$1:$D${SummedCells})";
 
         // As above, but through a sheet prefix, so the worksheet must be resolved first.
         _sharedCrossSheet = Build(out var crossSheet);
         var lookup = _sharedCrossSheet.AddWorksheet("Lookup");
-        for (var row = 1; row <= LookupRows; row++)
+        for (var row = 1; row <= SummedCells; row++)
             lookup.Cell(row, 1).Value = row;
 
         for (var row = 1; row <= RowCount; row++)
-            crossSheet.Cell(row, 6).FormulaA1 = $"SUM(Lookup!$A$1:$A${LookupRows})";
+            crossSheet.Cell(row, 6).FormulaA1 = $"SUM(Lookup!$A$1:$A${SummedCells})";
     }
 
     [GlobalCleanup]
@@ -96,7 +109,10 @@ public class FormulaEvaluationBenchmarks
         var workbook = new XLWorkbook();
         sheet = workbook.AddWorksheet("Data");
 
-        for (var row = 1; row <= RowCount; row++)
+        // Populated past RowCount so the sliding window in UniqueSameSheet never runs off the
+        // populated area - a window of blanks would be cheaper to sum than one of numbers, which
+        // would reintroduce the confound this fixture exists to remove.
+        for (var row = 1; row <= RowCount + SummedCells; row++)
         {
             sheet.Cell(row, 4).Value = row;
             sheet.Cell(row, 5).Value = row * 2;
