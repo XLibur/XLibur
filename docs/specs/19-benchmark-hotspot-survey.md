@@ -3,9 +3,11 @@
 **Area:** Performance (read + write time, memory)
 **Effort:** L overall; each of the five areas is independently sized and independently ownable
 **Dependencies:** None between the five areas. Area 3 overlaps Spec 01/03 territory; Area 4 overlaps Spec 18 task 5; Area 5 overlaps Spec 04. Those relationships are stated per area.
-**Status:** Areas 1–4 investigated ([1](#area-1-results), [2](#area-2-results), [3](#area-3-results),
-[4](#area-4-results)); area 5 proposed. Areas 1 and 2 shipped fixes; area 3 declined its own headline
-task; area 4 found that half of the load is one column of formulas and reordered itself around that.
+**Status:** All five areas investigated ([1](#area-1-results), [2](#area-2-results),
+[3](#area-3-results), [4](#area-4-results), [5](#area-5-results)). Areas 1 and 2 shipped fixes;
+3 and 5 declined their own proposed tasks on measurement; 4 and 5 each found something larger than
+the area was written to look for. **Area 5 found a quadratic blow-up and is now the most severe
+item in this spec.**
 This started as a survey rather than an implementation plan. Every area opens with what was measured
 and closes with what has *not* been established, so an implementing agent knows which sentences are
 evidence and which are hypotheses — Area 1's own ranking was wrong until task 1.1 measured it.
@@ -868,6 +870,9 @@ parsing.
 ## Area 5 — Formula evaluation: fix the benchmark before believing anything about it
 
 **Size:** S to establish, unknown to fix · **Risk:** L for the benchmark work · **Overlaps:** Spec 04 (open)
+**Status:** Tasks 5.1 and 5.3 done; 5.2 **declined**; new tasks 5.4 and 5.5 opened. Reading one
+formula whose precedent is another dirty formula is **O(N²)** — 37 seconds on 100,000 formulas. See
+[Area 5 results](#area-5-results).
 
 ### The measurement, and why it does not say what it appears to
 
@@ -931,11 +936,118 @@ happens or what it costs.
    be. Spec 04's task 6 asks for this benchmark; delivering it here would let Spec 04 be scheduled or
    declined on evidence rather than on its own estimate.
 
-### Not established
+### Not established (at the time of writing — both now answered)
 
 - Any cross-sheet penalty at all, until 5.1.
 - That Spec 04's cliff is reachable in practice on a loaded workbook. It might be common, it might be
   rare; 5.3 is the only way to find out and it is cheap relative to Spec 04's L estimate.
+
+<a id="area-5-results"></a>
+### Area 5 results
+
+#### Task 5.1 — the cross-sheet penalty does not exist ✅
+
+Holding the summed range at 20 cells in every variant, so the sheet prefix is the only difference
+left between the two shared ones:
+
+| Benchmark | before (confounded) | after | allocated |
+|---|---:|---:|---:|
+| `UniqueSameSheet` | 16.41 ms | 36.73 ms | 8.85 MB |
+| `SharedSameSheet` | 13.60 ms | 36.39 ms | 8.85 MB |
+| `SharedCrossSheet` | **42.09 ms — 3.1×** | **32.56 ms — 0.89×** | 8.85 MB |
+
+The gap did not shrink, it **inverted**. Resolving a reference through a sheet prefix is, if
+anything, marginally cheaper than resolving one without — the ~10% is not worth explaining, but it
+is certainly not a penalty. The entire 3.1× was one variant summing twenty cells and the other two.
+
+**Task 5.2 is declined**: it proposed hoisting `PrefixNode.GetWorksheet`'s name lookup behind the
+existing reference memo, and there is nothing to hoist it away from.
+
+A second reading worth keeping: `UniqueSameSheet` (36.73 ms, 20,000 distinct formula texts) and
+`SharedSameSheet` (36.39 ms, one text) are indistinguishable. **Distinct formula text costs nothing
+at evaluation time** — the AST cache and the per-node reference memo do their job. That is the exact
+opposite of what it costs at *load* time, where Area 4 measured 779 B per distinct text. Same
+strings, different phase, opposite answer; do not carry a conclusion from one to the other.
+
+#### Task 5.3 — Spec 04's cliff, measured for the first time ✅
+
+`profile dirtyread`, 100,000 formulas, freshly loaded each time so no read benefits from a previous
+one. Two shapes: formulas whose precedents are plain values, and formulas whose precedents are other
+formulas.
+
+| shape | cells read | elapsed | allocated |
+|---|---:|---:|---:|
+| value precedents | 1 | 0.1 ms | ~0 MB |
+| value precedents | 100 | 1.3 ms | 0.1 MB |
+| value precedents | 100,000 | 377 ms | 143.9 MB |
+| **chained precedents** | **1** | **37,350 ms** | **556.4 MB** |
+| chained precedents | 10 | 36,601 ms | 556.4 MB |
+| chained precedents | 100 | 37,622 ms | 556.4 MB |
+| chained precedents | 1,000 | 36,191 ms | 556.4 MB |
+| chained precedents | 100,000 *(in dependency order)* | **468 ms** | 180.4 MB |
+
+Three facts fall out, in ascending order of severity.
+
+1. **The fast path works where it applies.** Formulas over plain values are linear and cheap —
+   1.5 KB and ~3.8 µs per read, all the way to 100,000 reads. `TryEvaluateSingleCell` handles the
+   load-then-read case every export tool produces, and Spec 04's concern does not touch it.
+2. **Reading one cell costs 69× reading every cell.** 37.4 s against 0.47 s on the same workbook.
+   The difference is nothing but access order: forwards through the chain, every precedent is
+   already clean; starting anywhere deep, the first read pays for the workbook.
+3. **It is one fixed cost, not a per-read one.** Allocation is 556.4 MB for 1, 10, 100 and 1,000
+   reads — identical, not proportional. The first deep read recalculates everything and the rest are
+   free. That is better than a per-read cliff and worse than it sounds, because a service that opens
+   a workbook to read a handful of cells pays the whole thing on the first one.
+
+#### And it is quadratic
+
+| formulas | one deep read | allocated | ms / formula | vs previous |
+|---:|---:|---:|---:|---:|
+| 12,500 | 697 ms | 67.5 MB | 0.056 | — |
+| 25,000 | 2,480 ms | 136.3 MB | 0.099 | **3.56×** |
+| 50,000 | 9,384 ms | 276.0 MB | 0.188 | **3.78×** |
+| 100,000 | 36,803 ms | 556.4 MB | 0.368 | **3.92×** |
+
+Doubling the chain doubles the allocation exactly and multiplies the time by ~4, converging as the
+fixed costs wash out. **The fallback is O(N²) in time and O(N) in allocation.** That is why 100,000
+formulas take 37 seconds where 12,500 take 0.7 — and why 200,000 would take something like two and a
+half minutes.
+
+This changes what Spec 04 is. It was written as a performance optimisation — "kill the full-recalc
+cliff", effort L, priority behind the feature work. A quadratic blow-up on a shape as ordinary as
+"each row references the row above" is a **defect**, and its severity does not depend on anyone
+agreeing that demand-driven evaluation is the right design.
+
+#### What this does *not* establish
+
+- **The mechanism.** `XLCalculationChain` reorders itself by catching `GettingDataException` when a
+  formula reads a dirty precedent, and a chain visited in the wrong order would move one cell per
+  pass — O(N) passes over O(N) cells, with an exception thrown per reorder. That is a plausible
+  story for both the quadratic time and the linear allocation, and it is **a hypothesis, not a
+  finding**. Area 2 lost two of three mechanisms to exactly this kind of plausible reading. Measure
+  before designing.
+- **How common the shape is.** A running-total column is the obvious real instance and it is very
+  common; a chain 100,000 deep is less so. The sweep exists so that a reader can price their own
+  depth rather than take 37 seconds as the number.
+- Whether Spec 04's prescribed design (recursive demand evaluation with a cycle guard) is the right
+  fix, or whether the chain's reordering can simply be made to visit in dependency order. The second
+  is much smaller if it works.
+
+#### Revised work plan
+
+| # | Task | Status | Size |
+|---|---|---|---|
+| 5.1 | Remove the range-size confound and re-measure | ✅ Done — the penalty was the confound | XS |
+| 5.2 | Hoist the sheet resolution | ❌ **Declined** — nothing to hoist | S |
+| 5.3 | Benchmark the dirty-formula read | ✅ Done — `profile dirtyread` | M |
+| 5.4 | **Find the mechanism behind the O(N²).** Instrument `XLCalculationChain`: passes, reorders, `GettingDataException` throws, evaluations per read. Accounting first, as Area 4 task 4.1 was. | ⬜ **Open — highest value here** | S |
+| 5.5 | Then fix it, and only then decide whether Spec 04's full demand-driven design is still needed or whether ordering the chain correctly is enough. | ⬜ Open | M–L |
+
+#### Acceptance criteria
+
+1. ✅ `SharedSameSheet` and `SharedCrossSheet` differ in exactly one variable.
+2. ✅ Evaluations-per-read published — as wall time, allocation and a complexity class, which is
+   more than the criterion asked for and did not need the internal counter it specified.
 
 ---
 
@@ -947,12 +1059,30 @@ happens or what it costs.
 | 2 | **Area 2** — per-cell styling | ✅ **partly**: transition cache resized, −3.8% time / −2.4% allocation on `CreateFormattedAndSave`. Two of its three proposed mechanisms were wrong. | — | L |
 | 3 | **Area 3** — deflate and packaging | ✅ **measured**: trade documented; the packaging rewrite (3.3) declined — the gap is 28 ms and 23% excess XML volume is the bigger lever | — | M |
 | 4 | **Area 4** — the load floor | ✅ **decomposed**: 53% retained / 47% garbage, and the formula column is 6.7% of cells but 50% of allocation and 49% of time | — | M |
-| 5 | **Area 5** — formula evaluation | unknown | None yet — the benchmark is confounded | L |
+| 5 | **Area 5** — formula evaluation | ⚠️ **the severest finding in this spec**: one dirty-precedent read is O(N²) — 37 s and 556 MB on 100,000 formulas, against 0.47 s to read every cell in order | — | L |
 
-Areas 1, 2 and 3 are fully independent and can run in parallel. Area 4 task 4.1 should start early
-regardless, because Areas 1 and 4 stack on the same benchmark and whoever measures second will
-otherwise be measuring the other's change. Area 5 task 5.1 is an hour's work and unblocks the rest of
-its own area.
+### What to do next, now that all five have been measured
+
+The original ordering was by expected prize and it survived exactly one round of measurement. The
+order below is by what the numbers say, and the top two were both discovered rather than predicted:
+
+1. **Area 5 task 5.4 — find the mechanism behind the O(N²).** A quadratic blow-up on a running-total
+   column is a defect, not a tuning opportunity, and its severity does not depend on anyone agreeing
+   with Spec 04's proposed design. Instrument first.
+2. **Area 4 task 4.6 — account for the 779 B per distinct formula text at load**, 83% of it
+   transient. The largest identified pile of pure waste in the spec.
+3. **Area 3 task 3.4 — account for the 23% XML volume gap** between the model writer and the
+   streaming writer. Cheap, and it pays on every byte written, deflated and stored.
+4. Area 2 task 2.4 and Area 1 task 1.5, both of which need a decomposition before a design.
+
+Areas 3, 4 and 5 all now begin with an accounting task rather than a fix, which is the pattern that
+worked: every area in this spec that started by fixing what looked obvious lost at least one
+mechanism to measurement. Note also that Areas 1 and 4 stack on the same benchmark, so whoever
+measures second is measuring the other's change unless they A/B in one sitting.
+
+**Formulas are the thread running through the last two areas.** They are half the load's allocation
+and half its time (Area 4), and the only shape that triggers the quadratic read path (Area 5). A
+reader looking for one subsystem to work on should look there and not at the write path.
 
 ## Already ruled out, or explained, by this survey
 
