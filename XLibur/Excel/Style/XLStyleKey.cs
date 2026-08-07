@@ -47,8 +47,10 @@ internal readonly record struct XLStyleKey
         get => _border;
         init
         {
-            _border = value;
-            _borderHash = value.GetHashCode();
+            // Normalized before it is hashed, so the memoised hash and the stored key agree with the
+            // form XLBorderValue's repository holds. See XLBorderKey.Normalize.
+            _border = value.Normalize();
+            _borderHash = _border.GetHashCode();
         }
     }
 

@@ -1,8 +1,9 @@
+using System;
 using XLibur.Excel.Caching;
 
 namespace XLibur.Excel;
 
-internal sealed class XLProtectionValue
+internal sealed class XLProtectionValue : IEquatable<XLProtectionValue?>
 {
     private static readonly XLRepositoryBase<XLProtectionKey, XLProtectionValue> Repository = new(key => new XLProtectionValue(key));
 
@@ -25,20 +26,28 @@ internal sealed class XLProtectionValue
 
     public bool Hidden => Key.Hidden;
 
+    /// <inheritdoc cref="XLBorderValue._hashCode"/>
+    private readonly int _hashCode;
+
     private XLProtectionValue(XLProtectionKey key)
     {
         Key = key;
+        _hashCode = 909014992 + key.GetHashCode();
     }
 
     public override bool Equals(object? obj)
     {
-        var cached = obj as XLProtectionValue;
-        return cached != null &&
-               Key.Equals(cached.Key);
+        return ReferenceEquals(this, obj) || Equals(obj as XLProtectionValue);
     }
 
-    public override int GetHashCode()
+    /// <inheritdoc cref="XLBorderValue.Equals(XLBorderValue)"/>
+    public bool Equals(XLProtectionValue? other)
     {
-        return 909014992 + Key.GetHashCode();
+        if (other is null)
+            return false;
+
+        return ReferenceEquals(this, other) || (_hashCode == other._hashCode && Key.Equals(other.Key));
     }
+
+    public override int GetHashCode() => _hashCode;
 }

@@ -1,6 +1,6 @@
 namespace XLibur.Excel;
 
-public readonly record struct XLAlignmentKey
+internal readonly record struct XLAlignmentKey
 {
     public required XLAlignmentHorizontalValues Horizontal { get; init; }
 

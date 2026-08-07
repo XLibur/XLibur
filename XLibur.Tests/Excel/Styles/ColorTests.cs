@@ -37,7 +37,11 @@ public class ColorTests
         var color = ws.FirstCell().Style.Fill.BackgroundColor;
         await Assert.That(color.ColorType).IsEqualTo(XLColorType.Indexed);
         await Assert.That(color.Indexed).IsEqualTo(64);
-        await Assert.That(color.Color).IsEqualTo(Color.Transparent);
+
+        // Compared by ARGB, not by Color.Equals. XLColorKey stores the ARGB value rather than a
+        // System.Drawing.Color, so a colour comes back out as a plain unnamed value: equal in every
+        // channel to Color.Transparent, but with IsKnownColor false, which Color.Equals rejects.
+        await Assert.That(color.Color.ToArgb()).IsEqualTo(Color.Transparent.ToArgb());
     }
 
     [Test]

@@ -42,11 +42,13 @@ internal sealed class XLBorder : IXLBorder
 
     private XLBorderValue _value;
 
-    internal XLBorderKey Key
-    {
-        get => _value.Key;
-        private set => _value = XLBorderValue.FromKey(ref value);
-    }
+    /// <remarks>
+    /// Read-only. The setter this replaces interned the assigned key in the border repository, and
+    /// every caller then went on to resolve a style that interned it again - see
+    /// <see cref="SetKey"/> and <see cref="Modify"/>, which both take the interned value off the
+    /// resulting style instead.
+    /// </remarks>
+    internal XLBorderKey Key => _value.Key;
 
     #region Constructors
 
@@ -530,14 +532,27 @@ internal sealed class XLBorder : IXLBorder
     /// Kept for <see cref="RestoreOutsideBorder"/>, compound inside-border operations,
     /// and non-cell-container paths that need per-property delta applied to each cell.
     /// </summary>
+    /// <remarks>
+    /// Neither branch assigns <c>Key</c>, which would intern the new border in its repository only
+    /// for the result to be discarded - the same wasted lookup <see cref="SetKey"/> documents. A cell
+    /// container never needs the component value, and a non-cell container interns the border again
+    /// inside <c>XLStyleValue</c> when the style key is resolved. Taking the interned value back off
+    /// the resulting style leaves the facade just as correct for later reads, at no lookup.
+    /// <para>
+    /// Assigning it also ran <paramref name="modification"/> an extra time, on the facade's own key,
+    /// before the style ran it again on its own.
+    /// </para>
+    /// </remarks>
     private void Modify(Func<XLBorderKey, XLBorderKey> modification)
     {
-        Key = modification(Key);
-
         if (_style.IsCellContainer)
-            _style.ModifyBorder(Key);
-        else
-            _style.Modify(styleKey => styleKey with { Border = modification(styleKey.Border) });
+        {
+            SetKey(modification(Key));
+            return;
+        }
+
+        _style.Modify(styleKey => styleKey with { Border = modification(styleKey.Border) });
+        _value = _style.Value.Border;
     }
 
     #region Overridden

@@ -1,9 +1,10 @@
 
+using System;
 using XLibur.Excel.Caching;
 
 namespace XLibur.Excel;
 
-internal sealed class XLFillValue
+internal sealed class XLFillValue : IEquatable<XLFillValue?>
 {
     private static readonly XLRepositoryBase<XLFillKey, XLFillValue> Repository = new(key => new XLFillValue(key));
 
@@ -29,9 +30,13 @@ internal sealed class XLFillValue
 
     public XLFillPatternValues PatternType => Key.PatternType;
 
+    /// <inheritdoc cref="XLBorderValue._hashCode"/>
+    private readonly int _hashCode;
+
     private XLFillValue(XLFillKey key)
     {
         Key = key;
+        _hashCode = -280332839 + key.GetHashCode();
         var backgroundColorKey = Key.BackgroundColor;
         var patternColorKey = Key.PatternColor;
         BackgroundColor = XLColor.FromKey(ref backgroundColorKey);
@@ -40,13 +45,17 @@ internal sealed class XLFillValue
 
     public override bool Equals(object? obj)
     {
-        var cached = obj as XLFillValue;
-        return cached != null &&
-               Key.Equals(cached.Key);
+        return ReferenceEquals(this, obj) || Equals(obj as XLFillValue);
     }
 
-    public override int GetHashCode()
+    /// <inheritdoc cref="XLBorderValue.Equals(XLBorderValue)"/>
+    public bool Equals(XLFillValue? other)
     {
-        return -280332839 + Key.GetHashCode();
+        if (other is null)
+            return false;
+
+        return ReferenceEquals(this, other) || (_hashCode == other._hashCode && Key.Equals(other.Key));
     }
+
+    public override int GetHashCode() => _hashCode;
 }

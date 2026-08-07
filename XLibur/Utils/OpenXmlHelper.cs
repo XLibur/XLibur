@@ -335,7 +335,11 @@ internal static class OpenXmlHelper
                 (key, style) => key with { BottomBorder = style },
                 (key, color) => key with { BottomBorderColor = color });
 
-        return nb;
+        // A file is free to state a colour for an edge it gives no style - the two attributes are
+        // independent in the schema - so normalize on the way in. Otherwise such a key would compare
+        // unequal to the interned form of the same border, and BordersAreEqual would write a
+        // duplicate <border> for one already in the stylesheet.
+        return nb.Normalize();
     }
 
     private static XLBorderKey ApplyBorderStyleAndColor(

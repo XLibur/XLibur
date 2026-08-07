@@ -35,6 +35,14 @@ public class PublicSurfaceTests
         "XLibur.Excel.IXLPivotSource",
         "XLibur.Excel.Coordinates.SheetArea",
         "XLibur.Excel.Coordinates.Area",
+
+        // The style key/value pair for alignment. Every other component pair - border, fill, font,
+        // number format, protection, colour, and the composite style itself - has always been
+        // internal; these two were public with nothing depending on it, no public member handing one
+        // out, and no entry in the list below. They were made internal to match, and belong here so
+        // the asymmetry cannot come back unnoticed.
+        "XLibur.Excel.XLAlignmentKey",
+        "XLibur.Excel.XLAlignmentValue",
     ];
 
     [Test]

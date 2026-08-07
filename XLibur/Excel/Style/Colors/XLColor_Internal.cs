@@ -15,41 +15,24 @@ public sealed partial class XLColor
     /// default <see cref="XLColorKey"/> already describes itself as automatic - no sentinel value
     /// smuggled into an RGB component.
     /// </summary>
-    private XLColor() : this(new XLColorKey())
+    private XLColor() : this(XLColorKey.Automatic)
     {
         HasValue = false;
     }
 
-    private XLColor(Color color) : this(new XLColorKey
-    {
-        Color = color,
-        ColorType = XLColorType.Color
-    })
+    private XLColor(Color color) : this(XLColorKey.FromColor(color))
     {
     }
 
-    private XLColor(int index) : this(new XLColorKey
-    {
-        Indexed = index,
-        ColorType = XLColorType.Indexed
-    })
+    private XLColor(int index) : this(XLColorKey.FromIndex(index))
     {
     }
 
-    private XLColor(XLThemeColor themeColor) : this(new XLColorKey
-    {
-        ThemeColor = themeColor,
-        ColorType = XLColorType.Theme
-    })
+    private XLColor(XLThemeColor themeColor) : this(XLColorKey.FromTheme(themeColor))
     {
     }
 
-    private XLColor(XLThemeColor themeColor, double themeTint) : this(new XLColorKey
-    {
-        ThemeColor = themeColor,
-        ThemeTint = themeTint,
-        ColorType = XLColorType.Theme
-    })
+    private XLColor(XLThemeColor themeColor, double themeTint) : this(XLColorKey.FromTheme(themeColor, themeTint))
     {
     }
 

@@ -1,14 +1,18 @@
+using System;
 using XLibur.Excel.Caching;
 
 namespace XLibur.Excel;
 
-internal sealed class XLBorderValue
+internal sealed class XLBorderValue : IEquatable<XLBorderValue?>
 {
     private static readonly XLRepositoryBase<XLBorderKey, XLBorderValue> Repository = new(key => new XLBorderValue(key));
 
     public static XLBorderValue FromKey(ref XLBorderKey key)
     {
-        return Repository.GetOrCreate(ref key);
+        // Normalizing here rather than at the call sites is what lets XLBorderKey.Equals compare
+        // fields directly: every key the repository ever sees has been through it.
+        var normalized = key.Normalize();
+        return Repository.GetOrCreate(ref normalized);
     }
 
     private static readonly XLBorderKey DefaultKey = new()
@@ -55,9 +59,20 @@ internal sealed class XLBorderValue
 
     public bool DiagonalDown => Key.DiagonalDown;
 
+    /// <summary>
+    /// The hash of <see cref="Key"/>, computed once here rather than on every lookup.
+    /// </summary>
+    /// <remarks>
+    /// Values are used directly as dictionary keys when the styles part is written
+    /// (<c>Dictionary&lt;XLBorderValue, BorderInfo&gt;</c>), and the border key's hash folds five
+    /// colour hashes. It cannot change: the key is immutable and interned against it.
+    /// </remarks>
+    private readonly int _hashCode;
+
     private XLBorderValue(XLBorderKey key)
     {
         Key = key;
+        _hashCode = -280332839 + key.GetHashCode();
         var leftBorderColor = Key.LeftBorderColor;
         var rightBorderColor = Key.RightBorderColor;
         var topBorderColor = Key.TopBorderColor;
@@ -72,13 +87,22 @@ internal sealed class XLBorderValue
 
     public override bool Equals(object? obj)
     {
-        var cached = obj as XLBorderValue;
-        return cached != null &&
-               Key.Equals(cached.Key);
+        return ReferenceEquals(this, obj) || Equals(obj as XLBorderValue);
     }
 
-    public override int GetHashCode()
+    /// <summary>
+    /// Reference equality first, because values are interned one per key: two references to the same
+    /// border are overwhelmingly the same instance, and the comparison ends without touching the key.
+    /// Structural equality is still needed for the rest - the repository holds weak references, so a
+    /// collected entry can be rebuilt as a second instance for a key still in use elsewhere.
+    /// </summary>
+    public bool Equals(XLBorderValue? other)
     {
-        return -280332839 + Key.GetHashCode();
+        if (other is null)
+            return false;
+
+        return ReferenceEquals(this, other) || (_hashCode == other._hashCode && Key.Equals(other.Key));
     }
+
+    public override int GetHashCode() => _hashCode;
 }

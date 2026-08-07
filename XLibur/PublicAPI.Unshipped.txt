@@ -1,24 +1,55 @@
 #nullable enable
+*REMOVED*override XLibur.Excel.XLAlignmentKey.ToString() -> string!
+*REMOVED*override XLibur.Excel.XLAlignmentValue.Equals(object? obj) -> bool
+*REMOVED*override XLibur.Excel.XLAlignmentValue.GetHashCode() -> int
+*REMOVED*static XLibur.Excel.XLAlignmentValue.FromKey(ref XLibur.Excel.XLAlignmentKey key) -> XLibur.Excel.XLAlignmentValue!
 *REMOVED*static XLibur.Graphics.DefaultGraphicEngine.CreateOnlyWithFonts(System.IO.Stream! fallbackFontStream, params System.IO.Stream![]! fontStreams) -> XLibur.Graphics.IXLGraphicEngine!
 *REMOVED*static XLibur.Graphics.DefaultGraphicEngine.CreateWithFontsAndSystemFonts(System.IO.Stream! fallbackFontStream, params System.IO.Stream![]! fontStreams) -> XLibur.Graphics.IXLGraphicEngine!
 *REMOVED*static XLibur.Graphics.DefaultGraphicEngine.Instance.get -> System.Lazy<XLibur.Graphics.DefaultGraphicEngine!>!
 *REMOVED*XLibur.Excel.IXLCFDataBarMax.HighestValue() -> void
 *REMOVED*XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, double value) -> void
 *REMOVED*XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, string! value) -> void
+*REMOVED*XLibur.Excel.XLAlignmentKey
+*REMOVED*XLibur.Excel.XLAlignmentKey.Horizontal.get -> XLibur.Excel.XLAlignmentHorizontalValues
+*REMOVED*XLibur.Excel.XLAlignmentKey.Horizontal.init -> void
+*REMOVED*XLibur.Excel.XLAlignmentKey.Indent.get -> int
+*REMOVED*XLibur.Excel.XLAlignmentKey.Indent.init -> void
+*REMOVED*XLibur.Excel.XLAlignmentKey.JustifyLastLine.get -> bool
+*REMOVED*XLibur.Excel.XLAlignmentKey.JustifyLastLine.init -> void
+*REMOVED*XLibur.Excel.XLAlignmentKey.ReadingOrder.get -> XLibur.Excel.XLAlignmentReadingOrderValues
+*REMOVED*XLibur.Excel.XLAlignmentKey.ReadingOrder.init -> void
+*REMOVED*XLibur.Excel.XLAlignmentKey.RelativeIndent.get -> int
+*REMOVED*XLibur.Excel.XLAlignmentKey.RelativeIndent.init -> void
+*REMOVED*XLibur.Excel.XLAlignmentKey.ShrinkToFit.get -> bool
+*REMOVED*XLibur.Excel.XLAlignmentKey.ShrinkToFit.init -> void
+*REMOVED*XLibur.Excel.XLAlignmentKey.TextRotation.get -> int
+*REMOVED*XLibur.Excel.XLAlignmentKey.TextRotation.init -> void
+*REMOVED*XLibur.Excel.XLAlignmentKey.Vertical.get -> XLibur.Excel.XLAlignmentVerticalValues
+*REMOVED*XLibur.Excel.XLAlignmentKey.Vertical.init -> void
+*REMOVED*XLibur.Excel.XLAlignmentKey.WrapText.get -> bool
+*REMOVED*XLibur.Excel.XLAlignmentKey.WrapText.init -> void
+*REMOVED*XLibur.Excel.XLAlignmentKey.XLAlignmentKey() -> void
+*REMOVED*XLibur.Excel.XLAlignmentValue
+*REMOVED*XLibur.Excel.XLAlignmentValue.Horizontal.get -> XLibur.Excel.XLAlignmentHorizontalValues
+*REMOVED*XLibur.Excel.XLAlignmentValue.Indent.get -> int
+*REMOVED*XLibur.Excel.XLAlignmentValue.JustifyLastLine.get -> bool
+*REMOVED*XLibur.Excel.XLAlignmentValue.Key.get -> XLibur.Excel.XLAlignmentKey
+*REMOVED*XLibur.Excel.XLAlignmentValue.ReadingOrder.get -> XLibur.Excel.XLAlignmentReadingOrderValues
+*REMOVED*XLibur.Excel.XLAlignmentValue.RelativeIndent.get -> int
+*REMOVED*XLibur.Excel.XLAlignmentValue.ShrinkToFit.get -> bool
+*REMOVED*XLibur.Excel.XLAlignmentValue.TextRotation.get -> int
+*REMOVED*XLibur.Excel.XLAlignmentValue.Vertical.get -> XLibur.Excel.XLAlignmentVerticalValues
+*REMOVED*XLibur.Excel.XLAlignmentValue.WrapText.get -> bool
 *REMOVED*XLibur.Excel.XLColorType.Color = 0 -> XLibur.Excel.XLColorType
 *REMOVED*XLibur.Excel.XLColorType.Indexed = 2 -> XLibur.Excel.XLColorType
 *REMOVED*XLibur.Excel.XLColorType.Theme = 1 -> XLibur.Excel.XLColorType
 *REMOVED*XLibur.Graphics.DefaultGraphicEngine.DefaultGraphicEngine(string! fallbackFont) -> void
-~override XLibur.Excel.XLAlignmentKey.Equals(object obj) -> bool
-override XLibur.Excel.XLAlignmentKey.GetHashCode() -> int
 static XLibur.AttributeExtensions.GetMethod<T>(this T instance, System.Linq.Expressions.Expression<System.Action<T>!>! methodSelector) -> System.Reflection.MethodInfo!
 static XLibur.AttributeExtensions.GetMethod<T>(this T instance, System.Linq.Expressions.Expression<System.Func<T, object!>!>! methodSelector) -> System.Reflection.MethodInfo!
 static XLibur.Excel.IO.PartStructureException.IncorrectElementFormat(string! elementName) -> XLibur.Excel.IO.PartStructureException!
 static XLibur.Excel.IO.PartStructureException.RequiredElementIsMissing() -> XLibur.Excel.IO.PartStructureException!
 static XLibur.Excel.LoadOptions.DefaultFontEngine.get -> XLibur.Graphics.IXLFontEngine?
 static XLibur.Excel.LoadOptions.DefaultFontEngine.set -> void
-static XLibur.Excel.XLAlignmentKey.operator !=(XLibur.Excel.XLAlignmentKey left, XLibur.Excel.XLAlignmentKey right) -> bool
-static XLibur.Excel.XLAlignmentKey.operator ==(XLibur.Excel.XLAlignmentKey left, XLibur.Excel.XLAlignmentKey right) -> bool
 static XLibur.Excel.XLCellValue.operator !=(XLibur.Excel.XLCellValue left, XLibur.Excel.XLCellValue right) -> bool
 static XLibur.Excel.XLCellValue.operator ==(XLibur.Excel.XLCellValue left, XLibur.Excel.XLCellValue right) -> bool
 static XLibur.Excel.Streaming.XLStreamingWorkbook.Create(System.IO.Stream! output) -> XLibur.Excel.Streaming.XLStreamingWorkbook!
@@ -266,7 +297,6 @@ XLibur.Excel.Streaming.XLStreamingWorksheet.FreezeRows(int rowCount) -> void
 XLibur.Excel.Streaming.XLStreamingWorksheet.Name.get -> string!
 XLibur.Excel.Streaming.XLStreamingWorksheet.NextRowNumber.get -> int
 XLibur.Excel.Streaming.XLStreamingWorksheet.SkipRows(int count) -> void
-XLibur.Excel.XLAlignmentKey.Equals(XLibur.Excel.XLAlignmentKey other) -> bool
 XLibur.Excel.XLAxisOrientation
 XLibur.Excel.XLAxisOrientation.MaxMin = 1 -> XLibur.Excel.XLAxisOrientation
 XLibur.Excel.XLAxisOrientation.MinMax = 0 -> XLibur.Excel.XLAxisOrientation

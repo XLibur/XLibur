@@ -1,8 +1,9 @@
+using System;
 using XLibur.Excel.Caching;
 
 namespace XLibur.Excel;
 
-public class XLAlignmentValue
+internal sealed class XLAlignmentValue : IEquatable<XLAlignmentValue?>
 {
     private static readonly XLRepositoryBase<XLAlignmentKey, XLAlignmentValue> Repository = new(key => new XLAlignmentValue(key));
 
@@ -46,20 +47,30 @@ public class XLAlignmentValue
 
     public bool WrapText => Key.WrapText;
 
+    /// <inheritdoc cref="XLBorderValue._hashCode"/>
+    private readonly int _hashCode;
+
     private XLAlignmentValue(XLAlignmentKey key)
     {
         Key = key;
+        _hashCode = 990326508 + key.GetHashCode();
     }
 
     public override bool Equals(object? obj)
     {
-        return obj is XLAlignmentValue cached && Key.Equals(cached.Key);
+        return ReferenceEquals(this, obj) || Equals(obj as XLAlignmentValue);
     }
 
-    public override int GetHashCode()
+    /// <inheritdoc cref="XLBorderValue.Equals(XLBorderValue)"/>
+    public bool Equals(XLAlignmentValue? other)
     {
-        return 990326508 + Key.GetHashCode();
+        if (other is null)
+            return false;
+
+        return ReferenceEquals(this, other) || (_hashCode == other._hashCode && Key.Equals(other.Key));
     }
+
+    public override int GetHashCode() => _hashCode;
 
     internal XLAlignmentValue WithWrapText(bool wrapText)
     {

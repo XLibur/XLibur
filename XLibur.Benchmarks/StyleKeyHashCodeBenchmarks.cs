@@ -33,22 +33,9 @@ public class StyleKeyHashCodeBenchmarks
         {
             _colorKeys[i] = (i % 3) switch
             {
-                0 => new XLColorKey
-                {
-                    ColorType = XLColorType.Color,
-                    Color = Color.FromArgb(random.Next(256), random.Next(256), random.Next(256))
-                },
-                1 => new XLColorKey
-                {
-                    ColorType = XLColorType.Theme,
-                    ThemeColor = (XLThemeColor)(random.Next(12)),
-                    ThemeTint = random.NextDouble()
-                },
-                _ => new XLColorKey
-                {
-                    ColorType = XLColorType.Indexed,
-                    Indexed = random.Next(64)
-                }
+                0 => XLColorKey.FromColor(Color.FromArgb(random.Next(256), random.Next(256), random.Next(256))),
+                1 => XLColorKey.FromTheme((XLThemeColor)random.Next(12), random.NextDouble()),
+                _ => XLColorKey.FromIndex(random.Next(64))
             };
         }
 

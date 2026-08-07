@@ -57,11 +57,7 @@ public sealed partial class XLColor
 
     public static XLColor FromColor(Color color)
     {
-        var key = new XLColorKey
-        {
-            ColorType = XLColorType.Color,
-            Color = color
-        };
+        var key = XLColorKey.FromColor(color);
         return FromKey(ref key);
     }
 
@@ -119,32 +115,19 @@ public sealed partial class XLColor
 
     public static XLColor FromIndex(int index)
     {
-        var key = new XLColorKey
-        {
-            ColorType = XLColorType.Indexed,
-            Indexed = index
-        };
+        var key = XLColorKey.FromIndex(index);
         return FromKey(ref key);
     }
 
     public static XLColor FromTheme(XLThemeColor themeColor)
     {
-        var key = new XLColorKey
-        {
-            ColorType = XLColorType.Theme,
-            ThemeColor = themeColor
-        };
+        var key = XLColorKey.FromTheme(themeColor);
         return FromKey(ref key);
     }
 
     public static XLColor FromTheme(XLThemeColor themeColor, double themeTint)
     {
-        var key = new XLColorKey
-        {
-            ColorType = XLColorType.Theme,
-            ThemeColor = themeColor,
-            ThemeTint = themeTint
-        };
+        var key = XLColorKey.FromTheme(themeColor, themeTint);
         return FromKey(ref key);
     }
 

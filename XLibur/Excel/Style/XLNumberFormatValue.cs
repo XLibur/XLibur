@@ -1,8 +1,9 @@
+using System;
 using XLibur.Excel.Caching;
 
 namespace XLibur.Excel;
 
-internal sealed class XLNumberFormatValue
+internal sealed class XLNumberFormatValue : IEquatable<XLNumberFormatValue?>
 {
     private static readonly XLRepositoryBase<XLNumberFormatKey, XLNumberFormatValue> Repository = new(key => new XLNumberFormatValue(key));
 
@@ -22,7 +23,11 @@ internal sealed class XLNumberFormatValue
 
     internal static readonly XLNumberFormatValue Default = FromKey(ref DefaultKey);
 
-    public XLNumberFormatKey Key { get; private set; }
+    /// <remarks>
+    /// Get-only: <see cref="_hashCode"/> is derived from it once, so it must not be reassigned. The
+    /// setter this replaces was never used outside the constructor.
+    /// </remarks>
+    public XLNumberFormatKey Key { get; }
 
     /// <summary>
     /// Id of the number format. Every workbook has <see cref="XLConstants.NumberOfBuiltInStyles"/>
@@ -34,22 +39,34 @@ internal sealed class XLNumberFormatValue
 
     public string Format => Key.Format;
 
+    /// <inheritdoc cref="XLBorderValue._hashCode"/>
+    /// <remarks>
+    /// A custom format pins <see cref="NumberFormatId"/> to <c>-1</c>, so this key's hash reduces to
+    /// the hash of the format string.
+    /// </remarks>
+    private readonly int _hashCode;
+
     private XLNumberFormatValue(XLNumberFormatKey key)
     {
         Key = key;
+        _hashCode = 1507230172 + key.GetHashCode();
     }
 
     public override bool Equals(object? obj)
     {
-        var cached = obj as XLNumberFormatValue;
-        return cached != null &&
-               Key.Equals(cached.Key);
+        return ReferenceEquals(this, obj) || Equals(obj as XLNumberFormatValue);
     }
 
-    public override int GetHashCode()
+    /// <inheritdoc cref="XLBorderValue.Equals(XLBorderValue)"/>
+    public bool Equals(XLNumberFormatValue? other)
     {
-        return 1507230172 + Key.GetHashCode();
+        if (other is null)
+            return false;
+
+        return ReferenceEquals(this, other) || (_hashCode == other._hashCode && Key.Equals(other.Key));
     }
+
+    public override int GetHashCode() => _hashCode;
 
     internal XLNumberFormatValue WithNumberFormatId(int numberFormatId)
     {

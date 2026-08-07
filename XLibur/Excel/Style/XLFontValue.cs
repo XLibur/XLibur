@@ -1,9 +1,10 @@
+using System;
 using System.Collections.Generic;
 using XLibur.Excel.Caching;
 
 namespace XLibur.Excel;
 
-internal sealed class XLFontValue
+internal sealed class XLFontValue : IEquatable<XLFontValue?>
 {
     private static readonly XLRepositoryBase<XLFontKey, XLFontValue> Repository = new(key => new XLFontValue(key));
 
@@ -55,22 +56,31 @@ internal sealed class XLFontValue
 
     public XLFontScheme FontScheme => Key.FontScheme;
 
+    /// <inheritdoc cref="XLBorderValue._hashCode"/>
+    /// <remarks>The font key's hash includes the hash of the font name.</remarks>
+    private readonly int _hashCode;
+
     private XLFontValue(XLFontKey key)
     {
         Key = key;
+        _hashCode = -280332839 + EqualityComparer<XLFontKey>.Default.GetHashCode(key);
         var fontColorKey = Key.FontColor;
         FontColor = XLColor.FromKey(ref fontColorKey);
     }
 
     public override bool Equals(object? obj)
     {
-        var cached = obj as XLFontValue;
-        return cached != null &&
-               Key.Equals(cached.Key);
+        return ReferenceEquals(this, obj) || Equals(obj as XLFontValue);
     }
 
-    public override int GetHashCode()
+    /// <inheritdoc cref="XLBorderValue.Equals(XLBorderValue)"/>
+    public bool Equals(XLFontValue? other)
     {
-        return -280332839 + EqualityComparer<XLFontKey>.Default.GetHashCode(Key);
+        if (other is null)
+            return false;
+
+        return ReferenceEquals(this, other) || (_hashCode == other._hashCode && Key.Equals(other.Key));
     }
+
+    public override int GetHashCode() => _hashCode;
 }

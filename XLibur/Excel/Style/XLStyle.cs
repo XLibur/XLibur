@@ -105,6 +105,11 @@ internal sealed class XLStyle : IXLStyle
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyBorder(XLBorderKey newBorderKey)
     {
+        // Normalized up front so the transition cache keys on the same form the repositories hold;
+        // otherwise two keys differing only in a styleless edge's colour would occupy two slots and
+        // resolve to the same style anyway.
+        newBorderKey = newBorderKey.Normalize();
+
         // Tag the hash so the same component key applied to different components lands in a
         // different slot. This only spreads the entries out; correctness comes from the key
         // comparison inside GetTransition, which also rejects a cross-component hash collision.
