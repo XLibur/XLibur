@@ -1,4 +1,6 @@
 using XLibur.Excel.Caching;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Extensions;
@@ -85,7 +87,18 @@ public class BaseRepositoryTests
     {
         var sampleRepository = new EditableRepository();
         var keys = Enumerable.Range(0, 1000).ToArray();
-        keys.ForEach(key => sampleRepository.GetOrCreate(ref key));
+
+        // Held, not discarded. The repository stores values through WeakReference, so it only
+        // promises that a key keeps mapping to the same instance while something else still
+        // reaches that instance. Dropping the seeded entities here left them collectible, and a
+        // GC between Replace and the GetOrCreate below then legitimately produced a different
+        // instance - failing an assertion the API never made. That made this test fail roughly
+        // one full-suite run in four on a branch that only changed allocation elsewhere, and pass
+        // 15/15 in isolation, which is what a GC-timing dependency looks like.
+        // ConcurrentAddingCausesNoDuplication above already keeps its entities alive for the same
+        // reason; this test was the one that did not.
+        var seeded = new List<EditableEntity>(keys.Length);
+        keys.ForEach(key => seeded.Add(sampleRepository.GetOrCreate(ref key)));
 
         // Parallel.ForEach takes an Action, and `ref` arguments are not allowed in an async
         // lambda, so mismatches are collected here and asserted once the loop completes.
@@ -102,6 +115,10 @@ public class BaseRepositoryTests
         });
 
         await Assert.That(mismatchedKeys).IsEmpty();
+
+        // The seeded entities must outlive the assertion, or the JIT is free to collect them
+        // partway through and reintroduce exactly the race this list exists to remove.
+        GC.KeepAlive(seeded);
     }
 
     [Test]
