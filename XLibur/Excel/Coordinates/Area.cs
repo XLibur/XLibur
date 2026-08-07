@@ -100,14 +100,15 @@ internal readonly struct Area : IEquatable<Area>, IEnumerable<Point>
     /// references in a workbook are. Any <c>Dictionary</c> keyed on <see cref="Area"/> therefore put
     /// every distinct single-cell key in one bucket and degraded to a linear scan.
     /// <para>
-    /// The dependency tree keys its precedent areas this way, so building it for a workbook of N
-    /// formulas over distinct single cells was O(N²): 100,000 chained formulas took 35 seconds to
-    /// register, scaling ~4x per doubling. It is also why the same workbook read forwards cost
-    /// 0.47 s and read from the middle cost 37 s — only the second builds the tree.
+    /// That made every consumer keyed on an area quadratic in the number of distinct single-cell
+    /// keys — the dependency tree over a workbook's formula precedents, and
+    /// <c>XLHyperlinks</c>, whose keys are all single cells. Measurements are in
+    /// <c>docs/specs/19-benchmark-hotspot-survey.md</c>, area 5, rather than here.
     /// </para>
     /// <para>
-    /// A XOR also collapses the two corners of any symmetric pair, so <c>A1:B2</c> and <c>B2:A1</c>
-    /// hashed alike even though only the first is ever constructed. Combining fixes both.
+    /// A XOR is also symmetric, so it collapsed each rectangle onto its own reversal. Only the
+    /// normalised order is ever constructed, so nothing depended on telling them apart, but
+    /// combining fixes that too. <c>AreaHashCodeTests</c> pins both properties as distributions.
     /// </para>
     /// </remarks>
     public override int GetHashCode()

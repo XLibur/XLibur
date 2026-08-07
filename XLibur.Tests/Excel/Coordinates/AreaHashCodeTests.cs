@@ -14,8 +14,13 @@ namespace XLibur.Tests.Excel.Coordinates;
 /// the tree O(N²) to build. Nothing was ever wrong with the *answers*, so the whole test suite
 /// passed throughout.
 /// <para>
-/// These tests assert the distribution rather than any particular hash value, so a future change to
-/// the combining function is free as long as it does not reintroduce a self-cancelling one.
+/// Every case here asserts a <b>distribution</b> — how many distinct hashes a set of inputs
+/// produces — and none asserts that a given input hashes to a given value, or that two particular
+/// unequal inputs avoid colliding. Both of those would be stricter than the regression needs and
+/// would fail a perfectly sound replacement: any hash is allowed to map some input to zero and to
+/// collide on some pair. The thresholds sit below the input count for the same reason, so
+/// incidental collisions do not fail the suite. A future change to the combining function is free
+/// as long as it does not reintroduce a degenerate one.
 /// </para>
 /// </remarks>
 public class AreaHashCodeTests
@@ -34,25 +39,28 @@ public class AreaHashCodeTests
         await Assert.That(hashes.Count).IsGreaterThan(900);
     }
 
-    [Test]
-    public async Task SingleCellAreaDoesNotHashToZero()
-    {
-        var point = new Point(42, 7);
-
-        await Assert.That(new Area(point, point).GetHashCode()).IsNotEqualTo(0);
-    }
-
     /// <summary>
-    /// A XOR is symmetric, so it also collapsed the two corners of a rectangle onto each other.
-    /// Only the normalised order is ever constructed, but the hash should still tell them apart.
+    /// A XOR is symmetric, so it collapsed each rectangle onto its own reversal. Measured over many
+    /// pairs rather than one: a symmetric combiner halves the distinct count, which is visible as a
+    /// distribution and needs no claim that any particular pair avoids colliding.
     /// </summary>
     [Test]
-    public async Task SwappedCornersDoNotCollide()
+    public async Task CornerOrderAffectsTheHash()
     {
-        var a = new Area(new Point(1, 1), new Point(2, 2));
-        var b = new Area(new Point(2, 2), new Point(1, 1));
+        var hashes = new HashSet<int>();
+        for (var row = 1; row <= 40; row++)
+        {
+            for (var col = 1; col <= 25; col++)
+            {
+                var first = new Point(row, col);
+                var second = new Point(row + 3, col + 2);
+                hashes.Add(new Area(first, second).GetHashCode());
+                hashes.Add(new Area(second, first).GetHashCode());
+            }
+        }
 
-        await Assert.That(a.GetHashCode()).IsNotEqualTo(b.GetHashCode());
+        // 2,000 areas over 1,000 pairs. The old XOR gave one hash per pair, so 1,000.
+        await Assert.That(hashes.Count).IsGreaterThan(1_900);
     }
 
     /// <summary>Equal areas must still agree, which is the part the distribution must not break.</summary>

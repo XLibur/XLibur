@@ -52,8 +52,12 @@ public class UsedCellEnumerationBenchmarks
     private XLCellsCollection _cells = null!;
     private Area _full;
 
-    private IXLRanges _disjoint = null!;
-    private IXLRanges _overlapping = null!;
+    // Concrete XLRanges rather than IXLRanges: the calls below then bind directly instead of
+    // through interface dispatch. Kept as `= null!` like the other GlobalSetup-assigned fields in
+    // this class rather than `XLRanges?`, because a nullable field would need a null-forgiving
+    // operator at every use and warnings are errors here.
+    private XLRanges _disjoint = null!;
+    private XLRanges _overlapping = null!;
 
     [GlobalSetup]
     public void Setup()

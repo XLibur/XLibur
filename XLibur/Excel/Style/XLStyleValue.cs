@@ -75,31 +75,25 @@ internal sealed class XLStyleValue : IEquatable<XLStyleValue?>
     /// </para>
     /// </remarks>
     /// <summary>
-    /// Slots per base style. Sized from a measured miss breakdown rather than a guess.
+    /// Slots per base style. <b>Must stay a power of two</b> — <see cref="TransitionCacheMask"/>
+    /// derives the slot from it by masking.
     /// </summary>
     /// <remarks>
-    /// At the original 8 slots, the create phase of <c>CreateFormattedAndSave</c> probed 1,033,393
-    /// times for a 75.8% hit rate, and <b>249,998 of the 250,151 misses were evictions</b> — a slot
-    /// holding a different transition. None were empty slots and none were key mismatches, so the
-    /// cache was not cold and was not colliding on keys; it was simply too small for its working
-    /// set. That workload applies ~109 distinct transitions to each of 153 base styles, and 8 slots
-    /// cannot hold ~109 entries, so entries evicted each other and were re-derived and re-allocated
-    /// about a quarter of a million times.
+    /// Sized so the cache holds a realistic working set rather than thrashing. At the original 8
+    /// slots a styling workload's misses were almost entirely evictions rather than cold slots, so
+    /// the cache was re-deriving styles it had already computed; enlarging it removes that without
+    /// changing any behaviour. Deliberately larger than the smallest size that stopped thrashing,
+    /// because which sizes alias badly depends on the workload's hashes and tuning to one of them
+    /// would be overfitting. The array is allocated lazily on first store, so the cost falls only on
+    /// base styles that actually receive a transition.
     /// <para>
-    /// Sweeping the size puts the floor at 16,677 misses — one per distinct transition per base
-    /// style, i.e. compulsory — reached at 16 slots and unchanged at 64 and 128. Create-phase
-    /// allocation falls 211.8 MB → 189.2 MB. 64 rather than the 16 that first reaches the floor
-    /// because 32 measured *worse* than 16 (96.8% against 98.4%), which is hash-versus-modulus
-    /// aliasing: picking the smallest value that happened to work would be fitting one fixture's
-    /// hash pattern.
-    /// </para>
-    /// <para>
-    /// The array is allocated lazily on the first store, so the cost is 64 references per base style
-    /// that actually receives a transition — 153 of them in that workload — not per style in the
-    /// workbook.
+    /// The measured miss breakdown and size sweep behind this are in
+    /// <c>docs/specs/19-benchmark-hotspot-survey.md</c>, area 2 task 2.3, and are not repeated here
+    /// because they are numbers from one fixture on one machine and will go stale.
     /// </para>
     /// </remarks>
     private const int TransitionCacheSize = 64;
+
     private const int TransitionCacheMask = TransitionCacheSize - 1;
 
     private TransitionEntry?[]? _transitionCache;
