@@ -189,69 +189,89 @@ public static class LoadDecompositionProfile
                 continue;
             }
 
-            var numeric = shape == Shape.AllNumeric;
-            var uniqueStrings = shape != Shape.RepeatedStrings && !numeric;
-
-            // Cols 1-3: strings, of which col 1 is the unique one in the baseline.
-            if (numeric)
-            {
-                ws.Cell(row, 1).Value = seed;
-                ws.Cell(row, 2).Value = i % 12;
-                ws.Cell(row, 3).Value = i % regions.Length;
-            }
-            else
-            {
-                ws.Cell(row, 1).Value = uniqueStrings ? $"Item {i}-{seed}" : $"Item {i % 10}";
-                ws.Cell(row, 2).Value = $"Cat-{i % 12}";
-                ws.Cell(row, 3).Value = regions[i % regions.Length];
-            }
-
-            // Cols 4-8: numbers in every shape.
-            ws.Cell(row, 4).Value = Math.Round(random.NextDouble() * 10000, 2);
-            ws.Cell(row, 5).Value = random.Next(1, 5000);
-            ws.Cell(row, 6).Value = Math.Round(random.NextDouble(), 4);
-            ws.Cell(row, 7).Value = Math.Round(random.NextDouble() * 1000, 2);
-            ws.Cell(row, 8).Value = random.Next(0, 100);
-
-            // Cols 9-11: dates, unless the shape removes them.
-            if (shape is Shape.NoDates or Shape.AllNumeric)
-            {
-                ws.Cell(row, 9).Value = random.Next(0, 2000);
-                ws.Cell(row, 10).Value = random.Next(0, 2000);
-                ws.Cell(row, 11).Value = random.Next(0, 2000);
-            }
-            else
-            {
-                ws.Cell(row, 9).Value = baseDate.AddDays(random.Next(0, 2000));
-                ws.Cell(row, 10).Value = baseDate.AddDays(random.Next(0, 2000));
-                ws.Cell(row, 11).Value = baseDate.AddDays(random.Next(0, 2000));
-            }
-
-            // Cols 12-14: more strings, two of them unique in the baseline.
-            if (numeric)
-            {
-                ws.Cell(row, 12).Value = i % statuses.Length;
-                ws.Cell(row, 13).Value = row;
-                ws.Cell(row, 14).Value = seed;
-            }
-            else
-            {
-                ws.Cell(row, 12).Value = statuses[i % statuses.Length];
-                ws.Cell(row, 13).Value = uniqueStrings ? $"Note for row {row} with seed {seed}" : "Note";
-                ws.Cell(row, 14).Value = uniqueStrings ? $"CODE-{seed:D5}" : "CODE-00000";
-            }
-
-            // Col 15: the formula, unless the shape removes it.
-            if (shape is Shape.NoFormula or Shape.AllNumeric)
-                ws.Cell(row, 15).Value = seed;
-            else if (shape == Shape.SharedFormulaText)
-                ws.Cell(row, 15).FormulaA1 = "SUM($D$1:$H$1)";
-            else
-                ws.Cell(row, 15).FormulaA1 = $"SUM(D{row}:H{row})";
+            // Split by column group rather than written inline. The groups are independent and the
+            // shape only varies a few of them, so one method per group reads as the ablation table
+            // it is. The call order is load-bearing: cols 4-8 and 9-11 both draw from `random`, and
+            // reordering them would change every fixture's contents.
+            WriteLeadingColumns(ws, shape, row, i, seed, regions);
+            WriteNumberColumns(ws, random, row);
+            WriteDateColumns(ws, shape, random, baseDate, row);
+            WriteTrailingColumns(ws, shape, row, i, seed, statuses);
+            WriteFormulaColumn(ws, shape, row, seed);
         }
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
         return ms.ToArray();
+    }
+
+    private static bool IsAllNumeric(Shape shape) => shape == Shape.AllNumeric;
+
+    private static bool UsesUniqueStrings(Shape shape) =>
+        shape != Shape.RepeatedStrings && !IsAllNumeric(shape);
+
+    /// <summary>Cols 1-3: strings, of which col 1 is the unique one in the baseline.</summary>
+    private static void WriteLeadingColumns(IXLWorksheet ws, Shape shape, int row, int i, int seed, string[] regions)
+    {
+        if (IsAllNumeric(shape))
+        {
+            ws.Cell(row, 1).Value = seed;
+            ws.Cell(row, 2).Value = i % 12;
+            ws.Cell(row, 3).Value = i % regions.Length;
+            return;
+        }
+
+        ws.Cell(row, 1).Value = UsesUniqueStrings(shape) ? $"Item {i}-{seed}" : $"Item {i % 10}";
+        ws.Cell(row, 2).Value = $"Cat-{i % 12}";
+        ws.Cell(row, 3).Value = regions[i % regions.Length];
+    }
+
+    /// <summary>Cols 4-8: numbers in every shape.</summary>
+    private static void WriteNumberColumns(IXLWorksheet ws, Random random, int row)
+    {
+        ws.Cell(row, 4).Value = Math.Round(random.NextDouble() * 10000, 2);
+        ws.Cell(row, 5).Value = random.Next(1, 5000);
+        ws.Cell(row, 6).Value = Math.Round(random.NextDouble(), 4);
+        ws.Cell(row, 7).Value = Math.Round(random.NextDouble() * 1000, 2);
+        ws.Cell(row, 8).Value = random.Next(0, 100);
+    }
+
+    /// <summary>Cols 9-11: dates, unless the shape removes them.</summary>
+    private static void WriteDateColumns(IXLWorksheet ws, Shape shape, Random random, DateTime baseDate, int row)
+    {
+        var asNumbers = shape is Shape.NoDates or Shape.AllNumeric;
+        for (var column = 9; column <= 11; column++)
+        {
+            var days = random.Next(0, 2000);
+            ws.Cell(row, column).Value = asNumbers ? days : baseDate.AddDays(days);
+        }
+    }
+
+    /// <summary>Cols 12-14: more strings, two of them unique in the baseline.</summary>
+    private static void WriteTrailingColumns(IXLWorksheet ws, Shape shape, int row, int i, int seed, string[] statuses)
+    {
+        if (IsAllNumeric(shape))
+        {
+            ws.Cell(row, 12).Value = i % statuses.Length;
+            ws.Cell(row, 13).Value = row;
+            ws.Cell(row, 14).Value = seed;
+            return;
+        }
+
+        var unique = UsesUniqueStrings(shape);
+        ws.Cell(row, 12).Value = statuses[i % statuses.Length];
+        ws.Cell(row, 13).Value = unique ? $"Note for row {row} with seed {seed}" : "Note";
+        ws.Cell(row, 14).Value = unique ? $"CODE-{seed:D5}" : "CODE-00000";
+    }
+
+    /// <summary>Col 15: the formula, unless the shape removes it.</summary>
+    private static void WriteFormulaColumn(IXLWorksheet ws, Shape shape, int row, int seed)
+    {
+        if (shape is Shape.NoFormula or Shape.AllNumeric)
+            ws.Cell(row, 15).Value = seed;
+        else if (shape == Shape.SharedFormulaText)
+            ws.Cell(row, 15).FormulaA1 = "SUM($D$1:$H$1)";
+        else
+            ws.Cell(row, 15).FormulaA1 = $"SUM(D{row}:H{row})";
     }
 }

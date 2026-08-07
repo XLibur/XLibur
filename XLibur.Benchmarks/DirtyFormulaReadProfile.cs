@@ -127,11 +127,9 @@ public static class DirtyFormulaReadProfile
         var stream = new MemoryStream(file, writable: false);
 
 #pragma warning disable S1215 // Intentionally forcing GC so each load starts from a clean heap
-#pragma warning disable S1215 // Intentionally forcing GC so each load starts from a clean heap
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);
         GC.WaitForPendingFinalizers();
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);
-#pragma warning restore S1215
 #pragma warning restore S1215
 
         using var workbook = new XLWorkbook(stream);
@@ -174,9 +172,11 @@ public static class DirtyFormulaReadProfile
     {
         var stream = new MemoryStream(file, writable: false);
 
+#pragma warning disable S1215 // Intentionally forcing GC so each load starts from a clean heap
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);
         GC.WaitForPendingFinalizers();
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+#pragma warning restore S1215
 
         // The load is outside the measurement: this is the cost of reading, not of parsing.
         using var workbook = new XLWorkbook(stream);

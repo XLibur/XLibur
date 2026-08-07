@@ -213,8 +213,13 @@ public class UsedCellEnumerationBenchmarks
     [Benchmark]
     public int EarlyExit_EnumerateFirst()
     {
+        // Returning from the first iteration is the measurement: this is the early-exit control,
+        // and the enumerator is a ref struct so LINQ's First() is not available on it.
+#pragma warning disable S1751 // Loop is deliberately single-iteration - see above
         foreach (var cell in _sheet.EnumerateUsedCells())
             return cell.Row;
+#pragma warning restore S1751
+
         return 0;
     }
 }
