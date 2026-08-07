@@ -34,6 +34,8 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
         ShifterCorpusDump.Run();
     else if (args.Length > 1 && args[1].Equals("compression", StringComparison.OrdinalIgnoreCase))
         CompressionProfile.Run();
+    else if (args.Length > 1 && args[1].Equals("loadalloc", StringComparison.OrdinalIgnoreCase))
+        LoadDecompositionProfile.Run();
     else
         MemoryProfile.Run(args);
 
