@@ -121,7 +121,9 @@ public static class LoadDecompositionProfile
         var stream = new MemoryStream(fileBytes, writable: false);
 
         Collect();
+#pragma warning disable S1215 // Intentionally forcing GC: retained bytes are only meaningful after one
         var retainedBefore = GC.GetTotalMemory(forceFullCollection: true);
+#pragma warning restore S1215
         var allocatedBefore = GC.GetTotalAllocatedBytes(precise: true);
 
         var sw = Stopwatch.StartNew();
@@ -131,7 +133,9 @@ public static class LoadDecompositionProfile
         var allocatedAfter = GC.GetTotalAllocatedBytes(precise: true);
 
         Collect();
+#pragma warning disable S1215 // Intentionally forcing GC: retained bytes are only meaningful after one
         var retainedAfter = GC.GetTotalMemory(forceFullCollection: true);
+#pragma warning restore S1215
 
         var cells = workbook.Worksheets.Sum(ws => (long)ws.CellsUsed().Count());
 
@@ -144,9 +148,11 @@ public static class LoadDecompositionProfile
 
     private static void Collect()
     {
+#pragma warning disable S1215 // Intentionally forcing GC: the retained/transient split depends on it
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);
         GC.WaitForPendingFinalizers();
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+#pragma warning restore S1215
     }
 
     private enum Shape
