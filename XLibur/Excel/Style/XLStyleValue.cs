@@ -74,7 +74,32 @@ internal sealed class XLStyleValue : IEquatable<XLStyleValue?>
     /// what makes a hit sound.
     /// </para>
     /// </remarks>
-    private const int TransitionCacheSize = 8;
+    /// <summary>
+    /// Slots per base style. Sized from a measured miss breakdown rather than a guess.
+    /// </summary>
+    /// <remarks>
+    /// At the original 8 slots, the create phase of <c>CreateFormattedAndSave</c> probed 1,033,393
+    /// times for a 75.8% hit rate, and <b>249,998 of the 250,151 misses were evictions</b> — a slot
+    /// holding a different transition. None were empty slots and none were key mismatches, so the
+    /// cache was not cold and was not colliding on keys; it was simply too small for its working
+    /// set. That workload applies ~109 distinct transitions to each of 153 base styles, and 8 slots
+    /// cannot hold ~109 entries, so entries evicted each other and were re-derived and re-allocated
+    /// about a quarter of a million times.
+    /// <para>
+    /// Sweeping the size puts the floor at 16,677 misses — one per distinct transition per base
+    /// style, i.e. compulsory — reached at 16 slots and unchanged at 64 and 128. Create-phase
+    /// allocation falls 211.8 MB → 189.2 MB. 64 rather than the 16 that first reaches the floor
+    /// because 32 measured *worse* than 16 (96.8% against 98.4%), which is hash-versus-modulus
+    /// aliasing: picking the smallest value that happened to work would be fitting one fixture's
+    /// hash pattern.
+    /// </para>
+    /// <para>
+    /// The array is allocated lazily on the first store, so the cost is 64 references per base style
+    /// that actually receives a transition — 153 of them in that workload — not per style in the
+    /// workbook.
+    /// </para>
+    /// </remarks>
+    private const int TransitionCacheSize = 64;
     private const int TransitionCacheMask = TransitionCacheSize - 1;
 
     private TransitionEntry?[]? _transitionCache;
