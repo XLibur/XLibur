@@ -3,7 +3,8 @@
 **Area:** Performance (read + write time, memory)
 **Effort:** L overall; each of the five areas is independently sized and independently ownable
 **Dependencies:** None between the five areas. Area 3 overlaps Spec 01/03 territory; Area 4 overlaps Spec 18 task 5; Area 5 overlaps Spec 04. Those relationships are stated per area.
-**Status:** Area 1 tasks 1.1–1.3 done (see [Area 1 results](#area-1-results)); areas 2–5 proposed.
+**Status:** Area 1 tasks 1.1–1.3 and Area 2 task 2.3 done (see [Area 1 results](#area-1-results),
+[Area 2 results](#area-2-results)); areas 3–5 proposed.
 This started as a survey rather than an implementation plan. Every area opens with what was measured
 and closes with what has *not* been established, so an implementing agent knows which sentences are
 evidence and which are hypotheses — Area 1's own ranking was wrong until task 1.1 measured it.
@@ -370,11 +371,20 @@ task cannot reach — spec 11 criterion 2 and spec 05 criterion 3 were the first
 
 ---
 
-## Area 2 — Style writes bypass the transition cache that exists to serve them
+## Area 2 — Per-cell styling, and a transition cache that was eight slots deep
 
-**Size:** S–M · **Risk:** L · **Prize:** every dated cell in every workbook, plus the 204 MB create phase
+**Size:** S–M · **Risk:** L · **Prize:** the 204 MB create phase
+**Status:** Task 2.3 done and it carried the win — see [Area 2 results](#area-2-results). 2.1 and 2.2
+**disconfirmed by reading the code**; 2.4 still open.
 
-### The measurement
+> **Correction.** This area was first written as "style writes bypass the transition cache that
+> exists to serve them", on the strength of reading `XLStyleValue.WithNumberFormat` in isolation and
+> finding it does a full key hash and repository probe. Two of the three mechanisms proposed from
+> that reading are wrong, and both were disproved by looking at the callers rather than by
+> measuring. The original text is kept below each correction, because the way it failed is the
+> point: a mechanism derived from one method without its call sites is a hypothesis, not a finding.
+
+### The measurement that started it
 
 From `profile create`, bytes exact:
 
@@ -383,75 +393,136 @@ From `profile create`, bytes exact:
 | `ws.Cell(r,c).Value = double` | 103.5 | 148.3 |
 | `ws.Cell(r,c).Value = DateTime` | 136.5 | **487.7** |
 
-**Writing a date costs 3.3× writing a number and 33 bytes more.** A date and a number are stored
+Writing a date costs 3.3× writing a number and 33 bytes more. A date and a number are stored
 identically — both are a serial `double` in the value slice — so the difference is not the value.
 
-### The mechanism
+### ~~Task 2.1 — route the date rules through the transition cache~~ ❌ Disconfirmed
 
-`XLibur/Excel/Style/XLValueStyleRules.cs`: a date read back under a General number format would be
-indistinguishable from a number, so assigning a `DateTime` also assigns built-in format 14 or 22.
-That adjustment runs through `XLStyleValue.WithNumberFormat` (`XLStyleValue.cs`, line 297):
+The claim was that `XLValueStyleRules.WithDateTimeFormat` → `XLStyleValue.WithNumberFormat` runs a
+`with` over the seven-field `XLStyleKey`, a full composite hash and a repository probe **per date
+cell**, while `XLStyle.ModifyNumberFormat` serves the identical transition from the cache.
 
-```csharp
-internal XLStyleValue WithNumberFormat(XLNumberFormatValue numberFormat)
-{
-    var keyCopy = Key with { NumberFormat = numberFormat.Key };
-    return FromKey(ref keyCopy);          // full XLStyleKey hash + ConcurrentDictionary probe
-}
-```
+`WithNumberFormat` does do all of that. It is just not called per date cell.
+`XLWorksheet.GetStyleForDateTime` already holds a one-entry memo keyed on reference equality of the
+source style (`_cachedDateOnlySourceStyle` / `_cachedDateOnlyResultStyle`, and the same pair for
+date-with-time and for durations), so a column of dates under a stable base style calls
+`WithDateTimeFormat` once. `GetStyleForText` goes further and skips reading the style at all for
+text that needs no adjustment.
 
-A `with` over the seven-field `XLStyleKey`, a full composite hash, and a repository probe — **per date
-cell**. Meanwhile `XLStyle.ModifyNumberFormat` (`XLStyle.cs`, ~line 91 onward) serves the identical
-transition from the 8-entry direct-mapped transition cache on `XLStyleValue`, which exists precisely
-because "many cells undergo the same style transition". Every date cell in a column undergoes the same
-transition: *(whatever this cell's base style is)* → *+ format 14*. The cache would hit essentially
-100% of the time and it is never consulted.
+What a date write actually costs, over a number write:
 
-`WithAlignment`, `WithIncludeQuotePrefix` and `AdjustForText` share the pattern, so multi-line and
-apostrophe-prefixed text writes pay it too.
+- `GetStyleValue(point)` — a style-slice read that falls through to `GetInheritedStyleValue`, which
+  is two dictionary probes and a `Combine` that short-circuits to the sheet style when the row and
+  column styles match it (the common case, non-allocating);
+- **a style-slice write**, because the cell now carries a number format it did not before.
 
-### The related, larger term
+The 33 B is that slice entry. Spec 11 measured bulk styling at **~33 bytes per cell of pure slice
+storage** by a completely different route, which is a good independent check on the attribution.
+It is the same conclusion spec 18 task 2 reached for per-cell styling: the allocation is the
+style-slice write and it is inherent. **A date needs a format; a format needs a slice entry.** There
+is no allocation win here.
 
-`CreateFormattedAndSave`'s create phase is **204.2 MB against 25.1 MB** for the unformatted
-equivalent. Per `profile create`, four style mutations on one cell cost 473.1 B / 603.6 ns, against
-128.1 B / 53.2 ns for building the façade and setting nothing — so roughly 85 B and 119 ns per
-*mutation*, and the façade is a small part of it. Spec 18 task 2 established that the allocation here
-is the style-slice write and is inherent; what is *not* inherent is how much repository work each
-mutation does to arrive at the value being written.
+The 487.7 ns is a single-shot probe figure and this spec's own probe output warns against reading it
+as a time claim. Nothing has established that the *time* gap is anything but the slice write plus
+two dictionary probes.
 
-`StyleKeyHashCodeBenchmarks` adds a specific suspect: `BorderKey_GetHashCode` is 2,572.9 µs per
-100,000 — **7.6× the composite `StyleKey` hash** (339.1 µs), because Spec 03 memoised the composite's
-component hashes but a freshly constructed `XLBorderKey` still hashes all its fields. `ModifyBorder`
-computes exactly that hash on every call to derive its transition-cache slot, so the cache lookup for
-a border is 7.6× dearer than a lookup for the whole style.
+### ~~Task 2.2 — memoise `XLBorderKey.GetHashCode`~~ ❌ Not worth doing
 
-### What to do
+The claim rested on `BorderKey_GetHashCode` measuring 2,572.9 µs per 100,000 against 339.1 µs for
+the composite `StyleKey` — "7.6× cheaper than one of its own components".
 
-| # | Task | Size |
-|---|---|---|
-| 2.1 | Route `XLValueStyleRules`' adjustments through `GetTransition`/`StoreTransition` instead of `WithXxx` → `FromKey`. Target: `.Value = DateTime` within ~20% of `.Value = double`. | S |
-| 2.2 | Memoise `XLBorderKey.GetHashCode` (and `XLFillKey`, 872.9 µs) the same way `XLStyleKey` already memoises its components, so the transition-cache probe is not dominated by computing its own key. | S |
-| 2.3 | Instrument the transition cache — hit/miss counters behind a debug-only switch — and run `CreateFormattedAndSave` under it. Eight direct-mapped slots against ten differently styled columns is a plausible thrash, and the fix (size, or keying) depends on which. | S |
-| 2.4 | Only after 2.3: decide whether the per-mutation repository round trip can be avoided for runs of identically styled cells, the way Spec 11 task 4 did for the *bulk* path. Bulk styling is 33 B/cell against 473 B for four individual mutations — a 14× gap that says the individual path is doing work the bulk path found unnecessary. | M |
+The comparison is not like for like. `XLStyleKey` memoises each component's hash **in the `init`
+accessor**, so the composite is cheap precisely because it never re-hashes anything, and a
+`Key with { Border = k }` recomputes only the border hash and reuses the other five. There is no
+redundant work to remove; `XLBorderKey` is simply a large struct (five colours plus four styles) and
+25.7 ns is about what hashing it should cost — `XLColorKey` alone measures 2.82 ns.
 
-### Acceptance criteria
+Sizing it against the workload it was supposed to help: `CreateFormattedAndSave` performs roughly
+250,000 border mutations, so the whole cost is ~6.4 ms of a 1,020 ms benchmark. **0.6%.** Declined.
 
-1. `ws.Cell(r,c).Value = DateTime` allocation ≤ 110 B/op (from 136.5) and time within 20% of the
-   `double` probe (from 3.3×).
-2. `CreateFormattedAndSave` create-phase allocation reduced ≥ 15% (204.2 MB → ≤ 174 MB) with wall time
-   not regressed.
-3. `BorderKey_GetHashCode` ≤ 500 µs per 100,000.
-4. Saved output byte-identical versus main across the corpus — a number format applied by a different
-   route must produce the same `styles.xml`.
+### Task 2.3 — instrument the transition cache ✅ This is where the win was
 
-### Not established
+Counters temporarily added to `GetTransition`/`StoreTransition`, over the create phase of
+`CreateFormattedAndSave` (50,000 rows), after a warm-up pass:
 
-- That the transition cache *would* hit for the date path. It is a strong inference from the cache's
-  design, not a measurement. Task 2.3's counters settle it, and if they say otherwise, task 2.1 is not
-  the fix and this area shrinks to 2.2.
-- Whether task 2.4 has anything in it at all. Spec 18 task 2 warns that per-step attributions in this
-  code are regime-dependent and inverted between 20K and 100K rows; do not motivate 2.4 from the
-  `profile create` split alone.
+| | count |
+|---|---:|
+| probes | 1,033,393 |
+| hits | 783,242 (75.8%) |
+| misses | 250,151 (24.2%) |
+| — slot **evicted** (held a different transition) | **249,998** |
+| — slot empty (cold) | 0 |
+| — key mismatch | 0 |
+| — no cache array yet | 153 |
+| stores (one `TransitionEntry` allocation each) | 250,151 |
+
+Every miss but 153 is an eviction. Not cold, not colliding on keys — **too small**. The 153 tells
+the rest of the story: only 153 distinct base styles ever receive a transition in this workload, and
+the benchmark applies about 109 distinct transitions to each of them. Eight slots cannot hold 109
+entries, so they evicted each other and a quarter of a million style derivations were repeated and
+re-allocated.
+
+Sweeping the size:
+
+| slots | hit rate | misses | create phase |
+|---:|---:|---:|---:|
+| **8** (original) | 75.8% | 250,151 | 211.8 MB |
+| 16 | 98.4% | 16,672 | 188.6 MB |
+| 32 | 96.8% | 33,365 | 190.0 MB |
+| 64 | 98.4% | 16,677 | 189.2 MB |
+| 128 | 98.4% | 16,677 | 189.4 MB |
+
+16,677 is the **compulsory** miss floor — one per distinct transition per base style
+(153 × ~109). It is reached at 16 slots and does not improve after.
+
+Shipped at **64**, not the 16 that first reaches the floor, because 32 measured *worse* than 16.
+That is hash-versus-modulus aliasing, and it means the exact value interacts with one fixture's hash
+pattern; choosing the minimum that happened to work would be fitting that pattern. The array is
+allocated lazily on first store, so the cost is 64 references per base style that actually receives
+a transition — 153 of them here — not per style in the workbook.
+
+<a id="area-2-results"></a>
+### Area 2 results
+
+BenchmarkDotNet, **A/B in one sitting**:
+
+| Benchmark | before (8) | after (64) | Δ time | Δ alloc |
+|---|---|---|---:|---:|
+| `CreateFormattedAndSave` | 1,019.6 ms / 320.25 MB | **981.3 ms / 312.47 MB** | −3.8% | −2.4% |
+| `CreateAndSave` *(control)* | 259.6 ms / 60.51 MB | 260.9 ms / 60.51 MB | +0.5% | byte-identical |
+| `CreateAndSaveFastestCompression` *(control)* | 162.8 ms / 60.59 MB | 162.0 ms / 60.58 MB | −0.5% | −10 B |
+
+`CellStylingBenchmarks` is unmoved to the byte across all seven variants — it applies one or two
+distinct transitions, which eight slots already held. That is the control that shows the change
+reaches only what it should.
+
+`profile alloc`, cold single run, also A/B in one sitting:
+
+| | before (8) | after (64) | Δ |
+|---|---:|---:|---:|
+| `CreateFormattedAndSave` create phase | 206.0 MB | **185.1 MB** | −10.1% |
+| total | 323.7 MB | 302.7 MB | −6.5% |
+| `CreateAndSave` *(control)* | 60.1 MB | 60.1 MB | — |
+
+**The two disagree in magnitude and that is not resolved.** BenchmarkDotNet sees −7.8 MB where the
+cold probe sees −21 MB. The transition caches hang off `XLStyleValue` instances in a process-wide
+repository, so they survive across benchmark iterations and a benchmark process amortises the
+population cost differently from a caller that builds one workbook — that is the likely cause, but
+it predicts the gap in the wrong direction and has not been demonstrated. **The conservative
+BenchmarkDotNet figure is the claim**; a caller creating one formatted workbook per process may do
+better, and anyone who needs that number should measure it rather than take −10.1% from here.
+
+### Still open
+
+- **Task 2.4 — the per-mutation cost itself.** `profile create` puts four style mutations on one
+  cell at 473.1 B / 603.6 ns against 128.1 B / 53.2 ns for building the façade and setting nothing,
+  so roughly 85 B and 119 ns per mutation, of which ~33 B is the inherent slice entry. Bulk styling
+  reaches 33 B/cell total. What the remaining ~52 B per mutation is has not been decomposed. Spec 18
+  task 2 warns that per-step attributions in this code invert between 20K and 100K rows — do not
+  motivate this from the `profile create` split alone.
+- **Whether a bigger cache helps any workload but this one.** The 153-base-style / 109-transition
+  shape is one fixture's. A template-driven workload with thousands of base styles would pay 64
+  references for each one that receives a transition, and nobody has measured that shape.
 
 ---
 
@@ -645,7 +716,7 @@ happens or what it costs.
 | | Area | Prize | Confidence in the mechanism | Risk |
 |---|---|---|---|---|
 | 1 | **Area 1** — `CellsUsed()` enumeration | ✅ **done**: −80% time / −72% allocation on the enumeration; `.First()` 75 ms → 265 ns | — | — |
-| 2 | **Area 2** — style writes bypass the transition cache | 3.3× on every date cell; 204 MB create phase | Medium-high — mechanism read, cache-hit rate inferred | L |
+| 2 | **Area 2** — per-cell styling | ✅ **partly**: transition cache resized, −3.8% time / −2.4% allocation on `CreateFormattedAndSave`. Two of its three proposed mechanisms were wrong. | — | L |
 | 3 | **Area 3** — deflate and packaging | 30% of save wall time, measured | High for 3.1/3.2, unknown for 3.3 | M |
 | 4 | **Area 4** — the load floor | 3.72 s / 335 MB under everything | Low — undecomposed by design; 4.1 is the work | M |
 | 5 | **Area 5** — formula evaluation | unknown | None yet — the benchmark is confounded | L |
