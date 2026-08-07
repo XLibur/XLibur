@@ -15,8 +15,19 @@ public class SaveOptions
     /// larger file for a quicker save.
     /// </summary>
     /// <remarks>
-    /// Only applies to parts this save creates. Re-saving a workbook that was loaded from an
-    /// existing file leaves the parts it already had at whatever level they were written with.
+    /// <b>Only applies to parts this save creates</b>, which in practice means the first save of a
+    /// workbook built from scratch. A part's compression is fixed when the zip entry is created, so
+    /// re-saving a workbook that was loaded from a file or stream — or one that has been saved once
+    /// already, since it adopts its destination as its origin — leaves every existing part at the
+    /// level it was first written with. That includes the parts XLibur rewrites itself: a reopened
+    /// <c>sheet1.xml</c> keeps its original entry, so new sheet data goes in at the old level.
+    /// <para>
+    /// Measured on a 50,000 × 3 workbook: a first save honours the setting (10,585 KB at
+    /// <see cref="CompressionLevel.NoCompression"/> against 1,369 KB at
+    /// <see cref="CompressionLevel.Optimal"/>), while a second save of the same workbook and a save
+    /// of one loaded from a stream both produce identical output at either level. Callers who want
+    /// a different level for a template-driven export cannot get one this way.
+    /// </para>
     /// </remarks>
     public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
 

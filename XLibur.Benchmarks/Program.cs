@@ -32,6 +32,8 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
         TemplateRoundTripProfile.Run(args);
     else if (args.Length > 1 && args[1].Equals("shiftercorpus", StringComparison.OrdinalIgnoreCase))
         ShifterCorpusDump.Run();
+    else if (args.Length > 1 && args[1].Equals("compression", StringComparison.OrdinalIgnoreCase))
+        CompressionProfile.Run();
     else
         MemoryProfile.Run(args);
 
