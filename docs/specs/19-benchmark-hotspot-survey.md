@@ -3,8 +3,9 @@
 **Area:** Performance (read + write time, memory)
 **Effort:** L overall; each of the five areas is independently sized and independently ownable
 **Dependencies:** None between the five areas. Area 3 overlaps Spec 01/03 territory; Area 4 overlaps Spec 18 task 5; Area 5 overlaps Spec 04. Those relationships are stated per area.
-**Status:** Area 1 tasks 1.1–1.3 and Area 2 task 2.3 done (see [Area 1 results](#area-1-results),
-[Area 2 results](#area-2-results)); areas 3–5 proposed.
+**Status:** Areas 1–3 investigated (see [Area 1](#area-1-results), [Area 2](#area-2-results),
+[Area 3](#area-3-results) results); areas 4–5 proposed. Areas 1 and 2 shipped fixes; area 3 measured
+its question and **declined its own headline task**.
 This started as a survey rather than an implementation plan. Every area opens with what was measured
 and closes with what has *not* been established, so an implementing agent knows which sentences are
 evidence and which are hypotheses — Area 1's own ranking was wrong until task 1.1 measured it.
@@ -528,7 +529,9 @@ better, and anyone who needs that number should measure it rather than take −1
 
 ## Area 3 — Saving costs more than loading, and a third of it is deflate
 
-**Size:** M–L · **Risk:** M · **Prize:** ~30% of every save · **Overlaps:** Spec 01 phase 3, Spec 03 task 7
+**Size:** M–L · **Risk:** M · **Overlaps:** Spec 01 phase 3, Spec 03 task 7
+**Status:** Tasks 3.1 and 3.2 done; **3.3 declined on the evidence 3.2 produced**; new task 3.4
+opened in its place — see [Area 3 results](#area-3-results).
 
 ### The measurement
 
@@ -577,12 +580,125 @@ buffer a part. That fix is shipped — it is just not on the path `SaveAs` uses.
 3. If 3.3 is attempted: byte-identical output for clean workbooks, and every
    `docs/round-trip-fidelity.md` test still green.
 
-### Not established
+### Not established (at the time of writing — now answered, see below)
 
 - **That 3.3 is feasible at all.** It is the reason this area is sized L and listed third rather than
   first. Tasks 3.1 and 3.2 are worth doing on their own and neither depends on it.
 - Whether the deflate share holds for the formatted workload. `CreateFormattedAndSave` was not run
   with `Fastest`; its save phase is a larger fraction of a much larger total, so the share will differ.
+
+<a id="area-3-results"></a>
+### Area 3 results
+
+`profile compression` (added for this), medians of 5 passes, bytes exact. **The workbook is rebuilt
+for every pass** — see the honoured-or-not table below for why it has to be.
+
+#### Task 3.1 — the trade, both halves
+
+Save alone, 50,000 × 3 narrow numeric grid:
+
+| level | save ms | output KB | vs `Optimal` time | vs `Optimal` size |
+|---|---:|---:|---:|---:|
+| `NoCompression` | 130.2 | 10,585 | 0.65× | **7.73×** |
+| `Fastest` | 123.6 | 2,253 | **0.62×** | 1.65× |
+| `Optimal` *(default)* | 200.1 | 1,369 | 1.00× | 1.00× |
+| `SmallestSize` | 498.2 | 1,341 | **2.49×** | 0.98× |
+
+50,000 × 10 styled grid, which agrees within a few points:
+
+| level | save ms | output KB | vs `Optimal` time | vs `Optimal` size |
+|---|---:|---:|---:|---:|
+| `NoCompression` | 299.0 | 28,647 | 0.57× | 7.82× |
+| `Fastest` | 335.1 | 6,078 | 0.64× | 1.66× |
+| `Optimal` | 523.0 | 3,664 | 1.00× | 1.00× |
+| `SmallestSize` | 1,002.1 | 3,421 | 1.92× | 0.93× |
+
+Two conclusions, one firm and one not:
+
+- **`SmallestSize` should be documented as a trap.** It costs 1.9–2.5× the save time for 2–7% less
+  file. There is no workload in this repo's benchmark set where it pays.
+- **`Fastest` is a real trade and not an obvious default**: −38% save time for +65% file size. For a
+  request-per-export service that number is attractive; for a file a user downloads and keeps it is
+  not. **Recommendation: leave the default at `Optimal` and document the trade**, rather than change
+  it. Nothing measured here settles it, because the right answer depends on what happens to the file
+  afterwards, which the library does not know.
+
+#### The finding that was not on the task list
+
+`SaveOptions.CompressionLevel` reaches the output **only on the first save of a workbook built from
+scratch**:
+
+| situation | `NoCompression` | `Optimal` | honoured? |
+|---|---:|---:|---|
+| new workbook, first save | 10,585 KB | 1,369 KB | yes |
+| same workbook, saved a second time | 1,369 KB | 1,369 KB | **no** |
+| workbook loaded from a stream | 229 KB | 229 KB | **no** |
+
+A zip entry's compression is fixed when the entry is created. `SaveAs` adopts its destination as the
+workbook's origin (`_loadSource` becomes `Stream`), so every later save copies that package and
+calls `CreatePackage(..., newPackage: false, ...)`, which patches parts into entries that already
+exist — including the parts XLibur rewrites itself, so a reopened `sheet1.xml` takes new sheet data
+at the old level.
+
+This is **documented behaviour, not a defect**: the remark on `CompressionLevel` already said "only
+applies to parts this save creates". But its practical reach is far wider than that wording
+suggests — the entire template-export workload, which is the one where save time matters most and
+the one Spec 18 exists for, can never use the option at all. The remark has been rewritten to say so
+with the numbers.
+
+It also invalidated the first version of this probe, which re-saved one workbook per level and duly
+reported byte-identical output at all four. The flat template row in an earlier draft of this
+section was the same artefact — a loaded fixture — and not evidence that small workbooks do not
+compress.
+
+#### Task 3.2 — how much of the model-versus-streaming gap is packaging
+
+Same 50,000 × 3 data through both write paths. `NoCompression` is the row that matters: it takes
+deflate out of both sides, so what remains is packaging plus the difference between building a model
+and writing rows straight out.
+
+| level | model build+save | streaming | model save only | model KB | streaming KB |
+|---|---:|---:|---:|---:|---:|
+| **`NoCompression`** | **124.3 ms** | **96.5 ms** | 95.4 ms | 10,585 | 8,620 |
+| `Fastest` | 138.6 ms | 99.0 ms | 104.9 ms | 2,253 | 2,106 |
+| `Optimal` | 216.8 ms | 170.3 ms | 188.2 ms | 1,369 | 1,308 |
+| `SmallestSize` | 519.4 ms | 403.5 ms | 490.2 ms | 1,341 | 1,292 |
+
+At `Optimal` the model path is 46.5 ms behind. At `NoCompression` it is **27.8 ms** behind. So
+roughly 40% of the gap is deflate — and it is deflate the model pays *extra* because **it emits 23%
+more uncompressed XML than the streaming writer** (10,585 KB against 8,620 KB on identical data).
+
+#### Task 3.3 is not justified by this evidence — **declined**
+
+The spec proposed prototyping `SaveAs` over `StreamingPackageWriter`, sized L, on the premise that
+the model path's disadvantage is `System.IO.Packaging`. The measurement says otherwise. The whole
+gap at `NoCompression` is 27.8 ms on a 96.5 ms baseline, and that 27.8 ms contains the model build
+as well as the packaging layer — the model's *save alone* is 95.4 ms against a streaming figure of
+96.5 ms that includes building the data. Replacing the package writer targets the smaller half of an
+already small gap, at the cost of a second write path that has to preserve everything
+`docs/round-trip-fidelity.md` pins.
+
+**The larger and cheaper lever is the 23% XML volume difference**, which costs bytes to write, bytes
+to deflate and bytes to store, and which nothing in this spec had noticed. That is a new task:
+
+| # | Task | Status | Size |
+|---|---|---|---|
+| 3.4 | Diff the two writers' uncompressed output on identical data and account for the 1,965 KB. Candidates, in no measured order: shared strings versus inline, per-cell attributes the model emits and the streaming writer does not, extra parts, whitespace. Land the accounting before proposing anything. | ⬜ Open | S |
+
+#### Acceptance criteria
+
+1. ✅ A documented compression trade-off across levels — three shapes, time and size, above.
+2. ✅ Task 3.2 produces the split. It came out against the spec's own hypothesis.
+3. — Task 3.3 not attempted; declined on the task 3.2 result rather than deferred.
+
+### Still open
+
+- **Task 3.4**, above: the 23% XML volume gap.
+- Whether the deflate share holds for the formatted workload at the *benchmark* level.
+  `CreateFormattedAndSave` still has no `Fastest` variant in `XLiburWorkbookBenchmarks`; the probe
+  measures its save alone but not the whole benchmark.
+- Whether `Optimal` should stay the default. Recorded as a product decision with numbers attached,
+  deliberately not taken here.
 
 ---
 
@@ -717,7 +833,7 @@ happens or what it costs.
 |---|---|---|---|---|
 | 1 | **Area 1** — `CellsUsed()` enumeration | ✅ **done**: −80% time / −72% allocation on the enumeration; `.First()` 75 ms → 265 ns | — | — |
 | 2 | **Area 2** — per-cell styling | ✅ **partly**: transition cache resized, −3.8% time / −2.4% allocation on `CreateFormattedAndSave`. Two of its three proposed mechanisms were wrong. | — | L |
-| 3 | **Area 3** — deflate and packaging | 30% of save wall time, measured | High for 3.1/3.2, unknown for 3.3 | M |
+| 3 | **Area 3** — deflate and packaging | ✅ **measured**: trade documented; the packaging rewrite (3.3) declined — the gap is 28 ms and 23% excess XML volume is the bigger lever | — | M |
 | 4 | **Area 4** — the load floor | 3.72 s / 335 MB under everything | Low — undecomposed by design; 4.1 is the work | M |
 | 5 | **Area 5** — formula evaluation | unknown | None yet — the benchmark is confounded | L |
 
