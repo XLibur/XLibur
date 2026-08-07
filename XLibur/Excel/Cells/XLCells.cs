@@ -70,9 +70,45 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
         }
     }
 
+    /// <summary>
+    /// The option flags that make <see cref="GetUsedCellsCandidates"/> contribute cells from
+    /// somewhere other than the cell slices. Only those cells arrive out of order, so only they
+    /// make the sort in <see cref="GetUsedCellsOrdered"/> necessary.
+    /// </summary>
+    private const XLCellsUsedOptions CandidateOptions =
+        XLCellsUsedOptions.MergedRanges |
+        XLCellsUsedOptions.ConditionalFormats |
+        XLCellsUsedOptions.DataValidation |
+        XLCellsUsedOptions.Sparklines;
+
     private IEnumerable<XLCell> GetUsedCells()
     {
-        var visitedCells = new HashSet<XLAddress>();
+        // One range on one sheet, with nothing outside the slices to contribute: stream it.
+        //
+        // GetUsedCellsInRange reads through XLCellsCollection.SlicesEnumerator, a k-way merge over
+        // the value, formula, style and misc slice enumerators. It picks the smallest Point at each
+        // step and advances every enumerator sitting on it, so what comes out is strictly ascending
+        // and carries no duplicates. Point packs the row above the column, which makes ascending
+        // packed order exactly row-major order - the order OrderBy(row).ThenBy(column) produces.
+        //
+        // So on this path the sort re-sorts sorted input and the visited set can never reject
+        // anything, while between them they cost 88.6 ms and 60 MB of the 101.8 ms and 84.7 MB that
+        // enumerating 500,000 used cells took (spec 19, UsedCellEnumerationBenchmarks). Worse, the
+        // sort is eager: it buffers every cell in the sheet before yielding the first, so
+        // CellsUsed().First() walked and sorted the lot.
+        if (_rangeAddresses.Count == 1)
+        {
+            var rangeAddress = _rangeAddresses[0];
+            var ws = rangeAddress.Worksheet;
+            if (ws is not null && !HasCandidates(ws))
+                return GetUsedCellsInRange(rangeAddress, ws, Enumerable.Empty<Point>());
+        }
+
+        return GetUsedCellsOrdered();
+    }
+
+    private IEnumerable<XLCell> GetUsedCellsOrdered()
+    {
         var groupedAddresses = _rangeAddresses.GroupBy(addr => addr.Worksheet);
         foreach (var worksheetGroup in groupedAddresses)
         {
@@ -84,15 +120,45 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
                 .OrderBy(cell => cell.Address.RowNumber)
                 .ThenBy(cell => cell.Address.ColumnNumber);
 
-            visitedCells.Clear();
+            // Duplicates land next to each other once the sequence is sorted by (row, column), so
+            // remembering the previous address rejects exactly what a set of every address seen
+            // would - at O(1) rather than one entry per used cell. Every cell in a group belongs to
+            // the one worksheet, so equal addresses are the same cell.
+            var havePrevious = false;
+            var previous = default(XLAddress);
             foreach (var cell in cells)
             {
-                if (visitedCells.Add(cell.Address))
-                {
-                    yield return cell;
-                }
+                var address = cell.Address;
+                if (havePrevious && previous.Equals(address))
+                    continue;
+
+                previous = address;
+                havePrevious = true;
+                yield return cell;
             }
         }
+    }
+
+    /// <summary>
+    /// Whether <see cref="GetUsedCellsCandidates"/> could yield anything for this sheet. Checks the
+    /// sheet as well as the options, because asking for merged ranges on a sheet that has none still
+    /// leaves the candidate sequence empty.
+    /// </summary>
+    private bool HasCandidates(XLWorksheet worksheet)
+    {
+        if (_options == XLCellsUsedOptions.AllContents || (_options & CandidateOptions) == 0)
+            return false;
+
+        if (_options.HasFlag(XLCellsUsedOptions.MergedRanges) && worksheet.Internals.MergedRanges.Count > 0)
+            return true;
+
+        if (_options.HasFlag(XLCellsUsedOptions.ConditionalFormats) && worksheet.ConditionalFormats.Any())
+            return true;
+
+        if (_options.HasFlag(XLCellsUsedOptions.DataValidation) && worksheet.DataValidations.Any())
+            return true;
+
+        return _options.HasFlag(XLCellsUsedOptions.Sparklines) && worksheet.SparklineGroups.Any(sg => sg.Any());
     }
 
     private IEnumerable<XLCell> GetUsedCellsInRange(XLRangeAddress rangeAddress, XLWorksheet worksheet, IEnumerable<Point> usedCellsCandidates)
