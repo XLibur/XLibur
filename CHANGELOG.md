@@ -3,6 +3,7 @@
 ## Contents
 
 - [Unreleased](#unreleased)
+- [v0.310.0](#v03100---2026-08-06)
 - [v0.301.0](#v03010---2026-08-04)
 - [v0.300.0](#v03000---2026-08-02)
 - [v0.200.0](#v02000---2026-08-01)
@@ -11,37 +12,13 @@
 
 ## Unreleased
 
-### ⚡ Performance
-
-#### Styles
-
-- **The style key is 264 bytes rather than 536, and the border key 88 rather than 264.** `XLStyleKey` is copied on every style mutation — a `with` expression rebuilds it whole — and again on every repository probe, because `ConcurrentDictionary.TryGetValue` takes its key by value and the default comparer copies both operands per bucket comparison. Half of it was the border, and 240 of the border's 264 bytes were its five colours. `XLColorKey` held a `System.Drawing.Color` — 24 bytes, of which only the 4 ARGB bytes were ever read — alongside separate `Indexed`, `ThemeColor` and `ThemeTint` fields, although a colour is exactly one of those things at a time: equality and hashing already switched on `ColorType` and read one. The payload is now stored once in an eight-byte field reinterpreted per kind, bringing `XLColorKey` from 48 bytes to 16 and, with it, `XLFillKey` from 104 to 40 and `XLFontKey` from 88 to 56. Edge styles are stored as bytes; `XLBorderStyleValues` is public and stays `int`-backed, widening at the property boundary. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
-
-  Hashing 100,000 border keys went from 1,583 μs to 762 μs, fill keys from 426 μs to 362 μs and colour keys from 276 μs to 236 μs; `XLStyleKey`'s own hash, which folds six memoised component hashes and so barely touches the components, moved 349 μs to 321 μs. Much of that is cache footprint — the same benchmark's border-key array shrinks from 26 MB to 9 MB — which makes it a fair proxy for a workbook holding many distinct styles rather than a direct measure of the per-cell styling path.
-
-  Being stack copies, none of this shows up as managed allocation, and the per-cell styling benchmarks cannot resolve it: on the reference machine their untouched control moved 18% between runs, wider than the effect. No claim is made for them.
-
-- **The interned style component values hash themselves once instead of on every lookup.** `XLBorderValue`, `XLFillValue`, `XLFontValue`, `XLNumberFormatValue`, `XLProtectionValue` and `XLAlignmentValue` recomputed their key's hash on every `GetHashCode`, and their `Equals` went straight to comparing keys. Writing the styles part uses four of them directly as dictionary keys, so each probe re-folded five colour hashes for a border, or a string hash for a font or number format. The hash is now computed in the constructor — the key is immutable and the value is interned against it — and equality tries reference identity first, which is the common case precisely because the values are interned. Structural equality is kept for the rest: the repositories hold weak references, so a collected entry can be rebuilt as a second instance for a key still in use elsewhere. `XLNumberFormatValue.Key` loses a private setter that nothing used, so the memoised hash cannot go stale. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
-
-- **Setting a border property on a range, row, column or worksheet no longer interns the border twice.** `XLBorder.Modify` assigned the new key to its own `Key` property, which ran a repository lookup, and then resolved a style that interned the same border again — the waste `SetKey` was changed to avoid, left in place on the path `SetKey` does not cover. It also ran the caller's modification an extra time, against the facade's own key, before the style ran it again against its own. The facade now takes the interned value off the resulting style, and `XLBorder.Key` is get-only so the trap cannot be re-entered. Allocation is unchanged; a repository probe of an existing entry does not allocate. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
-
-### 🐛 Bug Fixes
-
-#### Styles
-
-- **The colour of a border edge with no style reads back as black instead of depending on which style was created first.** Two border keys differing only in the colour of a `None` edge have always compared equal, so the repository interned whichever arrived first and every later caller got that one's colour. Setting `LeftBorderColor` on an edge whose `LeftBorder` is `None` therefore appeared to do nothing — correctly, since Excel writes no colour for an edge it draws nothing on — but *which* colour came back was decided by workbook history. Such edges are now collapsed to black when a key is interned, which is what the common path already produced. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
-
-  A border read from a file that states a colour for an edge it gives no style — the two attributes are independent in the schema — is collapsed the same way, so it still matches the equivalent border already in the stylesheet rather than adding a duplicate `<border>` on save.
+A performance release for cell styles, with two breaking changes. Style data now uses about half the memory it used before, and XLibur compares and looks up styles faster. `XLColor.Color` no longer returns a named colour, and the two alignment style types are now internal; each needs a small code change if you use it. One bug fix: an edge with no border line now always reports the same colour.
 
 ### ⚠️ Breaking Changes
 
-#### Styles
-
-- **`XLAlignmentKey` and `XLAlignmentValue` are internal.** A style is keyed on eight component pairs — alignment, border, fill, font, number format, protection, colour, and the composite style itself — and every one of the other seven has always been internal. The alignment pair was public alone, and apparently by accident: no public member returns an `XLAlignmentValue`, its `Default` is internal, the `XLAlignment` façade wrapping it is internal, and neither type appears in the list of types the library undertakes to publish. The only way to reach one was to hand-build an `XLAlignmentKey` and call `XLAlignmentValue.FromKey`. Both are now internal, `XLAlignmentValue` is sealed, and both are covered by the test that guards which internals stay internal. Reading or setting alignment goes through `IXLStyle.Alignment`, which is unchanged. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
-
 #### Colors
 
-- **`XLColor.Color` returns a plain unnamed `System.Drawing.Color`.** The ARGB channels are unchanged, but the result is no longer a *known* colour: `XLColor.FromColor(Color.Red).Color` now equals `Color.FromArgb(255, 255, 0, 0)`, whose `Name` is its hex digits and whose `IsNamedColor` is false. `Color.Equals` compares that identity as well as the channels, so `== Color.Red` no longer holds — compare `ToArgb()` instead. Nothing in the library ever consumed more than the ARGB bytes, and a colour loaded from a spreadsheet has no name to preserve. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
+- **`XLColor.Color` returns a plain colour, not a named one.** The alpha, red, green and blue values are the same as before. What changes is that the result is no longer a *known* colour such as `Color.Red`: its `Name` is now a string of hex digits, and `IsNamedColor` is false. `Color.Equals` checks that name as well as the four channels, so compare ARGB values instead. XLibur reads only the four channels, and a colour loaded from a spreadsheet has no name to keep. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
 
   ```csharp
   // Before
@@ -50,6 +27,39 @@
   // After
   Assert.AreEqual(Color.Red.ToArgb(), xlColor.Color.ToArgb());
   ```
+
+#### Styles
+
+- **`XLAlignmentKey` and `XLAlignmentValue` are now internal.** XLibur builds a style from eight parts: alignment, border, fill, font, number format, protection, colour, and the style itself. The other seven have always been internal. Alignment was public on its own, and by accident — no public member returns an `XLAlignmentValue`, and neither type appears in the list of types XLibur undertakes to keep. Read and set alignment through `IXLStyle.Alignment`, which does not change. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
+
+  ```csharp
+  // Before
+  var alignment = XLAlignmentValue.FromKey(ref key);
+  var wraps = alignment.WrapText;
+
+  // After
+  var wraps = cell.Style.Alignment.WrapText;
+  ```
+
+### ⚡ Performance
+
+#### Styles
+
+- **Style data uses about half the memory it used before.** XLibur identifies each distinct cell format by a style key, and copies that key whenever you change a format and again on every cache lookup. Colours filled most of the key, and most of each colour went unread: XLibur uses the four ARGB bytes, but each colour also carried a whole `System.Drawing.Color` beside separate palette, theme and tint fields. A colour is only ever one of those things at a time, so the four now share one field. A border key is a third of its former size, and a full style key about half. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
+
+  Hashing a border key is about twice as fast, and fill and colour keys about 15% faster. Part of that comes from reading less memory rather than doing less work, so it helps most in a workbook that holds many different styles. Noise on the test machine hides the change in the end-to-end styling benchmarks, so this release makes no claim for them.
+
+- **Saving a workbook compares styles faster.** Each part of a style worked out its hash every time something asked for one. Saving uses these parts as dictionary keys, so each lookup of a border hashed all five of its colours again. Every part now works out its hash once, when XLibur creates it. Two parts that are the same object also count as equal without a comparison of their contents, which is the usual case because XLibur keeps one shared copy of each. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
+
+- **Setting a border on a range, row, column or worksheet does less work.** XLibur stored the new border in its cache, then built a style that stored the same border again. It also applied the change twice. It now takes the stored border from the finished style. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
+
+### 🐛 Bug Fixes
+
+#### Styles
+
+- **An edge with no border line always reports the same colour.** Two borders that differ only in the colour of an edge with no line have always counted as equal, so XLibur kept whichever it saw first. Setting a colour on such an edge did nothing, which is correct — Excel draws no line there, and writes no colour — but the colour you read back depended on what the workbook had done earlier. These edges now always report black. ([#379](https://github.com/XLibur/XLibur/pull/379) by [@jafin](https://github.com/jafin))
+
+  A file can give an edge a colour but no line style, because the two are independent. XLibur now treats such a border the same way, so it matches the border already in the file instead of saving a second copy of it.
 
 ## v0.310.0 - 2026-08-06
 
