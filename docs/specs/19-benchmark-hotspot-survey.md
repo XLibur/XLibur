@@ -1078,14 +1078,36 @@ commits to its L-sized demand-driven design.
 
 #### What this does *not* establish
 
-- **Where else the hash mattered.** `XLHyperlinks` also keys a `Dictionary` on `Area`, and every
-  hyperlink is a single cell, so the same degradation applied to any sheet with many hyperlinks.
-  Unmeasured — no benchmark covers it.
+- ~~**Where else the hash mattered.**~~ Answered by task 5.6 below.
 - Whether the dependency tree needs building at all for a single read. Spec 04 says no; nothing here
   tests that.
 - The bulk-load experiment was reverted rather than kept. It is a real 68 MB allocation saving and
   might be worth revisiting on its own evidence, but it was written to fix something that turned out
   not to be broken, and keeping it would have muddled this result.
+
+#### Task 5.6 — the same defect had been degrading hyperlinks ✅
+
+`XLHyperlinks` keys a `Dictionary<Area, XLHyperlink>` and every hyperlink it stores is a single
+cell, so it had exactly the shape the old hash collapsed. Nothing benchmarks that path, so it went
+unnoticed. A/B against the pre-fix hash, 20,000 hyperlinks on one sheet:
+
+| operation | before (XOR) | after (`Combine`) | |
+|---|---:|---:|---:|
+| add, via `XLCell.SetHyperlink` | 1,088.6 ms | **39.5 ms** | **27.6×** |
+| lookup, via `HasHyperlink` | 344.9 ms | **2.2 ms** | **157×** |
+| delete | 1,122.9 ms | 364.1 ms | 3.1× |
+
+Scaling at the last doubling before the fix: 3.78×, 3.91× and 3.71× — quadratic in all three
+columns. After it, linear. **No further code change was needed**; the point of measuring was to
+establish that the one-line fix already covered it, and it does.
+
+The delete column is the control and it behaved as predicted: `XLHyperlinks.Delete` resolves a
+hyperlink back to its area with a LINQ scan of the whole dictionary, which is O(N) per call whatever
+the keys hash to. It is the only column that stays expensive after the fix. Opened as task 5.7 —
+a separate defect that happened to be hidden behind a larger one.
+
+**Read only the last doubling.** At 2,500 and 5,000 hyperlinks the post-fix times are a few
+milliseconds and GC dominates; the ratios there scatter in both directions.
 
 #### Revised work plan
 
@@ -1301,7 +1323,8 @@ agreeing that demand-driven evaluation is the right design.
 | 5.3 | Benchmark the dirty-formula read | ✅ Done — `profile dirtyread` | M |
 | 5.4 | **Find the mechanism behind the O(N²).** | ✅ Done — `Area.GetHashCode` cancelled itself on single-cell areas; **fixed**, 32× | S |
 | 5.5 | Re-read Spec 04 against the new numbers before committing to its design: the cliff is now 2.2×, not 69×. | ⬜ Open | S |
-| 5.6 | Check whether the same hash defect degraded `XLHyperlinks`, which also keys a `Dictionary` on `Area` and whose keys are all single cells. | ⬜ Open | S |
+| 5.6 | Check whether the same hash defect degraded `XLHyperlinks`. | ✅ Done — it did; already fixed by 5.4, confirmed by A/B. Opened 5.7. | S |
+| 5.7 | `XLHyperlinks.Delete` resolves a hyperlink to its area with a LINQ scan of the whole dictionary — O(N) per call whatever the hash does, and the only column that stayed expensive after the fix. | ⬜ Open | S |
 
 #### Acceptance criteria
 
@@ -1330,9 +1353,8 @@ order below is by what the numbers say, and the top two were both discovered rat
    transient. The largest identified pile of pure waste in the spec.
 2. **Area 3 task 3.4 — account for the 23% XML volume gap** between the model writer and the
    streaming writer. Cheap, and it pays on every byte written, deflated and stored.
-3. **Area 5 task 5.6 — check `XLHyperlinks`**, the other `Dictionary` keyed on `Area`, whose keys are
-   all single cells and which therefore had the same defect. Minutes of work.
-4. Area 2 task 2.4 and Area 1 task 1.5, both of which need a decomposition before a design.
+3. Area 2 task 2.4 and Area 1 task 1.5, both of which need a decomposition before a design.
+4. Area 5 task 5.7 — the O(N) LINQ scan in `XLHyperlinks.Delete`, small and self-contained.
 
 Areas 3, 4 and 5 all now begin with an accounting task rather than a fix, which is the pattern that
 worked: every area in this spec that started by fixing what looked obvious lost at least one
