@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnostics.dotTrace;
 using XLibur.Excel;
@@ -54,6 +55,42 @@ public class XLiburWorkbookBenchmarks
 
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
+    }
+
+    /// <summary>
+    /// <see cref="CreateAndSave"/> with the zip traded for speed over size. The gap between the
+    /// two is what deflate costs the ordinary save path.
+    /// </summary>
+    /// <remarks>
+    /// <c>StreamingWriteBenchmarks</c> already shows the compression level moving the forward-only
+    /// writer by ~40% on this same 50K x 3 workload, but that writer owns its zip and the ordinary
+    /// path goes through <c>System.IO.Packaging</c>, so the share does not transfer. Nothing here
+    /// measured <see cref="SaveOptions.CompressionLevel"/> until this benchmark.
+    /// </remarks>
+    [Benchmark]
+    public void CreateAndSaveFastestCompression()
+    {
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.AddWorksheet("Data");
+
+        worksheet.Cell(1, 1).Value = "Name";
+        worksheet.Cell(1, 2).Value = "Amount";
+        worksheet.Cell(1, 3).Value = "Date";
+
+        for (var i = 0; i < RowCount; i++)
+        {
+            var row = i + 2;
+            worksheet.Cell(row, 1).Value = _strings[i];
+            worksheet.Cell(row, 2).Value = _numbers[i];
+            worksheet.Cell(row, 3).Value = _dates[i];
+        }
+
+        var sumRow = RowCount + 2;
+        worksheet.Cell(sumRow, 1).Value = "Total";
+        worksheet.Cell(sumRow, 2).FormulaA1 = $"SUM(B2:B{RowCount + 1})";
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream, new SaveOptions { CompressionLevel = CompressionLevel.Fastest });
     }
 
     [Benchmark]
