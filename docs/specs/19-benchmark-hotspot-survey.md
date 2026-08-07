@@ -3,9 +3,9 @@
 **Area:** Performance (read + write time, memory)
 **Effort:** L overall; each of the five areas is independently sized and independently ownable
 **Dependencies:** None between the five areas. Area 3 overlaps Spec 01/03 territory; Area 4 overlaps Spec 18 task 5; Area 5 overlaps Spec 04. Those relationships are stated per area.
-**Status:** Areas 1–3 investigated (see [Area 1](#area-1-results), [Area 2](#area-2-results),
-[Area 3](#area-3-results) results); areas 4–5 proposed. Areas 1 and 2 shipped fixes; area 3 measured
-its question and **declined its own headline task**.
+**Status:** Areas 1–4 investigated ([1](#area-1-results), [2](#area-2-results), [3](#area-3-results),
+[4](#area-4-results)); area 5 proposed. Areas 1 and 2 shipped fixes; area 3 declined its own headline
+task; area 4 found that half of the load is one column of formulas and reordered itself around that.
 This started as a survey rather than an implementation plan. Every area opens with what was measured
 and closes with what has *not* been established, so an implementing agent knows which sentences are
 evidence and which are hypotheses — Area 1's own ranking was wrong until task 1.1 measured it.
@@ -706,6 +706,8 @@ to deflate and bytes to store, and which nothing in this spec had noticed. That 
 
 **Size:** M · **Risk:** M · **Prize:** the floor under every read number in the suite
 **Overlaps:** Spec 02 (done), Spec 18 task 5 (open)
+**Status:** Task 4.1 done and it reordered the rest — see [Area 4 results](#area-4-results). 4.2
+subsumed; 4.3 and 4.4 deprioritised; new tasks 4.6 and 4.7 opened.
 
 ### The measurement
 
@@ -743,13 +745,123 @@ spec, and its Results section explicitly names it as where a follow-up should st
    and 18 — whose first attributions were wrong; the rule exists because of them.)
 3. `LoadWorkbook` time reduced ≥ 15% or the reason it cannot be is recorded with numbers.
 
-### Not established
+### Not established (at the time of writing — task 4.1 has now answered this)
 
 - Everything past 4.1. The tasks below it are candidate levers, in the order they look plausible, and
   4.1 exists to replace that ordering with evidence.
 - Whether 93.5 B/cell has any slack in it at all. It may be near the floor for the data, in which case
   the honest outcome of this area is a documented "no" — which is worth having, because two specs
   currently assume otherwise.
+
+<a id="area-4-results"></a>
+### Area 4 results
+
+`profile loadalloc` (added for this), 100,000 rows × 15 columns = 1.5 M cells, bytes exact.
+Retained is measured with the workbook alive after a forced gen2 collection, so it is what *holding*
+the workbook costs; transient is allocation that had already died, and is the only part a loader
+change can remove without changing what a workbook costs to hold.
+
+| variant | allocated | retained | transient | B/cell | retained B/cell | file KB | ms |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **baseline** (3 unique str, 5 num, 3 date, 3 str, 1 formula) | **207.0 MB** | 110.6 MB | 96.4 MB | 144.7 | 77.3 | 10,545 | 2,533 |
+| no formula column (col 15 numeric) | **104.3 MB** | 71.3 MB | 33.1 MB | 72.9 | 49.8 | 9,901 | **1,302** |
+| formula column, one repeated text | 132.7 MB | 98.1 MB | 34.6 MB | 92.8 | 68.6 | 9,892 | 1,556 |
+| no unique strings (3 cols repeat 10 values) | 101.1 MB | 72.1 MB | 29.0 MB | 70.6 | 50.4 | 8,683 | 1,133 |
+| no dates (3 cols numeric) | 115.6 MB | 82.6 MB | 33.0 MB | 80.8 | 57.8 | 10,342 | 1,249 |
+| all 15 columns numeric | 54.0 MB | 28.4 MB | 25.6 MB | **37.8** | **19.8** | 7,911 | 996 |
+| 1 numeric column (per-row cost) | 12.2 MB | 10.1 MB | 2.2 MB | 128.4 | 105.7 | 845 | 90 |
+
+#### The answer to "is there anything here": about half
+
+**110.6 MB of the 207.0 MB is retained and 96.4 MB is garbage.** Roughly half the load's allocation
+is storage the model deliberately holds, and it cannot be removed without changing what a workbook
+costs to keep in memory. The other half is in principle reachable. That is the number this area
+existed to establish, and it means Area 4 is neither a dead end nor the open field the headline
+93.5 B/cell suggested.
+
+#### Formula cells are not one-fifteenth of the load, they are half of it
+
+The single dominant finding, and the one that reframes the whole area:
+
+| | share of cells | share of allocation | share of time |
+|---|---:|---:|---:|
+| the formula column | **6.7%** | **50%** | **49%** |
+
+Removing one column of fifteen takes the load from 207.0 MB to 104.3 MB and from 2,533 ms to
+1,302 ms. Per formula cell that is **1,076 B allocated and 412 B retained**, against an all-numeric
+floor of 37.8 B and 19.8 B — roughly **28× the allocation of an ordinary cell**.
+
+The repeated-text variant splits it further. Holding everything else equal and giving every formula
+the same text rather than a distinct one:
+
+| | per formula cell, allocated | per formula cell, retained |
+|---|---:|---:|
+| cost of the text being **distinct** | 779 B | 131 B |
+| cost of the cell being a **formula** at all | ~284 B | ~268 B |
+| total | 1,076 B | 412 B |
+
+**83% of the distinct-text cost is transient** (648 B of 779 B) — parse and intern garbage, thrown
+away before the load returns. That is the largest identified pile of pure waste anywhere in this
+spec, and unlike the retained half it costs nothing to give up. The remaining ~284 B is what an
+`XLCellFormula` and its slice entry cost regardless of text, and is mostly retained.
+
+This also explains the shape of `XLiburReadBenchmarks` in a way nothing previously did: its fixture
+puts a `SUM(D{row}:H{row})` in every row, i.e. 250,000 **distinct** formula texts, which is close to
+the worst case for whatever the loader does per distinct text.
+
+#### Read these ablations with the confound stated
+
+Each variant shrinks the file as well as removing the dimension, so it captures some shared parse
+cost, and the savings **do not sum**: formula 102.7 MB + strings 105.9 MB + dates 91.4 MB = 300 MB
+against the 153 MB that removing all three at once actually saves. Where a variant barely changes
+the file the confound is negligible; where it changes it a lot the number is not a clean
+attribution:
+
+| dimension | file size change | allocation change | safe to read? |
+|---|---:|---:|---|
+| formula column | −6% | −50% | **yes** |
+| dates | −2% | −44% | **yes** |
+| unique strings | −18% | −51% | no — confounded |
+
+The single-column variant prices per-row overhead at roughly 128 − 38 ≈ **90 B per row**, since it
+amortises a row over one cell instead of fifteen.
+
+#### Revised work plan
+
+Tasks 4.3 (pipeline the sheet parse) and 4.4 (per-sheet parallelism) were written when the load
+looked like a uniform ~1 µs/cell cost with no identified hotspot. It is not uniform, and both are
+now premature: parallelising work that is half formula-text parsing is worse than not doing that
+parsing.
+
+| # | Task | Status | Size |
+|---|---|---|---|
+| 4.1 | GC-exact decomposition | ✅ Done — this section | S |
+| 4.2 | Price the formula objects separately | ✅ **Subsumed** by 4.1's formula variants | S |
+| 4.6 | **Account for the 779 B/cell that a distinct formula text costs at load, 83% of it transient.** Where does it go — the formula string, `ExpressionCache`, shared-formula expansion, the `<f>` attribute reads spec 02 left for later? Accounting first, as 4.1 was. | ⬜ **Open — highest value in this area** | S |
+| 4.7 | Then: the ~284 B allocated / ~268 B retained a formula cell costs whatever its text. Mostly retained, so this is a question about what `XLCellFormula` stores, not about waste. | ⬜ Open | M |
+| 4.3 | Pipeline the sheet parse | ⬜ **Deprioritised** — do 4.6 first | L |
+| 4.4 | Per-sheet parallel load | ⬜ Deprioritised; also needs its own multi-sheet fixture | M |
+| 4.5 | Spec 18 task 5's load half | ⬜ Open, unchanged | M |
+
+#### Acceptance criteria
+
+1. ✅ A decomposition summing to the measured total, every line ≥ 5% named. It came out as a
+   retained/transient split plus a per-dimension ablation rather than the per-component table the
+   criterion imagined, because ablation does not require instrumenting the loader.
+2. ✅ Restated for successors: cite this table, and cite the confound column with it.
+3. — `LoadWorkbook` time not yet improved; nothing was changed. The reason it can be is now on the
+   record: half the load of the benchmark fixture is one column of formulas.
+
+#### Not established
+
+- **What the 779 B is.** That is task 4.6 and it is deliberately not guessed at here. `ExpressionCache`
+  keyed on formula text is the obvious suspect and obvious suspects have a poor record in this spec
+  family — Area 2 lost two of three mechanisms that way.
+- Whether the formula share holds for realistic workbooks. This fixture is one formula per row with
+  distinct text, which is a plausible export shape but not the only one. A workbook of shared
+  formulas sits at the 284 B/cell figure instead.
+- The `ms` column is a single pass and is reported only because the formula effect (2,533 → 1,302 ms)
+  is far larger than this machine's 4.5–9% noise. Nothing smaller should be read from it.
 
 ---
 
@@ -834,7 +946,7 @@ happens or what it costs.
 | 1 | **Area 1** — `CellsUsed()` enumeration | ✅ **done**: −80% time / −72% allocation on the enumeration; `.First()` 75 ms → 265 ns | — | — |
 | 2 | **Area 2** — per-cell styling | ✅ **partly**: transition cache resized, −3.8% time / −2.4% allocation on `CreateFormattedAndSave`. Two of its three proposed mechanisms were wrong. | — | L |
 | 3 | **Area 3** — deflate and packaging | ✅ **measured**: trade documented; the packaging rewrite (3.3) declined — the gap is 28 ms and 23% excess XML volume is the bigger lever | — | M |
-| 4 | **Area 4** — the load floor | 3.72 s / 335 MB under everything | Low — undecomposed by design; 4.1 is the work | M |
+| 4 | **Area 4** — the load floor | ✅ **decomposed**: 53% retained / 47% garbage, and the formula column is 6.7% of cells but 50% of allocation and 49% of time | — | M |
 | 5 | **Area 5** — formula evaluation | unknown | None yet — the benchmark is confounded | L |
 
 Areas 1, 2 and 3 are fully independent and can run in parallel. Area 4 task 4.1 should start early
