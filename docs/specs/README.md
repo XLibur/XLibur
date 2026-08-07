@@ -1,6 +1,8 @@
 # XLibur Improvement Roadmap
 
-Eighteen prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
+Nineteen prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
+
+**Start a new performance effort at [spec 19](19-benchmark-hotspot-survey.md)**, not at this table. It re-ran the whole suite on 2026-08-07 and ranks what is actually slow now, which is not what specs 02–18 would predict — the biggest single number in the suite turns out to be the `CellsUsed()` enumeration, not parsing, packaging or styling. It also carries the current baselines for every benchmark and the run recipe.
 
 Specs 01–10 are the original top-ten set; spec 11 is a follow-on that came out of implementing spec 03 (see below).
 
@@ -28,6 +30,7 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 16 | [Shared DrawingML infrastructure](16-drawingml-infrastructure.md) | Arch · Refactor | S–M | Proposed | 3 PRs; harness first, then 2/3 independent |
 | 17 | [Picture styling & fidelity](17-picture-styling.md) | Feature · Compat · **Defect** | M–L | Proposed (**needs 16 first**) | Task 1 (fidelity fix) first and standalone; 3/4/5 parallel after 2 |
 | 18 | [Template round-trip overhead](18-template-round-trip-overhead.md) | Perf (read + write) · **Defect** | M | Tasks 0–4 done (see Results) | Task 5 is the remaining cost; independent |
+| 19 | [Benchmark hotspot survey (Aug 2026)](19-benchmark-hotspot-survey.md) | Perf (read + write) · Survey | L | Proposed | 5 areas; 1/2/3 fully independent |
 
 Spec 15 closes the last hole in the drawing surface: XLibur can add pictures and charts but no shape of
 any kind, so a floating text box, callout or arrow cannot be created at all. Shapes that already exist in
