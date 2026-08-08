@@ -1,6 +1,6 @@
 # XLibur Improvement Roadmap
 
-Nineteen prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
+Twenty prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
 
 **Start a new performance effort at [spec 19](19-benchmark-hotspot-survey.md)**, not at this table. It re-ran the whole suite on 2026-08-07 and ranks what is actually slow now, which is not what specs 02–18 would predict — the biggest single number in the suite turns out to be the `CellsUsed()` enumeration, not parsing, packaging or styling. It also carries the current baselines for every benchmark and the run recipe.
 
@@ -31,6 +31,34 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 17 | [Picture styling & fidelity](17-picture-styling.md) | Feature · Compat · **Defect** | M–L | Proposed (**needs 16 first**) | Task 1 (fidelity fix) first and standalone; 3/4/5 parallel after 2 |
 | 18 | [Template round-trip overhead](18-template-round-trip-overhead.md) | Perf (read + write) · **Defect** | M | Tasks 0–4 done (see Results) | Task 5 is the remaining cost; independent |
 | 19 | [Benchmark hotspot survey (Aug 2026)](19-benchmark-hotspot-survey.md) | Perf (read + write) · Survey | L | Proposed | 5 areas; 1/2/3 fully independent |
+| 21 | [Hot-path struct candidates](21-hot-path-struct-candidates.md) | Perf (read · enumeration) | M | ✅ **Done** (task 3 shipped; 1–2 declined on measurement) | Task 0 first; 1→2 ordered; 3 independent |
+
+Spec 21 came out of a review asking which hot-path classes could become structs, and its most useful
+output is a negative: **almost everything that should already be a struct already is.** `Point`,
+`Area`, `XLAddress`, `XLRangeAddress`, `ScalarValue`, `AnyValue`, `XLCellValue`, `XLUsedCell`, every
+style key, and the load/save cell types are structs today — specs 02, 03, 05, 11, 18 and 19 got there
+first. Ten types were reviewed and seven were rejected, each with a specific disqualifier recorded so
+it is not re-proposed: `Formula` lives in a `ConditionalWeakTable` (`TValue : class`);
+`TransitionEntry` is a class *on purpose*, so a cache slot fills with one atomic reference write and
+cannot tear; `XLCell`, `XLCellFormula` and the `XL*Value` style objects are all tracked by reference
+identity. What is left is the **slice enumerators** — `sealed class` with all-value-type fields,
+reached through `IEnumerator<Point>`, so `SlicesEnumerator`'s k-way merge pays up to eight
+non-inlinable interface calls per cell. 21 is a dispatch-and-inlining claim with no allocation
+signature to fall back on, and **its task 4 is empowered to revert task 2** if four inline struct
+enumerators cannot be kept from being copied.
+
+**21 is now done, and its headline is a disproved premise.** Converting `Slice<TElement>.Enumerator`
+to a struct is *free* (5,069 µs against a 5,053 µs baseline) — but **embedding** it by value in the
+enclosing enumerator costs **+60%** on the walk, measured across five variants, with the wrapper
+layer and the JIT's inlining decisions both ruled out as causes. The interface dispatch the spec was
+written to remove had already been devirtualised by dynamic PGO, so it was never the cost. Task 1 was
+implemented and reverted; task 2 was declined without being written, since it would embed four such
+enumerators. **Task 3 shipped**: `XLRangeParameters` becomes a `readonly struct` and
+`XLRangeBase.GetRange` stops materialising it and a style façade ahead of its own bounds check —
+−13.6% time and 78.19 KB → 3 B per 1,000 sub-range calls, all of it on the repository-cache-hit path.
+21's task 4 decision rule was itself mis-stated (it would have kept a 60% regression to remove an
+88-byte per-enumeration constant) and is corrected in its Results — the fourth criterion in this spec
+family to price work its task could not reach.
 
 Spec 15 closes the last hole in the drawing surface: XLibur can add pictures and charts but no shape of
 any kind, so a floating text box, callout or arrow cannot be created at all. Shapes that already exist in
