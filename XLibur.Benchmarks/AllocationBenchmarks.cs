@@ -88,6 +88,29 @@ public class AllocationBenchmarks
     [GlobalCleanup]
     public void Cleanup() => _workbook.Dispose();
 
+    /// <summary>
+    /// Spec 21 task 3: taking a sub-range of an existing range, the path through
+    /// <c>XLRangeBase.GetRange</c> → <c>XLWorksheet.GetOrCreateRange</c>.
+    /// </summary>
+    /// <remarks>
+    /// The ten addresses are reused, so after the first pass every call is a <b>repository cache
+    /// hit</b> — which is the point. The cache hit still had to build an <c>XLRangeParameters</c>
+    /// object and materialise a style facade before it could look anything up, and this benchmark
+    /// exists to price that. Nothing else in the suite covered <c>range.Range(...)</c> at all.
+    /// </remarks>
+    [Benchmark]
+    public int SubRangeOfRange()
+    {
+        var sum = 0;
+        for (var i = 0; i < Iterations; i++)
+        {
+            var row = i % 100 + 1;
+            sum += _shiftRange.Range(row, 1, row + 5, 10).RangeAddress.FirstAddress.RowNumber;
+        }
+
+        return sum;
+    }
+
     // #5 ColorExtensions.ToHex
     [Benchmark]
     public static int ToHex()

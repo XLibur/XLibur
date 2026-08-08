@@ -1680,7 +1680,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return Worksheet.Internals.CellsCollection.GetUsedCell(point);
     }
 
-    public XLRange GetOrCreateRange(XLRangeParameters xlRangeParameters)
+    public XLRange GetOrCreateRange(in XLRangeParameters xlRangeParameters)
     {
         var rangeKey = new XLRangeKey(XLRangeType.Range, xlRangeParameters.RangeAddress);
         var range = _rangeRepository.GetOrCreate(ref rangeKey);

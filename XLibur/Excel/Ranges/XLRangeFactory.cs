@@ -37,7 +37,7 @@ internal sealed class XLRangeFactory
     public XLRange CreateRange(XLRangeAddress rangeAddress)
     {
         var xlRangeParameters = new XLRangeParameters(rangeAddress, Worksheet.Style);
-        return new XLRange(xlRangeParameters);
+        return new XLRange(in xlRangeParameters);
     }
 
     public XLColumn CreateColumn(int columnNumber)
@@ -53,18 +53,19 @@ internal sealed class XLRangeFactory
     public XLRangeColumn CreateRangeColumn(XLRangeAddress rangeAddress)
     {
         var xlRangeParameters = new XLRangeParameters(rangeAddress, Worksheet.Style);
-        return new XLRangeColumn(xlRangeParameters);
+        return new XLRangeColumn(in xlRangeParameters);
     }
 
     public XLRangeRow CreateRangeRow(XLRangeAddress rangeAddress)
     {
         var xlRangeParameters = new XLRangeParameters(rangeAddress, Worksheet.Style);
-        return new XLRangeRow(xlRangeParameters);
+        return new XLRangeRow(in xlRangeParameters);
     }
 
     public XLTable CreateTable(XLRangeAddress rangeAddress)
     {
-        return new XLTable(new XLRangeParameters(rangeAddress, Worksheet.Style));
+        var xlRangeParameters = new XLRangeParameters(rangeAddress, Worksheet.Style);
+        return new XLTable(in xlRangeParameters);
     }
 
     #endregion Methods

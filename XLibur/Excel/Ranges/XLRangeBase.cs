@@ -806,8 +806,6 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         if (!Worksheet.Equals(newLastCellAddress.Worksheet))
             throw new ArgumentException("The address refers to a different worksheet.", nameof(newLastCellAddress));
 
-        var newRangeAddress = new XLRangeAddress(newFirstCellAddress, newLastCellAddress);
-        var xlRangeParameters = new XLRangeParameters(newRangeAddress, Style);
         if (
             newFirstCellAddress.RowNumber < RangeAddress.FirstAddress.RowNumber
             || newFirstCellAddress.RowNumber > RangeAddress.LastAddress.RowNumber
@@ -821,9 +819,14 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
                 $"The cells {newFirstCellAddress} and {newLastCellAddress} are outside the range '{ToString()}'.");
         }
 
+        // Built after the bounds check, not before it: `Style` materialises a style façade, and
+        // there is no reason to pay for one on the path that throws.
+        var newRangeAddress = new XLRangeAddress(newFirstCellAddress, newLastCellAddress);
+        var xlRangeParameters = new XLRangeParameters(newRangeAddress, Style);
+
         return newFirstCellAddress.Worksheet != null
-            ? newFirstCellAddress.Worksheet.GetOrCreateRange(xlRangeParameters)
-            : Worksheet.GetOrCreateRange(xlRangeParameters);
+            ? newFirstCellAddress.Worksheet.GetOrCreateRange(in xlRangeParameters)
+            : Worksheet.GetOrCreateRange(in xlRangeParameters);
     }
 
     public virtual XLRanges Ranges(string ranges)

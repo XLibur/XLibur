@@ -23,8 +23,8 @@ internal sealed class XLTable : XLRange, IXLTable
     /// <summary>
     /// The direct constructor should only be used in <see cref="XLWorksheet.RangeFactory"/>.
     /// </summary>
-    public XLTable(XLRangeParameters xlRangeParameters)
-        : base(xlRangeParameters)
+    public XLTable(in XLRangeParameters xlRangeParameters)
+        : base(in xlRangeParameters)
     {
         InitializeValues(false);
     }

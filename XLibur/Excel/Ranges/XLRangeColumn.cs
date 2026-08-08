@@ -12,7 +12,7 @@ internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
     /// <summary>
     /// The direct constructor should only be used in <see cref="XLWorksheet.RangeFactory"/>.
     /// </summary>
-    public XLRangeColumn(XLRangeParameters rangeParameters)
+    public XLRangeColumn(in XLRangeParameters rangeParameters)
         : base(rangeParameters.RangeAddress, ((XLStyle)rangeParameters.DefaultStyle).Value)
     {
     }

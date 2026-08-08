@@ -11,7 +11,7 @@ internal class XLRange : XLStoredRangeBase, IXLRange
 {
     #region Constructor
 
-    public XLRange(XLRangeParameters xlRangeParameters)
+    public XLRange(in XLRangeParameters xlRangeParameters)
         : base(xlRangeParameters.RangeAddress, ((XLStyle)xlRangeParameters.DefaultStyle).Value)
     {
     }
