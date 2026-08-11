@@ -13,6 +13,12 @@
 
 ## Unreleased
 
+A dependency release: `XLibur.Fonts.SkiaSharp` moves to SkiaSharp 4.151.1, a patch bump. No new features, no bug fixes and no breaking changes.
+
+### 🔧 Dependencies
+
+- **`XLibur.Fonts.SkiaSharp` moves to SkiaSharp 4.151.1** (from 4.151.0), with the Linux native asset package following. The font engine decides text metrics, so the thing to watch in a bump like this is column widths and row heights moving; the tests covering them pass unchanged. ([#384](https://github.com/XLibur/XLibur/pull/384), [#385](https://github.com/XLibur/XLibur/pull/385) by [@dependabot](https://github.com/apps/dependabot))
+
 ## v0.311.0 - 2026-08-08
 
 A performance release for cell styles, with two breaking changes. Style data now uses about half the memory it used before, and XLibur compares and looks up styles faster. `XLColor.Color` no longer returns a named colour, and the two alignment style types are now internal; each needs a small code change if you use it. Four bug fixes: an edge with no border line now always reports the same colour, setting an edge's colour before its line style no longer loses the colour, and an out-of-range value cast into a border, colour or alignment enum is now rejected instead of silently aliasing a different one.
