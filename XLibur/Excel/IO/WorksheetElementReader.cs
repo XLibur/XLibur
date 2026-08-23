@@ -15,7 +15,84 @@ namespace XLibur.Excel.IO;
 /// </summary>
 internal static class WorksheetElementReader
 {
-    internal static void LoadSheetViews(SheetViews sheetViews, XLWorksheet ws)
+    /// <summary>
+    /// Reads the element the reader is positioned on into the worksheet model.
+    /// </summary>
+    /// <returns>
+    /// <c>true</c> if the element was recognised and consumed; <c>false</c> if it was not, in which
+    /// case the reader has not been touched.
+    /// </returns>
+    /// <remarks>
+    /// Only recognised types are materialised. Calling <c>LoadCurrentElement()</c> on a wrapper such
+    /// as <c>sheetData</c> would consume all of its children and starve the caller's loop, which is
+    /// why every branch below names a concrete type.
+    /// </remarks>
+    // S3776: a flat dispatch over element types is the clearest form this can take; splitting it
+    // by an arbitrary cut is what put the element names in a different module from the element
+    // bodies in the first place.
+#pragma warning disable S3776
+    internal static bool TryLoad(
+        OpenXmlPartReader reader,
+        in WorksheetElementContext context,
+        ref WorksheetElementState state)
+    {
+        var elementType = reader.ElementType;
+        var ws = context.Worksheet;
+
+        if (elementType == typeof(SheetProperties))
+        {
+            LoadSheetProperties((SheetProperties)reader.LoadCurrentElement()!, ws,
+                out var pageSetupProperties);
+            state.PageSetupProperties = pageSetupProperties;
+        }
+        else if (elementType == typeof(SheetFormatProperties))
+            context.Workbook.LoadSheetFormatProperties(
+                (SheetFormatProperties)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(MergeCells))
+            XLWorkbook.LoadMergeCellsStreaming(reader, ws);
+        else if (elementType == typeof(SheetViews))
+            LoadSheetViews((SheetViews)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(Columns))
+            WorksheetSheetDataReader.LoadColumns(context.Styles, ws,
+                (Columns)reader.LoadCurrentElement()!);
+        else if (elementType == typeof(AutoFilter))
+            LoadAutoFilter((AutoFilter)reader.LoadCurrentElement()!, ws,
+                context.Styles.DifferentialFormats);
+        else if (elementType == typeof(SheetProtection))
+            LoadSheetProtection((SheetProtection)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(DataValidations))
+            LoadDataValidations((DataValidations)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(LegacyDrawing))
+            ws.LegacyDrawingId = ((LegacyDrawing)reader.LoadCurrentElement()!).Id?.Value;
+        else if (elementType == typeof(ConditionalFormatting))
+            ConditionalFormatReader.LoadConditionalFormatting(
+                (ConditionalFormatting)reader.LoadCurrentElement()!, ws,
+                context.Styles.DifferentialFormats, context.Load);
+        else if (elementType == typeof(Hyperlinks))
+            LoadHyperlinks((Hyperlinks)reader.LoadCurrentElement()!, context.Part, ws);
+        else if (elementType == typeof(PrintOptions))
+            LoadPrintOptions((PrintOptions)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(PageMargins))
+            LoadPageMargins((PageMargins)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(PageSetup))
+            LoadPageSetup((PageSetup)reader.LoadCurrentElement()!, ws, state.PageSetupProperties);
+        else if (elementType == typeof(HeaderFooter))
+            LoadHeaderFooter((HeaderFooter)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(RowBreaks))
+            LoadRowBreaks((RowBreaks)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(ColumnBreaks))
+            LoadColumnBreaks((ColumnBreaks)reader.LoadCurrentElement()!, ws);
+        else if (elementType == typeof(WorksheetExtensionList))
+            ConditionalFormatReader.LoadExtensions(
+                (WorksheetExtensionList)reader.LoadCurrentElement()!, ws, context.Workbook);
+        else
+            return false;
+
+        return true;
+    }
+#pragma warning restore S3776
+
+    private static void LoadSheetViews(SheetViews sheetViews, XLWorksheet ws)
     {
         ArgumentNullException.ThrowIfNull(ws);
 
@@ -88,7 +165,7 @@ internal static class WorksheetElementReader
         }
     }
 
-    internal static void LoadPrintOptions(PrintOptions printOptions, XLWorksheet ws)
+    private static void LoadPrintOptions(PrintOptions printOptions, XLWorksheet ws)
     {
         ArgumentNullException.ThrowIfNull(printOptions);
 
@@ -102,7 +179,7 @@ internal static class WorksheetElementReader
             ws.PageSetup.ShowRowAndColumnHeadings = printOptions.Headings;
     }
 
-    internal static void LoadPageMargins(PageMargins pageMargins, XLWorksheet ws)
+    private static void LoadPageMargins(PageMargins pageMargins, XLWorksheet ws)
     {
         ArgumentNullException.ThrowIfNull(pageMargins);
 
@@ -120,7 +197,7 @@ internal static class WorksheetElementReader
             ws.PageSetup.Margins.Top = pageMargins.Top;
     }
 
-    internal static void LoadPageSetup(PageSetup pageSetup, XLWorksheet ws, PageSetupProperties? pageSetupProperties)
+    private static void LoadPageSetup(PageSetup pageSetup, XLWorksheet ws, PageSetupProperties? pageSetupProperties)
     {
         ArgumentNullException.ThrowIfNull(pageSetup);
 
@@ -162,7 +239,7 @@ internal static class WorksheetElementReader
             ws.PageSetup.FirstPageNumber = (int)pageSetup.FirstPageNumber.Value;
     }
 
-    internal static void LoadHeaderFooter(HeaderFooter headerFooter, XLWorksheet ws)
+    private static void LoadHeaderFooter(HeaderFooter headerFooter, XLWorksheet ws)
     {
         ArgumentNullException.ThrowIfNull(headerFooter);
 
@@ -203,7 +280,7 @@ internal static class WorksheetElementReader
         ((XLHeaderFooter)ws.PageSetup.Footer).SetAsInitial();
     }
 
-    internal static void LoadSheetProperties(SheetProperties sheetProperty, XLWorksheet ws,
+    private static void LoadSheetProperties(SheetProperties sheetProperty, XLWorksheet ws,
         out PageSetupProperties? pageSetupProperties)
     {
         ArgumentNullException.ThrowIfNull(ws);
@@ -233,7 +310,7 @@ internal static class WorksheetElementReader
             pageSetupProperties = sheetProperty.PageSetupProperties;
     }
 
-    internal static void LoadRowBreaks(RowBreaks rowBreaks, XLWorksheet ws)
+    private static void LoadRowBreaks(RowBreaks rowBreaks, XLWorksheet ws)
     {
         ArgumentNullException.ThrowIfNull(rowBreaks);
 
@@ -241,7 +318,7 @@ internal static class WorksheetElementReader
             ws.PageSetup.RowBreaks.Add(int.Parse(rowBreak.Id!.InnerText!));
     }
 
-    internal static void LoadColumnBreaks(ColumnBreaks columnBreaks, XLWorksheet ws)
+    private static void LoadColumnBreaks(ColumnBreaks columnBreaks, XLWorksheet ws)
     {
         ArgumentNullException.ThrowIfNull(columnBreaks);
         foreach (var columnBreak in columnBreaks.Elements<Break>().Where(columnBreak => columnBreak.Id != null))
@@ -250,7 +327,7 @@ internal static class WorksheetElementReader
         }
     }
 
-    internal static void LoadSheetProtection(SheetProtection sp, XLWorksheet ws)
+    private static void LoadSheetProtection(SheetProtection sp, XLWorksheet ws)
     {
         ArgumentNullException.ThrowIfNull(ws);
 
@@ -303,7 +380,7 @@ internal static class WorksheetElementReader
             !OpenXmlHelper.GetBooleanValueAsBool(sp.SelectUnlockedCells, false));
     }
 
-    internal static void LoadDataValidations(DataValidations dataValidations, XLWorksheet ws)
+    private static void LoadDataValidations(DataValidations dataValidations, XLWorksheet ws)
     {
         ArgumentNullException.ThrowIfNull(ws);
 
@@ -337,7 +414,7 @@ internal static class WorksheetElementReader
         if (dvs.Formula2 != null) dvt.MaxValue = dvs.Formula2.Text;
     }
 
-    internal static void LoadHyperlinks(Hyperlinks hyperlinks, WorksheetPart worksheetPart, XLWorksheet ws)
+    private static void LoadHyperlinks(Hyperlinks hyperlinks, WorksheetPart worksheetPart, XLWorksheet ws)
     {
         ArgumentNullException.ThrowIfNull(ws);
         ArgumentNullException.ThrowIfNull(hyperlinks);
@@ -362,7 +439,7 @@ internal static class WorksheetElementReader
         }
     }
 
-    internal static void LoadAutoFilter(AutoFilter af, XLWorksheet ws,
+    private static void LoadAutoFilter(AutoFilter af, XLWorksheet ws,
         Dictionary<int, DifferentialFormat> differentialFormats)
     {
         if (af != null)
@@ -603,7 +680,7 @@ internal static class WorksheetElementReader
         return fontColor is not null ? fontColor.ToXLiburColor() : XLColor.Automatic;
     }
 
-    internal static void LoadAutoFilterSort(AutoFilter af, XLWorksheet ws, XLAutoFilter autoFilter)
+    private static void LoadAutoFilterSort(AutoFilter af, XLWorksheet ws, XLAutoFilter autoFilter)
     {
         var sort = af.Elements<SortState>().FirstOrDefault();
         if (sort != null)

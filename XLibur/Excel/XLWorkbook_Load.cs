@@ -333,11 +333,19 @@ public partial class XLWorkbook
         var styles = context.Styles;
         var sharedFormulasR1C1 = new Dictionary<uint, string>();
         var numberDataTypeCache = new Dictionary<XLNumberFormatValue, XLDataType>();
-        PageSetupProperties? pageSetupProperties = null;
         var sheetDataContext = new WorksheetSheetDataReader.SheetDataReadContext(
             styles, ws, sharedStrings, sharedFormulasR1C1, context.StyleCache, numberDataTypeCache,
             Use1904DateSystem, context.DynamicArrayCmIndexes);
         var sheetDataState = new WorksheetSheetDataReader.SheetDataReadState();
+        var elementContext = new WorksheetElementContext
+        {
+            Part = worksheetPart,
+            Worksheet = ws,
+            Styles = styles,
+            Load = context,
+            Workbook = this,
+        };
+        var elementState = default(WorksheetElementState);
 
         // Pass 1: structural elements via the OpenXML SDK reader (the proven DOM path). The
         // <sheetData> hot path is skipped here — it is read in pass 2 with a raw XmlReader, which
@@ -356,13 +364,7 @@ public partial class XLWorkbook
                 while (reader.ElementType == typeof(CustomSheetViews) || reader.ElementType == typeof(SheetData))
                     reader.ReadNextSibling();
 
-                if (reader.ElementType == typeof(SheetProperties))
-                {
-                    WorksheetElementReader.LoadSheetProperties((SheetProperties)reader.LoadCurrentElement()!, ws, out pageSetupProperties);
-                    continue;
-                }
-
-                LoadWorksheetElement(reader, worksheetPart, ws, styles, pageSetupProperties, context);
+                WorksheetElementReader.TryLoad(reader, in elementContext, ref elementState);
             }
         }
 
@@ -402,92 +404,7 @@ public partial class XLWorkbook
         }
     }
 
-    private void LoadWorksheetElement(
-        OpenXmlPartReader reader,
-        WorksheetPart worksheetPart,
-        XLWorksheet ws,
-        StylesheetData styles,
-        PageSetupProperties? pageSetupProperties,
-        LoadContext context)
-    {
-        // Only call LoadCurrentElement() for recognized types. Calling it on
-        // wrapper elements like SheetData would consume all child elements
-        // (e.g., Row), preventing the main loop from processing them.
-        var elementType = reader.ElementType;
-
-        if (!LoadStructureElement(reader, elementType, ws, styles))
-            LoadPrintAndExtensionElement(reader, elementType, worksheetPart, ws, styles, pageSetupProperties, context);
-    }
-
-    /// <summary>
-    /// Loads worksheet structure elements (format, merge, views, columns, filter, protection, validation, legacy drawing).
-    /// </summary>
-    /// <returns><c>true</c> if the element was handled; <c>false</c> to try the next group.</returns>
-    private bool LoadStructureElement(OpenXmlPartReader reader, Type elementType, XLWorksheet ws, StylesheetData styles)
-    {
-        // Only call LoadCurrentElement() for recognized types. Calling it on
-        // wrapper elements like SheetData would consume all child elements
-        // (e.g., Row), preventing the main loop from processing them.
-        if (elementType == typeof(SheetFormatProperties))
-            LoadSheetFormatProperties((SheetFormatProperties)reader.LoadCurrentElement()!, ws);
-        else if (elementType == typeof(MergeCells))
-            LoadMergeCellsStreaming(reader, ws);
-        else if (elementType == typeof(SheetViews))
-            WorksheetElementReader.LoadSheetViews((SheetViews)reader.LoadCurrentElement()!, ws);
-        else if (elementType == typeof(Columns))
-            WorksheetSheetDataReader.LoadColumns(styles, ws, (Columns)reader.LoadCurrentElement()!);
-        else if (elementType == typeof(AutoFilter))
-            WorksheetElementReader.LoadAutoFilter((AutoFilter)reader.LoadCurrentElement()!, ws, styles.DifferentialFormats);
-        else if (elementType == typeof(SheetProtection))
-            WorksheetElementReader.LoadSheetProtection((SheetProtection)reader.LoadCurrentElement()!, ws);
-        else if (elementType == typeof(DataValidations))
-            WorksheetElementReader.LoadDataValidations((DataValidations)reader.LoadCurrentElement()!, ws);
-        else if (elementType == typeof(LegacyDrawing))
-            ws.LegacyDrawingId = ((LegacyDrawing)reader.LoadCurrentElement()!).Id?.Value;
-        else
-            return false;
-
-        return true;
-    }
-
-    /// <summary>
-    /// Loads print-related and extension elements (conditional formatting, hyperlinks, print options,
-    /// page margins/setup, header/footer, breaks, extensions).
-    /// </summary>
-    private void LoadPrintAndExtensionElement(
-        OpenXmlPartReader reader,
-        Type elementType,
-        WorksheetPart worksheetPart,
-        XLWorksheet ws,
-        StylesheetData styles,
-        PageSetupProperties? pageSetupProperties,
-        LoadContext context)
-    {
-        // Only call LoadCurrentElement() for recognized types. Calling it on
-        // wrapper elements like SheetData would consume all child elements
-        // (e.g., Row), preventing the main loop from processing them.
-        if (elementType == typeof(ConditionalFormatting))
-            ConditionalFormatReader.LoadConditionalFormatting((ConditionalFormatting)reader.LoadCurrentElement()!, ws,
-                styles.DifferentialFormats, context);
-        else if (elementType == typeof(Hyperlinks))
-            WorksheetElementReader.LoadHyperlinks((Hyperlinks)reader.LoadCurrentElement()!, worksheetPart, ws);
-        else if (elementType == typeof(PrintOptions))
-            WorksheetElementReader.LoadPrintOptions((PrintOptions)reader.LoadCurrentElement()!, ws);
-        else if (elementType == typeof(PageMargins))
-            WorksheetElementReader.LoadPageMargins((PageMargins)reader.LoadCurrentElement()!, ws);
-        else if (elementType == typeof(PageSetup))
-            WorksheetElementReader.LoadPageSetup((PageSetup)reader.LoadCurrentElement()!, ws, pageSetupProperties);
-        else if (elementType == typeof(HeaderFooter))
-            WorksheetElementReader.LoadHeaderFooter((HeaderFooter)reader.LoadCurrentElement()!, ws);
-        else if (elementType == typeof(RowBreaks))
-            WorksheetElementReader.LoadRowBreaks((RowBreaks)reader.LoadCurrentElement()!, ws);
-        else if (elementType == typeof(ColumnBreaks))
-            WorksheetElementReader.LoadColumnBreaks((ColumnBreaks)reader.LoadCurrentElement()!, ws);
-        else if (elementType == typeof(WorksheetExtensionList))
-            ConditionalFormatReader.LoadExtensions((WorksheetExtensionList)reader.LoadCurrentElement()!, ws, this);
-    }
-
-    private void LoadSheetFormatProperties(SheetFormatProperties sfp, XLWorksheet ws)
+    internal void LoadSheetFormatProperties(SheetFormatProperties sfp, XLWorksheet ws)
     {
         if (sfp.DefaultRowHeight is not null)
             ws.RowHeight = sfp.DefaultRowHeight;
@@ -507,7 +424,7 @@ public partial class XLWorkbook
     /// avoids allocating the parent <see cref="MergeCells"/> collection and all
     /// child <see cref="MergeCell"/> DOM objects.
     /// </summary>
-    private static void LoadMergeCellsStreaming(OpenXmlPartReader reader, XLWorksheet ws)
+    internal static void LoadMergeCellsStreaming(OpenXmlPartReader reader, XLWorksheet ws)
     {
         // We're positioned at <mergeCells>. Move into children.
         reader.MoveAhead();
