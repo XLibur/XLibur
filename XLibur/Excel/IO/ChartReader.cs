@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using XLibur.Excel.IO.Charts;
 using A = DocumentFormat.OpenXml.Drawing;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
 using Cx = DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
@@ -97,7 +98,7 @@ internal static class ChartReader
 
         var xlChart = new XLChart(ws) { IsNew = false, RelId = relId };
         ReadTitle(chart, xlChart);
-        ChartFormatting.ReadLegend(chart.Elements<C.Legend>().FirstOrDefault(), xlChart.LegendInternal);
+        ChartLegendXml.Read(chart, xlChart.LegendInternal);
 
         var plotArea = chart.PlotArea;
         if (plotArea != null)

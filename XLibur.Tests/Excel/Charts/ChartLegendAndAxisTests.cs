@@ -487,4 +487,59 @@ public class ChartLegendAndAxisTests
         await Assert.That(() => axis.LogBase = 1001).Throws<ArgumentOutOfRangeException>();
         await Assert.That(() => axis.LogBase = 1000).ThrowsNothing();
     }
+
+    // ── New chart and loaded chart must agree ───────────────────────────
+
+    /// <summary>
+    /// A new chart and a chart loaded from a file with no <c>c:legend</c> must reach the same legend
+    /// XML from the same model. Before spec 22 these were two functions — <c>BuildLegend</c> and the
+    /// null-element branch of <c>PatchLegend</c> — agreeing by hand and by comment; afterwards they
+    /// are the two branches of one <c>Apply</c>.
+    /// </summary>
+    [Test]
+    [Arguments(XLLegendPosition.Bottom)]
+    [Arguments(XLLegendPosition.Left)]
+    [Arguments(XLLegendPosition.TopRight)]
+    public async Task A_new_chart_and_a_legendless_loaded_chart_write_the_same_legend(
+        XLLegendPosition position)
+    {
+        var fromNew = ChartGoldenCorpus.CaptureChartPartXml(ws =>
+        {
+            var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+            chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Legend.Visible = true;
+            chart.Legend.Position = position;
+        });
+
+        // A chart saved with no legend at all, reloaded, then given the same legend.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = AddDataSheet(wb);
+            var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+            chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var reloaded = new XLWorkbook(ms);
+        var loadedLegend = reloaded.Worksheet("Data").Charts.First().Legend;
+        loadedLegend.Visible = true;
+        loadedLegend.Position = position;
+
+        using var patched = new MemoryStream();
+        reloaded.SaveAs(patched, validate: true);
+
+        await Assert.That(LegendPositionIn(ChartGoldenCorpus.FirstChartPartXml(patched)))
+            .IsEqualTo(LegendPositionIn(fromNew))
+            .Because("The legend a new chart writes and the legend a loaded chart is patched to are the same element.");
+        await Assert.That(LegendPositionIn(fromNew)).IsNotNull();
+    }
+
+    private static string? LegendPositionIn(string chartPartXml)
+    {
+        var doc = System.Xml.Linq.XDocument.Parse(chartPartXml);
+        System.Xml.Linq.XNamespace c = "http://schemas.openxmlformats.org/drawingml/2006/chart";
+        return doc.Descendants(c + "legendPos").FirstOrDefault()?.Attribute("val")?.Value;
+    }
 }

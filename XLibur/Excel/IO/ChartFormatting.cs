@@ -382,112 +382,6 @@ internal static class ChartFormatting
         return chartText;
     }
 
-    // ── Legend ──────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Builds the <c>c:legend</c> element, or returns <c>null</c> when the chart has no legend.
-    /// </summary>
-    internal static C.Legend? BuildLegend(XLChartLegend legend)
-    {
-        if (legend.AssignedFormat == XLChartLegendFormat.None || !legend.Visible)
-            return null;
-
-        var element = new C.Legend();
-        element.Append(new C.LegendPosition { Val = MapLegendPosition(legend.Position) });
-        element.Append(new C.Overlay { Val = legend.Overlay });
-        return element;
-    }
-
-    /// <summary>
-    /// Reads a <c>c:legend</c> element into the model. A chart with no legend element seeds
-    /// <see cref="IXLChartLegend.Visible"/> as <c>false</c>.
-    /// </summary>
-    internal static void ReadLegend(C.Legend? element, XLChartLegend legend)
-    {
-        if (element == null)
-        {
-            legend.SeedLoaded(visible: false, XLLegendPosition.Right, overlay: false);
-            return;
-        }
-
-        legend.SeedLoaded(
-            visible: true,
-            position: ReadLegendPosition(element),
-            overlay: element.Elements<C.Overlay>().FirstOrDefault()?.Val?.Value ?? false);
-    }
-
-    /// <summary>
-    /// Applies the assigned legend properties to a <c>c:chart</c> element, adding or removing the
-    /// <c>c:legend</c> child as needed. The legend's own text and shape properties are left alone.
-    /// </summary>
-    internal static void PatchLegend(C.Chart chart, XLChartLegend legend)
-    {
-        var assigned = legend.AssignedFormat;
-        if (assigned == XLChartLegendFormat.None)
-            return;
-
-        var element = chart.Elements<C.Legend>().FirstOrDefault();
-
-        if ((assigned & XLChartLegendFormat.Visible) != 0 && !legend.Visible)
-        {
-            element?.Remove();
-            return;
-        }
-
-        if (element == null)
-        {
-            // Position and Overlay are ignored while the legend is hidden, so assigning one of them on
-            // a chart that has no legend must not conjure one — BuildLegend does not either.
-            if (!legend.Visible)
-                return;
-
-            element = new C.Legend();
-            element.Append(new C.LegendPosition { Val = MapLegendPosition(legend.Position) });
-            element.Append(new C.Overlay { Val = legend.Overlay });
-            InsertOrdered(chart, element, ChartChildOrder);
-            return;
-        }
-
-        if ((assigned & XLChartLegendFormat.Position) != 0)
-        {
-            foreach (var existing in element.Elements<C.LegendPosition>().ToList())
-                existing.Remove();
-            InsertOrdered(element, new C.LegendPosition { Val = MapLegendPosition(legend.Position) },
-                LegendChildOrder);
-        }
-
-        if ((assigned & XLChartLegendFormat.Overlay) != 0)
-        {
-            foreach (var existing in element.Elements<C.Overlay>().ToList())
-                existing.Remove();
-            InsertOrdered(element, new C.Overlay { Val = legend.Overlay }, LegendChildOrder);
-        }
-    }
-
-    private static XLLegendPosition ReadLegendPosition(C.Legend element)
-    {
-        var position = element.Elements<C.LegendPosition>().FirstOrDefault()?.Val;
-        if (position == null)
-            return XLLegendPosition.Right;
-
-        var value = position.Value;
-        if (value == C.LegendPositionValues.Bottom) return XLLegendPosition.Bottom;
-        if (value == C.LegendPositionValues.Left) return XLLegendPosition.Left;
-        if (value == C.LegendPositionValues.Top) return XLLegendPosition.Top;
-        if (value == C.LegendPositionValues.TopRight) return XLLegendPosition.TopRight;
-        return XLLegendPosition.Right;
-    }
-
-    private static C.LegendPositionValues MapLegendPosition(XLLegendPosition position) => position switch
-    {
-        XLLegendPosition.Right => C.LegendPositionValues.Right,
-        XLLegendPosition.Bottom => C.LegendPositionValues.Bottom,
-        XLLegendPosition.Left => C.LegendPositionValues.Left,
-        XLLegendPosition.Top => C.LegendPositionValues.Top,
-        XLLegendPosition.TopRight => C.LegendPositionValues.TopRight,
-        _ => throw new ArgumentOutOfRangeException(nameof(position), position, "Unknown legend position.")
-    };
-
     // ── Axes ────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -1064,7 +958,7 @@ internal static class ChartFormatting
     /// leaving them out put a newly inserted title after the <c>c:view3D</c> block of a 3D chart —
     /// which the schema rejects outright.
     /// </remarks>
-    private static readonly Type[] ChartChildOrder =
+    internal static readonly Type[] ChartChildOrder =
     [
         typeof(C.Title), typeof(C.AutoTitleDeleted), typeof(C.PivotFormats), typeof(C.View3D),
         typeof(C.Floor), typeof(C.SideWall), typeof(C.BackWall), typeof(C.PlotArea),
@@ -1080,7 +974,7 @@ internal static class ChartFormatting
     ];
 
     /// <summary>The schema order of the children of <c>c:legend</c>.</summary>
-    private static readonly Type[] LegendChildOrder =
+    internal static readonly Type[] LegendChildOrder =
     [
         typeof(C.LegendPosition), typeof(C.LegendEntry), typeof(C.Layout), typeof(C.Overlay),
         typeof(C.ChartShapeProperties), typeof(C.TextProperties), typeof(C.ExtensionList)
@@ -1134,7 +1028,7 @@ internal static class ChartFormatting
     /// Inserts <paramref name="element"/> at the position the schema order gives it: before the first
     /// child that must come after it, or at the end when there is none.
     /// </summary>
-    private static void InsertOrdered(OpenXmlCompositeElement parent, OpenXmlElement element, Type[] order)
+    internal static void InsertOrdered(OpenXmlCompositeElement parent, OpenXmlElement element, Type[] order)
     {
         var rank = Array.IndexOf(order, element.GetType());
         if (rank < 0)

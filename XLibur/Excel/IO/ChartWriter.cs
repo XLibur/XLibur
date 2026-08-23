@@ -9,6 +9,7 @@ using DocumentFormat.OpenXml.Experimental;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ContentManagers;
+using XLibur.Excel.IO.Charts;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;
 using A = DocumentFormat.OpenXml.Drawing;
@@ -390,9 +391,7 @@ internal static class ChartWriter
 
         chart.Append(BuildPlotArea(xlChart));
 
-        var legend = ChartFormatting.BuildLegend(xlChart.LegendInternal);
-        if (legend != null)
-            chart.Append(legend);
+        ChartLegendXml.Apply(chart, xlChart.LegendInternal);
 
         chart.Append(new C.PlotVisibleOnly { Val = true });
 

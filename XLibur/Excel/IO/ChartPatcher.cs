@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using XLibur.Excel.IO.Charts;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
 using Cx = DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 
@@ -54,7 +55,7 @@ internal static class ChartPatcher
             return;
 
         ChartFormatting.PatchTitle(chart, xlChart);
-        ChartFormatting.PatchLegend(chart, xlChart.LegendInternal);
+        ChartLegendXml.Apply(chart, xlChart.LegendInternal);
 
         var plotArea = chart.PlotArea;
         if (plotArea == null)
