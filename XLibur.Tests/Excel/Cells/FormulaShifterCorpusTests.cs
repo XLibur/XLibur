@@ -110,13 +110,13 @@ public class FormulaShifterCorpusTests
     /// </para>
     /// </remarks>
     [Test]
-    [Arguments(true, "='[file.xlsx]Sheet'!A1+B2", 1, 2, 3, "='[file.xlsx]Sheet'!A1+B5")]
-    [Arguments(true, "=SUM('[book.xlsx]Data'!A1:A20)+SUM(C10:C20)", 5, 9, -5,
-        "=SUM('[book.xlsx]Data'!A1:A20)+SUM(C5:C15)")]
-    [Arguments(true, "='[file.xlsx]Sheet'!A1+D7", 5, 9, -5, "='[file.xlsx]Sheet'!A1+#REF!")]
-    [Arguments(false, "='[file.xlsx]Sheet'!A1+B2", 1, 2, 3, "='[file.xlsx]Sheet'!A1+E2")]
-    [Arguments(false, "=SUM('[book.xlsx]Data'!A1:A20)+SUM(J10:L10)", 5, 9, -5,
-        "=SUM('[book.xlsx]Data'!A1:A20)+SUM(E10:G10)")]
+    [Arguments(true, "'[file.xlsx]Sheet'!A1+B2", 1, 2, 3, "'[file.xlsx]Sheet'!A1+B5")]
+    [Arguments(true, "SUM('[book.xlsx]Data'!A1:A20)+SUM(C10:C20)", 5, 9, -5,
+        "SUM('[book.xlsx]Data'!A1:A20)+SUM(C5:C15)")]
+    [Arguments(true, "'[file.xlsx]Sheet'!A1+D7", 5, 9, -5, "'[file.xlsx]Sheet'!A1+#REF!")]
+    [Arguments(false, "'[file.xlsx]Sheet'!A1+B2", 1, 2, 3, "'[file.xlsx]Sheet'!A1+E2")]
+    [Arguments(false, "SUM('[book.xlsx]Data'!A1:A20)+SUM(J10:L10)", 5, 9, -5,
+        "SUM('[book.xlsx]Data'!A1:A20)+SUM(E10:G10)")]
     public async Task An_external_reference_shifts_through_the_fallback(
         bool rowShift, string formula, int first, int last, int shift, string expected)
     {
