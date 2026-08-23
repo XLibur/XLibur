@@ -281,8 +281,7 @@ internal static class ChartWriter
         var plotArea = BuildExtendedPlotArea(plotAreaRegion, isSunburstOrTreemap);
 
         var cxChart = new Cx.Chart();
-        if (xlChart.Title != null)
-            cxChart.AppendChild(ChartFormatting.BuildExtendedTitle(xlChart.Title));
+        ChartTitleXml.ApplyExtended(cxChart, xlChart);
         cxChart.AppendChild(plotArea);
 
         var chartSpace = new Cx.ChartSpace();
@@ -382,12 +381,7 @@ internal static class ChartWriter
     {
         var chart = new C.Chart();
 
-        if (xlChart.Title != null)
-        {
-            chart.Title = new C.Title(
-                ChartFormatting.BuildTitleText(xlChart.Title),
-                new C.Overlay { Val = false });
-        }
+        ChartTitleXml.Apply(chart, xlChart);
 
         chart.Append(BuildPlotArea(xlChart));
 

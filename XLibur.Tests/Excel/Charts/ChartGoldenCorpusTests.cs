@@ -12,8 +12,17 @@ namespace XLibur.Tests.Excel.Charts;
 /// investigate, never noise to re-baseline without a written explanation.
 /// </summary>
 /// <remarks>
+/// <para>
 /// A missing fixture is written rather than asserted, so adding a case to <see cref="Fixtures"/> and
 /// running the test once is how the corpus is widened. A fixture that exists is only ever compared.
+/// </para>
+/// <para>
+/// One fixture has been re-baselined since it was first captured. Spec 22 task 2 gave
+/// <c>bar-titled</c> a <c>&lt;c:autoTitleDeleted val="0"/&gt;</c> it did not have before: unifying
+/// the build and patch paths of the title means a new chart now keeps that element in step the way
+/// a loaded chart always did. The element is what Excel itself writes and repeats the default, so
+/// the chart renders identically; the divergence it removes is the whole point of the task.
+/// </para>
 /// </remarks>
 public class ChartGoldenCorpusTests
 {

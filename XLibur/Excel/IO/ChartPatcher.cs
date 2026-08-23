@@ -54,7 +54,7 @@ internal static class ChartPatcher
         if (chart == null)
             return;
 
-        ChartFormatting.PatchTitle(chart, xlChart);
+        ChartTitleXml.Apply(chart, xlChart);
         ChartLegendXml.Apply(chart, xlChart.LegendInternal);
 
         var plotArea = chart.PlotArea;
@@ -187,7 +187,7 @@ internal static class ChartPatcher
         if (chart == null)
             return;
 
-        ChartFormatting.PatchExtendedTitle(chart, xlChart);
+        ChartTitleXml.ApplyExtended(chart, xlChart);
     }
 
     /// <summary>
