@@ -67,9 +67,12 @@ internal static partial class XLCellFormulaShifter
         // plausible-looking result from the other implementation instead of surfacing.
         catch (ParsingException)
         {
-            // The block path degrades to the regex implementation here. There is no batch regex
-            // shifter, so fall back to applying the runs one at a time, which is what the caller would
-            // have done anyway. Correctness first; this is the rare formula, not the common one.
+            // Not ShiftUnparseable: there is no batch regex shifter, so the map is decomposed into runs
+            // and the single-block fallback is applied once per run. That is a different operation, and
+            // folding the two together would lose the decomposition.
+            //
+            // Applying the runs one at a time is what the caller would have done anyway. Correctness
+            // first; this is the rare formula, not the common one.
             var shiftedByRuns = formulaA1;
             foreach (var (firstRow, lastRow) in map.GetRunsBottomUp())
             {
@@ -124,9 +127,7 @@ internal static partial class XLCellFormulaShifter
         // plausible-looking result from the other implementation instead of surfacing.
         catch (ParsingException)
         {
-            return axis == ShiftAxis.Row
-                ? ShiftFormulaRowsLegacy(formulaA1, worksheetInAction, shiftedRange, shift)
-                : ShiftFormulaColumnsLegacy(formulaA1, worksheetInAction, shiftedRange, shift);
+            return ShiftUnparseable(formulaA1, worksheetInAction, shiftedRange, shift, axis);
         }
 
         // The common case by a wide margin: the shift cannot reach anything this formula refers to.
@@ -138,7 +139,28 @@ internal static partial class XLCellFormulaShifter
         return wasProtected ? shifted.Replace(FormulaTransformation.ColonPlaceholder, ':') : shifted;
     }
 
-    private enum ShiftAxis
+    /// <summary>
+    /// Shifts a formula the parser cannot read, using the regex implementation in
+    /// <c>XLCellFormulaShifter.Legacy.cs</c>.
+    /// </summary>
+    /// <remarks>
+    /// This is the other side of the shifter's one seam. It is reached only for formulas
+    /// <see cref="ClosedXML.Parser"/> rejects — external workbook references such as
+    /// <c>'[file.xlsx]Sheet'!A1</c>. The two implementations disagree on 9 of the 2,072 rows in
+    /// <c>FormulaShifterCorpus.tsv</c>, all of them the tail-deletion clamp; the corpus pins both
+    /// columns so neither can drift.
+    /// <para>
+    /// Internal rather than private so a test can exercise this adapter directly, instead of having to
+    /// provoke a parse failure to reach it.
+    /// </para>
+    /// </remarks>
+    internal static string ShiftUnparseable(string formulaA1, XLWorksheet worksheetInAction,
+        XLRange shiftedRange, int shift, ShiftAxis axis)
+        => axis == ShiftAxis.Row
+            ? ShiftFormulaRowsLegacy(formulaA1, worksheetInAction, shiftedRange, shift)
+            : ShiftFormulaColumnsLegacy(formulaA1, worksheetInAction, shiftedRange, shift);
+
+    internal enum ShiftAxis
     {
         Row,
         Column,
