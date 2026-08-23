@@ -62,7 +62,10 @@ internal static partial class XLCellFormulaShifter
         {
             FormulaParser<object?, object?, ShiftPlan>.CellFormulaA1(parseable, plan, ShiftCollector.Instance);
         }
-        catch (Exception)
+        // ParsingException specifically, not Exception: the fallback exists for formulas the parser
+        // cannot read, and nothing else. A bug in ShiftPlan used to be caught here and answered with a
+        // plausible-looking result from the other implementation instead of surfacing.
+        catch (ParsingException)
         {
             // The block path degrades to the regex implementation here. There is no batch regex
             // shifter, so fall back to applying the runs one at a time, which is what the caller would
@@ -116,7 +119,10 @@ internal static partial class XLCellFormulaShifter
         {
             FormulaParser<object?, object?, ShiftPlan>.CellFormulaA1(parseable, plan, ShiftCollector.Instance);
         }
-        catch (Exception)
+        // ParsingException specifically, not Exception: the fallback exists for formulas the parser
+        // cannot read, and nothing else. A bug in ShiftPlan used to be caught here and answered with a
+        // plausible-looking result from the other implementation instead of surfacing.
+        catch (ParsingException)
         {
             return axis == ShiftAxis.Row
                 ? ShiftFormulaRowsLegacy(formulaA1, worksheetInAction, shiftedRange, shift)
