@@ -2,14 +2,14 @@ using System;
 using DocumentFormat.OpenXml;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
 
-namespace XLibur.Excel.IO;
+namespace XLibur.Excel.IO.Charts;
 
 /// <summary>
 /// Schema child ordering for chart elements. The OpenXML SDK does not order the children of an
-/// element that is built by hand, so every insertion the concept modules under
-/// <c>XLibur.Excel.IO.Charts</c> make goes through here.
+/// element that is built by hand, so every insertion the concept modules in this namespace make
+/// goes through here.
 /// </summary>
-internal static class ChartFormatting
+internal static class ChartElementOrder
 {
     /// <summary>
     /// The schema order of the children of <c>c:ser</c> the concept modules write. Only the elements

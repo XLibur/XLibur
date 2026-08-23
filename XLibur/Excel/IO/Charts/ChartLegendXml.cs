@@ -64,7 +64,7 @@ internal static class ChartLegendXml
             element = new C.Legend();
             element.Append(new C.LegendPosition { Val = MapPosition(legend.Position) });
             element.Append(new C.Overlay { Val = legend.Overlay });
-            ChartFormatting.InsertOrdered(chart, element, ChartFormatting.ChartChildOrder);
+            ChartElementOrder.InsertOrdered(chart, element, ChartElementOrder.ChartChildOrder);
             return;
         }
 
@@ -72,17 +72,17 @@ internal static class ChartLegendXml
         {
             foreach (var existing in element.Elements<C.LegendPosition>().ToList())
                 existing.Remove();
-            ChartFormatting.InsertOrdered(element,
+            ChartElementOrder.InsertOrdered(element,
                 new C.LegendPosition { Val = MapPosition(legend.Position) },
-                ChartFormatting.LegendChildOrder);
+                ChartElementOrder.LegendChildOrder);
         }
 
         if ((assigned & XLChartLegendFormat.Overlay) != 0)
         {
             foreach (var existing in element.Elements<C.Overlay>().ToList())
                 existing.Remove();
-            ChartFormatting.InsertOrdered(element, new C.Overlay { Val = legend.Overlay },
-                ChartFormatting.LegendChildOrder);
+            ChartElementOrder.InsertOrdered(element, new C.Overlay { Val = legend.Overlay },
+                ChartElementOrder.LegendChildOrder);
         }
     }
 

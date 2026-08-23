@@ -49,7 +49,7 @@ internal static class ChartTitleXml
         if (title == null)
         {
             title = new C.Title(LiteralText(xlChart.Title), new C.Overlay { Val = false });
-            ChartFormatting.InsertOrdered(chart, title, ChartFormatting.ChartChildOrder);
+            ChartElementOrder.InsertOrdered(chart, title, ChartElementOrder.ChartChildOrder);
         }
         else
         {
@@ -108,8 +108,8 @@ internal static class ChartTitleXml
             return;
         }
 
-        ChartFormatting.InsertOrdered(chart, new C.AutoTitleDeleted { Val = deleted },
-            ChartFormatting.ChartChildOrder);
+        ChartElementOrder.InsertOrdered(chart, new C.AutoTitleDeleted { Val = deleted },
+            ChartElementOrder.ChartChildOrder);
     }
 
     /// <summary>
@@ -129,7 +129,7 @@ internal static class ChartTitleXml
         // Either the title carried no text at all, or its text came from a cell through a
         // c:strRef — which a literal title replaces rather than edits.
         chartText?.Remove();
-        ChartFormatting.InsertOrdered(title, LiteralText(text), ChartFormatting.TitleChildOrder);
+        ChartElementOrder.InsertOrdered(title, LiteralText(text), ChartElementOrder.TitleChildOrder);
     }
 
     /// <summary>

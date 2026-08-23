@@ -82,7 +82,7 @@ internal static class ChartDataLabelsXml
     {
         if (parent.LocalName == "ser")
         {
-            ChartFormatting.InsertOrdered(parent, element, ChartFormatting.SeriesChildOrder);
+            ChartElementOrder.InsertOrdered(parent, element, ChartElementOrder.SeriesChildOrder);
             return;
         }
 
@@ -143,9 +143,9 @@ internal static class ChartDataLabelsXml
 
             if (labels.NumberFormat != null)
             {
-                ChartFormatting.InsertOrdered(dataLabels,
+                ChartElementOrder.InsertOrdered(dataLabels,
                     new C.NumberingFormat { FormatCode = labels.NumberFormat, SourceLinked = false },
-                    ChartFormatting.DataLabelsChildOrder);
+                    ChartElementOrder.DataLabelsChildOrder);
             }
         }
 
@@ -156,8 +156,8 @@ internal static class ChartDataLabelsXml
 
             var position = MapPosition(labels.EffectivePosition(chartType));
             if (position != null)
-                ChartFormatting.InsertOrdered(dataLabels, new C.DataLabelPosition { Val = position },
-                    ChartFormatting.DataLabelsChildOrder);
+                ChartElementOrder.InsertOrdered(dataLabels, new C.DataLabelPosition { Val = position },
+                    ChartElementOrder.DataLabelsChildOrder);
         }
 
         if ((assigned & XLDataLabelsFormat.ShowValue) != 0)
@@ -183,7 +183,7 @@ internal static class ChartDataLabelsXml
 
         var flag = new TFlag();
         flag.SetAttribute(new OpenXmlAttribute("val", string.Empty, value ? "1" : "0"));
-        ChartFormatting.InsertOrdered(dataLabels, flag, ChartFormatting.DataLabelsChildOrder);
+        ChartElementOrder.InsertOrdered(dataLabels, flag, ChartElementOrder.DataLabelsChildOrder);
     }
 
     private static XLDataLabelPosition ReadPosition(C.DataLabels dataLabels)

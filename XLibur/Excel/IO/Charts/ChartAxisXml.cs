@@ -68,8 +68,8 @@ internal static class ChartAxisXml
         {
             foreach (var existing in axis.Elements<C.Delete>().ToList())
                 existing.Remove();
-            ChartFormatting.InsertOrdered(axis, new C.Delete { Val = !model.Visible },
-                ChartFormatting.AxisChildOrder);
+            ChartElementOrder.InsertOrdered(axis, new C.Delete { Val = !model.Visible },
+                ChartElementOrder.AxisChildOrder);
         }
 
         if ((assigned & XLChartAxisFormat.MajorGridlines) != 0)
@@ -77,8 +77,8 @@ internal static class ChartAxisXml
             foreach (var existing in axis.Elements<C.MajorGridlines>().ToList())
                 existing.Remove();
             if (model.MajorGridlines)
-                ChartFormatting.InsertOrdered(axis, new C.MajorGridlines(),
-                    ChartFormatting.AxisChildOrder);
+                ChartElementOrder.InsertOrdered(axis, new C.MajorGridlines(),
+                    ChartElementOrder.AxisChildOrder);
         }
 
         if ((assigned & XLChartAxisFormat.Title) != 0)
@@ -86,8 +86,8 @@ internal static class ChartAxisXml
             foreach (var existing in axis.Elements<C.Title>().ToList())
                 existing.Remove();
             if (model.Title != null)
-                ChartFormatting.InsertOrdered(axis, TitleElement(model.Title),
-                    ChartFormatting.AxisChildOrder);
+                ChartElementOrder.InsertOrdered(axis, TitleElement(model.Title),
+                    ChartElementOrder.AxisChildOrder);
         }
 
         if ((assigned & XLChartAxisFormat.NumberFormat) != 0)
@@ -96,9 +96,9 @@ internal static class ChartAxisXml
                 existing.Remove();
             if (model.NumberFormat != null)
             {
-                ChartFormatting.InsertOrdered(axis,
+                ChartElementOrder.InsertOrdered(axis,
                     new C.NumberingFormat { FormatCode = model.NumberFormat, SourceLinked = false },
-                    ChartFormatting.AxisChildOrder);
+                    ChartElementOrder.AxisChildOrder);
             }
         }
 
@@ -124,7 +124,7 @@ internal static class ChartAxisXml
         if (scaling == null)
         {
             scaling = new C.Scaling();
-            ChartFormatting.InsertOrdered(axis, scaling, ChartFormatting.AxisChildOrder);
+            ChartElementOrder.InsertOrdered(axis, scaling, ChartElementOrder.AxisChildOrder);
         }
 
         if ((assigned & (XLChartAxisFormat.LogScale | XLChartAxisFormat.LogBase)) != 0)
@@ -133,20 +133,20 @@ internal static class ChartAxisXml
                 existing.Remove();
             // c:logBase belongs to a value axis; Excel rejects it on a category axis.
             if (model.LogScale && model.IsValueAxis)
-                ChartFormatting.InsertOrdered(scaling, new C.LogBase { Val = model.LogBase },
-                    ChartFormatting.ScalingChildOrder);
+                ChartElementOrder.InsertOrdered(scaling, new C.LogBase { Val = model.LogBase },
+                    ChartElementOrder.ScalingChildOrder);
         }
 
         if ((assigned & XLChartAxisFormat.Orientation) != 0)
         {
             foreach (var existing in scaling.Elements<C.Orientation>().ToList())
                 existing.Remove();
-            ChartFormatting.InsertOrdered(scaling, new C.Orientation
+            ChartElementOrder.InsertOrdered(scaling, new C.Orientation
             {
                 Val = model.Orientation == XLAxisOrientation.MaxMin
                     ? C.OrientationValues.MaxMin
                     : C.OrientationValues.MinMax
-            }, ChartFormatting.ScalingChildOrder);
+            }, ChartElementOrder.ScalingChildOrder);
         }
 
         if ((assigned & XLChartAxisFormat.Max) != 0)
@@ -154,8 +154,8 @@ internal static class ChartAxisXml
             foreach (var existing in scaling.Elements<C.MaxAxisValue>().ToList())
                 existing.Remove();
             if (model.Max != null)
-                ChartFormatting.InsertOrdered(scaling, new C.MaxAxisValue { Val = model.Max.Value },
-                    ChartFormatting.ScalingChildOrder);
+                ChartElementOrder.InsertOrdered(scaling, new C.MaxAxisValue { Val = model.Max.Value },
+                    ChartElementOrder.ScalingChildOrder);
         }
 
         if ((assigned & XLChartAxisFormat.Min) != 0)
@@ -163,8 +163,8 @@ internal static class ChartAxisXml
             foreach (var existing in scaling.Elements<C.MinAxisValue>().ToList())
                 existing.Remove();
             if (model.Min != null)
-                ChartFormatting.InsertOrdered(scaling, new C.MinAxisValue { Val = model.Min.Value },
-                    ChartFormatting.ScalingChildOrder);
+                ChartElementOrder.InsertOrdered(scaling, new C.MinAxisValue { Val = model.Min.Value },
+                    ChartElementOrder.ScalingChildOrder);
         }
     }
 #pragma warning restore S3776
@@ -177,8 +177,8 @@ internal static class ChartAxisXml
             foreach (var existing in axis.Elements<C.MajorUnit>().ToList())
                 existing.Remove();
             if (model.MajorUnit != null)
-                ChartFormatting.InsertOrdered(axis, new C.MajorUnit { Val = model.MajorUnit.Value },
-                    ChartFormatting.AxisChildOrder);
+                ChartElementOrder.InsertOrdered(axis, new C.MajorUnit { Val = model.MajorUnit.Value },
+                    ChartElementOrder.AxisChildOrder);
         }
 
         if ((assigned & XLChartAxisFormat.MinorUnit) != 0)
@@ -186,8 +186,8 @@ internal static class ChartAxisXml
             foreach (var existing in axis.Elements<C.MinorUnit>().ToList())
                 existing.Remove();
             if (model.MinorUnit != null)
-                ChartFormatting.InsertOrdered(axis, new C.MinorUnit { Val = model.MinorUnit.Value },
-                    ChartFormatting.AxisChildOrder);
+                ChartElementOrder.InsertOrdered(axis, new C.MinorUnit { Val = model.MinorUnit.Value },
+                    ChartElementOrder.AxisChildOrder);
         }
     }
 
