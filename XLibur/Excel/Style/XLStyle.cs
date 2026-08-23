@@ -38,11 +38,41 @@ internal sealed class XLStyle : IXLStyle
 
     internal XLStyleValue Value { get; private set; }
 
+    /// <remarks>
+    /// Reads through <see cref="_batchKey"/> while a <see cref="Batch"/> is accumulating, so every
+    /// reader of the key - the component facades, <c>RestoreOutsideBorder</c>, <see cref="Equals(IXLStyle)"/> -
+    /// sees what has been assigned so far in the batch rather than the pre-batch value. The setter
+    /// is only reachable outside a batch: <see cref="Modify"/> writes the pending key directly.
+    /// </remarks>
     internal XLStyleKey Key
     {
-        get => Value.Key;
+        get => _batchKey ?? Value.Key;
         private set => Value = XLStyleValue.FromKey(ref value);
     }
+
+    /// <summary>
+    /// Non-null while <see cref="Batch"/> is accumulating. The component fast paths write their new
+    /// component key into it instead of resolving a style value and pushing it to the cell, so a
+    /// batch of N property assignments costs one resolution rather than N.
+    /// </summary>
+    private XLStyleKey? _batchKey;
+
+    /// <summary>True while a batch is accumulating.</summary>
+    internal bool IsBatching => _batchKey.HasValue;
+
+    /// <summary>
+    /// The key as the component facades must see it. While batching this is the pending key, so a
+    /// facade's getter reports what has been assigned so far in the batch rather than the pre-batch
+    /// value.
+    /// </summary>
+    internal XLStyleKey CurrentKey => Key;
+
+    internal XLBorderKey CurrentBorderKey => CurrentKey.Border;
+    internal XLFontKey CurrentFontKey => CurrentKey.Font;
+    internal XLFillKey CurrentFillKey => CurrentKey.Fill;
+    internal XLAlignmentKey CurrentAlignmentKey => CurrentKey.Alignment;
+    internal XLNumberFormatKey CurrentNumberFormatKey => CurrentKey.NumberFormat;
+    internal XLProtectionKey CurrentProtectionKey => CurrentKey.Protection;
 
     #endregion properties
 
@@ -75,6 +105,12 @@ internal sealed class XLStyle : IXLStyle
 
     internal void Modify(Func<XLStyleKey, XLStyleKey> modification)
     {
+        if (_batchKey.HasValue)
+        {
+            _batchKey = modification(_batchKey.Value);
+            return;
+        }
+
         Key = modification(Key);
 
         if (_container != null)
@@ -87,9 +123,20 @@ internal sealed class XLStyle : IXLStyle
     /// Fast-path style modification for XLCell containers. Only called when <see cref="IsCellContainer"/> is true.
     /// Bypasses closure allocation by directly computing the new style key.
     /// Uses per-base-style transition cache to skip full key hash + repository lookup on repeat transitions.
+    /// <para>
+    /// While a <see cref="Batch"/> is accumulating the new component key goes into the pending key
+    /// instead: no repository lookup, no transition-cache probe, no style-slice write. The batch
+    /// resolves once, at flush.
+    /// </para>
     /// </summary>
     internal void ModifyFont(XLFontKey newFontKey)
     {
+        if (_batchKey.HasValue)
+        {
+            _batchKey = _batchKey.Value with { Font = newFontKey };
+            return;
+        }
+
         var transitionHash = (newFontKey.GetHashCode() * 397) ^ 0;
         Value = Value.GetTransition(transitionHash, in newFontKey)
                 ?? Value.StoreTransition(transitionHash, in newFontKey, ResolveFont(newFontKey));
@@ -110,6 +157,12 @@ internal sealed class XLStyle : IXLStyle
         // resolve to the same style anyway.
         newBorderKey = newBorderKey.Normalize();
 
+        if (_batchKey.HasValue)
+        {
+            _batchKey = _batchKey.Value with { Border = newBorderKey };
+            return;
+        }
+
         // Tag the hash so the same component key applied to different components lands in a
         // different slot. This only spreads the entries out; correctness comes from the key
         // comparison inside GetTransition, which also rejects a cross-component hash collision.
@@ -129,6 +182,12 @@ internal sealed class XLStyle : IXLStyle
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyFill(XLFillKey newFillKey)
     {
+        if (_batchKey.HasValue)
+        {
+            _batchKey = _batchKey.Value with { Fill = newFillKey };
+            return;
+        }
+
         var transitionHash = (newFillKey.GetHashCode() * 397) ^ 2;
         Value = Value.GetTransition(transitionHash, in newFillKey)
                 ?? Value.StoreTransition(transitionHash, in newFillKey, ResolveFill(newFillKey));
@@ -145,6 +204,12 @@ internal sealed class XLStyle : IXLStyle
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyAlignment(XLAlignmentKey newAlignmentKey)
     {
+        if (_batchKey.HasValue)
+        {
+            _batchKey = _batchKey.Value with { Alignment = newAlignmentKey };
+            return;
+        }
+
         var transitionHash = (newAlignmentKey.GetHashCode() * 397) ^ 3;
         Value = Value.GetTransition(transitionHash, in newAlignmentKey)
                 ?? Value.StoreTransition(transitionHash, in newAlignmentKey, ResolveAlignment(newAlignmentKey));
@@ -161,6 +226,12 @@ internal sealed class XLStyle : IXLStyle
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyNumberFormat(XLNumberFormatKey newNumberFormatKey)
     {
+        if (_batchKey.HasValue)
+        {
+            _batchKey = _batchKey.Value with { NumberFormat = newNumberFormatKey };
+            return;
+        }
+
         var transitionHash = (newNumberFormatKey.GetHashCode() * 397) ^ 4;
         Value = Value.GetTransition(transitionHash, in newNumberFormatKey)
                 ?? Value.StoreTransition(transitionHash, in newNumberFormatKey, ResolveNumberFormat(newNumberFormatKey));
@@ -177,6 +248,12 @@ internal sealed class XLStyle : IXLStyle
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyProtection(XLProtectionKey newProtectionKey)
     {
+        if (_batchKey.HasValue)
+        {
+            _batchKey = _batchKey.Value with { Protection = newProtectionKey };
+            return;
+        }
+
         var transitionHash = (newProtectionKey.GetHashCode() * 397) ^ 5;
         Value = Value.GetTransition(transitionHash, in newProtectionKey)
                 ?? Value.StoreTransition(transitionHash, in newProtectionKey, ResolveProtection(newProtectionKey));
