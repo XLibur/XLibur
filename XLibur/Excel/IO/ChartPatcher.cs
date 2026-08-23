@@ -95,10 +95,10 @@ internal static class ChartPatcher
         var primaryGroup = ChartPlotAreaScanner.PrimaryGroup(plotArea, groups, primaryKind);
         var primaryValueAxisId = primaryGroup.ValueAxisId;
 
-        ChartFormatting.PatchAxis(
+        ChartAxisXml.Apply(
             ChartPlotAreaScanner.FindAxis(plotArea, primaryGroup.CategoryAxisId),
             xlChart.CategoryAxisInternal);
-        ChartFormatting.PatchAxis(
+        ChartAxisXml.Apply(
             ChartPlotAreaScanner.FindAxis(plotArea, primaryValueAxisId),
             xlChart.ValueAxisInternal);
 
@@ -106,7 +106,7 @@ internal static class ChartPatcher
             g.ValueAxisId != null && primaryValueAxisId != null && g.ValueAxisId != primaryValueAxisId);
         if (secondaryGroup != null)
         {
-            ChartFormatting.PatchAxis(
+            ChartAxisXml.Apply(
                 ChartPlotAreaScanner.FindAxis(plotArea, secondaryGroup.ValueAxisId),
                 xlChart.SecondaryValueAxisInternal);
         }

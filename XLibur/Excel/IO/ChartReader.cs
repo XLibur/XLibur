@@ -177,10 +177,10 @@ internal static class ChartReader
         C.PlotArea plotArea, List<XLChartGroup> groups, XLChartGroup primaryGroup,
         uint? primaryValueAxisId, XLChart xlChart)
     {
-        ChartFormatting.ReadAxis(
+        ChartAxisXml.Read(
             ChartPlotAreaScanner.FindAxis(plotArea, primaryGroup.CategoryAxisId),
             xlChart.CategoryAxisInternal);
-        ChartFormatting.ReadAxis(
+        ChartAxisXml.Read(
             ChartPlotAreaScanner.FindAxis(plotArea, primaryValueAxisId),
             xlChart.ValueAxisInternal);
 
@@ -188,7 +188,7 @@ internal static class ChartReader
             g.ValueAxisId != null && primaryValueAxisId != null && g.ValueAxisId != primaryValueAxisId);
         if (secondaryGroup != null)
         {
-            ChartFormatting.ReadAxis(
+            ChartAxisXml.Read(
                 ChartPlotAreaScanner.FindAxis(plotArea, secondaryGroup.ValueAxisId),
                 xlChart.SecondaryValueAxisInternal);
         }

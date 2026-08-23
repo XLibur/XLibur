@@ -542,21 +542,24 @@ internal static class ChartWriter
     /// of a secondary group, which has no public counterpart.
     /// </param>
     /// <param name="deleted">Whether the axis is hidden regardless of what the model says.</param>
+    /// <remarks>
+    /// Only the children <c>CT_CatAx</c> requires are appended here. Everything optional is written by
+    /// <see cref="ChartAxisXml.Apply"/>, which places each child by schema order, so a new axis and a
+    /// loaded one go through the same code.
+    /// </remarks>
     private static C.CategoryAxis BuildCategoryAxis(
         uint axisId, uint crossingAxisId, XLChartAxis? model, bool deleted = false)
     {
         var axis = new C.CategoryAxis();
         axis.Append(new C.AxisId { Val = axisId });
-        axis.Append(model == null
-            ? new C.Scaling(new C.Orientation { Val = C.OrientationValues.MinMax })
-            : ChartFormatting.BuildScaling(model));
+        axis.Append(new C.Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }));
         axis.Append(new C.Delete { Val = deleted || model is { Visible: false } });
         axis.Append(new C.AxisPosition { Val = C.AxisPositionValues.Bottom });
+        axis.Append(new C.CrossingAxis { Val = crossingAxisId });
 
         if (model != null)
-            ChartFormatting.AppendAxisBody(axis, model);
+            ChartAxisXml.Apply(axis, model);
 
-        axis.Append(new C.CrossingAxis { Val = crossingAxisId });
         return axis;
     }
 
@@ -566,17 +569,14 @@ internal static class ChartWriter
     {
         var axis = new C.ValueAxis();
         axis.Append(new C.AxisId { Val = axisId });
-        axis.Append(ChartFormatting.BuildScaling(model));
+        axis.Append(new C.Scaling(new C.Orientation { Val = C.OrientationValues.MinMax }));
         axis.Append(new C.Delete { Val = !model.Visible });
         axis.Append(new C.AxisPosition { Val = position });
-
-        ChartFormatting.AppendAxisBody(axis, model);
-
         axis.Append(new C.CrossingAxis { Val = crossingAxisId });
         if (crossesMaximum)
             axis.Append(new C.Crosses { Val = C.CrossesValues.Maximum });
 
-        ChartFormatting.AppendAxisUnits(axis, model);
+        ChartAxisXml.Apply(axis, model);
         return axis;
     }
 

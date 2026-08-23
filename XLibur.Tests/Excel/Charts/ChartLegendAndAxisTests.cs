@@ -536,6 +536,67 @@ public class ChartLegendAndAxisTests
         await Assert.That(LegendPositionIn(fromNew)).IsNotNull();
     }
 
+    /// <summary>
+    /// The axis properties assigned on a new chart and the same properties assigned on a reloaded one
+    /// must reach the same XML. Before spec 22 the two travelled through <c>BuildScaling</c> /
+    /// <c>AppendAxisBody</c> / <c>AppendAxisUnits</c> and <c>PatchAxis</c> independently.
+    /// </summary>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task An_axis_agrees_between_a_new_chart_and_a_reloaded_one(bool gridlines)
+    {
+        var fromNew = ChartGoldenCorpus.CaptureChartPartXml(ws =>
+        {
+            var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+            chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            AssignAxis(chart.ValueAxis, gridlines);
+        });
+
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = AddDataSheet(wb);
+            var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+            chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var reloaded = new XLWorkbook(ms);
+        AssignAxis(reloaded.Worksheet("Data").Charts.First().ValueAxis, gridlines);
+
+        using var patched = new MemoryStream();
+        reloaded.SaveAs(patched, validate: true);
+        var fromLoaded = ChartGoldenCorpus.FirstChartPartXml(patched);
+
+        await Assert.That(ValueAxisIn(fromLoaded)).IsEqualTo(ValueAxisIn(fromNew))
+            .Because("A new value axis and a patched one are the same element built from the same model.");
+    }
+
+    private static void AssignAxis(IXLChartAxis axis, bool gridlines)
+    {
+        axis.MajorGridlines = gridlines;
+        axis.Title = "Units";
+        axis.NumberFormat = "#,##0";
+        axis.Min = 0;
+        axis.Max = 400;
+        axis.MajorUnit = 100;
+        axis.MinorUnit = 20;
+        axis.Orientation = XLAxisOrientation.MaxMin;
+    }
+
+    /// <summary>The <c>c:valAx</c> of a chart part, as XML, with the axis identifiers stripped.</summary>
+    private static string ValueAxisIn(string chartPartXml)
+    {
+        var doc = System.Xml.Linq.XDocument.Parse(chartPartXml);
+        System.Xml.Linq.XNamespace c = "http://schemas.openxmlformats.org/drawingml/2006/chart";
+        var axis = doc.Descendants(c + "valAx").Single();
+        foreach (var id in axis.Descendants(c + "axId").Concat(axis.Descendants(c + "crossAx")).ToList())
+            id.Remove();
+        return axis.ToString();
+    }
+
     private static string? LegendPositionIn(string chartPartXml)
     {
         var doc = System.Xml.Linq.XDocument.Parse(chartPartXml);
