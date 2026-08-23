@@ -28,7 +28,11 @@ internal sealed class XLProtection : IXLProtection
     /// <inheritdoc cref="XLFont.Key"/>
     internal XLProtectionKey Key
     {
-        get => _style.IsBatching ? _style.CurrentProtectionKey : _value.Key;
+        get
+        {
+            var pending = _style.Pending;
+            return pending is null ? _value.Key : pending.Protection;
+        }
         private set => _value = XLProtectionValue.FromKey(ref value);
     }
 
@@ -66,9 +70,10 @@ internal sealed class XLProtection : IXLProtection
         get => Key.Locked;
         set
         {
-            if (Key.Locked == value) return;
+            var key = Key;
+            if (key.Locked == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { Locked = value });
+                SetKey(key with { Locked = value });
             else
                 Modify(k => k with { Locked = value });
         }
@@ -79,9 +84,10 @@ internal sealed class XLProtection : IXLProtection
         get => Key.Hidden;
         set
         {
-            if (Key.Hidden == value) return;
+            var key = Key;
+            if (key.Hidden == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { Hidden = value });
+                SetKey(key with { Hidden = value });
             else
                 Modify(k => k with { Hidden = value });
         }

@@ -94,7 +94,14 @@ internal sealed class XLBorder : IXLBorder
     /// null style), and those must keep reading the key they were given.
     /// </para>
     /// </remarks>
-    internal XLBorderKey Key => _style.IsBatching ? _style.CurrentBorderKey : _value.Key;
+    internal XLBorderKey Key
+    {
+        get
+        {
+            var pending = _style.Pending;
+            return pending is null ? _value.Key : pending.Border;
+        }
+    }
 
     #region Constructors
 
@@ -375,9 +382,10 @@ internal sealed class XLBorder : IXLBorder
         get => Key.DiagonalUp;
         set
         {
-            if (Key.DiagonalUp == value) return;
+            var key = Key;
+            if (key.DiagonalUp == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { DiagonalUp = value });
+                SetKey(key with { DiagonalUp = value });
             else
                 Modify(k => k with { DiagonalUp = value });
         }
@@ -388,9 +396,10 @@ internal sealed class XLBorder : IXLBorder
         get => Key.DiagonalDown;
         set
         {
-            if (Key.DiagonalDown == value) return;
+            var key = Key;
+            if (key.DiagonalDown == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { DiagonalDown = value });
+                SetKey(key with { DiagonalDown = value });
             else
                 Modify(k => k with { DiagonalDown = value });
         }

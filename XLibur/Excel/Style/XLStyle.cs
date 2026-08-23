@@ -42,8 +42,8 @@ internal sealed class XLStyle : IXLStyle
     /// Reads through <see cref="_pending"/> while a <see cref="Batch"/> is accumulating, so every
     /// reader of the whole key - <c>RestoreOutsideBorder</c>, <see cref="Equals(IXLStyle)"/> - sees
     /// what has been assigned so far in the batch rather than the pre-batch value. Assembling the
-    /// key costs six component hashes, so the component facades read their own slice through
-    /// <see cref="CurrentFontKey"/> and its siblings instead of coming through here. The setter is
+    /// key costs six component hashes, so the component facades read their own slice off
+    /// <see cref="Pending"/> instead of coming through here. The setter is
     /// only reachable outside a batch: <see cref="Modify"/> writes the pending components directly.
     /// </remarks>
     internal XLStyleKey Key
@@ -62,12 +62,15 @@ internal sealed class XLStyle : IXLStyle
     /// <summary>True while a batch is accumulating.</summary>
     internal bool IsBatching => _pending is not null;
 
-    internal XLBorderKey CurrentBorderKey => _pending is null ? Value.Border.Key : _pending.Border;
-    internal XLFontKey CurrentFontKey => _pending is null ? Value.Font.Key : _pending.Font;
-    internal XLFillKey CurrentFillKey => _pending is null ? Value.Fill.Key : _pending.Fill;
-    internal XLAlignmentKey CurrentAlignmentKey => _pending is null ? Value.Alignment.Key : _pending.Alignment;
-    internal XLNumberFormatKey CurrentNumberFormatKey => _pending is null ? Value.NumberFormat.Key : _pending.NumberFormat;
-    internal XLProtectionKey CurrentProtectionKey => _pending is null ? Value.Protection.Key : _pending.Protection;
+    /// <summary>
+    /// The accumulating batch's pending components, or <c>null</c> outside a batch.
+    /// </summary>
+    /// <remarks>
+    /// Handed to the component facades directly so their <c>Key</c> getter - which every property
+    /// setter reads - costs one field read and one null test rather than a call to
+    /// <see cref="IsBatching"/> followed by a second null test behind it.
+    /// </remarks>
+    internal PendingKey? Pending => _pending;
 
     #endregion properties
 
@@ -500,7 +503,7 @@ internal sealed class XLStyle : IXLStyle
     /// batch that the object graph it replaced did not pay.
     /// </para>
     /// </remarks>
-    private sealed class PendingKey
+    internal sealed class PendingKey
     {
         /// <remarks>
         /// One deep, and empty while its instance is out on loan. A batch nested inside another

@@ -28,7 +28,11 @@ internal sealed class XLNumberFormat : IXLNumberFormat
     /// <inheritdoc cref="XLFont.Key"/>
     internal XLNumberFormatKey Key
     {
-        get => _style.IsBatching ? _style.CurrentNumberFormatKey : _value.Key;
+        get
+        {
+            var pending = _style.Pending;
+            return pending is null ? _value.Key : pending.NumberFormat;
+        }
         private set => _value = XLNumberFormatValue.FromKey(ref value);
     }
 

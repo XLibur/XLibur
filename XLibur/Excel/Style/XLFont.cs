@@ -63,7 +63,11 @@ internal sealed class XLFont : IXLFont
     /// </remarks>
     internal XLFontKey Key
     {
-        get => _style.IsBatching ? _style.CurrentFontKey : _value.Key;
+        get
+        {
+            var pending = _style.Pending;
+            return pending is null ? _value.Key : pending.Font;
+        }
         private set => _value = XLFontValue.FromKey(ref value);
     }
 
@@ -154,9 +158,10 @@ internal sealed class XLFont : IXLFont
         get => Key.Bold;
         set
         {
-            if (Key.Bold == value) return;
+            var key = Key;
+            if (key.Bold == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { Bold = value });
+                SetKey(key with { Bold = value });
             else
                 Modify(k => k with { Bold = value });
         }
@@ -167,9 +172,10 @@ internal sealed class XLFont : IXLFont
         get => Key.Italic;
         set
         {
-            if (Key.Italic == value) return;
+            var key = Key;
+            if (key.Italic == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { Italic = value });
+                SetKey(key with { Italic = value });
             else
                 Modify(k => k with { Italic = value });
         }
@@ -180,9 +186,10 @@ internal sealed class XLFont : IXLFont
         get => Key.Underline;
         set
         {
-            if (Key.Underline == value) return;
+            var key = Key;
+            if (key.Underline == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { Underline = value });
+                SetKey(key with { Underline = value });
             else
                 Modify(k => k with { Underline = value });
         }
@@ -193,9 +200,10 @@ internal sealed class XLFont : IXLFont
         get => Key.Strikethrough;
         set
         {
-            if (Key.Strikethrough == value) return;
+            var key = Key;
+            if (key.Strikethrough == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { Strikethrough = value });
+                SetKey(key with { Strikethrough = value });
             else
                 Modify(k => k with { Strikethrough = value });
         }
@@ -206,9 +214,10 @@ internal sealed class XLFont : IXLFont
         get => Key.VerticalAlignment;
         set
         {
-            if (Key.VerticalAlignment == value) return;
+            var key = Key;
+            if (key.VerticalAlignment == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { VerticalAlignment = value });
+                SetKey(key with { VerticalAlignment = value });
             else
                 Modify(k => k with { VerticalAlignment = value });
         }
@@ -219,9 +228,10 @@ internal sealed class XLFont : IXLFont
         get => Key.Shadow;
         set
         {
-            if (Key.Shadow == value) return;
+            var key = Key;
+            if (key.Shadow == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { Shadow = value });
+                SetKey(key with { Shadow = value });
             else
                 Modify(k => k with { Shadow = value });
         }
@@ -232,9 +242,10 @@ internal sealed class XLFont : IXLFont
         get => Key.FontSize;
         set
         {
-            if (XLHelper.AreEqual(Key.FontSize, value)) return;
+            var key = Key;
+            if (XLHelper.AreEqual(key.FontSize, value)) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { FontSize = value });
+                SetKey(key with { FontSize = value });
             else
                 Modify(k => k with { FontSize = value });
         }
@@ -251,9 +262,10 @@ internal sealed class XLFont : IXLFont
         {
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
-            if (Key.FontColor == value.Key) return;
+            var key = Key;
+            if (key.FontColor == value.Key) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { FontColor = value.Key });
+                SetKey(key with { FontColor = value.Key });
             else
                 Modify(k => k with { FontColor = value.Key });
         }
@@ -264,9 +276,10 @@ internal sealed class XLFont : IXLFont
         get => Key.FontName;
         set
         {
-            if (Key.FontName == value) return;
+            var key = Key;
+            if (key.FontName == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { FontName = value });
+                SetKey(key with { FontName = value });
             else
                 Modify(k => k with { FontName = value });
         }
@@ -277,9 +290,10 @@ internal sealed class XLFont : IXLFont
         get => Key.FontFamilyNumbering;
         set
         {
-            if (Key.FontFamilyNumbering == value) return;
+            var key = Key;
+            if (key.FontFamilyNumbering == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { FontFamilyNumbering = value });
+                SetKey(key with { FontFamilyNumbering = value });
             else
                 Modify(k => k with { FontFamilyNumbering = value });
         }
@@ -290,9 +304,10 @@ internal sealed class XLFont : IXLFont
         get => Key.FontCharSet;
         set
         {
-            if (Key.FontCharSet == value) return;
+            var key = Key;
+            if (key.FontCharSet == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { FontCharSet = value });
+                SetKey(key with { FontCharSet = value });
             else
                 Modify(k => k with { FontCharSet = value });
         }
@@ -303,9 +318,10 @@ internal sealed class XLFont : IXLFont
         get => Key.FontScheme;
         set
         {
-            if (Key.FontScheme == value) return;
+            var key = Key;
+            if (key.FontScheme == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { FontScheme = value });
+                SetKey(key with { FontScheme = value });
             else
                 Modify(k => k with { FontScheme = value });
         }
