@@ -125,7 +125,7 @@ internal static class ChartPatcher
 
         foreach (var group in groups)
         {
-            if (!ChartFormatting.SupportsDataLabels(group.Kind))
+            if (!ChartDataLabelsXml.Supports(group.Kind))
                 continue;
 
             // A position Excel does not offer for a group's own type degrades to automatic, so each
@@ -134,7 +134,7 @@ internal static class ChartPatcher
                 ? xlChart.ChartType
                 : xlChart.SecondaryChartType ?? xlChart.ChartType;
 
-            ChartFormatting.PatchGroupDataLabels(group.Element, xlChart.DataLabelsInternal, chartType);
+            ChartDataLabelsXml.Apply(group.Element, xlChart.DataLabelsInternal, chartType);
         }
     }
 

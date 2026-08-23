@@ -342,4 +342,77 @@ public class ChartDataLabelTests
         await Assert.That(labels.Elements<C.DataLabelPosition>()).IsEmpty();
         await Assert.That(labels.Elements<C.ShowValue>().Single().Val!.Value).IsTrue();
     }
+
+    // ── Series level and group level must agree ─────────────────────────
+
+    /// <summary>
+    /// Series-level and group-level data labels reach the same <c>c:dLbls</c> body from the same
+    /// model. <c>PatchSeriesDataLabels</c> and <c>PatchGroupDataLabels</c> differed only in the
+    /// parent they attached to, which is what let spec 22 merge them into one <c>Apply</c>.
+    /// </summary>
+    [Test]
+    public async Task Series_and_group_data_labels_write_the_same_body()
+    {
+        var seriesLevel = ChartGoldenCorpus.CaptureChartPartXml(ws =>
+        {
+            var chart = ws.Charts.Add(XLChartType.Line);
+            chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2")
+                .DataLabels.ShowValue = true;
+        });
+
+        var groupLevel = ChartGoldenCorpus.CaptureChartPartXml(ws =>
+        {
+            var chart = ws.Charts.Add(XLChartType.Line);
+            chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.DataLabels.ShowValue = true;
+        });
+
+        await Assert.That(DataLabelsBodyIn(seriesLevel)).IsEqualTo(DataLabelsBodyIn(groupLevel));
+        await Assert.That(seriesLevel).Contains("<c:showVal val=\"1\"");
+        await Assert.That(groupLevel).Contains("<c:showVal val=\"1\"");
+    }
+
+    /// <summary>
+    /// A new chart and a reloaded one must reach the same <c>c:dLbls</c>, whichever parent it hangs
+    /// off. Before spec 22 the writer built the element and the patcher built it again.
+    /// </summary>
+    [Test]
+    public async Task Data_labels_agree_between_a_new_chart_and_a_reloaded_one()
+    {
+        var fromNew = ChartGoldenCorpus.CaptureChartPartXml(ws =>
+        {
+            var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+            chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.DataLabels.ShowValue = true;
+            chart.DataLabels.ShowCategoryName = true;
+        });
+
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = AddDataSheet(wb);
+            var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+            chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var reloaded = new XLWorkbook(ms);
+        var labels = reloaded.Worksheet("Data").Charts.First().DataLabels;
+        labels.ShowValue = true;
+        labels.ShowCategoryName = true;
+
+        using var patched = new MemoryStream();
+        reloaded.SaveAs(patched, validate: true);
+
+        await Assert.That(DataLabelsBodyIn(ChartGoldenCorpus.FirstChartPartXml(patched)))
+            .IsEqualTo(DataLabelsBodyIn(fromNew));
+    }
+
+    private static string DataLabelsBodyIn(string chartPartXml)
+    {
+        var doc = System.Xml.Linq.XDocument.Parse(chartPartXml);
+        System.Xml.Linq.XNamespace c = "http://schemas.openxmlformats.org/drawingml/2006/chart";
+        return doc.Descendants(c + "dLbls").Single().ToString();
+    }
 }

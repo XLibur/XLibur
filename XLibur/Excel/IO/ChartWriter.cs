@@ -966,24 +966,16 @@ internal static class ChartWriter
     /// <c>c:cat</c>/<c>c:val</c>.
     /// </summary>
     private static void AppendSeriesDataLabels(
-        OpenXmlCompositeElement series, XLChartSeries s, XLChartType chartType)
-    {
-        var dataLabels = ChartFormatting.BuildDataLabels(s.DataLabelsInternal, chartType);
-        if (dataLabels != null)
-            series.Append(dataLabels);
-    }
+        OpenXmlCompositeElement series, XLChartSeries s, XLChartType chartType) =>
+        ChartDataLabelsXml.Apply(series, s.DataLabelsInternal, chartType);
 
     /// <summary>
     /// Appends the chart-wide <c>c:dLbls</c> to a chart group. Must be called after every
     /// <c>c:ser</c> and before the group's remaining children.
     /// </summary>
     private static void AppendGroupDataLabels(
-        OpenXmlCompositeElement chartElement, XLChart xlChart, XLChartType chartType)
-    {
-        var dataLabels = ChartFormatting.BuildDataLabels(xlChart.DataLabelsInternal, chartType);
-        if (dataLabels != null)
-            chartElement.Append(dataLabels);
-    }
+        OpenXmlCompositeElement chartElement, XLChart xlChart, XLChartType chartType) =>
+        ChartDataLabelsXml.Apply(chartElement, xlChart.DataLabelsInternal, chartType);
 
     /// <summary>
     /// Writes the series name as the literal <c>&lt;c:tx&gt;&lt;c:v&gt;</c> form. The alternative,

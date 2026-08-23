@@ -152,7 +152,7 @@ internal static class ChartReader
                     primarySet = true;
 
                     // The chart-wide labels live on the primary chart group.
-                    ChartFormatting.ReadDataLabels(
+                    ChartDataLabelsXml.Read(
                         group.Element.Elements<C.DataLabels>().FirstOrDefault(), xlChart.DataLabelsInternal);
                 }
 
@@ -230,7 +230,7 @@ internal static class ChartReader
 
             var series = (XLChartSeries)target.Add(name, valRef, catRef);
             ChartFormatting.ReadSeriesFormat(seriesElement, series, useSecondaryAxis);
-            ChartFormatting.ReadDataLabels(
+            ChartDataLabelsXml.Read(
                 seriesElement.Elements<C.DataLabels>().FirstOrDefault(), series.DataLabelsInternal);
         }
     }
