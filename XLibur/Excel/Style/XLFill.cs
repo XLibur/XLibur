@@ -26,9 +26,10 @@ internal sealed class XLFill : IXLFill
 
     private XLFillValue _value;
 
+    /// <inheritdoc cref="XLFont.Key"/>
     internal XLFillKey Key
     {
-        get => _value.Key;
+        get => _style.IsBatching ? _style.CurrentFillKey : _value.Key;
         private set => _value = XLFillValue.FromKey(ref value);
     }
 

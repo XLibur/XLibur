@@ -54,9 +54,16 @@ internal sealed class XLFont : IXLFont
 
     private XLFontValue _value;
 
+    /// <remarks>
+    /// While the style is batching, the key comes from the style's pending key rather than from
+    /// <see cref="_value"/>: a batch resolves nothing until it flushes, so the cached value would
+    /// report pre-batch values to every getter. Outside a batch <see cref="_value"/> stays the
+    /// source of truth - a facade can be constructed over a key its style does not hold (see the
+    /// constructors that pass a null style), and those must keep reading the key they were given.
+    /// </remarks>
     internal XLFontKey Key
     {
-        get => _value.Key;
+        get => _style.IsBatching ? _style.CurrentFontKey : _value.Key;
         private set => _value = XLFontValue.FromKey(ref value);
     }
 

@@ -32,9 +32,10 @@ internal sealed class XLAlignment : IXLAlignment
 
     private XLAlignmentValue _value;
 
+    /// <inheritdoc cref="XLFont.Key"/>
     private XLAlignmentKey Key
     {
-        get => _value.Key;
+        get => _style.IsBatching ? _style.CurrentAlignmentKey : _value.Key;
         set => _value = XLAlignmentValue.FromKey(ref value);
     }
 

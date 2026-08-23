@@ -25,9 +25,10 @@ internal sealed class XLProtection : IXLProtection
 
     private XLProtectionValue _value;
 
+    /// <inheritdoc cref="XLFont.Key"/>
     internal XLProtectionKey Key
     {
-        get => _value.Key;
+        get => _style.IsBatching ? _style.CurrentProtectionKey : _value.Key;
         private set => _value = XLProtectionValue.FromKey(ref value);
     }
 

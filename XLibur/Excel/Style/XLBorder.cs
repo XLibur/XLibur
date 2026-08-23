@@ -85,8 +85,16 @@ internal sealed class XLBorder : IXLBorder
     /// every caller then went on to resolve a style that interned it again - see
     /// <see cref="SetKey"/> and <see cref="Modify"/>, which both take the interned value off the
     /// resulting style instead.
+    /// <para>
+    /// While the style is batching, the key comes from the style's pending key rather than from
+    /// <see cref="_value"/>: a batch resolves nothing until it flushes, so the cached value would
+    /// report pre-batch borders to every getter and to <see cref="ApplyEdgeStyle"/>'s own
+    /// current-style test. Outside a batch <see cref="_value"/> stays the source of truth - a facade
+    /// can be constructed over a key that its style does not hold (see the constructors that pass a
+    /// null style), and those must keep reading the key they were given.
+    /// </para>
     /// </remarks>
-    internal XLBorderKey Key => _value.Key;
+    internal XLBorderKey Key => _style.IsBatching ? _style.CurrentBorderKey : _value.Key;
 
     #region Constructors
 
