@@ -116,7 +116,7 @@ element, and writes its output into `state.PageSetupProperties`.
 
 ## File structure
 
-```
+```text
 XLibur/Excel/IO/WorksheetElementContext.cs   new — the context and state structs
 XLibur/Excel/IO/WorksheetElementReader.cs    modified — gains TryLoad, 14 methods go private
 XLibur/Excel/XLWorkbook_Load.cs              modified — dispatch deleted, ~70 lines lighter
@@ -558,7 +558,7 @@ restructures it, so the cost must be shown not to have moved.
 
 - [x] **Step 1: Measure the merge-base**
 
-```
+```bash
 dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- profile template
 ```
 
@@ -653,6 +653,15 @@ measurement artefact until proven otherwise.
 - `WorksheetElementRoundTripTests.Every_worksheet_element_survives_a_round_trip` — 17 elements in
   one workbook, saved and read back. Gate proven to bite by removing the `RowBreaks` branch, which
   failed the test on that assertion alone.
+- Two elements needed a producer the first draft did not have: `<legacyDrawing>` is written only for
+  a sheet with VML, so the fixture carries a note; the worksheet `<extLst>` is written only for x14
+  data validations, x14 data bars or sparklines, so the fixture carries a sparkline group.
+- The `LegacyDrawing` assertion is on `LegacyDrawingId`, not on `HasComment`. `HasComment` was tried
+  first and **does not bite**: the note is read from the comments part by a separate path and
+  survives with the `LegacyDrawing` branch deleted. `LegacyDrawingId` is what the element alone
+  carries — losing it orphans the VML part on the next save — and removing the branch does fail on
+  it. A passing assertion is not proof a branch is covered; each of the two new ones was checked by
+  deleting its branch.
 - One assertion differs from the spec's draft, without weakening: the header text is read back with
   `GetText(XLHFOccurrence.OddPages)`, not `AllPages`. `XLHFItem.AddText` fans `AllPages` out into the
   three concrete occurrences and never stores `AllPages` as a key, so `GetText(AllPages)` returns

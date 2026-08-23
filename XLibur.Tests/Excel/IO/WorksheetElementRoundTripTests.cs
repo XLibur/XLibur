@@ -59,6 +59,13 @@ public class WorksheetElementRoundTripTests
             ws.PageSetup.AddHorizontalPageBreak(3);
             ws.PageSetup.AddVerticalPageBreak(3);
 
+            // LegacyDrawing. A note is backed by a VML part, and the relationship to it is what
+            // <legacyDrawing> carries.
+            ws.Cell("A10").CreateComment().AddText("note");
+
+            // WorksheetExtensionList. A sparkline group is written into the worksheet <extLst>.
+            ws.SparklineGroups.Add("C10", "D10:F10");
+
             // SheetProperties -> tab colour
             ws.TabColor = XLColor.Blue;
 
@@ -95,6 +102,14 @@ public class WorksheetElementRoundTripTests
             .IsEqualTo("hdr");
         await Assert.That(ws.PageSetup.RowBreaks.Count).IsEqualTo(1);         // RowBreaks
         await Assert.That(ws.PageSetup.ColumnBreaks.Count).IsEqualTo(1);      // ColumnBreaks
+        await Assert.That(ws.Cell("A10").HasComment).IsTrue();                // the note itself
+        await Assert.That(ws.SparklineGroups.Count()).IsEqualTo(1);           // WorksheetExtensionList
+
+        // LegacyDrawing. Asserted on the relationship id rather than on HasComment: the note is
+        // read from the comments part by a different path, so it survives even if this element is
+        // dropped. LegacyDrawingId is what <legacyDrawing> alone carries, and losing it orphans the
+        // VML part on the next save.
+        await Assert.That(((XLWorksheet)ws).LegacyDrawingId).IsNotNullOrEmpty();
         await Assert.That(ws.TabColor).IsEqualTo(XLColor.Blue);               // SheetProperties
     }
 }
