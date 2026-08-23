@@ -174,7 +174,7 @@ internal static class ChartPatcher
         for (var i = 0; i < count; i++)
         {
             var (element, kind) = seriesElements[i];
-            ChartFormatting.PatchSeriesFormat(element, series.Items[i], kind, chartType);
+            ChartSeriesFormatXml.Apply(element, series.Items[i], kind, chartType);
         }
     }
 

@@ -229,7 +229,7 @@ internal static class ChartReader
                 : ExtractCategoryAndValueReferences(seriesElement);
 
             var series = (XLChartSeries)target.Add(name, valRef, catRef);
-            ChartFormatting.ReadSeriesFormat(seriesElement, series, useSecondaryAxis);
+            ChartSeriesFormatXml.Read(seriesElement, series, useSecondaryAxis);
             ChartDataLabelsXml.Read(
                 seriesElement.Elements<C.DataLabels>().FirstOrDefault(), series.DataLabelsInternal);
         }

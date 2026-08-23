@@ -619,9 +619,9 @@ internal static class ChartWriter
                 Order = new C.Order { Val = s.Order },
                 SeriesText = BuildSeriesText(s)
             };
-            AppendShapeProperties(series, s);
-            AppendSeriesDataLabels(series, s, xlChart.ChartType);
             AppendCatAndVal(series, s);
+            AppendSeriesFormat(series, s,
+                isDoughnut ? XLChartGroupKind.Doughnut : XLChartGroupKind.Pie, xlChart.ChartType);
             chartElement.Append(series);
         }
 
@@ -650,9 +650,8 @@ internal static class ChartWriter
                 Order = new C.Order { Val = s.Order + group.IndexOffset },
                 SeriesText = BuildSeriesText(s)
             };
-            AppendShapeProperties(series, s);
-            AppendSeriesDataLabels(series, s, group.ChartType);
             AppendCatAndVal(series, s);
+            AppendSeriesFormat(series, s, XLChartGroupKind.Area, group.ChartType);
             areaChart.Append(series);
         }
         AppendGroupDataLabels(areaChart, group.Chart, group.ChartType);
@@ -679,12 +678,11 @@ internal static class ChartWriter
                 Order = new C.Order { Val = s.Order },
                 SeriesText = BuildSeriesText(s)
             };
-            AppendShapeProperties(series, s);
-            AppendSeriesDataLabels(series, s, xlChart.ChartType);
             AppendXAndY(series, s);
             series.Append(new C.BubbleSize(
                 new C.NumberReference { Formula = new C.Formula(s.ValueReferences) }
             ));
+            AppendSeriesFormat(series, s, XLChartGroupKind.Bubble, xlChart.ChartType);
             bubbleChart.Append(series);
         }
         AppendGroupDataLabels(bubbleChart, xlChart, xlChart.ChartType);
@@ -718,9 +716,8 @@ internal static class ChartWriter
                 Order = new C.Order { Val = s.Order + group.IndexOffset },
                 SeriesText = BuildSeriesText(s)
             };
-            AppendShapeProperties(series, s);
-            AppendSeriesDataLabels(series, s, group.ChartType);
             AppendCatAndVal(series, s);
+            AppendSeriesFormat(series, s, XLChartGroupKind.Bar, group.ChartType);
             barChart.Append(series);
         }
         AppendGroupDataLabels(barChart, group.Chart, group.ChartType);
@@ -746,9 +743,8 @@ internal static class ChartWriter
                 Order = new C.Order { Val = s.Order + group.IndexOffset },
                 SeriesText = BuildSeriesText(s)
             };
-            AppendShapeProperties(series, s);
-            AppendSeriesDataLabels(series, s, group.ChartType);
             AppendCatAndVal(series, s);
+            AppendSeriesFormat(series, s, XLChartGroupKind.Bar3D, group.ChartType);
             bar3DChart.Append(series);
         }
         AppendGroupDataLabels(bar3DChart, group.Chart, group.ChartType);
@@ -765,10 +761,6 @@ internal static class ChartWriter
         {
             Grouping = new C.Grouping { Val = GetLineGrouping(group.ChartType) }
         };
-        var markersByChartType = group.ChartType is XLChartType.LineWithMarkers
-            or XLChartType.LineWithMarkersStacked
-            or XLChartType.LineWithMarkersStacked100Percent;
-
         foreach (var s in group.Series)
         {
             var series = new C.LineChartSeries
@@ -777,11 +769,8 @@ internal static class ChartWriter
                 Order = new C.Order { Val = s.Order + group.IndexOffset },
                 SeriesText = BuildSeriesText(s)
             };
-            AppendShapeProperties(series, s);
-            AppendMarker(series, s, markersByChartType);
-            AppendSeriesDataLabels(series, s, group.ChartType);
             AppendCatAndVal(series, s);
-            AppendSmooth(series, s, smoothByChartType: false);
+            AppendSeriesFormat(series, s, XLChartGroupKind.Line, group.ChartType);
             lineChart.Append(series);
         }
         AppendGroupDataLabels(lineChart, group.Chart, group.ChartType);
@@ -810,10 +799,8 @@ internal static class ChartWriter
                 Order = new C.Order { Val = s.Order + group.IndexOffset },
                 SeriesText = BuildSeriesText(s)
             };
-            AppendShapeProperties(series, s);
-            AppendMarker(series, s, autoSymbol: false);
-            AppendSeriesDataLabels(series, s, group.ChartType);
             AppendCatAndVal(series, s);
+            AppendSeriesFormat(series, s, XLChartGroupKind.Radar, group.ChartType);
             radarChart.Append(series);
         }
         AppendGroupDataLabels(radarChart, group.Chart, group.ChartType);
@@ -829,9 +816,6 @@ internal static class ChartWriter
         {
             ScatterStyle = new C.ScatterStyle { Val = GetScatterStyle(group.ChartType) }
         };
-        var smoothByChartType = group.ChartType is XLChartType.XYScatterSmoothLinesNoMarkers
-            or XLChartType.XYScatterSmoothLinesWithMarkers;
-
         foreach (var s in group.Series)
         {
             var series = new C.ScatterChartSeries
@@ -840,12 +824,9 @@ internal static class ChartWriter
                 Order = new C.Order { Val = s.Order + group.IndexOffset },
                 SeriesText = BuildSeriesText(s)
             };
-            AppendShapeProperties(series, s);
-            AppendMarker(series, s, autoSymbol: false);
-            AppendSeriesDataLabels(series, s, group.ChartType);
             // Scatter uses XValues + YValues, not CategoryAxisData + Values
             AppendXAndY(series, s);
-            AppendSmooth(series, s, smoothByChartType);
+            AppendSeriesFormat(series, s, XLChartGroupKind.Scatter, group.ChartType);
             scatterChart.Append(series);
         }
         AppendGroupDataLabels(scatterChart, group.Chart, group.ChartType);
@@ -866,11 +847,8 @@ internal static class ChartWriter
                 Order = new C.Order { Val = s.Order + group.IndexOffset },
                 SeriesText = BuildSeriesText(s)
             };
-            AppendShapeProperties(series, s);
-            AppendMarker(series, s, autoSymbol: false);
-            AppendSeriesDataLabels(series, s, group.ChartType);
             AppendCatAndVal(series, s);
-            AppendSmooth(series, s, smoothByChartType: false);
+            AppendSeriesFormat(series, s, XLChartGroupKind.Stock, group.ChartType);
             stockChart.Append(series);
         }
         AppendGroupDataLabels(stockChart, group.Chart, group.ChartType);
@@ -897,8 +875,8 @@ internal static class ChartWriter
                 Order = new C.Order { Val = s.Order + group.IndexOffset },
                 SeriesText = BuildSeriesText(s)
             };
-            AppendShapeProperties(series, s);
             AppendCatAndVal(series, s);
+            AppendSeriesFormat(series, s, XLChartGroupKind.Surface, group.ChartType);
             surfaceChart.Append(series);
         }
         AppendAxisIds(surfaceChart, group);
@@ -940,34 +918,21 @@ internal static class ChartWriter
         ));
     }
 
-    private static void AppendShapeProperties(OpenXmlCompositeElement series, XLChartSeries s)
-    {
-        var shapeProperties = ChartFormatting.BuildSeriesShapeProperties(s);
-        if (shapeProperties != null)
-            series.Append(shapeProperties);
-    }
-
-    private static void AppendMarker(OpenXmlCompositeElement series, XLChartSeries s, bool autoSymbol)
-    {
-        var marker = ChartFormatting.BuildMarker(s, autoSymbol);
-        if (marker != null)
-            series.Append(marker);
-    }
-
-    private static void AppendSmooth(OpenXmlCompositeElement series, XLChartSeries s, bool smoothByChartType)
-    {
-        var smooth = ChartFormatting.BuildSmooth(s, smoothByChartType);
-        if (smooth != null)
-            series.Append(smooth);
-    }
-
     /// <summary>
-    /// Appends the series' own <c>c:dLbls</c>. Must be called after <c>c:marker</c> and before
-    /// <c>c:cat</c>/<c>c:val</c>.
+    /// Writes everything a series carries beyond its identity and its data: the chart type's own
+    /// defaults, then the shape properties, marker, smoothing and data labels the caller assigned.
     /// </summary>
-    private static void AppendSeriesDataLabels(
-        OpenXmlCompositeElement series, XLChartSeries s, XLChartType chartType) =>
-        ChartDataLabelsXml.Apply(series, s.DataLabelsInternal, chartType);
+    /// <remarks>
+    /// Called once the series' <c>c:cat</c>/<c>c:val</c> are in place. Each child is inserted by
+    /// schema order rather than appended, which is what lets the same code serve a series being
+    /// built here and a series being edited in a chart that came out of a file.
+    /// </remarks>
+    private static void AppendSeriesFormat(
+        OpenXmlCompositeElement series, XLChartSeries s, XLChartGroupKind kind, XLChartType chartType)
+    {
+        ChartSeriesFormatXml.ApplyChartTypeDefaults(series, s, chartType);
+        ChartSeriesFormatXml.Apply(series, s, kind, chartType);
+    }
 
     /// <summary>
     /// Appends the chart-wide <c>c:dLbls</c> to a chart group. Must be called after every
