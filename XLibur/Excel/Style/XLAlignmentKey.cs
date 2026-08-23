@@ -41,8 +41,8 @@ internal readonly record struct XLAlignmentKey
     /// name at all, and those this catches.
     /// </para>
     /// <para>
-    /// Applied once, here, rather than at each of the two facades - <c>XLAlignment</c> and
-    /// <c>XLDeferredAlignment</c> - that expose these properties to a caller: every path that builds
+    /// Applied once, here, rather than on the <c>XLAlignment</c> facade that exposes these
+    /// properties to a caller: every path that builds
     /// or modifies a key, including <c>OpenXmlHelper.AlignmentToXLibur</c> and the
     /// external-<c>IXLAlignment</c> branch of <c>XLAlignment.GenerateKey</c>, goes through one of
     /// these three <c>init</c> accessors or a <c>with</c> expression backed by them, so a future

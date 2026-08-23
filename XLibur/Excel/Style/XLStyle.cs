@@ -288,17 +288,29 @@ internal sealed class XLStyle : IXLStyle
     /// <inheritdoc/>
     public IXLStyle Batch(Action<IXLStyle> modifications)
     {
-        if (!IsCellContainer)
+        if (!IsCellContainer || _batchKey.HasValue)
         {
-            // For ranges: fall back to normal behavior (each property triggers ModifyStyle)
+            // For ranges: fall back to normal behavior (each property triggers ModifyStyle).
+            // For a batch nested inside a batch: the outer one is already accumulating, and
+            // restarting it here would discard whatever it holds and flush at the inner close.
             modifications(this);
             return this;
         }
 
-        // For cells: use a deferred style that accumulates key changes
-        var deferred = new XLDeferredStyle(Value.Key);
-        modifications(deferred);
-        var newKey = deferred.Key;
+        // For cells: accumulate into a pending key and resolve once. The facades are the ordinary
+        // ones, so container-aware operations - a compound border edit, say - behave exactly as
+        // they do outside a batch.
+        _batchKey = Value.Key;
+        XLStyleKey newKey;
+        try
+        {
+            modifications(this);
+        }
+        finally
+        {
+            newKey = _batchKey.Value;
+            _batchKey = null;
+        }
 
         if (!Value.Key.Equals(newKey))
         {
