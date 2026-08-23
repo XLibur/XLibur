@@ -517,4 +517,65 @@ public class ChartSeriesFormattingTests
             await Assert.That(() => series.UseSecondaryAxis = false).ThrowsNothing();
         }
     }
+
+    // ── New chart and loaded chart must agree ───────────────────────────
+
+    /// <summary>
+    /// The formatting assigned on a new series and the same formatting assigned on a reloaded one
+    /// must produce the same <c>c:spPr</c>, <c>c:marker</c> and <c>c:smooth</c>. Before spec 22 these
+    /// ran through <c>BuildSeriesShapeProperties</c> / <c>BuildMarker</c> / <c>BuildSmooth</c> and
+    /// <c>PatchSeriesFormat</c> independently.
+    /// </summary>
+    [Test]
+    public async Task Series_formatting_agrees_between_a_new_chart_and_a_reloaded_one()
+    {
+        var fromNew = ChartGoldenCorpus.CaptureChartPartXml(ws =>
+        {
+            var chart = ws.Charts.Add(XLChartType.Line);
+            AssignFormat(chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2"));
+        });
+
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = AddDataSheet(wb);
+            var chart = AddChart(ws, XLChartType.Line);
+            chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var reloaded = new XLWorkbook(ms);
+        AssignFormat(reloaded.Worksheet("Data").Charts.First().Series.First());
+
+        using var patched = new MemoryStream();
+        reloaded.SaveAs(patched, validate: true);
+        var fromLoaded = ChartGoldenCorpus.FirstChartPartXml(patched);
+
+        foreach (var element in new[] { "spPr", "marker", "smooth" })
+        {
+            await Assert.That(ElementIn(fromLoaded, element)).IsEqualTo(ElementIn(fromNew, element))
+                .Because($"c:{element} is written by one function for both a new and a loaded chart.");
+        }
+
+        await Assert.That(fromNew).Contains("FF0000");
+    }
+
+    private static void AssignFormat(IXLChartSeries series)
+    {
+        series.FillColor = XLColor.Red;
+        series.LineColor = XLColor.FromTheme(XLThemeColor.Accent2);
+        series.LineWidthPt = 2.25;
+        series.MarkerStyle = XLMarkerStyle.Diamond;
+        series.MarkerSize = 7;
+        series.MarkerFillColor = XLColor.Blue;
+        series.Smooth = true;
+    }
+
+    private static string? ElementIn(string chartPartXml, string localName)
+    {
+        var doc = System.Xml.Linq.XDocument.Parse(chartPartXml);
+        System.Xml.Linq.XNamespace c = "http://schemas.openxmlformats.org/drawingml/2006/chart";
+        return doc.Descendants(c + localName).FirstOrDefault()?.ToString();
+    }
 }

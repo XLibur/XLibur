@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using XLibur.Excel.IO.Charts;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
 using Cx = DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 
@@ -53,8 +54,8 @@ internal static class ChartPatcher
         if (chart == null)
             return;
 
-        ChartFormatting.PatchTitle(chart, xlChart);
-        ChartFormatting.PatchLegend(chart, xlChart.LegendInternal);
+        ChartTitleXml.Apply(chart, xlChart);
+        ChartLegendXml.Apply(chart, xlChart.LegendInternal);
 
         var plotArea = chart.PlotArea;
         if (plotArea == null)
@@ -94,10 +95,10 @@ internal static class ChartPatcher
         var primaryGroup = ChartPlotAreaScanner.PrimaryGroup(plotArea, groups, primaryKind);
         var primaryValueAxisId = primaryGroup.ValueAxisId;
 
-        ChartFormatting.PatchAxis(
+        ChartAxisXml.Apply(
             ChartPlotAreaScanner.FindAxis(plotArea, primaryGroup.CategoryAxisId),
             xlChart.CategoryAxisInternal);
-        ChartFormatting.PatchAxis(
+        ChartAxisXml.Apply(
             ChartPlotAreaScanner.FindAxis(plotArea, primaryValueAxisId),
             xlChart.ValueAxisInternal);
 
@@ -105,7 +106,7 @@ internal static class ChartPatcher
             g.ValueAxisId != null && primaryValueAxisId != null && g.ValueAxisId != primaryValueAxisId);
         if (secondaryGroup != null)
         {
-            ChartFormatting.PatchAxis(
+            ChartAxisXml.Apply(
                 ChartPlotAreaScanner.FindAxis(plotArea, secondaryGroup.ValueAxisId),
                 xlChart.SecondaryValueAxisInternal);
         }
@@ -124,7 +125,7 @@ internal static class ChartPatcher
 
         foreach (var group in groups)
         {
-            if (!ChartFormatting.SupportsDataLabels(group.Kind))
+            if (!ChartDataLabelsXml.Supports(group.Kind))
                 continue;
 
             // A position Excel does not offer for a group's own type degrades to automatic, so each
@@ -133,7 +134,7 @@ internal static class ChartPatcher
                 ? xlChart.ChartType
                 : xlChart.SecondaryChartType ?? xlChart.ChartType;
 
-            ChartFormatting.PatchGroupDataLabels(group.Element, xlChart.DataLabelsInternal, chartType);
+            ChartDataLabelsXml.Apply(group.Element, xlChart.DataLabelsInternal, chartType);
         }
     }
 
@@ -173,7 +174,7 @@ internal static class ChartPatcher
         for (var i = 0; i < count; i++)
         {
             var (element, kind) = seriesElements[i];
-            ChartFormatting.PatchSeriesFormat(element, series.Items[i], kind, chartType);
+            ChartSeriesFormatXml.Apply(element, series.Items[i], kind, chartType);
         }
     }
 
@@ -186,7 +187,7 @@ internal static class ChartPatcher
         if (chart == null)
             return;
 
-        ChartFormatting.PatchExtendedTitle(chart, xlChart);
+        ChartTitleXml.ApplyExtended(chart, xlChart);
     }
 
     /// <summary>

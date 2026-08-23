@@ -788,4 +788,49 @@ public class ChartTests
             await Assert.That(chart.ChartType).IsEqualTo(XLChartType.PyramidStacked100Percent);
         }
     }
+
+    // ── New chart and loaded chart must agree ───────────────────────────
+
+    /// <summary>
+    /// The title a new chart writes and the title a loaded chart is patched to must be the same
+    /// title, and both must leave <c>c:autoTitleDeleted</c> saying the title is shown. Before spec 22
+    /// the two travelled through <c>BuildTitleText</c> and <c>PatchTitle</c> independently, and only
+    /// the second of them kept <c>c:autoTitleDeleted</c> in step.
+    /// </summary>
+    [Test]
+    public async Task A_new_chart_and_a_reloaded_chart_carry_the_same_title()
+    {
+        const string title = "Quarterly revenue";
+
+        var fromNew = ChartGoldenCorpus.CaptureChartPartXml(ws =>
+        {
+            var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+            chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Title = title;
+        });
+
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "Q1";
+            ws.Cell("B1").Value = 100;
+            var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+            chart.Series.Add("Units", "Data!$B$1:$B$1", "Data!$A$1:$A$1");
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var reloaded = new XLWorkbook(ms);
+        reloaded.Worksheet("Data").Charts.First().Title = title;
+
+        using var patched = new MemoryStream();
+        reloaded.SaveAs(patched, validate: true);
+        var fromLoaded = ChartGoldenCorpus.FirstChartPartXml(patched);
+
+        await Assert.That(fromNew).Contains($"<a:t>{title}</a:t>");
+        await Assert.That(fromLoaded).Contains($"<a:t>{title}</a:t>");
+        await Assert.That(fromNew).Contains("<c:autoTitleDeleted val=\"0\"");
+        await Assert.That(fromLoaded).Contains("<c:autoTitleDeleted val=\"0\"");
+    }
 }
