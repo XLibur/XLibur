@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using ClosedXML.Parser;
 using XLibur.Excel;
+using XLibur.Excel.CalcEngine.Visitors;
 
 namespace XLibur.Tests.Excel.Cells;
 
@@ -59,6 +61,108 @@ public class FormulaShifterCorpusTests
         var actual = Shift(test, legacy: true);
 
         await Assert.That(actual).IsEqualTo(test.LegacyExpected);
+    }
+
+    /// <summary>
+    /// The fallback exists for formulas <c>ClosedXML.Parser</c> rejects. This pins both halves of that
+    /// claim: an external workbook reference is rejected, and an ordinary formula is accepted — so
+    /// narrowing the shifter's catch to <see cref="ParsingException"/> cannot silently reroute anything
+    /// that reaches the parser path today.
+    /// </summary>
+    [Test]
+    [Arguments("='[file.xlsx]Sheet'!A1", false)]
+    [Arguments("=SUM('[book.xlsx]Data'!A1:A5)", false)]
+    [Arguments("=A1+B2", true)]
+    [Arguments("=SUM(A1:A5)", true)]
+    [Arguments("=Sheet2!A1", true)]
+    public async Task The_parser_accepts_only_what_the_fallback_is_not_for(string formula, bool parseable)
+    {
+        await Assert.That(TryParse(formula)).IsEqualTo(parseable);
+    }
+
+    /// <summary>
+    /// Every corpus formula must parse, or the corpus is silently testing the regex path through the
+    /// shifter's fallback while claiming to test the parser path.
+    /// </summary>
+    [Test]
+    [MethodDataSource(nameof(Corpus))]
+    public async Task Every_corpus_formula_is_accepted_by_the_parser(CorpusCase test)
+    {
+        await Assert.That(TryParse(test.Formula)).IsTrue();
+    }
+
+    /// <summary>
+    /// External workbook references are what the fallback exists for, and nothing exercised them
+    /// through <c>Shift</c> itself — the corpus calls the two implementations directly, and every one of
+    /// its formulas parses. These go in the front door and come out the regex path, on both axes and
+    /// including the <c>#REF!</c> collapse.
+    /// </summary>
+    /// <remarks>
+    /// The external reference itself never moves — neither implementation shifts a reference whose sheet
+    /// is not the shifted one — so every case pairs it with a local reference that does. Without that,
+    /// "both paths agree" would be satisfied by both returning the formula untouched.
+    /// <para>
+    /// These deliberately stay out of the corpus. The extractor records both columns by calling each
+    /// implementation directly, so an external-reference row would hold the regex answer twice and say
+    /// nothing about routing — and it would break
+    /// <see cref="Every_corpus_formula_is_accepted_by_the_parser"/>, which is the guard that keeps the
+    /// corpus testing the parser path. This explicit test is the coverage instead.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [Arguments(true, "'[file.xlsx]Sheet'!A1+B2", 1, 2, 3, "'[file.xlsx]Sheet'!A1+B5")]
+    [Arguments(true, "SUM('[book.xlsx]Data'!A1:A20)+SUM(C10:C20)", 5, 9, -5,
+        "SUM('[book.xlsx]Data'!A1:A20)+SUM(C5:C15)")]
+    [Arguments(true, "'[file.xlsx]Sheet'!A1+D7", 5, 9, -5, "'[file.xlsx]Sheet'!A1+#REF!")]
+    [Arguments(false, "'[file.xlsx]Sheet'!A1+B2", 1, 2, 3, "'[file.xlsx]Sheet'!A1+E2")]
+    [Arguments(false, "SUM('[book.xlsx]Data'!A1:A20)+SUM(J10:L10)", 5, 9, -5,
+        "SUM('[book.xlsx]Data'!A1:A20)+SUM(E10:G10)")]
+    public async Task An_external_reference_shifts_through_the_fallback(
+        bool rowShift, string formula, int first, int last, int shift, string expected)
+    {
+        using var wb = new XLWorkbook();
+        var shiftedSheet = (XLWorksheet)wb.AddWorksheet("Sheet1");
+
+        var range = rowShift
+            ? (XLRange)shiftedSheet.Range(first, 1, last, XLHelper.MaxColumnNumber)
+            : (XLRange)shiftedSheet.Range(1, first, XLHelper.MaxRowNumber, last);
+        var axis = rowShift ? XLCellFormulaShifter.ShiftAxis.Row : XLCellFormulaShifter.ShiftAxis.Column;
+
+        var throughShift = rowShift
+            ? XLCellFormulaShifter.ShiftFormulaRows(formula, shiftedSheet, range, shift)
+            : XLCellFormulaShifter.ShiftFormulaColumns(formula, shiftedSheet, range, shift);
+
+        var throughFallback = XLCellFormulaShifter.ShiftUnparseable(
+            formula, shiftedSheet, range, shift, axis);
+
+        // The pinned value is what makes this more than a tautology: every case moves a reference, so
+        // "the two agree" cannot be satisfied by both paths returning the formula untouched.
+        await Assert.That(throughShift).IsEqualTo(expected);
+
+        // Reaching the same answer both ways is what proves Shift routed here rather than succeeding on
+        // the parser path with a different result.
+        await Assert.That(throughShift).IsEqualTo(throughFallback);
+    }
+
+    private static bool TryParse(string formula)
+    {
+        var text = formula.Length > 0 && formula[0] == '=' ? formula[1..] : formula;
+        text = FormulaTransformation.ProtectStructuredRefColons(text, out _);
+        try
+        {
+            FormulaParser<object?, object?, object?>.CellFormulaA1(text, null, ProbeFactory.Instance);
+            return true;
+        }
+        catch (ParsingException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>A do-nothing factory: the only thing asked of the parse is whether it throws.</summary>
+    private sealed class ProbeFactory : CollectVisitor<object?>
+    {
+        internal static readonly ProbeFactory Instance = new();
     }
 
     private static string Shift(CorpusCase test, bool legacy)
