@@ -13,8 +13,11 @@ namespace XLibur.Tests.Excel.Charts;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A missing fixture is written rather than asserted, so adding a case to <see cref="Fixtures"/> and
-/// running the test once is how the corpus is widened. A fixture that exists is only ever compared.
+/// The fixtures are embedded resources, not files beside this test: a release build normalises
+/// compile-time paths, and nothing copies them next to the test binary. To widen the corpus, add a
+/// case to <see cref="Fixtures"/>, run once with <c>XLIBUR_WRITE_CHART_GOLDEN=1</c> to write the
+/// file, then rebuild so it is embedded. A missing fixture fails rather than writing itself, so
+/// that a run can never assert against its own output.
 /// </para>
 /// <para>
 /// One fixture has been re-baselined since it was first captured. Spec 22 task 2 gave
@@ -40,17 +43,18 @@ public class ChartGoldenCorpusTests
     [Arguments("scatter-smooth")]
     public async Task Chart_part_xml_matches_the_golden_fixture(string name)
     {
-        var actual = ChartGoldenCorpus.CaptureChartPartXml(ws => Fixtures(name, ws));
-        var directory = ChartGoldenCorpus.GoldenDirectory();
-        var path = Path.Combine(directory, name + ".xml");
+        var actual = ChartGoldenCorpus.Normalise(
+            ChartGoldenCorpus.CaptureChartPartXml(ws => Fixtures(name, ws)));
 
-        if (!File.Exists(path))
-        {
-            Directory.CreateDirectory(directory);
-            File.WriteAllText(path, actual);
-        }
+        if (ChartGoldenCorpus.CanWriteGolden)
+            ChartGoldenCorpus.WriteGolden(name, actual);
 
-        await Assert.That(actual).IsEqualTo(File.ReadAllText(path));
+        var expected = ChartGoldenCorpus.ReadGolden(name);
+        await Assert.That(expected).IsNotNull()
+            .Because($"The corpus holds no fixture for '{name}'. Regenerate with " +
+                     "XLIBUR_WRITE_CHART_GOLDEN=1, then rebuild so the new file is embedded.");
+
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     /// <summary>

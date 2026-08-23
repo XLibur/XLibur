@@ -24,6 +24,10 @@
     <EmbeddedResource Include="Resource\Fonts\*.*" />
     <EmbeddedResource Include="Resource\Other\Unicode\let_it_go_in_emoji.txt" />
     <EmbeddedResource Include="Resource\Other\FormulaShifterCorpus.tsv" />
+    <!-- The chart golden corpus. Embedded rather than copied to the output directory: a release
+         build normalises compile-time source paths, so nothing may resolve these from where their
+         source files are. -->
+    <EmbeddedResource Include="Excel\Charts\Golden\*.xml" />
   </ItemGroup>
 
   <ItemGroup>
