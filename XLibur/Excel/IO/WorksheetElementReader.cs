@@ -6,6 +6,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.AutoFilters;
+using XLibur.Extensions;
 using XLibur.Utils;
 
 namespace XLibur.Excel.IO;
@@ -46,10 +47,10 @@ internal static class WorksheetElementReader
             state.PageSetupProperties = pageSetupProperties;
         }
         else if (elementType == typeof(SheetFormatProperties))
-            context.Workbook.LoadSheetFormatProperties(
-                (SheetFormatProperties)reader.LoadCurrentElement()!, ws);
+            LoadSheetFormatProperties((SheetFormatProperties)reader.LoadCurrentElement()!, ws,
+                context.Workbook);
         else if (elementType == typeof(MergeCells))
-            XLWorkbook.LoadMergeCellsStreaming(reader, ws);
+            LoadMergeCellsStreaming(reader, ws);
         else if (elementType == typeof(SheetViews))
             LoadSheetViews((SheetViews)reader.LoadCurrentElement()!, ws);
         else if (elementType == typeof(Columns))
@@ -91,6 +92,44 @@ internal static class WorksheetElementReader
         return true;
     }
 #pragma warning restore S3776
+
+    private static void LoadSheetFormatProperties(SheetFormatProperties sfp, XLWorksheet ws,
+        XLWorkbook workbook)
+    {
+        if (sfp.DefaultRowHeight is not null)
+            ws.RowHeight = sfp.DefaultRowHeight;
+
+        ws.RowHeightChanged = sfp.CustomHeight is not null && sfp.CustomHeight.Value;
+
+        if (sfp.DefaultColumnWidth is not null)
+            ws.ColumnWidth = XLHelper.ConvertWidthToNoC(sfp.DefaultColumnWidth.Value,
+                ws.Style.Font, workbook);
+        else if (sfp.BaseColumnWidth is not null)
+            ws.ColumnWidth = XLWorkbook.CalculateColumnWidth(sfp.BaseColumnWidth.Value,
+                ws.Style.Font, workbook);
+    }
+
+    /// <summary>
+    /// Reads <c>&lt;mergeCells&gt;</c> using the streaming <see cref="OpenXmlPartReader"/>
+    /// instead of building the full DOM via <c>LoadCurrentElement()</c>. Each
+    /// <c>&lt;mergeCell ref="..."/&gt;</c> child has a single attribute, so streaming
+    /// avoids allocating the parent <see cref="MergeCells"/> collection and all
+    /// child <see cref="MergeCell"/> DOM objects.
+    /// </summary>
+    private static void LoadMergeCellsStreaming(OpenXmlPartReader reader, XLWorksheet ws)
+    {
+        // We're positioned at <mergeCells>. Move into children.
+        reader.MoveAhead();
+
+        while (reader.IsStartElement("mergeCell"))
+        {
+            var reference = reader.Attributes.GetAttribute("ref");
+            if (!string.IsNullOrEmpty(reference))
+                ws.Range(reference)!.Merge(false);
+
+            reader.Skip();
+        }
+    }
 
     private static void LoadSheetViews(SheetViews sheetViews, XLWorksheet ws)
     {

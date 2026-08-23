@@ -404,41 +404,6 @@ public partial class XLWorkbook
         }
     }
 
-    internal void LoadSheetFormatProperties(SheetFormatProperties sfp, XLWorksheet ws)
-    {
-        if (sfp.DefaultRowHeight is not null)
-            ws.RowHeight = sfp.DefaultRowHeight;
-
-        ws.RowHeightChanged = sfp.CustomHeight is not null && sfp.CustomHeight.Value;
-
-        if (sfp.DefaultColumnWidth is not null)
-            ws.ColumnWidth = XLHelper.ConvertWidthToNoC(sfp.DefaultColumnWidth.Value, ws.Style.Font, this);
-        else if (sfp.BaseColumnWidth is not null)
-            ws.ColumnWidth = CalculateColumnWidth(sfp.BaseColumnWidth.Value, ws.Style.Font, this);
-    }
-
-    /// <summary>
-    /// Reads <c>&lt;mergeCells&gt;</c> using the streaming <see cref="OpenXmlPartReader"/>
-    /// instead of building the full DOM via <c>LoadCurrentElement()</c>. Each
-    /// <c>&lt;mergeCell ref="..."/&gt;</c> child has a single attribute, so streaming
-    /// avoids allocating the parent <see cref="MergeCells"/> collection and all
-    /// child <see cref="MergeCell"/> DOM objects.
-    /// </summary>
-    internal static void LoadMergeCellsStreaming(OpenXmlPartReader reader, XLWorksheet ws)
-    {
-        // We're positioned at <mergeCells>. Move into children.
-        reader.MoveAhead();
-
-        while (reader.IsStartElement("mergeCell"))
-        {
-            var reference = reader.Attributes.GetAttribute("ref");
-            if (!string.IsNullOrEmpty(reference))
-                ws.Range(reference)!.Merge(false);
-
-            reader.Skip();
-        }
-    }
-
     private static void LoadRichValueImages(LoadContext context, XLWorksheet ws)
     {
         // Hydrate in-cell images from rich data metadata
@@ -859,7 +824,7 @@ public partial class XLWorkbook
     /// Calculate expected column width as a number displayed in the column in Excel from
     /// the number of characters that should fit into the width and a font.
     /// </summary>
-    private static double CalculateColumnWidth(double charWidth, IXLFont font, XLWorkbook workbook)
+    internal static double CalculateColumnWidth(double charWidth, IXLFont font, XLWorkbook workbook)
     {
         // Convert width as a number of characters and translate it into a given number of pixels.
         var mdw = workbook.FontEngine.GetMaxDigitWidth(font, workbook.DpiX).RoundToInt();
