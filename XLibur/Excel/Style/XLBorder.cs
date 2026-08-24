@@ -136,6 +136,18 @@ internal sealed class XLBorder : IXLBorder
     /// still in use once the first is collected. Comparing keys makes that indistinguishable from
     /// "nothing changed" rather than a false trigger that would silently drop a pending colour.
     /// </remarks>
+    /// <summary>
+    /// Take the interned value that this facade's own writes produced, leaving the pending colours
+    /// alone - the bookkeeping <see cref="SetKey"/> does on the direct path, for a caller that
+    /// applied the writes some other way.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="SyncValue"/>, which exists for the opposite case: the style moved
+    /// for a reason this facade did not cause, so a colour pending against the old key must not
+    /// survive onto the new one.
+    /// </remarks>
+    internal void RefreshValue(XLBorderValue value) => _value = value;
+
     internal void SyncValue(XLBorderValue value)
     {
         if (!value.Key.Equals(_value.Key))

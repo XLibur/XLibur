@@ -203,6 +203,70 @@ public class BatchStyleTests
     }
 
     /// <summary>
+    /// A component facade the caller obtained before the batch must report what the batch set. The
+    /// style's own getters resync on every access, so only a retained facade can go stale.
+    /// </summary>
+    [Test]
+    public async Task Facade_retained_across_a_batch_reports_the_batched_value()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        var cell = ws.Cell("A1");
+
+        var font = cell.Style.Font;
+        cell.Style.Batch(s => s.Font.Bold = true);
+
+        await Assert.That(font.Bold).IsTrue();
+    }
+
+    /// <summary>
+    /// The damaging half of the same staleness: a write through a retained facade rebuilds the
+    /// component key from whatever that facade holds, so a stale one silently drops everything the
+    /// batch had set.
+    /// </summary>
+    [Test]
+    public async Task Writing_through_a_facade_retained_across_a_batch_keeps_the_batched_value()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        var cell = ws.Cell("A1");
+
+        var font = cell.Style.Font;
+        cell.Style.Batch(s => s.Font.FontSize = 20);
+        font.Italic = true;
+
+        await Assert.That(cell.Style.Font.FontSize).IsEqualTo(20);
+        await Assert.That(cell.Style.Font.Italic).IsTrue();
+    }
+
+    /// <summary>
+    /// Refreshing the border facade after a batch must not drop a colour left pending by that same
+    /// batch. A colour assigned to a styleless edge is held until the edge is given a style, and
+    /// the direct path keeps it across exactly this transition - so the batch path must too.
+    /// </summary>
+    [Test]
+    public async Task A_colour_left_pending_by_a_batch_still_applies_afterwards()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        var batched = ws.Cell("A1");
+        batched.Style.Batch(s =>
+        {
+            s.Border.LeftBorder = XLBorderStyleValues.Thin;
+            s.Border.TopBorderColor = XLColor.Red;
+        });
+        batched.Style.Border.TopBorder = XLBorderStyleValues.Thin;
+
+        var direct = ws.Cell("B1");
+        direct.Style.Border.LeftBorder = XLBorderStyleValues.Thin;
+        direct.Style.Border.TopBorderColor = XLColor.Red;
+        direct.Style.Border.TopBorder = XLBorderStyleValues.Thin;
+
+        await Assert.That(BorderSignature(batched)).IsEqualTo(BorderSignature(direct));
+    }
+
+    /// <summary>
     /// Every <see cref="IXLBorder"/> property must reach the same cell style whether it is assigned
     /// directly or inside a <see cref="IXLStyle.Batch"/>. Before spec 23 these ran through two
     /// independent implementations of <c>IXLBorder</c> - <c>XLBorder</c> and <c>XLDeferredBorder</c> -

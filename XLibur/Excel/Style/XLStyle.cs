@@ -316,9 +316,37 @@ internal sealed class XLStyle : IXLStyle
         {
             Value = XLStyleValue.FromKey(ref newKey);
             ((XLCell)_container!).SetStyleValue(Value);
+            RefreshCachedFacades();
         }
 
         return this;
+    }
+
+    /// <summary>
+    /// Hand every cached component facade the value the batch has just resolved.
+    /// </summary>
+    /// <remarks>
+    /// A facade the caller obtained before or during the batch is still reachable afterwards, and
+    /// outside a batch a facade reads its key from its own cached value. Without this it would
+    /// report pre-batch values, and - worse - a later write through it would rebuild the component
+    /// key from them and drop everything the batch had set. This style's own component getters
+    /// resync on every access, so only a facade the caller kept hold of is affected.
+    /// <para>
+    /// The border is refreshed rather than synced. <see cref="XLBorder.SyncValue"/> drops the
+    /// pending edge colours when the incoming key differs, which is right when the style moved
+    /// underneath the facade but wrong here, where the facade's own writes are what moved it - the
+    /// direct path keeps them across exactly the same transition, through
+    /// <c>XLBorder.SetKey</c>.
+    /// </para>
+    /// </remarks>
+    private void RefreshCachedFacades()
+    {
+        _cachedFont?.SyncValue(Value.Font);
+        _cachedFill?.SyncValue(Value.Fill);
+        _cachedAlignment?.SyncValue(Value.Alignment);
+        _cachedNumberFormat?.SyncValue(Value.NumberFormat);
+        _cachedProtection?.SyncValue(Value.Protection);
+        _cachedBorder?.RefreshValue(Value.Border);
     }
 
     internal void SyncValue(XLStyleValue value)
