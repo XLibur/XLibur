@@ -28,6 +28,8 @@
          build normalises compile-time source paths, so nothing may resolve these from where their
          source files are. -->
     <EmbeddedResource Include="Excel\Charts\Golden\*.xml" />
+    <!-- The DrawingML corpus (spec 16), embedded for the same reason. -->
+    <EmbeddedResource Include="Excel\DrawingML\Golden\*.xml" />
   </ItemGroup>
 
   <ItemGroup>
