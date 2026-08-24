@@ -92,6 +92,105 @@ public class RoundTripFidelityTests
     }
 
     [Test]
+    public async Task Slicers_and_their_caches_survive_a_round_trip()
+    {
+        using var saved = LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
+
+        // slicer1 hangs off the table on sheet1, slicer2 off the pivot table on sheet2. Their caches
+        // are cross-numbered: slicerCache1 serves the pivot slicer, slicerCache2 the table slicer.
+        await Assert.That(PartExists(saved, "xl/slicers/slicer1.xml")).IsTrue();
+        await Assert.That(PartExists(saved, "xl/slicers/slicer2.xml")).IsTrue();
+        await Assert.That(PartExists(saved, "xl/slicerCaches/slicerCache1.xml")).IsTrue();
+        await Assert.That(PartExists(saved, "xl/slicerCaches/slicerCache2.xml")).IsTrue();
+    }
+
+    [Test]
+    public async Task Slicer_styling_XLibur_does_not_model_survives_a_round_trip()
+    {
+        using var saved = LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
+
+        // The pivot slicer carries a renamed caption, a non-default built-in style and a single
+        // selected item. None of that is modelled, so it only survives if the part is left alone.
+        var pivotSlicer = ReadPart(saved, "xl/slicers/slicer2.xml");
+        await Assert.That(pivotSlicer).Contains("caption=\"Region filter\"");
+        await Assert.That(pivotSlicer).Contains("style=\"SlicerStyleDark3\"");
+
+        // s="1" on a single <i> is the selection. The table slicer's cache instead carries an
+        // x15:tableSlicerCache extension, which is the other of the two binding paths.
+        var pivotCache = ReadPart(saved, "xl/slicerCaches/slicerCache1.xml");
+        await Assert.That(pivotCache).Contains("<i x=\"0\" s=\"1\"/>");
+
+        var tableCache = ReadPart(saved, "xl/slicerCaches/slicerCache2.xml");
+        await Assert.That(tableCache).Contains("tableSlicerCache");
+    }
+
+    [Test]
+    public async Task Slicer_references_survive_in_the_worksheet_xml()
+    {
+        using var saved = LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
+
+        // Same trap as the form controls above: the worksheet part is rebuilt from the model on
+        // every save, so surviving slicer parts are orphans unless the sheet keeps pointing at them.
+        // Excel uses a different extension URI for a table slicer than for a pivot slicer.
+        var tableSheet = ReadPart(saved, "xl/worksheets/sheet1.xml");
+        await Assert.That(tableSheet).Contains("{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}");
+        await Assert.That(tableSheet).Contains("slicerList");
+
+        var pivotSheet = ReadPart(saved, "xl/worksheets/sheet2.xml");
+        await Assert.That(pivotSheet).Contains("{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
+        await Assert.That(pivotSheet).Contains("slicerList");
+
+        // The extLst points at the slicer part by relationship id, so the relationship has to live too.
+        await Assert.That(ReadPart(saved, "xl/worksheets/_rels/sheet1.xml.rels"))
+            .Contains("../slicers/slicer1.xml");
+        await Assert.That(ReadPart(saved, "xl/worksheets/_rels/sheet2.xml.rels"))
+            .Contains("../slicers/slicer2.xml");
+    }
+
+    [Test]
+    public async Task Slicer_cache_references_survive_in_the_workbook_xml()
+    {
+        using var saved = LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
+
+        var workbookXml = ReadPart(saved, "xl/workbook.xml");
+
+        // Two separate registries: x14:slicerCaches for the pivot slicer, x15:slicerCaches for the
+        // table slicer. Losing either one orphans a cache part that still exists on disk.
+        await Assert.That(workbookXml).Contains("{BBE1A952-AA13-448e-AADC-164F8A28A991}");
+        await Assert.That(workbookXml).Contains("{46BE6895-7355-4a93-B00E-2C351335B9C9}");
+
+        // Excel writes a #N/A defined name per slicer cache. XLibur models defined names and rewrites
+        // the whole block, so these are the most exposed part of the whole arrangement.
+        await Assert.That(workbookXml).Contains("Slicer_Region");
+        await Assert.That(workbookXml).Contains("Slicer_Region1");
+
+        await Assert.That(ReadPart(saved, "xl/_rels/workbook.xml.rels"))
+            .Contains("slicerCaches/slicerCache1.xml");
+        await Assert.That(ReadPart(saved, "xl/_rels/workbook.xml.rels"))
+            .Contains("slicerCaches/slicerCache2.xml");
+    }
+
+    [Test]
+    public async Task Slicers_survive_an_unrelated_edit()
+    {
+        // The user story is "edit a sheet that has nothing to do with the slicer, save, still there".
+        using var stream = TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"TryToLoad\SlicersOnPivotAndTable.xlsx"));
+        using var saved = new MemoryStream();
+
+        using (var wb = new XLWorkbook(stream))
+        {
+            wb.Worksheet("Data").Cell("E1").Value = "touched";
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(PartExists(saved, "xl/slicers/slicer1.xml")).IsTrue();
+        await Assert.That(PartExists(saved, "xl/slicers/slicer2.xml")).IsTrue();
+        await Assert.That(ReadPart(saved, "xl/worksheets/sheet1.xml")).Contains("slicerList");
+        await Assert.That(ReadPart(saved, "xl/worksheets/sheet2.xml")).Contains("slicerList");
+    }
+
+    [Test]
     public async Task Saving_to_a_new_file_also_preserves_unmodelled_parts()
     {
         // SaveAs to a fresh path copies the original package first, so the pass-through holds for

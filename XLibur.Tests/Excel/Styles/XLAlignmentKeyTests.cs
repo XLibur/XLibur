@@ -111,10 +111,11 @@ public class XLAlignmentKeyTests
     }
 
     /// <summary>
-    /// <c>XLDeferredAlignment</c> is a second, independent facade over the same key, reached through
-    /// <c>IXLStyle.Batch</c> for a cell rather than through the ordinary <c>XLAlignment</c> facade.
-    /// Validation lives on the key rather than on either facade precisely so a caller cannot reach
-    /// an unguarded path through this one instead.
+    /// <c>IXLStyle.Batch</c> for a cell runs the same <c>XLAlignment</c> facade as a direct
+    /// assignment does - it only changes where the assigned key is parked until the batch flushes.
+    /// Validation is kept on the key rather than moved onto that one facade because the key guards
+    /// itself whichever caller reaches it, including the loader and <c>GenerateKey</c>'s
+    /// external-<c>IXLAlignment</c> branch, which touch no facade at all.
     /// </summary>
     [Test]
     public async Task Setting_an_undefined_horizontal_value_through_the_batch_facade_throws()

@@ -26,9 +26,14 @@ internal sealed class XLFill : IXLFill
 
     private XLFillValue _value;
 
+    /// <inheritdoc cref="XLFont.Key"/>
     internal XLFillKey Key
     {
-        get => _value.Key;
+        get
+        {
+            var pending = _style.Pending;
+            return pending is null ? _value.Key : pending.Fill;
+        }
         private set => _value = XLFillValue.FromKey(ref value);
     }
 
@@ -91,12 +96,35 @@ internal sealed class XLFill : IXLFill
             Modify(update);
     }
 
+    /// <summary>
+    /// <see cref="ApplyKeyUpdate(Func{XLFillKey, XLFillKey})"/> for a caller that has already read
+    /// <see cref="Key"/>, so the cell path does not read it a second time. The delta is still
+    /// needed for the non-cell path,
+    /// which must apply it to each cell's own key rather than to this facade's.
+    /// </summary>
+    private void ApplyKeyUpdate(in XLFillKey key, Func<XLFillKey, XLFillKey> update)
+    {
+        if (_style.IsCellContainer)
+            SetKey(update(key));
+        else
+            Modify(update);
+    }
+
     private static XLFillPatternValues PatternTypeFromBackgroundColor(XLColor color)
         => color.HasValue ? XLFillPatternValues.Solid : XLFillPatternValues.None;
 
-    private bool ShouldAdjustPatternTypeForBackgroundColor()
-        => PatternType is XLFillPatternValues.None or XLFillPatternValues.Solid
-           && XLColor.IsNullOrTransparent(BackgroundColor);
+    /// <remarks>
+    /// Takes the key the caller has already read rather than going back through
+    /// <see cref="PatternType"/> and <see cref="BackgroundColor"/>, each of which reads it again.
+    /// </remarks>
+    private static bool ShouldAdjustPatternTypeForBackgroundColor(in XLFillKey key)
+    {
+        if (key.PatternType is not (XLFillPatternValues.None or XLFillPatternValues.Solid))
+            return false;
+
+        var backgroundColorKey = key.BackgroundColor;
+        return XLColor.IsNullOrTransparent(XLColor.FromKey(ref backgroundColorKey));
+    }
 
     private static XLColorKey DefaultPatternBackgroundColorKey()
         => XLColor.FromTheme(XLThemeColor.Text1).Key;
@@ -115,14 +143,15 @@ internal sealed class XLFill : IXLFill
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            if (ShouldAdjustPatternTypeForBackgroundColor())
+            var key = Key;
+            if (ShouldAdjustPatternTypeForBackgroundColor(in key))
             {
                 var patternType = PatternTypeFromBackgroundColor(value);
-                ApplyKeyUpdate(k => k with { BackgroundColor = value.Key, PatternType = patternType });
+                ApplyKeyUpdate(in key, k => k with { BackgroundColor = value.Key, PatternType = patternType });
             }
             else
             {
-                ApplyKeyUpdate(k => k with { BackgroundColor = value.Key });
+                ApplyKeyUpdate(in key, k => k with { BackgroundColor = value.Key });
             }
         }
     }
@@ -139,8 +168,9 @@ internal sealed class XLFill : IXLFill
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            if (Key.PatternColor == value.Key) return;
-            ApplyKeyUpdate(k => k with { PatternColor = value.Key });
+            var key = Key;
+            if (key.PatternColor == value.Key) return;
+            ApplyKeyUpdate(in key, k => k with { PatternColor = value.Key });
         }
     }
 
@@ -149,18 +179,19 @@ internal sealed class XLFill : IXLFill
         get => Key.PatternType;
         set
         {
-            if (PatternType == XLFillPatternValues.None &&
+            var key = Key;
+            if (key.PatternType == XLFillPatternValues.None &&
                 value != XLFillPatternValues.None)
             {
                 // If fill was empty and the pattern changes to non-empty, we have to specify a background color too.
                 // Otherwise, the fill will be considered empty, and the pattern won't update (the cached empty fill will be used).
                 var defaultBackgroundColor = DefaultPatternBackgroundColorKey();
-                ApplyKeyUpdate(k => k with { BackgroundColor = defaultBackgroundColor, PatternType = value });
+                ApplyKeyUpdate(in key, k => k with { BackgroundColor = defaultBackgroundColor, PatternType = value });
             }
             else
             {
-                if (Key.PatternType == value) return;
-                ApplyKeyUpdate(k => k with { PatternType = value });
+                if (key.PatternType == value) return;
+                ApplyKeyUpdate(in key, k => k with { PatternType = value });
             }
         }
     }

@@ -38,7 +38,7 @@ Two consequences:
 | ActiveX | ✅ | ✅ | ❌ | Both `activeX1.xml` and `activeX1.bin` |
 | Timelines | ✅ | n/a | ❌ | `timelines/` and `timelineCaches/` |
 | Custom XML | ✅ | n/a | ❌ | `customXml/item*.xml` and props |
-| Slicers | ❓ | ❓ | ❌ | **Untested** — see gaps below |
+| Slicers | ✅ | ✅ | ❌ | Pivot and table slicers, `slicers/` and `slicerCaches/` |
 | Threaded comments | ✅ | ✅ | ✅ | Modelled as of spec 09 |
 
 ### Chartsheets are preserved, not dropped
@@ -69,6 +69,34 @@ one is not free in the way an untouched part is. `WorksheetPartWriter` carries t
 element through verbatim, including the `mc:AlternateContent` wrapper and the `<anchor>` offsets
 inside `controlPr`. Surviving `activeX1.bin` would be worthless if the sheet stopped referencing it.
 
+### Slicers survive, and there are four separate reasons they could not have
+
+This one was an open question until an Excel-authored fixture existed to settle it
+(`Resource/TryToLoad/SlicersOnPivotAndTable.xlsx`: a table with a slicer on one sheet, a pivot table
+with a second slicer on another). It is worth listing what had to hold, because "the parts are
+untouched" only covers the first of four:
+
+- **The parts.** `xl/slicers/slicer*.xml` and `xl/slicerCaches/slicerCache*.xml` are never opened, so
+  they come through byte for byte — including the pivot slicer's caption, its `SlicerStyleDark3`
+  style and its single selected item, none of which XLibur models.
+- **The worksheet references.** The worksheet part *is* rebuilt on every save, and a slicer is
+  referenced from `<extLst>`. Excel uses a different extension URI for a table slicer
+  (`{3A4CF648-…}`) than for a pivot slicer (`{A8765BA9-…}`); both survive, because
+  `ConditionalFormattingWriter` and friends only add and remove their own URIs instead of rewriting
+  the list.
+- **The workbook references.** Slicer caches are registered in `xl/workbook.xml`'s `<extLst>` in two
+  places — `x14:slicerCaches` for the pivot slicer, `x15:slicerCaches` for the table slicer. Both
+  survive, as do the `slicerCache` relationships they point at.
+- **The defined names.** Excel emits a `#N/A` defined name per slicer cache (`Slicer_Region`,
+  `Slicer_Region1`). These were the most exposed piece of the arrangement, since XLibur models
+  defined names and rewrites the whole block. They come through intact.
+
+The saved package also produces zero `OpenXmlValidator` errors, the same count as Excel's original.
+
+One thing that does change is unrelated to slicers: `<pivotCache cacheId>` is renumbered on save
+(`3` → `0`). The slicer cache binds to the pivot cache through `pivotCacheId` in
+`pivotCacheDefinition1.xml`, not through this attribute, so the link is not affected.
+
 ### Comment VML is pruned surgically
 
 `DeleteExistingCommentsShapes` removes only shapes whose `type` matches the comment shapetype:
@@ -83,10 +111,6 @@ deletes the part when nothing at all is left in it.
 
 ## Gaps
 
-- **Slicers are unverified.** The test suite has no fixture containing `xl/slicers/` or
-  `xl/slicerCaches/`. The same mechanism should carry them through, but "should" is not "does" and
-  this doc does not claim otherwise. Closing this needs an Excel-authored file with a slicer added
-  to `XLibur.Tests/Resource/`.
 - **Nothing is preserved for workbooks built from scratch**, by construction.
 - **Preservation is not manipulation.** Everything in the table above is opaque: it round-trips, but
   there is no API to inspect or edit it, and no guarantee it stays consistent if you delete the

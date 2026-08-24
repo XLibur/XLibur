@@ -25,9 +25,14 @@ internal sealed class XLNumberFormat : IXLNumberFormat
 
     private XLNumberFormatValue _value;
 
+    /// <inheritdoc cref="XLFont.Key"/>
     internal XLNumberFormatKey Key
     {
-        get => _value.Key;
+        get
+        {
+            var pending = _style.Pending;
+            return pending is null ? _value.Key : pending.NumberFormat;
+        }
         private set => _value = XLNumberFormatValue.FromKey(ref value);
     }
 

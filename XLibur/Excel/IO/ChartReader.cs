@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using XLibur.Excel.IO.Charts;
 using A = DocumentFormat.OpenXml.Drawing;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
 using Cx = DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
@@ -97,7 +98,7 @@ internal static class ChartReader
 
         var xlChart = new XLChart(ws) { IsNew = false, RelId = relId };
         ReadTitle(chart, xlChart);
-        ChartFormatting.ReadLegend(chart.Elements<C.Legend>().FirstOrDefault(), xlChart.LegendInternal);
+        ChartLegendXml.Read(chart, xlChart.LegendInternal);
 
         var plotArea = chart.PlotArea;
         if (plotArea != null)
@@ -151,7 +152,7 @@ internal static class ChartReader
                     primarySet = true;
 
                     // The chart-wide labels live on the primary chart group.
-                    ChartFormatting.ReadDataLabels(
+                    ChartDataLabelsXml.Read(
                         group.Element.Elements<C.DataLabels>().FirstOrDefault(), xlChart.DataLabelsInternal);
                 }
 
@@ -176,10 +177,10 @@ internal static class ChartReader
         C.PlotArea plotArea, List<XLChartGroup> groups, XLChartGroup primaryGroup,
         uint? primaryValueAxisId, XLChart xlChart)
     {
-        ChartFormatting.ReadAxis(
+        ChartAxisXml.Read(
             ChartPlotAreaScanner.FindAxis(plotArea, primaryGroup.CategoryAxisId),
             xlChart.CategoryAxisInternal);
-        ChartFormatting.ReadAxis(
+        ChartAxisXml.Read(
             ChartPlotAreaScanner.FindAxis(plotArea, primaryValueAxisId),
             xlChart.ValueAxisInternal);
 
@@ -187,7 +188,7 @@ internal static class ChartReader
             g.ValueAxisId != null && primaryValueAxisId != null && g.ValueAxisId != primaryValueAxisId);
         if (secondaryGroup != null)
         {
-            ChartFormatting.ReadAxis(
+            ChartAxisXml.Read(
                 ChartPlotAreaScanner.FindAxis(plotArea, secondaryGroup.ValueAxisId),
                 xlChart.SecondaryValueAxisInternal);
         }
@@ -228,8 +229,8 @@ internal static class ChartReader
                 : ExtractCategoryAndValueReferences(seriesElement);
 
             var series = (XLChartSeries)target.Add(name, valRef, catRef);
-            ChartFormatting.ReadSeriesFormat(seriesElement, series, useSecondaryAxis);
-            ChartFormatting.ReadDataLabels(
+            ChartSeriesFormatXml.Read(seriesElement, series, useSecondaryAxis);
+            ChartDataLabelsXml.Read(
                 seriesElement.Elements<C.DataLabels>().FirstOrDefault(), series.DataLabelsInternal);
         }
     }

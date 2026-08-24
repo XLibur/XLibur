@@ -4,7 +4,7 @@
 **Effort:** S–M (~3–4 days)
 **Dependencies:** None hard. **Conflicts with spec 18 task 5** — both work inside
 `LoadWorksheetElements`. See Conflicts.
-**Status:** Proposed.
+**Status:** Done (2026-08-23).
 
 ## Goal
 
@@ -116,7 +116,7 @@ element, and writes its output into `state.PageSetupProperties`.
 
 ## File structure
 
-```
+```text
 XLibur/Excel/IO/WorksheetElementContext.cs   new — the context and state structs
 XLibur/Excel/IO/WorksheetElementReader.cs    modified — gains TryLoad, 14 methods go private
 XLibur/Excel/XLWorkbook_Load.cs              modified — dispatch deleted, ~70 lines lighter
@@ -155,7 +155,7 @@ being read. No single existing test covers all 17 at once.
 **Interfaces:**
 - Produces: `Every_worksheet_element_survives_a_round_trip`, the gate for tasks 2 and 3.
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 ```csharp
 using System.IO;
@@ -257,7 +257,7 @@ public class WorksheetElementRoundTripTests
 }
 ```
 
-- [ ] **Step 2: Run it and fix any API mismatches**
+- [x] **Step 2: Run it and fix any API mismatches**
 
 Run: `dotnet test XLibur.Tests/XLibur.Tests.csproj -f net10.0 --treenode-filter "/*/*/WorksheetElementRoundTripTests/*"`
 Expected: PASS.
@@ -268,13 +268,13 @@ somewhere in the suite — and use that form. **Do not weaken an assertion to ma
 element genuinely does not round-trip today, that is a pre-existing defect: record it, replace the
 assertion with the current behaviour plus a comment naming the gap, and report it.
 
-- [ ] **Step 3: Verify the gate bites**
+- [x] **Step 3: Verify the gate bites**
 
 In `XLWorkbook_Load.LoadPrintAndExtensionElement`, temporarily comment out the `RowBreaks` branch.
 Re-run.
 Expected: FAIL on the `RowBreaks` assertion. Restore the branch.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add XLibur.Tests/Excel/IO/WorksheetElementRoundTripTests.cs
@@ -294,7 +294,7 @@ git commit -m 'test(io): round-trip every worksheet element in one workbook (spe
 - Produces: `WorksheetElementContext`, `WorksheetElementState`,
   `WorksheetElementReader.TryLoad(OpenXmlPartReader, in WorksheetElementContext, ref WorksheetElementState) → bool`.
 
-- [ ] **Step 1: Create the context and state structs**
+- [x] **Step 1: Create the context and state structs**
 
 ```csharp
 using DocumentFormat.OpenXml.Packaging;
@@ -325,7 +325,7 @@ internal struct WorksheetElementState
 }
 ```
 
-- [ ] **Step 2: Add `TryLoad` to `WorksheetElementReader` with the dispatch moved in**
+- [x] **Step 2: Add `TryLoad` to `WorksheetElementReader` with the dispatch moved in**
 
 ```csharp
     /// <summary>
@@ -416,7 +416,7 @@ matching how the repo handles `S4136` in `XLCellFormulaShifter`:
 `XLWorkbook_Load` — task 3 moves them. Until then, make them `internal static` on `XLWorkbook` and
 call them qualified, or do task 3 first. **Doing task 3 first is cleaner if the build complains.**
 
-- [ ] **Step 3: Make the 14 existing entry points private**
+- [x] **Step 3: Make the 14 existing entry points private**
 
 Every `internal static void LoadX` in `WorksheetElementReader.cs` becomes `private static void`,
 except `LoadAutoFilterColumns` and `LoadAutoFilterSort`, which are called from elsewhere. Confirm
@@ -426,7 +426,7 @@ Run: `grep -rn 'WorksheetElementReader\.' XLibur --include=*.cs`
 
 Anything still called from outside stays `internal`; everything else goes `private`.
 
-- [ ] **Step 4: Collapse the loader**
+- [x] **Step 4: Collapse the loader**
 
 Replace `LoadWorksheetElements`' pass-1 loop, and delete `LoadWorksheetElement`,
 `LoadStructureElement` and `LoadPrintAndExtensionElement` entirely:
@@ -472,13 +472,13 @@ Note what disappears: the `SheetProperties` special case at `:359-365` is gone �
 among the rest, and `pageSetupProperties` lives in `elementState` rather than as a local threaded
 through four signatures.
 
-- [ ] **Step 5: Build and run the full suite**
+- [x] **Step 5: Build and run the full suite**
 
 Run: `dotnet build XLibur/XLibur.csproj -c Release -v q`
 Run: `dotnet test XLibur.Tests/XLibur.Tests.csproj -f net10.0`
 Expected: PASS, including task 1's round-trip test.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add XLibur/Excel/IO/WorksheetElementContext.cs XLibur/Excel/IO/WorksheetElementReader.cs XLibur/Excel/XLWorkbook_Load.cs
@@ -497,12 +497,12 @@ the dispatch gone they are the only reason it still knows about worksheet elemen
   `LoadMergeCellsStreaming` (`:510`); widen `CalculateColumnWidth` (`:945`) to `internal static`
 - Modify: `XLibur/Excel/IO/WorksheetElementReader.cs` — receive both
 
-- [ ] **Step 1: Move `LoadMergeCellsStreaming` verbatim**
+- [x] **Step 1: Move `LoadMergeCellsStreaming` verbatim**
 
 It is already `private static (OpenXmlPartReader, XLWorksheet)` and has no dependency on the
 workbook. Cut it into `WorksheetElementReader` as `private static`, unchanged.
 
-- [ ] **Step 2: Move `LoadSheetFormatProperties`, taking the workbook explicitly**
+- [x] **Step 2: Move `LoadSheetFormatProperties`, taking the workbook explicitly**
 
 It is `private void` today and uses `this` only as an argument. Move it as:
 
@@ -529,20 +529,20 @@ It is `private void` today and uses `this` only as an argument. Move it as:
 Widen `CalculateColumnWidth` from `private static` to `internal static` on `XLWorkbook`. It already
 takes the workbook as a parameter, so nothing else changes.
 
-- [ ] **Step 3: Confirm `XLWorkbook_Load` no longer names a worksheet element**
+- [x] **Step 3: Confirm `XLWorkbook_Load` no longer names a worksheet element**
 
 Run: `grep -nE 'typeof\((SheetFormatProperties|MergeCells|LegacyDrawing|SheetViews|PageSetup|HeaderFooter|RowBreaks|ColumnBreaks|Hyperlinks|PrintOptions|PageMargins|AutoFilter|SheetProtection|DataValidations|ConditionalFormatting|WorksheetExtensionList|SheetProperties|Columns)\)' XLibur/Excel/XLWorkbook_Load.cs`
 
 Expected: no output. `CustomSheetViews` and `SheetData` may still appear — they are the two the
 loader deliberately skips, which is sequencing, not element knowledge.
 
-- [ ] **Step 4: Build and run the full suite on both frameworks**
+- [x] **Step 4: Build and run the full suite on both frameworks**
 
 Run: `dotnet build XLibur/XLibur.csproj -c Release -v q`
 Run: `dotnet test XLibur.Tests/XLibur.Tests.csproj`
 Expected: PASS on net8.0 and net10.0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add XLibur/Excel/IO/WorksheetElementReader.cs XLibur/Excel/XLWorkbook_Load.cs
@@ -556,19 +556,19 @@ git commit -m 'refactor(io): move the last three element handlers off the loader
 `LoadWorksheetElements` is 23.7% of the template round-trip trace (spec 18 task 5). This spec
 restructures it, so the cost must be shown not to have moved.
 
-- [ ] **Step 1: Measure the merge-base**
+- [x] **Step 1: Measure the merge-base**
 
-```
+```bash
 dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -- profile template
 ```
 
 Record the header-only sheet sweep (1 / 10 / 40 sheets) from spec 18 task 5's table.
 
-- [ ] **Step 2: Measure the branch**
+- [x] **Step 2: Measure the branch**
 
 Same command, same fixture.
 
-- [ ] **Step 3: Compare the per-sheet slope**
+- [x] **Step 3: Compare the per-sheet slope**
 
 Expected: ~1.0 ms and ~0.19 MB per header-only sheet, unchanged.
 
@@ -580,12 +580,93 @@ struct being copied — check that every call site uses `in`, not a bare argumen
 must be explained before this spec lands, not after. Record the numbers in a Results section either
 way.
 
-- [ ] **Step 4: Commit the Results section**
+- [x] **Step 4: Commit the Results section**
 
 ```bash
 git add docs/specs/24-worksheet-element-dispatch.md
 git commit -m 'docs(specs): record the per-sheet load numbers for spec 24'
 ```
+
+---
+
+## Results
+
+### Per-sheet load cost (task 4)
+
+`profile template`, net10.0, Release. Base is the merge-base `1b41cadd`; branch is this spec's
+three commits. The `sheets=N names=0 val=0 lookupRows=0` rows — the header-only sweep that isolates
+what a worksheet costs structurally.
+
+**Measured by interleaving**: base and branch alternated within one session, four pairs, median of
+the four run-medians (each run-median is itself the median of 9 passes after a warm-up).
+
+| Sheets | base median ms | branch median ms | base alloc | branch alloc |
+|---|---|---|---|---|
+| 1 | 6.5 | 6.2 | 1.0 MB | 1.0 MB |
+| 10 | 12.8 | 13.0 | 2.6 MB | 2.6 MB |
+| 40 | 40.1 | 38.4 | 8.4 MB | 8.4 MB |
+
+Per-sheet slope over 1 → 40 sheets:
+
+| | ms / sheet | MB / sheet |
+|---|---|---|
+| base | 0.86 | 0.19 |
+| branch | 0.83 | 0.19 |
+
+**Verdict: unchanged.** The branch's slope is 0.03 ms/sheet *below* the base's — well inside the
+~1.2 ms probe noise floor spec 18 records, and in the wrong direction to be a regression.
+Allocation is byte-for-byte identical at every sheet count, which is the part that would have
+caught a copied context struct: `in`/`ref` hold, nothing is copied per element.
+
+Note the ~0.19 MB/sheet matches spec 18 task 5, but the ~0.86 ms/sheet is below the ~1.0 ms that
+task recorded. That gap predates this spec — both arms measure it.
+
+### Measurement note: run the arms interleaved, not in blocks
+
+A first attempt measured six consecutive runs of the branch, then six of the base. That produced an
+apparent **+10% per-sheet regression** on the branch (0.93 vs 0.83 ms/sheet) which did not survive
+interleaving. Two things were wrong with the block method on this machine:
+
+- `... | Select-Object -First N` stops the upstream pipeline and leaves the benchmark process
+  **orphaned and still running**, so later runs in the block compete with earlier ones. Capture the
+  whole run to a file instead.
+- Even without that, the machine drifts enough across a multi-minute block to swamp a 3 ms
+  difference on a 38 ms probe.
+
+The mechanism check was what flagged it as suspect before the interleaved run confirmed it: 0.1 ms
+per sheet spread over ~10 elements is 10 µs per element, which is orders of magnitude more than a
+static call and a 40-byte `in` struct can cost. A regression with no plausible mechanism is a
+measurement artefact until proven otherwise.
+
+### Interface
+
+- `WorksheetElementReader`: 14 `internal static` entry points → 2. `TryLoad` is the dispatch;
+  `LoadAutoFilterColumns` stays `internal` because `XLWorkbook_Load.LoadSingleTable` reads a table's
+  own `<autoFilter>` through it. The other twelve, plus the two handlers moved off the loader, are
+  `private`.
+- `XLWorkbook_Load.cs`: 95 lines lighter in task 2, 36 more in task 3. It names no worksheet element
+  type at all now — `CustomSheetViews` and `SheetData` appear only in the pass-1 skip loop.
+- `pageSetupProperties` is gone as a threaded local; it lives in `WorksheetElementState`.
+
+### Tests
+
+- `WorksheetElementRoundTripTests.Every_worksheet_element_survives_a_round_trip` — 17 elements in
+  one workbook, saved and read back. Gate proven to bite by removing the `RowBreaks` branch, which
+  failed the test on that assertion alone.
+- Two elements needed a producer the first draft did not have: `<legacyDrawing>` is written only for
+  a sheet with VML, so the fixture carries a note; the worksheet `<extLst>` is written only for x14
+  data validations, x14 data bars or sparklines, so the fixture carries a sparkline group.
+- The `LegacyDrawing` assertion is on `LegacyDrawingId`, not on `HasComment`. `HasComment` was tried
+  first and **does not bite**: the note is read from the comments part by a separate path and
+  survives with the `LegacyDrawing` branch deleted. `LegacyDrawingId` is what the element alone
+  carries — losing it orphans the VML part on the next save — and removing the branch does fail on
+  it. A passing assertion is not proof a branch is covered; each of the two new ones was checked by
+  deleting its branch.
+- One assertion differs from the spec's draft, without weakening: the header text is read back with
+  `GetText(XLHFOccurrence.OddPages)`, not `AllPages`. `XLHFItem.AddText` fans `AllPages` out into the
+  three concrete occurrences and never stores `AllPages` as a key, so `GetText(AllPages)` returns
+  `""` for any header. That is existing behaviour of the accessor, not a round-trip gap.
+- Full suite green on net8.0 and net10.0: 23,738 tests, 0 failed, 8 skipped (pre-existing).
 
 ---
 

@@ -32,9 +32,14 @@ internal sealed class XLAlignment : IXLAlignment
 
     private XLAlignmentValue _value;
 
+    /// <inheritdoc cref="XLFont.Key"/>
     private XLAlignmentKey Key
     {
-        get => _value.Key;
+        get
+        {
+            var pending = _style.Pending;
+            return pending is null ? _value.Key : pending.Alignment;
+        }
         set => _value = XLAlignmentValue.FromKey(ref value);
     }
 
@@ -92,9 +97,10 @@ internal sealed class XLAlignment : IXLAlignment
         get => Key.Vertical;
         set
         {
-            if (Key.Vertical == value) return;
+            var key = Key;
+            if (key.Vertical == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { Vertical = value });
+                SetKey(key with { Vertical = value });
             else
                 Modify(k => k with { Vertical = value });
         }
@@ -132,9 +138,10 @@ internal sealed class XLAlignment : IXLAlignment
         get => Key.JustifyLastLine;
         set
         {
-            if (Key.JustifyLastLine == value) return;
+            var key = Key;
+            if (key.JustifyLastLine == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { JustifyLastLine = value });
+                SetKey(key with { JustifyLastLine = value });
             else
                 Modify(k => k with { JustifyLastLine = value });
         }
@@ -145,9 +152,10 @@ internal sealed class XLAlignment : IXLAlignment
         get => Key.ReadingOrder;
         set
         {
-            if (Key.ReadingOrder == value) return;
+            var key = Key;
+            if (key.ReadingOrder == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { ReadingOrder = value });
+                SetKey(key with { ReadingOrder = value });
             else
                 Modify(k => k with { ReadingOrder = value });
         }
@@ -158,9 +166,10 @@ internal sealed class XLAlignment : IXLAlignment
         get => Key.RelativeIndent;
         set
         {
-            if (Key.RelativeIndent == value) return;
+            var key = Key;
+            if (key.RelativeIndent == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { RelativeIndent = value });
+                SetKey(key with { RelativeIndent = value });
             else
                 Modify(k => k with { RelativeIndent = value });
         }
@@ -171,9 +180,10 @@ internal sealed class XLAlignment : IXLAlignment
         get => Key.ShrinkToFit;
         set
         {
-            if (Key.ShrinkToFit == value) return;
+            var key = Key;
+            if (key.ShrinkToFit == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { ShrinkToFit = value });
+                SetKey(key with { ShrinkToFit = value });
             else
                 Modify(k => k with { ShrinkToFit = value });
         }
@@ -189,9 +199,10 @@ internal sealed class XLAlignment : IXLAlignment
             if (rotation != 255 && (rotation < -90 || rotation > 90))
                 throw new ArgumentException("TextRotation must be between -90 and 90 degrees, or 255.");
 
-            if (Key.TextRotation == rotation) return;
+            var key = Key;
+            if (key.TextRotation == rotation) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { TextRotation = rotation });
+                SetKey(key with { TextRotation = rotation });
             else
                 Modify(k => k with { TextRotation = rotation });
         }
@@ -202,9 +213,10 @@ internal sealed class XLAlignment : IXLAlignment
         get => Key.WrapText;
         set
         {
-            if (Key.WrapText == value) return;
+            var key = Key;
+            if (key.WrapText == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { WrapText = value });
+                SetKey(key with { WrapText = value });
             else
                 Modify(k => k with { WrapText = value });
         }
