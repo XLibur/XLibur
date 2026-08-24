@@ -1,3 +1,4 @@
+using System;
 using XLibur.Excel;
 using System.Threading.Tasks;
 
@@ -199,5 +200,168 @@ public class BatchStyleTests
 
         await Assert.That(cell.Style.IncludeQuotePrefix).IsTrue();
         await Assert.That(cell.Style.Font.Bold).IsTrue();
+    }
+
+    /// <summary>
+    /// A component facade the caller obtained before the batch must report what the batch set. The
+    /// style's own getters resync on every access, so only a retained facade can go stale.
+    /// </summary>
+    [Test]
+    public async Task Facade_retained_across_a_batch_reports_the_batched_value()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        var cell = ws.Cell("A1");
+
+        var font = cell.Style.Font;
+        cell.Style.Batch(s => s.Font.Bold = true);
+
+        await Assert.That(font.Bold).IsTrue();
+    }
+
+    /// <summary>
+    /// The damaging half of the same staleness: a write through a retained facade rebuilds the
+    /// component key from whatever that facade holds, so a stale one silently drops everything the
+    /// batch had set.
+    /// </summary>
+    [Test]
+    public async Task Writing_through_a_facade_retained_across_a_batch_keeps_the_batched_value()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        var cell = ws.Cell("A1");
+
+        var font = cell.Style.Font;
+        cell.Style.Batch(s => s.Font.FontSize = 20);
+        font.Italic = true;
+
+        await Assert.That(cell.Style.Font.FontSize).IsEqualTo(20);
+        await Assert.That(cell.Style.Font.Italic).IsTrue();
+    }
+
+    /// <summary>
+    /// Refreshing the border facade after a batch must not drop a colour left pending by that same
+    /// batch. A colour assigned to a styleless edge is held until the edge is given a style, and
+    /// the direct path keeps it across exactly this transition - so the batch path must too.
+    /// </summary>
+    [Test]
+    public async Task A_colour_left_pending_by_a_batch_still_applies_afterwards()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        var batched = ws.Cell("A1");
+        batched.Style.Batch(s =>
+        {
+            s.Border.LeftBorder = XLBorderStyleValues.Thin;
+            s.Border.TopBorderColor = XLColor.Red;
+        });
+        batched.Style.Border.TopBorder = XLBorderStyleValues.Thin;
+
+        var direct = ws.Cell("B1");
+        direct.Style.Border.LeftBorder = XLBorderStyleValues.Thin;
+        direct.Style.Border.TopBorderColor = XLColor.Red;
+        direct.Style.Border.TopBorder = XLBorderStyleValues.Thin;
+
+        await Assert.That(BorderSignature(batched)).IsEqualTo(BorderSignature(direct));
+    }
+
+    /// <summary>
+    /// Every <see cref="IXLBorder"/> property must reach the same cell style whether it is assigned
+    /// directly or inside a <see cref="IXLStyle.Batch"/>. Before spec 23 these ran through two
+    /// independent implementations of <c>IXLBorder</c> - <c>XLBorder</c> and <c>XLDeferredBorder</c> -
+    /// and <c>InsideBorder</c>/<c>InsideBorderColor</c> disagreed: a single cell has no interior
+    /// edges, so the direct path is a no-op, while the deferred path set all four.
+    /// </summary>
+    [Test]
+    [Arguments("OutsideBorder")]
+    [Arguments("InsideBorder")]
+    [Arguments("LeftBorder")]
+    [Arguments("RightBorder")]
+    [Arguments("TopBorder")]
+    [Arguments("BottomBorder")]
+    [Arguments("DiagonalBorder")]
+    public async Task Batch_and_direct_assignment_agree_for_every_border_property(string property)
+    {
+        const XLBorderStyleValues value = XLBorderStyleValues.Thick;
+
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        var direct = ws.Cell("A1");
+        ApplyBorder(direct.Style.Border, property, value);
+
+        var batched = ws.Cell("B1");
+        batched.Style.Batch(s => ApplyBorder(s.Border, property, value));
+
+        await Assert.That(BorderSignature(batched)).IsEqualTo(BorderSignature(direct));
+    }
+
+    /// <summary>Colour variants of the same parity property.</summary>
+    [Test]
+    [Arguments("OutsideBorderColor")]
+    [Arguments("InsideBorderColor")]
+    [Arguments("LeftBorderColor")]
+    [Arguments("RightBorderColor")]
+    [Arguments("TopBorderColor")]
+    [Arguments("BottomBorderColor")]
+    [Arguments("DiagonalBorderColor")]
+    public async Task Batch_and_direct_assignment_agree_for_every_border_colour(string property)
+    {
+        var value = XLColor.Red;
+
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        var direct = ws.Cell("A1");
+        ApplyBorderColor(direct.Style.Border, property, value);
+
+        var batched = ws.Cell("B1");
+        batched.Style.Batch(s => ApplyBorderColor(s.Border, property, value));
+
+        await Assert.That(BorderSignature(batched)).IsEqualTo(BorderSignature(direct));
+    }
+
+    private static void ApplyBorder(IXLBorder border, string property, XLBorderStyleValues value)
+    {
+        switch (property)
+        {
+            case "OutsideBorder": border.OutsideBorder = value; break;
+            case "InsideBorder": border.InsideBorder = value; break;
+            case "LeftBorder": border.LeftBorder = value; break;
+            case "RightBorder": border.RightBorder = value; break;
+            case "TopBorder": border.TopBorder = value; break;
+            case "BottomBorder": border.BottomBorder = value; break;
+            case "DiagonalBorder": border.DiagonalBorder = value; break;
+            default: throw new ArgumentOutOfRangeException(nameof(property), property, null);
+        }
+    }
+
+    private static void ApplyBorderColor(IXLBorder border, string property, XLColor value)
+    {
+        switch (property)
+        {
+            case "OutsideBorderColor": border.OutsideBorderColor = value; break;
+            case "InsideBorderColor": border.InsideBorderColor = value; break;
+            case "LeftBorderColor": border.LeftBorderColor = value; break;
+            case "RightBorderColor": border.RightBorderColor = value; break;
+            case "TopBorderColor": border.TopBorderColor = value; break;
+            case "BottomBorderColor": border.BottomBorderColor = value; break;
+            case "DiagonalBorderColor": border.DiagonalBorderColor = value; break;
+            default: throw new ArgumentOutOfRangeException(nameof(property), property, null);
+        }
+    }
+
+    /// <summary>
+    /// Reads the cell's border straight off the style key, so the comparison cannot be satisfied by
+    /// two facades that merely agree with themselves.
+    /// </summary>
+    private static string BorderSignature(IXLCell cell)
+    {
+        var k = ((XLStyle)cell.Style).Key.Border;
+        return string.Join('|',
+            k.LeftBorder, k.RightBorder, k.TopBorder, k.BottomBorder, k.DiagonalBorder,
+            k.LeftBorderColor, k.RightBorderColor, k.TopBorderColor, k.BottomBorderColor,
+            k.DiagonalBorderColor, k.DiagonalUp, k.DiagonalDown);
     }
 }

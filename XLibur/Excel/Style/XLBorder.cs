@@ -85,8 +85,23 @@ internal sealed class XLBorder : IXLBorder
     /// every caller then went on to resolve a style that interned it again - see
     /// <see cref="SetKey"/> and <see cref="Modify"/>, which both take the interned value off the
     /// resulting style instead.
+    /// <para>
+    /// While the style is batching, the key comes from the style's pending key rather than from
+    /// <see cref="_value"/>: a batch resolves nothing until it flushes, so the cached value would
+    /// report pre-batch borders to every getter and to <see cref="ApplyEdgeStyle"/>'s own
+    /// current-style test. Outside a batch <see cref="_value"/> stays the source of truth - a facade
+    /// can be constructed over a key that its style does not hold (see the constructors that pass a
+    /// null style), and those must keep reading the key they were given.
+    /// </para>
     /// </remarks>
-    internal XLBorderKey Key => _value.Key;
+    internal XLBorderKey Key
+    {
+        get
+        {
+            var pending = _style.Pending;
+            return pending is null ? _value.Key : pending.Border;
+        }
+    }
 
     #region Constructors
 
@@ -121,6 +136,18 @@ internal sealed class XLBorder : IXLBorder
     /// still in use once the first is collected. Comparing keys makes that indistinguishable from
     /// "nothing changed" rather than a false trigger that would silently drop a pending colour.
     /// </remarks>
+    /// <summary>
+    /// Take the interned value that this facade's own writes produced, leaving the pending colours
+    /// alone - the bookkeeping <see cref="SetKey"/> does on the direct path, for a caller that
+    /// applied the writes some other way.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="SyncValue"/>, which exists for the opposite case: the style moved
+    /// for a reason this facade did not cause, so a colour pending against the old key must not
+    /// survive onto the new one.
+    /// </remarks>
+    internal void RefreshValue(XLBorderValue value) => _value = value;
+
     internal void SyncValue(XLBorderValue value)
     {
         if (!value.Key.Equals(_value.Key))
@@ -367,9 +394,10 @@ internal sealed class XLBorder : IXLBorder
         get => Key.DiagonalUp;
         set
         {
-            if (Key.DiagonalUp == value) return;
+            var key = Key;
+            if (key.DiagonalUp == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { DiagonalUp = value });
+                SetKey(key with { DiagonalUp = value });
             else
                 Modify(k => k with { DiagonalUp = value });
         }
@@ -380,9 +408,10 @@ internal sealed class XLBorder : IXLBorder
         get => Key.DiagonalDown;
         set
         {
-            if (Key.DiagonalDown == value) return;
+            var key = Key;
+            if (key.DiagonalDown == value) return;
             if (_style.IsCellContainer)
-                SetKey(Key with { DiagonalDown = value });
+                SetKey(key with { DiagonalDown = value });
             else
                 Modify(k => k with { DiagonalDown = value });
         }

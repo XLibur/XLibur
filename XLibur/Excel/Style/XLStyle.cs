@@ -38,11 +38,39 @@ internal sealed class XLStyle : IXLStyle
 
     internal XLStyleValue Value { get; private set; }
 
+    /// <remarks>
+    /// Reads through <see cref="_pending"/> while a <see cref="Batch"/> is accumulating, so every
+    /// reader of the whole key - <c>RestoreOutsideBorder</c>, <see cref="Equals(IXLStyle)"/> - sees
+    /// what has been assigned so far in the batch rather than the pre-batch value. Assembling the
+    /// key costs six component hashes, so the component facades read their own slice off
+    /// <see cref="Pending"/> instead of coming through here. The setter is
+    /// only reachable outside a batch: <see cref="Modify"/> writes the pending components directly.
+    /// </remarks>
     internal XLStyleKey Key
     {
-        get => Value.Key;
+        get => _pending is null ? Value.Key : _pending.ToKey();
         private set => Value = XLStyleValue.FromKey(ref value);
     }
+
+    /// <summary>
+    /// Non-null while <see cref="Batch"/> is accumulating. The component fast paths write their new
+    /// component key into it instead of resolving a style value and pushing it to the cell, so a
+    /// batch of N property assignments costs one resolution rather than N.
+    /// </summary>
+    private PendingKey? _pending;
+
+    /// <summary>True while a batch is accumulating.</summary>
+    internal bool IsBatching => _pending is not null;
+
+    /// <summary>
+    /// The accumulating batch's pending components, or <c>null</c> outside a batch.
+    /// </summary>
+    /// <remarks>
+    /// Handed to the component facades directly so their <c>Key</c> getter - which every property
+    /// setter reads - costs one field read and one null test rather than a call to
+    /// <see cref="IsBatching"/> followed by a second null test behind it.
+    /// </remarks>
+    internal PendingKey? Pending => _pending;
 
     #endregion properties
 
@@ -75,6 +103,12 @@ internal sealed class XLStyle : IXLStyle
 
     internal void Modify(Func<XLStyleKey, XLStyleKey> modification)
     {
+        if (_pending is not null)
+        {
+            _pending.SetFrom(modification(_pending.ToKey()));
+            return;
+        }
+
         Key = modification(Key);
 
         if (_container != null)
@@ -87,9 +121,20 @@ internal sealed class XLStyle : IXLStyle
     /// Fast-path style modification for XLCell containers. Only called when <see cref="IsCellContainer"/> is true.
     /// Bypasses closure allocation by directly computing the new style key.
     /// Uses per-base-style transition cache to skip full key hash + repository lookup on repeat transitions.
+    /// <para>
+    /// While a <see cref="Batch"/> is accumulating the new component key goes into the pending key
+    /// instead: no repository lookup, no transition-cache probe, no style-slice write. The batch
+    /// resolves once, at flush.
+    /// </para>
     /// </summary>
     internal void ModifyFont(XLFontKey newFontKey)
     {
+        if (_pending is not null)
+        {
+            _pending.Font = newFontKey;
+            return;
+        }
+
         var transitionHash = (newFontKey.GetHashCode() * 397) ^ 0;
         Value = Value.GetTransition(transitionHash, in newFontKey)
                 ?? Value.StoreTransition(transitionHash, in newFontKey, ResolveFont(newFontKey));
@@ -110,6 +155,12 @@ internal sealed class XLStyle : IXLStyle
         // resolve to the same style anyway.
         newBorderKey = newBorderKey.Normalize();
 
+        if (_pending is not null)
+        {
+            _pending.Border = newBorderKey;
+            return;
+        }
+
         // Tag the hash so the same component key applied to different components lands in a
         // different slot. This only spreads the entries out; correctness comes from the key
         // comparison inside GetTransition, which also rejects a cross-component hash collision.
@@ -129,6 +180,12 @@ internal sealed class XLStyle : IXLStyle
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyFill(XLFillKey newFillKey)
     {
+        if (_pending is not null)
+        {
+            _pending.Fill = newFillKey;
+            return;
+        }
+
         var transitionHash = (newFillKey.GetHashCode() * 397) ^ 2;
         Value = Value.GetTransition(transitionHash, in newFillKey)
                 ?? Value.StoreTransition(transitionHash, in newFillKey, ResolveFill(newFillKey));
@@ -145,6 +202,12 @@ internal sealed class XLStyle : IXLStyle
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyAlignment(XLAlignmentKey newAlignmentKey)
     {
+        if (_pending is not null)
+        {
+            _pending.Alignment = newAlignmentKey;
+            return;
+        }
+
         var transitionHash = (newAlignmentKey.GetHashCode() * 397) ^ 3;
         Value = Value.GetTransition(transitionHash, in newAlignmentKey)
                 ?? Value.StoreTransition(transitionHash, in newAlignmentKey, ResolveAlignment(newAlignmentKey));
@@ -161,6 +224,12 @@ internal sealed class XLStyle : IXLStyle
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyNumberFormat(XLNumberFormatKey newNumberFormatKey)
     {
+        if (_pending is not null)
+        {
+            _pending.NumberFormat = newNumberFormatKey;
+            return;
+        }
+
         var transitionHash = (newNumberFormatKey.GetHashCode() * 397) ^ 4;
         Value = Value.GetTransition(transitionHash, in newNumberFormatKey)
                 ?? Value.StoreTransition(transitionHash, in newNumberFormatKey, ResolveNumberFormat(newNumberFormatKey));
@@ -177,6 +246,12 @@ internal sealed class XLStyle : IXLStyle
     /// <inheritdoc cref="ModifyFont"/>
     internal void ModifyProtection(XLProtectionKey newProtectionKey)
     {
+        if (_pending is not null)
+        {
+            _pending.Protection = newProtectionKey;
+            return;
+        }
+
         var transitionHash = (newProtectionKey.GetHashCode() * 397) ^ 5;
         Value = Value.GetTransition(transitionHash, in newProtectionKey)
                 ?? Value.StoreTransition(transitionHash, in newProtectionKey, ResolveProtection(newProtectionKey));
@@ -211,25 +286,67 @@ internal sealed class XLStyle : IXLStyle
     /// <inheritdoc/>
     public IXLStyle Batch(Action<IXLStyle> modifications)
     {
-        if (!IsCellContainer)
+        if (!IsCellContainer || _pending is not null)
         {
-            // For ranges: fall back to normal behavior (each property triggers ModifyStyle)
+            // For ranges: fall back to normal behavior (each property triggers ModifyStyle).
+            // For a batch nested inside a batch: the outer one is already accumulating, and
+            // restarting it here would discard whatever it holds and flush at the inner close.
             modifications(this);
             return this;
         }
 
-        // For cells: use a deferred style that accumulates key changes
-        var deferred = new XLDeferredStyle(Value.Key);
-        modifications(deferred);
-        var newKey = deferred.Key;
+        // For cells: accumulate into a pending key and resolve once. The facades are the ordinary
+        // ones, so container-aware operations - a compound border edit, say - behave exactly as
+        // they do outside a batch.
+        var pending = PendingKey.Rent(Value);
+        _pending = pending;
+        XLStyleKey newKey;
+        try
+        {
+            modifications(this);
+        }
+        finally
+        {
+            newKey = pending.ToKey();
+            _pending = null;
+            PendingKey.Return(pending);
+        }
 
         if (!Value.Key.Equals(newKey))
         {
             Value = XLStyleValue.FromKey(ref newKey);
             ((XLCell)_container!).SetStyleValue(Value);
+            RefreshCachedFacades();
         }
 
         return this;
+    }
+
+    /// <summary>
+    /// Hand every cached component facade the value the batch has just resolved.
+    /// </summary>
+    /// <remarks>
+    /// A facade the caller obtained before or during the batch is still reachable afterwards, and
+    /// outside a batch a facade reads its key from its own cached value. Without this it would
+    /// report pre-batch values, and - worse - a later write through it would rebuild the component
+    /// key from them and drop everything the batch had set. This style's own component getters
+    /// resync on every access, so only a facade the caller kept hold of is affected.
+    /// <para>
+    /// The border is refreshed rather than synced. <see cref="XLBorder.SyncValue"/> drops the
+    /// pending edge colours when the incoming key differs, which is right when the style moved
+    /// underneath the facade but wrong here, where the facade's own writes are what moved it - the
+    /// direct path keeps them across exactly the same transition, through
+    /// <c>XLBorder.SetKey</c>.
+    /// </para>
+    /// </remarks>
+    private void RefreshCachedFacades()
+    {
+        _cachedFont?.SyncValue(Value.Font);
+        _cachedFill?.SyncValue(Value.Fill);
+        _cachedAlignment?.SyncValue(Value.Alignment);
+        _cachedNumberFormat?.SyncValue(Value.NumberFormat);
+        _cachedProtection?.SyncValue(Value.Protection);
+        _cachedBorder?.RefreshValue(Value.Border);
     }
 
     internal void SyncValue(XLStyleValue value)
@@ -309,7 +426,7 @@ internal sealed class XLStyle : IXLStyle
 
     public bool IncludeQuotePrefix
     {
-        get => Value.IncludeQuotePrefix;
+        get => _pending is null ? Value.IncludeQuotePrefix : _pending.IncludeQuotePrefix;
         set { Modify(k => k with { IncludeQuotePrefix = value }); }
     }
 
@@ -392,4 +509,101 @@ internal sealed class XLStyle : IXLStyle
     }
 
     #endregion Overridden
+
+    #region Nested classes
+
+    /// <summary>
+    /// The pending state of an accumulating <see cref="Batch"/>, held one component key at a time.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not an <c>XLStyleKey?</c> field. That key is a large struct whose every
+    /// <c>with</c> expression copies the whole thing and re-runs the assigned component's <c>init</c>
+    /// accessor, which normalizes and re-hashes it - so a six-property batch paid six copies and six
+    /// component hashes it would pay again when the key was finally resolved. Held inline it also
+    /// grew every <c>XLStyle</c> by the size of the key, and an <c>XLStyle</c> is allocated per cell
+    /// on the ordinary styling path, which made <em>unbatched</em> styling measurably slower and
+    /// allocate ~13 MB more over 50,000 cells. Loose component fields behind one reference cost the
+    /// style 8 bytes and assemble the key exactly once, at flush.
+    /// <para>
+    /// Rented from a one-deep per-thread cache rather than allocated per <c>Batch</c>: it is ~250
+    /// bytes, it never outlives the call that rents it, and styling a sheet opens one batch per
+    /// cell - allocating it outright put 12.6 MB and a run of gen1 collections on a 50,000-cell
+    /// batch that the object graph it replaced did not pay.
+    /// </para>
+    /// </remarks>
+    internal sealed class PendingKey
+    {
+        /// <remarks>
+        /// One deep, and empty while its instance is out on loan. A batch nested inside another
+        /// batch on the same thread therefore finds it empty and allocates, which is correct: the
+        /// outer batch still owns the cached instance and is still writing to it.
+        /// </remarks>
+        [ThreadStatic]
+        private static PendingKey? _cached;
+
+        internal XLFontKey Font;
+        internal XLFillKey Fill;
+        internal XLBorderKey Border;
+        internal XLAlignmentKey Alignment;
+        internal XLNumberFormatKey NumberFormat;
+        internal XLProtectionKey Protection;
+        internal bool IncludeQuotePrefix;
+
+        internal static PendingKey Rent(XLStyleValue value)
+        {
+            var pending = _cached;
+            if (pending is null)
+            {
+                pending = new PendingKey();
+            }
+            else
+            {
+                _cached = null;
+            }
+
+            pending.SeedFrom(value);
+            return pending;
+        }
+
+        internal static void Return(PendingKey pending) => _cached = pending;
+
+        /// <summary>
+        /// Seeded from the resolved value's interned components rather than from its
+        /// <see cref="XLStyleValue.Key"/>, so opening a batch copies no large struct.
+        /// </summary>
+        private void SeedFrom(XLStyleValue value)
+        {
+            Font = value.Font.Key;
+            Fill = value.Fill.Key;
+            Border = value.Border.Key;
+            Alignment = value.Alignment.Key;
+            NumberFormat = value.NumberFormat.Key;
+            Protection = value.Protection.Key;
+            IncludeQuotePrefix = value.IncludeQuotePrefix;
+        }
+
+        internal XLStyleKey ToKey() => new()
+        {
+            Font = Font,
+            Fill = Fill,
+            Border = Border,
+            Alignment = Alignment,
+            NumberFormat = NumberFormat,
+            Protection = Protection,
+            IncludeQuotePrefix = IncludeQuotePrefix,
+        };
+
+        internal void SetFrom(XLStyleKey key)
+        {
+            Font = key.Font;
+            Fill = key.Fill;
+            Border = key.Border;
+            Alignment = key.Alignment;
+            NumberFormat = key.NumberFormat;
+            Protection = key.Protection;
+            IncludeQuotePrefix = key.IncludeQuotePrefix;
+        }
+    }
+
+    #endregion Nested classes
 }
