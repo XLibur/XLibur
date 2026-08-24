@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
@@ -192,6 +193,17 @@ public interface IXLPivotTable
     IXLPivotTable SetInsertBlankLines(); IXLPivotTable SetInsertBlankLines(bool value);
 
     IXLWorksheet Worksheet { get; }
+
+    /// <summary>
+    /// The slicers that filter this pivot table.
+    /// </summary>
+    /// <remarks>
+    /// A view, not a collection: a slicer is owned by the worksheet it is drawn on
+    /// (<see cref="IXLWorksheet.Slicers"/>), which need not be this pivot table's sheet, and one
+    /// slicer may filter several pivot tables at once because they share a slicer cache. The view
+    /// is computed on each access, so it always agrees with the worksheets it reads from.
+    /// </remarks>
+    IEnumerable<IXLSlicer> Slicers { get; }
 
     IXLPivotTableStyleFormats StyleFormats { get; }
 }

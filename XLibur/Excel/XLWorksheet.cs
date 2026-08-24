@@ -204,6 +204,13 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     public IXLCharts Charts { get; private set; }
 
+    public IXLSlicers Slicers => SlicersInternal;
+
+    /// <summary>
+    /// The slicers drawn on this sheet, as the concrete collection the reader adds to.
+    /// </summary>
+    internal XLSlicers SlicersInternal { get; } = new();
+
     public XLSheetProtection Protection
     {
         get => _protection;

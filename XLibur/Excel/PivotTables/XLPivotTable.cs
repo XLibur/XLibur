@@ -797,6 +797,31 @@ internal sealed class XLPivotTable : IXLPivotTable
 
     public IXLWorksheet Worksheet => _worksheet;
 
+    /// <summary>
+    /// The slicers whose cache lists this pivot table, gathered from every worksheet in the
+    /// workbook.
+    /// </summary>
+    /// <remarks>
+    /// Recomputed on each access rather than kept as a back-reference. There are only ever a
+    /// handful of slicers in a workbook, and a derived view cannot drift out of step with the
+    /// worksheets that own them — which matters most in exactly the case a cached list would get
+    /// wrong, a slicer or a pivot table being removed.
+    /// </remarks>
+    public IEnumerable<IXLSlicer> Slicers
+    {
+        get
+        {
+            foreach (var worksheet in _worksheet.Workbook.WorksheetsInternal)
+            {
+                foreach (var slicer in worksheet.SlicersInternal.Items)
+                {
+                    if (slicer.Cache.PivotTables.Contains(this))
+                        yield return slicer;
+                }
+            }
+        }
+    }
+
     public IXLPivotTableStyleFormats StyleFormats => new XLPivotTableStyleFormats(this);
 
     public IEnumerable<IXLPivotStyleFormat> AllStyleFormats

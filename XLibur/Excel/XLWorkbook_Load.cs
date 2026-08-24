@@ -172,6 +172,10 @@ public partial class XLWorkbook
         PivotTableCacheDefinitionPartReader.Load(workbookPart, this);
 
         LoadPivotTables(workbookPart, sheets!, context);
+
+        // Last, because a slicer binds to the pivot tables and tables it filters, and both have to
+        // exist before it can find them.
+        SlicerReader.LoadSlicers(workbookPart, sheets!, WorksheetsInternal);
     }
 
     private void LoadCustomFileProperties(SpreadsheetDocument dSpreadsheet)
