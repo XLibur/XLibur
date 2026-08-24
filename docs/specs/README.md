@@ -1,6 +1,6 @@
 # XLibur Improvement Roadmap
 
-Twenty prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
+Thirty-four prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
 
 **Start a new performance effort at [spec 19](19-benchmark-hotspot-survey.md)**, not at this table. It re-ran the whole suite on 2026-08-07 and ranks what is actually slow now, which is not what specs 02–18 would predict — the biggest single number in the suite turns out to be the `CellsUsed()` enumeration, not parsing, packaging or styling. It also carries the current baselines for every benchmark and the run recipe.
 
@@ -24,14 +24,82 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 10 | [Chart formatting depth](10-chart-formatting-depth.md) | Feature | L | ✅ **Done** (PRs 1–4) | 4 PRs, 2–3 independent |
 | 11 | [Create-path allocation reduction](11-create-path-allocations.md) | Perf (write) | M | ✅ **Tasks 1–4 done** | Task 4 lands in 11; 05 rebases |
 | 12 | [Report templating (`XLibur.Report`)](12-report-templating.md) | Feature · Arch | L | ✅ **Done** (see Results; gauge corpus not ported) | 11 tasks; 4/5/6/10 parallel after 3 |
-| 13 | [Public core surface for `XLibur.Report`](13-report-core-public-api.md) | Arch · API · Packaging | M | Proposed | Tasks 1 and 2 independent |
+| 13 | [Public core surface for `XLibur.Report`](13-report-core-public-api.md) | Arch · API · Packaging | M | ✅ **Done** (#354) | Tasks 1 and 2 independent |
 | 14 | [`Clear`/`CopyTo` scalability](14-clear-copyto-scalability.md) | Perf (edit) · Correctness | S | Proposed ([#271](https://github.com/XLibur/XLibur/issues/271)) | Task 1 first; 2/3/4 independent |
 | 15 | [Shapes & text boxes](15-shapes-and-text-boxes.md) | Feature · Compat | L | Proposed (**needs 16 first**) | 1–3 one stream; then 4/5 parallel |
 | 16 | [Shared DrawingML infrastructure](16-drawingml-infrastructure.md) | Arch · Refactor | S–M | Proposed | 3 PRs; harness first, then 2/3 independent |
 | 17 | [Picture styling & fidelity](17-picture-styling.md) | Feature · Compat · **Defect** | M–L | Proposed (**needs 16 first**) | Task 1 (fidelity fix) first and standalone; 3/4/5 parallel after 2 |
 | 18 | [Template round-trip overhead](18-template-round-trip-overhead.md) | Perf (read + write) · **Defect** | M | Tasks 0–4 done (see Results) | Task 5 is the remaining cost; independent |
 | 19 | [Benchmark hotspot survey (Aug 2026)](19-benchmark-hotspot-survey.md) | Perf (read + write) · Survey | L | Proposed | 5 areas; 1/2/3 fully independent |
+| 20 | [Style key struct sizes](20-style-key-struct-size.md) | Perf (write · bulk styling) · Memory | M | Proposed | Task 0 first; 1→2 ordered; 3/4 independent |
 | 21 | [Hot-path struct candidates](21-hot-path-struct-candidates.md) | Perf (read · enumeration) | M | ✅ **Done** (task 3 shipped; 1–2 declined on measurement) | Task 0 first; 1→2 ordered; 3 independent |
+| 22 | [Chart IO: one module per chart concept](22-chart-concept-modules.md) | Arch · Refactor | M | ✅ **Done** (tasks 0–6; run before 16 — see Results) | Single owner; tasks sequential |
+| 23 | [One implementation per style interface](23-single-style-facade.md) | Arch · Refactor · **Defect** | M | Proposed | Single owner; tasks sequential |
+| 24 | [Worksheet element load gets one interface](24-worksheet-element-dispatch.md) | Arch · Refactor | S–M | Proposed | Single owner; tasks sequential |
+| 25 | [Narrow the formula shifter's fallback](25-formula-shifter-seam.md) | Arch · **Correctness (masking)** | S | Proposed | Single owner; tasks sequential |
+| 26 | [Give the grid one axis](26-grid-axis.md) | Arch · Refactor · **3 defects** | L | Proposed | Single owner; defects 1–4 first, then sequential |
+| 27 | [One font conformance module](27-font-conformance-suite.md) | Test · Arch (seam) | S–M | Proposed | Single owner; **gates 34** |
+| 28 | [One OOXML style decoder](28-single-style-decoder.md) | Arch · Refactor · **Defect (data loss)** | M | Proposed | Single owner; tasks sequential |
+| 29 | [One resolver per emitted element](29-write-path-resolvers.md) | Arch · **Correctness (divergence)** | M | Proposed | Single owner; **before 31** |
+| 30 | [Array application gets an interface](30-array-application-seam.md) | Arch · **Defect (241 functions)** | S–M | Proposed | Single owner; **before 32** |
+| 31 | [Worksheet element writers get one interface](31-worksheet-element-writers.md) | Arch · Refactor | M–L | Proposed (**needs 29**) | Single owner; tasks sequential |
+| 32 | [Collapse the 61-overload registration](32-function-argument-spec.md) | Arch · Refactor | L | Proposed (**needs 30**) | Single owner; task 2 is a go/no-go gate |
+| 33 | [Every sheet feature reacts through one seam](33-sheet-listener-seam.md) | Arch · **Defect (4 unshifted)** | M–L | Proposed (**needs 26**) | Single owner; tasks sequential |
+| 34 | [Split the font port: mechanism vs policy](34-font-port-split.md) | Arch · Refactor | M | Proposed (**needs 27**) | Single owner; tasks sequential |
+
+**Specs 26–34 came out of a second architecture review on 2026-08-24.** Their progress board,
+dependency graph, conflict map and wave plan live in
+[TASKLIST-architecture-deepening-2.md](TASKLIST-architecture-deepening-2.md).
+
+All nine are the same shape — **one fact with two or more implementations, kept in agreement by
+hand** — which is the shape round 1 found twice (23's style facades, 25's shifter) and round 2 found
+nine times. The difference is that **five of these agreements have already failed in shipped code,
+and nothing catches any of them**:
+
+| Spec | Drift | Effect |
+|---|---|---|
+| 26 | `XLRow.cs:424-425` calls `IncrementColumnOutline`, copied from `XLColumn.cs:342-343` | `IncrementRowOutline` has zero callers; `@outlineLevelRow` is never emitted and `@outlineLevelCol` is inflated by row groups |
+| 26 | `XLColumn.CellCount()` is character-identical to `XLRow.CellCount()` | Returns 1 instead of 1,048,576 |
+| 28 | `LoadFont:202` searches the `<x:rPr>` element spellings while all three callers pass a `Font` | A conditional-format font silently loses its **name, family numbering and charset** on load — the writer emits all three, so they reach the file and die on the way back |
+| 29 | `SheetViewWriter.cs:124` writes `frozenSplit`; `XLStreamingWorksheet.cs:502` writes `frozen` | The same `FreezeRows` call emits different XML per write path — and the DOM path is the wrong one |
+| 30 | `FunctionDefinition.cs:106-118` builds `itemArg`, then calls `_function(ctx, args)` | `POWER({2,3,4},{1,2,3})` → `2,2,2` not `2,9,64`; **261 scalar functions** affected under array semantics, worksheet references included |
+
+The missing test in each case is not an oversight — it is a consequence of the shape. Where a module
+has one interface, the interface is the test surface; where the same fact has two implementations,
+nothing sits at the seam to assert they agree. **Spec 30's defect is the clearest illustration.** Its
+origin (`819528c9`, 2023) was correct; upstream `fc08037c` then deleted a wrapper and inlined it at
+two call sites, applying the same replacement text to both — right at one, wrong at the other. The
+fork's Sonar pass (#12) later extracted that loop into a helper *for testability*, gained no test
+surface, and froze the bug in a method small enough to read as obviously fine. Extracting code
+without giving it a test surface preserves its bugs exactly.
+
+Spec 27 is the cheapest in the round and the one to start first: three adapters satisfy
+`IXLFontEngine`, the two adapter test suites are 421 identical lines out of 434, **no file in the
+repository references two font engines**, and the core autofit suite runs against V1 while the
+shipped default is SkiaSharp. It touches no production code and it gates 34.
+
+Two specs carry a **measurement gate empowered to stop the work**, following spec 21's precedent:
+32's task 2 (an `ArgSpec[]` loop moves argument-shape resolution from compile time to the hot path)
+and 34's task 6 (text measurement is on the autofit path). In both, a recorded measurement that
+halts the spec is a real result.
+
+The nine form four dependency chains plus one free spec, so they run as **five parallel streams, then
+four**: 26→33, 27→34, 29→31, 30→32, with 28 independent.
+
+**Specs 22–25 came out of an architecture review on 2026-08-23** that asked where modules are
+*shallow* — interface nearly as wide as the implementation — rather than where they are slow. Their
+progress board, conflict map and parallel-execution plan live in
+[TASKLIST-architecture-deepening.md](TASKLIST-architecture-deepening.md). The four are **file-disjoint
+from each other**, so 23, 24 and 25 can run as three concurrent streams today; 22 is blocked on 16.
+
+Two of the four are defect reports as well as refactors. **23** found that every style interface has
+two implementations — the ordinary facade and an `XLDeferred*` twin reached through
+`IXLStyle.Batch` — and that they disagree on `InsideBorder`/`InsideBorderColor`: for a cell the
+direct path is correctly a no-op (a 1×1 range has no interior edges) while the batch path sets all
+four. **25** found that the shifter's regex fallback is selected by `catch (Exception)`, so a bug in
+XLibur's own `ShiftPlan` is answered with a plausible result from the other implementation instead
+of surfacing. Neither defect is new; both exist because two implementations must agree by hand, which
+is what these specs remove.
 
 Spec 21 came out of a review asking which hot-path classes could become structs, and its most useful
 output is a negative: **almost everything that should already be a struct already is.** `Point`,
@@ -192,6 +260,28 @@ to RelocateRange probing the range repository for XLRow instances that are never
 and describes an allocation technique that applies to the rest of the IO layer.
 
 Conflict map: 01↔03 (`SheetDataWriter`), 04↔08 (evaluation stack / `CalcContext`), 07 waves B↔C (`Statistical.cs`), 16↔any chart-*formatting* work (`ChartFormatting.cs` — 16 extracts its DrawingML property layer; spec 10's open 3D follow-on is in `ChartWriter.cs` and does not conflict), 15→16 and 17→16 (hard dependencies), 15↔17 (`PictureWriter.cs` save orchestration — sequential, either order), 15↔17 also share the shared-layer `noFill`/`prstDash` ops and `XLLineDashStyle` (first lander adds them). Everything else is disjoint. **Spec 05 must rebase onto spec 11**: 11's Task 4 rewrote bulk style propagation (`XLStylizedBase.ModifyStyle` / `SetStyle`), which is 05's territory.
+
+Adding specs 22–25: **22→16 (hard dependency** — 16 extracts the DrawingML layer out of
+`ChartFormatting.cs`, and 22 reorganises what is left; 16's change-set harness is also 22's gate),
+**24↔18 task 5** (`XLWorkbook_Load.LoadWorksheetElements` — 24 first is recommended, since it leaves
+18 one method to optimise rather than four across two modules), **23↔20** (`XL*Key.cs` field names,
+read by the style facades' `with` expressions — sequential, either order). **25 conflicts with
+nothing**, and 22↔23↔24↔25 are file-disjoint from each other. Full matrix in
+[TASKLIST-architecture-deepening.md](TASKLIST-architecture-deepening.md).
+
+Adding specs 26–34: four hard pairs, each sequential in the stated order — **26→33**
+(`XLWorksheetRangeShifter.cs`, `XLWorksheet.cs` — 26 collapses the row/column duplication before 33
+reorganises what is left), **27→34** (no shared file, but 34 moves metric computation across three
+adapters and 27 is the only thing that would notice), **29→31** (`SheetViewWriter.cs`,
+`ColumnWriter.cs` — never rebase a correctness fix onto a structural sweep) and **30→32**
+(`FunctionDefinition.cs` — 32 removes the members 30's file reads). **28 is independent.** Against
+the older specs: **31↔15/16/17** (`PictureWriter.cs`, `ChartWriter.cs` — hard; 31 waits or defers
+that one writer), **32↔07 wave A2** (A2 would add registrations in the old form — decide the order
+before starting either), **28↔24** (`WorksheetSheetDataReader.cs` — soft, 28 first is marginally
+better), **28↔29** (`WorkbookStylesPartWriter.cs`, different regions — soft), **26↔14**
+(`XLRangeBase.cs`, different methods — soft), **30↔04** (`CalculationVisitor.cs` — soft, 30 is much
+smaller and goes first). **27 and 34 conflict with nothing.** Full matrix in
+[TASKLIST-architecture-deepening-2.md](TASKLIST-architecture-deepening-2.md).
 
 ## Ground rules for implementing agents
 
