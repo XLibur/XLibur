@@ -7,11 +7,11 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ContentManagers;
 using XLibur.Excel.Drawings;
+using XLibur.Excel.IO.DrawingML;
 using XLibur.Extensions;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;
 using Drawing = DocumentFormat.OpenXml.Spreadsheet.Drawing;
-using Point = System.Drawing.Point;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
 namespace XLibur.Excel.IO;
@@ -169,14 +169,6 @@ internal static class PictureWriter
         }
     }
 
-    // http://polymathprogrammer.com/2009/10/22/english-metric-units-and-open-xml/
-    // http://archive.oreilly.com/pub/post/what_is_an_emu.html
-    // https://en.wikipedia.org/wiki/Office_Open_XML_file_formats#DrawingML
-    private static long ConvertToEnglishMetricUnits(int pixels, double resolution)
-    {
-        return Convert.ToInt64(914400L * pixels / resolution);
-    }
-
     // A group scale at or extremely near zero is degenerate: dividing by it would
     // overflow the EMU long, so callers fall back to the untransformed sheet value.
     private const double DegenerateScaleEpsilon = 1e-9;
@@ -230,179 +222,58 @@ internal static class PictureWriter
             return;
 
         var wb = pic.Worksheet.Workbook;
-        var extentsCx = ConvertToEnglishMetricUnits(pic.Width, wb.DpiX);
-        var extentsCy = ConvertToEnglishMetricUnits(pic.Height, wb.DpiY);
+        var extentsCx = DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX);
+        var extentsCy = DrawingUnits.PixelsToEmu(pic.Height, wb.DpiY);
 
         var nvps = worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>();
         var nvpId = nvps.Any()
             ? (UInt32Value)worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>().Max(p => p.Id!.Value) + 1
             : 1U;
 
-        Xdr.FromMarker fMark;
-        switch (pic.Placement)
-        {
-            case XLPicturePlacement.FreeFloating:
-                var absoluteAnchor = new Xdr.AbsoluteAnchor(
-                    new Xdr.Position
-                    {
-                        X = ConvertToEnglishMetricUnits(pic.Left, wb.DpiX),
-                        Y = ConvertToEnglishMetricUnits(pic.Top, wb.DpiY)
-                    },
-                    new Xdr.Extent
-                    {
-                        Cx = extentsCx,
-                        Cy = extentsCy
-                    },
-                    new Xdr.Picture(
-                        new Xdr.NonVisualPictureProperties(
-                            new Xdr.NonVisualDrawingProperties { Id = nvpId, Name = pic.Name },
-                            new Xdr.NonVisualPictureDrawingProperties(new PictureLocks { NoChangeAspect = true })
-                        ),
-                        new Xdr.BlipFill(
-                            new Blip
-                            {
-                                Embed = drawingsPart.GetIdOfPart(imagePart),
-                                CompressionState = BlipCompressionValues.Print
-                            },
-                            new Stretch(new FillRectangle())
-                        ),
-                        new Xdr.ShapeProperties(
-                            new Transform2D(
-                                new Offset { X = 0, Y = 0 },
-                                new Extents { Cx = extentsCx, Cy = extentsCy }
-                            ),
-                            new PresetGeometry { Preset = ShapeTypeValues.Rectangle }
-                        )
-                    ),
-                    new Xdr.ClientData()
-                );
-
-                AttachAnchor(absoluteAnchor, existingAnchor);
-                break;
-
-            case XLPicturePlacement.MoveAndSize:
-                var moveAndSizeFromMarker = pic.Markers[XLMarkerPosition.TopLeft];
-                if (moveAndSizeFromMarker == null)
-                    moveAndSizeFromMarker = new XLMarker(picture.Worksheet.Cell("A1"));
-                fMark = new Xdr.FromMarker
+        // The same xdr:pic whichever anchor form ends up holding it: the anchor decides where the
+        // drawing goes, never what it is.
+        var pictureElement = new Xdr.Picture(
+            new Xdr.NonVisualPictureProperties(
+                new Xdr.NonVisualDrawingProperties { Id = nvpId, Name = pic.Name },
+                new Xdr.NonVisualPictureDrawingProperties(new PictureLocks { NoChangeAspect = true })
+            ),
+            new Xdr.BlipFill(
+                new Blip
                 {
-                    ColumnId = new Xdr.ColumnId((moveAndSizeFromMarker.ColumnNumber - 1).ToInvariantString()),
-                    RowId = new Xdr.RowId((moveAndSizeFromMarker.RowNumber - 1).ToInvariantString()),
-                    ColumnOffset =
-                        new Xdr.ColumnOffset(ConvertToEnglishMetricUnits(moveAndSizeFromMarker.Offset.X, wb.DpiX)
-                            .ToInvariantString()),
-                    RowOffset = new Xdr.RowOffset(ConvertToEnglishMetricUnits(moveAndSizeFromMarker.Offset.Y, wb.DpiY)
-                        .ToInvariantString())
-                };
+                    Embed = drawingsPart.GetIdOfPart(imagePart),
+                    CompressionState = BlipCompressionValues.Print
+                },
+                new Stretch(new FillRectangle())
+            ),
+            new Xdr.ShapeProperties(
+                new Transform2D(
+                    new Offset { X = 0, Y = 0 },
+                    new Extents { Cx = extentsCx, Cy = extentsCy }
+                ),
+                new PresetGeometry { Preset = ShapeTypeValues.Rectangle }
+            )
+        );
 
-                var moveAndSizeToMarker = pic.Markers[XLMarkerPosition.BottomRight];
-                if (moveAndSizeToMarker == null)
-                    moveAndSizeToMarker = new XLMarker(picture.Worksheet.Cell("A1"),
-                        new Point(picture.Width, picture.Height));
-                var tMark = new Xdr.ToMarker
-                {
-                    ColumnId = new Xdr.ColumnId((moveAndSizeToMarker.ColumnNumber - 1).ToInvariantString()),
-                    RowId = new Xdr.RowId((moveAndSizeToMarker.RowNumber - 1).ToInvariantString()),
-                    ColumnOffset =
-                        new Xdr.ColumnOffset(ConvertToEnglishMetricUnits(moveAndSizeToMarker.Offset.X, wb.DpiX)
-                            .ToInvariantString()),
-                    RowOffset = new Xdr.RowOffset(ConvertToEnglishMetricUnits(moveAndSizeToMarker.Offset.Y, wb.DpiY)
-                        .ToInvariantString())
-                };
-
-                var twoCellAnchor = new Xdr.TwoCellAnchor(
-                    fMark,
-                    tMark,
-                    new Xdr.Picture(
-                        new Xdr.NonVisualPictureProperties(
-                            new Xdr.NonVisualDrawingProperties { Id = nvpId, Name = pic.Name },
-                            new Xdr.NonVisualPictureDrawingProperties(new PictureLocks { NoChangeAspect = true })
-                        ),
-                        new Xdr.BlipFill(
-                            new Blip
-                            {
-                                Embed = drawingsPart.GetIdOfPart(imagePart),
-                                CompressionState = BlipCompressionValues.Print
-                            },
-                            new Stretch(new FillRectangle())
-                        ),
-                        new Xdr.ShapeProperties(
-                            new Transform2D(
-                                new Offset { X = 0, Y = 0 },
-                                new Extents { Cx = extentsCx, Cy = extentsCy }
-                            ),
-                            new PresetGeometry { Preset = ShapeTypeValues.Rectangle }
-                        )
-                    ),
-                    new Xdr.ClientData()
-                );
-
-                AttachAnchor(twoCellAnchor, existingAnchor);
-                break;
-
-            case XLPicturePlacement.Move:
-                var moveFromMarker = pic.Markers[XLMarkerPosition.TopLeft];
-                if (moveFromMarker == null) moveFromMarker = new XLMarker(picture.Worksheet.Cell("A1"));
-                fMark = new Xdr.FromMarker
-                {
-                    ColumnId = new Xdr.ColumnId((moveFromMarker.ColumnNumber - 1).ToInvariantString()),
-                    RowId = new Xdr.RowId((moveFromMarker.RowNumber - 1).ToInvariantString()),
-                    ColumnOffset = new Xdr.ColumnOffset(ConvertToEnglishMetricUnits(moveFromMarker.Offset.X, wb.DpiX)
-                        .ToInvariantString()),
-                    RowOffset = new Xdr.RowOffset(ConvertToEnglishMetricUnits(moveFromMarker.Offset.Y, wb.DpiY)
-                        .ToInvariantString())
-                };
-
-                var oneCellAnchor = new Xdr.OneCellAnchor(
-                    fMark,
-                    new Xdr.Extent
-                    {
-                        Cx = extentsCx,
-                        Cy = extentsCy
-                    },
-                    new Xdr.Picture(
-                        new Xdr.NonVisualPictureProperties(
-                            new Xdr.NonVisualDrawingProperties { Id = nvpId, Name = pic.Name },
-                            new Xdr.NonVisualPictureDrawingProperties(new PictureLocks { NoChangeAspect = true })
-                        ),
-                        new Xdr.BlipFill(
-                            new Blip
-                            {
-                                Embed = drawingsPart.GetIdOfPart(imagePart),
-                                CompressionState = BlipCompressionValues.Print
-                            },
-                            new Stretch(new FillRectangle())
-                        ),
-                        new Xdr.ShapeProperties(
-                            new Transform2D(
-                                new Offset { X = 0, Y = 0 },
-                                new Extents { Cx = extentsCx, Cy = extentsCy }
-                            ),
-                            new PresetGeometry { Preset = ShapeTypeValues.Rectangle }
-                        )
-                    ),
-                    new Xdr.ClientData()
-                );
-
-                AttachAnchor(oneCellAnchor, existingAnchor);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(picture), pic.Placement, "Unsupported picture placement.");
-        }
-
-        return;
-
-        void AttachAnchor(OpenXmlElement pictureAnchor, OpenXmlElement? existingAnchorX)
-        {
-            if (existingAnchorX is not null)
+        // A marker left null here is not an oversight: DrawingAnchorFactory falls back to A1, and a
+        // picture nobody moved arrives with both of them unset. See its remarks.
+        var anchor = DrawingAnchorFactory.Create(
+            pic.Placement,
+            new DrawingAnchorGeometry
             {
-                worksheetDrawing.ReplaceChild(pictureAnchor, existingAnchorX);
-            }
-            else
-            {
-                worksheetDrawing.Append(pictureAnchor);
-            }
-        }
+                Worksheet = picture.Worksheet,
+                LeftPx = pic.Left,
+                TopPx = pic.Top,
+                WidthPx = pic.Width,
+                HeightPx = pic.Height,
+                FromMarker = pic.Markers[XLMarkerPosition.TopLeft],
+                ToMarker = pic.Markers[XLMarkerPosition.BottomRight]
+            },
+            pictureElement);
+
+        if (existingAnchor is not null)
+            worksheetDrawing.ReplaceChild(anchor, existingAnchor);
+        else
+            worksheetDrawing.Append(anchor);
     }
 
     /// <summary>
@@ -494,11 +365,11 @@ internal static class PictureWriter
             {
                 // Identity child space: child coordinates are the member's absolute sheet EMU.
                 transform.Offset ??= new Offset();
-                transform.Offset.X = ConvertToEnglishMetricUnits(member.Left, wb.DpiX);
-                transform.Offset.Y = ConvertToEnglishMetricUnits(member.Top, wb.DpiY);
+                transform.Offset.X = DrawingUnits.PixelsToEmu(member.Left, wb.DpiX);
+                transform.Offset.Y = DrawingUnits.PixelsToEmu(member.Top, wb.DpiY);
                 transform.Extents ??= new Extents();
-                transform.Extents.Cx = ConvertToEnglishMetricUnits(member.Width, wb.DpiX);
-                transform.Extents.Cy = ConvertToEnglishMetricUnits(member.Height, wb.DpiY);
+                transform.Extents.Cx = DrawingUnits.PixelsToEmu(member.Width, wb.DpiX);
+                transform.Extents.Cy = DrawingUnits.PixelsToEmu(member.Height, wb.DpiY);
             }
 
             picElement.Remove();
@@ -578,10 +449,10 @@ internal static class PictureWriter
         imagePart.FeedData(pic.ImageStream);
 
         var wb = pic.Worksheet.Workbook;
-        var sheetEmuCx = ConvertToEnglishMetricUnits(pic.Width, wb.DpiX);
-        var sheetEmuCy = ConvertToEnglishMetricUnits(pic.Height, wb.DpiY);
-        var sheetEmuX = ConvertToEnglishMetricUnits(pic.Left, wb.DpiX);
-        var sheetEmuY = ConvertToEnglishMetricUnits(pic.Top, wb.DpiY);
+        var sheetEmuCx = DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX);
+        var sheetEmuCy = DrawingUnits.PixelsToEmu(pic.Height, wb.DpiY);
+        var sheetEmuX = DrawingUnits.PixelsToEmu(pic.Left, wb.DpiX);
+        var sheetEmuY = DrawingUnits.PixelsToEmu(pic.Top, wb.DpiY);
 
         var childCx = IsDegenerateScale(group.ScaleX) ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
         var childCy = IsDegenerateScale(group.ScaleY) ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
@@ -687,8 +558,8 @@ internal static class PictureWriter
 
     private static void ApplyGroupedChildExtents(Transform2D transform, XLPicture pic, XLPictureGroup group, XLWorkbook wb)
     {
-        var sheetEmuCx = ConvertToEnglishMetricUnits(pic.Width, wb.DpiX);
-        var sheetEmuCy = ConvertToEnglishMetricUnits(pic.Height, wb.DpiY);
+        var sheetEmuCx = DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX);
+        var sheetEmuCy = DrawingUnits.PixelsToEmu(pic.Height, wb.DpiY);
 
         // Convert the sheet-space size back to the group's child coordinate space.
         var childCx = IsDegenerateScale(group.ScaleX) ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
@@ -701,8 +572,8 @@ internal static class PictureWriter
 
     private static void ApplyGroupedChildOffset(Transform2D transform, XLPicture pic, XLPictureGroup group, XLWorkbook wb)
     {
-        var sheetEmuX = ConvertToEnglishMetricUnits(pic.Left, wb.DpiX);
-        var sheetEmuY = ConvertToEnglishMetricUnits(pic.Top, wb.DpiY);
+        var sheetEmuX = DrawingUnits.PixelsToEmu(pic.Left, wb.DpiX);
+        var sheetEmuY = DrawingUnits.PixelsToEmu(pic.Top, wb.DpiY);
 
         // Invert the composed affine (sheet = offset + child·scale) to get the child a:off.
         var childOffX = IsDegenerateScale(group.ScaleX) ? sheetEmuX : (long)Math.Round((sheetEmuX - group.OffsetX) / group.ScaleX);
