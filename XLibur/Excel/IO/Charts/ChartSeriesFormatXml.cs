@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using DocumentFormat.OpenXml;
+using XLibur.Excel.IO.DrawingML;
 using XLibur.Extensions;
 using A = DocumentFormat.OpenXml.Drawing;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
@@ -26,9 +27,6 @@ namespace XLibur.Excel.IO.Charts;
 /// </remarks>
 internal static class ChartSeriesFormatXml
 {
-    /// <summary>EMU per point, the unit DrawingML uses for line widths.</summary>
-    private const double EmuPerPoint = 12700;
-
     /// <summary>
     /// Seeds the model from one <c>c:ser</c> element.
     /// </summary>
@@ -44,7 +42,7 @@ internal static class ChartSeriesFormatXml
         series.SeedLoadedFormat(
             fillColor: ReadSolidFillColor(shapeProperties),
             lineColor: ReadSolidFillColor(outline),
-            lineWidthPt: outline?.Width?.Value is { } width ? width / EmuPerPoint : null,
+            lineWidthPt: outline?.Width?.Value is { } width ? width / DrawingUnits.EmuPerPoint : null,
             markerStyle: ReadMarkerStyle(marker),
             markerSize: marker?.Elements<C.Size>().FirstOrDefault()?.Val?.Value,
             markerFillColor: ReadSolidFillColor(markerFill),
@@ -213,7 +211,7 @@ internal static class ChartSeriesFormatXml
         var shapeProperties = existing ?? NewShapeProperties(seriesElement);
 
         if ((assigned & XLChartSeriesFormat.Fill) != 0)
-            SetFill(shapeProperties, series.FillColor);
+            ShapePropertiesWriter.SetFill(shapeProperties, series.FillColor);
 
         if ((assigned & (XLChartSeriesFormat.Line | XLChartSeriesFormat.LineWidth)) != 0)
             SetOutline(shapeProperties, series, assigned);
@@ -288,7 +286,7 @@ internal static class ChartSeriesFormatXml
             InsertAfterLastOf(marker, markerShapeProperties, typeof(C.Size), typeof(C.Symbol));
         }
 
-        SetFill(markerShapeProperties, series.MarkerFillColor);
+        ShapePropertiesWriter.SetFill(markerShapeProperties, series.MarkerFillColor);
     }
 
     private static void ApplySmooth(OpenXmlCompositeElement seriesElement, XLChartSeries series)
@@ -317,72 +315,30 @@ internal static class ChartSeriesFormatXml
             existing[i].Remove();
     }
 
-    private static void SetFill(C.ChartShapeProperties shapeProperties, XLColor? color)
-    {
-        foreach (var existing in shapeProperties.ChildElements
-                     .Where(IsFillElement).ToList())
-            existing.Remove();
-
-        if (color == null || !color.HasValue)
-            return;
-
-        // The fill precedes the outline and every effect in CT_ShapeProperties.
-        var anchor = shapeProperties.ChildElements.FirstOrDefault(IsAfterFill);
-        var fill = new A.SolidFill(BuildColor(color));
-        if (anchor != null)
-            shapeProperties.InsertBefore(fill, anchor);
-        else
-            shapeProperties.Append(fill);
-    }
-
-#pragma warning disable S3776 // Create-or-update outline, then one flat block per assigned property
+    /// <summary>
+    /// Translates what the caller assigned into the outline operations that says.
+    /// </summary>
+    /// <remarks>
+    /// The mask stops here. <see cref="ShapePropertiesWriter"/> is told to set a width or set a
+    /// colour and works out what the schema requires; which of those to ask for is a question about
+    /// <see cref="XLChartSeries.AssignedFormat"/>, which is chart knowledge and belongs on this side.
+    /// </remarks>
     private static void SetOutline(
         C.ChartShapeProperties shapeProperties, XLChartSeries series, XLChartSeriesFormat assigned)
     {
-        var outline = shapeProperties.Elements<A.Outline>().FirstOrDefault();
-        if (outline == null)
-        {
-            // Nothing to clear and nothing to set: leave the element out entirely.
-            if (series.LineColor == null && series.LineWidthPt == null)
-                return;
+        // Nothing to clear and nothing to set: leave the element out entirely.
+        if (!shapeProperties.Elements<A.Outline>().Any()
+            && series.LineColor == null && series.LineWidthPt == null)
+            return;
 
-            outline = new A.Outline();
-            var anchor = shapeProperties.ChildElements.FirstOrDefault(IsAfterOutline);
-            if (anchor != null)
-                shapeProperties.InsertBefore(outline, anchor);
-            else
-                shapeProperties.Append(outline);
-        }
+        var outline = ShapePropertiesWriter.EnsureOutline(shapeProperties);
 
         if ((assigned & XLChartSeriesFormat.LineWidth) != 0)
-        {
-            if (series.LineWidthPt == null)
-                outline.Width = null;
-            else
-                outline.Width = (int)Math.Round(series.LineWidthPt.Value * EmuPerPoint);
-        }
+            ShapePropertiesWriter.SetOutlineWidth(outline, series.LineWidthPt);
 
         if ((assigned & XLChartSeriesFormat.Line) != 0)
-        {
-            foreach (var existing in outline.ChildElements.Where(IsFillElement).ToList())
-                existing.Remove();
-
-            if (series.LineColor is { HasValue: true })
-                outline.InsertAt(new A.SolidFill(BuildColor(series.LineColor)), 0);
-        }
+            ShapePropertiesWriter.SetOutlineColor(outline, series.LineColor);
     }
-#pragma warning restore S3776
-
-    private static bool IsFillElement(OpenXmlElement element) =>
-        element is A.NoFill or A.SolidFill or A.GradientFill or A.BlipFill or A.PatternFill or A.GroupFill;
-
-    private static bool IsAfterFill(OpenXmlElement element) =>
-        element is A.Outline || IsEffectOrLater(element);
-
-    private static bool IsAfterOutline(OpenXmlElement element) => IsEffectOrLater(element);
-
-    private static bool IsEffectOrLater(OpenXmlElement element) =>
-        element is A.EffectList or A.EffectDag or A.Scene3DType or A.Shape3DType or A.ExtensionList;
 
     /// <summary>
     /// Inserts <paramref name="element"/> directly after the last present element of the given types,
@@ -411,14 +367,6 @@ internal static class ChartSeriesFormatXml
             parent.InsertBefore(element, extensionList);
         else
             parent.Append(element);
-    }
-
-    private static OpenXmlElement BuildColor(XLColor color)
-    {
-        if (color.ColorType == XLColorType.Theme)
-            return new A.SchemeColor { Val = MapSchemeColor(color.ThemeColor) };
-
-        return new A.RgbColorModelHex { Val = color.Color.ToHex().Substring(2) };
     }
 
     private static XLColor? ReadSolidFillColor(OpenXmlCompositeElement? parent)
@@ -491,23 +439,6 @@ internal static class ChartSeriesFormatXml
         XLMarkerStyle.Triangle => C.MarkerStyleValues.Triangle,
         XLMarkerStyle.X => C.MarkerStyleValues.X,
         _ => throw new ArgumentOutOfRangeException(nameof(style), style, "Unknown marker style.")
-    };
-
-    private static A.SchemeColorValues MapSchemeColor(XLThemeColor themeColor) => themeColor switch
-    {
-        XLThemeColor.Background1 => A.SchemeColorValues.Background1,
-        XLThemeColor.Text1 => A.SchemeColorValues.Text1,
-        XLThemeColor.Background2 => A.SchemeColorValues.Background2,
-        XLThemeColor.Text2 => A.SchemeColorValues.Text2,
-        XLThemeColor.Accent1 => A.SchemeColorValues.Accent1,
-        XLThemeColor.Accent2 => A.SchemeColorValues.Accent2,
-        XLThemeColor.Accent3 => A.SchemeColorValues.Accent3,
-        XLThemeColor.Accent4 => A.SchemeColorValues.Accent4,
-        XLThemeColor.Accent5 => A.SchemeColorValues.Accent5,
-        XLThemeColor.Accent6 => A.SchemeColorValues.Accent6,
-        XLThemeColor.Hyperlink => A.SchemeColorValues.Hyperlink,
-        XLThemeColor.FollowedHyperlink => A.SchemeColorValues.FollowedHyperlink,
-        _ => throw new ArgumentOutOfRangeException(nameof(themeColor), themeColor, "Unknown theme colour.")
     };
 
     /// <summary>

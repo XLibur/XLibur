@@ -24,6 +24,11 @@ internal static class DrawingUnits
 {
     private const long EmuPerInch = 914400L;
 
+    /// <summary>
+    /// EMU per point, the unit DrawingML states line widths in. There are 72 points to the inch.
+    /// </summary>
+    internal const double EmuPerPoint = 12700;
+
     /// <summary>Converts a pixel length, measured at the given resolution, to EMU.</summary>
     /// <remarks>
     /// The rounding is <see cref="Convert.ToInt64(double)"/>'s — to even — and not a cast, which
@@ -32,4 +37,11 @@ internal static class DrawingUnits
     /// </remarks>
     internal static long PixelsToEmu(int pixels, double resolution) =>
         Convert.ToInt64(EmuPerInch * pixels / resolution);
+
+    /// <summary>Converts a length in points to EMU, for the attributes that are stated that way.</summary>
+    /// <remarks>
+    /// <see cref="Math.Round(double)"/> then a cast, which is what every line width XLibur has
+    /// written came out of. The result is <see cref="int"/> because that is what <c>a:ln/@w</c> is.
+    /// </remarks>
+    internal static int PointsToEmu(double points) => (int)Math.Round(points * EmuPerPoint);
 }
