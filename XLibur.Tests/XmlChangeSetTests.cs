@@ -227,4 +227,76 @@ public class XmlChangeSetTests
             $"""<c:chartSpace xmlns:c="{ChartNs}"><c:chart/><v:ext xmlns:v="{vendor}"/></c:chartSpace>""",
             $"added /c:chartSpace[1]/{{{vendor}}}ext[1]");
     }
+
+    // ── The cost of positional identity ─────────────────────────────────
+
+    private const string BarChart = "/c:chartSpace[1]/c:chart[1]/c:plotArea[1]/c:barChart[1]";
+
+    /// <summary>A bar chart holding the given series elements, in the given order.</summary>
+    private static string ChartWithSeries(params string[] series) => $"""
+        <c:chartSpace xmlns:c="{ChartNs}" xmlns:a="{DrawingNs}">
+          <c:chart><c:plotArea><c:barChart>{string.Concat(series)}</c:barChart></c:plotArea></c:chart>
+        </c:chartSpace>
+        """;
+
+    private static string Series(int index) => $"""<c:ser><c:idx val="{index}"/></c:ser>""";
+
+    /// <summary>
+    /// A node is identified by its position, so inserting a same-named sibling in front of others
+    /// renumbers them, and each one is reported as having taken on the content of its predecessor.
+    /// The change set is louder than the edit was, but it is not wrong: every node that differs at
+    /// its own path is named, and the insertion itself is named too.
+    /// </summary>
+    [Test]
+    public async Task A_leading_same_name_insertion_renumbers_the_siblings_after_it()
+    {
+        await AssertChanges(
+            ChartWithSeries(Series(0), Series(1)),
+            ChartWithSeries(Series(9), Series(0), Series(1)),
+            $"modified {BarChart}/c:ser[1]/c:idx[1] @val: '0' -> '9'",
+            $"modified {BarChart}/c:ser[2]/c:idx[1] @val: '1' -> '0'",
+            $"added {BarChart}/c:ser[3] (subtree)");
+    }
+
+    /// <summary>Removing a leading same-named sibling renumbers the rest the same way.</summary>
+    [Test]
+    public async Task A_leading_same_name_removal_renumbers_the_siblings_after_it()
+    {
+        await AssertChanges(
+            ChartWithSeries(Series(0), Series(1), Series(2)),
+            ChartWithSeries(Series(1), Series(2)),
+            $"modified {BarChart}/c:ser[1]/c:idx[1] @val: '0' -> '1'",
+            $"modified {BarChart}/c:ser[2]/c:idx[1] @val: '1' -> '2'",
+            $"removed {BarChart}/c:ser[3] (subtree)");
+    }
+
+    /// <summary>
+    /// The boundary of that cost, and the case that actually comes up: a sibling added at the end
+    /// renumbers nothing, so appending a drawing to a part reports as the single addition it is.
+    /// </summary>
+    [Test]
+    public async Task A_trailing_same_name_insertion_leaves_the_others_alone()
+    {
+        await AssertChanges(
+            ChartWithSeries(Series(0), Series(1)),
+            ChartWithSeries(Series(0), Series(1), Series(2)),
+            $"added {BarChart}/c:ser[3] (subtree)");
+    }
+
+    /// <summary>
+    /// The property that decides how much the renumbering matters: it can make a change set noisier
+    /// than the edit, but it can never make one empty. An empty change set means every path in one
+    /// document is present in the other carrying the same attributes, text and child order — which
+    /// is what "the same document" means. A harness that over-reports costs a reader some time; one
+    /// that under-reports would let a refactor claim it changed nothing when it had.
+    /// </summary>
+    [Test]
+    public async Task A_renumbering_edit_is_still_reported_as_a_change()
+    {
+        var before = ChartWithSeries(Series(0), Series(1));
+        var after = ChartWithSeries(Series(9), Series(0), Series(1));
+
+        await Assert.That(XmlChangeSet.Between(before, after).IsEmpty).IsFalse();
+        await Assert.That(XmlChangeSet.Between(after, before).IsEmpty).IsFalse();
+    }
 }

@@ -1,7 +1,3 @@
-// The test project does not enable nullable reference types. Opting just this file in keeps its
-// annotations legal without turning null analysis on for the whole suite.
-#nullable enable
-
 using System;
 using System.IO;
 using System.Reflection;

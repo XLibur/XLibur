@@ -1,7 +1,3 @@
-// The test project does not enable nullable reference types. Opting just this file in keeps its
-// annotations legal without turning null analysis on for the whole suite.
-#nullable enable
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -61,10 +57,32 @@ internal sealed record XmlChange(XmlChangeKind Kind, string Path, string Detail)
 /// <para>
 /// A node is identified by its position: <c>/c:chartSpace[1]/c:chart[1]/c:plotArea[1]</c>, indexed
 /// among siblings of the same name and always written with an index, since the path is a diff key
-/// rather than a display string. One consequence is worth knowing: swapping two siblings that share
-/// a name does not read as a move, because both keep their paths — it reads as modifications to
-/// their contents. Reordering siblings of <em>different</em> names, which is what the DrawingML
-/// sequence rules are about, is reported as <see cref="XmlChangeKind.Reordered"/> on the parent.
+/// rather than a display string. Reordering siblings of <em>different</em> names, which is what the
+/// DrawingML sequence rules are about, is reported as <see cref="XmlChangeKind.Reordered"/> on the
+/// parent.
+/// </para>
+/// <para>
+/// Positional identity has one cost, and it is worth stating precisely. Anything that changes how
+/// many same-named siblings precede a node renumbers that node: swapping two of them reads as
+/// modifications to both rather than as a move, and inserting or removing one ahead of the others
+/// reads as each of the rest taking on its predecessor's content, plus the addition or removal at
+/// the end of the run. A sibling added or removed <em>after</em> the others costs nothing, which is
+/// the case that actually arises when a drawing is appended to a part.
+/// </para>
+/// <para>
+/// What that cost is <em>not</em> is a hole. It can make a change set louder than the edit was; it
+/// cannot make one empty. An empty change set means every path in one document is present in the
+/// other carrying the same attributes, the same text and the same child order — which is what it
+/// means for the two to be the same document. An instrument that over-reports costs a reader some
+/// time working out which entries were the edit; one that under-reports would let a refactor claim
+/// it changed nothing when it had, and that is the failure this exists to prevent.
+/// </para>
+/// <para>
+/// Aligning same-named runs before numbering them would trade that noise away, at the price of a
+/// real sequence diff. It has deliberately not been done: the alternative of keying identity on a
+/// child's value — a series' <c>c:idx</c>, say — would put one schema's knowledge into an instrument
+/// that also has to diff drawings and shapes, and would key identity on a value an edit is allowed
+/// to change. <c>XmlChangeSetTests</c> pins all four behaviours described above.
 /// </para>
 /// <para>
 /// An added or removed subtree is reported once, at its root, rather than once per descendant. The
