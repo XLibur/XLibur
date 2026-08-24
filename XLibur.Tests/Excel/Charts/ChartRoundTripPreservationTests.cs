@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using XLibur.Excel;
+using XLibur.Tests.Utils;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Charts;
@@ -249,12 +250,20 @@ public class ChartRoundTripPreservationTests
         await Assert.That(ReadChartXml(saved)).IsEqualTo(before);
     }
 
+    /// <summary>
+    /// Retrofitted to a change-set assertion by spec 16 task 1. The version before it listed the
+    /// things it hoped had survived — the trendline, the error bars, the line series' own marker —
+    /// which can only ever say "these are still here", never "and nothing else moved". Stating the
+    /// whole difference says both, and says it about the parts of the file nobody thought to name.
+    /// </summary>
     [Test]
     public async Task EditingOneSeriesKeepsEverythingElseInTheChartPart()
     {
         using var original = CreateWorkbookWithExcelShapedChart();
+        var before = ReadChartXml(original);
         using var saved = new MemoryStream();
 
+        original.Position = 0;
         using (var wb = new XLWorkbook(original))
         {
             var series = wb.Worksheet("Data").Charts.First().Series.Single();
@@ -263,27 +272,16 @@ public class ChartRoundTripPreservationTests
             wb.SaveAs(saved);
         }
 
-        var xml = ReadChartXml(saved);
+        // Two attributes, and nothing else in the part. The old fill colour was replaced rather than
+        // doubled up; the a:ln was widened in place, so the cap, the a:round and the outline colour
+        // it came with are all still exactly where they were; and the trendline, the error bars, the
+        // gap width, the legend and the whole untouched line series never moved.
+        const string shapeProperties = "/c:chartSpace[1]/c:chart[1]/c:plotArea[1]/c:barChart[1]/c:ser[1]/c:spPr[1]";
 
-        // The edits landed.
-        await Assert.That(xml).Contains("00B050");
-        await Assert.That(xml).DoesNotContain("ED7D31").Because("The old fill colour must be replaced, not doubled up.");
-        await Assert.That(xml).Contains("w=\"38100\"").Because("3 pt is 38100 EMU.");
-
-        // Everything XLibur does not model survived.
-        await Assert.That(xml).Contains("<c:trendline>");
-        await Assert.That(xml).Contains("<c:errBars>");
-        await Assert.That(xml).Contains("<c:errValType val=\"percentage\"");
-        await Assert.That(xml).Contains("cap=\"rnd\"");
-        await Assert.That(xml).Contains("<a:round");
-        await Assert.That(xml).Contains("<a:effectLst");
-        await Assert.That(xml).Contains("<c:gapWidth val=\"219\"");
-        await Assert.That(xml).Contains("<c:legend>");
-
-        // The untouched line series kept its own formatting.
-        await Assert.That(xml).Contains("accent2");
-        await Assert.That(xml).Contains("<c:size val=\"7\"");
-        await Assert.That(xml).Contains("70AD47");
+        await Assert.That(XmlChangeSet.Between(before, ReadChartXml(saved)).ToString()).IsEqualTo(
+            XmlChangeSet.Expect(
+                $"modified {shapeProperties}/a:solidFill[1]/a:srgbClr[1] @val: 'ED7D31' -> '00B050'",
+                $"modified {shapeProperties}/a:ln[1] @w: '19050' -> '38100'"));
     }
 
     [Test]
@@ -812,26 +810,23 @@ public class ChartRoundTripPreservationTests
             """;
 
         using var original = CreateWorkbookWithExcelShapedChart(ChartXmlWithTitleHead(styledTitle));
+        var before = ReadChartXml(original);
         using var saved = new MemoryStream();
 
+        original.Position = 0;
         using (var wb = new XLWorkbook(original))
         {
             wb.Worksheet("Data").Charts.First().SetTitle("Edited title");
             wb.SaveAs(saved, validate: true);
         }
 
-        var xml = ReadChartXml(saved);
-        await Assert.That(xml).Contains("<a:t>Edited title</a:t>");
-        await Assert.That(xml).DoesNotContain("Original title");
+        // One text node. Retitling replaces what the run says and touches nothing else at all: not
+        // the run's own bold, size and colour, not the paragraph's default run properties, not the
+        // body rotation, the overlay flag or the title's a:noFill.
+        const string run = "/c:chartSpace[1]/c:chart[1]/c:title[1]/c:tx[1]/c:rich[1]/a:p[1]/a:r[1]";
 
-        // Everything around the text survived.
-        await Assert.That(xml).Contains("sz=\"1600\"").Because("The run properties of the old run are kept.");
-        await Assert.That(xml).Contains("b=\"1\"");
-        await Assert.That(xml).Contains("FF0000");
-        await Assert.That(xml).Contains("<a:defRPr sz=\"1800\"");
-        await Assert.That(xml).Contains("rot=\"0\"");
-        await Assert.That(xml).Contains("<c:overlay val=\"0\"");
-        await Assert.That(xml).Contains("<a:noFill");
+        await Assert.That(XmlChangeSet.Between(before, ReadChartXml(saved)).ToString()).IsEqualTo(
+            XmlChangeSet.Expect($"modified {run}/a:t[1] text: 'Original title' -> 'Edited title'"));
     }
 
     [Test]
