@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -7,13 +8,29 @@ namespace XLibur.Excel;
 [DebuggerDisplay("{Name} ({SourceKind})")]
 internal sealed class XLSlicer : IXLSlicer
 {
+    /// <summary>
+    /// The button row height Excel writes for a new slicer, 247650 EMU.
+    /// </summary>
+    /// <remarks>
+    /// <c>rowHeight</c> is a <em>required</em> attribute of <c>x14:slicer</c>, which is easy to miss
+    /// because it reads like styling. A slicer written without it fails schema validation, so there
+    /// has to be a value to fall back on rather than an absent attribute.
+    /// </remarks>
+    internal const double DefaultRowHeightPt = 19.5;
+
     private readonly XLWorksheet _worksheet;
+    private string _caption;
+    private bool _showCaption = true;
+    private string? _style;
+    private uint _columnCount = 1;
+    private double? _rowHeightPt;
 
     internal XLSlicer(XLWorksheet worksheet, XLSlicerCache cache, string name)
     {
         _worksheet = worksheet;
         Cache = cache;
         Name = name;
+        _caption = name;
     }
 
     /// <summary>
@@ -26,19 +43,94 @@ internal sealed class XLSlicer : IXLSlicer
     /// from. Together with <see cref="Name"/>, which is unique within a part, this is how the write
     /// path will find the element again to patch it. Null for a slicer not read from a package.
     /// </summary>
-    internal string? PartRelId { get; init; }
+    internal string? PartRelId { get; set; }
+
+    /// <summary>
+    /// Whether the slicer was created through the API rather than read from a package. A new slicer
+    /// is generated on save; a loaded one is only ever patched.
+    /// </summary>
+    internal bool IsNew { get; set; }
+
+    /// <summary>
+    /// Which properties the caller has assigned since the slicer was loaded.
+    /// </summary>
+    internal XLSlicerFormat AssignedFormat { get; private set; }
 
     public string Name { get; }
 
-    public string Caption { get; internal init; } = string.Empty;
+    public string Caption
+    {
+        get => _caption;
+        set
+        {
+            _caption = value ?? throw new ArgumentNullException(nameof(value));
+            AssignedFormat |= XLSlicerFormat.Caption;
+        }
+    }
 
-    public bool ShowCaption { get; internal init; } = true;
+    public bool ShowCaption
+    {
+        get => _showCaption;
+        set
+        {
+            _showCaption = value;
+            AssignedFormat |= XLSlicerFormat.ShowCaption;
+        }
+    }
 
-    public string? Style { get; internal init; }
+    public string? Style
+    {
+        get => _style;
+        set
+        {
+            _style = value;
+            AssignedFormat |= XLSlicerFormat.Style;
+        }
+    }
 
-    public uint ColumnCount { get; internal init; } = 1;
+    public uint ColumnCount
+    {
+        get => _columnCount;
+        set
+        {
+            if (value == 0)
+                throw new ArgumentOutOfRangeException(nameof(value), "A slicer must have at least one column.");
 
-    public double? RowHeightPt { get; internal init; }
+            _columnCount = value;
+            AssignedFormat |= XLSlicerFormat.ColumnCount;
+        }
+    }
+
+    public double? RowHeightPt
+    {
+        get => _rowHeightPt;
+        set
+        {
+            if (value is <= 0)
+                throw new ArgumentOutOfRangeException(nameof(value), "A slicer's row height must be positive.");
+
+            _rowHeightPt = value;
+            AssignedFormat |= XLSlicerFormat.RowHeight;
+        }
+    }
+
+    /// <summary>
+    /// Sets the properties read from a package without marking them as assigned.
+    /// </summary>
+    /// <remarks>
+    /// This is what keeps <see cref="AssignedFormat"/> honest. It has to stay the only way the
+    /// reader populates a slicer: assigning through the properties instead would mark every loaded
+    /// slicer as edited, and the patcher would then rewrite parts nobody touched.
+    /// </remarks>
+    internal void SeedLoadedFormat(
+        string caption, bool showCaption, string? style, uint columnCount, double? rowHeightPt)
+    {
+        _caption = caption;
+        _showCaption = showCaption;
+        _style = style;
+        _columnCount = columnCount;
+        _rowHeightPt = rowHeightPt;
+    }
 
     public XLSlicerSourceKind SourceKind => Cache.SourceKind;
 

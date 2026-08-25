@@ -12,9 +12,11 @@ namespace XLibur.Excel;
 /// a view over the slicers whose cache lists that pivot table, and one cache may list several.
 /// </para>
 /// <para>
-/// This is a read model. Slicers loaded from a file are reported here in full, including styling
-/// XLibur has no model for, and the parts they were read from are left untouched on save. Creating
-/// and editing slicers is not supported yet.
+/// A slicer read from a file is reported here in full, including styling XLibur has no model for.
+/// Editing one patches the change into the part it was read from rather than regenerating it, so
+/// everything alongside the edited attribute survives; a slicer nobody assigns to is not written to
+/// at all. The selection is read-only for now — changing it has to move the pivot table's item
+/// visibility with it, and that is not modelled yet.
 /// </para>
 /// </remarks>
 public interface IXLSlicer
@@ -29,12 +31,12 @@ public interface IXLSlicer
     /// The heading shown above the slicer's buttons. Defaults to <see cref="Name"/> when the file
     /// does not say otherwise.
     /// </summary>
-    string Caption { get; }
+    string Caption { get; set; }
 
     /// <summary>
     /// Whether <see cref="Caption"/> is displayed. <c>true</c> unless the file says otherwise.
     /// </summary>
-    bool ShowCaption { get; }
+    bool ShowCaption { get; set; }
 
     /// <summary>
     /// The name of the slicer style, for example <c>SlicerStyleDark3</c>. <c>null</c> means the
@@ -45,18 +47,18 @@ public interface IXLSlicer
     /// a custom style, and a read model that could only report the styles it knows about would
     /// silently lose the rest.
     /// </remarks>
-    string? Style { get; }
+    string? Style { get; set; }
 
     /// <summary>
     /// How many columns of buttons the slicer is laid out in. 1 unless the file says otherwise.
     /// </summary>
-    uint ColumnCount { get; }
+    uint ColumnCount { get; set; }
 
     /// <summary>
     /// The height of one button row, in points. <c>null</c> when the file does not say, which
     /// leaves it to Excel.
     /// </summary>
-    double? RowHeightPt { get; }
+    double? RowHeightPt { get; set; }
 
     /// <summary>
     /// Whether this slicer filters pivot tables or a table.

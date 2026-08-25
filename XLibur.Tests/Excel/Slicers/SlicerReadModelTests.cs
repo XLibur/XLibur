@@ -242,9 +242,14 @@ public class SlicerReadModelTests
 
     #region Helpers
 
+    /// <summary>
+    /// The fixture, opened over a copy that outlives this call. The workbook reads its original
+    /// stream again on save, so the stream cannot be disposed when this returns.
+    /// </summary>
     private static XLWorkbook Load()
     {
-        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(Fixture));
+        var stream = Resource();
+        stream.Position = 0;
         return new XLWorkbook(stream);
     }
 

@@ -16,7 +16,13 @@
 
 ### ✨ New Features
 
-- **Slicers loaded from a workbook can now be read.** `IXLWorksheet.Slicers` lists the slicers drawn on a sheet, and `IXLPivotTable.Slicers` shows which of them filter a given pivot table. A slicer reports its name, caption, style, column count, row height, the field it filters and the items currently selected — for both kinds Excel writes: pivot slicers, which read their selection from the slicer cache, and table slicers, which read it from the bound column's auto filter. Styling XLibur has no model for, such as a custom slicer style name, is reported rather than dropped. Creating and editing slicers is not supported yet; loaded slicer parts are still carried through a save byte for byte, which the reader is written specifically to preserve.
+- **Slicers loaded from a workbook can now be read.** `IXLWorksheet.Slicers` lists the slicers drawn on a sheet, and `IXLPivotTable.Slicers` shows which of them filter a given pivot table. A slicer reports its name, caption, style, column count, row height, the field it filters and the items currently selected — for both kinds Excel writes: pivot slicers, which read their selection from the slicer cache, and table slicers, which read it from the bound column's auto filter. Styling XLibur has no model for, such as a custom slicer style name, is reported rather than dropped.
+
+- **A loaded slicer's caption, style, column count, row height and caption visibility can now be changed.** The change is patched into the part the slicer was read from rather than the part being regenerated, so everything alongside the edited attribute survives — the slicer's `xr10:uid`, its `startItem`, its extension list. A slicer nobody assigns to is not written to at all: its part is not even opened, and comes through a save byte for byte. Changing a slicer's *selection* is not supported yet, because it has to move the pivot table's item visibility with it.
+
+### 🐛 Bug Fixes
+
+- **Deleting a pivot table now deletes its part.** Deleting a worksheet already took its pivot table parts along, but deleting a pivot table on its own left the part in the package, still holding a `cacheId` pointing into a `pivotCaches` element that the same save then rebuilt without it. Excel offered to repair the result. Found while building the slicer cascade, whose purpose is not to leave orphans of exactly that kind.
 
 ## v0.311.1 - 2026-08-11
 

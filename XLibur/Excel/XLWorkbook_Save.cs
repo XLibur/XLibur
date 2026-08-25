@@ -186,6 +186,10 @@ public partial class XLWorkbook
 
         context.RelIdGenerator.AddExistingValues(workbookPart, this);
 
+        // Before the workbook part is generated: the #N/A defined name each slicer cache needs has
+        // to be in the model by the time WorkbookPartWriter rebuilds the defined-name block.
+        SlicerCacheWriter.PrepareSlicerCaches(workbookPart, this, context);
+
         GenerateWorkbookLevelParts(document, workbookPart, options, context);
         PreparePivotCaches(workbookPart, context);
         EnsureDynamicArrayMetadata(workbookPart, context);
@@ -203,14 +207,44 @@ public partial class XLWorkbook
             GenerateTableParts(worksheetPart, worksheet, context);
             WorksheetPartWriter.GenerateWorksheetPartContent(partIsEmpty, worksheetPart, worksheet, options, context);
 
+            RemoveDeletedPivotTableParts(worksheetPart, worksheet);
+
             if (worksheet.PivotTables.Any<XLPivotTable>())
                 GeneratePivotTables(workbookPart, worksheetPart, worksheet, context);
         }
 
         GenerateSupplementaryParts(document, workbookPart, options, context);
 
+        // After the worksheets: a table slicer cache quotes the table/@id the table part was
+        // written under, and a pivot slicer cache the identifier its pivot cache was written with.
+        SlicerCacheWriter.WriteSlicerCaches(workbookPart, this, context);
+
         // Clear list of deleted worksheets to prevent errors on multiple saves
         worksheets.Deleted.Clear();
+    }
+
+    /// <summary>
+    /// Deletes the part of every pivot table removed from a worksheet that still exists.
+    /// </summary>
+    /// <remarks>
+    /// Deleting a worksheet took its pivot table parts with it, but deleting a pivot table on its
+    /// own left the part behind — still holding a <c>cacheId</c> that points into a
+    /// <c>pivotCaches</c> element the save then rebuilt without it. <c>OpenXmlValidator</c> reports
+    /// that as a dangling reference and Excel offers to repair the file.
+    /// <para>
+    /// This is the same synchronisation <see cref="IO.TablePartWriter.SynchronizeTableParts"/> does
+    /// for tables, and it is separate from <see cref="SynchronizePivotTableParts"/>, which is about
+    /// the cache definitions hanging off the workbook rather than the definitions on the sheet.
+    /// </para>
+    /// </remarks>
+    private static void RemoveDeletedPivotTableParts(WorksheetPart worksheetPart, XLWorksheet worksheet)
+    {
+        foreach (var pivotTablePart in worksheetPart.GetPartsOfType<PivotTablePart>().ToList())
+        {
+            var partId = worksheetPart.GetIdOfPart(pivotTablePart);
+            if (!worksheet.PivotTables.Any<XLPivotTable>(pt => pt.RelId == partId))
+                worksheetPart.DeletePart(pivotTablePart);
+        }
     }
 
     private static void DeleteRemovedWorksheets(WorkbookPart workbookPart, XLWorksheets worksheets)

@@ -257,19 +257,19 @@ internal static class SlicerReader
         if (name is null || cacheName is null || !caches.TryGetValue(cacheName, out var cache))
             return;
 
-        worksheet.SlicersInternal.Add(new XLSlicer(worksheet, cache, name)
-        {
-            PartRelId = relId,
+        var xlSlicer = new XLSlicer(worksheet, cache, name) { PartRelId = relId };
 
-            // Excel omits the caption when it matches the name, and shows the name in that case.
-            Caption = slicer.Caption?.Value ?? name,
-            ShowCaption = slicer.ShowCaption?.Value ?? true,
-            Style = slicer.Style?.Value,
-            ColumnCount = slicer.ColumnCount?.Value ?? 1,
-            RowHeightPt = slicer.RowHeight?.Value is { } rowHeight
-                ? rowHeight / EmuPerPoint
-                : null,
-        });
+        // Seeded rather than assigned: going through the properties would mark every loaded slicer
+        // as edited and bring parts nobody touched in for patching. Excel omits the caption when it
+        // matches the name, and shows the name in that case.
+        xlSlicer.SeedLoadedFormat(
+            slicer.Caption?.Value ?? name,
+            slicer.ShowCaption?.Value ?? true,
+            slicer.Style?.Value,
+            slicer.ColumnCount?.Value ?? 1,
+            slicer.RowHeight?.Value is { } rowHeight ? rowHeight / EmuPerPoint : null);
+
+        worksheet.SlicersInternal.Add(xlSlicer);
     }
 
     // ── Plumbing ────────────────────────────────────────────────────────

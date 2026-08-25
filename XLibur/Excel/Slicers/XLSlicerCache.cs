@@ -59,10 +59,15 @@ internal sealed class XLSlicerCache
     internal XLSlicerSourceKind SourceKind { get; }
 
     /// <summary>
+    /// Whether the cache was created through the API rather than read from a package.
+    /// </summary>
+    internal bool IsNew { get; set; }
+
+    /// <summary>
     /// The id of the cache's part relationship on the workbook part, for finding the part again on
     /// save. Null for a cache that has never been in a package.
     /// </summary>
-    internal string? WorkbookRelId { get; init; }
+    internal string? WorkbookRelId { get; set; }
 
     /// <summary>
     /// The <c>x14:pivotCacheDefinition/@pivotCacheId</c> of the pivot cache this cache reads its
@@ -73,7 +78,7 @@ internal sealed class XLSlicerCache
     /// table names in <see cref="PivotTableNames"/> are. It is kept because the write path will
     /// have to reproduce it, and because it disambiguates two pivot tables of the same name.
     /// </remarks>
-    internal uint? PivotCacheId { get; init; }
+    internal uint? PivotCacheId { get; set; }
 
     /// <summary>
     /// The names of the pivot tables the cache drives, as written in the part. A name with no
@@ -84,12 +89,12 @@ internal sealed class XLSlicerCache
     /// <summary>
     /// The <c>table/@id</c> of the table this cache filters, when it is a table slicer cache.
     /// </summary>
-    internal uint? TableId { get; init; }
+    internal uint? TableId { get; set; }
 
     /// <summary>
     /// The <c>tableColumn/@id</c> of the filtered column, which is not its position in the table.
     /// </summary>
-    internal uint? TableColumnId { get; init; }
+    internal uint? TableColumnId { get; set; }
 
     /// <summary>
     /// The cache's item list, present only when the file records one.
