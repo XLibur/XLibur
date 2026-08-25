@@ -50,6 +50,9 @@ public class TimelinePositionTests
     [Test]
     public async Task Moving_a_loaded_timeline_edits_its_anchor_rather_than_replacing_it()
     {
+        using var original = Resource();
+        var timelinePartBefore = PartBytes(original, "xl/timelines/timeline1.xml");
+
         using var saved = new MemoryStream();
         using (var wb = Load())
         {
@@ -65,6 +68,11 @@ public class TimelinePositionTests
         // And Excel's own wrapper survived, which is what replacing the anchor would have destroyed.
         await Assert.That(drawing).Contains("mc:AlternateContent");
         await Assert.That(drawing).Contains("mc:Fallback");
+
+        // A position-only edit must not open the timelines part at all — PatchTimeline's early
+        // return on (assigned & ~Position) == None is what this pins. Without it, a part Excel
+        // authored would be re-serialised on every move, and nothing above this line would notice.
+        await Assert.That(PartBytes(saved, "xl/timelines/timeline1.xml")).IsEquivalentTo(timelinePartBefore);
 
         saved.Position = 0;
         using var reloaded = new XLWorkbook(saved);
@@ -103,7 +111,18 @@ public class TimelinePositionTests
         return new XLWorkbook(ms);
     }
 
-    private static string ReadPart(MemoryStream package, string partPath)
+    private static MemoryStream Resource()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(Fixture));
+        var ms = new MemoryStream();
+        stream.CopyTo(ms);
+        return ms;
+    }
+
+    private static string ReadPart(MemoryStream package, string partPath) =>
+        Encoding.UTF8.GetString(PartBytes(package, partPath));
+
+    private static byte[] PartBytes(MemoryStream package, string partPath)
     {
         package.Position = 0;
         using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
@@ -111,8 +130,9 @@ public class TimelinePositionTests
             e.FullName.Equals(partPath, StringComparison.OrdinalIgnoreCase));
 
         using var entryStream = entry.Open();
-        using var reader = new StreamReader(entryStream, Encoding.UTF8);
-        return reader.ReadToEnd();
+        using var buffer = new MemoryStream();
+        entryStream.CopyTo(buffer);
+        return buffer.ToArray();
     }
 
     #endregion

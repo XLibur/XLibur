@@ -204,6 +204,37 @@ public class TimelineWriteTests
     }
 
     [Test]
+    public async Task A_caption_only_edit_leaves_the_drawing_untouched()
+    {
+        // The symmetric pin to TimelinePositionTests' position-only assertion: PatchTimeline only
+        // reaches worksheetPart.DrawingsPart when AssignedFormat.HasFlag(Position), so an edit that
+        // assigns nothing but the caption must never call TimelineAnchorXml.Move.
+        //
+        // This compares against an *untouched resave* rather than the pristine original, not the
+        // original. PictureWriter.RemoveEmptyDrawingPart (pre-existing, unrelated to timelines —
+        // confirmed by reproducing it off a Data!Z99 edit that never touches the Pivot sheet) reads
+        // DrawingsPart.WorksheetDrawing for every sheet whose drawing part holds no picture, chart
+        // or legacy shape, which attaches the SDK's DOM and makes it reserialise the part — same
+        // self-closing-tag/namespace-placement churn on *every* save, caption edit or not. A pristine
+        // original comparison would fail even with PatchTimeline never touching the drawing at all,
+        // so the untouched baseline is what isolates what this save path itself contributes.
+        using var baseline = new MemoryStream();
+        using (var wb = Load())
+            wb.SaveAs(baseline);
+        var drawingBaseline = PartBytes(baseline, "xl/drawings/drawing1.xml");
+
+        using var saved = new MemoryStream();
+        using (var wb = Load())
+        {
+            var timeline = wb.Worksheet("Pivot").Timelines.Single();
+            timeline.Caption = "Pick a period";
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(PartBytes(saved, "xl/drawings/drawing1.xml")).IsEquivalentTo(drawingBaseline);
+    }
+
+    [Test]
     public async Task A_timeline_nobody_touched_is_not_written_to()
     {
         // Loading a workbook and saving it after an unrelated edit must not open the timeline part.
