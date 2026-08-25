@@ -21,9 +21,10 @@ namespace XLibur.Excel.IO;
 /// worksheet part is rebuilt from the model on every save while the slicer part is not.
 /// </para>
 /// <para>
-/// Excel uses a different extension URI for each kind of slicer and puts each kind in its own
-/// slicers part, so a sheet carrying both a table slicer and a pivot slicer has two of each. That
-/// split is reproduced rather than flattened.
+/// Excel uses a different extension URI for each kind of slicer, and writes one slicers part per
+/// slicer rather than one per sheet, so a sheet carrying a table slicer and two pivot slicers has
+/// three parts listed under two extensions. That layout is reproduced rather than flattened — see
+/// <see cref="NewSlicersPart"/> for what happens when it is not.
 /// </para>
 /// </remarks>
 internal static class SlicerWriter
@@ -68,10 +69,10 @@ internal static class SlicerWriter
         XLSlicer xlSlicer,
         SaveContext context)
     {
-        var part = EnsureSlicersPart(worksheet, worksheetPart, xlSlicer.SourceKind, context, out var relId);
+        var part = NewSlicersPart(worksheetPart, context, out var relId);
         xlSlicer.PartRelId = relId;
 
-        var slicersRoot = part.Slicers ??= NewSlicersRoot();
+        var slicersRoot = part.Slicers = NewSlicersRoot();
 
         var slicer = new X14.Slicer
         {
@@ -131,36 +132,28 @@ internal static class SlicerWriter
     // ── The slicers part ────────────────────────────────────────────────
 
     /// <summary>
-    /// The slicers part for one kind of slicer on this worksheet, creating it if the sheet has none
-    /// yet.
+    /// A slicers part of its own for a newly created slicer.
     /// </summary>
     /// <remarks>
-    /// A part is reused only when the worksheet's <c>extLst</c> already points at it under the URI
-    /// for this kind. Sharing one part between a table slicer and a pivot slicer would leave one of
-    /// the two reachable only through the wrong extension, which Excel reads as a broken workbook.
+    /// <para>
+    /// <b>A created slicer never goes into a part that is already in the package.</b> An earlier
+    /// version appended the new definition to the sheet's existing <c>xl/slicers/slicerN.xml</c>,
+    /// which meant opening a part Excel had written and handing the SDK the job of serialising it
+    /// again. Every automated gate passed — nothing was dropped from the XML, the validator was
+    /// clean, both slicers reloaded — and Excel then silently stopped drawing the slicer that was
+    /// already there. That is the exact failure the first of the four mechanisms in
+    /// <c>docs/round-trip-fidelity.md</c> exists to prevent: a slicer part survives a round trip
+    /// only because nothing ever opens it.
+    /// </para>
+    /// <para>
+    /// One part per slicer also matches every slicers part Excel itself writes, each of which holds
+    /// exactly one <c>x14:slicer</c>, and it is the shape the manual acceptance check confirmed
+    /// working. The sheet's <c>slicerList</c> is a list precisely so it can name several parts.
+    /// </para>
     /// </remarks>
-    private static SlicersPart EnsureSlicersPart(
-        Worksheet worksheet,
-        WorksheetPart worksheetPart,
-        XLSlicerSourceKind kind,
-        SaveContext context,
-        out string relId)
+    private static SlicersPart NewSlicersPart(
+        WorksheetPart worksheetPart, SaveContext context, out string relId)
     {
-        var extension = FindExtension(worksheet, ExtensionUri(kind));
-        if (extension is not null)
-        {
-            foreach (var reference in extension.Descendants<X14.SlicerRef>())
-            {
-                if (reference.Id?.Value is { } listed
-                    && worksheetPart.Parts.Any(p => p.RelationshipId == listed)
-                    && worksheetPart.GetPartById(listed) is SlicersPart existing)
-                {
-                    relId = listed;
-                    return existing;
-                }
-            }
-        }
-
         relId = context.RelIdGenerator.GetNext(RelType.Workbook);
         return worksheetPart.AddNewPart<SlicersPart>(relId);
     }

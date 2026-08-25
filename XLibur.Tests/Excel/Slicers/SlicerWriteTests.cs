@@ -115,6 +115,94 @@ public class SlicerWriteTests
         await Assert.That(ReadPart(saved, "xl/slicers/slicer2.xml")).DoesNotContain("caption=");
     }
 
+    // ── Adding alongside a slicer that is already there ─────────────────
+
+    /// <summary>
+    /// Adding a slicer to a sheet that already carries one must not disturb the slicer that was
+    /// already there.
+    /// </summary>
+    /// <remarks>
+    /// This is the guard for the defect the acceptance-criteria check found: the writer used to
+    /// reuse the sheet's existing <c>xl/slicers/slicerN.xml</c> and append the new definition into
+    /// it, which re-serialises a part Excel wrote. Nothing was lost from the XML and the validator
+    /// was clean, but Excel then stopped drawing the original — the same silent class of failure
+    /// the round-trip guarantee exists to prevent. The byte comparison is the assertion; the
+    /// reload afterwards only shows the sheet still has both.
+    /// </remarks>
+    [Test]
+    public async Task Adding_a_slicer_leaves_the_slicer_already_on_the_sheet_byte_for_byte_intact()
+    {
+        using var original = Resource();
+        var before = PartBytes(original, "xl/slicers/slicer2.xml");
+
+        using var saved = new MemoryStream();
+        using (var wb = Load())
+        {
+            var pivotTable = (XLPivotTable)wb.Worksheet("Pivot").PivotTables.Single();
+            SlicersOf(wb, "Pivot").AddPivotSlicer(pivotTable, "Region");
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(PartBytes(saved, "xl/slicers/slicer2.xml")).IsEquivalentTo(before)
+            .Because("Excel's own slicer part must pass through untouched; the new slicer belongs in a part of its own.");
+    }
+
+    [Test]
+    public async Task A_slicer_added_beside_an_existing_one_gets_its_own_part_and_list_entry()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = Load())
+        {
+            var pivotTable = (XLPivotTable)wb.Worksheet("Pivot").PivotTables.Single();
+            SlicersOf(wb, "Pivot").AddPivotSlicer(pivotTable, "Region");
+            wb.SaveAs(saved);
+        }
+
+        // Every slicers part Excel writes holds exactly one slicer, and the sheet's slicerList
+        // names one part per slicer. That is the shape the manual check confirmed working.
+        foreach (var part in SlicerParts(saved))
+        {
+            var count = System.Text.RegularExpressions.Regex.Matches(ReadPart(saved, part), "<[^>]*:?slicer ").Count;
+            await Assert.That(count).IsEqualTo(1).Because($"{part} should define exactly one slicer.");
+        }
+
+        var sheetXml = ReadPart(saved, "xl/worksheets/sheet2.xml");
+        var refs = System.Text.RegularExpressions.Regex.Matches(sheetXml, "<x14:slicer r:id=").Count;
+        await Assert.That(refs).IsEqualTo(2).Because("The sheet now points at two slicer parts.");
+    }
+
+    [Test]
+    public async Task Both_slicers_are_there_after_adding_one_beside_another()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = Load())
+        {
+            var pivotTable = (XLPivotTable)wb.Worksheet("Pivot").PivotTables.Single();
+            SlicersOf(wb, "Pivot").AddPivotSlicer(pivotTable, "Region");
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        var names = reloaded.Worksheet("Pivot").Slicers.Select(s => s.Name).OrderBy(n => n).ToArray();
+
+        await Assert.That(names).IsEquivalentTo(new[] { "Region 1", "Region 2" });
+    }
+
+    [Test]
+    public async Task A_workbook_with_a_slicer_added_beside_an_existing_one_is_schema_valid()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = Load())
+        {
+            var pivotTable = (XLPivotTable)wb.Worksheet("Pivot").PivotTables.Single();
+            SlicersOf(wb, "Pivot").AddPivotSlicer(pivotTable, "Region");
+            wb.SaveAs(saved);
+        }
+
+        await AssertSchemaValid(saved);
+    }
+
     // ── Creating a pivot slicer ─────────────────────────────────────────
 
     [Test]
