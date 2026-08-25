@@ -50,6 +50,11 @@ internal static class TablePartWriter
     private static void GenerateTableDefinitionPartContent(TableDefinitionPart tableDefinitionPart, XLTable xlTable, SaveContext context)
     {
         context.TableId++;
+
+        // A table slicer's cache names the table by this id. It is a counter over the tables in
+        // write order rather than anything the model holds, so it is only knowable here.
+        context.TableIds[xlTable] = context.TableId;
+
         var reference = xlTable.RangeAddress.FirstAddress + ":" + xlTable.RangeAddress.LastAddress;
         var tableName = GetTableName(xlTable.Name, context);
         var table = new Table

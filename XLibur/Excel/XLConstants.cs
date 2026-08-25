@@ -18,6 +18,12 @@ public static class XLConstants
     {
         internal const byte CreatedVersion = 5;
         internal const byte RefreshedVersion = 5;
+
+        /// <summary>
+        /// The lowest application version able to refresh a pivot table XLibur wrote. Excel writes
+        /// 3 and so does this; unlike the two above it is a floor, not a stamp of the writer.
+        /// </summary>
+        internal const byte MinRefreshableVersion = 3;
         public const string ValuesSentinalLabel = "{{Values}}";
     }
 

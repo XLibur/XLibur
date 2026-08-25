@@ -61,12 +61,17 @@ internal sealed class XLPivotTables : IXLPivotTables, IEnumerable<XLPivotTable>
 
     public void Delete(string name)
     {
-        _pivotTables.Remove(name);
+        if (_pivotTables.TryGetValue(name, out var pivotTable) && _pivotTables.Remove(name))
+            XLSlicerCascade.OnPivotTableDeleted(Worksheet.Workbook, pivotTable);
     }
 
     public void DeleteAll()
     {
+        var deleted = _pivotTables.Values.ToList();
         _pivotTables.Clear();
+
+        foreach (var pivotTable in deleted)
+            XLSlicerCascade.OnPivotTableDeleted(Worksheet.Workbook, pivotTable);
     }
 
     IXLPivotTable IXLPivotTables.PivotTable(string name)

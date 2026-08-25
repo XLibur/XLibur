@@ -49,6 +49,17 @@ public partial class XLWorkbook
         public Dictionary<XLPivotCache, uint> PivotCacheIds { get; private set; }
 
         /// <summary>
+        /// The <c>table/@id</c> each table is written under, recorded as the table parts are
+        /// generated and read back when a table slicer's cache names the table it filters.
+        /// </summary>
+        /// <remarks>
+        /// Like <see cref="PivotCacheIds"/>, the id belongs to the save rather than to the table:
+        /// it comes from <see cref="TableId"/>, a counter over the tables in write order, so it is
+        /// only knowable once the part has been written and only meaningful within one save.
+        /// </remarks>
+        public Dictionary<XLTable, uint> TableIds { get; } = new();
+
+        /// <summary>
         /// A map of shared string ids. The index is the actual index from sharedStringId, and
         /// the value is a mapped stringId to write to a file. The mapped stringId has no gaps
         /// between ids.

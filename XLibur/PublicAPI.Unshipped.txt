@@ -372,3 +372,35 @@ XLibur.Graphics.IXLFontEngine.GetGlyphBox(System.ReadOnlySpan<int> graphemeClust
 XLibur.Graphics.IXLFontEngine.GetMaxDigitWidth(XLibur.Excel.IXLFontBase! font, double dpiX) -> double
 XLibur.Graphics.IXLFontEngine.GetTextHeight(XLibur.Excel.IXLFontBase! font, double dpiY) -> double
 XLibur.Graphics.IXLFontEngine.GetTextWidth(string! text, XLibur.Excel.IXLFontBase! font, double dpiX) -> double
+XLibur.Excel.IXLPivotTable.Slicers.get -> System.Collections.Generic.IEnumerable<XLibur.Excel.IXLSlicer!>!
+XLibur.Excel.IXLSlicer
+XLibur.Excel.IXLSlicer.Caption.get -> string!
+XLibur.Excel.IXLSlicer.Caption.set -> void
+XLibur.Excel.IXLSlicer.ColumnCount.get -> uint
+XLibur.Excel.IXLSlicer.ColumnCount.set -> void
+XLibur.Excel.IXLSlicer.HasSelection.get -> bool
+XLibur.Excel.IXLSlicer.Name.get -> string!
+XLibur.Excel.IXLSlicer.PivotTables.get -> System.Collections.Generic.IReadOnlyList<XLibur.Excel.IXLPivotTable!>!
+XLibur.Excel.IXLSlicer.Position.get -> XLibur.Excel.IXLCell!
+XLibur.Excel.IXLSlicer.Position.set -> void
+XLibur.Excel.IXLSlicer.RowHeightPt.get -> double?
+XLibur.Excel.IXLSlicer.RowHeightPt.set -> void
+XLibur.Excel.IXLSlicer.SelectedItems.get -> System.Collections.Generic.IReadOnlyList<XLibur.Excel.XLCellValue>!
+XLibur.Excel.IXLSlicer.ShowCaption.get -> bool
+XLibur.Excel.IXLSlicer.ShowCaption.set -> void
+XLibur.Excel.IXLSlicer.SourceFieldName.get -> string!
+XLibur.Excel.IXLSlicer.SourceKind.get -> XLibur.Excel.XLSlicerSourceKind
+XLibur.Excel.IXLSlicer.Style.get -> string?
+XLibur.Excel.IXLSlicer.Style.set -> void
+XLibur.Excel.IXLSlicer.Table.get -> XLibur.Excel.IXLTable?
+XLibur.Excel.IXLSlicer.Worksheet.get -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.IXLSlicers
+XLibur.Excel.IXLSlicers.Add(XLibur.Excel.IXLPivotTable! pivotTable, string! fieldName) -> XLibur.Excel.IXLSlicer!
+XLibur.Excel.IXLSlicers.Add(XLibur.Excel.IXLTable! table, string! columnName) -> XLibur.Excel.IXLSlicer!
+XLibur.Excel.IXLSlicers.Count.get -> int
+XLibur.Excel.IXLSlicers.Slicer(string! name) -> XLibur.Excel.IXLSlicer!
+XLibur.Excel.IXLSlicers.TryGetSlicer(string! name, out XLibur.Excel.IXLSlicer? slicer) -> bool
+XLibur.Excel.IXLWorksheet.Slicers.get -> XLibur.Excel.IXLSlicers!
+XLibur.Excel.XLSlicerSourceKind
+XLibur.Excel.XLSlicerSourceKind.PivotTable = 0 -> XLibur.Excel.XLSlicerSourceKind
+XLibur.Excel.XLSlicerSourceKind.Table = 1 -> XLibur.Excel.XLSlicerSourceKind

@@ -10,6 +10,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ContentManagers;
 using XLibur.Excel.IO.Charts;
+using XLibur.Excel.IO.DrawingML;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;
 using A = DocumentFormat.OpenXml.Drawing;
@@ -1057,40 +1058,18 @@ internal static class ChartWriter
         worksheetDrawing.Append(anchor);
     }
 
-    private static DrawingsPart EnsureDrawingsPart(WorksheetPart worksheetPart, SaveContext context)
-    {
-        var drawingsPart = worksheetPart.DrawingsPart ??
-                           worksheetPart.AddNewPart<DrawingsPart>(context.RelIdGenerator.GetNext(RelType.Workbook));
-        drawingsPart.WorksheetDrawing ??= new Xdr.WorksheetDrawing();
-        return drawingsPart;
-    }
+    // The drawing part, the sheet's reference to it and its namespaces are the same for every kind
+    // of drawing, so they live in DrawingPartScaffold rather than here. See its remarks.
+    private static DrawingsPart EnsureDrawingsPart(WorksheetPart worksheetPart, SaveContext context) =>
+        DrawingPartScaffold.EnsureDrawingsPart(worksheetPart, context);
 
     private static void EnsureDrawingElement(
         Worksheet worksheet, XLWorksheetContentManager cm,
-        WorksheetPart worksheetPart, DrawingsPart drawingsPart)
-    {
-        if (!worksheet.OfType<Drawing>().Any())
-        {
-            var tableParts = worksheet.Elements<TableParts>().FirstOrDefault();
-            var drawingRef = new Drawing { Id = worksheetPart.GetIdOfPart(drawingsPart) };
-            drawingRef.AddNamespaceDeclaration("r", RelationshipsNs);
-            if (tableParts != null)
-                worksheet.InsertBefore(drawingRef, tableParts);
-            else
-                worksheet.AppendChild(drawingRef);
-            cm.SetElement(XLWorksheetContents.Drawing, worksheet.Elements<Drawing>().First());
-        }
-    }
+        WorksheetPart worksheetPart, DrawingsPart drawingsPart) =>
+        DrawingPartScaffold.EnsureDrawingElement(worksheet, cm, worksheetPart, drawingsPart);
 
-    private static void EnsureNamespaces(Xdr.WorksheetDrawing worksheetDrawing)
-    {
-        if (!worksheetDrawing.NamespaceDeclarations.Any(nd =>
-                nd.Value.Equals("http://schemas.openxmlformats.org/drawingml/2006/main")))
-            worksheetDrawing.AddNamespaceDeclaration("a", "http://schemas.openxmlformats.org/drawingml/2006/main");
-        if (!worksheetDrawing.NamespaceDeclarations.Any(nd =>
-                nd.Value.Equals(RelationshipsNs)))
-            worksheetDrawing.AddNamespaceDeclaration("r", RelationshipsNs);
-    }
+    private static void EnsureNamespaces(Xdr.WorksheetDrawing worksheetDrawing) =>
+        DrawingPartScaffold.EnsureNamespaces(worksheetDrawing);
 
     // ── Type classification ─────────────────────────────────────────────
 

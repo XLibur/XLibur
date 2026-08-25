@@ -14,6 +14,20 @@
 
 ## Unreleased
 
+### ✨ New Features
+
+- **Slicers loaded from a workbook can now be read.** `IXLWorksheet.Slicers` lists the slicers drawn on a sheet, and `IXLPivotTable.Slicers` shows which of them filter a given pivot table. A slicer reports its name, caption, style, column count, row height, the field it filters and the items currently selected — for both kinds Excel writes: pivot slicers, which read their selection from the slicer cache, and table slicers, which read it from the bound column's auto filter. Styling XLibur has no model for, such as a custom slicer style name, is reported rather than dropped.
+
+- **Slicers can now be created.** `IXLWorksheet.Slicers.Add(pivotTable, fieldName)` adds a slicer that filters a pivot table; `Add(table, columnName)` adds one that filters a table column, matching what EPPlus offers. A created slicer is placed to the right of whatever it filters, and `IXLSlicer.Position` moves it — it is anchored to the grid like any other drawing, so it travels when rows or columns are inserted above it. Moving a slicer read from a file shifts both of its corners together, so it keeps its size. Adding a slicer to a sheet that already carries one puts it in a slicers part of its own, exactly as Excel does, so the part holding the existing slicer is never opened and passes through the save byte for byte.
+
+- **A loaded slicer's caption, style, column count, row height and caption visibility can now be changed.** The change is patched into the part the slicer was read from rather than the part being regenerated, so everything alongside the edited attribute survives — the slicer's `xr10:uid`, its `startItem`, its extension list. A slicer nobody assigns to is not written to at all: its part is not even opened, and comes through a save byte for byte. Changing a slicer's *selection* is not supported yet, because it has to move the pivot table's item visibility with it.
+
+### 🐛 Bug Fixes
+
+- **A pivot table XLibur creates is now stamped with a version that supports slicers.** `createdVersion` and `updatedVersion` were left at zero on a created pivot table, and the writer omits an attribute sitting at its default, so both were absent. Excel reads a pivot table stamped version 0 as one written before the features that came later and silently refuses to attach a slicer to it — the slicer, its cache, its registration and its drawing are all written correctly and the panel simply never appears, with no repair prompt and no validation error. A pivot table loaded from a file still keeps whatever version its file declares.
+
+- **Deleting a pivot table now deletes its part.** Deleting a worksheet already took its pivot table parts along, but deleting a pivot table on its own left the part in the package, still holding a `cacheId` pointing into a `pivotCaches` element that the same save then rebuilt without it. Excel offered to repair the result. Found while building the slicer cascade, whose purpose is not to leave orphans of exactly that kind.
+
 ## v0.311.1 - 2026-08-11
 
 A dependency release: `XLibur.Fonts.SkiaSharp` moves to SkiaSharp 4.151.1, a patch bump. No new features, no bug fixes and no breaking changes.

@@ -160,6 +160,16 @@ internal sealed class XLPivotCache : IXLPivotCache
 
     internal string? WorkbookCacheRelId { get; set; }
 
+    /// <summary>
+    /// The identifier a slicer cache uses to name this pivot cache, carried in the pivot cache
+    /// definition's <c>x14:pivotCacheDefinition</c> extension.
+    /// </summary>
+    /// <remarks>
+    /// Not the <c>pivotCache/@cacheId</c> of <c>workbook.xml</c>, which XLibur renumbers on every
+    /// save. Null until a slicer needs one, at which point the writer allocates and records it.
+    /// </remarks>
+    internal uint? PivotCacheId { get; set; }
+
     internal XLPivotCache AddCachedField(string fieldName, XLPivotCacheValues fieldValues)
     {
         if (_fieldNames.Contains(fieldName, StringComparer.OrdinalIgnoreCase))

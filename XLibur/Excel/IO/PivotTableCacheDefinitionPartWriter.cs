@@ -7,11 +7,17 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Extensions;
 using XLibur.Utils;
 using static XLibur.Excel.XLWorkbook;
+using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Excel.IO;
 
 internal static class PivotTableCacheDefinitionPartWriter
 {
+    /// <summary>
+    /// The extension URI Excel uses for the pivot cache identifier a slicer cache binds to.
+    /// </summary>
+    private const string PivotCacheDefinitionExtensionUri = "{725AE2AE-9491-48be-B2B4-4EB974FC3084}";
+
     internal static void GenerateContent(
         PivotTableCacheDefinitionPart pivotTableCacheDefinitionPart,
         XLPivotCache pivotCache,
@@ -79,6 +85,50 @@ internal static class PivotTableCacheDefinitionPartWriter
         WriteCacheFields(pivotCache, cacheFields);
 
         // End CacheFields
+
+        WritePivotCacheId(pivotCacheDefinition, pivotCache);
+    }
+
+    /// <summary>
+    /// Writes the <c>x14:pivotCacheDefinition</c> extension carrying the identifier a slicer cache
+    /// binds to, when a slicer has asked for one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only written when <see cref="XLPivotCache.PivotCacheId"/> is set, which happens either
+    /// because the file already carried one or because a slicer was created against this cache.
+    /// A pivot cache no slicer touches keeps the extension list it arrived with, empty or not.
+    /// </para>
+    /// <para>
+    /// A cache read from a file already has its own extension in the DOM being patched, and it is
+    /// updated in place rather than duplicated: two <c>x14:pivotCacheDefinition</c> elements under
+    /// one extension list is not something Excel will accept.
+    /// </para>
+    /// </remarks>
+    private static void WritePivotCacheId(PivotCacheDefinition pivotCacheDefinition, XLPivotCache pivotCache)
+    {
+        if (pivotCache.PivotCacheId is not { } pivotCacheId)
+            return;
+
+        var existing = pivotCacheDefinition.Descendants<X14.PivotCacheDefinition>().FirstOrDefault();
+        if (existing is not null)
+        {
+            existing.PivotCacheId = pivotCacheId;
+            return;
+        }
+
+        var extension = new PivotCacheDefinitionExtension { Uri = PivotCacheDefinitionExtensionUri };
+        extension.AddNamespaceDeclaration("x14", OpenXmlConst.X14Main2009SsNs);
+        extension.AppendChild(new X14.PivotCacheDefinition { PivotCacheId = pivotCacheId });
+
+        var extensionList = pivotCacheDefinition.GetFirstChild<PivotCacheDefinitionExtensionList>();
+        if (extensionList is null)
+        {
+            extensionList = new PivotCacheDefinitionExtensionList();
+            pivotCacheDefinition.AppendChild(extensionList);
+        }
+
+        extensionList.AppendChild(extension);
     }
 
     private static CacheSource BuildCacheSource(XLPivotCache pivotCache)
