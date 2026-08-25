@@ -3,6 +3,7 @@ using XLibur.Excel.IO;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using XLibur.Tests.Utils;
 using DocumentFormat.OpenXml;
@@ -613,18 +614,43 @@ public class XLPivotTableTests
             @"Other\PivotTableReferenceFiles\PivotSubtotalsSource\output.xlsx")).ThrowsNothing();
     }
 
+    /// <summary>
+    /// A pivot table's rendered cells survive a load and save.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This test used to assert the opposite — that loading blanks the rendered range — after
+    /// ClosedXML PR 856. That behaviour costs more than it buys. XLibur writes the definition of a
+    /// pivot table and never its output, so cells cleared on load can never be put back, and a
+    /// plain load-and-save with no edit at all produced a workbook whose pivot tables were empty
+    /// in Excel until the user touched one.
+    /// </para>
+    /// <para>
+    /// Neither way out works. Rendering the table needs a pivot engine XLibur does not have.
+    /// Asking Excel to rebuild it with <c>refreshOnLoad</c> throws the applied filters away —
+    /// ClosedXML#2219, pinned by <see cref="Pivot_field_item_hidden_flags_survive_round_trip"/> —
+    /// and fails outright with <em>Reference isn't valid</em> when the cache's source is gone, as
+    /// <see cref="Load_and_save_pivot_table_with_cache_records_but_missing_source_data"/> records.
+    /// The blanking and that bug are the same root cause seen from two sides: the flag only picks
+    /// which half of the pivot table gets destroyed.
+    /// </para>
+    /// <para>
+    /// So the render is left where Excel put it. A file that arrives with a rendered pivot table
+    /// leaves with one.
+    /// </para>
+    /// </remarks>
     [Test]
-    public async Task ClearPivotTableRenderedRange()
+    public async Task PivotTableRenderedRangeSurvivesRoundTrip()
     {
-        // https://github.com/XLibur/XLibur/pull/856
+        // https://github.com/XLibur/XLibur/pull/856 introduced the clearing this test now denies.
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\PivotTableReferenceFiles\ClearPivotTableRenderedRangeWhenLoading\inputfile.xlsx"));
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook(stream))
         {
             var ws = wb.Worksheet("Sheet1");
-            await Assert.That(ws.Cell("B1").IsEmpty()).IsTrue();
-            await Assert.That(ws.Cell("C2").IsEmpty()).IsTrue();
-            await Assert.That(ws.Cell("D5").IsEmpty()).IsTrue();
+            await Assert.That(ws.Cell("B1").GetString()).IsEqualTo("Sum of Units");
+            await Assert.That(ws.Cell("C2").GetDouble()).IsEqualTo(387.48d).Within(0.001d);
+            await Assert.That(ws.Cell("D5").GetDouble()).IsEqualTo(17552.52d).Within(0.001d);
             wb.SaveAs(ms);
         }
 
@@ -633,9 +659,9 @@ public class XLPivotTableTests
         using (var wb = new XLWorkbook(ms))
         {
             var ws = wb.Worksheet("Sheet1");
-            await Assert.That(ws.Cell("B1").IsEmpty()).IsTrue();
-            await Assert.That(ws.Cell("C2").IsEmpty()).IsTrue();
-            await Assert.That(ws.Cell("D5").IsEmpty()).IsTrue();
+            await Assert.That(ws.Cell("B1").GetString()).IsEqualTo("Sum of Units");
+            await Assert.That(ws.Cell("C2").GetDouble()).IsEqualTo(387.48d).Within(0.001d);
+            await Assert.That(ws.Cell("D5").GetDouble()).IsEqualTo(17552.52d).Within(0.001d);
         }
     }
 
@@ -755,6 +781,40 @@ public class XLPivotTableTests
 
         // RefreshOnLoad should not be forced to true
         await Assert.That(pt2.PivotCache.RefreshDataOnOpen).IsFalse().Because("RefreshDataOnOpen should preserve original value (false)");
+    }
+
+    /// <summary>
+    /// A round trip with no edit at all leaves the pivot table's cells in the saved file.
+    /// </summary>
+    /// <remarks>
+    /// The assertion is on the saved package rather than on the reloaded model, because a model
+    /// that agrees with itself proves nothing here: the cells were being dropped on load, so both
+    /// sides of a reload agreed they were absent. What matters is what Excel is handed.
+    /// </remarks>
+    [Test]
+    public async Task A_round_trip_leaves_the_pivot_tables_cells_in_the_file()
+    {
+        using var stream = TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"TryToLoad\SlicersOnPivotAndTable.xlsx"));
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(stream))
+        {
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        using var archive = new ZipArchive(saved, ZipArchiveMode.Read, leaveOpen: true);
+        using var entry = archive.Entries.First(e => e.FullName == "xl/worksheets/sheet2.xml").Open();
+        using var reader = new StreamReader(entry);
+        var sheetXml = reader.ReadToEnd();
+
+        // The pivot occupies A3:B5 and Excel rendered it before the file was saved. "Grand Total"
+        // is a shared string, so the row it sits on is the readable witness that the render is
+        // still there.
+        await Assert.That(sheetXml).DoesNotContain("<x:sheetData />")
+            .Because("The pivot table's rendered cells are the only thing on this sheet.");
+        await Assert.That(sheetXml).Contains("r=\"A5\"");
+        await Assert.That(sheetXml).Contains("r=\"B5\"");
     }
 
     [Test]
