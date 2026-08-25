@@ -15,6 +15,37 @@ public class XLPivotCacheTests
     private static readonly string[] PivotCacheFieldNameOnly = ["Name"];
     private static readonly string[] PivotCacheFieldPastry = ["Pastry"];
 
+    /// <summary>
+    /// Each <c>pivotCacheDefinition</c> part loads as its own cache, even when several of them name
+    /// the same source.
+    /// </summary>
+    /// <remarks>
+    /// Stated as a test because a comment claiming the opposite stood in the reader for years and
+    /// was read, reasonably, as meaning the caches were shared. They are not:
+    /// <c>XLPivotCaches.Add(IXLPivotSource)</c> constructs one every time it is called. The fixture
+    /// carries five parts all sourced from the <c>PastrySalesData</c> table, which is the shape that
+    /// would show the difference if there were one.
+    /// </remarks>
+    [Test]
+    public async Task Each_cache_part_loads_as_its_own_cache_even_on_a_shared_source()
+    {
+        using var stream = TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"Other\PivotTableReferenceFiles\PivotMixedDataTypesInTableColumn\input.xlsx"));
+        using var wb = new XLWorkbook(stream);
+
+        var caches = wb.PivotCaches.ToList();
+
+        await Assert.That(caches.Count).IsEqualTo(5);
+        await Assert.That(caches.Select(c => c.SourceName).Distinct().Single()).IsEqualTo("PastrySalesData");
+
+        // Each cache holds the relationship of the part it was read from, which is how the save
+        // path finds that part again. Sharing one cache between parts would leave four of the five
+        // relationships unrecorded.
+        var relIds = caches.Cast<XLPivotCache>().Select(c => c.WorkbookCacheRelId).ToList();
+        await Assert.That(relIds.Any(string.IsNullOrEmpty)).IsFalse();
+        await Assert.That(relIds.Distinct().Count()).IsEqualTo(5);
+    }
+
     [Test]
     public async Task FieldNames_KeepNamesEvenWhenSourceChange()
     {
