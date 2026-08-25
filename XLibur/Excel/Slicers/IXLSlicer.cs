@@ -61,6 +61,23 @@ public interface IXLSlicer
     double? RowHeightPt { get; set; }
 
     /// <summary>
+    /// The cell the slicer's top-left corner is anchored to. Setting it moves the slicer.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A slicer is a drawing, so it is anchored to the grid the same way a picture or a chart is,
+    /// and it moves when rows or columns are inserted above or to the left of it.
+    /// </para>
+    /// <para>
+    /// Moving a slicer read from a file shifts both of its corners together, so it keeps the size
+    /// it had. Reading reports the cell the corner sits in; a file may also place the corner some
+    /// distance into that cell, and that offset is preserved through a save but is not reported
+    /// here.
+    /// </para>
+    /// </remarks>
+    IXLCell Position { get; set; }
+
+    /// <summary>
     /// Whether this slicer filters pivot tables or a table.
     /// </summary>
     XLSlicerSourceKind SourceKind { get; }

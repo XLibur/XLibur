@@ -3,6 +3,7 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.IO.DrawingML;
 using XLibur.Excel.Tables;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 using X15 = DocumentFormat.OpenXml.Office2013.Excel;
@@ -32,12 +33,6 @@ namespace XLibur.Excel.IO;
 /// </remarks>
 internal static class SlicerReader
 {
-    /// <remarks>
-    /// Declared here rather than shared with <c>ChartSeriesFormatXml</c>, which holds the same
-    /// constant: that file belongs to spec 16's DrawingML extraction and is not ours to touch.
-    /// </remarks>
-    private const double EmuPerPoint = 12700;
-
     /// <summary>
     /// Loads every slicer in the workbook into the worksheet that draws it.
     /// </summary>
@@ -246,6 +241,15 @@ internal static class SlicerReader
                 foreach (var slicer in slicers.Elements<X14.Slicer>())
                     AddSlicer(slicer, relId, worksheet, caches);
             }
+
+            // Where each slicer sits is in the drawing part, not the slicer part. Read after the
+            // slicers exist, because the frames are matched to them by name.
+            //
+            // This does materialise the drawing DOM, unlike everything else in this reader — but
+            // DrawingPartReader and ChartReader have already done so for any sheet that has one, so
+            // it costs nothing and changes no fidelity property that was not already decided.
+            if (worksheet.SlicersInternal.Count > 0)
+                SlicerAnchorXml.ReadPositions(worksheetPart.DrawingsPart, worksheet.SlicersInternal);
         }
     }
 
@@ -267,7 +271,7 @@ internal static class SlicerReader
             slicer.ShowCaption?.Value ?? true,
             slicer.Style?.Value,
             slicer.ColumnCount?.Value ?? 1,
-            slicer.RowHeight?.Value is { } rowHeight ? rowHeight / EmuPerPoint : null);
+            slicer.RowHeight?.Value is { } rowHeight ? rowHeight / DrawingUnits.EmuPerPoint : null);
 
         worksheet.SlicersInternal.Add(xlSlicer);
     }

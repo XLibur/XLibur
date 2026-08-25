@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
+using XLibur.Excel.Drawings;
 using XLibur.Excel.Tables;
 
 namespace XLibur.Excel;
@@ -51,15 +52,15 @@ internal sealed class XLSlicers : IXLSlicers
 
     internal void Add(XLSlicer slicer) => _slicers.Add(slicer);
 
+    public IXLSlicer Add(IXLPivotTable pivotTable, string fieldName) =>
+        AddPivotSlicer((XLPivotTable)pivotTable, fieldName);
+
+    public IXLSlicer Add(IXLTable table, string columnName) =>
+        AddTableSlicer((XLTable)table, columnName);
+
     /// <summary>
     /// Creates a slicer that filters a pivot table on one of its cache fields.
     /// </summary>
-    /// <remarks>
-    /// Deliberately internal for now. A slicer Excel can show needs a drawing anchor as well as the
-    /// parts written here, and anchoring waits on spec 16's shared factory — so a public
-    /// <c>Add</c> today would hand back a slicer that saves correctly and then cannot be seen. The
-    /// method goes public unchanged once positioning is wired.
-    /// </remarks>
     internal XLSlicer AddPivotSlicer(XLPivotTable pivotTable, string fieldName)
     {
         var cache = (XLPivotCache)pivotTable.PivotCache;
@@ -84,16 +85,17 @@ internal sealed class XLSlicers : IXLSlicers
         for (var i = 0; i < sharedItems.Count; i++)
             slicerCache.Items.Add(new XLSlicerCacheItem((uint)i, Selected: true));
 
-        return AddNew(slicerCache, fieldName);
+        var area = pivotTable.Area;
+        return AddNew(slicerCache, fieldName,
+            DefaultPositionBeside(area.FirstPoint.Row, area.LastPoint.Column));
     }
 
     /// <summary>
     /// Creates a slicer that filters a table on one of its columns.
     /// </summary>
     /// <remarks>
-    /// Internal for the same reason as <see cref="AddPivotSlicer"/>. A table slicer holds no item
-    /// list of its own — it drives the bound column of the table's auto filter — so a new one has
-    /// nothing to seed.
+    /// A table slicer holds no item list of its own — it drives the bound column of the table's auto
+    /// filter — so a new one has nothing to seed.
     /// </remarks>
     internal XLSlicer AddTableSlicer(XLTable table, string columnName)
     {
@@ -121,13 +123,15 @@ internal sealed class XLSlicers : IXLSlicers
             TableColumnPosition = found,
         };
 
-        return AddNew(slicerCache, columnName);
+        return AddNew(slicerCache, columnName, DefaultPositionBeside(
+            table.RangeAddress.FirstAddress.RowNumber,
+            table.RangeAddress.LastAddress.ColumnNumber));
     }
 
-    private XLSlicer AddNew(XLSlicerCache cache, string sourceName)
+    private XLSlicer AddNew(XLSlicerCache cache, string sourceName, IXLCell position)
     {
         var name = NextSlicerName(sourceName);
-        var slicer = new XLSlicer(_worksheet, cache, name) { IsNew = true };
+        var slicer = new XLSlicer(_worksheet, cache, name) { IsNew = true, FromMarker = new XLMarker(position) };
 
         // Seeded rather than assigned, so a slicer created and left alone carries no pending edits.
         // rowHeight is required by the schema, so a new slicer starts at Excel's own default rather
@@ -137,6 +141,29 @@ internal sealed class XLSlicers : IXLSlicers
         _slicers.Add(slicer);
         return slicer;
     }
+
+    /// <summary>
+    /// Where a new slicer goes when the caller has not said: two columns to the right of whatever it
+    /// filters, at that thing's top row.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A default is not optional here, and it is worth saying why rather than leaving it to the
+    /// layer below. <c>DrawingAnchorFactory</c> documents that a drawing handed no marker gets one
+    /// at A1 — silently, with no exception and no missing element. For a picture that is a
+    /// reasonable default. For a slicer it would drop the panel over the top-left of the sheet,
+    /// covering the very data it filters, and the caller would have no idea why.
+    /// </para>
+    /// <para>
+    /// So every slicer XLibur creates is given a marker before the factory sees it, and that
+    /// fallback stays unreachable from here. Two columns of clearance keeps the panel off the
+    /// source without guessing at column widths.
+    /// </para>
+    /// </remarks>
+    private IXLCell DefaultPositionBeside(int topRow, int rightmostColumn) =>
+        _worksheet.Cell(
+            Math.Max(1, topRow),
+            Math.Min(XLHelper.MaxColumnNumber, rightmostColumn + 2));
 
     /// <summary>
     /// A cache name not already taken, in the shape Excel uses: <c>Slicer_Region</c>, then

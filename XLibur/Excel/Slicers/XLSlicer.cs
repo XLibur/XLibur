@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using XLibur.Excel.Drawings;
 
 namespace XLibur.Excel;
 
@@ -17,6 +18,15 @@ internal sealed class XLSlicer : IXLSlicer
     /// has to be a value to fall back on rather than an absent attribute.
     /// </remarks>
     internal const double DefaultRowHeightPt = 19.5;
+
+    /// <summary>
+    /// The size Excel gives a new slicer, in pixels — 1.92 by 2.71 inches at 96 dpi, which is what
+    /// the Excel-authored fixture's slicers measure.
+    /// </summary>
+    internal const int DefaultWidthPx = 192;
+
+    /// <inheritdoc cref="DefaultWidthPx"/>
+    internal const int DefaultHeightPx = 271;
 
     private readonly XLWorksheet _worksheet;
     private string _caption;
@@ -113,6 +123,39 @@ internal sealed class XLSlicer : IXLSlicer
             AssignedFormat |= XLSlicerFormat.RowHeight;
         }
     }
+
+    public IXLCell Position
+    {
+        get => FromMarker?.Cell ?? _worksheet.Cell(1, 1);
+        set
+        {
+            if (value is null)
+                throw new ArgumentNullException(nameof(value));
+
+            // A fresh marker rather than a mutated one, because a marker registers itself with the
+            // workbook's range repository so that inserting rows above the slicer moves it. Setting
+            // the position drops any offset within the old cell: the caller named a cell, so the
+            // corner goes to that cell's corner.
+            FromMarker = new XLMarker(value);
+            AssignedFormat |= XLSlicerFormat.Position;
+        }
+    }
+
+    /// <summary>
+    /// The slicer's top-left anchor point, with the offset within the cell that a file may carry.
+    /// Null for a slicer whose anchor has not been read or set.
+    /// </summary>
+    internal XLMarker? FromMarker { get; set; }
+
+    /// <summary>
+    /// The slicer's bottom-right anchor point, when it was read from a two-cell anchor. Kept so that
+    /// moving a loaded slicer can shift both corners together and leave its size alone.
+    /// </summary>
+    internal XLMarker? ToMarker { get; set; }
+
+    internal int WidthPx { get; set; } = DefaultWidthPx;
+
+    internal int HeightPx { get; set; } = DefaultHeightPx;
 
     /// <summary>
     /// Sets the properties read from a package without marking them as assigned.

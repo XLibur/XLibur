@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using XLibur.Excel.IO.DrawingML;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Excel.IO;
@@ -34,9 +35,21 @@ internal static class SlicerPatcher
     /// <summary>
     /// Writes the pending property changes of a loaded slicer back into its slicers part.
     /// </summary>
-    internal static void PatchSlicer(WorksheetPart worksheetPart, XLSlicer xlSlicer, double emuPerPoint)
+    internal static void PatchSlicer(WorksheetPart worksheetPart, XLSlicer xlSlicer)
     {
         if (xlSlicer.AssignedFormat == XLSlicerFormat.None)
+            return;
+
+        // Moving a slicer touches the drawing part rather than the slicers part, so the two are
+        // resolved separately: assigning only a position must not open the slicers part, and
+        // assigning only a caption must not open the drawing.
+        if (xlSlicer.AssignedFormat.HasFlag(XLSlicerFormat.Position)
+            && worksheetPart.DrawingsPart is { } drawingsPart)
+        {
+            SlicerAnchorXml.Move(drawingsPart, xlSlicer);
+        }
+
+        if ((xlSlicer.AssignedFormat & ~XLSlicerFormat.Position) == XLSlicerFormat.None)
             return;
 
         var part = ResolvePart(worksheetPart, xlSlicer);
@@ -49,10 +62,10 @@ internal static class SlicerPatcher
         if (slicer is null)
             return;
 
-        Apply(slicer, xlSlicer, emuPerPoint);
+        Apply(slicer, xlSlicer);
     }
 
-    private static void Apply(X14.Slicer slicer, XLSlicer xlSlicer, double emuPerPoint)
+    private static void Apply(X14.Slicer slicer, XLSlicer xlSlicer)
     {
         var assigned = xlSlicer.AssignedFormat;
 
@@ -85,7 +98,8 @@ internal static class SlicerPatcher
             // Unlike the others, rowHeight is a required attribute, so clearing it writes Excel's
             // default rather than removing it — a slicer without one fails schema validation.
             var rowHeightPt = xlSlicer.RowHeightPt ?? XLSlicer.DefaultRowHeightPt;
-            slicer.RowHeight = (uint)Math.Round(rowHeightPt * emuPerPoint, MidpointRounding.AwayFromZero);
+            slicer.RowHeight = (uint)Math.Round(
+                rowHeightPt * DrawingUnits.EmuPerPoint, MidpointRounding.AwayFromZero);
         }
     }
 

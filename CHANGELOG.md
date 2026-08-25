@@ -18,6 +18,8 @@
 
 - **Slicers loaded from a workbook can now be read.** `IXLWorksheet.Slicers` lists the slicers drawn on a sheet, and `IXLPivotTable.Slicers` shows which of them filter a given pivot table. A slicer reports its name, caption, style, column count, row height, the field it filters and the items currently selected — for both kinds Excel writes: pivot slicers, which read their selection from the slicer cache, and table slicers, which read it from the bound column's auto filter. Styling XLibur has no model for, such as a custom slicer style name, is reported rather than dropped.
 
+- **Slicers can now be created.** `IXLWorksheet.Slicers.Add(pivotTable, fieldName)` adds a slicer that filters a pivot table; `Add(table, columnName)` adds one that filters a table column, matching what EPPlus offers. A created slicer is placed to the right of whatever it filters, and `IXLSlicer.Position` moves it — it is anchored to the grid like any other drawing, so it travels when rows or columns are inserted above it. Moving a slicer read from a file shifts both of its corners together, so it keeps its size.
+
 - **A loaded slicer's caption, style, column count, row height and caption visibility can now be changed.** The change is patched into the part the slicer was read from rather than the part being regenerated, so everything alongside the edited attribute survives — the slicer's `xr10:uid`, its `startItem`, its extension list. A slicer nobody assigns to is not written to at all: its part is not even opened, and comes through a save byte for byte. Changing a slicer's *selection* is not supported yet, because it has to move the pivot table's item visibility with it.
 
 ### 🐛 Bug Fixes

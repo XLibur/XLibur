@@ -3,6 +3,7 @@ using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ContentManagers;
+using XLibur.Excel.IO.DrawingML;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
@@ -33,12 +34,6 @@ internal static class SlicerWriter
     /// <summary>The worksheet extension holding the list of table slicers on the sheet.</summary>
     private const string TableSlicerExtensionUri = "{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}";
 
-    /// <remarks>
-    /// Declared here rather than shared with <c>ChartSeriesFormatXml</c>, which holds the same
-    /// constant: that file belongs to spec 16's DrawingML extraction and is not ours to touch.
-    /// </remarks>
-    internal const double EmuPerPoint = 12700;
-
     internal static void WriteSlicers(
         Worksheet worksheet,
         XLWorksheetContentManager cm,
@@ -57,7 +52,7 @@ internal static class SlicerWriter
                 // A slicer that already exists in the package is never regenerated — that is what
                 // keeps the parts of its XML XLibur does not model intact. Only the properties the
                 // caller actually changed are patched into the existing part.
-                SlicerPatcher.PatchSlicer(worksheetPart, slicer, EmuPerPoint);
+                SlicerPatcher.PatchSlicer(worksheetPart, slicer);
                 continue;
             }
 
@@ -99,11 +94,38 @@ internal static class SlicerWriter
         // rowHeight is required rather than optional, so it is always written — falling back to
         // Excel's own default for a slicer that has none.
         var rowHeightPt = xlSlicer.RowHeightPt ?? XLSlicer.DefaultRowHeightPt;
-        slicer.RowHeight = (uint)System.Math.Round(rowHeightPt * EmuPerPoint, System.MidpointRounding.AwayFromZero);
+        slicer.RowHeight = (uint)System.Math.Round(
+            rowHeightPt * DrawingUnits.EmuPerPoint, System.MidpointRounding.AwayFromZero);
 
         slicersRoot.AppendChild(slicer);
 
         EnsureSlicerListReference(worksheet, cm, xlSlicer.SourceKind, relId);
+        WriteAnchor(worksheet, cm, worksheetPart, xlSlicer, context);
+    }
+
+    /// <summary>
+    /// Draws the slicer: the graphic frame in the sheet's drawing part, and the sheet's reference to
+    /// that part.
+    /// </summary>
+    /// <remarks>
+    /// The sixth of the six pieces a created slicer needs. Without it the workbook opens and the
+    /// slicer is simply not there, because <c>xl/slicers/slicerN.xml</c> says what a slicer filters
+    /// but never where it sits.
+    /// </remarks>
+    private static void WriteAnchor(
+        Worksheet worksheet,
+        XLWorksheetContentManager cm,
+        WorksheetPart worksheetPart,
+        XLSlicer xlSlicer,
+        SaveContext context)
+    {
+        var drawingsPart = DrawingPartScaffold.EnsureDrawingsPart(worksheetPart, context);
+        var worksheetDrawing = drawingsPart.WorksheetDrawing!;
+        DrawingPartScaffold.EnsureNamespaces(worksheetDrawing);
+
+        SlicerAnchorXml.Append(worksheetDrawing, xlSlicer);
+
+        DrawingPartScaffold.EnsureDrawingElement(worksheet, cm, worksheetPart, drawingsPart);
     }
 
     // ── The slicers part ────────────────────────────────────────────────

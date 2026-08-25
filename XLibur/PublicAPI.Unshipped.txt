@@ -381,6 +381,8 @@ XLibur.Excel.IXLSlicer.ColumnCount.set -> void
 XLibur.Excel.IXLSlicer.HasSelection.get -> bool
 XLibur.Excel.IXLSlicer.Name.get -> string!
 XLibur.Excel.IXLSlicer.PivotTables.get -> System.Collections.Generic.IReadOnlyList<XLibur.Excel.IXLPivotTable!>!
+XLibur.Excel.IXLSlicer.Position.get -> XLibur.Excel.IXLCell!
+XLibur.Excel.IXLSlicer.Position.set -> void
 XLibur.Excel.IXLSlicer.RowHeightPt.get -> double?
 XLibur.Excel.IXLSlicer.RowHeightPt.set -> void
 XLibur.Excel.IXLSlicer.SelectedItems.get -> System.Collections.Generic.IReadOnlyList<XLibur.Excel.XLCellValue>!
@@ -393,6 +395,8 @@ XLibur.Excel.IXLSlicer.Style.set -> void
 XLibur.Excel.IXLSlicer.Table.get -> XLibur.Excel.IXLTable?
 XLibur.Excel.IXLSlicer.Worksheet.get -> XLibur.Excel.IXLWorksheet!
 XLibur.Excel.IXLSlicers
+XLibur.Excel.IXLSlicers.Add(XLibur.Excel.IXLPivotTable! pivotTable, string! fieldName) -> XLibur.Excel.IXLSlicer!
+XLibur.Excel.IXLSlicers.Add(XLibur.Excel.IXLTable! table, string! columnName) -> XLibur.Excel.IXLSlicer!
 XLibur.Excel.IXLSlicers.Count.get -> int
 XLibur.Excel.IXLSlicers.Slicer(string! name) -> XLibur.Excel.IXLSlicer!
 XLibur.Excel.IXLSlicers.TryGetSlicer(string! name, out XLibur.Excel.IXLSlicer? slicer) -> bool

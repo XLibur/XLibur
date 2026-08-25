@@ -20,4 +20,10 @@ internal enum XLSlicerFormat
     Style = 1 << 2,
     ColumnCount = 1 << 3,
     RowHeight = 1 << 4,
+
+    /// <summary>
+    /// The slicer has been moved. Unlike the others this is patched into the drawing part rather
+    /// than the slicers part, because that is where a slicer's anchor lives.
+    /// </summary>
+    Position = 1 << 5,
 }
