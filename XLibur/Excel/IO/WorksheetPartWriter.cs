@@ -218,6 +218,7 @@ internal static class WorksheetPartWriter
         PictureWriter.WriteDrawings(worksheet, cm, xlWorksheet, worksheetPart, context);
         ChartWriter.WriteCharts(worksheet, cm, xlWorksheet, worksheetPart, context);
         SlicerWriter.WriteSlicers(worksheet, cm, xlWorksheet, worksheetPart, context);
+        TimelineWriter.WriteTimelines(worksheet, cm, xlWorksheet, worksheetPart, context);
         PictureWriter.WriteLegacyDrawing(worksheet, cm, xlWorksheet);
         HeaderFooterImageWriter.WriteHeaderFooterImages(worksheet, cm, xlWorksheet, worksheetPart, context);
 

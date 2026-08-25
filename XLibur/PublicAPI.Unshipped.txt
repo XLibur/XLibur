@@ -432,6 +432,7 @@ XLibur.Excel.IXLTimeline.Style.get -> string?
 XLibur.Excel.IXLTimeline.Style.set -> void
 XLibur.Excel.IXLTimeline.Worksheet.get -> XLibur.Excel.IXLWorksheet!
 XLibur.Excel.IXLTimelines
+XLibur.Excel.IXLTimelines.Add(XLibur.Excel.IXLPivotTable! pivotTable, string! dateFieldName) -> XLibur.Excel.IXLTimeline!
 XLibur.Excel.IXLTimelines.Count.get -> int
 XLibur.Excel.IXLTimelines.Timeline(string! name) -> XLibur.Excel.IXLTimeline!
 XLibur.Excel.IXLTimelines.TryGetTimeline(string! name, out XLibur.Excel.IXLTimeline? timeline) -> bool

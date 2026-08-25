@@ -189,6 +189,7 @@ public partial class XLWorkbook
         // Before the workbook part is generated: the #N/A defined name each slicer cache needs has
         // to be in the model by the time WorkbookPartWriter rebuilds the defined-name block.
         SlicerCacheWriter.PrepareSlicerCaches(workbookPart, this, context);
+        TimelineCacheWriter.PrepareTimelineCaches(workbookPart, this, context);
 
         GenerateWorkbookLevelParts(document, workbookPart, options, context);
         PreparePivotCaches(workbookPart, context);
@@ -218,6 +219,7 @@ public partial class XLWorkbook
         // After the worksheets: a table slicer cache quotes the table/@id the table part was
         // written under, and a pivot slicer cache the identifier its pivot cache was written with.
         SlicerCacheWriter.WriteSlicerCaches(workbookPart, this, context);
+        TimelineCacheWriter.WriteTimelineCaches(workbookPart, this, context);
 
         // Clear list of deleted worksheets to prevent errors on multiple saves
         worksheets.Deleted.Clear();
