@@ -21,13 +21,12 @@ internal static class PivotTableCacheDefinitionPartReader
                 throw PartStructureException.RequiredElementIsMissing();
 
             var pivotSourceReference = ParsePivotSourceReference(cacheSource);
-            var pivotCache = workbook.PivotCachesInternal.Add(pivotSourceReference);
 
-            // If WorkbookCacheRelId already has a value, it means the pivot source is being reused
-            if (string.IsNullOrWhiteSpace(pivotCache.WorkbookCacheRelId))
-            {
-                pivotCache.WorkbookCacheRelId = workbookPart.GetIdOfPart(pivotTableCacheDefinitionPart);
-            }
+            // One cache per part, even where several parts name the same source. Excel writes a
+            // part per cache and the save path reads the relationship back off each cache to find
+            // it again, so folding them together here would write out fewer parts than came in.
+            var pivotCache = workbook.PivotCachesInternal.Add(pivotSourceReference);
+            pivotCache.WorkbookCacheRelId = workbookPart.GetIdOfPart(pivotTableCacheDefinitionPart);
 
             if (cacheDefinition.MissingItemsLimit?.Value is { } missingItemsLimit)
             {
