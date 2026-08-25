@@ -136,11 +136,12 @@ deletes the part when nothing at all is left in it.
 - **Nothing is preserved for workbooks built from scratch**, by construction.
 - **Preservation is not manipulation.** Everything in the table above still marked ❌ is opaque: it
   round-trips, but there is no API to inspect or edit it, and no guarantee it stays consistent if you
-  delete the worksheet or pivot table it depends on. Slicers are the exception, and deleting a pivot
-  table now takes its slicers with it rather than leaving them dangling.
-- **Timelines are the remaining case of exactly that hazard.** They survive as untouched parts, and
-  deleting the pivot table a timeline filters still leaves it pointing at nothing. PRD 5 task 4
-  covers them.
+  delete the worksheet or pivot table it depends on. Slicers and timelines are the exception, and
+  deleting a pivot table now takes both with it rather than leaving them dangling.
+- **No instance of that hazard is left.** Deleting a pivot table now takes both its slicers and its
+  timelines with it — the parts, the workbook registrations, the `#N/A` defined names and the
+  drawing anchors — rather than leaving them pointing at nothing. See
+  `XLPivotDependentCascade`.
 
 ## Threaded comments
 
