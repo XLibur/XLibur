@@ -36,7 +36,7 @@ internal readonly record struct XLSlicerCacheItem(uint Index, bool Selected);
 /// </para>
 /// </remarks>
 [DebuggerDisplay("{Name} ({SourceKind})")]
-internal sealed class XLSlicerCache
+internal sealed class XLSlicerCache : IXLPivotDependentCache
 {
     internal XLSlicerCache(string name, string sourceName, XLSlicerSourceKind sourceKind)
     {
@@ -84,7 +84,7 @@ internal sealed class XLSlicerCache
     /// The names of the pivot tables the cache drives, as written in the part. A name with no
     /// matching pivot table in the workbook is left out of <see cref="PivotTables"/>.
     /// </summary>
-    internal List<string> PivotTableNames { get; } = [];
+    public List<string> PivotTableNames { get; } = [];
 
     /// <summary>
     /// The <c>table/@id</c> of the table this cache filters, when it is a table slicer cache.
@@ -104,7 +104,7 @@ internal sealed class XLSlicerCache
     /// <summary>
     /// The pivot tables resolved from <see cref="PivotTableNames"/>.
     /// </summary>
-    internal List<XLPivotTable> PivotTables { get; } = [];
+    public List<XLPivotTable> PivotTables { get; } = [];
 
     /// <summary>
     /// The pivot cache the item indices point into, resolved from the bound pivot tables.

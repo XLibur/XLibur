@@ -5,7 +5,7 @@
 **Dependencies:** Spec 16 (`DrawingAnchorFactory`, merged as #402) and PRD 5 tasks 1–3
 (slicers, merged as #400/#403). Conflicts with any in-flight work in
 `XLibur/Excel/IO/SlicerAnchorXml.cs` or `SlicerWriter.cs` — task 1 refactors both.
-**Status:** Proposed. Implements PRD 5 task 4 (F10), the last outstanding piece of
+**Status:** ✅ **Done** (see Results). Implements PRD 5 task 4 (F10), the last outstanding piece of
 `autoresearch/improve-260824-2056/prd-slicers-and-timelines.md`.
 
 ## Summary
@@ -471,3 +471,40 @@ exposure here and do not report task 3 complete on a green suite alone.
   is widened is worse behaviour, not better.
 - **Public `Remove` on `IXLTimelines`.** Removal exists internally because the cascade needs it.
   Matching `IXLSlicers`, it is not exposed until there is a reason.
+
+
+## Results
+
+All four tasks landed. Everything above this section is the plan as written *before* implementation
+and is left standing as the record of what was intended; where it disagrees with what shipped, this
+section wins.
+
+### What the plan got wrong, and what implementation corrected
+
+- **The cascade's one-pass loop was wrong for a shared cache, in both copies.** Where two slicers or
+  two timelines name one cache, the first removes the pivot table and sees the cache empty out, and
+  the second finds `List.Remove` returning `false` and skips itself — leaving it bound to a cache
+  part the save then deletes. Exactly the dangling reference the cascade exists to prevent. Found in
+  review of PR #406; fixed with a two-pass `RemoveOrphaned`, and the duplication that hid it
+  collapsed into one generic method over `IXLPivotDependentCache`. Two regression tests pin it.
+- **The hazard is closed for the full-orphan case only.** Where a cache still serves another pivot
+  table, the deleted table's name stays in the loaded cache part, because the part is passed through
+  byte-for-byte rather than regenerated. That is the fidelity guarantee working as designed, it
+  behaves identically for shipped slicers, and `docs/round-trip-fidelity.md` now says so rather than
+  claiming the hazard is gone entirely. The plan's "Task 4 — the cascade" text does not make that
+  distinction; this does.
+- **The `mc:AlternateContent` question never arose.** `OpenXmlValidator` (Office2013) passed on the
+  first run, unlike the slicer work, which found three schema violations at the same point.
+- **The `HasFlag(Position)` guard is pinned against a weaker baseline than intended.** A pristine-byte
+  comparison cannot distinguish "never touched" from "touched harmlessly" here, because a drawing
+  part on a bare-drawing sheet was being re-serialised on every save regardless — a pre-existing
+  defect in `PictureWriter.RemoveEmptyDrawingPart`, fixed separately in PR #407. The timelines-part
+  guard, which protects the attributes that actually matter, is pinned against the pristine original.
+
+### Verification
+
+Full suite green. `OpenXmlValidator` (Office2013) clean on every generated fixture. Acceptance
+criteria 1, 2, 5, 6 and 8 are met by automated tests; 3, 4, 7 and 9 by a manual Excel pass on the
+three workbooks the generator writes, confirmed by the project owner. One of those workbooks carries
+both a slicer and a timeline on one sheet, which also settles the combined case no automated test
+covers.

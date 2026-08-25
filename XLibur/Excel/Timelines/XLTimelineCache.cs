@@ -22,7 +22,7 @@ namespace XLibur.Excel;
 /// </para>
 /// </remarks>
 [DebuggerDisplay("{Name} ({SourceName})")]
-internal sealed class XLTimelineCache
+internal sealed class XLTimelineCache : IXLPivotDependentCache
 {
     internal XLTimelineCache(string name, string sourceName)
     {
@@ -57,10 +57,10 @@ internal sealed class XLTimelineCache
     /// The names of the pivot tables the cache drives, as written in the part. A name with no
     /// matching pivot table in the workbook is left out of <see cref="PivotTables"/>.
     /// </summary>
-    internal List<string> PivotTableNames { get; } = [];
+    public List<string> PivotTableNames { get; } = [];
 
     /// <summary>The pivot tables resolved from <see cref="PivotTableNames"/>.</summary>
-    internal List<XLPivotTable> PivotTables { get; } = [];
+    public List<XLPivotTable> PivotTables { get; } = [];
 
     /// <summary>The pivot cache behind those pivot tables.</summary>
     internal XLPivotCache? PivotCache { get; set; }

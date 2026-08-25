@@ -16,7 +16,13 @@ namespace XLibur.Tests.Excel.Timelines;
 /// </remarks>
 public class AcceptanceCheckWorkbooks
 {
-    private const string OutputDirectory = @"..\..\..\..\scratchpad\ac-check-timelines";
+    /// <summary>
+    /// Four levels up from the test binary is the repository root. Built with
+    /// <c>Path.Combine</c> rather than written as a literal, because a backslash-separated path is
+    /// not a path on Linux, where CI runs.
+    /// </summary>
+    private static readonly string OutputDirectory =
+        Path.Combine("..", "..", "..", "..", "scratchpad", "ac-check-timelines");
 
     [Test]
     [Skip("Generator, not a gate. Run by name when check workbooks are wanted.")]

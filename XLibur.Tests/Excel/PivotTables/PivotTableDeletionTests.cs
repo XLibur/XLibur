@@ -155,7 +155,62 @@ public class PivotTableDeletionTests
         await Assert.That(errors).IsEmpty();
     }
 
+    [Test]
+    public async Task Deleting_a_pivot_table_takes_every_slicer_sharing_one_cache()
+    {
+        // Two slicers may share one cache — that is how the same set of buttons drives a dashboard
+        // from more than one sheet, and the reader produces it whenever two x14:slicer elements name
+        // the same cache. The cascade has to take both, because the cache part they share is deleted
+        // once. Leaving the second behind points it at a cache that is no longer in the package,
+        // which is the dangling reference the cascade exists to prevent.
+        using var wb = SlicerWorkbook();
+
+        // The Pivot sheet's slicer is the pivot one; the Data sheet's is a table slicer with no
+        // pivot tables at all, so it is not the one to test the cascade with.
+        var worksheet = (XLWorksheet)wb.Worksheet("Pivot");
+        var existing = (XLSlicer)worksheet.Slicers.Single();
+        worksheet.SlicersInternal.Add(new XLSlicer(worksheet, existing.Cache, "Shared copy"));
+
+        await Assert.That(worksheet.Slicers.Count).IsEqualTo(2);
+
+        var pivotTable = existing.Cache.PivotTables.Single();
+        ((XLWorksheet)pivotTable.Worksheet).PivotTables.Delete(pivotTable.Name);
+
+        await Assert.That(worksheet.Slicers.Count)
+            .IsEqualTo(0)
+            .Because("Both slicers share the deleted pivot table's only cache.");
+    }
+
+    [Test]
+    public async Task Deleting_a_pivot_table_takes_every_timeline_sharing_one_cache()
+    {
+        using var wb = TimelineWorkbook();
+
+        var sheet = wb.Worksheet("Pivot");
+        var worksheet = (XLWorksheet)sheet;
+        var existing = (XLTimeline)sheet.Timelines.First();
+        worksheet.TimelinesInternal.Add(new XLTimeline(worksheet, existing.Cache, "Shared copy"));
+
+        await Assert.That(sheet.Timelines.Count).IsEqualTo(2);
+
+        sheet.PivotTables.Delete(sheet.PivotTables.Single().Name);
+
+        await Assert.That(sheet.Timelines.Count)
+            .IsEqualTo(0)
+            .Because("Both timelines share the deleted pivot table's only cache.");
+    }
+
     #region Helpers
+
+    private static XLWorkbook SlicerWorkbook()
+    {
+        using var source = TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"TryToLoad\SlicersOnPivotAndTable.xlsx"));
+        var ms = new MemoryStream();
+        source.CopyTo(ms);
+        ms.Position = 0;
+        return new XLWorkbook(ms);
+    }
 
     private static XLWorkbook Load()
     {

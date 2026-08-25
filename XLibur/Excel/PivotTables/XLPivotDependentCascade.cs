@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace XLibur.Excel;
 
@@ -16,74 +18,74 @@ namespace XLibur.Excel;
 /// </para>
 /// <para>
 /// This closes a gap that predates either being modelled: before, deleting a pivot table left the
-/// parts untouched in the package, because nothing knew they were connected. Timelines were the last
-/// instance of that hazard named in <c>docs/round-trip-fidelity.md</c>.
+/// parts untouched in the package, because nothing knew they were connected.
 /// </para>
 /// </remarks>
 internal static class XLPivotDependentCascade
 {
     /// <summary>
     /// Drops the deleted pivot table from every slicer and timeline cache that named it, and removes
-    /// any control left with nothing to filter.
+    /// every control left with nothing to filter.
     /// </summary>
     internal static void OnPivotTableDeleted(XLWorkbook workbook, XLPivotTable pivotTable)
     {
         foreach (var worksheet in workbook.WorksheetsInternal)
         {
-            RemoveOrphanedSlicers(worksheet, pivotTable);
-            RemoveOrphanedTimelines(worksheet, pivotTable);
+            var slicers = worksheet.SlicersInternal;
+            RemoveOrphaned(slicers.Items, slicer => slicer.Cache, slicers.Remove, pivotTable);
+
+            var timelines = worksheet.TimelinesInternal;
+            RemoveOrphaned(timelines.Items, timeline => timeline.Cache, timelines.Remove, pivotTable);
         }
     }
 
-    private static void RemoveOrphanedSlicers(XLWorksheet worksheet, XLPivotTable pivotTable)
+    /// <summary>
+    /// Unbinds the deleted pivot table from each control's cache, then removes every control whose
+    /// cache is left serving nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It takes two passes, because a cache may be shared.</b> More than one slicer may name the
+    /// same cache — that is how one set of buttons drives a dashboard from several sheets — and the
+    /// reader produces exactly that whenever two <c>x14:slicer</c> elements name one cache.
+    /// </para>
+    /// <para>
+    /// A single pass gets it wrong in a way that is easy to miss. The first control bound to a shared
+    /// cache removes the pivot table and sees the cache empty out; the second finds
+    /// <see cref="List{T}.Remove"/> returning <c>false</c>, because the pivot table has already gone,
+    /// and skips itself. The shared cache part is then deleted once while the second control is still
+    /// pointing at it — a dangling reference, which is the failure this whole class exists to
+    /// prevent.
+    /// </para>
+    /// </remarks>
+    private static void RemoveOrphaned<TControl>(
+        IReadOnlyList<TControl> controls,
+        Func<TControl, IXLPivotDependentCache> cacheOf,
+        Action<TControl> remove,
+        XLPivotTable pivotTable)
     {
-        List<XLSlicer>? orphaned = null;
+        HashSet<IXLPivotDependentCache>? emptied = null;
 
-        foreach (var slicer in worksheet.SlicersInternal.Items)
+        foreach (var control in controls)
         {
-            var cache = slicer.Cache;
+            var cache = cacheOf(control);
             if (!cache.PivotTables.Remove(pivotTable))
                 continue;
 
             cache.PivotTableNames.RemoveAll(name => XLHelper.NameComparer.Equals(name, pivotTable.Name));
 
-            // Other pivot tables still share this cache, so the slicer keeps working and only loses
-            // one of its connections.
-            if (cache.PivotTables.Count > 0)
-                continue;
-
-            (orphaned ??= []).Add(slicer);
+            // Other pivot tables still share this cache, so its controls keep working and only lose
+            // one of their connections.
+            if (cache.PivotTables.Count == 0)
+                (emptied ??= []).Add(cache);
         }
 
-        if (orphaned is null)
+        if (emptied is null)
             return;
 
-        foreach (var slicer in orphaned)
-            worksheet.SlicersInternal.Remove(slicer);
-    }
-
-    private static void RemoveOrphanedTimelines(XLWorksheet worksheet, XLPivotTable pivotTable)
-    {
-        List<XLTimeline>? orphaned = null;
-
-        foreach (var timeline in worksheet.TimelinesInternal.Items)
-        {
-            var cache = timeline.Cache;
-            if (!cache.PivotTables.Remove(pivotTable))
-                continue;
-
-            cache.PivotTableNames.RemoveAll(name => XLHelper.NameComparer.Equals(name, pivotTable.Name));
-
-            if (cache.PivotTables.Count > 0)
-                continue;
-
-            (orphaned ??= []).Add(timeline);
-        }
-
-        if (orphaned is null)
-            return;
-
-        foreach (var timeline in orphaned)
-            worksheet.TimelinesInternal.Remove(timeline);
+        // Every control bound to an emptied cache goes, not only the one whose turn it was when the
+        // cache ran out. Materialised first, because removing mutates the collection being walked.
+        foreach (var orphaned in controls.Where(control => emptied.Contains(cacheOf(control))).ToList())
+            remove(orphaned);
     }
 }
