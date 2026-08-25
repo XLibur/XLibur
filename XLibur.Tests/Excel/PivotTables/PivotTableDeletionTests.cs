@@ -121,6 +121,16 @@ public class PivotTableDeletionTests
 
         // And the drawing no longer asks Excel to draw a band the package does not define.
         await Assert.That(ReadPart(saved, "xl/drawings/drawing1.xml")).DoesNotContain("timeslicer");
+
+        // The worksheet's own extLst reference has to go too, or a stale relationship id sits in an
+        // extension list the XSD does not check. Pivot is sheet1.xml in this fixture — the sheetIds
+        // are crossed, so this is not the same part sheetIds would suggest.
+        var pivotSheetXml = ReadPart(saved, "xl/worksheets/sheet1.xml");
+        await Assert.That(pivotSheetXml).DoesNotContain("timelineRef");
+
+        // Stronger still: the whole <ext> should be pruned once its list empties, not just the ref
+        // inside it.
+        await Assert.That(pivotSheetXml).DoesNotContain("7E03D99C-DC04-49d9-9315-930204A7B6E9");
     }
 
     [Test]
