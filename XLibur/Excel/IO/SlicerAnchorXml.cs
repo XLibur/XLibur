@@ -101,6 +101,24 @@ internal static class SlicerAnchorXml
     }
 
     /// <summary>
+    /// Takes the anchored frame of a removed slicer out of the sheet's drawing.
+    /// </summary>
+    /// <remarks>
+    /// The whole anchor goes, not just the frame inside it. An anchor is a position with one thing
+    /// anchored at it, so an emptied one is a position for nothing — and where Excel wrapped the
+    /// frame in <c>mc:AlternateContent</c>, the fallback shape explaining the slicer would be left
+    /// behind to be drawn in its place.
+    /// </remarks>
+    internal static void Remove(DrawingsPart? drawingsPart, XLSlicer xlSlicer)
+    {
+        var worksheetDrawing = drawingsPart?.WorksheetDrawing;
+        if (worksheetDrawing is null)
+            return;
+
+        FindAnchor(worksheetDrawing, xlSlicer.Name)?.Remove();
+    }
+
+    /// <summary>
     /// Reads the anchor of every slicer on the sheet, so that a loaded slicer reports where it is.
     /// </summary>
     /// <remarks>

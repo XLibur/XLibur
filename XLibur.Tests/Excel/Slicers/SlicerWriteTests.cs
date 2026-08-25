@@ -431,6 +431,46 @@ public class SlicerWriteTests
         await Assert.That(ReadPart(saved, "xl/worksheets/sheet2.xml")).DoesNotContain("slicerList");
     }
 
+    /// <summary>
+    /// A slicer taken by the cascade takes its drawing with it.
+    /// </summary>
+    /// <remarks>
+    /// The frame is what Excel draws a slicer through, and it names the slicer it belongs to. Left
+    /// behind, it names one that no longer exists anywhere in the package — the sixth piece of a
+    /// slicer outliving the other five. The definition, the part, the cache, the registration, the
+    /// defined name and the <c>slicerList</c> entry were all being unpicked; the drawing was not.
+    /// </remarks>
+    [Test]
+    public async Task Deleting_a_pivot_table_takes_its_slicers_drawing_with_it()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = Load())
+        {
+            wb.Worksheet("Pivot").PivotTables.Delete("SalesPivot");
+            wb.SaveAs(saved);
+        }
+
+        var drawingXml = ReadPart(saved, "xl/drawings/drawing2.xml");
+        await Assert.That(drawingXml).DoesNotContain("Region 1")
+            .Because("The graphic frame names the slicer, so it cannot outlive it.");
+        await Assert.That(drawingXml).DoesNotContain("/slicer")
+            .Because("Nothing on this sheet is drawn through a slicer frame any more.");
+    }
+
+    [Test]
+    public async Task Deleting_a_pivot_table_leaves_the_other_sheets_slicer_drawing_alone()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = Load())
+        {
+            wb.Worksheet("Pivot").PivotTables.Delete("SalesPivot");
+            wb.SaveAs(saved);
+        }
+
+        // The table slicer on the other sheet is untouched by the cascade, so its frame stays.
+        await Assert.That(ReadPart(saved, "xl/drawings/drawing1.xml")).Contains("Region");
+    }
+
     [Test]
     public async Task Deleting_a_pivot_table_leaves_the_table_slicer_alone()
     {

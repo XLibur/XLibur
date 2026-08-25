@@ -214,7 +214,8 @@ internal static class SlicerWriter
     /// The definition goes from the slicers part, and the part itself goes once it holds nothing —
     /// leaving an empty <c>&lt;slicers/&gt;</c> behind is a schema violation, not merely untidy.
     /// The extension is dropped once its list is empty, and the extension list once it is. The
-    /// cache half is unpicked by <see cref="SlicerCacheWriter"/>.
+    /// anchored frame goes from the sheet's drawing as well, since that is what Excel actually
+    /// draws a slicer through. The cache half is unpicked by <see cref="SlicerCacheWriter"/>.
     /// </remarks>
     private static void RemoveDeletedSlicers(
         Worksheet worksheet, XLWorksheetContentManager cm, WorksheetPart worksheetPart, XLSlicers slicers)
@@ -226,6 +227,12 @@ internal static class SlicerWriter
 
         foreach (var removed in slicers.Removed)
         {
+            // The frame lives in the drawing rather than in the slicers part, and it names the
+            // slicer it draws, so it has to go too — otherwise the sheet still asks Excel to draw
+            // something the package no longer defines. Done before the guard below, because a
+            // slicer whose part has already gone still has a frame to take out.
+            SlicerAnchorXml.Remove(worksheetPart.DrawingsPart, removed);
+
             if (removed.PartRelId is not { } relId
                 || !worksheetPart.Parts.Any(p => p.RelationshipId == relId)
                 || worksheetPart.GetPartById(relId) is not SlicersPart part)
