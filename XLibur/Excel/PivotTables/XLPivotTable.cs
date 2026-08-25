@@ -822,6 +822,30 @@ internal sealed class XLPivotTable : IXLPivotTable
         }
     }
 
+    /// <summary>
+    /// The timelines whose cache lists this pivot table, gathered from every worksheet in the
+    /// workbook.
+    /// </summary>
+    /// <remarks>
+    /// Recomputed on each access rather than kept as a back-reference, for the reason
+    /// <see cref="Slicers"/> is: a derived view cannot drift out of step with the worksheets that
+    /// own them, which matters most in exactly the case a cached list would get wrong.
+    /// </remarks>
+    public IEnumerable<IXLTimeline> Timelines
+    {
+        get
+        {
+            foreach (var worksheet in _worksheet.Workbook.WorksheetsInternal)
+            {
+                foreach (var timeline in worksheet.TimelinesInternal.Items)
+                {
+                    if (timeline.Cache.PivotTables.Contains(this))
+                        yield return timeline;
+                }
+            }
+        }
+    }
+
     public IXLPivotTableStyleFormats StyleFormats => new XLPivotTableStyleFormats(this);
 
     public IEnumerable<IXLPivotStyleFormat> AllStyleFormats

@@ -205,5 +205,11 @@ public interface IXLPivotTable
     /// </remarks>
     IEnumerable<IXLSlicer> Slicers { get; }
 
+    /// <summary>
+    /// The timelines that filter this pivot table. A view over the worksheets that own them
+    /// (<see cref="IXLWorksheet.Timelines"/>), which need not be this pivot table's sheet.
+    /// </summary>
+    IEnumerable<IXLTimeline> Timelines { get; }
+
     IXLPivotTableStyleFormats StyleFormats { get; }
 }

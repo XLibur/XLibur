@@ -36,7 +36,7 @@ Two consequences:
 | Dialog / macro sheets | ✅ | ✅ | ❌ | Same path as chartsheets |
 | Form controls | ✅ | ✅ | ❌ | `<controls>` incl. `mc:AlternateContent` and anchors |
 | ActiveX | ✅ | ✅ | ❌ | Both `activeX1.xml` and `activeX1.bin` |
-| Timelines | ✅ | n/a | ❌ | `timelines/` and `timelineCaches/` |
+| Timelines | ✅ | ✅ | ✅ | Modelled as of spec 35; a timeline nobody edits is still passed through untouched |
 | Custom XML | ✅ | n/a | ❌ | `customXml/item*.xml` and props |
 | Slicers | ✅ | ✅ | ✅ | Modelled as of PRD 5; a slicer nobody edits is still passed through untouched |
 | Threaded comments | ✅ | ✅ | ✅ | Modelled as of spec 09 |
