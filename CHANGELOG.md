@@ -24,6 +24,8 @@
 
 ### 🐛 Bug Fixes
 
+- **A pivot table XLibur creates is now stamped with a version that supports slicers.** `createdVersion` and `updatedVersion` were left at zero on a created pivot table, and the writer omits an attribute sitting at its default, so both were absent. Excel reads a pivot table stamped version 0 as one written before the features that came later and silently refuses to attach a slicer to it — the slicer, its cache, its registration and its drawing are all written correctly and the panel simply never appears, with no repair prompt and no validation error. A pivot table loaded from a file still keeps whatever version its file declares.
+
 - **Deleting a pivot table now deletes its part.** Deleting a worksheet already took its pivot table parts along, but deleting a pivot table on its own left the part in the package, still holding a `cacheId` pointing into a `pivotCaches` element that the same save then rebuilt without it. Excel offered to repair the result. Found while building the slicer cascade, whose purpose is not to leave orphans of exactly that kind.
 
 ## v0.311.1 - 2026-08-11

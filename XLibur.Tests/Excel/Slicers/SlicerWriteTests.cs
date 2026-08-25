@@ -157,6 +157,65 @@ public class SlicerWriteTests
     }
 
     [Test]
+    public async Task A_pivot_table_a_slicer_filters_is_stamped_with_a_version_that_supports_slicers()
+    {
+        // The bug this pins cost six rounds of manual Excel checking to find, so it is worth
+        // stating precisely. XLibur left createdVersion and updatedVersion at 0 on a pivot table it
+        // created, and the writer omits an attribute at its default, so they were absent altogether.
+        // Excel reads a pivot table stamped version 0 as predating slicers and silently refuses to
+        // draw one bound to it — no repair prompt, no validation error, no missing part. Every
+        // automated gate passed; the slicer just was not there.
+        //
+        // Excel-authored files carry 8 here; XLibur writes its own baseline of 5. Anything at or
+        // above 4, the version slicers arrived in, will do. Zero will not.
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var data = wb.AddWorksheet("Data");
+            data.Cell("A1").Value = "Region";
+            data.Cell("B1").Value = "Amount";
+            data.Cell("A2").Value = "North";
+            data.Cell("B2").Value = 10;
+            data.Cell("A3").Value = "South";
+            data.Cell("B3").Value = 20;
+
+            var sheet = wb.AddWorksheet("Pivot");
+            var pivot = sheet.PivotTables.Add("P", sheet.Cell("A3"), data.Range("A1:B3"));
+            pivot.RowLabels.Add("Region");
+            pivot.Values.Add("Amount");
+            sheet.Slicers.Add(pivot, "Region");
+
+            wb.SaveAs(saved);
+        }
+
+        var xml = ReadPart(saved, "xl/pivotTables/pivotTable.xml");
+
+        await Assert.That(xml).Contains("createdVersion=\"5\"")
+            .Because("A pivot table stamped version 0 is one no slicer can attach to.");
+        await Assert.That(xml).Contains("updatedVersion=\"5\"");
+        await Assert.That(xml).Contains("minRefreshableVersion=\"3\"");
+    }
+
+    [Test]
+    public async Task A_loaded_pivot_table_keeps_the_version_its_file_declares()
+    {
+        // The default above must not overwrite what a file says: an Excel-authored pivot table
+        // carries 8, and saving it back as 5 would be XLibur claiming authorship of someone else's
+        // pivot table and downgrading it on the way through.
+        using var saved = new MemoryStream();
+        using (var wb = Load())
+        {
+            wb.Worksheet("Data").Cell("H1").Value = "touched";
+            wb.SaveAs(saved);
+        }
+
+        var xml = ReadPart(saved, "xl/pivotTables/pivotTable1.xml");
+
+        await Assert.That(xml).Contains("createdVersion=\"8\"");
+        await Assert.That(xml).Contains("updatedVersion=\"8\"");
+    }
+
+    [Test]
     public async Task A_created_pivot_slicer_binds_to_the_pivot_cache_identifier()
     {
         using var saved = new MemoryStream();

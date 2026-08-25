@@ -998,12 +998,16 @@ internal sealed class XLPivotTable : IXLPivotTable
     /// <summary>
     /// Version of the application that last updated the pivot table. Application-dependent.
     /// </summary>
-    internal byte UpdatedVersion { get; init; }
+    /// <remarks>
+    /// Defaulted rather than left at zero, and it is not cosmetic — see
+    /// <see cref="PivotCacheCreatedVersion"/>.
+    /// </remarks>
+    internal byte UpdatedVersion { get; init; } = XLConstants.PivotTable.CreatedVersion;
 
     /// <summary>
     /// Minimum version of the application required to update the pivot table. Application-dependent.
     /// </summary>
-    internal byte MinRefreshableVersion { get; init; }
+    internal byte MinRefreshableVersion { get; init; } = XLConstants.PivotTable.MinRefreshableVersion;
 
     /// <remarks>OLAP related.</remarks>
     internal bool AsteriskTotals { get; init; } = false;
@@ -1182,8 +1186,22 @@ internal sealed class XLPivotTable : IXLPivotTable
     /// <summary>
     /// Specifies the version of the application that created the pivot cache. Application-dependent.
     /// </summary>
-    /// <remarks>Also called <em>CreatedVersion</em>.</remarks>
-    internal byte PivotCacheCreatedVersion { get; init; } = 0;
+    /// <remarks>
+    /// <para>Also called <em>CreatedVersion</em>.</para>
+    /// <para>
+    /// This defaulted to zero, and zero is not a harmless "unset" — it is a claim about which Excel
+    /// wrote the pivot table, and the writer omits the attribute entirely at that value, which means
+    /// the same thing. Excel reads a pivot table stamped version 0 as predating features that came
+    /// later and refuses to attach a slicer to it: the slicer, its cache, its registration and its
+    /// drawing are all written correctly and the panel simply never appears, with no repair prompt
+    /// and no validation error. That was diagnosed the hard way — see the PRD 5 Results section.
+    /// </para>
+    /// <para>
+    /// A pivot table read from a file overwrites this with whatever the file says, so the default
+    /// only ever applies to one XLibur created.
+    /// </para>
+    /// </remarks>
+    internal byte PivotCacheCreatedVersion { get; init; } = XLConstants.PivotTable.CreatedVersion;
 
     /// <summary>
     /// A row indentation increment for row axis when pivot table is in compact layout. Units
