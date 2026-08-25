@@ -32,7 +32,11 @@ public class AcceptanceCheckWorkbooks
         await Assert.That(Directory.GetFiles(OutputDirectory, "*.xlsx").Length).IsGreaterThanOrEqualTo(3);
     }
 
-    /// <summary>Criterion 3: a created timeline opens, is drawn where it was put, and filters.</summary>
+    /// <summary>
+    /// Criterion 3: a created timeline opens, is drawn where it was put, and filters. Also carries a
+    /// slicer on the same pivot table so the sheet exercises both control types together — the one
+    /// combination no automated test covers.
+    /// </summary>
     private static void WriteCreatedTimeline(string fileName)
     {
         using var wb = new XLWorkbook();
@@ -61,6 +65,9 @@ public class AcceptanceCheckWorkbooks
         timeline.Caption = "Pick a period";
         timeline.Style = "TimeSlicerStyleLight2";
         timeline.Position = pivotSheet.Cell("E3");
+
+        var slicer = pivotSheet.Slicers.Add(pivotTable, "Region");
+        slicer.Position = pivotSheet.Cell("E20");
 
         wb.SaveAs(Path.Combine(OutputDirectory, fileName));
     }

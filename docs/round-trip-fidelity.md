@@ -138,10 +138,12 @@ deletes the part when nothing at all is left in it.
   round-trips, but there is no API to inspect or edit it, and no guarantee it stays consistent if you
   delete the worksheet or pivot table it depends on. Slicers and timelines are the exception, and
   deleting a pivot table now takes both with it rather than leaving them dangling.
-- **No instance of that hazard is left.** Deleting a pivot table now takes both its slicers and its
-  timelines with it — the parts, the workbook registrations, the `#N/A` defined names and the
-  drawing anchors — rather than leaving them pointing at nothing. See
-  `XLPivotDependentCascade`.
+- **The hazard is closed, except where a cache is shared.** Deleting a pivot table takes with it the
+  slicers and timelines whose cache served *only* that pivot table — the parts, the workbook
+  registrations, the `#N/A` defined names and the drawing anchors all go. See
+  `XLPivotDependentCascade`. Where a cache still serves another pivot table, the control survives,
+  but the deleted table's name stays in that cache's saved part: a loaded cache part is passed
+  through byte-for-byte and never regenerated, so it keeps naming a pivot table that is gone.
 
 ## Threaded comments
 

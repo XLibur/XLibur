@@ -194,6 +194,10 @@ internal sealed class XLSlicers : IXLSlicers
     /// A slicer name not already taken, in the shape Excel uses: <c>Region</c>, then
     /// <c>Region 1</c>. Slicer names are unique across the workbook, not just the sheet.
     /// </summary>
+    /// <remarks>
+    /// Slicers and timelines share one name namespace in Excel's selection pane, so this also has to
+    /// scan timeline names — otherwise a slicer could take a name a timeline already has.
+    /// </remarks>
     private string NextSlicerName(string sourceName)
     {
         var taken = new HashSet<string>(XLHelper.NameComparer);
@@ -201,6 +205,8 @@ internal sealed class XLSlicers : IXLSlicers
         {
             foreach (var slicer in worksheet.SlicersInternal.Items)
                 taken.Add(slicer.Name);
+            foreach (var timeline in worksheet.TimelinesInternal.Items)
+                taken.Add(timeline.Name);
         }
 
         if (!taken.Contains(sourceName))

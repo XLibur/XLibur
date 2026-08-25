@@ -162,6 +162,10 @@ internal sealed class XLTimelines : IXLTimelines
     /// A timeline name not already taken, in the shape Excel uses: <c>Date</c>, then <c>Date 1</c>.
     /// Timeline names are unique across the workbook, not just the sheet.
     /// </summary>
+    /// <remarks>
+    /// Slicers and timelines share one name namespace in Excel's selection pane, so this also has to
+    /// scan slicer names — otherwise a timeline could take a name a slicer already has.
+    /// </remarks>
     private string NextTimelineName(string sourceName)
     {
         var taken = new HashSet<string>(XLHelper.NameComparer);
@@ -169,6 +173,8 @@ internal sealed class XLTimelines : IXLTimelines
         {
             foreach (var timeline in worksheet.TimelinesInternal.Items)
                 taken.Add(timeline.Name);
+            foreach (var slicer in worksheet.SlicersInternal.Items)
+                taken.Add(slicer.Name);
         }
 
         if (!taken.Contains(sourceName))
