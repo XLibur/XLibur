@@ -44,7 +44,15 @@ internal static class PivotTableDefinitionPartReader
             if (pivotTableDefinition?.Location?.Reference is { HasValue: true, Value: { } referenceValue }
                 && ws.Range(referenceValue) is { } range)
             {
-                range.Clear();
+                // The rendered cells are deliberately left alone. XLibur writes the definition of a
+                // pivot table and never its output, so anything cleared here can never be put back,
+                // and a plain load-and-save with no edit at all handed Excel a pivot table with no
+                // cells in it. The two ways out of that both cost more than they save: rendering the
+                // table needs a pivot engine XLibur does not have, and asking Excel to rebuild it
+                // with refreshOnLoad discards the applied filters — ClosedXML#2219, pinned by
+                // Pivot_field_item_hidden_flags_survive_round_trip, and it fails outright on a cache
+                // whose source is gone. Keeping Excel's own render is what leaves the file as it was
+                // found.
                 target = range.FirstCell();
             }
 
