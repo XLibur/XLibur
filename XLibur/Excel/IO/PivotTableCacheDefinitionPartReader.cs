@@ -7,6 +7,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 using XLibur.Utils;
+using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Excel.IO;
 
@@ -50,6 +51,14 @@ internal static class PivotTableCacheDefinitionPartReader
 
             pivotCache.SaveSourceData = cacheDefinition.SaveData?.Value ?? true;
             pivotCache.RefreshDataOnOpen = cacheDefinition.RefreshOnLoad?.Value ?? false;
+
+            // A slicer cache binds to a pivot cache through this identifier, which lives in an
+            // extension rather than on the element itself and is unrelated to the renumbered
+            // pivotCache/@cacheId in workbook.xml. Read so that a slicer added to a loaded pivot
+            // table quotes the id the file already uses instead of inventing a second one.
+            pivotCache.PivotCacheId = cacheDefinition
+                .Descendants<X14.PivotCacheDefinition>()
+                .FirstOrDefault()?.PivotCacheId?.Value;
         }
     }
 

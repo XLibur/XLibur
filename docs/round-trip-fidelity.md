@@ -38,7 +38,7 @@ Two consequences:
 | ActiveX | ✅ | ✅ | ❌ | Both `activeX1.xml` and `activeX1.bin` |
 | Timelines | ✅ | n/a | ❌ | `timelines/` and `timelineCaches/` |
 | Custom XML | ✅ | n/a | ❌ | `customXml/item*.xml` and props |
-| Slicers | ✅ | ✅ | ❌ | Pivot and table slicers, `slicers/` and `slicerCaches/` |
+| Slicers | ✅ | ✅ | ✅ | Modelled as of PRD 5; a slicer nobody edits is still passed through untouched |
 | Threaded comments | ✅ | ✅ | ✅ | Modelled as of spec 09 |
 
 ### Chartsheets are preserved, not dropped
@@ -93,6 +93,28 @@ untouched" only covers the first of four:
 
 The saved package also produces zero `OpenXmlValidator` errors, the same count as Excel's original.
 
+#### Slicers are modelled now, and the pass-through still holds
+
+PRD 5 gave slicers a model — `IXLWorksheet.Slicers`, `IXLPivotTable.Slicers`, creation, editing and
+a cascade on pivot-table deletion — which turns the first of the four mechanisms above from a
+property of the code into something the code has to keep on purpose.
+
+It is kept the same way spec 10 keeps chart XML. **A slicer is never regenerated.** The reader takes
+the parts apart through an `OpenXmlPartReader`, which streams a part and hands back a *detached*
+tree, so `part.RootElement` is never materialised and the SDK has nothing to write back. Reaching a
+slicer through `SlicersPart.Slicers` instead would attach a DOM the SDK re-serialises on save — the
+same trap `WorksheetPartWriter` records for `worksheetPart.Worksheet` — and every attribute listed
+above would be replaced by the SDK's own rendering of it.
+
+Only two things open a slicer part, and both are gated on the caller having actually assigned
+something: `SlicerPatcher` for a property, and `SlicerAnchorXml.Move` for a position. Reading every
+property of every slicer changes nothing.
+
+`SlicerReadModelTests.Reading_a_slicer_leaves_its_part_byte_for_byte_identical` and
+`SlicerWriteTests.Editing_one_slicer_leaves_the_other_slicers_part_untouched` are the byte-level
+gates on that, and `SlicerPositionTests.Moving_a_slicer_does_not_touch_its_slicer_part` proves the
+two halves are gated separately.
+
 One thing that does change is unrelated to slicers: `<pivotCache cacheId>` is renumbered on save
 (`3` → `0`). The slicer cache binds to the pivot cache through `pivotCacheId` in
 `pivotCacheDefinition1.xml`, not through this attribute, so the link is not affected.
@@ -112,9 +134,13 @@ deletes the part when nothing at all is left in it.
 ## Gaps
 
 - **Nothing is preserved for workbooks built from scratch**, by construction.
-- **Preservation is not manipulation.** Everything in the table above is opaque: it round-trips, but
-  there is no API to inspect or edit it, and no guarantee it stays consistent if you delete the
-  worksheet or pivot table it depends on.
+- **Preservation is not manipulation.** Everything in the table above still marked ❌ is opaque: it
+  round-trips, but there is no API to inspect or edit it, and no guarantee it stays consistent if you
+  delete the worksheet or pivot table it depends on. Slicers are the exception, and deleting a pivot
+  table now takes its slicers with it rather than leaving them dangling.
+- **Timelines are the remaining case of exactly that hazard.** They survive as untouched parts, and
+  deleting the pivot table a timeline filters still leaves it pointing at nothing. PRD 5 task 4
+  covers them.
 
 ## Threaded comments
 

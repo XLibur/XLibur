@@ -445,6 +445,16 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
 
     IXLPivotTables PivotTables { get; }
 
+    /// <summary>
+    /// The slicers drawn on this worksheet, whether they filter a pivot table or a table.
+    /// </summary>
+    /// <remarks>
+    /// The worksheet owns its slicers because that is where Excel draws them. What each one filters
+    /// is a separate relationship — see <see cref="IXLSlicer.PivotTables"/> and
+    /// <see cref="IXLSlicer.Table"/> — and a slicer may filter something on another sheet.
+    /// </remarks>
+    IXLSlicers Slicers { get; }
+
     bool RightToLeft { get; set; }
 
     IXLWorksheet SetRightToLeft();
