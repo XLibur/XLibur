@@ -234,7 +234,83 @@ public class RoundTripFidelityTests
         await Assert.That(PartExists(ms, "xl/chartsheets/sheet1.xml")).IsFalse();
     }
 
+    [Test]
+    public async Task A_drawing_holding_only_slicers_survives_a_round_trip_byte_for_byte()
+    {
+        // Both sheets of this fixture carry a drawing whose only content is a slicer frame — no
+        // picture, no chart, no legacy shape. XLibur models none of what is in them, so by the
+        // preservation rule at the top of this file the parts should come through untouched.
+        //
+        // Every other slicer test asserts with Contains, which cannot see a part that was rewritten
+        // rather than passed through. That is why this went unnoticed: the frame keeps every element
+        // and attribute, and only the serialisation changes.
+        using var original = Resource(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
+        var before1 = PartBytes(original, "xl/drawings/drawing1.xml");
+        var before2 = PartBytes(original, "xl/drawings/drawing2.xml");
+
+        using var saved = LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
+
+        await Assert.That(PartBytes(saved, "xl/drawings/drawing1.xml")).IsEquivalentTo(before1);
+        await Assert.That(PartBytes(saved, "xl/drawings/drawing2.xml")).IsEquivalentTo(before2);
+    }
+
+    [Test]
+    public async Task Deleting_every_picture_still_drops_the_emptied_drawing_part()
+    {
+        // The other side of the same guard. RemoveEmptyDrawingPart asks whether the drawing has any
+        // children; the test above pins that asking must not rewrite the part, and this one pins
+        // that the answer stays correct once XLibur has emptied the drawing itself.
+        //
+        // The two pull in opposite directions: the emptiness check reads the part's bytes to avoid
+        // attaching its DOM, but the deletions above it happen *in* that DOM, so the bytes on disk
+        // are stale by the time the question is asked. Answer from the stream in that case and an
+        // emptied drawing part is left behind in the package.
+        using var saved = new MemoryStream();
+
+        using (var stream = TestHelper.GetStreamFromResource(
+                   TestHelper.GetResourcePath(@"Examples\ImageHandling\ImageAnchors.xlsx")))
+        using (var wb = new XLWorkbook(stream))
+        {
+            var ws = wb.Worksheets.First();
+            while (ws.Pictures.Count > 0)
+                ws.Pictures.Delete(ws.Pictures.First());
+
+            wb.SaveAs(saved);
+        }
+
+        // Sheet 1's drawing held two pictures and nothing else, so emptying it should take the part.
+        await Assert.That(PartExists(saved, "xl/drawings/drawing1.xml")).IsFalse();
+
+        // The other sheets kept their pictures, so their drawings must survive.
+        await Assert.That(PartExists(saved, "xl/drawings/drawing2.xml")).IsTrue();
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(reloaded.Worksheets.First().Pictures.Count).IsEqualTo(0);
+    }
+
     #region Helpers
+
+    private static MemoryStream Resource(string resourcePath)
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(resourcePath));
+        var ms = new MemoryStream();
+        stream.CopyTo(ms);
+        return ms;
+    }
+
+    private static byte[] PartBytes(MemoryStream package, string partPath)
+    {
+        package.Position = 0;
+        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
+        var entry = archive.Entries.First(e =>
+            e.FullName.Equals(partPath, StringComparison.OrdinalIgnoreCase));
+
+        using var entryStream = entry.Open();
+        using var buffer = new MemoryStream();
+        entryStream.CopyTo(buffer);
+        return buffer.ToArray();
+    }
 
     private static MemoryStream LoadAndSave(string resourcePath)
     {
