@@ -404,3 +404,41 @@ XLibur.Excel.IXLWorksheet.Slicers.get -> XLibur.Excel.IXLSlicers!
 XLibur.Excel.XLSlicerSourceKind
 XLibur.Excel.XLSlicerSourceKind.PivotTable = 0 -> XLibur.Excel.XLSlicerSourceKind
 XLibur.Excel.XLSlicerSourceKind.Table = 1 -> XLibur.Excel.XLSlicerSourceKind
+XLibur.Excel.IXLPivotTable.Timelines.get -> System.Collections.Generic.IEnumerable<XLibur.Excel.IXLTimeline!>!
+XLibur.Excel.IXLTimeline
+XLibur.Excel.IXLTimeline.BoundsEnd.get -> System.DateTime?
+XLibur.Excel.IXLTimeline.BoundsStart.get -> System.DateTime?
+XLibur.Excel.IXLTimeline.Caption.get -> string!
+XLibur.Excel.IXLTimeline.Caption.set -> void
+XLibur.Excel.IXLTimeline.HasSelection.get -> bool
+XLibur.Excel.IXLTimeline.Level.get -> XLibur.Excel.XLTimelineLevel
+XLibur.Excel.IXLTimeline.Level.set -> void
+XLibur.Excel.IXLTimeline.Name.get -> string!
+XLibur.Excel.IXLTimeline.PivotTables.get -> System.Collections.Generic.IReadOnlyList<XLibur.Excel.IXLPivotTable!>!
+XLibur.Excel.IXLTimeline.Position.get -> XLibur.Excel.IXLCell!
+XLibur.Excel.IXLTimeline.Position.set -> void
+XLibur.Excel.IXLTimeline.SelectionEnd.get -> System.DateTime?
+XLibur.Excel.IXLTimeline.SelectionStart.get -> System.DateTime?
+XLibur.Excel.IXLTimeline.ShowHeader.get -> bool
+XLibur.Excel.IXLTimeline.ShowHeader.set -> void
+XLibur.Excel.IXLTimeline.ShowHorizontalScrollbar.get -> bool
+XLibur.Excel.IXLTimeline.ShowHorizontalScrollbar.set -> void
+XLibur.Excel.IXLTimeline.ShowSelectionLabel.get -> bool
+XLibur.Excel.IXLTimeline.ShowSelectionLabel.set -> void
+XLibur.Excel.IXLTimeline.ShowTimeLevel.get -> bool
+XLibur.Excel.IXLTimeline.ShowTimeLevel.set -> void
+XLibur.Excel.IXLTimeline.SourceFieldName.get -> string!
+XLibur.Excel.IXLTimeline.Style.get -> string?
+XLibur.Excel.IXLTimeline.Style.set -> void
+XLibur.Excel.IXLTimeline.Worksheet.get -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.IXLTimelines
+XLibur.Excel.IXLTimelines.Add(XLibur.Excel.IXLPivotTable! pivotTable, string! dateFieldName) -> XLibur.Excel.IXLTimeline!
+XLibur.Excel.IXLTimelines.Count.get -> int
+XLibur.Excel.IXLTimelines.Timeline(string! name) -> XLibur.Excel.IXLTimeline!
+XLibur.Excel.IXLTimelines.TryGetTimeline(string! name, out XLibur.Excel.IXLTimeline? timeline) -> bool
+XLibur.Excel.IXLWorksheet.Timelines.get -> XLibur.Excel.IXLTimelines!
+XLibur.Excel.XLTimelineLevel
+XLibur.Excel.XLTimelineLevel.Days = 3 -> XLibur.Excel.XLTimelineLevel
+XLibur.Excel.XLTimelineLevel.Months = 2 -> XLibur.Excel.XLTimelineLevel
+XLibur.Excel.XLTimelineLevel.Quarters = 1 -> XLibur.Excel.XLTimelineLevel
+XLibur.Excel.XLTimelineLevel.Years = 0 -> XLibur.Excel.XLTimelineLevel

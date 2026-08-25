@@ -213,6 +213,15 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// </summary>
     internal XLSlicers SlicersInternal => _slicers ??= new XLSlicers(this);
 
+    private XLTimelines? _timelines;
+
+    public IXLTimelines Timelines => TimelinesInternal;
+
+    /// <summary>
+    /// The timelines drawn on this sheet, as the concrete collection the reader adds to.
+    /// </summary>
+    internal XLTimelines TimelinesInternal => _timelines ??= new XLTimelines(this);
+
     public XLSheetProtection Protection
     {
         get => _protection;

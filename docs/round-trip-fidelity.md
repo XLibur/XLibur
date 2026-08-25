@@ -36,7 +36,7 @@ Two consequences:
 | Dialog / macro sheets | ✅ | ✅ | ❌ | Same path as chartsheets |
 | Form controls | ✅ | ✅ | ❌ | `<controls>` incl. `mc:AlternateContent` and anchors |
 | ActiveX | ✅ | ✅ | ❌ | Both `activeX1.xml` and `activeX1.bin` |
-| Timelines | ✅ | n/a | ❌ | `timelines/` and `timelineCaches/` |
+| Timelines | ✅ | ✅ | ✅ | Modelled as of spec 35; a timeline nobody edits is still passed through untouched |
 | Custom XML | ✅ | n/a | ❌ | `customXml/item*.xml` and props |
 | Slicers | ✅ | ✅ | ✅ | Modelled as of PRD 5; a slicer nobody edits is still passed through untouched |
 | Threaded comments | ✅ | ✅ | ✅ | Modelled as of spec 09 |
@@ -136,11 +136,14 @@ deletes the part when nothing at all is left in it.
 - **Nothing is preserved for workbooks built from scratch**, by construction.
 - **Preservation is not manipulation.** Everything in the table above still marked ❌ is opaque: it
   round-trips, but there is no API to inspect or edit it, and no guarantee it stays consistent if you
-  delete the worksheet or pivot table it depends on. Slicers are the exception, and deleting a pivot
-  table now takes its slicers with it rather than leaving them dangling.
-- **Timelines are the remaining case of exactly that hazard.** They survive as untouched parts, and
-  deleting the pivot table a timeline filters still leaves it pointing at nothing. PRD 5 task 4
-  covers them.
+  delete the worksheet or pivot table it depends on. Slicers and timelines are the exception, and
+  deleting a pivot table now takes both with it rather than leaving them dangling.
+- **The hazard is closed, except where a cache is shared.** Deleting a pivot table takes with it the
+  slicers and timelines whose cache served *only* that pivot table — the parts, the workbook
+  registrations, the `#N/A` defined names and the drawing anchors all go. See
+  `XLPivotDependentCascade`. Where a cache still serves another pivot table, the control survives,
+  but the deleted table's name stays in that cache's saved part: a loaded cache part is passed
+  through byte-for-byte and never regenerated, so it keeps naming a pivot table that is gone.
 
 ## Threaded comments
 

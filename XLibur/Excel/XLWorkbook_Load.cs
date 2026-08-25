@@ -176,6 +176,10 @@ public partial class XLWorkbook
         // Last, because a slicer binds to the pivot tables and tables it filters, and both have to
         // exist before it can find them.
         SlicerReader.LoadSlicers(workbookPart, sheets!, WorksheetsInternal);
+
+        // Same ordering constraint as slicers: a timeline binds to the pivot tables it filters, and
+        // they have to exist before it can find them.
+        TimelineReader.LoadTimelines(workbookPart, sheets!, WorksheetsInternal);
     }
 
     private void LoadCustomFileProperties(SpreadsheetDocument dSpreadsheet)

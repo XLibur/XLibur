@@ -46,6 +46,7 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 32 | [Collapse the 61-overload registration](32-function-argument-spec.md) | Arch · Refactor | L | Proposed (**needs 30**) | Single owner; task 2 is a go/no-go gate |
 | 33 | [Every sheet feature reacts through one seam](33-sheet-listener-seam.md) | Arch · **Defect (4 unshifted)** | M–L | Proposed (**needs 26**) | Single owner; tasks sequential |
 | 34 | [Split the font port: mechanism vs policy](34-font-port-split.md) | Arch · Refactor | M | Proposed (**needs 27**) | Single owner; tasks sequential |
+| 35 | [Pivot table timelines](35-pivot-timelines.md) | Feature · Compat | M | ✅ **Done** (#406; see Results) | Task 1 (extraction) standalone; 2→3→4 ordered |
 
 **Specs 26–34 came out of a second architecture review on 2026-08-24.** Their progress board,
 dependency graph, conflict map and wave plan live in

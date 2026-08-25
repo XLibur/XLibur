@@ -455,6 +455,12 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     /// </remarks>
     IXLSlicers Slicers { get; }
 
+    /// <summary>
+    /// The timelines drawn on this worksheet. The worksheet owns them; what each one filters is
+    /// reached through <see cref="IXLTimeline.PivotTables"/>.
+    /// </summary>
+    IXLTimelines Timelines { get; }
+
     bool RightToLeft { get; set; }
 
     IXLWorksheet SetRightToLeft();

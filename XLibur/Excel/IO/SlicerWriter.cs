@@ -174,32 +174,8 @@ internal static class SlicerWriter
     private static void EnsureSlicerListReference(
         Worksheet worksheet, XLWorksheetContentManager cm, XLSlicerSourceKind kind, string relId)
     {
-        var uri = ExtensionUri(kind);
-        var extension = FindExtension(worksheet, uri);
-
-        if (extension is null)
-        {
-            if (!worksheet.Elements<WorksheetExtensionList>().Any())
-            {
-                var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.WorksheetExtensionList);
-                worksheet.InsertAfter(new WorksheetExtensionList(), previousElement);
-            }
-
-            var extensionList = worksheet.Elements<WorksheetExtensionList>().First();
-            cm.SetElement(XLWorksheetContents.WorksheetExtensionList, extensionList);
-
-            extension = new WorksheetExtension { Uri = uri };
-            extension.AddNamespaceDeclaration("x14", X14Main2009SsNs);
-            extension.AppendChild(new X14.SlicerList());
-            extensionList.AppendChild(extension);
-        }
-
-        var slicerList = extension.GetFirstChild<X14.SlicerList>();
-        if (slicerList is null)
-        {
-            slicerList = new X14.SlicerList();
-            extension.AppendChild(slicerList);
-        }
+        var slicerList = SheetExtensionRefs.EnsureList<X14.SlicerList>(
+            worksheet, cm, ExtensionUri(kind), "x14", X14Main2009SsNs);
 
         if (!slicerList.Elements<X14.SlicerRef>().Any(r => r.Id?.Value == relId))
             slicerList.AppendChild(new X14.SlicerRef { Id = relId });
@@ -259,37 +235,10 @@ internal static class SlicerWriter
         }
     }
 
-    private static void RemoveSlicerListReference(Worksheet worksheet, XLWorksheetContentManager cm, string relId)
-    {
-        var extensionList = worksheet.Elements<WorksheetExtensionList>().FirstOrDefault();
-        if (extensionList is null)
-            return;
-
-        foreach (var extension in extensionList.Elements<WorksheetExtension>().ToList())
-        {
-            var slicerList = extension.GetFirstChild<X14.SlicerList>();
-            if (slicerList is null)
-                continue;
-
-            foreach (var reference in slicerList.Elements<X14.SlicerRef>().Where(r => r.Id?.Value == relId).ToList())
-                reference.Remove();
-
-            if (!slicerList.Elements<X14.SlicerRef>().Any())
-                extension.Remove();
-        }
-
-        if (!extensionList.HasChildren)
-        {
-            worksheet.RemoveChild(extensionList);
-            cm.SetElement(XLWorksheetContents.WorksheetExtensionList, null);
-        }
-    }
-
-    private static WorksheetExtension? FindExtension(Worksheet worksheet, string uri) =>
-        worksheet.Elements<WorksheetExtensionList>()
-            .FirstOrDefault()?
-            .Elements<WorksheetExtension>()
-            .FirstOrDefault(e => string.Equals(e.Uri?.Value, uri, System.StringComparison.OrdinalIgnoreCase));
+    private static void RemoveSlicerListReference(
+        Worksheet worksheet, XLWorksheetContentManager cm, string relId) =>
+        SheetExtensionRefs.RemoveRefs<X14.SlicerList>(
+            worksheet, cm, r => r is X14.SlicerRef reference && reference.Id?.Value == relId);
 
     private static string ExtensionUri(XLSlicerSourceKind kind) =>
         kind == XLSlicerSourceKind.Table ? TableSlicerExtensionUri : PivotSlicerExtensionUri;
