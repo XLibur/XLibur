@@ -145,6 +145,30 @@ deletes the part when nothing at all is left in it.
   but the deleted table's name stays in that cache's saved part: a loaded cache part is passed
   through byte-for-byte and never regenerated, so it keeps naming a pivot table that is gone.
 
+## Asking a question can change the answer
+
+A drawing part whose only content is a slicer frame used to come back from a save as the SDK's
+serialisation rather than the producer's — self-closing tags gaining a space, `encoding="UTF-8"`
+lower-cased, namespace declarations hoisted to the root. Nothing was lost: every element and
+attribute survived, which is why no test caught it. They all assert with `Contains`, and `Contains`
+cannot see a part that was rewritten rather than passed through.
+
+The cause was one line in `PictureWriter.RemoveEmptyDrawingPart`, which asked whether the drawing
+had any children so it could delete a part that would otherwise be saved empty. It asked through
+`DrawingsPart.WorksheetDrawing`, and **reading that property attaches the SDK's typed tree to the
+part**, after which the SDK writes the tree back over the original bytes on save whether or not
+anything changed. The comment already on that line named the hazard and the guard order did not
+avoid it: every preceding condition is true precisely for a sheet whose drawing holds only a slicer
+or a timeline.
+
+`DrawingPartProbe.HasAnyChild` answers the same question by streaming the part through an
+`OpenXmlPartReader`, which leaves the root unmaterialised — the technique `SlicerReader` uses. It
+falls back to the attached tree when one already exists, because by then the bytes on disk are stale
+and there is no fidelity left to protect: `PictureWriter` may have just deleted the drawing's last
+picture out of that tree, and answering from the stream would leave an emptied part in the package.
+
+Both directions are pinned by tests, because each is invisible to the other's.
+
 ## Threaded comments
 
 As of spec 09 threaded comments are modelled rather than preserved, so they are the exception to
