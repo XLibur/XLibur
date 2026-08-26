@@ -121,7 +121,12 @@ internal static class SheetViewWriter
 
         svcm.SetElement(XLSheetViewContents.Pane, pane);
 
-        pane.State = PaneStateValues.FrozenSplit;
+        // Excel writes state="frozen" for a pure freeze; frozenSplit is what it writes when a pane
+        // was frozen from an existing manual split, which XLibur never produces. Of the 30 <pane>
+        // tags in the test corpus, 27 (10 files) are "frozen" and 3 (2 files) are "frozenSplit",
+        // and the frozenSplit ones sit in <customSheetView> alongside a "frozen" main sheetView.
+        // The reader accepts both (WorksheetElementReader.LoadSheetViewPane) and must keep doing so.
+        pane.State = PaneStateValues.Frozen;
         var hSplit = xlWorksheet.SheetView.SplitColumn;
         var ySplit = xlWorksheet.SheetView.SplitRow;
 
