@@ -132,7 +132,6 @@ public partial class XLWorkbook
 
         var s = workbookPart.WorkbookStylesPart?.Stylesheet;
         var numberingFormats = s?.NumberingFormats;
-        context.LoadNumberFormats(numberingFormats);
         var differentialFormats = s?.DifferentialFormats
             ?.Elements<DifferentialFormat>()
             .Select((df, i) => (df, i))

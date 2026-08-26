@@ -377,6 +377,99 @@ internal class StyleDecoderTests
     }
 
     /// <summary>
+    /// The id form of the resolver, over the workbook's declared custom formats. A declared id
+    /// yields the custom key; anything else is treated as a built-in id.
+    /// </summary>
+    [Test]
+    [Arguments(164, XLNumberFormatKey.CustomFormatNumberId, "0.000")]
+    [Arguments(14, 14, "")]
+    [Arguments(999, 999, "")]
+    public async Task NumberFormatKey_resolves_a_numFmtId_against_the_declared_custom_formats(
+        int numberFormatId, int expectedId, string expectedFormat)
+    {
+        var styles = new StylesheetData(
+            Stylesheet: null,
+            NumberingFormats: new NumberingFormats(
+                new NumberingFormat { NumberFormatId = 164U, FormatCode = "0.000" }),
+            Fills: null,
+            Borders: null,
+            Fonts: null,
+            DifferentialFormats: new Dictionary<int, DifferentialFormat>());
+
+        var key = StyleDecoder.NumberFormatKey(numberFormatId, styles,
+            XLNumberFormatValue.Default.Key);
+
+        await Assert.That(key.NumberFormatId).IsEqualTo(expectedId);
+        await Assert.That(key.Format).IsEqualTo(expectedFormat);
+    }
+
+    /// <summary>
+    /// The built-in branch clears the format string rather than inheriting it. The two decoders
+    /// spec 28 unified disagreed here — the cell path left it inherited, the pivot path wrote the
+    /// empty string — and the suite passes either way, so this pins the choice that was made
+    /// rather than leaving it to be reversed by accident. The empty string is what a built-in id
+    /// means: <c>NumberFormatId</c> is <c>-1</c> exactly when the format is custom, so any other id
+    /// says the format lives in <c>XLPredefinedFormat</c> and no literal belongs beside it.
+    /// </summary>
+    [Test]
+    public async Task A_built_in_numFmtId_clears_an_inherited_custom_format_string()
+    {
+        var styles = new StylesheetData(null, null, null, null, null,
+            new Dictionary<int, DifferentialFormat>());
+        var inherited = XLNumberFormatKey.ForFormat("0.000");
+
+        var key = StyleDecoder.NumberFormatKey(14, styles, inherited);
+
+        await Assert.That(key.NumberFormatId).IsEqualTo(14);
+        await Assert.That(key.Format).IsEqualTo(string.Empty);
+    }
+
+    /// <summary>
+    /// A <c>&lt;numFmt&gt;</c> declaring an id the workbook already declared keeps the first, which
+    /// is what the linear scan this replaced did with its <c>FirstOrDefault</c>. Worth pinning
+    /// because the per-load dictionary that also went away used <c>Add</c>, so such a file threw.
+    /// </summary>
+    [Test]
+    public async Task A_duplicated_numFmtId_keeps_the_first_declaration_and_does_not_throw()
+    {
+        var styles = new StylesheetData(
+            Stylesheet: null,
+            NumberingFormats: new NumberingFormats(
+                new NumberingFormat { NumberFormatId = 164U, FormatCode = "first" },
+                new NumberingFormat { NumberFormatId = 164U, FormatCode = "second" }),
+            Fills: null,
+            Borders: null,
+            Fonts: null,
+            DifferentialFormats: new Dictionary<int, DifferentialFormat>());
+
+        var key = StyleDecoder.NumberFormatKey(164, styles, XLNumberFormatValue.Default.Key);
+
+        await Assert.That(key.Format).IsEqualTo("first");
+    }
+
+    /// <summary>
+    /// A &lt;numFmt&gt; with an id but no format code is not admitted to the map, and the lookup
+    /// falls through to the built-in branch by missing — the same place the scan reached by
+    /// finding the element and then seeing its format code was empty.
+    /// </summary>
+    [Test]
+    public async Task A_declared_numFmt_with_no_format_code_falls_through_to_the_built_in_branch()
+    {
+        var styles = new StylesheetData(
+            Stylesheet: null,
+            NumberingFormats: new NumberingFormats(new NumberingFormat { NumberFormatId = 200U }),
+            Fills: null,
+            Borders: null,
+            Fonts: null,
+            DifferentialFormats: new Dictionary<int, DifferentialFormat>());
+
+        var key = StyleDecoder.NumberFormatKey(200, styles, XLNumberFormatValue.Default.Key);
+
+        await Assert.That(key.NumberFormatId).IsEqualTo(200);
+        await Assert.That(key.Format).IsEqualTo(string.Empty);
+    }
+
+    /// <summary>
     /// A &lt;border diagonalUp="1"/&gt; with no &lt;diagonal&gt; child decoded one way through
     /// BorderToXLibur (flags read only inside the &lt;diagonal&gt; guard) and another through
     /// LoadBorder (flags read unconditionally).

@@ -66,8 +66,8 @@ internal static class StyleDecoder
         {
             key = key with
             {
-                NumberFormat = NumberFormatKey((int)cellFormat.NumberFormatId!.Value,
-                    styles.NumberingFormats, key.NumberFormat),
+                NumberFormat = NumberFormatKey((int)cellFormat.NumberFormatId!.Value, styles,
+                    key.NumberFormat),
             };
         }
 
@@ -316,24 +316,25 @@ internal static class StyleDecoder
     }
 
     /// <summary>
-    /// Resolves a <c>numFmtId</c> against the workbook's declared custom formats.
+    /// Resolves a <c>numFmtId</c>. A workbook-declared custom format wins; anything else is taken to
+    /// be a built-in id, including an id at or above <see cref="XLConstants.NumberOfBuiltInStyles"/>
+    /// that no <c>&lt;numFmt&gt;</c> declares — such a file is malformed, and this is what both the
+    /// cell and pivot paths did before spec 28 unified them.
     /// </summary>
-    internal static XLNumberFormatKey NumberFormatKey(int numberFormatId,
-        NumberingFormats? numberingFormats, XLNumberFormatKey defaults)
+    /// <remarks>
+    /// The two paths this replaces disagreed about the format string on the built-in branch: the
+    /// cell path left it inherited, the pivot path wrote the empty string. This takes the empty
+    /// string, which is what a built-in id means — <see cref="XLNumberFormatKey.NumberFormatId"/>
+    /// is <c>-1</c> exactly when the format is custom, so any other id says the format lives in
+    /// <c>XLPredefinedFormat</c> and no literal belongs in the key beside it.
+    /// </remarks>
+    internal static XLNumberFormatKey NumberFormatKey(int numberFormatId, StylesheetData styles,
+        XLNumberFormatKey defaults)
     {
-        var formatCode = string.Empty;
-        var numberingFormat =
-            numberingFormats?.FirstOrDefault(nf =>
-                ((NumberingFormat)nf).NumberFormatId != null &&
-                ((NumberingFormat)nf).NumberFormatId!.Value == numberFormatId) as NumberingFormat;
-
-        if (numberingFormat != null && numberingFormat.FormatCode != null)
-            formatCode = numberingFormat.FormatCode.Value!;
-
-        if (formatCode.Length > 0)
+        if (styles.CustomNumberFormats.TryGetValue(numberFormatId, out var formatCode))
             return XLNumberFormatKey.ForFormat(formatCode);
 
-        return defaults with { NumberFormatId = numberFormatId };
+        return defaults with { NumberFormatId = numberFormatId, Format = string.Empty };
     }
 
     /// <summary>

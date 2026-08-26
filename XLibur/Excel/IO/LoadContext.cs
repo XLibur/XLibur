@@ -15,7 +15,53 @@ internal sealed record StylesheetData(
     Fills? Fills,
     Borders? Borders,
     Fonts? Fonts,
-    Dictionary<int, DifferentialFormat> DifferentialFormats);
+    Dictionary<int, DifferentialFormat> DifferentialFormats)
+{
+    /// <summary>
+    /// <c>numFmtId</c> → format code for every custom format the workbook declares. Built once, so
+    /// resolving a style's number format is a dictionary hit rather than a scan of
+    /// <see cref="NumberingFormats"/> per style.
+    /// </summary>
+    /// <remarks>
+    /// Derived from <see cref="NumberingFormats"/> in the initialiser rather than passed in, so it
+    /// cannot fall out of step with the element it summarises. <c>StylesheetData</c> is
+    /// constructed once per workbook load, so this is built once per load and not per worksheet.
+    /// </remarks>
+    internal Dictionary<int, string> CustomNumberFormats { get; } =
+        BuildCustomNumberFormats(NumberingFormats);
+
+    /// <summary>
+    /// Admits an entry only when it has both an id and a non-empty format code, and keeps the
+    /// first of any duplicated id.
+    /// </summary>
+    /// <remarks>
+    /// Both rules preserve what the code this replaced did. Skipping a <c>&lt;numFmt&gt;</c> with
+    /// no format code is equivalent to the scan it replaces, which accepted such an element and
+    /// then fell through to the built-in-id branch because its format code was empty; a lookup
+    /// that never admits the entry falls through by missing instead, and lands in the same place.
+    /// Keeping the first of a duplicated id matches the scan's <c>FirstOrDefault</c> — and is why
+    /// this uses <c>TryAdd</c>: the per-load dictionary this replaces used <c>Add</c>, so a file
+    /// declaring the same <c>numFmtId</c> twice threw.
+    /// </remarks>
+    private static Dictionary<int, string> BuildCustomNumberFormats(NumberingFormats? numberingFormats)
+    {
+        var map = new Dictionary<int, string>();
+        if (numberingFormats is null)
+            return map;
+
+        foreach (var nf in numberingFormats.Elements<NumberingFormat>())
+        {
+            var numberFormatId = checked((int?)nf.NumberFormatId?.Value);
+            var formatCode = nf.FormatCode?.Value;
+            if (numberFormatId is null || string.IsNullOrEmpty(formatCode))
+                continue;
+
+            map.TryAdd(numberFormatId.Value, formatCode);
+        }
+
+        return map;
+    }
+}
 
 internal sealed class LoadContext
 {
@@ -24,11 +70,6 @@ internal sealed class LoadContext
     /// conditional formats.
     /// </summary>
     private readonly Dictionary<string, List<XLConditionalFormat>> _pivotCfs = new(XLHelper.SheetComparer);
-
-    /// <summary>
-    /// A dictionary of styles from <c>styles.xml</c>. Used in other places that reference number style by id reference.
-    /// </summary>
-    private readonly Dictionary<int, string> _numberFormats = new();
 
     internal void AddPivotTableCf(string sheetName, XLConditionalFormat conditionalFormat)
     {
@@ -53,45 +94,13 @@ internal sealed class LoadContext
         return pivotCf;
     }
 
-    internal void LoadNumberFormats(NumberingFormats? numberingFormats)
-    {
-        if (numberingFormats is null)
-            return;
-
-        foreach (var nf in numberingFormats.ChildElements.Cast<NumberingFormat>())
-        {
-            var numberFormatId = checked((int?)nf.NumberFormatId?.Value);
-            var formatCode = nf.FormatCode?.Value;
-            if (numberFormatId is null || string.IsNullOrEmpty(formatCode))
-                continue;
-
-            _numberFormats.Add(numberFormatId.Value, formatCode);
-        }
-    }
-
     internal XLNumberFormatValue? GetNumberFormat(int? numberFormatId)
     {
-        if (numberFormatId is null)
-        {
+        if (numberFormatId is not { } id)
             return null;
-        }
 
-        if (_numberFormats.TryGetValue(numberFormatId.Value, out var formatCode))
-        {
-            var customFormatKey = new XLNumberFormatKey
-            {
-                NumberFormatId = -1,
-                Format = formatCode,
-            };
-            return XLNumberFormatValue.FromKey(ref customFormatKey);
-        }
-
-        var predefinedFormatKey = new XLNumberFormatKey
-        {
-            NumberFormatId = numberFormatId.Value,
-            Format = string.Empty,
-        };
-        return XLNumberFormatValue.FromKey(ref predefinedFormatKey);
+        var key = StyleDecoder.NumberFormatKey(id, Styles, XLNumberFormatValue.Default.Key);
+        return XLNumberFormatValue.FromKey(ref key);
     }
 
     private StyleValueCache? _styleCache;
