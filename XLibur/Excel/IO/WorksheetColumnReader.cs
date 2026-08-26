@@ -19,14 +19,21 @@ internal static class WorksheetColumnReader
     /// the range that ends at the last column, and every other range is loaded individually.
     /// </summary>
     /// <remarks>
-    /// <b>Known defect (D14), pre-existing and moved here unchanged by spec 28.</b> Every range
-    /// whose <c>max</c> is the last column is treated as the sheet default and skipped, so a file
-    /// stating <c>&lt;col min="2" max="16384" hidden="1" outlineLevel="1"/&gt;</c> loses its
-    /// <c>hidden</c>, <c>collapsed</c> and <c>outlineLevel</c> — only the width and style survive.
-    /// XLibur's own writer never emits those three on its trailing default range
-    /// (<c>ColumnWriter.WritePostColumns</c> writes style, width and <c>customWidth</c> only), so
-    /// its own files round-trip; a foreign one may not. Fixing it needs a discriminator that tells
-    /// the writer's default tail from a genuine explicit range, which is not this module's move.
+    /// A range that ends at the last column supplies the sheet's default width and style, and is
+    /// then normally skipped — expanding it would materialise an <c>XLColumn</c> for all
+    /// <see cref="XLHelper.MaxColumnNumber"/> columns on every load, which is why the skip exists
+    /// and why it stays for the shape that motivated it. <c>ColumnWriter.WritePostColumns</c>
+    /// writes exactly that shape: style, width and <c>customWidth</c>, never the three per-column
+    /// flags.
+    /// <para>
+    /// It is <see cref="StatesPerColumnFlags"/> that decides, not the <c>max</c> attribute alone.
+    /// A range ending at the last column may also carry <c>hidden</c>, <c>collapsed</c> or
+    /// <c>outlineLevel</c> — Excel writes exactly that when a user hides or groups from some
+    /// column rightwards — and those cannot be expressed as a sheet default, so such a range is
+    /// loaded like any other. Before this was fixed (D14) the skip was unconditional and all three
+    /// were silently dropped: <c>&lt;col min="2" max="16384" hidden="1" outlineLevel="1"/&gt;</c>
+    /// loaded with the width applied and the column neither hidden nor grouped.
+    /// </para>
     /// </remarks>
     internal static void LoadColumns(StylesheetData styles, XLWorksheet ws, Columns columns)
     {
@@ -44,10 +51,24 @@ internal static class WorksheetColumnReader
 
         foreach (var col in columns.Elements<Column>())
         {
-            if (col.Max?.Value == XLHelper.MaxColumnNumber) continue;
+            if (col.Max?.Value == XLHelper.MaxColumnNumber && !StatesPerColumnFlags(col))
+                continue;
 
             LoadColumn(col, ws, styles);
         }
+    }
+
+    /// <summary>
+    /// Whether a <c>&lt;col&gt;</c> carries per-column state that a sheet default cannot express.
+    /// Width and style can be defaulted for the whole sheet; being hidden, collapsed or in an
+    /// outline group cannot, so a range stating any of the three has to be expanded onto the
+    /// columns it covers even when it runs to the last one.
+    /// </summary>
+    private static bool StatesPerColumnFlags(Column col)
+    {
+        return (col.Hidden is not null && col.Hidden)
+               || (col.Collapsed is not null && col.Collapsed)
+               || col.OutlineLevel is not null;
     }
 
     /// <summary>
