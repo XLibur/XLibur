@@ -29,14 +29,18 @@ internal static class ColumnWriter
         double WorksheetColumnWidth,
         double RawWorksheetColumnWidth);
 
+    /// <remarks>
+    /// This took the whole ten-member save bag until spec 29. The shared style map is the only
+    /// part of it this writer ever touched, and it only reads it.
+    /// </remarks>
     internal static void WriteColumns(
         Worksheet worksheet,
         XLWorksheetContentManager cm,
         XLWorksheet xlWorksheet,
         double worksheetColumnWidth,
-        SaveContext context)
+        IReadOnlyDictionary<XLStyleValue, StyleInfo> sharedStyles)
     {
-        var worksheetStyleId = context.SharedStyles[xlWorksheet.StyleValue].StyleId;
+        var worksheetStyleId = sharedStyles[xlWorksheet.StyleValue].StyleId;
         if (xlWorksheet.Internals.CellsCollection.IsEmpty &&
             xlWorksheet.Internals.ColumnsCollection.Count == 0
             && worksheetStyleId == 0)
@@ -61,7 +65,7 @@ internal static class ColumnWriter
         var (minInColumnsCollection, maxInColumnsCollection) = GetColumnsRange(xlWorksheet);
 
         WritePreColumns(ctx, minInColumnsCollection);
-        var maxCol = WriteMainColumns(ctx, xlWorksheet, minInColumnsCollection, maxInColumnsCollection, context);
+        var maxCol = WriteMainColumns(ctx, xlWorksheet, minInColumnsCollection, maxInColumnsCollection, sharedStyles);
         WritePostColumns(ctx, maxCol);
 
         CollapseColumns(columns, sheetColumnsByMin);
@@ -103,11 +107,12 @@ internal static class ColumnWriter
     }
 
     private static int WriteMainColumns(ColumnWriteContext ctx, XLWorksheet xlWorksheet,
-        int minInColumnsCollection, int maxInColumnsCollection, SaveContext context)
+        int minInColumnsCollection, int maxInColumnsCollection,
+        IReadOnlyDictionary<XLStyleValue, StyleInfo> sharedStyles)
     {
         for (var co = minInColumnsCollection; co <= maxInColumnsCollection; co++)
         {
-            var column = BuildColumnElement(ctx, xlWorksheet, co, context);
+            var column = BuildColumnElement(ctx, xlWorksheet, co, sharedStyles);
             UpdateColumn(column, ctx.Columns, ctx.SheetColumnsByMin);
         }
 
@@ -127,7 +132,7 @@ internal static class ColumnWriter
     }
 
     private static Column BuildColumnElement(ColumnWriteContext ctx, XLWorksheet xlWorksheet,
-        int columnNumber, SaveContext context)
+        int columnNumber, IReadOnlyDictionary<XLStyleValue, StyleInfo> sharedStyles)
     {
         if (!xlWorksheet.Internals.ColumnsCollection.TryGetValue(columnNumber, out var col))
             return WorksheetDefaultColumn(ctx, (uint)columnNumber, (uint)columnNumber);
@@ -135,7 +140,7 @@ internal static class ColumnWriter
         // The raw width, not GetColumnWidth(col.Width).SaveRound() - Resolve applies that itself.
         var settings = XLColumnSettings.Resolve(
             (uint)columnNumber, (uint)columnNumber,
-            context.SharedStyles[col.StyleValue].StyleId, col.Width,
+            sharedStyles[col.StyleValue].StyleId, col.Width,
             col.IsHidden, col.Collapsed, col.OutlineLevel);
 
         return ToColumnElement(settings);

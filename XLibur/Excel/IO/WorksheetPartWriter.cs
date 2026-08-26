@@ -178,7 +178,7 @@ internal static class WorksheetPartWriter
         SheetViewWriter.WriteSheetFormatProperties(worksheet, cm, xlWorksheet,
             maxOutlineColumn, maxOutlineRow, out var worksheetColumnWidth);
 
-        ColumnWriter.WriteColumns(worksheet, cm, xlWorksheet, worksheetColumnWidth, context);
+        ColumnWriter.WriteColumns(worksheet, cm, xlWorksheet, worksheetColumnWidth, context.SharedStyles);
 
         #region SheetData
 

@@ -222,7 +222,7 @@ public sealed class XLStreamingWorkbook : IDisposable
     private void WriteStylesPart()
     {
         var stylesheet = new Stylesheet();
-        WorkbookStylesPartWriter.GenerateStreamingContent(stylesheet, Styles.OrderedStyles, new SaveContext());
+        WorkbookStylesPartWriter.GenerateStreamingContent(stylesheet, Styles.OrderedStyles);
 
         using var xml = _package.CreatePart(StylesPartName);
         xml.WriteStartDocument(true);
