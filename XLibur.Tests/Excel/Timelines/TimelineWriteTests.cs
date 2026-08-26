@@ -4,6 +4,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
@@ -145,7 +146,7 @@ public class TimelineWriteTests
             wb.SaveAs(saved);
         }
 
-        await Assert.That(PartBytes(saved, "xl/timelines/timeline1.xml")).IsEquivalentTo(before);
+        await Assert.That(PartBytes(saved, "xl/timelines/timeline1.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -231,7 +232,7 @@ public class TimelineWriteTests
             wb.SaveAs(saved);
         }
 
-        await Assert.That(PartBytes(saved, "xl/drawings/drawing1.xml")).IsEquivalentTo(drawingBaseline);
+        await Assert.That(PartBytes(saved, "xl/drawings/drawing1.xml")).IsEquivalentTo(drawingBaseline, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -248,7 +249,7 @@ public class TimelineWriteTests
             wb.SaveAs(saved);
         }
 
-        await Assert.That(PartBytes(saved, "xl/timelines/timeline1.xml")).IsEquivalentTo(before);
+        await Assert.That(PartBytes(saved, "xl/timelines/timeline1.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
     }
 
     // ── Schema ──────────────────────────────────────────────────────────

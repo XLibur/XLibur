@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
@@ -96,7 +97,7 @@ public class SlicerWriteTests
 
         // slicer1 is the table slicer on the other sheet. Nobody assigned to it, so its part is not
         // even opened — the byte comparison is what proves the patcher's gate actually gates.
-        await Assert.That(PartBytes(saved, "xl/slicers/slicer1.xml")).IsEquivalentTo(before);
+        await Assert.That(PartBytes(saved, "xl/slicers/slicer1.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -143,7 +144,7 @@ public class SlicerWriteTests
             wb.SaveAs(saved);
         }
 
-        await Assert.That(PartBytes(saved, "xl/slicers/slicer2.xml")).IsEquivalentTo(before)
+        await Assert.That(PartBytes(saved, "xl/slicers/slicer2.xml")).IsEquivalentTo(before, CollectionOrdering.Matching)
             .Because("Excel's own slicer part must pass through untouched; the new slicer belongs in a part of its own.");
     }
 
