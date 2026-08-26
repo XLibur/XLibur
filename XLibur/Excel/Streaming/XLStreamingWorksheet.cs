@@ -487,19 +487,24 @@ public sealed class XLStreamingWorksheet
         xml.WriteStartElement("sheetView", Main2006SsNs);
         xml.WriteAttribute("workbookViewId", 0u);
 
-        if (_freezeRows > 0 || _freezeColumns > 0)
+        // The streaming API exposes neither a pane scroll position nor an active cell, so both
+        // resolver inputs are null here. Everything else is decided in exactly one place, shared
+        // with SheetViewWriter.SetupPane.
+        var settings = XLPaneSettings.Resolve(_freezeColumns, _freezeRows, null, null);
+
+        if (settings.HasPane)
         {
             xml.WriteStartElement("pane", Main2006SsNs);
 
-            if (_freezeColumns > 0)
-                xml.WriteAttribute("xSplit", _freezeColumns);
+            if (settings.SplitColumn is { } xSplit)
+                xml.WriteAttribute("xSplit", xSplit);
 
-            if (_freezeRows > 0)
-                xml.WriteAttribute("ySplit", _freezeRows);
+            if (settings.SplitRow is { } ySplit)
+                xml.WriteAttribute("ySplit", ySplit);
 
-            xml.WriteAttributeString("topLeftCell", new Point(_freezeRows + 1, _freezeColumns + 1).ToString());
-            xml.WriteAttributeString("activePane", ResolveActivePane());
-            xml.WriteAttributeString("state", "frozen");
+            xml.WriteAttributeString("topLeftCell", settings.TopLeftCell);
+            xml.WriteAttributeString("activePane", ToAttribute(settings.ActivePane));
+            xml.WriteAttributeString("state", ToAttribute(settings.State));
 
             xml.WriteEndElement(); // pane
         }
@@ -508,13 +513,20 @@ public sealed class XLStreamingWorksheet
         xml.WriteEndElement(); // sheetViews
     }
 
-    private string ResolveActivePane()
+    private static string ToAttribute(XLPaneCorner corner) => corner switch
     {
-        if (_freezeRows > 0 && _freezeColumns > 0)
-            return "bottomRight";
+        XLPaneCorner.TopRight => "topRight",
+        XLPaneCorner.BottomLeft => "bottomLeft",
+        XLPaneCorner.BottomRight => "bottomRight",
+        _ => "topLeft",
+    };
 
-        return _freezeRows > 0 ? "bottomLeft" : "topRight";
-    }
+    private static string ToAttribute(XLPaneState state) => state switch
+    {
+        XLPaneState.FrozenSplit => "frozenSplit",
+        XLPaneState.Split => "split",
+        _ => "frozen",
+    };
 
     private void WriteColumns(XmlWriter xml)
     {
