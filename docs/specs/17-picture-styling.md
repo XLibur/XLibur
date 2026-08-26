@@ -7,7 +7,7 @@
 extensions with [spec 15](15-shapes-and-text-boxes.md) — see [Interplay](#interplay-with-specs-15-and-16).
 Conflicts with spec 15 in `XLibur/Excel/IO/PictureWriter.cs` (both rework its save orchestration);
 run them sequentially in either order, not concurrently.
-**Status:** Proposed
+**Status:** Proposed — **unblocked**, spec 16 landed (PRs #401, #402)
 
 ## Summary
 

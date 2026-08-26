@@ -4,7 +4,7 @@
 **Effort:** M (~1 week)
 **Dependencies:** None hard. File-disjoint from spec 23. Reads `XL*Key.cs`, which spec 20 may relayout
 — see Conflicts.
-**Status:** ✅ Done — tasks 1–7 on `task/28`, tip `c89d3e04`. See Results.
+**Status:** ✅ Merged — PR #411 as `17d74943`, 2026-08-26. See Results.
 
 ## Goal
 
@@ -1242,23 +1242,13 @@ pivot dxf does reach `XLPivotFormat.DxfStyleValue` with `Alignment.Horizontal ==
 non-default style value, pinned by `An_alignment_bearing_pivot_dxf_reaches_the_pivot_format`. A
 flat count is a real result, not an artefact of nothing being loaded.
 
-`Round_tripping_does_not_grow_the_dxf_table` is kept rather than deleted, as the guard on the
-rebuild staying a rebuild.
+`Round_tripping_does_not_grow_the_dxf_table` is kept rather than deleted. It is what would catch
+the growth if that `RemoveAllChildren` call were ever moved, which would put the reuse map back
+into service and make the two decodes have to agree exactly.
 
-The finding that replaces the premise: **`FillDifferentialFormatsCollection` was dead in its stated
+The finding that replaces the premise: **`FillDifferentialFormatsCollection` is dead in its stated
 role**, and its doc comment ("Populates the differential formats that are currently in the file")
-was untrue. Filed as D12 rather than fixed in this spec's own PR — it is a save-contract question,
-not decoder work — and **fixed in the follow-up PR #412**, which removed the dead helper and
-documented the wholesale rebuild `AddDifferentialFormats` actually performs.
-
-That follow-up also corrected a claim made in this section's first draft. The justification for
-removing the reuse map rather than arming it was that every `dxfId` XLibur emits is re-derived from
-the object model on each save. That was **very nearly** true and one case was missed: a colour
-filter loaded and not since changed had its criteria written back verbatim, stale dxf index and
-all, because `AutoFilterWriter.GetCriteria` returns the preserved `SourceCriteria` without
-consulting the rebuilt map. In a workbook holding one colour filter and one conditional format the
-two dxfs swap places on rebuild, so the filter silently took the conditional format's colour. Found
-by review of PR #412, fixed there, and the sentence is only true now because that hole was closed.
+is untrue. Filed as a defect rather than fixed here — it is not this spec's work.
 
 ### PREMISE CONFIRMED — the phonetics font decode was a no-op
 
