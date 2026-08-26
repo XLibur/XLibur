@@ -1307,6 +1307,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         // Features that did not react at all before spec 33.
         yield return _drawingAnchors;
+        yield return SheetView;
+        foreach (var pivotTable in PivotTables)
+            yield return pivotTable;
     }
 
     internal override void WorksheetRangeShiftedColumns(XLRange range, int columnsShifted)

@@ -260,11 +260,16 @@ public class SheetListenerCharacterizationTests
     }
 
     /// <summary>
-    /// <c>SplitRow</c> and <c>SplitColumn</c> are raw <c>int</c>s on <see cref="XLSheetView"/> and
-    /// nothing notifies them. Spec 33 task 5 fixes this and re-points this test.
+    /// <c>SplitRow</c> and <c>SplitColumn</c> are raw <c>int</c>s on <c>XLSheetView</c> and until
+    /// spec 33 task 5 nothing notified them, so inserting rows inside the frozen region left the
+    /// freeze splitting the wrong line.
+    /// <para>
+    /// This test was <c>Freeze_panes_do_not_move_yet</c> and asserted 5 and 4 — the wrong answer, on
+    /// purpose.
+    /// </para>
     /// </summary>
     [Test]
-    public async Task Freeze_panes_do_not_move_yet()
+    public async Task Freeze_panes_move()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("S");
@@ -273,17 +278,67 @@ public class SheetListenerCharacterizationTests
         ws.Row(1).InsertRowsAbove(3);
         ws.Column(1).InsertColumnsBefore(2);
 
-        // WRONG on purpose. Correct is 8 / 6 once spec 33 task 5 lands.
+        await Assert.That(ws.SheetView.SplitRow).IsEqualTo(8);
+        await Assert.That(ws.SheetView.SplitColumn).IsEqualTo(6);
+    }
+
+    /// <summary>
+    /// The three cases the count transform has to tell apart, plus the one where the pane goes away:
+    /// an edit below the split leaves it alone, an edit inside it moves it, and deleting every line
+    /// above it leaves a count of zero — which <c>SheetViewWriter</c> writes as no pane at all.
+    /// </summary>
+    [Test]
+    [Arguments("insert below the split", 10, 3, 5)]
+    [Arguments("insert inside the split", 1, 3, 8)]
+    [Arguments("insert on the split line", 5, 3, 8)]
+    [Arguments("delete inside the split", 2, -2, 3)]
+    [Arguments("delete everything above the split", 1, -5, 0)]
+    [Arguments("delete more than the split", 1, -10, 0)]
+    public async Task A_row_edit_moves_the_freeze_only_when_it_is_inside_it(
+        string label, int at, int shift, int expectedSplitRow)
+    {
+        _ = label;
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("S");
+        ws.SheetView.FreezeRows(5);
+
+        if (shift > 0)
+            ws.Row(at).InsertRowsAbove(shift);
+        else
+            ws.Rows(at, at - shift - 1).Delete();
+
+        await Assert.That(ws.SheetView.SplitRow).IsEqualTo(expectedSplitRow);
+    }
+
+    /// <summary>
+    /// Inserting cells into part of a row and shifting them down is not a row insert, and does not
+    /// move a freeze: the frozen band spans every column, so only an edit that spans every column
+    /// can grow it.
+    /// </summary>
+    [Test]
+    public async Task A_partial_insert_does_not_move_the_freeze()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("S");
+        ws.SheetView.Freeze(5, 4);
+
+        ws.Range("B1:B5")!.InsertRowsAbove(3);
+
         await Assert.That(ws.SheetView.SplitRow).IsEqualTo(5);
         await Assert.That(ws.SheetView.SplitColumn).IsEqualTo(4);
     }
 
     /// <summary>
-    /// <c>XLPivotTable.Area</c> is a raw <see cref="XLibur.Excel.Coordinates.Area"/> and nothing
-    /// notifies it. Spec 33 task 5 fixes this and re-points this test.
+    /// <c>XLPivotTable.Area</c> is a raw <c>Area</c> and until spec 33 task 5 nothing notified it,
+    /// so a pivot table anchored at <c>D10</c> stayed at <c>D10</c> while the cells Excel had
+    /// rendered it into moved.
+    /// <para>
+    /// This test was <c>A_pivot_area_does_not_move_yet</c> and asserted row 10 — the wrong answer,
+    /// on purpose.
+    /// </para>
     /// </summary>
     [Test]
-    public async Task A_pivot_area_does_not_move_yet()
+    public async Task A_pivot_area_moves()
     {
         using var wb = new XLWorkbook();
         var source = wb.AddWorksheet("Source");
@@ -299,9 +354,11 @@ public class SheetListenerCharacterizationTests
 
         ws.Row(1).InsertRowsAbove(3);
 
-        // WRONG on purpose. Correct is 13 once spec 33 task 5 lands.
-        await Assert.That(pt.Area.FirstPoint.Row).IsEqualTo(10);
+        await Assert.That(pt.Area.FirstPoint.Row).IsEqualTo(13);
         await Assert.That(pt.Area.FirstPoint.Column).IsEqualTo(4);
+
+        // TargetCell derives from Area, so moving the area moves the table.
+        await Assert.That(pt.TargetCell.Address.ToString()).IsEqualTo("D13");
     }
 
     /// <summary>The address moved by <paramref name="shift"/> rows, before any transposition.</summary>

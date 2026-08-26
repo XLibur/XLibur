@@ -57,6 +57,7 @@ public class SheetListenerOrderTests
             nameof(XLCalcEngine),
             nameof(XLHyperlinks),
             nameof(DrawingAnchorListener),
+            nameof(XLSheetView),
         }, CollectionOrdering.Matching);
     }
 
@@ -88,6 +89,33 @@ public class SheetListenerOrderTests
             nameof(XLCalcEngine),
             nameof(XLHyperlinks),
             nameof(DrawingAnchorListener),
+            nameof(XLSheetView),
         }, CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    /// One listener per pivot table, matching how <c>XLWorksheets.GetWorkbookListeners</c> yields
+    /// one per defined name. A sheet with no pivot tables yields none, which is why the two tests
+    /// above do not list any.
+    /// </summary>
+    [Test]
+    public async Task Every_pivot_table_on_the_sheet_is_a_listener()
+    {
+        using var wb = new XLWorkbook();
+        var source = wb.AddWorksheet("Source");
+        source.Cell("A1").Value = "Name";
+        source.Cell("A2").Value = "Alice";
+        source.Cell("B1").Value = "Amount";
+        source.Cell("B2").Value = 1;
+
+        var ws = (XLWorksheet)wb.AddWorksheet("Pivot");
+        ws.PivotTables.Add("one", ws.Cell("A1")!, source.Range("A1:B2")!);
+        ws.PivotTables.Add("two", ws.Cell("F1")!, source.Range("A1:B2")!);
+
+        var names = ws.GetSheetListeners().Select(l => l.GetType().Name).ToList();
+
+        await Assert.That(names.Count(n => n == nameof(XLPivotTable))).IsEqualTo(2);
+        await Assert.That(names[^1]).IsEqualTo(nameof(XLPivotTable));
+        await Assert.That(names[^3]).IsEqualTo(nameof(XLSheetView));
     }
 }

@@ -14,7 +14,7 @@ namespace XLibur.Excel;
 // the layout-mode setter assigns all four backing fields together, which an init-only
 // auto-property cannot express.
 #pragma warning disable S2292
-internal sealed class XLPivotTable : IXLPivotTable
+internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
 {
     private readonly XLWorksheet _worksheet;
 
@@ -884,6 +884,50 @@ internal sealed class XLPivotTable : IXLPivotTable
     {
         _pivotFilters.Add(pivotFilter);
     }
+
+    #region ISheetListener
+
+    /// <summary>
+    /// Moves the table over a structural edit on its own sheet.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Area"/> is the whole of the table's position: <see cref="TargetCell"/> is derived
+    /// from its first point, so moving the area moves the table. Before spec 33 nothing notified it
+    /// and a pivot table anchored at <c>D10</c> stayed at <c>D10</c> when rows were inserted above
+    /// it, while the cells Excel had rendered it into moved.
+    /// </para>
+    /// <para>
+    /// The enumeration yields one listener per pivot table, matching how
+    /// <c>XLWorksheets.GetWorkbookListeners</c> yields one per defined name. The transform is the
+    /// same <see cref="GridShift.MoveArea{TAxis}"/> the drawing anchors use, so an insert above the
+    /// table moves it and an insert inside it grows it — the area is a real extent for a table read
+    /// from a file, where it comes from <c>location/@ref</c>.
+    /// </para>
+    /// <para>
+    /// The table's <em>source</em> is a separate concern and is not touched here: it lives on the
+    /// pivot cache as a range or a defined name, and it is re-pointed through those, not through
+    /// this area.
+    /// </para>
+    /// </remarks>
+    void ISheetListener.OnInsertAreaAndShiftDown(in SheetEdit edit) => MoveArea<RowAxis>(in edit);
+
+    void ISheetListener.OnInsertAreaAndShiftRight(in SheetEdit edit) => MoveArea<ColumnAxis>(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftUp(in SheetEdit edit) => MoveArea<RowAxis>(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftLeft(in SheetEdit edit) => MoveArea<ColumnAxis>(in edit);
+
+    private void MoveArea<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        if (edit.Sheet != _worksheet)
+            return;
+
+        Area = GridShift.MoveArea<TAxis>(Area, edit.Range, edit.Shift);
+    }
+
+    #endregion ISheetListener
 
     #region location
 
