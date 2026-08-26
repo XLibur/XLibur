@@ -14,20 +14,18 @@ internal static class ColumnWriter
     /// <param name="Columns">The <c>&lt;cols&gt;</c> element being built.</param>
     /// <param name="SheetColumnsByMin">The <c>&lt;col&gt;</c> elements built so far, keyed by <c>min</c>.</param>
     /// <param name="WorksheetStyleId">The worksheet's own style id.</param>
-    /// <param name="WorksheetColumnWidth">
-    /// The worksheet default width, already through <see cref="GetColumnWidth"/> and
-    /// <c>SaveRound</c> by <see cref="SheetViewWriter.WriteSheetFormatProperties"/>.
-    /// </param>
-    /// <param name="RawWorksheetColumnWidth">
-    /// The same default as the model holds it. <see cref="XLColumnSettings.Resolve"/> applies the
-    /// width rule itself, so it must be handed the raw value; passing the resolved one rounds twice.
+    /// <param name="DefaultColumn">
+    /// The worksheet default, resolved once: its own style and width, no flags. Both the columns
+    /// back-filled either side of the configured range and the trailing fix-up in
+    /// <see cref="WriteMainColumns"/> take their width from here, so the default is decided in one
+    /// place rather than stored twice and kept in agreement by hand. Its <c>Min</c> and <c>Max</c>
+    /// are placeholders; each use sets its own.
     /// </param>
     private readonly record struct ColumnWriteContext(
         Columns Columns,
         Dictionary<uint, Column> SheetColumnsByMin,
         uint WorksheetStyleId,
-        double WorksheetColumnWidth,
-        double RawWorksheetColumnWidth);
+        XLColumnSettings DefaultColumn);
 
     /// <remarks>
     /// This took the whole ten-member save bag until spec 29. The shared style map is the only
@@ -37,7 +35,6 @@ internal static class ColumnWriter
         Worksheet worksheet,
         XLWorksheetContentManager cm,
         XLWorksheet xlWorksheet,
-        double worksheetColumnWidth,
         IReadOnlyDictionary<XLStyleValue, StyleInfo> sharedStyles)
     {
         var worksheetStyleId = sharedStyles[xlWorksheet.StyleValue].StyleId;
@@ -59,8 +56,11 @@ internal static class ColumnWriter
         cm.SetElement(XLWorksheetContents.Columns, columns);
 
         var sheetColumnsByMin = columns.Elements<Column>().ToDictionary(c => c.Min!.Value, c => c);
-        var ctx = new ColumnWriteContext(columns, sheetColumnsByMin, worksheetStyleId, worksheetColumnWidth,
-            xlWorksheet.ColumnWidth);
+        // The raw model width, not a pre-resolved one: Resolve applies GetColumnWidth and SaveRound
+        // itself, and handing it an already-resolved width rounds twice.
+        var ctx = new ColumnWriteContext(columns, sheetColumnsByMin, worksheetStyleId,
+            XLColumnSettings.Resolve(1, 1, worksheetStyleId, xlWorksheet.ColumnWidth,
+                hidden: false, collapsed: false, outlineLevel: 0));
 
         var (minInColumnsCollection, maxInColumnsCollection) = GetColumnsRange(xlWorksheet);
 
@@ -121,7 +121,7 @@ internal static class ColumnWriter
             ctx.Columns.Elements<Column>().Where(c => c.Min! > (uint)(maxInColumnsCollection)).OrderBy(c => c.Min!.Value))
         {
             col.Style = ctx.WorksheetStyleId;
-            col.Width = ctx.WorksheetColumnWidth;
+            col.Width = ctx.DefaultColumn.Width;
             col.CustomWidth = true;
 
             if ((int)col.Max!.Value > maxInColumnsCollection)
@@ -151,9 +151,7 @@ internal static class ColumnWriter
     /// the columns either side of the ones the sheet actually configured.
     /// </summary>
     private static Column WorksheetDefaultColumn(ColumnWriteContext ctx, uint min, uint max)
-        => ToColumnElement(XLColumnSettings.Resolve(
-            min, max, ctx.WorksheetStyleId, ctx.RawWorksheetColumnWidth,
-            hidden: false, collapsed: false, outlineLevel: 0));
+        => ToColumnElement(ctx.DefaultColumn with { Min = min, Max = max });
 
     private static Column ToColumnElement(XLColumnSettings settings)
     {

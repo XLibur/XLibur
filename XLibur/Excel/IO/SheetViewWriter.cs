@@ -155,6 +155,11 @@ internal static class SheetViewWriter
         _ => PaneValues.TopLeft,
     };
 
+    /// <remarks>
+    /// Total, but only <see cref="XLPaneState.Frozen"/> is reachable today: the model cannot express
+    /// an unfrozen split, so <see cref="XLPaneSettings.Resolve"/> never returns the other two. The
+    /// arms exist so this stays a translation rather than a coercion if that changes.
+    /// </remarks>
     private static PaneStateValues ToOpenXml(XLPaneState state) => state switch
     {
         XLPaneState.FrozenSplit => PaneStateValues.FrozenSplit,
@@ -232,8 +237,7 @@ internal static class SheetViewWriter
         XLWorksheetContentManager cm,
         XLWorksheet xlWorksheet,
         int maxOutlineColumn,
-        int maxOutlineRow,
-        out double worksheetColumnWidth)
+        int maxOutlineRow)
     {
         worksheet.SheetFormatProperties ??= new SheetFormatProperties();
 
@@ -247,7 +251,9 @@ internal static class SheetViewWriter
         else
             worksheet.SheetFormatProperties.CustomHeight = null;
 
-        worksheetColumnWidth = ColumnWriter.GetColumnWidth(xlWorksheet.ColumnWidth).SaveRound();
+        // ColumnWriter used to be handed this value; it now resolves the sheet default itself
+        // through XLColumnSettings, so the width rule has two callers and no stored copy.
+        var worksheetColumnWidth = ColumnWriter.GetColumnWidth(xlWorksheet.ColumnWidth).SaveRound();
         if (xlWorksheet.ColumnWidthChanged)
             worksheet.SheetFormatProperties.DefaultColumnWidth = worksheetColumnWidth;
         else

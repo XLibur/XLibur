@@ -106,9 +106,10 @@ internal static class WorkbookStylesPartWriter
     {
         stylesheet.CellStyles ??= new CellStyles();
 
+        // Only the font map outlives its loop: ResolveFonts rewrites it with the ids it assigned,
+        // and the cellXf loop reads those back. The number-format and style maps the SaveContext
+        // used to carry were write-only even then, which is why this overload no longer takes one.
         var sharedFonts = new Dictionary<XLFontValue, FontInfo>();
-        var sharedNumberFormats = new Dictionary<XLNumberFormatValue, NumberFormatInfo>();
-        var sharedStyles = new Dictionary<XLStyleValue, StyleInfo>();
 
         var defaultStyle = DefaultStyleValue;
         if (!sharedFonts.ContainsKey(defaultStyle.Font))
@@ -140,8 +141,6 @@ internal static class WorkbookStylesPartWriter
         }
 
         var allSharedNumberFormats = ResolveNumberFormats(stylesheet, customNumberFormats, 0);
-        foreach (var nf in allSharedNumberFormats)
-            sharedNumberFormats.Add(nf.Key, nf.Value);
 
         ResolveFonts(stylesheet, sharedFonts);
         var allSharedFills = ResolveFills(stylesheet, sharedFills);
@@ -177,7 +176,6 @@ internal static class WorkbookStylesPartWriter
                 IncludeQuotePrefix = style.IncludeQuotePrefix
             };
 
-            sharedStyles[style] = styleInfo;
             stylesheet.CellFormats.AppendChild(BuildCellFormat(styleInfo));
         }
 

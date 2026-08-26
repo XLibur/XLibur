@@ -521,6 +521,10 @@ public sealed class XLStreamingWorksheet
         _ => "topLeft",
     };
 
+    /// <remarks>
+    /// Total, but only <see cref="XLPaneState.Frozen"/> is reachable today — see the note on
+    /// <c>SheetViewWriter.ToOpenXml</c>.
+    /// </remarks>
     private static string ToAttribute(XLPaneState state) => state switch
     {
         XLPaneState.FrozenSplit => "frozenSplit",
