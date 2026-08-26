@@ -42,6 +42,12 @@ internal interface IGridAxis
     /// <summary>Builds a point from a position on this axis and one on the cross axis.</summary>
     Point PointAt(int index, int cross);
 
+    /// <summary>
+    /// Builds an address from a position on this axis and one on the cross axis. The two fixed flags
+    /// are <em>not</em> transposed — they name the row and the column, whichever axis is the index.
+    /// </summary>
+    XLAddress AddressAt(XLWorksheet worksheet, int index, int cross, bool fixedRow, bool fixedColumn);
+
     /// <summary><c>IsEntireRow()</c> on the row axis, <c>IsEntireColumn()</c> on the column axis.</summary>
     bool IsEntireLine(XLRangeBase range);
 
@@ -89,6 +95,9 @@ internal readonly struct RowAxis : IGridAxis
     public int CrossOf(IXLAddress address) => address.ColumnNumber;
 
     public Point PointAt(int index, int cross) => new(index, cross);
+
+    public XLAddress AddressAt(XLWorksheet worksheet, int index, int cross, bool fixedRow, bool fixedColumn)
+        => new(worksheet, index, cross, fixedRow, fixedColumn);
 
     public bool IsEntireLine(XLRangeBase range) => range.IsEntireRow();
 
@@ -138,6 +147,9 @@ internal readonly struct ColumnAxis : IGridAxis
     public int CrossOf(IXLAddress address) => address.RowNumber;
 
     public Point PointAt(int index, int cross) => new(cross, index);
+
+    public XLAddress AddressAt(XLWorksheet worksheet, int index, int cross, bool fixedRow, bool fixedColumn)
+        => new(worksheet, cross, index, fixedRow, fixedColumn);
 
     public bool IsEntireLine(XLRangeBase range) => range.IsEntireColumn();
 
