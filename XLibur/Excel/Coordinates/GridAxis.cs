@@ -37,6 +37,15 @@ internal interface IGridAxis
     /// <summary>True on the row axis. <see cref="XLFormulaShiftPass"/> takes this as a flag.</summary>
     bool ShiftsRows { get; }
 
+    /// <summary>
+    /// <see cref="XLAddress"/> is a <c>struct</c> and <see cref="XLRangeAddress"/> exposes it as one, so
+    /// these <c>in</c> overloads exist to keep the hot paths from boxing it on every projection. The
+    /// <see cref="IXLAddress"/> pair below is for the call sites that genuinely hold the interface
+    /// (where the value is already boxed). Taking only the interface cost ~25% more allocation on the
+    /// insert path — measured, and the same failure mode spec 21 warns about in this file's remarks.
+    /// </summary>
+    int IndexOf(in XLAddress address);
+    int CrossOf(in XLAddress address);
     int IndexOf(IXLAddress address);
     int CrossOf(IXLAddress address);
 
@@ -110,7 +119,7 @@ internal interface IGridAxis
     string ShiftFormula(string reference, XLWorksheet worksheet, XLRange range, int shift);
 
     /// <summary>The address at this axis's far edge, on the cross-axis line <paramref name="last"/> sits on.</summary>
-    XLAddress AddressAtMaxIndex(IXLAddress last);
+    XLAddress AddressAtMaxIndex(in XLAddress last);
 
     /// <summary>Grows an area by <paramref name="by"/> lines along this axis.</summary>
     Area ExtendAlongIndex(Area area, int by);
@@ -129,6 +138,8 @@ internal readonly struct RowAxis : IGridAxis
     public int MaxCross => XLHelper.MaxColumnNumber;
     public string LineNoun => "rows";
     public bool ShiftsRows => true;
+    public int IndexOf(in XLAddress address) => address.RowNumber;
+    public int CrossOf(in XLAddress address) => address.ColumnNumber;
     public int IndexOf(IXLAddress address) => address.RowNumber;
     public int CrossOf(IXLAddress address) => address.ColumnNumber;
     public Point PointAt(int index, int cross) => new(index, cross);
@@ -165,7 +176,7 @@ internal readonly struct RowAxis : IGridAxis
     public List<int> PageBreaks(XLWorksheet worksheet) => worksheet.PageSetup.RowBreaks;
     public string ShiftFormula(string reference, XLWorksheet worksheet, XLRange range, int shift)
         => XLCellFormulaShifter.ShiftFormulaRows(reference, worksheet, range, shift);
-    public XLAddress AddressAtMaxIndex(IXLAddress last)
+    public XLAddress AddressAtMaxIndex(in XLAddress last)
         => new(XLHelper.MaxRowNumber, last.ColumnNumber, false, false);
     public Area ExtendAlongIndex(Area area, int by) => area.ExtendBelow(by);
     public XLAreaList InsertAndShift(XLAreaList areas, Area affected) => areas.InsertAndShiftDown(affected);
@@ -183,6 +194,8 @@ internal readonly struct ColumnAxis : IGridAxis
     public int MaxCross => XLHelper.MaxRowNumber;
     public string LineNoun => "columns";
     public bool ShiftsRows => false;
+    public int IndexOf(in XLAddress address) => address.ColumnNumber;
+    public int CrossOf(in XLAddress address) => address.RowNumber;
     public int IndexOf(IXLAddress address) => address.ColumnNumber;
     public int CrossOf(IXLAddress address) => address.RowNumber;
     public Point PointAt(int index, int cross) => new(cross, index);
@@ -219,7 +232,7 @@ internal readonly struct ColumnAxis : IGridAxis
     public List<int> PageBreaks(XLWorksheet worksheet) => worksheet.PageSetup.ColumnBreaks;
     public string ShiftFormula(string reference, XLWorksheet worksheet, XLRange range, int shift)
         => XLCellFormulaShifter.ShiftFormulaColumns(reference, worksheet, range, shift);
-    public XLAddress AddressAtMaxIndex(IXLAddress last)
+    public XLAddress AddressAtMaxIndex(in XLAddress last)
         => new(last.RowNumber, XLHelper.MaxColumnNumber, false, false);
     public Area ExtendAlongIndex(Area area, int by) => area.ExtendRight(by);
     public XLAreaList InsertAndShift(XLAreaList areas, Area affected) => areas.InsertAndShiftRight(affected);
