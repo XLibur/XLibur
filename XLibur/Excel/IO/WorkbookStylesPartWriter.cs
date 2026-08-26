@@ -328,8 +328,30 @@ internal static class WorkbookStylesPartWriter
     }
 
     /// <summary>
-    /// Populates the differential formats that are currently in the file to the SaveContext
+    /// Rebuilds <c>&lt;dxfs&gt;</c> from the live workbook, and fills
+    /// <see cref="SaveContext.DifferentialFormats"/> with the style-to-index map that every
+    /// <c>dxfId</c> reference is then written from.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The collection is rebuilt wholesale rather than appended to, so a dxf that nothing
+    /// references any longer does not survive the save. That is safe because <b>every</b>
+    /// <c>dxfId</c> XLibur emits is re-derived here from the object model in the same pass —
+    /// conditional-format rules and pivot formats through
+    /// <see cref="SaveContext.DifferentialFormats"/>, table fields through the same map, and
+    /// auto-filter colour filters through <see cref="SaveContext.ColorFilterDxfIds"/>. No
+    /// reference is carried over from the loaded file, so no index has to stay stable across a
+    /// save.
+    /// </para>
+    /// <para>
+    /// Until this was fixed the method opened by clearing the collection and then calling a
+    /// <c>FillDifferentialFormatsCollection</c> helper that iterated it to build a reuse map from
+    /// "the differential formats currently in the file". It iterated the collection emptied on the
+    /// line above, so the map was always empty and the reuse never happened — the rebuild below is
+    /// what has always actually run. The helper is gone rather than repaired: arming it would mean
+    /// keeping existing dxfs and their indices, which is a different save contract, not a bug fix.
+    /// </para>
+    /// </remarks>
     private static void AddDifferentialFormats(Stylesheet stylesheet, XLWorkbook workbook,
         SaveContext context)
     {
@@ -337,7 +359,6 @@ internal static class WorkbookStylesPartWriter
 
         var differentialFormats = stylesheet.DifferentialFormats;
         differentialFormats.RemoveAllChildren();
-        FillDifferentialFormatsCollection(differentialFormats, context.DifferentialFormats);
 
         foreach (var ws in workbook.WorksheetsInternal)
         {
@@ -483,26 +504,6 @@ internal static class WorkbookStylesPartWriter
         }
 
         return differentialFormat;
-    }
-
-    private static void FillDifferentialFormatsCollection(DifferentialFormats differentialFormats,
-        Dictionary<XLStyleValue, int> dictionary)
-    {
-        dictionary.Clear();
-        var id = 0;
-
-        foreach (var df in differentialFormats.Elements<DifferentialFormat>())
-        {
-            // The reuse map is a decode of what this writer encodes, so it must read exactly the
-            // children AddStyleAsDifferentialFormat writes. Before spec 28 it read four of six and
-            // the pivot reader read five, so an alignment-bearing dxf could not have matched its own
-            // entry. Also removes the XLStylizedEmpty allocated per dxf.
-            var key = StyleDecoder.Decode(df, XLStyle.Default.Key);
-            var styleValue = XLStyleValue.FromKey(ref key);
-
-            if (!dictionary.ContainsKey(styleValue))
-                dictionary.Add(styleValue, id++);
-        }
     }
 
     private static void AddConditionalDifferentialFormat(DifferentialFormats differentialFormats,

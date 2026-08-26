@@ -65,7 +65,7 @@ internal static class AutoFilterWriter
         SaveContext context)
     {
         if (xlFilterColumn.SourceCriteria is { } sourceCriteria)
-            return sourceCriteria;
+            return RemapColorFilterDxfId(sourceCriteria, xlFilterColumn, context);
 
         if (xlFilterColumn.FilterType == XLFilterType.None)
             return null;
@@ -74,6 +74,50 @@ internal static class AutoFilterWriter
         {
             ColumnId = columnId,
             Criteria = CreateCriteria(xlFilterColumn, context),
+        };
+    }
+
+    /// <summary>
+    /// Re-points a preserved <c>colorFilter</c> at the dxf index this save assigned it.
+    /// </summary>
+    /// <remarks>
+    /// A colour filter is the one criterion whose XML holds an index into <c>&lt;dxfs&gt;</c>, and
+    /// <c>WorkbookStylesPartWriter.AddDifferentialFormats</c> rebuilds that collection from the
+    /// workbook on every save — conditional-format dxfs first, colour-filter dxfs last — so the
+    /// index a file was loaded with is not the index it will be written at. Writing the loaded
+    /// criteria back verbatim therefore pointed the filter at whatever dxf now occupies its old
+    /// slot: in a workbook holding one colour filter and one conditional format, the two swap
+    /// places and the filter silently takes the conditional format's colour.
+    /// <para>
+    /// Everything else in the preserved criteria is still written exactly as loaded — that is the
+    /// whole point of keeping them — and a filter whose colour was never registered keeps its
+    /// original id rather than being dropped, which is no worse than before.
+    /// </para>
+    /// </remarks>
+    private static XLFilterColumnCriteria RemapColorFilterDxfId(XLFilterColumnCriteria sourceCriteria,
+        XLFilterColumn xlFilterColumn, SaveContext context)
+    {
+        if (sourceCriteria.Criteria is not XLColorFilterCriteria colorCriteria)
+            return sourceCriteria;
+
+        var dxfKey = (xlFilterColumn.FilterColor.Key, xlFilterColumn.FilterByCellColor);
+        if (!context.ColorFilterDxfIds.TryGetValue(dxfKey, out var dxfId))
+            return sourceCriteria;
+
+        if (colorCriteria.DifferentialFormatId == (uint)dxfId)
+            return sourceCriteria;
+
+        return new XLFilterColumnCriteria
+        {
+            ColumnId = sourceCriteria.ColumnId,
+            HiddenButton = sourceCriteria.HiddenButton,
+            ShowButton = sourceCriteria.ShowButton,
+            ExtensionListXml = sourceCriteria.ExtensionListXml,
+            Criteria = new XLColorFilterCriteria
+            {
+                DifferentialFormatId = (uint)dxfId,
+                CellColor = colorCriteria.CellColor,
+            },
         };
     }
 
