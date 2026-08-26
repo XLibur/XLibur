@@ -43,7 +43,7 @@ internal readonly record struct XLAlignmentKey
     /// <para>
     /// Applied once, here, rather than on the <c>XLAlignment</c> facade that exposes these
     /// properties to a caller: every path that builds
-    /// or modifies a key, including <c>OpenXmlHelper.AlignmentToXLibur</c> and the
+    /// or modifies a key, including <c>StyleDecoder.AlignmentKey</c> and the
     /// external-<c>IXLAlignment</c> branch of <c>XLAlignment.GenerateKey</c>, goes through one of
     /// these three <c>init</c> accessors or a <c>with</c> expression backed by them, so a future
     /// caller cannot bypass the check by reaching the key through a path this file did not

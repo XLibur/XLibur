@@ -126,21 +126,41 @@ internal static class StyleDecoder
         };
     }
 
+    /// <summary>
+    /// Decodes a <c>&lt;border&gt;</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The diagonal flags are read unconditionally, independent of the <c>&lt;diagonal&gt;</c>
+    /// child.</b> ECMA-376 Part 1, §18.8.4 (<c>border</c>, <c>CT_Border</c>) declares
+    /// <c>diagonalUp</c> and <c>diagonalDown</c> as <em>attributes of the <c>border</c> element</em>,
+    /// alongside <c>outline</c>, while <c>diagonal</c> is one of the nine <c>CT_BorderPr</c> child
+    /// elements in the type's sequence. An attribute of <c>border</c> is a sibling of the
+    /// <c>diagonal</c> child, not a dependent of it, so nothing in the schema makes reading the
+    /// flags conditional on the child being present.
+    /// </para>
+    /// <para>
+    /// Before spec 28 the two decoders disagreed here: the key form read the flags only inside the
+    /// <c>&lt;diagonal&gt;</c> guard and the mutating form read them unconditionally, so a
+    /// <c>&lt;border diagonalUp="1"/&gt;</c> with no <c>&lt;diagonal&gt;</c> child produced two
+    /// different keys for one element. The unconditional read is the one that matches the schema,
+    /// so that is the single rule implemented here; the guarded read is gone rather than kept
+    /// behind a flag.
+    /// </para>
+    /// </remarks>
     internal static XLBorderKey BorderKey(Border b, XLBorderKey defaultBorder)
     {
         var nb = defaultBorder;
 
-        var diagonalBorder = b.DiagonalBorder;
-        if (diagonalBorder is not null)
-        {
+        if (b.DiagonalBorder is { } diagonalBorder)
             nb = ApplyBorderStyleAndColor(nb, diagonalBorder,
                 (key, style) => key with { DiagonalBorder = style },
                 (key, color) => key with { DiagonalBorderColor = color });
-            if (b.DiagonalUp is not null)
-                nb = nb with { DiagonalUp = b.DiagonalUp.Value };
-            if (b.DiagonalDown is not null)
-                nb = nb with { DiagonalDown = b.DiagonalDown.Value };
-        }
+
+        if (b.DiagonalUp is not null)
+            nb = nb with { DiagonalUp = b.DiagonalUp.Value };
+        if (b.DiagonalDown is not null)
+            nb = nb with { DiagonalDown = b.DiagonalDown.Value };
 
         if (b.LeftBorder is not null)
             nb = ApplyBorderStyleAndColor(nb, b.LeftBorder,
@@ -447,7 +467,7 @@ internal static class StyleDecoder
         fontBase.FontScheme = key.FontScheme;
     }
 
-    internal static bool UInt32HasValue(UInt32Value? value)
+    private static bool UInt32HasValue(UInt32Value? value)
     {
         return value != null && value.HasValue;
     }

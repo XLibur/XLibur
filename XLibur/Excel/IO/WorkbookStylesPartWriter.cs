@@ -752,7 +752,7 @@ internal static class WorkbookStylesPartWriter
     {
         var p = XLProtectionValue.Default.Key;
         if (protection is not null)
-            p = OpenXmlHelper.ProtectionToXLibur(protection, p);
+            p = StyleDecoder.ProtectionKey(protection, p);
 
         return p.Equals(xlProtection.Key);
     }
@@ -765,7 +765,7 @@ internal static class WorkbookStylesPartWriter
     private static bool AlignmentsAreEqual(Alignment? alignment, XLAlignmentValue xlAlignment)
     {
         if (alignment is null) return XLStyle.Default.Value.Alignment.Equals(xlAlignment);
-        var a = OpenXmlHelper.AlignmentToXLibur(alignment, XLAlignmentValue.Default.Key);
+        var a = StyleDecoder.AlignmentKey(alignment, XLAlignmentValue.Default.Key);
         return a.Equals(xlAlignment.Key);
     }
 
@@ -901,7 +901,7 @@ internal static class WorkbookStylesPartWriter
 
     private static bool BordersAreEqual(Border border, XLBorderValue xlBorder)
     {
-        var convertedBorder = OpenXmlHelper.BorderToXLibur(
+        var convertedBorder = StyleDecoder.BorderKey(
             border,
             XLBorderValue.Default.Key);
         return convertedBorder.Equals(xlBorder.Key);
@@ -1136,7 +1136,7 @@ internal static class WorkbookStylesPartWriter
 
     private static bool FontsAreEqual(Font font, XLFontValue xlFont)
     {
-        var convertedFont = OpenXmlHelper.FontToXLibur(
+        var convertedFont = StyleDecoder.FontKey(
             font,
             XLFontValue.Default.Key);
         return convertedFont.Equals(xlFont.Key);

@@ -282,21 +282,6 @@ internal static class OpenXmlHelper
         return false;
     }
 
-    // Spec 28 task 2: the bodies of these four now live in StyleDecoder, which is the single
-    // decoder from OOXML style XML to XLibur style keys. These forwarding stubs keep task 2 inert
-    // for their existing callers; task 3 deletes them and re-points those callers.
-    public static XLAlignmentKey AlignmentToXLibur(Alignment alignment, XLAlignmentKey defaultAlignment)
-        => StyleDecoder.AlignmentKey(alignment, defaultAlignment);
-
-    public static XLBorderKey BorderToXLibur(Border b, XLBorderKey defaultBorder)
-        => StyleDecoder.BorderKey(b, defaultBorder);
-
-    public static XLFontKey FontToXLibur(Font f, XLFontKey nf)
-        => StyleDecoder.FontKey(f, nf);
-
-    public static XLProtectionKey ProtectionToXLibur(Protection protection, XLProtectionKey p)
-        => StyleDecoder.ProtectionKey(protection, p);
-
     #endregion Public Methods
 
     #region Private Methods

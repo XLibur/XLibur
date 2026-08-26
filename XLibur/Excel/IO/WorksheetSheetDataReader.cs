@@ -907,44 +907,7 @@ internal static class WorksheetSheetDataReader
         if (styles.Stylesheet is not { CellFormats: not null } s)
             return; //No Stylesheet, no Styles
 
-        var fills = styles.Fills!;
-        var borders = styles.Borders!;
-        var fonts = styles.Fonts!;
-        var numberingFormats = styles.NumberingFormats;
-
-        var cellFormat = (CellFormat)s.CellFormats.ElementAt(styleIndex);
-
-        var xlIncludeQuotePrefix = OpenXmlHelper.GetBooleanValueAsBool(cellFormat.QuotePrefix, false);
-        xlStyle = xlStyle with { IncludeQuotePrefix = xlIncludeQuotePrefix };
-
-        if (cellFormat.ApplyProtection != null)
-        {
-            var protection = cellFormat.Protection;
-            var xlProtection = XLProtectionValue.Default.Key;
-            if (protection is not null)
-                xlProtection = OpenXmlHelper.ProtectionToXLibur(protection, xlProtection);
-
-            xlStyle = xlStyle with { Protection = xlProtection };
-        }
-
-        if (UInt32HasValue(cellFormat.FillId))
-            xlStyle = LoadStyleFill(cellFormat, fills, xlStyle);
-
-        var alignment = cellFormat.Alignment;
-        if (alignment != null)
-        {
-            var xlAlignment = OpenXmlHelper.AlignmentToXLibur(alignment, xlStyle.Alignment);
-            xlStyle = xlStyle with { Alignment = xlAlignment };
-        }
-
-        if (UInt32HasValue(cellFormat.BorderId))
-            xlStyle = LoadStyleBorder(cellFormat.BorderId!.Value, borders, xlStyle);
-
-        if (UInt32HasValue(cellFormat.FontId))
-            xlStyle = LoadStyleFont(cellFormat.FontId!.Value, fonts, xlStyle);
-
-        if (UInt32HasValue(cellFormat.NumberFormatId))
-            xlStyle = LoadStyleNumberFormat(cellFormat, numberingFormats, xlStyle);
+        xlStyle = StyleDecoder.Decode((CellFormat)s.CellFormats.ElementAt(styleIndex), styles, xlStyle);
     }
 
     /// <summary>
@@ -1049,11 +1012,6 @@ internal static class WorksheetSheetDataReader
             'm' => ResolveMonthOrMinute(format, i, length),
             _ => null
         };
-    }
-
-    internal static bool UInt32HasValue(UInt32Value? value)
-    {
-        return value != null && value.HasValue;
     }
 
     private static Exception MissingRequiredAttr(string attributeName)
@@ -1267,58 +1225,6 @@ internal static class WorksheetSheetDataReader
         {
             xlColumns.Style = ws.Style;
         }
-    }
-
-    private static XLStyleKey LoadStyleFill(CellFormat cellFormat, Fills fills, XLStyleKey xlStyle)
-    {
-        var fill = (Fill)fills.ElementAt((int)cellFormat.FillId!.Value);
-        if (fill.PatternFill == null) return xlStyle;
-        var xlFill = new XLFill();
-        OpenXmlHelper.LoadFill(fill, xlFill, differentialFillFormat: false);
-        xlStyle = xlStyle with { Fill = xlFill.Key };
-
-        return xlStyle;
-    }
-
-    private static XLStyleKey LoadStyleBorder(uint borderId, Borders borders, XLStyleKey xlStyle)
-    {
-        var border = (Border)borders.ElementAt((int)borderId);
-        var xlBorder = OpenXmlHelper.BorderToXLibur(border, xlStyle.Border);
-        xlStyle = xlStyle with { Border = xlBorder };
-        return xlStyle;
-    }
-
-    private static XLStyleKey LoadStyleFont(uint fontId, Fonts fonts, XLStyleKey xlStyle)
-    {
-        var font = (Font)fonts.ElementAt((int)fontId);
-        var xlFont = OpenXmlHelper.FontToXLibur(font, xlStyle.Font);
-        xlStyle = xlStyle with { Font = xlFont };
-        return xlStyle;
-    }
-
-    private static XLStyleKey LoadStyleNumberFormat(CellFormat cellFormat, NumberingFormats? numberingFormats,
-        XLStyleKey xlStyle)
-    {
-        var numberFormatId = cellFormat.NumberFormatId;
-
-        var formatCode = string.Empty;
-        var numberingFormat =
-            numberingFormats?.FirstOrDefault(nf =>
-                ((NumberingFormat)nf).NumberFormatId != null &&
-                ((NumberingFormat)nf).NumberFormatId!.Value == numberFormatId!) as NumberingFormat;
-
-        if (numberingFormat != null && numberingFormat.FormatCode != null)
-            formatCode = numberingFormat.FormatCode.Value!;
-
-        var xlNumberFormat = xlStyle.NumberFormat;
-        if (formatCode.Length > 0)
-        {
-            xlNumberFormat = XLNumberFormatKey.ForFormat(formatCode);
-        }
-        else
-            xlNumberFormat = xlNumberFormat with { NumberFormatId = (int)numberFormatId!.Value };
-
-        return xlStyle with { NumberFormat = xlNumberFormat };
     }
 
     // Exact power-of-10 divisors for up to 18 fraction digits. Using these instead of

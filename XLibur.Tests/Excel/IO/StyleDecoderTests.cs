@@ -256,10 +256,16 @@ public class StyleDecoderTests
     }
 
     /// <summary>
-    /// A &lt;border diagonalUp="1"/&gt; with no &lt;diagonal&gt; child decodes one way through
+    /// A &lt;border diagonalUp="1"/&gt; with no &lt;diagonal&gt; child decoded one way through
     /// BorderToXLibur (flags read only inside the &lt;diagonal&gt; guard) and another through
-    /// LoadBorder (flags read unconditionally). One of the two is wrong per ECMA-376 CT_Border;
-    /// spec 28 task 3 decides which.
+    /// LoadBorder (flags read unconditionally).
+    /// <para>
+    /// Spec 28 task 3 settled it towards the schema: ECMA-376 Part 1 §18.8.4 declares
+    /// <c>diagonalUp</c> and <c>diagonalDown</c> as attributes of the <c>border</c> element, not
+    /// as part of its <c>diagonal</c> child, so the unconditional read is correct and the guard was
+    /// the bug. Only that one rule now exists — this test compares the surviving mutating decoder
+    /// against <see cref="StyleDecoder.BorderKey"/> and they must agree.
+    /// </para>
     /// </summary>
     [Test]
     [Arguments(true, false)]
@@ -273,7 +279,7 @@ public class StyleDecoderTests
             DiagonalDown = down,
         };
 
-        var throughKeyPath = OpenXmlHelper.BorderToXLibur(border, XLBorderValue.Default.Key);
+        var throughKeyPath = StyleDecoder.BorderKey(border, XLBorderValue.Default.Key);
 
         var mutated = XLStyle.CreateEmptyStyle();
         OpenXmlHelper.LoadBorder(border, mutated.Border);
@@ -281,6 +287,29 @@ public class StyleDecoderTests
 
         await Assert.That(throughKeyPath.DiagonalUp).IsEqualTo(throughMutatingPath.DiagonalUp);
         await Assert.That(throughKeyPath.DiagonalDown).IsEqualTo(throughMutatingPath.DiagonalDown);
+
+        // ...and they must agree on the value the file actually stated, not merely with each other.
+        await Assert.That(throughKeyPath.DiagonalUp).IsEqualTo(up);
+        await Assert.That(throughKeyPath.DiagonalDown).IsEqualTo(down);
+    }
+
+    /// <summary>
+    /// The evidence the diagonal decision rests on, pinned rather than asserted in prose: the SDK's
+    /// element model is generated from the ECMA-376 schema, and it serializes <c>diagonalUp</c> and
+    /// <c>diagonalDown</c> as attributes on <c>&lt;border&gt;</c> itself. An attribute of
+    /// <c>border</c> is a sibling of the <c>&lt;diagonal&gt;</c> child element, so nothing ties
+    /// reading the flags to that child being present. See the remarks on
+    /// <see cref="StyleDecoder.BorderKey"/>.
+    /// </summary>
+    [Test]
+    public async Task The_diagonal_flags_are_attributes_of_border_not_of_its_diagonal_child()
+    {
+        var border = new Border { DiagonalUp = true, DiagonalDown = true };
+
+        // <x:border diagonalUp="1" diagonalDown="1" /> - both on the border element itself, and no
+        // <diagonal> child in sight.
+        await Assert.That(border.OuterXml).Contains("<x:border diagonalUp=\"1\" diagonalDown=\"1\"");
+        await Assert.That(border.Elements<DiagonalBorder>().Any()).IsFalse();
     }
 
     /// <summary>
