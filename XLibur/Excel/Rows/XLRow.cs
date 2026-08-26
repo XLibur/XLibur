@@ -483,10 +483,8 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         return Unhide();
     }
 
-    public int CellCount()
-    {
-        return RangeAddress.LastAddress.ColumnNumber - RangeAddress.FirstAddress.ColumnNumber + 1;
-    }
+    /// <summary>A row holds one cell per column in the sheet.</summary>
+    public int CellCount() => ColumnCount();
 
     public new IXLRow Sort()
     {
