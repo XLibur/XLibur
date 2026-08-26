@@ -5,7 +5,8 @@
 **Dependencies:** None. Conflicts with any in-flight work in `XLibur/Excel/IO/ChartFormatting.cs`
 (spec 10's territory) and `XLibur/Excel/IO/PictureWriter.cs`. Spec 10's open 3D follow-on lives in
 `ChartWriter.cs` and does **not** conflict with this spec.
-**Status:** Proposed. **Hard prerequisite for spec 15** (shapes & text boxes).
+**Status:** ✅ **Done** — PR #401 (task 1), PR #402 (tasks 2 and 3). See Results.
+**Was a hard prerequisite for spec 15** (shapes & text boxes), which is now unblocked.
 
 ## Summary
 
@@ -130,3 +131,132 @@ Tasks 2 and 3 are independent of each other once 1 lands.
 - **Canonicalization is deceptively hard** (namespace prefixes, `xml:space`, attribute ordering, the
   SDK's own normalization). Task 1 is sized M for this reason and its "deliberately broken mutation"
   check exists to prove the harness detects what it claims to.
+
+## Results
+
+**Done.** Task 1 shipped as PR #401; tasks 2 and 3 together as PR #402. `main` at `62b41f79`.
+
+| Task | Delivered | PR |
+|---|---|---|
+| 1 | `XmlChangeSet`, `GoldenCorpus`, 11 golden fixtures, 13 self-tests, 2 retrofits | #401 |
+| 2 | `DrawingAnchorFactory`, `DrawingAnchorGeometry`, `DrawingUnits`; `PictureWriter` net −129 lines | #402 |
+| 3 | `ShapePropertiesWriter`; `ChartSeriesFormatXml` net −69 lines | #402 |
+
+All six acceptance criteria met. `PublicAPI.Unshipped.txt` untouched — every added type is
+`internal`. The nine `patch-*` and two `pictures-*` goldens are byte-identical after both refactors.
+No test was modified except the two retrofitted in task 1, and the solution suite stayed at 29,146
+across net8.0 and net10.0 — the same count before and after, so nothing was added, removed or
+quietly skipped.
+
+### Four things the spec got wrong, and what they cost
+
+**1. The extraction targets had already moved.** The spec's line references are from `dfd5f49b`
+(2026-08-01). Spec 22 deleted `ChartFormatting.cs` between the spec being written and being run, so
+every `ChartFormatting.cs:NNNN` citation is dead. The setters live in
+`Charts/ChartSeriesFormatXml.cs`; ordering is in `Charts/ChartElementOrder.cs`.
+
+**2. A golden corpus already existed.** Spec 22 shipped `ChartGoldenCorpus` plus eight fixtures,
+pinning the path that *builds a new chart*. This re-scoped task 1(b): the real gaps were the
+**patch** path and the **drawing part**, which nothing pinned — precisely what tasks 3 and 2 rewrite.
+Capturing what the formatting tests already exercised would have been near-worthless.
+
+**3. Tasks 2 and 3 are not independent.** True of the design — they touch `PictureWriter` and
+`ChartSeriesFormatXml` respectively — but false of the implementation. Both needed the same units
+helper, task 2 introduced `DrawingUnits`, and task 3 extends it. Task 3 does not compile without
+task 2. They were raised as one PR for this reason.
+
+**4. The three anchor blocks were more alike than described.** The spec says they differ in "the
+`xdr:pic` payload and marker sources". Diffed line by line, the payload regions are **byte-for-byte
+identical** — only the anchor element varies. That is what allowed the picture to be built once and
+passed in as `content`, and it is what makes the factory reusable for `xdr:sp` without change.
+
+### Two items on the extraction list deliberately did not move
+
+`AppendBeforeExtensionList` names `C.ExtensionList`, a **chart-namespace** type. Moving it into
+`DrawingML/` would have put a chart type into a shared signature — the same category of error as a
+flags enum, and a contradiction of criterion 4's intent.
+
+`InsertAfterLastOf` could have moved, but `ChartElementOrder.InsertOrdered` — introduced by spec 22
+*after* this spec was written — is a strictly better generalisation of both helpers, with per-parent
+order tables the sibling chart modules already use. Moving the older helper would have left the tree
+with **three** ordering implementations instead of two. The correct follow-up is chart-side: fold
+`ChartSeriesFormatXml`'s two older helpers onto `InsertOrdered`. It is not free — it needs a
+`MarkerChildOrder` table and care at eight call sites, because the two mechanisms differ in their
+fallback (`InsertAfterLastOf` inserts at index 0, `InsertOrdered` appends).
+
+### The harness was proven, not asserted
+
+Task 1's brief required the change-set assertions to fail on a deliberate extra mutation. A real one
+was introduced into `ChartPatcher.PatchChart` — flipping `c:plotVisOnly` on every patched chart. Both
+retrofitted tests failed and **named the line**:
+
+```
++ 3: modified /c:chartSpace[1]/c:chart[1]/c:plotVisOnly[1] @val: '1' -> '0'
+```
+
+Nine of the eleven goldens failed with it. The mutation was reverted; a permanent self-test covers
+the same property so the guarantee does not depend on repeating the demonstration.
+
+Two design decisions came out of building it:
+
+- **The SDK does not re-serialize a part until something touches a child.** The criterion-5 test
+  initially passed vacuously, because `new C.ChartSpace(xml).OuterXml` hands the raw input straight
+  back. It now touches `ChildElements` and asserts the bytes really changed *before* asserting the
+  change set is empty. That asymmetry — an unread part keeps its bytes, a read one does not — is
+  itself why byte comparison cannot do this job, and it matters for spec 15's fidelity tiers.
+- **Assertions compare text blocks, not collections.** An earlier version used TUnit's
+  `IsEquivalentTo` and failed with `collection has 3 items but expected 2`, never naming the extra
+  change — which defeats the instrument.
+
+### Positional identity: a documented limitation, not a defect
+
+Review of PR #401 asked for same-name sibling sequences to be aligned before ordinals are assigned,
+keyed on something stable such as `c:ser/c:idx`. The behaviour is real: inserting or removing a
+`c:ser` ahead of its siblings renumbers the rest, so each is reported as taking on its predecessor's
+content plus one addition at the end of the run.
+
+**The remedy was declined, and the reason is the harness's whole purpose.** Positional identity can
+make a change set *louder* than the edit was; it cannot make one **empty**, because an empty change
+set means every path in one document is present in the other with the same attributes, text and
+child order. This harness gates refactors that must change nothing — over-reporting costs a reader
+some time, under-reporting would be a false pass, and this cannot produce one.
+
+`c:ser/c:idx` as a key is also circular: it keys identity on a value an edit is allowed to change, so
+a `patch-*` fixture that legitimately renumbered a series would read as a series being replaced. And
+a general-purpose diff that must also handle drawings and, later, shapes should not carry one
+schema's knowledge. Proper alignment means a real sequence diff — a feature, not a fix.
+
+Four tests now pin the behaviour, including the boundary that matters: a **trailing** sibling
+insertion renumbers nothing, which is the case that arises when a drawing is appended to a part.
+
+### Loose ends
+
+- `SetOutlineColor(outline, null)` — clearing a series' line colour — has no test. Nothing in the
+  suite sets `LineColor = null`. It was equally untested before the extraction, so no path was added,
+  but it is now a named operation of a shared layer.
+- The `default:` arm of `DrawingAnchorFactory.Create` is unreachable without casting an out-of-range
+  integer to a three-member enum. A guard, not an operation.
+- `XLibur/Excel/Drawings/XLPictures.cs:294` still holds a third copy of the pixels→EMU conversion.
+- `XLibur.Excel.Coordinates.Emu` is **not** interchangeable with `DrawingUnits`: it stores `int` and
+  rounds away from zero where the drawing conversion rounds to even, so substituting one shifts
+  extents at `.5` boundaries. Both types cross-reference each other.
+- `TestInfrastructure.cs` still claims the test project has nullable off. It does not —
+  `Directory.Build.props:34` enables it unconditionally. The same false comment was removed from the
+  two files this spec added.
+- ~40 lines of resource plumbing are duplicated between `ChartGoldenCorpus` and `GoldenCorpus`.
+
+### What this unblocks
+
+Spec 15 named this spec a hard prerequisite and is now clear to start. What it inherits:
+
+- `XmlChangeSet` for its fidelity tiers, including the empty-change-set-on-reserialization property.
+- `DrawingAnchorFactory`, which takes its content element as a parameter — an `xdr:sp` needs no
+  change to it. **Read its `<remarks>` first:** the A1 marker fallbacks are contract, and a drawing
+  created `MoveAndSize` with neither marker set takes both at once.
+- `ShapePropertiesWriter` over `OpenXmlCompositeElement`, so `xdr:sp/spPr` uses the same
+  implementation as a chart series' `c:spPr`.
+
+Per the scope boundary, the operations spec 15 needs that charts never perform — an explicit
+`a:noFill`, `a:prstDash` — were **not** added here. Spec 15's task 3 adds them under its own
+change-set tests. Spec 15's task 2 still owns the `SetRichText` extraction, now at
+`Charts/ChartTitleXml.cs:144`.

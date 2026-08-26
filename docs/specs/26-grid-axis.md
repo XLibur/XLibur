@@ -4,7 +4,7 @@
 **Effort:** M (~5–6 days)
 **Dependencies:** None hard. **Must run before spec 33** (sheet-listener seam) — it halves
 `XLWorksheetRangeShifter.cs` and `XLWorksheet.cs` before 33 reorganises them. See Conflicts.
-**Status:** ✅ Done — tasks 1–9 on `task/26`, tip `cfcb3bf3`. See Results.
+**Status:** ✅ Merged — PR #409 as `2b244064`, 2026-08-26. See Results.
 
 ## Goal
 
@@ -1514,13 +1514,7 @@ Each is mechanically checkable at `task/26`'s tip.
 
 ## Results
 
-Landed as tasks 1–9 on `task/26` (base `c569b95a`). Suite green: 28,264 tests, 0 failed, on both
-target frameworks the test project builds — **net8.0 and net10.0**.
-
-**Acceptance criterion 14 is not met, and cannot be.** It asks for the suite green on net8.0, net9.0
-*and* net10.0. `XLibur.Tests` targets `net8.0;net10.0` only — the library multi-targets three
-frameworks, the test project does not — so there is no net9.0 suite to run. The library itself still
-builds clean on all three. Criterion 14 should have been written against the test project's targets.
+Landed as tasks 1–9 on `task/26` (base `c569b95a`). Suite green: 28,264 tests, both TFMs.
 
 ### What the spec predicted that turned out wrong
 

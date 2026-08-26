@@ -19,9 +19,9 @@ code, uncaught**, plus a fifth inherited from upstream:
 | 26 | `GetMaxRowOutline` guards the unfiltered count | `XLOutlineTracker.cs:62-65` vs `:35-39` | Latent: group-then-ungroup leaves a dictionary of zeroes and `.Max()` throws on an empty sequence. **Fixing the defect above makes it reachable on every save** — the two must land in one commit |
 | 26 | `XLColumn.CellCount()` always returns 1 | `XLColumn.cs:404-407` character-identical to `XLRow.cs:486-489` | Returns 1 instead of 1,048,576 |
 | 28 | Conditional-format fonts drop **three** fields | `LoadFont:202` searches the `<x:rPr>` spellings (`RunFont`, `FontFamily`, no charset) while its three callers all pass a `Font` — unrelated CLR types, no inheritance | Font name, family numbering and charset are silently lost on load. The writer emits all three, so they reach the file and die on the way back |
-| 28 | Three dxf callers read different subsets of `CT_Dxf` | alignment read by 1 of 3, protection by none; `WorkbookStylesPartWriter.FillDifferentialFormatsCollection:488-505` decodes dxfs to build the *reuse map* | An alignment-bearing pivot dxf never matches its own entry, so a duplicate dxf is appended **on every save**. Premise — spec 28 carries a counting test to confirm |
-| 29 | Two spellings of a frozen pane | `SheetViewWriter.cs:124` `frozenSplit` vs `XLStreamingWorksheet.cs:502` `frozen` | Same API call, different XML per write path. **The DOM path is the bug**: of the `<pane>` tags in the 395 test fixtures, 27 across 10 files say `frozen` and only 3 say `frozenSplit`, all three split-then-freeze |
-| 33 | Four sheet features never move on a structural edit | **Measured**, not inferred: after `InsertRowsAbove(3)` + `InsertColumnsBefore(2)`, chart `Position` stays at row 10/col 3 (should be 13/5), note `Position` at row 9 (should be 12), `SplitRow`/`SplitColumn` at 5/4 (should be 8/6), pivot `Area` at `D10` (should be `D13`) | The control — a picture — passes, **because it allocates a range it does not want purely to get shifted** (`XLMarker.cs:10-12`). Notes are half-broken: `Cell("C13").HasComment` is `true` while the callout anchor stays at row 9 |
+| 28 | Three dxf callers read different subsets of `CT_Dxf` | alignment read by 1 of 3, protection by none; `WorkbookStylesPartWriter.FillDifferentialFormatsCollection:488-505` decodes dxfs to build the *reuse map* | ✅ Fixed — all six children now read everywhere. **The growth premise was DISPROVED**: `<dxfs>` measured 1,1,1,1 across four saves. `AddDifferentialFormats` calls `RemoveAllChildren()` on the line before, so the reuse map is always empty and can never miss. See DEFECTS D12 |
+| 29 | ~~Two spellings of a frozen pane~~ | ~~`SheetViewWriter.cs:124` `frozenSplit` vs `XLStreamingWorksheet.cs:502` `frozen`~~ | **Fixed 2026-08-27.** Both paths resolve through `XLPaneSettings` and write `frozen`; the DOM path also stopped writing `xSplit="0"` for an unsplit axis, which task 1 confirmed it was doing. Four XLibur-authored fixtures pinned the old form and were regenerated |
+| 33 | ~~Four sheet features never move on a structural edit~~ | **Measured**, not inferred: after `InsertRowsAbove(3)` + `InsertColumnsBefore(2)`, chart `Position` stayed at row 10/col 3 (should be 13/5), note `Position` at row 9 (should be 12), `SplitRow`/`SplitColumn` at 5/4 (should be 8/6), pivot `Area` at `D10` (should be `D13`) | ✅ **Fixed 2026-08-27.** All four move. The control — a picture — passed **because it allocated a range it did not want purely to get shifted**; that workaround is gone and the picture now moves through the same seam, its behaviour pinned first so the move was a proof. Three new defects fell out: D15, D16, D17. See spec 33's Results |
 | 30 | Per-element array arguments discarded | `FunctionDefinition.cs:106-118` builds `itemArg`, calls `_function(ctx, args)` at `:117` | `POWER({2,3,4},{1,2,3})` → `2,2,2` not `2,9,64`; worksheet references affected too, not just literals. **261 of 265 scalar-flagged registrations.** Second presentation: `ToText:1257` has no `[0,0]` branch where `ToNumber:1243` does, so text functions *throw* instead of mis-answering |
 
 None of the five is caught by a test, because in each case the two implementations sit either side of
@@ -35,40 +35,45 @@ the test surface; where it has two, nothing sits at the seam to assert they agre
 
 | Spec | Title | Effort | Blocked by | Status |
 |---|---|---|---|---|
-| [26](26-grid-axis.md) | Give the grid one axis | L | — | ✅ **Done** (see Results) |
+| [26](26-grid-axis.md) | Give the grid one axis | L | — | ✅ **Merged** (#409; see Results) |
 | [27](27-font-conformance-suite.md) | One font conformance module | S–M | — | ⬜ Ready |
-| [28](28-single-style-decoder.md) | One OOXML style decoder | M | — | ⬜ Ready |
-| [29](29-write-path-resolvers.md) | One resolver per emitted element | M | — | ⬜ Ready |
+| [28](28-single-style-decoder.md) | One OOXML style decoder | M | — | ✅ **Merged** (#411; see Results) |
+| [29](29-write-path-resolvers.md) | One resolver per emitted element | M | — | ✅ Done |
 | [30](30-array-application-seam.md) | Array application gets an interface | S–M | — | ⬜ Ready |
 | [31](31-worksheet-element-writers.md) | Worksheet element writers get one interface | M–L | **29** | ⬜ Blocked |
 | [32](32-function-argument-spec.md) | Collapse the 61-overload registration | L | **30** | ⬜ Blocked |
-| [33](33-sheet-listener-seam.md) | Every sheet feature reacts through one seam | M–L | 26 ✅ | ⬜ **Ready** |
+| [33](33-sheet-listener-seam.md) | Every sheet feature reacts through one seam | M–L | 26 ✅ merged | ✅ **Done** (2026-08-27; see Results) |
 | [34](34-font-port-split.md) | Split the font port: mechanism vs policy | M | **27** | ⬜ Blocked |
 
-### Spec 26 — Grid axis ✅ Done
+### Spec 26 — Grid axis ✅ Merged (#409)
 
 Defect fixes land first, each with the test that would have caught it. Then the collapse, pattern-setter first.
-Nine commits on `task/26`, base `c569b95a`, tip `cfcb3bf3`. Suite green: 28,264 tests, both TFMs.
+Merged as `2b244064` on 2026-08-26 (squash). Base `c569b95a`, branch tip `c3d23b1a`. Suite green: 28,264 tests, both TFMs.
 **See the spec's [Results](26-grid-axis.md#results)** — three acceptance criteria were not met and the
 reasons matter more than the misses.
 
-- [x] **26.1** Round-trip test: row grouping emits `@outlineLevelRow` — `021082fd` — PR #___
-- [x] **26.2** Fix the outline call **and** `GetMaxRowOutline`'s empty-sequence crash — `021082fd` — PR #___
+- [x] **26.1** Round-trip test: row grouping emits `@outlineLevelRow` — `021082fd` — PR #409
+- [x] **26.2** Fix the outline call **and** `GetMaxRowOutline`'s empty-sequence crash — `021082fd` — PR #409
       *26.1 and 26.2 landed as one commit. The board split the test from the fix; the spec's own work plan
       does not, and its gate is "new round-trip test green". Only two of the four cases fail before the
       fix — defect 1b is genuinely latent, as the spec says.*
-- [x] **26.3** Fix `XLColumn.CellCount()`; pin both axes — `4287319e` — PR #___
-- [x] **26.4** `GridAxisSymmetryTests` transpose gate; prove it bites under mutation — `557e0898` — PR #___
+- [x] **26.3** Fix `XLColumn.CellCount()`; pin both axes — `4287319e` — PR #409
+- [x] **26.4** `GridAxisSymmetryTests` transpose gate; prove it bites under mutation — `557e0898` — PR #409
       *The gate as specified did not bite — it passed under the spec's own `ShiftRowHeights` mutation.
       Strengthened with an entire-line-range case before it would fail. See Results.*
-- [x] **26.5** `IGridAxis` + collapse `XLRangeInsertHelper` (226 → 139 lines) — `ae59a8af` — PR #___
-- [x] **26.6** Collapse `XLRangeShiftHelper` (144 → 93 lines) — `c4d7c6df` — PR #___
-- [x] **26.7** Collapse `XLRangeBase`'s two insert blocks — `c7960715` — PR #___
-- [x] **26.8** Collapse `XLWorksheet`'s shift-notification pass; pin page-break/sparkline ordering — `4358822e` — PR #___
-- [x] **26.9** Collapse `XLWorksheetRangeShifter`'s six mirror pairs (320 → 222 lines) — `e044eaeb` — PR #___
-- [x] **26.10** Cost, and the changelog — `cfcb3bf3` — PR #___
+- [x] **26.5** `IGridAxis` + collapse `XLRangeInsertHelper` (226 → 139 lines) — `ae59a8af` — PR #409
+- [x] **26.6** Collapse `XLRangeShiftHelper` (144 → 93 lines) — `c4d7c6df` — PR #409
+- [x] **26.7** Collapse `XLRangeBase`'s two insert blocks — `c7960715` — PR #409
+- [x] **26.8** Collapse `XLWorksheet`'s shift-notification pass; pin page-break/sparkline ordering — `4358822e` — PR #409
+- [x] **26.9** Collapse `XLWorksheetRangeShifter`'s six mirror pairs (320 → 222 lines) — `e044eaeb` — PR #409
+- [x] **26.10** Cost, and the changelog — `cfcb3bf3` — PR #409
+- [x] **26.x** Unplanned: line-size shifting addressed past the sheet edge — `12e922a9` — **PR #410**
+      *Split onto its own branch, not folded into 26. Present identically in `ShiftRowHeights` and
+      `ShiftColumnWidths` — the spec-26 thesis in miniature. A line pushed off the sheet drops its
+      size rather than clamping, matching what happens to its contents.*
       *Not on this board originally; it is the spec's task 9. Allocations fell 12–50% rather than holding
       flat, and the first measurement caught a boxing bug the spec's criterion-9 grep cannot see.*
+- [ ] **26.10** Confirm allocation cost unchanged *(revert authority — see below)* — PR #___
 
 **Design constraint from spec 21.** `Point` packs row and column into one `ulong`, and 21 measured a
 **+60%** penalty for embedding an enumerator struct by value. So 26 prescribes
@@ -100,25 +105,51 @@ guessed: all three known constants are exact em fractions (15/16, 5/8, 1038/2048
 calling `SkiaSharpFontBootstrap.Register()` silently no-ops and the "SkiaSharp pass" runs V1 while
 reporting green. Assign `LoadOptions.DefaultFontEngine` directly and assert which engine is in force.
 
-### Spec 28 — Single style decoder ⬜ Ready
+### Spec 28 — Single style decoder ✅ Merged (#411)
 
 Tasks 3 and 4 both edit the decoder. Sequential, one owner.
+Merged as `17d74943` on 2026-08-26 (squash). Base `c569b95a`, branch tip `c89d3e04`. Suite green: 28,292 tests, both TFMs.
+**See the spec's [Results](28-single-style-decoder.md#results)** — one premise was disproved, one
+acceptance gate does not read 0, and the reasons matter.
 
-- [ ] **28.1** Characterization test: conditional-format font keeps its charset *(lands failing)* — PR #___
-- [ ] **28.2** `StyleDecoder` with the five key functions, inert — PR #___
-- [ ] **28.3** Route the cellXfs path through it — PR #___
-- [ ] **28.4** Route the dxf path through apply-the-key; task 1 turns green — PR #___
-- [ ] **28.5** Unify the three numFmtId lookups — PR #___
-- [ ] **28.6** Lift the style entry points out of `WorksheetSheetDataReader` — PR #___
+- [x] **28.1** Characterization test: conditional-format font keeps its charset *(lands failing)* — `f3afe8ee` — PR #411
+      *Landed red as designed: 4 failing cases, named in the commit message. The third premise —
+      dxf table growth — was DISPROVED and its test passed from the start; see Results.*
+- [x] **28.2** `StyleDecoder` with the seven key functions, inert — `3b16b5f6` — PR #411
+      *The board said five; the spec's design block lists seven plus two `Decode` composites.
+      `RunFontKey` reads one field more than the decoder it replaced — it adds `<charset>`.*
+- [x] **28.3** Route the cellXfs path through it; settle the diagonal — `a36c7ca4` — PR #411
+      *ECMA-376 §18.8.4: the flags are attributes of `border`, so the unconditional read wins. The
+      diagonal test went green here rather than in task 4 — the decision alone settles it.*
+- [x] **28.4** Route the dxf path through apply-the-key; task 1 turns green — `f25034f9` — PR #411
+      *Also lands the spec's task 6 step 3 (phonetics), because deleting `LoadFont` forced it.
+      Closes two defects the spec did not name — see Results.*
+- [x] **28.5** Unify the three numFmtId lookups — `bca2ef3d` — PR #411
+      *Both candidate answers for the `Format` string pass the whole suite; the choice is pinned by
+      a test rather than left implicit.*
+- [x] **28.6** Lift the style entry points out of `WorksheetSheetDataReader` — `41c19478` — PR #411
+      *Acceptance criterion 6's grep returns 1, not 0 — a qualified call, not a declaration, and
+      one the spec's own task 6 step 4 expects to survive. Not worked around.*
+- [x] **28.7** Confirm load is not slower; changelog — `c89d3e04` — PR #411
+      *Not on this board originally; it is the spec's task 7. No allocation increased on any of six
+      benchmarks.*
+- [x] **28.x** Unplanned: cellXf fill decodes against the default fill, not the inherited one — `ffeea134` — PR #411
+      *Found re-reading the port against the original branch by branch. Latent, not live.*
 
-### Spec 29 — Write-path resolvers ⬜ Ready
+### Spec 29 — Write-path resolvers ✅ Done (2026-08-27)
 
-- [ ] **29.1** Cross-path agreement harness *(lands failing on the pane state)* — PR #___
-- [ ] **29.2** Decide and fix `frozen` vs `frozenSplit`; task 1 turns green — PR #___
-- [ ] **29.3** `XLPaneSettings`; both paths onto it — PR #___
-- [ ] **29.4** `XLColumnSettings`; both paths onto it — PR #___
-- [ ] **29.5** Narrow the streaming path's fabricated `SaveContext` — PR #___
-- [ ] **29.6** Assess `<sheets>` and styles.xml; fold in or record why not — PR #___
+- [x] **29.1** Cross-path agreement harness *(landed failing on the pane state)* — `7c57efd8`
+- [x] **29.2** Decide and fix `frozen` vs `frozenSplit`; task 1 turns green — `bce00355`
+- [x] **29.3** `XLPaneSettings`; both paths onto it — `ba6a206b` (+ `4f9f92cf`, four fixtures)
+- [x] **29.4** `XLColumnSettings`; both paths onto it — `67193e8e`
+- [x] **29.5** Narrow the streaming path's fabricated `SaveContext` — `8596b08f`
+- [x] **29.6** Assess `<sheets>` and styles.xml; fold in or record why not — **recorded: no resolver
+  for either**, with line references in the spec's Results
+- [x] **29.7** Confirm streaming's bounded memory — 107.9 MB / 14.0 MB, identical to spec 01
+
+Branch `refactor/29-write-path-resolvers`, not yet opened as a PR. Suite green on both TFMs:
+28,358 tests, 0 failed. Found and recorded **D18** on the way (an unfrozen split pane is lost on
+load, and any split is written back as a freeze) — not fixed, it needs a public API change.
 
 ### Spec 30 — Array application seam ⬜ Ready
 
@@ -171,15 +202,23 @@ corpus must include loaded-file fixtures.
 - [ ] **32.N+1** Delete the 61 overloads and the `RegisterFunction` tail — PR #___
 - [ ] **32.N+2** Confirm no regression — PR #___
 
-### Spec 33 — Sheet listener seam ⬜ Blocked on 26
+### Spec 33 — Sheet listener seam ✅ Done (2026-08-27)
 
-- [ ] **33.1** Characterization tests for all **17** features, including the four that do not move — PR #___
-- [ ] **33.2** `GetSheetListeners()`; two existing adapters through it; order pinned — PR #___
-- [ ] **33.3** Convert the six hardcoded features — PR #___
-- [ ] **33.4** Chart and note anchors become adapters *(behaviour change)* — PR #___
-- [ ] **33.5** Freeze/split panes and pivot `Area` become adapters *(behaviour change)* — PR #___
-- [ ] **33.6** Delete the `XLMarker` range-smuggling workaround — PR #___
-- [ ] **33.7** Confirm structural-edit cost unchanged — PR #___
+- [x] **33.1** Characterization tests for all **17** features, including the four that do not move — `52884707`
+- [x] **33.2** `GetSheetListeners()`; two existing adapters through it; order pinned — `09fb426f`
+- [x] **33.3** Convert the six hardcoded features — `302a85ea`
+- [x] **33.4** Chart and note anchors become adapters *(behaviour change)* — `105ff94a`
+- [x] **33.5** Freeze/split panes and pivot `Area` become adapters *(behaviour change)* — `3263ee4e`
+- [x] **33.6** Delete the `XLMarker` range-smuggling workaround — `d2e25f3a`
+- [x] **33.7** Confirm structural-edit cost unchanged — `335a8e97`
+
+**Outcome.** `XLWorksheetRangeShifter` 222 → 65 lines and names no feature; 11 types implement the
+port, up from 2; all four dead features move. Full suite green on net8.0 and net10.0, five assertions
+deliberately reversed and renamed, no other test changed. Structural-edit profile: full workload
++1.1% time, −4.5% bytes on medians of three runs — within noise. Three defects recorded (D15, D16,
+D17) and one criterion reported as unreachable (≥12 adapter types; the design lists 11). Task 7
+caught a real regression it had introduced — the note pass materialised an `XLCell` per used cell on
+every edit — and it was fixed at source rather than by caching the listener list.
 
 **Scale, corrected by the spec's own grep:** structural-edit knowledge spans **20 files and 76
 methods**, and there are **17** sheet-scoped features, not the ~16 the review estimated — sparklines
@@ -209,14 +248,14 @@ and instructions to narrow the port back if it does.
 
 ```mermaid
 flowchart LR
-  S26["spec 26<br/>grid axis"]:::ready
+  S26["spec 26<br/>grid axis"]:::done
   S27["spec 27<br/>font conformance"]:::ready
-  S28["spec 28<br/>style decoder"]:::ready
+  S28["spec 28<br/>style decoder"]:::done
   S29["spec 29<br/>write-path resolvers"]:::ready
   S30["spec 30<br/>array application"]:::ready
   S31["spec 31<br/>worksheet element writers"]:::blocked
   S32["spec 32<br/>function argument spec"]:::blocked
-  S33["spec 33<br/>sheet listener seam"]:::blocked
+  S33["spec 33<br/>sheet listener seam"]:::done
   S34["spec 34<br/>font port split"]:::blocked
 
   S26 -->|"hard: XLWorksheetRangeShifter.cs<br/>XLWorksheet.cs"| S33
@@ -225,6 +264,7 @@ flowchart LR
   S30 -->|"hard: FunctionDefinition.cs<br/>semantics"| S32
   S28 -.->|"soft: WorkbookStylesPartWriter.cs<br/>different regions"| S29
 
+  classDef done fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px;
   classDef ready fill:#d1fae5,stroke:#059669,stroke-width:2px;
   classDef blocked fill:#fef3c7,stroke:#d97706,stroke-width:2px;
 ```
@@ -581,7 +621,7 @@ Inherited from `docs/specs/README.md`; repeated here so a brief is self-containe
 | **30** | `{=SIGN({-1,2,0})}` yields `{-1,1,0}`; one entry point on `FunctionDefinition`; the per-element span is a parameter |
 | **31** | `GetWorksheetDom` names no writer individually; one `IXLWorksheetElementWriter` list; one owner for extLst; worksheet XML byte-identical |
 | **32** | Zero `Adapt*` overloads remain; `RegisterFunction` takes an `ArgSpec[]`; no measured regression — **or** a recorded measurement explaining why the work stopped |
-| **33** | `XLWorksheetRangeShifter` names no feature individually; ≥12 `ISheetListener` adapters; a chart anchored below an inserted row moves; `XLMarker` holds a `Point` |
+| **33** | ✅ Met, with one exception reported: `XLWorksheetRangeShifter` names no feature individually; a chart anchored below an inserted row moves, in memory and through a round trip; `XLMarker` holds a `Point`. **"≥12 adapters" is unreachable at 11** — that is what the spec's own design section lists, and nothing was split in two to reach a number (the criterion's other gate, the file count from `grep -rl 'ISheetListener'`, does return 12, because it matches the interface's own file) |
 | **34** | `IXLFontEngine` unchanged; three adapters implement `IXLTypefaceSource`; the 145 three-way and 229 V1↔v2 duplicated lines gone; one documented fallback chain with the last-resort family a declared parameter |
 
 Across all nine: full suite green on net8.0 and net10.0, and **no existing test assertion weakened**
@@ -589,6 +629,10 @@ Across all nine: full suite green on net8.0 and net10.0, and **no existing test 
 spec 30 task 3 (tests that pinned the array defect), spec 26 tasks 2–3 (tests that would have pinned
 the outline and cell-count defects, if any exist), spec 29 task 2 (the pane-state spelling), and
 spec 33 tasks 4–5 (features that did not move and now do).
+
+Spec 33 reversed **five**, not four: the fifth is in task 6, where a picture anchor under a delete
+starting on its own leading row went from throwing to clamping (D16). Each of the five is named in
+its commit body and listed in spec 33's Results.
 
 **Public API:** specs 26, 28, 29, 30, 31, 32 and 33 make no public API change
 (`PublicAPI.Unshipped.txt` untouched). Spec 27 adds a test-only project. Spec 34 adds

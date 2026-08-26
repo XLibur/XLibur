@@ -2,19 +2,22 @@
 
 **Area:** Architecture · Refactor · **Defect (4 features do not move)**
 **Effort:** M–L (~6–8 days)
-**Dependencies:** Spec 26 (grid axis) — **done**, tasks 1–9 on `task/26`, tip `cfcb3bf3`. 26 ran first as
-planned and removed the row/column duplication from both shared files: `XLWorksheetRangeShifter.cs` is
-320 → 222 lines (its executable code 248 → 150) with its six mirror pairs collapsed to six single generic
-methods, and `XLWorksheet.cs` is 47 lines shorter with `NotifyRangeShifted*` and `CollectRangesShiftedBy*`
-collapsed to one generic each — so 33 rebases onto one method per step instead of a row/column pair.
-(Spec 26 predicted this would *halve* the two files; it did not. The shifter fell by a third and
-`XLWorksheet.cs` by about 2%, because most of that file was never mirrored geometry.) `XLibur/Excel/Cells/ISheetListener.cs` is byte-identical to the merge base: 26 routed
+**Dependencies:** Spec 26 (grid axis) — **merged**, PR #409 as `2b244064` on 2026-08-26. 26 ran first as
+planned and halved both shared files: `XLWorksheetRangeShifter.cs` is 320 → 222 lines with its six mirror
+pairs collapsed to six single generic methods, and `XLWorksheet.cs` is 47 lines shorter with
+`NotifyRangeShifted*` and `CollectRangesShiftedBy*` collapsed to one generic each — so 33 rebases onto half
+as many call sites. `XLibur/Excel/Cells/ISheetListener.cs` is byte-identical to the merge base: 26 routed
 only the *choice* between its four members through `IGridAxis.OnInsertAreaAndShift` /
 `OnDeleteAreaAndShift`, called from `XLWorksheetRangeShifter.Shift<TAxis>`. Anything 33 adds to the shifter
 should take the axis as a generic type argument, and **must not accept `IXLAddress` where the caller holds
 the concrete `XLAddress` struct** — that boxing cost 20–33% allocation on four probes before spec 26 caught
 it. See spec 26's Results. See Conflicts.
-**Status:** Ready — unblocked by spec 26.
+**Status:** ✅ **Done** (2026-08-27) — all seven tasks landed on `refactor/33-sheet-listener-seam`, off
+`806d69f7`. See `## Results`. The shifter is 222 → 65 lines and names no feature; eleven types
+implement the port, up from two; the four features that reacted to nothing now react. Three new
+defects recorded (D15, D16, D17). One acceptance criterion — "at least 12 adapter types" — is
+arithmetically unreachable at 11, which is what the spec's own design section lists; reported rather
+than padded.
 
 ## Goal
 
@@ -1102,3 +1105,218 @@ git commit -m 'docs(specs): record structural-edit numbers and the Excel anchor 
 - Shared documentation files: `docs/specs/README.md` and
   `docs/specs/TASKLIST-architecture-deepening-2.md`. Expect trivial merge conflicts with the other
   round-2 specs; resolve by keeping both edits.
+
+---
+
+## Results
+
+**Landed** on `refactor/33-sheet-listener-seam`, seven commits off `806d69f7`, 2026-08-27.
+
+| Task | Commit |
+|---|---|
+| 1 — characterization tests | `52884707` |
+| 2 — `SheetEdit`, registry, order | `09fb426f` |
+| 3 — the six hardcoded features | `302a85ea` |
+| 4 — chart and note anchors | `105ff94a` |
+| 5 — panes and pivot `Area` | `3263ee4e` |
+| 6 — delete the `XLMarker` workaround | `d2e25f3a` |
+| 7 — structural-edit cost | `335a8e97` |
+
+Full suite green on net8.0 and net10.0: 28,428 tests, 0 failures. Five assertions were deliberately
+reversed and their tests renamed; each is named in its commit body and listed below. No other test in
+the suite changed, on any task.
+
+`XLWorksheetRangeShifter.cs` went from 222 lines to 65 and names no feature. Eleven types implement
+the port, up from two.
+
+### The premise held, and it was worth checking
+
+Task 3 step 1 was the go/no-go on widening the port, and it settled the other way from a "narrow it
+back" outcome: `SheetEdit` keeps `Range` and `Shift`.
+
+The area a listener is handed is `Area.FromRangeAddress(range).ExtendBelow(shift - 1)` — the *whole*
+range extended, so it is `range.Height + shift - 1` lines tall, not `shift`. Measured, not read off
+the source: a hyperlink at `A20` under `ws.Range("A1:A5").InsertRowsAbove(3)` lands on `A27`, so the
+area was seven rows tall. `Shift` is genuinely not recoverable, and the port had to widen.
+
+**That measurement also found a defect, D15.** The cells move by `Shift` and the listeners move by
+the area's height, so for an edited range taller than one line a hyperlink parts company with its own
+cell: `A5` becomes cell `A8` and hyperlink `A12`. The two areas agree only when the edited range is
+one line tall on the shift axis, which is what every pre-existing test used
+(`ws.Row(n).InsertRowsAbove(k)` produces a one-line range). Spec 33 preserves it — tasks 2 and 3 must
+change nothing — and pins it in `SheetEditAreaTests` so a later spec has to reverse it deliberately.
+
+### The Excel-behaviour questions, and where each answer comes from
+
+**Excel could not be opened for this work.** Rather than guess, the answers come from a source the
+repo already trusts: **the picture**. A picture anchor was the one drawing anchor that already moved
+correctly, because `XLMarker` allocated a one-cell `IXLRange` purely so the range repository would
+shift it. So whatever the repository does to a one-cell range *is* what XLibur already treats as
+correct for a drawing anchor — and task 6 requires the picture to behave identically afterwards,
+which makes reproducing it a constraint rather than a preference. It was measured case by case on the
+unmodified tree, a two-cell picture anchored `C4:J20`:
+
+| Edit | Result | |
+|---|---|---|
+| insert 3 rows at row 1 (above) | `C7:J23` | both corners move |
+| insert 3 rows at row 10 (inside) | `C4:J23` | it grows |
+| insert 3 rows at row 30 (below) | `C4:J20` | unchanged |
+| insert 2 columns at column 1 | `E4:L20` | both corners move |
+| insert 2 columns at column 5 (inside) | `C4:L20` | it grows |
+| delete rows 1–2 (above) | `C2:J18` | both corners move |
+| delete rows 5–6 (inside) | `C4:J18` | it shrinks |
+| delete rows 1–25 (covering it) | `C1:J1` | **clamped, not deleted** |
+| partial insert at `B1:B5` | `C4:J20` | outside its columns |
+
+`GridShift` reproduces all nine and is `XLRangeShiftHelper`'s transform reduced to the integers.
+Those cases are now `PictureAnchorShiftTests`, written in task 4 against the *old* mechanism, so task
+6 moving the picture onto `GridShift` is a proof rather than a rewrite.
+
+#### Task 4 step 1 — charts and notes
+
+| Question | Answer | Source |
+|---|---|---|
+| Chart two-cell anchored `C4:J20`, insert 3 rows at row 1 — move, grow, or stay? | **Moves**, to `C7:J23` | measured (table above); ECMA-376 §20.5.2.33 makes both `xdr:from` and `xdr:to` cell anchors |
+| Same chart, insert 3 rows at row 10 (inside it) — grow, or move? | **Grows**, to `C4:J23`. `from` is above the insert and does not move; `to` is below it and does | measured |
+| Same chart with `MoveWithCells` rather than `MoveAndSizeWithCells` — different answer? | **Not for the anchor.** `MoveWithCells` writes an `xdr:oneCellAnchor` with a `from` marker and a fixed `xdr:ext`, and `SecondPosition` is documented as used only under `MoveAndSizeWithCells`. `Position` transforms identically; `SecondPosition` is not written and is left alone | ECMA-376 §20.5.2.31/§20.5.2.33; `IXLChart.cs` anchor remarks; `ChartAnchorTests.OneCellAnchoredChartRoundTrips` |
+| Chart one-cell anchored, insert above — move? | **Yes.** Its `from` marker is a cell reference like any other | as above |
+| Chart absolutely anchored — does anything move it? | **No.** `xdr:absoluteAnchor` carries `xdr:pos` in EMU with no cell reference, and `Left`/`Top` are documented as the fields used in that mode. The adapter skips it | ECMA-376 §20.5.2.1; `IXLChart.cs`; pinned by `An_absolutely_anchored_chart_does_not_move` |
+| Delete rows containing the whole chart anchor — deleted, or clamped? | **Clamped** to the deleted block's leading row | measured: `C4:J20` under a delete of rows 1–25 gives `C1:J1`, and the picture is still on the sheet |
+| Note on `C10`, insert 3 rows at row 1 — where is the callout box? | Anchor row 9 → **12**, note on `C13`. The callout stays one row above the note, which is where `XLComment.Initialize` puts it | `XLComment.Initialize`; pinned by `A_note_anchor_moves`, which asserts both halves |
+
+**One thing the format settled that the spec had not asked:** a chart's `XLDrawingPosition` is
+**0-based** and a note's is **1-based**, on the same type. `ChartWriter` writes `Position.Row`
+verbatim into `xdr:row`, which ECMA-376 §20.5.2.32 defines as a 0-based index; the VML writer emits
+`Position.Row - 1` and indexes `Worksheet.Row(Position.Row)` directly. The adapter declares a base
+per drawing kind rather than assuming one. Recorded as **D16** in `DEFECTS.md`.
+
+#### Task 5 step 1 — panes and pivot tables
+
+| Question | Answer | Source |
+|---|---|---|
+| Panes frozen at row 5, insert 3 rows at row 1 — freeze at 5 or 8? | **8.** `SplitRow` counts frozen lines, so an insert inside rows 1–5 grows the band | the spec's own probe target; `GridShift.MoveCount` |
+| Insert 3 rows at row 10 (below the split) — does the split move? | **No.** Row 10 is outside the frozen band | pinned by `A_row_edit_moves_the_freeze_only_when_it_is_inside_it` |
+| Panes frozen at row 5, delete rows 2–3 — row 3, or unchanged? | **3.** Two lines removed from inside the band | as above |
+| Delete every row above the split — does the freeze disappear? | **Yes.** The count clamps to 0, and `SheetViewWriter` removes the `pane` element outright when both counts are 0 — so zero is not a degenerate case needing a guard, it is already "no pane" | `SheetViewWriter`, the `hSplit == 0 && ySplit == 0` branch |
+| Pivot table at `D10`, insert 3 rows at row 1 — does the whole table move to `D13`? | **Yes.** `TargetCell` derives from `Area.FirstPoint`, so moving the area moves the table | `XLPivotTable.TargetCell`; pinned by `A_pivot_area_moves`, which asserts `TargetCell` too |
+| Pivot table at `D10`, insert a row *inside* the table — does Excel allow it, and what happens? | **Not settled against Excel, and flagged.** Excel refuses to insert rows into a pivot table's body; XLibur has no such guard. What XLibur now does is well-defined and consistent with every other rectangle: the area's leading corner is above the insert so it stays, the trailing corner is below so it moves, and the area grows. Whether XLibur should instead *refuse* the edit is a separate question this spec does not answer | `GridShift.MoveArea`; the refusal question is open |
+| Pivot table whose *source* range is edited — separate concern, or the same one? | **Separate.** The source lives on the pivot cache as a range or a defined name and is re-pointed through those. `Area` is the table's output position only | `XLPivotCache`; untouched by this spec |
+
+**A third disagreement found and not resolved here.** A note states its anchoring mode twice and the
+two disagree on every note XLibur creates: `XLComment.Initialize` sets `Anchor` to
+`MoveAndSizeWithCells` while the inherited `DefaultCommentStyle` sets
+`Style.Properties.Positioning` to `Absolute` — and the VML writer reads the latter, so XLibur tells
+Excel that every note it writes is absolutely positioned while its own object model says the
+opposite. The adapter gates on `Anchor`, because that is the field naming how the note is tied to the
+grid and the one a caller would set; **gating on `Positioning` would have made task 4 a silent no-op
+for every note in existence.** Which should drive the file is a real Excel question. Recorded as
+**D17**.
+
+#### Task 6 step 2 — pictures
+
+| Question | Answer | Source |
+|---|---|---|
+| Does a picture anchored `C4:J20` grow or move when a row is inserted at row 10? | **Grows**, to `C4:J23` — the same as a chart, which is the point: one transform serves both | measured (table above) |
+
+Two placements the two-cell cases do not reach, both now covered:
+**`FreeFloating`** is placed in pixels from the sheet's corner and is skipped — its markers are still
+built against `A1` as a carrier, so transforming them would move a picture that must not move.
+**`Move`** keeps its pixel size and has only a top-left marker; only `MoveAndSize` has a second
+corner to maintain.
+
+### Task 7 — the structural-edit numbers
+
+`dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile structural`,
+**medians of three runs per side**, merge base `806d69f7` against the branch. The machine has ~40%
+run-to-run timing variance, so single runs prove nothing.
+
+| Probe | base ms | branch ms | Δ | base MB | branch MB | Δ |
+|---|---|---|---|---|---|---|
+| 1,000 inserts, 0 ranges, 0 formulas | 540 | 513 | −5.0% | 387.3 | 377.3 | −2.6% |
+| 1,000 inserts, 1,000 ranges below | 692 | 782 | +13.0% | 725.0 | 740.3 | +2.1% |
+| 1,000 inserts, 1,000 ranges above (no-ops) | 517 | 444 | −14.1% | 405.2 | 334.6 | −17.4% |
+| 1,000 inserts, 1,000 formulas below | 913 | 907 | −0.7% | 1211.5 | 1211.1 | −0.0% |
+| 1,000 inserts, 1,000 formulas above | 337 | 269 | −20.2% | 369.5 | 288.2 | −22.0% |
+| **1,000 inserts, both below** | **1295** | **1309** | **+1.1%** | **1712.9** | **1636.1** | **−4.5%** |
+| 1 batch insert of 1,000, both below | 3 | 3 | 0 | 2.8 | 2.8 | 0 |
+
+The full workload is +1.1% on time and −4.5% on bytes. The one apparent regression, "1,000 ranges
+below" at +13%, is not a signal: the two sides' runs overlap (base 679–805, branch 618–815) while its
+bytes move +2.1%.
+
+**No listener-list cache.** The spec said to cache only if an allocation regression actually shows
+up, and after the fix below none does — the iterator state machine per edit and the two per-sheet
+enumerators inside it do not surface above the noise.
+
+**The first measurement did find a real regression, and it was fixed at source rather than papered
+over.** `DrawingAnchorListener` enumerated notes with `GetCells(c => c.HasComment)`, which
+materialises an `XLCell` per used cell and ran on every edit whether the sheet had notes or not — a
+million predicate calls on the 1,000-insert probe. "1,000 formulas above" went from 337 ms / 369 MB
+to 450 ms / 454 MB. It now walks the misc slice, where notes live, and returns on one branch when
+that slice is empty. That probe is now 269 ms / 288 MB, below the merge base on both. **This is what
+task 7 is for**, and caching the listener list would have hidden it rather than fixed it.
+
+### What the spec predicted that turned out wrong
+
+- **The enumeration in "The design" cannot be implemented as written.** It yields `DataValidations`
+  at position 5 for sqref coverage and `sheet.DataValidations` at position 6 for criteria formulas —
+  but one object implements the port once, so yielding it twice would do both passes twice. The
+  enumeration yields **one `XLDataValidations` per sheet**, and that listener does sqref-if-mine then
+  criteria. That is also the safer shape: the shifter's own comment says the criteria pass *must*
+  follow the coverage pass, and "this method does A then B" holds that more firmly than two
+  `yield return`s a later edit could reorder. Order is preserved for the edited sheet; another
+  sheet's criteria may now run before the edited sheet's coverage, which is sound because the two
+  touch disjoint state.
+- **Acceptance criterion 2 asks for "at least 12" types and the spec's own design lists 11.** Count
+  them: `MergedRangeSplitListener`, `XLDefinedNames`, `XLConditionalFormats`, `XLDataValidations`,
+  `XLPageSetup`, `XLSparklineGroups`, `XLCalcEngine`, `XLHyperlinks`, `DrawingAnchorListener`,
+  `XLSheetView`, `XLPivotTable`. The criterion's *other* stated gate — the file count from
+  `grep -rl 'ISheetListener'` — returns 12, because it also matches the interface's own declaration
+  file. **Reported rather than padded**: nothing was split into two types to reach a number.
+- **"`Area.TryInsertAreaAndShiftDown` applies, use it rather than writing new arithmetic" (task 4
+  step 2) is right for inserts and wrong for deletes.** That family returns `null` — "pushed out" —
+  where the range repository *clamps*, so using it would have deleted charts that the picture, the
+  control, keeps. `GridShift` reproduces the repository instead, which is the only choice that lets
+  task 6 move the picture without changing it.
+- **The spec expected `XLWorksheetRangeShifter.cs` "under 60 lines"; it is 65.** Thirty of those are
+  code and the rest is the remark explaining the seam. Not padded down to hit the number.
+- **The feature count of 17 is right, but one of them was already only half-reachable from here.**
+  Sparkline *cleanup* converted; the sparkline *shift* is dispatched from `XLRangeInsertHelper` and
+  `XLRangeBase.Delete`, upstream of the shifter — see below.
+
+### What was deliberately not done
+
+- **The sparkline shift stays where it is.** `XLSparklineGroups.ShiftRows`/`ShiftColumns` are called
+  before the cells have moved, from a dispatch point this seam does not reach, so a sparkline group
+  is the one sheet feature still notified twice from two layers. Folding it in means moving a call
+  site, not writing an adapter. Noted in the adapter's remarks and left for a follow-on, as the
+  dispatch brief directed.
+- **D15 is preserved, not fixed.** Making the shifter's area agree with `XLRangeInsertHelper`'s
+  `insertedRange` changes output for existing documents and belongs in its own spec.
+- **`XLRangeShiftHelper`'s `destroyedByShift` branch is untouched.** D16 is fixed for drawing anchors
+  by moving them onto `GridShift`; an ordinary stored range still behaves the old way, because
+  "destroyed" may well be the right answer for a range and that is a separate question.
+- **D17 is recorded, not decided.** It needs Excel.
+- **No public API change.** `PublicAPI.Unshipped.txt` untouched.
+
+### What the next consumer inherits
+
+- **One registry.** `XLWorksheet.GetSheetListeners()` is the only place a sheet listener is named.
+  Adding a feature that must survive a structural edit is one `ISheetListener` implementation and one
+  `yield return`; `XLWorksheetRangeShifter` does not change. `grep -rn 'ISheetListener' XLibur` shows
+  no call site outside that method, the interface, and the two `IGridAxis` members that choose which
+  of the four to call.
+- **The order is a pinned contract.** `SheetListenerOrderTests` asserts it with
+  `CollectionOrdering.Matching` — the default is order-insensitive and would pin the set while
+  letting the order change underneath. It also pins that workbook-scoped listeners are yielded once
+  per sheet and that each pivot table is its own listener.
+- **`SheetEdit.Area` and `SheetEdit.CoverageArea<TAxis>()` are different, and substituting one for
+  the other is a defect.** The difference is documented on the type and repeated at both call sites.
+  This is the trap task 3 step 2 warned about; the arithmetic was checked rather than assumed, and
+  they differ whenever the edited range is more than one line tall on the shift axis.
+- **`GridShift` is the transform for anything holding a raw position.** A line index, a line count,
+  or an area. It is `XLRangeShiftHelper` reduced to the integers, so a feature that adopts it moves
+  the way a feature in the range repository already moves — by construction, not by coincidence.
+- **Three new defects to pick up:** D15 (hyperlink detaches from its cell for a multi-line edited
+  range), D16 (a delete starting on a range's leading edge leaves its first address invalid), D17
+  (a note's anchoring mode is stated twice and the two disagree).

@@ -385,6 +385,8 @@ is the only thing that can prove that.
 
 ### Task 1 — The cross-path agreement harness
 
+**Landed:** `7c57efd8` — failing on the pane state, as intended.
+
 Write the same workbook down both paths, read the bytes out of both packages, and compare the named
 attributes. **This test lands failing**, on the pane state. That is the point: it is a defect report
 that runs.
@@ -396,7 +398,7 @@ that runs.
 - Produces: `Both_write_paths_agree_on_the_pane`, `Both_write_paths_agree_on_a_column` — the gate for
   tasks 2, 3 and 4.
 
-- [ ] **Step 1: Write the harness**
+- [x] **Step 1: Write the harness**
 
 ```csharp
 using System.IO;
@@ -555,7 +557,7 @@ If the DOM path's `<col min="2">` is collapsed into a wider run so no tag has `m
 `ColTag` to match the run containing column 2 and record what it matched — do not weaken the
 assertions.
 
-- [ ] **Step 2: Run it and record exactly what fails**
+- [x] **Step 2: Run it and record exactly what fails**
 
 Run: `dotnet test XLibur.Tests/XLibur.Tests.csproj -f net10.0 --treenode-filter "/*/*/WritePathAgreementTests/*"`
 
@@ -573,7 +575,7 @@ Record every other attribute that fails, verbatim. Two in particular:
   no defect behind it. Say so and keep task 4 anyway — the point is that agreement stops being
   coincidental.
 
-- [ ] **Step 3: Land the test failing, marked**
+- [x] **Step 3: Land the test failing, marked**
 
 Do not fix anything here. Add `[Skip("Fails on the pane state; spec 29 task 2 fixes it.")]` to
 `Both_write_paths_agree_on_the_pane` **only if** the repo's CI will not accept a red test on the
@@ -581,7 +583,7 @@ branch; otherwise leave it red and let task 2 turn it green in the same PR chain
 
 Run: `git log --oneline -20`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add XLibur.Tests/Excel/IO/WritePathAgreementTests.cs
@@ -592,12 +594,14 @@ git commit -m 'test(io): compare the two write paths byte for byte (spec 29 task
 
 ### Task 2 — Fix the pane state
 
+**Landed:** `bce00355`; the four fixtures it turned red regenerated in `4f9f92cf`.
+
 Excel writes `state="frozen"` for a pure freeze. The streaming path is right; the DOM path is wrong.
 
 **Files:**
 - Modify: `XLibur/Excel/IO/SheetViewWriter.cs:124`
 
-- [ ] **Step 1: Change the spelling**
+- [x] **Step 1: Change the spelling**
 
 ```csharp
         // Excel writes state="frozen" for a pure freeze; frozenSplit is what it writes when a pane
@@ -608,13 +612,13 @@ Excel writes `state="frozen"` for a pure freeze. The streaming path is right; th
         pane.State = PaneStateValues.Frozen;
 ```
 
-- [ ] **Step 2: Run the agreement test**
+- [x] **Step 2: Run the agreement test**
 
 Run: `dotnet test XLibur.Tests/XLibur.Tests.csproj -f net10.0 --treenode-filter "/*/*/WritePathAgreementTests/*"`
 Expected: the `state` assertion passes for all three arguments. `xSplit`/`ySplit` may still fail —
 task 3 owns that.
 
-- [ ] **Step 3: Run the whole suite**
+- [x] **Step 3: Run the whole suite**
 
 Run: `dotnet test XLibur.Tests/XLibur.Tests.csproj -f net10.0`
 Expected: PASS.
@@ -625,13 +629,13 @@ comparison or an `output.xlsx` fixture. **Do not revert.** A reference `output.x
 `frozenSplit` is an XLibur-authored artefact of this defect, not evidence about Excel; regenerate it
 and note which fixture changed.
 
-- [ ] **Step 4: Confirm the change is one line**
+- [x] **Step 4: Confirm the change is one line**
 
 Run: `git diff --numstat XLibur/Excel/IO/SheetViewWriter.cs`
 Expected: a small changed-line count against a 280-line file. A count near 280 means the file was
 rewritten with LF endings — discard and redo with the Edit tool.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add XLibur/Excel/IO/SheetViewWriter.cs
@@ -641,6 +645,9 @@ git commit -m 'fix(io): write state="frozen" for a frozen pane, matching Excel (
 ---
 
 ### Task 3 — `XLPaneSettings`
+
+**Landed:** `ba6a206b`. The `xSplit="0"` premise held, so the split-omission rule stayed.
+`activeCell` is `Point?`, not `XLAddress?` — see Results.
 
 **Files:**
 - Create: `XLibur/Excel/IO/XLPaneSettings.cs`
@@ -653,7 +660,7 @@ git commit -m 'fix(io): write state="frozen" for a frozen pane, matching Excel (
 - Removes: `SheetViewWriter.GetActivePaneValue`, `SheetViewWriter.GetActivePaneForActiveCell`,
   `XLStreamingWorksheet.ResolveActivePane`.
 
-- [ ] **Step 1: Write the resolver**
+- [x] **Step 1: Write the resolver**
 
 ```csharp
     internal static XLPaneSettings Resolve(
@@ -702,7 +709,7 @@ differ.
 **If task 1 disproved the `xSplit="0"` premise**, drop the `> 0 ? … : null` on the two split
 properties, make them plain `int`, and record the correction in this task's checkbox.
 
-- [ ] **Step 2: Put the DOM path onto it**
+- [x] **Step 2: Put the DOM path onto it**
 
 ```csharp
     private static Pane? SetupPane(SheetView sheetView, XLSheetViewContentManager svcm, XLWorksheet xlWorksheet)
@@ -747,7 +754,7 @@ unchanged — the removal branch already discarded everything it had written.
 `addr is { IsValid: true } ? addr : null` at the call site rather than changing its type; that keeps
 this spec's footprint to the two writers.
 
-- [ ] **Step 3: Put the streaming path onto it**
+- [x] **Step 3: Put the streaming path onto it**
 
 ```csharp
     private void WriteSheetViews(XmlWriter xml)
@@ -786,7 +793,7 @@ Delete `ResolveActivePane` (`:511-517`). `XLHelper.GetColumnLetterFromNumber` no
 `topLeftCell` on both sides, replacing the `Point` round trip — verify with task 1 that the string is
 unchanged.
 
-- [ ] **Step 4: Confirm the decision lives in one place**
+- [x] **Step 4: Confirm the decision lives in one place**
 
 Run: `grep -rn 'PaneStateValues\|"frozenSplit"\|"frozen"\|bottomRight\|bottomLeft\|topRight' XLibur --include=*.cs`
 
@@ -794,13 +801,13 @@ Expected: `XLPaneSettings.cs` (the enums and the resolver), `SheetViewWriter.cs`
 `XLStreamingWorksheet.cs` (one mapping switch each), and `WorksheetElementReader.cs:76-77` (the
 reader, unchanged and deliberately still accepting both). Nothing else.
 
-- [ ] **Step 5: Build and run**
+- [x] **Step 5: Build and run**
 
 Run: `dotnet build XLibur/XLibur.csproj -c Release -v q`
 Run: `dotnet test XLibur.Tests/XLibur.Tests.csproj -f net10.0`
 Expected: PASS, including the full `Both_write_paths_agree_on_the_pane` matrix.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add XLibur/Excel/IO/XLPaneSettings.cs XLibur/Excel/IO/SheetViewWriter.cs XLibur/Excel/Streaming/XLStreamingWorksheet.cs
@@ -811,6 +818,9 @@ git commit -m 'refactor(io): resolve the pane once, emit it twice (spec 29 task 
 
 ### Task 4 — `XLColumnSettings`
 
+**Landed:** `67193e8e`. The column test passed cold, so this is a refactor with no defect behind
+it. Double-rounding solved by passing the raw width — see Results.
+
 **Files:**
 - Create: `XLibur/Excel/IO/XLColumnSettings.cs`
 - Modify: `XLibur/Excel/IO/ColumnWriter.cs:127-167`
@@ -820,7 +830,7 @@ git commit -m 'refactor(io): resolve the pane once, emit it twice (spec 29 task 
 - Produces: `XLColumnSettings`,
   `XLColumnSettings.Resolve(uint, uint, uint?, double?, bool, bool, int) → XLColumnSettings`.
 
-- [ ] **Step 1: Write the resolver**
+- [x] **Step 1: Write the resolver**
 
 ```csharp
     internal static XLColumnSettings Resolve(
@@ -842,7 +852,7 @@ git commit -m 'refactor(io): resolve the pane once, emit it twice (spec 29 task 
 (`XLStreamingWorksheet.cs:536`); the resolver now carries it plus the five decisions that were not
 shared.
 
-- [ ] **Step 2: Put `BuildColumnElement` onto it**
+- [x] **Step 2: Put `BuildColumnElement` onto it**
 
 `ColumnWriter.BuildColumnElement` (`:127-167`) computes `styleId`, `columnWidth`, `isHidden`,
 `collapsed` and `outlineLevel` and then builds a `Column`. Split it: keep the lookup, hand the raw
@@ -882,7 +892,7 @@ Double-rounding a width is the failure mode to watch for.
 directly. Route them through the resolver too, or leave them and say why — they write the worksheet
 default rather than a column's own settings.
 
-- [ ] **Step 3: Put the streaming writer onto it**
+- [x] **Step 3: Put the streaming writer onto it**
 
 ```csharp
         foreach (var column in ordered)
@@ -922,20 +932,20 @@ Note that `GetOrAdd` is now called only when a style exists, where before it was
 `if` — confirm the call is still made in the same order relative to the width, since `GetOrAdd`
 mutates the style table.
 
-- [ ] **Step 4: Confirm the width rule has one caller each**
+- [x] **Step 4: Confirm the width rule has one caller each**
 
 Run: `grep -rn 'GetColumnWidth' XLibur --include=*.cs`
 Expected: its definition in `ColumnWriter.cs:185`, the call in `XLColumnSettings.Resolve`, and the
 `SheetFormatProperties` default-width call at `SheetViewWriter.cs:264`. **Not**
 `XLStreamingWorksheet.cs:536` — that call moves into the resolver.
 
-- [ ] **Step 5: Build and run**
+- [x] **Step 5: Build and run**
 
 Run: `dotnet build XLibur/XLibur.csproj -c Release -v q`
 Run: `dotnet test XLibur.Tests/XLibur.Tests.csproj -f net10.0`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add XLibur/Excel/IO/XLColumnSettings.cs XLibur/Excel/IO/ColumnWriter.cs XLibur/Excel/Streaming/XLStreamingWorksheet.cs
@@ -946,6 +956,8 @@ git commit -m 'refactor(io): resolve a column once, emit it twice (spec 29 task 
 
 ### Task 5 — Narrow the fabricated `SaveContext`
 
+**Landed:** `8596b08f`. Both greps return nothing.
+
 `XLStreamingWorkbook.cs:225` builds a ten-member `SaveContext` to satisfy a signature, fills three of
 its dictionaries, and throws all of it away. Give the shared code a narrower parameter instead.
 
@@ -954,7 +966,7 @@ its dictionaries, and throws all of it away. Give the shared code a narrower par
 - Modify: `XLibur/Excel/Streaming/XLStreamingWorkbook.cs:222-231`
 - Modify: `XLibur/Excel/IO/ColumnWriter.cs:20-61`, `:103-167`
 
-- [ ] **Step 1: Narrow `ResolveFonts`**
+- [x] **Step 1: Narrow `ResolveFonts`**
 
 It is the only shared helper still taking a whole `SaveContext`, and it reads and rewrites
 `context.SharedFonts` and nothing else.
@@ -966,7 +978,7 @@ It is the only shared helper still taking a whole `SaveContext`, and it reads an
 `ResolveNumberFormats`, `ResolveFills` and `ResolveBorders` already take explicit dictionaries.
 Update `GenerateContent` to pass `context.SharedFonts`.
 
-- [ ] **Step 2: Drop the parameter from `GenerateStreamingContent`**
+- [x] **Step 2: Drop the parameter from `GenerateStreamingContent`**
 
 Its three dictionaries are write-only from the caller's point of view, so it can own them:
 
@@ -991,13 +1003,13 @@ than the code it documents. Add one line:
     /// </para>
 ```
 
-- [ ] **Step 3: Delete the fabricated instance**
+- [x] **Step 3: Delete the fabricated instance**
 
 ```csharp
         WorkbookStylesPartWriter.GenerateStreamingContent(stylesheet, Styles.OrderedStyles);
 ```
 
-- [ ] **Step 4: Narrow `ColumnWriter.WriteColumns`**
+- [x] **Step 4: Narrow `ColumnWriter.WriteColumns`**
 
 It reads `context.SharedStyles` twice (`:27`, `:138`, `:146`) and never writes it.
 
@@ -1014,7 +1026,7 @@ Thread it through `WriteMainColumns` and `BuildColumnElement`. Fix the call site
 If `SharedStyles` is typed `Dictionary<,>` on `SaveContext`, passing it as `IReadOnlyDictionary<,>`
 is implicit — no change needed there.
 
-- [ ] **Step 5: Gate it**
+- [x] **Step 5: Gate it**
 
 Run: `grep -rn 'new SaveContext()' XLibur/Excel/Streaming/`
 Expected: no output.
@@ -1024,13 +1036,13 @@ Expected: `WorkbookStylesPartWriter.GenerateContent` and its `AddDifferentialFor
 those genuinely use the differential-format and colour-filter members. `ColumnWriter.cs` returns
 nothing.
 
-- [ ] **Step 6: Build and run**
+- [x] **Step 6: Build and run**
 
 Run: `dotnet build XLibur/XLibur.csproj -c Release -v q`
 Run: `dotnet test XLibur.Tests/XLibur.Tests.csproj -f net10.0`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add XLibur/Excel/IO/WorkbookStylesPartWriter.cs XLibur/Excel/IO/ColumnWriter.cs XLibur/Excel/Streaming/XLStreamingWorkbook.cs
@@ -1041,13 +1053,16 @@ git commit -m 'refactor(io): give the shared style and column writers a narrower
 
 ### Task 6 — Assess `<sheets>` and styles.xml
 
+**Decision: no resolver for either.** Recorded with line references and measured evidence in
+Results below. The spec's "seven `GenerateContent` calls" is eight.
+
 Two of the four duplicated elements are named in this spec but not yet folded in. Decide, and record
 the decision either way. **A recorded "no" is the deliverable if that is what the code supports.**
 
 **Files:**
 - Modify: `docs/specs/29-write-path-resolvers.md` — a Results section
 
-- [ ] **Step 1: Assess `<sheets>`**
+- [x] **Step 1: Assess `<sheets>`**
 
 Read `WorkbookPartWriter.GenerateContent` (`:31-48`) and its three helpers: `UpdateExistingSheets`
 (`:112`), `AppendNewSheets` (`:126`), `ReorderSheets` (`:157`). Compare against
@@ -1068,7 +1083,7 @@ If it does not hold — if the streaming path is silently defaulting something t
 those are not obviously the same number) — that is a finding. Write a `Both_write_paths_agree_on_the_sheets_entry`
 test into task 1's harness and treat it the way task 1 treated the pane.
 
-- [ ] **Step 2: Assess styles.xml**
+- [x] **Step 2: Assess styles.xml**
 
 `GenerateContent` (68 lines) and `GenerateStreamingContent` (81 lines) already share five private
 helpers. What is left is id assignment, and the remarks at `:90-99` explain why it cannot be shared:
@@ -1085,13 +1100,13 @@ The seven `GenerateContent` calls with no streaming counterpart are all deduplic
 exactly what the streaming path cannot do. If that is what you find, record **no further sharing**
 and say which seven.
 
-- [ ] **Step 3: Write the Results section**
+- [x] **Step 3: Write the Results section**
 
 Add a `## Results (<date>)` section to this file recording, for each element: the decision, the
 evidence, and the line references. Include the numbers task 1 produced — which attributes agreed on
 the first run and which did not.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/specs/29-write-path-resolvers.md
@@ -1102,16 +1117,18 @@ git commit -m 'docs(specs): record the sheets and styles.xml assessment for spec
 
 ### Task 7 — Confirm streaming's bounded memory is intact
 
+**Measured:** 107.9 MB shared strings / 14.0 MB inline strings — identical to spec 01's baseline.
+
 The resolvers add two struct constructions per sheet — one pane, one per `<col>` — on a path whose
 whole purpose is bounded memory. Show it did not move.
 
-- [ ] **Step 1: Measure**
+- [x] **Step 1: Measure**
 
 ```
 dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -f net10.0 -- profile streaming
 ```
 
-- [ ] **Step 2: Compare against spec 01's recorded baseline**
+- [x] **Step 2: Compare against spec 01's recorded baseline**
 
 | Writer | Peak heap | Elapsed |
 |---|---|---|
@@ -1129,12 +1146,12 @@ cell loop rather than in the part header. Check that `XLColumnSettings.Resolve` 
 Note that spec 01 records ~40% run-to-run timing variance on this machine, so treat elapsed as
 indicative and peak heap — which it describes as stable across runs — as the real gate.
 
-- [ ] **Step 3: Run the whole suite on both frameworks**
+- [x] **Step 3: Run the whole suite on both frameworks**
 
 Run: `dotnet test XLibur.Tests/XLibur.Tests.csproj`
 Expected: PASS on net8.0 and net10.0.
 
-- [ ] **Step 4: Commit the numbers**
+- [x] **Step 4: Commit the numbers**
 
 ```bash
 git add docs/specs/29-write-path-resolvers.md
@@ -1218,3 +1235,281 @@ git commit -m 'docs(specs): record the streaming memory numbers for spec 29'
   are live, land 23's key changes first since they are the wider ones.
 
 - **Spec 18 task 5** is on the load path (`LoadWorksheetElements`). No overlap with either write path.
+
+---
+
+## Results (2026-08-27)
+
+**Status:** Done. Branch `refactor/29-write-path-resolvers`, seven commits off `upstream/main`
+at `806d69f7`.
+
+| # | Task | Commit |
+|---|---|---|
+| 1 | Cross-path agreement harness, landed failing | `7c57efd8` |
+| 2 | Pane state fixed towards `frozen` | `bce00355` |
+| 3 | `XLPaneSettings`; both paths onto it | `ba6a206b` |
+| — | The four pane fixtures regenerated | `4f9f92cf` |
+| 4 | `XLColumnSettings`; both paths onto it | `67193e8e` |
+| 5 | Fabricated `SaveContext` narrowed | `8596b08f` |
+| 6–7 | This section, and the memory numbers | see below |
+
+Full suite green on net8.0 and net10.0: 28,358 tests, 0 failed, 10 skipped (5 per framework,
+all pre-existing).
+
+### Task 1 — what the first run actually read
+
+The harness writes the same workbook down both paths, opens both packages and compares the
+named attributes on the raw tag. Every reading below is off the bytes, not off the source.
+
+One correction to the harness as the spec wrote it: **the two paths use different namespace
+spellings**, and the spec's regexes matched neither DOM tag. The OpenXML SDK prefixes every
+element (`<x:pane>`); the streaming writer writes a default namespace and no prefix
+(`<pane>`). Without allowing an optional prefix, `PaneTag` returned `""` for the DOM package
+and all four tests failed on `IsNotEmpty` before reaching a single attribute comparison. The
+helpers now accept an optional prefix. That is a serialisation difference, not a disagreement
+about content, and no assertion was weakened to absorb it.
+
+`Both_write_paths_agree_on_the_pane`, attribute by attribute, before any fix:
+
+| Freeze | Attribute | DOM | Streaming | Agreed |
+|---|---|---|---|---|
+| rows 1, cols 0 | `state` | `frozenSplit` | `frozen` | **no** |
+| | `activePane` | `bottomLeft` | `bottomLeft` | yes |
+| | `topLeftCell` | `A2` | `A2` | yes |
+| | `xSplit` | `"0"` | *absent* | **no** |
+| | `ySplit` | `1` | `1` | yes |
+| rows 0, cols 2 | `state` | `frozenSplit` | `frozen` | **no** |
+| | `activePane` | `topRight` | `topRight` | yes |
+| | `topLeftCell` | `C1` | `C1` | yes |
+| | `xSplit` | `2` | `2` | yes |
+| | `ySplit` | `"0"` | *absent* | **no** |
+| rows 2, cols 1 | `state` | `frozenSplit` | `frozen` | **no** |
+| | `activePane` | `bottomRight` | `bottomRight` | yes |
+| | `topLeftCell` | `B3` | `B3` | yes |
+| | `xSplit` | `1` | `1` | yes |
+| | `ySplit` | `2` | `2` | yes |
+
+The tags verbatim:
+
+```xml
+<!-- rows 1, cols 0 -->
+<x:pane xSplit="0" ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozenSplit" />
+    <pane        ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen" />
+<!-- rows 0, cols 2 -->
+<x:pane xSplit="2" ySplit="0" topLeftCell="C1" activePane="topRight" state="frozenSplit" />
+    <pane xSplit="2"          topLeftCell="C1" activePane="topRight" state="frozen" />
+<!-- rows 2, cols 1 -->
+<x:pane xSplit="1" ySplit="2" topLeftCell="B3" activePane="bottomRight" state="frozenSplit" />
+    <pane xSplit="1" ySplit="2" topLeftCell="B3" activePane="bottomRight" state="frozen" />
+```
+
+**The `xSplit="0"` premise held.** The DOM path did write `xSplit="0"` for a rows-only freeze
+and `ySplit="0"` for a columns-only freeze, where the streaming path omitted the attribute
+entirely. Task 3's resolver therefore keeps the split-omission rule, and both paths now omit
+the unused axis, which is what Excel writes.
+
+`activePane` and `topLeftCell` agreed on all three arguments, confirming what the spec said
+about them. In particular `XLHelper.GetColumnLetterFromNumber(splitColumn + 1) + (splitRow + 1)`
+and the `Point` round trip produced the same string, so replacing the latter in task 3 changed
+nothing.
+
+**`Both_write_paths_agree_on_a_column` passed on the first run.** `<col>` was already in
+agreement for that case, so task 4 is a refactor with no defect behind it — kept anyway, because
+the point is that the agreement stops being coincidental. The tags:
+
+```xml
+<x:col min="2" max="2" width="33.710625" style="0" customWidth="1" outlineLevel="1" />
+    <col min="2" max="2" width="33.710625"           customWidth="1" outlineLevel="1" />
+```
+
+Two observations that are *not* failures, because neither attribute is in the comparison list
+and both are the "which columns get written" difference the spec puts out of scope:
+
+- `style` differs — the DOM path writes `style="0"` explicitly, the streaming path omits it when
+  the column carries no style of its own.
+- The DOM path also emits `<col min="1" max="1">` back-filling the worksheet default; the
+  streaming path writes only the one registered range.
+
+### Task 2 — the fixtures that pinned the defect
+
+`grep -rn 'frozenSplit|PaneStateValues' XLibur.Tests` returned nothing, as the spec said, but
+four tests still went red. All four are XLibur-authored expected-output fixtures asserting the
+state indirectly through a whole-file comparison — the case the spec anticipated. None was
+reverted and no assertion was weakened.
+
+Because task 3 additionally drops `xSplit="0"` from the same panes, the four were regenerated
+**once, after task 3** (`4f9f92cf`) rather than twice. Each was proved with a full-part diff of
+the entire package before replacement:
+
+| Fixture | Sheet | Delta |
+|---|---|---|
+| `Resource/Examples/Misc/FreezePanes.xlsx` | 1 | `state` `frozenSplit`→`frozen` |
+| | 2 | `state`, and `xSplit="0"` dropped |
+| | 3 | `state`, and `ySplit="0"` dropped |
+| | 4 | `state` |
+| `Resource/Examples/Misc/SheetViews.xlsx` | 8 | `state`, and `xSplit="0"` dropped |
+| `…/PivotTableReferenceFiles/PivotSubtotalsSource/output.xlsx` | 1 | `state`, and `xSplit="0"` dropped |
+| `…/PivotTableReferenceFiles/TwoPivotTablesWithSingleSource/output.xlsx` | 1 | `state`, and `xSplit="0"` dropped |
+
+No other part changed content in any of the four. The two `Examples` packages also carry a new
+`_rels/.rels` id set and a new core-properties `.psmdcp` name; every save regenerates those and
+`ExcelDocsComparer` ignores them. The two pivot packages, which are saved over a loaded package,
+have byte-identical part inventories.
+
+A known-red baseline of exactly those six test names was recorded before task 3 began and
+checked at every gate. Nothing outside it ever went red.
+
+### Task 6 — `<sheets>`: no resolver
+
+**The claim holds.** The DOM `<sheets>` writer is a patcher over an existing element, not a
+generator:
+
+- `WorkbookPartWriter.GenerateContent:33-34` removes sheets the model deleted from the
+  `workbook.Sheets` that came out of the loaded package.
+- `UpdateExistingSheets:112-124` patches `Name` on entries already present and reads each
+  sheet's `RelId` **back out of the file** into the model (`:121`).
+- `AppendNewSheets:126-155` appends only entries whose `r:id` is not already there, and
+  allocates a new one from `context.RelIdGenerator` only when the sheet did not come from a
+  loaded file (`:132-141`).
+- `ReorderSheets:157-` reorders around `xlWorkbook.UnsupportedSheets` (`:168`, `:171`, `:184`,
+  `:204`, `:216`) so chartsheets and macro sheets keep their position — the mechanism
+  `docs/round-trip-fidelity.md` documents.
+
+`XLStreamingWorkbook.WriteWorkbookPart:248-258` has no existing element, no deletions, no
+unsupported sheets and no visibility model. It writes three attributes per sheet from a list it
+owns.
+
+On the `sheetId` question the spec flagged as "not obviously the same number" — measured, not
+reasoned. Three sheets added in order, then the same three with the middle one deleted:
+
+```xml
+<!-- DOM -->        <x:sheet name="One" sheetId="1" r:id="rId2" />
+                    <x:sheet name="Two" sheetId="2" r:id="rId3" />
+                    <x:sheet name="Three" sheetId="3" r:id="rId4" />
+<!-- streaming -->    <sheet name="One" sheetId="1" r:id="rId1" />
+                      <sheet name="Two" sheetId="2" r:id="rId2" />
+                      <sheet name="Three" sheetId="3" r:id="rId3" />
+<!-- DOM, "Two" deleted -->
+                    <x:sheet name="One" sheetId="1" r:id="rId2" />
+                    <x:sheet name="Three" sheetId="3" r:id="rId3" />
+```
+
+`name` and `sheetId` agree for every workbook both paths can express. They agree *by
+coincidence of provenance*, not by a shared rule, and the deletion case shows it: DOM `SheetId`
+is a workbook-lifetime identity counter (`XLWorksheets.cs:22`, `:264`, and `XLWorkbook_Load.cs:67`
+on load) that leaves a gap when a sheet is removed, while streaming's is a part ordinal
+(`XLStreamingWorksheet.Index`) that cannot gap because streaming has no delete API. `r:id`
+differs numerically and legitimately — the DOM generator is shared with the theme, styles and
+sharedStrings parts, streaming numbers worksheet relationships from 1 inside its own rels part,
+and a relationship id is only meaningful relative to its own `.rels`.
+
+So there is nothing being silently defaulted, and no `Both_write_paths_agree_on_the_sheets_entry`
+test was written. **Decision: no resolver.** An `XLSheetSettings` carrying three verbatim fields
+would be indirection without a decision, and it would assert a shared rule for two numbers that
+only happen to coincide.
+
+### Task 6 — styles.xml: no further sharing
+
+**The claim holds**, with one arithmetic correction to the spec.
+
+`GenerateContent` (`WorkbookStylesPartWriter.cs:18`) calls twelve helpers;
+`GenerateStreamingContent` (`:104`) calls five. Four are shared —
+`ResolveNumberFormats`, `ResolveFonts`, `ResolveFills`, `ResolveBorders` — and `BuildCellFormat`
+is called directly by the streaming writer and reached from `GenerateContent` through
+`ResolveRest`, so five helpers are shared in total, as the spec said.
+
+The spec says "the seven `GenerateContent` calls with no streaming counterpart". **There are
+eight, not seven:** `ResolveDefaultFormatId`, `CollectWorkbookStyles`, `CollectCustomNumberFormats`,
+`BuildSharedStyleMappings`, `ResolveCellStyleFormats`, `ResolveRest`, `RemapStyleIds`,
+`AddDifferentialFormats`. Twelve minus the four shared is eight; the spec's own two lists say so
+and the count in the prose is off by one.
+
+All eight are deduplication, remapping and differential-format work — exactly what the streaming
+path cannot do, for the reason its own `<remarks>` at `:87-102` gives: it hands a style id to a
+cell the moment that cell is written, long before the styles part exists, so ids are its input
+rather than its output. **Decision: no further sharing.**
+
+What task 5 *did* remove was the wrong parameter rather than duplicated logic: `ResolveFonts`
+now takes `Dictionary<XLFontValue, FontInfo>` (`:1051`) instead of the whole ten-member bag, and
+`GenerateStreamingContent` owns its three dictionaries as locals instead of filling a
+`SaveContext` the caller threw away.
+
+### Task 7 — streaming's bounded memory
+
+`dotnet run -c Release --project XLibur.Benchmarks -f net10.0 -- profile streaming`, 1,000,000
+rows × 10 columns:
+
+| Writer | Peak heap | Spec 01 baseline | Elapsed | Spec 01 baseline |
+|---|---|---|---|---|
+| `XLStreamingWorkbook`, shared strings | **107.9 MB** | 107.9 MB | 10.19 s | 10.3 s |
+| `XLStreamingWorkbook`, inline strings | **14.0 MB** | 14.0 MB | 8.64 s | 9.5 s |
+
+Peak heap is identical to the baseline to the reported precision on both configurations. Elapsed
+is within the ~40% run-to-run variance spec 01 records for this machine and is indicative only;
+peak heap is the gate and it did not move.
+
+That is what the design predicts: `XLPaneSettings` is resolved once per sheet and
+`XLColumnSettings` once per registered column range, both from `WriteSheetViews` / `WriteColumns`
+under `EnsureStarted` (`XLStreamingWorksheet.cs:478-479`), which runs once per sheet. Neither is
+in the row or cell loop, and both are `readonly struct`s.
+
+### Acceptance criteria
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | no `PaneStateValues.FrozenSplit` in `SheetViewWriter.cs` | **see below** |
+| 2 | no `new SaveContext()` under `Excel/Streaming/` | met — grep returns nothing |
+| 3 | no `SaveContext` in `ColumnWriter.cs` | met — grep returns nothing |
+| 4 | `GetColumnWidth` at exactly three sites | met — `ColumnWriter.cs:188` (definition), `XLColumnSettings.cs:66`, `SheetViewWriter.cs:250`. `XLStreamingWorksheet.cs` is not among them |
+| 5 | corner names only in mapping switches | met — `XLStreamingWorksheet.cs:516-521` only; the DOM side maps to SDK enum members. The one other hit, `PivotTableDefinitionPartWriter2.cs:667`, is a pivot-area type and unrelated |
+| 6 | reader still accepts both spellings | met, unchanged — now at `WorksheetElementReader.cs:192-193`, not `:76-77`; spec 24/28 moved it |
+| 7 | both agreement tests pass, nothing weakened | met — 4/4 arguments green, both comparison lists intact |
+| 8 | both serializers still exist and emit their own XML | met — neither calls the other's serializer |
+| 9 | full suite green on net8.0 and net10.0 | met — 28,358 tests, 0 failed |
+| 10 | streaming peak heap within noise of baseline | met — identical, not merely within noise |
+| 11 | no public API change | met — `PublicAPI.Unshipped.txt` untouched |
+| 12 | task 6 decision recorded with line references | met — above |
+| 13 | disproved premises corrected here | met — the `xSplit="0"` premise was **confirmed**, not disproved; the namespace-prefix and helper-count corrections are recorded above |
+
+**Criterion 1 is not met as literally written, and it cannot be.** It contradicts this spec's own
+design section: the snippet at lines 296–302 mandates a mapping switch in `SheetViewWriter`
+containing `XLPaneState.FrozenSplit => PaneStateValues.FrozenSplit`, which is the exact string
+criterion 1 greps for. The implementation follows the design section. What criterion 1 is
+protecting is met in substance — `SheetViewWriter` no longer *decides* the pane state; the token
+survives only as one arm of a total translation from XLibur's enum to the SDK's, at
+`SheetViewWriter.cs:158-163`, reachable only if the resolver ever returned `FrozenSplit`, which
+it never does. Dropping the arm to satisfy the grep would make the translation silently coerce
+`FrozenSplit` to `Frozen`, which is worse code. Criterion 5, written later, describes the right
+test: the spelling appears in a mapping switch, not in a decision.
+
+### What was deliberately not done
+
+- **`WritePreColumns` / `WritePostColumns` were routed through the resolver**, not left alone.
+  The spec allowed either. They build a `<col>` carrying the worksheet default width and style
+  over a filler range, which is the same per-`<col>` attribute decision, and routing them removed
+  the last hand-written `CustomWidth = true`. *Which* columns they write is untouched.
+- **The double-rounding trap was solved by passing the raw width**, not by adding a
+  pre-resolved-width overload. `ColumnWriteContext` now carries `RawWorksheetColumnWidth`
+  alongside the resolved `WorksheetColumnWidth`, and `Resolve` receives the raw one so
+  `GetColumnWidth(raw).SaveRound()` applies exactly once and yields the identical value. Chosen
+  because it leaves the width rule with one entry point rather than two. Proved by task 1's
+  column test and by the 30 `*Column*` tests.
+- **`CellXmlWriter`, `SheetDataWriter` internals and `WorksheetElementReader.LoadSheetViewPane`
+  were not touched**, per the non-goals.
+- **The two write paths were not merged.** Both serializers emit their own XML over one resolved
+  value.
+- **No `<sheets>` or styles.xml resolver**, for the reasons recorded above.
+
+### What spec 31 inherits
+
+- `SetupPane` (`SheetViewWriter.cs:113-148`) is now a resolver call plus five assignments and two
+  small `ToOpenXml` mappings (`:150-163`). `GetActivePaneValue` and `GetActivePaneForActiveCell`
+  are gone. The pane decision is already extracted into `XLPaneSettings`, so 31's interface does
+  not have to carry it.
+- `BuildColumnElement` (`ColumnWriter.cs:134-147`) is split at its existing seam: a lookup, a
+  `Resolve` call, and `ToColumnElement` (`:158-176`), which is the only place a `Column` element
+  is now built. `WorksheetDefaultColumn` (`:153-156`) covers the three filler cases.
+- Both writers take narrowed parameters — `IReadOnlyDictionary<XLStyleValue, StyleInfo>` rather
+  than `SaveContext` — so 31's interface does not need to thread the ten-member bag.
+- `WritePathAgreementTests` will notice if 31's sweep breaks either emitter. It reads the bytes,
+  so unlike a load-and-compare test it can see a divergence the reader would normalise away.

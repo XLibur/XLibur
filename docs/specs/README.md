@@ -37,14 +37,14 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 23 | [One implementation per style interface](23-single-style-facade.md) | Arch · Refactor · **Defect** | M | ✅ **Done** (#397; see Results) | Single owner; tasks sequential |
 | 24 | [Worksheet element load gets one interface](24-worksheet-element-dispatch.md) | Arch · Refactor | S–M | ✅ **Done** (#395; see Results) | Single owner; tasks sequential |
 | 25 | [Narrow the formula shifter's fallback](25-formula-shifter-seam.md) | Arch · **Correctness (masking)** | S | ✅ **Done** (#398) | Single owner; tasks sequential |
-| 26 | [Give the grid one axis](26-grid-axis.md) | Arch · Refactor · **3 defects** | L | ✅ **Done** (see Results) | One `IGridAxis`, two adapters; 3 defects fixed; allocations down 12–50% |
+| 26 | [Give the grid one axis](26-grid-axis.md) | Arch · Refactor · **3 defects** | L | ✅ **Merged** (#409; see Results) | One `IGridAxis`, two adapters; 3 defects fixed; allocations down 12–50% |
 | 27 | [One font conformance module](27-font-conformance-suite.md) | Test · Arch (seam) | S–M | Proposed | Single owner; **gates 34** |
-| 28 | [One OOXML style decoder](28-single-style-decoder.md) | Arch · Refactor · **Defect (data loss)** | M | Proposed | Single owner; tasks sequential |
-| 29 | [One resolver per emitted element](29-write-path-resolvers.md) | Arch · **Correctness (divergence)** | M | Proposed | Single owner; **before 31** |
+| 28 | [One OOXML style decoder](28-single-style-decoder.md) | Arch · Refactor · **Defect (data loss)** | M | ✅ **Merged** (#411; see Results) | Single owner; 3 defects fixed; one premise disproved; load allocations flat or down |
+| 29 | [One resolver per emitted element](29-write-path-resolvers.md) | Arch · **Correctness (divergence)** | M | **Done** (2026-08-27) | Landed; **31 is unblocked** |
 | 30 | [Array application gets an interface](30-array-application-seam.md) | Arch · **Defect (241 functions)** | S–M | Proposed | Single owner; **before 32** |
 | 31 | [Worksheet element writers get one interface](31-worksheet-element-writers.md) | Arch · Refactor | M–L | Proposed (**needs 29**) | Single owner; tasks sequential |
 | 32 | [Collapse the 61-overload registration](32-function-argument-spec.md) | Arch · Refactor | L | Proposed (**needs 30**) | Single owner; task 2 is a go/no-go gate |
-| 33 | [Every sheet feature reacts through one seam](33-sheet-listener-seam.md) | Arch · **Defect (4 unshifted)** | M–L | Proposed (**needs 26**) | Single owner; tasks sequential |
+| 33 | [Every sheet feature reacts through one seam](33-sheet-listener-seam.md) | Arch · **Defect (4 unshifted)** | M–L | ✅ **Done** (2026-08-27; see Results) | Shifter 222→65 lines, names no feature; 11 adapters (was 2); the 4 dead features now move; 3 defects recorded |
 | 34 | [Split the font port: mechanism vs policy](34-font-port-split.md) | Arch · Refactor | M | Proposed (**needs 27**) | Single owner; tasks sequential |
 | 35 | [Pivot table timelines](35-pivot-timelines.md) | Feature · Compat | M | ✅ **Done** (#406; see Results) | Task 1 (extraction) standalone; 2→3→4 ordered |
 
@@ -61,8 +61,8 @@ and nothing catches any of them**:
 |---|---|---|
 | 26 | `XLRow.cs:424-425` calls `IncrementColumnOutline`, copied from `XLColumn.cs:342-343` | `IncrementRowOutline` has zero callers; `@outlineLevelRow` is never emitted and `@outlineLevelCol` is inflated by row groups |
 | 26 | `XLColumn.CellCount()` is character-identical to `XLRow.CellCount()` | Returns 1 instead of 1,048,576 |
-| 28 | `LoadFont:202` searches the `<x:rPr>` element spellings while all three callers pass a `Font` | A conditional-format font silently loses its **name, family numbering and charset** on load — the writer emits all three, so they reach the file and die on the way back |
-| 29 | `SheetViewWriter.cs:124` writes `frozenSplit`; `XLStreamingWorksheet.cs:502` writes `frozen` | The same `FreezeRows` call emits different XML per write path — and the DOM path is the wrong one |
+| 28 | `LoadFont:202` searches the `<x:rPr>` element spellings while all three callers pass a `Font` | ✅ Fixed. A conditional-format font silently lost its **name, family numbering and charset** on load — confirmed by test: `FontName` came back `"Calibri"`, not `"Arial"`. Two further defects fixed alongside: an indent in a pivot dxf threw on load, and a duplicated `numFmtId` made a workbook unopenable |
+| 29 | ~~`SheetViewWriter.cs:124` writes `frozenSplit`; `XLStreamingWorksheet.cs:502` writes `frozen`~~ | **Fixed 2026-08-27.** Both paths now resolve through `XLPaneSettings` and write `frozen`; the DOM path also stopped writing `xSplit="0"` for an unsplit axis |
 | 30 | `FunctionDefinition.cs:106-118` builds `itemArg`, then calls `_function(ctx, args)` | `POWER({2,3,4},{1,2,3})` → `2,2,2` not `2,9,64`; **261 scalar functions** affected under array semantics, worksheet references included |
 
 The missing test in each case is not an oversight — it is a consequence of the shape. Where a module
