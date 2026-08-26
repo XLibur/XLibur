@@ -59,34 +59,25 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
         if (edit.Sheet != worksheet)
             return;
 
-        foreach (var chart in worksheet.Charts.OfType<XLChart>())
+        if (worksheet.Charts.Count > 0)
         {
-            if (chart.Anchor == XLDrawingAnchor.Absolute)
-                continue;
+            foreach (var chart in worksheet.Charts.OfType<XLChart>())
+            {
+                if (chart.Anchor == XLDrawingAnchor.Absolute)
+                    continue;
 
-            // 0-based: the chart's markers are written straight into xdr:from / xdr:to.
-            Move<TAxis>(chart.Position, edit, oneBased: false);
+                // 0-based: the chart's markers are written straight into xdr:from / xdr:to.
+                Move<TAxis>(chart.Position, edit, oneBased: false);
 
-            if (chart.Anchor == XLDrawingAnchor.MoveAndSizeWithCells)
-                Move<TAxis>(chart.SecondPosition, edit, oneBased: false);
+                if (chart.Anchor == XLDrawingAnchor.MoveAndSizeWithCells)
+                    Move<TAxis>(chart.SecondPosition, edit, oneBased: false);
+            }
         }
 
-        foreach (var cell in worksheet.Internals.CellsCollection.GetCells(c => c.HasComment))
-        {
-            var note = cell.SliceComment;
+        MoveNotes<TAxis>(in edit);
 
-            // XLComment.Anchor, not Style.Properties.Positioning. The two disagree on every note
-            // XLibur creates: Initialize sets Anchor to MoveAndSizeWithCells while the inherited
-            // DefaultCommentStyle sets Positioning to Absolute, and the VML writer reads the latter.
-            // Anchor is the field that names how this note is tied to the grid, and it is the one a
-            // caller changing that would reach for. Which of the two should drive what is written
-            // into VML is a real question and a separate one — recorded as D17 in DEFECTS.md.
-            if (note is null || note.Anchor == XLDrawingAnchor.Absolute)
-                continue;
-
-            // 1-based: the VML writer subtracts one and indexes rows and columns with it directly.
-            Move<TAxis>(note.Position, edit, oneBased: true);
-        }
+        if (worksheet.Pictures.Count == 0)
+            return;
 
         foreach (var picture in worksheet.Pictures.OfType<XLPicture>())
         {
@@ -102,6 +93,38 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
             // the bottom-right marker is not maintained.
             if (picture.Placement == XLPicturePlacement.MoveAndSize)
                 Move<TAxis>(picture.Markers[XLMarkerPosition.BottomRight], edit);
+        }
+    }
+
+    /// <summary>
+    /// Moves every note's callout anchor. Walks the misc slice, where notes live, rather than
+    /// materialising an <see cref="XLCell"/> per used cell — the same reason
+    /// <c>XLCellsCollection.FindNote</c> does, and it matters here because this runs on every
+    /// structural edit whether the sheet has notes or not. An empty misc slice costs one branch.
+    /// </summary>
+    private void MoveNotes<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        var misc = worksheet.Internals.CellsCollection.MiscSlice;
+        if (misc.IsEmpty)
+            return;
+
+        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(misc, Area.Full);
+        while (enumerator.MoveNext())
+        {
+            var note = enumerator.Current.Comment;
+
+            // XLComment.Anchor, not Style.Properties.Positioning. The two disagree on every note
+            // XLibur creates: Initialize sets Anchor to MoveAndSizeWithCells while the inherited
+            // DefaultCommentStyle sets Positioning to Absolute, and the VML writer reads the latter.
+            // Anchor is the field that names how this note is tied to the grid, and it is the one a
+            // caller changing that would reach for. Which of the two should drive what is written
+            // into VML is a real question and a separate one — recorded as D17 in DEFECTS.md.
+            if (note is null || note.Anchor == XLDrawingAnchor.Absolute)
+                continue;
+
+            // 1-based: the VML writer subtracts one and indexes rows and columns with it directly.
+            Move<TAxis>(note.Position, edit, oneBased: true);
         }
     }
 
