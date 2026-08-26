@@ -94,6 +94,51 @@ internal class StyleDecoderTests
     }
 
     /// <summary>
+    /// A colour-only conditional format does not disturb a bold cell.
+    /// <para>
+    /// <see cref="StyleDecoder.FontKey"/> reads <c>&lt;b&gt;</c>, <c>&lt;i&gt;</c>,
+    /// <c>&lt;shadow&gt;</c> and <c>&lt;strike&gt;</c> unconditionally, so a <c>&lt;dxf&gt;</c>
+    /// whose <c>&lt;font&gt;</c> states only a colour decodes to a key with
+    /// <c>Bold == false</c>. That looks alarming and is not: a dxf is never decoded against the
+    /// cell's font. All three callers decode it against the <em>conditional format's own</em>
+    /// style, which starts at <see cref="XLStyle.Default"/> where <c>Bold</c> is already
+    /// <c>false</c> — <c>XLConditionalFormat</c>'s constructor chains to
+    /// <c>base(XLStyle.Default.Value)</c>, and the pivot reader and the writer's reuse map both
+    /// pass <c>XLStyle.Default.Key</c> explicitly. The cell keeps its own font.
+    /// </para>
+    /// <para>
+    /// Both decoder families behaved this way before spec 28 — the mutating one assigned
+    /// <c>fontBase.Bold = GetBoolean(...)</c> and the key one <c>Bold = GetBoolean(f.Bold)</c>,
+    /// each unconditional — so this is pinned behaviour, not a change.
+    /// </para>
+    /// </summary>
+    [Test]
+    public async Task A_colour_only_conditional_format_leaves_a_bold_cell_bold()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            ws.Cell("A1").Value = 10;
+            ws.Cell("A1").Style.Font.Bold = true;
+            ws.Range("A1:A5").AddConditionalFormat().WhenGreaterThan(5)
+                .Font.FontColor = XLColor.Red;
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var reloaded = new XLWorkbook(ms);
+        var ws2 = reloaded.Worksheet("Sheet1");
+
+        // The cell's own font is untouched by the conditional format's.
+        await Assert.That(ws2.Cell("A1").Style.Font.Bold).IsTrue();
+
+        // And the conditional format carries the colour it was given.
+        var format = ws2.ConditionalFormats.Single();
+        await Assert.That(format.Style.Font.FontColor).IsEqualTo(XLColor.Red);
+    }
+
+    /// <summary>
     /// The fixture the growth test rests on: the alignment-bearing pivot dxf must actually reach
     /// <see cref="XLPivotFormat.DxfStyleValue"/>, or a flat dxf count would prove nothing. Pinned
     /// separately so that a future change which silently stops loading pivot formats shows up here
