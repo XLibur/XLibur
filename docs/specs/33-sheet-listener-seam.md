@@ -1261,21 +1261,42 @@ task 7 is for**, and caching the listener list would have hidden it rather than 
 
 ### What the spec predicted that turned out wrong
 
-- **The enumeration in "The design" cannot be implemented as written.** It yields `DataValidations`
-  at position 5 for sqref coverage and `sheet.DataValidations` at position 6 for criteria formulas —
-  but one object implements the port once, so yielding it twice would do both passes twice. The
-  enumeration yields **one `XLDataValidations` per sheet**, and that listener does sqref-if-mine then
-  criteria. That is also the safer shape: the shifter's own comment says the criteria pass *must*
-  follow the coverage pass, and "this method does A then B" holds that more firmly than two
-  `yield return`s a later edit could reorder. Order is preserved for the edited sheet; another
-  sheet's criteria may now run before the edited sheet's coverage, which is sound because the two
-  touch disjoint state.
-- **Acceptance criterion 2 asks for "at least 12" types and the spec's own design lists 11.** Count
-  them: `MergedRangeSplitListener`, `XLDefinedNames`, `XLConditionalFormats`, `XLDataValidations`,
-  `XLPageSetup`, `XLSparklineGroups`, `XLCalcEngine`, `XLHyperlinks`, `DrawingAnchorListener`,
-  `XLSheetView`, `XLPivotTable`. The criterion's *other* stated gate — the file count from
-  `grep -rl 'ISheetListener'` — returns 12, because it also matches the interface's own declaration
-  file. **Reported rather than padded**: nothing was split into two types to reach a number.
+- **The enumeration in "The design" cannot be implemented as written — this is a correction to the
+  spec, not a deviation from it.** The design yields `DataValidations` at position 5 for sqref
+  coverage and `sheet.DataValidations` at position 6 for criteria formulas, as though the two
+  positions could do different work. They cannot: a type implements an interface *once*, so the
+  object yielded at position 5 and the object yielded at position 6 have the same four methods and
+  would run both passes both times. Coverage would be shifted twice per edit. Any implementation
+  faithful to the text is wrong.
+
+  **What landed instead:** the enumeration yields **one `XLDataValidations` per sheet**, and that
+  single listener does sqref-if-mine and then criteria. This is not a workaround for the interface's
+  shape — it is the stronger encoding of the requirement. The shifter's own comment says the criteria
+  pass *must* follow the coverage pass, because coverage deletes a rule whose area transforms to
+  nothing and the formula pass must not then rewrite a rule that is gone. "This method does A then B"
+  holds that ordering firmly; two `yield return`s a later edit could reorder does not.
+
+  Ordering is preserved where it matters: within the edited sheet, coverage still precedes criteria.
+  Another sheet's criteria may now run *before* the edited sheet's coverage, which is sound because
+  the two touch disjoint state — one rewrites formula strings on sheet B, the other rewrites areas on
+  sheet A.
+
+  **Anyone re-deriving this spec should fix the design section rather than re-discover this.**
+- **Acceptance criterion 2 is arithmetically unreachable: it demands "at least 12" adapter types and
+  the spec's own design section lists 11.** Count them: `MergedRangeSplitListener`,
+  `XLDefinedNames`, `XLConditionalFormats`, `XLDataValidations`, `XLPageSetup`, `XLSparklineGroups`,
+  `XLCalcEngine`, `XLHyperlinks`, `DrawingAnchorListener`, `XLSheetView`, `XLPivotTable`. Eleven is
+  what the design prescribes and eleven is what landed. The criterion's *other* stated gate — the
+  file count from `grep -rl 'ISheetListener'` — does return 12, but only because it also matches the
+  interface's own declaration file, which is not an adapter.
+
+  **This is the same arithmetic error spec 26's criterion 8 made**, and it gets the same answer:
+  **reporting an unreachable criterion beats splitting a type to pad the count.** Nothing here was
+  divided in two to reach a number, no documentation was deleted to make a count come out, and no
+  method body was copied. A criterion that cannot be met is a defect in the criterion; the honest
+  result is to say so and leave the code correct. Twice now, in the same round of specs, the number
+  in an acceptance criterion has been one higher than the design it was written from — worth
+  checking the arithmetic of any such count *before* the work starts, not after.
 - **"`Area.TryInsertAreaAndShiftDown` applies, use it rather than writing new arithmetic" (task 4
   step 2) is right for inserts and wrong for deletes.** That family returns `null` — "pushed out" —
   where the range repository *clamps*, so using it would have deleted charts that the picture, the
@@ -1301,6 +1322,12 @@ task 7 is for**, and caching the listener list would have hidden it rather than 
   "destroyed" may well be the right answer for a range and that is a separate question.
 - **D17 is recorded, not decided.** It needs Excel.
 - **No public API change.** `PublicAPI.Unshipped.txt` untouched.
+- **`briefs/` was not copied into the repo's `docs/specs`, and never should be.** The sync that keeps
+  `docs/specs` in step with this folder copies the specs and the tasklists only. The `briefs/`
+  subdirectory holds conductor dispatch records: they name local worktree paths, address a particular
+  agent, and are working notes about *how* the work was handed out rather than documentation of the
+  library. **This is a standing exclusion, not a judgement call made once** — a future sync that
+  copies the folder wholesale must drop `briefs/` again.
 
 ### What the next consumer inherits
 

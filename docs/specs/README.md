@@ -6,6 +6,8 @@ Thirty-five prioritized, self-contained specs covering features, compatibility, 
 
 Specs 01–10 are the original top-ten set; spec 11 is a follow-on that came out of implementing spec 03 (see below).
 
+**This folder is the source of truth for specs.** The repo's `docs/specs` is a copy on its way out, kept in step by copying this folder over it as part of a spec's PR. **That sync copies the specs and the tasklists only — never `briefs/`.** The briefs are conductor dispatch records: they name local worktree paths, address a particular agent, and describe how work was handed out rather than documenting the library. They must never enter the repo. This is a standing exclusion, so a sync that copies the folder wholesale has to drop `briefs/` again.
+
 Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (architecture, feature inventory vs Excel, benchmark artifacts under `BenchmarkDotNet.Artifacts/results/`). Headline baselines: save 50K rows ≈ 1.0–1.1 s / **543 MB allocated**; load+read 250K×15 ≈ 5.6 s / 1.68 GB after PR #171; XLibur is already ~3× faster and ~6× leaner than upstream ClosedXML on save.
 
 ## The list
@@ -40,11 +42,11 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 26 | [Give the grid one axis](26-grid-axis.md) | Arch · Refactor · **3 defects** | L | ✅ **Merged** (#409; see Results) | One `IGridAxis`, two adapters; 3 defects fixed; allocations down 12–50% |
 | 27 | [One font conformance module](27-font-conformance-suite.md) | Test · Arch (seam) | S–M | Proposed | Single owner; **gates 34** |
 | 28 | [One OOXML style decoder](28-single-style-decoder.md) | Arch · Refactor · **Defect (data loss)** | M | ✅ **Merged** (#411; see Results) | Single owner; 3 defects fixed; one premise disproved; load allocations flat or down |
-| 29 | [One resolver per emitted element](29-write-path-resolvers.md) | Arch · **Correctness (divergence)** | M | **Done** (2026-08-27) | Landed; **31 is unblocked** |
+| 29 | [One resolver per emitted element](29-write-path-resolvers.md) | Arch · **Correctness (divergence)** | M | 🟡 **Complete on branch, no PR** (`refactor/29-write-path-resolvers`, 2026-08-27; see Results) | 10 commits, 28,358 green both TFMs; pane divergence fixed; **D18 found and open**; 31 unblocks *on merge*, not now |
 | 30 | [Array application gets an interface](30-array-application-seam.md) | Arch · **Defect (241 functions)** | S–M | Proposed | Single owner; **before 32** |
-| 31 | [Worksheet element writers get one interface](31-worksheet-element-writers.md) | Arch · Refactor | M–L | Proposed (**needs 29**) | Single owner; tasks sequential |
+| 31 | [Worksheet element writers get one interface](31-worksheet-element-writers.md) | Arch · Refactor | M–L | Proposed (**needs 29 merged**) | Single owner; tasks sequential. 29 is complete on a branch but **not merged** — starting 31 now means rebasing a structural sweep onto an unmerged branch |
 | 32 | [Collapse the 61-overload registration](32-function-argument-spec.md) | Arch · Refactor | L | Proposed (**needs 30**) | Single owner; task 2 is a go/no-go gate |
-| 33 | [Every sheet feature reacts through one seam](33-sheet-listener-seam.md) | Arch · **Defect (4 unshifted)** | M–L | ✅ **Done** (2026-08-27; see Results) | Shifter 222→65 lines, names no feature; 11 adapters (was 2); the 4 dead features now move; 3 defects recorded |
+| 33 | [Every sheet feature reacts through one seam](33-sheet-listener-seam.md) | Arch · **Defect (4 unshifted)** | M–L | 🟡 **Complete on branch, no PR** (`refactor/33-sheet-listener-seam`, 2026-08-27; see Results) | 10 commits, 28,444 green both TFMs. Shifter 222→65 lines, names no feature; 11 adapters (was 2); the 4 dead features move; **D15–D17 recorded, D15 and D17 live**; criterion 2 reported unreachable |
 | 34 | [Split the font port: mechanism vs policy](34-font-port-split.md) | Arch · Refactor | M | Proposed (**needs 27**) | Single owner; tasks sequential |
 | 35 | [Pivot table timelines](35-pivot-timelines.md) | Feature · Compat | M | ✅ **Done** (#406; see Results) | Task 1 (extraction) standalone; 2→3→4 ordered |
 
