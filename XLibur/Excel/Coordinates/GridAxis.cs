@@ -54,6 +54,12 @@ internal interface IGridAxis
     /// <summary><c>MaxRowUsed</c> on the row axis, <c>MaxColumnUsed</c> on the column axis.</summary>
     int MaxUsedIndex(XLCellsCollection cells);
 
+    /// <summary>How many lines the range spans on this axis.</summary>
+    int IndexCount(XLRangeBase range);
+
+    /// <summary>How many lines the range spans on the other axis.</summary>
+    int CrossCount(XLRangeBase range);
+
     /// <summary>Copies a line's height (row axis) or width (column axis) onto another line.</summary>
     void CopyLineSize(XLWorksheet worksheet, int fromIndex, int toIndex);
 
@@ -63,7 +69,7 @@ internal interface IGridAxis
 
     /// <summary>The worksheet range spanning <paramref name="firstIndex"/>..<paramref name="lastIndex"/>
     /// on this axis and <paramref name="firstCross"/>..<paramref name="lastCross"/> on the other.</summary>
-    IXLRange RangeFor(XLWorksheet worksheet, int firstIndex, int lastIndex, int firstCross, int lastCross);
+    XLRange RangeFor(XLWorksheet worksheet, int firstIndex, int lastIndex, int firstCross, int lastCross);
 
     /// <summary>The line immediately before the range on this axis — the column to its left, or the
     /// row above it — used as the model when formatting from the preceding line.</summary>
@@ -103,6 +109,9 @@ internal readonly struct RowAxis : IGridAxis
 
     public int MaxUsedIndex(XLCellsCollection cells) => cells.MaxRowUsed;
 
+    public int IndexCount(XLRangeBase range) => range.RowCount();
+    public int CrossCount(XLRangeBase range) => range.ColumnCount();
+
     public void CopyLineSize(XLWorksheet worksheet, int fromIndex, int toIndex)
         => worksheet.Row(toIndex).Height = worksheet.Row(fromIndex).Height;
 
@@ -115,7 +124,7 @@ internal readonly struct RowAxis : IGridAxis
     public void NotifyRangeShifted(XLWorksheet worksheet, XLRange range, int shift)
         => worksheet.NotifyRangeShiftedRows(range, shift);
 
-    public IXLRange RangeFor(XLWorksheet worksheet, int firstIndex, int lastIndex, int firstCross, int lastCross)
+    public XLRange RangeFor(XLWorksheet worksheet, int firstIndex, int lastIndex, int firstCross, int lastCross)
         => worksheet.Range(firstIndex, firstCross, lastIndex, lastCross);
 
     public IXLRangeBase ModelLineBefore(IXLRange range) => range.FirstRow()!.RowAbove();
@@ -155,6 +164,9 @@ internal readonly struct ColumnAxis : IGridAxis
 
     public int MaxUsedIndex(XLCellsCollection cells) => cells.MaxColumnUsed;
 
+    public int IndexCount(XLRangeBase range) => range.ColumnCount();
+    public int CrossCount(XLRangeBase range) => range.RowCount();
+
     public void CopyLineSize(XLWorksheet worksheet, int fromIndex, int toIndex)
         => worksheet.Column(toIndex).Width = worksheet.Column(fromIndex).Width;
 
@@ -167,7 +179,7 @@ internal readonly struct ColumnAxis : IGridAxis
     public void NotifyRangeShifted(XLWorksheet worksheet, XLRange range, int shift)
         => worksheet.NotifyRangeShiftedColumns(range, shift);
 
-    public IXLRange RangeFor(XLWorksheet worksheet, int firstIndex, int lastIndex, int firstCross, int lastCross)
+    public XLRange RangeFor(XLWorksheet worksheet, int firstIndex, int lastIndex, int firstCross, int lastCross)
         => worksheet.Range(firstCross, firstIndex, lastCross, lastIndex);
 
     public IXLRangeBase ModelLineBefore(IXLRange range) => range.FirstColumn()!.ColumnLeft();
