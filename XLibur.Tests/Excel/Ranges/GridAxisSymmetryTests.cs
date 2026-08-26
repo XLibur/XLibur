@@ -179,4 +179,45 @@ public class GridAxisSymmetryTests
         await Assert.That(colDv.FirstAddress.ColumnNumber).IsEqualTo(rowDv.FirstAddress.RowNumber);
         await Assert.That(colDv.LastAddress.ColumnNumber).IsEqualTo(rowDv.LastAddress.RowNumber);
     }
+
+    /// <summary>
+    /// XLWorksheetRangeShifter ran page-break shifting and sparkline cleanup in opposite orders on the
+    /// two axes (ShiftColumns did breaks then sparklines, ShiftRows the reverse), with nothing stating
+    /// whether that mattered. It does not: RemoveInvalidSparklines reads only sparkline location
+    /// validity and ShiftPageBreaks* touches only PageSetup.*Breaks, so the two touch disjoint state.
+    /// Spec 26 task 8 collapses them onto one order; this pins the outcome so the collapse is provably
+    /// a no-op. Run green before the collapse, and again after.
+    /// </summary>
+    [Test]
+    public async Task Page_breaks_and_sparklines_survive_a_shift_on_both_axes()
+    {
+        using var wb = new XLWorkbook();
+        var rows = Populate(wb.AddWorksheet("Rows"), transposed: false);
+        var cols = Populate(wb.AddWorksheet("Cols"), transposed: true);
+
+        // A break past the insert point, so it must move by the shift.
+        rows.PageSetup.AddHorizontalPageBreak(5);
+        cols.PageSetup.AddVerticalPageBreak(5);
+
+        // A sparkline whose source sits inside the region the later delete destroys, plus one well
+        // clear of it, so the cleanup pass has both a survivor and a casualty to decide about.
+        rows.SparklineGroups.Add("F1", "A3:D3");
+        cols.SparklineGroups.Add("A6", "C1:C4");
+
+        rows.Row(2).InsertRowsAbove(2);
+        cols.Column(2).InsertColumnsBefore(2);
+
+        await Assert.That(cols.PageSetup.ColumnBreaks.Single())
+            .IsEqualTo(rows.PageSetup.RowBreaks.Single());
+        await Assert.That(cols.SparklineGroups.SelectMany(g => g).Count())
+            .IsEqualTo(rows.SparklineGroups.SelectMany(g => g).Count());
+
+        rows.Rows(3, 5).Delete();
+        cols.Columns(3, 5).Delete();
+
+        await Assert.That(cols.PageSetup.ColumnBreaks.Single())
+            .IsEqualTo(rows.PageSetup.RowBreaks.Single());
+        await Assert.That(cols.SparklineGroups.SelectMany(g => g).Count())
+            .IsEqualTo(rows.SparklineGroups.SelectMany(g => g).Count());
+    }
 }

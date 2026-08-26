@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 
 namespace XLibur.Excel.Coordinates;
 
@@ -98,6 +99,27 @@ internal interface IGridAxis
 
     /// <summary>The stored style of a cross-axis line, falling back to the worksheet's own style.</summary>
     IXLStyle CrossLineStyle(XLWorksheet worksheet, int cross);
+
+    /// <summary><c>PageSetup.RowBreaks</c> on the row axis, <c>ColumnBreaks</c> on the column axis.</summary>
+    List<int> PageBreaks(XLWorksheet worksheet);
+
+    /// <summary>
+    /// Re-points a formula's references for a shift on this axis —
+    /// <see cref="XLCellFormulaShifter"/>'s row or column entry point.
+    /// </summary>
+    string ShiftFormula(string reference, XLWorksheet worksheet, XLRange range, int shift);
+
+    /// <summary>The address at this axis's far edge, on the cross-axis line <paramref name="last"/> sits on.</summary>
+    XLAddress AddressAtMaxIndex(IXLAddress last);
+
+    /// <summary>Grows an area by <paramref name="by"/> lines along this axis.</summary>
+    Area ExtendAlongIndex(Area area, int by);
+
+    XLAreaList InsertAndShift(XLAreaList areas, Area affected);
+    XLAreaList DeleteAndShift(XLAreaList areas, Area affected);
+
+    void OnInsertAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area);
+    void OnDeleteAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area);
 }
 
 /// <summary>The row axis: rows are inserted, deleted and shifted; each row spans 16,384 columns.</summary>
@@ -107,56 +129,51 @@ internal readonly struct RowAxis : IGridAxis
     public int MaxCross => XLHelper.MaxColumnNumber;
     public string LineNoun => "rows";
     public bool ShiftsRows => true;
-
     public int IndexOf(IXLAddress address) => address.RowNumber;
     public int CrossOf(IXLAddress address) => address.ColumnNumber;
-
     public Point PointAt(int index, int cross) => new(index, cross);
-
     public XLAddress AddressAt(XLWorksheet worksheet, int index, int cross, bool fixedRow, bool fixedColumn)
         => new(worksheet, index, cross, fixedRow, fixedColumn);
-
     public bool IsEntireLine(XLRangeBase range) => range.IsEntireRow();
     public bool IsEntireCrossLine(XLRangeBase range) => range.IsEntireColumn();
-
     public void WorksheetRangeShifted(XLRangeBase target, XLRange range, int shift)
         => target.WorksheetRangeShiftedRows(range, shift);
-
     public int MaxUsedIndex(XLCellsCollection cells) => cells.MaxRowUsed;
-
     public int IndexCount(XLRangeBase range) => range.RowCount();
     public int CrossCount(XLRangeBase range) => range.ColumnCount();
-
     public void CopyLineSize(XLWorksheet worksheet, int fromIndex, int toIndex)
         => worksheet.Row(toIndex).Height = worksheet.Row(fromIndex).Height;
-
     public void ShiftSparklines(XLSparklineGroups groups, Area area, int shift)
         => groups.ShiftRows(area, shift);
-
     public void InsertAreaAndShift(XLCellsCollection cells, Area area)
         => cells.InsertAreaAndShiftDown(area);
-
     public void NotifyRangeShifted(XLWorksheet worksheet, XLRange range, int shift)
         => worksheet.NotifyRangeShiftedRows(range, shift);
-
     public XLRange RangeFor(XLWorksheet worksheet, int firstIndex, int lastIndex, int firstCross, int lastCross)
         => worksheet.Range(firstIndex, firstCross, lastIndex, lastCross);
-
     public IXLRangeBase ModelLineBefore(IXLRange range) => range.FirstRow()!.RowAbove();
-
     public IXLStyle ModelCellStyle(IXLRangeBase modelLine, int cross)
         => ((IXLRangeRow)modelLine).Cell(cross).Style;
-
     public void SetCrossLineStyle(IXLRange range, int cross, IXLStyle style)
         => range.Column(cross).Style = style;
-
     public int LastUsedCross(IXLRange range, XLCellsUsedOptions options)
         => range.LastColumnUsed(options)?.ColumnNumber() ?? -1;
-
     public IXLStyle CrossLineStyle(XLWorksheet worksheet, int cross)
         => worksheet.Internals.ColumnsCollection.TryGetValue(cross, out var column)
             ? column.Style
             : worksheet.Style;
+    public List<int> PageBreaks(XLWorksheet worksheet) => worksheet.PageSetup.RowBreaks;
+    public string ShiftFormula(string reference, XLWorksheet worksheet, XLRange range, int shift)
+        => XLCellFormulaShifter.ShiftFormulaRows(reference, worksheet, range, shift);
+    public XLAddress AddressAtMaxIndex(IXLAddress last)
+        => new(XLHelper.MaxRowNumber, last.ColumnNumber, false, false);
+    public Area ExtendAlongIndex(Area area, int by) => area.ExtendBelow(by);
+    public XLAreaList InsertAndShift(XLAreaList areas, Area affected) => areas.InsertAndShiftDown(affected);
+    public XLAreaList DeleteAndShift(XLAreaList areas, Area affected) => areas.DeleteAndShiftUp(affected);
+    public void OnInsertAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area)
+        => listener.OnInsertAreaAndShiftDown(sheet, area);
+    public void OnDeleteAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area)
+        => listener.OnDeleteAreaAndShiftUp(sheet, area);
 }
 
 /// <summary>The column axis: columns are inserted, deleted and shifted; each column spans 1,048,576 rows.</summary>
@@ -166,54 +183,49 @@ internal readonly struct ColumnAxis : IGridAxis
     public int MaxCross => XLHelper.MaxRowNumber;
     public string LineNoun => "columns";
     public bool ShiftsRows => false;
-
     public int IndexOf(IXLAddress address) => address.ColumnNumber;
     public int CrossOf(IXLAddress address) => address.RowNumber;
-
     public Point PointAt(int index, int cross) => new(cross, index);
-
     public XLAddress AddressAt(XLWorksheet worksheet, int index, int cross, bool fixedRow, bool fixedColumn)
         => new(worksheet, cross, index, fixedRow, fixedColumn);
-
     public bool IsEntireLine(XLRangeBase range) => range.IsEntireColumn();
     public bool IsEntireCrossLine(XLRangeBase range) => range.IsEntireRow();
-
     public void WorksheetRangeShifted(XLRangeBase target, XLRange range, int shift)
         => target.WorksheetRangeShiftedColumns(range, shift);
-
     public int MaxUsedIndex(XLCellsCollection cells) => cells.MaxColumnUsed;
-
     public int IndexCount(XLRangeBase range) => range.ColumnCount();
     public int CrossCount(XLRangeBase range) => range.RowCount();
-
     public void CopyLineSize(XLWorksheet worksheet, int fromIndex, int toIndex)
         => worksheet.Column(toIndex).Width = worksheet.Column(fromIndex).Width;
-
     public void ShiftSparklines(XLSparklineGroups groups, Area area, int shift)
         => groups.ShiftColumns(area, shift);
-
     public void InsertAreaAndShift(XLCellsCollection cells, Area area)
         => cells.InsertAreaAndShiftRight(area);
-
     public void NotifyRangeShifted(XLWorksheet worksheet, XLRange range, int shift)
         => worksheet.NotifyRangeShiftedColumns(range, shift);
-
     public XLRange RangeFor(XLWorksheet worksheet, int firstIndex, int lastIndex, int firstCross, int lastCross)
         => worksheet.Range(firstCross, firstIndex, lastCross, lastIndex);
-
     public IXLRangeBase ModelLineBefore(IXLRange range) => range.FirstColumn()!.ColumnLeft();
-
     public IXLStyle ModelCellStyle(IXLRangeBase modelLine, int cross)
         => ((IXLRangeColumn)modelLine).Cell(cross).Style;
-
     public void SetCrossLineStyle(IXLRange range, int cross, IXLStyle style)
         => range.Row(cross).Style = style;
-
     public int LastUsedCross(IXLRange range, XLCellsUsedOptions options)
         => range.LastRowUsed(options)?.RowNumber() ?? -1;
-
     public IXLStyle CrossLineStyle(XLWorksheet worksheet, int cross)
         => worksheet.Internals.RowsCollection.TryGetValue(cross, out var row)
             ? row.Style
             : worksheet.Style;
+    public List<int> PageBreaks(XLWorksheet worksheet) => worksheet.PageSetup.ColumnBreaks;
+    public string ShiftFormula(string reference, XLWorksheet worksheet, XLRange range, int shift)
+        => XLCellFormulaShifter.ShiftFormulaColumns(reference, worksheet, range, shift);
+    public XLAddress AddressAtMaxIndex(IXLAddress last)
+        => new(last.RowNumber, XLHelper.MaxColumnNumber, false, false);
+    public Area ExtendAlongIndex(Area area, int by) => area.ExtendRight(by);
+    public XLAreaList InsertAndShift(XLAreaList areas, Area affected) => areas.InsertAndShiftRight(affected);
+    public XLAreaList DeleteAndShift(XLAreaList areas, Area affected) => areas.DeleteAndShiftLeft(affected);
+    public void OnInsertAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area)
+        => listener.OnInsertAreaAndShiftRight(sheet, area);
+    public void OnDeleteAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area)
+        => listener.OnDeleteAreaAndShiftLeft(sheet, area);
 }
