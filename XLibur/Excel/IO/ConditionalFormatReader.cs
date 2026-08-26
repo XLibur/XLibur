@@ -60,10 +60,12 @@ internal static class ConditionalFormatReader
         XLConditionalFormat conditionalFormat, Dictionary<int, DifferentialFormat> differentialFormats)
     {
         var dxf = differentialFormats[(int)fr.FormatId!.Value];
-        OpenXmlHelper.LoadFont(dxf.Font, conditionalFormat.Style.Font);
-        OpenXmlHelper.LoadFill(dxf.Fill, conditionalFormat.Style.Fill, differentialFillFormat: true);
-        OpenXmlHelper.LoadBorder(dxf.Border, conditionalFormat.Style.Border);
-        OpenXmlHelper.LoadNumberFormat(dxf.NumberingFormat, conditionalFormat.Style.NumberFormat);
+
+        // One decode of the whole dxf, then apply the key - rather than four per-aspect decodes
+        // through a second implementation. This is what makes a conditional format's font name,
+        // family, charset and alignment survive a load; see spec 28.
+        var key = StyleDecoder.Decode(dxf, conditionalFormat.StyleValue.Key);
+        conditionalFormat.InnerStyle = new XLStyle(conditionalFormat, key);
     }
 
     private static void LoadConditionalFormatFormulas(ConditionalFormattingRule fr,

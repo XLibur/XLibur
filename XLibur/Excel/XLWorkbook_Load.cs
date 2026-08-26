@@ -581,7 +581,7 @@ public partial class XLWorkbook
             var runProperties = run.RunProperties;
             var text = run.Text!.InnerText.FixNewLines();
             var rt = xlComment.AddText(text);
-            OpenXmlHelper.LoadFont(runProperties, rt);
+            StyleDecoder.ApplyRunFont(runProperties, rt);
         }
 
         // Comments can have text not wrapped in a Run element (e.g., Google Sheets exports)

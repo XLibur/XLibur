@@ -816,7 +816,7 @@ internal static class WorksheetSheetDataReader
                 if (fontScheme is { Val: not null })
                     rt.SetFontScheme(fontScheme.Val.Value.ToXLibur());
 
-                OpenXmlHelper.LoadFont(runProperties, rt);
+                StyleDecoder.ApplyRunFont(runProperties, rt);
             }
         }
 
@@ -1177,7 +1177,10 @@ internal static class WorksheetSheetDataReader
             if (pp.Type != null)
                 xlCell.GetRichText().Phonetics.Type = pp.Type.Value.ToXLibur();
 
-            OpenXmlHelper.LoadFont(pp, xlCell.GetRichText().Phonetics);
+            // No font decode here. Per the SDK, PhoneticProperties has no child elements at all -
+            // FontId, Type and Alignment are attributes - so the untyped font decoder that used to
+            // be called here found nothing to read and merely reset Bold, Italic, Shadow and
+            // Strikethrough to false. It was a no-op with a side effect; see spec 28.
         }
 
         foreach (var pr in element.Elements<PhoneticRun>())

@@ -440,10 +440,22 @@ internal static class StyleDecoder
     /// <see cref="IXLFontBase"/>.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A thin applier over <see cref="RunFontKey"/> rather than a second decoder. The rich-text
     /// call sites hold an <c>XLRichString</c>, which is an <see cref="IXLFontBase"/> with no
     /// <c>InnerStyle</c> to assign a key to, so the fields are written through one at a time. One
     /// decode, one shape.
+    /// </para>
+    /// <para>
+    /// The writes are gated and ordered exactly as the decoder this replaced gated and ordered
+    /// them, and that is load-bearing rather than cosmetic. A rich run is part of its shared
+    /// string's identity, so every property write on one dereferences that string's
+    /// shared-string-table entry and interns a new one. Since
+    /// <c>SharedStringTable.GetConsecutiveMap</c> emits entries in insertion order, a different
+    /// set or order of intermediate writes reorders <c>sharedStrings.xml</c> for a file whose
+    /// content is unchanged. The four booleans are written unconditionally, as before; everything
+    /// else is written only when the run states the element.
+    /// </para>
     /// </remarks>
     internal static void ApplyRunFont(RunProperties? runProperties, IXLFontBase fontBase)
     {
@@ -451,20 +463,41 @@ internal static class StyleDecoder
             return;
 
         var key = RunFontKey(runProperties, XLFont.GenerateKey(fontBase));
-        var fontColor = key.FontColor;
 
         fontBase.Bold = key.Bold;
+
+        if (runProperties.Elements<Color>().Any())
+        {
+            var fontColor = key.FontColor;
+            fontBase.FontColor = XLColor.FromKey(ref fontColor);
+        }
+
+        if (runProperties.Elements<FontFamily>().Any(f => f.Val is not null))
+            fontBase.FontFamilyNumbering = key.FontFamilyNumbering;
+
+        if (runProperties.Elements<RunFont>().Any(f => f.Val is not null))
+            fontBase.FontName = key.FontName;
+
+        if (runProperties.Elements<FontSize>().Any(f => f.Val is not null))
+            fontBase.FontSize = key.FontSize;
+
         fontBase.Italic = key.Italic;
         fontBase.Shadow = key.Shadow;
         fontBase.Strikethrough = key.Strikethrough;
-        fontBase.Underline = key.Underline;
-        fontBase.VerticalAlignment = key.VerticalAlignment;
-        fontBase.FontSize = key.FontSize;
-        fontBase.FontColor = XLColor.FromKey(ref fontColor);
-        fontBase.FontName = key.FontName;
-        fontBase.FontFamilyNumbering = key.FontFamilyNumbering;
-        fontBase.FontCharSet = key.FontCharSet;
-        fontBase.FontScheme = key.FontScheme;
+
+        if (runProperties.Elements<Underline>().Any())
+            fontBase.Underline = key.Underline;
+
+        if (runProperties.Elements<VerticalTextAlignment>().Any())
+            fontBase.VerticalAlignment = key.VerticalAlignment;
+
+        if (runProperties.Elements<FontScheme>().Any())
+            fontBase.FontScheme = key.FontScheme;
+
+        // New in spec 28: the charset was never read on this path. It goes last so that adding it
+        // cannot disturb the intermediate states the writes above produce for a run that has none.
+        if (runProperties.Elements<RunPropertyCharSet>().Any(c => c.Val is not null))
+            fontBase.FontCharSet = key.FontCharSet;
     }
 
     private static bool UInt32HasValue(UInt32Value? value)
