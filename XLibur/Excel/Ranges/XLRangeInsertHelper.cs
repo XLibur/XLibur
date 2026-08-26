@@ -64,7 +64,10 @@ internal static class XLRangeInsertHelper
             return;
 
         var firstColumn = range.RangeAddress.FirstAddress.ColumnNumber;
-        for (var co = lastColumn; co >= firstColumn; co--)
+        // A column whose target lands past the sheet's last column is pushed off the sheet, so its
+        // width goes with it. Starting the walk below the edge drops those rather than addressing
+        // column 16,385, which threw.
+        for (var co = Math.Min(lastColumn, XLHelper.MaxColumnNumber - numberOfColumns); co >= firstColumn; co--)
         {
             var newColumn = co + numberOfColumns;
             if (range.IsEntireColumn())
@@ -171,7 +174,8 @@ internal static class XLRangeInsertHelper
             return;
 
         var firstRow = range.RangeAddress.FirstAddress.RowNumber;
-        for (var ro = lastRow; ro >= firstRow; ro--)
+        // See ShiftColumnWidths: a row shifted past the sheet's last row takes its height with it.
+        for (var ro = Math.Min(lastRow, XLHelper.MaxRowNumber - numberOfRows); ro >= firstRow; ro--)
         {
             var newRow = ro + numberOfRows;
             if (range.IsEntireRow())

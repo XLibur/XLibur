@@ -30,6 +30,8 @@
 
 - **A pivot table's cells are no longer blanked by a round trip.** Loading a workbook cleared the cells every pivot table had been rendered into, on the understanding that the output belonged to the pivot table rather than to the sheet. Nothing put them back — XLibur writes the definition of a pivot table and never its output — so loading a workbook and saving it, with no edit at all, produced a file whose pivot tables were empty in Excel until the user clicked one. The rendered cells are now left where Excel put them. The alternative, asking Excel to rebuild the table on open, was tried and rejected: it discards the filters applied through hidden items ([ClosedXML#2219](https://github.com/ClosedXML/ClosedXML/issues/2219)) and fails with *Reference isn't valid* when the cache's source is gone. **This reverses the behaviour introduced by [ClosedXML#856](https://github.com/ClosedXML/ClosedXML/pull/856)**, so cells inside a pivot table's range now read back as ordinary cell values rather than as blanks.
 
+- **Inserting rows or columns no longer throws when the sheet's last used line is near its edge.** Carrying line sizes forward walked from the last used row (or column) down to the insert point and wrote each height to `row + numberOfRows` without clamping, so a sheet with anything on a row within `numberOfRows` of row 1,048,576 addressed row 1,048,577 and threw `ArgumentOutOfRangeException`. Both axes were affected, identically. A line pushed past the edge now takes its height or width off the sheet with it, which is what happens to its contents.
+
 ## v0.311.1 - 2026-08-11
 
 A dependency release: `XLibur.Fonts.SkiaSharp` moves to SkiaSharp 4.151.1, a patch bump. No new features, no bug fixes and no breaking changes.
