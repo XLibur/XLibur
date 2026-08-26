@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
+using XLibur.Excel.IO;
 using XLibur.Utils;
 
 namespace XLibur.Tests.Excel.Styles;
@@ -226,7 +227,7 @@ public class XLBorderKeyNormalizationTests
             LeftBorder = new LeftBorder(new Color { Rgb = "FFFF0000" }),
         };
 
-        var converted = OpenXmlHelper.BorderToXLibur(border, XLBorderValue.Default.Key);
+        var converted = StyleDecoder.BorderKey(border, XLBorderValue.Default.Key);
 
         await Assert.That(converted.LeftBorder).IsEqualTo(XLBorderStyleValues.None);
         await Assert.That(converted).IsEqualTo(XLBorderValue.Default.Key);

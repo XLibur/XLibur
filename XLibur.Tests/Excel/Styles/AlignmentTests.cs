@@ -3,6 +3,7 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
+using XLibur.Excel.IO;
 using XLibur.Utils;
 using System.Threading.Tasks;
 
@@ -102,7 +103,7 @@ public class AlignmentTests
             Vertical = new EnumValue<VerticalAlignmentValues> { InnerText = "bogus" },
         };
 
-        var result = OpenXmlHelper.AlignmentToXLibur(alignment, defaultKey);
+        var result = StyleDecoder.AlignmentKey(alignment, defaultKey);
 
         // Bad casing is recovered; truly unknown values fall back to the default.
         await Assert.That(result.Horizontal).IsEqualTo(XLAlignmentHorizontalValues.Center);

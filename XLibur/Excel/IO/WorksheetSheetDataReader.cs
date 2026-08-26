@@ -17,8 +17,13 @@ using static XLibur.Excel.XLPredefinedFormat.DateTime;
 namespace XLibur.Excel.IO;
 
 /// <summary>
-/// Reads cell, row, and column data from a worksheet part, including style application and formula handling.
+/// Reads cell and row data from a worksheet part, including formula handling.
 /// </summary>
+/// <remarks>
+/// Style decoding lives in <see cref="StyleDecoder"/> and the <c>&lt;cols&gt;</c> element in
+/// <see cref="WorksheetColumnReader"/>; neither is sheet data. What remains here uses a resolved
+/// style rather than decoding one.
+/// </remarks>
 internal static class WorksheetSheetDataReader
 {
     /// <summary>
@@ -816,7 +821,7 @@ internal static class WorksheetSheetDataReader
                 if (fontScheme is { Val: not null })
                     rt.SetFontScheme(fontScheme.Val.Value.ToXLibur());
 
-                OpenXmlHelper.LoadFont(runProperties, rt);
+                StyleDecoder.ApplyRunFont(runProperties, rt);
             }
         }
 
@@ -851,100 +856,6 @@ internal static class WorksheetSheetDataReader
         var richText = xlCell.SliceRichText;
         if (richText is not null)
             xlCell.SliceRichText = richText.WithoutRuns();
-    }
-
-    internal static void LoadColumns(StylesheetData styles, XLWorksheet ws, Columns columns)
-    {
-        var wsDefaultColumn =
-            columns.Elements<Column>().FirstOrDefault(c => c.Max?.Value == XLHelper.MaxColumnNumber);
-
-        if (wsDefaultColumn != null && wsDefaultColumn.Width != null)
-            ws.ColumnWidth = wsDefaultColumn.Width - XLConstants.ColumnWidthOffset;
-
-        var styleIndexDefault = wsDefaultColumn != null && wsDefaultColumn.Style != null
-            ? int.Parse(wsDefaultColumn.Style.InnerText!)
-            : -1;
-        if (styleIndexDefault >= 0)
-            ApplyStyle(ws, styleIndexDefault, styles);
-
-        foreach (var col in columns.Elements<Column>())
-        {
-            if (col.Max?.Value == XLHelper.MaxColumnNumber) continue;
-
-            LoadColumn(col, ws, styles);
-        }
-    }
-
-    internal static void ApplyStyle(IXLStylized xlStylized, int styleIndex, StylesheetData styles)
-    {
-        var xlStyleKey = XLStyle.Default.Key;
-        LoadStyle(ref xlStyleKey, styleIndex, styles);
-
-        // When loading columns, we must propagate the style to each column but not deeper. In other cases we do not propagate at all.
-        if (xlStylized is IXLColumns columns)
-        {
-            columns.Cast<XLColumn>().ForEach(col => col.InnerStyle = new XLStyle(col, xlStyleKey));
-        }
-        else
-        {
-            xlStylized.InnerStyle = new XLStyle(xlStylized, xlStyleKey);
-        }
-    }
-
-    /// <summary>
-    /// Resolve a CellFormats style index to an interned <see cref="XLStyleValue"/>
-    /// without creating an <see cref="XLStyle"/> wrapper or writing to any slice.
-    /// </summary>
-    internal static XLStyleValue ResolveStyleValue(int styleIndex, StylesheetData styles)
-    {
-        var xlStyleKey = XLStyle.Default.Key;
-        LoadStyle(ref xlStyleKey, styleIndex, styles);
-        return XLStyleValue.FromKey(ref xlStyleKey);
-    }
-
-    internal static void LoadStyle(ref XLStyleKey xlStyle, int styleIndex, StylesheetData styles)
-    {
-        if (styles.Stylesheet is not { CellFormats: not null } s)
-            return; //No Stylesheet, no Styles
-
-        var fills = styles.Fills!;
-        var borders = styles.Borders!;
-        var fonts = styles.Fonts!;
-        var numberingFormats = styles.NumberingFormats;
-
-        var cellFormat = (CellFormat)s.CellFormats.ElementAt(styleIndex);
-
-        var xlIncludeQuotePrefix = OpenXmlHelper.GetBooleanValueAsBool(cellFormat.QuotePrefix, false);
-        xlStyle = xlStyle with { IncludeQuotePrefix = xlIncludeQuotePrefix };
-
-        if (cellFormat.ApplyProtection != null)
-        {
-            var protection = cellFormat.Protection;
-            var xlProtection = XLProtectionValue.Default.Key;
-            if (protection is not null)
-                xlProtection = OpenXmlHelper.ProtectionToXLibur(protection, xlProtection);
-
-            xlStyle = xlStyle with { Protection = xlProtection };
-        }
-
-        if (UInt32HasValue(cellFormat.FillId))
-            xlStyle = LoadStyleFill(cellFormat, fills, xlStyle);
-
-        var alignment = cellFormat.Alignment;
-        if (alignment != null)
-        {
-            var xlAlignment = OpenXmlHelper.AlignmentToXLibur(alignment, xlStyle.Alignment);
-            xlStyle = xlStyle with { Alignment = xlAlignment };
-        }
-
-        if (UInt32HasValue(cellFormat.BorderId))
-            xlStyle = LoadStyleBorder(cellFormat.BorderId!.Value, borders, xlStyle);
-
-        if (UInt32HasValue(cellFormat.FontId))
-            xlStyle = LoadStyleFont(cellFormat.FontId!.Value, fonts, xlStyle);
-
-        if (UInt32HasValue(cellFormat.NumberFormatId))
-            xlStyle = LoadStyleNumberFormat(cellFormat, numberingFormats, xlStyle);
     }
 
     /// <summary>
@@ -1051,11 +962,6 @@ internal static class WorksheetSheetDataReader
         };
     }
 
-    internal static bool UInt32HasValue(UInt32Value? value)
-    {
-        return value != null && value.HasValue;
-    }
-
     private static Exception MissingRequiredAttr(string attributeName)
     {
         throw new InvalidOperationException($"XML doesn't contain required attribute '{attributeName}'.");
@@ -1094,7 +1000,7 @@ internal static class WorksheetSheetDataReader
         {
             if (props.StyleIndex is not null)
             {
-                ApplyStyle(xlRow, props.StyleIndex.Value, styles);
+                StyleDecoder.ApplyStyle(xlRow, props.StyleIndex.Value, styles);
             }
             else
             {
@@ -1219,7 +1125,10 @@ internal static class WorksheetSheetDataReader
             if (pp.Type != null)
                 xlCell.GetRichText().Phonetics.Type = pp.Type.Value.ToXLibur();
 
-            OpenXmlHelper.LoadFont(pp, xlCell.GetRichText().Phonetics);
+            // No font decode here. Per the SDK, PhoneticProperties has no child elements at all -
+            // FontId, Type and Alignment are attributes - so the untyped font decoder that used to
+            // be called here found nothing to read and merely reset Bold, Italic, Shadow and
+            // Strikethrough to false. It was a no-op with a side effect; see spec 28.
         }
 
         foreach (var pr in element.Elements<PhoneticRun>())
@@ -1233,92 +1142,6 @@ internal static class WorksheetSheetDataReader
 
             xlCell.GetRichText().Phonetics.Add(phoneticText, sb, eb);
         }
-    }
-
-    private static void LoadColumn(Column col, XLWorksheet ws, StylesheetData styles)
-    {
-        var xlColumns = (XLColumns)ws.Columns((int)col.Min!.Value, (int)col.Max!.Value);
-        if (col.Width != null)
-        {
-            var width = col.Width - XLConstants.ColumnWidthOffset;
-            xlColumns.Width = width;
-        }
-        else
-            xlColumns.Width = ws.ColumnWidth;
-
-        if (col.Hidden != null && col.Hidden)
-            xlColumns.Hide();
-
-        if (col.Collapsed != null && col.Collapsed)
-            xlColumns.CollapseOnly();
-
-        if (col.OutlineLevel != null)
-        {
-            var outlineLevel = col.OutlineLevel;
-            xlColumns.ForEach(c => c.OutlineLevel = outlineLevel);
-        }
-
-        var styleIndex = col.Style != null ? int.Parse(col.Style.InnerText!) : -1;
-        if (styleIndex >= 0)
-        {
-            ApplyStyle(xlColumns, styleIndex, styles);
-        }
-        else
-        {
-            xlColumns.Style = ws.Style;
-        }
-    }
-
-    private static XLStyleKey LoadStyleFill(CellFormat cellFormat, Fills fills, XLStyleKey xlStyle)
-    {
-        var fill = (Fill)fills.ElementAt((int)cellFormat.FillId!.Value);
-        if (fill.PatternFill == null) return xlStyle;
-        var xlFill = new XLFill();
-        OpenXmlHelper.LoadFill(fill, xlFill, differentialFillFormat: false);
-        xlStyle = xlStyle with { Fill = xlFill.Key };
-
-        return xlStyle;
-    }
-
-    private static XLStyleKey LoadStyleBorder(uint borderId, Borders borders, XLStyleKey xlStyle)
-    {
-        var border = (Border)borders.ElementAt((int)borderId);
-        var xlBorder = OpenXmlHelper.BorderToXLibur(border, xlStyle.Border);
-        xlStyle = xlStyle with { Border = xlBorder };
-        return xlStyle;
-    }
-
-    private static XLStyleKey LoadStyleFont(uint fontId, Fonts fonts, XLStyleKey xlStyle)
-    {
-        var font = (Font)fonts.ElementAt((int)fontId);
-        var xlFont = OpenXmlHelper.FontToXLibur(font, xlStyle.Font);
-        xlStyle = xlStyle with { Font = xlFont };
-        return xlStyle;
-    }
-
-    private static XLStyleKey LoadStyleNumberFormat(CellFormat cellFormat, NumberingFormats? numberingFormats,
-        XLStyleKey xlStyle)
-    {
-        var numberFormatId = cellFormat.NumberFormatId;
-
-        var formatCode = string.Empty;
-        var numberingFormat =
-            numberingFormats?.FirstOrDefault(nf =>
-                ((NumberingFormat)nf).NumberFormatId != null &&
-                ((NumberingFormat)nf).NumberFormatId!.Value == numberFormatId!) as NumberingFormat;
-
-        if (numberingFormat != null && numberingFormat.FormatCode != null)
-            formatCode = numberingFormat.FormatCode.Value!;
-
-        var xlNumberFormat = xlStyle.NumberFormat;
-        if (formatCode.Length > 0)
-        {
-            xlNumberFormat = XLNumberFormatKey.ForFormat(formatCode);
-        }
-        else
-            xlNumberFormat = xlNumberFormat with { NumberFormatId = (int)numberFormatId!.Value };
-
-        return xlStyle with { NumberFormat = xlNumberFormat };
     }
 
     // Exact power-of-10 divisors for up to 18 fraction digits. Using these instead of

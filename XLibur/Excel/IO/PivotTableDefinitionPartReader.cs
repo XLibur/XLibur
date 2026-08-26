@@ -183,15 +183,17 @@ internal static class PivotTableDefinitionPartReader
         foreach (var format in formats.Cast<Format>())
         {
             var action = format.Action?.Value.ToXLibur() ?? XLPivotFormatAction.Formatting;
-            var dxfStyle = XLStyle.Default;
+            var dxfStyleValue = XLStyleValue.Default;
             if (format.FormatId is not null)
             {
                 var df = differentialFormats[checked((int)format.FormatId.Value)];
-                OpenXmlHelper.LoadFont(df.Font, dxfStyle.Font);
-                OpenXmlHelper.LoadFill(df.Fill, dxfStyle.Fill, differentialFillFormat: true);
-                OpenXmlHelper.LoadBorder(df.Border, dxfStyle.Border);
-                OpenXmlHelper.LoadNumberFormat(df.NumberingFormat, dxfStyle.NumberFormat);
-                OpenXmlHelper.LoadAlignment(df.Alignment, dxfStyle.Alignment);
+
+                // One decode of the whole dxf. Five per-aspect decodes through the mutating decoder
+                // became one, and the pivot path gains <protection>, which none of the three dxf
+                // callers used to read; see spec 28. The decoded key is interned directly rather
+                // than through a throwaway XLStyle, because the value is all this needs.
+                var key = StyleDecoder.Decode(df, XLStyle.Default.Key);
+                dxfStyleValue = XLStyleValue.FromKey(ref key);
             }
 
             var pivotArea = format.PivotArea ?? throw PartStructureException.ExpectedElementNotFound();
@@ -199,7 +201,7 @@ internal static class PivotTableDefinitionPartReader
             var xlFormat = new XLPivotFormat(xlPivotArea)
             {
                 Action = action,
-                DxfStyleValue = dxfStyle.Value,
+                DxfStyleValue = dxfStyleValue,
             };
             xlPivotTable.AddFormat(xlFormat);
         }

@@ -493,14 +493,15 @@ internal static class WorkbookStylesPartWriter
 
         foreach (var df in differentialFormats.Elements<DifferentialFormat>())
         {
-            var emptyContainer = new XLStylizedEmpty(DefaultStyle);
-            OpenXmlHelper.LoadFont(df.Font, emptyContainer.Style.Font);
-            OpenXmlHelper.LoadBorder(df.Border, emptyContainer.Style.Border);
-            OpenXmlHelper.LoadNumberFormat(df.NumberingFormat, emptyContainer.Style.NumberFormat);
-            OpenXmlHelper.LoadFill(df.Fill, emptyContainer.Style.Fill, differentialFillFormat: true);
+            // The reuse map is a decode of what this writer encodes, so it must read exactly the
+            // children AddStyleAsDifferentialFormat writes. Before spec 28 it read four of six and
+            // the pivot reader read five, so an alignment-bearing dxf could not have matched its own
+            // entry. Also removes the XLStylizedEmpty allocated per dxf.
+            var key = StyleDecoder.Decode(df, XLStyle.Default.Key);
+            var styleValue = XLStyleValue.FromKey(ref key);
 
-            if (!dictionary.ContainsKey(emptyContainer.StyleValue))
-                dictionary.Add(emptyContainer.StyleValue, id++);
+            if (!dictionary.ContainsKey(styleValue))
+                dictionary.Add(styleValue, id++);
         }
     }
 
@@ -752,7 +753,7 @@ internal static class WorkbookStylesPartWriter
     {
         var p = XLProtectionValue.Default.Key;
         if (protection is not null)
-            p = OpenXmlHelper.ProtectionToXLibur(protection, p);
+            p = StyleDecoder.ProtectionKey(protection, p);
 
         return p.Equals(xlProtection.Key);
     }
@@ -765,7 +766,7 @@ internal static class WorkbookStylesPartWriter
     private static bool AlignmentsAreEqual(Alignment? alignment, XLAlignmentValue xlAlignment)
     {
         if (alignment is null) return XLStyle.Default.Value.Alignment.Equals(xlAlignment);
-        var a = OpenXmlHelper.AlignmentToXLibur(alignment, XLAlignmentValue.Default.Key);
+        var a = StyleDecoder.AlignmentKey(alignment, XLAlignmentValue.Default.Key);
         return a.Equals(xlAlignment.Key);
     }
 
@@ -901,7 +902,7 @@ internal static class WorkbookStylesPartWriter
 
     private static bool BordersAreEqual(Border border, XLBorderValue xlBorder)
     {
-        var convertedBorder = OpenXmlHelper.BorderToXLibur(
+        var convertedBorder = StyleDecoder.BorderKey(
             border,
             XLBorderValue.Default.Key);
         return convertedBorder.Equals(xlBorder.Key);
@@ -1032,11 +1033,10 @@ internal static class WorkbookStylesPartWriter
 
     private static bool FillsAreEqual(Fill f, XLFillValue xlFill, bool fromDifferentialFormat)
     {
-        var nF = new XLFill();
-
-        OpenXmlHelper.LoadFill(f, nF, fromDifferentialFormat);
-
-        return nF.Key.Equals(xlFill.Key);
+        // Was a throwaway XLFill mutated through the load-side decoder purely to reach its key -
+        // the same shape spec 28 removes everywhere else. One decode, straight to the key.
+        return StyleDecoder.FillKey(f, fromDifferentialFormat, XLFillValue.Default.Key)
+            .Equals(xlFill.Key);
     }
 
     private static void ResolveFonts(Stylesheet stylesheet, SaveContext context)
@@ -1136,7 +1136,7 @@ internal static class WorkbookStylesPartWriter
 
     private static bool FontsAreEqual(Font font, XLFontValue xlFont)
     {
-        var convertedFont = OpenXmlHelper.FontToXLibur(
+        var convertedFont = StyleDecoder.FontKey(
             font,
             XLFontValue.Default.Key);
         return convertedFont.Equals(xlFont.Key);

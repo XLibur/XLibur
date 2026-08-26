@@ -132,7 +132,6 @@ public partial class XLWorkbook
 
         var s = workbookPart.WorkbookStylesPart?.Stylesheet;
         var numberingFormats = s?.NumberingFormats;
-        context.LoadNumberFormats(numberingFormats);
         var differentialFormats = s?.DifferentialFormats
             ?.Elements<DifferentialFormat>()
             .Select((df, i) => (df, i))
@@ -146,8 +145,8 @@ public partial class XLWorkbook
             .FirstOrDefault(x => x.BuiltinId is not null && x.BuiltinId.Value == 0);
         if (normalStyle != null)
         {
-            var normalStyleKey = ((XLStyle)Style).Key;
-            WorksheetSheetDataReader.LoadStyle(ref normalStyleKey, (int)normalStyle.FormatId!.Value, context.Styles);
+            var normalStyleKey = StyleDecoder.Decode((int)normalStyle.FormatId!.Value,
+                context.Styles, ((XLStyle)Style).Key);
             Style = new XLStyle(null!, normalStyleKey);
             ColumnWidth = CalculateColumnWidth(8, Style.Font, this);
         }
@@ -311,7 +310,7 @@ public partial class XLWorkbook
                 continue;
             }
 
-            WorksheetSheetDataReader.ApplyStyle(ws, 0, styles);
+            StyleDecoder.ApplyStyle(ws, 0, styles);
 
             LoadWorksheetElements(worksheetPart, ws, sharedStrings, context);
 
@@ -581,7 +580,7 @@ public partial class XLWorkbook
             var runProperties = run.RunProperties;
             var text = run.Text!.InnerText.FixNewLines();
             var rt = xlComment.AddText(text);
-            OpenXmlHelper.LoadFont(runProperties, rt);
+            StyleDecoder.ApplyRunFont(runProperties, rt);
         }
 
         // Comments can have text not wrapped in a Run element (e.g., Google Sheets exports)

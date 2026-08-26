@@ -4,7 +4,7 @@
 **Effort:** M (~1 week)
 **Dependencies:** None hard. File-disjoint from spec 23. Reads `XL*Key.cs`, which spec 20 may relayout
 — see Conflicts.
-**Status:** Proposed.
+**Status:** ✅ Done — tasks 1–7 on `task/28`, tip `c89d3e04`. See Results.
 
 ## Goal
 
@@ -1186,3 +1186,201 @@ try to improve it.
 No other spec in `docs/specs/` touches `XLibur/Utils/OpenXmlHelper.cs`,
 `XLibur/Excel/IO/ConditionalFormatReader.cs`, `XLibur/Excel/IO/LoadContext.cs` or
 `XLibur/Excel/IO/PivotTableDefinitionPartReader.cs`.
+
+---
+
+## Results
+
+Implemented on `task/28`, base `c569b95a`, tip `c89d3e04`. Eight commits — one per task, plus one
+unplanned fix found in review. Suite green on both TFMs: 28,292 tests, 0 failed, 10 skipped.
+
+### The headline defect is real and is fixed
+
+`A_conditional_format_font_keeps_its_name_family_and_charset` failed on the tree at `c569b95a` with
+`FontName` coming back `"Calibri"` instead of `"Arial"`. The inference in *Divergence 1* was
+correct: `LoadFont` searched the `<x:rPr>` spellings while all three dxf callers passed a `<x:font>`,
+and the three fields died on the way back in. Green since task 4.
+
+`FontCharSet` and `FontFamilyNumbering` were not separately observed failing, because the test
+asserts `FontName` first and TUnit stops at the first failed assertion. All three assert green now.
+
+### The diagonal question, settled
+
+**ECMA-376 Part 1 §18.8.4 (`border`, `CT_Border`)** declares `diagonalUp`, `diagonalDown` and
+`outline` as *attributes of the `border` element*, while `diagonal` is one of nine `CT_BorderPr`
+child elements in the type's sequence. An attribute of `border` is a sibling of the `diagonal`
+child, not a dependent of it.
+
+So the unconditional read — the old `LoadBorder` — is correct, and `BorderToXLibur`'s
+`<diagonal>` guard was the bug. `StyleDecoder.BorderKey` implements only the unconditional rule;
+the guarded read is deleted, not kept behind a flag. The verdict and the section reference are in
+the method's `<remarks>`.
+
+The evidence is pinned as a test rather than left as prose. Reflecting over
+`DocumentFormat.OpenXml.dll` standalone did not work, but serialising a `Border` that carries only
+the two flags gives `<x:border diagonalUp="1" diagonalDown="1" />` — both on the border element,
+no `<diagonal>` child in sight. The SDK's element model is generated from the schema, so that is
+the schema speaking. See `The_diagonal_flags_are_attributes_of_border_not_of_its_diagonal_child`.
+
+**The spec expected this to go green in task 4; it went green in task 3.** The decision alone
+settles it — the dxf path did not need to move first. The test now also asserts the flags equal
+what the element stated, rather than only that two paths agree with each other.
+
+### PREMISE DISPROVED — the dxf table does not grow
+
+`<dxf>` count after 1, 2, 3 and 4 saves: **1, 1, 1, 1**. Flat.
+
+The subset mismatch described in *Divergence 3* is real — the writer's reuse-map decode read four
+of six `CT_Dxf` children, the pivot reader five. But it cannot produce growth, because
+`AddDifferentialFormats` calls `differentialFormats.RemoveAllChildren()` on the line **immediately
+before** `FillDifferentialFormatsCollection`. That method therefore always iterates an empty
+collection, the reuse map is always empty, and `ContainsKey` can never miss because there is
+nothing to miss. The dxf table is rebuilt from the live object model on every save.
+
+The fixture was checked for vacuity before the premise was declared dead: the alignment-bearing
+pivot dxf does reach `XLPivotFormat.DxfStyleValue` with `Alignment.Horizontal == Center` and a
+non-default style value, pinned by `An_alignment_bearing_pivot_dxf_reaches_the_pivot_format`. A
+flat count is a real result, not an artefact of nothing being loaded.
+
+`Round_tripping_does_not_grow_the_dxf_table` is kept rather than deleted. It is what would catch
+the growth if that `RemoveAllChildren` call were ever moved, which would put the reuse map back
+into service and make the two decodes have to agree exactly.
+
+The finding that replaces the premise: **`FillDifferentialFormatsCollection` is dead in its stated
+role**, and its doc comment ("Populates the differential formats that are currently in the file")
+is untrue. Filed as a defect rather than fixed here — it is not this spec's work.
+
+### PREMISE CONFIRMED — the phonetics font decode was a no-op
+
+`LoadPhonetics` called the font decoder with a `PhoneticProperties`, which per the SDK has no child
+elements. Deleting the call changed nothing: 44 rich-text tests including the phonetics ones pass
+without it. The reset of `Bold`/`Italic`/`Shadow`/`Strikethrough` was not load-bearing.
+
+Landed in task 4 rather than task 6, because deleting `LoadFont` forced the issue — the call could
+not survive its decoder.
+
+### The number-format decision the spec asked us to make
+
+On the built-in branch the two paths disagreed: `LoadStyleNumberFormat` left `Format` inherited,
+`LoadContext.GetNumberFormat` wrote `string.Empty`.
+
+**Both variants pass the full suite** — measured, not assumed; 14,140 tests green each way. The
+suite does not decide it.
+
+Taken: `string.Empty`. `NumberFormatId` is `-1` exactly when the format is custom, so any other id
+says the format lives in `XLPredefinedFormat` and no literal belongs in the key beside it; an
+inherited custom string next to a built-in id describes a state that cannot occur. Because the
+suite does not discriminate, the choice is pinned by
+`A_built_in_numFmtId_clears_an_inherited_custom_format_string` so it cannot be reversed by accident.
+
+### Two defects closed that the spec did not name
+
+**An indent in a pivot dxf could fail the load outright.** The pivot path decoded dxf alignments by
+writing through `IXLAlignment`, whose `Indent` setter rewrites a `General` horizontal alignment to
+`Left` and **throws `ArgumentException`** for any indent above zero on an alignment that is not
+left, right or distributed. A workbook whose pivot dxf carried
+`<alignment horizontal="center" indent="2"/>` — legal OOXML — could not be opened. Decoding to a key
+touches no setter. Pinned by `An_indent_with_a_centred_horizontal_alignment_no_longer_throws` and
+`An_indent_alone_no_longer_forces_the_horizontal_alignment_to_left`.
+
+**A duplicated `numFmtId` made a workbook unopenable.** `LoadContext.LoadNumberFormats` used
+`Dictionary.Add`, which throws on a duplicate key, and it ran on every load. The unified map uses
+`TryAdd`, so the first declaration wins — which is what the linear scan's `FirstOrDefault` already
+did. Pinned by `A_duplicated_numFmtId_keeps_the_first_declaration_and_does_not_throw`. Worth noting
+that using `Add` for a now workbook-wide map would have *promoted* this from a latent crash to one
+on every load; the equivalence was checked rather than assumed.
+
+### The one thing that cost two red runs: write order in `ApplyRunFont`
+
+Two rich-text call sites mutate an `IXLFontBase` (an `XLRichString`), which has no `InnerStyle` to
+assign a key to, so `StyleDecoder.ApplyRunFont` writes fields through one at a time.
+
+A first cut wrote all twelve fields; a second wrote only the fields the decode had changed. Both
+produced semantically identical workbooks and both broke golden-file tests — `UsingRichText`, then
+`UsingRichText` and `AdjustToContents` — with every `<rPr>` byte-identical and only the **order** of
+`<si>` entries in `sharedStrings.xml` different.
+
+The cause: a rich run is part of its shared string's identity, so every property write on one
+dereferences that string's shared-string-table entry and interns a new one.
+`SharedStringTable.GetConsecutiveMap` emits entries in insertion order, so a different set or order
+of intermediate writes reorders `sharedStrings.xml` for a file whose content never changed.
+
+`ApplyRunFont` now gates and orders its writes exactly as the decoder it replaces did — the four
+booleans unconditional, everything else only when the run states the element — with the
+newly-read charset last so that adding it cannot disturb the intermediate states of a run that has
+none. **No golden file was regenerated and no assertion was weakened.**
+
+This is worth knowing for spec 29 and anything else that touches rich-text load: the order of
+property writes on a rich run is observable in the saved file.
+
+### One unplanned commit: the cellXf fill did not inherit
+
+Re-reading `Decode(CellFormat, …)` against `LoadStyle` branch by branch, as task 3 step 4 says to
+do, turned up a discrepancy the suite could not see. Five of the six aspects inherit from the key
+passed in; **fill did not** — the original allocated a fresh `XLFill`, so its starting point was the
+default fill, and the port passed `key.Fill`.
+
+The original is right on the merits too: a cellXf's `fillId` points at a complete `<fill>`
+definition rather than an override, so there is nothing to inherit. The dxf path still inherits,
+which is what the `differential` flag distinguishes. Fixed in `ffeea134`; latent rather than live,
+because every reachable caller passes a key whose fill is already the default.
+
+### Acceptance criteria
+
+Thirteen of fourteen pass outright. **Criterion 6's literal gate returns 1, not 0.**
+
+The match is `StyleDecoder.ApplyStyle(xlRow, …)` at `WorksheetSheetDataReader.cs:1003` — a
+qualified *call* inside `ApplyRowCustomProps`, not a declaration. The criterion's prose
+("declares none of …") is satisfied: all ten declarations are gone and the class summary no longer
+claims style application.
+
+The spec contradicts itself here: task 6 step 4 lists `ApplyRowCustomProps` among the matches it
+**expects** to survive, on the grounds that it is a row *using* a resolved style rather than
+decoding one — and that method calls `ApplyStyle`. Removing the match means copying `ApplyStyle`'s
+body to the call site. Duplicating logic to make a grep count zero is the wrong trade, so the call
+stays and the discrepancy is recorded here instead.
+
+Two criteria come out **stricter** than written: criterion 1's gate returns nothing at all rather
+than the permitted colour conversions, and criterion 3's gate lists only `StyleDecoder.cs` rather
+than the decoder plus the writers.
+
+### Load is not slower
+
+Allocated, base → branch: `LoadWorkbook` 334.54 → 334.54 MB; `LoadRowHeavy` 55.40 → 55.40 MB;
+`Open` 1.67 → 1.66 MB; `OpenAndSaveUnchanged` 3.18 → 3.17 MB; `OpenAndSaveRowHeavyUnchanged`
+88.84 → 88.83 MB; `RefreshLookupColumn` 3.82 → 3.81 MB. **Not one increased.**
+
+The reductions are the two allocations this spec removes — a throwaway `XLFill` per distinct cell
+fill and an `XLStylizedEmpty` per existing dxf — and they are small because these fixtures carry
+few distinct fills and no dxfs. The spec's named risk does not apply: `StylesheetData` is
+constructed once per workbook load and `CustomNumberFormats` is derived in its initialiser.
+
+Means all moved inside their own reported margins, which on this machine means nothing (see
+DEFECTS D11).
+
+Two forced deviations from the spec's benchmark command: `-f net10.0` is mandatory (the benchmark
+project multi-targets and `dotnet run` refuses without it), and the default job cannot be used —
+`Program.cs` pins `InProcessEmitToolchain`, which aborts `XLiburReadBenchmarks` with *"takes too
+long to run"* after ~50 iterations at ~4.7 s each. Run with `--warmupCount 1 --iterationCount 3
+--launchCount 1` instead; allocation figures are exact per operation, and the timings were already
+noise-dominated. `LoadAndReadAllCells` was not measured for the same reason and is not named by
+criterion 13.
+
+### What the next consumer inherits
+
+One decoder, `StyleDecoder` (556 lines), with three `Decode` entry points — style index,
+`CellFormat`, `DifferentialFormat` — over seven key functions. `OpenXmlHelper` drops from 513 lines
+to 183 and keeps only its colour layer, the boolean helpers and `GetXLiburTextRotation`.
+`WorksheetSheetDataReader` drops from 1,460 to 1,283 and reads sheet data again.
+
+Two asymmetries are now explicit rather than accidental, and both are commented in place:
+
+- **Fill and protection decode against defaults on the cellXfs path**, because an `<xf>` points at
+  a complete definition; everything else inherits. The dxf path inherits everything, because a dxf
+  is genuinely differential.
+- **`RunFontKey` stays separate from `FontKey`**, because `CT_RPrElt` and `CT_Font` spell three
+  children with unrelated CLR types. Conflating them is what caused the original defect.
+  `RunFontKey` now also reads `<charset>` — one field more than the decoder it replaced, which had
+  dropped it on the rich-text path for the same reason it was dropped on the dxf path.
+
+Spec 20 now has one decoder to re-verify its key layout against instead of two.
