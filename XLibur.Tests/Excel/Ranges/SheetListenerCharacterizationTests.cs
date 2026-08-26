@@ -133,12 +133,16 @@ public class SheetListenerCharacterizationTests
     }
 
     /// <summary>
-    /// A chart anchor is a pair of raw <c>int</c>s on <see cref="XLDrawingPosition"/> and nothing
-    /// notifies it, so a chart anchored below an insert stays where it was. Spec 33 task 4 fixes
-    /// this and re-points this test.
+    /// A chart anchor is a pair of raw <c>int</c>s on <c>XLDrawingPosition</c>, and until spec 33
+    /// task 4 nothing notified it: a chart anchored at row 10 stayed at row 10 when three rows were
+    /// inserted above it. <c>DrawingAnchorListener</c> now moves it.
+    /// <para>
+    /// This test was <c>A_chart_anchor_does_not_move_yet</c> and asserted 10 and 20 — the wrong
+    /// answer, on purpose, so that task 4 had to change it and could not change it silently.
+    /// </para>
     /// </summary>
     [Test]
-    public async Task A_chart_anchor_does_not_move_yet()
+    public async Task A_chart_anchor_moves()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Data");
@@ -151,20 +155,94 @@ public class SheetListenerCharacterizationTests
 
         ws.Row(1).InsertRowsAbove(3);
 
-        // WRONG on purpose. Correct is 13 / 23 once spec 33 task 4 lands.
-        await Assert.That(chart.Position.Row).IsEqualTo(10);
-        await Assert.That(chart.SecondPosition.Row).IsEqualTo(20);
+        await Assert.That(chart.Position.Row).IsEqualTo(13);
+        await Assert.That(chart.SecondPosition.Row).IsEqualTo(23);
+
+        // The columns are untouched: a row insert moves neither.
+        await Assert.That(chart.Position.Column).IsEqualTo(3);
+        await Assert.That(chart.SecondPosition.Column).IsEqualTo(10);
     }
 
     /// <summary>
-    /// The note case is half right, and that is the defect. The note itself lives in the misc slice
-    /// and moves with the cells; its callout box is an <see cref="XLDrawingPosition"/> nobody
-    /// notifies, so the box stays pinned three rows above where the note now is.
-    /// <c>XLComment.cs</c> already documents the mechanism. Spec 33 task 4 fixes this and re-points
-    /// this test — both halves, so that fixing one and not the other cannot pass.
+    /// An absolutely anchored chart is pinned in EMU with no cell reference
+    /// (<c>xdr:absoluteAnchor</c>, ECMA-376 §20.5.2.1), so the grid cannot move it.
     /// </summary>
     [Test]
-    public async Task A_note_anchor_does_not_move_yet()
+    public async Task An_absolutely_anchored_chart_does_not_move()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Data");
+        ws.Cell("A1").Value = "Q1";
+        ws.Cell("B1").Value = 100;
+        var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+        chart.Series.Add("Sales", "Data!$B$1:$B$1", "Data!$A$1:$A$1");
+        chart.Anchor = XLDrawingAnchor.Absolute;
+        chart.Position.SetColumn(3).SetRow(10);
+
+        ws.Row(1).InsertRowsAbove(3);
+
+        await Assert.That(chart.Position.Row).IsEqualTo(10);
+    }
+
+    /// <summary>
+    /// A chart below the edit, and a chart the edit spans, are the two cases the transform must tell
+    /// apart: the first moves whole, the second grows because its first corner is above the insert
+    /// and its second is below it.
+    /// </summary>
+    [Test]
+    public async Task An_insert_inside_a_chart_anchor_grows_it()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Data");
+        ws.Cell("A1").Value = "Q1";
+        ws.Cell("B1").Value = 100;
+        var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+        chart.Series.Add("Sales", "Data!$B$1:$B$1", "Data!$A$1:$A$1");
+        chart.Position.SetColumn(2).SetRow(3);          // xdr 0-based: cell C4
+        chart.SecondPosition.SetColumn(9).SetRow(19);   // xdr 0-based: cell J20
+
+        ws.Row(10).InsertRowsAbove(3);
+
+        await Assert.That(chart.Position.Row).IsEqualTo(3);
+        await Assert.That(chart.SecondPosition.Row).IsEqualTo(22);
+    }
+
+    /// <summary>
+    /// Deleting every row the anchor sits on clamps it to the deletion point rather than deleting
+    /// the chart — the behaviour the picture, the one anchor that already moved, has always had.
+    /// </summary>
+    [Test]
+    public async Task A_delete_covering_a_chart_anchor_clamps_it()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Data");
+        ws.Cell("A1").Value = "Q1";
+        ws.Cell("B1").Value = 100;
+        var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+        chart.Series.Add("Sales", "Data!$B$1:$B$1", "Data!$A$1:$A$1");
+        chart.Position.SetColumn(2).SetRow(3);          // xdr 0-based: cell C4
+        chart.SecondPosition.SetColumn(9).SetRow(19);   // xdr 0-based: cell J20
+
+        ws.Rows(1, 25).Delete();
+
+        await Assert.That(chart.Position.Row).IsEqualTo(0);        // cell row 1
+        await Assert.That(chart.SecondPosition.Row).IsEqualTo(0);  // cell row 1
+        await Assert.That(ws.Charts.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
+    /// The note case used to be half right, and that was the defect. The note itself lives in the
+    /// misc slice and moved with the cells; its callout box is an <c>XLDrawingPosition</c> nobody
+    /// notified, so the box stayed pinned three rows above where the note had gone —
+    /// <c>XLComment</c>'s own remarks documented the mechanism. Both halves now move together.
+    /// <para>
+    /// This test was <c>A_note_anchor_does_not_move_yet</c> and asserted <c>Position.Row == 9</c> —
+    /// the wrong answer, on purpose. Both halves are still asserted, so fixing one and not the other
+    /// cannot pass.
+    /// </para>
+    /// </summary>
+    [Test]
+    public async Task A_note_anchor_moves()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("S");
@@ -172,12 +250,13 @@ public class SheetListenerCharacterizationTests
 
         ws.Row(1).InsertRowsAbove(3);
 
-        // The note moved with the misc slice. This half is right and stays right.
+        // The note moved with the misc slice. This half was always right.
         await Assert.That(ws.Cell("C10").HasComment).IsFalse();
         await Assert.That(ws.Cell("C13").HasComment).IsTrue();
 
-        // WRONG on purpose. Correct is 12 once spec 33 task 4 lands.
-        await Assert.That(ws.Cell("C13").GetComment().Position.Row).IsEqualTo(9);
+        // And now its callout box moved with it: one row above the note, where it started.
+        await Assert.That(ws.Cell("C13").GetComment().Position.Row).IsEqualTo(12);
+        await Assert.That(ws.Cell("C13").GetComment().Position.Column).IsEqualTo(4);
     }
 
     /// <summary>

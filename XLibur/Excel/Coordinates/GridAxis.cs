@@ -49,6 +49,11 @@ internal interface IGridAxis
     int IndexOf(IXLAddress address);
     int CrossOf(IXLAddress address);
 
+    /// <summary>The same two projections for the packed <see cref="Point"/>, which the features
+    /// holding a raw position use in place of an address.</summary>
+    int IndexOf(in Point point);
+    int CrossOf(in Point point);
+
     /// <summary>Builds a point from a position on this axis and one on the cross axis.</summary>
     Point PointAt(int index, int cross);
 
@@ -149,6 +154,8 @@ internal readonly struct RowAxis : IGridAxis
     public int CrossOf(in XLAddress address) => address.ColumnNumber;
     public int IndexOf(IXLAddress address) => address.RowNumber;
     public int CrossOf(IXLAddress address) => address.ColumnNumber;
+    public int IndexOf(in Point point) => point.Row;
+    public int CrossOf(in Point point) => point.Column;
     public Point PointAt(int index, int cross) => new(index, cross);
     public XLAddress AddressAt(XLWorksheet worksheet, int index, int cross, bool fixedRow, bool fixedColumn)
         => new(worksheet, index, cross, fixedRow, fixedColumn);
@@ -205,6 +212,8 @@ internal readonly struct ColumnAxis : IGridAxis
     public int CrossOf(in XLAddress address) => address.RowNumber;
     public int IndexOf(IXLAddress address) => address.ColumnNumber;
     public int CrossOf(IXLAddress address) => address.RowNumber;
+    public int IndexOf(in Point point) => point.Column;
+    public int CrossOf(in Point point) => point.Row;
     public Point PointAt(int index, int cross) => new(cross, index);
     public XLAddress AddressAt(XLWorksheet worksheet, int index, int cross, bool fixedRow, bool fixedColumn)
         => new(worksheet, cross, index, fixedRow, fixedColumn);

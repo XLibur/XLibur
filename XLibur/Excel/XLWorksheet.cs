@@ -35,6 +35,12 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// merges are a general-purpose <see cref="XLRanges"/> shared with every other range collection.
     /// </summary>
     private readonly MergedRangeSplitListener _mergedRangeSplitter;
+
+    /// <summary>
+    /// Carries the chart, note and picture anchors, which hold raw positions rather than ranges and
+    /// so have no collection of their own that could react.
+    /// </summary>
+    private readonly DrawingAnchorListener _drawingAnchors;
     private readonly XLWorksheetDataInserter _dataInserter;
     private readonly XLRanges _selectedRanges;
 
@@ -86,6 +92,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         _rangeIndices = [];
         _rangeShifter = new XLWorksheetRangeShifter(this);
         _mergedRangeSplitter = new MergedRangeSplitListener(this);
+        _drawingAnchors = new DrawingAnchorListener(this);
         _dataInserter = new XLWorksheetDataInserter(this);
 
         Pictures = new XLPictures(this);
@@ -1297,6 +1304,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         yield return Workbook.CalcEngine;
         yield return Hyperlinks;
+
+        // Features that did not react at all before spec 33.
+        yield return _drawingAnchors;
     }
 
     internal override void WorksheetRangeShiftedColumns(XLRange range, int columnsShifted)

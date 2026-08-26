@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.ConditionalFormats;
+using XLibur.Excel.Drawings;
 using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.Ranges;
@@ -55,6 +56,7 @@ public class SheetListenerOrderTests
             nameof(XLSparklineGroups),
             nameof(XLCalcEngine),
             nameof(XLHyperlinks),
+            nameof(DrawingAnchorListener),
         }, CollectionOrdering.Matching);
     }
 
@@ -85,6 +87,7 @@ public class SheetListenerOrderTests
             nameof(XLSparklineGroups),
             nameof(XLCalcEngine),
             nameof(XLHyperlinks),
+            nameof(DrawingAnchorListener),
         }, CollectionOrdering.Matching);
     }
 }
