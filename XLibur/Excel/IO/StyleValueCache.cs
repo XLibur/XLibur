@@ -14,7 +14,7 @@ namespace XLibur.Excel.IO;
 /// </para>
 /// <para>
 /// The cache is workbook-scoped: <c>styles.xml</c> is workbook-global and
-/// <see cref="WorksheetSheetDataReader.ResolveStyleValue"/> is a pure function of the style index,
+/// <see cref="StyleDecoder.ResolveStyleValue"/> is a pure function of the style index,
 /// so entries resolved for one worksheet are reused by the rest.
 /// </para>
 /// </summary>
@@ -42,7 +42,7 @@ internal sealed class StyleValueCache
             if (cached is not null)
                 return cached;
 
-            var resolved = WorksheetSheetDataReader.ResolveStyleValue(styleIndex, _styles);
+            var resolved = StyleDecoder.ResolveStyleValue(styleIndex, _styles);
             _byIndex[styleIndex] = resolved;
             return resolved;
         }
@@ -53,7 +53,7 @@ internal sealed class StyleValueCache
     /// <summary>
     /// Handles a style index beyond the declared <c>cellXfs</c> range. This happens for workbooks
     /// with no stylesheet at all (every index resolves to the default style) and for malformed
-    /// files; <see cref="WorksheetSheetDataReader.ResolveStyleValue"/> keeps whatever behaviour
+    /// files; <see cref="StyleDecoder.ResolveStyleValue"/> keeps whatever behaviour
     /// those cases had before.
     /// </summary>
     private XLStyleValue ResolveOutOfRange(int styleIndex)
@@ -62,7 +62,7 @@ internal sealed class StyleValueCache
         if (_outOfRange.TryGetValue(styleIndex, out var cached))
             return cached;
 
-        var resolved = WorksheetSheetDataReader.ResolveStyleValue(styleIndex, _styles);
+        var resolved = StyleDecoder.ResolveStyleValue(styleIndex, _styles);
         _outOfRange[styleIndex] = resolved;
         return resolved;
     }

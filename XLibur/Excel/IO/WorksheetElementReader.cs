@@ -54,7 +54,7 @@ internal static class WorksheetElementReader
         else if (elementType == typeof(SheetViews))
             LoadSheetViews((SheetViews)reader.LoadCurrentElement()!, ws);
         else if (elementType == typeof(Columns))
-            WorksheetSheetDataReader.LoadColumns(context.Styles, ws,
+            WorksheetColumnReader.LoadColumns(context.Styles, ws,
                 (Columns)reader.LoadCurrentElement()!);
         else if (elementType == typeof(AutoFilter))
             LoadAutoFilter((AutoFilter)reader.LoadCurrentElement()!, ws,

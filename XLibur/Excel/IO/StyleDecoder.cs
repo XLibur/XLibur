@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Extensions;
 using XLibur.Utils;
 
 namespace XLibur.Excel.IO;
@@ -18,6 +19,48 @@ namespace XLibur.Excel.IO;
 /// </remarks>
 internal static class StyleDecoder
 {
+    /// <summary>
+    /// Decodes the <c>&lt;xf&gt;</c> at <paramref name="styleIndex"/> in <c>&lt;cellXfs&gt;</c>.
+    /// A workbook with no stylesheet, or one whose stylesheet declares no cell formats, leaves
+    /// <paramref name="defaults"/> untouched.
+    /// </summary>
+    internal static XLStyleKey Decode(int styleIndex, StylesheetData styles, XLStyleKey defaults)
+    {
+        if (styles.Stylesheet is not { CellFormats: not null } s)
+            return defaults; // No stylesheet, no styles.
+
+        return Decode((CellFormat)s.CellFormats.ElementAt(styleIndex), styles, defaults);
+    }
+
+    /// <summary>
+    /// Resolves a <c>&lt;cellXfs&gt;</c> style index to an interned <see cref="XLStyleValue"/>
+    /// without creating an <see cref="XLStyle"/> wrapper or writing to any slice.
+    /// </summary>
+    internal static XLStyleValue ResolveStyleValue(int styleIndex, StylesheetData styles)
+    {
+        var key = Decode(styleIndex, styles, XLStyle.Default.Key);
+        return XLStyleValue.FromKey(ref key);
+    }
+
+    /// <summary>
+    /// Decodes the <c>&lt;xf&gt;</c> at <paramref name="styleIndex"/> and applies it to
+    /// <paramref name="xlStylized"/>.
+    /// </summary>
+    internal static void ApplyStyle(IXLStylized xlStylized, int styleIndex, StylesheetData styles)
+    {
+        var xlStyleKey = Decode(styleIndex, styles, XLStyle.Default.Key);
+
+        // When loading columns, we must propagate the style to each column but not deeper. In other cases we do not propagate at all.
+        if (xlStylized is IXLColumns columns)
+        {
+            columns.Cast<XLColumn>().ForEach(col => col.InnerStyle = new XLStyle(col, xlStyleKey));
+        }
+        else
+        {
+            xlStylized.InnerStyle = new XLStyle(xlStylized, xlStyleKey);
+        }
+    }
+
     /// <summary>
     /// Decodes one <c>&lt;xf&gt;</c> from <c>&lt;cellXfs&gt;</c>. Each aspect is decoded only when
     /// the <c>&lt;xf&gt;</c> states an index or a child for it, so an unstated aspect keeps

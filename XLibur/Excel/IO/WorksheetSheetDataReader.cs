@@ -17,8 +17,13 @@ using static XLibur.Excel.XLPredefinedFormat.DateTime;
 namespace XLibur.Excel.IO;
 
 /// <summary>
-/// Reads cell, row, and column data from a worksheet part, including style application and formula handling.
+/// Reads cell and row data from a worksheet part, including formula handling.
 /// </summary>
+/// <remarks>
+/// Style decoding lives in <see cref="StyleDecoder"/> and the <c>&lt;cols&gt;</c> element in
+/// <see cref="WorksheetColumnReader"/>; neither is sheet data. What remains here uses a resolved
+/// style rather than decoding one.
+/// </remarks>
 internal static class WorksheetSheetDataReader
 {
     /// <summary>
@@ -853,63 +858,6 @@ internal static class WorksheetSheetDataReader
             xlCell.SliceRichText = richText.WithoutRuns();
     }
 
-    internal static void LoadColumns(StylesheetData styles, XLWorksheet ws, Columns columns)
-    {
-        var wsDefaultColumn =
-            columns.Elements<Column>().FirstOrDefault(c => c.Max?.Value == XLHelper.MaxColumnNumber);
-
-        if (wsDefaultColumn != null && wsDefaultColumn.Width != null)
-            ws.ColumnWidth = wsDefaultColumn.Width - XLConstants.ColumnWidthOffset;
-
-        var styleIndexDefault = wsDefaultColumn != null && wsDefaultColumn.Style != null
-            ? int.Parse(wsDefaultColumn.Style.InnerText!)
-            : -1;
-        if (styleIndexDefault >= 0)
-            ApplyStyle(ws, styleIndexDefault, styles);
-
-        foreach (var col in columns.Elements<Column>())
-        {
-            if (col.Max?.Value == XLHelper.MaxColumnNumber) continue;
-
-            LoadColumn(col, ws, styles);
-        }
-    }
-
-    internal static void ApplyStyle(IXLStylized xlStylized, int styleIndex, StylesheetData styles)
-    {
-        var xlStyleKey = XLStyle.Default.Key;
-        LoadStyle(ref xlStyleKey, styleIndex, styles);
-
-        // When loading columns, we must propagate the style to each column but not deeper. In other cases we do not propagate at all.
-        if (xlStylized is IXLColumns columns)
-        {
-            columns.Cast<XLColumn>().ForEach(col => col.InnerStyle = new XLStyle(col, xlStyleKey));
-        }
-        else
-        {
-            xlStylized.InnerStyle = new XLStyle(xlStylized, xlStyleKey);
-        }
-    }
-
-    /// <summary>
-    /// Resolve a CellFormats style index to an interned <see cref="XLStyleValue"/>
-    /// without creating an <see cref="XLStyle"/> wrapper or writing to any slice.
-    /// </summary>
-    internal static XLStyleValue ResolveStyleValue(int styleIndex, StylesheetData styles)
-    {
-        var xlStyleKey = XLStyle.Default.Key;
-        LoadStyle(ref xlStyleKey, styleIndex, styles);
-        return XLStyleValue.FromKey(ref xlStyleKey);
-    }
-
-    internal static void LoadStyle(ref XLStyleKey xlStyle, int styleIndex, StylesheetData styles)
-    {
-        if (styles.Stylesheet is not { CellFormats: not null } s)
-            return; //No Stylesheet, no Styles
-
-        xlStyle = StyleDecoder.Decode((CellFormat)s.CellFormats.ElementAt(styleIndex), styles, xlStyle);
-    }
-
     /// <summary>
     /// Resolves the <see cref="XLDataType"/> for a numeric cell's number format, memoizing the
     /// result per interned <see cref="XLNumberFormatValue"/>. <see cref="GetNumberDataType"/>
@@ -1052,7 +1000,7 @@ internal static class WorksheetSheetDataReader
         {
             if (props.StyleIndex is not null)
             {
-                ApplyStyle(xlRow, props.StyleIndex.Value, styles);
+                StyleDecoder.ApplyStyle(xlRow, props.StyleIndex.Value, styles);
             }
             else
             {
@@ -1193,40 +1141,6 @@ internal static class WorksheetSheetDataReader
                 continue;
 
             xlCell.GetRichText().Phonetics.Add(phoneticText, sb, eb);
-        }
-    }
-
-    private static void LoadColumn(Column col, XLWorksheet ws, StylesheetData styles)
-    {
-        var xlColumns = (XLColumns)ws.Columns((int)col.Min!.Value, (int)col.Max!.Value);
-        if (col.Width != null)
-        {
-            var width = col.Width - XLConstants.ColumnWidthOffset;
-            xlColumns.Width = width;
-        }
-        else
-            xlColumns.Width = ws.ColumnWidth;
-
-        if (col.Hidden != null && col.Hidden)
-            xlColumns.Hide();
-
-        if (col.Collapsed != null && col.Collapsed)
-            xlColumns.CollapseOnly();
-
-        if (col.OutlineLevel != null)
-        {
-            var outlineLevel = col.OutlineLevel;
-            xlColumns.ForEach(c => c.OutlineLevel = outlineLevel);
-        }
-
-        var styleIndex = col.Style != null ? int.Parse(col.Style.InnerText!) : -1;
-        if (styleIndex >= 0)
-        {
-            ApplyStyle(xlColumns, styleIndex, styles);
-        }
-        else
-        {
-            xlColumns.Style = ws.Style;
         }
     }
 
