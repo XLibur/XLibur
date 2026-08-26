@@ -4,7 +4,7 @@
 **Effort:** M (~5–6 days)
 **Dependencies:** None hard. **Must run before spec 33** (sheet-listener seam) — it halves
 `XLWorksheetRangeShifter.cs` and `XLWorksheet.cs` before 33 reorganises them. See Conflicts.
-**Status:** Proposed.
+**Status:** ✅ Done — tasks 1–9 on `task/26`, tip `cfcb3bf3`. See Results.
 
 ## Goal
 
@@ -1509,3 +1509,107 @@ Each is mechanically checkable at `task/26`'s tip.
 
 - No other spec in `docs/specs/` touches `XLRangeInsertHelper.cs`, `XLRangeShiftHelper.cs`,
   `XLRow.cs`, `XLColumn.cs` or `XLOutlineTracker.cs`.
+
+---
+
+## Results
+
+Landed as tasks 1–9 on `task/26` (base `c569b95a`). Suite green: 28,264 tests, 0 failed, on both
+target frameworks the test project builds — **net8.0 and net10.0**.
+
+**Acceptance criterion 14 is not met, and cannot be.** It asks for the suite green on net8.0, net9.0
+*and* net10.0. `XLibur.Tests` targets `net8.0;net10.0` only — the library multi-targets three
+frameworks, the test project does not — so there is no net9.0 suite to run. The library itself still
+builds clean on all three. Criterion 14 should have been written against the test project's targets.
+
+### What the spec predicted that turned out wrong
+
+**The axis needs 32 members, not 15–20.** The interface was grown from the call sites as
+instructed and stopped when the collapse compiled. Five files each contribute their own
+axis-dependent operations; the estimate was about half the true width. This is why acceptance
+criterion 8 (net reduction ≥ 250) is unreachable: the five algorithm files shrank 324 lines and
+`GridAxis.cs` costs 244, for a net 80. Two full struct implementations of 32 one-expression
+members cannot fit in the ~74 lines criterion 8 implies.
+
+**`IXLAddress` on the axis was an allocation bug, and the first measurement caught it.**
+`XLAddress` is a `struct` and `XLRangeAddress` exposes `FirstAddress`/`LastAddress` as that
+struct, so axis methods typed `IXLAddress` boxed on every projection — once per repository entry
+per insert. Task 9's first run showed +20–33% on four probes. `in XLAddress` overloads removed it.
+The spec's criterion-9 grep does not catch this: it looks for an `IGridAxis`-typed receiver, and
+the boxing was on the *argument*. Spec 21's mechanism, one level down from where it was expected.
+
+**Collapsing made the insert path cheaper, not merely neutral.** Every probe now sits at or below
+the merge base, four of them 38–50% below. The mechanism is mechanical: the row and column copies
+each read `thisRangeAddress.FirstAddress`/`.LastAddress` through `IXLRangeAddress` **15 times per
+call**, boxing each time; the single implementation hoists them into two locals and reads them
+**twice**. Writing the algorithm once removed 13 boxes per shifted range that neither copy could
+see. The spec framed task 9 as "show the cost did not move"; it moved down.
+
+**The `profile structural` probe is not byte-exact.** `StructuralEditProfile` says "Bytes are
+exact", and five of its seven probes are bimodal, swinging up to ±30% run-to-run on *identical*
+code. Only the formula-below and batch probes are stable to <0.5%. Criterion 13's flat 1% rule
+cannot be applied to the other five; modal values across four interleaved runs per side are what
+this Results section reports. Anyone making a future allocation claim from this harness needs to
+know that before quoting a single run.
+
+**The `expandRange` overload count in task 6 step 2 is a miscount.** The spec expects
+`grep -c 'public IXLRange\(Columns\|Rows\) Insert'` to return 8. It returns 12, at the merge base
+and at the tip. The invariant (unchanged) holds; the number does not.
+
+**Three of four outline tests fail before the fix — actually two.** Defect 1b is genuinely latent,
+as the spec's own text says, so `Grouping_then_ungrouping_every_row_still_saves` passes before the
+fix and after it. The column test passes throughout, as predicted.
+
+### Premises criterion 16 names, settled
+
+- **Was `CellCount()` ever meant to return 1?** No. The full suite passes with
+  `XLColumn.CellCount()` returning 1,048,576, and no existing test asserted it — the only
+  `CellCount` assertion in the suite is on `IXLRangeRow`. The premise held.
+- **Does the page-break / sparkline order matter?** No. `Page_breaks_and_sparklines_survive_a_shift_on_both_axes`
+  was written and **run green against the two-order code** before task 8 collapsed it, so adopting
+  a single order is provably a no-op rather than an inspection. The two passes touch disjoint
+  state: `RemoveInvalidSparklines` reads only `SparklineGroups` and address validity,
+  `ShiftPageBreaks` only `PageSetup.*Breaks`. The pinned order is documented on `Shift<TAxis>`,
+  along with the separate fact that the *first three* steps are not interchangeable.
+- **Does the generic constraint cost allocations?** No. `RowAxis`/`ColumnAxis` are zero-field
+  `readonly struct`s passed as type arguments; criterion 9's grep matches only the two struct
+  declarations. The sort comparer in `CollectRangesShiftedBy` deliberately builds `default(TAxis)`
+  inside the lambda rather than capturing the axis local, so the closure holds only `direction`
+  and allocates exactly what the two longhand copies allocated. What *did* cost allocations was
+  the boxed address argument, above — not the constraint.
+
+### What was deliberately not done
+
+- **`XLRow`/`XLColumn` were not unified.** The spec declines this and the decision stands: 702 +
+  601 lines against 47- and 44-member interfaces is a bigger job than the five algorithm files,
+  and the defects came from the algorithm files.
+- **`XLCellFormulaShifter.Legacy.cs` (9 pairs) and `ISheetListener.cs` are untouched**, byte for
+  byte. `git diff --numstat c569b95a -- XLibur/Excel/Cells/` is empty.
+- **`XLWorksheetRangeShifter.cs` is 222 lines, over criterion 7's ≤215.** Its *code* is 150 lines,
+  down from 248. The overage is the ordering rationale above. Deleting documentation the spec asks
+  to preserve, to satisfy a line count that exists to prove the file shrank, is the wrong trade.
+- **Criterion 10's ≤2 thresholds for `XLRangeBase.cs` and `XLWorksheet.cs` are not met** (7 and
+  17). Every survivor is an interface obligation — `Row`/`Column`, `RowCount`/`ColumnCount`,
+  `FirstRowUsed`/`FirstColumnUsed`, the outline pass-throughs — not a duplicated algorithm. The
+  detector counts every Row/Column-named member, so it cannot distinguish API surface from
+  duplication; the thresholds were calibrated against the wrong quantity.
+- **Task 3's gate had to be strengthened to bite.** As written it passed under the spec's own
+  `ShiftRowHeights` mutation. `XLRow.InsertRowsAbove` moves line sizes itself via
+  `RowsCollection.ShiftRowsDown` and then calls the helper with `onlyUsedCells: true`, which is the
+  first thing `ShiftRowHeights`/`ShiftColumnWidths` bail on — so those methods are unreachable from
+  the `IXLRow`/`IXLColumn` entry point every other case used. A `Line_sizes_are_carried_along_identically_on_both_axes`
+  case that inserts through an entire-line *range* was added; both mutations then failed and were
+  reverted.
+- **A reference workbook was regenerated.** `XLibur.Tests/Resource/Examples/Misc/Outline.xlsx`
+  asserted defect 1 — it omits `@outlineLevelRow` although `Examples/Misc/Outline.cs` groups rows
+  to level 2. Only the `sheetFormatPr` attribute differs.
+
+### What spec 33 inherits
+
+`XLWorksheetRangeShifter.cs` is 320 → 222 lines and its six mirror pairs are six single generic
+methods, so 33 rebases onto half as many call sites. `ISheetListener.cs` is unchanged; only the
+choice between its four members is routed through `IGridAxis.OnInsertAreaAndShift` /
+`OnDeleteAreaAndShift`, called from `Shift<TAxis>`. `XLWorksheet.cs` is 47 lines shorter, with
+`NotifyRangeShifted*` and `CollectRangesShiftedBy*` collapsed to one generic each. Anything 33 adds
+to the shifter should take the axis as a type argument and must not accept `IXLAddress` where the
+caller holds the struct — see the boxing finding above.

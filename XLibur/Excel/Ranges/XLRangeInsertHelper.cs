@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel;
@@ -8,219 +7,137 @@ namespace XLibur.Excel;
 /// Contains the heavy algorithmic logic for inserting rows and columns into a range.
 /// <see cref="XLRangeBase"/> delegates to these methods to keep the main class smaller.
 /// </summary>
+/// <remarks>
+/// The row and column halves used to be two 106-line copies of one algorithm. They are now one
+/// implementation bound to an <see cref="IGridAxis"/> through a generic type argument, so the JIT
+/// still specialises per axis (spec 26). The transposition the two copies hid is explicit here: the
+/// shift runs on the index axis, the formatting pass runs on the <em>cross</em> axis.
+/// </remarks>
 internal static class XLRangeInsertHelper
 {
     internal static IXLRangeColumns? InsertColumnsBefore(XLRangeBase range, bool onlyUsedCells, int numberOfColumns, bool formatFromLeft, bool nullReturn)
-    {
-        if (numberOfColumns <= 0 || numberOfColumns > XLHelper.MaxColumnNumber)
-            throw new ArgumentOutOfRangeException(nameof(numberOfColumns),
-                $"Number of columns to insert must be a positive number no more than {XLHelper.MaxColumnNumber}");
-
-        ShiftFormulasForColumns(range, numberOfColumns);
-
-        range.Worksheet.SparklineGroupsInternal.ShiftColumns(Area.FromRangeAddress(range.RangeAddress), numberOfColumns);
-
-        ShiftColumnWidths(range, onlyUsedCells, numberOfColumns);
-
-        var insertedRange = new Area(
-            Point.FromAddress(range.RangeAddress.FirstAddress),
-            new Point(range.RangeAddress.LastAddress.RowNumber, range.RangeAddress.FirstAddress.ColumnNumber + numberOfColumns - 1));
-
-        range.Worksheet.Internals.CellsCollection.InsertAreaAndShiftRight(insertedRange);
-
-        var firstRowReturn = range.RangeAddress.FirstAddress.RowNumber;
-        var lastRowReturn = range.RangeAddress.LastAddress.RowNumber;
-        var firstColumnReturn = range.RangeAddress.FirstAddress.ColumnNumber;
-        var lastColumnReturn = range.RangeAddress.FirstAddress.ColumnNumber + numberOfColumns - 1;
-
-        range.Worksheet.NotifyRangeShiftedColumns(range.AsRange(), numberOfColumns);
-
-        var rangeToReturn = range.Worksheet.Range(firstRowReturn, firstColumnReturn, lastRowReturn, lastColumnReturn);
-
-        var contentFlags = XLCellsUsedOptions.All
-                           & ~XLCellsUsedOptions.ConditionalFormats
-                           & ~XLCellsUsedOptions.DataValidation;
-
-        ApplyColumnFormatting(range, rangeToReturn, formatFromLeft, contentFlags);
-
-        if (nullReturn)
-            return null;
-
-        return rangeToReturn.Columns();
-    }
-
-    private static void ShiftFormulasForColumns(XLRangeBase range, int numberOfColumns)
-    {
-        XLFormulaShiftPass.Run(range.Worksheet.Workbook, range.AsRange(), shiftRows: false, numberOfColumns);
-    }
-
-    private static void ShiftColumnWidths(XLRangeBase range, bool onlyUsedCells, int numberOfColumns)
-    {
-        if (onlyUsedCells)
-            return;
-
-        var lastColumn = range.Worksheet.Internals.CellsCollection.MaxColumnUsed;
-        if (lastColumn <= 0)
-            return;
-
-        var firstColumn = range.RangeAddress.FirstAddress.ColumnNumber;
-        for (var co = lastColumn; co >= firstColumn; co--)
-        {
-            var newColumn = co + numberOfColumns;
-            if (range.IsEntireColumn())
-                range.Worksheet.Column(newColumn).Width = range.Worksheet.Column(co).Width;
-        }
-    }
-
-    private static void ApplyColumnFormatting(XLRangeBase range, IXLRange rangeToReturn, bool formatFromLeft, XLCellsUsedOptions contentFlags)
-    {
-        if (formatFromLeft && rangeToReturn.RangeAddress.FirstAddress.ColumnNumber > 1)
-            ApplyColumnFormattingFromLeft(rangeToReturn, contentFlags);
-        else
-            ApplyColumnFormattingFromExistingRows(range, rangeToReturn, contentFlags);
-    }
-
-    private static void ApplyColumnFormattingFromLeft(IXLRange rangeToReturn, XLCellsUsedOptions contentFlags)
-    {
-        var firstColumnUsed = rangeToReturn.FirstColumn()!;
-        var model = firstColumnUsed.ColumnLeft();
-        var modelFirstRow = model.FirstCellUsed(contentFlags);
-        var modelLastRow = model.LastCellUsed(contentFlags);
-        if (modelFirstRow == null || modelLastRow == null)
-            return;
-
-        var firstRoReturned = modelFirstRow.Address.RowNumber
-            - model.RangeAddress.FirstAddress.RowNumber + 1;
-        var lastRoReturned = modelLastRow.Address.RowNumber
-            - model.RangeAddress.FirstAddress.RowNumber + 1;
-        for (var ro = firstRoReturned; ro <= lastRoReturned; ro++)
-            rangeToReturn.Row(ro).Style = model.Cell(ro).Style;
-    }
-
-    private static void ApplyColumnFormattingFromExistingRows(XLRangeBase range, IXLRange rangeToReturn, XLCellsUsedOptions contentFlags)
-    {
-        var lastRoUsed = rangeToReturn.LastRowUsed(contentFlags);
-        if (lastRoUsed == null)
-            return;
-
-        var firstWsRow = rangeToReturn.RangeAddress.FirstAddress.RowNumber;
-        var lastRoReturned = lastRoUsed.RowNumber() - firstWsRow + 1;
-        for (var ro = 1; ro <= lastRoReturned; ro++)
-        {
-            var wsRow = firstWsRow + ro - 1;
-            var styleToUse =
-                range.Worksheet.Internals.RowsCollection.TryGetValue(wsRow, out var row)
-                    ? row.Style
-                    : range.Worksheet.Style;
-
-            rangeToReturn.Row(ro).Style = styleToUse;
-        }
-    }
+        => Insert<ColumnAxis>(range, onlyUsedCells, numberOfColumns, formatFromLeft, nullReturn, nameof(numberOfColumns))
+            ?.Columns();
 
     internal static IXLRangeRows? InsertRowsAbove(XLRangeBase range, bool onlyUsedCells, int numberOfRows, bool formatFromAbove, bool nullReturn)
+        => Insert<RowAxis>(range, onlyUsedCells, numberOfRows, formatFromAbove, nullReturn, nameof(numberOfRows))
+            ?.Rows();
+
+    private static IXLRange? Insert<TAxis>(XLRangeBase range, bool onlyUsedCells, int count,
+        bool formatFromPrevious, bool nullReturn, string countParamName)
+        where TAxis : struct, IGridAxis
     {
-        if (numberOfRows <= 0 || numberOfRows > XLHelper.MaxRowNumber)
-            throw new ArgumentOutOfRangeException(nameof(numberOfRows),
-                $"Number of rows to insert must be a positive number no more than {XLHelper.MaxRowNumber}");
+        var axis = default(TAxis);
+        if (count <= 0 || count > axis.MaxIndex)
+            throw new ArgumentOutOfRangeException(countParamName,
+                $"Number of {axis.LineNoun} to insert must be a positive number no more than {axis.MaxIndex}");
 
-        ShiftFormulasForRows(range, numberOfRows);
+        XLFormulaShiftPass.Run(range.Worksheet.Workbook, range.AsRange(), axis.ShiftsRows, count);
 
-        range.Worksheet.SparklineGroupsInternal.ShiftRows(Area.FromRangeAddress(range.RangeAddress), numberOfRows);
+        axis.ShiftSparklines(range.Worksheet.SparklineGroupsInternal, Area.FromRangeAddress(range.RangeAddress), count);
 
-        ShiftRowHeights(range, onlyUsedCells, numberOfRows);
+        ShiftLineSizes<TAxis>(range, onlyUsedCells, count);
 
         var insertedRange = new Area(
             Point.FromAddress(range.RangeAddress.FirstAddress),
-            new Point(range.RangeAddress.FirstAddress.RowNumber + numberOfRows - 1, range.RangeAddress.LastAddress.ColumnNumber));
-        range.Worksheet.Internals.CellsCollection.InsertAreaAndShiftDown(insertedRange);
+            axis.PointAt(
+                axis.IndexOf(range.RangeAddress.FirstAddress) + count - 1,
+                axis.CrossOf(range.RangeAddress.LastAddress)));
 
-        var firstRowReturn = range.RangeAddress.FirstAddress.RowNumber;
-        var lastRowReturn = range.RangeAddress.FirstAddress.RowNumber + numberOfRows - 1;
-        var firstColumnReturn = range.RangeAddress.FirstAddress.ColumnNumber;
-        var lastColumnReturn = range.RangeAddress.LastAddress.ColumnNumber;
+        axis.InsertAreaAndShift(range.Worksheet.Internals.CellsCollection, insertedRange);
 
-        range.Worksheet.NotifyRangeShiftedRows(range.AsRange(), numberOfRows);
+        var firstIndexReturn = axis.IndexOf(range.RangeAddress.FirstAddress);
+        var lastIndexReturn = firstIndexReturn + count - 1;
+        var firstCrossReturn = axis.CrossOf(range.RangeAddress.FirstAddress);
+        var lastCrossReturn = axis.CrossOf(range.RangeAddress.LastAddress);
 
-        var rangeToReturn = range.Worksheet.Range(firstRowReturn, firstColumnReturn, lastRowReturn, lastColumnReturn);
+        axis.NotifyRangeShifted(range.Worksheet, range.AsRange(), count);
+
+        var rangeToReturn = axis.RangeFor(range.Worksheet, firstIndexReturn, lastIndexReturn, firstCrossReturn, lastCrossReturn);
 
         var contentFlags = XLCellsUsedOptions.All
                            & ~XLCellsUsedOptions.ConditionalFormats
                            & ~XLCellsUsedOptions.DataValidation;
 
-        ApplyRowFormatting(range, rangeToReturn, formatFromAbove, contentFlags);
+        ApplyFormatting<TAxis>(range, rangeToReturn, formatFromPrevious, contentFlags);
 
-        // Skip calling .Rows() for performance reasons if required.
+        // Skip calling .Rows()/.Columns() for performance reasons if required.
         if (nullReturn)
             return null;
 
-        return rangeToReturn.Rows();
+        return rangeToReturn;
     }
 
-    private static void ShiftFormulasForRows(XLRangeBase range, int numberOfRows)
-    {
-        XLFormulaShiftPass.Run(range.Worksheet.Workbook, range.AsRange(), shiftRows: true, numberOfRows);
-    }
-
-    private static void ShiftRowHeights(XLRangeBase range, bool onlyUsedCells, int numberOfRows)
+    /// <summary>Carries each line's height (rows) or width (columns) forward by <paramref name="count"/>.</summary>
+    private static void ShiftLineSizes<TAxis>(XLRangeBase range, bool onlyUsedCells, int count)
+        where TAxis : struct, IGridAxis
     {
         if (onlyUsedCells)
             return;
 
-        var lastRow = range.Worksheet.Internals.CellsCollection.MaxRowUsed;
-        if (lastRow <= 0)
+        var axis = default(TAxis);
+        var lastIndex = axis.MaxUsedIndex(range.Worksheet.Internals.CellsCollection);
+        if (lastIndex <= 0)
             return;
 
-        var firstRow = range.RangeAddress.FirstAddress.RowNumber;
-        for (var ro = lastRow; ro >= firstRow; ro--)
-        {
-            var newRow = ro + numberOfRows;
-            if (range.IsEntireRow())
-                range.Worksheet.Row(newRow).Height = range.Worksheet.Row(ro).Height;
-        }
+        // Both longhand copies tested this inside the loop, where it is invariant; hoisting it is a
+        // behaviour-preserving improvement the collapse made obvious (spec 26 task 4).
+        if (!axis.IsEntireLine(range))
+            return;
+
+        var firstIndex = axis.IndexOf(range.RangeAddress.FirstAddress);
+
+        // A line whose target lands past the sheet's last row (or column) is pushed off the sheet,
+        // so its size goes with it. Starting the walk below the edge drops those rather than
+        // addressing row 1,048,577, which threw. Both longhand copies were missing the clamp.
+        for (var i = Math.Min(lastIndex, axis.MaxIndex - count); i >= firstIndex; i--)
+            axis.CopyLineSize(range.Worksheet, i, i + count);
     }
 
-    private static void ApplyRowFormatting(XLRangeBase range, IXLRange rangeToReturn, bool formatFromAbove, XLCellsUsedOptions contentFlags)
+    private static void ApplyFormatting<TAxis>(XLRangeBase range, IXLRange rangeToReturn,
+        bool formatFromPrevious, XLCellsUsedOptions contentFlags)
+        where TAxis : struct, IGridAxis
     {
-        if (formatFromAbove && rangeToReturn.RangeAddress.FirstAddress.RowNumber > 1)
-            ApplyRowFormattingFromAbove(rangeToReturn, contentFlags);
+        var axis = default(TAxis);
+        if (formatFromPrevious && axis.IndexOf(rangeToReturn.RangeAddress.FirstAddress) > 1)
+            ApplyFormattingFromPreviousLine<TAxis>(rangeToReturn, contentFlags);
         else
-            ApplyRowFormattingFromExistingColumns(range, rangeToReturn, contentFlags);
+            ApplyFormattingFromExistingCrossLines<TAxis>(range, rangeToReturn, contentFlags);
     }
 
-    private static void ApplyRowFormattingFromAbove(IXLRange rangeToReturn, XLCellsUsedOptions contentFlags)
+    /// <summary>Styles the inserted block from the line before it — the column to its left, or the row
+    /// above. The loop runs over the <em>cross</em> axis: a column insert styles rows, a row insert
+    /// styles columns. That transposition is the most error-prone part of the mirror this replaces.</summary>
+    private static void ApplyFormattingFromPreviousLine<TAxis>(IXLRange rangeToReturn, XLCellsUsedOptions contentFlags)
+        where TAxis : struct, IGridAxis
     {
-        var fr = rangeToReturn.FirstRow()!;
-        var model = fr.RowAbove();
-        var modelFirstColumn = model.FirstCellUsed(contentFlags);
-        var modelLastColumn = model.LastCellUsed(contentFlags);
-        if (modelFirstColumn == null || modelLastColumn == null)
+        var axis = default(TAxis);
+        var model = axis.ModelLineBefore(rangeToReturn);
+        var modelFirst = model.FirstCellUsed(contentFlags);
+        var modelLast = model.LastCellUsed(contentFlags);
+        if (modelFirst == null || modelLast == null)
             return;
 
-        var firstCoReturned = modelFirstColumn.Address.ColumnNumber
-            - model.RangeAddress.FirstAddress.ColumnNumber + 1;
-        var lastCoReturned = modelLastColumn.Address.ColumnNumber
-            - model.RangeAddress.FirstAddress.ColumnNumber + 1;
-        for (var co = firstCoReturned; co <= lastCoReturned; co++)
-            rangeToReturn.Column(co).Style = model.Cell(co).Style;
+        var modelFirstCross = axis.CrossOf(model.RangeAddress.FirstAddress);
+        var firstCrossReturned = axis.CrossOf(modelFirst.Address) - modelFirstCross + 1;
+        var lastCrossReturned = axis.CrossOf(modelLast.Address) - modelFirstCross + 1;
+        for (var cross = firstCrossReturned; cross <= lastCrossReturned; cross++)
+            axis.SetCrossLineStyle(rangeToReturn, cross, axis.ModelCellStyle(model, cross));
     }
 
-    private static void ApplyRowFormattingFromExistingColumns(XLRangeBase range, IXLRange rangeToReturn, XLCellsUsedOptions contentFlags)
+    /// <summary>Styles the inserted block from the sheet's existing cross-axis lines, falling back to
+    /// the worksheet style for a line that carries none.</summary>
+    private static void ApplyFormattingFromExistingCrossLines<TAxis>(XLRangeBase range, IXLRange rangeToReturn, XLCellsUsedOptions contentFlags)
+        where TAxis : struct, IGridAxis
     {
-        var lastCoUsed = rangeToReturn.LastColumnUsed(contentFlags);
-        if (lastCoUsed == null)
+        var axis = default(TAxis);
+        var lastUsedCross = axis.LastUsedCross(rangeToReturn, contentFlags);
+        if (lastUsedCross < 0)
             return;
 
-        var firstWsCol = rangeToReturn.RangeAddress.FirstAddress.ColumnNumber;
-        var lastCoReturned = lastCoUsed.ColumnNumber() - firstWsCol + 1;
-        for (var co = 1; co <= lastCoReturned; co++)
-        {
-            var wsCol = firstWsCol + co - 1;
-            var styleToUse =
-                range.Worksheet.Internals.ColumnsCollection.TryGetValue(wsCol, out var column)
-                    ? column.Style
-                    : range.Worksheet.Style;
-
-            rangeToReturn.Column(co).Style = styleToUse;
-        }
+        var firstWsCross = axis.CrossOf(rangeToReturn.RangeAddress.FirstAddress);
+        var lastCrossReturned = lastUsedCross - firstWsCross + 1;
+        for (var cross = 1; cross <= lastCrossReturned; cross++)
+            axis.SetCrossLineStyle(rangeToReturn, cross, axis.CrossLineStyle(range.Worksheet, firstWsCross + cross - 1));
     }
 }

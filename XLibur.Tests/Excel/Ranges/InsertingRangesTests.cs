@@ -283,4 +283,40 @@ public class InsertingRangesTests
             await Assert.That(duplicates.Count).IsEqualTo(0);
         }
     }
+
+    /// <summary>
+    /// ShiftRowHeights walks from the last used row down to the insert point and writes each
+    /// height to <c>ro + numberOfRows</c> without clamping, so a sheet whose last used row sits
+    /// within that many rows of the sheet edge addressed row 1,048,577 and threw. The line is
+    /// pushed off the sheet, so its height is dropped rather than clamped onto the last row.
+    /// </summary>
+    [Test]
+    public async Task InsertingRowsNearTheSheetEdgeDoesNotThrow()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet");
+        ws.Cell(XLHelper.MaxRowNumber, 1).Value = 1;
+        ws.Row(1000).Height = 40;
+
+        await Assert.That(() => ws.Range(1000, 1, 1000, XLHelper.MaxColumnNumber).InsertRowsAbove(5))
+            .ThrowsNothing();
+
+        // The height still travels for a row whose target is on the sheet.
+        await Assert.That(ws.Row(1005).Height).IsEqualTo(40).Within(XLHelper.Epsilon);
+    }
+
+    /// <summary>Column-axis twin of <see cref="InsertingRowsNearTheSheetEdgeDoesNotThrow"/>.</summary>
+    [Test]
+    public async Task InsertingColumnsNearTheSheetEdgeDoesNotThrow()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet");
+        ws.Cell(1, XLHelper.MaxColumnNumber).Value = 1;
+        ws.Column(100).Width = 40;
+
+        await Assert.That(() => ws.Range(1, 100, XLHelper.MaxRowNumber, 100).InsertColumnsBefore(5))
+            .ThrowsNothing();
+
+        await Assert.That(ws.Column(105).Width).IsEqualTo(40).Within(XLHelper.Epsilon);
+    }
 }

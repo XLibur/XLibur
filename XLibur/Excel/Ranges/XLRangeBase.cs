@@ -889,21 +889,8 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
     public IXLRangeColumns InsertColumnsAfter(int numberOfColumns, bool expandRange)
     {
         var retVal = InsertColumnsAfter(false, numberOfColumns);
-        // Adjust the range
         if (expandRange)
-        {
-            RangeAddress = new XLRangeAddress(
-                new XLAddress(Worksheet,
-                    RangeAddress.FirstAddress.RowNumber,
-                    RangeAddress.FirstAddress.ColumnNumber,
-                    RangeAddress.FirstAddress.FixedRow,
-                    RangeAddress.FirstAddress.FixedColumn),
-                new XLAddress(Worksheet,
-                    RangeAddress.LastAddress.RowNumber,
-                    RangeAddress.LastAddress.ColumnNumber + numberOfColumns,
-                    RangeAddress.LastAddress.FixedRow,
-                    RangeAddress.LastAddress.FixedColumn));
-        }
+            ExpandBy<ColumnAxis>(numberOfColumns, atLeadingEdge: false);
 
         return retVal;
     }
@@ -920,23 +907,8 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     private IXLRangeColumns? InsertColumnsAfterInternal(bool onlyUsedCells, int numberOfColumns,
         bool formatFromLeft = true, bool nullReturn = false)
-    {
-        var columnCount = ColumnCount();
-        var firstColumn = RangeAddress.FirstAddress.ColumnNumber + columnCount;
-        if (firstColumn > XLHelper.MaxColumnNumber)
-            firstColumn = XLHelper.MaxColumnNumber;
-        var lastColumn = firstColumn + ColumnCount() - 1;
-        if (lastColumn > XLHelper.MaxColumnNumber)
-            lastColumn = XLHelper.MaxColumnNumber;
-
-        var firstRow = RangeAddress.FirstAddress.RowNumber;
-        var lastRow = firstRow + RowCount() - 1;
-        if (lastRow > XLHelper.MaxRowNumber)
-            lastRow = XLHelper.MaxRowNumber;
-
-        var newRange = Worksheet.Range(firstRow, firstColumn, lastRow, lastColumn);
-        return newRange.InsertColumnsBeforeInternal(onlyUsedCells, numberOfColumns, formatFromLeft, nullReturn);
-    }
+        => NextBlock<ColumnAxis>()
+            .InsertColumnsBeforeInternal(onlyUsedCells, numberOfColumns, formatFromLeft, nullReturn);
 
     public IXLRangeColumns InsertColumnsBefore(int numberOfColumns)
     {
@@ -946,21 +918,8 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
     public IXLRangeColumns InsertColumnsBefore(int numberOfColumns, bool expandRange)
     {
         var retVal = InsertColumnsBefore(false, numberOfColumns);
-        // Adjust the range
         if (expandRange)
-        {
-            RangeAddress = new XLRangeAddress(
-                new XLAddress(Worksheet,
-                    RangeAddress.FirstAddress.RowNumber,
-                    RangeAddress.FirstAddress.ColumnNumber - numberOfColumns,
-                    RangeAddress.FirstAddress.FixedRow,
-                    RangeAddress.FirstAddress.FixedColumn),
-                new XLAddress(Worksheet,
-                    RangeAddress.LastAddress.RowNumber,
-                    RangeAddress.LastAddress.ColumnNumber,
-                    RangeAddress.LastAddress.FixedRow,
-                    RangeAddress.LastAddress.FixedColumn));
-        }
+            ExpandBy<ColumnAxis>(numberOfColumns, atLeadingEdge: true);
 
         return retVal;
     }
@@ -987,21 +946,8 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
     public IXLRangeRows InsertRowsBelow(int numberOfRows, bool expandRange)
     {
         var retVal = InsertRowsBelow(false, numberOfRows);
-        // Adjust the range
         if (expandRange)
-        {
-            RangeAddress = new XLRangeAddress(
-                new XLAddress(Worksheet,
-                    RangeAddress.FirstAddress.RowNumber,
-                    RangeAddress.FirstAddress.ColumnNumber,
-                    RangeAddress.FirstAddress.FixedRow,
-                    RangeAddress.FirstAddress.FixedColumn),
-                new XLAddress(Worksheet,
-                    RangeAddress.LastAddress.RowNumber + numberOfRows,
-                    RangeAddress.LastAddress.ColumnNumber,
-                    RangeAddress.LastAddress.FixedRow,
-                    RangeAddress.LastAddress.FixedColumn));
-        }
+            ExpandBy<RowAxis>(numberOfRows, atLeadingEdge: false);
 
         return retVal;
     }
@@ -1018,22 +964,48 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     private IXLRangeRows? InsertRowsBelowInternal(bool onlyUsedCells, int numberOfRows, bool formatFromAbove,
         bool nullReturn)
+        => NextBlock<RowAxis>()
+            .InsertRowsAboveInternal(onlyUsedCells, numberOfRows, formatFromAbove, nullReturn);
+
+    /// <summary>
+    /// Widens the range by <paramref name="count"/> lines on <typeparamref name="TAxis"/>, at the
+    /// leading edge (above / to the left) or the trailing edge (below / to the right). The four
+    /// longhand copies of this rebuild differed only in which of the two edges moved.
+    /// </summary>
+    private void ExpandBy<TAxis>(int count, bool atLeadingEdge)
+        where TAxis : struct, IGridAxis
     {
-        var rowCount = RowCount();
-        var firstRow = RangeAddress.FirstAddress.RowNumber + rowCount;
-        if (firstRow > XLHelper.MaxRowNumber)
-            firstRow = XLHelper.MaxRowNumber;
-        var lastRow = firstRow + RowCount() - 1;
-        if (lastRow > XLHelper.MaxRowNumber)
-            lastRow = XLHelper.MaxRowNumber;
+        var axis = default(TAxis);
+        var first = RangeAddress.FirstAddress;
+        var last = RangeAddress.LastAddress;
 
-        var firstColumn = RangeAddress.FirstAddress.ColumnNumber;
-        var lastColumn = firstColumn + ColumnCount() - 1;
-        if (lastColumn > XLHelper.MaxColumnNumber)
-            lastColumn = XLHelper.MaxColumnNumber;
+        RangeAddress = new XLRangeAddress(
+            axis.AddressAt(Worksheet,
+                axis.IndexOf(first) - (atLeadingEdge ? count : 0), axis.CrossOf(first),
+                first.FixedRow, first.FixedColumn),
+            axis.AddressAt(Worksheet,
+                axis.IndexOf(last) + (atLeadingEdge ? 0 : count), axis.CrossOf(last),
+                last.FixedRow, last.FixedColumn));
+    }
 
-        var newRange = Worksheet.Range(firstRow, firstColumn, lastRow, lastColumn);
-        return newRange.InsertRowsAboveInternal(onlyUsedCells, numberOfRows, formatFromAbove, nullReturn);
+    /// <summary>
+    /// The block of the same size immediately after this range on <typeparamref name="TAxis"/>.
+    /// Inserting <em>after</em> a range is inserting <em>before</em> that block, which is how both
+    /// the after and below paths reach the single insert implementation. Every edge is clamped to
+    /// the sheet, so a range at the far edge collapses onto it rather than addressing past it.
+    /// </summary>
+    private XLRange NextBlock<TAxis>()
+        where TAxis : struct, IGridAxis
+    {
+        var axis = default(TAxis);
+        var first = RangeAddress.FirstAddress;
+
+        var firstIndex = Math.Min(axis.IndexOf(first) + axis.IndexCount(this), axis.MaxIndex);
+        var lastIndex = Math.Min(firstIndex + axis.IndexCount(this) - 1, axis.MaxIndex);
+        var firstCross = axis.CrossOf(first);
+        var lastCross = Math.Min(firstCross + axis.CrossCount(this) - 1, axis.MaxCross);
+
+        return axis.RangeFor(Worksheet, firstIndex, lastIndex, firstCross, lastCross);
     }
 
     public IXLRangeRows InsertRowsAbove(int numberOfRows)
@@ -1044,21 +1016,8 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
     public IXLRangeRows InsertRowsAbove(int numberOfRows, bool expandRange)
     {
         var retVal = InsertRowsAbove(false, numberOfRows);
-        // Adjust the range
         if (expandRange)
-        {
-            RangeAddress = new XLRangeAddress(
-                new XLAddress(Worksheet,
-                    RangeAddress.FirstAddress.RowNumber - numberOfRows,
-                    RangeAddress.FirstAddress.ColumnNumber,
-                    RangeAddress.FirstAddress.FixedRow,
-                    RangeAddress.FirstAddress.FixedColumn),
-                new XLAddress(Worksheet,
-                    RangeAddress.LastAddress.RowNumber,
-                    RangeAddress.LastAddress.ColumnNumber,
-                    RangeAddress.LastAddress.FixedRow,
-                    RangeAddress.LastAddress.FixedColumn));
-        }
+            ExpandBy<RowAxis>(numberOfRows, atLeadingEdge: true);
 
         return retVal;
     }

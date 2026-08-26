@@ -1264,55 +1264,33 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     }
 
     public void NotifyRangeShiftedRows(XLRange range, int rowsShifted)
-    {
-        RangeShiftPasses++;
-
-        var rangesToShift = CollectRangesShiftedByRows(range, rowsShifted);
-
-        WorksheetRangeShiftedRows(range, rowsShifted);
-
-        // Conditional-format and data-validation coverage was already repositioned by the
-        // worksheet-level shift above (ShiftConditionalFormattingRows / ShiftDataValidationRows).
-        // Both store coverage as the value-typed XLAreaList — not live repository ranges — so the
-        // blanket shift below can never alias and double-shift them (ClosedXML issue #2850); no
-        // skip-set is needed.
-        var collapsed = false;
-        foreach (var storedRange in rangesToShift)
-        {
-            if (ReferenceEquals(range, storedRange))
-                continue;
-
-            storedRange.WorksheetRangeShiftedRows(range, rowsShifted);
-            if (range.RangeAddress == storedRange.RangeAddress)
-            {
-                collapsed = true;
-            }
-        }
-
-        if (!collapsed)
-        {
-            range.WorksheetRangeShiftedRows(range, rowsShifted);
-        }
-    }
+        => NotifyRangeShifted<RowAxis>(range, rowsShifted);
 
     public void NotifyRangeShiftedColumns(XLRange range, int columnsShifted)
+        => NotifyRangeShifted<ColumnAxis>(range, columnsShifted);
+
+    private void NotifyRangeShifted<TAxis>(XLRange range, int shift)
+        where TAxis : struct, IGridAxis
     {
         RangeShiftPasses++;
 
-        var rangesToShift = CollectRangesShiftedByColumns(range, columnsShifted);
+        var axis = default(TAxis);
+        var rangesToShift = CollectRangesShiftedBy<TAxis>(range, shift);
 
-        WorksheetRangeShiftedColumns(range, columnsShifted);
+        axis.WorksheetRangeShifted(this, range, shift);
 
-        // See NotifyRangeShiftedRows: CF/DV coverage is the value-typed XLAreaList, not live
-        // repository ranges, so the blanket shift can never alias and double-shift it (ClosedXML
-        // issue #2850); no skip-set is needed.
+        // Conditional-format and data-validation coverage was already repositioned by the
+        // worksheet-level shift above (ShiftConditionalFormatting* / ShiftDataValidation*). Both
+        // store coverage as the value-typed XLAreaList — not live repository ranges — so the blanket
+        // shift below can never alias and double-shift them (ClosedXML issue #2850); no skip-set is
+        // needed.
         var collapsed = false;
         foreach (var storedRange in rangesToShift)
         {
             if (ReferenceEquals(range, storedRange))
                 continue;
 
-            storedRange.WorksheetRangeShiftedColumns(range, columnsShifted);
+            axis.WorksheetRangeShifted(storedRange, range, shift);
             if (range.RangeAddress == storedRange.RangeAddress)
             {
                 collapsed = true;
@@ -1321,52 +1299,59 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         if (!collapsed)
         {
-            range.WorksheetRangeShiftedColumns(range, columnsShifted);
+            axis.WorksheetRangeShifted(range, range, shift);
         }
     }
 
     /// <summary>
-    /// The live ranges a row shift can actually move, ordered so that a range never lands on an address
-    /// another range still occupies.
+    /// The live ranges a shift on <typeparamref name="TAxis"/> can actually move, ordered so that a
+    /// range never lands on an address another range still occupies.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The predicate mirrors <see cref="XLRangeShiftHelper.ShiftRows"/>: a range moves only if the
-    /// shifted range spans it horizontally and it extends to or past the shift line. Everything else is
-    /// returned unchanged by the shift, so calling it is a no-op — but it used to be called anyway, and
-    /// worse, sorted first. The sort now sees only the ranges that will move.
+    /// The predicate mirrors <see cref="XLRangeShiftHelper"/>: a range moves only if the shifted range
+    /// spans it on the cross axis and it extends to or past the shift line. Everything else is returned
+    /// unchanged by the shift, so calling it is a no-op — but it used to be called anyway, and worse,
+    /// sorted first. The sort now sees only the ranges that will move.
     /// </para>
     /// <para>
-    /// Dropping the no-ops cannot change the <c>collapsed</c> decision the callers make, even though
+    /// Dropping the no-ops cannot change the <c>collapsed</c> decision the caller makes, even though
     /// that decision is evaluated for every visited range. <c>collapsed</c> asks whether some range now
     /// sits exactly on the shifted range's address — and a range at that address is spanned by it and
-    /// ends at or past its first row, so it always satisfies the predicate. A range the predicate
+    /// ends at or past its first line, so it always satisfies the predicate. A range the predicate
     /// rejects cannot be at that address, and cannot move onto it either, since it does not move at all.
     /// </para>
     /// <para>
-    /// Entire-column ranges are excluded here rather than skipped in the loop, which is where the old
-    /// code skipped them — before its <c>collapsed</c> check, so they could never set it. Same outcome.
+    /// Ranges that are an entire line on the <em>other</em> axis are excluded here rather than skipped
+    /// in the loop, which is where the old code skipped them — before its <c>collapsed</c> check, so
+    /// they could never set it. Same outcome.
+    /// </para>
+    /// <para>
+    /// This was two copies of the same method; the row one carried the reasoning above and the column
+    /// one carried a pointer to it (spec 26 task 7).
     /// </para>
     /// </remarks>
-    private List<XLRangeBase> CollectRangesShiftedByRows(XLRange range, int rowsShifted)
+    private List<XLRangeBase> CollectRangesShiftedBy<TAxis>(XLRange range, int shift)
+        where TAxis : struct, IGridAxis
     {
+        var axis = default(TAxis);
         var shifted = range.RangeAddress;
-        var shiftFirstRow = shifted.FirstAddress.RowNumber;
-        var shiftFirstColumn = shifted.FirstAddress.ColumnNumber;
-        var shiftLastColumn = shifted.LastAddress.ColumnNumber;
+        var shiftFirstIndex = axis.IndexOf(shifted.FirstAddress);
+        var shiftFirstCross = axis.CrossOf(shifted.FirstAddress);
+        var shiftLastCross = axis.CrossOf(shifted.LastAddress);
 
         var affected = new List<XLRangeBase>();
         foreach (var stored in _rangeRepository)
         {
             var address = stored.RangeAddress;
-            if (!address.IsValid || stored.IsEntireColumn())
+            if (!address.IsValid || axis.IsEntireCrossLine(stored))
                 continue;
 
-            if (address.LastAddress.RowNumber < shiftFirstRow)
+            if (axis.IndexOf(address.LastAddress) < shiftFirstIndex)
                 continue;
 
-            if (address.FirstAddress.ColumnNumber < shiftFirstColumn ||
-                address.LastAddress.ColumnNumber > shiftLastColumn)
+            if (axis.CrossOf(address.FirstAddress) < shiftFirstCross ||
+                axis.CrossOf(address.LastAddress) > shiftLastCross)
                 continue;
 
             affected.Add(stored);
@@ -1374,52 +1359,20 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         // Furthest-first when inserting, nearest-first when deleting: a range must vacate its key
         // before the range behind it claims it, or XLRepositoryBase.Replace drops the move and the
-        // range silently detaches. Unstable sort is fine — ties share a first row, and the repository
+        // range silently detaches. Unstable sort is fine — ties share a first line, and the repository
         // enumerates in no defined order to begin with, so there is no prior order to preserve.
-        var direction = -Math.Sign(rowsShifted);
+        var direction = -Math.Sign(shift);
         affected.Sort((left, right) =>
-            (left.RangeAddress.FirstAddress.RowNumber * direction)
-            .CompareTo(right.RangeAddress.FirstAddress.RowNumber * direction));
-
-        return affected;
-    }
-
-    /// <summary>
-    /// Column-wise counterpart of <see cref="CollectRangesShiftedByRows"/>; see it for why filtering
-    /// here is safe.
-    /// </summary>
-    private List<XLRangeBase> CollectRangesShiftedByColumns(XLRange range, int columnsShifted)
-    {
-        var shifted = range.RangeAddress;
-        var shiftFirstColumn = shifted.FirstAddress.ColumnNumber;
-        var shiftFirstRow = shifted.FirstAddress.RowNumber;
-        var shiftLastRow = shifted.LastAddress.RowNumber;
-
-        var affected = new List<XLRangeBase>();
-        foreach (var stored in _rangeRepository)
         {
-            var address = stored.RangeAddress;
-            if (!address.IsValid || stored.IsEntireRow())
-                continue;
-
-            if (address.LastAddress.ColumnNumber < shiftFirstColumn)
-                continue;
-
-            if (address.FirstAddress.RowNumber < shiftFirstRow ||
-                address.LastAddress.RowNumber > shiftLastRow)
-                continue;
-
-            affected.Add(stored);
-        }
-
-        var direction = -Math.Sign(columnsShifted);
-        affected.Sort((left, right) =>
-            (left.RangeAddress.FirstAddress.ColumnNumber * direction)
-            .CompareTo(right.RangeAddress.FirstAddress.ColumnNumber * direction));
+            // default(TAxis) rather than the captured axis: the closure then holds only `direction`,
+            // exactly as the two longhand copies did, so this allocates no more than they did.
+            var sortAxis = default(TAxis);
+            return (sortAxis.IndexOf(left.RangeAddress.FirstAddress) * direction)
+                .CompareTo(sortAxis.IndexOf(right.RangeAddress.FirstAddress) * direction);
+        });
 
         return affected;
     }
-
     private void CheckRangeNotOverlappingOtherEntities(XLRange range)
     {
         // Check that the range doesn't overlap with any existing tables

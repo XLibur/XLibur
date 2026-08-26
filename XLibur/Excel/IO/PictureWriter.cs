@@ -135,10 +135,13 @@ internal static class PictureWriter
             xlWorksheet.Pictures.Count == 0 && // and also no pictures.
             !hasCharts && // and no existing chart parts
             !hasNewCharts && // and no new charts pending write
-                             // Check for non-picture shapes (textboxes, rectangles, etc.) last to avoid
-                             // loading the DrawingsPart DOM unnecessarily — DOM loading causes re-serialization
-                             // that changes the XML even when no modifications are made.
-            !(worksheetPart.DrawingsPart.WorksheetDrawing?.HasChildren ?? false))
+                             // Check for non-picture shapes (textboxes, rectangles, etc.) last, and
+                             // check them by streaming the part rather than through WorksheetDrawing.
+                             // Reading that property attaches the DOM, and the SDK then writes the
+                             // attached tree back over the part's original bytes on save even though
+                             // nothing was modified — which is the very re-serialization the ordering
+                             // here was meant to avoid.
+            !DrawingPartProbe.HasAnyChild(worksheetPart.DrawingsPart))
         {
             var id = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart);
             worksheet.RemoveChild(worksheet.OfType<Drawing>().FirstOrDefault(p => p.Id == id));

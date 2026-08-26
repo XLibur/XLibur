@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
@@ -53,7 +54,7 @@ public class SlicerPositionTests
 
         using var original = Resource();
         await Assert.That(PartBytes(saved, "xl/slicers/slicer2.xml"))
-            .IsEquivalentTo(PartBytes(original, "xl/slicers/slicer2.xml"));
+            .IsEquivalentTo(PartBytes(original, "xl/slicers/slicer2.xml"), CollectionOrdering.Matching);
     }
 
     // ── Placing a created slicer ────────────────────────────────────────
@@ -182,7 +183,7 @@ public class SlicerPositionTests
 
         // Position lives in the drawing, so moving a slicer must leave the slicers part closed —
         // the two halves of an edit are gated separately.
-        await Assert.That(PartBytes(saved, "xl/slicers/slicer2.xml")).IsEquivalentTo(before);
+        await Assert.That(PartBytes(saved, "xl/slicers/slicer2.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
     }
 
     [Test]
