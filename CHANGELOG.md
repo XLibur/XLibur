@@ -34,6 +34,8 @@
 
 - **`IXLColumn.CellCount()` returns 1,048,576 instead of 1.** It was a verbatim copy of `IXLRow.CellCount()`, down to measuring the *column* span of its address. A column's address runs from row 1 to the last row of a single column, so both ends carried the same column number and the count was always `c - c + 1`. A column now reports one cell per row in the sheet, which is what the row half has always reported for its own axis. The signature is unchanged; only the value it returns moves — which means the compiler cannot warn you: **code that loops over a column with `for (var i = 1; i <= column.CellCount(); i++)`, or calls `column.Column(2, column.CellCount())`, silently goes from one iteration to 1,048,576 and materialises the whole column.** Check any such loop written against `IXLColumn` before upgrading. `IXLRangeColumn.CellCount()` is a different method and is unaffected.
 
+- **Inserting rows or columns no longer throws when the sheet's last used line is near its edge.** Carrying line sizes forward walked from the last used row (or column) down to the insert point and wrote each height to `row + numberOfRows` without clamping, so a sheet with anything on a row within `numberOfRows` of row 1,048,576 addressed row 1,048,577 and threw `ArgumentOutOfRangeException`. Both axes were affected, identically. A line pushed past the edge now takes its height or width off the sheet with it, which is what happens to its contents.
+
 ## v0.311.1 - 2026-08-11
 
 A dependency release: `XLibur.Fonts.SkiaSharp` moves to SkiaSharp 4.151.1, a patch bump. No new features, no bug fixes and no breaking changes.

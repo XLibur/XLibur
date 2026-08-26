@@ -86,7 +86,11 @@ internal static class XLRangeInsertHelper
             return;
 
         var firstIndex = axis.IndexOf(range.RangeAddress.FirstAddress);
-        for (var i = lastIndex; i >= firstIndex; i--)
+
+        // A line whose target lands past the sheet's last row (or column) is pushed off the sheet,
+        // so its size goes with it. Starting the walk below the edge drops those rather than
+        // addressing row 1,048,577, which threw. Both longhand copies were missing the clamp.
+        for (var i = Math.Min(lastIndex, axis.MaxIndex - count); i >= firstIndex; i--)
             axis.CopyLineSize(range.Worksheet, i, i + count);
     }
 
