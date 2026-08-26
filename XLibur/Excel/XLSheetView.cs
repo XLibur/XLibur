@@ -179,15 +179,46 @@ internal sealed class XLSheetView : IXLSheetView, ISheetListener
         if (!axis.IsEntireLine(edit.Range))
             return;
 
+        var editFirstIndex = axis.IndexOf(edit.Range.RangeAddress.FirstAddress);
+
         var split = axis.ShiftsRows ? SplitRow : SplitColumn;
-        if (split == 0)
+        if (split > 0)
+        {
+            var moved = GridShift.MoveCount(split, editFirstIndex, edit.Shift);
+            if (axis.ShiftsRows)
+                SplitRow = moved;
+            else
+                SplitColumn = moved;
+        }
+
+        MovePaneTopLeft<TAxis>(editFirstIndex, edit.Shift);
+    }
+
+    /// <summary>
+    /// Moves the scrollable pane's anchor cell with the split it belongs to.
+    /// </summary>
+    /// <remarks>
+    /// <c>SheetViewWriter</c> writes this address verbatim as <c>pane/@topLeftCell</c> whenever it is
+    /// set, and derives it from the split only when it is null. <c>ScrollIntoView</c> sets it to
+    /// <c>split + 1</c>, so moving the split without moving this leaves the two disagreeing — a
+    /// sheet frozen at 5 rows with the anchor on <c>A6</c>, after inserting three rows at row 5,
+    /// would write <c>ySplit="8"</c> against <c>topLeftCell="A6"</c>, an anchor inside the frozen
+    /// band. It is an address rather than a count, so it takes <see cref="GridShift.MoveIndex"/>
+    /// where the split takes <see cref="GridShift.MoveCount"/>.
+    /// </remarks>
+    private void MovePaneTopLeft<TAxis>(int editFirstIndex, int shift)
+        where TAxis : struct, IGridAxis
+    {
+        if (PaneTopLeftCellAddress is not { } pane)
             return;
 
-        var moved = GridShift.MoveCount(split, axis.IndexOf(edit.Range.RangeAddress.FirstAddress), edit.Shift);
-        if (axis.ShiftsRows)
-            SplitRow = moved;
-        else
-            SplitColumn = moved;
+        var axis = default(TAxis);
+        var moved = GridShift.MoveIndex(axis.IndexOf(pane), editFirstIndex, shift);
+        if (moved == axis.IndexOf(pane))
+            return;
+
+        PaneTopLeftCellAddress = axis.AddressAt(
+            Worksheet, moved, axis.CrossOf(pane), pane.FixedRow, pane.FixedColumn);
     }
 
     #endregion ISheetListener

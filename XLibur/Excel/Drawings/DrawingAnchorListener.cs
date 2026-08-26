@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using XLibur.Excel.Coordinates;
 
@@ -97,17 +98,54 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
     }
 
     /// <summary>
-    /// Moves every note's callout anchor. Walks the misc slice, where notes live, rather than
-    /// materialising an <see cref="XLCell"/> per used cell — the same reason
-    /// <c>XLCellsCollection.FindNote</c> does, and it matters here because this runs on every
-    /// structural edit whether the sheet has notes or not. An empty misc slice costs one branch.
+    /// Moves every note's callout anchor by exactly as far as the note's own cell moved.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A note's anchor is not transformed the way a chart's is, and it must not be.</b> A chart
+    /// hangs off the grid and nothing else; a note is bound to a cell, and its callout sits at an
+    /// offset from that cell — one row above and one column right, by default, but a caller can move
+    /// it. The cell travels by a different mechanism entirely (the misc slice shifts with the
+    /// cells, before this listener runs), so the only way the two stay together is for the anchor to
+    /// take the cell's displacement rather than compute its own.
+    /// </para>
+    /// <para>
+    /// Transforming the anchor directly gets the common case right and the boundary cases wrong,
+    /// because the anchor sits a row above the cell and so straddles the edit differently. A note on
+    /// <c>A10</c> has <c>Position.Row == 9</c>; inserting three rows at row 10 moves the cell to
+    /// <c>A13</c> while an anchor transform leaves the callout at row 9, four rows adrift. Deleting
+    /// rows 4:6 under a note on <c>A7</c> lands the cell on <c>A4</c> and clamps the anchor to 4
+    /// rather than 3. Both are the defect this spec exists to fix, one boundary further along.
+    /// </para>
+    /// <para>
+    /// The cell has already moved, so its displacement is read off where it is now: a cell survives
+    /// at or after <c>max(first, first + shift)</c> — <c>first + shift</c> for an insert, since the
+    /// lines in between are the new blank ones, and <c>first</c> for a delete, since anything inside
+    /// the deleted block is gone from the slice and never reaches this loop.
+    /// </para>
+    /// <para>
+    /// Walks the misc slice, where notes live, rather than materialising an <see cref="XLCell"/> per
+    /// used cell — the same reason <c>XLCellsCollection.FindNote</c> does, and it matters here
+    /// because this runs on every structural edit whether the sheet has notes or not. An empty misc
+    /// slice costs one branch.
+    /// </para>
+    /// </remarks>
     private void MoveNotes<TAxis>(in SheetEdit edit)
         where TAxis : struct, IGridAxis
     {
         var misc = worksheet.Internals.CellsCollection.MiscSlice;
         if (misc.IsEmpty)
             return;
+
+        var axis = default(TAxis);
+        var editFirst = edit.Range.RangeAddress.FirstAddress;
+        var editLast = edit.Range.RangeAddress.LastAddress;
+        var editFirstIndex = axis.IndexOf(editFirst);
+        var editFirstCross = axis.CrossOf(editFirst);
+        var editLastCross = axis.CrossOf(editLast);
+
+        // The lowest index a cell that moved can now occupy.
+        var movedFrom = Math.Max(editFirstIndex, editFirstIndex + edit.Shift);
 
         var enumerator = new Slice<XLMiscSliceContent>.Enumerator(misc, Area.Full);
         while (enumerator.MoveNext())
@@ -123,8 +161,20 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
             if (note is null || note.Anchor == XLDrawingAnchor.Absolute)
                 continue;
 
-            // 1-based: the VML writer subtracts one and indexes rows and columns with it directly.
-            Move<TAxis>(note.Position, edit, oneBased: true);
+            // Did this cell move? Only if the edit covered its line on the cross axis — a partial
+            // insert shifts only the columns it spans — and only if it sits where a moved cell lands.
+            var cell = enumerator.Point;
+            var cellCross = axis.CrossOf(cell);
+            if (cellCross < editFirstCross || cellCross > editLastCross)
+                continue;
+            if (axis.IndexOf(cell) < movedFrom)
+                continue;
+
+            // 1-based, and moved by the cell's displacement, so the callout keeps its offset.
+            if (axis.ShiftsRows)
+                note.Position.SetRow(note.Position.Row + edit.Shift);
+            else
+                note.Position.SetColumn(note.Position.Column + edit.Shift);
         }
     }
 

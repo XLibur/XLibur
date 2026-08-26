@@ -260,6 +260,103 @@ public class SheetListenerCharacterizationTests
     }
 
     /// <summary>
+    /// The boundary cases, where the edit lands on the note's own cell rather than clear above it.
+    /// A callout sits one row above its cell, so it straddles such an edit differently from the cell
+    /// and a transform applied to the anchor gets these wrong while getting the common case right —
+    /// which is why the anchor takes the <em>cell's</em> displacement instead. Each case asserts the
+    /// callout is still exactly one row above the note, wherever the note ended up.
+    /// </summary>
+    [Test]
+    [Arguments("insert clear above the note", 1, 3, 13)]
+    [Arguments("insert on the note's own row", 10, 3, 13)]
+    [Arguments("insert one row above the note", 9, 3, 13)]
+    [Arguments("delete clear above the note", 1, -3, 7)]
+    [Arguments("delete ending just above the note", 7, -3, 7)]
+    public async Task A_note_keeps_its_callout_one_row_above_it(
+        string label, int at, int shift, int expectedNoteRow)
+    {
+        _ = label;
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("S");
+        ws.Cell("A10")!.CreateComment().AddText("n");
+
+        if (shift > 0)
+            ws.Row(at).InsertRowsAbove(shift);
+        else
+            ws.Rows(at, at - shift - 1).Delete();
+
+        await Assert.That(ws.Cell(expectedNoteRow, 1)!.HasComment).IsTrue();
+        await Assert.That(ws.Cell(expectedNoteRow, 1)!.GetComment().Position.Row)
+            .IsEqualTo(expectedNoteRow - 1);
+    }
+
+    /// <summary>
+    /// A note outside the edited columns does not move, so neither does its callout.
+    /// </summary>
+    [Test]
+    public async Task A_partial_insert_outside_the_notes_column_moves_neither_half()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("S");
+        ws.Cell("D10")!.CreateComment().AddText("n");
+
+        ws.Range("A1:A5")!.InsertRowsAbove(3);
+
+        await Assert.That(ws.Cell("D10")!.HasComment).IsTrue();
+        await Assert.That(ws.Cell("D10")!.GetComment().Position.Row).IsEqualTo(9);
+    }
+
+    /// <summary>
+    /// A pivot table's report filters sit above its area, and <c>TargetCell</c> is the area's first
+    /// point shifted up by that many rows. A delete clamps the area onto the deletion point, so the
+    /// area has to stop far enough down the sheet for the filters to still fit — otherwise the
+    /// target lands above row 1, and <c>Point</c> stores its row in an unsigned field, so it wraps
+    /// rather than throwing and hands the caller <c>#REF!</c>.
+    /// </summary>
+    [Test]
+    public async Task A_pivot_area_leaves_room_for_its_report_filters()
+    {
+        using var wb = new XLWorkbook();
+        var source = wb.AddWorksheet("Source");
+        source.Cell("A1").Value = "Name";
+        source.Cell("A2").Value = "Alice";
+        source.Cell("B1").Value = "Amount";
+        source.Cell("B2").Value = 1;
+
+        var ws = (XLWorksheet)wb.AddWorksheet("Pivot");
+        var pt = (XLPivotTable)ws.PivotTables.Add("pt", ws.Cell("D3")!, source.Range("A1:B2")!);
+        pt.ReportFilters.Add("Name");
+        pt.Values.Add("Amount");
+
+        // One report filter plus the gap puts the area two rows below the target.
+        await Assert.That(pt.TargetCell.Address.ToString()).IsEqualTo("D3");
+
+        ws.Rows(1, 4).Delete();
+
+        await Assert.That(pt.Area.FirstPoint.Row).IsEqualTo(3);
+        await Assert.That(pt.TargetCell.Address.ToString()).IsEqualTo("D1");
+    }
+
+    /// <summary>
+    /// The scrollable pane's anchor cell moves with the split it belongs to. <c>SheetViewWriter</c>
+    /// writes it verbatim as <c>pane/@topLeftCell</c> when it is set, so leaving it behind would
+    /// write an anchor sitting inside the frozen band.
+    /// </summary>
+    [Test]
+    public async Task The_pane_anchor_moves_with_its_split()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("S");
+        ws.SheetView.FreezeRows(5);
+        ws.SheetView.PaneTopLeftCellAddress = ws.Cell("A6")!.Address;
+
+        ws.Row(5).InsertRowsAbove(3);
+
+        await Assert.That(ws.SheetView.SplitRow).IsEqualTo(8);
+        await Assert.That(ws.SheetView.PaneTopLeftCellAddress!.ToString()).IsEqualTo("A9");
+    }
+
+    /// <summary>
     /// <c>SplitRow</c> and <c>SplitColumn</c> are raw <c>int</c>s on <c>XLSheetView</c> and until
     /// spec 33 task 5 nothing notified them, so inserting rows inside the frozen region left the
     /// freeze splitting the wrong line.

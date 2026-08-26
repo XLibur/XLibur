@@ -924,7 +924,35 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         if (edit.Sheet != _worksheet)
             return;
 
-        Area = GridShift.MoveArea<TAxis>(Area, edit.Range, edit.Shift);
+        Area = KeepRoomForFilters(GridShift.MoveArea<TAxis>(Area, edit.Range, edit.Shift));
+    }
+
+    /// <summary>
+    /// Holds the area far enough down the sheet that the report filters still fit above it.
+    /// </summary>
+    /// <remarks>
+    /// The filters sit above the area with a one-row gap, and <see cref="TargetCell"/> is
+    /// <c>Area.FirstPoint</c> shifted <em>up</em> by that many rows. A delete clamps the area onto
+    /// the deletion point, so without this a table with report filters near the top of the sheet
+    /// computes a target above row 1: <see cref="Point"/> stores its row 0-based in an unsigned
+    /// field, so row 0 wraps rather than throwing and the caller is handed a corrupt cell reference
+    /// (<c>TargetCell.Address</c> reads <c>#REF!</c>). Nothing could reach this before spec 33,
+    /// because the area never moved.
+    /// <para>
+    /// Pushing the area down rather than clamping only its top keeps the table's height, which
+    /// matters for an area read from a file — <c>location/@ref</c> is a real extent, not a corner.
+    /// </para>
+    /// </remarks>
+    private Area KeepRoomForFilters(Area area)
+    {
+        var minRow = Filters.GetSizeWithGap().Height + 1;
+        if (area.FirstPoint.Row >= minRow)
+            return area;
+
+        var down = minRow - area.FirstPoint.Row;
+        return new Area(
+            new Point(minRow, area.FirstPoint.Column),
+            new Point(Math.Min(area.LastPoint.Row + down, XLHelper.MaxRowNumber), area.LastPoint.Column));
     }
 
     #endregion ISheetListener
