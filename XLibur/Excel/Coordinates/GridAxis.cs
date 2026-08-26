@@ -127,8 +127,14 @@ internal interface IGridAxis
     XLAreaList InsertAndShift(XLAreaList areas, Area affected);
     XLAreaList DeleteAndShift(XLAreaList areas, Area affected);
 
-    void OnInsertAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area);
-    void OnDeleteAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area);
+    /// <summary>The <see cref="ISheetListener"/> member for an insert on this axis — <c>ShiftDown</c>
+    /// on the row axis, <c>ShiftRight</c> on the column axis. The edit is passed <c>in</c>, so
+    /// choosing the member costs no copy.</summary>
+    void OnInsertAreaAndShift(ISheetListener listener, in SheetEdit edit);
+
+    /// <summary>The <see cref="ISheetListener"/> member for a delete on this axis — <c>ShiftUp</c> on
+    /// the row axis, <c>ShiftLeft</c> on the column axis.</summary>
+    void OnDeleteAreaAndShift(ISheetListener listener, in SheetEdit edit);
 }
 
 /// <summary>The row axis: rows are inserted, deleted and shifted; each row spans 16,384 columns.</summary>
@@ -181,10 +187,10 @@ internal readonly struct RowAxis : IGridAxis
     public Area ExtendAlongIndex(Area area, int by) => area.ExtendBelow(by);
     public XLAreaList InsertAndShift(XLAreaList areas, Area affected) => areas.InsertAndShiftDown(affected);
     public XLAreaList DeleteAndShift(XLAreaList areas, Area affected) => areas.DeleteAndShiftUp(affected);
-    public void OnInsertAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area)
-        => listener.OnInsertAreaAndShiftDown(sheet, area);
-    public void OnDeleteAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area)
-        => listener.OnDeleteAreaAndShiftUp(sheet, area);
+    public void OnInsertAreaAndShift(ISheetListener listener, in SheetEdit edit)
+        => listener.OnInsertAreaAndShiftDown(in edit);
+    public void OnDeleteAreaAndShift(ISheetListener listener, in SheetEdit edit)
+        => listener.OnDeleteAreaAndShiftUp(in edit);
 }
 
 /// <summary>The column axis: columns are inserted, deleted and shifted; each column spans 1,048,576 rows.</summary>
@@ -237,8 +243,8 @@ internal readonly struct ColumnAxis : IGridAxis
     public Area ExtendAlongIndex(Area area, int by) => area.ExtendRight(by);
     public XLAreaList InsertAndShift(XLAreaList areas, Area affected) => areas.InsertAndShiftRight(affected);
     public XLAreaList DeleteAndShift(XLAreaList areas, Area affected) => areas.DeleteAndShiftLeft(affected);
-    public void OnInsertAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area)
-        => listener.OnInsertAreaAndShiftRight(sheet, area);
-    public void OnDeleteAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area)
-        => listener.OnDeleteAreaAndShiftLeft(sheet, area);
+    public void OnInsertAreaAndShift(ISheetListener listener, in SheetEdit edit)
+        => listener.OnInsertAreaAndShiftRight(in edit);
+    public void OnDeleteAreaAndShift(ISheetListener listener, in SheetEdit edit)
+        => listener.OnDeleteAreaAndShiftLeft(in edit);
 }

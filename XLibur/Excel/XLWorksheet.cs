@@ -1253,6 +1253,29 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return Range(1, 1, XLHelper.MaxRowNumber, XLHelper.MaxColumnNumber);
     }
 
+    /// <summary>
+    /// Every component that must react when an area is inserted into or deleted from this sheet.
+    /// The workbook-level counterpart is <see cref="XLWorksheets.GetWorkbookListeners"/>.
+    /// </summary>
+    /// <remarks>
+    /// All components that should be updated when rows or columns are inserted or deleted should be
+    /// enumerated here — and nowhere else. Adding a sheet feature that must survive a structural
+    /// edit is one adapter plus one <c>yield return</c>.
+    /// <para>
+    /// <b>Order is part of the contract.</b> It is pinned by <c>SheetListenerOrderTests</c>;
+    /// changing it is a behaviour change and needs that test updated deliberately. Listeners
+    /// belonging to other sheets are yielded too — defined names and data-validation criteria
+    /// formulas are workbook-scoped and must see an edit on any sheet. Such a listener guards on
+    /// the sheet it is given, the way <see cref="XLHyperlinks"/> does, unless it deliberately
+    /// should not.
+    /// </para>
+    /// </remarks>
+    internal IEnumerable<ISheetListener> GetSheetListeners()
+    {
+        yield return Workbook.CalcEngine;
+        yield return Hyperlinks;
+    }
+
     internal override void WorksheetRangeShiftedColumns(XLRange range, int columnsShifted)
     {
         _rangeShifter.ShiftColumns(range, columnsShifted);

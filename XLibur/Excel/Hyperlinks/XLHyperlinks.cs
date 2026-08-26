@@ -23,36 +23,42 @@ internal sealed class XLHyperlinks : IXLHyperlinks, ISheetListener
 
     #region ISheetListener
 
-    void ISheetListener.OnInsertAreaAndShiftDown(XLWorksheet sheet, Area area)
+    // The edit arrives as an `in` parameter, which a lambda cannot capture, so each handler copies
+    // the one field it needs to a local first. The bodies are otherwise unchanged.
+    void ISheetListener.OnInsertAreaAndShiftDown(in SheetEdit edit)
     {
-        RepositionOnChange(sheet, hyperlinkArea =>
+        var area = edit.Area;
+        RepositionOnChange(edit.Sheet, hyperlinkArea =>
         {
             var success = hyperlinkArea.TryInsertAreaAndShiftDown(area, out var newHlArea);
             return (success, newHlArea);
         });
     }
 
-    void ISheetListener.OnInsertAreaAndShiftRight(XLWorksheet sheet, Area area)
+    void ISheetListener.OnInsertAreaAndShiftRight(in SheetEdit edit)
     {
-        RepositionOnChange(sheet, hyperlinkArea =>
+        var area = edit.Area;
+        RepositionOnChange(edit.Sheet, hyperlinkArea =>
         {
             var success = hyperlinkArea.TryInsertAreaAndShiftRight(area, out var newHlArea);
             return (success, newHlArea);
         });
     }
 
-    void ISheetListener.OnDeleteAreaAndShiftLeft(XLWorksheet sheet, Area deletedRange)
+    void ISheetListener.OnDeleteAreaAndShiftLeft(in SheetEdit edit)
     {
-        RepositionOnChange(sheet, hyperlinkArea =>
+        var deletedRange = edit.Area;
+        RepositionOnChange(edit.Sheet, hyperlinkArea =>
         {
             var success = hyperlinkArea.TryDeleteAreaAndShiftLeft(deletedRange, out var newHlArea);
             return (success, newHlArea);
         });
     }
 
-    void ISheetListener.OnDeleteAreaAndShiftUp(XLWorksheet sheet, Area deletedRange)
+    void ISheetListener.OnDeleteAreaAndShiftUp(in SheetEdit edit)
     {
-        RepositionOnChange(sheet, hyperlinkArea =>
+        var deletedRange = edit.Area;
+        RepositionOnChange(edit.Sheet, hyperlinkArea =>
         {
             var success = hyperlinkArea.TryDeleteAreaAndShiftUp(deletedRange, out var newHlArea);
             return (success, newHlArea);

@@ -33,7 +33,6 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
     private void Shift<TAxis>(XLRange range, int shift)
         where TAxis : struct, IGridAxis
     {
-        var axis = default(TAxis);
         SplitMergedRangesCrossingTheShift<TAxis>(range);
 
         worksheet.Workbook.WorksheetsInternal.ForEach<XLWorksheet>(ws => MoveDefinedNames<TAxis>(range, shift, ws.DefinedNames));
@@ -44,19 +43,42 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
         ShiftPageBreaks<TAxis>(range, shift);
         RemoveInvalidSparklines();
 
-        // ISheetListener is spec 33's interface, deliberately untouched: only the choice between its
-        // four members is routed through the axis.
-        if (shift > 0)
+        Notify<TAxis>(range, shift);
+    }
+
+    /// <summary>
+    /// Hands the edit to every listener <see cref="XLWorksheet.GetSheetListeners"/> yields, in that
+    /// order. This is the only place a sheet listener is reached; adding a feature that must survive
+    /// a structural edit is one <see cref="ISheetListener"/> implementation and one
+    /// <c>yield return</c>, with nothing to change here.
+    /// </summary>
+    /// <remarks>
+    /// A shift of zero notifies nobody, which is what the two hardcoded blocks this replaced did —
+    /// they were an <c>if</c>/<c>else if</c> with no <c>else</c>.
+    /// </remarks>
+    private void Notify<TAxis>(XLRange range, int shift)
+        where TAxis : struct, IGridAxis
+    {
+        if (shift == 0)
+            return;
+
+        var axis = default(TAxis);
+        var edit = new SheetEdit
         {
-            var area = axis.ExtendAlongIndex(Area.FromRangeAddress(range.RangeAddress), shift - 1);
-            axis.OnInsertAreaAndShift(worksheet.Workbook.CalcEngine, range.Worksheet, area);
-            axis.OnInsertAreaAndShift(worksheet.Hyperlinks, range.Worksheet, area);
-        }
-        else if (shift < 0)
+            Sheet = range.Worksheet,
+            Area = shift > 0
+                ? axis.ExtendAlongIndex(Area.FromRangeAddress(range.RangeAddress), shift - 1)
+                : Area.FromRangeAddress(range.RangeAddress),
+            Range = range,
+            Shift = shift,
+        };
+
+        foreach (var listener in worksheet.GetSheetListeners())
         {
-            var area = Area.FromRangeAddress(range.RangeAddress);
-            axis.OnDeleteAreaAndShift(worksheet.Workbook.CalcEngine, range.Worksheet, area);
-            axis.OnDeleteAreaAndShift(worksheet.Hyperlinks, range.Worksheet, area);
+            if (shift > 0)
+                axis.OnInsertAreaAndShift(listener, in edit);
+            else
+                axis.OnDeleteAreaAndShift(listener, in edit);
         }
     }
 
