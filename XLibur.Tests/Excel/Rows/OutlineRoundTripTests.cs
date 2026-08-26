@@ -108,4 +108,42 @@ public class OutlineRoundTripTests
         var sfp = SheetFormatPr(ms);
         await Assert.That(sfp.Attribute("outlineLevelRow")).IsNull();
     }
+
+    /// <summary>
+    /// Inserting below a grouped line copies that line's properties onto the new one, and the outline
+    /// level was assigned to the backing field rather than through the property — so the worksheet's
+    /// outline counter never saw it. Ungroup the originals and the sheet declared no outline level
+    /// while the copied line still claimed one. Both axes carried it; the column half had shipped it
+    /// for as long as it had a live counter, and fixing defect 1 gave the row half the same exposure.
+    /// Spec 26, found in review of #409.
+    /// </summary>
+    [Test]
+    public async Task An_inserted_copy_of_a_grouped_line_is_counted_on_both_axes()
+    {
+        using var rowMs = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            ws.Cell("A1").Value = "x";
+            ws.Rows(1, 2).Group();
+            ws.Row(2).InsertRowsBelow(1);   // new row 3 inherits level 1
+            ws.Rows(1, 2).Ungroup(true);    // only rows 1-2 lose it
+            wb.SaveAs(rowMs);
+        }
+
+        await Assert.That(SheetFormatPr(rowMs).Attribute("outlineLevelRow")?.Value).IsEqualTo("1");
+
+        using var colMs = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            ws.Cell("A1").Value = "x";
+            ws.Columns(1, 2).Group();
+            ws.Column(2).InsertColumnsAfter(1);
+            ws.Columns(1, 2).Ungroup(true);
+            wb.SaveAs(colMs);
+        }
+
+        await Assert.That(SheetFormatPr(colMs).Attribute("outlineLevelCol")?.Value).IsEqualTo("1");
+    }
 }

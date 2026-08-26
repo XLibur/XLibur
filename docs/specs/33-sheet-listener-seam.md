@@ -3,10 +3,12 @@
 **Area:** Architecture · Refactor · **Defect (4 features do not move)**
 **Effort:** M–L (~6–8 days)
 **Dependencies:** Spec 26 (grid axis) — **done**, tasks 1–9 on `task/26`, tip `cfcb3bf3`. 26 ran first as
-planned and halved both shared files: `XLWorksheetRangeShifter.cs` is 320 → 222 lines with its six mirror
-pairs collapsed to six single generic methods, and `XLWorksheet.cs` is 47 lines shorter with
-`NotifyRangeShifted*` and `CollectRangesShiftedBy*` collapsed to one generic each — so 33 rebases onto half
-as many call sites. `XLibur/Excel/Cells/ISheetListener.cs` is byte-identical to the merge base: 26 routed
+planned and removed the row/column duplication from both shared files: `XLWorksheetRangeShifter.cs` is
+320 → 222 lines (its executable code 248 → 150) with its six mirror pairs collapsed to six single generic
+methods, and `XLWorksheet.cs` is 47 lines shorter with `NotifyRangeShifted*` and `CollectRangesShiftedBy*`
+collapsed to one generic each — so 33 rebases onto one method per step instead of a row/column pair.
+(Spec 26 predicted this would *halve* the two files; it did not. The shifter fell by a third and
+`XLWorksheet.cs` by about 2%, because most of that file was never mirrored geometry.) `XLibur/Excel/Cells/ISheetListener.cs` is byte-identical to the merge base: 26 routed
 only the *choice* between its four members through `IGridAxis.OnInsertAreaAndShift` /
 `OnDeleteAreaAndShift`, called from `XLWorksheetRangeShifter.Shift<TAxis>`. Anything 33 adds to the shifter
 should take the axis as a generic type argument, and **must not accept `IXLAddress` where the caller holds

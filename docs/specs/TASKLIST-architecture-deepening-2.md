@@ -69,7 +69,6 @@ reasons matter more than the misses.
 - [x] **26.10** Cost, and the changelog — `cfcb3bf3` — PR #___
       *Not on this board originally; it is the spec's task 9. Allocations fell 12–50% rather than holding
       flat, and the first measurement caught a boxing bug the spec's criterion-9 grep cannot see.*
-- [ ] **26.10** Confirm allocation cost unchanged *(revert authority — see below)* — PR #___
 
 **Design constraint from spec 21.** `Point` packs row and column into one `ulong`, and 21 measured a
 **+60%** penalty for embedding an enumerator struct by value. So 26 prescribes

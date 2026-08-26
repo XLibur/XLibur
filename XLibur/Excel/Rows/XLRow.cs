@@ -192,7 +192,10 @@ internal sealed class XLRow : XLRangeBase, IXLRow
             internalRow.InnerStyle = InnerStyle;
             internalRow.Collapsed = Collapsed;
             internalRow.IsHidden = IsHidden;
-            internalRow._outlineLevel = OutlineLevel;
+            // Through the property, not the field: the worksheet counts outline levels, and a copy
+            // that skips the counter leaves the sheet declaring a lower @outlineLevelRow than its
+            // rows claim. The column twin had shipped this for as long as it had a live counter.
+            internalRow.OutlineLevel = OutlineLevel;
         }
     }
 

@@ -156,7 +156,8 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
             internalColumn.InnerStyle = InnerStyle;
             internalColumn.Collapsed = Collapsed;
             internalColumn.IsHidden = IsHidden;
-            internalColumn._outlineLevel = OutlineLevel;
+            // See XLRow.CopyRows: assigning the field skips the worksheet outline counter.
+            internalColumn.OutlineLevel = OutlineLevel;
         }
     }
 
