@@ -421,8 +421,8 @@ internal sealed class XLRow : XLRangeBase, IXLRow
             if (value is < 0 or > 8)
                 throw new ArgumentOutOfRangeException(nameof(value), "Outline level must be between 0 and 8.");
 
-            Worksheet.IncrementColumnOutline(value);
-            Worksheet.DecrementColumnOutline(_outlineLevel);
+            Worksheet.IncrementRowOutline(value);
+            Worksheet.DecrementRowOutline(_outlineLevel);
             _outlineLevel = value;
         }
     }
