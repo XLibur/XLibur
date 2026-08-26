@@ -2,9 +2,17 @@
 
 **Area:** Architecture · Refactor · **Defect (4 features do not move)**
 **Effort:** M–L (~6–8 days)
-**Dependencies:** **Hard — spec 26 (grid axis) must land first.** Shares
-`XLWorksheetRangeShifter.cs` and `XLWorksheet.cs`. See Conflicts.
-**Status:** Proposed.
+**Dependencies:** Spec 26 (grid axis) — **done**, tasks 1–9 on `task/26`, tip `cfcb3bf3`. 26 ran first as
+planned and halved both shared files: `XLWorksheetRangeShifter.cs` is 320 → 222 lines with its six mirror
+pairs collapsed to six single generic methods, and `XLWorksheet.cs` is 47 lines shorter with
+`NotifyRangeShifted*` and `CollectRangesShiftedBy*` collapsed to one generic each — so 33 rebases onto half
+as many call sites. `XLibur/Excel/Cells/ISheetListener.cs` is byte-identical to the merge base: 26 routed
+only the *choice* between its four members through `IGridAxis.OnInsertAreaAndShift` /
+`OnDeleteAreaAndShift`, called from `XLWorksheetRangeShifter.Shift<TAxis>`. Anything 33 adds to the shifter
+should take the axis as a generic type argument, and **must not accept `IXLAddress` where the caller holds
+the concrete `XLAddress` struct** — that boxing cost 20–33% allocation on four probes before spec 26 caught
+it. See spec 26's Results. See Conflicts.
+**Status:** Ready — unblocked by spec 26.
 
 ## Goal
 

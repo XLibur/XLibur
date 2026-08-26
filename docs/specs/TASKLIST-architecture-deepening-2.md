@@ -35,29 +35,40 @@ the test surface; where it has two, nothing sits at the seam to assert they agre
 
 | Spec | Title | Effort | Blocked by | Status |
 |---|---|---|---|---|
-| [26](26-grid-axis.md) | Give the grid one axis | L | — | ⬜ Ready |
+| [26](26-grid-axis.md) | Give the grid one axis | L | — | ✅ **Done** (see Results) |
 | [27](27-font-conformance-suite.md) | One font conformance module | S–M | — | ⬜ Ready |
 | [28](28-single-style-decoder.md) | One OOXML style decoder | M | — | ⬜ Ready |
 | [29](29-write-path-resolvers.md) | One resolver per emitted element | M | — | ⬜ Ready |
 | [30](30-array-application-seam.md) | Array application gets an interface | S–M | — | ⬜ Ready |
 | [31](31-worksheet-element-writers.md) | Worksheet element writers get one interface | M–L | **29** | ⬜ Blocked |
 | [32](32-function-argument-spec.md) | Collapse the 61-overload registration | L | **30** | ⬜ Blocked |
-| [33](33-sheet-listener-seam.md) | Every sheet feature reacts through one seam | M–L | **26** | ⬜ Blocked |
+| [33](33-sheet-listener-seam.md) | Every sheet feature reacts through one seam | M–L | 26 ✅ | ⬜ **Ready** |
 | [34](34-font-port-split.md) | Split the font port: mechanism vs policy | M | **27** | ⬜ Blocked |
 
-### Spec 26 — Grid axis ⬜ Ready
+### Spec 26 — Grid axis ✅ Done
 
 Defect fixes land first, each with the test that would have caught it. Then the collapse, pattern-setter first.
+Nine commits on `task/26`, base `c569b95a`, tip `cfcb3bf3`. Suite green: 28,264 tests, both TFMs.
+**See the spec's [Results](26-grid-axis.md#results)** — three acceptance criteria were not met and the
+reasons matter more than the misses.
 
-- [ ] **26.1** Round-trip test: row grouping emits `@outlineLevelRow` *(lands failing)* — PR #___
-- [ ] **26.2** Fix the outline call **and** `GetMaxRowOutline`'s empty-sequence crash — *one commit; the first fix makes the second reachable* — PR #___
-- [ ] **26.3** Fix `XLColumn.CellCount()`; pin both axes — PR #___
-- [ ] **26.4** `GridAxisSymmetryTests` transpose gate; prove it bites under mutation — PR #___
-- [ ] **26.5** `IGridAxis` + collapse `XLRangeInsertHelper` (226 lines → one implementation) — PR #___
-- [ ] **26.6** Collapse `XLRangeShiftHelper` — PR #___
-- [ ] **26.7** Collapse `XLRangeBase`'s two insert blocks — PR #___
-- [ ] **26.8** Collapse `XLWorksheet`'s shift-notification pass; pin page-break/sparkline ordering — PR #___
-- [ ] **26.9** Collapse `XLWorksheetRangeShifter`'s six mirror pairs — PR #___
+- [x] **26.1** Round-trip test: row grouping emits `@outlineLevelRow` — `021082fd` — PR #___
+- [x] **26.2** Fix the outline call **and** `GetMaxRowOutline`'s empty-sequence crash — `021082fd` — PR #___
+      *26.1 and 26.2 landed as one commit. The board split the test from the fix; the spec's own work plan
+      does not, and its gate is "new round-trip test green". Only two of the four cases fail before the
+      fix — defect 1b is genuinely latent, as the spec says.*
+- [x] **26.3** Fix `XLColumn.CellCount()`; pin both axes — `4287319e` — PR #___
+- [x] **26.4** `GridAxisSymmetryTests` transpose gate; prove it bites under mutation — `557e0898` — PR #___
+      *The gate as specified did not bite — it passed under the spec's own `ShiftRowHeights` mutation.
+      Strengthened with an entire-line-range case before it would fail. See Results.*
+- [x] **26.5** `IGridAxis` + collapse `XLRangeInsertHelper` (226 → 139 lines) — `ae59a8af` — PR #___
+- [x] **26.6** Collapse `XLRangeShiftHelper` (144 → 93 lines) — `c4d7c6df` — PR #___
+- [x] **26.7** Collapse `XLRangeBase`'s two insert blocks — `c7960715` — PR #___
+- [x] **26.8** Collapse `XLWorksheet`'s shift-notification pass; pin page-break/sparkline ordering — `4358822e` — PR #___
+- [x] **26.9** Collapse `XLWorksheetRangeShifter`'s six mirror pairs (320 → 222 lines) — `e044eaeb` — PR #___
+- [x] **26.10** Cost, and the changelog — `cfcb3bf3` — PR #___
+      *Not on this board originally; it is the spec's task 9. Allocations fell 12–50% rather than holding
+      flat, and the first measurement caught a boxing bug the spec's criterion-9 grep cannot see.*
 - [ ] **26.10** Confirm allocation cost unchanged *(revert authority — see below)* — PR #___
 
 **Design constraint from spec 21.** `Point` packs row and column into one `ulong`, and 21 measured a
