@@ -4,8 +4,8 @@ using XLibur.Excel.Coordinates;
 namespace XLibur.Excel.Drawings;
 
 /// <summary>
-/// Moves the anchors of every chart and every note on the sheet when rows or columns are inserted or
-/// deleted.
+/// Moves the anchors of every chart, note and picture on the sheet when rows or columns are inserted
+/// or deleted.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,6 +21,12 @@ namespace XLibur.Excel.Drawings;
 /// the integers, so these anchors move exactly as a picture's anchor already moved through the range
 /// repository. The anchor cases were established by measuring that picture rather than assumed; they
 /// are listed on <see cref="GridShift"/> and recorded in this spec's Results.
+/// </para>
+/// <para>
+/// The picture came here too, in spec 33 task 6. It was the one anchor that already worked, and it
+/// worked by allocating a one-cell <c>IXLRange</c> so the range repository would shift it — the
+/// workaround this seam exists to replace. Its behaviour is pinned by
+/// <c>PictureAnchorShiftTests</c>, which is what makes moving it a proof rather than a rewrite.
 /// </para>
 /// <para>
 /// <b>Two coordinate conventions share one type.</b> A chart's <see cref="XLDrawingPosition"/> is
@@ -81,6 +87,36 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
             // 1-based: the VML writer subtracts one and indexes rows and columns with it directly.
             Move<TAxis>(note.Position, edit, oneBased: true);
         }
+
+        foreach (var picture in worksheet.Pictures.OfType<XLPicture>())
+        {
+            // A free-floating picture is placed in pixels from the sheet's corner and has no cell to
+            // follow — the same case as an absolutely anchored chart. Its markers are still built
+            // against A1 as a carrier, so moving them would move a picture that should not move.
+            if (picture.Placement == XLPicturePlacement.FreeFloating)
+                continue;
+
+            Move<TAxis>(picture.Markers[XLMarkerPosition.TopLeft], edit);
+
+            // Only MoveAndSize has a second corner; under Move the picture keeps its pixel size and
+            // the bottom-right marker is not maintained.
+            if (picture.Placement == XLPicturePlacement.MoveAndSize)
+                Move<TAxis>(picture.Markers[XLMarkerPosition.BottomRight], edit);
+        }
+    }
+
+    /// <summary>
+    /// Moves a picture's anchor corner. Same transform as a chart's or a note's; a marker holds a
+    /// <see cref="Point"/> outright, so there is no coordinate base to reconcile.
+    /// </summary>
+    private static void Move<TAxis>(XLMarker? marker, in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        if (marker is null)
+            return;
+
+        var anchor = marker.Anchor;
+        marker.Anchor = GridShift.MoveArea<TAxis>(new Area(anchor, anchor), edit.Range, edit.Shift).FirstPoint;
     }
 
     /// <summary>

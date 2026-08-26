@@ -94,16 +94,19 @@ public class PictureAnchorShiftTests
     }
 
     /// <summary>
-    /// A delete starting <b>exactly</b> on the anchor's first row leaves that anchor unreadable:
-    /// the repository path marks the range's first address invalid rather than clamping it, so
-    /// reading <c>TopLeftCell</c> throws. Every neighbouring case clamps.
+    /// A delete starting <b>exactly</b> on the anchor's first row used to leave that anchor
+    /// unreadable: the repository path marks the range's first address invalid rather than clamping
+    /// it, so reading <c>TopLeftCell</c> threw while every neighbouring case clamped. Recorded as
+    /// D16 in <c>DEFECTS.md</c>.
     /// <para>
-    /// WRONG on purpose, and recorded as D16 in <c>DEFECTS.md</c>. Spec 33 task 6 moves the picture
-    /// onto <c>GridShift</c>, which clamps here like everywhere else, and re-points this test.
+    /// This test was <c>A_delete_starting_on_the_anchor_row_leaves_it_invalid_yet</c> and asserted
+    /// the throw. Spec 33 task 6 moved picture anchors off the range repository onto
+    /// <c>GridShift</c>, which clamps here like everywhere else. The <c>XLRangeShiftHelper</c>
+    /// branch itself is untouched, so an ordinary stored range still behaves the old way.
     /// </para>
     /// </summary>
     [Test]
-    public async Task A_delete_starting_on_the_anchor_row_leaves_it_invalid_yet()
+    public async Task A_delete_starting_on_the_anchor_row_clamps_it()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("S");
@@ -111,7 +114,47 @@ public class PictureAnchorShiftTests
 
         ws.Rows(4, 20).Delete();
 
-        await Assert.That(() => picture.TopLeftCell)
-            .Throws<System.ArgumentOutOfRangeException>();
+        await Assert.That(picture.TopLeftCell.Address.ToString()).IsEqualTo("C4");
+        await Assert.That(picture.BottomRightCell.Address.ToString()).IsEqualTo("J4");
+    }
+
+    /// <summary>
+    /// A free-floating picture is placed in pixels from the sheet's corner, so nothing on the grid
+    /// moves it — the same case as an absolutely anchored chart. Its markers are still built against
+    /// A1 as a carrier, which is why the listener has to skip it rather than transform it.
+    /// </summary>
+    [Test]
+    public async Task A_free_floating_picture_does_not_move()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("S");
+        using var stream = System.Reflection.Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable))!
+            .GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg")!;
+        var picture = ws.AddPicture(stream, "p")
+            .WithPlacement(XLPicturePlacement.FreeFloating)
+            .MoveTo(50, 60);
+
+        ws.Row(1).InsertRowsAbove(3);
+
+        await Assert.That(picture.Left).IsEqualTo(50);
+        await Assert.That(picture.Top).IsEqualTo(60);
+    }
+
+    /// <summary>
+    /// A <c>Move</c>-placed picture keeps its pixel size and hangs off one cell, so only its
+    /// top-left marker moves.
+    /// </summary>
+    [Test]
+    public async Task A_move_placed_picture_moves_its_one_anchor()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("S");
+        using var stream = System.Reflection.Assembly.GetAssembly(typeof(XLibur.Examples.BasicTable))!
+            .GetManifestResourceStream("XLibur.Examples.Resources.SampleImage.jpg")!;
+        var picture = ws.AddPicture(stream, "p").MoveTo(ws.Cell("C4")!);
+
+        ws.Row(1).InsertRowsAbove(3);
+
+        await Assert.That(picture.TopLeftCell.Address.ToString()).IsEqualTo("C7");
     }
 }
