@@ -3,6 +3,7 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
+using XLibur.Excel.IO;
 using XLibur.Extensions;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
@@ -281,143 +282,20 @@ internal static class OpenXmlHelper
         return false;
     }
 
+    // Spec 28 task 2: the bodies of these four now live in StyleDecoder, which is the single
+    // decoder from OOXML style XML to XLibur style keys. These forwarding stubs keep task 2 inert
+    // for their existing callers; task 3 deletes them and re-points those callers.
     public static XLAlignmentKey AlignmentToXLibur(Alignment alignment, XLAlignmentKey defaultAlignment)
-    {
-        return new XLAlignmentKey
-        {
-            Indent = checked((int?)alignment.Indent?.Value) ?? defaultAlignment.Indent,
-            Horizontal = alignment.Horizontal.ToXLiburOrNull() ?? defaultAlignment.Horizontal,
-            Vertical = alignment.Vertical.ToXLiburOrNull() ?? defaultAlignment.Vertical,
-            ReadingOrder = alignment.ReadingOrder?.Value.ToXLibur() ?? defaultAlignment.ReadingOrder,
-            WrapText = alignment.WrapText?.Value ?? defaultAlignment.WrapText,
-            TextRotation = alignment.TextRotation is not null
-                ? GetXLiburTextRotation(alignment)
-                : defaultAlignment.TextRotation,
-            ShrinkToFit = alignment.ShrinkToFit?.Value ?? defaultAlignment.ShrinkToFit,
-            RelativeIndent = alignment.RelativeIndent?.Value ?? defaultAlignment.RelativeIndent,
-            JustifyLastLine = alignment.JustifyLastLine?.Value ?? defaultAlignment.JustifyLastLine,
-        };
-    }
+        => StyleDecoder.AlignmentKey(alignment, defaultAlignment);
 
     public static XLBorderKey BorderToXLibur(Border b, XLBorderKey defaultBorder)
-    {
-        var nb = defaultBorder;
-
-        var diagonalBorder = b.DiagonalBorder;
-        if (diagonalBorder is not null)
-        {
-            nb = ApplyBorderStyleAndColor(nb, diagonalBorder,
-                (key, style) => key with { DiagonalBorder = style },
-                (key, color) => key with { DiagonalBorderColor = color });
-            if (b.DiagonalUp is not null)
-                nb = nb with { DiagonalUp = b.DiagonalUp.Value };
-            if (b.DiagonalDown is not null)
-                nb = nb with { DiagonalDown = b.DiagonalDown.Value };
-        }
-
-        if (b.LeftBorder is not null)
-            nb = ApplyBorderStyleAndColor(nb, b.LeftBorder,
-                (key, style) => key with { LeftBorder = style },
-                (key, color) => key with { LeftBorderColor = color });
-
-        if (b.RightBorder is not null)
-            nb = ApplyBorderStyleAndColor(nb, b.RightBorder,
-                (key, style) => key with { RightBorder = style },
-                (key, color) => key with { RightBorderColor = color });
-
-        if (b.TopBorder is not null)
-            nb = ApplyBorderStyleAndColor(nb, b.TopBorder,
-                (key, style) => key with { TopBorder = style },
-                (key, color) => key with { TopBorderColor = color });
-
-        if (b.BottomBorder is not null)
-            nb = ApplyBorderStyleAndColor(nb, b.BottomBorder,
-                (key, style) => key with { BottomBorder = style },
-                (key, color) => key with { BottomBorderColor = color });
-
-        // A file is free to state a colour for an edge it gives no style - the two attributes are
-        // independent in the schema - so normalize on the way in. Otherwise such a key would compare
-        // unequal to the interned form of the same border, and BordersAreEqual would write a
-        // duplicate <border> for one already in the stylesheet.
-        return nb.Normalize();
-    }
-
-    private static XLBorderKey ApplyBorderStyleAndColor(
-        XLBorderKey nb,
-        BorderPropertiesType border,
-        Func<XLBorderKey, XLBorderStyleValues, XLBorderKey> applyStyle,
-        Func<XLBorderKey, XLColorKey, XLBorderKey> applyColor)
-    {
-        if (border.Style is not null)
-            nb = applyStyle(nb, border.Style.Value.ToXLibur());
-        if (border.Color is not null)
-            nb = applyColor(nb, border.Color.ToXLiburColor().Key);
-        return nb;
-    }
+        => StyleDecoder.BorderKey(b, defaultBorder);
 
     public static XLFontKey FontToXLibur(Font f, XLFontKey nf)
-    {
-        nf = nf with
-        {
-            Bold = GetBoolean(f.Bold),
-            Italic = GetBoolean(f.Italic),
-            Shadow = GetBoolean(f.Shadow),
-            Strikethrough = GetBoolean(f.Strike),
-        };
-
-        var underline = f.Underline;
-        if (underline is not null)
-        {
-            var value = underline.Val?.Value.ToXLibur() ??
-                        XLFontUnderlineValues.Single;
-            nf = nf with { Underline = value };
-        }
-
-        var verticalTextAlignment = f.VerticalTextAlignment;
-        if (verticalTextAlignment is not null)
-        {
-            var value = verticalTextAlignment.Val?.Value.ToXLibur() ??
-                        XLFontVerticalTextAlignmentValues.Baseline;
-            nf = nf with { VerticalAlignment = value };
-        }
-
-        var fontSize = f.FontSize?.Val;
-        if (fontSize is not null)
-            nf = nf with { FontSize = fontSize.Value };
-
-        var color = f.Color;
-        if (color is not null)
-            nf = nf with { FontColor = color.ToXLiburColor().Key };
-
-        var fontName = f.FontName?.Val?.Value ?? string.Empty;
-        if (!string.IsNullOrEmpty(fontName))
-            nf = nf with { FontName = fontName };
-
-        var fontFamilyNumbering = f.FontFamilyNumbering?.Val?.Value;
-        if (fontFamilyNumbering is not null)
-            nf = nf with { FontFamilyNumbering = (XLFontFamilyNumberingValues)fontFamilyNumbering };
-
-        var fontCharSet = f.FontCharSet?.Val?.Value;
-        if (fontCharSet is not null)
-            nf = nf with { FontCharSet = (XLFontCharSet)fontCharSet };
-
-        var fontScheme = f.FontScheme;
-        if (fontScheme is not null)
-            nf = nf with { FontScheme = fontScheme.Val?.Value.ToXLibur() ?? XLFontScheme.None };
-        return nf;
-    }
+        => StyleDecoder.FontKey(f, nf);
 
     public static XLProtectionKey ProtectionToXLibur(Protection protection, XLProtectionKey p)
-    {
-        // OI29500, hidden default is false, locked default is true.
-        if (protection.Hidden is not null)
-            p = p with { Hidden = protection.Hidden.Value };
-
-        if (protection.Locked is not null)
-            p = p with { Locked = protection.Locked.Value };
-
-        return p;
-    }
+        => StyleDecoder.ProtectionKey(protection, p);
 
     #endregion Public Methods
 

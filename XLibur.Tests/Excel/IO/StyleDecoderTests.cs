@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -5,6 +6,7 @@ using System.Threading.Tasks;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
+using XLibur.Excel.IO;
 using XLibur.Utils;
 
 namespace XLibur.Tests.Excel.IO;
@@ -110,6 +112,147 @@ public class StyleDecoderTests
         await Assert.That(pt.Formats[0].DxfStyleValue.Alignment.Horizontal)
             .IsEqualTo(XLAlignmentHorizontalValues.Center);
         await Assert.That(pt.Formats[0].DxfStyleValue.Equals(XLStyleValue.Default)).IsFalse();
+    }
+
+    /// <summary>
+    /// Spec 28 task 2 moved four key decoders out of <c>OpenXmlHelper</c> into
+    /// <see cref="StyleDecoder"/> and wrote <see cref="StyleDecoder.FillKey"/> as a key-returning
+    /// port of the mutating <c>OpenXmlHelper.LoadFill</c>. These pin the port: the same
+    /// <c>&lt;fill&gt;</c> through both paths must give the same key. They pass from the moment
+    /// the port lands — they are the proof that task 2 moved code without changing it.
+    /// </summary>
+    [Test]
+    [MethodDataSource(nameof(FillCases))]
+    public async Task FillKey_agrees_with_the_mutating_fill_decoder(Fill fill, bool differential)
+    {
+        var throughKeyPath = StyleDecoder.FillKey(fill, differential, XLFillValue.Default.Key);
+
+        var mutated = new XLFill();
+        OpenXmlHelper.LoadFill(fill, mutated, differential);
+
+        await Assert.That(throughKeyPath).IsEqualTo(mutated.Key);
+    }
+
+    public static IEnumerable<Func<(Fill Fill, bool Differential)>> FillCases()
+    {
+        yield return () => (new Fill(), false);
+        yield return () => (new Fill(new PatternFill()), false);
+        yield return () => (new Fill(new PatternFill { PatternType = PatternValues.None }), false);
+        yield return () => (new Fill(new PatternFill
+        {
+            PatternType = PatternValues.Solid,
+            ForegroundColor = new ForegroundColor { Rgb = "FFFF0000" },
+        }), false);
+        yield return () => (new Fill(new PatternFill
+        {
+            PatternType = PatternValues.Solid,
+            BackgroundColor = new BackgroundColor { Rgb = "FF00FF00" },
+        }), true);
+        yield return () => (new Fill(new PatternFill { PatternType = PatternValues.Solid }), false);
+        yield return () => (new Fill(new PatternFill { PatternType = PatternValues.Solid }), true);
+        yield return () => (new Fill(new PatternFill
+        {
+            PatternType = PatternValues.DarkGrid,
+            ForegroundColor = new ForegroundColor { Indexed = 12U },
+            BackgroundColor = new BackgroundColor { Indexed = 13U },
+        }), false);
+        yield return () => (new Fill(new PatternFill { PatternType = PatternValues.DarkGrid }), false);
+    }
+
+    /// <summary>
+    /// The nine font fields both decoder families already handled must come out the same. The
+    /// other three — name, family numbering and charset — are the divergence
+    /// <see cref="A_conditional_format_font_keeps_its_name_family_and_charset"/> pins, and are
+    /// deliberately not compared here: the mutating decoder cannot read them off a
+    /// <c>&lt;x:font&gt;</c> at all.
+    /// </summary>
+    [Test]
+    public async Task FontKey_agrees_with_the_mutating_font_decoder_on_the_nine_shared_fields()
+    {
+        var font = new Font(
+            new Bold(),
+            new Italic(),
+            new Shadow(),
+            new Strike(),
+            new Underline { Val = UnderlineValues.Double },
+            new VerticalTextAlignment { Val = VerticalAlignmentRunValues.Superscript },
+            new FontSize { Val = 14.5D },
+            new Color { Rgb = "FF112233" },
+            new FontScheme { Val = FontSchemeValues.Major });
+
+        var throughKeyPath = StyleDecoder.FontKey(font, XLFontValue.Default.Key);
+
+        var mutated = XLStyle.CreateEmptyStyle();
+        OpenXmlHelper.LoadFont(font, mutated.Font);
+        var throughMutatingPath = ((XLFont)mutated.Font).Key;
+
+        await Assert.That(throughKeyPath.Bold).IsEqualTo(throughMutatingPath.Bold);
+        await Assert.That(throughKeyPath.Italic).IsEqualTo(throughMutatingPath.Italic);
+        await Assert.That(throughKeyPath.Shadow).IsEqualTo(throughMutatingPath.Shadow);
+        await Assert.That(throughKeyPath.Strikethrough).IsEqualTo(throughMutatingPath.Strikethrough);
+        await Assert.That(throughKeyPath.Underline).IsEqualTo(throughMutatingPath.Underline);
+        await Assert.That(throughKeyPath.VerticalAlignment)
+            .IsEqualTo(throughMutatingPath.VerticalAlignment);
+        await Assert.That(throughKeyPath.FontSize).IsEqualTo(throughMutatingPath.FontSize);
+        await Assert.That(throughKeyPath.FontColor).IsEqualTo(throughMutatingPath.FontColor);
+        await Assert.That(throughKeyPath.FontScheme).IsEqualTo(throughMutatingPath.FontScheme);
+    }
+
+    /// <summary>
+    /// The alignment decoders agree on every attribute, provided the indent is one the mutating
+    /// path's <c>IXLAlignment.Indent</c> setter tolerates. Where it does not they diverge, because
+    /// that setter rewrites the horizontal alignment and throws for some legal files; spec 28 task
+    /// 4 is where that stops mattering, since nothing decodes through the setter afterwards.
+    /// </summary>
+    [Test]
+    public async Task AlignmentKey_agrees_with_the_mutating_alignment_decoder()
+    {
+        var alignment = new Alignment
+        {
+            Horizontal = HorizontalAlignmentValues.Left,
+            Vertical = VerticalAlignmentValues.Top,
+            Indent = 3U,
+            ReadingOrder = 2U,
+            WrapText = true,
+            TextRotation = 45U,
+            ShrinkToFit = false,
+            RelativeIndent = 1,
+            JustifyLastLine = true,
+        };
+
+        var throughKeyPath = StyleDecoder.AlignmentKey(alignment, XLAlignmentValue.Default.Key);
+
+        var mutated = XLStyle.CreateEmptyStyle();
+        OpenXmlHelper.LoadAlignment(alignment, mutated.Alignment);
+
+        await Assert.That(throughKeyPath).IsEqualTo(mutated.Key.Alignment);
+    }
+
+    /// <summary>
+    /// The inline <c>&lt;numFmt&gt;</c> decoder agrees with the mutating one, including the
+    /// built-in-id branch that discards the format code.
+    /// </summary>
+    [Test]
+    [MethodDataSource(nameof(InlineNumberFormatCases))]
+    public async Task NumberFormatKey_agrees_with_the_mutating_number_format_decoder(
+        NumberingFormat numberingFormat)
+    {
+        var throughKeyPath =
+            StyleDecoder.NumberFormatKey(numberingFormat, XLNumberFormatValue.Default.Key);
+
+        var mutated = XLStyle.CreateEmptyStyle();
+        OpenXmlHelper.LoadNumberFormat(numberingFormat, mutated.NumberFormat);
+
+        await Assert.That(throughKeyPath).IsEqualTo(((XLNumberFormat)mutated.NumberFormat).Key);
+    }
+
+    public static IEnumerable<Func<NumberingFormat>> InlineNumberFormatCases()
+    {
+        yield return () => new NumberingFormat { NumberFormatId = 5U, FormatCode = "0.00" };
+        yield return () => new NumberingFormat { NumberFormatId = 164U, FormatCode = "0.000" };
+        yield return () => new NumberingFormat { NumberFormatId = 200U, FormatCode = "#,##0" };
+        yield return () => new NumberingFormat { FormatCode = "yyyy-mm-dd" };
+        yield return () => new NumberingFormat { NumberFormatId = 14U };
     }
 
     /// <summary>

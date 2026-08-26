@@ -1,0 +1,454 @@
+using System;
+using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Utils;
+
+namespace XLibur.Excel.IO;
+
+/// <summary>
+/// The single decoder from OOXML style XML to XLibur style keys.
+/// </summary>
+/// <remarks>
+/// Before spec 28 the same XML was decoded by two families chosen by provenance: a mutating one for
+/// <c>&lt;dxfs&gt;</c> that wrote through <c>IXLFontBase</c> and friends, and a key-returning one for
+/// <c>&lt;cellXfs&gt;</c>. They had diverged — a dxf font lost its name, family and charset, and the
+/// diagonal border flags were read under different conditions. One implementation cannot diverge
+/// from itself.
+/// </remarks>
+internal static class StyleDecoder
+{
+    /// <summary>
+    /// Decodes one <c>&lt;xf&gt;</c> from <c>&lt;cellXfs&gt;</c>. Each aspect is decoded only when
+    /// the <c>&lt;xf&gt;</c> states an index or a child for it, so an unstated aspect keeps
+    /// whatever <paramref name="defaults"/> carried.
+    /// </summary>
+    internal static XLStyleKey Decode(CellFormat cellFormat, StylesheetData styles, XLStyleKey defaults)
+    {
+        var key = defaults with
+        {
+            IncludeQuotePrefix = OpenXmlHelper.GetBooleanValueAsBool(cellFormat.QuotePrefix, false),
+        };
+
+        if (cellFormat.ApplyProtection != null)
+        {
+            var protection = cellFormat.Protection;
+            var protectionKey = XLProtectionValue.Default.Key;
+            if (protection is not null)
+                protectionKey = ProtectionKey(protection, protectionKey);
+
+            key = key with { Protection = protectionKey };
+        }
+
+        if (UInt32HasValue(cellFormat.FillId))
+        {
+            var fill = (Fill)styles.Fills!.ElementAt((int)cellFormat.FillId!.Value);
+            if (fill.PatternFill is not null)
+                key = key with { Fill = FillKey(fill, differential: false, key.Fill) };
+        }
+
+        if (cellFormat.Alignment is { } alignment)
+            key = key with { Alignment = AlignmentKey(alignment, key.Alignment) };
+
+        if (UInt32HasValue(cellFormat.BorderId))
+        {
+            var border = (Border)styles.Borders!.ElementAt((int)cellFormat.BorderId!.Value);
+            key = key with { Border = BorderKey(border, key.Border) };
+        }
+
+        if (UInt32HasValue(cellFormat.FontId))
+        {
+            var font = (Font)styles.Fonts!.ElementAt((int)cellFormat.FontId!.Value);
+            key = key with { Font = FontKey(font, key.Font) };
+        }
+
+        if (UInt32HasValue(cellFormat.NumberFormatId))
+        {
+            key = key with
+            {
+                NumberFormat = NumberFormatKey((int)cellFormat.NumberFormatId!.Value,
+                    styles.NumberingFormats, key.NumberFormat),
+            };
+        }
+
+        return key;
+    }
+
+    /// <summary>
+    /// Decodes one <c>&lt;dxf&gt;</c>. Differential formats state only what they override, so every
+    /// absent child leaves the corresponding part of <paramref name="defaults"/> in place.
+    /// </summary>
+    /// <remarks>
+    /// Reads all six children <c>CT_Dxf</c> permits. Before spec 28 the three callers read three
+    /// different subsets of them — the conditional-format reader four, the pivot reader five, the
+    /// writer's reuse map four — and none read <c>&lt;protection&gt;</c> at all.
+    /// </remarks>
+    internal static XLStyleKey Decode(DifferentialFormat dxf, XLStyleKey defaults)
+    {
+        var key = defaults;
+
+        if (dxf.Font is { } font)
+            key = key with { Font = FontKey(font, key.Font) };
+
+        if (dxf.Fill is { } fill)
+            key = key with { Fill = FillKey(fill, differential: true, key.Fill) };
+
+        if (dxf.Border is { } border)
+            key = key with { Border = BorderKey(border, key.Border) };
+
+        if (dxf.NumberingFormat is { } numberingFormat)
+            key = key with { NumberFormat = NumberFormatKey(numberingFormat, key.NumberFormat) };
+
+        if (dxf.Alignment is { } alignment)
+            key = key with { Alignment = AlignmentKey(alignment, key.Alignment) };
+
+        if (dxf.Protection is { } protection)
+            key = key with { Protection = ProtectionKey(protection, key.Protection) };
+
+        return key;
+    }
+
+    internal static XLAlignmentKey AlignmentKey(Alignment alignment, XLAlignmentKey defaultAlignment)
+    {
+        return new XLAlignmentKey
+        {
+            Indent = checked((int?)alignment.Indent?.Value) ?? defaultAlignment.Indent,
+            Horizontal = alignment.Horizontal.ToXLiburOrNull() ?? defaultAlignment.Horizontal,
+            Vertical = alignment.Vertical.ToXLiburOrNull() ?? defaultAlignment.Vertical,
+            ReadingOrder = alignment.ReadingOrder?.Value.ToXLibur() ?? defaultAlignment.ReadingOrder,
+            WrapText = alignment.WrapText?.Value ?? defaultAlignment.WrapText,
+            TextRotation = alignment.TextRotation is not null
+                ? OpenXmlHelper.GetXLiburTextRotation(alignment)
+                : defaultAlignment.TextRotation,
+            ShrinkToFit = alignment.ShrinkToFit?.Value ?? defaultAlignment.ShrinkToFit,
+            RelativeIndent = alignment.RelativeIndent?.Value ?? defaultAlignment.RelativeIndent,
+            JustifyLastLine = alignment.JustifyLastLine?.Value ?? defaultAlignment.JustifyLastLine,
+        };
+    }
+
+    internal static XLBorderKey BorderKey(Border b, XLBorderKey defaultBorder)
+    {
+        var nb = defaultBorder;
+
+        var diagonalBorder = b.DiagonalBorder;
+        if (diagonalBorder is not null)
+        {
+            nb = ApplyBorderStyleAndColor(nb, diagonalBorder,
+                (key, style) => key with { DiagonalBorder = style },
+                (key, color) => key with { DiagonalBorderColor = color });
+            if (b.DiagonalUp is not null)
+                nb = nb with { DiagonalUp = b.DiagonalUp.Value };
+            if (b.DiagonalDown is not null)
+                nb = nb with { DiagonalDown = b.DiagonalDown.Value };
+        }
+
+        if (b.LeftBorder is not null)
+            nb = ApplyBorderStyleAndColor(nb, b.LeftBorder,
+                (key, style) => key with { LeftBorder = style },
+                (key, color) => key with { LeftBorderColor = color });
+
+        if (b.RightBorder is not null)
+            nb = ApplyBorderStyleAndColor(nb, b.RightBorder,
+                (key, style) => key with { RightBorder = style },
+                (key, color) => key with { RightBorderColor = color });
+
+        if (b.TopBorder is not null)
+            nb = ApplyBorderStyleAndColor(nb, b.TopBorder,
+                (key, style) => key with { TopBorder = style },
+                (key, color) => key with { TopBorderColor = color });
+
+        if (b.BottomBorder is not null)
+            nb = ApplyBorderStyleAndColor(nb, b.BottomBorder,
+                (key, style) => key with { BottomBorder = style },
+                (key, color) => key with { BottomBorderColor = color });
+
+        // A file is free to state a colour for an edge it gives no style - the two attributes are
+        // independent in the schema - so normalize on the way in. Otherwise such a key would compare
+        // unequal to the interned form of the same border, and BordersAreEqual would write a
+        // duplicate <border> for one already in the stylesheet.
+        return nb.Normalize();
+    }
+
+    private static XLBorderKey ApplyBorderStyleAndColor(
+        XLBorderKey nb,
+        BorderPropertiesType border,
+        Func<XLBorderKey, XLBorderStyleValues, XLBorderKey> applyStyle,
+        Func<XLBorderKey, XLColorKey, XLBorderKey> applyColor)
+    {
+        if (border.Style is not null)
+            nb = applyStyle(nb, border.Style.Value.ToXLibur());
+        if (border.Color is not null)
+            nb = applyColor(nb, border.Color.ToXLiburColor().Key);
+        return nb;
+    }
+
+    /// <summary>
+    /// Decodes a <c>&lt;fill&gt;</c>.
+    /// </summary>
+    /// <param name="fill">The fill element.</param>
+    /// <param name="differential">
+    /// Differential fills store background in <c>bgColor</c> and pattern in <c>fgColor</c>, which is
+    /// the sane reading. Ordinary fills store the background in <c>fgColor</c> when the pattern is
+    /// solid. The flag selects between them; it is not a style choice.
+    /// </param>
+    /// <param name="defaults">The fill to fall back to for anything the element does not state.</param>
+    internal static XLFillKey FillKey(Fill fill, bool differential, XLFillKey defaults)
+    {
+        if (fill.PatternFill is not { } patternFill)
+            return defaults;
+
+        var patternType = patternFill.PatternType is not null
+            ? patternFill.PatternType.Value.ToXLibur()
+            : XLFillPatternValues.Solid;
+
+        var key = defaults with { PatternType = patternType };
+
+        // The None branch touches no colour while the other two default a missing background to
+        // index 64 (transparent). That asymmetry is carried over from the decoder this replaced.
+        return patternType switch
+        {
+            XLFillPatternValues.None => key,
+            XLFillPatternValues.Solid => key with
+            {
+                BackgroundColor = SolidFillBackground(patternFill, differential),
+            },
+            _ => key with
+            {
+                PatternColor = patternFill.ForegroundColor is not null
+                    ? patternFill.ForegroundColor.ToXLiburColor().Key
+                    : key.PatternColor,
+                BackgroundColor = patternFill.BackgroundColor is not null
+                    ? patternFill.BackgroundColor.ToXLiburColor().Key
+                    : XLColor.FromIndex(64).Key,
+            },
+        };
+    }
+
+    private static XLColorKey SolidFillBackground(PatternFill patternFill, bool differential)
+    {
+        // yes, for a non-differential solid fill the source is the foreground!
+        ColorType? source = differential ? patternFill.BackgroundColor : patternFill.ForegroundColor;
+        return source is not null ? source.ToXLiburColor().Key : XLColor.FromIndex(64).Key;
+    }
+
+    internal static XLFontKey FontKey(Font f, XLFontKey nf)
+    {
+        nf = nf with
+        {
+            Bold = OpenXmlHelper.GetBoolean(f.Bold),
+            Italic = OpenXmlHelper.GetBoolean(f.Italic),
+            Shadow = OpenXmlHelper.GetBoolean(f.Shadow),
+            Strikethrough = OpenXmlHelper.GetBoolean(f.Strike),
+        };
+
+        var underline = f.Underline;
+        if (underline is not null)
+        {
+            var value = underline.Val?.Value.ToXLibur() ??
+                        XLFontUnderlineValues.Single;
+            nf = nf with { Underline = value };
+        }
+
+        var verticalTextAlignment = f.VerticalTextAlignment;
+        if (verticalTextAlignment is not null)
+        {
+            var value = verticalTextAlignment.Val?.Value.ToXLibur() ??
+                        XLFontVerticalTextAlignmentValues.Baseline;
+            nf = nf with { VerticalAlignment = value };
+        }
+
+        var fontSize = f.FontSize?.Val;
+        if (fontSize is not null)
+            nf = nf with { FontSize = fontSize.Value };
+
+        var color = f.Color;
+        if (color is not null)
+            nf = nf with { FontColor = color.ToXLiburColor().Key };
+
+        var fontName = f.FontName?.Val?.Value ?? string.Empty;
+        if (!string.IsNullOrEmpty(fontName))
+            nf = nf with { FontName = fontName };
+
+        var fontFamilyNumbering = f.FontFamilyNumbering?.Val?.Value;
+        if (fontFamilyNumbering is not null)
+            nf = nf with { FontFamilyNumbering = (XLFontFamilyNumberingValues)fontFamilyNumbering };
+
+        var fontCharSet = f.FontCharSet?.Val?.Value;
+        if (fontCharSet is not null)
+            nf = nf with { FontCharSet = (XLFontCharSet)fontCharSet };
+
+        var fontScheme = f.FontScheme;
+        if (fontScheme is not null)
+            nf = nf with { FontScheme = fontScheme.Val?.Value.ToXLibur() ?? XLFontScheme.None };
+        return nf;
+    }
+
+    internal static XLProtectionKey ProtectionKey(Protection protection, XLProtectionKey p)
+    {
+        // OI29500, hidden default is false, locked default is true.
+        if (protection.Hidden is not null)
+            p = p with { Hidden = protection.Hidden.Value };
+
+        if (protection.Locked is not null)
+            p = p with { Locked = protection.Locked.Value };
+
+        return p;
+    }
+
+    /// <summary>
+    /// Resolves a <c>numFmtId</c> against the workbook's declared custom formats.
+    /// </summary>
+    internal static XLNumberFormatKey NumberFormatKey(int numberFormatId,
+        NumberingFormats? numberingFormats, XLNumberFormatKey defaults)
+    {
+        var formatCode = string.Empty;
+        var numberingFormat =
+            numberingFormats?.FirstOrDefault(nf =>
+                ((NumberingFormat)nf).NumberFormatId != null &&
+                ((NumberingFormat)nf).NumberFormatId!.Value == numberFormatId) as NumberingFormat;
+
+        if (numberingFormat != null && numberingFormat.FormatCode != null)
+            formatCode = numberingFormat.FormatCode.Value!;
+
+        if (formatCode.Length > 0)
+            return XLNumberFormatKey.ForFormat(formatCode);
+
+        return defaults with { NumberFormatId = numberFormatId };
+    }
+
+    /// <summary>
+    /// Reads a <c>&lt;numFmt&gt;</c> stated inline, as a dxf states it.
+    /// </summary>
+    /// <remarks>
+    /// The id branch clearing <see cref="XLNumberFormatKey.Format"/> is not a change of behaviour:
+    /// <c>IXLNumberFormat.NumberFormatId</c>'s setter resets <c>Format</c> to
+    /// <c>XLNumberFormatValue.Default.Format</c> (the empty string), so the mutating decoder this
+    /// replaced already produced exactly this key.
+    /// </remarks>
+    internal static XLNumberFormatKey NumberFormatKey(NumberingFormat inline, XLNumberFormatKey defaults)
+    {
+        if (inline.NumberFormatId is { Value: var id } && id < XLConstants.NumberOfBuiltInStyles)
+            return new XLNumberFormatKey { NumberFormatId = (int)id, Format = string.Empty };
+
+        if (inline.FormatCode?.Value is { Length: > 0 } code)
+            return XLNumberFormatKey.ForFormat(code);
+
+        return defaults;
+    }
+
+    /// <summary>
+    /// Decodes a rich-text run's <c>&lt;x:rPr&gt;</c>. Separate from <see cref="FontKey"/> on
+    /// purpose: <c>CT_RPrElt</c> and <c>CT_Font</c> spell three children with different CLR types
+    /// (<c>rFont</c>/<c>name</c>, and two each for <c>family</c> and <c>charset</c>), so one
+    /// element-typed decoder cannot serve both. Conflating them is what dropped three fields from
+    /// every dxf font before spec 28.
+    /// </summary>
+    /// <remarks>
+    /// This reads one field more than the decoder it replaces: <c>&lt;charset&gt;</c>
+    /// (<c>RunPropertyCharSet</c>) was never looked for on the rich-text path either, for the same
+    /// reason it was dropped on the dxf path — an untyped <c>OpenXmlElement</c> let one function
+    /// pretend to serve two schemas.
+    /// </remarks>
+    internal static XLFontKey RunFontKey(RunProperties runProperties, XLFontKey nf)
+    {
+        nf = nf with
+        {
+            Bold = OpenXmlHelper.GetBoolean(runProperties.Elements<Bold>().FirstOrDefault()),
+            Italic = OpenXmlHelper.GetBoolean(runProperties.Elements<Italic>().FirstOrDefault()),
+            Shadow = OpenXmlHelper.GetBoolean(runProperties.Elements<Shadow>().FirstOrDefault()),
+            Strikethrough = OpenXmlHelper.GetBoolean(runProperties.Elements<Strike>().FirstOrDefault()),
+        };
+
+        var fontColor = runProperties.Elements<Color>().FirstOrDefault();
+        if (fontColor is not null)
+            nf = nf with { FontColor = fontColor.ToXLiburColor().Key };
+
+        var fontFamily = runProperties.Elements<FontFamily>().FirstOrDefault();
+        if (fontFamily?.Val is not null)
+            nf = nf with { FontFamilyNumbering = (XLFontFamilyNumberingValues)fontFamily.Val.Value };
+
+        var runFont = runProperties.Elements<RunFont>().FirstOrDefault();
+        if (runFont?.Val?.Value is { } runFontName)
+            nf = nf with { FontName = runFontName };
+
+        var charSet = runProperties.Elements<RunPropertyCharSet>().FirstOrDefault();
+        if (charSet?.Val is not null)
+            nf = nf with { FontCharSet = (XLFontCharSet)charSet.Val.Value };
+
+        var fontSize = runProperties.Elements<FontSize>().FirstOrDefault();
+        if (fontSize?.Val is not null)
+            nf = nf with { FontSize = fontSize.Val.Value };
+
+        var underline = runProperties.Elements<Underline>().FirstOrDefault();
+        if (underline is not null)
+        {
+            nf = nf with
+            {
+                Underline = underline.Val is not null
+                    ? underline.Val.Value.ToXLibur()
+                    : XLFontUnderlineValues.Single,
+            };
+        }
+
+        var verticalTextAlignment = runProperties.Elements<VerticalTextAlignment>().FirstOrDefault();
+        if (verticalTextAlignment is not null)
+        {
+            nf = nf with
+            {
+                VerticalAlignment = verticalTextAlignment.Val is not null
+                    ? verticalTextAlignment.Val.Value.ToXLibur()
+                    : XLFontVerticalTextAlignmentValues.Baseline,
+            };
+        }
+
+        var fontScheme = runProperties.Elements<FontScheme>().FirstOrDefault();
+        if (fontScheme is not null)
+        {
+            nf = nf with
+            {
+                FontScheme = fontScheme.Val is not null
+                    ? fontScheme.Val.Value.ToXLibur()
+                    : XLFontScheme.None,
+            };
+        }
+
+        return nf;
+    }
+
+    /// <summary>
+    /// Decodes a rich-text run's <c>&lt;x:rPr&gt;</c> and writes it through an
+    /// <see cref="IXLFontBase"/>.
+    /// </summary>
+    /// <remarks>
+    /// A thin applier over <see cref="RunFontKey"/> rather than a second decoder. The rich-text
+    /// call sites hold an <c>XLRichString</c>, which is an <see cref="IXLFontBase"/> with no
+    /// <c>InnerStyle</c> to assign a key to, so the fields are written through one at a time. One
+    /// decode, one shape.
+    /// </remarks>
+    internal static void ApplyRunFont(RunProperties? runProperties, IXLFontBase fontBase)
+    {
+        if (runProperties is null)
+            return;
+
+        var key = RunFontKey(runProperties, XLFont.GenerateKey(fontBase));
+        var fontColor = key.FontColor;
+
+        fontBase.Bold = key.Bold;
+        fontBase.Italic = key.Italic;
+        fontBase.Shadow = key.Shadow;
+        fontBase.Strikethrough = key.Strikethrough;
+        fontBase.Underline = key.Underline;
+        fontBase.VerticalAlignment = key.VerticalAlignment;
+        fontBase.FontSize = key.FontSize;
+        fontBase.FontColor = XLColor.FromKey(ref fontColor);
+        fontBase.FontName = key.FontName;
+        fontBase.FontFamilyNumbering = key.FontFamilyNumbering;
+        fontBase.FontCharSet = key.FontCharSet;
+        fontBase.FontScheme = key.FontScheme;
+    }
+
+    internal static bool UInt32HasValue(UInt32Value? value)
+    {
+        return value != null && value.HasValue;
+    }
+}
