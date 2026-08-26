@@ -539,26 +539,35 @@ public sealed class XLStreamingWorksheet
         xml.WriteStartElement("cols", Main2006SsNs);
         foreach (var column in ordered)
         {
-            xml.WriteStartElement("col", Main2006SsNs);
-            xml.WriteAttribute("min", (uint)column.FirstColumn);
-            xml.WriteAttribute("max", (uint)column.LastColumn);
+            // Same decision as ColumnWriter.BuildColumnElement; only the emission differs.
+            // GetOrAdd mutates the style table, and it still runs exactly once per column in this
+            // same order - only its position relative to the width computation moved, and the
+            // width rule does not touch the style table.
+            var settings = XLColumnSettings.Resolve(
+                (uint)column.FirstColumn, (uint)column.LastColumn,
+                column.Style is null ? null : _workbook.Styles.GetOrAdd(column.Style),
+                column.Width, column.Hidden, column.Collapsed, column.OutlineLevel);
 
-            if (column.Width is not null)
+            xml.WriteStartElement("col", Main2006SsNs);
+            xml.WriteAttribute("min", settings.Min);
+            xml.WriteAttribute("max", settings.Max);
+
+            if (settings.Width is { } width)
             {
-                xml.WriteAttribute("width", ColumnWriter.GetColumnWidth(column.Width.Value).SaveRound());
+                xml.WriteAttribute("width", width);
                 xml.WriteAttributeString("customWidth", TrueValue);
             }
 
-            if (column.Style is not null)
-                xml.WriteAttribute("style", _workbook.Styles.GetOrAdd(column.Style));
+            if (settings.StyleId is { } styleId)
+                xml.WriteAttribute("style", styleId);
 
-            if (column.Hidden)
+            if (settings.Hidden)
                 xml.WriteAttributeString("hidden", TrueValue);
 
-            if (column.OutlineLevel > 0)
-                xml.WriteAttribute("outlineLevel", column.OutlineLevel);
+            if (settings.OutlineLevel > 0)
+                xml.WriteAttribute("outlineLevel", settings.OutlineLevel);
 
-            if (column.Collapsed)
+            if (settings.Collapsed)
                 xml.WriteAttributeString("collapsed", TrueValue);
 
             xml.WriteEndElement(); // col

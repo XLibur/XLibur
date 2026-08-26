@@ -11,11 +11,23 @@ namespace XLibur.Excel.IO;
 
 internal static class ColumnWriter
 {
+    /// <param name="Columns">The <c>&lt;cols&gt;</c> element being built.</param>
+    /// <param name="SheetColumnsByMin">The <c>&lt;col&gt;</c> elements built so far, keyed by <c>min</c>.</param>
+    /// <param name="WorksheetStyleId">The worksheet's own style id.</param>
+    /// <param name="WorksheetColumnWidth">
+    /// The worksheet default width, already through <see cref="GetColumnWidth"/> and
+    /// <c>SaveRound</c> by <see cref="SheetViewWriter.WriteSheetFormatProperties"/>.
+    /// </param>
+    /// <param name="RawWorksheetColumnWidth">
+    /// The same default as the model holds it. <see cref="XLColumnSettings.Resolve"/> applies the
+    /// width rule itself, so it must be handed the raw value; passing the resolved one rounds twice.
+    /// </param>
     private readonly record struct ColumnWriteContext(
         Columns Columns,
         Dictionary<uint, Column> SheetColumnsByMin,
         uint WorksheetStyleId,
-        double WorksheetColumnWidth);
+        double WorksheetColumnWidth,
+        double RawWorksheetColumnWidth);
 
     internal static void WriteColumns(
         Worksheet worksheet,
@@ -43,7 +55,8 @@ internal static class ColumnWriter
         cm.SetElement(XLWorksheetContents.Columns, columns);
 
         var sheetColumnsByMin = columns.Elements<Column>().ToDictionary(c => c.Min!.Value, c => c);
-        var ctx = new ColumnWriteContext(columns, sheetColumnsByMin, worksheetStyleId, worksheetColumnWidth);
+        var ctx = new ColumnWriteContext(columns, sheetColumnsByMin, worksheetStyleId, worksheetColumnWidth,
+            xlWorksheet.ColumnWidth);
 
         var (minInColumnsCollection, maxInColumnsCollection) = GetColumnsRange(xlWorksheet);
 
@@ -86,18 +99,7 @@ internal static class ColumnWriter
         UInt32Value max = (uint)(minInColumnsCollection - 1);
 
         for (var co = min; co <= max; co++)
-        {
-            var column = new Column
-            {
-                Min = co,
-                Max = co,
-                Style = ctx.WorksheetStyleId,
-                Width = ctx.WorksheetColumnWidth,
-                CustomWidth = true
-            };
-
-            UpdateColumn(column, ctx.Columns, ctx.SheetColumnsByMin);
-        }
+            UpdateColumn(WorksheetDefaultColumn(ctx, co, co), ctx.Columns, ctx.SheetColumnsByMin);
     }
 
     private static int WriteMainColumns(ColumnWriteContext ctx, XLWorksheet xlWorksheet,
@@ -127,41 +129,44 @@ internal static class ColumnWriter
     private static Column BuildColumnElement(ColumnWriteContext ctx, XLWorksheet xlWorksheet,
         int columnNumber, SaveContext context)
     {
-        uint styleId;
-        double columnWidth;
-        var isHidden = false;
-        var collapsed = false;
-        var outlineLevel = 0;
+        if (!xlWorksheet.Internals.ColumnsCollection.TryGetValue(columnNumber, out var col))
+            return WorksheetDefaultColumn(ctx, (uint)columnNumber, (uint)columnNumber);
 
-        if (xlWorksheet.Internals.ColumnsCollection.TryGetValue(columnNumber, out var col))
-        {
-            styleId = context.SharedStyles[col.StyleValue].StyleId;
-            columnWidth = GetColumnWidth(col.Width).SaveRound();
-            isHidden = col.IsHidden;
-            collapsed = col.Collapsed;
-            outlineLevel = col.OutlineLevel;
-        }
-        else
-        {
-            styleId = context.SharedStyles[xlWorksheet.StyleValue].StyleId;
-            columnWidth = ctx.WorksheetColumnWidth;
-        }
+        // The raw width, not GetColumnWidth(col.Width).SaveRound() - Resolve applies that itself.
+        var settings = XLColumnSettings.Resolve(
+            (uint)columnNumber, (uint)columnNumber,
+            context.SharedStyles[col.StyleValue].StyleId, col.Width,
+            col.IsHidden, col.Collapsed, col.OutlineLevel);
 
+        return ToColumnElement(settings);
+    }
+
+    /// <summary>
+    /// A <c>&lt;col&gt;</c> carrying the worksheet's own style and default width, used to back-fill
+    /// the columns either side of the ones the sheet actually configured.
+    /// </summary>
+    private static Column WorksheetDefaultColumn(ColumnWriteContext ctx, uint min, uint max)
+        => ToColumnElement(XLColumnSettings.Resolve(
+            min, max, ctx.WorksheetStyleId, ctx.RawWorksheetColumnWidth,
+            hidden: false, collapsed: false, outlineLevel: 0));
+
+    private static Column ToColumnElement(XLColumnSettings settings)
+    {
         var column = new Column
         {
-            Min = (uint)columnNumber,
-            Max = (uint)columnNumber,
-            Style = styleId,
-            Width = columnWidth,
-            CustomWidth = true
+            Min = settings.Min,
+            Max = settings.Max,
+            Style = settings.StyleId,
+            Width = settings.Width,
+            CustomWidth = settings.CustomWidth ? true : null,
         };
 
-        if (isHidden)
+        if (settings.Hidden)
             column.Hidden = true;
-        if (collapsed)
+        if (settings.Collapsed)
             column.Collapsed = true;
-        if (outlineLevel > 0)
-            column.OutlineLevel = (byte)outlineLevel;
+        if (settings.OutlineLevel > 0)
+            column.OutlineLevel = settings.OutlineLevel;
 
         return column;
     }
@@ -171,15 +176,8 @@ internal static class ColumnWriter
         if (maxInColumnsCollection >= XLHelper.MaxColumnNumber || ctx.WorksheetStyleId == 0)
             return;
 
-        var column = new Column
-        {
-            Min = (uint)(maxInColumnsCollection + 1),
-            Max = (uint)(XLHelper.MaxColumnNumber),
-            Style = ctx.WorksheetStyleId,
-            Width = ctx.WorksheetColumnWidth,
-            CustomWidth = true
-        };
-        ctx.Columns.AppendChild(column);
+        ctx.Columns.AppendChild(
+            WorksheetDefaultColumn(ctx, (uint)(maxInColumnsCollection + 1), (uint)XLHelper.MaxColumnNumber));
     }
 
     internal static double GetColumnWidth(double columnWidth)
