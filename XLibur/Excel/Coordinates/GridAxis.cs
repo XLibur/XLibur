@@ -109,8 +109,9 @@ internal interface IGridAxis
     /// <summary>The stored style of a cross-axis line, falling back to the worksheet's own style.</summary>
     IXLStyle CrossLineStyle(XLWorksheet worksheet, int cross);
 
-    /// <summary><c>PageSetup.RowBreaks</c> on the row axis, <c>ColumnBreaks</c> on the column axis.</summary>
-    List<int> PageBreaks(XLWorksheet worksheet);
+    /// <summary><c>RowBreaks</c> on the row axis, <c>ColumnBreaks</c> on the column axis. Takes the
+    /// page setup rather than the worksheet, because the caller is the page setup itself.</summary>
+    List<int> PageBreaks(XLPageSetup pageSetup);
 
     /// <summary>
     /// Re-points a formula's references for a shift on this axis —
@@ -179,7 +180,7 @@ internal readonly struct RowAxis : IGridAxis
         => worksheet.Internals.ColumnsCollection.TryGetValue(cross, out var column)
             ? column.Style
             : worksheet.Style;
-    public List<int> PageBreaks(XLWorksheet worksheet) => worksheet.PageSetup.RowBreaks;
+    public List<int> PageBreaks(XLPageSetup pageSetup) => pageSetup.RowBreaks;
     public string ShiftFormula(string reference, XLWorksheet worksheet, XLRange range, int shift)
         => XLCellFormulaShifter.ShiftFormulaRows(reference, worksheet, range, shift);
     public XLAddress AddressAtMaxIndex(in XLAddress last)
@@ -235,7 +236,7 @@ internal readonly struct ColumnAxis : IGridAxis
         => worksheet.Internals.RowsCollection.TryGetValue(cross, out var row)
             ? row.Style
             : worksheet.Style;
-    public List<int> PageBreaks(XLWorksheet worksheet) => worksheet.PageSetup.ColumnBreaks;
+    public List<int> PageBreaks(XLPageSetup pageSetup) => pageSetup.ColumnBreaks;
     public string ShiftFormula(string reference, XLWorksheet worksheet, XLRange range, int shift)
         => XLCellFormulaShifter.ShiftFormulaColumns(reference, worksheet, range, shift);
     public XLAddress AddressAtMaxIndex(in XLAddress last)

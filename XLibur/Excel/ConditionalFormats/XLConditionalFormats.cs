@@ -12,9 +12,16 @@ namespace XLibur.Excel.ConditionalFormats;
 /// a collection of <see cref="XLConditionalFormat"/>. Doesn't contain pivot table formats,
 /// they are in pivot table <see cref="XLPivotTable.ConditionalFormats"/>,
 /// </summary>
-internal sealed class XLConditionalFormats : IXLConditionalFormats
+internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListener
 {
     private readonly List<IXLConditionalFormat> _conditionalFormats = [];
+
+    private readonly XLWorksheet _worksheet;
+
+    internal XLConditionalFormats(XLWorksheet worksheet)
+    {
+        _worksheet = worksheet;
+    }
 
     private static readonly List<XLConditionalFormatType> CFTypesExcludedFromConsolidation =
     [
@@ -46,6 +53,51 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats
     {
         _conditionalFormats.RemoveAll(predicate);
     }
+
+    #region ISheetListener
+
+    /// <summary>
+    /// Moves every rule's coverage over the edit, and removes a rule whose coverage transforms to
+    /// nothing.
+    /// </summary>
+    /// <remarks>
+    /// Coverage is the value-typed <see cref="XLAreaList"/>, not live repository ranges, so the
+    /// transform is pure and can never alias or double-shift across overlapping coverage
+    /// (ClosedXML issue #2850). Mirrors <see cref="XLDataValidations"/>, which shifts its sqref
+    /// coverage the same way.
+    /// </remarks>
+    void ISheetListener.OnInsertAreaAndShiftDown(in SheetEdit edit) => ShiftCoverage<RowAxis>(in edit);
+
+    void ISheetListener.OnInsertAreaAndShiftRight(in SheetEdit edit) => ShiftCoverage<ColumnAxis>(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftUp(in SheetEdit edit) => ShiftCoverage<RowAxis>(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftLeft(in SheetEdit edit) => ShiftCoverage<ColumnAxis>(in edit);
+
+    private void ShiftCoverage<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        if (edit.Sheet != _worksheet || _conditionalFormats.Count == 0)
+            return;
+
+        // CoverageArea, not edit.Area: the two differ for an insert whose edited range is more than
+        // one line tall, and coverage wants the |Shift| lines actually inserted. See SheetEdit.
+        var axis = default(TAxis);
+        var affected = edit.CoverageArea<TAxis>();
+        foreach (var cf in _conditionalFormats.OfType<XLConditionalFormat>().ToList())
+        {
+            var newAreas = edit.Shift > 0
+                ? axis.InsertAndShift(cf.Areas, affected)
+                : axis.DeleteAndShift(cf.Areas, affected);
+
+            if (newAreas.Count == 0)
+                Remove(f => f == cf);
+            else
+                cf.SetAreas(newAreas);
+        }
+    }
+
+    #endregion ISheetListener
 
     /// <summary>
     /// The method consolidates the same conditional formats, which are located in adjacent ranges.

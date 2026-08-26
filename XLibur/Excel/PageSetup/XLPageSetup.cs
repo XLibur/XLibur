@@ -1,13 +1,22 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel;
 
-internal sealed class XLPageSetup : IXLPageSetup
+internal sealed class XLPageSetup : IXLPageSetup, ISheetListener
 {
+    /// <summary>
+    /// The sheet this page setup belongs to, or <c>null</c> for the workbook's default page options
+    /// (<c>XLWorkbook</c> constructs one with no worksheet). A null sheet never matches an edit, so
+    /// the defaults are never shifted.
+    /// </summary>
+    private readonly XLWorksheet? _worksheet;
+
     public XLPageSetup(XLPageSetup defaultPageOptions, XLWorksheet worksheet)
     {
+        _worksheet = worksheet;
 
         if (defaultPageOptions != null)
         {
@@ -197,6 +206,43 @@ internal sealed class XLPageSetup : IXLPageSetup
             ColumnBreaks.Add(column);
         ColumnBreaks.Sort();
     }
+
+    #region ISheetListener
+
+    /// <summary>
+    /// Moves every page break at or after the edit's leading edge by the edit's shift.
+    /// </summary>
+    /// <remarks>
+    /// A page break is a line number, not an address, so this is the one converted feature whose
+    /// transform is plain arithmetic rather than an area transform — which is why the port carries
+    /// <c>Shift</c> and not only <c>Area</c>. A break strictly before the edit is unaffected; a
+    /// break on the edited line itself moves, because the insert goes in above it.
+    /// </remarks>
+    void ISheetListener.OnInsertAreaAndShiftDown(in SheetEdit edit) => ShiftBreaks<RowAxis>(in edit);
+
+    void ISheetListener.OnInsertAreaAndShiftRight(in SheetEdit edit) => ShiftBreaks<ColumnAxis>(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftUp(in SheetEdit edit) => ShiftBreaks<RowAxis>(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftLeft(in SheetEdit edit) => ShiftBreaks<ColumnAxis>(in edit);
+
+    private void ShiftBreaks<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        if (edit.Sheet != _worksheet)
+            return;
+
+        var axis = default(TAxis);
+        var breaks = axis.PageBreaks(this);
+        var firstIndex = axis.IndexOf(edit.Range.RangeAddress.FirstAddress);
+        for (var i = 0; i < breaks.Count; i++)
+        {
+            if (firstIndex <= breaks[i])
+                breaks[i] += edit.Shift;
+        }
+    }
+
+    #endregion ISheetListener
 
     public IXLPageSetup SetPageOrientation(XLPageOrientation value) { PageOrientation = value; return this; }
     public IXLPageSetup SetPagesWide(int value) { PagesWide = value; return this; }

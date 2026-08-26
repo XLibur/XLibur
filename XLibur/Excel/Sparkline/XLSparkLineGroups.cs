@@ -7,7 +7,7 @@ using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal sealed class XLSparklineGroups : IXLSparklineGroups
+internal sealed class XLSparklineGroups : IXLSparklineGroups, ISheetListener
 {
     private readonly XLWorksheet _worksheet;
 
@@ -163,6 +163,50 @@ internal sealed class XLSparklineGroups : IXLSparklineGroups
     }
 
     #endregion Public Methods
+
+    #region ISheetListener
+
+    /// <summary>
+    /// Drops the sparklines a structural edit pushed off the sheet.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is only half of what a sparkline needs, and the other half is elsewhere.</b> The
+    /// sparklines themselves are moved by <see cref="ShiftRows"/> / <see cref="ShiftColumns"/>,
+    /// called from <see cref="XLRangeInsertHelper"/> and <c>XLRangeBase.Delete</c> — a dispatch
+    /// point upstream of <see cref="XLWorksheetRangeShifter"/>, before the cells have moved, and one
+    /// this seam does not reach. So a sparkline group is the one sheet feature still notified twice
+    /// from two different layers. Spec 33 left it that way deliberately, scoped out to a follow-on:
+    /// folding it in means moving the call site, not writing an adapter.
+    /// <para>
+    /// What is here is the cleanup pass: an address the move pushed past the grid's edge is invalid,
+    /// and the sparkline holding it is removed. The transform reads neither axis nor shift, which is
+    /// why all four members run the same code.
+    /// </para>
+    /// </remarks>
+    void ISheetListener.OnInsertAreaAndShiftDown(in SheetEdit edit) => RemoveInvalidSparklines(in edit);
+
+    void ISheetListener.OnInsertAreaAndShiftRight(in SheetEdit edit) => RemoveInvalidSparklines(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftUp(in SheetEdit edit) => RemoveInvalidSparklines(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftLeft(in SheetEdit edit) => RemoveInvalidSparklines(in edit);
+
+    private void RemoveInvalidSparklines(in SheetEdit edit)
+    {
+        if (edit.Sheet != _worksheet)
+            return;
+
+        var invalidSparklines = _sparklineGroups.SelectMany(g => g)
+            .Where(sl => !((XLAddress)sl.Location.Address).IsValid)
+            .ToList();
+
+        foreach (var sparkline in invalidSparklines)
+        {
+            Remove(sparkline.Location);
+        }
+    }
+
+    #endregion ISheetListener
 
     #region Private Fields
 

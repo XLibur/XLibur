@@ -29,6 +29,12 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     private readonly List<IXLRangeIndex> _rangeIndices;
     private readonly XLOutlineTracker _outlineTracker = new();
     private readonly XLWorksheetRangeShifter _rangeShifter;
+
+    /// <summary>
+    /// Carries the merged-range straddle split, which has no collection of its own to live on — the
+    /// merges are a general-purpose <see cref="XLRanges"/> shared with every other range collection.
+    /// </summary>
+    private readonly MergedRangeSplitListener _mergedRangeSplitter;
     private readonly XLWorksheetDataInserter _dataInserter;
     private readonly XLRanges _selectedRanges;
 
@@ -79,6 +85,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         _rangeRepository = new XLRangeRepository(workbook, _rangeFactory.Create);
         _rangeIndices = [];
         _rangeShifter = new XLWorksheetRangeShifter(this);
+        _mergedRangeSplitter = new MergedRangeSplitListener(this);
         _dataInserter = new XLWorksheetDataInserter(this);
 
         Pictures = new XLPictures(this);
@@ -90,7 +97,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         PivotTables = new XLPivotTables(this);
         _protection = new XLSheetProtection(DefaultProtectionAlgorithm);
         AutoFilter = new XLAutoFilter();
-        ConditionalFormats = [];
+        ConditionalFormats = new XLConditionalFormats(this);
         SparklineGroupsInternal = new XLSparklineGroups(this);
         Internals = new XLWorksheetInternals(new XLCellsCollection(this), new XLColumnsCollection(),
             new XLRowsCollection(), new XLRanges());
@@ -1272,6 +1279,22 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// </remarks>
     internal IEnumerable<ISheetListener> GetSheetListeners()
     {
+        yield return _mergedRangeSplitter;
+
+        foreach (var sheet in Workbook.WorksheetsInternal)
+            yield return sheet.DefinedNames;
+        yield return Workbook.DefinedNamesInternal;
+
+        yield return ConditionalFormats;
+
+        // One per sheet, not this sheet's twice: XLDataValidations shifts its own sqref coverage and
+        // then every sheet's criteria formulas in one call, because the second must follow the first.
+        foreach (var sheet in Workbook.WorksheetsInternal)
+            yield return sheet.DataValidations;
+
+        yield return (XLPageSetup)PageSetup;
+        yield return SparklineGroupsInternal;
+
         yield return Workbook.CalcEngine;
         yield return Hyperlinks;
     }

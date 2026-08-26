@@ -8,7 +8,7 @@ using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal sealed class XLDataValidations : IXLDataValidations
+internal sealed class XLDataValidations : IXLDataValidations, ISheetListener
 {
     private readonly XLRangeIndex<XLDataValidationIndexEntry> _dataValidationIndex;
 
@@ -104,6 +104,78 @@ internal sealed class XLDataValidations : IXLDataValidations
     {
         return rangeAddress.IsValid && _dataValidationIndex.Intersects(in rangeAddress);
     }
+
+    #region ISheetListener
+
+    /// <summary>
+    /// Moves this sheet's validation coverage over the edit, then re-points the cell references
+    /// inside every rule's criteria formulas.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The two passes are one listener because their order is a requirement, not an accident: the
+    /// coverage pass deletes a rule whose coverage transforms to nothing, and the formula pass must
+    /// not then rewrite a rule that is gone. Expressing that as "this method does A then B" is
+    /// stronger than two positions in <see cref="XLWorksheet.GetSheetListeners"/>, which is why the
+    /// enumeration yields one <see cref="XLDataValidations"/> per sheet rather than this sheet's
+    /// twice.
+    /// </para>
+    /// <para>
+    /// Their scopes differ. Coverage (<c>sqref</c>) is sheet-scoped and guards on
+    /// <c>edit.Sheet</c>. Criteria formulas — <c>formula1</c>/<c>formula2</c>, behind
+    /// <see cref="IXLDataValidation.MinValue"/> and <see cref="IXLDataValidation.MaxValue"/> — are
+    /// not: a dependent dropdown on another sheet may point through OFFSET or MATCH at the sheet
+    /// that was edited, so every sheet's collection is visited and
+    /// <see cref="XLCellFormulaShifter"/> does the filtering, exactly as for
+    /// <see cref="XLDefinedNames"/>.
+    /// </para>
+    /// </remarks>
+    void ISheetListener.OnInsertAreaAndShiftDown(in SheetEdit edit) => Shift<RowAxis>(in edit);
+
+    void ISheetListener.OnInsertAreaAndShiftRight(in SheetEdit edit) => Shift<ColumnAxis>(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftUp(in SheetEdit edit) => Shift<RowAxis>(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftLeft(in SheetEdit edit) => Shift<ColumnAxis>(in edit);
+
+    private void Shift<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        var axis = default(TAxis);
+
+        if (edit.Sheet == _worksheet && _dataValidations.Count > 0)
+        {
+            // CoverageArea, not edit.Area: the two differ for an insert whose edited range is more
+            // than one line tall, and coverage wants the |Shift| lines actually inserted. See
+            // SheetEdit.
+            var affected = edit.CoverageArea<TAxis>();
+            foreach (var dv in _dataValidations.OfType<XLDataValidation>().ToList())
+            {
+                // Coverage is the area model, not live repository ranges, so the transform is pure
+                // and can never alias or double-shift (ClosedXML issue #2850), and the write-back
+                // reindexes without split-on-add — an extended range can no longer split a
+                // not-yet-shifted rule it transiently overlaps (the drop-on-insert bug).
+                var newAreas = edit.Shift > 0
+                    ? axis.InsertAndShift(dv.Areas, affected)
+                    : axis.DeleteAndShift(dv.Areas, affected);
+
+                if (newAreas.Count == 0)
+                    Delete(v => v == dv);
+                else
+                    dv.SetAreas(newAreas);
+            }
+        }
+
+        foreach (var dv in _dataValidations.ToList())
+        {
+            if (!string.IsNullOrEmpty(dv.MinValue))
+                dv.MinValue = axis.ShiftFormula(dv.MinValue, _worksheet, edit.Range, edit.Shift);
+            if (!string.IsNullOrEmpty(dv.MaxValue))
+                dv.MaxValue = axis.ShiftFormula(dv.MaxValue, _worksheet, edit.Range, edit.Shift);
+        }
+    }
+
+    #endregion ISheetListener
 
     public IEnumerator<IXLDataValidation> GetEnumerator()
     {

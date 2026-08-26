@@ -2,6 +2,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
+using XLibur.Excel.ConditionalFormats;
 using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.Ranges;
@@ -45,6 +46,43 @@ public class SheetListenerOrderTests
         // pin the set and let the order this test exists to hold change underneath it.
         await Assert.That(names).IsEquivalentTo(new[]
         {
+            nameof(MergedRangeSplitListener),
+            nameof(XLDefinedNames),      // this sheet's
+            nameof(XLDefinedNames),      // the workbook's
+            nameof(XLConditionalFormats),
+            nameof(XLDataValidations),   // sqref for this sheet, then criteria formulas
+            nameof(XLPageSetup),
+            nameof(XLSparklineGroups),
+            nameof(XLCalcEngine),
+            nameof(XLHyperlinks),
+        }, CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    /// The workbook-scoped listeners are yielded once per sheet, so the enumeration grows with the
+    /// workbook while the sheet-scoped ones stay at one apiece. Two sheets, so two
+    /// <c>XLDefinedNames</c> entries plus the workbook's, and two <c>XLDataValidations</c>.
+    /// </summary>
+    [Test]
+    public async Task Workbook_scoped_listeners_are_yielded_once_per_sheet()
+    {
+        using var wb = new XLWorkbook();
+        var ws = (XLWorksheet)wb.AddWorksheet("S");
+        wb.AddWorksheet("T");
+
+        var names = ws.GetSheetListeners().Select(l => l.GetType().Name).ToList();
+
+        await Assert.That(names).IsEquivalentTo(new[]
+        {
+            nameof(MergedRangeSplitListener),
+            nameof(XLDefinedNames),      // sheet S
+            nameof(XLDefinedNames),      // sheet T
+            nameof(XLDefinedNames),      // the workbook's
+            nameof(XLConditionalFormats),
+            nameof(XLDataValidations),   // sheet S
+            nameof(XLDataValidations),   // sheet T
+            nameof(XLPageSetup),
+            nameof(XLSparklineGroups),
             nameof(XLCalcEngine),
             nameof(XLHyperlinks),
         }, CollectionOrdering.Matching);
