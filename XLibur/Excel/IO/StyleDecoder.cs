@@ -86,8 +86,13 @@ internal static class StyleDecoder
         if (UInt32HasValue(cellFormat.FillId))
         {
             var fill = (Fill)styles.Fills!.ElementAt((int)cellFormat.FillId!.Value);
+
+            // Unlike the other aspects, the fill does not inherit from what the key already holds:
+            // a cellXf's fillId points at a complete <fill> definition rather than an override, so
+            // it is decoded against the default fill. Protection below is the same shape. This is
+            // what the decoder replaced here did, by mutating a fresh XLFill.
             if (fill.PatternFill is not null)
-                key = key with { Fill = FillKey(fill, differential: false, key.Fill) };
+                key = key with { Fill = FillKey(fill, differential: false, XLFillValue.Default.Key) };
         }
 
         if (cellFormat.Alignment is { } alignment)

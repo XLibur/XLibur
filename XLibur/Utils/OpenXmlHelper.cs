@@ -1,9 +1,7 @@
 using System;
-using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
-using XLibur.Excel.IO;
 using XLibur.Extensions;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
