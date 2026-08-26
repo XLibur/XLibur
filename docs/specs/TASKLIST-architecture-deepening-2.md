@@ -211,14 +211,21 @@ corpus must include loaded-file fixtures.
 - [x] **33.5** Freeze/split panes and pivot `Area` become adapters *(behaviour change)* — `3263ee4e`
 - [x] **33.6** Delete the `XLMarker` range-smuggling workaround — `d2e25f3a`
 - [x] **33.7** Confirm structural-edit cost unchanged — `335a8e97`
+- [x] **33.R** Code review at `high`; three defects found in the spec's *own* new work, all fixed — `6d27644a`
 
 **Outcome.** `XLWorksheetRangeShifter` 222 → 65 lines and names no feature; 11 types implement the
 port, up from 2; all four dead features move. Full suite green on net8.0 and net10.0, five assertions
 deliberately reversed and renamed, no other test changed. Structural-edit profile: full workload
-+1.1% time, −4.5% bytes on medians of three runs — within noise. Three defects recorded (D15, D16,
-D17) and one criterion reported as unreachable (≥12 adapter types; the design lists 11). Task 7
-caught a real regression it had introduced — the note pass materialised an `XLCell` per used cell on
-every edit — and it was fixed at source rather than by caching the listener list.
+−0.9% time, −0.0% bytes on medians of three runs. Three defects recorded (D15, D16, D17) and one
+criterion reported as unreachable (≥12 adapter types; the design lists 11).
+
+**Two gates each caught something the other could not.** Task 7 caught a regression it had itself
+introduced — the note pass materialised an `XLCell` per used cell on every edit — fixed at source
+rather than by caching the listener list. The code review then found three defects in the spec's
+*own new behaviour*, the sharpest being that a note's callout still detached from its cell when the
+edit landed on the cell's own row: task 4's tests all inserted clear above the note, so every one of
+them passed. Two of the three share a shape worth expecting elsewhere — **a value that never moved
+before now moves, and something derived from it was not ready for that.**
 
 **Scale, corrected by the spec's own grep:** structural-edit knowledge spans **20 files and 76
 methods**, and there are **17** sheet-scoped features, not the ~16 the review estimated — sparklines

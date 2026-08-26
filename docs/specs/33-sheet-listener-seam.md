@@ -1121,8 +1121,9 @@ git commit -m 'docs(specs): record structural-edit numbers and the Excel anchor 
 | 5 — panes and pivot `Area` | `3263ee4e` |
 | 6 — delete the `XLMarker` workaround | `d2e25f3a` |
 | 7 — structural-edit cost | `335a8e97` |
+| code-review fixes (3 defects in this spec's own new work) | `6d27644a` |
 
-Full suite green on net8.0 and net10.0: 28,428 tests, 0 failures. Five assertions were deliberately
+Full suite green on net8.0 and net10.0: 28,444 tests, 0 failures. Five assertions were deliberately
 reversed and their tests renamed; each is named in its commit body and listed below. No other test in
 the suite changed, on any task.
 
@@ -1230,19 +1231,21 @@ corner to maintain.
 **medians of three runs per side**, merge base `806d69f7` against the branch. The machine has ~40%
 run-to-run timing variance, so single runs prove nothing.
 
+Re-measured after the code-review fixes below, which changed the note pass:
+
 | Probe | base ms | branch ms | Δ | base MB | branch MB | Δ |
 |---|---|---|---|---|---|---|
-| 1,000 inserts, 0 ranges, 0 formulas | 540 | 513 | −5.0% | 387.3 | 377.3 | −2.6% |
-| 1,000 inserts, 1,000 ranges below | 692 | 782 | +13.0% | 725.0 | 740.3 | +2.1% |
-| 1,000 inserts, 1,000 ranges above (no-ops) | 517 | 444 | −14.1% | 405.2 | 334.6 | −17.4% |
-| 1,000 inserts, 1,000 formulas below | 913 | 907 | −0.7% | 1211.5 | 1211.1 | −0.0% |
-| 1,000 inserts, 1,000 formulas above | 337 | 269 | −20.2% | 369.5 | 288.2 | −22.0% |
-| **1,000 inserts, both below** | **1295** | **1309** | **+1.1%** | **1712.9** | **1636.1** | **−4.5%** |
+| 1,000 inserts, 0 ranges, 0 formulas | 540 | 519 | −3.9% | 387.3 | 394.2 | +1.8% |
+| 1,000 inserts, 1,000 ranges below | 692 | 664 | −4.0% | 725.0 | 728.0 | +0.4% |
+| 1,000 inserts, 1,000 ranges above (no-ops) | 517 | 430 | −16.8% | 405.2 | 362.9 | −10.4% |
+| 1,000 inserts, 1,000 formulas below | 913 | 905 | −0.9% | 1211.5 | 1212.9 | +0.1% |
+| 1,000 inserts, 1,000 formulas above | 337 | 370 | +9.8% | 369.5 | 399.0 | +8.0% |
+| **1,000 inserts, both below** | **1295** | **1283** | **−0.9%** | **1712.9** | **1712.2** | **−0.0%** |
 | 1 batch insert of 1,000, both below | 3 | 3 | 0 | 2.8 | 2.8 | 0 |
 
-The full workload is +1.1% on time and −4.5% on bytes. The one apparent regression, "1,000 ranges
-below" at +13%, is not a signal: the two sides' runs overlap (base 679–805, branch 618–815) while its
-bytes move +2.1%.
+The full workload is −0.9% on time and −0.0% on bytes. The one apparent regression, "1,000 formulas
+above" at +9.8%/+8.0%, is not a signal: it is a no-op probe whose *base* runs spread 223–370 MB, so
+the branch's steady 399 MB sits inside the baseline's own spread.
 
 **No listener-list cache.** The spec said to cache only if an allocation regression actually shows
 up, and after the fix below none does — the iterator state machine per edit and the two per-sheet
@@ -1320,3 +1323,35 @@ task 7 is for**, and caching the listener list would have hidden it rather than 
 - **Three new defects to pick up:** D15 (hyperlink detaches from its cell for a multi-line edited
   range), D16 (a delete starting on a range's leading edge leaves its first address invalid), D17
   (a note's anchoring mode is stated twice and the two disagree).
+
+### The code review found three defects in this spec's own new work
+
+Run at `high` over the whole branch. It confirmed the refactor is behaviour-preserving for the nine
+pre-existing passes — order, sheet guards, `CoverageArea` identical to the old `AffectedArea`, the
+`shift == 0` early return unreachable — and found three defects in what was *added*. All three were
+reproduced before being fixed, all three now have tests, and none is pre-existing. Fixed in
+`6d27644a`.
+
+1. **A note's callout detached from its cell at the boundary** — medium, and the sharpest of the
+   three, because it is the very defect this spec exists to fix, one boundary further along. Task 4
+   transformed the note's anchor the way a chart's is transformed. That is wrong for a note: a chart
+   hangs off the grid and nothing else, but a note is bound to a cell and its callout sits at an
+   offset from it, so an anchor computing its own transform straddles the edit differently from its
+   cell. A note on `A10` has `Position.Row == 9`; `InsertRowsAbove(3)` at row 10 moved the cell to
+   `A13` and left the callout at row 9 — four rows adrift. The anchor now takes the **cell's**
+   displacement, read off where the cell sits now.
+   **The lesson: the same transform is not right for every anchor, and "a note is a drawing" is the
+   assumption that hid it.** Task 4's tests all inserted clear above the note, so every one passed.
+2. **A pivot table's `TargetCell` could be driven off the top of the grid** — medium. Report filters
+   sit above the area and `TargetCell` shifts *up* by their height, so a delete that clamped the area
+   near row 1 computed a target above the grid. `Point` stores its row 0-based in an unsigned field,
+   so it wrapped rather than throwing and handed `#REF!` out through the public API. The area now
+   stops far enough down for the filters to fit. Unreachable before this branch, because `Area` never
+   moved — a new consequence of making it move.
+3. **The pane's scroll anchor was left behind by its own split** — low. `SheetViewWriter` writes
+   `PaneTopLeftCellAddress` verbatim as `pane/@topLeftCell`, so moving the split without it wrote an
+   anchor inside the frozen band (`ySplit="8"` against `topLeftCell="A6"`). It moves too now, by
+   `MoveIndex` rather than `MoveCount`, because it is an address and not a count.
+
+Two of the three are the same shape: **a feature that never moved before now moves, and something
+derived from it was not ready for that.** Worth expecting in any spec that wakes a dormant value.

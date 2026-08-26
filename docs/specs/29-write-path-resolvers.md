@@ -1460,7 +1460,7 @@ in the row or cell loop, and both are `readonly struct`s.
 | 1 | no `PaneStateValues.FrozenSplit` in `SheetViewWriter.cs` | **see below** |
 | 2 | no `new SaveContext()` under `Excel/Streaming/` | met — grep returns nothing |
 | 3 | no `SaveContext` in `ColumnWriter.cs` | met — grep returns nothing |
-| 4 | `GetColumnWidth` at exactly three sites | met — `ColumnWriter.cs:188` (definition), `XLColumnSettings.cs:66`, `SheetViewWriter.cs:250`. `XLStreamingWorksheet.cs` is not among them |
+| 4 | `GetColumnWidth` at exactly three sites | met — `ColumnWriter.cs:186` (definition), `XLColumnSettings.cs:66`, `SheetViewWriter.cs:256`. `XLStreamingWorksheet.cs` is not among them |
 | 5 | corner names only in mapping switches | met — `XLStreamingWorksheet.cs:516-521` only; the DOM side maps to SDK enum members. The one other hit, `PivotTableDefinitionPartWriter2.cs:667`, is a pivot-area type and unrelated |
 | 6 | reader still accepts both spellings | met, unchanged — now at `WorksheetElementReader.cs:192-193`, not `:76-77`; spec 24/28 moved it |
 | 7 | both agreement tests pass, nothing weakened | met — 4/4 arguments green, both comparison lists intact |
@@ -1506,10 +1506,43 @@ test: the spelling appears in a mapping switch, not in a decision.
   small `ToOpenXml` mappings (`:150-163`). `GetActivePaneValue` and `GetActivePaneForActiveCell`
   are gone. The pane decision is already extracted into `XLPaneSettings`, so 31's interface does
   not have to carry it.
-- `BuildColumnElement` (`ColumnWriter.cs:134-147`) is split at its existing seam: a lookup, a
-  `Resolve` call, and `ToColumnElement` (`:158-176`), which is the only place a `Column` element
-  is now built. `WorksheetDefaultColumn` (`:153-156`) covers the three filler cases.
+- `BuildColumnElement` is split at its existing seam: a lookup, a `Resolve` call, and
+  `ToColumnElement`, which is the only place a `Column` element is now built.
+  `WorksheetDefaultColumn` covers the three filler cases from one resolved default held on
+  `ColumnWriteContext`.
 - Both writers take narrowed parameters — `IReadOnlyDictionary<XLStyleValue, StyleInfo>` rather
   than `SaveContext` — so 31's interface does not need to thread the ten-member bag.
+  `SheetViewWriter.WriteSheetFormatProperties` also lost its `out double worksheetColumnWidth`,
+  whose only reader was `ColumnWriter`.
 - `WritePathAgreementTests` will notice if 31's sweep breaks either emitter. It reads the bytes,
   so unlike a load-and-compare test it can see a divergence the reader would normalise away.
+
+### Code review
+
+Reviewed at medium effort over `806d69f7..HEAD` after task 7. It confirmed the equivalences the
+refactor claims — the raw-width path yields exactly the pre-resolved value, `CustomWidth` cannot
+become null on the DOM path because `XLColumn.Width` is non-nullable, omitting `xSplit`/`ySplit`
+is safe on reload because the reader null-checks both, and the streaming `GetOrAdd` reordering
+preserves style-id assignment order.
+
+It raised three findings, all low and all the same mistake — the refactor left a copy behind
+rather than removing it. All three fixed in `610af8d4`:
+
+1. **`GenerateStreamingContent` filled two dictionaries nobody read.** Task 5 turned "fills three
+   dictionaries the caller discards" into "fills three locals the method discards" for two of
+   them, preserving the waste rather than removing it. Deleted; `sharedFonts` stays because
+   `ResolveFonts` rewrites it with the ids it assigned and the `cellXf` loop reads them back.
+2. **`ColumnWriteContext` carried the default width twice**, resolved and raw, agreeing only
+   because `WriteSheetFormatProperties` happened to compute the same expression and nothing
+   mutated the sheet in between. One fact, two implementations, kept in agreement by hand —
+   the shape this spec exists to remove, introduced by this spec. The context now holds one
+   resolved `XLColumnSettings`; both consumers read from it. `GetColumnWidth` still has three
+   sites, which is two callers of one rule rather than two stored copies of one answer.
+3. **The unreachable `XLPaneState` arms misled a reader auditing from the writer end.** Both
+   mapping switches now carry a remark. The arms stay — dropping them would turn a translation
+   into a silent coercion.
+
+Finding 2 is the one worth remembering: a refactor that centralises a decision can still leave a
+denormalised copy of that decision's *output* behind, and no round-trip test can see it, because
+both copies still deserialise to the same model. That is the same blindness the spec was written
+about, one level down.
