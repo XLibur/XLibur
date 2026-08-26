@@ -156,7 +156,8 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
             internalColumn.InnerStyle = InnerStyle;
             internalColumn.Collapsed = Collapsed;
             internalColumn.IsHidden = IsHidden;
-            internalColumn._outlineLevel = OutlineLevel;
+            // See XLRow.CopyRows: assigning the field skips the worksheet outline counter.
+            internalColumn.OutlineLevel = OutlineLevel;
         }
     }
 
@@ -401,10 +402,12 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
         return Unhide();
     }
 
-    public int CellCount()
-    {
-        return RangeAddress.LastAddress.ColumnNumber - RangeAddress.FirstAddress.ColumnNumber + 1;
-    }
+    /// <summary>
+    /// A column holds one cell per row in the sheet. Until spec 26 this was a verbatim copy of
+    /// <see cref="Rows.XLRow.CellCount"/> and measured the column span of an entire-column address —
+    /// whose first and last address carry the same column — so it always returned 1.
+    /// </summary>
+    public int CellCount() => RowCount();
 
     public IXLColumn Sort(XLSortOrder sortOrder = XLSortOrder.Ascending, bool matchCase = false,
         bool ignoreBlanks = true)

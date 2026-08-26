@@ -192,7 +192,10 @@ internal sealed class XLRow : XLRangeBase, IXLRow
             internalRow.InnerStyle = InnerStyle;
             internalRow.Collapsed = Collapsed;
             internalRow.IsHidden = IsHidden;
-            internalRow._outlineLevel = OutlineLevel;
+            // Through the property, not the field: the worksheet counts outline levels, and a copy
+            // that skips the counter leaves the sheet declaring a lower @outlineLevelRow than its
+            // rows claim. The column twin had shipped this for as long as it had a live counter.
+            internalRow.OutlineLevel = OutlineLevel;
         }
     }
 
@@ -421,8 +424,8 @@ internal sealed class XLRow : XLRangeBase, IXLRow
             if (value is < 0 or > 8)
                 throw new ArgumentOutOfRangeException(nameof(value), "Outline level must be between 0 and 8.");
 
-            Worksheet.IncrementColumnOutline(value);
-            Worksheet.DecrementColumnOutline(_outlineLevel);
+            Worksheet.IncrementRowOutline(value);
+            Worksheet.DecrementRowOutline(_outlineLevel);
             _outlineLevel = value;
         }
     }
@@ -483,10 +486,8 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         return Unhide();
     }
 
-    public int CellCount()
-    {
-        return RangeAddress.LastAddress.ColumnNumber - RangeAddress.FirstAddress.ColumnNumber + 1;
-    }
+    /// <summary>A row holds one cell per column in the sheet.</summary>
+    public int CellCount() => ColumnCount();
 
     public new IXLRow Sort()
     {

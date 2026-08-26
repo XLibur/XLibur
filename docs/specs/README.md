@@ -1,6 +1,6 @@
 # XLibur Improvement Roadmap
 
-Thirty-four prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
+Thirty-five prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
 
 **Start a new performance effort at [spec 19](19-benchmark-hotspot-survey.md)**, not at this table. It re-ran the whole suite on 2026-08-07 and ranks what is actually slow now, which is not what specs 02–18 would predict — the biggest single number in the suite turns out to be the `CellsUsed()` enumeration, not parsing, packaging or styling. It also carries the current baselines for every benchmark and the run recipe.
 
@@ -26,18 +26,18 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 12 | [Report templating (`XLibur.Report`)](12-report-templating.md) | Feature · Arch | L | ✅ **Done** (see Results; gauge corpus not ported) | 11 tasks; 4/5/6/10 parallel after 3 |
 | 13 | [Public core surface for `XLibur.Report`](13-report-core-public-api.md) | Arch · API · Packaging | M | ✅ **Done** (#354) | Tasks 1 and 2 independent |
 | 14 | [`Clear`/`CopyTo` scalability](14-clear-copyto-scalability.md) | Perf (edit) · Correctness | S | Proposed ([#271](https://github.com/XLibur/XLibur/issues/271)) | Task 1 first; 2/3/4 independent |
-| 15 | [Shapes & text boxes](15-shapes-and-text-boxes.md) | Feature · Compat | L | Proposed (**needs 16 first**) | 1–3 one stream; then 4/5 parallel |
-| 16 | [Shared DrawingML infrastructure](16-drawingml-infrastructure.md) | Arch · Refactor | S–M | Proposed | 3 PRs; harness first, then 2/3 independent |
-| 17 | [Picture styling & fidelity](17-picture-styling.md) | Feature · Compat · **Defect** | M–L | Proposed (**needs 16 first**) | Task 1 (fidelity fix) first and standalone; 3/4/5 parallel after 2 |
+| 15 | [Shapes & text boxes](15-shapes-and-text-boxes.md) | Feature · Compat | L | Proposed (**16 has landed — unblocked**) | 1–3 one stream; then 4/5 parallel |
+| 16 | [Shared DrawingML infrastructure](16-drawingml-infrastructure.md) | Arch · Refactor | S–M | ✅ **Done** (#401, #402; see Results) | 3 PRs; harness first, then 2/3 independent |
+| 17 | [Picture styling & fidelity](17-picture-styling.md) | Feature · Compat · **Defect** | M–L | Proposed (**16 has landed — unblocked**) | Task 1 (fidelity fix) first and standalone; 3/4/5 parallel after 2 |
 | 18 | [Template round-trip overhead](18-template-round-trip-overhead.md) | Perf (read + write) · **Defect** | M | Tasks 0–4 done (see Results) | Task 5 is the remaining cost; independent |
 | 19 | [Benchmark hotspot survey (Aug 2026)](19-benchmark-hotspot-survey.md) | Perf (read + write) · Survey | L | Proposed | 5 areas; 1/2/3 fully independent |
 | 20 | [Style key struct sizes](20-style-key-struct-size.md) | Perf (write · bulk styling) · Memory | M | Proposed | Task 0 first; 1→2 ordered; 3/4 independent |
 | 21 | [Hot-path struct candidates](21-hot-path-struct-candidates.md) | Perf (read · enumeration) | M | ✅ **Done** (task 3 shipped; 1–2 declined on measurement) | Task 0 first; 1→2 ordered; 3 independent |
 | 22 | [Chart IO: one module per chart concept](22-chart-concept-modules.md) | Arch · Refactor | M | ✅ **Done** (tasks 0–6; run before 16 — see Results) | Single owner; tasks sequential |
-| 23 | [One implementation per style interface](23-single-style-facade.md) | Arch · Refactor · **Defect** | M | Proposed | Single owner; tasks sequential |
-| 24 | [Worksheet element load gets one interface](24-worksheet-element-dispatch.md) | Arch · Refactor | S–M | Proposed | Single owner; tasks sequential |
-| 25 | [Narrow the formula shifter's fallback](25-formula-shifter-seam.md) | Arch · **Correctness (masking)** | S | Proposed | Single owner; tasks sequential |
-| 26 | [Give the grid one axis](26-grid-axis.md) | Arch · Refactor · **3 defects** | L | Proposed | Single owner; defects 1–4 first, then sequential |
+| 23 | [One implementation per style interface](23-single-style-facade.md) | Arch · Refactor · **Defect** | M | ✅ **Done** (#397; see Results) | Single owner; tasks sequential |
+| 24 | [Worksheet element load gets one interface](24-worksheet-element-dispatch.md) | Arch · Refactor | S–M | ✅ **Done** (#395; see Results) | Single owner; tasks sequential |
+| 25 | [Narrow the formula shifter's fallback](25-formula-shifter-seam.md) | Arch · **Correctness (masking)** | S | ✅ **Done** (#398) | Single owner; tasks sequential |
+| 26 | [Give the grid one axis](26-grid-axis.md) | Arch · Refactor · **3 defects** | L | ✅ **Done** (see Results) | One `IGridAxis`, two adapters; 3 defects fixed; allocations down 12–50% |
 | 27 | [One font conformance module](27-font-conformance-suite.md) | Test · Arch (seam) | S–M | Proposed | Single owner; **gates 34** |
 | 28 | [One OOXML style decoder](28-single-style-decoder.md) | Arch · Refactor · **Defect (data loss)** | M | Proposed | Single owner; tasks sequential |
 | 29 | [One resolver per emitted element](29-write-path-resolvers.md) | Arch · **Correctness (divergence)** | M | Proposed | Single owner; **before 31** |

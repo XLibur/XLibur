@@ -59,8 +59,14 @@ internal sealed class XLOutlineTracker
             _rowOutlineCount.Add(level, 0);
     }
 
+    /// <summary>
+    /// The filtered sequence is what needs the emptiness guard, not the dictionary: Decrement leaves
+    /// a zero count behind, so a sheet whose rows were all ungrouped holds a non-empty dictionary of
+    /// zeroes and Max() would throw on an empty sequence.
+    /// </summary>
     public int GetMaxRowOutline()
     {
-        return _rowOutlineCount.Count == 0 ? 0 : _rowOutlineCount.Where(kp => kp.Value > 0).Max(kp => kp.Key);
+        var list = _rowOutlineCount.Where(kp => kp.Value > 0).ToList();
+        return list.Count == 0 ? 0 : list.Max(kp => kp.Key);
     }
 }

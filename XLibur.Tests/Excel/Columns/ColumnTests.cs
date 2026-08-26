@@ -304,4 +304,19 @@ public class ColumnTests
 
         await Assert.That(wb.Worksheets.Count).IsEqualTo(2);
     }
+
+    /// <summary>
+    /// XLColumn.CellCount() was a verbatim copy of XLRow.CellCount() and measured the wrong axis,
+    /// so it returned 1 for every column. Spec 26 task 2. The row is asserted alongside it because
+    /// the pair is the point: whatever CellCount means, it must mean the same thing on both axes.
+    /// </summary>
+    [Test]
+    public async Task Cell_count_is_the_extent_of_the_axis_a_line_spans()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        await Assert.That(ws.Column(1).CellCount()).IsEqualTo(XLHelper.MaxRowNumber);
+        await Assert.That(ws.Row(1).CellCount()).IsEqualTo(XLHelper.MaxColumnNumber);
+    }
 }
