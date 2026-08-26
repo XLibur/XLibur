@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 using XLibur.Excel;
 
 namespace XLibur.Tests.Excel;
@@ -250,8 +251,12 @@ public class RoundTripFidelityTests
 
         using var saved = LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
 
-        await Assert.That(PartBytes(saved, "xl/drawings/drawing1.xml")).IsEquivalentTo(before1);
-        await Assert.That(PartBytes(saved, "xl/drawings/drawing2.xml")).IsEquivalentTo(before2);
+        // CollectionOrdering.Matching, because IsEquivalentTo ignores order by default — it holds
+        // {1,2,3} equivalent to {3,2,1}. For a byte-for-byte claim that is not what is meant.
+        await Assert.That(PartBytes(saved, "xl/drawings/drawing1.xml"))
+            .IsEquivalentTo(before1, CollectionOrdering.Matching);
+        await Assert.That(PartBytes(saved, "xl/drawings/drawing2.xml"))
+            .IsEquivalentTo(before2, CollectionOrdering.Matching);
     }
 
     [Test]
