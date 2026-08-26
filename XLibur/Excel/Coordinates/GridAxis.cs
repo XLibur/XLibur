@@ -51,6 +51,17 @@ internal interface IGridAxis
     /// <summary><c>IsEntireRow()</c> on the row axis, <c>IsEntireColumn()</c> on the column axis.</summary>
     bool IsEntireLine(XLRangeBase range);
 
+    /// <summary>Entire-line on the <em>other</em> axis: a row shift cannot move an entire column.</summary>
+    bool IsEntireCrossLine(XLRangeBase range);
+
+    /// <summary>
+    /// Dispatches <c>WorksheetRangeShiftedRows</c> / <c>WorksheetRangeShiftedColumns</c>, which is
+    /// <c>abstract</c> on <see cref="XLRangeBase"/>, so this reaches the worksheet and every stored
+    /// range alike. A member rather than a delegate: the caller runs it once per shifted range and a
+    /// delegate would allocate on each (spec 05's hot path).
+    /// </summary>
+    void WorksheetRangeShifted(XLRangeBase target, XLRange range, int shift);
+
     /// <summary><c>MaxRowUsed</c> on the row axis, <c>MaxColumnUsed</c> on the column axis.</summary>
     int MaxUsedIndex(XLCellsCollection cells);
 
@@ -106,6 +117,10 @@ internal readonly struct RowAxis : IGridAxis
         => new(worksheet, index, cross, fixedRow, fixedColumn);
 
     public bool IsEntireLine(XLRangeBase range) => range.IsEntireRow();
+    public bool IsEntireCrossLine(XLRangeBase range) => range.IsEntireColumn();
+
+    public void WorksheetRangeShifted(XLRangeBase target, XLRange range, int shift)
+        => target.WorksheetRangeShiftedRows(range, shift);
 
     public int MaxUsedIndex(XLCellsCollection cells) => cells.MaxRowUsed;
 
@@ -161,6 +176,10 @@ internal readonly struct ColumnAxis : IGridAxis
         => new(worksheet, cross, index, fixedRow, fixedColumn);
 
     public bool IsEntireLine(XLRangeBase range) => range.IsEntireColumn();
+    public bool IsEntireCrossLine(XLRangeBase range) => range.IsEntireRow();
+
+    public void WorksheetRangeShifted(XLRangeBase target, XLRange range, int shift)
+        => target.WorksheetRangeShiftedColumns(range, shift);
 
     public int MaxUsedIndex(XLCellsCollection cells) => cells.MaxColumnUsed;
 
