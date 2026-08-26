@@ -1,10 +1,10 @@
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using TUnit.Assertions.Enums;
 using XLibur.Excel;
 
 namespace XLibur.Tests.Excel.IO;
@@ -86,13 +86,18 @@ internal class ColumnRangeAndDxfMapTests
     }
 
     /// <summary>
-    /// The expensive path is bounded. Expanding a last-column range is unavoidable when it carries
-    /// per-column flags — XLibur's model has nowhere else to put them — so this pins that the cost
-    /// stays in the "noticeable but fine" range rather than becoming a load-time cliff. Generous
-    /// bound on purpose: it is a smoke alarm, not a benchmark.
+    /// A flag-bearing range that spans the whole sheet is expanded onto every column — which is
+    /// what makes it the expensive path, and is unavoidable, since XLibur's model has nowhere but
+    /// a column object to record that a column is hidden.
+    /// <para>
+    /// Asserted as a materialised count rather than as elapsed time: the count is the thing that
+    /// actually determines the cost and it is deterministic, whereas a wall-clock bound would be a
+    /// flaky test under CI contention. A throughput budget, if one is ever wanted, belongs in the
+    /// benchmark project.
+    /// </para>
     /// </summary>
     [Test]
-    public async Task Expanding_a_flag_bearing_last_column_range_stays_bounded()
+    public async Task A_flag_bearing_range_spanning_the_sheet_is_expanded_onto_every_column()
     {
         using var ms = BuildSheetWithColumns(new Column
         {
@@ -101,16 +106,53 @@ internal class ColumnRangeAndDxfMapTests
             Hidden = true,
         });
 
-        var sw = Stopwatch.StartNew();
-        using (var wb = new XLWorkbook(ms))
-        {
-            var ws = wb.Worksheet("S");
-            await Assert.That(ws.Column(16384).IsHidden).IsTrue();
-        }
+        using var wb = new XLWorkbook(ms);
+        var ws = wb.Worksheet("S");
 
-        sw.Stop();
-        await Assert.That(sw.Elapsed.TotalSeconds).IsLessThan(10D)
-            .Because($"expanding all {XLHelper.MaxColumnNumber} columns took {sw.Elapsed}");
+        await Assert.That(ws.Column(XLHelper.MaxColumnNumber).IsHidden).IsTrue();
+        await Assert.That(((XLWorksheet)ws).Internals.ColumnsCollection.Count)
+            .IsEqualTo(XLHelper.MaxColumnNumber);
+    }
+
+    /// <summary>
+    /// A colour filter is the one criterion whose XML holds an index into <c>&lt;dxfs&gt;</c>, and
+    /// <c>AddDifferentialFormats</c> rebuilds that collection on every save — conditional-format
+    /// dxfs first, colour-filter dxfs last — so a loaded index is not the index it will be written
+    /// at. The criteria of an unchanged column are otherwise written back verbatim, which used to
+    /// carry the stale index through with them.
+    /// <para>
+    /// The fixture is built so the two swap places: dxf 0 is the filter's red fill and dxf 1 the
+    /// conditional format's green one, and the rebuild reverses that. Before the fix the filter
+    /// kept <c>dxfId="0"</c> and so pointed at the conditional format's green fill — the filter's
+    /// colour silently changed on a load and save that touched nothing.
+    /// </para>
+    /// </summary>
+    [Test]
+    public async Task A_loaded_colour_filter_is_repointed_at_its_own_dxf_after_the_rebuild()
+    {
+        var bytes = BuildWorkbookWithColourFilterAndConditionalFormat();
+
+        var (dxfsBefore, filterBefore, ruleBefore) = ReadDxfReferences(bytes);
+        await Assert.That(dxfsBefore).IsEquivalentTo(new[] { "FFFF0000", "FF00FF00" },
+            CollectionOrdering.Matching);
+        await Assert.That(filterBefore).IsEqualTo(0U);
+        await Assert.That(ruleBefore).IsEqualTo(1U);
+
+        using var output = new MemoryStream();
+        using (var wb = new XLWorkbook(new MemoryStream(bytes, writable: false)))
+            wb.SaveAs(output);
+
+        var (dxfsAfter, filterAfter, ruleAfter) = ReadDxfReferences(output.ToArray());
+
+        // The rebuild writes the conditional format's dxf first, so the two have swapped.
+        await Assert.That(dxfsAfter).IsEquivalentTo(new[] { "FF00FF00", "FFFF0000" },
+            CollectionOrdering.Matching);
+
+        // Both references follow the move: each still points at the colour it started with.
+        await Assert.That(filterAfter).IsEqualTo(1U)
+            .Because("the colour filter's red fill moved to index 1");
+        await Assert.That(ruleAfter).IsEqualTo(0U)
+            .Because("the conditional format's green fill moved to index 0");
     }
 
     /// <summary>
@@ -158,6 +200,101 @@ internal class ColumnRangeAndDxfMapTests
             bytes = output.ToArray();
             await Assert.That(CountDxfs(bytes)).IsEqualTo(1);
         }
+    }
+
+    /// <summary>
+    /// A workbook whose <c>&lt;dxfs&gt;</c> are ordered the opposite way from how XLibur rebuilds
+    /// them: index 0 is the colour filter's red fill, index 1 the conditional format's green one.
+    /// </summary>
+    private static byte[] BuildWorkbookWithColourFilterAndConditionalFormat()
+    {
+        using var ms = new MemoryStream();
+        using (var doc = SpreadsheetDocument.Create(ms, SpreadsheetDocumentType.Workbook))
+        {
+            var wbPart = doc.AddWorkbookPart();
+            wbPart.Workbook = new Workbook();
+
+            var stylesPart = wbPart.AddNewPart<WorkbookStylesPart>();
+            stylesPart.Stylesheet = new Stylesheet(
+                new DocumentFormat.OpenXml.Spreadsheet.Fonts(new Font()) { Count = 1U },
+                new DocumentFormat.OpenXml.Spreadsheet.Fills(
+                    new Fill(new PatternFill { PatternType = PatternValues.None }),
+                    new Fill(new PatternFill { PatternType = PatternValues.Gray125 })) { Count = 2U },
+                new DocumentFormat.OpenXml.Spreadsheet.Borders(new Border()) { Count = 1U },
+                new CellFormats(new CellFormat()) { Count = 1U },
+                new DifferentialFormats(
+                    ColourDxf("FFFF0000"),
+                    ColourDxf("FF00FF00")) { Count = 2U });
+            stylesPart.Stylesheet.Save();
+
+            var wsPart = wbPart.AddNewPart<WorksheetPart>();
+            wsPart.Worksheet = new Worksheet(
+                new SheetData(
+                    new Row(new Cell
+                    {
+                        CellReference = "A1", DataType = CellValues.String,
+                        CellValue = new CellValue("h"),
+                    }) { RowIndex = 1U },
+                    new Row(new Cell
+                    {
+                        CellReference = "A2", DataType = CellValues.Number,
+                        CellValue = new CellValue("7"),
+                    }) { RowIndex = 2U }),
+                new AutoFilter(
+                    new FilterColumn(new ColorFilter { FormatId = 0U, CellColor = true })
+                    { ColumnId = 0U })
+                { Reference = "A1:A2" },
+                new ConditionalFormatting(
+                    new ConditionalFormattingRule(new Formula("5"))
+                    {
+                        Type = ConditionalFormatValues.CellIs,
+                        Operator = ConditionalFormattingOperatorValues.GreaterThan,
+                        FormatId = 1U,
+                        Priority = 1,
+                    })
+                {
+                    SequenceOfReferences =
+                        new ListValue<DocumentFormat.OpenXml.StringValue> { InnerText = "A1:A5" },
+                });
+            wsPart.Worksheet.Save();
+
+            wbPart.Workbook.AppendChild(new Sheets(
+                new Sheet { Id = wbPart.GetIdOfPart(wsPart), SheetId = 1U, Name = "S" }));
+            wbPart.Workbook.Save();
+        }
+
+        return ms.ToArray();
+    }
+
+    private static DifferentialFormat ColourDxf(string argb)
+    {
+        return new DifferentialFormat(new Fill(new PatternFill
+        {
+            BackgroundColor = new BackgroundColor { Rgb = argb },
+        }));
+    }
+
+    /// <summary>
+    /// The dxf background colours in order, plus the indices the colour filter and the
+    /// conditional-format rule point at.
+    /// </summary>
+    private static (string[] Dxfs, uint? ColorFilterId, uint? RuleId) ReadDxfReferences(byte[] bytes)
+    {
+        using var input = new MemoryStream(bytes, writable: false);
+        using var doc = SpreadsheetDocument.Open(input, false);
+
+        var dxfs = doc.WorkbookPart!.WorkbookStylesPart!.Stylesheet!.DifferentialFormats;
+        var colours = dxfs is null
+            ? []
+            : dxfs.Elements<DifferentialFormat>()
+                .Select(d => d.Fill?.PatternFill?.BackgroundColor?.Rgb?.Value ?? "?")
+                .ToArray();
+
+        var ws = doc.WorkbookPart.WorksheetParts.Single().Worksheet;
+        return (
+            colours,
+            ws!.Descendants<ColorFilter>().FirstOrDefault()?.FormatId?.Value,
+            ws.Descendants<ConditionalFormattingRule>().FirstOrDefault()?.FormatId?.Value);
     }
 
     private static MemoryStream BuildSheetWithColumns(params Column[] cols)
