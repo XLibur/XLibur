@@ -156,6 +156,16 @@ internal static class StyleDecoder
         return key;
     }
 
+    /// <summary>
+    /// Decodes an <c>&lt;alignment&gt;</c>. Every attribute the element omits falls back to
+    /// <paramref name="defaultAlignment"/>.
+    /// </summary>
+    /// <remarks>
+    /// Decoding to a key rather than writing through <c>IXLAlignment</c> is what lets an indent
+    /// load as written. That interface's <c>Indent</c> setter rewrites a <c>General</c> horizontal
+    /// alignment to <c>Left</c> and throws for an indent on a centred one — a reasonable guard on
+    /// the public API, and the wrong rule for a reader reproducing what a file states.
+    /// </remarks>
     internal static XLAlignmentKey AlignmentKey(Alignment alignment, XLAlignmentKey defaultAlignment)
     {
         return new XLAlignmentKey
@@ -237,6 +247,11 @@ internal static class StyleDecoder
         return nb.Normalize();
     }
 
+    /// <summary>
+    /// Applies one edge's <c>style</c> and <c>color</c> to the key, each only if the edge states
+    /// it. The two are independent attributes, which is why <see cref="XLBorderKey.Normalize"/> is
+    /// needed afterwards.
+    /// </summary>
     private static XLBorderKey ApplyBorderStyleAndColor(
         XLBorderKey nb,
         BorderPropertiesType border,
@@ -292,6 +307,10 @@ internal static class StyleDecoder
         };
     }
 
+    /// <summary>
+    /// The background of a solid fill, which an ordinary fill stores in <c>fgColor</c> and a
+    /// differential one in <c>bgColor</c>. A fill stating neither is transparent (index 64).
+    /// </summary>
     private static XLColorKey SolidFillBackground(PatternFill patternFill, bool differential)
     {
         // yes, for a non-differential solid fill the source is the foreground!
@@ -299,6 +318,19 @@ internal static class StyleDecoder
         return source is not null ? source.ToXLiburColor().Key : XLColor.FromIndex(64).Key;
     }
 
+    /// <summary>
+    /// Decodes a <c>&lt;font&gt;</c> through the typed <c>CT_Font</c> children — including
+    /// <c>name</c>, <c>family</c> and <c>charset</c>, which the decoder this replaced could not
+    /// read off a font at all because it looked for the <c>&lt;x:rPr&gt;</c> spellings.
+    /// </summary>
+    /// <remarks>
+    /// Bold, italic, shadow and strikethrough are assigned unconditionally, so a font element that
+    /// omits them decodes to <c>false</c> rather than inheriting from <paramref name="nf"/>. Both
+    /// decoder families behaved this way before spec 28, and it is harmless for a
+    /// <c>&lt;dxf&gt;</c> because a dxf is never decoded against a cell's font — every caller
+    /// passes a default-derived key, where those four are already <c>false</c>. See
+    /// <c>A_colour_only_conditional_format_leaves_a_bold_cell_bold</c>.
+    /// </remarks>
     internal static XLFontKey FontKey(Font f, XLFontKey nf)
     {
         nf = nf with
@@ -351,6 +383,10 @@ internal static class StyleDecoder
         return nf;
     }
 
+    /// <summary>
+    /// Decodes a <c>&lt;protection&gt;</c>. Before spec 28 no <c>&lt;dxf&gt;</c> caller read this
+    /// element at all, so a conditional or pivot format's protection was dropped on load.
+    /// </summary>
     internal static XLProtectionKey ProtectionKey(Protection protection, XLProtectionKey p)
     {
         // OI29500, hidden default is false, locked default is true.
@@ -549,6 +585,10 @@ internal static class StyleDecoder
             fontBase.FontCharSet = key.FontCharSet;
     }
 
+    /// <summary>
+    /// Whether a <c>&lt;cellXf&gt;</c> index attribute is both present and carries a value. Each
+    /// such guard suppresses a decode, so an absent index leaves that aspect at its default.
+    /// </summary>
     private static bool UInt32HasValue(UInt32Value? value)
     {
         return value != null && value.HasValue;
