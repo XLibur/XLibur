@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
@@ -208,8 +209,8 @@ public class SlicerReadModelTests
 
         using var saved = LoadAndSave();
 
-        await Assert.That(PartBytes(saved, "xl/slicers/slicer2.xml")).IsEquivalentTo(before);
-        await Assert.That(PartBytes(saved, "xl/slicerCaches/slicerCache1.xml")).IsEquivalentTo(beforeCache);
+        await Assert.That(PartBytes(saved, "xl/slicers/slicer2.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
+        await Assert.That(PartBytes(saved, "xl/slicerCaches/slicerCache1.xml")).IsEquivalentTo(beforeCache, CollectionOrdering.Matching);
     }
 
     [Test]

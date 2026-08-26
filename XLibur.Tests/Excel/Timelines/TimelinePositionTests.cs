@@ -4,6 +4,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 using XLibur.Excel;
 
 namespace XLibur.Tests.Excel.Timelines;
@@ -72,7 +73,7 @@ public class TimelinePositionTests
         // A position-only edit must not open the timelines part at all — PatchTimeline's early
         // return on (assigned & ~Position) == None is what this pins. Without it, a part Excel
         // authored would be re-serialised on every move, and nothing above this line would notice.
-        await Assert.That(PartBytes(saved, "xl/timelines/timeline1.xml")).IsEquivalentTo(timelinePartBefore);
+        await Assert.That(PartBytes(saved, "xl/timelines/timeline1.xml")).IsEquivalentTo(timelinePartBefore, CollectionOrdering.Matching);
 
         saved.Position = 0;
         using var reloaded = new XLWorkbook(saved);
