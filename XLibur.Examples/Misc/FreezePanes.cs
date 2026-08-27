@@ -23,10 +23,13 @@ public class FreezePanes : IXLExample
             ws3.Cell(5, 5).SetActive();
             ws3.SheetView.FreezeColumns(3);
 
+            // Setting the splits without freezing gives the draggable split bar of View -> Split.
+            // In that state the two values are OOXML's split positions in twentieths of a point,
+            // not line counts: 900 is three default 15pt rows, 2880 three default 48pt columns.
             var wsSplit = wb.AddWorksheet("Split View");
             wsSplit.Cell(2, 2).SetActive();
-            wsSplit.SheetView.SplitRow = 3;
-            wsSplit.SheetView.SplitColumn = 3;
+            wsSplit.SheetView.SplitRow = 900;
+            wsSplit.SheetView.SplitColumn = 2880;
 
             wb.SaveAs(filePath);
         }
