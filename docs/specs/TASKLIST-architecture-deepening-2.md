@@ -42,7 +42,7 @@ the test surface; where it has two, nothing sits at the seam to assert they agre
 | [30](30-array-application-seam.md) | Array application gets an interface | S–M | — | ⬜ Ready |
 | [31](31-worksheet-element-writers.md) | Worksheet element writers get one interface | M–L | **29** | ⬜ Blocked |
 | [32](32-function-argument-spec.md) | Collapse the 61-overload registration | L | **30** | ⬜ Blocked |
-| [33](33-sheet-listener-seam.md) | Every sheet feature reacts through one seam | M–L | 26 ✅ merged | ✅ **Done** (2026-08-27; see Results) |
+| [33](33-sheet-listener-seam.md) | Every sheet feature reacts through one seam | M–L | 26 ✅ merged | 🟡 **PR open** ([#414](https://github.com/XLibur/XLibur/pull/414); merge #413 first; see Results) |
 | [34](34-font-port-split.md) | Split the font port: mechanism vs policy | M | **27** | ⬜ Blocked |
 
 ### Spec 26 — Grid axis ✅ Merged (#409)
@@ -202,16 +202,23 @@ corpus must include loaded-file fixtures.
 - [ ] **32.N+1** Delete the 61 overloads and the `RegisterFunction` tail — PR #___
 - [ ] **32.N+2** Confirm no regression — PR #___
 
-### Spec 33 — Sheet listener seam ✅ Done (2026-08-27)
+### Spec 33 — Sheet listener seam 🟡 PR #414 open (2026-08-27)
 
-- [x] **33.1** Characterization tests for all **17** features, including the four that do not move — `52884707`
-- [x] **33.2** `GetSheetListeners()`; two existing adapters through it; order pinned — `09fb426f`
-- [x] **33.3** Convert the six hardcoded features — `302a85ea`
-- [x] **33.4** Chart and note anchors become adapters *(behaviour change)* — `105ff94a`
-- [x] **33.5** Freeze/split panes and pivot `Area` become adapters *(behaviour change)* — `3263ee4e`
-- [x] **33.6** Delete the `XLMarker` range-smuggling workaround — `d2e25f3a`
-- [x] **33.7** Confirm structural-edit cost unchanged — `335a8e97`
-- [x] **33.R** Code review at `high`; three defects found in the spec's *own* new work, all fixed — `6d27644a`
+**Merge [#413](https://github.com/XLibur/XLibur/pull/413) (spec 29) before #414.** Both carry a
+`docs/specs` sync from this folder, so each PR includes the other's in-flight documentation.
+Conflicts are textual only — resolve by keeping both edits. No source file is shared.
+**#414 does not unblock spec 34**, which waits on 27.
+
+All in [PR #414](https://github.com/XLibur/XLibur/pull/414).
+
+- [x] **33.1** Characterization tests for all **17** features, including the four that do not move — `52884707` (#414)
+- [x] **33.2** `GetSheetListeners()`; two existing adapters through it; order pinned — `09fb426f` (#414)
+- [x] **33.3** Convert the six hardcoded features — `302a85ea` (#414)
+- [x] **33.4** Chart and note anchors become adapters *(behaviour change)* — `105ff94a` (#414)
+- [x] **33.5** Freeze/split panes and pivot `Area` become adapters *(behaviour change)* — `3263ee4e` (#414)
+- [x] **33.6** Delete the `XLMarker` range-smuggling workaround — `d2e25f3a` (#414)
+- [x] **33.7** Confirm structural-edit cost unchanged — `335a8e97` (#414)
+- [x] **33.R** Code review at `high`; three defects found in the spec's *own* new work, all fixed — `6d27644a` (#414)
 
 **Outcome.** `XLWorksheetRangeShifter` 222 → 65 lines and names no feature; 11 types implement the
 port, up from 2; all four dead features move. Full suite green on net8.0 and net10.0, five assertions

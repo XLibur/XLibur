@@ -12,8 +12,11 @@ only the *choice* between its four members through `IGridAxis.OnInsertAreaAndShi
 should take the axis as a generic type argument, and **must not accept `IXLAddress` where the caller holds
 the concrete `XLAddress` struct** — that boxing cost 20–33% allocation on four probes before spec 26 caught
 it. See spec 26's Results. See Conflicts.
-**Status:** ✅ **Done** (2026-08-27) — all seven tasks landed on `refactor/33-sheet-listener-seam`, off
-`806d69f7`. See `## Results`. The shifter is 222 → 65 lines and names no feature; eleven types
+**Status:** ✅ **Done** — [**PR #414**](https://github.com/XLibur/XLibur/pull/414), opened 2026-08-27 off
+`806d69f7`. **Merge [#413](https://github.com/XLibur/XLibur/pull/413) (spec 29) first**: both carry a
+`docs/specs` sync from the shared source folder, so each includes the other's in-flight docs —
+conflicts are textual, resolve by keeping both. No source file is shared.
+See `## Results`. The shifter is 222 → 65 lines and names no feature; eleven types
 implement the port, up from two; the four features that reacted to nothing now react. Three new
 defects recorded (D15, D16, D17). One acceptance criterion — "at least 12 adapter types" — is
 arithmetically unreachable at 11, which is what the spec's own design section lists; reported rather
