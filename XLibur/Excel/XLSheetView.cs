@@ -119,14 +119,34 @@ internal sealed class XLSheetView : IXLSheetView, ISheetListener
 
     public void FreezeColumns(int columns)
     {
+        DropUnfrozenSplit();
         SplitColumn = columns;
         FreezePanes = true;
     }
 
     public void FreezeRows(int rows)
     {
+        DropUnfrozenSplit();
         SplitRow = rows;
         FreezePanes = true;
+    }
+
+    /// <summary>
+    /// Clears a split bar the sheet was carrying before one axis of it is frozen.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Freeze"/> overwrites both axes and needs none of this, but freezing a single axis
+    /// leaves the other one holding whatever it held — and for an unfrozen split that is a position
+    /// in twentieths of a point, not a line count. Reading a 2880-twip split bar back as 2880 frozen
+    /// columns is not a translation, so the bar is dropped rather than reinterpreted.
+    /// </remarks>
+    private void DropUnfrozenSplit()
+    {
+        if (FreezePanes)
+            return;
+
+        SplitRow = 0;
+        SplitColumn = 0;
     }
 
     public IXLSheetView SetView(XLSheetViewOptions value)
@@ -181,8 +201,11 @@ internal sealed class XLSheetView : IXLSheetView, ISheetListener
 
         var editFirstIndex = axis.IndexOf(edit.Range.RangeAddress.FirstAddress);
 
+        // Only a frozen split is a count of lines, and only a count of lines moves with an edit.
+        // An unfrozen split bar sits at a position in twentieths of a point, which no row or column
+        // edit displaces — and which MoveCount would silently zero out, losing the bar entirely.
         var split = axis.ShiftsRows ? SplitRow : SplitColumn;
-        if (split > 0)
+        if (FreezePanes && split > 0)
         {
             var moved = GridShift.MoveCount(split, editFirstIndex, edit.Shift);
             if (axis.ShiftsRows)

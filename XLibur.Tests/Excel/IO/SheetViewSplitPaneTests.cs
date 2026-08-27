@@ -21,11 +21,7 @@ public class SheetViewSplitPaneTests
     [Test]
     public async Task An_unfrozen_split_survives_a_round_trip()
     {
-        // <pane xSplit="2" ySplit="3" topLeftCell="C4" activePane="bottomRight" state="split"/> —
-        // written by freezing and then downgrading the state, so the rest of the pane is whatever
-        // XLibur itself would write.
-        using var package = Save(ws => ws.SheetView.Freeze(3, 2));
-        RewriteSheet1(package, xml => xml.Replace("state=\"frozen\"", "state=\"split\""));
+        using var package = SplitPackage();
         await Assert.That(Attribute(PaneTag(package), "state")).IsEqualTo("split");
 
         using (var wb = new XLWorkbook(package))
@@ -106,7 +102,80 @@ public class SheetViewSplitPaneTests
         await Assert.That(Attribute(PaneTag(package), "state")).IsEqualTo("frozen");
     }
 
+    /// <summary>
+    /// An unfrozen split's position is not a line count, so it names no cell to scroll a pane to.
+    /// Such a sheet scrolls through the view's own top-left, like a sheet with no pane at all.
+    /// </summary>
+    [Test]
+    public async Task Focusing_a_cell_on_a_split_sheet_scrolls_the_view()
+    {
+        using var package = SplitPackage();
+        using (var wb = new XLWorkbook(package))
+        {
+            var ws = wb.Worksheet("S");
+            ws.FocusCell(ws.Cell("B2")!);
+            wb.SaveAs(package);
+        }
+
+        await Assert.That(Attribute(Tag(package, "sheetView"), "topLeftCell")).IsEqualTo("B2");
+        await Assert.That(Attribute(PaneTag(package), "topLeftCell")).IsEqualTo("A1");
+    }
+
+    /// <summary>
+    /// The split grows and shrinks with an edit inside it because it counts frozen lines — which it
+    /// only does for a freeze. Twentieths of a point are not lines, and no row edit moves them.
+    /// </summary>
+    [Test]
+    public async Task A_row_or_column_edit_does_not_move_an_unfrozen_split()
+    {
+        using var package = SplitPackage();
+        using var wb = new XLWorkbook(package);
+        var view = wb.Worksheet("S").SheetView;
+
+        view.Worksheet.Row(1).InsertRowsAbove(3);
+        view.Worksheet.Column(1).InsertColumnsBefore(3);
+
+        await Assert.That(view.SplitRow).IsEqualTo(3);
+        await Assert.That(view.SplitColumn).IsEqualTo(2);
+
+        // The case that loses the split bar outright: deleting every line "above" a 3-twip split.
+        view.Worksheet.Rows(1, 100).Delete();
+
+        await Assert.That(view.SplitRow).IsEqualTo(3);
+    }
+
+    /// <summary>
+    /// Freezing one axis cannot reinterpret the other: the axis left alone is holding twentieths of
+    /// a point, and reading 2 of those as two frozen columns is not a translation.
+    /// </summary>
+    [Test]
+    public async Task Freezing_one_axis_of_an_unfrozen_split_drops_the_other()
+    {
+        using var package = SplitPackage();
+        using var wb = new XLWorkbook(package);
+        var view = wb.Worksheet("S").SheetView;
+
+        view.FreezeRows(2);
+
+        await Assert.That(view.FreezePanes).IsTrue();
+        await Assert.That(view.SplitRow).IsEqualTo(2);
+        await Assert.That(view.SplitColumn).IsEqualTo(0);
+    }
+
     #region Helpers
+
+    /// <summary>
+    /// A package whose only sheet carries
+    /// <c>&lt;pane xSplit="2" ySplit="3" topLeftCell="C4" activePane="bottomRight" state="split"/&gt;</c>
+    /// — written by freezing and then downgrading the state, so the rest of the pane is whatever
+    /// XLibur itself would write.
+    /// </summary>
+    private static MemoryStream SplitPackage()
+    {
+        var package = Save(ws => ws.SheetView.Freeze(3, 2));
+        RewriteSheet1(package, xml => xml.Replace("state=\"frozen\"", "state=\"split\""));
+        return package;
+    }
 
     private static MemoryStream Save(Action<IXLWorksheet> arrange)
     {
@@ -133,19 +202,26 @@ public class SheetViewSplitPaneTests
         using (var reader = new StreamReader(entry.Open()))
             xml = reader.ReadToEnd();
 
+        var rewritten = transform(xml);
+        if (rewritten == xml)
+            throw new InvalidOperationException(
+                "The sheet1.xml transform changed nothing, so the test is not exercising what it says.");
+
         using var stream = entry.Open();
         stream.SetLength(0);
         using var writer = new StreamWriter(stream, new UTF8Encoding(false));
-        writer.Write(transform(xml));
+        writer.Write(rewritten);
     }
 
+    private static string PaneTag(MemoryStream package) => Tag(package, "pane");
+
     /// <summary>
-    /// Matches the <c>pane</c> element whatever prefix the serialiser gave it — see
+    /// Matches an element whatever prefix the serialiser gave it — see
     /// <see cref="WritePathAgreementTests"/>, which reads the same bytes for the same reason.
     /// </summary>
-    private static string PaneTag(MemoryStream package)
+    private static string Tag(MemoryStream package, string name)
     {
-        var match = Regex.Match(ReadSheet1(package), "<(?:[A-Za-z_][\\w.-]*:)?pane\\b[^>]*>");
+        var match = Regex.Match(ReadSheet1(package), $"<(?:[A-Za-z_][\\w.-]*:)?{name}\\b[^>]*>");
         return match.Success ? match.Value : string.Empty;
     }
 
