@@ -38,9 +38,9 @@ the test surface; where it has two, nothing sits at the seam to assert they agre
 | [26](26-grid-axis.md) | Give the grid one axis | L | — | ✅ **Merged** (#409; see Results) |
 | [27](27-font-conformance-suite.md) | One font conformance module | S–M | — | ⬜ Ready |
 | [28](28-single-style-decoder.md) | One OOXML style decoder | M | — | ✅ **Merged** (#411; see Results) |
-| [29](29-write-path-resolvers.md) | One resolver per emitted element | M | — | ✅ Done |
+| [29](29-write-path-resolvers.md) | One resolver per emitted element | M | — | ✅ **Merged** (#413; see Results) |
 | [30](30-array-application-seam.md) | Array application gets an interface | S–M | — | ⬜ Ready |
-| [31](31-worksheet-element-writers.md) | Worksheet element writers get one interface | M–L | **29** | ⬜ Blocked |
+| [31](31-worksheet-element-writers.md) | Worksheet element writers get one interface | M–L | 29 ✅ merged | ⬜ **Ready** |
 | [32](32-function-argument-spec.md) | Collapse the 61-overload registration | L | **30** | ⬜ Blocked |
 | [33](33-sheet-listener-seam.md) | Every sheet feature reacts through one seam | M–L | 26 ✅ merged | 🟡 **PR open** ([#414](https://github.com/XLibur/XLibur/pull/414); merge #413 first; see Results) |
 | [34](34-font-port-split.md) | Split the font port: mechanism vs policy | M | **27** | ⬜ Blocked |
@@ -136,7 +136,7 @@ acceptance gate does not read 0, and the reasons matter.
 - [x] **28.x** Unplanned: cellXf fill decodes against the default fill, not the inherited one — `ffeea134` — PR #411
       *Found re-reading the port against the original branch by branch. Latent, not live.*
 
-### Spec 29 — Write-path resolvers ✅ Done (2026-08-27)
+### Spec 29 — Write-path resolvers ✅ Merged (#413, `8d2acfc7`, 2026-08-27)
 
 - [x] **29.1** Cross-path agreement harness *(landed failing on the pane state)* — `7c57efd8`
 - [x] **29.2** Decide and fix `frozen` vs `frozenSplit`; task 1 turns green — `bce00355`
@@ -147,9 +147,10 @@ acceptance gate does not read 0, and the reasons matter.
   for either**, with line references in the spec's Results
 - [x] **29.7** Confirm streaming's bounded memory — 107.9 MB / 14.0 MB, identical to spec 01
 
-Branch `refactor/29-write-path-resolvers`, open as **PR #413** (CI green, mergeable). Merge it
-before spec 33 — both sync `docs/specs` and both add `## Unreleased` changelog entries, so expect
-trivial conflicts in those two places and keep both. Suite green on both TFMs:
+Branch `refactor/29-write-path-resolvers`, **merged as [#413](https://github.com/XLibur/XLibur/pull/413)
+(`8d2acfc7`) on 2026-08-27**, before spec 33 as planned. The predicted conflicts with #414 were
+exactly the predicted two — `docs/specs` and the `## Unreleased` changelog entries — with no source
+file shared; resolved on #414's branch by keeping both. Suite green on both TFMs:
 28,358 tests, 0 failed. Found and recorded **D18** on the way (an unfrozen split pane is lost on
 load, and any split is written back as a freeze) — not fixed, it needs a public API change.
 
@@ -162,7 +163,7 @@ load, and any split is written back as a freeze) — not fixed, it needs a publi
 - [ ] **30.5** Collapse the two entry points into `Call(ctx, args, mode)` — PR #___
 - [ ] **30.6** Confirm no allocation or time regression — PR #___
 
-### Spec 31 — Worksheet element writers ⬜ Blocked on 29
+### Spec 31 — Worksheet element writers ⬜ Ready (29 merged as #413, 2026-08-27)
 
 - [ ] **31.1** Golden byte-identity baseline; prove the gate can fail — PR #___
 - [ ] **31.2** `IXLWorksheetElementWriter` + context struct; one writer converted — PR #___
@@ -273,11 +274,11 @@ flowchart LR
   S26["spec 26<br/>grid axis"]:::done
   S27["spec 27<br/>font conformance"]:::ready
   S28["spec 28<br/>style decoder"]:::done
-  S29["spec 29<br/>write-path resolvers<br/>PR #413"]:::done
+  S29["spec 29<br/>write-path resolvers<br/>#413 merged"]:::done
   S30["spec 30<br/>array application"]:::ready
-  S31["spec 31<br/>worksheet element writers"]:::blocked
+  S31["spec 31<br/>worksheet element writers"]:::ready
   S32["spec 32<br/>function argument spec"]:::blocked
-  S33["spec 33<br/>sheet listener seam"]:::done
+  S33["spec 33<br/>sheet listener seam<br/>PR #414"]:::done
   S34["spec 34<br/>font port split"]:::blocked
 
   S26 -->|"hard: XLWorksheetRangeShifter.cs<br/>XLWorksheet.cs"| S33

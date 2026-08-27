@@ -138,24 +138,24 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         Purge(sheet.Workbook.WorksheetsInternal);
     }
 
-    public void OnInsertAreaAndShiftDown(XLWorksheet sheet, Area area)
+    public void OnInsertAreaAndShiftDown(in SheetEdit edit)
     {
-        Purge(sheet.Workbook.WorksheetsInternal);
+        Purge(edit.Sheet.Workbook.WorksheetsInternal);
     }
 
-    public void OnInsertAreaAndShiftRight(XLWorksheet sheet, Area area)
+    public void OnInsertAreaAndShiftRight(in SheetEdit edit)
     {
-        Purge(sheet.Workbook.WorksheetsInternal);
+        Purge(edit.Sheet.Workbook.WorksheetsInternal);
     }
 
-    public void OnDeleteAreaAndShiftLeft(XLWorksheet sheet, Area deletedRange)
+    public void OnDeleteAreaAndShiftLeft(in SheetEdit edit)
     {
-        Purge(sheet.Workbook.WorksheetsInternal);
+        Purge(edit.Sheet.Workbook.WorksheetsInternal);
     }
 
-    public void OnDeleteAreaAndShiftUp(XLWorksheet sheet, Area deletedRange)
+    public void OnDeleteAreaAndShiftUp(in SheetEdit edit)
     {
-        Purge(sheet.Workbook.WorksheetsInternal);
+        Purge(edit.Sheet.Workbook.WorksheetsInternal);
     }
 
     /// <summary>

@@ -1,40 +1,52 @@
-using System;
 using System.Diagnostics;
-using System.Drawing;
+using XLibur.Excel.Coordinates;
+using PixelOffset = System.Drawing.Point;
 
 namespace XLibur.Excel.Drawings;
 
+/// <summary>
+/// One corner of a picture's anchor: the cell it hangs off, and a pixel offset within that cell.
+/// </summary>
+/// <remarks>
+/// Anchors are shifted by <see cref="DrawingAnchorListener"/>, registered in
+/// <see cref="XLWorksheet.GetSheetListeners"/>. Before spec 33 the anchor was held as a one-cell
+/// range rather than as a point, allocated for no reason except that the repository of live ranges
+/// shifts a range and does not shift a point — and the field's own comment said so. It was
+/// validated to be exactly one cell on the way in and unwrapped again by every reader, so it was
+/// never a range in any sense but the one that made it move: the seam smuggled past, in a comment,
+/// in shipped code. It is a <see cref="Coordinates.Point"/> now, and it moves because a listener
+/// tells it to.
+/// <para>
+/// Two types called <c>Point</c> meet here: <see cref="Offset"/> is a <c>System.Drawing.Point</c> of
+/// pixels, aliased to <c>PixelOffset</c> so it cannot be confused with the row-and-column
+/// <see cref="Coordinates.Point"/> the anchor is.
+/// </para>
+/// </remarks>
 [DebuggerDisplay("R{RowNumber}C{ColumnNumber} {Offset}")]
 internal sealed class XLMarker
 {
-    // Using a range to store the location so that it gets added to the range repository
-    // and hence will be adjusted when there are insertions / deletions
-    private readonly IXLRange rangeCell;
+    private readonly XLWorksheet _worksheet;
 
     internal XLMarker(IXLCell cell)
-        : this(cell.AsRange(), new Point(0, 0))
+        : this(cell, new PixelOffset(0, 0))
     {
     }
 
-    internal XLMarker(IXLCell cell, Point offset)
-        : this(cell.AsRange(), offset)
+    internal XLMarker(IXLCell cell, PixelOffset offset)
     {
-    }
-
-    private XLMarker(IXLRange rangeCell, Point offset)
-    {
-        if (rangeCell.RowCount() != 1 || rangeCell.ColumnCount() != 1)
-            throw new ArgumentException("Range should contain only one cell.", nameof(rangeCell));
-
-        this.rangeCell = rangeCell;
+        _worksheet = (XLWorksheet)cell.Worksheet;
+        Anchor = new Point(cell.Address.RowNumber, cell.Address.ColumnNumber);
         Offset = offset;
     }
 
-    public IXLCell Cell => rangeCell.FirstCell();
+    /// <summary>The anchored cell, as a row and a column. Moved by <see cref="DrawingAnchorListener"/>.</summary>
+    internal Point Anchor { get; set; }
 
-    public int ColumnNumber => rangeCell.RangeAddress.FirstAddress.ColumnNumber;
+    public IXLCell Cell => _worksheet.Internals.CellsCollection.GetCell(Anchor);
 
-    public Point Offset { get; set; }
+    public int ColumnNumber => Anchor.Column;
 
-    public int RowNumber => rangeCell.RangeAddress.FirstAddress.RowNumber;
+    public PixelOffset Offset { get; set; }
+
+    public int RowNumber => Anchor.Row;
 }

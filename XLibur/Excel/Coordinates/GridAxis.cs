@@ -49,6 +49,11 @@ internal interface IGridAxis
     int IndexOf(IXLAddress address);
     int CrossOf(IXLAddress address);
 
+    /// <summary>The same two projections for the packed <see cref="Point"/>, which the features
+    /// holding a raw position use in place of an address.</summary>
+    int IndexOf(in Point point);
+    int CrossOf(in Point point);
+
     /// <summary>Builds a point from a position on this axis and one on the cross axis.</summary>
     Point PointAt(int index, int cross);
 
@@ -109,8 +114,9 @@ internal interface IGridAxis
     /// <summary>The stored style of a cross-axis line, falling back to the worksheet's own style.</summary>
     IXLStyle CrossLineStyle(XLWorksheet worksheet, int cross);
 
-    /// <summary><c>PageSetup.RowBreaks</c> on the row axis, <c>ColumnBreaks</c> on the column axis.</summary>
-    List<int> PageBreaks(XLWorksheet worksheet);
+    /// <summary><c>RowBreaks</c> on the row axis, <c>ColumnBreaks</c> on the column axis. Takes the
+    /// page setup rather than the worksheet, because the caller is the page setup itself.</summary>
+    List<int> PageBreaks(XLPageSetup pageSetup);
 
     /// <summary>
     /// Re-points a formula's references for a shift on this axis —
@@ -127,8 +133,14 @@ internal interface IGridAxis
     XLAreaList InsertAndShift(XLAreaList areas, Area affected);
     XLAreaList DeleteAndShift(XLAreaList areas, Area affected);
 
-    void OnInsertAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area);
-    void OnDeleteAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area);
+    /// <summary>The <see cref="ISheetListener"/> member for an insert on this axis — <c>ShiftDown</c>
+    /// on the row axis, <c>ShiftRight</c> on the column axis. The edit is passed <c>in</c>, so
+    /// choosing the member costs no copy.</summary>
+    void OnInsertAreaAndShift(ISheetListener listener, in SheetEdit edit);
+
+    /// <summary>The <see cref="ISheetListener"/> member for a delete on this axis — <c>ShiftUp</c> on
+    /// the row axis, <c>ShiftLeft</c> on the column axis.</summary>
+    void OnDeleteAreaAndShift(ISheetListener listener, in SheetEdit edit);
 }
 
 /// <summary>The row axis: rows are inserted, deleted and shifted; each row spans 16,384 columns.</summary>
@@ -142,6 +154,8 @@ internal readonly struct RowAxis : IGridAxis
     public int CrossOf(in XLAddress address) => address.ColumnNumber;
     public int IndexOf(IXLAddress address) => address.RowNumber;
     public int CrossOf(IXLAddress address) => address.ColumnNumber;
+    public int IndexOf(in Point point) => point.Row;
+    public int CrossOf(in Point point) => point.Column;
     public Point PointAt(int index, int cross) => new(index, cross);
     public XLAddress AddressAt(XLWorksheet worksheet, int index, int cross, bool fixedRow, bool fixedColumn)
         => new(worksheet, index, cross, fixedRow, fixedColumn);
@@ -173,7 +187,7 @@ internal readonly struct RowAxis : IGridAxis
         => worksheet.Internals.ColumnsCollection.TryGetValue(cross, out var column)
             ? column.Style
             : worksheet.Style;
-    public List<int> PageBreaks(XLWorksheet worksheet) => worksheet.PageSetup.RowBreaks;
+    public List<int> PageBreaks(XLPageSetup pageSetup) => pageSetup.RowBreaks;
     public string ShiftFormula(string reference, XLWorksheet worksheet, XLRange range, int shift)
         => XLCellFormulaShifter.ShiftFormulaRows(reference, worksheet, range, shift);
     public XLAddress AddressAtMaxIndex(in XLAddress last)
@@ -181,10 +195,10 @@ internal readonly struct RowAxis : IGridAxis
     public Area ExtendAlongIndex(Area area, int by) => area.ExtendBelow(by);
     public XLAreaList InsertAndShift(XLAreaList areas, Area affected) => areas.InsertAndShiftDown(affected);
     public XLAreaList DeleteAndShift(XLAreaList areas, Area affected) => areas.DeleteAndShiftUp(affected);
-    public void OnInsertAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area)
-        => listener.OnInsertAreaAndShiftDown(sheet, area);
-    public void OnDeleteAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area)
-        => listener.OnDeleteAreaAndShiftUp(sheet, area);
+    public void OnInsertAreaAndShift(ISheetListener listener, in SheetEdit edit)
+        => listener.OnInsertAreaAndShiftDown(in edit);
+    public void OnDeleteAreaAndShift(ISheetListener listener, in SheetEdit edit)
+        => listener.OnDeleteAreaAndShiftUp(in edit);
 }
 
 /// <summary>The column axis: columns are inserted, deleted and shifted; each column spans 1,048,576 rows.</summary>
@@ -198,6 +212,8 @@ internal readonly struct ColumnAxis : IGridAxis
     public int CrossOf(in XLAddress address) => address.RowNumber;
     public int IndexOf(IXLAddress address) => address.ColumnNumber;
     public int CrossOf(IXLAddress address) => address.RowNumber;
+    public int IndexOf(in Point point) => point.Column;
+    public int CrossOf(in Point point) => point.Row;
     public Point PointAt(int index, int cross) => new(cross, index);
     public XLAddress AddressAt(XLWorksheet worksheet, int index, int cross, bool fixedRow, bool fixedColumn)
         => new(worksheet, cross, index, fixedRow, fixedColumn);
@@ -229,7 +245,7 @@ internal readonly struct ColumnAxis : IGridAxis
         => worksheet.Internals.RowsCollection.TryGetValue(cross, out var row)
             ? row.Style
             : worksheet.Style;
-    public List<int> PageBreaks(XLWorksheet worksheet) => worksheet.PageSetup.ColumnBreaks;
+    public List<int> PageBreaks(XLPageSetup pageSetup) => pageSetup.ColumnBreaks;
     public string ShiftFormula(string reference, XLWorksheet worksheet, XLRange range, int shift)
         => XLCellFormulaShifter.ShiftFormulaColumns(reference, worksheet, range, shift);
     public XLAddress AddressAtMaxIndex(in XLAddress last)
@@ -237,8 +253,8 @@ internal readonly struct ColumnAxis : IGridAxis
     public Area ExtendAlongIndex(Area area, int by) => area.ExtendRight(by);
     public XLAreaList InsertAndShift(XLAreaList areas, Area affected) => areas.InsertAndShiftRight(affected);
     public XLAreaList DeleteAndShift(XLAreaList areas, Area affected) => areas.DeleteAndShiftLeft(affected);
-    public void OnInsertAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area)
-        => listener.OnInsertAreaAndShiftRight(sheet, area);
-    public void OnDeleteAreaAndShift(ISheetListener listener, XLWorksheet sheet, Area area)
-        => listener.OnDeleteAreaAndShiftLeft(sheet, area);
+    public void OnInsertAreaAndShift(ISheetListener listener, in SheetEdit edit)
+        => listener.OnInsertAreaAndShiftRight(in edit);
+    public void OnDeleteAreaAndShift(ISheetListener listener, in SheetEdit edit)
+        => listener.OnDeleteAreaAndShiftLeft(in edit);
 }

@@ -29,6 +29,18 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     private readonly List<IXLRangeIndex> _rangeIndices;
     private readonly XLOutlineTracker _outlineTracker = new();
     private readonly XLWorksheetRangeShifter _rangeShifter;
+
+    /// <summary>
+    /// Carries the merged-range straddle split, which has no collection of its own to live on — the
+    /// merges are a general-purpose <see cref="XLRanges"/> shared with every other range collection.
+    /// </summary>
+    private readonly MergedRangeSplitListener _mergedRangeSplitter;
+
+    /// <summary>
+    /// Carries the chart, note and picture anchors, which hold raw positions rather than ranges and
+    /// so have no collection of their own that could react.
+    /// </summary>
+    private readonly DrawingAnchorListener _drawingAnchors;
     private readonly XLWorksheetDataInserter _dataInserter;
     private readonly XLRanges _selectedRanges;
 
@@ -79,6 +91,8 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         _rangeRepository = new XLRangeRepository(workbook, _rangeFactory.Create);
         _rangeIndices = [];
         _rangeShifter = new XLWorksheetRangeShifter(this);
+        _mergedRangeSplitter = new MergedRangeSplitListener(this);
+        _drawingAnchors = new DrawingAnchorListener(this);
         _dataInserter = new XLWorksheetDataInserter(this);
 
         Pictures = new XLPictures(this);
@@ -90,7 +104,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         PivotTables = new XLPivotTables(this);
         _protection = new XLSheetProtection(DefaultProtectionAlgorithm);
         AutoFilter = new XLAutoFilter();
-        ConditionalFormats = [];
+        ConditionalFormats = new XLConditionalFormats(this);
         SparklineGroupsInternal = new XLSparklineGroups(this);
         Internals = new XLWorksheetInternals(new XLCellsCollection(this), new XLColumnsCollection(),
             new XLRowsCollection(), new XLRanges());
@@ -1251,6 +1265,51 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     public override XLRange AsRange()
     {
         return Range(1, 1, XLHelper.MaxRowNumber, XLHelper.MaxColumnNumber);
+    }
+
+    /// <summary>
+    /// Every component that must react when an area is inserted into or deleted from this sheet.
+    /// The workbook-level counterpart is <see cref="XLWorksheets.GetWorkbookListeners"/>.
+    /// </summary>
+    /// <remarks>
+    /// All components that should be updated when rows or columns are inserted or deleted should be
+    /// enumerated here — and nowhere else. Adding a sheet feature that must survive a structural
+    /// edit is one adapter plus one <c>yield return</c>.
+    /// <para>
+    /// <b>Order is part of the contract.</b> It is pinned by <c>SheetListenerOrderTests</c>;
+    /// changing it is a behaviour change and needs that test updated deliberately. Listeners
+    /// belonging to other sheets are yielded too — defined names and data-validation criteria
+    /// formulas are workbook-scoped and must see an edit on any sheet. Such a listener guards on
+    /// the sheet it is given, the way <see cref="XLHyperlinks"/> does, unless it deliberately
+    /// should not.
+    /// </para>
+    /// </remarks>
+    internal IEnumerable<ISheetListener> GetSheetListeners()
+    {
+        yield return _mergedRangeSplitter;
+
+        foreach (var sheet in Workbook.WorksheetsInternal)
+            yield return sheet.DefinedNames;
+        yield return Workbook.DefinedNamesInternal;
+
+        yield return ConditionalFormats;
+
+        // One per sheet, not this sheet's twice: XLDataValidations shifts its own sqref coverage and
+        // then every sheet's criteria formulas in one call, because the second must follow the first.
+        foreach (var sheet in Workbook.WorksheetsInternal)
+            yield return sheet.DataValidations;
+
+        yield return (XLPageSetup)PageSetup;
+        yield return SparklineGroupsInternal;
+
+        yield return Workbook.CalcEngine;
+        yield return Hyperlinks;
+
+        // Features that did not react at all before spec 33.
+        yield return _drawingAnchors;
+        yield return SheetView;
+        foreach (var pivotTable in PivotTables)
+            yield return pivotTable;
     }
 
     internal override void WorksheetRangeShiftedColumns(XLRange range, int columnsShifted)

@@ -14,7 +14,7 @@ namespace XLibur.Excel;
 // the layout-mode setter assigns all four backing fields together, which an init-only
 // auto-property cannot express.
 #pragma warning disable S2292
-internal sealed class XLPivotTable : IXLPivotTable
+internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
 {
     private readonly XLWorksheet _worksheet;
 
@@ -884,6 +884,78 @@ internal sealed class XLPivotTable : IXLPivotTable
     {
         _pivotFilters.Add(pivotFilter);
     }
+
+    #region ISheetListener
+
+    /// <summary>
+    /// Moves the table over a structural edit on its own sheet.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Area"/> is the whole of the table's position: <see cref="TargetCell"/> is derived
+    /// from its first point, so moving the area moves the table. Before spec 33 nothing notified it
+    /// and a pivot table anchored at <c>D10</c> stayed at <c>D10</c> when rows were inserted above
+    /// it, while the cells Excel had rendered it into moved.
+    /// </para>
+    /// <para>
+    /// The enumeration yields one listener per pivot table, matching how
+    /// <c>XLWorksheets.GetWorkbookListeners</c> yields one per defined name. The transform is the
+    /// same <see cref="GridShift.MoveArea{TAxis}"/> the drawing anchors use, so an insert above the
+    /// table moves it and an insert inside it grows it — the area is a real extent for a table read
+    /// from a file, where it comes from <c>location/@ref</c>.
+    /// </para>
+    /// <para>
+    /// The table's <em>source</em> is a separate concern and is not touched here: it lives on the
+    /// pivot cache as a range or a defined name, and it is re-pointed through those, not through
+    /// this area.
+    /// </para>
+    /// </remarks>
+    void ISheetListener.OnInsertAreaAndShiftDown(in SheetEdit edit) => MoveArea<RowAxis>(in edit);
+
+    void ISheetListener.OnInsertAreaAndShiftRight(in SheetEdit edit) => MoveArea<ColumnAxis>(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftUp(in SheetEdit edit) => MoveArea<RowAxis>(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftLeft(in SheetEdit edit) => MoveArea<ColumnAxis>(in edit);
+
+    private void MoveArea<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        if (edit.Sheet != _worksheet)
+            return;
+
+        Area = KeepRoomForFilters(GridShift.MoveArea<TAxis>(Area, edit.Range, edit.Shift));
+    }
+
+    /// <summary>
+    /// Holds the area far enough down the sheet that the report filters still fit above it.
+    /// </summary>
+    /// <remarks>
+    /// The filters sit above the area with a one-row gap, and <see cref="TargetCell"/> is
+    /// <c>Area.FirstPoint</c> shifted <em>up</em> by that many rows. A delete clamps the area onto
+    /// the deletion point, so without this a table with report filters near the top of the sheet
+    /// computes a target above row 1: <see cref="Point"/> stores its row 0-based in an unsigned
+    /// field, so row 0 wraps rather than throwing and the caller is handed a corrupt cell reference
+    /// (<c>TargetCell.Address</c> reads <c>#REF!</c>). Nothing could reach this before spec 33,
+    /// because the area never moved.
+    /// <para>
+    /// Pushing the area down rather than clamping only its top keeps the table's height, which
+    /// matters for an area read from a file — <c>location/@ref</c> is a real extent, not a corner.
+    /// </para>
+    /// </remarks>
+    private Area KeepRoomForFilters(Area area)
+    {
+        var minRow = Filters.GetSizeWithGap().Height + 1;
+        if (area.FirstPoint.Row >= minRow)
+            return area;
+
+        var down = minRow - area.FirstPoint.Row;
+        return new Area(
+            new Point(minRow, area.FirstPoint.Column),
+            new Point(Math.Min(area.LastPoint.Row + down, XLHelper.MaxRowNumber), area.LastPoint.Column));
+    }
+
+    #endregion ISheetListener
 
     #region location
 

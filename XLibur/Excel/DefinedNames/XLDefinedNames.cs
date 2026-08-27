@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 
 namespace XLibur.Excel;
@@ -10,7 +11,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// A collection of a named ranges, either for workbook or for worksheet.
 /// </summary>
-internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedName>
+internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedName>, ISheetListener
 {
     private readonly Dictionary<string, XLDefinedName> _namedRanges = new(XLHelper.NameComparer);
 
@@ -32,6 +33,57 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
         Workbook = workbook;
         Scope = XLNamedRangeScope.Workbook;
     }
+
+    #region ISheetListener
+
+    /// <summary>
+    /// Re-points every name in this collection at the edited range's new addresses.
+    /// </summary>
+    /// <remarks>
+    /// <b>Deliberately unguarded.</b> Unlike <see cref="XLHyperlinks"/> this does not compare
+    /// <c>edit.Sheet</c> with its own sheet, because a name defined on one sheet may refer to
+    /// another, and every collection in the workbook — each sheet's and the workbook's own — is
+    /// yielded for every edit. The filtering happens one level down:
+    /// <see cref="XLCellFormulaShifter"/> re-points only references to the sheet that was edited and
+    /// leaves references to any other sheet alone, which is the same reasoning that let the
+    /// hardcoded pass this replaced visit every worksheet.
+    /// <para>
+    /// A reference that shifts to nothing is dropped from the list rather than left as an error, so
+    /// a name whose every reference is deleted ends up referring to an empty string.
+    /// </para>
+    /// </remarks>
+    void ISheetListener.OnInsertAreaAndShiftDown(in SheetEdit edit) => MoveDefinedNames<RowAxis>(in edit);
+
+    void ISheetListener.OnInsertAreaAndShiftRight(in SheetEdit edit) => MoveDefinedNames<ColumnAxis>(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftUp(in SheetEdit edit) => MoveDefinedNames<RowAxis>(in edit);
+
+    void ISheetListener.OnDeleteAreaAndShiftLeft(in SheetEdit edit) => MoveDefinedNames<ColumnAxis>(in edit);
+
+    private void MoveDefinedNames<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        var axis = default(TAxis);
+
+        // The edit arrives as an `in` parameter, which the Select lambda below cannot capture.
+        var sheet = edit.Sheet;
+        var range = edit.Range;
+        var shift = edit.Shift;
+
+        foreach (var definedName in this)
+        {
+            var sheetRefs = definedName.GetSheetReferencesList();
+            if (sheetRefs.Count == 0)
+                continue;
+            var newRangeList = sheetRefs
+                .Select(r => axis.ShiftFormula(r, sheet, range, shift))
+                .Where(newReference => newReference.Length > 0)
+                .ToList();
+            definedName.SetRefersTo(string.Join(",", newRangeList));
+        }
+    }
+
+    #endregion ISheetListener
 
     #region IXLNamedRanges Members
 

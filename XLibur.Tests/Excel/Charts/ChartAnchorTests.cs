@@ -215,4 +215,45 @@ public class ChartAnchorTests
             await Assert.That(chart.Series.Single().FillColor).IsEqualTo(XLColor.FromHtml("#C00000"));
         }
     }
+
+    /// <summary>
+    /// An in-memory assertion does not prove the file is right. Spec 33 task 4 made chart anchors
+    /// move with a structural edit; this is the same claim read back out of the package, off the
+    /// <c>xdr:twoCellAnchor</c>'s own <c>xdr:from</c> and <c>xdr:to</c> markers.
+    /// </summary>
+    [Test]
+    public async Task A_chart_anchor_survives_a_row_insert_through_a_round_trip()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = AddDataSheet(wb);
+            var chart = ws.Charts.Add(XLChartType.ColumnClustered);
+            chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            chart.Position.SetColumn(2).SetRow(3);
+            chart.SecondPosition.SetColumn(9).SetRow(19);
+
+            ws.Row(1).InsertRowsAbove(3);
+
+            await Assert.That(chart.Position.Row).IsEqualTo(6);
+            await Assert.That(chart.SecondPosition.Row).IsEqualTo(22);
+
+            using var saved = SaveValidated(wb);
+            var drawing = DrawingOf(saved);
+            var anchor = drawing.Elements<Xdr.TwoCellAnchor>().Single();
+            await Assert.That(anchor.FromMarker!.RowId!.Text).IsEqualTo("6");
+            await Assert.That(anchor.ToMarker!.RowId!.Text).IsEqualTo("22");
+
+            saved.Position = 0;
+            saved.CopyTo(ms);
+        }
+
+        ms.Position = 0;
+        using (var wb = new XLWorkbook(ms))
+        {
+            var chart = wb.Worksheet("Data").Charts.Single();
+            await Assert.That(chart.Position.Row).IsEqualTo(6);
+            await Assert.That(chart.SecondPosition.Row).IsEqualTo(22);
+        }
+    }
 }
