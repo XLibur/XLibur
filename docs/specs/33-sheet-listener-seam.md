@@ -1329,8 +1329,14 @@ task 7 is for**, and caching the listener list would have hidden it rather than 
   is the one sheet feature still notified twice from two layers. Folding it in means moving a call
   site, not writing an adapter. Noted in the adapter's remarks and left for a follow-on, as the
   dispatch brief directed.
-- **D15 is preserved, not fixed.** Making the shifter's area agree with `XLRangeInsertHelper`'s
-  `insertedRange` changes output for existing documents and belongs in its own spec.
+- **D15 was preserved, not fixed** — deliberately, because tasks 2 and 3 had to change nothing, and
+  because making the shifter's area agree with `XLRangeInsertHelper`'s `insertedRange` changes output
+  for existing documents. This spec pinned the defect instead, in
+  `SheetEditAreaTests.The_listener_area_is_the_whole_range_extended_by_shift_minus_one`, so that
+  whoever fixed it had to change that test deliberately. **It has since been fixed on `fix/D15`**,
+  which re-pointed both pins rather than deleting them; `XLWorksheetRangeShifter` now trims the area
+  to the edited range's leading edge before extending it, and the delete branch turned out to need no
+  change at all.
 - **`XLRangeShiftHelper`'s `destroyedByShift` branch is untouched.** D16 is fixed for drawing anchors
   by moving them onto `GridShift`; an ordinary stored range still behaves the old way, because
   "destroyed" may well be the right answer for a range and that is a separate question.
@@ -1354,16 +1360,20 @@ task 7 is for**, and caching the listener list would have hidden it rather than 
   `CollectionOrdering.Matching` — the default is order-insensitive and would pin the set while
   letting the order change underneath. It also pins that workbook-scoped listeners are yielded once
   per sheet and that each pivot table is its own listener.
-- **`SheetEdit.Area` and `SheetEdit.CoverageArea<TAxis>()` are different, and substituting one for
-  the other is a defect.** The difference is documented on the type and repeated at both call sites.
-  This is the trap task 3 step 2 warned about; the arithmetic was checked rather than assumed, and
-  they differ whenever the edited range is more than one line tall on the shift axis.
+- **`SheetEdit.Area` and `SheetEdit.CoverageArea<TAxis>()` were different, and substituting one for
+  the other was a defect.** The difference was documented on the type and repeated at both call
+  sites. This is the trap task 3 step 2 warned about; the arithmetic was checked rather than assumed,
+  and they differed whenever the edited range was more than one line tall on the shift axis — because
+  `Area` carried D15 and `CoverageArea` did not. **The D15 fix on `fix/D15` makes the two agree for
+  every reachable call**, so the two are now redundant rather than distinct; collapsing them was left
+  out of that fix to keep it minimal, and is the follow-on this bullet now points at.
 - **`GridShift` is the transform for anything holding a raw position.** A line index, a line count,
   or an area. It is `XLRangeShiftHelper` reduced to the integers, so a feature that adopts it moves
   the way a feature in the range repository already moves — by construction, not by coincidence.
 - **Three new defects to pick up:** D15 (hyperlink detaches from its cell for a multi-line edited
   range), D16 (a delete starting on a range's leading edge leaves its first address invalid), D17
-  (a note's anchoring mode is stated twice and the two disagree).
+  (a note's anchoring mode is stated twice and the two disagree). **D15 and D17 have since been
+  fixed**, on `fix/D15` and `fix/D17-D18`; D16 stands.
 
 ### The code review found three defects in this spec's own new work
 

@@ -44,12 +44,11 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
             return;
 
         var axis = default(TAxis);
+        var area = Area.FromRangeAddress(range.RangeAddress);
         var edit = new SheetEdit
         {
             Sheet = range.Worksheet,
-            Area = shift > 0
-                ? axis.ExtendAlongIndex(Area.FromRangeAddress(range.RangeAddress), shift - 1)
-                : Area.FromRangeAddress(range.RangeAddress),
+            Area = shift > 0 ? axis.ExtendAlongIndex(LeadingEdge(axis, area), shift - 1) : area,
             Range = range,
             Shift = shift,
         };
@@ -62,4 +61,18 @@ internal sealed class XLWorksheetRangeShifter(XLWorksheet worksheet)
                 axis.OnDeleteAreaAndShift(listener, in edit);
         }
     }
+
+    /// <summary>An area's first line on the shift axis, spanning its full cross extent.</summary>
+    /// <remarks>
+    /// Extending this by <c>shift - 1</c> reproduces the <c>insertedRange</c>
+    /// <see cref="XLRangeInsertHelper"/> shifts the cells by. Extending the <em>whole</em> area, which
+    /// is what this used to do, gives a different one whenever the edited range is more than one line
+    /// tall on the shift axis — <c>A1:A5</c> inserting three rows handed the listeners <c>A1:A7</c>
+    /// while the cells moved by <c>A1:A3</c>, so anything a listener moved by the area's extent parted
+    /// company with its own cell (D15). A delete needs no such trimming: it removes the whole edited
+    /// range and shifts by that range's own line count.
+    /// </remarks>
+    private static Area LeadingEdge<TAxis>(TAxis axis, Area area)
+        where TAxis : struct, IGridAxis
+        => new(area.FirstPoint, axis.PointAt(axis.IndexOf(area.FirstPoint), axis.CrossOf(area.LastPoint)));
 }

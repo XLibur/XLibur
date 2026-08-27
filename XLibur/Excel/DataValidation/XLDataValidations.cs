@@ -145,9 +145,8 @@ internal sealed class XLDataValidations : IXLDataValidations, ISheetListener
 
         if (edit.Sheet == _worksheet && _dataValidations.Count > 0)
         {
-            // CoverageArea, not edit.Area: the two differ for an insert whose edited range is more
-            // than one line tall, and coverage wants the |Shift| lines actually inserted. See
-            // SheetEdit.
+            // CoverageArea, not edit.Area: coverage derives the |Shift| lines the edit moves from
+            // the range and the shift rather than trusting the shifter's area. See SheetEdit.
             var affected = edit.CoverageArea<TAxis>();
             foreach (var dv in _dataValidations.OfType<XLDataValidation>().ToList())
             {
