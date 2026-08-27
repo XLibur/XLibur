@@ -21,9 +21,14 @@ namespace XLibur.Report.Rewriting;
 /// corrupt output in #200.
 /// </para>
 /// <para>
-/// The unexpected one: a pivot table's own position is a plain rectangle too, so a pivot below a
-/// bound range stays where the template put it while the rows it sat below multiply underneath it.
-/// It is moved with them.
+/// There used to be a third thing, and it is gone: a pivot table's own position was a plain
+/// rectangle that nothing moved, so a pivot below a bound range stayed where the template put it
+/// while the rows it sat below multiplied underneath it, and this class moved it out of the way.
+/// <b>The library moves it now</b> — <c>XLPivotTable</c> is an <c>ISheetListener</c> as of spec 33,
+/// so it reacts to the row inserts expansion performs, like every other sheet feature. Keeping the
+/// compensation as well moved every such pivot twice: a target at <c>D8</c> under a net two-row
+/// expansion landed on row 12 instead of 10. Do not add it back — if a pivot ends up in the wrong
+/// place, the transform to fix is <c>XLPivotTable.MoveArea</c>, not a second mover here.
 /// </para>
 /// <para>
 /// Every cache is also marked to refresh on open. XLibur recomputes the cached records here, but
@@ -39,8 +44,8 @@ namespace XLibur.Report.Rewriting;
 internal static class PivotRewriter
 {
     /// <summary>
-    /// Re-points, refreshes and repositions everything pivot-related that
-    /// <paramref name="expansions"/> affected.
+    /// Re-points and refreshes every cache that <paramref name="expansions"/> affected. The pivot
+    /// tables themselves are moved by the library, not here — see the remarks on this class.
     /// </summary>
     public static void Rewrite(IXLWorkbook workbook, IReadOnlyList<ExpansionRecord> expansions, TemplateErrors errors)
     {
@@ -52,7 +57,6 @@ internal static class PivotRewriter
         var bySheet = ExpansionMap.BySheet(expansions);
 
         RewriteCaches(workbook, bySheet, errors);
-        MovePivotTables(workbook, bySheet);
     }
 
     private static void RewriteCaches(
@@ -205,37 +209,4 @@ internal static class PivotRewriter
             exception: exception);
     }
 
-    /// <summary>
-    /// Moves a pivot table that sat below rows the report generated, so that it is not written over
-    /// by them.
-    /// </summary>
-    private static void MovePivotTables(IXLWorkbook workbook, Dictionary<string, List<ExpansionRecord>> bySheet)
-    {
-        foreach (var worksheet in workbook.Worksheets)
-        {
-            if (!bySheet.TryGetValue(worksheet.Name, out var expansions))
-            {
-                continue;
-            }
-
-            // Materialised: moving a pivot table rewrites the sheet's pivot areas.
-            foreach (var pivot in worksheet.PivotTables.ToList())
-            {
-                var target = pivot.TargetCell;
-                var row = target.Address.RowNumber;
-                var column = target.Address.ColumnNumber;
-
-                foreach (var expansion in expansions)
-                {
-                    row = ExpansionMap.MapRowStart(row, expansion);
-                    column = ExpansionMap.MapColumnStart(column, expansion);
-                }
-
-                if (row != target.Address.RowNumber || column != target.Address.ColumnNumber)
-                {
-                    pivot.TargetCell = worksheet.Cell(row, column);
-                }
-            }
-        }
-    }
 }

@@ -144,20 +144,28 @@ public class PivotMechanicsCharacterizationTests
     }
 
     /// <summary>
-    /// A pivot table does <em>not</em> move when rows are inserted above it, because its position is
-    /// a plain rectangle rather than a live range. So a pivot below a bound range would be written
-    /// over by the rows the range generated — the second thing the rewriter has to fix, and one the
-    /// spec did not anticipate.
+    /// A pivot table moves when rows are inserted above it, like any other sheet feature.
+    /// <para>
+    /// It did not always. Its position is a plain rectangle rather than a live range, and until
+    /// spec 33 nothing told it an edit had happened — so a pivot below a bound range was written
+    /// over by the rows the range generated, and <c>PivotRewriter</c> carried a second mover to
+    /// push it out of the way. <c>XLPivotTable</c> is an <c>ISheetListener</c> now, so the library
+    /// does it, and that compensation is gone: keeping both moved every such pivot twice.
+    /// </para>
+    /// <para>
+    /// This test was <c>APivotTableDoesNotMoveWhenRowsAreInsertedAboveIt</c> and asserted row 1 —
+    /// the behaviour that made the rewriter necessary.
+    /// </para>
     /// </summary>
     [Test]
-    public async Task APivotTableDoesNotMoveWhenRowsAreInsertedAboveIt()
+    public async Task APivotTableMovesWhenRowsAreInsertedAboveIt()
     {
         var (workbook, pivot) = Workbook(sheet => sheet.Range("A1:B3"));
         using var _ = workbook;
 
         workbook.Worksheet("Pivot").Row(1).InsertRowsAbove(4);
 
-        await Assert.That(pivot.TargetCell.Address.RowNumber).IsEqualTo(1);
+        await Assert.That(pivot.TargetCell.Address.RowNumber).IsEqualTo(5);
     }
 
     /// <summary><see cref="IXLPivotTable.TargetCell"/> is settable, so moving one is a plain assignment.</summary>

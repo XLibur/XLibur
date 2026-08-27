@@ -141,8 +141,15 @@ public class PivotRewritingTests
     }
 
     /// <summary>
-    /// A pivot table's position is a plain rectangle, so nothing else moves it out of the way of the
-    /// rows the report generated above it.
+    /// A pivot below a bound range ends up below the rows the report generated, and moves exactly
+    /// <em>once</em> doing it.
+    /// <para>
+    /// The expectation is unchanged; what produces it moved. <c>XLPivotTable</c> reacts to the row
+    /// inserts expansion performs as of spec 33, so <c>PivotRewriter</c>'s own mover was deleted —
+    /// with both in place this landed on row 12 rather than 10, because each moved it by the same
+    /// two rows. That is the regression this test caught, and it is the reason it asserts a
+    /// position rather than merely that something moved.
+    /// </para>
     /// </summary>
     [Test]
     public async Task APivotBelowTheRangeMovesBelowTheGeneratedRows()
