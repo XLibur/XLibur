@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
 
@@ -119,5 +120,31 @@ public class SheetEditAreaTests
 
         await Assert.That(ws.Cell("E1")!.GetString()).IsEqualTo("x");
         await Assert.That(ws.Cell("E1")!.HasHyperlink).IsTrue();
+    }
+
+    /// <summary>
+    /// The inserted rectangle is derived three times over and all three must agree:
+    /// <c>XLRangeInsertHelper</c> builds it as <c>insertedRange</c> to move the cells,
+    /// <c>SheetEdit.Area</c> rebuilds it for hyperlinks, and <c>SheetEdit.CoverageArea</c> rebuilds it
+    /// from <c>Range</c> and <c>Shift</c> for conditional formats and data validations. Nothing
+    /// asserts that directly, so this asserts it through the features: everything on one cell, an
+    /// edited range taller than the shift, and they must all arrive on the same cell. Any one of the
+    /// three drifting fails here.
+    /// </summary>
+    [Test]
+    public async Task Cells_hyperlinks_and_coverage_move_by_the_same_inserted_rectangle()
+    {
+        using var wb = new XLWorkbook();
+        var ws = (XLWorksheet)wb.AddWorksheet("S");
+        ws.Cell("A5")!.SetValue("x").SetHyperlink(new XLHyperlink("https://example.invalid/"));
+        ws.Cell("A5")!.AddConditionalFormat().WhenNotBlank().Fill.SetBackgroundColor(XLColor.Red);
+        ws.Range("A5:A5")!.CreateDataValidation().InputTitle = "Rule";
+
+        ws.Range("A1:A5")!.InsertRowsAbove(3);
+
+        await Assert.That(ws.Cell("A8")!.GetString()).IsEqualTo("x");
+        await Assert.That(ws.Cell("A8")!.HasHyperlink).IsTrue();
+        await Assert.That(ws.ConditionalFormats.Single().Ranges.Single().RangeAddress.ToString()).IsEqualTo("A8:A8");
+        await Assert.That(ws.DataValidations.Single().Ranges.Single().RangeAddress.ToString()).IsEqualTo("A8:A8");
     }
 }
