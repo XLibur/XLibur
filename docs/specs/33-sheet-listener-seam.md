@@ -290,10 +290,17 @@ before starting; the list above is the shape, not a promise about paths.
         yield return Workbook.DefinedNamesInternal;
 
         yield return ConditionalFormats;
-        yield return DataValidations;
 
+        // CORRECTED after implementation. This originally read:
+        //     yield return DataValidations;
+        //     foreach (var sheet in Workbook.WorksheetsInternal)
+        //         yield return sheet.DataValidations;   // criteria formulas, workbook-wide
+        // which cannot be built: a type implements the interface once, so the edited sheet's
+        // collection would be yielded twice and run BOTH passes both times, shifting its coverage
+        // twice per edit. One listener per sheet, doing sqref-if-mine then criteria in the order
+        // the passes require. See Results, "Two corrections to the spec".
         foreach (var sheet in Workbook.WorksheetsInternal)
-            yield return sheet.DataValidations;   // criteria formulas, workbook-wide
+            yield return sheet.DataValidations;   // sqref for this sheet, then criteria formulas
 
         yield return (XLPageSetup)PageSetup;
         yield return SparklineGroupsInternal;
@@ -1128,11 +1135,11 @@ git commit -m 'docs(specs): record structural-edit numbers and the Excel anchor 
 | code-review fixes (3 defects in this spec's own new work) | `6d27644a` |
 | CI fix — `PivotRewriter`'s compensating mover deleted | `7ebff4c6` |
 
-All four test projects green on net8.0 and net10.0 — 29,542 tests, 0 failures: `XLibur.Tests`
-(28,444), `XLibur.Report.Tests` (962), `XLibur.Fonts.SixLabors.Tests` (62),
-`XLibur.Fonts.SkiaSharp.Tests` (74). Five assertions were deliberately
-reversed and their tests renamed; each is named in its commit body and listed below. No other test in
-the suite changed, on any task.
+All four test projects green on net8.0 and net10.0 — 29,550 tests, 0 failures: `XLibur.Tests`
+(28,452), `XLibur.Report.Tests` (962), `XLibur.Fonts.SixLabors.Tests` (62),
+`XLibur.Fonts.SkiaSharp.Tests` (74). **Six** assertions were deliberately reversed and their tests
+renamed — five listed below, plus the sixth that CI found in `XLibur.Report`. Each is named in its
+commit body. No other test in the suite changed, on any task.
 
 `XLWorksheetRangeShifter.cs` went from 222 lines to 65 and names no feature. Eleven types implement
 the port, up from two.
@@ -1422,6 +1429,27 @@ That makes **six** assertions deliberately reversed on this branch, not five. Th
 `TargetCell` row 1 → 5.
 
 **Run all four test projects, not one.** `XLibur.Tests`, `XLibur.Report.Tests`,
-`XLibur.Fonts.SixLabors.Tests` and `XLibur.Fonts.SkiaSharp.Tests` — 29,542 tests across both TFMs.
+`XLibur.Fonts.SixLabors.Tests` and `XLibur.Fonts.SkiaSharp.Tests` — 29,550 tests across both TFMs.
 The spec and the dispatch brief both named only the first, which is how this reached CI. Worth fixing
 in the brief template.
+
+### A fifth, from CodeRabbit on the PR — and it was a regression in the note fix itself
+
+**A note's callout could land on row 0, and then the workbook could not be saved at all.** The
+review-fix above changed the note's anchor from *transforming itself* to *taking its cell's
+displacement*, and in doing so it lost a floor the previous form had for free: `GridShift.MoveIndex`
+clamps at the edit's leading line, plain addition does not. A callout sits *above* its cell, so it
+runs out of grid first — a note on `A6` anchors its box on row 5, and deleting rows 1:5 lands the
+cell on row 1 while the box wants row 0. `XLDrawingPosition` accepts 0 happily; the VML writer then
+calls `Worksheet.Row(0)` and throws `ArgumentOutOfRangeException`, so `SaveAs` fails outright.
+
+Floored at line 1 on both axes. That is not an arbitrary clamp: `XLComment.Initialize` already makes
+exactly this concession for a note created on row 1 (`if (previousRowNumber > 1) previousRowNumber--`),
+so the box shares its note's line at the top of the sheet. Two regression tests, and each asserts the
+save rather than only the coordinate — **the anchor is only wrong if it reaches the file**, and a test
+that stopped at `Position.Row == 1` would not have caught the original.
+
+Reported as *Minor*. It is not: an unsaveable workbook is a hard failure, and the reviewer's own
+severity was worth overriding after reproducing it. **Fixing a boundary defect by changing the
+transform is how the next boundary defect gets in** — this spec has now paid that twice on the same
+five lines.

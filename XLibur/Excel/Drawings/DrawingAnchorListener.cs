@@ -170,11 +170,17 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
             if (axis.IndexOf(cell) < movedFrom)
                 continue;
 
-            // 1-based, and moved by the cell's displacement, so the callout keeps its offset.
+            // 1-based, and moved by the cell's displacement, so the callout keeps its offset —
+            // floored at the first line, because a callout sits *above* its cell and so runs out of
+            // grid before the cell does. A note on A6 anchors its box on row 5; delete rows 1:5 and
+            // the cell lands on row 1 while the box would want row 0, which is not a cell.
+            // XLComment.Initialize already makes exactly this concession when a note is created on
+            // row 1 — "if (previousRowNumber > 1) previousRowNumber--" — so the box shares the
+            // note's own line at the top of the sheet rather than sitting off it.
             if (axis.ShiftsRows)
-                note.Position.SetRow(note.Position.Row + edit.Shift);
+                note.Position.SetRow(Math.Max(1, note.Position.Row + edit.Shift));
             else
-                note.Position.SetColumn(note.Position.Column + edit.Shift);
+                note.Position.SetColumn(Math.Max(1, note.Position.Column + edit.Shift));
         }
     }
 

@@ -307,6 +307,54 @@ public class SheetListenerCharacterizationTests
     }
 
     /// <summary>
+    /// A note's callout sits <em>above</em> its cell, so it runs out of grid before the cell does: a
+    /// note on <c>A6</c> anchors its box on row 5, and deleting rows 1:5 lands the cell on row 1
+    /// while the box would want row 0. Row 0 is not a cell — <c>XLDrawingPosition</c> accepts it, but
+    /// the VML writer indexes <c>Worksheet.Row(Position.Row)</c> and throws, so the workbook could
+    /// not be saved at all. The box is floored at the first line, which is the same concession
+    /// <c>XLComment.Initialize</c> already makes for a note created on row 1.
+    /// </summary>
+    [Test]
+    public async Task A_notes_callout_never_lands_off_the_top_of_the_sheet()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("S");
+        ws.Cell("A6")!.CreateComment().AddText("n");
+        await Assert.That(ws.Cell("A6")!.GetComment().Position.Row).IsEqualTo(5);
+
+        ws.Rows(1, 5).Delete();
+
+        await Assert.That(ws.Cell("A1")!.HasComment).IsTrue();
+        await Assert.That(ws.Cell("A1")!.GetComment().Position.Row).IsEqualTo(1);
+
+        // The assertion that actually bit: the anchor is only wrong if it reaches the file.
+        using var ms = new System.IO.MemoryStream();
+        await Assert.That(() => wb.SaveAs(ms, validate: true)).ThrowsNothing();
+    }
+
+    /// <summary>
+    /// The same floor on the column axis. A callout sits one column to the <em>right</em> of its
+    /// cell, so it cannot run off the left edge the way it runs off the top — but a caller can move
+    /// it anywhere, and the floor has to hold for that too.
+    /// </summary>
+    [Test]
+    public async Task A_notes_callout_never_lands_off_the_left_of_the_sheet()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("S");
+        ws.Cell("F2")!.CreateComment().AddText("n");
+        ws.Cell("F2")!.GetComment().Position.SetColumn(2);
+
+        ws.Columns(1, 5).Delete();
+
+        await Assert.That(ws.Cell("A2")!.HasComment).IsTrue();
+        await Assert.That(ws.Cell("A2")!.GetComment().Position.Column).IsEqualTo(1);
+
+        using var ms = new System.IO.MemoryStream();
+        await Assert.That(() => wb.SaveAs(ms, validate: true)).ThrowsNothing();
+    }
+
+    /// <summary>
     /// A pivot table's report filters sit above its area, and <c>TargetCell</c> is the area's first
     /// point shifted up by that many rows. A delete clamps the area onto the deletion point, so the
     /// area has to stop far enough down the sheet for the filters to still fit — otherwise the

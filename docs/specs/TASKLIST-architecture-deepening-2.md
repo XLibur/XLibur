@@ -136,7 +136,7 @@ acceptance gate does not read 0, and the reasons matter.
 - [x] **28.x** Unplanned: cellXf fill decodes against the default fill, not the inherited one — `ffeea134` — PR #411
       *Found re-reading the port against the original branch by branch. Latent, not live.*
 
-### Spec 29 — Write-path resolvers ✅ Done (2026-08-27)
+### Spec 29 — Write-path resolvers ✅ Merged (#413, `8d2acfc7`, 2026-08-27)
 
 - [x] **29.1** Cross-path agreement harness *(landed failing on the pane state)* — `7c57efd8`
 - [x] **29.2** Decide and fix `frozen` vs `frozenSplit`; task 1 turns green — `bce00355`
@@ -163,7 +163,7 @@ load, and any split is written back as a freeze) — not fixed, it needs a publi
 - [ ] **30.5** Collapse the two entry points into `Call(ctx, args, mode)` — PR #___
 - [ ] **30.6** Confirm no allocation or time regression — PR #___
 
-### Spec 31 — Worksheet element writers ⬜ Blocked on 29
+### Spec 31 — Worksheet element writers ⬜ Ready (29 merged as #413, 2026-08-27)
 
 - [ ] **31.1** Golden byte-identity baseline; prove the gate can fail — PR #___
 - [ ] **31.2** `IXLWorksheetElementWriter` + context struct; one writer converted — PR #___
@@ -276,9 +276,9 @@ flowchart LR
   S28["spec 28<br/>style decoder"]:::done
   S29["spec 29<br/>write-path resolvers<br/>#413 merged"]:::done
   S30["spec 30<br/>array application"]:::ready
-  S31["spec 31<br/>worksheet element writers"]:::blocked
+  S31["spec 31<br/>worksheet element writers"]:::ready
   S32["spec 32<br/>function argument spec"]:::blocked
-  S33["spec 33<br/>sheet listener seam"]:::done
+  S33["spec 33<br/>sheet listener seam<br/>PR #414"]:::done
   S34["spec 34<br/>font port split"]:::blocked
 
   S26 -->|"hard: XLWorksheetRangeShifter.cs<br/>XLWorksheet.cs"| S33
