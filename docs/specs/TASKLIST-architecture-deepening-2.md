@@ -219,6 +219,12 @@ All in [PR #414](https://github.com/XLibur/XLibur/pull/414).
 - [x] **33.6** Delete the `XLMarker` range-smuggling workaround — `d2e25f3a` (#414)
 - [x] **33.7** Confirm structural-edit cost unchanged — `335a8e97` (#414)
 - [x] **33.R** Code review at `high`; three defects found in the spec's *own* new work, all fixed — `6d27644a` (#414)
+- [x] **33.C** CI: `XLibur.Report` was compensating for feature 17's defect; the compensation became a double shift, and `PivotRewriter.MovePivotTables` is deleted — `7ebff4c6` (#414)
+
+**Run all four test projects.** `XLibur.Tests`, `XLibur.Report.Tests`, `XLibur.Fonts.SixLabors.Tests`,
+`XLibur.Fonts.SkiaSharp.Tests` — 29,542 tests across both TFMs. This spec and its dispatch brief both
+named only the first, which is how the `XLibur.Report` double shift reached CI. **Worth fixing in the
+brief template**: a spec that changes library behaviour can break a consumer package in the same repo.
 
 **Outcome.** `XLWorksheetRangeShifter` 222 → 65 lines and names no feature; 11 types implement the
 port, up from 2; all four dead features move. Full suite green on net8.0 and net10.0, five assertions

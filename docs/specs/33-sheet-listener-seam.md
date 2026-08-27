@@ -1125,8 +1125,11 @@ git commit -m 'docs(specs): record structural-edit numbers and the Excel anchor 
 | 6 — delete the `XLMarker` workaround | `d2e25f3a` |
 | 7 — structural-edit cost | `335a8e97` |
 | code-review fixes (3 defects in this spec's own new work) | `6d27644a` |
+| CI fix — `PivotRewriter`'s compensating mover deleted | `7ebff4c6` |
 
-Full suite green on net8.0 and net10.0: 28,444 tests, 0 failures. Five assertions were deliberately
+All four test projects green on net8.0 and net10.0 — 29,542 tests, 0 failures: `XLibur.Tests`
+(28,444), `XLibur.Report.Tests` (962), `XLibur.Fonts.SixLabors.Tests` (62),
+`XLibur.Fonts.SkiaSharp.Tests` (74). Five assertions were deliberately
 reversed and their tests renamed; each is named in its commit body and listed below. No other test in
 the suite changed, on any task.
 
@@ -1385,3 +1388,39 @@ reproduced before being fixed, all three now have tests, and none is pre-existin
 
 Two of the three are the same shape: **a feature that never moved before now moves, and something
 derived from it was not ready for that.** Worth expecting in any spec that wakes a dormant value.
+
+### CI found a fourth, and it is the most interesting one
+
+**`XLibur.Report` was compensating for one of the four defects this spec fixes, and the compensation
+became a double shift.** Caught by CI, not by me: I ran only `XLibur.Tests` before opening the PR,
+and the repo has **four** test projects. `XLibur.Report.Tests` had two failures.
+
+`PivotRewriter.MovePivotTables` existed for exactly one reason, and its own remarks said so —
+*"a pivot table's own position is a plain rectangle too, so a pivot below a bound range stays where
+the template put it while the rows it sat below multiply underneath it. It is moved with them."*
+That is feature 17 from this spec's own table, worked around one layer up. With `XLPivotTable`
+reacting to the row inserts expansion performs, both movers applied the same delta: a target at `D8`
+under a net two-row expansion landed on row 12 instead of 10.
+
+Deleted rather than disabled, and verified redundant rather than assumed — with it removed every
+other pivot test passes unchanged, including the two asserting a pivot does *not* move. The net
+output is what it always was; there is now one mechanism producing it instead of two, so there is no
+user-visible change and no changelog entry.
+
+**The lesson worth carrying.** A defect that survives long enough acquires workarounds, and they are
+not all in the file the spec points at. This spec found one in shipped library code — `XLMarker`'s
+smuggled range — and made it *the* evidence for the whole argument, with a task devoted to deleting
+it. It had a sibling in a different package that nobody thought to look for. **When a spec's premise
+is "feature X never reacts", grep the whole solution for code that compensates for that, not only the
+code that implements it.** The two failures also divided cleanly into the two kinds this spec keeps
+meeting: one pinned the old wrong behaviour and needed re-pointing, one was a genuine new defect, and
+telling them apart was the whole job.
+
+That makes **six** assertions deliberately reversed on this branch, not five. The sixth:
+`APivotTableDoesNotMoveWhenRowsAreInsertedAboveIt` → `APivotTableMovesWhenRowsAreInsertedAboveIt`,
+`TargetCell` row 1 → 5.
+
+**Run all four test projects, not one.** `XLibur.Tests`, `XLibur.Report.Tests`,
+`XLibur.Fonts.SixLabors.Tests` and `XLibur.Fonts.SkiaSharp.Tests` — 29,542 tests across both TFMs.
+The spec and the dispatch brief both named only the first, which is how this reached CI. Worth fixing
+in the brief template.
