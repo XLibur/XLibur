@@ -21,7 +21,7 @@ code, uncaught**, plus a fifth inherited from upstream:
 | 28 | Conditional-format fonts drop **three** fields | `LoadFont:202` searches the `<x:rPr>` spellings (`RunFont`, `FontFamily`, no charset) while its three callers all pass a `Font` — unrelated CLR types, no inheritance | Font name, family numbering and charset are silently lost on load. The writer emits all three, so they reach the file and die on the way back |
 | 28 | Three dxf callers read different subsets of `CT_Dxf` | alignment read by 1 of 3, protection by none; `WorkbookStylesPartWriter.FillDifferentialFormatsCollection:488-505` decodes dxfs to build the *reuse map* | ✅ Fixed — all six children now read everywhere. **The growth premise was DISPROVED**: `<dxfs>` measured 1,1,1,1 across four saves. `AddDifferentialFormats` calls `RemoveAllChildren()` on the line before, so the reuse map is always empty and can never miss. See DEFECTS D12 |
 | 29 | ~~Two spellings of a frozen pane~~ | ~~`SheetViewWriter.cs:124` `frozenSplit` vs `XLStreamingWorksheet.cs:502` `frozen`~~ | **Fixed 2026-08-27.** Both paths resolve through `XLPaneSettings` and write `frozen`; the DOM path also stopped writing `xSplit="0"` for an unsplit axis, which task 1 confirmed it was doing. Four XLibur-authored fixtures pinned the old form and were regenerated |
-| 33 | Four sheet features never move on a structural edit | **Measured**, not inferred: after `InsertRowsAbove(3)` + `InsertColumnsBefore(2)`, chart `Position` stays at row 10/col 3 (should be 13/5), note `Position` at row 9 (should be 12), `SplitRow`/`SplitColumn` at 5/4 (should be 8/6), pivot `Area` at `D10` (should be `D13`) | The control — a picture — passes, **because it allocates a range it does not want purely to get shifted** (`XLMarker.cs:10-12`). Notes are half-broken: `Cell("C13").HasComment` is `true` while the callout anchor stays at row 9 |
+| 33 | ~~Four sheet features never move on a structural edit~~ | **Measured**, not inferred: after `InsertRowsAbove(3)` + `InsertColumnsBefore(2)`, chart `Position` stayed at row 10/col 3 (should be 13/5), note `Position` at row 9 (should be 12), `SplitRow`/`SplitColumn` at 5/4 (should be 8/6), pivot `Area` at `D10` (should be `D13`) | ✅ **Fixed 2026-08-27.** All four move. The control — a picture — passed **because it allocated a range it did not want purely to get shifted**; that workaround is gone and the picture now moves through the same seam, its behaviour pinned first so the move was a proof. Three new defects fell out: D15, D16, D17. See spec 33's Results |
 | 30 | Per-element array arguments discarded | `FunctionDefinition.cs:106-118` builds `itemArg`, calls `_function(ctx, args)` at `:117` | `POWER({2,3,4},{1,2,3})` → `2,2,2` not `2,9,64`; worksheet references affected too, not just literals. **261 of 265 scalar-flagged registrations.** Second presentation: `ToText:1257` has no `[0,0]` branch where `ToNumber:1243` does, so text functions *throw* instead of mis-answering |
 
 None of the five is caught by a test, because in each case the two implementations sit either side of
@@ -42,7 +42,7 @@ the test surface; where it has two, nothing sits at the seam to assert they agre
 | [30](30-array-application-seam.md) | Array application gets an interface | S–M | — | ⬜ Ready |
 | [31](31-worksheet-element-writers.md) | Worksheet element writers get one interface | M–L | **29** | ⬜ Blocked |
 | [32](32-function-argument-spec.md) | Collapse the 61-overload registration | L | **30** | ⬜ Blocked |
-| [33](33-sheet-listener-seam.md) | Every sheet feature reacts through one seam | M–L | 26 ✅ merged | ⬜ **Ready** |
+| [33](33-sheet-listener-seam.md) | Every sheet feature reacts through one seam | M–L | 26 ✅ merged | 🟡 **PR open** ([#414](https://github.com/XLibur/XLibur/pull/414); merge #413 first; see Results) |
 | [34](34-font-port-split.md) | Split the font port: mechanism vs policy | M | **27** | ⬜ Blocked |
 
 ### Spec 26 — Grid axis ✅ Merged (#409)
@@ -147,7 +147,9 @@ acceptance gate does not read 0, and the reasons matter.
   for either**, with line references in the spec's Results
 - [x] **29.7** Confirm streaming's bounded memory — 107.9 MB / 14.0 MB, identical to spec 01
 
-Branch `refactor/29-write-path-resolvers`, not yet opened as a PR. Suite green on both TFMs:
+Branch `refactor/29-write-path-resolvers`, open as **PR #413** (CI green, mergeable). Merge it
+before spec 33 — both sync `docs/specs` and both add `## Unreleased` changelog entries, so expect
+trivial conflicts in those two places and keep both. Suite green on both TFMs:
 28,358 tests, 0 failed. Found and recorded **D18** on the way (an unfrozen split pane is lost on
 load, and any split is written back as a freeze) — not fixed, it needs a public API change.
 
@@ -202,15 +204,43 @@ corpus must include loaded-file fixtures.
 - [ ] **32.N+1** Delete the 61 overloads and the `RegisterFunction` tail — PR #___
 - [ ] **32.N+2** Confirm no regression — PR #___
 
-### Spec 33 — Sheet listener seam ⬜ Blocked on 26
+### Spec 33 — Sheet listener seam 🟡 PR #414 open (2026-08-27)
 
-- [ ] **33.1** Characterization tests for all **17** features, including the four that do not move — PR #___
-- [ ] **33.2** `GetSheetListeners()`; two existing adapters through it; order pinned — PR #___
-- [ ] **33.3** Convert the six hardcoded features — PR #___
-- [ ] **33.4** Chart and note anchors become adapters *(behaviour change)* — PR #___
-- [ ] **33.5** Freeze/split panes and pivot `Area` become adapters *(behaviour change)* — PR #___
-- [ ] **33.6** Delete the `XLMarker` range-smuggling workaround — PR #___
-- [ ] **33.7** Confirm structural-edit cost unchanged — PR #___
+**Merge [#413](https://github.com/XLibur/XLibur/pull/413) (spec 29) before #414.** Both carry a
+`docs/specs` sync from this folder, so each PR includes the other's in-flight documentation.
+Conflicts are textual only — resolve by keeping both edits. No source file is shared.
+**#414 does not unblock spec 34**, which waits on 27.
+
+All in [PR #414](https://github.com/XLibur/XLibur/pull/414).
+
+- [x] **33.1** Characterization tests for all **17** features, including the four that do not move — `52884707` (#414)
+- [x] **33.2** `GetSheetListeners()`; two existing adapters through it; order pinned — `09fb426f` (#414)
+- [x] **33.3** Convert the six hardcoded features — `302a85ea` (#414)
+- [x] **33.4** Chart and note anchors become adapters *(behaviour change)* — `105ff94a` (#414)
+- [x] **33.5** Freeze/split panes and pivot `Area` become adapters *(behaviour change)* — `3263ee4e` (#414)
+- [x] **33.6** Delete the `XLMarker` range-smuggling workaround — `d2e25f3a` (#414)
+- [x] **33.7** Confirm structural-edit cost unchanged — `335a8e97` (#414)
+- [x] **33.R** Code review at `high`; three defects found in the spec's *own* new work, all fixed — `6d27644a` (#414)
+- [x] **33.C** CI: `XLibur.Report` was compensating for feature 17's defect; the compensation became a double shift, and `PivotRewriter.MovePivotTables` is deleted — `7ebff4c6` (#414)
+
+**Run all four test projects.** `XLibur.Tests`, `XLibur.Report.Tests`, `XLibur.Fonts.SixLabors.Tests`,
+`XLibur.Fonts.SkiaSharp.Tests` — 29,542 tests across both TFMs. This spec and its dispatch brief both
+named only the first, which is how the `XLibur.Report` double shift reached CI. **Worth fixing in the
+brief template**: a spec that changes library behaviour can break a consumer package in the same repo.
+
+**Outcome.** `XLWorksheetRangeShifter` 222 → 65 lines and names no feature; 11 types implement the
+port, up from 2; all four dead features move. Full suite green on net8.0 and net10.0, five assertions
+deliberately reversed and renamed, no other test changed. Structural-edit profile: full workload
+−0.9% time, −0.0% bytes on medians of three runs. Three defects recorded (D15, D16, D17) and one
+criterion reported as unreachable (≥12 adapter types; the design lists 11).
+
+**Two gates each caught something the other could not.** Task 7 caught a regression it had itself
+introduced — the note pass materialised an `XLCell` per used cell on every edit — fixed at source
+rather than by caching the listener list. The code review then found three defects in the spec's
+*own new behaviour*, the sharpest being that a note's callout still detached from its cell when the
+edit landed on the cell's own row: task 4's tests all inserted clear above the note, so every one of
+them passed. Two of the three share a shape worth expecting elsewhere — **a value that never moved
+before now moves, and something derived from it was not ready for that.**
 
 **Scale, corrected by the spec's own grep:** structural-edit knowledge spans **20 files and 76
 methods**, and there are **17** sheet-scoped features, not the ~16 the review estimated — sparklines
@@ -243,11 +273,11 @@ flowchart LR
   S26["spec 26<br/>grid axis"]:::done
   S27["spec 27<br/>font conformance"]:::ready
   S28["spec 28<br/>style decoder"]:::done
-  S29["spec 29<br/>write-path resolvers"]:::ready
+  S29["spec 29<br/>write-path resolvers<br/>PR #413"]:::done
   S30["spec 30<br/>array application"]:::ready
   S31["spec 31<br/>worksheet element writers"]:::blocked
   S32["spec 32<br/>function argument spec"]:::blocked
-  S33["spec 33<br/>sheet listener seam"]:::blocked
+  S33["spec 33<br/>sheet listener seam"]:::done
   S34["spec 34<br/>font port split"]:::blocked
 
   S26 -->|"hard: XLWorksheetRangeShifter.cs<br/>XLWorksheet.cs"| S33
@@ -613,7 +643,7 @@ Inherited from `docs/specs/README.md`; repeated here so a brief is self-containe
 | **30** | `{=SIGN({-1,2,0})}` yields `{-1,1,0}`; one entry point on `FunctionDefinition`; the per-element span is a parameter |
 | **31** | `GetWorksheetDom` names no writer individually; one `IXLWorksheetElementWriter` list; one owner for extLst; worksheet XML byte-identical |
 | **32** | Zero `Adapt*` overloads remain; `RegisterFunction` takes an `ArgSpec[]`; no measured regression — **or** a recorded measurement explaining why the work stopped |
-| **33** | `XLWorksheetRangeShifter` names no feature individually; ≥12 `ISheetListener` adapters; a chart anchored below an inserted row moves; `XLMarker` holds a `Point` |
+| **33** | ✅ Met, with one exception reported: `XLWorksheetRangeShifter` names no feature individually; a chart anchored below an inserted row moves, in memory and through a round trip; `XLMarker` holds a `Point`. **"≥12 adapters" is unreachable at 11** — that is what the spec's own design section lists, and nothing was split in two to reach a number (the criterion's other gate, the file count from `grep -rl 'ISheetListener'`, does return 12, because it matches the interface's own file) |
 | **34** | `IXLFontEngine` unchanged; three adapters implement `IXLTypefaceSource`; the 145 three-way and 229 V1↔v2 duplicated lines gone; one documented fallback chain with the last-resort family a declared parameter |
 
 Across all nine: full suite green on net8.0 and net10.0, and **no existing test assertion weakened**
@@ -621,6 +651,10 @@ Across all nine: full suite green on net8.0 and net10.0, and **no existing test 
 spec 30 task 3 (tests that pinned the array defect), spec 26 tasks 2–3 (tests that would have pinned
 the outline and cell-count defects, if any exist), spec 29 task 2 (the pane-state spelling), and
 spec 33 tasks 4–5 (features that did not move and now do).
+
+Spec 33 reversed **five**, not four: the fifth is in task 6, where a picture anchor under a delete
+starting on its own leading row went from throwing to clamping (D16). Each of the five is named in
+its commit body and listed in spec 33's Results.
 
 **Public API:** specs 26, 28, 29, 30, 31, 32 and 33 make no public API change
 (`PublicAPI.Unshipped.txt` untouched). Spec 27 adds a test-only project. Spec 34 adds
