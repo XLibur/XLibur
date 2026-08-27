@@ -176,9 +176,9 @@ internal static class WorksheetPartWriter
             maxOutlineRow = xlWorksheet.GetMaxRowOutline();
 
         SheetViewWriter.WriteSheetFormatProperties(worksheet, cm, xlWorksheet,
-            maxOutlineColumn, maxOutlineRow, out var worksheetColumnWidth);
+            maxOutlineColumn, maxOutlineRow);
 
-        ColumnWriter.WriteColumns(worksheet, cm, xlWorksheet, worksheetColumnWidth, context);
+        ColumnWriter.WriteColumns(worksheet, cm, xlWorksheet, context.SharedStyles);
 
         #region SheetData
 

@@ -487,19 +487,24 @@ public sealed class XLStreamingWorksheet
         xml.WriteStartElement("sheetView", Main2006SsNs);
         xml.WriteAttribute("workbookViewId", 0u);
 
-        if (_freezeRows > 0 || _freezeColumns > 0)
+        // The streaming API exposes neither a pane scroll position nor an active cell, so both
+        // resolver inputs are null here. Everything else is decided in exactly one place, shared
+        // with SheetViewWriter.SetupPane.
+        var settings = XLPaneSettings.Resolve(_freezeColumns, _freezeRows, null, null);
+
+        if (settings.HasPane)
         {
             xml.WriteStartElement("pane", Main2006SsNs);
 
-            if (_freezeColumns > 0)
-                xml.WriteAttribute("xSplit", _freezeColumns);
+            if (settings.SplitColumn is { } xSplit)
+                xml.WriteAttribute("xSplit", xSplit);
 
-            if (_freezeRows > 0)
-                xml.WriteAttribute("ySplit", _freezeRows);
+            if (settings.SplitRow is { } ySplit)
+                xml.WriteAttribute("ySplit", ySplit);
 
-            xml.WriteAttributeString("topLeftCell", new Point(_freezeRows + 1, _freezeColumns + 1).ToString());
-            xml.WriteAttributeString("activePane", ResolveActivePane());
-            xml.WriteAttributeString("state", "frozen");
+            xml.WriteAttributeString("topLeftCell", settings.TopLeftCell);
+            xml.WriteAttributeString("activePane", ToAttribute(settings.ActivePane));
+            xml.WriteAttributeString("state", ToAttribute(settings.State));
 
             xml.WriteEndElement(); // pane
         }
@@ -508,13 +513,24 @@ public sealed class XLStreamingWorksheet
         xml.WriteEndElement(); // sheetViews
     }
 
-    private string ResolveActivePane()
+    private static string ToAttribute(XLPaneCorner corner) => corner switch
     {
-        if (_freezeRows > 0 && _freezeColumns > 0)
-            return "bottomRight";
+        XLPaneCorner.TopRight => "topRight",
+        XLPaneCorner.BottomLeft => "bottomLeft",
+        XLPaneCorner.BottomRight => "bottomRight",
+        _ => "topLeft",
+    };
 
-        return _freezeRows > 0 ? "bottomLeft" : "topRight";
-    }
+    /// <remarks>
+    /// Total, but only <see cref="XLPaneState.Frozen"/> is reachable today — see the note on
+    /// <c>SheetViewWriter.ToOpenXml</c>.
+    /// </remarks>
+    private static string ToAttribute(XLPaneState state) => state switch
+    {
+        XLPaneState.FrozenSplit => "frozenSplit",
+        XLPaneState.Split => "split",
+        _ => "frozen",
+    };
 
     private void WriteColumns(XmlWriter xml)
     {
@@ -527,26 +543,35 @@ public sealed class XLStreamingWorksheet
         xml.WriteStartElement("cols", Main2006SsNs);
         foreach (var column in ordered)
         {
-            xml.WriteStartElement("col", Main2006SsNs);
-            xml.WriteAttribute("min", (uint)column.FirstColumn);
-            xml.WriteAttribute("max", (uint)column.LastColumn);
+            // Same decision as ColumnWriter.BuildColumnElement; only the emission differs.
+            // GetOrAdd mutates the style table, and it still runs exactly once per column in this
+            // same order - only its position relative to the width computation moved, and the
+            // width rule does not touch the style table.
+            var settings = XLColumnSettings.Resolve(
+                (uint)column.FirstColumn, (uint)column.LastColumn,
+                column.Style is null ? null : _workbook.Styles.GetOrAdd(column.Style),
+                column.Width, column.Hidden, column.Collapsed, column.OutlineLevel);
 
-            if (column.Width is not null)
+            xml.WriteStartElement("col", Main2006SsNs);
+            xml.WriteAttribute("min", settings.Min);
+            xml.WriteAttribute("max", settings.Max);
+
+            if (settings.Width is { } width)
             {
-                xml.WriteAttribute("width", ColumnWriter.GetColumnWidth(column.Width.Value).SaveRound());
+                xml.WriteAttribute("width", width);
                 xml.WriteAttributeString("customWidth", TrueValue);
             }
 
-            if (column.Style is not null)
-                xml.WriteAttribute("style", _workbook.Styles.GetOrAdd(column.Style));
+            if (settings.StyleId is { } styleId)
+                xml.WriteAttribute("style", styleId);
 
-            if (column.Hidden)
+            if (settings.Hidden)
                 xml.WriteAttributeString("hidden", TrueValue);
 
-            if (column.OutlineLevel > 0)
-                xml.WriteAttribute("outlineLevel", column.OutlineLevel);
+            if (settings.OutlineLevel > 0)
+                xml.WriteAttribute("outlineLevel", settings.OutlineLevel);
 
-            if (column.Collapsed)
+            if (settings.Collapsed)
                 xml.WriteAttributeString("collapsed", TrueValue);
 
             xml.WriteEndElement(); // col

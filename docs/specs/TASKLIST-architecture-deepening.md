@@ -10,8 +10,8 @@ them, one place to change and one place to test.
 |---|---|---|---|---|
 | [22](22-chart-concept-modules.md) | Chart IO: one module per chart concept | M | **spec 16 (all tasks)** | ✅ Done — run *before* 16, see Results |
 | [23](23-single-style-facade.md) | One implementation per style interface | M | — (soft: spec 20) | ✅ Done |
-| [24](24-worksheet-element-dispatch.md) | Worksheet element load gets one interface | S–M | — (conflicts: spec 18 task 5) | ⬜ Ready |
-| [25](25-formula-shifter-seam.md) | Narrow the shifter fallback, name its seam | S | — | ⬜ Ready |
+| [24](24-worksheet-element-dispatch.md) | Worksheet element load gets one interface | S–M | — (conflicts: spec 18 task 5) | ✅ Done — PR #395 |
+| [25](25-formula-shifter-seam.md) | Narrow the shifter fallback, name its seam | S | — | ✅ Done — PR #398 |
 
 ---
 
@@ -73,19 +73,19 @@ Tasks are **strictly sequential**. Task 1 lands red on purpose; task 4 turns it 
 - [x] **23.4** Route `Batch` through the mode; delete the seven deferred types *(713 lines)* — branch `task/23`
 - [x] **23.5** Confirm batching still pays for itself *(caught a 2.4x regression, fixed at cause; not reverted)* — branch `task/23`
 
-### Spec 24 — Worksheet element dispatch ⬜ Ready
+### Spec 24 — Worksheet element dispatch ✅ Done
 
-- [ ] **24.1** Characterization test: every element survives a round trip — PR #___
-- [ ] **24.2** Context and state structs; `TryLoad` with the dispatch moved in — PR #___
-- [ ] **24.3** Move the three orphan handlers off `XLWorkbook_Load` — PR #___
-- [ ] **24.4** Confirm the per-sheet load cost is unchanged — PR #___
+- [x] **24.1** Characterization test: every element survives a round trip — `b66bcadb`, PR #395
+- [x] **24.2** Context and state structs; `TryLoad` with the dispatch moved in — `82a9ab65`, PR #395
+- [x] **24.3** Move the three orphan handlers off `XLWorkbook_Load` — `67c03baf`, PR #395
+- [x] **24.4** Confirm the per-sheet load cost is unchanged — `2ab70c9f`, PR #395 (see the spec's Results)
 
-### Spec 25 — Formula shifter seam ⬜ Ready
+### Spec 25 — Formula shifter seam ✅ Done
 
-- [ ] **25.1** Prove the fallback is reachable; pin what takes it — PR #___
-- [ ] **25.2** Narrow `catch (Exception)` to `catch (ParsingException)` — PR #___
-- [ ] **25.3** Name the seam; route the single-block path through it — PR #___
-- [ ] **25.4** Give the fallback its own corpus rows — PR #___
+- [x] **25.1** Prove the fallback is reachable; pin what takes it — `f48b8570`, PR #398
+- [x] **25.2** Narrow `catch (Exception)` to `catch (ParsingException)` — `38e68f72`, PR #398
+- [x] **25.3** Name the seam; route the single-block path through it — `23d8bdfb`, PR #398
+- [x] **25.4** Give the fallback its own corpus rows — `6ca5572f` and `f084ac5d`, PR #398
 
 ---
 

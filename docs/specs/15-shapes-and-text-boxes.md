@@ -6,7 +6,7 @@
 factory, the shared `ShapePropertiesWriter`, the text-body primitives, and the XML change-set harness
 all come from there and must land first. Task 4 here modifies `PictureWriter.WriteDrawings`
 orchestration, so it conflicts with any in-flight work in `XLibur/Excel/IO/PictureWriter.cs`.
-**Status:** Proposed
+**Status:** Proposed — **unblocked**, spec 16 landed (PRs #401, #402)
 
 ## Summary
 

@@ -112,6 +112,23 @@ internal static class SheetViewWriter
 
     private static Pane? SetupPane(SheetView sheetView, XLSheetViewContentManager svcm, XLWorksheet xlWorksheet)
     {
+        // XLPaneSettings owns the decision; this method owns only the emission. The streaming
+        // writer resolves the same way and maps the result onto raw attribute strings.
+        var settings = XLPaneSettings.Resolve(
+            xlWorksheet.SheetView.SplitColumn,
+            xlWorksheet.SheetView.SplitRow,
+            xlWorksheet.SheetView.PaneTopLeftCellAddress,
+            xlWorksheet.ActiveCell);
+
+        // Asking the resolver first removes the dead work in the original, which built a Pane,
+        // filled it in, and then removed it again when neither axis was split.
+        if (!settings.HasPane)
+        {
+            sheetView.RemoveAllChildren<Pane>();
+            svcm.SetElement(XLSheetViewContents.Pane, null);
+            return null;
+        }
+
         var pane = sheetView.Elements<Pane>().FirstOrDefault();
         if (pane == null)
         {
@@ -121,60 +138,34 @@ internal static class SheetViewWriter
 
         svcm.SetElement(XLSheetViewContents.Pane, pane);
 
-        pane.State = PaneStateValues.FrozenSplit;
-        var hSplit = xlWorksheet.SheetView.SplitColumn;
-        var ySplit = xlWorksheet.SheetView.SplitRow;
-
-        pane.HorizontalSplit = hSplit;
-        pane.VerticalSplit = ySplit;
-
-        pane.ActivePane = GetActivePaneForActiveCell(xlWorksheet, hSplit, ySplit);
-
-        var paneTopLeft = xlWorksheet.SheetView.PaneTopLeftCellAddress;
-        pane.TopLeftCell = paneTopLeft is { IsValid: true } p
-            ? p.ToStringRelative(false)
-            : XLHelper.GetColumnLetterFromNumber(xlWorksheet.SheetView.SplitColumn + 1)
-              + (xlWorksheet.SheetView.SplitRow + 1);
-
-        if (hSplit == 0 && ySplit == 0)
-        {
-            sheetView.RemoveAllChildren<Pane>();
-            svcm.SetElement(XLSheetViewContents.Pane, null);
-            return null;
-        }
+        pane.HorizontalSplit = settings.SplitColumn;
+        pane.VerticalSplit = settings.SplitRow;
+        pane.TopLeftCell = settings.TopLeftCell;
+        pane.ActivePane = ToOpenXml(settings.ActivePane);
+        pane.State = ToOpenXml(settings.State);
 
         return pane;
     }
 
-    private static PaneValues GetActivePaneValue(int hSplit, int ySplit)
+    private static PaneValues ToOpenXml(XLPaneCorner corner) => corner switch
     {
-        if (ySplit == 0 && hSplit == 0)
-            return PaneValues.TopLeft;
-        if (ySplit == 0)
-            return PaneValues.TopRight;
-        if (hSplit == 0)
-            return PaneValues.BottomLeft;
-        return PaneValues.BottomRight;
-    }
+        XLPaneCorner.TopRight => PaneValues.TopRight,
+        XLPaneCorner.BottomLeft => PaneValues.BottomLeft,
+        XLPaneCorner.BottomRight => PaneValues.BottomRight,
+        _ => PaneValues.TopLeft,
+    };
 
-    // The active pane (and therefore the selection's pane) must name the pane that actually
-    // owns the active cell. When no active cell is set, fall back to the split-derived default.
-    private static PaneValues GetActivePaneForActiveCell(XLWorksheet xlWorksheet, int hSplit, int ySplit)
+    /// <remarks>
+    /// Total, but only <see cref="XLPaneState.Frozen"/> is reachable today: the model cannot express
+    /// an unfrozen split, so <see cref="XLPaneSettings.Resolve"/> never returns the other two. The
+    /// arms exist so this stays a translation rather than a coercion if that changes.
+    /// </remarks>
+    private static PaneStateValues ToOpenXml(XLPaneState state) => state switch
     {
-        if (xlWorksheet.ActiveCell is not { } active)
-            return GetActivePaneValue(hSplit, ySplit);
-
-        var bottom = ySplit > 0 && active.Row > ySplit;
-        var right = hSplit > 0 && active.Column > hSplit;
-
-        if (bottom && right)
-            return PaneValues.BottomRight;
-        if (bottom)
-            return PaneValues.BottomLeft;
-        if (right)
-            return PaneValues.TopRight;
-        return PaneValues.TopLeft;
-    }
+        XLPaneState.FrozenSplit => PaneStateValues.FrozenSplit,
+        XLPaneState.Split => PaneStateValues.Split,
+        _ => PaneStateValues.Frozen,
+    };
 
     private static void SetTopLeftCell(SheetView sheetView, XLWorksheet xlWorksheet)
     {
@@ -246,8 +237,7 @@ internal static class SheetViewWriter
         XLWorksheetContentManager cm,
         XLWorksheet xlWorksheet,
         int maxOutlineColumn,
-        int maxOutlineRow,
-        out double worksheetColumnWidth)
+        int maxOutlineRow)
     {
         worksheet.SheetFormatProperties ??= new SheetFormatProperties();
 
@@ -261,7 +251,9 @@ internal static class SheetViewWriter
         else
             worksheet.SheetFormatProperties.CustomHeight = null;
 
-        worksheetColumnWidth = ColumnWriter.GetColumnWidth(xlWorksheet.ColumnWidth).SaveRound();
+        // ColumnWriter used to be handed this value; it now resolves the sheet default itself
+        // through XLColumnSettings, so the width rule has two callers and no stored copy.
+        var worksheetColumnWidth = ColumnWriter.GetColumnWidth(xlWorksheet.ColumnWidth).SaveRound();
         if (xlWorksheet.ColumnWidthChanged)
             worksheet.SheetFormatProperties.DefaultColumnWidth = worksheetColumnWidth;
         else
