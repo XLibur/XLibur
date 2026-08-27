@@ -1340,7 +1340,10 @@ task 7 is for**, and caching the listener list would have hidden it rather than 
 - **`XLRangeShiftHelper`'s `destroyedByShift` branch is untouched.** D16 is fixed for drawing anchors
   by moving them onto `GridShift`; an ordinary stored range still behaves the old way, because
   "destroyed" may well be the right answer for a range and that is a separate question.
-- **D17 is recorded, not decided.** It needs Excel.
+- **D17 is recorded, not decided.** It needs Excel. *(Decided on 2026-08-27 on `fix/D17-D18`, and
+  without Excel: the two fields were collapsed onto one storage location, so the question of which
+  of them should drive the file no longer arises. The surviving value means move-and-size-with-cells,
+  which is what `Anchor` had always said. See `CHANGELOG.md`.)*
 - **No public API change.** `PublicAPI.Unshipped.txt` untouched.
 - **`briefs/` was not copied into the repo's `docs/specs`, and never should be.** The sync that keeps
   `docs/specs` in step with this folder copies the specs and the tasklists only. The `briefs/`
