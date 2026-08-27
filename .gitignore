@@ -36,3 +36,8 @@ _ReSharper*/
 BenchmarkDotNet.Artifacts/
 /results/*
 /temp/*
+# docs/specs is a copy of the conductor's specs folder. Its briefs/ subdirectory holds
+# dispatch briefs — orchestration records naming worktree paths, agent instructions and
+# process — which are conductor-side only and must not ship. Excluded here so that
+# re-copying the folder cannot re-add them.
+docs/specs/briefs/

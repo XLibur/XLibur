@@ -220,7 +220,7 @@ Verified against the tree at `1b41cadd` (2026-08-24).
 
 ## File structure
 
-```
+```text
 XLibur/Excel/IO/XLPaneSettings.cs              new — pane resolver + XLPaneState/XLPaneCorner
 XLibur/Excel/IO/XLColumnSettings.cs            new — column resolver
 XLibur/Excel/IO/SheetViewWriter.cs             modified — SetupPane consumes the resolver
@@ -1124,7 +1124,7 @@ whole purpose is bounded memory. Show it did not move.
 
 - [x] **Step 1: Measure**
 
-```
+```bash
 dotnet run -c Release --project XLibur.Benchmarks/XLibur.Benchmarks.csproj -f net10.0 -- profile streaming
 ```
 
