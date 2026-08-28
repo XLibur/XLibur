@@ -26,6 +26,16 @@ public class NoteAnchorTests
 
         await Assert.That(note.Anchor).IsEqualTo(XLDrawingAnchor.MoveAndSizeWithCells);
         await Assert.That(note.Style.Properties.Positioning).IsEqualTo(note.Anchor);
+
+        // Both directions, because "the two agree" is not the property under test — "the two are
+        // one value" is. Two separate fields that both happened to default to
+        // MoveAndSizeWithCells would satisfy the assertions above, and that is D17 restored in
+        // exactly the shape that kept it invisible for as long as it did.
+        note.Style.Properties.Positioning = XLDrawingAnchor.Absolute;
+        await Assert.That(note.Anchor).IsEqualTo(XLDrawingAnchor.Absolute);
+
+        note.Anchor = XLDrawingAnchor.MoveWithCells;
+        await Assert.That(note.Style.Properties.Positioning).IsEqualTo(XLDrawingAnchor.MoveWithCells);
     }
 
     [Test]
