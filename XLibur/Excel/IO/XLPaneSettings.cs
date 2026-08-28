@@ -12,8 +12,10 @@ internal enum XLPaneCorner
 }
 
 /// <summary>
-/// <c>ST_PaneState</c>. XLibur only ever writes <see cref="Frozen"/>; the other two exist because
-/// files in the wild carry them and the reader accepts them.
+/// <c>ST_PaneState</c>. XLibur writes <see cref="Frozen"/> and <see cref="Split"/>, chosen by
+/// <c>IXLSheetView.FreezePanes</c>. <see cref="FrozenSplit"/> — a pane frozen out of an existing
+/// manual split — is accepted by the reader and normalised to <see cref="Frozen"/>, because the
+/// model carries a boolean and has never had a third state to put it in.
 /// </summary>
 internal enum XLPaneState
 {
@@ -58,18 +60,22 @@ internal readonly struct XLPaneSettings
     /// <summary><c>false</c> when no <c>&lt;pane&gt;</c> element should be written at all.</summary>
     internal bool HasPane => SplitColumn is not null || SplitRow is not null;
 
-    /// <param name="splitColumn">Frozen column count, 0 for none.</param>
-    /// <param name="splitRow">Frozen row count, 0 for none.</param>
+    /// <param name="splitColumn">Split position on the column axis, 0 for none.</param>
+    /// <param name="splitRow">Split position on the row axis, 0 for none.</param>
+    /// <param name="frozen">
+    /// <c>IXLSheetView.FreezePanes</c>: <c>true</c> for a frozen pane, <c>false</c> for a draggable
+    /// split bar. The streaming path always passes <c>true</c>; it only offers <c>FreezePanes</c>.
+    /// </param>
     /// <param name="paneTopLeftCell">
-    /// An explicit pane scroll position, or <c>null</c> to anchor at split + 1. The streaming path
-    /// always passes <c>null</c>; it exposes no equivalent API.
+    /// An explicit pane scroll position, or <c>null</c> to anchor at split + 1 for a freeze and at
+    /// A1 for a split. The streaming path always passes <c>null</c>; it exposes no equivalent API.
     /// </param>
     /// <param name="activeCell">
     /// The active cell, or <c>null</c>. When set it decides which corner owns the active pane;
     /// otherwise the split shape does. Streaming always passes <c>null</c>.
     /// </param>
     internal static XLPaneSettings Resolve(
-        int splitColumn, int splitRow, XLAddress? paneTopLeftCell, Point? activeCell)
+        int splitColumn, int splitRow, bool frozen, XLAddress? paneTopLeftCell, Point? activeCell)
     {
         return new XLPaneSettings
         {
@@ -78,12 +84,20 @@ internal readonly struct XLPaneSettings
             // task 1's harness read both packages and confirmed it.
             SplitColumn = splitColumn > 0 ? splitColumn : null,
             SplitRow = splitRow > 0 ? splitRow : null,
+            // split + 1 is the first unfrozen cell, and only means that for a freeze: an unfrozen
+            // split states its position in twentieths of a point, so the same arithmetic would name
+            // a cell hundreds of columns away, or none at all. Such a pane anchors at A1 unless the
+            // caller named a cell.
             TopLeftCell = paneTopLeftCell is { IsValid: true } p
                 ? p.ToStringRelative(false)
-                : XLHelper.GetColumnLetterFromNumber(splitColumn + 1) + (splitRow + 1),
+                : frozen
+                    ? XLHelper.GetColumnLetterFromNumber(splitColumn + 1) + (splitRow + 1)
+                    : "A1",
             ActivePane = ResolveCorner(splitColumn, splitRow, activeCell),
-            // XLibur never produces a split-then-frozen pane, so the state is always Frozen.
-            State = XLPaneState.Frozen,
+            // XLibur never produces a split-then-frozen pane, so the choice is the sheet view's
+            // own: a freeze, or the draggable split bar a caller gets by setting SplitRow and
+            // SplitColumn without freezing.
+            State = frozen ? XLPaneState.Frozen : XLPaneState.Split,
         };
     }
 

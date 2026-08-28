@@ -152,12 +152,9 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
         {
             var note = enumerator.Current.Comment;
 
-            // XLComment.Anchor, not Style.Properties.Positioning. The two disagree on every note
-            // XLibur creates: Initialize sets Anchor to MoveAndSizeWithCells while the inherited
-            // DefaultCommentStyle sets Positioning to Absolute, and the VML writer reads the latter.
-            // Anchor is the field that names how this note is tied to the grid, and it is the one a
-            // caller changing that would reach for. Which of the two should drive what is written
-            // into VML is a real question and a separate one — recorded as D17 in DEFECTS.md.
+            // XLComment.Anchor is Style.Properties.Positioning — one value under two names since
+            // D17. Before that fix the two were separate fields that disagreed on every note
+            // XLibur created, and the VML writer read the style while this listener read Anchor.
             if (note is null || note.Anchor == XLDrawingAnchor.Absolute)
                 continue;
 

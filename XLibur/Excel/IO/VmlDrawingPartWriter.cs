@@ -108,10 +108,10 @@ internal static class VmlDrawingPartWriter
             new Vml.Path { ConnectionPointType = ConnectValues.None },
             textBox,
             new ClientData(
-                    new MoveWithCells(comment.Style.Properties.Positioning == XLDrawingAnchor.Absolute
+                    new MoveWithCells(comment.Anchor == XLDrawingAnchor.Absolute
                         ? "True"
                         : VmlFalse), // Counterintuitive
-                    new ResizeWithCells(comment.Style.Properties.Positioning == XLDrawingAnchor.MoveAndSizeWithCells
+                    new ResizeWithCells(comment.Anchor == XLDrawingAnchor.MoveAndSizeWithCells
                         ? VmlFalse
                         : "True"), // Counterintuitive
                     anchor,

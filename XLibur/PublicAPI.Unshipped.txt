@@ -213,6 +213,8 @@ XLibur.Excel.IXLPivotCache.SourceKind.get -> XLibur.Excel.XLPivotSourceKind
 XLibur.Excel.IXLPivotCache.SourceName.get -> string?
 XLibur.Excel.IXLPivotCache.SourceRange.get -> XLibur.Excel.IXLRange?
 XLibur.Excel.IXLPivotCache.SourceWorksheet.get -> XLibur.Excel.IXLWorksheet?
+XLibur.Excel.IXLSheetView.FreezePanes.get -> bool
+XLibur.Excel.IXLSheetView.FreezePanes.set -> void
 XLibur.Excel.IXLSheetView.PaneTopLeftCellAddress.get -> XLibur.Excel.IXLAddress?
 XLibur.Excel.IXLSheetView.PaneTopLeftCellAddress.set -> void
 XLibur.Excel.IXLThreadedComment

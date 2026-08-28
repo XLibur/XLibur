@@ -1570,8 +1570,11 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     //                    overall view scroll to A1 so a residual sideways scroll is cleared.
     private void ScrollIntoView(IXLAddress target)
     {
-        var sr = SheetView.SplitRow;
-        var sc = SheetView.SplitColumn;
+        // The splits count frozen lines only when the pane is frozen. An unfrozen split states its
+        // position in twentieths of a point, which names no cell to anchor a pane to, so such a
+        // sheet scrolls through the view's own top-left exactly as a sheet with no pane does.
+        var sr = SheetView.FreezePanes ? SheetView.SplitRow : 0;
+        var sc = SheetView.FreezePanes ? SheetView.SplitColumn : 0;
 
         if (sr == 0 && sc == 0)
         {

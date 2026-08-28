@@ -189,19 +189,30 @@ internal static class WorksheetElementReader
     private static void LoadSheetViewPane(SheetView sheetView, XLWorksheet ws)
     {
         var pane = sheetView.Elements<Pane>().FirstOrDefault();
-        if (new[] { PaneStateValues.Frozen, PaneStateValues.FrozenSplit }.Contains(pane?.State?.Value ??
-                PaneStateValues.Split))
-        {
-            if (pane!.HorizontalSplit != null)
-                ws.SheetView.SplitColumn = (int)pane.HorizontalSplit.Value;
-            if (pane.VerticalSplit != null)
-                ws.SheetView.SplitRow = (int)pane.VerticalSplit.Value;
+        if (pane is null)
+            return;
 
-            // Intentionally NOT reading pane.TopLeftCell into PaneTopLeftCellAddress. Leaving it
-            // null keeps the normalize-to-top default: the writer re-anchors the pane to split+1
-            // on save, so a worksheet parked at a stray scroll position self-heals on round-trip.
-            // Consumers opt into an explicit pane scroll via PaneTopLeftCellAddress / FocusCell.
-        }
+        // ST_PaneState's default is "split", so a pane that states no state is a split bar. The
+        // splits used to be read only for a frozen state, which dropped an unfrozen split's
+        // positions outright and then saved the sheet with no pane at all.
+        var state = pane.State?.Value ?? PaneStateValues.Split;
+
+        if (pane.HorizontalSplit != null)
+            ws.SheetView.SplitColumn = (int)pane.HorizontalSplit.Value;
+        if (pane.VerticalSplit != null)
+            ws.SheetView.SplitRow = (int)pane.VerticalSplit.Value;
+
+        // frozenSplit is a pane frozen out of an existing manual split. XLibur's model carries a
+        // boolean, so it loads as frozen and saves as "frozen" — the same normalisation spec 29
+        // chose when it stopped writing frozenSplit for every pane.
+        ws.SheetView.FreezePanes =
+            state == PaneStateValues.Frozen || state == PaneStateValues.FrozenSplit;
+
+        // Intentionally NOT reading pane.TopLeftCell into PaneTopLeftCellAddress. Leaving it
+        // null keeps the normalize-to-top default: the writer re-anchors the pane on save — to
+        // split+1 for a freeze, to A1 for a split, whose splits are not line counts — so a
+        // worksheet parked at a stray scroll position self-heals on round-trip. Consumers opt
+        // into an explicit pane scroll via PaneTopLeftCellAddress / FocusCell.
     }
 
     private static void LoadPrintOptions(PrintOptions printOptions, XLWorksheet ws)

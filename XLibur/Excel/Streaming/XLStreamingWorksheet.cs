@@ -488,9 +488,10 @@ public sealed class XLStreamingWorksheet
         xml.WriteAttribute("workbookViewId", 0u);
 
         // The streaming API exposes neither a pane scroll position nor an active cell, so both
-        // resolver inputs are null here. Everything else is decided in exactly one place, shared
-        // with SheetViewWriter.SetupPane.
-        var settings = XLPaneSettings.Resolve(_freezeColumns, _freezeRows, null, null);
+        // resolver inputs are null here, and its only pane API is FreezePanes, so the pane is
+        // always frozen. Everything else is decided in exactly one place, shared with
+        // SheetViewWriter.SetupPane.
+        var settings = XLPaneSettings.Resolve(_freezeColumns, _freezeRows, frozen: true, null, null);
 
         if (settings.HasPane)
         {
@@ -522,8 +523,8 @@ public sealed class XLStreamingWorksheet
     };
 
     /// <remarks>
-    /// Total, but only <see cref="XLPaneState.Frozen"/> is reachable today — see the note on
-    /// <c>SheetViewWriter.ToOpenXml</c>.
+    /// Total, but only <see cref="XLPaneState.Frozen"/> is reachable from this path, which freezes
+    /// or does nothing — see the note on <c>SheetViewWriter.ToOpenXml</c>.
     /// </remarks>
     private static string ToAttribute(XLPaneState state) => state switch
     {

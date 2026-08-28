@@ -72,7 +72,17 @@ internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
 
     public string Description { get; set; } = string.Empty;
 
-    public XLDrawingAnchor Anchor { get; set; }
+    /// <summary>
+    /// How the note is tied to the grid. The same value as
+    /// <c>Style.Properties.Positioning</c> and stored there — one field, so the two can no longer
+    /// disagree the way they did before D17 was fixed. This is the name the writers and the shift
+    /// listener read; the style property is the name the public API exposes.
+    /// </summary>
+    public XLDrawingAnchor Anchor
+    {
+        get => Style.Properties.Positioning;
+        set => Style.Properties.Positioning = value;
+    }
 
     public bool HorizontalFlip { get; set; }
 
@@ -175,7 +185,6 @@ internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
 
         Author = cell.Worksheet.Author;
         Container = this;
-        Anchor = XLDrawingAnchor.MoveAndSizeWithCells;
         Style = new XLDrawingStyle();
         var previousRowNumber = cell.Address.RowNumber;
         double previousRowOffset = 0;

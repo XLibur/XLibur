@@ -117,6 +117,7 @@ internal static class SheetViewWriter
         var settings = XLPaneSettings.Resolve(
             xlWorksheet.SheetView.SplitColumn,
             xlWorksheet.SheetView.SplitRow,
+            xlWorksheet.SheetView.FreezePanes,
             xlWorksheet.SheetView.PaneTopLeftCellAddress,
             xlWorksheet.ActiveCell);
 
@@ -156,9 +157,10 @@ internal static class SheetViewWriter
     };
 
     /// <remarks>
-    /// Total, but only <see cref="XLPaneState.Frozen"/> is reachable today: the model cannot express
-    /// an unfrozen split, so <see cref="XLPaneSettings.Resolve"/> never returns the other two. The
-    /// arms exist so this stays a translation rather than a coercion if that changes.
+    /// Total. <see cref="XLPaneState.Frozen"/> and <see cref="XLPaneState.Split"/> both come out of
+    /// <see cref="XLPaneSettings.Resolve"/>; <see cref="XLPaneState.FrozenSplit"/> does not, because
+    /// the reader normalises it onto a frozen pane. The arm exists so this stays a translation
+    /// rather than a coercion if the model ever grows a third state.
     /// </remarks>
     private static PaneStateValues ToOpenXml(XLPaneState state) => state switch
     {

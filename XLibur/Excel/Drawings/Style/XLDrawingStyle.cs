@@ -49,7 +49,9 @@ internal sealed class XLDrawingStyle : IXLDrawingStyle
                 .Alignment.SetVertical(XLDrawingVerticalAlignment.Top)
                 .Alignment.SetDirection(XLDrawingTextDirection.LeftToRight)
                 .Alignment.SetOrientation(XLDrawingTextOrientation.LeftToRight)
-                .Properties.SetPositioning(XLDrawingAnchor.Absolute)
+                // A note's callout moves and sizes with its cell, which is what Excel does and what
+                // XLComment.Anchor - the same value, stored here - has always said (D17).
+                .Properties.SetPositioning(XLDrawingAnchor.MoveAndSizeWithCells)
                 .Protection.SetLocked()
                 .Protection.SetLockText();
 
