@@ -32,6 +32,16 @@
 
 ### 🐛 Bug Fixes
 
+- **A pivot table's "show last column" emphasis no longer follows its column-stripes setting.** The reader read `ShowLastColumn` from the `showColStripes` attribute instead of `showLastColumn`, so the two settings could not vary independently and a round trip could switch the emphasis on or off on its own.
+
+- **`IXLPivotTable.ShowLastColumn` is now public**, alongside its four siblings (`ShowRowHeaders`, `ShowColumnHeaders`, `ShowRowStripes`, `ShowColumnStripes`).
+
+- **A pivot table's `Title` and `Description` now survive a save and reload.** Both are public and settable, but were persisted nowhere; a reload always came back with them empty.
+
+- **`IXLPivotTable.CopyTo` no longer silently resets around twenty settings** — including compact/outline form, visual totals, the grand-total caption and the data caption — that both the reader and the writer already carry. The copy now uses the same attribute-by-attribute description the reader and writer are driven from, so a setting can no longer be present in the round trip and dropped by copy.
+
+- **A pivot table whose row or column axis references the values field now keeps the `dataPosition` attribute across a reload.** The loader never set it — a documented crash condition the subsystem's own notes call out — so a file that needed it could be re-saved without it and fail to open in Excel without a repair prompt.
+
 - **A pivot table XLibur creates is now stamped with a version that supports slicers.** `createdVersion` and `updatedVersion` were left at zero on a created pivot table, and the writer omits an attribute sitting at its default, so both were absent. Excel reads a pivot table stamped version 0 as one written before the features that came later and silently refuses to attach a slicer to it — the slicer, its cache, its registration and its drawing are all written correctly and the panel simply never appears, with no repair prompt and no validation error. A pivot table loaded from a file still keeps whatever version its file declares.
 
 - **Deleting a pivot table now deletes its part.** Deleting a worksheet already took its pivot table parts along, but deleting a pivot table on its own left the part in the package, still holding a `cacheId` pointing into a `pivotCaches` element that the same save then rebuilt without it. Excel offered to repair the result. Found while building the slicer cascade, whose purpose is not to leave orphans of exactly that kind.
