@@ -54,60 +54,43 @@ public class XLPivotTableTests
         }, @"Other\PivotTableReferenceFiles\VersioningAttributes\outputfile.xlsx");
     }
 
+    /// <summary>
+    /// The centrepiece round trip from spec 39: every attribute in <see cref="PivotTableAttributes.All"/>
+    /// is set to a non-default value, saved, reloaded, and compared -- so a setting added to the table
+    /// later is covered automatically, and a consumer that regresses (drops a setting from the writer,
+    /// say) fails here without anyone having to remember to add an assertion for it. It replaces the
+    /// old forty hand-written assertions below, which covered only the settings someone remembered to
+    /// list; this also covers the roughly twenty they never reached, plus the handful of settings that
+    /// live outside the table (the pivot cache, the x14 extension flags, and the style-info group).
+    /// </summary>
     [Test]
-    public async Task PivotTableOptionsSaveTest()
+    public async Task Pivot_table_attribute_table_round_trips_through_save_and_reload()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
         using var wb = new XLWorkbook(stream);
         var ws = wb.Worksheet("PastrySalesData");
         var table = ws.Table("PastrySalesData");
         var ptSheet = wb.Worksheets.Add("BlankPivotTable");
-        var pt = ptSheet.PivotTables.Add("pvtOptionsTest", ptSheet.Cell(1, 1), table);
+        var pt = (XLPivotTable)ptSheet.PivotTables.Add("pvtOptionsTest", ptSheet.Cell(1, 1), table);
 
-        pt.ColumnHeaderCaption = "clmn header";
-        pt.RowHeaderCaption = "row header";
+        foreach (var attribute in PivotTableAttributes.All)
+            attribute.SetNonDefault(pt);
 
-        pt.AutofitColumns = true;
-        pt.PreserveCellFormatting = false;
-        pt.ShowGrandTotalsColumns = true;
-        pt.ShowGrandTotalsRows = true;
-        pt.UseCustomListsForSorting = false;
-        pt.ShowExpandCollapseButtons = false;
-        pt.ShowContextualTooltips = false;
-        pt.DisplayCaptionsAndDropdowns = false;
-        pt.RepeatRowLabels = true;
+        // Settings outside PivotTableAttributes.All: the pivot cache (a different part, owned by
+        // spec 41), the x14 extension flags, and the pivotTableStyleInfo group.
         pt.PivotCache.SaveSourceData = false;
-        pt.EnableShowDetails = false;
-        pt.ShowColumnHeaders = false;
-        pt.ShowRowHeaders = false;
-
-        pt.MergeAndCenterWithLabels = true; // MergeItem
-        pt.RowLabelIndent = 12; // Indent
-        pt.FilterAreaOrder = XLFilterAreaOrder.OverThenDown; // PageOverThenDown
-        pt.FilterFieldsPageWrap = 14; // PageWrap
-        pt.ErrorValueReplacement = "error test"; // ErrorCaption
-        pt.EmptyCellReplacement = "empty test"; // MissingCaption
-
-        pt.FilteredItemsInSubtotals = true; // Subtotal filtered page items
-        pt.AllowMultipleFilters = false; // MultipleFieldFilters
-
-        pt.ShowPropertiesInTooltips = false;
-        pt.ClassicPivotTableLayout = true;
-        pt.ShowEmptyItemsOnRows = true;
-        pt.ShowEmptyItemsOnColumns = true;
-        pt.DisplayItemLabels = false;
-        pt.SortFieldsAtoZ = true;
-
-        pt.PrintExpandCollapsedButtons = true;
-        pt.PrintTitles = true;
-
         pt.PivotCache.RefreshDataOnOpen = false;
         pt.PivotCache.ItemsToRetainPerField = XLItemsToRetain.Max;
+        pt.SetTitle("Test title");
+        pt.SetDescription("Test description");
         pt.EnableCellEditing = true;
         pt.ShowValuesRow = true;
+        pt.Theme = XLPivotTableTheme.PivotStyleDark13;
+        pt.ShowRowHeaders = false;
+        pt.ShowColumnHeaders = false;
         pt.ShowRowStripes = true;
         pt.ShowColumnStripes = true;
-        pt.Theme = XLPivotTableTheme.PivotStyleDark13;
+        pt.ShowLastColumn = true;
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
@@ -116,46 +99,77 @@ public class XLPivotTableTests
 
         using var wbassert = new XLWorkbook(ms);
         var wsassert = wbassert.Worksheet("BlankPivotTable");
-        var ptassert = wsassert.PivotTable("pvtOptionsTest");
-        await Assert.That(ptassert).IsNotNull().Because("name save failure");
-        await Assert.That(ptassert.ColumnHeaderCaption).IsEqualTo("clmn header").Because("ColumnHeaderCaption save failure");
-        await Assert.That(ptassert.RowHeaderCaption).IsEqualTo("row header").Because("RowHeaderCaption save failure");
-        await Assert.That(ptassert.MergeAndCenterWithLabels).IsTrue().Because("MergeAndCenterWithLabels save failure");
-        await Assert.That(ptassert.RowLabelIndent).IsEqualTo(12).Because("RowLabelIndent save failure");
-        await Assert.That(ptassert.FilterAreaOrder).IsEqualTo(XLFilterAreaOrder.OverThenDown).Because("FilterAreaOrder save failure");
-        await Assert.That(ptassert.FilterFieldsPageWrap).IsEqualTo(14).Because("FilterFieldsPageWrap save failure");
-        await Assert.That(ptassert.ErrorValueReplacement).IsEqualTo("error test").Because("ErrorValueReplacement save failure");
-        await Assert.That(ptassert.EmptyCellReplacement).IsEqualTo("empty test").Because("EmptyCellReplacement save failure");
-        await Assert.That(ptassert.AutofitColumns).IsTrue().Because("AutofitColumns save failure");
-        await Assert.That(ptassert.PreserveCellFormatting).IsFalse().Because("PreserveCellFormatting save failure");
-        await Assert.That(ptassert.ShowGrandTotalsRows).IsTrue().Because("ShowGrandTotalsRows save failure");
-        await Assert.That(ptassert.ShowGrandTotalsColumns).IsTrue().Because("ShowGrandTotalsColumns save failure");
-        await Assert.That(ptassert.FilteredItemsInSubtotals).IsTrue().Because("FilteredItemsInSubtotals save failure");
-        await Assert.That(ptassert.AllowMultipleFilters).IsFalse().Because("AllowMultipleFilters save failure");
-        await Assert.That(ptassert.UseCustomListsForSorting).IsFalse().Because("UseCustomListsForSorting save failure");
-        await Assert.That(ptassert.ShowExpandCollapseButtons).IsFalse().Because("ShowExpandCollapseButtons save failure");
-        await Assert.That(ptassert.ShowContextualTooltips).IsFalse().Because("ShowContextualTooltips save failure");
-        await Assert.That(ptassert.ShowPropertiesInTooltips).IsFalse().Because("ShowPropertiesInTooltips save failure");
-        await Assert.That(ptassert.DisplayCaptionsAndDropdowns).IsFalse().Because("DisplayCaptionsAndDropdowns save failure");
-        await Assert.That(ptassert.ClassicPivotTableLayout).IsTrue().Because("ClassicPivotTableLayout save failure");
-        await Assert.That(ptassert.ShowEmptyItemsOnRows).IsTrue().Because("ShowEmptyItemsOnRows save failure");
-        await Assert.That(ptassert.ShowEmptyItemsOnColumns).IsTrue().Because("ShowEmptyItemsOnColumns save failure");
-        await Assert.That(ptassert.DisplayItemLabels).IsFalse().Because("DisplayItemLabels save failure");
-        await Assert.That(ptassert.SortFieldsAtoZ).IsTrue().Because("SortFieldsAtoZ save failure");
-        await Assert.That(ptassert.PrintExpandCollapsedButtons).IsTrue().Because("PrintExpandCollapsedButtons save failure");
-        await Assert.That(ptassert.RepeatRowLabels).IsTrue().Because("RepeatRowLabels save failure");
-        await Assert.That(ptassert.PrintTitles).IsTrue().Because("PrintTitles save failure");
+        var ptassert = (XLPivotTable)wsassert.PivotTable("pvtOptionsTest");
+        await Assert.That((object)ptassert).IsNotNull().Because("name save failure");
+
+        foreach (var attribute in PivotTableAttributes.All)
+        {
+            await Assert.That(attribute.GetValue(ptassert)).IsEqualTo(attribute.GetValue(pt))
+                .Because($"{attribute.Name} must round-trip through save/reload");
+        }
+
         await Assert.That(ptassert.PivotCache.SaveSourceData).IsFalse().Because("SaveSourceData save failure");
-        await Assert.That(ptassert.EnableShowDetails).IsFalse().Because("EnableShowDetails save failure");
         await Assert.That(ptassert.PivotCache.RefreshDataOnOpen).IsFalse().Because("RefreshDataOnOpen save failure");
         await Assert.That(ptassert.PivotCache.ItemsToRetainPerField).IsEqualTo(XLItemsToRetain.Max).Because("ItemsToRetainPerField save failure");
+        await Assert.That(ptassert.Title).IsEqualTo("Test title").Because("Title save failure");
+        await Assert.That(ptassert.Description).IsEqualTo("Test description").Because("Description save failure");
         await Assert.That(ptassert.EnableCellEditing).IsTrue().Because("EnableCellEditing save failure");
-        await Assert.That(ptassert.Theme).IsEqualTo(XLPivotTableTheme.PivotStyleDark13).Because("Theme save failure");
         await Assert.That(ptassert.ShowValuesRow).IsTrue().Because("ShowValuesRow save failure");
+        await Assert.That(ptassert.Theme).IsEqualTo(XLPivotTableTheme.PivotStyleDark13).Because("Theme save failure");
         await Assert.That(ptassert.ShowRowHeaders).IsFalse().Because("ShowRowHeaders save failure");
         await Assert.That(ptassert.ShowColumnHeaders).IsFalse().Because("ShowColumnHeaders save failure");
         await Assert.That(ptassert.ShowRowStripes).IsTrue().Because("ShowRowStripes save failure");
         await Assert.That(ptassert.ShowColumnStripes).IsTrue().Because("ShowColumnStripes save failure");
+        await Assert.That(ptassert.ShowLastColumn).IsTrue().Because("ShowLastColumn save failure");
+    }
+
+    /// <summary>
+    /// The same centrepiece, through <see cref="XLPivotTable.CopyTo"/> instead of save/reload --
+    /// this is the arm that would have caught the copy defect (spec 39) directly, since a setting
+    /// present in the table but missing from a hand-written copy list resets to its default on copy.
+    /// </summary>
+    [Test]
+    public async Task Pivot_table_attribute_table_round_trips_through_copy()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheet("PastrySalesData");
+        var table = ws.Table("PastrySalesData");
+        var ptSheet = wb.Worksheets.Add("BlankPivotTableCopy");
+        var pt = (XLPivotTable)ptSheet.PivotTables.Add("pvtOptionsCopyTest", ptSheet.Cell(1, 1), table);
+
+        foreach (var attribute in PivotTableAttributes.All)
+            attribute.SetNonDefault(pt);
+
+        pt.SetTitle("Test title");
+        pt.SetDescription("Test description");
+        pt.EnableCellEditing = true;
+        pt.ShowValuesRow = true;
+        pt.Theme = XLPivotTableTheme.PivotStyleDark13;
+        pt.ShowRowHeaders = false;
+        pt.ShowColumnHeaders = false;
+        pt.ShowRowStripes = true;
+        pt.ShowColumnStripes = true;
+        pt.ShowLastColumn = true;
+
+        var copy = (XLPivotTable)pt.CopyTo(ptSheet.Cell("AB1"));
+
+        foreach (var attribute in PivotTableAttributes.All)
+        {
+            await Assert.That(attribute.GetValue(copy)).IsEqualTo(attribute.GetValue(pt))
+                .Because($"{attribute.Name} must survive CopyTo");
+        }
+
+        await Assert.That(copy.Title).IsEqualTo("Test title").Because("Title copy failure");
+        await Assert.That(copy.Description).IsEqualTo("Test description").Because("Description copy failure");
+        await Assert.That(copy.EnableCellEditing).IsTrue().Because("EnableCellEditing copy failure");
+        await Assert.That(copy.ShowValuesRow).IsTrue().Because("ShowValuesRow copy failure");
+        await Assert.That(copy.Theme).IsEqualTo(XLPivotTableTheme.PivotStyleDark13).Because("Theme copy failure");
+        await Assert.That(copy.ShowRowHeaders).IsFalse().Because("ShowRowHeaders copy failure");
+        await Assert.That(copy.ShowColumnHeaders).IsFalse().Because("ShowColumnHeaders copy failure");
+        await Assert.That(copy.ShowRowStripes).IsTrue().Because("ShowRowStripes copy failure");
+        await Assert.That(copy.ShowColumnStripes).IsTrue().Because("ShowColumnStripes copy failure");
+        await Assert.That(copy.ShowLastColumn).IsTrue().Because("ShowLastColumn copy failure");
     }
 
     [Test]
