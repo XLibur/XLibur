@@ -19,8 +19,8 @@ internal static class SheetViewWriter
     {
         worksheet.SheetProperties ??= new SheetProperties();
 
-        worksheet.SheetProperties.TabColor = xlWorksheet.TabColor.HasValue
-            ? new TabColor().FromXLiburColor<TabColor>(xlWorksheet.TabColor)
+        worksheet.SheetProperties.TabColor = xlWorksheet.SheetView.TabColor.HasValue
+            ? new TabColor().FromXLiburColor<TabColor>(xlWorksheet.SheetView.TabColor)
             : null;
 
         cm.SetElement(XLWorksheetContents.SheetProperties, worksheet.SheetProperties);
@@ -99,15 +99,16 @@ internal static class SheetViewWriter
 
     private static void SetBooleanViewProperties(SheetView sheetView, XLWorksheet xlWorksheet)
     {
-        sheetView.TabSelected = xlWorksheet.TabSelected ? true : null;
-        sheetView.RightToLeft = xlWorksheet.RightToLeft ? true : null;
-        sheetView.ShowFormulas = xlWorksheet.ShowFormulas ? true : null;
-        sheetView.ShowGridLines = xlWorksheet.ShowGridLines ? null : false;
-        sheetView.ShowOutlineSymbols = xlWorksheet.ShowOutlineSymbols ? null : false;
-        sheetView.ShowRowColHeaders = xlWorksheet.ShowRowColHeaders ? null : false;
-        sheetView.ShowRuler = xlWorksheet.ShowRuler ? null : false;
-        sheetView.ShowWhiteSpace = xlWorksheet.ShowWhiteSpace ? null : false;
-        sheetView.ShowZeros = xlWorksheet.ShowZeros ? null : false;
+        var view = xlWorksheet.SheetView;
+        sheetView.TabSelected = view.TabSelected ? true : null;
+        sheetView.RightToLeft = view.RightToLeft ? true : null;
+        sheetView.ShowFormulas = view.ShowFormulas ? true : null;
+        sheetView.ShowGridLines = view.ShowGridLines ? null : false;
+        sheetView.ShowOutlineSymbols = view.ShowOutlineSymbols ? null : false;
+        sheetView.ShowRowColHeaders = view.ShowRowColHeaders ? null : false;
+        sheetView.ShowRuler = view.ShowRuler ? null : false;
+        sheetView.ShowWhiteSpace = view.ShowWhiteSpace ? null : false;
+        sheetView.ShowZeros = view.ShowZeros ? null : false;
     }
 
     private static Pane? SetupPane(SheetView sheetView, XLSheetViewContentManager svcm, XLWorksheet xlWorksheet)
