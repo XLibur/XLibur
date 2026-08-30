@@ -421,6 +421,52 @@ public class RegressionTests
         }
     }
 
+    // Two more shapes of the matrix (spec 37) for LINEST's const flag: a column-range needing
+    // implicit intersection, and a multi-area reference. The single-cell-reference and literal
+    // shapes are covered above and by the earlier LINEST tests respectively.
+
+    [Test]
+    public async Task Linest_ReadsConstFlagFromAColumnRangeViaImplicitIntersection()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            for (var row = 1; row <= 4; row++)
+            {
+                ws.Cell(row, 1).Value = row;
+                ws.Cell(row, 2).Value = 3 * row; // Exactly y = 3x, no intercept.
+            }
+
+            ws.Cell("H1").Value = true;
+            ws.Cell("H2").Value = false; // Intersects at the formula's own row, 2.
+            ws.Cell("H3").Value = true;
+            ws.Range("D2:E2").FormulaArrayA1 = "LINEST(B1:B4, A1:A4, H1:H3)";
+
+            await Assert.That((double)ws.Cell("D2").Value).IsEqualTo(3d).Within(1e-9);
+            await Assert.That((double)ws.Cell("E2").Value).IsEqualTo(0d).Within(1e-12);
+        }
+    }
+
+    [Test]
+    public async Task Linest_ConstFlagFromAMultiAreaReferenceIsIncompatibleValue()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            for (var row = 1; row <= 4; row++)
+            {
+                ws.Cell(row, 1).Value = row;
+                ws.Cell(row, 2).Value = 3 * row;
+            }
+
+            ws.Cell("H1").Value = true;
+            ws.Cell("H2").Value = true;
+            ws.Cell("D1").FormulaA1 = "LINEST(B1:B4, A1:A4, (H1,H2))";
+
+            await Assert.That(ws.Cell("D1").Value).IsEqualTo(XLError.IncompatibleValue);
+        }
+    }
+
     [Test]
     public async Task Linest_FitsSeveralPredictorsAtOnce()
     {

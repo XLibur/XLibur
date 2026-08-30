@@ -333,4 +333,95 @@ public class DynamicArrayFunctionTests
             await Assert.That(ws.Evaluate("XMATCH(4, D1:D3, F1)")).IsEqualTo(2);
         }
     }
+
+    // The shape matrix (spec 37): SEQUENCE's row-count argument, in every shape the reduction
+    // ladder has to handle. A representative for the dynamic-array family — TAKE/DROP/SORT/etc. all
+    // reduce their scalar arguments through the same ladder (AnyValue.TryReduceToScalar via
+    // TryScalarArg), so this exercises every step of it, not just SEQUENCE's own logic.
+
+    [Test]
+    public async Task Sequence_RowCount_Literal()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Range("A1:A3").FormulaArrayA1 = "SEQUENCE(3)";
+            await Assert.That(ws.Cell("A3").Value).IsEqualTo(3);
+        }
+    }
+
+    [Test]
+    public async Task Sequence_RowCount_SingleCellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("Z1").Value = 3;
+            ws.Range("A1:A3").FormulaArrayA1 = "SEQUENCE(Z1)";
+            await Assert.That(ws.Cell("A3").Value).IsEqualTo(3);
+        }
+    }
+
+    [Test]
+    public async Task Sequence_RowCount_OneCellArray()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Range("A1:A3").FormulaArrayA1 = "SEQUENCE({3})";
+            await Assert.That(ws.Cell("A3").Value).IsEqualTo(3);
+        }
+    }
+
+    [Test]
+    public async Task Sequence_RowCount_ColumnRangeNeedsImplicitIntersection()
+    {
+        // A column-vector reference intersects at the formula's own row. Placing the array formula's
+        // top-left cell at row 2 (via a dynamic, single-anchor-cell spill) makes it intersect Z2.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("Z1").Value = 9;
+            ws.Cell("Z2").Value = 3;
+            ws.Cell("Z3").Value = 9;
+            ws.Cell("B2").SetDynamicFormulaA1("SEQUENCE(Z1:Z3)");
+
+            await Assert.That(ws.Cell("B2").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("B4").Value).IsEqualTo(3);
+        }
+    }
+
+    [Test]
+    public async Task Sequence_RowCount_RowRangeNeedsImplicitIntersection()
+    {
+        // A row-vector reference intersects at the formula's own column. The formula sits in column
+        // AA, well clear of row 10 where the row-vector lives, so there is no overlap between the
+        // reference and the spill it produces.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("Y10").Value = 9;
+            ws.Cell("Z10").Value = 9;
+            ws.Cell("AA10").Value = 3;
+            ws.Cell("AB10").Value = 9;
+            ws.Cell("AA5").SetDynamicFormulaA1("SEQUENCE(Y10:AB10)");
+
+            await Assert.That(ws.Cell("AA5").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("AA7").Value).IsEqualTo(3);
+        }
+    }
+
+    [Test]
+    public async Task Sequence_RowCount_MultiAreaReferenceIsIncompatibleValue()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("Z1").Value = 3;
+            ws.Cell("Z2").Value = 3;
+            ws.Cell("A1").FormulaA1 = "SEQUENCE((Z1,Z2))";
+
+            await Assert.That(ws.Cell("A1").Value).IsEqualTo(XLError.IncompatibleValue);
+        }
+    }
 }

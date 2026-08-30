@@ -324,6 +324,40 @@ public class ModernTextTests
         }
     }
 
+    // Two more shapes of the matrix (spec 37) for TEXTSPLIT's ignore_empty: a column-range needing
+    // implicit intersection, and a multi-area reference. The single-cell-reference and literal shapes
+    // are covered above and by TextSplit_CanDropEmptyPieces respectively.
+
+    [Test]
+    public async Task TextSplit_ReadsIgnoreEmptyFromAColumnRangeViaImplicitIntersection()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("H1").Value = false;
+            ws.Cell("H2").Value = true; // Intersects at the formula's own row, 2.
+            ws.Cell("H3").Value = false;
+            ws.Range("E2:F2").FormulaArrayA1 = "TEXTSPLIT(\"a,,b\", \",\", , H1:H3)";
+
+            await Assert.That(ws.Cell("E2").Value).IsEqualTo("a");
+            await Assert.That(ws.Cell("F2").Value).IsEqualTo("b");
+        }
+    }
+
+    [Test]
+    public async Task TextSplit_IgnoreEmptyFromAMultiAreaReferenceIsIncompatibleValue()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("H1").Value = true;
+            ws.Cell("H2").Value = true;
+            ws.Cell("A1").FormulaA1 = "TEXTSPLIT(\"a,,b\", \",\", , (H1,H2))";
+
+            await Assert.That(ws.Cell("A1").Value).IsEqualTo(XLError.IncompatibleValue);
+        }
+    }
+
     [Test]
     public async Task TextSplit_SpillsIntoTheGrid()
     {
