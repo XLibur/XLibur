@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Coordinates;
+using XLibur.Excel.IO;
 using XLibur.Excel.PivotTables.Areas;
 using XLibur.Extensions;
 
@@ -199,43 +200,23 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             pivotValue.NumberFormat.Format = v.NumberFormat.Format;
         }
 
+        // Everything the reader and writer carry between them is copied from the same table they
+        // are driven from, so a setting can't be present in the round trip and dropped by copy.
+        foreach (var attribute in PivotTableAttributes.All)
+            attribute.Copy(this, newPivotTable);
+
+        // Not in PivotTableAttributes.All: the x14 extension flags and the pivotTableStyleInfo
+        // group, both handled next to where they are written/read rather than folded into the
+        // flat attribute table (see the reader/writer for why).
         newPivotTable.Title = Title;
         newPivotTable.Description = Description;
-        newPivotTable.ColumnHeaderCaption = ColumnHeaderCaption;
-        newPivotTable.RowHeaderCaption = RowHeaderCaption;
-        newPivotTable.MergeAndCenterWithLabels = MergeAndCenterWithLabels;
-        newPivotTable.RowLabelIndent = RowLabelIndent;
-        newPivotTable.FilterAreaOrder = FilterAreaOrder;
-        newPivotTable.FilterFieldsPageWrap = FilterFieldsPageWrap;
-        newPivotTable.ErrorValueReplacement = ErrorValueReplacement;
-        newPivotTable.ShowMissing = ShowMissing;
-        newPivotTable.MissingCaption = MissingCaption;
-        newPivotTable.AutofitColumns = AutofitColumns;
-        newPivotTable.PreserveCellFormatting = PreserveCellFormatting;
-        newPivotTable.ShowGrandTotalsColumns = ShowGrandTotalsColumns;
-        newPivotTable.ShowGrandTotalsRows = ShowGrandTotalsRows;
-        newPivotTable.FilteredItemsInSubtotals = FilteredItemsInSubtotals;
-        newPivotTable.AllowMultipleFilters = AllowMultipleFilters;
-        newPivotTable.UseCustomListsForSorting = UseCustomListsForSorting;
-        newPivotTable.ShowExpandCollapseButtons = ShowExpandCollapseButtons;
-        newPivotTable.ShowContextualTooltips = ShowContextualTooltips;
-        newPivotTable.ShowPropertiesInTooltips = ShowPropertiesInTooltips;
-        newPivotTable.DisplayCaptionsAndDropdowns = DisplayCaptionsAndDropdowns;
-        newPivotTable.ClassicPivotTableLayout = ClassicPivotTableLayout;
         newPivotTable.ShowValuesRow = ShowValuesRow;
-        newPivotTable.ShowEmptyItemsOnColumns = ShowEmptyItemsOnColumns;
-        newPivotTable.ShowEmptyItemsOnRows = ShowEmptyItemsOnRows;
-        newPivotTable.DisplayItemLabels = DisplayItemLabels;
-        newPivotTable.SortFieldsAtoZ = SortFieldsAtoZ;
-        newPivotTable.PrintExpandCollapsedButtons = PrintExpandCollapsedButtons;
-        newPivotTable.RepeatRowLabels = RepeatRowLabels;
-        newPivotTable.PrintTitles = PrintTitles;
-        newPivotTable.EnableShowDetails = EnableShowDetails;
         newPivotTable.EnableCellEditing = EnableCellEditing;
         newPivotTable.ShowRowHeaders = ShowRowHeaders;
         newPivotTable.ShowColumnHeaders = ShowColumnHeaders;
         newPivotTable.ShowRowStripes = ShowRowStripes;
         newPivotTable.ShowColumnStripes = ShowColumnStripes;
+        newPivotTable.ShowLastColumn = ShowLastColumn;
         newPivotTable.Theme = Theme;
         return newPivotTable;
     }
@@ -972,7 +953,35 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// 0 = first (e.g. before all column/row fields), 1 = second (i.e. after first row/column field) and so on.
     /// &gt; number of fields or <c>null</c> indicates the last position.
     /// </summary>
-    internal int? DataPosition { get; set; }
+    /// <remarks>
+    /// Derived from <see cref="RowAxis"/>/<see cref="ColumnAxis"/> rather than stored: a loaded
+    /// file adds the 'data' field straight to the axis' field list (<see cref="XLPivotTableAxis.AddField(FieldIndex)"/>),
+    /// bypassing <see cref="AddFieldToAxis"/>, so a stored value would never be set on load and
+    /// would be silently dropped from a re-saved file that still needs it.
+    /// </remarks>
+    internal int? DataPosition
+    {
+        get
+        {
+            var rowPosition = IndexOfDataField(RowAxis.Fields);
+            if (rowPosition >= 0)
+                return rowPosition;
+
+            var columnPosition = IndexOfDataField(ColumnAxis.Fields);
+            return columnPosition >= 0 ? columnPosition : null;
+        }
+    }
+
+    private static int IndexOfDataField(IReadOnlyList<FieldIndex> fields)
+    {
+        for (var i = 0; i < fields.Count; i++)
+        {
+            if (fields[i].IsDataField)
+                return i;
+        }
+
+        return -1;
+    }
 
     /// <summary>
     /// <para>
@@ -1473,7 +1482,6 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             var isRowAxis = axis == XLPivotAxis.AxisRow;
 
             DataOnRows = isRowAxis;
-            DataPosition = isRowAxis ? RowAxis.Fields.Count : ColumnAxis.Fields.Count;
             DataCaption = "Values"; // Custom captions don't do anything.
             return FieldIndex.DataField;
         }
@@ -1533,7 +1541,6 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         if (index.IsDataField)
         {
             DataOnRows = false;
-            DataPosition = null;
             DataCaption = "Values";
         }
         else

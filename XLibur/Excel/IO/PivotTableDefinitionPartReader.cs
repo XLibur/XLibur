@@ -652,6 +652,8 @@ internal static class PivotTableDefinitionPartReader
         var ptExt2010 = ext2010?.GetFirstChild<DocumentFormat.OpenXml.Office2010.Excel.PivotTableDefinition>();
         if (ptExt2010 is not null)
         {
+            xlPivotTable.Title = ptExt2010.AltText?.Value ?? string.Empty;
+            xlPivotTable.Description = ptExt2010.AltTextSummary?.Value ?? string.Empty;
             xlPivotTable.EnableCellEditing = ptExt2010.EnableEdit?.Value ?? false;
             var hideValuesRow = ptExt2010.HideValuesRow?.Value ?? false;
             xlPivotTable.ShowValuesRow = !hideValuesRow;

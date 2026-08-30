@@ -68,6 +68,8 @@ internal static class PivotTableDefinitionPartWriter2
         xml.WriteAttributeString("xmlns", "x14", null, X14Main2009SsNs);
         xml.WriteAttributeString("uri", "{962EF5D1-5CA2-4c93-8EF4-DBF5C05439D2}");
         xml.WriteStartElement("pivotTableDefinition", X14Main2009SsNs);
+        xml.WriteAttributeOptional("altText", pt.Title);
+        xml.WriteAttributeOptional("altTextSummary", pt.Description);
         xml.WriteAttribute("enableEdit", pt.EnableCellEditing);
         xml.WriteAttribute("hideValuesRow", !pt.ShowValuesRow);
         xml.WriteEndElement(); // pivotTableDefinition
